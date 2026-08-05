@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import UserManagementTable from './UserManagementTable';
 import { SearchIcon, PlusIcon, FilterIcon, UserCheckIcon, UserXIcon } from './UserManagementIcons';
+import AddUserModal from './UserManagementModal';
 
 const ROLE_OPTIONS = [
   'Superadmin',
@@ -32,6 +33,8 @@ export default function UserManagementPage() {
   const [selectedRoleFilter, setSelectedRoleFilter] = useState('');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('Active');
   const [isRoleFilterOpen, setIsRoleFilterOpen] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newUserForm, setNewUserForm] = useState({ name: '', role: 'Superadmin', status: 'Active' });
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
   const [activeDropdownId, setActiveDropdownId] = useState(null);
@@ -105,6 +108,24 @@ export default function UserManagementPage() {
     const confirmDelete = window.confirm('Are you sure you want to delete this user?');
     if (!confirmDelete) return;
     setUsers((prev) => prev.filter((user) => user.id !== id));
+  };
+
+  const handleCreateUser = (event) => {
+    event.preventDefault();
+    const nextId = `USR-${String(users.length + 1).padStart(4, '0')}`;
+    const trimmedName = newUserForm.name.trim();
+
+    if (!trimmedName) {
+      window.alert('Please enter a valid name.');
+      return;
+    }
+
+    setUsers((prev) => [
+      { id: nextId, name: trimmedName, role: newUserForm.role, status: newUserForm.status },
+      ...prev,
+    ]);
+    setNewUserForm({ name: '', role: 'Superadmin', status: 'Active' });
+    setShowAddModal(false);
   };
 
   const renderPaginationButtons = () => {
@@ -249,7 +270,7 @@ export default function UserManagementPage() {
             ))}
           </nav>
         </div>
-        <button className="btn-create" type="button">
+        <button className="btn-create" type="button" onClick={() => setShowAddModal(true)}>
           <PlusIcon />
           <span>Add User</span>
         </button>
@@ -323,6 +344,15 @@ export default function UserManagementPage() {
           </div>
         </div>
       </section>
+
+      <AddUserModal
+        showModal={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        form={newUserForm}
+        setForm={setNewUserForm}
+        onSubmit={handleCreateUser}
+        roleOptions={ROLE_OPTIONS}
+      />
 
       <UserManagementTable
         currentRows={currentRows}
