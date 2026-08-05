@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import CommunityTable from './CommunityTable';
+import BeneficiaryTable from './BeneficiaryTable';
 import {
   CreateCommunityModal,
   EditCommunityModal,
@@ -8,54 +8,44 @@ import {
   EditBatchModal,
   CreateGroupModal,
   EditGroupModal,
-} from './CommunityModals';
-import { SearchIcon, PlusIcon, BuildingIcon, GroupsIcon, BatchesIcon } from './CommunityIcons';
+} from './BeneficiaryModals';
+import { SearchIcon, PlusIcon, BuildingIcon, GroupsIcon } from './BeneficiaryIcons';
 
 const initialCommunityData = [
-  { id: 'SCH-0001', name: 'San Isidro High School', area: 'Poblacion', batches: 2, records: 3 },
-  { id: 'SCH-0002', name: 'Poblacion National School', area: 'Poblacion', batches: 1, records: 2 },
-  { id: 'SCH-0003', name: 'Sto. Niño Academy', area: 'Poblacion', batches: 2, records: 4 },
-  { id: 'SCH-0004', name: 'San Jose Elementary', area: 'Upland', batches: 3, records: 8 },
-  { id: 'SCH-0005', name: 'Central City High', area: 'Downtown', batches: 4, records: 12 },
-  { id: 'SCH-0006', name: 'Nueva Technical School', area: 'Coastal', batches: 1, records: 5 },
-  { id: 'SCH-0007', name: 'Kabuntalan Integrated School', area: 'Riverside', batches: 2, records: 7 },
-  { id: 'SCH-0008', name: 'San Miguel Prep', area: 'Highland', batches: 2, records: 6 },
-  { id: 'SCH-0009', name: 'Luntian Elementary', area: 'Forest', batches: 1, records: 3 },
-  { id: 'SCH-0010', name: 'Dela Cruz High School', area: 'Lowland', batches: 5, records: 18 },
-  { id: 'SCH-0011', name: 'Malaya Community School', area: 'Coastal', batches: 1, records: 2 },
-  { id: 'SCH-0012', name: 'Luntian Hills School', area: 'Highland', batches: 3, records: 9 },
+  { id: 'SCH-0001', name: 'Maria Santos', area: 'Poblacion', batches: 2, records: 3, progress: 72 },
+  { id: 'SCH-0002', name: 'Liza Reyes', area: 'Poblacion', batches: 1, records: 2, progress: 58 },
+  { id: 'SCH-0003', name: 'Ana Cruz', area: 'Poblacion', batches: 2, records: 4, progress: 84 },
+  { id: 'SCH-0004', name: 'Teresa Gomez', area: 'Upland', batches: 3, records: 8, progress: 65 },
+  { id: 'SCH-0005', name: 'Isabel Mendoza', area: 'Downtown', batches: 4, records: 12, progress: 91 },
+  { id: 'SCH-0006', name: 'Clara dela Cruz', area: 'Coastal', batches: 1, records: 5, progress: 48 },
+  { id: 'SCH-0007', name: 'Lucia Rivera', area: 'Riverside', batches: 2, records: 7, progress: 77 },
+  { id: 'SCH-0008', name: 'Rosa Fernandez', area: 'Highland', batches: 2, records: 6, progress: 69 },
+  { id: 'SCH-0009', name: 'Elena Mercado', area: 'Forest', batches: 1, records: 3, progress: 55 },
+  { id: 'SCH-0010', name: 'Nora Santos', area: 'Lowland', batches: 5, records: 18, progress: 95 },
+  { id: 'SCH-0011', name: 'May Torres', area: 'Coastal', batches: 1, records: 2, progress: 38 },
+  { id: 'SCH-0012', name: 'Gloria Diaz', area: 'Highland', batches: 3, records: 9, progress: 82 },
 ];
 
 const initialBatchesData = [
-  { id: 'BAT-0001', name: 'Batch 1', community: 'San Isidro High School', records: 2, progress: 68, status: 'Active' },
-  { id: 'BAT-0002', name: 'Batch 2', community: 'San Isidro High School', records: 1, progress: 45, status: 'Active' },
-  { id: 'BAT-0003', name: 'Batch 3', community: 'Poblacion National School', records: 2, progress: 92, status: 'Completed' },
-  { id: 'BAT-0004', name: 'Batch 4', community: 'Sto. Niño Academy', records: 2, progress: 100, status: 'Completed' },
-  { id: 'BAT-0005', name: 'Batch 5', community: 'Sto. Niño Academy', records: 2, progress: 57, status: 'Active' },
-  { id: 'BAT-0006', name: 'Batch 6', community: 'San Jose Elementary', records: 3, progress: 18, status: 'Pending' },
-  { id: 'BAT-0007', name: 'Batch 7', community: 'San Jose Elementary', records: 3, progress: 74, status: 'Active' },
-  { id: 'BAT-0008', name: 'Batch 8', community: 'San Jose Elementary', records: 2, progress: 63, status: 'Active' },
-  { id: 'BAT-0009', name: 'Batch 9', community: 'Central City High', records: 4, progress: 88, status: 'Completed' },
-  { id: 'BAT-0010', name: 'Batch 10', community: 'Central City High', records: 3, progress: 41, status: 'Active' },
-  { id: 'BAT-0011', name: 'Batch 11', community: 'Central City High', records: 3, progress: 22, status: 'Pending' },
-  { id: 'BAT-0012', name: 'Batch 12', community: 'Central City High', records: 2, progress: 50, status: 'Active' },
-];
-
-const initialMothersData = [
-  { id: 'MTH-0001', name: 'Lucia Torres', batchId: 'BAT-0001', group: 'Group Alpha', status: 'Active', visits: 3 },
-  { id: 'MTH-0002', name: 'Elaine Cruz', batchId: 'BAT-0001', group: 'Group Alpha', status: 'Pending', visits: 2 },
-  { id: 'MTH-0003', name: 'Nina Santos', batchId: 'BAT-0002', group: 'Group Alpha', status: 'Active', visits: 1 },
-  { id: 'MTH-0004', name: 'Vera Lopez', batchId: 'BAT-0003', group: 'Group Bravo', status: 'Completed', visits: 4 },
-  { id: 'MTH-0005', name: 'Cecilia Diaz', batchId: 'BAT-0004', group: 'Group Delta', status: 'Active', visits: 2 },
-  { id: 'MTH-0006', name: 'Marta Reyes', batchId: 'BAT-0005', group: 'Group Delta', status: 'Pending', visits: 3 },
-  { id: 'MTH-0007', name: 'Rhea Garcia', batchId: 'BAT-0009', group: 'Group Central', status: 'Active', visits: 5 },
+  { id: 'BAT-0001', name: 'Health Visit 1', community: 'Maria Santos', records: 2, progress: 68, status: 'Active' },
+  { id: 'BAT-0002', name: 'Health Visit 2', community: 'Maria Santos', records: 1, progress: 45, status: 'Active' },
+  { id: 'BAT-0003', name: 'Health Visit 3', community: 'Liza Reyes', records: 2, progress: 92, status: 'Completed' },
+  { id: 'BAT-0004', name: 'Health Visit 4', community: 'Ana Cruz', records: 2, progress: 100, status: 'Completed' },
+  { id: 'BAT-0005', name: 'Health Visit 5', community: 'Ana Cruz', records: 2, progress: 57, status: 'Active' },
+  { id: 'BAT-0006', name: 'Health Visit 6', community: 'Teresa Gomez', records: 3, progress: 18, status: 'Pending' },
+  { id: 'BAT-0007', name: 'Health Visit 7', community: 'Teresa Gomez', records: 3, progress: 74, status: 'Active' },
+  { id: 'BAT-0008', name: 'Health Visit 8', community: 'Teresa Gomez', records: 2, progress: 63, status: 'Active' },
+  { id: 'BAT-0009', name: 'Health Visit 9', community: 'Isabel Mendoza', records: 4, progress: 88, status: 'Completed' },
+  { id: 'BAT-0010', name: 'Health Visit 10', community: 'Isabel Mendoza', records: 3, progress: 41, status: 'Active' },
+  { id: 'BAT-0011', name: 'Health Visit 11', community: 'Isabel Mendoza', records: 3, progress: 22, status: 'Pending' },
+  { id: 'BAT-0012', name: 'Health Visit 12', community: 'Isabel Mendoza', records: 2, progress: 50, status: 'Active' },
 ];
 
 const initialGroupsData = [
   {
     id: 'GRP-0001',
-    name: 'Group Alpha',
-    community: 'San Isidro High School',
+    name: 'Child Alpha',
+    community: 'Maria Santos',
     assignedBatchIds: ['BAT-0001', 'BAT-0002'],
     leader: 'Liza Reyes',
     members: 12,
@@ -64,8 +54,8 @@ const initialGroupsData = [
   },
   {
     id: 'GRP-0002',
-    name: 'Group Bravo',
-    community: 'Poblacion National School',
+    name: 'Child Bravo',
+    community: 'Liza Reyes',
     assignedBatchIds: ['BAT-0003'],
     leader: 'Marco Santos',
     members: 8,
@@ -74,8 +64,8 @@ const initialGroupsData = [
   },
   {
     id: 'GRP-0003',
-    name: 'Group Delta',
-    community: 'Sto. Niño Academy',
+    name: 'Child Delta',
+    community: 'Ana Cruz',
     assignedBatchIds: ['BAT-0004', 'BAT-0005', 'BAT-0008'],
     leader: 'Ana Cruz',
     members: 15,
@@ -84,8 +74,8 @@ const initialGroupsData = [
   },
   {
     id: 'GRP-0004',
-    name: 'Group Sierra',
-    community: 'San Jose Elementary',
+    name: 'Child Sierra',
+    community: 'Teresa Gomez',
     assignedBatchIds: [],
     leader: 'Renato Diaz',
     members: 6,
@@ -94,8 +84,8 @@ const initialGroupsData = [
   },
   {
     id: 'GRP-0005',
-    name: 'Group Central',
-    community: 'Central City High',
+    name: 'Child Central',
+    community: 'Isabel Mendoza',
     assignedBatchIds: ['BAT-0009'],
     leader: 'May Torres',
     members: 9,
@@ -104,7 +94,7 @@ const initialGroupsData = [
   },
 ];
 
-export default function CommunityPage() {
+export default function BeneficiaryPage() {
   const [communities, setCommunities] = useState(initialCommunityData);
   const [batches, setBatches] = useState(initialBatchesData);
   const [groups, setGroups] = useState(initialGroupsData);
@@ -121,10 +111,9 @@ export default function CommunityPage() {
   const [communityForm, setCommunityForm] = useState({ name: '', area: 'Poblacion' });
   const [groupForm, setGroupForm] = useState({ name: '', community: '', assignedBatchIds: [], leader: '', members: 1, status: 'Active' });
   const [batchForm, setBatchForm] = useState({ name: '', community: '', records: 1, progress: 0, status: 'Active' });
-  const [mothers, setMothers] = useState(initialMothersData);
 
   const navigate = useNavigate();
-  const { schoolId, groupId, batchId } = useParams();
+  const { schoolId, groupId } = useParams();
 
   const selectedSchool = useMemo(
     () => communities.find((comm) => comm.id === schoolId),
@@ -135,59 +124,6 @@ export default function CommunityPage() {
     () => groups.find((group) => group.id === groupId),
     [groups, groupId]
   );
-
-  const selectedBatch = useMemo(
-    () => batches.find((batch) => batch.id === batchId),
-    [batches, batchId]
-  );
-
-  const selectedSchoolForGroup = useMemo(
-    () => selectedGroup ? communities.find((comm) => comm.name === selectedGroup.community) : null,
-    [communities, selectedGroup]
-  );
-
-  const selectedGroupForBatch = useMemo(
-    () => groups.find((group) => group.assignedBatchIds?.includes(batchId)),
-    [groups, batchId]
-  );
-
-  const selectedSchoolForBatch = useMemo(() => {
-    if (selectedGroupForBatch) {
-      return communities.find((comm) => comm.name === selectedGroupForBatch.community) || null;
-    }
-    if (selectedBatch) {
-      return communities.find((comm) => comm.name === selectedBatch.community) || null;
-    }
-    return null;
-  }, [communities, selectedBatch, selectedGroupForBatch]);
-
-  const breadcrumbItems = useMemo(() => {
-    const items = [{ label: 'Schools', to: '/community', clickable: activeTab !== 'communities' }];
-
-    const schoolIdForGroups = schoolId || selectedSchool?.id || selectedSchoolForGroup?.id || selectedSchoolForBatch?.id;
-    if (activeTab === 'groups' || activeTab === 'batches' || activeTab === 'mothers') {
-      items.push({
-        label: 'Groups',
-        to: schoolIdForGroups ? `/community/school/${schoolIdForGroups}` : '/community',
-        clickable: activeTab !== 'groups',
-      });
-    }
-
-    const batchGroup = selectedGroup || selectedGroupForBatch;
-    if (activeTab === 'batches' || activeTab === 'mothers') {
-      items.push({
-        label: 'Batches',
-        to: batchGroup ? `/community/group/${batchGroup.id}` : '/community',
-        clickable: activeTab !== 'batches',
-      });
-    }
-
-    if (activeTab === 'mothers') {
-      items.push({ label: 'Mothers', clickable: false });
-    }
-
-    return items;
-  }, [activeTab, schoolId, selectedSchool, selectedSchoolForGroup, selectedSchoolForBatch, selectedGroup, selectedGroupForBatch]);
 
   const selectedSchoolGroups = useMemo(() => {
     if (!selectedSchool) return [];
@@ -222,22 +158,6 @@ export default function CommunityPage() {
       });
   }, [batches, selectedGroup, query]);
 
-  const selectedBatchMothers = useMemo(() => {
-    if (!selectedBatch) return [];
-    const term = query.trim().toLowerCase();
-    return mothers
-      .filter((mother) => mother.batchId === selectedBatch.id)
-      .filter((mother) => {
-        if (!term) return true;
-        return (
-          mother.name.toLowerCase().includes(term) ||
-          mother.id.toLowerCase().includes(term) ||
-          mother.group.toLowerCase().includes(term) ||
-          mother.status.toLowerCase().includes(term)
-        );
-      });
-  }, [mothers, selectedBatch, query]);
-
   useEffect(() => {
     function closeDropdowns() {
       setActiveDropdownId(null);
@@ -256,18 +176,16 @@ export default function CommunityPage() {
   }, [communities, batchForm.community, groupForm.community]);
 
   useEffect(() => {
-    if (batchId) {
-      setActiveTab('mothers');
-    } else if (groupId) {
+    if (groupId) {
       setActiveTab('batches');
     } else if (schoolId) {
       setActiveTab('groups');
     }
-  }, [batchId, groupId, schoolId]);
+  }, [groupId, schoolId]);
 
   const handleTabChange = (tab) => {
-    if (schoolId || groupId || batchId) {
-      navigate('/community');
+    if ((schoolId || groupId) && tab !== 'groups') {
+      navigate('/beneficiary');
     }
     setActiveTab(tab);
     setQuery('');
@@ -276,15 +194,11 @@ export default function CommunityPage() {
   };
 
   const handleCommunityRowClick = (school) => {
-    navigate(`/community/school/${school.id}`);
+    navigate(`/beneficiary/school/${school.id}`);
   };
 
   const handleGroupRowClick = (group) => {
-    navigate(`/community/group/${group.id}`);
-  };
-
-  const handleBatchRowClick = (batch) => {
-    navigate(`/community/batch/${batch.id}`);
+    navigate(`/beneficiary/group/${group.id}`);
   };
 
   const filteredData = useMemo(() => {
@@ -297,10 +211,6 @@ export default function CommunityPage() {
           c.id.toLowerCase().includes(term) ||
           c.area.toLowerCase().includes(term)
       );
-    }
-
-    if (activeTab === 'mothers') {
-      return selectedBatchMothers;
     }
 
     if (activeTab === 'batches') {
@@ -325,7 +235,6 @@ export default function CommunityPage() {
   }, [activeTab, query, communities, batches, groups]);
 
   const currentFilteredData =
-    batchId && activeTab === 'mothers' ? selectedBatchMothers :
     groupId && activeTab === 'batches' ? selectedGroupBatches :
     selectedSchool && activeTab === 'groups' ? selectedSchoolGroups :
     filteredData;
@@ -337,7 +246,25 @@ export default function CommunityPage() {
   const rangeStart = currentFilteredData.length === 0 ? 0 : currentStart + 1;
   const rangeEnd = Math.min(currentStart + perPage, currentFilteredData.length);
 
-  const displayRows = currentRows;
+  const motherProgressByName = useMemo(
+    () => Object.fromEntries(communities.map((comm) => [comm.name, comm.progress ?? 0])),
+    [communities]
+  );
+
+  const displayRows = useMemo(() => {
+    if (activeTab === 'groups') {
+      return currentRows.map((row) => {
+        const groupBatchIds = row.assignedBatchIds || [];
+        const groupBatches = batches.filter((batch) => groupBatchIds.includes(batch.id));
+        const childProgress = groupBatches.length
+          ? Math.round(groupBatches.reduce((sum, batch) => sum + (batch.progress ?? 0), 0) / groupBatches.length)
+          : null;
+        return { ...row, childProgress };
+      });
+    }
+    return currentRows;
+  }, [activeTab, currentRows, batches]);
+
   const displayLength = currentFilteredData.length;
   const displayRangeStart = rangeStart;
   const displayRangeEnd = rangeEnd;
@@ -426,6 +353,7 @@ export default function CommunityPage() {
       area: communityForm.area,
       batches: 0,
       records: 0,
+      progress: 0,
     };
 
     setCommunities((prev) => [newCommunity, ...prev]);
@@ -685,44 +613,22 @@ export default function CommunityPage() {
     <div className="community-page">
       <header className="community-header">
         <div className="community-title-section">
-          <h1>Communities</h1>
-          <nav className="community-breadcrumb" aria-label="Breadcrumb">
-            {breadcrumbItems.map((item, index) => (
-              <span key={item.label} className="breadcrumb-item">
-                {item.clickable ? (
-                  <button
-                    type="button"
-                    className="breadcrumb-link"
-                    onClick={() => navigate(item.to)}
-                  >
-                    {item.label}
-                  </button>
-                ) : (
-                  <span className="breadcrumb-current">{item.label}</span>
-                )}
-                {index < breadcrumbItems.length - 1 && (
-                  <span className="breadcrumb-separator">›</span>
-                )}
-              </span>
-            ))}
-          </nav>
+          <h1>Beneficiary</h1>
         </div>
-        {activeTab !== 'mothers' && (
-          <button className="btn-create" onClick={openCreateModal}>
-            <PlusIcon />
-            <span>
-              {activeTab === 'communities'
-                ? 'Create School'
-                : activeTab === 'groups'
-                ? 'Create Group'
-                : 'Create Batch'}
-            </span>
-          </button>
-        )}
+        <button className="btn-create" onClick={openCreateModal}>
+          <PlusIcon />
+          <span>
+            {activeTab === 'communities'
+              ? 'Create Mother'
+              : activeTab === 'groups'
+              ? 'Create Child'
+              : 'Create Record'}
+          </span>
+        </button>
       </header>
 
       <section className="tabs-row">
-        <div className="tabs-list" role="tablist" aria-label="School sections">
+        <div className="tabs-list" role="tablist" aria-label="Beneficiary tabs: Mothers and Children">
           <button
             role="tab"
             aria-selected={activeTab === 'communities'}
@@ -730,7 +636,7 @@ export default function CommunityPage() {
             onClick={() => handleTabChange('communities')}
           >
             <BuildingIcon />
-            <span>Schools</span>
+            <span>Mothers</span>
           </button>
           <button
             role="tab"
@@ -739,16 +645,7 @@ export default function CommunityPage() {
             onClick={() => handleTabChange('groups')}
           >
             <GroupsIcon />
-            <span>Groups</span>
-          </button>
-          <button
-            role="tab"
-            aria-selected={activeTab === 'batches'}
-            className={`tab-btn${activeTab === 'batches' ? ' active' : ''}`}
-            onClick={() => handleTabChange('batches')}
-          >
-            <BatchesIcon />
-            <span>Batches</span>
+            <span>Children</span>
           </button>
         </div>
 
@@ -759,12 +656,10 @@ export default function CommunityPage() {
             className="search-input-field"
             placeholder={
               activeTab === 'communities'
-                ? 'Search school name...'
-                : activeTab === 'groups'
-                ? 'Search group name...'
-                : activeTab === 'mothers'
                 ? 'Search mother name...'
-                : 'Search batch name...'
+                : activeTab === 'groups'
+                ? 'Search child name...'
+                : 'Search mother-child record...'
             }
             value={query}
             onChange={(e) => handleSearch(e.target.value)}
@@ -773,7 +668,7 @@ export default function CommunityPage() {
         </div>
       </section>
 
-      <CommunityTable
+      <BeneficiaryTable
         activeTab={activeTab}
         currentRows={displayRows}
         filteredDataLength={displayLength}
@@ -788,8 +683,10 @@ export default function CommunityPage() {
         handleDeleteGroup={handleDeleteGroup}
         handleDeleteBatch={handleDeleteBatch}
         renderPaginationButtons={renderPaginationButtons}
-        onCommunityRowClick={activeTab === 'communities' ? handleCommunityRowClick : activeTab === 'groups' ? handleGroupRowClick : activeTab === 'batches' ? handleBatchRowClick : undefined}
+        onCommunityRowClick={activeTab === 'communities' ? handleCommunityRowClick : activeTab === 'groups' ? handleGroupRowClick : undefined}
+        motherProgressByName={motherProgressByName}
       />
+
       <CreateCommunityModal
         showModal={showModal === 'createCommunity'}
         onClose={() => setShowModal(null)}

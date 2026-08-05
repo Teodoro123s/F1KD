@@ -188,29 +188,48 @@ body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "He
 }
 
 /* Breadcrumbs */
-.breadcrumbs {
+.community-breadcrumb {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  font-size: 0.85rem;
+  gap: 0.5rem;
+  font-size: 0.95rem;
   color: var(--text-muted);
-  margin-bottom: -0.25rem;
+  margin-top: 0.35rem;
 }
 
-.breadcrumbs-item {
-  color: var(--text-muted);
-  text-decoration: none;
+.breadcrumb-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
   font-weight: 500;
 }
 
-.breadcrumbs-item.active {
-  color: var(--burgundy);
-  font-weight: 600;
+.breadcrumb-link {
+  appearance: none;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: var(--text-muted);
+  cursor: pointer;
+  text-decoration: none;
 }
 
-.breadcrumbs-separator {
+.breadcrumb-link:hover,
+.breadcrumb-link:focus-visible {
+  color: var(--slate-dark);
+  text-decoration: underline;
+}
+
+.breadcrumb-current {
+  color: var(--slate-dark);
+  font-weight: 500;
+}
+
+.breadcrumb-separator {
   color: #94A3B8;
-  font-size: 0.8rem;
+  font-size: 0.9rem;
 }
 
 /* Header styling */
@@ -404,6 +423,38 @@ body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "He
 .data-table th.small-column {
   width: 110px;
   white-space: normal;
+  text-align: center;
+}
+
+.data-table th.compact-column,
+.data-table td.compact-column {
+  width: 40px;
+  text-align: center;
+}
+
+.data-table th.batch-count-column,
+.data-table td.batch-count-column {
+  width: 110px;
+  min-width: 110px;
+  max-width: 110px;
+  text-align: center;
+}
+
+.data-table th.status-column {
+  width: 40px;
+  text-align: center;
+}
+
+.data-table td.status-column {
+  width: 40px;
+  text-align: center;
+}
+
+.data-table td.community-column {
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .stacked-label {
@@ -471,11 +522,45 @@ body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "He
 }
 
 /* Action Dots */
+.data-table th.actions-cell,
+.data-table td.actions-cell {
+  position: relative;
+  text-align: center;
+  width: 120px;
+  min-width: 120px;
+  max-width: 120px;
+  white-space: nowrap;
+}
+
 .actions-cell {
   position: relative;
-  text-align: right;
+  text-align: center;
   width: 120px;
+  min-width: 120px;
+  max-width: 120px;
   white-space: nowrap;
+}
+
+.group-actions-cell {
+  width: 90px;
+  min-width: 90px;
+  max-width: 90px;
+}
+
+
+.batch-actions-cell {
+  width: 70px;
+  min-width: 70px;
+  max-width: 70px;
+}
+
+.no-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  color: var(--text-muted);
+  font-size: 0.95rem;
 }
 
 .btn-actions {

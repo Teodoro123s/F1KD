@@ -3,7 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import Community from './pages/Community';
-import Beneficiary from './pages/Beneficiary';
+import Beneficiary from './pages/Beneficiary/BeneficiaryPage';
 import Monitoring from './pages/Monitoring';
 import Program from './pages/Program';
 import ProgressReport from './pages/ProgressReport';
@@ -33,6 +33,9 @@ export default function App() {
       >
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="community" element={<Community />} />
+        <Route path="community/school/:schoolId" element={<Community />} />
+        <Route path="community/group/:groupId" element={<Community />} />
+        <Route path="community/batch/:batchId" element={<Community />} />
         <Route path="beneficiary" element={<Beneficiary />} />
         <Route path="monitoring" element={<Monitoring />} />
         <Route path="program" element={<Program />} />

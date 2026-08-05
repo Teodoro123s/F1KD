@@ -1,5 +1,5 @@
 import React from 'react';
-import { BuildingIcon, GroupsIcon, BatchesIcon, MoreVerticalIcon } from './CommunityIcons';
+import { MoreVerticalIcon } from './CommunityIcons';
 
 export default function CommunityTable({
   activeTab,
@@ -16,8 +16,9 @@ export default function CommunityTable({
   handleDeleteGroup,
   handleDeleteBatch,
   renderPaginationButtons,
+  onCommunityRowClick,
 }) {
-  const emptyColSpan = activeTab === 'groups' ? 3 : activeTab === 'communities' ? 4 : 5;
+  const emptyColSpan = activeTab === 'groups' ? 3 : activeTab === 'communities' ? 4 : activeTab === 'mothers' ? 3 : 5;
 
   return (
     <section className="table-card">
@@ -29,35 +30,50 @@ export default function CommunityTable({
                 <th scope="col" style={{ width: '48%' }}>School Name</th>
                 <th scope="col" className="small-column"><span className="stacked-label">Total<br />Batches</span></th>
                 <th scope="col" className="small-column"><span className="stacked-label">Total<br />Groups</span></th>
-                <th scope="col" className="actions-cell">Actions</th>
+                <th scope="col" className="actions-cell batch-actions-cell">Actions</th>
               </tr>
             ) : activeTab === 'groups' ? (
               <tr>
-                <th scope="col" style={{ width: '44%' }}>Group Name</th>
-                <th scope="col" className="small-column">Total Batches</th>
-                <th scope="col" className="actions-cell">Actions</th>
+                <th scope="col" style={{ width: '60%' }}>Group Name</th>
+                <th scope="col" className="small-column"><span className="stacked-label">Total<br />Batches</span></th>
+                <th scope="col" className="actions-cell batch-actions-cell">Actions</th>
+              </tr>
+            ) : activeTab === 'mothers' ? (
+              <tr>
+                <th scope="col" style={{ width: '70%' }}>Mother Name</th>
+                <th scope="col" className="status-column">Progress (%)</th>
+                <th scope="col" className="actions-cell batch-actions-cell">Actions</th>
               </tr>
             ) : (
               <tr>
-                <th scope="col" style={{ width: '30%' }}>Batch Name</th>
-                <th scope="col">Community</th>
-                <th scope="col">Total Records</th>
-                <th scope="col">Status</th>
-                <th scope="col" className="actions-cell">Actions</th>
+                <th scope="col" style={{ width: '42%' }}>Batch Name</th>
+                <th scope="col" style={{ width: '32%' }}>Community</th>
+                <th scope="col" className="compact-column">Total Mothers</th>
+                <th scope="col" className="status-column">Progress (%)</th>
+                <th scope="col" className="actions-cell batch-actions-cell">Actions</th>
               </tr>
             )}
           </thead>
           <tbody>
             {currentRows.length > 0 ? (
               currentRows.map((row) => (
-                <tr key={row.id}>
+                <tr
+                  key={row.id}
+                  onClick={onCommunityRowClick ? () => onCommunityRowClick(row) : undefined}
+                  role={onCommunityRowClick ? 'button' : undefined}
+                  tabIndex={onCommunityRowClick ? 0 : undefined}
+                  onKeyDown={onCommunityRowClick ? (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onCommunityRowClick(row);
+                    }
+                  } : undefined}
+                  className={onCommunityRowClick ? 'clickable-row' : undefined}
+                >
                   {activeTab === 'communities' ? (
                     <>
                       <td>
                         <div className="community-name-cell">
-                          <div className="community-icon-wrapper" aria-hidden="true">
-                            <BuildingIcon />
-                          </div>
                           <div className="community-name-info">
                             <span className="community-title-text" title={row.name}>{row.name}</span>
                           </div>
@@ -70,76 +86,86 @@ export default function CommunityTable({
                     <>
                       <td>
                         <div className="community-name-cell">
-                          <div className="community-icon-wrapper" aria-hidden="true">
-                            <GroupsIcon />
-                          </div>
                           <div className="community-name-info">
                             <span className="community-title-text">{row.name}</span>
                           </div>
                         </div>
                       </td>
-                      <td className="small-column">{row.batches ?? 0}</td>
+                      <td className="small-column">{row.assignedBatchIds?.length ?? row.batches ?? 0}</td>
+                    </>
+                  ) : activeTab === 'mothers' ? (
+                    <>
+                      <td>
+                        <div className="community-name-cell">
+                          <div className="community-name-info">
+                            <span className="community-title-text">{row.name}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="status-column">{`${row.visits ?? 0}%`}</td>
                     </>
                   ) : (
                     <>
                       <td>
                         <div className="community-name-cell">
-                          <div className="community-icon-wrapper" aria-hidden="true">
-                            <BatchesIcon />
-                          </div>
                           <div className="community-name-info">
                             <span className="community-title-text">{row.name}</span>
-                            <span className="community-area-text">{row.id}</span>
                           </div>
                         </div>
                       </td>
-                      <td>{row.community}</td>
-                      <td>{row.records}</td>
-                      <td>
-                        <span className={`badge ${row.status.toLowerCase()}`}>
-                          {row.status}
-                        </span>
-                      </td>
+                      <td className="community-column">{row.community}</td>
+                      <td className="compact-column">{row.records}</td>
+                      <td className="status-column">{row.progress ?? 0}%</td>
                     </>
                   )}
-                  <td className="actions-cell">
-                    <button
-                      type="button"
-                      className="btn-actions"
-                      onClick={(e) => toggleDropdown(e, row.id)}
-                      aria-label="Actions menu"
-                      aria-haspopup="true"
-                      aria-expanded={activeDropdownId === row.id}
-                    >
-                      <MoreVerticalIcon />
-                    </button>
-                    {activeDropdownId === row.id && (
-                      <div className="actions-dropdown" role="menu">
+                  <td className={activeTab === 'batches' ? 'actions-cell batch-actions-cell' : 'actions-cell'}>
+                    {activeTab !== 'mothers' ? (
+                      <>
                         <button
                           type="button"
-                          className="actions-dropdown-item"
-                          onClick={() => openEditModal(row)}
-                          role="menuitem"
+                          className="btn-actions"
+                          onClick={(e) => toggleDropdown(e, row.id)}
+                          aria-label="Actions menu"
+                          aria-haspopup="true"
+                          aria-expanded={activeDropdownId === row.id}
                         >
-                          Edit
+                          <MoreVerticalIcon />
                         </button>
-                        <button
-                          type="button"
-                          className="actions-dropdown-item delete"
-                          onClick={() => {
-                            if (activeTab === 'communities') {
-                              handleDeleteCommunity(row.id);
-                            } else if (activeTab === 'groups') {
-                              handleDeleteGroup(row.id);
-                            } else {
-                              handleDeleteBatch(row.id);
-                            }
-                          }}
-                          role="menuitem"
-                        >
-                          Delete
-                        </button>
-                      </div>
+                        {activeDropdownId === row.id && (
+                          <div className="actions-dropdown" role="menu">
+                            <button
+                              type="button"
+                              className="actions-dropdown-item"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openEditModal(row);
+                              }}
+                              role="menuitem"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              className="actions-dropdown-item delete"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (activeTab === 'communities') {
+                                  handleDeleteCommunity(row.id);
+                                } else if (activeTab === 'groups') {
+                                  handleDeleteGroup(row.id);
+                                } else {
+                                  handleDeleteBatch(row.id);
+                                }
+                              }}
+                              role="menuitem"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <span className="no-actions">—</span>
                     )}
                   </td>
                 </tr>
