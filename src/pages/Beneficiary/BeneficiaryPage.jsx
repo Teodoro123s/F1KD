@@ -99,10 +99,12 @@ export default function BeneficiaryPage() {
   const [batches, setBatches] = useState(initialBatchesData);
   const [groups, setGroups] = useState(initialGroupsData);
 
-  const [activeTab, setActiveTab] = useState('communities');
+  const [activeTab, setActiveTab] = useState('groups');
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
+  const [selectedCommunityFilter, setSelectedCommunityFilter] = useState('');
+  const [selectedBatchFilter, setSelectedBatchFilter] = useState('');
 
   const [activeDropdownId, setActiveDropdownId] = useState(null);
   const [showModal, setShowModal] = useState(null);
@@ -175,24 +177,6 @@ export default function BeneficiaryPage() {
     }
   }, [communities, batchForm.community, groupForm.community]);
 
-  useEffect(() => {
-    if (groupId) {
-      setActiveTab('batches');
-    } else if (schoolId) {
-      setActiveTab('groups');
-    }
-  }, [groupId, schoolId]);
-
-  const handleTabChange = (tab) => {
-    if ((schoolId || groupId) && tab !== 'groups') {
-      navigate('/beneficiary');
-    }
-    setActiveTab(tab);
-    setQuery('');
-    setPage(1);
-    setActiveDropdownId(null);
-  };
-
   const handleCommunityRowClick = (school) => {
     navigate(`/beneficiary/school/${school.id}`);
   };
@@ -224,10 +208,19 @@ export default function BeneficiaryPage() {
       );
     }
 
-    if (!term) return groups;
-    return groups.filter(
+    // groups tab: search both child (name) and mother (community)
+    let groupSet = groups;
+    if (selectedCommunityFilter) {
+      groupSet = groupSet.filter((g) => g.community === selectedCommunityFilter);
+    }
+    if (selectedBatchFilter) {
+      groupSet = groupSet.filter((g) => (g.assignedBatchIds || []).includes(selectedBatchFilter));
+    }
+    if (!term) return groupSet;
+    return groupSet.filter(
       (g) =>
         g.name.toLowerCase().includes(term) ||
+        (g.community || '').toLowerCase().includes(term) ||
         g.id.toLowerCase().includes(term) ||
         g.leader.toLowerCase().includes(term) ||
         g.status.toLowerCase().includes(term)
@@ -617,73 +610,60 @@ export default function BeneficiaryPage() {
         </div>
         <button className="btn-create" onClick={openCreateModal}>
           <PlusIcon />
-          <span>
-            {activeTab === 'communities'
-              ? 'Create Mother'
-              : activeTab === 'groups'
-              ? 'Create Child'
-              : 'Create Record'}
-          </span>
+          <span>Create Child</span>
         </button>
       </header>
 
       <section className="tabs-row">
-        <div className="tabs-list" role="tablist" aria-label="Beneficiary tabs: Mothers and Children">
-          <button
-            role="tab"
-            aria-selected={activeTab === 'communities'}
-            className={`tab-btn${activeTab === 'communities' ? ' active' : ''}`}
-            onClick={() => handleTabChange('communities')}
-          >
-            <BuildingIcon />
-            <span>Mothers</span>
-          </button>
-          <button
-            role="tab"
-            aria-selected={activeTab === 'groups'}
-            className={`tab-btn${activeTab === 'groups' ? ' active' : ''}`}
-            onClick={() => handleTabChange('groups')}
-          >
-            <GroupsIcon />
-            <span>Children</span>
-          </button>
-        </div>
-
         <div className="search-container">
           <SearchIcon />
           <input
             type="text"
             className="search-input-field"
-            placeholder={
-              activeTab === 'communities'
-                ? 'Search mother name...'
-                : activeTab === 'groups'
-                ? 'Search child name...'
-                : 'Search mother-child record...'
-            }
+            placeholder="Search child name..."
             value={query}
             onChange={(e) => handleSearch(e.target.value)}
             aria-label="Search items"
           />
         </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <select
+            value={selectedCommunityFilter}
+            onChange={(e) => { setSelectedCommunityFilter(e.target.value); setPage(1); }}
+            aria-label="Filter by community"
+            className="search-input-field"
+            style={{ width: 180 }}
+          >
+            <option value="">All Communities</option>
+            {communities.map((c) => (
+              <option key={c.id} value={c.name}>{c.name}</option>
+            ))}
+          </select>
+
+          <select
+            value={selectedBatchFilter}
+            onChange={(e) => { setSelectedBatchFilter(e.target.value); setPage(1); }}
+            aria-label="Filter by batch"
+            className="search-input-field"
+            style={{ width: 220 }}
+          >
+            <option value="">All Batches</option>
+            {batches.map((b) => (
+              <option key={b.id} value={b.id}>{b.name} — {b.community}</option>
+            ))}
+          </select>
+        </div>
       </section>
 
       <BeneficiaryTable
-        activeTab={activeTab}
         currentRows={displayRows}
         filteredDataLength={displayLength}
         rangeStart={displayRangeStart}
         rangeEnd={displayRangeEnd}
         perPage={perPage}
         handlePerPageChange={handlePerPageChange}
-        activeDropdownId={activeDropdownId}
-        toggleDropdown={toggleDropdown}
-        openEditModal={openEditModal}
-        handleDeleteCommunity={handleDeleteCommunity}
-        handleDeleteGroup={handleDeleteGroup}
-        handleDeleteBatch={handleDeleteBatch}
         renderPaginationButtons={renderPaginationButtons}
-        onCommunityRowClick={activeTab === 'communities' ? handleCommunityRowClick : activeTab === 'groups' ? handleGroupRowClick : undefined}
+        onCommunityRowClick={handleGroupRowClick}
         motherProgressByName={motherProgressByName}
       />
 

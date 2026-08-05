@@ -351,6 +351,7 @@ body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "He
   align-items: center;
   position: relative;
   width: min(300px, 100%);
+  margin-left: auto;
 }
 
 .search-container svg {
@@ -400,15 +401,192 @@ body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "He
   text-align: left;
 }
 
+.beneficiary-table-card .data-table {
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+.beneficiary-table-card .data-table tbody tr {
+  background: transparent;
+}
+
+.beneficiary-table-card .data-table tbody td {
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
 .data-table th {
   padding: 1.1rem 1.5rem;
-  font-size: 0.75rem;
+  font-size: 0.78rem;
   font-weight: 700;
   color: var(--text-muted);
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   border-bottom: 1.5px solid #EDF2F7;
   background: #FBFDFF;
+}
+
+.beneficiary-table-card .data-table tbody td {
+  border-bottom: none;
+}
+
+.group-header {
+  background: #F8FAFC;
+  color: var(--slate-dark);
+  border-bottom: 1px solid #E2E8F0;
+  text-align: center;
+  font-size: 0.82rem;
+  letter-spacing: 0.14em;
+}
+.mother-name-cell,
+.mother-progress-cell,
+.child-name-cell,
+.child-progress-cell {
+  background: transparent;
+}
+
+.mother-progress-cell {
+  border-right: 1px solid rgba(226, 232, 240, 1);
+  position: relative;
+}
+
+.mother-progress-cell::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: -4px;
+  bottom: -4px;
+  width: 2px;
+  background: linear-gradient(to bottom, rgba(15,23,36,0.06), rgba(15,23,36,0.12) 50%, rgba(15,23,36,0.06));
+  pointer-events: none;
+  border-radius: 1px;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.4) inset, 0 2px 8px rgba(15,23,36,0.02);
+  z-index: 2;
+}
+
+.beneficiary-table-card .data-table tbody tr:hover .mother-progress-cell::after {
+  background: linear-gradient(to bottom, rgba(15,23,36,0.09), rgba(15,23,36,0.18) 50%, rgba(15,23,36,0.09));
+}
+
+/* Visual hierarchy: stronger mother name, subtle child name */
+.mother-name-cell .community-title-text {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--slate-dark);
+}
+
+.child-name-cell .community-title-text {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #475569;
+}
+
+/* Progress emphasis: mother progress slightly stronger */
+.mother-progress-cell .group-progress {
+  color: var(--burgundy);
+  font-weight: 700;
+}
+
+.child-progress-cell .group-progress {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.child-progress-cell {
+  background: transparent;
+}
+
+.group-clickable-cell {
+  width: 100%;
+  display: block;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.group-cell-container {
+  width: 100%;
+  min-height: 62px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 1rem 1.15rem;
+  border-radius: 0;
+  border: none;
+  background: #fff;
+  color: var(--slate-dark);
+  font-weight: 600;
+  transition: background 180ms ease, transform 180ms ease;
+}
+
+.group-cell-container.progress-cell-container {
+  justify-content: center;
+  background: transparent;
+}
+
+.group-cell-container.name-cell-container {
+  justify-content: flex-start;
+}
+
+.group-clickable-cell:hover .group-cell-container,
+.group-clickable-cell:focus .group-cell-container {
+  background: #f6edf2;
+  transform: translateY(0);
+}
+
+.group-clickable-cell:focus-visible {
+  outline: none;
+}
+
+.mother-progress-cell {
+  border-right: 1px solid #E2E8F0;
+}
+
+.child-name-cell {
+  border-left: none;
+}
+
+.group-progress {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--burgundy);
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+}
+
+.group-progress-cell .group-progress,
+.group-cell-container.progress-cell-container .group-progress {
+  background: transparent;
+}
+
+.name-column {
+  width: 34%;
+}
+
+.progress-column {
+  width: 140px;
+  text-align: center;
+}
+
+.data-table td {
+  padding: 1.1rem 1.5rem;
+  font-size: 0.95rem;
+  color: var(--slate-dark);
+  border-bottom: 1px solid #EDF2F7;
+  vertical-align: middle;
+}
+
+.name-column {
+  width: 34%;
+}
+
+.progress-column {
+  width: 120px;
+  text-align: center;
 }
 
 .data-table td {
@@ -464,6 +642,10 @@ body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "He
 
 .data-table tbody tr:hover {
   background: #F8FAFC;
+}
+
+.beneficiary-table-card .data-table tbody tr:hover {
+  background: transparent;
 }
 
 .no-data {

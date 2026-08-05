@@ -1,178 +1,71 @@
 import React from 'react';
-import { BuildingIcon, GroupsIcon, BatchesIcon, MoreVerticalIcon } from './BeneficiaryIcons';
 
 export default function BeneficiaryTable({
-  activeTab,
   currentRows,
   filteredDataLength,
   rangeStart,
   rangeEnd,
   perPage,
   handlePerPageChange,
-  activeDropdownId,
-  toggleDropdown,
-  openEditModal,
-  handleDeleteCommunity,
-  handleDeleteGroup,
-  handleDeleteBatch,
   renderPaginationButtons,
   onCommunityRowClick,
-  selectedGroup,
   motherProgressByName,
 }) {
-  const emptyColSpan = activeTab === 'communities' ? 3 : 5;
+  const emptyColSpan = 4;
 
   return (
-    <section className="table-card">
+    <section className="table-card beneficiary-table-card">
       <div className="table-overflow">
         <table className="data-table">
           <thead>
-            {activeTab === 'communities' ? (
-              <tr>
-                <th scope="col" style={{ width: '48%' }}>Mother Name</th>
-                <th scope="col" className="small-column">Progress (%)</th>
-                <th scope="col" className="actions-cell">Actions</th>
-              </tr>
-            ) : activeTab === 'groups' ? (
-              <tr>
-                <th scope="col" style={{ width: '28%' }}>Mother Name</th>
-                <th scope="col" className="small-column">Progress (%)</th>
-                <th scope="col" style={{ width: '28%' }}>Child Name</th>
-                <th scope="col" className="small-column">Progress (%)</th>
-                <th scope="col" className="actions-cell">Actions</th>
-              </tr>
-            ) : (
-              <tr>
-                <th scope="col" style={{ width: '28%' }}>Mother Name</th>
-                <th scope="col" className="small-column">Progress (%)</th>
-                <th scope="col" style={{ width: '28%' }}>Child Name</th>
-                <th scope="col" className="small-column">Progress (%)</th>
-                <th scope="col" className="actions-cell">Actions</th>
-              </tr>
-            )}
+            <tr>
+              <th scope="col" colSpan={2} className="group-header">Mother</th>
+              <th scope="col" colSpan={2} className="group-header">Child</th>
+            </tr>
+            <tr>
+              <th scope="col" className="name-column">Mother Name</th>
+              <th scope="col" className="progress-column">Progress (%)</th>
+              <th scope="col" className="name-column">Child Name</th>
+              <th scope="col" className="progress-column">Progress (%)</th>
+            </tr>
           </thead>
           <tbody>
             {currentRows.length > 0 ? (
               currentRows.map((row) => (
-                <tr
-                  key={row.id}
-                  onClick={activeTab !== 'batches' && onCommunityRowClick ? () => onCommunityRowClick(row) : undefined}
-                  role={activeTab !== 'batches' && onCommunityRowClick ? 'button' : undefined}
-                  tabIndex={activeTab !== 'batches' && onCommunityRowClick ? 0 : undefined}
-                  onKeyDown={activeTab !== 'batches' && onCommunityRowClick ? (e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      onCommunityRowClick(row);
-                    }
-                  } : undefined}
-                  className={activeTab !== 'batches' && onCommunityRowClick ? 'clickable-row' : undefined}
-                >
-                  {activeTab === 'communities' ? (
-                    <>
-                      <td>
-                        <div className="community-name-cell">
-                          <div className="community-icon-wrapper" aria-hidden="true">
-                            <BuildingIcon />
-                          </div>
-                          <div className="community-name-info">
-                            <span className="community-title-text" title={row.name}>{row.name}</span>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="small-column">{row.progress ?? 0}%</td>
-                    </>
-                  ) : activeTab === 'groups' ? (
-                    <>
-                      <td>
-                        <div className="community-name-cell">
-                          <div className="community-icon-wrapper" aria-hidden="true">
-                            <BuildingIcon />
-                          </div>
-                          <div className="community-name-info">
-                            <span className="community-title-text" title={row.community}>{row.community}</span>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="small-column">{`${motherProgressByName?.[row.community] ?? 0}%`}</td>
-                      <td>
-                        <div className="community-name-cell">
-                          <div className="community-name-info">
-                            <span className="community-title-text" title={row.name}>{row.name}</span>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="small-column">
-                        {row.childProgress != null ? `${row.childProgress}%` : ''}
-                      </td>
-                    </>
-                  ) : (
-                    <>
-                      <td>
-                        <div className="community-name-cell">
-                          <div className="community-icon-wrapper" aria-hidden="true">
-                            <BatchesIcon />
-                          </div>
-                          <div className="community-name-info">
-                            <span className="community-title-text">{row.community}</span>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="small-column">{`${motherProgressByName?.[row.community] ?? 0}%`}</td>
-                      <td>
-                        <div className="community-name-cell">
-                          <div className="community-name-info">
-                            <span className="community-title-text">{selectedGroup?.name ?? ''}</span>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="small-column">
-                        {selectedGroup ? `${selectedGroup.progress ?? 0}%` : ''}
-                      </td>
-                    </>
-                  )}
-                  <td className="actions-cell">
+                <tr key={row.id}>
+                  <td className="mother-name-cell">
                     <button
                       type="button"
-                      className="btn-actions"
-                      onClick={(e) => toggleDropdown(e, row.id)}
-                      aria-label="Actions menu"
-                      aria-haspopup="true"
-                      aria-expanded={activeDropdownId === row.id}
+                      className="group-clickable-cell name-cell"
+                      onClick={onCommunityRowClick ? () => onCommunityRowClick(row) : undefined}
+                      aria-label={`Open record for ${row.community}`}
                     >
-                      <MoreVerticalIcon />
-                    </button>
-                    {activeDropdownId === row.id && (
-                      <div className="actions-dropdown" role="menu">
-                        <button
-                          type="button"
-                          className="actions-dropdown-item"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openEditModal(row);
-                          }}
-                          role="menuitem"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          className="actions-dropdown-item delete"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (activeTab === 'communities') {
-                              handleDeleteCommunity(row.id);
-                            } else if (activeTab === 'groups') {
-                              handleDeleteGroup(row.id);
-                            } else {
-                              handleDeleteBatch(row.id);
-                            }
-                          }}
-                          role="menuitem"
-                        >
-                          Delete
-                        </button>
+                      <div className="group-cell-container name-cell-container">
+                        <span className="community-title-text" title={row.community}>{row.community}</span>
                       </div>
-                    )}
+                    </button>
+                  </td>
+                  <td className="mother-progress-cell">
+                      <div className="group-cell-container progress-cell-container">
+                        <span className="group-progress">{`${motherProgressByName?.[row.community] ?? 0}%`}</span>
+                      </div>
+                  </td>
+                  <td className="child-name-cell">
+                    <button
+                      type="button"
+                      className="group-clickable-cell name-cell"
+                      onClick={onCommunityRowClick ? () => onCommunityRowClick(row) : undefined}
+                      aria-label={`Open record for ${row.name}`}
+                    >
+                      <div className="group-cell-container name-cell-container">
+                        <span className="community-title-text" title={row.name}>{row.name}</span>
+                      </div>
+                    </button>
+                  </td>
+                  <td className="child-progress-cell">
+                      <div className="group-cell-container progress-cell-container">
+                        <span className="group-progress">{row.childProgress != null ? `${row.childProgress}%` : ''}</span>
+                      </div>
                   </td>
                 </tr>
               ))
