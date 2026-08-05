@@ -236,7 +236,7 @@ body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "He
 .community-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-end;
+  align-items: flex-start;
   margin-bottom: 0.5rem;
   flex-wrap: wrap;
   gap: 1rem;
@@ -275,6 +275,7 @@ body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "He
   cursor: pointer;
   transition: all 150ms ease;
   box-shadow: 0 2px 4px rgba(122, 12, 30, 0.15);
+  align-self: flex-start;
 }
 
 .btn-create:hover {
@@ -288,6 +289,43 @@ body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "He
   fill: none;
   stroke: currentColor;
   stroke-width: 2.5;
+}
+
+.create-menu-wrapper {
+  position: relative;
+}
+
+.create-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.75rem);
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.05);
+  border: 1px solid var(--border-color);
+  z-index: 90;
+  width: 180px;
+  overflow: hidden;
+  padding: 0.25rem 0;
+}
+
+.create-dropdown .actions-dropdown-item {
+  display: block;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-size: 0.95rem;
+  color: #475569;
+  text-align: left;
+  cursor: pointer;
+  background: none;
+  border: none;
+  transition: background 100ms ease;
+  font-weight: 500;
+}
+
+.create-dropdown .actions-dropdown-item:hover {
+  background: #F8FAFC;
+  color: var(--slate-dark);
 }
 
 /* Tabs & Search container */
@@ -417,11 +455,11 @@ body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "He
 }
 
 .data-table th {
-  padding: 1.1rem 1.5rem;
+  padding: 1rem 1.2rem;
   font-size: 0.78rem;
   font-weight: 700;
   color: var(--text-muted);
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   border-bottom: 1.5px solid #EDF2F7;
   background: #FBFDFF;
@@ -439,58 +477,87 @@ body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "He
   font-size: 0.82rem;
   letter-spacing: 0.14em;
 }
-.mother-name-cell,
-.mother-progress-cell,
-.child-name-cell,
-.child-progress-cell {
+
+.mother-cell,
+.child-cell {
   background: transparent;
 }
 
-.mother-progress-cell {
-  border-right: 1px solid rgba(226, 232, 240, 1);
+.mother-cell {
   position: relative;
 }
 
-.mother-progress-cell::after {
+.mother-cell::after {
   content: '';
   position: absolute;
   right: 0;
-  top: -4px;
-  bottom: -4px;
+  top: 0;
+  bottom: 0;
   width: 2px;
-  background: linear-gradient(to bottom, rgba(15,23,36,0.06), rgba(15,23,36,0.12) 50%, rgba(15,23,36,0.06));
+  background: rgba(15,23,36,0.18);
   pointer-events: none;
-  border-radius: 1px;
-  box-shadow: 0 1px 0 rgba(255,255,255,0.4) inset, 0 2px 8px rgba(15,23,36,0.02);
+  border-radius: 0;
   z-index: 2;
 }
 
-.beneficiary-table-card .data-table tbody tr:hover .mother-progress-cell::after {
-  background: linear-gradient(to bottom, rgba(15,23,36,0.09), rgba(15,23,36,0.18) 50%, rgba(15,23,36,0.09));
+.beneficiary-table-card .data-table tbody tr:hover .mother-cell::after {
+  background: linear-gradient(to bottom, rgba(15,23,36,0.12), rgba(15,23,36,0.22) 50%, rgba(15,23,36,0.12));
 }
 
 /* Visual hierarchy: stronger mother name, subtle child name */
-.mother-name-cell .community-title-text {
+.mother-cell .community-title-text {
   font-weight: 700;
   font-size: 1rem;
   color: var(--slate-dark);
 }
 
-.child-name-cell .community-title-text {
+.child-cell .community-title-text {
   font-weight: 600;
   font-size: 0.95rem;
   color: #475569;
 }
 
-/* Progress emphasis: mother progress slightly stronger */
-.mother-progress-cell .group-progress {
-  color: var(--burgundy);
-  font-weight: 700;
+.progress-cell-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.15rem;
+  min-height: 62px;
+  background: #fff;
+  border: none;
+  border-radius: 0;
 }
 
-.child-progress-cell .group-progress {
-  color: var(--text-muted);
-  font-weight: 600;
+.progress-bar {
+  flex: 1;
+  min-width: 100px;
+  height: 10px;
+  background: #E2E8F0;
+  border-radius: 0;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  width: 0;
+  border-radius: 0;
+  background: linear-gradient(90deg, #7A0C1E 0%, #A2182D 100%);
+  transition: width 300ms ease;
+}
+
+.progress-bar-fill.child {
+  background: linear-gradient(90deg, #475569 0%, #94A3B8 100%);
+}
+
+.progress-value {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--slate-dark);
+  white-space: nowrap;
+}
+
+.progress-value.child {
+  color: #64748B;
 }
 
 .child-progress-cell {
@@ -504,6 +571,7 @@ body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "He
   border: none;
   background: transparent;
   cursor: pointer;
+  text-align: left;
 }
 
 .group-cell-container {
@@ -518,13 +586,7 @@ body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "He
   border: none;
   background: #fff;
   color: var(--slate-dark);
-  font-weight: 600;
-  transition: background 180ms ease, transform 180ms ease;
-}
-
-.group-cell-container.progress-cell-container {
-  justify-content: center;
-  background: transparent;
+  transition: background 180ms ease;
 }
 
 .group-cell-container.name-cell-container {
@@ -534,19 +596,66 @@ body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "He
 .group-clickable-cell:hover .group-cell-container,
 .group-clickable-cell:focus .group-cell-container {
   background: #f6edf2;
-  transform: translateY(0);
+}
+
+.group-header {
+  background: #F8FAFC;
+  color: var(--slate-dark);
+  border-bottom: 1px solid #E2E8F0;
+  text-align: center;
+  font-size: 0.82rem;
+  letter-spacing: 0.14em;
+}
+
+/* Entire Cell Card Button Layout */
+.entity-card-button {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 1.15rem 1.4rem;
+  background: #fff;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: all 180ms ease;
+  box-sizing: border-box;
+  text-decoration: none;
+}
+
+.entity-card-button:hover {
+  background: #F8FAFC;
+}
+
+.entity-card-button:focus {
+  outline: none;
+}
+
+.entity-card-button .community-title-text {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.entity-card-button .progress-cell-inner {
+  padding: 0;
+  min-height: auto;
+  background: transparent;
+}
+
+.entity-card-button .progress-bar {
+  border-radius: 99px;
+  height: 8px;
+}
+
+.entity-card-button .progress-bar-fill {
+  border-radius: 99px;
 }
 
 .group-clickable-cell:focus-visible {
   outline: none;
-}
-
-.mother-progress-cell {
-  border-right: 1px solid #E2E8F0;
-}
-
-.child-name-cell {
-  border-left: none;
 }
 
 .group-progress {
@@ -564,19 +673,18 @@ body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "He
 }
 
 .name-column {
-  width: 34%;
+  width: 32%;
 }
 
 .progress-column {
-  width: 140px;
+  width: 150px;
   text-align: center;
 }
 
 .data-table td {
-  padding: 1.1rem 1.5rem;
+  padding: 0;
   font-size: 0.95rem;
   color: var(--slate-dark);
-  border-bottom: 1px solid #EDF2F7;
   vertical-align: middle;
 }
 

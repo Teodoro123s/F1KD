@@ -107,6 +107,7 @@ export default function BeneficiaryPage() {
   const [selectedBatchFilter, setSelectedBatchFilter] = useState('');
 
   const [activeDropdownId, setActiveDropdownId] = useState(null);
+  const [createDropdownOpen, setCreateDropdownOpen] = useState(false);
   const [showModal, setShowModal] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
 
@@ -163,6 +164,7 @@ export default function BeneficiaryPage() {
   useEffect(() => {
     function closeDropdowns() {
       setActiveDropdownId(null);
+      setCreateDropdownOpen(false);
     }
     document.addEventListener('click', closeDropdowns);
     return () => document.removeEventListener('click', closeDropdowns);
@@ -277,19 +279,19 @@ export default function BeneficiaryPage() {
     setActiveDropdownId(activeDropdownId === id ? null : id);
   };
 
-  const openCreateModal = () => {
-    if (activeTab === 'communities') {
-      setCommunityForm({ name: '', area: 'Poblacion' });
-      setShowModal('createCommunity');
-      return;
-    }
+  const openCreateModal = (e) => {
+    e.stopPropagation();
+    setCreateDropdownOpen((open) => !open);
+  };
 
-    if (activeTab === 'groups') {
-      setGroupForm({ name: '', community: selectedSchool?.name || communities[0]?.name || '', assignedBatchIds: [], leader: '', members: 1, status: 'Active' });
-      setShowModal('createGroup');
-      return;
-    }
+  const openCreateMother = () => {
+    setCreateDropdownOpen(false);
+    setGroupForm({ name: '', community: selectedSchool?.name || communities[0]?.name || '', assignedBatchIds: [], leader: '', members: 1, status: 'Active' });
+    setShowModal('createGroup');
+  };
 
+  const openCreateChild = () => {
+    setCreateDropdownOpen(false);
     setBatchForm({
       name: '',
       community: communities[0]?.name || '',
@@ -607,25 +609,31 @@ export default function BeneficiaryPage() {
       <header className="community-header">
         <div className="community-title-section">
           <h1>Beneficiary</h1>
+          <nav className="community-breadcrumb" aria-label="Breadcrumb">
+            <span className="breadcrumb-item">
+              <span className="breadcrumb-current">Mother</span>
+            </span>
+          </nav>
         </div>
-        <button className="btn-create" onClick={openCreateModal}>
-          <PlusIcon />
-          <span>Create Child</span>
-        </button>
+        <div className="create-menu-wrapper">
+          <button className="btn-create" onClick={openCreateModal} type="button">
+            <PlusIcon />
+            <span>Create</span>
+          </button>
+          {createDropdownOpen && (
+            <div className="create-dropdown" role="menu">
+              <button type="button" className="actions-dropdown-item" onClick={openCreateMother} role="menuitem">
+                Create Mother
+              </button>
+              <button type="button" className="actions-dropdown-item" onClick={openCreateChild} role="menuitem">
+                Create Child
+              </button>
+            </div>
+          )}
+        </div>
       </header>
 
       <section className="tabs-row">
-        <div className="search-container">
-          <SearchIcon />
-          <input
-            type="text"
-            className="search-input-field"
-            placeholder="Search child name..."
-            value={query}
-            onChange={(e) => handleSearch(e.target.value)}
-            aria-label="Search items"
-          />
-        </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <select
             value={selectedCommunityFilter}
@@ -652,6 +660,17 @@ export default function BeneficiaryPage() {
               <option key={b.id} value={b.id}>{b.name} — {b.community}</option>
             ))}
           </select>
+        </div>
+        <div className="search-container">
+          <SearchIcon />
+          <input
+            type="text"
+            className="search-input-field"
+            placeholder="Search child name..."
+            value={query}
+            onChange={(e) => handleSearch(e.target.value)}
+            aria-label="Search items"
+          />
         </div>
       </section>
 
