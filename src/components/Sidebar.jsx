@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom';
 import logo from '../assets/logo.svg';
 
 const items = [
-  { to: '/', label: 'Dashboard', icon: '🏠' },
+  { to: '/dashboard', label: 'Dashboard', icon: '🏠' },
   { to: '/community', label: 'Community', icon: '👥' },
   { to: '/beneficiary', label: 'Beneficiary', icon: '🎯' },
   { to: '/monitoring', label: 'Monitoring', icon: '📈' },
@@ -22,7 +22,7 @@ export default function Sidebar() {
         <button
           className="collapse-btn"
           onClick={() => setCollapsed(!collapsed)}
-          aria-label="Toggle sidebar"
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           {collapsed ? '»' : '«'}
         </button>
@@ -30,7 +30,12 @@ export default function Sidebar() {
 
       <nav className="sidebar-nav">
         {items.map((it) => (
-          <NavLink key={it.to} to={it.to} className={({isActive}) => 'sidebar-link' + (isActive ? ' active' : '')}>
+          <NavLink
+            key={it.to}
+            to={it.to}
+            className={({isActive}) => 'sidebar-link' + (isActive ? ' active' : '')}
+            data-label={it.label}
+          >
             <span className="icon">{it.icon}</span>
             <span className="label">{it.label}</span>
           </NavLink>

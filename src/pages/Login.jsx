@@ -10,7 +10,7 @@ export default function Login() {
     setLoading(true);
     signIn();
     setTimeout(() => {
-      navigate('/dashboard');
+      navigate('/community');
     }, 250);
   }
 
@@ -18,7 +18,7 @@ export default function Login() {
     <div className="login-page">
       <div className="login-card">
         <h1>Sign In</h1>
-        <p>Development login: click to continue without credentials.</p>
+        <p>Development login: click to continue directly to Community.</p>
         <div className="login-actions">
           <button
             type="button"
