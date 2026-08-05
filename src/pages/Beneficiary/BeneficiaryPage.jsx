@@ -111,8 +111,40 @@ export default function BeneficiaryPage() {
   const [showModal, setShowModal] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
 
-  const [communityForm, setCommunityForm] = useState({ name: '', area: 'Poblacion' });
-  const [groupForm, setGroupForm] = useState({ name: '', community: '', assignedBatchIds: [], leader: '', members: 1, status: 'Active' });
+  const [communityForm, setCommunityForm] = useState({
+    firstName: '',
+    middleName: '',
+    lastName: '',
+    suffix: '',
+    dob: '',
+    contactNumber: '',
+    lmpDate: '',
+    address: '',
+    community: '',
+    group: '',
+    batch: '',
+    height: '',
+    weight: '',
+    medicalHistory: '',
+    area: 'Poblacion',
+  });
+  const [groupForm, setGroupForm] = useState({
+    firstName: '',
+    middleName: '',
+    lastName: '',
+    suffix: '',
+    birthDate: '',
+    birthWeight: '',
+    birthLength: '',
+    gender: '',
+    deliveryType: '',
+    healthStatus: '',
+    community: '',
+    assignedBatchIds: [],
+    leader: '',
+    members: 1,
+    status: 'Active',
+  });
   const [batchForm, setBatchForm] = useState({ name: '', community: '', records: 1, progress: 0, status: 'Active' });
 
   const navigate = useNavigate();
@@ -286,20 +318,45 @@ export default function BeneficiaryPage() {
 
   const openCreateMother = () => {
     setCreateDropdownOpen(false);
-    setGroupForm({ name: '', community: selectedSchool?.name || communities[0]?.name || '', assignedBatchIds: [], leader: '', members: 1, status: 'Active' });
-    setShowModal('createGroup');
+    setCommunityForm({
+      firstName: '',
+      middleName: '',
+      lastName: '',
+      dob: '',
+      contactNumber: '',
+      lmpDate: '',
+      address: '',
+      community: communities[0]?.name || '',
+      group: groups[0]?.name || '',
+      batch: batches[0]?.name || '',
+      height: '',
+      weight: '',
+      medicalHistory: '',
+      area: 'Poblacion',
+    });
+    setShowModal('createCommunity');
   };
 
   const openCreateChild = () => {
     setCreateDropdownOpen(false);
-    setBatchForm({
-      name: '',
+    setGroupForm({
+      firstName: '',
+      middleName: '',
+      lastName: '',
+      suffix: '',
+      birthDate: '',
+      birthWeight: '',
+      birthLength: '',
+      gender: '',
+      deliveryType: '',
+      healthStatus: '',
       community: communities[0]?.name || '',
-      records: 1,
-      progress: 0,
+      assignedBatchIds: [],
+      leader: '',
+      members: 1,
       status: 'Active',
     });
-    setShowModal('createBatch');
+    setShowModal('createGroup');
   };
 
   const openEditModal = (item) => {
@@ -313,6 +370,16 @@ export default function BeneficiaryPage() {
     if (activeTab === 'groups') {
       setGroupForm({
         name: item.name,
+        firstName: item.firstName || '',
+        middleName: item.middleName || '',
+        lastName: item.lastName || '',
+        suffix: item.suffix || '',
+        birthDate: item.birthDate || '',
+        birthWeight: item.birthWeight || '',
+        birthLength: item.birthLength || '',
+        gender: item.gender || '',
+        deliveryType: item.deliveryType || '',
+        healthStatus: item.healthStatus || '',
         community: item.community || communities[0]?.name || '',
         assignedBatchIds: item.assignedBatchIds || [],
         leader: item.leader,
@@ -335,7 +402,7 @@ export default function BeneficiaryPage() {
 
   const handleCreateCommunity = (e) => {
     e.preventDefault();
-    if (!communityForm.name.trim()) return;
+    if (!communityForm.firstName.trim() || !communityForm.lastName.trim()) return;
 
     const currentMaxId = communities.reduce((max, c) => {
       const num = parseInt(c.id.split('-')[1], 10);
@@ -344,8 +411,20 @@ export default function BeneficiaryPage() {
 
     const newCommunity = {
       id: `COM-${String(currentMaxId + 1).padStart(4, '0')}`,
-      name: communityForm.name.trim(),
+      name: `${communityForm.firstName.trim()} ${communityForm.middleName.trim()} ${communityForm.lastName.trim()} ${communityForm.suffix.trim()}`.replace(/\s+/g, ' ').trim(),
       area: communityForm.area,
+      firstName: communityForm.firstName.trim(),
+      middleName: communityForm.middleName.trim(),
+      lastName: communityForm.lastName.trim(),
+      suffix: communityForm.suffix.trim(),
+      lmpDate: communityForm.lmpDate,
+      address: communityForm.address,
+      community: communityForm.community,
+      group: communityForm.group,
+      batch: communityForm.batch,
+      height: communityForm.height,
+      weight: communityForm.weight,
+      medicalHistory: communityForm.medicalHistory,
       batches: 0,
       records: 0,
       progress: 0,
@@ -422,16 +501,30 @@ export default function BeneficiaryPage() {
 
   const handleCreateGroup = (e) => {
     e.preventDefault();
-    if (!groupForm.name.trim()) return;
+    if (!groupForm.firstName.trim() || !groupForm.lastName.trim()) return;
 
     const currentMaxId = groups.reduce((max, g) => {
       const num = parseInt(g.id.split('-')[1], 10);
       return num > max ? num : max;
     }, 0);
 
+    const fullName = `${groupForm.firstName.trim()} ${groupForm.middleName.trim()} ${groupForm.lastName.trim()} ${groupForm.suffix.trim()}`
+      .replace(/\s+/g, ' ')
+      .trim();
+
     const newGroup = {
       id: `GRP-${String(currentMaxId + 1).padStart(4, '0')}`,
-      name: groupForm.name.trim(),
+      name: fullName,
+      firstName: groupForm.firstName.trim(),
+      middleName: groupForm.middleName.trim(),
+      lastName: groupForm.lastName.trim(),
+      suffix: groupForm.suffix.trim(),
+      birthDate: groupForm.birthDate,
+      birthWeight: groupForm.birthWeight,
+      birthLength: groupForm.birthLength,
+      gender: groupForm.gender,
+      deliveryType: groupForm.deliveryType,
+      healthStatus: groupForm.healthStatus,
       community: groupForm.community,
       assignedBatchIds: groupForm.assignedBatchIds || [],
       leader: groupForm.leader.trim(),
@@ -446,14 +539,28 @@ export default function BeneficiaryPage() {
 
   const handleEditGroup = (e) => {
     e.preventDefault();
-    if (!groupForm.name.trim()) return;
+    if (!groupForm.firstName.trim() || !groupForm.lastName.trim()) return;
+
+    const fullName = `${groupForm.firstName.trim()} ${groupForm.middleName.trim()} ${groupForm.lastName.trim()} ${groupForm.suffix.trim()}`
+      .replace(/\s+/g, ' ')
+      .trim();
 
     setGroups((prev) =>
       prev.map((g) =>
         g.id === selectedItem.id
           ? {
               ...g,
-              name: groupForm.name.trim(),
+              name: fullName,
+              firstName: groupForm.firstName.trim(),
+              middleName: groupForm.middleName.trim(),
+              lastName: groupForm.lastName.trim(),
+              suffix: groupForm.suffix.trim(),
+              birthDate: groupForm.birthDate,
+              birthWeight: groupForm.birthWeight,
+              birthLength: groupForm.birthLength,
+              gender: groupForm.gender,
+              deliveryType: groupForm.deliveryType,
+              healthStatus: groupForm.healthStatus,
               community: groupForm.community,
               assignedBatchIds: groupForm.assignedBatchIds || [],
               leader: groupForm.leader.trim(),
@@ -692,6 +799,9 @@ export default function BeneficiaryPage() {
         communityForm={communityForm}
         setCommunityForm={setCommunityForm}
         handleCreateCommunity={handleCreateCommunity}
+        communities={communities}
+        groups={groups}
+        batches={batches}
       />
       <EditCommunityModal
         showModal={showModal === 'editCommunity'}
