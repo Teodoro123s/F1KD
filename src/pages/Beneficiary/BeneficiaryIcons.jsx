@@ -33,6 +33,39 @@ export const PlusIcon = () => (
   </svg>
 );
 
+export const StatusAllIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="3" />
+    <circle cx="6" cy="6" r="2" />
+    <circle cx="18" cy="6" r="2" />
+    <circle cx="6" cy="18" r="2" />
+    <circle cx="18" cy="18" r="2" />
+  </svg>
+);
+
+export const StatusMissingIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="9" />
+    <line x1="12" y1="8" x2="12" y2="13" />
+    <circle cx="12" cy="17" r="1" />
+  </svg>
+);
+
+export const StatusPendingIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 2l8 14h-16l8-14z" />
+    <line x1="12" y1="9" x2="12" y2="13" />
+    <circle cx="12" cy="17" r="1" />
+  </svg>
+);
+
+export const StatusDoneIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="9" />
+    <path d="M8 12.5l2 2 4-4" />
+  </svg>
+);
+
 export const MoreVerticalIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="1.5" />

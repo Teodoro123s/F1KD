@@ -9,7 +9,16 @@ import {
   CreateGroupModal,
   EditGroupModal,
 } from './BeneficiaryModals';
-import { SearchIcon, PlusIcon, BuildingIcon, GroupsIcon } from './BeneficiaryIcons';
+import {
+  SearchIcon,
+  PlusIcon,
+  BuildingIcon,
+  GroupsIcon,
+  StatusAllIcon,
+  StatusMissingIcon,
+  StatusPendingIcon,
+  StatusDoneIcon,
+} from './BeneficiaryIcons';
 
 const initialCommunityData = [
   { id: 'SCH-0001', name: 'Maria Santos', area: 'Poblacion', batches: 2, records: 3, progress: 72 },
@@ -94,6 +103,13 @@ const initialGroupsData = [
   },
 ];
 
+const STATUS_OPTIONS = [
+  { key: 'All', label: 'All', icon: StatusAllIcon },
+  { key: 'Missing', label: 'Missing', icon: StatusMissingIcon },
+  { key: 'Pending', label: 'Pending', icon: StatusPendingIcon },
+  { key: 'Done', label: 'Done', icon: StatusDoneIcon },
+];
+
 export default function BeneficiaryPage() {
   const [communities, setCommunities] = useState(initialCommunityData);
   const [batches, setBatches] = useState(initialBatchesData);
@@ -103,8 +119,7 @@ export default function BeneficiaryPage() {
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
-  const [selectedCommunityFilter, setSelectedCommunityFilter] = useState('');
-  const [selectedBatchFilter, setSelectedBatchFilter] = useState('');
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState('All');
 
   const [activeDropdownId, setActiveDropdownId] = useState(null);
   const [createDropdownOpen, setCreateDropdownOpen] = useState(false);
@@ -160,6 +175,30 @@ export default function BeneficiaryPage() {
     [groups, groupId]
   );
 
+  useEffect(() => {
+    if (groupId) {
+      setActiveTab('batches');
+    } else if (schoolId) {
+      setActiveTab('groups');
+    } else {
+      setActiveTab('groups');
+    }
+  }, [schoolId, groupId]);
+
+  const breadcrumbItems = useMemo(() => {
+    const items = [{ label: 'Beneficiary', clickable: false }];
+    if (selectedSchool) {
+      items.push({ label: 'Mother', clickable: false });
+      items.push({ label: selectedSchool.name, clickable: false });
+    } else if (selectedGroup) {
+      items.push({ label: 'Mother', clickable: false });
+      items.push({ label: selectedGroup.name, clickable: false });
+    } else {
+      items.push({ label: 'Mother', clickable: false });
+    }
+    return items;
+  }, [selectedSchool, selectedGroup]);
+
   const selectedSchoolGroups = useMemo(() => {
     if (!selectedSchool) return [];
     const term = query.trim().toLowerCase();
@@ -193,6 +232,18 @@ export default function BeneficiaryPage() {
       });
   }, [batches, selectedGroup, query]);
 
+  const getGroupStatusByProgress = (group) => {
+    const groupBatchIds = group.assignedBatchIds || [];
+    const groupBatches = batches.filter((batch) => groupBatchIds.includes(batch.id));
+    const averageProgress = groupBatches.length
+      ? Math.round(groupBatches.reduce((sum, batch) => sum + (batch.progress ?? 0), 0) / groupBatches.length)
+      : 0;
+
+    if (averageProgress < 60) return 'Missing';
+    if (averageProgress < 90) return 'Pending';
+    return 'Done';
+  };
+
   useEffect(() => {
     function closeDropdowns() {
       setActiveDropdownId(null);
@@ -211,12 +262,18 @@ export default function BeneficiaryPage() {
     }
   }, [communities, batchForm.community, groupForm.community]);
 
-  const handleCommunityRowClick = (school) => {
-    navigate(`/beneficiary/school/${school.id}`);
-  };
+  const handleCommunityRowClick = (row, type) => {
+    if (type === 'mother') {
+      const school = communities.find((comm) => comm.name === row.community);
+      if (school) {
+        navigate(`/beneficiary/school/${school.id}`);
+      }
+      return;
+    }
 
-  const handleGroupRowClick = (group) => {
-    navigate(`/beneficiary/group/${group.id}`);
+    if (type === 'child') {
+      navigate(`/beneficiary/group/${row.id}`);
+    }
   };
 
   const filteredData = useMemo(() => {
@@ -242,24 +299,32 @@ export default function BeneficiaryPage() {
       );
     }
 
-    // groups tab: search both child (name) and mother (community)
+    // groups tab: search child and mother name and keep all-view sorting by status
     let groupSet = groups;
-    if (selectedCommunityFilter) {
-      groupSet = groupSet.filter((g) => g.community === selectedCommunityFilter);
+    if (selectedStatusFilter !== 'All') {
+      groupSet = groupSet.filter((g) => getGroupStatusByProgress(g) === selectedStatusFilter);
     }
-    if (selectedBatchFilter) {
-      groupSet = groupSet.filter((g) => (g.assignedBatchIds || []).includes(selectedBatchFilter));
+
+    if (term) {
+      groupSet = groupSet.filter(
+        (g) =>
+          g.name.toLowerCase().includes(term) ||
+          (g.community || '').toLowerCase().includes(term)
+      );
     }
-    if (!term) return groupSet;
-    return groupSet.filter(
-      (g) =>
-        g.name.toLowerCase().includes(term) ||
-        (g.community || '').toLowerCase().includes(term) ||
-        g.id.toLowerCase().includes(term) ||
-        g.leader.toLowerCase().includes(term) ||
-        g.status.toLowerCase().includes(term)
-    );
-  }, [activeTab, query, communities, batches, groups]);
+
+    if (selectedStatusFilter === 'All') {
+      const statusOrder = { Missing: 0, Pending: 1, Done: 2 };
+      groupSet = [...groupSet].sort((a, b) => {
+        const statusA = statusOrder[getGroupStatusByProgress(a)];
+        const statusB = statusOrder[getGroupStatusByProgress(b)];
+        if (statusA !== statusB) return statusA - statusB;
+        return a.name.localeCompare(b.name);
+      });
+    }
+
+    return groupSet;
+  }, [activeTab, query, communities, batches, groups, selectedStatusFilter]);
 
   const currentFilteredData =
     groupId && activeTab === 'batches' ? selectedGroupBatches :
@@ -717,9 +782,16 @@ export default function BeneficiaryPage() {
         <div className="community-title-section">
           <h1>Beneficiary</h1>
           <nav className="community-breadcrumb" aria-label="Breadcrumb">
-            <span className="breadcrumb-item">
-              <span className="breadcrumb-current">Mother</span>
-            </span>
+            {breadcrumbItems.map((item, index) => (
+              <span key={`${item.label}-${index}`} className="breadcrumb-item">
+                {item.clickable ? (
+                  <button type="button" className="breadcrumb-link">{item.label}</button>
+                ) : (
+                  <span className="breadcrumb-current">{item.label}</span>
+                )}
+                {index < breadcrumbItems.length - 1 && <span className="breadcrumb-separator">›</span>}
+              </span>
+            ))}
           </nav>
         </div>
         <div className="create-menu-wrapper">
@@ -741,32 +813,23 @@ export default function BeneficiaryPage() {
       </header>
 
       <section className="tabs-row">
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <select
-            value={selectedCommunityFilter}
-            onChange={(e) => { setSelectedCommunityFilter(e.target.value); setPage(1); }}
-            aria-label="Filter by community"
-            className="search-input-field"
-            style={{ width: 180 }}
-          >
-            <option value="">All Communities</option>
-            {communities.map((c) => (
-              <option key={c.id} value={c.name}>{c.name}</option>
-            ))}
-          </select>
-
-          <select
-            value={selectedBatchFilter}
-            onChange={(e) => { setSelectedBatchFilter(e.target.value); setPage(1); }}
-            aria-label="Filter by batch"
-            className="search-input-field"
-            style={{ width: 220 }}
-          >
-            <option value="">All Batches</option>
-            {batches.map((b) => (
-              <option key={b.id} value={b.id}>{b.name} — {b.community}</option>
-            ))}
-          </select>
+        <div className="tabs-list" role="tablist" aria-label="Beneficiary status filter">
+          {STATUS_OPTIONS.map(({ key, label, icon: Icon }) => (
+            <button
+              key={key}
+              role="tab"
+              aria-selected={selectedStatusFilter === key}
+              type="button"
+              className={`tab-btn${selectedStatusFilter === key ? ' active' : ''}`}
+              onClick={() => {
+                setSelectedStatusFilter(key);
+                setPage(1);
+              }}
+            >
+              <Icon />
+              <span>{label}</span>
+            </button>
+          ))}
         </div>
         <div className="search-container">
           <SearchIcon />
@@ -789,8 +852,10 @@ export default function BeneficiaryPage() {
         perPage={perPage}
         handlePerPageChange={handlePerPageChange}
         renderPaginationButtons={renderPaginationButtons}
-        onCommunityRowClick={handleGroupRowClick}
+        onCommunityRowClick={handleCommunityRowClick}
         motherProgressByName={motherProgressByName}
+        communities={communities}
+        batches={batches}
       />
 
       <CreateCommunityModal
