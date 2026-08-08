@@ -1326,21 +1326,18 @@ export default function BeneficiaryPage() {
 
       {isCreateMother ? (
         <section className="tabs-row create-view">
-          <div className="stepper-progress">
-            <div className="stepper-bar" aria-hidden>
-              <div className="stepper-bar-fill" style={{ width: `${createProgressPercent}%` }} />
-            </div>
-              <div className="stepper-steps" role="tablist">
+              <div className="stepper" role="tablist" aria-label="Create steps">
                 {CREATE_STEPS.map((s, i) => {
                   const label = s === 'general' ? 'General' : s === 'prenatal' ? 'Prenatal/OB' : s === 'medical_dental' ? 'Medical & Dental' : 'Vaccine';
                   const isActive = createActiveTab === s;
+                  const isCompleted = i < createActiveIndex;
                   return (
                     <button
                       key={s}
                       type="button"
                       role="tab"
                       aria-selected={isActive}
-                      className={`stepper-step ${isActive ? 'active' : ''}`}
+                      className={`stepper-step ${isCompleted ? 'completed' : ''} ${isActive ? 'active' : ''}`}
                       onClick={() => setCreateActiveTab(s)}
                     >
                       <span className="stepper-step-index">{i + 1}</span>
@@ -1349,7 +1346,6 @@ export default function BeneficiaryPage() {
                   );
                 })}
               </div>
-
           <div className="create-form-body">
             <form onSubmit={handleCreateCommunity}>
               <div className="modal-body-scrollable">
