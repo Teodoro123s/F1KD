@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import BeneficiaryTable from './BeneficiaryTable';
 import {
   CreateCommunityModal,
@@ -9,6 +10,7 @@ import {
   CreateGroupModal,
   EditGroupModal,
 } from './BeneficiaryModals';
+import { MotherFormFields } from './BeneficiaryModals';
 import {
   SearchIcon,
   PlusIcon,
@@ -20,20 +22,155 @@ import {
   StatusDoneIcon,
 } from './BeneficiaryIcons';
 
+const makeMockMother = (id, name, area, progress, batches, records, override = {}) => {
+  const parts = name.split(' ');
+  const firstName = parts[0];
+  const lastName = parts[parts.length - 1];
+  const middleName = parts.length > 2 ? parts[1] : 'Dela Cruz';
+  
+  const idNum = parseInt(id.split('-')[1], 10);
+  const isHighRisk = override.isHighRisk || (idNum % 5 === 0 ? 'Yes' : 'No');
+  
+  // LMP date some months ago
+  const lmpDaysAgo = 60 + (idNum % 5) * 30;
+  const lmpDateObj = new Date();
+  lmpDateObj.setDate(lmpDateObj.getDate() - lmpDaysAgo);
+  const lmpDate = lmpDateObj.toISOString().split('T')[0];
+  
+  const eddDateObj = new Date(lmpDateObj.getTime() + 280 * 24 * 60 * 60 * 1000);
+  const eddDate = eddDateObj.toISOString().split('T')[0];
+
+  const dobYear = 1990 + (idNum % 10);
+  const dobMonth = String((idNum % 12) + 1).padStart(2, '0');
+  const dobDay = String((idNum % 28) + 1).padStart(2, '0');
+  const dob = `${dobYear}-${dobMonth}-${dobDay}`;
+
+  const prenatalRegDateObj = new Date(lmpDateObj.getTime() + 45 * 24 * 60 * 60 * 1000);
+  const prenatalRegDate = prenatalRegDateObj.toISOString().split('T')[0];
+  
+  const trimesters = ['1st Trimester', '2nd Trimester', '3rd Trimester'];
+  const trimester = trimesters[idNum % 3];
+
+  const obHistory = [
+    { event: 'G1', gestationalAge: '39 weeks', outcome: 'Normal Vaginal Delivery, Healthy baby' },
+    { event: 'G2', gestationalAge: '', outcome: '' },
+    { event: 'G3', gestationalAge: '', outcome: '' },
+    { event: 'G4', gestationalAge: '', outcome: '' },
+    { event: 'G5', gestationalAge: '', outcome: '' },
+    { event: 'G6', gestationalAge: '', outcome: '' },
+    { event: 'G7', gestationalAge: '', outcome: '' }
+  ];
+
+  return {
+    id,
+    name,
+    firstName,
+    middleName,
+    lastName,
+    suffix: '',
+    motherId: `M-2026-${String(idNum).padStart(4, '0')}`,
+    weight: String(50 + (idNum % 15)),
+    height: String(150 + (idNum % 12)),
+    dob,
+    lmpDate,
+    eddDate,
+    contactNumber: `0917${String(1234567 + idNum * 99).padEnd(7, '0')}`,
+    isHighRisk,
+    programType: 'Maternal Health Program',
+    emergencyName: `Juan ${lastName}`,
+    emergencyContact: `0918${String(7654321 - idNum * 99).padEnd(7, '0')}`,
+    emergencyRelationship: 'Husband',
+    spouseName: `Juan ${lastName}`,
+    address: `${10 + idNum} Mabini St, Barangay ${area}, Province`,
+    
+    // Prenatal
+    prenatalRegDate,
+    trimester,
+    gestationalAge: String(8 + (idNum % 8)),
+    prenatalWeight: String(49 + (idNum % 15)),
+    prenatalBp: idNum % 4 === 0 ? '130/90' : '110/70',
+    prenatalHeight: String(150 + (idNum % 12)),
+    fundalHeight: String(12 + (idNum % 6)),
+    fhr: String(140 + (idNum % 10)),
+
+    // OB
+    gravida: String(1 + (idNum % 3)),
+    para: String(idNum % 3),
+    abortion: '0',
+    stillbirth: '0',
+    obHistory,
+
+    // Medical Conditions
+    medicalConditions: {
+      hypertension: idNum % 4 === 0,
+      diabetes: idNum % 6 === 0,
+      asthma: idNum % 7 === 0,
+      heartDisease: false,
+      kidneyDisease: false,
+      epilepsy: false,
+      goiter: false,
+      tuberculosis: false,
+      cancer: false,
+      std: false,
+      multiplePregnancy: false,
+      prevCesarean: idNum % 5 === 0
+    },
+    otherMedicalHistory: idNum % 7 === 0 ? 'Asthma controlled' : 'None',
+
+    // Dental Health
+    dentalCheckupDate: prenatalRegDate,
+    dentalFacility: `${area} Health Center`,
+    dentistInCharge: 'Dr. Santos Dela Cruz',
+    communityDentist: 'Dr. Santos Dela Cruz',
+    dentistLicense: 'LIC-789012',
+    dentistContact: '09201234567',
+    teethCount: '28',
+    dentalFindings: 'Normal check-up',
+    dentalWork: {
+      tartarRemoval: idNum % 3 === 0,
+      filling: false,
+      cleaning: true,
+      extraction: false,
+      rootCanal: false,
+      other: false
+    },
+    dentalRemarks: 'Keep brushing twice daily.',
+
+    // Vaccines
+    tt1Date: lmpDate,
+    tt1Remarks: 'Dose 1',
+    tt2Date: prenatalRegDate,
+    tt2Remarks: 'Dose 2',
+    tt3Date: '',
+    tt3Remarks: '',
+    tt4Date: '',
+    tt4Remarks: '',
+    tt5Date: '',
+    tt5Remarks: '',
+
+    area,
+    batches,
+    records,
+    progress,
+    ...override
+  };
+};
+
 const initialCommunityData = [
-  { id: 'SCH-0001', name: 'Maria Santos', area: 'Poblacion', batches: 2, records: 3, progress: 72 },
-  { id: 'SCH-0002', name: 'Liza Reyes', area: 'Poblacion', batches: 1, records: 2, progress: 58 },
-  { id: 'SCH-0003', name: 'Ana Cruz', area: 'Poblacion', batches: 2, records: 4, progress: 84 },
-  { id: 'SCH-0004', name: 'Teresa Gomez', area: 'Upland', batches: 3, records: 8, progress: 65 },
-  { id: 'SCH-0005', name: 'Isabel Mendoza', area: 'Downtown', batches: 4, records: 12, progress: 91 },
-  { id: 'SCH-0006', name: 'Clara dela Cruz', area: 'Coastal', batches: 1, records: 5, progress: 48 },
-  { id: 'SCH-0007', name: 'Lucia Rivera', area: 'Riverside', batches: 2, records: 7, progress: 77 },
-  { id: 'SCH-0008', name: 'Rosa Fernandez', area: 'Highland', batches: 2, records: 6, progress: 69 },
-  { id: 'SCH-0009', name: 'Elena Mercado', area: 'Forest', batches: 1, records: 3, progress: 55 },
-  { id: 'SCH-0010', name: 'Nora Santos', area: 'Lowland', batches: 5, records: 18, progress: 95 },
-  { id: 'SCH-0011', name: 'May Torres', area: 'Coastal', batches: 1, records: 2, progress: 38 },
-  { id: 'SCH-0012', name: 'Gloria Diaz', area: 'Highland', batches: 3, records: 9, progress: 82 },
+  makeMockMother('SCH-0001', 'Maria Santos', 'Poblacion', 72, 2, 3),
+  makeMockMother('SCH-0002', 'Liza Reyes', 'Poblacion', 58, 1, 2),
+  makeMockMother('SCH-0003', 'Ana Cruz', 'Poblacion', 84, 2, 4),
+  makeMockMother('SCH-0004', 'Teresa Gomez', 'Upland', 65, 3, 8),
+  makeMockMother('SCH-0005', 'Isabel Mendoza', 'Downtown', 91, 4, 12),
+  makeMockMother('SCH-0006', 'Clara dela Cruz', 'Coastal', 48, 1, 5),
+  makeMockMother('SCH-0007', 'Lucia Rivera', 'Riverside', 77, 2, 7),
+  makeMockMother('SCH-0008', 'Rosa Fernandez', 'Highland', 69, 2, 6),
+  makeMockMother('SCH-0009', 'Elena Mercado', 'Forest', 55, 1, 3),
+  makeMockMother('SCH-0010', 'Nora Santos', 'Lowland', 95, 5, 18),
+  makeMockMother('SCH-0011', 'May Torres', 'Coastal', 38, 1, 2),
+  makeMockMother('SCH-0012', 'Gloria Diaz', 'Highland', 82, 3, 9),
 ];
+
 
 const initialBatchesData = [
   { id: 'BAT-0001', name: 'Health Visit 1', community: 'Maria Santos', records: 2, progress: 68, status: 'Active' },
@@ -125,23 +262,117 @@ export default function BeneficiaryPage() {
   const [createDropdownOpen, setCreateDropdownOpen] = useState(false);
   const [showModal, setShowModal] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [beneficiaryView, setBeneficiaryView] = useState('list'); // 'list', 'create_mother', 'edit_mother'
+  const [activeFormTab, setActiveFormTab] = useState('general');
+
+  const formTabList = [
+    { id: 'general', label: '1. General Info' },
+    { id: 'prenatal', label: '2. Prenatal & OB' },
+    { id: 'medical_dental', label: '3. Medical & Dental' },
+    { id: 'vaccine', label: '4. Vaccine Record' }
+  ];
+
+  const handleFormNext = () => {
+    if (activeFormTab === 'general') {
+      setActiveFormTab('prenatal');
+    } else if (activeFormTab === 'prenatal') {
+      setActiveFormTab('medical_dental');
+    } else if (activeFormTab === 'medical_dental') {
+      setActiveFormTab('vaccine');
+    }
+  };
+
+  const handleFormBack = () => {
+    if (activeFormTab === 'vaccine') {
+      setActiveFormTab('medical_dental');
+    } else if (activeFormTab === 'medical_dental') {
+      setActiveFormTab('prenatal');
+    } else if (activeFormTab === 'prenatal') {
+      setActiveFormTab('general');
+    }
+  };
 
   const [communityForm, setCommunityForm] = useState({
     firstName: '',
     middleName: '',
     lastName: '',
     suffix: '',
+    motherId: '',
+    weight: '',
+    height: '',
     dob: '',
-    contactNumber: '',
     lmpDate: '',
+    eddDate: '',
+    contactNumber: '',
+    isHighRisk: 'No',
+    programType: 'Maternal Health Program',
+    emergencyName: '',
+    emergencyContact: '',
+    emergencyRelationship: '',
+    spouseName: '',
     address: '',
+    prenatalRegDate: '',
+    trimester: '1st Trimester',
+    gestationalAge: '',
+    prenatalWeight: '',
+    prenatalBp: '',
+    prenatalHeight: '',
+    fundalHeight: '',
+    fhr: '',
+    gravida: '',
+    para: '',
+    abortion: '',
+    stillbirth: '',
+    obHistory: [
+      { event: 'G1', gestationalAge: '', outcome: '' },
+      { event: 'G2', gestationalAge: '', outcome: '' },
+      { event: 'G3', gestationalAge: '', outcome: '' },
+      { event: 'G4', gestationalAge: '', outcome: '' },
+      { event: 'G5', gestationalAge: '', outcome: '' },
+      { event: 'G6', gestationalAge: '', outcome: '' },
+      { event: 'G7', gestationalAge: '', outcome: '' },
+    ],
+    medicalConditions: {
+      hypertension: false,
+      diabetes: false,
+      asthma: false,
+      heartDisease: false,
+      kidneyDisease: false,
+      epilepsy: false,
+      goiter: false,
+      tuberculosis: false,
+      cancer: false,
+      std: false,
+      multiplePregnancy: false,
+      prevCesarean: false,
+    },
+    otherMedicalHistory: '',
+    dentalCheckupDate: '',
+    dentalFacility: '',
+    dentistInCharge: '',
+    communityDentist: '',
+    dentistLicense: '',
+    dentistContact: '',
+    teethCount: '',
+    dentalFindings: '',
+    dentalWork: {
+      tartarRemoval: false,
+      filling: false,
+      cleaning: false,
+      extraction: false,
+      rootCanal: false,
+      other: false,
+    },
+    dentalRemarks: '',
+    tt1Date: '', tt1Remarks: '',
+    tt2Date: '', tt2Remarks: '',
+    tt3Date: '', tt3Remarks: '',
+    tt4Date: '', tt4Remarks: '',
+    tt5Date: '', tt5Remarks: '',
+    area: 'Poblacion',
     community: '',
     group: '',
     batch: '',
-    height: '',
-    weight: '',
-    medicalHistory: '',
-    area: 'Poblacion',
   });
   const [groupForm, setGroupForm] = useState({
     firstName: '',
@@ -164,6 +395,7 @@ export default function BeneficiaryPage() {
 
   const navigate = useNavigate();
   const { schoolId, groupId } = useParams();
+  const location = useLocation();
 
   const selectedSchool = useMemo(
     () => communities.find((comm) => comm.id === schoolId),
@@ -187,7 +419,15 @@ export default function BeneficiaryPage() {
 
   const breadcrumbItems = useMemo(() => {
     const items = [{ label: 'Beneficiary', clickable: false }];
-    if (selectedSchool) {
+    const path = location?.pathname || '';
+
+    if (path.includes('/beneficiary/create/mother')) {
+      items.push({ label: 'Mother', clickable: false });
+      items.push({ label: 'Create', clickable: false });
+    } else if (path.includes('/beneficiary/create/child')) {
+      items.push({ label: 'Child', clickable: false });
+      items.push({ label: 'Create', clickable: false });
+    } else if (selectedSchool) {
       items.push({ label: 'Mother', clickable: false });
       items.push({ label: selectedSchool.name, clickable: false });
     } else if (selectedGroup) {
@@ -197,7 +437,7 @@ export default function BeneficiaryPage() {
       items.push({ label: 'Mother', clickable: false });
     }
     return items;
-  }, [selectedSchool, selectedGroup]);
+  }, [location?.pathname, selectedSchool, selectedGroup]);
 
   const selectedSchoolGroups = useMemo(() => {
     if (!selectedSchool) return [];
@@ -387,19 +627,85 @@ export default function BeneficiaryPage() {
       firstName: '',
       middleName: '',
       lastName: '',
+      suffix: '',
+      motherId: '',
+      weight: '',
+      height: '',
       dob: '',
-      contactNumber: '',
       lmpDate: '',
+      eddDate: '',
+      contactNumber: '',
+      isHighRisk: 'No',
+      programType: 'Maternal Health Program',
+      emergencyName: '',
+      emergencyContact: '',
+      emergencyRelationship: '',
+      spouseName: '',
       address: '',
+      prenatalRegDate: '',
+      trimester: '1st Trimester',
+      gestationalAge: '',
+      prenatalWeight: '',
+      prenatalBp: '',
+      prenatalHeight: '',
+      fundalHeight: '',
+      fhr: '',
+      gravida: '',
+      para: '',
+      abortion: '',
+      stillbirth: '',
+      obHistory: [
+        { event: 'G1', gestationalAge: '', outcome: '' },
+        { event: 'G2', gestationalAge: '', outcome: '' },
+        { event: 'G3', gestationalAge: '', outcome: '' },
+        { event: 'G4', gestationalAge: '', outcome: '' },
+        { event: 'G5', gestationalAge: '', outcome: '' },
+        { event: 'G6', gestationalAge: '', outcome: '' },
+        { event: 'G7', gestationalAge: '', outcome: '' },
+      ],
+      medicalConditions: {
+        hypertension: false,
+        diabetes: false,
+        asthma: false,
+        heartDisease: false,
+        kidneyDisease: false,
+        epilepsy: false,
+        goiter: false,
+        tuberculosis: false,
+        cancer: false,
+        std: false,
+        multiplePregnancy: false,
+        prevCesarean: false,
+      },
+      otherMedicalHistory: '',
+      dentalCheckupDate: '',
+      dentalFacility: '',
+      dentistInCharge: '',
+      communityDentist: '',
+      dentistLicense: '',
+      dentistContact: '',
+      teethCount: '',
+      dentalFindings: '',
+      dentalWork: {
+        tartarRemoval: false,
+        filling: false,
+        cleaning: false,
+        extraction: false,
+        rootCanal: false,
+        other: false,
+      },
+      dentalRemarks: '',
+      tt1Date: '', tt1Remarks: '',
+      tt2Date: '', tt2Remarks: '',
+      tt3Date: '', tt3Remarks: '',
+      tt4Date: '', tt4Remarks: '',
+      tt5Date: '', tt5Remarks: '',
+      area: 'Poblacion',
       community: communities[0]?.name || '',
       group: groups[0]?.name || '',
       batch: batches[0]?.name || '',
-      height: '',
-      weight: '',
-      medicalHistory: '',
-      area: 'Poblacion',
     });
-    setShowModal('createCommunity');
+    navigate('/beneficiary/create/mother');
   };
 
   const openCreateChild = () => {
@@ -421,14 +727,109 @@ export default function BeneficiaryPage() {
       members: 1,
       status: 'Active',
     });
-    setShowModal('createGroup');
+    navigate('/beneficiary/create/child');
+  };
+
+  const isCreateMother = location.pathname.includes('/beneficiary/create/mother');
+  const isCreateChild = location.pathname.includes('/beneficiary/create/child');
+  const [createActiveTab, setCreateActiveTab] = useState('general');
+
+  const openEditMother = (mother) => {
+    setSelectedItem(mother);
+    setCommunityForm({
+      firstName: mother.firstName || '',
+      middleName: mother.middleName || '',
+      lastName: mother.lastName || '',
+      suffix: mother.suffix || '',
+      motherId: mother.motherId || '',
+      weight: mother.weight || '',
+      height: mother.height || '',
+      dob: mother.dob || '',
+      lmpDate: mother.lmpDate || '',
+      eddDate: mother.eddDate || '',
+      contactNumber: mother.contactNumber || '',
+      isHighRisk: mother.isHighRisk || 'No',
+      programType: mother.programType || 'Maternal Health Program',
+      emergencyName: mother.emergencyName || '',
+      emergencyContact: mother.emergencyContact || '',
+      emergencyRelationship: mother.emergencyRelationship || '',
+      spouseName: mother.spouseName || '',
+      address: mother.address || '',
+      prenatalRegDate: mother.prenatalRegDate || '',
+      trimester: mother.trimester || '1st Trimester',
+      gestationalAge: mother.gestationalAge || '',
+      prenatalWeight: mother.prenatalWeight || '',
+      prenatalBp: mother.prenatalBp || '',
+      prenatalHeight: mother.prenatalHeight || '',
+      fundalHeight: mother.fundalHeight || '',
+      fhr: mother.fhr || '',
+      gravida: mother.gravida || '',
+      para: mother.para || '',
+      abortion: mother.abortion || '',
+      stillbirth: mother.stillbirth || '',
+      obHistory: mother.obHistory || [
+        { event: 'G1', gestationalAge: '', outcome: '' },
+        { event: 'G2', gestationalAge: '', outcome: '' },
+        { event: 'G3', gestationalAge: '', outcome: '' },
+        { event: 'G4', gestationalAge: '', outcome: '' },
+        { event: 'G5', gestationalAge: '', outcome: '' },
+        { event: 'G6', gestationalAge: '', outcome: '' },
+        { event: 'G7', gestationalAge: '', outcome: '' },
+      ],
+      medicalConditions: mother.medicalConditions || {
+        hypertension: false,
+        diabetes: false,
+        asthma: false,
+        heartDisease: false,
+        kidneyDisease: false,
+        epilepsy: false,
+        goiter: false,
+        tuberculosis: false,
+        cancer: false,
+        std: false,
+        multiplePregnancy: false,
+        prevCesarean: false,
+      },
+      otherMedicalHistory: mother.otherMedicalHistory || '',
+      dentalCheckupDate: mother.dentalCheckupDate || '',
+      dentalFacility: mother.dentalFacility || '',
+      dentistInCharge: mother.dentistInCharge || '',
+      communityDentist: mother.communityDentist || '',
+      dentistLicense: mother.dentistLicense || '',
+      dentistContact: mother.dentistContact || '',
+      teethCount: mother.teethCount || '',
+      dentalFindings: mother.dentalFindings || '',
+      dentalWork: mother.dentalWork || {
+        tartarRemoval: false,
+        filling: false,
+        cleaning: false,
+        extraction: false,
+        rootCanal: false,
+        other: false,
+      },
+      dentalRemarks: mother.dentalRemarks || '',
+      tt1Date: mother.tt1Date || '',
+      tt1Remarks: mother.tt1Remarks || '',
+      tt2Date: mother.tt2Date || '',
+      tt2Remarks: mother.tt2Remarks || '',
+      tt3Date: mother.tt3Date || '',
+      tt3Remarks: mother.tt3Remarks || '',
+      tt4Date: mother.tt4Date || '',
+      tt4Remarks: mother.tt4Remarks || '',
+      tt5Date: mother.tt5Date || '',
+      tt5Remarks: mother.tt5Remarks || '',
+      area: mother.area || 'Poblacion',
+      community: mother.community || '',
+      group: mother.group || '',
+      batch: mother.batch || '',
+    });
+    setShowModal('editCommunity');
   };
 
   const openEditModal = (item) => {
     setSelectedItem(item);
     if (activeTab === 'communities') {
-      setCommunityForm({ name: item.name, area: item.area });
-      setShowModal('editCommunity');
+      openEditMother(item);
       return;
     }
 
@@ -474,22 +875,67 @@ export default function BeneficiaryPage() {
       return num > max ? num : max;
     }, 0);
 
+    const fullName = `${communityForm.firstName.trim()} ${communityForm.middleName.trim()} ${communityForm.lastName.trim()} ${communityForm.suffix.trim()}`
+      .replace(/\s+/g, ' ')
+      .trim();
+
     const newCommunity = {
       id: `COM-${String(currentMaxId + 1).padStart(4, '0')}`,
-      name: `${communityForm.firstName.trim()} ${communityForm.middleName.trim()} ${communityForm.lastName.trim()} ${communityForm.suffix.trim()}`.replace(/\s+/g, ' ').trim(),
-      area: communityForm.area,
+      name: fullName,
       firstName: communityForm.firstName.trim(),
       middleName: communityForm.middleName.trim(),
       lastName: communityForm.lastName.trim(),
       suffix: communityForm.suffix.trim(),
-      lmpDate: communityForm.lmpDate,
-      address: communityForm.address,
-      community: communityForm.community,
-      group: communityForm.group,
-      batch: communityForm.batch,
-      height: communityForm.height,
+      motherId: communityForm.motherId,
       weight: communityForm.weight,
-      medicalHistory: communityForm.medicalHistory,
+      height: communityForm.height,
+      dob: communityForm.dob,
+      lmpDate: communityForm.lmpDate,
+      eddDate: communityForm.eddDate,
+      contactNumber: communityForm.contactNumber,
+      isHighRisk: communityForm.isHighRisk,
+      programType: communityForm.programType,
+      emergencyName: communityForm.emergencyName,
+      emergencyContact: communityForm.emergencyContact,
+      emergencyRelationship: communityForm.emergencyRelationship,
+      spouseName: communityForm.spouseName,
+      address: communityForm.address,
+      prenatalRegDate: communityForm.prenatalRegDate,
+      trimester: communityForm.trimester,
+      gestationalAge: communityForm.gestationalAge,
+      prenatalWeight: communityForm.prenatalWeight,
+      prenatalBp: communityForm.prenatalBp,
+      prenatalHeight: communityForm.prenatalHeight,
+      fundalHeight: communityForm.fundalHeight,
+      fhr: communityForm.fhr,
+      gravida: communityForm.gravida,
+      para: communityForm.para,
+      abortion: communityForm.abortion,
+      stillbirth: communityForm.stillbirth,
+      obHistory: communityForm.obHistory,
+      medicalConditions: communityForm.medicalConditions,
+      otherMedicalHistory: communityForm.otherMedicalHistory,
+      dentalCheckupDate: communityForm.dentalCheckupDate,
+      dentalFacility: communityForm.dentalFacility,
+      dentistInCharge: communityForm.dentistInCharge,
+      communityDentist: communityForm.communityDentist,
+      dentistLicense: communityForm.dentistLicense,
+      dentistContact: communityForm.dentistContact,
+      teethCount: communityForm.teethCount,
+      dentalFindings: communityForm.dentalFindings,
+      dentalWork: communityForm.dentalWork,
+      dentalRemarks: communityForm.dentalRemarks,
+      tt1Date: communityForm.tt1Date,
+      tt1Remarks: communityForm.tt1Remarks,
+      tt2Date: communityForm.tt2Date,
+      tt2Remarks: communityForm.tt2Remarks,
+      tt3Date: communityForm.tt3Date,
+      tt3Remarks: communityForm.tt3Remarks,
+      tt4Date: communityForm.tt4Date,
+      tt4Remarks: communityForm.tt4Remarks,
+      tt5Date: communityForm.tt5Date,
+      tt5Remarks: communityForm.tt5Remarks,
+      area: communityForm.area,
       batches: 0,
       records: 0,
       progress: 0,
@@ -497,16 +943,78 @@ export default function BeneficiaryPage() {
 
     setCommunities((prev) => [newCommunity, ...prev]);
     setShowModal(null);
+    if (isCreateMother) navigate('/beneficiary');
   };
 
   const handleEditCommunity = (e) => {
     e.preventDefault();
-    if (!communityForm.name.trim()) return;
+    if (!communityForm.firstName.trim() || !communityForm.lastName.trim()) return;
+
+    const fullName = `${communityForm.firstName.trim()} ${communityForm.middleName.trim()} ${communityForm.lastName.trim()} ${communityForm.suffix.trim()}`
+      .replace(/\s+/g, ' ')
+      .trim();
 
     setCommunities((prev) =>
       prev.map((c) =>
         c.id === selectedItem.id
-          ? { ...c, name: communityForm.name.trim(), area: communityForm.area }
+          ? {
+              ...c,
+              name: fullName,
+              firstName: communityForm.firstName.trim(),
+              middleName: communityForm.middleName.trim(),
+              lastName: communityForm.lastName.trim(),
+              suffix: communityForm.suffix.trim(),
+              motherId: communityForm.motherId,
+              weight: communityForm.weight,
+              height: communityForm.height,
+              dob: communityForm.dob,
+              lmpDate: communityForm.lmpDate,
+              eddDate: communityForm.eddDate,
+              contactNumber: communityForm.contactNumber,
+              isHighRisk: communityForm.isHighRisk,
+              programType: communityForm.programType,
+              emergencyName: communityForm.emergencyName,
+              emergencyContact: communityForm.emergencyContact,
+              emergencyRelationship: communityForm.emergencyRelationship,
+              spouseName: communityForm.spouseName,
+              address: communityForm.address,
+              prenatalRegDate: communityForm.prenatalRegDate,
+              trimester: communityForm.trimester,
+              gestationalAge: communityForm.gestationalAge,
+              prenatalWeight: communityForm.prenatalWeight,
+              prenatalBp: communityForm.prenatalBp,
+              prenatalHeight: communityForm.prenatalHeight,
+              fundalHeight: communityForm.fundalHeight,
+              fhr: communityForm.fhr,
+              gravida: communityForm.gravida,
+              para: communityForm.para,
+              abortion: communityForm.abortion,
+              stillbirth: communityForm.stillbirth,
+              obHistory: communityForm.obHistory,
+              medicalConditions: communityForm.medicalConditions,
+              otherMedicalHistory: communityForm.otherMedicalHistory,
+              dentalCheckupDate: communityForm.dentalCheckupDate,
+              dentalFacility: communityForm.dentalFacility,
+              dentistInCharge: communityForm.dentistInCharge,
+              communityDentist: communityForm.communityDentist,
+              dentistLicense: communityForm.dentistLicense,
+              dentistContact: communityForm.dentistContact,
+              teethCount: communityForm.teethCount,
+              dentalFindings: communityForm.dentalFindings,
+              dentalWork: communityForm.dentalWork,
+              dentalRemarks: communityForm.dentalRemarks,
+              tt1Date: communityForm.tt1Date,
+              tt1Remarks: communityForm.tt1Remarks,
+              tt2Date: communityForm.tt2Date,
+              tt2Remarks: communityForm.tt2Remarks,
+              tt3Date: communityForm.tt3Date,
+              tt3Remarks: communityForm.tt3Remarks,
+              tt4Date: communityForm.tt4Date,
+              tt4Remarks: communityForm.tt4Remarks,
+              tt5Date: communityForm.tt5Date,
+              tt5Remarks: communityForm.tt5Remarks,
+              area: communityForm.area,
+            }
           : c
       )
     );
@@ -600,6 +1108,7 @@ export default function BeneficiaryPage() {
 
     setGroups((prev) => [newGroup, ...prev]);
     setShowModal(null);
+    if (isCreateChild) navigate('/beneficiary');
   };
 
   const handleEditGroup = (e) => {
@@ -812,51 +1321,415 @@ export default function BeneficiaryPage() {
         </div>
       </header>
 
-      <section className="tabs-row">
-        <div className="tabs-list" role="tablist" aria-label="Beneficiary status filter">
-          {STATUS_OPTIONS.map(({ key, label, icon: Icon }) => (
-            <button
-              key={key}
-              role="tab"
-              aria-selected={selectedStatusFilter === key}
-              type="button"
-              className={`tab-btn${selectedStatusFilter === key ? ' active' : ''}`}
-              onClick={() => {
-                setSelectedStatusFilter(key);
-                setPage(1);
-              }}
-            >
-              <Icon />
-              <span>{label}</span>
-            </button>
-          ))}
-        </div>
-        <div className="search-container">
-          <SearchIcon />
-          <input
-            type="text"
-            className="search-input-field"
-            placeholder="Search child name..."
-            value={query}
-            onChange={(e) => handleSearch(e.target.value)}
-            aria-label="Search items"
-          />
-        </div>
-      </section>
+      {isCreateMother ? (
+        <section className="tabs-row create-view">
+          <div className="modal-tabs-header">
+            {[
+              { id: 'general', label: '1. General Info' },
+              { id: 'prenatal', label: '2. Prenatal & OB' },
+              { id: 'medical_dental', label: '3. Medical & Dental' },
+              { id: 'vaccine', label: '4. Vaccine Record' }
+            ].map(tab => (
+              <button
+                key={tab.id}
+                type="button"
+                className={`modal-tab-btn ${createActiveTab === tab.id ? 'active' : ''}`}
+                onClick={() => setCreateActiveTab(tab.id)}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
 
-      <BeneficiaryTable
-        currentRows={displayRows}
-        filteredDataLength={displayLength}
-        rangeStart={displayRangeStart}
-        rangeEnd={displayRangeEnd}
-        perPage={perPage}
-        handlePerPageChange={handlePerPageChange}
-        renderPaginationButtons={renderPaginationButtons}
-        onCommunityRowClick={handleCommunityRowClick}
-        motherProgressByName={motherProgressByName}
-        communities={communities}
-        batches={batches}
-      />
+          <div className="create-form-body">
+            <form onSubmit={handleCreateCommunity}>
+              <div className="modal-body-scrollable">
+                <MotherFormFields
+                  activeTab={createActiveTab}
+                  form={communityForm}
+                  setForm={setCommunityForm}
+                  communities={communities}
+                  groups={groups}
+                  batches={batches}
+                />
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn-secondary" onClick={() => navigate('/beneficiary')}>Cancel</button>
+                {createActiveTab !== 'general' && (
+                  <button type="button" className="btn-secondary btn-back" onClick={() => {
+                    if (createActiveTab === 'vaccine') setCreateActiveTab('medical_dental');
+                    else if (createActiveTab === 'medical_dental') setCreateActiveTab('prenatal');
+                    else setCreateActiveTab('general');
+                  }}>Back</button>
+                )}
+                {createActiveTab !== 'vaccine' ? (
+                  <button type="button" className="btn-primary btn-next" onClick={() => {
+                    if (createActiveTab === 'general') setCreateActiveTab('prenatal');
+                    else if (createActiveTab === 'prenatal') setCreateActiveTab('medical_dental');
+                    else if (createActiveTab === 'medical_dental') setCreateActiveTab('vaccine');
+                  }}>Next</button>
+                ) : (
+                  <button type="submit" className="btn-primary">Create</button>
+                )}
+              </div>
+            </form>
+          </div>
+        </section>
+      ) : isCreateChild ? (
+        <section className="tabs-row create-view">
+          <div className="create-form-body">
+            <form onSubmit={handleCreateGroup}>
+              <h4 className="form-section-title">Child Information</h4>
+              <div className="form-group narrow-field">
+                <label className="form-label" htmlFor="group-mother">Select Mother</label>
+                <select
+                  id="group-mother"
+                  className="form-select"
+                  value={groupForm.community}
+                  onChange={(e) => setGroupForm({ ...groupForm, community: e.target.value })}
+                  required
+                >
+                  {communities.map((comm) => (
+                    <option key={comm.id} value={comm.name}>{comm.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-row-4 full-width name-row">
+                <div className="form-group">
+                  <label className="form-label" htmlFor="group-first-name">First name</label>
+                  <input id="group-first-name" type="text" className="form-input" placeholder="First name" value={groupForm.firstName} onChange={(e) => setGroupForm({ ...groupForm, firstName: e.target.value })} required autoFocus />
+                </div>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="group-middle-name">Middle name</label>
+                  <input id="group-middle-name" type="text" className="form-input" placeholder="Middle name" value={groupForm.middleName} onChange={(e) => setGroupForm({ ...groupForm, middleName: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="group-last-name">Surname</label>
+                  <input id="group-last-name" type="text" className="form-input" placeholder="Surname" value={groupForm.lastName} onChange={(e) => setGroupForm({ ...groupForm, lastName: e.target.value })} required />
+                </div>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="group-suffix">Suffix</label>
+                  <input id="group-suffix" type="text" className="form-input" placeholder="Suffix" value={groupForm.suffix} onChange={(e) => setGroupForm({ ...groupForm, suffix: e.target.value })} />
+                </div>
+              </div>
+
+              <h4 className="form-section-title">Birth Details</h4>
+              <div className="form-row-4 full-width">
+                <div className="form-group">
+                  <label className="form-label" htmlFor="group-birth-date">Birth date</label>
+                  <input id="group-birth-date" type="date" className="form-input" value={groupForm.birthDate} onChange={(e) => setGroupForm({ ...groupForm, birthDate: e.target.value })} required />
+                </div>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="group-birth-weight">Birth weight</label>
+                  <input id="group-birth-weight" type="text" className="form-input" placeholder="e.g. 3.2 kg" value={groupForm.birthWeight} onChange={(e) => setGroupForm({ ...groupForm, birthWeight: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="group-birth-length">Birth length</label>
+                  <input id="group-birth-length" type="text" className="form-input" placeholder="e.g. 51 cm" value={groupForm.birthLength} onChange={(e) => setGroupForm({ ...groupForm, birthLength: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="group-gender">Gender</label>
+                  <select id="group-gender" className="form-select" value={groupForm.gender} onChange={(e) => setGroupForm({ ...groupForm, gender: e.target.value })} required>
+                    <option value="">Select gender</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button type="button" className="btn-secondary" onClick={() => navigate('/beneficiary')}>Cancel</button>
+                <button type="submit" className="btn-primary">Create</button>
+              </div>
+            </form>
+          </div>
+        </section>
+      ) : (
+        <section className="tabs-row">
+          <div className="tabs-list" role="tablist" aria-label="Beneficiary status filter">
+            {STATUS_OPTIONS.map(({ key, label, icon: Icon }) => (
+              <button
+                key={key}
+                role="tab"
+                aria-selected={selectedStatusFilter === key}
+                type="button"
+                className={`tab-btn${selectedStatusFilter === key ? ' active' : ''}`}
+                onClick={() => {
+                  setSelectedStatusFilter(key);
+                  setPage(1);
+                }}
+              >
+                <Icon />
+                <span>{label}</span>
+              </button>
+            ))}
+          </div>
+          <div className="search-container">
+            <SearchIcon />
+            <input
+              type="text"
+              className="search-input-field"
+              placeholder="Search child name..."
+              value={query}
+              onChange={(e) => handleSearch(e.target.value)}
+              aria-label="Search items"
+            />
+          </div>
+        </section>
+      )}
+
+      {selectedSchool && (
+        <div className="mother-profile-card">
+          <div className="profile-card-header">
+            <div className="profile-header-main">
+              <div className="profile-title-row">
+                <h2>{selectedSchool.name}</h2>
+                {selectedSchool.isHighRisk === 'Yes' && (
+                  <span className="risk-badge high-risk">⚠️ High Risk</span>
+                )}
+                <span className="program-badge">{selectedSchool.programType || 'Maternal Health Program'}</span>
+              </div>
+              <div className="profile-subtitle">
+                <span>Mother ID: <strong>{selectedSchool.motherId || 'N/A'}</strong></span>
+                <span className="separator">•</span>
+                <span>Area: <strong>{selectedSchool.area}</strong></span>
+              </div>
+            </div>
+            <div className="profile-actions">
+              <button type="button" className="btn-secondary btn-edit-profile" onClick={() => openEditMother(selectedSchool)}>
+                Edit Profile
+              </button>
+              <button type="button" className="btn-close-profile" onClick={() => navigate('/beneficiary')} aria-label="Close profile">
+                ✕ Close Profile
+              </button>
+            </div>
+          </div>
+
+          <div className="profile-card-body">
+            {/* Quick Stats Grid */}
+            <div className="stats-grid">
+              <div className="stat-item">
+                <span className="stat-label">Date of Birth</span>
+                <span className="stat-value">{selectedSchool.dob ? new Date(selectedSchool.dob).toLocaleDateString() : 'N/A'}</span>
+              </div>
+              <div className="stat-item">
+                <span className="stat-label">Contact Number</span>
+                <span className="stat-value">{selectedSchool.contactNumber || 'N/A'}</span>
+              </div>
+              <div className="stat-item">
+                <span className="stat-label">LMP Date</span>
+                <span className="stat-value">{selectedSchool.lmpDate ? new Date(selectedSchool.lmpDate).toLocaleDateString() : 'N/A'}</span>
+              </div>
+              <div className="stat-item">
+                <span className="stat-label">EDD Date</span>
+                <span className="stat-value">{selectedSchool.eddDate ? new Date(selectedSchool.eddDate).toLocaleDateString() : 'N/A'}</span>
+              </div>
+              <div className="stat-item">
+                <span className="stat-label">Weight / Height</span>
+                <span className="stat-value">{selectedSchool.weight ? `${selectedSchool.weight} kg` : 'N/A'} / {selectedSchool.height ? `${selectedSchool.height} cm` : 'N/A'}</span>
+              </div>
+            </div>
+
+            {/* Sub-sections Grid */}
+            <div className="profile-details-grid">
+              {/* Emergency & Other Details */}
+              <div className="details-section">
+                <h3>Emergency & Spouse Details</h3>
+                <div className="details-list">
+                  <div className="detail-row">
+                    <span>Emergency Contact:</span>
+                    <strong>{selectedSchool.emergencyName || 'N/A'}</strong>
+                  </div>
+                  <div className="detail-row">
+                    <span>Emergency Relationship:</span>
+                    <strong>{selectedSchool.emergencyRelationship || 'N/A'}</strong>
+                  </div>
+                  <div className="detail-row">
+                    <span>Emergency Number:</span>
+                    <strong>{selectedSchool.emergencyContact || 'N/A'}</strong>
+                  </div>
+                  <div className="detail-row">
+                    <span>Spouse Name:</span>
+                    <strong>{selectedSchool.spouseName || 'N/A'}</strong>
+                  </div>
+                  <div className="detail-row">
+                    <span>Address:</span>
+                    <strong>{selectedSchool.address || 'N/A'}</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Initial Prenatal Assessment */}
+              <div className="details-section">
+                <h3>Initial Prenatal Assessment</h3>
+                <div className="details-list">
+                  <div className="detail-row">
+                    <span>Prenatal Reg Date:</span>
+                    <strong>{selectedSchool.prenatalRegDate ? new Date(selectedSchool.prenatalRegDate).toLocaleDateString() : 'N/A'}</strong>
+                  </div>
+                  <div className="detail-row">
+                    <span>Trimester / Gest. Age:</span>
+                    <strong>{selectedSchool.trimester || 'N/A'} ({selectedSchool.gestationalAge || 'N/A'} weeks)</strong>
+                  </div>
+                  <div className="detail-row">
+                    <span>Blood Pressure (BP):</span>
+                    <strong>{selectedSchool.prenatalBp || 'N/A'}</strong>
+                  </div>
+                  <div className="detail-row">
+                    <span>Fundal Height / FHR:</span>
+                    <strong>{selectedSchool.fundalHeight ? `${selectedSchool.fundalHeight} cm` : 'N/A'} / {selectedSchool.fhr ? `${selectedSchool.fhr} bpm` : 'N/A'}</strong>
+                  </div>
+                  <div className="detail-row">
+                    <span>Weight / Height at Reg:</span>
+                    <strong>{selectedSchool.prenatalWeight ? `${selectedSchool.prenatalWeight} kg` : 'N/A'} / {selectedSchool.prenatalHeight ? `${selectedSchool.prenatalHeight} cm` : 'N/A'}</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Obstetric & Obstetric History */}
+              <div className="details-section full-width-col">
+                <h3>Obstetric History & Pregnancies</h3>
+                <div className="ob-stats-row">
+                  <div className="ob-stat">Gravida: <strong>{selectedSchool.gravida || '0'}</strong></div>
+                  <div className="ob-stat">Para: <strong>{selectedSchool.para || '0'}</strong></div>
+                  <div className="ob-stat">Abortion: <strong>{selectedSchool.abortion || '0'}</strong></div>
+                  <div className="ob-stat">Stillbirth: <strong>{selectedSchool.stillbirth || '0'}</strong></div>
+                </div>
+                <div className="ob-history-table-container">
+                  <table className="ob-history-display-table">
+                    <thead>
+                      <tr>
+                        <th>Event</th>
+                        <th>Gestational Age</th>
+                        <th>Outcomes / Complications</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(selectedSchool.obHistory || []).map((row, idx) => (
+                        (row.gestationalAge || row.outcome) ? (
+                          <tr key={idx}>
+                            <td><strong>{row.event}</strong></td>
+                            <td>{row.gestationalAge}</td>
+                            <td>{row.outcome}</td>
+                          </tr>
+                        ) : null
+                      ))}
+                      {!(selectedSchool.obHistory || []).some(r => r.gestationalAge || r.outcome) && (
+                        <tr>
+                          <td colSpan="3" className="no-history-text">No prior obstetric history recorded.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Medical Conditions & Dental Health */}
+              <div className="details-section">
+                <h3>Medical Conditions History</h3>
+                <div className="medical-conditions-tags">
+                  {selectedSchool.medicalConditions && Object.entries(selectedSchool.medicalConditions).map(([key, val]) => (
+                    val ? (
+                      <span key={key} className="medical-tag" style={{ textTransform: 'capitalize' }}>
+                        {key.replace(/([A-Z])/g, ' $1')}
+                      </span>
+                    ) : null
+                  ))}
+                  {(!selectedSchool.medicalConditions || !Object.values(selectedSchool.medicalConditions).some(Boolean)) && (
+                    <span className="no-conditions-text">No medical conditions reported.</span>
+                  )}
+                </div>
+                {selectedSchool.otherMedicalHistory && (
+                  <div className="other-medical-notes">
+                    <strong>Other Notes:</strong>
+                    <p>{selectedSchool.otherMedicalHistory}</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="details-section">
+                <h3>Dental Health Record</h3>
+                <div className="details-list">
+                  <div className="detail-row">
+                    <span>Check-up Date:</span>
+                    <strong>{selectedSchool.dentalCheckupDate ? new Date(selectedSchool.dentalCheckupDate).toLocaleDateString() : 'N/A'}</strong>
+                  </div>
+                  <div className="detail-row">
+                    <span>Facility / Dentist:</span>
+                    <strong>{selectedSchool.dentalFacility || 'N/A'} ({selectedSchool.dentistInCharge || 'N/A'})</strong>
+                  </div>
+                  <div className="detail-row">
+                    <span>Dentist License / Contact:</span>
+                    <strong>{selectedSchool.dentistLicense || 'N/A'} / {selectedSchool.dentistContact || 'N/A'}</strong>
+                  </div>
+                  <div className="detail-row">
+                    <span>Teeth Count / Findings:</span>
+                    <strong>{selectedSchool.teethCount || 'N/A'} teeth / {selectedSchool.dentalFindings || 'N/A'}</strong>
+                  </div>
+                  <div className="detail-row flex-column">
+                    <span>Work Done:</span>
+                    <div className="dental-work-tags">
+                      {selectedSchool.dentalWork && Object.entries(selectedSchool.dentalWork).map(([key, val]) => (
+                        val ? (
+                          <span key={key} className="dental-tag" style={{ textTransform: 'capitalize' }}>
+                            {key.replace(/([A-Z])/g, ' $1')}
+                          </span>
+                        ) : null
+                      ))}
+                      {(!selectedSchool.dentalWork || !Object.values(selectedSchool.dentalWork).some(Boolean)) && (
+                        <span className="no-work-text">No dental work recorded.</span>
+                      )}
+                    </div>
+                  </div>
+                  {selectedSchool.dentalRemarks && (
+                    <div className="dental-remarks-box">
+                      <strong>Dentist Recommendations:</strong>
+                      <p>{selectedSchool.dentalRemarks}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Vaccine Record */}
+              <div className="details-section full-width-col">
+                <h3>Tetanus Toxoid (TT) Vaccine Record</h3>
+                <div className="vaccines-display-grid">
+                  {[1, 2, 3, 4, 5].map(num => {
+                    const dateVal = selectedSchool[`tt${num}Date`];
+                    const remarkVal = selectedSchool[`tt${num}Remarks`];
+                    return (
+                      <div key={num} className={`vaccine-card-item ${dateVal ? 'vaccinated' : 'pending'}`}>
+                        <div className="vaccine-title">TT{num}</div>
+                        <div className="vaccine-date">{dateVal ? new Date(dateVal).toLocaleDateString() : 'Not Given'}</div>
+                        {remarkVal && <div className="vaccine-remarks">{remarkVal}</div>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!(isCreateMother || isCreateChild) && (
+        <BeneficiaryTable
+          currentRows={displayRows}
+          filteredDataLength={displayLength}
+          rangeStart={displayRangeStart}
+          rangeEnd={displayRangeEnd}
+          perPage={perPage}
+          handlePerPageChange={handlePerPageChange}
+          renderPaginationButtons={renderPaginationButtons}
+          onCommunityRowClick={handleCommunityRowClick}
+          motherProgressByName={motherProgressByName}
+          communities={communities}
+          batches={batches}
+        />
+      )}
 
       <CreateCommunityModal
         showModal={showModal === 'createCommunity'}
@@ -874,6 +1747,9 @@ export default function BeneficiaryPage() {
         communityForm={communityForm}
         setCommunityForm={setCommunityForm}
         handleEditCommunity={handleEditCommunity}
+        communities={communities}
+        groups={groups}
+        batches={batches}
       />
       <CreateBatchModal
         showModal={showModal === 'createBatch'}
