@@ -1327,37 +1327,35 @@ export default function BeneficiaryPage() {
       {isCreateMother ? (
         <section className="tabs-row create-view">
           <div className="stepper-progress">
-            <div className="stepper-bar" aria-hidden>
-              <div className="stepper-bar-fill" style={{ width: `${createProgressPercent}%` }} />
+            <div className="stepper-steps" role="tablist">
+              {CREATE_STEPS.map((s, i) => {
+                const label = s === 'general' ? 'General' : s === 'prenatal' ? 'Prenatal/OB' : s === 'medical_dental' ? 'Medical & Dental' : 'Vaccine';
+                const isActive = createActiveTab === s;
+                const isCompleted = i < createActiveIndex;
+                return (
+                  <button
+                    key={s}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    className={`stepper-step ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}`}
+                    onClick={() => setCreateActiveTab(s)}
+                  >
+                    <span className="stepper-step-index">
+                      {isCompleted ? (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                          <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      ) : (
+                        i + 1
+                      )}
+                    </span>
+                    <span className="stepper-step-label">{label}</span>
+                  </button>
+                );
+              })}
             </div>
-              <div className="stepper-steps" role="tablist">
-                {CREATE_STEPS.map((s, i) => {
-                  const label = s === 'general' ? 'General' : s === 'prenatal' ? 'Prenatal/OB' : s === 'medical_dental' ? 'Medical & Dental' : 'Vaccine';
-                  const isActive = createActiveTab === s;
-                  const isCompleted = i < createActiveIndex;
-                  return (
-                    <button
-                      key={s}
-                      type="button"
-                      role="tab"
-                      aria-selected={isActive}
-                      className={`stepper-step ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}`}
-                      onClick={() => setCreateActiveTab(s)}
-                    >
-                      <span className="stepper-step-index">
-                        {isCompleted ? (
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-                            <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        ) : (
-                          i + 1
-                        )}
-                      </span>
-                      <span className="stepper-step-label">{label}</span>
-                    </button>
-                  );
-                })}
-              </div>
+          </div>
 
           <div className="create-form-body">
             <form onSubmit={handleCreateCommunity}>
