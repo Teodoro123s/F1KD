@@ -733,6 +733,9 @@ export default function BeneficiaryPage() {
   const isCreateMother = location.pathname.includes('/beneficiary/create/mother');
   const isCreateChild = location.pathname.includes('/beneficiary/create/child');
   const [createActiveTab, setCreateActiveTab] = useState('general');
+  const CREATE_STEPS = ['general', 'prenatal', 'medical_dental', 'vaccine'];
+  const createActiveIndex = CREATE_STEPS.indexOf(createActiveTab) >= 0 ? CREATE_STEPS.indexOf(createActiveTab) : 0;
+  const createProgressPercent = Math.round(((createActiveIndex + 1) / CREATE_STEPS.length) * 100);
 
   const openEditMother = (mother) => {
     setSelectedItem(mother);
@@ -1323,23 +1326,29 @@ export default function BeneficiaryPage() {
 
       {isCreateMother ? (
         <section className="tabs-row create-view">
-          <div className="modal-tabs-header">
-            {[
-              { id: 'general', label: '1. General Info' },
-              { id: 'prenatal', label: '2. Prenatal & OB' },
-              { id: 'medical_dental', label: '3. Medical & Dental' },
-              { id: 'vaccine', label: '4. Vaccine Record' }
-            ].map(tab => (
-              <button
-                key={tab.id}
-                type="button"
-                className={`modal-tab-btn ${createActiveTab === tab.id ? 'active' : ''}`}
-                onClick={() => setCreateActiveTab(tab.id)}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+          <div className="stepper-progress">
+            <div className="stepper-bar" aria-hidden>
+              <div className="stepper-bar-fill" style={{ width: `${createProgressPercent}%` }} />
+            </div>
+              <div className="stepper-steps" role="tablist">
+                {CREATE_STEPS.map((s, i) => {
+                  const label = s === 'general' ? 'General' : s === 'prenatal' ? 'Prenatal/OB' : s === 'medical_dental' ? 'Medical & Dental' : 'Vaccine';
+                  const isActive = createActiveTab === s;
+                  return (
+                    <button
+                      key={s}
+                      type="button"
+                      role="tab"
+                      aria-selected={isActive}
+                      className={`stepper-step ${isActive ? 'active' : ''}`}
+                      onClick={() => setCreateActiveTab(s)}
+                    >
+                      <span className="stepper-step-index">{i + 1}</span>
+                      <span className="stepper-step-label">{label}</span>
+                    </button>
+                  );
+                })}
+              </div>
 
           <div className="create-form-body">
             <form onSubmit={handleCreateCommunity}>
