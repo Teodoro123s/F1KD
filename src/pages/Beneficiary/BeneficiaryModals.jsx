@@ -743,17 +743,21 @@ export function MotherFormFields({
   return null;
 }
 
-export function CreateCommunityModal({ showModal, onClose, communityForm, setCommunityForm, handleCreateCommunity, communities, groups, batches }) {
+function MotherProfileModal({
+  showModal,
+  onClose,
+  communityForm,
+  setCommunityForm,
+  onSubmit,
+  title,
+  submitLabel,
+  communities,
+  groups,
+  batches,
+}) {
   if (!showModal) return null;
 
   const [activeTab, setActiveTab] = React.useState('general');
-
-  const tabList = [
-    { id: 'general', label: '1. General Info' },
-    { id: 'prenatal', label: '2. Prenatal & OB' },
-    { id: 'medical_dental', label: '3. Medical & Dental' },
-    { id: 'vaccine', label: '4. Vaccine Record' }
-  ];
 
   const handleNext = () => {
     if (activeTab === 'general') setActiveTab('prenatal');
@@ -771,13 +775,13 @@ export function CreateCommunityModal({ showModal, onClose, communityForm, setCom
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-content wide-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header-section">
-          <h3>Create Mother</h3>
+          <h3>{title}</h3>
           <button className="btn-close-modal" onClick={onClose} aria-label="Close modal">✕</button>
         </div>
 
         {/* Step navigation removed to use unified stepper in page-level create view */}
 
-        <form onSubmit={handleCreateCommunity}>
+        <form onSubmit={onSubmit}>
           <div className="modal-body-scrollable">
             <MotherFormFields
               activeTab={activeTab}
@@ -796,7 +800,7 @@ export function CreateCommunityModal({ showModal, onClose, communityForm, setCom
             {activeTab !== 'vaccine' ? (
               <button type="button" className="btn-primary btn-next" onClick={handleNext}>Next</button>
             ) : (
-              <button type="submit" className="btn-primary">Create</button>
+              <button type="submit" className="btn-primary">{submitLabel}</button>
             )}
           </div>
         </form>
@@ -805,65 +809,25 @@ export function CreateCommunityModal({ showModal, onClose, communityForm, setCom
   );
 }
 
-export function EditCommunityModal({ showModal, onClose, communityForm, setCommunityForm, handleEditCommunity, communities, groups, batches }) {
-  if (!showModal) return null;
-
-  const [activeTab, setActiveTab] = React.useState('general');
-
-  const tabList = [
-    { id: 'general', label: '1. General Info' },
-    { id: 'prenatal', label: '2. Prenatal & OB' },
-    { id: 'medical_dental', label: '3. Medical & Dental' },
-    { id: 'vaccine', label: '4. Vaccine Record' }
-  ];
-
-  const handleNext = () => {
-    if (activeTab === 'general') setActiveTab('prenatal');
-    else if (activeTab === 'prenatal') setActiveTab('medical_dental');
-    else if (activeTab === 'medical_dental') setActiveTab('vaccine');
-  };
-
-  const handleBack = () => {
-    if (activeTab === 'vaccine') setActiveTab('medical_dental');
-    else if (activeTab === 'medical_dental') setActiveTab('prenatal');
-    else if (activeTab === 'prenatal') setActiveTab('general');
-  };
-
+export function CreateCommunityModal(props) {
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-content wide-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header-section">
-          <h3>Edit Mother Profile</h3>
-          <button className="btn-close-modal" onClick={onClose} aria-label="Close modal">✕</button>
-        </div>
+    <MotherProfileModal
+      {...props}
+      title="Create Mother"
+      submitLabel="Create"
+      onSubmit={props.handleCreateCommunity}
+    />
+  );
+}
 
-        {/* Step navigation removed to use unified stepper in page-level edit view */}
-
-        <form onSubmit={handleEditCommunity}>
-          <div className="modal-body-scrollable">
-            <MotherFormFields
-              activeTab={activeTab}
-              form={communityForm}
-              setForm={setCommunityForm}
-              communities={communities}
-              groups={groups}
-              batches={batches}
-            />
-          </div>
-          <div className="modal-footer">
-            <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
-            {activeTab !== 'general' && (
-              <button type="button" className="btn-secondary btn-back" onClick={handleBack}>Back</button>
-            )}
-            {activeTab !== 'vaccine' ? (
-              <button type="button" className="btn-primary btn-next" onClick={handleNext}>Next</button>
-            ) : (
-              <button type="submit" className="btn-primary">Save Changes</button>
-            )}
-          </div>
-        </form>
-      </div>
-    </div>
+export function EditCommunityModal(props) {
+  return (
+    <MotherProfileModal
+      {...props}
+      title="Edit Mother Profile"
+      submitLabel="Save Changes"
+      onSubmit={props.handleEditCommunity}
+    />
   );
 }
 
