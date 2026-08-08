@@ -1306,22 +1306,24 @@ export default function BeneficiaryPage() {
             ))}
           </nav>
         </div>
-        <div className="create-menu-wrapper">
-          <button className="btn-create" onClick={openCreateModal} type="button">
-            <PlusIcon />
-            <span>Create</span>
-          </button>
-          {createDropdownOpen && (
-            <div className="create-dropdown" role="menu">
-              <button type="button" className="actions-dropdown-item" onClick={openCreateMother} role="menuitem">
-                Create Mother
-              </button>
-              <button type="button" className="actions-dropdown-item" onClick={openCreateChild} role="menuitem">
-                Create Child
-              </button>
-            </div>
-          )}
-        </div>
+        {!(isCreateMother || isCreateChild) && (
+          <div className="create-menu-wrapper">
+            <button className="btn-create" onClick={openCreateModal} type="button">
+              <PlusIcon />
+              <span>Create</span>
+            </button>
+            {createDropdownOpen && (
+              <div className="create-dropdown" role="menu">
+                <button type="button" className="actions-dropdown-item" onClick={openCreateMother} role="menuitem">
+                  Create Mother
+                </button>
+                <button type="button" className="actions-dropdown-item" onClick={openCreateChild} role="menuitem">
+                  Create Child
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </header>
 
       {isCreateMother ? (
