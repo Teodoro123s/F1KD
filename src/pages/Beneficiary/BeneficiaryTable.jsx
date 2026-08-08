@@ -10,8 +10,30 @@ export default function BeneficiaryTable({
   renderPaginationButtons,
   onCommunityRowClick,
   motherProgressByName,
+  communities = [],
+  batches = [],
 }) {
   const emptyColSpan = 2;
+
+  const getMotherStatus = (progress) => {
+    if (progress < 60) {
+      return <span className="status-missing">🔴 Missing: PSA, Consent Form</span>;
+    } else if (progress < 90) {
+      return <span className="status-pending">🟡 Pending: Consent Form</span>;
+    } else {
+      return <span className="status-complete">🟢 Completed Checklist</span>;
+    }
+  };
+
+  const getChildStatus = (progress) => {
+    if (progress < 60) {
+      return <span className="status-missing">🔴 Missing: Consent Form</span>;
+    } else if (progress < 90) {
+      return <span className="status-checkup">🟡 Checkup: Aug 10</span>;
+    } else {
+      return <span className="status-complete">🟢 Completed Checklist</span>;
+    }
+  };
 
   return (
     <section className="table-card beneficiary-table-card">
@@ -29,6 +51,23 @@ export default function BeneficiaryTable({
                 const motherProgress = motherProgressByName?.[row.community] ?? 0;
                 const childProgress = row.childProgress != null ? row.childProgress : 0;
 
+                // Lookup mother's school/area
+                const motherObj = communities.find((c) => c.name === row.community);
+                const area = motherObj?.area || 'Poblacion';
+                
+                // Lookup batch name
+                const batchId = row.assignedBatchIds?.[0];
+                const batchObj = batches.find((b) => b.id === batchId);
+                const batchName = batchObj?.name || 'Health Visit 1';
+
+                const motherBreadcrumb = `${area} School > ${row.name} > ${batchName}`;
+
+                // Calculate child's grade and section
+                const idNum = parseInt(row.id.split('-')[1] || '0', 10);
+                const grade = (idNum % 6) + 1;
+                const section = String.fromCharCode(65 + (idNum % 4));
+                const childBreadcrumb = `Grade ${grade} > Section ${section}`;
+
                 return (
                   <tr key={row.id}>
                     <td className="mother-cell">
@@ -38,12 +77,22 @@ export default function BeneficiaryTable({
                         onClick={onCommunityRowClick ? () => onCommunityRowClick(row, 'mother') : undefined}
                         aria-label={`Open mother persona for ${row.community}`}
                       >
-                        <span className="community-title-text" title={row.community}>{row.community}</span>
-                        <div className="progress-cell-inner">
-                          <div className="progress-bar" aria-hidden="true">
-                            <div className="progress-bar-fill" style={{ width: `${motherProgress}%` }} />
+                        <div className="beneficiary-cell-content">
+                          <div className="beneficiary-cell-line-1">
+                            <span className="beneficiary-cell-name">{row.community}</span>
+                            <div className="beneficiary-progress-wrapper">
+                              <div className="progress-bar" aria-hidden="true">
+                                <div className="progress-bar-fill" style={{ width: `${motherProgress}%` }} />
+                              </div>
+                            </div>
+                            <span className="beneficiary-cell-percent">{motherProgress}%</span>
                           </div>
-                          <span className="progress-value mother">{motherProgress}%</span>
+                          <div className="beneficiary-cell-line-2">
+                            {motherBreadcrumb}
+                          </div>
+                          <div className="beneficiary-cell-line-3">
+                            {getMotherStatus(motherProgress)}
+                          </div>
                         </div>
                       </button>
                     </td>
@@ -54,12 +103,22 @@ export default function BeneficiaryTable({
                         onClick={onCommunityRowClick ? () => onCommunityRowClick(row, 'child') : undefined}
                         aria-label={`Open child persona for ${row.name}`}
                       >
-                        <span className="community-title-text" title={row.name}>{row.name}</span>
-                        <div className="progress-cell-inner">
-                          <div className="progress-bar" aria-hidden="true">
-                            <div className="progress-bar-fill child" style={{ width: `${childProgress}%` }} />
+                        <div className="beneficiary-cell-content">
+                          <div className="beneficiary-cell-line-1">
+                            <span className="beneficiary-cell-name">{row.name}</span>
+                            <div className="beneficiary-progress-wrapper">
+                              <div className="progress-bar" aria-hidden="true">
+                                <div className="progress-bar-fill child" style={{ width: `${childProgress}%` }} />
+                              </div>
+                            </div>
+                            <span className="beneficiary-cell-percent">{childProgress}%</span>
                           </div>
-                          <span className="progress-value child">{childProgress}%</span>
+                          <div className="beneficiary-cell-line-2">
+                            {childBreadcrumb}
+                          </div>
+                          <div className="beneficiary-cell-line-3">
+                            {getChildStatus(childProgress)}
+                          </div>
                         </div>
                       </button>
                     </td>

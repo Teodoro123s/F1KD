@@ -37,6 +37,10 @@ export default function App() {
         <Route path="community/group/:groupId" element={<Community />} />
         <Route path="community/batch/:batchId" element={<Community />} />
         <Route path="beneficiary" element={<Beneficiary />} />
+        <Route path="beneficiary/create/mother" element={<Beneficiary />} />
+        <Route path="beneficiary/create/child" element={<Beneficiary />} />
+        <Route path="beneficiary/school/:schoolId" element={<Beneficiary />} />
+        <Route path="beneficiary/group/:groupId" element={<Beneficiary />} />
         <Route path="monitoring" element={<Monitoring />} />
         <Route path="program" element={<Program />} />
         <Route path="progress-report" element={<ProgressReport />} />

@@ -4,13 +4,13 @@ import { useLocation } from 'react-router-dom';
 import BeneficiaryTable from './BeneficiaryTable';
 import {
   CreateCommunityModal,
-  EditCommunityModal,
   CreateBatchModal,
   EditBatchModal,
   CreateGroupModal,
   EditGroupModal,
 } from './BeneficiaryModals';
-import { MotherFormFields } from './BeneficiaryModals';
+import { MotherFormFields } from './BeneficiaryMother';
+import { ChildFormFields } from './BeneficiaryChild';
 import {
   SearchIcon,
   PlusIcon,
@@ -264,6 +264,9 @@ export default function BeneficiaryPage() {
   const [selectedItem, setSelectedItem] = useState(null);
   const [beneficiaryView, setBeneficiaryView] = useState('list'); // 'list', 'create_mother', 'edit_mother'
   const [activeFormTab, setActiveFormTab] = useState('general');
+  const [showMotherCheckup, setShowMotherCheckup] = useState(false);
+  const [activeTrimester, setActiveTrimester] = useState(null);
+  const [activeStep, setActiveStep] = useState(null);
 
   const formTabList = [
     { id: 'general', label: '1. General Info' },
@@ -417,6 +420,21 @@ export default function BeneficiaryPage() {
     }
   }, [schoolId, groupId]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const checkup = params.get('checkup');
+    setShowMotherCheckup(!!checkup);
+    if (checkup) {
+      const t = parseInt(params.get('trimester'), 10);
+      const s = parseInt(params.get('step'), 10);
+      setActiveTrimester(Number.isFinite(t) ? t : null);
+      setActiveStep(Number.isFinite(s) ? s : null);
+    } else {
+      setActiveTrimester(null);
+      setActiveStep(null);
+    }
+  }, [location.search]);
+
   const breadcrumbItems = useMemo(() => {
     const items = [{ label: 'Beneficiary', clickable: false }];
     const path = location?.pathname || '';
@@ -506,7 +524,7 @@ export default function BeneficiaryPage() {
     if (type === 'mother') {
       const school = communities.find((comm) => comm.name === row.community);
       if (school) {
-        navigate(`/beneficiary/school/${school.id}`);
+        navigate(`/beneficiary/school/${school.id}?checkup=1`);
       }
       return;
     }
@@ -623,6 +641,7 @@ export default function BeneficiaryPage() {
 
   const openCreateMother = () => {
     setCreateDropdownOpen(false);
+    setCreateActiveTab('general');
     setCommunityForm({
       firstName: '',
       middleName: '',
@@ -710,6 +729,7 @@ export default function BeneficiaryPage() {
 
   const openCreateChild = () => {
     setCreateDropdownOpen(false);
+    setCreateActiveTab('general');
     setGroupForm({
       firstName: '',
       middleName: '',
@@ -721,7 +741,32 @@ export default function BeneficiaryPage() {
       gender: '',
       deliveryType: '',
       healthStatus: '',
+      birthPlace: '',
+      birthAttendant: '',
+      apgarScore: '',
+      feedingType: '',
+      nutritionNotes: '',
+      medicalConditions: {
+        congenitalHeartDisease: false,
+        respiratoryIssues: false,
+        prematurity: false,
+        jaundice: false,
+        anemia: false,
+        growthDelay: false,
+      },
+      medicalRemarks: '',
+      bcgDate: '',
+      bcgRemarks: '',
+      hepbDate: '',
+      hepbRemarks: '',
+      opvDate: '',
+      opvRemarks: '',
+      dptDate: '',
+      dptRemarks: '',
+      mmrDate: '',
+      mmrRemarks: '',
       community: communities[0]?.name || '',
+      batch: '',
       assignedBatchIds: [],
       leader: '',
       members: 1,
@@ -826,8 +871,11 @@ export default function BeneficiaryPage() {
       group: mother.group || '',
       batch: mother.batch || '',
     });
-    setShowModal('editCommunity');
+    // navigate to the mother's profile page when editing
+    navigate(`/beneficiary/school/${mother.id}`);
   };
+
+  
 
   const openEditModal = (item) => {
     setSelectedItem(item);
@@ -1031,6 +1079,26 @@ export default function BeneficiaryPage() {
     }
   };
 
+  const handleCancelCheckup = () => {
+    setShowMotherCheckup(false);
+  };
+
+  const handleSaveCheckup = () => {
+    if (!selectedSchool) return;
+    // persist any changes from selectedSchool back into communities (no-op if unchanged)
+    setCommunities((prev) => prev.map((c) => (c.id === selectedSchool.id ? { ...c, ...selectedSchool } : c)));
+    setShowMotherCheckup(false);
+  };
+
+  const openCheckup = (trimesterNum, stepNum) => {
+    if (!selectedSchool) return;
+    // navigate with query params for trimester and step
+    navigate(`/beneficiary/school/${selectedSchool.id}?checkup=1&trimester=${trimesterNum}&step=${stepNum}`);
+    setShowMotherCheckup(true);
+    setActiveTrimester(trimesterNum);
+    setActiveStep(stepNum);
+  };
+
   const handleCreateBatch = (e) => {
     e.preventDefault();
     if (!batchForm.name.trim()) return;
@@ -1101,7 +1169,25 @@ export default function BeneficiaryPage() {
       gender: groupForm.gender,
       deliveryType: groupForm.deliveryType,
       healthStatus: groupForm.healthStatus,
+      birthPlace: groupForm.birthPlace,
+      birthAttendant: groupForm.birthAttendant,
+      apgarScore: groupForm.apgarScore,
+      feedingType: groupForm.feedingType,
+      nutritionNotes: groupForm.nutritionNotes,
+      medicalConditions: groupForm.medicalConditions || {},
+      medicalRemarks: groupForm.medicalRemarks,
+      bcgDate: groupForm.bcgDate,
+      bcgRemarks: groupForm.bcgRemarks,
+      hepbDate: groupForm.hepbDate,
+      hepbRemarks: groupForm.hepbRemarks,
+      opvDate: groupForm.opvDate,
+      opvRemarks: groupForm.opvRemarks,
+      dptDate: groupForm.dptDate,
+      dptRemarks: groupForm.dptRemarks,
+      mmrDate: groupForm.mmrDate,
+      mmrRemarks: groupForm.mmrRemarks,
       community: groupForm.community,
+      batch: groupForm.batch,
       assignedBatchIds: groupForm.assignedBatchIds || [],
       leader: groupForm.leader.trim(),
       members: Number(groupForm.members) || 0,
@@ -1395,71 +1481,67 @@ export default function BeneficiaryPage() {
         </section>
       ) : isCreateChild ? (
         <section className="tabs-row create-view">
+          <div className="stepper-progress">
+            <div className="stepper-steps" role="tablist">
+              {CREATE_STEPS.map((s, i) => {
+                const label = s === 'general' ? 'General' : s === 'prenatal' ? 'Prenatal/OB' : s === 'medical_dental' ? 'Medical & Dental' : 'Vaccine';
+                const isActive = createActiveTab === s;
+                const isCompleted = i < createActiveIndex;
+                return (
+                  <button
+                    key={s}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    className={`stepper-step ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}`}
+                    onClick={() => setCreateActiveTab(s)}
+                  >
+                    <span className="stepper-step-index">
+                      {isCompleted ? (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                          <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      ) : (
+                        i + 1
+                      )}
+                    </span>
+                    <span className="stepper-step-label">{label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <div className="create-form-body">
             <form onSubmit={handleCreateGroup}>
-              <h4 className="form-section-title">Child Information</h4>
-              <div className="form-group narrow-field">
-                <label className="form-label" htmlFor="group-mother">Select Mother</label>
-                <select
-                  id="group-mother"
-                  className="form-select"
-                  value={groupForm.community}
-                  onChange={(e) => setGroupForm({ ...groupForm, community: e.target.value })}
-                  required
-                >
-                  {communities.map((comm) => (
-                    <option key={comm.id} value={comm.name}>{comm.name}</option>
-                  ))}
-                </select>
+              <div className="modal-body-scrollable">
+                <ChildFormFields
+                  activeTab={createActiveTab}
+                  form={groupForm}
+                  setForm={setGroupForm}
+                  communities={communities}
+                  groups={groups}
+                  batches={batches}
+                />
               </div>
-
-              <div className="form-row-4 full-width name-row">
-                <div className="form-group">
-                  <label className="form-label" htmlFor="group-first-name">First name</label>
-                  <input id="group-first-name" type="text" className="form-input" placeholder="First name" value={groupForm.firstName} onChange={(e) => setGroupForm({ ...groupForm, firstName: e.target.value })} required autoFocus />
-                </div>
-                <div className="form-group">
-                  <label className="form-label" htmlFor="group-middle-name">Middle name</label>
-                  <input id="group-middle-name" type="text" className="form-input" placeholder="Middle name" value={groupForm.middleName} onChange={(e) => setGroupForm({ ...groupForm, middleName: e.target.value })} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label" htmlFor="group-last-name">Surname</label>
-                  <input id="group-last-name" type="text" className="form-input" placeholder="Surname" value={groupForm.lastName} onChange={(e) => setGroupForm({ ...groupForm, lastName: e.target.value })} required />
-                </div>
-                <div className="form-group">
-                  <label className="form-label" htmlFor="group-suffix">Suffix</label>
-                  <input id="group-suffix" type="text" className="form-input" placeholder="Suffix" value={groupForm.suffix} onChange={(e) => setGroupForm({ ...groupForm, suffix: e.target.value })} />
-                </div>
-              </div>
-
-              <h4 className="form-section-title">Birth Details</h4>
-              <div className="form-row-4 full-width">
-                <div className="form-group">
-                  <label className="form-label" htmlFor="group-birth-date">Birth date</label>
-                  <input id="group-birth-date" type="date" className="form-input" value={groupForm.birthDate} onChange={(e) => setGroupForm({ ...groupForm, birthDate: e.target.value })} required />
-                </div>
-                <div className="form-group">
-                  <label className="form-label" htmlFor="group-birth-weight">Birth weight</label>
-                  <input id="group-birth-weight" type="text" className="form-input" placeholder="e.g. 3.2 kg" value={groupForm.birthWeight} onChange={(e) => setGroupForm({ ...groupForm, birthWeight: e.target.value })} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label" htmlFor="group-birth-length">Birth length</label>
-                  <input id="group-birth-length" type="text" className="form-input" placeholder="e.g. 51 cm" value={groupForm.birthLength} onChange={(e) => setGroupForm({ ...groupForm, birthLength: e.target.value })} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label" htmlFor="group-gender">Gender</label>
-                  <select id="group-gender" className="form-select" value={groupForm.gender} onChange={(e) => setGroupForm({ ...groupForm, gender: e.target.value })} required>
-                    <option value="">Select gender</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-              </div>
-
               <div className="modal-footer">
                 <button type="button" className="btn-secondary" onClick={() => navigate('/beneficiary')}>Cancel</button>
-                <button type="submit" className="btn-primary">Create</button>
+                {createActiveTab !== 'general' && (
+                  <button type="button" className="btn-secondary btn-back" onClick={() => {
+                    if (createActiveTab === 'vaccine') setCreateActiveTab('medical_dental');
+                    else if (createActiveTab === 'medical_dental') setCreateActiveTab('prenatal');
+                    else setCreateActiveTab('general');
+                  }}>Back</button>
+                )}
+                {createActiveTab !== 'vaccine' ? (
+                  <button type="button" className="btn-primary btn-next" onClick={() => {
+                    if (createActiveTab === 'general') setCreateActiveTab('prenatal');
+                    else if (createActiveTab === 'prenatal') setCreateActiveTab('medical_dental');
+                    else if (createActiveTab === 'medical_dental') setCreateActiveTab('vaccine');
+                  }}>Next</button>
+                ) : (
+                  <button type="submit" className="btn-primary">Create</button>
+                )}
               </div>
             </form>
           </div>
@@ -1467,33 +1549,43 @@ export default function BeneficiaryPage() {
       ) : (
         <section className="tabs-row">
           <div className="tabs-list" role="tablist" aria-label="Beneficiary status filter">
-            {STATUS_OPTIONS.map(({ key, label, icon: Icon }) => (
-              <button
-                key={key}
-                role="tab"
-                aria-selected={selectedStatusFilter === key}
-                type="button"
-                className={`tab-btn${selectedStatusFilter === key ? ' active' : ''}`}
-                onClick={() => {
-                  setSelectedStatusFilter(key);
-                  setPage(1);
-                }}
-              >
-                <Icon />
-                <span>{label}</span>
-              </button>
-            ))}
+            {!isCreateMother && !isCreateChild && !selectedSchool ? (
+              STATUS_OPTIONS.map(({ key, label, icon: Icon }) => (
+                <button
+                  key={key}
+                  role="tab"
+                  aria-selected={selectedStatusFilter === key}
+                  type="button"
+                  className={`tab-btn${selectedStatusFilter === key ? ' active' : ''}`}
+                  onClick={() => {
+                    setSelectedStatusFilter(key);
+                    setPage(1);
+                  }}
+                >
+                  <Icon />
+                  <span>{label}</span>
+                </button>
+              ))
+            ) : (
+              <span>{'\u00A0'}</span>
+            )}
           </div>
           <div className="search-container">
-            <SearchIcon />
-            <input
-              type="text"
-              className="search-input-field"
-              placeholder="Search child name..."
-              value={query}
-              onChange={(e) => handleSearch(e.target.value)}
-              aria-label="Search items"
-            />
+            {!isCreateMother && !isCreateChild && !selectedSchool ? (
+              <>
+                <SearchIcon />
+                <input
+                  type="text"
+                  className="search-input-field"
+                  placeholder="Search child name..."
+                  value={query}
+                  onChange={(e) => handleSearch(e.target.value)}
+                  aria-label="Search items"
+                />
+              </>
+            ) : (
+              <span>{'\u00A0'}</span>
+            )}
           </div>
         </section>
       )}
@@ -1510,230 +1602,366 @@ export default function BeneficiaryPage() {
                 <span className="program-badge">{selectedSchool.programType || 'Maternal Health Program'}</span>
               </div>
               <div className="profile-subtitle">
-                <span>Mother ID: <strong>{selectedSchool.motherId || 'N/A'}</strong></span>
-                <span className="separator">•</span>
-                <span>Area: <strong>{selectedSchool.area}</strong></span>
+                <span>{'\u00A0'}</span>
+                <span className="separator">{'\u00A0'}</span>
+                <span>{'\u00A0'}</span>
               </div>
+
             </div>
             <div className="profile-actions">
-              <button type="button" className="btn-secondary btn-edit-profile" onClick={() => openEditMother(selectedSchool)}>
-                Edit Profile
-              </button>
+              {showMotherCheckup ? (
+                <button type="button" className="btn-primary" onClick={() => openEditMother(selectedSchool)}>
+                  Edit Profile
+                </button>
+              ) : (
+                <button type="button" className="btn-secondary btn-checkups" onClick={() => setShowMotherCheckup(true)}>
+                  Checkups
+                </button>
+              )}
               <button type="button" className="btn-close-profile" onClick={() => navigate('/beneficiary')} aria-label="Close profile">
-                ✕ Close Profile
+                ✕
               </button>
             </div>
           </div>
 
           <div className="profile-card-body">
-            {/* Quick Stats Grid */}
-            <div className="stats-grid">
-              <div className="stat-item">
-                <span className="stat-label">Date of Birth</span>
-                <span className="stat-value">{selectedSchool.dob ? new Date(selectedSchool.dob).toLocaleDateString() : 'N/A'}</span>
-              </div>
-              <div className="stat-item">
-                <span className="stat-label">Contact Number</span>
-                <span className="stat-value">{selectedSchool.contactNumber || 'N/A'}</span>
-              </div>
-              <div className="stat-item">
-                <span className="stat-label">LMP Date</span>
-                <span className="stat-value">{selectedSchool.lmpDate ? new Date(selectedSchool.lmpDate).toLocaleDateString() : 'N/A'}</span>
-              </div>
-              <div className="stat-item">
-                <span className="stat-label">EDD Date</span>
-                <span className="stat-value">{selectedSchool.eddDate ? new Date(selectedSchool.eddDate).toLocaleDateString() : 'N/A'}</span>
-              </div>
-              <div className="stat-item">
-                <span className="stat-label">Weight / Height</span>
-                <span className="stat-value">{selectedSchool.weight ? `${selectedSchool.weight} kg` : 'N/A'} / {selectedSchool.height ? `${selectedSchool.height} cm` : 'N/A'}</span>
-              </div>
-            </div>
+            {showMotherCheckup ? (
+              <div className="mother-checkup-body">
+                <div className="trimester-stepper">
+                  {['1st Trimester', '2nd Trimester', '3rd Trimester'].map((trim, tIdx) => {
+                    const trimesterIndex = ['1st Trimester', '2nd Trimester', '3rd Trimester'].indexOf(selectedSchool.trimester);
+                    // determine how many checkups are completed for this trimester
+                    // priority: if detailed `checkups` array is present on selectedSchool, use it
+                    // otherwise: past trimesters => all 3 completed; current => fallback to 1 completed; future => 0
+                    const detailed = selectedSchool.checkups && Array.isArray(selectedSchool.checkups[tIdx]);
+                    const completedCount = detailed
+                      ? selectedSchool.checkups[tIdx].filter(Boolean).length
+                      : (tIdx < trimesterIndex ? 3 : (tIdx === trimesterIndex ? (selectedSchool.completedChecksThisTrimester ?? 1) : 0));
 
-            {/* Sub-sections Grid */}
-            <div className="profile-details-grid">
-              {/* Emergency & Other Details */}
-              <div className="details-section">
-                <h3>Emergency & Spouse Details</h3>
-                <div className="details-list">
-                  <div className="detail-row">
-                    <span>Emergency Contact:</span>
-                    <strong>{selectedSchool.emergencyName || 'N/A'}</strong>
-                  </div>
-                  <div className="detail-row">
-                    <span>Emergency Relationship:</span>
-                    <strong>{selectedSchool.emergencyRelationship || 'N/A'}</strong>
-                  </div>
-                  <div className="detail-row">
-                    <span>Emergency Number:</span>
-                    <strong>{selectedSchool.emergencyContact || 'N/A'}</strong>
-                  </div>
-                  <div className="detail-row">
-                    <span>Spouse Name:</span>
-                    <strong>{selectedSchool.spouseName || 'N/A'}</strong>
-                  </div>
-                  <div className="detail-row">
-                    <span>Address:</span>
-                    <strong>{selectedSchool.address || 'N/A'}</strong>
-                  </div>
-                </div>
-              </div>
-
-              {/* Initial Prenatal Assessment */}
-              <div className="details-section">
-                <h3>Initial Prenatal Assessment</h3>
-                <div className="details-list">
-                  <div className="detail-row">
-                    <span>Prenatal Reg Date:</span>
-                    <strong>{selectedSchool.prenatalRegDate ? new Date(selectedSchool.prenatalRegDate).toLocaleDateString() : 'N/A'}</strong>
-                  </div>
-                  <div className="detail-row">
-                    <span>Trimester / Gest. Age:</span>
-                    <strong>{selectedSchool.trimester || 'N/A'} ({selectedSchool.gestationalAge || 'N/A'} weeks)</strong>
-                  </div>
-                  <div className="detail-row">
-                    <span>Blood Pressure (BP):</span>
-                    <strong>{selectedSchool.prenatalBp || 'N/A'}</strong>
-                  </div>
-                  <div className="detail-row">
-                    <span>Fundal Height / FHR:</span>
-                    <strong>{selectedSchool.fundalHeight ? `${selectedSchool.fundalHeight} cm` : 'N/A'} / {selectedSchool.fhr ? `${selectedSchool.fhr} bpm` : 'N/A'}</strong>
-                  </div>
-                  <div className="detail-row">
-                    <span>Weight / Height at Reg:</span>
-                    <strong>{selectedSchool.prenatalWeight ? `${selectedSchool.prenatalWeight} kg` : 'N/A'} / {selectedSchool.prenatalHeight ? `${selectedSchool.prenatalHeight} cm` : 'N/A'}</strong>
-                  </div>
-                </div>
-              </div>
-
-              {/* Obstetric & Obstetric History */}
-              <div className="details-section full-width-col">
-                <h3>Obstetric History & Pregnancies</h3>
-                <div className="ob-stats-row">
-                  <div className="ob-stat">Gravida: <strong>{selectedSchool.gravida || '0'}</strong></div>
-                  <div className="ob-stat">Para: <strong>{selectedSchool.para || '0'}</strong></div>
-                  <div className="ob-stat">Abortion: <strong>{selectedSchool.abortion || '0'}</strong></div>
-                  <div className="ob-stat">Stillbirth: <strong>{selectedSchool.stillbirth || '0'}</strong></div>
-                </div>
-                <div className="ob-history-table-container">
-                  <table className="ob-history-display-table">
-                    <thead>
-                      <tr>
-                        <th>Event</th>
-                        <th>Gestational Age</th>
-                        <th>Outcomes / Complications</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(selectedSchool.obHistory || []).map((row, idx) => (
-                        (row.gestationalAge || row.outcome) ? (
-                          <tr key={idx}>
-                            <td><strong>{row.event}</strong></td>
-                            <td>{row.gestationalAge}</td>
-                            <td>{row.outcome}</td>
-                          </tr>
-                        ) : null
-                      ))}
-                      {!(selectedSchool.obHistory || []).some(r => r.gestationalAge || r.outcome) && (
-                        <tr>
-                          <td colSpan="3" className="no-history-text">No prior obstetric history recorded.</td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Medical Conditions & Dental Health */}
-              <div className="details-section">
-                <h3>Medical Conditions History</h3>
-                <div className="medical-conditions-tags">
-                  {selectedSchool.medicalConditions && Object.entries(selectedSchool.medicalConditions).map(([key, val]) => (
-                    val ? (
-                      <span key={key} className="medical-tag" style={{ textTransform: 'capitalize' }}>
-                        {key.replace(/([A-Z])/g, ' $1')}
-                      </span>
-                    ) : null
-                  ))}
-                  {(!selectedSchool.medicalConditions || !Object.values(selectedSchool.medicalConditions).some(Boolean)) && (
-                    <span className="no-conditions-text">No medical conditions reported.</span>
-                  )}
-                </div>
-                {selectedSchool.otherMedicalHistory && (
-                  <div className="other-medical-notes">
-                    <strong>Other Notes:</strong>
-                    <p>{selectedSchool.otherMedicalHistory}</p>
-                  </div>
-                )}
-              </div>
-
-              <div className="details-section">
-                <h3>Dental Health Record</h3>
-                <div className="details-list">
-                  <div className="detail-row">
-                    <span>Check-up Date:</span>
-                    <strong>{selectedSchool.dentalCheckupDate ? new Date(selectedSchool.dentalCheckupDate).toLocaleDateString() : 'N/A'}</strong>
-                  </div>
-                  <div className="detail-row">
-                    <span>Facility / Dentist:</span>
-                    <strong>{selectedSchool.dentalFacility || 'N/A'} ({selectedSchool.dentistInCharge || 'N/A'})</strong>
-                  </div>
-                  <div className="detail-row">
-                    <span>Dentist License / Contact:</span>
-                    <strong>{selectedSchool.dentistLicense || 'N/A'} / {selectedSchool.dentistContact || 'N/A'}</strong>
-                  </div>
-                  <div className="detail-row">
-                    <span>Teeth Count / Findings:</span>
-                    <strong>{selectedSchool.teethCount || 'N/A'} teeth / {selectedSchool.dentalFindings || 'N/A'}</strong>
-                  </div>
-                  <div className="detail-row flex-column">
-                    <span>Work Done:</span>
-                    <div className="dental-work-tags">
-                      {selectedSchool.dentalWork && Object.entries(selectedSchool.dentalWork).map(([key, val]) => (
-                        val ? (
-                          <span key={key} className="dental-tag" style={{ textTransform: 'capitalize' }}>
-                            {key.replace(/([A-Z])/g, ' $1')}
-                          </span>
-                        ) : null
-                      ))}
-                      {(!selectedSchool.dentalWork || !Object.values(selectedSchool.dentalWork).some(Boolean)) && (
-                        <span className="no-work-text">No dental work recorded.</span>
-                      )}
-                    </div>
-                  </div>
-                  {selectedSchool.dentalRemarks && (
-                    <div className="dental-remarks-box">
-                      <strong>Dentist Recommendations:</strong>
-                      <p>{selectedSchool.dentalRemarks}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Vaccine Record */}
-              <div className="details-section full-width-col">
-                <h3>Tetanus Toxoid (TT) Vaccine Record</h3>
-                <div className="vaccines-display-grid">
-                  {[1, 2, 3, 4, 5].map(num => {
-                    const dateVal = selectedSchool[`tt${num}Date`];
-                    const remarkVal = selectedSchool[`tt${num}Remarks`];
                     return (
-                      <div key={num} className={`vaccine-card-item ${dateVal ? 'vaccinated' : 'pending'}`}>
-                        <div className="vaccine-title">TT{num}</div>
-                        <div className="vaccine-date">{dateVal ? new Date(dateVal).toLocaleDateString() : 'Not Given'}</div>
-                        {remarkVal && <div className="vaccine-remarks">{remarkVal}</div>}
+                      <div key={trim} className="trimester">
+                        <div className="trimester-title">{trim}</div>
+                        <div className="trimester-steps">
+                          {[1, 2, 3].map(step => {
+                            const completed = step <= completedCount;
+                            const isActive = activeTrimester === (tIdx + 1) && activeStep === step;
+                            return (
+                              <div key={step} className={`step ${completed ? 'completed' : ''} ${isActive ? 'active' : ''}`}>
+                                <button type="button" className="step-btn" onClick={() => openCheckup(tIdx + 1, step)} aria-label={`Open ${trim} checkup ${step}`}>
+                                  <div className="step-circle">{completed ? '✓' : step}</div>
+                                </button>
+                                <div className="step-label">Checkup {step}</div>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     );
                   })}
                 </div>
-              </div>
+                
+                {/* Mirror profile content: stats and details */}
+                <div className="stats-grid" style={{ marginTop: '16px' }}>
+                  <div className="stat-item">
+                    <span className="stat-label">Date of Birth</span>
+                    <span className="stat-value">{selectedSchool.dob ? new Date(selectedSchool.dob).toLocaleDateString() : 'N/A'}</span>
+                  </div>
+                  <div className="stat-item">
+                    <span className="stat-label">Contact Number</span>
+                    <span className="stat-value">{selectedSchool.contactNumber || 'N/A'}</span>
+                  </div>
+                  <div className="stat-item">
+                    <span className="stat-label">LMP Date</span>
+                    <span className="stat-value">{selectedSchool.lmpDate ? new Date(selectedSchool.lmpDate).toLocaleDateString() : 'N/A'}</span>
+                  </div>
+                  <div className="stat-item">
+                    <span className="stat-label">EDD Date</span>
+                    <span className="stat-value">{selectedSchool.eddDate ? new Date(selectedSchool.eddDate).toLocaleDateString() : 'N/A'}</span>
+                  </div>
+                  <div className="stat-item">
+                    <span className="stat-label">Weight / Height</span>
+                    <span className="stat-value">{selectedSchool.weight ? `${selectedSchool.weight} kg` : 'N/A'} / {selectedSchool.height ? `${selectedSchool.height} cm` : 'N/A'}</span>
+                  </div>
+                </div>
 
-            </div>
+                <div className="profile-details-grid">
+                  <div className="details-section">
+                    <h3>Emergency & Spouse Details</h3>
+                    <div className="details-list">
+                      <div className="detail-row">
+                        <span>Emergency Contact:</span>
+                        <strong>{selectedSchool.emergencyName || 'N/A'}</strong>
+                      </div>
+                      <div className="detail-row">
+                        <span>Emergency Relationship:</span>
+                        <strong>{selectedSchool.emergencyRelationship || 'N/A'}</strong>
+                      </div>
+                      <div className="detail-row">
+                        <span>Emergency Number:</span>
+                        <strong>{selectedSchool.emergencyContact || 'N/A'}</strong>
+                      </div>
+                      <div className="detail-row">
+                        <span>Spouse Name:</span>
+                        <strong>{selectedSchool.spouseName || 'N/A'}</strong>
+                      </div>
+                      <div className="detail-row">
+                        <span>Address:</span>
+                        <strong>{selectedSchool.address || 'N/A'}</strong>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="details-section">
+                    <h3>Initial Prenatal Assessment</h3>
+                    <div className="details-list">
+                      <div className="detail-row">
+                        <span>Prenatal Reg Date:</span>
+                        <strong>{selectedSchool.prenatalRegDate ? new Date(selectedSchool.prenatalRegDate).toLocaleDateString() : 'N/A'}</strong>
+                      </div>
+                      <div className="detail-row">
+                        <span>Trimester / Gest. Age:</span>
+                        <strong>{selectedSchool.trimester || 'N/A'} ({selectedSchool.gestationalAge || 'N/A'} weeks)</strong>
+                      </div>
+                      <div className="detail-row">
+                        <span>Blood Pressure (BP):</span>
+                        <strong>{selectedSchool.prenatalBp || 'N/A'}</strong>
+                      </div>
+                      <div className="detail-row">
+                        <span>Fundal Height / FHR:</span>
+                        <strong>{selectedSchool.fundalHeight ? `${selectedSchool.fundalHeight} cm` : 'N/A'} / {selectedSchool.fhr ? `${selectedSchool.fhr} bpm` : 'N/A'}</strong>
+                      </div>
+                      <div className="detail-row">
+                        <span>Weight / Height at Reg:</span>
+                        <strong>{selectedSchool.prenatalWeight ? `${selectedSchool.prenatalWeight} kg` : 'N/A'} / {selectedSchool.prenatalHeight ? `${selectedSchool.prenatalHeight} cm` : 'N/A'}</strong>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="checkup-footer-actions" style={{ marginTop: '16px', display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                  <button type="button" className="btn-secondary" onClick={handleCancelCheckup}>Cancel</button>
+                  <button type="button" className="btn-primary" onClick={handleSaveCheckup}>Save</button>
+                </div>
+
+              </div>
+            ) : (
+              <>
+                {/* Personal Information */}
+                <div className="stats-grid">
+                  <div className="stat-item">
+                    <span className="stat-label">First Name</span>
+                    <span className="stat-value">{selectedSchool.firstName || 'N/A'}</span>
+                  </div>
+                  <div className="stat-item">
+                    <span className="stat-label">Middle Name</span>
+                    <span className="stat-value">{selectedSchool.middleName || 'N/A'}</span>
+                  </div>
+                  <div className="stat-item">
+                    <span className="stat-label">Surname</span>
+                    <span className="stat-value">{selectedSchool.lastName || 'N/A'}</span>
+                  </div>
+                  <div className="stat-item">
+                    <span className="stat-label">Suffix</span>
+                    <span className="stat-value">{selectedSchool.suffix || 'N/A'}</span>
+                  </div>
+                  <div className="stat-item">
+                    <span className="stat-label">Mother ID</span>
+                    <span className="stat-value">{selectedSchool.motherId || 'N/A'}</span>
+                  </div>
+                  <div className="stat-item">
+                    <span className="stat-label">Batch</span>
+                    <span className="stat-value">{selectedSchool.batch || 'N/A'}</span>
+                  </div>
+                  <div className="stat-item">
+                    <span className="stat-label">Group</span>
+                    <span className="stat-value">{selectedSchool.group || 'N/A'}</span>
+                  </div>
+                </div>
+
+                {/* Quick Stats Grid */}
+                <div className="stats-grid">
+                  <div className="stat-item">
+                    <span className="stat-label">Date of Birth</span>
+                    <span className="stat-value">{selectedSchool.dob ? new Date(selectedSchool.dob).toLocaleDateString() : 'N/A'}</span>
+                  </div>
+                  <div className="stat-item">
+                    <span className="stat-label">Contact Number</span>
+                    <span className="stat-value">{selectedSchool.contactNumber || 'N/A'}</span>
+                  </div>
+                  <div className="stat-item">
+                    <span className="stat-label">LMP Date</span>
+                    <span className="stat-value">{selectedSchool.lmpDate ? new Date(selectedSchool.lmpDate).toLocaleDateString() : 'N/A'}</span>
+                  </div>
+                  <div className="stat-item">
+                    <span className="stat-label">EDD Date</span>
+                    <span className="stat-value">{selectedSchool.eddDate ? new Date(selectedSchool.eddDate).toLocaleDateString() : 'N/A'}</span>
+                  </div>
+                  <div className="stat-item">
+                    <span className="stat-label">Weight / Height</span>
+                    <span className="stat-value">{selectedSchool.weight ? `${selectedSchool.weight} kg` : 'N/A'} / {selectedSchool.height ? `${selectedSchool.height} cm` : 'N/A'}</span>
+                  </div>
+                </div>
+
+                {/* Sub-sections Grid */}
+                <div className="profile-details-grid">
+                  {/* Emergency & Other Details */}
+                  <div className="details-section">
+                    <h3>Emergency & Spouse Details</h3>
+                    <div className="details-list">
+                      <div className="detail-row">
+                        <span>Emergency Contact:</span>
+                        <strong>{selectedSchool.emergencyName || 'N/A'}</strong>
+                      </div>
+                      <div className="detail-row">
+                        <span>Emergency Relationship:</span>
+                        <strong>{selectedSchool.emergencyRelationship || 'N/A'}</strong>
+                      </div>
+                      <div className="detail-row">
+                        <span>Emergency Number:</span>
+                        <strong>{selectedSchool.emergencyContact || 'N/A'}</strong>
+                      </div>
+                      <div className="detail-row">
+                        <span>Spouse Name:</span>
+                        <strong>{selectedSchool.spouseName || 'N/A'}</strong>
+                      </div>
+                      <div className="detail-row">
+                        <span>Address:</span>
+                        <strong>{selectedSchool.address || 'N/A'}</strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Initial Prenatal Assessment */}
+                  <div className="details-section">
+                    <h3>Initial Prenatal Assessment</h3>
+                    <div className="details-list">
+                      <div className="detail-row">
+                        <span>Prenatal Reg Date:</span>
+                        <strong>{selectedSchool.prenatalRegDate ? new Date(selectedSchool.prenatalRegDate).toLocaleDateString() : 'N/A'}</strong>
+                      </div>
+                      <div className="detail-row">
+                        <span>Trimester / Gest. Age:</span>
+                        <strong>{selectedSchool.trimester || 'N/A'} ({selectedSchool.gestationalAge || 'N/A'} weeks)</strong>
+                      </div>
+                      <div className="detail-row">
+                        <span>Blood Pressure (BP):</span>
+                        <strong>{selectedSchool.prenatalBp || 'N/A'}</strong>
+                      </div>
+                      <div className="detail-row">
+                        <span>Fundal Height / FHR:</span>
+                        <strong>{selectedSchool.fundalHeight ? `${selectedSchool.fundalHeight} cm` : 'N/A'} / {selectedSchool.fhr ? `${selectedSchool.fhr} bpm` : 'N/A'}</strong>
+                      </div>
+                      <div className="detail-row">
+                        <span>Weight / Height at Reg:</span>
+                        <strong>{selectedSchool.prenatalWeight ? `${selectedSchool.prenatalWeight} kg` : 'N/A'} / {selectedSchool.prenatalHeight ? `${selectedSchool.prenatalHeight} cm` : 'N/A'}</strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Obstetric & Obstetric History */}
+                  <div className="details-section full-width-col">
+                    <h3>Obstetric History & Pregnancies</h3>
+                    <div className="ob-stats-row">
+                      <div className="ob-stat">Gravida: <strong>{selectedSchool.gravida || '0'}</strong></div>
+                      <div className="ob-stat">Para: <strong>{selectedSchool.para || '0'}</strong></div>
+                      <div className="ob-stat">Abortion: <strong>{selectedSchool.abortion || '0'}</strong></div>
+                      <div className="ob-stat">Stillbirth: <strong>{selectedSchool.stillbirth || '0'}</strong></div>
+                    </div>
+                  </div>
+
+                  {/* Medical Conditions & Dental Health */}
+                  <div className="details-section">
+                    <h3>Medical Conditions History</h3>
+                    <div className="medical-conditions-tags">
+                      {selectedSchool.medicalConditions && Object.entries(selectedSchool.medicalConditions).map(([key, val]) => (
+                        val ? (
+                          <span key={key} className="medical-tag" style={{ textTransform: 'capitalize' }}>
+                            {key.replace(/([A-Z])/g, ' $1')}
+                          </span>
+                        ) : null
+                      ))}
+                      {(!selectedSchool.medicalConditions || !Object.values(selectedSchool.medicalConditions).some(Boolean)) && (
+                        <span className="no-conditions-text">No medical conditions reported.</span>
+                      )}
+                    </div>
+                    {selectedSchool.otherMedicalHistory && (
+                      <div className="other-medical-notes">
+                        <strong>Other Notes:</strong>
+                        <p>{selectedSchool.otherMedicalHistory}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="details-section">
+                    <h3>Dental Health Record</h3>
+                    <div className="details-list">
+                      <div className="detail-row">
+                        <span>Check-up Date:</span>
+                        <strong>{selectedSchool.dentalCheckupDate ? new Date(selectedSchool.dentalCheckupDate).toLocaleDateString() : 'N/A'}</strong>
+                      </div>
+                      <div className="detail-row">
+                        <span>Facility / Dentist:</span>
+                        <strong>{selectedSchool.dentalFacility || 'N/A'} ({selectedSchool.dentistInCharge || 'N/A'})</strong>
+                      </div>
+                      <div className="detail-row">
+                        <span>Dentist License / Contact:</span>
+                        <strong>{selectedSchool.dentistLicense || 'N/A'} / {selectedSchool.dentistContact || 'N/A'}</strong>
+                      </div>
+                      <div className="detail-row">
+                        <span>Teeth Count / Findings:</span>
+                        <strong>{selectedSchool.teethCount || 'N/A'} teeth / {selectedSchool.dentalFindings || 'N/A'}</strong>
+                      </div>
+                      <div className="detail-row flex-column">
+                        <span>Work Done:</span>
+                        <div className="dental-work-tags">
+                          {selectedSchool.dentalWork && Object.entries(selectedSchool.dentalWork).map(([key, val]) => (
+                            val ? (
+                              <span key={key} className="dental-tag" style={{ textTransform: 'capitalize' }}>
+                                {key.replace(/([A-Z])/g, ' $1')}
+                              </span>
+                            ) : null
+                          ))}
+                          {(!selectedSchool.dentalWork || !Object.values(selectedSchool.dentalWork).some(Boolean)) && (
+                            <span className="no-work-text">No dental work recorded.</span>
+                          )}
+                        </div>
+                      </div>
+                      {selectedSchool.dentalRemarks && (
+                        <div className="dental-remarks-box">
+                          <strong>Dentist Recommendations:</strong>
+                          <p>{selectedSchool.dentalRemarks}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Vaccine Record */}
+                  <div className="details-section full-width-col">
+                    <h3>Tetanus Toxoid (TT) Vaccine Record</h3>
+                    <div className="vaccines-display-grid">
+                      {[1, 2, 3, 4, 5].map(num => {
+                        const dateVal = selectedSchool[`tt${num}Date`];
+                        const remarkVal = selectedSchool[`tt${num}Remarks`];
+                        return (
+                          <div key={num} className={`vaccine-card-item ${dateVal ? 'vaccinated' : 'pending'}`}>
+                            <div className="vaccine-title">TT{num}</div>
+                            <div className="vaccine-date">{dateVal ? new Date(dateVal).toLocaleDateString() : 'Not Given'}</div>
+                            {remarkVal && <div className="vaccine-remarks">{remarkVal}</div>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
 
-      {!(isCreateMother || isCreateChild) && (
+
+
+      {!(isCreateMother || isCreateChild || selectedSchool) && (
         <BeneficiaryTable
           currentRows={displayRows}
           filteredDataLength={displayLength}
@@ -1759,16 +1987,7 @@ export default function BeneficiaryPage() {
         groups={groups}
         batches={batches}
       />
-      <EditCommunityModal
-        showModal={showModal === 'editCommunity'}
-        onClose={() => setShowModal(null)}
-        communityForm={communityForm}
-        setCommunityForm={setCommunityForm}
-        handleEditCommunity={handleEditCommunity}
-        communities={communities}
-        groups={groups}
-        batches={batches}
-      />
+      {/* EditCommunityModal removed per request */}
       <CreateBatchModal
         showModal={showModal === 'createBatch'}
         onClose={() => setShowModal(null)}
