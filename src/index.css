@@ -1237,23 +1237,44 @@ body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "He
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid #ddd;
+  border: 2px solid #E2E8F0;
   margin-bottom: 6px;
   font-weight: 700;
   font-size: 16px;
+  background: #F8FAFC;
+  color: #64748B;
+  transition: all 0.2s ease;
 }
 .step.completed .step-circle {
-  background: #6aa84f;
+  background: #10B981;
   color: #fff;
-  border-color: #6aa84f;
+  border-color: #10B981;
 }
 .step.active .step-circle {
-  box-shadow: 0 0 0 6px rgba(106,168,79,0.12);
-  border-color: #4a8f2a;
+  background: #EFF6FF;
+  border-color: #3B82F6;
+  color: #3B82F6;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2);
+  animation: pulse-active-circle 2s infinite alternate;
+}
+.step.locked .step-circle {
+  background: #F1F5F9;
+  border-color: #E2E8F0;
+  color: #94A3B8;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.step.locked .step-label {
+  color: #94A3B8;
+}
+@keyframes pulse-active-circle {
+  0% { box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2); }
+  100% { box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.45); }
 }
 .step-btn { background: transparent; border: none; padding: 0; cursor: pointer; }
-.step-btn:focus { outline: 3px solid rgba(106,168,79,0.15); border-radius: 50%; }
-.step-label { font-size: 13px; color: #333; text-align: center; }
+.step-btn:disabled { cursor: not-allowed; }
+.step-btn:focus { outline: 3px solid rgba(59, 130, 246, 0.2); border-radius: 50%; }
+.step-label { font-size: 13px; color: #334155; text-align: center; font-weight: 500; }
 
 .pagination-btn.disabled {
   opacity: 0.45;
@@ -1366,13 +1387,23 @@ body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "He
 .form-row-3 {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1rem;
+  gap: 0.75rem;
 }
 
 .form-row-4 {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1rem;
+  gap: 0.75rem;
+}
+
+.form-group {
+  max-width: 100%;
+}
+
+.form-row-3 .form-group,
+.form-row-4 .form-group {
+  min-width: 0;
+  max-width: 260px;
 }
 
 .form-group.narrow-field {

@@ -21,6 +21,121 @@ import {
   StatusPendingIcon,
   StatusDoneIcon,
 } from './BeneficiaryIcons';
+import BeneficiaryMotherProfile from './BeneficiaryMotherProfile';
+import BeneficiaryChildProfile from './BeneficiaryChildProfile';
+
+const DEFAULT_CHECKUPS = [[null, null, null], [null, null, null], [null, null, null]];
+
+const calculateGestationalDetails = (lmpDate) => {
+  if (!lmpDate) return { gestationalAge: '', trimester: '1st Trimester' };
+  const lmp = new Date(lmpDate);
+  if (Number.isNaN(lmp.getTime())) return { gestationalAge: '', trimester: '1st Trimester' };
+
+  const today = new Date();
+  const diffDays = Math.max(0, Math.floor((today - lmp) / (1000 * 60 * 60 * 24)));
+  const gestationalAge = String(Math.floor(diffDays / 7));
+
+  let trimester = '1st Trimester';
+  if (gestationalAge > 26) trimester = '3rd Trimester';
+  else if (gestationalAge > 12) trimester = '2nd Trimester';
+
+  return { gestationalAge, trimester };
+};
+
+const calculateBmi = (weight, height) => {
+  const w = parseFloat(weight);
+  const h = parseFloat(height);
+  if (Number.isNaN(w) || Number.isNaN(h) || h <= 0) return '';
+  const meters = h / 100;
+  return (w / (meters * meters)).toFixed(1);
+};
+
+const getInitialCheckups = (trimester, bp, weight, fHeight, fRate, regDate, lmpDate) => {
+  const checkups = [[null, null, null], [null, null, null], [null, null, null]];
+  const trimIndex = ['1st Trimester', '2nd Trimester', '3rd Trimester'].indexOf(trimester || '1st Trimester');
+  const todayStr = new Date().toISOString().split('T')[0];
+  const dateVal = regDate || lmpDate || todayStr;
+
+  for (let t = 0; t < 3; t++) {
+    if (t < trimIndex) {
+      for (let s = 0; s < 3; s++) {
+        checkups[t][s] = {
+          completed: true,
+          autoMarked: true,
+          bp: bp || '120/80',
+          weight: weight || '55',
+          fundalHeight: fHeight || '15',
+          fhr: fRate || '140',
+          notes: `Auto-completed based on registration in ${trimester || '2nd Trimester'}.`,
+          date: dateVal,
+        };
+      }
+    }
+  }
+  return checkups;
+};
+
+const getFirstIncompleteCheckup = (checkups = DEFAULT_CHECKUPS) => {
+  for (let t = 0; t < 3; t++) {
+    for (let s = 0; s < 3; s++) {
+      if (!checkups[t]?.[s]?.completed) {
+        return { trimester: t + 1, step: s + 1 };
+      }
+    }
+  }
+  return null;
+};
+
+const getStepStatus = (mother, tIdx, stepIdx) => {
+  if (!mother) return 'locked';
+  const checkups = mother.checkups || DEFAULT_CHECKUPS;
+  if (checkups[tIdx]?.[stepIdx]?.completed) return 'completed';
+
+  const firstIncomplete = getFirstIncompleteCheckup(checkups);
+  if (!firstIncomplete) return 'completed';
+  if (firstIncomplete.trimester === tIdx + 1 && firstIncomplete.step === stepIdx + 1) {
+    return 'active';
+  }
+
+  return 'locked';
+};
+
+const PEDIATRIC_CHECKPOINTS = ['Birth / 0 Weeks', '6 Weeks', '3 Months', '6 Months', '9 Months', '12 Months (48 Weeks)'];
+const DEFAULT_PEDIA_CHECKUPS = Array(PEDIATRIC_CHECKPOINTS.length).fill(null);
+
+const getFirstIncompletePediaCheckup = (checkups = DEFAULT_PEDIA_CHECKUPS) => {
+  for (let i = 0; i < PEDIATRIC_CHECKPOINTS.length; i++) {
+    if (!checkups[i]?.completed) {
+      return i + 1;
+    }
+  }
+  return null;
+};
+
+const getPediaStepStatus = (child, stepIdx) => {
+  if (!child) return 'locked';
+  const checkups = child.childCheckups || DEFAULT_PEDIA_CHECKUPS;
+  if (checkups[stepIdx]?.completed) return 'completed';
+  const firstIncomplete = getFirstIncompletePediaCheckup(checkups);
+  if (!firstIncomplete) return 'completed';
+  if (firstIncomplete === stepIdx + 1) return 'active';
+  return 'locked';
+};
+
+const getPediaBmiStatus = (bmi) => {
+  const value = parseFloat(bmi);
+  if (Number.isNaN(value)) return '';
+  if (value < 18.5) return 'Underweight';
+  if (value < 25) return 'Normal';
+  if (value < 30) return 'Overweight';
+  return 'Obese';
+};
+
+const getTrimesterLabelFromCheckups = (checkups = DEFAULT_CHECKUPS) => {
+  const firstIncomplete = getFirstIncompleteCheckup(checkups);
+  if (!firstIncomplete) return '3rd Trimester';
+  return ['1st Trimester', '2nd Trimester', '3rd Trimester'][firstIncomplete.trimester - 1];
+};
 
 const makeMockMother = (id, name, area, progress, batches, records, override = {}) => {
   const parts = name.split(' ');
@@ -39,7 +154,7 @@ const makeMockMother = (id, name, area, progress, batches, records, override = {
   
   const eddDateObj = new Date(lmpDateObj.getTime() + 280 * 24 * 60 * 60 * 1000);
   const eddDate = eddDateObj.toISOString().split('T')[0];
-
+ 
   const dobYear = 1990 + (idNum % 10);
   const dobMonth = String((idNum % 12) + 1).padStart(2, '0');
   const dobDay = String((idNum % 28) + 1).padStart(2, '0');
@@ -60,6 +175,30 @@ const makeMockMother = (id, name, area, progress, batches, records, override = {
     { event: 'G6', gestationalAge: '', outcome: '' },
     { event: 'G7', gestationalAge: '', outcome: '' }
   ];
+
+  // Pre-populate detailed checkups array based on progress value
+  const completedCheckupsCount = Math.min(9, Math.max(0, Math.round(progress / 11)));
+  const checkups = [[null, null, null], [null, null, null], [null, null, null]];
+  let count = 0;
+  for (let t = 0; t < 3; t++) {
+    for (let s = 0; s < 3; s++) {
+      if (count < completedCheckupsCount) {
+        checkups[t][s] = {
+          completed: true,
+          autoMarked: false,
+          bp: override.prenatalBp || (idNum % 4 === 0 ? '130/90' : '110/70'),
+          weight: override.prenatalWeight || override.weight || String(50 + (idNum % 15)),
+          fundalHeight: override.fundalHeight || String(12 + (idNum % 6)),
+          fhr: override.fhr || String(140 + (idNum % 10)),
+          notes: 'Mock checkup record from initial data loading.',
+          date: prenatalRegDate
+        };
+        count++;
+      }
+    }
+  }
+
+  const finalProgress = Math.round((completedCheckupsCount / 9) * 100);
 
   return {
     id,
@@ -151,7 +290,8 @@ const makeMockMother = (id, name, area, progress, batches, records, override = {
     area,
     batches,
     records,
-    progress,
+    progress: finalProgress,
+    checkups,
     ...override
   };
 };
@@ -267,6 +407,53 @@ export default function BeneficiaryPage() {
   const [showMotherCheckup, setShowMotherCheckup] = useState(false);
   const [activeTrimester, setActiveTrimester] = useState(null);
   const [activeStep, setActiveStep] = useState(null);
+  const [showChildCheckup, setShowChildCheckup] = useState(false);
+  const [activePediaStep, setActivePediaStep] = useState(null);
+
+  // Checkup Form States
+  const [checkupDate, setCheckupDate] = useState(new Date().toISOString().split('T')[0]);
+  const [checkupServiceProvider, setCheckupServiceProvider] = useState('');
+  const [checkupNextDate, setCheckupNextDate] = useState('');
+  const [checkupBp, setCheckupBp] = useState('');
+  const [checkupWeight, setCheckupWeight] = useState('');
+  const [checkupHeight, setCheckupHeight] = useState('');
+  const [checkupNutrition, setCheckupNutrition] = useState('Normal');
+  const [checkupFundalHeight, setCheckupFundalHeight] = useState('');
+  const [checkupFhr, setCheckupFhr] = useState('');
+  const [checkupReferral, setCheckupReferral] = useState(false);
+  const [checkupLabAssistance, setCheckupLabAssistance] = useState(false);
+  const [checkupAssistanceAmount, setCheckupAssistanceAmount] = useState('');
+  const [checkupAssistanceSource, setCheckupAssistanceSource] = useState('');
+  const [checkupMaternityType, setCheckupMaternityType] = useState('Govt');
+  const [checkupMilkDate, setCheckupMilkDate] = useState('');
+  const [checkupMilkQuantity, setCheckupMilkQuantity] = useState('');
+  const [checkupNotes, setCheckupNotes] = useState('');
+
+  const [pediaCheckupDate, setPediaCheckupDate] = useState(new Date().toISOString().split('T')[0]);
+  const [pediaWeight, setPediaWeight] = useState('');
+  const [pediaHeight, setPediaHeight] = useState('');
+  const [pediaHeadCircumference, setPediaHeadCircumference] = useState('');
+  const [pediaFeeding, setPediaFeeding] = useState('Exclusive Breastfeeding');
+  const [pediaVaccinesGiven, setPediaVaccinesGiven] = useState('');
+  const [pediaDevelopmentNotes, setPediaDevelopmentNotes] = useState('');
+  const [pediaReferral, setPediaReferral] = useState(false);
+  const [pediaNextAppointment, setPediaNextAppointment] = useState('');
+  const [pediaNotes, setPediaNotes] = useState('');
+  const [pediaAgeMonths, setPediaAgeMonths] = useState('');
+  const [pediaServiceProvider, setPediaServiceProvider] = useState('');
+  const [pediaLabRequest, setPediaLabRequest] = useState(false);
+  const [pediaAmount, setPediaAmount] = useState('');
+  const [pediaSourceOfFunds, setPediaSourceOfFunds] = useState('Municipal Fund');
+  const [pediaFacilityType, setPediaFacilityType] = useState('Govt');
+
+  // Delivery Form States
+  const [deliveryDate, setDeliveryDate] = useState('');
+  const [deliveryType, setDeliveryType] = useState('Vaginal');
+  const [deliveryOutcome, setDeliveryOutcome] = useState('Single Healthy Birth');
+  const [deliveryBirthWeight, setDeliveryBirthWeight] = useState('');
+  const [deliveryBirthLength, setDeliveryBirthLength] = useState('');
+  const [deliveryBabyGender, setDeliveryBabyGender] = useState('Male');
+  const [deliveryBabyName, setDeliveryBabyName] = useState('');
 
   const formTabList = [
     { id: 'general', label: '1. General Info' },
@@ -423,7 +610,10 @@ export default function BeneficiaryPage() {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const checkup = params.get('checkup');
+    const pedia = params.get('pedia');
     setShowMotherCheckup(!!checkup);
+    setShowChildCheckup(!!pedia);
+
     if (checkup) {
       const t = parseInt(params.get('trimester'), 10);
       const s = parseInt(params.get('step'), 10);
@@ -432,6 +622,13 @@ export default function BeneficiaryPage() {
     } else {
       setActiveTrimester(null);
       setActiveStep(null);
+    }
+
+    if (pedia) {
+      const s = parseInt(params.get('step'), 10);
+      setActivePediaStep(Number.isFinite(s) ? s : null);
+    } else {
+      setActivePediaStep(null);
     }
   }, [location.search]);
 
@@ -449,7 +646,7 @@ export default function BeneficiaryPage() {
       items.push({ label: 'Mother', clickable: false });
       items.push({ label: selectedSchool.name, clickable: false });
     } else if (selectedGroup) {
-      items.push({ label: 'Mother', clickable: false });
+      items.push({ label: 'Child', clickable: false });
       items.push({ label: selectedGroup.name, clickable: false });
     } else {
       items.push({ label: 'Mother', clickable: false });
@@ -520,6 +717,52 @@ export default function BeneficiaryPage() {
     }
   }, [communities, batchForm.community, groupForm.community]);
 
+  useEffect(() => {
+    if (selectedSchool && activeTrimester && activeStep) {
+      const record = selectedSchool.checkups?.[activeTrimester - 1]?.[activeStep - 1] || {};
+      setCheckupDate(record.checkupDate || new Date().toISOString().split('T')[0]);
+      setCheckupServiceProvider(record.serviceProvider || '');
+      setCheckupNextDate(record.nextCheckupDate || '');
+      setCheckupBp(record.bp || '');
+      setCheckupWeight(record.weight || '');
+      setCheckupHeight(record.height || selectedSchool.height || '');
+      setCheckupNutrition(record.nutritionalStatus || 'Normal');
+      setCheckupFundalHeight(record.fundalHeight || '');
+      setCheckupFhr(record.fhr || '');
+      setCheckupReferral(record.referral || false);
+      setCheckupLabAssistance(record.labAssistance || false);
+      setCheckupAssistanceAmount(record.amount || '');
+      setCheckupAssistanceSource(record.sourceOfFunds || '');
+      setCheckupMaternityType(record.maternityType || 'Govt');
+      setCheckupMilkDate(record.milkSubsidy?.dateProvided || '');
+      setCheckupMilkQuantity(record.milkSubsidy?.quantity ?? '');
+      setCheckupNotes(record.notes || '');
+    }
+  }, [selectedSchool?.id, activeTrimester, activeStep]);
+
+  useEffect(() => {
+    if (selectedSchool) {
+      if (selectedSchool.delivered && selectedSchool.deliveryDetails) {
+        const details = selectedSchool.deliveryDetails;
+        setDeliveryDate(details.deliveryDate || '');
+        setDeliveryType(details.deliveryType || 'Vaginal');
+        setDeliveryOutcome(details.outcome || 'Single Healthy Birth');
+        setDeliveryBirthWeight(details.birthWeight || '');
+        setDeliveryBirthLength(details.birthLength || '');
+        setDeliveryBabyGender(details.babyGender || 'Male');
+        setDeliveryBabyName(details.babyName || '');
+      } else {
+        setDeliveryDate(new Date().toISOString().split('T')[0]);
+        setDeliveryType('Vaginal');
+        setDeliveryOutcome('Single Healthy Birth');
+        setDeliveryBirthWeight('');
+        setDeliveryBirthLength('');
+        setDeliveryBabyGender('Male');
+        setDeliveryBabyName('');
+      }
+    }
+  }, [selectedSchool?.id]);
+
   const handleCommunityRowClick = (row, type) => {
     if (type === 'mother') {
       const school = communities.find((comm) => comm.name === row.community);
@@ -530,7 +773,10 @@ export default function BeneficiaryPage() {
     }
 
     if (type === 'child') {
-      navigate(`/beneficiary/group/${row.id}`);
+      const childGroup = groups.find((group) => group.id === row.id);
+      if (childGroup) {
+        navigate(`/beneficiary/group/${childGroup.id}`);
+      }
     }
   };
 
@@ -642,6 +888,7 @@ export default function BeneficiaryPage() {
   const openCreateMother = () => {
     setCreateDropdownOpen(false);
     setCreateActiveTab('general');
+
     setCommunityForm({
       firstName: '',
       middleName: '',
@@ -724,6 +971,7 @@ export default function BeneficiaryPage() {
       group: groups[0]?.name || '',
       batch: batches[0]?.name || '',
     });
+
     navigate('/beneficiary/create/mother');
   };
 
@@ -930,6 +1178,27 @@ export default function BeneficiaryPage() {
       .replace(/\s+/g, ' ')
       .trim();
 
+    const initialCheckups = getInitialCheckups(
+      communityForm.trimester,
+      communityForm.prenatalBp,
+      communityForm.prenatalWeight || communityForm.weight,
+      communityForm.fundalHeight,
+      communityForm.fhr,
+      communityForm.prenatalRegDate,
+      communityForm.lmpDate
+    );
+    let completedCount = 0;
+    for (let t = 0; t < 3; t++) {
+      for (let s = 0; s < 3; s++) {
+        if (initialCheckups[t][s]?.completed) completedCount++;
+      }
+    }
+    const initialProgress = Math.round((completedCount / 9) * 100);
+
+    const { gestationalAge, trimester } = calculateGestationalDetails(communityForm.lmpDate);
+    const resolvedTrimester = communityForm.lmpDate ? trimester : communityForm.trimester;
+    const resolvedGestationalAge = communityForm.lmpDate ? gestationalAge : communityForm.gestationalAge;
+
     const newCommunity = {
       id: `COM-${String(currentMaxId + 1).padStart(4, '0')}`,
       name: fullName,
@@ -952,8 +1221,8 @@ export default function BeneficiaryPage() {
       spouseName: communityForm.spouseName,
       address: communityForm.address,
       prenatalRegDate: communityForm.prenatalRegDate,
-      trimester: communityForm.trimester,
-      gestationalAge: communityForm.gestationalAge,
+      trimester: resolvedTrimester,
+      gestationalAge: resolvedGestationalAge,
       prenatalWeight: communityForm.prenatalWeight,
       prenatalBp: communityForm.prenatalBp,
       prenatalHeight: communityForm.prenatalHeight,
@@ -989,7 +1258,8 @@ export default function BeneficiaryPage() {
       area: communityForm.area,
       batches: 0,
       records: 0,
-      progress: 0,
+      progress: initialProgress,
+      checkups: initialCheckups,
     };
 
     setCommunities((prev) => [newCommunity, ...prev]);
@@ -1006,68 +1276,100 @@ export default function BeneficiaryPage() {
       .trim();
 
     setCommunities((prev) =>
-      prev.map((c) =>
-        c.id === selectedItem.id
-          ? {
-              ...c,
-              name: fullName,
-              firstName: communityForm.firstName.trim(),
-              middleName: communityForm.middleName.trim(),
-              lastName: communityForm.lastName.trim(),
-              suffix: communityForm.suffix.trim(),
-              motherId: communityForm.motherId,
-              weight: communityForm.weight,
-              height: communityForm.height,
-              dob: communityForm.dob,
-              lmpDate: communityForm.lmpDate,
-              eddDate: communityForm.eddDate,
-              contactNumber: communityForm.contactNumber,
-              isHighRisk: communityForm.isHighRisk,
-              programType: communityForm.programType,
-              emergencyName: communityForm.emergencyName,
-              emergencyContact: communityForm.emergencyContact,
-              emergencyRelationship: communityForm.emergencyRelationship,
-              spouseName: communityForm.spouseName,
-              address: communityForm.address,
-              prenatalRegDate: communityForm.prenatalRegDate,
-              trimester: communityForm.trimester,
-              gestationalAge: communityForm.gestationalAge,
-              prenatalWeight: communityForm.prenatalWeight,
-              prenatalBp: communityForm.prenatalBp,
-              prenatalHeight: communityForm.prenatalHeight,
-              fundalHeight: communityForm.fundalHeight,
-              fhr: communityForm.fhr,
-              gravida: communityForm.gravida,
-              para: communityForm.para,
-              abortion: communityForm.abortion,
-              stillbirth: communityForm.stillbirth,
-              obHistory: communityForm.obHistory,
-              medicalConditions: communityForm.medicalConditions,
-              otherMedicalHistory: communityForm.otherMedicalHistory,
-              dentalCheckupDate: communityForm.dentalCheckupDate,
-              dentalFacility: communityForm.dentalFacility,
-              dentistInCharge: communityForm.dentistInCharge,
-              communityDentist: communityForm.communityDentist,
-              dentistLicense: communityForm.dentistLicense,
-              dentistContact: communityForm.dentistContact,
-              teethCount: communityForm.teethCount,
-              dentalFindings: communityForm.dentalFindings,
-              dentalWork: communityForm.dentalWork,
-              dentalRemarks: communityForm.dentalRemarks,
-              tt1Date: communityForm.tt1Date,
-              tt1Remarks: communityForm.tt1Remarks,
-              tt2Date: communityForm.tt2Date,
-              tt2Remarks: communityForm.tt2Remarks,
-              tt3Date: communityForm.tt3Date,
-              tt3Remarks: communityForm.tt3Remarks,
-              tt4Date: communityForm.tt4Date,
-              tt4Remarks: communityForm.tt4Remarks,
-              tt5Date: communityForm.tt5Date,
-              tt5Remarks: communityForm.tt5Remarks,
-              area: communityForm.area,
+      prev.map((c) => {
+        if (c.id === selectedItem.id) {
+          const trimesterChanged = c.trimester !== communityForm.trimester;
+          const updatedCheckups = trimesterChanged
+            ? getInitialCheckups(
+                communityForm.trimester,
+                communityForm.prenatalBp,
+                communityForm.prenatalWeight || communityForm.weight,
+                communityForm.fundalHeight,
+                communityForm.fhr,
+                communityForm.prenatalRegDate,
+                communityForm.lmpDate
+              )
+            : (c.checkups || getInitialCheckups(
+                communityForm.trimester,
+                communityForm.prenatalBp,
+                communityForm.prenatalWeight || communityForm.weight,
+                communityForm.fundalHeight,
+                communityForm.fhr,
+                communityForm.prenatalRegDate,
+                communityForm.lmpDate
+              ));
+
+          let completedCount = 0;
+          for (let t = 0; t < 3; t++) {
+            for (let s = 0; s < 3; s++) {
+              if (updatedCheckups[t][s]?.completed) completedCount++;
             }
-          : c
-      )
+          }
+          const updatedProgress = Math.round((completedCount / 9) * 100);
+
+          return {
+            ...c,
+            name: fullName,
+            firstName: communityForm.firstName.trim(),
+            middleName: communityForm.middleName.trim(),
+            lastName: communityForm.lastName.trim(),
+            suffix: communityForm.suffix.trim(),
+            motherId: communityForm.motherId,
+            weight: communityForm.weight,
+            height: communityForm.height,
+            dob: communityForm.dob,
+            lmpDate: communityForm.lmpDate,
+            eddDate: communityForm.eddDate,
+            contactNumber: communityForm.contactNumber,
+            isHighRisk: communityForm.isHighRisk,
+            programType: communityForm.programType,
+            emergencyName: communityForm.emergencyName,
+            emergencyContact: communityForm.emergencyContact,
+            emergencyRelationship: communityForm.emergencyRelationship,
+            spouseName: communityForm.spouseName,
+            address: communityForm.address,
+            prenatalRegDate: communityForm.prenatalRegDate,
+            trimester: communityForm.trimester,
+            gestationalAge: communityForm.gestationalAge,
+            prenatalWeight: communityForm.prenatalWeight,
+            prenatalBp: communityForm.prenatalBp,
+            prenatalHeight: communityForm.prenatalHeight,
+            fundalHeight: communityForm.fundalHeight,
+            fhr: communityForm.fhr,
+            gravida: communityForm.gravida,
+            para: communityForm.para,
+            abortion: communityForm.abortion,
+            stillbirth: communityForm.stillbirth,
+            obHistory: communityForm.obHistory,
+            medicalConditions: communityForm.medicalConditions,
+            otherMedicalHistory: communityForm.otherMedicalHistory,
+            dentalCheckupDate: communityForm.dentalCheckupDate,
+            dentalFacility: communityForm.dentalFacility,
+            dentistInCharge: communityForm.dentistInCharge,
+            communityDentist: communityForm.communityDentist,
+            dentistLicense: communityForm.dentistLicense,
+            dentistContact: communityForm.dentistContact,
+            teethCount: communityForm.teethCount,
+            dentalFindings: communityForm.dentalFindings,
+            dentalWork: communityForm.dentalWork,
+            dentalRemarks: communityForm.dentalRemarks,
+            tt1Date: communityForm.tt1Date,
+            tt1Remarks: communityForm.tt1Remarks,
+            tt2Date: communityForm.tt2Date,
+            tt2Remarks: communityForm.tt2Remarks,
+            tt3Date: communityForm.tt3Date,
+            tt3Remarks: communityForm.tt3Remarks,
+            tt4Date: communityForm.tt4Date,
+            tt4Remarks: communityForm.tt4Remarks,
+            tt5Date: communityForm.tt5Date,
+            tt5Remarks: communityForm.tt5Remarks,
+            area: communityForm.area,
+            checkups: updatedCheckups,
+            progress: updatedProgress,
+          };
+        }
+        return c;
+      })
     );
     setShowModal(null);
     setSelectedItem(null);
@@ -1081,13 +1383,285 @@ export default function BeneficiaryPage() {
 
   const handleCancelCheckup = () => {
     setShowMotherCheckup(false);
+    setActiveTrimester(null);
+    setActiveStep(null);
+    navigate(`/beneficiary/school/${selectedSchool?.id}`);
   };
 
-  const handleSaveCheckup = () => {
+  const onClearCheckupForm = () => {
+    setCheckupDate(new Date().toISOString().split('T')[0]);
+    setCheckupServiceProvider('');
+    setCheckupNextDate('');
+    setCheckupBp('');
+    setCheckupWeight('');
+    setCheckupHeight(selectedSchool?.height || '');
+    setCheckupNutrition('Normal');
+    setCheckupFundalHeight('');
+    setCheckupFhr('');
+    setCheckupReferral(false);
+    setCheckupLabAssistance(false);
+    setCheckupAssistanceAmount('');
+    setCheckupAssistanceSource('');
+    setCheckupMaternityType('Govt');
+    setCheckupMilkDate('');
+    setCheckupMilkQuantity('');
+    setCheckupNotes('');
+  };
+
+  const onSaveCheckup = () => {
+    if (!selectedSchool || !activeTrimester || !activeStep) return;
+
+    if (!checkupBp.trim() || !checkupWeight.trim() || !checkupFundalHeight.trim() || !checkupFhr.trim()) {
+      alert("Please fill in all required fields: Blood Pressure, Weight, Fundal Height, and Fetal Heart Rate.");
+      return;
+    }
+
+    const updatedCheckups = [...(selectedSchool.checkups || [[null, null, null], [null, null, null], [null, null, null]])];
+    const trimesterIdx = activeTrimester - 1;
+    const stepIdx = activeStep - 1;
+
+    updatedCheckups[trimesterIdx] = [...(updatedCheckups[trimesterIdx] || [null, null, null])];
+    updatedCheckups[trimesterIdx][stepIdx] = {
+      motherId: selectedSchool.motherId || selectedSchool.id,
+      trimester: activeTrimester,
+      checkupNo: activeStep,
+      checkupDate: checkupDate,
+      serviceProvider: checkupServiceProvider.trim(),
+      nextCheckupDate: checkupNextDate,
+
+      bp: checkupBp.trim(),
+      weight: parseFloat(checkupWeight.trim()) || checkupWeight.trim(),
+      height: parseFloat(checkupHeight.trim()) || checkupHeight.trim(),
+      bmi: calculateBmi(checkupWeight.trim(), checkupHeight.trim()),
+      nutritionalStatus: checkupNutrition,
+
+      gestationalAge: selectedSchool.lmpDate ? Math.max(0, Math.floor((new Date() - new Date(selectedSchool.lmpDate)) / (1000 * 60 * 60 * 24 * 7))) : parseInt(selectedSchool.gestationalAge, 10),
+      fundalHeight: checkupFundalHeight.trim(),
+      fhr: parseInt(checkupFhr.trim(), 10) || checkupFhr.trim(),
+
+      referral: checkupReferral,
+      notes: checkupNotes.trim(),
+
+      labAssistance: checkupLabAssistance,
+      amount: checkupAssistanceAmount.trim(),
+      sourceOfFunds: checkupAssistanceSource.trim(),
+      maternityType: checkupMaternityType,
+      milkSubsidy: {
+        dateProvided: checkupMilkDate,
+        quantity: checkupMilkQuantity ? parseInt(checkupMilkQuantity, 10) : ''
+      },
+
+      completed: true,
+      date: checkupDate || new Date().toISOString().split('T')[0]
+    };
+
+    // Calculate completed checks
+    let completedCount = 0;
+    for (let t = 0; t < 3; t++) {
+      for (let s = 0; s < 3; s++) {
+        if (updatedCheckups[t]?.[s]?.completed) completedCount++;
+      }
+    }
+    const newProgress = Math.round((completedCount / 9) * 100);
+
+    const updatedMother = {
+      ...selectedSchool,
+      checkups: updatedCheckups,
+      progress: newProgress,
+      prenatalBp: checkupBp.trim(),
+      prenatalWeight: checkupWeight.trim(),
+      fundalHeight: checkupFundalHeight.trim(),
+      fhr: checkupFhr.trim(),
+    };
+
+    setCommunities((prev) => prev.map((c) => (c.id === selectedSchool.id ? updatedMother : c)));
+
+    alert(`Checkup ${activeStep} for Trimester ${activeTrimester} saved successfully!`);
+
+    // Auto-advance logic
+    let nextT = null;
+    let nextS = null;
+    for (let t = 0; t < 3; t++) {
+      for (let s = 0; s < 3; s++) {
+        if (!updatedCheckups[t]?.[s]?.completed) {
+          nextT = t;
+          nextS = s;
+          break;
+        }
+      }
+      if (nextT !== null) break;
+    }
+
+    if (nextT !== null) {
+      openCheckup(nextT + 1, nextS + 1);
+    } else {
+      // All prenatal checks complete. Open delivery transition card.
+      setActiveTrimester(null);
+      setActiveStep(null);
+      setShowMotherCheckup(true);
+      navigate(`/beneficiary/school/${selectedSchool.id}?checkup=1`);
+    }
+  };
+
+  const openPediaCheckup = (step) => {
+    if (!selectedGroup) return;
+    setShowChildCheckup(true);
+    setActivePediaStep(step);
+    navigate(`/beneficiary/group/${selectedGroup.id}?pedia=1&step=${step}`);
+  };
+
+  const onClearPediaCheckupForm = () => {
+    setPediaCheckupDate(new Date().toISOString().split('T')[0]);
+    setPediaWeight('');
+    setPediaHeight('');
+    setPediaHeadCircumference('');
+    setPediaFeeding('Exclusive Breastfeeding');
+    setPediaVaccinesGiven('');
+    setPediaDevelopmentNotes('');
+    setPediaReferral(false);
+    setPediaNextAppointment('');
+    setPediaNotes('');
+    setPediaAgeMonths('');
+    setPediaServiceProvider('');
+    setPediaLabRequest(false);
+    setPediaAmount('');
+    setPediaSourceOfFunds('Municipal Fund');
+    setPediaFacilityType('Govt');
+  };
+
+  const onSavePediaCheckup = () => {
+    if (!selectedGroup || !activePediaStep) return;
+    if (!pediaCheckupDate || !pediaWeight.trim() || !pediaHeight.trim()) {
+      alert('Please fill in the pediatric checkup date, weight, and height.');
+      return;
+    }
+
+    const updatedCheckups = [...(selectedGroup.childCheckups || DEFAULT_PEDIA_CHECKUPS)];
+    const stepIdx = activePediaStep - 1;
+    const bmiValue = calculateBmi(pediaWeight.trim(), pediaHeight.trim());
+    updatedCheckups[stepIdx] = {
+      step: activePediaStep,
+      label: PEDIATRIC_CHECKPOINTS[stepIdx],
+      checkupDate: pediaCheckupDate,
+      ageInMonths: pediaAgeMonths.trim(),
+      weight: pediaWeight.trim(),
+      height: pediaHeight.trim(),
+      headCircumference: pediaHeadCircumference.trim(),
+      feedingType: pediaFeeding,
+      bmi: bmiValue,
+      bmiStatus: getPediaBmiStatus(bmiValue),
+      serviceProvider: pediaServiceProvider.trim(),
+      vaccinesGiven: pediaVaccinesGiven.trim(),
+      developmentNotes: pediaDevelopmentNotes.trim(),
+      referral: pediaReferral,
+      nextAppointment: pediaNextAppointment,
+      labRequest: pediaLabRequest,
+      amount: pediaAmount.trim(),
+      sourceOfFunds: pediaSourceOfFunds.trim(),
+      facilityType: pediaFacilityType,
+      notes: pediaNotes.trim(),
+      completed: true,
+    };
+
+    const completedCount = updatedCheckups.filter((checkup) => checkup?.completed).length;
+    const newProgress = Math.round((completedCount / PEDIATRIC_CHECKPOINTS.length) * 100);
+
+    const updatedGroup = {
+      ...selectedGroup,
+      childCheckups: updatedCheckups,
+      progress: newProgress,
+      lastPediaCheckup: pediaCheckupDate,
+    };
+
+    setGroups((prev) => prev.map((g) => (g.id === selectedGroup.id ? updatedGroup : g)));
+    alert(`Pediatric checkup ${activePediaStep} saved successfully!`);
+
+    const nextIncomplete = getFirstIncompletePediaCheckup(updatedCheckups);
+    if (nextIncomplete) {
+      openPediaCheckup(nextIncomplete);
+    } else {
+      setActivePediaStep(null);
+      setShowChildCheckup(true);
+      navigate(`/beneficiary/group/${selectedGroup.id}?pedia=1`);
+    }
+  };
+
+  const onSaveDelivery = (e) => {
+    e.preventDefault();
     if (!selectedSchool) return;
-    // persist any changes from selectedSchool back into communities (no-op if unchanged)
-    setCommunities((prev) => prev.map((c) => (c.id === selectedSchool.id ? { ...c, ...selectedSchool } : c)));
-    setShowMotherCheckup(false);
+
+    if (!deliveryDate || !deliveryType || !deliveryOutcome || !deliveryBabyGender || !deliveryBabyName.trim() || !deliveryBirthWeight || !deliveryBirthLength) {
+      alert("Please fill in all delivery details: Date, Type, Outcome, Gender, Name, Weight, and Length.");
+      return;
+    }
+
+    const deliveryDetails = {
+      deliveryDate,
+      deliveryType,
+      outcome: deliveryOutcome,
+      birthWeight: deliveryBirthWeight,
+      birthLength: deliveryBirthLength,
+      babyGender: deliveryBabyGender,
+      babyName: deliveryBabyName.trim()
+    };
+
+    const updatedMother = {
+      ...selectedSchool,
+      delivered: true,
+      status: 'Delivered',
+      deliveryDetails,
+      progress: 100
+    };
+
+    setCommunities((prev) => prev.map((c) => (c.id === selectedSchool.id ? updatedMother : c)));
+    alert("Delivery details saved successfully!");
+
+    // Prefill child registration form (groupForm)
+    setGroupForm({
+      firstName: deliveryBabyName.trim(),
+      middleName: selectedSchool.middleName || '',
+      lastName: selectedSchool.lastName || '',
+      suffix: '',
+      birthDate: deliveryDate,
+      birthWeight: deliveryBirthWeight,
+      birthLength: deliveryBirthLength,
+      gender: deliveryBabyGender,
+      deliveryType: deliveryType,
+      healthStatus: 'Healthy',
+      birthPlace: `${selectedSchool.area} Health Center`,
+      birthAttendant: 'Midwife',
+      apgarScore: '9',
+      feedingType: 'Exclusive Breastfeeding',
+      nutritionNotes: 'Healthy newborn, transitioned from maternal flow.',
+      medicalConditions: {
+        congenitalHeartDisease: false,
+        respiratoryIssues: false,
+        prematurity: false,
+        jaundice: false,
+        anemia: false,
+        growthDelay: false,
+      },
+      medicalRemarks: 'Healthy transition.',
+      bcgDate: '',
+      bcgRemarks: '',
+      hepbDate: '',
+      hepbRemarks: '',
+      opvDate: '',
+      opvRemarks: '',
+      dptDate: '',
+      dptRemarks: '',
+      mmrDate: '',
+      mmrRemarks: '',
+      community: selectedSchool.name,
+      batch: '',
+      assignedBatchIds: [],
+      leader: '',
+      members: 1,
+      status: 'Active',
+    });
+
+    setCreateActiveTab('general');
+    navigate('/beneficiary/create/child');
   };
 
   const openCheckup = (trimesterNum, stepNum) => {
@@ -1374,6 +1948,16 @@ export default function BeneficiaryPage() {
     return buttons;
   };
 
+  const renderMotherProfile = () => {
+    if (!selectedSchool) return null;
+    return null;
+  };
+
+  const renderChildProfile = () => {
+    if (!selectedGroup) return null;
+    return null;
+  };
+
   return (
     <div className="community-page">
       <header className="community-header">
@@ -1591,377 +2175,112 @@ export default function BeneficiaryPage() {
       )}
 
       {selectedSchool && (
-        <div className="mother-profile-card">
-          <div className="profile-card-header">
-            <div className="profile-header-main">
-              <div className="profile-title-row">
-                <h2>{selectedSchool.name}</h2>
-                {selectedSchool.isHighRisk === 'Yes' && (
-                  <span className="risk-badge high-risk">⚠️ High Risk</span>
-                )}
-                <span className="program-badge">{selectedSchool.programType || 'Maternal Health Program'}</span>
-              </div>
-              <div className="profile-subtitle">
-                <span>{'\u00A0'}</span>
-                <span className="separator">{'\u00A0'}</span>
-                <span>{'\u00A0'}</span>
-              </div>
-
-            </div>
-            <div className="profile-actions">
-              {showMotherCheckup ? (
-                <button type="button" className="btn-primary" onClick={() => openEditMother(selectedSchool)}>
-                  Edit Profile
-                </button>
-              ) : (
-                <button type="button" className="btn-secondary btn-checkups" onClick={() => setShowMotherCheckup(true)}>
-                  Checkups
-                </button>
-              )}
-              <button type="button" className="btn-close-profile" onClick={() => navigate('/beneficiary')} aria-label="Close profile">
-                ✕
-              </button>
-            </div>
-          </div>
-
-          <div className="profile-card-body">
-            {showMotherCheckup ? (
-              <div className="mother-checkup-body">
-                <div className="trimester-stepper">
-                  {['1st Trimester', '2nd Trimester', '3rd Trimester'].map((trim, tIdx) => {
-                    const trimesterIndex = ['1st Trimester', '2nd Trimester', '3rd Trimester'].indexOf(selectedSchool.trimester);
-                    // determine how many checkups are completed for this trimester
-                    // priority: if detailed `checkups` array is present on selectedSchool, use it
-                    // otherwise: past trimesters => all 3 completed; current => fallback to 1 completed; future => 0
-                    const detailed = selectedSchool.checkups && Array.isArray(selectedSchool.checkups[tIdx]);
-                    const completedCount = detailed
-                      ? selectedSchool.checkups[tIdx].filter(Boolean).length
-                      : (tIdx < trimesterIndex ? 3 : (tIdx === trimesterIndex ? (selectedSchool.completedChecksThisTrimester ?? 1) : 0));
-
-                    return (
-                      <div key={trim} className="trimester">
-                        <div className="trimester-title">{trim}</div>
-                        <div className="trimester-steps">
-                          {[1, 2, 3].map(step => {
-                            const completed = step <= completedCount;
-                            const isActive = activeTrimester === (tIdx + 1) && activeStep === step;
-                            return (
-                              <div key={step} className={`step ${completed ? 'completed' : ''} ${isActive ? 'active' : ''}`}>
-                                <button type="button" className="step-btn" onClick={() => openCheckup(tIdx + 1, step)} aria-label={`Open ${trim} checkup ${step}`}>
-                                  <div className="step-circle">{completed ? '✓' : step}</div>
-                                </button>
-                                <div className="step-label">Checkup {step}</div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                
-                {/* Mirror profile content: stats and details */}
-                <div className="stats-grid" style={{ marginTop: '16px' }}>
-                  <div className="stat-item">
-                    <span className="stat-label">Date of Birth</span>
-                    <span className="stat-value">{selectedSchool.dob ? new Date(selectedSchool.dob).toLocaleDateString() : 'N/A'}</span>
-                  </div>
-                  <div className="stat-item">
-                    <span className="stat-label">Contact Number</span>
-                    <span className="stat-value">{selectedSchool.contactNumber || 'N/A'}</span>
-                  </div>
-                  <div className="stat-item">
-                    <span className="stat-label">LMP Date</span>
-                    <span className="stat-value">{selectedSchool.lmpDate ? new Date(selectedSchool.lmpDate).toLocaleDateString() : 'N/A'}</span>
-                  </div>
-                  <div className="stat-item">
-                    <span className="stat-label">EDD Date</span>
-                    <span className="stat-value">{selectedSchool.eddDate ? new Date(selectedSchool.eddDate).toLocaleDateString() : 'N/A'}</span>
-                  </div>
-                  <div className="stat-item">
-                    <span className="stat-label">Weight / Height</span>
-                    <span className="stat-value">{selectedSchool.weight ? `${selectedSchool.weight} kg` : 'N/A'} / {selectedSchool.height ? `${selectedSchool.height} cm` : 'N/A'}</span>
-                  </div>
-                </div>
-
-                <div className="profile-details-grid">
-                  <div className="details-section">
-                    <h3>Emergency & Spouse Details</h3>
-                    <div className="details-list">
-                      <div className="detail-row">
-                        <span>Emergency Contact:</span>
-                        <strong>{selectedSchool.emergencyName || 'N/A'}</strong>
-                      </div>
-                      <div className="detail-row">
-                        <span>Emergency Relationship:</span>
-                        <strong>{selectedSchool.emergencyRelationship || 'N/A'}</strong>
-                      </div>
-                      <div className="detail-row">
-                        <span>Emergency Number:</span>
-                        <strong>{selectedSchool.emergencyContact || 'N/A'}</strong>
-                      </div>
-                      <div className="detail-row">
-                        <span>Spouse Name:</span>
-                        <strong>{selectedSchool.spouseName || 'N/A'}</strong>
-                      </div>
-                      <div className="detail-row">
-                        <span>Address:</span>
-                        <strong>{selectedSchool.address || 'N/A'}</strong>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="details-section">
-                    <h3>Initial Prenatal Assessment</h3>
-                    <div className="details-list">
-                      <div className="detail-row">
-                        <span>Prenatal Reg Date:</span>
-                        <strong>{selectedSchool.prenatalRegDate ? new Date(selectedSchool.prenatalRegDate).toLocaleDateString() : 'N/A'}</strong>
-                      </div>
-                      <div className="detail-row">
-                        <span>Trimester / Gest. Age:</span>
-                        <strong>{selectedSchool.trimester || 'N/A'} ({selectedSchool.gestationalAge || 'N/A'} weeks)</strong>
-                      </div>
-                      <div className="detail-row">
-                        <span>Blood Pressure (BP):</span>
-                        <strong>{selectedSchool.prenatalBp || 'N/A'}</strong>
-                      </div>
-                      <div className="detail-row">
-                        <span>Fundal Height / FHR:</span>
-                        <strong>{selectedSchool.fundalHeight ? `${selectedSchool.fundalHeight} cm` : 'N/A'} / {selectedSchool.fhr ? `${selectedSchool.fhr} bpm` : 'N/A'}</strong>
-                      </div>
-                      <div className="detail-row">
-                        <span>Weight / Height at Reg:</span>
-                        <strong>{selectedSchool.prenatalWeight ? `${selectedSchool.prenatalWeight} kg` : 'N/A'} / {selectedSchool.prenatalHeight ? `${selectedSchool.prenatalHeight} cm` : 'N/A'}</strong>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="checkup-footer-actions" style={{ marginTop: '16px', display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                  <button type="button" className="btn-secondary" onClick={handleCancelCheckup}>Cancel</button>
-                  <button type="button" className="btn-primary" onClick={handleSaveCheckup}>Save</button>
-                </div>
-
-              </div>
-            ) : (
-              <>
-                {/* Personal Information */}
-                <div className="stats-grid">
-                  <div className="stat-item">
-                    <span className="stat-label">First Name</span>
-                    <span className="stat-value">{selectedSchool.firstName || 'N/A'}</span>
-                  </div>
-                  <div className="stat-item">
-                    <span className="stat-label">Middle Name</span>
-                    <span className="stat-value">{selectedSchool.middleName || 'N/A'}</span>
-                  </div>
-                  <div className="stat-item">
-                    <span className="stat-label">Surname</span>
-                    <span className="stat-value">{selectedSchool.lastName || 'N/A'}</span>
-                  </div>
-                  <div className="stat-item">
-                    <span className="stat-label">Suffix</span>
-                    <span className="stat-value">{selectedSchool.suffix || 'N/A'}</span>
-                  </div>
-                  <div className="stat-item">
-                    <span className="stat-label">Mother ID</span>
-                    <span className="stat-value">{selectedSchool.motherId || 'N/A'}</span>
-                  </div>
-                  <div className="stat-item">
-                    <span className="stat-label">Batch</span>
-                    <span className="stat-value">{selectedSchool.batch || 'N/A'}</span>
-                  </div>
-                  <div className="stat-item">
-                    <span className="stat-label">Group</span>
-                    <span className="stat-value">{selectedSchool.group || 'N/A'}</span>
-                  </div>
-                </div>
-
-                {/* Quick Stats Grid */}
-                <div className="stats-grid">
-                  <div className="stat-item">
-                    <span className="stat-label">Date of Birth</span>
-                    <span className="stat-value">{selectedSchool.dob ? new Date(selectedSchool.dob).toLocaleDateString() : 'N/A'}</span>
-                  </div>
-                  <div className="stat-item">
-                    <span className="stat-label">Contact Number</span>
-                    <span className="stat-value">{selectedSchool.contactNumber || 'N/A'}</span>
-                  </div>
-                  <div className="stat-item">
-                    <span className="stat-label">LMP Date</span>
-                    <span className="stat-value">{selectedSchool.lmpDate ? new Date(selectedSchool.lmpDate).toLocaleDateString() : 'N/A'}</span>
-                  </div>
-                  <div className="stat-item">
-                    <span className="stat-label">EDD Date</span>
-                    <span className="stat-value">{selectedSchool.eddDate ? new Date(selectedSchool.eddDate).toLocaleDateString() : 'N/A'}</span>
-                  </div>
-                  <div className="stat-item">
-                    <span className="stat-label">Weight / Height</span>
-                    <span className="stat-value">{selectedSchool.weight ? `${selectedSchool.weight} kg` : 'N/A'} / {selectedSchool.height ? `${selectedSchool.height} cm` : 'N/A'}</span>
-                  </div>
-                </div>
-
-                {/* Sub-sections Grid */}
-                <div className="profile-details-grid">
-                  {/* Emergency & Other Details */}
-                  <div className="details-section">
-                    <h3>Emergency & Spouse Details</h3>
-                    <div className="details-list">
-                      <div className="detail-row">
-                        <span>Emergency Contact:</span>
-                        <strong>{selectedSchool.emergencyName || 'N/A'}</strong>
-                      </div>
-                      <div className="detail-row">
-                        <span>Emergency Relationship:</span>
-                        <strong>{selectedSchool.emergencyRelationship || 'N/A'}</strong>
-                      </div>
-                      <div className="detail-row">
-                        <span>Emergency Number:</span>
-                        <strong>{selectedSchool.emergencyContact || 'N/A'}</strong>
-                      </div>
-                      <div className="detail-row">
-                        <span>Spouse Name:</span>
-                        <strong>{selectedSchool.spouseName || 'N/A'}</strong>
-                      </div>
-                      <div className="detail-row">
-                        <span>Address:</span>
-                        <strong>{selectedSchool.address || 'N/A'}</strong>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Initial Prenatal Assessment */}
-                  <div className="details-section">
-                    <h3>Initial Prenatal Assessment</h3>
-                    <div className="details-list">
-                      <div className="detail-row">
-                        <span>Prenatal Reg Date:</span>
-                        <strong>{selectedSchool.prenatalRegDate ? new Date(selectedSchool.prenatalRegDate).toLocaleDateString() : 'N/A'}</strong>
-                      </div>
-                      <div className="detail-row">
-                        <span>Trimester / Gest. Age:</span>
-                        <strong>{selectedSchool.trimester || 'N/A'} ({selectedSchool.gestationalAge || 'N/A'} weeks)</strong>
-                      </div>
-                      <div className="detail-row">
-                        <span>Blood Pressure (BP):</span>
-                        <strong>{selectedSchool.prenatalBp || 'N/A'}</strong>
-                      </div>
-                      <div className="detail-row">
-                        <span>Fundal Height / FHR:</span>
-                        <strong>{selectedSchool.fundalHeight ? `${selectedSchool.fundalHeight} cm` : 'N/A'} / {selectedSchool.fhr ? `${selectedSchool.fhr} bpm` : 'N/A'}</strong>
-                      </div>
-                      <div className="detail-row">
-                        <span>Weight / Height at Reg:</span>
-                        <strong>{selectedSchool.prenatalWeight ? `${selectedSchool.prenatalWeight} kg` : 'N/A'} / {selectedSchool.prenatalHeight ? `${selectedSchool.prenatalHeight} cm` : 'N/A'}</strong>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Obstetric & Obstetric History */}
-                  <div className="details-section full-width-col">
-                    <h3>Obstetric History & Pregnancies</h3>
-                    <div className="ob-stats-row">
-                      <div className="ob-stat">Gravida: <strong>{selectedSchool.gravida || '0'}</strong></div>
-                      <div className="ob-stat">Para: <strong>{selectedSchool.para || '0'}</strong></div>
-                      <div className="ob-stat">Abortion: <strong>{selectedSchool.abortion || '0'}</strong></div>
-                      <div className="ob-stat">Stillbirth: <strong>{selectedSchool.stillbirth || '0'}</strong></div>
-                    </div>
-                  </div>
-
-                  {/* Medical Conditions & Dental Health */}
-                  <div className="details-section">
-                    <h3>Medical Conditions History</h3>
-                    <div className="medical-conditions-tags">
-                      {selectedSchool.medicalConditions && Object.entries(selectedSchool.medicalConditions).map(([key, val]) => (
-                        val ? (
-                          <span key={key} className="medical-tag" style={{ textTransform: 'capitalize' }}>
-                            {key.replace(/([A-Z])/g, ' $1')}
-                          </span>
-                        ) : null
-                      ))}
-                      {(!selectedSchool.medicalConditions || !Object.values(selectedSchool.medicalConditions).some(Boolean)) && (
-                        <span className="no-conditions-text">No medical conditions reported.</span>
-                      )}
-                    </div>
-                    {selectedSchool.otherMedicalHistory && (
-                      <div className="other-medical-notes">
-                        <strong>Other Notes:</strong>
-                        <p>{selectedSchool.otherMedicalHistory}</p>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="details-section">
-                    <h3>Dental Health Record</h3>
-                    <div className="details-list">
-                      <div className="detail-row">
-                        <span>Check-up Date:</span>
-                        <strong>{selectedSchool.dentalCheckupDate ? new Date(selectedSchool.dentalCheckupDate).toLocaleDateString() : 'N/A'}</strong>
-                      </div>
-                      <div className="detail-row">
-                        <span>Facility / Dentist:</span>
-                        <strong>{selectedSchool.dentalFacility || 'N/A'} ({selectedSchool.dentistInCharge || 'N/A'})</strong>
-                      </div>
-                      <div className="detail-row">
-                        <span>Dentist License / Contact:</span>
-                        <strong>{selectedSchool.dentistLicense || 'N/A'} / {selectedSchool.dentistContact || 'N/A'}</strong>
-                      </div>
-                      <div className="detail-row">
-                        <span>Teeth Count / Findings:</span>
-                        <strong>{selectedSchool.teethCount || 'N/A'} teeth / {selectedSchool.dentalFindings || 'N/A'}</strong>
-                      </div>
-                      <div className="detail-row flex-column">
-                        <span>Work Done:</span>
-                        <div className="dental-work-tags">
-                          {selectedSchool.dentalWork && Object.entries(selectedSchool.dentalWork).map(([key, val]) => (
-                            val ? (
-                              <span key={key} className="dental-tag" style={{ textTransform: 'capitalize' }}>
-                                {key.replace(/([A-Z])/g, ' $1')}
-                              </span>
-                            ) : null
-                          ))}
-                          {(!selectedSchool.dentalWork || !Object.values(selectedSchool.dentalWork).some(Boolean)) && (
-                            <span className="no-work-text">No dental work recorded.</span>
-                          )}
-                        </div>
-                      </div>
-                      {selectedSchool.dentalRemarks && (
-                        <div className="dental-remarks-box">
-                          <strong>Dentist Recommendations:</strong>
-                          <p>{selectedSchool.dentalRemarks}</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Vaccine Record */}
-                  <div className="details-section full-width-col">
-                    <h3>Tetanus Toxoid (TT) Vaccine Record</h3>
-                    <div className="vaccines-display-grid">
-                      {[1, 2, 3, 4, 5].map(num => {
-                        const dateVal = selectedSchool[`tt${num}Date`];
-                        const remarkVal = selectedSchool[`tt${num}Remarks`];
-                        return (
-                          <div key={num} className={`vaccine-card-item ${dateVal ? 'vaccinated' : 'pending'}`}>
-                            <div className="vaccine-title">TT{num}</div>
-                            <div className="vaccine-date">{dateVal ? new Date(dateVal).toLocaleDateString() : 'Not Given'}</div>
-                            {remarkVal && <div className="vaccine-remarks">{remarkVal}</div>}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                </div>
-              </>
-            )}
-          </div>
-        </div>
+        <BeneficiaryMotherProfile
+          selectedSchool={selectedSchool}
+          showMotherCheckup={showMotherCheckup}
+          activeTrimester={activeTrimester}
+          activeStep={activeStep}
+          openEditMother={openEditMother}
+          openCheckup={openCheckup}
+          handleCancelCheckup={handleCancelCheckup}
+          onClearCheckupForm={onClearCheckupForm}
+          onSaveCheckup={onSaveCheckup}
+          onSaveDelivery={onSaveDelivery}
+          deliveryDate={deliveryDate}
+          setDeliveryDate={setDeliveryDate}
+          deliveryType={deliveryType}
+          deliveryOutcome={deliveryOutcome}
+          deliveryBirthWeight={deliveryBirthWeight}
+          deliveryBirthLength={deliveryBirthLength}
+          deliveryBabyGender={deliveryBabyGender}
+          deliveryBabyName={deliveryBabyName}
+          setActiveTrimester={setActiveTrimester}
+          setActiveStep={setActiveStep}
+          setShowMotherCheckup={setShowMotherCheckup}
+          navigate={navigate}
+          checkupDate={checkupDate}
+          setCheckupDate={setCheckupDate}
+          checkupServiceProvider={checkupServiceProvider}
+          setCheckupServiceProvider={setCheckupServiceProvider}
+          checkupNextDate={checkupNextDate}
+          setCheckupNextDate={setCheckupNextDate}
+          checkupBp={checkupBp}
+          setCheckupBp={setCheckupBp}
+          checkupWeight={checkupWeight}
+          setCheckupWeight={setCheckupWeight}
+          checkupHeight={checkupHeight}
+          setCheckupHeight={setCheckupHeight}
+          checkupNutrition={checkupNutrition}
+          setCheckupNutrition={setCheckupNutrition}
+          checkupFundalHeight={checkupFundalHeight}
+          setCheckupFundalHeight={setCheckupFundalHeight}
+          checkupFhr={checkupFhr}
+          setCheckupFhr={setCheckupFhr}
+          checkupReferral={checkupReferral}
+          setCheckupReferral={setCheckupReferral}
+          checkupLabAssistance={checkupLabAssistance}
+          setCheckupLabAssistance={setCheckupLabAssistance}
+          checkupAssistanceAmount={checkupAssistanceAmount}
+          setCheckupAssistanceAmount={setCheckupAssistanceAmount}
+          checkupAssistanceSource={checkupAssistanceSource}
+          setCheckupAssistanceSource={setCheckupAssistanceSource}
+          checkupMaternityType={checkupMaternityType}
+          setCheckupMaternityType={setCheckupMaternityType}
+          checkupMilkDate={checkupMilkDate}
+          setCheckupMilkDate={setCheckupMilkDate}
+          checkupMilkQuantity={checkupMilkQuantity}
+          setCheckupMilkQuantity={setCheckupMilkQuantity}
+          checkupNotes={checkupNotes}
+          setCheckupNotes={setCheckupNotes}
+        />
       )}
 
 
 
-      {!(isCreateMother || isCreateChild || selectedSchool) && (
+      {selectedGroup && (
+        <BeneficiaryChildProfile
+          selectedGroup={selectedGroup}
+          showChildCheckup={showChildCheckup}
+          activePediaStep={activePediaStep}
+          openPediaCheckup={openPediaCheckup}
+          handleCancelCheckup={handleCancelCheckup}
+          onClearPediaCheckupForm={onClearPediaCheckupForm}
+          onSavePediaCheckup={onSavePediaCheckup}
+          setActivePediaStep={setActivePediaStep}
+          setShowChildCheckup={setShowChildCheckup}
+          navigate={navigate}
+          pediaCheckupDate={pediaCheckupDate}
+          setPediaCheckupDate={setPediaCheckupDate}
+          pediaAgeMonths={pediaAgeMonths}
+          setPediaAgeMonths={setPediaAgeMonths}
+          pediaServiceProvider={pediaServiceProvider}
+          setPediaServiceProvider={setPediaServiceProvider}
+          pediaWeight={pediaWeight}
+          setPediaWeight={setPediaWeight}
+          pediaHeight={pediaHeight}
+          setPediaHeight={setPediaHeight}
+          pediaHeadCircumference={pediaHeadCircumference}
+          setPediaHeadCircumference={setPediaHeadCircumference}
+          pediaFeeding={pediaFeeding}
+          setPediaFeeding={setPediaFeeding}
+          pediaVaccinesGiven={pediaVaccinesGiven}
+          setPediaVaccinesGiven={setPediaVaccinesGiven}
+          pediaLabRequest={pediaLabRequest}
+          setPediaLabRequest={setPediaLabRequest}
+          pediaAmount={pediaAmount}
+          setPediaAmount={setPediaAmount}
+          pediaSourceOfFunds={pediaSourceOfFunds}
+          setPediaSourceOfFunds={setPediaSourceOfFunds}
+          pediaFacilityType={pediaFacilityType}
+          setPediaFacilityType={setPediaFacilityType}
+          pediaDevelopmentNotes={pediaDevelopmentNotes}
+          setPediaDevelopmentNotes={setPediaDevelopmentNotes}
+          pediaNotes={pediaNotes}
+          setPediaNotes={setPediaNotes}
+        />
+      )}
+
+      {!selectedGroup && !(isCreateMother || isCreateChild || selectedSchool) && (
         <BeneficiaryTable
           currentRows={displayRows}
           filteredDataLength={displayLength}

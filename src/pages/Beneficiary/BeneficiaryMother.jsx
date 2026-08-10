@@ -18,6 +18,21 @@ export function MotherFormFields({
         if (!isNaN(lmp.getTime())) {
           const edd = new Date(lmp.getTime() + 280 * 24 * 60 * 60 * 1000);
           newForm.eddDate = edd.toISOString().split('T')[0];
+
+          // Calculate Gestational Age (GA) in weeks
+          const today = new Date();
+          const diffTime = today - lmp;
+          const diffWeeks = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24 * 7)));
+          newForm.gestationalAge = String(diffWeeks);
+
+          // Determine Trimester
+          if (diffWeeks <= 12) {
+            newForm.trimester = '1st Trimester';
+          } else if (diffWeeks <= 26) {
+            newForm.trimester = '2nd Trimester';
+          } else {
+            newForm.trimester = '3rd Trimester';
+          }
         }
       }
       return newForm;
