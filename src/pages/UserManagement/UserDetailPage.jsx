@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useParams, useLocation, useNavigate, Link } from 'react-router-dom';
 
 export default function UserDetailPage() {
@@ -8,10 +8,35 @@ export default function UserDetailPage() {
   const user = location?.state?.user || { id };
 
   const displayName = user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || id;
-
   const handleEdit = () => {
     // Navigate back to list and signal the list to open edit modal
     navigate('/user-management', { state: { editUser: user } });
+  };
+
+  const [generatedPwd, setGeneratedPwd] = useState('');
+  const [copied, setCopied] = useState(false);
+
+  const generateDefaultPassword = () => {
+    const lastName = (user.lastName || '').trim();
+    const year = user.dob ? new Date(user.dob).getFullYear() : '1990';
+    const pwd = `${lastName}${year}`.toLowerCase();
+    setGeneratedPwd(pwd);
+  };
+
+  const copyGenerated = async () => {
+    if (!generatedPwd) return;
+    try {
+      await navigator.clipboard.writeText(generatedPwd);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch (e) {
+      // ignore clipboard failures
+    }
+  };
+
+  const applyGenerated = () => {
+    if (!generatedPwd) return;
+    navigate('/user-management', { state: { editUser: { ...user, password: generatedPwd } } });
   };
 
   return (
@@ -100,6 +125,25 @@ export default function UserDetailPage() {
             <div style={{ marginTop: 18, display: 'flex', gap: 8 }}>
               <button type="button" className="btn-primary" onClick={handleEdit}>Edit</button>
               <button type="button" className="btn-secondary" onClick={() => navigate('/user-management')}>Back</button>
+            </div>
+
+            <div style={{ marginTop: 18 }}>
+              <div className="checkup-section-title">Password</div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' }}>
+                <input
+                  type="text"
+                  className="checkup-field-input"
+                  value={generatedPwd}
+                  readOnly
+                  placeholder="Generate default password"
+                  aria-label="Generated password"
+                />
+                <div style={{ display: 'inline-flex', gap: 8 }}>
+                  <button type="button" className="btn-small" onClick={generateDefaultPassword}>Generate</button>
+                  <button type="button" className="btn-small" onClick={copyGenerated}>{copied ? 'Copied' : 'Copy'}</button>
+                  <button type="button" className="btn-small" onClick={applyGenerated}>Apply</button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
