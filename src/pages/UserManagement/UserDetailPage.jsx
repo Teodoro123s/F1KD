@@ -34,9 +34,7 @@ export default function UserDetailPage() {
         </div>
       </header>
 
-      <section className="subheader-row" aria-hidden="true" style={{ borderBottom: '1px solid #E6EEF6', marginTop: 12 }}>
-        <div style={{ height: 18 }} />
-      </section>
+      
 
       <main style={{ padding: '1rem' }}>
         <div className="checkup-card">
