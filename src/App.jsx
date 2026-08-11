@@ -2,12 +2,13 @@ import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
-import Community from './pages/Community';
+import CommunityPage from './pages/Community/CommunityPage';
 import Beneficiary from './pages/Beneficiary/BeneficiaryPage';
 import Monitoring from './pages/Monitoring';
 import Program from './pages/Program';
 import ProgressReport from './pages/ProgressReport';
-import UserManagement from './pages/UserManagement';
+import UserManagementPage from './pages/UserManagement/UserManagementPage';
+import UserDetail from './pages/UserManagement/UserDetail';
 import Login from './pages/Login';
 import { isAuthenticated } from './utils/auth';
 
@@ -32,19 +33,18 @@ export default function App() {
         }
       >
         <Route path="dashboard" element={<Dashboard />} />
-        <Route path="community" element={<Community />} />
-        <Route path="community/school/:schoolId" element={<Community />} />
-        <Route path="community/group/:groupId" element={<Community />} />
-        <Route path="community/batch/:batchId" element={<Community />} />
+        <Route path="community" element={<CommunityPage />} />
+        <Route path="community/school/:schoolId" element={<CommunityPage />} />
+        <Route path="community/group/:groupId" element={<CommunityPage />} />
+        <Route path="community/batch/:batchId" element={<CommunityPage />} />
         <Route path="beneficiary" element={<Beneficiary />} />
         <Route path="beneficiary/create/mother" element={<Beneficiary />} />
         <Route path="beneficiary/create/child" element={<Beneficiary />} />
-        <Route path="beneficiary/school/:schoolId" element={<Beneficiary />} />
-        <Route path="beneficiary/group/:groupId" element={<Beneficiary />} />
         <Route path="monitoring" element={<Monitoring />} />
         <Route path="program" element={<Program />} />
         <Route path="progress-report" element={<ProgressReport />} />
-        <Route path="user-management" element={<UserManagement />} />
+        <Route path="user-management" element={<UserManagementPage />} />
+        <Route path="user-management/user/:id" element={<UserDetail />} />
         <Route path="*" element={<Navigate to="community" replace />} />
       </Route>
     </Routes>

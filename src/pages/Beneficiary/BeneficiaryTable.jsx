@@ -8,8 +8,8 @@ export default function BeneficiaryTable({
   perPage,
   handlePerPageChange,
   renderPaginationButtons,
-  onCommunityRowClick,
   motherProgressByName,
+  onSelectMother,
   communities = [],
   batches = [],
 }) {
@@ -74,8 +74,14 @@ export default function BeneficiaryTable({
                       <button
                         type="button"
                         className="entity-card-button name-cell"
-                        onClick={onCommunityRowClick ? () => onCommunityRowClick(row, 'mother') : undefined}
-                        aria-label={`Open mother persona for ${row.community}`}
+                        onClick={() => onSelectMother?.({
+                          ...row,
+                          motherName: row.community,
+                          groupName: row.name,
+                          area,
+                          batchName,
+                        })}
+                        aria-label={`Open mother record for ${row.community}`}
                       >
                         <div className="beneficiary-cell-content">
                           <div className="beneficiary-cell-line-1">
@@ -97,12 +103,7 @@ export default function BeneficiaryTable({
                       </button>
                     </td>
                     <td className="child-cell">
-                      <button
-                        type="button"
-                        className="entity-card-button name-cell"
-                        onClick={onCommunityRowClick ? () => onCommunityRowClick(row, 'child') : undefined}
-                        aria-label={`Open child persona for ${row.name}`}
-                      >
+                      <div className="entity-card-button name-cell" role="group" aria-label={`Child record for ${row.name}`}>
                         <div className="beneficiary-cell-content">
                           <div className="beneficiary-cell-line-1">
                             <span className="beneficiary-cell-name">{row.name}</span>
@@ -120,7 +121,7 @@ export default function BeneficiaryTable({
                             {getChildStatus(childProgress)}
                           </div>
                         </div>
-                      </button>
+                      </div>
                     </td>
                   </tr>
                 );

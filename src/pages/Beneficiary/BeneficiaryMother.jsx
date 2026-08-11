@@ -5,8 +5,7 @@ export function MotherFormFields({
   form,
   setForm,
   communities = [],
-  groups = [],
-  batches = []
+  readOnly = false,
 }) {
   const uniqueCommunities = Array.from(new Set(communities.map((comm) => comm.name))).filter(Boolean);
 
@@ -57,247 +56,152 @@ export function MotherFormFields({
     }));
   };
 
+  // Helpers to reduce repetitive form markup and support read-only display
+  const renderField = ({ id, label, name, type = 'text', placeholder = '', required = false }) => {
+    const value = form[name] ?? '';
+    if (readOnly) {
+      return (
+        <div className="form-group">
+          <label className="form-label">{label}</label>
+          <div className="form-readonly-value">{value}</div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="form-group">
+        <label className="form-label" htmlFor={id}>{label}</label>
+        <input
+          id={id}
+          type={type}
+          className="form-input"
+          placeholder={placeholder}
+          value={value}
+          onChange={(e) => setForm((prev) => ({ ...prev, [name]: e.target.value }))}
+          required={required}
+        />
+      </div>
+    );
+  };
+
+  const renderSelect = ({ id, label, name, options = [], placeholder = '', required = false }) => {
+    const value = form[name] ?? '';
+    if (readOnly) {
+      return (
+        <div className="form-group">
+          <label className="form-label">{label}</label>
+          <div className="form-readonly-value">{value}</div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="form-group">
+        <label className="form-label" htmlFor={id}>{label}</label>
+        <select
+          id={id}
+          className="form-select"
+          value={value}
+          onChange={(e) => setForm((prev) => ({ ...prev, [name]: e.target.value }))}
+          required={required}
+        >
+          {placeholder && <option value="">{placeholder}</option>}
+          {options.map((opt) => (
+            <option key={opt.value ?? opt} value={opt.value ?? opt}>{opt.label ?? opt}</option>
+          ))}
+        </select>
+      </div>
+    );
+  };
+
+  const renderTextarea = ({ id, label, name, rows = 2, placeholder = '' }) => {
+    const value = form[name] ?? '';
+    if (readOnly) {
+      return (
+        <div className="form-group full-width">
+          <label className="form-label">{label}</label>
+          <div className="form-readonly-value">{value}</div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="form-group full-width">
+        <label className="form-label" htmlFor={id}>{label}</label>
+        <textarea
+          id={id}
+          className="form-input"
+          rows={rows}
+          placeholder={placeholder}
+          value={value}
+          onChange={(e) => setForm((prev) => ({ ...prev, [name]: e.target.value }))}
+        />
+      </div>
+    );
+  };
+
   if (activeTab === 'general') {
     return (
       <>
         <h4 className="form-section-title">I.A Mother's Information</h4>
         <div className="form-row-4 full-width name-row">
-          <div className="form-group">
-            <label className="form-label" htmlFor="mother-first-name">First Name</label>
-            <input
-              id="mother-first-name"
-              type="text"
-              className="form-input"
-              placeholder="First name"
-              value={form.firstName || ''}
-              onChange={(e) => setForm({ ...form, firstName: e.target.value })}
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label" htmlFor="mother-middle-name">Middle Name</label>
-            <input
-              id="mother-middle-name"
-              type="text"
-              className="form-input"
-              placeholder="Middle name"
-              value={form.middleName || ''}
-              onChange={(e) => setForm({ ...form, middleName: e.target.value })}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label" htmlFor="mother-last-name">Last Name</label>
-            <input
-              id="mother-last-name"
-              type="text"
-              className="form-input"
-              placeholder="Last name"
-              value={form.lastName || ''}
-              onChange={(e) => setForm({ ...form, lastName: e.target.value })}
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label" htmlFor="mother-suffix">Suffix</label>
-            <input
-              id="mother-suffix"
-              type="text"
-              className="form-input"
-              placeholder="Suffix"
-              value={form.suffix || ''}
-              onChange={(e) => setForm({ ...form, suffix: e.target.value })}
-            />
-          </div>
+          {renderField({ id: 'mother-first-name', label: "First Name", name: 'firstName', placeholder: 'First name', required: true })}
+          {renderField({ id: 'mother-middle-name', label: "Middle Name", name: 'middleName', placeholder: 'Middle name' })}
+          {renderField({ id: 'mother-last-name', label: "Last Name", name: 'lastName', placeholder: 'Last name', required: true })}
+          {renderField({ id: 'mother-suffix', label: "Suffix", name: 'suffix', placeholder: 'Suffix' })}
         </div>
 
         <div className="form-row-3 full-width">
-          <div className="form-group">
-            <label className="form-label" htmlFor="mother-id">Mother ID</label>
-            <input
-              id="mother-id"
-              type="text"
-              className="form-input"
-              placeholder="Enter mother's ID"
-              value={form.motherId || ''}
-              onChange={(e) => setForm({ ...form, motherId: e.target.value })}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label" htmlFor="mother-dob">Date of Birth</label>
-            <input
-              id="mother-dob"
-              type="date"
-              className="form-input"
-              value={form.dob || ''}
-              onChange={(e) => setForm({ ...form, dob: e.target.value })}
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label" htmlFor="mother-contact">Contact Number</label>
-            <input
-              id="mother-contact"
-              type="tel"
-              className="form-input"
-              placeholder="0917******"
-              value={form.contactNumber || ''}
-              onChange={(e) => setForm({ ...form, contactNumber: e.target.value })}
-            />
-          </div>
+          {renderField({ id: 'mother-id', label: "Mother ID", name: 'motherId', placeholder: "Enter mother's ID" })}
+          {renderField({ id: 'mother-dob', label: "Date of Birth", name: 'dob', type: 'date', required: true })}
+          {renderField({ id: 'mother-contact', label: "Contact Number", name: 'contactNumber', type: 'tel', placeholder: '0917******' })}
         </div>
 
         <div className="form-row-4 full-width">
-          <div className="form-group">
-            <label className="form-label" htmlFor="mother-lmp">Date of LMP</label>
-            <input
-              id="mother-lmp"
-              type="date"
-              className="form-input"
-              value={form.lmpDate || ''}
-              onChange={(e) => handleLmpChange(e.target.value)}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label" htmlFor="mother-edd">Expected Delivery Date (EDD)</label>
-            <input
-              id="mother-edd"
-              type="date"
-              className="form-input"
-              value={form.eddDate || ''}
-              onChange={(e) => setForm({ ...form, eddDate: e.target.value })}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label" htmlFor="mother-weight">Mother's Weight (kg)</label>
-            <input
-              id="mother-weight"
-              type="text"
-              className="form-input"
-              placeholder="e.g. 50 kg"
-              value={form.weight || ''}
-              onChange={(e) => setForm({ ...form, weight: e.target.value })}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label" htmlFor="mother-height">Mother's Height (cm)</label>
-            <input
-              id="mother-height"
-              type="text"
-              className="form-input"
-              placeholder="e.g. 150 cm"
-              value={form.height || ''}
-              onChange={(e) => setForm({ ...form, height: e.target.value })}
-            />
-          </div>
+          {readOnly ? (
+            renderField({ id: 'mother-lmp', label: 'Date of LMP', name: 'lmpDate', type: 'date' })
+          ) : (
+            <div className="form-group">
+              <label className="form-label" htmlFor="mother-lmp">Date of LMP</label>
+              <input
+                id="mother-lmp"
+                type="date"
+                className="form-input"
+                value={form.lmpDate || ''}
+                onChange={(e) => handleLmpChange(e.target.value)}
+              />
+            </div>
+          )}
+
+          {renderField({ id: 'mother-edd', label: "Expected Delivery Date (EDD)", name: 'eddDate', type: 'date' })}
+          {renderField({ id: 'mother-weight', label: "Mother's Weight (kg)", name: 'weight', placeholder: 'e.g. 50 kg' })}
+          {renderField({ id: 'mother-height', label: "Mother's Height (cm)", name: 'height', placeholder: 'e.g. 150 cm' })}
         </div>
 
         <div className="form-row-3 full-width">
-          <div className="form-group">
-            <label className="form-label" htmlFor="mother-high-risk">Is High Risk?</label>
-            <select
-              id="mother-high-risk"
-              className="form-select"
-              value={form.isHighRisk || 'No'}
-              onChange={(e) => setForm({ ...form, isHighRisk: e.target.value })}
-            >
-              <option value="No">No</option>
-              <option value="Yes">Yes</option>
-            </select>
-          </div>
-          <div className="form-group">
-            <label className="form-label" htmlFor="mother-program">Program Type</label>
-            <select
-              id="mother-program"
-              className="form-select"
-              value={form.programType || 'Maternal Health Program'}
-              onChange={(e) => setForm({ ...form, programType: e.target.value })}
-            >
-              <option value="Maternal Health Program">Maternal Health Program</option>
-              <option value="High Risk Maternal Support">High Risk Maternal Support</option>
-              <option value="New Mother Care">New Mother Care</option>
-            </select>
-          </div>
-          <div className="form-group">
-            <label className="form-label" htmlFor="mother-area">Area</label>
-            <select
-              id="mother-area"
-              className="form-select"
-              value={form.area || 'Poblacion'}
-              onChange={(e) => setForm({ ...form, area: e.target.value })}
-            >
-              <option value="Poblacion">Poblacion</option>
-              <option value="Upland">Upland</option>
-              <option value="Downtown">Downtown</option>
-              <option value="Coastal">Coastal</option>
-              <option value="Highland">Highland</option>
-              <option value="Lowland">Lowland</option>
-              <option value="Riverside">Riverside</option>
-              <option value="Forest">Forest</option>
-            </select>
-          </div>
+          {renderSelect({ id: 'mother-high-risk', label: 'Is High Risk?', name: 'isHighRisk', options: [{ value: 'No', label: 'No' }, { value: 'Yes', label: 'Yes' }] })}
+          {renderSelect({ id: 'mother-program', label: 'Program Type', name: 'programType', options: [
+            { value: 'Maternal Health Program', label: 'Maternal Health Program' },
+            { value: 'High Risk Maternal Support', label: 'High Risk Maternal Support' },
+            { value: 'New Mother Care', label: 'New Mother Care' },
+          ] })}
+          {renderSelect({ id: 'mother-area', label: 'Area', name: 'area', options: [
+            'Poblacion','Upland','Downtown','Coastal','Highland','Lowland','Riverside','Forest'
+          ] })}
         </div>
 
         <h4 className="form-section-title">I.B EMERGENCY CONTACT DETAILS</h4>
         <div className="form-row-3 full-width">
-          <div className="form-group">
-            <label className="form-label" htmlFor="emergency-name">Name</label>
-            <input
-              id="emergency-name"
-              type="text"
-              className="form-input"
-              placeholder="Enter contact name"
-              value={form.emergencyName || ''}
-              onChange={(e) => setForm({ ...form, emergencyName: e.target.value })}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label" htmlFor="emergency-contact">Contact Number</label>
-            <input
-              id="emergency-contact"
-              type="tel"
-              className="form-input"
-              placeholder="Enter contact number"
-              value={form.emergencyContact || ''}
-              onChange={(e) => setForm({ ...form, emergencyContact: e.target.value })}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label" htmlFor="emergency-relationship">Relationship</label>
-            <input
-              id="emergency-relationship"
-              type="text"
-              className="form-input"
-              placeholder="e.g. husband"
-              value={form.emergencyRelationship || ''}
-              onChange={(e) => setForm({ ...form, emergencyRelationship: e.target.value })}
-            />
-          </div>
+          {renderField({ id: 'emergency-name', label: 'Name', name: 'emergencyName', placeholder: 'Enter contact name' })}
+          {renderField({ id: 'emergency-contact', label: 'Contact Number', name: 'emergencyContact', type: 'tel', placeholder: 'Enter contact number' })}
+          {renderField({ id: 'emergency-relationship', label: 'Relationship', name: 'emergencyRelationship', placeholder: 'e.g. husband' })}
         </div>
 
         <h4 className="form-section-title">I.C OTHER DETAILS</h4>
         <div className="form-group full-width">
-          <label className="form-label" htmlFor="spouse-name">Spouse Name</label>
-          <input
-            id="spouse-name"
-            type="text"
-            className="form-input"
-            placeholder="Enter spouse name"
-            value={form.spouseName || ''}
-            onChange={(e) => setForm({ ...form, spouseName: e.target.value })}
-            style={{ maxWidth: '400px' }}
-          />
+          {renderField({ id: 'spouse-name', label: 'Spouse Name', name: 'spouseName', placeholder: 'Enter spouse name' })}
         </div>
-        <div className="form-group full-width">
-          <label className="form-label" htmlFor="mother-address">Address</label>
-          <textarea
-            id="mother-address"
-            className="form-input"
-            rows="3"
-            placeholder="Enter address..."
-            value={form.address || ''}
-            onChange={(e) => setForm({ ...form, address: e.target.value })}
-          />
-        </div>
+        {renderTextarea({ id: 'mother-address', label: 'Address', name: 'address', rows: 3, placeholder: 'Enter address...' })}
       </>
     );
   }
@@ -307,154 +211,29 @@ export function MotherFormFields({
       <>
         <h4 className="form-section-title">II. INITIAL PRENATAL ASSESSMENT & MATERNAL HEALTH PROFILE</h4>
         <div className="form-row-3 full-width">
-          <div className="form-group">
-            <label className="form-label" htmlFor="prenatal-reg-date">Date of Prenatal Registration</label>
-            <input
-              id="prenatal-reg-date"
-              type="date"
-              className="form-input"
-              value={form.prenatalRegDate || ''}
-              onChange={(e) => setForm({ ...form, prenatalRegDate: e.target.value })}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label" htmlFor="prenatal-trimester">Trimester at Registration</label>
-            <select
-              id="prenatal-trimester"
-              className="form-select"
-              value={form.trimester || '1st Trimester'}
-              onChange={(e) => setForm({ ...form, trimester: e.target.value })}
-            >
-              <option value="1st Trimester">1st Trimester</option>
-              <option value="2nd Trimester">2nd Trimester</option>
-              <option value="3rd Trimester">3rd Trimester</option>
-            </select>
-          </div>
-          <div className="form-group">
-            <label className="form-label" htmlFor="prenatal-gest-age">Gestational Age at Reg (weeks)</label>
-            <input
-              id="prenatal-gest-age"
-              type="text"
-              className="form-input"
-              placeholder="e.g. 12"
-              value={form.gestationalAge || ''}
-              onChange={(e) => setForm({ ...form, gestationalAge: e.target.value })}
-            />
-          </div>
+          {renderField({ id: 'prenatal-reg-date', label: 'Date of Prenatal Registration', name: 'prenatalRegDate', type: 'date' })}
+          {renderSelect({ id: 'prenatal-trimester', label: 'Trimester at Registration', name: 'trimester', options: ['1st Trimester','2nd Trimester','3rd Trimester'] })}
+          {renderField({ id: 'prenatal-gest-age', label: 'Gestational Age at Reg (weeks)', name: 'gestationalAge', placeholder: 'e.g. 12' })}
         </div>
 
         <div className="form-row-3 full-width">
-          <div className="form-group">
-            <label className="form-label" htmlFor="prenatal-weight">Weight (kg) at Reg</label>
-            <input
-              id="prenatal-weight"
-              type="text"
-              className="form-input"
-              placeholder="e.g. 52"
-              value={form.prenatalWeight || ''}
-              onChange={(e) => setForm({ ...form, prenatalWeight: e.target.value })}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label" htmlFor="prenatal-bp">Blood Pressure (BP) at Reg</label>
-            <input
-              id="prenatal-bp"
-              type="text"
-              className="form-input"
-              placeholder="e.g. 120/80"
-              value={form.prenatalBp || ''}
-              onChange={(e) => setForm({ ...form, prenatalBp: e.target.value })}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label" htmlFor="prenatal-height">Height (cm) at Reg</label>
-            <input
-              id="prenatal-height"
-              type="text"
-              className="form-input"
-              placeholder="e.g. 150"
-              value={form.prenatalHeight || ''}
-              onChange={(e) => setForm({ ...form, prenatalHeight: e.target.value })}
-            />
-          </div>
+          {renderField({ id: 'prenatal-weight', label: 'Weight (kg) at Reg', name: 'prenatalWeight', placeholder: 'e.g. 52' })}
+          {renderField({ id: 'prenatal-bp', label: 'Blood Pressure (BP) at Reg', name: 'prenatalBp', placeholder: 'e.g. 120/80' })}
+          {renderField({ id: 'prenatal-height', label: 'Height (cm) at Reg', name: 'prenatalHeight', placeholder: 'e.g. 150' })}
         </div>
 
         <div className="form-row-3 full-width">
-          <div className="form-group">
-            <label className="form-label" htmlFor="prenatal-fundal">Fundal Height (cm) at Reg</label>
-            <input
-              id="prenatal-fundal"
-              type="text"
-              className="form-input"
-              placeholder="e.g. 15"
-              value={form.fundalHeight || ''}
-              onChange={(e) => setForm({ ...form, fundalHeight: e.target.value })}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label" htmlFor="prenatal-fhr">FHR (bpm) at Reg</label>
-            <input
-              id="prenatal-fhr"
-              type="text"
-              className="form-input"
-              placeholder="e.g. 145"
-              value={form.fhr || ''}
-              onChange={(e) => setForm({ ...form, fhr: e.target.value })}
-            />
-          </div>
+          {renderField({ id: 'prenatal-fundal', label: 'Fundal Height (cm) at Reg', name: 'fundalHeight', placeholder: 'e.g. 15' })}
+          {renderField({ id: 'prenatal-fhr', label: 'FHR (bpm) at Reg', name: 'fhr', placeholder: 'e.g. 145' })}
           <div className="form-group" aria-hidden="true" />
         </div>
 
         <h4 className="form-section-title">III. NUMBER OF PREGNANCIES & BIRTHS (OB)</h4>
         <div className="form-row-4 full-width">
-          <div className="form-group">
-            <label className="form-label" htmlFor="ob-gravida">Gravida (Pregnancies)</label>
-            <input
-              id="ob-gravida"
-              type="number"
-              min="0"
-              className="form-input"
-              placeholder="Total pregnancies"
-              value={form.gravida || ''}
-              onChange={(e) => setForm({ ...form, gravida: e.target.value })}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label" htmlFor="ob-para">Para (Completed >20wks)</label>
-            <input
-              id="ob-para"
-              type="number"
-              min="0"
-              className="form-input"
-              placeholder="Completed pregnancies"
-              value={form.para || ''}
-              onChange={(e) => setForm({ ...form, para: e.target.value })}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label" htmlFor="ob-abortion">Abortion</label>
-            <input
-              id="ob-abortion"
-              type="number"
-              min="0"
-              className="form-input"
-              placeholder="Spontaneous/induced"
-              value={form.abortion || ''}
-              onChange={(e) => setForm({ ...form, abortion: e.target.value })}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label" htmlFor="ob-stillbirth">Stillbirth</label>
-            <input
-              id="ob-stillbirth"
-              type="number"
-              min="0"
-              className="form-input"
-              placeholder="Fetal death >20wks"
-              value={form.stillbirth || ''}
-              onChange={(e) => setForm({ ...form, stillbirth: e.target.value })}
-            />
-          </div>
+          {renderField({ id: 'ob-gravida', label: 'Gravida (Pregnancies)', name: 'gravida', type: 'number', placeholder: 'Total pregnancies' })}
+          {renderField({ id: 'ob-para', label: 'Para (Completed >20wks)', name: 'para', type: 'number', placeholder: 'Completed pregnancies' })}
+          {renderField({ id: 'ob-abortion', label: 'Abortion', name: 'abortion', type: 'number', placeholder: 'Spontaneous/induced' })}
+          {renderField({ id: 'ob-stillbirth', label: 'Stillbirth', name: 'stillbirth', type: 'number', placeholder: 'Fetal death >20wks' })}
         </div>
 
         <div className="form-group full-width">
@@ -473,22 +252,30 @@ export function MotherFormFields({
                   <tr key={index}>
                     <td><strong>{row.event}</strong></td>
                     <td>
-                      <input
-                        type="text"
-                        className="form-input table-input"
-                        placeholder="e.g. 38 weeks"
-                        value={row.gestationalAge || ''}
-                        onChange={(e) => handleObHistoryChange(index, 'gestationalAge', e.target.value)}
-                      />
+                      {readOnly ? (
+                        <div className="form-readonly-value">{row.gestationalAge || '-'}</div>
+                      ) : (
+                        <input
+                          type="text"
+                          className="form-input table-input"
+                          placeholder="e.g. 38 weeks"
+                          value={row.gestationalAge || ''}
+                          onChange={(e) => handleObHistoryChange(index, 'gestationalAge', e.target.value)}
+                        />
+                      )}
                     </td>
                     <td>
-                      <input
-                        type="text"
-                        className="form-input table-input"
-                        placeholder="e.g. Normal Vaginal Delivery"
-                        value={row.outcome || ''}
-                        onChange={(e) => handleObHistoryChange(index, 'outcome', e.target.value)}
-                      />
+                      {readOnly ? (
+                        <div className="form-readonly-value">{row.outcome || '-'}</div>
+                      ) : (
+                        <input
+                          type="text"
+                          className="form-input table-input"
+                          placeholder="e.g. Normal Vaginal Delivery"
+                          value={row.outcome || ''}
+                          onChange={(e) => handleObHistoryChange(index, 'outcome', e.target.value)}
+                        />
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -529,155 +316,79 @@ export function MotherFormFields({
       <>
         <h4 className="form-section-title">IV.A HISTORY OF MEDICAL CONDITIONS</h4>
         <div className="form-checkboxes-grid full-width">
-          {conditionsKeys.map(({ key, label }) => (
-            <label key={key} className="form-checkbox-label">
-              <input
-                type="checkbox"
-                className="form-checkbox"
-                checked={!!form.medicalConditions?.[key]}
-                onChange={(e) => handleCheckboxChange('medicalConditions', key, e.target.checked)}
-              />
-              <span>{label}</span>
-            </label>
-          ))}
-        </div>
-        <div className="form-group full-width">
-          <label className="form-label" htmlFor="other-medical-notes">Other Medical History</label>
-          <textarea
-            id="other-medical-notes"
-            className="form-input"
-            rows="2"
-            placeholder="Other medical history notes..."
-            value={form.otherMedicalHistory || ''}
-            onChange={(e) => setForm({ ...form, otherMedicalHistory: e.target.value })}
-          />
-        </div>
-
-        <h4 className="form-section-title">IV.B DENTAL HEALTH CONDITION</h4>
-        <div className="form-row-3 full-width">
-          <div className="form-group">
-            <label className="form-label" htmlFor="dental-date">Date of Dental Check-up</label>
-            <input
-              id="dental-date"
-              type="date"
-              className="form-input"
-              value={form.dentalCheckupDate || ''}
-              onChange={(e) => setForm({ ...form, dentalCheckupDate: e.target.value })}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label" htmlFor="dental-facility">Dental Clinic / Health Facility</label>
-            <input
-              id="dental-facility"
-              type="text"
-              className="form-input"
-              placeholder="Facility name"
-              value={form.dentalFacility || ''}
-              onChange={(e) => setForm({ ...form, dentalFacility: e.target.value })}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label" htmlFor="dentist-charge">Dentist in Charge</label>
-            <input
-              id="dentist-charge"
-              type="text"
-              className="form-input"
-              placeholder="Dentist name"
-              value={form.dentistInCharge || ''}
-              onChange={(e) => setForm({ ...form, dentistInCharge: e.target.value })}
-            />
-          </div>
-        </div>
-
-        <div className="form-row-3 full-width">
-          <div className="form-group">
-            <label className="form-label" htmlFor="dentist-comm">Community Dentist Name</label>
-            <input
-              id="dentist-comm"
-              type="text"
-              className="form-input"
-              placeholder="Community dentist"
-              value={form.communityDentist || ''}
-              onChange={(e) => setForm({ ...form, communityDentist: e.target.value })}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label" htmlFor="dentist-license">Dentist License No</label>
-            <input
-              id="dentist-license"
-              type="text"
-              className="form-input"
-              placeholder="License number"
-              value={form.dentistLicense || ''}
-              onChange={(e) => setForm({ ...form, dentistLicense: e.target.value })}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label" htmlFor="dentist-contact">Dentist Contact No</label>
-            <input
-              id="dentist-contact"
-              type="tel"
-              className="form-input"
-              placeholder="Contact number"
-              value={form.dentistContact || ''}
-              onChange={(e) => setForm({ ...form, dentistContact: e.target.value })}
-            />
-          </div>
-        </div>
-
-        <div className="form-group narrow-field">
-          <label className="form-label" htmlFor="teeth-count">Number of Teeth Pregnant</label>
-          <input
-            id="teeth-count"
-            type="number"
-            min="0"
-            className="form-input"
-            placeholder="e.g. 28"
-            value={form.teethCount || ''}
-            onChange={(e) => setForm({ ...form, teethCount: e.target.value })}
-          />
-        </div>
-
-        <div className="form-group full-width">
-          <label className="form-label" htmlFor="dental-findings">Dental Findings / Diagnosis</label>
-          <textarea
-            id="dental-findings"
-            className="form-input"
-            rows="2"
-            placeholder="Findings or diagnosis..."
-            value={form.dentalFindings || ''}
-            onChange={(e) => setForm({ ...form, dentalFindings: e.target.value })}
-          />
-        </div>
-
-        <div className="form-group full-width">
-          <label className="form-label">Dental Work Done</label>
-          <div className="form-checkboxes-grid dental-grid">
-            {dentalWorkKeys.map(({ key, label }) => (
+          {readOnly ? (
+            <div className="form-readonly-list">
+              {(conditionsKeys.filter(({ key }) => !!form.medicalConditions?.[key]).map(c => c.label)).length > 0 ? (
+                conditionsKeys.filter(({ key }) => !!form.medicalConditions?.[key]).map(({ key, label }) => (
+                  <span key={key} className="readonly-badge">{label}</span>
+                ))
+              ) : (
+                <div className="form-readonly-value">None</div>
+              )}
+            </div>
+          ) : (
+            conditionsKeys.map(({ key, label }) => (
               <label key={key} className="form-checkbox-label">
                 <input
                   type="checkbox"
                   className="form-checkbox"
-                  checked={!!form.dentalWork?.[key]}
-                  onChange={(e) => handleCheckboxChange('dentalWork', key, e.target.checked)}
+                  checked={!!form.medicalConditions?.[key]}
+                  onChange={(e) => handleCheckboxChange('medicalConditions', key, e.target.checked)}
                 />
                 <span>{label}</span>
               </label>
-            ))}
-          </div>
+            ))
+          )}
+        </div>
+        {renderTextarea({ id: 'other-medical-notes', label: 'Other Medical History', name: 'otherMedicalHistory', rows: 2, placeholder: 'Other medical history notes...' })}
+
+        <h4 className="form-section-title">IV.B DENTAL HEALTH CONDITION</h4>
+        <div className="form-row-3 full-width">
+          {renderField({ id: 'dental-date', label: 'Date of Dental Check-up', name: 'dentalCheckupDate', type: 'date' })}
+          {renderField({ id: 'dental-facility', label: 'Dental Clinic / Health Facility', name: 'dentalFacility', placeholder: 'Facility name' })}
+          {renderField({ id: 'dentist-charge', label: 'Dentist in Charge', name: 'dentistInCharge', placeholder: 'Dentist name' })}
         </div>
 
-        <div className="form-group full-width">
-          <label className="form-label" htmlFor="dental-remarks">Remarks / Recommendations</label>
-          <textarea
-            id="dental-remarks"
-            className="form-input"
-            rows="2"
-            placeholder="Dental recommendations..."
-            value={form.dentalRemarks || ''}
-            onChange={(e) => setForm({ ...form, dentalRemarks: e.target.value })}
-          />
+        <div className="form-row-3 full-width">
+          {renderField({ id: 'dentist-comm', label: 'Community Dentist Name', name: 'communityDentist', placeholder: 'Community dentist' })}
+          {renderField({ id: 'dentist-license', label: 'Dentist License No', name: 'dentistLicense', placeholder: 'License number' })}
+          {renderField({ id: 'dentist-contact', label: 'Dentist Contact No', name: 'dentistContact', type: 'tel', placeholder: 'Contact number' })}
         </div>
+
+        {renderField({ id: 'teeth-count', label: 'Number of Teeth Pregnant', name: 'teethCount', type: 'number', placeholder: 'e.g. 28' })}
+
+        {renderTextarea({ id: 'dental-findings', label: 'Dental Findings / Diagnosis', name: 'dentalFindings', rows: 2, placeholder: 'Findings or diagnosis...' })}
+
+        <div className="form-group full-width">
+          <label className="form-label">Dental Work Done</label>
+          {readOnly ? (
+            <div className="form-readonly-list">
+              {(dentalWorkKeys.filter(({ key }) => !!form.dentalWork?.[key]).map(d => d.label)).length > 0 ? (
+                dentalWorkKeys.filter(({ key }) => !!form.dentalWork?.[key]).map(({ key, label }) => (
+                  <span key={key} className="readonly-badge">{label}</span>
+                ))
+              ) : (
+                <div className="form-readonly-value">None</div>
+              )}
+            </div>
+          ) : (
+            <div className="form-checkboxes-grid dental-grid">
+              {dentalWorkKeys.map(({ key, label }) => (
+                <label key={key} className="form-checkbox-label">
+                  <input
+                    type="checkbox"
+                    className="form-checkbox"
+                    checked={!!form.dentalWork?.[key]}
+                    onChange={(e) => handleCheckboxChange('dentalWork', key, e.target.checked)}
+                  />
+                  <span>{label}</span>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {renderTextarea({ id: 'dental-remarks', label: 'Remarks / Recommendations', name: 'dentalRemarks', rows: 2, placeholder: 'Dental recommendations...' })}
       </>
     );
   }
@@ -701,21 +412,29 @@ export function MotherFormFields({
                   <tr key={num}>
                     <td><strong>Tetanus Toxoid {num} (TT{num})</strong></td>
                     <td>
-                      <input
-                        type="date"
-                        className="form-input table-input"
-                        value={form[`tt${num}Date`] || ''}
-                        onChange={(e) => setForm({ ...form, [`tt${num}Date`]: e.target.value })}
-                      />
+                      {readOnly ? (
+                        <div className="form-readonly-value">{form[`tt${num}Date`] || '-'}</div>
+                      ) : (
+                        <input
+                          type="date"
+                          className="form-input table-input"
+                          value={form[`tt${num}Date`] || ''}
+                          onChange={(e) => setForm((prev) => ({ ...prev, [`tt${num}Date`]: e.target.value }))}
+                        />
+                      )}
                     </td>
                     <td>
-                      <input
-                        type="text"
-                        className="form-input table-input"
-                        placeholder="Remarks..."
-                        value={form[`tt${num}Remarks`] || ''}
-                        onChange={(e) => setForm({ ...form, [`tt${num}Remarks`]: e.target.value })}
-                      />
+                      {readOnly ? (
+                        <div className="form-readonly-value">{form[`tt${num}Remarks`] || '-'}</div>
+                      ) : (
+                        <input
+                          type="text"
+                          className="form-input table-input"
+                          placeholder="Remarks..."
+                          value={form[`tt${num}Remarks`] || ''}
+                          onChange={(e) => setForm((prev) => ({ ...prev, [`tt${num}Remarks`]: e.target.value }))}
+                        />
+                      )}
                     </td>
                   </tr>
                 ))}
