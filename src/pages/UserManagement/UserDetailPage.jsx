@@ -39,19 +39,69 @@ export default function UserDetailPage() {
       </section>
 
       <main style={{ padding: '1rem' }}>
-        <div className="modal-content" style={{ padding: '1rem' }}>
-          <div style={{ minHeight: 200 }}>
-            <h3 style={{ marginTop: 0 }}>Profile</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-              <div><strong>First Name:</strong> {user.firstName || '-'}</div>
-              <div><strong>Last Name:</strong> {user.lastName || '-'}</div>
-              <div><strong>Middle Initial:</strong> {user.middleInitial || '-'}</div>
-              <div><strong>Contact:</strong> {user.contactNumber || user.contact || '-'}</div>
-              <div><strong>Email:</strong> {user.email || '-'}</div>
-              <div><strong>Gender:</strong> {user.gender || '-'}</div>
-              <div><strong>Location:</strong> {user.location || '-'}</div>
-              <div><strong>Role:</strong> {user.role || '-'}</div>
-              <div><strong>Status:</strong> {user.status || '-'}</div>
+        <div className="checkup-card">
+          <div className="checkup-card-body">
+            <div className="checkup-section-title">Profile</div>
+
+            <div className="checkup-grid">
+              <div className="form-row-3 full-width">
+                <div className="form-group">
+                  <label className="checkup-field-label">First Name</label>
+                  <input className="checkup-field-input" value={user.firstName || ''} readOnly />
+                </div>
+                <div className="form-group">
+                  <label className="checkup-field-label">Last Name</label>
+                  <input className="checkup-field-input" value={user.lastName || ''} readOnly />
+                </div>
+                <div className="form-group">
+                  <label className="checkup-field-label">Middle Initial</label>
+                  <input className="checkup-field-input" value={user.middleInitial || ''} readOnly />
+                </div>
+              </div>
+
+              <div className="form-row-3 full-width">
+                <div className="form-group">
+                  <label className="checkup-field-label">Contact Number</label>
+                  <input className="checkup-field-input" value={user.contactNumber || user.contact || ''} readOnly />
+                </div>
+                <div className="form-group">
+                  <label className="checkup-field-label">Email</label>
+                  <input className="checkup-field-input" value={user.email || ''} readOnly />
+                </div>
+                <div className="form-group" aria-hidden="true" />
+              </div>
+
+              <div className="form-row-3 full-width">
+                <div className="form-group">
+                  <label className="checkup-field-label">Gender</label>
+                  <input className="checkup-field-input" value={user.gender || ''} readOnly />
+                </div>
+                <div className="form-group">
+                  <label className="checkup-field-label">Date of Birth</label>
+                  <input className="checkup-field-input" value={user.dob || user.dateOfBirth || ''} readOnly />
+                </div>
+                <div className="form-group" aria-hidden="true" />
+              </div>
+
+              <div className="form-row-3 full-width">
+                <div className="form-group">
+                  <label className="checkup-field-label">Location</label>
+                  <input className="checkup-field-input" value={user.location || ''} readOnly />
+                </div>
+                <div className="form-group">
+                  <label className="checkup-field-label">Role</label>
+                  <input className="checkup-field-input" value={user.role || ''} readOnly />
+                </div>
+                <div className="form-group">
+                  <label className="checkup-field-label">Status</label>
+                  <input className="checkup-field-input" value={user.status || ''} readOnly />
+                </div>
+              </div>
+            </div>
+
+            <div style={{ marginTop: 18, display: 'flex', gap: 8 }}>
+              <button type="button" className="btn-primary" onClick={handleEdit}>Edit</button>
+              <button type="button" className="btn-secondary" onClick={() => navigate('/user-management')}>Back</button>
             </div>
           </div>
         </div>
