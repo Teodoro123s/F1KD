@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 function ModalShell({ title, onClose, onSubmit, children, submitLabel }) {
   return (
@@ -35,6 +35,17 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
     const lastName = (form.lastName || '').trim();
     const year = form.dob ? new Date(form.dob).getFullYear() : '1990';
     setForm((prev) => ({ ...prev, password: `${lastName}${year}`.toLowerCase() }));
+  };
+
+  const [copied, setCopied] = useState(false);
+  const copyPassword = async () => {
+    try {
+      await navigator.clipboard.writeText(form.password || '');
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch (e) {
+      // fallback: select the input (no-op in modal without ref)
+    }
   };
 
   return (
@@ -172,7 +183,20 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
         <div className="form-group" aria-hidden="true" />
       </div>
 
-      {/* Password is auto-generated in the form state; hidden from the UI */}
+      <div className="password-row full-width" style={{ marginTop: 6 }}>
+        <input
+          type="text"
+          className="form-input"
+          placeholder="(auto-generated)"
+          value={form.password || ''}
+          readOnly
+          aria-label="Generated password"
+        />
+        <div className="password-actions">
+          <button type="button" className="btn-small" onClick={regeneratePassword}>Generate</button>
+          <button type="button" className="btn-small" onClick={copyPassword}>{copied ? 'Copied' : 'Copy'}</button>
+        </div>
+      </div>
     </ModalShell>
   );
 }
