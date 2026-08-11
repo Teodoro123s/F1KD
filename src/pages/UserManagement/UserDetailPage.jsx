@@ -122,10 +122,7 @@ export default function UserDetailPage() {
               </div>
             </div>
 
-            <div style={{ marginTop: 18, display: 'flex', gap: 8 }}>
-              <button type="button" className="btn-primary" onClick={handleEdit}>Edit</button>
-              <button type="button" className="btn-secondary" onClick={() => navigate('/user-management')}>Back</button>
-            </div>
+            
 
             <div style={{ marginTop: 18 }}>
               <div className="checkup-section-title">Password</div>
@@ -145,6 +142,11 @@ export default function UserDetailPage() {
                   style={{ flex: 1 }}
                 />
               </div>
+
+            <div style={{ marginTop: 18, display: 'flex', gap: 8 }}>
+              <button type="button" className="btn-primary" onClick={handleEdit}>Edit</button>
+              <button type="button" className="btn-secondary" onClick={() => navigate('/user-management')}>Back</button>
+            </div>
             </div>
           </div>
         </div>
