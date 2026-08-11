@@ -128,9 +128,8 @@ export default function UserDetailPage() {
               <div className="checkup-section-title">Password</div>
               <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' }}>
                 <div style={{ display: 'inline-flex', gap: 8 }}>
-                  <button type="button" className="btn-small" onClick={generateDefaultPassword}>Generate</button>
+                  <button type="button" className="btn-small" onClick={() => navigate('/user-management')}>Back</button>
                   <button type="button" className="btn-small" onClick={copyGenerated}>{copied ? 'Copied' : 'Copy'}</button>
-                  <button type="button" className="btn-small" onClick={applyGenerated}>Apply</button>
                 </div>
                 <input
                   type="text"
@@ -141,11 +140,12 @@ export default function UserDetailPage() {
                   aria-label="Generated password"
                   style={{ flex: 1 }}
                 />
+                <button type="button" className="btn-small" onClick={applyGenerated}>Apply</button>
               </div>
 
             <div style={{ marginTop: 18, display: 'flex', gap: 8 }}>
               <button type="button" className="btn-primary" onClick={handleEdit}>Edit</button>
-              <button type="button" className="btn-secondary" onClick={() => navigate('/user-management')}>Back</button>
+              <button type="button" className="btn-secondary" onClick={generateDefaultPassword}>Generate</button>
             </div>
             </div>
           </div>
