@@ -8,7 +8,7 @@ import Monitoring from './pages/Monitoring';
 import Program from './pages/Program';
 import ProgressReport from './pages/ProgressReport';
 import UserManagementPage from './pages/UserManagement/UserManagementPage';
-import UserDetail from './pages/UserManagement/UserDetail';
+import UserDetailPage from './pages/UserManagement/UserDetailPage';
 import Login from './pages/Login';
 import { isAuthenticated } from './utils/auth';
 
@@ -44,7 +44,7 @@ export default function App() {
         <Route path="program" element={<Program />} />
         <Route path="progress-report" element={<ProgressReport />} />
         <Route path="user-management" element={<UserManagementPage />} />
-        <Route path="user-management/user/:id" element={<UserDetail />} />
+        <Route path="user-management/user/:id" element={<UserDetailPage />} />
         <Route path="*" element={<Navigate to="community" replace />} />
       </Route>
     </Routes>

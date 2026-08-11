@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import UserManagementTable from './UserManagementTable';
 import { SearchIcon, PlusIcon, UserCheckIcon, UserXIcon } from './UserManagementIcons';
 import AddUserModal from './UserManagementModal';
@@ -42,6 +43,17 @@ export default function UserManagementPage() {
     cancelDelete,
     setForm,
   } = useUserManagement();
+
+  const location = useLocation();
+
+  useEffect(() => {
+    // If navigated here with an editUser in state, open edit modal
+    if (location?.state?.editUser) {
+      openEditUser(location.state.editUser);
+      // replace history state to avoid reopening
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [location]);
 
   return (
     <div className="community-page">
