@@ -1,19 +1,117 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { ChildFormFields } from './BeneficiaryChild';
+
+const emptyGroupForm = (communities = []) => ({
+  firstName: '',
+  middleName: '',
+  lastName: '',
+  suffix: '',
+  birthDate: '',
+  birthWeight: '',
+  birthLength: '',
+  gender: '',
+  deliveryType: '',
+  healthStatus: '',
+  community: communities[0]?.name || '',
+  assignedBatchIds: [],
+  leader: '',
+  members: 1,
+  status: 'Active',
+  birthPlace: '',
+  birthAttendant: '',
+  apgarScore: '',
+  feedingType: '',
+  nutritionNotes: '',
+  medicalConditions: {
+    congenitalHeartDisease: false,
+    respiratoryIssues: false,
+    prematurity: false,
+    jaundice: false,
+    anemia: false,
+    growthDelay: false,
+  },
+  medicalRemarks: '',
+  bcgDate: '',
+  bcgRemarks: '',
+  hepbDate: '',
+  hepbRemarks: '',
+  opvDate: '',
+  opvRemarks: '',
+  dptDate: '',
+  dptRemarks: '',
+  mmrDate: '',
+  mmrRemarks: '',
+  batch: '',
+});
 
 export default function CreateChildPage({
   communities,
-  groups,
   batches,
-  createActiveTab,
-  setCreateActiveTab,
-  createActiveIndex,
-  CREATE_STEPS,
-  handleCreateGroup,
-  groupForm,
-  setGroupForm,
+  setGroups,
   navigate,
 }) {
+  const [groupForm, setGroupForm] = useState(() => emptyGroupForm(communities));
+  const [createActiveTab, setCreateActiveTab] = useState('general');
+  const CREATE_STEPS = ['general', 'prenatal', 'medical_dental', 'vaccine'];
+  const createActiveIndex = CREATE_STEPS.indexOf(createActiveTab) >= 0 ? CREATE_STEPS.indexOf(createActiveTab) : 0;
+
+  useEffect(() => {
+    setGroupForm((prev) => ({ ...prev, community: prev.community || communities[0]?.name || '' }));
+  }, [communities]);
+
+  const handleCreateGroup = (e) => {
+    e.preventDefault();
+    if (!groupForm.firstName.trim() || !groupForm.lastName.trim()) return;
+
+    const fullName = `${groupForm.firstName.trim()} ${groupForm.middleName.trim()} ${groupForm.lastName.trim()} ${groupForm.suffix.trim()}`
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    const newGroup = {
+      id: `G-${Date.now()}`,
+      name: fullName,
+      firstName: groupForm.firstName.trim(),
+      middleName: groupForm.middleName.trim(),
+      lastName: groupForm.lastName.trim(),
+      suffix: groupForm.suffix.trim(),
+      birthDate: groupForm.birthDate,
+      birthWeight: groupForm.birthWeight,
+      birthLength: groupForm.birthLength,
+      gender: groupForm.gender,
+      deliveryType: groupForm.deliveryType,
+      healthStatus: groupForm.healthStatus,
+      community: groupForm.community,
+      batch: groupForm.batch,
+      assignedBatchIds: groupForm.assignedBatchIds || [],
+      leader: groupForm.leader,
+      members: groupForm.members,
+      status: groupForm.status,
+      birthPlace: groupForm.birthPlace,
+      birthAttendant: groupForm.birthAttendant,
+      apgarScore: groupForm.apgarScore,
+      feedingType: groupForm.feedingType,
+      nutritionNotes: groupForm.nutritionNotes,
+      medicalConditions: groupForm.medicalConditions,
+      medicalRemarks: groupForm.medicalRemarks,
+      bcgDate: groupForm.bcgDate,
+      bcgRemarks: groupForm.bcgRemarks,
+      hepbDate: groupForm.hepbDate,
+      hepbRemarks: groupForm.hepbRemarks,
+      opvDate: groupForm.opvDate,
+      opvRemarks: groupForm.opvRemarks,
+      dptDate: groupForm.dptDate,
+      dptRemarks: groupForm.dptRemarks,
+      mmrDate: groupForm.mmrDate,
+      mmrRemarks: groupForm.mmrRemarks,
+      address: groupForm.address || '',
+      progress: 0,
+      childCheckups: null,
+    };
+
+    setGroups((prev) => [newGroup, ...prev]);
+    navigate('/beneficiary');
+  };
+
   return (
     <section className="tabs-row create-view">
       <div className="stepper-progress">

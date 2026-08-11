@@ -1,276 +1,67 @@
-import React, { useMemo, useState } from 'react';
+import React from 'react';
 import UserManagementTable from './UserManagementTable';
-import { SearchIcon, PlusIcon, FilterIcon, UserCheckIcon, UserXIcon } from './UserManagementIcons';
+import { SearchIcon, PlusIcon, UserCheckIcon, UserXIcon } from './UserManagementIcons';
 import AddUserModal from './UserManagementModal';
-
-const ROLE_OPTIONS = [
-  'Superadmin',
-  'Admin',
-  'Partner',
-  'Controller',
-  'Community Organizer',
-  'Health worker',
-];
-
-const STATUS_OPTIONS = ['Active', 'Suspended'];
-
-const initialUsersData = [
-  { id: 'USR-0001', name: 'Arielle Santos', role: 'Superadmin', status: 'Active' },
-  { id: 'USR-0002', name: 'Jasmine Cruz', role: 'Admin', status: 'Active' },
-  { id: 'USR-0003', name: 'Carlos Reyes', role: 'Partner', status: 'Suspended' },
-  { id: 'USR-0004', name: 'Mia Lopez', role: 'Controller', status: 'Active' },
-  { id: 'USR-0005', name: 'Noah Garcia', role: 'Community Organizer', status: 'Suspended' },
-  { id: 'USR-0006', name: 'Selene Araneta', role: 'Health worker', status: 'Active' },
-  { id: 'USR-0007', name: 'Bruno Delos', role: 'Partner', status: 'Active' },
-  { id: 'USR-0008', name: 'Leah Mendoza', role: 'Admin', status: 'Active' },
-  { id: 'USR-0009', name: 'Nico Tan', role: 'Controller', status: 'Suspended' },
-  { id: 'USR-0010', name: 'Diana Villanueva', role: 'Health worker', status: 'Active' },
-];
+import { useUserManagement } from './useUserManagement';
+import RoleFilter from './RoleFilter';
+import Pagination from './Pagination';
+import ConfirmModal from './ConfirmModal';
+import NotificationBanner from './NotificationBanner';
 
 export default function UserManagementPage() {
-  const [users, setUsers] = useState(initialUsersData);
-  const [query, setQuery] = useState('');
-  const [selectedRoleFilter, setSelectedRoleFilter] = useState('');
-  const [selectedStatusFilter, setSelectedStatusFilter] = useState('Active');
-  const [isRoleFilterOpen, setIsRoleFilterOpen] = useState(false);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [newUserForm, setNewUserForm] = useState({ name: '', role: 'Superadmin', status: 'Active' });
-  const [page, setPage] = useState(1);
-  const [perPage, setPerPage] = useState(10);
-  const [activeDropdownId, setActiveDropdownId] = useState(null);
-  const [selectedUser, setSelectedUser] = useState(null);
-
-  const breadcrumbItems = [{ label: 'User Management', clickable: false }];
-
-  const filteredData = useMemo(() => {
-    const term = query.trim().toLowerCase();
-    return users.filter((user) => {
-      const matchesRole = selectedRoleFilter ? user.role === selectedRoleFilter : true;
-      const matchesStatus =
-        selectedStatusFilter === 'All' ? true : user.status === selectedStatusFilter;
-      const matchesSearch =
-        !term ||
-        user.name.toLowerCase().includes(term) ||
-        user.role.toLowerCase().includes(term);
-      return matchesRole && matchesStatus && matchesSearch;
-    });
-  }, [query, selectedRoleFilter, selectedStatusFilter, users]);
-
-  const currentFilteredData = filteredData;
-  const pageCount = Math.max(1, Math.ceil(currentFilteredData.length / perPage));
-  const currentPage = Math.min(page, pageCount);
-  const currentStart = (currentPage - 1) * perPage;
-  const currentRows = currentFilteredData.slice(currentStart, currentStart + perPage);
-  const rangeStart = currentFilteredData.length === 0 ? 0 : currentStart + 1;
-  const rangeEnd = Math.min(currentStart + perPage, currentFilteredData.length);
-
-  const handleSearch = (val) => {
-    setQuery(val);
-    setPage(1);
-  };
-
-  const handlePerPageChange = (val) => {
-    setPerPage(Number(val));
-    setPage(1);
-  };
-
-  const toggleDropdown = (event, id) => {
-    event.stopPropagation();
-    setActiveDropdownId(activeDropdownId === id ? null : id);
-  };
-
-  const toggleRoleFilter = () => {
-    setIsRoleFilterOpen((open) => !open);
-  };
-
-  const selectRoleFilter = (role) => {
-    setSelectedRoleFilter(role);
-    setPage(1);
-    setIsRoleFilterOpen(false);
-  };
-
-  const openEditUser = (user) => {
-    setSelectedUser(user);
-    setActiveDropdownId(null);
-    // Placeholder: replace with modal or edit page later
-    window.alert(`Edit ${user.name}`);
-  };
-
-  const handleSuspendUser = (id) => {
-    setActiveDropdownId(null);
-    const user = users.find((item) => item.id === id);
-    if (!user) return;
-    window.alert(`Suspend ${user.name}`);
-  };
-
-  const handleDeleteUser = (id) => {
-    setActiveDropdownId(null);
-    const confirmDelete = window.confirm('Are you sure you want to delete this user?');
-    if (!confirmDelete) return;
-    setUsers((prev) => prev.filter((user) => user.id !== id));
-  };
-
-  const handleCreateUser = (event) => {
-    event.preventDefault();
-    const nextId = `USR-${String(users.length + 1).padStart(4, '0')}`;
-    const trimmedName = newUserForm.name.trim();
-
-    if (!trimmedName) {
-      window.alert('Please enter a valid name.');
-      return;
-    }
-
-    setUsers((prev) => [
-      { id: nextId, name: trimmedName, role: newUserForm.role, status: newUserForm.status },
-      ...prev,
-    ]);
-    setNewUserForm({ name: '', role: 'Superadmin', status: 'Active' });
-    setShowAddModal(false);
-  };
-
-  const renderPaginationButtons = () => {
-    const buttons = [];
-
-    buttons.push(
-      <button
-        key="first"
-        type="button"
-        className={`pagination-btn${currentPage === 1 ? ' disabled' : ''}`}
-        onClick={() => setPage(1)}
-        disabled={currentPage === 1}
-        aria-label="First page"
-      >
-        «
-      </button>
-    );
-
-    const maxVisible = 5;
-    if (pageCount <= maxVisible) {
-      for (let i = 1; i <= pageCount; i += 1) {
-        buttons.push(
-          <button
-            key={i}
-            type="button"
-            className={`pagination-btn${currentPage === i ? ' active' : ''}`}
-            onClick={() => setPage(i)}
-          >
-            {i}
-          </button>
-        );
-      }
-    } else if (currentPage <= 3) {
-      for (let i = 1; i <= 3; i += 1) {
-        buttons.push(
-          <button
-            key={i}
-            type="button"
-            className={`pagination-btn${currentPage === i ? ' active' : ''}`}
-            onClick={() => setPage(i)}
-          >
-            {i}
-          </button>
-        );
-      }
-      buttons.push(<span key="el-1" className="pagination-btn ellipsis">...</span>);
-      buttons.push(
-        <button
-          key={pageCount}
-          type="button"
-          className={`pagination-btn${currentPage === pageCount ? ' active' : ''}`}
-          onClick={() => setPage(pageCount)}
-        >
-          {pageCount}
-        </button>
-      );
-    } else if (currentPage >= pageCount - 2) {
-      buttons.push(
-        <button
-          key={1}
-          type="button"
-          className={`pagination-btn${currentPage === 1 ? ' active' : ''}`}
-          onClick={() => setPage(1)}
-        >
-          1
-        </button>
-      );
-      buttons.push(<span key="el-2" className="pagination-btn ellipsis">...</span>);
-      for (let i = pageCount - 2; i <= pageCount; i += 1) {
-        buttons.push(
-          <button
-            key={i}
-            type="button"
-            className={`pagination-btn${currentPage === i ? ' active' : ''}`}
-            onClick={() => setPage(i)}
-          >
-            {i}
-          </button>
-        );
-      }
-    } else {
-      buttons.push(
-        <button
-          key={1}
-          type="button"
-          className={`pagination-btn${currentPage === 1 ? ' active' : ''}`}
-          onClick={() => setPage(1)}
-        >
-          1
-        </button>
-      );
-      buttons.push(<span key="el-3" className="pagination-btn ellipsis">...</span>);
-      buttons.push(
-        <button key={currentPage} type="button" className="pagination-btn active">
-          {currentPage}
-        </button>
-      );
-      buttons.push(<span key="el-4" className="pagination-btn ellipsis">...</span>);
-      buttons.push(
-        <button
-          key={pageCount}
-          type="button"
-          className={`pagination-btn${currentPage === pageCount ? ' active' : ''}`}
-          onClick={() => setPage(pageCount)}
-        >
-          {pageCount}
-        </button>
-      );
-    }
-
-    buttons.push(
-      <button
-        key="last"
-        type="button"
-        className={`pagination-btn${currentPage === pageCount ? ' disabled' : ''}`}
-        onClick={() => setPage(pageCount)}
-        disabled={currentPage === pageCount}
-        aria-label="Last page"
-      >
-        »
-      </button>
-    );
-
-    return buttons;
-  };
+  const {
+    form,
+    query,
+    selectedRoleFilter,
+    selectedStatusFilter,
+    showAddModal,
+    page,
+    perPage,
+    selectedUser,
+    notification,
+    confirmDeleteId,
+    currentRows,
+    rangeStart,
+    rangeEnd,
+    pageCount,
+    filteredData,
+    breadcrumbItems,
+    ROLE_OPTIONS,
+    STATUS_OPTIONS,
+    handleSearch,
+    selectRoleFilter,
+    setStatusFilter,
+    handlePerPageChange,
+    openAddModal,
+    closeModal,
+    openEditUser,
+    handleSubmitUser,
+    handleSuspendUser,
+    requestDeleteUser,
+    confirmDelete,
+    cancelDelete,
+    setForm,
+  } = useUserManagement();
 
   return (
     <div className="community-page">
+      <NotificationBanner message={notification} />
+
       <header className="community-header">
         <div className="community-title-section">
           <h1>User Management</h1>
           <nav className="community-breadcrumb" aria-label="Breadcrumb">
             {breadcrumbItems.map((item, index) => (
               <span key={item.label} className="breadcrumb-item">
-                {item.clickable ? (
-                  <button type="button" className="breadcrumb-link">{item.label}</button>
-                ) : (
-                  <span className="breadcrumb-current">{item.label}</span>
+                <span className="breadcrumb-current">{item.label}</span>
+                {index < breadcrumbItems.length - 1 && (
+                  <span className="breadcrumb-separator">›</span>
                 )}
-                {index < breadcrumbItems.length - 1 && <span className="breadcrumb-separator">›</span>}
               </span>
             ))}
           </nav>
         </div>
-        <button className="btn-create" type="button" onClick={() => setShowAddModal(true)}>
+        <button className="btn-create" type="button" onClick={openAddModal}>
           <PlusIcon />
           <span>Add User</span>
         </button>
@@ -285,10 +76,7 @@ export default function UserManagementPage() {
               aria-selected={selectedStatusFilter === status}
               type="button"
               className={`tab-btn${selectedStatusFilter === status ? ' active' : ''}`}
-              onClick={() => {
-                setSelectedStatusFilter(status);
-                setPage(1);
-              }}
+              onClick={() => setStatusFilter(status)}
             >
               {status === 'Active' ? <UserCheckIcon /> : <UserXIcon />}
               <span>{status}</span>
@@ -297,39 +85,11 @@ export default function UserManagementPage() {
         </div>
 
         <div className="subheader-right">
-          <div className="role-filter-area">
-            <button
-              type="button"
-              className={`role-filter-button${isRoleFilterOpen ? ' open' : ''}`}
-              onClick={toggleRoleFilter}
-              aria-label="Role filter"
-            >
-              <FilterIcon />
-            </button>
-            {isRoleFilterOpen && (
-              <div className="role-filter-dropdown" role="menu">
-                <button
-                  type="button"
-                  className={`role-filter-item${selectedRoleFilter === '' ? ' active' : ''}`}
-                  onClick={() => selectRoleFilter('')}
-                  role="menuitem"
-                >
-                  All roles
-                </button>
-                {ROLE_OPTIONS.map((role) => (
-                  <button
-                    key={role}
-                    type="button"
-                    className={`role-filter-item${selectedRoleFilter === role ? ' active' : ''}`}
-                    onClick={() => selectRoleFilter(role)}
-                    role="menuitem"
-                  >
-                    {role}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          <RoleFilter
+            options={ROLE_OPTIONS}
+            selected={selectedRoleFilter}
+            onSelect={selectRoleFilter}
+          />
 
           <div className="search-container">
             <SearchIcon />
@@ -347,26 +107,45 @@ export default function UserManagementPage() {
 
       <AddUserModal
         showModal={showAddModal}
-        onClose={() => setShowAddModal(false)}
-        form={newUserForm}
-        setForm={setNewUserForm}
-        onSubmit={handleCreateUser}
+        onClose={closeModal}
+        form={form}
+        setForm={setForm}
+        onSubmit={handleSubmitUser}
         roleOptions={ROLE_OPTIONS}
+        mode={selectedUser ? 'edit' : 'add'}
       />
 
       <UserManagementTable
         currentRows={currentRows}
-        filteredDataLength={currentFilteredData.length}
+        filteredDataLength={filteredData.length}
         rangeStart={rangeStart}
         rangeEnd={rangeEnd}
         perPage={perPage}
         handlePerPageChange={handlePerPageChange}
-        renderPaginationButtons={renderPaginationButtons}
-        activeDropdownId={activeDropdownId}
-        toggleDropdown={toggleDropdown}
+        currentPage={page}
+        pageCount={pageCount}
+        onChangePage={(nextPage) => handlePerPageChange(page)}
         openEditUser={openEditUser}
         handleSuspendUser={handleSuspendUser}
-        handleDeleteUser={handleDeleteUser}
+        handleDeleteUser={requestDeleteUser}
+      />
+
+      <Pagination
+        currentPage={page}
+        pageCount={pageCount}
+        onPageChange={(nextPage) => handlePerPageChange(nextPage)}
+        perPage={perPage}
+        onPerPageChange={handlePerPageChange}
+        rangeStart={rangeStart}
+        rangeEnd={rangeEnd}
+        totalItems={filteredData.length}
+      />
+
+      <ConfirmModal
+        show={Boolean(confirmDeleteId)}
+        message="Are you sure you want to delete this user?"
+        onConfirm={confirmDelete}
+        onCancel={cancelDelete}
       />
     </div>
   );

@@ -1,171 +1,183 @@
 import React from 'react';
 
-export function ChildFormFields({
-  activeTab,
-  form,
-  setForm,
-  communities = [],
-  batches = []
-}) {
-  const availableBatches = batches.filter((batch) => batch.community === form.community);
+export function ChildFormFields({ activeTab, form, setForm, communities = [], batches = [], readOnly = false }) {
+  const uniqueCommunities = Array.from(new Set(communities.map((comm) => comm.name))).filter(Boolean);
+  const uniqueBatches = Array.from(new Set((batches || []).map((batch) => batch.name))).filter(Boolean);
 
-  const handleCheckboxChange = (section, key, checked) => {
+  const handleCheckboxChange = (section, field, checked) => {
     setForm((prev) => ({
       ...prev,
       [section]: {
         ...(prev[section] || {}),
-        [key]: checked,
+        [field]: checked,
       },
     }));
+  };
+
+  const renderField = ({ id, label, name, type = 'text', placeholder = '', required = false, min, step }) => {
+    const value = form[name] ?? '';
+
+    if (readOnly) {
+      return (
+        <div className="form-group">
+          <label className="form-label">{label}</label>
+          <div className="form-readonly-value">{value || '-'}</div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="form-group">
+        <label className="form-label" htmlFor={id}>{label}</label>
+        <input
+          id={id}
+          type={type}
+          className="form-input"
+          placeholder={placeholder}
+          value={value}
+          min={min}
+          step={step}
+          onChange={(e) => setForm((prev) => ({ ...prev, [name]: e.target.value }))}
+          required={required}
+        />
+      </div>
+    );
+  };
+
+  const renderSelect = ({ id, label, name, options = [], placeholder = '' }) => {
+    const value = form[name] ?? '';
+
+    if (readOnly) {
+      return (
+        <div className="form-group">
+          <label className="form-label">{label}</label>
+          <div className="form-readonly-value">{value || '-'}</div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="form-group">
+        <label className="form-label" htmlFor={id}>{label}</label>
+        <select
+          id={id}
+          className="form-select"
+          value={value}
+          onChange={(e) => setForm((prev) => ({ ...prev, [name]: e.target.value }))}
+        >
+          {placeholder && <option value="">{placeholder}</option>}
+          {options.map((option) => {
+            const optionValue = option.value ?? option;
+            const optionLabel = option.label ?? option;
+            return (
+              <option key={optionValue} value={optionValue}>
+                {optionLabel}
+              </option>
+            );
+          })}
+        </select>
+      </div>
+    );
+  };
+
+  const renderTextarea = ({ id, label, name, rows = 2, placeholder = '' }) => {
+    const value = form[name] ?? '';
+
+    if (readOnly) {
+      return (
+        <div className="form-group full-width">
+          <label className="form-label">{label}</label>
+          <div className="form-readonly-value">{value || '-'}</div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="form-group full-width">
+        <label className="form-label" htmlFor={id}>{label}</label>
+        <textarea
+          id={id}
+          className="form-input"
+          rows={rows}
+          placeholder={placeholder}
+          value={value}
+          onChange={(e) => setForm((prev) => ({ ...prev, [name]: e.target.value }))}
+        />
+      </div>
+    );
   };
 
   if (activeTab === 'general') {
     return (
       <>
         <h4 className="form-section-title">Child Information</h4>
-        <div className="form-group narrow-field">
-          <label className="form-label" htmlFor="child-mother">Select Mother</label>
-          <select
-            id="child-mother"
-            className="form-select"
-            value={form.community || ''}
-            onChange={(e) => setForm({ ...form, community: e.target.value })}
-            required
-          >
-            <option value="">Select mother</option>
-            {communities.map((comm) => (
-              <option key={comm.id} value={comm.name}>{comm.name}</option>
-            ))}
-          </select>
-        </div>
-
         <div className="form-row-4 full-width name-row">
-          <div className="form-group">
-            <label className="form-label" htmlFor="child-first-name">First name</label>
-            <input
-              id="child-first-name"
-              type="text"
-              className="form-input"
-              placeholder="First name"
-              value={form.firstName || ''}
-              onChange={(e) => setForm({ ...form, firstName: e.target.value })}
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label" htmlFor="child-middle-name">Middle name</label>
-            <input
-              id="child-middle-name"
-              type="text"
-              className="form-input"
-              placeholder="Middle name"
-              value={form.middleName || ''}
-              onChange={(e) => setForm({ ...form, middleName: e.target.value })}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label" htmlFor="child-last-name">Surname</label>
-            <input
-              id="child-last-name"
-              type="text"
-              className="form-input"
-              placeholder="Surname"
-              value={form.lastName || ''}
-              onChange={(e) => setForm({ ...form, lastName: e.target.value })}
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label" htmlFor="child-suffix">Suffix</label>
-            <input
-              id="child-suffix"
-              type="text"
-              className="form-input"
-              placeholder="Suffix"
-              value={form.suffix || ''}
-              onChange={(e) => setForm({ ...form, suffix: e.target.value })}
-            />
-          </div>
+          {renderField({ id: 'child-first-name', label: 'First Name', name: 'firstName', placeholder: 'First name', required: true })}
+          {renderField({ id: 'child-middle-name', label: 'Middle Name', name: 'middleName', placeholder: 'Middle name' })}
+          {renderField({ id: 'child-last-name', label: 'Last Name', name: 'lastName', placeholder: 'Last name', required: true })}
+          {renderField({ id: 'child-suffix', label: 'Suffix', name: 'suffix', placeholder: 'Suffix' })}
         </div>
 
         <div className="form-row-4 full-width">
-          <div className="form-group">
-            <label className="form-label" htmlFor="child-birth-date">Birth date</label>
-            <input
-              id="child-birth-date"
-              type="date"
-              className="form-input"
-              value={form.birthDate || ''}
-              onChange={(e) => setForm({ ...form, birthDate: e.target.value })}
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label" htmlFor="child-gender">Gender</label>
-            <select
-              id="child-gender"
-              className="form-select"
-              value={form.gender || ''}
-              onChange={(e) => setForm({ ...form, gender: e.target.value })}
-              required
-            >
-              <option value="">Select gender</option>
-              <option value="Male">Male</option>
-              <option value="Female">Female</option>
-              <option value="Other">Other</option>
-            </select>
-          </div>
-          <div className="form-group">
-            <label className="form-label" htmlFor="child-birth-weight">Birth weight</label>
-            <input
-              id="child-birth-weight"
-              type="text"
-              className="form-input"
-              placeholder="e.g. 3.2 kg"
-              value={form.birthWeight || ''}
-              onChange={(e) => setForm({ ...form, birthWeight: e.target.value })}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label" htmlFor="child-birth-length">Birth length</label>
-            <input
-              id="child-birth-length"
-              type="text"
-              className="form-input"
-              placeholder="e.g. 51 cm"
-              value={form.birthLength || ''}
-              onChange={(e) => setForm({ ...form, birthLength: e.target.value })}
-            />
-          </div>
+          {renderField({ id: 'child-birth-date', label: 'Birth Date', name: 'birthDate', type: 'date' })}
+          {renderField({ id: 'child-birth-weight', label: 'Birth Weight (kg)', name: 'birthWeight', placeholder: 'e.g. 3.2' })}
+          {renderField({ id: 'child-birth-length', label: 'Birth Length (cm)', name: 'birthLength', placeholder: 'e.g. 49' })}
+          {renderSelect({
+            id: 'child-gender',
+            label: 'Gender',
+            name: 'gender',
+            options: [{ value: 'Male', label: 'Male' }, { value: 'Female', label: 'Female' }, { value: 'Other', label: 'Other' }],
+          })}
+        </div>
+
+        <div className="form-row-4 full-width">
+          {renderSelect({
+            id: 'child-delivery-type',
+            label: 'Delivery Type',
+            name: 'deliveryType',
+            options: [{ value: 'Vaginal', label: 'Vaginal' }, { value: 'Cesarean', label: 'Cesarean' }],
+          })}
+          {renderSelect({
+            id: 'child-health-status',
+            label: 'Health Status',
+            name: 'healthStatus',
+            options: [{ value: 'Healthy', label: 'Healthy' }, { value: 'Needs Follow-up', label: 'Needs Follow-up' }, { value: 'Critical', label: 'Critical' }],
+          })}
+          {renderSelect({
+            id: 'child-community',
+            label: 'Community',
+            name: 'community',
+            options: uniqueCommunities.map((name) => ({ value: name, label: name })),
+            placeholder: 'Select community',
+          })}
+          {renderSelect({
+            id: 'child-batch',
+            label: 'Batch',
+            name: 'batch',
+            options: uniqueBatches.map((name) => ({ value: name, label: name })),
+            placeholder: 'Select batch',
+          })}
+        </div>
+
+        <div className="form-row-4 full-width">
+          {renderField({ id: 'child-leader', label: 'Leader', name: 'leader', placeholder: 'Leader name' })}
+          {renderField({ id: 'child-members', label: 'Members', name: 'members', type: 'number', min: 1, placeholder: '1' })}
+          {renderSelect({
+            id: 'child-status',
+            label: 'Status',
+            name: 'status',
+            options: [{ value: 'Active', label: 'Active' }, { value: 'Pending', label: 'Pending' }, { value: 'Completed', label: 'Completed' }],
+          })}
+          {renderField({ id: 'child-birth-place', label: 'Birth Place', name: 'birthPlace', placeholder: 'Clinic / Home' })}
         </div>
 
         <div className="form-row-3 full-width">
-          <div className="form-group">
-            <label className="form-label" htmlFor="child-community">Community</label>
-            <input
-              id="child-community"
-              type="text"
-              className="form-input"
-              value={form.community || ''}
-              readOnly
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label" htmlFor="child-batch">Batch</label>
-            <select
-              id="child-batch"
-              className="form-select"
-              value={form.batch || ''}
-              onChange={(e) => setForm({ ...form, batch: e.target.value })}
-            >
-              <option value="">Select batch</option>
-              {availableBatches.map((batch) => (
-                <option key={batch.id} value={batch.name}>{batch.name}</option>
-              ))}
-            </select>
-          </div>
-          <div className="form-group" aria-hidden="true" />
+          {renderField({ id: 'child-birth-attendant', label: 'Birth Attendant', name: 'birthAttendant', placeholder: 'Midwife / Doctor' })}
+          {renderField({ id: 'child-apgar', label: 'Apgar Score', name: 'apgarScore', placeholder: 'e.g. 8/10' })}
+          {renderField({ id: 'child-feeding', label: 'Feeding Type', name: 'feedingType', placeholder: 'Exclusive Breastfeeding' })}
         </div>
+
+        {renderTextarea({ id: 'child-nutrition-notes', label: 'Nutrition Notes', name: 'nutritionNotes', rows: 3, placeholder: 'Nutrition or feeding notes...' })}
       </>
     );
   }
@@ -173,106 +185,14 @@ export function ChildFormFields({
   if (activeTab === 'prenatal') {
     return (
       <>
-        <h4 className="form-section-title">Birth & Delivery Details</h4>
-        <div className="form-row-3 full-width">
-          <div className="form-group">
-            <label className="form-label" htmlFor="child-delivery-type">Delivery type</label>
-            <select
-              id="child-delivery-type"
-              className="form-select"
-              value={form.deliveryType || ''}
-              onChange={(e) => setForm({ ...form, deliveryType: e.target.value })}
-            >
-              <option value="">Select delivery type</option>
-              <option value="Vaginal">Vaginal</option>
-              <option value="Cesarean">Cesarean</option>
-              <option value="Assisted">Assisted</option>
-            </select>
-          </div>
-          <div className="form-group">
-            <label className="form-label" htmlFor="child-health-status">Health status</label>
-            <select
-              id="child-health-status"
-              className="form-select"
-              value={form.healthStatus || ''}
-              onChange={(e) => setForm({ ...form, healthStatus: e.target.value })}
-            >
-              <option value="">Select health status</option>
-              <option value="Healthy">Healthy</option>
-              <option value="Needs Follow-up">Needs Follow-up</option>
-              <option value="At Risk">At Risk</option>
-            </select>
-          </div>
-          <div className="form-group">
-            <label className="form-label" htmlFor="child-birth-place">Place of birth</label>
-            <input
-              id="child-birth-place"
-              type="text"
-              className="form-input"
-              placeholder="e.g. Clinic / Home"
-              value={form.birthPlace || ''}
-              onChange={(e) => setForm({ ...form, birthPlace: e.target.value })}
-            />
-          </div>
-        </div>
-
-        <div className="form-row-3 full-width">
-          <div className="form-group">
-            <label className="form-label" htmlFor="child-birth-attendant">Birth attendant</label>
-            <input
-              id="child-birth-attendant"
-              type="text"
-              className="form-input"
-              placeholder="e.g. Midwife"
-              value={form.birthAttendant || ''}
-              onChange={(e) => setForm({ ...form, birthAttendant: e.target.value })}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label" htmlFor="child-apgar-score">Apgar score</label>
-            <input
-              id="child-apgar-score"
-              type="number"
-              min="0"
-              max="10"
-              className="form-input"
-              value={form.apgarScore || ''}
-              onChange={(e) => setForm({ ...form, apgarScore: e.target.value })}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label" htmlFor="child-feeding-type">Feeding type</label>
-            <select
-              id="child-feeding-type"
-              className="form-select"
-              value={form.feedingType || ''}
-              onChange={(e) => setForm({ ...form, feedingType: e.target.value })}
-            >
-              <option value="">Select feeding type</option>
-              <option value="Breastfeeding">Breastfeeding</option>
-              <option value="Formula">Formula</option>
-              <option value="Mixed">Mixed</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="form-group full-width">
-          <label className="form-label" htmlFor="child-nutrition-notes">Nutrition notes</label>
-          <textarea
-            id="child-nutrition-notes"
-            className="form-input"
-            rows="2"
-            placeholder="Describe feeding or nutrition concerns"
-            value={form.nutritionNotes || ''}
-            onChange={(e) => setForm({ ...form, nutritionNotes: e.target.value })}
-          />
-        </div>
+        <h4 className="form-section-title">Prenatal / Birth Summary</h4>
+        {renderTextarea({ id: 'child-prenatal-notes', label: 'Prenatal Notes', name: 'prenatalNotes', rows: 3, placeholder: 'Any prenatal or birth related notes...' })}
       </>
     );
   }
 
   if (activeTab === 'medical_dental') {
-    const conditionKeys = [
+    const conditionsKeys = [
       { key: 'congenitalHeartDisease', label: 'Congenital Heart Disease' },
       { key: 'respiratoryIssues', label: 'Respiratory Issues' },
       { key: 'prematurity', label: 'Prematurity' },
@@ -283,9 +203,9 @@ export function ChildFormFields({
 
     return (
       <>
-        <h4 className="form-section-title">Medical & Dental Screening</h4>
+        <h4 className="form-section-title">Medical Conditions</h4>
         <div className="form-checkboxes-grid full-width">
-          {conditionKeys.map(({ key, label }) => (
+          {conditionsKeys.map(({ key, label }) => (
             <label key={key} className="form-checkbox-label">
               <input
                 type="checkbox"
@@ -297,67 +217,30 @@ export function ChildFormFields({
             </label>
           ))}
         </div>
-        <div className="form-group full-width">
-          <label className="form-label" htmlFor="child-medical-remarks">Medical remarks</label>
-          <textarea
-            id="child-medical-remarks"
-            className="form-input"
-            rows="2"
-            placeholder="Any medical or dental notes"
-            value={form.medicalRemarks || ''}
-            onChange={(e) => setForm({ ...form, medicalRemarks: e.target.value })}
-          />
-        </div>
+        {renderTextarea({ id: 'child-medical-remarks', label: 'Medical Remarks', name: 'medicalRemarks', rows: 3, placeholder: 'Medical observations or remarks...' })}
       </>
     );
   }
 
   if (activeTab === 'vaccine') {
-    const vaccines = [
-      { key: 'bcg', label: 'BCG' },
-      { key: 'hepb', label: 'Hepatitis B' },
-      { key: 'opv', label: 'OPV' },
-      { key: 'dpt', label: 'DPT' },
-      { key: 'mmr', label: 'MMR' },
-    ];
-
     return (
       <>
-        <h4 className="form-section-title">Vaccine Record</h4>
-        <div className="vaccine-form-table-wrapper">
-          <table className="vaccine-form-table">
-            <thead>
-              <tr>
-                <th style={{ width: '30%' }}>Vaccine</th>
-                <th style={{ width: '35%' }}>Date Given</th>
-                <th style={{ width: '35%' }}>Remarks</th>
-              </tr>
-            </thead>
-            <tbody>
-              {vaccines.map(({ key, label }) => (
-                <tr key={key}>
-                  <td><strong>{label}</strong></td>
-                  <td>
-                    <input
-                      type="date"
-                      className="form-input table-input"
-                      value={form[`${key}Date`] || ''}
-                      onChange={(e) => setForm({ ...form, [`${key}Date`]: e.target.value })}
-                    />
-                  </td>
-                  <td>
-                    <input
-                      type="text"
-                      className="form-input table-input"
-                      placeholder="Remarks..."
-                      value={form[`${key}Remarks`] || ''}
-                      onChange={(e) => setForm({ ...form, [`${key}Remarks`]: e.target.value })}
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <h4 className="form-section-title">Vaccination Record</h4>
+        <div className="form-row-4 full-width">
+          {renderField({ id: 'child-bcg-date', label: 'BCG Date', name: 'bcgDate', type: 'date' })}
+          {renderField({ id: 'child-bcg-remarks', label: 'BCG Remarks', name: 'bcgRemarks', placeholder: 'Remarks' })}
+          {renderField({ id: 'child-hepb-date', label: 'HepB Date', name: 'hepbDate', type: 'date' })}
+          {renderField({ id: 'child-hepb-remarks', label: 'HepB Remarks', name: 'hepbRemarks', placeholder: 'Remarks' })}
+        </div>
+        <div className="form-row-4 full-width">
+          {renderField({ id: 'child-opv-date', label: 'OPV Date', name: 'opvDate', type: 'date' })}
+          {renderField({ id: 'child-opv-remarks', label: 'OPV Remarks', name: 'opvRemarks', placeholder: 'Remarks' })}
+          {renderField({ id: 'child-dpt-date', label: 'DPT Date', name: 'dptDate', type: 'date' })}
+          {renderField({ id: 'child-dpt-remarks', label: 'DPT Remarks', name: 'dptRemarks', placeholder: 'Remarks' })}
+        </div>
+        <div className="form-row-2 full-width">
+          {renderField({ id: 'child-mmr-date', label: 'MMR Date', name: 'mmrDate', type: 'date' })}
+          {renderField({ id: 'child-mmr-remarks', label: 'MMR Remarks', name: 'mmrRemarks', placeholder: 'Remarks' })}
         </div>
       </>
     );

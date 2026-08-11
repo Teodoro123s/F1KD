@@ -1,21 +1,21 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { MoreVerticalIcon } from './UserManagementIcons';
 
 export default function UserManagementTable({
   currentRows,
-  filteredDataLength,
-  rangeStart,
-  rangeEnd,
-  perPage,
-  handlePerPageChange,
-  renderPaginationButtons,
-  activeDropdownId,
-  toggleDropdown,
   openEditUser,
   handleSuspendUser,
   handleDeleteUser,
 }) {
+  const [activeDropdownId, setActiveDropdownId] = useState(null);
   const emptyColSpan = 3;
+  const navigate = useNavigate();
+
+  const toggleDropdown = (event, id) => {
+    event.stopPropagation();
+    setActiveDropdownId((current) => (current === id ? null : id));
+  };
 
   return (
     <section className="table-card">
@@ -31,10 +31,14 @@ export default function UserManagementTable({
           <tbody>
             {currentRows.length > 0 ? (
               currentRows.map((row) => (
-                <tr key={row.id}>
-                  <td>{row.name}</td>
-                  <td>{row.role}</td>
-                  <td className="actions-cell">
+                  <tr
+                    key={row.id}
+                    onClick={() => navigate(`/user-management/user/${row.id}`, { state: { user: row } })}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <td>{row.name}</td>
+                    <td>{row.role}</td>
+                    <td className="actions-cell">
                     <button
                       type="button"
                       className="btn-actions"
@@ -95,29 +99,6 @@ export default function UserManagementTable({
           </tbody>
         </table>
       </div>
-
-      <footer className="pagination-container">
-        <div className="pagination-left" aria-label="Pagination navigation">
-          {renderPaginationButtons()}
-        </div>
-        <div className="pagination-center">
-          <span>Show</span>
-          <select
-            value={perPage}
-            onChange={(e) => handlePerPageChange(e.target.value)}
-            className="select-entries"
-            aria-label="Entries per page"
-          >
-            <option value={10}>10</option>
-            <option value={20}>20</option>
-            <option value={50}>50</option>
-          </select>
-          <span>entries</span>
-        </div>
-        <div className="pagination-right" role="status" aria-live="polite">
-          {rangeStart}–{rangeEnd} of {filteredDataLength}
-        </div>
-      </footer>
     </section>
   );
 }
