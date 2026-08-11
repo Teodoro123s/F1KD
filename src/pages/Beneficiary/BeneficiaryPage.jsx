@@ -2,13 +2,6 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLocation } from 'react-router-dom';
 import BeneficiaryTable from './BeneficiaryTable';
-import {
-  CreateCommunityModal,
-  CreateBatchModal,
-  EditBatchModal,
-  CreateGroupModal,
-  EditGroupModal,
-} from './BeneficiaryModals';
 import { MotherFormFields } from './BeneficiaryMother';
 import { ChildFormFields } from './BeneficiaryChild';
 import {
@@ -21,8 +14,11 @@ import {
   StatusPendingIcon,
   StatusDoneIcon,
 } from './BeneficiaryIcons';
-import BeneficiaryMotherProfile from './BeneficiaryMotherProfile';
+import MotherProfilePage from './MotherProfilePage';
 import BeneficiaryChildProfile from './BeneficiaryChildProfile';
+import CreateMotherPage from './CreateMotherPage';
+import CreateChildPage from './CreateChildPage';
+import BeneficiaryListPage from './BeneficiaryListPage';
 
 const DEFAULT_CHECKUPS = [[null, null, null], [null, null, null], [null, null, null]];
 
@@ -404,30 +400,8 @@ export default function BeneficiaryPage() {
   const [selectedItem, setSelectedItem] = useState(null);
   const [beneficiaryView, setBeneficiaryView] = useState('list'); // 'list', 'create_mother', 'edit_mother'
   const [activeFormTab, setActiveFormTab] = useState('general');
-  const [showMotherCheckup, setShowMotherCheckup] = useState(false);
-  const [activeTrimester, setActiveTrimester] = useState(null);
-  const [activeStep, setActiveStep] = useState(null);
   const [showChildCheckup, setShowChildCheckup] = useState(false);
   const [activePediaStep, setActivePediaStep] = useState(null);
-
-  // Checkup Form States
-  const [checkupDate, setCheckupDate] = useState(new Date().toISOString().split('T')[0]);
-  const [checkupServiceProvider, setCheckupServiceProvider] = useState('');
-  const [checkupNextDate, setCheckupNextDate] = useState('');
-  const [checkupBp, setCheckupBp] = useState('');
-  const [checkupWeight, setCheckupWeight] = useState('');
-  const [checkupHeight, setCheckupHeight] = useState('');
-  const [checkupNutrition, setCheckupNutrition] = useState('Normal');
-  const [checkupFundalHeight, setCheckupFundalHeight] = useState('');
-  const [checkupFhr, setCheckupFhr] = useState('');
-  const [checkupReferral, setCheckupReferral] = useState(false);
-  const [checkupLabAssistance, setCheckupLabAssistance] = useState(false);
-  const [checkupAssistanceAmount, setCheckupAssistanceAmount] = useState('');
-  const [checkupAssistanceSource, setCheckupAssistanceSource] = useState('');
-  const [checkupMaternityType, setCheckupMaternityType] = useState('Govt');
-  const [checkupMilkDate, setCheckupMilkDate] = useState('');
-  const [checkupMilkQuantity, setCheckupMilkQuantity] = useState('');
-  const [checkupNotes, setCheckupNotes] = useState('');
 
   const [pediaCheckupDate, setPediaCheckupDate] = useState(new Date().toISOString().split('T')[0]);
   const [pediaWeight, setPediaWeight] = useState('');
@@ -445,15 +419,6 @@ export default function BeneficiaryPage() {
   const [pediaAmount, setPediaAmount] = useState('');
   const [pediaSourceOfFunds, setPediaSourceOfFunds] = useState('Municipal Fund');
   const [pediaFacilityType, setPediaFacilityType] = useState('Govt');
-
-  // Delivery Form States
-  const [deliveryDate, setDeliveryDate] = useState('');
-  const [deliveryType, setDeliveryType] = useState('Vaginal');
-  const [deliveryOutcome, setDeliveryOutcome] = useState('Single Healthy Birth');
-  const [deliveryBirthWeight, setDeliveryBirthWeight] = useState('');
-  const [deliveryBirthLength, setDeliveryBirthLength] = useState('');
-  const [deliveryBabyGender, setDeliveryBabyGender] = useState('Male');
-  const [deliveryBabyName, setDeliveryBabyName] = useState('');
 
   const formTabList = [
     { id: 'general', label: '1. General Info' },
@@ -609,20 +574,8 @@ export default function BeneficiaryPage() {
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    const checkup = params.get('checkup');
     const pedia = params.get('pedia');
-    setShowMotherCheckup(!!checkup);
     setShowChildCheckup(!!pedia);
-
-    if (checkup) {
-      const t = parseInt(params.get('trimester'), 10);
-      const s = parseInt(params.get('step'), 10);
-      setActiveTrimester(Number.isFinite(t) ? t : null);
-      setActiveStep(Number.isFinite(s) ? s : null);
-    } else {
-      setActiveTrimester(null);
-      setActiveStep(null);
-    }
 
     if (pedia) {
       const s = parseInt(params.get('step'), 10);
@@ -717,51 +670,6 @@ export default function BeneficiaryPage() {
     }
   }, [communities, batchForm.community, groupForm.community]);
 
-  useEffect(() => {
-    if (selectedSchool && activeTrimester && activeStep) {
-      const record = selectedSchool.checkups?.[activeTrimester - 1]?.[activeStep - 1] || {};
-      setCheckupDate(record.checkupDate || new Date().toISOString().split('T')[0]);
-      setCheckupServiceProvider(record.serviceProvider || '');
-      setCheckupNextDate(record.nextCheckupDate || '');
-      setCheckupBp(record.bp || '');
-      setCheckupWeight(record.weight || '');
-      setCheckupHeight(record.height || selectedSchool.height || '');
-      setCheckupNutrition(record.nutritionalStatus || 'Normal');
-      setCheckupFundalHeight(record.fundalHeight || '');
-      setCheckupFhr(record.fhr || '');
-      setCheckupReferral(record.referral || false);
-      setCheckupLabAssistance(record.labAssistance || false);
-      setCheckupAssistanceAmount(record.amount || '');
-      setCheckupAssistanceSource(record.sourceOfFunds || '');
-      setCheckupMaternityType(record.maternityType || 'Govt');
-      setCheckupMilkDate(record.milkSubsidy?.dateProvided || '');
-      setCheckupMilkQuantity(record.milkSubsidy?.quantity ?? '');
-      setCheckupNotes(record.notes || '');
-    }
-  }, [selectedSchool?.id, activeTrimester, activeStep]);
-
-  useEffect(() => {
-    if (selectedSchool) {
-      if (selectedSchool.delivered && selectedSchool.deliveryDetails) {
-        const details = selectedSchool.deliveryDetails;
-        setDeliveryDate(details.deliveryDate || '');
-        setDeliveryType(details.deliveryType || 'Vaginal');
-        setDeliveryOutcome(details.outcome || 'Single Healthy Birth');
-        setDeliveryBirthWeight(details.birthWeight || '');
-        setDeliveryBirthLength(details.birthLength || '');
-        setDeliveryBabyGender(details.babyGender || 'Male');
-        setDeliveryBabyName(details.babyName || '');
-      } else {
-        setDeliveryDate(new Date().toISOString().split('T')[0]);
-        setDeliveryType('Vaginal');
-        setDeliveryOutcome('Single Healthy Birth');
-        setDeliveryBirthWeight('');
-        setDeliveryBirthLength('');
-        setDeliveryBabyGender('Male');
-        setDeliveryBabyName('');
-      }
-    }
-  }, [selectedSchool?.id]);
 
   const handleCommunityRowClick = (row, type) => {
     if (type === 'mother') {
@@ -1997,243 +1905,60 @@ export default function BeneficiaryPage() {
       </header>
 
       {isCreateMother ? (
-        <section className="tabs-row create-view">
-          <div className="stepper-progress">
-            <div className="stepper-steps" role="tablist">
-              {CREATE_STEPS.map((s, i) => {
-                const label = s === 'general' ? 'General' : s === 'prenatal' ? 'Prenatal/OB' : s === 'medical_dental' ? 'Medical & Dental' : 'Vaccine';
-                const isActive = createActiveTab === s;
-                const isCompleted = i < createActiveIndex;
-                return (
-                  <button
-                    key={s}
-                    type="button"
-                    role="tab"
-                    aria-selected={isActive}
-                    className={`stepper-step ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}`}
-                    onClick={() => setCreateActiveTab(s)}
-                  >
-                    <span className="stepper-step-index">
-                      {isCompleted ? (
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-                          <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      ) : (
-                        i + 1
-                      )}
-                    </span>
-                    <span className="stepper-step-label">{label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="create-form-body">
-            <form onSubmit={handleCreateCommunity}>
-              <div className="modal-body-scrollable">
-                <MotherFormFields
-                  activeTab={createActiveTab}
-                  form={communityForm}
-                  setForm={setCommunityForm}
-                  communities={communities}
-                  groups={groups}
-                  batches={batches}
-                />
-              </div>
-              <div className="modal-footer">
-                <button type="button" className="btn-secondary" onClick={() => navigate('/beneficiary')}>Cancel</button>
-                {createActiveTab !== 'general' && (
-                  <button type="button" className="btn-secondary btn-back" onClick={() => {
-                    if (createActiveTab === 'vaccine') setCreateActiveTab('medical_dental');
-                    else if (createActiveTab === 'medical_dental') setCreateActiveTab('prenatal');
-                    else setCreateActiveTab('general');
-                  }}>Back</button>
-                )}
-                {createActiveTab !== 'vaccine' ? (
-                  <button type="button" className="btn-primary btn-next" onClick={() => {
-                    if (createActiveTab === 'general') setCreateActiveTab('prenatal');
-                    else if (createActiveTab === 'prenatal') setCreateActiveTab('medical_dental');
-                    else if (createActiveTab === 'medical_dental') setCreateActiveTab('vaccine');
-                  }}>Next</button>
-                ) : (
-                  <button type="submit" className="btn-primary">Create</button>
-                )}
-              </div>
-            </form>
-          </div>
-        </section>
-      ) : isCreateChild ? (
-        <section className="tabs-row create-view">
-          <div className="stepper-progress">
-            <div className="stepper-steps" role="tablist">
-              {CREATE_STEPS.map((s, i) => {
-                const label = s === 'general' ? 'General' : s === 'prenatal' ? 'Prenatal/OB' : s === 'medical_dental' ? 'Medical & Dental' : 'Vaccine';
-                const isActive = createActiveTab === s;
-                const isCompleted = i < createActiveIndex;
-                return (
-                  <button
-                    key={s}
-                    type="button"
-                    role="tab"
-                    aria-selected={isActive}
-                    className={`stepper-step ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}`}
-                    onClick={() => setCreateActiveTab(s)}
-                  >
-                    <span className="stepper-step-index">
-                      {isCompleted ? (
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-                          <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      ) : (
-                        i + 1
-                      )}
-                    </span>
-                    <span className="stepper-step-label">{label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="create-form-body">
-            <form onSubmit={handleCreateGroup}>
-              <div className="modal-body-scrollable">
-                <ChildFormFields
-                  activeTab={createActiveTab}
-                  form={groupForm}
-                  setForm={setGroupForm}
-                  communities={communities}
-                  groups={groups}
-                  batches={batches}
-                />
-              </div>
-              <div className="modal-footer">
-                <button type="button" className="btn-secondary" onClick={() => navigate('/beneficiary')}>Cancel</button>
-                {createActiveTab !== 'general' && (
-                  <button type="button" className="btn-secondary btn-back" onClick={() => {
-                    if (createActiveTab === 'vaccine') setCreateActiveTab('medical_dental');
-                    else if (createActiveTab === 'medical_dental') setCreateActiveTab('prenatal');
-                    else setCreateActiveTab('general');
-                  }}>Back</button>
-                )}
-                {createActiveTab !== 'vaccine' ? (
-                  <button type="button" className="btn-primary btn-next" onClick={() => {
-                    if (createActiveTab === 'general') setCreateActiveTab('prenatal');
-                    else if (createActiveTab === 'prenatal') setCreateActiveTab('medical_dental');
-                    else if (createActiveTab === 'medical_dental') setCreateActiveTab('vaccine');
-                  }}>Next</button>
-                ) : (
-                  <button type="submit" className="btn-primary">Create</button>
-                )}
-              </div>
-            </form>
-          </div>
-        </section>
-      ) : (
-        <section className="tabs-row">
-          <div className="tabs-list" role="tablist" aria-label="Beneficiary status filter">
-            {!isCreateMother && !isCreateChild && !selectedSchool ? (
-              STATUS_OPTIONS.map(({ key, label, icon: Icon }) => (
-                <button
-                  key={key}
-                  role="tab"
-                  aria-selected={selectedStatusFilter === key}
-                  type="button"
-                  className={`tab-btn${selectedStatusFilter === key ? ' active' : ''}`}
-                  onClick={() => {
-                    setSelectedStatusFilter(key);
-                    setPage(1);
-                  }}
-                >
-                  <Icon />
-                  <span>{label}</span>
-                </button>
-              ))
-            ) : (
-              <span>{'\u00A0'}</span>
-            )}
-          </div>
-          <div className="search-container">
-            {!isCreateMother && !isCreateChild && !selectedSchool ? (
-              <>
-                <SearchIcon />
-                <input
-                  type="text"
-                  className="search-input-field"
-                  placeholder="Search child name..."
-                  value={query}
-                  onChange={(e) => handleSearch(e.target.value)}
-                  aria-label="Search items"
-                />
-              </>
-            ) : (
-              <span>{'\u00A0'}</span>
-            )}
-          </div>
-        </section>
-      )}
-
-      {selectedSchool && (
-        <BeneficiaryMotherProfile
-          selectedSchool={selectedSchool}
-          showMotherCheckup={showMotherCheckup}
-          activeTrimester={activeTrimester}
-          activeStep={activeStep}
-          openEditMother={openEditMother}
-          openCheckup={openCheckup}
-          handleCancelCheckup={handleCancelCheckup}
-          onClearCheckupForm={onClearCheckupForm}
-          onSaveCheckup={onSaveCheckup}
-          onSaveDelivery={onSaveDelivery}
-          deliveryDate={deliveryDate}
-          setDeliveryDate={setDeliveryDate}
-          deliveryType={deliveryType}
-          deliveryOutcome={deliveryOutcome}
-          deliveryBirthWeight={deliveryBirthWeight}
-          deliveryBirthLength={deliveryBirthLength}
-          deliveryBabyGender={deliveryBabyGender}
-          deliveryBabyName={deliveryBabyName}
-          setActiveTrimester={setActiveTrimester}
-          setActiveStep={setActiveStep}
-          setShowMotherCheckup={setShowMotherCheckup}
+        <CreateMotherPage
+          communities={communities}
+          groups={groups}
+          batches={batches}
+          createActiveTab={createActiveTab}
+          setCreateActiveTab={setCreateActiveTab}
+          createActiveIndex={createActiveIndex}
+          CREATE_STEPS={CREATE_STEPS}
+          handleCreateCommunity={handleCreateCommunity}
+          communityForm={communityForm}
+          setCommunityForm={setCommunityForm}
           navigate={navigate}
-          checkupDate={checkupDate}
-          setCheckupDate={setCheckupDate}
-          checkupServiceProvider={checkupServiceProvider}
-          setCheckupServiceProvider={setCheckupServiceProvider}
-          checkupNextDate={checkupNextDate}
-          setCheckupNextDate={setCheckupNextDate}
-          checkupBp={checkupBp}
-          setCheckupBp={setCheckupBp}
-          checkupWeight={checkupWeight}
-          setCheckupWeight={setCheckupWeight}
-          checkupHeight={checkupHeight}
-          setCheckupHeight={setCheckupHeight}
-          checkupNutrition={checkupNutrition}
-          setCheckupNutrition={setCheckupNutrition}
-          checkupFundalHeight={checkupFundalHeight}
-          setCheckupFundalHeight={setCheckupFundalHeight}
-          checkupFhr={checkupFhr}
-          setCheckupFhr={setCheckupFhr}
-          checkupReferral={checkupReferral}
-          setCheckupReferral={setCheckupReferral}
-          checkupLabAssistance={checkupLabAssistance}
-          setCheckupLabAssistance={setCheckupLabAssistance}
-          checkupAssistanceAmount={checkupAssistanceAmount}
-          setCheckupAssistanceAmount={setCheckupAssistanceAmount}
-          checkupAssistanceSource={checkupAssistanceSource}
-          setCheckupAssistanceSource={setCheckupAssistanceSource}
-          checkupMaternityType={checkupMaternityType}
-          setCheckupMaternityType={setCheckupMaternityType}
-          checkupMilkDate={checkupMilkDate}
-          setCheckupMilkDate={setCheckupMilkDate}
-          checkupMilkQuantity={checkupMilkQuantity}
-          setCheckupMilkQuantity={setCheckupMilkQuantity}
-          checkupNotes={checkupNotes}
-          setCheckupNotes={setCheckupNotes}
+        />
+      ) : isCreateChild ? (
+        <CreateChildPage
+          communities={communities}
+          groups={groups}
+          batches={batches}
+          createActiveTab={createActiveTab}
+          setCreateActiveTab={setCreateActiveTab}
+          createActiveIndex={createActiveIndex}
+          CREATE_STEPS={CREATE_STEPS}
+          handleCreateGroup={handleCreateGroup}
+          groupForm={groupForm}
+          setGroupForm={setGroupForm}
+          navigate={navigate}
+        />
+      ) : null}
+
+      {!selectedGroup && !selectedSchool && !isCreateMother && !isCreateChild && (
+        <BeneficiaryListPage
+          query={query}
+          handleSearch={handleSearch}
+          selectedStatusFilter={selectedStatusFilter}
+          setSelectedStatusFilter={(value) => {
+            setSelectedStatusFilter(value);
+            setPage(1);
+          }}
+          STATUS_OPTIONS={STATUS_OPTIONS}
+          perPage={perPage}
+          handlePerPageChange={handlePerPageChange}
+          renderPaginationButtons={renderPaginationButtons}
+          displayRows={displayRows}
+          displayLength={displayLength}
+          displayRangeStart={displayRangeStart}
+          displayRangeEnd={displayRangeEnd}
+          onCommunityRowClick={handleCommunityRowClick}
+          motherProgressByName={motherProgressByName}
+          communities={communities}
+          batches={batches}
         />
       )}
+
+
 
 
 
@@ -2280,67 +2005,10 @@ export default function BeneficiaryPage() {
         />
       )}
 
-      {!selectedGroup && !(isCreateMother || isCreateChild || selectedSchool) && (
-        <BeneficiaryTable
-          currentRows={displayRows}
-          filteredDataLength={displayLength}
-          rangeStart={displayRangeStart}
-          rangeEnd={displayRangeEnd}
-          perPage={perPage}
-          handlePerPageChange={handlePerPageChange}
-          renderPaginationButtons={renderPaginationButtons}
-          onCommunityRowClick={handleCommunityRowClick}
-          motherProgressByName={motherProgressByName}
-          communities={communities}
-          batches={batches}
-        />
-      )}
+     
+     
+ 
 
-      <CreateCommunityModal
-        showModal={showModal === 'createCommunity'}
-        onClose={() => setShowModal(null)}
-        communityForm={communityForm}
-        setCommunityForm={setCommunityForm}
-        handleCreateCommunity={handleCreateCommunity}
-        communities={communities}
-        groups={groups}
-        batches={batches}
-      />
-      {/* EditCommunityModal removed per request */}
-      <CreateBatchModal
-        showModal={showModal === 'createBatch'}
-        onClose={() => setShowModal(null)}
-        batchForm={batchForm}
-        setBatchForm={setBatchForm}
-        handleCreateBatch={handleCreateBatch}
-        communities={communities}
-      />
-      <EditBatchModal
-        showModal={showModal === 'editBatch'}
-        onClose={() => setShowModal(null)}
-        batchForm={batchForm}
-        setBatchForm={setBatchForm}
-        handleEditBatch={handleEditBatch}
-        communities={communities}
-      />
-      <CreateGroupModal
-        showModal={showModal === 'createGroup'}
-        onClose={() => setShowModal(null)}
-        groupForm={groupForm}
-        setGroupForm={setGroupForm}
-        handleCreateGroup={handleCreateGroup}
-        communities={communities}
-        batches={batches}
-      />
-      <EditGroupModal
-        showModal={showModal === 'editGroup'}
-        onClose={() => setShowModal(null)}
-        groupForm={groupForm}
-        setGroupForm={setGroupForm}
-        handleEditGroup={handleEditGroup}
-        communities={communities}
-        batches={batches}
-      />
     </div>
   );
 }
