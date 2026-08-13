@@ -235,6 +235,7 @@ export function useUserManagement() {
 
   const handleSubmitUser = async (event) => {
     try { window.__last_user_fetch__ = { stage: 'submit-start', time: Date.now() }; } catch (e) {}
+    try { window.__debug_steps__ = window.__debug_steps__ || []; window.__debug_steps__.push('submit invoked'); } catch (e) {}
     event.preventDefault();
     const firstName = form.firstName.trim();
     const lastName = form.lastName.trim();
@@ -242,6 +243,7 @@ export function useUserManagement() {
     const contactNumber = form.contactNumber.trim();
 
     if (!firstName) {
+      try { window.__debug_steps__.push('validation failed: firstName'); } catch (e) {}
       setNotification('First Name is required.');
       return;
     }

@@ -10,7 +10,7 @@ function ModalShell({ title, onClose, onSubmit, children, submitLabel }) {
             ✕
           </button>
         </div>
-        <form onSubmit={onSubmit}>
+        <form onSubmit={(e) => { try { window.__modal_on_submit_called__ = window.__modal_on_submit_called__ || []; window.__modal_on_submit_called__.push(Date.now()); } catch (err) {} if (onSubmit) { onSubmit(e); } }}>
           <div className="modal-body">{children}</div>
           <div className="modal-footer">
             <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
