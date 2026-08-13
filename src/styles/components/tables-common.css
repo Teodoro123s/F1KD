@@ -16,3 +16,61 @@
 .community-name-info { display: flex; flex-direction: column; min-width: 0; }
 .community-title-text { font-weight: 700; color: var(--slate-dark); font-size: 0.95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .community-area-text { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.15rem; }
+
+/* Pagination layout & controls */
+.pagination-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.6rem 1rem;
+  border-top: 1px solid var(--border-color);
+  background: transparent;
+  flex-wrap: wrap;
+}
+.pagination-left { display: flex; gap: 0.5rem; align-items: center; }
+.pagination-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 0.6rem;
+  border-radius: 8px;
+  border: 1px solid #CBD5E1;
+  background: #fff;
+  color: #475569;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.pagination-btn:hover:not(.disabled):not(.active) { border-color: #94A3B8; background: #F8FAFC; }
+.pagination-btn.active { background: var(--burgundy); color: #fff; border-color: var(--burgundy); }
+.pagination-btn.disabled { opacity: 0.5; cursor: not-allowed; }
+.pagination-btn.ellipsis { border: none; background: transparent; min-width: 32px; cursor: default; padding: 0; font-weight: 700; }
+
+.pagination-center { display: flex; align-items: center; gap: 0.5rem; color: var(--text-muted); font-weight: 600; }
+.select-entries {
+  border: 1px solid #CBD5E1;
+  border-radius: 8px;
+  padding: 0.35rem 1.6rem 0.35rem 0.65rem;
+  background: #fff;
+  color: var(--slate-dark);
+  font-size: 0.9rem;
+  font-weight: 600;
+  appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg fill='%2364748b' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/><path d='M0 0h24v24H0z' fill='none'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 0.45rem center;
+  background-size: 1rem;
+}
+
+.pagination-right { font-size: 0.9rem; color: var(--text-muted); font-weight: 600; }
+
+/* Responsive: stack on very small screens */
+@media (max-width: 520px) {
+  .pagination-container { gap: 0.5rem; padding: 0.5rem; }
+  .pagination-left { order: 1; width: 100%; justify-content: flex-start; }
+  .pagination-center { order: 2; width: 100%; justify-content: flex-start; }
+  .pagination-right { order: 3; width: 100%; text-align: left; }
+}

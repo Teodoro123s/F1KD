@@ -1,9 +1,7 @@
-﻿:root {
+/* Design tokens and global resets */
+:root {
   --bg: #ffffff;
   --muted: #666;
-}
-
-:root {
   --burgundy: #7A0C1E;
   --burgundy-hover: #5F0917;
   --burgundy-light: #FFF1F3;
@@ -12,3 +10,16 @@
   --text-muted: #64748B;
   --border-color: #E2E8F0;
 }
+
+/* Global reset & universal font */
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: var(--bg);
+  color: var(--slate-dark);
+}
+a { text-decoration: none; color: inherit; }
