@@ -1,0 +1,9 @@
+﻿/* Mother checkup action buttons */
+.checkup-actions { display:flex; gap:8px; margin-top:8px; }
+.checkup-actions .btn-primary { background:#6aa84f; color:#fff; border:none; padding:8px 12px; border-radius:4px; cursor: pointer; }
+.checkup-actions .btn-secondary { background:#eee; border:1px solid #ddd; padding:8px 12px; border-radius:4px; cursor: pointer; }
+
+/* additional mother-checkup-stepper container */
+.mother-checkup-page { margin-top: 12px; }
+.mother-checkup-stepper { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; position: relative; padding: 20px 16px 14px; background: transparent; gap: 14px; }
+.mother-checkup-stepper::before { content: ''; position: absolute; top: 42px; left: 12%; right: 12%; height: 2px; border-radius: 999px; background: linear-gradient( to right, #7A0C1E calc(var(--progress, 0%)), #E2E8F0 calc(var(--progress, 0%)) ); transform: translateY(-50%); z-index: 0; }

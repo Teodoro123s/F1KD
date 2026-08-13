@@ -1,0 +1,18 @@
+﻿/* Table Card Customization */
+.table-card { background: #fff; border-radius: 12px; border: 1px solid var(--border-color); overflow: visible; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.03), 0 2px 4px -1px rgba(0, 0, 0, 0.02); }
+.table-overflow { overflow-x: auto; border-top-left-radius: 12px; border-top-right-radius: 12px; }
+.data-table { width: 100%; border-collapse: collapse; text-align: left; }
+
+/* General table layout & cells */
+.data-table th { padding: 1rem 1.2rem; font-size: 0.78rem; font-weight: 700; color: var(--text-muted); letter-spacing: 0.08em; text-transform: uppercase; border-bottom: 1.5px solid #EDF2F7; background: #FBFDFF; }
+.data-table td { padding: 1.1rem 1.5rem; font-size: 0.95rem; color: var(--slate-dark); border-bottom: 1px solid #EDF2F7; vertical-align: middle; }
+.data-table tbody tr:hover { background: #F8FAFC; }
+.no-data { padding: 3rem; text-align: center; color: var(--text-muted); font-size: 0.95rem; }
+
+/* Row-specific styling */
+.community-name-cell { display: flex; align-items: center; gap: 1rem; }
+.community-icon-wrapper { display: flex; align-items: center; justify-content: center; width: 42px; height: 42px; border-radius: 10px; background: var(--burgundy-light); color: var(--burgundy); flex-shrink: 0; }
+.community-icon-wrapper svg { width: 1.35rem; height: 1.35rem; fill: none; stroke: currentColor; stroke-width: 2; }
+.community-name-info { display: flex; flex-direction: column; min-width: 0; }
+.community-title-text { font-weight: 700; color: var(--slate-dark); font-size: 0.95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.community-area-text { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.15rem; }
