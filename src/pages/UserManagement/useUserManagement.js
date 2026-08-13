@@ -492,6 +492,10 @@ export function useUserManagement() {
     return items;
   }, [selectedUser]);
 
+  const handlePageChange = (nextPage) => {
+    setPage(Number(nextPage));
+  };
+
   return {
     users,
     form,
@@ -517,6 +521,7 @@ export function useUserManagement() {
     selectRoleFilter,
     setStatusFilter,
     handlePerPageChange,
+    handlePageChange,
     openAddModal,
     closeModal,
     openEditUser,

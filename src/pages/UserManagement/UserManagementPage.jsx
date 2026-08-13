@@ -134,18 +134,18 @@ export default function UserManagementPage() {
         rangeEnd={rangeEnd}
         perPage={perPage}
         handlePerPageChange={handlePerPageChange}
-        currentPage={page}
+        currentPage={currentPage}
         pageCount={pageCount}
-        onChangePage={(nextPage) => handlePerPageChange(page)}
+        onChangePage={handlePageChange}
         openEditUser={openEditUser}
         handleSuspendUser={handleSuspendUser}
         handleDeleteUser={requestDeleteUser}
       />
 
       <Pagination
-        currentPage={page}
+        currentPage={currentPage}
         pageCount={pageCount}
-        onPageChange={(nextPage) => handlePerPageChange(nextPage)}
+        onPageChange={handlePageChange}
         perPage={perPage}
         onPerPageChange={handlePerPageChange}
         rangeStart={rangeStart}
