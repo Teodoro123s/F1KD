@@ -1,6 +1,47 @@
 import React, { useState } from 'react';
 
 function ModalShell({ title, onClose, onSubmit, children, submitLabel }) {
+  const formRef = React.useRef(null);
+
+  const handleSubmitClick = () => {
+    const formEl = formRef.current;
+    // If native HTML validation fails, show native messages and do not proceed
+    if (formEl && !formEl.checkValidity()) {
+      try { formEl.reportValidity(); } catch (e) { /* ignore */ }
+      return;
+    }
+    // record that submit was attempted
+    try { window.__modal_on_submit_called__ = window.__modal_on_submit_called__ || []; window.__modal_on_submit_called__.push(Date.now()); } catch (err) {}
+
+    // Trigger a native form submission so the handler receives the real submit event
+    if (formEl && typeof formEl.requestSubmit === 'function') {
+      formEl.requestSubmit();
+    } else if (formEl) {
+      // Fallback for older browsers
+      formEl.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    } else if (onSubmit) {
+      try { onSubmit({ preventDefault: () => {} }); } catch (e) { /* ignore */ }
+    }
+  };
+
+  // Fallback for environments where the React-internal onClick/onSubmit wiring
+  // may not trigger as expected (HMR or build differences). Attach a click
+  // listener to the form that triggers the submit handler when the primary
+  // button is clicked.
+  React.useEffect(() => {
+    const formEl = formRef.current;
+    if (!formEl) return undefined;
+    const handler = (e) => {
+      const btn = e.target.closest && e.target.closest('.btn-primary');
+      if (btn) {
+        e.preventDefault();
+        handleSubmitClick();
+      }
+    };
+    formEl.addEventListener('click', handler);
+    return () => formEl.removeEventListener('click', handler);
+  }, []);
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -10,17 +51,15 @@ function ModalShell({ title, onClose, onSubmit, children, submitLabel }) {
             ✕
           </button>
         </div>
-        <form onSubmit={(e) => {
-            // prevent default and defer calling the handler to let controlled inputs flush state
-            // don't pass the original React event (it may be pooled); pass a safe stub instead
-            e.preventDefault();
-            try { window.__modal_on_submit_called__ = window.__modal_on_submit_called__ || []; window.__modal_on_submit_called__.push(Date.now()); } catch (err) {}
-            if (onSubmit) setTimeout(() => onSubmit({ preventDefault: () => {} }), 50);
-          }}>
+        <form ref={formRef} onSubmit={(e) => { e.preventDefault(); if (onSubmit) { onSubmit(e); } else { handleSubmitClick(); } }}>
           <div className="modal-body">{children}</div>
           <div className="modal-footer">
             <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn-primary">{submitLabel}</button>
+            <button
+              type="submit"
+              className="btn-primary"
+              onClick={(e) => { e.preventDefault(); handleSubmitClick(); }}
+            >{submitLabel}</button>
           </div>
         </form>
       </div>
@@ -61,38 +100,41 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
           <label className="form-label" htmlFor="first-name">First Name *</label>
           <input
             id="first-name"
-            type="text"
-            className="form-input"
-            placeholder="Enter first name"
-            value={form.firstName}
-            onChange={(e) => handleChange('firstName', e.target.value)}
-            required
-            autoFocus
-          />
+                      name="firstName"
+                      type="text"
+                      className="form-input"
+                      placeholder="Enter first name"
+                      value={form.firstName}
+                      onChange={(e) => handleChange('firstName', e.target.value)}
+                      required
+                      autoFocus
+                    />
         </div>
         <div className="form-group">
           <label className="form-label" htmlFor="last-name">Last Name *</label>
           <input
             id="last-name"
-            type="text"
-            className="form-input"
-            placeholder="Enter last name"
-            value={form.lastName}
-            onChange={(e) => handleChange('lastName', e.target.value)}
-            required
-          />
+                      name="lastName"
+                      type="text"
+                      className="form-input"
+                      placeholder="Enter last name"
+                      value={form.lastName}
+                      onChange={(e) => handleChange('lastName', e.target.value)}
+                      required
+                    />
         </div>
         <div className="form-group">
           <label className="form-label" htmlFor="middle-initial">Middle Initial</label>
           <input
             id="middle-initial"
-            type="text"
-            className="form-input"
-            placeholder="A"
-            maxLength={1}
-            value={form.middleInitial}
-            onChange={(e) => handleChange('middleInitial', e.target.value)}
-          />
+                      name="middleInitial"
+                      type="text"
+                      className="form-input"
+                      placeholder="A"
+                      maxLength={1}
+                      value={form.middleInitial}
+                      onChange={(e) => handleChange('middleInitial', e.target.value)}
+                    />
         </div>
       </div>
 
@@ -101,25 +143,27 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
           <label className="form-label" htmlFor="contact-number">Contact Number *</label>
           <input
             id="contact-number"
-            type="tel"
-            className="form-input"
-            placeholder="09171234567"
-            value={form.contactNumber}
-            onChange={(e) => handleChange('contactNumber', e.target.value)}
-            required
-          />
+                      name="contactNumber"
+                      type="tel"
+                      className="form-input"
+                      placeholder="09171234567"
+                      value={form.contactNumber}
+                      onChange={(e) => handleChange('contactNumber', e.target.value)}
+                      required
+                    />
         </div>
         <div className="form-group">
           <label className="form-label" htmlFor="email">Email *</label>
           <input
             id="email"
-            type="email"
-            className="form-input"
-            placeholder="user@example.com"
-            value={form.email}
-            onChange={(e) => handleChange('email', e.target.value)}
-            required
-          />
+                      name="email"
+                      type="email"
+                      className="form-input"
+                      placeholder="user@example.com"
+                      value={form.email}
+                      onChange={(e) => handleChange('email', e.target.value)}
+                      required
+                    />
         </div>
         <div className="form-group" aria-hidden="true" />
       </div>
@@ -129,11 +173,12 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
           <label className="form-label" htmlFor="gender">Gender *</label>
           <select
             id="gender"
-            className="form-select"
-            value={form.gender}
-            onChange={(e) => handleChange('gender', e.target.value)}
-            required
-          >
+                      name="gender"
+                      className="form-select"
+                      value={form.gender}
+                      onChange={(e) => handleChange('gender', e.target.value)}
+                      required
+                    >
             <option value="Male">Male</option>
             <option value="Female">Female</option>
             <option value="Other">Other</option>
@@ -143,12 +188,13 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
           <label className="form-label" htmlFor="dob">Date of Birth *</label>
           <input
             id="dob"
-            type="date"
-            className="form-input"
-            value={form.dob}
-            onChange={(e) => handleChange('dob', e.target.value)}
-            required
-          />
+                      name="dob"
+                      type="date"
+                      className="form-input"
+                      value={form.dob}
+                      onChange={(e) => handleChange('dob', e.target.value)}
+                      required
+                    />
         </div>
         <div className="form-group" aria-hidden="true" />
       </div>
@@ -158,11 +204,12 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
           <label className="form-label" htmlFor="location">Location *</label>
           <select
             id="location"
-            className="form-select"
-            value={form.location}
-            onChange={(e) => handleChange('location', e.target.value)}
-            required
-          >
+                      name="location"
+                      className="form-select"
+                      value={form.location}
+                      onChange={(e) => handleChange('location', e.target.value)}
+                      required
+                    >
             <option value="Poblacion">Poblacion</option>
             <option value="Upland">Upland</option>
             <option value="Downtown">Downtown</option>
@@ -177,14 +224,15 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
           <label className="form-label" htmlFor="role">Role *</label>
           <select
             id="role"
-            className="form-select"
-            value={form.role}
-            onChange={(e) => handleChange('role', e.target.value)}
-          >
-            {roleOptions.map((role) => (
-              <option key={role} value={role}>{role}</option>
-            ))}
-          </select>
+                      name="role"
+                      className="form-select"
+                      value={form.role}
+                      onChange={(e) => handleChange('role', e.target.value)}
+                    >
+                      {roleOptions.map((role) => (
+                        <option key={role} value={role}>{role}</option>
+                      ))}
+                    </select>
         </div>
         <div className="form-group" aria-hidden="true" />
       </div>

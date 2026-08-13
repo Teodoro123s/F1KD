@@ -68,8 +68,10 @@ export function useUserManagement() {
             prev.forEach((u) => { if (u.email && !byEmail.has(u.email.toLowerCase())) byEmail.set(u.email.toLowerCase(), u); });
             return Array.from(byEmail.values());
           });
+          try { console.log('Fetched users from server', mapped); } catch (e) { /* ignore console errors */ }
         }
       } catch (e) {
+        try { console.log('Failed to fetch users from server, using mock data', e); } catch (c) {}
         // keep mocks if server not reachable
       }
     }
@@ -239,116 +241,43 @@ export function useUserManagement() {
   };
 
   const handleSubmitUser = async (event) => {
-    try { window.__last_user_fetch__ = { stage: 'submit-start', time: Date.now() }; } catch (e) {}
-    try { window.__debug_steps__ = window.__debug_steps__ || []; window.__debug_steps__.push('submit invoked'); } catch (e) {}
     event.preventDefault();
-    // Read values from form state, but fall back to DOM values if controlled inputs didn't update
-    const getDomValue = (id) => {
-      try {
-        const el = document.getElementById(id);
-        return el ? (el.value || '').toString() : '';
-      } catch (e) { return ''; }
-    };
-    const firstName = (form.firstName || '').trim() || getDomValue('first-name').trim();
-    const lastName = (form.lastName || '').trim() || getDomValue('last-name').trim();
-    const email = (form.email || '').trim() || getDomValue('email').trim();
-    const contactNumber = (form.contactNumber || '').trim() || getDomValue('contact-number').trim();
-    // ensure dob/middleInitial and select values are read from DOM if needed before validation
-    const dobFromDom = (form.dob || '').trim() || getDomValue('dob').trim();
-    const middleInitialFromDom = (form.middleInitial || '').trim() || getDomValue('middle-initial').trim();
-    const mi = middleInitialFromDom || (form.middleInitial || '').trim();
-    const dobVal = dobFromDom || (form.dob || '').trim();
-    const genderVal = form.gender || (document.getElementById('gender') ? document.getElementById('gender').value : 'Male');
-    const locationVal = form.location || (document.getElementById('location') ? document.getElementById('location').value : 'Poblacion');
-    const roleVal = form.role || (document.getElementById('role') ? document.getElementById('role').value : 'Superadmin');
-    const statusVal = form.status || (document.getElementById('status') ? document.getElementById('status').value : 'Active');
 
-    // Push a pre-validation snapshot into debug steps to help identify which check fails
-    try {
-      window.__debug_steps__ = window.__debug_steps__ || [];
-      window.__debug_steps__.push(JSON.stringify({
-        firstNamePresent: !!firstName,
-        firstNameValid: !!firstName && isValidName(firstName),
-        lastNamePresent: !!lastName,
-        lastNameValid: !!lastName && isValidName(lastName),
-        middleInitial: !!middleInitialFromDom || !!form.middleInitial,
-        contactLooksValid: isValidContact(contactNumber),
-        emailPresent: !!email,
-        emailLooksValid: !!email && isValidEmail(email),
-        dobValue: dobVal,
-        dobValid: isValidDob(dobVal),
-        genderVal,
-        roleVal,
-        locationVal,
-      }));
-    } catch (e) {}
+      // Read values from the submitted form to avoid relying on possibly stale React state
+      const formEl = event.currentTarget;
+      const fd = new FormData(formEl);
+      const firstName = (fd.get('firstName') || '').toString().trim();
+      const lastName = (fd.get('lastName') || '').toString().trim();
+      const email = (fd.get('email') || '').toString().trim();
+      const contactNumber = (fd.get('contactNumber') || '').toString().trim();
+      const mi = (fd.get('middleInitial') || '').toString().trim();
+      const dobVal = (fd.get('dob') || '').toString().trim();
+      const genderVal = (fd.get('gender') || 'Male').toString();
+      const locationVal = (fd.get('location') || 'Poblacion').toString();
+      const roleVal = (fd.get('role') || 'Superadmin').toString();
+      const statusVal = (fd.get('status') || 'Active').toString();
 
-    if (!firstName) {
-      try { window.__debug_steps__.push('validation failed: firstName'); } catch (e) {}
-      setNotification('First Name is required.');
-      return;
-    }
-    if (!isValidName(firstName)) {
-      setNotification('First Name may contain letters and spaces only.');
-      return;
-    }
-    if (!lastName) {
-      setNotification('Last Name is required.');
-      return;
-    }
-    if (!isValidName(lastName)) {
-      setNotification('Last Name may contain letters and spaces only.');
-      return;
-    }
-    const miValidValue = middleInitialFromDom || (form.middleInitial || '').trim();
-    if (!isValidMiddleInitial(miValidValue)) {
-      setNotification('Middle Initial must be a single letter.');
-      return;
-    }
-    if (!isValidContact(contactNumber)) {
-      setNotification('Contact Number must be 11 digits and start with 09.');
-      return;
-    }
-    if (!email) {
-      setNotification('Email is required.');
-      return;
-    }
-    if (!isValidEmail(email)) {
-      setNotification('Please enter a valid email address.');
-      return;
-    }
-    const emailExists = users.some(
-      (user) => user.email?.toLowerCase() === email.toLowerCase() && (!selectedUser || user.id !== selectedUser.id)
-    );
-    if (emailExists) {
-      setNotification('This email is already registered.');
-      return;
-    }
-    if (!genderVal) {
-      setNotification('Please select a gender.');
-      return;
-    }
-    if (!isValidDob(dobVal)) {
-      setNotification('Please enter a valid date of birth and ensure the user is at least 18 years old.');
-      return;
-    }
-    if (!locationVal) {
-      setNotification('Please select a location.');
-      return;
-    }
-    if (!roleVal) {
-      setNotification('Please select a role.');
-      return;
-    }
-    // password length will be validated only on create or when explicitly changing password during edit
+      // Instrumentation: log that submit was triggered and the form-derived snapshot
+      try { console.log('handleSubmitUser called (from form)', { firstName, lastName, email }); } catch (e) {}
+
+      // Basic validation
+    if (!firstName) { setNotification('First Name is required.'); return; }
+    if (!isValidName(firstName)) { setNotification('First Name may contain letters and spaces only.'); return; }
+    if (!lastName) { setNotification('Last Name is required.'); return; }
+    if (!isValidName(lastName)) { setNotification('Last Name may contain letters and spaces only.'); return; }
+    if (!isValidMiddleInitial(mi)) { setNotification('Middle Initial must be a single letter.'); return; }
+    if (!isValidContact(contactNumber)) { setNotification('Contact Number must be 11 digits and start with 09.'); return; }
+    if (!email) { setNotification('Email is required.'); return; }
+    if (!isValidEmail(email)) { setNotification('Please enter a valid email address.'); return; }
+    if (users.some((u) => u.email?.toLowerCase() === email.toLowerCase() && (!selectedUser || u.id !== selectedUser.id))) { setNotification('This email is already registered.'); return; }
+    if (!isValidDob(dobVal)) { setNotification('Please enter a valid date of birth and ensure the user is at least 18 years old.'); return; }
 
     const fullName = `${firstName}${mi ? ` ${mi}` : ''} ${lastName}`;
 
-    // Try server-side create/update; if it fails, fallback to local mutations
-    if (selectedUser) {
-      const serverId = parseServerId(selectedUser.id);
-      try {
-        try { window.__last_user_fetch__ = { url: `${API_BASE}/api/users/${serverId}`, method: 'PUT', time: Date.now(), body: { firstName, lastName, email } }; } catch (e) {}
+    try {
+      if (selectedUser) {
+        // Update existing user
+        const serverId = parseServerId(selectedUser.id);
         const res = await fetch(`${API_BASE}/api/users/${serverId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -366,7 +295,10 @@ export function useUserManagement() {
             password: form.password,
           }),
         });
-        if (!res.ok) throw new Error('server error');
+        if (!res.ok) {
+          const err = await res.json().catch(() => null);
+          throw new Error(err?.error || 'Server error when updating user');
+        }
         const updated = await res.json();
         setUsers((prev) => prev.map((u) => (u.id === selectedUser.id ? {
           ...u,
@@ -383,40 +315,28 @@ export function useUserManagement() {
           status: updated.status,
         } : u)));
         setNotification(`Saved changes for ${fullName}.`);
-      } catch (e) {
-        // fallback local
-        setUsers((prev) =>
-          prev.map((user) =>
-            user.id === selectedUser.id
-              ? {
-                  ...user,
-                  name: fullName,
-                  firstName,
-                  lastName,
-                  middleInitial: mi || null,
-                  contactNumber,
-                  email,
-                  gender: genderVal,
-                  dob: dobVal,
-                  location: locationVal,
-                  role: roleVal,
-                  status: statusVal,
-                  password: form.password,
-                }
-              : user
-          )
-        );
-        setNotification(`Saved changes for ${fullName} (local).`);
-      }
-    } else {
-      // creation flow: ensure password length is OK. If password hasn't been generated in state yet, generate one here to avoid race conditions.
-      const passwordToUse = (form.password && form.password.length >= 8) ? form.password : generatePassword(form);
-      if (!passwordToUse || passwordToUse.length < 8) {
-        setNotification('Password must be at least 8 characters.');
-        return;
-      }
-      try {
-        try { window.__last_user_fetch__ = { url: `${API_BASE}/api/users`, method: 'POST', time: Date.now(), body: { firstName, lastName, email } }; } catch (e) {}
+        closeModal();
+        setPage(1);
+      } else {
+        // Create new user
+        const passwordToUse = (form.password && form.password.length >= 8) ? form.password : generatePassword(form);
+        if (!passwordToUse || passwordToUse.length < 8) { setNotification('Password must be at least 8 characters.'); return; }
+
+        // Log payload for debug
+        try { console.log('Creating user payload', {
+          firstName,
+          lastName,
+          middleInitial: mi || null,
+          contactNumber,
+          email,
+          gender: genderVal,
+          dob: dobVal,
+          location: locationVal,
+          role: roleVal,
+          status: statusVal,
+          password: passwordToUse,
+        }); } catch (e) {}
+
         const res = await fetch(`${API_BASE}/api/users`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -434,7 +354,12 @@ export function useUserManagement() {
             password: passwordToUse,
           }),
         });
-        if (!res.ok) throw new Error('server error');
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => null);
+          throw new Error(err?.error || 'Server error when creating user');
+        }
+
         const data = await res.json();
         const created = data.user || data;
         const serverId = created.id;
@@ -456,58 +381,46 @@ export function useUserManagement() {
         };
         setUsers((prev) => [newUser, ...prev]);
         setNotification(`Created ${fullName}.`);
-      } catch (e) {
-        // fallback local
-        const nextId = `USR-${String(users.length + 1).padStart(4, '0')}`;
-        setUsers((prev) => [
-          {
-            id: nextId,
-            name: fullName,
-            firstName,
-            lastName,
-            middleInitial: mi || null,
-            contactNumber,
-            email,
-            gender: genderVal,
-            dob: dobVal,
-            location: locationVal,
-            role: roleVal,
-            status: statusVal,
-            password: passwordToUse,
-          },
-          ...prev,
-        ]);
-        setNotification(`Created ${fullName} (local).`);
+        closeModal();
+        setPage(1);
       }
+    } catch (err) {
+      console.error('User submit error:', err);
+      setNotification(err.message || 'An error occurred while saving the user.');
     }
-
-    closeModal();
-    setPage(1);
   };
 
-  const handleSuspendUser = async (id) => {
-    // toggle locally
-    setUsers((prev) =>
-      prev.map((user) =>
-        user.id === id
-          ? { ...user, status: user.status === 'Active' ? 'Suspended' : 'Active' }
-          : user
-      )
-    );
 
-    // attempt server update
+
+  const handleSuspendUser = async (id) => {
     try {
       const serverId = parseServerId(id);
+      // determine desired new status by reading current users state
       const user = users.find((u) => u.id === id);
-      const newStatus = user && user.status === 'Active' ? 'Suspended' : 'Active';
-      await fetch(`${API_BASE}/api/users/${serverId}/status`, {
+      if (!user) {
+        setNotification('User not found.');
+        return;
+      }
+      const newStatus = user.status === 'Active' ? 'Suspended' : 'Active';
+
+      const res = await fetch(`${API_BASE}/api/users/${serverId}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
       });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.error || 'Failed to update user status on server');
+      }
+
+      // update local state only after server confirms
+      setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, status: newStatus } : u)));
       setNotification('User status updated.');
+      try { console.log('Updated user status on server', serverId, newStatus); } catch (e) {}
     } catch (e) {
-      setNotification('User status updated (local).');
+      console.error('Failed to update user status:', e);
+      setNotification(e.message || 'Failed to update user status.');
     }
   };
 
@@ -518,17 +431,23 @@ export function useUserManagement() {
   const confirmDelete = async () => {
     if (!confirmDeleteId) return;
     const id = confirmDeleteId;
-    // optimistic local deletion
-    setUsers((prev) => prev.filter((user) => user.id !== id));
-    setNotification('User deleted.');
-    setConfirmDeleteId(null);
 
     try {
       const serverId = parseServerId(id);
-      await fetch(`${API_BASE}/api/users/${serverId}`, { method: 'DELETE' });
+      const res = await fetch(`${API_BASE}/api/users/${serverId}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.error || 'Failed to delete user on server');
+      }
+      // remove from UI only after server confirms deletion
+      setUsers((prev) => prev.filter((user) => user.id !== id));
+      setNotification('User deleted.');
+      try { console.log('Deleted user on server', serverId); } catch (e) {}
     } catch (e) {
-      // failed — keep local deletion but inform
-      setNotification('User deleted (local).');
+      console.error('Failed to delete user:', e);
+      setNotification(e.message || 'Failed to delete user.');
+    } finally {
+      setConfirmDeleteId(null);
     }
   };
 
