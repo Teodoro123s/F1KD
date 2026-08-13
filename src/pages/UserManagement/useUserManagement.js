@@ -26,6 +26,44 @@ const initialUsersData = [
 
 export function useUserManagement() {
   const [users, setUsers] = useState(initialUsersData);
+  const API_BASE = process.env.REACT_APP_API_URL || '';
+
+  // Load from server when available, fallback to mock data
+  useEffect(() => {
+    let mounted = true;
+    async function load() {
+      try {
+        const res = await fetch(`${API_BASE}/api/users?page=1&perPage=100`);
+        if (!res.ok) throw new Error('no server');
+        const data = await res.json();
+        if (!mounted) return;
+        if (Array.isArray(data.users)) {
+          // normalize to existing shape
+          const mapped = data.users.map((u) => ({
+            id: `USR-${String(u.id).padStart(4, '0')}`,
+            firstName: u.first_name,
+            lastName: u.last_name,
+            middleInitial: u.middle_initial,
+            contactNumber: u.contact_number,
+            email: u.email,
+            gender: u.gender,
+            dob: u.dob,
+            location: u.location,
+            role: u.role,
+            status: u.status,
+            password: '',
+            name: `${u.first_name} ${u.middle_initial ? u.middle_initial + ' ' : ''}${u.last_name}`,
+          }));
+          setUsers(mapped);
+        }
+      } catch (e) {
+        // keep mocks if server not reachable
+      }
+    }
+    load();
+    return () => { mounted = false; };
+  }, []);
+
   const [query, setQuery] = useState('');
   const [selectedRoleFilter, setSelectedRoleFilter] = useState('');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('Active');
@@ -175,7 +213,14 @@ export function useUserManagement() {
     return age >= 18;
   };
 
-  const handleSubmitUser = (event) => {
+  const parseServerId = (id) => {
+    if (!id) return id;
+    if (typeof id === 'number') return id;
+    const m = String(id).match(/USR-(\d+)/);
+    return m ? Number(m[1]) : Number(id) || null;
+  };
+
+  const handleSubmitUser = async (event) => {
     event.preventDefault();
     const firstName = form.firstName.trim();
     const lastName = form.lastName.trim();
@@ -244,79 +289,184 @@ export function useUserManagement() {
 
     const fullName = `${firstName}${form.middleInitial.trim() ? ` ${form.middleInitial.trim()}` : ''} ${lastName}`;
 
+    // Try server-side create/update; if it fails, fallback to local mutations
     if (selectedUser) {
-      setUsers((prev) =>
-        prev.map((user) =>
-          user.id === selectedUser.id
-            ? {
-                ...user,
-                name: fullName,
-                firstName,
-                lastName,
-                middleInitial: form.middleInitial.trim() || null,
-                contactNumber,
-                email,
-                gender: form.gender,
-                dob: form.dob,
-                location: form.location,
-                role: form.role,
-                status: form.status,
-                password: form.password,
-              }
-            : user
-        )
-      );
-      setNotification(`Saved changes for ${fullName}.`);
+      const serverId = parseServerId(selectedUser.id);
+      try {
+        const res = await fetch(`${API_BASE}/api/users/${serverId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            firstName,
+            lastName,
+            middleInitial: form.middleInitial.trim() || null,
+            contactNumber,
+            email,
+            gender: form.gender,
+            dob: form.dob,
+            location: form.location,
+            role: form.role,
+            status: form.status,
+            password: form.password,
+          }),
+        });
+        if (!res.ok) throw new Error('server error');
+        const updated = await res.json();
+        setUsers((prev) => prev.map((u) => (u.id === selectedUser.id ? {
+          ...u,
+          name: `${updated.first_name} ${updated.middle_initial ? updated.middle_initial + ' ' : ''}${updated.last_name}`,
+          firstName: updated.first_name,
+          lastName: updated.last_name,
+          middleInitial: updated.middle_initial,
+          contactNumber: updated.contact_number,
+          email: updated.email,
+          gender: updated.gender,
+          dob: updated.dob,
+          location: updated.location,
+          role: updated.role,
+          status: updated.status,
+        } : u)));
+        setNotification(`Saved changes for ${fullName}.`);
+      } catch (e) {
+        // fallback local
+        setUsers((prev) =>
+          prev.map((user) =>
+            user.id === selectedUser.id
+              ? {
+                  ...user,
+                  name: fullName,
+                  firstName,
+                  lastName,
+                  middleInitial: form.middleInitial.trim() || null,
+                  contactNumber,
+                  email,
+                  gender: form.gender,
+                  dob: form.dob,
+                  location: form.location,
+                  role: form.role,
+                  status: form.status,
+                  password: form.password,
+                }
+              : user
+          )
+        );
+        setNotification(`Saved changes for ${fullName} (local).`);
+      }
     } else {
-      const nextId = `USR-${String(users.length + 1).padStart(4, '0')}`;
-      setUsers((prev) => [
-        {
-          id: nextId,
-          name: fullName,
-          firstName,
-          lastName,
-          middleInitial: form.middleInitial.trim() || null,
-          contactNumber,
-          email,
-          gender: form.gender,
-          dob: form.dob,
-          location: form.location,
-          role: form.role,
-          status: form.status,
-          password: form.password,
-        },
-        ...prev,
-      ]);
-      setNotification(`Created ${fullName}.`);
+      try {
+        const res = await fetch(`${API_BASE}/api/users`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            firstName,
+            lastName,
+            middleInitial: form.middleInitial.trim() || null,
+            contactNumber,
+            email,
+            gender: form.gender,
+            dob: form.dob,
+            location: form.location,
+            role: form.role,
+            status: form.status,
+            password: form.password,
+          }),
+        });
+        if (!res.ok) throw new Error('server error');
+        const data = await res.json();
+        const created = data.user || data;
+        const serverId = created.id;
+        const publicId = `USR-${String(serverId).padStart(4, '0')}`;
+        const newUser = {
+          id: publicId,
+          firstName: created.first_name,
+          lastName: created.last_name,
+          middleInitial: created.middle_initial,
+          contactNumber: created.contact_number,
+          email: created.email,
+          gender: created.gender,
+          dob: created.dob,
+          location: created.location,
+          role: created.role,
+          status: created.status,
+          password: data.plaintextPassword || form.password,
+          name: `${created.first_name} ${created.middle_initial ? created.middle_initial + ' ' : ''}${created.last_name}`,
+        };
+        setUsers((prev) => [newUser, ...prev]);
+        setNotification(`Created ${fullName}.`);
+      } catch (e) {
+        // fallback local
+        const nextId = `USR-${String(users.length + 1).padStart(4, '0')}`;
+        setUsers((prev) => [
+          {
+            id: nextId,
+            name: fullName,
+            firstName,
+            lastName,
+            middleInitial: form.middleInitial.trim() || null,
+            contactNumber,
+            email,
+            gender: form.gender,
+            dob: form.dob,
+            location: form.location,
+            role: form.role,
+            status: form.status,
+            password: form.password,
+          },
+          ...prev,
+        ]);
+        setNotification(`Created ${fullName} (local).`);
+      }
     }
 
     closeModal();
     setPage(1);
   };
 
-  const handleSuspendUser = (id) => {
+  const handleSuspendUser = async (id) => {
+    // toggle locally
     setUsers((prev) =>
       prev.map((user) =>
         user.id === id
-          ? {
-              ...user,
-              status: user.status === 'Active' ? 'Suspended' : 'Active',
-            }
+          ? { ...user, status: user.status === 'Active' ? 'Suspended' : 'Active' }
           : user
       )
     );
-    setNotification('User status updated.');
+
+    // attempt server update
+    try {
+      const serverId = parseServerId(id);
+      const user = users.find((u) => u.id === id);
+      const newStatus = user && user.status === 'Active' ? 'Suspended' : 'Active';
+      await fetch(`${API_BASE}/api/users/${serverId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      setNotification('User status updated.');
+    } catch (e) {
+      setNotification('User status updated (local).');
+    }
   };
 
   const requestDeleteUser = (id) => {
     setConfirmDeleteId(id);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!confirmDeleteId) return;
-    setUsers((prev) => prev.filter((user) => user.id !== confirmDeleteId));
+    const id = confirmDeleteId;
+    // optimistic local deletion
+    setUsers((prev) => prev.filter((user) => user.id !== id));
     setNotification('User deleted.');
     setConfirmDeleteId(null);
+
+    try {
+      const serverId = parseServerId(id);
+      await fetch(`${API_BASE}/api/users/${serverId}`, { method: 'DELETE' });
+    } catch (e) {
+      // failed — keep local deletion but inform
+      setNotification('User deleted (local).');
+    }
   };
 
   const cancelDelete = () => {
