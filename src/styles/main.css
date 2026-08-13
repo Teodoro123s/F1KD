@@ -1,0 +1,17 @@
+﻿@import './variables.css';
+@import './components/layout.css';
+@import './components/topbar.css';
+@import './components/dropdowns.css';
+@import './components/community-header.css';
+@import './components/community-tabs-filters.css';
+@import './components/stepper.css';
+@import './components/tables-common.css';
+@import './components/tables-beneficiary.css';
+@import './components/badges-buttons.css';
+@import './components/modals.css';
+@import './components/forms.css';
+@import './components/profile-card.css';
+@import './components/login.css';
+@import './components/animations-utilities.css';
+@import './components/trimester-stepper.css';
+@import './components/checkup-actions.css';

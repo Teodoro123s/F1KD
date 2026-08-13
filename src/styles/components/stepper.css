@@ -1,0 +1,11 @@
+﻿/* Stepper / Progress bar for Beneficiary create views */
+.stepper-progress { width: 100%; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.stepper-steps { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; overflow-x: auto; padding-bottom: 2px; }
+.stepper-step { display: inline-flex; align-items: center; gap: 0.5rem; color: #64748b; font-weight: 700; font-size: 0.95rem; padding: 0.35rem 0.6rem; border-radius: 8px; background: transparent; border: none; cursor: pointer; transition: background 150ms ease, color 150ms ease, transform 120ms ease; }
+.stepper-step:hover { background: #f1f5f9; color: #0f172a; transform: translateY(-1px); }
+.stepper-step .stepper-step-index { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 999px; background: #fff; border: 1px solid var(--border-color); color: #64748b; font-weight: 700; }
+.stepper-step.active { color: var(--burgundy); background: var(--burgundy-light); }
+.stepper-step.active .stepper-step-index { background: var(--burgundy); color: #fff; border-color: var(--burgundy); }
+.stepper-step.completed { color: var(--burgundy); background: var(--burgundy-light); }
+.stepper-step.completed .stepper-step-index { background: var(--burgundy); color: #fff; border-color: var(--burgundy); }
+.stepper-step-label { white-space: nowrap; }
