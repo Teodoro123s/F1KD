@@ -274,7 +274,7 @@ export function useUserManagement() {
       setNotification('Last Name may contain letters and spaces only.');
       return;
     }
-    const miValidValue = mi;
+    const miValidValue = middleInitialFromDom || (form.middleInitial || '').trim();
     if (!isValidMiddleInitial(miValidValue)) {
       setNotification('Middle Initial must be a single letter.');
       return;
