@@ -708,7 +708,7 @@ export default function CommunityPage() {
           </nav>
         </div>
         {activeTab !== 'mothers' && (
-          <button className="btn-create" onClick={openCreateModal}>
+          <button className="btn-create btn-create--hero" onClick={openCreateModal}>
             <PlusIcon />
             <span>
               {activeTab === 'communities'

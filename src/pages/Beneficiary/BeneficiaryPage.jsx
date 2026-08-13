@@ -95,7 +95,7 @@ export default function BeneficiaryPage() {
         </div>
         {!(isCreateMother || isCreateChild || isMotherDetail) && (
           <div className="create-menu-wrapper">
-            <button className="btn-create" onClick={openCreateModal} type="button">
+            <button className="btn-create btn-create--hero" onClick={openCreateModal} type="button">
               <PlusIcon />
               <span>Create</span>
             </button>

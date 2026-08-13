@@ -73,7 +73,7 @@ export default function UserManagementPage() {
             ))}
           </nav>
         </div>
-        <button className="btn-create" type="button" onClick={openAddModal}>
+        <button className="btn-create btn-create--hero" type="button" onClick={openAddModal}>
           <PlusIcon />
           <span>Add User</span>
         </button>

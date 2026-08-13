@@ -132,3 +132,31 @@
 }
 
 .create-dropdown .actions-dropdown-item:hover { background: #F8FAFC; color: var(--slate-dark); }
+
+/* Header action area helpers */
+.community-header .action-area { display: flex; align-items: flex-start; gap: 0.5rem; }
+
+/* Hero variant for primary header action (larger, more prominent) */
+.btn-create--hero {
+  padding: 0.9rem 1.6rem;
+  font-size: 1rem;
+  border-radius: 12px;
+  box-shadow: 0 6px 18px -6px rgba(122, 12, 30, 0.25);
+}
+
+/* Smaller compact variant (if needed) */
+.btn-create--compact {
+  padding: 0.45rem 0.9rem;
+  font-size: 0.88rem;
+  border-radius: 8px;
+}
+
+/* If the button contains a large icon and text stacked vertically (used elsewhere), support that layout */
+.btn-create--stacked { 
+  display: inline-flex; 
+  flex-direction: column; 
+  align-items: center; 
+  justify-content: center; 
+  gap: 0.25rem; 
+}
+
