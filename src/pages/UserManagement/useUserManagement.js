@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { apiGetUsers, apiCreateUser, apiUpdateUser, apiPatchUserStatus, apiDeleteUser } from '../../api/users';
+import { isValidName, isValidMiddleInitial, sanitizeDigits, normalizeContact, isValidContact, isValidEmail, formatDobForInput, isValidDob, getDobValidationMessage, generatePassword } from './lib';
 
 const ROLE_OPTIONS = [
   'Superadmin',
@@ -52,7 +53,7 @@ export function useUserManagement() {
             contactNumber: u.contact_number,
             email: u.email,
             gender: u.gender,
-            dob: u.dob,
+            dob: formatDobForInput(u.dob),
             location: u.location,
             role: u.role,
             status: u.status,
@@ -214,7 +215,7 @@ export function useUserManagement() {
       contactNumber: user.contactNumber || '',
       email: user.email || '',
       gender: user.gender || 'Male',
-      dob: user.dob || '',
+      dob: formatDobForInput(user.dob) || '',
       location: user.location || 'Poblacion',
       role: user.role || 'Superadmin',
       status: user.status || 'Active',
@@ -223,45 +224,10 @@ export function useUserManagement() {
     setShowAddModal(true);
   };
 
-  const isValidName = (value) => /^[A-Za-z ]+$/.test((value||'').toString().trim());
-  const isValidMiddleInitial = (value) => value === '' || /^[A-Za-z]$/.test((value||'').toString().trim());
-  const sanitizeDigits = (v) => (v||'').toString().replace(/\D/g, '');
-  const normalizeContact = (v) => {
-    const s = sanitizeDigits(v);
-    // Common normalization rules for Philippine mobile numbers:
-    // - 09171234567 => already correct (11 digits)
-    // - 9171234567  => 10 digits starting with 9, prefix with '0' => 09171234567
-    // - 912345678  => 9 digits (rare), prefix with '09' => 0912345678? (but assume prefix 09)
-    // - +639171234567 or 639171234567 => drop country code '63' and prefix '0' => 09171234567
-    if (!s) return s;
-    if (s.length === 11 && s.startsWith('09')) return s; // already normalized
-    if (s.length === 10 && s.startsWith('9')) return '0' + s; // 917... -> 0917...
-    if (s.length === 9) return '09' + s; // 9-digit local -> 09 + s
-    if (s.length === 12 && s.startsWith('63')) return '0' + s.slice(2); // 639... -> 09...
-    if (s.length === 11 && s.startsWith('63')) return '0' + s.slice(2); // defensive
-    // leave unchanged for validation to reject
-    return s;
-  };
-  const isValidContact = (value) => /^09\d{9}$/.test(normalizeContact(value));
-  const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((value||'').toString().trim());
-  const isValidDob = (value) => {
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return false;
-    if (date > new Date()) return false; // future date invalid
-    const age = Math.floor((new Date() - date) / (1000 * 60 * 60 * 24 * 365.25));
-    return age >= 18;
-  };
+  // Validation and normalization helpers imported from ./lib (keeps hook tidy)
+  // See src/pages/UserManagement/lib.js for implementations
+  // (helpers are imported at the top of the file)
 
-  const getDobValidationMessage = (value) => {
-    if (!value) return 'Date of Birth is required.';
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return 'Please enter a valid date.';
-    const now = new Date();
-    if (date > now) return 'Date of birth cannot be in the future.';
-    const age = Math.floor((now - date) / (1000 * 60 * 60 * 24 * 365.25));
-    if (age < 18) return 'Please enter a date of birth showing the user is at least 18 years old.';
-    return null;
-  };
 
   const parseServerId = (id) => {
     if (!id) return id;
@@ -359,7 +325,7 @@ export function useUserManagement() {
           contactNumber: updated.contact_number,
           email: updated.email,
           gender: updated.gender,
-          dob: updated.dob,
+          dob: formatDobForInput(updated.dob),
           location: updated.location,
           role: updated.role,
           status: updated.status,
@@ -466,7 +432,7 @@ export function useUserManagement() {
           contactNumber: created.contact_number,
           email: created.email,
           gender: created.gender,
-          dob: created.dob,
+          dob: formatDobForInput(created.dob),
           location: created.location,
           role: created.role,
           status: created.status,
