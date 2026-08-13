@@ -242,10 +242,20 @@ export function useUserManagement() {
     try { window.__last_user_fetch__ = { stage: 'submit-start', time: Date.now() }; } catch (e) {}
     try { window.__debug_steps__ = window.__debug_steps__ || []; window.__debug_steps__.push('submit invoked'); } catch (e) {}
     event.preventDefault();
-    const firstName = form.firstName.trim();
-    const lastName = form.lastName.trim();
-    const email = form.email.trim();
-    const contactNumber = form.contactNumber.trim();
+    // Read values from form state, but fall back to DOM values if controlled inputs didn't update
+    const getDomValue = (id) => {
+      try {
+        const el = document.getElementById(id);
+        return el ? (el.value || '').toString() : '';
+      } catch (e) { return ''; }
+    };
+    const firstName = (form.firstName || '').trim() || getDomValue('first-name').trim();
+    const lastName = (form.lastName || '').trim() || getDomValue('last-name').trim();
+    const email = (form.email || '').trim() || getDomValue('email').trim();
+    const contactNumber = (form.contactNumber || '').trim() || getDomValue('contact-number').trim();
+    // ensure dob/middleInitial are also read from DOM if needed later
+    const dobFromDom = (form.dob || '').trim() || getDomValue('dob').trim();
+    const middleInitialFromDom = (form.middleInitial || '').trim() || getDomValue('middle-initial').trim();
 
     if (!firstName) {
       try { window.__debug_steps__.push('validation failed: firstName'); } catch (e) {}
@@ -264,7 +274,8 @@ export function useUserManagement() {
       setNotification('Last Name may contain letters and spaces only.');
       return;
     }
-    if (!isValidMiddleInitial(form.middleInitial)) {
+    const miValidValue = mi;
+    if (!isValidMiddleInitial(miValidValue)) {
       setNotification('Middle Initial must be a single letter.');
       return;
     }
@@ -287,25 +298,30 @@ export function useUserManagement() {
       setNotification('This email is already registered.');
       return;
     }
-    if (!form.gender) {
+    const genderVal = form.gender || (document.getElementById('gender') ? document.getElementById('gender').value : 'Male');
+    const locationVal = form.location || (document.getElementById('location') ? document.getElementById('location').value : 'Poblacion');
+    const roleVal = form.role || (document.getElementById('role') ? document.getElementById('role').value : 'Superadmin');
+    if (!genderVal) {
       setNotification('Please select a gender.');
       return;
     }
-    if (!isValidDob(form.dob)) {
+    if (!isValidDob(dobVal)) {
       setNotification('Please enter a valid date of birth and ensure the user is at least 18 years old.');
       return;
     }
-    if (!form.location) {
+    if (!locationVal) {
       setNotification('Please select a location.');
       return;
     }
-    if (!form.role) {
+    if (!roleVal) {
       setNotification('Please select a role.');
       return;
     }
     // password length will be validated only on create or when explicitly changing password during edit
 
-    const fullName = `${firstName}${form.middleInitial.trim() ? ` ${form.middleInitial.trim()}` : ''} ${lastName}`;
+    const mi = middleInitialFromDom || (form.middleInitial || '').trim();
+    const dobVal = dobFromDom || (form.dob || '').trim();
+    const fullName = `${firstName}${mi ? ` ${mi}` : ''} ${lastName}`;
 
     // Try server-side create/update; if it fails, fallback to local mutations
     if (selectedUser) {
@@ -318,14 +334,14 @@ export function useUserManagement() {
           body: JSON.stringify({
             firstName,
             lastName,
-            middleInitial: form.middleInitial.trim() || null,
+            middleInitial: mi || null,
             contactNumber,
             email,
-            gender: form.gender,
-            dob: form.dob,
-            location: form.location,
-            role: form.role,
-            status: form.status,
+            gender: genderVal,
+            dob: dobVal,
+            location: locationVal,
+            role: roleVal,
+            status: statusVal,
             password: form.password,
           }),
         });
@@ -356,14 +372,14 @@ export function useUserManagement() {
                   name: fullName,
                   firstName,
                   lastName,
-                  middleInitial: form.middleInitial.trim() || null,
+                  middleInitial: mi || null,
                   contactNumber,
                   email,
-                  gender: form.gender,
-                  dob: form.dob,
-                  location: form.location,
-                  role: form.role,
-                  status: form.status,
+                  gender: genderVal,
+                  dob: dobVal,
+                  location: locationVal,
+                  role: roleVal,
+                  status: statusVal,
                   password: form.password,
                 }
               : user
@@ -386,14 +402,14 @@ export function useUserManagement() {
           body: JSON.stringify({
             firstName,
             lastName,
-            middleInitial: form.middleInitial.trim() || null,
+            middleInitial: mi || null,
             contactNumber,
             email,
-            gender: form.gender,
-            dob: form.dob,
-            location: form.location,
-            role: form.role,
-            status: form.status,
+            gender: genderVal,
+            dob: dobVal,
+            location: locationVal,
+            role: roleVal,
+            status: statusVal,
             password: passwordToUse,
           }),
         });
@@ -428,14 +444,14 @@ export function useUserManagement() {
             name: fullName,
             firstName,
             lastName,
-            middleInitial: form.middleInitial.trim() || null,
+            middleInitial: mi || null,
             contactNumber,
             email,
-            gender: form.gender,
-            dob: form.dob,
-            location: form.location,
-            role: form.role,
-            status: form.status,
+            gender: genderVal,
+            dob: dobVal,
+            location: locationVal,
+            role: roleVal,
+            status: statusVal,
             password: passwordToUse,
           },
           ...prev,
