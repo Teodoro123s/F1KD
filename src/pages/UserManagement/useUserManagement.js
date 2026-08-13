@@ -253,9 +253,15 @@ export function useUserManagement() {
     const lastName = (form.lastName || '').trim() || getDomValue('last-name').trim();
     const email = (form.email || '').trim() || getDomValue('email').trim();
     const contactNumber = (form.contactNumber || '').trim() || getDomValue('contact-number').trim();
-    // ensure dob/middleInitial are also read from DOM if needed later
+    // ensure dob/middleInitial and select values are read from DOM if needed before validation
     const dobFromDom = (form.dob || '').trim() || getDomValue('dob').trim();
     const middleInitialFromDom = (form.middleInitial || '').trim() || getDomValue('middle-initial').trim();
+    const mi = middleInitialFromDom || (form.middleInitial || '').trim();
+    const dobVal = dobFromDom || (form.dob || '').trim();
+    const genderVal = form.gender || (document.getElementById('gender') ? document.getElementById('gender').value : 'Male');
+    const locationVal = form.location || (document.getElementById('location') ? document.getElementById('location').value : 'Poblacion');
+    const roleVal = form.role || (document.getElementById('role') ? document.getElementById('role').value : 'Superadmin');
+    const statusVal = form.status || (document.getElementById('status') ? document.getElementById('status').value : 'Active');
 
     if (!firstName) {
       try { window.__debug_steps__.push('validation failed: firstName'); } catch (e) {}
