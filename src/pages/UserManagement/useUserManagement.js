@@ -304,9 +304,6 @@ export function useUserManagement() {
       setNotification('This email is already registered.');
       return;
     }
-    const genderVal = form.gender || (document.getElementById('gender') ? document.getElementById('gender').value : 'Male');
-    const locationVal = form.location || (document.getElementById('location') ? document.getElementById('location').value : 'Poblacion');
-    const roleVal = form.role || (document.getElementById('role') ? document.getElementById('role').value : 'Superadmin');
     if (!genderVal) {
       setNotification('Please select a gender.');
       return;
@@ -325,8 +322,6 @@ export function useUserManagement() {
     }
     // password length will be validated only on create or when explicitly changing password during edit
 
-    const mi = middleInitialFromDom || (form.middleInitial || '').trim();
-    const dobVal = dobFromDom || (form.dob || '').trim();
     const fullName = `${firstName}${mi ? ` ${mi}` : ''} ${lastName}`;
 
     // Try server-side create/update; if it fails, fallback to local mutations
