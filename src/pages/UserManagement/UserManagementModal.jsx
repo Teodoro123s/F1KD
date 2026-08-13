@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 
-function ModalShell({ title, onClose, onSubmit, children, submitLabel }) {
+function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitting = false }) {
   const formRef = React.useRef(null);
 
   const handleSubmitClick = () => {
+    if (isSubmitting) return; // guard against clicks while submitting
     const formEl = formRef.current;
     // If native HTML validation fails, show native messages and do not proceed
     if (formEl && !formEl.checkValidity()) {
@@ -59,7 +60,8 @@ function ModalShell({ title, onClose, onSubmit, children, submitLabel }) {
               type="submit"
               className="btn-primary"
               onClick={(e) => { e.preventDefault(); handleSubmitClick(); }}
-            >{submitLabel}</button>
+              disabled={isSubmitting}
+            >{isSubmitting ? `${submitLabel}...` : submitLabel}</button>
           </div>
         </form>
       </div>
@@ -67,7 +69,7 @@ function ModalShell({ title, onClose, onSubmit, children, submitLabel }) {
   );
 }
 
-export default function AddUserModal({ showModal, onClose, form, setForm, onSubmit, roleOptions, mode = 'add' }) {
+export default function AddUserModal({ showModal, onClose, form, setForm, onSubmit, roleOptions, mode = 'add', isSubmitting = false }) {
 
   if (!showModal) return null;
 
@@ -94,7 +96,7 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
   };
 
   return (
-    <ModalShell title={title} onClose={onClose} onSubmit={onSubmit} submitLabel={submitLabel}>
+    <ModalShell title={title} onClose={onClose} onSubmit={onSubmit} submitLabel={submitLabel} isSubmitting={isSubmitting}>
       <div className="form-row-3 full-width">
         <div className="form-group">
           <label className="form-label" htmlFor="first-name">First Name *</label>

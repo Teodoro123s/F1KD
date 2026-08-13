@@ -44,6 +44,7 @@ export default function UserManagementPage() {
     confirmDelete,
     cancelDelete,
     setForm,
+    isSubmitting,
   } = useUserManagement();
 
   const location = useLocation();
@@ -127,6 +128,7 @@ export default function UserManagementPage() {
         onSubmit={handleSubmitUser}
         roleOptions={ROLE_OPTIONS}
         mode={selectedUser ? 'edit' : 'add'}
+        isSubmitting={isSubmitting}
       />
 
       <UserManagementTable

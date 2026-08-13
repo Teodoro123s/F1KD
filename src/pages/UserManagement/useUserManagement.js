@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { apiGetUsers, apiCreateUser, apiUpdateUser, apiPatchUserStatus, apiDeleteUser } from '../../api/users';
 
 const ROLE_OPTIONS = [
   'Superadmin',
@@ -39,9 +40,7 @@ export function useUserManagement() {
       try {
         // record the attempted fetch for debugging
         try { window.__last_user_fetch__ = { url: `${API_BASE}/api/users?page=1&perPage=100`, time: Date.now() }; } catch (e) {}
-        const res = await fetch(`${API_BASE}/api/users?page=1&perPage=100`);
-        if (!res.ok) throw new Error('no server');
-        const data = await res.json();
+        const data = await apiGetUsers(1, 100);
         if (!mounted) return;
         if (Array.isArray(data.users)) {
           // normalize to existing shape
@@ -101,6 +100,8 @@ export function useUserManagement() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [notification, setNotification] = useState('');
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  // Prevent double submits
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (!notification) return undefined;
@@ -222,15 +223,44 @@ export function useUserManagement() {
     setShowAddModal(true);
   };
 
-  const isValidName = (value) => /^[A-Za-z ]+$/.test(value.trim());
-  const isValidMiddleInitial = (value) => value === '' || /^[A-Za-z]$/.test(value.trim());
-  const isValidContact = (value) => /^09\d{9}$/.test(value.trim());
-  const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+  const isValidName = (value) => /^[A-Za-z ]+$/.test((value||'').toString().trim());
+  const isValidMiddleInitial = (value) => value === '' || /^[A-Za-z]$/.test((value||'').toString().trim());
+  const sanitizeDigits = (v) => (v||'').toString().replace(/\D/g, '');
+  const normalizeContact = (v) => {
+    const s = sanitizeDigits(v);
+    // Common normalization rules for Philippine mobile numbers:
+    // - 09171234567 => already correct (11 digits)
+    // - 9171234567  => 10 digits starting with 9, prefix with '0' => 09171234567
+    // - 912345678  => 9 digits (rare), prefix with '09' => 0912345678? (but assume prefix 09)
+    // - +639171234567 or 639171234567 => drop country code '63' and prefix '0' => 09171234567
+    if (!s) return s;
+    if (s.length === 11 && s.startsWith('09')) return s; // already normalized
+    if (s.length === 10 && s.startsWith('9')) return '0' + s; // 917... -> 0917...
+    if (s.length === 9) return '09' + s; // 9-digit local -> 09 + s
+    if (s.length === 12 && s.startsWith('63')) return '0' + s.slice(2); // 639... -> 09...
+    if (s.length === 11 && s.startsWith('63')) return '0' + s.slice(2); // defensive
+    // leave unchanged for validation to reject
+    return s;
+  };
+  const isValidContact = (value) => /^09\d{9}$/.test(normalizeContact(value));
+  const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((value||'').toString().trim());
   const isValidDob = (value) => {
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return false;
+    if (date > new Date()) return false; // future date invalid
     const age = Math.floor((new Date() - date) / (1000 * 60 * 60 * 24 * 365.25));
     return age >= 18;
+  };
+
+  const getDobValidationMessage = (value) => {
+    if (!value) return 'Date of Birth is required.';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'Please enter a valid date.';
+    const now = new Date();
+    if (date > now) return 'Date of birth cannot be in the future.';
+    const age = Math.floor((now - date) / (1000 * 60 * 60 * 24 * 365.25));
+    if (age < 18) return 'Please enter a date of birth showing the user is at least 18 years old.';
+    return null;
   };
 
   const parseServerId = (id) => {
@@ -242,6 +272,16 @@ export function useUserManagement() {
 
   const handleSubmitUser = async (event) => {
     event.preventDefault();
+
+    // Prevent duplicate submissions when one is already in-flight
+    if (isSubmitting) {
+      setNotification('Submission already in progress. Please wait.');
+      try { console.log('handleSubmitUser skipped because isSubmitting=true'); } catch(e){}
+      return;
+    }
+
+    // Mark submission as in-flight immediately to avoid double-click races
+    setIsSubmitting(true);
 
       // Read values from the submitted form to avoid relying on possibly stale React state
       const formEl = event.currentTarget;
@@ -256,50 +296,60 @@ export function useUserManagement() {
       const locationVal = (fd.get('location') || 'Poblacion').toString();
       const roleVal = (fd.get('role') || 'Superadmin').toString();
       const statusVal = (fd.get('status') || 'Active').toString();
+      // Prefer password provided by the submitted form (FormData). Falls back to state-derived password if missing.
+      const fdPassword = (fd.get('password') || '').toString();
 
       // Instrumentation: log that submit was triggered and the form-derived snapshot
       try { console.log('handleSubmitUser called (from form)', { firstName, lastName, email }); } catch (e) {}
 
       // Basic validation
-    if (!firstName) { setNotification('First Name is required.'); return; }
-    if (!isValidName(firstName)) { setNotification('First Name may contain letters and spaces only.'); return; }
-    if (!lastName) { setNotification('Last Name is required.'); return; }
-    if (!isValidName(lastName)) { setNotification('Last Name may contain letters and spaces only.'); return; }
-    if (!isValidMiddleInitial(mi)) { setNotification('Middle Initial must be a single letter.'); return; }
-    if (!isValidContact(contactNumber)) { setNotification('Contact Number must be 11 digits and start with 09.'); return; }
-    if (!email) { setNotification('Email is required.'); return; }
-    if (!isValidEmail(email)) { setNotification('Please enter a valid email address.'); return; }
-    if (users.some((u) => u.email?.toLowerCase() === email.toLowerCase() && (!selectedUser || u.id !== selectedUser.id))) { setNotification('This email is already registered.'); return; }
-    if (!isValidDob(dobVal)) { setNotification('Please enter a valid date of birth and ensure the user is at least 18 years old.'); return; }
+    if (!firstName) { setNotification('First Name is required.'); try { console.log('Validation failed: missing firstName', { firstName, lastName, email, contactNumber, dobVal }); } catch(e){}; return; }
+    if (!isValidName(firstName)) { setNotification('First Name may contain letters and spaces only.'); try { console.log('Validation failed: invalid firstName', { firstName }); } catch(e){}; return; }
+    if (!lastName) { setNotification('Last Name is required.'); try { console.log('Validation failed: missing lastName', { firstName, lastName }); } catch(e){}; return; }
+    if (!isValidName(lastName)) { setNotification('Last Name may contain letters and spaces only.'); try { console.log('Validation failed: invalid lastName', { lastName }); } catch(e){}; return; }
+    if (!isValidMiddleInitial(mi)) { setNotification('Middle Initial must be a single letter.'); try { console.log('Validation failed: invalid middleInitial', { middleInitial: mi }); } catch(e){}; return; }
+    const contactNumberSan = normalizeContact(contactNumber);
+    if (!isValidContact(contactNumberSan)) {
+      const msg = 'Contact number must be a Philippine mobile number. Accepted formats: 09171234567, 9171234567, +639171234567, or 639171234567.';
+      setNotification(msg);
+      try { console.log('Validation failed: invalid contactNumber', { contactNumber, contactNumberSan }); } catch(e){}
+      // Try to focus the contact input so the user can correct it quickly
+      try { const el = document.querySelector('input[name="contactNumber"]'); if (el) { el.focus(); el.select(); } } catch (e) {}
+      return;
+    }
+    if (!email) { setNotification('Email is required.'); try { console.log('Validation failed: missing email', { email }); } catch(e){}; return; }
+    if (!isValidEmail(email)) { setNotification('Please enter a valid email address.'); try { console.log('Validation failed: invalid email', { email }); } catch(e){}; return; }
+    // Use the provided email; rely on the server to signal duplicates and the retry logic to handle them.
+    let emailToUse = email;
+    const dobMsg = getDobValidationMessage(dobVal);
+    if (dobMsg) {
+      setNotification(dobMsg);
+      try { console.log('Validation failed: invalid dob', { dobVal }); } catch(e){}
+      try { const el = document.querySelector('input[name="dob"]'); if (el) el.focus(); } catch(e){}
+      return;
+    }
 
     const fullName = `${firstName}${mi ? ` ${mi}` : ''} ${lastName}`;
 
+    setIsSubmitting(true);
     try {
       if (selectedUser) {
         // Update existing user
         const serverId = parseServerId(selectedUser.id);
-        const res = await fetch(`${API_BASE}/api/users/${serverId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            firstName,
-            lastName,
-            middleInitial: mi || null,
-            contactNumber,
-            email,
-            gender: genderVal,
-            dob: dobVal,
-            location: locationVal,
-            role: roleVal,
-            status: statusVal,
-            password: form.password,
-          }),
+        const updated = await apiUpdateUser(serverId, {
+          firstName,
+          lastName,
+          middleInitial: mi || null,
+          contactNumber: contactNumberSan,
+          email,
+          gender: genderVal,
+          dob: dobVal,
+          location: locationVal,
+          role: roleVal,
+          status: statusVal,
+          password: fdPassword || form.password,
         });
-        if (!res.ok) {
-          const err = await res.json().catch(() => null);
-          throw new Error(err?.error || 'Server error when updating user');
-        }
-        const updated = await res.json();
+        try { console.log('Updated user from server', updated); } catch(e) {}
         setUsers((prev) => prev.map((u) => (u.id === selectedUser.id ? {
           ...u,
           name: `${updated.first_name} ${updated.middle_initial ? updated.middle_initial + ' ' : ''}${updated.last_name}`,
@@ -315,20 +365,22 @@ export function useUserManagement() {
           status: updated.status,
         } : u)));
         setNotification(`Saved changes for ${fullName}.`);
+        try { console.log('Saved changes for user', fullName); } catch(e) {}
         closeModal();
         setPage(1);
       } else {
         // Create new user
-        const passwordToUse = (form.password && form.password.length >= 8) ? form.password : generatePassword(form);
-        if (!passwordToUse || passwordToUse.length < 8) { setNotification('Password must be at least 8 characters.'); return; }
+        const passwordToUse = (fdPassword && fdPassword.length >= 8) ? fdPassword : generatePassword({ lastName, dob: dobVal });
+        try { console.log('Computed passwordToUse', { fdPasswordLength: (fdPassword || '').length, passwordToUse }); } catch(e) {}
+        if (!passwordToUse || passwordToUse.length < 8) { setNotification('Password must be at least 8 characters.'); try { console.log('Validation failed: password too short', { passwordToUse }); } catch(e){}; return; }
 
-        // Log payload for debug
-        try { console.log('Creating user payload', {
+        // Log payload for debug (we'll retry up to 5 times on duplicate username/email)
+        try { console.log('Creating user payload (initial)', {
           firstName,
           lastName,
           middleInitial: mi || null,
-          contactNumber,
-          email,
+          contactNumber: contactNumberSan,
+          email: emailToUse,
           gender: genderVal,
           dob: dobVal,
           location: locationVal,
@@ -337,30 +389,72 @@ export function useUserManagement() {
           password: passwordToUse,
         }); } catch (e) {}
 
-        const res = await fetch(`${API_BASE}/api/users`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            firstName,
-            lastName,
-            middleInitial: mi || null,
-            contactNumber,
-            email,
-            gender: genderVal,
-            dob: dobVal,
-            location: locationVal,
-            role: roleVal,
-            status: statusVal,
-            password: passwordToUse,
-          }),
-        });
-
-        if (!res.ok) {
-          const err = await res.json().catch(() => null);
-          throw new Error(err?.error || 'Server error when creating user');
+        // Use the normalized contact number as the username by default
+        const baseUsername = contactNumberSan || `user${Date.now().toString().slice(-6)}`;
+        let usernameToUse = baseUsername;
+        let attempts = 0;
+        let data = null;
+        let lastErr = null;
+        while (attempts < 5) {
+          attempts += 1;
+          try {
+            const payload = {
+              firstName,
+              lastName,
+              middleInitial: mi || null,
+              contactNumber: contactNumberSan,
+              email: emailToUse,
+              username: usernameToUse,
+              gender: genderVal,
+              dob: dobVal,
+              location: locationVal,
+              role: roleVal,
+              status: statusVal,
+              password: passwordToUse,
+            };
+            try { console.log(`Attempt ${attempts}: creating user with username=${usernameToUse} and email=${emailToUse}`, payload); } catch(e){}
+            data = await apiCreateUser(payload);
+            try { console.log('Created user response', data); } catch(e) {}
+            // success
+            break;
+          } catch (err) {
+            lastErr = err;
+            const msg = (err && err.message) ? err.message.toString().toLowerCase() : '';
+            try { console.log(`Create attempt ${attempts} failed:`, msg); } catch(e){}
+            // If the server complains about email already existing, generate a new fallback email and retry
+            if (/email already exists|email.*already.*exists|duplicate email|email.*taken/.test(msg)) {
+              try {
+                const parts = (email || '').split('@');
+                const local = parts[0] || 'user';
+                const domain = parts[1] || 'example.com';
+                const suffix = Date.now().toString().slice(-5) + attempts;
+                emailToUse = `${local}+${suffix}@${domain}`;
+                setNotification(`Email already registered — using ${emailToUse} instead (attempt ${attempts}).`);
+                try { console.log('Email duplicate detected; using fallback', { original: email, fallback: emailToUse }); } catch (e) {}
+                // continue to retry with new email
+                continue;
+              } catch (e) {
+                // can't generate fallback, break and rethrow
+                try { console.log('Failed generating fallback email during retry', e); } catch (e2) {}
+                break;
+              }
+            }
+            // If the server complains about username already existing, append a small suffix and retry
+            if (/username already exists|username.*already.*exists|duplicate username|username.*taken/.test(msg) || /already exists/.test(msg)) {
+              // generate a slightly different username
+              usernameToUse = `${baseUsername}_${Date.now().toString().slice(-4)}${attempts}`;
+              try { console.log('Username duplicate detected; trying new username', usernameToUse); } catch(e){}
+              setNotification(`Username conflict, retrying (attempt ${attempts}).`);
+              continue;
+            }
+            // For any other error, stop retrying
+            break;
+          }
         }
-
-        const data = await res.json();
+        if (!data) {
+          // All attempts failed
+          throw lastErr || new Error('Failed to create user after multiple attempts');
+        }
         const created = data.user || data;
         const serverId = created.id;
         const publicId = `USR-${String(serverId).padStart(4, '0')}`;
@@ -381,12 +475,16 @@ export function useUserManagement() {
         };
         setUsers((prev) => [newUser, ...prev]);
         setNotification(`Created ${fullName}.`);
+        try { console.log('Created and added user to UI', publicId, fullName); } catch(e) {}
         closeModal();
         setPage(1);
       }
     } catch (err) {
       console.error('User submit error:', err);
       setNotification(err.message || 'An error occurred while saving the user.');
+    } finally {
+      // allow new submissions after this attempt completes
+      setIsSubmitting(false);
     }
   };
 
@@ -403,16 +501,7 @@ export function useUserManagement() {
       }
       const newStatus = user.status === 'Active' ? 'Suspended' : 'Active';
 
-      const res = await fetch(`${API_BASE}/api/users/${serverId}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => null);
-        throw new Error(err?.error || 'Failed to update user status on server');
-      }
+      await apiPatchUserStatus(serverId, newStatus);
 
       // update local state only after server confirms
       setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, status: newStatus } : u)));
@@ -434,11 +523,7 @@ export function useUserManagement() {
 
     try {
       const serverId = parseServerId(id);
-      const res = await fetch(`${API_BASE}/api/users/${serverId}`, { method: 'DELETE' });
-      if (!res.ok) {
-        const err = await res.json().catch(() => null);
-        throw new Error(err?.error || 'Failed to delete user on server');
-      }
+      await apiDeleteUser(serverId);
       // remove from UI only after server confirms deletion
       setUsers((prev) => prev.filter((user) => user.id !== id));
       setNotification('User deleted.');
@@ -502,5 +587,6 @@ export function useUserManagement() {
     confirmDelete,
     cancelDelete,
     setForm,
+    isSubmitting,
   };
 }
