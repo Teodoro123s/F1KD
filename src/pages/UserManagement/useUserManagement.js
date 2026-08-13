@@ -234,6 +234,7 @@ export function useUserManagement() {
   };
 
   const handleSubmitUser = async (event) => {
+    try { window.__last_user_fetch__ = { stage: 'submit-start', time: Date.now() }; } catch (e) {}
     event.preventDefault();
     const firstName = form.firstName.trim();
     const lastName = form.lastName.trim();
