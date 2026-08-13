@@ -139,7 +139,12 @@ export function useUserManagement() {
   const generatePassword = (nextForm) => {
     const lastName = (nextForm.lastName || '').trim();
     const year = nextForm.dob ? new Date(nextForm.dob).getFullYear() : '1990';
-    return `${lastName}${year}`.toLowerCase();
+    let pw = `${lastName}${year}`.toLowerCase();
+    // ensure minimum length of 8 by appending digits if needed
+    while (pw.length < 8) {
+      pw += Math.floor(Math.random() * 10).toString();
+    }
+    return pw;
   };
 
   const setForm = (updater) => {
