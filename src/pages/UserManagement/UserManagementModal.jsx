@@ -14,7 +14,7 @@ function ModalShell({ title, onClose, onSubmit, children, submitLabel }) {
           <div className="modal-body">{children}</div>
           <div className="modal-footer">
             <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn-primary">{submitLabel}</button>
+            <button type="button" className="btn-primary" onClick={(e) => { if (onSubmit) onSubmit(e); }}>{submitLabel}</button>
           </div>
         </form>
       </div>
