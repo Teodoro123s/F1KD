@@ -183,20 +183,6 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
         <div className="form-group" aria-hidden="true" />
       </div>
 
-      <div className="password-row full-width" style={{ marginTop: 6 }}>
-        <input
-          type="text"
-          className="form-input"
-          placeholder="(auto-generated)"
-          value={form.password || ''}
-          readOnly
-          aria-label="Generated password"
-        />
-        <div className="password-actions">
-          <button type="button" className="btn-small" onClick={regeneratePassword}>Generate</button>
-          <button type="button" className="btn-small" onClick={copyPassword}>{copied ? 'Copied' : 'Copy'}</button>
-        </div>
-      </div>
     </ModalShell>
   );
 }
