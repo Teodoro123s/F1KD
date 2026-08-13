@@ -263,6 +263,26 @@ export function useUserManagement() {
     const roleVal = form.role || (document.getElementById('role') ? document.getElementById('role').value : 'Superadmin');
     const statusVal = form.status || (document.getElementById('status') ? document.getElementById('status').value : 'Active');
 
+    // Push a pre-validation snapshot into debug steps to help identify which check fails
+    try {
+      window.__debug_steps__ = window.__debug_steps__ || [];
+      window.__debug_steps__.push(JSON.stringify({
+        firstNamePresent: !!firstName,
+        firstNameValid: !!firstName && isValidName(firstName),
+        lastNamePresent: !!lastName,
+        lastNameValid: !!lastName && isValidName(lastName),
+        middleInitial: !!middleInitialFromDom || !!form.middleInitial,
+        contactLooksValid: isValidContact(contactNumber),
+        emailPresent: !!email,
+        emailLooksValid: !!email && isValidEmail(email),
+        dobValue: dobVal,
+        dobValid: isValidDob(dobVal),
+        genderVal,
+        roleVal,
+        locationVal,
+      }));
+    } catch (e) {}
+
     if (!firstName) {
       try { window.__debug_steps__.push('validation failed: firstName'); } catch (e) {}
       setNotification('First Name is required.');
