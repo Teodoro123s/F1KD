@@ -1,18 +1,30 @@
-// API helpers for user management
+// API helpers for user management (improved error handling and consistent responses)
 const API_BASE = (typeof process !== 'undefined' && process.env && process.env.REACT_APP_API_URL)
   ? process.env.REACT_APP_API_URL
   : (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL)
   ? import.meta.env.VITE_API_URL
   : 'http://localhost:4000';
 
+async function handleResponse(res, defaultMsg) {
+  const contentType = res.headers.get('content-type') || '';
+  let body = null;
+  if (contentType.includes('application/json')) {
+    try { body = await res.json(); } catch (e) { body = null; }
+  } else {
+    try { body = await res.text(); } catch (e) { body = null; }
+  }
+  if (res.ok) return body;
+  const msg = (body && (body.error || body.message)) ? (body.error || body.message) : res.statusText || defaultMsg;
+  const err = new Error(msg);
+  err.status = res.status;
+  err.body = body;
+  throw err;
+}
+
 export async function apiGetUsers(page = 1, perPage = 100) {
   const url = `${API_BASE}/api/users?page=${page}&perPage=${perPage}`;
   const res = await fetch(url, { credentials: 'same-origin' });
-  if (!res.ok) {
-    const err = await res.json().catch(() => null);
-    throw new Error(err?.error || res.statusText || 'Failed to fetch users');
-  }
-  return res.json();
+  return handleResponse(res, 'Failed to fetch users');
 }
 
 export async function apiCreateUser(payload) {
@@ -22,11 +34,7 @@ export async function apiCreateUser(payload) {
     body: JSON.stringify(payload),
     credentials: 'same-origin',
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => null);
-    throw new Error(err?.error || res.statusText || 'Server error when creating user');
-  }
-  return res.json();
+  return handleResponse(res, 'Server error when creating user');
 }
 
 export async function apiUpdateUser(id, payload) {
@@ -36,11 +44,7 @@ export async function apiUpdateUser(id, payload) {
     body: JSON.stringify(payload),
     credentials: 'same-origin',
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => null);
-    throw new Error(err?.error || res.statusText || 'Server error when updating user');
-  }
-  return res.json();
+  return handleResponse(res, 'Server error when updating user');
 }
 
 export async function apiPatchUserStatus(id, status) {
@@ -50,18 +54,10 @@ export async function apiPatchUserStatus(id, status) {
     body: JSON.stringify({ status }),
     credentials: 'same-origin',
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => null);
-    throw new Error(err?.error || res.statusText || 'Failed to update user status');
-  }
-  return res.json();
+  return handleResponse(res, 'Failed to update user status');
 }
 
 export async function apiDeleteUser(id) {
   const res = await fetch(`${API_BASE}/api/users/${id}`, { method: 'DELETE', credentials: 'same-origin' });
-  if (!res.ok) {
-    const err = await res.json().catch(() => null);
-    throw new Error(err?.error || res.statusText || 'Failed to delete user');
-  }
-  return res.json();
+  return handleResponse(res, 'Failed to delete user');
 }
