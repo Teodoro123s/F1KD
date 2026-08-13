@@ -37,6 +37,8 @@ export function useUserManagement() {
     let mounted = true;
     async function load() {
       try {
+        // record the attempted fetch for debugging
+        try { window.__last_user_fetch__ = { url: `${API_BASE}/api/users?page=1&perPage=100`, time: Date.now() }; } catch (e) {}
         const res = await fetch(`${API_BASE}/api/users?page=1&perPage=100`);
         if (!res.ok) throw new Error('no server');
         const data = await res.json();
@@ -304,6 +306,7 @@ export function useUserManagement() {
     if (selectedUser) {
       const serverId = parseServerId(selectedUser.id);
       try {
+        try { window.__last_user_fetch__ = { url: `${API_BASE}/api/users/${serverId}`, method: 'PUT', time: Date.now(), body: { firstName, lastName, email } }; } catch (e) {}
         const res = await fetch(`${API_BASE}/api/users/${serverId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -365,6 +368,7 @@ export function useUserManagement() {
       }
     } else {
       try {
+        try { window.__last_user_fetch__ = { url: `${API_BASE}/api/users`, method: 'POST', time: Date.now(), body: { firstName, lastName, email } }; } catch (e) {}
         const res = await fetch(`${API_BASE}/api/users`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
