@@ -12,9 +12,10 @@ function ModalShell({ title, onClose, onSubmit, children, submitLabel }) {
         </div>
         <form onSubmit={(e) => {
             // prevent default and defer calling the handler to let controlled inputs flush state
+            // don't pass the original React event (it may be pooled); pass a safe stub instead
             e.preventDefault();
             try { window.__modal_on_submit_called__ = window.__modal_on_submit_called__ || []; window.__modal_on_submit_called__.push(Date.now()); } catch (err) {}
-            if (onSubmit) setTimeout(() => onSubmit(e), 0);
+            if (onSubmit) setTimeout(() => onSubmit({ preventDefault: () => {} }), 0);
           }}>
           <div className="modal-body">{children}</div>
           <div className="modal-footer">
