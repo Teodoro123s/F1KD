@@ -298,10 +298,7 @@ export function useUserManagement() {
       setNotification('Please select a role.');
       return;
     }
-    if (!form.password || form.password.length < 8) {
-      setNotification('Password must be at least 8 characters.');
-      return;
-    }
+    // password length will be validated only on create or when explicitly changing password during edit
 
     const fullName = `${firstName}${form.middleInitial.trim() ? ` ${form.middleInitial.trim()}` : ''} ${lastName}`;
 
@@ -370,6 +367,11 @@ export function useUserManagement() {
         setNotification(`Saved changes for ${fullName} (local).`);
       }
     } else {
+      // creation flow: ensure password length is OK
+      if (!form.password || form.password.length < 8) {
+        setNotification('Password must be at least 8 characters.');
+        return;
+      }
       try {
         try { window.__last_user_fetch__ = { url: `${API_BASE}/api/users`, method: 'POST', time: Date.now(), body: { firstName, lastName, email } }; } catch (e) {}
         const res = await fetch(`${API_BASE}/api/users`, {
