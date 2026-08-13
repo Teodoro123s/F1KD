@@ -26,7 +26,11 @@ const initialUsersData = [
 
 export function useUserManagement() {
   const [users, setUsers] = useState(initialUsersData);
-  const API_BASE = process.env.REACT_APP_API_URL || '';
+  const API_BASE = (typeof process !== 'undefined' && process.env && process.env.REACT_APP_API_URL)
+    ? process.env.REACT_APP_API_URL
+    : (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL)
+    ? import.meta.env.VITE_API_URL
+    : '';
 
   // Load from server when available, fallback to mock data
   useEffect(() => {
