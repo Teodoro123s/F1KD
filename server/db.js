@@ -11,6 +11,8 @@ const pool = mysql.createPool({
   connectionLimit: 10,
 });
 
+console.log('DB pool configured for database:', process.env.DB_NAME || 'f1kd');
+
 async function ensure() {
   const create = `CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,

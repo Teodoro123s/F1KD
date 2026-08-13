@@ -30,7 +30,7 @@ export function useUserManagement() {
     ? process.env.REACT_APP_API_URL
     : (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL)
     ? import.meta.env.VITE_API_URL
-    : '';
+    : 'http://localhost:4000';
 
   // Load from server when available, fallback to mock data
   useEffect(() => {
