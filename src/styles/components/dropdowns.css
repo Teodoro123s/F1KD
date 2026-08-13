@@ -1,0 +1,24 @@
+﻿/* Action wrapper anchors dropdowns */
+.action-wrapper { position: relative; display: inline-block; }
+
+/* Dropdown */
+.dropdown {
+  position: absolute;
+  top: 48px;
+  right: 0;
+  min-width: 200px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 8px 20px rgba(12, 20, 36, 0.12);
+  overflow: hidden;
+  z-index: 40;
+  color: #111;
+}
+.dropdown-header { padding: 0.5rem 0.75rem; font-weight: 600; border-bottom: 1px solid rgba(0,0,0,0.04); }
+.dropdown-item { padding: 0.6rem 0.75rem; cursor: pointer; }
+.dropdown-item:hover { background: #f4f6f9; }
+.dropdown-item.muted { color: #666; }
+
+.notifications-list { max-height: 220px; overflow: auto; }
+
+.content-body { padding: 1rem; }

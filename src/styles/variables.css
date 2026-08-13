@@ -1,0 +1,14 @@
+﻿:root {
+  --bg: #ffffff;
+  --muted: #666;
+}
+
+:root {
+  --burgundy: #7A0C1E;
+  --burgundy-hover: #5F0917;
+  --burgundy-light: #FFF1F3;
+  --burgundy-border: #F8D7DA;
+  --slate-dark: #0C1A30;
+  --text-muted: #64748B;
+  --border-color: #E2E8F0;
+}

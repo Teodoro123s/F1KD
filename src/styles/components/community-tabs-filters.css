@@ -1,0 +1,44 @@
+﻿/* Tabs & Search container */
+.subheader-row,
+.tabs-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1.5px solid var(--border-color);
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding-bottom: 0.5rem;
+}
+
+.subheader-left { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+.subheader-right { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; flex: 1; justify-content: flex-end; }
+
+.search-container { display: flex; align-items: center; position: relative; flex: 0 1 320px; width: 100%; max-width: 320px; gap: 0.75rem; }
+
+.search-container svg { position: absolute; left: 0.85rem; width: 1.1rem; height: 1.1rem; color: #94A3B8; pointer-events: none; }
+
+.search-input-field { width: 100%; padding: 0.55rem 1rem 0.55rem 2.35rem; border-radius: 99px; border: 1px solid var(--border-color); background: #fff; font-size: 0.9rem; color: var(--slate-dark); transition: all 150ms ease; }
+.search-input-field:focus { outline: none; border-color: var(--burgundy); box-shadow: 0 0 0 3px rgba(122, 12, 30, 0.08); }
+
+.tabs-list { display: flex; gap: 1.75rem; }
+.tab-btn { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 0.25rem 0.85rem; border: none; background: transparent; font-size: 0.95rem; font-weight: 600; color: var(--text-muted); cursor: pointer; position: relative; transition: color 150ms ease; border-bottom: 3px solid transparent; margin-bottom: -0.6rem; }
+.tab-btn:hover { color: var(--slate-dark); }
+.tab-btn.active { color: var(--burgundy); border-bottom-color: var(--burgundy); }
+.tab-btn svg { width: 1.2rem; height: 1.2rem; fill: none; stroke: currentColor; stroke-width: 2; }
+.tab-btn.active svg { stroke: var(--burgundy); }
+
+.role-filter-area { position: relative; display: inline-flex; }
+.role-filter-button { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; padding: 0; border-radius: 50%; border: none; background: #fff; color: var(--text-muted); box-shadow: 0 1px 2px rgba(15, 23, 36, 0.08); cursor: pointer; transition: all 150ms ease; }
+.role-filter-button:hover, .role-filter-button.open { background: #F8FAFC; color: var(--slate-dark); }
+.role-filter-dropdown { position: absolute; right: 0; top: calc(100% + 0.5rem); min-width: 180px; background: #fff; border-radius: 10px; border: 1px solid var(--border-color); box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.05); z-index: 90; overflow: hidden; }
+.role-filter-item { display: block; width: 100%; padding: 0.85rem 1rem; color: #475569; background: none; border: none; text-align: left; font-size: 0.95rem; cursor: pointer; transition: background 120ms ease; }
+.role-filter-item:hover, .role-filter-item.active { background: #F8FAFC; color: var(--slate-dark); }
+
+.subheader-controls { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+
+.status-toggle-group { display: inline-flex; align-items: center; border-radius: 999px; overflow: hidden; border: 1px solid var(--border-color); background: #fff; }
+.status-toggle-btn { border: none; background: transparent; color: var(--text-muted); padding: 0.65rem 0.9rem; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: background 150ms ease, color 150ms ease; }
+.status-toggle-btn:not(:last-child) { border-right: 1px solid var(--border-color); }
+.status-toggle-btn:hover { background: #F8FAFC; }
+.status-toggle-btn.active { color: var(--burgundy); background: #FEF2F2; }

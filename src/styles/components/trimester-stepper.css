@@ -1,0 +1,16 @@
+﻿/* Trimester stepper styling */
+.trimester-stepper { display: flex; gap: 18px; margin-top: 12px; flex-wrap: wrap; }
+.trimester { flex: 1 1 220px; background: #fff; padding: 12px; border-radius: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+.trimester-title { font-weight: 600; margin-bottom: 8px; }
+.trimester-steps { display: flex; gap: 12px; align-items: center; justify-content: flex-start; }
+.step { display: flex; flex-direction: column; align-items: center; min-width: 70px; }
+.step-circle { width: 44px; height: 44px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; border: 2px solid #E2E8F0; margin-bottom: 6px; font-weight: 700; font-size: 16px; background: #F8FAFC; color: #64748B; transition: all 0.2s ease; }
+.step.completed .step-circle { background: #10B981; color: #fff; border-color: #10B981; }
+.step.active .step-circle { background: #EFF6FF; border-color: #3B82F6; color: #3B82F6; box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2); }
+.step.locked .step-circle { background: #F1F5F9; border-color: #E2E8F0; color: #94A3B8; cursor: not-allowed; opacity: 0.6; }
+.step.locked .step-label { color: #94A3B8; }
+.step-btn { background: transparent; border: none; padding: 0; cursor: pointer; }
+.step-btn:disabled { cursor: not-allowed; }
+.step-btn:focus { outline: 3px solid rgba(59, 130, 246, 0.2); border-radius: 50%; }
+.step-label { font-size: 13px; color: #334155; text-align: center; font-weight: 500; }
+@keyframes pulse-active-circle { 0% { box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2); } 100% { box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.45); } }
