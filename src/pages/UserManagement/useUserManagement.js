@@ -372,8 +372,9 @@ export function useUserManagement() {
         setNotification(`Saved changes for ${fullName} (local).`);
       }
     } else {
-      // creation flow: ensure password length is OK
-      if (!form.password || form.password.length < 8) {
+      // creation flow: ensure password length is OK. If password hasn't been generated in state yet, generate one here to avoid race conditions.
+      const passwordToUse = (form.password && form.password.length >= 8) ? form.password : generatePassword(form);
+      if (!passwordToUse || passwordToUse.length < 8) {
         setNotification('Password must be at least 8 characters.');
         return;
       }
@@ -393,7 +394,7 @@ export function useUserManagement() {
             location: form.location,
             role: form.role,
             status: form.status,
-            password: form.password,
+            password: passwordToUse,
           }),
         });
         if (!res.ok) throw new Error('server error');
@@ -413,7 +414,7 @@ export function useUserManagement() {
           location: created.location,
           role: created.role,
           status: created.status,
-          password: data.plaintextPassword || form.password,
+          password: data.plaintextPassword || passwordToUse,
           name: `${created.first_name} ${created.middle_initial ? created.middle_initial + ' ' : ''}${created.last_name}`,
         };
         setUsers((prev) => [newUser, ...prev]);
@@ -435,7 +436,7 @@ export function useUserManagement() {
             location: form.location,
             role: form.role,
             status: form.status,
-            password: form.password,
+            password: passwordToUse,
           },
           ...prev,
         ]);
