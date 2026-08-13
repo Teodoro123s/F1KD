@@ -10,7 +10,12 @@ function ModalShell({ title, onClose, onSubmit, children, submitLabel }) {
             ✕
           </button>
         </div>
-        <form onSubmit={(e) => { try { window.__modal_on_submit_called__ = window.__modal_on_submit_called__ || []; window.__modal_on_submit_called__.push(Date.now()); } catch (err) {} if (onSubmit) { onSubmit(e); } }}>
+        <form onSubmit={(e) => {
+            // prevent default and defer calling the handler to let controlled inputs flush state
+            e.preventDefault();
+            try { window.__modal_on_submit_called__ = window.__modal_on_submit_called__ || []; window.__modal_on_submit_called__.push(Date.now()); } catch (err) {}
+            if (onSubmit) setTimeout(() => onSubmit(e), 0);
+          }}>
           <div className="modal-body">{children}</div>
           <div className="modal-footer">
             <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
