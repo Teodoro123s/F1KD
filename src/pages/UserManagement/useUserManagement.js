@@ -58,7 +58,14 @@ export function useUserManagement() {
             password: '',
             name: `${u.first_name} ${u.middle_initial ? u.middle_initial + ' ' : ''}${u.last_name}`,
           }));
-          setUsers(mapped);
+          // Merge server users with local seed data, avoiding duplicates by email
+          setUsers((prev) => {
+            const byEmail = new Map();
+            // prefer server users first
+            mapped.forEach((u) => { if (u.email) byEmail.set(u.email.toLowerCase(), u); });
+            prev.forEach((u) => { if (u.email && !byEmail.has(u.email.toLowerCase())) byEmail.set(u.email.toLowerCase(), u); });
+            return Array.from(byEmail.values());
+          });
         }
       } catch (e) {
         // keep mocks if server not reachable
