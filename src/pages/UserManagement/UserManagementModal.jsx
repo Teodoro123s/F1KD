@@ -15,7 +15,7 @@ function ModalShell({ title, onClose, onSubmit, children, submitLabel }) {
             // don't pass the original React event (it may be pooled); pass a safe stub instead
             e.preventDefault();
             try { window.__modal_on_submit_called__ = window.__modal_on_submit_called__ || []; window.__modal_on_submit_called__.push(Date.now()); } catch (err) {}
-            if (onSubmit) setTimeout(() => onSubmit({ preventDefault: () => {} }), 0);
+            if (onSubmit) setTimeout(() => onSubmit({ preventDefault: () => {} }), 50);
           }}>
           <div className="modal-body">{children}</div>
           <div className="modal-footer">
