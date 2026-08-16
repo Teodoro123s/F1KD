@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { generatePassword } from './lib';
 
 function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitting = false }) {
   const formRef = React.useRef(null);
@@ -78,35 +79,6 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
 
   const handleChange = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
 
-  // preview password behavior: Generate fills the preview field, Apply writes it into the form
-  const [previewPwd, setPreviewPwd] = useState('');
-  const [copied, setCopied] = useState(false);
-
-  const generatePreview = () => {
-    const lastName = (form.lastName || '').trim();
-    const year = form.dob ? new Date(form.dob).getFullYear() : '1990';
-    let pw = `${lastName}${year}`.toLowerCase();
-    while (pw.length < 8) pw += Math.floor(Math.random() * 10).toString();
-    setPreviewPwd(pw);
-  };
-
-  const applyPreview = () => {
-    if (!previewPwd) return;
-    setForm((prev) => ({ ...prev, password: previewPwd }));
-    // clear preview after applying
-    setPreviewPwd('');
-  };
-
-  const copyPassword = async () => {
-    try {
-      await navigator.clipboard.writeText(form.password || '');
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch (e) {
-      // ignore
-    }
-  };
-
   return (
     <ModalShell title={title} onClose={onClose} onSubmit={onSubmit} submitLabel={submitLabel} isSubmitting={isSubmitting}>
       <div className="form-row-3 full-width">
@@ -182,41 +154,7 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
         <div className="form-group" aria-hidden="true" />
       </div>
 
-      {/* Password row: shows current password field and a preview area with Generate + Apply */}
-      <div className="form-row full-width">
-        <div className="form-group">
-          <label className="form-label" htmlFor="password">Password</label>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <input
-              id="password"
-              name="password"
-              type="text"
-              className="form-input"
-              placeholder="Enter password or apply generated one"
-              value={form.password}
-              onChange={(e) => handleChange('password', e.target.value)}
-            />
-            <button type="button" className="btn-secondary" onClick={copyPassword}>{copied ? 'Copied!' : 'Copy'}</button>
-          </div>
-        </div>
-      </div>
 
-      <div className="form-row full-width">
-        <div className="form-group">
-          <label className="form-label">Generate default password</label>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <input
-              type="text"
-              className="form-input"
-              placeholder="Generate default password"
-              value={previewPwd}
-              readOnly
-            />
-            <button type="button" className="btn-secondary" onClick={generatePreview}>Generate default password</button>
-            <button type="button" className="btn-primary" onClick={applyPreview} disabled={!previewPwd}>Apply</button>
-          </div>
-        </div>
-      </div>
 
       <div className="form-row-3 full-width">
         <div className="form-group">

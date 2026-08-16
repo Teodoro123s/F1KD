@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useParams, useLocation, useNavigate, Link } from 'react-router-dom';
+import { generatePassword } from './lib';
 
 export default function UserDetailPage() {
   const { id } = useParams();
@@ -14,24 +15,10 @@ export default function UserDetailPage() {
   };
 
   const [generatedPwd, setGeneratedPwd] = useState('');
-  const [copied, setCopied] = useState(false);
 
   const generateDefaultPassword = () => {
-    const lastName = (user.lastName || '').trim();
-    const year = user.dob ? new Date(user.dob).getFullYear() : '1990';
-    const pwd = `${lastName}${year}`.toLowerCase();
+    const pwd = generatePassword(user);
     setGeneratedPwd(pwd);
-  };
-
-  const copyGenerated = async () => {
-    if (!generatedPwd) return;
-    try {
-      await navigator.clipboard.writeText(generatedPwd);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch (e) {
-      // ignore clipboard failures
-    }
   };
 
   const applyGenerated = () => {
@@ -127,10 +114,6 @@ export default function UserDetailPage() {
             <div style={{ marginTop: 18 }}>
               <div className="checkup-section-title">Password</div>
               <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' }}>
-                <div style={{ display: 'inline-flex', gap: 8 }}>
-                  <button type="button" className="btn-small" onClick={() => navigate('/user-management')}>Back</button>
-                  <button type="button" className="btn-small" onClick={copyGenerated}>{copied ? 'Copied' : 'Copy'}</button>
-                </div>
                 <input
                   type="text"
                   className="checkup-field-input"
@@ -140,12 +123,13 @@ export default function UserDetailPage() {
                   aria-label="Generated password"
                   style={{ flex: 1 }}
                 />
-                <button type="button" className="btn-small" onClick={applyGenerated}>Apply</button>
+                <button type="button" className="btn-small" onClick={generateDefaultPassword}>Generate default password</button>
+                <button type="button" className="btn-small" onClick={applyGenerated} disabled={!generatedPwd}>Apply</button>
               </div>
 
             <div style={{ marginTop: 18, display: 'flex', gap: 8 }}>
               <button type="button" className="btn-primary" onClick={handleEdit}>Edit</button>
-              <button type="button" className="btn-secondary" onClick={generateDefaultPassword}>Generate</button>
+              <button type="button" className="btn-secondary" onClick={() => navigate('/user-management')}>Back</button>
             </div>
             </div>
           </div>

@@ -140,21 +140,10 @@ export function useUserManagement() {
   const rangeStart = currentRows.length === 0 ? 0 : currentStart + 1;
   const rangeEnd = Math.min(currentStart + perPage, filteredData.length);
 
-  const generatePassword = (nextForm) => {
-    const lastName = (nextForm.lastName || '').trim();
-    const year = nextForm.dob ? new Date(nextForm.dob).getFullYear() : '1990';
-    let pw = `${lastName}${year}`.toLowerCase();
-    // ensure minimum length of 8 by appending digits if needed
-    while (pw.length < 8) {
-      pw += Math.floor(Math.random() * 10).toString();
-    }
-    return pw;
-  };
-
   const setForm = (updater) => {
     setFormState((prev) => {
       const next = typeof updater === 'function' ? updater(prev) : updater;
-      if (next.lastName !== prev.lastName || next.dob !== prev.dob) {
+      if (next.lastName !== prev.lastName || next.contactNumber !== prev.contactNumber) {
         return { ...next, password: generatePassword(next) };
       }
       return next;
@@ -336,8 +325,9 @@ export function useUserManagement() {
         setPage(1);
       } else {
         // Create new user
-        const passwordToUse = (fdPassword && fdPassword.length >= 8) ? fdPassword : generatePassword({ lastName, dob: dobVal });
+        const passwordToUse = (fdPassword && fdPassword.length >= 8) ? fdPassword : generatePassword({ lastName, contactNumber: contactNumberSan });
         try { console.log('Computed passwordToUse', { fdPasswordLength: (fdPassword || '').length, passwordToUse }); } catch(e) {}
+        try { console.log('Password to use for new user (plaintext):', passwordToUse); } catch (e) {}
         if (!passwordToUse || passwordToUse.length < 8) { setNotification('Password must be at least 8 characters.'); try { console.log('Validation failed: password too short', { passwordToUse }); } catch(e){}; return; }
 
         // Log payload for debug (we'll retry up to 5 times on duplicate username/email)
@@ -442,6 +432,7 @@ export function useUserManagement() {
         setUsers((prev) => [newUser, ...prev]);
         setNotification(`Created ${fullName}.`);
         try { console.log('Created and added user to UI', publicId, fullName); } catch(e) {}
+        try { console.log('Plaintext password for created user:', newUser.password); } catch(e) {}
         closeModal();
         setPage(1);
       }

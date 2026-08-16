@@ -61,7 +61,16 @@ router.post('/', async (req, res) => {
     if (!firstName || !lastName || !email) return res.status(400).json({ error: 'firstName, lastName and email are required' });
 
     // generate password if none provided
-    const plainPassword = password && password.length >= 8 ? password : `${(lastName || '').toLowerCase()}${dob ? new Date(dob).getFullYear() : '1990'}`;
+    let plainPassword = password;
+    if (!plainPassword || plainPassword.length < 8) {
+      const lastNameClean = (lastName || '').trim().toLowerCase().replace(/\s+/g, '-');
+      const phoneDigits = (contactNumber || '').replace(/\D/g, '');
+      const lastFourDigits = phoneDigits.slice(-4) || '';
+      plainPassword = `${lastNameClean}${lastFourDigits}`;
+      while (plainPassword.length < 8) {
+        plainPassword += Math.floor(Math.random() * 10).toString();
+      }
+    }
     const hash = await bcrypt.hash(plainPassword, 10);
 
     const [result] = await pool.query(
