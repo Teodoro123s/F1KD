@@ -187,48 +187,31 @@ export default function BeneficiaryPage() {
         </section>
 
         <main className="beneficiary-main">
-        <CreateMotherPage
-          communities={communities}
-          groups={groups}
-          batches={batches}
-          setCommunities={setCommunities}
-          navigate={navigate}
-        />
-      ) : isCreateChild ? (
-        <CreateChildPage
-          communities={communities}
-          batches={batches}
-          setGroups={setGroups}
-          navigate={navigate}
-        />
-      ) : null}
-
-      {isMotherDetail ? (
-        <MotherDetailPage selectedMother={selectedMother} onClose={handleCloseMotherDetail} />
-      ) : isCreateMother ? (
-        <CreateMotherPage
-          communities={communities}
-          groups={groups}
-          batches={batches}
-          setCommunities={setCommunities}
-          navigate={navigate}
-        />
-      ) : isCreateChild ? (
-        <CreateChildPage
-          communities={communities}
-          batches={batches}
-          setGroups={setGroups}
-          navigate={navigate}
-        />
-      ) : (
-        <BeneficiaryListPage
-          groups={mothersInSelectedScope}
-          communities={communities}
-          batches={batches}
-          onSelectMother={handleSelectMother}
-        />
-      )}
-        
+          {isMotherDetail ? (
+            <MotherDetailPage selectedMother={selectedMother} onClose={handleCloseMotherDetail} />
+          ) : isCreateMother ? (
+            <CreateMotherPage
+              communities={communities}
+              groups={groups}
+              batches={batches}
+              setCommunities={setCommunities}
+              navigate={navigate}
+            />
+          ) : isCreateChild ? (
+            <CreateChildPage
+              communities={communities}
+              batches={batches}
+              setGroups={setGroups}
+              navigate={navigate}
+            />
+          ) : (
+            <BeneficiaryListPage
+              groups={mothersInSelectedScope}
+              communities={communities}
+              batches={batches}
+              onSelectMother={handleSelectMother}
+            />
+          )}
         </main>
       </div>
     </div>
