@@ -34,15 +34,18 @@ export function useUserManagement() {
     ? import.meta.env.VITE_API_URL
     : 'http://localhost:4000';
 
+  const [apiOnline, setApiOnline] = useState(true);
+
   // Load from server when available, fallback to mock data
   useEffect(() => {
     let mounted = true;
-    async function load() {
+    async function load(attempts = 0) {
       try {
         // record the attempted fetch for debugging
         try { window.__last_user_fetch__ = { url: `${API_BASE}/api/users?page=1&perPage=100`, time: Date.now() }; } catch (e) {}
         const data = await apiGetUsers(1, 100);
         if (!mounted) return;
+        setApiOnline(true);
         if (Array.isArray(data.users)) {
           // normalize to existing shape
           const mapped = data.users.map((u) => ({
@@ -72,6 +75,15 @@ export function useUserManagement() {
         }
       } catch (e) {
         try { console.log('Failed to fetch users from server, using mock data', e); } catch (c) {}
+        // If a transient network error occurred, retry a couple of times
+        if (attempts < 2) {
+          try { console.log('Retrying user fetch (attempt)', attempts + 1); } catch (e2) {}
+          try { await sleep(300 * (attempts + 1)); } catch (e3) {}
+          return load(attempts + 1);
+        }
+        // mark API as offline and inform the UI
+        setApiOnline(false);
+        setNotification('Backend unreachable — using local mock data. Click Retry to try again.');
         // keep mocks if server not reachable
       }
     }
@@ -103,6 +115,13 @@ export function useUserManagement() {
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   // Prevent double submits
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Loading flags for individual actions
+  const [suspendLoadingIds, setSuspendLoadingIds] = useState(() => new Set());
+  const [deletingId, setDeletingId] = useState(null);
+  // One-time plaintext credential shown after creation (dev only)
+  const [oneTimeCredentials, setOneTimeCredentials] = useState(null);
+
+  const clearOneTimeCredentials = () => setOneTimeCredentials(null);
 
   useEffect(() => {
     if (!notification) return undefined;
@@ -223,6 +242,40 @@ export function useUserManagement() {
     if (typeof id === 'number') return id;
     const m = String(id).match(/USR-(\d+)/);
     return m ? Number(m[1]) : Number(id) || null;
+  };
+
+  const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+
+  const retryLoad = async () => {
+    setNotification('Retrying connection to server...');
+    try {
+      const data = await apiGetUsers(1, 100);
+      if (Array.isArray(data.users)) {
+        const mapped = data.users.map((u) => ({
+          id: `USR-${String(u.id).padStart(4, '0')}`,
+          firstName: u.first_name,
+          lastName: u.last_name,
+          middleInitial: u.middle_initial,
+          contactNumber: u.contact_number,
+          email: u.email,
+          gender: u.gender,
+          dob: formatDobForInput(u.dob),
+          location: u.location,
+          role: u.role,
+          status: u.status,
+          password: '',
+          name: `${u.first_name} ${u.middle_initial ? u.middle_initial + ' ' : ''}${u.last_name}`,
+        }));
+        setUsers(mapped);
+        setApiOnline(true);
+        setNotification('Reconnected to server. User list refreshed.');
+      } else {
+        setNotification('Server responded but returned unexpected data.');
+      }
+    } catch (err) {
+      setApiOnline(false);
+      setNotification('Retry failed. Server still unreachable.');
+    }
   };
 
   const handleSubmitUser = async (event) => {
@@ -403,6 +456,14 @@ export function useUserManagement() {
               setNotification(`Username conflict, retrying (attempt ${attempts}).`);
               continue;
             }
+            // If this looks like a transient network/server error, retry a few times with backoff
+            if (/failed to fetch|networkerror|network error|network request failed|timeout|502|503|504/.test(msg) || (err && err.status && err.status >= 500)) {
+              if (attempts < 3) {
+                setNotification(`Network/server error, retrying (attempt ${attempts + 1})...`);
+                try { await sleep(500 * attempts); } catch(e){}
+                continue; // retry
+              }
+            }
             // For any other error, stop retrying
             break;
           }
@@ -426,13 +487,15 @@ export function useUserManagement() {
           location: created.location,
           role: created.role,
           status: created.status,
-          password: data.plaintextPassword || passwordToUse,
+          // Do not persist plaintext password in UI list. Store one-time credentials separately to display to the user once.
           name: `${created.first_name} ${created.middle_initial ? created.middle_initial + ' ' : ''}${created.last_name}`,
         };
-        setUsers((prev) => [newUser, ...prev]);
+            setUsers((prev) => [newUser, ...prev]);
+        // Expose the one-time credentials for the UI to show once (dev only). The frontend computed passwordToUse, so show that.
+        setOneTimeCredentials({ email: emailToUse, password: passwordToUse });
         setNotification(`Created ${fullName}.`);
         try { console.log('Created and added user to UI', publicId, fullName); } catch(e) {}
-        try { console.log('Plaintext password for created user:', newUser.password); } catch(e) {}
+        try { console.log('One-time plaintext password for created user (dev):', passwordToUse); } catch(e) {}
         closeModal();
         setPage(1);
       }
@@ -448,26 +511,55 @@ export function useUserManagement() {
 
 
   const handleSuspendUser = async (id) => {
-    try {
-      const serverId = parseServerId(id);
-      // determine desired new status by reading current users state
-      const user = users.find((u) => u.id === id);
-      if (!user) {
-        setNotification('User not found.');
-        return;
-      }
-      const newStatus = user.status === 'Active' ? 'Suspended' : 'Active';
-
-      await apiPatchUserStatus(serverId, newStatus);
-
-      // update local state only after server confirms
-      setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, status: newStatus } : u)));
-      setNotification('User status updated.');
-      try { console.log('Updated user status on server', serverId, newStatus); } catch (e) {}
-    } catch (e) {
-      console.error('Failed to update user status:', e);
-      setNotification(e.message || 'Failed to update user status.');
+    // prevent duplicate suspend toggles on same id
+    if (suspendLoadingIds.has(id)) {
+      setNotification('Status change already in progress for this user.');
+      return;
     }
+
+    const user = users.find((u) => u.id === id);
+    if (!user) { setNotification('User not found.'); return; }
+
+    const prevStatus = user.status;
+    const targetStatus = prevStatus === 'Active' ? 'Suspended' : 'Active';
+
+    // optimistic update
+    setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, status: targetStatus } : u)));
+    setSuspendLoadingIds((prev) => new Set(prev).add(id));
+
+    let attempts = 0;
+    let lastErr = null;
+    while (attempts < 3) {
+      attempts += 1;
+      try {
+        const serverId = parseServerId(id);
+        await apiPatchUserStatus(serverId, targetStatus);
+        setNotification(`User status updated to ${targetStatus}.`);
+        try { console.log('Updated user status on server', serverId, targetStatus); } catch (e) {}
+        break;
+      } catch (err) {
+        lastErr = err;
+        const msg = (err && err.message) ? err.message.toString().toLowerCase() : '';
+        try { console.log(`Attempt ${attempts} to update status failed:`, msg); } catch (e) {}
+        if (attempts < 3 && (/failed to fetch|networkerror|network error|timeout|502|503|504/.test(msg) || (err && err.status && err.status >= 500))) {
+          setNotification(`Network error updating status, retrying (attempt ${attempts + 1})...`);
+          try { await sleep(300 * attempts); } catch (e) {}
+          continue;
+        }
+        // non-recoverable - rollback optimistic update
+        setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, status: prevStatus } : u)));
+        setNotification(err.message || 'Failed to update user status.');
+        try { console.error('Failed to update user status after retries', err); } catch (e) {}
+        break;
+      }
+    }
+
+    // done, remove loading flag
+    setSuspendLoadingIds((prev) => {
+      const copy = new Set(prev);
+      copy.delete(id);
+      return copy;
+    });
   };
 
   const requestDeleteUser = (id) => {
@@ -477,20 +569,37 @@ export function useUserManagement() {
   const confirmDelete = async () => {
     if (!confirmDeleteId) return;
     const id = confirmDeleteId;
+    setDeletingId(id);
 
-    try {
-      const serverId = parseServerId(id);
-      await apiDeleteUser(serverId);
-      // remove from UI only after server confirms deletion
-      setUsers((prev) => prev.filter((user) => user.id !== id));
-      setNotification('User deleted.');
-      try { console.log('Deleted user on server', serverId); } catch (e) {}
-    } catch (e) {
-      console.error('Failed to delete user:', e);
-      setNotification(e.message || 'Failed to delete user.');
-    } finally {
-      setConfirmDeleteId(null);
+    let attempts = 0;
+    let lastErr = null;
+    while (attempts < 3) {
+      attempts += 1;
+      try {
+        const serverId = parseServerId(id);
+        await apiDeleteUser(serverId);
+        // remove from UI only after server confirms deletion
+        setUsers((prev) => prev.filter((user) => user.id !== id));
+        setNotification('User deleted.');
+        try { console.log('Deleted user on server', serverId); } catch (e) {}
+        break;
+      } catch (err) {
+        lastErr = err;
+        const msg = (err && err.message) ? err.message.toString().toLowerCase() : '';
+        try { console.log(`Delete attempt ${attempts} failed:`, msg); } catch (e) {}
+        if (attempts < 3 && (/failed to fetch|networkerror|network error|timeout|502|503|504/.test(msg) || (err && err.status && err.status >= 500))) {
+          setNotification(`Delete failed due to network/server error, retrying (attempt ${attempts + 1})...`);
+          try { await sleep(400 * attempts); } catch (e) {}
+          continue;
+        }
+        setNotification(err.message || 'Failed to delete user.');
+        try { console.error('Failed to delete user after retries', err); } catch (e) {}
+        break;
+      }
     }
+
+    setDeletingId(null);
+    setConfirmDeleteId(null);
   };
 
   const cancelDelete = () => {
@@ -545,5 +654,11 @@ export function useUserManagement() {
     cancelDelete,
     setForm,
     isSubmitting,
+    // loading indicators for row-level actions
+    suspendLoadingIds: Array.from(suspendLoadingIds),
+    deletingId,
+    // one-time dev credentials for display
+    oneTimeCredentials,
+    clearOneTimeCredentials,
   };
 }

@@ -1,43 +1,65 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { signIn } from '../utils/auth';
+import { useAuth } from '../auth/AuthProvider';
 
 export default function Login() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
-  function handleLogin() {
+  const auth = useAuth();
+
+  async function handleLogin() {
     setLoading(true);
-    signIn();
-    setTimeout(() => {
+    try {
+      // Use email as the credential for login
+      await auth.login(email, password);
       navigate('/community');
-    }, 250);
+    } catch (err) {
+      // show error
+      console.error('Login failed', err);
+      alert(err.message || 'Login failed');
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
     <div className="login-page">
       <div className="login-card">
         <h1>Sign In</h1>
-        <p>Enter your username and password to continue.</p>
+        <p>Enter your email and password to continue.</p>
         <label>
-          Username
+          Email
           <input
-            type="text"
-            value={username}
-            onChange={(event) => setUsername(event.target.value)}
-            placeholder="Enter username"
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="Enter email"
           />
         </label>
         <label>
           Password
-          <input
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            placeholder="Enter password"
-          />
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <input
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="Enter password"
+              style={{ flex: 1 }}
+            />
+            <button
+              type="button"
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              onClick={() => setShowPassword((s) => !s)}
+              className="btn-icon"
+              style={{ marginLeft: 8 }}
+            >
+              {showPassword ? 'Hide' : 'Show'}
+            </button>
+          </div>
         </label>
         <div className="login-actions">
           <button

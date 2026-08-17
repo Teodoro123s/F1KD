@@ -9,11 +9,15 @@ import Program from './pages/Program';
 import ProgressReport from './pages/ProgressReport';
 import UserManagementPage from './pages/UserManagement/UserManagementPage';
 import UserDetailPage from './pages/UserManagement/UserDetailPage';
+import ProfilePage from './pages/ProfilePage';
+import SettingsPage from './pages/SettingsPage';
 import Login from './pages/Login';
-import { isAuthenticated } from './utils/auth';
+import { useAuth } from './auth/AuthProvider';
 
 function RequireAuth({ children }) {
-  if (!isAuthenticated()) {
+  const auth = useAuth();
+  if (auth.loading) return null; // or a spinner
+  if (!auth.isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
   return children;
@@ -45,6 +49,8 @@ export default function App() {
         <Route path="progress-report" element={<ProgressReport />} />
         <Route path="user-management" element={<UserManagementPage />} />
         <Route path="user-management/user/:id" element={<UserDetailPage />} />
+        <Route path="profile" element={<ProfilePage />} />
+        <Route path="settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="community" replace />} />
       </Route>
     </Routes>

@@ -27,10 +27,6 @@ CREATE TABLE IF NOT EXISTS users (
   -- Store only hashed password (bcrypt) here
   password_hash VARCHAR(255) DEFAULT NULL,
 
-  -- OPTIONAL: store a one-time generated plaintext password temporarily (development only).
-  -- This is NOT recommended for production. If used, clear this field immediately after showing the password.
-  temp_plain_password VARCHAR(255) DEFAULT NULL,
-  temp_password_expires_at DATETIME DEFAULT NULL,
 
   -- Convenience: stored full name for easier querying (composed from parts)
   name VARCHAR(255) AS (

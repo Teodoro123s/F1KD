@@ -7,6 +7,8 @@ export default function UserManagementTable({
   openEditUser,
   handleSuspendUser,
   handleDeleteUser,
+  suspendLoadingIds = [],
+  deletingId = null,
 }) {
   const [activeDropdownId, setActiveDropdownId] = useState(null);
   const emptyColSpan = 3;
@@ -70,8 +72,9 @@ export default function UserManagementTable({
                             handleSuspendUser(row.id);
                           }}
                           role="menuitem"
+                          disabled={suspendLoadingIds.includes(row.id) || deletingId === row.id}
                         >
-                          Suspend
+                          {suspendLoadingIds.includes(row.id) ? 'Suspending...' : 'Suspend'}
                         </button>
                         <button
                           type="button"
@@ -81,8 +84,9 @@ export default function UserManagementTable({
                             handleDeleteUser(row.id);
                           }}
                           role="menuitem"
+                          disabled={deletingId === row.id}
                         >
-                          Delete
+                          {deletingId === row.id ? 'Deleting...' : 'Delete'}
                         </button>
                       </div>
                     )}

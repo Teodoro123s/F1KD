@@ -32,6 +32,8 @@ async function ensure() {
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
 
+
+
     `CREATE TABLE IF NOT EXISTS communities (
       id INT AUTO_INCREMENT PRIMARY KEY,
       community_code VARCHAR(20) NOT NULL UNIQUE,
@@ -172,6 +174,29 @@ async function ensure() {
   }
 }
 
-ensure().catch((err) => console.error('DB init error', err));
+const bcrypt = require('bcrypt');
+
+async function ensureDefaultAdmin() {
+  try {
+    const [rows] = await pool.query('SELECT COUNT(*) AS cnt FROM users');
+    const cnt = rows[0].cnt || 0;
+    if (cnt === 0) {
+      const email = process.env.DEFAULT_ADMIN_EMAIL || 'Superadmin@gmail.com';
+      const plain = process.env.DEFAULT_ADMIN_PASSWORD || 'Welcome123!';
+      const hash = await bcrypt.hash(plain, 10);
+      await pool.query(
+        `INSERT INTO users (first_name, last_name, email, role, status, password_hash) VALUES (?, ?, ?, ?, ?, ?)`,
+        ['Super', 'Admin', email, 'Superadmin', 'Active', hash]
+      );
+      console.info('Default admin user created:', email, '(password from DEFAULT_ADMIN_PASSWORD or Welcome123!)');
+    }
+  } catch (err) {
+    console.error('Failed to ensure default admin', err);
+  }
+}
+
+ensure().catch((err) => console.error('DB init error', err)).finally(() => {
+  ensureDefaultAdmin();
+});
 
 module.exports = pool;

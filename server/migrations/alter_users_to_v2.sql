@@ -29,11 +29,7 @@ ALTER TABLE users
   MODIFY COLUMN role VARCHAR(120) NOT NULL DEFAULT 'Superadmin',
   MODIFY COLUMN status ENUM('Active','Suspended') NOT NULL DEFAULT 'Active';
 
--- Add optional temp plaintext password storage (development only)
-ALTER TABLE users
-  ADD COLUMN temp_plain_password VARCHAR(255) DEFAULT NULL,
-  ADD COLUMN temp_password_expires_at DATETIME DEFAULT NULL;
-
+-- (Removed dev-only temp plaintext password storage)
 -- Add stored generated full name column for convenience (if MySQL supports it)
 ALTER TABLE users
   ADD COLUMN name VARCHAR(255)
@@ -56,4 +52,4 @@ ALTER TABLE users
 -- - If your MySQL/MariaDB version does not support "IF NOT EXISTS" in ADD COLUMN/ADD INDEX,
 --   run the statements individually after checking whether columns/indexes already exist.
 -- - After running this migration, verify the structure in phpMyAdmin (Structure tab) and test the application.
--- - For production, remove temp_plain_password use and prefer returning plaintext only in the API response without persisting it.
+-- - For production, do not store or return plaintext passwords; use secure password reset flows instead.

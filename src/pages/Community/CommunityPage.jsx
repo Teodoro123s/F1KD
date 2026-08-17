@@ -9,6 +9,7 @@ import {
   CreateGroupModal,
   EditGroupModal,
 } from './CommunityModals';
+import { getSummary, createCommunity, createBatch, createGroup } from './communityService';
 import { SearchIcon, PlusIcon, BuildingIcon, GroupsIcon, BatchesIcon } from './CommunityIcons';
 
 export default function CommunityPage() {
@@ -35,12 +36,7 @@ export default function CommunityPage() {
       console.info('[CommunityPage] Fetching community data from database...');
 
       try {
-        const response = await fetch('/api/community/summary');
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: Failed to load community data`);
-        }
-
-        const data = await response.json();
+        const data = await getSummary();
         const normalizedData = {
           communities: data.communities || [],
           batches: data.batches || [],
@@ -365,25 +361,10 @@ export default function CommunityPage() {
 
     try {
       console.info('[CommunityPage] Creating community in database', communityForm);
-      const response = await fetch('/api/community/communities', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: communityForm.name.trim(),
-          area: communityForm.area,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorBody = await response.json().catch(() => ({}));
-        throw new Error(errorBody.error || 'Failed to create community');
-      }
-
-      const data = await response.json();
+      const data = await createCommunity({ name: communityForm.name.trim(), area: communityForm.area });
       console.info('[CommunityPage] Community created successfully', data);
 
-      const summaryResponse = await fetch('/api/community/summary');
-      const summaryData = await summaryResponse.json();
+      const summaryData = await getSummary();
       setCommunities(summaryData.communities || []);
       setBatches(summaryData.batches || []);
       setGroups(summaryData.groups || []);
@@ -422,28 +403,17 @@ export default function CommunityPage() {
 
     try {
       console.info('[CommunityPage] Creating batch in database', batchForm);
-      const response = await fetch('/api/community/batches', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: batchForm.name.trim(),
-          community: batchForm.community,
-          records: Number(batchForm.records) || 0,
-          progress: Number(batchForm.progress) || 0,
-          status: batchForm.status,
-        }),
+      const data = await createBatch({
+        name: batchForm.name.trim(),
+        community: batchForm.community,
+        records: Number(batchForm.records) || 0,
+        progress: Number(batchForm.progress) || 0,
+        status: batchForm.status,
       });
 
-      if (!response.ok) {
-        const errorBody = await response.json().catch(() => ({}));
-        throw new Error(errorBody.error || 'Failed to create batch');
-      }
-
-      const data = await response.json();
       console.info('[CommunityPage] Batch created successfully', data);
 
-      const summaryResponse = await fetch('/api/community/summary');
-      const summaryData = await summaryResponse.json();
+      const summaryData = await getSummary();
       setCommunities(summaryData.communities || []);
       setBatches(summaryData.batches || []);
       setGroups(summaryData.groups || []);
@@ -483,28 +453,17 @@ export default function CommunityPage() {
 
     try {
       console.info('[CommunityPage] Creating group in database', groupForm);
-      const response = await fetch('/api/community/groups', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: groupForm.name.trim(),
-          community: groupForm.community,
-          leader: groupForm.leader.trim(),
-          members: Number(groupForm.members) || 0,
-          status: groupForm.status,
-        }),
+      const data = await createGroup({
+        name: groupForm.name.trim(),
+        community: groupForm.community,
+        leader: groupForm.leader.trim(),
+        members: Number(groupForm.members) || 0,
+        status: groupForm.status,
       });
 
-      if (!response.ok) {
-        const errorBody = await response.json().catch(() => ({}));
-        throw new Error(errorBody.error || 'Failed to create group');
-      }
-
-      const data = await response.json();
       console.info('[CommunityPage] Group created successfully', data);
 
-      const summaryResponse = await fetch('/api/community/summary');
-      const summaryData = await summaryResponse.json();
+      const summaryData = await getSummary();
       setCommunities(summaryData.communities || []);
       setBatches(summaryData.batches || []);
       setGroups(summaryData.groups || []);

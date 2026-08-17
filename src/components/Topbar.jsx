@@ -1,20 +1,19 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatCompactName, getInitials } from '../utils/nameFormat';
-import { signOut } from '../utils/auth';
-
-const user = {
-  name: 'Jonathan Alexander Smith',
-  email: 'jonathan.smith@example.com',
-};
+import { useAuth } from '../auth/AuthProvider';
 
 export default function Topbar() {
   const navigate = useNavigate();
+  const auth = useAuth();
+  const current = auth?.currentUser;
+  const user = current ? { name: current.name, email: current.email, role: current.role } : null;
   const [openNotif, setOpenNotif] = useState(false);
   const [openUser, setOpenUser] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const notifRef = useRef(null);
   const userRef = useRef(null);
-  const displayName = formatCompactName(user.name);
+  const displayName = user ? formatCompactName(user.name) : 'Account';
 
   const notifications = [
     { id: 1, text: 'New user signed up' },
@@ -34,7 +33,13 @@ export default function Topbar() {
   return (
     <header className="topbar">
       <div className="topbar-left">
-        {/* placeholder for breadcrumbs or page title */}
+        {user ? (
+          <div className="topbar-user-info">
+            <div className="topbar-welcome">Welcome, <strong>{displayName}</strong></div>
+          </div>
+        ) : (
+          <div className="topbar-user-info muted">Not signed in</div>
+        )}
       </div>
 
       <div className="topbar-actions">
@@ -42,7 +47,8 @@ export default function Topbar() {
           <button
             className="icon-button"
             aria-label="Notifications"
-            onClick={() => { setOpenNotif((s) => !s); setOpenUser(false); }}
+            onClick={() => { if (signingOut) return; setOpenNotif((s) => !s); setOpenUser(false); }}
+            disabled={signingOut}
           >
             🔔
           </button>
@@ -62,27 +68,52 @@ export default function Topbar() {
         <span className="action-wrapper user-profile" ref={userRef}>
           <button
             className="user-button"
-            aria-label={`Account menu for ${user.name}`}
-            onClick={() => { setOpenUser((s) => !s); setOpenNotif(false); }}
-            title={user.name}
+            aria-label={`Account menu for ${user ? user.name : 'Account'}`}
+            onClick={() => { if (signingOut) return; setOpenUser((s) => !s); setOpenNotif(false); }}
+            title={user ? user.name : 'Account'}
+            disabled={signingOut}
           >
-            <span className="avatar">{getInitials(user.name)}</span>
+            <span className="avatar">{getInitials(user ? user.name : 'Account')}</span>
             <span className="compact-user-name">{displayName}</span>
           </button>
           {openUser && (
-            <div className="dropdown user-dropdown" role="menu" aria-label="User menu">
-              <div className="dropdown-item">Profile</div>
-              <div className="dropdown-item">Settings</div>
-              <div
-                className="dropdown-item"
-                onClick={() => {
-                  signOut();
-                  setOpenUser(false);
-                  navigate('/login');
-                }}
-              >
-                Sign out
-              </div>
+            <div className="dropdown user-dropdown" role="menu" aria-label="User menu" aria-busy={signingOut}>
+              {user ? (
+                <>
+                  <div className="dropdown-item">{user.name}</div>
+                  <div className="dropdown-separator" />
+                  <div className="dropdown-item" role="button" onClick={() => { setOpenUser(false); navigate('/profile'); }}>Profile</div>
+                  <div className="dropdown-item" role="button" onClick={() => { setOpenUser(false); navigate('/settings'); }}>Settings</div>
+                  <div
+                    className="dropdown-item"
+                    onClick={async () => {
+                      if (signingOut) return;
+                      if (!confirm('Sign out?')) return;
+                      try {
+                        setOpenUser(false);
+                        setSigningOut(true);
+                        await Promise.resolve(); // allow state update
+                        auth.logout();
+                        navigate('/login');
+                      } catch (e) {
+                        console.error('Sign out failed', e);
+                      } finally {
+                        setSigningOut(false);
+                      }
+                    }}
+                    aria-busy={signingOut}
+                    role="button"
+                    style={{ opacity: signingOut ? 0.6 : 1, pointerEvents: signingOut ? 'none' : 'auto' }}
+                  >
+                    {signingOut ? '⏳ Signing out...' : 'Sign out'}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="dropdown-item">Not signed in</div>
+                  <div className="dropdown-item" onClick={() => navigate('/login')}>Sign in</div>
+                </>
+              )}
             </div>
           )}
         </span>

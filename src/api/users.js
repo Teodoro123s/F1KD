@@ -1,4 +1,4 @@
-// API helpers for user management (improved error handling and consistent responses)
+﻿// API helpers for user management (improved error handling and consistent responses)
 const API_BASE = (typeof process !== 'undefined' && process.env && process.env.REACT_APP_API_URL)
   ? process.env.REACT_APP_API_URL
   : (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL)
@@ -21,16 +21,26 @@ async function handleResponse(res, defaultMsg) {
   throw err;
 }
 
+function authHeader() {
+  try {
+    const t = localStorage.getItem('auth_token');
+    if (t) return { Authorization: 'Bearer ' + t };
+  } catch (e) {
+    // ignore
+  }
+  return {};
+}
+
 export async function apiGetUsers(page = 1, perPage = 100) {
   const url = `${API_BASE}/api/users?page=${page}&perPage=${perPage}`;
-  const res = await fetch(url, { credentials: 'same-origin' });
+  const res = await fetch(url, { headers: { ...authHeader() }, credentials: 'same-origin' });
   return handleResponse(res, 'Failed to fetch users');
 }
 
 export async function apiCreateUser(payload) {
   const res = await fetch(`${API_BASE}/api/users`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeader() },
     body: JSON.stringify(payload),
     credentials: 'same-origin',
   });
@@ -40,7 +50,7 @@ export async function apiCreateUser(payload) {
 export async function apiUpdateUser(id, payload) {
   const res = await fetch(`${API_BASE}/api/users/${id}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeader() },
     body: JSON.stringify(payload),
     credentials: 'same-origin',
   });
@@ -50,7 +60,7 @@ export async function apiUpdateUser(id, payload) {
 export async function apiPatchUserStatus(id, status) {
   const res = await fetch(`${API_BASE}/api/users/${id}/status`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeader() },
     body: JSON.stringify({ status }),
     credentials: 'same-origin',
   });
@@ -58,6 +68,6 @@ export async function apiPatchUserStatus(id, status) {
 }
 
 export async function apiDeleteUser(id) {
-  const res = await fetch(`${API_BASE}/api/users/${id}`, { method: 'DELETE', credentials: 'same-origin' });
+  const res = await fetch(`${API_BASE}/api/users/${id}`, { method: 'DELETE', headers: { ...authHeader() }, credentials: 'same-origin' });
   return handleResponse(res, 'Failed to delete user');
 }

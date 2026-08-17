@@ -15,13 +15,16 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 1rem;
+  /* match vertical rhythm of nav items for visual alignment */
+  padding: 0.65rem 1rem;
   border-bottom: 1px solid rgba(255,255,255,0.04);
 }
 .sidebar.collapsed .sidebar-top {
   justify-content: center;
 }
-.logo { width: 36px; height: 36px; }
+.logo { width: 36px; height: 36px; /* slight nudge to vertically align with nav icons */
+  margin-top: 2px;
+}
 .brand { font-weight: 600; }
 .collapse-btn {
   margin-left: auto;

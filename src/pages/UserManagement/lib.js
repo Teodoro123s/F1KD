@@ -45,20 +45,27 @@ export const getDobValidationMessage = (value) => {
 };
 
 export const generatePassword = (nextForm) => {
-  let lastName = (nextForm.lastName || '').trim();
-  if (!lastName && nextForm.name) {
+  // Desired format: Surname-like (preserve casing, spaces -> hyphens) + '.' + 3 random digits, e.g. "Sta-Ana.223".
+  // Fall back to parts of name if lastName not provided.
+  let lastNameRaw = (nextForm.lastName || '').trim();
+  if (!lastNameRaw && nextForm.name) {
     const parts = nextForm.name.trim().split(/\s+/);
     if (parts.length > 1) {
-      lastName = parts[parts.length - 1];
+      lastNameRaw = parts[parts.length - 1];
     } else if (parts.length === 1) {
-      lastName = parts[0];
+      lastNameRaw = parts[0];
     }
   }
-  const lastNameClean = lastName.toLowerCase().replace(/\s+/g, '-');
-  const contactNumber = nextForm.contactNumber || nextForm.contact || '';
-  const phoneDigits = contactNumber.replace(/\D/g, '');
-  const lastFourDigits = phoneDigits.slice(-4) || '';
-  let pw = `${lastNameClean}${lastFourDigits}`;
+
+  // Clean surname: keep letters and hyphens, convert spaces to hyphens, preserve original casing
+  let surname = lastNameRaw.replace(/\s+/g, '-').replace(/[^A-Za-z\-]/g, '');
+  if (!surname) surname = 'user';
+
+  // Generate 3 random digits (100-999 to avoid leading zero)
+  const rand3 = Math.floor(100 + Math.random() * 900);
+  let pw = `${surname}.${rand3}`;
+
+  // Ensure minimum length (8) -- append more digits if necessary
   while (pw.length < 8) {
     pw += Math.floor(Math.random() * 10).toString();
   }

@@ -4,6 +4,7 @@ import UserManagementTable from './UserManagementTable';
 import { SearchIcon, PlusIcon, UserCheckIcon, UserXIcon } from './UserManagementIcons';
 import AddUserModal from './UserManagementModal';
 import { useUserManagement } from './useUserManagement';
+import { useAuth } from '../../auth/AuthProvider';
 import RoleFilter from './RoleFilter';
 import Pagination from './Pagination';
 import ConfirmModal from './ConfirmModal';
@@ -45,9 +46,17 @@ export default function UserManagementPage() {
     cancelDelete,
     setForm,
     isSubmitting,
+    suspendLoadingIds,
+    deletingId,
+    apiOnline,
+    retryLoad,
+    oneTimeCredentials,
+    clearOneTimeCredentials,
   } = useUserManagement();
 
   const location = useLocation();
+  const auth = useAuth();
+  const canCreate = auth?.currentUser && ['Superadmin','Admin'].includes(auth.currentUser.role);
 
   useEffect(() => {
     // If navigated here with an editUser in state, open edit modal
@@ -60,7 +69,7 @@ export default function UserManagementPage() {
 
   return (
     <div className="community-page">
-      <NotificationBanner message={notification} />
+      <NotificationBanner message={notification} actionLabel={!apiOnline ? 'Retry' : null} onAction={!apiOnline ? retryLoad : null} />
 
       <header className="community-header">
         <div className="community-title-section">
@@ -76,9 +85,9 @@ export default function UserManagementPage() {
             ))}
           </nav>
         </div>
-        <button className="btn-create btn-create--hero" type="button" onClick={openAddModal}>
+        <button className="btn-create btn-create--hero" type="button" onClick={openAddModal} disabled={!canCreate}>
           <PlusIcon />
-          <span>Add User</span>
+          <span>{canCreate ? 'Add User' : 'Add User (requires Admin)'}</span>
         </button>
       </header>
 
@@ -131,6 +140,21 @@ export default function UserManagementPage() {
         isSubmitting={isSubmitting}
       />
 
+      {oneTimeCredentials && (
+        <div className="one-time-credentials">
+          <h3>One-time credentials (development)</h3>
+          <p>Please copy these credentials now. They will not be shown again.</p>
+          <div className="cred-row">
+            <div><strong>Email:</strong> {oneTimeCredentials.email}</div>
+            <div><strong>Password:</strong> <code>{oneTimeCredentials.password}</code></div>
+          </div>
+          <div className="cred-actions">
+            <button type="button" className="btn-secondary" onClick={() => { navigator.clipboard && navigator.clipboard.writeText(oneTimeCredentials.password); alert('Password copied to clipboard'); }}>Copy password</button>
+            <button type="button" className="btn-primary" onClick={clearOneTimeCredentials}>Dismiss</button>
+          </div>
+        </div>
+      )}
+
       <UserManagementTable
         currentRows={currentRows}
         filteredDataLength={filteredData.length}
@@ -144,6 +168,8 @@ export default function UserManagementPage() {
         openEditUser={openEditUser}
         handleSuspendUser={handleSuspendUser}
         handleDeleteUser={requestDeleteUser}
+        suspendLoadingIds={suspendLoadingIds}
+        deletingId={deletingId}
       />
 
       <Pagination

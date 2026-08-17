@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../db');
 const bcrypt = require('bcrypt');
+const { verifyToken, requireRole } = require('../middleware/auth');
 
 // GET /api/users?search=&role=&status=&page=1&perPage=10
 router.get('/', async (req, res) => {
@@ -42,7 +43,8 @@ router.get('/', async (req, res) => {
 });
 
 // POST /api/users
-router.post('/', async (req, res) => {
+// Require authentication to create users (only Admin/Superadmin allowed in this example)
+router.post('/', verifyToken, requireRole('Superadmin','Admin'), async (req, res) => {
   try {
     const {
       firstName,
@@ -63,10 +65,17 @@ router.post('/', async (req, res) => {
     // generate password if none provided
     let plainPassword = password;
     if (!plainPassword || plainPassword.length < 8) {
-      const lastNameClean = (lastName || '').trim().toLowerCase().replace(/\s+/g, '-');
-      const phoneDigits = (contactNumber || '').replace(/\D/g, '');
-      const lastFourDigits = phoneDigits.slice(-4) || '';
-      plainPassword = `${lastNameClean}${lastFourDigits}`;
+      // Desired default format: Surname-like (spaces -> hyphens, keep casing) + '.' + 3 random digits, e.g. "Sta-Ana.223"
+      let lastNameRaw = (lastName || '').trim();
+      if (!lastNameRaw && req.body.name) {
+        const parts = req.body.name.trim().split(/\s+/);
+        if (parts.length > 1) lastNameRaw = parts[parts.length - 1];
+        else if (parts.length === 1) lastNameRaw = parts[0];
+      }
+      let surname = (lastNameRaw || '').replace(/\s+/g, '-').replace(/[^A-Za-z\-]/g, '');
+      if (!surname) surname = 'user';
+      const rand3 = Math.floor(100 + Math.random() * 900);
+      plainPassword = `${surname}.${rand3}`;
       while (plainPassword.length < 8) {
         plainPassword += Math.floor(Math.random() * 10).toString();
       }
@@ -81,8 +90,10 @@ router.post('/', async (req, res) => {
 
     const [rows] = await pool.query('SELECT id, first_name, last_name, middle_initial, contact_number, email, gender, dob, location, role, status, created_at FROM users WHERE id = ?', [result.insertId]);
     const user = rows[0];
-    // return plaintext password only on creation
-    res.status(201).json({ user, plaintextPassword: plainPassword });
+    // For development convenience only: store the plaintext temp password in a DB column when not in production.
+    // Do NOT return plaintext in the API response. The frontend should display the pre-computed password once in the UI.
+    // Return created user WITHOUT plaintext password for security.
+    res.status(201).json({ user });
   } catch (err) {
     console.error(err);
     if (err && err.code === 'ER_DUP_ENTRY') return res.status(400).json({ error: 'Email already exists' });
@@ -104,7 +115,8 @@ router.get('/:id', async (req, res) => {
 });
 
 // PUT /api/users/:id
-router.put('/:id', async (req, res) => {
+// Require authentication to update users
+router.put('/:id', verifyToken, async (req, res) => {
   try {
     const { id } = req.params;
     const {
@@ -155,7 +167,8 @@ router.put('/:id', async (req, res) => {
 });
 
 // DELETE /api/users/:id
-router.delete('/:id', async (req, res) => {
+// Require authentication to delete users (only Superadmin/Admin)
+router.delete('/:id', verifyToken, requireRole('Superadmin','Admin'), async (req, res) => {
   try {
     const { id } = req.params;
     await pool.query('DELETE FROM users WHERE id = ?', [id]);
@@ -167,7 +180,8 @@ router.delete('/:id', async (req, res) => {
 });
 
 // PATCH /api/users/:id/status - toggle or set status
-router.patch('/:id/status', async (req, res) => {
+// Require authentication to change status
+router.patch('/:id/status', verifyToken, requireRole('Superadmin','Admin'), async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
