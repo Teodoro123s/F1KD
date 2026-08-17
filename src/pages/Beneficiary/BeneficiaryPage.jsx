@@ -155,65 +155,69 @@ export default function BeneficiaryPage() {
         )}
       </header>
 
-      <div className="beneficiary-grid">
-        <aside className="beneficiary-communities">
-          <h3>Communities</h3>
-          <ul>
-            <li>
-              <button type="button" className={`community-item${!selectedCommunity ? ' active' : ''}`} onClick={() => { setSelectedCommunity(null); setSelectedBatch(null); }}>
-                All
-              </button>
-            </li>
-            {communitiesList.map((c) => (
-              <li key={c}>
-                <button type="button" className={`community-item${selectedCommunity === c ? ' active' : ''}`} onClick={() => { setSelectedCommunity(c); setSelectedBatch(null); }}>
-                  {c}
+      {isMotherDetail ? (
+        <main className="beneficiary-main-full">
+          <MotherDetailPage selectedMother={selectedMother} onClose={handleCloseMotherDetail} />
+        </main>
+      ) : (
+        <div className="beneficiary-grid">
+          <aside className="beneficiary-communities">
+            <h3>Communities</h3>
+            <ul>
+              <li>
+                <button type="button" className={`community-item${!selectedCommunity ? ' active' : ''}`} onClick={() => { setSelectedCommunity(null); setSelectedBatch(null); }}>
+                  All
                 </button>
               </li>
-            ))}
-          </ul>
-        </aside>
+              {communitiesList.map((c) => (
+                <li key={c}>
+                  <button type="button" className={`community-item${selectedCommunity === c ? ' active' : ''}`} onClick={() => { setSelectedCommunity(c); setSelectedBatch(null); }}>
+                    {c}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </aside>
 
-        <section className="beneficiary-batches">
-          <h3>Batches</h3>
-          <div className="batches-list">
-            <button type="button" className={`batch-item${!selectedBatch ? ' active' : ''}`} onClick={() => setSelectedBatch(null)}>All batches</button>
-            {(selectedCommunity ? (derivedBatches[selectedCommunity] || []) : Object.values(derivedBatches).flat()).map((b) => (
-              <button key={b.id} type="button" className={`batch-item${selectedBatch && selectedBatch.id === b.id ? ' active' : ''}`} onClick={() => setSelectedBatch(b)}>
-                {b.name} <span className="muted">({b.members.length})</span>
-              </button>
-            ))}
-          </div>
-        </section>
+          <section className="beneficiary-batches">
+            <h3>Batches</h3>
+            <div className="batches-list">
+              <button type="button" className={`batch-item${!selectedBatch ? ' active' : ''}`} onClick={() => setSelectedBatch(null)}>All batches</button>
+              {(selectedCommunity ? (derivedBatches[selectedCommunity] || []) : Object.values(derivedBatches).flat()).map((b) => (
+                <button key={b.id} type="button" className={`batch-item${selectedBatch && selectedBatch.id === b.id ? ' active' : ''}`} onClick={() => setSelectedBatch(b)}>
+                  {b.name} <span className="muted">({b.members.length})</span>
+                </button>
+              ))}
+            </div>
+          </section>
 
-        <main className="beneficiary-main">
-          {isMotherDetail ? (
-            <MotherDetailPage selectedMother={selectedMother} onClose={handleCloseMotherDetail} />
-          ) : isCreateMother ? (
-            <CreateMotherPage
-              communities={communities}
-              groups={groups}
-              batches={batches}
-              setCommunities={setCommunities}
-              navigate={navigate}
-            />
-          ) : isCreateChild ? (
-            <CreateChildPage
-              communities={communities}
-              batches={batches}
-              setGroups={setGroups}
-              navigate={navigate}
-            />
-          ) : (
-            <BeneficiaryListPage
-              groups={mothersInSelectedScope}
-              communities={communities}
-              batches={batches}
-              onSelectMother={handleSelectMother}
-            />
-          )}
-        </main>
-      </div>
+          <main className="beneficiary-main">
+            {isCreateMother ? (
+              <CreateMotherPage
+                communities={communities}
+                groups={groups}
+                batches={batches}
+                setCommunities={setCommunities}
+                navigate={navigate}
+              />
+            ) : isCreateChild ? (
+              <CreateChildPage
+                communities={communities}
+                batches={batches}
+                setGroups={setGroups}
+                navigate={navigate}
+              />
+            ) : (
+              <BeneficiaryListPage
+                groups={mothersInSelectedScope}
+                communities={communities}
+                batches={batches}
+                onSelectMother={handleSelectMother}
+              />
+            )}
+          </main>
+        </div>
+      )}
     </div>
   );
 }
