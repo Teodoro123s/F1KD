@@ -29,6 +29,23 @@ export default function BeneficiaryListPage({ communities = [], batches = [], gr
   const filteredData = useMemo(() => {
     const term = (query || '').trim().toLowerCase();
     let data = groups || [];
+
+    // Normalize incoming items: support both 'group' objects and 'mother' objects
+    data = data.map((item) => {
+      if (item && (item.firstName || item.motherId)) {
+        // it's a mother mock object
+        return {
+          id: item.id,
+          name: item.name || `${item.firstName} ${item.lastName}`,
+          community: item.area || item.community || 'Unknown',
+          progress: item.progress ?? 0,
+          original: item,
+        };
+      }
+      // assume group-like object
+      return { id: item.id, name: item.name, community: item.community, progress: item.progress ?? 0, original: item };
+    });
+
     if (selectedStatusFilter !== 'All') {
       data = data.filter((g) => getGroupStatusByProgress(g) === selectedStatusFilter);
     }
