@@ -1,5 +1,5 @@
 import React from 'react';
-import MotherCheckup from './MotherCheckup';
+import { useNavigate } from 'react-router-dom';
 
 const calculateAge = (dobString) => {
   if (!dobString) return 26;
@@ -113,7 +113,13 @@ export default function MotherDetailPage({ selectedMother, onClose }) {
         </div>
       </div>
 
-      <MotherCheckup mother={selectedMother} onCancel={onClose} />
+      <section style={{ marginTop: 18 }}>
+        <h2>Monitoring</h2>
+        <p>This module is separated from the profile. Click below to open the monitoring workspace for this beneficiary (check-ups, assessments, and longitudinal records).</p>
+        <div style={{ marginTop: 12 }}>
+          <button type="button" className="btn-primary" onClick={() => navigate('/monitoring', { state: { mother: selectedMother } })}>Open Monitoring</button>
+        </div>
+      </section>
     </section>
   );
 }
