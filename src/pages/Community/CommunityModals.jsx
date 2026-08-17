@@ -230,25 +230,6 @@ export function CreateGroupModal({ showModal, onClose, groupForm, setGroupForm, 
         </select>
       </div>
       <div className="form-group">
-        <label className="form-label" htmlFor="group-batches">Assigned Batches</label>
-        <select
-          id="group-batches"
-          className="form-select"
-          multiple
-          value={groupForm.assignedBatchIds}
-          onChange={(e) => {
-            const selected = Array.from(e.target.selectedOptions, (option) => option.value);
-            setGroupForm({ ...groupForm, assignedBatchIds: selected });
-          }}
-          size={Math.min(5, availableBatches.length || 1)}
-        >
-          {availableBatches.map((batch) => (
-            <option key={batch.id} value={batch.id}>{batch.name}</option>
-          ))}
-        </select>
-        <small className="form-hint">Select batches for this group.</small>
-      </div>
-      <div className="form-group">
         <label className="form-label" htmlFor="group-leader">Group Leader</label>
         <input
           id="group-leader"
@@ -306,25 +287,6 @@ export function EditGroupModal({ showModal, onClose, groupForm, setGroupForm, ha
             <option key={comm.id} value={comm.name}>{comm.name}</option>
           ))}
         </select>
-      </div>
-      <div className="form-group">
-        <label className="form-label" htmlFor="edit-group-batches">Assigned Batches</label>
-        <select
-          id="edit-group-batches"
-          className="form-select"
-          multiple
-          value={groupForm.assignedBatchIds}
-          onChange={(e) => {
-            const selected = Array.from(e.target.selectedOptions, (option) => option.value);
-            setGroupForm({ ...groupForm, assignedBatchIds: selected });
-          }}
-          size={Math.min(5, availableBatches.length || 1)}
-        >
-          {availableBatches.map((batch) => (
-            <option key={batch.id} value={batch.id}>{batch.name}</option>
-          ))}
-        </select>
-        <small className="form-hint">Select batches for this group.</small>
       </div>
       <div className="form-group">
         <label className="form-label" htmlFor="edit-group-leader">Group Leader</label>

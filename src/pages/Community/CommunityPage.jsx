@@ -11,103 +11,10 @@ import {
 } from './CommunityModals';
 import { SearchIcon, PlusIcon, BuildingIcon, GroupsIcon, BatchesIcon } from './CommunityIcons';
 
-const initialCommunityData = [
-  { id: 'SCH-0001', name: 'San Isidro High School', area: 'Poblacion', batches: 2, records: 3 },
-  { id: 'SCH-0002', name: 'Poblacion National School', area: 'Poblacion', batches: 1, records: 2 },
-  { id: 'SCH-0003', name: 'Sto. Niño Academy', area: 'Poblacion', batches: 2, records: 4 },
-  { id: 'SCH-0004', name: 'San Jose Elementary', area: 'Upland', batches: 3, records: 8 },
-  { id: 'SCH-0005', name: 'Central City High', area: 'Downtown', batches: 4, records: 12 },
-  { id: 'SCH-0006', name: 'Nueva Technical School', area: 'Coastal', batches: 1, records: 5 },
-  { id: 'SCH-0007', name: 'Kabuntalan Integrated School', area: 'Riverside', batches: 2, records: 7 },
-  { id: 'SCH-0008', name: 'San Miguel Prep', area: 'Highland', batches: 2, records: 6 },
-  { id: 'SCH-0009', name: 'Luntian Elementary', area: 'Forest', batches: 1, records: 3 },
-  { id: 'SCH-0010', name: 'Dela Cruz High School', area: 'Lowland', batches: 5, records: 18 },
-  { id: 'SCH-0011', name: 'Malaya Community School', area: 'Coastal', batches: 1, records: 2 },
-  { id: 'SCH-0012', name: 'Luntian Hills School', area: 'Highland', batches: 3, records: 9 },
-];
-
-const initialBatchesData = [
-  { id: 'BAT-0001', name: 'Batch 1', community: 'San Isidro High School', records: 2, progress: 68, status: 'Active' },
-  { id: 'BAT-0002', name: 'Batch 2', community: 'San Isidro High School', records: 1, progress: 45, status: 'Active' },
-  { id: 'BAT-0003', name: 'Batch 3', community: 'Poblacion National School', records: 2, progress: 92, status: 'Completed' },
-  { id: 'BAT-0004', name: 'Batch 4', community: 'Sto. Niño Academy', records: 2, progress: 100, status: 'Completed' },
-  { id: 'BAT-0005', name: 'Batch 5', community: 'Sto. Niño Academy', records: 2, progress: 57, status: 'Active' },
-  { id: 'BAT-0006', name: 'Batch 6', community: 'San Jose Elementary', records: 3, progress: 18, status: 'Pending' },
-  { id: 'BAT-0007', name: 'Batch 7', community: 'San Jose Elementary', records: 3, progress: 74, status: 'Active' },
-  { id: 'BAT-0008', name: 'Batch 8', community: 'San Jose Elementary', records: 2, progress: 63, status: 'Active' },
-  { id: 'BAT-0009', name: 'Batch 9', community: 'Central City High', records: 4, progress: 88, status: 'Completed' },
-  { id: 'BAT-0010', name: 'Batch 10', community: 'Central City High', records: 3, progress: 41, status: 'Active' },
-  { id: 'BAT-0011', name: 'Batch 11', community: 'Central City High', records: 3, progress: 22, status: 'Pending' },
-  { id: 'BAT-0012', name: 'Batch 12', community: 'Central City High', records: 2, progress: 50, status: 'Active' },
-];
-
-const initialMothersData = [
-  { id: 'MTH-0001', name: 'Lucia Torres', batchId: 'BAT-0001', group: 'Group Alpha', status: 'Active', visits: 3 },
-  { id: 'MTH-0002', name: 'Elaine Cruz', batchId: 'BAT-0001', group: 'Group Alpha', status: 'Pending', visits: 2 },
-  { id: 'MTH-0003', name: 'Nina Santos', batchId: 'BAT-0002', group: 'Group Alpha', status: 'Active', visits: 1 },
-  { id: 'MTH-0004', name: 'Vera Lopez', batchId: 'BAT-0003', group: 'Group Bravo', status: 'Completed', visits: 4 },
-  { id: 'MTH-0005', name: 'Cecilia Diaz', batchId: 'BAT-0004', group: 'Group Delta', status: 'Active', visits: 2 },
-  { id: 'MTH-0006', name: 'Marta Reyes', batchId: 'BAT-0005', group: 'Group Delta', status: 'Pending', visits: 3 },
-  { id: 'MTH-0007', name: 'Rhea Garcia', batchId: 'BAT-0009', group: 'Group Central', status: 'Active', visits: 5 },
-];
-
-const initialGroupsData = [
-  {
-    id: 'GRP-0001',
-    name: 'Group Alpha',
-    community: 'San Isidro High School',
-    assignedBatchIds: ['BAT-0001', 'BAT-0002'],
-    leader: 'Liza Reyes',
-    members: 12,
-    status: 'Active',
-    batches: 2,
-  },
-  {
-    id: 'GRP-0002',
-    name: 'Group Bravo',
-    community: 'Poblacion National School',
-    assignedBatchIds: ['BAT-0003'],
-    leader: 'Marco Santos',
-    members: 8,
-    status: 'Pending',
-    batches: 1,
-  },
-  {
-    id: 'GRP-0003',
-    name: 'Group Delta',
-    community: 'Sto. Niño Academy',
-    assignedBatchIds: ['BAT-0004', 'BAT-0005', 'BAT-0008'],
-    leader: 'Ana Cruz',
-    members: 15,
-    status: 'Active',
-    batches: 3,
-  },
-  {
-    id: 'GRP-0004',
-    name: 'Group Sierra',
-    community: 'San Jose Elementary',
-    assignedBatchIds: [],
-    leader: 'Renato Diaz',
-    members: 6,
-    status: 'Completed',
-    batches: 0,
-  },
-  {
-    id: 'GRP-0005',
-    name: 'Group Central',
-    community: 'Central City High',
-    assignedBatchIds: ['BAT-0009'],
-    leader: 'May Torres',
-    members: 9,
-    status: 'Active',
-    batches: 1,
-  },
-];
-
 export default function CommunityPage() {
-  const [communities, setCommunities] = useState(initialCommunityData);
-  const [batches, setBatches] = useState(initialBatchesData);
-  const [groups, setGroups] = useState(initialGroupsData);
+  const [communities, setCommunities] = useState([]);
+  const [batches, setBatches] = useState([]);
+  const [groups, setGroups] = useState([]);
 
   const [activeTab, setActiveTab] = useState('communities');
   const [query, setQuery] = useState('');
@@ -121,7 +28,48 @@ export default function CommunityPage() {
   const [communityForm, setCommunityForm] = useState({ name: '', area: 'Poblacion' });
   const [groupForm, setGroupForm] = useState({ name: '', community: '', assignedBatchIds: [], leader: '', members: 1, status: 'Active' });
   const [batchForm, setBatchForm] = useState({ name: '', community: '', records: 1, progress: 0, status: 'Active' });
-  const [mothers, setMothers] = useState(initialMothersData);
+  const [mothers, setMothers] = useState([]);
+
+  useEffect(() => {
+    const fetchCommunityData = async () => {
+      console.info('[CommunityPage] Fetching community data from database...');
+
+      try {
+        const response = await fetch('/api/community/summary');
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: Failed to load community data`);
+        }
+
+        const data = await response.json();
+        const normalizedData = {
+          communities: data.communities || [],
+          batches: data.batches || [],
+          groups: data.groups || [],
+          mothers: data.mothers || [],
+        };
+
+        setCommunities(normalizedData.communities);
+        setBatches(normalizedData.batches);
+        setGroups(normalizedData.groups);
+        setMothers(normalizedData.mothers);
+
+        console.info('[CommunityPage] Community data load succeeded', {
+          communities: normalizedData.communities.length,
+          batches: normalizedData.batches.length,
+          groups: normalizedData.groups.length,
+          mothers: normalizedData.mothers.length,
+        });
+
+        if (normalizedData.communities.length === 0) {
+          console.warn('[CommunityPage] No community records were returned from the database.');
+        }
+      } catch (error) {
+        console.error('[CommunityPage] Unable to load community data from database:', error);
+      }
+    };
+
+    fetchCommunityData();
+  }, []);
 
   const navigate = useNavigate();
   const { schoolId, groupId, batchId } = useParams();
@@ -411,25 +359,40 @@ export default function CommunityPage() {
     setShowModal('editBatch');
   };
 
-  const handleCreateCommunity = (e) => {
+  const handleCreateCommunity = async (e) => {
     e.preventDefault();
     if (!communityForm.name.trim()) return;
 
-    const currentMaxId = communities.reduce((max, c) => {
-      const num = parseInt(c.id.split('-')[1], 10);
-      return num > max ? num : max;
-    }, 0);
+    try {
+      console.info('[CommunityPage] Creating community in database', communityForm);
+      const response = await fetch('/api/community/communities', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: communityForm.name.trim(),
+          area: communityForm.area,
+        }),
+      });
 
-    const newCommunity = {
-      id: `COM-${String(currentMaxId + 1).padStart(4, '0')}`,
-      name: communityForm.name.trim(),
-      area: communityForm.area,
-      batches: 0,
-      records: 0,
-    };
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => ({}));
+        throw new Error(errorBody.error || 'Failed to create community');
+      }
 
-    setCommunities((prev) => [newCommunity, ...prev]);
-    setShowModal(null);
+      const data = await response.json();
+      console.info('[CommunityPage] Community created successfully', data);
+
+      const summaryResponse = await fetch('/api/community/summary');
+      const summaryData = await summaryResponse.json();
+      setCommunities(summaryData.communities || []);
+      setBatches(summaryData.batches || []);
+      setGroups(summaryData.groups || []);
+      setMothers(summaryData.mothers || []);
+      setShowModal(null);
+    } catch (error) {
+      console.error('[CommunityPage] Failed to create community:', error);
+      window.alert(error.message || 'Unable to create community.');
+    }
   };
 
   const handleEditCommunity = (e) => {
@@ -453,26 +416,43 @@ export default function CommunityPage() {
     }
   };
 
-  const handleCreateBatch = (e) => {
+  const handleCreateBatch = async (e) => {
     e.preventDefault();
     if (!batchForm.name.trim()) return;
 
-    const currentMaxId = batches.reduce((max, b) => {
-      const num = parseInt(b.id.split('-')[1], 10);
-      return num > max ? num : max;
-    }, 0);
+    try {
+      console.info('[CommunityPage] Creating batch in database', batchForm);
+      const response = await fetch('/api/community/batches', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: batchForm.name.trim(),
+          community: batchForm.community,
+          records: Number(batchForm.records) || 0,
+          progress: Number(batchForm.progress) || 0,
+          status: batchForm.status,
+        }),
+      });
 
-    const newBatch = {
-      id: `BAT-${String(currentMaxId + 1).padStart(4, '0')}`,
-      name: batchForm.name.trim(),
-      community: batchForm.community,
-      records: Number(batchForm.records) || 0,
-      progress: Number(batchForm.progress) || 0,
-      status: batchForm.status,
-    };
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => ({}));
+        throw new Error(errorBody.error || 'Failed to create batch');
+      }
 
-    setBatches((prev) => [newBatch, ...prev]);
-    setShowModal(null);
+      const data = await response.json();
+      console.info('[CommunityPage] Batch created successfully', data);
+
+      const summaryResponse = await fetch('/api/community/summary');
+      const summaryData = await summaryResponse.json();
+      setCommunities(summaryData.communities || []);
+      setBatches(summaryData.batches || []);
+      setGroups(summaryData.groups || []);
+      setMothers(summaryData.mothers || []);
+      setShowModal(null);
+    } catch (error) {
+      console.error('[CommunityPage] Failed to create batch:', error);
+      window.alert(error.message || 'Unable to create batch.');
+    }
   };
 
   const handleEditBatch = (e) => {
@@ -497,28 +477,43 @@ export default function CommunityPage() {
     setSelectedItem(null);
   };
 
-  const handleCreateGroup = (e) => {
+  const handleCreateGroup = async (e) => {
     e.preventDefault();
     if (!groupForm.name.trim()) return;
 
-    const currentMaxId = groups.reduce((max, g) => {
-      const num = parseInt(g.id.split('-')[1], 10);
-      return num > max ? num : max;
-    }, 0);
+    try {
+      console.info('[CommunityPage] Creating group in database', groupForm);
+      const response = await fetch('/api/community/groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: groupForm.name.trim(),
+          community: groupForm.community,
+          leader: groupForm.leader.trim(),
+          members: Number(groupForm.members) || 0,
+          status: groupForm.status,
+        }),
+      });
 
-    const newGroup = {
-      id: `GRP-${String(currentMaxId + 1).padStart(4, '0')}`,
-      name: groupForm.name.trim(),
-      community: groupForm.community,
-      assignedBatchIds: groupForm.assignedBatchIds || [],
-      leader: groupForm.leader.trim(),
-      members: Number(groupForm.members) || 0,
-      status: groupForm.status,
-      batches: (groupForm.assignedBatchIds?.length ?? 0),
-    };
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => ({}));
+        throw new Error(errorBody.error || 'Failed to create group');
+      }
 
-    setGroups((prev) => [newGroup, ...prev]);
-    setShowModal(null);
+      const data = await response.json();
+      console.info('[CommunityPage] Group created successfully', data);
+
+      const summaryResponse = await fetch('/api/community/summary');
+      const summaryData = await summaryResponse.json();
+      setCommunities(summaryData.communities || []);
+      setBatches(summaryData.batches || []);
+      setGroups(summaryData.groups || []);
+      setMothers(summaryData.mothers || []);
+      setShowModal(null);
+    } catch (error) {
+      console.error('[CommunityPage] Failed to create group:', error);
+      window.alert(error.message || 'Unable to create group.');
+    }
   };
 
   const handleEditGroup = (e) => {
