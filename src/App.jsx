@@ -1,10 +1,14 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
+import { MothersProvider } from './context/MothersContext';
 import Dashboard from './pages/Dashboard';
 import CommunityPage from './pages/Community/CommunityPage';
 import Beneficiary from './pages/Beneficiary/BeneficiaryPage';
-import Monitoring from './pages/Monitoring';
+import Monitoring from './pages/Monitoring/Monitoring';
+import MotherMonitoringPage from './pages/Beneficiary/mother/MotherMonitoringPage';
+import ChildProfilePage from './pages/Beneficiary/child/ChildProfilePage';
+import EditMotherPage from './pages/Beneficiary/mother/EditMotherPage';
 import Program from './pages/Program';
 import ProgressReport from './pages/ProgressReport';
 import UserManagementPage from './pages/UserManagement/UserManagementPage';
@@ -32,9 +36,11 @@ export default function App() {
         path="/*"
         element={
           <RequireAuth>
+          <MothersProvider>
             <Layout />
-          </RequireAuth>
-        }
+          </MothersProvider>
+        </RequireAuth>
+      }
       >
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="community" element={<CommunityPage />} />
@@ -44,6 +50,10 @@ export default function App() {
         <Route path="beneficiary" element={<Beneficiary />} />
         <Route path="beneficiary/create/mother" element={<Beneficiary />} />
         <Route path="beneficiary/create/child" element={<Beneficiary />} />
+        <Route path="beneficiary/mother/:id/child" element={<ChildProfilePage />} />
+        <Route path="beneficiary/child/:childId" element={<ChildProfilePage />} />
+        <Route path="beneficiary/mother/:id/monitoring" element={<MotherMonitoringPage />} />
+        <Route path="beneficiary/mother/:id/edit" element={<EditMotherPage />} />
         <Route path="monitoring" element={<Monitoring />} />
         <Route path="program" element={<Program />} />
         <Route path="progress-report" element={<ProgressReport />} />

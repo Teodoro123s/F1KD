@@ -27,6 +27,18 @@ export async function createCommunity(payload) {
   });
 }
 
+export async function updateCommunity(id, payload) {
+  return requestJson(`/api/community/communities/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteCommunity(id) {
+  return requestJson(`/api/community/communities/${id}`, { method: 'DELETE' });
+}
+
 export async function createBatch(payload) {
   return requestJson('/api/community/batches', {
     method: 'POST',
@@ -35,10 +47,34 @@ export async function createBatch(payload) {
   });
 }
 
+export async function updateBatch(id, payload) {
+  return requestJson(`/api/community/batches/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteBatch(id) {
+  return requestJson(`/api/community/batches/${id}`, { method: 'DELETE' });
+}
+
 export async function createGroup(payload) {
   return requestJson('/api/community/groups', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
+}
+
+export async function updateGroup(id, payload) {
+  return requestJson(`/api/community/groups/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteGroup(id) {
+  return requestJson(`/api/community/groups/${id}`, { method: 'DELETE' });
 }

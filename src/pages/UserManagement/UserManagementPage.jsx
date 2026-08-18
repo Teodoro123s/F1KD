@@ -1,7 +1,7 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import UserManagementTable from './UserManagementTable';
-import { SearchIcon, PlusIcon, UserCheckIcon, UserXIcon } from './UserManagementIcons';
+import { SearchIcon, FilterIcon, PlusIcon, UserCheckIcon, UserXIcon } from './UserManagementIcons';
 import AddUserModal from './UserManagementModal';
 import { useUserManagement } from './useUserManagement';
 import { useAuth } from '../../auth/AuthProvider';
@@ -53,6 +53,8 @@ export default function UserManagementPage() {
     oneTimeCredentials,
     clearOneTimeCredentials,
   } = useUserManagement();
+
+  const [searchScope, setSearchScope] = useState('Account');
 
   const location = useLocation();
   const auth = useAuth();
@@ -116,6 +118,11 @@ export default function UserManagementPage() {
           />
 
           <div className="search-container">
+            <button type="button" className="entity-filter-btn" onClick={() => setSearchScope((s) => (s === 'Account' ? 'Role' : 'Account'))} aria-label="Toggle search scope">
+              <FilterIcon />
+              <span className="filter-label">{searchScope}</span>
+              <span className="caret">▾</span>
+            </button>
             <SearchIcon />
             <input
               type="text"

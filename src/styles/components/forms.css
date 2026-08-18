@@ -15,3 +15,50 @@
 .form-checkboxes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.75rem; padding: 0.5rem 0; grid-column: 1 / -1; }
 .form-checkbox-label { display: flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; color: #334155; cursor: pointer; user-select: none; }
 .form-checkbox { width: 16px; height: 16px; accent-color: var(--burgundy); cursor: pointer; }
+
+.mother-detail-page, .child-detail-page { display: flex; flex-direction: column; gap: 1rem; width: 100%; max-width: 1000px; margin: 0 auto; }
+.mother-detail-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.75rem; }
+.mother-detail-identity { display: flex; flex-direction: column; gap: 0.2rem; }
+.mother-detail-name { margin: 0; font-size: 1.5rem; font-weight: 800; color: #0f172a; }
+.mother-detail-meta { font-size: 0.85rem; color: #64748b; }
+.mother-detail-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.mother-detail-section, .child-detail-section { background: rgba(255,255,255,0.7); border: 1px solid #e2e8f0; border-radius: 10px; padding: 1rem 1.15rem 1.1rem; }
+.mother-detail-section-title, .child-detail-section-title { margin: 0 0 0.9rem; color: #8b1e2d; text-transform: uppercase; letter-spacing: 0.02em; font-size: 0.9rem; font-weight: 800; }
+.mother-detail-grid, .child-detail-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.9rem 1rem; }
+.child-detail-grid--full, .mother-detail-grid--full { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.detail-form-field { display: flex; flex-direction: column; gap: 0.35rem; min-width: 0; }
+.detail-form-label { font-size: 0.7rem; font-weight: 800; color: #475569; letter-spacing: 0.04em; text-transform: uppercase; }
+.detail-form-value { min-height: 2.5rem; display: flex; align-items: center; padding: 0.7rem 0.8rem; border: 1px solid #dfe5ee; border-radius: 8px; background: #f8fafc; color: #0f172a; font-size: 0.92rem; line-height: 1.4; white-space: normal; overflow-wrap: anywhere; }
+.detail-form-field.full-width { grid-column: 1 / -1; }
+.detail-form-value.empty { color: #94a3b8; }
+.mother-detail-chip-list { display: flex; flex-wrap: wrap; gap: 0.45rem; padding: 0.65rem 0.75rem; border: 1px solid #dfe5ee; border-radius: 8px; background: #f8fafc; min-height: 2.8rem; }
+.mother-detail-chip { display: inline-flex; align-items: center; padding: 0.35rem 0.55rem; border: 1px solid #d9c3c8; border-radius: 999px; background: #fff; color: #7a1026; font-size: 0.72rem; font-weight: 700; text-transform: capitalize; }
+.mother-detail-empty { min-height: 2.8rem; display: flex; align-items: center; padding: 0.7rem 0.8rem; border: 1px solid #dfe5ee; border-radius: 8px; background: #f8fafc; color: #94a3b8; }
+.mother-detail-table-wrap { overflow: hidden; border: 1px solid #e2e8f0; border-radius: 10px; }
+.mother-detail-table { width: 100%; border-collapse: collapse; background: #fff; }
+.mother-detail-table th, .mother-detail-table td { padding: 0.75rem 0.8rem; border-bottom: 1px solid #e2e8f0; text-align: left; font-size: 0.88rem; }
+.mother-detail-table th { background: #f8fafc; color: #475569; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; }
+.mother-detail-table tr:last-child td { border-bottom: none; }
+.mother-detail-empty-row { color: #64748b; text-align: center; }
+
+@media (max-width: 900px) {
+  .mother-detail-grid, .child-detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 640px) {
+  .mother-detail-header { flex-direction: column; align-items: flex-start; }
+  .mother-detail-grid, .child-detail-grid { grid-template-columns: 1fr; }
+  .mother-detail-grid--full, .child-detail-grid--full { grid-template-columns: 1fr; }
+  .mother-detail-section, .child-detail-section { padding: 0.9rem; }
+}
+
+@media (max-width: 900px) {
+  .mother-detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 640px) {
+  .mother-detail-header { flex-direction: column; align-items: flex-start; }
+  .mother-detail-grid { grid-template-columns: 1fr; }
+  .mother-detail-grid--full { grid-template-columns: 1fr; }
+  .mother-detail-section { padding: 0.9rem; }
+}

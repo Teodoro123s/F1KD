@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { PlusIcon } from './BeneficiaryIcons';
-import CreateMotherPage from './CreateMotherPage';
-import CreateChildPage from './CreateChildPage';
+import CreateMotherPage from './mother/CreateMotherPage';
+import CreateChildPage from './child/CreateChildPage';
 import BeneficiaryListPage from './BeneficiaryListPage';
-import MotherDetailPage from './MotherDetailPage';
-import { initialCommunityData, initialBatchesData, initialGroupsData } from '../../utils/mockData';
+import MotherDetailPage from './mother/MotherDetailPage';
+import { initialBatchesData, initialGroupsData } from '../../utils/mockData';
+import { useMothers } from '../../context/MothersContext';
 
 export default function BeneficiaryPage() {
   // Use the existing mock data for mothers list (initialCommunityData contains mother records)
-  const [mothers, setMothers] = useState(initialCommunityData);
+  const { mothers, setMothers } = useMothers();
   const [groups, setGroups] = useState(initialGroupsData);
   const [batches] = useState(initialBatchesData);
   const [createDropdownOpen, setCreateDropdownOpen] = useState(false);
@@ -45,12 +46,25 @@ export default function BeneficiaryPage() {
   const isCreateChild = location.pathname.includes('/beneficiary/create/child');
   const isMotherDetail = Boolean(selectedMother);
 
+  // If navigation includes a mother in state (e.g., navigating from child pages or external links), ensure the selectedMother is populated
+  React.useEffect(() => {
+    const navMother = location.state?.mother || null;
+    if (location.pathname.startsWith('/beneficiary/mother/') && navMother) {
+      setSelectedMother(navMother);
+    }
+  }, [location.pathname, location.state]);
+
   const handleSelectMother = (mother) => {
     setSelectedMother(mother);
   };
 
   const handleCloseMotherDetail = () => {
     setSelectedMother(null);
+  };
+
+  const handleSelectChild = (child) => {
+    // Navigate to child detail page. Pass child in state for immediate display.
+    navigate(`/beneficiary/child/${child.id}`, { state: { child, mother: child.mother || child.original?.mother || null } });
   };
 
   return (
@@ -82,14 +96,12 @@ export default function BeneficiaryPage() {
       </header>
 
       <main className="beneficiary-main">
-        {isMotherDetail ? (
-          <MotherDetailPage selectedMother={selectedMother} onClose={handleCloseMotherDetail} />
-        ) : isCreateMother ? (
+        {/* Check create routes before showing selected mother detail so navigation to create pages works even when a mother is selected */}
+        {isCreateMother ? (
           <CreateMotherPage
             communities={mothers}
             groups={groups}
             batches={batches}
-            setCommunities={setMothers}
             navigate={navigate}
           />
         ) : isCreateChild ? (
@@ -99,12 +111,15 @@ export default function BeneficiaryPage() {
             setGroups={setGroups}
             navigate={navigate}
           />
+        ) : isMotherDetail ? (
+          <MotherDetailPage selectedMother={selectedMother} onClose={handleCloseMotherDetail} />
         ) : (
           <BeneficiaryListPage
             groups={mothers}
             communities={mothers}
             batches={batches}
             onSelectMother={handleSelectMother}
+            onSelectChild={handleSelectChild}
           />
         )}
       </main>

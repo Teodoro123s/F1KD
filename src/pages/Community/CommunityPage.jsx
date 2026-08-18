@@ -9,7 +9,18 @@ import {
   CreateGroupModal,
   EditGroupModal,
 } from './CommunityModals';
-import { getSummary, createCommunity, createBatch, createGroup } from './communityService';
+import {
+  getSummary,
+  createCommunity,
+  updateCommunity,
+  deleteCommunity,
+  createBatch,
+  updateBatch,
+  deleteBatch,
+  createGroup,
+  updateGroup,
+  deleteGroup,
+} from './communityService';
 import { SearchIcon, PlusIcon, BuildingIcon, GroupsIcon, BatchesIcon } from './CommunityIcons';
 
 export default function CommunityPage() {
@@ -376,24 +387,45 @@ export default function CommunityPage() {
     }
   };
 
-  const handleEditCommunity = (e) => {
+  const handleEditCommunity = async (e) => {
     e.preventDefault();
     if (!communityForm.name.trim()) return;
 
-    setCommunities((prev) =>
-      prev.map((c) =>
-        c.id === selectedItem.id
-          ? { ...c, name: communityForm.name.trim(), area: communityForm.area }
-          : c
-      )
-    );
-    setShowModal(null);
-    setSelectedItem(null);
+    try {
+      const data = await updateCommunity(selectedItem.id, {
+        name: communityForm.name.trim(),
+        area: communityForm.area,
+      });
+
+      const summaryData = await getSummary();
+      setCommunities(summaryData.communities || []);
+      setBatches(summaryData.batches || []);
+      setGroups(summaryData.groups || []);
+      setMothers(summaryData.mothers || []);
+      setShowModal(null);
+      setSelectedItem(null);
+      console.info('[CommunityPage] Community updated in DB', data);
+    } catch (error) {
+      console.error('[CommunityPage] Failed to update community:', error);
+      window.alert(error.message || 'Unable to update community.');
+    }
   };
 
-  const handleDeleteCommunity = (id) => {
-    if (window.confirm('Are you sure you want to delete this community?')) {
-      setCommunities((prev) => prev.filter((c) => c.id !== id));
+  const handleDeleteCommunity = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this community?')) {
+      return;
+    }
+
+    try {
+      await deleteCommunity(id);
+      const summaryData = await getSummary();
+      setCommunities(summaryData.communities || []);
+      setBatches(summaryData.batches || []);
+      setGroups(summaryData.groups || []);
+      setMothers(summaryData.mothers || []);
+    } catch (error) {
+      console.error('[CommunityPage] Failed to delete community:', error);
+      window.alert(error.message || 'Unable to delete community.');
     }
   };
 
@@ -425,26 +457,30 @@ export default function CommunityPage() {
     }
   };
 
-  const handleEditBatch = (e) => {
+  const handleEditBatch = async (e) => {
     e.preventDefault();
     if (!batchForm.name.trim()) return;
 
-    setBatches((prev) =>
-      prev.map((b) =>
-        b.id === selectedItem.id
-          ? {
-              ...b,
-              name: batchForm.name.trim(),
-              community: batchForm.community,
-              records: Number(batchForm.records) || 0,
-              progress: Number(batchForm.progress) || 0,
-              status: batchForm.status,
-            }
-          : b
-      )
-    );
-    setShowModal(null);
-    setSelectedItem(null);
+    try {
+      await updateBatch(selectedItem.id, {
+        name: batchForm.name.trim(),
+        community: batchForm.community,
+        records: Number(batchForm.records) || 0,
+        progress: Number(batchForm.progress) || 0,
+        status: batchForm.status,
+      });
+
+      const summaryData = await getSummary();
+      setCommunities(summaryData.communities || []);
+      setBatches(summaryData.batches || []);
+      setGroups(summaryData.groups || []);
+      setMothers(summaryData.mothers || []);
+      setShowModal(null);
+      setSelectedItem(null);
+    } catch (error) {
+      console.error('[CommunityPage] Failed to update batch:', error);
+      window.alert(error.message || 'Unable to update batch.');
+    }
   };
 
   const handleCreateGroup = async (e) => {
@@ -475,39 +511,65 @@ export default function CommunityPage() {
     }
   };
 
-  const handleEditGroup = (e) => {
+  const handleEditGroup = async (e) => {
     e.preventDefault();
     if (!groupForm.name.trim()) return;
 
-    setGroups((prev) =>
-      prev.map((g) =>
-        g.id === selectedItem.id
-          ? {
-              ...g,
-              name: groupForm.name.trim(),
-              community: groupForm.community,
-              assignedBatchIds: groupForm.assignedBatchIds || [],
-              leader: groupForm.leader.trim(),
-              members: Number(groupForm.members) || 0,
-              status: groupForm.status,
-              batches: (groupForm.assignedBatchIds?.length ?? 0),
-            }
-          : g
-      )
-    );
-    setShowModal(null);
-    setSelectedItem(null);
-  };
+    try {
+      await updateGroup(selectedItem.id, {
+        name: groupForm.name.trim(),
+        community: groupForm.community,
+        leader: groupForm.leader.trim(),
+        members: Number(groupForm.members) || 0,
+        status: groupForm.status,
+      });
 
-  const handleDeleteBatch = (id) => {
-    if (window.confirm('Are you sure you want to delete this batch?')) {
-      setBatches((prev) => prev.filter((b) => b.id !== id));
+      const summaryData = await getSummary();
+      setCommunities(summaryData.communities || []);
+      setBatches(summaryData.batches || []);
+      setGroups(summaryData.groups || []);
+      setMothers(summaryData.mothers || []);
+      setShowModal(null);
+      setSelectedItem(null);
+    } catch (error) {
+      console.error('[CommunityPage] Failed to update group:', error);
+      window.alert(error.message || 'Unable to update group.');
     }
   };
 
-  const handleDeleteGroup = (id) => {
-    if (window.confirm('Are you sure you want to delete this group?')) {
-      setGroups((prev) => prev.filter((g) => g.id !== id));
+  const handleDeleteBatch = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this batch?')) {
+      return;
+    }
+
+    try {
+      await deleteBatch(id);
+      const summaryData = await getSummary();
+      setCommunities(summaryData.communities || []);
+      setBatches(summaryData.batches || []);
+      setGroups(summaryData.groups || []);
+      setMothers(summaryData.mothers || []);
+    } catch (error) {
+      console.error('[CommunityPage] Failed to delete batch:', error);
+      window.alert(error.message || 'Unable to delete batch.');
+    }
+  };
+
+  const handleDeleteGroup = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this group?')) {
+      return;
+    }
+
+    try {
+      await deleteGroup(id);
+      const summaryData = await getSummary();
+      setCommunities(summaryData.communities || []);
+      setBatches(summaryData.batches || []);
+      setGroups(summaryData.groups || []);
+      setMothers(summaryData.mothers || []);
+    } catch (error) {
+      console.error('[CommunityPage] Failed to delete group:', error);
+      window.alert(error.message || 'Unable to delete group.');
     }
   };
 

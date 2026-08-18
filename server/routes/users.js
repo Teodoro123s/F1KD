@@ -4,6 +4,21 @@ const pool = require('../db');
 const bcrypt = require('bcrypt');
 const { verifyToken, requireRole } = require('../middleware/auth');
 
+function normalizeDbStatus(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized) return 'active';
+  if (['active', 'enabled'].includes(normalized)) return 'active';
+  if (['suspended', 'inactive', 'disabled'].includes(normalized)) return 'inactive';
+  if (['pending'].includes(normalized)) return 'pending';
+  return 'active';
+}
+
+// Helper: normalize searchable name/value
+function nameLike(column) {
+  // use COALESCE to prefer full_name, fall back to username
+  return `COALESCE(full_name, username)`;
+}
+
 // GET /api/users?search=&role=&status=&page=1&perPage=10
 router.get('/', async (req, res) => {
   try {
@@ -13,8 +28,9 @@ router.get('/', async (req, res) => {
     const filters = [];
     const params = [];
     if (search) {
-      filters.push("(CONCAT(first_name, ' ', IFNULL(middle_initial,''), ' ', last_name) LIKE ? OR email LIKE ?)");
-      params.push(`%${search}%`, `%${search}%`);
+      filters.push(`( ${nameLike()} LIKE ? OR email LIKE ? OR username LIKE ? )`);
+      const s = `%${search}%`;
+      params.push(s, s, s);
     }
     if (role) {
       filters.push('role = ?');
@@ -31,7 +47,7 @@ router.get('/', async (req, res) => {
     const total = countRows[0].total || 0;
 
     const [rows] = await pool.query(
-      `SELECT id, first_name, last_name, middle_initial, contact_number, email, gender, dob, location, role, status, created_at, updated_at FROM users ${where} ORDER BY id DESC LIMIT ? OFFSET ?`,
+      `SELECT id, username, full_name, email, role, status, created_at, updated_at FROM users ${where} ORDER BY id DESC LIMIT ? OFFSET ?`,
       [...params, Number(perPage), Number(offset)]
     );
 
@@ -47,56 +63,47 @@ router.get('/', async (req, res) => {
 router.post('/', verifyToken, requireRole('Superadmin','Admin'), async (req, res) => {
   try {
     const {
+      username,
+      email,
+      password,
+      fullName,
       firstName,
       lastName,
-      middleInitial,
-      contactNumber,
-      email,
-      gender,
-      dob,
-      location,
       role,
       status,
-      password,
     } = req.body;
 
-    if (!firstName || !lastName || !email) return res.status(400).json({ error: 'firstName, lastName and email are required' });
+    // build username and full_name from provided fields if necessary
+    const userName = username || (email ? email.split('@')[0] : null);
+    const full_name = fullName || (firstName || lastName ? `${(firstName||'').trim()} ${(lastName||'').trim()}`.trim() : null);
+
+    if (!userName || !email) return res.status(400).json({ error: 'username and email are required' });
 
     // generate password if none provided
     let plainPassword = password;
     if (!plainPassword || plainPassword.length < 8) {
-      // Desired default format: Surname-like (spaces -> hyphens, keep casing) + '.' + 3 random digits, e.g. "Sta-Ana.223"
-      let lastNameRaw = (lastName || '').trim();
-      if (!lastNameRaw && req.body.name) {
-        const parts = req.body.name.trim().split(/\s+/);
-        if (parts.length > 1) lastNameRaw = parts[parts.length - 1];
-        else if (parts.length === 1) lastNameRaw = parts[0];
-      }
-      let surname = (lastNameRaw || '').replace(/\s+/g, '-').replace(/[^A-Za-z\-]/g, '');
-      if (!surname) surname = 'user';
       const rand3 = Math.floor(100 + Math.random() * 900);
-      plainPassword = `${surname}.${rand3}`;
+      plainPassword = `${userName}.${rand3}`;
       while (plainPassword.length < 8) {
         plainPassword += Math.floor(Math.random() * 10).toString();
       }
     }
     const hash = await bcrypt.hash(plainPassword, 10);
 
+    const dbStatus = normalizeDbStatus(status || 'active');
     const [result] = await pool.query(
-      `INSERT INTO users (first_name, last_name, middle_initial, contact_number, email, gender, dob, location, role, status, password_hash)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [firstName, lastName, middleInitial || null, contactNumber || null, email, gender || 'Male', dob || null, location || null, role || null, status || 'Active', hash]
+      `INSERT INTO users (username, email, full_name, role, status, password_hash)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [userName, email, full_name || null, role || 'user', dbStatus, hash]
     );
 
-    const [rows] = await pool.query('SELECT id, first_name, last_name, middle_initial, contact_number, email, gender, dob, location, role, status, created_at FROM users WHERE id = ?', [result.insertId]);
+    const [rows] = await pool.query('SELECT id, username, full_name, email, role, status, created_at FROM users WHERE id = ?', [result.insertId]);
     const user = rows[0];
-    // For development convenience only: store the plaintext temp password in a DB column when not in production.
-    // Do NOT return plaintext in the API response. The frontend should display the pre-computed password once in the UI.
     // Return created user WITHOUT plaintext password for security.
     res.status(201).json({ user });
   } catch (err) {
     console.error(err);
-    if (err && err.code === 'ER_DUP_ENTRY') return res.status(400).json({ error: 'Email already exists' });
+    if (err && err.code === 'ER_DUP_ENTRY') return res.status(400).json({ error: 'Email or username already exists' });
     res.status(500).json({ error: 'db error' });
   }
 });
@@ -105,7 +112,7 @@ router.post('/', verifyToken, requireRole('Superadmin','Admin'), async (req, res
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const [rows] = await pool.query('SELECT id, first_name, last_name, middle_initial, contact_number, email, gender, dob, location, role, status, created_at FROM users WHERE id = ?', [id]);
+    const [rows] = await pool.query('SELECT id, username, full_name, email, role, status, created_at FROM users WHERE id = ?', [id]);
     if (!rows.length) return res.status(404).json({ error: 'Not found' });
     res.json(rows[0]);
   } catch (err) {
@@ -120,14 +127,9 @@ router.put('/:id', verifyToken, async (req, res) => {
   try {
     const { id } = req.params;
     const {
-      firstName,
-      lastName,
-      middleInitial,
-      contactNumber,
+      username,
       email,
-      gender,
-      dob,
-      location,
+      fullName,
       role,
       status,
       password,
@@ -135,16 +137,11 @@ router.put('/:id', verifyToken, async (req, res) => {
 
     const updates = [];
     const params = [];
-    if (firstName) { updates.push('first_name = ?'); params.push(firstName); }
-    if (lastName) { updates.push('last_name = ?'); params.push(lastName); }
-    if (middleInitial !== undefined) { updates.push('middle_initial = ?'); params.push(middleInitial || null); }
-    if (contactNumber !== undefined) { updates.push('contact_number = ?'); params.push(contactNumber || null); }
+    if (username) { updates.push('username = ?'); params.push(username); }
     if (email) { updates.push('email = ?'); params.push(email); }
-    if (gender) { updates.push('gender = ?'); params.push(gender); }
-    if (dob !== undefined) { updates.push('dob = ?'); params.push(dob || null); }
-    if (location !== undefined) { updates.push('location = ?'); params.push(location); }
+    if (fullName !== undefined) { updates.push('full_name = ?'); params.push(fullName || null); }
     if (role !== undefined) { updates.push('role = ?'); params.push(role); }
-    if (status !== undefined) { updates.push('status = ?'); params.push(status); }
+    if (status !== undefined) { updates.push('status = ?'); params.push(normalizeDbStatus(status)); }
 
     if (password) {
       const hash = await bcrypt.hash(password, 10);
@@ -158,7 +155,7 @@ router.put('/:id', verifyToken, async (req, res) => {
     const sql = `UPDATE users SET ${updates.join(', ')} WHERE id = ?`;
     await pool.query(sql, params);
 
-    const [rows] = await pool.query('SELECT id, first_name, last_name, middle_initial, contact_number, email, gender, dob, location, role, status, updated_at FROM users WHERE id = ?', [id]);
+    const [rows] = await pool.query('SELECT id, username, full_name, email, role, status, updated_at FROM users WHERE id = ?', [id]);
     res.json(rows[0]);
   } catch (err) {
     console.error(err);
@@ -186,8 +183,9 @@ router.patch('/:id/status', verifyToken, requireRole('Superadmin','Admin'), asyn
     const { id } = req.params;
     const { status } = req.body;
     if (!status) return res.status(400).json({ error: 'status required' });
-    await pool.query('UPDATE users SET status = ? WHERE id = ?', [status, id]);
-    res.json({ ok: true });
+    const dbStatus = normalizeDbStatus(status);
+    await pool.query('UPDATE users SET status = ? WHERE id = ?', [dbStatus, id]);
+    res.json({ ok: true, status: dbStatus });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'db error' });

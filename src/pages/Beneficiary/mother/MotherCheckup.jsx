@@ -1,5 +1,123 @@
-export { default } from './mother/MotherCheckup';
-export * from './mother/MotherCheckup';
+import React, { useEffect, useMemo, useState } from 'react';
+import StepWizard from '../../../components/StepWizard';
+
+const TRIMESTERS = [
+  { label: '1st Trimester', code: 'T1' },
+  { label: '2nd Trimester', code: 'T2' },
+  { label: '3rd Trimester', code: 'T3' },
+];
+
+const CHECKUPS = TRIMESTERS.flatMap((trimester, trimesterIndex) =>
+  [1, 2, 3].map((checkupNumber) => ({
+    key: `${trimester.code}-${checkupNumber}`,
+    trimesterLabel: trimester.label,
+    trimesterCode: trimester.code,
+    checkupNumber,
+    stepIndex: trimesterIndex * 3 + checkupNumber - 1,
+  }))
+);
+
+const getTrimesterIndex = (trimester) => {
+  const index = TRIMESTERS.findIndex((item) => item.label === trimester);
+  return index === -1 ? 0 : index;
+};
+
+const getInitialStep = (trimester) => getTrimesterIndex(trimester) * 3;
+
+const formatDate = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toISOString().split('T')[0];
+};
+
+const calculateBmi = (weight, height) => {
+  const w = parseFloat(weight);
+  const h = parseFloat(height);
+  if (Number.isNaN(w) || Number.isNaN(h) || h <= 0) return '';
+  const meters = h / 100;
+  return (w / (meters * meters)).toFixed(1);
+};
+
+const calculateGestationalAge = (lmpDate, fallbackWeeks) => {
+  if (lmpDate) {
+    const lmp = new Date(lmpDate);
+    if (!Number.isNaN(lmp.getTime())) {
+      const today = new Date();
+      const diffDays = Math.max(0, Math.floor((today - lmp) / (1000 * 60 * 60 * 24)));
+      return Math.floor(diffDays / 7);
+    }
+  }
+
+  const fallback = parseInt(fallbackWeeks, 10);
+  return Number.isNaN(fallback) ? 0 : fallback;
+};
+
+const createInitialFormState = (mother) => ({
+  checkupDate: formatDate(new Date()),
+  gestationalAge: calculateGestationalAge(mother.lmpDate, mother.gestationalAge),
+  bp: mother.prenatalBp || mother.bloodPressure || '',
+  weight: mother.prenatalWeight || mother.weight || '',
+  height: mother.prenatalHeight || mother.height || '',
+  fundalHeight: mother.fundalHeight || '',
+  fhr: mother.fhr || '',
+  serviceProvider: '',
+  nextCheckupDate: '',
+  referral: false,
+  labAssistance: false,
+  amount: '',
+  sourceOfFunds: 'Municipal Fund',
+  facilityType: 'Govt',
+  milkDate: '',
+  milkQuantity: '',
+  remarks: '',
+});
+
+export default function MotherCheckup({ mother, onSave = () => {}, onCancel = () => {} }) {
+  if (!mother) return null;
+
+  const initialStep = getInitialStep(mother.trimester || '1st Trimester');
+  const [activeStep, setActiveStep] = useState(initialStep);
+  const [formState, setFormState] = useState(() => createInitialFormState(mother));
+
+  useEffect(() => {
+    setActiveStep(getInitialStep(mother.trimester || '1st Trimester'));
+    setFormState(createInitialFormState(mother));
+  }, [mother]);
+
+  const updateField = (field) => (value) => {
+    setFormState((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const {
+    checkupDate,
+    gestationalAge,
+    bp,
+    weight,
+    height,
+    fundalHeight,
+    fhr,
+    serviceProvider,
+    nextCheckupDate,
+    referral,
+    labAssistance,
+    amount,
+    sourceOfFunds,
+    facilityType,
+    milkDate,
+    milkQuantity,
+    remarks,
+  } = formState;
+
+  const bmi = calculateBmi(weight, height);
+
+  const nutritionalStatus = useMemo(() => {
+    const value = parseFloat(bmi);
+    if (Number.isNaN(value)) return 'Normal';
+    if (value < 18.5) return 'Underweight';
+    if (value < 25) return 'Normal';
+    return 'Overweight';
+  }, [bmi]);
 
   const bpWarning = useMemo(() => {
     if (!bp) return null;

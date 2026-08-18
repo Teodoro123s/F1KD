@@ -1,13 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import BeneficiaryTable from './BeneficiaryTable';
-import { SearchIcon, StatusAllIcon, StatusMissingIcon, StatusPendingIcon, StatusDoneIcon } from './BeneficiaryIcons';
-
-const STATUS_OPTIONS = [
-  { key: 'All', label: 'All', icon: StatusAllIcon },
-  { key: 'Missing', label: 'Missing', icon: StatusMissingIcon },
-  { key: 'Pending', label: 'Pending', icon: StatusPendingIcon },
-  { key: 'Done', label: 'Done', icon: StatusDoneIcon },
-];
+import StatusFilterBar from './components/StatusFilterBar';
+import EntitySearchControls from './components/EntitySearchControls';
 
 const getGroupStatusByProgress = (g) => {
   if (!g) return 'Missing';
@@ -17,11 +11,12 @@ const getGroupStatusByProgress = (g) => {
   return 'Pending';
 };
 
-export default function BeneficiaryListPage({ communities = [], batches = [], groups = [], onSelectMother }) {
+export default function BeneficiaryListPage({ communities = [], batches = [], groups = [], onSelectMother, onSelectChild }) {
   const [query, setQuery] = useState('');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('All');
   const [perPage, setPerPage] = useState(10);
   const [page, setPage] = useState(1);
+  const [selectedEntityFilter, setSelectedEntityFilter] = useState('Mother');
 
   const handleSearch = (val) => { setQuery(val); setPage(1); };
   const handlePerPageChange = (val) => { setPerPage(Number(val)); setPage(1); };
@@ -49,9 +44,18 @@ export default function BeneficiaryListPage({ communities = [], batches = [], gr
     if (selectedStatusFilter !== 'All') {
       data = data.filter((g) => getGroupStatusByProgress(g) === selectedStatusFilter);
     }
+
     if (term) {
-      data = data.filter((g) => (g.name || '').toLowerCase().includes(term) || (g.community || '').toLowerCase().includes(term));
+      // Respect the selected entity filter when searching
+      if (selectedEntityFilter === 'Mother') {
+        data = data.filter((g) => (g.community || '').toLowerCase().includes(term));
+      } else if (selectedEntityFilter === 'Child') {
+        data = data.filter((g) => (g.name || '').toLowerCase().includes(term));
+      } else {
+        data = data.filter((g) => (g.name || '').toLowerCase().includes(term) || (g.community || '').toLowerCase().includes(term));
+      }
     }
+
     if (selectedStatusFilter === 'All') {
       const statusOrder = { Missing: 0, Pending: 1, Done: 2 };
       data = [...data].sort((a, b) => {
@@ -62,7 +66,7 @@ export default function BeneficiaryListPage({ communities = [], batches = [], gr
       });
     }
     return data;
-  }, [groups, query, selectedStatusFilter]);
+  }, [groups, query, selectedStatusFilter, selectedEntityFilter]);
 
   const pageCount = Math.max(1, Math.ceil(filteredData.length / perPage));
   const currentPage = Math.min(page, pageCount);
@@ -119,18 +123,20 @@ export default function BeneficiaryListPage({ communities = [], batches = [], gr
   return (
     <>
       <section className="tabs-row">
-        <div className="tabs-list" role="tablist" aria-label="Beneficiary status filter">
-          {STATUS_OPTIONS.map(({ key, label, icon: Icon }) => (
-            <button key={key} role="tab" aria-selected={selectedStatusFilter === key} type="button" className={`tab-btn${selectedStatusFilter === key ? ' active' : ''}`} onClick={() => { setSelectedStatusFilter(key); setPage(1); }}>
-              <Icon />
-              <span>{label}</span>
-            </button>
-          ))}
-        </div>
-        <div className="search-container">
-          <SearchIcon />
-          <input type="text" className="search-input-field" placeholder="Search child name..." value={query} onChange={(e) => handleSearch(e.target.value)} aria-label="Search items" />
-        </div>
+        <StatusFilterBar
+          selectedStatusFilter={selectedStatusFilter}
+          onChange={(nextStatus) => {
+            setSelectedStatusFilter(nextStatus);
+            setPage(1);
+          }}
+        />
+
+        <EntitySearchControls
+          selectedEntityFilter={selectedEntityFilter}
+          query={query}
+          onEntityToggle={() => setSelectedEntityFilter((current) => (current === 'Mother' ? 'Child' : 'Mother'))}
+          onQueryChange={handleSearch}
+        />
       </section>
 
       <BeneficiaryTable
@@ -143,8 +149,10 @@ export default function BeneficiaryListPage({ communities = [], batches = [], gr
         renderPaginationButtons={renderPaginationButtons}
         motherProgressByName={motherProgressByName}
         onSelectMother={onSelectMother}
+        onSelectChild={onSelectChild}
         communities={communities}
         batches={batches}
+        entityFilter={selectedEntityFilter}
       />
     </>
   );

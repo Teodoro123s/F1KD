@@ -13,6 +13,33 @@ const ROLE_OPTIONS = [
 
 const STATUS_OPTIONS = ['Active', 'Suspended'];
 
+function normalizeStatus(status) {
+  const value = String(status || '').trim().toLowerCase();
+  if (!value) return 'Active';
+  if (['active', 'enabled'].includes(value)) return 'Active';
+  if (['suspended', 'inactive', 'disabled'].includes(value)) return 'Suspended';
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function normalizeRole(role) {
+  const value = String(role || '').trim();
+  if (!value) return 'User';
+  const lower = value.toLowerCase();
+  if (lower === 'superadmin') return 'Superadmin';
+  if (lower === 'admin') return 'Admin';
+  if (lower === 'community organizer') return 'Community Organizer';
+  if (lower === 'health worker') return 'Health worker';
+  return value;
+}
+
+function buildDisplayName(user) {
+  const safeName = String(user?.full_name || '').trim();
+  if (safeName) return safeName;
+  const parts = [user?.first_name, user?.middle_initial, user?.last_name].filter(Boolean);
+  if (parts.length) return parts.join(' ');
+  return String(user?.username || 'Unnamed user').trim();
+}
+
 const initialUsersData = [
   { id: 'USR-0001', name: 'Arielle Santos', role: 'Superadmin', status: 'Active' },
   { id: 'USR-0002', name: 'Jasmine Cruz', role: 'Admin', status: 'Active' },
@@ -58,10 +85,10 @@ export function useUserManagement() {
             gender: u.gender,
             dob: formatDobForInput(u.dob),
             location: u.location,
-            role: u.role,
-            status: u.status,
+            role: normalizeRole(u.role),
+            status: normalizeStatus(u.status),
             password: '',
-            name: `${u.first_name} ${u.middle_initial ? u.middle_initial + ' ' : ''}${u.last_name}`,
+            name: buildDisplayName(u),
           }));
           // Merge server users with local seed data, avoiding duplicates by email
           setUsers((prev) => {
@@ -133,7 +160,10 @@ export function useUserManagement() {
     const term = query.trim().toLowerCase();
     return users.filter((user) => {
       const matchesRole = selectedRoleFilter ? user.role === selectedRoleFilter : true;
-      const matchesStatus = selectedStatusFilter === 'All' ? true : user.status === selectedStatusFilter;
+      // Compare normalized status so UI filters work regardless of server casing/enum values
+      const matchesStatus = selectedStatusFilter === 'All'
+        ? true
+        : (typeof user.status === 'string' && (user.status === selectedStatusFilter || (typeof normalizeStatus === 'function' && normalizeStatus(user.status) === selectedStatusFilter)));
       const matchesSearch =
         !term ||
         user.name.toLowerCase().includes(term) ||
