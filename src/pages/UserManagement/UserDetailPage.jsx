@@ -1,12 +1,55 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useLocation, useNavigate, Link } from 'react-router-dom';
 import { generatePassword } from './lib';
+import { apiGetUser } from '../../api/users';
 
 export default function UserDetailPage() {
   const { id } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const user = location?.state?.user || { id };
+  const initial = location?.state?.user || { id };
+  const [user, setUser] = useState(initial);
+
+  useEffect(() => {
+    let mounted = true;
+    async function load() {
+      // If navigated with full user in state, keep it. Otherwise fetch by id.
+      if (location?.state?.user) return; // already have it
+      try {
+        const data = await apiGetUser(id);
+        if (!mounted) return;
+        // server returns full_name. Try to split into first/last if available
+        const full = data.full_name || '';
+        let firstName = data.first_name || '';
+        let lastName = data.last_name || '';
+        let middleInitial = data.middle_initial || '';
+        if (!firstName && full) {
+          const parts = full.trim().split(/\s+/);
+          firstName = parts[0] || '';
+          lastName = parts.slice(1).join(' ') || '';
+        }
+
+        setUser({
+          id: data.id ? `USR-${String(data.id).padStart(4, '0')}` : id,
+          firstName,
+          lastName,
+          middleInitial,
+          contactNumber: data.contact_number || data.contact || '',
+          email: data.email || '',
+          gender: data.gender || '',
+          dob: data.dob || '',
+          location: data.location || '',
+          role: data.role || '',
+          status: (data.status || '').toString(),
+          name: data.full_name || `${firstName} ${lastName}`.trim(),
+        });
+      } catch (e) {
+        console.error('Failed to load user detail', e);
+      }
+    }
+    load();
+    return () => { mounted = false; };
+  }, [id, location]);
 
   const displayName = user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || id;
   const handleEdit = () => {

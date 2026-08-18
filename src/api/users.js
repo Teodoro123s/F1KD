@@ -66,8 +66,16 @@ export async function apiPatchUserStatus(id, status) {
   });
   return handleResponse(res, 'Failed to update user status');
 }
-
+ 
 export async function apiDeleteUser(id) {
   const res = await fetch(`${API_BASE}/api/users/${id}`, { method: 'DELETE', headers: { ...authHeader() }, credentials: 'same-origin' });
   return handleResponse(res, 'Failed to delete user');
+}
+
+export async function apiGetUser(id) {
+ const res = await fetch(`${API_BASE}/api/users/${id}`, {
+   headers: { ...authHeader() },
+   credentials: 'same-origin',
+ });
+ return handleResponse(res, 'Failed to fetch user');
 }
