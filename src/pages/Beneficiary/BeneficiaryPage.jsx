@@ -5,14 +5,13 @@ import CreateMotherPage from './mother/CreateMotherPage';
 import CreateChildPage from './child/CreateChildPage';
 import BeneficiaryListPage from './BeneficiaryListPage';
 import MotherDetailPage from './mother/MotherDetailPage';
-import { initialBatchesData, initialGroupsData } from '../../utils/mockData';
 import { useMothers } from '../../context/MothersContext';
 
 export default function BeneficiaryPage() {
-  // Use the existing mock data for mothers list (initialCommunityData contains mother records)
+  // Mothers are loaded from the DB via MothersContext
   const { mothers, setMothers } = useMothers();
-  const [groups, setGroups] = useState(initialGroupsData);
-  const [batches] = useState(initialBatchesData);
+  const [groups, setGroups] = useState([]);
+  const [batches] = useState([]);
   const [createDropdownOpen, setCreateDropdownOpen] = useState(false);
   const [selectedMother, setSelectedMother] = useState(null);
 
