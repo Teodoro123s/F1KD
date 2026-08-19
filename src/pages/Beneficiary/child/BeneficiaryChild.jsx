@@ -17,6 +17,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
 
   const renderField = ({ id, label, name, type = 'text', placeholder = '', required = false, min, step }) => {
     const value = form[name] ?? '';
+    const isDate = type === 'date';
 
     if (readOnly) {
       return (
@@ -32,13 +33,16 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
         <label className="form-label" htmlFor={id}>{label}</label>
         <input
           id={id}
-          type={type}
+          type={isDate ? 'text' : type}
           className="form-input"
-          placeholder={placeholder}
-          value={type === 'date' ? formatDateForInput(value) : value}
+          placeholder={isDate ? 'yyyy/mm/dd' : placeholder}
+          value={isDate ? formatDateForInput(value).replaceAll('-', '/') : value}
           min={min}
           step={step}
-          onChange={(e) => setForm((prev) => ({ ...prev, [name]: e.target.value }))}
+          onChange={(e) => setForm((prev) => ({
+            ...prev,
+            [name]: isDate ? e.target.value.replace(/[^0-9/]/g, '').replaceAll('/', '-').replace(/^(\d{4})-(\d{2})-(\d{2}).*$/, '$1-$2-$3') : e.target.value,
+          }))}
           required={required}
         />
       </div>
@@ -133,6 +137,24 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
 
         <div className="form-row-4 full-width">
           {renderSelect({
+            id: 'child-blood-type',
+            label: 'Blood Type',
+            name: 'bloodType',
+            options: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'],
+            placeholder: 'Select blood type',
+          })}
+          {renderField({ id: 'child-children-delivered', label: 'No. Old Child Delivered', name: 'noOfChildDelivered', type: 'number', min: 0, step: 1, placeholder: 'e.g. 1' })}
+          {renderSelect({
+            id: 'child-exclusive-breastfeeding',
+            label: 'Exclusive Breastfeeding',
+            name: 'exclusiveBreastfeeding',
+            options: ['Yes', 'No', 'Unknown'],
+            placeholder: 'Select option',
+          })}
+        </div>
+
+        <div className="form-row-4 full-width">
+          {renderSelect({
             id: 'child-delivery-type',
             label: 'Delivery Type',
             name: 'deliveryType',
@@ -179,6 +201,8 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
         </div>
 
         {renderTextarea({ id: 'child-nutrition-notes', label: 'Nutrition Notes', name: 'nutritionNotes', rows: 3, placeholder: 'Nutrition or feeding notes...' })}
+        {renderTextarea({ id: 'child-newborn-screening', label: 'Expanded Newborn Screening', name: 'expandedNewbornScreening', rows: 3, placeholder: 'Screening details...' })}
+        {renderTextarea({ id: 'child-newborn-screening-result', label: 'Expanded Newborn Screening Result', name: 'expandedNewbornScreeningResult', rows: 3, placeholder: 'Screening result...' })}
       </>
     );
   }

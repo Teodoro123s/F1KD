@@ -47,7 +47,7 @@ router.get('/', async (req, res) => {
     const total = countRows[0].total || 0;
 
     const [rows] = await pool.query(
-      `SELECT id, username, full_name, email, role, status, created_at, updated_at FROM users ${where} ORDER BY id DESC LIMIT ? OFFSET ?`,
+      `SELECT id, username, full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, created_at, updated_at FROM users ${where} ORDER BY id DESC LIMIT ? OFFSET ?`,
       [...params, Number(perPage), Number(offset)]
     );
 
@@ -69,6 +69,11 @@ router.post('/', verifyToken, requireRole('Superadmin','Admin'), async (req, res
       fullName,
       firstName,
       lastName,
+      middleInitial,
+      contactNumber,
+      gender,
+      dob,
+      location,
       role,
       status,
     } = req.body;
@@ -92,12 +97,30 @@ router.post('/', verifyToken, requireRole('Superadmin','Admin'), async (req, res
 
     const dbStatus = normalizeDbStatus(status || 'active');
     const [result] = await pool.query(
-      `INSERT INTO users (username, email, full_name, role, status, password_hash)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [userName, email, full_name || null, role || 'user', dbStatus, hash]
+      `INSERT INTO users (username, email, full_name, role, status, password_hash, first_name, last_name, middle_initial, contact_number, gender, dob, location)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        userName,
+        email,
+        full_name || null,
+        role || 'user',
+        dbStatus,
+        hash,
+        firstName || '',
+        lastName || '',
+        middleInitial || null,
+        contactNumber || null,
+        gender || 'Male',
+        dob || null,
+        location || null
+      ]
     );
 
-    const [rows] = await pool.query('SELECT id, username, full_name, email, role, status, created_at FROM users WHERE id = ?', [result.insertId]);
+    const [rows] = await pool.query(
+      `SELECT id, username, full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, created_at
+       FROM users WHERE id = ?`,
+      [result.insertId]
+    );
     const user = rows[0];
     // Return created user WITHOUT plaintext password for security.
     res.status(201).json({ user });
@@ -112,7 +135,11 @@ router.post('/', verifyToken, requireRole('Superadmin','Admin'), async (req, res
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const [rows] = await pool.query('SELECT id, username, full_name, email, role, status, created_at FROM users WHERE id = ?', [id]);
+    const [rows] = await pool.query(
+      `SELECT id, username, full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, created_at
+       FROM users WHERE id = ?`,
+      [id]
+    );
     if (!rows.length) return res.status(404).json({ error: 'Not found' });
     res.json(rows[0]);
   } catch (err) {
@@ -130,6 +157,13 @@ router.put('/:id', verifyToken, async (req, res) => {
       username,
       email,
       fullName,
+      firstName,
+      lastName,
+      middleInitial,
+      contactNumber,
+      gender,
+      dob,
+      location,
       role,
       status,
       password,
@@ -140,6 +174,13 @@ router.put('/:id', verifyToken, async (req, res) => {
     if (username) { updates.push('username = ?'); params.push(username); }
     if (email) { updates.push('email = ?'); params.push(email); }
     if (fullName !== undefined) { updates.push('full_name = ?'); params.push(fullName || null); }
+    if (firstName !== undefined) { updates.push('first_name = ?'); params.push(firstName); }
+    if (lastName !== undefined) { updates.push('last_name = ?'); params.push(lastName); }
+    if (middleInitial !== undefined) { updates.push('middle_initial = ?'); params.push(middleInitial || null); }
+    if (contactNumber !== undefined) { updates.push('contact_number = ?'); params.push(contactNumber || null); }
+    if (gender !== undefined) { updates.push('gender = ?'); params.push(gender || 'Male'); }
+    if (dob !== undefined) { updates.push('dob = ?'); params.push(dob || null); }
+    if (location !== undefined) { updates.push('location = ?'); params.push(location || null); }
     if (role !== undefined) { updates.push('role = ?'); params.push(role); }
     if (status !== undefined) { updates.push('status = ?'); params.push(normalizeDbStatus(status)); }
 
@@ -155,7 +196,11 @@ router.put('/:id', verifyToken, async (req, res) => {
     const sql = `UPDATE users SET ${updates.join(', ')} WHERE id = ?`;
     await pool.query(sql, params);
 
-    const [rows] = await pool.query('SELECT id, username, full_name, email, role, status, updated_at FROM users WHERE id = ?', [id]);
+    const [rows] = await pool.query(
+      `SELECT id, username, full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, updated_at
+       FROM users WHERE id = ?`,
+      [id]
+    );
     res.json(rows[0]);
   } catch (err) {
     console.error(err);

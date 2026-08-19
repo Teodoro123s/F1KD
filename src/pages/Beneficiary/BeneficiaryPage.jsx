@@ -62,6 +62,11 @@ export default function BeneficiaryPage() {
   // If navigation includes a mother in state (e.g., navigating from child pages or external links), ensure the selectedMother is populated
   React.useEffect(() => {
     const navMother = location.state?.mother || null;
+    const updatedMother = location.state?.updatedMother || null;
+    if (updatedMother) {
+      setSelectedMother((current) => ({ ...(current || {}), ...updatedMother }));
+      return;
+    }
     if (location.pathname.startsWith('/beneficiary/mother/') && navMother) {
       setSelectedMother(navMother);
     }
@@ -89,8 +94,14 @@ export default function BeneficiaryPage() {
   };
 
   const handleSelectChild = (child) => {
-    // Navigate to child detail page. Pass child in state for immediate display.
-    navigate(`/beneficiary/child/${child.id}`, { state: { child, mother: child.mother || child.original?.mother || null } });
+    // Table rows wrap the API record in `original`; pass the record itself to the detail page.
+    const childRecord = child.original?.id ? child.original : child;
+    navigate(`/beneficiary/child/${childRecord.id}`, {
+      state: {
+        child: childRecord,
+        mother: childRecord.mother || child.mother || null,
+      },
+    });
   };
 
   return (

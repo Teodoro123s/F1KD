@@ -1,20 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useLocation, useNavigate, Link } from 'react-router-dom';
-import { generatePassword } from './lib';
+import { generatePassword, formatDobForInput } from './lib';
 import { apiGetUser } from '../../api/users';
 
 export default function UserDetailPage() {
   const { id } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const initial = location?.state?.user || { id };
-  const [user, setUser] = useState(initial);
+  const getInitialUser = () => {
+    const initial = location?.state?.user || { id };
+    if (initial.name && !initial.firstName) {
+      const parts = initial.name.trim().split(/\s+/);
+      initial.firstName = parts[0] || '';
+      initial.lastName = parts.slice(1).join(' ') || '';
+      initial.middleInitial = '';
+    }
+    return initial;
+  };
+
+  const [user, setUser] = useState(getInitialUser);
 
   useEffect(() => {
     let mounted = true;
     async function load() {
-      // If navigated with full user in state, keep it. Otherwise fetch by id.
-      if (location?.state?.user) return; // already have it
+      // If navigated with full user details in state, keep it. Otherwise fetch by id.
+      if (location?.state?.user && location.state.user.firstName) return; 
       try {
         const data = await apiGetUser(id);
         if (!mounted) return;
@@ -37,7 +47,7 @@ export default function UserDetailPage() {
           contactNumber: data.contact_number || data.contact || '',
           email: data.email || '',
           gender: data.gender || '',
-          dob: data.dob || '',
+          dob: formatDobForInput(data.dob),
           location: data.location || '',
           role: data.role || '',
           status: (data.status || '').toString(),

@@ -190,23 +190,16 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
       <div className="form-row-3 full-width">
         <div className="form-group">
           <label className="form-label" htmlFor="location">Location *</label>
-          <select
+          <input
             id="location"
-                      name="location"
-                      className="form-select"
-                      value={form.location}
-                      onChange={(e) => handleChange('location', e.target.value)}
-                      required
-                    >
-            <option value="Poblacion">Poblacion</option>
-            <option value="Upland">Upland</option>
-            <option value="Downtown">Downtown</option>
-            <option value="Coastal">Coastal</option>
-            <option value="Highland">Highland</option>
-            <option value="Lowland">Lowland</option>
-            <option value="Riverside">Riverside</option>
-            <option value="Forest">Forest</option>
-          </select>
+            name="location"
+            type="text"
+            className="form-input"
+            placeholder="Enter location"
+            value={form.location}
+            onChange={(e) => handleChange('location', e.target.value)}
+            required
+          />
         </div>
         <div className="form-group">
           <label className="form-label" htmlFor="role">Role *</label>

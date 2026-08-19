@@ -65,6 +65,7 @@ export function MotherFormFields({
   // Helpers to reduce repetitive form markup and support read-only display
   const renderField = ({ id, label, name, type = 'text', placeholder = '', required = false }) => {
     const value = form[name] ?? '';
+    const isDate = type === 'date';
     if (readOnly) {
       return (
         <div className="form-group">
@@ -79,11 +80,14 @@ export function MotherFormFields({
         <label className="form-label" htmlFor={id}>{label}</label>
         <input
           id={id}
-          type={type}
+          type={isDate ? 'text' : type}
           className="form-input"
-          placeholder={placeholder}
-          value={type === 'date' ? formatDateForInput(value) : value}
-          onChange={(e) => setForm((prev) => ({ ...prev, [name]: e.target.value }))}
+          placeholder={isDate ? 'yyyy/mm/dd' : placeholder}
+          value={isDate ? formatDateForInput(value).replaceAll('-', '/') : value}
+          onChange={(e) => setForm((prev) => ({
+            ...prev,
+            [name]: isDate ? e.target.value.replace(/[^0-9/]/g, '').replaceAll('/', '-').replace(/^(\d{4})-(\d{2})-(\d{2}).*$/, '$1-$2-$3') : e.target.value,
+          }))}
           required={required}
         />
       </div>
@@ -173,10 +177,11 @@ export function MotherFormFields({
               <label className="form-label" htmlFor="mother-lmp">Date of LMP</label>
               <input
                 id="mother-lmp"
-                type="date"
+                type="text"
                 className="form-input"
-                value={formatDateForInput(form.lmpDate)}
-                onChange={(e) => handleLmpChange(e.target.value)}
+                placeholder="yyyy/mm/dd"
+                value={formatDateForInput(form.lmpDate).replaceAll('-', '/')}
+                onChange={(e) => handleLmpChange(e.target.value.replace(/[^0-9/]/g, '').replaceAll('/', '-').replace(/^(\d{4})-(\d{2})-(\d{2}).*$/, '$1-$2-$3'))}
               />
             </div>
           )}
@@ -447,10 +452,14 @@ export function MotherFormFields({
                         <div className="form-readonly-value">{form[`tt${num}Date`] || '-'}</div>
                       ) : (
                         <input
-                          type="date"
+                          type="text"
                           className="form-input table-input"
-                          value={formatDateForInput(form[`tt${num}Date`] || '')}
-                          onChange={(e) => setForm((prev) => ({ ...prev, [`tt${num}Date`]: e.target.value }))}
+                          placeholder="yyyy/mm/dd"
+                          value={formatDateForInput(form[`tt${num}Date`] || '').replaceAll('-', '/')}
+                          onChange={(e) => setForm((prev) => ({
+                            ...prev,
+                            [`tt${num}Date`]: e.target.value.replace(/[^0-9/]/g, '').replaceAll('/', '-').replace(/^(\d{4})-(\d{2})-(\d{2}).*$/, '$1-$2-$3'),
+                          }))}
                         />
                       )}
                     </td>

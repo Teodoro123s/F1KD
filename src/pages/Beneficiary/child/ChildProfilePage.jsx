@@ -49,6 +49,29 @@ const getBmiStatus = (weight, heightCm) => {
   return 'Obese';
 };
 
+const normalizeChild = (child = {}) => ({
+  ...child,
+  firstName: child.firstName || child.first_name || '',
+  middleName: child.middleName || child.middle_name || '',
+  lastName: child.lastName || child.last_name || '',
+  suffix: child.suffix || '',
+  motherId: child.motherId || child.mother_id || '',
+  motherName: child.motherName || [child.mother_first_name, child.mother_last_name].filter(Boolean).join(' '),
+  birthDate: child.birthDate || child.birth_date || '',
+  birthWeight: child.birthWeight || child.birth_weight || '',
+  birthLength: child.birthLength || child.birth_length || '',
+  gender: child.gender || '',
+  bloodType: child.bloodType || child.blood_type || '',
+  noOfChildDelivered: child.noOfChildDelivered || child.no_of_child_delivered || '',
+  exclusiveBreastfeeding: child.exclusiveBreastfeeding || child.exclusive_breastfeeding || '',
+  expandedNewbornScreening: child.expandedNewbornScreening || child.expanded_newborn_screening || '',
+  expandedNewbornScreeningResult: child.expandedNewbornScreeningResult || child.expanded_newborn_screening_result || '',
+  birthPlace: child.birthPlace || child.birth_place || '',
+  fatherName: child.fatherName || child.father_name || '',
+  community: child.community || child.community_name || '',
+  batch: child.batch || child.batch_name || '',
+});
+
 export default function ChildProfilePage() {
   const { childId, id } = useParams();
   const location = useLocation();
@@ -56,7 +79,7 @@ export default function ChildProfilePage() {
 
   const stateMother = location.state?.mother || null;
   const { mothers: contextMothers } = useMothers();
-  const childFromState = location.state?.child || null;
+  const childFromState = location.state?.child ? normalizeChild(location.state.child) : null;
 
   // Helper: find a child in session sources and return { child, mother }
   const findChildInSession = (searchId) => {
@@ -99,8 +122,14 @@ export default function ChildProfilePage() {
 
   const resolvedFromUrl = childId ? findChildInSession(childId) : (id ? findChildInSession(id) : null);
 
-  const initialSelected = childFromState || resolvedFromUrl?.child || null;
+  const initialSelected = childFromState || (resolvedFromUrl?.child ? normalizeChild(resolvedFromUrl.child) : null);
   const [selectedChild, setSelectedChild] = useState(initialSelected);
+
+  React.useEffect(() => {
+    if (location.state?.updatedChild) {
+      setSelectedChild((current) => ({ ...(current || {}), ...location.state.updatedChild }));
+    }
+  }, [location.state?.updatedChild]);
 
   // Determine the most likely mother for display
   const findMotherForChild = (child) => {
@@ -124,15 +153,7 @@ export default function ChildProfilePage() {
     return stateMother || null;
   };
 
-  const [fetchedChildrenForMother, setFetchedChildrenForMother] = React.useState(null);
-
   const resolvedMother = findMotherForChild(selectedChild || initialSelected || resolvedFromUrl?.child);
-
-  // children list to show in sidebar: prefer mother.children, then fetchedChildrenForMother, then location.state.children
-  const children = (resolvedMother && Array.isArray(resolvedMother.children) && resolvedMother.children.length) ? resolvedMother.children : (Array.isArray(fetchedChildrenForMother) ? fetchedChildrenForMother : (Array.isArray(location.state?.children) ? location.state.children : []));
-
-  // Ensure the selected child appears in the sidebar even if it was fetched separately
-  const sidebarChildren = selectedChild ? (children.find((c) => String(c.id) === String(selectedChild.id)) ? children : [selectedChild, ...children]) : children;
 
   // If we don't have the child in session but there's a childId in the URL, attempt to fetch from backend
   React.useEffect(() => {
@@ -146,31 +167,21 @@ export default function ChildProfilePage() {
           if (res && res.child && !canceled) {
             // normalize returned child to match expected shape
             const c = res.child;
-            const normalized = {
-              id: c.id,
-              child_code: c.child_code,
+            setSelectedChild(normalizeChild({
+              ...c,
               motherId: c.mother_code || c.mother_id,
               motherName: [c.mother_first_name, c.mother_last_name].filter(Boolean).join(' '),
-              firstName: c.first_name,
-              middleName: c.middle_name,
-              lastName: c.last_name,
-              suffix: c.suffix,
-              birthDate: c.birth_date,
-              birthWeight: c.birth_weight,
-              birthLength: c.birth_length,
-              gender: c.gender,
-              deliveryType: c.delivery_type,
-              healthStatus: c.health_status,
-              birthPlace: c.birth_place,
-              birthAttendant: c.birth_attendant,
-              apgarScore: c.apgar_score,
-              feedingType: c.feeding_type,
-              nutritionNotes: c.nutrition_notes,
-              community: c.community_id,
-              batch: c.batch_id,
-              progress: c.progress,
-            };
-            setSelectedChild(normalized);
+              bcgDate: c.BCG?.vaccine_date,
+              bcgRemarks: c.BCG?.remarks,
+              hepbDate: c.HepB?.vaccine_date,
+              hepbRemarks: c.HepB?.remarks,
+              opvDate: c.OPV?.vaccine_date,
+              opvRemarks: c.OPV?.remarks,
+              dptDate: c.DPT?.vaccine_date,
+              dptRemarks: c.DPT?.remarks,
+              mmrDate: c.MMR?.vaccine_date,
+              mmrRemarks: c.MMR?.remarks,
+            }));
           }
         } catch (err) {
           // ignore - child likely not found or network error
@@ -184,11 +195,6 @@ export default function ChildProfilePage() {
 
   // Helper to render vaccination info
   const renderVaccine = (date, remarks) => (date ? `${date}${remarks ? ' — ' + remarks : ''}` : '—');
-
-  const handleCreateChild = () => {
-    // Navigate to create child and pass mother so the form can prefill mother info
-    navigate('/beneficiary/create/child', { state: { mother: resolvedMother } });
-  };
 
   const childName = selectedChild?.name || `${selectedChild?.firstName || ''} ${selectedChild?.middleName || ''} ${selectedChild?.lastName || ''} ${selectedChild?.suffix || ''}`.replace(/\s+/g, ' ').trim();
   const childBirthDate = formatDateForDisplay(selectedChild?.birthDate || selectedChild?.birth_date);
@@ -225,7 +231,7 @@ export default function ChildProfilePage() {
           <div className="mother-detail-meta">{selectedChild.child_code || selectedChild.id || 'Child ID'} • {selectedChild.community || selectedChild.batch || 'Community / Batch'}</div>
         </div>
         <div className="mother-detail-actions">
-          <button type="button" className="btn-secondary" onClick={() => alert('Edit child (not implemented)')}>Edit</button>
+              <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/child/${selectedChild.id}/edit`, { state: { child: selectedChild, mother: resolvedMother } })}>Edit</button>
           <button type="button" className="btn-secondary" onClick={() => {
             const mid = resolvedMother?.motherId || resolvedMother?.id || selectedChild.mother_id || selectedChild.motherId || '';
             const stateMother = resolvedMother || (mid ? { id: mid, name: selectedChild.mother_first_name ? `${selectedChild.mother_first_name} ${selectedChild.mother_last_name || ''}`.trim() : undefined } : null);
@@ -300,29 +306,7 @@ export default function ChildProfilePage() {
         </div>
       </header>
 
-      <main className="beneficiary-main" style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 16 }}>
-        <aside style={{ background: '#fff', padding: 12, borderRadius: 8, border: '1px solid var(--border-color)' }}>
-          <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <strong>Children</strong>
-            <button className="btn-primary" onClick={handleCreateChild}>Create Child</button>
-          </div>
-
-          {sidebarChildren.length ? (
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-              {sidebarChildren.map((c) => (
-                <li key={c.id} style={{ marginBottom: 8 }}>
-                  <button type="button" onClick={() => setSelectedChild(c)} style={{ width: '100%', textAlign: 'left', padding: 8, border: '1px solid transparent', background: selectedChild?.id === c.id ? '#eef2ff' : 'transparent' }}>
-                    {c.name || `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.id}
-                    <div style={{ fontSize: '0.8rem', color: '#64748b' }}>{formatDateForDisplay(c.birthDate || c.birth_date)}</div>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div style={{ color: '#64748b' }}>No children recorded for this mother.</div>
-          )}
-        </aside>
-
+      <main className="beneficiary-main">
         <section style={{ background: '#fff', padding: 16, borderRadius: 8, border: '1px solid var(--border-color)' }}>
           {rightColumnContent}
         </section>

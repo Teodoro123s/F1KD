@@ -8,6 +8,7 @@ import Beneficiary from './pages/Beneficiary/BeneficiaryPage';
 import Monitoring from './pages/Monitoring/Monitoring';
 import MotherMonitoringPage from './pages/Beneficiary/mother/MotherMonitoringPage';
 import ChildProfilePage from './pages/Beneficiary/child/ChildProfilePage';
+import EditChildPage from './pages/Beneficiary/child/EditChildPage';
 import EditMotherPage from './pages/Beneficiary/mother/EditMotherPage';
 import Program from './pages/Program';
 import ProgressReport from './pages/ProgressReport';
@@ -52,6 +53,7 @@ export default function App() {
         <Route path="beneficiary/create/child" element={<Beneficiary />} />
         <Route path="beneficiary/mother/:id/child" element={<ChildProfilePage />} />
         <Route path="beneficiary/child/:childId" element={<ChildProfilePage />} />
+        <Route path="beneficiary/child/:childId/edit" element={<EditChildPage />} />
         <Route path="beneficiary/mother/:id/monitoring" element={<MotherMonitoringPage />} />
         <Route path="beneficiary/mother/:id/edit" element={<EditMotherPage />} />
         <Route path="monitoring" element={<Monitoring />} />

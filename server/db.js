@@ -168,6 +168,7 @@ async function ensure() {
       child_code VARCHAR(30) NOT NULL UNIQUE,
       mother_id INT NOT NULL,
       community_id INT NULL,
+      group_id INT NULL,
       batch_id INT NULL,
       first_name VARCHAR(120) NOT NULL,
       middle_name VARCHAR(120),
@@ -177,6 +178,11 @@ async function ensure() {
       birth_weight DECIMAL(5,2),
       birth_length DECIMAL(5,2),
       gender ENUM('Male','Female','Other') DEFAULT 'Female',
+      blood_type VARCHAR(5),
+      no_of_child_delivered INT,
+      exclusive_breastfeeding VARCHAR(20),
+      expanded_newborn_screening TEXT,
+      expanded_newborn_screening_result TEXT,
       delivery_type VARCHAR(80),
       health_status VARCHAR(120),
       birth_place VARCHAR(150),
@@ -191,8 +197,17 @@ async function ensure() {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (mother_id) REFERENCES mothers(id) ON DELETE CASCADE,
       FOREIGN KEY (community_id) REFERENCES communities(id) ON DELETE SET NULL,
+      FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE SET NULL,
       FOREIGN KEY (batch_id) REFERENCES batches(id) ON DELETE SET NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+
+    `ALTER TABLE children
+      ADD COLUMN IF NOT EXISTS group_id INT NULL,
+      ADD COLUMN IF NOT EXISTS blood_type VARCHAR(5),
+      ADD COLUMN IF NOT EXISTS no_of_child_delivered INT,
+      ADD COLUMN IF NOT EXISTS exclusive_breastfeeding VARCHAR(20),
+      ADD COLUMN IF NOT EXISTS expanded_newborn_screening TEXT,
+      ADD COLUMN IF NOT EXISTS expanded_newborn_screening_result TEXT;`,
 
     `CREATE TABLE IF NOT EXISTS child_medical_conditions (
       id INT AUTO_INCREMENT PRIMARY KEY,

@@ -30,6 +30,16 @@ export async function apiCreateChild(payload) {
   return handleResponse(res, 'Server error when creating child');
 }
 
+export async function apiUpdateChild(idOrCode, payload) {
+  const res = await fetch(`${API_BASE}/api/children/${encodeURIComponent(idOrCode)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    credentials: 'same-origin',
+  });
+  return handleResponse(res, 'Server error when updating child');
+}
+
 export async function apiGetChild(idOrCode) {
   const res = await fetch(`${API_BASE}/api/children/${encodeURIComponent(idOrCode)}`, {
     headers: { 'Content-Type': 'application/json' },
