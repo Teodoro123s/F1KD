@@ -20,7 +20,7 @@ function ModalShell({ title, onClose, onSubmit, children, submitLabel }) {
   );
 }
 
-export function CreateCommunityModal({ showModal, onClose, communityForm, setCommunityForm, handleCreateCommunity }) {
+export function CreateCommunityModal({ showModal, onClose, communityForm, setCommunityForm, handleCreateCommunity, coordinators }) {
   if (!showModal) return null;
   return (
     <ModalShell title="Create School" onClose={onClose} onSubmit={handleCreateCommunity} submitLabel="Create">
@@ -36,6 +36,21 @@ export function CreateCommunityModal({ showModal, onClose, communityForm, setCom
           required
           autoFocus
         />
+      </div>
+      <div className="form-group">
+        <label className="form-label" htmlFor="comm-coordinator">Assigned Community Coordinator</label>
+        <select
+          id="comm-coordinator"
+          className="form-select"
+          value={communityForm.coordinator}
+          onChange={(e) => setCommunityForm({ ...communityForm, coordinator: e.target.value })}
+          required
+        >
+          <option value="">Select a community coordinator</option>
+          {coordinators.map((coordinator) => (
+            <option key={coordinator.id} value={coordinator.id}>{coordinator.name}</option>
+          ))}
+        </select>
       </div>
     </ModalShell>
   );
@@ -108,31 +123,6 @@ export function CreateBatchModal({ showModal, onClose, batchForm, setBatchForm, 
             <option key={comm.id} value={comm.name}>{comm.name}</option>
           ))}
         </select>
-      </div>
-      <div className="form-group">
-        <label className="form-label" htmlFor="batch-records">Total Mothers</label>
-        <input
-          id="batch-records"
-          type="number"
-          min="0"
-          className="form-input"
-          value={batchForm.records}
-          onChange={(e) => setBatchForm({ ...batchForm, records: Number(e.target.value) })}
-          required
-        />
-      </div>
-      <div className="form-group">
-        <label className="form-label" htmlFor="batch-progress">Progress (%)</label>
-        <input
-          id="batch-progress"
-          type="number"
-          min="0"
-          max="100"
-          className="form-input"
-          value={batchForm.progress}
-          onChange={(e) => setBatchForm({ ...batchForm, progress: Number(e.target.value) })}
-          required
-        />
       </div>
     </ModalShell>
   );
@@ -228,29 +218,6 @@ export function CreateGroupModal({ showModal, onClose, groupForm, setGroupForm, 
             <option key={comm.id} value={comm.name}>{comm.name}</option>
           ))}
         </select>
-      </div>
-      <div className="form-group">
-        <label className="form-label" htmlFor="group-leader">Group Leader</label>
-        <input
-          id="group-leader"
-          type="text"
-          className="form-input"
-          value={groupForm.leader}
-          onChange={(e) => setGroupForm({ ...groupForm, leader: e.target.value })}
-          required
-        />
-      </div>
-      <div className="form-group">
-        <label className="form-label" htmlFor="group-members">Members</label>
-        <input
-          id="group-members"
-          type="number"
-          min="1"
-          className="form-input"
-          value={groupForm.members}
-          onChange={(e) => setGroupForm({ ...groupForm, members: Number(e.target.value) })}
-          required
-        />
       </div>
     </ModalShell>
   );

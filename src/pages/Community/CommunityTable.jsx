@@ -4,6 +4,7 @@ import { MoreVerticalIcon } from './CommunityIcons';
 export default function CommunityTable({
   activeTab,
   currentRows,
+  groups,
   filteredDataLength,
   rangeStart,
   rangeEnd,
@@ -80,7 +81,7 @@ export default function CommunityTable({
                         </div>
                       </td>
                       <td className="small-column">{row.batches}</td>
-                      <td className="small-column">{Math.max(0, row.batches - 1)}</td>
+                      <td className="small-column">{groups.filter((group) => group.community === row.name).length}</td>
                     </>
                   ) : activeTab === 'groups' ? (
                     <>

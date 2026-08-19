@@ -22,11 +22,13 @@ import {
   deleteGroup,
 } from './communityService';
 import { SearchIcon, PlusIcon, BuildingIcon, GroupsIcon, BatchesIcon } from './CommunityIcons';
+import { apiGetUsers } from '../../api/users';
 
 export default function CommunityPage() {
   const [communities, setCommunities] = useState([]);
   const [batches, setBatches] = useState([]);
   const [groups, setGroups] = useState([]);
+  const [coordinators, setCoordinators] = useState([]);
 
   const [activeTab, setActiveTab] = useState('communities');
   const [query, setQuery] = useState('');
@@ -37,7 +39,7 @@ export default function CommunityPage() {
   const [showModal, setShowModal] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
 
-  const [communityForm, setCommunityForm] = useState({ name: '', area: 'Poblacion' });
+  const [communityForm, setCommunityForm] = useState({ name: '', area: 'Poblacion', coordinator: '' });
   const [groupForm, setGroupForm] = useState({ name: '', community: '', assignedBatchIds: [], leader: '', members: 1, status: 'Active' });
   const [batchForm, setBatchForm] = useState({ name: '', community: '', records: 1, progress: 0, status: 'Active' });
   const [mothers, setMothers] = useState([]);
@@ -78,21 +80,35 @@ export default function CommunityPage() {
     fetchCommunityData();
   }, []);
 
+  useEffect(() => {
+    apiGetUsers(1, 100)
+      .then((data) => {
+        const users = Array.isArray(data?.users) ? data.users : [];
+        setCoordinators(users
+          .filter((user) => ['community organizer', 'co'].includes(String(user.role || '').trim().toLowerCase()))
+          .map((user) => ({
+            id: user.id,
+            name: user.full_name || user.username || `User ${user.id}`,
+          })));
+      })
+      .catch((error) => console.error('[CommunityPage] Unable to load community coordinators:', error));
+  }, []);
+
   const navigate = useNavigate();
   const { schoolId, groupId, batchId } = useParams();
 
   const selectedSchool = useMemo(
-    () => communities.find((comm) => comm.id === schoolId),
+    () => communities.find((comm) => String(comm.id) === String(schoolId)),
     [communities, schoolId]
   );
 
   const selectedGroup = useMemo(
-    () => groups.find((group) => group.id === groupId),
+    () => groups.find((group) => String(group.id) === String(groupId)),
     [groups, groupId]
   );
 
   const selectedBatch = useMemo(
-    () => batches.find((batch) => batch.id === batchId),
+    () => batches.find((batch) => String(batch.id) === String(batchId)),
     [batches, batchId]
   );
 
@@ -102,8 +118,11 @@ export default function CommunityPage() {
   );
 
   const selectedGroupForBatch = useMemo(
-    () => groups.find((group) => group.assignedBatchIds?.includes(batchId)),
-    [groups, batchId]
+    () => {
+      const batchMother = mothers.find((mother) => String(mother.batchId) === String(batchId));
+      return batchMother ? groups.find((group) => group.name === batchMother.group) : null;
+    },
+    [groups, mothers, batchId]
   );
 
   const selectedSchoolForBatch = useMemo(() => {
@@ -163,9 +182,11 @@ export default function CommunityPage() {
   const selectedGroupBatches = useMemo(() => {
     if (!selectedGroup) return [];
     const term = query.trim().toLowerCase();
-    const groupBatchIds = selectedGroup.assignedBatchIds || [];
+    const groupBatchIds = mothers
+      .filter((mother) => mother.group === selectedGroup.name && mother.batchId)
+      .map((mother) => String(mother.batchId));
     return batches
-      .filter((batch) => groupBatchIds.includes(batch.id))
+      .filter((batch) => groupBatchIds.includes(String(batch.id)))
       .filter((batch) => {
         if (!term) return true;
         return (
@@ -175,7 +196,7 @@ export default function CommunityPage() {
           batch.status.toLowerCase().includes(term)
         );
       });
-  }, [batches, selectedGroup, query]);
+  }, [batches, mothers, selectedGroup, query]);
 
   const selectedBatchMothers = useMemo(() => {
     if (!selectedBatch) return [];
@@ -314,7 +335,7 @@ export default function CommunityPage() {
 
   const openCreateModal = () => {
     if (activeTab === 'communities') {
-      setCommunityForm({ name: '', area: 'Poblacion' });
+      setCommunityForm({ name: '', area: 'Poblacion', coordinator: '' });
       setShowModal('createCommunity');
       return;
     }
@@ -338,7 +359,7 @@ export default function CommunityPage() {
   const openEditModal = (item) => {
     setSelectedItem(item);
     if (activeTab === 'communities') {
-      setCommunityForm({ name: item.name, area: item.area });
+      setCommunityForm({ name: item.name, area: item.area, coordinator: '' });
       setShowModal('editCommunity');
       return;
     }
@@ -372,7 +393,11 @@ export default function CommunityPage() {
 
     try {
       console.info('[CommunityPage] Creating community in database', communityForm);
-      const data = await createCommunity({ name: communityForm.name.trim(), area: communityForm.area });
+      const data = await createCommunity({
+        name: communityForm.name.trim(),
+        area: communityForm.area,
+        coordinator: communityForm.coordinator,
+      });
       console.info('[CommunityPage] Community created successfully', data);
 
       const summaryData = await getSummary();
@@ -792,6 +817,7 @@ export default function CommunityPage() {
       <CommunityTable
         activeTab={activeTab}
         currentRows={displayRows}
+        groups={groups}
         filteredDataLength={displayLength}
         rangeStart={displayRangeStart}
         rangeEnd={displayRangeEnd}
@@ -812,6 +838,7 @@ export default function CommunityPage() {
         communityForm={communityForm}
         setCommunityForm={setCommunityForm}
         handleCreateCommunity={handleCreateCommunity}
+        coordinators={coordinators}
       />
       <EditCommunityModal
         showModal={showModal === 'editCommunity'}
