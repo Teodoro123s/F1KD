@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { MotherFormFields } from './BeneficiaryMother';
 import { calculateGestationalDetails, getInitialCheckups } from '../../../utils/beneficiaryHelpers';
 import { useMothers } from '../../../context/MothersContext';
+import { apiCreateMother } from '../../../api/mothers';
 
 const emptyCommunityForm = (communities = []) => ({
   firstName: '',
@@ -103,7 +104,7 @@ export default function CreateMotherPage({
     setCommunityForm((prev) => ({ ...prev, community: prev.community || communities[0]?.name || '' }));
   }, [communities]);
 
-  const handleCreateCommunity = (e) => {
+  const handleCreateCommunity = async (e) => {
     e.preventDefault();
     if (!communityForm.firstName.trim() || !communityForm.lastName.trim()) return;
 
@@ -123,7 +124,55 @@ export default function CreateMotherPage({
       .replace(/\s+/g, ' ')
       .trim();
 
-    const newCommunity = {
+    const payload = {
+      firstName: communityForm.firstName.trim(),
+      middleName: communityForm.middleName.trim(),
+      lastName: communityForm.lastName.trim(),
+      suffix: communityForm.suffix.trim(),
+      motherId: communityForm.motherId,
+      dob: communityForm.dob || null,
+      contactNumber: communityForm.contactNumber,
+      community: communityForm.community,
+      area: communityForm.area,
+      address: communityForm.address,
+      group: communityForm.group,
+      batch: communityForm.batch,
+      groupId: communityForm.groupId || null,
+      batchId: communityForm.batchId || null,
+      lmpDate: communityForm.lmpDate,
+      eddDate: communityForm.eddDate,
+      prenatalRegDate: communityForm.prenatalRegDate,
+      trimester: resolvedTrimester,
+      gestationalAge: resolvedGestationalAge,
+      prenatalWeight: communityForm.prenatalWeight,
+      prenatalBp: communityForm.prenatalBp,
+      prenatalHeight: communityForm.prenatalHeight,
+      fundalHeight: communityForm.fundalHeight,
+      fhr: communityForm.fhr,
+      gravida: communityForm.gravida,
+      para: communityForm.para,
+      abortion: communityForm.abortion,
+      stillbirth: communityForm.stillbirth,
+      weight: communityForm.weight,
+      height: communityForm.height,
+      isHighRisk: communityForm.isHighRisk,
+      programType: communityForm.programType,
+      emergencyName: communityForm.emergencyName,
+      emergencyContact: communityForm.emergencyContact,
+      emergencyRelationship: communityForm.emergencyRelationship,
+      spouseName: communityForm.spouseName,
+      medicalConditions: communityForm.medicalConditions,
+      otherMedicalHistory: communityForm.otherMedicalHistory,
+      dentalCheckupDate: communityForm.dentalCheckupDate,
+      dentalFacility: communityForm.dentalFacility,
+      dentalFindings: communityForm.dentalFindings,
+      dentalRemarks: communityForm.dentalRemarks,
+      status: 'Active',
+    };
+
+    try {
+      const { mother } = await apiCreateMother(payload);
+      const newCommunity = {
       id: `M-${Date.now()}`,
       name: fullName,
       firstName: communityForm.firstName.trim(),
@@ -186,12 +235,16 @@ export default function CreateMotherPage({
       records: 0,
       progress: 0,
       checkups: initialCheckups,
-    };
+      };
 
-    if (typeof setMothers === 'function') {
-      setMothers((prev) => [newCommunity, ...prev]);
+      if (typeof setMothers === 'function') {
+        setMothers((prev) => [{ ...newCommunity, ...mother }, ...prev]);
+      }
+      navigate('/beneficiary');
+    } catch (error) {
+      console.error('[CreateMotherPage] Failed to create mother:', error);
+      window.alert(error.message || 'Unable to create mother.');
     }
-    navigate('/beneficiary');
   };
 
   return (
@@ -235,6 +288,8 @@ export default function CreateMotherPage({
               form={communityForm}
               setForm={setCommunityForm}
               communities={communities}
+              groups={groups}
+              batches={batches}
             />
           </div>
 

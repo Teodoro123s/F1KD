@@ -1,5 +1,6 @@
 ﻿import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { formatDateForDisplay } from '../../../utils/dateFormat';
 
 const calculateAge = (dobString) => {
   if (!dobString) return null;
@@ -66,7 +67,7 @@ export default function MotherDetailPage({ selectedMother, onClose }) {
   const middleName = selectedMother.middleName || '—';
   const lastName = selectedMother.lastName || '—';
   const suffix = selectedMother.suffix || '—';
-  const dob = selectedMother.dob || '—';
+  const dob = formatDateForDisplay(selectedMother.dob);
   const contact = selectedMother.contactNumber || selectedMother.contact || '—';
   const address = selectedMother.address || selectedMother.currentAddress || selectedMother.area || selectedMother.community || '—';
   const area = selectedMother.area || '—';
@@ -90,9 +91,9 @@ export default function MotherDetailPage({ selectedMother, onClose }) {
   const para = selectedMother.para ?? '—';
   const abortion = selectedMother.abortion ?? '—';
   const stillbirth = selectedMother.stillbirth ?? '—';
-  const lmp = selectedMother.lmpDate || selectedMother.lmp || '—';
-  const edd = selectedMother.eddDate || selectedMother.edd || '—';
-  const prenatalRegDate = selectedMother.prenatalRegDate || '—';
+  const lmp = formatDateForDisplay(selectedMother.lmpDate || selectedMother.lmp);
+  const edd = formatDateForDisplay(selectedMother.eddDate || selectedMother.edd);
+  const prenatalRegDate = formatDateForDisplay(selectedMother.prenatalRegDate);
   const trimester = selectedMother.trimester || '—';
   const gestationalAge = selectedMother.gestationalAge || '—';
 
@@ -104,7 +105,7 @@ export default function MotherDetailPage({ selectedMother, onClose }) {
   const obHistory = Array.isArray(selectedMother.obHistory) ? selectedMother.obHistory : [];
   const vaccineRows = [1, 2, 3, 4, 5].map((num) => ({
     vaccine: `TT${num}`,
-    date: selectedMother[`tt${num}Date`] || '—',
+    date: formatDateForDisplay(selectedMother[`tt${num}Date`]),
     remarks: selectedMother[`tt${num}Remarks`] || '—',
   }));
 
@@ -247,7 +248,7 @@ export default function MotherDetailPage({ selectedMother, onClose }) {
       <section className="mother-detail-section">
         <h3 className="mother-detail-section-title">IV.B ORAL HEALTH CONDITION</h3>
         <div className="mother-detail-grid">
-          <Field label="Date of Dental Check-up" value={selectedMother.dentalCheckupDate || '—'} />
+          <Field label="Date of Dental Check-up" value={formatDateForDisplay(selectedMother.dentalCheckupDate)} />
           <Field label="Dental Clinic / Health Facility" value={selectedMother.dentalFacility || '—'} />
           <Field label="Dentist in Charge" value={selectedMother.dentistInCharge || selectedMother.dentist_in_charge || '—'} />
           <Field label="Community Dentist Name" value={selectedMother.communityDentist || '—'} />

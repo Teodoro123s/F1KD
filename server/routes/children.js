@@ -14,7 +14,7 @@ function getField(body, ...keys) {
 router.post('/', async (req, res) => {
   try {
     const b = req.body || {};
-    const motherId = getField(b, 'motherId', 'mother_id');
+    let motherId = getField(b, 'motherId', 'mother_id');
     const communityId = getField(b, 'communityId', 'community_id');
     const batchId = getField(b, 'batchId', 'batch_id');
     const firstName = getField(b, 'firstName', 'first_name');
@@ -34,6 +34,13 @@ router.post('/', async (req, res) => {
     const nutritionNotes = getField(b, 'nutritionNotes', 'nutrition_notes');
 
     if (!motherId || !firstName || !lastName) return res.status(400).json({ error: 'motherId, firstName and lastName are required' });
+
+    const [motherRows] = await pool.query(
+      'SELECT id FROM mothers WHERE id = ? OR mother_code = ? OR mother_external_id = ? LIMIT 1',
+      [Number(motherId) || null, motherId, motherId]
+    );
+    if (!motherRows.length) return res.status(400).json({ error: 'Mother not found' });
+    motherId = motherRows[0].id;
 
     // generate child_code
     const childCode = `C-${Date.now()}`;
@@ -61,7 +68,7 @@ router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const [rows] = await pool.query(
-      `SELECT c.*, m.first_name AS mother_first_name, m.last_name AS mother_last_name, m.mother_id_no AS mother_id_no
+      `SELECT c.*, m.first_name AS mother_first_name, m.last_name AS mother_last_name, m.mother_code AS mother_code
        FROM children c
        LEFT JOIN mothers m ON c.mother_id = m.id
        WHERE c.id = ? OR c.child_code = ?`,

@@ -101,6 +101,7 @@ router.get('/summary', async (req, res) => {
 
     const batchesData = batches.map((item) => ({
       id: item.batch_code || String(item.id),
+      databaseId: item.id,
       code: item.batch_code || String(item.id),
       name: item.name,
       description: item.description,

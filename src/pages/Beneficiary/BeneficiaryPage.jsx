@@ -6,14 +6,28 @@ import CreateChildPage from './child/CreateChildPage';
 import BeneficiaryListPage from './BeneficiaryListPage';
 import MotherDetailPage from './mother/MotherDetailPage';
 import { useMothers } from '../../context/MothersContext';
+import { getSummary } from '../Community/communityService';
+import { apiGetMother } from '../../api/mothers';
+import { apiGetChildrenByMother } from '../../api/children';
 
 export default function BeneficiaryPage() {
   // Mothers are loaded from the DB via MothersContext
   const { mothers, setMothers } = useMothers();
   const [groups, setGroups] = useState([]);
-  const [batches] = useState([]);
+  const [communities, setCommunities] = useState([]);
+  const [batches, setBatches] = useState([]);
   const [createDropdownOpen, setCreateDropdownOpen] = useState(false);
   const [selectedMother, setSelectedMother] = useState(null);
+
+  useEffect(() => {
+    getSummary()
+      .then((summary) => {
+        setCommunities(summary.communities || []);
+        setGroups(summary.groups || []);
+        setBatches(summary.batches || []);
+      })
+      .catch((error) => console.error('[BeneficiaryPage] Unable to load community options:', error));
+  }, []);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -53,8 +67,21 @@ export default function BeneficiaryPage() {
     }
   }, [location.pathname, location.state]);
 
-  const handleSelectMother = (mother) => {
-    setSelectedMother(mother);
+  const handleSelectMother = async (mother) => {
+    try {
+      const [motherResponse, childrenResponse] = await Promise.all([
+        apiGetMother(mother.id || mother.motherId),
+        apiGetChildrenByMother(mother.raw?.id || mother.original?.raw?.id || mother.id || mother.motherId),
+      ]);
+      setSelectedMother({
+        ...mother,
+        ...(motherResponse?.mother || {}),
+        children: childrenResponse?.children || [],
+      });
+    } catch (error) {
+      console.error('[BeneficiaryPage] Unable to load mother detail:', error);
+      setSelectedMother(mother);
+    }
   };
 
   const handleCloseMotherDetail = () => {
@@ -98,14 +125,14 @@ export default function BeneficiaryPage() {
         {/* Check create routes before showing selected mother detail so navigation to create pages works even when a mother is selected */}
         {isCreateMother ? (
           <CreateMotherPage
-            communities={mothers}
+            communities={communities}
             groups={groups}
             batches={batches}
             navigate={navigate}
           />
         ) : isCreateChild ? (
           <CreateChildPage
-            communities={mothers}
+            communities={communities}
             batches={batches}
             setGroups={setGroups}
             navigate={navigate}

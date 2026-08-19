@@ -31,6 +31,16 @@ export async function apiUpdateMother(motherId, payload) {
   return handleResponse(res, 'Server error when updating mother');
 }
 
+export async function apiCreateMother(payload) {
+  const res = await fetch(`${API_BASE}/api/mothers`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    credentials: 'same-origin',
+  });
+  return handleResponse(res, 'Server error when creating mother');
+}
+
 export async function apiGetMother(motherId) {
   const id = encodeURIComponent(motherId);
   const res = await fetch(`${API_BASE}/api/mothers/${id}`, {

@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatDateForInput } from '../../../utils/dateFormat';
 
 export function ChildFormFields({ activeTab, form, setForm, communities = [], batches = [], readOnly = false }) {
   const uniqueCommunities = Array.from(new Set(communities.map((comm) => comm.name))).filter(Boolean);
@@ -34,7 +35,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
           type={type}
           className="form-input"
           placeholder={placeholder}
-          value={value}
+          value={type === 'date' ? formatDateForInput(value) : value}
           min={min}
           step={step}
           onChange={(e) => setForm((prev) => ({ ...prev, [name]: e.target.value }))}

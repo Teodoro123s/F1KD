@@ -1,6 +1,7 @@
 ﻿import React, { useState } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useMothers } from '../../../context/MothersContext';
+import { formatDateForDisplay } from '../../../utils/dateFormat';
 
 const formatValue = (value) => (value === null || value === undefined || value === '' ? '—' : String(value));
 
@@ -107,8 +108,15 @@ export default function ChildProfilePage() {
     // If child has explicit mother id, search context
     if (child.mother_id || child.motherId) {
       const mid = child.mother_id || child.motherId;
-      const found = contextMothers.find((m) => String(m.id) === String(mid) || String(m.motherId) === String(mid));
+        const found = contextMothers.find((m) => (
+          String(m.id) === String(mid) ||
+          String(m.motherId) === String(mid) ||
+          String(m.raw?.id) === String(mid)
+        ));
       if (found) return found;
+    }
+    if (child.motherName) {
+      return { id: child.motherId || child.mother_id, motherId: child.motherId || child.mother_id, name: child.motherName };
     }
     // if resolvedFromUrl had a mother
     if (resolvedFromUrl && resolvedFromUrl.mother) return resolvedFromUrl.mother;
@@ -118,7 +126,7 @@ export default function ChildProfilePage() {
 
   const [fetchedChildrenForMother, setFetchedChildrenForMother] = React.useState(null);
 
-  const resolvedMother = findMotherForChild(initialSelected || resolvedFromUrl?.child);
+  const resolvedMother = findMotherForChild(selectedChild || initialSelected || resolvedFromUrl?.child);
 
   // children list to show in sidebar: prefer mother.children, then fetchedChildrenForMother, then location.state.children
   const children = (resolvedMother && Array.isArray(resolvedMother.children) && resolvedMother.children.length) ? resolvedMother.children : (Array.isArray(fetchedChildrenForMother) ? fetchedChildrenForMother : (Array.isArray(location.state?.children) ? location.state.children : []));
@@ -141,6 +149,8 @@ export default function ChildProfilePage() {
             const normalized = {
               id: c.id,
               child_code: c.child_code,
+              motherId: c.mother_code || c.mother_id,
+              motherName: [c.mother_first_name, c.mother_last_name].filter(Boolean).join(' '),
               firstName: c.first_name,
               middleName: c.middle_name,
               lastName: c.last_name,
@@ -181,19 +191,19 @@ export default function ChildProfilePage() {
   };
 
   const childName = selectedChild?.name || `${selectedChild?.firstName || ''} ${selectedChild?.middleName || ''} ${selectedChild?.lastName || ''} ${selectedChild?.suffix || ''}`.replace(/\s+/g, ' ').trim();
-  const childBirthDate = selectedChild?.birthDate || selectedChild?.birth_date || '—';
+  const childBirthDate = formatDateForDisplay(selectedChild?.birthDate || selectedChild?.birth_date);
   const childWeight = selectedChild?.birthWeight || selectedChild?.birth_weight || '—';
   const childHeight = selectedChild?.birthLength || selectedChild?.birth_length || '—';
   const childBmi = getBmiValue(childWeight, childHeight);
   const childBmiStatus = getBmiStatus(childWeight, childHeight);
   const vaccineRows = [
-    { label: 'BCG', date: selectedChild?.bcgDate || '—', remarks: selectedChild?.bcgRemarks || '—' },
-    { label: 'Hepatitis B', date: selectedChild?.hepbDate || '—', remarks: selectedChild?.hepbRemarks || '—' },
-    { label: 'Inactivated Polio Vaccine', date: selectedChild?.ipvDate || selectedChild?.ipv_date || '—', remarks: selectedChild?.ipvRemarks || selectedChild?.ipv_remarks || '—' },
-    { label: 'Pentavalent Vaccine', date: selectedChild?.dptDate || '—', remarks: selectedChild?.dptRemarks || '—' },
-    { label: 'Oral Polio Vaccine (OPV)', date: selectedChild?.opvDate || '—', remarks: selectedChild?.opvRemarks || '—' },
-    { label: 'Pneumococcal (PCV)', date: selectedChild?.pcvDate || selectedChild?.pcv_date || '—', remarks: selectedChild?.pcvRemarks || selectedChild?.pcv_remarks || '—' },
-    { label: 'Measles, Mumps, Rubella (MMR)', date: selectedChild?.mmrDate || '—', remarks: selectedChild?.mmrRemarks || '—' },
+    { label: 'BCG', date: formatDateForDisplay(selectedChild?.bcgDate), remarks: selectedChild?.bcgRemarks || '—' },
+    { label: 'Hepatitis B', date: formatDateForDisplay(selectedChild?.hepbDate), remarks: selectedChild?.hepbRemarks || '—' },
+    { label: 'Inactivated Polio Vaccine', date: formatDateForDisplay(selectedChild?.ipvDate || selectedChild?.ipv_date), remarks: selectedChild?.ipvRemarks || selectedChild?.ipv_remarks || '—' },
+    { label: 'Pentavalent Vaccine', date: formatDateForDisplay(selectedChild?.dptDate), remarks: selectedChild?.dptRemarks || '—' },
+    { label: 'Oral Polio Vaccine (OPV)', date: formatDateForDisplay(selectedChild?.opvDate), remarks: selectedChild?.opvRemarks || '—' },
+    { label: 'Pneumococcal (PCV)', date: formatDateForDisplay(selectedChild?.pcvDate || selectedChild?.pcv_date), remarks: selectedChild?.pcvRemarks || selectedChild?.pcv_remarks || '—' },
+    { label: 'Measles, Mumps, Rubella (MMR)', date: formatDateForDisplay(selectedChild?.mmrDate), remarks: selectedChild?.mmrRemarks || '—' },
   ];
 
   const rightColumnContent = (!selectedChild && (childId || id)) ? (
@@ -278,7 +288,7 @@ export default function ChildProfilePage() {
           <div style={{ marginTop: 4 }}>
             <div style={{ fontSize: '0.95rem', color: '#64748b' }}>{resolvedMother ? `Child of ${resolvedMother.name || resolvedMother.firstName || resolvedMother.motherName}` : `Child ID: ${childId || 'n/a'}`}</div>
             <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: 6 }}>
-              {resolvedMother ? (`Mother: ${resolvedMother.name || resolvedMother.firstName ? `${resolvedMother.firstName || ''} ${resolvedMother.lastName || ''}`.trim() : resolvedMother.motherName} • ${resolvedMother.motherId || resolvedMother.id || ''}`) : (selectedChild ? (`Mother ID: ${selectedChild.mother_id || selectedChild.motherId || '—'}`) : '')}
+              {resolvedMother ? (`Mother: ${resolvedMother.name || resolvedMother.motherName || `${resolvedMother.firstName || ''} ${resolvedMother.lastName || ''}`.trim()} • ${resolvedMother.motherId || resolvedMother.id || ''}`) : (selectedChild ? (`Mother ID: ${selectedChild.mother_id || selectedChild.motherId || '—'}`) : '')}
             </div>
             <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: 2 }}>
               {selectedChild ? (`Father: ${selectedChild.fatherName || selectedChild.father_name || '—'} • Relationship: ${selectedChild.relationship || '—'}`) : ''}
@@ -303,7 +313,7 @@ export default function ChildProfilePage() {
                 <li key={c.id} style={{ marginBottom: 8 }}>
                   <button type="button" onClick={() => setSelectedChild(c)} style={{ width: '100%', textAlign: 'left', padding: 8, border: '1px solid transparent', background: selectedChild?.id === c.id ? '#eef2ff' : 'transparent' }}>
                     {c.name || `${c.firstName || ''} ${c.lastName || ''}`.trim() || c.id}
-                    <div style={{ fontSize: '0.8rem', color: '#64748b' }}>{c.birthDate || c.birthDate}</div>
+                    <div style={{ fontSize: '0.8rem', color: '#64748b' }}>{formatDateForDisplay(c.birthDate || c.birth_date)}</div>
                   </button>
                 </li>
               ))}

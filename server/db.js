@@ -277,8 +277,102 @@ async function ensureDefaultAdmin() {
   }
 }
 
-ensure().catch((err) => console.error('DB init error', err)).finally(() => {
+async function migrateUsersTable() {
+  try {
+    const [cols] = await pool.query("SHOW COLUMNS FROM users");
+    const colNames = (cols || []).map(c => c.Field);
+
+    const alterStatements = [];
+    if (!colNames.includes('first_name')) {
+      alterStatements.push("ADD COLUMN first_name VARCHAR(120) NOT NULL DEFAULT ''");
+    }
+    if (!colNames.includes('last_name')) {
+      alterStatements.push("ADD COLUMN last_name VARCHAR(120) NOT NULL DEFAULT ''");
+    }
+    if (!colNames.includes('middle_initial')) {
+      alterStatements.push("ADD COLUMN middle_initial CHAR(1) DEFAULT NULL");
+    }
+    if (!colNames.includes('contact_number')) {
+      alterStatements.push("ADD COLUMN contact_number VARCHAR(20) DEFAULT NULL");
+    }
+    if (!colNames.includes('gender')) {
+      alterStatements.push("ADD COLUMN gender ENUM('Male','Female','Other') NOT NULL DEFAULT 'Male'");
+    }
+    if (!colNames.includes('dob')) {
+      alterStatements.push("ADD COLUMN dob DATE DEFAULT NULL");
+    }
+    if (!colNames.includes('location')) {
+      alterStatements.push("ADD COLUMN location VARCHAR(120) DEFAULT NULL");
+    }
+
+    if (alterStatements.length > 0) {
+      console.log('Migrating users table, adding missing columns...');
+      await pool.query(`ALTER TABLE users ${alterStatements.join(', ')}`);
+
+      // Split existing full_name into first_name and last_name for existing users
+      const [users] = await pool.query("SELECT id, full_name FROM users WHERE first_name = '' AND last_name = ''");
+      for (const u of users) {
+        if (u.full_name) {
+          const parts = u.full_name.trim().split(/\s+/);
+          const firstName = parts[0] || '';
+          const lastName = parts.slice(1).join(' ') || '';
+          await pool.query("UPDATE users SET first_name = ?, last_name = ? WHERE id = ?", [firstName, lastName, u.id]);
+        }
+      }
+      console.log('Users table migrated successfully.');
+    }
+  } catch (err) {
+    console.error('Failed to migrate users table', err);
+  }
+}
+
+async function migrateMothersTable() {
+  try {
+    const [cols] = await pool.query('SHOW COLUMNS FROM mothers');
+    const existing = new Set((cols || []).map((column) => column.Field));
+    const definitions = {
+      lmp_date: 'DATE DEFAULT NULL',
+      edd_date: 'DATE DEFAULT NULL',
+      prenatal_reg_date: 'DATE DEFAULT NULL',
+      trimester: 'VARCHAR(30) DEFAULT NULL',
+      gestational_age: 'INT DEFAULT NULL',
+      prenatal_weight: 'DECIMAL(5,2) DEFAULT NULL',
+      prenatal_bp: 'VARCHAR(20) DEFAULT NULL',
+      prenatal_height: 'VARCHAR(20) DEFAULT NULL',
+      fundal_height: 'VARCHAR(20) DEFAULT NULL',
+      fhr: 'VARCHAR(20) DEFAULT NULL',
+      gravida: 'INT DEFAULT NULL',
+      para: 'INT DEFAULT NULL',
+      abortion: 'INT DEFAULT 0',
+      stillbirth: 'INT DEFAULT 0',
+      weight: 'VARCHAR(20) DEFAULT NULL',
+      height: 'VARCHAR(20) DEFAULT NULL',
+      is_high_risk: 'BOOLEAN DEFAULT FALSE',
+      program_type: 'VARCHAR(150) DEFAULT NULL',
+      emergency_name: 'VARCHAR(150) DEFAULT NULL',
+      emergency_contact: 'VARCHAR(20) DEFAULT NULL',
+      emergency_relationship: 'VARCHAR(60) DEFAULT NULL',
+      spouse_name: 'VARCHAR(150) DEFAULT NULL',
+      medical_conditions: 'JSON DEFAULT NULL',
+      other_medical_history: 'TEXT DEFAULT NULL',
+    };
+    const additions = Object.entries(definitions)
+      .filter(([name]) => !existing.has(name))
+      .map(([name, definition]) => `ADD COLUMN ${name} ${definition}`);
+    if (additions.length > 0) {
+      await pool.query(`ALTER TABLE mothers ${additions.join(', ')}`);
+      console.info('Mothers table migrated successfully.');
+    }
+  } catch (error) {
+    console.error('Failed to migrate mothers table', error);
+  }
+}
+
+ensure().catch((err) => console.error('DB init error', err)).finally(async () => {
+  await migrateUsersTable();
+  await migrateMothersTable();
   ensureDefaultAdmin();
 });
 
 module.exports = pool;
+

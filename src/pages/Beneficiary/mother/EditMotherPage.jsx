@@ -3,6 +3,17 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { MotherFormFields } from './BeneficiaryMother';
 import { useMothers } from '../../../context/MothersContext';
 import { apiUpdateMother } from '../../../api/mothers';
+import { formatDateForInput } from '../../../utils/dateFormat';
+import { getSummary } from '../../Community/communityService';
+
+const normalizeMotherDates = (mother) => {
+  const dateFields = ['dob', 'lmpDate', 'eddDate', 'prenatalRegDate', 'dentalCheckupDate'];
+  const vaccineFields = ['tt1Date', 'tt2Date', 'tt3Date', 'tt4Date', 'tt5Date'];
+  return [...dateFields, ...vaccineFields].reduce((result, field) => ({
+    ...result,
+    [field]: formatDateForInput(result[field]),
+  }), { ...mother });
+};
 
 export default function EditMotherPage() {
   const navigate = useNavigate();
@@ -12,13 +23,23 @@ export default function EditMotherPage() {
 
   const { mothers, setMothers } = useMothers();
 
-  const [form, setForm] = useState(() => (initialMother ? { ...initialMother } : {}));
-  const [activeTab, setActiveTab] = useState('general');
+  const [form, setForm] = useState(() => (initialMother ? normalizeMotherDates(initialMother) : {}));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  const [communityOptions, setCommunityOptions] = useState({ communities: [], groups: [], batches: [] });
 
   useEffect(() => {
-    if (initialMother) setForm({ ...initialMother });
+    getSummary()
+      .then((summary) => setCommunityOptions({
+        communities: summary.communities || [],
+        groups: summary.groups || [],
+        batches: summary.batches || [],
+      }))
+      .catch((summaryError) => console.error('[EditMotherPage] Unable to load community options:', summaryError));
+  }, []);
+
+  useEffect(() => {
+    if (initialMother) setForm(normalizeMotherDates(initialMother));
   }, [initialMother]);
 
   if (!initialMother) {
@@ -61,23 +82,28 @@ export default function EditMotherPage() {
     <section className="edit-mother-page">
       <header className="edit-mother-header">
         <h1 className="edit-mother-title">Edit: {form.name || `${form.firstName || ''} ${form.lastName || ''}`}</h1>
-        <div className="edit-mother-actions">
-          <button type="button" className="btn-secondary" onClick={() => navigate(-1)}>Cancel</button>
-          <button type="button" className="btn-primary" onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
-        </div>
       </header>
 
       {error && <div className="form-error" style={{ color: 'var(--danger-color)', margin: '8px 0' }}>{error}</div>}
 
       <form onSubmit={handleSave} className="mother-edit-form">
-        <div className="form-tabs">
-          <button type="button" className={`tab-btn ${activeTab === 'general' ? 'active' : ''}`} onClick={() => setActiveTab('general')}>General</button>
-          <button type="button" className={`tab-btn ${activeTab === 'prenatal' ? 'active' : ''}`} onClick={() => setActiveTab('prenatal')}>Prenatal</button>
-          <button type="button" className={`tab-btn ${activeTab === 'medical_dental' ? 'active' : ''}`} onClick={() => setActiveTab('medical_dental')}>Medical</button>
-          <button type="button" className={`tab-btn ${activeTab === 'vaccine' ? 'active' : ''}`} onClick={() => setActiveTab('vaccine')}>Vaccine</button>
+        {['general', 'prenatal', 'medical_dental', 'vaccine'].map((section) => (
+          <MotherFormFields
+            key={section}
+            activeTab={section}
+            form={form}
+            setForm={setForm}
+            communities={communityOptions.communities}
+            groups={communityOptions.groups}
+            batches={communityOptions.batches}
+            autoCalculate={false}
+            readOnly={false}
+          />
+        ))}
+        <div className="modal-footer edit-mother-footer">
+          <button type="button" className="btn-secondary" onClick={() => navigate(-1)}>Cancel</button>
+          <button type="submit" className="btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
         </div>
-
-        <MotherFormFields activeTab={activeTab} form={form} setForm={setForm} readOnly={false} />
       </form>
     </section>
   );

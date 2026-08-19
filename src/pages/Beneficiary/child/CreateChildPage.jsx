@@ -11,9 +11,9 @@ const emptyGroupForm = (communities = []) => ({
   birthDate: '',
   birthWeight: '',
   birthLength: '',
-  gender: '',
-  deliveryType: '',
-  healthStatus: '',
+  gender: 'Male',
+  deliveryType: 'Vaginal',
+  healthStatus: 'Healthy',
   community: communities[0]?.name || '',
   assignedBatchIds: [],
   leader: '',
@@ -124,7 +124,8 @@ export default function CreateChildPage({
 
     try {
       // call backend to create child
-      const { child } = await (await import('../../../api/children')).then(mod => mod.apiCreateChild(payload));
+      const { apiCreateChild } = await import('../../../api/children');
+      const { child } = await apiCreateChild(payload);
 
       const newGroup = {
         id: child.id || `G-${Date.now()}`,

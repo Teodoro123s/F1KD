@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatDateForDisplay } from '../../utils/dateFormat';
 
 export default function BeneficiaryTable({
   currentRows,
@@ -111,7 +112,7 @@ export default function BeneficiaryTable({
                             <div className="beneficiary-cell-line-2">
                               {contact && <span className="muted">{contact}</span>}
                               {(contact && (edd || ga)) && <span className="muted"> • </span>}
-                              {edd ? <span className="muted">EDD: {edd}</span> : (ga ? <span className="muted">GA: {ga} wk</span> : null)}
+                              {edd ? <span className="muted">EDD: {formatDateForDisplay(edd)}</span> : (ga ? <span className="muted">GA: {ga} wk</span> : null)}
                             </div>
                             <div className="beneficiary-cell-line-3">
                               {getMotherStatus(motherProgress)}
@@ -197,7 +198,7 @@ export default function BeneficiaryTable({
                               <div className="beneficiary-cell-line-2">
                                 {contact && <span className="muted">{contact}</span>}
                                 {(contact && (edd || ga)) && <span className="muted"> • </span>}
-                                {edd ? <span className="muted">EDD: {edd}</span> : (ga ? <span className="muted">GA: {ga} wk</span> : null)}
+                                {edd ? <span className="muted">EDD: {formatDateForDisplay(edd)}</span> : (ga ? <span className="muted">GA: {ga} wk</span> : null)}
                               </div>
                               <div className="beneficiary-cell-line-3">
                                 {getMotherStatus(motherProgress)}

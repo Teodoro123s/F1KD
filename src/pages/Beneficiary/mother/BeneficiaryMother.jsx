@@ -1,18 +1,24 @@
 import React from 'react';
+import { formatDateForInput } from '../../../utils/dateFormat';
 
 export function MotherFormFields({
   activeTab,
   form,
   setForm,
   communities = [],
+  groups = [],
+  batches = [],
+  autoCalculate = true,
   readOnly = false,
 }) {
   const uniqueCommunities = Array.from(new Set(communities.map((comm) => comm.name))).filter(Boolean);
+  const selectedGroups = groups.filter((group) => !form.community || group.community === form.community);
+  const selectedBatches = batches.filter((batch) => !form.community || !batch.community || batch.community === form.community);
 
   const handleLmpChange = (val) => {
     setForm((prev) => {
       const newForm = { ...prev, lmpDate: val };
-      if (val) {
+      if (val && autoCalculate) {
         const lmp = new Date(val);
         if (!isNaN(lmp.getTime())) {
           const edd = new Date(lmp.getTime() + 280 * 24 * 60 * 60 * 1000);
@@ -76,7 +82,7 @@ export function MotherFormFields({
           type={type}
           className="form-input"
           placeholder={placeholder}
-          value={value}
+          value={type === 'date' ? formatDateForInput(value) : value}
           onChange={(e) => setForm((prev) => ({ ...prev, [name]: e.target.value }))}
           required={required}
         />
@@ -102,7 +108,9 @@ export function MotherFormFields({
           id={id}
           className="form-select"
           value={value}
-          onChange={(e) => setForm((prev) => ({ ...prev, [name]: e.target.value }))}
+          onChange={(e) => setForm((prev) => name === 'community'
+            ? { ...prev, community: e.target.value, groupId: '', batchId: '', group: '', batch: '' }
+            : { ...prev, [name]: e.target.value })}
           required={required}
         >
           {placeholder && <option value="">{placeholder}</option>}
@@ -167,7 +175,7 @@ export function MotherFormFields({
                 id="mother-lmp"
                 type="date"
                 className="form-input"
-                value={form.lmpDate || ''}
+                value={formatDateForInput(form.lmpDate)}
                 onChange={(e) => handleLmpChange(e.target.value)}
               />
             </div>
@@ -189,6 +197,29 @@ export function MotherFormFields({
             'Poblacion','Upland','Downtown','Coastal','Highland','Lowland','Riverside','Forest'
           ] })}
         </div>
+
+        {renderSelect({
+          id: 'mother-community',
+          label: 'School',
+          name: 'community',
+          options: uniqueCommunities,
+          placeholder: 'Select school',
+          required: true,
+        })}
+        {renderSelect({
+          id: 'mother-group',
+          label: 'Group',
+          name: 'groupId',
+          options: selectedGroups.map((group) => ({ value: group.id, label: group.name })),
+          placeholder: 'Select group',
+        })}
+        {renderSelect({
+          id: 'mother-batch',
+          label: 'Batch',
+          name: 'batchId',
+          options: selectedBatches.map((batch) => ({ value: batch.databaseId ?? batch.id, label: batch.name })),
+          placeholder: 'Select batch',
+        })}
 
         <h4 className="form-section-title">I.B EMERGENCY CONTACT DETAILS</h4>
         <div className="form-row-3 full-width">
@@ -418,7 +449,7 @@ export function MotherFormFields({
                         <input
                           type="date"
                           className="form-input table-input"
-                          value={form[`tt${num}Date`] || ''}
+                          value={formatDateForInput(form[`tt${num}Date`] || '')}
                           onChange={(e) => setForm((prev) => ({ ...prev, [`tt${num}Date`]: e.target.value }))}
                         />
                       )}
