@@ -1,6 +1,9 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
 const MothersContext = createContext(null);
+const API_BASE = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL)
+  ? import.meta.env.VITE_API_URL
+  : 'http://localhost:4000';
 
 export function MothersProvider({ children }) {
   const [mothers, setMothers] = useState([]);
@@ -10,7 +13,7 @@ export function MothersProvider({ children }) {
 
     async function loadMothers() {
       try {
-        const response = await fetch('http://localhost:4000/api/mothers', { headers: { 'Content-Type': 'application/json' } });
+        const response = await fetch(`${API_BASE}/api/mothers`, { headers: { 'Content-Type': 'application/json' } });
         if (!response.ok) {
           throw new Error('Failed to load mothers');
         }

@@ -8,8 +8,8 @@ export default function Monitoring() {
   const mother = state.mother || null;
 
   const openCheckup = () => {
-    // placeholder for opening a specific checkup editor
-    alert('Open checkup editor (not implemented)');
+    if (!mother?.id) return;
+    navigate(`/beneficiary/mother/${mother.id}/monitoring`, { state: { mother } });
   };
 
   return (
@@ -31,12 +31,12 @@ export default function Monitoring() {
         <h2>Monitoring Workspace</h2>
         <p>This is the monitoring workspace where check-ups, trimester tracking, immunization scheduling, and longitudinal records will be managed.</p>
         <div style={{ marginTop: 12 }}>
-          <button type="button" className="btn-primary" onClick={openCheckup}>Add Check-up (placeholder)</button>
+          <button type="button" className="btn-primary" onClick={openCheckup} disabled={!mother?.id}>Add Check-up</button>
         </div>
 
         <div style={{ marginTop: 18 }}>
-          <h3>Timeline (placeholder)</h3>
-          <p>Timeline and list of saved check-ups will appear here.</p>
+          <h3>Timeline</h3>
+          <p>Select a mother to view and add check-ups.</p>
         </div>
       </section>
     </div>

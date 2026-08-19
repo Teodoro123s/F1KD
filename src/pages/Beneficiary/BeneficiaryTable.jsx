@@ -30,11 +30,11 @@ export default function BeneficiaryTable({
 
   const getChildStatus = (progress) => {
     if (progress < 60) {
-      return <span className="status-missing">🔴 Missing: Consent Form</span>;
+      return <span className="status-missing">Missing: Checkup</span>;
     } else if (progress < 90) {
-      return <span className="status-checkup">🟡 Checkup: Aug 10</span>;
+      return <span className="status-checkup">Pending: Checkup</span>;
     } else {
-      return <span className="status-complete">🟢 Completed Checklist</span>;
+      return <span className="status-complete">Completed</span>;
     }
   };
 
@@ -64,20 +64,16 @@ export default function BeneficiaryTable({
 
                 // Lookup mother's school/area
                 const motherObj = communities.find((c) => c.name === row.community);
-                const area = motherObj?.area || 'Poblacion';
+                const area = motherObj?.area || row.original?.area || 'Unknown area';
                 
                 // Lookup batch name
                 const batchId = row.assignedBatchIds?.[0];
                 const batchObj = batches.find((b) => b.id === batchId);
-                const batchName = batchObj?.name || 'Health Visit 1';
+                const batchName = batchObj?.name || row.original?.batch_name || 'Unknown batch';
 
-                const motherBreadcrumb = `${area} School > ${row.name} > ${batchName}`;
-
-                // Calculate child's grade and section
-                const idNum = parseInt(String(row.id || '').split('-')[1] || '0', 10);
-                const grade = (idNum % 6) + 1;
-                const section = String.fromCharCode(65 + (idNum % 4));
-                const childBreadcrumb = `Grade ${grade} > Section ${section}`;
+                const motherBreadcrumb = `${area} > ${row.name} > ${batchName}`;
+                const childGroup = row.original?.group_name || 'Group not assigned';
+                const childBreadcrumb = `${childGroup} > ${batchName}`;
 
                 if (entityFilter === 'Mother') {
                   const orig = row.original || {};

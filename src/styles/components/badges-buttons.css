@@ -8,3 +8,39 @@
 .btn-secondary { background: #fff; border: 1px solid #CBD5E1; color: #475569; padding: 0.85rem 1.4rem; border-radius: 12px; font-weight: 600; cursor: pointer; }
 .btn-primary { background: var(--burgundy); border: 1px solid var(--burgundy); color: #fff; padding: 0.85rem 1.4rem; border-radius: 12px; font-weight: 600; cursor: pointer; }
 .btn-primary:hover { background: var(--burgundy-hover); box-shadow: 0 4px 6px rgba(122, 12, 30, 0.15); }
+
+/* Shared action styling for every create control. */
+.btn-create-action {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+	min-height: 44px;
+	min-width: 112px;
+	padding: 0.75rem 1.25rem;
+	background: var(--burgundy);
+	border: 1px solid var(--burgundy);
+	border-radius: 10px;
+	color: #fff;
+	font-size: 0.95rem;
+	font-weight: 600;
+	cursor: pointer;
+	box-shadow: 0 2px 4px rgba(122, 12, 30, 0.15);
+	transition: background 150ms ease, box-shadow 150ms ease, opacity 150ms ease;
+}
+
+.btn-create-action svg {
+	width: 1.5rem;
+	height: 1.5rem;
+	flex: 0 0 auto;
+}
+
+.btn-create-action:hover {
+	background: var(--burgundy-hover);
+	box-shadow: 0 4px 6px rgba(122, 12, 30, 0.2);
+}
+
+.btn-create-action:disabled {
+	cursor: not-allowed;
+	opacity: 0.6;
+}

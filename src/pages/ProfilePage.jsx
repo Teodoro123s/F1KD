@@ -22,9 +22,9 @@ export default function ProfilePage() {
         </div>
       )}
 
-      <section style={{marginTop:20}}>
-        <h2>Actions</h2>
-        <p>This is a placeholder profile page. Future features: edit profile, change password, link accounts.</p>
+      <section style={{ marginTop: 20 }}>
+        <h2>Account status</h2>
+        <p>Your account is currently {user?.status || 'Active'}.</p>
       </section>
     </div>
   );

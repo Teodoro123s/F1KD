@@ -309,7 +309,7 @@ export default function CreateMotherPage({
                 else if (createActiveTab === 'medical_dental') setCreateActiveTab('vaccine');
               }}>Next</button>
             ) : (
-              <button type="submit" className="btn-primary">Create</button>
+              <button type="submit" className="btn-create-action">Create</button>
             )}
           </div>
         </form>

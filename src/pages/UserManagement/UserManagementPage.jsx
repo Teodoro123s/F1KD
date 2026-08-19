@@ -87,7 +87,7 @@ export default function UserManagementPage() {
             ))}
           </nav>
         </div>
-        <button className="btn-create btn-create--hero" type="button" onClick={openAddModal} disabled={!canCreate}>
+        <button className="btn-create-action" type="button" onClick={openAddModal} disabled={!canCreate}>
           <PlusIcon />
           <span>{canCreate ? 'Add User' : 'Add User (requires Admin)'}</span>
         </button>

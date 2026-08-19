@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { PlusIcon } from './BeneficiaryIcons';
 import CreateMotherPage from './mother/CreateMotherPage';
 import CreateChildPage from './child/CreateChildPage';
@@ -31,6 +31,7 @@ export default function BeneficiaryPage() {
 
   const navigate = useNavigate();
   const location = useLocation();
+  const { id: motherRouteId } = useParams();
 
   useEffect(() => {
     function closeDropdowns() {
@@ -69,8 +70,19 @@ export default function BeneficiaryPage() {
     }
     if (location.pathname.startsWith('/beneficiary/mother/') && navMother) {
       setSelectedMother(navMother);
+      return;
     }
-  }, [location.pathname, location.state]);
+    if (location.pathname.startsWith('/beneficiary/mother/') && motherRouteId) {
+      apiGetMother(motherRouteId)
+        .then(async (response) => {
+          const loadedMother = response?.mother || null;
+          if (!loadedMother) return;
+          const childrenResponse = await apiGetChildrenByMother(loadedMother.raw?.id || loadedMother.id || motherRouteId);
+          setSelectedMother({ ...loadedMother, children: childrenResponse?.children || [] });
+        })
+        .catch((error) => console.error('[BeneficiaryPage] Unable to load mother deep link:', error));
+    }
+  }, [location.pathname, location.state, motherRouteId]);
 
   const handleSelectMother = async (mother) => {
     try {
@@ -114,7 +126,7 @@ export default function BeneficiaryPage() {
         {/* Create button (keeps the simple dropdown used previously) */}
         {!isMotherDetail && (
           <div className="create-menu-wrapper">
-            <button className="btn-create btn-create--hero" onClick={openCreateModal} type="button">
+            <button className="btn-create-action" onClick={openCreateModal} type="button">
               <PlusIcon />
               <span>Create</span>
             </button>
@@ -145,6 +157,7 @@ export default function BeneficiaryPage() {
           <CreateChildPage
             communities={communities}
             batches={batches}
+            mothers={mothers}
             setGroups={setGroups}
             navigate={navigate}
           />
@@ -152,8 +165,8 @@ export default function BeneficiaryPage() {
           <MotherDetailPage selectedMother={selectedMother} onClose={handleCloseMotherDetail} />
         ) : (
           <BeneficiaryListPage
-            groups={mothers}
-            communities={mothers}
+            mothers={mothers}
+            communities={communities}
             batches={batches}
             onSelectMother={handleSelectMother}
             onSelectChild={handleSelectChild}

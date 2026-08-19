@@ -171,10 +171,10 @@ export default function CommunityPage() {
       .filter((group) => {
         if (!term) return true;
         return (
-          group.name.toLowerCase().includes(term) ||
-          group.id.toLowerCase().includes(term) ||
-          group.leader.toLowerCase().includes(term) ||
-          group.status.toLowerCase().includes(term)
+          String(group.name || '').toLowerCase().includes(term) ||
+          String(group.id || '').toLowerCase().includes(term) ||
+          String(group.leader || '').toLowerCase().includes(term) ||
+          String(group.status || '').toLowerCase().includes(term)
         );
       });
   }, [groups, selectedSchool, query]);
@@ -190,10 +190,10 @@ export default function CommunityPage() {
       .filter((batch) => {
         if (!term) return true;
         return (
-          batch.name.toLowerCase().includes(term) ||
-          batch.id.toLowerCase().includes(term) ||
-          batch.community.toLowerCase().includes(term) ||
-          batch.status.toLowerCase().includes(term)
+          String(batch.name || '').toLowerCase().includes(term) ||
+          String(batch.id || '').toLowerCase().includes(term) ||
+          String(batch.community || '').toLowerCase().includes(term) ||
+          String(batch.status || '').toLowerCase().includes(term)
         );
       });
   }, [batches, mothers, selectedGroup, query]);
@@ -206,10 +206,10 @@ export default function CommunityPage() {
       .filter((mother) => {
         if (!term) return true;
         return (
-          mother.name.toLowerCase().includes(term) ||
-          mother.id.toLowerCase().includes(term) ||
-          mother.group.toLowerCase().includes(term) ||
-          mother.status.toLowerCase().includes(term)
+          String(mother.name || '').toLowerCase().includes(term) ||
+          String(mother.id || '').toLowerCase().includes(term) ||
+          String(mother.group || '').toLowerCase().includes(term) ||
+          String(mother.status || '').toLowerCase().includes(term)
         );
       });
   }, [mothers, selectedBatch, query]);
@@ -263,15 +263,19 @@ export default function CommunityPage() {
     navigate(`/community/batch/${batch.id}`);
   };
 
+  const handleMotherRowClick = (mother) => {
+    navigate(`/beneficiary/mother/${mother.id}`, { state: { mother } });
+  };
+
   const filteredData = useMemo(() => {
     const term = query.trim().toLowerCase();
     if (activeTab === 'communities') {
       if (!term) return communities;
       return communities.filter(
         (c) =>
-          c.name.toLowerCase().includes(term) ||
-          c.id.toLowerCase().includes(term) ||
-          c.area.toLowerCase().includes(term)
+          String(c.name || '').toLowerCase().includes(term) ||
+            String(c.id || '').toLowerCase().includes(term) ||
+            String(c.area || '').toLowerCase().includes(term)
       );
     }
 
@@ -283,20 +287,20 @@ export default function CommunityPage() {
       if (!term) return batches;
       return batches.filter(
         (b) =>
-          b.name.toLowerCase().includes(term) ||
-          b.id.toLowerCase().includes(term) ||
-          b.community.toLowerCase().includes(term) ||
-          b.status.toLowerCase().includes(term)
+          String(b.name || '').toLowerCase().includes(term) ||
+          String(b.id || '').toLowerCase().includes(term) ||
+          String(b.community || '').toLowerCase().includes(term) ||
+          String(b.status || '').toLowerCase().includes(term)
       );
     }
 
     if (!term) return groups;
     return groups.filter(
       (g) =>
-        g.name.toLowerCase().includes(term) ||
-        g.id.toLowerCase().includes(term) ||
-        g.leader.toLowerCase().includes(term) ||
-        g.status.toLowerCase().includes(term)
+          String(g.name || '').toLowerCase().includes(term) ||
+        String(g.id || '').toLowerCase().includes(term) ||
+        String(g.leader || '').toLowerCase().includes(term) ||
+        String(g.status || '').toLowerCase().includes(term)
     );
   }, [activeTab, query, communities, batches, groups]);
 
@@ -749,7 +753,7 @@ export default function CommunityPage() {
           </nav>
         </div>
         {activeTab !== 'mothers' && (
-          <button className="btn-create btn-create--hero" onClick={openCreateModal}>
+          <button className="btn-create-action" onClick={openCreateModal}>
             <PlusIcon />
             <span>
               {activeTab === 'communities'
@@ -831,6 +835,7 @@ export default function CommunityPage() {
         handleDeleteBatch={handleDeleteBatch}
         renderPaginationButtons={renderPaginationButtons}
         onCommunityRowClick={activeTab === 'communities' ? handleCommunityRowClick : activeTab === 'groups' ? handleGroupRowClick : activeTab === 'batches' ? handleBatchRowClick : undefined}
+        onMotherRowClick={activeTab === 'mothers' ? handleMotherRowClick : undefined}
       />
       <CreateCommunityModal
         showModal={showModal === 'createCommunity'}

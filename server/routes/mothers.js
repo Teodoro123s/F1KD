@@ -131,7 +131,7 @@ router.get('/', async (req, res) => {
 
     res.json({ mothers: rows.map(mapMother) });
   } catch (error) {
-    console.error('[Mothers API] GET / error:', error);
+    console.error('[Mothers API] GET / error:', error.message);
     res.status(500).json({ error: 'db error' });
   }
 });
@@ -271,7 +271,7 @@ router.post('/', async (req, res) => {
     }
     res.status(201).json({ mother: await attachClinicalData(mapMother(mother)) });
   } catch (error) {
-    console.error('[Mothers API] POST / error:', error);
+    console.error('[Mothers API] POST / error:', error.message);
     res.status(500).json({ error: 'db error' });
   }
 });
@@ -298,7 +298,7 @@ router.get('/:id', async (req, res) => {
 
     res.json({ mother: await attachClinicalData(mapMother(rows[0])) });
   } catch (error) {
-    console.error('[Mothers API] GET /:id error:', error);
+    console.error('[Mothers API] GET /:id error:', error.message);
     res.status(500).json({ error: 'db error' });
   }
 });
@@ -404,7 +404,7 @@ router.put('/:id', async (req, res) => {
     );
     res.json({ mother: await attachClinicalData(mapMother(rows[0])) });
   } catch (error) {
-    console.error('[Mothers API] PUT /:id error:', error);
+    console.error('[Mothers API] PUT /:id error:', error.message);
     res.status(500).json({ error: 'db error' });
   }
 });
@@ -415,7 +415,7 @@ router.delete('/:id', async (req, res) => {
     const [result] = await pool.query('DELETE FROM mothers WHERE id = ? OR mother_code = ?', [Number(id) || null, id]);
     res.json({ success: true, deleted: result.affectedRows > 0 });
   } catch (error) {
-    console.error('[Mothers API] DELETE /:id error:', error);
+    console.error('[Mothers API] DELETE /:id error:', error.message);
     res.status(500).json({ error: 'db error' });
   }
 });

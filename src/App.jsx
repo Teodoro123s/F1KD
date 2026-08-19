@@ -9,6 +9,7 @@ import Monitoring from './pages/Monitoring/Monitoring';
 import MotherMonitoringPage from './pages/Beneficiary/mother/MotherMonitoringPage';
 import ChildProfilePage from './pages/Beneficiary/child/ChildProfilePage';
 import EditChildPage from './pages/Beneficiary/child/EditChildPage';
+import MotherChildrenPage from './pages/Beneficiary/child/MotherChildrenPage';
 import EditMotherPage from './pages/Beneficiary/mother/EditMotherPage';
 import Program from './pages/Program';
 import ProgressReport from './pages/ProgressReport';
@@ -49,9 +50,10 @@ export default function App() {
         <Route path="community/group/:groupId" element={<CommunityPage />} />
         <Route path="community/batch/:batchId" element={<CommunityPage />} />
         <Route path="beneficiary" element={<Beneficiary />} />
+        <Route path="beneficiary/mother/:id" element={<Beneficiary />} />
         <Route path="beneficiary/create/mother" element={<Beneficiary />} />
         <Route path="beneficiary/create/child" element={<Beneficiary />} />
-        <Route path="beneficiary/mother/:id/child" element={<ChildProfilePage />} />
+        <Route path="beneficiary/mother/:id/child" element={<MotherChildrenPage />} />
         <Route path="beneficiary/child/:childId" element={<ChildProfilePage />} />
         <Route path="beneficiary/child/:childId/edit" element={<EditChildPage />} />
         <Route path="beneficiary/mother/:id/monitoring" element={<MotherMonitoringPage />} />

@@ -1,6 +1,6 @@
 ﻿/* Table Card Customization */
 .table-card { background: #fff; border-radius: 12px; border: 1px solid var(--border-color); overflow: visible; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.03), 0 2px 4px -1px rgba(0, 0, 0, 0.02); }
-.table-overflow { overflow-x: auto; border-top-left-radius: 12px; border-top-right-radius: 12px; }
+.table-overflow { overflow-x: auto; overflow-y: visible; border-top-left-radius: 12px; border-top-right-radius: 12px; }
 .data-table { width: 100%; border-collapse: collapse; text-align: left; }
 
 /* General table layout & cells */
@@ -8,6 +8,75 @@
 .data-table td { padding: 1.1rem 1.5rem; font-size: 0.95rem; color: var(--slate-dark); border-bottom: 1px solid #EDF2F7; vertical-align: middle; }
 .data-table tbody tr:hover { background: #F8FAFC; }
 .no-data { padding: 3rem; text-align: center; color: var(--text-muted); font-size: 0.95rem; }
+
+/* Keep row actions compact and anchor their menu to the action cell. */
+.data-table .actions-cell {
+  position: relative;
+  width: 84px;
+  min-width: 84px;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.data-table .btn-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.data-table .btn-actions:hover,
+.data-table .btn-actions[aria-expanded='true'] {
+  border-color: var(--border-color);
+  background: #fff;
+  color: var(--slate-dark);
+}
+
+.data-table .btn-actions svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: 0 0 auto;
+}
+
+.data-table .actions-dropdown {
+  position: absolute;
+  top: calc(100% - 0.35rem);
+  right: 0.75rem;
+  z-index: 100;
+  min-width: 120px;
+  padding: 0.25rem 0;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 8px 20px rgba(12, 20, 36, 0.12);
+  text-align: left;
+}
+
+.data-table .actions-dropdown-item {
+  display: block;
+  width: 100%;
+  padding: 0.65rem 0.85rem;
+  border: 0;
+  background: transparent;
+  color: var(--slate-dark);
+  font: inherit;
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.data-table .actions-dropdown-item:hover { background: #F8FAFC; }
+.data-table .actions-dropdown-item.delete { color: #B42318; }
 
 /* Row-specific styling */
 .community-name-cell { display: flex; align-items: center; gap: 1rem; }

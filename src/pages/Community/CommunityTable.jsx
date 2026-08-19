@@ -18,6 +18,7 @@ export default function CommunityTable({
   handleDeleteBatch,
   renderPaginationButtons,
   onCommunityRowClick,
+  onMotherRowClick,
 }) {
   const emptyColSpan = activeTab === 'groups' ? 3 : activeTab === 'communities' ? 4 : activeTab === 'mothers' ? 3 : 5;
 
@@ -60,16 +61,17 @@ export default function CommunityTable({
               currentRows.map((row) => (
                 <tr
                   key={row.id}
-                  onClick={onCommunityRowClick ? () => onCommunityRowClick(row) : undefined}
-                  role={onCommunityRowClick ? 'button' : undefined}
-                  tabIndex={onCommunityRowClick ? 0 : undefined}
-                  onKeyDown={onCommunityRowClick ? (e) => {
+                  onClick={onCommunityRowClick ? () => onCommunityRowClick(row) : (onMotherRowClick ? () => onMotherRowClick(row) : undefined)}
+                  role={onCommunityRowClick || onMotherRowClick ? 'button' : undefined}
+                  tabIndex={onCommunityRowClick || onMotherRowClick ? 0 : undefined}
+                  onKeyDown={onCommunityRowClick || onMotherRowClick ? (e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
-                      onCommunityRowClick(row);
+                      if (onCommunityRowClick) onCommunityRowClick(row);
+                      else onMotherRowClick(row);
                     }
                   } : undefined}
-                  className={onCommunityRowClick ? 'clickable-row' : undefined}
+                  className={onCommunityRowClick || onMotherRowClick ? 'clickable-row' : undefined}
                 >
                   {activeTab === 'communities' ? (
                     <>

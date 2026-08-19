@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { MotherFormFields } from './BeneficiaryMother';
 import { useMothers } from '../../../context/MothersContext';
-import { apiUpdateMother } from '../../../api/mothers';
+import { apiGetMother, apiUpdateMother } from '../../../api/mothers';
 import { formatDateForInput } from '../../../utils/dateFormat';
 import { getSummary } from '../../Community/communityService';
 
@@ -42,7 +42,24 @@ export default function EditMotherPage() {
     if (initialMother) setForm(normalizeMotherDates(initialMother));
   }, [initialMother]);
 
-  if (!initialMother) {
+  useEffect(() => {
+    if (initialMother || !id) return undefined;
+    let active = true;
+    apiGetMother(id)
+      .then((response) => {
+        if (active && response?.mother) setForm(normalizeMotherDates(response.mother));
+      })
+      .catch((loadError) => {
+        if (active) setError(loadError.message || 'Unable to load mother');
+      });
+    return () => { active = false; };
+  }, [id, initialMother]);
+
+  if (!initialMother && !form.id && !form.motherId && !error) {
+    return <div className="edit-mother-page"><p>Loading mother data...</p></div>;
+  }
+
+  if (!initialMother && error) {
     return (
       <div className="edit-mother-page">
         <p>Unable to load mother data for editing. Try opening the mother profile and clicking Edit.</p>

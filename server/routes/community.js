@@ -55,12 +55,13 @@ router.get('/summary', async (req, res) => {
         b.batch_code,
         b.name,
         b.description,
-        COALESCE(MAX(m.community), '') AS community,
-        COUNT(m.id) AS records,
-        'Active' AS status
+        COALESCE(b.community, MAX(m.community), '') AS community,
+        COALESCE(b.records, COUNT(m.id)) AS records,
+        COALESCE(b.progress, 0) AS progress,
+        COALESCE(b.status, 'Active') AS status
       FROM batches b
       LEFT JOIN mothers m ON m.batch_id = b.id
-      GROUP BY b.id, b.batch_code, b.name, b.description
+      GROUP BY b.id, b.batch_code, b.name, b.description, b.community, b.records, b.progress, b.status
       ORDER BY b.id
     `);
 
@@ -69,13 +70,13 @@ router.get('/summary', async (req, res) => {
         g.id,
         g.group_name AS name,
         g.description,
-        COALESCE(MAX(m.community), '') AS community,
-        COUNT(m.id) AS members,
-        '' AS leader,
-        'Active' AS status
+        COALESCE(g.community, MAX(m.community), '') AS community,
+        COALESCE(g.members_count, COUNT(m.id)) AS members,
+        COALESCE(g.leader, '') AS leader,
+        COALESCE(g.status, 'Active') AS status
       FROM groups g
       LEFT JOIN mothers m ON m.group_id = g.id
-      GROUP BY g.id, g.group_name, g.description
+      GROUP BY g.id, g.group_name, g.description, g.community, g.members_count, g.leader, g.status
       ORDER BY g.id
     `);
 
@@ -146,7 +147,7 @@ router.get('/summary', async (req, res) => {
 
     res.json(summary);
   } catch (error) {
-    console.error('[Community API] community summary error:', error);
+    console.error('[Community API] community summary error:', error.message);
     res.status(500).json({ error: 'db error' });
   }
 });
@@ -175,7 +176,7 @@ router.post('/communities', async (req, res) => {
     console.info('[Community API] Created community', created);
     res.status(201).json({ community: { id: created.id, name: created.name, area: created.area || '', batches: 0, records: 0 } });
   } catch (error) {
-    console.error('[Community API] create community error:', error);
+    console.error('[Community API] create community error:', error.message);
     res.status(500).json({ error: 'db error' });
   }
 });
@@ -190,20 +191,20 @@ router.post('/batches', async (req, res) => {
 
     const batchCode = await nextCode(pool, 'batches', 'batch_code', 'BAT');
     const [result] = await pool.query(
-      'INSERT INTO batches (batch_code, name, description) VALUES (?, ?, ?)',
-      [batchCode, cleanName, `Batch for ${cleanName}`]
+      'INSERT INTO batches (batch_code, name, description, community, records, progress, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [batchCode, cleanName, `Batch for ${cleanName}`, String(community || '').trim() || null, Number(records) || 0, Number(progress) || 0, status || 'Active']
     );
 
     const [rows] = await pool.query(
-      'SELECT id, batch_code AS code, batch_code AS id, name, description, ? AS community, ? AS records, ? AS progress, ? AS status FROM batches WHERE id = ?',
-      [String(community || '').trim() || '', Number(records) || 0, Number(progress) || 0, status || 'Active', result.insertId]
+      'SELECT id, batch_code AS code, batch_code AS id, name, description, community, records, progress, status FROM batches WHERE id = ?',
+      [result.insertId]
     );
 
     const created = rows[0];
     console.info('[Community API] Created batch', created);
     res.status(201).json({ batch: { ...created, id: created.code || created.id, code: created.code || created.id } });
   } catch (error) {
-    console.error('[Community API] create batch error:', error);
+    console.error('[Community API] create batch error:', error.message);
     res.status(500).json({ error: 'db error' });
   }
 });
@@ -218,28 +219,21 @@ router.post('/groups', async (req, res) => {
 
     const cleanLeader = String(leader || '').trim();
     const cleanCommunity = String(community || '').trim();
-    const description = [
-      cleanLeader ? `Leader: ${cleanLeader}` : '',
-      cleanCommunity ? `Community: ${cleanCommunity}` : '',
-      `Members: ${Number(members) || 0}`,
-      `Status: ${status || 'Active'}`,
-    ].filter(Boolean).join(' | ');
-
     const [result] = await pool.query(
-      'INSERT INTO groups (group_name, description) VALUES (?, ?)',
-      [cleanName, description]
+      'INSERT INTO groups (group_name, description, community, leader, members_count, status) VALUES (?, ?, ?, ?, ?, ?)',
+      [cleanName, '', cleanCommunity || null, cleanLeader || null, Number(members) || 0, status || 'Active']
     );
 
     const [rows] = await pool.query(
-      'SELECT id, group_name AS name, description, ? AS community, ? AS leader, ? AS members, ? AS status FROM groups WHERE id = ?',
-      [cleanCommunity || '', cleanLeader, Number(members) || 0, status || 'Active', result.insertId]
+      'SELECT id, group_name AS name, description, community, leader, members_count AS members, status FROM groups WHERE id = ?',
+      [result.insertId]
     );
 
     const created = rows[0];
     console.info('[Community API] Created group', created);
     res.status(201).json({ group: { ...created, assignedBatchIds: [] } });
   } catch (error) {
-    console.error('[Community API] create group error:', error);
+    console.error('[Community API] create group error:', error.message);
     res.status(500).json({ error: 'db error' });
   }
 });
@@ -273,7 +267,7 @@ router.get('/groups', async (req, res) => {
     }));
     res.json({ groups });
   } catch (error) {
-    console.error('[Community API] GET /groups error:', error);
+    console.error('[Community API] GET /groups error:', error.message);
     res.status(500).json({ error: 'db error' });
   }
 });
@@ -307,7 +301,7 @@ router.put('/communities/:id', async (req, res) => {
     const updated = rows[0];
     res.json({ community: { id: updated.id, name: updated.name, area: updated.area || '', batches: 0, records: 0 } });
   } catch (error) {
-    console.error('[Community API] update community error:', error);
+    console.error('[Community API] update community error:', error.message);
     res.status(500).json({ error: 'db error' });
   }
 });
@@ -323,7 +317,7 @@ router.delete('/communities/:id', async (req, res) => {
     const [result] = await pool.query('DELETE FROM communities WHERE id = ?', [communityId]);
     res.json({ success: true, deleted: result.affectedRows > 0 });
   } catch (error) {
-    console.error('[Community API] delete community error:', error);
+    console.error('[Community API] delete community error:', error.message);
     res.status(500).json({ error: 'db error' });
   }
 });
@@ -342,24 +336,20 @@ router.put('/groups/:id', async (req, res) => {
       return res.status(400).json({ error: 'Invalid group id' });
     }
 
-    const description = [
-      leader ? `Leader: ${leader}` : '',
-      community ? `Community: ${community}` : '',
-      `Members: ${Number(members) || 0}`,
-      `Status: ${status || 'Active'}`,
-    ].filter(Boolean).join(' | ');
-
-    await pool.query('UPDATE groups SET group_name = ?, description = ? WHERE id = ?', [cleanName, description, groupId]);
+    await pool.query(
+      'UPDATE groups SET group_name = ?, community = ?, leader = ?, members_count = ?, status = ? WHERE id = ?',
+      [cleanName, String(community || '').trim() || null, String(leader || '').trim() || null, Number(members) || 0, status || 'Active', groupId]
+    );
 
     const [rows] = await pool.query(
-      'SELECT id, group_name AS name, description, ? AS community, ? AS leader, ? AS members, ? AS status FROM groups WHERE id = ?',
-      [String(community || '').trim(), String(leader || '').trim(), Number(members) || 0, status || 'Active', groupId]
+      'SELECT id, group_name AS name, description, community, leader, members_count AS members, status FROM groups WHERE id = ?',
+      [groupId]
     );
 
     const updated = rows[0];
     res.json({ group: { ...updated, assignedBatchIds: [] } });
   } catch (error) {
-    console.error('[Community API] update group error:', error);
+    console.error('[Community API] update group error:', error.message);
     res.status(500).json({ error: 'db error' });
   }
 });
@@ -375,7 +365,7 @@ router.delete('/groups/:id', async (req, res) => {
     const [result] = await pool.query('DELETE FROM groups WHERE id = ?', [groupId]);
     res.json({ success: true, deleted: result.affectedRows > 0 });
   } catch (error) {
-    console.error('[Community API] delete group error:', error);
+    console.error('[Community API] delete group error:', error.message);
     res.status(500).json({ error: 'db error' });
   }
 });
@@ -395,19 +385,19 @@ router.put('/batches/:id', async (req, res) => {
     }
 
     await pool.query(
-      'UPDATE batches SET name = ?, description = ? WHERE id = ?',
-      [cleanName, `Batch for ${cleanName}`, batchId]
+      'UPDATE batches SET name = ?, community = ?, records = ?, progress = ?, status = ? WHERE id = ?',
+      [cleanName, String(community || '').trim() || null, Number(records) || 0, Number(progress) || 0, status || 'Active', batchId]
     );
 
     const [rows] = await pool.query(
-      'SELECT id, batch_code AS code, name, description, ? AS community, ? AS records, ? AS progress, ? AS status FROM batches WHERE id = ?',
-      [String(community || '').trim() || '', Number(records) || 0, Number(progress) || 0, status || 'Active', batchId]
+      'SELECT id, batch_code AS code, name, description, community, records, progress, status FROM batches WHERE id = ?',
+      [batchId]
     );
 
     const updated = rows[0];
     res.json({ batch: { ...updated, id: updated.code || updated.id, code: updated.code || updated.id } });
   } catch (error) {
-    console.error('[Community API] update batch error:', error);
+    console.error('[Community API] update batch error:', error.message);
     res.status(500).json({ error: 'db error' });
   }
 });
@@ -423,7 +413,7 @@ router.delete('/batches/:id', async (req, res) => {
     const [result] = await pool.query('DELETE FROM batches WHERE id = ?', [batchId]);
     res.json({ success: true, deleted: result.affectedRows > 0 });
   } catch (error) {
-    console.error('[Community API] delete batch error:', error);
+    console.error('[Community API] delete batch error:', error.message);
     res.status(500).json({ error: 'db error' });
   }
 });
@@ -437,12 +427,13 @@ router.get('/batches', async (req, res) => {
         b.batch_code AS code,
         b.name,
         b.description,
-        COALESCE(MAX(m.community), '') AS community,
-        COUNT(m.id) AS records,
-        'Active' AS status
+        COALESCE(b.community, MAX(m.community), '') AS community,
+        COALESCE(b.records, COUNT(m.id)) AS records,
+        COALESCE(b.progress, 0) AS progress,
+        COALESCE(b.status, 'Active') AS status
       FROM batches b
       LEFT JOIN mothers m ON m.batch_id = b.id
-      GROUP BY b.id, b.batch_code, b.name, b.description
+      GROUP BY b.id, b.batch_code, b.name, b.description, b.community, b.records, b.progress, b.status
       ORDER BY b.id
     `);
     const batches = rows.map((r) => ({
@@ -457,7 +448,7 @@ router.get('/batches', async (req, res) => {
     }));
     res.json({ batches });
   } catch (error) {
-    console.error('[Community API] GET /batches error:', error);
+    console.error('[Community API] GET /batches error:', error.message);
     res.status(500).json({ error: 'db error' });
   }
 });

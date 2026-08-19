@@ -155,11 +155,11 @@ export default function ChildProfilePage() {
 
   const resolvedMother = findMotherForChild(selectedChild || initialSelected || resolvedFromUrl?.child);
 
-  // If we don't have the child in session but there's a childId in the URL, attempt to fetch from backend
+  // Refresh the URL record so navigation state cannot leave stale or partial details displayed.
   React.useEffect(() => {
     let canceled = false;
     const idToFetch = (childId || id);
-    if (!selectedChild && idToFetch) {
+    if (idToFetch) {
       (async () => {
         try {
           const mod = await import('../../../api/children');
@@ -190,7 +190,7 @@ export default function ChildProfilePage() {
       })();
     }
     return () => { canceled = true; };
-  }, [childId, id, selectedChild]);
+  }, [childId, id]);
 
 
   // Helper to render vaccination info

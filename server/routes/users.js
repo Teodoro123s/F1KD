@@ -53,7 +53,7 @@ router.get('/', async (req, res) => {
 
     res.json({ total, users: rows });
   } catch (err) {
-    console.error(err);
+    console.error('[Users API] GET / error:', err.message);
     res.status(500).json({ error: 'db error' });
   }
 });
@@ -125,7 +125,7 @@ router.post('/', verifyToken, requireRole('Superadmin','Admin'), async (req, res
     // Return created user WITHOUT plaintext password for security.
     res.status(201).json({ user });
   } catch (err) {
-    console.error(err);
+    console.error('[Users API] POST / error:', err.message);
     if (err && err.code === 'ER_DUP_ENTRY') return res.status(400).json({ error: 'Email or username already exists' });
     res.status(500).json({ error: 'db error' });
   }
@@ -143,7 +143,7 @@ router.get('/:id', async (req, res) => {
     if (!rows.length) return res.status(404).json({ error: 'Not found' });
     res.json(rows[0]);
   } catch (err) {
-    console.error(err);
+    console.error('[Users API] GET /:id error:', err.message);
     res.status(500).json({ error: 'db error' });
   }
 });
@@ -203,7 +203,7 @@ router.put('/:id', verifyToken, async (req, res) => {
     );
     res.json(rows[0]);
   } catch (err) {
-    console.error(err);
+    console.error('[Users API] PUT /:id error:', err.message);
     res.status(500).json({ error: 'db error' });
   }
 });
@@ -216,7 +216,7 @@ router.delete('/:id', verifyToken, requireRole('Superadmin','Admin'), async (req
     await pool.query('DELETE FROM users WHERE id = ?', [id]);
     res.status(204).end();
   } catch (err) {
-    console.error(err);
+    console.error('[Users API] DELETE /:id error:', err.message);
     res.status(500).json({ error: 'db error' });
   }
 });
@@ -232,7 +232,7 @@ router.patch('/:id/status', verifyToken, requireRole('Superadmin','Admin'), asyn
     await pool.query('UPDATE users SET status = ? WHERE id = ?', [dbStatus, id]);
     res.json({ ok: true, status: dbStatus });
   } catch (err) {
-    console.error(err);
+    console.error('[Users API] PATCH /:id/status error:', err.message);
     res.status(500).json({ error: 'db error' });
   }
 });

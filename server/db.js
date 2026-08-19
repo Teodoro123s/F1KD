@@ -383,9 +383,64 @@ async function migrateMothersTable() {
   }
 }
 
+async function migrateCommunityTables() {
+  try {
+    const tableDefinitions = {
+      batches: {
+        community: 'VARCHAR(150) DEFAULT NULL',
+        records: 'INT NOT NULL DEFAULT 0',
+        progress: 'INT NOT NULL DEFAULT 0',
+        status: "VARCHAR(20) NOT NULL DEFAULT 'Active'",
+      },
+      groups: {
+        community: 'VARCHAR(150) DEFAULT NULL',
+        leader: 'VARCHAR(150) DEFAULT NULL',
+        members_count: 'INT NOT NULL DEFAULT 0',
+        status: "VARCHAR(20) NOT NULL DEFAULT 'Active'",
+      },
+    };
+
+    for (const [table, definitions] of Object.entries(tableDefinitions)) {
+      const [columns] = await pool.query(`SHOW COLUMNS FROM ${table}`);
+      const existing = new Set(columns.map((column) => column.Field));
+      const additions = Object.entries(definitions)
+        .filter(([name]) => !existing.has(name))
+        .map(([name, definition]) => `ADD COLUMN ${name} ${definition}`);
+      if (additions.length > 0) {
+        await pool.query(`ALTER TABLE ${table} ${additions.join(', ')}`);
+      }
+    }
+
+    await pool.query(`
+      UPDATE batches b
+      LEFT JOIN (
+        SELECT batch_id, COUNT(*) AS mother_count, MAX(community) AS community
+        FROM mothers
+        GROUP BY batch_id
+      ) m ON m.batch_id = b.id
+      SET b.records = CASE WHEN b.records = 0 THEN COALESCE(m.mother_count, 0) ELSE b.records END,
+          b.community = COALESCE(NULLIF(b.community, ''), m.community)
+    `);
+    await pool.query(`
+      UPDATE groups g
+      LEFT JOIN (
+        SELECT group_id, COUNT(*) AS mother_count, MAX(community) AS community
+        FROM mothers
+        GROUP BY group_id
+      ) m ON m.group_id = g.id
+      SET g.members_count = CASE WHEN g.members_count = 0 THEN COALESCE(m.mother_count, 0) ELSE g.members_count END,
+          g.community = COALESCE(NULLIF(g.community, ''), m.community)
+    `);
+    console.info('Community tables migrated successfully.');
+  } catch (error) {
+    console.error('Failed to migrate community tables', error);
+  }
+}
+
 ensure().catch((err) => console.error('DB init error', err)).finally(async () => {
   await migrateUsersTable();
   await migrateMothersTable();
+  await migrateCommunityTables();
   ensureDefaultAdmin();
 });
 

@@ -40,21 +40,8 @@ function buildDisplayName(user) {
   return String(user?.username || 'Unnamed user').trim();
 }
 
-const initialUsersData = [
-  { id: 'USR-0001', name: 'Arielle Santos', role: 'Superadmin', status: 'Active' },
-  { id: 'USR-0002', name: 'Jasmine Cruz', role: 'Admin', status: 'Active' },
-  { id: 'USR-0003', name: 'Carlos Reyes', role: 'Partner', status: 'Suspended' },
-  { id: 'USR-0004', name: 'Mia Lopez', role: 'Controller', status: 'Active' },
-  { id: 'USR-0005', name: 'Noah Garcia', role: 'Community Organizer', status: 'Suspended' },
-  { id: 'USR-0006', name: 'Selene Araneta', role: 'Health worker', status: 'Active' },
-  { id: 'USR-0007', name: 'Bruno Delos', role: 'Partner', status: 'Active' },
-  { id: 'USR-0008', name: 'Leah Mendoza', role: 'Admin', status: 'Active' },
-  { id: 'USR-0009', name: 'Nico Tan', role: 'Controller', status: 'Suspended' },
-  { id: 'USR-0010', name: 'Diana Villanueva', role: 'Health worker', status: 'Active' },
-];
-
 export function useUserManagement() {
-  const [users, setUsers] = useState(initialUsersData);
+  const [users, setUsers] = useState([]);
   const API_BASE = (typeof process !== 'undefined' && process.env && process.env.REACT_APP_API_URL)
     ? process.env.REACT_APP_API_URL
     : (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL)
@@ -63,7 +50,7 @@ export function useUserManagement() {
 
   const [apiOnline, setApiOnline] = useState(true);
 
-  // Load from server when available, fallback to mock data
+  // Load the database as the single source of truth.
   useEffect(() => {
     let mounted = true;
     async function load(attempts = 0) {
@@ -90,28 +77,21 @@ export function useUserManagement() {
             password: '',
             name: buildDisplayName(u),
           }));
-          // Merge server users with local seed data, avoiding duplicates by email
-          setUsers((prev) => {
-            const byEmail = new Map();
-            // prefer server users first
-            mapped.forEach((u) => { if (u.email) byEmail.set(u.email.toLowerCase(), u); });
-            prev.forEach((u) => { if (u.email && !byEmail.has(u.email.toLowerCase())) byEmail.set(u.email.toLowerCase(), u); });
-            return Array.from(byEmail.values());
-          });
+          setUsers(mapped);
           try { console.log('Fetched users from server', mapped); } catch (e) { /* ignore console errors */ }
         }
       } catch (e) {
-        try { console.log('Failed to fetch users from server, using mock data', e); } catch (c) {}
+        try { console.error('Failed to fetch users from server', e?.message || e); } catch (c) {}
         // If a transient network error occurred, retry a couple of times
         if (attempts < 2) {
           try { console.log('Retrying user fetch (attempt)', attempts + 1); } catch (e2) {}
           try { await sleep(300 * (attempts + 1)); } catch (e3) {}
           return load(attempts + 1);
         }
-        // mark API as offline and inform the UI
+        // Mark API as offline and leave the list empty rather than showing fabricated users.
         setApiOnline(false);
-        setNotification('Backend unreachable — using local mock data. Click Retry to try again.');
-        // keep mocks if server not reachable
+        setUsers([]);
+        setNotification('Backend unreachable — user list is unavailable. Click Retry to try again.');
       }
     }
     load();
@@ -317,9 +297,6 @@ export function useUserManagement() {
       try { console.log('handleSubmitUser skipped because isSubmitting=true'); } catch(e){}
       return;
     }
-
-    // Mark submission as in-flight immediately to avoid double-click races
-    setIsSubmitting(true);
 
       // Read values from the submitted form to avoid relying on possibly stale React state
       const formEl = event.currentTarget;

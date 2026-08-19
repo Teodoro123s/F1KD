@@ -57,6 +57,7 @@ const emptyGroupForm = (communities = []) => ({
 export default function CreateChildPage({
   communities,
   batches,
+  mothers: availableMothers = [],
   setGroups,
   navigate,
 }) {
@@ -65,6 +66,7 @@ export default function CreateChildPage({
   const { mothers, setMothers } = useMothers();
   const effectiveCommunities = communities && communities.length ? communities : mothers;
   const [groupForm, setGroupForm] = useState(() => emptyGroupForm(effectiveCommunities));
+  const [selectedMotherId, setSelectedMotherId] = useState(motherFromState?.id || motherFromState?.motherId || '');
   const [createActiveTab, setCreateActiveTab] = useState('general');
   const CREATE_STEPS = ['general', 'prenatal', 'medical_dental', 'vaccine'];
   const createActiveIndex = CREATE_STEPS.indexOf(createActiveTab) >= 0 ? CREATE_STEPS.indexOf(createActiveTab) : 0;
@@ -76,13 +78,19 @@ export default function CreateChildPage({
   // If navigated from a mother, prefill mother-related fields and show mother info
   useEffect(() => {
     if (motherFromState) {
+      const motherIdentifier = motherFromState.id || motherFromState.motherId || '';
+      setSelectedMotherId(motherIdentifier);
       setGroupForm((prev) => ({
         ...prev,
-        motherId: motherFromState.id || motherFromState.motherId || prev.motherId || null,
+        motherId: motherIdentifier || prev.motherId || null,
         community: prev.community || motherFromState.community || motherFromState.area || prev.community || '',
       }));
     }
   }, [motherFromState]);
+
+  const selectedMother = motherFromState || availableMothers.find((mother) => (
+    String(mother.id || mother.motherId || '') === String(selectedMotherId)
+  ));
 
   const handleCreateGroup = async (e) => {
     e.preventDefault();
@@ -93,7 +101,10 @@ export default function CreateChildPage({
       .trim();
 
     const payload = {
-      motherId: motherFromState?.id || motherFromState?.motherId || null,
+      motherId: selectedMother?.id || selectedMother?.motherId || null,
+      communityId: selectedMother?.raw?.community_id || selectedMother?.communityId || null,
+      groupId: selectedMother?.raw?.group_id || selectedMother?.groupId || null,
+      batchId: selectedMother?.raw?.batch_id || selectedMother?.batchId || null,
       firstName: groupForm.firstName.trim(),
       middleName: groupForm.middleName.trim(),
       lastName: groupForm.lastName.trim(),
@@ -228,6 +239,26 @@ export default function CreateChildPage({
         </div>
       )}
 
+      {!motherFromState && (
+        <div className="form-group" style={{ maxWidth: 520, marginBottom: 16 }}>
+          <label className="form-label" htmlFor="child-mother-select">Mother</label>
+          <select
+            id="child-mother-select"
+            className="form-select"
+            value={selectedMotherId}
+            onChange={(event) => setSelectedMotherId(event.target.value)}
+            required
+          >
+            <option value="">Select mother</option>
+            {availableMothers.map((mother) => (
+              <option key={mother.id || mother.motherId} value={mother.id || mother.motherId}>
+                {mother.name || `${mother.firstName || ''} ${mother.lastName || ''}`.trim()} ({mother.motherId || mother.id})
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       <div className="stepper-progress">
         <div className="stepper-steps" role="tablist">
           {CREATE_STEPS.map((s, i) => {
@@ -289,7 +320,7 @@ export default function CreateChildPage({
                 else if (createActiveTab === 'medical_dental') setCreateActiveTab('vaccine');
               }}>Next</button>
             ) : (
-              <button type="submit" className="btn-primary">Create</button>
+              <button type="submit" className="btn-create-action">Create</button>
             )}
           </div>
         </form>

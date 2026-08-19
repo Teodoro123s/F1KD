@@ -1,5 +1,6 @@
 import React from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
+import MotherCheckup from './MotherCheckup';
 
 export default function MotherMonitoringPage() {
   const { id } = useParams();
@@ -20,13 +21,11 @@ export default function MotherMonitoringPage() {
       </header>
 
       <main className="beneficiary-main">
-        <section>
-          <h2>Monitoring Workspace (Static)</h2>
-          <p>This is a placeholder monitoring workspace for mother <strong>{mother?.name || id}</strong>. Implement check-up lists, timeline, and forms here.</p>
-          <div style={{ marginTop: 12 }}>
-            <button type="button" className="btn-primary" onClick={() => alert('Add check-up (not implemented)')}>Add Check-up</button>
-          </div>
-        </section>
+        <MotherCheckup
+          mother={mother || { id, name: `Mother ID: ${id}` }}
+          onSave={() => navigate(-1)}
+          onCancel={() => navigate(-1)}
+        />
       </main>
     </div>
   );

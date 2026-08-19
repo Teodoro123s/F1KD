@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import BeneficiaryTable from './BeneficiaryTable';
 import StatusFilterBar from './components/StatusFilterBar';
 import EntitySearchControls from './components/EntitySearchControls';
-import { apiGetChildrenByMother } from '../../api/children';
+import { apiGetChildren } from '../../api/children';
 
 const getGroupStatusByProgress = (g) => {
   if (!g) return 'Missing';
@@ -12,7 +12,7 @@ const getGroupStatusByProgress = (g) => {
   return 'Pending';
 };
 
-export default function BeneficiaryListPage({ communities = [], batches = [], groups = [], onSelectMother, onSelectChild }) {
+export default function BeneficiaryListPage({ communities = [], batches = [], mothers = [], onSelectMother, onSelectChild }) {
   const [query, setQuery] = useState('');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('All');
   const [perPage, setPerPage] = useState(10);
@@ -24,42 +24,48 @@ export default function BeneficiaryListPage({ communities = [], batches = [], gr
     let active = true;
 
     async function loadChildren() {
-      if (!groups.length) {
+      if (!mothers.length) {
         setChildRows([]);
         return;
       }
 
-      const rows = await Promise.all(groups.map(async (mother) => {
-        const motherDbId = mother.raw?.id || mother.original?.raw?.id;
-        if (!motherDbId) return [];
-        try {
-          const response = await apiGetChildrenByMother(motherDbId);
-          return (response.children || []).map((child) => ({
-            id: child.id,
-            name: [child.first_name, child.middle_name, child.last_name, child.suffix].filter(Boolean).join(' '),
-            community: child.community_name || mother.community || mother.area || 'Unknown',
-            progress: child.progress ?? 0,
-            original: { ...child, mother },
-          }));
-        } catch (error) {
-          console.error('[BeneficiaryListPage] Unable to load children:', error);
-          return [];
-        }
-      }));
-
-      if (active) setChildRows(rows.flat());
+      apiGetChildren()
+        .then((response) => {
+          const mothersByDbId = new Map();
+          mothers.forEach((mother) => {
+            const dbId = mother.raw?.id || mother.original?.raw?.id || mother.id;
+            if (dbId !== undefined && dbId !== null) mothersByDbId.set(String(dbId), mother);
+          });
+          const rows = (response.children || []).map((child) => {
+            const mother = mothersByDbId.get(String(child.mother_id || child.mother_db_id));
+            return {
+              id: child.id,
+              name: [child.first_name, child.middle_name, child.last_name, child.suffix].filter(Boolean).join(' '),
+              community: child.community_name || mother?.community || mother?.area || 'Unknown',
+              progress: child.progress ?? 0,
+              original: { ...child, mother },
+            };
+          });
+          if (active) setChildRows(rows);
+        })
+        .catch((error) => {
+          if (active) {
+            console.error('[BeneficiaryListPage] Unable to load children:', error);
+            setChildRows([]);
+          }
+        });
     }
 
     loadChildren();
     return () => { active = false; };
-  }, [groups]);
+  }, [mothers]);
 
   const handleSearch = (val) => { setQuery(val); setPage(1); };
   const handlePerPageChange = (val) => { setPerPage(Number(val)); setPage(1); };
 
   const filteredData = useMemo(() => {
     const term = (query || '').trim().toLowerCase();
-    let data = selectedEntityFilter === 'Child' ? childRows : (groups || []);
+    let data = selectedEntityFilter === 'Child' ? childRows : mothers;
 
     // Normalize incoming items: support both 'group' objects and 'mother' objects
     data = data.map((item) => {
@@ -98,7 +104,7 @@ export default function BeneficiaryListPage({ communities = [], batches = [], gr
       if (statusA !== statusB) return statusA - statusB;
       return (a.name || '').localeCompare(b.name || '');
     });
-  }, [groups, childRows, query, selectedStatusFilter, selectedEntityFilter]);
+  }, [mothers, childRows, query, selectedStatusFilter, selectedEntityFilter]);
 
   const pageCount = Math.max(1, Math.ceil(filteredData.length / perPage));
   const currentPage = Math.min(page, pageCount);

@@ -48,6 +48,14 @@ export async function apiGetChild(idOrCode) {
   return handleResponse(res, 'Failed to fetch child');
 }
 
+export async function apiGetChildren() {
+  const res = await fetch(`${API_BASE}/api/children`, {
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
+  });
+  return handleResponse(res, 'Failed to fetch children');
+}
+
 export async function apiGetChildrenByMother(motherId) {
   const res = await fetch(`${API_BASE}/api/children/mother/${encodeURIComponent(motherId)}/children`, {
     headers: { 'Content-Type': 'application/json' },
