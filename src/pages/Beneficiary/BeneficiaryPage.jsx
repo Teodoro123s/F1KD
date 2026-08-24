@@ -117,7 +117,7 @@ export default function BeneficiaryPage() {
   };
 
   return (
-    <div className="community-page">
+    <div className="community-page beneficiary-page">
       <header className="community-header">
         <div className="community-title-section">
           <h1>Beneficiaries</h1>

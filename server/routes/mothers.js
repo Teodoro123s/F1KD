@@ -586,6 +586,13 @@ router.post('/:id/checkups', async (req, res) => {
       ]
     );
 
+    await pool.query(
+      `UPDATE mothers SET progress = LEAST(100, ROUND(
+        (SELECT COUNT(*) FROM mother_checkups WHERE mother_id = ?) * 100 / 9
+      )) WHERE id = ?`,
+      [motherDbId, motherDbId]
+    );
+
     res.json({ success: true });
   } catch (error) {
     console.error('Failed to save mother checkup:', error.message);

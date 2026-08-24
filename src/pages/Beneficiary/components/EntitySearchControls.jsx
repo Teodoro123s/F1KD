@@ -19,15 +19,17 @@ export default function EntitySearchControls({
         <span className="filter-label">{selectedEntityFilter}</span>
         <span className="caret">▾</span>
       </button>
-      <SearchIcon />
-      <input
-        type="text"
-        className="search-input-field"
-        placeholder={selectedEntityFilter === 'Mother' ? 'Search mother/community...' : 'Search child name...'}
-        value={query}
-        onChange={(event) => onQueryChange(event.target.value)}
-        aria-label="Search items"
-      />
+      <div className="search-field-container">
+        <SearchIcon />
+        <input
+          type="text"
+          className="search-input-field"
+          placeholder={selectedEntityFilter === 'Mother' ? 'Search mother/community...' : 'Search child name...'}
+          value={query}
+          onChange={(event) => onQueryChange(event.target.value)}
+          aria-label="Search items"
+        />
+      </div>
     </div>
   );
 }

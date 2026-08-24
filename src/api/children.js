@@ -63,3 +63,13 @@ export async function apiGetChildrenByMother(motherId) {
   });
   return handleResponse(res, 'Failed to fetch children for mother');
 }
+
+export async function apiSaveChildCheckup(childId, payload) {
+  const res = await fetch(`${API_BASE}/api/children/${encodeURIComponent(childId)}/checkups`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    credentials: 'same-origin',
+  });
+  return handleResponse(res, 'Server error when saving child check-up');
+}

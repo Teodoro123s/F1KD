@@ -5,7 +5,8 @@ import MotherCheckup from '../Beneficiary/mother/MotherCheckup';
 import StatusFilterBar from '../Beneficiary/components/StatusFilterBar';
 import EntitySearchControls from '../Beneficiary/components/EntitySearchControls';
 import ChildMonitor, { getChildName } from './ChildMonitor';
-import { apiGetChildren } from '../../api/children';
+import { apiGetChildren, apiSaveChildCheckup } from '../../api/children';
+import { apiGetMother, apiSaveMotherCheckup } from '../../api/mothers';
 
 function getMotherName(mother) {
   return mother?.name || [mother?.firstName, mother?.middleName, mother?.lastName]
@@ -14,7 +15,7 @@ function getMotherName(mother) {
 }
 
 export default function MonitoringPage() {
-  const { mothers } = useMothers();
+  const { mothers, setMothers } = useMothers();
   const navigate = useNavigate();
   const location = useLocation();
   const [query, setQuery] = useState('');
@@ -60,7 +61,24 @@ export default function MonitoringPage() {
     ));
   }, [children, query]);
 
-  const handleSave = (payload) => {
+  const handleSave = async (payload) => {
+    try {
+      await apiSaveMotherCheckup(payload.motherId, payload);
+      const response = await apiGetMother(payload.motherId);
+      const savedMother = response?.mother || null;
+      if (savedMother) {
+        setSelectedMother(savedMother);
+        setMotherCheckups(savedMother.checkups || []);
+        setMothers((current) => current.map((mother) => (
+          String(mother.id) === String(savedMother.id) || String(mother.motherId) === String(savedMother.motherId)
+            ? { ...mother, ...savedMother }
+            : mother
+        )));
+      }
+    } catch (error) {
+      setSavedMessage(`Unable to save check-up: ${error.message}`);
+      return;
+    }
     setMotherCheckups((current) => {
       const next = current.map((trimester) => [...trimester]);
       const trimesterIndex = payload.trimester === '2nd Trimester' ? 1 : payload.trimester === '3rd Trimester' ? 2 : 0;
@@ -86,7 +104,7 @@ export default function MonitoringPage() {
   };
 
   const handleBack = () => {
-    navigate('/beneficiary');
+    navigate('/monitoring');
   };
 
   const clearSearch = () => { setQuery(''); setPage(1); };
@@ -135,13 +153,20 @@ export default function MonitoringPage() {
           <h1>Monitor</h1>
           <nav className="community-breadcrumb" aria-label="Breadcrumb">
             <span className="breadcrumb-item">
-              <span className="breadcrumb-current">Monitor</span>
+              {selectedMother || selectedChild ? (
+                <button type="button" className="breadcrumb-link" onClick={handleBack}>Monitor</button>
+              ) : (
+                <span className="breadcrumb-current">Monitor</span>
+              )}
             </span>
+            {(selectedMother || selectedChild) && <>
+              <span className="breadcrumb-separator">›</span>
+              <span className="breadcrumb-item">
+                <span className="breadcrumb-current">{selectedMother ? getMotherName(selectedMother) : getChildName(selectedChild)}</span>
+              </span>
+            </>}
           </nav>
         </div>
-        <button type="button" className="btn-secondary" onClick={handleBack}>
-          Back to Beneficiaries
-        </button>
       </header>
 
       {!selectedMother && !selectedChild ? (
@@ -176,18 +201,33 @@ export default function MonitoringPage() {
         <section className="checkup-entry-view" aria-labelledby="selected-child-title">
           <div className="selected-mother-bar">
             <div>
-              <span className="selected-mother-eyebrow">Selected child</span>
               <h2 id="selected-child-title">{getChildName(selectedChild)}</h2>
-              <p>{selectedChild.child_code || selectedChild.id || 'No ID'} <span aria-hidden="true">·</span> 48-week growth monitoring</p>
             </div>
-            <button type="button" className="btn-secondary" onClick={() => setSelectedChild(null)}>Change Beneficiary</button>
+            <div className="selected-record-actions">
+              <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/child/${selectedChild.id}`, { state: { child: selectedChild } })}>
+                Beneficiary Profile
+              </button>
+              <button type="button" className="btn-primary" onClick={() => navigate(`/beneficiary/child/${selectedChild.id}/edit`, { state: { child: selectedChild } })}>
+                Edit
+              </button>
+            </div>
           </div>
           {savedMessage && <p className="checkup-save-message" role="status">{savedMessage}</p>}
           <ChildMonitor
             child={selectedChild}
             completedWeeks={childCompletedWeeks}
-            onSave={(payload) => {
-              setChildCompletedWeeks((current) => current.includes(payload.week) ? current : [...current, payload.week].sort((a, b) => a - b));
+            onSave={async (payload) => {
+              try {
+                const response = await apiSaveChildCheckup(payload.childId, payload);
+                const savedChild = response?.child || null;
+                const completedWeeks = savedChild?.completedWeeks || [payload.week];
+                setSelectedChild(savedChild || selectedChild);
+                setChildCompletedWeeks(completedWeeks);
+                setChildren((current) => current.map((child) => String(child.id) === String(payload.childId) ? { ...child, ...savedChild } : child));
+              } catch (error) {
+                setSavedMessage(`Unable to save check-up: ${error.message}`);
+                return;
+              }
               setSavedMessage(`Week ${payload.week} progress captured for ${getChildName(selectedChild)}.`);
             }}
             onCancel={() => setSelectedChild(null)}
@@ -197,13 +237,16 @@ export default function MonitoringPage() {
         <section className="checkup-entry-view" aria-labelledby="selected-mother-title">
           <div className="selected-mother-bar">
             <div>
-              <span className="selected-mother-eyebrow">Selected beneficiary</span>
               <h2 id="selected-mother-title">{getMotherName(selectedMother)}</h2>
-              <p>{selectedMother.motherId || selectedMother.id || 'No ID'}{selectedMother.community || selectedMother.area ? ` · ${selectedMother.community || selectedMother.area}` : ''} <span aria-hidden="true">·</span> prenatal monitoring</p>
             </div>
-            <button type="button" className="btn-secondary" onClick={() => setSelectedMother(null)}>
-              Change Mother
-            </button>
+            <div className="selected-record-actions">
+              <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/mother/${selectedMother.id || selectedMother.motherId}`, { state: { mother: selectedMother } })}>
+                Beneficiary Profile
+              </button>
+              <button type="button" className="btn-primary" onClick={() => navigate(`/beneficiary/mother/${selectedMother.id || selectedMother.motherId}/edit`, { state: { mother: selectedMother } })}>
+                Edit
+              </button>
+            </div>
           </div>
           {savedMessage && <p className="checkup-save-message" role="status">{savedMessage}</p>}
           <MotherCheckup mother={{ ...selectedMother, checkups: motherCheckups }} onSave={handleSave} onCancel={() => setSelectedMother(null)} />

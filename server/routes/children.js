@@ -11,30 +11,49 @@ function getField(body, ...keys) {
 }
 
 async function attachClinicalData(child) {
-  const [[medicalRows], [vaccineRows], [checkupRows]] = await Promise.all([
+  const [[medicalRows], [vaccineRows]] = await Promise.all([
     pool.query('SELECT * FROM child_medical_conditions WHERE child_id = ? ORDER BY id', [child.id]),
     pool.query('SELECT * FROM child_vaccinations WHERE child_id = ? ORDER BY id', [child.id]),
-    pool.query('SELECT * FROM child_checkups WHERE child_id = ? ORDER BY week_number, id', [child.id]),
   ]);
   return {
     ...child,
     medicalConditions: Object.fromEntries(medicalRows.map((row) => [row.condition_name, Boolean(row.has_condition)])),
     ...Object.fromEntries(vaccineRows.map((row) => [row.vaccine_name, row])),
-    checkups: checkupRows.map(row => ({
-      id: row.id,
-      childId: row.child_id,
-      checkupDate: row.visit_date,
-      weight: row.weight,
-      height: row.height,
-      headCircumference: row.head_circumference,
-      developmentalStatus: row.developmental_status,
-      serviceProvider: row.service_provider,
-      remarks: row.notes,
-      week: row.week_number
-    })),
-    completedWeeks: checkupRows.map(row => row.week_number).filter(Boolean).sort((a, b) => a - b)
   };
 }
+
+async function attachMonitoringData(child) {
+  const [checkupRows] = await pool.query(
+    'SELECT * FROM child_checkups WHERE child_id = ? ORDER BY week_number, visit_date, id',
+    [child.id]
+  );
+  return {
+    ...child,
+    completedWeeks: checkupRows.filter((row) => row.week_number !== null).map((row) => Number(row.week_number)),
+    checkups: checkupRows,
+  };
+}
+
+// GET /api/children - list children with their monitoring progress
+router.get('/', async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT c.*, m.first_name AS mother_first_name, m.last_name AS mother_last_name,
+        m.mother_code, comm.name AS community_name, g.group_name, b.name AS batch_name
+       FROM children c
+       LEFT JOIN mothers m ON c.mother_id = m.id
+       LEFT JOIN communities comm ON comm.id = c.community_id
+       LEFT JOIN groups g ON g.id = c.group_id
+       LEFT JOIN batches b ON b.id = c.batch_id
+       ORDER BY c.created_at DESC, c.id DESC`
+    );
+    const children = await Promise.all(rows.map(attachMonitoringData));
+    res.json({ children });
+  } catch (err) {
+    console.error('Failed to fetch children', err);
+    res.status(500).json({ error: 'db error' });
+  }
+});
 
 // POST /api/children - create a child
 router.post('/', async (req, res) => {
@@ -99,98 +118,15 @@ router.post('/', async (req, res) => {
       [childCode, motherId || null, communityId || null, groupId || null, batchId || null, firstName, middleName || null, lastName, suffix || null, birthDate || null, birthWeight || null, birthLength || null, gender || null, bloodType || null, noOfChildDelivered || null, exclusiveBreastfeeding || null, expandedNewbornScreening || null, expandedNewbornScreeningResult || null, deliveryType || null, healthStatus || null, birthPlace || null, birthAttendant || null, apgarScore || null, feedingType || null, nutritionNotes || null, fatherName || null, relationship || null, address || null]
     );
 
-    for (const [conditionName, hasCondition] of Object.entries(b.medicalConditions || {})) {
-      if (hasCondition) await pool.query(
-        'INSERT INTO child_medical_conditions (child_id, condition_name, has_condition) VALUES (?, ?, ?)',
-        [result.insertId, conditionName, true]
-      );
-    }
-
-    const vaccines = [
-      ['BCG', b.bcgDate, b.bcgRemarks], ['HepB', b.hepbDate, b.hepbRemarks],
-      ['OPV', b.opvDate, b.opvRemarks], ['DPT', b.dptDate, b.dptRemarks],
-      ['MMR', b.mmrDate, b.mmrRemarks],
-    ];
-    for (const [name, date, remarks] of vaccines) {
-      if (date || remarks) await pool.query(
-        'INSERT INTO child_vaccinations (child_id, vaccine_name, vaccine_date, remarks) VALUES (?, ?, ?, ?)',
-        [result.insertId, name, date || null, remarks || null]
-      );
-    }
-
-    const [rows] = await pool.query(
-      `SELECT c.*, m.first_name AS mother_first_name, m.last_name AS mother_last_name, m.mother_code,
-        comm.name AS community_name, g.group_name, b.name AS batch_name
-       FROM children c
-       LEFT JOIN mothers m ON m.id = c.mother_id
-       LEFT JOIN communities comm ON comm.id = c.community_id
-       LEFT JOIN groups g ON g.id = c.group_id
-       LEFT JOIN batches b ON b.id = c.batch_id
-       WHERE c.id = ?`,
-      [result.insertId]
-    );
-    res.status(201).json({ child: await attachClinicalData(rows[0]) });
+    const [rows] = await pool.query('SELECT * FROM children WHERE id = ?', [result.insertId]);
+    res.status(201).json({ child: rows[0] });
   } catch (err) {
-    console.error('Failed to create child:', err.message);
+    console.error('Failed to create child', err);
     res.status(500).json({ error: 'db error' });
   }
 });
 
 // GET /api/children/:id
-router.get('/', async (req, res) => {
-  try {
-    const [rows] = await pool.query(`
-      SELECT c.*, m.id AS mother_db_id, m.mother_code,
-        comm.name AS community_name, g.group_name, b.name AS batch_name
-      FROM children c
-      LEFT JOIN mothers m ON m.id = c.mother_id
-      LEFT JOIN communities comm ON comm.id = c.community_id
-      LEFT JOIN groups g ON g.id = c.group_id
-      LEFT JOIN batches b ON b.id = c.batch_id
-      ORDER BY c.created_at DESC
-    `);
-
-    const [checkupRows] = await pool.query('SELECT * FROM child_checkups');
-    const checkupsByChildId = {};
-    const completedWeeksByChildId = {};
-    for (const row of checkupRows) {
-      if (!checkupsByChildId[row.child_id]) {
-        checkupsByChildId[row.child_id] = [];
-        completedWeeksByChildId[row.child_id] = [];
-      }
-      checkupsByChildId[row.child_id].push({
-        id: row.id,
-        childId: row.child_id,
-        checkupDate: row.visit_date,
-        weight: row.weight,
-        height: row.height,
-        headCircumference: row.head_circumference,
-        developmentalStatus: row.developmental_status,
-        serviceProvider: row.service_provider,
-        remarks: row.notes,
-        week: row.week_number
-      });
-      if (row.week_number) {
-        completedWeeksByChildId[row.child_id].push(row.week_number);
-      }
-    }
-
-    const children = rows.map(r => {
-      const childId = r.id;
-      return {
-        ...r,
-        checkups: checkupsByChildId[childId] || [],
-        completedWeeks: (completedWeeksByChildId[childId] || []).sort((a, b) => a - b)
-      };
-    });
-
-    res.json({ children });
-  } catch (err) {
-    console.error('Failed to fetch children:', err.message);
-    res.status(500).json({ error: 'db error' });
-  }
-});
-
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -206,9 +142,73 @@ router.get('/:id', async (req, res) => {
       [id, id]
     );
     if (!rows.length) return res.status(404).json({ error: 'Not found' });
-    res.json({ child: await attachClinicalData(rows[0]) });
+    const child = await attachClinicalData(rows[0]);
+    res.json({ child: await attachMonitoringData(child) });
   } catch (err) {
-    console.error('Failed to fetch child:', err.message);
+    console.error('Failed to fetch child', err);
+    res.status(500).json({ error: 'db error' });
+  }
+});
+
+router.post('/:id/checkups', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const body = req.body || {};
+    const [childRows] = await pool.query(
+      'SELECT id FROM children WHERE id = ? OR child_code = ? LIMIT 1',
+      [Number(id) || null, id]
+    );
+    if (!childRows.length) return res.status(404).json({ error: 'Child not found' });
+
+    const childId = childRows[0].id;
+    const week = Number(body.week);
+    if (!Number.isInteger(week) || week < 1 || week > 48) {
+      return res.status(400).json({ error: 'Valid week (1-48) is required' });
+    }
+
+    const values = [
+      body.checkupDate || null,
+      body.weight || null,
+      body.height || null,
+      body.headCircumference || null,
+      body.developmentalStatus || null,
+      body.serviceProvider || null,
+      body.remarks || null,
+    ];
+    const [existingRows] = await pool.query(
+      'SELECT id FROM child_checkups WHERE child_id = ? AND week_number = ? LIMIT 1',
+      [childId, week]
+    );
+    if (existingRows.length) {
+      await pool.query(
+        `UPDATE child_checkups SET visit_date = ?, weight = ?, height = ?, head_circumference = ?,
+          developmental_status = ?, service_provider = ?, notes = ? WHERE id = ?`,
+        [...values, existingRows[0].id]
+      );
+    } else {
+      await pool.query(
+        `INSERT INTO child_checkups
+          (child_id, visit_date, weight, height, head_circumference, developmental_status, service_provider, notes, week_number)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [childId, ...values, week]
+      );
+    }
+
+    const [rows] = await pool.query(
+      `SELECT c.*, m.first_name AS mother_first_name, m.last_name AS mother_last_name,
+        m.mother_code, comm.name AS community_name, g.group_name, b.name AS batch_name
+       FROM children c
+       LEFT JOIN mothers m ON c.mother_id = m.id
+       LEFT JOIN communities comm ON comm.id = c.community_id
+       LEFT JOIN groups g ON g.id = c.group_id
+       LEFT JOIN batches b ON b.id = c.batch_id
+       WHERE c.id = ?`,
+      [childId]
+    );
+    const child = await attachClinicalData(rows[0]);
+    res.json({ child: await attachMonitoringData(child) });
+  } catch (err) {
+    console.error('Failed to save child checkup', err);
     res.status(500).json({ error: 'db error' });
   }
 });
@@ -307,7 +307,7 @@ router.put('/:id', async (req, res) => {
     );
     res.json({ child: await attachClinicalData(rows[0]) });
   } catch (error) {
-    console.error('Failed to update child:', error.message);
+    console.error('Failed to update child', error);
     res.status(500).json({ error: 'db error' });
   }
 });
@@ -316,11 +316,6 @@ router.put('/:id', async (req, res) => {
 router.get('/mother/:motherId/children', async (req, res) => {
   try {
     const { motherId } = req.params;
-    const [motherRows] = await pool.query(
-      'SELECT id FROM mothers WHERE id = ? OR mother_code = ? OR mother_external_id = ? LIMIT 1',
-      [Number(motherId) || null, motherId, motherId]
-    );
-    if (!motherRows.length) return res.status(404).json({ error: 'Mother not found' });
     const [rows] = await pool.query(
       `SELECT c.*, comm.name AS community_name, g.group_name, b.name AS batch_name
        FROM children c
@@ -328,11 +323,11 @@ router.get('/mother/:motherId/children', async (req, res) => {
        LEFT JOIN groups g ON g.id = c.group_id
        LEFT JOIN batches b ON b.id = c.batch_id
        WHERE c.mother_id = ? ORDER BY c.created_at DESC`,
-      [motherRows[0].id]
+      [motherId]
     );
     res.json({ children: rows });
   } catch (err) {
-    console.error('Failed to fetch children for mother:', err.message);
+    console.error('Failed to fetch children for mother', err);
     res.status(500).json({ error: 'db error' });
   }
 });

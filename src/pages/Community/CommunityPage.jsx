@@ -798,23 +798,25 @@ export default function CommunityPage() {
         </div>
 
         <div className="search-container">
-          <SearchIcon />
-          <input
-            type="text"
-            className="search-input-field"
-            placeholder={
-              activeTab === 'communities'
-                ? 'Search school name...'
-                : activeTab === 'groups'
-                ? 'Search group name...'
-                : activeTab === 'mothers'
-                ? 'Search mother name...'
-                : 'Search batch name...'
-            }
-            value={query}
-            onChange={(e) => handleSearch(e.target.value)}
-            aria-label="Search items"
-          />
+          <div className="search-field-container">
+            <SearchIcon />
+            <input
+              type="text"
+              className="search-input-field"
+              placeholder={
+                activeTab === 'communities'
+                  ? 'Search school name...'
+                  : activeTab === 'groups'
+                  ? 'Search group name...'
+                  : activeTab === 'mothers'
+                  ? 'Search mother name...'
+                  : 'Search batch name...'
+              }
+              value={query}
+              onChange={(e) => handleSearch(e.target.value)}
+              aria-label="Search items"
+            />
+          </div>
         </div>
       </section>
 

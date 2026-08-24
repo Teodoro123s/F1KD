@@ -13,21 +13,10 @@ const StepWizard = ({
     { id: 3, label: '3rd Trimester' },
   ];
 
-  const isPreviousStepsComplete = (groupIdx, stepIdx) => {
-    for (let gi = 0; gi <= groupIdx; gi += 1) {
-      for (let si = 0; si < 3; si += 1) {
-        if (gi === groupIdx && si >= stepIdx) break;
-        if (!checkups?.[gi]?.[si]?.completed) return false;
-      }
-    }
-    return true;
-  };
-
   const getStatus = (groupIdx, stepIdx) => {
     const item = checkups?.[groupIdx]?.[stepIdx];
     if (item?.completed) return 'completed';
     if (activeTrimester === groupIdx + 1 && activeStep === stepIdx + 1) return 'active';
-    if (isPreviousStepsComplete(groupIdx, stepIdx)) return 'available';
     return 'locked';
   };
 

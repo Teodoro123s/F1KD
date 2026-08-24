@@ -116,7 +116,6 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
           </div>
           <div className="checkup-actions">
             <button type="submit" className="btn-primary">Save Progress</button>
-            <button type="button" className="btn-secondary" onClick={onCancel}>Change Beneficiary</button>
           </div>
         </div>
       </form>

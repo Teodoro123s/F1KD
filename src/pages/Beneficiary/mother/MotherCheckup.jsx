@@ -22,7 +22,11 @@ const getTrimesterIndex = (trimester) => {
   return index === -1 ? 0 : index;
 };
 
-const getInitialStep = (trimester) => getTrimesterIndex(trimester) * 3;
+const getInitialStep = (trimester, checkups = []) => {
+  const registeredStep = getTrimesterIndex(trimester) * 3;
+  const firstIncompleteStep = CHECKUPS.findIndex((_, index) => !checkups?.[Math.floor(index / 3)]?.[index % 3]?.completed);
+  return firstIncompleteStep === -1 ? CHECKUPS.length - 1 : Math.max(registeredStep, firstIncompleteStep);
+};
 
 const formatDate = (value) => {
   if (!value) return '';
@@ -55,37 +59,50 @@ const calculateGestationalAge = (lmpDate, fallbackWeeks) => {
   return Number.isNaN(fallback) ? 0 : fallback;
 };
 
-const createInitialFormState = (mother) => ({
-  checkupDate: formatDate(new Date()),
-  gestationalAge: calculateGestationalAge(mother.lmpDate, mother.gestationalAge),
-  bp: mother.prenatalBp || mother.bloodPressure || '',
-  weight: mother.prenatalWeight || mother.weight || '',
-  height: mother.prenatalHeight || mother.height || '',
-  fundalHeight: mother.fundalHeight || '',
-  fhr: mother.fhr || '',
-  serviceProvider: '',
-  nextCheckupDate: '',
-  referral: false,
-  labAssistance: false,
-  amount: '',
-  sourceOfFunds: 'Municipal Fund',
-  facilityType: 'Govt',
-  milkDate: '',
-  milkQuantity: '',
-  remarks: '',
+const getCheckupForStep = (mother, step) => {
+  const trimesterIndex = Math.floor(step / 3);
+  const checkupIndex = step % 3;
+  return mother.checkups?.[trimesterIndex]?.[checkupIndex] || null;
+};
+
+const getFirstIncompleteStep = (checkups = []) => CHECKUPS.findIndex((_, index) => !checkups?.[Math.floor(index / 3)]?.[index % 3]?.completed);
+
+const createInitialFormState = (mother, checkup = null, blank = false) => ({
+  checkupDate: blank ? '' : formatDate(checkup?.checkupDate) || formatDate(new Date()),
+  gestationalAge: blank ? '' : checkup?.gestationalAge ?? calculateGestationalAge(mother.lmpDate, mother.gestationalAge),
+  bp: blank ? '' : checkup?.bp ?? mother.prenatalBp ?? mother.bloodPressure ?? '',
+  weight: blank ? '' : checkup?.weight ?? mother.prenatalWeight ?? mother.weight ?? '',
+  height: blank ? '' : checkup?.height ?? mother.prenatalHeight ?? mother.height ?? '',
+  fundalHeight: blank ? '' : checkup?.fundalHeight ?? mother.fundalHeight ?? '',
+  fhr: blank ? '' : checkup?.fhr ?? mother.fhr ?? '',
+  serviceProvider: checkup?.serviceProvider ?? '',
+  nextCheckupDate: blank ? '' : formatDate(checkup?.nextCheckupDate),
+  referral: checkup?.referral ?? false,
+  labAssistance: checkup?.labAssistance ?? false,
+  amount: checkup?.amount ?? '',
+  sourceOfFunds: blank ? '' : checkup?.sourceOfFunds ?? 'Municipal Fund',
+  facilityType: checkup?.facilityType ?? 'Govt',
+  milkDate: formatDate(checkup?.milkDate),
+  milkQuantity: checkup?.milkQuantity ?? '',
+  remarks: checkup?.remarks ?? '',
 });
 
 export default function MotherCheckup({ mother, onSave = () => {}, onCancel = () => {} }) {
   if (!mother) return null;
 
-  const initialStep = getInitialStep(mother.trimester || '1st Trimester');
+  const initialStep = getInitialStep(mother.trimester || '1st Trimester', mother.checkups);
   const [activeStep, setActiveStep] = useState(initialStep);
-  const [formState, setFormState] = useState(() => createInitialFormState(mother));
+  const [formState, setFormState] = useState(() => createInitialFormState(mother, getCheckupForStep(mother, initialStep)));
 
   useEffect(() => {
-    setActiveStep(getInitialStep(mother.trimester || '1st Trimester'));
-    setFormState(createInitialFormState(mother));
+    setActiveStep(getInitialStep(mother.trimester || '1st Trimester', mother.checkups));
   }, [mother]);
+
+  useEffect(() => {
+    const firstIncomplete = getFirstIncompleteStep(mother.checkups);
+    const isFutureStep = firstIncomplete !== -1 && activeStep > firstIncomplete;
+    setFormState(createInitialFormState(mother, getCheckupForStep(mother, activeStep), isFutureStep));
+  }, [mother, activeStep]);
 
   const updateField = (field) => (value) => {
     setFormState((prev) => ({ ...prev, [field]: value }));
@@ -156,9 +173,15 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
 
   const activeTrimester = Math.floor(activeStep / 3) + 1;
   const activeStepIndex = (activeStep % 3) + 1;
+  const activeCheckup = getCheckupForStep(mother, activeStep);
+  const isCompleted = Boolean(activeCheckup?.completed);
+  const firstIncompleteStep = getFirstIncompleteStep(mother.checkups);
+  const isFuture = firstIncompleteStep !== -1 && activeStep > firstIncompleteStep;
+  const isReadOnly = isCompleted || isFuture;
 
   const handleStepClick = (trimester, step) => {
-    setActiveStep((trimester - 1) * 3 + (step - 1));
+    const nextStep = (trimester - 1) * 3 + (step - 1);
+    setActiveStep(nextStep);
   };
 
   const handleSubmit = (event) => {
@@ -190,6 +213,7 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
       checkupNumber: currentCheckup.checkupNumber,
     };
 
+    if (isReadOnly) return;
     onSave(payload);
     setActiveStep((current) => Math.min(current + 1, CHECKUPS.length - 1));
   };
@@ -210,9 +234,12 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
       />
 
       <form className="mother-checkup-form" onSubmit={handleSubmit}>
-        <div className="checkup-card">
+        <fieldset disabled={isReadOnly}>
+        <div className={`checkup-card${isCompleted ? ' checkup-card-completed' : ''}${isFuture ? ' checkup-card-locked' : ''}`}>
           <div className="checkup-card-body">
             <div className="checkup-section-title">Pregnancy Record</div>
+            {isCompleted && <p className="checkup-state-message">Completed check-up · view only</p>}
+            {isFuture && <p className="checkup-state-message">This check-up will be available after the previous visit is completed.</p>}
             <div className="checkup-grid">
               <div className="form-group full-width">
                 <label className="checkup-field-label" htmlFor="checkup-date">Check-up Date</label>
@@ -487,12 +514,13 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
             )}
           </div>
         </div>
+        </fieldset>
 
         <div className="form-actions" style={{ justifyContent: 'flex-start', marginTop: '24px' }}>
-          <button type="submit" className="btn-primary">
+          <button type="submit" className="btn-primary" disabled={isReadOnly}>
             Save Checkup
           </button>
-          <button type="button" className="btn-secondary" onClick={resetForm}>
+          <button type="button" className="btn-secondary" onClick={resetForm} disabled={isReadOnly}>
             Cancel
           </button>
         </div>

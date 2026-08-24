@@ -160,7 +160,7 @@ export default function BeneficiaryListPage({ communities = [], batches = [], mo
 
   return (
     <>
-      <section className="tabs-row">
+      <section className="tabs-row beneficiary-filter-row">
         <StatusFilterBar
           selectedStatusFilter={selectedStatusFilter}
           onChange={(nextStatus) => {

@@ -85,7 +85,8 @@ router.get('/summary', async (req, res) => {
         m.mother_code AS id,
         CONCAT(COALESCE(m.first_name,''), ' ', COALESCE(m.middle_name,''), ' ', COALESCE(m.last_name,'')) AS name,
         b.batch_code AS batchCode,
-        g.group_name AS groupName
+        g.group_name AS groupName,
+        COALESCE(m.progress, 0) AS progress
       FROM mothers m
       LEFT JOIN batches b ON b.id = m.batch_id
       LEFT JOIN groups g ON g.id = m.group_id
@@ -129,6 +130,7 @@ router.get('/summary', async (req, res) => {
       group: item.groupName || null,
       status: 'Active',
       visits: 0,
+      progress: Number(item.progress || 0),
     }));
 
     const summary = {

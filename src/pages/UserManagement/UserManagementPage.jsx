@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import UserManagementTable from './UserManagementTable';
-import { SearchIcon, FilterIcon, PlusIcon, UserCheckIcon, UserXIcon } from './UserManagementIcons';
+import { SearchIcon, PlusIcon, UserCheckIcon, UserXIcon } from './UserManagementIcons';
 import AddUserModal from './UserManagementModal';
 import { useUserManagement } from './useUserManagement';
 import { useAuth } from '../../auth/AuthProvider';
@@ -14,8 +14,8 @@ export default function UserManagementPage() {
   const {
     form,
     query,
-    selectedRoleFilter,
     selectedStatusFilter,
+    selectedRoleFilter,
     showAddModal,
     page,
     perPage,
@@ -32,8 +32,8 @@ export default function UserManagementPage() {
     ROLE_OPTIONS,
     STATUS_OPTIONS,
     handleSearch,
-    selectRoleFilter,
     setStatusFilter,
+    selectRoleFilter,
     handlePerPageChange,
     handlePageChange,
     openAddModal,
@@ -53,8 +53,6 @@ export default function UserManagementPage() {
     oneTimeCredentials,
     clearOneTimeCredentials,
   } = useUserManagement();
-
-  const [searchScope, setSearchScope] = useState('Account');
 
   const location = useLocation();
   const auth = useAuth();
@@ -118,20 +116,17 @@ export default function UserManagementPage() {
           />
 
           <div className="search-container">
-            <button type="button" className="entity-filter-btn" onClick={() => setSearchScope((s) => (s === 'Account' ? 'Role' : 'Account'))} aria-label="Toggle search scope">
-              <FilterIcon />
-              <span className="filter-label">{searchScope}</span>
-              <span className="caret">▾</span>
-            </button>
-            <SearchIcon />
-            <input
-              type="text"
-              className="search-input-field"
-              placeholder="Search account name or role..."
-              value={query}
-              onChange={(e) => handleSearch(e.target.value)}
-              aria-label="Search accounts"
-            />
+            <div className="search-field-container">
+              <SearchIcon />
+              <input
+                type="text"
+                className="search-input-field"
+                placeholder="Search account name or role..."
+                value={query}
+                onChange={(e) => handleSearch(e.target.value)}
+                aria-label="Search accounts"
+              />
+            </div>
           </div>
         </div>
       </section>

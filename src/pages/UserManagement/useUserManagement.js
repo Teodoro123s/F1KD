@@ -139,16 +139,16 @@ export function useUserManagement() {
   const filteredData = useMemo(() => {
     const term = query.trim().toLowerCase();
     return users.filter((user) => {
-      const matchesRole = selectedRoleFilter ? user.role === selectedRoleFilter : true;
       // Compare normalized status so UI filters work regardless of server casing/enum values
       const matchesStatus = selectedStatusFilter === 'All'
         ? true
         : (typeof user.status === 'string' && (user.status === selectedStatusFilter || (typeof normalizeStatus === 'function' && normalizeStatus(user.status) === selectedStatusFilter)));
+      const matchesRole = !selectedRoleFilter || user.role === selectedRoleFilter;
       const matchesSearch =
         !term ||
         user.name.toLowerCase().includes(term) ||
         user.role.toLowerCase().includes(term);
-      return matchesRole && matchesStatus && matchesSearch;
+      return matchesStatus && matchesRole && matchesSearch;
     });
   }, [query, selectedRoleFilter, selectedStatusFilter, users]);
 
@@ -184,13 +184,13 @@ export function useUserManagement() {
     setPage(1);
   };
 
-  const selectRoleFilter = (role) => {
-    setSelectedRoleFilter(role);
+  const setStatusFilter = (status) => {
+    setSelectedStatusFilter(status);
     setPage(1);
   };
 
-  const setStatusFilter = (status) => {
-    setSelectedStatusFilter(status);
+  const selectRoleFilter = (role) => {
+    setSelectedRoleFilter(role);
     setPage(1);
   };
 
@@ -629,8 +629,8 @@ export function useUserManagement() {
     users,
     form,
     query,
-    selectedRoleFilter,
     selectedStatusFilter,
+    selectedRoleFilter,
     showAddModal,
     page,
     perPage,
@@ -647,8 +647,8 @@ export function useUserManagement() {
     ROLE_OPTIONS,
     STATUS_OPTIONS,
     handleSearch,
-    selectRoleFilter,
     setStatusFilter,
+    selectRoleFilter,
     handlePerPageChange,
     handlePageChange,
     openAddModal,

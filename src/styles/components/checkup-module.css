@@ -65,10 +65,24 @@
   box-shadow: 0 8px 24px rgba(12, 26, 48, 0.05);
 }
 
+.checkup-entry-view {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
 .checkup-picker-header,
 .selected-mother-bar {
   padding: 1.25rem 1.5rem;
   border-bottom: 1px solid var(--border-color);
+}
+
+.selected-record-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  justify-content: flex-end;
 }
 
 .checkup-picker-header { align-items: flex-end; background: #fbfcfe; }
@@ -200,6 +214,14 @@
   padding: 1.5rem;
 }
 
+.monitoring-list-container {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+}
+
 .monitoring-subheader {
   display: flex;
   align-items: flex-start;
@@ -217,7 +239,10 @@
 .monitoring-filter-row {
   margin: 0 0 1.5rem;
   padding: 0 0 0.5rem;
+  justify-content: flex-start;
 }
+
+.monitoring-filter-row .search-container { margin-left: auto; }
 
 .monitoring-status-filters { display: inline-flex; gap: 0.2rem; }
 .monitoring-status-filters button { padding: 0.45rem 0.7rem; border: 0; border-radius: 6px; background: transparent; color: var(--text-muted); font: inherit; font-size: 0.82rem; font-weight: 700; cursor: pointer; }
@@ -247,7 +272,8 @@
   text-transform: uppercase;
 }
 
-.selected-mother-bar { align-items: center; background: #fff; }
+  .selected-mother-bar { align-items: center; background: #fff; }
+  .selected-record-actions { width: 100%; justify-content: flex-start; }
 .selected-mother-bar h2 { font-size: 1.3rem; }
 .selected-mother-bar p { font-size: 0.86rem; }
 
@@ -367,6 +393,25 @@
 
 .checkup-card,
 .checkup-card-body { width: 100%; }
+
+.mother-checkup-form fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.checkup-card-completed,
+.checkup-card-locked {
+  opacity: 0.78;
+}
+
+.checkup-state-message {
+  margin: 0.35rem 0 1rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
 
 .checkup-card-body { padding: 1.5rem; }
 
@@ -549,6 +594,7 @@ textarea.checkup-field-input { min-height: 88px; line-height: 1.45; resize: vert
   }
 
   .monitoring-filter-row { align-items: stretch; }
+  .monitoring-filter-row .search-container { margin-left: 0; }
   .monitoring-table-card .data-table { min-width: 720px; }
 
   .checkup-beneficiary-toggle { align-self: stretch; }

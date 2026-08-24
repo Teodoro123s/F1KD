@@ -49,3 +49,14 @@ export async function apiGetMother(motherId) {
   });
   return handleResponse(res, 'Failed to fetch mother');
 }
+
+export async function apiSaveMotherCheckup(motherId, payload) {
+  const id = encodeURIComponent(motherId);
+  const res = await fetch(`${API_BASE}/api/mothers/${id}/checkups`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    credentials: 'same-origin',
+  });
+  return handleResponse(res, 'Server error when saving mother check-up');
+}

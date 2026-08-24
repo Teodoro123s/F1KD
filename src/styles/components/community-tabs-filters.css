@@ -14,15 +14,26 @@
 .subheader-left { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
 .subheader-right { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; flex: 1; justify-content: flex-end; }
 
-.search-container { display: flex; align-items: center; position: relative; flex: 0 1 320px; width: 100%; max-width: 320px; gap: 0.75rem; }
+.search-container { display: flex; align-items: center; flex: 0 0 420px; width: 420px; max-width: 100%; gap: 0.75rem; }
 
-.search-container svg { position: absolute; left: 4.2rem; width: 1.1rem; height: 1.1rem; color: #94A3B8; pointer-events: none; }
+.beneficiary-filter-row { justify-content: flex-start; }
+.beneficiary-filter-row .search-container { margin-left: auto; }
 
-.search-input-field { width: 100%; padding: 0.55rem 1rem 0.55rem 5.8rem; border-radius: 99px; border: 1px solid var(--border-color); background: #fff; font-size: 0.9rem; color: var(--slate-dark); transition: all 150ms ease; }
+@media (max-width: 720px) {
+  .search-container { flex: 1 1 100%; width: 100%; }
+  .beneficiary-filter-row .search-container { margin-left: 0; }
+}
+
+.search-field-container { position: relative; flex: 1; min-width: 0; }
+.search-field-container svg { position: absolute; left: 0.85rem; top: 50%; width: 1.1rem; height: 1.1rem; color: #94A3B8; pointer-events: none; transform: translateY(-50%); }
+
+.search-container > svg { width: 1.1rem; height: 1.1rem; color: #94A3B8; flex: 0 0 auto; }
+
+.search-input-field { width: 100%; box-sizing: border-box; padding: 0.55rem 1rem 0.55rem 2.5rem; border-radius: 99px; border: 1px solid var(--border-color); background: #fff; font-size: 0.9rem; color: var(--slate-dark); transition: all 150ms ease; }
 .search-input-field:focus { outline: none; border-color: var(--burgundy); box-shadow: 0 0 0 3px rgba(122, 12, 30, 0.08); }
 
 /* Entity filter button placed at left of search */
-.entity-filter-btn { position: absolute; left: 0; top: 50%; transform: translateY(-50%); display: inline-flex; align-items: center; gap: 0.5rem; height: 36px; padding: 0 0.7rem; border-radius: 999px; border: 1px solid var(--border-color); background: #fff; color: var(--text-muted); font-weight: 600; cursor: pointer; z-index: 2; }
+.entity-filter-btn { position: static; flex: 0 0 auto; display: inline-flex; align-items: center; gap: 0.5rem; height: 36px; padding: 0 0.7rem; border-radius: 999px; border: 1px solid var(--border-color); background: #fff; color: var(--text-muted); font-weight: 600; cursor: pointer; }
 .entity-filter-btn .filter-label { font-size: 0.85rem; }
 .entity-filter-btn .caret { font-size: 0.85rem; color: #94A3B8; }
 .entity-filter-btn:hover { background: #F8FAFC; color: var(--slate-dark); }
