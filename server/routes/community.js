@@ -72,6 +72,7 @@ router.get('/summary', async (req, res) => {
         g.description,
         COALESCE(g.community, MAX(m.community), '') AS community,
         COALESCE(g.members_count, COUNT(m.id)) AS members,
+        COUNT(DISTINCT m.batch_id) AS batches,
         COALESCE(g.leader, '') AS leader,
         COALESCE(g.status, 'Active') AS status
       FROM groups g
@@ -86,7 +87,7 @@ router.get('/summary', async (req, res) => {
         CONCAT(COALESCE(m.first_name,''), ' ', COALESCE(m.middle_name,''), ' ', COALESCE(m.last_name,'')) AS name,
         b.batch_code AS batchCode,
         g.group_name AS groupName,
-        COALESCE(m.progress, 0) AS progress
+        0 AS progress
       FROM mothers m
       LEFT JOIN batches b ON b.id = m.batch_id
       LEFT JOIN groups g ON g.id = m.group_id
@@ -120,6 +121,7 @@ router.get('/summary', async (req, res) => {
       community: item.community || '',
       leader: item.leader || '',
       members: Number(item.members || 0),
+      batches: Number(item.batches || 0),
       status: item.status || 'Active',
     }));
 

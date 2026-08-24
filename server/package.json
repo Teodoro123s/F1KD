@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "seed:monitor": "node seed_monitor_data.js"
+    "seed:monitor": "node seed_monitor_data.js",
+    "seed:school-hierarchy": "node seed_school_hierarchy.js"
   },
   "dependencies": {
     "bcrypt": "^5.1.0",
