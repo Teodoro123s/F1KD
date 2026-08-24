@@ -59,8 +59,7 @@ const StepWizard = ({
                   <button
                     type="button"
                     className={`step-wizard-step ${status} ${isActive ? 'active' : ''}`}
-                    onClick={() => status !== 'locked' && onStepClick(group.id, stepIdx + 1)}
-                    disabled={status === 'locked'}
+                    onClick={() => onStepClick(group.id, stepIdx + 1)}
                     aria-label={`Trimester ${group.id} ${stepIdx + 1} ${status}`}
                     aria-current={isActive ? 'step' : undefined}
                   >

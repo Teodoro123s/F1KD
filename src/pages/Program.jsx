@@ -5,6 +5,10 @@ export default function Program() {
     <div>
       <h1>Program</h1>
       <p>Program details and configuration.</p>
+
+
+
+
     </div>
   );
 }

@@ -121,6 +121,11 @@ export default function BeneficiaryPage() {
       <header className="community-header">
         <div className="community-title-section">
           <h1>Beneficiaries</h1>
+          <nav className="community-breadcrumb" aria-label="Breadcrumb">
+            <span className="breadcrumb-item">
+              <span className="breadcrumb-current">Beneficiaries</span>
+            </span>
+          </nav>
         </div>
 
         {/* Create button (keeps the simple dropdown used previously) */}

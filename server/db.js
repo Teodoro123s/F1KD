@@ -437,10 +437,83 @@ async function migrateCommunityTables() {
   }
 }
 
+async function migrateMonitorCheckups() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS mother_checkups (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        mother_id INT NOT NULL,
+        trimester VARCHAR(30) NOT NULL,
+        checkup_number TINYINT UNSIGNED NOT NULL,
+        checkup_date DATE NOT NULL,
+        gestational_age_weeks INT UNSIGNED NULL,
+        blood_pressure VARCHAR(20) NULL,
+        weight_kg DECIMAL(5,2) NULL,
+        height_cm DECIMAL(5,2) NULL,
+        bmi DECIMAL(5,2) NULL,
+        nutritional_status VARCHAR(30) NULL,
+        fundal_height_cm DECIMAL(5,2) NULL,
+        fetal_heart_rate_bpm SMALLINT UNSIGNED NULL,
+        service_provider VARCHAR(150) NULL,
+        next_checkup_date DATE NULL,
+        referred_to_hospital BOOLEAN NOT NULL DEFAULT FALSE,
+        lab_assistance_provided BOOLEAN NOT NULL DEFAULT FALSE,
+        assistance_amount DECIMAL(10,2) NULL,
+        source_of_funds VARCHAR(80) NULL,
+        facility_type VARCHAR(40) NULL,
+        milk_subsidy_date DATE NULL,
+        milk_quantity_pcs INT UNSIGNED NULL,
+        remarks TEXT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        CONSTRAINT fk_mother_checkups_mother
+          FOREIGN KEY (mother_id) REFERENCES mothers(id) ON DELETE CASCADE,
+        CONSTRAINT uq_mother_checkup_step
+          UNIQUE (mother_id, trimester, checkup_number)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    try {
+      await pool.query(`CREATE INDEX idx_mother_checkups_date ON mother_checkups (mother_id, checkup_date)`);
+    } catch (e) {
+      // index might already exist
+    }
+
+    const [cols] = await pool.query("SHOW COLUMNS FROM child_checkups");
+    const colNames = (cols || []).map(c => c.Field);
+    const alterStatements = [];
+    if (!colNames.includes('week_number')) {
+      alterStatements.push("ADD COLUMN week_number TINYINT UNSIGNED NULL");
+    }
+    if (!colNames.includes('developmental_status')) {
+      alterStatements.push("ADD COLUMN developmental_status VARCHAR(40) NULL");
+    }
+    if (!colNames.includes('service_provider')) {
+      alterStatements.push("ADD COLUMN service_provider VARCHAR(150) NULL");
+    }
+
+    if (alterStatements.length > 0) {
+      await pool.query(`ALTER TABLE child_checkups ${alterStatements.join(', ')}`);
+      console.info('child_checkups table columns added successfully.');
+    }
+
+    try {
+      await pool.query(`CREATE INDEX idx_child_checkups_week ON child_checkups (child_id, week_number)`);
+    } catch (e) {
+      // index might already exist
+    }
+
+    console.info('Monitor checkups migrations executed successfully.');
+  } catch (error) {
+    console.error('Failed to run monitor checkups migrations', error);
+  }
+}
+
 ensure().catch((err) => console.error('DB init error', err)).finally(async () => {
   await migrateUsersTable();
   await migrateMothersTable();
   await migrateCommunityTables();
+  await migrateMonitorCheckups();
   ensureDefaultAdmin();
 });
 

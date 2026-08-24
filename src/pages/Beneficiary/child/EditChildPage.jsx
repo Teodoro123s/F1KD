@@ -47,6 +47,8 @@ const normalizeChild = (child) => ({
   mmrRemarks: child.MMR?.remarks || child.mmrRemarks || '',
 });
 
+const normalizeDatePayload = (value) => String(value || '').trim().replaceAll('/', '-');
+
 export default function EditChildPage() {
   const navigate = useNavigate();
   const { childId } = useParams();
@@ -84,7 +86,16 @@ export default function EditChildPage() {
     setSaving(true);
     setError(null);
     try {
-      const response = await apiUpdateChild(childId || form.id || form.child_code, form);
+      const payload = {
+        ...form,
+        birthDate: normalizeDatePayload(form.birthDate),
+        bcgDate: normalizeDatePayload(form.bcgDate),
+        hepbDate: normalizeDatePayload(form.hepbDate),
+        opvDate: normalizeDatePayload(form.opvDate),
+        dptDate: normalizeDatePayload(form.dptDate),
+        mmrDate: normalizeDatePayload(form.mmrDate),
+      };
+      const response = await apiUpdateChild(childId || form.id || form.child_code, payload);
       const updatedChild = normalizeChild(response.child || form);
       const childKeys = [updatedChild.id, updatedChild.child_code, form.id, form.child_code]
         .filter((key) => key !== undefined && key !== null && key !== '')

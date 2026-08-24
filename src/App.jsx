@@ -5,8 +5,7 @@ import { MothersProvider } from './context/MothersContext';
 import Dashboard from './pages/Dashboard';
 import CommunityPage from './pages/Community/CommunityPage';
 import Beneficiary from './pages/Beneficiary/BeneficiaryPage';
-import Monitoring from './pages/Monitoring/Monitoring';
-import MotherMonitoringPage from './pages/Beneficiary/mother/MotherMonitoringPage';
+import MonitoringPage from './pages/Monitoring/MonitoringPage';
 import ChildProfilePage from './pages/Beneficiary/child/ChildProfilePage';
 import EditChildPage from './pages/Beneficiary/child/EditChildPage';
 import MotherChildrenPage from './pages/Beneficiary/child/MotherChildrenPage';
@@ -56,9 +55,10 @@ export default function App() {
         <Route path="beneficiary/mother/:id/child" element={<MotherChildrenPage />} />
         <Route path="beneficiary/child/:childId" element={<ChildProfilePage />} />
         <Route path="beneficiary/child/:childId/edit" element={<EditChildPage />} />
-        <Route path="beneficiary/mother/:id/monitoring" element={<MotherMonitoringPage />} />
+        <Route path="beneficiary/mother/:id/monitoring" element={<MonitoringPage />} />
         <Route path="beneficiary/mother/:id/edit" element={<EditMotherPage />} />
-        <Route path="monitoring" element={<Monitoring />} />
+        <Route path="monitoring" element={<MonitoringPage />} />
+        <Route path="checkup" element={<MonitoringPage />} />
         <Route path="program" element={<Program />} />
         <Route path="progress-report" element={<ProgressReport />} />
         <Route path="user-management" element={<UserManagementPage />} />

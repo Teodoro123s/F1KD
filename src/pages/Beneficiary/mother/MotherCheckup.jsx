@@ -28,8 +28,10 @@ const formatDate = (value) => {
   if (!value) return '';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
-  return date.toISOString().split('T')[0];
+  return date.toISOString().split('T')[0].replaceAll('-', '/');
 };
+
+const formatDateForPayload = (value) => String(value || '').trim().replaceAll('/', '-');
 
 const calculateBmi = (weight, height) => {
   const w = parseFloat(weight);
@@ -164,7 +166,7 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
 
     const currentCheckup = CHECKUPS[activeStep] || CHECKUPS[0];
     const payload = {
-      checkupDate,
+      checkupDate: formatDateForPayload(checkupDate),
       gestationalAge,
       bp,
       weight,
@@ -174,13 +176,13 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
       fundalHeight,
       fhr,
       serviceProvider,
-      nextCheckupDate,
+      nextCheckupDate: formatDateForPayload(nextCheckupDate),
       referral,
       labAssistance,
       amount,
       sourceOfFunds,
       facilityType,
-      milkDate,
+      milkDate: formatDateForPayload(milkDate),
       milkQuantity,
       remarks,
       motherId: mother.id,
@@ -189,6 +191,7 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
     };
 
     onSave(payload);
+    setActiveStep((current) => Math.min(current + 1, CHECKUPS.length - 1));
   };
 
   const resetForm = () => {
@@ -212,12 +215,15 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
             <div className="checkup-section-title">Pregnancy Record</div>
             <div className="checkup-grid">
               <div className="form-group full-width">
-                <label className="checkup-field-label" htmlFor="checkup-date">Checkup Date</label>
+                <label className="checkup-field-label" htmlFor="checkup-date">Check-up Date</label>
                 <input
                   id="checkup-date"
-                  type="date"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="\d{4}/\d{2}/\d{2}"
                   className="checkup-field-input"
                   value={checkupDate}
+                  placeholder="yyyy/mm/dd"
                   onChange={(e) => updateField('checkupDate')(e.target.value)}
                   required
                 />
@@ -242,7 +248,7 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
                   step="0.1"
                   className="checkup-field-input"
                   value={weight}
-                  placeholder="55.0"
+                  placeholder="e.g. 55.0"
                   onChange={(e) => updateField('weight')(e.target.value)}
                   required
                 />
@@ -255,7 +261,7 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
                   type="number"
                   className="checkup-field-input"
                   value={height}
-                  placeholder="150"
+                  placeholder="e.g. 150"
                   onChange={(e) => updateField('height')(e.target.value)}
                 />
               </div>
@@ -299,9 +305,8 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
                   type="number"
                   className="checkup-field-input"
                   value={fundalHeight}
-                  placeholder="20"
+                  placeholder="e.g. 20"
                   onChange={(e) => updateField('fundalHeight')(e.target.value)}
-                  required
                 />
               </div>
 
@@ -312,9 +317,8 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
                   type="number"
                   className="checkup-field-input"
                   value={fhr}
-                  placeholder="140"
+                  placeholder="e.g. 140"
                   onChange={(e) => updateField('fhr')(e.target.value)}
-                  required
                 />
               </div>
 
@@ -325,7 +329,7 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
                   type="text"
                   className="checkup-field-input"
                   value={serviceProvider}
-                  placeholder="Dr. Amelia Vance"
+                  placeholder="e.g. Dr. Amelia Vance"
                   onChange={(e) => updateField('serviceProvider')(e.target.value)}
                 />
               </div>
@@ -334,9 +338,12 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
                 <label className="checkup-field-label" htmlFor="next-checkup-date">Next Checkup Date</label>
                 <input
                   id="next-checkup-date"
-                  type="date"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="\d{4}/\d{2}/\d{2}"
                   className="checkup-field-input"
                   value={nextCheckupDate}
+                  placeholder="yyyy/mm/dd"
                   onChange={(e) => updateField('nextCheckupDate')(e.target.value)}
                 />
               </div>
@@ -377,12 +384,14 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
               </div>
 
               <div className="form-group">
-                <label className="checkup-field-label" htmlFor="amount">Amount</label>
+                <label className="checkup-field-label" htmlFor="amount">Assistance Amount (PHP)</label>
                 <input
                   id="amount"
-                  type="text"
+                  type="number"
+                  min="0"
+                  step="0.01"
                   className="checkup-field-input"
-                  placeholder="$ 0.00"
+                  placeholder="e.g. 500.00"
                   value={amount}
                   onChange={(e) => updateField('amount')(e.target.value)}
                 />
@@ -426,24 +435,29 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
             <div className="checkup-section-title">Milk Subsidy</div>
             <div className="checkup-grid">
               <div className="form-group">
-                <label className="checkup-field-label" htmlFor="milk-date">Date Provided</label>
+                <label className="checkup-field-label" htmlFor="milk-date">Milk Subsidy Date</label>
                 <input
                   id="milk-date"
-                  type="date"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="\d{4}/\d{2}/\d{2}"
                   className="checkup-field-input"
                   value={milkDate}
+                  placeholder="yyyy/mm/dd"
                   onChange={(e) => updateField('milkDate')(e.target.value)}
                 />
               </div>
 
               <div className="form-group">
-                <label className="checkup-field-label" htmlFor="milk-quantity">No. of Pcs</label>
+                <label className="checkup-field-label" htmlFor="milk-quantity">Milk Quantity (pcs)</label>
                 <input
                   id="milk-quantity"
                   type="number"
                   className="checkup-field-input"
                   value={milkQuantity}
-                  placeholder="0"
+                  min="0"
+                  step="1"
+                  placeholder="e.g. 1"
                   onChange={(e) => updateField('milkQuantity')(e.target.value)}
                 />
               </div>
@@ -455,7 +469,7 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
                   className="checkup-field-input"
                   rows="3"
                   value={remarks}
-                  placeholder="Enter observations, referrals, or complications"
+                  placeholder="Enter observations, referrals, or complications..."
                   onChange={(e) => updateField('remarks')(e.target.value)}
                 />
               </div>

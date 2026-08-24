@@ -78,12 +78,49 @@ async function attachClinicalData(mother) {
   const motherDbId = mother.raw?.id;
   if (!motherDbId) return mother;
 
-  const [[obRows], [medicalRows], [dentalRows], [vaccineRows]] = await Promise.all([
+  const [[obRows], [medicalRows], [dentalRows], [vaccineRows], [checkupRows]] = await Promise.all([
     pool.query('SELECT * FROM mother_ob_history WHERE mother_id = ? ORDER BY seq, id', [motherDbId]),
     pool.query('SELECT * FROM mother_medical_conditions WHERE mother_id = ? ORDER BY id', [motherDbId]),
     pool.query('SELECT * FROM mother_dental_records WHERE mother_id = ? ORDER BY id DESC LIMIT 1', [motherDbId]),
     pool.query('SELECT * FROM mother_vaccinations WHERE mother_id = ? ORDER BY id', [motherDbId]),
+    pool.query('SELECT * FROM mother_checkups WHERE mother_id = ? ORDER BY trimester, checkup_number', [motherDbId]),
   ]);
+
+  const checkups = [
+    [null, null, null],
+    [null, null, null],
+    [null, null, null]
+  ];
+  for (const row of checkupRows) {
+    const trimesterIndex = row.trimester === '2nd Trimester' ? 1 : row.trimester === '3rd Trimester' ? 2 : 0;
+    const checkupIndex = (row.checkup_number >= 1 && row.checkup_number <= 3) ? (row.checkup_number - 1) : 0;
+    checkups[trimesterIndex][checkupIndex] = {
+      id: row.id,
+      motherId: row.mother_id,
+      trimester: row.trimester,
+      checkupNumber: row.checkup_number,
+      checkupDate: row.checkup_date,
+      gestationalAge: row.gestational_age_weeks,
+      bp: row.blood_pressure,
+      weight: row.weight_kg,
+      height: row.height_cm,
+      bmi: row.bmi,
+      nutritionalStatus: row.nutritional_status,
+      fundalHeight: row.fundal_height_cm,
+      fhr: row.fetal_heart_rate_bpm,
+      serviceProvider: row.service_provider,
+      nextCheckupDate: row.next_checkup_date,
+      referral: Boolean(row.referred_to_hospital),
+      labAssistance: Boolean(row.lab_assistance_provided),
+      amount: row.assistance_amount,
+      sourceOfFunds: row.source_of_funds,
+      facilityType: row.facility_type,
+      milkDate: row.milk_subsidy_date,
+      milkQuantity: row.milk_quantity_pcs,
+      remarks: row.remarks,
+      completed: true,
+    };
+  }
 
   const medicalConditions = Object.fromEntries(
     medicalRows.map((row) => [row.condition_name, Boolean(row.has_condition)])
@@ -93,6 +130,7 @@ async function attachClinicalData(mother) {
 
   return {
     ...mother,
+    checkups,
     obHistory: obRows.map((row) => ({
       event: row.event_label || row.event_code,
       gestationalAge: row.gestational_age || '',
@@ -129,7 +167,57 @@ router.get('/', async (req, res) => {
       ORDER BY m.id DESC
     `);
 
-    res.json({ mothers: rows.map(mapMother) });
+    const [checkupRows] = await pool.query('SELECT * FROM mother_checkups');
+    const checkupsByMotherId = {};
+    for (const row of checkupRows) {
+      if (!checkupsByMotherId[row.mother_id]) {
+        checkupsByMotherId[row.mother_id] = [
+          [null, null, null],
+          [null, null, null],
+          [null, null, null]
+        ];
+      }
+      const trimesterIndex = row.trimester === '2nd Trimester' ? 1 : row.trimester === '3rd Trimester' ? 2 : 0;
+      const checkupIndex = (row.checkup_number >= 1 && row.checkup_number <= 3) ? (row.checkup_number - 1) : 0;
+      checkupsByMotherId[row.mother_id][trimesterIndex][checkupIndex] = {
+        id: row.id,
+        motherId: row.mother_id,
+        trimester: row.trimester,
+        checkupNumber: row.checkup_number,
+        checkupDate: row.checkup_date,
+        gestationalAge: row.gestational_age_weeks,
+        bp: row.blood_pressure,
+        weight: row.weight_kg,
+        height: row.height_cm,
+        bmi: row.bmi,
+        nutritionalStatus: row.nutritional_status,
+        fundalHeight: row.fundal_height_cm,
+        fhr: row.fetal_heart_rate_bpm,
+        serviceProvider: row.service_provider,
+        nextCheckupDate: row.next_checkup_date,
+        referral: Boolean(row.referred_to_hospital),
+        labAssistance: Boolean(row.lab_assistance_provided),
+        amount: row.assistance_amount,
+        sourceOfFunds: row.source_of_funds,
+        facilityType: row.facility_type,
+        milkDate: row.milk_subsidy_date,
+        milkQuantity: row.milk_quantity_pcs,
+        remarks: row.remarks,
+        completed: true,
+      };
+    }
+
+    res.json({
+      mothers: rows.map((r) => {
+        const m = mapMother(r);
+        m.checkups = checkupsByMotherId[r.id] || [
+          [null, null, null],
+          [null, null, null],
+          [null, null, null]
+        ];
+        return m;
+      })
+    });
   } catch (error) {
     console.error('[Mothers API] GET / error:', error.message);
     res.status(500).json({ error: 'db error' });
@@ -416,6 +504,91 @@ router.delete('/:id', async (req, res) => {
     res.json({ success: true, deleted: result.affectedRows > 0 });
   } catch (error) {
     console.error('[Mothers API] DELETE /:id error:', error.message);
+    res.status(500).json({ error: 'db error' });
+  }
+});
+
+router.post('/:id/checkups', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const b = req.body || {};
+    const [motherRows] = await pool.query(
+      'SELECT id FROM mothers WHERE id = ? OR mother_code = ? OR mother_external_id = ? LIMIT 1',
+      [Number(id) || null, id, id]
+    );
+    if (!motherRows.length) {
+      return res.status(404).json({ error: 'Mother not found' });
+    }
+    const motherDbId = motherRows[0].id;
+
+    const trimester = b.trimester || '1st Trimester';
+    const checkupNumber = Number(b.checkupNumber);
+    if (!checkupNumber || checkupNumber < 1 || checkupNumber > 3) {
+      return res.status(400).json({ error: 'Valid checkupNumber (1-3) is required' });
+    }
+
+    const checkupDate = b.checkupDate || null;
+    const gestationalAgeWeeks = b.gestationalAge || null;
+    const bloodPressure = b.bp || null;
+    const weightKg = b.weight || null;
+    const heightCm = b.height || null;
+    const bmi = b.bmi || null;
+    const nutritionalStatus = b.nutritionalStatus || null;
+    const fundalHeightCm = b.fundalHeight || null;
+    const fetalHeartRateBpm = b.fhr || null;
+    const serviceProvider = b.serviceProvider || null;
+    const nextCheckupDate = b.nextCheckupDate || null;
+    const referredToHospital = b.referral === true || b.referral === 1 || b.referral === 'true' ? 1 : 0;
+    const labAssistanceProvided = b.labAssistance === true || b.labAssistance === 1 || b.labAssistance === 'true' ? 1 : 0;
+    const assistanceAmount = b.amount || null;
+    const sourceOfFunds = b.sourceOfFunds || null;
+    const facilityType = b.facilityType || null;
+    const milkSubsidyDate = b.milkDate || null;
+    const milkQuantityPcs = b.milkQuantity || null;
+    const remarks = b.remarks || null;
+
+    await pool.query(
+      `INSERT INTO mother_checkups (
+        mother_id, trimester, checkup_number, checkup_date,
+        gestational_age_weeks, blood_pressure, weight_kg, height_cm,
+        bmi, nutritional_status, fundal_height_cm, fetal_heart_rate_bpm,
+        service_provider, next_checkup_date, referred_to_hospital,
+        lab_assistance_provided, assistance_amount, source_of_funds,
+        facility_type, milk_subsidy_date, milk_quantity_pcs, remarks
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE
+        checkup_date = VALUES(checkup_date),
+        gestational_age_weeks = VALUES(gestational_age_weeks),
+        blood_pressure = VALUES(blood_pressure),
+        weight_kg = VALUES(weight_kg),
+        height_cm = VALUES(height_cm),
+        bmi = VALUES(bmi),
+        nutritional_status = VALUES(nutritional_status),
+        fundal_height_cm = VALUES(fundal_height_cm),
+        fetal_heart_rate_bpm = VALUES(fetal_heart_rate_bpm),
+        service_provider = VALUES(service_provider),
+        next_checkup_date = VALUES(next_checkup_date),
+        referred_to_hospital = VALUES(referred_to_hospital),
+        lab_assistance_provided = VALUES(lab_assistance_provided),
+        assistance_amount = VALUES(assistance_amount),
+        source_of_funds = VALUES(source_of_funds),
+        facility_type = VALUES(facility_type),
+        milk_subsidy_date = VALUES(milk_subsidy_date),
+        milk_quantity_pcs = VALUES(milk_quantity_pcs),
+        remarks = VALUES(remarks)`,
+      [
+        motherDbId, trimester, checkupNumber, checkupDate,
+        gestationalAgeWeeks, bloodPressure, weightKg, heightCm,
+        bmi, nutritionalStatus, fundalHeightCm, fetalHeartRateBpm,
+        serviceProvider, nextCheckupDate, referredToHospital,
+        labAssistanceProvided, assistanceAmount, sourceOfFunds,
+        facilityType, milkSubsidyDate, milkQuantityPcs, remarks
+      ]
+    );
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Failed to save mother checkup:', error.message);
     res.status(500).json({ error: 'db error' });
   }
 });

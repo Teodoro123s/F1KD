@@ -6,7 +6,7 @@ const items = [
   { to: '/dashboard', label: 'Dashboard', icon: '🏠' },
   { to: '/community', label: 'Community', icon: '👥' },
   { to: '/beneficiary', label: 'Beneficiary', icon: '🎯' },
-  { to: '/monitoring', label: 'Monitoring', icon: '📈' },
+  { to: '/monitoring', label: 'Monitor', icon: '📈' },
   { to: '/program', label: 'Program', icon: '📚' },
   { to: '/progress-report', label: 'Progress Report', icon: '📝' },
   { to: '/user-management', label: 'User Management', icon: '🔧' },

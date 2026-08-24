@@ -132,7 +132,7 @@ export default function MotherDetailPage({ selectedMother, onClose }) {
               navigate(`/beneficiary/mother/${motherId}/child`, { state: { mother: selectedMother, children } });
             }
           }}>{(Array.isArray(selectedMother.children) && selectedMother.children.length > 0) ? 'Child' : 'Create Child'}</button>
-          <button type="button" className="btn-primary" onClick={() => navigate(`/beneficiary/mother/${motherId}/monitoring`, { state: { mother: selectedMother } })}>Monitoring</button>
+          <button type="button" className="btn-primary" onClick={() => navigate('/monitoring', { state: { mother: selectedMother } })}>Monitor</button>
           <button type="button" className="btn-close-profile-custom" onClick={onClose} aria-label="Close mother profile">Close</button>
         </div>
       </header>

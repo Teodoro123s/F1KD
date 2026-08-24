@@ -34,6 +34,8 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
         <input
           id={id}
           type={isDate ? 'text' : type}
+          inputMode={isDate ? 'numeric' : undefined}
+          pattern={isDate ? '\\d{4}/\\d{2}/\\d{2}' : undefined}
           className="form-input"
           placeholder={isDate ? 'yyyy/mm/dd' : placeholder}
           value={isDate ? formatDateForInput(value).replaceAll('-', '/') : value}

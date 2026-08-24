@@ -11,14 +11,28 @@ function getField(body, ...keys) {
 }
 
 async function attachClinicalData(child) {
-  const [[medicalRows], [vaccineRows]] = await Promise.all([
+  const [[medicalRows], [vaccineRows], [checkupRows]] = await Promise.all([
     pool.query('SELECT * FROM child_medical_conditions WHERE child_id = ? ORDER BY id', [child.id]),
     pool.query('SELECT * FROM child_vaccinations WHERE child_id = ? ORDER BY id', [child.id]),
+    pool.query('SELECT * FROM child_checkups WHERE child_id = ? ORDER BY week_number, id', [child.id]),
   ]);
   return {
     ...child,
     medicalConditions: Object.fromEntries(medicalRows.map((row) => [row.condition_name, Boolean(row.has_condition)])),
     ...Object.fromEntries(vaccineRows.map((row) => [row.vaccine_name, row])),
+    checkups: checkupRows.map(row => ({
+      id: row.id,
+      childId: row.child_id,
+      checkupDate: row.visit_date,
+      weight: row.weight,
+      height: row.height,
+      headCircumference: row.head_circumference,
+      developmentalStatus: row.developmental_status,
+      serviceProvider: row.service_provider,
+      remarks: row.notes,
+      week: row.week_number
+    })),
+    completedWeeks: checkupRows.map(row => row.week_number).filter(Boolean).sort((a, b) => a - b)
   };
 }
 
@@ -135,7 +149,42 @@ router.get('/', async (req, res) => {
       LEFT JOIN batches b ON b.id = c.batch_id
       ORDER BY c.created_at DESC
     `);
-    res.json({ children: rows });
+
+    const [checkupRows] = await pool.query('SELECT * FROM child_checkups');
+    const checkupsByChildId = {};
+    const completedWeeksByChildId = {};
+    for (const row of checkupRows) {
+      if (!checkupsByChildId[row.child_id]) {
+        checkupsByChildId[row.child_id] = [];
+        completedWeeksByChildId[row.child_id] = [];
+      }
+      checkupsByChildId[row.child_id].push({
+        id: row.id,
+        childId: row.child_id,
+        checkupDate: row.visit_date,
+        weight: row.weight,
+        height: row.height,
+        headCircumference: row.head_circumference,
+        developmentalStatus: row.developmental_status,
+        serviceProvider: row.service_provider,
+        remarks: row.notes,
+        week: row.week_number
+      });
+      if (row.week_number) {
+        completedWeeksByChildId[row.child_id].push(row.week_number);
+      }
+    }
+
+    const children = rows.map(r => {
+      const childId = r.id;
+      return {
+        ...r,
+        checkups: checkupsByChildId[childId] || [],
+        completedWeeks: (completedWeeksByChildId[childId] || []).sort((a, b) => a - b)
+      };
+    });
+
+    res.json({ children });
   } catch (err) {
     console.error('Failed to fetch children:', err.message);
     res.status(500).json({ error: 'db error' });

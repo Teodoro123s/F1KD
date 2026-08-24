@@ -235,7 +235,7 @@ export default function ChildProfilePage() {
           <button type="button" className="btn-secondary" onClick={() => {
             const mid = resolvedMother?.motherId || resolvedMother?.id || selectedChild.mother_id || selectedChild.motherId || '';
             const stateMother = resolvedMother || (mid ? { id: mid, name: selectedChild.mother_first_name ? `${selectedChild.mother_first_name} ${selectedChild.mother_last_name || ''}`.trim() : undefined } : null);
-            navigate(`/beneficiary/mother/${mid}/monitoring`, { state: { mother: stateMother } });
+            navigate('/monitoring', { state: { child: selectedChild, mother: stateMother } });
           }}>Open mother monitoring</button>
         </div>
       </div>
