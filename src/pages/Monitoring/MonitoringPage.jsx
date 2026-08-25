@@ -14,6 +14,52 @@ function getMotherName(mother) {
     .join(' ') || 'Unnamed mother';
 }
 
+const parseDateOnly = (value) => {
+  if (!value) return null;
+  const [year, month, day] = String(value).slice(0, 10).split('-').map(Number);
+  if (![year, month, day].every(Number.isFinite)) return null;
+  return new Date(year, month - 1, day);
+};
+
+const isWithinCurrentWeek = (date) => {
+  const today = new Date();
+  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const day = start.getDay();
+  start.setDate(start.getDate() - (day === 0 ? 6 : day - 1));
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  return date >= start && date <= end;
+};
+
+const getDateStatus = (date) => {
+  if (!date) return 'Pending';
+  const today = new Date();
+  const currentDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  if (date < currentDate) return 'Missing';
+  if (isWithinCurrentWeek(date)) return 'Pending';
+  return 'Pending';
+};
+
+const getMotherMonitoringStatus = (mother, completed, total) => {
+  if (completed >= total) return 'Done';
+  const checkups = (mother.checkups || []).flat().filter(Boolean);
+  const nextDate = checkups
+    .filter((checkup) => checkup.nextCheckupDate)
+    .sort((a, b) => String(b.nextCheckupDate).localeCompare(String(a.nextCheckupDate)))[0]?.nextCheckupDate;
+  return getDateStatus(parseDateOnly(nextDate));
+};
+
+const getChildMonitoringStatus = (child, completed, total) => {
+  if (completed >= total) return 'Done';
+  const nextWeek = Array.from({ length: total }, (_, index) => index + 1)
+    .find((week) => !(child.completedWeeks || []).includes(week));
+  const birthDate = parseDateOnly(child.birth_date || child.birthDate);
+  if (!birthDate || !nextWeek) return 'Pending';
+  const nextDate = new Date(birthDate);
+  nextDate.setDate(nextDate.getDate() + nextWeek * 7);
+  return getDateStatus(nextDate);
+};
+
 export default function MonitoringPage() {
   const { mothers, setMothers } = useMothers();
   const navigate = useNavigate();
@@ -117,7 +163,9 @@ export default function MonitoringPage() {
       : (beneficiary.completedWeeks || []).length;
     const total = beneficiaryType === 'Mother' ? 9 : 48;
     const progress = Math.min(100, Math.round((completed / total) * 100));
-    const status = progress === 0 ? 'Missing' : progress < 100 ? 'Pending' : 'Done';
+    const status = beneficiaryType === 'Mother'
+      ? getMotherMonitoringStatus(beneficiary, completed, total)
+      : getChildMonitoringStatus(beneficiary, completed, total);
     return { beneficiary, completed, total, progress, status };
   }).filter((row) => statusFilter === 'All' || row.status === statusFilter), [visibleBeneficiaries, beneficiaryType, statusFilter]);
 
@@ -183,14 +231,14 @@ export default function MonitoringPage() {
           <div className="table-card monitoring-table-card">
             <div className="table-overflow">
               <table className="data-table">
-                <thead><tr><th>{beneficiaryType}</th><th>Monitoring type</th><th>Progress</th><th>Status</th><th>Action</th></tr></thead>
+                <thead><tr><th>{beneficiaryType}</th><th>Progress</th><th>Status</th><th>Action</th></tr></thead>
                 <tbody>
-                  {childrenLoading && beneficiaryType === 'Child' ? <tr><td colSpan="5" className="no-data">Loading children...</td></tr> : currentRows.length ? currentRows.map(({ beneficiary, completed, total, progress, status }) => {
+                  {childrenLoading && beneficiaryType === 'Child' ? <tr><td colSpan="4" className="no-data">Loading children...</td></tr> : currentRows.length ? currentRows.map(({ beneficiary, completed, total, progress, status }) => {
                     const name = beneficiaryType === 'Mother' ? getMotherName(beneficiary) : getChildName(beneficiary);
                     const id = beneficiary.motherId || beneficiary.child_code || beneficiary.id || 'No ID';
                     const locationName = beneficiary.community || beneficiary.area || beneficiary.community_name || 'No community';
-                    return <tr key={id}><td><strong>{name}</strong><span className="monitoring-table-meta">{id} · {locationName}</span></td><td>{beneficiaryType === 'Mother' ? 'Prenatal check-ups' : 'Growth monitoring'}</td><td><div className="monitoring-progress"><span><span style={{ width: `${progress}%` }} /></span><b>{completed}/{total}</b></div></td><td><span className={`monitoring-status ${status.toLowerCase()}`}>{status}</span></td><td><button type="button" className="btn-secondary monitoring-open-button" onClick={() => openBeneficiary(beneficiary)}>Open record</button></td></tr>;
-                  }) : <tr><td colSpan="5" className="no-data">No monitoring records match your search.</td></tr>}
+                    return <tr key={id}><td><strong>{name}</strong><span className="monitoring-table-meta">{id} · {locationName}</span></td><td><div className="monitoring-progress"><span><span style={{ width: `${progress}%` }} /></span><b>{completed}/{total}</b></div></td><td><span className={`monitoring-status ${status.toLowerCase()}`}>{status}</span></td><td><button type="button" className="btn-secondary monitoring-open-button" onClick={() => openBeneficiary(beneficiary)}>Open record</button></td></tr>;
+                  }) : <tr><td colSpan="4" className="no-data">No monitoring records match your search.</td></tr>}
                 </tbody>
               </table>
             </div>

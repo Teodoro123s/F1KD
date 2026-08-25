@@ -1,6 +1,7 @@
-﻿import React from 'react';
+﻿import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDateForDisplay } from '../../../utils/dateFormat';
+import { apiUploadMotherDocuments } from '../../../api/mothers';
 
 const calculateAge = (dobString) => {
   if (!dobString) return null;
@@ -57,6 +58,9 @@ const ChipList = ({ items, emptyLabel = 'None' }) => {
 
 export default function MotherDetailPage({ selectedMother, onClose }) {
   const navigate = useNavigate();
+  const [motherRecord, setMotherRecord] = useState(selectedMother);
+  const [uploadingDocument, setUploadingDocument] = useState('');
+  const [uploadMessage, setUploadMessage] = useState('');
   if (!selectedMother) return null;
 
   const fullName = selectedMother.name || `${selectedMother.firstName || ''} ${selectedMother.middleName || ''} ${selectedMother.lastName || ''} ${selectedMother.suffix || ''}`.replace(/\s+/g, ' ').trim();
@@ -108,6 +112,21 @@ export default function MotherDetailPage({ selectedMother, onClose }) {
     date: formatDateForDisplay(selectedMother[`tt${num}Date`]),
     remarks: selectedMother[`tt${num}Remarks`] || '—',
   }));
+
+  const uploadDocument = async (field, file) => {
+    if (!file) return;
+    setUploadingDocument(field);
+    setUploadMessage('');
+    try {
+      const response = await apiUploadMotherDocuments(motherId, { [field]: file });
+      if (response?.mother) setMotherRecord((current) => ({ ...current, ...response.mother }));
+      setUploadMessage('Document uploaded successfully.');
+    } catch (error) {
+      setUploadMessage(error.message || 'Unable to upload document.');
+    } finally {
+      setUploadingDocument('');
+    }
+  };
 
   return (
     <section className="mother-detail-page">
@@ -170,6 +189,23 @@ export default function MotherDetailPage({ selectedMother, onClose }) {
           <Field label="Relationship" value={emergencyRelationship} />
           <Field label="Spouse / Partner" value={spouseName} />
         </div>
+      </section>
+
+      <section className="mother-detail-section">
+        <h3 className="mother-detail-section-title">I.C REQUIRED DOCUMENTS</h3>
+        <div className="document-upload-grid">
+          {[
+            ['birthCertificate', "Mother's Birth Certificate", motherRecord.birthCertificateDocumentName, motherRecord.birthCertificateDocumentPath],
+            ['consent', 'Program Consent Form', motherRecord.consentDocumentName, motherRecord.consentDocumentPath],
+          ].map(([field, label, fileName, filePath]) => (
+            <div className="document-upload-field" key={field}>
+              <label className="detail-form-label" htmlFor={`mother-document-${field}`}>{label}</label>
+              <input id={`mother-document-${field}`} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={(event) => uploadDocument(field, event.target.files?.[0])} disabled={uploadingDocument === field} />
+              {fileName ? <a href={`http://localhost:4000${filePath}`} target="_blank" rel="noreferrer">{fileName}</a> : <span className="document-upload-empty">No document uploaded</span>}
+            </div>
+          ))}
+        </div>
+        {uploadMessage && <p className="document-upload-message" role="status">{uploadMessage}</p>}
       </section>
 
       <section className="mother-detail-section">

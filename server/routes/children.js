@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../db');
+const { documentUpload } = require('../middleware/documentUpload');
 
 // Helper to normalize incoming body keys (accept camelCase or snake_case)
 function getField(body, ...keys) {
@@ -33,6 +34,25 @@ async function attachMonitoringData(child) {
     checkups: checkupRows,
   };
 }
+
+router.post('/:id/documents', documentUpload.single('birthDocument'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [childRows] = await pool.query('SELECT id FROM children WHERE id = ? OR child_code = ? LIMIT 1', [Number(id) || null, id]);
+    if (!childRows.length) return res.status(404).json({ error: 'Child not found' });
+    if (!req.file) return res.status(400).json({ error: 'Birth document is required' });
+    await pool.query(
+      'UPDATE children SET birth_document_name = ?, birth_document_path = ? WHERE id = ?',
+      [req.file.originalname, `/uploads/${req.file.filename}`, childRows[0].id]
+    );
+    const [rows] = await pool.query('SELECT * FROM children WHERE id = ?', [childRows[0].id]);
+    const child = await attachClinicalData(rows[0]);
+    res.json({ child: await attachMonitoringData(child) });
+  } catch (error) {
+    console.error('Child document upload error:', error.message);
+    res.status(400).json({ error: error.message || 'Unable to upload document' });
+  }
+});
 
 // GET /api/children - list children with their monitoring progress
 router.get('/', async (req, res) => {

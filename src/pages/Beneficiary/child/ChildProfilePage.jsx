@@ -2,6 +2,7 @@
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useMothers } from '../../../context/MothersContext';
 import { formatDateForDisplay } from '../../../utils/dateFormat';
+import { apiUploadChildBirthDocument } from '../../../api/children';
 
 const formatValue = (value) => (value === null || value === undefined || value === '' ? '—' : String(value));
 
@@ -70,6 +71,8 @@ const normalizeChild = (child = {}) => ({
   fatherName: child.fatherName || child.father_name || '',
   community: child.community || child.community_name || '',
   batch: child.batch || child.batch_name || '',
+  birthDocumentName: child.birthDocumentName || child.birth_document_name || '',
+  birthDocumentPath: child.birthDocumentPath || child.birth_document_path || '',
 });
 
 export default function ChildProfilePage() {
@@ -124,6 +127,23 @@ export default function ChildProfilePage() {
 
   const initialSelected = childFromState || (resolvedFromUrl?.child ? normalizeChild(resolvedFromUrl.child) : null);
   const [selectedChild, setSelectedChild] = useState(initialSelected);
+  const [uploadingBirthDocument, setUploadingBirthDocument] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState('');
+
+  const uploadBirthDocument = async (file) => {
+    if (!file || !selectedChild?.id) return;
+    setUploadingBirthDocument(true);
+    setUploadMessage('');
+    try {
+      const response = await apiUploadChildBirthDocument(selectedChild.id, file);
+      if (response?.child) setSelectedChild(normalizeChild(response.child));
+      setUploadMessage('Document uploaded successfully.');
+    } catch (error) {
+      setUploadMessage(error.message || 'Unable to upload document.');
+    } finally {
+      setUploadingBirthDocument(false);
+    }
+  };
 
   React.useEffect(() => {
     if (location.state?.updatedChild) {
@@ -281,6 +301,15 @@ export default function ChildProfilePage() {
               </tbody>
             </table>
           </div>
+        </div>
+      </ChildSection>
+
+      <ChildSection title="I.B REQUIRED DOCUMENTS">
+        <div className="document-upload-field full-width">
+          <label className="detail-form-label" htmlFor="child-birth-document">Live Birth Certificate / Birth Certificate</label>
+          <input id="child-birth-document" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={(event) => uploadBirthDocument(event.target.files?.[0])} disabled={uploadingBirthDocument} />
+          {selectedChild.birthDocumentName ? <a href={`http://localhost:4000${selectedChild.birthDocumentPath}`} target="_blank" rel="noreferrer">{selectedChild.birthDocumentName}</a> : <span className="document-upload-empty">No document uploaded</span>}
+          {uploadMessage && <span className="document-upload-message" role="status">{uploadMessage}</span>}
         </div>
       </ChildSection>
     </div>

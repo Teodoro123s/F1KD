@@ -73,3 +73,14 @@ export async function apiSaveChildCheckup(childId, payload) {
   });
   return handleResponse(res, 'Server error when saving child check-up');
 }
+
+export async function apiUploadChildBirthDocument(childId, file) {
+  const formData = new FormData();
+  formData.append('birthDocument', file);
+  const res = await fetch(`${API_BASE}/api/children/${encodeURIComponent(childId)}/documents`, {
+    method: 'POST',
+    body: formData,
+    credentials: 'same-origin',
+  });
+  return handleResponse(res, 'Unable to upload child birth document');
+}

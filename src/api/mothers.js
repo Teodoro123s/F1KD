@@ -60,3 +60,15 @@ export async function apiSaveMotherCheckup(motherId, payload) {
   });
   return handleResponse(res, 'Server error when saving mother check-up');
 }
+
+export async function apiUploadMotherDocuments(motherId, documents) {
+  const formData = new FormData();
+  if (documents.birthCertificate) formData.append('birthCertificate', documents.birthCertificate);
+  if (documents.consent) formData.append('consent', documents.consent);
+  const res = await fetch(`${API_BASE}/api/mothers/${encodeURIComponent(motherId)}/documents`, {
+    method: 'POST',
+    body: formData,
+    credentials: 'same-origin',
+  });
+  return handleResponse(res, 'Unable to upload mother documents');
+}

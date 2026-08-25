@@ -24,8 +24,8 @@ const getTrimesterIndex = (trimester) => {
 
 const getInitialStep = (trimester, checkups = []) => {
   const registeredStep = getTrimesterIndex(trimester) * 3;
-  const firstIncompleteStep = CHECKUPS.findIndex((_, index) => !checkups?.[Math.floor(index / 3)]?.[index % 3]?.completed);
-  return firstIncompleteStep === -1 ? CHECKUPS.length - 1 : Math.max(registeredStep, firstIncompleteStep);
+  const firstIncompleteStep = CHECKUPS.findIndex((_, index) => index >= registeredStep && !checkups?.[Math.floor(index / 3)]?.[index % 3]?.completed);
+  return firstIncompleteStep === -1 ? CHECKUPS.length - 1 : firstIncompleteStep;
 };
 
 const formatDate = (value) => {
@@ -65,10 +65,10 @@ const getCheckupForStep = (mother, step) => {
   return mother.checkups?.[trimesterIndex]?.[checkupIndex] || null;
 };
 
-const getFirstIncompleteStep = (checkups = []) => CHECKUPS.findIndex((_, index) => !checkups?.[Math.floor(index / 3)]?.[index % 3]?.completed);
+const getFirstIncompleteStep = (checkups = [], startIndex = 0) => CHECKUPS.findIndex((_, index) => index >= startIndex && !checkups?.[Math.floor(index / 3)]?.[index % 3]?.completed);
 
 const createInitialFormState = (mother, checkup = null, blank = false) => ({
-  checkupDate: blank ? '' : formatDate(checkup?.checkupDate) || formatDate(new Date()),
+  checkupDate: blank ? '' : formatDate(checkup?.checkupDate) || formatDate(mother.createdAt || mother.created_at || mother.raw?.created_at || mother.prenatalRegDate || new Date()),
   gestationalAge: blank ? '' : checkup?.gestationalAge ?? calculateGestationalAge(mother.lmpDate, mother.gestationalAge),
   bp: blank ? '' : checkup?.bp ?? mother.prenatalBp ?? mother.bloodPressure ?? '',
   weight: blank ? '' : checkup?.weight ?? mother.prenatalWeight ?? mother.weight ?? '',
@@ -99,7 +99,7 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
   }, [mother]);
 
   useEffect(() => {
-    const firstIncomplete = getFirstIncompleteStep(mother.checkups);
+    const firstIncomplete = getFirstIncompleteStep(mother.checkups, getTrimesterIndex(mother.trimester || '1st Trimester') * 3);
     const isFutureStep = firstIncomplete !== -1 && activeStep > firstIncomplete;
     setFormState(createInitialFormState(mother, getCheckupForStep(mother, activeStep), isFutureStep));
   }, [mother, activeStep]);
@@ -175,7 +175,7 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
   const activeStepIndex = (activeStep % 3) + 1;
   const activeCheckup = getCheckupForStep(mother, activeStep);
   const isCompleted = Boolean(activeCheckup?.completed);
-  const firstIncompleteStep = getFirstIncompleteStep(mother.checkups);
+  const firstIncompleteStep = getFirstIncompleteStep(mother.checkups, getTrimesterIndex(mother.trimester || '1st Trimester') * 3);
   const isFuture = firstIncompleteStep !== -1 && activeStep > firstIncompleteStep;
   const isReadOnly = isCompleted || isFuture;
 

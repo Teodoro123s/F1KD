@@ -207,7 +207,15 @@ async function ensure() {
       ADD COLUMN IF NOT EXISTS no_of_child_delivered INT,
       ADD COLUMN IF NOT EXISTS exclusive_breastfeeding VARCHAR(20),
       ADD COLUMN IF NOT EXISTS expanded_newborn_screening TEXT,
-      ADD COLUMN IF NOT EXISTS expanded_newborn_screening_result TEXT;`,
+      ADD COLUMN IF NOT EXISTS expanded_newborn_screening_result TEXT,
+      ADD COLUMN IF NOT EXISTS birth_document_name VARCHAR(255),
+      ADD COLUMN IF NOT EXISTS birth_document_path VARCHAR(500);`,
+
+    `ALTER TABLE mothers
+      ADD COLUMN IF NOT EXISTS birth_certificate_document_name VARCHAR(255),
+      ADD COLUMN IF NOT EXISTS birth_certificate_document_path VARCHAR(500),
+      ADD COLUMN IF NOT EXISTS consent_document_name VARCHAR(255),
+      ADD COLUMN IF NOT EXISTS consent_document_path VARCHAR(500);`,
 
     `CREATE TABLE IF NOT EXISTS child_medical_conditions (
       id INT AUTO_INCREMENT PRIMARY KEY,

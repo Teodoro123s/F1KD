@@ -12,6 +12,22 @@ const getGroupStatusByProgress = (g) => {
   return 'Pending';
 };
 
+const getMotherProfileProgress = (mother) => Math.round([
+  mother?.firstName || mother?.first_name,
+  mother?.lastName || mother?.last_name,
+  mother?.dob,
+  mother?.community || mother?.area,
+  mother?.birthCertificateDocumentPath || mother?.birth_certificate_document_path,
+  mother?.consentDocumentPath || mother?.consent_document_path,
+].filter(Boolean).length * (100 / 6));
+
+const getChildProfileProgress = (child) => Math.round([
+  child?.mother_id || child?.motherId,
+  child?.first_name || child?.firstName,
+  child?.last_name || child?.lastName,
+  child?.birthDocumentPath || child?.birth_document_path,
+].filter(Boolean).length * 25);
+
 export default function BeneficiaryListPage({ communities = [], batches = [], mothers = [], onSelectMother, onSelectChild }) {
   const [query, setQuery] = useState('');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('All');
@@ -42,7 +58,7 @@ export default function BeneficiaryListPage({ communities = [], batches = [], mo
               id: child.id,
               name: [child.first_name, child.middle_name, child.last_name, child.suffix].filter(Boolean).join(' '),
               community: child.community_name || mother?.community || mother?.area || 'Unknown',
-              progress: child.progress ?? 0,
+              progress: getChildProfileProgress(child),
               original: { ...child, mother },
             };
           });
@@ -78,7 +94,7 @@ export default function BeneficiaryListPage({ communities = [], batches = [], mo
           id: item.id,
           name: item.name || `${item.firstName} ${item.lastName}`,
           community: item.area || item.community || 'Unknown',
-          progress: item.progress ?? 0,
+          progress: getMotherProfileProgress(item),
           original: item,
         };
       }

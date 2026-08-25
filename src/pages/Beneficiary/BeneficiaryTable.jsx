@@ -20,21 +20,37 @@ export default function BeneficiaryTable({
 
   const getMotherStatus = (progress) => {
     if (progress < 60) {
-      return <span className="status-missing">🔴 Missing: PSA, Consent Form</span>;
+      return <span className="status-missing">Missing required profile fields</span>;
     } else if (progress < 90) {
-      return <span className="status-pending">🟡 Pending: Consent Form</span>;
+      return <span className="status-pending">Profile incomplete</span>;
     } else {
-      return <span className="status-complete">🟢 Completed Checklist</span>;
+      return <span className="status-complete">Profile complete</span>;
     }
   };
 
+  const getMotherProfileProgress = (mother) => Math.round([
+    mother?.firstName || mother?.first_name,
+    mother?.lastName || mother?.last_name,
+    mother?.dob,
+    mother?.community || mother?.area,
+    mother?.birthCertificateDocumentPath || mother?.birth_certificate_document_path,
+    mother?.consentDocumentPath || mother?.consent_document_path,
+  ].filter(Boolean).length * (100 / 6));
+
+  const getChildProfileProgress = (child) => Math.round([
+    child?.mother_id || child?.motherId,
+    child?.first_name || child?.firstName,
+    child?.last_name || child?.lastName,
+    child?.birthDocumentPath || child?.birth_document_path,
+  ].filter(Boolean).length * 25);
+
   const getChildStatus = (progress) => {
     if (progress < 60) {
-      return <span className="status-missing">Missing: Checkup</span>;
+      return <span className="status-missing">Missing required profile fields</span>;
     } else if (progress < 90) {
-      return <span className="status-checkup">Pending: Checkup</span>;
+      return <span className="status-checkup">Profile incomplete</span>;
     } else {
-      return <span className="status-complete">Completed</span>;
+      return <span className="status-complete">Profile complete</span>;
     }
   };
 
@@ -59,8 +75,8 @@ export default function BeneficiaryTable({
           <tbody>
             {currentRows.length > 0 ? (
               currentRows.map((row) => {
-                const motherProgress = motherProgressByName?.[row.community] ?? 0;
-                const childProgress = row.childProgress != null ? row.childProgress : 0;
+                const motherProgress = getMotherProfileProgress(row.original || row);
+                const childProgress = getChildProfileProgress(row.original || row);
 
                 // Lookup mother's school/area
                 const motherObj = communities.find((c) => c.name === row.community);

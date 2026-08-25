@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../db');
+const { documentUpload } = require('../middleware/documentUpload');
 
 function firstNonEmpty(...values) {
   for (const value of values) {
@@ -34,6 +35,7 @@ function mapMother(row) {
     lastName: firstNonEmpty(row.last_name, row.lastName, ''),
     suffix: firstNonEmpty(row.suffix, ''),
     dob: row.dob || '',
+    createdAt: row.created_at || '',
     contactNumber: row.contact_number || row.contactNumber || '',
     address: row.address || '',
     community: row.community || row.area || '',
@@ -64,6 +66,10 @@ function mapMother(row) {
     emergencyContact: row.emergency_contact || '',
     emergencyRelationship: row.emergency_relationship || '',
     spouseName: row.spouse_name || '',
+    birthCertificateDocumentName: row.birth_certificate_document_name || '',
+    birthCertificateDocumentPath: row.birth_certificate_document_path || '',
+    consentDocumentName: row.consent_document_name || '',
+    consentDocumentPath: row.consent_document_path || '',
     medicalConditions: parseJsonObject(row.medical_conditions),
     otherMedicalHistory: row.other_medical_history || '',
     status: row.status || 'Active',
@@ -153,6 +159,39 @@ async function attachClinicalData(mother) {
     tt5Remarks: vaccines.TT5?.remarks || '',
   };
 }
+
+router.post('/:id/documents', documentUpload.fields([
+  { name: 'birthCertificate', maxCount: 1 },
+  { name: 'consent', maxCount: 1 },
+]), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [motherRows] = await pool.query(
+      'SELECT id FROM mothers WHERE id = ? OR mother_code = ? OR mother_external_id = ? LIMIT 1',
+      [Number(id) || null, id, id]
+    );
+    if (!motherRows.length) return res.status(404).json({ error: 'Mother not found' });
+
+    const files = req.files || {};
+    const updates = [];
+    const values = [];
+    if (files.birthCertificate?.[0]) {
+      updates.push('birth_certificate_document_name = ?', 'birth_certificate_document_path = ?');
+      values.push(files.birthCertificate[0].originalname, `/uploads/${files.birthCertificate[0].filename}`);
+    }
+    if (files.consent?.[0]) {
+      updates.push('consent_document_name = ?', 'consent_document_path = ?');
+      values.push(files.consent[0].originalname, `/uploads/${files.consent[0].filename}`);
+    }
+    if (!updates.length) return res.status(400).json({ error: 'At least one document is required' });
+    await pool.query(`UPDATE mothers SET ${updates.join(', ')} WHERE id = ?`, [...values, motherRows[0].id]);
+    const [rows] = await pool.query('SELECT * FROM mothers WHERE id = ?', [motherRows[0].id]);
+    res.json({ mother: await attachClinicalData(mapMother(rows[0])) });
+  } catch (error) {
+    console.error('[Mothers API] document upload error:', error.message);
+    res.status(400).json({ error: error.message || 'Unable to upload documents' });
+  }
+});
 
 router.get('/', async (req, res) => {
   try {
