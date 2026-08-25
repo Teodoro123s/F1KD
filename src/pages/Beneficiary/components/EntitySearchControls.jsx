@@ -22,6 +22,8 @@ export default function EntitySearchControls({
       <div className="search-field-container">
         <SearchIcon />
         <input
+          id="beneficiary-search"
+          name="beneficiarySearch"
           type="text"
           className="search-input-field"
           placeholder={selectedEntityFilter === 'Mother' ? 'Search mother/community...' : 'Search child name...'}

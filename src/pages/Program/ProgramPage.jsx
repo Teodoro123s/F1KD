@@ -60,7 +60,7 @@ export default function ProgramPage() {
         <div className="search-container program-search">
           <div className="search-field-container">
             <SearchIcon />
-            <input type="text" className="search-input-field" placeholder="Search products or providers..." value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Search program products" />
+            <input id="program-search" name="programSearch" type="text" className="search-input-field" placeholder="Search products or providers..." value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Search program products" />
           </div>
         </div>
       </section>

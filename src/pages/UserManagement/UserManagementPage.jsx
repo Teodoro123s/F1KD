@@ -119,6 +119,8 @@ export default function UserManagementPage() {
             <div className="search-field-container">
               <SearchIcon />
               <input
+                id="user-management-search"
+                name="userManagementSearch"
                 type="text"
                 className="search-input-field"
                 placeholder="Search account name or role..."

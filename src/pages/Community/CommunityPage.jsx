@@ -801,6 +801,8 @@ export default function CommunityPage() {
           <div className="search-field-container">
             <SearchIcon />
             <input
+              id="community-search"
+              name="communitySearch"
               type="text"
               className="search-input-field"
               placeholder={

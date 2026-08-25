@@ -32,12 +32,12 @@ export default function LoginPage() {
         {error && <div className="form-error">{error}</div>}
         <div className="form-group">
           <label>Email</label>
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          <input id="auth-email" name="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
         </div>
         <div className="form-group">
           <label>Password</label>
           <div style={{ display: 'flex', alignItems: 'center' }}>
-            <input type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} required style={{ flex: 1 }} />
+            <input id="auth-password" name="password" type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} required style={{ flex: 1 }} />
             <button type="button" className="btn-icon" aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword((s) => !s)} style={{ marginLeft: 8 }}>{showPassword ? 'Hide' : 'Show'}</button>
           </div>
         </div>
