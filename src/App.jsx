@@ -60,6 +60,7 @@ export default function App() {
         <Route path="monitoring" element={<MonitoringPage />} />
         <Route path="checkup" element={<MonitoringPage />} />
         <Route path="program" element={<Program />} />
+        <Route path="program/:programId" element={<Program />} />
         <Route path="progress-report" element={<ProgressReport />} />
         <Route path="user-management" element={<UserManagementPage />} />
         <Route path="user-management/user/:id" element={<UserDetailPage />} />
