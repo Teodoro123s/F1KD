@@ -87,6 +87,8 @@
 .program-status.low { background: #fffaeb; color: #b54708; }
 .program-action-button { white-space: nowrap; }
 .program-clickable-row { cursor: pointer; }
+.program-row-link { display: block; color: inherit; text-decoration: none; }
+.program-row-link:hover strong { color: var(--burgundy); }
 .program-clickable-row:hover td, .program-clickable-row:focus td { background: #f8fafc; }
 .program-clickable-row:focus { outline: 2px solid var(--burgundy); outline-offset: -2px; }
 .program-action-menu-wrap { position: relative; display: inline-flex; }

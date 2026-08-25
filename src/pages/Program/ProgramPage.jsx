@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   BatchesIcon,
@@ -8,103 +8,14 @@ import {
   PlusIcon,
   SearchIcon,
 } from "../Community/CommunityIcons";
-
-const initialPrograms = [
-  {
-    id: 1,
-    name: "Milo Feeding Program",
-    type: "Feeding",
-    provider: "Milo",
-    community: "Cebu Community",
-    batch: "March Batch",
-    status: "Active",
-    target: 24,
-    received: 20,
-    activities: 6,
-    latest: "Aug 26, 2026",
-    ended: "",
-    clusters: [
-      {
-        type: "School",
-        name: "Cebu Community School",
-        beneficiaries: 24,
-        received: 20,
-      },
-      {
-        type: "Group",
-        name: "March Nutrition Group",
-        beneficiaries: 14,
-        received: 12,
-      },
-      { type: "Batch", name: "March Batch", beneficiaries: 10, received: 8 },
-    ],
-    recipients: [],
-  },
-  {
-    id: 2,
-    name: "Milk Subsidy",
-    type: "Milk Subsidy",
-    provider: "Partner A",
-    community: "Cebu Community",
-    batch: "April Batch",
-    status: "Active",
-    target: 30,
-    received: 26,
-    activities: 4,
-    latest: "Aug 22, 2026",
-    ended: "",
-    clusters: [
-      {
-        type: "School",
-        name: "Cebu Community School",
-        beneficiaries: 30,
-        received: 26,
-      },
-      {
-        type: "Group",
-        name: "April Milk Group",
-        beneficiaries: 30,
-        received: 26,
-      },
-      { type: "Batch", name: "April Batch", beneficiaries: 30, received: 26 },
-    ],
-    recipients: [],
-  },
-  {
-    id: 3,
-    name: "Vitamin Support 2026",
-    type: "Vitamin / Supplement",
-    provider: "Municipal Health Office",
-    community: "Cebu Community",
-    batch: "January Batch",
-    status: "Ended",
-    target: 18,
-    received: 18,
-    activities: 8,
-    latest: "Jul 30, 2026",
-    ended: "Jul 30, 2026",
-    clusters: [
-      {
-        type: "Group",
-        name: "January Wellness Group",
-        beneficiaries: 18,
-        received: 18,
-      },
-      { type: "Batch", name: "January Batch", beneficiaries: 18, received: 18 },
-    ],
-    recipients: [],
-  },
-];
-
-const emptyProgram = {
-  name: "",
-  type: "Feeding",
-  provider: "",
-  community: "",
-  batch: "",
-  beneficiaryType: "Mother and Child",
-  description: "",
-};
+import {
+  beneficiaryNames,
+  clusterPath,
+  emptyProgram,
+  filterPrograms,
+  getCluster,
+  initialPrograms,
+} from "./programData";
 
 export default function ProgramPage() {
   const navigate = useNavigate();
@@ -112,10 +23,8 @@ export default function ProgramPage() {
   const [activeTab, setActiveTab] = useState("Active");
   const [query, setQuery] = useState("");
   const [programs, setPrograms] = useState(initialPrograms);
-  const [viewMode, setViewMode] = useState(Boolean(programId));
-  const [clusterView, setClusterView] = useState(
-    Boolean(clusterType && clusterName),
-  );
+  const viewMode = Boolean(programId);
+  const clusterView = Boolean(clusterType && clusterName);
   const [showModal, setShowModal] = useState(false);
   const [showActivityModal, setShowActivityModal] = useState(false);
   const [showBeneficiaryModal, setShowBeneficiaryModal] = useState(false);
@@ -132,25 +41,11 @@ export default function ProgramPage() {
   const [activeActionMenu, setActiveActionMenu] = useState(null);
   const [actionProgram, setActionProgram] = useState(null);
 
-  useEffect(() => {
-    setViewMode(Boolean(programId));
-    setClusterView(Boolean(clusterType && clusterName));
-  }, [programId, clusterType, clusterName]);
-
   const filteredPrograms = useMemo(() => {
-    const term = query.trim().toLowerCase();
-    if (!term)
-      return programs.filter((program) => program.status === activeTab);
-    return programs.filter(
-      (program) =>
-        program.status === activeTab &&
-        `${program.name} ${program.type} ${program.provider} ${program.community} ${program.batch}`
-          .toLowerCase()
-          .includes(term),
-    );
+    return filterPrograms(programs, query, activeTab);
   }, [programs, query, activeTab]);
 
-  const saveProduct = (event) => {
+  const saveProgram = (event) => {
     event.preventDefault();
     if (!form.name.trim() || !form.provider.trim()) return;
     if (form.id) {
@@ -180,20 +75,10 @@ export default function ProgramPage() {
     setShowModal(false);
   };
 
-  const selectedProgram =
-    programs.find((program) => program.id === Number(programId)) ||
-    programs.find((program) => program.id === Number(form.id)) ||
-    filteredPrograms[0];
-  const selectedCluster = selectedProgram?.clusters.find(
-    (cluster) =>
-      cluster.type === clusterType &&
-      cluster.name === decodeURIComponent(clusterName || ""),
-  );
-  const childClusters =
-    selectedProgram?.clusters.filter(
-      (cluster) =>
-        cluster.type === (clusterType === "School" ? "Group" : "Batch"),
-    ) || [];
+  const selectedProgram = programId
+    ? programs.find((program) => program.id === Number(programId))
+    : programs.find((program) => program.id === Number(form.id)) || filteredPrograms[0];
+  const selectedCluster = getCluster(selectedProgram, clusterType, clusterName);
   const toggleRecipient = (recipient) =>
     setCheckedRecipients((current) =>
       current.includes(recipient)
@@ -234,13 +119,20 @@ export default function ProgramPage() {
   const saveBeneficiaryScope = (event) => {
     event.preventDefault();
     if (!selectedProgram || !scopeName.trim()) return;
+    const cluster = {
+      type: beneficiaryScope,
+      name: scopeName.trim(),
+      beneficiaries: 0,
+      received: 0,
+    };
     setPrograms((current) =>
       current.map((program) =>
         program.id === selectedProgram.id
           ? {
               ...program,
-              scopeType: beneficiaryScope,
-              scopeName: scopeName.trim(),
+              clusters: program.clusters.some((item) => item.type === cluster.type && item.name.toLowerCase() === cluster.name.toLowerCase())
+                ? program.clusters
+                : [...program.clusters, cluster],
             }
           : program,
       ),
@@ -261,7 +153,7 @@ export default function ProgramPage() {
     navigate("/program");
   };
   const renderActionMenu = (menuId, menuProgram = selectedProgram) => (
-    <div className="program-action-menu-wrap">
+    <div className="program-action-menu-wrap" onClick={(event) => event.stopPropagation()}>
       <button type="button" className="program-more-button" aria-label="Program actions" aria-haspopup="true" aria-expanded={activeActionMenu === menuId} onClick={(event) => { event.stopPropagation(); setActionProgram(menuProgram); setActiveActionMenu(activeActionMenu === menuId ? null : menuId); }}><MoreVerticalIcon /></button>
       {activeActionMenu === menuId && <div className="actions-dropdown program-actions-dropdown" role="menu"><button type="button" className="actions-dropdown-item" onClick={editProgram} role="menuitem">Edit</button><button type="button" className="actions-dropdown-item" onClick={() => { setActiveActionMenu(null); endProgram(actionProgram); }} role="menuitem">End program</button><button type="button" className="actions-dropdown-item delete" onClick={deleteProgram} role="menuitem">Delete</button></div>}
     </div>
@@ -359,11 +251,7 @@ export default function ProgramPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {Array.from(
-                    { length: selectedCluster.beneficiaries },
-                    (_, index) =>
-                      `Beneficiary ${String(index + 1).padStart(3, "0")}`,
-                  ).map((beneficiary, index) => (
+                  {beneficiaryNames(selectedCluster.beneficiaries).map((beneficiary, index) => (
                     <tr key={beneficiary}>
                       <td>
                         <strong>{beneficiary}</strong>
@@ -389,36 +277,6 @@ export default function ProgramPage() {
                   ))}
                 </tbody>
               </>
-            ) : clusterView && selectedCluster ? (
-              <>
-                <thead>
-                  <tr>
-                    <th>Cluster</th>
-                    <th>Cluster type</th>
-                    <th>Beneficiaries</th>
-                    <th>Reached</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {childClusters.map((cluster) => (
-                    <tr key={`${cluster.type}-${cluster.name}`} className="program-clickable-row" onClick={() => navigate(`/program/${selectedProgram.id}/cluster/${cluster.type}/${encodeURIComponent(cluster.name)}`)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") navigate(`/program/${selectedProgram.id}/cluster/${cluster.type}/${encodeURIComponent(cluster.name)}`); }} tabIndex="0">
-                      <td>
-                        <strong>{cluster.name}</strong>
-                        <span className="program-table-meta">
-                          Next coverage level
-                        </span>
-                      </td>
-                      <td>{cluster.type}</td>
-                      <td>{cluster.beneficiaries}</td>
-                      <td>
-                        {cluster.received} / {cluster.beneficiaries}
-                      </td>
-                      <td>{renderActionMenu(`child-${cluster.type}-${cluster.name}`)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </>
             ) : viewMode ? (
               <>
                 <thead>
@@ -436,10 +294,12 @@ export default function ProgramPage() {
                   {selectedProgram?.clusters.map((cluster) => (
                     <tr key={`${cluster.type}-${cluster.name}`} className="program-clickable-row" onClick={() => navigate(`/program/${selectedProgram.id}/cluster/${cluster.type}/${encodeURIComponent(cluster.name)}`)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") navigate(`/program/${selectedProgram.id}/cluster/${cluster.type}/${encodeURIComponent(cluster.name)}`); }} tabIndex="0">
                       <td>
-                        <strong>{cluster.name}</strong>
+                        <a className="program-row-link" href={clusterPath(selectedProgram.id, cluster)} onClick={(event) => event.stopPropagation()}>
+                          <strong>{cluster.name}</strong>
                         <span className="program-table-meta">
                           Coverage cluster
                         </span>
+                        </a>
                       </td>
                       <td>{cluster.type}</td>
                       <td>
@@ -478,12 +338,14 @@ export default function ProgramPage() {
                 <tbody>
                   {filteredPrograms.length ? (
                     filteredPrograms.map((program) => (
-                      <tr key={program.id} className="program-clickable-row" onClick={() => { setForm(program); setViewMode(true); navigate(`/program/${program.id}`); }} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { setForm(program); setViewMode(true); navigate(`/program/${program.id}`); } }} tabIndex="0">
+                      <tr key={program.id} className="program-clickable-row" onClick={() => navigate(`/program/${program.id}`)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") navigate(`/program/${program.id}`); }} tabIndex="0">
                         <td>
-                          <strong>{program.name}</strong>
+                          <a className="program-row-link" href={`/program/${program.id}`} onClick={(event) => event.stopPropagation()}>
+                            <strong>{program.name}</strong>
                           <span className="program-table-meta">
                             {program.community} · {program.batch}
                           </span>
+                          </a>
                         </td>
                         <td>{program.type}</td>
                         <td>{program.provider}</td>
@@ -625,7 +487,7 @@ export default function ProgramPage() {
         >
           <form
             className="modal program-product-modal"
-            onSubmit={saveProduct}
+            onSubmit={saveProgram}
             onMouseDown={(event) => event.stopPropagation()}
           >
             <div className="modal-header">
