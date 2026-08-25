@@ -1,17 +1,24 @@
 import React from 'react';
 import { StatusAllIcon, StatusMissingIcon, StatusPendingIcon, StatusDoneIcon } from '../BeneficiaryIcons';
 
-const STATUS_OPTIONS = [
+const MONITOR_STATUS_OPTIONS = [
   { key: 'All', label: 'All', icon: StatusAllIcon },
   { key: 'Missing', label: 'Missing', icon: StatusMissingIcon },
   { key: 'Pending', label: 'Pending', icon: StatusPendingIcon },
   { key: 'Done', label: 'Done', icon: StatusDoneIcon },
 ];
 
-export default function StatusFilterBar({ selectedStatusFilter, onChange }) {
+const BENEFICIARY_STATUS_OPTIONS = [
+  { key: 'All', label: 'All', icon: StatusAllIcon },
+  { key: 'Incomplete', label: 'Incomplete', icon: StatusPendingIcon },
+  { key: 'Complete', label: 'Complete', icon: StatusDoneIcon },
+];
+
+export default function StatusFilterBar({ selectedStatusFilter, onChange, mode = 'monitor' }) {
+  const statusOptions = mode === 'beneficiary' ? BENEFICIARY_STATUS_OPTIONS : MONITOR_STATUS_OPTIONS;
   return (
-    <div className="tabs-list" role="tablist" aria-label="Beneficiary status filter">
-      {STATUS_OPTIONS.map(({ key, label, icon: Icon }) => (
+    <div className="tabs-list" role="tablist" aria-label={`${mode === 'beneficiary' ? 'Beneficiary profile' : 'Monitor'} status filter`}>
+      {statusOptions.map(({ key, label, icon: Icon }) => (
         <button
           key={key}
           role="tab"

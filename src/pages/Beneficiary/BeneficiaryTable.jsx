@@ -19,13 +19,9 @@ export default function BeneficiaryTable({
   const emptyColSpan = entityFilter === 'Both' ? 2 : 1;
 
   const getMotherStatus = (progress) => {
-    if (progress < 60) {
-      return <span className="status-missing">Missing required profile fields</span>;
-    } else if (progress < 90) {
-      return <span className="status-pending">Profile incomplete</span>;
-    } else {
-      return <span className="status-complete">Profile complete</span>;
-    }
+    return progress >= 100
+      ? <span className="status-complete">Profile complete</span>
+      : <span className="status-pending">Profile incomplete</span>;
   };
 
   const getMotherProfileProgress = (mother) => Math.round([
@@ -45,13 +41,9 @@ export default function BeneficiaryTable({
   ].filter(Boolean).length * 25);
 
   const getChildStatus = (progress) => {
-    if (progress < 60) {
-      return <span className="status-missing">Missing required profile fields</span>;
-    } else if (progress < 90) {
-      return <span className="status-checkup">Profile incomplete</span>;
-    } else {
-      return <span className="status-complete">Profile complete</span>;
-    }
+    return progress >= 100
+      ? <span className="status-complete">Profile complete</span>
+      : <span className="status-checkup">Profile incomplete</span>;
   };
 
   return (

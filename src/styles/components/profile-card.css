@@ -30,6 +30,27 @@
 	.progress-report-toolbar p { padding-bottom: 0.75rem; }
 }
 
+.program-intro { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.25rem 1.5rem; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; }
+.program-kicker { color: var(--burgundy); font-size: 0.72rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.program-intro h2 { margin: 0.25rem 0 0; color: #0f172a; font-size: 1.25rem; }
+.program-intro p { margin: 0.35rem 0 0; color: #64748b; }
+.program-summary { min-width: 120px; padding-left: 1.25rem; border-left: 1px solid #e2e8f0; text-align: right; }
+.program-summary span { display: block; color: #0f172a; font-size: 1.5rem; font-weight: 800; }
+.program-summary small { color: #64748b; }
+.program-table-card { margin-top: 0; }
+.program-table-meta { display: block; margin-top: 0.25rem; color: #64748b; font-size: 0.8rem; }
+.program-status { display: inline-flex; padding: 0.35rem 0.6rem; border-radius: 999px; font-size: 0.75rem; font-weight: 800; }
+.program-status.active { background: #ecfdf3; color: #067647; }
+.program-status.low { background: #fffaeb; color: #b54708; }
+.program-action-button { white-space: nowrap; }
+.program-product-modal { max-width: 520px; }
+.program-product-modal .form-label { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.85rem; }
+
+@media (max-width: 720px) {
+	.program-intro { align-items: flex-start; flex-direction: column; }
+	.program-summary { width: 100%; padding: 0.75rem 0 0; border-top: 1px solid #e2e8f0; border-left: 0; text-align: left; }
+}
+
 .document-upload-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
 .document-upload-field { display: flex; flex-direction: column; gap: 0.55rem; padding: 1rem; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; }
 .document-upload-field input[type='file'] { width: 100%; color: #475569; font: inherit; }

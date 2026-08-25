@@ -5,11 +5,9 @@ import EntitySearchControls from './components/EntitySearchControls';
 import { apiGetChildren } from '../../api/children';
 
 const getGroupStatusByProgress = (g) => {
-  if (!g) return 'Missing';
+  if (!g) return 'Incomplete';
   const p = g.progress ?? 0;
-  if (p >= 100) return 'Done';
-  if (p === 0) return 'Missing';
-  return 'Pending';
+  return p >= 100 ? 'Complete' : 'Incomplete';
 };
 
 const getMotherProfileProgress = (mother) => Math.round([
@@ -113,7 +111,7 @@ export default function BeneficiaryListPage({ communities = [], batches = [], mo
       ));
     }
 
-    const statusOrder = { Missing: 0, Pending: 1, Done: 2 };
+    const statusOrder = { Incomplete: 0, Complete: 1 };
     return [...data].sort((a, b) => {
       const statusA = statusOrder[getGroupStatusByProgress(a)];
       const statusB = statusOrder[getGroupStatusByProgress(b)];
@@ -178,6 +176,7 @@ export default function BeneficiaryListPage({ communities = [], batches = [], mo
     <>
       <section className="tabs-row beneficiary-filter-row">
         <StatusFilterBar
+          mode="beneficiary"
           selectedStatusFilter={selectedStatusFilter}
           onChange={(nextStatus) => {
             setSelectedStatusFilter(nextStatus);
