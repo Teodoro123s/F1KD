@@ -11,7 +11,7 @@ import EditChildPage from './pages/Beneficiary/child/EditChildPage';
 import MotherChildrenPage from './pages/Beneficiary/child/MotherChildrenPage';
 import EditMotherPage from './pages/Beneficiary/mother/EditMotherPage';
 import Program from './pages/Program';
-import ProgressReport from './pages/ProgressReport';
+import ProgressReport from './pages/ProgressReport/ProgressReport';
 import UserManagementPage from './pages/UserManagement/UserManagementPage';
 import UserDetailPage from './pages/UserManagement/UserDetailPage';
 import ProfilePage from './pages/ProfilePage';

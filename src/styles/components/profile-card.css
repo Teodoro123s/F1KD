@@ -103,6 +103,7 @@
   border-color: #7d1e2e;
   color: #fff;
 }
+.ghost-btn.selected { border-color: #7d1e2e; color: #7d1e2e; }
 
 .progress-report-search-box {
   display: flex;
@@ -157,6 +158,12 @@
   max-height: 8rem;
   flex-wrap: wrap;
   overflow-y: auto;
+}
+.active-filters-empty {
+  flex: 1 1 300px;
+  color: #94a3b8;
+  font-size: 0.82rem;
+  font-style: italic;
 }
 .chip {
   display: inline-flex;
@@ -284,6 +291,54 @@
   border-color: #7d1e2e;
   outline: none;
 }
+.table-header-actions { display: flex; align-items: center; gap: 0.75rem; }
+.columns-control { position: relative; }
+.columns-menu {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  right: 0;
+  z-index: 4;
+  display: grid;
+  gap: 0.55rem;
+  min-width: 190px;
+  padding: 0.75rem;
+  border: 1px solid #dfe6ee;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+  color: #334155;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.columns-menu label { display: flex; align-items: center; gap: 0.45rem; }
+.columns-menu input { accent-color: #7d1e2e; }
+.results-count { color: #64748b; font-size: 0.75rem; font-weight: 600; letter-spacing: 0; text-transform: none; }
+.progress-report-graph { display: grid; gap: 1rem; padding: 1.5rem 1.25rem; }
+.graph-bar-row { display: grid; grid-template-columns: 90px 1fr 30px; align-items: center; gap: 0.75rem; color: #475569; font-size: 0.82rem; }
+.graph-bar-row > div { height: 16px; overflow: hidden; border-radius: 999px; background: #e2e8f0; }
+.graph-bar-row i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #3fb5a0, #42c0b2); }
+.graph-bar-row strong { text-align: right; color: #334155; }
+.history-btn { margin-right: 0.4rem; border: 0; background: transparent; color: #7d1e2e; font: inherit; font-size: 0.75rem; font-weight: 700; cursor: pointer; }
+.comparison-result { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin: 1rem; padding: 0.8rem 0.9rem; border: 1px solid #dfeef0; border-radius: 8px; background: #f4fbfa; color: #234e52; font-size: 0.82rem; }
+.comparison-result strong { color: #173e42; }
+.comparison-result button { margin-left: auto; border: 0; background: transparent; color: #7d1e2e; font: inherit; font-weight: 700; cursor: pointer; }
+.report-modal-backdrop { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 1rem; background: rgba(15, 23, 42, 0.42); }
+.report-modal { width: min(100%, 520px); max-height: min(90vh, 680px); overflow-y: auto; padding: 1.25rem; border-radius: 10px; background: #fff; box-shadow: 0 20px 45px rgba(15, 23, 42, 0.2); }
+.report-modal h2 { margin: 0; color: #0f172a; font-size: 1.2rem; }
+.report-modal p { margin: 0.4rem 0 1rem; color: #64748b; font-size: 0.86rem; }
+.compare-mode-options { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.4rem; margin-bottom: 1rem; }
+.compare-mode-options button { padding: 0.5rem 0.35rem; border: 1px solid #dfe6ee; border-radius: 7px; background: #fff; color: #475569; font: inherit; font-size: 0.75rem; font-weight: 700; cursor: pointer; }
+.compare-mode-options button.active { border-color: #7d1e2e; background: #fff5f6; color: #7d1e2e; }
+.compare-candidates { display: grid; gap: 0.45rem; max-height: 260px; overflow-y: auto; }
+.compare-candidates label { display: grid; grid-template-columns: 20px 1fr auto; align-items: center; gap: 0.45rem; padding: 0.65rem 0.7rem; border: 1px solid #e5edf3; border-radius: 7px; color: #334155; font-size: 0.82rem; cursor: pointer; }
+.compare-candidates small { color: #64748b; }
+.compare-help { margin-bottom: 0 !important; }
+.report-modal-actions { display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 1.2rem; }
+.history-comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+.history-comparison > div { display: grid; gap: 0.35rem; padding: 0.8rem; border: 1px solid #e5edf3; border-radius: 8px; color: #64748b; font-size: 0.78rem; }
+.history-comparison strong { color: #334155; font-size: 0.86rem; }
 .progress-report-table {
   width: 100%;
   border-collapse: collapse;
