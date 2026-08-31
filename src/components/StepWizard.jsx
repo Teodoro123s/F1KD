@@ -13,16 +13,19 @@ const StepWizard = ({
     { id: 3, label: '3rd Trimester' },
   ];
 
-  const getStatus = (groupIdx, stepIdx) => {
-    const item = checkups?.[groupIdx]?.[stepIdx];
-    if (item?.completed) return 'completed';
-    if (activeTrimester === groupIdx + 1 && activeStep === stepIdx + 1) return 'active';
-    return 'locked';
-  };
-
   const flattenedSteps = groups.flatMap((group, groupIdx) =>
     [0, 1, 2].map((stepIdx) => ({ group, groupIdx, stepIdx }))
   );
+
+  const hasAnyCheckupEntry = flattenedSteps.some(({ groupIdx, stepIdx }) => Boolean(checkups?.[groupIdx]?.[stepIdx]));
+
+  const getStatus = (groupIdx, stepIdx) => {
+    const item = checkups?.[groupIdx]?.[stepIdx];
+    const isActive = hasAnyCheckupEntry && activeTrimester === groupIdx + 1 && activeStep === stepIdx + 1;
+    if (isActive) return 'active';
+    if (item?.completed) return 'completed';
+    return 'locked';
+  };
 
   return (
     <div className="step-wizard">

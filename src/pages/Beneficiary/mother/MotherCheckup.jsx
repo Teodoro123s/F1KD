@@ -24,6 +24,9 @@ const getTrimesterIndex = (trimester) => {
 
 const getInitialStep = (trimester, checkups = []) => {
   const registeredStep = getTrimesterIndex(trimester) * 3;
+  const hasAnySavedCheckup = Array.isArray(checkups) && checkups.flat().some(Boolean);
+  if (!hasAnySavedCheckup) return registeredStep;
+
   const firstIncompleteStep = CHECKUPS.findIndex((_, index) => index >= registeredStep && !checkups?.[Math.floor(index / 3)]?.[index % 3]?.completed);
   return firstIncompleteStep === -1 ? CHECKUPS.length - 1 : firstIncompleteStep;
 };
@@ -68,7 +71,7 @@ const getCheckupForStep = (mother, step) => {
 const getFirstIncompleteStep = (checkups = [], startIndex = 0) => CHECKUPS.findIndex((_, index) => index >= startIndex && !checkups?.[Math.floor(index / 3)]?.[index % 3]?.completed);
 
 const createInitialFormState = (mother, checkup = null, blank = false) => ({
-  checkupDate: blank ? '' : formatDate(checkup?.checkupDate) || formatDate(mother.createdAt || mother.created_at || mother.raw?.created_at || mother.prenatalRegDate || new Date()),
+  checkupDate: blank ? '' : checkup?.checkupDate ? formatDate(checkup.checkupDate) : '',
   gestationalAge: blank ? '' : checkup?.gestationalAge ?? calculateGestationalAge(mother.lmpDate, mother.gestationalAge),
   bp: blank ? '' : checkup?.bp ?? mother.prenatalBp ?? mother.bloodPressure ?? '',
   weight: blank ? '' : checkup?.weight ?? mother.prenatalWeight ?? mother.weight ?? '',
@@ -129,6 +132,7 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
   } = formState;
 
   const bmi = calculateBmi(weight, height);
+  const showReferralFields = referral === true;
 
   const nutritionalStatus = useMemo(() => {
     const value = parseFloat(bmi);
@@ -396,99 +400,111 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
               </div>
             </div>
 
-            <div className="checkup-section-title">Assistance & Funding</div>
-            <div className="checkup-grid">
-              <div className="horizontal-toggle-row full-width">
-                <span className="horizontal-toggle-label">Lab Assistance Provided</span>
-                <label className="ios-switch">
-                  <input
-                    type="checkbox"
-                    checked={labAssistance}
-                    onChange={(e) => updateField('labAssistance')(e.target.checked)}
-                  />
-                  <span className="ios-slider"></span>
-                </label>
-              </div>
+            {showReferralFields ? (
+              <>
+                <div className="checkup-section-title">Assistance & Funding</div>
+                <div className="checkup-grid">
+                  <div className="horizontal-toggle-row full-width">
+                    <span className="horizontal-toggle-label">Lab Assistance Provided</span>
+                    <label className="ios-switch">
+                      <input
+                        type="checkbox"
+                        checked={labAssistance}
+                        onChange={(e) => updateField('labAssistance')(e.target.checked)}
+                      />
+                      <span className="ios-slider"></span>
+                    </label>
+                  </div>
 
-              <div className="form-group">
-                <label className="checkup-field-label" htmlFor="amount">Assistance Amount (PHP)</label>
-                <input
-                  id="amount"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  className="checkup-field-input"
-                  placeholder="e.g. 500.00"
-                  value={amount}
-                  onChange={(e) => updateField('amount')(e.target.value)}
-                />
-              </div>
+                  <div className="form-group">
+                    <label className="checkup-field-label" htmlFor="amount">Assistance Amount (PHP)</label>
+                    <input
+                      id="amount"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      className="checkup-field-input"
+                      placeholder="e.g. 500.00"
+                      value={amount}
+                      onChange={(e) => updateField('amount')(e.target.value)}
+                    />
+                  </div>
 
-              <div className="form-group">
-                <label className="checkup-field-label" htmlFor="source-of-funds">Source of Funds</label>
-                <select
-                  id="source-of-funds"
-                  className="checkup-field-input"
-                  style={{ appearance: 'auto' }}
-                  value={sourceOfFunds}
-                  onChange={(e) => updateField('sourceOfFunds')(e.target.value)}
-                >
-                  <option value="Municipal Fund">Municipal Fund</option>
-                  <option value="Provincial Fund">Provincial Fund</option>
-                  <option value="National Fund">National Fund</option>
-                  <option value="NGO">NGO</option>
-                  <option value="Private">Private</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-
-              <div className="form-group full-width">
-                <label className="checkup-field-label">Facility Type</label>
-                <div className="facility-btn-group">
-                  {['Govt', 'Private', 'Partner Org', 'Others'].map((type) => (
-                    <button
-                      type="button"
-                      key={type}
-                      className={`facility-btn ${facilityType === type ? 'active' : ''}`}
-                      onClick={() => updateField('facilityType')(type)}
+                  <div className="form-group">
+                    <label className="checkup-field-label" htmlFor="source-of-funds">Source of Funds</label>
+                    <select
+                      id="source-of-funds"
+                      className="checkup-field-input"
+                      style={{ appearance: 'auto' }}
+                      value={sourceOfFunds}
+                      onChange={(e) => updateField('sourceOfFunds')(e.target.value)}
                     >
-                      {type}
-                    </button>
-                  ))}
+                      <option value="Municipal Fund">Municipal Fund</option>
+                      <option value="Provincial Fund">Provincial Fund</option>
+                      <option value="National Fund">National Fund</option>
+                      <option value="NGO">NGO</option>
+                      <option value="Private">Private</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+
+                  <div className="form-group full-width">
+                    <label className="checkup-field-label">Facility Type</label>
+                    <div className="facility-btn-group">
+                      {['Govt', 'Private', 'Partner Org', 'Others'].map((type) => (
+                        <button
+                          type="button"
+                          key={type}
+                          className={`facility-btn ${facilityType === type ? 'active' : ''}`}
+                          onClick={() => updateField('facilityType')(type)}
+                        >
+                          {type}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="checkup-section-title">Milk Subsidy</div>
+                <div className="checkup-grid">
+                  <div className="form-group">
+                    <label className="checkup-field-label" htmlFor="milk-date">Milk Subsidy Date</label>
+                    <input
+                      id="milk-date"
+                      type="text"
+                      inputMode="numeric"
+                      pattern="\d{4}/\d{2}/\d{2}"
+                      className="checkup-field-input"
+                      value={milkDate}
+                      placeholder="yyyy/mm/dd"
+                      onChange={(e) => updateField('milkDate')(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="checkup-field-label" htmlFor="milk-quantity">Milk Quantity (pcs)</label>
+                    <input
+                      id="milk-quantity"
+                      type="number"
+                      className="checkup-field-input"
+                      value={milkQuantity}
+                      min="0"
+                      step="1"
+                      placeholder="e.g. 1"
+                      onChange={(e) => updateField('milkQuantity')(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="checkup-grid" style={{ marginTop: '16px' }}>
+                <div className="form-group full-width">
+                  <p className="checkup-state-message">Referral to hospital is not selected. Assistance and funding fields are not required for this checkup.</p>
                 </div>
               </div>
-            </div>
+            )}
 
-            <div className="checkup-section-title">Milk Subsidy</div>
             <div className="checkup-grid">
-              <div className="form-group">
-                <label className="checkup-field-label" htmlFor="milk-date">Milk Subsidy Date</label>
-                <input
-                  id="milk-date"
-                  type="text"
-                  inputMode="numeric"
-                  pattern="\d{4}/\d{2}/\d{2}"
-                  className="checkup-field-input"
-                  value={milkDate}
-                  placeholder="yyyy/mm/dd"
-                  onChange={(e) => updateField('milkDate')(e.target.value)}
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="checkup-field-label" htmlFor="milk-quantity">Milk Quantity (pcs)</label>
-                <input
-                  id="milk-quantity"
-                  type="number"
-                  className="checkup-field-input"
-                  value={milkQuantity}
-                  min="0"
-                  step="1"
-                  placeholder="e.g. 1"
-                  onChange={(e) => updateField('milkQuantity')(e.target.value)}
-                />
-              </div>
-
               <div className="form-group full-width" style={{ marginTop: '12px' }}>
                 <label className="checkup-field-label" htmlFor="remarks">Remarks / Notes</label>
                 <textarea

@@ -34,29 +34,8 @@ export const calculateGestationalDetails = (lmpDate) => {
   return { gestationalAge, trimester };
 };
 
-export const getInitialCheckups = (trimester, bp, weight, fHeight, fRate, regDate, lmpDate) => {
-  const checkups = [[null, null, null], [null, null, null], [null, null, null]];
-  const trimIndex = ['1st Trimester', '2nd Trimester', '3rd Trimester'].indexOf(trimester || '1st Trimester');
-  const todayStr = new Date().toISOString().split('T')[0];
-  const dateVal = regDate || lmpDate || todayStr;
-
-  for (let t = 0; t < 3; t += 1) {
-    if (t < trimIndex) {
-      for (let s = 0; s < 3; s += 1) {
-        checkups[t][s] = {
-          completed: true,
-          autoMarked: true,
-          bp: bp || '120/80',
-          weight: weight || '55',
-          fundalHeight: fHeight || '15',
-          fhr: fRate || '140',
-          notes: `Auto-completed based on registration in ${trimester || '2nd Trimester'}.`,
-          date: dateVal,
-        };
-      }
-    }
-  }
-  return checkups;
+export const getInitialCheckups = () => {
+  return [[null, null, null], [null, null, null], [null, null, null]];
 };
 
 export const getStepStatus = (mother, tIdx, stepIdx, defaultCheckups = DEFAULT_CHECKUPS) => {

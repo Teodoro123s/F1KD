@@ -1,6 +1,6 @@
-﻿/* Table Card Customization */
+/* Table Card Customization */
 .table-card { background: #fff; border-radius: 12px; border: 1px solid var(--border-color); overflow: visible; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.03), 0 2px 4px -1px rgba(0, 0, 0, 0.02); }
-.table-overflow { overflow-x: auto; overflow-y: visible; border-top-left-radius: 12px; border-top-right-radius: 12px; }
+.table-overflow { overflow-x: auto; overflow-y: visible; border-top-left-radius: 12px; border-top-right-radius: 12px; min-height: 240px; }
 .data-table { width: 100%; border-collapse: collapse; text-align: left; }
 
 /* General table layout & cells */
@@ -60,6 +60,12 @@
   background: #fff;
   box-shadow: 0 8px 20px rgba(12, 20, 36, 0.12);
   text-align: left;
+}
+
+/* Prevent dropdown from being cut off at the bottom of the table */
+.data-table tbody tr:last-child:not(:first-child) .actions-dropdown {
+  top: auto;
+  bottom: calc(100% - 0.35rem);
 }
 
 .data-table .actions-dropdown-item {

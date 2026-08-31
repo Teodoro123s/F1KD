@@ -1,5 +1,6 @@
 const mysql = require('mysql2/promise');
 require('dotenv').config();
+const { buildMotherCheckupSamples } = require('./checkup_seed_data');
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST || '127.0.0.1',
@@ -11,26 +12,7 @@ const pool = mysql.createPool({
   connectionLimit: 2,
 });
 
-const motherCheckups = [
-  [1, '1st Trimester', 1, '2026-01-12', 8, '110/70', 54.2, 150, 24.1, 'Normal', 8, 158, 'Nurse Maria Santos', '2026-02-09', 0, 0, null, 'Municipal Fund', 'RHU', null, null, 'Initial prenatal assessment completed.'],
-  [1, '1st Trimester', 2, '2026-02-09', 12, '112/72', 55.1, 150, 24.5, 'Normal', 12, 160, 'Nurse Maria Santos', '2026-03-09', 0, 0, null, 'Municipal Fund', 'RHU', null, null, 'Mother advised to continue prenatal vitamins.'],
-  [1, '1st Trimester', 3, '2026-03-09', 16, '114/74', 56.0, 150, 24.9, 'Normal', 16, 156, 'Midwife Ana Cruz', '2026-04-06', 0, 0, null, 'Municipal Fund', 'RHU', null, null, 'No danger signs reported.'],
-  [1, '2nd Trimester', 1, '2026-04-06', 20, '116/74', 57.4, 150, 25.5, 'Normal', 20, 154, 'Midwife Ana Cruz', '2026-05-04', 0, 1, 350, 'Municipal Fund', 'RHU', '2026-04-06', 2, 'Routine laboratory assistance provided.'],
-  [1, '2nd Trimester', 2, '2026-05-04', 24, '118/76', 58.3, 150, 25.9, 'Normal', 24, 152, 'Midwife Ana Cruz', '2026-06-01', 0, 0, null, 'Municipal Fund', 'RHU', null, null, 'Fetal movement present.'],
-  [1, '2nd Trimester', 3, '2026-06-01', 28, '120/78', 59.0, 150, 26.2, 'Normal', 28, 150, 'Dr. Liza Reyes', '2026-06-29', 0, 0, null, 'Municipal Fund', 'RHU', null, null, 'Growth consistent with gestational age.'],
-  [1, '3rd Trimester', 1, '2026-06-29', 32, '118/76', 60.1, 150, 26.7, 'Normal', 32, 148, 'Dr. Liza Reyes', '2026-07-13', 0, 0, null, 'Municipal Fund', 'RHU', null, null, 'Counseled on birth preparedness.'],
-  [1, '3rd Trimester', 2, '2026-07-13', 34, '120/80', 60.8, 150, 27.0, 'Normal', 34, 146, 'Dr. Liza Reyes', '2026-07-27', 0, 0, null, 'Municipal Fund', 'RHU', null, null, 'Mother reports good appetite and sleep.'],
-  [1, '3rd Trimester', 3, '2026-07-27', 36, '122/80', 61.6, 150, 27.4, 'Normal', 36, 144, 'Dr. Liza Reyes', '2026-08-10', 0, 0, null, 'Municipal Fund', 'RHU', null, null, 'Final prenatal review; facility delivery encouraged.'],
-  [2, '1st Trimester', 1, '2026-06-15', 10, '118/76', 62.1, 158, 24.9, 'Normal', 10, 162, 'Nurse Joel Lim', '2026-07-13', 0, 0, null, 'Municipal Fund', 'RHU', null, null, 'Initial assessment completed; folic acid started.'],
-  [2, '1st Trimester', 2, '2026-07-13', 14, '120/78', 62.8, 158, 25.2, 'Normal', 14, 158, 'Nurse Joel Lim', '2026-08-10', 0, 1, 275, 'PhilHealth', 'RHU', '2026-07-13', 1, 'Urinalysis supported through the municipal laboratory fund.'],
-  [2, '1st Trimester', 3, '2026-08-10', 16, '122/80', 63.5, 158, 25.4, 'At Risk', 16, 156, 'Dr. Liza Reyes', '2026-08-24', 1, 0, null, 'Municipal Fund', 'District Hospital', null, null, 'Elevated blood pressure; referred for repeat assessment.'],
-  [2, '2nd Trimester', 1, '2026-08-24', 18, '118/78', 64.0, 158, 25.6, 'Normal', 18, 154, 'Nurse Joel Lim', '2026-09-21', 0, 0, null, 'Municipal Fund', 'RHU', null, null, 'Blood pressure returned to baseline after rest.'],
-  [2, '2nd Trimester', 2, '2026-09-21', 22, '120/78', 64.8, 158, 25.9, 'Normal', 22, 152, 'Midwife Ana Cruz', '2026-10-19', 0, 0, null, 'Municipal Fund', 'RHU', null, null, 'Fetal movement first noted; nutrition counseling provided.'],
-  [2, '2nd Trimester', 3, '2026-10-19', 26, '118/76', 65.7, 158, 26.3, 'Normal', 26, 150, 'Midwife Ana Cruz', '2026-11-16', 0, 1, 500, 'PhilHealth', 'District Hospital', '2026-10-19', 2, 'Anomaly scan assistance provided; findings reviewed with mother.'],
-  [2, '3rd Trimester', 1, '2026-11-16', 30, '120/80', 66.5, 158, 26.6, 'Normal', 30, 148, 'Dr. Liza Reyes', '2026-12-14', 0, 0, null, 'Municipal Fund', 'RHU', null, null, 'Discussed warning signs and emergency transport plan.'],
-  [2, '3rd Trimester', 2, '2026-12-14', 34, '122/80', 67.3, 158, 26.9, 'Normal', 34, 146, 'Dr. Liza Reyes', '2026-12-28', 0, 0, null, 'Municipal Fund', 'RHU', null, 3, 'Milk subsidy released; birth plan reviewed with spouse.'],
-  [2, '3rd Trimester', 3, '2026-12-28', 38, '124/82', 68.0, 158, 27.2, 'Normal', 38, 144, 'Dr. Liza Reyes', '2027-01-04', 0, 0, null, 'Municipal Fund', 'District Hospital', null, null, 'Term pregnancy; final hospital referral and delivery instructions given.'],
-];
+const motherCheckups = buildMotherCheckupSamples();
 
 const childWeeks = [
   [1, 1, '2026-01-19', 3.4, 51.0, 35.0, 'Normal', 'Nurse Maria Santos', 'Good feeding and alert response.'],

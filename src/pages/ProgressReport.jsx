@@ -1,77 +1,193 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { apiGetChildren } from '../api/children';
-import { useMothers } from '../context/MothersContext';
+import React, { useMemo, useState } from 'react';
 
-const getMotherProgress = (mother) => Math.round([
-  mother.firstName || mother.first_name,
-  mother.lastName || mother.last_name,
-  mother.dob,
-  mother.community || mother.area,
-  mother.birthCertificateDocumentPath || mother.birth_certificate_document_path,
-  mother.consentDocumentPath || mother.consent_document_path,
-].filter(Boolean).length * (100 / 6));
+const TABLE_DATA = [
+  { id: 'INF-1042', name: 'Marial Santos', trimester: '2nd Trimester', assessment: 'Oct 12, 2023', progress: 75, trend: 'up' },
+  { id: 'INF-1018', name: 'Elena Reyes', trimester: '3rd Trimester', assessment: 'Oct 12, 2023', progress: 15, trend: 'down' },
+  { id: 'INF-1102', name: 'Juana Diaz Cruz', trimester: '1st Trimester', assessment: 'Oct 12, 2023', progress: 45, trend: 'up' },
+  { id: 'INF-1145', name: 'Carren Garcia', trimester: '2nd Trimester', assessment: 'Oct 14, 2023', progress: 82, trend: 'up' },
+];
 
-const getChildProgress = (child) => Math.round([
-  child.mother_id || child.motherId,
-  child.first_name || child.firstName,
-  child.last_name || child.lastName,
-  child.birthDocumentPath || child.birth_document_path,
-].filter(Boolean).length * 25);
-
-const getStatus = (progress) => progress === 100 ? 'Complete' : progress ? 'Incomplete' : 'Missing';
-
-function ProgressBar({ progress }) {
-  return <div className="profile-progress"><span className="profile-progress-track"><span style={{ width: `${progress}%` }} /></span><strong>{progress}%</strong></div>;
-}
+const REPORT_TABS = ['Master List', 'Ranked List', 'Graph View'];
+const ADVANCED_FILTERS = [
+  { id: 'risk', label: 'Risk: High' },
+  { id: 'trimester', label: 'Trimester: 2nd' },
+  { id: 'progress', label: 'Progress: 0-25%' },
+  { id: 'assessment', label: 'Assessment: Overdue' },
+];
 
 export default function ProgressReport() {
-  const { mothers } = useMothers();
-  const [children, setChildren] = useState([]);
-  const [entity, setEntity] = useState('Mothers');
+  const [activeTab, setActiveTab] = useState('Master List');
+  const [search, setSearch] = useState('');
+  const [school, setSchool] = useState('School A');
+  const [group, setGroup] = useState('Group All');
+  const [batch, setBatch] = useState('Batch All');
+  const [beneficiaryType, setBeneficiaryType] = useState('Mothers');
+  const [removedFilters, setRemovedFilters] = useState([]);
+  const [showAllFilters, setShowAllFilters] = useState(false);
 
-  useEffect(() => {
-    apiGetChildren().then((response) => setChildren(response?.children || [])).catch(() => setChildren([]));
-  }, []);
+  const filteredRows = useMemo(() => {
+    if (!search.trim()) return TABLE_DATA;
 
-  const rows = useMemo(() => entity === 'Mothers'
-    ? mothers.map((mother) => ({
-      id: mother.motherId || mother.id,
-      name: mother.name || [mother.firstName, mother.lastName].filter(Boolean).join(' '),
-      type: 'Mother profile',
-      progress: getMotherProgress(mother),
-      missing: [
-        !mother.firstName && !mother.first_name ? 'First name' : null,
-        !mother.lastName && !mother.last_name ? 'Last name' : null,
-        !mother.dob ? 'Date of birth' : null,
-        !(mother.community || mother.area) ? 'School' : null,
-        !(mother.birthCertificateDocumentPath || mother.birth_certificate_document_path) ? 'Birth certificate' : null,
-        !(mother.consentDocumentPath || mother.consent_document_path) ? 'Program consent' : null,
-      ].filter(Boolean),
-    }))
-    : children.map((child) => ({
-      id: child.child_code || child.id,
-      name: [child.first_name, child.middle_name, child.last_name].filter(Boolean).join(' '),
-      type: 'Child profile',
-      progress: getChildProgress(child),
-      missing: [
-        !child.mother_id && !child.motherId ? 'Mother association' : null,
-        !child.first_name && !child.firstName ? 'First name' : null,
-        !child.last_name && !child.lastName ? 'Last name' : null,
-        !(child.birthDocumentPath || child.birth_document_path) ? 'Birth certificate' : null,
-      ].filter(Boolean),
-    })), [children, entity, mothers]);
-
-  const complete = rows.filter((row) => row.progress === 100).length;
-  const average = rows.length ? Math.round(rows.reduce((sum, row) => sum + row.progress, 0) / rows.length) : 0;
+    return TABLE_DATA.filter((row) =>
+      [row.name, row.id, row.trimester, row.assessment].join(' ').toLowerCase().includes(search.toLowerCase())
+    );
+  }, [search]);
 
   return (
-    <div className="community-page progress-report-page">
-      <header className="community-header"><div className="community-title-section"><h1>Progress Report</h1><nav className="community-breadcrumb" aria-label="Breadcrumb"><span className="breadcrumb-current">Progress Report</span></nav></div></header>
-      <section className="progress-report-summary"><div><span>Total profiles</span><strong>{rows.length}</strong></div><div><span>Complete profiles</span><strong>{complete}</strong></div><div><span>Average profile progress</span><strong>{average}%</strong></div></section>
-      <section className="progress-report-content">
-        <div className="progress-report-toolbar"><div className="progress-report-tabs" role="tablist" aria-label="Profile type">{['Mothers', 'Children'].map((option) => <button key={option} type="button" role="tab" aria-selected={entity === option} className={entity === option ? 'active' : ''} onClick={() => setEntity(option)}>{option}</button>)}</div><p>Profile completeness only. Monitoring checkups are tracked in Monitor.</p></div>
-        <div className="table-card progress-report-table-card"><div className="table-overflow"><table className="data-table"><thead><tr><th>Beneficiary</th><th>Profile progress</th><th>Status</th><th>Missing required fields</th></tr></thead><tbody>{rows.length ? rows.map((row) => <tr key={row.id}><td><strong>{row.name || 'Unnamed beneficiary'}</strong><span className="progress-report-meta">{row.id} · {row.type}</span></td><td><ProgressBar progress={row.progress} /></td><td><span className={`profile-report-status ${row.progress === 100 ? 'complete' : 'incomplete'}`}>{getStatus(row.progress)}</span></td><td>{row.missing.length ? row.missing.join(', ') : 'None'}</td></tr>) : <tr><td colSpan="4" className="no-data">No beneficiary profiles found.</td></tr>}</tbody></table></div></div>
-      </section>
+    <div className="progress-report-shell">
+      <div className="progress-report-panel">
+        <div className="progress-report-header-row">
+          <div className="progress-report-title-wrap">
+            <h1>Progress Report</h1>
+            <p>Analytical overview of beneficiary advancement.</p>
+          </div>
+
+          <div className="progress-report-context-selectors">
+            <select value={school} onChange={(event) => { setSchool(event.target.value); setRemovedFilters((filters) => filters.filter((id) => id !== 'school')); }} aria-label="School scope">
+              <option>School</option>
+              <option>School A</option>
+              <option>School B</option>
+            </select>
+            <select value={group} onChange={(event) => setGroup(event.target.value)} aria-label="Group scope">
+              <option>Group</option>
+              <option>Group All</option>
+              <option>Group 1</option>
+            </select>
+            <select value={batch} onChange={(event) => { setBatch(event.target.value); setRemovedFilters((filters) => filters.filter((id) => id !== 'batch')); }} aria-label="Batch scope">
+              <option>Batch</option>
+              <option>Batch All</option>
+              <option>Batch 1</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="progress-report-toolbar">
+          <div className="progress-report-tabs" role="tablist" aria-label="Progress report views">
+            {REPORT_TABS.map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                className={activeTab === tab ? 'active' : ''}
+                onClick={() => setActiveTab(tab)}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+
+          <div className="progress-report-toolbar-actions">
+            <button type="button" className="ghost-btn">Compare</button>
+            <button type="button" className="primary-btn">Download</button>
+          </div>
+        </div>
+
+        <div className="progress-report-search-box">
+          <span className="search-icon">⌕</span>
+          <input
+            type="text"
+            value={search}
+            onChange={(event) => { setSearch(event.target.value); setRemovedFilters((filters) => filters.filter((id) => id !== 'search')); }}
+            placeholder="Search by beneficiary name or ID..."
+          />
+        </div>
+
+        <div className="progress-report-filters" aria-label="Active report filters">
+          <span className="active-filters-label">Active Filters:</span>
+          <div className={`active-filter-strip ${showAllFilters ? 'expanded' : ''}`}>
+            {!removedFilters.includes('school') && school !== 'School' && (
+              <button type="button" className="chip danger" onClick={() => { setSchool('School'); setRemovedFilters((filters) => [...filters, 'school']); }}>
+                <small>Dropdown</small> School: {school.replace('School ', '')} ×
+              </button>
+            )}
+            {!removedFilters.includes('batch') && batch !== 'Batch' && batch !== 'Batch All' && (
+              <button type="button" className="chip neutral" onClick={() => { setBatch('Batch'); setRemovedFilters((filters) => [...filters, 'batch']); }}>
+                <small>Dropdown</small> Batch: {batch.replace('Batch ', '')} ×
+              </button>
+            )}
+            {!removedFilters.includes('search') && search.trim() && (
+              <button type="button" className="chip search-chip" onClick={() => setSearch('')}>
+                <small>Search</small> “{search.trim()}” ×
+              </button>
+            )}
+            {ADVANCED_FILTERS.map((filter) => !removedFilters.includes(filter.id) && (
+              <button key={filter.id} type="button" className="chip advanced" onClick={() => setRemovedFilters((filters) => [...filters, filter.id])}>
+                <small>Advanced</small> {filter.label} ×
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            className="filter-toggle"
+            onClick={() => setShowAllFilters((visible) => !visible)}
+            aria-expanded={showAllFilters}
+          >
+            {showAllFilters ? 'Show less' : 'Show all filters'}
+          </button>
+          <div className="beneficiary-type-toggle" role="group" aria-label="Beneficiary type">
+            {['Mothers', 'Children'].map((type) => (
+              <button
+                key={type}
+                type="button"
+                className={beneficiaryType === type ? 'active' : ''}
+                onClick={() => setBeneficiaryType(type)}
+              >
+                {type}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="progress-report-alert">
+          <span className="alert-icon">!</span>
+          <span><strong>Insight Alert:</strong> 12 beneficiaries stuck at 0% progress for 2 weeks. Review cases.</span>
+        </div>
+
+        <div className="progress-report-table-wrap">
+          <div className="progress-report-table-header">
+            <span>Table (Mothers/Children)</span>
+            <button type="button" className="manage-columns-btn">Manage Columns</button>
+          </div>
+
+          <table className="progress-report-table">
+            <thead>
+              <tr>
+                <th>Beneficiary Name</th>
+                <th>ID</th>
+                <th>Trimester</th>
+                <th>Last Assessment</th>
+                <th>Progress %</th>
+                <th>Trend</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredRows.map((row) => (
+                <tr key={row.id}>
+                  <td className="beneficiary-cell">
+                    <span className="avatar-dot" aria-hidden="true" />
+                    <span>{row.name}</span>
+                  </td>
+                  <td>{row.id}</td>
+                  <td>{row.trimester}</td>
+                  <td>{row.assessment}</td>
+                  <td>
+                    <div className="progress-cell">
+                      <div className="mini-progress-track"><span style={{ width: `${row.progress}%` }} /></div>
+                      <strong>{row.progress}%</strong>
+                    </div>
+                  </td>
+                  <td>
+                    <span className={`trend-badge ${row.trend === 'up' ? 'up' : 'down'}`}>
+                      {row.trend === 'up' ? '↗' : '↘'}
+                    </span>
+                  </td>
+                  <td className="action-cell">⋮</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }
