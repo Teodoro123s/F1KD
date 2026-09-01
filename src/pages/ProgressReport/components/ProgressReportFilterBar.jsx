@@ -1,5 +1,13 @@
 import React from 'react';
 
+const QUICK_ADVANCED_FILTERS = [
+  { key: 'high-risk', label: 'High Risk', value: 'high risk' },
+  { key: 'underweight', label: 'Underweight', value: 'underweight' },
+  { key: 'missing-consent', label: 'Missing Consent', value: 'missing consent' },
+  { key: 'missing-birth-cert', label: 'Missing Birth Cert', value: 'missing birth certificate' },
+  { key: 'progress-low', label: 'Progress 0-25%', value: 'progress 0-25%' },
+];
+
 export default function ProgressReportFilterBar({
   activeFilterCount,
   showAllFilters,
@@ -20,6 +28,16 @@ export default function ProgressReportFilterBar({
   setBeneficiaryType,
   comparisonRequest,
 }) {
+  const applyQuickFilter = (value) => {
+    const trimmed = value.trim();
+    setSearch((currentQuery) => {
+      const nextQuery = (currentQuery || '').trim();
+      if (!nextQuery) return trimmed;
+      if (nextQuery.toLowerCase().includes(trimmed.toLowerCase())) return nextQuery;
+      return `${nextQuery} ${trimmed}`.trim();
+    });
+  };
+
   return (
     <>
       <div className="progress-report-header-row">
@@ -56,7 +74,7 @@ export default function ProgressReportFilterBar({
           type="text"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search by beneficiary name, ID, program, or keyword..."
+          placeholder="Search by beneficiary name, ID, program, or keyword... (leave blank to see all records)"
           autoComplete="on"
           list="progress-search-suggestions"
         />
@@ -84,10 +102,6 @@ export default function ProgressReportFilterBar({
             </button>
           )}
         </div>
-
-        {activeFilterCount === 0 && (
-          <span className="active-filters-empty">No active filters. Use the search bar or dropdowns to narrow results.</span>
-        )}
 
         <div className={`active-filter-strip ${showAllFilters ? 'expanded' : ''}`}>
           {comparisonRequest && (
@@ -130,8 +144,8 @@ export default function ProgressReportFilterBar({
         </div>
 
         <div className="advanced-filters-row">
-          <button type="button" className="advanced-toggle" onClick={() => setShowAllFilters((visible) => !visible)}>
-            Advanced ▼
+          <button type="button" className="advanced-toggle" onClick={() => setShowAllFilters((visible) => !visible)} aria-expanded={showAllFilters}>
+            {showAllFilters ? 'Advanced ▲' : 'Advanced ▼'}
           </button>
           {activeFilterCount > 3 && (
             <button type="button" className="filter-toggle" onClick={() => setShowAllFilters((visible) => !visible)} aria-expanded={showAllFilters}>
@@ -152,6 +166,21 @@ export default function ProgressReportFilterBar({
             </button>
           ))}
         </div>
+
+        {showAllFilters && (
+          <div className="advanced-filter-panel" aria-label="Advanced filters">
+            {QUICK_ADVANCED_FILTERS.map((filter) => (
+              <button
+                key={filter.key}
+                type="button"
+                className="chip advanced-chip"
+                onClick={() => applyQuickFilter(filter.value)}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </>
   );

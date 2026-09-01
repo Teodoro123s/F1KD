@@ -240,6 +240,23 @@ export function getInitialCheckup(mother) {
     : null;
 }
 
+export function sortReportRows(rows = [], entityType = 'Mothers') {
+  return [...rows].sort((a, b) => {
+    const progressDelta = Number(b?.progress ?? 0) - Number(a?.progress ?? 0);
+    if (progressDelta !== 0) return progressDelta;
+
+    const nameA = String(a?.name ?? '').trim().toLowerCase();
+    const nameB = String(b?.name ?? '').trim().toLowerCase();
+    if (nameA !== nameB) return nameA.localeCompare(nameB);
+
+    const idA = String(a?.id ?? '').trim();
+    const idB = String(b?.id ?? '').trim();
+    if (idA !== idB) return idA.localeCompare(idB);
+
+    return (entityType === 'Children' ? 0 : 0);
+  });
+}
+
 export function normalizeMother(mother) {
   const initialCheckup = getInitialCheckup(mother);
   const completed = Array.isArray(mother.checkups) ? mother.checkups.flat().filter(Boolean).length : 0;
@@ -321,7 +338,9 @@ export function normalizeMother(mother) {
 }
 
 export function normalizeChild(child) {
-  const progress = Math.min(100, Math.round(((child.completedWeeks || []).length / 48) * 100));
+  const completedWeeks = Array.isArray(child.completedWeeks) ? child.completedWeeks : [];
+  const fallbackProgress = Math.min(100, Math.round((completedWeeks.length / 48) * 100));
+  const progress = Number.isFinite(Number(child.progress)) ? Number(child.progress) : fallbackProgress;
 
   return {
     id: child.child_code || child.id,

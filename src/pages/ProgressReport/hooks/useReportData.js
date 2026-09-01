@@ -7,6 +7,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { apiGetChildren } from '../../../api/children';
 import { buildRequestFields } from '../utils/apiUtils';
+import { sortReportRows } from '../progressReportUtils';
 
 export const useReportData = ({
   beneficiaryType,
@@ -64,10 +65,13 @@ export const useReportData = ({
 
   // Normalize all rows
   const allRows = useMemo(
-    () =>
-      beneficiaryType === 'Mothers'
+    () => {
+      const nextRows = beneficiaryType === 'Mothers'
         ? mothers.map(normalizeMotherFn)
-        : children.map(normalizeChildFn),
+        : children.map(normalizeChildFn);
+
+      return sortReportRows(nextRows, beneficiaryType);
+    },
     [beneficiaryType, children, mothers, normalizeMotherFn, normalizeChildFn]
   );
 
@@ -93,7 +97,7 @@ export const useReportData = ({
         type: label,
       }));
 
-    return [...aggregate('group', 'Group'), ...aggregate('batch', 'Batch')];
+    return [...aggregate('group', 'Group'), ...aggregate('batch', 'Batch')].sort((a, b) => Number(b.progress) - Number(a.progress));
   }, [allRows]);
 
   // Compute graph rows (progress distribution)

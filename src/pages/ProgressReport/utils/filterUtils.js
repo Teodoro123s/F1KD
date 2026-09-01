@@ -75,7 +75,6 @@ export const filterRows = (rows, context, parsedQuery, searchFilterRules, hasVal
   const query = remainingQuery.toLowerCase();
 
   return rows.filter((row) => {
-    // Text matching
     const textMatch =
       !query ||
       [row.name, row.id, row.trimester, row.school, row.community, row.group, row.batch]
@@ -83,25 +82,36 @@ export const filterRows = (rows, context, parsedQuery, searchFilterRules, hasVal
         .toLowerCase()
         .includes(query);
 
-    // Scope matching
     const scopeMatch =
       (school === 'All Schools' || row.school === school || row.community === school) &&
       (group === 'All Groups' || row.group === group) &&
       (batch === 'All Batches' || row.batch === batch);
 
-    // Parsed filters (search-specific rules like "high risk", "underweight")
     const parsedMatch = searchFilters.every((filter) => {
-      if (filter.ruleId === 'risk') return row.risk;
-      if (filter.ruleId === 'trimester')
-        return row.trimester.toLowerCase().includes(filter.label.split(': ')[1].toLowerCase());
-      if (filter.ruleId === 'progress') return row.progress <= 25;
-      if (filter.ruleId === 'bmi')
-        return String(row.bmi).toLowerCase().includes(filter.label.split(': ')[1].toLowerCase());
+      if (filter.ruleId === 'risk') return Boolean(row.risk);
+      if (filter.ruleId === 'trimester') {
+        const expected = String(filter.label || '').split(': ')[1] || '';
+        return String(row.trimester || '').toLowerCase().includes(expected.toLowerCase());
+      }
+      if (filter.ruleId === 'progress') {
+        const progressRange = String(filter.label || '').replace(/^Progress:\s*/i, '').replace(/%/g, '').trim();
+        const normalized = Number(row.progress ?? 0);
+        if (!progressRange) return true;
+        if (progressRange.includes('0-25')) return normalized >= 0 && normalized <= 25;
+        if (progressRange.includes('26-50')) return normalized >= 26 && normalized <= 50;
+        if (progressRange.includes('51-75')) return normalized >= 51 && normalized <= 75;
+        if (progressRange.includes('76-100')) return normalized >= 76 && normalized <= 100;
+        return true;
+      }
+      if (filter.ruleId === 'bmi') {
+        const expected = String(filter.label || '').split(': ')[1] || '';
+        return String(row.bmi ?? '').toLowerCase().includes(expected.toLowerCase());
+      }
       if (filter.ruleId === 'birth-cert') return !row.birthCert;
       if (filter.ruleId === 'consent') return !row.consent;
-      if (filter.ruleId === 'vaccine') return row.tt?.some((date) => !hasValueFn(date));
-      if (filter.ruleId === 'dental') return row.dental;
-      if (filter.ruleId === 'gpa') return Number(row.source?.gravida) === 1;
+      if (filter.ruleId === 'vaccine') return Array.isArray(row.tt) ? row.tt.some((date) => !hasValueFn(date)) : false;
+      if (filter.ruleId === 'dental') return Boolean(row.dental);
+      if (filter.ruleId === 'gpa') return Number(row.source?.gravida ?? 0) === 1;
       return true;
     });
 

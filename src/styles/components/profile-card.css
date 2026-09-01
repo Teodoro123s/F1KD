@@ -20,17 +20,21 @@
   box-shadow: 0 10px 20px -18px rgba(15, 23, 42, 0.38);
 }
 .progress-report-header-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1.7fr);
+  align-items: end;
+  gap: 1.2rem;
   padding-bottom: 0.9rem;
+}
+.progress-report-title-wrap {
+  min-width: 0;
 }
 .progress-report-title-wrap h1 {
   margin: 0;
   color: #0f172a;
-  font-size: 2rem;
-  line-height: 1.15;
+  font-size: clamp(2.15rem, 3vw, 4rem);
+  line-height: 1.05;
+  letter-spacing: -0.05em;
 }
 .progress-report-title-wrap p {
   margin: 0.35rem 0 0;
@@ -38,16 +42,18 @@
   font-size: 0.95rem;
 }
 .progress-report-context-selectors {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
   align-items: center;
-  gap: 0.55rem;
-  flex-wrap: wrap;
+  gap: 0.75rem;
+  width: 100%;
 }
 .progress-report-context-selectors select {
-  min-width: 128px;
-  padding: 0.55rem 0.75rem;
+  min-width: 0;
+  width: 100%;
+  padding: 0.8rem 0.9rem;
   border: 1px solid #dfe6ee;
-  border-radius: 8px;
+  border-radius: 12px;
   background: #fff;
   color: #334155;
   font: inherit;
@@ -110,11 +116,12 @@
   align-items: center;
   gap: 0.6rem;
   width: 100%;
-  margin-top: 1rem;
-  padding: 0.8rem 0.9rem;
+  margin-top: 1.1rem;
+  padding: 0.9rem 1rem;
   background: #f8fafc;
   border: 1px solid #e5edf3;
-  border-radius: 10px;
+  border-radius: 12px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 .search-icon {
   color: #94a3b8;
@@ -127,41 +134,44 @@
   outline: none;
   color: #334155;
   font: inherit;
+  font-size: 1rem;
 }
 .progress-report-search-box input::placeholder { color: #94a3b8; }
 
 .progress-report-header-row {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 1rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 2fr);
+  align-items: end;
+  gap: 1.25rem;
 }
 .progress-report-title-wrap {
   flex: 1 1 auto;
 }
 .progress-report-title-wrap h1 {
   margin: 0;
-  font-size: 1.7rem;
+  font-size: clamp(2.2rem, 3.2vw, 4rem);
   color: #0f172a;
+  letter-spacing: -0.06em;
 }
 .progress-report-title-wrap p {
   margin: 0.25rem 0 0;
   color: #64748b;
 }
 .progress-report-context-selectors {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(160px, 1fr));
   align-items: center;
   gap: 0.75rem;
-  flex-wrap: wrap;
 }
 .filter-select-wrap {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  min-width: 150px;
-  padding: 0.5rem 0.7rem;
+  min-width: 0;
+  width: 100%;
+  padding: 0.7rem 0.8rem;
   border: 1px solid #dfe6ee;
-  border-radius: 10px;
+  border-radius: 12px;
   background: #fff;
 }
 .filter-select-icon {
@@ -178,57 +188,63 @@
 }
 
 .progress-report-filters {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
+  gap: 0.8rem 0.75rem;
   margin-top: 1rem;
-  padding: 0.85rem 0.9rem 0.65rem;
+  padding: 0.9rem 1rem 0.8rem;
   color: #475569;
   font-size: 0.88rem;
-  border: 1px solid #edf2f7;
+  border: 1px solid #e5edf3;
   border-radius: 12px;
-  background: linear-gradient(180deg, #fcfdff 0%, #f8fafc 100%);
+  background: #f8fafc;
 }
 .active-filters-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  grid-column: 1 / -1;
   width: 100%;
   gap: 0.75rem;
+  padding-bottom: 0.1rem;
 }
 .active-filters-label {
-  font-weight: 700;
-  color: #334155;
+  font-weight: 800;
+  color: #0f172a;
+  font-size: 1.05rem;
 }
 .clear-filters-btn {
   border: 0;
   background: transparent;
   color: #7d1e2e;
   font: inherit;
-  font-size: 0.76rem;
+  font-size: 0.82rem;
   font-weight: 800;
   cursor: pointer;
 }
 .active-filter-strip {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  flex: 1 1 300px;
+  gap: 0.55rem;
+  grid-column: 1 / 2;
+  flex-wrap: wrap;
   min-width: 0;
-  max-height: 2.2rem;
-  overflow: hidden;
-  padding: 0.4rem 0.5rem;
+  min-height: 52px;
+  padding: 0.45rem 0.5rem;
   border-radius: 10px;
-  background: rgba(148, 163, 184, 0.06);
+  background: rgba(148, 163, 184, 0.04);
+  border: 1px solid rgba(148, 163, 184, 0.08);
 }
 .active-filter-strip.expanded {
   max-height: 8rem;
-  flex-wrap: wrap;
   overflow-y: auto;
 }
 .active-filters-empty {
-  flex: 1 1 300px;
+  grid-column: 1 / 2;
+  min-height: 52px;
+  display: flex;
+  align-items: center;
   color: #94a3b8;
   font-size: 0.82rem;
   font-style: italic;
@@ -260,16 +276,18 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-left: auto;
+  justify-self: end;
+  grid-column: 2 / 3;
+  margin-top: 0.2rem;
 }
 .advanced-toggle {
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  border: 1px solid #dfe6ee;
+  border-radius: 10px;
   background: #fff;
-  padding: 0.35rem 0.7rem;
+  padding: 0.5rem 0.8rem;
   color: #475569;
   font: inherit;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   font-weight: 700;
   cursor: pointer;
 }
@@ -280,26 +298,41 @@
   background: transparent;
   color: #7d1e2e;
   font: inherit;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   font-weight: 700;
   cursor: pointer;
 }
+.advanced-filter-panel {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding-top: 0.2rem;
+}
+.advanced-chip {
+  background: #fff7e8;
+  color: #8a5a00;
+  border: 1px solid #f1d59a;
+}
 .beneficiary-type-toggle {
   display: inline-flex;
+  align-items: center;
+  justify-self: end;
+  grid-column: 2 / 3;
   flex: 0 0 auto;
   padding: 0.2rem;
   border: 1px solid #dfe6ee;
-  border-radius: 8px;
+  border-radius: 10px;
   background: #f8fafc;
 }
 .beneficiary-type-toggle button {
   border: 0;
-  border-radius: 6px;
-  padding: 0.35rem 0.65rem;
+  border-radius: 8px;
+  padding: 0.45rem 0.8rem;
   background: transparent;
   color: #64748b;
   font: inherit;
-  font-size: 0.76rem;
+  font-size: 0.9rem;
   font-weight: 700;
   cursor: pointer;
 }
@@ -352,8 +385,10 @@
   margin-top: 1rem;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: visible;
   background: #fff;
+  -webkit-overflow-scrolling: touch;
 }
 .progress-report-table-header {
   display: flex;
@@ -554,7 +589,8 @@
 .history-comparison > div { display: grid; gap: 0.35rem; padding: 0.8rem; border: 1px solid #e5edf3; border-radius: 8px; color: #64748b; font-size: 0.78rem; }
 .history-comparison strong { color: #334155; font-size: 0.86rem; }
 .progress-report-table {
-  width: 100%;
+  width: max-content;
+  min-width: 760px;
   border-collapse: collapse;
 }
 .progress-report-table th,

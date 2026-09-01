@@ -34,6 +34,7 @@ import {
   validateAndNormalizeContext,
   parseComparisonRequest,
 } from '../utils/filterUtils';
+import { sortReportRows } from '../progressReportUtils';
 
 /**
  * Custom React hook for orchestrating filter state and derived values
@@ -83,9 +84,11 @@ export const useProgressFilters = ({
 
   // Apply filters to rows
   const filteredRows = useMemo(
-    () =>
+    () => sortReportRows(
       filterRows(allRows, context, { filters: searchFilters, remainingQuery }, searchFilterRules, hasValueFn),
-    [allRows, context, searchFilters, remainingQuery, searchFilterRules, hasValueFn]
+      beneficiaryType
+    ),
+    [allRows, context, searchFilters, remainingQuery, searchFilterRules, hasValueFn, beneficiaryType]
   );
 
   // Count active filters

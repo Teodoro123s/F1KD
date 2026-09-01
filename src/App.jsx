@@ -2,7 +2,7 @@ import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import { MothersProvider } from './context/MothersContext';
-import Dashboard from './pages/Dashboard';
+import DashboardPage from './pages/Dashboard/DashboardPage';
 import CommunityPage from './pages/Community/CommunityPage';
 import Beneficiary from './pages/Beneficiary/BeneficiaryPage';
 import MonitoringPage from './pages/Monitoring/MonitoringPage';
@@ -43,7 +43,7 @@ export default function App() {
         </RequireAuth>
       }
       >
-        <Route path="dashboard" element={<Dashboard />} />
+        <Route path="dashboard" element={<DashboardPage />} />
         <Route path="community" element={<CommunityPage />} />
         <Route path="community/school/:schoolId" element={<CommunityPage />} />
         <Route path="community/group/:groupId" element={<CommunityPage />} />
