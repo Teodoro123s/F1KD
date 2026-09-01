@@ -29,33 +29,66 @@ export default function ProgressReportFilterBar({
         </div>
 
         <div className="progress-report-context-selectors">
-          <select value={school} onChange={(event) => setSchool(event.target.value)} aria-label="School scope">
-            {schoolOptions.map((option) => <option key={option}>{option}</option>)}
-          </select>
-          <select value={group} onChange={(event) => setGroup(event.target.value)} aria-label="Group scope">
-            {groupOptions.map((option) => <option key={option}>{option}</option>)}
-          </select>
-          <select value={batch} onChange={(event) => setBatch(event.target.value)} aria-label="Batch scope">
-            {batchOptions.map((option) => <option key={option}>{option}</option>)}
-          </select>
+          <label className="filter-select-wrap">
+            <span className="filter-select-icon">📍</span>
+            <select value={school} onChange={(event) => setSchool(event.target.value)} aria-label="School scope">
+              {schoolOptions.map((option) => <option key={option}>{option}</option>)}
+            </select>
+          </label>
+          <label className="filter-select-wrap">
+            <span className="filter-select-icon">👥</span>
+            <select value={group} onChange={(event) => setGroup(event.target.value)} aria-label="Group scope">
+              {groupOptions.map((option) => <option key={option}>{option}</option>)}
+            </select>
+          </label>
+          <label className="filter-select-wrap">
+            <span className="filter-select-icon">📅</span>
+            <select value={batch} onChange={(event) => setBatch(event.target.value)} aria-label="Batch scope">
+              {batchOptions.map((option) => <option key={option}>{option}</option>)}
+            </select>
+          </label>
         </div>
       </div>
 
       <div className="progress-report-search-box">
-        <span className="search-icon">⌕</span>
+        <span className="search-icon" aria-hidden="true">⌕</span>
         <input
           type="text"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search by beneficiary name or ID..."
+          placeholder="Search by beneficiary name, ID, program, or keyword..."
+          autoComplete="on"
+          list="progress-search-suggestions"
         />
+        <datalist id="progress-search-suggestions">
+          <option value="High Risk" />
+          <option value="Underweight" />
+          <option value="Missing Consent" />
+          <option value="Missing Birth Certificate" />
+          <option value="Dental done" />
+          <option value="Progress 0-25%" />
+        </datalist>
       </div>
 
       <div className="progress-report-filters" aria-label="Active report filters">
-        <span className="active-filters-label">Active Filters:</span>
+        <div className="active-filters-header">
+          <span className="active-filters-label">Active Filters</span>
+          {activeFilterCount > 0 && (
+            <button type="button" className="clear-filters-btn" onClick={() => {
+              setSchool('All Schools');
+              setGroup('All Groups');
+              setBatch('All Batches');
+              setSearch('');
+            }}>
+              Clear All
+            </button>
+          )}
+        </div>
+
         {activeFilterCount === 0 && (
           <span className="active-filters-empty">No active filters. Use the search bar or dropdowns to narrow results.</span>
         )}
+
         <div className={`active-filter-strip ${showAllFilters ? 'expanded' : ''}`}>
           {comparisonRequest && (
             <span className="chip analysis-chip">
@@ -64,17 +97,17 @@ export default function ProgressReportFilterBar({
           )}
           {school !== 'All Schools' && (
             <button type="button" className="chip context-chip danger" onClick={() => setSchool('All Schools')}>
-              <small>Dropdown</small> School: {school} ×
+              <small>📍</small> School: {school} ×
             </button>
           )}
           {group !== 'All Groups' && (
             <button type="button" className="chip context-chip neutral" onClick={() => setGroup('All Groups')}>
-              <small>Dropdown</small> Group: {group} ×
+              <small>👥</small> Group: {group} ×
             </button>
           )}
           {batch !== 'All Batches' && (
             <button type="button" className="chip context-chip neutral" onClick={() => setBatch('All Batches')}>
-              <small>Dropdown</small> Batch: {batch} ×
+              <small>📅</small> Batch: {batch} ×
             </button>
           )}
           {searchFilters.map((filter) => (
@@ -91,20 +124,22 @@ export default function ProgressReportFilterBar({
           ))}
           {beneficiaryType !== 'Mothers' && (
             <span className="chip context-chip neutral">
-              <small>Toggle</small> Type: {beneficiaryType}
+              <small>Type</small> {beneficiaryType}
             </span>
           )}
         </div>
-        {activeFilterCount > 3 && (
-          <button
-            type="button"
-            className="filter-toggle"
-            onClick={() => setShowAllFilters((visible) => !visible)}
-            aria-expanded={showAllFilters}
-          >
-            {showAllFilters ? 'Show less' : `+${activeFilterCount - 3} more`}
+
+        <div className="advanced-filters-row">
+          <button type="button" className="advanced-toggle" onClick={() => setShowAllFilters((visible) => !visible)}>
+            Advanced ▼
           </button>
-        )}
+          {activeFilterCount > 3 && (
+            <button type="button" className="filter-toggle" onClick={() => setShowAllFilters((visible) => !visible)} aria-expanded={showAllFilters}>
+              {showAllFilters ? 'Show less' : `+${activeFilterCount - 3} more`}
+            </button>
+          )}
+        </div>
+
         <div className="beneficiary-type-toggle" role="group" aria-label="Beneficiary type">
           {['Mothers', 'Children'].map((type) => (
             <button

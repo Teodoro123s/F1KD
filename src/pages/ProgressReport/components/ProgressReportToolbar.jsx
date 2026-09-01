@@ -7,6 +7,10 @@ export default function ProgressReportToolbar({
   onTabChange,
   onCompareClick,
   onDownload,
+  showAnalyzeMenu,
+  onAnalyzeToggle,
+  onGenerateCohortReport,
+  onDownloadSummary,
 }) {
   return (
     <div className="progress-report-toolbar">
@@ -24,6 +28,30 @@ export default function ProgressReportToolbar({
       </div>
 
       <div className="progress-report-toolbar-actions">
+        <div className="analyze-menu-wrap">
+          <button
+            type="button"
+            className="ghost-btn"
+            onClick={onAnalyzeToggle}
+            aria-expanded={showAnalyzeMenu}
+            aria-haspopup="menu"
+          >
+            Analyze ▾
+          </button>
+
+          {showAnalyzeMenu && (
+            <div className="analyze-menu" role="menu" aria-label="Statistical summary actions">
+              <div className="analyze-menu-header">Statistical Summary</div>
+              <button type="button" className="analyze-menu-item" onClick={onGenerateCohortReport}>
+                Generate Cohort Report
+              </button>
+              <button type="button" className="analyze-menu-item" onClick={onDownloadSummary}>
+                Download Summary CSV
+              </button>
+            </div>
+          )}
+        </div>
+
         <button
           type="button"
           className={`ghost-btn ${compareIds.length ? 'selected' : ''}`}
@@ -32,7 +60,7 @@ export default function ProgressReportToolbar({
           Compare{compareIds.length ? ` (${compareIds.length})` : ''}
         </button>
         <button type="button" className="primary-btn" onClick={onDownload}>
-          Download CSV
+          Export ▾
         </button>
       </div>
     </div>

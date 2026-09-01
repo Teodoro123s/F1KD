@@ -44,6 +44,8 @@ export const MATERNAL_PROGRESS_REPORT_FIELD_LIBRARY = [
   { id: 'birthCertificateDocumentName', label: 'Birth Certificate', category: 'Documents' },
   { id: 'consentDocumentName', label: 'Consent Form', category: 'Documents' },
   { id: 'assessment', label: 'Last Assessment', category: 'System' },
+  { id: 'latestCheckupDate', label: 'Latest Checkup Date', category: 'System' },
+  { id: 'initialBmi', label: 'Initial BMI', category: 'Vitals' },
   { id: 'progress', label: 'Progress %', category: 'System' },
   { id: 'trend', label: 'Trend', category: 'System' },
   { id: 'createdAt', label: 'Created At', category: 'System' },
@@ -83,20 +85,20 @@ export const CHILD_PROGRESS_REPORT_FIELD_LIBRARY = [
 export const PROGRESS_REPORT_FIELD_LIBRARY = MATERNAL_PROGRESS_REPORT_FIELD_LIBRARY;
 export const REPORT_COLUMNS = MATERNAL_PROGRESS_REPORT_FIELD_LIBRARY;
 
-export const REPORT_TABS = ['Master List', 'Ranked List', 'Graph View'];
+export const REPORT_TABS = ['Master List', 'Ranked List', 'Graph View', 'Summary View'];
 
 export const MATERNAL_ROLE_DEFAULT_COLUMNS = {
-  default: ['name', 'id', 'community', 'group', 'batch', 'trimester', 'progress', 'trend'],
-  nurse: ['name', 'id', 'phone', 'community', 'group', 'batch', 'trimester', 'gestationalAge', 'prenatalBp', 'bmi', 'tt1Date', 'tt2Date', 'tt3Date', 'dentalCheckupDate', 'progress'],
-  'program manager': ['name', 'id', 'community', 'group', 'batch', 'programType', 'status', 'risk', 'trimester', 'progress', 'trend', 'documents'],
-  admin: ['name', 'id', 'community', 'group', 'batch', 'phone', 'programType', 'status', 'risk', 'tt1Date', 'tt2Date', 'tt3Date', 'dentalCheckupDate', 'progress'],
+  default: ['name', 'age', 'latestCheckupDate', 'initialBmi', 'bmi', 'community', 'group', 'batch', 'programType', 'status'],
+  nurse: ['name', 'age', 'latestCheckupDate', 'initialBmi', 'bmi', 'community', 'group', 'batch', 'trimester', 'programType', 'status', 'risk', 'progress'],
+  'program manager': ['name', 'age', 'latestCheckupDate', 'initialBmi', 'bmi', 'community', 'group', 'batch', 'programType', 'status', 'risk', 'progress'],
+  admin: ['name', 'age', 'latestCheckupDate', 'initialBmi', 'bmi', 'community', 'group', 'batch', 'programType', 'status', 'risk', 'progress'],
 };
 
 export const CHILD_ROLE_DEFAULT_COLUMNS = {
-  default: ['name', 'id', 'community', 'group', 'batch', 'pediatricWeek', 'progress', 'trend'],
-  nurse: ['name', 'id', 'community', 'group', 'batch', 'pediatricWeek', 'zScore', 'nutritionalStatus', 'feedingType', 'bcgDate', 'opvDate', 'dptDate', 'progress'],
-  'program manager': ['name', 'id', 'community', 'group', 'batch', 'programType', 'status', 'risk', 'pediatricWeek', 'nutritionalStatus', 'feedingType', 'progress', 'trend'],
-  admin: ['name', 'id', 'community', 'group', 'batch', 'status', 'risk', 'pediatricWeek', 'zScore', 'feedingType', 'bcgDate', 'opvDate', 'dptDate', 'progress'],
+  default: ['name', 'age', 'community', 'group', 'batch', 'programType', 'status', 'pediatricWeek', 'nutritionalStatus', 'progress'],
+  nurse: ['name', 'age', 'community', 'group', 'batch', 'programType', 'status', 'pediatricWeek', 'zScore', 'nutritionalStatus', 'feedingType', 'progress'],
+  'program manager': ['name', 'age', 'community', 'group', 'batch', 'programType', 'status', 'risk', 'pediatricWeek', 'nutritionalStatus', 'feedingType', 'progress'],
+  admin: ['name', 'age', 'community', 'group', 'batch', 'programType', 'status', 'risk', 'pediatricWeek', 'zScore', 'nutritionalStatus', 'progress'],
 };
 
 export const ROLE_DEFAULT_COLUMNS = MATERNAL_ROLE_DEFAULT_COLUMNS;
@@ -104,10 +106,17 @@ export const ROLE_DEFAULT_COLUMNS = MATERNAL_ROLE_DEFAULT_COLUMNS;
 export function getDefaultVisibleColumns(role, entityType = 'Mothers') {
   const normalizedRole = String(role || '').trim().toLowerCase();
   const defaults = entityType === 'Children' ? CHILD_ROLE_DEFAULT_COLUMNS : MATERNAL_ROLE_DEFAULT_COLUMNS;
-  if (normalizedRole.includes('nurse')) return defaults.nurse;
-  if (normalizedRole.includes('manager') || normalizedRole.includes('program')) return defaults['program manager'];
-  if (normalizedRole.includes('admin') || normalizedRole.includes('superadmin')) return defaults.admin;
-  return defaults.default;
+  const requiredColumns = ['name', 'age', 'latestCheckupDate', 'initialBmi', 'bmi'];
+
+  const resolveDefaults = (columns = []) => {
+    const validColumns = Array.isArray(columns) ? columns.filter(Boolean) : [];
+    return [...new Set([...requiredColumns, ...validColumns])];
+  };
+
+  if (normalizedRole.includes('nurse')) return resolveDefaults(defaults.nurse);
+  if (normalizedRole.includes('manager') || normalizedRole.includes('program')) return resolveDefaults(defaults['program manager']);
+  if (normalizedRole.includes('admin') || normalizedRole.includes('superadmin')) return resolveDefaults(defaults.admin);
+  return resolveDefaults(defaults.default);
 }
 
 export function getReportColumnsForEntity(entityType = 'Mothers') {
@@ -170,6 +179,8 @@ export function getColumnValue(row, fieldId) {
   if (fieldId === 'birthCertificateDocumentName') return row?.birthCertificateDocumentName || row?.source?.birthCertificateDocumentName || '';
   if (fieldId === 'consentDocumentName') return row?.consentDocumentName || row?.source?.consentDocumentName || '';
   if (fieldId === 'assessment') return row?.assessment || '';
+  if (fieldId === 'latestCheckupDate') return row?.latestCheckupDate || row?.source?.latestCheckupDate || row?.assessment || '';
+  if (fieldId === 'initialBmi') return row?.initialBmi ?? row?.source?.initialBmi ?? '';
   if (fieldId === 'progress') return row?.progress ?? 0;
   if (fieldId === 'trend') return row?.trend || 'down';
   if (fieldId === 'createdAt') return row?.createdAt || row?.source?.createdAt || '';
@@ -236,6 +247,12 @@ export function normalizeMother(mother) {
   const dob = mother.dob || mother.birthDate || '';
   const age = dob ? Math.max(0, new Date().getFullYear() - new Date(dob).getFullYear()) : '';
   const vaccines = [mother.tt1Date, mother.tt2Date, mother.tt3Date, mother.tt4Date, mother.tt5Date].filter(Boolean);
+  const latestCheckupDate = Array.isArray(mother.checkups)
+    ? mother.checkups
+        .flat()
+        .filter((checkup) => checkup?.checkupDate)
+        .sort((a, b) => new Date(b.checkupDate) - new Date(a.checkupDate))[0]?.checkupDate || mother.latestCheckupDate || mother.assessmentDate || ''
+    : mother.latestCheckupDate || mother.assessmentDate || '';
 
   return {
     id: mother.motherId || mother.id,
@@ -284,6 +301,7 @@ export function normalizeMother(mother) {
     birthCertificateDocumentName: mother.birthCertificateDocumentName || '',
     consentDocumentName: mother.consentDocumentName || '',
     assessment: formatDate(mother.prenatalRegDate || mother.createdAt),
+    latestCheckupDate,
     progress,
     trend: progress >= 50 ? 'up' : 'down',
     risk: mother.isHighRisk === 'Yes',

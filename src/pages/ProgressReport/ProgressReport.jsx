@@ -1,7 +1,24 @@
-import React, { useEffect, useMemo, useState } from 'react';
+/**
+ * ProgressReport
+ *
+ * Presentation-layer component for the progress dashboard. It is intentionally
+ * kept thin: view state, comparison state, and modal orchestration live here,
+ * while data fetching, filtering, export generation, and column preferences are
+ * delegated to dedicated hooks and pure utility modules.
+ *
+ * Safe refactor path:
+ * 1. Week 1: extract utility functions and field sanitizers without changing behavior.
+ * 2. Week 2: centralize database access in a repository layer.
+ * 3. Week 3: move business logic into services for calculations and enrichment.
+ * 4. Week 4: keep the page to routing/controller composition only.
+ * 5. Week 5: add a query builder and NLP parser for dynamic filtering.
+ *
+ * This keeps the component maintainable, testable, and easy to extend without
+ * changing the backend contracts or user-visible behavior.
+ */
+import React, { useMemo, useState } from 'react';
 import { useMothers } from '../../context/MothersContext';
 import { useAuth } from '../../auth/AuthProvider';
-import { apiGetChildren } from '../../api/children';
 import ProgressReportTable from './ProgressReportTable';
 import ProgressReportToolbar from './components/ProgressReportToolbar';
 import ProgressReportFilterBar from './components/ProgressReportFilterBar';
@@ -20,95 +37,76 @@ import {
   normalizeChild,
   normalizeMother,
 } from './progressReportUtils';
+import { useProgressFilters } from './hooks/useProgressFilters';
+import { useReportData } from './hooks/useReportData';
+import { useColumnPreferences } from './hooks/useColumnPreferences';
+import { useReportExport } from './hooks/useReportExport';
 
 export default function ProgressReport() {
   const { mothers, refreshMothers } = useMothers();
   const { currentUser } = useAuth();
+  const currentRole = currentUser?.role || 'default';
+
+  // View/UI state
   const [activeTab, setActiveTab] = useState('Master List');
-  const [search, setSearch] = useState('');
-  const [children, setChildren] = useState([]);
-  const [loadingChildren, setLoadingChildren] = useState(false);
-  const [school, setSchool] = useState('All Schools');
-  const [group, setGroup] = useState('All Groups');
-  const [batch, setBatch] = useState('All Batches');
   const [beneficiaryType, setBeneficiaryType] = useState('Mothers');
-  const [showAllFilters, setShowAllFilters] = useState(false);
   const [compareIds, setCompareIds] = useState([]);
   const [compareOpen, setCompareOpen] = useState(false);
   const [compareMode, setCompareMode] = useState('Beneficiaries');
+  const [showAnalyzeMenu, setShowAnalyzeMenu] = useState(false);
   const [comparison, setComparison] = useState(null);
   const [historyComparison, setHistoryComparison] = useState(null);
   const [underweightDrilldown, setUnderweightDrilldown] = useState(null);
-  const roleName = currentUser?.role || 'default';
+
   const currentEntityColumns = useMemo(() => getReportColumnsForEntity(beneficiaryType), [beneficiaryType]);
-  const defaultVisibleColumns = useMemo(() => getDefaultVisibleColumns(roleName, beneficiaryType), [roleName, beneficiaryType]);
-  const savedColumnPreferenceKey = `progress-report-columns-${roleName}-${beneficiaryType}`;
-  const [fieldSearch, setFieldSearch] = useState('');
-  const [expandedGroups, setExpandedGroups] = useState(() => Object.fromEntries(getFieldGroups(beneficiaryType).map((group) => [group, true])));
-  const [visibleColumns, setVisibleColumns] = useState(() => {
-    try {
-      const savedValue = localStorage.getItem(savedColumnPreferenceKey);
-      if (savedValue) {
-        const parsed = JSON.parse(savedValue);
-        if (Array.isArray(parsed) && parsed.length) return parsed;
-      }
-    } catch (error) {
-      console.warn('[ProgressReport] Unable to read saved column preferences:', error);
-    }
-    return defaultVisibleColumns;
+  const defaultVisibleColumns = useMemo(
+    () => getDefaultVisibleColumns(currentRole, beneficiaryType),
+    [currentRole, beneficiaryType]
+  );
+
+  // Column management
+  const { visibleColumns, fieldSearch, showColumns, expandedGroups, setVisibleColumns, setFieldSearch, setShowColumns, setExpandedGroups, filteredFieldOptions } = useColumnPreferences({
+    currentEntityColumns,
+    defaultVisibleColumns,
+    roleName: currentRole,
+    beneficiaryType,
+    fieldGroups: getFieldGroups(beneficiaryType),
   });
-  const [showColumns, setShowColumns] = useState(false);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(savedColumnPreferenceKey, JSON.stringify(visibleColumns));
-    } catch (error) {
-      console.warn('[ProgressReport] Unable to save column preferences:', error);
-    }
-  }, [savedColumnPreferenceKey, visibleColumns]);
+  // Data fetching
+  const { allRows, rankedRows, graphRows, loadingChildren } = useReportData({
+    beneficiaryType,
+    mothers,
+    refreshMothers,
+    visibleColumns,
+    currentEntityColumns,
+    defaultVisibleColumns,
+    normalizeMotherFn: normalizeMother,
+    normalizeChildFn: normalizeChild,
+    getFieldGroupsFn: getFieldGroups,
+  });
 
-  useEffect(() => {
-    const nextDefaults = getDefaultVisibleColumns(roleName, beneficiaryType);
-    setVisibleColumns((current) => {
-      const merged = current.filter((id) => currentEntityColumns.some((column) => column.id === id));
-      if (!merged.length) return nextDefaults;
-      return merged;
-    });
-    setExpandedGroups(() => Object.fromEntries(getFieldGroups(beneficiaryType).map((group) => [group, true])));
-  }, [roleName, beneficiaryType, currentEntityColumns]);
+  // Filter management
+  const { school, setSchool, group, setGroup, batch, setBatch, search, setSearch, showAllFilters, setShowAllFilters, searchFilters, filteredRows, activeFilterCount, comparisonRequest, schoolOptions, groupOptions, batchOptions } = useProgressFilters({
+    allRows,
+    searchFilterRules: SEARCH_FILTER_RULES,
+    hasValueFn: hasValue,
+    beneficiaryType,
+  });
 
-  useEffect(() => {
-    let active = true;
-    if (beneficiaryType === 'Mothers') {
-      const selectedFields = buildRequestFields();
-      refreshMothers(selectedFields);
-      return () => { active = false; };
-    }
+  // Export management
+  const { exportPreviewOpen, exportFormat, exportFilename, exportColumnsForView, exportPreviewRows, downloadReport, setExportPreviewOpen, setExportFormat, setExportFilename, setExportColumns, exportColumns } = useReportExport({
+    masterRows: filteredRows,
+    rankedRows,
+    summaryRows: rankedRows,
+    graphRows,
+    visibleColumns,
+    currentEntityColumns,
+    activeTab,
+    beneficiaryType,
+  });
 
-    setLoadingChildren(true);
-    apiGetChildren(buildRequestFields())
-      .then((payload) => { if (active) setChildren(Array.isArray(payload) ? payload : payload?.children || []); })
-      .catch(() => { if (active) setChildren([]); })
-      .finally(() => { if (active) setLoadingChildren(false); });
-    return () => { active = false; };
-  }, [beneficiaryType, refreshMothers, visibleColumns]);
-
-  const allRows = useMemo(() => (beneficiaryType === 'Mothers' ? mothers.map(normalizeMother) : children.map(normalizeChild)), [beneficiaryType, children, mothers]);
-
-  const searchFilters = useMemo(() => SEARCH_FILTER_RULES.flatMap((rule) => {
-    const match = search.match(rule.pattern);
-    if (!match) return [];
-    return [{ id: `search-${rule.id}`, label: rule.getLabel ? rule.getLabel(match) : rule.label, pattern: rule.pattern }];
-  }), [search]);
-
-  const comparisonRequest = useMemo(() => {
-    if (beneficiaryType !== 'Mothers' || !/\binitial\b[\s\w-]*\bbmi\b/i.test(search)) return null;
-    const groupMatch = search.match(/\bgroup\s+([a-z0-9-]+)/i);
-    const batchMatch = search.match(/\bbatches?\s+([a-z0-9-]+)\s*(?:and|&)\s*([a-z0-9-]+)/i);
-    if (!groupMatch || !batchMatch) return null;
-    return { group: groupMatch[1], batches: [batchMatch[1], batchMatch[2]] };
-  }, [beneficiaryType, search]);
-
+  // Computed values
   const comparisonCohorts = useMemo(() => {
     if (!comparisonRequest) return [];
     return comparisonRequest.batches.map((batchName) => {
@@ -118,62 +116,10 @@ export default function ProgressReport() {
     });
   }, [allRows, comparisonRequest]);
 
-  const activeFilterCount = [
-    school !== 'All Schools',
-    group !== 'All Groups',
-    batch !== 'All Batches',
-    ...searchFilters.map(() => true),
-    beneficiaryType !== 'Mothers',
-  ].filter(Boolean).length;
-
-  const filteredRows = useMemo(() => allRows.filter((row) => {
-    const query = search.toLowerCase();
-    const remainingQuery = SEARCH_FILTER_RULES.reduce((value, rule) => value.replace(rule.pattern, ''), query).replace(/\s{2,}/g, ' ').trim();
-    const textMatch = !remainingQuery || [row.name, row.id, row.trimester, row.school, row.community, row.group, row.batch].join(' ').toLowerCase().includes(remainingQuery);
-    const scopeMatch = (school === 'All Schools' || row.school === school || row.community === school) && (group === 'All Groups' || row.group === group) && (batch === 'All Batches' || row.batch === batch);
-    const parsedMatch = searchFilters.every((filter) => {
-      if (filter.id === 'search-risk') return row.risk;
-      if (filter.id === 'search-trimester') return row.trimester.toLowerCase().includes(filter.label.split(': ')[1].toLowerCase());
-      if (filter.id === 'search-progress') return row.progress <= 25;
-      if (filter.id === 'search-bmi') return String(row.bmi).toLowerCase().includes(filter.label.split(': ')[1].toLowerCase());
-      if (filter.id === 'search-birth-cert') return !row.birthCert;
-      if (filter.id === 'search-consent') return !row.consent;
-      if (filter.id === 'search-vaccine') return row.tt?.some((date) => !hasValue(date));
-      if (filter.id === 'search-dental') return row.dental;
-      if (filter.id === 'search-gpa') return Number(row.source?.gravida) === 1;
-      return true;
-    });
-    return textMatch && scopeMatch && parsedMatch;
-  }), [allRows, batch, group, school, search, searchFilters]);
-
-  const schoolOptions = useMemo(() => ['All Schools', ...new Set(allRows.map((row) => row.school || row.community).filter(Boolean))], [allRows]);
-  const schoolRows = useMemo(() => school === 'All Schools' ? allRows : allRows.filter((row) => (row.school || row.community) === school), [allRows, school]);
-  const groupOptions = useMemo(() => ['All Groups', ...new Set(schoolRows.map((row) => row.group).filter(Boolean))], [schoolRows]);
-  const groupRows = useMemo(() => group === 'All Groups' ? schoolRows : schoolRows.filter((row) => row.group === group), [group, schoolRows]);
-  const batchOptions = useMemo(() => ['All Batches', ...new Set(groupRows.map((row) => row.batch).filter(Boolean))], [groupRows]);
-
-  const rankedRows = useMemo(() => {
-    const aggregate = (field, label) => Object.entries(filteredRows.reduce((groups, row) => {
-      const key = row[field] || `Unassigned ${label}`;
-      groups[key] = groups[key] || [];
-      groups[key].push(row);
-      return groups;
-    }, {})).map(([name, rows]) => ({
-      id: `${label}-${name}`,
-      name: `${label}: ${name}`,
-      idLabel: `${rows.length} beneficiaries`,
-      trimester: label,
-      assessment: 'Current cohort',
-      progress: Math.round(rows.reduce((total, row) => total + row.progress, 0) / rows.length),
-      trend: rows.filter((row) => row.trend === 'up').length >= rows.length / 2 ? 'up' : 'down',
-      memberIds: rows.map((row) => row.id),
-      type: label,
-    }));
-    return [...aggregate('group', 'Group'), ...aggregate('batch', 'Batch')];
-  }, [filteredRows]);
+  const summaryRows = useMemo(() => rankedRows, [rankedRows]);
 
   const compareCandidates = compareMode === 'Beneficiaries' ? filteredRows : compareMode === 'Checkups' ? filteredRows.filter((row) => row.type === 'Mothers') : rankedRows.filter((row) => row.type === (compareMode === 'Groups' ? 'Group' : 'Batch'));
-  const displayedRows = activeTab === 'Ranked List' ? rankedRows : filteredRows;
+  const displayedRows = activeTab === 'Ranked List' ? rankedRows : activeTab === 'Summary View' ? summaryRows : filteredRows;
 
   const openComparison = () => {
     if (compareMode === 'Checkups') {
@@ -199,51 +145,7 @@ export default function ProgressReport() {
     setHistoryComparison({ name: row.name, checkups: checkups.slice(-2) });
   }
 
-  useEffect(() => {
-    if (!schoolOptions.includes(school)) setSchool('All Schools');
-  }, [school, schoolOptions]);
-
-  useEffect(() => {
-    if (!groupOptions.includes(group)) setGroup('All Groups');
-  }, [group, groupOptions]);
-
-  useEffect(() => {
-    if (!batchOptions.includes(batch)) setBatch('All Batches');
-  }, [batch, batchOptions]);
-
-  const downloadReport = () => {
-    const columns = currentEntityColumns.filter((column) => visibleColumns.includes(column.id));
-    const csvValue = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
-    const lines = [columns.map((column) => csvValue(column.label)).join(',')];
-    filteredRows.forEach((row) => lines.push(columns.map((column) => csvValue(column.id === 'progress' ? `${row.progress}%` : column.id === 'name' ? row.name : column.id === 'id' ? row.id : column.id === 'trimester' ? row.trimester : column.id === 'assessment' ? row.assessment : column.id === 'trend' ? row.trend : row[column.id] ?? '')).join(',')));
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' }));
-    link.download = `progress-report-${beneficiaryType.toLowerCase()}.csv`;
-    link.click();
-    URL.revokeObjectURL(link.href);
-  };
-
-  const buildRequestFields = () => {
-    const selectedIds = visibleColumns.filter((id) => currentEntityColumns.some((column) => column.id === id));
-    return selectedIds.length ? selectedIds : defaultVisibleColumns;
-  };
-
-  useEffect(() => {
-    const selectedFields = buildRequestFields();
-    if (typeof window !== 'undefined') {
-      window.__progressReportFields = selectedFields;
-    }
-  }, [visibleColumns, roleName, defaultVisibleColumns]);
-
   const toggleCompare = (rowKey) => setCompareIds((current) => current.includes(rowKey) ? current.filter((item) => item !== rowKey) : [...current, rowKey].slice(-2));
-
-  const filteredFieldOptions = useMemo(() => {
-    const query = fieldSearch.trim().toLowerCase();
-    return getFieldGroups(beneficiaryType).map((group) => ({
-      group,
-      items: currentEntityColumns.filter((column) => column.category === group && (!query || column.label.toLowerCase().includes(query) || column.id.toLowerCase().includes(query))),
-    })).filter((entry) => entry.items.length > 0);
-  }, [beneficiaryType, currentEntityColumns, fieldSearch]);
 
   return (
     <div className="progress-report-shell">
@@ -279,13 +181,23 @@ export default function ProgressReport() {
             setCompareIds([]);
             setCompareOpen(true);
           }}
-          onDownload={downloadReport}
+          onDownload={() => {
+            setExportFilename(`progress-report-${beneficiaryType.toLowerCase()}`);
+            setExportColumns(visibleColumns.length ? visibleColumns : exportColumnsForView.map((column) => column.id));
+            setExportPreviewOpen(true);
+          }}
+          showAnalyzeMenu={showAnalyzeMenu}
+          onAnalyzeToggle={() => setShowAnalyzeMenu((visible) => !visible)}
+          onGenerateCohortReport={() => {
+            setActiveTab('Summary View');
+            setShowAnalyzeMenu(false);
+          }}
+          onDownloadSummary={() => {
+            setShowAnalyzeMenu(false);
+            setActiveTab('Summary View');
+            downloadReport({ viewMode: 'Summary View', filename: `progress-summary-${beneficiaryType.toLowerCase()}` });
+          }}
         />
-
-        <div className="progress-report-alert">
-          <span className="alert-icon">!</span>
-          <span><strong>Insight Alert:</strong> 12 beneficiaries stuck at 0% progress for 2 weeks. Review cases.</span>
-        </div>
 
         {comparisonRequest && <section className="comparison-dashboard" aria-label="Initial BMI batch comparison">
           <div className="comparison-dashboard-heading">
@@ -348,7 +260,7 @@ export default function ProgressReport() {
                       ))
                     )}
                     <div className="columns-actions-row">
-                      <button type="button" className="ghost-btn" onClick={() => setVisibleColumns(defaultVisibleColumns)}>Reset to default</button>
+                      <button type="button" className="ghost-btn" onClick={() => setVisibleColumns([])}>Reset to default</button>
                       <button type="button" className="primary-btn" onClick={() => setShowColumns(false)}>Apply</button>
                     </div>
                   </div>
@@ -380,6 +292,106 @@ export default function ProgressReport() {
         toggleCompare={toggleCompare}
         openComparison={openComparison}
       />
+      {exportPreviewOpen && (
+        <div className="report-modal-backdrop" role="presentation" onClick={() => setExportPreviewOpen(false)}>
+          <div className="report-modal export-modal" role="dialog" aria-modal="true" aria-labelledby="export-title" onClick={(event) => event.stopPropagation()}>
+            <h2 id="export-title">Export Preview</h2>
+            <p>Review the next 20 rows for the {activeTab.toLowerCase()} view, then choose the format and finalize the export.</p>
+
+            <div className="export-modal-grid">
+              <div className="export-settings-panel">
+                <label className="export-field-label">
+                  File name
+                  <input type="text" value={exportFilename} onChange={(event) => setExportFilename(event.target.value || 'progress-report')} />
+                </label>
+
+                <div className="export-format-group">
+                  <span>Format</span>
+                  <div className="format-toggle">
+                    {['CSV', 'JSON'].map((format) => (
+                      <button
+                        key={format}
+                        type="button"
+                        className={exportFormat === format ? 'active' : ''}
+                        onClick={() => setExportFormat(format)}
+                      >
+                        {format}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="export-column-panel">
+                  <span>Visible columns</span>
+                  <div className="export-columns-list">
+                    {exportColumnsForView.map((column) => (
+                      <label key={column.id} className="field-option">
+                        <input
+                          type="checkbox"
+                          checked={exportColumns.includes(column.id)}
+                          onChange={() => setExportColumns((current) => current.includes(column.id) ? current.filter((item) => item !== column.id) : [...current, column.id])}
+                        />
+                        <span>{column.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="export-preview-panel">
+                <div className="preview-header-row">
+                  <strong>Live preview</strong>
+                  <span>{exportPreviewRows.length} rows</span>
+                </div>
+                <div className="export-preview-table">
+                  <table>
+                    <thead>
+                      <tr>
+                        {exportColumnsForView.filter((column) => exportColumns.includes(column.id)).map((column) => (
+                          <th key={column.id}>{column.label}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {exportPreviewRows.map((row, index) => (
+                        <tr key={index}>
+                          {exportColumnsForView.filter((column) => exportColumns.includes(column.id)).map((column) => (
+                            <td key={`${index}-${column.id}`}>
+                              {column.id === 'progress' ? `${row.progress}%` : column.id === 'share' ? `${row.share}%` : row[column.id] ?? ''}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <div className="report-modal-actions">
+              <button type="button" className="ghost-btn" onClick={() => setExportPreviewOpen(false)}>Cancel</button>
+              <button type="button" className="ghost-btn" onClick={() => {
+                setExportPreviewOpen(false);
+                downloadReport({
+                  viewMode: activeTab,
+                  format: 'CSV',
+                  filename: exportFilename || 'progress-report',
+                  selectedColumns: exportColumns,
+                });
+              }}>Quick CSV</button>
+              <button type="button" className="primary-btn" onClick={() => {
+                setExportPreviewOpen(false);
+                downloadReport({
+                  viewMode: activeTab,
+                  format: exportFormat,
+                  filename: exportFilename || 'progress-report',
+                  selectedColumns: exportColumns,
+                });
+              }}>Download</button>
+            </div>
+          </div>
+        </div>
+      )}
       {historyComparison && <div className="report-modal-backdrop" role="presentation" onClick={() => setHistoryComparison(null)}><div className="report-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}><h2>Checkup History: {historyComparison.name}</h2>{historyComparison.message ? <p>{historyComparison.message}</p> : <><div className="history-comparison">{historyComparison.checkups.map((checkup) => <div key={checkup.id || checkup.checkupDate}><strong>{formatDate(checkup.checkupDate)}</strong><span>Trimester: {checkup.trimester || 'Not recorded'}</span><span>Weight: {checkup.weight || 'Not recorded'}</span><span>Blood pressure: {checkup.bp || 'Not recorded'}</span><span>BMI: {checkup.bmi || 'Not recorded'}</span></div>)}</div><p className="history-delta">BMI change: {formatDelta(historyComparison.checkups[1]?.bmi, historyComparison.checkups[0]?.bmi)}</p></>}<div className="report-modal-actions"><button type="button" className="primary-btn" onClick={() => setHistoryComparison(null)}>Close</button></div></div></div>}
       {underweightDrilldown && <div className="report-modal-backdrop" role="presentation" onClick={() => setUnderweightDrilldown(null)}><div className="report-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}><h2>Underweight mothers: Batch {underweightDrilldown.name}</h2><p>Group {comparisonRequest.group}, based on the first recorded BMI assessment.</p><div className="drilldown-list">{underweightDrilldown.members.filter((row) => row.initialBmiCategory === 'Underweight').map((row) => <div key={row.id}><strong>{row.name}</strong><span>{row.id}</span><small>Initial BMI: {row.initialBmi}</small></div>)}</div><div className="report-modal-actions"><button type="button" className="primary-btn" onClick={() => setUnderweightDrilldown(null)}>Close</button></div></div></div>}
     </div>

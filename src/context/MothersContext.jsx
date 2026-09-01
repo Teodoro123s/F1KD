@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 const MothersContext = createContext(null);
 const API_BASE = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL)
@@ -8,7 +8,7 @@ const API_BASE = (typeof import.meta !== 'undefined' && import.meta.env && impor
 export function MothersProvider({ children }) {
   const [mothers, setMothers] = useState([]);
 
-  const loadMothers = async (fields = []) => {
+  const loadMothers = useCallback(async (fields = []) => {
     try {
       const params = new URLSearchParams();
       if (Array.isArray(fields) && fields.length) {
@@ -29,7 +29,7 @@ export function MothersProvider({ children }) {
       setMothers([]);
       return [];
     }
-  };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -42,10 +42,12 @@ export function MothersProvider({ children }) {
 
     run();
     return () => { active = false; };
-  }, []);
+  }, [loadMothers]);
+
+  const value = useMemo(() => ({ mothers, setMothers, refreshMothers: loadMothers }), [mothers, loadMothers]);
 
   return (
-    <MothersContext.Provider value={{ mothers, setMothers, refreshMothers: loadMothers }}>
+    <MothersContext.Provider value={value}>
       {children}
     </MothersContext.Provider>
   );
