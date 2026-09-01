@@ -19,6 +19,7 @@
 import React, { useMemo, useState } from 'react';
 import { useMothers } from '../../context/MothersContext';
 import { useAuth } from '../../auth/AuthProvider';
+import { AsyncContainer } from '../../components/AsyncContainer';
 import ProgressReportTable from './ProgressReportTable';
 import ProgressReportToolbar from './components/ProgressReportToolbar';
 import ProgressReportFilterBar from './components/ProgressReportFilterBar';
@@ -270,12 +271,30 @@ export default function ProgressReport() {
             </div>
           </div>
           {comparison && <div className="comparison-result"><strong>{comparison.mode} comparison</strong>{comparison.rows.map((row) => <span key={row.id}>{row.name}: {row.progress}% progress</span>)}<strong>Delta: {formatDelta(comparison.rows[1]?.progress, comparison.rows[0]?.progress)}</strong><button type="button" onClick={() => setComparison(null)}>Dismiss</button></div>}
-          {activeTab === 'Graph View' ? <div className="progress-report-graph" aria-label="Progress distribution graph">
-            {['0-25%', '26-50%', '51-75%', '76-100%'].map((range, index) => {
-              const count = filteredRows.filter((row) => row.progress >= index * 25 && row.progress <= (index + 1) * 25).length;
-              return <div key={range} className="graph-bar-row"><span>{range}</span><div><i style={{ width: `${filteredRows.length ? (count / filteredRows.length) * 100 : 0}%` }} /></div><strong>{count}</strong></div>;
-            })}
-          </div> : <ProgressReportTable activeTab={activeTab} displayedRows={displayedRows} compareIds={compareIds} toggleCompare={toggleCompare} showHistory={showHistory} visibleColumns={visibleColumns} columns={currentEntityColumns} />}
+          {activeTab === 'Graph View' ? (
+            <AsyncContainer
+              loading={loadingChildren}
+              empty={filteredRows.length === 0 && !loadingChildren}
+              emptyTitle="No beneficiaries match the current filters"
+              emptyDescription="Try clearing a filter or adjusting the search terms to broaden the list."
+            >
+              <div className="progress-report-graph" aria-label="Progress distribution graph">
+                {['0-25%', '26-50%', '51-75%', '76-100%'].map((range, index) => {
+                  const count = filteredRows.filter((row) => row.progress >= index * 25 && row.progress <= (index + 1) * 25).length;
+                  return <div key={range} className="graph-bar-row"><span>{range}</span><div><i style={{ width: `${filteredRows.length ? (count / filteredRows.length) * 100 : 0}%` }} /></div><strong>{count}</strong></div>;
+                })}
+              </div>
+            </AsyncContainer>
+          ) : (
+            <AsyncContainer
+              loading={loadingChildren}
+              empty={displayedRows.length === 0 && !loadingChildren}
+              emptyTitle="No records found"
+              emptyDescription="There are no matching rows for the current view. Adjust the filters or change the tab to continue."
+            >
+              <ProgressReportTable activeTab={activeTab} displayedRows={displayedRows} compareIds={compareIds} toggleCompare={toggleCompare} showHistory={showHistory} visibleColumns={visibleColumns} columns={currentEntityColumns} />
+            </AsyncContainer>
+          )}
         </div>
       </div>
       <ProgressReportComparisonModal

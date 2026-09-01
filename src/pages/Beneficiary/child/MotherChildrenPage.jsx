@@ -36,6 +36,7 @@ export default function MotherChildrenPage() {
 
   const motherName = mother?.name || `${mother?.firstName || ''} ${mother?.lastName || ''}`.trim() || 'Mother';
   const motherIdentifier = mother?.motherId || mother?.id || id;
+  const returnTo = location.state?.returnTo || (mother ? `/beneficiary/mother/${mother.motherId || mother.id || id}` : `/beneficiary/mother/${id}`);
 
   return (
     <section className="mother-detail-page">
@@ -45,8 +46,8 @@ export default function MotherChildrenPage() {
           <div className="mother-detail-meta">{motherIdentifier}</div>
         </div>
         <div className="mother-detail-actions">
-          <button type="button" className="btn-create-action" onClick={() => navigate(`/beneficiary/create/child`, { state: { mother } })}>Create Child</button>
-          <button type="button" className="btn-secondary" onClick={() => navigate(-1)}>Back</button>
+          <button type="button" className="btn-create-action" onClick={() => navigate(`/beneficiary/create/child`, { state: { mother, returnTo } })}>Create Child</button>
+          <button type="button" className="btn-secondary" onClick={() => navigate(returnTo || -1, { state: { mother } })}>Back</button>
         </div>
       </header>
 
@@ -56,17 +57,21 @@ export default function MotherChildrenPage() {
         <section className="mother-detail-section">
           <h2 className="mother-detail-section-title">Child Records</h2>
           <div className="mother-detail-grid">
-            {children.map((child) => (
-              <button
-                type="button"
-                className="entity-card-button name-cell"
-                key={child.id}
-                onClick={() => navigate(`/beneficiary/child/${child.id}`, { state: { child, mother } })}
-              >
-                <strong>{childName(child) || child.child_code || child.id}</strong>
-                <span>{formatDateForDisplay(child.birth_date || child.birthDate) || 'Birth date not recorded'}</span>
-              </button>
-            ))}
+            {children.map((child) => {
+              const badge = child.multipleBirthType || child.multiple_birth_type;
+              return (
+                <button
+                  type="button"
+                  className="entity-card-button name-cell"
+                  key={child.id}
+                  onClick={() => navigate(`/beneficiary/child/${child.id}`, { state: { child, mother, returnTo } })}
+                >
+                  <strong>{childName(child) || child.child_code || child.id}</strong>
+                  <span>{formatDateForDisplay(child.birth_date || child.birthDate) || 'Birth date not recorded'}</span>
+                  {badge && <span className="mother-detail-chip" style={{ marginTop: 8 }}>{`[${badge}]`}</span>}
+                </button>
+              );
+            })}
           </div>
         </section>
       )}

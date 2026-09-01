@@ -17,6 +17,7 @@ const normalizeChild = (child) => ({
   gender: child.gender || 'Male',
   bloodType: child.bloodType || child.blood_type || '',
   noOfChildDelivered: child.noOfChildDelivered || child.no_of_child_delivered || '',
+  multipleBirthType: child.multipleBirthType || child.multiple_birth_type || '',
   exclusiveBreastfeeding: child.exclusiveBreastfeeding || child.exclusive_breastfeeding || '',
   expandedNewbornScreening: child.expandedNewbornScreening || child.expanded_newborn_screening || '',
   expandedNewbornScreeningResult: child.expandedNewbornScreeningResult || child.expanded_newborn_screening_result || '',
@@ -88,6 +89,7 @@ export default function EditChildPage() {
     try {
       const payload = {
         ...form,
+        multipleBirthType: form.multipleBirthType || null,
         birthDate: normalizeDatePayload(form.birthDate),
         bcgDate: normalizeDatePayload(form.bcgDate),
         hepbDate: normalizeDatePayload(form.hepbDate),

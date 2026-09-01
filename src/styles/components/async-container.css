@@ -1,0 +1,100 @@
+.async-container {
+  width: 100%;
+}
+
+.async-loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  min-height: 180px;
+  padding: 1.5rem;
+  color: #475569;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.spinner {
+  display: inline-block;
+  border: 3px solid rgba(125, 30, 46, 0.18);
+  border-top-color: #7d1e2e;
+  border-radius: 50%;
+  animation: async-spin 0.8s linear infinite;
+}
+
+.spinner-sm {
+  width: 16px;
+  height: 16px;
+  border-width: 2px;
+}
+
+.spinner-md {
+  width: 22px;
+  height: 22px;
+}
+
+.spinner-lg {
+  width: 32px;
+  height: 32px;
+}
+
+.async-loader-label {
+  letter-spacing: 0.02em;
+}
+
+.async-empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 220px;
+  padding: 1.5rem;
+}
+
+.async-empty-state-card {
+  display: grid;
+  gap: 0.8rem;
+  max-width: 420px;
+  padding: 1.5rem 1.25rem;
+  border: 1px solid #e5edf3;
+  border-radius: 12px;
+  background: #f8fafc;
+  text-align: center;
+}
+
+.async-empty-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: 0 auto;
+  border-radius: 50%;
+  background: #fff;
+  color: #7d1e2e;
+  font-size: 1.2rem;
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px rgba(125, 30, 46, 0.12);
+}
+
+.async-empty-state-card h3 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1.02rem;
+}
+
+.async-empty-state-card p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.async-empty-action {
+  display: flex;
+  justify-content: center;
+}
+
+@keyframes async-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

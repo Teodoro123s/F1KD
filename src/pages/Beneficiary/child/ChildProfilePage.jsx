@@ -64,6 +64,7 @@ const normalizeChild = (child = {}) => ({
   gender: child.gender || '',
   bloodType: child.bloodType || child.blood_type || '',
   noOfChildDelivered: child.noOfChildDelivered || child.no_of_child_delivered || '',
+  multipleBirthType: child.multipleBirthType || child.multiple_birth_type || '',
   exclusiveBreastfeeding: child.exclusiveBreastfeeding || child.exclusive_breastfeeding || '',
   expandedNewbornScreening: child.expandedNewbornScreening || child.expanded_newborn_screening || '',
   expandedNewbornScreeningResult: child.expandedNewbornScreeningResult || child.expanded_newborn_screening_result || '',
@@ -215,6 +216,7 @@ export default function ChildProfilePage() {
 
   // Helper to render vaccination info
   const renderVaccine = (date, remarks) => (date ? `${date}${remarks ? ' — ' + remarks : ''}` : '—');
+  const returnTo = location.state?.returnTo || (resolvedMother ? `/beneficiary/mother/${resolvedMother.motherId || resolvedMother.id}` : null);
 
   const childName = selectedChild?.name || `${selectedChild?.firstName || ''} ${selectedChild?.middleName || ''} ${selectedChild?.lastName || ''} ${selectedChild?.suffix || ''}`.replace(/\s+/g, ' ').trim();
   const childBirthDate = formatDateForDisplay(selectedChild?.birthDate || selectedChild?.birth_date);
@@ -251,11 +253,11 @@ export default function ChildProfilePage() {
           <div className="mother-detail-meta">{selectedChild.child_code || selectedChild.id || 'Child ID'} • {selectedChild.community || selectedChild.batch || 'Community / Batch'}</div>
         </div>
         <div className="mother-detail-actions">
-              <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/child/${selectedChild.id}/edit`, { state: { child: selectedChild, mother: resolvedMother } })}>Edit</button>
+              <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/child/${selectedChild.id}/edit`, { state: { child: selectedChild, mother: resolvedMother, returnTo } })}>Edit</button>
           <button type="button" className="btn-secondary" onClick={() => {
             const mid = resolvedMother?.motherId || resolvedMother?.id || selectedChild.mother_id || selectedChild.motherId || '';
             const stateMother = resolvedMother || (mid ? { id: mid, name: selectedChild.mother_first_name ? `${selectedChild.mother_first_name} ${selectedChild.mother_last_name || ''}`.trim() : undefined } : null);
-            navigate('/monitoring', { state: { child: selectedChild, mother: stateMother } });
+            navigate('/monitoring', { state: { child: selectedChild, mother: stateMother, returnTo } });
           }}>Open mother monitoring</button>
         </div>
       </div>
@@ -274,6 +276,7 @@ export default function ChildProfilePage() {
         <ChildField label="BMI" value={childBmi} />
         <ChildField label="BMI status" value={childBmiStatus} />
         <ChildField label="No. Old Child Delivered" value={selectedChild.noOfChildDelivered || selectedChild.childrenDelivered || '—'} />
+        <ChildField label="Multiple Birth Type" value={selectedChild.multipleBirthType ? `[${selectedChild.multipleBirthType}]` : '—'} />
         <ChildField label="Exclusive Breastfeeding" value={selectedChild.exclusiveBreastfeeding || selectedChild.feedingType || '—'} />
         <ChildField label="Expanded Newborn Screening" value={selectedChild.expandedNewbornScreening || selectedChild.nutritionNotes || '—'} />
         <ChildField label="Expanded Newborn Screening Result" value={selectedChild.expandedNewbornScreeningResult || '—'} className="full-width" />
@@ -331,7 +334,13 @@ export default function ChildProfilePage() {
           </div>
         </div>
         <div>
-          <button className="btn-secondary" onClick={() => navigate(-1)}>Back</button>
+          <button className="btn-secondary" onClick={() => {
+            if (returnTo) {
+              navigate(returnTo, { state: { mother: resolvedMother } });
+              return;
+            }
+            navigate(-1);
+          }}>Back</button>
         </div>
       </header>
 

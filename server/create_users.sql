@@ -213,6 +213,7 @@ CREATE TABLE IF NOT EXISTS children (
   gender ENUM('Male','Female','Other') DEFAULT 'Female',
   blood_type VARCHAR(5),
   no_of_child_delivered INT,
+  multiple_birth_type VARCHAR(30) DEFAULT NULL,
   exclusive_breastfeeding VARCHAR(20),
   expanded_newborn_screening TEXT,
   expanded_newborn_screening_result TEXT,

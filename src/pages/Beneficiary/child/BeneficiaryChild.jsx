@@ -147,6 +147,13 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
           })}
           {renderField({ id: 'child-children-delivered', label: 'No. Old Child Delivered', name: 'noOfChildDelivered', type: 'number', min: 0, step: 1, placeholder: 'e.g. 1' })}
           {renderSelect({
+            id: 'child-multiple-birth-type',
+            label: 'Multiple Birth Type',
+            name: 'multipleBirthType',
+            options: [{ value: '', label: 'None' }, { value: 'Twin', label: 'Twin' }, { value: 'Triplet', label: 'Triplet' }],
+            placeholder: 'Select type',
+          })}
+          {renderSelect({
             id: 'child-exclusive-breastfeeding',
             label: 'Exclusive Breastfeeding',
             name: 'exclusiveBreastfeeding',

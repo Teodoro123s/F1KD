@@ -16,7 +16,7 @@ export default function Login() {
     try {
       // Use email as the credential for login
       await auth.login(email, password);
-      navigate('/community');
+      navigate('/dashboard');
     } catch (err) {
       // show error
       console.error('Login failed', err);

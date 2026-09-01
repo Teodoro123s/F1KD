@@ -114,6 +114,7 @@ router.post('/', async (req, res) => {
     const gender = getField(b, 'gender');
     const bloodType = getField(b, 'bloodType', 'blood_type');
     const noOfChildDelivered = getField(b, 'noOfChildDelivered', 'no_of_child_delivered');
+    const multipleBirthType = getField(b, 'multipleBirthType', 'multiple_birth_type') || null;
     const exclusiveBreastfeeding = getField(b, 'exclusiveBreastfeeding', 'exclusive_breastfeeding');
     const expandedNewbornScreening = getField(b, 'expandedNewbornScreening', 'expanded_newborn_screening');
     const expandedNewbornScreeningResult = getField(b, 'expandedNewbornScreeningResult', 'expanded_newborn_screening_result');
@@ -154,9 +155,9 @@ router.post('/', async (req, res) => {
     const address = getField(b, 'address');
 
     const [result] = await pool.query(
-      `INSERT INTO children (child_code, mother_id, community_id, group_id, batch_id, first_name, middle_name, last_name, suffix, birth_date, birth_weight, birth_length, gender, blood_type, no_of_child_delivered, exclusive_breastfeeding, expanded_newborn_screening, expanded_newborn_screening_result, delivery_type, health_status, birth_place, birth_attendant, apgar_score, feeding_type, nutrition_notes, father_name, relationship, address)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
-      [childCode, motherId || null, communityId || null, groupId || null, batchId || null, firstName, middleName || null, lastName, suffix || null, birthDate || null, birthWeight || null, birthLength || null, gender || null, bloodType || null, noOfChildDelivered || null, exclusiveBreastfeeding || null, expandedNewbornScreening || null, expandedNewbornScreeningResult || null, deliveryType || null, healthStatus || null, birthPlace || null, birthAttendant || null, apgarScore || null, feedingType || null, nutritionNotes || null, fatherName || null, relationship || null, address || null]
+      `INSERT INTO children (child_code, mother_id, community_id, group_id, batch_id, first_name, middle_name, last_name, suffix, birth_date, birth_weight, birth_length, gender, blood_type, no_of_child_delivered, multiple_birth_type, exclusive_breastfeeding, expanded_newborn_screening, expanded_newborn_screening_result, delivery_type, health_status, birth_place, birth_attendant, apgar_score, feeding_type, nutrition_notes, father_name, relationship, address)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
+      [childCode, motherId || null, communityId || null, groupId || null, batchId || null, firstName, middleName || null, lastName, suffix || null, birthDate || null, birthWeight || null, birthLength || null, gender || null, bloodType || null, noOfChildDelivered || null, multipleBirthType || null, exclusiveBreastfeeding || null, expandedNewbornScreening || null, expandedNewbornScreeningResult || null, deliveryType || null, healthStatus || null, birthPlace || null, birthAttendant || null, apgarScore || null, feedingType || null, nutritionNotes || null, fatherName || null, relationship || null, address || null]
     );
 
     const [rows] = await pool.query('SELECT * FROM children WHERE id = ?', [result.insertId]);
@@ -300,6 +301,7 @@ router.put('/:id', async (req, res) => {
       gender: getField(body, 'gender') || current.gender,
       blood_type: getField(body, 'bloodType', 'blood_type') ?? current.blood_type ?? null,
       no_of_child_delivered: getField(body, 'noOfChildDelivered', 'no_of_child_delivered') ?? current.no_of_child_delivered ?? null,
+      multiple_birth_type: getField(body, 'multipleBirthType', 'multiple_birth_type') ?? current.multiple_birth_type ?? null,
       exclusive_breastfeeding: getField(body, 'exclusiveBreastfeeding', 'exclusive_breastfeeding') ?? current.exclusive_breastfeeding ?? null,
       expanded_newborn_screening: getField(body, 'expandedNewbornScreening', 'expanded_newborn_screening') ?? current.expanded_newborn_screening ?? null,
       expanded_newborn_screening_result: getField(body, 'expandedNewbornScreeningResult', 'expanded_newborn_screening_result') ?? current.expanded_newborn_screening_result ?? null,
