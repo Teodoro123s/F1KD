@@ -21,8 +21,10 @@ import {
   updateGroup,
   deleteGroup,
 } from './communityService';
-import { SearchIcon, PlusIcon, BuildingIcon, GroupsIcon, BatchesIcon } from './CommunityIcons';
 import { apiGetUsers } from '../../api/users';
+import CommunityToolbar from './components/CommunityToolbar';
+import CommunityFilters from './components/CommunityFilters';
+import CommunityPagination from './components/CommunityPagination';
 
 export default function CommunityPage() {
   const [communities, setCommunities] = useState([]);
@@ -602,244 +604,46 @@ export default function CommunityPage() {
     }
   };
 
-  const renderPaginationButtons = () => {
-    const buttons = [];
-
-    buttons.push(
-      <button
-        key="first"
-        type="button"
-        className={`pagination-btn${currentPage === 1 ? ' disabled' : ''}`}
-        onClick={() => setPage(1)}
-        disabled={currentPage === 1}
-        aria-label="First page"
-      >
-        «
-      </button>
-    );
-
-    const maxVisible = 5;
-    if (pageCount <= maxVisible) {
-      for (let i = 1; i <= pageCount; i += 1) {
-        buttons.push(
-          <button
-            key={i}
-            type="button"
-            className={`pagination-btn${currentPage === i ? ' active' : ''}`}
-            onClick={() => setPage(i)}
-          >
-            {i}
-          </button>
-        );
-      }
-    } else if (currentPage <= 3) {
-      for (let i = 1; i <= 3; i += 1) {
-        buttons.push(
-          <button
-            key={i}
-            type="button"
-            className={`pagination-btn${currentPage === i ? ' active' : ''}`}
-            onClick={() => setPage(i)}
-          >
-            {i}
-          </button>
-        );
-      }
-      buttons.push(<span key="el-1" className="pagination-btn ellipsis">...</span>);
-      buttons.push(
-        <button
-          key={pageCount}
-          type="button"
-          className={`pagination-btn${currentPage === pageCount ? ' active' : ''}`}
-          onClick={() => setPage(pageCount)}
-        >
-          {pageCount}
-        </button>
-      );
-    } else if (currentPage >= pageCount - 2) {
-      buttons.push(
-        <button
-          key={1}
-          type="button"
-          className={`pagination-btn${currentPage === 1 ? ' active' : ''}`}
-          onClick={() => setPage(1)}
-        >
-          1
-        </button>
-      );
-      buttons.push(<span key="el-2" className="pagination-btn ellipsis">...</span>);
-      for (let i = pageCount - 2; i <= pageCount; i += 1) {
-        buttons.push(
-          <button
-            key={i}
-            type="button"
-            className={`pagination-btn${currentPage === i ? ' active' : ''}`}
-            onClick={() => setPage(i)}
-          >
-            {i}
-          </button>
-        );
-      }
-    } else {
-      buttons.push(
-        <button
-          key={1}
-          type="button"
-          className={`pagination-btn${currentPage === 1 ? ' active' : ''}`}
-          onClick={() => setPage(1)}
-        >
-          1
-        </button>
-      );
-      buttons.push(<span key="el-3" className="pagination-btn ellipsis">...</span>);
-      buttons.push(
-        <button key={currentPage} type="button" className="pagination-btn active">
-          {currentPage}
-        </button>
-      );
-      buttons.push(<span key="el-4" className="pagination-btn ellipsis">...</span>);
-      buttons.push(
-        <button
-          key={pageCount}
-          type="button"
-          className={`pagination-btn${currentPage === pageCount ? ' active' : ''}`}
-          onClick={() => setPage(pageCount)}
-        >
-          {pageCount}
-        </button>
-      );
-    }
-
-    buttons.push(
-      <button
-        key="last"
-        type="button"
-        className={`pagination-btn${currentPage === pageCount ? ' disabled' : ''}`}
-        onClick={() => setPage(pageCount)}
-        disabled={currentPage === pageCount}
-        aria-label="Last page"
-      >
-        »
-      </button>
-    );
-
-    return buttons;
-  };
-
   return (
     <div className="community-page">
-      <header className="community-header">
-        <div className="community-title-section">
-          <h1>Communities</h1>
-          <nav className="community-breadcrumb" aria-label="Breadcrumb">
-            {breadcrumbItems.map((item, index) => (
-              <span key={item.label} className="breadcrumb-item">
-                {item.clickable ? (
-                  <button
-                    type="button"
-                    className="breadcrumb-link"
-                    onClick={() => navigate(item.to)}
-                  >
-                    {item.label}
-                  </button>
-                ) : (
-                  <span className="breadcrumb-current">{item.label}</span>
-                )}
-                {index < breadcrumbItems.length - 1 && (
-                  <span className="breadcrumb-separator">›</span>
-                )}
-              </span>
-            ))}
-          </nav>
-        </div>
-        {activeTab !== 'mothers' && (
-          <button className="btn-create-action" onClick={openCreateModal}>
-            <PlusIcon />
-            <span>
-              {activeTab === 'communities'
-                ? 'Create School'
-                : activeTab === 'groups'
-                ? 'Create Group'
-                : 'Create Batch'}
-            </span>
-          </button>
-        )}
-      </header>
+      <CommunityToolbar
+        activeTab={activeTab}
+        query={query}
+        onSearch={handleSearch}
+        onTabChange={handleTabChange}
+        onCreate={openCreateModal}
+        breadcrumbItems={breadcrumbItems}
+        navigate={navigate}
+      />
 
-      <section className="tabs-row">
-        <div className="tabs-list" role="tablist" aria-label="School sections">
-          <button
-            role="tab"
-            aria-selected={activeTab === 'communities'}
-            className={`tab-btn${activeTab === 'communities' ? ' active' : ''}`}
-            onClick={() => handleTabChange('communities')}
-          >
-            <BuildingIcon />
-            <span>Schools</span>
-          </button>
-          <button
-            role="tab"
-            aria-selected={activeTab === 'groups'}
-            className={`tab-btn${activeTab === 'groups' ? ' active' : ''}`}
-            onClick={() => handleTabChange('groups')}
-          >
-            <GroupsIcon />
-            <span>Groups</span>
-          </button>
-          <button
-            role="tab"
-            aria-selected={activeTab === 'batches'}
-            className={`tab-btn${activeTab === 'batches' ? ' active' : ''}`}
-            onClick={() => handleTabChange('batches')}
-          >
-            <BatchesIcon />
-            <span>Batches</span>
-          </button>
-        </div>
-
-        <div className="search-container">
-          <div className="search-field-container">
-            <SearchIcon />
-            <input
-              id="community-search"
-              name="communitySearch"
-              type="text"
-              className="search-input-field"
-              placeholder={
-                activeTab === 'communities'
-                  ? 'Search school name...'
-                  : activeTab === 'groups'
-                  ? 'Search group name...'
-                  : activeTab === 'mothers'
-                  ? 'Search mother name...'
-                  : 'Search batch name...'
-              }
-              value={query}
-              onChange={(e) => handleSearch(e.target.value)}
-              aria-label="Search items"
-            />
-          </div>
-        </div>
-      </section>
+      <CommunityFilters
+        activeTab={activeTab}
+        query={query}
+        onClearQuery={() => setQuery('')}
+      />
 
       <CommunityTable
         activeTab={activeTab}
         currentRows={displayRows}
         groups={groups}
-        filteredDataLength={displayLength}
-        rangeStart={displayRangeStart}
-        rangeEnd={displayRangeEnd}
-        perPage={perPage}
-        handlePerPageChange={handlePerPageChange}
         activeDropdownId={activeDropdownId}
         toggleDropdown={toggleDropdown}
         openEditModal={openEditModal}
         handleDeleteCommunity={handleDeleteCommunity}
         handleDeleteGroup={handleDeleteGroup}
         handleDeleteBatch={handleDeleteBatch}
-        renderPaginationButtons={renderPaginationButtons}
         onCommunityRowClick={activeTab === 'communities' ? handleCommunityRowClick : activeTab === 'groups' ? handleGroupRowClick : activeTab === 'batches' ? handleBatchRowClick : undefined}
         onMotherRowClick={activeTab === 'mothers' ? handleMotherRowClick : undefined}
+      />
+      <CommunityPagination
+        currentPage={currentPage}
+        pageCount={pageCount}
+        onPageChange={setPage}
+        perPage={perPage}
+        onPerPageChange={handlePerPageChange}
+        rangeStart={displayRangeStart}
+        rangeEnd={displayRangeEnd}
+        totalItems={displayLength}
       />
       <CreateCommunityModal
         showModal={showModal === 'createCommunity'}

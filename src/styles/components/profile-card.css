@@ -181,6 +181,7 @@
 .chip.neutral { background: #eef2f7; color: #475569; }
 .chip.search-chip { background: #eef8f7; color: #17645f; }
 .chip.advanced { background: #fff7e8; color: #8a5a00; }
+.chip.analysis-chip { background: #f0ebff; color: #5b3aa5; }
 .chip small {
   font-size: 0.62rem;
   font-weight: 800;
@@ -320,6 +321,28 @@
 .graph-bar-row > div { height: 16px; overflow: hidden; border-radius: 999px; background: #e2e8f0; }
 .graph-bar-row i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #3fb5a0, #42c0b2); }
 .graph-bar-row strong { text-align: right; color: #334155; }
+.comparison-dashboard { margin-top: 1rem; padding: 1rem; border: 1px solid #dfeef0; border-radius: 10px; background: #f8fcfc; }
+.comparison-dashboard-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+.comparison-dashboard-heading h2 { margin: 0; color: #173e42; font-size: 1.05rem; }
+.comparison-dashboard-heading p { margin: 0.3rem 0 0; color: #64748b; font-size: 0.8rem; }
+.analysis-badge { padding: 0.35rem 0.6rem; border-radius: 999px; background: #e5f5f2; color: #17645f; font-size: 0.7rem; font-weight: 800; }
+.comparison-cohorts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8rem; }
+.comparison-cohort { padding: 1rem; border: 1px solid #e1ecec; border-radius: 8px; background: #fff; }
+.comparison-cohort h3 { margin: 0; color: #334155; font-size: 0.9rem; }
+.comparison-cohort > strong { display: block; margin-top: 0.7rem; color: #7d1e2e; font-size: 1.8rem; }
+.comparison-cohort > span { color: #64748b; font-size: 0.78rem; }
+.distribution-chart { display: grid; gap: 0.45rem; margin: 1rem 0; }
+.distribution-row { display: grid; grid-template-columns: 82px 1fr 20px; align-items: center; gap: 0.4rem; color: #64748b; font-size: 0.7rem; }
+.distribution-row > div { height: 8px; overflow: hidden; border-radius: 999px; background: #e2e8f0; }
+.distribution-row i { display: block; height: 100%; border-radius: inherit; background: #42b8a7; }
+.distribution-row b { color: #334155; text-align: right; }
+.drilldown-btn { border: 0; padding: 0; background: transparent; color: #7d1e2e; font: inherit; font-size: 0.76rem; font-weight: 800; cursor: pointer; }
+.drilldown-list { display: grid; gap: 0.45rem; }
+.drilldown-list > div { display: grid; grid-template-columns: 1fr auto; gap: 0.2rem 0.6rem; padding: 0.65rem 0.7rem; border: 1px solid #e5edf3; border-radius: 7px; }
+.drilldown-list strong { color: #334155; font-size: 0.82rem; }
+.drilldown-list span, .drilldown-list small { color: #64748b; font-size: 0.74rem; }
+.drilldown-list small { grid-column: 1 / -1; }
+.history-delta { color: #17645f !important; font-weight: 700; }
 .history-btn { margin-right: 0.4rem; border: 0; background: transparent; color: #7d1e2e; font: inherit; font-size: 0.75rem; font-weight: 700; cursor: pointer; }
 .comparison-result { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin: 1rem; padding: 0.8rem 0.9rem; border: 1px solid #dfeef0; border-radius: 8px; background: #f4fbfa; color: #234e52; font-size: 0.82rem; }
 .comparison-result strong { color: #173e42; }
@@ -416,6 +439,7 @@
   .progress-report-context-selectors select { flex: 1 1 140px; }
   .progress-report-table-wrap { overflow-x: auto; }
   .progress-report-table { min-width: 760px; }
+  .comparison-cohorts { grid-template-columns: 1fr; }
 }
 
 .program-intro { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.25rem 1.5rem; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; }

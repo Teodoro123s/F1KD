@@ -48,8 +48,13 @@ export async function apiGetChild(idOrCode) {
   return handleResponse(res, 'Failed to fetch child');
 }
 
-export async function apiGetChildren() {
-  const res = await fetch(`${API_BASE}/api/children`, {
+export async function apiGetChildren(fields = []) {
+  const params = new URLSearchParams();
+  if (Array.isArray(fields) && fields.length) {
+    params.set('fields', fields.join(','));
+  }
+  const queryString = params.toString() ? `?${params.toString()}` : '';
+  const res = await fetch(`${API_BASE}/api/children${queryString}`, {
     headers: { 'Content-Type': 'application/json' },
     credentials: 'same-origin',
   });

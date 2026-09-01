@@ -54,9 +54,21 @@ router.post('/:id/documents', documentUpload.single('birthDocument'), async (req
   }
 });
 
+const CHILD_ALLOWED_FIELDS = new Set([
+  'id', 'child_code', 'name', 'dob', 'age', 'community', 'group', 'batch', 'programType', 'status', 'risk', 'pediatricWeek', 'zScore', 'nutritionalStatus', 'feedingType', 'exclusiveBreastfeeding', 'bcgDate', 'opvDate', 'dptDate', 'assessment', 'progress', 'trend', 'source', 'checkups', 'medicalConditions', 'completedWeeks'
+]);
+
+function sanitizeFieldSelection(fields = []) {
+  const selected = Array.isArray(fields) ? fields : String(fields || '').split(',').map((value) => value.trim()).filter(Boolean);
+  const requiredFields = new Set(['id', 'child_code', 'name', 'community', 'group', 'batch', 'progress', 'trimester', 'assessment', 'trend', 'risk', 'source']);
+  const allowed = [...new Set(selected.filter((field) => CHILD_ALLOWED_FIELDS.has(field)).concat([...requiredFields]))];
+  return allowed;
+}
+
 // GET /api/children - list children with their monitoring progress
 router.get('/', async (req, res) => {
   try {
+    const requestedFields = sanitizeFieldSelection(req.query.fields);
     const [rows] = await pool.query(
       `SELECT c.*, m.first_name AS mother_first_name, m.last_name AS mother_last_name,
         m.mother_code, comm.name AS community_name, g.group_name, b.name AS batch_name
@@ -67,7 +79,16 @@ router.get('/', async (req, res) => {
        LEFT JOIN batches b ON b.id = c.batch_id
        ORDER BY c.created_at DESC, c.id DESC`
     );
-    const children = await Promise.all(rows.map(attachMonitoringData));
+
+    const children = await Promise.all(rows.map(async (row) => {
+      const hydrated = await attachMonitoringData(row);
+      if (!requestedFields.length || requestedFields.includes('*')) return hydrated;
+      const subset = {};
+      for (const field of requestedFields) {
+        if (field in hydrated) subset[field] = hydrated[field];
+      }
+      return subset;
+    }));
     res.json({ children });
   } catch (err) {
     console.error('Failed to fetch children', err);

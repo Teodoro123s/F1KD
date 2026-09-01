@@ -5,18 +5,12 @@ export default function CommunityTable({
   activeTab,
   currentRows,
   groups,
-  filteredDataLength,
-  rangeStart,
-  rangeEnd,
-  perPage,
-  handlePerPageChange,
   activeDropdownId,
   toggleDropdown,
   openEditModal,
   handleDeleteCommunity,
   handleDeleteGroup,
   handleDeleteBatch,
-  renderPaginationButtons,
   onCommunityRowClick,
   onMotherRowClick,
 }) {
@@ -184,28 +178,6 @@ export default function CommunityTable({
         </table>
       </div>
 
-      <footer className="pagination-container">
-        <div className="pagination-left" aria-label="Pagination navigation">
-          {renderPaginationButtons()}
-        </div>
-        <div className="pagination-center">
-          <span>Show</span>
-          <select
-            value={perPage}
-            onChange={(e) => handlePerPageChange(e.target.value)}
-            className="select-entries"
-            aria-label="Entries per page"
-          >
-            <option value={10}>10</option>
-            <option value={20}>20</option>
-            <option value={50}>50</option>
-          </select>
-          <span>entries</span>
-        </div>
-        <div className="pagination-right" role="status" aria-live="polite">
-          {rangeStart}–{rangeEnd} of {filteredDataLength}
-        </div>
-      </footer>
     </section>
   );
 }

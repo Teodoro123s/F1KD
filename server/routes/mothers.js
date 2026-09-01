@@ -193,8 +193,22 @@ router.post('/:id/documents', documentUpload.fields([
   }
 });
 
+const MOTHER_ALLOWED_FIELDS = new Set([
+  'id', 'motherId', 'name', 'firstName', 'middleName', 'lastName', 'dob', 'age', 'phone', 'contactNumber', 'community', 'group', 'batch', 'programType', 'status', 'risk', 'trimester', 'gestationalAge', 'lmpDate', 'eddDate', 'prenatalRegDate', 'prenatalWeight', 'prenatalBp', 'prenatalHeight', 'fundalHeight', 'fhr', 'weight', 'height', 'bmi', 'gravida', 'para', 'abortion', 'stillbirth', 'emergencyName', 'emergencyContact', 'emergencyRelationship', 'spouseName', 'medicalConditions', 'otherMedicalHistory', 'tt1Date', 'tt2Date', 'tt3Date', 'tt4Date', 'tt5Date', 'dentalCheckupDate', 'dentalFacility', 'dentalFindings', 'dentalRemarks', 'birthCertificateDocumentName', 'consentDocumentName', 'assessment', 'progress', 'trend', 'createdAt', 'vaccines', 'oralHealth', 'programs', 'documents', 'checkups', 'source'
+]);
+
+function getRequestedMotherFields(req) {
+  const raw = req.query && req.query.fields;
+  const selected = Array.isArray(raw) ? raw.flatMap((item) => String(item).split(',')) : String(raw || '').split(',');
+  const fields = selected.map((field) => field.trim()).filter(Boolean);
+  const allowed = fields.filter((field) => MOTHER_ALLOWED_FIELDS.has(field));
+  const required = new Set(['id', 'motherId', 'name', 'community', 'group', 'batch', 'trimester', 'progress', 'risk', 'bmi', 'checkups', 'source']);
+  return [...new Set([...allowed, ...required])];
+}
+
 router.get('/', async (req, res) => {
   try {
+    const requestedFields = getRequestedMotherFields(req);
     const [rows] = await pool.query(`
       SELECT m.*,
         g.group_name,
@@ -246,17 +260,22 @@ router.get('/', async (req, res) => {
       };
     }
 
-    res.json({
-      mothers: rows.map((r) => {
-        const m = mapMother(r);
-        m.checkups = checkupsByMotherId[r.id] || [
-          [null, null, null],
-          [null, null, null],
-          [null, null, null]
-        ];
-        return m;
-      })
+    const mothers = rows.map((r) => {
+      const m = mapMother(r);
+      m.checkups = checkupsByMotherId[r.id] || [
+        [null, null, null],
+        [null, null, null],
+        [null, null, null]
+      ];
+      if (!requestedFields.length || requestedFields.includes('*')) return m;
+      const subset = {};
+      for (const field of requestedFields) {
+        if (field in m) subset[field] = m[field];
+      }
+      return subset;
     });
+
+    res.json({ mothers });
   } catch (error) {
     console.error('[Mothers API] GET / error:', error.message);
     res.status(500).json({ error: 'db error' });
