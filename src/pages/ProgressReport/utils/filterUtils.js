@@ -72,20 +72,21 @@ export const parseQuery = (search, searchFilterRules) => {
 export const filterRows = (rows, context, parsedQuery, searchFilterRules, hasValueFn) => {
   const { school, group, batch } = context;
   const { filters: searchFilters, remainingQuery } = parsedQuery;
-  const query = remainingQuery.toLowerCase();
+  const query = String(remainingQuery || '').trim().toLowerCase();
+
+  const normalizeText = (value) => String(value ?? '').trim().toLowerCase();
+  const matchesText = (value) => normalizeText(value).includes(query);
 
   return rows.filter((row) => {
     const textMatch =
       !query ||
       [row.name, row.id, row.trimester, row.school, row.community, row.group, row.batch]
-        .join(' ')
-        .toLowerCase()
-        .includes(query);
+        .some((value) => matchesText(value));
 
     const scopeMatch =
-      (school === 'All Schools' || row.school === school || row.community === school) &&
-      (group === 'All Groups' || row.group === group) &&
-      (batch === 'All Batches' || row.batch === batch);
+      (school === 'All Schools' || normalizeText(row.school) === normalizeText(school) || normalizeText(row.community) === normalizeText(school)) &&
+      (group === 'All Groups' || normalizeText(row.group) === normalizeText(group)) &&
+      (batch === 'All Batches' || normalizeText(row.batch) === normalizeText(batch));
 
     const parsedMatch = searchFilters.every((filter) => {
       if (filter.ruleId === 'risk') return Boolean(row.risk);
@@ -136,17 +137,22 @@ export const countActiveFilters = (context, searchFilters, beneficiaryType) => {
  * Extract unique dropdown options from rows
  */
 export const extractOptions = (rows, context) => {
-  const schoolOptions = ['All Schools', ...new Set(rows.map((row) => row.school || row.community).filter(Boolean))];
+  const toDisplayValue = (value) => String(value ?? '').trim();
+  const dedupeValues = (values) => [...new Set(values.map(toDisplayValue).filter(Boolean).map((value) => value.trim()))];
+
+  const schoolOptions = ['All Schools', ...dedupeValues(rows.map((row) => row.school || row.community))];
 
   const schoolRows =
     context.school === 'All Schools'
       ? rows
-      : rows.filter((row) => (row.school || row.community) === context.school);
-  const groupOptions = ['All Groups', ...new Set(schoolRows.map((row) => row.group).filter(Boolean))];
+      : rows.filter((row) => String(row.school ?? row.community ?? '').trim().toLowerCase() === String(context.school ?? '').trim().toLowerCase());
+  const groupOptions = ['All Groups', ...dedupeValues(schoolRows.map((row) => row.group))];
 
   const groupRows =
-    context.group === 'All Groups' ? schoolRows : schoolRows.filter((row) => row.group === context.group);
-  const batchOptions = ['All Batches', ...new Set(groupRows.map((row) => row.batch).filter(Boolean))];
+    context.group === 'All Groups'
+      ? schoolRows
+      : schoolRows.filter((row) => String(row.group ?? '').trim().toLowerCase() === String(context.group ?? '').trim().toLowerCase());
+  const batchOptions = ['All Batches', ...dedupeValues(groupRows.map((row) => row.batch))];
 
   return { schoolOptions, groupOptions, batchOptions };
 };
@@ -155,10 +161,14 @@ export const extractOptions = (rows, context) => {
  * Validate that current dropdown values still exist in available options
  */
 export const validateAndNormalizeContext = (context, options) => {
+  const normalize = (value) => String(value ?? '').trim().toLowerCase();
+  const includeInsensitive = (choices, value) =>
+    choices.some((option) => normalize(option) === normalize(value));
+
   return {
-    school: options.schoolOptions.includes(context.school) ? context.school : 'All Schools',
-    group: options.groupOptions.includes(context.group) ? context.group : 'All Groups',
-    batch: options.batchOptions.includes(context.batch) ? context.batch : 'All Batches',
+    school: includeInsensitive(options.schoolOptions, context.school) ? context.school : 'All Schools',
+    group: includeInsensitive(options.groupOptions, context.group) ? context.group : 'All Groups',
+    batch: includeInsensitive(options.batchOptions, context.batch) ? context.batch : 'All Batches',
   };
 };
 
