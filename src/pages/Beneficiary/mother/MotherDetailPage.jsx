@@ -146,15 +146,8 @@ export default function MotherDetailPage({ selectedMother, onClose }) {
         <div className="mother-detail-actions">
           <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/mother/${motherId}/edit`, { state: { mother: selectedMother } })}>Edit</button>
           <button type="button" className="btn-secondary" onClick={() => {
-            if (children.length === 1) {
-              const only = children[0];
-              navigate(`/beneficiary/child/${only.id}`, { state: { mother: selectedMother, child: only, returnTo: `/beneficiary/mother/${motherId}` } });
-            } else if (children.length === 0) {
-              navigate('/beneficiary/create/child', { state: { mother: selectedMother, returnTo: `/beneficiary/mother/${motherId}` } });
-            } else {
-              navigate(`/beneficiary/mother/${motherId}/child`, { state: { mother: selectedMother, children, returnTo: `/beneficiary/mother/${motherId}` } });
-            }
-          }}>{children.length === 1 ? 'See Child' : children.length === 0 ? 'Create Child' : 'See Children'}</button>
+            navigate(`/beneficiary/mother/${motherId}/child`, { state: { mother: selectedMother, children, returnTo: `/beneficiary/mother/${motherId}` } });
+          }}>View Children</button>
           <button type="button" className="btn-primary" onClick={() => navigate('/monitoring', { state: { mother: selectedMother, returnTo: `/beneficiary/mother/${motherId}` } })}>Monitor</button>
           <button type="button" className="btn-close-profile-custom" onClick={onClose} aria-label="Close mother profile">Close</button>
         </div>

@@ -55,12 +55,12 @@ router.post('/:id/documents', documentUpload.single('birthDocument'), async (req
 });
 
 const CHILD_ALLOWED_FIELDS = new Set([
-  'id', 'child_code', 'name', 'dob', 'age', 'community', 'group', 'batch', 'programType', 'status', 'risk', 'pediatricWeek', 'zScore', 'nutritionalStatus', 'feedingType', 'exclusiveBreastfeeding', 'bcgDate', 'opvDate', 'dptDate', 'assessment', 'progress', 'trend', 'source', 'checkups', 'medicalConditions', 'completedWeeks'
+  'id', 'child_code', 'mother_id', 'first_name', 'middle_name', 'last_name', 'suffix', 'birth_date', 'birth_document_path', 'community_name', 'group_name', 'batch_name', 'name', 'dob', 'age', 'community', 'group', 'batch', 'programType', 'status', 'risk', 'pediatricWeek', 'zScore', 'nutritionalStatus', 'feedingType', 'exclusiveBreastfeeding', 'bcgDate', 'opvDate', 'dptDate', 'assessment', 'progress', 'trend', 'source', 'checkups', 'medicalConditions', 'completedWeeks'
 ]);
 
 function sanitizeFieldSelection(fields = []) {
   const selected = Array.isArray(fields) ? fields : String(fields || '').split(',').map((value) => value.trim()).filter(Boolean);
-  const requiredFields = new Set(['id', 'child_code', 'name', 'community', 'group', 'batch', 'progress', 'trimester', 'assessment', 'trend', 'risk', 'source']);
+  const requiredFields = new Set(['id', 'child_code', 'mother_id', 'first_name', 'middle_name', 'last_name', 'suffix', 'birth_date', 'birth_document_path', 'community_name', 'group_name', 'batch_name', 'name', 'community', 'group', 'batch', 'progress', 'trimester', 'assessment', 'trend', 'risk', 'source']);
   const allowed = [...new Set(selected.filter((field) => CHILD_ALLOWED_FIELDS.has(field)).concat([...requiredFields]))];
   return allowed;
 }

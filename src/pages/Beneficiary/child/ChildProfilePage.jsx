@@ -253,7 +253,10 @@ export default function ChildProfilePage() {
           <div className="mother-detail-meta">{selectedChild.child_code || selectedChild.id || 'Child ID'} • {selectedChild.community || selectedChild.batch || 'Community / Batch'}</div>
         </div>
         <div className="mother-detail-actions">
-              <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/child/${selectedChild.id}/edit`, { state: { child: selectedChild, mother: resolvedMother, returnTo } })}>Edit</button>
+          {resolvedMother && (
+            <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/mother/${resolvedMother.id || resolvedMother.motherId}`, { state: { mother: resolvedMother } })}>Open Mother Profile</button>
+          )}
+          <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/child/${selectedChild.id}/edit`, { state: { child: selectedChild, mother: resolvedMother, returnTo } })}>Edit</button>
           <button type="button" className="btn-secondary" onClick={() => {
             const mid = resolvedMother?.motherId || resolvedMother?.id || selectedChild.mother_id || selectedChild.motherId || '';
             const stateMother = resolvedMother || (mid ? { id: mid, name: selectedChild.mother_first_name ? `${selectedChild.mother_first_name} ${selectedChild.mother_last_name || ''}`.trim() : undefined } : null);
@@ -323,15 +326,6 @@ export default function ChildProfilePage() {
       <header className="community-header">
         <div className="community-title-section">
           <h1>Child Profile</h1>
-          <div style={{ marginTop: 4 }}>
-            <div style={{ fontSize: '0.95rem', color: '#64748b' }}>{resolvedMother ? `Child of ${resolvedMother.name || resolvedMother.firstName || resolvedMother.motherName}` : `Child ID: ${childId || 'n/a'}`}</div>
-            <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: 6 }}>
-              {resolvedMother ? (`Mother: ${resolvedMother.name || resolvedMother.motherName || `${resolvedMother.firstName || ''} ${resolvedMother.lastName || ''}`.trim()} • ${resolvedMother.motherId || resolvedMother.id || ''}`) : (selectedChild ? (`Mother ID: ${selectedChild.mother_id || selectedChild.motherId || '—'}`) : '')}
-            </div>
-            <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: 2 }}>
-              {selectedChild ? (`Father: ${selectedChild.fatherName || selectedChild.father_name || '—'} • Relationship: ${selectedChild.relationship || '—'}`) : ''}
-            </div>
-          </div>
         </div>
         <div>
           <button className="btn-secondary" onClick={() => {

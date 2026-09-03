@@ -4,6 +4,17 @@ import { calculateGestationalDetails, getInitialCheckups } from '../../../utils/
 import { useMothers } from '../../../context/MothersContext';
 import { apiCreateMother } from '../../../api/mothers';
 
+const MOTHER_DRAFT_KEY = 'f1kd.create-mother.draft';
+
+const loadMotherDraft = (fallback) => {
+  try {
+    const savedDraft = JSON.parse(localStorage.getItem(MOTHER_DRAFT_KEY) || 'null');
+    return savedDraft?.form ? { ...fallback, ...savedDraft.form } : fallback;
+  } catch (error) {
+    return fallback;
+  }
+};
+
 const emptyCommunityForm = (communities = []) => ({
   firstName: '',
   middleName: '',
@@ -22,6 +33,8 @@ const emptyCommunityForm = (communities = []) => ({
   emergencyContact: '',
   emergencyRelationship: '',
   spouseName: '',
+  spouseFirstName: '',
+  spouseSurname: '',
   address: '',
   prenatalRegDate: '',
   trimester: '1st Trimester',
@@ -95,14 +108,24 @@ export default function CreateMotherPage({
 }) {
   const { mothers, setMothers } = useMothers();
   const effectiveCommunities = communities && communities.length ? communities : mothers;
-  const [communityForm, setCommunityForm] = useState(() => emptyCommunityForm(effectiveCommunities));
-  const [createActiveTab, setCreateActiveTab] = useState('general');
+  const [communityForm, setCommunityForm] = useState(() => loadMotherDraft(emptyCommunityForm(effectiveCommunities)));
+  const [createActiveTab, setCreateActiveTab] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(MOTHER_DRAFT_KEY) || 'null')?.activeTab || 'general'; } catch (error) { return 'general'; }
+  });
   const CREATE_STEPS = ['general', 'prenatal', 'medical_dental', 'vaccine'];
   const createActiveIndex = CREATE_STEPS.indexOf(createActiveTab) >= 0 ? CREATE_STEPS.indexOf(createActiveTab) : 0;
 
   useEffect(() => {
     setCommunityForm((prev) => ({ ...prev, community: prev.community || communities[0]?.name || '' }));
   }, [communities]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(MOTHER_DRAFT_KEY, JSON.stringify({ form: communityForm, activeTab: createActiveTab }));
+    } catch (error) {
+      console.warn('[CreateMotherPage] Unable to save form draft:', error);
+    }
+  }, [communityForm, createActiveTab]);
 
   const handleCreateCommunity = async (e) => {
     e.preventDefault();
@@ -160,7 +183,7 @@ export default function CreateMotherPage({
       emergencyName: communityForm.emergencyName,
       emergencyContact: communityForm.emergencyContact,
       emergencyRelationship: communityForm.emergencyRelationship,
-      spouseName: communityForm.spouseName,
+      spouseName: `${communityForm.spouseFirstName} ${communityForm.spouseSurname}`.trim(),
       medicalConditions: communityForm.medicalConditions,
       otherMedicalHistory: communityForm.otherMedicalHistory,
       dentalCheckupDate: communityForm.dentalCheckupDate,
@@ -191,7 +214,7 @@ export default function CreateMotherPage({
       emergencyName: communityForm.emergencyName,
       emergencyContact: communityForm.emergencyContact,
       emergencyRelationship: communityForm.emergencyRelationship,
-      spouseName: communityForm.spouseName,
+      spouseName: `${communityForm.spouseFirstName} ${communityForm.spouseSurname}`.trim(),
       address: communityForm.address,
       prenatalRegDate: communityForm.prenatalRegDate,
       trimester: resolvedTrimester,
@@ -240,6 +263,7 @@ export default function CreateMotherPage({
       if (typeof setMothers === 'function') {
         setMothers((prev) => [{ ...newCommunity, ...mother }, ...prev]);
       }
+      localStorage.removeItem(MOTHER_DRAFT_KEY);
       navigate('/beneficiary');
     } catch (error) {
       console.error('[CreateMotherPage] Failed to create mother:', error);
@@ -294,7 +318,7 @@ export default function CreateMotherPage({
           </div>
 
           <div className="modal-footer">
-            <button type="button" className="btn-secondary" onClick={() => navigate('/beneficiary')}>Cancel</button>
+            <button type="button" className="btn-secondary" onClick={() => { localStorage.removeItem(MOTHER_DRAFT_KEY); navigate('/beneficiary'); }}>Cancel</button>
             {createActiveTab !== 'general' && (
               <button type="button" className="btn-secondary btn-back" onClick={() => {
                 if (createActiveTab === 'vaccine') setCreateActiveTab('medical_dental');

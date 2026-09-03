@@ -8,7 +8,7 @@ import { AuthProvider } from './auth/AuthProvider';
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <BrowserRouter future={{ v7_relativeSplatPath: true }}>
+    <BrowserRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
         <React.Suspense fallback={null}>
           <AuthProvider>
             <App />

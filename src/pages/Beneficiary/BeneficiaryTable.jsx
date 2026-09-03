@@ -35,8 +35,8 @@ export default function BeneficiaryTable({
 
   const getChildProfileProgress = (child) => Math.round([
     child?.mother_id || child?.motherId,
-    child?.first_name || child?.firstName,
-    child?.last_name || child?.lastName,
+    child?.name || child?.first_name || child?.firstName,
+    child?.birth_date || child?.birthDate,
     child?.birthDocumentPath || child?.birth_document_path,
   ].filter(Boolean).length * 25);
 
@@ -75,12 +75,12 @@ export default function BeneficiaryTable({
                 const area = motherObj?.area || row.original?.area || 'Unknown area';
                 
                 // Lookup batch name
-                const batchId = row.assignedBatchIds?.[0];
+                const batchId = row.assignedBatchIds?.[0] || row.original?.batch_id || row.original?.batchId;
                 const batchObj = batches.find((b) => b.id === batchId);
                 const batchName = batchObj?.name || row.original?.batch_name || 'Unknown batch';
 
                 const motherBreadcrumb = `${area} > ${row.name} > ${batchName}`;
-                const childGroup = row.original?.group_name || 'Group not assigned';
+                const childGroup = row.original?.group_name || row.original?.group || 'Group not assigned';
                 const childBreadcrumb = `${childGroup} > ${batchName}`;
 
                 if (entityFilter === 'Mother') {

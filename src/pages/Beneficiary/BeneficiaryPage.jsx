@@ -69,7 +69,14 @@ export default function BeneficiaryPage() {
       return;
     }
     if (location.pathname.startsWith('/beneficiary/mother/') && navMother) {
-      setSelectedMother(navMother);
+      apiGetChildrenByMother(navMother.raw?.id || navMother.original?.raw?.id || navMother.id || navMother.motherId)
+        .then((childrenResponse) => {
+          setSelectedMother({ ...navMother, children: childrenResponse?.children || [] });
+        })
+        .catch((error) => {
+          console.error('[BeneficiaryPage] Unable to refresh mother children:', error);
+          setSelectedMother(navMother);
+        });
       return;
     }
     if (location.pathname.startsWith('/beneficiary/mother/') && motherRouteId) {

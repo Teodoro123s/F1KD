@@ -63,9 +63,10 @@ export function MotherFormFields({
   };
 
   // Helpers to reduce repetitive form markup and support read-only display
-  const renderField = ({ id, label, name, type = 'text', placeholder = '', required = false }) => {
-    const value = form[name] ?? '';
+  const renderField = ({ id, label, name, type = 'text', placeholder = '', required = false, valueOverride, onChange, nativeDate = false, maxDate }) => {
+    const value = valueOverride ?? form[name] ?? '';
     const isDate = type === 'date';
+    const isNumeric = type === 'tel';
     if (readOnly) {
       return (
         <div className="form-group">
@@ -80,21 +81,31 @@ export function MotherFormFields({
         <label className="form-label" htmlFor={id}>{label}</label>
         <input
           id={id}
-          type={isDate ? 'text' : type}
+          type={nativeDate ? 'date' : isDate ? 'text' : type}
           className="form-input"
-          placeholder={isDate ? 'yyyy/mm/dd' : placeholder}
-          value={isDate ? formatDateForInput(value).replaceAll('-', '/') : value}
-          onChange={(e) => setForm((prev) => ({
-            ...prev,
-            [name]: isDate ? e.target.value.replace(/[^0-9/]/g, '').replaceAll('/', '-').replace(/^(\d{4})-(\d{2})-(\d{2}).*$/, '$1-$2-$3') : e.target.value,
-          }))}
+          placeholder={nativeDate ? undefined : isDate ? 'yyyy/mm/dd' : placeholder}
+          value={isDate ? formatDateForInput(value) : value}
+          onChange={(e) => {
+            const nextValue = isDate
+              ? nativeDate ? e.target.value : e.target.value.replace(/[^0-9/]/g, '').replaceAll('/', '-').replace(/^(\d{4})-(\d{2})-(\d{2}).*$/, '$1-$2-$3')
+              : isNumeric ? e.target.value.replace(/\D/g, '') : e.target.value;
+            if (onChange) {
+              onChange(nextValue);
+              return;
+            }
+            setForm((prev) => ({ ...prev, [name]: nextValue }));
+          }}
+          inputMode={isNumeric ? 'numeric' : undefined}
+          pattern={isNumeric ? '[0-9]*' : undefined}
+          max={maxDate}
+          autoComplete={nativeDate ? 'off' : undefined}
           required={required}
         />
       </div>
     );
   };
 
-  const renderSelect = ({ id, label, name, options = [], placeholder = '', required = false }) => {
+  const renderSelect = ({ id, label, name, options = [], placeholder = '', required = false, onChange }) => {
     const value = form[name] ?? '';
     if (readOnly) {
       return (
@@ -112,9 +123,15 @@ export function MotherFormFields({
           id={id}
           className="form-select"
           value={value}
-          onChange={(e) => setForm((prev) => name === 'community'
-            ? { ...prev, community: e.target.value, groupId: '', batchId: '', group: '', batch: '' }
-            : { ...prev, [name]: e.target.value })}
+          onChange={(e) => {
+            if (onChange) {
+              onChange(e.target.value);
+              return;
+            }
+            setForm((prev) => name === 'community'
+              ? { ...prev, community: e.target.value, groupId: '', batchId: '', group: '', batch: '' }
+              : { ...prev, [name]: e.target.value });
+          }}
           required={required}
         >
           {placeholder && <option value="">{placeholder}</option>}
@@ -153,6 +170,10 @@ export function MotherFormFields({
   };
 
   if (activeTab === 'general') {
+    const spouseNameParts = String(form.spouseName || '').trim().split(/\s+/).filter(Boolean);
+    const spouseFirstName = form.spouseFirstName ?? (spouseNameParts.length > 1 ? spouseNameParts.slice(0, -1).join(' ') : spouseNameParts[0] || '');
+    const spouseSurname = form.spouseSurname ?? (spouseNameParts.length > 1 ? spouseNameParts[spouseNameParts.length - 1] : '');
+
     return (
       <>
         <h4 className="form-section-title">I.A Mother's Information</h4>
@@ -163,9 +184,8 @@ export function MotherFormFields({
           {renderField({ id: 'mother-suffix', label: "Suffix", name: 'suffix', placeholder: 'Suffix' })}
         </div>
 
-        <div className="form-row-3 full-width">
-          {renderField({ id: 'mother-id', label: "Mother ID", name: 'motherId', placeholder: "Enter mother's ID" })}
-          {renderField({ id: 'mother-dob', label: "Date of Birth", name: 'dob', type: 'date', required: true })}
+        <div className="form-row-2 full-width">
+          {renderField({ id: 'mother-dob', label: "Date of Birth", name: 'dob', type: 'date', required: true, nativeDate: true, maxDate: new Date().toISOString().split('T')[0] })}
           {renderField({ id: 'mother-contact', label: "Contact Number", name: 'contactNumber', type: 'tel', placeholder: '0917******' })}
         </div>
 
@@ -177,54 +197,63 @@ export function MotherFormFields({
               <label className="form-label" htmlFor="mother-lmp">Date of LMP</label>
               <input
                 id="mother-lmp"
-                type="text"
+                type="date"
                 className="form-input"
-                placeholder="yyyy/mm/dd"
-                value={formatDateForInput(form.lmpDate).replaceAll('-', '/')}
-                onChange={(e) => handleLmpChange(e.target.value.replace(/[^0-9/]/g, '').replaceAll('/', '-').replace(/^(\d{4})-(\d{2})-(\d{2}).*$/, '$1-$2-$3'))}
+                value={formatDateForInput(form.lmpDate)}
+                onChange={(e) => handleLmpChange(e.target.value)}
+                max={new Date().toISOString().split('T')[0]}
+                autoComplete="off"
               />
             </div>
           )}
 
-          {renderField({ id: 'mother-edd', label: "Expected Delivery Date (EDD)", name: 'eddDate', type: 'date' })}
+          {renderField({ id: 'mother-edd', label: "Expected Delivery Date (EDD)", name: 'eddDate', type: 'date', nativeDate: true })}
           {renderField({ id: 'mother-weight', label: "Mother's Weight (kg)", name: 'weight', placeholder: 'e.g. 50 kg' })}
           {renderField({ id: 'mother-height', label: "Mother's Height (cm)", name: 'height', placeholder: 'e.g. 150 cm' })}
         </div>
 
         <div className="form-row-3 full-width">
-          {renderSelect({ id: 'mother-high-risk', label: 'Is High Risk?', name: 'isHighRisk', options: [{ value: 'No', label: 'No' }, { value: 'Yes', label: 'Yes' }] })}
-          {renderSelect({ id: 'mother-program', label: 'Program Type', name: 'programType', options: [
-            { value: 'Maternal Health Program', label: 'Maternal Health Program' },
-            { value: 'High Risk Maternal Support', label: 'High Risk Maternal Support' },
-            { value: 'New Mother Care', label: 'New Mother Care' },
-          ] })}
-          {renderSelect({ id: 'mother-area', label: 'Area', name: 'area', options: [
-            'Poblacion','Upland','Downtown','Coastal','Highland','Lowland','Riverside','Forest'
-          ] })}
+          {renderSelect({
+            id: 'mother-community',
+            label: 'School',
+            name: 'community',
+            options: uniqueCommunities,
+            placeholder: 'Select school',
+            required: true,
+          })}
+          {renderSelect({
+            id: 'mother-group',
+            label: 'Group',
+            name: 'groupId',
+            options: selectedGroups.map((group) => ({ value: group.id, label: group.name })),
+            placeholder: 'Select group',
+            onChange: (value) => {
+              const selectedGroup = groups.find((group) => String(group.id) === String(value));
+              setForm((prev) => ({
+                ...prev,
+                groupId: value,
+                group: selectedGroup?.name || '',
+                batchId: '',
+                batch: '',
+              }));
+            },
+          })}
+          {renderSelect({
+            id: 'mother-batch',
+            label: 'Batch',
+            name: 'batchId',
+            options: selectedBatches.map((batch) => ({ value: batch.databaseId ?? batch.id, label: batch.name })),
+            placeholder: 'Select batch',
+            onChange: (value) => {
+              const selectedBatch = batches.find((batch) => String(batch.databaseId ?? batch.id) === String(value));
+              setForm((prev) => ({
+                ...prev,
+                batchId: value,
+                batch: selectedBatch?.name || '',
+              }));
+            },
+          })}
         </div>
-
-        {renderSelect({
-          id: 'mother-community',
-          label: 'School',
-          name: 'community',
-          options: uniqueCommunities,
-          placeholder: 'Select school',
-          required: true,
-        })}
-        {renderSelect({
-          id: 'mother-group',
-          label: 'Group',
-          name: 'groupId',
-          options: selectedGroups.map((group) => ({ value: group.id, label: group.name })),
-          placeholder: 'Select group',
-        })}
-        {renderSelect({
-          id: 'mother-batch',
-          label: 'Batch',
-          name: 'batchId',
-          options: selectedBatches.map((batch) => ({ value: batch.databaseId ?? batch.id, label: batch.name })),
-          placeholder: 'Select batch',
-        })}
 
         <h4 className="form-section-title">I.B EMERGENCY CONTACT DETAILS</h4>
         <div className="form-row-3 full-width">
@@ -234,8 +263,31 @@ export function MotherFormFields({
         </div>
 
         <h4 className="form-section-title">I.C OTHER DETAILS</h4>
-        <div className="form-group full-width">
-          {renderField({ id: 'spouse-name', label: 'Spouse Name', name: 'spouseName', placeholder: 'Enter spouse name' })}
+        <div className="form-row-2 full-width">
+          {renderField({
+            id: 'spouse-first-name',
+            label: 'Spouse First Name',
+            name: 'spouseFirstName',
+            valueOverride: spouseFirstName,
+            placeholder: 'Enter first name',
+            onChange: (value) => setForm((prev) => ({
+              ...prev,
+              spouseFirstName: value,
+              spouseName: `${value} ${prev.spouseSurname || spouseSurname}`.trim(),
+            })),
+          })}
+          {renderField({
+            id: 'spouse-surname',
+            label: 'Spouse Surname',
+            name: 'spouseSurname',
+            valueOverride: spouseSurname,
+            placeholder: 'Enter surname',
+            onChange: (value) => setForm((prev) => ({
+              ...prev,
+              spouseSurname: value,
+              spouseName: `${prev.spouseFirstName || spouseFirstName} ${value}`.trim(),
+            })),
+          })}
         </div>
         {renderTextarea({ id: 'mother-address', label: 'Address', name: 'address', rows: 3, placeholder: 'Enter address...' })}
       </>
@@ -247,7 +299,7 @@ export function MotherFormFields({
       <>
         <h4 className="form-section-title">II. INITIAL PRENATAL ASSESSMENT & MATERNAL HEALTH PROFILE</h4>
         <div className="form-row-3 full-width">
-          {renderField({ id: 'prenatal-reg-date', label: 'Date of Prenatal Registration', name: 'prenatalRegDate', type: 'date' })}
+          {renderField({ id: 'prenatal-reg-date', label: 'Date of Prenatal Registration', name: 'prenatalRegDate', type: 'date', nativeDate: true })}
           {renderSelect({ id: 'prenatal-trimester', label: 'Trimester at Registration', name: 'trimester', options: ['1st Trimester','2nd Trimester','3rd Trimester'] })}
           {renderField({ id: 'prenatal-gest-age', label: 'Gestational Age at Reg (weeks)', name: 'gestationalAge', placeholder: 'e.g. 12' })}
         </div>
@@ -380,7 +432,7 @@ export function MotherFormFields({
 
         <h4 className="form-section-title">IV.B DENTAL HEALTH CONDITION</h4>
         <div className="form-row-3 full-width">
-          {renderField({ id: 'dental-date', label: 'Date of Dental Check-up', name: 'dentalCheckupDate', type: 'date' })}
+          {renderField({ id: 'dental-date', label: 'Date of Dental Check-up', name: 'dentalCheckupDate', type: 'date', nativeDate: true })}
           {renderField({ id: 'dental-facility', label: 'Dental Clinic / Health Facility', name: 'dentalFacility', placeholder: 'Facility name' })}
           {renderField({ id: 'dentist-charge', label: 'Dentist in Charge', name: 'dentistInCharge', placeholder: 'Dentist name' })}
         </div>
@@ -452,14 +504,14 @@ export function MotherFormFields({
                         <div className="form-readonly-value">{form[`tt${num}Date`] || '-'}</div>
                       ) : (
                         <input
-                          type="text"
+                          type="date"
                           className="form-input table-input"
-                          placeholder="yyyy/mm/dd"
-                          value={formatDateForInput(form[`tt${num}Date`] || '').replaceAll('-', '/')}
+                          value={formatDateForInput(form[`tt${num}Date`] || '')}
                           onChange={(e) => setForm((prev) => ({
                             ...prev,
-                            [`tt${num}Date`]: e.target.value.replace(/[^0-9/]/g, '').replaceAll('/', '-').replace(/^(\d{4})-(\d{2})-(\d{2}).*$/, '$1-$2-$3'),
+                            [`tt${num}Date`]: e.target.value,
                           }))}
+                          autoComplete="off"
                         />
                       )}
                     </td>

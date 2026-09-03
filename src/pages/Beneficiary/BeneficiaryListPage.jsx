@@ -21,8 +21,8 @@ const getMotherProfileProgress = (mother) => Math.round([
 
 const getChildProfileProgress = (child) => Math.round([
   child?.mother_id || child?.motherId,
-  child?.first_name || child?.firstName,
-  child?.last_name || child?.lastName,
+  child?.name || child?.first_name || child?.firstName,
+  child?.birth_date || child?.birthDate,
   child?.birthDocumentPath || child?.birth_document_path,
 ].filter(Boolean).length * 25);
 
@@ -52,12 +52,18 @@ export default function BeneficiaryListPage({ communities = [], batches = [], mo
           });
           const rows = (response.children || []).map((child) => {
             const mother = mothersByDbId.get(String(child.mother_id || child.mother_db_id));
+            const childName = child.name || [child.first_name, child.middle_name, child.last_name, child.suffix].filter(Boolean).join(' ');
             return {
               id: child.id,
-              name: [child.first_name, child.middle_name, child.last_name, child.suffix].filter(Boolean).join(' '),
+              name: childName || 'Unnamed child',
               community: child.community_name || mother?.community || mother?.area || 'Unknown',
               progress: getChildProfileProgress(child),
-              original: { ...child, mother },
+              original: {
+                ...child,
+                mother,
+                group_name: child.group_name || child.group || '',
+                batch_name: child.batch_name || child.batch || '',
+              },
             };
           });
           if (active) setChildRows(rows);
