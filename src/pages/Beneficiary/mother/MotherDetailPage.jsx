@@ -2,6 +2,8 @@
 import { useNavigate } from 'react-router-dom';
 import { formatDateForDisplay } from '../../../utils/dateFormat';
 import { apiUploadMotherDocuments } from '../../../api/mothers';
+import { useAuth } from '../../../auth/AuthProvider';
+import { can } from '../../../utils/permissions';
 
 const calculateAge = (dobString) => {
   if (!dobString) return null;
@@ -58,6 +60,8 @@ const ChipList = ({ items, emptyLabel = 'None' }) => {
 
 export default function MotherDetailPage({ selectedMother, onClose }) {
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
+  const canManage = can(currentUser?.role, 'admin-resources', 'create');
   const [motherRecord, setMotherRecord] = useState(selectedMother);
   const [uploadingDocument, setUploadingDocument] = useState('');
   const [uploadMessage, setUploadMessage] = useState('');
@@ -144,7 +148,7 @@ export default function MotherDetailPage({ selectedMother, onClose }) {
         </div>
 
         <div className="mother-detail-actions">
-          <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/mother/${motherId}/edit`, { state: { mother: selectedMother } })}>Edit</button>
+          {canManage && <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/mother/${motherId}/edit`, { state: { mother: selectedMother } })}>Edit</button>}
           <button type="button" className="btn-secondary" onClick={() => {
             navigate(`/beneficiary/mother/${motherId}/child`, { state: { mother: selectedMother, children, returnTo: `/beneficiary/mother/${motherId}` } });
           }}>View Children</button>

@@ -329,6 +329,9 @@ async function migrateUsersTable() {
     if (!colNames.includes('location')) {
       alterStatements.push("ADD COLUMN location VARCHAR(120) DEFAULT NULL");
     }
+    if (!colNames.includes('school_id')) {
+      alterStatements.push('ADD COLUMN school_id INT DEFAULT NULL');
+    }
 
     if (alterStatements.length > 0) {
       console.log('Migrating users table, adding missing columns...');

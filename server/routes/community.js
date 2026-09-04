@@ -35,6 +35,10 @@ async function nextCode(pool, table, codeColumn, prefix) {
 router.get('/summary', async (req, res) => {
   try {
     console.info('[Community API] Fetching community summary from database (compatible mode)...');
+    const schoolScope = req.schoolId ? 'WHERE c.id = ?' : '';
+    const namedSchoolScope = req.schoolId ? 'WHERE b.community = (SELECT name FROM communities WHERE id = ?)' : '';
+    const groupSchoolScope = req.schoolId ? 'WHERE g.community = (SELECT name FROM communities WHERE id = ?)' : '';
+    const motherSchoolScope = req.schoolId ? 'WHERE m.community = (SELECT name FROM communities WHERE id = ?)' : '';
 
     const [communities] = await pool.query(`
       SELECT
@@ -45,9 +49,10 @@ router.get('/summary', async (req, res) => {
         COUNT(DISTINCT m.id) AS records
       FROM communities c
       LEFT JOIN mothers m ON m.community = c.name
+      ${schoolScope}
       GROUP BY c.id, c.name, c.municipality, c.province
       ORDER BY c.id
-    `);
+    `, req.schoolId ? [req.schoolId] : []);
 
     const [batches] = await pool.query(`
       SELECT
@@ -61,9 +66,10 @@ router.get('/summary', async (req, res) => {
         COALESCE(b.status, 'Active') AS status
       FROM batches b
       LEFT JOIN mothers m ON m.batch_id = b.id
+      ${namedSchoolScope}
       GROUP BY b.id, b.batch_code, b.name, b.description, b.community, b.records, b.progress, b.status
       ORDER BY b.id
-    `);
+    `, req.schoolId ? [req.schoolId] : []);
 
     const [groupRows] = await pool.query(`
       SELECT
@@ -77,9 +83,10 @@ router.get('/summary', async (req, res) => {
         COALESCE(g.status, 'Active') AS status
       FROM groups g
       LEFT JOIN mothers m ON m.group_id = g.id
+      ${groupSchoolScope}
       GROUP BY g.id, g.group_name, g.description, g.community, g.members_count, g.leader, g.status
       ORDER BY g.id
-    `);
+    `, req.schoolId ? [req.schoolId] : []);
 
     const [motherRows] = await pool.query(`
       SELECT
@@ -91,8 +98,9 @@ router.get('/summary', async (req, res) => {
       FROM mothers m
       LEFT JOIN batches b ON b.id = m.batch_id
       LEFT JOIN groups g ON g.id = m.group_id
+      ${motherSchoolScope}
       ORDER BY m.id
-    `);
+    `, req.schoolId ? [req.schoolId] : []);
 
     const communitiesData = communities.map((item) => ({
       id: item.id,
@@ -245,6 +253,7 @@ router.post('/groups', async (req, res) => {
 // GET /api/community/groups - return list of groups/schools
 router.get('/groups', async (req, res) => {
   try {
+    const scopeClause = req.schoolId ? 'WHERE g.community = (SELECT name FROM communities WHERE id = ?)' : '';
     const [rows] = await pool.query(`
       SELECT
         g.id,
@@ -256,9 +265,10 @@ router.get('/groups', async (req, res) => {
         'Active' AS status
       FROM groups g
       LEFT JOIN mothers m ON m.group_id = g.id
+      ${scopeClause}
       GROUP BY g.id, g.group_name, g.description
       ORDER BY g.id
-    `);
+    `, req.schoolId ? [req.schoolId] : []);
     const groups = rows.map((r) => ({
       id: r.id,
       name: r.name,
@@ -425,6 +435,7 @@ router.delete('/batches/:id', async (req, res) => {
 // GET /api/community/batches - return list of batches
 router.get('/batches', async (req, res) => {
   try {
+    const scopeClause = req.schoolId ? 'WHERE b.community = (SELECT name FROM communities WHERE id = ?)' : '';
     const [rows] = await pool.query(`
       SELECT
         b.id,
@@ -437,9 +448,10 @@ router.get('/batches', async (req, res) => {
         COALESCE(b.status, 'Active') AS status
       FROM batches b
       LEFT JOIN mothers m ON m.batch_id = b.id
+      ${scopeClause}
       GROUP BY b.id, b.batch_code, b.name, b.description, b.community, b.records, b.progress, b.status
       ORDER BY b.id
-    `);
+    `, req.schoolId ? [req.schoolId] : []);
     const batches = rows.map((r) => ({
       id: r.code || String(r.id),
       code: r.code || String(r.id),

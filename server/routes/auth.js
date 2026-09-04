@@ -15,7 +15,7 @@ router.post('/login', async (req, res) => {
     if (!email || !password) return res.status(400).json({ error: 'email and password required' });
 
     const [rows] = await pool.query(
-      `SELECT id, username, full_name, email, role, status, password_hash
+      `SELECT id, username, full_name, email, role, status, school_id, password_hash
        FROM users
        WHERE email = ? OR username = ?
        LIMIT 1`,
@@ -40,6 +40,7 @@ router.post('/login', async (req, res) => {
       role,
       name,
       email: user.email,
+      school_id: user.school_id || null,
     };
 
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES });

@@ -3,6 +3,8 @@ import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useMothers } from '../../../context/MothersContext';
 import { formatDateForDisplay } from '../../../utils/dateFormat';
 import { apiUploadChildBirthDocument } from '../../../api/children';
+import { useAuth } from '../../../auth/AuthProvider';
+import { can } from '../../../utils/permissions';
 
 const formatValue = (value) => (value === null || value === undefined || value === '' ? '—' : String(value));
 
@@ -80,6 +82,8 @@ export default function ChildProfilePage() {
   const { childId, id } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
+  const canManage = can(currentUser?.role, 'admin-resources', 'create');
 
   const stateMother = location.state?.mother || null;
   const { mothers: contextMothers } = useMothers();
@@ -256,7 +260,7 @@ export default function ChildProfilePage() {
           {resolvedMother && (
             <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/mother/${resolvedMother.id || resolvedMother.motherId}`, { state: { mother: resolvedMother } })}>Open Mother Profile</button>
           )}
-          <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/child/${selectedChild.id}/edit`, { state: { child: selectedChild, mother: resolvedMother, returnTo } })}>Edit</button>
+          {canManage && <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/child/${selectedChild.id}/edit`, { state: { child: selectedChild, mother: resolvedMother, returnTo } })}>Edit</button>}
           <button type="button" className="btn-secondary" onClick={() => {
             const mid = resolvedMother?.motherId || resolvedMother?.id || selectedChild.mother_id || selectedChild.motherId || '';
             const stateMother = resolvedMother || (mid ? { id: mid, name: selectedChild.mother_first_name ? `${selectedChild.mother_first_name} ${selectedChild.mother_last_name || ''}`.trim() : undefined } : null);

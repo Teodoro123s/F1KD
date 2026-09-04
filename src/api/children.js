@@ -1,3 +1,5 @@
+import { authHeader } from './authHeader';
+
 const API_BASE = (typeof process !== 'undefined' && process.env && process.env.REACT_APP_API_URL)
   ? process.env.REACT_APP_API_URL
   : (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL)
@@ -23,7 +25,7 @@ async function handleResponse(res, defaultMsg) {
 export async function apiCreateChild(payload) {
   const res = await fetch(`${API_BASE}/api/children`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeader() },
     body: JSON.stringify(payload),
     credentials: 'same-origin',
   });
@@ -33,7 +35,7 @@ export async function apiCreateChild(payload) {
 export async function apiUpdateChild(idOrCode, payload) {
   const res = await fetch(`${API_BASE}/api/children/${encodeURIComponent(idOrCode)}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeader() },
     body: JSON.stringify(payload),
     credentials: 'same-origin',
   });
@@ -42,7 +44,7 @@ export async function apiUpdateChild(idOrCode, payload) {
 
 export async function apiGetChild(idOrCode) {
   const res = await fetch(`${API_BASE}/api/children/${encodeURIComponent(idOrCode)}`, {
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeader() },
     credentials: 'same-origin',
   });
   return handleResponse(res, 'Failed to fetch child');
@@ -55,7 +57,7 @@ export async function apiGetChildren(fields = []) {
   }
   const queryString = params.toString() ? `?${params.toString()}` : '';
   const res = await fetch(`${API_BASE}/api/children${queryString}`, {
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeader() },
     credentials: 'same-origin',
   });
   return handleResponse(res, 'Failed to fetch children');
@@ -63,7 +65,7 @@ export async function apiGetChildren(fields = []) {
 
 export async function apiGetChildrenByMother(motherId) {
   const res = await fetch(`${API_BASE}/api/children/mother/${encodeURIComponent(motherId)}/children`, {
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeader() },
     credentials: 'same-origin',
   });
   return handleResponse(res, 'Failed to fetch children for mother');
@@ -72,7 +74,7 @@ export async function apiGetChildrenByMother(motherId) {
 export async function apiSaveChildCheckup(childId, payload) {
   const res = await fetch(`${API_BASE}/api/children/${encodeURIComponent(childId)}/checkups`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeader() },
     body: JSON.stringify(payload),
     credentials: 'same-origin',
   });
@@ -84,6 +86,7 @@ export async function apiUploadChildBirthDocument(childId, file) {
   formData.append('birthDocument', file);
   const res = await fetch(`${API_BASE}/api/children/${encodeURIComponent(childId)}/documents`, {
     method: 'POST',
+    headers: { ...authHeader() },
     body: formData,
     credentials: 'same-origin',
   });

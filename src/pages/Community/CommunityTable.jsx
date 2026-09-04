@@ -13,6 +13,7 @@ export default function CommunityTable({
   handleDeleteBatch,
   onCommunityRowClick,
   onMotherRowClick,
+  canManage = false,
 }) {
   const emptyColSpan = activeTab === 'groups' ? 3 : activeTab === 'communities' ? 4 : activeTab === 'mothers' ? 3 : 5;
 
@@ -116,7 +117,7 @@ export default function CommunityTable({
                     </>
                   )}
                   <td className={activeTab === 'batches' ? 'actions-cell batch-actions-cell' : 'actions-cell'}>
-                    {activeTab !== 'mothers' ? (
+                    {activeTab !== 'mothers' && canManage ? (
                       <>
                         <button
                           type="button"

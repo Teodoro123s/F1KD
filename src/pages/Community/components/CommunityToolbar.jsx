@@ -9,6 +9,7 @@ export default function CommunityToolbar({
   onCreate,
   breadcrumbItems,
   navigate,
+  canManage = false,
 }) {
   return (
     <>
@@ -31,7 +32,7 @@ export default function CommunityToolbar({
           </nav>
         </div>
 
-        {activeTab !== 'mothers' && (
+        {activeTab !== 'mothers' && canManage && (
           <button className="btn-create-action" onClick={onCreate}>
             <PlusIcon />
             <span>

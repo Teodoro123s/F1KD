@@ -2,7 +2,8 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../db');
 const bcrypt = require('bcrypt');
-const { verifyToken, requireRole } = require('../middleware/auth');
+const { verifyToken } = require('../middleware/auth');
+const { authorize } = require('../middleware/authorize');
 
 function normalizeDbStatus(value) {
   const normalized = String(value || '').trim().toLowerCase();
@@ -19,8 +20,21 @@ function nameLike(column) {
   return `COALESCE(full_name, username)`;
 }
 
+// GET /api/users/coordinators - limited data for operational assignment fields
+router.get('/coordinators', verifyToken, async (req, res) => {
+  try {
+    const [users] = await pool.query(
+      `SELECT id, username, full_name, role FROM users WHERE LOWER(TRIM(role)) IN ('community organizer', 'co', 'partner') ORDER BY id DESC`
+    );
+    res.json({ users });
+  } catch (err) {
+    console.error('[Users API] GET /coordinators error:', err.message);
+    res.status(500).json({ error: 'db error' });
+  }
+});
+
 // GET /api/users?search=&role=&status=&page=1&perPage=10
-router.get('/', async (req, res) => {
+router.get('/', verifyToken, authorize('super_admin'), async (req, res) => {
   try {
     const { search = '', role, status, page = 1, perPage = 10 } = req.query;
     const offset = (Number(page) - 1) * Number(perPage);
@@ -47,7 +61,7 @@ router.get('/', async (req, res) => {
     const total = countRows[0].total || 0;
 
     const [rows] = await pool.query(
-      `SELECT id, username, full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, created_at, updated_at FROM users ${where} ORDER BY id DESC LIMIT ? OFFSET ?`,
+      `SELECT id, username, full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, created_at, updated_at FROM users ${where} ORDER BY id DESC LIMIT ? OFFSET ?`,
       [...params, Number(perPage), Number(offset)]
     );
 
@@ -60,7 +74,7 @@ router.get('/', async (req, res) => {
 
 // POST /api/users
 // Require authentication to create users (only Admin/Superadmin allowed in this example)
-router.post('/', verifyToken, requireRole('Superadmin','Admin'), async (req, res) => {
+router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
   try {
     const {
       username,
@@ -76,13 +90,16 @@ router.post('/', verifyToken, requireRole('Superadmin','Admin'), async (req, res
       location,
       role,
       status,
+      schoolId,
     } = req.body;
 
     // build username and full_name from provided fields if necessary
     const userName = username || (email ? email.split('@')[0] : null);
     const full_name = fullName || (firstName || lastName ? `${(firstName||'').trim()} ${(lastName||'').trim()}`.trim() : null);
+    const requiresSchool = ['health worker', 'community organizer'].includes(String(role || '').trim().toLowerCase());
 
     if (!userName || !email) return res.status(400).json({ error: 'username and email are required' });
+    if (requiresSchool && !schoolId) return res.status(400).json({ error: 'schoolId is required for this role' });
 
     // generate password if none provided
     let plainPassword = password;
@@ -97,8 +114,8 @@ router.post('/', verifyToken, requireRole('Superadmin','Admin'), async (req, res
 
     const dbStatus = normalizeDbStatus(status || 'active');
     const [result] = await pool.query(
-      `INSERT INTO users (username, email, full_name, role, status, password_hash, first_name, last_name, middle_initial, contact_number, gender, dob, location)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO users (username, email, full_name, role, status, password_hash, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         userName,
         email,
@@ -112,12 +129,13 @@ router.post('/', verifyToken, requireRole('Superadmin','Admin'), async (req, res
         contactNumber || null,
         gender || 'Male',
         dob || null,
-        location || null
+        location || null,
+        schoolId || null
       ]
     );
 
     const [rows] = await pool.query(
-      `SELECT id, username, full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, created_at
+      `SELECT id, username, full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, created_at
        FROM users WHERE id = ?`,
       [result.insertId]
     );
@@ -132,11 +150,11 @@ router.post('/', verifyToken, requireRole('Superadmin','Admin'), async (req, res
 });
 
 // GET /api/users/:id
-router.get('/:id', async (req, res) => {
+router.get('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
   try {
     const { id } = req.params;
     const [rows] = await pool.query(
-      `SELECT id, username, full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, created_at
+      `SELECT id, username, full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, created_at
        FROM users WHERE id = ?`,
       [id]
     );
@@ -150,7 +168,7 @@ router.get('/:id', async (req, res) => {
 
 // PUT /api/users/:id
 // Require authentication to update users
-router.put('/:id', verifyToken, async (req, res) => {
+router.put('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
   try {
     const { id } = req.params;
     const {
@@ -167,6 +185,7 @@ router.put('/:id', verifyToken, async (req, res) => {
       role,
       status,
       password,
+      schoolId,
     } = req.body;
 
     const updates = [];
@@ -183,6 +202,10 @@ router.put('/:id', verifyToken, async (req, res) => {
     if (location !== undefined) { updates.push('location = ?'); params.push(location || null); }
     if (role !== undefined) { updates.push('role = ?'); params.push(role); }
     if (status !== undefined) { updates.push('status = ?'); params.push(normalizeDbStatus(status)); }
+    if (schoolId !== undefined) { updates.push('school_id = ?'); params.push(schoolId || null); }
+    if (role !== undefined && ['health worker', 'community organizer'].includes(String(role).trim().toLowerCase()) && !schoolId) {
+      return res.status(400).json({ error: 'schoolId is required for this role' });
+    }
 
     if (password) {
       const hash = await bcrypt.hash(password, 10);
@@ -197,7 +220,7 @@ router.put('/:id', verifyToken, async (req, res) => {
     await pool.query(sql, params);
 
     const [rows] = await pool.query(
-      `SELECT id, username, full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, updated_at
+      `SELECT id, username, full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, updated_at
        FROM users WHERE id = ?`,
       [id]
     );
@@ -210,7 +233,7 @@ router.put('/:id', verifyToken, async (req, res) => {
 
 // DELETE /api/users/:id
 // Require authentication to delete users (only Superadmin/Admin)
-router.delete('/:id', verifyToken, requireRole('Superadmin','Admin'), async (req, res) => {
+router.delete('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
   try {
     const { id } = req.params;
     await pool.query('DELETE FROM users WHERE id = ?', [id]);
@@ -223,7 +246,7 @@ router.delete('/:id', verifyToken, requireRole('Superadmin','Admin'), async (req
 
 // PATCH /api/users/:id/status - toggle or set status
 // Require authentication to change status
-router.patch('/:id/status', verifyToken, requireRole('Superadmin','Admin'), async (req, res) => {
+router.patch('/:id/status', verifyToken, authorize('super_admin'), async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;

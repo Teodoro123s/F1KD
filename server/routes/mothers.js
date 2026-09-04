@@ -209,6 +209,7 @@ function getRequestedMotherFields(req) {
 router.get('/', async (req, res) => {
   try {
     const requestedFields = getRequestedMotherFields(req);
+    const scopeClause = req.schoolId ? 'WHERE m.community_id = ?' : '';
     const [rows] = await pool.query(`
       SELECT m.*,
         g.group_name,
@@ -217,8 +218,9 @@ router.get('/', async (req, res) => {
       FROM mothers m
       LEFT JOIN groups g ON g.id = m.group_id
       LEFT JOIN batches b ON b.id = m.batch_id
+      ${scopeClause}
       ORDER BY m.id DESC
-    `);
+    `, req.schoolId ? [req.schoolId] : []);
 
     const [checkupRows] = await pool.query('SELECT * FROM mother_checkups');
     const checkupsByMotherId = {};
@@ -433,9 +435,10 @@ router.get('/:id', async (req, res) => {
        FROM mothers m
        LEFT JOIN groups g ON g.id = m.group_id
        LEFT JOIN batches b ON b.id = m.batch_id
-       WHERE m.id = ? OR m.mother_code = ? OR m.mother_external_id = ?
+      WHERE (m.id = ? OR m.mother_code = ? OR m.mother_external_id = ?)
+      ${req.schoolId ? 'AND m.community_id = ?' : ''}
        LIMIT 1`,
-      [Number(id) || null, id, id]
+          req.schoolId ? [Number(id) || null, id, id, req.schoolId] : [Number(id) || null, id, id]
     );
 
     if (!rows.length) {

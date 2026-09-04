@@ -6,7 +6,7 @@
 
 import { useEffect, useState } from 'react';
 import { getSummary } from '../communityService';
-import { apiGetUsers } from '../../../api/users';
+import { apiGetCoordinators } from '../../../api/users';
 
 export const useCommunityData = () => {
   const [communities, setCommunities] = useState([]);
@@ -57,7 +57,7 @@ export const useCommunityData = () => {
 
   // Fetch coordinators
   useEffect(() => {
-    apiGetUsers(1, 100)
+    apiGetCoordinators()
       .then((data) => {
         const users = Array.isArray(data?.users) ? data.users : [];
         setCoordinators(

@@ -37,6 +37,14 @@ export async function apiGetUsers(page = 1, perPage = 100) {
   return handleResponse(res, 'Failed to fetch users');
 }
 
+export async function apiGetCoordinators() {
+  const res = await fetch(`${API_BASE}/api/users/coordinators`, {
+    headers: { ...authHeader() },
+    credentials: 'same-origin',
+  });
+  return handleResponse(res, 'Failed to fetch coordinators');
+}
+
 export async function apiCreateUser(payload) {
   const res = await fetch(`${API_BASE}/api/users`, {
     method: 'POST',

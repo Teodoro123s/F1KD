@@ -21,12 +21,16 @@ import {
   updateGroup,
   deleteGroup,
 } from './communityService';
-import { apiGetUsers } from '../../api/users';
+import { apiGetCoordinators } from '../../api/users';
 import CommunityToolbar from './components/CommunityToolbar';
 import CommunityFilters from './components/CommunityFilters';
 import CommunityPagination from './components/CommunityPagination';
+import { useAuth } from '../../auth/AuthProvider';
+import { can } from '../../utils/permissions';
 
 export default function CommunityPage() {
+  const { currentUser } = useAuth();
+  const canManage = can(currentUser?.role, 'admin-resources', 'create');
   const [communities, setCommunities] = useState([]);
   const [batches, setBatches] = useState([]);
   const [groups, setGroups] = useState([]);
@@ -83,7 +87,7 @@ export default function CommunityPage() {
   }, []);
 
   useEffect(() => {
-    apiGetUsers(1, 100)
+    apiGetCoordinators()
       .then((data) => {
         const users = Array.isArray(data?.users) ? data.users : [];
         setCoordinators(users
@@ -614,6 +618,7 @@ export default function CommunityPage() {
         onCreate={openCreateModal}
         breadcrumbItems={breadcrumbItems}
         navigate={navigate}
+        canManage={canManage}
       />
 
       <CommunityFilters
@@ -634,6 +639,7 @@ export default function CommunityPage() {
         handleDeleteBatch={handleDeleteBatch}
         onCommunityRowClick={activeTab === 'communities' ? handleCommunityRowClick : activeTab === 'groups' ? handleGroupRowClick : activeTab === 'batches' ? handleBatchRowClick : undefined}
         onMotherRowClick={activeTab === 'mothers' ? handleMotherRowClick : undefined}
+        canManage={canManage}
       />
       <CommunityPagination
         currentPage={currentPage}

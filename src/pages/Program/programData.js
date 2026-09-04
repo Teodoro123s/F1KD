@@ -57,6 +57,62 @@ export const initialPrograms = [
   },
 ];
 
+export function buildProgramsFromSummary(summary = null) {
+  const payload = summary || {};
+  const communities = Array.isArray(payload.communities) ? payload.communities : [];
+  const batches = Array.isArray(payload.batches) ? payload.batches : [];
+  const groups = Array.isArray(payload.groups) ? payload.groups : [];
+
+  if (!communities.length) {
+    return initialPrograms;
+  }
+
+  return communities.map((community, index) => {
+    const communityBatches = batches.filter((batch) => batch.community === community.name);
+    const communityGroups = groups.filter((group) => group.community === community.name);
+    const recordCount = Number(community.records || 0);
+    const target = Math.max(recordCount, 1);
+    const received = Math.min(target, Math.max(0, Math.round(target * 0.8)));
+
+    const clusters = [
+      {
+        type: "School",
+        name: `${community.name} School`,
+        beneficiaries: target,
+        received,
+      },
+      ...communityGroups.slice(0, 2).map((group) => ({
+        type: "Group",
+        name: group.name,
+        beneficiaries: Number(group.members || 0) || 1,
+        received: Math.min(Number(group.members || 0) || 1, Math.max(1, Math.round((Number(group.members || 0) || 1) * 0.8))),
+      })),
+      ...communityBatches.slice(0, 2).map((batch) => ({
+        type: "Batch",
+        name: batch.name || batch.code || `${community.name} Batch`,
+        beneficiaries: Number(batch.records || 0) || 1,
+        received: Math.min(Number(batch.records || 0) || 1, Math.max(1, Math.round((Number(batch.records || 0) || 1) * 0.8))),
+      })),
+    ];
+
+    return {
+      id: 1000 + index,
+      name: `${community.name} Community Support`,
+      type: "Community Support",
+      provider: "Local Community Program",
+      community: community.name,
+      batch: communityBatches[0]?.name || "General Batch",
+      status: "Active",
+      target,
+      received,
+      activities: Math.max(1, communityBatches.length + communityGroups.length),
+      latest: "Recently updated",
+      ended: "",
+      clusters,
+    };
+  });
+}
+
 export const emptyProgram = {
   name: "",
   type: "Feeding",

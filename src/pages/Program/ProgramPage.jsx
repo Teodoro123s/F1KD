@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   BatchesIcon,
@@ -8,8 +8,10 @@ import {
   PlusIcon,
   SearchIcon,
 } from "../Community/CommunityIcons";
+import { getSummary } from "../Community/communityService";
 import {
   beneficiaryNames,
+  buildProgramsFromSummary,
   clusterPath,
   emptyProgram,
   filterPrograms,
@@ -23,6 +25,7 @@ export default function ProgramPage() {
   const [activeTab, setActiveTab] = useState("Active");
   const [query, setQuery] = useState("");
   const [programs, setPrograms] = useState(initialPrograms);
+  const [isLiveDataLoaded, setIsLiveDataLoaded] = useState(false);
   const viewMode = Boolean(programId);
   const clusterView = Boolean(clusterType && clusterName);
   const [showModal, setShowModal] = useState(false);
@@ -40,6 +43,27 @@ export default function ProgramPage() {
   const [scopeName, setScopeName] = useState("");
   const [activeActionMenu, setActiveActionMenu] = useState(null);
   const [actionProgram, setActionProgram] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    getSummary()
+      .then((summary) => {
+        if (!mounted) return;
+        const livePrograms = buildProgramsFromSummary(summary);
+        setPrograms(livePrograms);
+        setIsLiveDataLoaded(true);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setPrograms(initialPrograms);
+        setIsLiveDataLoaded(true);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const filteredPrograms = useMemo(() => {
     return filterPrograms(programs, query, activeTab);
@@ -181,6 +205,12 @@ export default function ProgramPage() {
           <span>{viewMode ? "Add beneficiary" : "Create Program"}</span>
         </button>
       </header>
+
+      {isLiveDataLoaded && (
+        <div className="program-live-status" style={{ padding: "0 0 12px", color: "#475569", fontSize: "0.9rem" }}>
+          {programs.length > 0 ? `Showing ${programs.length} live program record${programs.length > 1 ? "s" : ""} from community data.` : "No program records available."}
+        </div>
+      )}
 
       {clusterView && selectedProgram && (
         <section className="program-cluster-subheader" aria-label="Program beneficiary clusters">

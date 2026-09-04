@@ -3,11 +3,15 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { apiGetChildrenByMother } from '../../../api/children';
 import { apiGetMother } from '../../../api/mothers';
 import BeneficiaryTable from '../BeneficiaryTable';
+import { useAuth } from '../../../auth/AuthProvider';
+import { can } from '../../../utils/permissions';
 
 export default function MotherChildrenPage() {
   const { id } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
+  const canManage = can(currentUser?.role, 'admin-resources', 'create');
   const [mother, setMother] = useState(location.state?.mother || null);
   const [children, setChildren] = useState([]);
   const [error, setError] = useState(null);
@@ -63,7 +67,7 @@ export default function MotherChildrenPage() {
           <div className="mother-detail-meta">{motherIdentifier}</div>
         </div>
         <div className="mother-detail-actions">
-          <button type="button" className="btn-create-action" onClick={() => navigate(`/beneficiary/create/child`, { state: { mother, returnTo } })}>Create Child</button>
+          {canManage && <button type="button" className="btn-create-action" onClick={() => navigate(`/beneficiary/create/child`, { state: { mother, returnTo } })}>Create Child</button>}
           <button type="button" className="btn-secondary" onClick={() => navigate(returnTo || -1, { state: { mother } })}>Back</button>
         </div>
       </header>

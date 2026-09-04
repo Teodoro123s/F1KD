@@ -9,9 +9,12 @@ import { useMothers } from '../../context/MothersContext';
 import { getSummary } from '../Community/communityService';
 import { apiGetMother } from '../../api/mothers';
 import { apiGetChildrenByMother } from '../../api/children';
+import { can } from '../../utils/permissions';
+import { useAuth } from '../../auth/AuthProvider';
 
 export default function BeneficiaryPage() {
   // Mothers are loaded from the DB via MothersContext
+  const auth = useAuth();
   const { mothers, setMothers } = useMothers();
   const [groups, setGroups] = useState([]);
   const [communities, setCommunities] = useState([]);
@@ -59,6 +62,7 @@ export default function BeneficiaryPage() {
   const isCreateMother = location.pathname.includes('/beneficiary/create/mother');
   const isCreateChild = location.pathname.includes('/beneficiary/create/child');
   const isMotherDetail = Boolean(selectedMother);
+  const canCreate = can(auth?.currentUser?.role, 'admin-resources', 'create');
 
   // If navigation includes a mother in state (e.g., navigating from child pages or external links), ensure the selectedMother is populated
   React.useEffect(() => {
@@ -136,7 +140,7 @@ export default function BeneficiaryPage() {
         </div>
 
         {/* Create button (keeps the simple dropdown used previously) */}
-        {!isMotherDetail && (
+        {!isMotherDetail && canCreate && (
           <div className="create-menu-wrapper">
             <button className="btn-create-action" onClick={openCreateModal} type="button">
               <PlusIcon />

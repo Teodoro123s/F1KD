@@ -1,3 +1,5 @@
+import { authHeader } from './authHeader';
+
 const API_BASE = (typeof process !== 'undefined' && process.env && process.env.REACT_APP_API_URL)
   ? process.env.REACT_APP_API_URL
   : (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL)
@@ -24,7 +26,7 @@ export async function apiUpdateMother(motherId, payload) {
   const id = encodeURIComponent(motherId);
   const res = await fetch(`${API_BASE}/api/mothers/${id}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeader() },
     body: JSON.stringify(payload),
     credentials: 'same-origin',
   });
@@ -34,7 +36,7 @@ export async function apiUpdateMother(motherId, payload) {
 export async function apiCreateMother(payload) {
   const res = await fetch(`${API_BASE}/api/mothers`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeader() },
     body: JSON.stringify(payload),
     credentials: 'same-origin',
   });
@@ -44,7 +46,7 @@ export async function apiCreateMother(payload) {
 export async function apiGetMother(motherId) {
   const id = encodeURIComponent(motherId);
   const res = await fetch(`${API_BASE}/api/mothers/${id}`, {
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeader() },
     credentials: 'same-origin',
   });
   return handleResponse(res, 'Failed to fetch mother');
@@ -54,7 +56,7 @@ export async function apiSaveMotherCheckup(motherId, payload) {
   const id = encodeURIComponent(motherId);
   const res = await fetch(`${API_BASE}/api/mothers/${id}/checkups`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeader() },
     body: JSON.stringify(payload),
     credentials: 'same-origin',
   });
@@ -67,6 +69,7 @@ export async function apiUploadMotherDocuments(motherId, documents) {
   if (documents.consent) formData.append('consent', documents.consent);
   const res = await fetch(`${API_BASE}/api/mothers/${encodeURIComponent(motherId)}/documents`, {
     method: 'POST',
+    headers: { ...authHeader() },
     body: formData,
     credentials: 'same-origin',
   });

@@ -5,6 +5,7 @@ import { SearchIcon, PlusIcon, UserCheckIcon, UserXIcon } from './UserManagement
 import AddUserModal from './UserManagementModal';
 import { useUserManagement } from './useUserManagement';
 import { useAuth } from '../../auth/AuthProvider';
+import { ROLES, hasRole } from '../../utils/permissions';
 import RoleFilter from './RoleFilter';
 import Pagination from './Pagination';
 import ConfirmModal from './ConfirmModal';
@@ -52,11 +53,12 @@ export default function UserManagementPage() {
     retryLoad,
     oneTimeCredentials,
     clearOneTimeCredentials,
+    communities,
   } = useUserManagement();
 
   const location = useLocation();
   const auth = useAuth();
-  const canCreate = auth?.currentUser && ['Superadmin','Admin'].includes(auth.currentUser.role);
+  const canCreate = hasRole(auth?.currentUser?.role, [ROLES.SUPER_ADMIN]);
 
   useEffect(() => {
     // If navigated here with an editUser in state, open edit modal
@@ -140,6 +142,7 @@ export default function UserManagementPage() {
         setForm={setForm}
         onSubmit={handleSubmitUser}
         roleOptions={ROLE_OPTIONS}
+        communities={communities}
         mode={selectedUser ? 'edit' : 'add'}
         isSubmitting={isSubmitting}
       />

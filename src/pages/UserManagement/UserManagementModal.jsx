@@ -70,7 +70,7 @@ function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitt
   );
 }
 
-export default function AddUserModal({ showModal, onClose, form, setForm, onSubmit, roleOptions, mode = 'add', isSubmitting = false }) {
+export default function AddUserModal({ showModal, onClose, form, setForm, onSubmit, roleOptions, communities = [], mode = 'add', isSubmitting = false }) {
 
   if (!showModal) return null;
 
@@ -78,6 +78,7 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
   const submitLabel = mode === 'edit' ? 'Save Changes' : 'Create';
 
   const handleChange = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
+  const requiresSchool = ['health worker', 'community organizer'].includes(String(form.role || '').trim().toLowerCase());
 
   return (
     <ModalShell title={title} onClose={onClose} onSubmit={onSubmit} submitLabel={submitLabel} isSubmitting={isSubmitting}>
@@ -217,6 +218,16 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
         </div>
         <div className="form-group" aria-hidden="true" />
       </div>
+
+      {requiresSchool && (
+        <div className="form-group full-width">
+          <label className="form-label" htmlFor="school-id">Assigned School *</label>
+          <select id="school-id" name="schoolId" className="form-select" value={form.schoolId || ''} onChange={(e) => handleChange('schoolId', e.target.value)} required>
+            <option value="">Select assigned school</option>
+            {communities.map((school) => <option key={school.id} value={school.id}>{school.name}</option>)}
+          </select>
+        </div>
+      )}
 
     </ModalShell>
   );

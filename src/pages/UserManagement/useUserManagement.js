@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { apiGetUsers, apiCreateUser, apiUpdateUser, apiPatchUserStatus, apiDeleteUser } from '../../api/users';
 import { isValidName, isValidMiddleInitial, sanitizeDigits, normalizeContact, isValidContact, isValidEmail, formatDobForInput, isValidDob, getDobValidationMessage, generatePassword } from './lib';
+import { getSummary } from '../Community/communityService';
 
 const ROLE_OPTIONS = [
   'Superadmin',
@@ -49,6 +50,13 @@ export function useUserManagement() {
     : 'http://localhost:4000';
 
   const [apiOnline, setApiOnline] = useState(true);
+  const [communities, setCommunities] = useState([]);
+
+  useEffect(() => {
+    getSummary()
+      .then((summary) => setCommunities(summary.communities || []))
+      .catch(() => setCommunities([]));
+  }, []);
 
   // Load the database as the single source of truth.
   useEffect(() => {
@@ -72,6 +80,7 @@ export function useUserManagement() {
             gender: u.gender,
             dob: formatDobForInput(u.dob),
             location: u.location,
+            schoolId: u.school_id,
             role: normalizeRole(u.role),
             status: normalizeStatus(u.status),
             password: '',
@@ -114,6 +123,7 @@ export function useUserManagement() {
     role: 'Superadmin',
     status: 'Active',
     password: '',
+    schoolId: '',
   });
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
@@ -238,6 +248,7 @@ export function useUserManagement() {
       role: user.role || 'Superadmin',
       status: user.status || 'Active',
       password: user.password || generatePassword(user),
+      schoolId: user.schoolId || '',
     });
     setShowAddModal(true);
   };
@@ -271,6 +282,7 @@ export function useUserManagement() {
           gender: u.gender,
           dob: formatDobForInput(u.dob),
           location: u.location,
+          schoolId: u.school_id,
           role: u.role,
           status: u.status,
           password: '',
@@ -311,6 +323,7 @@ export function useUserManagement() {
       const locationVal = (fd.get('location') || 'Poblacion').toString();
       const roleVal = (fd.get('role') || 'Superadmin').toString();
       const statusVal = (fd.get('status') || 'Active').toString();
+      const schoolIdVal = (fd.get('schoolId') || '').toString();
       // Prefer password provided by the submitted form (FormData). Falls back to state-derived password if missing.
       const fdPassword = (fd.get('password') || '').toString();
 
@@ -334,6 +347,10 @@ export function useUserManagement() {
     }
     if (!email) { setNotification('Email is required.'); try { console.log('Validation failed: missing email', { email }); } catch(e){}; return; }
     if (!isValidEmail(email)) { setNotification('Please enter a valid email address.'); try { console.log('Validation failed: invalid email', { email }); } catch(e){}; return; }
+    if (['health worker', 'community organizer'].includes(roleVal.trim().toLowerCase()) && !schoolIdVal) {
+      setNotification('Assigned school is required for Health worker and Community Organizer accounts.');
+      return;
+    }
     // Use the provided email; rely on the server to signal duplicates and the retry logic to handle them.
     let emailToUse = email;
     const dobMsg = getDobValidationMessage(dobVal);
@@ -363,6 +380,7 @@ export function useUserManagement() {
           role: roleVal,
           status: statusVal,
           password: fdPassword || form.password,
+          schoolId: schoolIdVal || null,
         });
         try { console.log('Updated user from server', updated); } catch(e) {}
         setUsers((prev) => prev.map((u) => (u.id === selectedUser.id ? {
@@ -427,6 +445,7 @@ export function useUserManagement() {
               role: roleVal,
               status: statusVal,
               password: passwordToUse,
+              schoolId: schoolIdVal || null,
             };
             try { console.log(`Attempt ${attempts}: creating user with username=${usernameToUse} and email=${emailToUse}`, payload); } catch(e){}
             data = await apiCreateUser(payload);
@@ -667,5 +686,6 @@ export function useUserManagement() {
     // one-time dev credentials for display
     oneTimeCredentials,
     clearOneTimeCredentials,
+    communities,
   };
 }

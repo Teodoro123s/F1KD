@@ -18,6 +18,8 @@ import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
 import Login from './pages/Login';
 import { useAuth } from './auth/AuthProvider';
+import RoleBasedRoute from './components/RoleBasedRoute';
+import { ROLES } from './utils/permissions';
 
 function RequireAuth({ children }) {
   const auth = useAuth();
@@ -50,21 +52,21 @@ export default function App() {
         <Route path="community/batch/:batchId" element={<CommunityPage />} />
         <Route path="beneficiary" element={<Beneficiary />} />
         <Route path="beneficiary/mother/:id" element={<Beneficiary />} />
-        <Route path="beneficiary/create/mother" element={<Beneficiary />} />
-        <Route path="beneficiary/create/child" element={<Beneficiary />} />
+        <Route path="beneficiary/create/mother" element={<RoleBasedRoute allowedRoles={[ROLES.SUPER_ADMIN]}><Beneficiary /></RoleBasedRoute>} />
+        <Route path="beneficiary/create/child" element={<RoleBasedRoute allowedRoles={[ROLES.SUPER_ADMIN]}><Beneficiary /></RoleBasedRoute>} />
         <Route path="beneficiary/mother/:id/child" element={<MotherChildrenPage />} />
         <Route path="beneficiary/child/:childId" element={<ChildProfilePage />} />
-        <Route path="beneficiary/child/:childId/edit" element={<EditChildPage />} />
+        <Route path="beneficiary/child/:childId/edit" element={<RoleBasedRoute allowedRoles={[ROLES.SUPER_ADMIN]}><EditChildPage /></RoleBasedRoute>} />
         <Route path="beneficiary/mother/:id/monitoring" element={<MonitoringPage />} />
-        <Route path="beneficiary/mother/:id/edit" element={<EditMotherPage />} />
+        <Route path="beneficiary/mother/:id/edit" element={<RoleBasedRoute allowedRoles={[ROLES.SUPER_ADMIN]}><EditMotherPage /></RoleBasedRoute>} />
         <Route path="monitoring" element={<MonitoringPage />} />
         <Route path="checkup" element={<MonitoringPage />} />
         <Route path="program" element={<Program />} />
         <Route path="program/:programId" element={<Program />} />
         <Route path="program/:programId/cluster/:clusterType/:clusterName" element={<Program />} />
         <Route path="progress-report" element={<ProgressReport />} />
-        <Route path="user-management" element={<UserManagementPage />} />
-        <Route path="user-management/user/:id" element={<UserDetailPage />} />
+        <Route path="user-management" element={<RoleBasedRoute allowedRoles={[ROLES.SUPER_ADMIN]}><UserManagementPage /></RoleBasedRoute>} />
+        <Route path="user-management/user/:id" element={<RoleBasedRoute allowedRoles={[ROLES.SUPER_ADMIN]}><UserDetailPage /></RoleBasedRoute>} />
         <Route path="profile" element={<ProfilePage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="community" replace />} />

@@ -69,6 +69,7 @@ function sanitizeFieldSelection(fields = []) {
 router.get('/', async (req, res) => {
   try {
     const requestedFields = sanitizeFieldSelection(req.query.fields);
+    const scopeClause = req.schoolId ? 'WHERE c.community_id = ?' : '';
     const [rows] = await pool.query(
       `SELECT c.*, m.first_name AS mother_first_name, m.last_name AS mother_last_name,
         m.mother_code, comm.name AS community_name, g.group_name, b.name AS batch_name
@@ -77,7 +78,9 @@ router.get('/', async (req, res) => {
        LEFT JOIN communities comm ON comm.id = c.community_id
        LEFT JOIN groups g ON g.id = c.group_id
        LEFT JOIN batches b ON b.id = c.batch_id
+      ${scopeClause}
        ORDER BY c.created_at DESC, c.id DESC`
+          , req.schoolId ? [req.schoolId] : []
     );
 
     const children = await Promise.all(rows.map(async (row) => {
@@ -180,8 +183,8 @@ router.get('/:id', async (req, res) => {
        LEFT JOIN communities comm ON comm.id = c.community_id
        LEFT JOIN groups g ON g.id = c.group_id
        LEFT JOIN batches b ON b.id = c.batch_id
-       WHERE c.id = ? OR c.child_code = ?`,
-      [id, id]
+      WHERE (c.id = ? OR c.child_code = ?)${req.schoolId ? ' AND c.community_id = ?' : ''}`,
+          req.schoolId ? [id, id, req.schoolId] : [id, id]
     );
     if (!rows.length) return res.status(404).json({ error: 'Not found' });
     const child = await attachClinicalData(rows[0]);
@@ -359,14 +362,15 @@ router.put('/:id', async (req, res) => {
 router.get('/mother/:motherId/children', async (req, res) => {
   try {
     const { motherId } = req.params;
+    const scopeClause = req.schoolId ? ' AND c.community_id = ?' : '';
     const [rows] = await pool.query(
       `SELECT c.*, comm.name AS community_name, g.group_name, b.name AS batch_name
        FROM children c
        LEFT JOIN communities comm ON comm.id = c.community_id
        LEFT JOIN groups g ON g.id = c.group_id
        LEFT JOIN batches b ON b.id = c.batch_id
-       WHERE c.mother_id = ? ORDER BY c.created_at DESC`,
-      [motherId]
+      WHERE c.mother_id = ?${scopeClause} ORDER BY c.created_at DESC`,
+          req.schoolId ? [motherId, req.schoolId] : [motherId]
     );
     res.json({ children: rows });
   } catch (err) {

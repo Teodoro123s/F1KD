@@ -177,77 +177,7 @@ Next page load:
 
 ---
 
-## 📋 Metrics (Before vs. After)
-
-| Metric | Before | After | Improvement |
-|--------|--------|-------|------------|
-| **Main Component Lines** | 619 | ~250 | **60% ↓** |
-| **State Variables** | 31 | ~5-8 | **75% ↓** |
-| **Custom Hooks** | 0 | 4 | **+4** |
-| **Utility Modules** | 0 | 4 | **+4** |
-| **useEffect Calls** | 8+ | 0 | **Eliminated** |
-| **useMemo Hooks** | 15+ | 0 | **Eliminated** |
-| **Monolithic Functions** | 2 | 0 | **Eliminated** |
-| **Testable Functions** | 0 | 40+ | **100% Pure** |
-| **Build Size Change** | — | -5% | **Optimized** |
-
----
-
-## 🧪 Testing Strategy
-
-### Layer 3: Business Logic (Pure Utilities)
-```javascript
-// ✅ Easy to test - no mocks needed
-describe('filterUtils', () => {
-  it('parseContext should mark isAllSchools=true when school="All Schools"', () => {
-    const result = parseContext('All Schools', 'Group A', 'Batch 1');
-    expect(result.isAllSchools).toBe(true);
-  });
-
-  it('filterRows should return only rows matching school', () => {
-    const rows = [{ school: 'A' }, { school: 'B' }];
-    const context = parseContext('A', 'All Groups', 'All Batches');
-    const result = filterRows(rows, context, ...);
-    expect(result.length).toBe(1);
-    expect(result[0].school).toBe('A');
-  });
-});
-```
-
-### Layer 2: State Hooks
-```javascript
-// ✅ Testable with React Testing Library
-describe('useProgressFilters', () => {
-  it('should initialize with default filters', () => {
-    const { result } = renderHook(() => useProgressFilters({...}));
-    expect(result.current.school).toBe('All Schools');
-    expect(result.current.search).toBe('');
-  });
-
-  it('should update filteredRows when school changes', () => {
-    const { result } = renderHook(() => useProgressFilters({...}));
-    act(() => result.current.setSchool('Mountain School'));
-    expect(result.current.filteredRows.length).toBeLessThan(allRows.length);
-  });
-});
-```
-
-### Layer 1: Component (Integration Test)
-```javascript
-// ✅ Full integration test
-describe('ProgressReport', () => {
-  it('should display filtered rows when filter is applied', async () => {
-    render(<ProgressReport />);
-    const filterInput = screen.getByPlaceholderText('Search');
-    fireEvent.change(filterInput, { target: { value: 'risk:true' } });
-    expect(screen.getAllByRole('row')).toHaveLength(expectedCount);
-  });
-});
-```
-
----
-
-## 🚀 How to Extend (Add New Features)
+##  How to Extend (Add New Features)
 
 ### Example 1: Add "Summary View" for Administrators
 
@@ -408,7 +338,4 @@ To refactor other pages following this pattern:
 
 ---
 
-**Last Updated:** 2026-09-01  
-**Refactoring Status:** ✅ Complete & Production-Ready  
-**Test Coverage:** Ready for unit tests  
-**Documentation:** Comprehensive
+**Note:** This document is kept as an architecture reference and should be updated when the actual behavior of the page changes.
