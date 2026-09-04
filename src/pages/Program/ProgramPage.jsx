@@ -10,7 +10,7 @@ import {
   SearchIcon,
 } from "../Community/CommunityIcons";
 import { getSummary } from "../Community/communityService";
-import { apiCompleteProgramCluster, apiCreateProgram, apiCreateProgramClusters, apiDeleteProgram, apiEndProgram, apiGetPrograms, apiUpdateProgram } from "../../api/programs";
+import { apiCompleteNamedProgramCluster, apiCompleteProgramCluster, apiCreateProgram, apiCreateProgramClusters, apiDeleteProgram, apiEndProgram, apiGetPrograms, apiUpdateProgram } from "../../api/programs";
 import {
   beneficiaryNames,
   buildProgramsFromSummary,
@@ -110,7 +110,28 @@ export default function ProgramPage() {
   const selectedProgram = programId
     ? programs.find((program) => program.id === Number(programId))
     : programs.find((program) => program.id === Number(form.id)) || filteredPrograms[0];
-  const selectedCluster = getCluster(selectedProgram, clusterType, clusterName);
+  const expandedClusters = useMemo(() => {
+    if (!selectedProgram) return [];
+    const clusters = [...(selectedProgram.clusters || [])];
+    const addCluster = (type, name, beneficiaries) => {
+      if (!name || clusters.some((cluster) => cluster.type === type && cluster.name.toLowerCase() === name.toLowerCase())) return;
+      clusters.push({ type, name, beneficiaries: Number(beneficiaries || 0), received: 0, derived: true });
+    };
+    clusters.filter((cluster) => cluster.type === 'School').forEach((schoolCluster) => {
+      const school = hierarchy.schools.find((item) => String(item.name || '').toLowerCase() === schoolCluster.name.toLowerCase());
+      if (!school) return;
+      const schoolGroups = hierarchy.groups.filter((group) => (
+        String(group.community || group.community_name || '').toLowerCase() === String(school.name || '').toLowerCase()
+      ));
+      schoolGroups.forEach((group) => addCluster('Group', group.name || group.group_name, group.members));
+      hierarchy.batches.filter((batch) => (
+        String(batch.community || '').toLowerCase() === String(school.name || '').toLowerCase()
+      )).forEach((batch) => addCluster('Batch', batch.name || batch.batch_code, batch.records));
+    });
+    return clusters;
+  }, [hierarchy, selectedProgram]);
+  const selectedProgramView = selectedProgram ? { ...selectedProgram, clusters: expandedClusters } : selectedProgram;
+  const selectedCluster = getCluster(selectedProgramView, clusterType, clusterName);
   const selectedSchools = hierarchy.schools.filter((school) => scopeSchoolIds.includes(String(school.id)));
   const availableGroups = hierarchy.groups.filter((group) => (
     scopeSchoolIds.includes(String(group.community_id || ''))
@@ -167,20 +188,25 @@ export default function ProgramPage() {
       return;
     }
     setScopeError('');
-    const scopes = selectedScopes.map((scope) => ({ type: beneficiaryScope, name: scope.name || scope.group_name || scope.batch_code, beneficiaries: Number(scope.records || scope.members_count || 0) }));
+    const scopes = selectedScopes.flatMap((scope) => {
+      const name = scope.name || scope.group_name || scope.batch_code;
+      const coverage = [{ type: beneficiaryScope, name, beneficiaries: Number(scope.records || scope.members_count || 0) }];
+      if (beneficiaryScope !== 'School') return coverage;
+      const groups = hierarchy.groups.filter((group) => String(group.community || group.community_name || '').toLowerCase() === String(name || '').toLowerCase());
+      const batches = hierarchy.batches.filter((batch) => String(batch.community || '').toLowerCase() === String(name || '').toLowerCase());
+      return coverage.concat(
+        groups.map((group) => ({ type: 'Group', name: group.name || group.group_name, beneficiaries: Number(group.members || 0) })),
+        batches.map((batch) => ({ type: 'Batch', name: batch.name || batch.batch_code, beneficiaries: Number(batch.records || 0) })),
+      );
+    });
     apiCreateProgramClusters(selectedProgram.id, scopes).then((response) => setPrograms((current) => current.map((program) => program.id === selectedProgram.id ? mapApiProgram(response.program) : program))).catch(() => setProgramError('Unable to save beneficiary cluster.'));
     setPrograms((current) =>
       current.map((program) =>
         program.id === selectedProgram.id
           ? {
               ...program,
-              clusters: [...program.clusters, ...selectedScopes
-                .map((scope) => ({
-                  type: beneficiaryScope,
-                  name: scope.name || scope.group_name || scope.batch_code,
-                  beneficiaries: Number(scope.records || scope.members_count || 0),
-                  received: 0,
-                }))
+              clusters: [...program.clusters, ...scopes
+                .map((scope) => ({ ...scope, received: 0 }))
                 .filter((cluster) => !program.clusters.some((item) => item.type === cluster.type && item.name.toLowerCase() === cluster.name.toLowerCase()))],
             }
           : program,
@@ -192,7 +218,10 @@ export default function ProgramPage() {
     setScopeBatchIds([]);
   };
   const completeCluster = (cluster) => {
-    apiCompleteProgramCluster(selectedProgram.id, cluster.id)
+    const completeRequest = cluster.id
+      ? apiCompleteProgramCluster(selectedProgram.id, cluster.id)
+      : apiCompleteNamedProgramCluster(selectedProgram.id, cluster);
+    completeRequest
       .then((response) => setPrograms((current) => current.map((program) => program.id === selectedProgram.id ? mapApiProgram(response.program) : program)))
       .catch(() => setProgramError('Unable to mark this cluster as done.'));
   };
@@ -252,7 +281,7 @@ export default function ProgramPage() {
       {clusterView && selectedProgram && (
         <section className="program-cluster-subheader" aria-label="Program beneficiary clusters">
           <div className="program-cluster-tabs" role="tablist" aria-label="Program cluster levels">
-            {[['School', 'Schools', BuildingIcon], ['Group', 'Groups', GroupsIcon], ['Batch', 'Batches', BatchesIcon]].map(([type, label, Icon]) => { const cluster = selectedProgram.clusters.find((item) => item.type === type); return <button key={type} type="button" role="tab" aria-selected={clusterType === type} className={`program-cluster-tab${clusterType === type ? ' active' : ''}`} onClick={() => cluster && navigate(`/program/${selectedProgram.id}/cluster/${type}/${encodeURIComponent(cluster.name)}`)} disabled={!cluster}><Icon /><span>{label}</span></button>; })}
+            {[['School', 'Schools', BuildingIcon], ['Group', 'Groups', GroupsIcon], ['Batch', 'Batches', BatchesIcon]].map(([type, label, Icon]) => { const cluster = selectedProgramView.clusters.find((item) => item.type === type); return <button key={type} type="button" role="tab" aria-selected={clusterType === type} className={`program-cluster-tab${clusterType === type ? ' active' : ''}`} onClick={() => cluster && navigate(`/program/${selectedProgram.id}/cluster/${type}/${encodeURIComponent(cluster.name)}`)} disabled={!cluster}><Icon /><span>{label}</span></button>; })}
           </div>
         </section>
       )}
@@ -358,7 +387,7 @@ export default function ProgramPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {selectedProgram?.clusters.map((cluster) => (
+                  {selectedProgramView?.clusters.map((cluster) => (
                     <tr key={`${cluster.type}-${cluster.name}`} className="program-clickable-row" onClick={() => navigate(`/program/${selectedProgram.id}/cluster/${cluster.type}/${encodeURIComponent(cluster.name)}`)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") navigate(`/program/${selectedProgram.id}/cluster/${cluster.type}/${encodeURIComponent(cluster.name)}`); }} tabIndex="0">
                       <td>
                         <a className="program-row-link" href={clusterPath(selectedProgram.id, cluster)} onClick={(event) => event.stopPropagation()}>

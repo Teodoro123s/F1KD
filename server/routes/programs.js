@@ -116,4 +116,27 @@ router.patch('/:programId/clusters/:clusterId/complete', async (req, res) => {
   }
 });
 
+router.patch('/:programId/clusters/complete', async (req, res) => {
+  const type = String(req.body?.type || '').trim();
+  const name = String(req.body?.name || '').trim();
+  const beneficiaries = Number(req.body?.beneficiaries || 0);
+  if (!type || !name) return res.status(400).json({ error: 'Cluster type and name are required' });
+  try {
+    const [result] = await pool.query(
+      'UPDATE program_clusters SET received = beneficiaries WHERE program_id = ? AND scope_type = ? AND scope_name = ?',
+      [req.params.programId, type, name],
+    );
+    if (!result.affectedRows) {
+      await pool.query(
+        'INSERT INTO program_clusters (program_id, scope_type, scope_name, beneficiaries, received) VALUES (?, ?, ?, ?, ?)',
+        [req.params.programId, type, name, beneficiaries, beneficiaries],
+      );
+    }
+    res.json({ program: await getProgram(req.params.programId) });
+  } catch (error) {
+    console.error('[Programs API] complete named cluster error:', error.message);
+    res.status(500).json({ error: 'db error' });
+  }
+});
+
 module.exports = router;
