@@ -6,6 +6,7 @@ import MotherCheckup from '../Beneficiary/mother/MotherCheckup';
 import StatusFilterBar from '../Beneficiary/components/StatusFilterBar';
 import EntitySearchControls from '../Beneficiary/components/EntitySearchControls';
 import ChildMonitor, { getChildName } from './ChildMonitor';
+import { createMonitorModel } from './monitorModel';
 import { apiGetChildren, apiSaveChildCheckup } from '../../api/children';
 import { apiGetMother, apiSaveMotherCheckup } from '../../api/mothers';
 
@@ -167,7 +168,14 @@ export default function MonitoringPage() {
     const status = beneficiaryType === 'Mother'
       ? getMotherMonitoringStatus(beneficiary, completed, total)
       : getChildMonitoringStatus(beneficiary, completed, total);
-    return { beneficiary, completed, total, progress, status };
+    return {
+      beneficiary,
+      monitor: createMonitorModel(beneficiary),
+      completed,
+      total,
+      progress,
+      status,
+    };
   }).filter((row) => statusFilter === 'All' || row.status === statusFilter), [visibleBeneficiaries, beneficiaryType, statusFilter]);
 
   const pageCount = Math.max(1, Math.ceil(monitoringRows.length / perPage));
