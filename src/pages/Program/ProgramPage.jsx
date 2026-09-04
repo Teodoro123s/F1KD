@@ -10,7 +10,7 @@ import {
   SearchIcon,
 } from "../Community/CommunityIcons";
 import { getSummary } from "../Community/communityService";
-import { apiCreateProgram, apiCreateProgramClusters, apiDeleteProgram, apiGetPrograms, apiUpdateProgram } from "../../api/programs";
+import { apiCompleteProgramCluster, apiCreateProgram, apiCreateProgramClusters, apiDeleteProgram, apiEndProgram, apiGetPrograms, apiUpdateProgram } from "../../api/programs";
 import {
   beneficiaryNames,
   buildProgramsFromSummary,
@@ -46,6 +46,7 @@ export default function ProgramPage() {
   const [scopeGroupIds, setScopeGroupIds] = useState([]);
   const [scopeBatchIds, setScopeBatchIds] = useState([]);
   const [hierarchy, setHierarchy] = useState({ schools: [], groups: [], batches: [] });
+  const [scopeError, setScopeError] = useState('');
   const [activeActionMenu, setActiveActionMenu] = useState(null);
   const [actionProgram, setActionProgram] = useState(null);
   const [programError, setProgramError] = useState('');
@@ -64,19 +65,12 @@ export default function ProgramPage() {
   useEffect(() => {
     let mounted = true;
 
-    apiGetPrograms()
-      .then((response) => {
+    Promise.all([apiGetPrograms(), getSummary()])
+      .then(([programResponse, summary]) => {
         if (!mounted) return;
-        const savedPrograms = (response.programs || []).map(mapApiProgram);
-        if (savedPrograms.length) {
-          setPrograms(savedPrograms);
-          return;
-        }
-        return getSummary().then((summary) => {
-          if (!mounted) return;
-          setHierarchy({ schools: summary.communities || [], groups: summary.groups || [], batches: summary.batches || [] });
-          setPrograms(buildProgramsFromSummary(summary));
-        });
+        const savedPrograms = (programResponse.programs || []).map(mapApiProgram);
+        setHierarchy({ schools: summary.communities || [], groups: summary.groups || [], batches: summary.batches || [] });
+        setPrograms(savedPrograms.length ? savedPrograms : buildProgramsFromSummary(summary));
       })
       .then(() => {
         if (mounted) setIsLiveDataLoaded(true);
@@ -158,19 +152,21 @@ export default function ProgramPage() {
   };
   const endProgram = (programToEnd = selectedProgram) => {
     if (!programToEnd) return;
-    setPrograms((current) =>
-      current.map((program) =>
-        program.id === programToEnd.id
-          ? { ...program, status: "Ended", ended: "Aug 26, 2026" }
-          : program,
-      ),
-    );
-    setForm(emptyProgram);
+    apiEndProgram(programToEnd.id)
+      .then((response) => {
+        setPrograms((current) => current.map((program) => program.id === programToEnd.id ? mapApiProgram(response.program) : program));
+        setForm(emptyProgram);
+      })
+      .catch(() => setProgramError('Unable to end program.'));
   };
   const saveBeneficiaryScope = (event) => {
     event.preventDefault();
     const selectedScopes = beneficiaryScope === 'School' ? selectedSchools : beneficiaryScope === 'Group' ? selectedGroups : selectedBatches;
-    if (!selectedProgram || !selectedScopes.length) return;
+    if (!selectedProgram || !selectedScopes.length) {
+      setScopeError(`Select at least one ${beneficiaryScope.toLowerCase()} before adding this cluster.`);
+      return;
+    }
+    setScopeError('');
     const scopes = selectedScopes.map((scope) => ({ type: beneficiaryScope, name: scope.name || scope.group_name || scope.batch_code, beneficiaries: Number(scope.records || scope.members_count || 0) }));
     apiCreateProgramClusters(selectedProgram.id, scopes).then((response) => setPrograms((current) => current.map((program) => program.id === selectedProgram.id ? mapApiProgram(response.program) : program))).catch(() => setProgramError('Unable to save beneficiary cluster.'));
     setPrograms((current) =>
@@ -195,7 +191,13 @@ export default function ProgramPage() {
     setScopeGroupIds([]);
     setScopeBatchIds([]);
   };
+  const completeCluster = (cluster) => {
+    apiCompleteProgramCluster(selectedProgram.id, cluster.id)
+      .then((response) => setPrograms((current) => current.map((program) => program.id === selectedProgram.id ? mapApiProgram(response.program) : program)))
+      .catch(() => setProgramError('Unable to mark this cluster as done.'));
+  };
   const openBeneficiaryModal = () => {
+    setScopeError('');
     setScopeSchoolIds([]);
     setScopeGroupIds([]);
     setScopeBatchIds([]);
@@ -383,7 +385,11 @@ export default function ProgramPage() {
                             : "Not yet recorded"}
                         </span>
                       </td>
-                      <td>{renderActionMenu(`program-${cluster.type}-${cluster.name}`)}</td>
+                        <td>
+                          <button type="button" className="view-btn view-btn--secondary program-complete-button" onClick={(event) => { event.stopPropagation(); completeCluster(cluster); }} disabled={cluster.received >= cluster.beneficiaries}>
+                            {cluster.received >= cluster.beneficiaries ? 'Done' : 'Mark done'}
+                          </button>
+                        </td>
                     </tr>
                   ))}
                 </tbody>
@@ -552,6 +558,7 @@ export default function ProgramPage() {
                   </div>
                 </label>
               )}
+              {scopeError && <p className="form-error" role="alert">{scopeError}</p>}
             </div>
             <div className="modal-footer">
               <button
@@ -561,7 +568,7 @@ export default function ProgramPage() {
               >
                 Cancel
               </button>
-              <button type="submit" className="btn-primary" disabled={!scopeSchoolIds.length || (beneficiaryScope !== "School" && !scopeGroupIds.length) || (beneficiaryScope === "Batch" && !scopeBatchIds.length)}>
+              <button type="submit" className="btn-primary">
                 Add beneficiary cluster
               </button>
             </div>

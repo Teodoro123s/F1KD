@@ -19,7 +19,9 @@ async function getProgram(id) {
   const [rows] = await pool.query('SELECT * FROM programs WHERE id = ?', [id]);
   if (!rows.length) return null;
   const [clusters] = await pool.query('SELECT id, scope_type AS type, scope_name AS name, beneficiaries, received FROM program_clusters WHERE program_id = ? ORDER BY id', [id]);
-  return { ...rows[0], beneficiaryType: rows[0].beneficiary_type, target: rows[0].target, clusters };
+  const target = clusters.reduce((total, cluster) => total + Number(cluster.beneficiaries || 0), 0);
+  const received = clusters.reduce((total, cluster) => total + Number(cluster.received || 0), 0);
+  return { ...rows[0], beneficiaryType: rows[0].beneficiary_type, target, received, clusters };
 }
 
 router.get('/', async (req, res) => {
@@ -58,6 +60,20 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+router.patch('/:id/end', async (req, res) => {
+  try {
+    const [result] = await pool.query(
+      "UPDATE programs SET status = 'Ended', ended = CURRENT_DATE WHERE id = ?",
+      [req.params.id],
+    );
+    if (!result.affectedRows) return res.status(404).json({ error: 'Program not found' });
+    res.json({ program: await getProgram(req.params.id) });
+  } catch (error) {
+    console.error('[Programs API] end error:', error.message);
+    res.status(500).json({ error: 'db error' });
+  }
+});
+
 router.delete('/:id', async (req, res) => {
   try {
     const [result] = await pool.query('DELETE FROM programs WHERE id = ?', [req.params.id]);
@@ -82,6 +98,20 @@ router.post('/:id/clusters', async (req, res) => {
     res.status(201).json({ program: await getProgram(req.params.id) });
   } catch (error) {
     console.error('[Programs API] cluster error:', error.message);
+    res.status(500).json({ error: 'db error' });
+  }
+});
+
+router.patch('/:programId/clusters/:clusterId/complete', async (req, res) => {
+  try {
+    const [result] = await pool.query(
+      'UPDATE program_clusters SET received = beneficiaries WHERE id = ? AND program_id = ?',
+      [req.params.clusterId, req.params.programId],
+    );
+    if (!result.affectedRows) return res.status(404).json({ error: 'Cluster not found' });
+    res.json({ program: await getProgram(req.params.programId) });
+  } catch (error) {
+    console.error('[Programs API] complete cluster error:', error.message);
     res.status(500).json({ error: 'db error' });
   }
 });
