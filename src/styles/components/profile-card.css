@@ -715,6 +715,8 @@
 .program-scope-options small, .program-scope-note { color: #64748b; font-size: 0.78rem; }
 .program-scope-note { margin: 0.75rem 0 0; }
 .program-recipient-list { margin: 1rem 0; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
+.program-hierarchy-options { max-height: 180px; margin-top: 0.45rem; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; }
+.program-hierarchy-options .program-recipient:first-child { border-top: 0; }
 .program-recipient-heading { display: flex; justify-content: space-between; padding: 0.75rem 0.85rem; background: #f8fafc; color: #334155; }
 .program-recipient-heading span, .program-recipient small { color: #64748b; font-size: 0.78rem; }
 .program-recipient { display: grid; grid-template-columns: 20px 1fr auto; gap: 0.5rem; align-items: center; padding: 0.7rem 0.85rem; border-top: 1px solid #e2e8f0; cursor: pointer; }

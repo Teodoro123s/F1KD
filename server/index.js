@@ -8,6 +8,7 @@ const communityRouter = require('./routes/community');
 const mothersRouter = require('./routes/mothers');
 const authRouter = require('./routes/auth');
 const childrenRouter = require('./routes/children');
+const programsRouter = require('./routes/programs');
 const { verifyToken } = require('./middleware/auth');
 const { authorizeOperational } = require('./middleware/authorize');
 const { uploadDirectory } = require('./middleware/documentUpload');
@@ -58,6 +59,7 @@ app.use('/api/users', usersRouter);
 app.use('/api/community', verifyToken, authorizeOperational, communityRouter);
 app.use('/api/mothers', verifyToken, authorizeOperational, mothersRouter);
 app.use('/api/children', verifyToken, authorizeOperational, childrenRouter);
+app.use('/api/programs', verifyToken, authorizeOperational, programsRouter);
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 4000;
