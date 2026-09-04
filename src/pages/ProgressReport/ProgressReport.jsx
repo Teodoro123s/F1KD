@@ -17,6 +17,7 @@
  * changing the backend contracts or user-visible behavior.
  */
 import React, { useMemo, useState } from 'react';
+import PageHeader from '../../components/ui/PageHeader';
 import { useMothers } from '../../context/MothersContext';
 import { useAuth } from '../../auth/AuthProvider';
 import { AsyncContainer } from '../../components/AsyncContainer';
@@ -151,6 +152,10 @@ export default function ProgressReport() {
   return (
     <div className="progress-report-shell">
       <div className="progress-report-panel">
+        <PageHeader
+          title="Progress Report"
+          breadcrumbs={[{ label: 'Progress Report' }]}
+        />
         <ProgressReportFilterBar
           activeFilterCount={activeFilterCount}
           showAllFilters={showAllFilters}

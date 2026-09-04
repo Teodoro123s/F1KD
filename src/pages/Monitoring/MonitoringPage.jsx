@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import PageHeader from '../../components/ui/PageHeader';
 import { useMothers } from '../../context/MothersContext';
 import MotherCheckup from '../Beneficiary/mother/MotherCheckup';
 import StatusFilterBar from '../Beneficiary/components/StatusFilterBar';
@@ -196,26 +197,13 @@ export default function MonitoringPage() {
 
   return (
     <div className="checkup-module page">
-      <header className="checkup-module-header">
-        <div>
-          <h1>Monitor</h1>
-          <nav className="community-breadcrumb" aria-label="Breadcrumb">
-            <span className="breadcrumb-item">
-              {selectedMother || selectedChild ? (
-                <button type="button" className="breadcrumb-link" onClick={handleBack}>Monitor</button>
-              ) : (
-                <span className="breadcrumb-current">Monitor</span>
-              )}
-            </span>
-            {(selectedMother || selectedChild) && <>
-              <span className="breadcrumb-separator">›</span>
-              <span className="breadcrumb-item">
-                <span className="breadcrumb-current">{selectedMother ? getMotherName(selectedMother) : getChildName(selectedChild)}</span>
-              </span>
-            </>}
-          </nav>
-        </div>
-      </header>
+      <PageHeader
+        title={selectedMother || selectedChild ? (selectedMother ? getMotherName(selectedMother) : getChildName(selectedChild)) : 'Monitor'}
+        breadcrumbs={selectedMother || selectedChild ? [{ label: 'Monitor', href: '/monitoring' }, { label: selectedMother ? getMotherName(selectedMother) : getChildName(selectedChild) }] : [{ label: 'Monitor' }]}
+        actions={selectedMother || selectedChild ? (
+          <button type="button" className="view-btn view-btn--secondary" onClick={handleBack}>Back</button>
+        ) : null}
+      />
 
       {!selectedMother && !selectedChild ? (
         <section className="monitoring-list-container" aria-labelledby="monitoring-list-title">

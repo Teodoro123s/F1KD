@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
+import PageHeader from '../../components/ui/PageHeader';
 import { PlusIcon } from './BeneficiaryIcons';
 import CreateMotherPage from './mother/CreateMotherPage';
 import CreateChildPage from './child/CreateChildPage';
@@ -129,36 +130,30 @@ export default function BeneficiaryPage() {
 
   return (
     <div className="community-page beneficiary-page">
-      <header className="community-header">
-        <div className="community-title-section">
-          <h1>Beneficiaries</h1>
-          <nav className="community-breadcrumb" aria-label="Breadcrumb">
-            <span className="breadcrumb-item">
-              <span className="breadcrumb-current">Beneficiaries</span>
-            </span>
-          </nav>
-        </div>
-
-        {/* Create button (keeps the simple dropdown used previously) */}
-        {!isMotherDetail && canCreate && (
-          <div className="create-menu-wrapper">
-            <button className="btn-create-action" onClick={openCreateModal} type="button">
-              <PlusIcon />
-              <span>Create</span>
-            </button>
-            {createDropdownOpen && (
-              <div className="create-dropdown" role="menu">
-                <button type="button" className="actions-dropdown-item" onClick={openCreateMother} role="menuitem">
-                  Create Mother
-                </button>
-                <button type="button" className="actions-dropdown-item" onClick={openCreateChild} role="menuitem">
-                  Create Child
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-      </header>
+      <PageHeader
+        title="Beneficiaries"
+        breadcrumbs={[{ label: 'Beneficiaries' }]}
+        actions={
+          !isMotherDetail && canCreate ? (
+            <div className="create-menu-wrapper">
+              <button className="view-btn view-btn--primary" onClick={openCreateModal} type="button">
+                <PlusIcon />
+                <span>Create</span>
+              </button>
+              {createDropdownOpen && (
+                <div className="create-dropdown" role="menu">
+                  <button type="button" className="actions-dropdown-item" onClick={openCreateMother} role="menuitem">
+                    Create Mother
+                  </button>
+                  <button type="button" className="actions-dropdown-item" onClick={openCreateChild} role="menuitem">
+                    Create Child
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : null
+        }
+      />
 
       <main className="beneficiary-main">
         {/* Check create routes before showing selected mother detail so navigation to create pages works even when a mother is selected */}

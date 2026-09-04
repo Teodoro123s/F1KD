@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import PageHeader from '../../components/ui/PageHeader';
 import {
   BatchesIcon,
   BuildingIcon,
@@ -185,26 +186,22 @@ export default function ProgramPage() {
 
   return (
     <div className="community-page program-page">
-      <header className="community-header">
-        <div className="community-title-section">
-          <h1>
-            {viewMode && selectedProgram ? selectedProgram.name : "Program"}
-          </h1>
-          <nav className="community-breadcrumb" aria-label="Breadcrumb">
-            <span className="breadcrumb-current">Program</span>
-          </nav>
-        </div>
-        <button
-          className="btn-create-action"
-          type="button"
-          onClick={() =>
-            viewMode ? setShowBeneficiaryModal(true) : setShowModal(true)
-          }
-        >
-          <PlusIcon />
-          <span>{viewMode ? "Add beneficiary" : "Create Program"}</span>
-        </button>
-      </header>
+      <PageHeader
+        title={viewMode && selectedProgram ? selectedProgram.name : 'Program'}
+        breadcrumbs={[{ label: 'Program' }]}
+        actions={
+          <button
+            className="view-btn view-btn--primary"
+            type="button"
+            onClick={() =>
+              viewMode ? setShowBeneficiaryModal(true) : setShowModal(true)
+            }
+          >
+            <PlusIcon />
+            <span>{viewMode ? 'Add beneficiary' : 'Create Program'}</span>
+          </button>
+        }
+      />
 
       {isLiveDataLoaded && (
         <div className="program-live-status" style={{ padding: "0 0 12px", color: "#475569", fontSize: "0.9rem" }}>

@@ -15,36 +15,70 @@ const normalizeRole = (role) => {
   return ROLE_ALIASES[value] || value;
 };
 
+const permissionResponse = (res, message = 'Forbidden') => {
+  const payload = {
+    status: 403,
+    code: 'PERMISSION_DENIED',
+    message,
+    timestamp: new Date().toISOString(),
+  };
+  return res.status(403).json(payload);
+};
+
 function authorize(...allowedRoles) {
   return (req, res, next) => {
-    if (!req.user) return res.status(401).json({ error: 'Unauthenticated' });
+    if (!req.user) {
+      return res.status(401).json({
+        status: 401,
+        code: 'UNAUTHENTICATED',
+        message: 'Authentication required',
+        timestamp: new Date().toISOString(),
+      });
+    }
 
     const userRole = normalizeRole(req.user.role);
     const permitted = allowedRoles.some((role) => normalizeRole(role) === userRole);
-    if (!permitted) return res.status(403).json({ error: 'Forbidden' });
+    if (!permitted) {
+      return permissionResponse(res, 'You do not have permission to access this resource');
+    }
 
     return next();
   };
 }
 
 function authorizeOperational(req, res, next) {
-  if (!req.user) return res.status(401).json({ error: 'Unauthenticated' });
+  if (!req.user) {
+    return res.status(401).json({
+      status: 401,
+      code: 'UNAUTHENTICATED',
+      message: 'Authentication required',
+      timestamp: new Date().toISOString(),
+    });
+  }
 
   const userRole = normalizeRole(req.user.role);
-  const scopedRole = userRole === 'partner';
+  const scopedRoles = ['admin', 'partner'];
   const hasSchoolAssignment = req.user.school_id !== undefined && req.user.school_id !== null && String(req.user.school_id).trim() !== '';
 
-  req.schoolId = hasSchoolAssignment ? Number(req.user.school_id) : null;
-
-  if (req.method === 'GET' || userRole === 'super_admin') {
+  if (userRole === 'super_admin') {
+    req.schoolId = null;
     return next();
   }
 
-  if (scopedRole && !hasSchoolAssignment) {
-    return res.status(403).json({ error: 'No school is assigned to this account' });
+  if (scopedRoles.includes(userRole)) {
+    if (!hasSchoolAssignment) {
+      return permissionResponse(res, 'This account is not assigned to a school');
+    }
+    req.schoolId = Number(req.user.school_id);
+  } else {
+    req.schoolId = null;
   }
 
-  return res.status(403).json({ error: 'Operational modules are read-only for this role' });
+  if (req.method === 'GET') {
+    return next();
+  }
+
+  return permissionResponse(res, 'Operational modules are read-only for this role');
 }
 
 module.exports = { authorize, authorizeOperational, normalizeRole };

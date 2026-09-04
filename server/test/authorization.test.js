@@ -9,7 +9,7 @@ test('normalizeRole maps common role labels to canonical values', () => {
   assert.equal(normalizeRole('Health worker'), 'partner');
 });
 
-test('authorizeOperational allows scoped users without a school assignment for read access', () => {
+test('authorizeOperational denies scoped users without a school assignment to prevent data leaks', () => {
   let called = false;
   const req = {
     method: 'GET',
@@ -30,7 +30,9 @@ test('authorizeOperational allows scoped users without a school assignment for r
     called = true;
   });
 
-  assert.equal(called, true);
-  assert.equal(req.schoolId, null);
-  assert.equal(res.code, undefined);
+  assert.equal(called, false);
+  assert.equal(req.schoolId, undefined);
+  assert.equal(res.code, 403);
+  assert.equal(res.payload.code, 'PERMISSION_DENIED');
+  assert.equal(res.payload.message, 'This account is not assigned to a school');
 });

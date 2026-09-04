@@ -10,6 +10,8 @@ import RoleFilter from './RoleFilter';
 import Pagination from './Pagination';
 import ConfirmModal from './ConfirmModal';
 import NotificationBanner from './NotificationBanner';
+import PageHeader from '../../components/ui/PageHeader';
+import FilterBar from '../../components/ui/FilterBar';
 
 export default function UserManagementPage() {
   const {
@@ -73,25 +75,38 @@ export default function UserManagementPage() {
     <div className="community-page">
       <NotificationBanner message={notification} actionLabel={!apiOnline ? 'Retry' : null} onAction={!apiOnline ? retryLoad : null} />
 
-      <header className="community-header">
-        <div className="community-title-section">
-          <h1>User Management</h1>
-          <nav className="community-breadcrumb" aria-label="Breadcrumb">
-            {breadcrumbItems.map((item, index) => (
-              <span key={item.label} className="breadcrumb-item">
-                <span className="breadcrumb-current">{item.label}</span>
-                {index < breadcrumbItems.length - 1 && (
-                  <span className="breadcrumb-separator">›</span>
-                )}
-              </span>
-            ))}
-          </nav>
-        </div>
-        <button className="btn-create-action" type="button" onClick={openAddModal} disabled={!canCreate}>
-          <PlusIcon />
-          <span>{canCreate ? 'Add User' : 'Add User (requires Admin)'}</span>
-        </button>
-      </header>
+      <PageHeader
+        title="User Management"
+        breadcrumbs={breadcrumbItems}
+        actions={
+          <button className="view-btn view-btn--primary" type="button" onClick={openAddModal} disabled={!canCreate}>
+            <PlusIcon />
+            <span>{canCreate ? 'Add User' : 'Add User (requires Admin)'}</span>
+          </button>
+        }
+      />
+
+      <FilterBar
+        searchPlaceholder="Search account name or role..."
+        searchValue={query}
+        onSearchChange={handleSearch}
+        filters={[
+          {
+            key: 'role',
+            label: 'Role',
+            value: selectedRoleFilter,
+            onChange: selectRoleFilter,
+            options: ROLE_OPTIONS.map((option) => ({ label: option, value: option })),
+          },
+        ]}
+        onApply={() => {}}
+        onClear={() => {
+          selectRoleFilter('All Roles');
+          handleSearch('');
+        }}
+        applyLabel="Apply"
+        clearLabel="Clear"
+      />
 
       <section className="subheader-row">
         <div className="tabs-list" role="tablist" aria-label="Account status filter">
@@ -116,22 +131,6 @@ export default function UserManagementPage() {
             selected={selectedRoleFilter}
             onSelect={selectRoleFilter}
           />
-
-          <div className="search-container">
-            <div className="search-field-container">
-              <SearchIcon />
-              <input
-                id="user-management-search"
-                name="userManagementSearch"
-                type="text"
-                className="search-input-field"
-                placeholder="Search account name or role..."
-                value={query}
-                onChange={(e) => handleSearch(e.target.value)}
-                aria-label="Search accounts"
-              />
-            </div>
-          </div>
         </div>
       </section>
 
