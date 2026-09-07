@@ -126,7 +126,7 @@ export const emptyProgram = {
 export function filterPrograms(programs, query, status) {
   const term = query.trim().toLowerCase();
   return programs.filter((program) => {
-    if (program.status !== status) return false;
+    if (status !== "All" && program.status !== status) return false;
     if (!term) return true;
     return `${program.name} ${program.type} ${program.provider} ${program.community} ${program.batch}`
       .toLowerCase()

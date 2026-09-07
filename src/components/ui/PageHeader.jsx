@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function PageHeader({ title, breadcrumbs = [], actions = null }) {
+export default function PageHeader({ title, description = '', breadcrumbs = [], actions = null }) {
   return (
     <header className="view-page-header">
       <div className="view-page-header__content">
@@ -15,6 +15,7 @@ export default function PageHeader({ title, breadcrumbs = [], actions = null }) 
           ))}
         </nav>
         <h1 className="view-page-title">{title}</h1>
+        {description && <p className="view-page-description">{description}</p>}
       </div>
 
       {actions && <div className="view-page-header__actions">{actions}</div>}

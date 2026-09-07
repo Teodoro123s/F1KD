@@ -24,8 +24,9 @@ import {
 export default function ProgramPage() {
   const navigate = useNavigate();
   const { programId, clusterType, clusterName } = useParams();
-  const [activeTab, setActiveTab] = useState("Active");
+  const [activeTab, setActiveTab] = useState("All");
   const [query, setQuery] = useState("");
+  const [partnerFilter, setPartnerFilter] = useState("All Partners");
   const [programs, setPrograms] = useState(initialPrograms);
   const [isLiveDataLoaded, setIsLiveDataLoaded] = useState(false);
   const viewMode = Boolean(programId);
@@ -87,9 +88,35 @@ export default function ProgramPage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!activeActionMenu) return undefined;
+
+    const closeOnOutsideClick = (event) => {
+      if (!event.target.closest('.program-action-menu-wrap')) {
+        setActiveActionMenu(null);
+      }
+    };
+
+    document.addEventListener('mousedown', closeOnOutsideClick);
+    return () => document.removeEventListener('mousedown', closeOnOutsideClick);
+  }, [activeActionMenu]);
+
   const filteredPrograms = useMemo(() => {
-    return filterPrograms(programs, query, activeTab);
-  }, [programs, query, activeTab]);
+    return filterPrograms(programs, query, activeTab).filter((program) => (
+      partnerFilter === "All Partners" || program.provider === partnerFilter
+    ));
+  }, [programs, query, activeTab, partnerFilter]);
+
+  const programStats = useMemo(() => ({
+    total: programs.length,
+    active: programs.filter((program) => String(program.status).toLowerCase() === 'active').length,
+    upcoming: programs.filter((program) => String(program.status).toLowerCase() === 'upcoming').length,
+    completed: programs.filter((program) => ['ended', 'completed'].includes(String(program.status).toLowerCase())).length,
+  }), [programs]);
+
+  const programPartners = useMemo(() => (
+    [...new Set(programs.map((program) => program.provider).filter(Boolean))]
+  ), [programs]);
 
   const saveProgram = async (event) => {
     event.preventDefault();
@@ -252,12 +279,31 @@ export default function ProgramPage() {
       {activeActionMenu === menuId && <div className="actions-dropdown program-actions-dropdown" role="menu"><button type="button" className="actions-dropdown-item" onClick={editProgram} role="menuitem">Edit</button><button type="button" className="actions-dropdown-item" onClick={() => { setActiveActionMenu(null); endProgram(actionProgram); }} role="menuitem">End program</button><button type="button" className="actions-dropdown-item delete" onClick={deleteProgram} role="menuitem">Delete</button></div>}
     </div>
   );
+  const renderClusterActionMenu = (cluster) => {
+    const menuId = `cluster-${cluster.type}-${cluster.name}`;
+    const isComplete = cluster.received >= cluster.beneficiaries;
+    return (
+      <div className="program-action-menu-wrap" onClick={(event) => event.stopPropagation()}>
+        <button type="button" className="program-more-button" aria-label="Cluster actions" aria-haspopup="true" aria-expanded={activeActionMenu === menuId} onClick={(event) => { event.stopPropagation(); setActiveActionMenu(activeActionMenu === menuId ? null : menuId); }}>
+          <MoreVerticalIcon />
+        </button>
+        {activeActionMenu === menuId && (
+          <div className="actions-dropdown program-actions-dropdown" role="menu">
+            <button type="button" className="actions-dropdown-item" onClick={() => { setActiveActionMenu(null); if (!isComplete) completeCluster(cluster); }} disabled={isComplete} role="menuitem">
+              {isComplete ? 'Completed' : 'Mark done'}
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="community-page program-page">
       <PageHeader
-        title={viewMode && selectedProgram ? selectedProgram.name : 'Program'}
-        breadcrumbs={[{ label: 'Program' }]}
+        title={viewMode && selectedProgram ? selectedProgram.name : 'Programs'}
+        description={!viewMode ? 'View, manage and track all programs and activities.' : ''}
+        breadcrumbs={[]}
         actions={
           <button
             className="view-btn view-btn--primary"
@@ -267,10 +313,31 @@ export default function ProgramPage() {
             }
           >
             <PlusIcon />
-            <span>{viewMode ? 'Add beneficiary' : 'Create Program'}</span>
+            <span>{viewMode ? 'Add beneficiary' : 'New Program'}</span>
           </button>
         }
       />
+
+      {!viewMode && (
+        <section className="program-stat-grid" aria-label="Program summary">
+          <article className="program-stat-card">
+            <span className="program-stat-icon total">{programStats.total}</span>
+            <div><strong>Total Programs</strong><span>All programs</span></div>
+          </article>
+          <article className="program-stat-card">
+            <span className="program-stat-icon active">{programStats.active}</span>
+            <div><strong>Active Programs</strong><span>Currently ongoing</span></div>
+          </article>
+          <article className="program-stat-card">
+            <span className="program-stat-icon upcoming">{programStats.upcoming}</span>
+            <div><strong>Upcoming Programs</strong><span>Scheduled to start</span></div>
+          </article>
+          <article className="program-stat-card">
+            <span className="program-stat-icon completed">{programStats.completed}</span>
+            <div><strong>Completed Programs</strong><span>Successfully completed</span></div>
+          </article>
+        </section>
+      )}
 
       {isLiveDataLoaded && (
         <div className="program-live-status" style={{ padding: "0 0 12px", color: "#475569", fontSize: "0.9rem" }}>
@@ -287,34 +354,9 @@ export default function ProgramPage() {
       )}
 
       {!viewMode && (
-        <section className="tabs-row program-tabs-row">
-          <div
-            className="tabs-list"
-            role="tablist"
-            aria-label="Program sections"
-          >
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeTab === "Active"}
-              className={`tab-btn${activeTab === "Active" ? " active" : ""}`}
-              onClick={() => setActiveTab("Active")}
-            >
-              <GroupsIcon />
-              <span>Active Programs</span>
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeTab === "Ended"}
-              className={`tab-btn${activeTab === "Ended" ? " active" : ""}`}
-              onClick={() => setActiveTab("Ended")}
-            >
-              <BatchesIcon />
-              <span>Ended Programs</span>
-            </button>
-          </div>
-          <div className="search-container program-search">
+        <section className="program-list-toolbar">
+          <div className="program-list-heading">Program List</div>
+          <div className="program-filter-row">
             <div className="search-field-container">
               <SearchIcon />
               <input
@@ -328,11 +370,25 @@ export default function ProgramPage() {
                 aria-label="Search programs"
               />
             </div>
+            <div className="program-select-wrap program-status-wrap">
+              <select className="program-filter-select program-status-filter" value={activeTab} onChange={(event) => setActiveTab(event.target.value)} aria-label="Filter by status">
+                <option value="All">All Status</option>
+                <option value="Active">Active</option>
+                <option value="Upcoming">Upcoming</option>
+                <option value="Ended">Completed</option>
+              </select>
+            </div>
+            <div className="program-select-wrap program-partner-wrap">
+              <select className="program-filter-select" value={partnerFilter} onChange={(event) => setPartnerFilter(event.target.value)} aria-label="Filter by partner">
+                <option>All Partners</option>
+                {programPartners.map((partner) => <option key={partner}>{partner}</option>)}
+              </select>
+            </div>
           </div>
         </section>
       )}
 
-      <section className="table-card program-table-card">
+      <section className={`table-card program-table-card${!viewMode ? ' program-list-table-card' : ''}${viewMode ? ' program-detail-table-card' : ''}${clusterView ? ' program-cluster-table-card' : ''}`}>
         <div className="table-overflow">
           <table className="data-table">
             {clusterView && selectedCluster ? (
@@ -383,7 +439,7 @@ export default function ProgramPage() {
                     <th>Program status</th>
                     <th>Latest activity</th>
                     <th>Distribution status</th>
-                    <th>Action</th>
+                    <th aria-label="Actions"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -414,11 +470,7 @@ export default function ProgramPage() {
                             : "Not yet recorded"}
                         </span>
                       </td>
-                        <td>
-                          <button type="button" className="view-btn view-btn--secondary program-complete-button" onClick={(event) => { event.stopPropagation(); completeCluster(cluster); }} disabled={cluster.received >= cluster.beneficiaries}>
-                            {cluster.received >= cluster.beneficiaries ? 'Done' : 'Mark done'}
-                          </button>
-                        </td>
+                        <td>{renderClusterActionMenu(cluster)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -427,12 +479,12 @@ export default function ProgramPage() {
               <>
                 <thead>
                   <tr>
-                    <th>Program</th>
-                    <th>Type</th>
-                    <th>Provider</th>
-                    <th>Reached</th>
-                    <th>Latest activity</th>
-                    <th>Action</th>
+                    <th>Program Name</th>
+                    <th>Partner</th>
+                    <th>Status</th>
+                    <th>Period</th>
+                    <th>Beneficiaries</th>
+                    <th aria-label="Actions"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -443,16 +495,18 @@ export default function ProgramPage() {
                           <a className="program-row-link" href={`/program/${program.id}`} onClick={(event) => event.stopPropagation()}>
                             <strong>{program.name}</strong>
                           <span className="program-table-meta">
-                            {program.community} · {program.batch}
+                              {program.type}
                           </span>
                           </a>
                         </td>
-                        <td>{program.type}</td>
                         <td>{program.provider}</td>
                         <td>
-                          {program.received} / {program.target}
+                            <span className={`program-status ${String(program.status).toLowerCase()}`}>
+                              {program.status === 'Ended' ? 'Completed' : program.status}
+                            </span>
                         </td>
-                        <td>{program.latest}</td>
+                          <td>{program.period || program.dateRange || program.batch || 'Not specified'}</td>
+                          <td>{program.target || 0}</td>
                         <td>{renderActionMenu(`main-${program.id}`, program)}</td>
                       </tr>
                     ))
@@ -616,7 +670,7 @@ export default function ProgramPage() {
             onMouseDown={(event) => event.stopPropagation()}
           >
             <div className="modal-header">
-              <h2>Create program</h2>
+              <h2>Create Program</h2>
               <button
                 type="button"
                 className="modal-close"
@@ -705,7 +759,7 @@ export default function ProgramPage() {
                 Cancel
               </button>
               <button type="submit" className="btn-primary">
-                Create active program
+                Create Active Program
               </button>
             </div>
           </form>
