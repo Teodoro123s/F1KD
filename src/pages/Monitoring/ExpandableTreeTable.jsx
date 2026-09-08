@@ -80,7 +80,7 @@ function flattenVisibleRows(data, expandedPath) {
   return rows;
 }
 
-export default function ExpandableTreeTable({ data = [], monitored = {}, onMonitorChange }) {
+export default function ExpandableTreeTable({ data = [], monitored = {}, pending = {}, canToggle = false, onMonitorChange, onBeneficiaryClick }) {
   const [expandedPath, setExpandedPath] = useState([]);
   const rows = useMemo(() => flattenVisibleRows(data, expandedPath), [data, expandedPath]);
 
@@ -96,14 +96,16 @@ export default function ExpandableTreeTable({ data = [], monitored = {}, onMonit
     { key: 'school', label: 'School', render: (value, row) => row.level === 'school' ? <TreeCell row={row} value={value} onClick={() => toggleRow(row)} /> : value },
     { key: 'group', label: 'Group', render: (value, row) => row.level === 'group' ? <TreeCell row={row} value={value} onClick={() => toggleRow(row)} /> : value },
     { key: 'batch', label: 'Batch', render: (value, row) => row.level === 'batch' ? <TreeCell row={row} value={value} onClick={() => toggleRow(row)} /> : value },
-    { key: 'beneficiary', label: 'Beneficiary', render: (value, row) => row.level === 'beneficiary' ? <span className="monitor-tree-beneficiary">{value}</span> : value },
+    { key: 'beneficiary', label: 'Beneficiary', render: (value, row) => row.level === 'beneficiary' ? (
+      onBeneficiaryClick ? <button type="button" className="monitor-tree-beneficiary monitor-tree-beneficiary-button" onClick={() => onBeneficiaryClick(row.node)}>{value}</button> : <span className="monitor-tree-beneficiary">{value}</span>
+    ) : value },
     { key: 'monitored', label: 'Monitored?', render: (value, row) => row.level === 'beneficiary' ? (
-      onMonitorChange ? (
+      canToggle && onMonitorChange ? (
         <label className="monitor-tree-toggle">
-          <input type="checkbox" checked={Boolean(monitored[row.node.id] ?? row.node.isMonitored)} onChange={(event) => onMonitorChange(row.node.id, event.target.checked)} />
-          <span>{(monitored[row.node.id] ?? row.node.isMonitored) ? 'Yes' : 'No'}</span>
+          <input type="checkbox" checked={Boolean(monitored[row.node.monitorKey])} disabled={Boolean(pending[row.node.monitorKey])} onChange={(event) => onMonitorChange(row.node, event.target.checked)} />
+          <span>{pending[row.node.monitorKey] ? 'Saving...' : monitored[row.node.monitorKey] ? 'Yes' : 'No'}</span>
         </label>
-      ) : <span className={`program-recipient-status ${row.node.isMonitored ? 'received' : 'pending'}`}>{row.node.isMonitored ? 'Yes' : 'No'}</span>
+      ) : <span className={`program-recipient-status ${monitored[row.node.monitorKey] ? 'received' : 'pending'}`}>{monitored[row.node.monitorKey] ? 'Yes' : 'No'}</span>
     ) : '' },
   ];
 

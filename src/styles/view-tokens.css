@@ -458,6 +458,9 @@
 .program-page .monitor-tree-cell--batch { padding-left: 40px; }
 .program-page .monitor-tree-chevron { width: 14px; color: var(--burgundy); font-size: 11px; }
 .program-page .monitor-tree-beneficiary { display: inline-block; padding-left: 60px; }
+.program-page .monitor-tree-beneficiary-button { border: 0; background: transparent; color: inherit; cursor: pointer; font: inherit; text-align: left; }
+.program-page .monitor-tree-beneficiary-button:hover { color: var(--view-primary); text-decoration: underline; }
+.program-monitoring-report__toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
 .program-page .monitor-tree-toggle { display: inline-flex; align-items: center; gap: 8px; }
 .view-content .monitor-tree-toggle { display: inline-flex; align-items: center; gap: 8px; color: var(--view-text-muted); }
 .view-content .monitor-tree-toggle input { width: 16px; height: 16px; accent-color: var(--view-primary); }

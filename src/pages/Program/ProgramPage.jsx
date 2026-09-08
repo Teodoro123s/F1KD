@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useAuth } from "../../auth/AuthProvider";
+import { hasRole, ROLES } from "../../utils/permissions";
 import PageHeader from '../../components/ui/PageHeader';
 import {
   BatchesIcon,
@@ -11,23 +13,29 @@ import {
 } from "../Community/CommunityIcons";
 import { getSummary } from "../Community/communityService";
 import { apiGetChildren } from "../../api/children";
-import { apiCompleteNamedProgramCluster, apiCompleteProgramCluster, apiCreateProgram, apiCreateProgramClusters, apiDeleteProgram, apiEndProgram, apiGetPrograms, apiUpdateProgram } from "../../api/programs";
+import { apiCompleteNamedProgramCluster, apiCompleteProgramCluster, apiCreateProgram, apiCreateProgramClusters, apiDeleteProgram, apiEndProgram, apiGetBeneficiaryMonitoringReport, apiGetProgramMonitoring, apiGetPrograms, apiSetProgramMonitoring, apiUpdateProgram } from "../../api/programs";
 import ExpandableTreeTable from "../Monitoring/ExpandableTreeTable";
+import UnifiedModal from '../../components/ui/UnifiedModal';
 import {
   beneficiaryNames,
-  buildProgramsFromSummary,
   emptyProgram,
   filterPrograms,
   getCluster,
-  initialPrograms,
 } from "./programData";
+
+const localDate = () => {
+  const date = new Date();
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+};
 
 export default function ProgramPage() {
   const navigate = useNavigate();
   const { programId, clusterType, clusterName } = useParams();
+  const { currentUser } = useAuth();
+  const canManagePrograms = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]);
   const [activeTab, setActiveTab] = useState("Active");
   const [query, setQuery] = useState("");
-  const [programs, setPrograms] = useState(initialPrograms);
+  const [programs, setPrograms] = useState([]);
   const [isLiveDataLoaded, setIsLiveDataLoaded] = useState(false);
   const viewMode = Boolean(programId);
   const clusterView = Boolean(clusterType && clusterName);
@@ -56,6 +64,12 @@ export default function ProgramPage() {
   const [drillSchool, setDrillSchool] = useState(null);
   const [drillGroup, setDrillGroup] = useState(null);
   const [drillBatch, setDrillBatch] = useState(null);
+  const [monitorDate, setMonitorDate] = useState(localDate);
+  const [monitoringStatus, setMonitoringStatus] = useState({});
+  const [monitoringPending, setMonitoringPending] = useState({});
+  const [reportBeneficiary, setReportBeneficiary] = useState(null);
+  const [reportRows, setReportRows] = useState([]);
+  const [reportLoading, setReportLoading] = useState(false);
 
   const mapApiProgram = (program) => ({
     ...program,
@@ -78,6 +92,9 @@ export default function ProgramPage() {
         setHierarchy({ schools: summary.communities || [], groups: summary.groups || [], batches: summary.batches || [] });
         const mothers = (summary.mothers || []).map((mother) => ({
           id: `mother-${mother.id}`,
+          sourceId: mother.id,
+          sourceType: 'mother',
+          monitorKey: `mother:${mother.id}`,
           school: mother.community || '',
           group: mother.group || '',
           batch: mother.batchId || '',
@@ -87,6 +104,9 @@ export default function ProgramPage() {
         }));
         const children = (childrenResponse.children || []).map((child) => ({
           id: `child-${child.id}`,
+          sourceId: child.id,
+          sourceType: 'child',
+          monitorKey: `child:${child.id}`,
           school: child.community_name || '',
           group: child.group_name || '',
           batch: child.batch_name || '',
@@ -95,7 +115,7 @@ export default function ProgramPage() {
           isMonitored: Boolean(child.isMonitored ?? child.is_monitored),
         }));
         setBeneficiaryRecords([...mothers, ...children]);
-        setPrograms(savedPrograms.length ? savedPrograms : buildProgramsFromSummary(summary));
+        setPrograms(savedPrograms);
       })
       .then(() => {
         if (mounted) setIsLiveDataLoaded(true);
@@ -103,7 +123,7 @@ export default function ProgramPage() {
       .catch(() => {
         if (!mounted) return;
         setProgramError('Unable to load saved programs.');
-        setPrograms(initialPrograms);
+        setPrograms([]);
         setIsLiveDataLoaded(true);
       });
 
@@ -112,6 +132,63 @@ export default function ProgramPage() {
     };
   }, []);
 
+  const refreshMonitoring = async () => {
+    if (!programId) return;
+    const response = await apiGetProgramMonitoring(programId, monitorDate);
+    const next = {};
+    (response.logs || []).forEach((log) => { next[`${log.beneficiary_type}:${log.beneficiary_id}`] = Boolean(log.monitored); });
+    setMonitoringStatus(next);
+  };
+
+  useEffect(() => {
+    let active = true;
+    if (!programId) return undefined;
+    apiGetProgramMonitoring(programId, monitorDate).then((response) => {
+      if (!active) return;
+      const next = {};
+      (response.logs || []).forEach((log) => { next[`${log.beneficiary_type}:${log.beneficiary_id}`] = Boolean(log.monitored); });
+      setMonitoringStatus(next);
+    }).catch(() => { if (active) setProgramError('Unable to load daily monitoring status.'); });
+    return () => { active = false; };
+  }, [programId, monitorDate]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      const today = localDate();
+      setMonitorDate((current) => current === today ? current : today);
+    }, 60000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  const toggleMonitoring = async (beneficiary, monitored) => {
+    const key = beneficiary.monitorKey;
+    const previous = Boolean(monitoringStatus[key]);
+    setMonitoringStatus((current) => ({ ...current, [key]: monitored }));
+    setMonitoringPending((current) => ({ ...current, [key]: true }));
+    try {
+      await apiSetProgramMonitoring(programId, { beneficiaryId: beneficiary.sourceId, beneficiaryType: beneficiary.sourceType, monitored, date: monitorDate });
+    } catch (error) {
+      setMonitoringStatus((current) => ({ ...current, [key]: previous }));
+      setProgramError(error.message || 'Unable to save monitoring status.');
+    } finally {
+      setMonitoringPending((current) => ({ ...current, [key]: false }));
+    }
+  };
+
+  const openBeneficiaryReport = async (beneficiary) => {
+    setReportBeneficiary(beneficiary);
+    setReportLoading(true);
+    try {
+      const response = await apiGetBeneficiaryMonitoringReport(programId, beneficiary.sourceType, beneficiary.sourceId);
+      setReportRows(response.report || []);
+    } catch (error) {
+      setReportRows([]);
+      setProgramError(error.message || 'Unable to load beneficiary report.');
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
   const filteredPrograms = useMemo(() => {
     return filterPrograms(programs, query, activeTab);
   }, [programs, query, activeTab]);
@@ -119,17 +196,19 @@ export default function ProgramPage() {
   const saveProgram = async (event) => {
     event.preventDefault();
     if (!form.name.trim() || !form.provider.trim()) return;
-    if (form.id) {
-      const response = await apiUpdateProgram(form.id, form);
-      setPrograms((current) => current.map((program) => program.id === form.id ? mapApiProgram(response.program) : program));
+    try {
+      const response = form.id
+        ? await apiUpdateProgram(form.id, form)
+        : await apiCreateProgram(form);
+      setPrograms((current) => form.id
+        ? current.map((program) => program.id === form.id ? mapApiProgram(response.program) : program)
+        : [...current, mapApiProgram(response.program)]);
       setForm(emptyProgram);
       setShowModal(false);
-      return;
+      setProgramError('');
+    } catch (error) {
+      setProgramError(error.message || 'Unable to save program.');
     }
-    const response = await apiCreateProgram(form);
-    setPrograms((current) => [...current, mapApiProgram(response.program)]);
-    setForm(emptyProgram);
-    setShowModal(false);
   };
 
   const selectedProgram = programId
@@ -168,16 +247,34 @@ export default function ProgramPage() {
       .map((group, groupIndex) => {
         const groupName = group.name || group.group_name;
         const batches = hierarchy.batches
-          .filter((batch) => (
-            String(batch.community || '').toLowerCase() === String(schoolName || '').toLowerCase()
-            && (String(batch.group || batch.group_name || '').toLowerCase() === String(groupName || '').toLowerCase() || String(batch.group_id || '') === String(group.id || ''))
-          ))
+          .filter((batch) => {
+            const batchName = batch.name || batch.batch_code || batch.code;
+            const batchKeys = [batchName, batch.id, batch.databaseId, batch.code]
+              .filter(Boolean)
+              .map((value) => String(value).toLowerCase());
+            const hasMatchingBeneficiary = beneficiaryRecords.some((record) => (
+              String(record.school).toLowerCase() === String(schoolName).toLowerCase()
+              && String(record.group).toLowerCase() === String(groupName).toLowerCase()
+              && batchKeys.includes(String(record.batch).toLowerCase())
+            ));
+            return String(batch.community || '').toLowerCase() === String(schoolName || '').toLowerCase()
+              && (
+                String(batch.group || batch.group_name || '').toLowerCase() === String(groupName || '').toLowerCase()
+                || String(batch.group_id || '') === String(group.id || '')
+                || String(batch.groupIds || '').split(',').map((id) => id.trim()).includes(String(group.id || ''))
+                || String(batch.groupNames || '').split(',').map((name) => name.trim().toLowerCase()).includes(String(groupName || '').toLowerCase())
+                || hasMatchingBeneficiary
+              );
+          })
           .map((batch, batchIndex) => {
             const batchName = batch.name || batch.batch_code || batch.code;
+            const batchKeys = [batchName, batch.id, batch.databaseId, batch.code]
+              .filter(Boolean)
+              .map((value) => String(value).toLowerCase());
             return {
               id: batch.id || `${schoolIndex}-${groupIndex}-${batchIndex}`,
               name: batchName,
-              beneficiaries: beneficiaryRecords.filter((record) => String(record.school).toLowerCase() === String(schoolName).toLowerCase() && String(record.group).toLowerCase() === String(groupName).toLowerCase() && String(record.batch).toLowerCase() === String(batchName).toLowerCase()),
+              beneficiaries: beneficiaryRecords.filter((record) => String(record.school).toLowerCase() === String(schoolName).toLowerCase() && String(record.group).toLowerCase() === String(groupName).toLowerCase() && batchKeys.includes(String(record.batch).toLowerCase())),
             };
           });
         return { id: group.id || `${schoolIndex}-${groupIndex}`, name: groupName, batches };
@@ -288,23 +385,16 @@ export default function ProgramPage() {
         batches.map((batch) => ({ type: 'Batch', name: batch.name || batch.batch_code, beneficiaries: Number(batch.records || 0) })),
       );
     });
-    apiCreateProgramClusters(selectedProgram.id, scopes).then((response) => setPrograms((current) => current.map((program) => program.id === selectedProgram.id ? mapApiProgram(response.program) : program))).catch(() => setProgramError('Unable to save beneficiary cluster.'));
-    setPrograms((current) =>
-      current.map((program) =>
-        program.id === selectedProgram.id
-          ? {
-              ...program,
-              clusters: [...program.clusters, ...scopes
-                .map((scope) => ({ ...scope, received: 0 }))
-                .filter((cluster) => !program.clusters.some((item) => item.type === cluster.type && item.name.toLowerCase() === cluster.name.toLowerCase()))],
-            }
-          : program,
-      ),
-    );
-    setShowBeneficiaryModal(false);
-    setScopeSchoolIds([]);
-    setScopeGroupIds([]);
-    setScopeBatchIds([]);
+    apiCreateProgramClusters(selectedProgram.id, scopes)
+      .then((response) => {
+        setPrograms((current) => current.map((program) => program.id === selectedProgram.id ? mapApiProgram(response.program) : program));
+        setShowBeneficiaryModal(false);
+        setScopeSchoolIds([]);
+        setScopeGroupIds([]);
+        setScopeBatchIds([]);
+        setProgramError('');
+      })
+      .catch((error) => setProgramError(error.message || 'Unable to save beneficiary cluster.'));
   };
   const completeCluster = (cluster) => {
     const completeRequest = cluster.id
@@ -312,7 +402,7 @@ export default function ProgramPage() {
       : apiCompleteNamedProgramCluster(selectedProgram.id, cluster);
     completeRequest
       .then((response) => setPrograms((current) => current.map((program) => program.id === selectedProgram.id ? mapApiProgram(response.program) : program)))
-      .catch(() => setProgramError('Unable to mark this cluster as done.'));
+      .catch((error) => setProgramError(error.message || 'Unable to mark this cluster as done.'));
   };
   const openBeneficiaryModal = () => {
     setScopeError('');
@@ -342,7 +432,6 @@ export default function ProgramPage() {
     setDrillBatch(batch);
     setDrillLevel('beneficiary');
   };
-  const toggleSchool = (schoolName) => setExpandedSchools((current) => ({ ...current, [schoolName]: current[schoolName] === false }));
   const editProgram = () => {
     setForm(actionProgram || selectedProgram);
     setActiveActionMenu(null);
@@ -355,9 +444,9 @@ export default function ProgramPage() {
       setPrograms((current) => current.filter((program) => program.id !== programToDelete.id));
       setActiveActionMenu(null);
       navigate("/program");
-    }).catch(() => setProgramError('Unable to delete program.'));
+    }).catch((error) => setProgramError(error.message || 'Unable to delete program.'));
   };
-  const renderActionMenu = (menuId, menuProgram = selectedProgram) => (
+  const renderActionMenu = (menuId, menuProgram = selectedProgram) => canManagePrograms && (
     <div className="program-action-menu-wrap" onClick={(event) => event.stopPropagation()}>
       <button type="button" className="program-more-button" aria-label="Program actions" aria-haspopup="true" aria-expanded={activeActionMenu === menuId} onClick={(event) => { event.stopPropagation(); setActionProgram(menuProgram); setActiveActionMenu(activeActionMenu === menuId ? null : menuId); }}><MoreVerticalIcon /></button>
       {activeActionMenu === menuId && <div className="actions-dropdown program-actions-dropdown" role="menu"><button type="button" className="actions-dropdown-item" onClick={editProgram} role="menuitem">Edit</button><button type="button" className="actions-dropdown-item" onClick={() => { setActiveActionMenu(null); endProgram(actionProgram); }} role="menuitem">End program</button><button type="button" className="actions-dropdown-item delete" onClick={deleteProgram} role="menuitem">Delete</button></div>}
@@ -370,16 +459,16 @@ export default function ProgramPage() {
         title={viewMode && selectedProgram ? selectedProgram.name : 'Program'}
         breadcrumbs={[{ label: 'Program' }]}
         actions={
-          <button
-            className="view-btn view-btn--primary"
-            type="button"
-            onClick={() =>
-              viewMode ? openBeneficiaryModal() : setShowModal(true)
-            }
-          >
-            <PlusIcon />
-            <span>{viewMode ? 'Add beneficiary' : 'Create Program'}</span>
-          </button>
+          canManagePrograms && <button
+              className="view-btn view-btn--primary"
+              type="button"
+              onClick={() =>
+                viewMode ? openBeneficiaryModal() : setShowModal(true)
+              }
+            >
+              <PlusIcon />
+              <span>{viewMode ? 'Add beneficiary' : 'Create Program'}</span>
+            </button>
         }
       />
 
@@ -388,6 +477,8 @@ export default function ProgramPage() {
           {programs.length > 0 ? `Showing ${programs.length} live program record${programs.length > 1 ? "s" : ""} from community data.` : "No program records available."}
         </div>
       )}
+
+      {programError && <p className="form-error" role="alert">{programError}</p>}
 
       {clusterView && selectedProgram && (
         <section className="program-cluster-subheader" aria-label="Program beneficiary clusters">
@@ -445,7 +536,14 @@ export default function ProgramPage() {
 
       <section className="table-card program-table-card">
         <div className="table-overflow">
-          {viewMode && !clusterView ? <ExpandableTreeTable data={programHierarchy} /> : <table className="data-table">
+          {viewMode && !clusterView ? <ExpandableTreeTable
+            data={programHierarchy}
+            monitored={monitoringStatus}
+            pending={monitoringPending}
+            canToggle={canManagePrograms}
+            onMonitorChange={toggleMonitoring}
+            onBeneficiaryClick={openBeneficiaryReport}
+          /> : <table className="data-table">
             {clusterView && selectedCluster ? (
               <>
                 <thead>
@@ -878,6 +976,30 @@ export default function ProgramPage() {
           </form>
         </div>
       )}
+      <UnifiedModal
+        isOpen={Boolean(reportBeneficiary)}
+        title={`Monitoring report: ${reportBeneficiary?.name || ''}`}
+        size="lg"
+        onClose={() => setReportBeneficiary(null)}
+        footer={<button type="button" className="view-btn view-btn--secondary" onClick={() => setReportBeneficiary(null)}>Close</button>}
+      >
+        <div className="program-monitoring-report">
+          <div className="program-monitoring-report__toolbar">
+            <span>Daily status: {monitorDate}</span>
+            <button type="button" className="view-btn view-btn--secondary" onClick={async () => {
+              if (!reportBeneficiary) return;
+              setReportLoading(true);
+              const response = await apiGetBeneficiaryMonitoringReport(programId, reportBeneficiary.sourceType, reportBeneficiary.sourceId);
+              setReportRows(response.report || []);
+              setReportLoading(false);
+            }}>Refresh</button>
+          </div>
+          {reportLoading ? <p>Loading report...</p> : <table className="data-table">
+            <thead><tr><th>Date</th><th>Status</th><th>Program</th><th>Monitored by</th><th>Notes</th></tr></thead>
+            <tbody>{reportRows.length ? reportRows.map((row) => <tr key={`${row.date}-${row.program_name}`}><td>{String(row.date).slice(0, 10)}</td><td><span className={`program-recipient-status ${row.monitored ? 'received' : 'pending'}`}>{row.monitored ? 'Yes' : 'No'}</span></td><td>{row.program_name}</td><td>{row.monitored_by_name || 'Unknown'}</td><td>{row.notes || '-'}</td></tr>) : <tr><td colSpan="5" className="no-data">No monitoring records found.</td></tr>}</tbody>
+          </table>}
+        </div>
+      </UnifiedModal>
     </div>
   );
 }

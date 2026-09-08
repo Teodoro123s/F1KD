@@ -15,18 +15,42 @@ function cleanProgram(body = {}) {
   };
 }
 
+function validDate(value) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || '')) ? String(value) : null;
+}
+
 async function getProgram(id) {
   const [rows] = await pool.query('SELECT * FROM programs WHERE id = ?', [id]);
   if (!rows.length) return null;
   const [clusters] = await pool.query('SELECT id, scope_type AS type, scope_name AS name, beneficiaries, received FROM program_clusters WHERE program_id = ? ORDER BY id', [id]);
   const target = clusters.reduce((total, cluster) => total + Number(cluster.beneficiaries || 0), 0);
   const received = clusters.reduce((total, cluster) => total + Number(cluster.received || 0), 0);
-  return { ...rows[0], beneficiaryType: rows[0].beneficiary_type, target, received, clusters };
+  const schoolCluster = clusters.find((cluster) => cluster.type === 'School');
+  const batchCluster = clusters.find((cluster) => cluster.type === 'Batch');
+  return {
+    ...rows[0],
+    beneficiaryType: rows[0].beneficiary_type,
+    target,
+    received,
+    community: schoolCluster?.name || '',
+    batch: batchCluster?.name || '',
+    clusters,
+  };
 }
 
 router.get('/', async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT * FROM programs ORDER BY id DESC');
+    const scopeClause = req.schoolId
+      ? `WHERE EXISTS (
+          SELECT 1
+          FROM program_clusters scoped_cluster
+          INNER JOIN communities scoped_school ON scoped_school.name = scoped_cluster.scope_name
+          WHERE scoped_cluster.program_id = p.id
+            AND scoped_cluster.scope_type = 'School'
+            AND scoped_school.id = ?
+        )`
+      : '';
+    const [rows] = await pool.query(`SELECT p.* FROM programs p ${scopeClause} ORDER BY p.id DESC`, req.schoolId ? [req.schoolId] : []);
     const programs = await Promise.all(rows.map((row) => getProgram(row.id)));
     res.json({ programs });
   } catch (error) {
@@ -135,6 +159,67 @@ router.patch('/:programId/clusters/complete', async (req, res) => {
     res.json({ program: await getProgram(req.params.programId) });
   } catch (error) {
     console.error('[Programs API] complete named cluster error:', error.message);
+    res.status(500).json({ error: 'db error' });
+  }
+});
+
+router.get('/:programId/monitoring', async (req, res) => {
+  const date = validDate(req.query.date) || new Date().toISOString().slice(0, 10);
+  try {
+    const [logs] = await pool.query(
+      `SELECT beneficiary_id, beneficiary_type, monitored, DATE_FORMAT(monitored_date, '%Y-%m-%d') AS monitored_date, notes
+       FROM monitoring_logs
+       WHERE program_id = ? AND monitored_date = ?
+       ORDER BY id`,
+      [req.params.programId, date],
+    );
+    res.json({ date, logs });
+  } catch (error) {
+    console.error('[Programs API] monitoring status error:', error.message);
+    res.status(500).json({ error: 'db error' });
+  }
+});
+
+router.patch('/:programId/monitoring', async (req, res) => {
+  const beneficiaryId = String(req.body?.beneficiaryId || '').trim();
+  const beneficiaryType = String(req.body?.beneficiaryType || '').trim().toLowerCase();
+  const date = validDate(req.body?.date) || new Date().toISOString().slice(0, 10);
+  const monitored = Boolean(req.body?.monitored);
+  if (!beneficiaryId || !['mother', 'child'].includes(beneficiaryType)) {
+    return res.status(400).json({ error: 'Beneficiary ID and type are required' });
+  }
+  try {
+    const [result] = await pool.query(
+      `INSERT INTO monitoring_logs
+        (beneficiary_id, beneficiary_type, program_id, monitored, monitored_date, monitored_by)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE monitored = VALUES(monitored), monitored_by = VALUES(monitored_by), updated_at = CURRENT_TIMESTAMP`,
+      [beneficiaryId, beneficiaryType, req.params.programId, monitored, date, req.user?.id || null],
+    );
+    res.json({ success: true, date, monitored, id: result.insertId || null });
+  } catch (error) {
+    console.error('[Programs API] monitoring update error:', error.message);
+    res.status(500).json({ error: 'db error' });
+  }
+});
+
+router.get('/:programId/monitoring/report/:beneficiaryType/:beneficiaryId', async (req, res) => {
+  const beneficiaryType = String(req.params.beneficiaryType || '').toLowerCase();
+  if (!['mother', 'child'].includes(beneficiaryType)) return res.status(400).json({ error: 'Invalid beneficiary type' });
+  try {
+    const [logs] = await pool.query(
+      `SELECT DATE_FORMAT(ml.monitored_date, '%Y-%m-%d') AS date, ml.monitored, ml.notes, p.name AS program_name,
+              COALESCE(CONCAT(u.first_name, ' ', u.last_name), u.full_name, u.username) AS monitored_by_name
+       FROM monitoring_logs ml
+       INNER JOIN programs p ON p.id = ml.program_id
+       LEFT JOIN users u ON u.id = ml.monitored_by
+       WHERE ml.program_id = ? AND ml.beneficiary_id = ? AND ml.beneficiary_type = ?
+       ORDER BY ml.monitored_date DESC`,
+      [req.params.programId, req.params.beneficiaryId, beneficiaryType],
+    );
+    res.json({ report: logs });
+  } catch (error) {
+    console.error('[Programs API] monitoring report error:', error.message);
     res.status(500).json({ error: 'db error' });
   }
 });

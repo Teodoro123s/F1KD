@@ -63,9 +63,7 @@ export function buildProgramsFromSummary(summary = null) {
   const batches = Array.isArray(payload.batches) ? payload.batches : [];
   const groups = Array.isArray(payload.groups) ? payload.groups : [];
 
-  if (!communities.length) {
-    return initialPrograms;
-  }
+  if (!communities.length) return [];
 
   return communities.map((community, index) => {
     const communityBatches = batches.filter((batch) => batch.community === community.name);

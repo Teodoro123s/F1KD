@@ -61,11 +61,15 @@ router.get('/summary', async (req, res) => {
         b.name,
         b.description,
         COALESCE(b.community, MAX(m.community), '') AS community,
-        COALESCE(b.records, COUNT(m.id)) AS records,
+        COALESCE(b.records, COUNT(DISTINCT m.id)) AS records,
         COALESCE(b.progress, 0) AS progress,
-        COALESCE(b.status, 'Active') AS status
+        COALESCE(b.status, 'Active') AS status,
+        GROUP_CONCAT(DISTINCT gb.group_id ORDER BY gb.group_id) AS group_ids,
+        GROUP_CONCAT(DISTINCT bg.group_name ORDER BY bg.group_name) AS group_names
       FROM batches b
       LEFT JOIN mothers m ON m.batch_id = b.id
+      LEFT JOIN group_batch gb ON gb.batch_id = b.id
+      LEFT JOIN groups bg ON bg.id = gb.group_id
       ${namedSchoolScope}
       GROUP BY b.id, b.batch_code, b.name, b.description, b.community, b.records, b.progress, b.status
       ORDER BY b.id
@@ -92,6 +96,7 @@ router.get('/summary', async (req, res) => {
       SELECT
         m.mother_code AS id,
         CONCAT(COALESCE(m.first_name,''), ' ', COALESCE(m.middle_name,''), ' ', COALESCE(m.last_name,'')) AS name,
+        m.community AS community,
         b.batch_code AS batchCode,
         g.group_name AS groupName,
         0 AS progress
@@ -120,6 +125,8 @@ router.get('/summary', async (req, res) => {
       records: Number(item.records || 0),
       progress: 0,
       status: item.status || 'Active',
+      groupIds: item.group_ids || '',
+      groupNames: item.group_names || '',
     }));
 
     const groupsData = groupRows.map((item) => ({
@@ -136,6 +143,7 @@ router.get('/summary', async (req, res) => {
     const mothersData = motherRows.map((item) => ({
       id: item.id,
       name: (item.name || '').trim(),
+      community: item.community || '',
       batchId: item.batchCode || null,
       group: item.groupName || null,
       status: 'Active',

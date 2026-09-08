@@ -18,3 +18,6 @@ export const apiDeleteProgram = (id) => requestJson(`/api/programs/${encodeURICo
 export const apiCreateProgramClusters = (id, scopes) => requestJson(`/api/programs/${encodeURIComponent(id)}/clusters`, { method: 'POST', body: JSON.stringify({ scopes }) });
 export const apiCompleteProgramCluster = (programId, clusterId) => requestJson(`/api/programs/${encodeURIComponent(programId)}/clusters/${encodeURIComponent(clusterId)}/complete`, { method: 'PATCH' });
 export const apiCompleteNamedProgramCluster = (programId, cluster) => requestJson(`/api/programs/${encodeURIComponent(programId)}/clusters/complete`, { method: 'PATCH', body: JSON.stringify({ type: cluster.type, name: cluster.name, beneficiaries: cluster.beneficiaries }) });
+export const apiGetProgramMonitoring = (programId, date) => requestJson(`/api/programs/${encodeURIComponent(programId)}/monitoring?date=${encodeURIComponent(date)}`);
+export const apiSetProgramMonitoring = (programId, payload) => requestJson(`/api/programs/${encodeURIComponent(programId)}/monitoring`, { method: 'PATCH', body: JSON.stringify(payload) });
+export const apiGetBeneficiaryMonitoringReport = (programId, beneficiaryType, beneficiaryId) => requestJson(`/api/programs/${encodeURIComponent(programId)}/monitoring/report/${encodeURIComponent(beneficiaryType)}/${encodeURIComponent(beneficiaryId)}`);
