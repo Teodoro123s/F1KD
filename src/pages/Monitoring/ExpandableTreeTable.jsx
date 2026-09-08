@@ -113,7 +113,7 @@ export default function ExpandableTreeTable({ data = [], monitored = {}, pending
       const saving = descendantKeys.some((key) => pending[key]);
       if (!canToggle || !onMonitorChange) return row.level === 'beneficiary' ? <span className={`program-recipient-status ${monitored[row.node.monitorKey] ? 'received' : 'pending'}`}>{monitored[row.node.monitorKey] ? 'Yes' : 'No'}</span> : '';
       return <label className="monitor-tree-toggle">
-        <input type="checkbox" checked={checked} disabled={!descendantKeys.length || saving} onChange={(event) => onMonitorChange(row.node, event.target.checked, descendants)} />
+        <input id={`monitor-${row.level}-${row.id}`} name={`monitor-${row.level}`} type="checkbox" checked={checked} disabled={!descendantKeys.length || saving} onChange={(event) => onMonitorChange(row.node, event.target.checked, descendants)} />
         <span>{saving ? 'Saving...' : checked ? 'Yes' : 'No'}</span>
       </label>;
     } },

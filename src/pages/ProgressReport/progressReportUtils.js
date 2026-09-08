@@ -1,14 +1,11 @@
 export const MATERNAL_PROGRESS_REPORT_FIELD_LIBRARY = [
   { id: 'name', label: 'Beneficiary Name', category: 'Demographics' },
-  { id: 'id', label: 'ID', category: 'System' },
   { id: 'phone', label: 'Phone', category: 'Demographics' },
   { id: 'dob', label: 'Date of Birth', category: 'Demographics' },
   { id: 'community', label: 'Community', category: 'Demographics' },
   { id: 'group', label: 'Group', category: 'Demographics' },
   { id: 'batch', label: 'Batch', category: 'Demographics' },
   { id: 'programType', label: 'Program Type', category: 'Programs' },
-  { id: 'status', label: 'Status', category: 'System' },
-  { id: 'risk', label: 'Risk Status', category: 'System' },
   { id: 'trimester', label: 'Trimester', category: 'Pregnancy' },
   { id: 'gestationalAge', label: 'Gestational Age', category: 'Pregnancy' },
   { id: 'lmpDate', label: 'LMP Date', category: 'Pregnancy' },
@@ -59,15 +56,12 @@ export const MATERNAL_PROGRESS_REPORT_FIELD_LIBRARY = [
 
 export const CHILD_PROGRESS_REPORT_FIELD_LIBRARY = [
   { id: 'name', label: 'Child Name', category: 'Demographics' },
-  { id: 'id', label: 'ID', category: 'System' },
   { id: 'dob', label: 'Date of Birth', category: 'Demographics' },
   { id: 'age', label: 'Age', category: 'Demographics' },
   { id: 'community', label: 'Community', category: 'Demographics' },
   { id: 'group', label: 'Group', category: 'Demographics' },
   { id: 'batch', label: 'Batch', category: 'Demographics' },
   { id: 'programType', label: 'Program Type', category: 'Programs' },
-  { id: 'status', label: 'Status', category: 'System' },
-  { id: 'risk', label: 'Risk Status', category: 'System' },
   { id: 'pediatricWeek', label: 'Pedia Week', category: 'Growth & Monitoring' },
   { id: 'zScore', label: 'Z-Score', category: 'Growth & Monitoring' },
   { id: 'nutritionalStatus', label: 'Nutritional Status', category: 'Growth & Monitoring' },
@@ -88,17 +82,17 @@ export const REPORT_COLUMNS = MATERNAL_PROGRESS_REPORT_FIELD_LIBRARY;
 export const REPORT_TABS = ['Master List', 'Ranked List', 'Graph View', 'Summary View'];
 
 export const MATERNAL_ROLE_DEFAULT_COLUMNS = {
-  default: ['name', 'age', 'latestCheckupDate', 'initialBmi', 'bmi', 'community', 'group', 'batch', 'programType', 'status'],
-  nurse: ['name', 'age', 'latestCheckupDate', 'initialBmi', 'bmi', 'community', 'group', 'batch', 'trimester', 'programType', 'status', 'risk', 'progress'],
-  'program manager': ['name', 'age', 'latestCheckupDate', 'initialBmi', 'bmi', 'community', 'group', 'batch', 'programType', 'status', 'risk', 'progress'],
-  admin: ['name', 'age', 'latestCheckupDate', 'initialBmi', 'bmi', 'community', 'group', 'batch', 'programType', 'status', 'risk', 'progress'],
+  default: ['name', 'age', 'latestCheckupDate', 'initialBmi', 'bmi', 'community', 'group', 'batch', 'programType'],
+  nurse: ['name', 'age', 'latestCheckupDate', 'initialBmi', 'bmi', 'community', 'group', 'batch', 'trimester', 'programType', 'progress'],
+  'program manager': ['name', 'age', 'latestCheckupDate', 'initialBmi', 'bmi', 'community', 'group', 'batch', 'programType', 'progress'],
+  admin: ['name', 'age', 'latestCheckupDate', 'initialBmi', 'bmi', 'community', 'group', 'batch', 'programType', 'progress'],
 };
 
 export const CHILD_ROLE_DEFAULT_COLUMNS = {
-  default: ['name', 'age', 'community', 'group', 'batch', 'programType', 'status', 'pediatricWeek', 'nutritionalStatus', 'progress'],
-  nurse: ['name', 'age', 'community', 'group', 'batch', 'programType', 'status', 'pediatricWeek', 'zScore', 'nutritionalStatus', 'feedingType', 'progress'],
-  'program manager': ['name', 'age', 'community', 'group', 'batch', 'programType', 'status', 'risk', 'pediatricWeek', 'nutritionalStatus', 'feedingType', 'progress'],
-  admin: ['name', 'age', 'community', 'group', 'batch', 'programType', 'status', 'risk', 'pediatricWeek', 'zScore', 'nutritionalStatus', 'progress'],
+  default: ['name', 'age', 'community', 'group', 'batch', 'programType', 'pediatricWeek', 'nutritionalStatus', 'progress'],
+  nurse: ['name', 'age', 'community', 'group', 'batch', 'programType', 'pediatricWeek', 'zScore', 'nutritionalStatus', 'feedingType', 'progress'],
+  'program manager': ['name', 'age', 'community', 'group', 'batch', 'programType', 'pediatricWeek', 'nutritionalStatus', 'feedingType', 'progress'],
+  admin: ['name', 'age', 'community', 'group', 'batch', 'programType', 'pediatricWeek', 'zScore', 'nutritionalStatus', 'progress'],
 };
 
 export const ROLE_DEFAULT_COLUMNS = MATERNAL_ROLE_DEFAULT_COLUMNS;

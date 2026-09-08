@@ -85,7 +85,7 @@ async function attachClinicalData(mother) {
   if (!motherDbId) return mother;
 
   const [[obRows], [medicalRows], [dentalRows], [vaccineRows], [checkupRows]] = await Promise.all([
-    pool.query('SELECT * FROM mother_ob_history WHERE mother_id = ? ORDER BY seq, id', [motherDbId]),
+    pool.query('SELECT * FROM mother_ob_history WHERE mother_id = ? ORDER BY id', [motherDbId]),
     pool.query('SELECT * FROM mother_medical_conditions WHERE mother_id = ? ORDER BY id', [motherDbId]),
     pool.query('SELECT * FROM mother_dental_records WHERE mother_id = ? ORDER BY id DESC LIMIT 1', [motherDbId]),
     pool.query('SELECT * FROM mother_vaccinations WHERE mother_id = ? ORDER BY id', [motherDbId]),
@@ -212,10 +212,12 @@ router.get('/', async (req, res) => {
     const scopeClause = req.schoolId ? 'WHERE m.community_id = ?' : '';
     const [rows] = await pool.query(`
       SELECT m.*,
-        g.group_name,
+        comm.name AS community,
+        g.name AS group_name,
         b.name AS batch_name,
         (SELECT COUNT(*) FROM children c WHERE c.mother_id = m.id) AS children_count
       FROM mothers m
+      LEFT JOIN communities comm ON comm.id = m.community_id
       LEFT JOIN groups g ON g.id = m.group_id
       LEFT JOIN batches b ON b.id = m.batch_id
       ${scopeClause}
@@ -429,16 +431,18 @@ router.get('/:id', async (req, res) => {
     const { id } = req.params;
     const [rows] = await pool.query(
       `SELECT m.*,
-        g.group_name,
+        comm.name AS community,
+        g.name AS group_name,
         b.name AS batch_name,
         (SELECT COUNT(*) FROM children c WHERE c.mother_id = m.id) AS children_count
        FROM mothers m
+       LEFT JOIN communities comm ON comm.id = m.community_id
        LEFT JOIN groups g ON g.id = m.group_id
        LEFT JOIN batches b ON b.id = m.batch_id
-      WHERE (m.id = ? OR m.mother_code = ? OR m.mother_external_id = ?)
+      WHERE (m.id = ? OR m.mother_code = ?)
       ${req.schoolId ? 'AND m.community_id = ?' : ''}
        LIMIT 1`,
-          req.schoolId ? [Number(id) || null, id, id, req.schoolId] : [Number(id) || null, id, id]
+         req.schoolId ? [Number(id) || null, id, req.schoolId] : [Number(id) || null, id]
     );
 
     if (!rows.length) {

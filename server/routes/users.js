@@ -16,15 +16,14 @@ function normalizeDbStatus(value) {
 
 // Helper: normalize searchable name/value
 function nameLike(column) {
-  // use COALESCE to prefer full_name, fall back to username
-  return `COALESCE(full_name, username)`;
+  return `COALESCE(NULLIF(name, ''), CONCAT(first_name, ' ', last_name))`;
 }
 
 // GET /api/users/coordinators - limited data for operational assignment fields
 router.get('/coordinators', verifyToken, async (req, res) => {
   try {
     const [users] = await pool.query(
-      `SELECT id, username, full_name, role FROM users WHERE LOWER(TRIM(role)) IN ('community organizer', 'co', 'partner') ORDER BY id DESC`
+      `SELECT id, name AS username, name AS full_name, role FROM users WHERE LOWER(TRIM(role)) IN ('community organizer', 'co', 'partner') ORDER BY id DESC`
     );
     res.json({ users });
   } catch (err) {
@@ -42,9 +41,9 @@ router.get('/', verifyToken, authorize('super_admin'), async (req, res) => {
     const filters = [];
     const params = [];
     if (search) {
-      filters.push(`( ${nameLike()} LIKE ? OR email LIKE ? OR username LIKE ? )`);
+      filters.push(`( ${nameLike()} LIKE ? OR email LIKE ? )`);
       const s = `%${search}%`;
-      params.push(s, s, s);
+      params.push(s, s);
     }
     if (role) {
       filters.push('role = ?');
@@ -61,7 +60,7 @@ router.get('/', verifyToken, authorize('super_admin'), async (req, res) => {
     const total = countRows[0].total || 0;
 
     const [rows] = await pool.query(
-      `SELECT id, username, full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, created_at, updated_at FROM users ${where} ORDER BY id DESC LIMIT ? OFFSET ?`,
+      `SELECT id, name AS username, name AS full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, created_at, updated_at FROM users ${where} ORDER BY id DESC LIMIT ? OFFSET ?`,
       [...params, Number(perPage), Number(offset)]
     );
 
@@ -114,12 +113,10 @@ router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
 
     const dbStatus = normalizeDbStatus(status || 'active');
     const [result] = await pool.query(
-      `INSERT INTO users (username, email, full_name, role, status, password_hash, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO users (email, role, status, password_hash, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
       [
-        userName,
         email,
-        full_name || null,
         role || 'user',
         dbStatus,
         hash,
@@ -135,7 +132,7 @@ router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
     );
 
     const [rows] = await pool.query(
-      `SELECT id, username, full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, created_at
+      `SELECT id, name AS username, name AS full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, created_at
        FROM users WHERE id = ?`,
       [result.insertId]
     );
@@ -154,7 +151,7 @@ router.get('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
   try {
     const { id } = req.params;
     const [rows] = await pool.query(
-      `SELECT id, username, full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, created_at
+      `SELECT id, name AS username, name AS full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, created_at
        FROM users WHERE id = ?`,
       [id]
     );
@@ -190,10 +187,13 @@ router.put('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
 
     const updates = [];
     const params = [];
-    if (username) { updates.push('username = ?'); params.push(username); }
     if (email) { updates.push('email = ?'); params.push(email); }
-    if (fullName !== undefined) { updates.push('full_name = ?'); params.push(fullName || null); }
-    if (firstName !== undefined) { updates.push('first_name = ?'); params.push(firstName); }
+      if (fullName !== undefined && firstName === undefined && lastName === undefined) {
+        const nameParts = String(fullName || '').trim().split(/\s+/);
+        updates.push('first_name = ?', 'last_name = ?');
+        params.push(nameParts.shift() || '', nameParts.join(' '));
+      }
+      if (firstName !== undefined) { updates.push('first_name = ?'); params.push(firstName); }
     if (lastName !== undefined) { updates.push('last_name = ?'); params.push(lastName); }
     if (middleInitial !== undefined) { updates.push('middle_initial = ?'); params.push(middleInitial || null); }
     if (contactNumber !== undefined) { updates.push('contact_number = ?'); params.push(contactNumber || null); }
@@ -220,7 +220,7 @@ router.put('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
     await pool.query(sql, params);
 
     const [rows] = await pool.query(
-      `SELECT id, username, full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, updated_at
+      `SELECT id, name AS username, name AS full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, updated_at
        FROM users WHERE id = ?`,
       [id]
     );

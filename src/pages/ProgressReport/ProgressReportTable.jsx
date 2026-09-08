@@ -1,6 +1,19 @@
 import React from 'react';
 import { REPORT_COLUMNS, getRowKey } from './progressReportUtils';
 
+const DATE_COLUMNS = new Set([
+  'dob', 'lmpDate', 'eddDate', 'prenatalRegDate',
+  'tt1Date', 'tt2Date', 'tt3Date', 'tt4Date', 'tt5Date',
+  'dentalCheckupDate', 'latestCheckupDate', 'createdAt',
+  'bcgDate', 'opvDate', 'dptDate',
+]);
+
+function formatReportDate(value) {
+  if (!value) return value;
+  const datePart = String(value).slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(datePart) ? datePart.replace(/-/g, '/') : value;
+}
+
 export default function ProgressReportTable({
   activeTab,
   displayedRows,
@@ -39,6 +52,8 @@ export default function ProgressReportTable({
             <tr key={rowKey}>
               <td>
                 <input
+                  id={`compare-${rowKey}`}
+                  name="compareRows"
                   type="checkbox"
                   checked={compareIds.includes(rowKey)}
                   onChange={() => toggleCompare(rowKey)}
@@ -73,7 +88,9 @@ export default function ProgressReportTable({
                         )
                         : column.id === 'trend'
                           ? <span className={`trend-badge ${row.trend}`}>{row.trend === 'up' ? '↗' : '↘'}</span>
-                          : row[column.id]}
+                          : DATE_COLUMNS.has(column.id)
+                            ? formatReportDate(row[column.id])
+                            : row[column.id]}
                   </td>
                 ))
               )}

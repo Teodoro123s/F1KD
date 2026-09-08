@@ -712,7 +712,7 @@ export default function ProgramPage() {
                 1. Select school or community (you can choose more than one)
                 <div id="beneficiary-scope-school" className="program-hierarchy-options">
                   {hierarchy.schools.map((school) => <label key={school.id} className="program-recipient">
-                    <input type="checkbox" checked={scopeSchoolIds.includes(String(school.id))} onChange={() => {
+                    <input id={`scope-school-${school.id}`} name="scopeSchools" type="checkbox" checked={scopeSchoolIds.includes(String(school.id))} onChange={() => {
                       const id = String(school.id);
                       setScopeSchoolIds((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current, id]);
                       setScopeGroupIds([]);
@@ -727,7 +727,7 @@ export default function ProgramPage() {
                   2. Select group within the chosen school(s)
                   <div id="beneficiary-scope-group" className="program-hierarchy-options">
                     {availableGroups.map((group) => <label key={group.id} className="program-recipient">
-                      <input type="checkbox" checked={scopeGroupIds.includes(String(group.id))} onChange={() => {
+                      <input id={`scope-group-${group.id}`} name="scopeGroups" type="checkbox" checked={scopeGroupIds.includes(String(group.id))} onChange={() => {
                         const id = String(group.id);
                         setScopeGroupIds((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current, id]);
                         setScopeBatchIds([]);
@@ -743,7 +743,7 @@ export default function ProgramPage() {
                   3. Select batch within the chosen group(s)
                   <div id="beneficiary-scope-batch" className="program-hierarchy-options">
                     {availableBatches.map((batch) => <label key={batch.id} className="program-recipient">
-                      <input type="checkbox" checked={scopeBatchIds.includes(String(batch.id))} onChange={() => {
+                      <input id={`scope-batch-${batch.id}`} name="scopeBatches" type="checkbox" checked={scopeBatchIds.includes(String(batch.id))} onChange={() => {
                         const id = String(batch.id);
                         setScopeBatchIds((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current, id]);
                       }} />

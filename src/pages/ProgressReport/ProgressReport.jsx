@@ -326,7 +326,7 @@ export default function ProgressReport() {
               <div className="export-settings-panel">
                 <label className="export-field-label">
                   File name
-                  <input type="text" value={exportFilename} onChange={(event) => setExportFilename(event.target.value || 'progress-report')} />
+                  <input id="export-filename" name="exportFilename" type="text" value={exportFilename} onChange={(event) => setExportFilename(event.target.value || 'progress-report')} />
                 </label>
 
                 <div className="export-format-group">
@@ -351,6 +351,8 @@ export default function ProgressReport() {
                     {exportColumnsForView.map((column) => (
                       <label key={column.id} className="field-option">
                         <input
+                          id={`export-column-${column.id}`}
+                          name="exportColumns"
                           type="checkbox"
                           checked={exportColumns.includes(column.id)}
                           onChange={() => setExportColumns((current) => current.includes(column.id) ? current.filter((item) => item !== column.id) : [...current, column.id])}

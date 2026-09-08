@@ -12,7 +12,7 @@ const { verifyToken } = require('../middleware/auth');
 
 const buildUserPayload = (user) => {
   const role = String(user.role || 'User').trim() || 'User';
-  const name = String(user.full_name || user.username || 'User').trim() || 'User';
+    const name = String(user.name || user.full_name || user.username || 'User').trim() || 'User';
 
   return {
     id: user.id,
@@ -47,11 +47,11 @@ router.post('/login', async (req, res) => {
     }
 
     const [rows] = await pool.query(
-      `SELECT id, username, full_name, email, role, status, school_id, password_hash
+        `SELECT id, name, email, role, status, school_id, password_hash
        FROM users
-       WHERE email = ? OR username = ?
+         WHERE email = ?
        LIMIT 1`,
-      [email, email]
+      [email]
     );
     const user = rows[0];
     if (!user) return res.status(401).json({ status: 401, code: 'INVALID_CREDENTIALS', message: 'Invalid credentials', timestamp: new Date().toISOString() });
@@ -86,7 +86,7 @@ router.post('/refresh', (req, res) => {
 
     const userId = payload.id;
     pool.query(
-      `SELECT id, username, full_name, email, role, status, school_id FROM users WHERE id = ? LIMIT 1`,
+      `SELECT id, name, email, role, status, school_id FROM users WHERE id = ? LIMIT 1`,
       [userId],
       (error, [rows]) => {
         if (error) {

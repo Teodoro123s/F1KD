@@ -72,7 +72,7 @@ router.get('/', async (req, res) => {
     const scopeClause = req.schoolId ? 'WHERE c.community_id = ?' : '';
     const [rows] = await pool.query(
       `SELECT c.*, m.first_name AS mother_first_name, m.last_name AS mother_last_name,
-        m.mother_code, comm.name AS community_name, g.group_name, b.name AS batch_name
+        m.mother_code, comm.name AS community_name, g.name AS group_name, b.name AS batch_name
        FROM children c
        LEFT JOIN mothers m ON c.mother_id = m.id
        LEFT JOIN communities comm ON comm.id = c.community_id
@@ -132,13 +132,13 @@ router.post('/', async (req, res) => {
     if (!motherId || !firstName || !lastName) return res.status(400).json({ error: 'motherId, firstName and lastName are required' });
 
     const [motherRows] = await pool.query(
-      'SELECT id FROM mothers WHERE id = ? OR mother_code = ? OR mother_external_id = ? LIMIT 1',
-      [Number(motherId) || null, motherId, motherId]
+      'SELECT id FROM mothers WHERE id = ? OR mother_code = ? LIMIT 1',
+      [Number(motherId) || null, motherId]
     );
     if (!motherRows.length) return res.status(400).json({ error: 'Mother not found' });
     motherId = motherRows[0].id;
     if (!groupId && b.group) {
-      const [groupRows] = await pool.query('SELECT id FROM groups WHERE group_name = ? LIMIT 1', [b.group]);
+      const [groupRows] = await pool.query('SELECT id FROM groups WHERE name = ? LIMIT 1', [b.group]);
       groupId = groupRows[0]?.id || null;
     }
     if (!communityId && b.community) {
@@ -177,7 +177,7 @@ router.get('/:id', async (req, res) => {
     const { id } = req.params;
     const [rows] = await pool.query(
       `SELECT c.*, m.first_name AS mother_first_name, m.last_name AS mother_last_name, m.mother_code AS mother_code,
-        comm.name AS community_name, g.group_name, b.name AS batch_name
+        comm.name AS community_name, g.name AS group_name, b.name AS batch_name
        FROM children c
        LEFT JOIN mothers m ON c.mother_id = m.id
        LEFT JOIN communities comm ON comm.id = c.community_id
@@ -267,8 +267,8 @@ router.put('/:id', async (req, res) => {
     const current = existingRows[0];
     let motherId = getField(body, 'motherId', 'mother_id') || current.mother_id;
     const [motherRows] = await pool.query(
-      'SELECT id FROM mothers WHERE id = ? OR mother_code = ? OR mother_external_id = ? LIMIT 1',
-      [Number(motherId) || null, motherId, motherId]
+      'SELECT id FROM mothers WHERE id = ? OR mother_code = ? LIMIT 1',
+      [Number(motherId) || null, motherId]
     );
     if (!motherRows.length) return res.status(400).json({ error: 'Mother not found' });
     motherId = motherRows[0].id;
@@ -277,7 +277,7 @@ router.put('/:id', async (req, res) => {
     let groupId = getField(body, 'groupId', 'group_id') || current.group_id;
     let batchId = getField(body, 'batchId', 'batch_id') || current.batch_id;
     if (!groupId && body.group) {
-      const [groupRows] = await pool.query('SELECT id FROM groups WHERE group_name = ? LIMIT 1', [body.group]);
+      const [groupRows] = await pool.query('SELECT id FROM groups WHERE name = ? LIMIT 1', [body.group]);
       groupId = groupRows[0]?.id || null;
     }
     if (!communityId && body.community) {
@@ -343,7 +343,7 @@ router.put('/:id', async (req, res) => {
 
     const [rows] = await pool.query(
       `SELECT c.*, m.first_name AS mother_first_name, m.last_name AS mother_last_name, m.mother_code,
-        comm.name AS community_name, g.group_name, b.name AS batch_name
+        comm.name AS community_name, g.name AS group_name, b.name AS batch_name
        FROM children c LEFT JOIN mothers m ON m.id = c.mother_id
        LEFT JOIN communities comm ON comm.id = c.community_id
        LEFT JOIN groups g ON g.id = c.group_id
@@ -364,7 +364,7 @@ router.get('/mother/:motherId/children', async (req, res) => {
     const { motherId } = req.params;
     const scopeClause = req.schoolId ? ' AND c.community_id = ?' : '';
     const [rows] = await pool.query(
-      `SELECT c.*, comm.name AS community_name, g.group_name, b.name AS batch_name
+      `SELECT c.*, comm.name AS community_name, g.name AS group_name, b.name AS batch_name
        FROM children c
        LEFT JOIN communities comm ON comm.id = c.community_id
        LEFT JOIN groups g ON g.id = c.group_id

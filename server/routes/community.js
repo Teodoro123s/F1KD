@@ -36,21 +36,21 @@ router.get('/summary', async (req, res) => {
   try {
     console.info('[Community API] Fetching community summary from database (compatible mode)...');
     const schoolScope = req.schoolId ? 'WHERE c.id = ?' : '';
-    const namedSchoolScope = req.schoolId ? 'WHERE b.community = (SELECT name FROM communities WHERE id = ?)' : '';
-    const groupSchoolScope = req.schoolId ? 'WHERE g.community = (SELECT name FROM communities WHERE id = ?)' : '';
-    const motherSchoolScope = req.schoolId ? 'WHERE m.community = (SELECT name FROM communities WHERE id = ?)' : '';
+    const namedSchoolScope = req.schoolId ? 'WHERE b.community_id = ?' : '';
+    const groupSchoolScope = req.schoolId ? 'WHERE g.community_id = ?' : '';
+    const motherSchoolScope = req.schoolId ? 'WHERE m.community_id = ?' : '';
 
     const [communities] = await pool.query(`
       SELECT
         c.id AS id,
         c.name,
-        COALESCE(c.municipality, c.province, '') AS area,
+        COALESCE(c.area, '') AS area,
         COUNT(DISTINCT m.batch_id) AS batches,
         COUNT(DISTINCT m.id) AS records
       FROM communities c
-      LEFT JOIN mothers m ON m.community = c.name
+      LEFT JOIN mothers m ON m.community_id = c.id
       ${schoolScope}
-      GROUP BY c.id, c.name, c.municipality, c.province
+      GROUP BY c.id, c.name, c.area
       ORDER BY c.id
     `, req.schoolId ? [req.schoolId] : []);
 
@@ -59,36 +59,38 @@ router.get('/summary', async (req, res) => {
         b.id,
         b.batch_code,
         b.name,
-        b.description,
-        COALESCE(b.community, MAX(m.community), '') AS community,
+        '' AS description,
+        c.name AS community,
         COALESCE(b.records, COUNT(DISTINCT m.id)) AS records,
         COALESCE(b.progress, 0) AS progress,
         COALESCE(b.status, 'Active') AS status,
         GROUP_CONCAT(DISTINCT gb.group_id ORDER BY gb.group_id) AS group_ids,
-        GROUP_CONCAT(DISTINCT bg.group_name ORDER BY bg.group_name) AS group_names
+        GROUP_CONCAT(DISTINCT bg.name ORDER BY bg.name) AS group_names
       FROM batches b
       LEFT JOIN mothers m ON m.batch_id = b.id
+      LEFT JOIN communities c ON c.id = b.community_id
       LEFT JOIN group_batch gb ON gb.batch_id = b.id
       LEFT JOIN groups bg ON bg.id = gb.group_id
       ${namedSchoolScope}
-      GROUP BY b.id, b.batch_code, b.name, b.description, b.community, b.records, b.progress, b.status
+      GROUP BY b.id, b.batch_code, b.name, c.name, b.records, b.progress, b.status
       ORDER BY b.id
     `, req.schoolId ? [req.schoolId] : []);
 
     const [groupRows] = await pool.query(`
       SELECT
         g.id,
-        g.group_name AS name,
-        g.description,
-        COALESCE(g.community, MAX(m.community), '') AS community,
+        g.name AS name,
+        '' AS description,
+        c.name AS community,
         COALESCE(g.members_count, COUNT(m.id)) AS members,
         COUNT(DISTINCT m.batch_id) AS batches,
         COALESCE(g.leader, '') AS leader,
         COALESCE(g.status, 'Active') AS status
       FROM groups g
       LEFT JOIN mothers m ON m.group_id = g.id
+      LEFT JOIN communities c ON c.id = g.community_id
       ${groupSchoolScope}
-      GROUP BY g.id, g.group_name, g.description, g.community, g.members_count, g.leader, g.status
+      GROUP BY g.id, g.name, c.name, g.members_count, g.leader, g.status
       ORDER BY g.id
     `, req.schoolId ? [req.schoolId] : []);
 
@@ -96,13 +98,14 @@ router.get('/summary', async (req, res) => {
       SELECT
         m.mother_code AS id,
         CONCAT(COALESCE(m.first_name,''), ' ', COALESCE(m.middle_name,''), ' ', COALESCE(m.last_name,'')) AS name,
-        m.community AS community,
         b.batch_code AS batchCode,
-        g.group_name AS groupName,
+        g.name AS groupName,
+        c.name AS community,
         0 AS progress
       FROM mothers m
       LEFT JOIN batches b ON b.id = m.batch_id
       LEFT JOIN groups g ON g.id = m.group_id
+      LEFT JOIN communities c ON c.id = m.community_id
       ${motherSchoolScope}
       ORDER BY m.id
     `, req.schoolId ? [req.schoolId] : []);
@@ -261,20 +264,21 @@ router.post('/groups', async (req, res) => {
 // GET /api/community/groups - return list of groups/schools
 router.get('/groups', async (req, res) => {
   try {
-    const scopeClause = req.schoolId ? 'WHERE g.community = (SELECT name FROM communities WHERE id = ?)' : '';
+    const scopeClause = req.schoolId ? 'WHERE g.community_id = ?' : '';
     const [rows] = await pool.query(`
       SELECT
         g.id,
-        g.group_name AS name,
-        g.description,
-        COALESCE(MAX(m.community), '') AS community,
+        g.name AS name,
+        '' AS description,
+        c.name AS community,
         COUNT(m.id) AS members,
         '' AS leader,
         'Active' AS status
       FROM groups g
       LEFT JOIN mothers m ON m.group_id = g.id
+      LEFT JOIN communities c ON c.id = g.community_id
       ${scopeClause}
-      GROUP BY g.id, g.group_name, g.description
+      GROUP BY g.id, g.name, c.name
       ORDER BY g.id
     `, req.schoolId ? [req.schoolId] : []);
     const groups = rows.map((r) => ({
@@ -443,21 +447,22 @@ router.delete('/batches/:id', async (req, res) => {
 // GET /api/community/batches - return list of batches
 router.get('/batches', async (req, res) => {
   try {
-    const scopeClause = req.schoolId ? 'WHERE b.community = (SELECT name FROM communities WHERE id = ?)' : '';
+    const scopeClause = req.schoolId ? 'WHERE b.community_id = ?' : '';
     const [rows] = await pool.query(`
       SELECT
         b.id,
         b.batch_code AS code,
         b.name,
-        b.description,
-        COALESCE(b.community, MAX(m.community), '') AS community,
+        '' AS description,
+        c.name AS community,
         COALESCE(b.records, COUNT(m.id)) AS records,
         COALESCE(b.progress, 0) AS progress,
         COALESCE(b.status, 'Active') AS status
       FROM batches b
       LEFT JOIN mothers m ON m.batch_id = b.id
+      LEFT JOIN communities c ON c.id = b.community_id
       ${scopeClause}
-      GROUP BY b.id, b.batch_code, b.name, b.description, b.community, b.records, b.progress, b.status
+      GROUP BY b.id, b.batch_code, b.name, c.name, b.records, b.progress, b.status
       ORDER BY b.id
     `, req.schoolId ? [req.schoolId] : []);
     const batches = rows.map((r) => ({

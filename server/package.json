@@ -8,6 +8,7 @@
     "dev": "nodemon index.js",
     "seed:monitor": "node seed_monitor_data.js",
     "seed:program": "node scripts/seed_program_data.js",
+    "seed:schools": "node scripts/seed_three_schools.js",
     "seed:school-hierarchy": "node seed_school_hierarchy.js",
     "seed:role-accounts": "node seed_role_accounts.js"
   },
