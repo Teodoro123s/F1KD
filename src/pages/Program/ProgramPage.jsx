@@ -160,18 +160,25 @@ export default function ProgramPage() {
     return () => window.clearInterval(interval);
   }, []);
 
-  const toggleMonitoring = async (beneficiary, monitored) => {
-    const key = beneficiary.monitorKey;
-    const previous = Boolean(monitoringStatus[key]);
-    setMonitoringStatus((current) => ({ ...current, [key]: monitored }));
-    setMonitoringPending((current) => ({ ...current, [key]: true }));
+  const toggleMonitoring = async (beneficiary, monitored, descendants = null) => {
+    const beneficiaries = descendants?.length ? descendants : [beneficiary];
+    const changes = beneficiaries.filter((item) => item.monitorKey && item.sourceId && item.sourceType);
+    const previous = Object.fromEntries(changes.map((item) => [item.monitorKey, Boolean(monitoringStatus[item.monitorKey])]));
+    const keys = changes.map((item) => item.monitorKey);
+    setMonitoringStatus((current) => ({ ...current, ...Object.fromEntries(keys.map((key) => [key, monitored])) }));
+    setMonitoringPending((current) => ({ ...current, ...Object.fromEntries(keys.map((key) => [key, true])) }));
     try {
-      await apiSetProgramMonitoring(programId, { beneficiaryId: beneficiary.sourceId, beneficiaryType: beneficiary.sourceType, monitored, date: monitorDate });
+      await Promise.all(changes.map((item) => apiSetProgramMonitoring(programId, {
+        beneficiaryId: item.sourceId,
+        beneficiaryType: item.sourceType,
+        monitored,
+        date: monitorDate,
+      })));
     } catch (error) {
-      setMonitoringStatus((current) => ({ ...current, [key]: previous }));
+      setMonitoringStatus((current) => ({ ...current, ...previous }));
       setProgramError(error.message || 'Unable to save monitoring status.');
     } finally {
-      setMonitoringPending((current) => ({ ...current, [key]: false }));
+      setMonitoringPending((current) => ({ ...current, ...Object.fromEntries(keys.map((key) => [key, false])) }));
     }
   };
 

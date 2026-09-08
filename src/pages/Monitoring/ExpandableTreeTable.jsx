@@ -5,6 +5,13 @@ function getNodeKey(node) {
   return `${node.level}-${node.id}`;
 }
 
+function getDescendantBeneficiaries(row) {
+  if (row.level === 'beneficiary') return [row.node];
+  if (row.level === 'batch') return row.node.beneficiaries || [];
+  if (row.level === 'group') return (row.node.batches || []).flatMap((batch) => batch.beneficiaries || []);
+  return (row.node.groups || []).flatMap((group) => (group.batches || []).flatMap((batch) => batch.beneficiaries || []));
+}
+
 function flattenVisibleRows(data, expandedPath) {
   const rows = [];
   const expandedSchool = expandedPath[0];
@@ -99,14 +106,17 @@ export default function ExpandableTreeTable({ data = [], monitored = {}, pending
     { key: 'beneficiary', label: 'Beneficiary', render: (value, row) => row.level === 'beneficiary' ? (
       onBeneficiaryClick ? <button type="button" className="monitor-tree-beneficiary monitor-tree-beneficiary-button" onClick={() => onBeneficiaryClick(row.node)}>{value}</button> : <span className="monitor-tree-beneficiary">{value}</span>
     ) : value },
-    { key: 'monitored', label: 'Monitored?', render: (value, row) => row.level === 'beneficiary' ? (
-      canToggle && onMonitorChange ? (
-        <label className="monitor-tree-toggle">
-          <input type="checkbox" checked={Boolean(monitored[row.node.monitorKey])} disabled={Boolean(pending[row.node.monitorKey])} onChange={(event) => onMonitorChange(row.node, event.target.checked)} />
-          <span>{pending[row.node.monitorKey] ? 'Saving...' : monitored[row.node.monitorKey] ? 'Yes' : 'No'}</span>
-        </label>
-      ) : <span className={`program-recipient-status ${monitored[row.node.monitorKey] ? 'received' : 'pending'}`}>{monitored[row.node.monitorKey] ? 'Yes' : 'No'}</span>
-    ) : '' },
+    { key: 'monitored', label: 'Monitored?', render: (value, row) => {
+      const descendants = getDescendantBeneficiaries(row);
+      const descendantKeys = descendants.map((beneficiary) => beneficiary.monitorKey).filter(Boolean);
+      const checked = descendantKeys.length > 0 && descendantKeys.every((key) => monitored[key]);
+      const saving = descendantKeys.some((key) => pending[key]);
+      if (!canToggle || !onMonitorChange) return row.level === 'beneficiary' ? <span className={`program-recipient-status ${monitored[row.node.monitorKey] ? 'received' : 'pending'}`}>{monitored[row.node.monitorKey] ? 'Yes' : 'No'}</span> : '';
+      return <label className="monitor-tree-toggle">
+        <input type="checkbox" checked={checked} disabled={!descendantKeys.length || saving} onChange={(event) => onMonitorChange(row.node, event.target.checked, descendants)} />
+        <span>{saving ? 'Saving...' : checked ? 'Yes' : 'No'}</span>
+      </label>;
+    } },
   ];
 
   return <UnifiedTable columns={columns} rows={rows} rowKey={(row) => row.id} emptyMessage="No schools, groups, batches, or beneficiaries found." />;
