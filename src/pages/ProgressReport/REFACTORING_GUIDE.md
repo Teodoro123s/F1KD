@@ -1,293 +1,103 @@
-# Horizontal Refactoring Guide: ProgressReport.jsx
+# Progress Report Maintenance Guide
 
-## Overview
-This guide demonstrates how to refactor **ProgressReport.jsx** using horizontal refactoring principles: extracting pure utilities and custom hooks from a monolithic component without changing its UI behavior.
+The Progress Report module is already split into a page controller, reusable components, custom hooks, and utilities. Use this guide when changing the implementation.
 
----
+## Change Routing
 
-## Phase 1: Import the new utilities and hooks
+Use the smallest owning module:
 
-Replace the long imports at the top of ProgressReport.jsx:
+| Change | File |
+| --- | --- |
+| Add or rename a report field | `progressReportUtils.js` |
+| Change API field selection | `utils/apiUtils.js` and `hooks/useReportData.js` |
+| Change normalization or progress values | `progressReportUtils.js` |
+| Add a search token or filter rule | `progressReportUtils.js` and `utils/filterUtils.js` |
+| Change selector or search state | `hooks/useProgressFilters.js` |
+| Change column persistence or field-menu behavior | `hooks/useColumnPreferences.js` and `utils/columnUtils.js` |
+| Change CSV/JSON output | `utils/exportUtils.js` and `hooks/useReportExport.js` |
+| Change report tabs or page coordination | `ProgressReport.jsx` |
+| Change table cells or row actions | `ProgressReportTable.jsx` |
+| Change toolbar controls | `components/ProgressReportToolbar.jsx` |
+| Change filter controls | `components/ProgressReportFilterBar.jsx` |
 
-```javascript
-// ❌ BEFORE (mixed concerns):
-import { useEffect, useMemo, useState } from 'react';
-import { useMothers } from '../../context/MothersContext';
-import { useAuth } from '../../auth/AuthProvider';
-import { apiGetChildren } from '../../api/children';
-// ... 15 more imports
+## Adding a Report Field
 
-// ✅ AFTER (organized by concern):
-import { useEffect, useMemo, useState } from 'react';
-import { useMothers } from '../../context/MothersContext';
-import { useAuth } from '../../auth/AuthProvider';
-import { useProgressFilters } from './hooks/useProgressFilters';
-import { useReportData } from './hooks/useReportData';
-import { useColumnPreferences } from './hooks/useColumnPreferences';
-import { useReportExport } from './hooks/useReportExport';
-import { buildRequestFields } from './utils/apiUtils';
-import {
-  REPORT_TABS,
-  SEARCH_FILTER_RULES,
-  formatDate,
-  formatDelta,
-  getDefaultVisibleColumns,
-  getFieldGroups,
-  getReportColumnsForEntity,
-  getRowKey,
-  hasValue,
-  matchesEntityToken,
-  normalizeChild,
-  normalizeMother,
-} from './progressReportUtils';
+1. Add metadata to the maternal or child field library in `progressReportUtils.js`.
+2. Add the normalized property in `normalizeMother` or `normalizeChild`.
+3. Confirm `buildRequestFields` requests the backend field.
+4. Add a server allowlist entry when the API uses field selection.
+5. Add special rendering to `ProgressReportTable` only when the field is not plain text, progress, trend, or a date.
+6. Add special export conversion to `getRowValue` only when the row value is not directly exportable.
+
+## Adding a Search Filter
+
+1. Add a rule to `SEARCH_FILTER_RULES` with an ID, pattern, label, and optional label function.
+2. Add a matching branch in `filterRows` for filters that need more than a boolean field check.
+3. Add a quick-filter button in `ProgressReportFilterBar` only when the filter should be prominent.
+4. Check that `parseQuery` removes the token and preserves the remaining free-text query.
+5. Verify active filter counts and chip removal.
+
+## Changing Data Fetching
+
+`useReportData` has two paths:
+
+- Mothers: call `refreshMothers(selectedFields)` from `MothersContext`; this fetches fresh records from `/api/mothers`.
+- Children: call `apiGetChildren(selectedFields)` and update local child state.
+
+Both paths use the hook's `loadingData` result. Keep loading and empty-state handling tied to that value so an old context snapshot is not presented as the result of a newer request.
+
+Do not fetch directly from `ProgressReportTable` or filter components. Keep API field construction in `buildRequestFields`, and keep API-to-report transformation in the normalizers.
+
+## Changing Progress or Ranking
+
+Normalized rows must provide the fields consumed by the page and utilities, including:
+
+```text
+id, name, type, school/community, group, batch,
+progress, trend, source
 ```
 
----
+`useReportData` aggregates rows by group and batch for Ranked by. The Ranked by selector uses visible managed numeric columns to calculate each aggregate average; Progress % is the fallback. It also chooses an aggregate trend from member trends. Graph View uses managed visible fields such as Age, Gender, BMI, and Progress, with bar, line, or pie chart modes and progress/community/group/batch grouping. The School filter is the community filter for graph data.
 
-## Phase 2: Replace filter state with `useProgressFilters` hook
+## Export Behavior
 
-```javascript
-// ❌ BEFORE (31 individual state variables):
-const [school, setSchool] = useState('All Schools');
-const [group, setGroup] = useState('All Groups');
-const [batch, setBatch] = useState('All Batches');
-const [search, setSearch] = useState('');
-const [showAllFilters, setShowAllFilters] = useState(false);
-// ... more code to compute filteredRows, options, etc.
-const searchFilters = useMemo(() => SEARCH_FILTER_RULES.flatMap(...), [search]);
-// ... more complex useMemo hooks
+`useReportExport` selects rows and columns for the active view and provides a 20-row preview. `getExportData` defines the export schema:
 
-// ✅ AFTER (single hook handles all filter logic):
-const {
-  school, setSchool,
-  group, setGroup,
-  batch, setBatch,
-  search, setSearch,
-  showAllFilters, setShowAllFilters,
-  searchFilters,
-  filteredRows,
-  activeFilterCount,
-  comparisonRequest,
-  schoolOptions,
-  groupOptions,
-  batchOptions,
-} = useProgressFilters({
-  allRows,
-  searchFilterRules: SEARCH_FILTER_RULES,
-  hasValueFn: hasValue,
-  beneficiaryType,
-});
+- Master List: currently visible entity columns.
+- Ranked by: entity, type, members, progress, trend, sorted by the selected managed attribute.
+- Graph View: range, count, share.
+
+`exportReport` appends the current date to the filename and downloads CSV or JSON. Keep CSV escaping in `generateCsvContent`; do not build CSV elsewhere.
+
+## Column Preferences
+
+Preferences are scoped by role and entity type:
+
+```text
+progress-report-columns-{roleName}-{beneficiaryType}
 ```
 
-**Benefits:**
-- Reduces 8 state variables + 8+ useMemo hooks → 1 custom hook
-- Filter logic is now testable in isolation
-- Related state is co-located
+When fields change, `mergeColumnPreferences` removes invalid saved IDs and applies new defaults. Preserve `name` as a usable identity column when changing visibility rules.
 
----
+## Validation Checklist
 
-## Phase 3: Replace column management with `useColumnPreferences` hook
+Run:
 
-```javascript
-// ❌ BEFORE (mixing localStorage, state, and complex useMemo):
-const savedColumnPreferenceKey = `progress-report-columns-${roleName}-${beneficiaryType}`;
-const [visibleColumns, setVisibleColumns] = useState(() => {
-  try {
-    const savedValue = localStorage.getItem(savedColumnPreferenceKey);
-    if (savedValue) {
-      const parsed = JSON.parse(savedValue);
-      if (Array.isArray(parsed) && parsed.length) {
-        const validColumns = parsed.filter(...);
-        const guaranteedColumns = [...new Set(['name', ...validColumns])];
-        return guaranteedColumns;
-      }
-    }
-  } catch (error) { ... }
-  return defaultVisibleColumns;
-});
-const [showColumns, setShowColumns] = useState(false);
-const [fieldSearch, setFieldSearch] = useState('');
-const [expandedGroups, setExpandedGroups] = useState(() => ...);
-useEffect(() => {
-  try {
-    localStorage.setItem(savedColumnPreferenceKey, JSON.stringify(visibleColumns));
-  } catch (error) { ... }
-}, [savedColumnPreferenceKey, visibleColumns]);
-useEffect(() => { /* complex merge logic */ }, [roleName, beneficiaryType, ...]);
-
-// ✅ AFTER (single hook handles all column logic):
-const {
-  visibleColumns, setVisibleColumns,
-  fieldSearch, setFieldSearch,
-  showColumns, setShowColumns,
-  expandedGroups, setExpandedGroups,
-  filteredFieldOptions,
-} = useColumnPreferences({
-  currentEntityColumns,
-  defaultVisibleColumns,
-  roleName,
-  beneficiaryType,
-  fieldGroups: getFieldGroups(beneficiaryType),
-});
+```text
+npm run build
 ```
 
-**Benefits:**
-- Reduces 5 state variables + 2 complex useEffect + 2 useMemo hooks → 1 custom hook
-- localStorage logic is hidden in the hook
-- Column merging logic is encapsulated
+Then check:
 
----
+- Mothers and Children switch correctly and display the correct data.
+- School, group, batch, text, and quick filters compose correctly.
+- All report tabs render rows or graph data without empty-state regressions.
+- Column changes persist after refresh and remain valid after switching entity type.
+- CSV and JSON exports use the selected view and columns.
+- Loading and empty states remain visible while child data is requested.
 
-## Phase 4: Replace data fetching with `useReportData` hook
+## Known Implementation Notes
 
-```javascript
-// ❌ BEFORE (mixing effects, state, normalization, and ranking):
-const [children, setChildren] = useState([]);
-const [loadingChildren, setLoadingChildren] = useState(false);
-useEffect(() => {
-  let active = true;
-  if (beneficiaryType === 'Mothers') {
-    const selectedFields = buildRequestFields();
-    refreshMothers(selectedFields);
-    return () => { active = false; };
-  }
-  setLoadingChildren(true);
-  apiGetChildren(buildRequestFields())
-    .then((payload) => { if (active) setChildren(...) })
-    .catch(() => { if (active) setChildren([]) })
-    .finally(() => { if (active) setLoadingChildren(false); });
-  return () => { active = false; };
-}, [beneficiaryType, refreshMothers, visibleColumns]);
-const allRows = useMemo(() => beneficiaryType === 'Mothers' ? mothers.map(...) : children.map(...), [...]);
-const rankedRows = useMemo(() => { /* 30+ lines of aggregation */ }, [filteredRows]);
-const graphRows = useMemo(() => { /* 10+ lines of distribution */ }, [filteredRows]);
-
-// ✅ AFTER (single hook orchestrates all data logic):
-const {
-  allRows,
-  rankedRows,
-  graphRows,
-  selectedFields,
-} = useReportData({
-  beneficiaryType,
-  mothers,
-  refreshMothers,
-  visibleColumns,
-  currentEntityColumns,
-  defaultVisibleColumns,
-  normalizeMotherFn: normalizeMother,
-  normalizeChildFn: normalizeChild,
-  getFieldGroupsFn: getFieldGroups,
-});
-```
-
-**Benefits:**
-- Reduces 2 state variables + 1 complex useEffect + 3+ useMemo hooks → 1 custom hook
-- API fetching is now predictable and testable
-- Data normalization is hidden
-- Ranking logic is isolated
-
----
-
-## Phase 5: Replace export logic with `useReportExport` hook
-
-```javascript
-// ❌ BEFORE (export state scattered, downloadReport is a 70-line function):
-const [exportPreviewOpen, setExportPreviewOpen] = useState(false);
-const [exportFormat, setExportFormat] = useState('CSV');
-const [exportFilename, setExportFilename] = useState('progress-report');
-const [exportColumns, setExportColumns] = useState([]);
-const exportColumnsForView = useMemo(() => {
-  if (activeTab === 'Summary View') return [...];
-  if (activeTab === 'Graph View') return [...];
-  if (activeTab === 'Ranked List') return [...];
-  return currentEntityColumns.filter(...);
-}, [activeTab, currentEntityColumns, visibleColumns]);
-const downloadReport = ({ viewMode = activeTab, format = 'CSV', ... } = {}) => {
-  // 60+ lines of CSV/JSON formatting and blob handling
-};
-
-// ✅ AFTER (single hook handles all export logic):
-const {
-  exportPreviewOpen, setExportPreviewOpen,
-  exportFormat, setExportFormat,
-  exportFilename, setExportFilename,
-  exportColumnsForView,
-  exportPreviewRows,
-  downloadReport,
-} = useReportExport({
-  masterRows: filteredRows,
-  rankedRows,
-  summaryRows: rankedRows,
-  graphRows,
-  visibleColumns,
-  currentEntityColumns,
-  activeTab,
-  beneficiaryType,
-});
-```
-
-**Benefits:**
-- Reduces 4 state variables + 1 useMemo + 1 function → 1 custom hook
-- Export logic is now testable and reusable
-- Format-specific logic is encapsulated
-
----
-
-## Phase 6: Delete the old monolithic code
-
-After integrating the hooks, delete or comment out:
-- ❌ 31 individual state variable declarations
-- ❌ 15+ useMemo computations
-- ❌ 8+ useEffect calls
-- ❌ 70-line `downloadReport()` function
-- ❌ 20-line `buildRequestFields()` function
-
-**Result:** ProgressReport.jsx shrinks from 500+ lines → ~200 lines (component logic only)
-
----
-
-## Phase 7: Verify UI behavior unchanged
-
-The component still renders exactly the same because we only moved logic, not UI:
-
-```javascript
-return (
-  <div className="progress-report-shell">
-    <ProgressReportFilterBar
-      activeFilterCount={activeFilterCount}
-      showAllFilters={showAllFilters}
-      setShowAllFilters={setShowAllFilters}
-      school={school}
-      setSchool={setSchool}
-      // ... all other props work the same
-    />
-    {/* All child components render identically */}
-  </div>
-);
-```
-
----
-
-## Summary of Refactoring Gains
-
-| Aspect | Before | After | Improvement |
-|--------|--------|-------|-------------|
-| **Main component lines** | 500+ | ~200 | 60% smaller |
-| **State variables** | 31 | 0 (in hook props) | Eliminated |
-| **useMemo hooks** | 15+ | 0 (in hooks) | Eliminated |
-| **useEffect calls** | 8+ | 0 (in hooks) | Eliminated |
-| **Complex functions** | 70-line `downloadReport` | Utility functions | Testable |
-| **Code reusability** | Monolithic | Modular hooks + utils | 4x reusable |
-| **Testing surface** | Entire component | Isolated utilities | Easier to test |
-
----
-
-## Next Steps: Apply to Other Pages
-
-This same pattern can be applied to:
-- **CommunityPage.jsx** → `useCommunityFilters`, `useCommunityForms`, `useCommunityData`
-- **BeneficiaryPage.jsx** → `useBeneficiaryFilters`, `useBeneficiaryData`
-- **UserManagementPage.jsx** → `useUserFilters`, `useUserManagement`
-
-Each page can be reduced by 40-60% following this exact pattern.
+- Graph View is rendered in `ProgressReport.jsx`; `graphRows` is prepared by `useReportData` for export.
+- `useReportData` accepts `getFieldGroupsFn` but does not currently use it. Remove that prop only with a coordinated caller change.
+- `window.__progressReportFields` is a development inspection aid written by `useReportData`; do not use it as application state.

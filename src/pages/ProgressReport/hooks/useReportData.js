@@ -19,9 +19,11 @@ export const useReportData = ({
   normalizeMotherFn,
   normalizeChildFn,
   getFieldGroupsFn,
+  rankedBy = 'progress',
+  rankDirection = 'desc',
 }) => {
   const [children, setChildren] = useState([]);
-  const [loadingChildren, setLoadingChildren] = useState(false);
+  const [loadingData, setLoadingData] = useState(false);
 
   // Build the list of fields to fetch
   const selectedFields = useMemo(
@@ -32,15 +34,17 @@ export const useReportData = ({
   // Fetch data when beneficiary type or fields change
   useEffect(() => {
     let active = true;
+    setLoadingData(true);
 
     if (beneficiaryType === 'Mothers') {
-      refreshMothers(selectedFields);
+      Promise.resolve(refreshMothers(selectedFields)).finally(() => {
+        if (active) setLoadingData(false);
+      });
       return () => {
         active = false;
       };
     }
 
-    setLoadingChildren(true);
     apiGetChildren(selectedFields)
       .then((payload) => {
         if (active) {
@@ -54,7 +58,7 @@ export const useReportData = ({
       })
       .finally(() => {
         if (active) {
-          setLoadingChildren(false);
+            setLoadingData(false);
         }
       });
 
@@ -77,6 +81,10 @@ export const useReportData = ({
 
   // Compute ranked rows (grouped by group and batch)
   const rankedRows = useMemo(() => {
+    const getRankValue = (row) => {
+      const value = Number(row[rankedBy]);
+      return Number.isFinite(value) ? value : Number(row.progress || 0);
+    };
     const aggregate = (field, label) =>
       Object.entries(
         allRows.reduce((groups, row) => {
@@ -92,13 +100,18 @@ export const useReportData = ({
         trimester: label,
         assessment: 'Current cohort',
         progress: Math.round(rows.reduce((total, row) => total + row.progress, 0) / rows.length),
+        rankedValue: Math.round(rows.reduce((total, row) => total + getRankValue(row), 0) / rows.length),
+        rankedBy,
         trend: rows.filter((row) => row.trend === 'up').length >= rows.length / 2 ? 'up' : 'down',
         memberIds: rows.map((row) => row.id),
         type: label,
       }));
 
-    return [...aggregate('group', 'Group'), ...aggregate('batch', 'Batch')].sort((a, b) => Number(b.progress) - Number(a.progress));
-  }, [allRows]);
+    return [...aggregate('group', 'Group'), ...aggregate('batch', 'Batch')].sort((a, b) => {
+      const difference = a.rankedValue - b.rankedValue;
+      return rankDirection === 'asc' ? difference : -difference;
+    });
+  }, [allRows, rankedBy, rankDirection]);
 
   // Compute graph rows (progress distribution)
   const graphRows = useMemo(
@@ -136,7 +149,7 @@ export const useReportData = ({
     mothers,
     children,
     // Loading state
-    loadingChildren,
+    loadingData,
     // Computed
     selectedFields,
   };

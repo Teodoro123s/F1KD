@@ -3,14 +3,13 @@ import React from 'react';
 export default function ProgressReportToolbar({
   activeTab,
   tabs,
-  compareIds,
   onTabChange,
-  onCompareClick,
   onDownload,
-  showAnalyzeMenu,
-  onAnalyzeToggle,
-  onGenerateCohortReport,
-  onDownloadSummary,
+  rankedBy,
+  rankOptions,
+  onRankedByChange,
+  rankDirection,
+  onRankDirectionChange,
 }) {
   return (
     <div className="progress-report-toolbar">
@@ -28,37 +27,18 @@ export default function ProgressReportToolbar({
       </div>
 
       <div className="progress-report-toolbar-actions">
-        <div className="analyze-menu-wrap">
-          <button
-            type="button"
-            className="ghost-btn"
-            onClick={onAnalyzeToggle}
-            aria-expanded={showAnalyzeMenu}
-            aria-haspopup="menu"
-          >
-            Analyze ▾
-          </button>
-
-          {showAnalyzeMenu && (
-            <div className="analyze-menu" role="menu" aria-label="Statistical summary actions">
-              <div className="analyze-menu-header">Statistical Summary</div>
-              <button type="button" className="analyze-menu-item" onClick={onGenerateCohortReport}>
-                Generate Cohort Report
-              </button>
-              <button type="button" className="analyze-menu-item" onClick={onDownloadSummary}>
-                Download Summary CSV
-              </button>
-            </div>
-          )}
-        </div>
-
-        <button
-          type="button"
-          className={`ghost-btn ${compareIds.length ? 'selected' : ''}`}
-          onClick={onCompareClick}
-        >
-          Compare{compareIds.length ? ` (${compareIds.length})` : ''}
-        </button>
+        {activeTab === 'Ranked by' && (
+          <label className="ranked-by-select">
+            <span>Ranked by</span>
+            <select value={rankedBy} onChange={(event) => onRankedByChange(event.target.value)} aria-label="Rank report by">
+              {rankOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
+            </select>
+            <select value={rankDirection} onChange={(event) => onRankDirectionChange(event.target.value)} aria-label="Rank direction">
+              <option value="desc">Descending</option>
+              <option value="asc">Ascending</option>
+            </select>
+          </label>
+        )}
         <button type="button" className="primary-btn" onClick={onDownload}>
           Export ▾
         </button>

@@ -2,6 +2,7 @@ export const MATERNAL_PROGRESS_REPORT_FIELD_LIBRARY = [
   { id: 'name', label: 'Beneficiary Name', category: 'Demographics' },
   { id: 'phone', label: 'Phone', category: 'Demographics' },
   { id: 'dob', label: 'Date of Birth', category: 'Demographics' },
+  { id: 'gender', label: 'Gender', category: 'Demographics' },
   { id: 'community', label: 'Community', category: 'Demographics' },
   { id: 'group', label: 'Group', category: 'Demographics' },
   { id: 'batch', label: 'Batch', category: 'Demographics' },
@@ -47,6 +48,7 @@ export const MATERNAL_PROGRESS_REPORT_FIELD_LIBRARY = [
   { id: 'trend', label: 'Trend', category: 'System' },
   { id: 'createdAt', label: 'Created At', category: 'System' },
   { id: 'age', label: 'Age', category: 'Demographics' },
+  { id: 'gender', label: 'Gender', category: 'Demographics' },
   { id: 'gpa', label: 'GPA', category: 'Obstetric History' },
   { id: 'vaccines', label: 'Vaccines', category: 'Immunizations' },
   { id: 'oralHealth', label: 'Oral Health', category: 'Documents' },
@@ -79,7 +81,7 @@ export const CHILD_PROGRESS_REPORT_FIELD_LIBRARY = [
 export const PROGRESS_REPORT_FIELD_LIBRARY = MATERNAL_PROGRESS_REPORT_FIELD_LIBRARY;
 export const REPORT_COLUMNS = MATERNAL_PROGRESS_REPORT_FIELD_LIBRARY;
 
-export const REPORT_TABS = ['Master List', 'Ranked List', 'Graph View', 'Summary View'];
+export const REPORT_TABS = ['Master List', 'Ranked by', 'Graph View'];
 
 export const MATERNAL_ROLE_DEFAULT_COLUMNS = {
   default: ['name', 'age', 'latestCheckupDate', 'initialBmi', 'bmi', 'community', 'group', 'batch', 'programType'],
@@ -211,14 +213,6 @@ export const fullName = (item) => item.name || [item.firstName || item.first_nam
 
 export const hasValue = (value) => value !== undefined && value !== null && value !== '';
 
-export const normalizeToken = (value) => String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-
-export const matchesEntityToken = (value, token) => {
-  const normalizedValue = normalizeToken(value);
-  const normalizedToken = normalizeToken(token);
-  return normalizedValue === normalizedToken || normalizedValue.endsWith(normalizedToken);
-};
-
 export const getBmiCategory = (value) => {
   const bmi = Number(value);
   if (!Number.isFinite(bmi)) return 'Not recorded';
@@ -271,6 +265,7 @@ export function normalizeMother(mother) {
     phone: mother.contactNumber || mother.phone || '',
     dob,
     age,
+    gender: mother.gender || mother.sex || '',
     community: mother.community || mother.area || '',
     school: mother.community || mother.area || '',
     group: mother.group || '',
@@ -342,6 +337,7 @@ export function normalizeChild(child) {
     phone: child.contactNumber || '',
     dob: child.birth_date || child.birthDate || '',
     age: child.age || '',
+    gender: child.gender || child.sex || '',
     community: child.community_name || child.community || '',
     school: child.community_name || child.community || '',
     group: child.group_name || child.group || '',

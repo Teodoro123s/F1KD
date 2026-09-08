@@ -16,7 +16,7 @@
  *   - Automatic blob creation and file downloads
  *   - Format-agnostic export function
  *   - Preview data extraction (first N rows)
- *   - Multiple view modes (Master List, Summary View, Graph View, Ranked List)
+ *   - Multiple view modes (Master List, Graph View, Ranked by)
  * 
  * USAGE:\n *   const csv = generateCsvContent(rows, columns, getValueFn);\n *   downloadContent(csv, 'export.csv', 'text/csv');\n *   const preview = getExportPreviewRows(rows, 20);\n * \n * EXPORTS:\n *   - getRowValue(row, fieldId)\n *   - generateCsvContent(rows, columns, getValueFn)\n *   - generateJsonContent(rows, columns, getValueFn)\n *   - downloadContent(content, filename, mimeType)\n *   - exportReport(rows, columns, format, filename, getValueFn)\n *   - getExportPreviewRows(rows, previewCount)\n *   - getExportData(rows, viewMode, rankedRows, graphRows)\n */
 
@@ -113,7 +113,6 @@ export const getExportData = ({
   viewMode,
   masterRows,
   rankedRows,
-  summaryRows,
   graphRows,
   visibleColumns,
   currentEntityColumns,
@@ -121,17 +120,6 @@ export const getExportData = ({
   let rows, columns;
 
   switch (viewMode) {
-    case 'Summary View':
-      rows = summaryRows;
-      columns = [
-        { id: 'name', label: 'Entity' },
-        { id: 'type', label: 'Type' },
-        { id: 'idLabel', label: 'Members' },
-        { id: 'progress', label: 'Average Progress' },
-        { id: 'trend', label: 'Trend' },
-      ];
-      break;
-
     case 'Graph View':
       rows = graphRows;
       columns = [
@@ -141,7 +129,7 @@ export const getExportData = ({
       ];
       break;
 
-    case 'Ranked List':
+    case 'Ranked by':
       rows = rankedRows;
       columns = [
         { id: 'name', label: 'Entity' },

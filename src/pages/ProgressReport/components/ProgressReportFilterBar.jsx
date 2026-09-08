@@ -26,7 +26,6 @@ export default function ProgressReportFilterBar({
   searchFilters,
   beneficiaryType,
   setBeneficiaryType,
-  comparisonRequest,
 }) {
   const applyQuickFilter = (value) => {
     const trimmed = value.trim();
@@ -104,11 +103,6 @@ export default function ProgressReportFilterBar({
         </div>
 
         <div className={`active-filter-strip ${showAllFilters ? 'expanded' : ''}`}>
-          {comparisonRequest && (
-            <span className="chip analysis-chip">
-              <small>Analysis</small> Initial BMI: {comparisonRequest.group}, Batches {comparisonRequest.batches.join(' / ')}
-            </span>
-          )}
           {school !== 'All Schools' && (
             <button type="button" className="chip context-chip danger" onClick={() => setSchool('All Schools')}>
               <small>📍</small> School: {school} ×

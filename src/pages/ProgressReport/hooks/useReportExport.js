@@ -10,7 +10,6 @@ import { getExportData, getExportPreviewRows, exportReport } from '../utils/expo
 export const useReportExport = ({
   masterRows,
   rankedRows,
-  summaryRows,
   graphRows,
   visibleColumns,
   currentEntityColumns,
@@ -28,13 +27,12 @@ export const useReportExport = ({
       viewMode: activeTab,
       masterRows,
       rankedRows,
-      summaryRows,
       graphRows,
       visibleColumns,
       currentEntityColumns,
     });
     return columns;
-  }, [activeTab, masterRows, rankedRows, summaryRows, graphRows, visibleColumns, currentEntityColumns]);
+  }, [activeTab, masterRows, rankedRows, graphRows, visibleColumns, currentEntityColumns]);
 
   // Get preview rows for the active view mode
   const exportPreviewRows = useMemo(() => {
@@ -42,13 +40,12 @@ export const useReportExport = ({
       viewMode: activeTab,
       masterRows,
       rankedRows,
-      summaryRows,
       graphRows,
       visibleColumns,
       currentEntityColumns,
     });
     return getExportPreviewRows(rows, 20);
-  }, [activeTab, masterRows, rankedRows, summaryRows, graphRows, visibleColumns, currentEntityColumns]);
+  }, [activeTab, masterRows, rankedRows, graphRows, visibleColumns, currentEntityColumns]);
 
   // Orchestrate the download
   const downloadReport = (options = {}) => {
@@ -58,7 +55,6 @@ export const useReportExport = ({
       viewMode,
       masterRows,
       rankedRows,
-      summaryRows,
       graphRows,
       visibleColumns,
       currentEntityColumns,

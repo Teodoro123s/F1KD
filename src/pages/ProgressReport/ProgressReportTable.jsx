@@ -1,5 +1,5 @@
 import React from 'react';
-import { REPORT_COLUMNS, getRowKey } from './progressReportUtils';
+import { REPORT_COLUMNS } from './progressReportUtils';
 
 const DATE_COLUMNS = new Set([
   'dob', 'lmpDate', 'eddDate', 'prenatalRegDate',
@@ -17,9 +17,6 @@ function formatReportDate(value) {
 export default function ProgressReportTable({
   activeTab,
   displayedRows,
-  compareIds,
-  toggleCompare,
-  showHistory,
   visibleColumns,
   columns,
 }) {
@@ -27,8 +24,7 @@ export default function ProgressReportTable({
     <table className="progress-report-table">
       <thead>
         <tr>
-          <th aria-label="Compare" />
-          {activeTab === 'Ranked List' ? (
+          {activeTab === 'Ranked by' ? (
             <>
               <th>Entity</th>
               <th>Type</th>
@@ -46,22 +42,12 @@ export default function ProgressReportTable({
       </thead>
       <tbody>
         {displayedRows.map((row, index) => {
-          const rowKey = getRowKey(row, index);
+          const rowKey = `${row.type}-${row.id || row.name || index}`;
 
           return (
-            <tr key={rowKey}>
-              <td>
-                <input
-                  id={`compare-${rowKey}`}
-                  name="compareRows"
-                  type="checkbox"
-                  checked={compareIds.includes(rowKey)}
-                  onChange={() => toggleCompare(rowKey)}
-                  aria-label={`Compare ${row.name}`}
-                />
-              </td>
+            <tr key={`${row.type}-${row.id || row.name || index}`}>
 
-              {activeTab === 'Ranked List' ? (
+              {activeTab === 'Ranked by' ? (
                 <>
                   <td className="beneficiary-cell">{row.name}</td>
                   <td>{row.type}</td>
@@ -96,11 +82,6 @@ export default function ProgressReportTable({
               )}
 
               <td className="action-cell">
-                {row.type === 'Mothers' && (
-                  <button type="button" className="history-btn" onClick={() => showHistory(row)}>
-                    History
-                  </button>
-                )}{' '}
                 ⋮
               </td>
             </tr>

@@ -2,7 +2,7 @@
  * useProgressFilters.js - Filter State Orchestration Hook
  * 
  * RESPONSIBILITY: Manage all filter-related state (school/group/batch/search/showAllFilters)
- * and compute derived values (filteredRows, filterOptions, activeCount, comparisonRequest).
+ * and compute derived values (filteredRows, filterOptions, and activeCount).
  * 
  * ARCHITECTURE LAYER: State Orchestration Layer (React Custom Hook)
  * - Composes filterUtils pure functions
@@ -32,7 +32,6 @@ import {
   countActiveFilters,
   extractOptions,
   validateAndNormalizeContext,
-  parseComparisonRequest,
 } from '../utils/filterUtils';
 import { sortReportRows } from '../progressReportUtils';
 
@@ -62,7 +61,6 @@ export const useProgressFilters = ({
   const [batch, setBatch] = useState('All Batches');
   const [search, setSearch] = useState('');
   const [showAllFilters, setShowAllFilters] = useState(false);
-
   // Parse context and query
   const context = useMemo(() => parseContext(school, group, batch), [school, group, batch]);
 
@@ -97,12 +95,6 @@ export const useProgressFilters = ({
     [context, searchFilters, beneficiaryType]
   );
 
-  // Parse comparison request if applicable
-  const comparisonRequest = useMemo(
-    () => parseComparisonRequest(search, beneficiaryType),
-    [search, beneficiaryType]
-  );
-
   // Reset state when beneficiary type changes
   useEffect(() => {
     setSchool('All Schools');
@@ -127,7 +119,6 @@ export const useProgressFilters = ({
     searchFilters,
     filteredRows,
     activeFilterCount,
-    comparisonRequest,
     // Options
     schoolOptions: options.schoolOptions,
     groupOptions: options.groupOptions,

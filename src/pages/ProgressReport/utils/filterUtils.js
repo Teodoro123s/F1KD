@@ -65,7 +65,6 @@ export const parseQuery = (search, searchFilterRules) => {
 
   return { filters, remainingQuery };
 };
-
 /**
  * Apply filter criteria to rows
  */
@@ -172,21 +171,3 @@ export const validateAndNormalizeContext = (context, options) => {
   };
 };
 
-/**
- * Check if rows match a batch comparison query (e.g., "initial bmi group ABC batches X and Y")
- */
-export const parseComparisonRequest = (search, beneficiaryType) => {
-  if (beneficiaryType !== 'Mothers' || !/\binitial\b[\s\w-]*\bbmi\b/i.test(search)) {
-    return null;
-  }
-
-  const groupMatch = search.match(/\bgroup\s+([a-z0-9-]+)/i);
-  const batchMatch = search.match(/\bbatches?\s+([a-z0-9-]+)\s*(?:and|&)\s*([a-z0-9-]+)/i);
-
-  if (!groupMatch || !batchMatch) return null;
-
-  return {
-    group: groupMatch[1],
-    batches: [batchMatch[1], batchMatch[2]],
-  };
-};

@@ -2,7 +2,7 @@
  * ProgressReport
  *
  * Presentation-layer component for the progress dashboard. It is intentionally
- * kept thin: view state, comparison state, and modal orchestration live here,
+ * kept thin: view state and export orchestration live here,
  * while data fetching, filtering, export generation, and column preferences are
  * delegated to dedicated hooks and pure utility modules.
  *
@@ -24,18 +24,14 @@ import { AsyncContainer } from '../../components/AsyncContainer';
 import ProgressReportTable from './ProgressReportTable';
 import ProgressReportToolbar from './components/ProgressReportToolbar';
 import ProgressReportFilterBar from './components/ProgressReportFilterBar';
-import ProgressReportComparisonModal from './components/ProgressReportComparisonModal';
 import {
   REPORT_TABS,
   SEARCH_FILTER_RULES,
   formatDate,
-  formatDelta,
   getDefaultVisibleColumns,
   getFieldGroups,
   getReportColumnsForEntity,
-  getRowKey,
   hasValue,
-  matchesEntityToken,
   normalizeChild,
   normalizeMother,
 } from './progressReportUtils';
@@ -52,13 +48,11 @@ export default function ProgressReport() {
   // View/UI state
   const [activeTab, setActiveTab] = useState('Master List');
   const [beneficiaryType, setBeneficiaryType] = useState('Mothers');
-  const [compareIds, setCompareIds] = useState([]);
-  const [compareOpen, setCompareOpen] = useState(false);
-  const [compareMode, setCompareMode] = useState('Beneficiaries');
-  const [showAnalyzeMenu, setShowAnalyzeMenu] = useState(false);
-  const [comparison, setComparison] = useState(null);
-  const [historyComparison, setHistoryComparison] = useState(null);
-  const [underweightDrilldown, setUnderweightDrilldown] = useState(null);
+  const [rankedBy, setRankedBy] = useState('progress');
+  const [rankDirection, setRankDirection] = useState('desc');
+  const [graphType, setGraphType] = useState('bars');
+  const [graphGroupBy, setGraphGroupBy] = useState('progress');
+  const [graphField, setGraphField] = useState('progress');
 
   const currentEntityColumns = useMemo(() => getReportColumnsForEntity(beneficiaryType), [beneficiaryType]);
   const defaultVisibleColumns = useMemo(
@@ -75,8 +69,24 @@ export default function ProgressReport() {
     fieldGroups: getFieldGroups(beneficiaryType),
   });
 
+  const rankOptions = useMemo(() => {
+    const excluded = new Set(['name', 'group', 'batch', 'community', 'trend']);
+    const numericFields = new Set(['age', 'gestationalAge', 'prenatalWeight', 'prenatalHeight', 'fundalHeight', 'fhr', 'weight', 'height', 'bmi', 'gravida', 'para', 'abortion', 'stillbirth', 'pediatricWeek', 'zScore']);
+    const options = currentEntityColumns.filter((column) => (
+      visibleColumns.includes(column.id)
+      && !excluded.has(column.id)
+      && column.id !== 'progress'
+      && numericFields.has(column.id)
+    ));
+    return [{ id: 'progress', label: 'Progress %' }, ...options.map((column) => ({ id: column.id, label: column.label }))];
+  }, [currentEntityColumns, visibleColumns]);
+
+  React.useEffect(() => {
+    if (!rankOptions.some((option) => option.id === rankedBy)) setRankedBy('progress');
+  }, [rankOptions, rankedBy]);
+
   // Data fetching
-  const { allRows, rankedRows, graphRows, loadingChildren } = useReportData({
+  const { allRows, rankedRows, graphRows, loadingData } = useReportData({
     beneficiaryType,
     mothers,
     refreshMothers,
@@ -86,10 +96,12 @@ export default function ProgressReport() {
     normalizeMotherFn: normalizeMother,
     normalizeChildFn: normalizeChild,
     getFieldGroupsFn: getFieldGroups,
+    rankedBy,
+    rankDirection,
   });
 
   // Filter management
-  const { school, setSchool, group, setGroup, batch, setBatch, search, setSearch, showAllFilters, setShowAllFilters, searchFilters, filteredRows, activeFilterCount, comparisonRequest, schoolOptions, groupOptions, batchOptions } = useProgressFilters({
+  const { school, setSchool, group, setGroup, batch, setBatch, search, setSearch, showAllFilters, setShowAllFilters, searchFilters, filteredRows, activeFilterCount, schoolOptions, groupOptions, batchOptions } = useProgressFilters({
     allRows,
     searchFilterRules: SEARCH_FILTER_RULES,
     hasValueFn: hasValue,
@@ -100,7 +112,6 @@ export default function ProgressReport() {
   const { exportPreviewOpen, exportFormat, exportFilename, exportColumnsForView, exportPreviewRows, downloadReport, setExportPreviewOpen, setExportFormat, setExportFilename, setExportColumns, exportColumns } = useReportExport({
     masterRows: filteredRows,
     rankedRows,
-    summaryRows: rankedRows,
     graphRows,
     visibleColumns,
     currentEntityColumns,
@@ -109,45 +120,73 @@ export default function ProgressReport() {
   });
 
   // Computed values
-  const comparisonCohorts = useMemo(() => {
-    if (!comparisonRequest) return [];
-    return comparisonRequest.batches.map((batchName) => {
-      const members = allRows.filter((row) => matchesEntityToken(row.group, comparisonRequest.group) && matchesEntityToken(row.batch, batchName) && row.initialBmiCategory !== 'Not recorded');
-      const distribution = ['Underweight', 'Normal', 'Overweight', 'Obese'].map((category) => ({ category, count: members.filter((row) => row.initialBmiCategory === category).length }));
-      return { name: batchName, members, distribution, total: members.length, underweight: members.filter((row) => row.initialBmiCategory === 'Underweight').length };
+  const progressOverview = useMemo(() => {
+    const total = filteredRows.length;
+    const average = total
+      ? Math.round(filteredRows.reduce((sum, row) => sum + Number(row.progress || 0), 0) / total)
+      : 0;
+    return {
+      total,
+      average,
+      complete: filteredRows.filter((row) => Number(row.progress) >= 100).length,
+      inProgress: filteredRows.filter((row) => Number(row.progress) > 0 && Number(row.progress) < 100).length,
+      notStarted: filteredRows.filter((row) => Number(row.progress) <= 0).length,
+    };
+  }, [filteredRows]);
+
+  const graphFieldOptions = useMemo(() => {
+    const available = currentEntityColumns.filter((column) => visibleColumns.includes(column.id) && column.id !== 'name');
+    return available.length ? available.map((column) => ({ id: column.id, label: column.label })) : [{ id: 'progress', label: 'Progress %' }];
+  }, [currentEntityColumns, visibleColumns]);
+
+  React.useEffect(() => {
+    if (!graphFieldOptions.some((option) => option.id === graphField)) setGraphField('progress');
+  }, [graphField, graphFieldOptions]);
+
+  const numericGraphFields = new Set(['age', 'gestationalAge', 'prenatalWeight', 'prenatalHeight', 'fundalHeight', 'fhr', 'weight', 'height', 'bmi', 'gravida', 'para', 'abortion', 'stillbirth', 'pediatricWeek', 'zScore', 'progress']);
+
+  const graphSeries = useMemo(() => {
+    const numericField = numericGraphFields.has(graphField);
+    if (graphGroupBy === 'progress') {
+      if (graphField === 'progress') return graphRows.map((item) => ({ label: item.range, value: item.count, share: item.share }));
+      const values = new Map();
+      filteredRows.forEach((row) => {
+        const rawValue = row[graphField];
+        const label = rawValue === '' || rawValue === null || rawValue === undefined ? 'Not recorded' : String(rawValue);
+        const entry = values.get(label) || { label, total: 0, count: 0 };
+        entry.total += Number(rawValue) || 0;
+        entry.count += 1;
+        values.set(label, entry);
+      });
+      return [...values.values()].map((entry) => ({ label: entry.label, value: numericField ? Math.round(entry.total / entry.count) : entry.count, share: (entry.count / Math.max(filteredRows.length, 1)) * 100 })).sort((a, b) => b.value - a.value).slice(0, 8);
+    }
+    const groups = new Map();
+    filteredRows.forEach((row) => {
+      const label = row[graphGroupBy] || `Unassigned ${graphGroupBy}`;
+      const entry = groups.get(label) || { label, total: 0, count: 0 };
+      entry.total += numericField ? Number(row[graphField] || 0) : 1;
+      entry.count += 1;
+      groups.set(label, entry);
     });
-  }, [allRows, comparisonRequest]);
+    return [...groups.values()]
+      .map((entry) => ({ label: entry.label, value: numericField ? Math.round(entry.total / entry.count) : entry.count, share: (entry.count / Math.max(filteredRows.length, 1)) * 100 }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 8);
+  }, [filteredRows, graphField, graphGroupBy, graphRows]);
 
-  const summaryRows = useMemo(() => rankedRows, [rankedRows]);
+  const statusSeries = useMemo(() => [
+    { label: 'Completed', value: progressOverview.complete, color: '#0f766e' },
+    { label: 'In progress', value: progressOverview.inProgress, color: '#3b82f6' },
+    { label: 'Not started', value: progressOverview.notStarted, color: '#cbd5e1' },
+  ], [progressOverview]);
 
-  const compareCandidates = compareMode === 'Beneficiaries' ? filteredRows : compareMode === 'Checkups' ? filteredRows.filter((row) => row.type === 'Mothers') : rankedRows.filter((row) => row.type === (compareMode === 'Groups' ? 'Group' : 'Batch'));
-  const displayedRows = activeTab === 'Ranked List' ? rankedRows : activeTab === 'Summary View' ? summaryRows : filteredRows;
+  const pieSeries = useMemo(() => {
+    if (graphGroupBy === 'progress') return statusSeries;
+    const colors = ['#0f766e', '#3b82f6', '#f59e0b', '#8b5cf6', '#ef4444', '#14b8a6', '#64748b', '#ec4899'];
+    return graphSeries.map((item, index) => ({ label: item.label, value: Math.round((item.share / 100) * progressOverview.total), color: colors[index % colors.length] }));
+  }, [graphGroupBy, graphSeries, progressOverview.total, statusSeries]);
 
-  const openComparison = () => {
-    if (compareMode === 'Checkups') {
-      const selected = filteredRows.find((row, index) => compareIds.includes(getRowKey(row, index)));
-      if (selected) showHistory(selected);
-      return;
-    }
-    const selected = compareMode === 'Beneficiaries'
-      ? filteredRows.filter((row, index) => compareIds.includes(getRowKey(row, index)))
-      : compareCandidates.filter((row, index) => compareIds.includes(getRowKey(row, index)));
-    if (selected.length === 2) {
-      setComparison({ mode: compareMode, rows: selected });
-      setCompareOpen(false);
-    }
-  };
-
-  function showHistory(row) {
-    const checkups = Array.isArray(row.source?.checkups) ? row.source.checkups.flat().filter((checkup) => checkup?.checkupDate).sort((a, b) => new Date(a.checkupDate) - new Date(b.checkupDate)) : [];
-    if (checkups.length < 2) {
-      setHistoryComparison({ name: row.name, checkups, message: 'At least two completed checkups are needed for a history comparison.' });
-      return;
-    }
-    setHistoryComparison({ name: row.name, checkups: checkups.slice(-2) });
-  }
-
-  const toggleCompare = (rowKey) => setCompareIds((current) => current.includes(rowKey) ? current.filter((item) => item !== rowKey) : [...current, rowKey].slice(-2));
+  const displayedRows = activeTab === 'Ranked by' ? rankedRows : filteredRows;
 
   return (
     <div className="progress-report-shell">
@@ -174,54 +213,27 @@ export default function ProgressReport() {
           searchFilters={searchFilters}
           beneficiaryType={beneficiaryType}
           setBeneficiaryType={setBeneficiaryType}
-          comparisonRequest={comparisonRequest}
         />
 
         <ProgressReportToolbar
           activeTab={activeTab}
           tabs={REPORT_TABS}
-          compareIds={compareIds}
           onTabChange={setActiveTab}
-          onCompareClick={() => {
-            setCompareMode(activeTab === 'Ranked List' ? 'Groups' : 'Beneficiaries');
-            setCompareIds([]);
-            setCompareOpen(true);
-          }}
           onDownload={() => {
             setExportFilename(`progress-report-${beneficiaryType.toLowerCase()}`);
             setExportColumns(visibleColumns.length ? visibleColumns : exportColumnsForView.map((column) => column.id));
             setExportPreviewOpen(true);
           }}
-          showAnalyzeMenu={showAnalyzeMenu}
-          onAnalyzeToggle={() => setShowAnalyzeMenu((visible) => !visible)}
-          onGenerateCohortReport={() => {
-            setActiveTab('Summary View');
-            setShowAnalyzeMenu(false);
-          }}
-          onDownloadSummary={() => {
-            setShowAnalyzeMenu(false);
-            setActiveTab('Summary View');
-            downloadReport({ viewMode: 'Summary View', filename: `progress-summary-${beneficiaryType.toLowerCase()}` });
-          }}
+          rankedBy={rankedBy}
+          rankOptions={rankOptions}
+          onRankedByChange={setRankedBy}
+          rankDirection={rankDirection}
+          onRankDirectionChange={setRankDirection}
         />
-
-        {comparisonRequest && <section className="comparison-dashboard" aria-label="Initial BMI batch comparison">
-          <div className="comparison-dashboard-heading">
-            <div><h2>Initial BMI by Batch</h2><p>Group {comparisonRequest.group}, mothers' first recorded assessment</p></div>
-            <span className="analysis-badge">Initial assessment only</span>
-          </div>
-          <div className="comparison-cohorts">
-            {comparisonCohorts.map((cohort) => <article key={cohort.name} className="comparison-cohort">
-              <h3>Batch {cohort.name}</h3><strong>{cohort.total ? Math.round((cohort.underweight / cohort.total) * 100) : 0}%</strong><span>underweight ({cohort.underweight} of {cohort.total})</span>
-              <div className="distribution-chart">{cohort.distribution.map((item) => <div key={item.category} className="distribution-row"><span>{item.category}</span><div><i style={{ width: `${cohort.total ? (item.count / cohort.total) * 100 : 0}%` }} /></div><b>{item.count}</b></div>)}</div>
-              <button type="button" className="drilldown-btn" onClick={() => setUnderweightDrilldown(cohort)}>View underweight mothers</button>
-            </article>)}
-          </div>
-        </section>}
 
         <div className="progress-report-table-wrap">
           <div className="progress-report-table-header">
-            <span>Table ({beneficiaryType})</span>
+            <span>{activeTab === 'Graph View' ? 'Progress distribution' : `${activeTab} (${beneficiaryType})`}</span>
             <div className="table-header-actions">
               <div className="columns-control">
                 <button type="button" className="manage-columns-btn" onClick={() => setShowColumns((visible) => !visible)} aria-expanded={showColumns}>Manage Columns</button>
@@ -272,50 +284,55 @@ export default function ProgressReport() {
                   </div>
                 )}
               </div>
-              <span className="results-count">{loadingChildren ? 'Loading...' : `${filteredRows.length} results`}</span>
+              <span className="results-count">{loadingData ? 'Loading...' : `${filteredRows.length} results`}</span>
             </div>
           </div>
-          {comparison && <div className="comparison-result"><strong>{comparison.mode} comparison</strong>{comparison.rows.map((row) => <span key={row.id}>{row.name}: {row.progress}% progress</span>)}<strong>Delta: {formatDelta(comparison.rows[1]?.progress, comparison.rows[0]?.progress)}</strong><button type="button" onClick={() => setComparison(null)}>Dismiss</button></div>}
           {activeTab === 'Graph View' ? (
             <AsyncContainer
-              loading={loadingChildren}
-              empty={filteredRows.length === 0 && !loadingChildren}
+              loading={loadingData}
+              empty={filteredRows.length === 0 && !loadingData}
               emptyTitle="No beneficiaries match the current filters"
               emptyDescription="Try clearing a filter or adjusting the search terms to broaden the list."
             >
               <div className="progress-report-graph" aria-label="Progress distribution graph">
-                {['0-25%', '26-50%', '51-75%', '76-100%'].map((range, index) => {
-                  const count = filteredRows.filter((row) => row.progress >= index * 25 && row.progress <= (index + 1) * 25).length;
-                  return <div key={range} className="graph-bar-row"><span>{range}</span><div><i style={{ width: `${filteredRows.length ? (count / filteredRows.length) * 100 : 0}%` }} /></div><strong>{count}</strong></div>;
-                })}
+                <div className="progress-overview-cards">
+                  <div><span>Total records</span><strong>{progressOverview.total}</strong></div>
+                  <div><span>Average progress</span><strong>{progressOverview.average}%</strong></div>
+                  <div><span>Completed</span><strong>{progressOverview.complete}</strong></div>
+                  <div><span>In progress</span><strong>{progressOverview.inProgress}</strong></div>
+                  <div><span>Not started</span><strong>{progressOverview.notStarted}</strong></div>
+                </div>
+                <div className="graph-controls" aria-label="Graph controls">
+                  <label>Chart type<select value={graphType} onChange={(event) => setGraphType(event.target.value)}><option value="bars">Bar chart</option><option value="line">Line chart</option><option value="pie">Pie chart</option></select></label>
+                  <label>Graph field<select value={graphField} onChange={(event) => setGraphField(event.target.value)}>{graphFieldOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}</select></label>
+                  <label>Group data<select value={graphGroupBy} onChange={(event) => setGraphGroupBy(event.target.value)}><option value="progress">Progress ranges</option><option value="community">Communities</option><option value="group">Groups</option><option value="batch">Batches</option></select></label>
+                </div>
+                {graphType === 'pie' ? (
+                  <div className="pie-chart-layout">
+                    <div className="progress-pie-chart" style={{ background: `conic-gradient(${pieSeries.map((item, index) => `${item.color} ${pieSeries.slice(0, index).reduce((sum, previous) => sum + previous.value, 0) / Math.max(progressOverview.total, 1) * 100}% ${pieSeries.slice(0, index + 1).reduce((sum, previous) => sum + previous.value, 0) / Math.max(progressOverview.total, 1) * 100}%`).join(', ')})` }} aria-label="Progress grouping pie chart" />
+                    <div className="graph-legend">{pieSeries.map((item) => <div key={item.label}><i style={{ background: item.color }} /> <span>{item.label}</span><strong>{item.value}</strong></div>)}</div>
+                  </div>
+                ) : graphType === 'line' ? (
+                  <div className="line-chart-wrap"><svg className="progress-line-chart" viewBox="0 0 760 260" role="img" aria-label="Average progress line chart"><line x1="48" y1="220" x2="740" y2="220" /><line x1="48" y1="30" x2="48" y2="220" /><polyline points={graphSeries.map((item, index) => `${48 + (index * 692 / Math.max(graphSeries.length - 1, 1))},${220 - (item.value * 1.9)}`).join(' ')} />{graphSeries.map((item, index) => { const x = 48 + (index * 692 / Math.max(graphSeries.length - 1, 1)); const y = 220 - (item.value * 1.9); return <g key={item.label}><circle cx={x} cy={y} r="5" /><text x={x} y="244" textAnchor="middle">{String(item.label).slice(0, 12)}</text><text x={x} y={y - 10} textAnchor="middle">{item.value}%</text></g>; })}</svg></div>
+                ) : (
+                  <div className="graph-bars" role="list" aria-label="Records by progress range">
+                    {graphSeries.map((item) => <div key={item.label} className="graph-bar-row" role="listitem"><span>{item.label}</span><div className="graph-bar-track"><i style={{ width: `${numericGraphFields.has(graphField) && graphGroupBy !== 'progress' ? item.value : item.share}%` }} /></div><strong>{numericGraphFields.has(graphField) && graphGroupBy !== 'progress' ? `${item.value}%` : item.value} <small>{Math.round(item.share)}%</small></strong></div>)}
+                  </div>
+                )}
               </div>
             </AsyncContainer>
           ) : (
             <AsyncContainer
-              loading={loadingChildren}
-              empty={displayedRows.length === 0 && !loadingChildren}
+              loading={loadingData}
+              empty={displayedRows.length === 0 && !loadingData}
               emptyTitle="No records found"
               emptyDescription="There are no matching rows for the current view. Adjust the filters or change the tab to continue."
             >
-              <ProgressReportTable activeTab={activeTab} displayedRows={displayedRows} compareIds={compareIds} toggleCompare={toggleCompare} showHistory={showHistory} visibleColumns={visibleColumns} columns={currentEntityColumns} />
+              <ProgressReportTable activeTab={activeTab} displayedRows={displayedRows} visibleColumns={visibleColumns} columns={currentEntityColumns} />
             </AsyncContainer>
           )}
         </div>
       </div>
-      <ProgressReportComparisonModal
-        compareMode={compareMode}
-        setCompareMode={(mode) => {
-          setCompareMode(mode);
-          setCompareIds([]);
-        }}
-        compareOpen={compareOpen}
-        setCompareOpen={setCompareOpen}
-        compareIds={compareIds}
-        compareCandidates={compareCandidates}
-        getRowKey={getRowKey}
-        toggleCompare={toggleCompare}
-        openComparison={openComparison}
-      />
       {exportPreviewOpen && (
         <div className="report-modal-backdrop" role="presentation" onClick={() => setExportPreviewOpen(false)}>
           <div className="report-modal export-modal" role="dialog" aria-modal="true" aria-labelledby="export-title" onClick={(event) => event.stopPropagation()}>
@@ -418,8 +435,6 @@ export default function ProgressReport() {
           </div>
         </div>
       )}
-      {historyComparison && <div className="report-modal-backdrop" role="presentation" onClick={() => setHistoryComparison(null)}><div className="report-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}><h2>Checkup History: {historyComparison.name}</h2>{historyComparison.message ? <p>{historyComparison.message}</p> : <><div className="history-comparison">{historyComparison.checkups.map((checkup) => <div key={checkup.id || checkup.checkupDate}><strong>{formatDate(checkup.checkupDate)}</strong><span>Trimester: {checkup.trimester || 'Not recorded'}</span><span>Weight: {checkup.weight || 'Not recorded'}</span><span>Blood pressure: {checkup.bp || 'Not recorded'}</span><span>BMI: {checkup.bmi || 'Not recorded'}</span></div>)}</div><p className="history-delta">BMI change: {formatDelta(historyComparison.checkups[1]?.bmi, historyComparison.checkups[0]?.bmi)}</p></>}<div className="report-modal-actions"><button type="button" className="primary-btn" onClick={() => setHistoryComparison(null)}>Close</button></div></div></div>}
-      {underweightDrilldown && <div className="report-modal-backdrop" role="presentation" onClick={() => setUnderweightDrilldown(null)}><div className="report-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}><h2>Underweight mothers: Batch {underweightDrilldown.name}</h2><p>Group {comparisonRequest.group}, based on the first recorded BMI assessment.</p><div className="drilldown-list">{underweightDrilldown.members.filter((row) => row.initialBmiCategory === 'Underweight').map((row) => <div key={row.id}><strong>{row.name}</strong><span>{row.id}</span><small>Initial BMI: {row.initialBmi}</small></div>)}</div><div className="report-modal-actions"><button type="button" className="primary-btn" onClick={() => setUnderweightDrilldown(null)}>Close</button></div></div></div>}
     </div>
   );
 }

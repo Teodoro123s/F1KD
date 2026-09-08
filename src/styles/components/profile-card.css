@@ -169,6 +169,8 @@
   gap: 0.45rem;
   min-width: 0;
   width: 100%;
+  height: 56px;
+  box-sizing: border-box;
   padding: 0.7rem 0.8rem;
   border: 1px solid #dfe6ee;
   border-radius: 12px;
@@ -179,12 +181,16 @@
 }
 .filter-select-wrap select {
   flex: 1 1 auto;
+  min-width: 0;
   border: 0;
   background: transparent;
   color: #334155;
   font: inherit;
   font-weight: 600;
   outline: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .progress-report-filters {
@@ -460,7 +466,28 @@
   padding-right: 0.2rem;
 }
 .results-count { color: #64748b; font-size: 0.75rem; font-weight: 600; letter-spacing: 0; text-transform: none; }
-.progress-report-graph { display: grid; gap: 1rem; padding: 1.5rem 1.25rem; }
+.ranked-by-select { display: inline-flex; align-items: center; gap: 0.45rem; color: #475569; font-size: 0.78rem; font-weight: 700; }
+.ranked-by-select select { min-width: 140px; padding: 0.45rem 0.65rem; border: 1px solid #cbd5e1; border-radius: 7px; background: #fff; color: #334155; font: inherit; }
+.progress-report-graph { display: grid; gap: 1.25rem; padding: 1.5rem 1.25rem; }
+.progress-overview-cards { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.75rem; }
+.progress-overview-cards > div { display: grid; gap: 0.25rem; padding: 0.9rem; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; }
+.progress-overview-cards span { color: #64748b; font-size: 0.75rem; font-weight: 700; }
+.progress-overview-cards strong { color: #173e42; font-size: 1.35rem; }
+.graph-bars { display: grid; gap: 1rem; }
+.graph-controls { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+.graph-controls label { display: grid; gap: 0.3rem; color: #64748b; font-size: 0.75rem; font-weight: 700; }
+.graph-controls select { min-width: 150px; padding: 0.45rem 0.65rem; border: 1px solid #cbd5e1; border-radius: 7px; background: #fff; color: #334155; font: inherit; }
+.pie-chart-layout { display: flex; align-items: center; gap: 2rem; flex-wrap: wrap; }
+.progress-pie-chart { width: 210px; height: 210px; border-radius: 50%; box-shadow: inset 0 0 0 38px #fff; }
+.graph-legend { display: grid; gap: 0.7rem; min-width: 180px; }
+.graph-legend div { display: grid; grid-template-columns: 12px 1fr auto; align-items: center; gap: 0.5rem; color: #475569; }
+.graph-legend i { width: 12px; height: 12px; border-radius: 3px; }
+.line-chart-wrap { width: 100%; overflow-x: auto; }
+.progress-line-chart { min-width: 620px; width: 100%; height: 260px; overflow: visible; }
+.progress-line-chart line { stroke: #cbd5e1; stroke-width: 1; }
+.progress-line-chart polyline { fill: none; stroke: #2d9f93; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.progress-line-chart circle { fill: #fff; stroke: #2d9f93; stroke-width: 3; }
+.progress-line-chart text { fill: #64748b; font-size: 11px; }
 .graph-bar-row { display: grid; grid-template-columns: 90px 1fr 30px; align-items: center; gap: 0.75rem; color: #475569; font-size: 0.82rem; }
 .graph-bar-row > div { height: 16px; overflow: hidden; border-radius: 999px; background: #e2e8f0; }
 .graph-bar-row i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #3fb5a0, #42c0b2); }
@@ -666,7 +693,13 @@
   .progress-report-context-selectors select { flex: 1 1 140px; }
   .progress-report-table-wrap { overflow-x: auto; }
   .progress-report-table { min-width: 760px; }
+  .progress-overview-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .comparison-cohorts { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 520px) {
+  .progress-overview-cards { grid-template-columns: 1fr; }
+  .graph-bar-row { grid-template-columns: 72px 1fr 42px; gap: 0.5rem; }
 }
 
 .program-intro { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.25rem 1.5rem; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; }
