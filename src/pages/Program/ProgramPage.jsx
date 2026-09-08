@@ -10,11 +10,12 @@ import {
   SearchIcon,
 } from "../Community/CommunityIcons";
 import { getSummary } from "../Community/communityService";
+import { apiGetChildren } from "../../api/children";
 import { apiCompleteNamedProgramCluster, apiCompleteProgramCluster, apiCreateProgram, apiCreateProgramClusters, apiDeleteProgram, apiEndProgram, apiGetPrograms, apiUpdateProgram } from "../../api/programs";
+import ExpandableTreeTable from "../Monitoring/ExpandableTreeTable";
 import {
   beneficiaryNames,
   buildProgramsFromSummary,
-  clusterPath,
   emptyProgram,
   filterPrograms,
   getCluster,
@@ -50,6 +51,11 @@ export default function ProgramPage() {
   const [activeActionMenu, setActiveActionMenu] = useState(null);
   const [actionProgram, setActionProgram] = useState(null);
   const [programError, setProgramError] = useState('');
+  const [beneficiaryRecords, setBeneficiaryRecords] = useState([]);
+  const [drillLevel, setDrillLevel] = useState('school');
+  const [drillSchool, setDrillSchool] = useState(null);
+  const [drillGroup, setDrillGroup] = useState(null);
+  const [drillBatch, setDrillBatch] = useState(null);
 
   const mapApiProgram = (program) => ({
     ...program,
@@ -65,11 +71,30 @@ export default function ProgramPage() {
   useEffect(() => {
     let mounted = true;
 
-    Promise.all([apiGetPrograms(), getSummary()])
-      .then(([programResponse, summary]) => {
+    Promise.all([apiGetPrograms(), getSummary(), apiGetChildren()])
+      .then(([programResponse, summary, childrenResponse]) => {
         if (!mounted) return;
         const savedPrograms = (programResponse.programs || []).map(mapApiProgram);
         setHierarchy({ schools: summary.communities || [], groups: summary.groups || [], batches: summary.batches || [] });
+        const mothers = (summary.mothers || []).map((mother) => ({
+          id: `mother-${mother.id}`,
+          school: mother.community || '',
+          group: mother.group || '',
+          batch: mother.batchId || '',
+          name: mother.name,
+          type: 'Mother',
+          isMonitored: Boolean(mother.isMonitored ?? mother.is_monitored),
+        }));
+        const children = (childrenResponse.children || []).map((child) => ({
+          id: `child-${child.id}`,
+          school: child.community_name || '',
+          group: child.group_name || '',
+          batch: child.batch_name || '',
+          name: [child.first_name, child.middle_name, child.last_name].filter(Boolean).join(' '),
+          type: 'Child',
+          isMonitored: Boolean(child.isMonitored ?? child.is_monitored),
+        }));
+        setBeneficiaryRecords([...mothers, ...children]);
         setPrograms(savedPrograms.length ? savedPrograms : buildProgramsFromSummary(summary));
       })
       .then(() => {
@@ -118,7 +143,8 @@ export default function ProgramPage() {
       clusters.push({ type, name, beneficiaries: Number(beneficiaries || 0), received: 0, derived: true });
     };
     clusters.filter((cluster) => cluster.type === 'School').forEach((schoolCluster) => {
-      const school = hierarchy.schools.find((item) => String(item.name || '').toLowerCase() === schoolCluster.name.toLowerCase());
+      const schoolName = schoolCluster.name.replace(/ School$/i, '');
+      const school = hierarchy.schools.find((item) => String(item.name || '').toLowerCase() === schoolCluster.name.toLowerCase() || String(item.name || '').toLowerCase() === schoolName.toLowerCase());
       if (!school) return;
       const schoolGroups = hierarchy.groups.filter((group) => (
         String(group.community || group.community_name || '').toLowerCase() === String(school.name || '').toLowerCase()
@@ -132,6 +158,69 @@ export default function ProgramPage() {
   }, [hierarchy, selectedProgram]);
   const selectedProgramView = selectedProgram ? { ...selectedProgram, clusters: expandedClusters } : selectedProgram;
   const selectedCluster = getCluster(selectedProgramView, clusterType, clusterName);
+  const schoolRows = selectedProgramView?.clusters.filter((cluster) => cluster.type === 'School') || [];
+  const programHierarchy = useMemo(() => schoolRows.map((schoolCluster, schoolIndex) => {
+    const normalizedSchoolName = String(schoolCluster.name || '').replace(/ School$/i, '');
+    const school = hierarchy.schools.find((item) => String(item.name || '').toLowerCase() === String(schoolCluster.name || '').toLowerCase() || String(item.name || '').toLowerCase() === normalizedSchoolName.toLowerCase());
+    const schoolName = school?.name || normalizedSchoolName;
+    const groups = hierarchy.groups
+      .filter((group) => String(group.community || group.community_name || '').toLowerCase() === String(schoolName || '').toLowerCase())
+      .map((group, groupIndex) => {
+        const groupName = group.name || group.group_name;
+        const batches = hierarchy.batches
+          .filter((batch) => (
+            String(batch.community || '').toLowerCase() === String(schoolName || '').toLowerCase()
+            && (String(batch.group || batch.group_name || '').toLowerCase() === String(groupName || '').toLowerCase() || String(batch.group_id || '') === String(group.id || ''))
+          ))
+          .map((batch, batchIndex) => {
+            const batchName = batch.name || batch.batch_code || batch.code;
+            return {
+              id: batch.id || `${schoolIndex}-${groupIndex}-${batchIndex}`,
+              name: batchName,
+              beneficiaries: beneficiaryRecords.filter((record) => String(record.school).toLowerCase() === String(schoolName).toLowerCase() && String(record.group).toLowerCase() === String(groupName).toLowerCase() && String(record.batch).toLowerCase() === String(batchName).toLowerCase()),
+            };
+          });
+        return { id: group.id || `${schoolIndex}-${groupIndex}`, name: groupName, batches };
+      });
+    return { id: school?.id || schoolCluster.name, name: schoolName, groups };
+  }), [beneficiaryRecords, hierarchy, schoolRows]);
+  const groupRows = drillSchool
+    ? hierarchy.groups.filter((group) => String(group.community || '').toLowerCase() === String(drillSchool.name || '').toLowerCase())
+    : [];
+  const batchRows = drillGroup
+    ? hierarchy.batches.filter((batch) => (
+      String(batch.group || batch.group_name || '').toLowerCase() === String(drillGroup.name || drillGroup.group_name || '').toLowerCase()
+      || String(batch.community || '').toLowerCase() === String(drillSchool?.name || '').toLowerCase() && String(batch.group_id || '') === String(drillGroup.id || '')
+    ))
+    : [];
+  const drilledBeneficiaries = beneficiaryRecords.filter((record) => {
+    if (!drillBatch) return false;
+    return String(record.batch).toLowerCase() === String(drillBatch.name || drillBatch.batch_code || drillBatch.code || '').toLowerCase();
+  });
+  const beneficiaryRows = useMemo(() => {
+    if (!selectedProgramView) return [];
+    const schoolClusters = selectedProgramView.clusters.filter((cluster) => cluster.type === 'School');
+    const rows = [];
+    schoolClusters.forEach((school) => {
+      const records = beneficiaryRecords.filter((record) => String(record.school).toLowerCase() === String(school.name).toLowerCase());
+      if (records.length) {
+        records.forEach((record) => rows.push({ ...record, school: school.name }));
+      } else {
+        rows.push({ id: `school-${school.name}`, school: school.name, group: 'All groups', batch: 'All batches', name: 'All beneficiaries', type: 'School coverage', cluster: school });
+      }
+    });
+    return rows;
+  }, [beneficiaryRecords, selectedProgramView]);
+  const schoolHierarchy = useMemo(() => {
+    if (!selectedProgramView) return [];
+    return selectedProgramView.clusters
+      .filter((cluster) => cluster.type === 'School')
+      .map((school) => ({
+        school,
+        groups: selectedProgramView.clusters.filter((cluster) => cluster.type === 'Group' && hierarchy.groups.some((group) => (group.name || group.group_name) === cluster.name && String(group.community || '').toLowerCase() === String(school.name || '').toLowerCase())),
+        batches: selectedProgramView.clusters.filter((cluster) => cluster.type === 'Batch' && hierarchy.batches.some((batch) => (batch.name || batch.batch_code) === cluster.name && String(batch.community || '').toLowerCase() === String(school.name || '').toLowerCase())),
+      }));
+  }, [hierarchy, selectedProgramView]);
   const selectedSchools = hierarchy.schools.filter((school) => scopeSchoolIds.includes(String(school.id)));
   const availableGroups = hierarchy.groups.filter((group) => (
     scopeSchoolIds.includes(String(group.community_id || ''))
@@ -232,6 +321,28 @@ export default function ProgramPage() {
     setScopeBatchIds([]);
     setShowBeneficiaryModal(true);
   };
+  const resetDrill = () => {
+    setDrillLevel('school');
+    setDrillSchool(null);
+    setDrillGroup(null);
+    setDrillBatch(null);
+  };
+  const openSchool = (school) => {
+    setDrillSchool(school);
+    setDrillGroup(null);
+    setDrillBatch(null);
+    setDrillLevel('group');
+  };
+  const openGroup = (group) => {
+    setDrillGroup(group);
+    setDrillBatch(null);
+    setDrillLevel('batch');
+  };
+  const openBatch = (batch) => {
+    setDrillBatch(batch);
+    setDrillLevel('beneficiary');
+  };
+  const toggleSchool = (schoolName) => setExpandedSchools((current) => ({ ...current, [schoolName]: current[schoolName] === false }));
   const editProgram = () => {
     setForm(actionProgram || selectedProgram);
     setActiveActionMenu(null);
@@ -334,7 +445,7 @@ export default function ProgramPage() {
 
       <section className="table-card program-table-card">
         <div className="table-overflow">
-          <table className="data-table">
+          {viewMode && !clusterView ? <ExpandableTreeTable data={programHierarchy} /> : <table className="data-table">
             {clusterView && selectedCluster ? (
               <>
                 <thead>
@@ -369,56 +480,6 @@ export default function ProgramPage() {
                             : "Not yet recorded"}
                         </span>
                       </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </>
-            ) : viewMode ? (
-              <>
-                <thead>
-                  <tr>
-                    <th>Cluster</th>
-                    <th>Cluster type</th>
-                    <th>Beneficiaries</th>
-                    <th>Program status</th>
-                    <th>Latest activity</th>
-                    <th>Distribution status</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {selectedProgramView?.clusters.map((cluster) => (
-                    <tr key={`${cluster.type}-${cluster.name}`} className="program-clickable-row" onClick={() => navigate(`/program/${selectedProgram.id}/cluster/${cluster.type}/${encodeURIComponent(cluster.name)}`)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") navigate(`/program/${selectedProgram.id}/cluster/${cluster.type}/${encodeURIComponent(cluster.name)}`); }} tabIndex="0">
-                      <td>
-                        <a className="program-row-link" href={clusterPath(selectedProgram.id, cluster)} onClick={(event) => event.stopPropagation()}>
-                          <strong>{cluster.name}</strong>
-                        <span className="program-table-meta">
-                          Coverage cluster
-                        </span>
-                        </a>
-                      </td>
-                      <td>{cluster.type}</td>
-                      <td>
-                        {cluster.received} / {cluster.beneficiaries}
-                      </td>
-                      <td>
-                        <span className="program-status active">Covered</span>
-                      </td>
-                      <td>{selectedProgram.latest}</td>
-                      <td>
-                        <span
-                          className={`program-recipient-status ${cluster.received >= cluster.beneficiaries ? "received" : "pending"}`}
-                        >
-                          {cluster.received >= cluster.beneficiaries
-                            ? "Received"
-                            : "Not yet recorded"}
-                        </span>
-                      </td>
-                        <td>
-                          <button type="button" className="view-btn view-btn--secondary program-complete-button" onClick={(event) => { event.stopPropagation(); completeCluster(cluster); }} disabled={cluster.received >= cluster.beneficiaries}>
-                            {cluster.received >= cluster.beneficiaries ? 'Done' : 'Mark done'}
-                          </button>
-                        </td>
                     </tr>
                   ))}
                 </tbody>
@@ -466,7 +527,7 @@ export default function ProgramPage() {
                 </tbody>
               </>
             )}
-          </table>
+          </table>}
         </div>
       </section>
 

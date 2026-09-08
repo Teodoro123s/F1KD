@@ -399,6 +399,71 @@
   background: var(--view-primary);
 }
 
+.view-content .view-table-card {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.view-content .view-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--view-border-color);
+  border-radius: var(--view-radius);
+  background: var(--view-bg-white);
+}
+
+.view-content .view-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--view-text-body);
+}
+
+.view-content .view-table th,
+.view-content .view-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--view-border-color);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.view-content .view-table th {
+  background: var(--view-bg-subtle);
+  color: var(--view-text-muted);
+  font-size: var(--view-text-small);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.view-content .monitor-tree-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 180px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--view-text);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.view-content .monitor-tree-cell--group { padding-left: 20px; }
+.view-content .monitor-tree-cell--batch { padding-left: 40px; }
+.view-content .monitor-tree-chevron { width: 14px; color: var(--view-primary); font-size: 11px; }
+.program-page .monitor-tree-cell { display: inline-flex; align-items: center; gap: 8px; min-width: 180px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; font-weight: 600; text-align: left; cursor: pointer; }
+.program-page .monitor-tree-cell--group { padding-left: 20px; }
+.program-page .monitor-tree-cell--batch { padding-left: 40px; }
+.program-page .monitor-tree-chevron { width: 14px; color: var(--burgundy); font-size: 11px; }
+.program-page .monitor-tree-beneficiary { display: inline-block; padding-left: 60px; }
+.program-page .monitor-tree-toggle { display: inline-flex; align-items: center; gap: 8px; }
+.view-content .monitor-tree-toggle { display: inline-flex; align-items: center; gap: 8px; color: var(--view-text-muted); }
+.view-content .monitor-tree-toggle input { width: 16px; height: 16px; accent-color: var(--view-primary); }
+.view-content .view-table tbody tr:hover { background: var(--view-bg-subtle); }
+.view-content .view-table__empty { padding: 24px 16px; color: var(--view-text-muted); text-align: center; }
+
 .view-page-header {
   display: flex;
   align-items: center;
