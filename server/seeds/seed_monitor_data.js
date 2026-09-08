@@ -64,17 +64,20 @@ async function seed() {
     await connection.beginTransaction();
     await ensureMonitorSchema(connection);
 
-    const [mothers] = await connection.query('SELECT id FROM mothers ORDER BY id LIMIT 2');
+    const [mothers] = await connection.query('SELECT id FROM mothers ORDER BY id');
     const [children] = await connection.query('SELECT id FROM children ORDER BY id LIMIT 2');
     if (!mothers.length || !children.length) {
       throw new Error('At least one mother and one child must exist before seeding monitor data.');
     }
 
-    for (const row of motherCheckups) {
-      const values = [...row];
-      values[0] = mothers[row[0] - 1]?.id;
-      if (!values[0]) continue;
-      await connection.query(`INSERT INTO mother_checkups (
+    const seededMotherCheckupCounts = [6, 3, 9, 5];
+    for (const [motherIndex, mother] of mothers.entries()) {
+      const checkupCount = seededMotherCheckupCounts[motherIndex % seededMotherCheckupCounts.length];
+      await connection.query('DELETE FROM mother_checkups WHERE mother_id = ?', [mother.id]);
+      for (const row of motherCheckups.slice(0, checkupCount)) {
+        const values = [...row];
+        values[0] = mother.id;
+        await connection.query(`INSERT INTO mother_checkups (
         mother_id, trimester, checkup_number, checkup_date, gestational_age_weeks,
         blood_pressure, weight_kg, height_cm, bmi, nutritional_status, fundal_height_cm,
         fetal_heart_rate_bpm, service_provider, next_checkup_date, referred_to_hospital,
@@ -87,6 +90,7 @@ async function seed() {
         service_provider = VALUES(service_provider), next_checkup_date = VALUES(next_checkup_date), referred_to_hospital = VALUES(referred_to_hospital),
         lab_assistance_provided = VALUES(lab_assistance_provided), assistance_amount = VALUES(assistance_amount), source_of_funds = VALUES(source_of_funds),
         facility_type = VALUES(facility_type), milk_subsidy_date = VALUES(milk_subsidy_date), milk_quantity_pcs = VALUES(milk_quantity_pcs), remarks = VALUES(remarks)`, values);
+      }
     }
 
     for (const row of childWeeks) {

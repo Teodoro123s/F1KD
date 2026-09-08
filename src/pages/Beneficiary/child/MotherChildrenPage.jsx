@@ -39,7 +39,6 @@ export default function MotherChildrenPage() {
   }, [id, location.state]);
 
   const motherName = mother?.name || `${mother?.firstName || ''} ${mother?.lastName || ''}`.trim() || 'Mother';
-  const motherIdentifier = mother?.motherId || mother?.id || id;
   const returnTo = location.state?.returnTo || (mother ? `/beneficiary/mother/${mother.motherId || mother.id || id}` : `/beneficiary/mother/${id}`);
   const childRows = useMemo(() => children.map((child) => ({
     id: child.id,
@@ -64,7 +63,6 @@ export default function MotherChildrenPage() {
       <header className="mother-detail-header">
         <div className="mother-detail-identity">
           <h1 className="mother-detail-name">Children of {motherName}</h1>
-          <div className="mother-detail-meta">{motherIdentifier}</div>
         </div>
         <div className="mother-detail-actions">
           {canManage && <button type="button" className="btn-create-action" onClick={() => navigate(`/beneficiary/create/child`, { state: { mother, returnTo } })}>Create Child</button>}

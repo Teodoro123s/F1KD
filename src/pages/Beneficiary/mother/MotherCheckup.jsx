@@ -264,11 +264,16 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
                 <label className="checkup-field-label" htmlFor="gestational-age">Gestation Period</label>
                 <input
                   id="gestational-age"
-                  type="text"
+                  type="number"
+                  min="0"
+                  max="42"
                   className="checkup-field-input"
-                  value={`${gestationalAge} Weeks`}
-                  readOnly
+                  value={gestationalAge}
+                  placeholder="Enter weeks"
+                  onChange={(e) => updateField('gestationalAge')(e.target.value)}
+                  readOnly={Boolean(mother.lmpDate)}
                 />
+                {mother.lmpDate && <span className="checkup-field-help">Calculated from the LMP date</span>}
               </div>
 
               <div className="form-group">

@@ -17,13 +17,11 @@ const StepWizard = ({
     [0, 1, 2].map((stepIdx) => ({ group, groupIdx, stepIdx }))
   );
 
-  const hasAnyCheckupEntry = flattenedSteps.some(({ groupIdx, stepIdx }) => Boolean(checkups?.[groupIdx]?.[stepIdx]));
-
   const getStatus = (groupIdx, stepIdx) => {
     const item = checkups?.[groupIdx]?.[stepIdx];
-    const isActive = hasAnyCheckupEntry && activeTrimester === groupIdx + 1 && activeStep === stepIdx + 1;
-    if (isActive) return 'active';
     if (item?.completed) return 'completed';
+    const isActive = activeTrimester === groupIdx + 1 && activeStep === stepIdx + 1;
+    if (isActive) return 'in-progress';
     return 'locked';
   };
 
@@ -42,7 +40,7 @@ const StepWizard = ({
           <div className="step-wizard-steps">
             {flattenedSteps.map(({ group, groupIdx, stepIdx }, index) => {
               const status = getStatus(groupIdx, stepIdx);
-              const isActive = status === 'active';
+              const isActive = activeTrimester === groupIdx + 1 && activeStep === stepIdx + 1;
               const stepIndex = groupIdx * 3 + stepIdx;
               const lineActive = status === 'completed';
 

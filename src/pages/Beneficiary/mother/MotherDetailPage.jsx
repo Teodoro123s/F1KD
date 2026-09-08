@@ -1,7 +1,7 @@
-﻿import React, { useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDateForDisplay } from '../../../utils/dateFormat';
-import { apiUploadMotherDocuments } from '../../../api/mothers';
+import { apiGetMother, apiUploadMotherDocuments } from '../../../api/mothers';
 import { useAuth } from '../../../auth/AuthProvider';
 import { can } from '../../../utils/permissions';
 
@@ -66,63 +66,84 @@ export default function MotherDetailPage({ selectedMother, onClose }) {
   const [uploadingDocument, setUploadingDocument] = useState('');
   const [uploadMessage, setUploadMessage] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
+
+  useEffect(() => {
+    if (!selectedMother) return undefined;
+    let active = true;
+    const motherIdentifier = selectedMother.raw?.id || selectedMother.id || selectedMother.motherId;
+    setMotherRecord(selectedMother);
+    if (!motherIdentifier) return undefined;
+
+    apiGetMother(motherIdentifier)
+      .then((response) => {
+        if (active && response?.mother) {
+          setMotherRecord((current) => ({ ...current, ...response.mother }));
+        }
+      })
+      .catch((error) => console.error('[MotherDetailPage] Unable to load mother from database:', error));
+
+    return () => { active = false; };
+  }, [selectedMother]);
+
   if (!selectedMother) return null;
 
-  const children = Array.isArray(selectedMother.children) ? selectedMother.children : [];
+  const mother = motherRecord || selectedMother;
+
+  const children = Array.isArray(mother.children) ? mother.children : [];
   const hasMultipleChildren = children.length > 1;
   const childBadge = (child) => {
     const value = child?.multipleBirthType || child?.multiple_birth_type;
     return value ? `[${value}]` : null;
   };
 
-  const fullName = selectedMother.name || `${selectedMother.firstName || ''} ${selectedMother.middleName || ''} ${selectedMother.lastName || ''} ${selectedMother.suffix || ''}`.replace(/\s+/g, ' ').trim();
-  const motherId = selectedMother.motherId || selectedMother.id || 'M-unknown';
-  const age = calculateAge(selectedMother.dob);
+  const fullName = mother.name || `${mother.firstName || ''} ${mother.middleName || ''} ${mother.lastName || ''} ${mother.suffix || ''}`.replace(/\s+/g, ' ').trim();
+  const motherId = mother.motherId || mother.id || 'M-unknown';
+  const age = calculateAge(mother.dob);
 
-  const firstName = selectedMother.firstName || '—';
-  const middleName = selectedMother.middleName || '—';
-  const lastName = selectedMother.lastName || '—';
-  const suffix = selectedMother.suffix || '—';
-  const dob = formatDateForDisplay(selectedMother.dob);
-  const contact = selectedMother.contactNumber || selectedMother.contact || '—';
-  const address = selectedMother.address || selectedMother.currentAddress || selectedMother.area || selectedMother.community || '—';
-  const area = selectedMother.area || '—';
-  const community = selectedMother.community || '—';
-  const group = selectedMother.group || '—';
-  const batch = selectedMother.batch || '—';
-  const highRisk = selectedMother.isHighRisk ?? selectedMother.is_high_risk ?? 'No';
-  const program = selectedMother.programType || selectedMother.program || 'Maternal Health Program';
+  const firstName = mother.firstName || '—';
+  const middleName = mother.middleName || '—';
+  const lastName = mother.lastName || '—';
+  const suffix = mother.suffix || '—';
+  const dob = formatDateForDisplay(mother.dob);
+  const contact = mother.contactNumber || mother.contact || '—';
+  const address = mother.address || mother.currentAddress || mother.area || mother.community || '—';
+  const area = mother.area || '—';
+  const community = mother.community || '—';
+  const group = mother.group || '—';
+  const batch = mother.batch || '—';
+  const highRisk = mother.isHighRisk ?? mother.is_high_risk ?? 'No';
+  const program = mother.programType || mother.program || 'Maternal Health Program';
 
-  const emergencyName = selectedMother.emergencyName || '—';
-  const emergencyContact = selectedMother.emergencyContact || '—';
-  const emergencyRelationship = selectedMother.emergencyRelationship || '—';
-  const spouseName = selectedMother.spouseName || '—';
+  const emergencyName = mother.emergencyName || '—';
+  const emergencyContact = mother.emergencyContact || '—';
+  const emergencyRelationship = mother.emergencyRelationship || '—';
+  const spouseName = mother.spouseName || '—';
 
-  const weight = selectedMother.weight || selectedMother.prenatalWeight || '—';
-  const height = selectedMother.height || selectedMother.prenatalHeight || '—';
-  const prenatalBp = selectedMother.prenatalBp || '—';
-  const fundalHeight = selectedMother.fundalHeight || '—';
-  const fhr = selectedMother.fhr || '—';
-  const gravida = selectedMother.gravida ?? '—';
-  const para = selectedMother.para ?? '—';
-  const abortion = selectedMother.abortion ?? '—';
-  const stillbirth = selectedMother.stillbirth ?? '—';
-  const lmp = formatDateForDisplay(selectedMother.lmpDate || selectedMother.lmp);
-  const edd = formatDateForDisplay(selectedMother.eddDate || selectedMother.edd);
-  const prenatalRegDate = formatDateForDisplay(selectedMother.prenatalRegDate);
-  const trimester = selectedMother.trimester || '—';
-  const gestationalAge = selectedMother.gestationalAge || '—';
+  const weight = mother.weight || mother.prenatalWeight || '—';
+  const height = mother.height || mother.prenatalHeight || '—';
+  const prenatalBp = mother.prenatalBp || '—';
+  const fundalHeight = mother.fundalHeight || '—';
+  const fhr = mother.fhr || '—';
+  const gravida = mother.gravida ?? '—';
+  const para = mother.para ?? '—';
+  const abortion = mother.abortion ?? '—';
+  const stillbirth = mother.stillbirth ?? '—';
+  const lmp = formatDateForDisplay(mother.lmpDate || mother.lmp);
+  const edd = formatDateForDisplay(mother.eddDate || mother.edd);
+  const prenatalRegDate = formatDateForDisplay(mother.prenatalRegDate);
+  const trimester = mother.trimester || '—';
+  const gestationalAge = mother.gestationalAge || '—';
 
-  const medicalConditions = selectedMother.medicalConditions || {};
+  const medicalConditions = mother.medicalConditions || {};
   const medicalList = getListValues(medicalConditions);
-  const dentalWork = selectedMother.dentalWork || {};
+  const dentalWork = mother.dentalWork || {};
   const dentalList = getListValues(dentalWork);
 
-  const obHistory = Array.isArray(selectedMother.obHistory) ? selectedMother.obHistory : [];
+  const obHistory = Array.isArray(mother.obHistory) ? mother.obHistory : [];
   const vaccineRows = [1, 2, 3, 4, 5].map((num) => ({
     vaccine: `TT${num}`,
-    date: formatDateForDisplay(selectedMother[`tt${num}Date`]),
-    remarks: selectedMother[`tt${num}Remarks`] || '—',
+    date: formatDateForDisplay(mother[`tt${num}Date`]),
+    remarks: mother[`tt${num}Remarks`] || '—',
   }));
 
   const uploadDocument = async (field, file) => {
@@ -152,7 +173,7 @@ export default function MotherDetailPage({ selectedMother, onClose }) {
           <button type="button" className="btn-secondary" onClick={() => {
             navigate(`/beneficiary/mother/${motherId}/child`, { state: { mother: selectedMother, children, returnTo: `/beneficiary/mother/${motherId}` } });
           }}>View Children</button>
-          <button type="button" className="btn-primary" onClick={() => navigate('/monitoring', { state: { mother: selectedMother, returnTo: `/beneficiary/mother/${motherId}` } })}>Monitor</button>
+          <button type="button" className="btn-primary" onClick={() => navigate('/monitoring', { state: { mother, returnTo: `/beneficiary/mother/${motherId}` } })}>Monitor</button>
           <button type="button" className="btn-close-profile-custom" onClick={onClose} aria-label="Close mother profile">Close</button>
         </div>
       </header>
@@ -190,7 +211,6 @@ export default function MotherDetailPage({ selectedMother, onClose }) {
               <Field label="First Name" value={firstName} />
               <Field label="Middle Name" value={middleName} />
               <Field label="Suffix" value={suffix} />
-              <Field label="Mother ID" value={motherId} />
               <Field label="Date of Birth" value={dob} />
               <Field label="Contact Number" value={contact} />
               <Field label="Age" value={age !== null ? `${age} yrs` : '—'} />
@@ -243,7 +263,7 @@ export default function MotherDetailPage({ selectedMother, onClose }) {
               <Field label="Blood Pressure" value={prenatalBp} />
               <Field label="Fundal Height" value={fundalHeight} />
               <Field label="FHR" value={fhr} />
-              <Field label="Prenatal Weight" value={selectedMother.prenatalWeight || '—'} />
+              <Field label="Prenatal Weight" value={mother.prenatalWeight || '—'} />
             </div>
           </section>
 
@@ -253,9 +273,9 @@ export default function MotherDetailPage({ selectedMother, onClose }) {
               <Field label="Date of Prenatal Registration" value={prenatalRegDate} />
               <Field label="Trimester at Registration" value={trimester} />
               <Field label="Gestational Age at Reg (weeks)" value={gestationalAge} />
-              <Field label="Weight (kg) at Reg" value={selectedMother.prenatalWeight || '—'} />
+              <Field label="Weight (kg) at Reg" value={mother.prenatalWeight || '—'} />
               <Field label="Blood Pressure (BP) at Reg" value={prenatalBp} />
-              <Field label="Height (cm) at Reg" value={selectedMother.prenatalHeight || '—'} />
+              <Field label="Height (cm) at Reg" value={mother.prenatalHeight || '—'} />
               <Field label="Fundal Height (cm) at Reg" value={fundalHeight} />
               <Field label="FHR (bpm) at Reg" value={fhr} />
             </div>
@@ -305,24 +325,24 @@ export default function MotherDetailPage({ selectedMother, onClose }) {
               <div className="detail-form-label">Medical Conditions</div>
               <ChipList items={medicalList} emptyLabel="None" />
             </div>
-            <Field label="Other Medical History" value={selectedMother.otherMedicalHistory || '—'} className="full-width" />
+            <Field label="Other Medical History" value={mother.otherMedicalHistory || '—'} className="full-width" />
           </section>
 
           <section className="mother-detail-section">
             <h3 className="mother-detail-section-title">IV.B ORAL HEALTH CONDITION</h3>
             <div className="mother-detail-grid">
-              <Field label="Date of Dental Check-up" value={formatDateForDisplay(selectedMother.dentalCheckupDate)} />
-              <Field label="Dental Clinic / Health Facility" value={selectedMother.dentalFacility || '—'} />
-              <Field label="Dentist in Charge" value={selectedMother.dentistInCharge || selectedMother.dentist_in_charge || '—'} />
-              <Field label="Community Dentist Name" value={selectedMother.communityDentist || '—'} />
-              <Field label="Dentist License No" value={selectedMother.dentistLicense || selectedMother.dentist_license || '—'} />
-              <Field label="Dentist Contact No" value={selectedMother.dentistContact || selectedMother.dentist_contact || '—'} />
-              <Field label="Number of Teeth" value={selectedMother.teethCount || '—'} />
+              <Field label="Date of Dental Check-up" value={formatDateForDisplay(mother.dentalCheckupDate)} />
+              <Field label="Dental Clinic / Health Facility" value={mother.dentalFacility || '—'} />
+              <Field label="Dentist in Charge" value={mother.dentistInCharge || mother.dentist_in_charge || '—'} />
+              <Field label="Community Dentist Name" value={mother.communityDentist || '—'} />
+              <Field label="Dentist License No" value={mother.dentistLicense || mother.dentist_license || '—'} />
+              <Field label="Dentist Contact No" value={mother.dentistContact || mother.dentist_contact || '—'} />
+              <Field label="Number of Teeth" value={mother.teethCount || '—'} />
             </div>
 
             <div className="detail-form-field full-width" style={{ marginTop: '0.9rem' }}>
               <div className="detail-form-label">Dental Findings / Diagnosis</div>
-              <div className="detail-form-value">{selectedMother.dentalFindings || '—'}</div>
+              <div className="detail-form-value">{mother.dentalFindings || '—'}</div>
             </div>
 
             <div className="detail-form-field full-width" style={{ marginTop: '0.9rem' }}>
@@ -330,7 +350,7 @@ export default function MotherDetailPage({ selectedMother, onClose }) {
               <ChipList items={dentalList} emptyLabel="None" />
             </div>
 
-            <Field label="Remarks / Recommendations" value={selectedMother.dentalRemarks || '—'} className="full-width" />
+            <Field label="Remarks / Recommendations" value={mother.dentalRemarks || '—'} className="full-width" />
           </section>
 
           <section className="mother-detail-section">

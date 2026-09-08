@@ -261,6 +261,7 @@
 .monitoring-status { display: inline-flex; padding: 0.35rem 0.6rem; border-radius: 999px; font-size: 0.75rem; font-weight: 800; }
 .monitoring-status.missing { background: #fef2f2; color: #b42318; }
 .monitoring-status.pending { background: #fffaeb; color: #b54708; }
+.monitoring-status.in-progress { background: #eff6ff; color: #1d4ed8; }
 .monitoring-status.done { background: #ecfdf3; color: #027a48; }
 .monitoring-open-button { min-height: 34px; padding: 0.4rem 0.7rem; font-size: 0.8rem; }
 
@@ -380,6 +381,7 @@
 
 .step-wizard-step:hover:not(:disabled) .step-wizard-step-circle { transform: translateY(-2px); border-color: var(--burgundy); }
 .step-wizard-step.active .step-wizard-step-circle { border-color: var(--burgundy); background: var(--burgundy); color: #fff; box-shadow: 0 0 0 4px rgba(122, 12, 30, 0.12); }
+.step-wizard-step.in-progress .step-wizard-step-circle { border-color: #d97706; background: #fff7ed; color: #b45309; box-shadow: 0 0 0 4px rgba(217, 119, 6, 0.14); }
 .step-wizard-step.completed .step-wizard-step-circle { border-color: var(--burgundy); background: var(--burgundy-light); color: var(--burgundy); }
 .step-wizard-step.locked { cursor: not-allowed; }
 .step-wizard-step.locked { cursor: pointer; }

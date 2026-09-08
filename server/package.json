@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "seed:monitor": "node seed_monitor_data.js",
+    "seed:monitor": "node seeds/seed_monitor_data.js",
     "seed:program": "node scripts/seed_program_data.js",
     "seed:schools": "node scripts/seed_three_schools.js",
     "seed:school-hierarchy": "node seed_school_hierarchy.js",

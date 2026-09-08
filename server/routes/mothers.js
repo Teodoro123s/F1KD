@@ -578,8 +578,8 @@ router.post('/:id/checkups', async (req, res) => {
     const { id } = req.params;
     const b = req.body || {};
     const [motherRows] = await pool.query(
-      'SELECT id FROM mothers WHERE id = ? OR mother_code = ? OR mother_external_id = ? LIMIT 1',
-      [Number(id) || null, id, id]
+      'SELECT id FROM mothers WHERE id = ? OR mother_code = ? LIMIT 1',
+      [Number(id) || null, id]
     );
     if (!motherRows.length) {
       return res.status(404).json({ error: 'Mother not found' });

@@ -44,6 +44,7 @@ const getDateStatus = (date) => {
 
 const getMotherMonitoringStatus = (mother, completed, total) => {
   if (completed >= total) return 'Done';
+  if (completed > 0) return 'In Progress';
   const checkups = (mother.checkups || []).flat().filter(Boolean);
   const nextDate = checkups
     .filter((checkup) => checkup.nextCheckupDate)
@@ -53,6 +54,7 @@ const getMotherMonitoringStatus = (mother, completed, total) => {
 
 const getChildMonitoringStatus = (child, completed, total) => {
   if (completed >= total) return 'Done';
+  if (completed > 0) return 'In Progress';
   const nextWeek = Array.from({ length: total }, (_, index) => index + 1)
     .find((week) => !(child.completedWeeks || []).includes(week));
   const birthDate = parseDateOnly(child.birth_date || child.birthDate);
@@ -95,7 +97,7 @@ export default function MonitoringPage() {
     const term = query.trim().toLowerCase();
     if (!term) return mothers;
     return mothers.filter((mother) => (
-      `${getMotherName(mother)} ${mother.motherId || mother.id || ''} ${mother.community || mother.area || ''}`
+      `${getMotherName(mother)} ${mother.community || mother.area || ''}`
         .toLowerCase()
         .includes(term)
     ));
@@ -231,9 +233,10 @@ export default function MonitoringPage() {
                 <tbody>
                   {childrenLoading && beneficiaryType === 'Child' ? <tr><td colSpan="4" className="no-data">Loading children...</td></tr> : currentRows.length ? currentRows.map(({ beneficiary, completed, total, progress, status }) => {
                     const name = beneficiaryType === 'Mother' ? getMotherName(beneficiary) : getChildName(beneficiary);
-                    const id = beneficiary.motherId || beneficiary.child_code || beneficiary.id || 'No ID';
+                    const recordKey = beneficiaryType === 'Mother' ? beneficiary.id || beneficiary.motherId : beneficiary.child_code || beneficiary.id || 'No ID';
                     const locationName = beneficiary.community || beneficiary.area || beneficiary.community_name || 'No community';
-                    return <tr key={id}><td><strong>{name}</strong><span className="monitoring-table-meta">{id} · {locationName}</span></td><td><div className="monitoring-progress"><span><span style={{ width: `${progress}%` }} /></span><b>{completed}/{total}</b></div></td><td><span className={`monitoring-status ${status.toLowerCase()}`}>{status}</span></td><td><button type="button" className="btn-secondary monitoring-open-button" onClick={() => openBeneficiary(beneficiary)}>Open record</button></td></tr>;
+                    const metadata = beneficiaryType === 'Mother' ? locationName : `${recordKey} · ${locationName}`;
+                    return <tr key={recordKey}><td><strong>{name}</strong><span className="monitoring-table-meta">{metadata}</span></td><td><div className="monitoring-progress"><span><span style={{ width: `${progress}%` }} /></span><b>{completed}/{total}</b></div></td><td><span className={`monitoring-status ${status.toLowerCase().replace(/\s+/g, '-')}`}>{status}</span></td><td><button type="button" className="btn-secondary monitoring-open-button" onClick={() => openBeneficiary(beneficiary)}>Open record</button></td></tr>;
                   }) : <tr><td colSpan="4" className="no-data">No monitoring records match your search.</td></tr>}
                 </tbody>
               </table>
