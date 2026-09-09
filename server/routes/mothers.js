@@ -23,6 +23,7 @@ function mapMother(row) {
     firstNonEmpty(row.first_name, row.firstName),
     firstNonEmpty(row.middle_name, row.middleName),
     firstNonEmpty(row.last_name, row.lastName),
+    firstNonEmpty(row.maiden_surname, row.maidenSurname),
     firstNonEmpty(row.suffix),
   ].filter((v) => String(v).trim()).join(' ').trim();
 
@@ -33,6 +34,7 @@ function mapMother(row) {
     firstName: firstNonEmpty(row.first_name, row.firstName, ''),
     middleName: firstNonEmpty(row.middle_name, row.middleName, ''),
     lastName: firstNonEmpty(row.last_name, row.lastName, ''),
+    maidenSurname: firstNonEmpty(row.maiden_surname, row.maidenSurname, ''),
     suffix: firstNonEmpty(row.suffix, ''),
     dob: row.dob || '',
     createdAt: row.created_at || '',
@@ -292,6 +294,7 @@ router.post('/', async (req, res) => {
     const firstName = firstNonEmpty(b.firstName, b.first_name);
     const middleName = firstNonEmpty(b.middleName, b.middle_name);
     const lastName = firstNonEmpty(b.lastName, b.last_name);
+    const maidenSurname = firstNonEmpty(b.maidenSurname, b.maiden_surname, '');
     const suffix = firstNonEmpty(b.suffix, '');
     const motherCode = firstNonEmpty(b.motherCode, b.mother_code, `MTH-${Date.now()}`);
     const motherExternalId = firstNonEmpty(b.motherId, b.mother_id, b.motherExternalId, b.mother_external_id, motherCode);
@@ -306,6 +309,7 @@ router.post('/', async (req, res) => {
         first_name,
         middle_name,
         last_name,
+        maiden_surname,
         suffix,
         dob,
         contact_number,
@@ -345,6 +349,7 @@ router.post('/', async (req, res) => {
         firstName,
         middleName || null,
         lastName,
+        maidenSurname || null,
         suffix || null,
         firstNonEmpty(b.dob, b.birthDate, null),
         firstNonEmpty(b.contactNumber, b.contact_number, null),
@@ -471,6 +476,7 @@ router.put('/:id', async (req, res) => {
       first_name: firstNonEmpty(b.firstName, b.first_name, current.first_name),
       middle_name: firstNonEmpty(b.middleName, b.middle_name, current.middle_name),
       last_name: firstNonEmpty(b.lastName, b.last_name, current.last_name),
+      maiden_surname: firstNonEmpty(b.maidenSurname, b.maiden_surname, current.maiden_surname),
       suffix: firstNonEmpty(b.suffix, current.suffix),
       dob: b.dob || b.birthDate || current.dob || null,
       contact_number: firstNonEmpty(b.contactNumber, b.contact_number, current.contact_number),

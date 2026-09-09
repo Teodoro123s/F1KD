@@ -19,6 +19,7 @@ const emptyCommunityForm = (communities = []) => ({
   firstName: '',
   middleName: '',
   lastName: '',
+  maidenSurname: '',
   suffix: '',
   motherId: '',
   weight: '',
@@ -143,7 +144,7 @@ export default function CreateMotherPage({
     const { gestationalAge, trimester } = calculateGestationalDetails(communityForm.lmpDate);
     const resolvedTrimester = communityForm.lmpDate ? trimester : communityForm.trimester;
     const resolvedGestationalAge = communityForm.lmpDate ? gestationalAge : communityForm.gestationalAge;
-    const fullName = `${communityForm.firstName.trim()} ${communityForm.middleName.trim()} ${communityForm.lastName.trim()} ${communityForm.suffix.trim()}`
+    const fullName = `${communityForm.firstName.trim()} ${communityForm.middleName.trim()} ${communityForm.lastName.trim()} ${communityForm.maidenSurname.trim()} ${communityForm.suffix.trim()}`
       .replace(/\s+/g, ' ')
       .trim();
 
@@ -151,6 +152,7 @@ export default function CreateMotherPage({
       firstName: communityForm.firstName.trim(),
       middleName: communityForm.middleName.trim(),
       lastName: communityForm.lastName.trim(),
+      maidenSurname: communityForm.maidenSurname.trim(),
       suffix: communityForm.suffix.trim(),
       motherId: communityForm.motherId,
       dob: communityForm.dob || null,

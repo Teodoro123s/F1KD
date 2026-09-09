@@ -23,16 +23,49 @@ async function attachClinicalData(child) {
   };
 }
 
+function withChildAliases(child = {}) {
+  return {
+    ...child,
+    childCode: child.child_code ?? child.childCode ?? '',
+    motherId: child.mother_id ?? child.motherId ?? '',
+    firstName: child.first_name ?? child.firstName ?? '',
+    middleName: child.middle_name ?? child.middleName ?? '',
+    lastName: child.last_name ?? child.lastName ?? '',
+    birthDate: child.birth_date ?? child.birthDate ?? '',
+    birthWeight: child.birth_weight ?? child.birthWeight ?? '',
+    birthLength: child.birth_length ?? child.birthLength ?? '',
+    bloodType: child.blood_type ?? child.bloodType ?? '',
+    noOfChildDelivered: child.no_of_child_delivered ?? child.noOfChildDelivered ?? '',
+    multipleBirthType: child.multiple_birth_type ?? child.multipleBirthType ?? '',
+    exclusiveBreastfeeding: child.exclusive_breastfeeding ?? child.exclusiveBreastfeeding ?? '',
+    expandedNewbornScreening: child.expanded_newborn_screening ?? child.expandedNewbornScreening ?? '',
+    expandedNewbornScreeningResult: child.expanded_newborn_screening_result ?? child.expandedNewbornScreeningResult ?? '',
+    deliveryType: child.delivery_type ?? child.deliveryType ?? '',
+    healthStatus: child.health_status ?? child.healthStatus ?? '',
+    birthPlace: child.birth_place ?? child.birthPlace ?? '',
+    birthAttendant: child.birth_attendant ?? child.birthAttendant ?? '',
+    apgarScore: child.apgar_score ?? child.apgarScore ?? '',
+    feedingType: child.feeding_type ?? child.feedingType ?? '',
+    nutritionNotes: child.nutrition_notes ?? child.nutritionNotes ?? '',
+    fatherName: child.father_name ?? child.fatherName ?? '',
+    community: child.community_name ?? child.community ?? '',
+    group: child.group_name ?? child.group ?? '',
+    batch: child.batch_name ?? child.batch ?? '',
+    motherFirstName: child.mother_first_name ?? child.motherFirstName ?? '',
+    motherLastName: child.mother_last_name ?? child.motherLastName ?? '',
+  };
+}
+
 async function attachMonitoringData(child) {
   const [checkupRows] = await pool.query(
     'SELECT * FROM child_checkups WHERE child_id = ? ORDER BY week_number, visit_date, id',
     [child.id]
   );
-  return {
+  return withChildAliases({
     ...child,
     completedWeeks: checkupRows.filter((row) => row.week_number !== null).map((row) => Number(row.week_number)),
     checkups: checkupRows,
-  };
+  });
 }
 
 router.post('/:id/documents', documentUpload.single('birthDocument'), async (req, res) => {
@@ -55,7 +88,38 @@ router.post('/:id/documents', documentUpload.single('birthDocument'), async (req
 });
 
 const CHILD_ALLOWED_FIELDS = new Set([
-  'id', 'child_code', 'mother_id', 'first_name', 'middle_name', 'last_name', 'suffix', 'birth_date', 'gender', 'birth_document_path', 'community_name', 'group_name', 'batch_name', 'name', 'dob', 'age', 'community', 'group', 'batch', 'programType', 'status', 'risk', 'pediatricWeek', 'zScore', 'nutritionalStatus', 'feedingType', 'exclusiveBreastfeeding', 'bcgDate', 'opvDate', 'dptDate', 'assessment', 'progress', 'trend', 'source', 'checkups', 'medicalConditions', 'completedWeeks'
+  'id',
+  'child_code', 'childCode',
+  'mother_id', 'motherId',
+  'first_name', 'firstName',
+  'middle_name', 'middleName',
+  'last_name', 'lastName',
+  'suffix',
+  'birth_date', 'birthDate',
+  'birth_weight', 'birthWeight',
+  'birth_length', 'birthLength',
+  'gender',
+  'blood_type', 'bloodType',
+  'no_of_child_delivered', 'noOfChildDelivered',
+  'multiple_birth_type', 'multipleBirthType',
+  'exclusive_breastfeeding', 'exclusiveBreastfeeding',
+  'expanded_newborn_screening', 'expandedNewbornScreening',
+  'expanded_newborn_screening_result', 'expandedNewbornScreeningResult',
+  'delivery_type', 'deliveryType',
+  'health_status', 'healthStatus',
+  'birth_place', 'birthPlace',
+  'birth_attendant', 'birthAttendant',
+  'apgar_score', 'apgarScore',
+  'feeding_type', 'feedingType',
+  'nutrition_notes', 'nutritionNotes',
+  'father_name', 'fatherName',
+  'relationship', 'address',
+  'birth_document_path', 'birthDocumentPath',
+  'community_id', 'group_id', 'batch_id',
+  'community_name', 'community', 'group_name', 'group', 'batch_name', 'batch',
+  'mother_first_name', 'motherFirstName', 'mother_last_name', 'motherLastName',
+  'name', 'dob', 'age', 'programType', 'status', 'risk', 'pediatricWeek', 'zScore', 'nutritionalStatus',
+  'bcgDate', 'opvDate', 'dptDate', 'assessment', 'progress', 'trend', 'source', 'checkups', 'medicalConditions', 'completedWeeks'
 ]);
 
 function sanitizeFieldSelection(fields = []) {
@@ -88,7 +152,13 @@ router.get('/', async (req, res) => {
       if (!requestedFields.length || requestedFields.includes('*')) return hydrated;
       const subset = {};
       for (const field of requestedFields) {
-        if (field in hydrated) subset[field] = hydrated[field];
+        if (field in hydrated) {
+          subset[field] = hydrated[field];
+        } else {
+          const camelField = field.replace(/_([a-z])/g, (_, ch) => ch.toUpperCase());
+          if (camelField in hydrated) subset[field] = hydrated[camelField];
+          else if (field in row) subset[field] = row[field];
+        }
       }
       return subset;
     }));

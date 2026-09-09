@@ -1,13 +1,6 @@
--- Unified database bootstrap for F1KD
--- Use this script to create a fresh copy of the application database on a new machine.
--- To fully recreate the database from scratch, uncomment the DROP DATABASE line before running.
--- mysql -u root -p < create_users.sql
-
--- DROP DATABASE IF EXISTS f1kd;
 CREATE DATABASE IF NOT EXISTS f1kd CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
 USE f1kd;
 
--- Core application users
 CREATE TABLE IF NOT EXISTS users (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   first_name VARCHAR(120) NOT NULL,
@@ -21,6 +14,7 @@ CREATE TABLE IF NOT EXISTS users (
   role VARCHAR(120) NOT NULL DEFAULT 'Superadmin',
   status ENUM('Active','Suspended') NOT NULL DEFAULT 'Active',
   password_hash VARCHAR(255) DEFAULT NULL,
+  school_id INT DEFAULT NULL,
   name VARCHAR(255) GENERATED ALWAYS AS (
     CONCAT(
       first_name,
@@ -36,25 +30,12 @@ CREATE TABLE IF NOT EXISTS users (
   KEY idx_users_contact (contact_number)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
--- Community and hierarchy tables
 CREATE TABLE IF NOT EXISTS communities (
   id INT AUTO_INCREMENT PRIMARY KEY,
   community_code VARCHAR(20) NOT NULL UNIQUE,
   name VARCHAR(150) NOT NULL,
   area VARCHAR(80) NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-CREATE TABLE IF NOT EXISTS batches (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  batch_code VARCHAR(20) NOT NULL UNIQUE,
-  community_id INT NOT NULL,
-  name VARCHAR(150) NOT NULL,
-  records INT NOT NULL DEFAULT 0,
-  progress INT NOT NULL DEFAULT 0,
-  status VARCHAR(20) NOT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT fk_batches_community FOREIGN KEY (community_id) REFERENCES communities(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS groups (
@@ -69,6 +50,18 @@ CREATE TABLE IF NOT EXISTS groups (
   CONSTRAINT fk_groups_community FOREIGN KEY (community_id) REFERENCES communities(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS batches (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  batch_code VARCHAR(20) NOT NULL UNIQUE,
+  community_id INT NOT NULL,
+  name VARCHAR(150) NOT NULL,
+  records INT NOT NULL DEFAULT 0,
+  progress INT NOT NULL DEFAULT 0,
+  status VARCHAR(20) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_batches_community FOREIGN KEY (community_id) REFERENCES communities(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS group_batch (
   group_id INT NOT NULL,
   batch_id INT NOT NULL,
@@ -77,7 +70,6 @@ CREATE TABLE IF NOT EXISTS group_batch (
   CONSTRAINT fk_group_batch_batch FOREIGN KEY (batch_id) REFERENCES batches(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Mothers and maternal clinical records
 CREATE TABLE IF NOT EXISTS mothers (
   id INT AUTO_INCREMENT PRIMARY KEY,
   mother_code VARCHAR(20) NOT NULL UNIQUE,
@@ -116,6 +108,10 @@ CREATE TABLE IF NOT EXISTS mothers (
   status VARCHAR(20) DEFAULT 'Active',
   visits INT DEFAULT 0,
   progress INT DEFAULT 0,
+  birth_certificate_document_name VARCHAR(255) DEFAULT NULL,
+  birth_certificate_document_path VARCHAR(500) DEFAULT NULL,
+  consent_document_name VARCHAR(255) DEFAULT NULL,
+  consent_document_path VARCHAR(500) DEFAULT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_mothers_community FOREIGN KEY (community_id) REFERENCES communities(id) ON DELETE CASCADE,
   CONSTRAINT fk_mothers_group FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE SET NULL,
@@ -196,7 +192,6 @@ CREATE TABLE IF NOT EXISTS mother_checkups (
   CONSTRAINT fk_mother_checkup_mother FOREIGN KEY (mother_id) REFERENCES mothers(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Child tracking tables
 CREATE TABLE IF NOT EXISTS children (
   id INT AUTO_INCREMENT PRIMARY KEY,
   child_code VARCHAR(30) NOT NULL UNIQUE,
@@ -229,6 +224,8 @@ CREATE TABLE IF NOT EXISTS children (
   relationship VARCHAR(50),
   address TEXT,
   progress INT DEFAULT 0,
+  birth_document_name VARCHAR(255) DEFAULT NULL,
+  birth_document_path VARCHAR(500) DEFAULT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_children_mother FOREIGN KEY (mother_id) REFERENCES mothers(id) ON DELETE CASCADE,
   CONSTRAINT fk_children_community FOREIGN KEY (community_id) REFERENCES communities(id) ON DELETE SET NULL,
@@ -268,27 +265,95 @@ CREATE TABLE IF NOT EXISTS child_checkups (
   CONSTRAINT fk_child_checkup_child FOREIGN KEY (child_id) REFERENCES children(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Optional baseline seed data for a clean local copy.
--- Uncomment the blocks below if you want the fresh database to start with demo data.
+CREATE TABLE IF NOT EXISTS roles (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  role_key VARCHAR(80) NOT NULL UNIQUE,
+  role_name VARCHAR(120) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- INSERT INTO communities (community_code, name, area) VALUES
---   ('COMM-01', 'Monitor Demo School', 'Demo Area'),
---   ('COMM-02', 'Poblacion', 'Poblacion Area'),
---   ('COMM-03', 'Upang', 'Upang Area'),
---   ('COMM-04', 'San Roque', 'San Roque Area');
---
--- INSERT INTO groups (group_code, community_id, name, leader, members_count, status)
--- SELECT 'GRP-01', id, 'Monitor Demo Group 1', 'Demo Leader', 0, 'Active' FROM communities WHERE name = 'Monitor Demo School';
--- INSERT INTO groups (group_code, community_id, name, leader, members_count, status)
--- SELECT 'GRP-02', id, 'Monitor Demo Group 2', 'Demo Leader', 0, 'Active' FROM communities WHERE name = 'Monitor Demo School';
---
--- INSERT INTO batches (batch_code, community_id, name, records, progress, status)
--- SELECT 'BATCH-A1', id, 'Demo Batch A1', 0, 0, 'Active' FROM communities WHERE name = 'Monitor Demo School';
--- INSERT INTO batches (batch_code, community_id, name, records, progress, status)
--- SELECT 'BATCH-A2', id, 'Demo Batch A2', 0, 0, 'Active' FROM communities WHERE name = 'Monitor Demo School';
+CREATE TABLE IF NOT EXISTS permissions (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  resource_key VARCHAR(120) NOT NULL,
+  action_key VARCHAR(120) NOT NULL,
+  UNIQUE KEY uq_permission (resource_key, action_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Recommended final step for a cloned install:
--- 1. Create the database using this script.
--- 2. Start the app backend.
--- 3. Run the project seed scripts if you want demo content loaded.
+CREATE TABLE IF NOT EXISTS role_permissions (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  role_id INT NOT NULL,
+  permission_id INT NOT NULL,
+  UNIQUE KEY uq_role_permission (role_id, permission_id),
+  CONSTRAINT fk_role_permission_role FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE,
+  CONSTRAINT fk_role_permission_permission FOREIGN KEY (permission_id) REFERENCES permissions(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS programs (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(150) NOT NULL,
+  type VARCHAR(80) NOT NULL DEFAULT 'Other',
+  provider VARCHAR(150) NOT NULL,
+  description TEXT,
+  beneficiary_type VARCHAR(40) NOT NULL DEFAULT 'Mother and Child',
+  status VARCHAR(20) NOT NULL DEFAULT 'Active',
+  target INT NOT NULL DEFAULT 0,
+  received INT NOT NULL DEFAULT 0,
+  activities INT NOT NULL DEFAULT 0,
+  latest DATE NULL,
+  ended DATE NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS program_clusters (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  program_id INT NOT NULL,
+  scope_type VARCHAR(20) NOT NULL,
+  scope_name VARCHAR(150) NOT NULL,
+  beneficiaries INT NOT NULL DEFAULT 0,
+  received INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_program_cluster (program_id, scope_type, scope_name),
+  CONSTRAINT fk_program_clusters_program FOREIGN KEY (program_id) REFERENCES programs(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS monitoring_logs (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  beneficiary_id VARCHAR(50) NOT NULL,
+  beneficiary_type VARCHAR(20) NOT NULL,
+  program_id INT NOT NULL,
+  monitored BOOLEAN NOT NULL DEFAULT FALSE,
+  monitored_date DATE NOT NULL,
+  monitored_by INT NULL,
+  notes TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_monitoring_log_day (beneficiary_id, beneficiary_type, program_id, monitored_date),
+  KEY idx_monitoring_beneficiary (beneficiary_id, beneficiary_type),
+  KEY idx_monitoring_program_date (program_id, monitored_date),
+  CONSTRAINT fk_monitoring_program FOREIGN KEY (program_id) REFERENCES programs(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT INTO roles (role_key, role_name)
+VALUES
+  ('superadmin', 'Superadmin'),
+  ('admin', 'Administrator'),
+  ('manager', 'Manager'),
+  ('staff', 'Staff')
+ON DUPLICATE KEY UPDATE role_name = VALUES(role_name);
+
+INSERT INTO permissions (resource_key, action_key)
+VALUES
+  ('users', 'read'),
+  ('users', 'write'),
+  ('mothers', 'read'),
+  ('mothers', 'write'),
+  ('children', 'read'),
+  ('children', 'write'),
+  ('programs', 'read'),
+  ('programs', 'write'),
+  ('monitoring', 'read'),
+  ('monitoring', 'write')
+ON DUPLICATE KEY UPDATE action_key = VALUES(action_key);
+
+-- The application adds the default admin at runtime if the table is empty.
+-- Keep this structure ready for a clean recovery and then start the app normally.

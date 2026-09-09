@@ -177,10 +177,11 @@ export function MotherFormFields({
     return (
       <>
         <h4 className="form-section-title">I.A Mother's Information</h4>
-        <div className="form-row-4 full-width name-row">
+        <div className="form-row-5 full-width name-row">
           {renderField({ id: 'mother-first-name', label: "First Name", name: 'firstName', placeholder: 'First name', required: true })}
           {renderField({ id: 'mother-middle-name', label: "Middle Name", name: 'middleName', placeholder: 'Middle name' })}
           {renderField({ id: 'mother-last-name', label: "Last Name", name: 'lastName', placeholder: 'Last name', required: true })}
+          {renderField({ id: 'mother-maiden-surname', label: "Maiden Surname", name: 'maidenSurname', placeholder: 'Maiden surname' })}
           {renderField({ id: 'mother-suffix', label: "Suffix", name: 'suffix', placeholder: 'Suffix' })}
         </div>
 

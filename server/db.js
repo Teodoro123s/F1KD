@@ -83,6 +83,7 @@ async function ensure() {
       first_name VARCHAR(100) NOT NULL,
       middle_name VARCHAR(100),
       last_name VARCHAR(100) NOT NULL,
+      maiden_surname VARCHAR(100),
       suffix VARCHAR(20),
       mother_id_no VARCHAR(50) UNIQUE,
       dob DATE,

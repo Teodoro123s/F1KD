@@ -103,6 +103,7 @@ export default function MotherDetailPage({ selectedMother, onClose }) {
   const firstName = mother.firstName || '—';
   const middleName = mother.middleName || '—';
   const lastName = mother.lastName || '—';
+  const maidenSurname = mother.maidenSurname || '—';
   const suffix = mother.suffix || '—';
   const dob = formatDateForDisplay(mother.dob);
   const contact = mother.contactNumber || mother.contact || '—';
@@ -210,6 +211,7 @@ export default function MotherDetailPage({ selectedMother, onClose }) {
               <Field label="Surname Name" value={lastName} />
               <Field label="First Name" value={firstName} />
               <Field label="Middle Name" value={middleName} />
+              <Field label="Maiden Surname" value={maidenSurname} />
               <Field label="Suffix" value={suffix} />
               <Field label="Date of Birth" value={dob} />
               <Field label="Contact Number" value={contact} />
