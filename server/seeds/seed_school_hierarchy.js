@@ -45,6 +45,7 @@ async function getOrCreate(connection, query, values, createQuery, createValues)
 }
 
 async function ensureDemoClinicalSchema(connection) {
+  await connection.query('ALTER TABLE child_checkups ADD COLUMN IF NOT EXISTS next_checkup_date DATE');
   await connection.query(`ALTER TABLE mothers
     ADD COLUMN IF NOT EXISTS maiden_surname VARCHAR(100),
     ADD COLUMN IF NOT EXISTS suffix VARCHAR(20),
@@ -192,7 +193,10 @@ async function seed() {
       const mother = mothers[index];
       for (let checkupIndex = 0; checkupIndex < mother.checkups; checkupIndex += 1) {
         const value = prenatalValues[(index + checkupIndex) % prenatalValues.length];
-        const nextDate = `2026-${String(Math.min(12, Number(value[0].slice(5, 7)) + 1)).padStart(2, '0')}-${value[0].slice(8)}`;
+        const nextDate = index === 0 ? '2026-09-01'
+          : index === 1 ? '2026-09-20'
+          : index === 2 ? '2026-10-01'
+          : '2026-09-25';
         await connection.query(`INSERT INTO mother_checkups (
           mother_id, trimester, checkup_number, checkup_date, gestational_age_weeks,
           blood_pressure, weight_kg, height_cm, bmi, nutritional_status, fundal_height_cm,
@@ -231,15 +235,16 @@ async function seed() {
         const values = [`2026-0${Math.min(9, batchIndex + 2)}-${String(Math.min(28, 5 + week)).padStart(2, '0')}`, week,
           3.2 + week * 0.22 + batchIndex * 0.1, 50 + week * 0.55, 35 + week * 0.12,
           week === 3 ? 'Needs Follow-up' : 'Normal', 'Nurse Maria Santos', `Demo growth visit at week ${week}.`];
+        const nextCheckupDate = batchIndex === 0 ? '2026-09-01' : batchIndex === 1 ? '2026-09-20' : '2026-10-01';
         const [existing] = await connection.query('SELECT id FROM child_checkups WHERE child_id = ? AND week_number = ? LIMIT 1', [childId, week]);
         if (existing.length) {
-          await connection.query(`UPDATE child_checkups SET visit_date = ?, weight = ?, height = ?, head_circumference = ?,
-            developmental_status = ?, service_provider = ?, notes = ? WHERE id = ?`, [...values.filter((_, index) => index !== 1), existing[0].id]);
+          await connection.query(`UPDATE child_checkups SET next_checkup_date = ?, visit_date = ?, weight = ?, height = ?, head_circumference = ?,
+            developmental_status = ?, service_provider = ?, notes = ? WHERE id = ?`, [nextCheckupDate, ...values.filter((_, index) => index !== 1), existing[0].id]);
         } else {
           await connection.query(`INSERT INTO child_checkups (
-            child_id, visit_date, week_number, weight, height, head_circumference,
+            child_id, next_checkup_date, visit_date, week_number, weight, height, head_circumference,
             developmental_status, service_provider, notes
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, [childId, ...values]);
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [childId, nextCheckupDate, values[0], values[1], ...values.slice(2)]);
         }
       }
       await connection.query('DELETE FROM child_medical_conditions WHERE child_id = ?', [childId]);

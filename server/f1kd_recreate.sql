@@ -262,6 +262,7 @@ CREATE TABLE IF NOT EXISTS child_checkups (
   id INT AUTO_INCREMENT PRIMARY KEY,
   child_id INT NOT NULL,
   week_number TINYINT UNSIGNED NULL,
+  next_checkup_date DATE,
   visit_date DATE,
   weight DECIMAL(5,2),
   height DECIMAL(5,2),

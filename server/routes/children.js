@@ -64,6 +64,10 @@ async function attachMonitoringData(child) {
   return withChildAliases({
     ...child,
     completedWeeks: checkupRows.filter((row) => row.week_number !== null).map((row) => Number(row.week_number)),
+    nextCheckupDate: checkupRows
+      .map((row) => row.next_checkup_date)
+      .filter(Boolean)
+      .sort((a, b) => String(a).localeCompare(String(b)))[0] || '',
     checkups: checkupRows,
   });
 }
@@ -124,7 +128,7 @@ const CHILD_ALLOWED_FIELDS = new Set([
 
 function sanitizeFieldSelection(fields = []) {
   const selected = Array.isArray(fields) ? fields : String(fields || '').split(',').map((value) => value.trim()).filter(Boolean);
-  const requiredFields = new Set(['id', 'child_code', 'mother_id', 'first_name', 'middle_name', 'last_name', 'suffix', 'birth_date', 'birth_document_path', 'community_name', 'group_name', 'batch_name', 'name', 'community', 'group', 'batch', 'progress', 'completedWeeks', 'trimester', 'assessment', 'trend', 'risk', 'source']);
+  const requiredFields = new Set(['id', 'child_code', 'mother_id', 'first_name', 'middle_name', 'last_name', 'suffix', 'birth_date', 'birth_document_path', 'community_name', 'group_name', 'batch_name', 'name', 'community', 'group', 'batch', 'progress', 'completedWeeks', 'nextCheckupDate', 'trimester', 'assessment', 'trend', 'risk', 'source']);
   const allowed = [...new Set(selected.filter((field) => CHILD_ALLOWED_FIELDS.has(field)).concat([...requiredFields]))];
   return allowed;
 }
@@ -306,6 +310,7 @@ router.post('/:id/checkups', async (req, res) => {
     }
 
     const values = [
+      body.nextCheckupDate || null,
       body.checkupDate || null,
       body.weight || null,
       body.height || null,
@@ -320,15 +325,15 @@ router.post('/:id/checkups', async (req, res) => {
     );
     if (existingRows.length) {
       await pool.query(
-        `UPDATE child_checkups SET visit_date = ?, weight = ?, height = ?, head_circumference = ?,
+        `UPDATE child_checkups SET next_checkup_date = ?, visit_date = ?, weight = ?, height = ?, head_circumference = ?,
           developmental_status = ?, service_provider = ?, notes = ? WHERE id = ?`,
         [...values, existingRows[0].id]
       );
     } else {
       await pool.query(
         `INSERT INTO child_checkups
-          (child_id, visit_date, weight, height, head_circumference, developmental_status, service_provider, notes, week_number)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          (child_id, next_checkup_date, visit_date, weight, height, head_circumference, developmental_status, service_provider, notes, week_number)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [childId, ...values, week]
       );
     }

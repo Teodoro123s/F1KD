@@ -44,24 +44,22 @@ const getDateStatus = (date) => {
 
 const getMotherMonitoringStatus = (mother, completed, total) => {
   if (completed >= total) return 'Done';
-  if (completed > 0) return 'In Progress';
   const checkups = (mother.checkups || []).flat().filter(Boolean);
   const nextDate = checkups
     .filter((checkup) => checkup.nextCheckupDate)
     .sort((a, b) => String(b.nextCheckupDate).localeCompare(String(a.nextCheckupDate)))[0]?.nextCheckupDate;
-  return getDateStatus(parseDateOnly(nextDate));
+  const dateStatus = getDateStatus(parseDateOnly(nextDate));
+  if (dateStatus === 'Missing') return 'Missing';
+  if (completed > 0) return 'In Progress';
+  return dateStatus;
 };
 
 const getChildMonitoringStatus = (child, completed, total) => {
   if (completed >= total) return 'Done';
+  const dateStatus = getDateStatus(parseDateOnly(child.nextCheckupDate));
+  if (dateStatus === 'Missing') return 'Missing';
   if (completed > 0) return 'In Progress';
-  const nextWeek = Array.from({ length: total }, (_, index) => index + 1)
-    .find((week) => !(child.completedWeeks || []).includes(week));
-  const birthDate = parseDateOnly(child.birth_date || child.birthDate);
-  if (!birthDate || !nextWeek) return 'Pending';
-  const nextDate = new Date(birthDate);
-  nextDate.setDate(nextDate.getDate() + nextWeek * 7);
-  return getDateStatus(nextDate);
+  return dateStatus;
 };
 
 export default function MonitoringPage() {
