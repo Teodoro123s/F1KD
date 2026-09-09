@@ -60,7 +60,6 @@ export const useProgressFilters = ({
   const [group, setGroup] = useState('All Groups');
   const [batch, setBatch] = useState('All Batches');
   const [search, setSearch] = useState('');
-  const [showAllFilters, setShowAllFilters] = useState(false);
   // Parse context and query
   const context = useMemo(() => parseContext(school, group, batch), [school, group, batch]);
 
@@ -113,8 +112,6 @@ export const useProgressFilters = ({
     setBatch,
     search,
     setSearch,
-    showAllFilters,
-    setShowAllFilters,
     // Computed
     searchFilters,
     filteredRows,

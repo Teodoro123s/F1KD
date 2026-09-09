@@ -1,17 +1,7 @@
 import React from 'react';
 
-const QUICK_ADVANCED_FILTERS = [
-  { key: 'high-risk', label: 'High Risk', value: 'high risk' },
-  { key: 'underweight', label: 'Underweight', value: 'underweight' },
-  { key: 'missing-consent', label: 'Missing Consent', value: 'missing consent' },
-  { key: 'missing-birth-cert', label: 'Missing Birth Cert', value: 'missing birth certificate' },
-  { key: 'progress-low', label: 'Progress 0-25%', value: 'progress 0-25%' },
-];
-
 export default function ProgressReportFilterBar({
   activeFilterCount,
-  showAllFilters,
-  setShowAllFilters,
   school,
   setSchool,
   group,
@@ -27,16 +17,6 @@ export default function ProgressReportFilterBar({
   beneficiaryType,
   setBeneficiaryType,
 }) {
-  const applyQuickFilter = (value) => {
-    const trimmed = value.trim();
-    setSearch((currentQuery) => {
-      const nextQuery = (currentQuery || '').trim();
-      if (!nextQuery) return trimmed;
-      if (nextQuery.toLowerCase().includes(trimmed.toLowerCase())) return nextQuery;
-      return `${nextQuery} ${trimmed}`.trim();
-    });
-  };
-
   return (
     <>
       <div className="progress-report-header-row">
@@ -102,51 +82,42 @@ export default function ProgressReportFilterBar({
           )}
         </div>
 
-        <div className={`active-filter-strip ${showAllFilters ? 'expanded' : ''}`}>
-          {school !== 'All Schools' && (
-            <button type="button" className="chip context-chip danger" onClick={() => setSchool('All Schools')}>
-              <small>📍</small> School: {school} ×
-            </button>
-          )}
-          {group !== 'All Groups' && (
-            <button type="button" className="chip context-chip neutral" onClick={() => setGroup('All Groups')}>
-              <small>👥</small> Group: {group} ×
-            </button>
-          )}
-          {batch !== 'All Batches' && (
-            <button type="button" className="chip context-chip neutral" onClick={() => setBatch('All Batches')}>
-              <small>📅</small> Batch: {batch} ×
-            </button>
-          )}
-          {searchFilters.map((filter) => (
-            <button
-              key={filter.id}
-              type="button"
-              className="chip search-chip"
-              onClick={() => {
-                setSearch((query) => query.replace(filter.pattern, '').replace(/\s{2,}/g, ' ').trim());
-              }}
-            >
-              <small>Search</small> {filter.label} ×
-            </button>
-          ))}
-          {beneficiaryType !== 'Mothers' && (
-            <span className="chip context-chip neutral">
-              <small>Type</small> {beneficiaryType}
-            </span>
-          )}
-        </div>
-
-        <div className="advanced-filters-row">
-          <button type="button" className="advanced-toggle" onClick={() => setShowAllFilters((visible) => !visible)} aria-expanded={showAllFilters}>
-            {showAllFilters ? 'Advanced ▲' : 'Advanced ▼'}
-          </button>
-          {activeFilterCount > 3 && (
-            <button type="button" className="filter-toggle" onClick={() => setShowAllFilters((visible) => !visible)} aria-expanded={showAllFilters}>
-              {showAllFilters ? 'Show less' : `+${activeFilterCount - 3} more`}
-            </button>
-          )}
-        </div>
+        {activeFilterCount > 0 && (
+          <div className="active-filter-strip">
+            {school !== 'All Schools' && (
+              <button type="button" className="chip context-chip danger" onClick={() => setSchool('All Schools')}>
+                <small>📍</small> School: {school} ×
+              </button>
+            )}
+            {group !== 'All Groups' && (
+              <button type="button" className="chip context-chip neutral" onClick={() => setGroup('All Groups')}>
+                <small>👥</small> Group: {group} ×
+              </button>
+            )}
+            {batch !== 'All Batches' && (
+              <button type="button" className="chip context-chip neutral" onClick={() => setBatch('All Batches')}>
+                <small>📅</small> Batch: {batch} ×
+              </button>
+            )}
+            {searchFilters.map((filter) => (
+              <button
+                key={filter.id}
+                type="button"
+                className="chip search-chip"
+                onClick={() => {
+                  setSearch((query) => query.replace(filter.pattern, '').replace(/\s{2,}/g, ' ').trim());
+                }}
+              >
+                <small>Search</small> {filter.label} ×
+              </button>
+            ))}
+            {beneficiaryType !== 'Mothers' && (
+              <span className="chip context-chip neutral">
+                <small>Type</small> {beneficiaryType}
+              </span>
+            )}
+          </div>
+        )}
 
         <div className="beneficiary-type-toggle" role="group" aria-label="Beneficiary type">
           {['Mothers', 'Children'].map((type) => (
@@ -161,20 +132,6 @@ export default function ProgressReportFilterBar({
           ))}
         </div>
 
-        {showAllFilters && (
-          <div className="advanced-filter-panel" aria-label="Advanced filters">
-            {QUICK_ADVANCED_FILTERS.map((filter) => (
-              <button
-                key={filter.key}
-                type="button"
-                className="chip advanced-chip"
-                onClick={() => applyQuickFilter(filter.value)}
-              >
-                {filter.label}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
     </>
   );

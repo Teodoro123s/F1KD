@@ -35,6 +35,8 @@ export default function ProgramPage() {
   const canManagePrograms = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]);
   const [activeTab, setActiveTab] = useState("Active");
   const [query, setQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState('');
+  const [showTypeFilter, setShowTypeFilter] = useState(false);
   const [programs, setPrograms] = useState([]);
   const [isLiveDataLoaded, setIsLiveDataLoaded] = useState(false);
   const viewMode = Boolean(programId);
@@ -197,8 +199,13 @@ export default function ProgramPage() {
   };
 
   const filteredPrograms = useMemo(() => {
-    return filterPrograms(programs, query, activeTab);
-  }, [programs, query, activeTab]);
+    return filterPrograms(programs, query, activeTab).filter((program) => !typeFilter || program.type === typeFilter);
+  }, [programs, query, activeTab, typeFilter]);
+
+  const programTypes = useMemo(
+    () => [...new Set(programs.map((program) => String(program.type || '').trim()).filter(Boolean))].sort(),
+    [programs]
+  );
 
   const saveProgram = async (event) => {
     event.preventDefault();
@@ -523,19 +530,34 @@ export default function ProgramPage() {
               <span>Ended Programs</span>
             </button>
           </div>
-          <div className="search-container program-search">
-            <div className="search-field-container">
-              <SearchIcon />
-              <input
-                id="program-search"
-                name="programSearch"
-                type="text"
-                className="search-input-field"
-                placeholder="Search programs, partners, or communities..."
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                aria-label="Search programs"
-              />
+          <div className="program-toolbar-controls">
+            <div className="program-type-filter">
+              <button type="button" className={`program-type-filter-button${typeFilter ? ' active' : ''}`} onClick={() => setShowTypeFilter((current) => !current)} aria-haspopup="menu" aria-expanded={showTypeFilter}>
+                Type{typeFilter ? `: ${typeFilter}` : ''}
+              </button>
+              {showTypeFilter && (
+                <div className="program-type-filter-menu" role="menu">
+                  <button type="button" className={!typeFilter ? 'selected' : ''} onClick={() => { setTypeFilter(''); setShowTypeFilter(false); }} role="menuitem">All types</button>
+                  {programTypes.map((type) => (
+                    <button type="button" key={type} className={typeFilter === type ? 'selected' : ''} onClick={() => { setTypeFilter(type); setShowTypeFilter(false); }} role="menuitem">{type}</button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="search-container program-search">
+              <div className="search-field-container">
+                <SearchIcon />
+                <input
+                  id="program-search"
+                  name="programSearch"
+                  type="text"
+                  className="search-input-field"
+                  placeholder="Search programs, partners, or communities..."
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  aria-label="Search programs"
+                />
+              </div>
             </div>
           </div>
         </section>
@@ -558,7 +580,6 @@ export default function ProgramPage() {
                     <th>Beneficiary</th>
                     <th>Cluster</th>
                     <th>Program status</th>
-                    <th>Latest activity</th>
                     <th>Distribution status</th>
                   </tr>
                 </thead>
@@ -575,7 +596,6 @@ export default function ProgramPage() {
                       <td>
                         <span className="program-status active">Covered</span>
                       </td>
-                      <td>{selectedProgram.latest}</td>
                       <td>
                         <span
                           className={`program-recipient-status ${index < selectedCluster.received ? "received" : "pending"}`}
@@ -597,7 +617,6 @@ export default function ProgramPage() {
                     <th>Type</th>
                     <th>Provider</th>
                     <th>Reached</th>
-                    <th>Latest activity</th>
                     <th>Action</th>
                   </tr>
                 </thead>
@@ -618,13 +637,12 @@ export default function ProgramPage() {
                         <td>
                           {program.received} / {program.target}
                         </td>
-                        <td>{program.latest}</td>
                         <td>{renderActionMenu(`main-${program.id}`, program)}</td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="6" className="no-data">
+                      <td colSpan="5" className="no-data">
                         No programs match your search.
                       </td>
                     </tr>

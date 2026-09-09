@@ -77,7 +77,7 @@ Important behavior:
 
 ### `ProgressReportFilterBar.jsx`
 
-Renders school, group, and batch selectors; free-text search; active filter chips; advanced quick filters; and the Mothers/Children switch. Quick filters append recognized query text such as `high risk`, `underweight`, and `progress 0-25%`.
+Renders school, group, and batch selectors; free-text search; active filter chips; and the Mothers/Children switch.
 
 ### `ProgressReportToolbar.jsx`
 
