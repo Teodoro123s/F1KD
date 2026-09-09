@@ -7,7 +7,7 @@ import StatusFilterBar from '../Beneficiary/components/StatusFilterBar';
 import EntitySearchControls from '../Beneficiary/components/EntitySearchControls';
 import ChildMonitor, { getChildName } from './ChildMonitor';
 import { createMonitorModel } from './monitorModel';
-import { apiGetChildren, apiSaveChildCheckup } from '../../api/children';
+import { apiGetChild, apiGetChildren, apiSaveChildCheckup } from '../../api/children';
 import { apiGetMother, apiSaveMotherCheckup } from '../../api/mothers';
 
 function getMotherName(mother) {
@@ -146,11 +146,19 @@ export default function MonitoringPage() {
     setSavedMessage('');
   };
 
-  const handleSelectChild = (child) => {
-    setSelectedChild(child);
-    setChildCompletedWeeks(child.completedWeeks || []);
-    setSelectedMother(null);
+  const handleSelectChild = async (child) => {
     setSavedMessage('');
+    try {
+      const response = await apiGetChild(child.id || child.child_code);
+      const detailedChild = response?.child || child;
+      setSelectedChild(detailedChild);
+      setChildCompletedWeeks(detailedChild.completedWeeks || child.completedWeeks || []);
+    } catch (error) {
+      setSelectedChild(child);
+      setChildCompletedWeeks(child.completedWeeks || []);
+      setSavedMessage(`Unable to load saved child check-ups: ${error.message}`);
+    }
+    setSelectedMother(null);
   };
 
   const handleBack = () => {

@@ -124,7 +124,7 @@ const CHILD_ALLOWED_FIELDS = new Set([
 
 function sanitizeFieldSelection(fields = []) {
   const selected = Array.isArray(fields) ? fields : String(fields || '').split(',').map((value) => value.trim()).filter(Boolean);
-  const requiredFields = new Set(['id', 'child_code', 'mother_id', 'first_name', 'middle_name', 'last_name', 'suffix', 'birth_date', 'birth_document_path', 'community_name', 'group_name', 'batch_name', 'name', 'community', 'group', 'batch', 'progress', 'trimester', 'assessment', 'trend', 'risk', 'source']);
+  const requiredFields = new Set(['id', 'child_code', 'mother_id', 'first_name', 'middle_name', 'last_name', 'suffix', 'birth_date', 'birth_document_path', 'community_name', 'group_name', 'batch_name', 'name', 'community', 'group', 'batch', 'progress', 'completedWeeks', 'trimester', 'assessment', 'trend', 'risk', 'source']);
   const allowed = [...new Set(selected.filter((field) => CHILD_ALLOWED_FIELDS.has(field)).concat([...requiredFields]))];
   return allowed;
 }
@@ -335,7 +335,7 @@ router.post('/:id/checkups', async (req, res) => {
 
     const [rows] = await pool.query(
       `SELECT c.*, m.first_name AS mother_first_name, m.last_name AS mother_last_name,
-        m.mother_code, comm.name AS community_name, g.group_name, b.name AS batch_name
+        m.mother_code, comm.name AS community_name, g.name AS group_name, b.name AS batch_name
        FROM children c
        LEFT JOIN mothers m ON c.mother_id = m.id
        LEFT JOIN communities comm ON comm.id = c.community_id

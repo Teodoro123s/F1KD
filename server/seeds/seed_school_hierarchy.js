@@ -35,6 +35,8 @@ const prenatalValues = [
   ['2026-08-20', 38, '126/84', 60.0, 150, 26.7, 'At Risk', 38, 138, 'Dr. Liza Reyes'],
 ];
 
+const childCompletedWeekCounts = [2, 8, 20, 48];
+
 async function getOrCreate(connection, query, values, createQuery, createValues) {
   const [rows] = await connection.query(query, values);
   if (rows.length) return rows[0].id;
@@ -223,7 +225,8 @@ async function seed() {
           `2026-0${batchIndex + 1}-15`, 3.1 + batchIndex * 0.2, 49 + batchIndex, batchIndex % 2 ? 'Female' : 'Male',
           'Healthy', SCHOOL_NAME, 'Exclusive Breastfeeding', SCHOOL_AREA]
       );
-      const weeks = [[1, 2, 4], [1, 3], [1, 2, 8, 12], [1, 4, 16, 24]][batchIndex];
+      const weeks = Array.from({ length: childCompletedWeekCounts[batchIndex] }, (_, weekIndex) => weekIndex + 1);
+      await connection.query('DELETE FROM child_checkups WHERE child_id = ?', [childId]);
       for (const week of weeks) {
         const values = [`2026-0${Math.min(9, batchIndex + 2)}-${String(Math.min(28, 5 + week)).padStart(2, '0')}`, week,
           3.2 + week * 0.22 + batchIndex * 0.1, 50 + week * 0.55, 35 + week * 0.12,
@@ -253,10 +256,11 @@ async function seed() {
         [childId, childId, childId]
       );
       await connection.query(
-        `UPDATE children SET delivery_type = ?, health_status = ?, birth_attendant = ?, apgar_score = ?,
+        `UPDATE children SET community_id = ?, group_id = ?, batch_id = ?, delivery_type = ?, health_status = ?, birth_attendant = ?, apgar_score = ?,
           feeding_type = ?, nutrition_notes = ?, father_name = ?, relationship = ?, address = ? WHERE id = ?`,
-        ['Vaginal Delivery', 'Healthy', 'Midwife Ana Cruz', '9/10', 'Exclusive Breastfeeding',
-          'Growth monitoring within expected range.', 'Juan Santos', 'Father', SCHOOL_AREA, childId]
+        [schoolId, groupIds[batches[batchIndex].group], batchIds[batchIndex], 'Vaginal Delivery', 'Healthy',
+          'Midwife Ana Cruz', '9/10', 'Exclusive Breastfeeding', 'Growth monitoring within expected range.',
+          'Juan Santos', 'Father', SCHOOL_AREA, childId]
       );
     }
 

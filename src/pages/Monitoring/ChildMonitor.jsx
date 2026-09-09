@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 const TOTAL_WEEKS = 48;
 
@@ -32,6 +32,19 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
 
   const update = (field) => (event) => setForm((current) => ({ ...current, [field]: event.target.value }));
   const childName = getChildName(child);
+
+  useEffect(() => {
+    const savedCheckup = (child?.checkups || []).find((checkup) => Number(checkup.week_number ?? checkup.weekNumber) === week);
+    setForm({
+      checkupDate: formatDate(savedCheckup?.visit_date ?? savedCheckup?.checkupDate ?? new Date()),
+      weight: savedCheckup?.weight ?? child?.weight ?? child?.birth_weight ?? child?.birthWeight ?? '',
+      height: savedCheckup?.height ?? child?.height ?? child?.birth_length ?? child?.birthLength ?? '',
+      headCircumference: savedCheckup?.head_circumference ?? savedCheckup?.headCircumference ?? '',
+      developmentalStatus: savedCheckup?.developmental_status ?? savedCheckup?.developmentalStatus ?? 'Normal',
+      serviceProvider: savedCheckup?.service_provider ?? savedCheckup?.serviceProvider ?? '',
+      remarks: savedCheckup?.notes ?? savedCheckup?.remarks ?? '',
+    });
+  }, [child, week]);
 
   const goToWeek = (nextWeek) => setWeek(Math.max(1, Math.min(TOTAL_WEEKS, nextWeek)));
 
