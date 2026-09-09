@@ -289,6 +289,29 @@ export default function ChildProfilePage() {
         <ChildField label="Expanded Newborn Screening Result" value={selectedChild.expandedNewbornScreeningResult || '—'} className="full-width" />
       </ChildSection>
 
+      <ChildSection title="I.B ADDITIONAL DETAILS">
+        <ChildField label="Delivery Type" value={selectedChild.deliveryType || '—'} />
+        <ChildField label="Health Status" value={selectedChild.healthStatus || '—'} />
+        <ChildField label="Birth Attendant" value={selectedChild.birthAttendant || '—'} />
+        <ChildField label="APGAR Score" value={selectedChild.apgarScore || '—'} />
+        <ChildField label="Feeding Type" value={selectedChild.feedingType || '—'} />
+        <ChildField label="Father / Parent Name" value={selectedChild.fatherName || '—'} />
+        <ChildField label="Relationship" value={selectedChild.relationship || '—'} />
+        <ChildField label="Address" value={selectedChild.address || '—'} className="full-width" />
+        <ChildField label="Nutrition Notes" value={selectedChild.nutritionNotes || '—'} className="full-width" />
+      </ChildSection>
+
+      <ChildSection title="I.C MEDICAL CONDITIONS">
+        <ChildField
+          label="Recorded Conditions"
+          value={Object.entries(selectedChild.medicalConditions || {})
+            .filter(([, enabled]) => Boolean(enabled))
+            .map(([condition]) => condition.replace(/([A-Z])/g, ' $1').replace(/^./, (character) => character.toUpperCase()))
+            .join(', ') || 'None'}
+          className="full-width"
+        />
+      </ChildSection>
+
       <ChildSection title="I.A VACCINE RECORD">
         <div className="detail-form-field full-width">
           <div className="mother-detail-table-wrap">

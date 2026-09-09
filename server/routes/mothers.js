@@ -147,8 +147,21 @@ async function attachClinicalData(mother) {
     medicalConditions: Object.keys(medicalConditions).length ? medicalConditions : mother.medicalConditions,
     dentalCheckupDate: dental.visit_date || '',
     dentalFacility: dental.treatment || '',
-    dentalFindings: dental.treatment || '',
-    dentalRemarks: dental.remarks || '',
+    dentistInCharge: dental.dentist_in_charge || '',
+    communityDentist: dental.community_dentist || '',
+    dentistLicense: dental.dentist_license || '',
+    dentistContact: dental.dentist_contact || '',
+    teethCount: dental.teeth_count || '',
+    dentalFindings: dental.dental_findings || dental.treatment || '',
+    dentalWork: {
+      tartarRemoval: Boolean(dental.tartar_removal),
+      filling: Boolean(dental.filling),
+      cleaning: Boolean(dental.cleaning),
+      extraction: Boolean(dental.extraction),
+      rootCanal: Boolean(dental.root_canal),
+      other: Boolean(dental.other_procedure),
+    },
+    dentalRemarks: dental.dental_remarks || dental.remarks || '',
     tt1Date: vaccines.TT1?.vaccine_date || '',
     tt1Remarks: vaccines.TT1?.remarks || '',
     tt2Date: vaccines.TT2?.vaccine_date || '',
@@ -298,10 +311,16 @@ router.post('/', async (req, res) => {
     const suffix = firstNonEmpty(b.suffix, '');
     const motherCode = firstNonEmpty(b.motherCode, b.mother_code, `MTH-${Date.now()}`);
     const motherExternalId = firstNonEmpty(b.motherId, b.mother_id, b.motherExternalId, b.mother_external_id, motherCode);
+    let communityId = b.communityId ?? b.community_id ?? null;
+    if (!communityId && b.community) {
+      const [communityRows] = await pool.query('SELECT id FROM communities WHERE name = ? LIMIT 1', [b.community]);
+      communityId = communityRows[0]?.id || null;
+    }
 
     if (!firstName || !lastName) {
       return res.status(400).json({ error: 'firstName and lastName are required' });
     }
+    if (!communityId) return res.status(400).json({ error: 'community is required' });
 
     const [result] = await pool.query(
       `INSERT INTO mothers (
@@ -313,9 +332,8 @@ router.post('/', async (req, res) => {
         suffix,
         dob,
         contact_number,
-        community,
-        area,
-        mother_external_id,
+        community_id,
+        mother_id_no,
         address,
         group_id,
         batch_id,
@@ -353,8 +371,7 @@ router.post('/', async (req, res) => {
         suffix || null,
         firstNonEmpty(b.dob, b.birthDate, null),
         firstNonEmpty(b.contactNumber, b.contact_number, null),
-        firstNonEmpty(b.community, b.community_name, ''),
-        firstNonEmpty(b.area, ''),
+        communityId,
         motherExternalId,
         firstNonEmpty(b.address, ''),
         b.groupId ?? b.group_id ?? null,
@@ -418,10 +435,30 @@ router.post('/', async (req, res) => {
         );
       }
     }
-    if (b.dentalCheckupDate || b.dentalFacility || b.dentalFindings || b.dentalRemarks) {
+    if (b.dentalCheckupDate || b.dentalFacility || b.dentalFindings || b.dentalRemarks || Object.values(b.dentalWork || {}).some(Boolean)) {
       await pool.query(
-        'INSERT INTO mother_dental_records (mother_id, visit_date, treatment, remarks) VALUES (?, ?, ?, ?)',
-        [result.insertId, b.dentalCheckupDate || null, b.dentalFacility || b.dentalFindings || null, b.dentalRemarks || null]
+        `INSERT INTO mother_dental_records (
+          mother_id, dental_facility, dentist_in_charge, community_dentist, dentist_license,
+          dentist_contact, teeth_count, dental_findings, dental_remarks, tartar_removal,
+          filling, cleaning, extraction, root_canal, other_procedure
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          result.insertId,
+          b.dentalFacility || null,
+          b.dentistInCharge || null,
+          b.communityDentist || null,
+          b.dentistLicense || null,
+          b.dentistContact || null,
+          b.teethCount || null,
+          b.dentalFindings || null,
+          b.dentalRemarks || null,
+          Boolean(b.dentalWork?.tartarRemoval),
+          Boolean(b.dentalWork?.filling),
+          Boolean(b.dentalWork?.cleaning),
+          Boolean(b.dentalWork?.extraction),
+          Boolean(b.dentalWork?.rootCanal),
+          Boolean(b.dentalWork?.other),
+        ]
       );
     }
     res.status(201).json({ mother: await attachClinicalData(mapMother(mother)) });

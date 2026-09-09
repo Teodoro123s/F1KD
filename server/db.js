@@ -164,6 +164,15 @@ async function ensure() {
       FOREIGN KEY (mother_id) REFERENCES mothers(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
 
+    `ALTER TABLE mother_ob_history
+      ADD COLUMN IF NOT EXISTS event_label VARCHAR(120),
+      ADD COLUMN IF NOT EXISTS seq INT,
+      ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;`,
+
+    `ALTER TABLE mother_dental_records
+      ADD COLUMN IF NOT EXISTS visit_date DATE,
+      ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;`,
+
     `CREATE TABLE IF NOT EXISTS children (
       id INT AUTO_INCREMENT PRIMARY KEY,
       child_code VARCHAR(30) NOT NULL UNIQUE,
@@ -218,7 +227,11 @@ async function ensure() {
       ADD COLUMN IF NOT EXISTS birth_certificate_document_name VARCHAR(255),
       ADD COLUMN IF NOT EXISTS birth_certificate_document_path VARCHAR(500),
       ADD COLUMN IF NOT EXISTS consent_document_name VARCHAR(255),
-      ADD COLUMN IF NOT EXISTS consent_document_path VARCHAR(500);`,
+      ADD COLUMN IF NOT EXISTS consent_document_path VARCHAR(500),
+      ADD COLUMN IF NOT EXISTS weight DECIMAL(5,2),
+      ADD COLUMN IF NOT EXISTS height DECIMAL(5,2),
+      ADD COLUMN IF NOT EXISTS medical_conditions JSON,
+      ADD COLUMN IF NOT EXISTS other_medical_history TEXT;`,
 
     `CREATE TABLE IF NOT EXISTS child_medical_conditions (
       id INT AUTO_INCREMENT PRIMARY KEY,

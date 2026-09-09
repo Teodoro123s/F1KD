@@ -13,14 +13,14 @@ const batches = [
 ];
 
 const mothers = [
-  { code: 'MTH-DEMO-A1-01', first: 'Leah', last: 'Santos', batch: 0, checkups: 3 },
-  { code: 'MTH-DEMO-A1-02', first: 'Rina', last: 'Garcia', batch: 0, checkups: 1 },
-  { code: 'MTH-DEMO-A2-01', first: 'Maya', last: 'Cruz', batch: 1, checkups: 2 },
-  { code: 'MTH-DEMO-A2-02', first: 'Ana', last: 'Reyes', batch: 1, checkups: 4 },
-  { code: 'MTH-DEMO-B1-01', first: 'Nina', last: 'Lopez', batch: 2, checkups: 5 },
-  { code: 'MTH-DEMO-B1-02', first: 'Joy', last: 'Ramos', batch: 2, checkups: 2 },
-  { code: 'MTH-DEMO-B2-01', first: 'Ella', last: 'Navarro', batch: 3, checkups: 1 },
-  { code: 'MTH-DEMO-B2-02', first: 'Lara', last: 'Mendoza', batch: 3, checkups: 3 },
+  { code: 'MTH-DEMO-A1-01', first: 'Leah', middle: 'Marie', last: 'Santos', maiden: 'Dela Cruz', suffix: 'Jr.', batch: 0, checkups: 3 },
+  { code: 'MTH-DEMO-A1-02', first: 'Rina', middle: 'Grace', last: 'Garcia', maiden: 'Flores', batch: 0, checkups: 1 },
+  { code: 'MTH-DEMO-A2-01', first: 'Maya', middle: 'Anne', last: 'Cruz', maiden: 'Villanueva', batch: 1, checkups: 2 },
+  { code: 'MTH-DEMO-A2-02', first: 'Ana', middle: 'Beatriz', last: 'Reyes', maiden: 'Torres', batch: 1, checkups: 4 },
+  { code: 'MTH-DEMO-B1-01', first: 'Nina', middle: 'Joy', last: 'Lopez', maiden: 'Aquino', batch: 2, checkups: 5 },
+  { code: 'MTH-DEMO-B1-02', first: 'Joy', middle: 'Mae', last: 'Ramos', maiden: 'Mendoza', batch: 2, checkups: 2 },
+  { code: 'MTH-DEMO-B2-01', first: 'Ella', middle: 'Rose', last: 'Navarro', maiden: 'Bautista', batch: 3, checkups: 1 },
+  { code: 'MTH-DEMO-B2-02', first: 'Lara', middle: 'Faith', last: 'Mendoza', maiden: 'Castillo', batch: 3, checkups: 3 },
 ];
 
 const prenatalValues = [
@@ -42,6 +42,41 @@ async function getOrCreate(connection, query, values, createQuery, createValues)
   return result.insertId;
 }
 
+async function ensureDemoClinicalSchema(connection) {
+  await connection.query(`ALTER TABLE mothers
+    ADD COLUMN IF NOT EXISTS maiden_surname VARCHAR(100),
+    ADD COLUMN IF NOT EXISTS suffix VARCHAR(20),
+    ADD COLUMN IF NOT EXISTS mother_id_no VARCHAR(50),
+    ADD COLUMN IF NOT EXISTS fundal_height VARCHAR(20),
+    ADD COLUMN IF NOT EXISTS fhr VARCHAR(20),
+    ADD COLUMN IF NOT EXISTS abortion INT DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS stillbirth INT DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS weight DECIMAL(5,2),
+    ADD COLUMN IF NOT EXISTS height DECIMAL(5,2),
+    ADD COLUMN IF NOT EXISTS medical_conditions JSON,
+    ADD COLUMN IF NOT EXISTS other_medical_history TEXT`);
+  await connection.query(`ALTER TABLE mother_ob_history
+    ADD COLUMN IF NOT EXISTS event_label VARCHAR(120),
+    ADD COLUMN IF NOT EXISTS event_code VARCHAR(20),
+    ADD COLUMN IF NOT EXISTS seq INT`);
+  await connection.query(`ALTER TABLE mother_dental_records
+    ADD COLUMN IF NOT EXISTS visit_date DATE,
+    ADD COLUMN IF NOT EXISTS dental_facility VARCHAR(150),
+    ADD COLUMN IF NOT EXISTS dentist_in_charge VARCHAR(150),
+    ADD COLUMN IF NOT EXISTS community_dentist VARCHAR(150),
+    ADD COLUMN IF NOT EXISTS dentist_license VARCHAR(80),
+    ADD COLUMN IF NOT EXISTS dentist_contact VARCHAR(20),
+    ADD COLUMN IF NOT EXISTS teeth_count INT,
+    ADD COLUMN IF NOT EXISTS dental_findings TEXT,
+    ADD COLUMN IF NOT EXISTS dental_remarks TEXT,
+    ADD COLUMN IF NOT EXISTS tartar_removal BOOLEAN DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS filling BOOLEAN DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS cleaning BOOLEAN DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS extraction BOOLEAN DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS root_canal BOOLEAN DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS other_procedure BOOLEAN DEFAULT FALSE`);
+}
+
 async function seed() {
   const pool = mysql.createPool({
     host: process.env.DB_HOST || '127.0.0.1',
@@ -56,22 +91,23 @@ async function seed() {
 
   try {
     await connection.beginTransaction();
+    await ensureDemoClinicalSchema(connection);
     const schoolId = await getOrCreate(
       connection,
       'SELECT id FROM communities WHERE name = ? LIMIT 1',
       [SCHOOL_NAME],
-      'INSERT INTO communities (name, municipality, province, address) VALUES (?, ?, ?, ?)',
-      [SCHOOL_NAME, SCHOOL_AREA, 'Demo Province', 'Monitor demonstration school']
+      'INSERT INTO communities (community_code, name, area) VALUES (?, ?, ?)',
+      [SCHOOL_CODE, SCHOOL_NAME, SCHOOL_AREA]
     );
 
     const groupIds = [];
     for (let index = 0; index < 2; index += 1) {
       groupIds.push(await getOrCreate(
         connection,
-        'SELECT id FROM groups WHERE group_name = ? LIMIT 1',
-        [`Monitor Demo Group ${index + 1}`],
-        'INSERT INTO groups (group_name, description, community, leader, members_count, status) VALUES (?, ?, ?, ?, ?, ?)',
-        [`Monitor Demo Group ${index + 1}`, `Monitoring group ${index + 1}`, SCHOOL_NAME, index === 0 ? 'Maria Santos' : 'Joel Lim', 4, 'Active']
+        'SELECT id FROM groups WHERE group_code = ? LIMIT 1',
+        [`GRP-MONITOR-${index + 1}`],
+        'INSERT INTO groups (group_code, community_id, name, leader, members_count, status) VALUES (?, ?, ?, ?, ?, ?)',
+        [`GRP-MONITOR-${index + 1}`, schoolId, `Monitor Demo Group ${index + 1}`, index === 0 ? 'Maria Santos' : 'Joel Lim', 4, 'Active']
       ));
     }
 
@@ -81,8 +117,8 @@ async function seed() {
         connection,
         'SELECT id FROM batches WHERE batch_code = ? LIMIT 1',
         [batch.code],
-        'INSERT INTO batches (batch_code, name, description, community, records, progress, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [batch.code, batch.name, `Two-mother sample batch for ${SCHOOL_NAME}`, SCHOOL_NAME, batch.records, 0, 'Active']
+        'INSERT INTO batches (batch_code, community_id, name, records, progress, status) VALUES (?, ?, ?, ?, ?, ?)',
+        [batch.code, schoolId, batch.name, batch.records, 0, 'Active']
       ));
     }
 
@@ -95,15 +131,59 @@ async function seed() {
         'SELECT id FROM mothers WHERE mother_code = ? LIMIT 1',
         [mother.code],
         `INSERT INTO mothers (
-          mother_code, group_id, batch_id, first_name, last_name, community, area,
+          mother_code, community_id, group_id, batch_id, first_name, middle_name, last_name, maiden_surname, suffix,
           dob, lmp_date, edd_date, contact_number, trimester, gestational_age,
-          prenatal_weight, prenatal_bp, prenatal_height, gravida, para, prenatal_reg_date
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
-        [mother.code, groupId, batchId, mother.first, mother.last, SCHOOL_NAME, SCHOOL_AREA,
+          prenatal_weight, prenatal_bp, prenatal_height, fundal_height, fhr, gravida, para, abortion, stillbirth, prenatal_reg_date,
+          is_high_risk, program_type, emergency_name, emergency_contact, emergency_relationship, spouse_name, address, other_medical_history
+          ) VALUES (${Array(33).fill('?').join(', ')})` ,
+        [mother.code, schoolId, groupId, batchId, mother.first, mother.middle, mother.last, mother.maiden, mother.suffix || null,
           '1995-04-12', '2025-12-01', '2026-09-07', '09171234567', '1st Trimester', 12,
-          55.0, '118/76', 150, 1, 0, '2026-01-08']
+          55.0, '118/76', 150, 18, 148, 2, 1, 0, 0, '2026-01-08',
+          mother.code.endsWith('02') ? 1 : 0, 'Maternal Health Program', 'Juan Santos', '09181234567', 'Spouse', 'Juan Santos', `${SCHOOL_AREA}, Demo Province`, 'No known allergies']
       );
       motherIds.push(motherId);
+      await connection.query(
+        `UPDATE mothers SET
+          middle_name = ?, maiden_surname = ?, suffix = ?, dob = ?, lmp_date = ?, edd_date = ?,
+          contact_number = ?, trimester = ?, gestational_age = ?, prenatal_weight = ?, prenatal_bp = ?,
+          prenatal_height = ?, fundal_height = ?, fhr = ?, weight = ?, height = ?, gravida = ?, para = ?, abortion = ?, stillbirth = ?,
+          prenatal_reg_date = ?, is_high_risk = ?, program_type = ?, emergency_name = ?, emergency_contact = ?,
+          emergency_relationship = ?, spouse_name = ?, address = ?, other_medical_history = ?
+         WHERE id = ?`,
+        [mother.middle, mother.maiden, mother.suffix || null, '1995-04-12', '2025-12-01', '2026-09-07',
+          '09171234567', '1st Trimester', 12, 55.0, '118/76', 150, 18, 148, 56.4, 150, 2, 1, 0, 0, '2026-01-08',
+          mother.code.endsWith('02') ? 1 : 0, 'Maternal Health Program', 'Juan Santos', '09181234567', 'Spouse',
+          'Juan Santos', `${SCHOOL_AREA}, Demo Province`, 'No known allergies', motherId]
+      );
+
+      await connection.query('DELETE FROM mother_ob_history WHERE mother_id = ?', [motherId]);
+      await connection.query(
+        'INSERT INTO mother_ob_history (mother_id, event_label, event_code, gestational_age, outcome, seq) VALUES (?, ?, ?, ?, ?, ?)',
+        [motherId, 'G1', 'G1', '39 weeks', mother.checkups > 2 ? 'Live birth' : 'Current pregnancy', 1]
+      );
+      await connection.query('DELETE FROM mother_medical_conditions WHERE mother_id = ?', [motherId]);
+      await connection.query(
+        'INSERT INTO mother_medical_conditions (mother_id, condition_name, has_condition) VALUES (?, ?, ?)',
+        [motherId, mother.code.endsWith('02') ? 'hypertension' : 'diabetes', mother.code.endsWith('02')]
+      );
+      await connection.query('DELETE FROM mother_dental_records WHERE mother_id = ?', [motherId]);
+      await connection.query(
+        `INSERT INTO mother_dental_records (
+          mother_id, visit_date, dental_facility, dentist_in_charge, community_dentist,
+          dentist_license, dentist_contact, teeth_count, dental_findings, dental_remarks,
+          tartar_removal, filling, cleaning, extraction, root_canal, other_procedure
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [motherId, '2026-02-18', 'Demo RHU Dental Clinic', 'Dr. Carla Lim', 'Nurse Maria Santos',
+          'DENT-2026-001', '09190001111', 28, 'Mild gingivitis; one cavity assessed.', 'Return after six months.',
+          1, 1, 1, 0, 0, 0]
+      );
+      await connection.query('DELETE FROM mother_vaccinations WHERE mother_id = ?', [motherId]);
+      await connection.query(
+        `INSERT INTO mother_vaccinations (mother_id, vaccine_name, vaccine_date, remarks) VALUES
+          (?, 'TT1', '2026-01-15', 'First dose administered.'),
+          (?, 'TT2', '2026-02-15', 'Second dose administered.')`,
+        [motherId, motherId]
+      );
     }
 
     for (let index = 0; index < mothers.length; index += 1) {
@@ -159,6 +239,25 @@ async function seed() {
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, [childId, ...values]);
         }
       }
+      await connection.query('DELETE FROM child_medical_conditions WHERE child_id = ?', [childId]);
+      await connection.query(
+        'INSERT INTO child_medical_conditions (child_id, condition_name, has_condition) VALUES (?, ?, ?)',
+        [childId, 'jaundice', batchIndex === 1]
+      );
+      await connection.query('DELETE FROM child_vaccinations WHERE child_id = ?', [childId]);
+      await connection.query(
+        `INSERT INTO child_vaccinations (child_id, vaccine_name, vaccine_date, remarks) VALUES
+          (?, 'BCG', '2026-01-20', 'Administered at birth facility.'),
+          (?, 'HepB', '2026-01-20', 'Birth dose recorded.'),
+          (?, 'OPV', '2026-02-20', 'No adverse reaction.')`,
+        [childId, childId, childId]
+      );
+      await connection.query(
+        `UPDATE children SET delivery_type = ?, health_status = ?, birth_attendant = ?, apgar_score = ?,
+          feeding_type = ?, nutrition_notes = ?, father_name = ?, relationship = ?, address = ? WHERE id = ?`,
+        ['Vaginal Delivery', 'Healthy', 'Midwife Ana Cruz', '9/10', 'Exclusive Breastfeeding',
+          'Growth monitoring within expected range.', 'Juan Santos', 'Father', SCHOOL_AREA, childId]
+      );
     }
 
     await connection.commit();

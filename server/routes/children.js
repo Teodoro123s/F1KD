@@ -234,7 +234,31 @@ router.post('/', async (req, res) => {
     );
 
     const [rows] = await pool.query('SELECT * FROM children WHERE id = ?', [result.insertId]);
-    res.status(201).json({ child: rows[0] });
+    for (const [conditionName, hasCondition] of Object.entries(b.medicalConditions || {})) {
+      if (hasCondition) {
+        await pool.query(
+          'INSERT INTO child_medical_conditions (child_id, condition_name, has_condition) VALUES (?, ?, ?)',
+          [result.insertId, conditionName, true]
+        );
+      }
+    }
+    const vaccines = [
+      ['BCG', b.bcgDate, b.bcgRemarks],
+      ['HepB', b.hepbDate, b.hepbRemarks],
+      ['OPV', b.opvDate, b.opvRemarks],
+      ['DPT', b.dptDate, b.dptRemarks],
+      ['MMR', b.mmrDate, b.mmrRemarks],
+    ];
+    for (const [name, date, remarks] of vaccines) {
+      if (date || remarks) {
+        await pool.query(
+          'INSERT INTO child_vaccinations (child_id, vaccine_name, vaccine_date, remarks) VALUES (?, ?, ?, ?)',
+          [result.insertId, name, date || null, remarks || null]
+        );
+      }
+    }
+    const child = await attachClinicalData(rows[0]);
+    res.status(201).json({ child: await attachMonitoringData(child) });
   } catch (err) {
     console.error('Failed to create child', err);
     res.status(500).json({ error: 'db error' });

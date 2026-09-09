@@ -105,6 +105,10 @@ CREATE TABLE IF NOT EXISTS mothers (
   para INT,
   abortion INT DEFAULT 0,
   stillbirth INT DEFAULT 0,
+  weight DECIMAL(5,2),
+  height DECIMAL(5,2),
+  medical_conditions JSON,
+  other_medical_history TEXT,
   status VARCHAR(20) DEFAULT 'Active',
   visits INT DEFAULT 0,
   progress INT DEFAULT 0,
@@ -121,15 +125,19 @@ CREATE TABLE IF NOT EXISTS mothers (
 CREATE TABLE IF NOT EXISTS mother_ob_history (
   id INT AUTO_INCREMENT PRIMARY KEY,
   mother_id INT NOT NULL,
+  event_label VARCHAR(120),
   event_code VARCHAR(20) NOT NULL,
   gestational_age VARCHAR(50),
   outcome TEXT,
+  seq INT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (mother_id) REFERENCES mothers(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS mother_medical_conditions (
   id INT AUTO_INCREMENT PRIMARY KEY,
   mother_id INT NOT NULL,
+  visit_date DATE,
   condition_name VARCHAR(80) NOT NULL,
   has_condition BOOLEAN NOT NULL DEFAULT FALSE,
   FOREIGN KEY (mother_id) REFERENCES mothers(id) ON DELETE CASCADE
