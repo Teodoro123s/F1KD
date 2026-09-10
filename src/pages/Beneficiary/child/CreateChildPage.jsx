@@ -14,7 +14,7 @@ const loadChildDraft = (fallback) => {
   }
 };
 
-const emptyGroupForm = (communities = []) => ({
+const emptyGroupForm = () => ({
   firstName: '',
   middleName: '',
   lastName: '',
@@ -31,7 +31,6 @@ const emptyGroupForm = (communities = []) => ({
   expandedNewbornScreeningResult: '',
   deliveryType: 'Vaginal',
   healthStatus: 'Healthy',
-  community: communities[0]?.name || '',
   assignedBatchIds: [],
   leader: '',
   members: 1,
@@ -76,8 +75,7 @@ export default function CreateChildPage({
   const location = useLocation();
   const motherFromState = location.state?.mother || null;
   const { mothers, setMothers } = useMothers();
-  const effectiveCommunities = communities && communities.length ? communities : mothers;
-  const [groupForm, setGroupForm] = useState(() => loadChildDraft(emptyGroupForm(effectiveCommunities)));
+  const [groupForm, setGroupForm] = useState(() => loadChildDraft(emptyGroupForm()));
   const [selectedMotherId, setSelectedMotherId] = useState(() => {
     try { return motherFromState?.id || motherFromState?.motherId || JSON.parse(localStorage.getItem(CHILD_DRAFT_KEY) || 'null')?.selectedMotherId || ''; } catch (error) { return motherFromState?.id || motherFromState?.motherId || ''; }
   });
@@ -87,9 +85,20 @@ export default function CreateChildPage({
   const CREATE_STEPS = ['general', 'prenatal', 'medical_dental', 'vaccine'];
   const createActiveIndex = CREATE_STEPS.indexOf(createActiveTab) >= 0 ? CREATE_STEPS.indexOf(createActiveTab) : 0;
 
+  const selectedMother = motherFromState || availableMothers.find((mother) => (
+    String(mother.id || mother.motherId || '') === String(selectedMotherId)
+  ));
+
   useEffect(() => {
-    setGroupForm((prev) => ({ ...prev, community: prev.community || communities[0]?.name || '' }));
-  }, [communities]);
+    if (!selectedMother) return;
+
+    setGroupForm((prev) => ({
+      ...prev,
+      community: selectedMother.community || selectedMother.raw?.community_name || selectedMother.raw?.community || prev.community || '',
+      batch: selectedMother.batch || selectedMother.raw?.batch_name || selectedMother.raw?.batch || prev.batch || '',
+      motherId: selectedMother.id || selectedMother.motherId || prev.motherId || null,
+    }));
+  }, [selectedMother]);
 
   useEffect(() => {
     try {
@@ -111,10 +120,6 @@ export default function CreateChildPage({
       }));
     }
   }, [motherFromState]);
-
-  const selectedMother = motherFromState || availableMothers.find((mother) => (
-    String(mother.id || mother.motherId || '') === String(selectedMotherId)
-  ));
 
   const handleCreateGroup = async (e) => {
     e.preventDefault();
@@ -145,8 +150,8 @@ export default function CreateChildPage({
       expandedNewbornScreeningResult: groupForm.expandedNewbornScreeningResult || null,
       deliveryType: groupForm.deliveryType || null,
       healthStatus: groupForm.healthStatus || null,
-      community: groupForm.community || null,
-      batch: groupForm.batch || null,
+      community: selectedMother?.community || selectedMother?.raw?.community_name || selectedMother?.raw?.community || null,
+      batch: selectedMother?.batch || selectedMother?.raw?.batch_name || selectedMother?.raw?.batch || null,
       birthPlace: groupForm.birthPlace || null,
       birthAttendant: groupForm.birthAttendant || null,
       apgarScore: groupForm.apgarScore || null,

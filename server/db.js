@@ -253,17 +253,23 @@ async function ensure() {
     `CREATE TABLE IF NOT EXISTS child_checkups (
       id INT AUTO_INCREMENT PRIMARY KEY,
       child_id INT NOT NULL,
+      week_number TINYINT UNSIGNED NULL,
       next_checkup_date DATE,
       visit_date DATE,
       weight DECIMAL(5,2),
       height DECIMAL(5,2),
       head_circumference DECIMAL(5,2),
+      developmental_status VARCHAR(40),
+      service_provider VARCHAR(150),
       notes TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (child_id) REFERENCES children(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
 
     `ALTER TABLE child_checkups
+      ADD COLUMN IF NOT EXISTS week_number TINYINT UNSIGNED NULL,
+      ADD COLUMN IF NOT EXISTS developmental_status VARCHAR(40),
+      ADD COLUMN IF NOT EXISTS service_provider VARCHAR(150),
       ADD COLUMN IF NOT EXISTS next_checkup_date DATE;`,
 
     `CREATE TABLE IF NOT EXISTS programs (

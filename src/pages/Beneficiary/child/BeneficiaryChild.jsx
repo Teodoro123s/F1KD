@@ -179,25 +179,11 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
             name: 'healthStatus',
             options: [{ value: 'Healthy', label: 'Healthy' }, { value: 'Needs Follow-up', label: 'Needs Follow-up' }, { value: 'Critical', label: 'Critical' }],
           })}
-          {renderSelect({
-            id: 'child-community',
-            label: 'Community',
-            name: 'community',
-            options: uniqueCommunities.map((name) => ({ value: name, label: name })),
-            placeholder: 'Select community',
-          })}
-          {renderSelect({
-            id: 'child-batch',
-            label: 'Batch',
-            name: 'batch',
-            options: uniqueBatches.map((name) => ({ value: name, label: name })),
-            placeholder: 'Select batch',
-          })}
+          {renderField({ id: 'child-father-name', label: 'Father Name', name: 'fatherName', placeholder: 'Father / Parent name' })}
+          {renderField({ id: 'child-relationship', label: 'Relationship', name: 'relationship', placeholder: 'Relationship to mother' })}
         </div>
 
         <div className="form-row-4 full-width">
-          {renderField({ id: 'child-father-name', label: 'Father Name', name: 'fatherName', placeholder: 'Father / Parent name' })}
-          {renderField({ id: 'child-relationship', label: 'Relationship', name: 'relationship', placeholder: 'Relationship to mother' })}
           {renderField({ id: 'child-address', label: 'Address', name: 'address', placeholder: 'Current address' })}
           {renderSelect({
             id: 'child-status',
@@ -205,17 +191,22 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
             name: 'status',
             options: [{ value: 'Active', label: 'Active' }, { value: 'Pending', label: 'Pending' }, { value: 'Completed', label: 'Completed' }],
           })}
-        </div>
-
-        <div className="form-row-3 full-width">
           {renderField({ id: 'child-birth-attendant', label: 'Birth Attendant', name: 'birthAttendant', placeholder: 'Midwife / Doctor' })}
           {renderField({ id: 'child-apgar', label: 'Apgar Score', name: 'apgarScore', placeholder: 'e.g. 8/10' })}
+        </div>
+
+        <div className="form-row-2 full-width">
           {renderField({ id: 'child-feeding', label: 'Feeding Type', name: 'feedingType', placeholder: 'Exclusive Breastfeeding' })}
+          {renderSelect({
+            id: 'child-expanded-newborn-screening',
+            label: 'Expanded Newborn Screening',
+            name: 'expandedNewbornScreening',
+            options: ['Normal', 'Needs Follow-up', 'Unknown'],
+            placeholder: 'Select option',
+          })}
         </div>
 
         {renderTextarea({ id: 'child-nutrition-notes', label: 'Nutrition Notes', name: 'nutritionNotes', rows: 3, placeholder: 'Nutrition or feeding notes...' })}
-        {renderTextarea({ id: 'child-newborn-screening', label: 'Expanded Newborn Screening', name: 'expandedNewbornScreening', rows: 3, placeholder: 'Screening details...' })}
-        {renderTextarea({ id: 'child-newborn-screening-result', label: 'Expanded Newborn Screening Result', name: 'expandedNewbornScreeningResult', rows: 3, placeholder: 'Screening result...' })}
       </>
     );
   }
