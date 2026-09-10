@@ -264,21 +264,25 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
     return (
       <>
         <h4 className="form-section-title">Vaccination Record</h4>
-        <div className="form-row-4 full-width">
-          {renderField({ id: 'child-bcg-date', label: 'BCG Date', name: 'bcgDate', type: 'date', nativeDate: true })}
-          {renderField({ id: 'child-bcg-remarks', label: 'BCG Remarks', name: 'bcgRemarks', placeholder: 'Remarks' })}
-          {renderField({ id: 'child-hepb-date', label: 'HepB Date', name: 'hepbDate', type: 'date', nativeDate: true })}
-          {renderField({ id: 'child-hepb-remarks', label: 'HepB Remarks', name: 'hepbRemarks', placeholder: 'Remarks' })}
-        </div>
-        <div className="form-row-4 full-width">
-          {renderField({ id: 'child-opv-date', label: 'OPV Date', name: 'opvDate', type: 'date', nativeDate: true })}
-          {renderField({ id: 'child-opv-remarks', label: 'OPV Remarks', name: 'opvRemarks', placeholder: 'Remarks' })}
-          {renderField({ id: 'child-dpt-date', label: 'DPT Date', name: 'dptDate', type: 'date', nativeDate: true })}
-          {renderField({ id: 'child-dpt-remarks', label: 'DPT Remarks', name: 'dptRemarks', placeholder: 'Remarks' })}
-        </div>
-        <div className="form-row-2 full-width">
-          {renderField({ id: 'child-mmr-date', label: 'MMR Date', name: 'mmrDate', type: 'date', nativeDate: true })}
-          {renderField({ id: 'child-mmr-remarks', label: 'MMR Remarks', name: 'mmrRemarks', placeholder: 'Remarks' })}
+        <div className="form-group full-width">
+          <div className="form-panel">
+            <div className="form-row-4 full-width">
+              {renderField({ id: 'child-bcg-date', label: 'BCG Date', name: 'bcgDate', type: 'date', nativeDate: true })}
+              {renderField({ id: 'child-bcg-remarks', label: 'BCG Remarks', name: 'bcgRemarks', placeholder: 'Remarks' })}
+              {renderField({ id: 'child-hepb-date', label: 'HepB Date', name: 'hepbDate', type: 'date', nativeDate: true })}
+              {renderField({ id: 'child-hepb-remarks', label: 'HepB Remarks', name: 'hepbRemarks', placeholder: 'Remarks' })}
+            </div>
+            <div className="form-row-4 full-width">
+              {renderField({ id: 'child-opv-date', label: 'OPV Date', name: 'opvDate', type: 'date', nativeDate: true })}
+              {renderField({ id: 'child-opv-remarks', label: 'OPV Remarks', name: 'opvRemarks', placeholder: 'Remarks' })}
+              {renderField({ id: 'child-dpt-date', label: 'DPT Date', name: 'dptDate', type: 'date', nativeDate: true })}
+              {renderField({ id: 'child-dpt-remarks', label: 'DPT Remarks', name: 'dptRemarks', placeholder: 'Remarks' })}
+            </div>
+            <div className="form-row-2 full-width">
+              {renderField({ id: 'child-mmr-date', label: 'MMR Date', name: 'mmrDate', type: 'date', nativeDate: true })}
+              {renderField({ id: 'child-mmr-remarks', label: 'MMR Remarks', name: 'mmrRemarks', placeholder: 'Remarks' })}
+            </div>
+          </div>
         </div>
       </>
     );

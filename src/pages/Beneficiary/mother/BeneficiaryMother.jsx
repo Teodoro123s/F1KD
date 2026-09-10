@@ -487,52 +487,54 @@ export function MotherFormFields({
       <>
         <h4 className="form-section-title">IV.C VACCINE RECORD</h4>
         <div className="form-group full-width">
-          <div className="vaccine-form-table-wrapper">
-            <table className="vaccine-form-table">
-              <thead>
-                <tr>
-                  <th style={{ width: '25%' }}>Vaccine</th>
-                  <th style={{ width: '35%' }}>Date Given</th>
-                  <th style={{ width: '40%' }}>Remarks</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[1, 2, 3, 4, 5].map((num) => (
-                  <tr key={num}>
-                    <td><strong>Tetanus Toxoid {num} (TT{num})</strong></td>
-                    <td>
-                      {readOnly ? (
-                        <div className="form-readonly-value">{form[`tt${num}Date`] || '-'}</div>
-                      ) : (
-                        <input
-                          type="date"
-                          className="form-input table-input"
-                          value={formatDateForInput(form[`tt${num}Date`] || '')}
-                          onChange={(e) => setForm((prev) => ({
-                            ...prev,
-                            [`tt${num}Date`]: e.target.value,
-                          }))}
-                          autoComplete="off"
-                        />
-                      )}
-                    </td>
-                    <td>
-                      {readOnly ? (
-                        <div className="form-readonly-value">{form[`tt${num}Remarks`] || '-'}</div>
-                      ) : (
-                        <input
-                          type="text"
-                          className="form-input table-input"
-                          placeholder="Remarks..."
-                          value={form[`tt${num}Remarks`] || ''}
-                          onChange={(e) => setForm((prev) => ({ ...prev, [`tt${num}Remarks`]: e.target.value }))}
-                        />
-                      )}
-                    </td>
+          <div className="form-panel vaccine-form-panel">
+            <div className="vaccine-form-table-wrapper">
+              <table className="vaccine-form-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: '25%' }}>Vaccine</th>
+                    <th style={{ width: '35%' }}>Date Given</th>
+                    <th style={{ width: '40%' }}>Remarks</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {[1, 2, 3, 4, 5].map((num) => (
+                    <tr key={num}>
+                      <td><strong>Tetanus Toxoid {num} (TT{num})</strong></td>
+                      <td>
+                        {readOnly ? (
+                          <div className="form-readonly-value">{form[`tt${num}Date`] || '-'}</div>
+                        ) : (
+                          <input
+                            type="date"
+                            className="form-input table-input"
+                            value={formatDateForInput(form[`tt${num}Date`] || '')}
+                            onChange={(e) => setForm((prev) => ({
+                              ...prev,
+                              [`tt${num}Date`]: e.target.value,
+                            }))}
+                            autoComplete="off"
+                          />
+                        )}
+                      </td>
+                      <td>
+                        {readOnly ? (
+                          <div className="form-readonly-value">{form[`tt${num}Remarks`] || '-'}</div>
+                        ) : (
+                          <input
+                            type="text"
+                            className="form-input table-input"
+                            placeholder="Remarks..."
+                            value={form[`tt${num}Remarks`] || ''}
+                            onChange={(e) => setForm((prev) => ({ ...prev, [`tt${num}Remarks`]: e.target.value }))}
+                          />
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </>

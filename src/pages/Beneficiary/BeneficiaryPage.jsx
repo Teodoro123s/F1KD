@@ -134,7 +134,7 @@ export default function BeneficiaryPage() {
         title="Beneficiaries"
         breadcrumbs={[{ label: 'Beneficiaries' }]}
         actions={
-          !isMotherDetail && canCreate ? (
+          !isMotherDetail && !isCreateMother && !isCreateChild && canCreate ? (
             <div className="create-menu-wrapper">
               <button className="view-btn view-btn--primary" onClick={openCreateModal} type="button">
                 <PlusIcon />

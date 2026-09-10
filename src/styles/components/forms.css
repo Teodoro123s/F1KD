@@ -3,10 +3,19 @@
 .form-group.full-width { grid-column: 1 / -1; }
 .form-group.narrow-field { max-width: 220px; width: 100%; }
 .form-label { font-size: 0.85rem; font-weight: 700; color: #475569; }
+.form-panel { background: rgba(255,255,255,0.9); border: 1px solid #dfe6ef; border-radius: 12px; box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04); padding: 1rem; }
 .form-input { padding: 0.65rem 0.85rem; border-radius: 8px; border: 1px solid #CBD5E1; font-size: 0.95rem; color: var(--slate-dark); transition: border-color 150ms ease; }
 .form-input:focus { outline: none; border-color: var(--burgundy); box-shadow: 0 0 0 3px rgba(122, 12, 30, 0.08); }
 .form-select { padding: 0.65rem 0.85rem; border-radius: 8px; border: 1px solid #CBD5E1; font-size: 0.95rem; color: var(--slate-dark); background: #fff; cursor: pointer; transition: border-color 150ms ease; }
 .form-select:focus { outline: none; border-color: var(--burgundy); box-shadow: 0 0 0 3px rgba(122, 12, 30, 0.08); }
+.vaccine-form-panel { padding: 0; overflow: hidden; }
+.vaccine-form-table-wrapper { width: 100%; overflow: hidden; border-radius: 10px; border: 1px solid #e2e8f0; background: #fff; }
+.vaccine-form-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.vaccine-form-table th,
+.vaccine-form-table td { border-bottom: 1px solid #e2e8f0; padding: 0.85rem 0.9rem; vertical-align: middle; }
+.vaccine-form-table thead th { background: #f8fafc; color: #475569; font-weight: 800; text-align: left; }
+.vaccine-form-table tbody tr:last-child td { border-bottom: none; }
+.vaccine-form-table .table-input { width: 100%; }
 
 .view-content .form-input,
 .view-content .form-select {
