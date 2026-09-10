@@ -525,22 +525,6 @@ export default function CommunityPage() {
               <div className="actions-dropdown" role="menu">
                 <button
                   type="button"
-                  className="actions-dropdown-item"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    if (activeTab === 'mothers') {
-                      navigate(`/beneficiary/mother/${row.id}/edit`);
-                      return;
-                    }
-
-                    openEditModal(row);
-                  }}
-                  role="menuitem"
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
                   className="actions-dropdown-item delete"
                   onClick={(event) => {
                     event.stopPropagation();
