@@ -12,21 +12,7 @@ export default function CommunityTable({
 
   return (
     <section className="table-card">
-      {tableTitle && (
-        <div
-          style={{
-            padding: '1rem 1.25rem 0.5rem',
-            borderBottom: '1px solid #EDF2F7',
-            fontSize: '0.8rem',
-            fontWeight: 700,
-            color: 'var(--text-muted)',
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
-          }}
-        >
-          {tableTitle}
-        </div>
-      )}
+      {tableTitle && <div className="community-table-title">{tableTitle}</div>}
       <div className="table-overflow">
         <table className="data-table">
           <thead>

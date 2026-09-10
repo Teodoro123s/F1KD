@@ -1,6 +1,6 @@
 /* Table Card Customization */
-.table-card { background: #fff; border-radius: 12px; border: 1px solid var(--border-color); overflow: visible; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.03), 0 2px 4px -1px rgba(0, 0, 0, 0.02); }
-.table-overflow { overflow-x: auto; overflow-y: visible; border-top-left-radius: 12px; border-top-right-radius: 12px; min-height: 240px; }
+.table-card { background: transparent; border-radius: 0; border: none; overflow: visible; box-shadow: none; }
+.table-overflow { overflow-x: auto; overflow-y: visible; border: none; border-top-left-radius: 0; border-top-right-radius: 0; min-height: 240px; }
 .data-table { width: 100%; border-collapse: collapse; text-align: left; }
 
 /* General table layout & cells */
@@ -142,6 +142,103 @@
 }
 
 .pagination-right { font-size: 0.9rem; color: var(--text-muted); font-weight: 600; }
+
+.community-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.7rem 0.25rem 0;
+  border-top: 1px solid var(--border-color);
+  background: transparent;
+  flex-wrap: wrap;
+}
+
+.community-pagination-left,
+.community-pagination-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.community-select-entries {
+  min-width: 64px;
+  min-height: 32px;
+  padding: 0.25rem 1.6rem 0.25rem 0.5rem;
+  border: 1px solid #CBD5E1;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--slate-dark);
+  font-size: 0.82rem;
+  font-weight: 600;
+  appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg fill='%2364748b' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/><path d='M0 0h24v24H0z' fill='none'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+  background-size: 1rem;
+}
+
+.community-pagination-right {
+  margin-left: auto;
+}
+
+.community-pagination-pages {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.community-pagination-nav,
+.community-pagination-page-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 0.45rem;
+  border: 1px solid #CBD5E1;
+  border-radius: 8px;
+  background: #fff;
+  color: #475569;
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.community-pagination-nav:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.community-pagination-page-btn {
+  min-width: 32px;
+  background: #f8fafc;
+}
+
+.community-pagination-page-btn.active {
+  background: var(--burgundy);
+  border-color: var(--burgundy);
+  color: #fff;
+}
+
+.community-pagination-ellipsis {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.community-pagination-summary {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
 
 /* Responsive: stack on very small screens */
 @media (max-width: 520px) {

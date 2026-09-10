@@ -10,30 +10,17 @@ export default function CommunityPagination({
   rangeEnd,
   totalItems,
 }) {
-  const buttons = [];
+  const pageButtons = [];
 
-  buttons.push(
-    <button
-      key="first"
-      type="button"
-      className={`pagination-btn${currentPage === 1 ? ' disabled' : ''}`}
-      onClick={() => onPageChange(1)}
-      disabled={currentPage === 1}
-      aria-label="First page"
-    >
-      «
-    </button>
-  );
-
-  const maxVisible = 5;
-  if (pageCount <= maxVisible) {
+  if (pageCount <= 5) {
     for (let i = 1; i <= pageCount; i += 1) {
-      buttons.push(
+      pageButtons.push(
         <button
           key={i}
           type="button"
-          className={`pagination-btn${currentPage === i ? ' active' : ''}`}
+          className={`community-pagination-page-btn${currentPage === i ? ' active' : ''}`}
           onClick={() => onPageChange(i)}
+          aria-label={`Go to page ${i}`}
         >
           {i}
         </button>
@@ -41,106 +28,118 @@ export default function CommunityPagination({
     }
   } else if (currentPage <= 3) {
     for (let i = 1; i <= 3; i += 1) {
-      buttons.push(
+      pageButtons.push(
         <button
           key={i}
           type="button"
-          className={`pagination-btn${currentPage === i ? ' active' : ''}`}
+          className={`community-pagination-page-btn${currentPage === i ? ' active' : ''}`}
           onClick={() => onPageChange(i)}
+          aria-label={`Go to page ${i}`}
         >
           {i}
         </button>
       );
     }
-    buttons.push(<span key="el-1" className="pagination-btn ellipsis">...</span>);
-    buttons.push(
+    pageButtons.push(
+      <span key="ellipsis-1" className="community-pagination-ellipsis">
+        ...
+      </span>
+    );
+    pageButtons.push(
       <button
         key={pageCount}
         type="button"
-        className={`pagination-btn${currentPage === pageCount ? ' active' : ''}`}
+        className={`community-pagination-page-btn${currentPage === pageCount ? ' active' : ''}`}
         onClick={() => onPageChange(pageCount)}
+        aria-label={`Go to page ${pageCount}`}
       >
         {pageCount}
       </button>
     );
   } else if (currentPage >= pageCount - 2) {
-    buttons.push(
+    pageButtons.push(
       <button
         key={1}
         type="button"
-        className={`pagination-btn${currentPage === 1 ? ' active' : ''}`}
+        className={`community-pagination-page-btn${currentPage === 1 ? ' active' : ''}`}
         onClick={() => onPageChange(1)}
+        aria-label="Go to page 1"
       >
         1
       </button>
     );
-    buttons.push(<span key="el-2" className="pagination-btn ellipsis">...</span>);
+    pageButtons.push(
+      <span key="ellipsis-2" className="community-pagination-ellipsis">
+        ...
+      </span>
+    );
     for (let i = pageCount - 2; i <= pageCount; i += 1) {
-      buttons.push(
+      pageButtons.push(
         <button
           key={i}
           type="button"
-          className={`pagination-btn${currentPage === i ? ' active' : ''}`}
+          className={`community-pagination-page-btn${currentPage === i ? ' active' : ''}`}
           onClick={() => onPageChange(i)}
+          aria-label={`Go to page ${i}`}
         >
           {i}
         </button>
       );
     }
   } else {
-    buttons.push(
+    pageButtons.push(
       <button
         key={1}
         type="button"
-        className={`pagination-btn${currentPage === 1 ? ' active' : ''}`}
+        className={`community-pagination-page-btn${currentPage === 1 ? ' active' : ''}`}
         onClick={() => onPageChange(1)}
+        aria-label="Go to page 1"
       >
         1
       </button>
     );
-    buttons.push(<span key="el-3" className="pagination-btn ellipsis">...</span>);
-    buttons.push(
-      <button key={currentPage} type="button" className="pagination-btn active">
+    pageButtons.push(
+      <span key="ellipsis-3" className="community-pagination-ellipsis">
+        ...
+      </span>
+    );
+    pageButtons.push(
+      <button
+        key={currentPage}
+        type="button"
+        className="community-pagination-page-btn active"
+        aria-label={`Current page ${currentPage}`}
+        disabled
+      >
         {currentPage}
       </button>
     );
-    buttons.push(<span key="el-4" className="pagination-btn ellipsis">...</span>);
-    buttons.push(
+    pageButtons.push(
+      <span key="ellipsis-4" className="community-pagination-ellipsis">
+        ...
+      </span>
+    );
+    pageButtons.push(
       <button
         key={pageCount}
         type="button"
-        className={`pagination-btn${currentPage === pageCount ? ' active' : ''}`}
+        className={`community-pagination-page-btn${currentPage === pageCount ? ' active' : ''}`}
         onClick={() => onPageChange(pageCount)}
+        aria-label={`Go to page ${pageCount}`}
       >
         {pageCount}
       </button>
     );
   }
 
-  buttons.push(
-    <button
-      key="last"
-      type="button"
-      className={`pagination-btn${currentPage === pageCount ? ' disabled' : ''}`}
-      onClick={() => onPageChange(pageCount)}
-      disabled={currentPage === pageCount}
-      aria-label="Last page"
-    >
-      »
-    </button>
-  );
-
   return (
-    <footer className="pagination-container">
-      <div className="pagination-left" aria-label="Pagination navigation">
-        {buttons}
-      </div>
-      <div className="pagination-center">
+    <footer className="community-pagination">
+      <div className="community-pagination-left">
         <span>Show</span>
         <select
           value={perPage}
           onChange={(event) => onPerPageChange(event.target.value)}
-          className="select-entries"
+          className="community-select-entries"
           aria-label="Entries per page"
         >
           <option value={10}>10</option>
@@ -149,7 +148,32 @@ export default function CommunityPagination({
         </select>
         <span>entries</span>
       </div>
-      <div className="pagination-right" role="status" aria-live="polite">
+
+      <div className="community-pagination-right" aria-label="Pagination navigation">
+        <button
+          type="button"
+          className="community-pagination-nav"
+          onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+          disabled={currentPage === 1}
+          aria-label="Previous page"
+        >
+          ‹
+        </button>
+
+        <div className="community-pagination-pages">{pageButtons}</div>
+
+        <button
+          type="button"
+          className="community-pagination-nav"
+          onClick={() => onPageChange(Math.min(pageCount, currentPage + 1))}
+          disabled={currentPage === pageCount}
+          aria-label="Next page"
+        >
+          ›
+        </button>
+      </div>
+
+      <div className="community-pagination-summary" role="status" aria-live="polite">
         {rangeStart}–{rangeEnd} of {totalItems}
       </div>
     </footer>

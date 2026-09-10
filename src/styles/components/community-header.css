@@ -59,6 +59,7 @@
   margin-bottom: 0.5rem;
   flex-wrap: wrap;
   gap: 1rem;
+  background: transparent;
 }
 
 .community-title-section {
@@ -212,6 +213,47 @@
 
 .beneficiary-main { background: #fff; padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color); min-height: 320px; }
 .beneficiary-page .beneficiary-main { background: transparent; padding: 0; border: 0; border-radius: 0; }
+
+.community-page .table-card {
+  background: #edf1f4;
+  border: 1px solid #dfe6ee;
+  border-radius: 12px;
+  box-shadow: none;
+}
+
+.community-page .table-card .table-overflow {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+
+.community-table-title {
+  padding: 1rem 1.25rem 0.7rem;
+  border-bottom: 1px solid #dfe6ee;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.community-page .table-card .data-table {
+  background: transparent;
+}
+
+.community-page .table-card .data-table th {
+  background: transparent;
+  border-bottom: 1px solid #dfe6ee;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.community-page .table-card .data-table td {
+  border-bottom: 1px solid rgba(148, 163, 184, 0.45);
+  background: transparent;
+}
 
 @media (max-width: 960px) {
   .beneficiary-grid { grid-template-columns: 1fr; }

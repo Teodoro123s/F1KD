@@ -3,8 +3,8 @@ import React from 'react';
 function ModalShell({ title, onClose, onSubmit, children, submitLabel }) {
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header-section">
+      <div className="modal-content community-modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header-section community-modal-header-section">
           <h3>{title}</h3>
           <button className="btn-close-modal" onClick={onClose} aria-label="Close modal">✕</button>
         </div>

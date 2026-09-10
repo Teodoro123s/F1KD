@@ -122,13 +122,36 @@ export const emptyProgram = {
 };
 
 export function filterPrograms(programs, query, status) {
-  const term = query.trim().toLowerCase();
+  const term = String(query || '').trim().toLowerCase();
+  const requestedStatus = String(status || '').trim().toLowerCase();
+
   return programs.filter((program) => {
-    if (program.status !== status) return false;
+    const programStatus = String(program.status || '').trim().toLowerCase();
+
+    if (requestedStatus && programStatus && programStatus !== requestedStatus) {
+      return false;
+    }
+
+    if (requestedStatus && !programStatus) {
+      return false;
+    }
+
     if (!term) return true;
-    return `${program.name} ${program.type} ${program.provider} ${program.community} ${program.batch}`
-      .toLowerCase()
-      .includes(term);
+
+    const searchableText = [
+      program.name,
+      program.type,
+      program.provider,
+      program.community,
+      program.batch,
+      program.description,
+      program.beneficiaryType,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+
+    return searchableText.includes(term);
   });
 }
 

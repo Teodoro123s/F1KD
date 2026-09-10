@@ -1,24 +1,24 @@
 .view-content {
-  --view-padding-x: 32px;
-  --view-padding-y: 24px;
+  --view-padding-x: 24px;
+  --view-padding-y: 20px;
   --view-gap-sm: 8px;
   --view-gap-md: 16px;
   --view-gap-lg: 24px;
   --view-font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --view-text-h1: 20px;
+  --view-text-h1: 28px;
   --view-text-body: 14px;
   --view-text-small: 12px;
   --view-text-button: 14px;
-  --view-radius: 8px;
+  --view-radius: 10px;
   --view-border-color: #E5E7EB;
   --view-bg-white: #FFFFFF;
-  --view-bg-subtle: #F9FAFB;
+  --view-bg-subtle: #F8FAFC;
   --view-shadow-modal: 0 20px 60px rgba(15, 23, 42, 0.15);
-  --view-primary: #3B82F6;
-  --view-primary-hover: #2563EB;
-  --view-text: #111827;
-  --view-text-muted: #6B7280;
-  --view-text-soft: #9CA3AF;
+  --view-primary: #7A0C1E;
+  --view-primary-hover: #5F0917;
+  --view-text: #0f172a;
+  --view-text-muted: #64748B;
+  --view-text-soft: #94A3B8;
   --view-surface: #F4F6F9;
   font-family: var(--view-font-family);
   color: var(--view-text);
@@ -44,7 +44,7 @@
   min-height: 64px;
   padding: 0 var(--view-padding-x);
   border-bottom: 1px solid var(--view-border-color);
-  background: var(--view-bg-white);
+  background: transparent;
 }
 
 .view-content .community-title-section,
@@ -198,7 +198,7 @@
   border: 1px solid var(--view-border-color);
   border-radius: var(--view-radius);
   overflow: hidden;
-  background: var(--view-bg-white);
+  background: transparent;
 }
 
 .view-content .data-table {
@@ -653,7 +653,7 @@
 .view-table-wrap {
   border: 1px solid var(--view-border-color);
   border-radius: var(--view-radius);
-  background: var(--view-bg-white);
+  background: transparent;
   overflow: hidden;
 }
 

@@ -182,9 +182,6 @@ export function useUserManagement() {
   const setForm = (updater) => {
     setFormState((prev) => {
       const next = typeof updater === 'function' ? updater(prev) : updater;
-      if (next.lastName !== prev.lastName || next.contactNumber !== prev.contactNumber) {
-        return { ...next, password: generatePassword(next) };
-      }
       return next;
     });
   };
@@ -247,7 +244,7 @@ export function useUserManagement() {
       location: user.location || 'Poblacion',
       role: user.role || 'Superadmin',
       status: user.status || 'Active',
-      password: user.password || generatePassword(user),
+      password: user.password || '',
       schoolId: user.schoolId || '',
     });
     setShowAddModal(true);

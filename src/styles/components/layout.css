@@ -1,31 +1,29 @@
 ﻿/* Layout */
-.layout { display: flex; height: 100vh; }
+.layout { display: flex; min-height: 100vh; background: #eef3f8; }
 
 /* Sidebar */
 .sidebar {
   width: 220px;
-  background: #0f1724;
+  background: linear-gradient(180deg, #101827 0%, #0f1724 100%);
   color: #fff;
   display: flex;
   flex-direction: column;
   transition: width 180ms ease;
+  border-right: 1px solid rgba(148, 163, 184, 0.18);
 }
 .sidebar.collapsed { width: 72px; }
 .sidebar-top {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  /* match vertical rhythm of nav items for visual alignment */
-  padding: 0.65rem 1rem;
-  border-bottom: 1px solid rgba(255,255,255,0.04);
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 .sidebar.collapsed .sidebar-top {
   justify-content: center;
 }
-.logo { width: 36px; height: 36px; /* slight nudge to vertically align with nav icons */
-  margin-top: 2px;
-}
-.brand { font-weight: 600; }
+.logo { width: 36px; height: 36px; margin-top: 2px; }
+.brand { font-weight: 700; letter-spacing: -0.02em; }
 .collapse-btn {
   margin-left: auto;
   background: transparent;
@@ -42,12 +40,19 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.65rem 1rem;
+  padding: 0.7rem 1rem;
   color: #cbd5e1;
   text-decoration: none;
   position: relative;
+  transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
 }
-.sidebar-link:hover { background: rgba(255,255,255,0.02); color: #fff; }
+.sidebar-link:hover { background: rgba(255,255,255,0.03); color: #fff; }
+.sidebar-link.active {
+  background: rgba(122, 12, 30, 0.18);
+  color: #fff;
+  border-left: 3px solid var(--burgundy);
+  padding-left: calc(1rem - 3px);
+}
 .sidebar-link .icon { width: 28px; text-align: center; }
 .sidebar.collapsed .sidebar-link {
   justify-content: center;
@@ -79,4 +84,11 @@
   opacity: 0;
 }
 
-.main { flex: 1; overflow: auto; background: #f4f6f9; display: flex; flex-direction: column; padding: 0; }
+.main {
+  flex: 1;
+  overflow: auto;
+  background: linear-gradient(180deg, #f4f6f9 0%, #eef3f8 100%);
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
