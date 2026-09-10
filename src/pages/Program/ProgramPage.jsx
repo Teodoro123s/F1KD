@@ -13,9 +13,8 @@ import {
 } from "../Community/CommunityIcons";
 import { getSummary } from "../Community/communityService";
 import { apiGetChildren } from "../../api/children";
-import { apiCompleteNamedProgramCluster, apiCompleteProgramCluster, apiCreateProgram, apiCreateProgramClusters, apiDeleteProgram, apiEndProgram, apiGetBeneficiaryMonitoringReport, apiGetProgramMonitoring, apiGetPrograms, apiSetProgramMonitoring, apiUpdateProgram } from "../../api/programs";
+import { apiCompleteNamedProgramCluster, apiCompleteProgramCluster, apiCreateProgram, apiCreateProgramClusters, apiDeleteProgram, apiEndProgram, apiGetProgramMonitoring, apiGetPrograms, apiSetProgramMonitoring, apiUpdateProgram } from "../../api/programs";
 import ExpandableTreeTable from "../Monitoring/ExpandableTreeTable";
-import UnifiedModal from '../../components/ui/UnifiedModal';
 import {
   beneficiaryNames,
   emptyProgram,
@@ -69,9 +68,6 @@ export default function ProgramPage() {
   const [monitorDate, setMonitorDate] = useState(localDate);
   const [monitoringStatus, setMonitoringStatus] = useState({});
   const [monitoringPending, setMonitoringPending] = useState({});
-  const [reportBeneficiary, setReportBeneficiary] = useState(null);
-  const [reportRows, setReportRows] = useState([]);
-  const [reportLoading, setReportLoading] = useState(false);
 
   const mapApiProgram = (program) => ({
     ...program,
@@ -184,18 +180,10 @@ export default function ProgramPage() {
     }
   };
 
-  const openBeneficiaryReport = async (beneficiary) => {
-    setReportBeneficiary(beneficiary);
-    setReportLoading(true);
-    try {
-      const response = await apiGetBeneficiaryMonitoringReport(programId, beneficiary.sourceType, beneficiary.sourceId);
-      setReportRows(response.report || []);
-    } catch (error) {
-      setReportRows([]);
-      setProgramError(error.message || 'Unable to load beneficiary report.');
-    } finally {
-      setReportLoading(false);
-    }
+  const openBeneficiaryReport = (beneficiary) => {
+    navigate(`/program/${programId}/beneficiaries/${beneficiary.sourceType}/${beneficiary.sourceId}/receipt-history`, {
+      state: { beneficiaryName: beneficiary.name },
+    });
   };
 
   const filteredPrograms = useMemo(() => {
@@ -564,6 +552,13 @@ export default function ProgramPage() {
       )}
 
       <section className="table-card program-table-card">
+        <div className="program-table-heading">
+          <div>
+            <p className="program-section-eyebrow">Program coverage</p>
+            <h2>Program beneficiaries</h2>
+          </div>
+          <span>{viewMode ? 'Select a beneficiary to view receipt history.' : 'Active and ended programs'}</span>
+        </div>
         <div className="table-overflow">
           {viewMode && !clusterView ? <ExpandableTreeTable
             data={programHierarchy}
@@ -1001,30 +996,6 @@ export default function ProgramPage() {
           </form>
         </div>
       )}
-      <UnifiedModal
-        isOpen={Boolean(reportBeneficiary)}
-        title={`Monitoring report: ${reportBeneficiary?.name || ''}`}
-        size="lg"
-        onClose={() => setReportBeneficiary(null)}
-        footer={<button type="button" className="view-btn view-btn--secondary" onClick={() => setReportBeneficiary(null)}>Close</button>}
-      >
-        <div className="program-monitoring-report">
-          <div className="program-monitoring-report__toolbar">
-            <span>Daily status: {monitorDate}</span>
-            <button type="button" className="view-btn view-btn--secondary" onClick={async () => {
-              if (!reportBeneficiary) return;
-              setReportLoading(true);
-              const response = await apiGetBeneficiaryMonitoringReport(programId, reportBeneficiary.sourceType, reportBeneficiary.sourceId);
-              setReportRows(response.report || []);
-              setReportLoading(false);
-            }}>Refresh</button>
-          </div>
-          {reportLoading ? <p>Loading report...</p> : <table className="data-table">
-            <thead><tr><th>Date</th><th>Status</th><th>Program</th><th>Monitored by</th><th>Notes</th></tr></thead>
-            <tbody>{reportRows.length ? reportRows.map((row) => <tr key={`${row.date}-${row.program_name}`}><td>{String(row.date).slice(0, 10)}</td><td><span className={`program-recipient-status ${row.monitored ? 'received' : 'pending'}`}>{row.monitored ? 'Yes' : 'No'}</span></td><td>{row.program_name}</td><td>{row.monitored_by_name || 'Unknown'}</td><td>{row.notes || '-'}</td></tr>) : <tr><td colSpan="5" className="no-data">No monitoring records found.</td></tr>}</tbody>
-          </table>}
-        </div>
-      </UnifiedModal>
     </div>
   );
 }

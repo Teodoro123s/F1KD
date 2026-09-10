@@ -12,6 +12,7 @@ import MotherChildrenPage from './pages/Beneficiary/child/MotherChildrenPage';
 import EditMotherPage from './pages/Beneficiary/mother/EditMotherPage';
 import Program from './pages/Program';
 import ProgressReport from './pages/ProgressReport/ProgressReport';
+import ReceiptHistoryPage from './pages/Program/ReceiptHistoryPage';
 import UserManagementPage from './pages/UserManagement/UserManagementPage';
 import UserDetailPage from './pages/UserManagement/UserDetailPage';
 import ProfilePage from './pages/ProfilePage';
@@ -62,6 +63,7 @@ export default function App() {
         <Route path="monitoring" element={<MonitoringPage />} />
         <Route path="checkup" element={<MonitoringPage />} />
         <Route path="program" element={<Program />} />
+        <Route path="program/:programId/beneficiaries/:beneficiaryType/:beneficiaryId/receipt-history" element={<ReceiptHistoryPage />} />
         <Route path="program/:programId" element={<Program />} />
         <Route path="program/:programId/cluster/:clusterType/:clusterName" element={<Program />} />
         <Route path="progress-report" element={<ProgressReport />} />

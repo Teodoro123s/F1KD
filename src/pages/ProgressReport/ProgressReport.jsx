@@ -129,14 +129,13 @@ export default function ProgressReport() {
 
         <section className="progress-report-config" aria-label="Report parameters">
           <div className="progress-report-config-header">
-            <div><h1>Build a report</h1><p>Select a scope, then generate the matching database report.</p></div>
-            <button type="button" className="primary-btn" onClick={() => generateReport(1)} disabled={loadingOptions || loadingReport || !selection.schoolId}>{loadingReport ? 'Generating...' : 'Generate Report'}</button>
+            <div><h1>Report setup</h1><p>Select a school and the fields you want to review.</p></div>
           </div>
           <div className="progress-report-step-list">
             <section className="progress-report-step">
               <div className="progress-report-step-marker">1</div>
               <div className="progress-report-step-content">
-                <h2>Community</h2><p>Choose the school, then narrow the scope to a group or batch.</p>
+                <h2>Community</h2><p>Choose a school, group, or batch.</p>
                 <div className="progress-report-config-grid">
                   <label>School<select value={selection.schoolId} onChange={(event) => updateSelection('schoolId', event.target.value)}><option value="">Select school</option>{options.schools.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
                   <label>Group<select value={selection.groupId} onChange={(event) => updateSelection('groupId', event.target.value)} disabled={!selection.schoolId}><option value="">All groups</option>{groups.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
@@ -147,7 +146,7 @@ export default function ProgressReport() {
             <section className="progress-report-step">
               <div className="progress-report-step-marker">2</div>
               <div className="progress-report-step-content">
-                <h2>Beneficiary</h2><p>Choose whether the report lists children or aggregates progress by mother.</p>
+                <h2>Beneficiary</h2><p>Choose the report level and search if needed.</p>
                 <div className="progress-report-config-row">
                   <fieldset><legend>Report level</legend><label><input type="radio" checked={granularity === 'child'} onChange={() => setGranularity('child')} /> Child level</label><label><input type="radio" checked={granularity === 'mother'} onChange={() => setGranularity('mother')} /> Mother level</label></fieldset>
                   <label className="progress-report-search-field">Search<input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Beneficiary name or ID" /></label>
@@ -157,12 +156,13 @@ export default function ProgressReport() {
             <section className="progress-report-step">
               <div className="progress-report-step-marker">3</div>
               <div className="progress-report-step-content">
-                <div className="progress-report-step-title-row"><div><h2>Manage Columns</h2><p>Choose the fields to display and export. Additional profile and health fields are available below.</p></div><button type="button" className="secondary-btn" onClick={() => setVisibleFields(DEFAULT_VISIBLE_FIELDS)}>Reset columns</button></div>
+                <div className="progress-report-step-title-row"><div><h2>Report fields</h2><p>Choose the fields to display and export.</p></div><button type="button" className="secondary-btn" onClick={() => setVisibleFields(DEFAULT_VISIBLE_FIELDS)}>Reset columns</button></div>
                 <div className="progress-report-fields-groups">{[...new Set(REPORT_FIELDS.map(([, , category]) => category))].map((category) => <div className="progress-report-field-group" key={category}><h3>{category}</h3><div className="progress-report-fields-grid">{REPORT_FIELDS.filter(([, , fieldCategory]) => fieldCategory === category).map(([id, label]) => <label key={id}><input type="checkbox" checked={visibleFields.includes(id)} onChange={() => setVisibleFields((current) => current.includes(id) ? current.filter((field) => field !== id) : [...current, id])} />{label}</label>)}</div></div>)}</div>
               </div>
             </section>
           </div>
-          <div className="progress-report-config-row progress-report-config-actions">
+          <div className="progress-report-config-actions">
+            <button type="button" className="primary-btn" onClick={() => generateReport(1)} disabled={loadingOptions || loadingReport || !selection.schoolId}>{loadingReport ? 'Generating...' : 'Generate Report'}</button>
             <button type="button" className="secondary-btn" onClick={() => { setSelection(EMPTY_SELECTIONS); setSearch(''); setReport(null); setError(''); }}>Reset Filters</button>
           </div>
           {!selection.schoolId && <p className="progress-report-helper">Please select at least a School to view the report.</p>}

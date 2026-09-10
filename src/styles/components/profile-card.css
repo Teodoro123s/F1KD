@@ -722,7 +722,45 @@
 .program-summary { min-width: 120px; padding-left: 1.25rem; border-left: 1px solid #e2e8f0; text-align: right; }
 .program-summary span { display: block; color: #0f172a; font-size: 1.5rem; font-weight: 800; }
 .program-summary small { color: #64748b; }
-.program-table-card { margin-top: 0; }
+.program-table-card { margin-top: 1.5rem; }
+.program-table-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.1rem 1.25rem; border-bottom: 1px solid #e2e8f0; background: #fff; }
+.program-table-heading h2 { margin: 0.2rem 0 0; color: #0f172a; font-size: 1.1rem; }
+.program-table-heading > span { color: #64748b; font-size: 0.85rem; text-align: right; }
+.program-monitoring-report { margin-bottom: 1.5rem; padding: 1.25rem; border: 1px solid #dbe3ee; border-radius: 10px; background: #fff; }
+.program-monitoring-report__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding-bottom: 1rem; border-bottom: 1px solid #e2e8f0; }
+.program-monitoring-report__header h2 { margin: 0.2rem 0 0; color: #0f172a; font-size: 1.25rem; }
+.program-monitoring-report__header p:last-child { margin: 0.35rem 0 0; color: #64748b; font-size: 0.85rem; }
+.program-receipt-controls { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; margin: 1rem 0; }
+.program-receipt-controls > label { display: grid; gap: 0.35rem; color: #334155; font-size: 0.82rem; font-weight: 800; }
+.program-receipt-controls select { min-width: 240px; min-height: 40px; padding: 0.5rem 0.7rem; border: 1px solid #dbe3ee; border-radius: 8px; background: #fff; color: #0f172a; font: inherit; font-weight: 400; }
+.program-view-toggle { display: inline-flex; border: 1px solid #dbe3ee; border-radius: 8px; overflow: hidden; }
+.program-view-toggle button { min-height: 40px; padding: 0.5rem 0.8rem; border: 0; border-left: 1px solid #dbe3ee; background: #fff; color: #64748b; font: inherit; cursor: pointer; }
+.program-view-toggle button:first-child { border-left: 0; }
+.program-view-toggle button.active { background: #fff1f2; color: var(--burgundy); font-weight: 800; }
+.program-calendar-wrap { margin-top: 0.5rem; }
+.program-calendar-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 0.75rem; }
+.program-calendar-header h3 { margin: 0; color: #0f172a; font-size: 1.05rem; }
+.program-calendar-weekdays, .program-calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.program-calendar-weekdays { color: #64748b; font-size: 0.75rem; font-weight: 800; text-align: center; text-transform: uppercase; }
+.program-calendar-weekdays span { padding: 0.5rem; }
+.program-calendar-day { min-height: 78px; padding: 0.55rem; border: 1px solid #e2e8f0; border-width: 1px 1px 0 0; background: #fff; color: #334155; font: inherit; text-align: left; }
+.program-calendar-day:nth-child(7n + 1) { border-left-width: 1px; }
+.program-calendar-day:nth-last-child(-n + 7) { border-bottom-width: 1px; }
+.program-calendar-day.muted { color: #cbd5e1; background: #f8fafc; }
+.program-calendar-day.received { background: #ecfdf3; color: #067647; cursor: pointer; }
+.program-calendar-day.received.selected { outline: 2px solid var(--burgundy); outline-offset: -2px; }
+.program-calendar-day span, .program-calendar-day strong { display: block; }
+.program-calendar-day strong { margin-top: 0.45rem; font-size: 0.72rem; }
+.program-calendar-detail { display: flex; flex-wrap: wrap; gap: 0.75rem 1.25rem; margin-top: 0.9rem; padding: 0.8rem 1rem; border: 1px solid #bbf7d0; border-radius: 8px; background: #f0fdf4; color: #166534; }
+.program-calendar-detail span { color: #334155; }
+.program-calendar-empty { margin: 0.9rem 0 0; color: #64748b; }
+@media (max-width: 640px) {
+  .program-receipt-controls { align-items: stretch; flex-direction: column; }
+  .program-receipt-controls select, .program-view-toggle { width: 100%; }
+  .program-view-toggle button { flex: 1; }
+  .program-calendar-day { min-height: 62px; padding: 0.35rem; font-size: 0.85rem; }
+  .program-calendar-day strong { font-size: 0.62rem; }
+}
 .program-detail-panel { margin-top: 1rem; padding: 1.25rem 1.5rem; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; }
 .program-detail-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
 .program-detail-header h2 { margin: 0.25rem 0 0; color: #0f172a; font-size: 1.2rem; }
@@ -812,7 +850,7 @@
 .progress-report-fields-grid input { accent-color: #7d1e2e; }
 .progress-report-fields-groups { display: grid; gap: 0.9rem; }
 .progress-report-field-group h3 { margin: 0 0 0.45rem; color: #475569; font-size: 0.76rem; letter-spacing: 0.06em; text-transform: uppercase; }
-.progress-report-config-actions { justify-content: flex-end; }
+.progress-report-config-actions { display: flex; align-items: center; justify-content: flex-end; gap: 0.75rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e2e8f0; }
 .progress-report-helper { margin: 1rem 0 0; color: #64748b; font-size: 0.85rem; }
 .progress-report-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.8rem; margin: 1rem 0; }
 .progress-report-kpis div { padding: 1rem 1.1rem; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; }

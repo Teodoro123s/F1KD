@@ -209,7 +209,7 @@ router.get('/:programId/monitoring/report/:beneficiaryType/:beneficiaryId', asyn
   try {
     const [logs] = await pool.query(
             `SELECT DATE_FORMAT(ml.monitored_date, '%Y-%m-%d') AS date, ml.monitored, ml.notes, p.name AS program_name,
-              COALESCE(u.full_name, CONCAT_WS(' ', u.first_name, u.last_name), u.username) AS monitored_by_name
+              NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.last_name)), '') AS monitored_by_name
        FROM monitoring_logs ml
        INNER JOIN programs p ON p.id = ml.program_id
        LEFT JOIN users u ON u.id = ml.monitored_by
