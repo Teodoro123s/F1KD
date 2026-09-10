@@ -7,23 +7,22 @@ const { authorize } = require('../middleware/authorize');
 
 function normalizeDbStatus(value) {
   const normalized = String(value || '').trim().toLowerCase();
-  if (!normalized) return 'active';
-  if (['active', 'enabled'].includes(normalized)) return 'active';
-  if (['suspended', 'inactive', 'disabled'].includes(normalized)) return 'inactive';
-  if (['pending'].includes(normalized)) return 'pending';
-  return 'active';
+  if (!normalized) return 'Active';
+  if (['active', 'enabled'].includes(normalized)) return 'Active';
+  if (['suspended', 'inactive', 'disabled'].includes(normalized)) return 'Suspended';
+  return 'Active';
 }
 
 // Helper: normalize searchable name/value
 function nameLike(column) {
-  return `COALESCE(NULLIF(name, ''), CONCAT(first_name, ' ', last_name))`;
+  return `CONCAT_WS(' ', first_name, last_name)`;
 }
 
 // GET /api/users/coordinators - limited data for operational assignment fields
 router.get('/coordinators', verifyToken, async (req, res) => {
   try {
     const [users] = await pool.query(
-      `SELECT id, name AS username, name AS full_name, role FROM users WHERE LOWER(TRIM(role)) IN ('community organizer', 'co', 'partner') ORDER BY id DESC`
+      `SELECT id, CONCAT_WS(' ', first_name, last_name) AS username, CONCAT_WS(' ', first_name, last_name) AS full_name, role FROM users WHERE LOWER(TRIM(role)) IN ('community organizer', 'co', 'partner') ORDER BY id DESC`
     );
     res.json({ users });
   } catch (err) {
@@ -60,7 +59,7 @@ router.get('/', verifyToken, authorize('super_admin'), async (req, res) => {
     const total = countRows[0].total || 0;
 
     const [rows] = await pool.query(
-      `SELECT id, name AS username, name AS full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, created_at, updated_at FROM users ${where} ORDER BY id DESC LIMIT ? OFFSET ?`,
+      `SELECT id, CONCAT_WS(' ', first_name, last_name) AS username, CONCAT_WS(' ', first_name, last_name) AS full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, created_at, updated_at FROM users ${where} ORDER BY id DESC LIMIT ? OFFSET ?`,
       [...params, Number(perPage), Number(offset)]
     );
 
@@ -132,7 +131,7 @@ router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
     );
 
     const [rows] = await pool.query(
-      `SELECT id, name AS username, name AS full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, created_at
+      `SELECT id, CONCAT_WS(' ', first_name, last_name) AS username, CONCAT_WS(' ', first_name, last_name) AS full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, created_at
        FROM users WHERE id = ?`,
       [result.insertId]
     );
@@ -151,7 +150,7 @@ router.get('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
   try {
     const { id } = req.params;
     const [rows] = await pool.query(
-      `SELECT id, name AS username, name AS full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, created_at
+      `SELECT id, CONCAT_WS(' ', first_name, last_name) AS username, CONCAT_WS(' ', first_name, last_name) AS full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, created_at
        FROM users WHERE id = ?`,
       [id]
     );
@@ -220,7 +219,7 @@ router.put('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
     await pool.query(sql, params);
 
     const [rows] = await pool.query(
-      `SELECT id, name AS username, name AS full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, updated_at
+      `SELECT id, CONCAT_WS(' ', first_name, last_name) AS username, CONCAT_WS(' ', first_name, last_name) AS full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, updated_at
        FROM users WHERE id = ?`,
       [id]
     );

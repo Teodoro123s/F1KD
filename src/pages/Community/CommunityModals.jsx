@@ -72,24 +72,6 @@ export function EditCommunityModal({ showModal, onClose, communityForm, setCommu
           autoFocus
         />
       </div>
-      <div className="form-group">
-        <label className="form-label" htmlFor="edit-comm-area">Area</label>
-        <select
-          id="edit-comm-area"
-          className="form-select"
-          value={communityForm.area}
-          onChange={(e) => setCommunityForm({ ...communityForm, area: e.target.value })}
-        >
-          <option value="Poblacion">Poblacion</option>
-          <option value="Upland">Upland</option>
-          <option value="Downtown">Downtown</option>
-          <option value="Coastal">Coastal</option>
-          <option value="Highland">Highland</option>
-          <option value="Lowland">Lowland</option>
-          <option value="Riverside">Riverside</option>
-          <option value="Forest">Forest</option>
-        </select>
-      </div>
     </ModalShell>
   );
 }
@@ -112,7 +94,7 @@ export function CreateBatchModal({ showModal, onClose, batchForm, setBatchForm, 
         />
       </div>
       <div className="form-group">
-        <label className="form-label" htmlFor="batch-comm">School</label>
+        <label className="form-label" htmlFor="batch-comm">Group</label>
         <select
           id="batch-comm"
           className="form-select"
@@ -145,7 +127,7 @@ export function EditBatchModal({ showModal, onClose, batchForm, setBatchForm, ha
         />
       </div>
       <div className="form-group">
-        <label className="form-label" htmlFor="edit-batch-comm">School</label>
+        <label className="form-label" htmlFor="edit-batch-comm">Group</label>
         <select
           id="edit-batch-comm"
           className="form-select"
@@ -156,31 +138,6 @@ export function EditBatchModal({ showModal, onClose, batchForm, setBatchForm, ha
             <option key={comm.id} value={comm.name}>{comm.name}</option>
           ))}
         </select>
-      </div>
-      <div className="form-group">
-        <label className="form-label" htmlFor="edit-batch-records">Total Mothers</label>
-        <input
-          id="edit-batch-records"
-          type="number"
-          min="0"
-          className="form-input"
-          value={batchForm.records}
-          onChange={(e) => setBatchForm({ ...batchForm, records: Number(e.target.value) })}
-          required
-        />
-      </div>
-      <div className="form-group">
-        <label className="form-label" htmlFor="edit-batch-progress">Progress (%)</label>
-        <input
-          id="edit-batch-progress"
-          type="number"
-          min="0"
-          max="100"
-          className="form-input"
-          value={batchForm.progress}
-          onChange={(e) => setBatchForm({ ...batchForm, progress: Number(e.target.value) })}
-          required
-        />
       </div>
     </ModalShell>
   );
@@ -254,29 +211,6 @@ export function EditGroupModal({ showModal, onClose, groupForm, setGroupForm, ha
             <option key={comm.id} value={comm.name}>{comm.name}</option>
           ))}
         </select>
-      </div>
-      <div className="form-group">
-        <label className="form-label" htmlFor="edit-group-leader">Group Leader</label>
-        <input
-          id="edit-group-leader"
-          type="text"
-          className="form-input"
-          value={groupForm.leader}
-          onChange={(e) => setGroupForm({ ...groupForm, leader: e.target.value })}
-          required
-        />
-      </div>
-      <div className="form-group">
-        <label className="form-label" htmlFor="edit-group-members">Members</label>
-        <input
-          id="edit-group-members"
-          type="number"
-          min="1"
-          className="form-input"
-          value={groupForm.members}
-          onChange={(e) => setGroupForm({ ...groupForm, members: Number(e.target.value) })}
-          required
-        />
       </div>
     </ModalShell>
   );

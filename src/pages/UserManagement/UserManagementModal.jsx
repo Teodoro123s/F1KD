@@ -229,6 +229,14 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
         </div>
       )}
 
+      <div className="form-group full-width">
+        <label className="form-label" htmlFor="status">Status *</label>
+        <select id="status" name="status" className="form-select" value={form.status || 'Active'} onChange={(e) => handleChange('status', e.target.value)} required>
+          <option value="Active">Active</option>
+          <option value="Suspended">Suspended</option>
+        </select>
+      </div>
+
     </ModalShell>
   );
 }

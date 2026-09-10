@@ -52,6 +52,16 @@ export async function apiGetMother(motherId) {
   return handleResponse(res, 'Failed to fetch mother');
 }
 
+export async function apiDeleteMother(motherId) {
+  const id = encodeURIComponent(motherId);
+  const res = await fetch(`${API_BASE}/api/mothers/${id}`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json', ...authHeader() },
+    credentials: 'same-origin',
+  });
+  return handleResponse(res, 'Unable to delete mother');
+}
+
 export async function apiSaveMotherCheckup(motherId, payload) {
   const id = encodeURIComponent(motherId);
   const res = await fetch(`${API_BASE}/api/mothers/${id}/checkups`, {

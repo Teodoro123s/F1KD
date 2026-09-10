@@ -136,6 +136,43 @@
 /* Header action area helpers */
 .community-header .action-area { display: flex; align-items: flex-start; gap: 0.5rem; }
 
+.entity-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  padding: 0.2rem;
+  border-radius: 0.85rem;
+  background: #f1f5f9;
+  border: 1px solid rgba(148, 163, 184, 0.7);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  overflow: hidden;
+}
+
+.entity-toggle-btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-weight: 700;
+  font-size: 0.92rem;
+  letter-spacing: 0.01em;
+  padding: 0.7rem 1.4rem;
+  border-radius: 0.7rem;
+  cursor: pointer;
+  transition: all 150ms ease;
+  min-width: 120px;
+}
+
+.entity-toggle-btn:hover {
+  color: var(--slate-dark);
+}
+
+.entity-toggle-btn.active {
+  background: #ffffff;
+  color: var(--slate-dark);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(148, 163, 184, 0.45);
+}
+
 /* Hero variant for primary header action (larger, more prominent) */
 .btn-create--hero {
   padding: 0.9rem 1.6rem;

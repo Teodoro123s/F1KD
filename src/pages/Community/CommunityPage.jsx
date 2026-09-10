@@ -1,373 +1,383 @@
-import React, { useMemo, useState, useEffect } from 'react';
+﻿import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import CommunityTable from './CommunityTable';
-import {
-  CreateCommunityModal,
-  EditCommunityModal,
-  CreateBatchModal,
-  EditBatchModal,
-  CreateGroupModal,
-  EditGroupModal,
-} from './CommunityModals';
-import {
-  getSummary,
-  createCommunity,
-  updateCommunity,
-  deleteCommunity,
-  createBatch,
-  updateBatch,
-  deleteBatch,
-  createGroup,
-  updateGroup,
-  deleteGroup,
-} from './communityService';
-import { apiGetCoordinators } from '../../api/users';
+import CommunityModalManager from './CommunityModalManager';
 import CommunityToolbar from './components/CommunityToolbar';
-import CommunityFilters from './components/CommunityFilters';
 import CommunityPagination from './components/CommunityPagination';
+import { MoreVerticalIcon } from './CommunityIcons';
+import { useCommunityData } from './hooks/useCommunityData';
+import { useCommunityMutations } from './hooks/useCommunityMutations';
 import { useAuth } from '../../auth/AuthProvider';
 import { can } from '../../utils/permissions';
+import { apiDeleteMother } from '../../api/mothers';
+import { apiGetChildren } from '../../api/children';
+
+const defaultCommunityForm = { name: '', area: 'Poblacion', coordinator: '' };
+const defaultGroupForm = { name: '', community: '', assignedBatchIds: [], leader: '', members: 1, status: 'Active' };
+const defaultBatchForm = { name: '', community: '', records: 1, progress: 0, status: 'Active' };
+
+const getMotherProfileProgress = (mother) => {
+  const requiredFields = [
+    mother?.first_name || mother?.firstName,
+    mother?.last_name || mother?.lastName,
+    mother?.dob || mother?.dateOfBirth,
+    mother?.community || mother?.area,
+    mother?.birth_certificate_document_path || mother?.birthCertificateDocumentPath,
+    mother?.consent_document_path || mother?.consentDocumentPath,
+  ];
+
+  const completedFields = requiredFields.filter(Boolean).length;
+  return Math.round((completedFields / requiredFields.length) * 100);
+};
+
+const getChildProfileProgress = (child) => {
+  const requiredFields = [
+    child?.mother_id || child?.motherId,
+    child?.name || child?.first_name || child?.firstName,
+    child?.birth_date || child?.birthDate,
+    child?.birth_document_path || child?.birthDocumentPath,
+  ];
+
+  const completedFields = requiredFields.filter(Boolean).length;
+  return Math.round((completedFields / requiredFields.length) * 100);
+};
+
+const truncateLabel = (label, maxLength = 26) => {
+  if (!label) return '—';
+  return String(label).length > maxLength ? `${String(label).slice(0, maxLength - 1).trimEnd()}…` : String(label);
+};
 
 export default function CommunityPage() {
   const { currentUser } = useAuth();
+  const navigate = useNavigate();
+  const { schoolId, groupId, batchId } = useParams();
   const canManage = can(currentUser?.role, 'admin-resources', 'create');
-  const [communities, setCommunities] = useState([]);
-  const [batches, setBatches] = useState([]);
-  const [groups, setGroups] = useState([]);
-  const [coordinators, setCoordinators] = useState([]);
 
-  const [activeTab, setActiveTab] = useState('communities');
+  const { communities, batches, groups, mothers, coordinators, loading, error, refreshData } = useCommunityData();
+  const mutations = useCommunityMutations({ refreshData });
+
   const [query, setQuery] = useState('');
+  const [entityFilter, setEntityFilter] = useState('Mother');
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
-
   const [activeDropdownId, setActiveDropdownId] = useState(null);
   const [showModal, setShowModal] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [communityForm, setCommunityForm] = useState(defaultCommunityForm);
+  const [groupForm, setGroupForm] = useState(defaultGroupForm);
+  const [batchForm, setBatchForm] = useState(defaultBatchForm);
+  const [childrenRows, setChildrenRows] = useState([]);
 
-  const [communityForm, setCommunityForm] = useState({ name: '', area: 'Poblacion', coordinator: '' });
-  const [groupForm, setGroupForm] = useState({ name: '', community: '', assignedBatchIds: [], leader: '', members: 1, status: 'Active' });
-  const [batchForm, setBatchForm] = useState({ name: '', community: '', records: 1, progress: 0, status: 'Active' });
-  const [mothers, setMothers] = useState([]);
-
-  useEffect(() => {
-    const fetchCommunityData = async () => {
-      console.info('[CommunityPage] Fetching community data from database...');
-
-      try {
-        const data = await getSummary();
-        const normalizedData = {
-          communities: data.communities || [],
-          batches: data.batches || [],
-          groups: data.groups || [],
-          mothers: data.mothers || [],
-        };
-
-        setCommunities(normalizedData.communities);
-        setBatches(normalizedData.batches);
-        setGroups(normalizedData.groups);
-        setMothers(normalizedData.mothers);
-
-        console.info('[CommunityPage] Community data load succeeded', {
-          communities: normalizedData.communities.length,
-          batches: normalizedData.batches.length,
-          groups: normalizedData.groups.length,
-          mothers: normalizedData.mothers.length,
-        });
-
-        if (normalizedData.communities.length === 0) {
-          console.warn('[CommunityPage] No community records were returned from the database.');
-        }
-      } catch (error) {
-        console.error('[CommunityPage] Unable to load community data from database:', error);
-      }
-    };
-
-    fetchCommunityData();
-  }, []);
-
-  useEffect(() => {
-    apiGetCoordinators()
-      .then((data) => {
-        const users = Array.isArray(data?.users) ? data.users : [];
-        setCoordinators(users
-          .filter((user) => ['community organizer', 'co'].includes(String(user.role || '').trim().toLowerCase()))
-          .map((user) => ({
-            id: user.id,
-            name: user.full_name || user.username || `User ${user.id}`,
-          })));
-      })
-      .catch((error) => console.error('[CommunityPage] Unable to load community coordinators:', error));
-  }, []);
-
-  const navigate = useNavigate();
-  const { schoolId, groupId, batchId } = useParams();
-
-  const selectedSchool = useMemo(
-    () => communities.find((comm) => String(comm.id) === String(schoolId)),
-    [communities, schoolId]
-  );
-
-  const selectedGroup = useMemo(
-    () => groups.find((group) => String(group.id) === String(groupId)),
-    [groups, groupId]
-  );
+  const activeTab = batchId ? 'mothers' : groupId ? 'batches' : schoolId ? 'groups' : 'communities';
 
   const selectedBatch = useMemo(
     () => batches.find((batch) => String(batch.id) === String(batchId)),
     [batches, batchId]
   );
 
-  const selectedSchoolForGroup = useMemo(
-    () => selectedGroup ? communities.find((comm) => comm.name === selectedGroup.community) : null,
-    [communities, selectedGroup]
-  );
+  const selectedGroup = useMemo(() => {
+    const groupFromRoute = groups.find((group) => String(group.id) === String(groupId));
 
-  const selectedGroupForBatch = useMemo(
-    () => {
-      const batchMother = mothers.find((mother) => String(mother.batchId) === String(batchId));
-      return batchMother ? groups.find((group) => group.name === batchMother.group) : null;
-    },
-    [groups, mothers, batchId]
-  );
-
-  const selectedSchoolForBatch = useMemo(() => {
-    if (selectedGroupForBatch) {
-      return communities.find((comm) => comm.name === selectedGroupForBatch.community) || null;
+    if (groupFromRoute) {
+      return groupFromRoute;
     }
+
+    if (!selectedBatch) {
+      return null;
+    }
+
+    const groupNames = String(selectedBatch.groupNames || '')
+      .split(',')
+      .map((name) => name.trim())
+      .filter(Boolean);
+
+    if (groupNames.length === 0) {
+      return null;
+    }
+
+    return groups.find((group) => group.name === groupNames[0]) || null;
+  }, [groups, groupId, selectedBatch]);
+
+  const selectedSchool = useMemo(() => {
+    const schoolFromRoute = communities.find((community) => String(community.id) === String(schoolId));
+
+    if (schoolFromRoute) {
+      return schoolFromRoute;
+    }
+
+    if (selectedGroup) {
+      return communities.find((community) => community.name === selectedGroup.community) || null;
+    }
+
     if (selectedBatch) {
-      return communities.find((comm) => comm.name === selectedBatch.community) || null;
+      return communities.find((community) => community.name === selectedBatch.community) || null;
     }
+
     return null;
-  }, [communities, selectedBatch, selectedGroupForBatch]);
+  }, [communities, schoolId, selectedBatch, selectedGroup]);
+
+  const selectedSchoolGroups = useMemo(() => {
+    if (!selectedSchool) return [];
+
+    return groups
+      .filter((group) => group.community === selectedSchool.name)
+      .filter((group) => {
+        if (!query.trim()) return true;
+        const term = query.trim().toLowerCase();
+        return [group.name, String(group.id), group.leader, group.status].some((value) =>
+          String(value || '').toLowerCase().includes(term)
+        );
+      });
+  }, [groups, query, selectedSchool]);
+
+  const selectedGroupBatches = useMemo(() => {
+    if (!selectedGroup) return [];
+
+    const groupBatchIds = mothers
+      .filter((mother) => mother.group === selectedGroup.name && mother.batchId)
+      .map((mother) => String(mother.batchId));
+
+    return batches
+      .filter((batch) => groupBatchIds.includes(String(batch.id)))
+      .filter((batch) => {
+        if (!query.trim()) return true;
+        const term = query.trim().toLowerCase();
+        return [batch.name, String(batch.id), batch.community, batch.status].some((value) =>
+          String(value || '').toLowerCase().includes(term)
+        );
+      });
+  }, [batches, mothers, query, selectedGroup]);
+
+  const selectedBatchMothers = useMemo(() => {
+    if (!selectedBatch) return [];
+
+    return mothers
+      .filter((mother) => mother.batchId === selectedBatch.id)
+      .filter((mother) => {
+        if (!query.trim()) return true;
+        const term = query.trim().toLowerCase();
+        return [mother.name, String(mother.id), mother.group, mother.status].some((value) =>
+          String(value || '').toLowerCase().includes(term)
+        );
+      });
+  }, [mothers, query, selectedBatch]);
+
+  useEffect(() => {
+    if (activeTab !== 'mothers' || entityFilter !== 'Child') {
+      setChildrenRows([]);
+      return;
+    }
+
+    let active = true;
+
+    apiGetChildren()
+      .then((response) => {
+        const rows = (response.children || []).map((child) => {
+          const childName = child.name || [child.first_name, child.middle_name, child.last_name, child.suffix].filter(Boolean).join(' ');
+          const motherName = child.mother_first_name || child.motherFirstName
+            ? `${child.mother_first_name || child.motherFirstName || ''} ${child.mother_last_name || child.motherLastName || ''}`.trim()
+            : child.mother_name || '';
+
+          return {
+            id: child.id,
+            name: childName || 'Unnamed child',
+            motherName,
+            community: child.community_name || child.community || '',
+            group: child.group_name || child.group || '',
+            batch: child.batch_name || child.batch || '',
+            batchId: child.batch_id ?? child.batchId ?? null,
+            progress: Number(child.progress ?? 0),
+            profileProgress: getChildProfileProgress(child),
+            raw: child,
+          };
+        });
+
+        if (active) {
+          setChildrenRows(rows);
+        }
+      })
+      .catch((error) => {
+        console.error('[CommunityPage] Unable to load child rows:', error);
+        if (active) {
+          setChildrenRows([]);
+        }
+      });
+
+    return () => { active = false; };
+  }, [activeTab, entityFilter]);
+
+  const filteredData = useMemo(() => {
+    const term = query.trim().toLowerCase();
+
+    if (activeTab === 'communities') {
+      return communities.filter((community) => {
+        if (!term) return true;
+        return [community.name, String(community.id), community.area].some((value) =>
+          String(value || '').toLowerCase().includes(term)
+        );
+      });
+    }
+
+    if (activeTab === 'groups') return selectedSchoolGroups;
+    if (activeTab === 'batches') return selectedGroupBatches;
+
+    if (entityFilter === 'Child') {
+      return childrenRows.filter((child) => {
+        const matchesBatch = !selectedBatch || String(child.batchId ?? '') === String(selectedBatch.id) || child.batch === selectedBatch.name;
+        const matchesGroup = !selectedGroup || child.group === selectedGroup.name;
+        const matchesSchool = !selectedSchool || child.community === selectedSchool.name;
+
+        if (!matchesBatch || !matchesGroup || !matchesSchool) return false;
+        if (!term) return true;
+
+        return [child.name, child.motherName, child.community, child.group, String(child.id)].some((value) =>
+          String(value || '').toLowerCase().includes(term)
+        );
+      });
+    }
+
+    return selectedBatchMothers;
+  }, [activeTab, childrenRows, communities, entityFilter, query, selectedBatch, selectedBatchMothers, selectedGroup, selectedGroupBatches, selectedSchool, selectedSchoolGroups]);
+
+  const pageCount = Math.max(1, Math.ceil(filteredData.length / perPage));
+  const currentPage = Math.min(page, pageCount);
+  const startIndex = (currentPage - 1) * perPage;
+  const currentRows = filteredData.slice(startIndex, startIndex + perPage);
+
+  const tableTitle = useMemo(() => {
+    if (activeTab === 'communities') {
+      return 'Schools';
+    }
+
+    if (activeTab === 'groups') {
+      return selectedSchool?.name ? `School: ${selectedSchool.name}` : 'School';
+    }
+
+    if (activeTab === 'batches') {
+      return selectedGroup?.name ? `Group: ${selectedGroup.name}` : 'Group';
+    }
+
+    if (activeTab === 'mothers') {
+      return selectedBatch?.name ? `Batch: ${selectedBatch.name}` : 'Batch';
+    }
+
+    return '';
+  }, [activeTab, selectedBatch, selectedGroup, selectedSchool]);
 
   const breadcrumbItems = useMemo(() => {
     const items = [{ label: 'Schools', to: '/community', clickable: activeTab !== 'communities' }];
 
-    const schoolIdForGroups = schoolId || selectedSchool?.id || selectedSchoolForGroup?.id || selectedSchoolForBatch?.id;
     if (activeTab === 'groups' || activeTab === 'batches' || activeTab === 'mothers') {
       items.push({
-        label: 'Groups',
-        to: schoolIdForGroups ? `/community/school/${schoolIdForGroups}` : '/community',
+        label: truncateLabel(selectedSchool?.name || 'School'),
+        to: selectedSchool ? `/community/school/${selectedSchool.id}` : '/community',
         clickable: activeTab !== 'groups',
       });
     }
 
-    const batchGroup = selectedGroup || selectedGroupForBatch;
     if (activeTab === 'batches' || activeTab === 'mothers') {
       items.push({
-        label: 'Batches',
-        to: batchGroup ? `/community/group/${batchGroup.id}` : '/community',
+        label: truncateLabel(selectedGroup?.name || 'Group'),
+        to: selectedGroup ? `/community/group/${selectedGroup.id}` : '/community',
         clickable: activeTab !== 'batches',
       });
     }
 
     if (activeTab === 'mothers') {
-      items.push({ label: 'Mothers', clickable: false });
+      items.push({
+        label: truncateLabel(selectedBatch?.name || 'Batch'),
+        clickable: false,
+      });
     }
 
     return items;
-  }, [activeTab, schoolId, selectedSchool, selectedSchoolForGroup, selectedSchoolForBatch, selectedGroup, selectedGroupForBatch]);
-
-  const selectedSchoolGroups = useMemo(() => {
-    if (!selectedSchool) return [];
-    const term = query.trim().toLowerCase();
-    return groups
-      .filter((group) => group.community === selectedSchool.name)
-      .filter((group) => {
-        if (!term) return true;
-        return (
-          String(group.name || '').toLowerCase().includes(term) ||
-          String(group.id || '').toLowerCase().includes(term) ||
-          String(group.leader || '').toLowerCase().includes(term) ||
-          String(group.status || '').toLowerCase().includes(term)
-        );
-      });
-  }, [groups, selectedSchool, query]);
-
-  const selectedGroupBatches = useMemo(() => {
-    if (!selectedGroup) return [];
-    const term = query.trim().toLowerCase();
-    const groupBatchIds = mothers
-      .filter((mother) => mother.group === selectedGroup.name && mother.batchId)
-      .map((mother) => String(mother.batchId));
-    return batches
-      .filter((batch) => groupBatchIds.includes(String(batch.id)))
-      .filter((batch) => {
-        if (!term) return true;
-        return (
-          String(batch.name || '').toLowerCase().includes(term) ||
-          String(batch.id || '').toLowerCase().includes(term) ||
-          String(batch.community || '').toLowerCase().includes(term) ||
-          String(batch.status || '').toLowerCase().includes(term)
-        );
-      });
-  }, [batches, mothers, selectedGroup, query]);
-
-  const selectedBatchMothers = useMemo(() => {
-    if (!selectedBatch) return [];
-    const term = query.trim().toLowerCase();
-    return mothers
-      .filter((mother) => mother.batchId === selectedBatch.id)
-      .filter((mother) => {
-        if (!term) return true;
-        return (
-          String(mother.name || '').toLowerCase().includes(term) ||
-          String(mother.id || '').toLowerCase().includes(term) ||
-          String(mother.group || '').toLowerCase().includes(term) ||
-          String(mother.status || '').toLowerCase().includes(term)
-        );
-      });
-  }, [mothers, selectedBatch, query]);
+  }, [activeTab, selectedBatch, selectedGroup, selectedSchool]);
 
   useEffect(() => {
-    function closeDropdowns() {
-      setActiveDropdownId(null);
-    }
+    const closeDropdowns = () => setActiveDropdownId(null);
     document.addEventListener('click', closeDropdowns);
     return () => document.removeEventListener('click', closeDropdowns);
   }, []);
 
   useEffect(() => {
     if (communities.length > 0 && !batchForm.community) {
-      setBatchForm((prev) => ({ ...prev, community: communities[0].name }));
+      setBatchForm((previous) => ({ ...previous, community: communities[0].name }));
     }
+
     if (communities.length > 0 && !groupForm.community) {
-      setGroupForm((prev) => ({ ...prev, community: communities[0].name }));
+      setGroupForm((previous) => ({ ...previous, community: communities[0].name }));
     }
-  }, [communities, batchForm.community, groupForm.community]);
+  }, [batchForm.community, communities, groupForm.community]);
 
-  useEffect(() => {
-    if (batchId) {
-      setActiveTab('mothers');
-    } else if (groupId) {
-      setActiveTab('batches');
-    } else if (schoolId) {
-      setActiveTab('groups');
-    }
-  }, [batchId, groupId, schoolId]);
+  const handleSearch = (value) => {
+    setQuery(value);
+    setPage(1);
+  };
 
-  const handleTabChange = (tab) => {
-    if (schoolId || groupId || batchId) {
-      navigate('/community');
-    }
-    setActiveTab(tab);
+  const handleEntityFilterChange = (nextFilter) => {
+    setEntityFilter(nextFilter);
+    setPage(1);
+  };
+
+  const handlePerPageChange = (value) => {
+    setPerPage(Number(value));
+    setPage(1);
+  };
+
+  const handleTabChange = (nextTab) => {
     setQuery('');
     setPage(1);
     setActiveDropdownId(null);
-  };
 
-  const handleCommunityRowClick = (school) => {
-    navigate(`/community/school/${school.id}`);
-  };
-
-  const handleGroupRowClick = (group) => {
-    navigate(`/community/group/${group.id}`);
-  };
-
-  const handleBatchRowClick = (batch) => {
-    navigate(`/community/batch/${batch.id}`);
-  };
-
-  const handleMotherRowClick = (mother) => {
-    navigate(`/beneficiary/mother/${mother.id}`, { state: { mother } });
-  };
-
-  const filteredData = useMemo(() => {
-    const term = query.trim().toLowerCase();
-    if (activeTab === 'communities') {
-      if (!term) return communities;
-      return communities.filter(
-        (c) =>
-          String(c.name || '').toLowerCase().includes(term) ||
-            String(c.id || '').toLowerCase().includes(term) ||
-            String(c.area || '').toLowerCase().includes(term)
-      );
+    if (nextTab === 'communities') {
+      navigate('/community');
+      return;
     }
 
-    if (activeTab === 'mothers') {
-      return selectedBatchMothers;
+    if (nextTab === 'groups') {
+      navigate(selectedSchool ? `/community/school/${selectedSchool.id}` : '/community');
+      return;
     }
 
-    if (activeTab === 'batches') {
-      if (!term) return batches;
-      return batches.filter(
-        (b) =>
-          String(b.name || '').toLowerCase().includes(term) ||
-          String(b.id || '').toLowerCase().includes(term) ||
-          String(b.community || '').toLowerCase().includes(term) ||
-          String(b.status || '').toLowerCase().includes(term)
-      );
+    if (nextTab === 'batches') {
+      navigate(selectedGroup ? `/community/group/${selectedGroup.id}` : '/community');
+      return;
     }
 
-    if (!term) return groups;
-    return groups.filter(
-      (g) =>
-          String(g.name || '').toLowerCase().includes(term) ||
-        String(g.id || '').toLowerCase().includes(term) ||
-        String(g.leader || '').toLowerCase().includes(term) ||
-        String(g.status || '').toLowerCase().includes(term)
-    );
-  }, [activeTab, query, communities, batches, groups]);
-
-  const currentFilteredData =
-    batchId && activeTab === 'mothers' ? selectedBatchMothers :
-    groupId && activeTab === 'batches' ? selectedGroupBatches :
-    selectedSchool && activeTab === 'groups' ? selectedSchoolGroups :
-    filteredData;
-  const pageCount = Math.max(1, Math.ceil(currentFilteredData.length / perPage));
-  const currentPage = Math.min(page, pageCount);
-  const currentStart = (currentPage - 1) * perPage;
-  const currentRows = currentFilteredData.slice(currentStart, currentStart + perPage);
-
-  const rangeStart = currentFilteredData.length === 0 ? 0 : currentStart + 1;
-  const rangeEnd = Math.min(currentStart + perPage, currentFilteredData.length);
-
-  const displayRows = currentRows;
-  const displayLength = currentFilteredData.length;
-  const displayRangeStart = rangeStart;
-  const displayRangeEnd = rangeEnd;
-
-  const handleSearch = (val) => {
-    setQuery(val);
-    setPage(1);
+    navigate(selectedBatch ? `/community/batch/${selectedBatch.id}` : '/community');
   };
 
-  const handlePerPageChange = (val) => {
-    setPerPage(Number(val));
-    setPage(1);
-  };
-
-  const toggleDropdown = (e, id) => {
-    e.stopPropagation();
-    setActiveDropdownId(activeDropdownId === id ? null : id);
+  const toggleDropdown = (event, id) => {
+    event.stopPropagation();
+    setActiveDropdownId((current) => (current === id ? null : id));
   };
 
   const openCreateModal = () => {
     if (activeTab === 'communities') {
-      setCommunityForm({ name: '', area: 'Poblacion', coordinator: '' });
+      setCommunityForm(defaultCommunityForm);
       setShowModal('createCommunity');
       return;
     }
 
     if (activeTab === 'groups') {
-      setGroupForm({ name: '', community: selectedSchool?.name || communities[0]?.name || '', assignedBatchIds: [], leader: '', members: 1, status: 'Active' });
+      setGroupForm({
+        ...defaultGroupForm,
+        community: selectedSchool?.name || communities[0]?.name || '',
+      });
       setShowModal('createGroup');
       return;
     }
 
     setBatchForm({
-      name: '',
+      ...defaultBatchForm,
       community: communities[0]?.name || '',
-      records: 1,
-      progress: 0,
-      status: 'Active',
     });
     setShowModal('createBatch');
   };
 
   const openEditModal = (item) => {
     setSelectedItem(item);
+
     if (activeTab === 'communities') {
       setCommunityForm({ name: item.name, area: item.area, coordinator: '' });
       setShowModal('editCommunity');
@@ -397,223 +407,239 @@ export default function CommunityPage() {
     setShowModal('editBatch');
   };
 
-  const handleCreateCommunity = async (e) => {
-    e.preventDefault();
+  const handleCreateCommunity = async (event) => {
+    event.preventDefault();
     if (!communityForm.name.trim()) return;
 
-    try {
-      console.info('[CommunityPage] Creating community in database', communityForm);
-      const data = await createCommunity({
-        name: communityForm.name.trim(),
-        area: communityForm.area,
-        coordinator: communityForm.coordinator,
-      });
-      console.info('[CommunityPage] Community created successfully', data);
-
-      const summaryData = await getSummary();
-      setCommunities(summaryData.communities || []);
-      setBatches(summaryData.batches || []);
-      setGroups(summaryData.groups || []);
-      setMothers(summaryData.mothers || []);
-      setShowModal(null);
-    } catch (error) {
-      console.error('[CommunityPage] Failed to create community:', error);
-      window.alert(error.message || 'Unable to create community.');
-    }
+    await mutations.createCommunity(communityForm);
+    setShowModal(null);
   };
 
-  const handleEditCommunity = async (e) => {
-    e.preventDefault();
+  const handleEditCommunity = async (event) => {
+    event.preventDefault();
     if (!communityForm.name.trim()) return;
 
-    try {
-      const data = await updateCommunity(selectedItem.id, {
-        name: communityForm.name.trim(),
-        area: communityForm.area,
-      });
+    await mutations.updateCommunity(selectedItem.id, communityForm);
+    setShowModal(null);
+    setSelectedItem(null);
+  };
 
-      const summaryData = await getSummary();
-      setCommunities(summaryData.communities || []);
-      setBatches(summaryData.batches || []);
-      setGroups(summaryData.groups || []);
-      setMothers(summaryData.mothers || []);
-      setShowModal(null);
-      setSelectedItem(null);
-      console.info('[CommunityPage] Community updated in DB', data);
-    } catch (error) {
-      console.error('[CommunityPage] Failed to update community:', error);
-      window.alert(error.message || 'Unable to update community.');
-    }
+  const handleCreateBatch = async (event) => {
+    event.preventDefault();
+    if (!batchForm.name.trim()) return;
+
+    await mutations.createBatch(batchForm);
+    setShowModal(null);
+  };
+
+  const handleEditBatch = async (event) => {
+    event.preventDefault();
+    if (!batchForm.name.trim()) return;
+
+    await mutations.updateBatch(selectedItem.id, batchForm);
+    setShowModal(null);
+    setSelectedItem(null);
+  };
+
+  const handleCreateGroup = async (event) => {
+    event.preventDefault();
+    if (!groupForm.name.trim()) return;
+
+    await mutations.createGroup(groupForm);
+    setShowModal(null);
+  };
+
+  const handleEditGroup = async (event) => {
+    event.preventDefault();
+    if (!groupForm.name.trim()) return;
+
+    await mutations.updateGroup(selectedItem.id, groupForm);
+    setShowModal(null);
+    setSelectedItem(null);
   };
 
   const handleDeleteCommunity = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this community?')) {
-      return;
-    }
-
-    try {
-      await deleteCommunity(id);
-      const summaryData = await getSummary();
-      setCommunities(summaryData.communities || []);
-      setBatches(summaryData.batches || []);
-      setGroups(summaryData.groups || []);
-      setMothers(summaryData.mothers || []);
-    } catch (error) {
-      console.error('[CommunityPage] Failed to delete community:', error);
-      window.alert(error.message || 'Unable to delete community.');
-    }
-  };
-
-  const handleCreateBatch = async (e) => {
-    e.preventDefault();
-    if (!batchForm.name.trim()) return;
-
-    try {
-      console.info('[CommunityPage] Creating batch in database', batchForm);
-      const data = await createBatch({
-        name: batchForm.name.trim(),
-        community: batchForm.community,
-        records: Number(batchForm.records) || 0,
-        progress: Number(batchForm.progress) || 0,
-        status: batchForm.status,
-      });
-
-      console.info('[CommunityPage] Batch created successfully', data);
-
-      const summaryData = await getSummary();
-      setCommunities(summaryData.communities || []);
-      setBatches(summaryData.batches || []);
-      setGroups(summaryData.groups || []);
-      setMothers(summaryData.mothers || []);
-      setShowModal(null);
-    } catch (error) {
-      console.error('[CommunityPage] Failed to create batch:', error);
-      window.alert(error.message || 'Unable to create batch.');
-    }
-  };
-
-  const handleEditBatch = async (e) => {
-    e.preventDefault();
-    if (!batchForm.name.trim()) return;
-
-    try {
-      await updateBatch(selectedItem.id, {
-        name: batchForm.name.trim(),
-        community: batchForm.community,
-        records: Number(batchForm.records) || 0,
-        progress: Number(batchForm.progress) || 0,
-        status: batchForm.status,
-      });
-
-      const summaryData = await getSummary();
-      setCommunities(summaryData.communities || []);
-      setBatches(summaryData.batches || []);
-      setGroups(summaryData.groups || []);
-      setMothers(summaryData.mothers || []);
-      setShowModal(null);
-      setSelectedItem(null);
-    } catch (error) {
-      console.error('[CommunityPage] Failed to update batch:', error);
-      window.alert(error.message || 'Unable to update batch.');
-    }
-  };
-
-  const handleCreateGroup = async (e) => {
-    e.preventDefault();
-    if (!groupForm.name.trim()) return;
-
-    try {
-      console.info('[CommunityPage] Creating group in database', groupForm);
-      const data = await createGroup({
-        name: groupForm.name.trim(),
-        community: groupForm.community,
-        leader: groupForm.leader.trim(),
-        members: Number(groupForm.members) || 0,
-        status: groupForm.status,
-      });
-
-      console.info('[CommunityPage] Group created successfully', data);
-
-      const summaryData = await getSummary();
-      setCommunities(summaryData.communities || []);
-      setBatches(summaryData.batches || []);
-      setGroups(summaryData.groups || []);
-      setMothers(summaryData.mothers || []);
-      setShowModal(null);
-    } catch (error) {
-      console.error('[CommunityPage] Failed to create group:', error);
-      window.alert(error.message || 'Unable to create group.');
-    }
-  };
-
-  const handleEditGroup = async (e) => {
-    e.preventDefault();
-    if (!groupForm.name.trim()) return;
-
-    try {
-      await updateGroup(selectedItem.id, {
-        name: groupForm.name.trim(),
-        community: groupForm.community,
-        leader: groupForm.leader.trim(),
-        members: Number(groupForm.members) || 0,
-        status: groupForm.status,
-      });
-
-      const summaryData = await getSummary();
-      setCommunities(summaryData.communities || []);
-      setBatches(summaryData.batches || []);
-      setGroups(summaryData.groups || []);
-      setMothers(summaryData.mothers || []);
-      setShowModal(null);
-      setSelectedItem(null);
-    } catch (error) {
-      console.error('[CommunityPage] Failed to update group:', error);
-      window.alert(error.message || 'Unable to update group.');
-    }
-  };
-
-  const handleDeleteBatch = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this batch?')) {
-      return;
-    }
-
-    try {
-      await deleteBatch(id);
-      const summaryData = await getSummary();
-      setCommunities(summaryData.communities || []);
-      setBatches(summaryData.batches || []);
-      setGroups(summaryData.groups || []);
-      setMothers(summaryData.mothers || []);
-    } catch (error) {
-      console.error('[CommunityPage] Failed to delete batch:', error);
-      window.alert(error.message || 'Unable to delete batch.');
-    }
+    if (!window.confirm('Are you sure you want to delete this community?')) return;
+    await mutations.deleteCommunity(id);
   };
 
   const handleDeleteGroup = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this group?')) {
-      return;
-    }
+    if (!window.confirm('Are you sure you want to delete this group?')) return;
+    await mutations.deleteGroup(id);
+  };
+
+  const handleDeleteBatch = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this batch?')) return;
+    await mutations.deleteBatch(id);
+  };
+
+  const handleDeleteMother = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this mother?')) return;
 
     try {
-      await deleteGroup(id);
-      const summaryData = await getSummary();
-      setCommunities(summaryData.communities || []);
-      setBatches(summaryData.batches || []);
-      setGroups(summaryData.groups || []);
-      setMothers(summaryData.mothers || []);
+      await apiDeleteMother(id);
+      await refreshData();
     } catch (error) {
-      console.error('[CommunityPage] Failed to delete group:', error);
-      window.alert(error.message || 'Unable to delete group.');
+      console.error('[CommunityPage] Unable to delete mother:', error);
+      window.alert(error?.message || 'Unable to delete mother.');
     }
   };
+
+  const handleMotherRowClick = (mother) => {
+    navigate(`/beneficiary/mother/${mother.id}`, { state: { mother } });
+  };
+
+  const handleChildRowClick = (child) => {
+    navigate(`/beneficiary/child/${child.id}`, {
+      state: {
+        child: child.raw || child,
+        mother: child.raw?.mother || child.mother || null,
+      },
+    });
+  };
+
+  const columns = useMemo(() => {
+    const actionColumn = {
+      key: 'actions',
+      header: 'Actions',
+      thClassName: 'actions-cell batch-actions-cell',
+      cellClassName: activeTab === 'batches' ? 'actions-cell batch-actions-cell' : 'actions-cell',
+      renderCell: (row) => {
+        if (!canManage) {
+          return <span className="no-actions">—</span>;
+        }
+
+        return (
+          <>
+            <button
+              type="button"
+              className="btn-actions"
+              onClick={(event) => toggleDropdown(event, row.id)}
+              aria-label="Actions menu"
+              aria-haspopup="true"
+              aria-expanded={activeDropdownId === row.id}
+            >
+              <MoreVerticalIcon />
+            </button>
+            {activeDropdownId === row.id && (
+              <div className="actions-dropdown" role="menu">
+                <button
+                  type="button"
+                  className="actions-dropdown-item"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (activeTab === 'mothers') {
+                      navigate(`/beneficiary/mother/${row.id}/edit`);
+                      return;
+                    }
+
+                    openEditModal(row);
+                  }}
+                  role="menuitem"
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  className="actions-dropdown-item delete"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (activeTab === 'mothers') {
+                      handleDeleteMother(row.id);
+                      return;
+                    }
+
+                    if (activeTab === 'communities') {
+                      handleDeleteCommunity(row.id);
+                    } else if (activeTab === 'groups') {
+                      handleDeleteGroup(row.id);
+                    } else {
+                      handleDeleteBatch(row.id);
+                    }
+                  }}
+                  role="menuitem"
+                >
+                  Delete
+                </button>
+              </div>
+            )}
+          </>
+        );
+      },
+    };
+
+    if (activeTab === 'communities') {
+      return [
+        { key: 'name', header: 'School Name', style: { width: '48%' }, renderCell: (row) => <span className="community-title-text" title={row.name}>{row.name}</span> },
+        { key: 'batches', header: 'Total Batches', cellClassName: 'small-column', renderCell: (row) => row.batches || 0 },
+        { key: 'groups', header: 'Total Groups', cellClassName: 'small-column', renderCell: (row) => groups.filter((group) => group.community === row.name).length },
+        actionColumn,
+      ];
+    }
+
+    if (activeTab === 'groups') {
+      return [
+        { key: 'name', header: 'Group Name', style: { width: '60%' }, renderCell: (row) => <span className="community-title-text">{row.name}</span> },
+        { key: 'assignedBatchIds', header: 'Total Batches', cellClassName: 'small-column', renderCell: (row) => row.assignedBatchIds?.length ?? row.batches ?? 0 },
+        actionColumn,
+      ];
+    }
+
+    if (activeTab === 'mothers') {
+      if (entityFilter === 'Child') {
+        return [
+          { key: 'name', header: 'Child Name', style: { width: '42%' }, renderCell: (row) => <span className="community-title-text">{row.name}</span> },
+          { key: 'motherName', header: 'Mother Name', style: { width: '24%' }, renderCell: (row) => row.motherName || '—' },
+          { key: 'profileProgress', header: 'Profile Progress (%)', cellClassName: 'status-column', renderCell: (row) => `${Number(row.profileProgress ?? 0)}%` },
+          { key: 'progress', header: 'Monitor Progress (%)', cellClassName: 'status-column', renderCell: (row) => `${Number(row.progress ?? 0)}%` },
+          actionColumn,
+        ];
+      }
+
+      return [
+        { key: 'name', header: 'Mother Name', style: { width: '52%' }, renderCell: (row) => <span className="community-title-text">{row.name}</span> },
+        { key: 'profileProgress', header: 'Profile Progress (%)', cellClassName: 'status-column', renderCell: (row) => `${getMotherProfileProgress(row)}%` },
+        { key: 'progress', header: 'Monitor Progress (%)', cellClassName: 'status-column', renderCell: (row) => `${Number(row.progress ?? 0)}%` },
+        actionColumn,
+      ];
+    }
+
+    return [
+      { key: 'name', header: 'Batch Name', style: { width: '42%' }, renderCell: (row) => <span className="community-title-text">{row.name}</span> },
+      { key: 'community', header: 'Community', style: { width: '32%' }, cellClassName: 'community-column', renderCell: (row) => row.community },
+      { key: 'records', header: 'Total Mothers', cellClassName: 'compact-column', renderCell: (row) => row.records },
+      { key: 'progress', header: 'Progress (%)', cellClassName: 'status-column', renderCell: (row) => `${row.progress ?? 0}%` },
+      actionColumn,
+    ];
+  }, [activeDropdownId, activeTab, canManage, entityFilter, groups, handleDeleteBatch, handleDeleteCommunity, handleDeleteGroup, handleDeleteMother, navigate, openEditModal]);
+
+  const currentRowClickHandler =
+    activeTab === 'communities'
+      ? (school) => navigate(`/community/school/${school.id}`)
+      : activeTab === 'groups'
+        ? (group) => navigate(`/community/group/${group.id}`)
+        : activeTab === 'batches'
+          ? (batch) => navigate(`/community/batch/${batch.id}`)
+          : entityFilter === 'Child'
+            ? (child) => handleChildRowClick(child)
+            : (mother) => handleMotherRowClick(mother);
+
+  if (loading) {
+    return <div className="community-page"><p>Loading community data...</p></div>;
+  }
+
+  if (error) {
+    return <div className="community-page"><p className="error-message">{error}</p></div>;
+  }
 
   return (
     <div className="community-page">
       <CommunityToolbar
         activeTab={activeTab}
         query={query}
+        entityFilter={entityFilter}
         onSearch={handleSearch}
+        onEntityFilterChange={handleEntityFilterChange}
         onTabChange={handleTabChange}
         onCreate={openCreateModal}
         breadcrumbItems={breadcrumbItems}
@@ -621,84 +647,42 @@ export default function CommunityPage() {
         canManage={canManage}
       />
 
-      <CommunityFilters
-        activeTab={activeTab}
-        query={query}
-        onClearQuery={() => setQuery('')}
+      <CommunityTable
+        columns={columns}
+        data={currentRows}
+        onRowClick={currentRowClickHandler}
+        tableTitle={tableTitle}
       />
 
-      <CommunityTable
-        activeTab={activeTab}
-        currentRows={displayRows}
-        groups={groups}
-        activeDropdownId={activeDropdownId}
-        toggleDropdown={toggleDropdown}
-        openEditModal={openEditModal}
-        handleDeleteCommunity={handleDeleteCommunity}
-        handleDeleteGroup={handleDeleteGroup}
-        handleDeleteBatch={handleDeleteBatch}
-        onCommunityRowClick={activeTab === 'communities' ? handleCommunityRowClick : activeTab === 'groups' ? handleGroupRowClick : activeTab === 'batches' ? handleBatchRowClick : undefined}
-        onMotherRowClick={activeTab === 'mothers' ? handleMotherRowClick : undefined}
-        canManage={canManage}
-      />
       <CommunityPagination
         currentPage={currentPage}
         pageCount={pageCount}
         onPageChange={setPage}
         perPage={perPage}
         onPerPageChange={handlePerPageChange}
-        rangeStart={displayRangeStart}
-        rangeEnd={displayRangeEnd}
-        totalItems={displayLength}
+        rangeStart={filteredData.length === 0 ? 0 : startIndex + 1}
+        rangeEnd={Math.min(startIndex + perPage, filteredData.length)}
+        totalItems={filteredData.length}
       />
-      <CreateCommunityModal
-        showModal={showModal === 'createCommunity'}
+
+      <CommunityModalManager
+        showModal={showModal}
         onClose={() => setShowModal(null)}
         communityForm={communityForm}
         setCommunityForm={setCommunityForm}
-        handleCreateCommunity={handleCreateCommunity}
+        groupForm={groupForm}
+        setGroupForm={setGroupForm}
+        batchForm={batchForm}
+        setBatchForm={setBatchForm}
+        communities={communities}
+        batches={batches}
         coordinators={coordinators}
-      />
-      <EditCommunityModal
-        showModal={showModal === 'editCommunity'}
-        onClose={() => setShowModal(null)}
-        communityForm={communityForm}
-        setCommunityForm={setCommunityForm}
-        handleEditCommunity={handleEditCommunity}
-      />
-      <CreateBatchModal
-        showModal={showModal === 'createBatch'}
-        onClose={() => setShowModal(null)}
-        batchForm={batchForm}
-        setBatchForm={setBatchForm}
-        handleCreateBatch={handleCreateBatch}
-        communities={communities}
-      />
-      <EditBatchModal
-        showModal={showModal === 'editBatch'}
-        onClose={() => setShowModal(null)}
-        batchForm={batchForm}
-        setBatchForm={setBatchForm}
-        handleEditBatch={handleEditBatch}
-        communities={communities}
-      />
-      <CreateGroupModal
-        showModal={showModal === 'createGroup'}
-        onClose={() => setShowModal(null)}
-        groupForm={groupForm}
-        setGroupForm={setGroupForm}
-        handleCreateGroup={handleCreateGroup}
-        communities={communities}
-        batches={batches}
-      />
-      <EditGroupModal
-        showModal={showModal === 'editGroup'}
-        onClose={() => setShowModal(null)}
-        groupForm={groupForm}
-        setGroupForm={setGroupForm}
-        handleEditGroup={handleEditGroup}
-        communities={communities}
-        batches={batches}
+        onCreateCommunity={handleCreateCommunity}
+        onEditCommunity={handleEditCommunity}
+        onCreateBatch={handleCreateBatch}
+        onEditBatch={handleEditBatch}
+        onCreateGroup={handleCreateGroup}
+        onEditGroup={handleEditGroup}
       />
     </div>
   );
