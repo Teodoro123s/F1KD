@@ -132,13 +132,16 @@ export default function BeneficiaryPage() {
     <div className="community-page beneficiary-page">
       <PageHeader
         title="Beneficiaries"
-        breadcrumbs={[{ label: 'Beneficiaries' }]}
+        description="Mother and child under the F1KD program."
+        breadcrumbs={[]}
         actions={
           !isMotherDetail && canCreate ? (
             <div className="create-menu-wrapper">
-              <button className="view-btn view-btn--primary" onClick={openCreateModal} type="button">
-                <PlusIcon />
-                <span>Create</span>
+              <button className="btn-create-action" onClick={openCreateModal} type="button">
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <span>+</span>
+                  <span>Add Beneficiary</span>
+                </span>
               </button>
               {createDropdownOpen && (
                 <div className="create-dropdown" role="menu">

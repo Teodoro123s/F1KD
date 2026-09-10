@@ -59,6 +59,10 @@
   margin-bottom: 0.5rem;
   flex-wrap: wrap;
   gap: 1rem;
+  padding: 0 1.5rem;
+  background: #fff;
+  border-bottom: 1px solid #e5e7eb;
+  min-height: 64px;
 }
 
 .community-title-section {
@@ -68,23 +72,25 @@
 
 .community-title-section h1 {
   margin: 0;
-  font-size: 1.85rem;
+  font-size: 28px;
+  line-height: 34px;
   font-weight: 800;
-  color: var(--slate-dark);
+  color: #111827;
   letter-spacing: -0.02em;
 }
 
 .community-title-section p {
   margin: 0.35rem 0 0;
-  font-size: 0.95rem;
-  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #64748b;
 }
 
 .btn-create {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  background: var(--burgundy);
+  background: #5a0f1f;
   color: #fff;
   border: none;
   padding: 0.65rem 1.2rem;
@@ -93,13 +99,13 @@
   font-size: 0.9rem;
   cursor: pointer;
   transition: all 150ms ease;
-  box-shadow: 0 2px 4px rgba(122, 12, 30, 0.15);
+  box-shadow: 0 2px 4px rgba(90, 15, 31, 0.2);
   align-self: flex-start;
 }
 
 .btn-create:hover {
-  background: var(--burgundy-hover);
-  box-shadow: 0 4px 6px rgba(122, 12, 30, 0.2);
+  background: #420a17;
+  box-shadow: 0 4px 6px rgba(90, 15, 31, 0.25);
 }
 
 .create-menu-wrapper { position: relative; }

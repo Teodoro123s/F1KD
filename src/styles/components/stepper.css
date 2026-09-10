@@ -1,4 +1,12 @@
 ﻿/* Stepper / Progress bar for Beneficiary create views */
+.tabs-row.create-view {
+  width: 100%;
+  justify-content: flex-start;
+  padding-left: 0;
+  padding-right: 0;
+  margin-bottom: 0.75rem;
+}
+
 .stepper-progress { width: 100%; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
 .stepper-steps { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; overflow-x: auto; padding-bottom: 2px; }
 .stepper-step { display: inline-flex; align-items: center; gap: 0.5rem; color: #64748b; font-weight: 700; font-size: 0.95rem; padding: 0.35rem 0.6rem; border-radius: 8px; background: transparent; border: none; cursor: pointer; transition: background 150ms ease, color 150ms ease, transform 120ms ease; }
@@ -9,3 +17,14 @@
 .stepper-step.completed { color: var(--burgundy); background: var(--burgundy-light); }
 .stepper-step.completed .stepper-step-index { background: var(--burgundy); color: #fff; border-color: var(--burgundy); }
 .stepper-step-label { white-space: nowrap; }
+
+.create-form-body,
+.create-form-body form,
+.modal-body-scrollable {
+  width: 100%;
+}
+
+.modal-body-scrollable {
+  padding-left: 0.25rem;
+  padding-right: 0.25rem;
+}

@@ -16,31 +16,20 @@ export default function CommunityToolbar({
       <header className="community-header">
         <div className="community-title-section">
           <h1>Communities</h1>
-          <nav className="community-breadcrumb" aria-label="Breadcrumb">
-            {breadcrumbItems.map((item, index) => (
-              <span key={`${item.label}-${index}`} className="breadcrumb-item">
-                {item.clickable ? (
-                  <button type="button" className="breadcrumb-link" onClick={() => navigate(item.to)}>
-                    {item.label}
-                  </button>
-                ) : (
-                  <span className="breadcrumb-current">{item.label}</span>
-                )}
-                {index < breadcrumbItems.length - 1 && <span className="breadcrumb-separator">›</span>}
-              </span>
-            ))}
-          </nav>
+          <p>Communities involved and part of the F1KD Program.</p>
         </div>
 
         {activeTab !== 'mothers' && canManage && (
           <button className="btn-create-action" onClick={onCreate}>
-            <PlusIcon />
-            <span>
-              {activeTab === 'communities'
-                ? 'Create School'
-                : activeTab === 'groups'
-                  ? 'Create Group'
-                  : 'Create Batch'}
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+              <span>+</span>
+              <span>
+                {activeTab === 'communities'
+                  ? 'Add School'
+                  : activeTab === 'groups'
+                    ? 'Add Group'
+                    : 'Add Batch'}
+              </span>
             </span>
           </button>
         )}

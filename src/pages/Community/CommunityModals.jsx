@@ -23,7 +23,7 @@ function ModalShell({ title, onClose, onSubmit, children, submitLabel }) {
 export function CreateCommunityModal({ showModal, onClose, communityForm, setCommunityForm, handleCreateCommunity, coordinators }) {
   if (!showModal) return null;
   return (
-    <ModalShell title="Create School" onClose={onClose} onSubmit={handleCreateCommunity} submitLabel="Create">
+    <ModalShell title="Add New School Information" onClose={onClose} onSubmit={handleCreateCommunity} submitLabel="Add">
       <div className="form-group">
         <label className="form-label" htmlFor="comm-name">School Name</label>
         <input
@@ -97,7 +97,7 @@ export function EditCommunityModal({ showModal, onClose, communityForm, setCommu
 export function CreateBatchModal({ showModal, onClose, batchForm, setBatchForm, handleCreateBatch, communities }) {
   if (!showModal) return null;
   return (
-    <ModalShell title="Create Batch" onClose={onClose} onSubmit={handleCreateBatch} submitLabel="Create">
+    <ModalShell title="Add New Batch Information" onClose={onClose} onSubmit={handleCreateBatch} submitLabel="Add">
       <div className="form-group">
         <label className="form-label" htmlFor="batch-name">Batch Name</label>
         <input
@@ -191,7 +191,7 @@ export function CreateGroupModal({ showModal, onClose, groupForm, setGroupForm, 
   const availableBatches = batches.filter((batch) => batch.community === groupForm.community);
 
   return (
-    <ModalShell title="Create Group" onClose={onClose} onSubmit={handleCreateGroup} submitLabel="Create">
+    <ModalShell title="Add New Group Information" onClose={onClose} onSubmit={handleCreateGroup} submitLabel="Add">
       <div className="form-group">
         <label className="form-label" htmlFor="group-name">Group Name</label>
         <input

@@ -1,6 +1,71 @@
 ﻿/* Beneficiary-specific table styles */
-.beneficiary-table-card .entity-card-button { width: 100%; display: flex; flex-direction: column; gap: 0.65rem; padding: 1.15rem 1.4rem; background: #fff; border: none; cursor: pointer; text-align: left; transition: all 180ms ease; box-sizing: border-box; text-decoration: none; }
-.beneficiary-table-card .mother-cell::after { content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 2px; background: rgba(15,23,36,0.18); pointer-events: none; border-radius: 0; z-index: 2; }
+.beneficiary-table-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.beneficiary-table-card .table-overflow {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.beneficiary-table-card .data-table {
+  border-collapse: separate;
+  border-spacing: 1.1rem;
+  width: calc(100% - 2.2rem);
+  margin: 0.75rem auto;
+}
+
+.beneficiary-table-card .data-table thead th {
+  background: transparent;
+  border-bottom: none;
+  padding-bottom: 0.35rem;
+}
+
+.beneficiary-table-card .data-table tbody tr {
+  background: transparent;
+}
+
+.beneficiary-table-card .data-table td {
+  padding: 0;
+  background: #fff;
+  border: 1px solid #dfe7f1;
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  overflow: hidden;
+  vertical-align: top;
+  outline: 1px solid #dfe7f1;
+  outline-offset: -1px;
+}
+
+.beneficiary-table-card .mother-cell::after,
+.beneficiary-table-card .child-cell::after {
+  display: none;
+}
+
+.beneficiary-table-card .entity-card-button {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 1.15rem 1.4rem;
+  background: #fff;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 180ms ease;
+  box-sizing: border-box;
+  text-decoration: none;
+  outline: none;
+}
+
+.beneficiary-table-card .entity-card-button:hover {
+  background: #fffaf9;
+  border-color: rgba(122, 12, 30, 0.12);
+}
+
 .beneficiary-progress-wrapper { display: flex; align-items: center; gap: 0.75rem; }
 .beneficiary-cell-content { display: flex; flex-direction: column; gap: 6px; width: 100%; }
 .beneficiary-cell-line-1 { display: flex; justify-content: space-between; align-items: center; width: 100%; }

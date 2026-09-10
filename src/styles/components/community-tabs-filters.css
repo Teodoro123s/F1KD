@@ -39,11 +39,11 @@
 .entity-filter-btn:hover { background: #F8FAFC; color: var(--slate-dark); }
 
 .tabs-list { display: flex; gap: 1.75rem; }
-.tab-btn { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 0.25rem 0.85rem; border: none; background: transparent; font-size: 0.95rem; font-weight: 600; color: var(--text-muted); cursor: pointer; position: relative; transition: color 150ms ease; border-bottom: 3px solid transparent; margin-bottom: -0.6rem; }
-.tab-btn:hover { color: var(--slate-dark); }
-.tab-btn.active { color: var(--burgundy); border-bottom-color: var(--burgundy); }
+.tab-btn { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 0.25rem 0.85rem; border: none; background: transparent; font-size: 0.95rem; font-weight: 600; color: #7a7a7a; cursor: pointer; position: relative; transition: color 150ms ease; border-bottom: 3px solid transparent; margin-bottom: -0.6rem; }
+.tab-btn:hover { color: #5a0f1f; }
+.tab-btn.active { color: #ffffff !important; border-bottom-color: #5a0f1f !important; background: #5a0f1f; border-radius: 8px 8px 0 0; }
 .tab-btn svg { width: 1.2rem; height: 1.2rem; fill: none; stroke: currentColor; stroke-width: 2; }
-.tab-btn.active svg { stroke: var(--burgundy); }
+.tab-btn.active svg { stroke: #ffffff !important; }
 
 .role-filter-area { position: relative; display: inline-flex; }
 .role-filter-button { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; padding: 0; border-radius: 50%; border: none; background: #fff; color: var(--text-muted); box-shadow: 0 1px 2px rgba(15, 23, 36, 0.08); cursor: pointer; transition: all 150ms ease; }

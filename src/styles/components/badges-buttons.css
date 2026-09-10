@@ -14,30 +14,30 @@
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	gap: 0.5rem;
-	min-height: 44px;
-	min-width: 112px;
-	padding: 0.75rem 1.25rem;
-	background: var(--burgundy);
-	border: 1px solid var(--burgundy);
-	border-radius: 10px;
+	gap: 0.3rem;
+	min-height: 32px;
+	min-width: 100px;
+	padding: 0.45rem 0.8rem;
+	background: #5a0f1f;
+	border: 1px solid #5a0f1f;
+	border-radius: 8px;
 	color: #fff;
-	font-size: 0.95rem;
+	font-size: 0.88rem;
 	font-weight: 600;
 	cursor: pointer;
-	box-shadow: 0 2px 4px rgba(122, 12, 30, 0.15);
+	box-shadow: 0 2px 4px rgba(90, 15, 31, 0.2);
 	transition: background 150ms ease, box-shadow 150ms ease, opacity 150ms ease;
 }
 
 .btn-create-action svg {
-	width: 1.5rem;
-	height: 1.5rem;
+	width: 1.1rem;
+	height: 1.1rem;
 	flex: 0 0 auto;
 }
 
 .btn-create-action:hover {
-	background: var(--burgundy-hover);
-	box-shadow: 0 4px 6px rgba(122, 12, 30, 0.2);
+	background: #420a17;
+	box-shadow: 0 4px 6px rgba(90, 15, 31, 0.25);
 }
 
 .btn-create-action:disabled {

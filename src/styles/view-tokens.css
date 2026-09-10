@@ -58,9 +58,19 @@
 .view-content .checkup-module-header h1,
 .view-content .view-page-title {
   margin: 0;
-  font-size: var(--view-text-h1);
-  line-height: 28px;
-  font-weight: 600;
+  font-size: 28px;
+  line-height: 34px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #111827;
+}
+
+.view-content .community-title-section p,
+.view-content .view-page-description {
+  margin: 0.35rem 0 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #64748b;
 }
 
 .view-content .community-breadcrumb,
@@ -136,9 +146,9 @@
 }
 
 .view-content .tab-btn.active {
-  background: var(--view-primary);
-  border-color: var(--view-primary);
-  color: #fff;
+  background: #5a0f1f !important;
+  border-color: #5a0f1f !important;
+  color: #fff !important;
 }
 
 .view-content .search-container,
@@ -166,10 +176,13 @@
 .view-content .form-select,
 .view-content .checkup-field-input {
   width: 100%;
-  border: none;
-  background: transparent;
+  border: 1px solid var(--view-border-color);
+  background: #fff;
+  border-radius: 6px;
   color: var(--view-text);
   font-size: var(--view-text-body);
+  box-sizing: border-box;
+  padding: 0.7rem 0.85rem;
 }
 
 .view-content .search-input-field:focus,
@@ -292,9 +305,9 @@
 
 .view-content .btn-create-action,
 .view-content .btn-primary {
-  background: var(--view-primary);
-  border: 1px solid var(--view-primary);
-  color: #fff;
+  background: #5a0f1f !important;
+  border: 1px solid #5a0f1f !important;
+  color: #fff !important;
   padding: 0 16px;
 }
 
