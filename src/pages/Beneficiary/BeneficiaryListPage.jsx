@@ -134,36 +134,45 @@ export default function BeneficiaryListPage({ communities = [], batches = [], mo
   const rangeStart = filteredData.length === 0 ? 0 : currentStart + 1;
   const rangeEnd = Math.min(currentStart + perPage, filteredData.length);
 
-  const renderPaginationButtons = () => {
-    const buttons = [];
-    buttons.push(
-      <button key="first" type="button" className={`pagination-btn${currentPage === 1 ? ' disabled' : ''}`} onClick={() => setPage(1)} disabled={currentPage === 1} aria-label="First page">«</button>
-    );
-    const maxVisible = 5;
-    if (pageCount <= maxVisible) {
-      for (let i = 1; i <= pageCount; i += 1) {
-        buttons.push(
-          <button key={i} type="button" className={`pagination-btn${currentPage === i ? ' active' : ''}`} onClick={() => setPage(i)}>{i}</button>
-        );
-      }
-    } else if (currentPage <= 3) {
-      for (let i = 1; i <= 3; i += 1) buttons.push(<button key={i} type="button" className={`pagination-btn${currentPage === i ? ' active' : ''}`} onClick={() => setPage(i)}>{i}</button>);
-      buttons.push(<span key="el-1" className="pagination-btn ellipsis">...</span>);
-      buttons.push(<button key={pageCount} type="button" className={`pagination-btn${currentPage === pageCount ? ' active' : ''}`} onClick={() => setPage(pageCount)}>{pageCount}</button>);
-    } else if (currentPage >= pageCount - 2) {
-      buttons.push(<button key={1} type="button" className={`pagination-btn${currentPage === 1 ? ' active' : ''}`} onClick={() => setPage(1)}>1</button>);
-      buttons.push(<span key="el-2" className="pagination-btn ellipsis">...</span>);
-      for (let i = pageCount - 2; i <= pageCount; i += 1) buttons.push(<button key={i} type="button" className={`pagination-btn${currentPage === i ? ' active' : ''}`} onClick={() => setPage(i)}>{i}</button>);
-    } else {
-      buttons.push(<button key={1} type="button" className={`pagination-btn${currentPage === 1 ? ' active' : ''}`} onClick={() => setPage(1)}>1</button>);
-      buttons.push(<span key="el-3" className="pagination-btn ellipsis">...</span>);
-      buttons.push(<button key={currentPage} type="button" className="pagination-btn active">{currentPage}</button>);
-      buttons.push(<span key="el-4" className="pagination-btn ellipsis">...</span>);
-      buttons.push(<button key={pageCount} type="button" className={`pagination-btn${currentPage === pageCount ? ' active' : ''}`} onClick={() => setPage(pageCount)}>{pageCount}</button>);
-    }
-    buttons.push(<button key="last" type="button" className={`pagination-btn${currentPage === pageCount ? ' disabled' : ''}`} onClick={() => setPage(pageCount)} disabled={currentPage === pageCount} aria-label="Last page">»</button>);
-    return buttons;
-  };
+  const renderPaginationButtons = () => (
+    <>
+      <button
+        type="button"
+        className={`pagination-btn${currentPage === 1 ? ' disabled' : ''}`}
+        onClick={() => setPage((value) => Math.max(1, value - 1))}
+        disabled={currentPage === 1}
+        aria-label="Previous page"
+      >
+        ‹
+      </button>
+
+      <input
+        type="number"
+        min={1}
+        max={pageCount}
+        value={currentPage}
+        className="pagination-page-input"
+        placeholder="Page"
+        aria-label="Jump to a page"
+        onChange={(event) => {
+          const nextPage = Number(event.target.value);
+          if (!Number.isNaN(nextPage) && nextPage >= 1 && nextPage <= pageCount) {
+            setPage(nextPage);
+          }
+        }}
+      />
+
+      <button
+        type="button"
+        className={`pagination-btn${currentPage === pageCount ? ' disabled' : ''}`}
+        onClick={() => setPage((value) => Math.min(pageCount, value + 1))}
+        disabled={currentPage === pageCount}
+        aria-label="Next page"
+      >
+        ›
+      </button>
+    </>
+  );
 
   const motherProgressByName = useMemo(() => Object.fromEntries(communities.map((comm) => [comm.name, comm.progress ?? 0])), [communities]);
 

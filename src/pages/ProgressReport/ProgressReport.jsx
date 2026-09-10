@@ -187,7 +187,26 @@ export default function ProgressReport() {
           <section className="progress-report-results">
             <div className="progress-report-results-header"><div><h2>{displayGranularity === 'child' ? 'Child-level report' : 'Mother-level report'}</h2><p>{activeReport.pagination.total} matching records · {breadcrumb.join(' > ')}</p></div><button type="button" className="secondary-btn" onClick={exportReport}>Export CSV</button></div>
             {sortedRows.length ? <div className="progress-report-table-scroll"><table className="progress-report-flat-table"><thead><tr>{REPORT_FIELDS.filter(([id]) => displayVisibleFields.includes(id)).map(([id, label]) => <th key={id}>{sortLabel(label, id)}</th>)}</tr></thead><tbody>{sortedRows.map((row) => <tr key={`${row.motherId}-${row.child || 'mother'}`}>{REPORT_FIELDS.filter(([id]) => displayVisibleFields.includes(id)).map(([id]) => <td key={id}>{id === 'child' && displayGranularity === 'mother' ? row.mother : id === 'progress' ? <strong>{row[id]}%</strong> : formatCellValue(id, row[id])}</td>)}</tr>)}</tbody></table></div> : <div className="progress-report-empty">No children found for the selected filters.</div>}
-            <div className="progress-report-pagination"><button type="button" onClick={() => generateReport(displayPage - 1)} disabled={displayPage <= 1 || loadingReport}>Previous</button><span>Page {displayPage} of {activeReport.pagination.totalPages}</span><button type="button" onClick={() => generateReport(displayPage + 1)} disabled={displayPage >= activeReport.pagination.totalPages || loadingReport}>Next</button></div>
+            <div className="progress-report-pagination">
+              <button type="button" onClick={() => generateReport(displayPage - 1)} disabled={displayPage <= 1 || loadingReport}>Previous</button>
+              <input
+                type="number"
+                min={1}
+                max={activeReport.pagination.totalPages}
+                value={displayPage}
+                className="pagination-page-input"
+                placeholder="Page"
+                aria-label="Jump to a page"
+                onChange={(event) => {
+                  const nextPage = Number(event.target.value);
+                  if (!Number.isNaN(nextPage) && nextPage >= 1 && nextPage <= activeReport.pagination.totalPages) {
+                    generateReport(nextPage);
+                  }
+                }}
+              />
+              <span>of {activeReport.pagination.totalPages}</span>
+              <button type="button" onClick={() => generateReport(displayPage + 1)} disabled={displayPage >= activeReport.pagination.totalPages || loadingReport}>Next</button>
+            </div>
           </section>
         </>}
       </div>

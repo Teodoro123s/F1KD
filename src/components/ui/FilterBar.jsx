@@ -9,6 +9,7 @@ export default function FilterBar({
   onClear,
   applyLabel = 'Apply',
   clearLabel = 'Clear',
+  showActions = true,
 }) {
   return (
     <section className="view-filter-bar">
@@ -39,14 +40,16 @@ export default function FilterBar({
         </div>
       ))}
 
-      <div className="view-filter-bar__actions">
-        <button type="button" className="view-btn view-btn--secondary" onClick={onClear}>
-          {clearLabel}
-        </button>
-        <button type="button" className="view-btn view-btn--primary" onClick={onApply}>
-          {applyLabel}
-        </button>
-      </div>
+      {showActions && (
+        <div className="view-filter-bar__actions">
+          <button type="button" className="view-btn view-btn--secondary" onClick={onClear}>
+            {clearLabel}
+          </button>
+          <button type="button" className="view-btn view-btn--primary" onClick={onApply}>
+            {applyLabel}
+          </button>
+        </div>
+      )}
     </section>
   );
 }

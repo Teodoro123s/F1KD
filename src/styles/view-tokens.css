@@ -148,16 +148,27 @@
   gap: var(--view-gap-md);
 }
 
+.view-content .search-container {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  height: 42px;
+  padding: 0 0.85rem;
+  background: var(--view-bg-white);
+  border: 1px solid var(--view-border-color);
+  border-radius: 999px;
+}
+
 .view-content .search-field-container {
   display: flex;
   align-items: center;
   gap: 8px;
   min-width: 240px;
-  height: 36px;
-  padding: 0 12px;
-  background: var(--view-bg-white);
-  border: 1px solid var(--view-border-color);
-  border-radius: var(--view-radius);
+  height: auto;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
 }
 
 .view-content .search-input-field,
@@ -172,6 +183,12 @@
   font-size: var(--view-text-body);
 }
 
+.view-content .search-input-field {
+  border: none;
+  background: transparent;
+  padding: 0;
+}
+
 .view-content .form-input::placeholder,
 .view-content .form-select::placeholder {
   color: var(--view-text-muted);
@@ -183,8 +200,10 @@
 .view-content .form-input:focus,
 .view-content .form-select:focus,
 .view-content .checkup-field-input:focus {
-  outline: 2px solid rgba(59, 130, 246, 0.2);
-  border-radius: 6px;
+  outline: none;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
 }
 
 .view-content .table-card,
@@ -559,6 +578,9 @@
   background: var(--view-bg-white);
   color: var(--view-text);
   font-size: var(--view-text-body);
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
 }
 
 .view-filter-bar__actions {

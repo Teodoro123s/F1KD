@@ -192,19 +192,45 @@ export default function MonitoringPage() {
   const rangeStart = monitoringRows.length ? (currentPage - 1) * perPage + 1 : 0;
   const rangeEnd = Math.min(currentPage * perPage, monitoringRows.length);
 
-  const renderPaginationButtons = () => {
-    const buttons = [];
-    buttons.push(<button key="first" type="button" className={`pagination-btn${currentPage === 1 ? ' disabled' : ''}`} onClick={() => setPage(1)} disabled={currentPage === 1} aria-label="First page">«</button>);
-    for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
-      if (pageCount > 5 && pageNumber > 3 && pageNumber < pageCount) {
-        if (pageNumber === 4) buttons.push(<span key="ellipsis" className="pagination-btn ellipsis">...</span>);
-        continue;
-      }
-      buttons.push(<button key={pageNumber} type="button" className={`pagination-btn${currentPage === pageNumber ? ' active' : ''}`} onClick={() => setPage(pageNumber)}>{pageNumber}</button>);
-    }
-    buttons.push(<button key="last" type="button" className={`pagination-btn${currentPage === pageCount ? ' disabled' : ''}`} onClick={() => setPage(pageCount)} disabled={currentPage === pageCount} aria-label="Last page">»</button>);
-    return buttons;
-  };
+  const renderPaginationButtons = () => (
+    <>
+      <button
+        type="button"
+        className={`pagination-btn${currentPage === 1 ? ' disabled' : ''}`}
+        onClick={() => setPage((value) => Math.max(1, value - 1))}
+        disabled={currentPage === 1}
+        aria-label="Previous page"
+      >
+        ‹
+      </button>
+
+      <input
+        type="number"
+        min={1}
+        max={pageCount}
+        value={currentPage}
+        className="pagination-page-input"
+        placeholder="Page"
+        aria-label="Jump to a page"
+        onChange={(event) => {
+          const nextPage = Number(event.target.value);
+          if (!Number.isNaN(nextPage) && nextPage >= 1 && nextPage <= pageCount) {
+            setPage(nextPage);
+          }
+        }}
+      />
+
+      <button
+        type="button"
+        className={`pagination-btn${currentPage === pageCount ? ' disabled' : ''}`}
+        onClick={() => setPage((value) => Math.min(pageCount, value + 1))}
+        disabled={currentPage === pageCount}
+        aria-label="Next page"
+      >
+        ›
+      </button>
+    </>
+  );
 
   const openBeneficiary = (beneficiary) => {
     if (beneficiaryType === 'Mother') handleSelectMother(beneficiary);

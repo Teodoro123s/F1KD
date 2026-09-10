@@ -50,20 +50,6 @@ export default function BeneficiaryTable({
     <section className="table-card beneficiary-table-card">
       <div className="table-overflow">
         <table className="data-table">
-          <thead>
-            <tr>
-              {entityFilter === 'Child' ? (
-                <th scope="col" className="name-column group-header">Child</th>
-              ) : entityFilter === 'Mother' ? (
-                <th scope="col" className="name-column group-header">Mother</th>
-              ) : (
-                <>
-                  <th scope="col" className="name-column group-header">Mother</th>
-                  <th scope="col" className="name-column group-header">Child</th>
-                </>
-              )}
-            </tr>
-          </thead>
           <tbody>
             {currentRows.length > 0 ? (
               currentRows.map((row) => {

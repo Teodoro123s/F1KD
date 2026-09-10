@@ -11,7 +11,6 @@ import Pagination from './Pagination';
 import ConfirmModal from './ConfirmModal';
 import NotificationBanner from './NotificationBanner';
 import PageHeader from '../../components/ui/PageHeader';
-import FilterBar from '../../components/ui/FilterBar';
 
 export default function UserManagementPage() {
   const {
@@ -86,28 +85,6 @@ export default function UserManagementPage() {
         }
       />
 
-      <FilterBar
-        searchPlaceholder="Search account name or role..."
-        searchValue={query}
-        onSearchChange={handleSearch}
-        filters={[
-          {
-            key: 'role',
-            label: 'Role',
-            value: selectedRoleFilter,
-            onChange: selectRoleFilter,
-            options: ROLE_OPTIONS.map((option) => ({ label: option, value: option })),
-          },
-        ]}
-        onApply={() => {}}
-        onClear={() => {
-          selectRoleFilter('All Roles');
-          handleSearch('');
-        }}
-        applyLabel="Apply"
-        clearLabel="Clear"
-      />
-
       <section className="subheader-row">
         <div className="tabs-list" role="tablist" aria-label="Account status filter">
           {STATUS_OPTIONS.map((status) => (
@@ -131,6 +108,20 @@ export default function UserManagementPage() {
             selected={selectedRoleFilter}
             onSelect={selectRoleFilter}
           />
+
+          <div className="search-container">
+            <SearchIcon />
+            <div className="search-field-container">
+              <input
+                type="text"
+                value={query}
+                onChange={(event) => handleSearch(event.target.value)}
+                placeholder="Search account name or role..."
+                className="search-input-field"
+                aria-label="Search users"
+              />
+            </div>
+          </div>
         </div>
       </section>
 

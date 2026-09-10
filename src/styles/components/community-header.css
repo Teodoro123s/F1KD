@@ -1,9 +1,62 @@
 ﻿/* Community header & breadcrumbs */
-.community-page {
+.community-page,
+.beneficiary-page {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
   padding: 0.5rem;
+}
+
+.beneficiary-page .view-page-header {
+  min-height: 104px;
+  padding: 1.05rem 1.2rem 0.95rem;
+  border: 1px solid #dfe6ee;
+  border-radius: 14px;
+  background: #f3f6f8;
+  box-shadow: none;
+}
+
+.beneficiary-page .view-page-header__content {
+  gap: 0.2rem;
+}
+
+.beneficiary-page .view-breadcrumb {
+  font-size: 0.85rem;
+  line-height: 1.2;
+}
+
+.beneficiary-page .view-page-title {
+  font-size: clamp(2.1rem, 3vw, 3.4rem);
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+}
+
+.beneficiary-page .view-btn--primary {
+  height: 52px;
+  padding: 0 1.8rem;
+  border-radius: 12px;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.beneficiary-page .tabs-row {
+  padding: 1rem 1.2rem;
+  border: 1px solid #dfe6ee;
+  border-radius: 14px;
+  background: #f3f6f8;
+}
+
+.beneficiary-page .beneficiary-filter-row {
+  justify-content: space-between;
+  align-items: center;
+}
+
+.beneficiary-page .beneficiary-filter-row .tabs-list {
+  margin-right: auto;
+}
+
+.beneficiary-page .beneficiary-filter-row .search-container {
+  margin-left: auto;
 }
 
 /* Breadcrumbs */
@@ -213,6 +266,29 @@
 
 .beneficiary-main { background: #fff; padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color); min-height: 320px; }
 .beneficiary-page .beneficiary-main { background: transparent; padding: 0; border: 0; border-radius: 0; }
+.beneficiary-page .table-card {
+  background: #edf1f4;
+  border: 1px solid #dfe6ee;
+  border-radius: 12px;
+  box-shadow: none;
+  overflow: hidden;
+}
+.beneficiary-page .table-card .table-overflow {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+}
+.beneficiary-page .data-table th {
+  background: transparent;
+  border-bottom: 1px solid #dfe6ee;
+}
+.beneficiary-page .data-table td {
+  background: transparent;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.45);
+}
+.beneficiary-page .data-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
 
 .community-page .table-card {
   background: #edf1f4;
