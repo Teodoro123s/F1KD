@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import PageHeader from '../../components/ui/PageHeader';
 import { apiGetProgressReport, apiGetProgressReportOptions } from '../../api/progressReport';
 
 const EMPTY_SELECTIONS = { schoolId: '', groupId: '', batchId: '' };
@@ -41,6 +40,7 @@ export default function ProgressReport() {
   const [visibleFields, setVisibleFields] = useState(DEFAULT_VISIBLE_FIELDS);
   const [search, setSearch] = useState('');
   const [report, setReport] = useState(null);
+  const [finalizedSnapshot, setFinalizedSnapshot] = useState(null);
   const [sort, setSort] = useState({ key: 'school', direction: 'asc' });
   const [page, setPage] = useState(1);
   const [loadingOptions, setLoadingOptions] = useState(true);
@@ -54,11 +54,18 @@ export default function ProgressReport() {
       .finally(() => setLoadingOptions(false));
   }, []);
 
+  const displaySelection = finalizedSnapshot?.selection ?? selection;
+  const displayVisibleFields = finalizedSnapshot?.visibleFields ?? visibleFields;
+  const displayGranularity = finalizedSnapshot?.granularity ?? granularity;
+  const displaySearch = finalizedSnapshot?.search ?? search;
+  const displaySort = finalizedSnapshot?.sort ?? sort;
+  const displayPage = finalizedSnapshot?.page ?? page;
+  const activeReport = finalizedSnapshot?.report ?? report;
+
   const groups = useMemo(() => options.groups.filter((item) => !selection.schoolId || String(item.schoolId) === String(selection.schoolId)), [options.groups, selection.schoolId]);
   const batches = useMemo(() => options.batches.filter((item) => (!selection.schoolId || String(item.schoolId) === String(selection.schoolId)) && (!selection.groupId || options.groups.some((group) => String(group.id) === String(selection.groupId) && (String(item.schoolId) === String(group.schoolId) || !item.schoolId)))), [options.batches, options.groups, selection.groupId, selection.schoolId]);
   const updateSelection = (key, value) => {
     setPage(1);
-    setReport(null);
     setError('');
     if (key === 'schoolId') setSelection({ schoolId: value, groupId: '', batchId: '' });
     else if (key === 'groupId') setSelection((current) => ({ ...current, groupId: value, batchId: '' }));
@@ -75,6 +82,15 @@ export default function ProgressReport() {
     try {
       const result = await apiGetProgressReport({ ...selection, granularity, search, page: nextPage, perPage: 50 });
       setReport(result);
+      setFinalizedSnapshot({
+        report: result,
+        selection: { ...selection },
+        visibleFields: [...visibleFields],
+        granularity,
+        search,
+        sort: { ...sort },
+        page: nextPage,
+      });
       setPage(nextPage);
     } catch (reportError) {
       setError(reportError.message || 'Unable to generate report.');
@@ -85,33 +101,33 @@ export default function ProgressReport() {
   };
 
   const sortedRows = useMemo(() => {
-    const rows = [...(report?.rows || [])];
+    const rows = [...(activeReport?.rows || [])];
     return rows.sort((left, right) => {
-      const a = left[sort.key] ?? '';
-      const b = right[sort.key] ?? '';
+      const a = left[displaySort.key] ?? '';
+      const b = right[displaySort.key] ?? '';
       const result = typeof a === 'number' && typeof b === 'number' ? a - b : String(a).localeCompare(String(b));
-      return sort.direction === 'asc' ? result : -result;
+      return displaySort.direction === 'asc' ? result : -result;
     });
-  }, [report?.rows, sort]);
+  }, [activeReport, displaySort]);
 
   const breadcrumb = [
     'Home',
-    selection.schoolId ? options.schools.find((item) => String(item.id) === String(selection.schoolId))?.name : 'Select School',
-    selection.schoolId ? (selection.groupId ? groups.find((item) => String(item.id) === String(selection.groupId))?.name : 'All Groups') : null,
-    selection.groupId ? (selection.batchId ? batches.find((item) => String(item.id) === String(selection.batchId))?.name : 'All Batches') : null,
+    displaySelection.schoolId ? options.schools.find((item) => String(item.id) === String(displaySelection.schoolId))?.name : 'Select School',
+    displaySelection.schoolId ? (displaySelection.groupId ? groups.find((item) => String(item.id) === String(displaySelection.groupId))?.name : 'All Groups') : null,
+    displaySelection.groupId ? (displaySelection.batchId ? batches.find((item) => String(item.id) === String(displaySelection.batchId))?.name : 'All Batches') : null,
   ].filter(Boolean);
 
   const changeSort = (key) => setSort((current) => ({ key, direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc' }));
-  const sortLabel = (label, key) => <button type="button" className="progress-report-sort-button" onClick={() => changeSort(key)}>{label} {sort.key === key ? (sort.direction === 'asc' ? '↑' : '↓') : ''}</button>;
+  const sortLabel = (label, key) => <button type="button" className="progress-report-sort-button" onClick={() => changeSort(key)}>{label} {displaySort.key === key ? (displaySort.direction === 'asc' ? '↑' : '↓') : ''}</button>;
 
   const exportReport = async () => {
     if (!selection.schoolId) return;
-    const result = await apiGetProgressReport({ ...selection, granularity, search, export: 1, perPage: 100 });
+    const result = activeReport || (await apiGetProgressReport({ ...selection, granularity, search, export: 1, perPage: 100 }));
     const lines = [
       `# ${breadcrumb.join(' > ')}`,
       `# Generated ${new Date().toISOString()}`,
-      REPORT_FIELDS.filter(([id]) => visibleFields.includes(id)).map(([, label]) => label).map(csvValue).join(','),
-      ...result.rows.map((row) => REPORT_FIELDS.filter(([id]) => visibleFields.includes(id)).map(([id]) => row[id]).map(csvValue).join(',')),
+      REPORT_FIELDS.filter(([id]) => displayVisibleFields.includes(id)).map(([, label]) => label).map(csvValue).join(','),
+      ...result.rows.map((row) => REPORT_FIELDS.filter(([id]) => displayVisibleFields.includes(id)).map(([id]) => row[id]).map(csvValue).join(',')),
     ];
     const url = URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' }));
     const link = document.createElement('a');
@@ -124,12 +140,10 @@ export default function ProgressReport() {
   return (
     <div className="progress-report-shell">
       <div className="progress-report-panel hierarchical-progress-report">
-        <PageHeader title="Progress Report" breadcrumbs={[{ label: 'Progress Report' }]} />
-        <div className="progress-report-breadcrumb" aria-label="Report location">{breadcrumb.map((item, index) => <React.Fragment key={`${item}-${index}`}><span>{item}</span>{index < breadcrumb.length - 1 && <b>›</b>}</React.Fragment>)}</div>
 
         <section className="progress-report-config" aria-label="Report parameters">
           <div className="progress-report-config-header">
-            <div><h1>Report setup</h1><p>Select a school and the fields you want to review.</p></div>
+            <div><h1>Report setup</h1><p>Select a school, customize beneficiary parameters, and pick the fields you want to review.</p></div>
           </div>
           <div className="progress-report-step-list">
             <section className="progress-report-step">
@@ -163,17 +177,17 @@ export default function ProgressReport() {
           </div>
           <div className="progress-report-config-actions">
             <button type="button" className="primary-btn" onClick={() => generateReport(1)} disabled={loadingOptions || loadingReport || !selection.schoolId}>{loadingReport ? 'Generating...' : 'Generate Report'}</button>
-            <button type="button" className="secondary-btn" onClick={() => { setSelection(EMPTY_SELECTIONS); setSearch(''); setReport(null); setError(''); }}>Reset Filters</button>
+            <button type="button" className="secondary-btn" onClick={() => { setSelection(EMPTY_SELECTIONS); setSearch(''); setError(''); }}>Reset Filters</button>
           </div>
           {!selection.schoolId && <p className="progress-report-helper">Please select at least a School to view the report.</p>}
           {error && <p className="form-error" role="alert">{error}</p>}
         </section>
 
-        {report && <>
+        {activeReport && <>
           <section className="progress-report-results">
-            <div className="progress-report-results-header"><div><h2>{granularity === 'child' ? 'Child-level report' : 'Mother-level report'}</h2><p>{report.pagination.total} matching records · {breadcrumb.join(' > ')}</p></div><button type="button" className="secondary-btn" onClick={exportReport}>Export CSV</button></div>
-            {sortedRows.length ? <div className="progress-report-table-scroll"><table className="progress-report-flat-table"><thead><tr>{REPORT_FIELDS.filter(([id]) => visibleFields.includes(id)).map(([id, label]) => <th key={id}>{sortLabel(label, id)}</th>)}</tr></thead><tbody>{sortedRows.map((row) => <tr key={`${row.motherId}-${row.child || 'mother'}`}>{REPORT_FIELDS.filter(([id]) => visibleFields.includes(id)).map(([id]) => <td key={id}>{id === 'child' && granularity === 'mother' ? row.mother : id === 'progress' ? <strong>{row[id]}%</strong> : formatCellValue(id, row[id])}</td>)}</tr>)}</tbody></table></div> : <div className="progress-report-empty">No children found for the selected filters.</div>}
-            <div className="progress-report-pagination"><button type="button" onClick={() => generateReport(page - 1)} disabled={page <= 1 || loadingReport}>Previous</button><span>Page {page} of {report.pagination.totalPages}</span><button type="button" onClick={() => generateReport(page + 1)} disabled={page >= report.pagination.totalPages || loadingReport}>Next</button></div>
+            <div className="progress-report-results-header"><div><h2>{displayGranularity === 'child' ? 'Child-level report' : 'Mother-level report'}</h2><p>{activeReport.pagination.total} matching records · {breadcrumb.join(' > ')}</p></div><button type="button" className="secondary-btn" onClick={exportReport}>Export CSV</button></div>
+            {sortedRows.length ? <div className="progress-report-table-scroll"><table className="progress-report-flat-table"><thead><tr>{REPORT_FIELDS.filter(([id]) => displayVisibleFields.includes(id)).map(([id, label]) => <th key={id}>{sortLabel(label, id)}</th>)}</tr></thead><tbody>{sortedRows.map((row) => <tr key={`${row.motherId}-${row.child || 'mother'}`}>{REPORT_FIELDS.filter(([id]) => displayVisibleFields.includes(id)).map(([id]) => <td key={id}>{id === 'child' && displayGranularity === 'mother' ? row.mother : id === 'progress' ? <strong>{row[id]}%</strong> : formatCellValue(id, row[id])}</td>)}</tr>)}</tbody></table></div> : <div className="progress-report-empty">No children found for the selected filters.</div>}
+            <div className="progress-report-pagination"><button type="button" onClick={() => generateReport(displayPage - 1)} disabled={displayPage <= 1 || loadingReport}>Previous</button><span>Page {displayPage} of {activeReport.pagination.totalPages}</span><button type="button" onClick={() => generateReport(displayPage + 1)} disabled={displayPage >= activeReport.pagination.totalPages || loadingReport}>Next</button></div>
           </section>
         </>}
       </div>
