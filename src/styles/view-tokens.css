@@ -166,10 +166,16 @@
 .view-content .form-select,
 .view-content .checkup-field-input {
   width: 100%;
-  border: none;
-  background: transparent;
+  border: 1px solid var(--view-border-color);
+  background: var(--view-bg-white);
   color: var(--view-text);
   font-size: var(--view-text-body);
+}
+
+.view-content .form-input::placeholder,
+.view-content .form-select::placeholder {
+  color: var(--view-text-muted);
+  opacity: 1;
 }
 
 .view-content .search-input-field:focus,
