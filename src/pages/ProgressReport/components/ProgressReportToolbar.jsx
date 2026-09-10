@@ -13,21 +13,8 @@ export default function ProgressReportToolbar({
   onDownloadSummary,
 }) {
   return (
-    <div className="progress-report-toolbar">
-      <div className="progress-report-tabs" role="tablist" aria-label="Progress report views">
-        {tabs.map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            className={activeTab === tab ? 'active' : ''}
-            onClick={() => onTabChange(tab)}
-          >
-            {tab}
-          </button>
-        ))}
-      </div>
-
-      <div className="progress-report-toolbar-actions">
+    <>
+      <div className="progress-report-toolbar-actions progress-report-actions-row">
         <div className="analyze-menu-wrap">
           <button
             type="button"
@@ -63,6 +50,21 @@ export default function ProgressReportToolbar({
           Export ▾
         </button>
       </div>
-    </div>
+
+      <div className="progress-report-toolbar">
+        <div className="progress-report-tabs" role="tablist" aria-label="Progress report views">
+          {tabs.map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              className={activeTab === tab ? 'active' : ''}
+              onClick={() => onTabChange(tab)}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+      </div>
+    </>
   );
 }

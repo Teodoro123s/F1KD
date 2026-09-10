@@ -28,6 +28,11 @@ export default function ProgressReportFilterBar({
   setBeneficiaryType,
   comparisonRequest,
 }) {
+  const hasClearableFilters = school !== 'All Schools'
+    || group !== 'All Groups'
+    || batch !== 'All Batches'
+    || Boolean(search.trim());
+
   const applyQuickFilter = (value) => {
     const trimmed = value.trim();
     setSearch((currentQuery) => {
@@ -45,8 +50,9 @@ export default function ProgressReportFilterBar({
           <h1>Progress Report</h1>
           <p>Analytical overview of beneficiary advancement.</p>
         </div>
+      </div>
 
-        <div className="progress-report-context-selectors">
+      <div className="progress-report-context-selectors">
           <label className="filter-select-wrap">
             <span className="filter-select-icon">📍</span>
             <select value={school} onChange={(event) => setSchool(event.target.value)} aria-label="School scope">
@@ -65,33 +71,49 @@ export default function ProgressReportFilterBar({
               {batchOptions.map((option) => <option key={option}>{option}</option>)}
             </select>
           </label>
-        </div>
       </div>
 
-      <div className="progress-report-search-box">
-        <span className="search-icon" aria-hidden="true">⌕</span>
-        <input
-          type="text"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search by beneficiary name, ID, program, or keyword... (leave blank to see all records)"
-          autoComplete="on"
-          list="progress-search-suggestions"
-        />
-        <datalist id="progress-search-suggestions">
-          <option value="High Risk" />
-          <option value="Underweight" />
-          <option value="Missing Consent" />
-          <option value="Missing Birth Certificate" />
-          <option value="Dental done" />
-          <option value="Progress 0-25%" />
-        </datalist>
+      <div className="progress-report-search-controls">
+        <div className="progress-report-search-box">
+          <span className="search-icon" aria-hidden="true">⌕</span>
+          <input
+            type="text"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search by beneficiary name, ID, program, or keyword... (leave blank to see all records)"
+            autoComplete="on"
+            list="progress-search-suggestions"
+          />
+          <datalist id="progress-search-suggestions">
+            <option value="High Risk" />
+            <option value="Underweight" />
+            <option value="Missing Consent" />
+            <option value="Missing Birth Certificate" />
+            <option value="Dental done" />
+            <option value="Progress 0-25%" />
+          </datalist>
+        </div>
+        <div className="beneficiary-type-toggle" role="group" aria-label="Beneficiary type">
+          {['Mothers', 'Children'].map((type) => (
+            <button
+              key={type}
+              type="button"
+              className={beneficiaryType === type ? 'active' : ''}
+              onClick={() => setBeneficiaryType(type)}
+            >
+              {type}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="progress-report-filters" aria-label="Active report filters">
         <div className="active-filters-header">
           <span className="active-filters-label">Active Filters</span>
-          {activeFilterCount > 0 && (
+          <button type="button" className="advanced-toggle" onClick={() => setShowAllFilters((visible) => !visible)} aria-expanded={showAllFilters}>
+            {showAllFilters ? 'Filters ▲' : 'Filters ▼'}
+          </button>
+          {hasClearableFilters && (
             <button type="button" className="clear-filters-btn" onClick={() => {
               setSchool('All Schools');
               setGroup('All Groups');
@@ -136,35 +158,17 @@ export default function ProgressReportFilterBar({
               <small>Search</small> {filter.label} ×
             </button>
           ))}
-          {beneficiaryType !== 'Mothers' && (
-            <span className="chip context-chip neutral">
-              <small>Type</small> {beneficiaryType}
-            </span>
-          )}
+          <span className="chip context-chip neutral">
+            <small>Type</small> {beneficiaryType}
+          </span>
         </div>
 
         <div className="advanced-filters-row">
-          <button type="button" className="advanced-toggle" onClick={() => setShowAllFilters((visible) => !visible)} aria-expanded={showAllFilters}>
-            {showAllFilters ? 'Advanced ▲' : 'Advanced ▼'}
-          </button>
           {activeFilterCount > 3 && (
             <button type="button" className="filter-toggle" onClick={() => setShowAllFilters((visible) => !visible)} aria-expanded={showAllFilters}>
               {showAllFilters ? 'Show less' : `+${activeFilterCount - 3} more`}
             </button>
           )}
-        </div>
-
-        <div className="beneficiary-type-toggle" role="group" aria-label="Beneficiary type">
-          {['Mothers', 'Children'].map((type) => (
-            <button
-              key={type}
-              type="button"
-              className={beneficiaryType === type ? 'active' : ''}
-              onClick={() => setBeneficiaryType(type)}
-            >
-              {type}
-            </button>
-          ))}
         </div>
 
         {showAllFilters && (

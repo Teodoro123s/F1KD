@@ -17,7 +17,6 @@
  * changing the backend contracts or user-visible behavior.
  */
 import React, { useMemo, useState } from 'react';
-import PageHeader from '../../components/ui/PageHeader';
 import { useMothers } from '../../context/MothersContext';
 import { useAuth } from '../../auth/AuthProvider';
 import { AsyncContainer } from '../../components/AsyncContainer';
@@ -152,10 +151,6 @@ export default function ProgressReport() {
   return (
     <div className="progress-report-shell">
       <div className="progress-report-panel">
-        <PageHeader
-          title="Progress Report"
-          breadcrumbs={[{ label: 'Progress Report' }]}
-        />
         <ProgressReportFilterBar
           activeFilterCount={activeFilterCount}
           showAllFilters={showAllFilters}
@@ -177,35 +172,38 @@ export default function ProgressReport() {
           comparisonRequest={comparisonRequest}
         />
 
+        <div className="progress-report-toolbar-layout">
         <ProgressReportToolbar
-          activeTab={activeTab}
-          tabs={REPORT_TABS}
-          compareIds={compareIds}
-          onTabChange={setActiveTab}
-          onCompareClick={() => {
-            setCompareMode(activeTab === 'Ranked List' ? 'Groups' : 'Beneficiaries');
-            setCompareIds([]);
-            setCompareOpen(true);
-          }}
-          onDownload={() => {
-            setExportFilename(`progress-report-${beneficiaryType.toLowerCase()}`);
-            setExportColumns(visibleColumns.length ? visibleColumns : exportColumnsForView.map((column) => column.id));
-            setExportPreviewOpen(true);
-          }}
-          showAnalyzeMenu={showAnalyzeMenu}
-          onAnalyzeToggle={() => setShowAnalyzeMenu((visible) => !visible)}
-          onGenerateCohortReport={() => {
-            setActiveTab('Summary View');
-            setShowAnalyzeMenu(false);
-          }}
-          onDownloadSummary={() => {
-            setShowAnalyzeMenu(false);
-            setActiveTab('Summary View');
-            downloadReport({ viewMode: 'Summary View', filename: `progress-summary-${beneficiaryType.toLowerCase()}` });
-          }}
+            activeTab={activeTab}
+            tabs={REPORT_TABS}
+            compareIds={compareIds}
+            onTabChange={setActiveTab}
+            onCompareClick={() => {
+              setCompareMode(activeTab === 'Ranked List' ? 'Groups' : 'Beneficiaries');
+              setCompareIds([]);
+              setCompareOpen(true);
+            }}
+            onDownload={() => {
+              setExportFormat('CSV');
+              setExportFilename(`progress-report-${beneficiaryType.toLowerCase()}`);
+              setExportColumns(visibleColumns.length ? visibleColumns : exportColumnsForView.map((column) => column.id));
+              setExportPreviewOpen(true);
+            }}
+            showAnalyzeMenu={showAnalyzeMenu}
+            onAnalyzeToggle={() => setShowAnalyzeMenu((visible) => !visible)}
+            onGenerateCohortReport={() => {
+              setActiveTab('Summary View');
+              setShowAnalyzeMenu(false);
+            }}
+            onDownloadSummary={() => {
+              setShowAnalyzeMenu(false);
+              setActiveTab('Summary View');
+              downloadReport({ viewMode: 'Summary View', filename: `progress-summary-${beneficiaryType.toLowerCase()}` });
+            }}
         />
 
-        {comparisonRequest && <section className="comparison-dashboard" aria-label="Initial BMI batch comparison">
+        <section className="progress-report-results-section" aria-label="Progress report results">
+          {comparisonRequest && <section className="comparison-dashboard" aria-label="Initial BMI batch comparison">
           <div className="comparison-dashboard-heading">
             <div><h2>Initial BMI by Batch</h2><p>Group {comparisonRequest.group}, mothers' first recorded assessment</p></div>
             <span className="analysis-badge">Initial assessment only</span>
@@ -217,9 +215,9 @@ export default function ProgressReport() {
               <button type="button" className="drilldown-btn" onClick={() => setUnderweightDrilldown(cohort)}>View underweight mothers</button>
             </article>)}
           </div>
-        </section>}
+          </section>}
 
-        <div className="progress-report-table-wrap">
+          <div className="progress-report-table-wrap">
           <div className="progress-report-table-header">
             <span>Table ({beneficiaryType})</span>
             <div className="table-header-actions">
@@ -300,6 +298,8 @@ export default function ProgressReport() {
               <ProgressReportTable activeTab={activeTab} displayedRows={displayedRows} compareIds={compareIds} toggleCompare={toggleCompare} showHistory={showHistory} visibleColumns={visibleColumns} columns={currentEntityColumns} />
             </AsyncContainer>
           )}
+          </div>
+        </section>
         </div>
       </div>
       <ProgressReportComparisonModal
