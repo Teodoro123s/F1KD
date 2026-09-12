@@ -88,9 +88,9 @@ export default function DashboardPage() {
   }, []);
 
   const statusCards = [
-    { label: 'On Track', value: totals.onTrack || 63, tone: 'green', count: totals.onTrack ? Math.round((totals.onTrack / 100) * totals.totalRegistered) : 158 },
-    { label: 'Needs Follow-Up', value: totals.needsFollowUp || 22, tone: 'amber', count: totals.needsFollowUp ? Math.round((totals.needsFollowUp / 100) * totals.totalRegistered) : 56 },
-    { label: 'Not Started', value: totals.notStarted || 13, tone: 'rose', count: totals.notStarted ? Math.round((totals.notStarted / 100) * totals.totalRegistered) : 34 },
+    { label: 'In Progress', value: totals.onTrack || 63, tone: 'amber', count: totals.onTrack ? Math.round((totals.onTrack / 100) * totals.totalRegistered) : 158 },
+    { label: 'Needs Follow-up', value: totals.needsFollowUp || 22, tone: 'rose', count: totals.needsFollowUp ? Math.round((totals.needsFollowUp / 100) * totals.totalRegistered) : 56 },
+    { label: 'Completed', value: totals.notStarted || 13, tone: 'green', count: totals.notStarted ? Math.round((totals.notStarted / 100) * totals.totalRegistered) : 34 },
   ];
 
   const displayTotal = totals.totalRegistered || 248;
@@ -156,24 +156,19 @@ export default function DashboardPage() {
 
             <div className="progress-legend">
               <div className="legend-row">
-                <span className="legend-dot green" />
-                <span className="legend-label">On Track</span>
+                <span className="legend-dot amber" />
+                <span className="legend-label">In Progress</span>
                 <span className="legend-value">{totals.onTrack || 63}%</span>
               </div>
               <div className="legend-row">
-                <span className="legend-dot amber" />
+                <span className="legend-dot rose" />
                 <span className="legend-label">Needs Follow-Up</span>
                 <span className="legend-value">{totals.needsFollowUp || 22}%</span>
               </div>
               <div className="legend-row">
-                <span className="legend-dot rose" />
-                <span className="legend-label">Not Started</span>
-                <span className="legend-value">{totals.notStarted || 13}%</span>
-              </div>
-              <div className="legend-row">
-                <span className="legend-dot slate" />
+                <span className="legend-dot green" />
                 <span className="legend-label">Completed</span>
-                <span className="legend-value">{Math.max(0, totals.completed || 2)}%</span>
+                <span className="legend-value">{totals.notStarted || 13}%</span>
               </div>
             </div>
           </div>
