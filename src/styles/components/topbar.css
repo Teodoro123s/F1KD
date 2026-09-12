@@ -6,8 +6,8 @@
   align-items: center;
   justify-content: flex-end;
   padding: 0 1.25rem;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.28);
-  background: rgba(255, 255, 255, 0.9);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+  background: linear-gradient(135deg, #280905 0%, #740A03 100%);
   backdrop-filter: blur(6px);
   width: 100%;
   margin: 0;
@@ -20,9 +20,9 @@
   padding: 8px;
   border-radius: 10px;
   cursor: pointer;
-  color: #334155;
+  color: #fff;
 }
-.icon-button:hover { background: rgba(15, 23, 42, 0.04); }
+.icon-button:hover { background: rgba(255, 255, 255, 0.12); }
 .icon-button.user { font-size: 18px; }
 
 .user-profile { position: relative; }
@@ -30,18 +30,18 @@
   display: inline-flex;
   align-items: center;
   gap: 0.6rem;
-  background: #f8fafc;
-  border: 1px solid rgba(148, 163, 184, 0.45);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 999px;
   padding: 0.4rem 0.75rem;
-  color: #111827;
+  color: #fff;
   cursor: pointer;
   transition: background 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
   min-width: 120px;
 }
 .user-button:hover {
-  background: #f1f5f9;
-  box-shadow: 0 6px 18px -10px rgba(15, 23, 42, 0.35);
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: 0 6px 18px -10px rgba(0, 0, 0, 0.35);
 }
 .avatar {
   width: 32px;
@@ -50,8 +50,8 @@
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--burgundy) 0%, #9f1c32 100%);
-  color: #fff;
+  background: #fff;
+  color: #7d1e2e;
   font-weight: 700;
   font-size: 0.9rem;
 }
@@ -62,4 +62,5 @@
   white-space: nowrap;
   font-size: 0.95rem;
   font-weight: 600;
+  color: #fff;
 }

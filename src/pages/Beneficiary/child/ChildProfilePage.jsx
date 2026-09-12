@@ -341,7 +341,7 @@ export default function ChildProfilePage() {
         <div className="document-upload-field full-width">
           <label className="detail-form-label" htmlFor="child-birth-document">Live Birth Certificate / Birth Certificate</label>
           <input id="child-birth-document" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={(event) => uploadBirthDocument(event.target.files?.[0])} disabled={uploadingBirthDocument} />
-          {selectedChild.birthDocumentName ? <a href={`http://localhost:4000${selectedChild.birthDocumentPath}`} target="_blank" rel="noreferrer">{selectedChild.birthDocumentName}</a> : <span className="document-upload-empty">No document uploaded</span>}
+          {selectedChild.birthDocumentName ? <a href={selectedChild.birthDocumentPath ? selectedChild.birthDocumentPath : '#'} target="_blank" rel="noreferrer">{selectedChild.birthDocumentName}</a> : <span className="document-upload-empty">No document uploaded</span>}
           {uploadMessage && <span className="document-upload-message" role="status">{uploadMessage}</span>}
         </div>
       </ChildSection>

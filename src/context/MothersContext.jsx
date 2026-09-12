@@ -4,7 +4,7 @@ import { authHeader } from '../api/authHeader';
 const MothersContext = createContext(null);
 const API_BASE = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL)
   ? import.meta.env.VITE_API_URL
-  : 'http://localhost:4000';
+  : '';
 
 export function MothersProvider({ children }) {
   const [mothers, setMothers] = useState([]);

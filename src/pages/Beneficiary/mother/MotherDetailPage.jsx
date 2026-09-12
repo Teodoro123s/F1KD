@@ -246,7 +246,7 @@ export default function MotherDetailPage({ selectedMother, onClose }) {
                 <div className="document-upload-field" key={field}>
                   <label className="detail-form-label" htmlFor={`mother-document-${field}`}>{label}</label>
                   <input id={`mother-document-${field}`} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={(event) => uploadDocument(field, event.target.files?.[0])} disabled={uploadingDocument === field} />
-                  {fileName ? <a href={`http://localhost:4000${filePath}`} target="_blank" rel="noreferrer">{fileName}</a> : <span className="document-upload-empty">No document uploaded</span>}
+                  {fileName ? <a href={filePath || '#'} target="_blank" rel="noreferrer">{fileName}</a> : <span className="document-upload-empty">No document uploaded</span>}
                 </div>
               ))}
             </div>

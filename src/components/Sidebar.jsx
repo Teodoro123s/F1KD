@@ -5,13 +5,13 @@ import { useAuth } from '../auth/AuthProvider';
 import { ROLES, hasRole } from '../utils/permissions';
 
 const items = [
-  { to: '/dashboard', label: 'Dashboard', icon: '🏠' },
-  { to: '/community', label: 'Community', icon: '👥' },
-  { to: '/beneficiary', label: 'Beneficiary', icon: '🎯' },
-  { to: '/monitoring', label: 'Monitor', icon: '📈' },
-  { to: '/program', label: 'Program', icon: '📚' },
-  { to: '/progress-report', label: 'Progress Report', icon: '📝' },
-  { to: '/user-management', label: 'User Management', icon: '🔧' },
+  { to: '/dashboard', label: 'Dashboard' },
+  { to: '/community', label: 'Community' },
+  { to: '/beneficiary', label: 'Beneficiary' },
+  { to: '/monitoring', label: 'Monitor' },
+  { to: '/program', label: 'Program' },
+  { to: '/progress-report', label: 'Progress Report' },
+  { to: '/user-management', label: 'User Management' },
 ];
 
 export default function Sidebar() {
@@ -22,7 +22,12 @@ export default function Sidebar() {
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
       <div className="sidebar-top">
         <img src={logo} alt="logo" className="logo" />
-        {!collapsed && <div className="brand">Sample Logo</div>}
+        {!collapsed && (
+          <div className="brand" aria-label="F1KD Digital Health Monitoring System">
+            <span className="brand-primary">F1KD</span>
+            <span className="brand-secondary">Digital Health Monitoring System</span>
+          </div>
+        )}
         <button
           className="collapse-btn"
           onClick={() => setCollapsed(!collapsed)}
@@ -40,7 +45,6 @@ export default function Sidebar() {
             className={({isActive}) => 'sidebar-link' + (isActive ? ' active' : '')}
             data-label={it.label}
           >
-            <span className="icon">{it.icon}</span>
             <span className="label">{it.label}</span>
           </NavLink>
         ))}

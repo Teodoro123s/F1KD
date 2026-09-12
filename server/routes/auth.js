@@ -47,9 +47,15 @@ router.post('/login', async (req, res) => {
     }
 
     const [rows] = await pool.query(
-        `SELECT id, name, email, role, status, school_id, password_hash
+        `SELECT id,
+                CONCAT_WS(' ', first_name, last_name) AS name,
+                email,
+                role,
+                status,
+                school_id,
+                password_hash
        FROM users
-         WHERE email = ?
+       WHERE email = ?
        LIMIT 1`,
       [email]
     );
@@ -86,7 +92,15 @@ router.post('/refresh', (req, res) => {
 
     const userId = payload.id;
     pool.query(
-      `SELECT id, name, email, role, status, school_id FROM users WHERE id = ? LIMIT 1`,
+      `SELECT id,
+              CONCAT_WS(' ', first_name, last_name) AS name,
+              email,
+              role,
+              status,
+              school_id
+       FROM users
+       WHERE id = ?
+       LIMIT 1`,
       [userId],
       (error, [rows]) => {
         if (error) {
