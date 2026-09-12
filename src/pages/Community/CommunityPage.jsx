@@ -667,6 +667,7 @@ export default function CommunityPage() {
         onEditBatch={handleEditBatch}
         onCreateGroup={handleCreateGroup}
         onEditGroup={handleEditGroup}
+        isSubmitting={mutations.loading}
       />
     </div>
   );

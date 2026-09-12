@@ -26,6 +26,7 @@ export default function CommunityModalManager({
   onEditBatch,
   onCreateGroup,
   onEditGroup,
+  isSubmitting,
 }) {
   return (
     <>
@@ -36,6 +37,7 @@ export default function CommunityModalManager({
         setCommunityForm={setCommunityForm}
         handleCreateCommunity={onCreateCommunity}
         coordinators={coordinators}
+        isSubmitting={isSubmitting}
       />
       <EditCommunityModal
         showModal={showModal === 'editCommunity'}
@@ -43,6 +45,7 @@ export default function CommunityModalManager({
         communityForm={communityForm}
         setCommunityForm={setCommunityForm}
         handleEditCommunity={onEditCommunity}
+        isSubmitting={isSubmitting}
       />
       <CreateBatchModal
         showModal={showModal === 'createBatch'}
@@ -51,6 +54,7 @@ export default function CommunityModalManager({
         setBatchForm={setBatchForm}
         handleCreateBatch={onCreateBatch}
         communities={communities}
+        isSubmitting={isSubmitting}
       />
       <EditBatchModal
         showModal={showModal === 'editBatch'}
@@ -59,6 +63,7 @@ export default function CommunityModalManager({
         setBatchForm={setBatchForm}
         handleEditBatch={onEditBatch}
         communities={communities}
+        isSubmitting={isSubmitting}
       />
       <CreateGroupModal
         showModal={showModal === 'createGroup'}
@@ -68,6 +73,7 @@ export default function CommunityModalManager({
         handleCreateGroup={onCreateGroup}
         communities={communities}
         batches={batches}
+        isSubmitting={isSubmitting}
       />
       <EditGroupModal
         showModal={showModal === 'editGroup'}
@@ -77,6 +83,7 @@ export default function CommunityModalManager({
         handleEditGroup={onEditGroup}
         communities={communities}
         batches={batches}
+        isSubmitting={isSubmitting}
       />
     </>
   );

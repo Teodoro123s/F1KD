@@ -242,7 +242,13 @@
   justify-content: flex-start;
 }
 
-.monitoring-filter-row .search-container { margin-left: auto; }
+.monitoring-filter-row .beneficiary-search-controls { margin-left: auto; }
+
+@media (max-width: 1080px) {
+  .monitoring-filter-row { align-items: stretch; }
+  .monitoring-filter-row .beneficiary-search-controls { flex: 1 1 100%; width: 100%; margin-left: 0; }
+  .monitoring-filter-row .beneficiary-search-controls .search-container { flex: 1 1 auto; width: auto; }
+}
 
 .monitoring-status-filters { display: inline-flex; gap: 0.2rem; }
 .monitoring-status-filters button { padding: 0.45rem 0.7rem; border: 0; border-radius: 6px; background: transparent; color: var(--text-muted); font: inherit; font-size: 0.82rem; font-weight: 700; cursor: pointer; }

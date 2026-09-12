@@ -16,7 +16,7 @@ import { useAuth } from '../../auth/AuthProvider';
 export default function BeneficiaryPage() {
   // Mothers are loaded from the DB via MothersContext
   const auth = useAuth();
-  const { mothers, setMothers } = useMothers();
+  const { mothers, setMothers, loading: mothersLoading } = useMothers();
   const [groups, setGroups] = useState([]);
   const [communities, setCommunities] = useState([]);
   const [batches, setBatches] = useState([]);
@@ -169,6 +169,7 @@ export default function BeneficiaryPage() {
             communities={communities}
             batches={batches}
             mothers={mothers}
+            loading={mothersLoading}
             setGroups={setGroups}
             navigate={navigate}
           />

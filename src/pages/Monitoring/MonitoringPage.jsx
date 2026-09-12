@@ -11,7 +11,7 @@ import { apiGetChild, apiGetChildren, apiSaveChildCheckup } from '../../api/chil
 import { apiGetMother, apiSaveMotherCheckup } from '../../api/mothers';
 
 function getMotherName(mother) {
-  return mother?.name || [mother?.firstName, mother?.middleName, mother?.lastName]
+  return mother?.name || [mother?.firstName || mother?.first_name, mother?.middleName || mother?.middle_name, mother?.lastName || mother?.last_name]
     .filter(Boolean)
     .join(' ') || 'Unnamed mother';
 }
@@ -95,7 +95,7 @@ export default function MonitoringPage() {
     const term = query.trim().toLowerCase();
     if (!term) return mothers;
     return mothers.filter((mother) => (
-      `${getMotherName(mother)} ${mother.community || mother.area || ''}`
+      `${getMotherName(mother)} ${mother.motherCode || mother.mother_code || mother.id || ''} ${mother.community || mother.community_name || mother.area || ''}`
         .toLowerCase()
         .includes(term)
     ));
@@ -105,7 +105,7 @@ export default function MonitoringPage() {
     const term = query.trim().toLowerCase();
     if (!term) return children;
     return children.filter((child) => (
-      `${getChildName(child)} ${child.child_code || child.id || ''} ${child.community_name || ''}`.toLowerCase().includes(term)
+      `${getChildName(child)} ${child.child_code || child.id || ''} ${child.community || child.community_name || child.area || ''}`.toLowerCase().includes(term)
     ));
   }, [children, query]);
 
@@ -254,7 +254,7 @@ export default function MonitoringPage() {
             <EntitySearchControls
               selectedEntityFilter={beneficiaryType}
               query={query}
-              onEntityToggle={() => { setBeneficiaryType((current) => (current === 'Mother' ? 'Child' : 'Mother')); setQuery(''); setPage(1); }}
+              onEntityChange={(nextType) => { setBeneficiaryType(nextType); setQuery(''); setPage(1); }}
               onQueryChange={(value) => { setQuery(value); setPage(1); }}
             />
           </div>

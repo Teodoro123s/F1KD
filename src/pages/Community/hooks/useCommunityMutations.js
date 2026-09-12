@@ -136,7 +136,7 @@ export const useCommunityMutations = ({ refreshData }) => {
       const normalized = {
         name: payload.name.trim(),
         community: payload.community,
-        leader: payload.leader.trim(),
+        leader: String(payload.leader || '').trim(),
         members: Number(payload.members) || 0,
         status: payload.status,
       };
@@ -155,7 +155,7 @@ export const useCommunityMutations = ({ refreshData }) => {
       const normalized = {
         name: payload.name.trim(),
         community: payload.community,
-        leader: payload.leader.trim(),
+        leader: String(payload.leader || '').trim(),
         members: Number(payload.members) || 0,
         status: payload.status,
       };

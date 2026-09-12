@@ -26,13 +26,14 @@ const getChildProfileProgress = (child) => Math.round([
   child?.birthDocumentPath || child?.birth_document_path,
 ].filter(Boolean).length * 25);
 
-export default function BeneficiaryListPage({ communities = [], batches = [], mothers = [], onSelectMother, onSelectChild }) {
+export default function BeneficiaryListPage({ communities = [], batches = [], mothers = [], loading = false, onSelectMother, onSelectChild }) {
   const [query, setQuery] = useState('');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('All');
   const [perPage, setPerPage] = useState(10);
   const [page, setPage] = useState(1);
   const [selectedEntityFilter, setSelectedEntityFilter] = useState('Mother');
   const [childRows, setChildRows] = useState([]);
+  const [childrenLoading, setChildrenLoading] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -40,9 +41,11 @@ export default function BeneficiaryListPage({ communities = [], batches = [], mo
     async function loadChildren() {
       if (!mothers.length) {
         setChildRows([]);
+        setChildrenLoading(false);
         return;
       }
 
+      setChildrenLoading(true);
       apiGetChildren()
         .then((response) => {
           const mothersByDbId = new Map();
@@ -73,6 +76,9 @@ export default function BeneficiaryListPage({ communities = [], batches = [], mo
             console.error('[BeneficiaryListPage] Unable to load children:', error);
             setChildRows([]);
           }
+        })
+        .finally(() => {
+          if (active) setChildrenLoading(false);
         });
     }
 
@@ -92,12 +98,12 @@ export default function BeneficiaryListPage({ communities = [], batches = [], mo
       if (selectedEntityFilter === 'Child') {
         return item;
       }
-      if (item && (item.firstName || item.motherId)) {
+      if (item && (item.firstName || item.first_name || item.motherId || item.mother_id)) {
         // it's a mother mock object
         return {
           id: item.id,
-          name: item.name || `${item.firstName} ${item.lastName}`,
-          community: item.area || item.community || 'Unknown',
+          name: item.name || `${item.firstName || item.first_name || ''} ${item.lastName || item.last_name || ''}`.trim(),
+          community: item.area || item.community || item.community_name || 'Unknown',
           progress: getMotherProfileProgress(item),
           original: item,
         };
@@ -202,13 +208,14 @@ export default function BeneficiaryListPage({ communities = [], batches = [], mo
         <EntitySearchControls
           selectedEntityFilter={selectedEntityFilter}
           query={query}
-          onEntityToggle={() => setSelectedEntityFilter((current) => (current === 'Mother' ? 'Child' : 'Mother'))}
+            onEntityChange={(nextType) => { setSelectedEntityFilter(nextType); setQuery(''); setPage(1); }}
           onQueryChange={handleSearch}
         />
       </section>
 
       <BeneficiaryTable
         currentRows={displayRows}
+        loading={loading || (selectedEntityFilter === 'Child' && childrenLoading)}
         filteredDataLength={filteredData.length}
         rangeStart={rangeStart}
         rangeEnd={rangeEnd}

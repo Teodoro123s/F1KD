@@ -8,6 +8,7 @@ const API_BASE = (typeof import.meta !== 'undefined' && import.meta.env && impor
 
 export function MothersProvider({ children }) {
   const [mothers, setMothers] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const loadMothers = useCallback(async (fields = []) => {
     try {
@@ -39,13 +40,14 @@ export function MothersProvider({ children }) {
       const nextMothers = await loadMothers();
       if (!active) return;
       setMothers(nextMothers);
+      setLoading(false);
     };
 
     run();
     return () => { active = false; };
   }, [loadMothers]);
 
-  const value = useMemo(() => ({ mothers, setMothers, refreshMothers: loadMothers }), [mothers, loadMothers]);
+  const value = useMemo(() => ({ mothers, setMothers, loading, refreshMothers: loadMothers }), [mothers, loading, loadMothers]);
 
   return (
     <MothersContext.Provider value={value}>

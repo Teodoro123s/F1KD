@@ -3,6 +3,7 @@ import { formatDateForDisplay } from '../../utils/dateFormat';
 
 export default function BeneficiaryTable({
   currentRows,
+  loading = false,
   filteredDataLength,
   rangeStart,
   rangeEnd,
@@ -51,7 +52,11 @@ export default function BeneficiaryTable({
       <div className="table-overflow">
         <table className="data-table">
           <tbody>
-            {currentRows.length > 0 ? (
+            {loading ? (
+              <tr>
+                <td colSpan={emptyColSpan} className="no-data">Loading beneficiaries...</td>
+              </tr>
+            ) : currentRows.length > 0 ? (
               currentRows.map((row) => {
                 const motherProgress = getMotherProfileProgress(row.original || row);
                 const childProgress = getChildProfileProgress(row.original || row);

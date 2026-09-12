@@ -1,6 +1,6 @@
 import React from 'react';
 
-function ModalShell({ title, onClose, onSubmit, children, submitLabel }) {
+function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitting = false }) {
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-content community-modal-content" onClick={(e) => e.stopPropagation()}>
@@ -11,8 +11,10 @@ function ModalShell({ title, onClose, onSubmit, children, submitLabel }) {
         <form onSubmit={onSubmit}>
           <div className="modal-body">{children}</div>
           <div className="modal-footer">
-            <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
-            <button type="submit" className={submitLabel === 'Create' ? 'btn-create-action' : 'btn-primary'}>{submitLabel}</button>
+            <button type="button" className="btn-secondary" onClick={onClose} disabled={isSubmitting}>Cancel</button>
+            <button type="submit" className={submitLabel === 'Create' ? 'btn-create-action' : 'btn-primary'} disabled={isSubmitting}>
+              {isSubmitting ? `${submitLabel}...` : submitLabel}
+            </button>
           </div>
         </form>
       </div>
@@ -20,10 +22,10 @@ function ModalShell({ title, onClose, onSubmit, children, submitLabel }) {
   );
 }
 
-export function CreateCommunityModal({ showModal, onClose, communityForm, setCommunityForm, handleCreateCommunity, coordinators }) {
+export function CreateCommunityModal({ showModal, onClose, communityForm, setCommunityForm, handleCreateCommunity, coordinators, isSubmitting }) {
   if (!showModal) return null;
   return (
-    <ModalShell title="Create School" onClose={onClose} onSubmit={handleCreateCommunity} submitLabel="Create">
+    <ModalShell title="Create School" onClose={onClose} onSubmit={handleCreateCommunity} submitLabel="Create" isSubmitting={isSubmitting}>
       <div className="form-group">
         <label className="form-label" htmlFor="comm-name">School Name</label>
         <input
@@ -56,10 +58,10 @@ export function CreateCommunityModal({ showModal, onClose, communityForm, setCom
   );
 }
 
-export function EditCommunityModal({ showModal, onClose, communityForm, setCommunityForm, handleEditCommunity }) {
+export function EditCommunityModal({ showModal, onClose, communityForm, setCommunityForm, handleEditCommunity, isSubmitting }) {
   if (!showModal) return null;
   return (
-    <ModalShell title="Edit School" onClose={onClose} onSubmit={handleEditCommunity} submitLabel="Save Changes">
+    <ModalShell title="Edit School" onClose={onClose} onSubmit={handleEditCommunity} submitLabel="Save Changes" isSubmitting={isSubmitting}>
       <div className="form-group">
         <label className="form-label" htmlFor="edit-comm-name">School Name</label>
         <input
@@ -76,10 +78,10 @@ export function EditCommunityModal({ showModal, onClose, communityForm, setCommu
   );
 }
 
-export function CreateBatchModal({ showModal, onClose, batchForm, setBatchForm, handleCreateBatch, communities }) {
+export function CreateBatchModal({ showModal, onClose, batchForm, setBatchForm, handleCreateBatch, communities, isSubmitting }) {
   if (!showModal) return null;
   return (
-    <ModalShell title="Create Batch" onClose={onClose} onSubmit={handleCreateBatch} submitLabel="Create">
+    <ModalShell title="Create Batch" onClose={onClose} onSubmit={handleCreateBatch} submitLabel="Create" isSubmitting={isSubmitting}>
       <div className="form-group">
         <label className="form-label" htmlFor="batch-name">Batch Name</label>
         <input
@@ -94,7 +96,7 @@ export function CreateBatchModal({ showModal, onClose, batchForm, setBatchForm, 
         />
       </div>
       <div className="form-group">
-        <label className="form-label" htmlFor="batch-comm">Group</label>
+        <label className="form-label" htmlFor="batch-comm">School</label>
         <select
           id="batch-comm"
           className="form-select"
@@ -110,10 +112,10 @@ export function CreateBatchModal({ showModal, onClose, batchForm, setBatchForm, 
   );
 }
 
-export function EditBatchModal({ showModal, onClose, batchForm, setBatchForm, handleEditBatch, communities }) {
+export function EditBatchModal({ showModal, onClose, batchForm, setBatchForm, handleEditBatch, communities, isSubmitting }) {
   if (!showModal) return null;
   return (
-    <ModalShell title="Edit Batch" onClose={onClose} onSubmit={handleEditBatch} submitLabel="Save Changes">
+    <ModalShell title="Edit Batch" onClose={onClose} onSubmit={handleEditBatch} submitLabel="Save Changes" isSubmitting={isSubmitting}>
       <div className="form-group">
         <label className="form-label" htmlFor="edit-batch-name">Batch Name</label>
         <input
@@ -127,7 +129,7 @@ export function EditBatchModal({ showModal, onClose, batchForm, setBatchForm, ha
         />
       </div>
       <div className="form-group">
-        <label className="form-label" htmlFor="edit-batch-comm">Group</label>
+        <label className="form-label" htmlFor="edit-batch-comm">School</label>
         <select
           id="edit-batch-comm"
           className="form-select"
@@ -143,12 +145,12 @@ export function EditBatchModal({ showModal, onClose, batchForm, setBatchForm, ha
   );
 }
 
-export function CreateGroupModal({ showModal, onClose, groupForm, setGroupForm, handleCreateGroup, communities, batches }) {
+export function CreateGroupModal({ showModal, onClose, groupForm, setGroupForm, handleCreateGroup, communities, batches, isSubmitting }) {
   if (!showModal) return null;
   const availableBatches = batches.filter((batch) => batch.community === groupForm.community);
 
   return (
-    <ModalShell title="Create Group" onClose={onClose} onSubmit={handleCreateGroup} submitLabel="Create">
+    <ModalShell title="Create Group" onClose={onClose} onSubmit={handleCreateGroup} submitLabel="Create" isSubmitting={isSubmitting}>
       <div className="form-group">
         <label className="form-label" htmlFor="group-name">Group Name</label>
         <input
@@ -180,12 +182,12 @@ export function CreateGroupModal({ showModal, onClose, groupForm, setGroupForm, 
   );
 }
 
-export function EditGroupModal({ showModal, onClose, groupForm, setGroupForm, handleEditGroup, communities, batches }) {
+export function EditGroupModal({ showModal, onClose, groupForm, setGroupForm, handleEditGroup, communities, batches, isSubmitting }) {
   if (!showModal) return null;
   const availableBatches = batches.filter((batch) => batch.community === groupForm.community);
 
   return (
-    <ModalShell title="Edit Group" onClose={onClose} onSubmit={handleEditGroup} submitLabel="Save Changes">
+    <ModalShell title="Edit Group" onClose={onClose} onSubmit={handleEditGroup} submitLabel="Save Changes" isSubmitting={isSubmitting}>
       <div className="form-group">
         <label className="form-label" htmlFor="edit-group-name">Group Name</label>
         <input
