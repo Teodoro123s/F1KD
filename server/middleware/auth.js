@@ -19,13 +19,31 @@ function verifyToken(req, res, next) {
   return res.status(401).json({ error: 'Authorization header missing or invalid' });
 }
 
+function normalizeRole(role) {
+  const value = String(role || '').trim().toLowerCase();
+  const aliases = {
+    superadmin: 'super_admin',
+    'super admin': 'super_admin',
+    administrator: 'admin',
+    admin: 'admin',
+    'community organizer': 'partner',
+    communityorganizer: 'partner',
+    partner: 'partner',
+    'health worker': 'partner',
+    healthworker: 'partner',
+  };
+  return aliases[value] || value;
+}
+
 function requireRole(...roles) {
   return (req, res, next) => {
     if (!req.user) return res.status(401).json({ error: 'Unauthenticated' });
     if (roles.length === 0) return next();
-    if (roles.includes(req.user.role)) return next();
+    const userRole = normalizeRole(req.user.role);
+    const permitted = roles.some((role) => normalizeRole(role) === userRole);
+    if (permitted) return next();
     return res.status(403).json({ error: 'Forbidden' });
   };
 }
 
-module.exports = { verifyToken, requireRole };
+module.exports = { verifyToken, requireRole, normalizeRole };

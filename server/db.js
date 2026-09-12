@@ -83,6 +83,7 @@ async function ensure() {
       first_name VARCHAR(100) NOT NULL,
       middle_name VARCHAR(100),
       last_name VARCHAR(100) NOT NULL,
+      maiden_surname VARCHAR(100),
       suffix VARCHAR(20),
       mother_id_no VARCHAR(50) UNIQUE,
       dob DATE,
@@ -163,6 +164,15 @@ async function ensure() {
       FOREIGN KEY (mother_id) REFERENCES mothers(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
 
+    `ALTER TABLE mother_ob_history
+      ADD COLUMN IF NOT EXISTS event_label VARCHAR(120),
+      ADD COLUMN IF NOT EXISTS seq INT,
+      ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;`,
+
+    `ALTER TABLE mother_dental_records
+      ADD COLUMN IF NOT EXISTS visit_date DATE,
+      ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;`,
+
     `CREATE TABLE IF NOT EXISTS children (
       id INT AUTO_INCREMENT PRIMARY KEY,
       child_code VARCHAR(30) NOT NULL UNIQUE,
@@ -180,6 +190,7 @@ async function ensure() {
       gender ENUM('Male','Female','Other') DEFAULT 'Female',
       blood_type VARCHAR(5),
       no_of_child_delivered INT,
+      multiple_birth_type VARCHAR(30) DEFAULT NULL,
       exclusive_breastfeeding VARCHAR(20),
       expanded_newborn_screening TEXT,
       expanded_newborn_screening_result TEXT,
@@ -205,6 +216,7 @@ async function ensure() {
       ADD COLUMN IF NOT EXISTS group_id INT NULL,
       ADD COLUMN IF NOT EXISTS blood_type VARCHAR(5),
       ADD COLUMN IF NOT EXISTS no_of_child_delivered INT,
+      ADD COLUMN IF NOT EXISTS multiple_birth_type VARCHAR(30),
       ADD COLUMN IF NOT EXISTS exclusive_breastfeeding VARCHAR(20),
       ADD COLUMN IF NOT EXISTS expanded_newborn_screening TEXT,
       ADD COLUMN IF NOT EXISTS expanded_newborn_screening_result TEXT,
@@ -215,7 +227,11 @@ async function ensure() {
       ADD COLUMN IF NOT EXISTS birth_certificate_document_name VARCHAR(255),
       ADD COLUMN IF NOT EXISTS birth_certificate_document_path VARCHAR(500),
       ADD COLUMN IF NOT EXISTS consent_document_name VARCHAR(255),
-      ADD COLUMN IF NOT EXISTS consent_document_path VARCHAR(500);`,
+      ADD COLUMN IF NOT EXISTS consent_document_path VARCHAR(500),
+      ADD COLUMN IF NOT EXISTS weight DECIMAL(5,2),
+      ADD COLUMN IF NOT EXISTS height DECIMAL(5,2),
+      ADD COLUMN IF NOT EXISTS medical_conditions JSON,
+      ADD COLUMN IF NOT EXISTS other_medical_history TEXT;`,
 
     `CREATE TABLE IF NOT EXISTS child_medical_conditions (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -237,14 +253,70 @@ async function ensure() {
     `CREATE TABLE IF NOT EXISTS child_checkups (
       id INT AUTO_INCREMENT PRIMARY KEY,
       child_id INT NOT NULL,
+      week_number TINYINT UNSIGNED NULL,
+      next_checkup_date DATE,
       visit_date DATE,
       weight DECIMAL(5,2),
       height DECIMAL(5,2),
       head_circumference DECIMAL(5,2),
+      developmental_status VARCHAR(40),
+      service_provider VARCHAR(150),
       notes TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (child_id) REFERENCES children(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;` 
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+
+    `ALTER TABLE child_checkups
+      ADD COLUMN IF NOT EXISTS week_number TINYINT UNSIGNED NULL,
+      ADD COLUMN IF NOT EXISTS developmental_status VARCHAR(40),
+      ADD COLUMN IF NOT EXISTS service_provider VARCHAR(150),
+      ADD COLUMN IF NOT EXISTS next_checkup_date DATE;`,
+
+    `CREATE TABLE IF NOT EXISTS programs (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(150) NOT NULL,
+      type VARCHAR(80) NOT NULL DEFAULT 'Other',
+      provider VARCHAR(150) NOT NULL,
+      description TEXT,
+      beneficiary_type VARCHAR(40) NOT NULL DEFAULT 'Mother and Child',
+      status VARCHAR(20) NOT NULL DEFAULT 'Active',
+      target INT NOT NULL DEFAULT 0,
+      received INT NOT NULL DEFAULT 0,
+      activities INT NOT NULL DEFAULT 0,
+      latest DATE NULL,
+      ended DATE NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+
+    `CREATE TABLE IF NOT EXISTS program_clusters (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      program_id INT NOT NULL,
+      scope_type VARCHAR(20) NOT NULL,
+      scope_name VARCHAR(150) NOT NULL,
+      beneficiaries INT NOT NULL DEFAULT 0,
+      received INT NOT NULL DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_program_cluster (program_id, scope_type, scope_name),
+      CONSTRAINT fk_program_clusters_program FOREIGN KEY (program_id) REFERENCES programs(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+
+    `CREATE TABLE IF NOT EXISTS monitoring_logs (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      beneficiary_id VARCHAR(50) NOT NULL,
+      beneficiary_type VARCHAR(20) NOT NULL,
+      program_id INT NOT NULL,
+      monitored BOOLEAN NOT NULL DEFAULT FALSE,
+      monitored_date DATE NOT NULL,
+      monitored_by INT NULL,
+      notes TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_monitoring_log_day (beneficiary_id, beneficiary_type, program_id, monitored_date),
+      KEY idx_monitoring_beneficiary (beneficiary_id, beneficiary_type),
+      KEY idx_monitoring_program_date (program_id, monitored_date),
+      CONSTRAINT fk_monitoring_program FOREIGN KEY (program_id) REFERENCES programs(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`
   ];
 
   const conn = await pool.getConnection();
@@ -326,6 +398,9 @@ async function migrateUsersTable() {
     }
     if (!colNames.includes('location')) {
       alterStatements.push("ADD COLUMN location VARCHAR(120) DEFAULT NULL");
+    }
+    if (!colNames.includes('school_id')) {
+      alterStatements.push('ADD COLUMN school_id INT DEFAULT NULL');
     }
 
     if (alterStatements.length > 0) {

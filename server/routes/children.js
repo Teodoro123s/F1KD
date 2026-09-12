@@ -23,16 +23,53 @@ async function attachClinicalData(child) {
   };
 }
 
+function withChildAliases(child = {}) {
+  return {
+    ...child,
+    childCode: child.child_code ?? child.childCode ?? '',
+    motherId: child.mother_id ?? child.motherId ?? '',
+    firstName: child.first_name ?? child.firstName ?? '',
+    middleName: child.middle_name ?? child.middleName ?? '',
+    lastName: child.last_name ?? child.lastName ?? '',
+    birthDate: child.birth_date ?? child.birthDate ?? '',
+    birthWeight: child.birth_weight ?? child.birthWeight ?? '',
+    birthLength: child.birth_length ?? child.birthLength ?? '',
+    bloodType: child.blood_type ?? child.bloodType ?? '',
+    noOfChildDelivered: child.no_of_child_delivered ?? child.noOfChildDelivered ?? '',
+    multipleBirthType: child.multiple_birth_type ?? child.multipleBirthType ?? '',
+    exclusiveBreastfeeding: child.exclusive_breastfeeding ?? child.exclusiveBreastfeeding ?? '',
+    expandedNewbornScreening: child.expanded_newborn_screening ?? child.expandedNewbornScreening ?? '',
+    expandedNewbornScreeningResult: child.expanded_newborn_screening_result ?? child.expandedNewbornScreeningResult ?? '',
+    deliveryType: child.delivery_type ?? child.deliveryType ?? '',
+    healthStatus: child.health_status ?? child.healthStatus ?? '',
+    birthPlace: child.birth_place ?? child.birthPlace ?? '',
+    birthAttendant: child.birth_attendant ?? child.birthAttendant ?? '',
+    apgarScore: child.apgar_score ?? child.apgarScore ?? '',
+    feedingType: child.feeding_type ?? child.feedingType ?? '',
+    nutritionNotes: child.nutrition_notes ?? child.nutritionNotes ?? '',
+    fatherName: child.father_name ?? child.fatherName ?? '',
+    community: child.community_name ?? child.community ?? '',
+    group: child.group_name ?? child.group ?? '',
+    batch: child.batch_name ?? child.batch ?? '',
+    motherFirstName: child.mother_first_name ?? child.motherFirstName ?? '',
+    motherLastName: child.mother_last_name ?? child.motherLastName ?? '',
+  };
+}
+
 async function attachMonitoringData(child) {
   const [checkupRows] = await pool.query(
     'SELECT * FROM child_checkups WHERE child_id = ? ORDER BY week_number, visit_date, id',
     [child.id]
   );
-  return {
+  return withChildAliases({
     ...child,
     completedWeeks: checkupRows.filter((row) => row.week_number !== null).map((row) => Number(row.week_number)),
+    nextCheckupDate: checkupRows
+      .map((row) => row.next_checkup_date)
+      .filter(Boolean)
+      .sort((a, b) => String(a).localeCompare(String(b)))[0] || '',
     checkups: checkupRows,
-  };
+  });
 }
 
 router.post('/:id/documents', documentUpload.single('birthDocument'), async (req, res) => {
@@ -54,20 +91,81 @@ router.post('/:id/documents', documentUpload.single('birthDocument'), async (req
   }
 });
 
+const CHILD_ALLOWED_FIELDS = new Set([
+  'id',
+  'child_code', 'childCode',
+  'mother_id', 'motherId',
+  'first_name', 'firstName',
+  'middle_name', 'middleName',
+  'last_name', 'lastName',
+  'suffix',
+  'birth_date', 'birthDate',
+  'birth_weight', 'birthWeight',
+  'birth_length', 'birthLength',
+  'gender',
+  'blood_type', 'bloodType',
+  'no_of_child_delivered', 'noOfChildDelivered',
+  'multiple_birth_type', 'multipleBirthType',
+  'exclusive_breastfeeding', 'exclusiveBreastfeeding',
+  'expanded_newborn_screening', 'expandedNewbornScreening',
+  'expanded_newborn_screening_result', 'expandedNewbornScreeningResult',
+  'delivery_type', 'deliveryType',
+  'health_status', 'healthStatus',
+  'birth_place', 'birthPlace',
+  'birth_attendant', 'birthAttendant',
+  'apgar_score', 'apgarScore',
+  'feeding_type', 'feedingType',
+  'nutrition_notes', 'nutritionNotes',
+  'father_name', 'fatherName',
+  'relationship', 'address',
+  'birth_document_path', 'birthDocumentPath',
+  'community_id', 'group_id', 'batch_id',
+  'community_name', 'community', 'group_name', 'group', 'batch_name', 'batch',
+  'mother_first_name', 'motherFirstName', 'mother_last_name', 'motherLastName',
+  'name', 'dob', 'age', 'programType', 'status', 'risk', 'pediatricWeek', 'zScore', 'nutritionalStatus',
+  'bcgDate', 'opvDate', 'dptDate', 'assessment', 'progress', 'trend', 'source', 'checkups', 'medicalConditions', 'completedWeeks'
+]);
+
+function sanitizeFieldSelection(fields = []) {
+  const selected = Array.isArray(fields) ? fields : String(fields || '').split(',').map((value) => value.trim()).filter(Boolean);
+  const requiredFields = new Set(['id', 'child_code', 'mother_id', 'first_name', 'middle_name', 'last_name', 'suffix', 'birth_date', 'birth_document_path', 'community_name', 'group_name', 'batch_name', 'name', 'community', 'group', 'batch', 'progress', 'completedWeeks', 'nextCheckupDate', 'trimester', 'assessment', 'trend', 'risk', 'source']);
+  const allowed = [...new Set(selected.filter((field) => CHILD_ALLOWED_FIELDS.has(field)).concat([...requiredFields]))];
+  return allowed;
+}
+
 // GET /api/children - list children with their monitoring progress
 router.get('/', async (req, res) => {
   try {
+    const requestedFields = sanitizeFieldSelection(req.query.fields);
+    const scopeClause = req.schoolId ? 'WHERE c.community_id = ?' : '';
     const [rows] = await pool.query(
       `SELECT c.*, m.first_name AS mother_first_name, m.last_name AS mother_last_name,
-        m.mother_code, comm.name AS community_name, g.group_name, b.name AS batch_name
+        m.mother_code, comm.name AS community_name, g.name AS group_name, b.name AS batch_name
        FROM children c
        LEFT JOIN mothers m ON c.mother_id = m.id
        LEFT JOIN communities comm ON comm.id = c.community_id
        LEFT JOIN groups g ON g.id = c.group_id
        LEFT JOIN batches b ON b.id = c.batch_id
+      ${scopeClause}
        ORDER BY c.created_at DESC, c.id DESC`
+          , req.schoolId ? [req.schoolId] : []
     );
-    const children = await Promise.all(rows.map(attachMonitoringData));
+
+    const children = await Promise.all(rows.map(async (row) => {
+      const hydrated = await attachMonitoringData(row);
+      if (!requestedFields.length || requestedFields.includes('*')) return hydrated;
+      const subset = {};
+      for (const field of requestedFields) {
+        if (field in hydrated) {
+          subset[field] = hydrated[field];
+        } else {
+          const camelField = field.replace(/_([a-z])/g, (_, ch) => ch.toUpperCase());
+          if (camelField in hydrated) subset[field] = hydrated[camelField];
+          else if (field in row) subset[field] = row[field];
+        }
+      }
+      return subset;
+    }));
     res.json({ children });
   } catch (err) {
     console.error('Failed to fetch children', err);
@@ -93,6 +191,7 @@ router.post('/', async (req, res) => {
     const gender = getField(b, 'gender');
     const bloodType = getField(b, 'bloodType', 'blood_type');
     const noOfChildDelivered = getField(b, 'noOfChildDelivered', 'no_of_child_delivered');
+    const multipleBirthType = getField(b, 'multipleBirthType', 'multiple_birth_type') || null;
     const exclusiveBreastfeeding = getField(b, 'exclusiveBreastfeeding', 'exclusive_breastfeeding');
     const expandedNewbornScreening = getField(b, 'expandedNewbornScreening', 'expanded_newborn_screening');
     const expandedNewbornScreeningResult = getField(b, 'expandedNewbornScreeningResult', 'expanded_newborn_screening_result');
@@ -107,13 +206,13 @@ router.post('/', async (req, res) => {
     if (!motherId || !firstName || !lastName) return res.status(400).json({ error: 'motherId, firstName and lastName are required' });
 
     const [motherRows] = await pool.query(
-      'SELECT id FROM mothers WHERE id = ? OR mother_code = ? OR mother_external_id = ? LIMIT 1',
-      [Number(motherId) || null, motherId, motherId]
+      'SELECT id FROM mothers WHERE id = ? OR mother_code = ? LIMIT 1',
+      [Number(motherId) || null, motherId]
     );
     if (!motherRows.length) return res.status(400).json({ error: 'Mother not found' });
     motherId = motherRows[0].id;
     if (!groupId && b.group) {
-      const [groupRows] = await pool.query('SELECT id FROM groups WHERE group_name = ? LIMIT 1', [b.group]);
+      const [groupRows] = await pool.query('SELECT id FROM groups WHERE name = ? LIMIT 1', [b.group]);
       groupId = groupRows[0]?.id || null;
     }
     if (!communityId && b.community) {
@@ -133,13 +232,37 @@ router.post('/', async (req, res) => {
     const address = getField(b, 'address');
 
     const [result] = await pool.query(
-      `INSERT INTO children (child_code, mother_id, community_id, group_id, batch_id, first_name, middle_name, last_name, suffix, birth_date, birth_weight, birth_length, gender, blood_type, no_of_child_delivered, exclusive_breastfeeding, expanded_newborn_screening, expanded_newborn_screening_result, delivery_type, health_status, birth_place, birth_attendant, apgar_score, feeding_type, nutrition_notes, father_name, relationship, address)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
-      [childCode, motherId || null, communityId || null, groupId || null, batchId || null, firstName, middleName || null, lastName, suffix || null, birthDate || null, birthWeight || null, birthLength || null, gender || null, bloodType || null, noOfChildDelivered || null, exclusiveBreastfeeding || null, expandedNewbornScreening || null, expandedNewbornScreeningResult || null, deliveryType || null, healthStatus || null, birthPlace || null, birthAttendant || null, apgarScore || null, feedingType || null, nutritionNotes || null, fatherName || null, relationship || null, address || null]
+      `INSERT INTO children (child_code, mother_id, community_id, group_id, batch_id, first_name, middle_name, last_name, suffix, birth_date, birth_weight, birth_length, gender, blood_type, no_of_child_delivered, multiple_birth_type, exclusive_breastfeeding, expanded_newborn_screening, expanded_newborn_screening_result, delivery_type, health_status, birth_place, birth_attendant, apgar_score, feeding_type, nutrition_notes, father_name, relationship, address)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
+      [childCode, motherId || null, communityId || null, groupId || null, batchId || null, firstName, middleName || null, lastName, suffix || null, birthDate || null, birthWeight || null, birthLength || null, gender || null, bloodType || null, noOfChildDelivered || null, multipleBirthType || null, exclusiveBreastfeeding || null, expandedNewbornScreening || null, expandedNewbornScreeningResult || null, deliveryType || null, healthStatus || null, birthPlace || null, birthAttendant || null, apgarScore || null, feedingType || null, nutritionNotes || null, fatherName || null, relationship || null, address || null]
     );
 
     const [rows] = await pool.query('SELECT * FROM children WHERE id = ?', [result.insertId]);
-    res.status(201).json({ child: rows[0] });
+    for (const [conditionName, hasCondition] of Object.entries(b.medicalConditions || {})) {
+      if (hasCondition) {
+        await pool.query(
+          'INSERT INTO child_medical_conditions (child_id, condition_name, has_condition) VALUES (?, ?, ?)',
+          [result.insertId, conditionName, true]
+        );
+      }
+    }
+    const vaccines = [
+      ['BCG', b.bcgDate, b.bcgRemarks],
+      ['HepB', b.hepbDate, b.hepbRemarks],
+      ['OPV', b.opvDate, b.opvRemarks],
+      ['DPT', b.dptDate, b.dptRemarks],
+      ['MMR', b.mmrDate, b.mmrRemarks],
+    ];
+    for (const [name, date, remarks] of vaccines) {
+      if (date || remarks) {
+        await pool.query(
+          'INSERT INTO child_vaccinations (child_id, vaccine_name, vaccine_date, remarks) VALUES (?, ?, ?, ?)',
+          [result.insertId, name, date || null, remarks || null]
+        );
+      }
+    }
+    const child = await attachClinicalData(rows[0]);
+    res.status(201).json({ child: await attachMonitoringData(child) });
   } catch (err) {
     console.error('Failed to create child', err);
     res.status(500).json({ error: 'db error' });
@@ -152,14 +275,14 @@ router.get('/:id', async (req, res) => {
     const { id } = req.params;
     const [rows] = await pool.query(
       `SELECT c.*, m.first_name AS mother_first_name, m.last_name AS mother_last_name, m.mother_code AS mother_code,
-        comm.name AS community_name, g.group_name, b.name AS batch_name
+        comm.name AS community_name, g.name AS group_name, b.name AS batch_name
        FROM children c
        LEFT JOIN mothers m ON c.mother_id = m.id
        LEFT JOIN communities comm ON comm.id = c.community_id
        LEFT JOIN groups g ON g.id = c.group_id
        LEFT JOIN batches b ON b.id = c.batch_id
-       WHERE c.id = ? OR c.child_code = ?`,
-      [id, id]
+      WHERE (c.id = ? OR c.child_code = ?)${req.schoolId ? ' AND c.community_id = ?' : ''}`,
+          req.schoolId ? [id, id, req.schoolId] : [id, id]
     );
     if (!rows.length) return res.status(404).json({ error: 'Not found' });
     const child = await attachClinicalData(rows[0]);
@@ -187,6 +310,7 @@ router.post('/:id/checkups', async (req, res) => {
     }
 
     const values = [
+      body.nextCheckupDate || null,
       body.checkupDate || null,
       body.weight || null,
       body.height || null,
@@ -201,22 +325,22 @@ router.post('/:id/checkups', async (req, res) => {
     );
     if (existingRows.length) {
       await pool.query(
-        `UPDATE child_checkups SET visit_date = ?, weight = ?, height = ?, head_circumference = ?,
+        `UPDATE child_checkups SET next_checkup_date = ?, visit_date = ?, weight = ?, height = ?, head_circumference = ?,
           developmental_status = ?, service_provider = ?, notes = ? WHERE id = ?`,
         [...values, existingRows[0].id]
       );
     } else {
       await pool.query(
         `INSERT INTO child_checkups
-          (child_id, visit_date, weight, height, head_circumference, developmental_status, service_provider, notes, week_number)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          (child_id, next_checkup_date, visit_date, weight, height, head_circumference, developmental_status, service_provider, notes, week_number)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [childId, ...values, week]
       );
     }
 
     const [rows] = await pool.query(
       `SELECT c.*, m.first_name AS mother_first_name, m.last_name AS mother_last_name,
-        m.mother_code, comm.name AS community_name, g.group_name, b.name AS batch_name
+        m.mother_code, comm.name AS community_name, g.name AS group_name, b.name AS batch_name
        FROM children c
        LEFT JOIN mothers m ON c.mother_id = m.id
        LEFT JOIN communities comm ON comm.id = c.community_id
@@ -242,8 +366,8 @@ router.put('/:id', async (req, res) => {
     const current = existingRows[0];
     let motherId = getField(body, 'motherId', 'mother_id') || current.mother_id;
     const [motherRows] = await pool.query(
-      'SELECT id FROM mothers WHERE id = ? OR mother_code = ? OR mother_external_id = ? LIMIT 1',
-      [Number(motherId) || null, motherId, motherId]
+      'SELECT id FROM mothers WHERE id = ? OR mother_code = ? LIMIT 1',
+      [Number(motherId) || null, motherId]
     );
     if (!motherRows.length) return res.status(400).json({ error: 'Mother not found' });
     motherId = motherRows[0].id;
@@ -252,7 +376,7 @@ router.put('/:id', async (req, res) => {
     let groupId = getField(body, 'groupId', 'group_id') || current.group_id;
     let batchId = getField(body, 'batchId', 'batch_id') || current.batch_id;
     if (!groupId && body.group) {
-      const [groupRows] = await pool.query('SELECT id FROM groups WHERE group_name = ? LIMIT 1', [body.group]);
+      const [groupRows] = await pool.query('SELECT id FROM groups WHERE name = ? LIMIT 1', [body.group]);
       groupId = groupRows[0]?.id || null;
     }
     if (!communityId && body.community) {
@@ -279,6 +403,7 @@ router.put('/:id', async (req, res) => {
       gender: getField(body, 'gender') || current.gender,
       blood_type: getField(body, 'bloodType', 'blood_type') ?? current.blood_type ?? null,
       no_of_child_delivered: getField(body, 'noOfChildDelivered', 'no_of_child_delivered') ?? current.no_of_child_delivered ?? null,
+      multiple_birth_type: getField(body, 'multipleBirthType', 'multiple_birth_type') ?? current.multiple_birth_type ?? null,
       exclusive_breastfeeding: getField(body, 'exclusiveBreastfeeding', 'exclusive_breastfeeding') ?? current.exclusive_breastfeeding ?? null,
       expanded_newborn_screening: getField(body, 'expandedNewbornScreening', 'expanded_newborn_screening') ?? current.expanded_newborn_screening ?? null,
       expanded_newborn_screening_result: getField(body, 'expandedNewbornScreeningResult', 'expanded_newborn_screening_result') ?? current.expanded_newborn_screening_result ?? null,
@@ -317,7 +442,7 @@ router.put('/:id', async (req, res) => {
 
     const [rows] = await pool.query(
       `SELECT c.*, m.first_name AS mother_first_name, m.last_name AS mother_last_name, m.mother_code,
-        comm.name AS community_name, g.group_name, b.name AS batch_name
+        comm.name AS community_name, g.name AS group_name, b.name AS batch_name
        FROM children c LEFT JOIN mothers m ON m.id = c.mother_id
        LEFT JOIN communities comm ON comm.id = c.community_id
        LEFT JOIN groups g ON g.id = c.group_id
@@ -336,14 +461,15 @@ router.put('/:id', async (req, res) => {
 router.get('/mother/:motherId/children', async (req, res) => {
   try {
     const { motherId } = req.params;
+    const scopeClause = req.schoolId ? ' AND c.community_id = ?' : '';
     const [rows] = await pool.query(
-      `SELECT c.*, comm.name AS community_name, g.group_name, b.name AS batch_name
+      `SELECT c.*, comm.name AS community_name, g.name AS group_name, b.name AS batch_name
        FROM children c
        LEFT JOIN communities comm ON comm.id = c.community_id
        LEFT JOIN groups g ON g.id = c.group_id
        LEFT JOIN batches b ON b.id = c.batch_id
-       WHERE c.mother_id = ? ORDER BY c.created_at DESC`,
-      [motherId]
+      WHERE c.mother_id = ?${scopeClause} ORDER BY c.created_at DESC`,
+          req.schoolId ? [motherId, req.schoolId] : [motherId]
     );
     res.json({ children: rows });
   } catch (err) {

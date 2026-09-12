@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 const TOTAL_WEEKS = 48;
 
@@ -21,10 +21,10 @@ function formatDateForPayload(value) {
 export default function ChildMonitor({ child, onSave, onCancel, completedWeeks = [] }) {
   const [week, setWeek] = useState(1);
   const [form, setForm] = useState(() => ({
-    checkupDate: formatDate(new Date()),
-    weight: child?.weight || child?.birth_weight || child?.birthWeight || '',
-    height: child?.height || child?.birth_length || child?.birthLength || '',
-    headCircumference: child?.head_circumference || child?.headCircumference || '',
+    checkupDate: '',
+    weight: '',
+    height: '',
+    headCircumference: '',
     developmentalStatus: 'Normal',
     serviceProvider: '',
     remarks: '',
@@ -32,6 +32,33 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
 
   const update = (field) => (event) => setForm((current) => ({ ...current, [field]: event.target.value }));
   const childName = getChildName(child);
+
+  useEffect(() => {
+    const savedCheckup = (child?.checkups || []).find((checkup) => Number(checkup.week_number ?? checkup.weekNumber) === week);
+    if (!savedCheckup) {
+      setForm({
+        checkupDate: '',
+        nextCheckupDate: '',
+        weight: '',
+        height: '',
+        headCircumference: '',
+        developmentalStatus: 'Normal',
+        serviceProvider: '',
+        remarks: '',
+      });
+      return;
+    }
+    setForm({
+      checkupDate: formatDate(savedCheckup.visit_date ?? savedCheckup.checkupDate),
+      nextCheckupDate: formatDate(savedCheckup.next_checkup_date ?? savedCheckup.nextCheckupDate),
+      weight: savedCheckup.weight ?? '',
+      height: savedCheckup.height ?? '',
+      headCircumference: savedCheckup.head_circumference ?? savedCheckup.headCircumference ?? '',
+      developmentalStatus: savedCheckup.developmental_status ?? savedCheckup.developmentalStatus ?? 'Normal',
+      serviceProvider: savedCheckup.service_provider ?? savedCheckup.serviceProvider ?? '',
+      remarks: savedCheckup.notes ?? savedCheckup.remarks ?? '',
+    });
+  }, [child, week]);
 
   const goToWeek = (nextWeek) => setWeek(Math.max(1, Math.min(TOTAL_WEEKS, nextWeek)));
 
@@ -84,6 +111,10 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
             <div className="form-group full-width">
               <label className="checkup-field-label" htmlFor="child-checkup-date">Check-up Date</label>
               <input id="child-checkup-date" type="text" inputMode="numeric" pattern="\d{4}/\d{2}/\d{2}" className="checkup-field-input" value={form.checkupDate} onChange={update('checkupDate')} placeholder="yyyy/mm/dd" required />
+            </div>
+            <div className="form-group full-width">
+              <label className="checkup-field-label" htmlFor="child-next-checkup-date">Next Check-up Date (Tentative)</label>
+              <input id="child-next-checkup-date" type="text" inputMode="numeric" pattern="\d{4}/\d{2}/\d{2}" className="checkup-field-input" value={form.nextCheckupDate} onChange={update('nextCheckupDate')} placeholder="yyyy/mm/dd" />
             </div>
             <div className="form-group">
               <label className="checkup-field-label" htmlFor="child-monitor-weight">Weight (kg)</label>

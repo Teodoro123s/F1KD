@@ -16,7 +16,7 @@ export default function Login() {
     try {
       // Use email as the credential for login
       await auth.login(email, password);
-      navigate('/community');
+      navigate('/dashboard');
     } catch (err) {
       // show error
       console.error('Login failed', err);
@@ -34,6 +34,8 @@ export default function Login() {
         <label>
           Email
           <input
+            id="login-email"
+            name="email"
             type="email"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
@@ -44,6 +46,8 @@ export default function Login() {
           Password
           <div style={{ display: 'flex', alignItems: 'center' }}>
             <input
+              id="login-password"
+              name="password"
               type={showPassword ? 'text' : 'password'}
               value={password}
               onChange={(event) => setPassword(event.target.value)}

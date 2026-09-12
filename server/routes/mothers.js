@@ -23,6 +23,7 @@ function mapMother(row) {
     firstNonEmpty(row.first_name, row.firstName),
     firstNonEmpty(row.middle_name, row.middleName),
     firstNonEmpty(row.last_name, row.lastName),
+    firstNonEmpty(row.maiden_surname, row.maidenSurname),
     firstNonEmpty(row.suffix),
   ].filter((v) => String(v).trim()).join(' ').trim();
 
@@ -33,6 +34,7 @@ function mapMother(row) {
     firstName: firstNonEmpty(row.first_name, row.firstName, ''),
     middleName: firstNonEmpty(row.middle_name, row.middleName, ''),
     lastName: firstNonEmpty(row.last_name, row.lastName, ''),
+    maidenSurname: firstNonEmpty(row.maiden_surname, row.maidenSurname, ''),
     suffix: firstNonEmpty(row.suffix, ''),
     dob: row.dob || '',
     createdAt: row.created_at || '',
@@ -85,7 +87,7 @@ async function attachClinicalData(mother) {
   if (!motherDbId) return mother;
 
   const [[obRows], [medicalRows], [dentalRows], [vaccineRows], [checkupRows]] = await Promise.all([
-    pool.query('SELECT * FROM mother_ob_history WHERE mother_id = ? ORDER BY seq, id', [motherDbId]),
+    pool.query('SELECT * FROM mother_ob_history WHERE mother_id = ? ORDER BY id', [motherDbId]),
     pool.query('SELECT * FROM mother_medical_conditions WHERE mother_id = ? ORDER BY id', [motherDbId]),
     pool.query('SELECT * FROM mother_dental_records WHERE mother_id = ? ORDER BY id DESC LIMIT 1', [motherDbId]),
     pool.query('SELECT * FROM mother_vaccinations WHERE mother_id = ? ORDER BY id', [motherDbId]),
@@ -145,8 +147,21 @@ async function attachClinicalData(mother) {
     medicalConditions: Object.keys(medicalConditions).length ? medicalConditions : mother.medicalConditions,
     dentalCheckupDate: dental.visit_date || '',
     dentalFacility: dental.treatment || '',
-    dentalFindings: dental.treatment || '',
-    dentalRemarks: dental.remarks || '',
+    dentistInCharge: dental.dentist_in_charge || '',
+    communityDentist: dental.community_dentist || '',
+    dentistLicense: dental.dentist_license || '',
+    dentistContact: dental.dentist_contact || '',
+    teethCount: dental.teeth_count || '',
+    dentalFindings: dental.dental_findings || dental.treatment || '',
+    dentalWork: {
+      tartarRemoval: Boolean(dental.tartar_removal),
+      filling: Boolean(dental.filling),
+      cleaning: Boolean(dental.cleaning),
+      extraction: Boolean(dental.extraction),
+      rootCanal: Boolean(dental.root_canal),
+      other: Boolean(dental.other_procedure),
+    },
+    dentalRemarks: dental.dental_remarks || dental.remarks || '',
     tt1Date: vaccines.TT1?.vaccine_date || '',
     tt1Remarks: vaccines.TT1?.remarks || '',
     tt2Date: vaccines.TT2?.vaccine_date || '',
@@ -193,18 +208,36 @@ router.post('/:id/documents', documentUpload.fields([
   }
 });
 
+const MOTHER_ALLOWED_FIELDS = new Set([
+  'id', 'motherId', 'name', 'firstName', 'middleName', 'lastName', 'dob', 'age', 'phone', 'contactNumber', 'community', 'group', 'batch', 'programType', 'status', 'risk', 'trimester', 'gestationalAge', 'lmpDate', 'eddDate', 'prenatalRegDate', 'prenatalWeight', 'prenatalBp', 'prenatalHeight', 'fundalHeight', 'fhr', 'weight', 'height', 'bmi', 'gravida', 'para', 'abortion', 'stillbirth', 'emergencyName', 'emergencyContact', 'emergencyRelationship', 'spouseName', 'medicalConditions', 'otherMedicalHistory', 'tt1Date', 'tt2Date', 'tt3Date', 'tt4Date', 'tt5Date', 'dentalCheckupDate', 'dentalFacility', 'dentalFindings', 'dentalRemarks', 'birthCertificateDocumentName', 'consentDocumentName', 'assessment', 'progress', 'trend', 'createdAt', 'vaccines', 'oralHealth', 'programs', 'documents', 'checkups', 'source'
+]);
+
+function getRequestedMotherFields(req) {
+  const raw = req.query && req.query.fields;
+  const selected = Array.isArray(raw) ? raw.flatMap((item) => String(item).split(',')) : String(raw || '').split(',');
+  const fields = selected.map((field) => field.trim()).filter(Boolean);
+  const allowed = fields.filter((field) => MOTHER_ALLOWED_FIELDS.has(field));
+  const required = new Set(['id', 'motherId', 'name', 'community', 'group', 'batch', 'trimester', 'progress', 'risk', 'bmi', 'checkups', 'source']);
+  return [...new Set([...allowed, ...required])];
+}
+
 router.get('/', async (req, res) => {
   try {
+    const requestedFields = getRequestedMotherFields(req);
+    const scopeClause = req.schoolId ? 'WHERE m.community_id = ?' : '';
     const [rows] = await pool.query(`
       SELECT m.*,
-        g.group_name,
+        comm.name AS community,
+        g.name AS group_name,
         b.name AS batch_name,
         (SELECT COUNT(*) FROM children c WHERE c.mother_id = m.id) AS children_count
       FROM mothers m
+      LEFT JOIN communities comm ON comm.id = m.community_id
       LEFT JOIN groups g ON g.id = m.group_id
       LEFT JOIN batches b ON b.id = m.batch_id
+      ${scopeClause}
       ORDER BY m.id DESC
-    `);
+    `, req.schoolId ? [req.schoolId] : []);
 
     const [checkupRows] = await pool.query('SELECT * FROM mother_checkups');
     const checkupsByMotherId = {};
@@ -246,17 +279,22 @@ router.get('/', async (req, res) => {
       };
     }
 
-    res.json({
-      mothers: rows.map((r) => {
-        const m = mapMother(r);
-        m.checkups = checkupsByMotherId[r.id] || [
-          [null, null, null],
-          [null, null, null],
-          [null, null, null]
-        ];
-        return m;
-      })
+    const mothers = rows.map((r) => {
+      const m = mapMother(r);
+      m.checkups = checkupsByMotherId[r.id] || [
+        [null, null, null],
+        [null, null, null],
+        [null, null, null]
+      ];
+      if (!requestedFields.length || requestedFields.includes('*')) return m;
+      const subset = {};
+      for (const field of requestedFields) {
+        if (field in m) subset[field] = m[field];
+      }
+      return subset;
     });
+
+    res.json({ mothers });
   } catch (error) {
     console.error('[Mothers API] GET / error:', error.message);
     res.status(500).json({ error: 'db error' });
@@ -269,13 +307,20 @@ router.post('/', async (req, res) => {
     const firstName = firstNonEmpty(b.firstName, b.first_name);
     const middleName = firstNonEmpty(b.middleName, b.middle_name);
     const lastName = firstNonEmpty(b.lastName, b.last_name);
+    const maidenSurname = firstNonEmpty(b.maidenSurname, b.maiden_surname, '');
     const suffix = firstNonEmpty(b.suffix, '');
     const motherCode = firstNonEmpty(b.motherCode, b.mother_code, `MTH-${Date.now()}`);
     const motherExternalId = firstNonEmpty(b.motherId, b.mother_id, b.motherExternalId, b.mother_external_id, motherCode);
+    let communityId = b.communityId ?? b.community_id ?? null;
+    if (!communityId && b.community) {
+      const [communityRows] = await pool.query('SELECT id FROM communities WHERE name = ? LIMIT 1', [b.community]);
+      communityId = communityRows[0]?.id || null;
+    }
 
     if (!firstName || !lastName) {
       return res.status(400).json({ error: 'firstName and lastName are required' });
     }
+    if (!communityId) return res.status(400).json({ error: 'community is required' });
 
     const [result] = await pool.query(
       `INSERT INTO mothers (
@@ -283,12 +328,12 @@ router.post('/', async (req, res) => {
         first_name,
         middle_name,
         last_name,
+        maiden_surname,
         suffix,
         dob,
         contact_number,
-        community,
-        area,
-        mother_external_id,
+        community_id,
+        mother_id_no,
         address,
         group_id,
         batch_id,
@@ -322,11 +367,11 @@ router.post('/', async (req, res) => {
         firstName,
         middleName || null,
         lastName,
+        maidenSurname || null,
         suffix || null,
         firstNonEmpty(b.dob, b.birthDate, null),
         firstNonEmpty(b.contactNumber, b.contact_number, null),
-        firstNonEmpty(b.community, b.community_name, ''),
-        firstNonEmpty(b.area, ''),
+        communityId,
         motherExternalId,
         firstNonEmpty(b.address, ''),
         b.groupId ?? b.group_id ?? null,
@@ -390,10 +435,30 @@ router.post('/', async (req, res) => {
         );
       }
     }
-    if (b.dentalCheckupDate || b.dentalFacility || b.dentalFindings || b.dentalRemarks) {
+    if (b.dentalCheckupDate || b.dentalFacility || b.dentalFindings || b.dentalRemarks || Object.values(b.dentalWork || {}).some(Boolean)) {
       await pool.query(
-        'INSERT INTO mother_dental_records (mother_id, visit_date, treatment, remarks) VALUES (?, ?, ?, ?)',
-        [result.insertId, b.dentalCheckupDate || null, b.dentalFacility || b.dentalFindings || null, b.dentalRemarks || null]
+        `INSERT INTO mother_dental_records (
+          mother_id, dental_facility, dentist_in_charge, community_dentist, dentist_license,
+          dentist_contact, teeth_count, dental_findings, dental_remarks, tartar_removal,
+          filling, cleaning, extraction, root_canal, other_procedure
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          result.insertId,
+          b.dentalFacility || null,
+          b.dentistInCharge || null,
+          b.communityDentist || null,
+          b.dentistLicense || null,
+          b.dentistContact || null,
+          b.teethCount || null,
+          b.dentalFindings || null,
+          b.dentalRemarks || null,
+          Boolean(b.dentalWork?.tartarRemoval),
+          Boolean(b.dentalWork?.filling),
+          Boolean(b.dentalWork?.cleaning),
+          Boolean(b.dentalWork?.extraction),
+          Boolean(b.dentalWork?.rootCanal),
+          Boolean(b.dentalWork?.other),
+        ]
       );
     }
     res.status(201).json({ mother: await attachClinicalData(mapMother(mother)) });
@@ -408,15 +473,18 @@ router.get('/:id', async (req, res) => {
     const { id } = req.params;
     const [rows] = await pool.query(
       `SELECT m.*,
-        g.group_name,
+        comm.name AS community,
+        g.name AS group_name,
         b.name AS batch_name,
         (SELECT COUNT(*) FROM children c WHERE c.mother_id = m.id) AS children_count
        FROM mothers m
+       LEFT JOIN communities comm ON comm.id = m.community_id
        LEFT JOIN groups g ON g.id = m.group_id
        LEFT JOIN batches b ON b.id = m.batch_id
-       WHERE m.id = ? OR m.mother_code = ? OR m.mother_external_id = ?
+      WHERE (m.id = ? OR m.mother_code = ?)
+      ${req.schoolId ? 'AND m.community_id = ?' : ''}
        LIMIT 1`,
-      [Number(id) || null, id, id]
+         req.schoolId ? [Number(id) || null, id, req.schoolId] : [Number(id) || null, id]
     );
 
     if (!rows.length) {
@@ -445,6 +513,7 @@ router.put('/:id', async (req, res) => {
       first_name: firstNonEmpty(b.firstName, b.first_name, current.first_name),
       middle_name: firstNonEmpty(b.middleName, b.middle_name, current.middle_name),
       last_name: firstNonEmpty(b.lastName, b.last_name, current.last_name),
+      maiden_surname: firstNonEmpty(b.maidenSurname, b.maiden_surname, current.maiden_surname),
       suffix: firstNonEmpty(b.suffix, current.suffix),
       dob: b.dob || b.birthDate || current.dob || null,
       contact_number: firstNonEmpty(b.contactNumber, b.contact_number, current.contact_number),
@@ -552,8 +621,8 @@ router.post('/:id/checkups', async (req, res) => {
     const { id } = req.params;
     const b = req.body || {};
     const [motherRows] = await pool.query(
-      'SELECT id FROM mothers WHERE id = ? OR mother_code = ? OR mother_external_id = ? LIMIT 1',
-      [Number(id) || null, id, id]
+      'SELECT id FROM mothers WHERE id = ? OR mother_code = ? LIMIT 1',
+      [Number(id) || null, id]
     );
     if (!motherRows.length) {
       return res.status(404).json({ error: 'Mother not found' });

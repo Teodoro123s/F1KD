@@ -1,0 +1,156 @@
+/**
+ * useReportData.js
+ * Custom hook for managing data fetching and row transformations
+ * Responsibility: Fetch mothers/children, normalize data, compute rankings
+ */
+
+import { useEffect, useMemo, useState } from 'react';
+import { apiGetChildren } from '../../../api/children';
+import { buildRequestFields } from '../utils/apiUtils';
+import { sortReportRows } from '../progressReportUtils';
+
+export const useReportData = ({
+  beneficiaryType,
+  mothers,
+  refreshMothers,
+  visibleColumns,
+  currentEntityColumns,
+  defaultVisibleColumns,
+  normalizeMotherFn,
+  normalizeChildFn,
+  getFieldGroupsFn,
+  rankedBy = 'progress',
+  rankDirection = 'desc',
+}) => {
+  const [children, setChildren] = useState([]);
+  const [loadingData, setLoadingData] = useState(false);
+
+  // Build the list of fields to fetch
+  const selectedFields = useMemo(
+    () => buildRequestFields(visibleColumns, currentEntityColumns, defaultVisibleColumns),
+    [visibleColumns, currentEntityColumns, defaultVisibleColumns]
+  );
+
+  // Fetch data when beneficiary type or fields change
+  useEffect(() => {
+    let active = true;
+    setLoadingData(true);
+
+    if (beneficiaryType === 'Mothers') {
+      Promise.resolve(refreshMothers(selectedFields)).finally(() => {
+        if (active) setLoadingData(false);
+      });
+      return () => {
+        active = false;
+      };
+    }
+
+    apiGetChildren(selectedFields)
+      .then((payload) => {
+        if (active) {
+          setChildren(Array.isArray(payload) ? payload : payload?.children || []);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setChildren([]);
+        }
+      })
+      .finally(() => {
+        if (active) {
+            setLoadingData(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [beneficiaryType, refreshMothers, selectedFields]);
+
+  // Normalize all rows
+  const allRows = useMemo(
+    () => {
+      const nextRows = beneficiaryType === 'Mothers'
+        ? mothers.map(normalizeMotherFn)
+        : children.map(normalizeChildFn);
+
+      return sortReportRows(nextRows, beneficiaryType);
+    },
+    [beneficiaryType, children, mothers, normalizeMotherFn, normalizeChildFn]
+  );
+
+  // Compute ranked rows (grouped by group and batch)
+  const rankedRows = useMemo(() => {
+    const getRankValue = (row) => {
+      const value = Number(row[rankedBy]);
+      return Number.isFinite(value) ? value : Number(row.progress || 0);
+    };
+    const aggregate = (field, label) =>
+      Object.entries(
+        allRows.reduce((groups, row) => {
+          const key = row[field] || `Unassigned ${label}`;
+          groups[key] = groups[key] || [];
+          groups[key].push(row);
+          return groups;
+        }, {})
+      ).map(([name, rows]) => ({
+        id: `${label}-${name}`,
+        name: `${label}: ${name}`,
+        idLabel: `${rows.length} beneficiaries`,
+        trimester: label,
+        assessment: 'Current cohort',
+        progress: Math.round(rows.reduce((total, row) => total + row.progress, 0) / rows.length),
+        rankedValue: Math.round(rows.reduce((total, row) => total + getRankValue(row), 0) / rows.length),
+        rankedBy,
+        trend: rows.filter((row) => row.trend === 'up').length >= rows.length / 2 ? 'up' : 'down',
+        memberIds: rows.map((row) => row.id),
+        type: label,
+      }));
+
+    return [...aggregate('group', 'Group'), ...aggregate('batch', 'Batch')].sort((a, b) => {
+      const difference = a.rankedValue - b.rankedValue;
+      return rankDirection === 'asc' ? difference : -difference;
+    });
+  }, [allRows, rankedBy, rankDirection]);
+
+  // Compute graph rows (progress distribution)
+  const graphRows = useMemo(
+    () =>
+      ['0-25%', '26-50%', '51-75%', '76-100%'].map((range, index) => ({
+        range,
+        count: allRows.filter(
+          (row) =>
+            row.progress >= index * 25 && row.progress <= (index + 1) * 25
+        ).length,
+        share: allRows.length
+          ? (allRows.filter(
+              (row) =>
+                row.progress >= index * 25 && row.progress <= (index + 1) * 25
+            ).length /
+              allRows.length) *
+            100
+          : 0,
+      })),
+    [allRows]
+  );
+
+  // Store in window for debugging
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.__progressReportFields = selectedFields;
+    }
+  }, [selectedFields]);
+
+  return {
+    // Data
+    allRows,
+    rankedRows,
+    graphRows,
+    mothers,
+    children,
+    // Loading state
+    loadingData,
+    // Computed
+    selectedFields,
+  };
+};

@@ -3,7 +3,18 @@ import { useLocation } from 'react-router-dom';
 import { ChildFormFields } from './BeneficiaryChild';
 import { useMothers } from '../../../context/MothersContext';
 
-const emptyGroupForm = (communities = []) => ({
+const CHILD_DRAFT_KEY = 'f1kd.create-child.draft';
+
+const loadChildDraft = (fallback) => {
+  try {
+    const savedDraft = JSON.parse(localStorage.getItem(CHILD_DRAFT_KEY) || 'null');
+    return savedDraft?.form ? { ...fallback, ...savedDraft.form } : fallback;
+  } catch (error) {
+    return fallback;
+  }
+};
+
+const emptyGroupForm = () => ({
   firstName: '',
   middleName: '',
   lastName: '',
@@ -14,12 +25,12 @@ const emptyGroupForm = (communities = []) => ({
   gender: 'Male',
   bloodType: '',
   noOfChildDelivered: '',
+  multipleBirthType: '',
   exclusiveBreastfeeding: '',
   expandedNewbornScreening: '',
   expandedNewbornScreeningResult: '',
   deliveryType: 'Vaginal',
   healthStatus: 'Healthy',
-  community: communities[0]?.name || '',
   assignedBatchIds: [],
   leader: '',
   members: 1,
@@ -64,16 +75,38 @@ export default function CreateChildPage({
   const location = useLocation();
   const motherFromState = location.state?.mother || null;
   const { mothers, setMothers } = useMothers();
-  const effectiveCommunities = communities && communities.length ? communities : mothers;
-  const [groupForm, setGroupForm] = useState(() => emptyGroupForm(effectiveCommunities));
-  const [selectedMotherId, setSelectedMotherId] = useState(motherFromState?.id || motherFromState?.motherId || '');
-  const [createActiveTab, setCreateActiveTab] = useState('general');
+  const [groupForm, setGroupForm] = useState(() => loadChildDraft(emptyGroupForm()));
+  const [selectedMotherId, setSelectedMotherId] = useState(() => {
+    try { return motherFromState?.id || motherFromState?.motherId || JSON.parse(localStorage.getItem(CHILD_DRAFT_KEY) || 'null')?.selectedMotherId || ''; } catch (error) { return motherFromState?.id || motherFromState?.motherId || ''; }
+  });
+  const [createActiveTab, setCreateActiveTab] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(CHILD_DRAFT_KEY) || 'null')?.activeTab || 'general'; } catch (error) { return 'general'; }
+  });
   const CREATE_STEPS = ['general', 'prenatal', 'medical_dental', 'vaccine'];
   const createActiveIndex = CREATE_STEPS.indexOf(createActiveTab) >= 0 ? CREATE_STEPS.indexOf(createActiveTab) : 0;
 
+  const selectedMother = motherFromState || availableMothers.find((mother) => (
+    String(mother.id || mother.motherId || '') === String(selectedMotherId)
+  ));
+
   useEffect(() => {
-    setGroupForm((prev) => ({ ...prev, community: prev.community || communities[0]?.name || '' }));
-  }, [communities]);
+    if (!selectedMother) return;
+
+    setGroupForm((prev) => ({
+      ...prev,
+      community: selectedMother.community || selectedMother.raw?.community_name || selectedMother.raw?.community || prev.community || '',
+      batch: selectedMother.batch || selectedMother.raw?.batch_name || selectedMother.raw?.batch || prev.batch || '',
+      motherId: selectedMother.id || selectedMother.motherId || prev.motherId || null,
+    }));
+  }, [selectedMother]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(CHILD_DRAFT_KEY, JSON.stringify({ form: groupForm, selectedMotherId, activeTab: createActiveTab }));
+    } catch (error) {
+      console.warn('[CreateChildPage] Unable to save form draft:', error);
+    }
+  }, [groupForm, selectedMotherId, createActiveTab]);
 
   // If navigated from a mother, prefill mother-related fields and show mother info
   useEffect(() => {
@@ -87,10 +120,6 @@ export default function CreateChildPage({
       }));
     }
   }, [motherFromState]);
-
-  const selectedMother = motherFromState || availableMothers.find((mother) => (
-    String(mother.id || mother.motherId || '') === String(selectedMotherId)
-  ));
 
   const handleCreateGroup = async (e) => {
     e.preventDefault();
@@ -115,13 +144,14 @@ export default function CreateChildPage({
       gender: groupForm.gender || null,
       bloodType: groupForm.bloodType || null,
       noOfChildDelivered: groupForm.noOfChildDelivered || null,
+      multipleBirthType: groupForm.multipleBirthType || null,
       exclusiveBreastfeeding: groupForm.exclusiveBreastfeeding || null,
       expandedNewbornScreening: groupForm.expandedNewbornScreening || null,
       expandedNewbornScreeningResult: groupForm.expandedNewbornScreeningResult || null,
       deliveryType: groupForm.deliveryType || null,
       healthStatus: groupForm.healthStatus || null,
-      community: groupForm.community || null,
-      batch: groupForm.batch || null,
+      community: selectedMother?.community || selectedMother?.raw?.community_name || selectedMother?.raw?.community || null,
+      batch: selectedMother?.batch || selectedMother?.raw?.batch_name || selectedMother?.raw?.batch || null,
       birthPlace: groupForm.birthPlace || null,
       birthAttendant: groupForm.birthAttendant || null,
       apgarScore: groupForm.apgarScore || null,
@@ -161,6 +191,7 @@ export default function CreateChildPage({
         gender: child.gender || groupForm.gender,
         bloodType: child.blood_type || child.bloodType || groupForm.bloodType,
         noOfChildDelivered: child.no_of_child_delivered || child.noOfChildDelivered || groupForm.noOfChildDelivered,
+        multipleBirthType: child.multiple_birth_type || child.multipleBirthType || groupForm.multipleBirthType,
         exclusiveBreastfeeding: child.exclusive_breastfeeding || child.exclusiveBreastfeeding || groupForm.exclusiveBreastfeeding,
         expandedNewbornScreening: child.expanded_newborn_screening || child.expandedNewbornScreening || groupForm.expandedNewbornScreening,
         expandedNewbornScreeningResult: child.expanded_newborn_screening_result || child.expandedNewbornScreeningResult || groupForm.expandedNewbornScreeningResult,
@@ -207,9 +238,11 @@ export default function CreateChildPage({
         )));
         // navigate to the new child's detail page and include the updated mother in state so the child shows immediately
         navigate(`/beneficiary/child/${newGroup.id}`, { state: { mother: updatedMother, child: newGroup, mothers: undefined } });
+        localStorage.removeItem(CHILD_DRAFT_KEY);
         return;
       }
 
+      localStorage.removeItem(CHILD_DRAFT_KEY);
       navigate('/beneficiary');
     } catch (err) {
       console.error('Failed to create child', err);
@@ -224,7 +257,7 @@ export default function CreateChildPage({
         <div className="create-child-header" style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <h2 style={{ margin: 0 }}>Create Child for {motherFromState.name || `${motherFromState.firstName || ''} ${motherFromState.lastName || ''}`.trim()}</h2>
-            <div style={{ fontSize: '0.9rem', color: '#64748b' }}>{motherFromState.motherId || motherFromState.id ? `${motherFromState.motherId || motherFromState.id}` : ''} {motherFromState.program ? `• ${motherFromState.program}` : ''}</div>
+            {motherFromState.program && <div style={{ fontSize: '0.9rem', color: '#64748b' }}>{motherFromState.program}</div>}
           </div>
           <div>
             <button className="btn-secondary" onClick={() => {
@@ -252,7 +285,7 @@ export default function CreateChildPage({
             <option value="">Select mother</option>
             {availableMothers.map((mother) => (
               <option key={mother.id || mother.motherId} value={mother.id || mother.motherId}>
-                {mother.name || `${mother.firstName || ''} ${mother.lastName || ''}`.trim()} ({mother.motherId || mother.id})
+                {mother.name || `${mother.firstName || ''} ${mother.lastName || ''}`.trim()}
               </option>
             ))}
           </select>
@@ -303,6 +336,7 @@ export default function CreateChildPage({
           </div>
           <div className="modal-footer">
           <button type="button" className="btn-secondary" onClick={() => {
+            localStorage.removeItem(CHILD_DRAFT_KEY);
             if (motherFromState) navigate(`/beneficiary/mother/${motherFromState.id || motherFromState.motherId}`, { state: { mother: motherFromState } });
             else navigate('/beneficiary');
           }}>Cancel</button>

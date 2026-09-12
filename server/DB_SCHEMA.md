@@ -17,27 +17,29 @@ The connection settings are defined in [server/db.js](db.js). The backend runs t
 
 ## Live Table Inventory
 
-The following row counts were read from the live `f1kd` database on 2026-08-19.
+The following row counts were read from the live `f1kd` database on 2026-09-04.
 
 | Table | Rows | Current assessment |
 |---|---:|---|
-| `users` | 7 | Active: authentication and user management |
-| `communities` | 7 | Active: community management |
-| `batches` | 3 | Active: community batch management |
-| `groups` | 6 | Active: community group management |
+| `users` | 12 | Active: authentication and user management |
+| `communities` | 9 | Active: community management |
+| `batches` | 8 | Active: community batch management |
+| `groups` | 9 | Active: community group management |
 | `group_batch` | 0 | Supporting many-to-many relationship; not currently populated |
-| `mothers` | 5 | Active: sample mother records |
-| `children` | 4 | Active: child records |
+| `mothers` | 15 | Active: mother records |
+| `mother_checkups` | 41 | Active: prenatal monitoring records |
+| `children` | 9 | Active: child records |
 | `mother_ob_history` | 0 | Planned/supporting clinical data |
-| `mother_medical_condition` | 0 | Legacy singular table; not referenced by current code |
-| `mother_medical_conditions` | 0 | Supporting clinical data; not currently used by routes |
+| `mother_medical_conditions` | 1 | Supporting clinical data |
 | `mother_dental_records` | 0 | Supporting clinical data; not currently used by routes |
-| `mother_vaccinations` | 0 | Supporting clinical data; not currently used by routes |
-| `mother_vaccines` | 0 | Legacy alternate table; not referenced by current code |
-| `child_medical_conditions` | 0 | Supporting clinical data; not currently used by routes |
-| `child_vaccinations` | 0 | Supporting clinical data; not currently used by routes |
-| `child_vaccines` | 0 | Legacy alternate table; not referenced by current code |
-| `child_checkups` | 0 | Supporting clinical data; not currently used by routes |
+| `mother_vaccinations` | 1 | Supporting clinical data |
+| `child_medical_conditions` | 1 | Supporting clinical data |
+| `child_vaccinations` | 7 | Supporting clinical data |
+| `child_checkups` | 21 | Active: child monitoring records |
+
+The RBAC migration also defines `roles`, `permissions`, and `role_permissions`.
+Those tables are included in the compiled fresh-install schema but are not yet
+present in the inspected live database.
 
 ## Core Tables
 
@@ -155,7 +157,9 @@ Do not drop these tables solely because they are empty. Before cleanup, confirm 
 
 ## Known Schema Drift
 
-There are older schema definitions in `server/migrations/archive` and `server/migrations/compiled_schema.sql`. They contain alternate column names and table definitions, including older `users`, `mothers`, and `children` models. They should be treated as historical reference, not as the authoritative live schema.
+There are older schema definitions in `server/migrations/archive`. The organized
+`server/migrations/compiled_schema.sql` is the canonical fresh-install schema;
+the individual migrations remain authoritative for upgrading an existing database.
 
 The authoritative runtime schema is the one in [server/db.js](db.js), together with any additional columns already present in the live database. `CREATE TABLE IF NOT EXISTS` does not remove old tables or reconcile conflicting columns.
 

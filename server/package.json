@@ -2,18 +2,24 @@
   "name": "f1kd-server",
   "version": "0.1.0",
   "private": true,
+  "type": "commonjs",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "seed:monitor": "node seed_monitor_data.js",
-    "seed:school-hierarchy": "node seed_school_hierarchy.js"
+    "seed:monitor": "node seeds/seed_monitor_data.js",
+    "seed:program": "node scripts/seed_program_data.js",
+    "seed:schools": "node scripts/seed_three_schools.js",
+    "seed:school-hierarchy": "node seeds/seed_school_hierarchy.js",
+    "seed:role-accounts": "node seeds/seed_role_accounts.js"
   },
   "dependencies": {
     "bcrypt": "^5.1.0",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.0.3",
     "express": "^4.18.2",
+    "express-rate-limit": "^8.7.0",
     "jsonwebtoken": "^9.0.0",
     "multer": "^2.2.0",
     "mysql2": "^3.3.0",

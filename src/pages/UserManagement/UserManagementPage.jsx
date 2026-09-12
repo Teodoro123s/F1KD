@@ -5,10 +5,12 @@ import { SearchIcon, PlusIcon, UserCheckIcon, UserXIcon } from './UserManagement
 import AddUserModal from './UserManagementModal';
 import { useUserManagement } from './useUserManagement';
 import { useAuth } from '../../auth/AuthProvider';
+import { ROLES, hasRole } from '../../utils/permissions';
 import RoleFilter from './RoleFilter';
 import Pagination from './Pagination';
 import ConfirmModal from './ConfirmModal';
 import NotificationBanner from './NotificationBanner';
+import PageHeader from '../../components/ui/PageHeader';
 
 export default function UserManagementPage() {
   const {
@@ -52,11 +54,12 @@ export default function UserManagementPage() {
     retryLoad,
     oneTimeCredentials,
     clearOneTimeCredentials,
+    communities,
   } = useUserManagement();
 
   const location = useLocation();
   const auth = useAuth();
-  const canCreate = auth?.currentUser && ['Superadmin','Admin'].includes(auth.currentUser.role);
+  const canCreate = hasRole(auth?.currentUser?.role, [ROLES.SUPER_ADMIN]);
 
   useEffect(() => {
     // If navigated here with an editUser in state, open edit modal
@@ -71,25 +74,16 @@ export default function UserManagementPage() {
     <div className="community-page">
       <NotificationBanner message={notification} actionLabel={!apiOnline ? 'Retry' : null} onAction={!apiOnline ? retryLoad : null} />
 
-      <header className="community-header">
-        <div className="community-title-section">
-          <h1>User Management</h1>
-          <nav className="community-breadcrumb" aria-label="Breadcrumb">
-            {breadcrumbItems.map((item, index) => (
-              <span key={item.label} className="breadcrumb-item">
-                <span className="breadcrumb-current">{item.label}</span>
-                {index < breadcrumbItems.length - 1 && (
-                  <span className="breadcrumb-separator">›</span>
-                )}
-              </span>
-            ))}
-          </nav>
-        </div>
-        <button className="btn-create-action" type="button" onClick={openAddModal} disabled={!canCreate}>
-          <PlusIcon />
-          <span>{canCreate ? 'Add User' : 'Add User (requires Admin)'}</span>
-        </button>
-      </header>
+      <PageHeader
+        title="User Management"
+        breadcrumbs={breadcrumbItems}
+        actions={
+          <button className="view-btn view-btn--primary module-create-button" type="button" onClick={openAddModal} disabled={!canCreate}>
+            <PlusIcon />
+            <span>{canCreate ? 'Add User' : 'Add User (requires Admin)'}</span>
+          </button>
+        }
+      />
 
       <section className="subheader-row">
         <div className="tabs-list" role="tablist" aria-label="Account status filter">
@@ -116,15 +110,15 @@ export default function UserManagementPage() {
           />
 
           <div className="search-container">
+            <SearchIcon />
             <div className="search-field-container">
-              <SearchIcon />
               <input
                 type="text"
-                className="search-input-field"
-                placeholder="Search account name or role..."
                 value={query}
-                onChange={(e) => handleSearch(e.target.value)}
-                aria-label="Search accounts"
+                onChange={(event) => handleSearch(event.target.value)}
+                placeholder="Search account name or role..."
+                className="search-input-field"
+                aria-label="Search users"
               />
             </div>
           </div>
@@ -138,6 +132,7 @@ export default function UserManagementPage() {
         setForm={setForm}
         onSubmit={handleSubmitUser}
         roleOptions={ROLE_OPTIONS}
+        communities={communities}
         mode={selectedUser ? 'edit' : 'add'}
         isSubmitting={isSubmitting}
       />

@@ -4,10 +4,22 @@ import { calculateGestationalDetails, getInitialCheckups } from '../../../utils/
 import { useMothers } from '../../../context/MothersContext';
 import { apiCreateMother } from '../../../api/mothers';
 
+const MOTHER_DRAFT_KEY = 'f1kd.create-mother.draft';
+
+const loadMotherDraft = (fallback) => {
+  try {
+    const savedDraft = JSON.parse(localStorage.getItem(MOTHER_DRAFT_KEY) || 'null');
+    return savedDraft?.form ? { ...fallback, ...savedDraft.form } : fallback;
+  } catch (error) {
+    return fallback;
+  }
+};
+
 const emptyCommunityForm = (communities = []) => ({
   firstName: '',
   middleName: '',
   lastName: '',
+  maidenSurname: '',
   suffix: '',
   motherId: '',
   weight: '',
@@ -22,6 +34,8 @@ const emptyCommunityForm = (communities = []) => ({
   emergencyContact: '',
   emergencyRelationship: '',
   spouseName: '',
+  spouseFirstName: '',
+  spouseSurname: '',
   address: '',
   prenatalRegDate: '',
   trimester: '1st Trimester',
@@ -95,14 +109,24 @@ export default function CreateMotherPage({
 }) {
   const { mothers, setMothers } = useMothers();
   const effectiveCommunities = communities && communities.length ? communities : mothers;
-  const [communityForm, setCommunityForm] = useState(() => emptyCommunityForm(effectiveCommunities));
-  const [createActiveTab, setCreateActiveTab] = useState('general');
+  const [communityForm, setCommunityForm] = useState(() => loadMotherDraft(emptyCommunityForm(effectiveCommunities)));
+  const [createActiveTab, setCreateActiveTab] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(MOTHER_DRAFT_KEY) || 'null')?.activeTab || 'general'; } catch (error) { return 'general'; }
+  });
   const CREATE_STEPS = ['general', 'prenatal', 'medical_dental', 'vaccine'];
   const createActiveIndex = CREATE_STEPS.indexOf(createActiveTab) >= 0 ? CREATE_STEPS.indexOf(createActiveTab) : 0;
 
   useEffect(() => {
     setCommunityForm((prev) => ({ ...prev, community: prev.community || communities[0]?.name || '' }));
   }, [communities]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(MOTHER_DRAFT_KEY, JSON.stringify({ form: communityForm, activeTab: createActiveTab }));
+    } catch (error) {
+      console.warn('[CreateMotherPage] Unable to save form draft:', error);
+    }
+  }, [communityForm, createActiveTab]);
 
   const handleCreateCommunity = async (e) => {
     e.preventDefault();
@@ -120,7 +144,7 @@ export default function CreateMotherPage({
     const { gestationalAge, trimester } = calculateGestationalDetails(communityForm.lmpDate);
     const resolvedTrimester = communityForm.lmpDate ? trimester : communityForm.trimester;
     const resolvedGestationalAge = communityForm.lmpDate ? gestationalAge : communityForm.gestationalAge;
-    const fullName = `${communityForm.firstName.trim()} ${communityForm.middleName.trim()} ${communityForm.lastName.trim()} ${communityForm.suffix.trim()}`
+    const fullName = `${communityForm.firstName.trim()} ${communityForm.middleName.trim()} ${communityForm.lastName.trim()} ${communityForm.maidenSurname.trim()} ${communityForm.suffix.trim()}`
       .replace(/\s+/g, ' ')
       .trim();
 
@@ -128,6 +152,7 @@ export default function CreateMotherPage({
       firstName: communityForm.firstName.trim(),
       middleName: communityForm.middleName.trim(),
       lastName: communityForm.lastName.trim(),
+      maidenSurname: communityForm.maidenSurname.trim(),
       suffix: communityForm.suffix.trim(),
       motherId: communityForm.motherId,
       dob: communityForm.dob || null,
@@ -160,13 +185,30 @@ export default function CreateMotherPage({
       emergencyName: communityForm.emergencyName,
       emergencyContact: communityForm.emergencyContact,
       emergencyRelationship: communityForm.emergencyRelationship,
-      spouseName: communityForm.spouseName,
+      spouseName: `${communityForm.spouseFirstName} ${communityForm.spouseSurname}`.trim(),
       medicalConditions: communityForm.medicalConditions,
       otherMedicalHistory: communityForm.otherMedicalHistory,
+      obHistory: communityForm.obHistory,
       dentalCheckupDate: communityForm.dentalCheckupDate,
       dentalFacility: communityForm.dentalFacility,
+      dentistInCharge: communityForm.dentistInCharge,
+      communityDentist: communityForm.communityDentist,
+      dentistLicense: communityForm.dentistLicense,
+      dentistContact: communityForm.dentistContact,
+      teethCount: communityForm.teethCount,
       dentalFindings: communityForm.dentalFindings,
+      dentalWork: communityForm.dentalWork,
       dentalRemarks: communityForm.dentalRemarks,
+      tt1Date: communityForm.tt1Date,
+      tt1Remarks: communityForm.tt1Remarks,
+      tt2Date: communityForm.tt2Date,
+      tt2Remarks: communityForm.tt2Remarks,
+      tt3Date: communityForm.tt3Date,
+      tt3Remarks: communityForm.tt3Remarks,
+      tt4Date: communityForm.tt4Date,
+      tt4Remarks: communityForm.tt4Remarks,
+      tt5Date: communityForm.tt5Date,
+      tt5Remarks: communityForm.tt5Remarks,
       status: 'Active',
     };
 
@@ -178,6 +220,7 @@ export default function CreateMotherPage({
       firstName: communityForm.firstName.trim(),
       middleName: communityForm.middleName.trim(),
       lastName: communityForm.lastName.trim(),
+      maidenSurname: communityForm.maidenSurname.trim(),
       suffix: communityForm.suffix.trim(),
       motherId: communityForm.motherId,
       weight: communityForm.weight,
@@ -191,7 +234,7 @@ export default function CreateMotherPage({
       emergencyName: communityForm.emergencyName,
       emergencyContact: communityForm.emergencyContact,
       emergencyRelationship: communityForm.emergencyRelationship,
-      spouseName: communityForm.spouseName,
+      spouseName: `${communityForm.spouseFirstName} ${communityForm.spouseSurname}`.trim(),
       address: communityForm.address,
       prenatalRegDate: communityForm.prenatalRegDate,
       trimester: resolvedTrimester,
@@ -240,6 +283,7 @@ export default function CreateMotherPage({
       if (typeof setMothers === 'function') {
         setMothers((prev) => [{ ...newCommunity, ...mother }, ...prev]);
       }
+      localStorage.removeItem(MOTHER_DRAFT_KEY);
       navigate('/beneficiary');
     } catch (error) {
       console.error('[CreateMotherPage] Failed to create mother:', error);
@@ -294,7 +338,7 @@ export default function CreateMotherPage({
           </div>
 
           <div className="modal-footer">
-            <button type="button" className="btn-secondary" onClick={() => navigate('/beneficiary')}>Cancel</button>
+            <button type="button" className="btn-secondary" onClick={() => { localStorage.removeItem(MOTHER_DRAFT_KEY); navigate('/beneficiary'); }}>Cancel</button>
             {createActiveTab !== 'general' && (
               <button type="button" className="btn-secondary btn-back" onClick={() => {
                 if (createActiveTab === 'vaccine') setCreateActiveTab('medical_dental');

@@ -1,15 +1,17 @@
 import React, { useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import PageHeader from '../../components/ui/PageHeader';
 import { useMothers } from '../../context/MothersContext';
 import MotherCheckup from '../Beneficiary/mother/MotherCheckup';
 import StatusFilterBar from '../Beneficiary/components/StatusFilterBar';
 import EntitySearchControls from '../Beneficiary/components/EntitySearchControls';
 import ChildMonitor, { getChildName } from './ChildMonitor';
-import { apiGetChildren, apiSaveChildCheckup } from '../../api/children';
+import { createMonitorModel } from './monitorModel';
+import { apiGetChild, apiGetChildren, apiSaveChildCheckup } from '../../api/children';
 import { apiGetMother, apiSaveMotherCheckup } from '../../api/mothers';
 
 function getMotherName(mother) {
-  return mother?.name || [mother?.firstName, mother?.middleName, mother?.lastName]
+  return mother?.name || [mother?.firstName || mother?.first_name, mother?.middleName || mother?.middle_name, mother?.lastName || mother?.last_name]
     .filter(Boolean)
     .join(' ') || 'Unnamed mother';
 }
@@ -46,18 +48,18 @@ const getMotherMonitoringStatus = (mother, completed, total) => {
   const nextDate = checkups
     .filter((checkup) => checkup.nextCheckupDate)
     .sort((a, b) => String(b.nextCheckupDate).localeCompare(String(a.nextCheckupDate)))[0]?.nextCheckupDate;
-  return getDateStatus(parseDateOnly(nextDate));
+  const dateStatus = getDateStatus(parseDateOnly(nextDate));
+  if (dateStatus === 'Missing') return 'Missing';
+  if (completed > 0) return 'In Progress';
+  return dateStatus;
 };
 
 const getChildMonitoringStatus = (child, completed, total) => {
   if (completed >= total) return 'Done';
-  const nextWeek = Array.from({ length: total }, (_, index) => index + 1)
-    .find((week) => !(child.completedWeeks || []).includes(week));
-  const birthDate = parseDateOnly(child.birth_date || child.birthDate);
-  if (!birthDate || !nextWeek) return 'Pending';
-  const nextDate = new Date(birthDate);
-  nextDate.setDate(nextDate.getDate() + nextWeek * 7);
-  return getDateStatus(nextDate);
+  const dateStatus = getDateStatus(parseDateOnly(child.nextCheckupDate));
+  if (dateStatus === 'Missing') return 'Missing';
+  if (completed > 0) return 'In Progress';
+  return dateStatus;
 };
 
 export default function MonitoringPage() {
@@ -73,6 +75,7 @@ export default function MonitoringPage() {
   const [savedMessage, setSavedMessage] = useState('');
   const [motherCheckups, setMotherCheckups] = useState(() => location.state?.mother?.checkups || []);
   const [childCompletedWeeks, setChildCompletedWeeks] = useState(() => location.state?.child?.completedWeeks || []);
+  const [editingCheckup, setEditingCheckup] = useState(false);
   const [statusFilter, setStatusFilter] = useState('All');
   const [perPage, setPerPage] = useState(10);
   const [page, setPage] = useState(1);
@@ -93,7 +96,7 @@ export default function MonitoringPage() {
     const term = query.trim().toLowerCase();
     if (!term) return mothers;
     return mothers.filter((mother) => (
-      `${getMotherName(mother)} ${mother.motherId || mother.id || ''} ${mother.community || mother.area || ''}`
+      `${getMotherName(mother)} ${mother.motherCode || mother.mother_code || mother.id || ''} ${mother.community || mother.community_name || mother.area || ''}`
         .toLowerCase()
         .includes(term)
     ));
@@ -103,7 +106,7 @@ export default function MonitoringPage() {
     const term = query.trim().toLowerCase();
     if (!term) return children;
     return children.filter((child) => (
-      `${getChildName(child)} ${child.child_code || child.id || ''} ${child.community_name || ''}`.toLowerCase().includes(term)
+      `${getChildName(child)} ${child.child_code || child.id || ''} ${child.community || child.community_name || child.area || ''}`.toLowerCase().includes(term)
     ));
   }, [children, query]);
 
@@ -123,7 +126,7 @@ export default function MonitoringPage() {
       }
     } catch (error) {
       setSavedMessage(`Unable to save check-up: ${error.message}`);
-      return;
+      return false;
     }
     setMotherCheckups((current) => {
       const next = current.map((trimester) => [...trimester]);
@@ -133,20 +136,31 @@ export default function MonitoringPage() {
       return next;
     });
     setSavedMessage(`Check-up ${payload.trimester} ${payload.checkupNumber} captured for ${getMotherName(selectedMother)}.`);
+    return true;
   };
 
   const handleSelectMother = (mother) => {
     setSelectedMother(mother);
+    setEditingCheckup(false);
     setMotherCheckups(mother.checkups || []);
     setSelectedChild(null);
     setSavedMessage('');
   };
 
-  const handleSelectChild = (child) => {
-    setSelectedChild(child);
-    setChildCompletedWeeks(child.completedWeeks || []);
-    setSelectedMother(null);
+  const handleSelectChild = async (child) => {
     setSavedMessage('');
+    try {
+      const response = await apiGetChild(child.id || child.child_code);
+      const detailedChild = response?.child || child;
+      setSelectedChild(detailedChild);
+      setChildCompletedWeeks(detailedChild.completedWeeks || child.completedWeeks || []);
+    } catch (error) {
+      setSelectedChild(child);
+      setChildCompletedWeeks(child.completedWeeks || []);
+      setSavedMessage(`Unable to load saved child check-ups: ${error.message}`);
+    }
+    setSelectedMother(null);
+    setEditingCheckup(false);
   };
 
   const handleBack = () => {
@@ -166,7 +180,14 @@ export default function MonitoringPage() {
     const status = beneficiaryType === 'Mother'
       ? getMotherMonitoringStatus(beneficiary, completed, total)
       : getChildMonitoringStatus(beneficiary, completed, total);
-    return { beneficiary, completed, total, progress, status };
+    return {
+      beneficiary,
+      monitor: createMonitorModel(beneficiary),
+      completed,
+      total,
+      progress,
+      status,
+    };
   }).filter((row) => statusFilter === 'All' || row.status === statusFilter), [visibleBeneficiaries, beneficiaryType, statusFilter]);
 
   const pageCount = Math.max(1, Math.ceil(monitoringRows.length / perPage));
@@ -175,19 +196,45 @@ export default function MonitoringPage() {
   const rangeStart = monitoringRows.length ? (currentPage - 1) * perPage + 1 : 0;
   const rangeEnd = Math.min(currentPage * perPage, monitoringRows.length);
 
-  const renderPaginationButtons = () => {
-    const buttons = [];
-    buttons.push(<button key="first" type="button" className={`pagination-btn${currentPage === 1 ? ' disabled' : ''}`} onClick={() => setPage(1)} disabled={currentPage === 1} aria-label="First page">«</button>);
-    for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
-      if (pageCount > 5 && pageNumber > 3 && pageNumber < pageCount) {
-        if (pageNumber === 4) buttons.push(<span key="ellipsis" className="pagination-btn ellipsis">...</span>);
-        continue;
-      }
-      buttons.push(<button key={pageNumber} type="button" className={`pagination-btn${currentPage === pageNumber ? ' active' : ''}`} onClick={() => setPage(pageNumber)}>{pageNumber}</button>);
-    }
-    buttons.push(<button key="last" type="button" className={`pagination-btn${currentPage === pageCount ? ' disabled' : ''}`} onClick={() => setPage(pageCount)} disabled={currentPage === pageCount} aria-label="Last page">»</button>);
-    return buttons;
-  };
+  const renderPaginationButtons = () => (
+    <>
+      <button
+        type="button"
+        className={`pagination-btn${currentPage === 1 ? ' disabled' : ''}`}
+        onClick={() => setPage((value) => Math.max(1, value - 1))}
+        disabled={currentPage === 1}
+        aria-label="Previous page"
+      >
+        ‹
+      </button>
+
+      <input
+        type="number"
+        min={1}
+        max={pageCount}
+        value={currentPage}
+        className="pagination-page-input"
+        placeholder="Page"
+        aria-label="Jump to a page"
+        onChange={(event) => {
+          const nextPage = Number(event.target.value);
+          if (!Number.isNaN(nextPage) && nextPage >= 1 && nextPage <= pageCount) {
+            setPage(nextPage);
+          }
+        }}
+      />
+
+      <button
+        type="button"
+        className={`pagination-btn${currentPage === pageCount ? ' disabled' : ''}`}
+        onClick={() => setPage((value) => Math.min(pageCount, value + 1))}
+        disabled={currentPage === pageCount}
+        aria-label="Next page"
+      >
+        ›
+      </button>
+    </>
+  );
 
   const openBeneficiary = (beneficiary) => {
     if (beneficiaryType === 'Mother') handleSelectMother(beneficiary);
@@ -195,27 +242,14 @@ export default function MonitoringPage() {
   };
 
   return (
-    <div className="checkup-module page">
-      <header className="checkup-module-header">
-        <div>
-          <h1>Monitor</h1>
-          <nav className="community-breadcrumb" aria-label="Breadcrumb">
-            <span className="breadcrumb-item">
-              {selectedMother || selectedChild ? (
-                <button type="button" className="breadcrumb-link" onClick={handleBack}>Monitor</button>
-              ) : (
-                <span className="breadcrumb-current">Monitor</span>
-              )}
-            </span>
-            {(selectedMother || selectedChild) && <>
-              <span className="breadcrumb-separator">›</span>
-              <span className="breadcrumb-item">
-                <span className="breadcrumb-current">{selectedMother ? getMotherName(selectedMother) : getChildName(selectedChild)}</span>
-              </span>
-            </>}
-          </nav>
-        </div>
-      </header>
+    <div className="community-page checkup-module page">
+      <PageHeader
+        title={selectedMother || selectedChild ? (selectedMother ? getMotherName(selectedMother) : getChildName(selectedChild)) : 'Monitor'}
+        breadcrumbs={selectedMother || selectedChild ? [{ label: 'Monitor', href: '/monitoring' }, { label: selectedMother ? getMotherName(selectedMother) : getChildName(selectedChild) }] : [{ label: 'Monitor' }]}
+        actions={selectedMother || selectedChild ? (
+          <button type="button" className="view-btn view-btn--secondary" onClick={handleBack}>Back</button>
+        ) : null}
+      />
 
       {!selectedMother && !selectedChild ? (
         <section className="monitoring-list-container" aria-labelledby="monitoring-list-title">
@@ -224,7 +258,7 @@ export default function MonitoringPage() {
             <EntitySearchControls
               selectedEntityFilter={beneficiaryType}
               query={query}
-              onEntityToggle={() => { setBeneficiaryType((current) => (current === 'Mother' ? 'Child' : 'Mother')); setQuery(''); setPage(1); }}
+              onEntityChange={(nextType) => { setBeneficiaryType(nextType); setQuery(''); setPage(1); }}
               onQueryChange={(value) => { setQuery(value); setPage(1); }}
             />
           </div>
@@ -235,9 +269,10 @@ export default function MonitoringPage() {
                 <tbody>
                   {childrenLoading && beneficiaryType === 'Child' ? <tr><td colSpan="4" className="no-data">Loading children...</td></tr> : currentRows.length ? currentRows.map(({ beneficiary, completed, total, progress, status }) => {
                     const name = beneficiaryType === 'Mother' ? getMotherName(beneficiary) : getChildName(beneficiary);
-                    const id = beneficiary.motherId || beneficiary.child_code || beneficiary.id || 'No ID';
+                    const recordKey = beneficiaryType === 'Mother' ? beneficiary.id || beneficiary.motherId : beneficiary.child_code || beneficiary.id || 'No ID';
                     const locationName = beneficiary.community || beneficiary.area || beneficiary.community_name || 'No community';
-                    return <tr key={id}><td><strong>{name}</strong><span className="monitoring-table-meta">{id} · {locationName}</span></td><td><div className="monitoring-progress"><span><span style={{ width: `${progress}%` }} /></span><b>{completed}/{total}</b></div></td><td><span className={`monitoring-status ${status.toLowerCase()}`}>{status}</span></td><td><button type="button" className="btn-secondary monitoring-open-button" onClick={() => openBeneficiary(beneficiary)}>Open record</button></td></tr>;
+                    const metadata = beneficiaryType === 'Mother' ? locationName : `${recordKey} · ${locationName}`;
+                    return <tr key={recordKey}><td><strong>{name}</strong><span className="monitoring-table-meta">{metadata}</span></td><td><div className="monitoring-progress"><span><span style={{ width: `${progress}%` }} /></span><b>{completed}/{total}</b></div></td><td><span className={`monitoring-status ${status.toLowerCase().replace(/\s+/g, '-')}`}>{status}</span></td><td><button type="button" className="btn-secondary monitoring-open-button" onClick={() => openBeneficiary(beneficiary)}>Open record</button></td></tr>;
                   }) : <tr><td colSpan="4" className="no-data">No monitoring records match your search.</td></tr>}
                 </tbody>
               </table>
@@ -291,13 +326,20 @@ export default function MonitoringPage() {
               <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/mother/${selectedMother.id || selectedMother.motherId}`, { state: { mother: selectedMother } })}>
                 Beneficiary Profile
               </button>
-              <button type="button" className="btn-primary" onClick={() => navigate(`/beneficiary/mother/${selectedMother.id || selectedMother.motherId}/edit`, { state: { mother: selectedMother } })}>
-                Edit
+              <button type="button" className="btn-primary" onClick={() => setEditingCheckup((current) => !current)}>
+                {editingCheckup ? 'Cancel edit' : 'Edit checkup'}
               </button>
             </div>
           </div>
           {savedMessage && <p className="checkup-save-message" role="status">{savedMessage}</p>}
-          <MotherCheckup mother={{ ...selectedMother, checkups: motherCheckups }} onSave={handleSave} onCancel={() => setSelectedMother(null)} />
+          <MotherCheckup
+            mother={{ ...selectedMother, checkups: motherCheckups }}
+            onSave={async (payload) => {
+              if (await handleSave(payload)) setEditingCheckup(false);
+            }}
+            onCancel={() => { setEditingCheckup(false); setSelectedMother(null); }}
+            forceEdit={editingCheckup}
+          />
         </section>
       )}
     </div>

@@ -32,16 +32,6 @@ export default function Topbar() {
 
   return (
     <header className="topbar">
-      <div className="topbar-left">
-        {user ? (
-          <div className="topbar-user-info">
-            <div className="topbar-welcome">Welcome, <strong>{displayName}</strong></div>
-          </div>
-        ) : (
-          <div className="topbar-user-info muted">Not signed in</div>
-        )}
-      </div>
-
       <div className="topbar-actions">
         <span className="action-wrapper" ref={notifRef}>
           <button

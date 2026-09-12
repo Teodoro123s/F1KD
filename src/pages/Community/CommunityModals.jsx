@@ -1,18 +1,20 @@
 import React from 'react';
 
-function ModalShell({ title, onClose, onSubmit, children, submitLabel }) {
+function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitting = false }) {
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header-section">
+      <div className="modal-content community-modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header-section community-modal-header-section">
           <h3>{title}</h3>
           <button className="btn-close-modal" onClick={onClose} aria-label="Close modal">✕</button>
         </div>
         <form onSubmit={onSubmit}>
           <div className="modal-body">{children}</div>
           <div className="modal-footer">
-            <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
-            <button type="submit" className={submitLabel === 'Create' ? 'btn-create-action' : 'btn-primary'}>{submitLabel}</button>
+            <button type="button" className="btn-secondary" onClick={onClose} disabled={isSubmitting}>Cancel</button>
+            <button type="submit" className={submitLabel === 'Create' ? 'btn-create-action' : 'btn-primary'} disabled={isSubmitting}>
+              {isSubmitting ? `${submitLabel}...` : submitLabel}
+            </button>
           </div>
         </form>
       </div>
@@ -20,10 +22,10 @@ function ModalShell({ title, onClose, onSubmit, children, submitLabel }) {
   );
 }
 
-export function CreateCommunityModal({ showModal, onClose, communityForm, setCommunityForm, handleCreateCommunity, coordinators }) {
+export function CreateCommunityModal({ showModal, onClose, communityForm, setCommunityForm, handleCreateCommunity, coordinators, isSubmitting }) {
   if (!showModal) return null;
   return (
-    <ModalShell title="Create School" onClose={onClose} onSubmit={handleCreateCommunity} submitLabel="Create">
+    <ModalShell title="Create School" onClose={onClose} onSubmit={handleCreateCommunity} submitLabel="Create" isSubmitting={isSubmitting}>
       <div className="form-group">
         <label className="form-label" htmlFor="comm-name">School Name</label>
         <input
@@ -56,10 +58,10 @@ export function CreateCommunityModal({ showModal, onClose, communityForm, setCom
   );
 }
 
-export function EditCommunityModal({ showModal, onClose, communityForm, setCommunityForm, handleEditCommunity }) {
+export function EditCommunityModal({ showModal, onClose, communityForm, setCommunityForm, handleEditCommunity, isSubmitting }) {
   if (!showModal) return null;
   return (
-    <ModalShell title="Edit School" onClose={onClose} onSubmit={handleEditCommunity} submitLabel="Save Changes">
+    <ModalShell title="Edit School" onClose={onClose} onSubmit={handleEditCommunity} submitLabel="Save Changes" isSubmitting={isSubmitting}>
       <div className="form-group">
         <label className="form-label" htmlFor="edit-comm-name">School Name</label>
         <input
@@ -72,32 +74,14 @@ export function EditCommunityModal({ showModal, onClose, communityForm, setCommu
           autoFocus
         />
       </div>
-      <div className="form-group">
-        <label className="form-label" htmlFor="edit-comm-area">Area</label>
-        <select
-          id="edit-comm-area"
-          className="form-select"
-          value={communityForm.area}
-          onChange={(e) => setCommunityForm({ ...communityForm, area: e.target.value })}
-        >
-          <option value="Poblacion">Poblacion</option>
-          <option value="Upland">Upland</option>
-          <option value="Downtown">Downtown</option>
-          <option value="Coastal">Coastal</option>
-          <option value="Highland">Highland</option>
-          <option value="Lowland">Lowland</option>
-          <option value="Riverside">Riverside</option>
-          <option value="Forest">Forest</option>
-        </select>
-      </div>
     </ModalShell>
   );
 }
 
-export function CreateBatchModal({ showModal, onClose, batchForm, setBatchForm, handleCreateBatch, communities }) {
+export function CreateBatchModal({ showModal, onClose, batchForm, setBatchForm, handleCreateBatch, communities, isSubmitting }) {
   if (!showModal) return null;
   return (
-    <ModalShell title="Create Batch" onClose={onClose} onSubmit={handleCreateBatch} submitLabel="Create">
+    <ModalShell title="Create Batch" onClose={onClose} onSubmit={handleCreateBatch} submitLabel="Create" isSubmitting={isSubmitting}>
       <div className="form-group">
         <label className="form-label" htmlFor="batch-name">Batch Name</label>
         <input
@@ -128,10 +112,10 @@ export function CreateBatchModal({ showModal, onClose, batchForm, setBatchForm, 
   );
 }
 
-export function EditBatchModal({ showModal, onClose, batchForm, setBatchForm, handleEditBatch, communities }) {
+export function EditBatchModal({ showModal, onClose, batchForm, setBatchForm, handleEditBatch, communities, isSubmitting }) {
   if (!showModal) return null;
   return (
-    <ModalShell title="Edit Batch" onClose={onClose} onSubmit={handleEditBatch} submitLabel="Save Changes">
+    <ModalShell title="Edit Batch" onClose={onClose} onSubmit={handleEditBatch} submitLabel="Save Changes" isSubmitting={isSubmitting}>
       <div className="form-group">
         <label className="form-label" htmlFor="edit-batch-name">Batch Name</label>
         <input
@@ -157,41 +141,16 @@ export function EditBatchModal({ showModal, onClose, batchForm, setBatchForm, ha
           ))}
         </select>
       </div>
-      <div className="form-group">
-        <label className="form-label" htmlFor="edit-batch-records">Total Mothers</label>
-        <input
-          id="edit-batch-records"
-          type="number"
-          min="0"
-          className="form-input"
-          value={batchForm.records}
-          onChange={(e) => setBatchForm({ ...batchForm, records: Number(e.target.value) })}
-          required
-        />
-      </div>
-      <div className="form-group">
-        <label className="form-label" htmlFor="edit-batch-progress">Progress (%)</label>
-        <input
-          id="edit-batch-progress"
-          type="number"
-          min="0"
-          max="100"
-          className="form-input"
-          value={batchForm.progress}
-          onChange={(e) => setBatchForm({ ...batchForm, progress: Number(e.target.value) })}
-          required
-        />
-      </div>
     </ModalShell>
   );
 }
 
-export function CreateGroupModal({ showModal, onClose, groupForm, setGroupForm, handleCreateGroup, communities, batches }) {
+export function CreateGroupModal({ showModal, onClose, groupForm, setGroupForm, handleCreateGroup, communities, batches, isSubmitting }) {
   if (!showModal) return null;
   const availableBatches = batches.filter((batch) => batch.community === groupForm.community);
 
   return (
-    <ModalShell title="Create Group" onClose={onClose} onSubmit={handleCreateGroup} submitLabel="Create">
+    <ModalShell title="Create Group" onClose={onClose} onSubmit={handleCreateGroup} submitLabel="Create" isSubmitting={isSubmitting}>
       <div className="form-group">
         <label className="form-label" htmlFor="group-name">Group Name</label>
         <input
@@ -223,12 +182,12 @@ export function CreateGroupModal({ showModal, onClose, groupForm, setGroupForm, 
   );
 }
 
-export function EditGroupModal({ showModal, onClose, groupForm, setGroupForm, handleEditGroup, communities, batches }) {
+export function EditGroupModal({ showModal, onClose, groupForm, setGroupForm, handleEditGroup, communities, batches, isSubmitting }) {
   if (!showModal) return null;
   const availableBatches = batches.filter((batch) => batch.community === groupForm.community);
 
   return (
-    <ModalShell title="Edit Group" onClose={onClose} onSubmit={handleEditGroup} submitLabel="Save Changes">
+    <ModalShell title="Edit Group" onClose={onClose} onSubmit={handleEditGroup} submitLabel="Save Changes" isSubmitting={isSubmitting}>
       <div className="form-group">
         <label className="form-label" htmlFor="edit-group-name">Group Name</label>
         <input
@@ -254,29 +213,6 @@ export function EditGroupModal({ showModal, onClose, groupForm, setGroupForm, ha
             <option key={comm.id} value={comm.name}>{comm.name}</option>
           ))}
         </select>
-      </div>
-      <div className="form-group">
-        <label className="form-label" htmlFor="edit-group-leader">Group Leader</label>
-        <input
-          id="edit-group-leader"
-          type="text"
-          className="form-input"
-          value={groupForm.leader}
-          onChange={(e) => setGroupForm({ ...groupForm, leader: e.target.value })}
-          required
-        />
-      </div>
-      <div className="form-group">
-        <label className="form-label" htmlFor="edit-group-members">Members</label>
-        <input
-          id="edit-group-members"
-          type="number"
-          min="1"
-          className="form-input"
-          value={groupForm.members}
-          onChange={(e) => setGroupForm({ ...groupForm, members: Number(e.target.value) })}
-          required
-        />
       </div>
     </ModalShell>
   );

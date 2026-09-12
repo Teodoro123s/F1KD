@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import logo from '../assets/logo.svg';
+import { useAuth } from '../auth/AuthProvider';
+import { ROLES, hasRole } from '../utils/permissions';
 
 const items = [
   { to: '/dashboard', label: 'Dashboard', icon: '🏠' },
@@ -13,7 +15,9 @@ const items = [
 ];
 
 export default function Sidebar() {
+  const { currentUser } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
+  const visibleItems = items.filter((item) => item.to !== '/user-management' || hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]));
   return (
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
       <div className="sidebar-top">
@@ -29,7 +33,7 @@ export default function Sidebar() {
       </div>
 
       <nav className="sidebar-nav">
-        {items.map((it) => (
+        {visibleItems.map((it) => (
           <NavLink
             key={it.to}
             to={it.to}

@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useLocation, useNavigate, Link } from 'react-router-dom';
+import PageHeader from '../../components/ui/PageHeader';
 import { generatePassword, formatDobForInput } from './lib';
 import { apiGetUser } from '../../api/users';
+import { getSummary } from '../Community/communityService';
 
 export default function UserDetailPage() {
   const { id } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
+  const [communities, setCommunities] = useState([]);
   const getInitialUser = () => {
     const initial = location?.state?.user || { id };
     if (initial.name && !initial.firstName) {
@@ -22,6 +25,16 @@ export default function UserDetailPage() {
 
   useEffect(() => {
     let mounted = true;
+    getSummary()
+      .then((summary) => {
+        if (!mounted) return;
+        setCommunities(summary.communities || []);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setCommunities([]);
+      });
+
     async function load() {
       // If navigated with full user details in state, keep it. Otherwise fetch by id.
       if (location?.state?.user && location.state.user.firstName) return; 
@@ -51,6 +64,7 @@ export default function UserDetailPage() {
           location: data.location || '',
           role: data.role || '',
           status: (data.status || '').toString(),
+          schoolId: data.school_id ?? '',
           name: data.full_name || `${firstName} ${lastName}`.trim(),
         });
       } catch (e) {
@@ -62,6 +76,13 @@ export default function UserDetailPage() {
   }, [id, location]);
 
   const displayName = user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || id;
+  const requiresSchoolAssignment = ['health worker', 'community organizer'].includes(String(user.role || '').trim().toLowerCase());
+  const schoolLabel = (() => {
+    if (!requiresSchoolAssignment) return 'Not required';
+    if (!user.schoolId) return 'Not assigned';
+    const match = communities.find((school) => String(school.id) === String(user.schoolId));
+    return match?.name || `School ID ${user.schoolId}`;
+  })();
   const handleEdit = () => {
     // Navigate back to list and signal the list to open edit modal
     navigate('/user-management', { state: { editUser: user } });
@@ -81,23 +102,11 @@ export default function UserDetailPage() {
 
   return (
     <div className="community-page">
-      <header className="community-header" style={{ background: '#F8FAFC', paddingBottom: 12 }}>
-        <div className="community-title-section">
-          <h1 style={{ margin: 0, fontSize: '2rem' }}>{displayName}</h1>
-          <nav className="community-breadcrumb" aria-label="Breadcrumb" style={{ marginTop: 8 }}>
-            <span className="breadcrumb-item">
-              <Link to="/user-management" className="breadcrumb-current">User Management</Link>
-              <span className="breadcrumb-separator">›</span>
-            </span>
-            <span className="breadcrumb-item">
-              <span className="breadcrumb-current">{user.role || 'User'}</span>
-            </span>
-          </nav>
-        </div>
-        <div style={{ marginLeft: 'auto', padding: 16 }}>
-          <button type="button" className="btn-primary" onClick={handleEdit}>Edit</button>
-        </div>
-      </header>
+      <PageHeader
+        title={displayName}
+        breadcrumbs={[{ label: 'User Management', href: '/user-management' }, { label: user.role || 'User' }]}
+        actions={<button type="button" className="view-btn view-btn--primary" onClick={handleEdit}>Edit</button>}
+      />
 
       
 
@@ -160,6 +169,17 @@ export default function UserDetailPage() {
                   <input className="checkup-field-input" value={user.status || ''} readOnly />
                 </div>
               </div>
+
+              {requiresSchoolAssignment && (
+                <div className="form-row-3 full-width">
+                  <div className="form-group">
+                    <label className="checkup-field-label">Assigned School</label>
+                    <input className="checkup-field-input" value={schoolLabel} readOnly />
+                  </div>
+                  <div className="form-group" aria-hidden="true" />
+                  <div className="form-group" aria-hidden="true" />
+                </div>
+              )}
             </div>
 
             

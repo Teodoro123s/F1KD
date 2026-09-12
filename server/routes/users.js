@@ -2,25 +2,37 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../db');
 const bcrypt = require('bcrypt');
-const { verifyToken, requireRole } = require('../middleware/auth');
+const { verifyToken } = require('../middleware/auth');
+const { authorize } = require('../middleware/authorize');
 
 function normalizeDbStatus(value) {
   const normalized = String(value || '').trim().toLowerCase();
-  if (!normalized) return 'active';
-  if (['active', 'enabled'].includes(normalized)) return 'active';
-  if (['suspended', 'inactive', 'disabled'].includes(normalized)) return 'inactive';
-  if (['pending'].includes(normalized)) return 'pending';
-  return 'active';
+  if (!normalized) return 'Active';
+  if (['active', 'enabled'].includes(normalized)) return 'Active';
+  if (['suspended', 'inactive', 'disabled'].includes(normalized)) return 'Suspended';
+  return 'Active';
 }
 
 // Helper: normalize searchable name/value
 function nameLike(column) {
-  // use COALESCE to prefer full_name, fall back to username
-  return `COALESCE(full_name, username)`;
+  return `CONCAT_WS(' ', first_name, last_name)`;
 }
 
+// GET /api/users/coordinators - limited data for operational assignment fields
+router.get('/coordinators', verifyToken, async (req, res) => {
+  try {
+    const [users] = await pool.query(
+      `SELECT id, CONCAT_WS(' ', first_name, last_name) AS username, CONCAT_WS(' ', first_name, last_name) AS full_name, role FROM users WHERE LOWER(TRIM(role)) IN ('community organizer', 'co', 'partner') ORDER BY id DESC`
+    );
+    res.json({ users });
+  } catch (err) {
+    console.error('[Users API] GET /coordinators error:', err.message);
+    res.status(500).json({ error: 'db error' });
+  }
+});
+
 // GET /api/users?search=&role=&status=&page=1&perPage=10
-router.get('/', async (req, res) => {
+router.get('/', verifyToken, authorize('super_admin'), async (req, res) => {
   try {
     const { search = '', role, status, page = 1, perPage = 10 } = req.query;
     const offset = (Number(page) - 1) * Number(perPage);
@@ -28,9 +40,9 @@ router.get('/', async (req, res) => {
     const filters = [];
     const params = [];
     if (search) {
-      filters.push(`( ${nameLike()} LIKE ? OR email LIKE ? OR username LIKE ? )`);
+      filters.push(`( ${nameLike()} LIKE ? OR email LIKE ? )`);
       const s = `%${search}%`;
-      params.push(s, s, s);
+      params.push(s, s);
     }
     if (role) {
       filters.push('role = ?');
@@ -47,7 +59,7 @@ router.get('/', async (req, res) => {
     const total = countRows[0].total || 0;
 
     const [rows] = await pool.query(
-      `SELECT id, username, full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, created_at, updated_at FROM users ${where} ORDER BY id DESC LIMIT ? OFFSET ?`,
+      `SELECT id, CONCAT_WS(' ', first_name, last_name) AS username, CONCAT_WS(' ', first_name, last_name) AS full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, created_at, updated_at FROM users ${where} ORDER BY id DESC LIMIT ? OFFSET ?`,
       [...params, Number(perPage), Number(offset)]
     );
 
@@ -60,7 +72,7 @@ router.get('/', async (req, res) => {
 
 // POST /api/users
 // Require authentication to create users (only Admin/Superadmin allowed in this example)
-router.post('/', verifyToken, requireRole('Superadmin','Admin'), async (req, res) => {
+router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
   try {
     const {
       username,
@@ -76,13 +88,16 @@ router.post('/', verifyToken, requireRole('Superadmin','Admin'), async (req, res
       location,
       role,
       status,
+      schoolId,
     } = req.body;
 
     // build username and full_name from provided fields if necessary
     const userName = username || (email ? email.split('@')[0] : null);
     const full_name = fullName || (firstName || lastName ? `${(firstName||'').trim()} ${(lastName||'').trim()}`.trim() : null);
+    const requiresSchool = ['health worker', 'community organizer'].includes(String(role || '').trim().toLowerCase());
 
     if (!userName || !email) return res.status(400).json({ error: 'username and email are required' });
+    if (requiresSchool && !schoolId) return res.status(400).json({ error: 'schoolId is required for this role' });
 
     // generate password if none provided
     let plainPassword = password;
@@ -97,12 +112,10 @@ router.post('/', verifyToken, requireRole('Superadmin','Admin'), async (req, res
 
     const dbStatus = normalizeDbStatus(status || 'active');
     const [result] = await pool.query(
-      `INSERT INTO users (username, email, full_name, role, status, password_hash, first_name, last_name, middle_initial, contact_number, gender, dob, location)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO users (email, role, status, password_hash, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
       [
-        userName,
         email,
-        full_name || null,
         role || 'user',
         dbStatus,
         hash,
@@ -112,12 +125,13 @@ router.post('/', verifyToken, requireRole('Superadmin','Admin'), async (req, res
         contactNumber || null,
         gender || 'Male',
         dob || null,
-        location || null
+        location || null,
+        schoolId || null
       ]
     );
 
     const [rows] = await pool.query(
-      `SELECT id, username, full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, created_at
+      `SELECT id, CONCAT_WS(' ', first_name, last_name) AS username, CONCAT_WS(' ', first_name, last_name) AS full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, created_at
        FROM users WHERE id = ?`,
       [result.insertId]
     );
@@ -132,11 +146,11 @@ router.post('/', verifyToken, requireRole('Superadmin','Admin'), async (req, res
 });
 
 // GET /api/users/:id
-router.get('/:id', async (req, res) => {
+router.get('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
   try {
     const { id } = req.params;
     const [rows] = await pool.query(
-      `SELECT id, username, full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, created_at
+      `SELECT id, CONCAT_WS(' ', first_name, last_name) AS username, CONCAT_WS(' ', first_name, last_name) AS full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, created_at
        FROM users WHERE id = ?`,
       [id]
     );
@@ -150,7 +164,7 @@ router.get('/:id', async (req, res) => {
 
 // PUT /api/users/:id
 // Require authentication to update users
-router.put('/:id', verifyToken, async (req, res) => {
+router.put('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
   try {
     const { id } = req.params;
     const {
@@ -167,14 +181,18 @@ router.put('/:id', verifyToken, async (req, res) => {
       role,
       status,
       password,
+      schoolId,
     } = req.body;
 
     const updates = [];
     const params = [];
-    if (username) { updates.push('username = ?'); params.push(username); }
     if (email) { updates.push('email = ?'); params.push(email); }
-    if (fullName !== undefined) { updates.push('full_name = ?'); params.push(fullName || null); }
-    if (firstName !== undefined) { updates.push('first_name = ?'); params.push(firstName); }
+      if (fullName !== undefined && firstName === undefined && lastName === undefined) {
+        const nameParts = String(fullName || '').trim().split(/\s+/);
+        updates.push('first_name = ?', 'last_name = ?');
+        params.push(nameParts.shift() || '', nameParts.join(' '));
+      }
+      if (firstName !== undefined) { updates.push('first_name = ?'); params.push(firstName); }
     if (lastName !== undefined) { updates.push('last_name = ?'); params.push(lastName); }
     if (middleInitial !== undefined) { updates.push('middle_initial = ?'); params.push(middleInitial || null); }
     if (contactNumber !== undefined) { updates.push('contact_number = ?'); params.push(contactNumber || null); }
@@ -183,6 +201,10 @@ router.put('/:id', verifyToken, async (req, res) => {
     if (location !== undefined) { updates.push('location = ?'); params.push(location || null); }
     if (role !== undefined) { updates.push('role = ?'); params.push(role); }
     if (status !== undefined) { updates.push('status = ?'); params.push(normalizeDbStatus(status)); }
+    if (schoolId !== undefined) { updates.push('school_id = ?'); params.push(schoolId || null); }
+    if (role !== undefined && ['health worker', 'community organizer'].includes(String(role).trim().toLowerCase()) && !schoolId) {
+      return res.status(400).json({ error: 'schoolId is required for this role' });
+    }
 
     if (password) {
       const hash = await bcrypt.hash(password, 10);
@@ -197,7 +219,7 @@ router.put('/:id', verifyToken, async (req, res) => {
     await pool.query(sql, params);
 
     const [rows] = await pool.query(
-      `SELECT id, username, full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, updated_at
+      `SELECT id, CONCAT_WS(' ', first_name, last_name) AS username, CONCAT_WS(' ', first_name, last_name) AS full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, updated_at
        FROM users WHERE id = ?`,
       [id]
     );
@@ -210,7 +232,7 @@ router.put('/:id', verifyToken, async (req, res) => {
 
 // DELETE /api/users/:id
 // Require authentication to delete users (only Superadmin/Admin)
-router.delete('/:id', verifyToken, requireRole('Superadmin','Admin'), async (req, res) => {
+router.delete('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
   try {
     const { id } = req.params;
     await pool.query('DELETE FROM users WHERE id = ?', [id]);
@@ -223,7 +245,7 @@ router.delete('/:id', verifyToken, requireRole('Superadmin','Admin'), async (req
 
 // PATCH /api/users/:id/status - toggle or set status
 // Require authentication to change status
-router.patch('/:id/status', verifyToken, requireRole('Superadmin','Admin'), async (req, res) => {
+router.patch('/:id/status', verifyToken, authorize('super_admin'), async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;

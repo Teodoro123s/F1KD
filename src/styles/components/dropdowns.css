@@ -21,4 +21,8 @@
 
 .notifications-list { max-height: 220px; overflow: auto; }
 
-.content-body { padding: 1rem; }
+.content-body {
+  padding: 1.25rem 1.5rem 1.75rem;
+  display: flex;
+  flex-direction: column;
+}

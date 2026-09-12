@@ -4,7 +4,7 @@ import { StatusAllIcon, StatusMissingIcon, StatusPendingIcon, StatusDoneIcon } f
 const MONITOR_STATUS_OPTIONS = [
   { key: 'All', label: 'All', icon: StatusAllIcon },
   { key: 'Missing', label: 'Missing', icon: StatusMissingIcon },
-  { key: 'Pending', label: 'Pending', icon: StatusPendingIcon },
+  { key: 'In Progress', label: 'In Progress', icon: StatusPendingIcon },
   { key: 'Done', label: 'Done', icon: StatusDoneIcon },
 ];
 

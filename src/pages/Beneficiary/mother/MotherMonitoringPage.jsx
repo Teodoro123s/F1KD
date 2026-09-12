@@ -13,7 +13,7 @@ export default function MotherMonitoringPage() {
       <header className="community-header">
         <div className="community-title-section">
           <h1>Monitoring</h1>
-          <p style={{ margin: 0 }}>{mother ? mother.name || mother.motherName : `Mother ID: ${id}`}</p>
+          <p style={{ margin: 0 }}>{mother ? mother.name || mother.motherName : 'Mother'}</p>
         </div>
         <div>
           <button className="btn-secondary" onClick={() => navigate(-1)}>Back</button>
@@ -22,7 +22,7 @@ export default function MotherMonitoringPage() {
 
       <main className="beneficiary-main">
         <MotherCheckup
-          mother={mother || { id, name: `Mother ID: ${id}` }}
+          mother={mother || { id, name: 'Mother' }}
           onSave={() => navigate(-1)}
           onCancel={() => navigate(-1)}
         />

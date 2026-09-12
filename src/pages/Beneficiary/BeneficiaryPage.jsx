@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
+import PageHeader from '../../components/ui/PageHeader';
 import { PlusIcon } from './BeneficiaryIcons';
 import CreateMotherPage from './mother/CreateMotherPage';
 import CreateChildPage from './child/CreateChildPage';
@@ -9,10 +10,13 @@ import { useMothers } from '../../context/MothersContext';
 import { getSummary } from '../Community/communityService';
 import { apiGetMother } from '../../api/mothers';
 import { apiGetChildrenByMother } from '../../api/children';
+import { can } from '../../utils/permissions';
+import { useAuth } from '../../auth/AuthProvider';
 
 export default function BeneficiaryPage() {
   // Mothers are loaded from the DB via MothersContext
-  const { mothers, setMothers } = useMothers();
+  const auth = useAuth();
+  const { mothers, setMothers, loading: mothersLoading } = useMothers();
   const [groups, setGroups] = useState([]);
   const [communities, setCommunities] = useState([]);
   const [batches, setBatches] = useState([]);
@@ -59,6 +63,7 @@ export default function BeneficiaryPage() {
   const isCreateMother = location.pathname.includes('/beneficiary/create/mother');
   const isCreateChild = location.pathname.includes('/beneficiary/create/child');
   const isMotherDetail = Boolean(selectedMother);
+  const canCreate = can(auth?.currentUser?.role, 'admin-resources', 'create');
 
   // If navigation includes a mother in state (e.g., navigating from child pages or external links), ensure the selectedMother is populated
   React.useEffect(() => {
@@ -69,7 +74,14 @@ export default function BeneficiaryPage() {
       return;
     }
     if (location.pathname.startsWith('/beneficiary/mother/') && navMother) {
-      setSelectedMother(navMother);
+      apiGetChildrenByMother(navMother.raw?.id || navMother.original?.raw?.id || navMother.id || navMother.motherId)
+        .then((childrenResponse) => {
+          setSelectedMother({ ...navMother, children: childrenResponse?.children || [] });
+        })
+        .catch((error) => {
+          console.error('[BeneficiaryPage] Unable to refresh mother children:', error);
+          setSelectedMother(navMother);
+        });
       return;
     }
     if (location.pathname.startsWith('/beneficiary/mother/') && motherRouteId) {
@@ -118,36 +130,30 @@ export default function BeneficiaryPage() {
 
   return (
     <div className="community-page beneficiary-page">
-      <header className="community-header">
-        <div className="community-title-section">
-          <h1>Beneficiaries</h1>
-          <nav className="community-breadcrumb" aria-label="Breadcrumb">
-            <span className="breadcrumb-item">
-              <span className="breadcrumb-current">Beneficiaries</span>
-            </span>
-          </nav>
-        </div>
-
-        {/* Create button (keeps the simple dropdown used previously) */}
-        {!isMotherDetail && (
-          <div className="create-menu-wrapper">
-            <button className="btn-create-action" onClick={openCreateModal} type="button">
-              <PlusIcon />
-              <span>Create</span>
-            </button>
-            {createDropdownOpen && (
-              <div className="create-dropdown" role="menu">
-                <button type="button" className="actions-dropdown-item" onClick={openCreateMother} role="menuitem">
-                  Create Mother
-                </button>
-                <button type="button" className="actions-dropdown-item" onClick={openCreateChild} role="menuitem">
-                  Create Child
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-      </header>
+      <PageHeader
+        title="Beneficiaries"
+        breadcrumbs={[{ label: 'Beneficiaries' }]}
+        actions={
+          !isMotherDetail && !isCreateMother && !isCreateChild && canCreate ? (
+            <div className="create-menu-wrapper">
+              <button className="view-btn view-btn--primary module-create-button" onClick={openCreateModal} type="button">
+                <PlusIcon />
+                <span>Create</span>
+              </button>
+              {createDropdownOpen && (
+                <div className="create-dropdown" role="menu">
+                  <button type="button" className="actions-dropdown-item" onClick={openCreateMother} role="menuitem">
+                    Create Mother
+                  </button>
+                  <button type="button" className="actions-dropdown-item" onClick={openCreateChild} role="menuitem">
+                    Create Child
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : null
+        }
+      />
 
       <main className="beneficiary-main">
         {/* Check create routes before showing selected mother detail so navigation to create pages works even when a mother is selected */}
@@ -163,6 +169,7 @@ export default function BeneficiaryPage() {
             communities={communities}
             batches={batches}
             mothers={mothers}
+            loading={mothersLoading}
             setGroups={setGroups}
             navigate={navigate}
           />

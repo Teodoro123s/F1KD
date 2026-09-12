@@ -21,18 +21,19 @@ const getMotherProfileProgress = (mother) => Math.round([
 
 const getChildProfileProgress = (child) => Math.round([
   child?.mother_id || child?.motherId,
-  child?.first_name || child?.firstName,
-  child?.last_name || child?.lastName,
+  child?.name || child?.first_name || child?.firstName,
+  child?.birth_date || child?.birthDate,
   child?.birthDocumentPath || child?.birth_document_path,
 ].filter(Boolean).length * 25);
 
-export default function BeneficiaryListPage({ communities = [], batches = [], mothers = [], onSelectMother, onSelectChild }) {
+export default function BeneficiaryListPage({ communities = [], batches = [], mothers = [], loading = false, onSelectMother, onSelectChild }) {
   const [query, setQuery] = useState('');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('All');
   const [perPage, setPerPage] = useState(10);
   const [page, setPage] = useState(1);
   const [selectedEntityFilter, setSelectedEntityFilter] = useState('Mother');
   const [childRows, setChildRows] = useState([]);
+  const [childrenLoading, setChildrenLoading] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -40,9 +41,11 @@ export default function BeneficiaryListPage({ communities = [], batches = [], mo
     async function loadChildren() {
       if (!mothers.length) {
         setChildRows([]);
+        setChildrenLoading(false);
         return;
       }
 
+      setChildrenLoading(true);
       apiGetChildren()
         .then((response) => {
           const mothersByDbId = new Map();
@@ -52,12 +55,18 @@ export default function BeneficiaryListPage({ communities = [], batches = [], mo
           });
           const rows = (response.children || []).map((child) => {
             const mother = mothersByDbId.get(String(child.mother_id || child.mother_db_id));
+            const childName = child.name || [child.first_name, child.middle_name, child.last_name, child.suffix].filter(Boolean).join(' ');
             return {
               id: child.id,
-              name: [child.first_name, child.middle_name, child.last_name, child.suffix].filter(Boolean).join(' '),
+              name: childName || 'Unnamed child',
               community: child.community_name || mother?.community || mother?.area || 'Unknown',
               progress: getChildProfileProgress(child),
-              original: { ...child, mother },
+              original: {
+                ...child,
+                mother,
+                group_name: child.group_name || child.group || '',
+                batch_name: child.batch_name || child.batch || '',
+              },
             };
           });
           if (active) setChildRows(rows);
@@ -67,6 +76,9 @@ export default function BeneficiaryListPage({ communities = [], batches = [], mo
             console.error('[BeneficiaryListPage] Unable to load children:', error);
             setChildRows([]);
           }
+        })
+        .finally(() => {
+          if (active) setChildrenLoading(false);
         });
     }
 
@@ -86,12 +98,12 @@ export default function BeneficiaryListPage({ communities = [], batches = [], mo
       if (selectedEntityFilter === 'Child') {
         return item;
       }
-      if (item && (item.firstName || item.motherId)) {
+      if (item && (item.firstName || item.first_name || item.motherId || item.mother_id)) {
         // it's a mother mock object
         return {
           id: item.id,
-          name: item.name || `${item.firstName} ${item.lastName}`,
-          community: item.area || item.community || 'Unknown',
+          name: item.name || `${item.firstName || item.first_name || ''} ${item.lastName || item.last_name || ''}`.trim(),
+          community: item.area || item.community || item.community_name || 'Unknown',
           progress: getMotherProfileProgress(item),
           original: item,
         };
@@ -128,36 +140,45 @@ export default function BeneficiaryListPage({ communities = [], batches = [], mo
   const rangeStart = filteredData.length === 0 ? 0 : currentStart + 1;
   const rangeEnd = Math.min(currentStart + perPage, filteredData.length);
 
-  const renderPaginationButtons = () => {
-    const buttons = [];
-    buttons.push(
-      <button key="first" type="button" className={`pagination-btn${currentPage === 1 ? ' disabled' : ''}`} onClick={() => setPage(1)} disabled={currentPage === 1} aria-label="First page">«</button>
-    );
-    const maxVisible = 5;
-    if (pageCount <= maxVisible) {
-      for (let i = 1; i <= pageCount; i += 1) {
-        buttons.push(
-          <button key={i} type="button" className={`pagination-btn${currentPage === i ? ' active' : ''}`} onClick={() => setPage(i)}>{i}</button>
-        );
-      }
-    } else if (currentPage <= 3) {
-      for (let i = 1; i <= 3; i += 1) buttons.push(<button key={i} type="button" className={`pagination-btn${currentPage === i ? ' active' : ''}`} onClick={() => setPage(i)}>{i}</button>);
-      buttons.push(<span key="el-1" className="pagination-btn ellipsis">...</span>);
-      buttons.push(<button key={pageCount} type="button" className={`pagination-btn${currentPage === pageCount ? ' active' : ''}`} onClick={() => setPage(pageCount)}>{pageCount}</button>);
-    } else if (currentPage >= pageCount - 2) {
-      buttons.push(<button key={1} type="button" className={`pagination-btn${currentPage === 1 ? ' active' : ''}`} onClick={() => setPage(1)}>1</button>);
-      buttons.push(<span key="el-2" className="pagination-btn ellipsis">...</span>);
-      for (let i = pageCount - 2; i <= pageCount; i += 1) buttons.push(<button key={i} type="button" className={`pagination-btn${currentPage === i ? ' active' : ''}`} onClick={() => setPage(i)}>{i}</button>);
-    } else {
-      buttons.push(<button key={1} type="button" className={`pagination-btn${currentPage === 1 ? ' active' : ''}`} onClick={() => setPage(1)}>1</button>);
-      buttons.push(<span key="el-3" className="pagination-btn ellipsis">...</span>);
-      buttons.push(<button key={currentPage} type="button" className="pagination-btn active">{currentPage}</button>);
-      buttons.push(<span key="el-4" className="pagination-btn ellipsis">...</span>);
-      buttons.push(<button key={pageCount} type="button" className={`pagination-btn${currentPage === pageCount ? ' active' : ''}`} onClick={() => setPage(pageCount)}>{pageCount}</button>);
-    }
-    buttons.push(<button key="last" type="button" className={`pagination-btn${currentPage === pageCount ? ' disabled' : ''}`} onClick={() => setPage(pageCount)} disabled={currentPage === pageCount} aria-label="Last page">»</button>);
-    return buttons;
-  };
+  const renderPaginationButtons = () => (
+    <>
+      <button
+        type="button"
+        className={`pagination-btn${currentPage === 1 ? ' disabled' : ''}`}
+        onClick={() => setPage((value) => Math.max(1, value - 1))}
+        disabled={currentPage === 1}
+        aria-label="Previous page"
+      >
+        ‹
+      </button>
+
+      <input
+        type="number"
+        min={1}
+        max={pageCount}
+        value={currentPage}
+        className="pagination-page-input"
+        placeholder="Page"
+        aria-label="Jump to a page"
+        onChange={(event) => {
+          const nextPage = Number(event.target.value);
+          if (!Number.isNaN(nextPage) && nextPage >= 1 && nextPage <= pageCount) {
+            setPage(nextPage);
+          }
+        }}
+      />
+
+      <button
+        type="button"
+        className={`pagination-btn${currentPage === pageCount ? ' disabled' : ''}`}
+        onClick={() => setPage((value) => Math.min(pageCount, value + 1))}
+        disabled={currentPage === pageCount}
+        aria-label="Next page"
+      >
+        ›
+      </button>
+    </>
+  );
 
   const motherProgressByName = useMemo(() => Object.fromEntries(communities.map((comm) => [comm.name, comm.progress ?? 0])), [communities]);
 
@@ -187,13 +208,14 @@ export default function BeneficiaryListPage({ communities = [], batches = [], mo
         <EntitySearchControls
           selectedEntityFilter={selectedEntityFilter}
           query={query}
-          onEntityToggle={() => setSelectedEntityFilter((current) => (current === 'Mother' ? 'Child' : 'Mother'))}
+            onEntityChange={(nextType) => { setSelectedEntityFilter(nextType); setQuery(''); setPage(1); }}
           onQueryChange={handleSearch}
         />
       </section>
 
       <BeneficiaryTable
         currentRows={displayRows}
+        loading={loading || (selectedEntityFilter === 'Child' && childrenLoading)}
         filteredDataLength={filteredData.length}
         rangeStart={rangeStart}
         rangeEnd={rangeEnd}

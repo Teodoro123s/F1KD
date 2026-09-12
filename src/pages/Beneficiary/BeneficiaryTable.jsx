@@ -3,6 +3,7 @@ import { formatDateForDisplay } from '../../utils/dateFormat';
 
 export default function BeneficiaryTable({
   currentRows,
+  loading = false,
   filteredDataLength,
   rangeStart,
   rangeEnd,
@@ -35,8 +36,8 @@ export default function BeneficiaryTable({
 
   const getChildProfileProgress = (child) => Math.round([
     child?.mother_id || child?.motherId,
-    child?.first_name || child?.firstName,
-    child?.last_name || child?.lastName,
+    child?.name || child?.first_name || child?.firstName,
+    child?.birth_date || child?.birthDate,
     child?.birthDocumentPath || child?.birth_document_path,
   ].filter(Boolean).length * 25);
 
@@ -50,22 +51,12 @@ export default function BeneficiaryTable({
     <section className="table-card beneficiary-table-card">
       <div className="table-overflow">
         <table className="data-table">
-          <thead>
-            <tr>
-              {entityFilter === 'Child' ? (
-                <th scope="col" className="name-column group-header">Child</th>
-              ) : entityFilter === 'Mother' ? (
-                <th scope="col" className="name-column group-header">Mother</th>
-              ) : (
-                <>
-                  <th scope="col" className="name-column group-header">Mother</th>
-                  <th scope="col" className="name-column group-header">Child</th>
-                </>
-              )}
-            </tr>
-          </thead>
           <tbody>
-            {currentRows.length > 0 ? (
+            {loading ? (
+              <tr>
+                <td colSpan={emptyColSpan} className="no-data">Loading beneficiaries...</td>
+              </tr>
+            ) : currentRows.length > 0 ? (
               currentRows.map((row) => {
                 const motherProgress = getMotherProfileProgress(row.original || row);
                 const childProgress = getChildProfileProgress(row.original || row);
@@ -75,12 +66,12 @@ export default function BeneficiaryTable({
                 const area = motherObj?.area || row.original?.area || 'Unknown area';
                 
                 // Lookup batch name
-                const batchId = row.assignedBatchIds?.[0];
+                const batchId = row.assignedBatchIds?.[0] || row.original?.batch_id || row.original?.batchId;
                 const batchObj = batches.find((b) => b.id === batchId);
                 const batchName = batchObj?.name || row.original?.batch_name || 'Unknown batch';
 
                 const motherBreadcrumb = `${area} > ${row.name} > ${batchName}`;
-                const childGroup = row.original?.group_name || 'Group not assigned';
+                const childGroup = row.original?.group_name || row.original?.group || 'Group not assigned';
                 const childBreadcrumb = `${childGroup} > ${batchName}`;
 
                 if (entityFilter === 'Mother') {

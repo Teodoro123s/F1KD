@@ -15,7 +15,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
     }));
   };
 
-  const renderField = ({ id, label, name, type = 'text', placeholder = '', required = false, min, step }) => {
+  const renderField = ({ id, label, name, type = 'text', placeholder = '', required = false, min, step, nativeDate = false, maxDate }) => {
     const value = form[name] ?? '';
     const isDate = type === 'date';
 
@@ -33,17 +33,21 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
         <label className="form-label" htmlFor={id}>{label}</label>
         <input
           id={id}
-          type={isDate ? 'text' : type}
-          inputMode={isDate ? 'numeric' : undefined}
-          pattern={isDate ? '\\d{4}/\\d{2}/\\d{2}' : undefined}
+          type={nativeDate ? 'date' : isDate ? 'text' : type}
+          inputMode={nativeDate ? undefined : isDate ? 'numeric' : undefined}
+          pattern={nativeDate ? undefined : isDate ? '\\d{4}/\\d{2}/\\d{2}' : undefined}
           className="form-input"
-          placeholder={isDate ? 'yyyy/mm/dd' : placeholder}
-          value={isDate ? formatDateForInput(value).replaceAll('-', '/') : value}
+          placeholder={nativeDate ? undefined : isDate ? 'yyyy/mm/dd' : placeholder}
+          value={isDate ? formatDateForInput(value) : value}
           min={min}
           step={step}
+          max={maxDate}
+          autoComplete={nativeDate ? 'off' : undefined}
           onChange={(e) => setForm((prev) => ({
             ...prev,
-            [name]: isDate ? e.target.value.replace(/[^0-9/]/g, '').replaceAll('/', '-').replace(/^(\d{4})-(\d{2})-(\d{2}).*$/, '$1-$2-$3') : e.target.value,
+            [name]: isDate && !nativeDate
+              ? e.target.value.replace(/[^0-9/]/g, '').replaceAll('/', '-').replace(/^(\d{4})-(\d{2})-(\d{2}).*$/, '$1-$2-$3')
+              : e.target.value,
           }))}
           required={required}
         />
@@ -126,7 +130,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
         </div>
 
         <div className="form-row-4 full-width">
-          {renderField({ id: 'child-birth-date', label: 'Birth Date', name: 'birthDate', type: 'date' })}
+          {renderField({ id: 'child-birth-date', label: 'Birth Date', name: 'birthDate', type: 'date', nativeDate: true, maxDate: new Date().toISOString().split('T')[0] })}
           {renderField({ id: 'child-birth-weight', label: 'Birth Weight (kg)', name: 'birthWeight', placeholder: 'e.g. 3.2' })}
           {renderField({ id: 'child-birth-length', label: 'Birth Length (cm)', name: 'birthLength', placeholder: 'e.g. 49' })}
           {renderSelect({
@@ -146,6 +150,13 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
             placeholder: 'Select blood type',
           })}
           {renderField({ id: 'child-children-delivered', label: 'No. Old Child Delivered', name: 'noOfChildDelivered', type: 'number', min: 0, step: 1, placeholder: 'e.g. 1' })}
+          {renderSelect({
+            id: 'child-multiple-birth-type',
+            label: 'Multiple Birth Type',
+            name: 'multipleBirthType',
+            options: [{ value: '', label: 'None' }, { value: 'Twin', label: 'Twin' }, { value: 'Triplet', label: 'Triplet' }],
+            placeholder: 'Select type',
+          })}
           {renderSelect({
             id: 'child-exclusive-breastfeeding',
             label: 'Exclusive Breastfeeding',
@@ -168,25 +179,11 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
             name: 'healthStatus',
             options: [{ value: 'Healthy', label: 'Healthy' }, { value: 'Needs Follow-up', label: 'Needs Follow-up' }, { value: 'Critical', label: 'Critical' }],
           })}
-          {renderSelect({
-            id: 'child-community',
-            label: 'Community',
-            name: 'community',
-            options: uniqueCommunities.map((name) => ({ value: name, label: name })),
-            placeholder: 'Select community',
-          })}
-          {renderSelect({
-            id: 'child-batch',
-            label: 'Batch',
-            name: 'batch',
-            options: uniqueBatches.map((name) => ({ value: name, label: name })),
-            placeholder: 'Select batch',
-          })}
+          {renderField({ id: 'child-father-name', label: 'Father Name', name: 'fatherName', placeholder: 'Father / Parent name' })}
+          {renderField({ id: 'child-relationship', label: 'Relationship', name: 'relationship', placeholder: 'Relationship to mother' })}
         </div>
 
         <div className="form-row-4 full-width">
-          {renderField({ id: 'child-father-name', label: 'Father Name', name: 'fatherName', placeholder: 'Father / Parent name' })}
-          {renderField({ id: 'child-relationship', label: 'Relationship', name: 'relationship', placeholder: 'Relationship to mother' })}
           {renderField({ id: 'child-address', label: 'Address', name: 'address', placeholder: 'Current address' })}
           {renderSelect({
             id: 'child-status',
@@ -194,17 +191,22 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
             name: 'status',
             options: [{ value: 'Active', label: 'Active' }, { value: 'Pending', label: 'Pending' }, { value: 'Completed', label: 'Completed' }],
           })}
-        </div>
-
-        <div className="form-row-3 full-width">
           {renderField({ id: 'child-birth-attendant', label: 'Birth Attendant', name: 'birthAttendant', placeholder: 'Midwife / Doctor' })}
           {renderField({ id: 'child-apgar', label: 'Apgar Score', name: 'apgarScore', placeholder: 'e.g. 8/10' })}
+        </div>
+
+        <div className="form-row-2 full-width">
           {renderField({ id: 'child-feeding', label: 'Feeding Type', name: 'feedingType', placeholder: 'Exclusive Breastfeeding' })}
+          {renderSelect({
+            id: 'child-expanded-newborn-screening',
+            label: 'Expanded Newborn Screening',
+            name: 'expandedNewbornScreening',
+            options: ['Normal', 'Needs Follow-up', 'Unknown'],
+            placeholder: 'Select option',
+          })}
         </div>
 
         {renderTextarea({ id: 'child-nutrition-notes', label: 'Nutrition Notes', name: 'nutritionNotes', rows: 3, placeholder: 'Nutrition or feeding notes...' })}
-        {renderTextarea({ id: 'child-newborn-screening', label: 'Expanded Newborn Screening', name: 'expandedNewbornScreening', rows: 3, placeholder: 'Screening details...' })}
-        {renderTextarea({ id: 'child-newborn-screening-result', label: 'Expanded Newborn Screening Result', name: 'expandedNewbornScreeningResult', rows: 3, placeholder: 'Screening result...' })}
       </>
     );
   }
@@ -253,21 +255,25 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
     return (
       <>
         <h4 className="form-section-title">Vaccination Record</h4>
-        <div className="form-row-4 full-width">
-          {renderField({ id: 'child-bcg-date', label: 'BCG Date', name: 'bcgDate', type: 'date' })}
-          {renderField({ id: 'child-bcg-remarks', label: 'BCG Remarks', name: 'bcgRemarks', placeholder: 'Remarks' })}
-          {renderField({ id: 'child-hepb-date', label: 'HepB Date', name: 'hepbDate', type: 'date' })}
-          {renderField({ id: 'child-hepb-remarks', label: 'HepB Remarks', name: 'hepbRemarks', placeholder: 'Remarks' })}
-        </div>
-        <div className="form-row-4 full-width">
-          {renderField({ id: 'child-opv-date', label: 'OPV Date', name: 'opvDate', type: 'date' })}
-          {renderField({ id: 'child-opv-remarks', label: 'OPV Remarks', name: 'opvRemarks', placeholder: 'Remarks' })}
-          {renderField({ id: 'child-dpt-date', label: 'DPT Date', name: 'dptDate', type: 'date' })}
-          {renderField({ id: 'child-dpt-remarks', label: 'DPT Remarks', name: 'dptRemarks', placeholder: 'Remarks' })}
-        </div>
-        <div className="form-row-2 full-width">
-          {renderField({ id: 'child-mmr-date', label: 'MMR Date', name: 'mmrDate', type: 'date' })}
-          {renderField({ id: 'child-mmr-remarks', label: 'MMR Remarks', name: 'mmrRemarks', placeholder: 'Remarks' })}
+        <div className="form-group full-width">
+          <div className="form-panel">
+            <div className="form-row-4 full-width">
+              {renderField({ id: 'child-bcg-date', label: 'BCG Date', name: 'bcgDate', type: 'date', nativeDate: true })}
+              {renderField({ id: 'child-bcg-remarks', label: 'BCG Remarks', name: 'bcgRemarks', placeholder: 'Remarks' })}
+              {renderField({ id: 'child-hepb-date', label: 'HepB Date', name: 'hepbDate', type: 'date', nativeDate: true })}
+              {renderField({ id: 'child-hepb-remarks', label: 'HepB Remarks', name: 'hepbRemarks', placeholder: 'Remarks' })}
+            </div>
+            <div className="form-row-4 full-width">
+              {renderField({ id: 'child-opv-date', label: 'OPV Date', name: 'opvDate', type: 'date', nativeDate: true })}
+              {renderField({ id: 'child-opv-remarks', label: 'OPV Remarks', name: 'opvRemarks', placeholder: 'Remarks' })}
+              {renderField({ id: 'child-dpt-date', label: 'DPT Date', name: 'dptDate', type: 'date', nativeDate: true })}
+              {renderField({ id: 'child-dpt-remarks', label: 'DPT Remarks', name: 'dptRemarks', placeholder: 'Remarks' })}
+            </div>
+            <div className="form-row-2 full-width">
+              {renderField({ id: 'child-mmr-date', label: 'MMR Date', name: 'mmrDate', type: 'date', nativeDate: true })}
+              {renderField({ id: 'child-mmr-remarks', label: 'MMR Remarks', name: 'mmrRemarks', placeholder: 'Remarks' })}
+            </div>
+          </div>
         </div>
       </>
     );

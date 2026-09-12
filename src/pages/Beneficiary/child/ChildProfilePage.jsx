@@ -3,6 +3,8 @@ import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useMothers } from '../../../context/MothersContext';
 import { formatDateForDisplay } from '../../../utils/dateFormat';
 import { apiUploadChildBirthDocument } from '../../../api/children';
+import { useAuth } from '../../../auth/AuthProvider';
+import { can } from '../../../utils/permissions';
 
 const formatValue = (value) => (value === null || value === undefined || value === '' ? '—' : String(value));
 
@@ -64,6 +66,7 @@ const normalizeChild = (child = {}) => ({
   gender: child.gender || '',
   bloodType: child.bloodType || child.blood_type || '',
   noOfChildDelivered: child.noOfChildDelivered || child.no_of_child_delivered || '',
+  multipleBirthType: child.multipleBirthType || child.multiple_birth_type || '',
   exclusiveBreastfeeding: child.exclusiveBreastfeeding || child.exclusive_breastfeeding || '',
   expandedNewbornScreening: child.expandedNewbornScreening || child.expanded_newborn_screening || '',
   expandedNewbornScreeningResult: child.expandedNewbornScreeningResult || child.expanded_newborn_screening_result || '',
@@ -79,6 +82,8 @@ export default function ChildProfilePage() {
   const { childId, id } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
+  const canManage = can(currentUser?.role, 'admin-resources', 'create');
 
   const stateMother = location.state?.mother || null;
   const { mothers: contextMothers } = useMothers();
@@ -215,6 +220,7 @@ export default function ChildProfilePage() {
 
   // Helper to render vaccination info
   const renderVaccine = (date, remarks) => (date ? `${date}${remarks ? ' — ' + remarks : ''}` : '—');
+  const returnTo = location.state?.returnTo || (resolvedMother ? `/beneficiary/mother/${resolvedMother.motherId || resolvedMother.id}` : null);
 
   const childName = selectedChild?.name || `${selectedChild?.firstName || ''} ${selectedChild?.middleName || ''} ${selectedChild?.lastName || ''} ${selectedChild?.suffix || ''}`.replace(/\s+/g, ' ').trim();
   const childBirthDate = formatDateForDisplay(selectedChild?.birthDate || selectedChild?.birth_date);
@@ -251,11 +257,14 @@ export default function ChildProfilePage() {
           <div className="mother-detail-meta">{selectedChild.child_code || selectedChild.id || 'Child ID'} • {selectedChild.community || selectedChild.batch || 'Community / Batch'}</div>
         </div>
         <div className="mother-detail-actions">
-              <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/child/${selectedChild.id}/edit`, { state: { child: selectedChild, mother: resolvedMother } })}>Edit</button>
+          {resolvedMother && (
+            <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/mother/${resolvedMother.id || resolvedMother.motherId}`, { state: { mother: resolvedMother } })}>Open Mother Profile</button>
+          )}
+          {canManage && <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/child/${selectedChild.id}/edit`, { state: { child: selectedChild, mother: resolvedMother, returnTo } })}>Edit</button>}
           <button type="button" className="btn-secondary" onClick={() => {
             const mid = resolvedMother?.motherId || resolvedMother?.id || selectedChild.mother_id || selectedChild.motherId || '';
             const stateMother = resolvedMother || (mid ? { id: mid, name: selectedChild.mother_first_name ? `${selectedChild.mother_first_name} ${selectedChild.mother_last_name || ''}`.trim() : undefined } : null);
-            navigate('/monitoring', { state: { child: selectedChild, mother: stateMother } });
+            navigate('/monitoring', { state: { child: selectedChild, mother: stateMother, returnTo } });
           }}>Open mother monitoring</button>
         </div>
       </div>
@@ -274,9 +283,33 @@ export default function ChildProfilePage() {
         <ChildField label="BMI" value={childBmi} />
         <ChildField label="BMI status" value={childBmiStatus} />
         <ChildField label="No. Old Child Delivered" value={selectedChild.noOfChildDelivered || selectedChild.childrenDelivered || '—'} />
+        <ChildField label="Multiple Birth Type" value={selectedChild.multipleBirthType ? `[${selectedChild.multipleBirthType}]` : '—'} />
         <ChildField label="Exclusive Breastfeeding" value={selectedChild.exclusiveBreastfeeding || selectedChild.feedingType || '—'} />
         <ChildField label="Expanded Newborn Screening" value={selectedChild.expandedNewbornScreening || selectedChild.nutritionNotes || '—'} />
         <ChildField label="Expanded Newborn Screening Result" value={selectedChild.expandedNewbornScreeningResult || '—'} className="full-width" />
+      </ChildSection>
+
+      <ChildSection title="I.B ADDITIONAL DETAILS">
+        <ChildField label="Delivery Type" value={selectedChild.deliveryType || '—'} />
+        <ChildField label="Health Status" value={selectedChild.healthStatus || '—'} />
+        <ChildField label="Birth Attendant" value={selectedChild.birthAttendant || '—'} />
+        <ChildField label="APGAR Score" value={selectedChild.apgarScore || '—'} />
+        <ChildField label="Feeding Type" value={selectedChild.feedingType || '—'} />
+        <ChildField label="Father / Parent Name" value={selectedChild.fatherName || '—'} />
+        <ChildField label="Relationship" value={selectedChild.relationship || '—'} />
+        <ChildField label="Address" value={selectedChild.address || '—'} className="full-width" />
+        <ChildField label="Nutrition Notes" value={selectedChild.nutritionNotes || '—'} className="full-width" />
+      </ChildSection>
+
+      <ChildSection title="I.C MEDICAL CONDITIONS">
+        <ChildField
+          label="Recorded Conditions"
+          value={Object.entries(selectedChild.medicalConditions || {})
+            .filter(([, enabled]) => Boolean(enabled))
+            .map(([condition]) => condition.replace(/([A-Z])/g, ' $1').replace(/^./, (character) => character.toUpperCase()))
+            .join(', ') || 'None'}
+          className="full-width"
+        />
       </ChildSection>
 
       <ChildSection title="I.A VACCINE RECORD">
@@ -320,18 +353,15 @@ export default function ChildProfilePage() {
       <header className="community-header">
         <div className="community-title-section">
           <h1>Child Profile</h1>
-          <div style={{ marginTop: 4 }}>
-            <div style={{ fontSize: '0.95rem', color: '#64748b' }}>{resolvedMother ? `Child of ${resolvedMother.name || resolvedMother.firstName || resolvedMother.motherName}` : `Child ID: ${childId || 'n/a'}`}</div>
-            <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: 6 }}>
-              {resolvedMother ? (`Mother: ${resolvedMother.name || resolvedMother.motherName || `${resolvedMother.firstName || ''} ${resolvedMother.lastName || ''}`.trim()} • ${resolvedMother.motherId || resolvedMother.id || ''}`) : (selectedChild ? (`Mother ID: ${selectedChild.mother_id || selectedChild.motherId || '—'}`) : '')}
-            </div>
-            <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: 2 }}>
-              {selectedChild ? (`Father: ${selectedChild.fatherName || selectedChild.father_name || '—'} • Relationship: ${selectedChild.relationship || '—'}`) : ''}
-            </div>
-          </div>
         </div>
         <div>
-          <button className="btn-secondary" onClick={() => navigate(-1)}>Back</button>
+          <button className="btn-secondary" onClick={() => {
+            if (returnTo) {
+              navigate(returnTo, { state: { mother: resolvedMother } });
+              return;
+            }
+            navigate(-1);
+          }}>Back</button>
         </div>
       </header>
 
