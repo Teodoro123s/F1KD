@@ -10,7 +10,7 @@
 .beneficiary-page .view-page-header {
   min-height: 104px;
   padding: 1.05rem 1.2rem 0.95rem;
-  border: 1px solid #dfe6ee;
+  border: 0;
   border-radius: 14px;
   background: #f3f6f8;
   box-shadow: none;
@@ -58,6 +58,8 @@
 .beneficiary-page .beneficiary-filter-row .search-container {
   margin-left: auto;
 }
+
+.mother-children-back-button { min-height: 44px; padding: 0 1rem; border-radius: 10px; }
 
 /* Breadcrumbs */
 .community-breadcrumb {

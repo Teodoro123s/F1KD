@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { apiGetChildrenByMother } from '../../../api/children';
 import { apiGetMother } from '../../../api/mothers';
 import BeneficiaryTable from '../BeneficiaryTable';
+import PageHeader from '../../../components/ui/PageHeader';
 import { useAuth } from '../../../auth/AuthProvider';
 import { can } from '../../../utils/permissions';
 
@@ -14,6 +15,7 @@ export default function MotherChildrenPage() {
   const canManage = can(currentUser?.role, 'admin-resources', 'create');
   const [mother, setMother] = useState(location.state?.mother || null);
   const [children, setChildren] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
@@ -31,6 +33,8 @@ export default function MotherChildrenPage() {
       } catch (loadError) {
         if (!active) return;
         setError(loadError.message || 'Unable to load children');
+      } finally {
+        if (active) setLoading(false);
       }
     };
 
@@ -95,20 +99,22 @@ export default function MotherChildrenPage() {
   );
 
   return (
-    <section className="mother-detail-page">
-      <header className="mother-detail-header">
-        <div className="mother-detail-identity">
-          <h1 className="mother-detail-name">Children of {motherName}</h1>
-        </div>
-        <div className="mother-detail-actions">
-          {canManage && <button type="button" className="btn-create-action" onClick={() => navigate(`/beneficiary/create/child`, { state: { mother, returnTo } })}>Create Child</button>}
-          <button type="button" className="btn-secondary" onClick={() => navigate(returnTo || -1, { state: { mother } })}>Back</button>
-        </div>
-      </header>
+    <section className="community-page beneficiary-page mother-children-page">
+      <PageHeader
+        title={`Children of ${motherName}`}
+        breadcrumbs={[{ label: 'Beneficiaries', to: '/beneficiary' }, { label: 'Children' }]}
+        actions={(
+          <>
+            {canManage && <button type="button" className="view-btn view-btn--primary module-create-button" onClick={() => navigate(`/beneficiary/create/child`, { state: { mother, returnTo } })}>Create Child</button>}
+            <button type="button" className="btn-secondary mother-children-back-button" onClick={() => navigate(returnTo || -1, { state: { mother } })}>Back</button>
+          </>
+        )}
+      />
 
       {error && <div className="form-error">{error}</div>}
       {!error && <BeneficiaryTable
         currentRows={currentRows}
+        loading={loading}
         filteredDataLength={childRows.length}
         rangeStart={childRows.length ? ((currentPage - 1) * perPage) + 1 : 0}
         rangeEnd={Math.min(currentPage * perPage, childRows.length)}

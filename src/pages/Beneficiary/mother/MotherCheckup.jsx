@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import StepWizard from '../../../components/StepWizard';
 
 const TRIMESTERS = [
@@ -90,15 +90,20 @@ const createInitialFormState = (mother, checkup = null, blank = false) => ({
   remarks: checkup?.remarks ?? '',
 });
 
-export default function MotherCheckup({ mother, onSave = () => {}, onCancel = () => {} }) {
+export default function MotherCheckup({ mother, onSave = () => {}, onCancel = () => {}, forceEdit = false }) {
   if (!mother) return null;
 
   const initialStep = getInitialStep(mother.trimester || '1st Trimester', mother.checkups);
   const [activeStep, setActiveStep] = useState(initialStep);
+  const previousMotherId = useRef(mother.id || mother.motherId);
   const [formState, setFormState] = useState(() => createInitialFormState(mother, getCheckupForStep(mother, initialStep)));
 
   useEffect(() => {
-    setActiveStep(getInitialStep(mother.trimester || '1st Trimester', mother.checkups));
+    const motherId = mother.id || mother.motherId;
+    if (previousMotherId.current !== motherId) {
+      previousMotherId.current = motherId;
+      setActiveStep(getInitialStep(mother.trimester || '1st Trimester', mother.checkups));
+    }
   }, [mother]);
 
   useEffect(() => {
@@ -181,14 +186,14 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
   const isCompleted = Boolean(activeCheckup?.completed);
   const firstIncompleteStep = getFirstIncompleteStep(mother.checkups, getTrimesterIndex(mother.trimester || '1st Trimester') * 3);
   const isFuture = firstIncompleteStep !== -1 && activeStep > firstIncompleteStep;
-  const isReadOnly = isCompleted || isFuture;
+  const isReadOnly = !forceEdit && (isCompleted || isFuture);
 
   const handleStepClick = (trimester, step) => {
     const nextStep = (trimester - 1) * 3 + (step - 1);
     setActiveStep(nextStep);
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
 
     const currentCheckup = CHECKUPS[activeStep] || CHECKUPS[0];
@@ -218,12 +223,14 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
     };
 
     if (isReadOnly) return;
-    onSave(payload);
-    setActiveStep((current) => Math.min(current + 1, CHECKUPS.length - 1));
+    const saved = await onSave(payload);
+    if (saved !== false && !forceEdit) {
+      setActiveStep((current) => Math.min(current + 1, CHECKUPS.length - 1));
+    }
   };
 
   const resetForm = () => {
-    setFormState(createInitialFormState(mother));
+    setFormState(createInitialFormState(mother, getCheckupForStep(mother, activeStep)));
     onCancel();
   };
 

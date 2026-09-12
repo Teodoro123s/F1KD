@@ -6,18 +6,18 @@
 .profile-subtitle { margin-top: 0.35rem; font-size: 0.85rem; color: #64748b; display: flex; align-items: center; gap: 0.5rem; }
 
 .progress-report-shell {
-  background: linear-gradient(180deg, #f5f7f8 0%, #eef3f8 100%);
+  background: transparent;
   min-height: 100%;
-  padding: 1.25rem 0 2.25rem;
+  padding: 0;
 }
 .progress-report-panel {
   margin: 0 auto;
   max-width: 1180px;
-  background: #f8fafc;
-  border: 1px solid #dfeaf3;
-  border-radius: 18px;
-  padding: 1.25rem;
-  box-shadow: 0 18px 40px -26px rgba(15, 23, 42, 0.45);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
 }
 .progress-report-header-row {
   display: grid;
@@ -798,8 +798,13 @@
   align-items: center;
   gap: 0.75rem;
   margin-left: auto;
-  width: 100%;
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  justify-content: flex-end;
 }
+.program-tabs-row { flex-wrap: nowrap; }
+.program-tabs-row > .tabs-list { flex: 0 0 auto; }
 .program-search {
   flex: 1 1 auto;
   min-width: 0;
@@ -852,7 +857,7 @@
 .hierarchical-progress-report { padding-bottom: 2rem; }
 .progress-report-breadcrumb { display: flex; flex-wrap: wrap; gap: 0.45rem; margin: 0.75rem 0 1rem; color: #64748b; font-size: 0.9rem; }
 .progress-report-breadcrumb b { color: #94a3b8; }
-.progress-report-config, .progress-report-results { padding: 1.25rem; border: 1px solid #e2e8f0; border-radius: 14px; background: #fff; }
+.progress-report-config, .progress-report-results { padding: 1.25rem; border: 0; border-radius: 0; background: transparent; }
 .progress-report-config-header, .progress-report-results-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
 .progress-report-config-header h1, .progress-report-results-header h2 { margin: 0; color: #0f172a; }
 .progress-report-config-header h1 { font-size: clamp(1.5rem, 2vw, 2rem); line-height: 1.1; }
@@ -908,6 +913,8 @@
 }
 
 @media (max-width: 720px) {
+  .program-tabs-row { align-items: stretch; flex-wrap: wrap; }
+  .program-toolbar-controls { width: 100%; flex: 1 1 100%; }
   .program-toolbar-controls { width: 100%; margin-left: 0; }
   .program-toolbar-controls .program-search { flex: 1; min-width: 0; }
   .program-type-filter { flex: 0 0 auto; }

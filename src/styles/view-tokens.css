@@ -35,12 +35,34 @@
   background: var(--view-surface);
 }
 
+.view-content .progress-report-shell {
+  background: transparent;
+}
+
+.view-content .checkup-module {
+  background: transparent;
+  padding: 0;
+}
+
+.view-content .checkup-module.community-page,
+.view-content .progress-report-shell.community-page {
+  padding: 0.5rem;
+  gap: 1.25rem;
+}
+
 .view-content .community-header,
 .view-content .checkup-module-header,
 .view-content .progress-report-panel > .view-page-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  min-height: 64px;
+  padding: 0 var(--view-padding-x);
+  border-bottom: 1px solid var(--view-border-color);
+  background: transparent;
+}
+
+.view-content .view-page-header {
   min-height: 64px;
   padding: 0 var(--view-padding-x);
   border-bottom: 1px solid var(--view-border-color);
@@ -118,6 +140,11 @@
   align-items: center;
   flex-wrap: wrap;
   gap: var(--view-gap-md);
+}
+
+.view-content .monitoring-filter-row > .tabs-list {
+  flex-wrap: nowrap;
+  gap: 0.3rem;
 }
 
 .view-content .tab-btn {
@@ -211,6 +238,15 @@
 .view-content .monitoring-table-card,
 .view-content .beneficiary-table-card {
   padding: var(--view-padding-y) var(--view-padding-x);
+}
+
+.view-content .community-page .table-card {
+  padding: 0;
+}
+
+.view-content .community-page .table-card .table-overflow {
+  border: 0;
+  border-radius: 0;
 }
 
 .view-content .table-overflow {
@@ -320,7 +356,7 @@
   background: var(--view-primary);
   border: 1px solid var(--view-primary);
   color: #fff;
-  padding: 0 16px;
+  padding: 0 12px;
 }
 
 .view-content .btn-secondary {
@@ -411,14 +447,14 @@
 
 .view-content .monitoring-progress > span {
   display: block;
-  width: 120px;
-  height: 8px;
-  border-radius: 999px;
-  background: #E5E7EB;
-  overflow: hidden;
-}
+  width: 180px;
+  min-width: 180px;
+  height: 44px;
+  padding: 0 16px;
+  gap: 8px;
+  border-radius: 10px;
 
-.view-content .monitoring-progress > span > span {
+  font-size: 0.95rem;
   display: block;
   height: 100%;
   background: var(--view-primary);
@@ -464,7 +500,8 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  min-width: 180px;
+  width: 200px;
+  min-width: 200px;
   padding: 0;
   border: 0;
   background: transparent;
@@ -522,6 +559,17 @@
   color: var(--view-text-soft);
 }
 
+.view-breadcrumb__link {
+  color: var(--view-text-muted);
+  text-decoration: none;
+}
+
+.view-breadcrumb__link:hover,
+.view-breadcrumb__link:focus-visible {
+  color: var(--view-text);
+  text-decoration: underline;
+}
+
 .view-page-title {
   margin: 0;
   font-size: var(--view-text-h1);
@@ -533,6 +581,34 @@
   display: flex;
   align-items: center;
   gap: var(--view-gap-md);
+}
+
+.view-page-header__actions .module-create-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-width: 180px;
+  height: 44px;
+  padding: 0 12px;
+  gap: 10px;
+  border-radius: 12px;
+  white-space: nowrap;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+@media (max-width: 640px) {
+  .view-page-header__actions .module-create-button {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+.view-page-header__actions .module-create-button svg {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
 }
 
 .view-filter-bar {

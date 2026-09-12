@@ -14,6 +14,7 @@
   box-sizing: border-box;
   text-decoration: none;
 }
+.mother-children-page .beneficiary-table-card .table-overflow { min-height: 0; }
 .beneficiary-table-card .entity-card-button:hover,
 .beneficiary-table-card .entity-card-button:focus-visible {
   background: rgba(255, 255, 255, 0.2);

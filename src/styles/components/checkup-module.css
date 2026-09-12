@@ -240,15 +240,13 @@
   margin: 0 0 1.5rem;
   padding: 0 0 0.5rem;
   justify-content: flex-start;
+  flex-wrap: nowrap;
 }
 
-.monitoring-filter-row .beneficiary-search-controls { margin-left: auto; }
-
-@media (max-width: 1080px) {
-  .monitoring-filter-row { align-items: stretch; }
-  .monitoring-filter-row .beneficiary-search-controls { flex: 1 1 100%; width: 100%; margin-left: 0; }
-  .monitoring-filter-row .beneficiary-search-controls .search-container { flex: 1 1 auto; width: auto; }
-}
+.monitoring-filter-row > .tabs-list { flex: 1 1 0; min-width: 0; gap: 0.3rem; }
+.monitoring-filter-row > .tabs-list .tab-btn { min-width: 0; padding: 0.65rem 0.4rem; font-size: 0.85rem; white-space: nowrap; }
+.monitoring-filter-row .beneficiary-search-controls { flex: 1 1 0; min-width: 0; margin-left: auto; }
+.monitoring-filter-row .beneficiary-search-controls .search-container { flex: 1 1 auto; width: auto; min-width: 0; }
 
 .monitoring-status-filters { display: inline-flex; gap: 0.2rem; }
 .monitoring-status-filters button { padding: 0.45rem 0.7rem; border: 0; border-radius: 6px; background: transparent; color: var(--text-muted); font: inherit; font-size: 0.82rem; font-weight: 700; cursor: pointer; }

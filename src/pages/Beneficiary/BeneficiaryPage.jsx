@@ -136,7 +136,7 @@ export default function BeneficiaryPage() {
         actions={
           !isMotherDetail && !isCreateMother && !isCreateChild && canCreate ? (
             <div className="create-menu-wrapper">
-              <button className="view-btn view-btn--primary" onClick={openCreateModal} type="button">
+              <button className="view-btn view-btn--primary module-create-button" onClick={openCreateModal} type="button">
                 <PlusIcon />
                 <span>Create</span>
               </button>

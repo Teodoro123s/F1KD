@@ -462,7 +462,7 @@ export default function ProgramPage() {
         breadcrumbs={[{ label: 'Program' }]}
         actions={
           canManagePrograms && <button
-              className="view-btn view-btn--primary"
+              className="view-btn view-btn--primary module-create-button"
               type="button"
               onClick={() =>
                 viewMode ? openBeneficiaryModal() : setShowModal(true)

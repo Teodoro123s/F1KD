@@ -75,6 +75,7 @@ export default function MonitoringPage() {
   const [savedMessage, setSavedMessage] = useState('');
   const [motherCheckups, setMotherCheckups] = useState(() => location.state?.mother?.checkups || []);
   const [childCompletedWeeks, setChildCompletedWeeks] = useState(() => location.state?.child?.completedWeeks || []);
+  const [editingCheckup, setEditingCheckup] = useState(false);
   const [statusFilter, setStatusFilter] = useState('All');
   const [perPage, setPerPage] = useState(10);
   const [page, setPage] = useState(1);
@@ -125,7 +126,7 @@ export default function MonitoringPage() {
       }
     } catch (error) {
       setSavedMessage(`Unable to save check-up: ${error.message}`);
-      return;
+      return false;
     }
     setMotherCheckups((current) => {
       const next = current.map((trimester) => [...trimester]);
@@ -135,10 +136,12 @@ export default function MonitoringPage() {
       return next;
     });
     setSavedMessage(`Check-up ${payload.trimester} ${payload.checkupNumber} captured for ${getMotherName(selectedMother)}.`);
+    return true;
   };
 
   const handleSelectMother = (mother) => {
     setSelectedMother(mother);
+    setEditingCheckup(false);
     setMotherCheckups(mother.checkups || []);
     setSelectedChild(null);
     setSavedMessage('');
@@ -157,6 +160,7 @@ export default function MonitoringPage() {
       setSavedMessage(`Unable to load saved child check-ups: ${error.message}`);
     }
     setSelectedMother(null);
+    setEditingCheckup(false);
   };
 
   const handleBack = () => {
@@ -238,7 +242,7 @@ export default function MonitoringPage() {
   };
 
   return (
-    <div className="checkup-module page">
+    <div className="community-page checkup-module page">
       <PageHeader
         title={selectedMother || selectedChild ? (selectedMother ? getMotherName(selectedMother) : getChildName(selectedChild)) : 'Monitor'}
         breadcrumbs={selectedMother || selectedChild ? [{ label: 'Monitor', href: '/monitoring' }, { label: selectedMother ? getMotherName(selectedMother) : getChildName(selectedChild) }] : [{ label: 'Monitor' }]}
@@ -322,13 +326,20 @@ export default function MonitoringPage() {
               <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/mother/${selectedMother.id || selectedMother.motherId}`, { state: { mother: selectedMother } })}>
                 Beneficiary Profile
               </button>
-              <button type="button" className="btn-primary" onClick={() => navigate(`/beneficiary/mother/${selectedMother.id || selectedMother.motherId}/edit`, { state: { mother: selectedMother } })}>
-                Edit
+              <button type="button" className="btn-primary" onClick={() => setEditingCheckup((current) => !current)}>
+                {editingCheckup ? 'Cancel edit' : 'Edit checkup'}
               </button>
             </div>
           </div>
           {savedMessage && <p className="checkup-save-message" role="status">{savedMessage}</p>}
-          <MotherCheckup mother={{ ...selectedMother, checkups: motherCheckups }} onSave={handleSave} onCancel={() => setSelectedMother(null)} />
+          <MotherCheckup
+            mother={{ ...selectedMother, checkups: motherCheckups }}
+            onSave={async (payload) => {
+              if (await handleSave(payload)) setEditingCheckup(false);
+            }}
+            onCancel={() => { setEditingCheckup(false); setSelectedMother(null); }}
+            forceEdit={editingCheckup}
+          />
         </section>
       )}
     </div>

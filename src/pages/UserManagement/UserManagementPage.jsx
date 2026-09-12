@@ -78,7 +78,7 @@ export default function UserManagementPage() {
         title="User Management"
         breadcrumbs={breadcrumbItems}
         actions={
-          <button className="view-btn view-btn--primary" type="button" onClick={openAddModal} disabled={!canCreate}>
+          <button className="view-btn view-btn--primary module-create-button" type="button" onClick={openAddModal} disabled={!canCreate}>
             <PlusIcon />
             <span>{canCreate ? 'Add User' : 'Add User (requires Admin)'}</span>
           </button>

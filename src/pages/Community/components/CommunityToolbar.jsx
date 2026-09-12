@@ -1,5 +1,6 @@
 import React from 'react';
 import { PlusIcon } from '../CommunityIcons';
+import PageHeader from '../../../components/ui/PageHeader';
 
 export default function CommunityToolbar({
   activeTab,
@@ -15,26 +16,12 @@ export default function CommunityToolbar({
 }) {
   return (
     <>
-      <header className="community-header">
-        <div className="community-title-section">
-          <h1>Communities</h1>
-          <nav className="community-breadcrumb" aria-label="Breadcrumb">
-            {breadcrumbItems.map((item, index) => (
-              <span key={`${item.label}-${index}`} className="breadcrumb-item">
-                {item.clickable ? (
-                  <button type="button" className="breadcrumb-link" onClick={() => navigate(item.to)}>
-                    {item.label}
-                  </button>
-                ) : (
-                  <span className="breadcrumb-current">{item.label}</span>
-                )}
-                {index < breadcrumbItems.length - 1 && <span className="breadcrumb-separator">›</span>}
-              </span>
-            ))}
-          </nav>
-        </div>
-
-        {activeTab === 'mothers' && (
+      <PageHeader
+        title="Communities"
+        breadcrumbs={breadcrumbItems.map((item) => ({ label: item.label, to: item.clickable ? item.to : undefined }))}
+        actions={(
+          <>
+            {activeTab === 'mothers' && (
           <div className="entity-toggle" role="tablist" aria-label="Entity filter">
             <button
               type="button"
@@ -53,10 +40,10 @@ export default function CommunityToolbar({
               Child
             </button>
           </div>
-        )}
+            )}
 
-        {activeTab !== 'mothers' && canManage && (
-          <button className="btn-create-action" onClick={onCreate}>
+            {activeTab !== 'mothers' && canManage && (
+          <button className="btn-create-action module-create-button" onClick={onCreate}>
             <PlusIcon />
             <span>
               {activeTab === 'communities'
@@ -66,8 +53,10 @@ export default function CommunityToolbar({
                   : 'Create Batch'}
             </span>
           </button>
+            )}
+          </>
         )}
-      </header>
+      />
 
     </>
   );

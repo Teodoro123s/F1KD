@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { apiGetProgressReport, apiGetProgressReportOptions } from '../../api/progressReport';
+import PageHeader from '../../components/ui/PageHeader';
 
 const EMPTY_SELECTIONS = { schoolId: '', groupId: '', batchId: '' };
 const REPORT_FIELDS = [
@@ -138,8 +139,9 @@ export default function ProgressReport() {
   };
 
   return (
-    <div className="progress-report-shell">
+    <div className="community-page progress-report-shell">
       <div className="progress-report-panel hierarchical-progress-report">
+        <PageHeader title="Progress Report" breadcrumbs={[{ label: 'Progress Report' }]} />
 
         <section className="progress-report-config" aria-label="Report parameters">
           <div className="progress-report-config-header">

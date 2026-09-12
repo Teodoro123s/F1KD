@@ -5,6 +5,7 @@ import { useMothers } from '../../../context/MothersContext';
 import { apiGetMother, apiUpdateMother } from '../../../api/mothers';
 import { formatDateForInput } from '../../../utils/dateFormat';
 import { getSummary } from '../../Community/communityService';
+import PageHeader from '../../../components/ui/PageHeader';
 
 const normalizeMotherDates = (mother) => {
   const dateFields = ['dob', 'lmpDate', 'eddDate', 'prenatalRegDate', 'dentalCheckupDate'];
@@ -96,31 +97,35 @@ export default function EditMotherPage() {
   };
 
   return (
-    <section className="edit-mother-page">
-      <header className="edit-mother-header">
-        <h1 className="edit-mother-title">Edit: {form.name || `${form.firstName || ''} ${form.lastName || ''}`}</h1>
-      </header>
+    <section className="community-page beneficiary-page edit-mother-page">
+      <PageHeader
+        title="Beneficiaries"
+        breadcrumbs={[{ label: 'Beneficiaries', to: '/beneficiary' }, { label: 'Edit' }]}
+        actions={(
+          <>
+            <button type="button" className="btn-secondary edit-mother-action" onClick={() => navigate(-1)}>Cancel</button>
+            <button type="submit" form="mother-edit-form" className="btn-primary edit-mother-action" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
+          </>
+        )}
+      />
 
       {error && <div className="form-error" style={{ color: 'var(--danger-color)', margin: '8px 0' }}>{error}</div>}
 
-      <form onSubmit={handleSave} className="mother-edit-form">
+      <form id="mother-edit-form" onSubmit={handleSave} className="mother-edit-form">
         {['general', 'prenatal', 'medical_dental', 'vaccine'].map((section) => (
-          <MotherFormFields
-            key={section}
-            activeTab={section}
-            form={form}
-            setForm={setForm}
-            communities={communityOptions.communities}
-            groups={communityOptions.groups}
-            batches={communityOptions.batches}
-            autoCalculate={false}
-            readOnly={false}
-          />
+          <section className="mother-detail-section edit-mother-section" key={section}>
+            <MotherFormFields
+              activeTab={section}
+              form={form}
+              setForm={setForm}
+              communities={communityOptions.communities}
+              groups={communityOptions.groups}
+              batches={communityOptions.batches}
+              autoCalculate={false}
+              readOnly={false}
+            />
+          </section>
         ))}
-        <div className="modal-footer edit-mother-footer">
-          <button type="button" className="btn-secondary" onClick={() => navigate(-1)}>Cancel</button>
-          <button type="submit" className="btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
-        </div>
       </form>
     </section>
   );

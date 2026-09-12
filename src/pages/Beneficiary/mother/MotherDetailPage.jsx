@@ -165,17 +165,13 @@ export default function MotherDetailPage({ selectedMother, onClose }) {
   return (
     <section className="mother-detail-page">
       <header className="mother-detail-header">
-        <div className="mother-detail-identity">
-          <h1 className="mother-detail-name">{fullName || 'Unnamed Mother'}</h1>
-        </div>
-
         <div className="mother-detail-actions">
           {canManage && <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/mother/${motherId}/edit`, { state: { mother: selectedMother } })}>Edit</button>}
           <button type="button" className="btn-secondary" onClick={() => {
             navigate(`/beneficiary/mother/${motherId}/child`, { state: { mother: selectedMother, children, returnTo: `/beneficiary/mother/${motherId}` } });
           }}>View Children</button>
           <button type="button" className="btn-primary" onClick={() => navigate('/monitoring', { state: { mother, returnTo: `/beneficiary/mother/${motherId}` } })}>Monitor</button>
-          <button type="button" className="btn-close-profile-custom" onClick={onClose} aria-label="Close mother profile">Close</button>
+          <button type="button" className="btn-secondary" onClick={onClose} aria-label="Close mother profile">Close</button>
         </div>
       </header>
 
