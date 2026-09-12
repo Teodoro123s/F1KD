@@ -165,9 +165,9 @@
   min-width: 240px;
   height: 36px;
   padding: 0 12px;
-  background: var(--view-bg-white);
-  border: 1px solid var(--view-border-color);
-  border-radius: var(--view-radius);
+  background: transparent;
+  border: none;
+  border-radius: 0;
 }
 
 .view-content .search-input-field,
@@ -182,7 +182,7 @@
   color: var(--view-text);
   font-size: var(--view-text-body);
   box-sizing: border-box;
-  padding: 0.7rem 0.85rem;
+  padding: 0.7rem 0.85rem 0.7rem 2.8rem;
 }
 
 .view-content .search-input-field:focus,

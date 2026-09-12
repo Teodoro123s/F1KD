@@ -355,7 +355,6 @@ export default function ProgramPage() {
 
       {!viewMode && (
         <section className="program-list-toolbar">
-          <div className="program-list-heading">Program List</div>
           <div className="program-filter-row">
             <div className="search-field-container">
               <SearchIcon />

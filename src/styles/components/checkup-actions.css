@@ -1,6 +1,7 @@
 ﻿/* Mother checkup action buttons */
 .checkup-actions { display:flex; gap:8px; margin-top:8px; }
-.checkup-actions .btn-primary { background:#6aa84f; color:#fff; border:none; padding:8px 12px; border-radius:4px; cursor: pointer; }
+.checkup-actions .btn-primary { background: #5a0f1f; color: #fff; border: 1px solid #5a0f1f; padding: 8px 12px; border-radius: 6px; cursor: pointer; }
+.checkup-actions .btn-primary:hover { background: #420a17; }
 .checkup-actions .btn-secondary { background:#eee; border:1px solid #ddd; padding:8px 12px; border-radius:4px; cursor: pointer; }
 
 /* additional mother-checkup-stepper container */

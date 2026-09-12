@@ -29,7 +29,7 @@
 
 .search-container > svg { width: 1.1rem; height: 1.1rem; color: #94A3B8; flex: 0 0 auto; }
 
-.search-input-field { width: 100%; box-sizing: border-box; padding: 0.55rem 1rem 0.55rem 2.5rem; border-radius: 99px; border: 1px solid var(--border-color); background: #fff; font-size: 0.9rem; color: var(--slate-dark); transition: all 150ms ease; }
+.search-input-field { width: 100%; box-sizing: border-box; padding: 0.55rem 1rem 0.55rem 2.8rem; border-radius: 99px; border: 1px solid var(--border-color); background: #fff; font-size: 0.9rem; color: var(--slate-dark); transition: all 150ms ease; }
 .search-input-field:focus { outline: none; border-color: var(--burgundy); box-shadow: 0 0 0 3px rgba(122, 12, 30, 0.08); }
 
 /* Entity filter button placed at left of search */

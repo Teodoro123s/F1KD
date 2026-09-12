@@ -169,56 +169,61 @@ export default function CommunityPage() {
     return items;
   }, [activeTab, schoolId, selectedSchool, selectedSchoolForGroup, selectedSchoolForBatch, selectedGroup, selectedGroupForBatch]);
 
+  const normalizedQuery = String(query || '').trim().toLowerCase();
+  const queryMatches = (value, fields = []) => {
+    if (!normalizedQuery) return true;
+    const haystack = String(value ?? '').toLowerCase();
+    return fields.some((field) => String(field ?? '').toLowerCase().includes(normalizedQuery)) ||
+      haystack.includes(normalizedQuery);
+  };
+
   const selectedSchoolGroups = useMemo(() => {
     if (!selectedSchool) return [];
-    const term = query.trim().toLowerCase();
     return groups
       .filter((group) => group.community === selectedSchool.name)
       .filter((group) => {
-        if (!term) return true;
+        if (!normalizedQuery) return true;
         return (
-          String(group.name || '').toLowerCase().includes(term) ||
-          String(group.id || '').toLowerCase().includes(term) ||
-          String(group.leader || '').toLowerCase().includes(term) ||
-          String(group.status || '').toLowerCase().includes(term)
+          String(group.name || '').toLowerCase().includes(normalizedQuery) ||
+          String(group.id || '').toLowerCase().includes(normalizedQuery) ||
+          String(group.leader || '').toLowerCase().includes(normalizedQuery) ||
+          String(group.status || '').toLowerCase().includes(normalizedQuery)
         );
       });
-  }, [groups, selectedSchool, query]);
+  }, [groups, selectedSchool, normalizedQuery]);
 
   const selectedGroupBatches = useMemo(() => {
     if (!selectedGroup) return [];
-    const term = query.trim().toLowerCase();
     const groupBatchIds = mothers
       .filter((mother) => mother.group === selectedGroup.name && mother.batchId)
       .map((mother) => String(mother.batchId));
     return batches
       .filter((batch) => groupBatchIds.includes(String(batch.id)))
       .filter((batch) => {
-        if (!term) return true;
+        if (!normalizedQuery) return true;
         return (
-          String(batch.name || '').toLowerCase().includes(term) ||
-          String(batch.id || '').toLowerCase().includes(term) ||
-          String(batch.community || '').toLowerCase().includes(term) ||
-          String(batch.status || '').toLowerCase().includes(term)
+          String(batch.name || '').toLowerCase().includes(normalizedQuery) ||
+          String(batch.id || '').toLowerCase().includes(normalizedQuery) ||
+          String(batch.community || '').toLowerCase().includes(normalizedQuery) ||
+          String(batch.status || '').toLowerCase().includes(normalizedQuery)
         );
       });
-  }, [batches, mothers, selectedGroup, query]);
+  }, [batches, mothers, selectedGroup, normalizedQuery]);
 
   const selectedBatchMothers = useMemo(() => {
     if (!selectedBatch) return [];
-    const term = query.trim().toLowerCase();
     return mothers
       .filter((mother) => mother.batchId === selectedBatch.id)
       .filter((mother) => {
-        if (!term) return true;
+        if (!normalizedQuery) return true;
         return (
-          String(mother.name || '').toLowerCase().includes(term) ||
-          String(mother.id || '').toLowerCase().includes(term) ||
-          String(mother.group || '').toLowerCase().includes(term) ||
-          String(mother.status || '').toLowerCase().includes(term)
+          String(mother.name || '').toLowerCase().includes(normalizedQuery) ||
+          String(mother.id || '').toLowerCase().includes(normalizedQuery) ||
+          String(mother.group || '').toLowerCase().includes(normalizedQuery) ||
+          String(mother.status || '').toLowerCase().includes(normalizedQuery)
         );
       });
-  }, [mothers, selectedBatch, query]);
+  }, [mothers, selectedBatch, normalizedQuery]);
 
   useEffect(() => {
     function closeDropdowns() {
@@ -274,15 +279,15 @@ export default function CommunityPage() {
   };
 
   const filteredData = useMemo(() => {
-    const term = query.trim().toLowerCase();
     if (activeTab === 'communities') {
-      if (!term) return communities;
-      return communities.filter(
-        (c) =>
-          String(c.name || '').toLowerCase().includes(term) ||
-            String(c.id || '').toLowerCase().includes(term) ||
-            String(c.area || '').toLowerCase().includes(term)
-      );
+      return communities.filter((c) => {
+        if (!normalizedQuery) return true;
+        return (
+          String(c.name || '').toLowerCase().includes(normalizedQuery) ||
+          String(c.id || '').toLowerCase().includes(normalizedQuery) ||
+          String(c.area || '').toLowerCase().includes(normalizedQuery)
+        );
+      });
     }
 
     if (activeTab === 'mothers') {
@@ -290,25 +295,27 @@ export default function CommunityPage() {
     }
 
     if (activeTab === 'batches') {
-      if (!term) return batches;
-      return batches.filter(
-        (b) =>
-          String(b.name || '').toLowerCase().includes(term) ||
-          String(b.id || '').toLowerCase().includes(term) ||
-          String(b.community || '').toLowerCase().includes(term) ||
-          String(b.status || '').toLowerCase().includes(term)
-      );
+      return batches.filter((b) => {
+        if (!normalizedQuery) return true;
+        return (
+          String(b.name || '').toLowerCase().includes(normalizedQuery) ||
+          String(b.id || '').toLowerCase().includes(normalizedQuery) ||
+          String(b.community || '').toLowerCase().includes(normalizedQuery) ||
+          String(b.status || '').toLowerCase().includes(normalizedQuery)
+        );
+      });
     }
 
-    if (!term) return groups;
-    return groups.filter(
-      (g) =>
-          String(g.name || '').toLowerCase().includes(term) ||
-        String(g.id || '').toLowerCase().includes(term) ||
-        String(g.leader || '').toLowerCase().includes(term) ||
-        String(g.status || '').toLowerCase().includes(term)
-    );
-  }, [activeTab, query, communities, batches, groups]);
+    return groups.filter((g) => {
+      if (!normalizedQuery) return true;
+      return (
+        String(g.name || '').toLowerCase().includes(normalizedQuery) ||
+        String(g.id || '').toLowerCase().includes(normalizedQuery) ||
+        String(g.leader || '').toLowerCase().includes(normalizedQuery) ||
+        String(g.status || '').toLowerCase().includes(normalizedQuery)
+      );
+    });
+  }, [activeTab, communities, batches, groups, selectedBatchMothers, normalizedQuery]);
 
   const currentFilteredData =
     batchId && activeTab === 'mothers' ? selectedBatchMothers :

@@ -207,7 +207,8 @@ export default function MonitoringPage() {
     <div className="checkup-module page">
       <PageHeader
         title={selectedMother || selectedChild ? (selectedMother ? getMotherName(selectedMother) : getChildName(selectedChild)) : 'Monitor'}
-        breadcrumbs={selectedMother || selectedChild ? [{ label: 'Monitor', href: '/monitoring' }, { label: selectedMother ? getMotherName(selectedMother) : getChildName(selectedChild) }] : [{ label: 'Monitor' }]}
+        description={selectedMother || selectedChild ? '' : 'Track beneficiary follow-up and monitoring progress across mothers and children.'}
+        breadcrumbs={selectedMother || selectedChild ? [{ label: 'Monitor', href: '/monitoring' }, { label: selectedMother ? getMotherName(selectedMother) : getChildName(selectedChild) }] : []}
         actions={selectedMother || selectedChild ? (
           <button type="button" className="view-btn view-btn--secondary" onClick={handleBack}>Back</button>
         ) : null}
@@ -215,14 +216,16 @@ export default function MonitoringPage() {
 
       {!selectedMother && !selectedChild ? (
         <section className="monitoring-list-container" aria-labelledby="monitoring-list-title">
-          <div className="tabs-row monitoring-filter-row">
-            <StatusFilterBar selectedStatusFilter={statusFilter} onChange={(nextStatus) => { setStatusFilter(nextStatus); setPage(1); }} />
+          <div className="monitoring-toolbar-top">
             <EntitySearchControls
               selectedEntityFilter={beneficiaryType}
               query={query}
               onEntityToggle={() => { setBeneficiaryType((current) => (current === 'Mother' ? 'Child' : 'Mother')); setQuery(''); setPage(1); }}
               onQueryChange={(value) => { setQuery(value); setPage(1); }}
             />
+          </div>
+          <div className="tabs-row monitoring-filter-row">
+            <StatusFilterBar selectedStatusFilter={statusFilter} onChange={(nextStatus) => { setStatusFilter(nextStatus); setPage(1); }} />
           </div>
           <div className="table-card monitoring-table-card">
             <div className="table-overflow">
