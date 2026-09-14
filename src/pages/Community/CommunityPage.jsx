@@ -481,7 +481,6 @@ export default function CommunityPage() {
       await refreshData();
     } catch (error) {
       console.error('[CommunityPage] Unable to delete mother:', error);
-      window.alert(error?.message || 'Unable to delete mother.');
     }
   };
 

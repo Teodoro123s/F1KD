@@ -29,7 +29,6 @@ export const useCommunityMutations = ({ refreshData }) => {
         return result;
       } catch (error) {
         console.error(`[CommunityMutations] Failed to ${label}:`, error);
-        window.alert(error?.message || `Unable to ${label}.`);
         throw error;
       } finally {
         setLoading(false);

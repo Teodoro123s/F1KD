@@ -53,13 +53,13 @@ export default function App() {
         <Route path="community/batch/:batchId" element={<CommunityPage />} />
         <Route path="beneficiary" element={<Beneficiary />} />
         <Route path="beneficiary/mother/:id" element={<Beneficiary />} />
-        <Route path="beneficiary/create/mother" element={<RoleBasedRoute allowedRoles={[ROLES.SUPER_ADMIN]}><Beneficiary /></RoleBasedRoute>} />
-        <Route path="beneficiary/create/child" element={<RoleBasedRoute allowedRoles={[ROLES.SUPER_ADMIN]}><Beneficiary /></RoleBasedRoute>} />
+        <Route path="beneficiary/create/mother" element={<RoleBasedRoute allowedRoles={[ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.PARTNER]}><Beneficiary /></RoleBasedRoute>} />
+        <Route path="beneficiary/create/child" element={<RoleBasedRoute allowedRoles={[ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.PARTNER]}><Beneficiary /></RoleBasedRoute>} />
         <Route path="beneficiary/mother/:id/child" element={<MotherChildrenPage />} />
         <Route path="beneficiary/child/:childId" element={<ChildProfilePage />} />
-        <Route path="beneficiary/child/:childId/edit" element={<RoleBasedRoute allowedRoles={[ROLES.SUPER_ADMIN]}><EditChildPage /></RoleBasedRoute>} />
+        <Route path="beneficiary/child/:childId/edit" element={<RoleBasedRoute allowedRoles={[ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.PARTNER]}><EditChildPage /></RoleBasedRoute>} />
         <Route path="beneficiary/mother/:id/monitoring" element={<MonitoringPage />} />
-        <Route path="beneficiary/mother/:id/edit" element={<RoleBasedRoute allowedRoles={[ROLES.SUPER_ADMIN]}><EditMotherPage /></RoleBasedRoute>} />
+        <Route path="beneficiary/mother/:id/edit" element={<RoleBasedRoute allowedRoles={[ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.PARTNER]}><EditMotherPage /></RoleBasedRoute>} />
         <Route path="monitoring" element={<MonitoringPage />} />
         <Route path="checkup" element={<MonitoringPage />} />
         <Route path="program" element={<Program />} />

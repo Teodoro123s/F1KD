@@ -110,6 +110,7 @@ export default function CreateMotherPage({
   const { mothers, setMothers } = useMothers();
   const effectiveCommunities = communities && communities.length ? communities : mothers;
   const [communityForm, setCommunityForm] = useState(() => loadMotherDraft(emptyCommunityForm(effectiveCommunities)));
+  const [submitError, setSubmitError] = useState('');
   const [createActiveTab, setCreateActiveTab] = useState(() => {
     try { return JSON.parse(localStorage.getItem(MOTHER_DRAFT_KEY) || 'null')?.activeTab || 'general'; } catch (error) { return 'general'; }
   });
@@ -130,7 +131,11 @@ export default function CreateMotherPage({
 
   const handleCreateCommunity = async (e) => {
     e.preventDefault();
-    if (!communityForm.firstName.trim() || !communityForm.lastName.trim()) return;
+    setSubmitError('');
+    if (!communityForm.firstName.trim() || !communityForm.lastName.trim()) {
+      setSubmitError('Please complete the required mother information before saving.');
+      return;
+    }
 
     const initialCheckups = getInitialCheckups(
       communityForm.trimester,
@@ -287,12 +292,18 @@ export default function CreateMotherPage({
       navigate('/beneficiary');
     } catch (error) {
       console.error('[CreateMotherPage] Failed to create mother:', error);
-      window.alert(error.message || 'Unable to create mother.');
+      setSubmitError(error?.message || 'Unable to create mother. Please try again.');
     }
   };
 
   return (
     <section className="tabs-row create-view">
+      {submitError && (
+        <div className="notification-banner" role="alert" style={{ marginBottom: 16 }}>
+          <span>{submitError}</span>
+        </div>
+      )}
+
       <div className="stepper-progress">
         <div className="stepper-steps" role="tablist">
           {CREATE_STEPS.map((s, i) => {

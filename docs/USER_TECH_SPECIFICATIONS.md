@@ -10,7 +10,15 @@
 ## 1. Overview
 The **First 1,000 Days (F1KD)** Information System is delivered as a modern, responsive Single-Page Application (SPA) built with React and Vite. It communicates over secure HTTPS with an Express.js REST API. 
 
-Because the application is accessible through standard web browsers, users do not need to install dedicated desktop client software. However, client workstations (laptops and desktop computers) must satisfy the minimum hardware and software criteria below to guarantee fast UI rendering, responsive data filtering, local caching, and reliable document uploads.
+Because the application is accessible through standard web browsers, users do not need to install dedicated desktop client software. The current implementation remains browser-based and optimized for a modern front-end workflow. The dashboard, forms, filters, and KPI views are designed to work in standard modern browsers with no local desktop installation requirement.
+
+Client workstations (laptops and desktop computers) must satisfy the minimum hardware and software criteria below to guarantee fast UI rendering, responsive data filtering, local caching, and reliable document uploads. These requirements continue to apply even after the frontend UI refinement pass and the live dashboard data integration.
+
+### Current Deployment Notes
+- ✅ Modern browser experience is the supported client path.
+- ✅ Dashboard and management screens are responsive and role-aware.
+- ✅ No dedicated desktop client is required for core operations.
+- ⚠️ Production security hardening (session cookie migration, protected document access, and advanced audit logging) remains a backend task outside this client-side technical specification.
 
 ---
 

@@ -6,8 +6,8 @@ export const ROLES = {
 
 export const PERMISSIONS = {
   'user-management': { read: [ROLES.SUPER_ADMIN], create: [ROLES.SUPER_ADMIN], update: [ROLES.SUPER_ADMIN], delete: [ROLES.SUPER_ADMIN] },
-  'admin-resources': { read: [ROLES.SUPER_ADMIN, ROLES.ADMIN], create: [ROLES.SUPER_ADMIN], update: [ROLES.SUPER_ADMIN], delete: [ROLES.SUPER_ADMIN] },
-  'partner-resources': { read: [ROLES.SUPER_ADMIN, ROLES.PARTNER], create: [ROLES.SUPER_ADMIN], update: [ROLES.SUPER_ADMIN], delete: [ROLES.SUPER_ADMIN] },
+  'admin-resources': { read: [ROLES.SUPER_ADMIN, ROLES.ADMIN], create: [ROLES.SUPER_ADMIN, ROLES.ADMIN], update: [ROLES.SUPER_ADMIN, ROLES.ADMIN], delete: [ROLES.SUPER_ADMIN, ROLES.ADMIN] },
+  'partner-resources': { read: [ROLES.SUPER_ADMIN, ROLES.PARTNER], create: [ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.PARTNER], update: [ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.PARTNER], delete: [ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.PARTNER] },
 };
 
 const ROLE_ALIASES = {

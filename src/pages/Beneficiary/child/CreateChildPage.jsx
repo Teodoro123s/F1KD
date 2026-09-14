@@ -76,6 +76,7 @@ export default function CreateChildPage({
   const motherFromState = location.state?.mother || null;
   const { mothers, setMothers } = useMothers();
   const [groupForm, setGroupForm] = useState(() => loadChildDraft(emptyGroupForm()));
+  const [submitError, setSubmitError] = useState('');
   const [selectedMotherId, setSelectedMotherId] = useState(() => {
     try { return motherFromState?.id || motherFromState?.motherId || JSON.parse(localStorage.getItem(CHILD_DRAFT_KEY) || 'null')?.selectedMotherId || ''; } catch (error) { return motherFromState?.id || motherFromState?.motherId || ''; }
   });
@@ -123,7 +124,11 @@ export default function CreateChildPage({
 
   const handleCreateGroup = async (e) => {
     e.preventDefault();
-    if (!groupForm.firstName.trim() || !groupForm.lastName.trim()) return;
+    setSubmitError('');
+    if (!groupForm.firstName.trim() || !groupForm.lastName.trim()) {
+      setSubmitError('Please complete the required child details before saving.');
+      return;
+    }
 
     const fullName = `${groupForm.firstName.trim()} ${groupForm.middleName.trim()} ${groupForm.lastName.trim()} ${groupForm.suffix.trim()}`
       .replace(/\s+/g, ' ')
@@ -246,7 +251,7 @@ export default function CreateChildPage({
       navigate('/beneficiary');
     } catch (err) {
       console.error('Failed to create child', err);
-      try { alert(`Failed to create child: ${err.message || err}`); } catch (e) {}
+      setSubmitError(err?.message || 'Unable to create child. Please try again.');
     }
   };
 
@@ -269,6 +274,12 @@ export default function CreateChildPage({
               }
             }}>Cancel</button>
           </div>
+        </div>
+      )}
+
+      {submitError && (
+        <div className="notification-banner" role="alert" style={{ marginBottom: 16 }}>
+          <span>{submitError}</span>
         </div>
       )}
 
