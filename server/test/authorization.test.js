@@ -36,3 +36,31 @@ test('authorizeOperational denies scoped users without a school assignment to pr
   assert.equal(res.payload.code, 'PERMISSION_DENIED');
   assert.equal(res.payload.message, 'This account is not assigned to a school');
 });
+
+test('authorizeOperational attaches both school and group scope for assigned partner users', () => {
+  let called = false;
+  const req = {
+    method: 'GET',
+    user: { role: 'Health worker', school_id: 7, group_id: 15 },
+  };
+
+  const res = {
+    status(code) {
+      this.code = code;
+      return this;
+    },
+    json(payload) {
+      this.payload = payload;
+      return this;
+    },
+  };
+
+  authorizeOperational(req, res, () => {
+    called = true;
+  });
+
+  assert.equal(called, true);
+  assert.equal(req.schoolId, 7);
+  assert.equal(req.groupId, 15);
+  assert.equal(res.code, undefined);
+});

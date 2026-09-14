@@ -55,6 +55,7 @@ export default function UserManagementPage() {
     oneTimeCredentials,
     clearOneTimeCredentials,
     communities,
+    groups,
   } = useUserManagement();
 
   const location = useLocation();
@@ -140,6 +141,7 @@ export default function UserManagementPage() {
         onSubmit={handleSubmitUser}
         roleOptions={ROLE_OPTIONS}
         communities={communities}
+        groups={groups}
         mode={selectedUser ? 'edit' : 'add'}
         isSubmitting={isSubmitting}
       />

@@ -59,7 +59,7 @@ router.get('/', verifyToken, authorize('super_admin'), async (req, res) => {
     const total = countRows[0].total || 0;
 
     const [rows] = await pool.query(
-      `SELECT id, CONCAT_WS(' ', first_name, last_name) AS username, CONCAT_WS(' ', first_name, last_name) AS full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, created_at, updated_at FROM users ${where} ORDER BY id DESC LIMIT ? OFFSET ?`,
+      `SELECT id, CONCAT_WS(' ', first_name, last_name) AS username, CONCAT_WS(' ', first_name, last_name) AS full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, group_id, created_at, updated_at FROM users ${where} ORDER BY id DESC LIMIT ? OFFSET ?`,
       [...params, Number(perPage), Number(offset)]
     );
 
@@ -89,15 +89,18 @@ router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
       role,
       status,
       schoolId,
+      groupId,
     } = req.body;
 
     // build username and full_name from provided fields if necessary
     const userName = username || (email ? email.split('@')[0] : null);
     const full_name = fullName || (firstName || lastName ? `${(firstName||'').trim()} ${(lastName||'').trim()}`.trim() : null);
     const requiresSchool = ['health worker', 'community organizer'].includes(String(role || '').trim().toLowerCase());
+    const requiresGroup = requiresSchool;
 
     if (!userName || !email) return res.status(400).json({ error: 'username and email are required' });
     if (requiresSchool && !schoolId) return res.status(400).json({ error: 'schoolId is required for this role' });
+    if (requiresGroup && !groupId) return res.status(400).json({ error: 'groupId is required for this role' });
 
     // generate password if none provided
     let plainPassword = password;
@@ -112,8 +115,8 @@ router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
 
     const dbStatus = normalizeDbStatus(status || 'active');
     const [result] = await pool.query(
-      `INSERT INTO users (email, role, status, password_hash, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
+      `INSERT INTO users (email, role, status, password_hash, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, group_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
       [
         email,
         role || 'user',
@@ -126,12 +129,13 @@ router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
         gender || 'Male',
         dob || null,
         location || null,
-        schoolId || null
+        schoolId || null,
+        groupId || null
       ]
     );
 
     const [rows] = await pool.query(
-      `SELECT id, CONCAT_WS(' ', first_name, last_name) AS username, CONCAT_WS(' ', first_name, last_name) AS full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, created_at
+      `SELECT id, CONCAT_WS(' ', first_name, last_name) AS username, CONCAT_WS(' ', first_name, last_name) AS full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, group_id, created_at
        FROM users WHERE id = ?`,
       [result.insertId]
     );
@@ -150,7 +154,7 @@ router.get('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
   try {
     const { id } = req.params;
     const [rows] = await pool.query(
-      `SELECT id, CONCAT_WS(' ', first_name, last_name) AS username, CONCAT_WS(' ', first_name, last_name) AS full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, created_at
+      `SELECT id, CONCAT_WS(' ', first_name, last_name) AS username, CONCAT_WS(' ', first_name, last_name) AS full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, group_id, created_at
        FROM users WHERE id = ?`,
       [id]
     );
@@ -182,6 +186,7 @@ router.put('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
       status,
       password,
       schoolId,
+      groupId,
     } = req.body;
 
     const updates = [];
@@ -202,8 +207,12 @@ router.put('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
     if (role !== undefined) { updates.push('role = ?'); params.push(role); }
     if (status !== undefined) { updates.push('status = ?'); params.push(normalizeDbStatus(status)); }
     if (schoolId !== undefined) { updates.push('school_id = ?'); params.push(schoolId || null); }
+    if (groupId !== undefined) { updates.push('group_id = ?'); params.push(groupId || null); }
     if (role !== undefined && ['health worker', 'community organizer'].includes(String(role).trim().toLowerCase()) && !schoolId) {
       return res.status(400).json({ error: 'schoolId is required for this role' });
+    }
+    if (role !== undefined && ['health worker', 'community organizer'].includes(String(role).trim().toLowerCase()) && !groupId && req.body.groupId !== undefined) {
+      return res.status(400).json({ error: 'groupId is required for this role' });
     }
 
     if (password) {
@@ -219,7 +228,7 @@ router.put('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
     await pool.query(sql, params);
 
     const [rows] = await pool.query(
-      `SELECT id, CONCAT_WS(' ', first_name, last_name) AS username, CONCAT_WS(' ', first_name, last_name) AS full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, updated_at
+      `SELECT id, CONCAT_WS(' ', first_name, last_name) AS username, CONCAT_WS(' ', first_name, last_name) AS full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, group_id, updated_at
        FROM users WHERE id = ?`,
       [id]
     );

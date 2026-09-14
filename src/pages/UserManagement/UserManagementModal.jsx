@@ -70,7 +70,7 @@ function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitt
   );
 }
 
-export default function AddUserModal({ showModal, onClose, form, setForm, onSubmit, roleOptions, communities = [], mode = 'add', isSubmitting = false }) {
+export default function AddUserModal({ showModal, onClose, form, setForm, onSubmit, roleOptions, communities = [], groups = [], mode = 'add', isSubmitting = false }) {
 
   if (!showModal) return null;
 
@@ -79,6 +79,13 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
 
   const handleChange = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
   const requiresSchool = ['health worker', 'community organizer'].includes(String(form.role || '').trim().toLowerCase());
+  const selectedSchoolName = communities.find((school) => String(school.id) === String(form.schoolId || ''))?.name || '';
+  const groupOptions = groups.filter((group) => {
+    if (!form.schoolId) return true;
+    const groupCommunity = group.community || group.communityName || group.schoolName || '';
+    const schoolIdValues = [group.community_id, group.schoolId, group.school_id, group.communityId];
+    return !groupCommunity || groupCommunity.toLowerCase() === selectedSchoolName.toLowerCase() || schoolIdValues.some((value) => String(value) === String(form.schoolId));
+  });
 
   return (
     <ModalShell title={title} onClose={onClose} onSubmit={onSubmit} submitLabel={submitLabel} isSubmitting={isSubmitting}>
@@ -220,13 +227,23 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
       </div>
 
       {requiresSchool && (
-        <div className="form-group full-width">
-          <label className="form-label" htmlFor="school-id">Assigned School *</label>
-          <select id="school-id" name="schoolId" className="form-select" value={form.schoolId || ''} onChange={(e) => handleChange('schoolId', e.target.value)} required>
-            <option value="">Select assigned school</option>
-            {communities.map((school) => <option key={school.id} value={school.id}>{school.name}</option>)}
-          </select>
-        </div>
+        <>
+          <div className="form-group full-width">
+            <label className="form-label" htmlFor="school-id">Assigned School *</label>
+            <select id="school-id" name="schoolId" className="form-select" value={form.schoolId || ''} onChange={(e) => handleChange('schoolId', e.target.value)} required>
+              <option value="">Select assigned school</option>
+              {communities.map((school) => <option key={school.id} value={school.id}>{school.name}</option>)}
+            </select>
+          </div>
+
+          <div className="form-group full-width">
+            <label className="form-label" htmlFor="group-id">Assigned Group *</label>
+            <select id="group-id" name="groupId" className="form-select" value={form.groupId || ''} onChange={(e) => handleChange('groupId', e.target.value)} required>
+              <option value="">Select assigned group</option>
+              {groupOptions.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
+            </select>
+          </div>
+        </>
       )}
 
       <div className="form-group full-width">

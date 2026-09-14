@@ -50,11 +50,18 @@ export function useUserManagement() {
 
   const [apiOnline, setApiOnline] = useState(true);
   const [communities, setCommunities] = useState([]);
+  const [groups, setGroups] = useState([]);
 
   useEffect(() => {
     getSummary()
-      .then((summary) => setCommunities(summary.communities || []))
-      .catch(() => setCommunities([]));
+      .then((summary) => {
+        setCommunities(summary.communities || []);
+        setGroups(summary.groups || []);
+      })
+      .catch(() => {
+        setCommunities([]);
+        setGroups([]);
+      });
   }, []);
 
   // Load the database as the single source of truth.
@@ -80,6 +87,7 @@ export function useUserManagement() {
             dob: formatDobForInput(u.dob),
             location: u.location,
             schoolId: u.school_id,
+            groupId: u.group_id,
             role: normalizeRole(u.role),
             status: normalizeStatus(u.status),
             password: '',
@@ -123,6 +131,7 @@ export function useUserManagement() {
     status: 'Active',
     password: '',
     schoolId: '',
+    groupId: '',
   });
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
@@ -217,6 +226,8 @@ export function useUserManagement() {
     role: 'Superadmin',
     status: 'Active',
     password: '',
+    schoolId: '',
+    groupId: '',
   });
 
   const openAddModal = () => {
@@ -245,6 +256,7 @@ export function useUserManagement() {
       status: user.status || 'Active',
       password: user.password || '',
       schoolId: user.schoolId || '',
+      groupId: user.groupId || '',
     });
     setShowAddModal(true);
   };
@@ -279,6 +291,7 @@ export function useUserManagement() {
           dob: formatDobForInput(u.dob),
           location: u.location,
           schoolId: u.school_id,
+          groupId: u.group_id,
           role: u.role,
           status: u.status,
           password: '',
@@ -320,6 +333,7 @@ export function useUserManagement() {
       const roleVal = (fd.get('role') || 'Superadmin').toString();
       const statusVal = (fd.get('status') || 'Active').toString();
       const schoolIdVal = (fd.get('schoolId') || '').toString();
+      const groupIdVal = (fd.get('groupId') || '').toString();
       // Prefer password provided by the submitted form (FormData). Falls back to state-derived password if missing.
       const fdPassword = (fd.get('password') || '').toString();
 
@@ -345,6 +359,10 @@ export function useUserManagement() {
     if (!isValidEmail(email)) { setNotification('Please enter a valid email address.'); try { console.log('Validation failed: invalid email', { email }); } catch(e){}; return; }
     if (['health worker', 'community organizer'].includes(roleVal.trim().toLowerCase()) && !schoolIdVal) {
       setNotification('Assigned school is required for Health worker and Community Organizer accounts.');
+      return;
+    }
+    if (['health worker', 'community organizer'].includes(roleVal.trim().toLowerCase()) && !groupIdVal) {
+      setNotification('Assigned group is required for Health worker and Community Organizer accounts.');
       return;
     }
     // Use the provided email; rely on the server to signal duplicates and the retry logic to handle them.
@@ -377,6 +395,7 @@ export function useUserManagement() {
           status: statusVal,
           password: fdPassword || form.password,
           schoolId: schoolIdVal || null,
+          groupId: groupIdVal || null,
         });
         try { console.log('Updated user from server', updated); } catch(e) {}
         setUsers((prev) => prev.map((u) => (u.id === selectedUser.id ? {
@@ -392,6 +411,8 @@ export function useUserManagement() {
           location: updated.location,
           role: updated.role,
           status: updated.status,
+          schoolId: updated.school_id ?? u.schoolId,
+          groupId: updated.group_id ?? u.groupId,
         } : u)));
         setNotification(`Saved changes for ${fullName}.`);
         try { console.log('Saved changes for user', fullName); } catch(e) {}
@@ -442,6 +463,7 @@ export function useUserManagement() {
               status: statusVal,
               password: passwordToUse,
               schoolId: schoolIdVal || null,
+              groupId: groupIdVal || null,
             };
             try { console.log(`Attempt ${attempts}: creating user with username=${usernameToUse} and email=${emailToUse}`, payload); } catch(e){}
             data = await apiCreateUser(payload);
@@ -509,6 +531,8 @@ export function useUserManagement() {
           location: created.location,
           role: created.role,
           status: created.status,
+          schoolId: created.school_id ?? null,
+          groupId: created.group_id ?? null,
           // Do not persist plaintext password in UI list. Store one-time credentials separately to display to the user once.
           name: `${created.first_name} ${created.middle_initial ? created.middle_initial + ' ' : ''}${created.last_name}`,
         };
@@ -683,5 +707,6 @@ export function useUserManagement() {
     oneTimeCredentials,
     clearOneTimeCredentials,
     communities,
+    groups,
   };
 }

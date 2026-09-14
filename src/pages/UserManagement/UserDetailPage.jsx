@@ -65,6 +65,7 @@ export default function UserDetailPage() {
           role: data.role || '',
           status: (data.status || '').toString(),
           schoolId: data.school_id ?? '',
+          groupId: data.group_id ?? '',
           name: data.full_name || `${firstName} ${lastName}`.trim(),
         });
       } catch (e) {
@@ -82,6 +83,11 @@ export default function UserDetailPage() {
     if (!user.schoolId) return 'Not assigned';
     const match = communities.find((school) => String(school.id) === String(user.schoolId));
     return match?.name || `School ID ${user.schoolId}`;
+  })();
+  const groupLabel = (() => {
+    if (!requiresSchoolAssignment) return 'Not required';
+    if (!user.groupId) return 'Not assigned';
+    return `Group ID ${user.groupId}`;
   })();
   const handleEdit = () => {
     // Navigate back to list and signal the list to open edit modal
@@ -176,7 +182,10 @@ export default function UserDetailPage() {
                     <label className="checkup-field-label">Assigned School</label>
                     <input className="checkup-field-input" value={schoolLabel} readOnly />
                   </div>
-                  <div className="form-group" aria-hidden="true" />
+                  <div className="form-group">
+                    <label className="checkup-field-label">Assigned Group</label>
+                    <input className="checkup-field-input" value={groupLabel} readOnly />
+                  </div>
                   <div className="form-group" aria-hidden="true" />
                 </div>
               )}

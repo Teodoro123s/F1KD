@@ -59,9 +59,11 @@ function authorizeOperational(req, res, next) {
   const userRole = normalizeRole(req.user.role);
   const scopedRoles = ['admin', 'partner'];
   const hasSchoolAssignment = req.user.school_id !== undefined && req.user.school_id !== null && String(req.user.school_id).trim() !== '';
+  const hasGroupAssignment = req.user.group_id !== undefined && req.user.group_id !== null && String(req.user.group_id).trim() !== '';
 
   if (userRole === 'super_admin') {
     req.schoolId = null;
+    req.groupId = null;
     return next();
   }
 
@@ -70,8 +72,10 @@ function authorizeOperational(req, res, next) {
       return permissionResponse(res, 'This account is not assigned to a school');
     }
     req.schoolId = Number(req.user.school_id);
+    req.groupId = hasGroupAssignment ? Number(req.user.group_id) : null;
   } else {
     req.schoolId = null;
+    req.groupId = null;
   }
 
   if (req.method === 'GET') {

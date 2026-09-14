@@ -12,14 +12,18 @@ const { verifyToken } = require('../middleware/auth');
 
 const buildUserPayload = (user) => {
   const role = String(user.role || 'User').trim() || 'User';
-    const name = String(user.name || user.full_name || user.username || 'User').trim() || 'User';
+  const derivedName = [user.first_name, user.middle_initial, user.last_name]
+    .filter((part) => String(part || '').trim())
+    .join(' ');
+  const name = String(user.name || user.full_name || user.username || derivedName || 'User').trim() || 'User';
 
   return {
     id: user.id,
     role,
     name,
     email: user.email,
-    school_id: user.school_id || null,
+    school_id: user.school_id ?? null,
+    group_id: user.group_id ?? null,
   };
 };
 
@@ -47,7 +51,7 @@ router.post('/login', async (req, res) => {
     }
 
     const [rows] = await pool.query(
-        `SELECT id, name, email, role, status, school_id, password_hash
+        `SELECT id, first_name, last_name, middle_initial, email, role, status, school_id, group_id, password_hash
        FROM users
          WHERE email = ?
        LIMIT 1`,
@@ -72,7 +76,7 @@ router.post('/login', async (req, res) => {
   }
 });
 
-router.post('/refresh', (req, res) => {
+router.post('/refresh', async (req, res) => {
   const refreshToken = req.cookies && req.cookies.refreshToken;
   if (!refreshToken) {
     return res.status(401).json({ status: 401, code: 'REFRESH_TOKEN_MISSING', message: 'Refresh token is missing', timestamp: new Date().toISOString() });
@@ -84,25 +88,18 @@ router.post('/refresh', (req, res) => {
       return res.status(401).json({ status: 401, code: 'INVALID_REFRESH_TOKEN', message: 'Invalid refresh token', timestamp: new Date().toISOString() });
     }
 
-    const userId = payload.id;
-    pool.query(
-      `SELECT id, name, email, role, status, school_id FROM users WHERE id = ? LIMIT 1`,
-      [userId],
-      (error, [rows]) => {
-        if (error) {
-          console.error('Refresh token query error:', error.message);
-          return res.status(500).json({ status: 500, code: 'SERVER_ERROR', message: 'Server error', timestamp: new Date().toISOString() });
-        }
-
-        const user = rows && rows[0];
-        if (!user) {
-          return res.status(401).json({ status: 401, code: 'INVALID_REFRESH_TOKEN', message: 'Refresh token is invalid', timestamp: new Date().toISOString() });
-        }
-
-        const tokens = issueTokens(res, user);
-        return res.json(tokens);
-      }
+    const [rows] = await pool.query(
+      `SELECT id, first_name, last_name, middle_initial, email, role, status, school_id, group_id FROM users WHERE id = ? LIMIT 1`,
+      [payload.id]
     );
+
+    const user = rows && rows[0];
+    if (!user) {
+      return res.status(401).json({ status: 401, code: 'INVALID_REFRESH_TOKEN', message: 'Refresh token is invalid', timestamp: new Date().toISOString() });
+    }
+
+    const tokens = issueTokens(res, user);
+    return res.json(tokens);
   } catch (error) {
     return res.status(401).json({ status: 401, code: 'INVALID_REFRESH_TOKEN', message: 'Refresh token is invalid or expired', timestamp: new Date().toISOString() });
   }

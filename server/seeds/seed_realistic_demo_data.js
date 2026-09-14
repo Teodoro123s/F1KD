@@ -172,7 +172,6 @@ async function seedMothersAndChildren(connection, schoolIds) {
           const lmpDate = randomDate(2025, 2 + motherIndex, 3 + batchIndex);
           const eddDate = randomDate(2026, 4 + motherIndex, 7 + groupIndex);
           const isHighRisk = motherIndex % 4 === 0;
-          const incomplete = motherIndex === 4 && schoolIndex % 2 === 0;
 
           const motherFields = [
             'mother_code', 'community_id', 'group_id', 'batch_id', 'first_name', 'middle_name', 'last_name', 'maiden_surname',
@@ -189,9 +188,9 @@ async function seedMothersAndChildren(connection, schoolIds) {
             group.id,
             batch.id,
             firstName,
-            incomplete ? null : pick(['Marie', 'Grace', 'Anne', 'Rose', 'Joy'], motherCounter + motherIndex),
+            pick(['Marie', 'Grace', 'Anne', 'Rose', 'Joy'], motherCounter + motherIndex),
             lastName,
-            incomplete ? null : pick(['Castillo', 'Bautista', 'Villanueva', 'Mendoza', 'Flores'], motherIndex + schoolIndex),
+            pick(['Castillo', 'Bautista', 'Villanueva', 'Mendoza', 'Flores'], motherIndex + schoolIndex),
             motherIndex % 3 === 0 ? 'Jr.' : null,
             `ID-${String(1000 + motherCounter + motherIndex)}`,
             dob,
@@ -200,10 +199,10 @@ async function seedMothersAndChildren(connection, schoolIds) {
             `0917${String(1000000 + motherCounter + motherIndex * 13).slice(-7)}`,
             isHighRisk ? 1 : 0,
             isHighRisk ? 'High Risk Maternal Follow-up' : 'Maternal Health Program',
-            incomplete ? null : `${pick(['Juan', 'Rico', 'Paolo', 'Samuel'], motherIndex)} ${pick(['Santos', 'Reyes', 'Garcia'], motherIndex + schoolIndex)}`,
-            incomplete ? null : `0918${String(2000000 + motherCounter + motherIndex).slice(-7)}`,
-            incomplete ? null : pick(['Spouse', 'Brother', 'Father', 'Relative'], motherIndex + schoolIndex),
-            incomplete ? null : `${pick(['Juan', 'Renato', 'Pedro', 'Mark'], motherIndex + 1)} ${lastName}`,
+            `${pick(['Juan', 'Rico', 'Paolo', 'Samuel'], motherIndex)} ${pick(['Santos', 'Reyes', 'Garcia'], motherIndex + schoolIndex)}`,
+            `0918${String(2000000 + motherCounter + motherIndex).slice(-7)}`,
+            pick(['Spouse', 'Brother', 'Father', 'Relative'], motherIndex + schoolIndex),
+            `${pick(['Juan', 'Renato', 'Pedro', 'Mark'], motherIndex + 1)} ${lastName}`,
             makeAddress(motherCounter + motherIndex),
             randomDate(2025, 1 + motherIndex, 12 + batchIndex),
             motherIndex % 2 === 0 ? '2nd Trimester' : '3rd Trimester',
@@ -222,11 +221,11 @@ async function seedMothersAndChildren(connection, schoolIds) {
             65 + motherIndex * 7,
             58 + motherIndex * 1.6,
             156 + (motherIndex % 2),
-            incomplete ? null : JSON.stringify([
+            JSON.stringify([
               motherIndex % 2 === 0 ? 'Hypertension' : 'Anemia',
               motherIndex % 3 === 0 ? 'Gestational Diabetes' : 'None',
             ]),
-            incomplete ? null : 'No previous surgeries. Follow-up with local clinic every month.'
+            'No previous surgeries. Follow-up with local clinic every month.'
           ];
 
           const [result] = await connection.query(
@@ -289,7 +288,6 @@ async function seedMothersAndChildren(connection, schoolIds) {
             const childCode = `CHD-${String(schoolIndex + 1).padStart(3, '0')}-${String(motherCounter + motherIndex + 1).padStart(3, '0')}-${childIndex + 1}`;
             const birthDate = randomDate(2025, 2 + childIndex + schoolIndex, 5 + motherIndex);
             const childGender = childIndex % 2 === 0 ? 'Male' : 'Female';
-            const haveIncompleteChild = (motherIndex + childIndex + schoolIndex) % 5 === 0;
 
             const childFields = [
               'child_code', 'mother_id', 'community_id', 'group_id', 'batch_id', 'first_name', 'middle_name', 'last_name', 'suffix',
@@ -305,7 +303,7 @@ async function seedMothersAndChildren(connection, schoolIds) {
               group.id,
               batch.id,
               childName,
-              haveIncompleteChild ? null : pick(['Marie', 'Grace', 'Sofia'], childIndex + motherIndex),
+              pick(['Marie', 'Grace', 'Sofia'], childIndex + motherIndex),
               lastName,
               childIndex % 2 === 0 ? 'Jr.' : null,
               birthDate,
@@ -316,18 +314,18 @@ async function seedMothersAndChildren(connection, schoolIds) {
               childCount,
               childIndex > 0 && childCount > 1 ? 'Twin' : null,
               childIndex % 2 === 0 ? 'Exclusive Breastfeeding' : 'Complementary Feeding',
-              haveIncompleteChild ? null : 'Hearing test normal; CBC within range.',
-              haveIncompleteChild ? null : 'No critical concern after newborn screening.',
+              'Hearing test normal; CBC within range.',
+              'No critical concern after newborn screening.',
               pick(['Vaginal Delivery', 'Cesarean Section'], motherIndex + childIndex),
-              haveIncompleteChild ? 'Needs follow-up' : 'Healthy',
-              haveIncompleteChild ? null : `${schoolName} Birthing Center`,
-              haveIncompleteChild ? null : `Dr. ${pick(['Reyes', 'Lim', 'Aguinaldo', 'Santos'], schoolIndex + childIndex)}`,
-              haveIncompleteChild ? null : `${8 + childIndex}/${9 + childIndex}`,
-              haveIncompleteChild ? null : (childIndex % 2 === 0 ? 'Breastfeeding' : 'Mixed Feeding'),
-              haveIncompleteChild ? null : 'Consumes nutritious porridge and vegetables with good appetite.',
-              haveIncompleteChild ? null : `${pick(['Rico', 'Marco', 'Samuel', 'Leonard'], childIndex + motherIndex)} ${pick(['Reyes', 'Flores', 'Garcia'], childIndex + motherIndex)}`,
-              haveIncompleteChild ? null : pick(['Father', 'Guardian'], childIndex + motherIndex),
-              haveIncompleteChild ? null : makeAddress(motherCounter + motherIndex + childIndex),
+              'Healthy',
+              `${schoolName} Birthing Center`,
+              `Dr. ${pick(['Reyes', 'Lim', 'Aguinaldo', 'Santos'], schoolIndex + childIndex)}`,
+              `${8 + childIndex}/${9 + childIndex}`,
+              childIndex % 2 === 0 ? 'Breastfeeding' : 'Mixed Feeding',
+              'Consumes nutritious porridge and vegetables with good appetite.',
+              `${pick(['Rico', 'Marco', 'Samuel', 'Leonard'], childIndex + motherIndex)} ${pick(['Reyes', 'Flores', 'Garcia'], childIndex + motherIndex)}`,
+              pick(['Father', 'Guardian'], childIndex + motherIndex),
+              makeAddress(motherCounter + motherIndex + childIndex),
               72 + (motherIndex + childIndex * 8),
             ];
 

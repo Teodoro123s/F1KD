@@ -28,9 +28,15 @@ async function ensure() {
       role VARCHAR(120),
       status ENUM('Active','Suspended') DEFAULT 'Active',
       password_hash VARCHAR(255),
+      school_id INT NULL,
+      group_id INT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+
+    `ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS school_id INT NULL,
+      ADD COLUMN IF NOT EXISTS group_id INT NULL;`,
 
 
 
