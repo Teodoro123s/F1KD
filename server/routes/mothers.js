@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../db');
-const { documentUpload } = require('../middleware/documentUpload');
+const { documentUpload, uploadFileToStorage } = require('../middleware/documentUpload');
 
 function firstNonEmpty(...values) {
   for (const value of values) {
@@ -190,14 +190,19 @@ router.post('/:id/documents', documentUpload.fields([
     const files = req.files || {};
     const updates = [];
     const values = [];
+
     if (files.birthCertificate?.[0]) {
+      const birthDoc = await uploadFileToStorage(files.birthCertificate[0], 'birth-certificate');
       updates.push('birth_certificate_document_name = ?', 'birth_certificate_document_path = ?');
-      values.push(files.birthCertificate[0].originalname, `/uploads/${files.birthCertificate[0].filename}`);
+      values.push(birthDoc.name, birthDoc.path);
     }
+
     if (files.consent?.[0]) {
+      const consentDoc = await uploadFileToStorage(files.consent[0], 'consent');
       updates.push('consent_document_name = ?', 'consent_document_path = ?');
-      values.push(files.consent[0].originalname, `/uploads/${files.consent[0].filename}`);
+      values.push(consentDoc.name, consentDoc.path);
     }
+
     if (!updates.length) return res.status(400).json({ error: 'At least one document is required' });
     await pool.query(`UPDATE mothers SET ${updates.join(', ')} WHERE id = ?`, [...values, motherRows[0].id]);
     const [rows] = await pool.query('SELECT * FROM mothers WHERE id = ?', [motherRows[0].id]);

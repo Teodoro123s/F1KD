@@ -92,6 +92,7 @@ async function ensure() {
       maiden_surname VARCHAR(100),
       suffix VARCHAR(20),
       mother_id_no VARCHAR(50) UNIQUE,
+      mother_external_id VARCHAR(128),
       dob DATE,
       lmp_date DATE,
       edd_date DATE,
@@ -230,6 +231,7 @@ async function ensure() {
       ADD COLUMN IF NOT EXISTS birth_document_path VARCHAR(500);`,
 
     `ALTER TABLE mothers
+      ADD COLUMN IF NOT EXISTS mother_external_id VARCHAR(128),
       ADD COLUMN IF NOT EXISTS birth_certificate_document_name VARCHAR(255),
       ADD COLUMN IF NOT EXISTS birth_certificate_document_path VARCHAR(500),
       ADD COLUMN IF NOT EXISTS consent_document_name VARCHAR(255),

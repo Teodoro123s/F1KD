@@ -82,6 +82,7 @@ CREATE TABLE IF NOT EXISTS mothers (
   maiden_surname VARCHAR(100),
   suffix VARCHAR(20),
   mother_id_no VARCHAR(50) UNIQUE,
+  mother_external_id VARCHAR(128),
   dob DATE,
   lmp_date DATE,
   edd_date DATE,

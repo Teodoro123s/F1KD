@@ -174,7 +174,17 @@ export default function BeneficiaryPage() {
             navigate={navigate}
           />
         ) : isMotherDetail ? (
-          <MotherDetailPage selectedMother={selectedMother} onClose={handleCloseMotherDetail} />
+          <MotherDetailPage
+            selectedMother={selectedMother}
+            onClose={handleCloseMotherDetail}
+            onMotherUpdated={(nextMother) => {
+              setSelectedMother((current) => ({ ...(current || {}), ...nextMother }));
+              setMothers((current) => current.map((mother) => {
+                const idMatches = String(mother.id) === String(nextMother.id || nextMother.motherId || '') || String(mother.motherId) === String(nextMother.motherId || nextMother.id || '');
+                return idMatches ? { ...mother, ...nextMother } : mother;
+              }));
+            }}
+          />
         ) : (
           <BeneficiaryListPage
             mothers={mothers}

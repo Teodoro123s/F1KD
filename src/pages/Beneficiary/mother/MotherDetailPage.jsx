@@ -38,6 +38,47 @@ const Field = ({ label, value, className = '' }) => (
   </div>
 );
 
+const getDocumentPreviewType = (filePath = '') => {
+  const normalizedPath = String(filePath || '').toLowerCase();
+  if (!normalizedPath) return 'none';
+  if (normalizedPath.endsWith('.pdf')) return 'pdf';
+  if (/\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(normalizedPath)) return 'image';
+  return 'none';
+};
+
+const DocumentPreview = ({ fileName, filePath, label, onPreviewOpen }) => {
+  const normalizedUrl = resolveAssetUrl(filePath);
+  const previewType = getDocumentPreviewType(filePath);
+
+  if (!fileName || !normalizedUrl) {
+    return <span className="document-upload-empty">No document uploaded</span>;
+  }
+
+  return (
+    <div className="document-upload-preview-wrapper">
+      {previewType === 'image' && (
+        <button type="button" className="document-upload-preview-button" onClick={() => onPreviewOpen?.(normalizedUrl, fileName, 'image')}>
+          <img src={normalizedUrl} alt={fileName || label} className="document-upload-preview-image" />
+        </button>
+      )}
+      {previewType === 'pdf' && (
+        <button type="button" className="document-upload-preview-button" onClick={() => onPreviewOpen?.(normalizedUrl, fileName, 'pdf')}>
+          <div className="document-upload-preview-pdf-shell">
+            <object data={normalizedUrl} type="application/pdf" className="document-upload-preview-pdf">
+              <iframe src={normalizedUrl} title={fileName || label} className="document-upload-preview-pdf-frame" />
+            </object>
+          </div>
+        </button>
+      )}
+      {!previewType || previewType === 'none' ? (
+        <a href={normalizedUrl} target="_blank" rel="noreferrer">{fileName}</a>
+      ) : (
+        <button type="button" className="document-upload-filename-link" onClick={() => onPreviewOpen?.(normalizedUrl, fileName, previewType)}>{fileName}</button>
+      )}
+    </div>
+  );
+};
+
 const Section = ({ title, children }) => (
   <section className="mother-detail-section">
     <h3 className="mother-detail-section-title">{title}</h3>
@@ -59,7 +100,7 @@ const ChipList = ({ items, emptyLabel = 'None' }) => {
   );
 };
 
-export default function MotherDetailPage({ selectedMother, onClose }) {
+export default function MotherDetailPage({ selectedMother, onClose, onMotherUpdated }) {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const canManage = can(currentUser?.role, 'admin-resources', 'create');
@@ -67,6 +108,8 @@ export default function MotherDetailPage({ selectedMother, onClose }) {
   const [uploadingDocument, setUploadingDocument] = useState('');
   const [uploadMessage, setUploadMessage] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
+  const [documentEditState, setDocumentEditState] = useState({});
+  const [previewDocument, setPreviewDocument] = useState(null);
 
   useEffect(() => {
     if (!selectedMother) return undefined;
@@ -154,7 +197,11 @@ export default function MotherDetailPage({ selectedMother, onClose }) {
     setUploadMessage('');
     try {
       const response = await apiUploadMotherDocuments(motherId, { [field]: file });
-      if (response?.mother) setMotherRecord((current) => ({ ...current, ...response.mother }));
+      if (response?.mother) {
+        const nextMother = { ...(motherRecord || mother), ...response.mother };
+        setMotherRecord(nextMother);
+        onMotherUpdated?.(nextMother);
+      }
       setUploadMessage('Document uploaded successfully.');
     } catch (error) {
       setUploadMessage(error.message || 'Unable to upload document.');
@@ -243,16 +290,49 @@ export default function MotherDetailPage({ selectedMother, onClose }) {
               {[
                 ['birthCertificate', "Mother's Birth Certificate", motherRecord.birthCertificateDocumentName, motherRecord.birthCertificateDocumentPath],
                 ['consent', 'Program Consent Form', motherRecord.consentDocumentName, motherRecord.consentDocumentPath],
-              ].map(([field, label, fileName, filePath]) => (
-                <div className="document-upload-field" key={field}>
-                  <label className="detail-form-label" htmlFor={`mother-document-${field}`}>{label}</label>
-                  <input id={`mother-document-${field}`} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={(event) => uploadDocument(field, event.target.files?.[0])} disabled={uploadingDocument === field} />
-                  {fileName ? <a href={resolveAssetUrl(filePath)} target="_blank" rel="noreferrer">{fileName}</a> : <span className="document-upload-empty">No document uploaded</span>}
-                </div>
-              ))}
+              ].map(([field, label, fileName, filePath]) => {
+                const editing = Boolean(documentEditState[field]);
+                const hasFile = Boolean(fileName && filePath);
+
+                return (
+                  <div className="document-upload-field" key={field}>
+                    <div className="document-upload-header-row">
+                      <label className="detail-form-label" htmlFor={`mother-document-${field}`}>{label}</label>
+                      {hasFile && (
+                        <button type="button" className="document-upload-edit-button" onClick={() => setDocumentEditState((current) => ({ ...current, [field]: !current[field] }))}>
+                          {editing ? 'Cancel' : 'Edit'}
+                        </button>
+                      )}
+                    </div>
+                    {(editing || !hasFile) && (
+                      <input id={`mother-document-${field}`} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={(event) => {
+                        uploadDocument(field, event.target.files?.[0]);
+                        setDocumentEditState((current) => ({ ...current, [field]: false }));
+                      }} disabled={uploadingDocument === field} />
+                    )}
+                    <DocumentPreview fileName={fileName} filePath={filePath} label={label} onPreviewOpen={(url, name, type) => setPreviewDocument({ url, name, type })} />
+                  </div>
+                );
+              })}
             </div>
             {uploadMessage && <p className="document-upload-message" role="status">{uploadMessage}</p>}
           </section>
+
+          {previewDocument && (
+            <div className="document-preview-modal-backdrop" onClick={() => setPreviewDocument(null)}>
+              <div className="document-preview-modal" onClick={(event) => event.stopPropagation()}>
+                <div className="document-preview-modal-header">
+                  <strong>{previewDocument.name}</strong>
+                  <button type="button" className="document-preview-close" onClick={() => setPreviewDocument(null)}>Close</button>
+                </div>
+                {previewDocument.type === 'image' ? (
+                  <img src={previewDocument.url} alt={previewDocument.name} className="document-preview-modal-image" />
+                ) : (
+                  <iframe src={previewDocument.url} title={previewDocument.name} className="document-preview-modal-frame" />
+                )}
+              </div>
+            </div>
+          )}
 
           <section className="mother-detail-section">
             <h3 className="mother-detail-section-title">I.C OTHER DETAILS</h3>
