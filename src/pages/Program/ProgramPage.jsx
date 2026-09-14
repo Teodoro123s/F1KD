@@ -474,12 +474,6 @@ export default function ProgramPage() {
         }
       />
 
-      {isLiveDataLoaded && (
-        <div className="program-live-status" style={{ padding: "0 0 12px", color: "#475569", fontSize: "0.9rem" }}>
-          {programs.length > 0 ? `Showing ${programs.length} live program record${programs.length > 1 ? "s" : ""} from community data.` : "No program records available."}
-        </div>
-      )}
-
       {programError && <p className="form-error" role="alert">{programError}</p>}
 
       {clusterView && selectedProgram && (

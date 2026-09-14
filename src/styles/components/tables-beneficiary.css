@@ -1,32 +1,135 @@
 ﻿/* Beneficiary-specific table styles */
+.beneficiary-table-card {
+  background: linear-gradient(180deg, #f8fafc 0%, #eef4f8 100%);
+  border: 1px solid #dfe6ee;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.04);
+}
+
 .beneficiary-table-card .entity-card-button {
   width: 100%;
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
   padding: 1rem 1.1rem;
-  background: transparent;
+  background: rgba(255, 255, 255, 0.7);
   border: none;
   border-radius: 0;
   cursor: pointer;
   text-align: left;
-  transition: background 180ms ease, transform 180ms ease;
+  transition: background 180ms ease, transform 180ms ease, box-shadow 180ms ease;
   box-sizing: border-box;
   text-decoration: none;
 }
+
 .mother-children-page .beneficiary-table-card .table-overflow { min-height: 0; }
+
 .beneficiary-table-card .entity-card-button:hover,
 .beneficiary-table-card .entity-card-button:focus-visible {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: inset 0 0 0 1px rgba(122, 12, 30, 0.08);
 }
+
 .beneficiary-table-card .mother-cell::after { content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 2px; background: rgba(15,23,36,0.18); pointer-events: none; border-radius: 0; z-index: 2; }
-.beneficiary-progress-wrapper { display: flex; align-items: center; gap: 0.75rem; }
-.beneficiary-cell-content { display: flex; flex-direction: column; gap: 6px; width: 100%; }
-.beneficiary-cell-line-1 { display: flex; justify-content: space-between; align-items: center; width: 100%; }
-.beneficiary-cell-name { font-weight: 700; color: #0f1724; font-size: 0.95rem; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.beneficiary-cell-percent { font-weight: 600; font-size: 0.9rem; color: #475569; flex-shrink: 0; }
-.beneficiary-cell-line-2 { font-size: 0.82rem; color: #64748b; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.beneficiary-cell-line-3 { font-size: 0.82rem; font-weight: 600; display: flex; align-items: center; gap: 4px; }
+.beneficiary-progress-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+  min-width: 90px;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #7a0c1e 0%, #a71f35 100%);
+}
+
+.progress-bar-fill.child {
+  background: linear-gradient(90deg, #0f766e 0%, #14b8a6 100%);
+}
+
+.beneficiary-cell-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+.beneficiary-cell-line-1 {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  gap: 0.75rem;
+}
+.beneficiary-cell-name {
+  font-weight: 700;
+  color: #0f1724;
+  font-size: 0.95rem;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.beneficiary-cell-percent {
+  font-weight: 700;
+  font-size: 0.82rem;
+  color: #475569;
+  flex-shrink: 0;
+}
+.beneficiary-cell-line-2 {
+  font-size: 0.82rem;
+  color: #64748b;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.beneficiary-cell-line-3 {
+  font-size: 0.82rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
 .beneficiary-cell-line-3 .status-missing { color: #b91c1c; }
 .beneficiary-cell-line-3 .status-pending, .beneficiary-cell-line-3 .status-checkup { color: #b45309; }
 .beneficiary-cell-line-3 .status-complete { color: #15803d; }
+
+.status-complete,
+.status-pending,
+.status-checkup {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.status-complete {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.status-pending,
+.status-checkup {
+  background: #fff7ed;
+  color: #b45309;
+}
+
+.status-missing {
+  background: #fef2f2;
+  color: #b91c1c;
+}

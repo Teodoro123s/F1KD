@@ -5,9 +5,56 @@
 .badge.pending { background: #FFFBEB; color: #D97706; }
 
 /* Primary & Secondary buttons (used across app) */
-.btn-secondary { background: #fff; border: 1px solid #CBD5E1; color: #475569; padding: 0.85rem 1.4rem; border-radius: 12px; font-weight: 600; cursor: pointer; }
-.btn-primary { background: var(--burgundy); border: 1px solid var(--burgundy); color: #fff; padding: 0.85rem 1.4rem; border-radius: 12px; font-weight: 600; cursor: pointer; }
-.btn-primary:hover { background: var(--burgundy-hover); box-shadow: 0 4px 6px rgba(122, 12, 30, 0.15); }
+.btn-secondary {
+  background: #fff;
+  border: 1px solid #CBD5E1;
+  color: #475569;
+  padding: 0.85rem 1.4rem;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.btn-secondary:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.btn-primary {
+  background: var(--burgundy);
+  border: 1px solid var(--burgundy);
+  color: #fff;
+  padding: 0.85rem 1.4rem;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 150ms ease, box-shadow 150ms ease, background 150ms ease;
+}
+
+.btn-primary:hover {
+  background: var(--burgundy-hover);
+  box-shadow: 0 4px 6px rgba(122, 12, 30, 0.15);
+}
+
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible,
+.btn-create-action:focus-visible,
+.form-input:focus-visible,
+.form-select:focus-visible,
+textarea.form-input:focus-visible {
+  outline: 3px solid rgba(122, 12, 30, 0.18);
+  outline-offset: 2px;
+}
+
+.btn-primary:disabled,
+.btn-secondary:disabled,
+.btn-create-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  box-shadow: none;
+}
 
 /* Shared action styling for every create control. */
 .btn-create-action {
@@ -38,9 +85,4 @@
 .btn-create-action:hover {
 	background: var(--burgundy-hover);
 	box-shadow: 0 4px 6px rgba(122, 12, 30, 0.2);
-}
-
-.btn-create-action:disabled {
-	cursor: not-allowed;
-	opacity: 0.6;
 }
