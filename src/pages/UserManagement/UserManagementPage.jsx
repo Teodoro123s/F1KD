@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import UserManagementTable from './UserManagementTable';
 import { SearchIcon, PlusIcon, UserCheckIcon, UserXIcon } from './UserManagementIcons';
@@ -60,6 +60,13 @@ export default function UserManagementPage() {
   const location = useLocation();
   const auth = useAuth();
   const canCreate = hasRole(auth?.currentUser?.role, [ROLES.SUPER_ADMIN]);
+  const [copyNotice, setCopyNotice] = useState('');
+
+  useEffect(() => {
+    if (!copyNotice) return undefined;
+    const timer = window.setTimeout(() => setCopyNotice(''), 2400);
+    return () => window.clearTimeout(timer);
+  }, [copyNotice]);
 
   useEffect(() => {
     // If navigated here with an editUser in state, open edit modal
@@ -139,17 +146,34 @@ export default function UserManagementPage() {
 
       {oneTimeCredentials && (
         <div className="one-time-credentials">
-          <h3>One-time credentials (development)</h3>
-          <p>Please copy these credentials now. They will not be shown again.</p>
+          <div className="one-time-credentials-header">
+            <h3>Temporary access</h3>
+            <span>Saved for this session only</span>
+          </div>
           <div className="cred-row">
             <div><strong>Email:</strong> {oneTimeCredentials.email}</div>
             <div><strong>Password:</strong> <code>{oneTimeCredentials.password}</code></div>
           </div>
           <div className="cred-actions">
-            <button type="button" className="btn-secondary" onClick={() => { navigator.clipboard && navigator.clipboard.writeText(oneTimeCredentials.password); alert('Password copied to clipboard'); }}>Copy password</button>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={async () => {
+                if (navigator.clipboard) {
+                  await navigator.clipboard.writeText(oneTimeCredentials.password);
+                }
+                setCopyNotice('Password copied to clipboard.');
+              }}
+            >
+              Copy password
+            </button>
             <button type="button" className="btn-primary" onClick={clearOneTimeCredentials}>Dismiss</button>
           </div>
         </div>
+      )}
+
+      {copyNotice && (
+        <div className="inline-toast" role="status" aria-live="polite">{copyNotice}</div>
       )}
 
       <UserManagementTable

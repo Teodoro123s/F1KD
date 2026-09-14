@@ -7,7 +7,13 @@
 .data-table th { padding: 1rem 1.2rem; font-size: 0.78rem; font-weight: 700; color: var(--text-muted); letter-spacing: 0.08em; text-transform: uppercase; border-bottom: 1.5px solid #EDF2F7; background: #FBFDFF; }
 .data-table td { padding: 1.1rem 1.5rem; font-size: 0.95rem; color: var(--slate-dark); border-bottom: 1px solid #EDF2F7; vertical-align: middle; }
 .data-table tbody tr:hover { background: #F8FAFC; }
-.no-data { padding: 3rem; text-align: center; color: var(--text-muted); font-size: 0.95rem; }
+.no-data {
+  padding: 3rem 1.5rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  letter-spacing: 0;
+}
 
 /* Keep row actions compact and anchor their menu to the action cell. */
 .data-table .actions-cell {
@@ -97,8 +103,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 0.7rem 0.25rem 0;
+  gap: 0.75rem 1rem;
+  padding: 0.9rem 0.25rem 0;
   border-top: 1px solid var(--border-color);
   background: transparent;
   flex-wrap: wrap;
@@ -114,7 +120,7 @@
 
 .pagination-page-input {
   width: 56px;
-  height: 28px;
+  height: 32px;
   padding: 0 0.4rem;
   border: 1px solid #CBD5E1;
   border-radius: 8px;
@@ -179,9 +185,9 @@
 }
 
 .select-entries {
-  min-width: 64px;
+  min-width: 72px;
   min-height: 32px;
-  padding: 0.25rem 1.6rem 0.25rem 0.5rem;
+  padding: 0.25rem 1.8rem 0.25rem 0.6rem;
   border: 1px solid #CBD5E1;
   border-radius: 8px;
   background: #fff;
@@ -191,7 +197,7 @@
   appearance: none;
   background-image: url("data:image/svg+xml;utf8,<svg fill='%2364748b' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/><path d='M0 0h24v24H0z' fill='none'/></svg>");
   background-repeat: no-repeat;
-  background-position: right 0.5rem center;
+  background-position: right 0.55rem center;
   background-size: 1rem;
 }
 
@@ -203,6 +209,16 @@
   font-size: 0.82rem;
   font-weight: 600;
   order: 3;
+}
+
+.pagination-center {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.82rem;
+  order: 1;
 }
 
 .community-pagination {
