@@ -39,7 +39,6 @@ export default function ProgressReport() {
   const [selection, setSelection] = useState(EMPTY_SELECTIONS);
   const [granularity, setGranularity] = useState('child');
   const [visibleFields, setVisibleFields] = useState(DEFAULT_VISIBLE_FIELDS);
-  const [search, setSearch] = useState('');
   const [report, setReport] = useState(null);
   const [finalizedSnapshot, setFinalizedSnapshot] = useState(null);
   const [sort, setSort] = useState({ key: 'school', direction: 'asc' });
@@ -58,7 +57,6 @@ export default function ProgressReport() {
   const displaySelection = finalizedSnapshot?.selection ?? selection;
   const displayVisibleFields = finalizedSnapshot?.visibleFields ?? visibleFields;
   const displayGranularity = finalizedSnapshot?.granularity ?? granularity;
-  const displaySearch = finalizedSnapshot?.search ?? search;
   const displaySort = finalizedSnapshot?.sort ?? sort;
   const displayPage = finalizedSnapshot?.page ?? page;
   const activeReport = finalizedSnapshot?.report ?? report;
@@ -81,14 +79,13 @@ export default function ProgressReport() {
     setLoadingReport(true);
     setError('');
     try {
-      const result = await apiGetProgressReport({ ...selection, granularity, search, page: nextPage, perPage: 50 });
+      const result = await apiGetProgressReport({ ...selection, granularity, page: nextPage, perPage: 50 });
       setReport(result);
       setFinalizedSnapshot({
         report: result,
         selection: { ...selection },
         visibleFields: [...visibleFields],
         granularity,
-        search,
         sort: { ...sort },
         page: nextPage,
       });
@@ -123,7 +120,7 @@ export default function ProgressReport() {
 
   const exportReport = async () => {
     if (!selection.schoolId) return;
-    const result = activeReport || (await apiGetProgressReport({ ...selection, granularity, search, export: 1, perPage: 100 }));
+    const result = activeReport || (await apiGetProgressReport({ ...selection, granularity, export: 1, perPage: 100 }));
     const lines = [
       `# ${breadcrumb.join(' > ')}`,
       `# Generated ${new Date().toISOString()}`,
@@ -165,7 +162,6 @@ export default function ProgressReport() {
                 <h2>Beneficiary</h2><p>Choose the report level and search if needed.</p>
                 <div className="progress-report-config-row">
                   <fieldset><legend>Report level</legend><label><input type="radio" checked={granularity === 'child'} onChange={() => setGranularity('child')} /> Child level</label><label><input type="radio" checked={granularity === 'mother'} onChange={() => setGranularity('mother')} /> Mother level</label></fieldset>
-                  <label className="progress-report-search-field">Search<input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Beneficiary name or ID" /></label>
                 </div>
               </div>
             </section>
@@ -179,7 +175,7 @@ export default function ProgressReport() {
           </div>
           <div className="progress-report-config-actions">
             <button type="button" className="primary-btn" onClick={() => generateReport(1)} disabled={loadingOptions || loadingReport || !selection.schoolId}>{loadingReport ? 'Generating...' : 'Generate Report'}</button>
-            <button type="button" className="secondary-btn" onClick={() => { setSelection(EMPTY_SELECTIONS); setSearch(''); setError(''); }}>Reset Filters</button>
+            <button type="button" className="secondary-btn" onClick={() => { setSelection(EMPTY_SELECTIONS); setError(''); }}>Reset Filters</button>
           </div>
           {!selection.schoolId && <p className="progress-report-helper">Please select at least a School to view the report.</p>}
           {error && <p className="form-error" role="alert">{error}</p>}
