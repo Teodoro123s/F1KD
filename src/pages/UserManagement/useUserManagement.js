@@ -7,7 +7,6 @@ const ROLE_OPTIONS = [
   'Superadmin',
   'Admin',
   'Partner',
-  'Controller',
   'Community Organizer',
   'Health worker',
 ];
