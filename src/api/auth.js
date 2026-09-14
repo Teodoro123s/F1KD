@@ -26,13 +26,28 @@ export async function login(email, password) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
+    credentials: 'include',
   });
   return handleResponse(res, 'Login failed');
+}
+
+export async function refreshSession() {
+  const res = await fetch(`${API_BASE}/api/auth/refresh`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+  });
+  const result = await handleResponse(res, 'Session refresh failed');
+  if (result && result.token) {
+    saveToken(result.token);
+  }
+  return result;
 }
 
 export async function me(token) {
   const res = await fetch(`${API_BASE}/api/auth/me`, {
     headers: { Authorization: token ? `Bearer ${token}` : '' },
+    credentials: 'include',
   });
   return handleResponse(res, 'Failed to fetch current user');
 }

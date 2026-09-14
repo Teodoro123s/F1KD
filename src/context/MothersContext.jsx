@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { authHeader } from '../api/authHeader';
+import { fetchWithAuth } from '../api/authHeader';
 
 const MothersContext = createContext(null);
 const API_BASE = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL)
@@ -17,7 +17,7 @@ export function MothersProvider({ children }) {
         params.set('fields', fields.join(','));
       }
       const queryString = params.toString() ? `?${params.toString()}` : '';
-      const response = await fetch(`${API_BASE}/api/mothers${queryString}`, { headers: { 'Content-Type': 'application/json', ...authHeader() } });
+      const response = await fetchWithAuth(`${API_BASE}/api/mothers${queryString}`, { headers: { 'Content-Type': 'application/json' } });
       if (!response.ok) {
         throw new Error('Failed to load mothers');
       }

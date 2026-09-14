@@ -1,4 +1,4 @@
-import { authHeader } from './authHeader';
+import { authHeader, fetchWithAuth, resolveAssetUrl } from './authHeader';
 
 const API_BASE = (typeof process !== 'undefined' && process.env && process.env.REACT_APP_API_URL)
   ? process.env.REACT_APP_API_URL
@@ -23,29 +23,26 @@ async function handleResponse(res, defaultMsg) {
 }
 
 export async function apiCreateChild(payload) {
-  const res = await fetch(`${API_BASE}/api/children`, {
+  const res = await fetchWithAuth(`${API_BASE}/api/children`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...authHeader() },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
-    credentials: 'same-origin',
   });
   return handleResponse(res, 'Server error when creating child');
 }
 
 export async function apiUpdateChild(idOrCode, payload) {
-  const res = await fetch(`${API_BASE}/api/children/${encodeURIComponent(idOrCode)}`, {
+  const res = await fetchWithAuth(`${API_BASE}/api/children/${encodeURIComponent(idOrCode)}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json', ...authHeader() },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
-    credentials: 'same-origin',
   });
   return handleResponse(res, 'Server error when updating child');
 }
 
 export async function apiGetChild(idOrCode) {
-  const res = await fetch(`${API_BASE}/api/children/${encodeURIComponent(idOrCode)}`, {
-    headers: { 'Content-Type': 'application/json', ...authHeader() },
-    credentials: 'same-origin',
+  const res = await fetchWithAuth(`${API_BASE}/api/children/${encodeURIComponent(idOrCode)}`, {
+    headers: { 'Content-Type': 'application/json' },
   });
   return handleResponse(res, 'Failed to fetch child');
 }
@@ -56,27 +53,24 @@ export async function apiGetChildren(fields = []) {
     params.set('fields', fields.join(','));
   }
   const queryString = params.toString() ? `?${params.toString()}` : '';
-  const res = await fetch(`${API_BASE}/api/children${queryString}`, {
-    headers: { 'Content-Type': 'application/json', ...authHeader() },
-    credentials: 'same-origin',
+  const res = await fetchWithAuth(`${API_BASE}/api/children${queryString}`, {
+    headers: { 'Content-Type': 'application/json' },
   });
   return handleResponse(res, 'Failed to fetch children');
 }
 
 export async function apiGetChildrenByMother(motherId) {
-  const res = await fetch(`${API_BASE}/api/children/mother/${encodeURIComponent(motherId)}/children`, {
-    headers: { 'Content-Type': 'application/json', ...authHeader() },
-    credentials: 'same-origin',
+  const res = await fetchWithAuth(`${API_BASE}/api/children/mother/${encodeURIComponent(motherId)}/children`, {
+    headers: { 'Content-Type': 'application/json' },
   });
   return handleResponse(res, 'Failed to fetch children for mother');
 }
 
 export async function apiSaveChildCheckup(childId, payload) {
-  const res = await fetch(`${API_BASE}/api/children/${encodeURIComponent(childId)}/checkups`, {
+  const res = await fetchWithAuth(`${API_BASE}/api/children/${encodeURIComponent(childId)}/checkups`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...authHeader() },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
-    credentials: 'same-origin',
   });
   return handleResponse(res, 'Server error when saving child check-up');
 }
@@ -84,11 +78,10 @@ export async function apiSaveChildCheckup(childId, payload) {
 export async function apiUploadChildBirthDocument(childId, file) {
   const formData = new FormData();
   formData.append('birthDocument', file);
-  const res = await fetch(`${API_BASE}/api/children/${encodeURIComponent(childId)}/documents`, {
+  const res = await fetchWithAuth(`${API_BASE}/api/children/${encodeURIComponent(childId)}/documents`, {
     method: 'POST',
-    headers: { ...authHeader() },
+    headers: {},
     body: formData,
-    credentials: 'same-origin',
   });
   return handleResponse(res, 'Unable to upload child birth document');
 }

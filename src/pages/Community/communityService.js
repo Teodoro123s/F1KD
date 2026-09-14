@@ -1,12 +1,9 @@
 // Small API client for community module
 // Exports: getSummary, createCommunity, createBatch, createGroup
-import { authHeader } from '../../api/authHeader';
+import { fetchWithAuth } from '../../api/authHeader';
 
 async function requestJson(url, options = {}) {
-  const res = await fetch(url, {
-    ...options,
-    headers: { ...authHeader(), ...(options.headers || {}) },
-  });
+  const res = await fetchWithAuth(url, options);
   const text = await res.text();
   let body = null;
   try { body = text ? JSON.parse(text) : null; } catch (e) { body = text; }

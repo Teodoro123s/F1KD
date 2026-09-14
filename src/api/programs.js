@@ -1,11 +1,12 @@
-import { authHeader } from './authHeader';
+import { fetchWithAuth } from './authHeader';
 
 async function requestJson(url, options = {}) {
-  const response = await fetch(url, {
+  const response = await fetchWithAuth(url, {
     ...options,
-    headers: { 'Content-Type': 'application/json', ...authHeader(), ...(options.headers || {}) },
+    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
   });
-  const body = response.status === 204 ? null : await response.json();
+  const text = await response.text();
+  const body = text ? JSON.parse(text) : null;
   if (!response.ok) throw new Error(body?.error || body?.message || `Request failed (${response.status})`);
   return body;
 }

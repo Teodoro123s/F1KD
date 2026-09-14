@@ -11,7 +11,8 @@
     "seed:program": "node scripts/seed_program_data.js",
     "seed:schools": "node scripts/seed_three_schools.js",
     "seed:school-hierarchy": "node seeds/seed_school_hierarchy.js",
-    "seed:role-accounts": "node seeds/seed_role_accounts.js"
+    "seed:role-accounts": "node seeds/seed_role_accounts.js",
+    "seed:demo": "node seeds/seed_realistic_demo_data.js"
   },
   "dependencies": {
     "bcrypt": "^5.1.0",

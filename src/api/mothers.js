@@ -1,4 +1,4 @@
-import { authHeader } from './authHeader';
+import { authHeader, fetchWithAuth, resolveAssetUrl } from './authHeader';
 
 const API_BASE = (typeof process !== 'undefined' && process.env && process.env.REACT_APP_API_URL)
   ? process.env.REACT_APP_API_URL
@@ -24,51 +24,46 @@ async function handleResponse(res, defaultMsg) {
 
 export async function apiUpdateMother(motherId, payload) {
   const id = encodeURIComponent(motherId);
-  const res = await fetch(`${API_BASE}/api/mothers/${id}`, {
+  const res = await fetchWithAuth(`${API_BASE}/api/mothers/${id}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json', ...authHeader() },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
-    credentials: 'same-origin',
   });
   return handleResponse(res, 'Server error when updating mother');
 }
 
 export async function apiCreateMother(payload) {
-  const res = await fetch(`${API_BASE}/api/mothers`, {
+  const res = await fetchWithAuth(`${API_BASE}/api/mothers`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...authHeader() },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
-    credentials: 'same-origin',
   });
   return handleResponse(res, 'Server error when creating mother');
 }
 
 export async function apiGetMother(motherId) {
   const id = encodeURIComponent(motherId);
-  const res = await fetch(`${API_BASE}/api/mothers/${id}`, {
-    headers: { 'Content-Type': 'application/json', ...authHeader() },
-    credentials: 'same-origin',
+  const res = await fetchWithAuth(`${API_BASE}/api/mothers/${id}`, {
+    headers: { 'Content-Type': 'application/json' },
   });
   return handleResponse(res, 'Failed to fetch mother');
 }
 
 export async function apiDeleteMother(motherId) {
   const id = encodeURIComponent(motherId);
-  const res = await fetch(`${API_BASE}/api/mothers/${id}`, {
+  const res = await fetchWithAuth(`${API_BASE}/api/mothers/${id}`, {
     method: 'DELETE',
-    headers: { 'Content-Type': 'application/json', ...authHeader() },
-    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
   });
   return handleResponse(res, 'Unable to delete mother');
 }
 
 export async function apiSaveMotherCheckup(motherId, payload) {
   const id = encodeURIComponent(motherId);
-  const res = await fetch(`${API_BASE}/api/mothers/${id}/checkups`, {
+  const res = await fetchWithAuth(`${API_BASE}/api/mothers/${id}/checkups`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...authHeader() },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
-    credentials: 'same-origin',
   });
   return handleResponse(res, 'Server error when saving mother check-up');
 }
@@ -77,11 +72,10 @@ export async function apiUploadMotherDocuments(motherId, documents) {
   const formData = new FormData();
   if (documents.birthCertificate) formData.append('birthCertificate', documents.birthCertificate);
   if (documents.consent) formData.append('consent', documents.consent);
-  const res = await fetch(`${API_BASE}/api/mothers/${encodeURIComponent(motherId)}/documents`, {
+  const res = await fetchWithAuth(`${API_BASE}/api/mothers/${encodeURIComponent(motherId)}/documents`, {
     method: 'POST',
-    headers: { ...authHeader() },
+    headers: {},
     body: formData,
-    credentials: 'same-origin',
   });
   return handleResponse(res, 'Unable to upload mother documents');
 }
