@@ -86,9 +86,15 @@ export const getGroupBatches = (batches, mothers, selectedGroup, query) => {
         mother.group === selectedGroup.name && mother.batchId
     )
     .map((mother) => String(mother.batchId));
-  const filtered = batches.filter((batch) =>
-    groupBatchIds.includes(String(batch.id))
-  );
+  const filtered = batches.filter((batch) => {
+    const assignedGroupIds = String(batch.groupIds || '')
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
+    return assignedGroupIds.includes(String(selectedGroup.id))
+      || groupBatchIds.includes(String(batch.id))
+      || (assignedGroupIds.length === 0 && batch.community === selectedGroup.community);
+  });
   return filterItemsByQuery(filtered, query, [
     'name',
     'id',

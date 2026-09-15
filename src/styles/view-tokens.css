@@ -258,6 +258,14 @@
   border-radius: 0;
 }
 
+.view-content .community-modal-content .form-input:focus,
+.view-content .community-modal-content .form-select:focus {
+  border: 1px solid var(--burgundy, #8f0925);
+  border-radius: 10px;
+  outline: none;
+  box-shadow: none;
+}
+
 .view-content .table-card,
 .view-content .program-table-card,
 .view-content .monitoring-table-card,

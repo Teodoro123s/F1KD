@@ -59,12 +59,15 @@ router.get('/summary', async (req, res) => {
         c.id AS id,
         c.name,
         COALESCE(c.area, '') AS area,
+        c.coordinator_id,
+        CONCAT_WS(' ', u.first_name, u.last_name) AS coordinator_name,
         COUNT(DISTINCT m.batch_id) AS batches,
         COUNT(DISTINCT m.id) AS records
       FROM communities c
       LEFT JOIN mothers m ON m.community_id = c.id
+      LEFT JOIN users u ON u.id = c.coordinator_id
       ${schoolScope}
-      GROUP BY c.id, c.name, c.area
+      GROUP BY c.id, c.name, c.area, c.coordinator_id, u.first_name, u.last_name
       ORDER BY c.id
     `, req.schoolId ? [req.schoolId] : []);
 
@@ -149,6 +152,8 @@ router.get('/summary', async (req, res) => {
       id: item.id,
       name: item.name,
       area: item.area || '',
+      coordinatorId: item.coordinator_id || '',
+      coordinatorName: item.coordinator_name || '',
       batches: Number(item.batches || 0),
       records: Number(item.records || 0),
     }));
@@ -248,7 +253,7 @@ router.get('/summary', async (req, res) => {
 
 router.post('/communities', async (req, res) => {
   try {
-    const { name, area } = req.body || {};
+    const { name, area, coordinator } = req.body || {};
     const cleanName = String(name || '').trim();
     const cleanArea = String(area || '').trim() || 'Poblacion';
 
@@ -259,8 +264,8 @@ router.post('/communities', async (req, res) => {
     const communityCode = await nextCode(pool, 'communities', 'community_code', 'COM');
 
     const [result] = await pool.query(
-      'INSERT INTO communities (community_code, name, area) VALUES (?, ?, ?)',
-      [communityCode, cleanName, cleanArea]
+      'INSERT INTO communities (community_code, name, area, coordinator_id) VALUES (?, ?, ?, ?)',
+      [communityCode, cleanName, cleanArea, coordinator ? Number(coordinator) : null]
     );
 
     const [rows] = await pool.query(
@@ -396,7 +401,7 @@ router.get('/groups', async (req, res) => {
 router.put('/communities/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, area } = req.body || {};
+    const { name, area, coordinator } = req.body || {};
     const cleanName = String(name || '').trim();
     const cleanArea = String(area || '').trim() || 'Poblacion';
 
@@ -410,12 +415,16 @@ router.put('/communities/:id', async (req, res) => {
     }
 
     await pool.query(
-      'UPDATE communities SET name = ?, area = ? WHERE id = ?',
-      [cleanName, cleanArea, communityId]
+      'UPDATE communities SET name = ?, area = ?, coordinator_id = ? WHERE id = ?',
+      [cleanName, cleanArea, coordinator ? Number(coordinator) : null, communityId]
     );
 
     const [rows] = await pool.query(
-      'SELECT id, community_code AS code, name, area FROM communities WHERE id = ?',
+      `SELECT c.id, c.community_code AS code, c.name, c.area, c.coordinator_id,
+          CONCAT_WS(' ', u.first_name, u.last_name) AS coordinator_name
+       FROM communities c
+       LEFT JOIN users u ON u.id = c.coordinator_id
+       WHERE c.id = ?`,
       [communityId]
     );
 
@@ -426,6 +435,8 @@ router.put('/communities/:id', async (req, res) => {
         code: updated.code,
         name: updated.name,
         area: updated.area || '',
+        coordinatorId: updated.coordinator_id || '',
+        coordinatorName: updated.coordinator_name || '',
         batches: 0,
         records: 0,
       },

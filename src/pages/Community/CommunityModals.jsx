@@ -46,7 +46,6 @@ export function CreateCommunityModal({ showModal, onClose, communityForm, setCom
           className="form-select"
           value={communityForm.coordinator}
           onChange={(e) => setCommunityForm({ ...communityForm, coordinator: e.target.value })}
-          required
         >
           <option value="">Select a community coordinator</option>
           {coordinators.map((coordinator) => (
@@ -58,7 +57,7 @@ export function CreateCommunityModal({ showModal, onClose, communityForm, setCom
   );
 }
 
-export function EditCommunityModal({ showModal, onClose, communityForm, setCommunityForm, handleEditCommunity, isSubmitting }) {
+export function EditCommunityModal({ showModal, onClose, communityForm, setCommunityForm, handleEditCommunity, coordinators, isSubmitting }) {
   if (!showModal) return null;
   return (
     <ModalShell title="Edit School" onClose={onClose} onSubmit={handleEditCommunity} submitLabel="Save Changes" isSubmitting={isSubmitting}>
@@ -74,11 +73,25 @@ export function EditCommunityModal({ showModal, onClose, communityForm, setCommu
           autoFocus
         />
       </div>
+      <div className="form-group">
+        <label className="form-label" htmlFor="edit-comm-coordinator">Assigned Community Coordinator</label>
+        <select
+          id="edit-comm-coordinator"
+          className="form-select"
+          value={communityForm.coordinator || ''}
+          onChange={(e) => setCommunityForm({ ...communityForm, coordinator: e.target.value })}
+        >
+          <option value="">No coordinator assigned</option>
+          {(coordinators || []).map((coordinator) => (
+            <option key={coordinator.id} value={coordinator.id}>{coordinator.name}</option>
+          ))}
+        </select>
+      </div>
     </ModalShell>
   );
 }
 
-export function CreateBatchModal({ showModal, onClose, batchForm, setBatchForm, handleCreateBatch, communities, isSubmitting }) {
+export function CreateBatchModal({ showModal, onClose, batchForm, setBatchForm, handleCreateBatch, communities, hideSchoolField = false, isSubmitting }) {
   if (!showModal) return null;
   return (
     <ModalShell title="Create Batch" onClose={onClose} onSubmit={handleCreateBatch} submitLabel="Create" isSubmitting={isSubmitting}>
@@ -95,19 +108,21 @@ export function CreateBatchModal({ showModal, onClose, batchForm, setBatchForm, 
           autoFocus
         />
       </div>
-      <div className="form-group">
-        <label className="form-label" htmlFor="batch-comm">School</label>
-        <select
-          id="batch-comm"
-          className="form-select"
-          value={batchForm.community}
-          onChange={(e) => setBatchForm({ ...batchForm, community: e.target.value })}
-        >
-          {communities.map((comm) => (
-            <option key={comm.id} value={comm.name}>{comm.name}</option>
-          ))}
-        </select>
-      </div>
+      {!hideSchoolField && (
+        <div className="form-group">
+          <label className="form-label" htmlFor="batch-comm">School</label>
+          <select
+            id="batch-comm"
+            className="form-select"
+            value={batchForm.community}
+            onChange={(e) => setBatchForm({ ...batchForm, community: e.target.value })}
+          >
+            {communities.map((comm) => (
+              <option key={comm.id} value={comm.name}>{comm.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
     </ModalShell>
   );
 }
@@ -145,7 +160,7 @@ export function EditBatchModal({ showModal, onClose, batchForm, setBatchForm, ha
   );
 }
 
-export function CreateGroupModal({ showModal, onClose, groupForm, setGroupForm, handleCreateGroup, communities, batches, isSubmitting }) {
+export function CreateGroupModal({ showModal, onClose, groupForm, setGroupForm, handleCreateGroup, communities, batches, hideSchoolField = false, isSubmitting }) {
   if (!showModal) return null;
   const availableBatches = batches.filter((batch) => batch.community === groupForm.community);
 
@@ -164,20 +179,22 @@ export function CreateGroupModal({ showModal, onClose, groupForm, setGroupForm, 
           autoFocus
         />
       </div>
-      <div className="form-group">
-        <label className="form-label" htmlFor="group-school">School</label>
-        <select
-          id="group-school"
-          className="form-select"
-          value={groupForm.community}
-          onChange={(e) => setGroupForm({ ...groupForm, community: e.target.value, assignedBatchIds: [] })}
-          required
-        >
-          {communities.map((comm) => (
-            <option key={comm.id} value={comm.name}>{comm.name}</option>
-          ))}
-        </select>
-      </div>
+      {!hideSchoolField && (
+        <div className="form-group">
+          <label className="form-label" htmlFor="group-school">School</label>
+          <select
+            id="group-school"
+            className="form-select"
+            value={groupForm.community}
+            onChange={(e) => setGroupForm({ ...groupForm, community: e.target.value, assignedBatchIds: [] })}
+            required
+          >
+            {communities.map((comm) => (
+              <option key={comm.id} value={comm.name}>{comm.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
     </ModalShell>
   );
 }

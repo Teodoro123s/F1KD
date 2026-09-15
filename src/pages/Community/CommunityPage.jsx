@@ -138,7 +138,16 @@ export default function CommunityPage() {
       .map((mother) => String(mother.batchId));
 
     return batches
-      .filter((batch) => groupBatchIds.includes(String(batch.id)))
+      .filter((batch) => {
+        const assignedGroupIds = String(batch.groupIds || '')
+          .split(',')
+          .map((value) => value.trim())
+          .filter(Boolean);
+        const hasExplicitGroup = assignedGroupIds.length > 0;
+        return assignedGroupIds.includes(String(selectedGroup.id))
+          || groupBatchIds.includes(String(batch.id))
+          || (!hasExplicitGroup && batch.community === selectedGroup.community);
+      })
       .filter((batch) => {
         if (!query.trim()) return true;
         const term = query.trim().toLowerCase();
@@ -370,7 +379,7 @@ export default function CommunityPage() {
 
     setBatchForm({
       ...defaultBatchForm,
-      community: communities[0]?.name || '',
+      community: selectedSchool?.name || selectedGroup?.community || communities[0]?.name || '',
     });
     setShowModal('createBatch');
   };
@@ -379,7 +388,11 @@ export default function CommunityPage() {
     setSelectedItem(item);
 
     if (activeTab === 'communities') {
-      setCommunityForm({ name: item.name, area: item.area, coordinator: '' });
+      setCommunityForm({
+        name: item.name,
+        area: item.area,
+        coordinator: item.coordinatorId || '',
+      });
       setShowModal('editCommunity');
       return;
     }
@@ -522,6 +535,20 @@ export default function CommunityPage() {
             </button>
             {activeDropdownId === row.id && (
               <div className="actions-dropdown" role="menu">
+                {activeTab !== 'mothers' && (
+                  <button
+                    type="button"
+                    className="actions-dropdown-item"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      openEditModal(row);
+                      setActiveDropdownId(null);
+                    }}
+                    role="menuitem"
+                  >
+                    Edit
+                  </button>
+                )}
                 <button
                   type="button"
                   className="actions-dropdown-item delete"
@@ -664,8 +691,10 @@ export default function CommunityPage() {
         onEditCommunity={handleEditCommunity}
         onCreateBatch={handleCreateBatch}
         onEditBatch={handleEditBatch}
+        hideBatchSchoolField={Boolean(schoolId || groupId)}
         onCreateGroup={handleCreateGroup}
         onEditGroup={handleEditGroup}
+        hideGroupSchoolField={Boolean(schoolId)}
         isSubmitting={mutations.loading}
       />
     </div>

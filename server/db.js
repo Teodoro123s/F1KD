@@ -67,6 +67,9 @@ async function ensure() {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
 
+    `ALTER TABLE communities
+      ADD COLUMN IF NOT EXISTS coordinator_id INT NULL;`,
+
     `CREATE TABLE IF NOT EXISTS batches (
       id INT AUTO_INCREMENT PRIMARY KEY,
       batch_code VARCHAR(20) NOT NULL UNIQUE,

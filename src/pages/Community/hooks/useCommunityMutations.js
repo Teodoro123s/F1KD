@@ -59,6 +59,7 @@ export const useCommunityMutations = ({ refreshData }) => {
       const normalized = {
         name: payload.name.trim(),
         area: payload.area,
+        coordinator: payload.coordinator,
       };
 
       return runMutation({
