@@ -14,6 +14,7 @@ const { verifyToken } = require('./middleware/auth');
 const { authorizeOperational } = require('./middleware/authorize');
 const { uploadDirectory } = require('./middleware/documentUpload');
 const { errorHandler } = require('./middleware/errorHandler');
+const db = require('./db');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -65,4 +66,6 @@ app.use('/api/progress-report', verifyToken, authorizeOperational, progressRepor
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => console.log(`Server listening on ${PORT}`));
+db.ready
+  .then(() => app.listen(PORT, () => console.log(`Server listening on ${PORT}`)))
+  .catch(() => process.exitCode = 1);

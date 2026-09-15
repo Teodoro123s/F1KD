@@ -1,4 +1,6 @@
 // Simple auth client using JWT in Authorization header
+import { fetchWithAuth } from './authHeader';
+
 const API_BASE = (typeof process !== 'undefined' && process.env && process.env.REACT_APP_API_URL)
   ? process.env.REACT_APP_API_URL
   : (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL)
@@ -29,6 +31,15 @@ export async function login(email, password) {
     credentials: 'include',
   });
   return handleResponse(res, 'Login failed');
+}
+
+export async function changePassword(currentPassword, newPassword, confirmPassword) {
+  const res = await fetchWithAuth(`${API_BASE}/api/auth/change-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ currentPassword, newPassword, confirmPassword }),
+  });
+  return handleResponse(res, 'Password change failed');
 }
 
 export async function refreshSession() {

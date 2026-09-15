@@ -76,6 +76,40 @@ router.post('/login', async (req, res) => {
   }
 });
 
+router.post('/change-password', verifyToken, async (req, res) => {
+  try {
+    const { currentPassword, newPassword, confirmPassword } = req.body || {};
+    if (!currentPassword || !newPassword || newPassword !== confirmPassword) {
+      return res.status(400).json({ error: 'Current password and matching new passwords are required' });
+    }
+    if (String(newPassword).length < 8) {
+      return res.status(400).json({ error: 'New password must be at least 8 characters' });
+    }
+    if (currentPassword === newPassword) {
+      return res.status(400).json({ error: 'New password must be different from the current password' });
+    }
+
+    const [rows] = await pool.query(
+      'SELECT id, password_hash FROM users WHERE id = ? OR LOWER(TRIM(email)) = LOWER(TRIM(?)) LIMIT 1',
+      [req.user.id, req.user.email],
+    );
+    const user = rows[0];
+    if (!user) {
+      return res.status(401).json({ error: 'Your session is no longer linked to an account. Please sign in again.' });
+    }
+    if (!(await bcrypt.compare(currentPassword, user.password_hash || ''))) {
+      return res.status(401).json({ error: 'Current password is incorrect' });
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await pool.query('UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, user.id]);
+    return res.json({ message: 'Password changed successfully' });
+  } catch (error) {
+    console.error('Change password error:', error.message);
+    return res.status(500).json({ error: 'Unable to change password' });
+  }
+});
+
 router.post('/refresh', async (req, res) => {
   const refreshToken = req.cookies && req.cookies.refreshToken;
   if (!refreshToken) {
