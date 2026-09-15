@@ -87,6 +87,7 @@ export const useCommunityMutations = ({ refreshData }) => {
       const normalized = {
         name: payload.name.trim(),
         community: payload.community,
+        groupId: payload.groupId || null,
         records: Number(payload.records) || 0,
         progress: Number(payload.progress) || 0,
         status: payload.status,
@@ -106,6 +107,7 @@ export const useCommunityMutations = ({ refreshData }) => {
       const normalized = {
         name: payload.name.trim(),
         community: payload.community,
+        groupId: payload.groupId || null,
         records: Number(payload.records) || 0,
         progress: Number(payload.progress) || 0,
         status: payload.status,

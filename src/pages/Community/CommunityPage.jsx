@@ -413,6 +413,7 @@ export default function CommunityPage() {
     setBatchForm({
       name: item.name,
       community: item.community,
+      groupId: selectedGroup?.id || groupId || String(item.groupIds || '').split(',')[0] || '',
       records: item.records,
       progress: item.progress ?? 0,
       status: item.status,
@@ -616,7 +617,6 @@ export default function CommunityPage() {
 
     return [
       { key: 'name', header: 'Batch Name', style: { width: '42%' }, renderCell: (row) => <span className="community-title-text">{row.name}</span> },
-      { key: 'community', header: 'Community', style: { width: '32%' }, cellClassName: 'community-column', renderCell: (row) => row.community },
       { key: 'records', header: 'Total Mothers', cellClassName: 'compact-column', renderCell: (row) => row.records },
       { key: 'progress', header: 'Progress (%)', cellClassName: 'status-column', renderCell: (row) => `${row.progress ?? 0}%` },
       actionColumn,
@@ -629,7 +629,7 @@ export default function CommunityPage() {
       : activeTab === 'groups'
         ? (group) => navigate(`/community/group/${group.id}`)
         : activeTab === 'batches'
-          ? (batch) => navigate(`/community/batch/${batch.id}`)
+          ? (batch) => navigate(`/beneficiary?batchId=${encodeURIComponent(batch.databaseId || batch.id)}`, { state: { batch } })
           : entityFilter === 'Child'
             ? (child) => handleChildRowClick(child)
             : (mother) => handleMotherRowClick(mother);
@@ -685,6 +685,7 @@ export default function CommunityPage() {
         batchForm={batchForm}
         setBatchForm={setBatchForm}
         communities={communities}
+        groups={groups}
         batches={batches}
         coordinators={coordinators}
         onCreateCommunity={handleCreateCommunity}

@@ -18,6 +18,7 @@ export default function CommunityModalManager({
   batchForm,
   setBatchForm,
   communities,
+  groups,
   batches,
   coordinators,
   onCreateCommunity,
@@ -67,6 +68,8 @@ export default function CommunityModalManager({
         setBatchForm={setBatchForm}
         handleEditBatch={onEditBatch}
         communities={communities}
+        groups={groups}
+        showGroupField={hideBatchSchoolField}
         isSubmitting={isSubmitting}
       />
       <CreateGroupModal

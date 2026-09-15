@@ -26,7 +26,7 @@ const getChildProfileProgress = (child) => Math.round([
   child?.birthDocumentPath || child?.birth_document_path,
 ].filter(Boolean).length * 25);
 
-export default function BeneficiaryListPage({ communities = [], batches = [], mothers = [], loading = false, onSelectMother, onSelectChild }) {
+export default function BeneficiaryListPage({ communities = [], batches = [], mothers = [], loading = false, onSelectMother, onSelectChild, batchId = '' }) {
   const [query, setQuery] = useState('');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('All');
   const [perPage, setPerPage] = useState(10);
@@ -39,12 +39,6 @@ export default function BeneficiaryListPage({ communities = [], batches = [], mo
     let active = true;
 
     async function loadChildren() {
-      if (!mothers.length) {
-        setChildRows([]);
-        setChildrenLoading(false);
-        return;
-      }
-
       setChildrenLoading(true);
       apiGetChildren()
         .then((response) => {
@@ -93,6 +87,19 @@ export default function BeneficiaryListPage({ communities = [], batches = [], mo
     const term = (query || '').trim().toLowerCase();
     let data = selectedEntityFilter === 'Child' ? childRows : mothers;
 
+    if (batchId) {
+      const normalizedBatchId = String(batchId);
+      data = data.filter((item) => {
+        const original = item.original || item.raw || item;
+        return [
+          item.batchId,
+          item.batch_id,
+          original.batchId,
+          original.batch_id,
+        ].some((value) => value !== undefined && value !== null && String(value) === normalizedBatchId);
+      });
+    }
+
     // Normalize incoming items: support both 'group' objects and 'mother' objects
     data = data.map((item) => {
       if (selectedEntityFilter === 'Child') {
@@ -130,7 +137,7 @@ export default function BeneficiaryListPage({ communities = [], batches = [], mo
       if (statusA !== statusB) return statusA - statusB;
       return (a.name || '').localeCompare(b.name || '');
     });
-  }, [mothers, childRows, query, selectedStatusFilter, selectedEntityFilter]);
+  }, [mothers, childRows, query, selectedStatusFilter, selectedEntityFilter, batchId]);
 
   const pageCount = Math.max(1, Math.ceil(filteredData.length / perPage));
   const currentPage = Math.min(page, pageCount);

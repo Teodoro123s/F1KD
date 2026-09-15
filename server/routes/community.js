@@ -61,9 +61,10 @@ router.get('/summary', async (req, res) => {
         COALESCE(c.area, '') AS area,
         c.coordinator_id,
         CONCAT_WS(' ', u.first_name, u.last_name) AS coordinator_name,
-        COUNT(DISTINCT m.batch_id) AS batches,
+        COUNT(DISTINCT b.id) AS batches,
         COUNT(DISTINCT m.id) AS records
       FROM communities c
+      LEFT JOIN batches b ON b.community_id = c.id
       LEFT JOIN mothers m ON m.community_id = c.id
       LEFT JOIN users u ON u.id = c.coordinator_id
       ${schoolScope}
@@ -100,11 +101,16 @@ router.get('/summary', async (req, res) => {
         '' AS description,
         c.name AS community,
         COALESCE(g.members_count, COUNT(m.id)) AS members,
-        COUNT(DISTINCT m.batch_id) AS batches,
+        CASE
+          WHEN COUNT(DISTINCT gb.batch_id) > 0 THEN COUNT(DISTINCT gb.batch_id)
+          ELSE COUNT(DISTINCT b.id)
+        END AS batches,
         COALESCE(g.leader, '') AS leader,
         COALESCE(g.status, 'Active') AS status
       FROM groups g
       LEFT JOIN mothers m ON m.group_id = g.id
+      LEFT JOIN group_batch gb ON gb.group_id = g.id
+      LEFT JOIN batches b ON b.community_id = g.community_id
       LEFT JOIN communities c ON c.id = g.community_id
       ${groupSchoolScope}
       GROUP BY g.id, g.name, c.name, g.members_count, g.leader, g.status
@@ -293,7 +299,7 @@ router.post('/communities', async (req, res) => {
 
 router.post('/batches', async (req, res) => {
   try {
-    const { name, community, records, progress, status } = req.body || {};
+    const { name, community, groupId, records, progress, status } = req.body || {};
     const cleanName = String(name || '').trim();
     const communityId = await resolveCommunityId(pool, community);
 
@@ -516,7 +522,7 @@ router.delete('/groups/:id', async (req, res) => {
 router.put('/batches/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, community, records, progress, status } = req.body || {};
+    const { name, community, groupId, records, progress, status } = req.body || {};
     const cleanName = String(name || '').trim();
     const communityId = await resolveCommunityId(pool, community);
 
@@ -533,6 +539,13 @@ router.put('/batches/:id', async (req, res) => {
       'UPDATE batches SET name = ?, community_id = ?, records = ?, progress = ?, status = ? WHERE id = ?',
       [cleanName, communityId || null, Number(records) || 0, Number(progress) || 0, status || 'Active', batchId]
     );
+
+    if (groupId !== undefined) {
+      await pool.query('DELETE FROM group_batch WHERE batch_id = ?', [batchId]);
+      if (groupId) {
+        await pool.query('INSERT INTO group_batch (group_id, batch_id) VALUES (?, ?)', [Number(groupId), batchId]);
+      }
+    }
 
     const [rows] = await pool.query(
       'SELECT id, batch_code AS code, name, records, progress, status, community_id FROM batches WHERE id = ?',

@@ -127,8 +127,9 @@ export function CreateBatchModal({ showModal, onClose, batchForm, setBatchForm, 
   );
 }
 
-export function EditBatchModal({ showModal, onClose, batchForm, setBatchForm, handleEditBatch, communities, isSubmitting }) {
+export function EditBatchModal({ showModal, onClose, batchForm, setBatchForm, handleEditBatch, communities, groups = [], showGroupField = false, isSubmitting }) {
   if (!showModal) return null;
+  const availableGroups = groups.filter((group) => group.community === batchForm.community);
   return (
     <ModalShell title="Edit Batch" onClose={onClose} onSubmit={handleEditBatch} submitLabel="Save Changes" isSubmitting={isSubmitting}>
       <div className="form-group">
@@ -143,7 +144,23 @@ export function EditBatchModal({ showModal, onClose, batchForm, setBatchForm, ha
           autoFocus
         />
       </div>
-      <div className="form-group">
+      {showGroupField && (
+        <div className="form-group">
+          <label className="form-label" htmlFor="edit-batch-group">Group</label>
+          <select
+            id="edit-batch-group"
+            className="form-select"
+            value={batchForm.groupId || ''}
+            onChange={(e) => setBatchForm({ ...batchForm, groupId: e.target.value })}
+          >
+            <option value="">No group assigned</option>
+            {availableGroups.map((group) => (
+              <option key={group.id} value={group.id}>{group.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
+      {!showGroupField && <div className="form-group">
         <label className="form-label" htmlFor="edit-batch-comm">School</label>
         <select
           id="edit-batch-comm"
@@ -155,7 +172,7 @@ export function EditBatchModal({ showModal, onClose, batchForm, setBatchForm, ha
             <option key={comm.id} value={comm.name}>{comm.name}</option>
           ))}
         </select>
-      </div>
+      </div>}
     </ModalShell>
   );
 }

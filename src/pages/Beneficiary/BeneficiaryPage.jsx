@@ -36,6 +36,7 @@ export default function BeneficiaryPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { id: motherRouteId } = useParams();
+  const batchId = new URLSearchParams(location.search).get('batchId') || '';
 
   useEffect(() => {
     function closeDropdowns() {
@@ -192,6 +193,7 @@ export default function BeneficiaryPage() {
             batches={batches}
             onSelectMother={handleSelectMother}
             onSelectChild={handleSelectChild}
+            batchId={batchId}
           />
         )}
       </main>
