@@ -28,6 +28,9 @@ const emptyCommunityForm = (communities = []) => ({
   lmpDate: '',
   eddDate: '',
   contactNumber: '',
+  province: '',
+  city: '',
+  barangay: '',
   isHighRisk: 'No',
   programType: 'Maternal Health Program',
   emergencyName: '',
@@ -164,7 +167,9 @@ export default function CreateMotherPage({
       contactNumber: communityForm.contactNumber,
       community: communityForm.community,
       area: communityForm.area,
-      address: communityForm.address,
+      address: [communityForm.province, communityForm.city, communityForm.barangay]
+        .filter(Boolean)
+        .join(', '),
       group: communityForm.group,
       batch: communityForm.batch,
       groupId: communityForm.groupId || null,
@@ -345,6 +350,7 @@ export default function CreateMotherPage({
               communities={communities}
               groups={groups}
               batches={batches}
+              slashDateInput
             />
           </div>
 

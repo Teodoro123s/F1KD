@@ -10,6 +10,7 @@ export function MotherFormFields({
   batches = [],
   autoCalculate = true,
   readOnly = false,
+  slashDateInput = false,
 }) {
   const uniqueCommunities = Array.from(new Set(communities.map((comm) => comm.name))).filter(Boolean);
   const selectedGroups = groups.filter((group) => !form.community || group.community === form.community);
@@ -62,6 +63,16 @@ export function MotherFormFields({
     }));
   };
 
+  const formatSlashDate = (value) => {
+    const normalized = formatDateForInput(value);
+    return normalized ? normalized.replaceAll('-', '/') : String(value || '').replaceAll('-', '/');
+  };
+
+  const normalizeSlashDate = (value) => value
+    .replace(/[^0-9/]/g, '')
+    .replaceAll('/', '-')
+    .replace(/^(\d{4})-(\d{2})-(\d{2}).*$/, '$1-$2-$3');
+
   // Helpers to reduce repetitive form markup and support read-only display
   const renderField = ({ id, label, name, type = 'text', placeholder = '', required = false, valueOverride, onChange, nativeDate = false, maxDate }) => {
     const value = valueOverride ?? form[name] ?? '';
@@ -81,13 +92,13 @@ export function MotherFormFields({
         <label className="form-label" htmlFor={id}>{label}</label>
         <input
           id={id}
-          type={nativeDate ? 'date' : isDate ? 'text' : type}
+          type={nativeDate && !slashDateInput ? 'date' : isDate ? 'text' : type}
           className="form-input"
-          placeholder={nativeDate ? undefined : isDate ? 'yyyy/mm/dd' : placeholder}
-          value={isDate ? formatDateForInput(value) : value}
+          placeholder={isDate ? 'yyyy/mm/dd' : placeholder}
+          value={isDate ? slashDateInput ? formatSlashDate(value) : formatDateForInput(value) : value}
           onChange={(e) => {
             const nextValue = isDate
-              ? nativeDate ? e.target.value : e.target.value.replace(/[^0-9/]/g, '').replaceAll('/', '-').replace(/^(\d{4})-(\d{2})-(\d{2}).*$/, '$1-$2-$3')
+              ? nativeDate && !slashDateInput ? e.target.value : normalizeSlashDate(e.target.value)
               : isNumeric ? e.target.value.replace(/\D/g, '') : e.target.value;
             if (onChange) {
               onChange(nextValue);
@@ -170,27 +181,24 @@ export function MotherFormFields({
   };
 
   if (activeTab === 'general') {
-    const spouseNameParts = String(form.spouseName || '').trim().split(/\s+/).filter(Boolean);
-    const spouseFirstName = form.spouseFirstName ?? (spouseNameParts.length > 1 ? spouseNameParts.slice(0, -1).join(' ') : spouseNameParts[0] || '');
-    const spouseSurname = form.spouseSurname ?? (spouseNameParts.length > 1 ? spouseNameParts[spouseNameParts.length - 1] : '');
-
     return (
-      <>
-        <h4 className="form-section-title">I.A Mother's Information</h4>
-        <div className="form-row-5 full-width name-row">
+      <div className="create-mother-general">
+        <section className="create-mother-category">
+          <h4 className="form-section-title">I.A Mother's Information</h4>
+          <div className="form-row-5 full-width name-row">
           {renderField({ id: 'mother-first-name', label: "First Name", name: 'firstName', placeholder: 'First name', required: true })}
           {renderField({ id: 'mother-middle-name', label: "Middle Name", name: 'middleName', placeholder: 'Middle name' })}
           {renderField({ id: 'mother-last-name', label: "Last Name", name: 'lastName', placeholder: 'Last name', required: true })}
           {renderField({ id: 'mother-maiden-surname', label: "Maiden Surname", name: 'maidenSurname', placeholder: 'Maiden surname' })}
           {renderField({ id: 'mother-suffix', label: "Suffix", name: 'suffix', placeholder: 'Suffix' })}
-        </div>
+          </div>
 
-        <div className="form-row-2 full-width">
+          <div className="form-row-2 full-width">
           {renderField({ id: 'mother-dob', label: "Date of Birth", name: 'dob', type: 'date', required: true, nativeDate: true, maxDate: new Date().toISOString().split('T')[0] })}
           {renderField({ id: 'mother-contact', label: "Contact Number", name: 'contactNumber', type: 'tel', placeholder: '0917******' })}
-        </div>
+          </div>
 
-        <div className="form-row-4 full-width">
+          <div className="form-row-2 full-width">
           {readOnly ? (
             renderField({ id: 'mother-lmp', label: 'Date of LMP', name: 'lmpDate', type: 'date' })
           ) : (
@@ -198,10 +206,11 @@ export function MotherFormFields({
               <label className="form-label" htmlFor="mother-lmp">Date of LMP</label>
               <input
                 id="mother-lmp"
-                type="date"
+                type={slashDateInput ? 'text' : 'date'}
                 className="form-input"
-                value={formatDateForInput(form.lmpDate)}
-                onChange={(e) => handleLmpChange(e.target.value)}
+                placeholder={slashDateInput ? 'yyyy/mm/dd' : undefined}
+                value={slashDateInput ? formatSlashDate(form.lmpDate) : formatDateForInput(form.lmpDate)}
+                onChange={(e) => handleLmpChange(slashDateInput ? normalizeSlashDate(e.target.value) : e.target.value)}
                 max={new Date().toISOString().split('T')[0]}
                 autoComplete="off"
               />
@@ -209,11 +218,21 @@ export function MotherFormFields({
           )}
 
           {renderField({ id: 'mother-edd', label: "Expected Delivery Date (EDD)", name: 'eddDate', type: 'date', nativeDate: true })}
-          {renderField({ id: 'mother-weight', label: "Mother's Weight (kg)", name: 'weight', placeholder: 'e.g. 50 kg' })}
-          {renderField({ id: 'mother-height', label: "Mother's Height (cm)", name: 'height', placeholder: 'e.g. 150 cm' })}
-        </div>
+          </div>
+        </section>
 
-        <div className="form-row-3 full-width">
+        <section className="create-mother-category">
+          <h4 className="form-section-title">I.B ADDRESS DETAILS</h4>
+          <div className="form-row-3 full-width">
+          {renderField({ id: 'mother-province', label: 'Province', name: 'province', placeholder: 'Enter province' })}
+          {renderField({ id: 'mother-city', label: 'City', name: 'city', placeholder: 'Enter city' })}
+          {renderField({ id: 'mother-barangay', label: 'Barangay', name: 'barangay', placeholder: 'Enter barangay' })}
+          </div>
+        </section>
+
+        <section className="create-mother-category">
+          <h4 className="form-section-title">I.C COMMUNITY DETAILS</h4>
+          <div className="form-row-3 full-width">
           {renderSelect({
             id: 'mother-community',
             label: 'School',
@@ -254,125 +273,53 @@ export function MotherFormFields({
               }));
             },
           })}
-        </div>
+          </div>
+        </section>
 
-        <h4 className="form-section-title">I.B EMERGENCY CONTACT DETAILS</h4>
-        <div className="form-row-3 full-width">
+        <section className="create-mother-category">
+          <h4 className="form-section-title">I.D EMERGENCY CONTACT</h4>
+          <div className="form-row-3 full-width">
           {renderField({ id: 'emergency-name', label: 'Name', name: 'emergencyName', placeholder: 'Enter contact name' })}
           {renderField({ id: 'emergency-contact', label: 'Contact Number', name: 'emergencyContact', type: 'tel', placeholder: 'Enter contact number' })}
           {renderField({ id: 'emergency-relationship', label: 'Relationship', name: 'emergencyRelationship', placeholder: 'e.g. husband' })}
-        </div>
+          </div>
+        </section>
 
-        <h4 className="form-section-title">I.C OTHER DETAILS</h4>
-        <div className="form-row-2 full-width">
-          {renderField({
-            id: 'spouse-first-name',
-            label: 'Spouse First Name',
-            name: 'spouseFirstName',
-            valueOverride: spouseFirstName,
-            placeholder: 'Enter first name',
-            onChange: (value) => setForm((prev) => ({
-              ...prev,
-              spouseFirstName: value,
-              spouseName: `${value} ${prev.spouseSurname || spouseSurname}`.trim(),
-            })),
-          })}
-          {renderField({
-            id: 'spouse-surname',
-            label: 'Spouse Surname',
-            name: 'spouseSurname',
-            valueOverride: spouseSurname,
-            placeholder: 'Enter surname',
-            onChange: (value) => setForm((prev) => ({
-              ...prev,
-              spouseSurname: value,
-              spouseName: `${prev.spouseFirstName || spouseFirstName} ${value}`.trim(),
-            })),
-          })}
-        </div>
-        {renderTextarea({ id: 'mother-address', label: 'Address', name: 'address', rows: 3, placeholder: 'Enter address...' })}
-      </>
+        <section className="create-mother-category create-mother-category--empty">
+          <h4 className="form-section-title">I.E OTHER DETAILS</h4>
+        </section>
+      </div>
     );
   }
 
   if (activeTab === 'prenatal') {
     return (
-      <>
-        <h4 className="form-section-title">II. INITIAL PRENATAL ASSESSMENT & MATERNAL HEALTH PROFILE</h4>
-        <div className="form-row-3 full-width">
+      <div className="create-mother-general create-mother-prenatal">
+        <section className="create-mother-category">
+          <h4 className="form-section-title">II. INITIAL PRENATAL ASSESSMENT & MATERNAL HEALTH PROFILE</h4>
+          <div className="form-row-3 full-width">
           {renderField({ id: 'prenatal-reg-date', label: 'Date of Prenatal Registration', name: 'prenatalRegDate', type: 'date', nativeDate: true })}
           {renderSelect({ id: 'prenatal-trimester', label: 'Trimester at Registration', name: 'trimester', options: ['1st Trimester','2nd Trimester','3rd Trimester'] })}
           {renderField({ id: 'prenatal-gest-age', label: 'Gestational Age at Reg (weeks)', name: 'gestationalAge', placeholder: 'e.g. 12' })}
-        </div>
+          </div>
 
-        <div className="form-row-3 full-width">
+          <div className="form-row-3 full-width">
           {renderField({ id: 'prenatal-weight', label: 'Weight (kg) at Reg', name: 'prenatalWeight', placeholder: 'e.g. 52' })}
           {renderField({ id: 'prenatal-bp', label: 'Blood Pressure (BP) at Reg', name: 'prenatalBp', placeholder: 'e.g. 120/80' })}
           {renderField({ id: 'prenatal-height', label: 'Height (cm) at Reg', name: 'prenatalHeight', placeholder: 'e.g. 150' })}
-        </div>
+          </div>
+        </section>
 
-        <div className="form-row-3 full-width">
-          {renderField({ id: 'prenatal-fundal', label: 'Fundal Height (cm) at Reg', name: 'fundalHeight', placeholder: 'e.g. 15' })}
-          {renderField({ id: 'prenatal-fhr', label: 'FHR (bpm) at Reg', name: 'fhr', placeholder: 'e.g. 145' })}
-          <div className="form-group" aria-hidden="true" />
-        </div>
-
-        <h4 className="form-section-title">III. NUMBER OF PREGNANCIES & BIRTHS (OB)</h4>
-        <div className="form-row-4 full-width">
+        <section className="create-mother-category">
+          <h4 className="form-section-title">III. NUMBER OF PREGNANCIES & BIRTHS (OB)</h4>
+          <div className="form-row-3 full-width">
           {renderField({ id: 'ob-gravida', label: 'Gravida (Pregnancies)', name: 'gravida', type: 'number', placeholder: 'Total pregnancies' })}
-          {renderField({ id: 'ob-para', label: 'Para (Completed >20wks)', name: 'para', type: 'number', placeholder: 'Completed pregnancies' })}
           {renderField({ id: 'ob-abortion', label: 'Abortion', name: 'abortion', type: 'number', placeholder: 'Spontaneous/induced' })}
           {renderField({ id: 'ob-stillbirth', label: 'Stillbirth', name: 'stillbirth', type: 'number', placeholder: 'Fetal death >20wks' })}
-        </div>
-
-        <div className="form-group full-width">
-          <label className="form-label">OB History Table</label>
-          <div className="ob-history-form-table-wrapper">
-            <table className="ob-history-form-table">
-              <thead>
-                <tr>
-                  <th style={{ width: '15%' }}>Event</th>
-                  <th style={{ width: '35%' }}>Gestational Age (weeks)</th>
-                  <th style={{ width: '50%' }}>Outcomes / Complications</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(form.obHistory || []).map((row, index) => (
-                  <tr key={index}>
-                    <td><strong>{row.event}</strong></td>
-                    <td>
-                      {readOnly ? (
-                        <div className="form-readonly-value">{row.gestationalAge || '-'}</div>
-                      ) : (
-                        <input
-                          type="text"
-                          className="form-input table-input"
-                          placeholder="e.g. 38 weeks"
-                          value={row.gestationalAge || ''}
-                          onChange={(e) => handleObHistoryChange(index, 'gestationalAge', e.target.value)}
-                        />
-                      )}
-                    </td>
-                    <td>
-                      {readOnly ? (
-                        <div className="form-readonly-value">{row.outcome || '-'}</div>
-                      ) : (
-                        <input
-                          type="text"
-                          className="form-input table-input"
-                          placeholder="e.g. Normal Vaginal Delivery"
-                          value={row.outcome || ''}
-                          onChange={(e) => handleObHistoryChange(index, 'outcome', e.target.value)}
-                        />
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
-        </div>
-      </>
+        </section>
+
+      </div>
     );
   }
 
@@ -402,9 +349,10 @@ export function MotherFormFields({
     ];
 
     return (
-      <>
-        <h4 className="form-section-title">IV.A HISTORY OF MEDICAL CONDITIONS</h4>
-        <div className="form-checkboxes-grid full-width">
+      <div className="create-mother-general create-mother-medical">
+        <section className="create-mother-category">
+          <h4 className="form-section-title">IV.A HISTORY OF MEDICAL CONDITIONS</h4>
+          <div className="form-checkboxes-grid full-width">
           {readOnly ? (
             <div className="form-readonly-list">
               {(conditionsKeys.filter(({ key }) => !!form.medicalConditions?.[key]).map(c => c.label)).length > 0 ? (
@@ -428,27 +376,29 @@ export function MotherFormFields({
               </label>
             ))
           )}
-        </div>
-        {renderTextarea({ id: 'other-medical-notes', label: 'Other Medical History', name: 'otherMedicalHistory', rows: 2, placeholder: 'Other medical history notes...' })}
+          </div>
+          {renderTextarea({ id: 'other-medical-notes', label: 'Other Medical History', name: 'otherMedicalHistory', rows: 2, placeholder: 'Other medical history notes...' })}
+        </section>
 
-        <h4 className="form-section-title">IV.B DENTAL HEALTH CONDITION</h4>
-        <div className="form-row-3 full-width">
+        <section className="create-mother-category">
+          <h4 className="form-section-title">IV.B DENTAL HEALTH CONDITION</h4>
+          <div className="form-row-3 full-width">
           {renderField({ id: 'dental-date', label: 'Date of Dental Check-up', name: 'dentalCheckupDate', type: 'date', nativeDate: true })}
           {renderField({ id: 'dental-facility', label: 'Dental Clinic / Health Facility', name: 'dentalFacility', placeholder: 'Facility name' })}
           {renderField({ id: 'dentist-charge', label: 'Dentist in Charge', name: 'dentistInCharge', placeholder: 'Dentist name' })}
-        </div>
+          </div>
 
-        <div className="form-row-3 full-width">
+          <div className="form-row-3 full-width">
           {renderField({ id: 'dentist-comm', label: 'Community Dentist Name', name: 'communityDentist', placeholder: 'Community dentist' })}
           {renderField({ id: 'dentist-license', label: 'Dentist License No', name: 'dentistLicense', placeholder: 'License number' })}
           {renderField({ id: 'dentist-contact', label: 'Dentist Contact No', name: 'dentistContact', type: 'tel', placeholder: 'Contact number' })}
-        </div>
+          </div>
 
-        {renderField({ id: 'teeth-count', label: 'Number of Teeth Pregnant', name: 'teethCount', type: 'number', placeholder: 'e.g. 28' })}
+          {renderField({ id: 'teeth-count', label: 'Number of Teeth Pregnant', name: 'teethCount', type: 'number', placeholder: 'e.g. 28' })}
 
-        {renderTextarea({ id: 'dental-findings', label: 'Dental Findings / Diagnosis', name: 'dentalFindings', rows: 2, placeholder: 'Findings or diagnosis...' })}
+          {renderTextarea({ id: 'dental-findings', label: 'Dental Findings / Diagnosis', name: 'dentalFindings', rows: 2, placeholder: 'Findings or diagnosis...' })}
 
-        <div className="form-group full-width">
+          <div className="form-group full-width">
           <label className="form-label">Dental Work Done</label>
           {readOnly ? (
             <div className="form-readonly-list">
@@ -475,18 +425,20 @@ export function MotherFormFields({
               ))}
             </div>
           )}
-        </div>
+          </div>
 
-        {renderTextarea({ id: 'dental-remarks', label: 'Remarks / Recommendations', name: 'dentalRemarks', rows: 2, placeholder: 'Dental recommendations...' })}
-      </>
+          {renderTextarea({ id: 'dental-remarks', label: 'Remarks / Recommendations', name: 'dentalRemarks', rows: 2, placeholder: 'Dental recommendations...' })}
+        </section>
+      </div>
     );
   }
 
   if (activeTab === 'vaccine') {
     return (
-      <>
-        <h4 className="form-section-title">IV.C VACCINE RECORD</h4>
-        <div className="form-group full-width">
+      <div className="create-mother-general create-mother-vaccine">
+        <section className="create-mother-category">
+          <h4 className="form-section-title">IV.C VACCINE RECORD</h4>
+          <div className="form-group full-width">
           <div className="form-panel vaccine-form-panel">
             <div className="vaccine-form-table-wrapper">
               <table className="vaccine-form-table">
@@ -506,12 +458,13 @@ export function MotherFormFields({
                           <div className="form-readonly-value">{form[`tt${num}Date`] || '-'}</div>
                         ) : (
                           <input
-                            type="date"
+                            type={slashDateInput ? 'text' : 'date'}
                             className="form-input table-input"
-                            value={formatDateForInput(form[`tt${num}Date`] || '')}
+                            placeholder={slashDateInput ? 'yyyy/mm/dd' : undefined}
+                            value={slashDateInput ? formatSlashDate(form[`tt${num}Date`] || '') : formatDateForInput(form[`tt${num}Date`] || '')}
                             onChange={(e) => setForm((prev) => ({
                               ...prev,
-                              [`tt${num}Date`]: e.target.value,
+                              [`tt${num}Date`]: slashDateInput ? normalizeSlashDate(e.target.value) : e.target.value,
                             }))}
                             autoComplete="off"
                           />
@@ -536,8 +489,9 @@ export function MotherFormFields({
               </table>
             </div>
           </div>
-        </div>
-      </>
+          </div>
+        </section>
+      </div>
     );
   }
 
