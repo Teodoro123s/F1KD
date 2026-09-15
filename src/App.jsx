@@ -53,6 +53,7 @@ export default function App() {
         <Route path="community/batch/:batchId" element={<CommunityPage />} />
         <Route path="beneficiary" element={<Beneficiary />} />
         <Route path="beneficiary/mother/:id" element={<Beneficiary />} />
+        <Route path="beneficiary/mother/:id/profile" element={<Beneficiary />} />
         <Route path="beneficiary/create/mother" element={<RoleBasedRoute allowedRoles={[ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.PARTNER]}><Beneficiary /></RoleBasedRoute>} />
         <Route path="beneficiary/create/child" element={<RoleBasedRoute allowedRoles={[ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.PARTNER]}><Beneficiary /></RoleBasedRoute>} />
         <Route path="beneficiary/mother/:id/child" element={<MotherChildrenPage />} />

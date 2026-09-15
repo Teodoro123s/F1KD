@@ -5,6 +5,7 @@ import { apiGetMother, apiUploadMotherDocuments } from '../../../api/mothers';
 import { resolveAssetUrl } from '../../../api/authHeader';
 import { useAuth } from '../../../auth/AuthProvider';
 import { can } from '../../../utils/permissions';
+import PageHeader from '../../../components/ui/PageHeader';
 
 const calculateAge = (dobString) => {
   if (!dobString) return null;
@@ -100,7 +101,7 @@ const ChipList = ({ items, emptyLabel = 'None' }) => {
   );
 };
 
-export default function MotherDetailPage({ selectedMother, onClose, onMotherUpdated }) {
+export default function MotherDetailPage({ selectedMother, onClose, onMotherUpdated, overviewOnly = false }) {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const canManage = can(currentUser?.role, 'admin-resources', 'create');
@@ -212,39 +213,67 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
 
   return (
     <section className="mother-detail-page">
-      <header className="mother-detail-header">
-        <div className="mother-detail-actions">
-          {canManage && <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/mother/${motherId}/edit`, { state: { mother: selectedMother } })}>Edit</button>}
-          <button type="button" className="btn-secondary" onClick={() => {
-            navigate(`/beneficiary/mother/${motherId}/child`, { state: { mother: selectedMother, children, returnTo: `/beneficiary/mother/${motherId}` } });
-          }}>View Children</button>
-          <button type="button" className="btn-primary" onClick={() => navigate('/monitoring', { state: { mother, returnTo: `/beneficiary/mother/${motherId}` } })}>Monitor</button>
-          <button type="button" className="btn-secondary" onClick={onClose} aria-label="Close mother profile">Close</button>
-        </div>
-      </header>
+      <PageHeader
+        title={fullName || 'Mother Profile'}
+        breadcrumbs={[{ label: 'Beneficiaries', href: '/beneficiary' }, { label: 'Mother Profile' }]}
+        actions={(
+          <div className="mother-detail-actions">
+            {canManage && <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/mother/${motherId}/edit`, { state: { mother: selectedMother } })}>Edit</button>}
+            <button type="button" className="btn-secondary" onClick={onClose}>Back</button>
+          </div>
+        )}
+      />
 
-      {hasMultipleChildren && (
+      {overviewOnly && (
+        <section className="mother-detail-section">
+          <h3 className="mother-detail-section-title">Mother Actions</h3>
+          <div className="mother-detail-actions mother-overview-actions">
+            <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/mother/${motherId}/profile`, { state: { mother: selectedMother } })}>Mother Profile</button>
+            <button type="button" className="btn-secondary" onClick={() => {
+              navigate(`/beneficiary/mother/${motherId}/child`, { state: { mother: selectedMother, children, returnTo: `/beneficiary/mother/${motherId}` } });
+            }}>View Child</button>
+            <button type="button" className="btn-primary" onClick={() => navigate('/monitoring', { state: { mother, returnTo: `/beneficiary/mother/${motherId}` } })}>Monitor</button>
+          </div>
+        </section>
+      )}
+
+      {!overviewOnly && hasMultipleChildren && (
         <div className="tabs-row" style={{ marginBottom: 16 }}>
           <button type="button" className={`tab-button ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')}>Overview</button>
           <button type="button" className={`tab-button ${activeTab === 'children' ? 'active' : ''}`} onClick={() => setActiveTab('children')}>Children</button>
         </div>
       )}
 
-      {activeTab === 'children' ? (
+      {!overviewOnly && (activeTab === 'children' ? (
         <section className="mother-detail-section">
           <h3 className="mother-detail-section-title">Children</h3>
-          <div className="mother-detail-grid">
+          <div className="table-card beneficiary-table-card mother-children-detail-table">
+            <div className="table-overflow">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Child Name</th>
+                    <th>Birth Date</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
             {children.map((child) => {
               const childNameValue = `${child.firstName || child.first_name || ''} ${child.middleName || child.middle_name || ''} ${child.lastName || child.last_name || ''}`.replace(/\s+/g, ' ').trim() || child.child_code || child.id;
               const badge = childBadge(child);
               return (
-                <button type="button" key={child.id || `${child.motherId || motherId}-${childNameValue}`} className="entity-card-button name-cell" onClick={() => navigate(`/beneficiary/child/${child.id}`, { state: { mother: selectedMother, child, returnTo: `/beneficiary/mother/${motherId}` } })}>
-                  <strong>{childNameValue}</strong>
-                  <span>{formatDateForDisplay(child.birthDate || child.birth_date) || 'Birth date not recorded'}</span>
-                  {badge && <span className="mother-detail-chip" style={{ marginTop: 8 }}>{badge}</span>}
-                </button>
+                <tr key={child.id || `${child.motherId || motherId}-${childNameValue}`}>
+                  <td><strong>{childNameValue}</strong>{badge && <span className="mother-detail-chip" style={{ marginLeft: 8 }}>{badge}</span>}</td>
+                  <td>{formatDateForDisplay(child.birthDate || child.birth_date) || 'Birth date not recorded'}</td>
+                  <td>
+                    <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/child/${child.id}`, { state: { mother: selectedMother, child, returnTo: `/beneficiary/mother/${motherId}` } })}>View Child</button>
+                  </td>
+                </tr>
               );
             })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </section>
       ) : (
@@ -458,7 +487,7 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
             </div>
           </section>
         </>
-      )}
+      ))}
     </section>
   );
 }

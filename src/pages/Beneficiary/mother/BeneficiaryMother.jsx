@@ -12,6 +12,8 @@ export function MotherFormFields({
   readOnly = false,
   slashDateInput = false,
 }) {
+  const [dateDrafts, setDateDrafts] = React.useState({});
+  const datePickerRefs = React.useRef({});
   const uniqueCommunities = Array.from(new Set(communities.map((comm) => comm.name))).filter(Boolean);
   const selectedGroups = groups.filter((group) => !form.community || group.community === form.community);
   const selectedBatches = batches.filter((batch) => !form.community || !batch.community || batch.community === form.community);
@@ -68,10 +70,50 @@ export function MotherFormFields({
     return normalized ? normalized.replaceAll('-', '/') : String(value || '').replaceAll('-', '/');
   };
 
-  const normalizeSlashDate = (value) => value
-    .replace(/[^0-9/]/g, '')
-    .replaceAll('/', '-')
-    .replace(/^(\d{4})-(\d{2})-(\d{2}).*$/, '$1-$2-$3');
+  const formatPartialSlashDate = (value) => {
+    const digits = String(value || '').replace(/\D/g, '').slice(0, 8);
+    if (digits.length < 4) return digits;
+    if (digits.length === 4) return `${digits}/`;
+    if (digits.length <= 6) return `${digits.slice(0, 4)}/${digits.slice(4)}`;
+    return `${digits.slice(0, 4)}/${digits.slice(4, 6)}/${digits.slice(6)}`;
+  };
+
+  const normalizeSlashDate = (value) => {
+    const digits = String(value || '').replace(/\D/g, '').slice(0, 8);
+    if (digits.length < 4) return '';
+    const year = digits.slice(0, 4);
+    const month = digits.slice(4, 6).padStart(2, '0');
+    const day = digits.slice(6, 8).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const getDateDisplayValue = (name, value) => dateDrafts[name] ?? (slashDateInput ? formatSlashDate(value) : formatDateForInput(value));
+
+  const updateDateValue = (name, value, onChange) => {
+    const draft = slashDateInput ? formatPartialSlashDate(value) : value;
+    setDateDrafts((prev) => ({ ...prev, [name]: draft }));
+    const normalized = slashDateInput ? normalizeSlashDate(draft) : draft;
+    if (draft.replace(/\D/g, '').length === 8 && /^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+      if (onChange) onChange(normalized);
+      else setForm((prev) => ({ ...prev, [name]: normalized }));
+    }
+  };
+
+  const commitDateValue = (name, value, onChange) => {
+    const normalized = slashDateInput ? normalizeSlashDate(value) : value;
+    const isComplete = !slashDateInput || value.replace(/\D/g, '').length === 8;
+    setDateDrafts((prev) => ({ ...prev, [name]: isComplete && normalized ? formatSlashDate(normalized) : formatPartialSlashDate(value) }));
+    if (!isComplete) return;
+    if (onChange) onChange(normalized);
+    else setForm((prev) => ({ ...prev, [name]: normalized }));
+  };
+
+  const openDatePicker = (name) => {
+    const picker = datePickerRefs.current[name];
+    if (!picker) return;
+    if (typeof picker.showPicker === 'function') picker.showPicker();
+    else picker.click();
+  };
 
   // Helpers to reduce repetitive form markup and support read-only display
   const renderField = ({ id, label, name, type = 'text', placeholder = '', required = false, valueOverride, onChange, nativeDate = false, maxDate }) => {
@@ -95,23 +137,47 @@ export function MotherFormFields({
           type={nativeDate && !slashDateInput ? 'date' : isDate ? 'text' : type}
           className="form-input"
           placeholder={isDate ? 'yyyy/mm/dd' : placeholder}
-          value={isDate ? slashDateInput ? formatSlashDate(value) : formatDateForInput(value) : value}
+          value={isDate ? getDateDisplayValue(name, value) : value}
           onChange={(e) => {
-            const nextValue = isDate
-              ? nativeDate && !slashDateInput ? e.target.value : normalizeSlashDate(e.target.value)
-              : isNumeric ? e.target.value.replace(/\D/g, '') : e.target.value;
+            if (isDate) {
+              updateDateValue(name, e.target.value, onChange);
+              return;
+            }
+            const nextValue = isNumeric ? e.target.value.replace(/\D/g, '') : e.target.value;
             if (onChange) {
               onChange(nextValue);
               return;
             }
             setForm((prev) => ({ ...prev, [name]: nextValue }));
           }}
+          onBlur={isDate ? () => commitDateValue(name, getDateDisplayValue(name, value), onChange) : undefined}
           inputMode={isNumeric ? 'numeric' : undefined}
           pattern={isNumeric ? '[0-9]*' : undefined}
           max={maxDate}
           autoComplete={nativeDate ? 'off' : undefined}
           required={required}
         />
+        {isDate && slashDateInput && !readOnly && (
+          <>
+            <button type="button" className="date-picker-button" onClick={() => openDatePicker(name)} aria-label={`Open calendar for ${label}`}>
+              <span aria-hidden="true">▣</span>
+            </button>
+            <input
+              ref={(element) => { datePickerRefs.current[name] = element; }}
+              className="native-date-picker-input"
+              type="date"
+              value={formatDateForInput(value)}
+              onChange={(event) => {
+                const nextValue = event.target.value;
+                setDateDrafts((prev) => ({ ...prev, [name]: formatSlashDate(nextValue) }));
+                if (onChange) onChange(nextValue);
+                else setForm((prev) => ({ ...prev, [name]: nextValue }));
+              }}
+              tabIndex={-1}
+              aria-hidden="true"
+            />
+          </>
+        )}
       </div>
     );
   };
@@ -209,11 +275,24 @@ export function MotherFormFields({
                 type={slashDateInput ? 'text' : 'date'}
                 className="form-input"
                 placeholder={slashDateInput ? 'yyyy/mm/dd' : undefined}
-                value={slashDateInput ? formatSlashDate(form.lmpDate) : formatDateForInput(form.lmpDate)}
-                onChange={(e) => handleLmpChange(slashDateInput ? normalizeSlashDate(e.target.value) : e.target.value)}
+                value={getDateDisplayValue('lmpDate', form.lmpDate)}
+                onChange={(e) => updateDateValue('lmpDate', e.target.value, handleLmpChange)}
+                onBlur={() => commitDateValue('lmpDate', getDateDisplayValue('lmpDate', form.lmpDate), handleLmpChange)}
                 max={new Date().toISOString().split('T')[0]}
                 autoComplete="off"
               />
+              {slashDateInput && <>
+                <button type="button" className="date-picker-button" onClick={() => openDatePicker('lmpDate')} aria-label="Open calendar for Date of LMP"><span aria-hidden="true">▣</span></button>
+                <input
+                  ref={(element) => { datePickerRefs.current.lmpDate = element; }}
+                  className="native-date-picker-input"
+                  type="date"
+                  value={formatDateForInput(form.lmpDate)}
+                  onChange={(e) => handleLmpChange(e.target.value)}
+                  tabIndex={-1}
+                  aria-hidden="true"
+                />
+              </>}
             </div>
           )}
 
@@ -285,8 +364,28 @@ export function MotherFormFields({
           </div>
         </section>
 
-        <section className="create-mother-category create-mother-category--empty">
+        <section className="create-mother-category">
           <h4 className="form-section-title">I.E OTHER DETAILS</h4>
+          <label className="form-toggle-label" htmlFor="philhealth-member">
+            <input
+              id="philhealth-member"
+              type="checkbox"
+              className="form-checkbox"
+              checked={!!form.philhealthMember}
+              onChange={(event) => setForm((prev) => ({
+                ...prev,
+                philhealthMember: event.target.checked,
+                philhealthNumber: event.target.checked ? prev.philhealthNumber : '',
+              }))}
+            />
+            <span>PhilHealth member</span>
+          </label>
+          {form.philhealthMember && renderField({
+            id: 'philhealth-number',
+            label: 'PhilHealth Number',
+            name: 'philhealthNumber',
+            placeholder: 'Enter PhilHealth number',
+          })}
         </section>
       </div>
     );
@@ -457,17 +556,29 @@ export function MotherFormFields({
                         {readOnly ? (
                           <div className="form-readonly-value">{form[`tt${num}Date`] || '-'}</div>
                         ) : (
-                          <input
-                            type={slashDateInput ? 'text' : 'date'}
-                            className="form-input table-input"
-                            placeholder={slashDateInput ? 'yyyy/mm/dd' : undefined}
-                            value={slashDateInput ? formatSlashDate(form[`tt${num}Date`] || '') : formatDateForInput(form[`tt${num}Date`] || '')}
-                            onChange={(e) => setForm((prev) => ({
-                              ...prev,
-                              [`tt${num}Date`]: slashDateInput ? normalizeSlashDate(e.target.value) : e.target.value,
-                            }))}
-                            autoComplete="off"
-                          />
+                          <>
+                            <input
+                              type={slashDateInput ? 'text' : 'date'}
+                              className="form-input table-input"
+                              placeholder={slashDateInput ? 'yyyy/mm/dd' : undefined}
+                              value={getDateDisplayValue(`tt${num}Date`, form[`tt${num}Date`] || '')}
+                              onChange={(e) => updateDateValue(`tt${num}Date`, e.target.value)}
+                              onBlur={() => commitDateValue(`tt${num}Date`, getDateDisplayValue(`tt${num}Date`, form[`tt${num}Date`] || ''))}
+                              autoComplete="off"
+                            />
+                            {slashDateInput && <>
+                              <button type="button" className="date-picker-button" onClick={() => openDatePicker(`tt${num}Date`)} aria-label={`Open calendar for TT${num} date`}><span aria-hidden="true">▣</span></button>
+                              <input
+                                ref={(element) => { datePickerRefs.current[`tt${num}Date`] = element; }}
+                                className="native-date-picker-input"
+                                type="date"
+                                value={formatDateForInput(form[`tt${num}Date`] || '')}
+                                onChange={(e) => setForm((prev) => ({ ...prev, [`tt${num}Date`]: e.target.value }))}
+                                tabIndex={-1}
+                                aria-hidden="true"
+                              />
+                            </>}
+                          </>
                         )}
                       </td>
                       <td>

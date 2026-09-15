@@ -254,6 +254,8 @@ async function ensure() {
 
     `ALTER TABLE mothers
       ADD COLUMN IF NOT EXISTS mother_external_id VARCHAR(128),
+      ADD COLUMN IF NOT EXISTS philhealth_member BOOLEAN NOT NULL DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS philhealth_number VARCHAR(80) DEFAULT NULL,
       ADD COLUMN IF NOT EXISTS birth_certificate_document_name VARCHAR(255),
       ADD COLUMN IF NOT EXISTS birth_certificate_document_path VARCHAR(500),
       ADD COLUMN IF NOT EXISTS consent_document_name VARCHAR(255),

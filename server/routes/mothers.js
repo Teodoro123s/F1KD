@@ -364,9 +364,11 @@ router.post('/', async (req, res) => {
         emergency_contact,
         emergency_relationship,
         spouse_name,
+        philhealth_member,
+        philhealth_number,
         medical_conditions,
         other_medical_history
-      ) VALUES (${Array(37).fill('?').join(', ')})` ,
+      ) VALUES (${Array(39).fill('?').join(', ')})` ,
       [
         motherCode,
         firstName,
@@ -403,6 +405,10 @@ router.post('/', async (req, res) => {
         firstNonEmpty(b.emergencyContact, b.emergency_contact, null),
         firstNonEmpty(b.emergencyRelationship, b.emergency_relationship, null),
         firstNonEmpty(b.spouseName, b.spouse_name, null),
+        b.philhealthMember === true || b.philhealth_member === true || b.philhealth_member === 1 ? 1 : 0,
+        b.philhealthMember === true || b.philhealth_member === true || b.philhealth_member === 1
+          ? firstNonEmpty(b.philhealthNumber, b.philhealth_number, null)
+          : null,
         b.medicalConditions ? JSON.stringify(b.medicalConditions) : null,
         firstNonEmpty(b.otherMedicalHistory, b.other_medical_history, null),
       ]

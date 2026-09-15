@@ -63,6 +63,7 @@ export default function BeneficiaryPage() {
 
   const isCreateMother = location.pathname.includes('/beneficiary/create/mother');
   const isCreateChild = location.pathname.includes('/beneficiary/create/child');
+  const isMotherProfile = location.pathname.endsWith('/profile');
   const isMotherDetail = Boolean(selectedMother);
   const canCreate = can(auth?.currentUser?.role, 'admin-resources', 'create');
 
@@ -108,6 +109,15 @@ export default function BeneficiaryPage() {
         ...(motherResponse?.mother || {}),
         children: childrenResponse?.children || [],
       });
+        navigate(`/beneficiary/mother/${mother.id || mother.motherId}`, {
+          state: {
+            mother: {
+              ...mother,
+              ...(motherResponse?.mother || {}),
+              children: childrenResponse?.children || [],
+            },
+          },
+        });
     } catch (error) {
       console.error('[BeneficiaryPage] Unable to load mother detail:', error);
       setSelectedMother(mother);
@@ -116,6 +126,7 @@ export default function BeneficiaryPage() {
 
   const handleCloseMotherDetail = () => {
     setSelectedMother(null);
+    navigate('/beneficiary');
   };
 
   const handleSelectChild = (child) => {
@@ -177,6 +188,7 @@ export default function BeneficiaryPage() {
         ) : isMotherDetail ? (
           <MotherDetailPage
             selectedMother={selectedMother}
+            overviewOnly={!isMotherProfile}
             onClose={handleCloseMotherDetail}
             onMotherUpdated={(nextMother) => {
               setSelectedMother((current) => ({ ...(current || {}), ...nextMother }));
