@@ -11,6 +11,9 @@ export function MotherFormFields({
   autoCalculate = true,
   readOnly = false,
   slashDateInput = false,
+  documentFiles = {},
+  setDocumentFiles,
+  documentContent = null,
 }) {
   const [dateDrafts, setDateDrafts] = React.useState({});
   const datePickerRefs = React.useRef({});
@@ -354,6 +357,36 @@ export function MotherFormFields({
           })}
           </div>
         </section>
+
+        {!readOnly && (
+          <section className="create-mother-category">
+            <h4 className="form-section-title">I.C REQUIRED DOCUMENTS</h4>
+            <div className="document-upload-grid create-mother-document-grid">
+              <div className="document-upload-field">
+                <label className="form-label" htmlFor="mother-birth-certificate">Mother's Birth Certificate</label>
+                <input
+                  id="mother-birth-certificate"
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png,.webp"
+                  onChange={(event) => setDocumentFiles?.((current) => ({ ...current, birthCertificate: event.target.files?.[0] || null }))}
+                  required
+                />
+              </div>
+              <div className="document-upload-field">
+                <label className="form-label" htmlFor="mother-consent">Program Consent Form</label>
+                <input
+                  id="mother-consent"
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png,.webp"
+                  onChange={(event) => setDocumentFiles?.((current) => ({ ...current, consent: event.target.files?.[0] || null }))}
+                  required
+                />
+              </div>
+            </div>
+          </section>
+        )}
+
+        {readOnly && documentContent}
 
         <section className="create-mother-category">
           <h4 className="form-section-title">I.D EMERGENCY CONTACT</h4>

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { MotherFormFields } from './BeneficiaryMother';
 import { calculateGestationalDetails, getInitialCheckups } from '../../../utils/beneficiaryHelpers';
 import { useMothers } from '../../../context/MothersContext';
-import { apiCreateMother } from '../../../api/mothers';
+import { apiCreateMother, apiUploadMotherDocuments } from '../../../api/mothers';
 
 const MOTHER_DRAFT_KEY = 'f1kd.create-mother.draft';
 
@@ -116,6 +116,7 @@ export default function CreateMotherPage({
   const effectiveCommunities = communities && communities.length ? communities : mothers;
   const [communityForm, setCommunityForm] = useState(() => loadMotherDraft(emptyCommunityForm(effectiveCommunities)));
   const [submitError, setSubmitError] = useState('');
+  const [documentFiles, setDocumentFiles] = useState({ birthCertificate: null, consent: null });
   const [createActiveTab, setCreateActiveTab] = useState(() => {
     try { return JSON.parse(localStorage.getItem(MOTHER_DRAFT_KEY) || 'null')?.activeTab || 'general'; } catch (error) { return 'general'; }
   });
@@ -139,6 +140,11 @@ export default function CreateMotherPage({
     setSubmitError('');
     if (!communityForm.firstName.trim() || !communityForm.lastName.trim()) {
       setSubmitError('Please complete the required mother information before saving.');
+      return;
+    }
+    if (!documentFiles.birthCertificate || !documentFiles.consent) {
+      setSubmitError("Mother's Birth Certificate and Program Consent Form are required.");
+      setCreateActiveTab('general');
       return;
     }
 
@@ -228,6 +234,9 @@ export default function CreateMotherPage({
 
     try {
       const { mother } = await apiCreateMother(payload);
+      const createdMotherId = mother?.id || mother?.motherId || mother?.mother_id;
+      if (!createdMotherId) throw new Error('Mother was created but no record ID was returned for document upload.');
+      await apiUploadMotherDocuments(createdMotherId, documentFiles);
       const newCommunity = {
       id: `M-${Date.now()}`,
       name: fullName,
@@ -354,6 +363,8 @@ export default function CreateMotherPage({
               communities={communities}
               groups={groups}
               batches={batches}
+              documentFiles={documentFiles}
+              setDocumentFiles={setDocumentFiles}
               slashDateInput
             />
           </div>

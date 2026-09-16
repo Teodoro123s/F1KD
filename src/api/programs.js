@@ -6,7 +6,12 @@ async function requestJson(url, options = {}) {
     headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
   });
   const text = await response.text();
-  const body = text ? JSON.parse(text) : null;
+  let body = null;
+  try {
+    body = text ? JSON.parse(text) : null;
+  } catch {
+    body = text;
+  }
   if (!response.ok) throw new Error(body?.error || body?.message || `Request failed (${response.status})`);
   return body;
 }

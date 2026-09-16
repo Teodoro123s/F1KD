@@ -216,7 +216,7 @@ export function CreateGroupModal({ showModal, onClose, groupForm, setGroupForm, 
   );
 }
 
-export function EditGroupModal({ showModal, onClose, groupForm, setGroupForm, handleEditGroup, communities, batches, isSubmitting }) {
+export function EditGroupModal({ showModal, onClose, groupForm, setGroupForm, handleEditGroup, communities, batches, hideSchoolField = false, isSubmitting }) {
   if (!showModal) return null;
   const availableBatches = batches.filter((batch) => batch.community === groupForm.community);
 
@@ -234,7 +234,7 @@ export function EditGroupModal({ showModal, onClose, groupForm, setGroupForm, ha
           autoFocus
         />
       </div>
-      <div className="form-group">
+      {!hideSchoolField && <div className="form-group">
         <label className="form-label" htmlFor="edit-group-school">School</label>
         <select
           id="edit-group-school"
@@ -247,7 +247,7 @@ export function EditGroupModal({ showModal, onClose, groupForm, setGroupForm, ha
             <option key={comm.id} value={comm.name}>{comm.name}</option>
           ))}
         </select>
-      </div>
+      </div>}
     </ModalShell>
   );
 }

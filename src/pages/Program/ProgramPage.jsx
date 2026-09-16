@@ -32,6 +32,9 @@ export default function ProgramPage() {
   const { programId, clusterType, clusterName } = useParams();
   const { currentUser } = useAuth();
   const canManagePrograms = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]);
+  const isCommunityOrganizer = ['community organizer', 'communityorganizer']
+    .includes(String(currentUser?.role || '').trim().toLowerCase());
+  const canCreatePrograms = canManagePrograms || hasRole(currentUser?.role, [ROLES.ADMIN]) || isCommunityOrganizer;
   const [activeTab, setActiveTab] = useState("Active");
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState('');
@@ -83,9 +86,15 @@ export default function ProgramPage() {
   useEffect(() => {
     let mounted = true;
 
-    Promise.all([apiGetPrograms(), getSummary(), apiGetChildren()])
-      .then(([programResponse, summary, childrenResponse]) => {
+    Promise.allSettled([apiGetPrograms(), getSummary(), apiGetChildren()])
+      .then(([programResult, summaryResult, childrenResult]) => {
         if (!mounted) return;
+        if (programResult.status !== 'fulfilled') {
+          throw programResult.reason;
+        }
+        const programResponse = programResult.value || {};
+        const summary = summaryResult.status === 'fulfilled' ? summaryResult.value || {} : {};
+        const childrenResponse = childrenResult.status === 'fulfilled' ? childrenResult.value || {} : {};
         const savedPrograms = (programResponse.programs || []).map(mapApiProgram);
         setHierarchy({ schools: summary.communities || [], groups: summary.groups || [], batches: summary.batches || [] });
         const mothers = (summary.mothers || []).map((mother) => ({
@@ -118,9 +127,9 @@ export default function ProgramPage() {
       .then(() => {
         if (mounted) setIsLiveDataLoaded(true);
       })
-      .catch(() => {
+      .catch((error) => {
         if (!mounted) return;
-        setProgramError('Unable to load saved programs.');
+        setProgramError(error?.message || 'Unable to load saved programs.');
         setPrograms([]);
         setIsLiveDataLoaded(true);
       });
@@ -461,7 +470,7 @@ export default function ProgramPage() {
         title={viewMode && selectedProgram ? selectedProgram.name : 'Program'}
         breadcrumbs={[{ label: 'Program' }]}
         actions={
-          canManagePrograms && <button
+          canCreatePrograms && <button
               className="view-btn view-btn--primary module-create-button"
               type="button"
               onClick={() =>

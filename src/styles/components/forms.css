@@ -165,6 +165,9 @@
 .edit-mother-section .form-row-3,
 .edit-mother-section .form-row-4,
 .edit-mother-section .form-row-5 { gap: 0.9rem; }
+.mother-detail-profile-content > .mother-detail-section:not(.mother-detail-documents) { display: none; }
+.mother-detail-shared-form { width: 100%; }
+.mother-detail-stepper { margin-bottom: 1rem; }
 .edit-mother-action { min-height: 42px; padding: 0 1rem; border-radius: 10px; }
 .edit-mother-footer {
   display: flex;

@@ -12,7 +12,7 @@ export default function MotherChildrenPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const { currentUser } = useAuth();
-  const canManage = can(currentUser?.role, 'admin-resources', 'create');
+  const canManage = can(currentUser?.role, 'partner-resources', 'create');
   const [mother, setMother] = useState(location.state?.mother || null);
   const [children, setChildren] = useState([]);
   const [loading, setLoading] = useState(true);

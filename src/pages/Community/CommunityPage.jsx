@@ -8,7 +8,7 @@ import { MoreVerticalIcon } from './CommunityIcons';
 import { useCommunityData } from './hooks/useCommunityData';
 import { useCommunityMutations } from './hooks/useCommunityMutations';
 import { useAuth } from '../../auth/AuthProvider';
-import { can } from '../../utils/permissions';
+import { can, hasRole, ROLES } from '../../utils/permissions';
 import { apiDeleteMother } from '../../api/mothers';
 import { apiGetChildren } from '../../api/children';
 
@@ -53,8 +53,12 @@ export default function CommunityPage() {
   const { schoolId, groupId, batchId } = useParams();
   const canManage = can(currentUser?.role, 'admin-resources', 'create');
   const assignedSchoolId = currentUser?.school_id ?? currentUser?.schoolId ?? null;
-  const isSchoolScopedUser = ['community organizer', 'communityorganizer', 'health worker', 'healthworker']
+  const assignedGroupId = currentUser?.group_id ?? currentUser?.groupId ?? null;
+  const isHealthWorker = ['health worker', 'healthworker']
     .includes(String(currentUser?.role || '').trim().toLowerCase());
+  const isAssignedAdmin = hasRole(currentUser?.role, [ROLES.ADMIN]) && Boolean(assignedSchoolId);
+  const isSchoolScopedUser = ['community organizer', 'communityorganizer', 'health worker', 'healthworker']
+    .includes(String(currentUser?.role || '').trim().toLowerCase()) || isAssignedAdmin;
 
   const { communities, batches, groups, mothers, coordinators, loading, error, refreshData } = useCommunityData();
   const scopedCommunities = useMemo(() => {
@@ -78,7 +82,17 @@ export default function CommunityPage() {
   const [batchForm, setBatchForm] = useState(defaultBatchForm);
   const [childrenRows, setChildrenRows] = useState([]);
 
-  const activeTab = batchId ? 'mothers' : groupId ? 'batches' : schoolId ? 'groups' : 'communities';
+  const activeTab = batchId
+    ? 'mothers'
+    : isHealthWorker
+      ? 'batches'
+      : isAssignedAdmin
+        ? (groupId ? 'batches' : 'groups')
+        : groupId
+          ? 'batches'
+          : schoolId
+            ? 'groups'
+            : 'communities';
 
   const selectedBatch = useMemo(
     () => batches.find((batch) => String(batch.id) === String(batchId)),
@@ -86,7 +100,7 @@ export default function CommunityPage() {
   );
 
   const selectedGroup = useMemo(() => {
-    const groupFromRoute = groups.find((group) => String(group.id) === String(groupId));
+    const groupFromRoute = groups.find((group) => String(group.id) === String(isHealthWorker ? assignedGroupId : groupId));
 
     if (groupFromRoute) {
       return groupFromRoute;
@@ -106,7 +120,7 @@ export default function CommunityPage() {
     }
 
     return groups.find((group) => group.name === groupNames[0]) || null;
-  }, [groups, groupId, selectedBatch]);
+  }, [assignedGroupId, groupId, groups, isHealthWorker, selectedBatch]);
 
   const selectedSchool = useMemo(() => {
     const sourceCommunities = isSchoolScopedUser ? scopedCommunities : communities;
@@ -289,6 +303,18 @@ export default function CommunityPage() {
   }, [activeTab, selectedBatch, selectedGroup, selectedSchool]);
 
   const breadcrumbItems = useMemo(() => {
+    if (isHealthWorker || isAssignedAdmin) {
+      if (activeTab === 'mothers') {
+        return [
+          { label: isHealthWorker ? 'Batches' : 'Groups', to: '/community', clickable: true },
+          { label: truncateLabel(selectedBatch?.name || 'Batch'), clickable: false },
+        ];
+      }
+
+      if (activeTab === 'batches') return [{ label: 'Batches', clickable: false }];
+      return [{ label: 'Groups', clickable: false }];
+    }
+
     const items = [{ label: 'Schools', to: '/community', clickable: activeTab !== 'communities' }];
 
     if (activeTab === 'groups' || activeTab === 'batches' || activeTab === 'mothers') {
@@ -315,7 +341,7 @@ export default function CommunityPage() {
     }
 
     return items;
-  }, [activeTab, selectedBatch, selectedGroup, selectedSchool]);
+  }, [activeTab, isHealthWorker, selectedBatch, selectedGroup, selectedSchool]);
 
   useEffect(() => {
     const closeDropdowns = () => setActiveDropdownId(null);
@@ -708,10 +734,10 @@ export default function CommunityPage() {
         onEditCommunity={handleEditCommunity}
         onCreateBatch={handleCreateBatch}
         onEditBatch={handleEditBatch}
-        hideBatchSchoolField={Boolean(schoolId || groupId)}
+        hideBatchSchoolField={isHealthWorker || Boolean(schoolId || groupId)}
         onCreateGroup={handleCreateGroup}
         onEditGroup={handleEditGroup}
-        hideGroupSchoolField={Boolean(schoolId)}
+        hideGroupSchoolField={isHealthWorker || isAssignedAdmin || Boolean(schoolId)}
         isSubmitting={mutations.loading}
       />
     </div>

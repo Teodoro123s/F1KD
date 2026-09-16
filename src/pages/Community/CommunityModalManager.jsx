@@ -91,6 +91,7 @@ export default function CommunityModalManager({
         handleEditGroup={onEditGroup}
         communities={communities}
         batches={batches}
+        hideSchoolField={hideGroupSchoolField}
         isSubmitting={isSubmitting}
       />
     </>

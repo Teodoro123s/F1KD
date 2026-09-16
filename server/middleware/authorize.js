@@ -57,7 +57,7 @@ function authorizeOperational(req, res, next) {
   }
 
   const userRole = normalizeRole(req.user.role);
-  const scopedRoles = ['admin', 'partner'];
+  const scopedRoles = ['partner'];
   const hasSchoolAssignment = req.user.school_id !== undefined && req.user.school_id !== null && String(req.user.school_id).trim() !== '';
   const hasGroupAssignment = req.user.group_id !== undefined && req.user.group_id !== null && String(req.user.group_id).trim() !== '';
 
@@ -78,11 +78,7 @@ function authorizeOperational(req, res, next) {
     req.groupId = null;
   }
 
-  if (req.method === 'GET') {
-    return next();
-  }
-
-  return permissionResponse(res, 'Operational modules are read-only for this role');
+  return next();
 }
 
 module.exports = { authorize, authorizeOperational, normalizeRole };

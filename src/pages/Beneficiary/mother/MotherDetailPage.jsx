@@ -6,6 +6,7 @@ import { resolveAssetUrl } from '../../../api/authHeader';
 import { useAuth } from '../../../auth/AuthProvider';
 import { can } from '../../../utils/permissions';
 import PageHeader from '../../../components/ui/PageHeader';
+import { MotherFormFields } from './BeneficiaryMother';
 
 const calculateAge = (dobString) => {
   if (!dobString) return null;
@@ -109,6 +110,7 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
   const [uploadingDocument, setUploadingDocument] = useState('');
   const [uploadMessage, setUploadMessage] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
+  const [profileTab, setProfileTab] = useState('general');
   const [documentEditState, setDocumentEditState] = useState({});
   const [previewDocument, setPreviewDocument] = useState(null);
 
@@ -157,6 +159,7 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
   const community = mother.community || '—';
   const group = mother.group || '—';
   const batch = mother.batch || '—';
+  const addressParts = String(mother.address || '').split(',').map((part) => part.trim()).filter(Boolean);
   const highRisk = mother.isHighRisk ?? mother.is_high_risk ?? 'No';
   const program = mother.programType || mother.program || 'Maternal Health Program';
 
@@ -192,6 +195,32 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
     remarks: mother[`tt${num}Remarks`] || '—',
   }));
 
+  const detailForm = {
+    ...mother,
+    firstName,
+    middleName,
+    lastName,
+    maidenSurname,
+    suffix,
+    dob,
+    contactNumber: contact,
+    lmpDate: lmp,
+    eddDate: edd,
+    province: mother.province || addressParts[0] || '',
+    city: mother.city || addressParts[1] || '',
+    barangay: mother.barangay || addressParts[2] || '',
+    community,
+    groupId: group,
+    batchId: batch,
+    prenatalRegDate,
+    dentalCheckupDate: formatDateForDisplay(mother.dentalCheckupDate),
+    tt1Date: vaccineRows[0].date,
+    tt2Date: vaccineRows[1].date,
+    tt3Date: vaccineRows[2].date,
+    tt4Date: vaccineRows[3].date,
+    tt5Date: vaccineRows[4].date,
+  };
+
   const uploadDocument = async (field, file) => {
     if (!file) return;
     setUploadingDocument(field);
@@ -210,6 +239,42 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
       setUploadingDocument('');
     }
   };
+
+  const documentContent = (
+    <section className="create-mother-category mother-detail-inline-documents">
+      <h4 className="form-section-title">I.C REQUIRED DOCUMENTS</h4>
+      <div className="document-upload-grid">
+        {[
+          ['birthCertificate', "Mother's Birth Certificate", motherRecord.birthCertificateDocumentName, motherRecord.birthCertificateDocumentPath],
+          ['consent', 'Program Consent Form', motherRecord.consentDocumentName, motherRecord.consentDocumentPath],
+        ].map(([field, label, fileName, filePath]) => {
+          const editing = Boolean(documentEditState[field]);
+          const hasFile = Boolean(fileName && filePath);
+
+          return (
+            <div className="document-upload-field" key={field}>
+              <div className="document-upload-header-row">
+                <label className="detail-form-label" htmlFor={`mother-document-${field}`}>{label}</label>
+                {hasFile && (
+                  <button type="button" className="document-upload-edit-button" onClick={() => setDocumentEditState((current) => ({ ...current, [field]: !current[field] }))}>
+                    {editing ? 'Cancel' : 'Edit'}
+                  </button>
+                )}
+              </div>
+              {(editing || !hasFile) && (
+                <input id={`mother-document-${field}`} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={(event) => {
+                  uploadDocument(field, event.target.files?.[0]);
+                  setDocumentEditState((current) => ({ ...current, [field]: false }));
+                }} disabled={uploadingDocument === field} />
+              )}
+              <DocumentPreview fileName={fileName} filePath={filePath} label={label} onPreviewOpen={(url, name, type) => setPreviewDocument({ url, name, type })} />
+            </div>
+          );
+        })}
+      </div>
+      {uploadMessage && <p className="document-upload-message" role="status">{uploadMessage}</p>}
+    </section>
+  );
 
   return (
     <section className="mother-detail-page">
@@ -277,7 +342,36 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
           </div>
         </section>
       ) : (
-        <>
+        <div className="mother-detail-profile-content">
+          <div className="stepper-progress mother-detail-stepper">
+            <div className="stepper-steps" role="tablist" aria-label="Mother profile sections">
+              {[
+                ['general', 'General'],
+                ['prenatal', 'Prenatal/OB'],
+                ['medical_dental', 'Medical & Dental'],
+                ['vaccine', 'Vaccine'],
+              ].map(([tab, label], index) => (
+                <button
+                  key={tab}
+                  type="button"
+                  role="tab"
+                  aria-selected={profileTab === tab}
+                  className={`stepper-step ${profileTab === tab ? 'active' : ''}`}
+                  onClick={() => setProfileTab(tab)}
+                >
+                  <span className="stepper-step-index">{index + 1}</span>
+                  <span className="stepper-step-label">{label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="create-form-body mother-detail-shared-form">
+            <div className="modal-body-scrollable">
+              <MotherFormFields activeTab={profileTab} form={detailForm} readOnly documentContent={documentContent} />
+            </div>
+          </div>
+
           <section className="mother-detail-section">
             <h3 className="mother-detail-section-title">I.A MOTHER'S INFORMATION</h3>
             <div className="mother-detail-grid">
@@ -301,50 +395,6 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
               <Field label="Batch" value={batch} />
               <Field label="Address" value={address} className="full-width" />
             </div>
-          </section>
-
-          <section className="mother-detail-section">
-            <h3 className="mother-detail-section-title">I.B EMERGENCY CONTACT DETAILS</h3>
-            <div className="mother-detail-grid">
-              <Field label="Name" value={emergencyName} />
-              <Field label="Phone Number" value={emergencyContact} />
-              <Field label="Relationship" value={emergencyRelationship} />
-              <Field label="Spouse / Partner" value={spouseName} />
-            </div>
-          </section>
-
-          <section className="mother-detail-section">
-            <h3 className="mother-detail-section-title">I.C REQUIRED DOCUMENTS</h3>
-            <div className="document-upload-grid">
-              {[
-                ['birthCertificate', "Mother's Birth Certificate", motherRecord.birthCertificateDocumentName, motherRecord.birthCertificateDocumentPath],
-                ['consent', 'Program Consent Form', motherRecord.consentDocumentName, motherRecord.consentDocumentPath],
-              ].map(([field, label, fileName, filePath]) => {
-                const editing = Boolean(documentEditState[field]);
-                const hasFile = Boolean(fileName && filePath);
-
-                return (
-                  <div className="document-upload-field" key={field}>
-                    <div className="document-upload-header-row">
-                      <label className="detail-form-label" htmlFor={`mother-document-${field}`}>{label}</label>
-                      {hasFile && (
-                        <button type="button" className="document-upload-edit-button" onClick={() => setDocumentEditState((current) => ({ ...current, [field]: !current[field] }))}>
-                          {editing ? 'Cancel' : 'Edit'}
-                        </button>
-                      )}
-                    </div>
-                    {(editing || !hasFile) && (
-                      <input id={`mother-document-${field}`} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={(event) => {
-                        uploadDocument(field, event.target.files?.[0]);
-                        setDocumentEditState((current) => ({ ...current, [field]: false }));
-                      }} disabled={uploadingDocument === field} />
-                    )}
-                    <DocumentPreview fileName={fileName} filePath={filePath} label={label} onPreviewOpen={(url, name, type) => setPreviewDocument({ url, name, type })} />
-                  </div>
-                );
-              })}
-            </div>
-            {uploadMessage && <p className="document-upload-message" role="status">{uploadMessage}</p>}
           </section>
 
           {previewDocument && (
@@ -486,7 +536,7 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
               </div>
             </div>
           </section>
-        </>
+        </div>
       ))}
     </section>
   );
