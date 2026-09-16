@@ -220,9 +220,6 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
           {renderField({ id: 'child-relationship', label: 'Relationship', name: 'relationship', placeholder: 'Relationship to mother' })}
         </div>
 
-        <div className="form-row-4 full-width">
-          {renderField({ id: 'child-address', label: 'Address', name: 'address', placeholder: 'Current address' })}
-        </div>
       </>
     );
   }
@@ -276,12 +273,6 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
         </div>
 
         <div className="form-row-4 full-width">
-          {renderSelect({
-            id: 'child-health-status',
-            label: 'Health Status',
-            name: 'healthStatus',
-            options: [{ value: 'Healthy', label: 'Healthy' }, { value: 'Needs Follow-up', label: 'Needs Follow-up' }, { value: 'Critical', label: 'Critical' }],
-          })}
           {renderField({ id: 'child-birth-attendant', label: 'Birth Attendant', name: 'birthAttendant', placeholder: 'Midwife / Doctor' })}
           {renderField({ id: 'child-apgar', label: 'Apgar Score', name: 'apgarScore', placeholder: 'e.g. 8/10' })}
           {renderField({ id: 'child-feeding', label: 'Feeding Type', name: 'feedingType', placeholder: 'Exclusive Breastfeeding' })}

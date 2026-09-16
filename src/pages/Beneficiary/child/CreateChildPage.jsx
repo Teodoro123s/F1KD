@@ -30,7 +30,6 @@ const emptyGroupForm = () => ({
   expandedNewbornScreening: '',
   expandedNewbornScreeningResult: '',
   deliveryType: 'Vaginal',
-  healthStatus: 'Healthy',
   assignedBatchIds: [],
   leader: '',
   members: 1,
@@ -42,7 +41,6 @@ const emptyGroupForm = () => ({
   nutritionNotes: '',
   fatherName: '',
   relationship: '',
-  address: '',
   medicalConditions: {
     congenitalHeartDisease: false,
     respiratoryIssues: false,
@@ -124,6 +122,11 @@ export default function CreateChildPage({
 
   const handleCreateGroup = async (e) => {
     e.preventDefault();
+    if (createActiveTab !== 'vaccine') {
+      const currentIndex = CREATE_STEPS.indexOf(createActiveTab);
+      setCreateActiveTab(CREATE_STEPS[Math.min(currentIndex + 1, CREATE_STEPS.length - 1)]);
+      return;
+    }
     setSubmitError('');
     if (!groupForm.firstName.trim() || !groupForm.lastName.trim()) {
       setSubmitError('Please complete the required child details before saving.');
@@ -154,7 +157,6 @@ export default function CreateChildPage({
       expandedNewbornScreening: groupForm.expandedNewbornScreening || null,
       expandedNewbornScreeningResult: groupForm.expandedNewbornScreeningResult || null,
       deliveryType: groupForm.deliveryType || null,
-      healthStatus: groupForm.healthStatus || null,
       community: selectedMother?.community || selectedMother?.raw?.community_name || selectedMother?.raw?.community || null,
       batch: selectedMother?.batch || selectedMother?.raw?.batch_name || selectedMother?.raw?.batch || null,
       birthPlace: groupForm.birthPlace || null,
@@ -175,7 +177,6 @@ export default function CreateChildPage({
       mmrRemarks: groupForm.mmrRemarks || null,
       fatherName: groupForm.fatherName || '',
       relationship: groupForm.relationship || '',
-      address: groupForm.address || '',
     };
 
     try {
@@ -252,6 +253,15 @@ export default function CreateChildPage({
     } catch (err) {
       console.error('Failed to create child', err);
       setSubmitError(err?.message || 'Unable to create child. Please try again.');
+    }
+  };
+
+  const handleNextStep = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const currentIndex = CREATE_STEPS.indexOf(createActiveTab);
+    if (currentIndex < CREATE_STEPS.length - 1) {
+      setCreateActiveTab(CREATE_STEPS[currentIndex + 1]);
     }
   };
 
@@ -359,11 +369,7 @@ export default function CreateChildPage({
               }}>Back</button>
             )}
             {createActiveTab !== 'vaccine' ? (
-              <button type="button" className="btn-primary btn-next" onClick={() => {
-                if (createActiveTab === 'general') setCreateActiveTab('prenatal');
-                else if (createActiveTab === 'prenatal') setCreateActiveTab('medical_dental');
-                else if (createActiveTab === 'medical_dental') setCreateActiveTab('vaccine');
-              }}>Next</button>
+              <button type="button" className="btn-primary btn-next" onClick={handleNextStep}>Next</button>
             ) : (
               <button type="submit" className="btn-create-action">Create</button>
             )}

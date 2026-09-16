@@ -28,6 +28,8 @@ export default function EditMotherPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [communityOptions, setCommunityOptions] = useState({ communities: [], groups: [], batches: [] });
+  const [activeTab, setActiveTab] = useState('general');
+  const EDIT_STEPS = ['general', 'prenatal', 'medical_dental', 'vaccine'];
 
   useEffect(() => {
     getSummary()
@@ -96,37 +98,79 @@ export default function EditMotherPage() {
     }
   };
 
+  const handleNextStep = (event) => {
+    event.preventDefault();
+    const currentIndex = EDIT_STEPS.indexOf(activeTab);
+    if (currentIndex < EDIT_STEPS.length - 1) {
+      setActiveTab(EDIT_STEPS[currentIndex + 1]);
+    }
+  };
+
+  const handleBackStep = (event) => {
+    event.preventDefault();
+    const currentIndex = EDIT_STEPS.indexOf(activeTab);
+    if (currentIndex > 0) {
+      setActiveTab(EDIT_STEPS[currentIndex - 1]);
+    }
+  };
+
   return (
     <section className="community-page beneficiary-page edit-mother-page">
       <PageHeader
         title="Beneficiaries"
         breadcrumbs={[{ label: 'Beneficiaries', to: '/beneficiary' }, { label: 'Edit' }]}
-        actions={(
-          <>
-            <button type="button" className="btn-secondary edit-mother-action" onClick={() => navigate(-1)}>Cancel</button>
-            <button type="submit" form="mother-edit-form" className="btn-primary edit-mother-action" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
-          </>
-        )}
       />
 
       {error && <div className="form-error" style={{ color: 'var(--danger-color)', margin: '8px 0' }}>{error}</div>}
 
-      <form id="mother-edit-form" onSubmit={handleSave} className="mother-edit-form">
-        {['general', 'prenatal', 'medical_dental', 'vaccine'].map((section) => (
-          <section className="mother-detail-section edit-mother-section" key={section}>
+      <div className="stepper-progress">
+        <div className="stepper-steps" role="tablist">
+          {EDIT_STEPS.map((step, index) => {
+            const label = step === 'general' ? 'General' : step === 'prenatal' ? 'Prenatal/OB' : step === 'medical_dental' ? 'Medical & Dental' : 'Vaccine';
+            return (
+              <button
+                key={step}
+                type="button"
+                role="tab"
+                aria-selected={activeTab === step}
+                className={`stepper-step ${activeTab === step ? 'active' : ''}`}
+                onClick={() => setActiveTab(step)}
+              >
+                <span className="stepper-step-index">{index + 1}</span>
+                <span className="stepper-step-label">{label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="create-form-body">
+        <form id="mother-edit-form" onSubmit={handleSave}>
+          <div className="modal-body-scrollable">
             <MotherFormFields
-              activeTab={section}
+              activeTab={activeTab}
               form={form}
               setForm={setForm}
               communities={communityOptions.communities}
               groups={communityOptions.groups}
               batches={communityOptions.batches}
               autoCalculate={false}
-              readOnly={false}
             />
-          </section>
-        ))}
-      </form>
+          </div>
+
+          <div className="modal-footer">
+            <button type="button" className="btn-secondary" onClick={() => navigate(-1)} disabled={saving}>Cancel</button>
+            {activeTab !== 'general' && (
+              <button type="button" className="btn-secondary btn-back" onClick={handleBackStep} disabled={saving}>Back</button>
+            )}
+            {activeTab !== 'vaccine' ? (
+              <button type="button" className="btn-primary btn-next" onClick={handleNextStep} disabled={saving}>Next</button>
+            ) : (
+              <button type="submit" className="btn-create-action" disabled={saving}>{saving ? 'Saving...' : 'Save Changes'}</button>
+            )}
+          </div>
+        </form>
+      </div>
     </section>
   );
 }

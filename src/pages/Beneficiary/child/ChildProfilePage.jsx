@@ -341,13 +341,11 @@ export default function ChildProfilePage() {
 
       <ChildSection title="I.B ADDITIONAL DETAILS">
         <ChildField label="Delivery Type" value={selectedChild.deliveryType || '—'} />
-        <ChildField label="Health Status" value={selectedChild.healthStatus || '—'} />
         <ChildField label="Birth Attendant" value={selectedChild.birthAttendant || '—'} />
         <ChildField label="APGAR Score" value={selectedChild.apgarScore || '—'} />
         <ChildField label="Feeding Type" value={selectedChild.feedingType || '—'} />
         <ChildField label="Father / Parent Name" value={selectedChild.fatherName || '—'} />
         <ChildField label="Relationship" value={selectedChild.relationship || '—'} />
-        <ChildField label="Address" value={selectedChild.address || '—'} className="full-width" />
         <ChildField label="Nutrition Notes" value={selectedChild.nutritionNotes || '—'} className="full-width" />
       </ChildSection>
 
