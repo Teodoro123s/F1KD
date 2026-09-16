@@ -261,8 +261,17 @@ export default function CommunityPage() {
 
     if (entityFilter === 'Child') {
       return childrenRows.filter((child) => {
-        const matchesBatch = !selectedBatch || String(child.batchId ?? '') === String(selectedBatch.id) || child.batch === selectedBatch.name;
-        const matchesGroup = !selectedGroup || child.group === selectedGroup.name;
+        const selectedBatchKeys = selectedBatch
+          ? [selectedBatch.id, selectedBatch.databaseId, selectedBatch.batchCode, selectedBatch.code]
+            .filter((value) => value !== undefined && value !== null && value !== '')
+            .map(String)
+          : [];
+        const matchesBatch = !selectedBatch
+          || selectedBatchKeys.includes(String(child.batchId ?? ''))
+          || child.batch === selectedBatch.name;
+        const matchesGroup = !selectedGroup
+          || child.group === selectedGroup.name
+          || (matchesBatch && !child.group);
         const matchesSchool = !selectedSchool || child.community === selectedSchool.name;
 
         if (!matchesBatch || !matchesGroup || !matchesSchool) return false;

@@ -108,6 +108,7 @@
 .create-mother-category .form-section-title { margin: 0; padding-bottom: 0.65rem; border-bottom: 2px solid rgba(139, 30, 45, 0.14); }
 .create-mother-category .form-row-2,
 .create-mother-category .form-row-3,
+.create-mother-category .form-row-4,
 .create-mother-category .form-row-5 { width: 100%; align-items: start; gap: 1rem; }
 .create-mother-category--empty { min-height: 5rem; border-bottom: 0; }
 .form-toggle-label { display: inline-flex; align-items: center; gap: 0.6rem; color: #334155; font-weight: 700; cursor: pointer; }

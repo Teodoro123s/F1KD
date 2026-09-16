@@ -149,7 +149,7 @@ export default function EditChildPage() {
   };
 
   return (
-    <section className="community-page beneficiary-page edit-mother-page">
+    <section className="tabs-row create-view">
       <PageHeader
         title="Beneficiaries"
         breadcrumbs={[{ label: 'Beneficiaries', to: '/beneficiary' }, { label: 'Edit Child' }]}

@@ -199,7 +199,8 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
 
   if (activeTab === 'general') {
     return (
-      <>
+      <div className="create-mother-general child-form-layout">
+        <section className="create-mother-category">
         <h4 className="form-section-title">Child Information</h4>
         <div className="form-row-4 full-width name-row">
           {renderField({ id: 'child-first-name', label: 'First Name', name: 'firstName', placeholder: 'First name', required: true })}
@@ -220,13 +221,15 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
           {renderField({ id: 'child-relationship', label: 'Relationship', name: 'relationship', placeholder: 'Relationship to mother' })}
         </div>
 
-      </>
+        </section>
+      </div>
     );
   }
 
   if (activeTab === 'prenatal') {
     return (
-      <>
+      <div className="create-mother-general child-form-layout">
+        <section className="create-mother-category">
         <h4 className="form-section-title">Prenatal / OB</h4>
 
         <div className="form-row-4 full-width">
@@ -279,7 +282,8 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
         </div>
 
         {renderTextarea({ id: 'child-nutrition-notes', label: 'Nutritional Notes', name: 'nutritionNotes', rows: 3, placeholder: 'Nutrition or feeding notes...' })}
-      </>
+        </section>
+      </div>
     );
   }
 
@@ -294,10 +298,18 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
     ];
 
     return (
-      <>
+      <div className="create-mother-general child-form-layout">
+        <section className="create-mother-category">
         <h4 className="form-section-title">Medical Conditions</h4>
         <div className="form-checkboxes-grid full-width">
-          {conditionsKeys.map(({ key, label }) => (
+          {readOnly ? (
+            <div className="form-readonly-list">
+              {conditionsKeys.filter(({ key }) => !!form.medicalConditions?.[key]).map(({ key, label }) => (
+                <span key={key} className="readonly-badge">{label}</span>
+              ))}
+              {!conditionsKeys.some(({ key }) => !!form.medicalConditions?.[key]) && <div className="form-readonly-value">None</div>}
+            </div>
+          ) : conditionsKeys.map(({ key, label }) => (
             <label key={key} className="form-checkbox-label">
               <input
                 type="checkbox"
@@ -310,13 +322,15 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
           ))}
         </div>
         {renderTextarea({ id: 'child-medical-remarks', label: 'Medical Remarks', name: 'medicalRemarks', rows: 3, placeholder: 'Medical observations or remarks...' })}
-      </>
+        </section>
+      </div>
     );
   }
 
   if (activeTab === 'vaccine') {
     return (
-      <>
+      <div className="create-mother-general child-form-layout">
+        <section className="create-mother-category">
         <h4 className="form-section-title">Vaccination Record</h4>
         <div className="form-group full-width">
           <div className="form-panel">
@@ -338,7 +352,8 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
             </div>
           </div>
         </div>
-      </>
+        </section>
+      </div>
     );
   }
 

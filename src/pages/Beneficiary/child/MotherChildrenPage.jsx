@@ -51,8 +51,8 @@ export default function MotherChildrenPage() {
     progress: child.progress ?? 0,
     original: {
       ...child,
-      group_name: child.group_name || child.group || '',
-      batch_name: child.batch_name || child.batch || '',
+      group_name: child.group_name || child.group || child.groupName || mother?.group || mother?.group_name || '',
+      batch_name: child.batch_name || child.batch || child.batchName || mother?.batch || mother?.batch_name || '',
     },
   })), [children, mother]);
   const pageCount = Math.max(1, Math.ceil(childRows.length / perPage));

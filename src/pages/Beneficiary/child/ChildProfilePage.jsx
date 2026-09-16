@@ -6,6 +6,7 @@ import { apiUploadChildBirthDocument } from '../../../api/children';
 import { resolveAssetUrl } from '../../../api/authHeader';
 import { useAuth } from '../../../auth/AuthProvider';
 import { can } from '../../../utils/permissions';
+import { ChildFormFields } from './BeneficiaryChild';
 
 const formatValue = (value) => (value === null || value === undefined || value === '' ? '—' : String(value));
 
@@ -178,6 +179,7 @@ export default function ChildProfilePage() {
   const [uploadMessage, setUploadMessage] = useState('');
   const [isEditingBirthDocument, setIsEditingBirthDocument] = useState(false);
   const [previewDocument, setPreviewDocument] = useState(null);
+  const [profileTab, setProfileTab] = useState('general');
 
   const uploadBirthDocument = async (file) => {
     if (!file || !selectedChild?.id) return;
@@ -288,6 +290,20 @@ export default function ChildProfilePage() {
     { label: 'Measles, Mumps, Rubella (MMR)', date: formatDateForDisplay(selectedChild?.mmrDate), remarks: selectedChild?.mmrRemarks || '—' },
   ];
 
+  const detailForm = {
+    ...selectedChild,
+    birthDate: selectedChild.birthDate || selectedChild.birth_date || '',
+    birthWeight: selectedChild.birthWeight || selectedChild.birth_weight || '',
+    birthLength: selectedChild.birthLength || selectedChild.birth_length || '',
+    deliveryType: selectedChild.deliveryType || selectedChild.delivery_type || '',
+    birthAttendant: selectedChild.birthAttendant || selectedChild.birth_attendant || '',
+    apgarScore: selectedChild.apgarScore || selectedChild.apgar_score || '',
+    feedingType: selectedChild.feedingType || selectedChild.feeding_type || '',
+    nutritionNotes: selectedChild.nutritionNotes || selectedChild.nutrition_notes || '',
+    medicalConditions: selectedChild.medicalConditions || {},
+    medicalRemarks: selectedChild.medicalRemarks || selectedChild.medical_remarks || '',
+  };
+
   const rightColumnContent = (!selectedChild && (childId || id)) ? (
     <div>
       <h2>Child data not available in this session</h2>
@@ -319,92 +335,50 @@ export default function ChildProfilePage() {
         </div>
       </div>
 
-      <ChildSection title="I.A Child Information">
-        <ChildField label="First Name" value={selectedChild.firstName || '—'} />
-        <ChildField label="Middle Name" value={selectedChild.middleName || '—'} />
-        <ChildField label="Last Name" value={selectedChild.lastName || '—'} />
-        <ChildField label="Suffix" value={selectedChild.suffix || '—'} />
-        <ChildField label="Sex" value={selectedChild.gender || '—'} />
-        <ChildField label="Blood Type" value={selectedChild.bloodType || '—'} />
-        <ChildField label="Date of Birth" value={childBirthDate} />
-        <ChildField label="Place of Birth" value={selectedChild.birthPlace || selectedChild.birth_place || '—'} />
-        <ChildField label="Weight" value={childWeight} />
-        <ChildField label="Height" value={childHeight} />
-        <ChildField label="BMI" value={childBmi} />
-        <ChildField label="BMI status" value={childBmiStatus} />
-        <ChildField label="No. Old Child Delivered" value={selectedChild.noOfChildDelivered || selectedChild.childrenDelivered || '—'} />
-        <ChildField label="Multiple Birth Type" value={selectedChild.multipleBirthType ? `[${selectedChild.multipleBirthType}]` : '—'} />
-        <ChildField label="Exclusive Breastfeeding" value={selectedChild.exclusiveBreastfeeding || selectedChild.feedingType || '—'} />
-        <ChildField label="Expanded Newborn Screening" value={selectedChild.expandedNewbornScreening || selectedChild.nutritionNotes || '—'} />
-        <ChildField label="Expanded Newborn Screening Result" value={selectedChild.expandedNewbornScreeningResult || '—'} className="full-width" />
-      </ChildSection>
-
-      <ChildSection title="I.B ADDITIONAL DETAILS">
-        <ChildField label="Delivery Type" value={selectedChild.deliveryType || '—'} />
-        <ChildField label="Birth Attendant" value={selectedChild.birthAttendant || '—'} />
-        <ChildField label="APGAR Score" value={selectedChild.apgarScore || '—'} />
-        <ChildField label="Feeding Type" value={selectedChild.feedingType || '—'} />
-        <ChildField label="Father / Parent Name" value={selectedChild.fatherName || '—'} />
-        <ChildField label="Relationship" value={selectedChild.relationship || '—'} />
-        <ChildField label="Nutrition Notes" value={selectedChild.nutritionNotes || '—'} className="full-width" />
-      </ChildSection>
-
-      <ChildSection title="I.C MEDICAL CONDITIONS">
-        <ChildField
-          label="Recorded Conditions"
-          value={Object.entries(selectedChild.medicalConditions || {})
-            .filter(([, enabled]) => Boolean(enabled))
-            .map(([condition]) => condition.replace(/([A-Z])/g, ' $1').replace(/^./, (character) => character.toUpperCase()))
-            .join(', ') || 'None'}
-          className="full-width"
-        />
-      </ChildSection>
-
-      <ChildSection title="I.A VACCINE RECORD">
-        <div className="detail-form-field full-width">
-          <div className="mother-detail-table-wrap">
-            <table className="mother-detail-table">
-              <thead>
-                <tr>
-                  <th>Vaccines</th>
-                  <th>Date Given</th>
-                  <th>Source</th>
-                </tr>
-              </thead>
-              <tbody>
-                {vaccineRows.map((row) => (
-                  <tr key={row.label}>
-                    <td>{row.label}</td>
-                    <td>{row.date}</td>
-                    <td>{row.remarks}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      <div className="stepper-progress child-detail-stepper">
+        <div className="stepper-steps" role="tablist" aria-label="Child profile sections">
+          {[
+            ['general', 'General'],
+            ['prenatal', 'Prenatal/OB'],
+            ['medical_dental', 'Medical & Dental'],
+            ['vaccine', 'Vaccine'],
+          ].map(([tab, label], index) => (
+            <button key={tab} type="button" role="tab" aria-selected={profileTab === tab} className={`stepper-step ${profileTab === tab ? 'active' : ''}`} onClick={() => setProfileTab(tab)}>
+              <span className="stepper-step-index">{index + 1}</span>
+              <span className="stepper-step-label">{label}</span>
+            </button>
+          ))}
         </div>
-      </ChildSection>
+      </div>
 
-      <ChildSection title="I.B REQUIRED DOCUMENTS">
-        <div className="document-upload-field full-width">
-          <div className="document-upload-header-row">
-            <label className="detail-form-label" htmlFor="child-birth-document">Live Birth Certificate / Birth Certificate</label>
-            {selectedChild.birthDocumentName && (
-              <button type="button" className="document-upload-edit-button" onClick={() => setIsEditingBirthDocument((current) => !current)}>
-                {isEditingBirthDocument ? 'Cancel' : 'Edit'}
-              </button>
+      <div className="create-form-body child-detail-shared-form">
+        <div className="modal-body-scrollable">
+          <ChildFormFields activeTab={profileTab} form={detailForm} readOnly />
+        </div>
+      </div>
+
+      {profileTab === 'general' && (
+        <ChildSection title="I.B REQUIRED DOCUMENTS">
+          <div className="document-upload-field full-width">
+            <div className="document-upload-header-row">
+              <label className="detail-form-label" htmlFor="child-birth-document">Live Birth Certificate / Birth Certificate</label>
+              {selectedChild.birthDocumentName && (
+                <button type="button" className="document-upload-edit-button" onClick={() => setIsEditingBirthDocument((current) => !current)}>
+                  {isEditingBirthDocument ? 'Cancel' : 'Edit'}
+                </button>
+              )}
+            </div>
+            {(isEditingBirthDocument || !selectedChild.birthDocumentName) && (
+              <input id="child-birth-document" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={(event) => {
+                uploadBirthDocument(event.target.files?.[0]);
+                setIsEditingBirthDocument(false);
+              }} disabled={uploadingBirthDocument} />
             )}
+            <DocumentPreview fileName={selectedChild.birthDocumentName} filePath={selectedChild.birthDocumentPath} label="Live Birth Certificate" onPreviewOpen={(url, name, type) => setPreviewDocument({ url, name, type })} />
+            {uploadMessage && <span className="document-upload-message" role="status">{uploadMessage}</span>}
           </div>
-          {(isEditingBirthDocument || !selectedChild.birthDocumentName) && (
-            <input id="child-birth-document" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={(event) => {
-              uploadBirthDocument(event.target.files?.[0]);
-              setIsEditingBirthDocument(false);
-            }} disabled={uploadingBirthDocument} />
-          )}
-          <DocumentPreview fileName={selectedChild.birthDocumentName} filePath={selectedChild.birthDocumentPath} label="Live Birth Certificate" onPreviewOpen={(url, name, type) => setPreviewDocument({ url, name, type })} />
-          {uploadMessage && <span className="document-upload-message" role="status">{uploadMessage}</span>}
-        </div>
-      </ChildSection>
+        </ChildSection>
+      )}
 
       {previewDocument && (
         <div className="document-preview-modal-backdrop" onClick={() => setPreviewDocument(null)}>

@@ -302,13 +302,6 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
         </section>
       )}
 
-      {!overviewOnly && hasMultipleChildren && (
-        <div className="tabs-row" style={{ marginBottom: 16 }}>
-          <button type="button" className={`tab-button ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')}>Overview</button>
-          <button type="button" className={`tab-button ${activeTab === 'children' ? 'active' : ''}`} onClick={() => setActiveTab('children')}>Children</button>
-        </div>
-      )}
-
       {!overviewOnly && (activeTab === 'children' ? (
         <section className="mother-detail-section">
           <h3 className="mother-detail-section-title">Children</h3>
