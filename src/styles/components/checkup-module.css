@@ -427,6 +427,22 @@
   gap: 0.9rem 1rem;
 }
 
+.user-profile-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
+}
+
+.user-profile-grid .form-group {
+  min-width: 0;
+}
+
+.user-profile-grid .checkup-field-input {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .checkup-field-label {
   color: #475569;
   font-size: 0.85rem;
@@ -587,6 +603,7 @@ textarea.checkup-field-input { min-height: 88px; line-height: 1.45; resize: vert
   .checkup-form-heading { align-items: flex-start; }
 
   .checkup-grid { grid-template-columns: 1fr; }
+  .user-profile-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .checkup-card-body { padding: 1rem; }
   .horizontal-toggle-row { align-items: flex-start; flex-direction: column; }
 
@@ -634,4 +651,8 @@ textarea.checkup-field-input { min-height: 88px; line-height: 1.45; resize: vert
     grid-column: 2;
     grid-row: 1 / span 2;
   }
+}
+
+@media (max-width: 640px) {
+  .user-profile-grid { grid-template-columns: 1fr; }
 }

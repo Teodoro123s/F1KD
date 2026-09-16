@@ -162,24 +162,7 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
         <div className="form-group" aria-hidden="true" />
       </div>
 
-
-
       <div className="form-row-3 full-width">
-        <div className="form-group">
-          <label className="form-label" htmlFor="gender">Gender *</label>
-          <select
-            id="gender"
-                      name="gender"
-                      className="form-select"
-                      value={form.gender}
-                      onChange={(e) => handleChange('gender', e.target.value)}
-                      required
-                    >
-            <option value="Male">Male</option>
-            <option value="Female">Female</option>
-            <option value="Other">Other</option>
-          </select>
-        </div>
         <div className="form-group">
           <label className="form-label" htmlFor="dob">Date of Birth *</label>
           <input
@@ -196,19 +179,6 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
       </div>
 
       <div className="form-row-3 full-width">
-        <div className="form-group">
-          <label className="form-label" htmlFor="location">Location *</label>
-          <input
-            id="location"
-            name="location"
-            type="text"
-            className="form-input"
-            placeholder="Enter location"
-            value={form.location}
-            onChange={(e) => handleChange('location', e.target.value)}
-            required
-          />
-        </div>
         <div className="form-group">
           <label className="form-label" htmlFor="role">Role *</label>
           <select

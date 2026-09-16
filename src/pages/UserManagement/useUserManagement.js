@@ -328,8 +328,6 @@ export function useUserManagement() {
       const contactNumber = (fd.get('contactNumber') || '').toString().trim();
       const mi = (fd.get('middleInitial') || '').toString().trim();
       const dobVal = (fd.get('dob') || '').toString().trim();
-      const genderVal = (fd.get('gender') || 'Male').toString();
-      const locationVal = (fd.get('location') || 'Poblacion').toString();
       const roleVal = (fd.get('role') || 'Superadmin').toString();
       const statusVal = (fd.get('status') || 'Active').toString();
       const schoolIdVal = (fd.get('schoolId') || '').toString();
@@ -388,9 +386,7 @@ export function useUserManagement() {
           middleInitial: mi || null,
           contactNumber: contactNumberSan,
           email,
-          gender: genderVal,
           dob: dobVal,
-          location: locationVal,
           role: roleVal,
           status: statusVal,
           password: fdPassword || form.password,
@@ -432,9 +428,7 @@ export function useUserManagement() {
           middleInitial: mi || null,
           contactNumber: contactNumberSan,
           email: emailToUse,
-          gender: genderVal,
           dob: dobVal,
-          location: locationVal,
           role: roleVal,
           status: statusVal,
           password: passwordToUse,
@@ -456,9 +450,7 @@ export function useUserManagement() {
               contactNumber: contactNumberSan,
               email: emailToUse,
               username: usernameToUse,
-              gender: genderVal,
               dob: dobVal,
-              location: locationVal,
               role: roleVal,
               status: statusVal,
               password: passwordToUse,

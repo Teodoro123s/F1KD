@@ -10,6 +10,7 @@ export default function UserDetailPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const [communities, setCommunities] = useState([]);
+  const [groups, setGroups] = useState([]);
   const getInitialUser = () => {
     const initial = location?.state?.user || { id };
     if (initial.name && !initial.firstName) {
@@ -29,6 +30,7 @@ export default function UserDetailPage() {
       .then((summary) => {
         if (!mounted) return;
         setCommunities(summary.communities || []);
+        setGroups(summary.groups || []);
       })
       .catch(() => {
         if (!mounted) return;
@@ -87,7 +89,8 @@ export default function UserDetailPage() {
   const groupLabel = (() => {
     if (!requiresSchoolAssignment) return 'Not required';
     if (!user.groupId) return 'Not assigned';
-    return `Group ID ${user.groupId}`;
+    const match = groups.find((group) => String(group.id) === String(user.groupId));
+    return match?.name || `Group ID ${user.groupId}`;
   })();
   const handleEdit = () => {
     // Navigate back to list and signal the list to open edit modal
@@ -121,63 +124,41 @@ export default function UserDetailPage() {
           <div className="checkup-card-body">
             <div className="checkup-section-title">Profile</div>
 
-            <div className="checkup-grid">
-              <div className="form-row-3 full-width">
-                <div className="form-group">
-                  <label className="checkup-field-label">First Name</label>
-                  <input className="checkup-field-input" value={user.firstName || ''} readOnly />
-                </div>
-                <div className="form-group">
-                  <label className="checkup-field-label">Last Name</label>
-                  <input className="checkup-field-input" value={user.lastName || ''} readOnly />
-                </div>
-                <div className="form-group">
-                  <label className="checkup-field-label">Middle Initial</label>
-                  <input className="checkup-field-input" value={user.middleInitial || ''} readOnly />
-                </div>
+            <div className="checkup-grid user-profile-grid">
+              <div className="form-group">
+                <label className="checkup-field-label">First Name</label>
+                <input className="checkup-field-input" value={user.firstName || ''} readOnly />
               </div>
-
-              <div className="form-row-3 full-width">
-                <div className="form-group">
-                  <label className="checkup-field-label">Contact Number</label>
-                  <input className="checkup-field-input" value={user.contactNumber || user.contact || ''} readOnly />
-                </div>
-                <div className="form-group">
-                  <label className="checkup-field-label">Email</label>
-                  <input className="checkup-field-input" value={user.email || ''} readOnly />
-                </div>
-                <div className="form-group" aria-hidden="true" />
+              <div className="form-group">
+                <label className="checkup-field-label">Last Name</label>
+                <input className="checkup-field-input" value={user.lastName || ''} readOnly />
               </div>
-
-              <div className="form-row-3 full-width">
-                <div className="form-group">
-                  <label className="checkup-field-label">Gender</label>
-                  <input className="checkup-field-input" value={user.gender || ''} readOnly />
-                </div>
-                <div className="form-group">
-                  <label className="checkup-field-label">Date of Birth</label>
-                  <input className="checkup-field-input" value={user.dob || user.dateOfBirth || ''} readOnly />
-                </div>
-                <div className="form-group" aria-hidden="true" />
+              <div className="form-group">
+                <label className="checkup-field-label">Middle Initial</label>
+                <input className="checkup-field-input" value={user.middleInitial || ''} readOnly />
               </div>
-
-              <div className="form-row-3 full-width">
-                <div className="form-group">
-                  <label className="checkup-field-label">Location</label>
-                  <input className="checkup-field-input" value={user.location || ''} readOnly />
-                </div>
-                <div className="form-group">
-                  <label className="checkup-field-label">Role</label>
-                  <input className="checkup-field-input" value={user.role || ''} readOnly />
-                </div>
-                <div className="form-group">
-                  <label className="checkup-field-label">Status</label>
-                  <input className="checkup-field-input" value={user.status || ''} readOnly />
-                </div>
+              <div className="form-group">
+                <label className="checkup-field-label">Contact Number</label>
+                <input className="checkup-field-input" value={user.contactNumber || user.contact || ''} readOnly />
               </div>
-
+              <div className="form-group">
+                <label className="checkup-field-label">Email</label>
+                <input className="checkup-field-input" value={user.email || ''} readOnly />
+              </div>
+              <div className="form-group">
+                <label className="checkup-field-label">Date of Birth</label>
+                <input className="checkup-field-input" value={user.dob || user.dateOfBirth || ''} readOnly />
+              </div>
+              <div className="form-group">
+                <label className="checkup-field-label">Role</label>
+                <input className="checkup-field-input" value={user.role || ''} readOnly />
+              </div>
+              <div className="form-group">
+                <label className="checkup-field-label">Status</label>
+                <input className="checkup-field-input" value={user.status || ''} readOnly />
+              </div>
               {requiresSchoolAssignment && (
-                <div className="form-row-3 full-width">
+                <>
                   <div className="form-group">
                     <label className="checkup-field-label">Assigned School</label>
                     <input className="checkup-field-input" value={schoolLabel} readOnly />
@@ -186,8 +167,7 @@ export default function UserDetailPage() {
                     <label className="checkup-field-label">Assigned Group</label>
                     <input className="checkup-field-input" value={groupLabel} readOnly />
                   </div>
-                  <div className="form-group" aria-hidden="true" />
-                </div>
+                </>
               )}
             </div>
 

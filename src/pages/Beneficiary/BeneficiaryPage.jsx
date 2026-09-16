@@ -66,6 +66,21 @@ export default function BeneficiaryPage() {
   const isMotherProfile = location.pathname.endsWith('/profile');
   const isMotherDetail = Boolean(selectedMother);
   const canCreate = can(auth?.currentUser?.role, 'admin-resources', 'create');
+  const assignedSchoolId = auth?.currentUser?.school_id ?? auth?.currentUser?.schoolId ?? null;
+  const isSchoolScopedUser = ['community organizer', 'communityorganizer', 'health worker', 'healthworker']
+    .includes(String(auth?.currentUser?.role || '').trim().toLowerCase());
+  const scopedCommunities = React.useMemo(() => {
+    if (!isSchoolScopedUser || !assignedSchoolId) return communities;
+    return communities.filter((community) => String(community.id) === String(assignedSchoolId));
+  }, [assignedSchoolId, communities, isSchoolScopedUser]);
+  const scopedGroups = React.useMemo(() => {
+    if (!isSchoolScopedUser || !assignedSchoolId) return groups;
+    return groups.filter((group) => String(group.community_id) === String(assignedSchoolId) || group.community === (communities.find((community) => String(community.id) === String(assignedSchoolId))?.name));
+  }, [assignedSchoolId, communities, groups, isSchoolScopedUser]);
+  const scopedBatches = React.useMemo(() => {
+    if (!isSchoolScopedUser || !assignedSchoolId) return batches;
+    return batches.filter((batch) => String(batch.community_id) === String(assignedSchoolId) || batch.community === (communities.find((community) => String(community.id) === String(assignedSchoolId))?.name));
+  }, [assignedSchoolId, batches, communities, isSchoolScopedUser]);
 
   // If navigation includes a mother in state (e.g., navigating from child pages or external links), ensure the selectedMother is populated
   React.useEffect(() => {
@@ -171,15 +186,15 @@ export default function BeneficiaryPage() {
         {/* Check create routes before showing selected mother detail so navigation to create pages works even when a mother is selected */}
         {isCreateMother ? (
           <CreateMotherPage
-            communities={communities}
-            groups={groups}
-            batches={batches}
+            communities={scopedCommunities}
+            groups={scopedGroups}
+            batches={scopedBatches}
             navigate={navigate}
           />
         ) : isCreateChild ? (
           <CreateChildPage
-            communities={communities}
-            batches={batches}
+            communities={scopedCommunities}
+            batches={scopedBatches}
             mothers={mothers}
             loading={mothersLoading}
             setGroups={setGroups}
@@ -201,8 +216,8 @@ export default function BeneficiaryPage() {
         ) : (
           <BeneficiaryListPage
             mothers={mothers}
-            communities={communities}
-            batches={batches}
+            communities={scopedCommunities}
+            batches={scopedBatches}
             onSelectMother={handleSelectMother}
             onSelectChild={handleSelectChild}
             batchId={batchId}

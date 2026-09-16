@@ -17,7 +17,11 @@ const items = [
 export default function Sidebar() {
   const { currentUser } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
-  const visibleItems = items.filter((item) => item.to !== '/user-management' || hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]));
+  const isSuperAdmin = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]);
+  const visibleItems = isSuperAdmin
+    ? items.filter((item) => ['/dashboard', '/user-management'].includes(item.to))
+    : items.filter((item) => item.to !== '/user-management');
+
   return (
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
       <div className="sidebar-top">

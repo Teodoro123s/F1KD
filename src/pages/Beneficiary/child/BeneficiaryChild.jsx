@@ -1,9 +1,61 @@
 import React from 'react';
 import { formatDateForInput } from '../../../utils/dateFormat';
 
-export function ChildFormFields({ activeTab, form, setForm, communities = [], batches = [], readOnly = false }) {
+export function ChildFormFields({ activeTab, form, setForm, communities = [], batches = [], readOnly = false, slashDateInput = true }) {
   const uniqueCommunities = Array.from(new Set(communities.map((comm) => comm.name))).filter(Boolean);
   const uniqueBatches = Array.from(new Set((batches || []).map((batch) => batch.name))).filter(Boolean);
+  const [dateDrafts, setDateDrafts] = React.useState({});
+  const datePickerRefs = React.useRef({});
+
+  const formatSlashDate = (value) => {
+    const normalized = formatDateForInput(value);
+    return normalized ? normalized.replaceAll('-', '/') : String(value || '').replaceAll('-', '/');
+  };
+
+  const formatPartialSlashDate = (value) => {
+    const digits = String(value || '').replace(/\D/g, '').slice(0, 8);
+    if (digits.length < 4) return digits;
+    if (digits.length === 4) return `${digits}/`;
+    if (digits.length <= 6) return `${digits.slice(0, 4)}/${digits.slice(4)}`;
+    return `${digits.slice(0, 4)}/${digits.slice(4, 6)}/${digits.slice(6)}`;
+  };
+
+  const normalizeSlashDate = (value) => {
+    const digits = String(value || '').replace(/\D/g, '').slice(0, 8);
+    if (digits.length < 4) return '';
+    const year = digits.slice(0, 4);
+    const month = digits.slice(4, 6).padStart(2, '0');
+    const day = digits.slice(6, 8).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const getDateDisplayValue = (name, value) => dateDrafts[name] ?? (slashDateInput ? formatSlashDate(value) : formatDateForInput(value));
+
+  const updateDateValue = (name, value, onChange) => {
+    const draft = slashDateInput ? formatPartialSlashDate(value) : value;
+    setDateDrafts((prev) => ({ ...prev, [name]: draft }));
+    const normalized = slashDateInput ? normalizeSlashDate(draft) : draft;
+    if (draft.replace(/\D/g, '').length === 8 && /^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+      if (onChange) onChange(normalized);
+      else setForm((prev) => ({ ...prev, [name]: normalized }));
+    }
+  };
+
+  const commitDateValue = (name, value, onChange) => {
+    const normalized = slashDateInput ? normalizeSlashDate(value) : value;
+    const isComplete = !slashDateInput || value.replace(/\D/g, '').length === 8;
+    setDateDrafts((prev) => ({ ...prev, [name]: isComplete && normalized ? formatSlashDate(normalized) : formatPartialSlashDate(value) }));
+    if (!isComplete) return;
+    if (onChange) onChange(normalized);
+    else setForm((prev) => ({ ...prev, [name]: normalized }));
+  };
+
+  const openDatePicker = (name) => {
+    const picker = datePickerRefs.current[name];
+    if (!picker) return;
+    if (typeof picker.showPicker === 'function') picker.showPicker();
+    else picker.click();
+  };
 
   const handleCheckboxChange = (section, field, checked) => {
     setForm((prev) => ({
@@ -15,7 +67,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
     }));
   };
 
-  const renderField = ({ id, label, name, type = 'text', placeholder = '', required = false, min, step, nativeDate = false, maxDate }) => {
+  const renderField = ({ id, label, name, type = 'text', placeholder = '', required = false, min, step, nativeDate = false, maxDate, onChange }) => {
     const value = form[name] ?? '';
     const isDate = type === 'date';
 
@@ -33,24 +85,51 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
         <label className="form-label" htmlFor={id}>{label}</label>
         <input
           id={id}
-          type={nativeDate ? 'date' : isDate ? 'text' : type}
-          inputMode={nativeDate ? undefined : isDate ? 'numeric' : undefined}
-          pattern={nativeDate ? undefined : isDate ? '\\d{4}/\\d{2}/\\d{2}' : undefined}
+          type={nativeDate && !slashDateInput ? 'date' : isDate ? 'text' : type}
+          inputMode={isDate ? 'numeric' : undefined}
+          pattern={isDate ? '\\d{4}/\\d{2}/\\d{2}' : undefined}
           className="form-input"
-          placeholder={nativeDate ? undefined : isDate ? 'yyyy/mm/dd' : placeholder}
-          value={isDate ? formatDateForInput(value) : value}
+          placeholder={isDate ? 'yyyy/mm/dd' : placeholder}
+          value={isDate ? getDateDisplayValue(name, value) : value}
           min={min}
           step={step}
           max={maxDate}
           autoComplete={nativeDate ? 'off' : undefined}
-          onChange={(e) => setForm((prev) => ({
-            ...prev,
-            [name]: isDate && !nativeDate
-              ? e.target.value.replace(/[^0-9/]/g, '').replaceAll('/', '-').replace(/^(\d{4})-(\d{2})-(\d{2}).*$/, '$1-$2-$3')
-              : e.target.value,
-          }))}
+          onChange={(e) => {
+            if (isDate) {
+              updateDateValue(name, e.target.value, onChange);
+              return;
+            }
+            if (onChange) {
+              onChange(e.target.value);
+              return;
+            }
+            setForm((prev) => ({ ...prev, [name]: e.target.value }));
+          }}
+          onBlur={isDate ? () => commitDateValue(name, getDateDisplayValue(name, value), onChange) : undefined}
           required={required}
         />
+        {isDate && slashDateInput && (
+          <>
+            <button type="button" className="date-picker-button" onClick={() => openDatePicker(name)} aria-label={`Open calendar for ${label}`}>
+              <span aria-hidden="true">▣</span>
+            </button>
+            <input
+              ref={(element) => { datePickerRefs.current[name] = element; }}
+              className="native-date-picker-input"
+              type="date"
+              value={formatDateForInput(value)}
+              onChange={(event) => {
+                const nextValue = event.target.value;
+                setDateDrafts((prev) => ({ ...prev, [name]: formatSlashDate(nextValue) }));
+                if (onChange) onChange(nextValue);
+                else setForm((prev) => ({ ...prev, [name]: nextValue }));
+              }}
+              tabIndex={-1}
+              aria-hidden="true"
+            />
+          </>
+        )}
       </div>
     );
   };
