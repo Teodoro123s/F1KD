@@ -28,8 +28,6 @@ const normalizeChild = (child) => ({
   apgarScore: child.apgarScore || child.apgar_score || '',
   feedingType: child.feedingType || child.feeding_type || '',
   nutritionNotes: child.nutritionNotes || child.nutrition_notes || '',
-  fatherName: child.fatherName || child.father_name || '',
-  relationship: child.relationship || '',
   address: child.address || '',
   community: child.community || child.community_name || '',
   batch: child.batch || child.batch_name || '',

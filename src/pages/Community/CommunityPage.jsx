@@ -57,6 +57,9 @@ export default function CommunityPage() {
   const isHealthWorker = ['health worker', 'healthworker']
     .includes(String(currentUser?.role || '').trim().toLowerCase());
   const isAssignedAdmin = hasRole(currentUser?.role, [ROLES.ADMIN]) && Boolean(assignedSchoolId);
+  const isCommunityOrganizer = ['community organizer', 'communityorganizer']
+    .includes(String(currentUser?.role || '').trim().toLowerCase());
+  const isAssignedCommunityOrganizer = isCommunityOrganizer && Boolean(assignedSchoolId);
   const isSchoolScopedUser = ['community organizer', 'communityorganizer', 'health worker', 'healthworker']
     .includes(String(currentUser?.role || '').trim().toLowerCase()) || isAssignedAdmin;
 
@@ -86,7 +89,7 @@ export default function CommunityPage() {
     ? 'mothers'
     : isHealthWorker
       ? 'batches'
-      : isAssignedAdmin
+      : isAssignedAdmin || isAssignedCommunityOrganizer
         ? (groupId ? 'batches' : 'groups')
         : groupId
           ? 'batches'
@@ -312,7 +315,7 @@ export default function CommunityPage() {
   }, [activeTab, selectedBatch, selectedGroup, selectedSchool]);
 
   const breadcrumbItems = useMemo(() => {
-    if (isHealthWorker || isAssignedAdmin) {
+    if (isHealthWorker || isAssignedAdmin || isAssignedCommunityOrganizer) {
       if (activeTab === 'mothers') {
         return [
           { label: isHealthWorker ? 'Batches' : 'Groups', to: '/community', clickable: true },
@@ -746,7 +749,7 @@ export default function CommunityPage() {
         hideBatchSchoolField={isHealthWorker || Boolean(schoolId || groupId)}
         onCreateGroup={handleCreateGroup}
         onEditGroup={handleEditGroup}
-        hideGroupSchoolField={isHealthWorker || isAssignedAdmin || Boolean(schoolId)}
+        hideGroupSchoolField={isHealthWorker || isAssignedAdmin || isAssignedCommunityOrganizer || Boolean(schoolId)}
         isSubmitting={mutations.loading}
       />
     </div>

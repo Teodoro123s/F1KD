@@ -1,5 +1,5 @@
 import React from 'react';
-import { formatDateForInput } from '../../../utils/dateFormat';
+import { formatDateForDisplay, formatDateForInput } from '../../../utils/dateFormat';
 
 export function ChildFormFields({ activeTab, form, setForm, communities = [], batches = [], readOnly = false, slashDateInput = true }) {
   const uniqueCommunities = Array.from(new Set(communities.map((comm) => comm.name))).filter(Boolean);
@@ -75,7 +75,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
       return (
         <div className="form-group">
           <label className="form-label">{label}</label>
-          <div className="form-readonly-value">{value || '-'}</div>
+          <div className="form-readonly-value">{isDate ? formatDateForDisplay(value) : value || '-'}</div>
         </div>
       );
     }
@@ -217,8 +217,6 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
             name: 'gender',
             options: [{ value: 'Male', label: 'Male' }, { value: 'Female', label: 'Female' }, { value: 'Other', label: 'Other' }],
           })}
-          {renderField({ id: 'child-father-name', label: 'Father Name', name: 'fatherName', placeholder: 'Father / Parent name' })}
-          {renderField({ id: 'child-relationship', label: 'Relationship', name: 'relationship', placeholder: 'Relationship to mother' })}
         </div>
 
         </section>

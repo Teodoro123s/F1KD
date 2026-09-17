@@ -1,5 +1,7 @@
 import React from 'react';
 import { formatDateForDisplay } from '../../utils/dateFormat';
+import { getMotherProfileProgress } from '../../utils/motherProgress';
+import { getChildProfileProgress } from '../../utils/childProgress';
 
 export default function BeneficiaryTable({
   currentRows,
@@ -24,22 +26,6 @@ export default function BeneficiaryTable({
       ? <span className="status-complete">Profile complete</span>
       : <span className="status-pending">Profile incomplete</span>;
   };
-
-  const getMotherProfileProgress = (mother) => Math.round([
-    mother?.firstName || mother?.first_name,
-    mother?.lastName || mother?.last_name,
-    mother?.dob,
-    mother?.community || mother?.area,
-    mother?.birthCertificateDocumentPath || mother?.birth_certificate_document_path,
-    mother?.consentDocumentPath || mother?.consent_document_path,
-  ].filter(Boolean).length * (100 / 6));
-
-  const getChildProfileProgress = (child) => Math.round([
-    child?.mother_id || child?.motherId,
-    child?.name || child?.first_name || child?.firstName,
-    child?.birth_date || child?.birthDate,
-    child?.birthDocumentPath || child?.birth_document_path,
-  ].filter(Boolean).length * 25);
 
   const getChildStatus = (progress) => {
     return progress >= 100

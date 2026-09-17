@@ -3,28 +3,14 @@ import BeneficiaryTable from './BeneficiaryTable';
 import StatusFilterBar from './components/StatusFilterBar';
 import EntitySearchControls from './components/EntitySearchControls';
 import { apiGetChildren } from '../../api/children';
+import { getMotherProfileProgress } from '../../utils/motherProgress';
+import { getChildProfileProgress } from '../../utils/childProgress';
 
 const getGroupStatusByProgress = (g) => {
   if (!g) return 'Incomplete';
   const p = g.progress ?? 0;
   return p >= 100 ? 'Complete' : 'Incomplete';
 };
-
-const getMotherProfileProgress = (mother) => Math.round([
-  mother?.firstName || mother?.first_name,
-  mother?.lastName || mother?.last_name,
-  mother?.dob,
-  mother?.community || mother?.area,
-  mother?.birthCertificateDocumentPath || mother?.birth_certificate_document_path,
-  mother?.consentDocumentPath || mother?.consent_document_path,
-].filter(Boolean).length * (100 / 6));
-
-const getChildProfileProgress = (child) => Math.round([
-  child?.mother_id || child?.motherId,
-  child?.name || child?.first_name || child?.firstName,
-  child?.birth_date || child?.birthDate,
-  child?.birthDocumentPath || child?.birth_document_path,
-].filter(Boolean).length * 25);
 
 export default function BeneficiaryListPage({ communities = [], batches = [], mothers = [], loading = false, onSelectMother, onSelectChild, batchId = '' }) {
   const [query, setQuery] = useState('');

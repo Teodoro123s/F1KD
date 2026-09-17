@@ -114,7 +114,6 @@ const normalizeChild = (child = {}) => ({
   expandedNewbornScreening: child.expandedNewbornScreening || child.expanded_newborn_screening || '',
   expandedNewbornScreeningResult: child.expandedNewbornScreeningResult || child.expanded_newborn_screening_result || '',
   birthPlace: child.birthPlace || child.birth_place || '',
-  fatherName: child.fatherName || child.father_name || '',
   community: child.community || child.community_name || '',
   batch: child.batch || child.batch_name || '',
   birthDocumentName: child.birthDocumentName || child.birth_document_name || '',
@@ -292,7 +291,7 @@ export default function ChildProfilePage() {
 
   const detailForm = {
     ...selectedChild,
-    birthDate: selectedChild.birthDate || selectedChild.birth_date || '',
+    birthDate: formatDateForDisplay(selectedChild.birthDate || selectedChild.birth_date),
     birthWeight: selectedChild.birthWeight || selectedChild.birth_weight || '',
     birthLength: selectedChild.birthLength || selectedChild.birth_length || '',
     deliveryType: selectedChild.deliveryType || selectedChild.delivery_type || '',

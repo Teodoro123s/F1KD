@@ -39,8 +39,6 @@ const emptyGroupForm = () => ({
   apgarScore: '',
   feedingType: '',
   nutritionNotes: '',
-  fatherName: '',
-  relationship: '',
   medicalConditions: {
     congenitalHeartDisease: false,
     respiratoryIssues: false,
@@ -175,8 +173,6 @@ export default function CreateChildPage({
       dptRemarks: groupForm.dptRemarks || null,
       mmrDate: groupForm.mmrDate || null,
       mmrRemarks: groupForm.mmrRemarks || null,
-      fatherName: groupForm.fatherName || '',
-      relationship: groupForm.relationship || '',
     };
 
     try {
@@ -226,8 +222,6 @@ export default function CreateChildPage({
         dptRemarks: child.dpt_remarks || groupForm.dptRemarks,
         mmrDate: child.mmr_date || groupForm.mmrDate,
         mmrRemarks: child.mmr_remarks || groupForm.mmrRemarks,
-        fatherName: child.father_name || child.fatherName || groupForm.fatherName || '',
-        relationship: child.relationship || groupForm.relationship || '',
         address: child.address || groupForm.address || '',
         progress: child.progress || 0,
         childCheckups: null,
