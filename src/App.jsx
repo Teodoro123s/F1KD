@@ -57,6 +57,7 @@ export default function App() {
         <Route path="beneficiary/create/mother" element={<RoleBasedRoute allowedRoles={[ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.PARTNER]}><Beneficiary /></RoleBasedRoute>} />
         <Route path="beneficiary/create/child" element={<RoleBasedRoute allowedRoles={[ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.PARTNER]}><Beneficiary /></RoleBasedRoute>} />
         <Route path="beneficiary/mother/:id/child" element={<MotherChildrenPage />} />
+        <Route path="beneficiary/child/:childId/profile" element={<ChildProfilePage />} />
         <Route path="beneficiary/child/:childId" element={<ChildProfilePage />} />
         <Route path="beneficiary/child/:childId/edit" element={<RoleBasedRoute allowedRoles={[ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.PARTNER]}><EditChildPage /></RoleBasedRoute>} />
         <Route path="beneficiary/mother/:id/monitoring" element={<MonitoringPage />} />

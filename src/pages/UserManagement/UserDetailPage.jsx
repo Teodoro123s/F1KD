@@ -191,7 +191,7 @@ export default function UserDetailPage() {
 
             <div style={{ marginTop: 18, display: 'flex', gap: 8 }}>
               <button type="button" className="btn-primary" onClick={handleEdit}>Edit</button>
-              <button type="button" className="btn-secondary" onClick={() => navigate('/user-management')}>Back</button>
+              <button type="button" className="btn-secondary" onClick={() => navigate(-1)}>Back</button>
             </div>
             </div>
           </div>

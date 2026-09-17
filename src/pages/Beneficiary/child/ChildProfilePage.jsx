@@ -7,6 +7,7 @@ import { resolveAssetUrl } from '../../../api/authHeader';
 import { useAuth } from '../../../auth/AuthProvider';
 import { can } from '../../../utils/permissions';
 import { ChildFormFields } from './BeneficiaryChild';
+import PageHeader from '../../../components/ui/PageHeader';
 
 const formatValue = (value) => (value === null || value === undefined || value === '' ? '—' : String(value));
 
@@ -113,11 +114,30 @@ const normalizeChild = (child = {}) => ({
   exclusiveBreastfeeding: child.exclusiveBreastfeeding || child.exclusive_breastfeeding || '',
   expandedNewbornScreening: child.expandedNewbornScreening || child.expanded_newborn_screening || '',
   expandedNewbornScreeningResult: child.expandedNewbornScreeningResult || child.expanded_newborn_screening_result || '',
-  birthPlace: child.birthPlace || child.birth_place || '',
+    deliveryType: child.deliveryType || child.delivery_type || 'Vaginal',
+    healthStatus: child.healthStatus || child.health_status || 'Healthy',
+    birthPlace: child.birthPlace || child.birth_place || '',
+    birthAttendant: child.birthAttendant || child.birth_attendant || '',
+    apgarScore: child.apgarScore || child.apgar_score || '',
+    feedingType: child.feedingType || child.feeding_type || '',
+    nutritionNotes: child.nutritionNotes || child.nutrition_notes || '',
+    address: child.address || '',
   community: child.community || child.community_name || '',
   batch: child.batch || child.batch_name || '',
+    medicalConditions: child.medicalConditions || child.medical_conditions || {},
+    medicalRemarks: child.medicalRemarks || child.medical_remarks || '',
   birthDocumentName: child.birthDocumentName || child.birth_document_name || '',
   birthDocumentPath: child.birthDocumentPath || child.birth_document_path || '',
+    bcgDate: child.BCG?.vaccine_date || child.bcgDate || child.bcg_date || '',
+    bcgRemarks: child.BCG?.remarks || child.bcgRemarks || child.bcg_remarks || '',
+    hepbDate: child.HepB?.vaccine_date || child.hepbDate || child.hepb_date || '',
+    hepbRemarks: child.HepB?.remarks || child.hepbRemarks || child.hepb_remarks || '',
+    opvDate: child.OPV?.vaccine_date || child.opvDate || child.opv_date || '',
+    opvRemarks: child.OPV?.remarks || child.opvRemarks || child.opv_remarks || '',
+    dptDate: child.DPT?.vaccine_date || child.dptDate || child.dpt_date || '',
+    dptRemarks: child.DPT?.remarks || child.dptRemarks || child.dpt_remarks || '',
+    mmrDate: child.MMR?.vaccine_date || child.mmrDate || child.mmr_date || '',
+    mmrRemarks: child.MMR?.remarks || child.mmrRemarks || child.mmr_remarks || '',
 });
 
 export default function ChildProfilePage() {
@@ -179,6 +199,7 @@ export default function ChildProfilePage() {
   const [isEditingBirthDocument, setIsEditingBirthDocument] = useState(false);
   const [previewDocument, setPreviewDocument] = useState(null);
   const [profileTab, setProfileTab] = useState('general');
+  const isChildProfile = location.pathname.endsWith('/profile');
 
   const uploadBirthDocument = async (file) => {
     if (!file || !selectedChild?.id) return;
@@ -272,6 +293,7 @@ export default function ChildProfilePage() {
   // Helper to render vaccination info
   const renderVaccine = (date, remarks) => (date ? `${date}${remarks ? ' — ' + remarks : ''}` : '—');
   const returnTo = location.state?.returnTo || (resolvedMother ? `/beneficiary/mother/${resolvedMother.motherId || resolvedMother.id}` : null);
+  const childIdentifier = selectedChild?.id || childId || id;
 
   const childName = selectedChild?.name || `${selectedChild?.firstName || ''} ${selectedChild?.middleName || ''} ${selectedChild?.lastName || ''} ${selectedChild?.suffix || ''}`.replace(/\s+/g, ' ').trim();
   const childBirthDate = formatDateForDisplay(selectedChild?.birthDate || selectedChild?.birth_date);
@@ -290,17 +312,17 @@ export default function ChildProfilePage() {
   ];
 
   const detailForm = {
-    ...selectedChild,
-    birthDate: formatDateForDisplay(selectedChild.birthDate || selectedChild.birth_date),
-    birthWeight: selectedChild.birthWeight || selectedChild.birth_weight || '',
-    birthLength: selectedChild.birthLength || selectedChild.birth_length || '',
-    deliveryType: selectedChild.deliveryType || selectedChild.delivery_type || '',
-    birthAttendant: selectedChild.birthAttendant || selectedChild.birth_attendant || '',
-    apgarScore: selectedChild.apgarScore || selectedChild.apgar_score || '',
-    feedingType: selectedChild.feedingType || selectedChild.feeding_type || '',
-    nutritionNotes: selectedChild.nutritionNotes || selectedChild.nutrition_notes || '',
-    medicalConditions: selectedChild.medicalConditions || {},
-    medicalRemarks: selectedChild.medicalRemarks || selectedChild.medical_remarks || '',
+    ...(selectedChild || {}),
+    birthDate: formatDateForDisplay(selectedChild?.birthDate || selectedChild?.birth_date),
+    birthWeight: selectedChild?.birthWeight || selectedChild?.birth_weight || '',
+    birthLength: selectedChild?.birthLength || selectedChild?.birth_length || '',
+    deliveryType: selectedChild?.deliveryType || selectedChild?.delivery_type || '',
+    birthAttendant: selectedChild?.birthAttendant || selectedChild?.birth_attendant || '',
+    apgarScore: selectedChild?.apgarScore || selectedChild?.apgar_score || '',
+    feedingType: selectedChild?.feedingType || selectedChild?.feeding_type || '',
+    nutritionNotes: selectedChild?.nutritionNotes || selectedChild?.nutrition_notes || '',
+    medicalConditions: selectedChild?.medicalConditions || {},
+    medicalRemarks: selectedChild?.medicalRemarks || selectedChild?.medical_remarks || '',
   };
 
   const rightColumnContent = (!selectedChild && (childId || id)) ? (
@@ -315,25 +337,42 @@ export default function ChildProfilePage() {
       <p>Select a child from the list or create a new child record for this mother.</p>
     </div>
   ) : (
-    <div className="child-detail-page">
-      <div className="mother-detail-header" style={{ paddingBottom: 12 }}>
-        <div className="mother-detail-identity">
-          <h2 className="mother-detail-name" style={{ margin: 0 }}>{childName || 'Unnamed Child'}</h2>
-          <div className="mother-detail-meta">{selectedChild.child_code || selectedChild.id || 'Child ID'} • {selectedChild.community || selectedChild.batch || 'Community / Batch'}</div>
-        </div>
-        <div className="mother-detail-actions">
+    <section className="mother-detail-page child-detail-page">
+      <PageHeader
+        title={childName || 'Child Profile'}
+        breadcrumbs={[{ label: 'Beneficiaries', href: '/beneficiary' }, { label: 'Child Profile' }]}
+        actions={(
+          <div className="mother-detail-actions">
+            {isChildProfile && canManage && (
+              <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/child/${childIdentifier}/edit`, { state: { child: selectedChild, mother: resolvedMother, returnTo } })}>Edit</button>
+            )}
+            <button type="button" className="btn-secondary" onClick={() => navigate(-1)}>Back</button>
+          </div>
+        )}
+      />
+
+      {!isChildProfile && <section className="mother-detail-section">
+        <h3 className="mother-detail-section-title">Child Actions</h3>
+        <div className="mother-detail-actions mother-overview-actions">
+          <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/child/${childIdentifier}/profile`, { state: { child: selectedChild, mother: resolvedMother, returnTo } })}>
+            Child Profile
+          </button>
           {resolvedMother && (
-            <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/mother/${resolvedMother.id || resolvedMother.motherId}`, { state: { mother: resolvedMother } })}>Open Mother Profile</button>
+            <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/mother/${resolvedMother.id || resolvedMother.motherId}`, { state: { mother: resolvedMother } })}>
+              View Mother
+            </button>
           )}
-          {canManage && <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/child/${selectedChild.id}/edit`, { state: { child: selectedChild, mother: resolvedMother, returnTo } })}>Edit</button>}
-          <button type="button" className="btn-secondary" onClick={() => {
+          <button type="button" className="btn-primary" onClick={() => {
             const mid = resolvedMother?.motherId || resolvedMother?.id || selectedChild.mother_id || selectedChild.motherId || '';
             const stateMother = resolvedMother || (mid ? { id: mid, name: selectedChild.mother_first_name ? `${selectedChild.mother_first_name} ${selectedChild.mother_last_name || ''}`.trim() : undefined } : null);
             navigate('/monitoring', { state: { child: selectedChild, mother: stateMother, returnTo } });
-          }}>Open mother monitoring</button>
+          }}>
+            Monitor
+          </button>
         </div>
-      </div>
+      </section>}
 
+      {isChildProfile && (<>
       <div className="stepper-progress child-detail-stepper">
         <div className="stepper-steps" role="tablist" aria-label="Child profile sections">
           {[
@@ -394,30 +433,15 @@ export default function ChildProfilePage() {
           </div>
         </div>
       )}
-    </div>
+      </>)}
+    </section>
   ));
 
   return (
-    <div className="community-page">
-      <header className="community-header">
-        <div className="community-title-section">
-          <h1>Child Profile</h1>
-        </div>
-        <div>
-          <button className="btn-secondary" onClick={() => {
-            if (returnTo) {
-              navigate(returnTo, { state: { mother: resolvedMother } });
-              return;
-            }
-            navigate(-1);
-          }}>Back</button>
-        </div>
-      </header>
-
+    <div className="community-page beneficiary-page">
+      <PageHeader title="Beneficiaries" breadcrumbs={[{ label: 'Beneficiaries' }]} />
       <main className="beneficiary-main">
-        <section style={{ background: '#fff', padding: 16, borderRadius: 8, border: '1px solid var(--border-color)' }}>
-          {rightColumnContent}
-        </section>
+        {rightColumnContent}
       </main>
     </div>
   );

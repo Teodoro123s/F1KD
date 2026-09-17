@@ -28,6 +28,14 @@ export default function EditMotherPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [communityOptions, setCommunityOptions] = useState({ communities: [], groups: [], batches: [] });
+  const [activeTab, setActiveTab] = useState('general');
+
+  const profileSteps = [
+    ['general', 'General'],
+    ['prenatal', 'Prenatal/OB'],
+    ['medical_dental', 'Medical & Dental'],
+    ['vaccine', 'Vaccine'],
+  ];
 
   useEffect(() => {
     getSummary()
@@ -69,6 +77,10 @@ export default function EditMotherPage() {
     );
   }
 
+  const fullName = `${form.firstName || ''} ${form.middleName || ''} ${form.lastName || ''} ${form.suffix || ''}`
+    .replace(/\s+/g, ' ')
+    .trim() || 'Mother Profile';
+
   const handleSave = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -99,8 +111,8 @@ export default function EditMotherPage() {
   return (
     <section className="community-page beneficiary-page edit-mother-page">
       <PageHeader
-        title="Beneficiaries"
-        breadcrumbs={[{ label: 'Beneficiaries', to: '/beneficiary' }, { label: 'Edit' }]}
+        title={fullName}
+        breadcrumbs={[{ label: 'Beneficiaries', href: '/beneficiary' }, { label: 'Mother Profile' }, { label: 'Edit' }]}
         actions={(
           <>
             <button type="button" className="btn-secondary edit-mother-action" onClick={() => navigate(-1)}>Cancel</button>
@@ -112,20 +124,40 @@ export default function EditMotherPage() {
       {error && <div className="form-error" style={{ color: 'var(--danger-color)', margin: '8px 0' }}>{error}</div>}
 
       <form id="mother-edit-form" onSubmit={handleSave} className="mother-edit-form">
-        {['general', 'prenatal', 'medical_dental', 'vaccine'].map((section) => (
-          <section className="mother-detail-section edit-mother-section" key={section}>
-            <MotherFormFields
-              activeTab={section}
-              form={form}
-              setForm={setForm}
-              communities={communityOptions.communities}
-              groups={communityOptions.groups}
-              batches={communityOptions.batches}
-              autoCalculate={false}
-              readOnly={false}
-            />
-          </section>
-        ))}
+        <div className="mother-detail-profile-content edit-mother-profile-content">
+          <div className="stepper-progress mother-detail-stepper">
+            <div className="stepper-steps" role="tablist" aria-label="Mother profile sections">
+              {profileSteps.map(([tab, label], index) => (
+                <button
+                  key={tab}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === tab}
+                  className={`stepper-step ${activeTab === tab ? 'active' : ''}`}
+                  onClick={() => setActiveTab(tab)}
+                >
+                  <span className="stepper-step-index">{index + 1}</span>
+                  <span className="stepper-step-label">{label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="create-form-body mother-detail-shared-form">
+            <div className="modal-body-scrollable">
+              <MotherFormFields
+                activeTab={activeTab}
+                form={form}
+                setForm={setForm}
+                communities={communityOptions.communities}
+                groups={communityOptions.groups}
+                batches={communityOptions.batches}
+                autoCalculate={false}
+                readOnly={false}
+              />
+            </div>
+          </div>
+        </div>
       </form>
     </section>
   );

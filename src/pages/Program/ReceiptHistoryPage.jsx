@@ -73,7 +73,7 @@ export default function ReceiptHistoryPage() {
             <h2 id="receipt-history-title">{beneficiaryName}</h2>
             <p>Review when this beneficiary received the program.</p>
           </div>
-          <button type="button" className="view-btn view-btn--secondary" onClick={() => navigate(`/program/${programId}`)}>Back to program</button>
+          <button type="button" className="view-btn view-btn--secondary" onClick={() => navigate(-1)}>Back to program</button>
         </div>
         <div className="program-monitoring-report__toolbar">
           <span>Daily status: {monitorDate}</span>
