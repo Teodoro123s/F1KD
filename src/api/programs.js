@@ -27,3 +27,5 @@ export const apiCompleteNamedProgramCluster = (programId, cluster) => requestJso
 export const apiGetProgramMonitoring = (programId, date) => requestJson(`/api/programs/${encodeURIComponent(programId)}/monitoring?date=${encodeURIComponent(date)}`);
 export const apiSetProgramMonitoring = (programId, payload) => requestJson(`/api/programs/${encodeURIComponent(programId)}/monitoring`, { method: 'PATCH', body: JSON.stringify(payload) });
 export const apiGetBeneficiaryMonitoringReport = (programId, beneficiaryType, beneficiaryId) => requestJson(`/api/programs/${encodeURIComponent(programId)}/monitoring/report/${encodeURIComponent(beneficiaryType)}/${encodeURIComponent(beneficiaryId)}`);
+export const apiGetClusterMonitoringReport = (programId, clusterType, clusterName) => requestJson(`/api/programs/${encodeURIComponent(programId)}/monitoring/cluster-report/${encodeURIComponent(clusterType)}/${encodeURIComponent(clusterName)}`);
+export const apiSetBeneficiaryMonitoring = (programId, payload) => apiSetProgramMonitoring(programId, payload);

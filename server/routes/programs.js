@@ -55,7 +55,7 @@ router.get('/', async (req, res) => {
     res.json({ programs });
   } catch (error) {
     console.error('[Programs API] list error:', error.message);
-    res.status(500).json({ error: 'db error' });
+    res.status(500).json({ error: error.message || 'db error' });
   }
 });
 
@@ -203,15 +203,61 @@ router.patch('/:programId/monitoring', async (req, res) => {
   }
 });
 
+router.get('/:programId/monitoring/cluster-report/:clusterType/:clusterName', async (req, res) => {
+  const clusterType = String(req.params.clusterType || '').toLowerCase();
+  const clusterName = decodeURIComponent(String(req.params.clusterName || '')).trim();
+  const clusterFilters = {
+    school: 'LOWER(TRIM(COALESCE(co.name, ""))) = LOWER(TRIM(?))',
+    group: 'LOWER(TRIM(COALESCE(g.name, ""))) = LOWER(TRIM(?))',
+    batch: 'LOWER(TRIM(COALESCE(b.name, ""))) = LOWER(TRIM(?))',
+  };
+  const clusterFilter = clusterFilters[clusterType];
+  if (!clusterFilter || !clusterName) return res.status(400).json({ error: 'Invalid monitoring cluster' });
+  try {
+    const [logs] = await pool.query(
+      `SELECT DATE_FORMAT(ml.monitored_date, '%Y-%m-%d') AS date, ml.monitored, ml.notes, p.name AS program_name,
+        ml.beneficiary_type, ml.beneficiary_id,
+        COALESCE(NULLIF(TRIM(co.name), ''), 'Unknown school') AS school_name,
+        COALESCE(NULLIF(TRIM(g.name), ''), 'Unknown group') AS group_name,
+        COALESCE(NULLIF(TRIM(b.name), ''), 'Unknown batch') AS batch_name,
+        COALESCE(NULLIF(TRIM(CONCAT_WS(' ', m.first_name, m.last_name)), ''), NULLIF(TRIM(CONCAT_WS(' ', c.first_name, c.last_name)), ''), ml.beneficiary_id) AS beneficiary_name,
+        NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.last_name)), '') AS monitored_by_name
+       FROM monitoring_logs ml
+       INNER JOIN programs p ON p.id = ml.program_id
+       LEFT JOIN mothers m ON LOWER(CAST(ml.beneficiary_type AS CHAR)) = 'mother' AND (CAST(ml.beneficiary_id AS CHAR) = CAST(m.id AS CHAR) OR LOWER(TRIM(CAST(m.mother_code AS CHAR))) = LOWER(TRIM(CAST(ml.beneficiary_id AS CHAR))))
+       LEFT JOIN children c ON LOWER(CAST(ml.beneficiary_type AS CHAR)) = 'child' AND (CAST(ml.beneficiary_id AS CHAR) = CAST(c.id AS CHAR) OR LOWER(TRIM(CAST(c.child_code AS CHAR))) = LOWER(TRIM(CAST(ml.beneficiary_id AS CHAR))))
+       LEFT JOIN communities co ON co.id = COALESCE(m.community_id, c.community_id)
+       LEFT JOIN \`groups\` g ON g.id = COALESCE(m.group_id, c.group_id)
+       LEFT JOIN batches b ON b.id = COALESCE(m.batch_id, c.batch_id)
+       LEFT JOIN users u ON u.id = ml.monitored_by
+       WHERE ml.program_id = ? AND ${clusterFilter}
+       ORDER BY ml.monitored_date DESC, beneficiary_name`,
+      [req.params.programId, clusterName],
+    );
+    res.json({ report: logs });
+  } catch (error) {
+    console.error('[Programs API] cluster monitoring report error:', error.message);
+    res.status(500).json({ error: 'db error' });
+  }
+});
+
 router.get('/:programId/monitoring/report/:beneficiaryType/:beneficiaryId', async (req, res) => {
   const beneficiaryType = String(req.params.beneficiaryType || '').toLowerCase();
   if (!['mother', 'child'].includes(beneficiaryType)) return res.status(400).json({ error: 'Invalid beneficiary type' });
   try {
     const [logs] = await pool.query(
             `SELECT DATE_FORMAT(ml.monitored_date, '%Y-%m-%d') AS date, ml.monitored, ml.notes, p.name AS program_name,
+              COALESCE(NULLIF(TRIM(co.name), ''), 'Unknown school') AS school_name,
+              COALESCE(NULLIF(TRIM(g.name), ''), 'Unknown group') AS group_name,
+              COALESCE(NULLIF(TRIM(b.name), ''), 'Unknown batch') AS batch_name,
               NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.last_name)), '') AS monitored_by_name
        FROM monitoring_logs ml
        INNER JOIN programs p ON p.id = ml.program_id
+       LEFT JOIN mothers m ON LOWER(CAST(ml.beneficiary_type AS CHAR)) = 'mother' AND (CAST(ml.beneficiary_id AS CHAR) = CAST(m.id AS CHAR) OR LOWER(TRIM(CAST(m.mother_code AS CHAR))) = LOWER(TRIM(CAST(ml.beneficiary_id AS CHAR))))
+       LEFT JOIN children c ON LOWER(CAST(ml.beneficiary_type AS CHAR)) = 'child' AND (CAST(ml.beneficiary_id AS CHAR) = CAST(c.id AS CHAR) OR LOWER(TRIM(CAST(c.child_code AS CHAR))) = LOWER(TRIM(CAST(ml.beneficiary_id AS CHAR))))
+       LEFT JOIN communities co ON co.id = COALESCE(m.community_id, c.community_id)
+       LEFT JOIN \`groups\` g ON g.id = COALESCE(m.group_id, c.group_id)
+       LEFT JOIN batches b ON b.id = COALESCE(m.batch_id, c.batch_id)
        LEFT JOIN users u ON u.id = ml.monitored_by
        WHERE ml.program_id = ? AND ml.beneficiary_id = ? AND ml.beneficiary_type = ?
        ORDER BY ml.monitored_date DESC`,

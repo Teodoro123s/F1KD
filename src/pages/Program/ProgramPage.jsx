@@ -71,6 +71,7 @@ export default function ProgramPage() {
   const [monitorDate, setMonitorDate] = useState(localDate);
   const [monitoringStatus, setMonitoringStatus] = useState({});
   const [monitoringPending, setMonitoringPending] = useState({});
+  const [monitorConfirmation, setMonitorConfirmation] = useState(null);
 
   const mapApiProgram = (program) => ({
     ...program,
@@ -189,9 +190,49 @@ export default function ProgramPage() {
     }
   };
 
+  const requestMonitoringChange = (beneficiary, monitored, descendants = null) => {
+    const affectedCount = descendants?.length || 1;
+    setMonitorConfirmation({ beneficiary, monitored, descendants, affectedCount });
+  };
+
+  const confirmMonitoringChange = async () => {
+    if (!monitorConfirmation) return;
+    const { beneficiary, monitored, descendants } = monitorConfirmation;
+    setMonitorConfirmation(null);
+    await toggleMonitoring(beneficiary, monitored, descendants);
+  };
+
   const openBeneficiaryReport = (beneficiary) => {
     navigate(`/program/${programId}/beneficiaries/${beneficiary.sourceType}/${beneficiary.sourceId}/receipt-history`, {
       state: { beneficiaryName: beneficiary.name },
+    });
+  };
+
+  const collectClusterBeneficiaries = (cluster, level) => {
+    const normalizedLevel = String(level || '').toLowerCase();
+    const name = String(cluster?.name || cluster?.group_name || cluster?.batch_name || '').trim();
+    if (!name) return [];
+    return (beneficiaryRecords || []).filter((record) => {
+      if (normalizedLevel === 'school') {
+        return String(record.school || '').trim().toLowerCase() === name.toLowerCase();
+      }
+      if (normalizedLevel === 'group') {
+        return String(record.group || '').trim().toLowerCase() === name.toLowerCase();
+      }
+      if (normalizedLevel === 'batch') {
+        return String(record.batch || '').trim().toLowerCase() === name.toLowerCase();
+      }
+      return false;
+    }).map((record) => ({ id: record.sourceId, type: record.sourceType }));
+  };
+
+  const openClusterHistory = (cluster, level) => {
+    const clusterType = level?.toLowerCase?.() || 'school';
+    const clusterName = cluster?.name || cluster?.group_name || cluster?.batch_name || '';
+    if (!clusterName) return;
+    const beneficiaries = collectClusterBeneficiaries(cluster, clusterType);
+    navigate(`/program/${programId}/cluster/${encodeURIComponent(clusterType)}/${encodeURIComponent(clusterName)}/receipt-history`, {
+      state: { clusterName, clusterType, beneficiaries },
     });
   };
 
@@ -567,9 +608,13 @@ export default function ProgramPage() {
             data={programHierarchy}
             monitored={monitoringStatus}
             pending={monitoringPending}
-            canToggle={canManagePrograms}
-            onMonitorChange={toggleMonitoring}
+            canToggle={canCreatePrograms}
+            onMonitorChange={requestMonitoringChange}
             onBeneficiaryClick={openBeneficiaryReport}
+            onHistoryClick={(node, level) => {
+              if (level === 'beneficiary') return openBeneficiaryReport(node);
+              return openClusterHistory(node, level);
+            }}
           /> : <table className="data-table">
             {clusterView && selectedCluster ? (
               <>
@@ -784,6 +829,25 @@ export default function ProgramPage() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+      {monitorConfirmation && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => setMonitorConfirmation(null)}>
+          <div className="modal program-product-modal" role="dialog" aria-modal="true" aria-labelledby="monitor-confirmation-title" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="modal-header">
+              <h2 id="monitor-confirmation-title">Confirm monitored status</h2>
+              <button type="button" className="modal-close" onClick={() => setMonitorConfirmation(null)} aria-label="Close">×</button>
+            </div>
+            <div className="modal-body">
+              <p>
+                {monitorConfirmation.monitored ? 'Mark' : 'Clear'} {monitorConfirmation.affectedCount > 1 ? `${monitorConfirmation.affectedCount} beneficiaries` : 'this beneficiary'} {monitorConfirmation.monitored ? 'as monitored' : 'as not monitored'} for {monitorDate}?
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn-secondary" onClick={() => setMonitorConfirmation(null)}>Cancel</button>
+              <button type="button" className="btn-primary" onClick={confirmMonitoringChange}>Confirm</button>
+            </div>
+          </div>
         </div>
       )}
       {showModal && (

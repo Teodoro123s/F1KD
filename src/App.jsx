@@ -66,6 +66,7 @@ export default function App() {
         <Route path="checkup" element={<MonitoringPage />} />
         <Route path="program" element={<Program />} />
         <Route path="program/:programId/beneficiaries/:beneficiaryType/:beneficiaryId/receipt-history" element={<ReceiptHistoryPage />} />
+        <Route path="program/:programId/cluster/:clusterType/:clusterName/receipt-history" element={<ReceiptHistoryPage />} />
         <Route path="program/:programId" element={<Program />} />
         <Route path="program/:programId/cluster/:clusterType/:clusterName" element={<Program />} />
         <Route path="progress-report" element={<ProgressReport />} />

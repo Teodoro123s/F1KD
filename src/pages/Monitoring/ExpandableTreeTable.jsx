@@ -8,8 +8,17 @@ function getNodeKey(node) {
 function getDescendantBeneficiaries(row) {
   if (row.level === 'beneficiary') return [row.node];
   if (row.level === 'batch') return row.node.beneficiaries || [];
-  if (row.level === 'group') return (row.node.batches || []).flatMap((batch) => batch.beneficiaries || []);
-  return (row.node.groups || []).flatMap((group) => (group.batches || []).flatMap((batch) => batch.beneficiaries || []));
+  if (row.level === 'group') return [
+    ...(row.node.beneficiaries || []),
+    ...(row.node.batches || []).flatMap((batch) => batch.beneficiaries || []),
+  ];
+  return [
+    ...(row.node.beneficiaries || []),
+    ...(row.node.groups || []).flatMap((group) => [
+      ...(group.beneficiaries || []),
+      ...(group.batches || []).flatMap((batch) => batch.beneficiaries || []),
+    ]),
+  ];
 }
 
 function flattenVisibleRows(data, expandedPath) {
@@ -87,7 +96,7 @@ function flattenVisibleRows(data, expandedPath) {
   return rows;
 }
 
-export default function ExpandableTreeTable({ data = [], monitored = {}, pending = {}, canToggle = false, onMonitorChange, onBeneficiaryClick }) {
+export default function ExpandableTreeTable({ data = [], monitored = {}, pending = {}, canToggle = false, onMonitorChange, onBeneficiaryClick, onHistoryClick }) {
   const [expandedPath, setExpandedPath] = useState([]);
   const rows = useMemo(() => flattenVisibleRows(data, expandedPath), [data, expandedPath]);
 
@@ -106,15 +115,26 @@ export default function ExpandableTreeTable({ data = [], monitored = {}, pending
     { key: 'beneficiary', label: 'Beneficiary', render: (value, row) => row.level === 'beneficiary' ? (
       onBeneficiaryClick ? <button type="button" className="monitor-tree-beneficiary monitor-tree-beneficiary-button" onClick={() => onBeneficiaryClick(row.node)}>{value}</button> : <span className="monitor-tree-beneficiary">{value}</span>
     ) : value },
+    { key: 'history', label: 'Receipt history', render: (_, row) => {
+      if (!onHistoryClick) return null;
+      const label = row.level === 'beneficiary' ? 'History' : 'View';
+      return <button type="button" className="view-btn view-btn--secondary" onClick={() => onHistoryClick(row.node, row.level)}>{label}</button>;
+    } },
     { key: 'monitored', label: 'Monitored?', render: (value, row) => {
       const descendants = getDescendantBeneficiaries(row);
       const descendantKeys = descendants.map((beneficiary) => beneficiary.monitorKey).filter(Boolean);
       const checked = descendantKeys.length > 0 && descendantKeys.every((key) => monitored[key]);
       const saving = descendantKeys.some((key) => pending[key]);
       if (!canToggle || !onMonitorChange) return row.level === 'beneficiary' ? <span className={`program-recipient-status ${monitored[row.node.monitorKey] ? 'received' : 'pending'}`}>{monitored[row.node.monitorKey] ? 'Yes' : 'No'}</span> : '';
-      return <label className="monitor-tree-toggle">
-        <input id={`monitor-${row.level}-${row.id}`} name={`monitor-${row.level}`} type="checkbox" checked={checked} disabled={!descendantKeys.length || saving} onChange={(event) => onMonitorChange(row.node, event.target.checked, descendants)} />
-        <span>{saving ? 'Saving...' : checked ? 'Yes' : 'No'}</span>
+      if (row.level === 'beneficiary') {
+        return <label className="monitor-tree-toggle">
+          <input id={`monitor-${row.level}-${row.id}`} name={`monitor-${row.level}`} type="checkbox" checked={Boolean(monitored[row.node.monitorKey])} disabled={saving} onChange={(event) => onMonitorChange(row.node, event.target.checked, descendants)} />
+          <span className="sr-only">{checked ? 'Yes' : 'Not monitored'}</span>
+        </label>;
+      }
+      return <label className="monitor-tree-toggle" onClick={(event) => event.stopPropagation()}>
+        <input id={`monitor-${row.level}-${row.id}`} name={`monitor-${row.level}`} type="checkbox" checked={checked} disabled={!descendantKeys.length || saving} aria-label={`Mark ${row.level} ${row.node.name || row.id} as monitored`} onChange={(event) => onMonitorChange(row.node, event.target.checked, descendants)} />
+        {saving && <span className="sr-only">Saving...</span>}
       </label>;
     } },
   ];

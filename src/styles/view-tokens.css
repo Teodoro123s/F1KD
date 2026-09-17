@@ -548,7 +548,10 @@
 .view-content .monitor-tree-cell--group { padding-left: 20px; }
 .view-content .monitor-tree-cell--batch { padding-left: 40px; }
 .view-content .monitor-tree-chevron { width: 14px; color: var(--view-primary); font-size: 11px; }
-.program-page .monitor-tree-cell { display: inline-flex; align-items: center; gap: 8px; min-width: 180px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; font-weight: 600; text-align: left; cursor: pointer; }
+.program-page .monitor-tree-cell { display: inline-flex; align-items: center; gap: 8px; min-width: 180px; padding: 0; color: inherit; font: inherit; font-weight: 600; text-align: left; }
+.program-page .monitor-tree-expand, .program-page .monitor-tree-category-link { border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.program-page .monitor-tree-expand { display: inline-flex; align-items: center; padding: 0; }
+.program-page .monitor-tree-category-link:hover { color: var(--view-primary); text-decoration: underline; }
 .program-page .monitor-tree-cell--group { padding-left: 20px; }
 .program-page .monitor-tree-cell--batch { padding-left: 40px; }
 .program-page .monitor-tree-chevron { width: 14px; color: var(--burgundy); font-size: 11px; }
