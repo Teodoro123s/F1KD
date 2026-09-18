@@ -51,7 +51,8 @@ export default function CommunityPage() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const { schoolId, groupId, batchId } = useParams();
-  const canManage = can(currentUser?.role, 'admin-resources', 'create');
+  const canManage = can(currentUser?.role, 'admin-resources', 'create')
+    || can(currentUser?.role, 'partner-resources', 'create');
   const assignedSchoolId = currentUser?.school_id ?? currentUser?.schoolId ?? null;
   const assignedGroupId = currentUser?.group_id ?? currentUser?.groupId ?? null;
   const isHealthWorker = ['health worker', 'healthworker']

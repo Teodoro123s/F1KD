@@ -158,8 +158,8 @@ export default function CreateMotherPage({
       communityForm.lmpDate
     );
     const { gestationalAge, trimester } = calculateGestationalDetails(communityForm.lmpDate);
-    const resolvedTrimester = communityForm.lmpDate ? trimester : communityForm.trimester;
-    const resolvedGestationalAge = communityForm.lmpDate ? gestationalAge : communityForm.gestationalAge;
+    const resolvedTrimester = communityForm.trimester || trimester;
+    const resolvedGestationalAge = communityForm.gestationalAge || gestationalAge;
     const fullName = `${communityForm.firstName.trim()} ${communityForm.middleName.trim()} ${communityForm.lastName.trim()} ${communityForm.maidenSurname.trim()} ${communityForm.suffix.trim()}`
       .replace(/\s+/g, ' ')
       .trim();

@@ -11,7 +11,7 @@ function getChildName(child) {
 function formatDate(value) {
   if (!value) return '';
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? '' : date.toISOString().slice(0, 10).replaceAll('-', '/');
+  return Number.isNaN(date.getTime()) ? '' : date.toISOString().slice(0, 10);
 }
 
 function formatDateForPayload(value) {
@@ -110,11 +110,11 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
           <div className="checkup-grid">
             <div className="form-group full-width">
               <label className="checkup-field-label" htmlFor="child-checkup-date">Check-up Date</label>
-              <input id="child-checkup-date" type="text" inputMode="numeric" pattern="\d{4}/\d{2}/\d{2}" className="checkup-field-input" value={form.checkupDate} onChange={update('checkupDate')} placeholder="yyyy/mm/dd" required />
+              <input id="child-checkup-date" type="date" className="checkup-field-input" value={form.checkupDate} onChange={update('checkupDate')} required />
             </div>
             <div className="form-group full-width">
               <label className="checkup-field-label" htmlFor="child-next-checkup-date">Next Check-up Date (Tentative)</label>
-              <input id="child-next-checkup-date" type="text" inputMode="numeric" pattern="\d{4}/\d{2}/\d{2}" className="checkup-field-input" value={form.nextCheckupDate} onChange={update('nextCheckupDate')} placeholder="yyyy/mm/dd" />
+              <input id="child-next-checkup-date" type="date" className="checkup-field-input" value={form.nextCheckupDate} onChange={update('nextCheckupDate')} />
             </div>
             <div className="form-group">
               <label className="checkup-field-label" htmlFor="child-monitor-weight">Weight (kg)</label>

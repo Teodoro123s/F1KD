@@ -76,7 +76,7 @@ export default function ProgramPage() {
   const mapApiProgram = (program) => ({
     ...program,
     id: Number(program.id),
-    beneficiaryType: program.beneficiaryType || program.beneficiary_type || 'Mother and Child',
+    beneficiaryType: program.beneficiaryType || program.beneficiary_type || 'Mother',
     target: Number(program.target || 0),
     received: Number(program.received || 0),
     clusters: program.clusters || [],
@@ -498,7 +498,7 @@ export default function ProgramPage() {
       navigate("/program");
     }).catch((error) => setProgramError(error.message || 'Unable to delete program.'));
   };
-  const renderActionMenu = (menuId, menuProgram = selectedProgram) => canManagePrograms && (
+  const renderActionMenu = (menuId, menuProgram = selectedProgram) => canCreatePrograms && (
     <div className="program-action-menu-wrap" onClick={(event) => event.stopPropagation()}>
       <button type="button" className="program-more-button" aria-label="Program actions" aria-haspopup="true" aria-expanded={activeActionMenu === menuId} onClick={(event) => { event.stopPropagation(); setActionProgram(menuProgram); setActiveActionMenu(activeActionMenu === menuId ? null : menuId); }}><MoreVerticalIcon /></button>
       {activeActionMenu === menuId && <div className="actions-dropdown program-actions-dropdown" role="menu"><button type="button" className="actions-dropdown-item" onClick={editProgram} role="menuitem">Edit</button><button type="button" className="actions-dropdown-item" onClick={() => { setActiveActionMenu(null); endProgram(actionProgram); }} role="menuitem">End program</button><button type="button" className="actions-dropdown-item delete" onClick={deleteProgram} role="menuitem">Delete</button></div>}
@@ -598,10 +598,8 @@ export default function ProgramPage() {
       <section className="table-card program-table-card">
         <div className="program-table-heading">
           <div>
-            <p className="program-section-eyebrow">Program coverage</p>
             <h2>Program beneficiaries</h2>
           </div>
-          <span>{viewMode ? 'Select a beneficiary to view receipt history.' : 'Active and ended programs'}</span>
         </div>
         <div className="table-overflow">
           {viewMode && !clusterView ? <ExpandableTreeTable
@@ -938,7 +936,6 @@ export default function ProgramPage() {
                 >
                   <option>Mother</option>
                   <option>Child</option>
-                  <option>Mother and Child</option>
                 </select>
               </label>
             </div>

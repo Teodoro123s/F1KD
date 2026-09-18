@@ -17,6 +17,15 @@ const CHECKUPS = TRIMESTERS.flatMap((trimester, trimesterIndex) =>
   }))
 );
 
+const LAB_ASSISTANCE_OPTIONS = [
+  'Complete Blood Count (CBC)',
+  'Urinalysis',
+  'Blood Typing and Rh Factor',
+  'Hepatitis B, HIV, and Syphilis Screening',
+  'Glucose Screening (OGTT)',
+  'Genetic and Chromosomal Screening',
+];
+
 const getTrimesterIndex = (trimester) => {
   const index = TRIMESTERS.findIndex((item) => item.label === trimester);
   return index === -1 ? 0 : index;
@@ -31,15 +40,11 @@ const getTrimesterFromGestationalAge = (weeks) => {
 const getMonitoringStartDetails = (mother = {}) => {
   const registeredWeeks = Number.parseInt(mother.gestationalAge ?? mother.gestational_age, 10);
   const registrationDate = mother.prenatalRegDate || mother.prenatal_reg_date || '';
-  const parsedRegistrationDate = registrationDate ? new Date(registrationDate) : null;
-  const hasRegistrationDate = parsedRegistrationDate && !Number.isNaN(parsedRegistrationDate.getTime());
-  const elapsedWeeks = hasRegistrationDate
-    ? Math.max(0, Math.floor((Date.now() - parsedRegistrationDate.getTime()) / (1000 * 60 * 60 * 24 * 7)))
-    : 0;
-  const currentWeeks = Number.isFinite(registeredWeeks) ? registeredWeeks + elapsedWeeks : null;
-  const trimester = currentWeeks !== null
+  const registeredTrimester = mother.trimester || mother.trimester_at_registration || '';
+  const currentWeeks = Number.isFinite(registeredWeeks) ? registeredWeeks : null;
+  const trimester = registeredTrimester || (currentWeeks !== null
     ? getTrimesterFromGestationalAge(currentWeeks)
-    : mother.trimester || mother.trimester_at_registration || '1st Trimester';
+    : '1st Trimester');
 
   return {
     registrationDate,
@@ -61,7 +66,7 @@ const formatDate = (value) => {
   if (!value) return '';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
-  return date.toISOString().split('T')[0].replaceAll('-', '/');
+  return date.toISOString().split('T')[0];
 };
 
 const formatDateForPayload = (value) => String(value || '').trim().replaceAll('/', '-');
@@ -108,6 +113,7 @@ const createInitialFormState = (mother, checkup = null, blank = false) => ({
   nextCheckupDate: blank ? '' : formatDate(checkup?.nextCheckupDate),
   referral: checkup?.referral ?? false,
   labAssistance: checkup?.labAssistance ?? false,
+  labAssistanceTests: checkup?.labAssistanceTests ?? [],
   amount: checkup?.amount ?? '',
   sourceOfFunds: blank ? '' : checkup?.sourceOfFunds ?? 'Municipal Fund',
   facilityType: checkup?.facilityType ?? 'Govt',
@@ -124,6 +130,8 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
   const [activeStep, setActiveStep] = useState(initialStep);
   const previousMotherId = useRef(mother.id || mother.motherId);
   const [formState, setFormState] = useState(() => createInitialFormState(mother, getCheckupForStep(mother, initialStep)));
+  const [pendingSave, setPendingSave] = useState(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const motherId = mother.id || mother.motherId;
@@ -156,6 +164,7 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
     nextCheckupDate,
     referral,
     labAssistance,
+    labAssistanceTests,
     amount,
     sourceOfFunds,
     facilityType,
@@ -187,25 +196,7 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
     return null;
   }, [bp]);
 
-  const fhrWarning = useMemo(() => {
-    if (!fhr) return null;
-    const rate = parseInt(fhr, 10);
-    if (!Number.isNaN(rate) && (rate < 110 || rate > 160)) {
-      return `Abnormal Fetal Heart Rate Alert: FHR is ${rate} bpm (normal range 110-160).`;
-    }
-    return null;
-  }, [fhr]);
-
-  const growthWarning = useMemo(() => {
-    if (!fundalHeight || gestationalAge < 20) return null;
-    const fh = parseInt(fundalHeight, 10);
-    if (!Number.isNaN(fh) && Math.abs(fh - gestationalAge) > 3) {
-      return `Abnormal Growth Alert: Fundal height (${fh} cm) deviates from gestational age (${gestationalAge} weeks) by more than 3 cm.`;
-    }
-    return null;
-  }, [fundalHeight, gestationalAge]);
-
-  const hasWarnings = bpWarning || fhrWarning || growthWarning;
+  const hasWarnings = Boolean(bpWarning);
   const name = mother.motherName || mother.communityName || mother.name;
 
   const activeTrimester = Math.floor(activeStep / 3) + 1;
@@ -251,7 +242,15 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
     };
 
     if (isReadOnly) return;
-    const saved = await onSave(payload);
+    setPendingSave({ payload, checkup: currentCheckup });
+  };
+
+  const confirmSave = async () => {
+    if (!pendingSave || saving) return;
+    setSaving(true);
+    const saved = await onSave(pendingSave.payload);
+    setSaving(false);
+    setPendingSave(null);
     if (saved !== false && !forceEdit) {
       setActiveStep((current) => Math.min(current + 1, CHECKUPS.length - 1));
     }
@@ -284,12 +283,9 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
                 <label className="checkup-field-label" htmlFor="checkup-date">Check-up Date</label>
                 <input
                   id="checkup-date"
-                  type="text"
-                  inputMode="numeric"
-                  pattern="\d{4}/\d{2}/\d{2}"
+                  type="date"
                   className="checkup-field-input"
                   value={checkupDate}
-                  placeholder="yyyy/mm/dd"
                   onChange={(e) => updateField('checkupDate')(e.target.value)}
                   required
                 />
@@ -369,30 +365,6 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
                 </div>
               </div>
 
-              <div className="form-group">
-                <label className="checkup-field-label" htmlFor="fundal-height">Fundal Height (cm)</label>
-                <input
-                  id="fundal-height"
-                  type="number"
-                  className="checkup-field-input"
-                  value={fundalHeight}
-                  placeholder="e.g. 20"
-                  onChange={(e) => updateField('fundalHeight')(e.target.value)}
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="checkup-field-label" htmlFor="fhr">Fetal Heart Rate (bpm)</label>
-                <input
-                  id="fhr"
-                  type="number"
-                  className="checkup-field-input"
-                  value={fhr}
-                  placeholder="e.g. 140"
-                  onChange={(e) => updateField('fhr')(e.target.value)}
-                />
-              </div>
-
               <div className="form-group full-width">
                 <label className="checkup-field-label" htmlFor="service-provider">Service Provider</label>
                 <input
@@ -409,12 +381,9 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
                 <label className="checkup-field-label" htmlFor="next-checkup-date">Next Checkup Date</label>
                 <input
                   id="next-checkup-date"
-                  type="text"
-                  inputMode="numeric"
-                  pattern="\d{4}/\d{2}/\d{2}"
+                  type="date"
                   className="checkup-field-input"
                   value={nextCheckupDate}
-                  placeholder="yyyy/mm/dd"
                   onChange={(e) => updateField('nextCheckupDate')(e.target.value)}
                 />
               </div>
@@ -455,6 +424,30 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
                       <span className="ios-slider"></span>
                     </label>
                   </div>
+
+                  {labAssistance && (
+                    <div className="form-group full-width">
+                      <details className="lab-assistance-dropdown" open>
+                        <summary>Choose assisted laboratory tests</summary>
+                        <div className="lab-assistance-options">
+                          {LAB_ASSISTANCE_OPTIONS.map((option) => (
+                            <label key={option} className="lab-assistance-option">
+                              <input
+                                type="checkbox"
+                                checked={labAssistanceTests.includes(option)}
+                                onChange={(event) => updateField('labAssistanceTests')(
+                                  event.target.checked
+                                    ? [...labAssistanceTests, option]
+                                    : labAssistanceTests.filter((test) => test !== option),
+                                )}
+                              />
+                              <span>{option}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </details>
+                    </div>
+                  )}
 
                   <div className="form-group">
                     <label className="checkup-field-label" htmlFor="amount">Assistance Amount (PHP)</label>
@@ -563,8 +556,6 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
                 <div className="warning-title">⚠️ Clinical Warnings</div>
                 <ul>
                   {bpWarning && <li>{bpWarning}</li>}
-                  {fhrWarning && <li>{fhrWarning}</li>}
-                  {growthWarning && <li>{growthWarning}</li>}
                 </ul>
               </div>
             )}
@@ -581,6 +572,25 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
           </button>
         </div>
       </form>
+      {pendingSave && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => !saving && setPendingSave(null)}>
+          <div className="modal program-product-modal" role="dialog" aria-modal="true" aria-labelledby="save-checkup-title" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="modal-header">
+              <h2 id="save-checkup-title">Confirm check-up</h2>
+              <button type="button" className="modal-close" onClick={() => setPendingSave(null)} disabled={saving} aria-label="Close">×</button>
+            </div>
+            <div className="modal-body">
+              <p>Save this check-up record?</p>
+              <p><strong>{pendingSave.checkup.trimesterLabel} · Check-up {pendingSave.checkup.checkupNumber}</strong></p>
+              <p>Check-up date: {pendingSave.payload.checkupDate || 'Not selected'}</p>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn-secondary" onClick={() => setPendingSave(null)} disabled={saving}>Cancel</button>
+              <button type="button" className="btn-primary" onClick={confirmSave} disabled={saving}>{saving ? 'Saving...' : 'Confirm and save'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

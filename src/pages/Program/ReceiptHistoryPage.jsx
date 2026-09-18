@@ -27,6 +27,7 @@ export default function ReceiptHistoryPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const isClusterHistory = Boolean(clusterType && clusterName);
+  const showGroupColumn = isClusterHistory && clusterType !== 'batch';
   const beneficiaryName = location.state?.beneficiaryName || location.state?.clusterName || 'Beneficiary';
   const [reportRows, setReportRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -129,8 +130,8 @@ export default function ReceiptHistoryPage() {
           <div className="program-receipt-controls-actions"><button type="button" className="view-btn view-btn--primary" onClick={() => openReceiptModal()}>Record receipt</button><div className="program-view-toggle" role="tablist" aria-label="Receipt history view"><button type="button" className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>List View</button><button type="button" className={view === 'calendar' ? 'active' : ''} onClick={() => setView('calendar')}>Calendar View</button></div></div>
         </div>}
         {loading ? <p>Loading receipt history...</p> : view === 'list' ? <table className="data-table">
-          <thead><tr><th>Date</th><th>Received</th><th>Program</th>{isClusterHistory ? <><th>Beneficiary</th><th>School</th><th>Group</th><th>Batch</th></> : <><th>School</th><th>Group</th><th>Batch</th></>}<th>Recorded by</th><th>Action</th></tr></thead>
-          <tbody>{filteredRows.length ? filteredRows.map((row) => <tr key={`${row.date}-${row.program_name}-${row.beneficiary_name || row.beneficiary_id || 'entry'}`}><td>{toDateKey(row.date)}</td><td><span className={`program-recipient-status ${row.monitored ? 'received' : 'pending'}`}>{row.monitored ? 'Yes' : 'No'}</span></td><td>{row.program_name}</td>{isClusterHistory ? <td>{row.beneficiary_name || row.beneficiary_id || 'Unknown beneficiary'}</td> : null}<td>{row.school_name || 'Unknown school'}</td><td>{row.group_name || 'Unknown group'}</td><td>{row.batch_name || 'Unknown batch'}</td><td>{row.monitored_by_name || 'Unknown'}</td><td><button type="button" className="view-btn view-btn--secondary" onClick={() => openReceiptModal(toDateKey(row.date))}>Edit</button></td></tr>) : <tr><td colSpan={isClusterHistory ? 9 : 8} className="no-data">No receipt history found.</td></tr>}</tbody>
+          <thead><tr><th>Date</th>{isClusterHistory ? <><th>Beneficiary</th>{showGroupColumn && <th>Group</th>}<th>Batch</th></> : null}<th>Recorded by</th><th>Action</th></tr></thead>
+          <tbody>{filteredRows.length ? filteredRows.map((row) => <tr key={`${row.date}-${row.program_name}-${row.beneficiary_name || row.beneficiary_id || 'entry'}`}><td>{toDateKey(row.date)}</td>{isClusterHistory ? <><td>{row.beneficiary_name || row.beneficiary_id || 'Unknown beneficiary'}</td>{showGroupColumn && <td>{row.group_name || 'Unknown group'}</td>}<td>{row.batch_name || 'Unknown batch'}</td></> : null}<td>{row.monitored_by_name || 'Unknown'}</td><td><button type="button" className="view-btn view-btn--secondary" onClick={() => openReceiptModal(toDateKey(row.date))}>Edit</button></td></tr>) : <tr><td colSpan={isClusterHistory ? (showGroupColumn ? 6 : 5) : 3} className="no-data">No receipt history found.</td></tr>}</tbody>
         </table> : <div className="program-calendar-wrap">
           <div className="program-calendar-header"><button type="button" className="view-btn view-btn--secondary" onClick={() => setCalendarMonth((date) => new Date(date.getFullYear(), date.getMonth() - 1, 1))}>Previous</button><h3>{monthLabel(calendarMonth)}</h3><button type="button" className="view-btn view-btn--secondary" onClick={() => setCalendarMonth((date) => new Date(date.getFullYear(), date.getMonth() + 1, 1))}>Next</button></div>
           <div className="program-calendar-weekdays">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => <span key={day}>{day}</span>)}</div>
@@ -142,9 +143,7 @@ export default function ReceiptHistoryPage() {
               <div key={`${selectedDate}-${selectedReceipt.beneficiary_id || index}`}>
                 <span>{selectedReceipt.program_name}</span>
                 {isClusterHistory && <span>Beneficiary: {selectedReceipt.beneficiary_name || selectedReceipt.beneficiary_id || 'Unknown beneficiary'}</span>}
-                <span>School: {selectedReceipt.school_name || 'Unknown school'}</span>
-                <span>Group: {selectedReceipt.group_name || 'Unknown group'}</span>
-                <span>Batch: {selectedReceipt.batch_name || 'Unknown batch'}</span>
+                {isClusterHistory && <><span>School: {selectedReceipt.school_name || 'Unknown school'}</span><span>Group: {selectedReceipt.group_name || 'Unknown group'}</span><span>Batch: {selectedReceipt.batch_name || 'Unknown batch'}</span></>}
                 <span>Recorded by {selectedReceipt.monitored_by_name || 'Unknown'}</span>
               </div>
             ))}

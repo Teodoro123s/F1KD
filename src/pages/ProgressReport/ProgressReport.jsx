@@ -142,7 +142,7 @@ export default function ProgressReport() {
 
         <section className="progress-report-config" aria-label="Report parameters">
           <div className="progress-report-config-header">
-            <div><h1>Report setup</h1><p>Select a school, customize beneficiary parameters, and pick the fields you want to review.</p></div>
+            <div><h1>Report setup</h1></div>
           </div>
           <div className="progress-report-step-list">
             <section className="progress-report-step">

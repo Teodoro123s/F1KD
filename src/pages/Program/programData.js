@@ -117,7 +117,7 @@ export const emptyProgram = {
   provider: "",
   community: "",
   batch: "",
-  beneficiaryType: "Mother and Child",
+  beneficiaryType: "Mother",
   description: "",
 };
 
