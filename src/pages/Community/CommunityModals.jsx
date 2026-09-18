@@ -35,7 +35,7 @@ export function CreateCommunityModal({ showModal, onClose, communityForm, setCom
           placeholder="e.g. San Isidro High School"
           value={communityForm.name}
           onChange={(e) => setCommunityForm({ ...communityForm, name: e.target.value })}
-          required
+
           autoFocus
         />
       </div>
@@ -46,7 +46,7 @@ export function CreateCommunityModal({ showModal, onClose, communityForm, setCom
           className="form-select"
           value={communityForm.coordinator}
           onChange={(e) => setCommunityForm({ ...communityForm, coordinator: e.target.value })}
-          required
+          
         >
           <option value="">Select a community coordinator</option>
           {coordinators.map((coordinator) => (
