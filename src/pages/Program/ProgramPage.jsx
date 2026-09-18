@@ -13,7 +13,7 @@ import {
 } from "../Community/CommunityIcons";
 import { getSummary } from "../Community/communityService";
 import { apiGetChildren } from "../../api/children";
-import { apiCompleteNamedProgramCluster, apiCompleteProgramCluster, apiCreateProgram, apiCreateProgramClusters, apiDeleteProgram, apiEndProgram, apiGetProgramMonitoring, apiGetPrograms, apiSetProgramMonitoring, apiUpdateProgram } from "../../api/programs";
+import { apiCompleteNamedProgramCluster, apiCompleteProgramCluster, apiCreateProgram, apiCreateProgramClusters, apiDeleteProgram, apiGetProgramMonitoring, apiGetPrograms, apiSetProgramMonitoring, apiUpdateProgram } from "../../api/programs";
 import ExpandableTreeTable from "../Monitoring/ExpandableTreeTable";
 import {
   beneficiaryNames,
@@ -409,14 +409,10 @@ export default function ProgramPage() {
     );
     setShowActivityModal(false);
   };
-  const endProgram = (programToEnd = selectedProgram) => {
-    if (!programToEnd) return;
-    apiEndProgram(programToEnd.id)
-      .then((response) => {
-        setPrograms((current) => current.map((program) => program.id === programToEnd.id ? mapApiProgram(response.program) : program));
-        setForm(emptyProgram);
-      })
-      .catch(() => setProgramError('Unable to end program.'));
+  const backToActivePrograms = () => {
+    setActiveActionMenu(null);
+    setActiveTab('Active');
+    navigate('/program');
   };
   const saveBeneficiaryScope = (event) => {
     event.preventDefault();
@@ -501,7 +497,7 @@ export default function ProgramPage() {
   const renderActionMenu = (menuId, menuProgram = selectedProgram) => canCreatePrograms && (
     <div className="program-action-menu-wrap" onClick={(event) => event.stopPropagation()}>
       <button type="button" className="program-more-button" aria-label="Program actions" aria-haspopup="true" aria-expanded={activeActionMenu === menuId} onClick={(event) => { event.stopPropagation(); setActionProgram(menuProgram); setActiveActionMenu(activeActionMenu === menuId ? null : menuId); }}><MoreVerticalIcon /></button>
-      {activeActionMenu === menuId && <div className="actions-dropdown program-actions-dropdown" role="menu"><button type="button" className="actions-dropdown-item" onClick={editProgram} role="menuitem">Edit</button><button type="button" className="actions-dropdown-item" onClick={() => { setActiveActionMenu(null); endProgram(actionProgram); }} role="menuitem">End program</button><button type="button" className="actions-dropdown-item delete" onClick={deleteProgram} role="menuitem">Delete</button></div>}
+      {activeActionMenu === menuId && <div className="actions-dropdown program-actions-dropdown" role="menu"><button type="button" className="actions-dropdown-item" onClick={editProgram} role="menuitem">Edit</button><button type="button" className="actions-dropdown-item" onClick={backToActivePrograms} role="menuitem">Back to active programs</button><button type="button" className="actions-dropdown-item delete" onClick={deleteProgram} role="menuitem">Delete</button></div>}
     </div>
   );
 
