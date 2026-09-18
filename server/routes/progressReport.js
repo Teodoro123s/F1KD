@@ -25,9 +25,10 @@ const hierarchyWhere = (params, aliases = { mother: 'm', child: 'c' }) => {
   const conditions = [];
   const values = [];
   const owner = aliases.child || aliases.mother;
-  if (params.schoolId) { conditions.push(`${owner}.community_id = ?`); values.push(params.schoolId); }
-  if (params.groupId) { conditions.push(`${owner}.group_id = ?`); values.push(params.groupId); }
-  if (params.batchId) { conditions.push(`${owner}.batch_id = ?`); values.push(params.batchId); }
+  const mother = aliases.mother || 'm';
+  if (params.schoolId) { conditions.push(`COALESCE(${owner}.community_id, ${mother}.community_id) = ?`); values.push(params.schoolId); }
+  if (params.groupId) { conditions.push(`COALESCE(${owner}.group_id, ${mother}.group_id) = ?`); values.push(params.groupId); }
+  if (params.batchId) { conditions.push(`COALESCE(${owner}.batch_id, ${mother}.batch_id) = ?`); values.push(params.batchId); }
   if (params.motherId) { conditions.push(`${aliases.mother}.id = ?`); values.push(params.motherId); }
   if (params.search) {
     const term = `%${params.search}%`;
@@ -64,9 +65,9 @@ router.get('/', async (req, res) => {
     const baseFrom = `
       FROM children c
       INNER JOIN mothers m ON m.id = c.mother_id
-      LEFT JOIN communities school ON school.id = c.community_id
-      LEFT JOIN groups g ON g.id = c.group_id
-      LEFT JOIN batches b ON b.id = c.batch_id
+      LEFT JOIN communities school ON school.id = COALESCE(c.community_id, m.community_id)
+      LEFT JOIN groups g ON g.id = COALESCE(c.group_id, m.group_id)
+      LEFT JOIN batches b ON b.id = COALESCE(c.batch_id, m.batch_id)
       LEFT JOIN child_checkups cc ON cc.child_id = c.id AND cc.week_number IS NOT NULL
       ${filters.sql}`;
 

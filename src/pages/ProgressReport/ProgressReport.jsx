@@ -85,7 +85,11 @@ export default function ProgressReport() {
   const focusOptions = REPORT_FOCUS_OPTIONS.filter(([, , scope]) => scope === focusScope);
 
   const groups = useMemo(() => options.groups.filter((item) => !selection.schoolId || String(item.schoolId) === String(selection.schoolId)), [options.groups, selection.schoolId]);
-  const batches = useMemo(() => options.batches.filter((item) => (!selection.schoolId || String(item.schoolId) === String(selection.schoolId)) && (!selection.groupId || options.groups.some((group) => String(group.id) === String(selection.groupId) && (String(item.schoolId) === String(group.schoolId) || !item.schoolId)))), [options.batches, options.groups, selection.groupId, selection.schoolId]);
+  const batches = useMemo(() => options.batches.filter((item) => {
+    const matchesSchool = !selection.schoolId || String(item.schoolId) === String(selection.schoolId);
+    if (!matchesSchool || !selection.groupId) return matchesSchool;
+    return options.mothers.some((mother) => String(mother.groupId) === String(selection.groupId) && String(mother.batchId) === String(item.id));
+  }), [options.batches, options.mothers, selection.groupId, selection.schoolId]);
   const updateSelection = (key, value) => {
     setPage(1);
     setError('');
