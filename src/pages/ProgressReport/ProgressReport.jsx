@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { apiGetProgressReport, apiGetProgressReportOptions } from '../../api/progressReport';
 import PageHeader from '../../components/ui/PageHeader';
 
@@ -33,14 +34,15 @@ const GROWTH_METRICS = [
   ['heightForAge', 'Length-for-Age (cm)', 'Use to screen for stunting by monitoring week.'],
   ['bmiForAge', 'BMI-for-Age', 'Use to screen for wasting or overweight by monitoring week.'],
 ];
+const MOTHER_GROWTH_METRICS = [['bmiForAge', 'BMI', 'Latest BMI recorded by Mother Monitoring.']];
 const REPORT_TABS = ['Community', 'Report Focus', 'Growth Metrics', 'Results'];
 const REPORT_FOCUS_OPTIONS = [
-  ['beneficiary-batch', 'Child in Batch', 'batch'],
-  ['beneficiary-group', 'Child in Group', 'group'],
-  ['beneficiary-school', 'Child in School', 'school'],
-  ['batch-group', 'Batch in Group', 'group'],
-  ['batch-school', 'Batch in School', 'school'],
-  ['group-school', 'Group in School', 'school'],
+  ['beneficiary-batch', 'Individual Report', 'batch'],
+  ['beneficiary-group', 'Individual Report', 'group'],
+  ['beneficiary-school', 'Individual Report', 'school'],
+  ['batch-group', 'Batch Report', 'group'],
+  ['batch-school', 'Batch Report', 'school'],
+  ['group-school', 'Group Report', 'school'],
 ];
 const csvValue = (value) => `"${String(value ?? '').replaceAll('"', '""')}"`;
 const formatCellValue = (field, value) => {
@@ -152,7 +154,7 @@ const downloadChartImage = (svgElement, metricLabel) => {
   image.src = svgUrl;
 };
 
-function GrowthChart({ rows, metric, chartType, displayWeeks = 'all' }) {
+function GrowthChart({ rows, metric, chartType, displayWeeks = 'all', beneficiaryType = 'child' }) {
   const chartRef = useRef(null);
   const values = rows
     .map((row) => ({ row, value: Number(row[metric]) }))
@@ -179,34 +181,47 @@ function GrowthChart({ rows, metric, chartType, displayWeeks = 'all' }) {
     const seriesRows = rows.filter((row) => row.growthSeries?.some((point) => Number.isFinite(getPointValue(point, metric))));
     if (!seriesRows.length) return <p className="growth-report-empty">No monitored measurements available.</p>;
 
+    const isMother = beneficiaryType === 'mother';
+    const monthKey = (dateValue) => {
+      const date = new Date(dateValue);
+      return Number.isNaN(date.getTime()) ? null : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    };
+    const monthLabel = (month) => {
+      if (!month) return 'Unknown month';
+      const [year, monthNumber] = month.split('-').map(Number);
+      return new Date(year, monthNumber - 1, 1).toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
+    };
     const weekKey = (point) => Number.isFinite(Number(point.ageWeeks)) ? Number(point.ageWeeks) : null;
     const weekLabel = (week) => Number.isFinite(week) ? `W${week}` : 'Unknown week';
     const accessibleWeekLabel = (week) => Number.isFinite(week) ? `Week ${week}` : 'Unknown week';
-    const allWeekDates = [...new Set(seriesRows.flatMap((row) => row.growthSeries
-      .filter((point) => Number.isFinite(getPointValue(point, metric)) && weekKey(point) !== null)
-      .map(weekKey)))].sort((left, right) => left - right);
+    const timelineKey = (point) => isMother ? monthKey(point.date) : weekKey(point);
+    const timelineLabel = (value) => isMother ? monthLabel(value) : weekLabel(value);
+    const accessibleTimelineLabel = (value) => isMother ? `Month ${monthLabel(value)}` : accessibleWeekLabel(value);
+    const allTimelineDates = [...new Set(seriesRows.flatMap((row) => row.growthSeries
+      .filter((point) => Number.isFinite(getPointValue(point, metric)) && timelineKey(point) !== null)
+      .map(timelineKey)))].sort((left, right) => isMother ? left.localeCompare(right) : left - right);
 
     const normalizedDisplayWeeks = String(displayWeeks ?? 'all').toLowerCase();
     const requestedWeeks = Number(normalizedDisplayWeeks);
-    const visibleWeekDates = normalizedDisplayWeeks === 'all' || !Number.isFinite(requestedWeeks) || requestedWeeks <= 0 || requestedWeeks >= allWeekDates.length
-      ? allWeekDates
-      : allWeekDates.slice(-requestedWeeks);
-    const visibleWeekSet = new Set(visibleWeekDates);
+    const visibleTimelineDates = normalizedDisplayWeeks === 'all' || !Number.isFinite(requestedWeeks) || requestedWeeks <= 0 || requestedWeeks >= allTimelineDates.length
+      ? allTimelineDates
+      : allTimelineDates.slice(-requestedWeeks);
+    const visibleTimelineSet = new Set(visibleTimelineDates);
     const visibleSeriesRows = seriesRows
-      .map((row) => ({ ...row, visibleGrowthSeries: row.growthSeries.filter((point) => visibleWeekSet.has(weekKey(point)) && Number.isFinite(getPointValue(point, metric))) }))
+      .map((row) => ({ ...row, visibleGrowthSeries: row.growthSeries.filter((point) => visibleTimelineSet.has(timelineKey(point)) && Number.isFinite(getPointValue(point, metric))) }))
       .filter((row) => row.visibleGrowthSeries.length);
 
-    if (!visibleWeekDates.length) {
-      return <p className="growth-report-empty">No monitored measurements with age-in-weeks available.</p>;
+    if (!visibleTimelineDates.length) {
+      return <p className="growth-report-empty">No monitored measurements with timeline data available.</p>;
     };
 
     const lineMax = Math.max(...visibleSeriesRows.flatMap((row) => row.visibleGrowthSeries.map((point) => getPointValue(point, metric))), 1);
     const chartPaddingX = 44;
-    const xForWeek = (week) => {
-      if (visibleWeekDates.length <= 1) return width / 2;
-      const index = visibleWeekDates.indexOf(week);
+    const xForTimeline = (timelineValue) => {
+      if (visibleTimelineDates.length <= 1) return width / 2;
+      const index = visibleTimelineDates.indexOf(timelineValue);
       const usableWidth = width - (chartPaddingX * 2);
-      return chartPaddingX + (index / (visibleWeekDates.length - 1)) * usableWidth;
+      return chartPaddingX + (index / (visibleTimelineDates.length - 1)) * usableWidth;
     };
     const yForValue = (value) => height - (value / lineMax) * (height - 24) - 12;
     const yAxisTicks = [0, 0.25, 0.5, 0.75, 1].map((ratio) => ({
@@ -216,26 +231,28 @@ function GrowthChart({ rows, metric, chartType, displayWeeks = 'all' }) {
 
     if (!visibleSeriesRows.length) return <p className="growth-report-empty">No monitored measurements available for the selected period.</p>;
 
-    const periodLabel = normalizedDisplayWeeks === 'all' ? 'all available monitoring weeks' : `the last ${requestedWeeks} weeks`;
-    const metricLabel = GROWTH_METRICS.find(([id]) => id === metric)?.[1] || metric;
-    const weekGridLines = visibleWeekDates.map((week) => <line key={`week-line-${week}`} className="growth-report-weekline" x1={xForWeek(week)} x2={xForWeek(week)} y1="12" y2={height - 12} />);
+    const periodLabel = normalizedDisplayWeeks === 'all' ? `all available ${isMother ? 'months' : 'monitoring weeks'}` : `the last ${requestedWeeks} ${isMother ? 'months' : 'weeks'}`;
+    const metricLabel = (isMother ? MOTHER_GROWTH_METRICS : GROWTH_METRICS).find(([id]) => id === metric)?.[1] || metric;
+    const subjectLabel = isMother ? 'Mother' : 'Child';
+    const timelineGridLines = visibleTimelineDates.map((timelineValue) => <line key={`timeline-line-${timelineValue}`} className="growth-report-weekline" x1={xForTimeline(timelineValue)} x2={xForTimeline(timelineValue)} y1="12" y2={height - 12} />);
     const chartSeries = visibleSeriesRows.map((row, rowIndex) => {
       const series = row.visibleGrowthSeries;
       const color = `hsl(${rowIndex * 67 % 360} 62% 42%)`;
       const linePoints = series.map((point) => {
-        const week = weekKey(point);
+        const timelineValue = timelineKey(point);
         const value = getPointValue(point, metric);
-        return `${xForWeek(week)},${yForValue(value)}`;
+        return `${xForTimeline(timelineValue)},${yForValue(value)}`;
       }).join(' ');
-      return <g key={`${row.child || row.mother}-line`}><polyline points={linePoints} fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />{series.map((point, pointIndex) => { const week = weekKey(point); const value = getPointValue(point, metric); return <circle key={`${row.child || row.mother}-point-${pointIndex}`} cx={xForWeek(week)} cy={yForValue(value)} r="4" fill="#fff" stroke={color} strokeWidth="2"><title>{row.child || row.mother}: {value} · {accessibleWeekLabel(week)}</title></circle>; })}</g>;
+      return <g key={`${row.child || row.mother}-line`}><polyline points={linePoints} fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />{series.map((point, pointIndex) => { const timelineValue = timelineKey(point); const value = getPointValue(point, metric); return <circle key={`${row.child || row.mother}-point-${pointIndex}`} cx={xForTimeline(timelineValue)} cy={yForValue(value)} r="4" fill="#fff" stroke={color} strokeWidth="2"><title>{row.child || row.mother}: {value} · {accessibleTimelineLabel(timelineValue)}</title></circle>; })}</g>;
     });
-    return <div className="growth-report-line-chart"><div className="growth-report-chart-actions"><button type="button" className="secondary-btn" onClick={() => downloadChartImage(chartRef.current, metricLabel)}>Download image</button></div><svg ref={chartRef} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`Child growth measurements over ${periodLabel}`} preserveAspectRatio="none"><text className="growth-report-y-axis-label" x="14" y={height / 2} textAnchor="middle" transform={`rotate(-90 14 ${height / 2})`}>{metricLabel}</text>{weekGridLines}{yAxisTicks.map(({ value, y }) => <g key={value}><line className="growth-report-gridline" x1={chartPaddingX} x2={width} y1={y} y2={y} /><text className="growth-report-y-axis-tick" x={chartPaddingX - 6} y={y + 4} textAnchor="end">{value.toFixed(1)}</text></g>)}{chartSeries}</svg><div className="growth-report-line-labels">{visibleWeekDates.map((week) => <span key={week}>{weekLabel(week)}</span>)}</div><div className="growth-report-legend">{visibleSeriesRows.map((row, index) => <span key={`${row.child || row.mother}-line-legend`}><i style={{ background: `hsl(${index * 67 % 360} 62% 42%)` }} />{row.child || row.mother}</span>)}</div></div>;
+    return <div className="growth-report-line-chart"><div className="growth-report-chart-actions"><button type="button" className="secondary-btn" onClick={() => downloadChartImage(chartRef.current, metricLabel)}>Download image</button></div><svg ref={chartRef} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${subjectLabel} growth measurements over ${periodLabel}`} preserveAspectRatio="none"><text className="growth-report-y-axis-label" x="14" y={height / 2} textAnchor="middle" transform={`rotate(-90 14 ${height / 2})`}>{metricLabel}</text>{timelineGridLines}{yAxisTicks.map(({ value, y }) => <g key={value}><line className="growth-report-gridline" x1={chartPaddingX} x2={width} y1={y} y2={y} /><text className="growth-report-y-axis-tick" x={chartPaddingX - 6} y={y + 4} textAnchor="end">{value.toFixed(1)}</text></g>)}{chartSeries}</svg><div className="growth-report-line-labels">{visibleTimelineDates.map((timelineValue) => <span key={timelineValue}>{timelineLabel(timelineValue)}</span>)}</div><div className="growth-report-legend">{visibleSeriesRows.map((row, index) => <span key={`${row.child || row.mother}-line-legend`}><i style={{ background: `hsl(${index * 67 % 360} 62% 42%)` }} />{row.child || row.mother}</span>)}</div></div>;
   }
 
   return <div className="growth-report-bars growth-report-bars-chart">{points.map(({ row, value }, index) => <div className="growth-report-bar-item" key={`${row.child || row.mother}-${index}`}><strong>{value}</strong><span style={{ '--bar-height': `${Math.max(6, (value / maxValue) * 100)}%` }} title={`${row.child || row.mother}: ${value} · ${chartDate(row.measurementDate)}`} /><small>{row.child || row.mother}</small><small>{chartDate(row.measurementDate)}</small></div>)}</div>;
 }
 
 export default function ProgressReport() {
+  const navigate = useNavigate();
   const [options, setOptions] = useState({ schools: [], groups: [], batches: [], mothers: [] });
   const [selection, setSelection] = useState(EMPTY_SELECTIONS);
   const [granularity, setGranularity] = useState('child');
@@ -249,6 +266,8 @@ export default function ProgressReport() {
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState(1);
   const [reportFocus, setReportFocus] = useState('beneficiary-batch');
+  const [reportCategory, setReportCategory] = useState('monitor');
+  const [beneficiaryType, setBeneficiaryType] = useState('child');
   const [growthMetrics, setGrowthMetrics] = useState(['weightForAge']);
   const [resultsView, setResultsView] = useState('graph');
   const [displayWeeks, setDisplayWeeks] = useState('all');
@@ -267,6 +286,8 @@ export default function ProgressReport() {
   const displayPage = finalizedSnapshot?.page ?? page;
   const activeReport = finalizedSnapshot?.report ?? report;
   const displayReportFocus = finalizedSnapshot?.reportFocus ?? reportFocus;
+  const displayBeneficiaryType = finalizedSnapshot?.beneficiaryType ?? beneficiaryType;
+  const availableGrowthMetrics = displayBeneficiaryType === 'mother' ? MOTHER_GROWTH_METRICS : GROWTH_METRICS;
   const focusScope = selection.batchId ? 'batch' : selection.groupId ? 'group' : selection.schoolId ? 'school' : '';
   const focusOptions = REPORT_FOCUS_OPTIONS.filter(([, , scope]) => scope === focusScope);
 
@@ -308,16 +329,17 @@ export default function ProgressReport() {
     setLoadingReport(true);
     setError('');
     try {
-      const result = await apiGetProgressReport({ ...selection, granularity, page: nextPage, perPage: 50 });
+      const result = await apiGetProgressReport({ ...selection, granularity: beneficiaryType, page: nextPage, perPage: 50 });
       setReport(result);
       setFinalizedSnapshot({
         report: result,
         selection: { ...selection },
         visibleFields: [...new Set([...visibleFields.filter((field) => !GROWTH_METRICS.some(([id]) => id === field)), ...growthMetrics])],
-        granularity,
+        granularity: beneficiaryType,
         sort: { ...sort },
         page: nextPage,
         reportFocus,
+        beneficiaryType,
         growthMetrics: [...growthMetrics],
       });
       setPage(nextPage);
@@ -352,7 +374,7 @@ export default function ProgressReport() {
 
   const exportReport = async () => {
     if (!selection.schoolId) return;
-    const result = activeReport || (await apiGetProgressReport({ ...selection, granularity, export: 1, perPage: 100 }));
+    const result = activeReport || (await apiGetProgressReport({ ...selection, granularity: beneficiaryType, export: 1, perPage: 100 }));
     const lines = [
       `# ${breadcrumb.join(' > ')}`,
       `# Generated ${new Date().toISOString()}`,
@@ -362,7 +384,7 @@ export default function ProgressReport() {
     const url = URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' }));
     const link = document.createElement('a');
     link.href = url;
-    link.download = `progress-report-${granularity}.csv`;
+    link.download = `progress-report-${beneficiaryType}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -391,6 +413,8 @@ export default function ProgressReport() {
     setVisibleFields(DEFAULT_VISIBLE_FIELDS);
     setGrowthMetrics(['weightForAge']);
     setReportFocus('beneficiary-batch');
+    setReportCategory('monitor');
+    setBeneficiaryType('child');
     setResultsView('graph');
     setDisplayWeeks('all');
     setActiveTab(1);
@@ -398,6 +422,34 @@ export default function ProgressReport() {
     setError('');
   };
   const selectGrowthMetric = (id) => setGrowthMetrics([id]);
+  const selectBeneficiaryType = (type) => {
+    setBeneficiaryType(type);
+    setGrowthMetrics(type === 'mother' ? ['bmiForAge'] : ['weightForAge']);
+    setFinalizedSnapshot(null);
+    setReport(null);
+    setActiveTab(2);
+  };
+  const selectReportCategory = (category) => {
+    setReportCategory(category);
+    if (category === 'profile') navigate('/beneficiary');
+    if (category === 'program') navigate('/program');
+  };
+
+  useEffect(() => {
+    if (activeTab !== 4) return undefined;
+    const selector = document.querySelector('.graph-controls select');
+    const heading = document.querySelector('.growth-report-single-card h3');
+    const subtitle = document.querySelector('.growth-report-single-card > p');
+    if (selector) {
+      const labels = beneficiaryType === 'mother'
+        ? ['3 months', '6 months', '9 months', '12 months', 'All months']
+        : ['4 weeks', '12 weeks', '24 weeks', '48 weeks', 'All weeks'];
+      Array.from(selector.options).forEach((option, index) => { option.textContent = labels[index]; });
+    }
+    if (heading && beneficiaryType === 'mother') heading.textContent = '📈 BMI';
+    if (subtitle && beneficiaryType === 'mother') subtitle.textContent = 'Latest mother BMI measurements · values are plotted by month';
+    return undefined;
+  }, [activeTab, beneficiaryType]);
 
   return (
     <div className="community-page progress-report-shell">
@@ -409,9 +461,9 @@ export default function ProgressReport() {
 
         <section className="progress-report-config" aria-label="Report parameters">
           {activeTab === 1 && <div className="progress-report-tab-panel"><h1>I. Community Selection</h1><div className="progress-report-config-grid"><label>School<select value={selection.schoolId} onChange={(event) => updateSelection('schoolId', event.target.value)}><option value="">Select school</option>{options.schools.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label>Group<select value={selection.groupId} onChange={(event) => updateSelection('groupId', event.target.value)} disabled={!selection.schoolId}><option value="">All groups</option>{groups.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label>Batch<select value={selection.batchId} onChange={(event) => updateSelection('batchId', event.target.value)} disabled={!selection.groupId}><option value="">All batches</option>{batches.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label></div><p className="progress-report-note">Select a School to begin. Group and Batch are optional filters.</p><div className="progress-report-tab-actions"><button type="button" className="primary-btn" disabled={!selection.schoolId} onClick={() => setActiveTab(2)}>Next: Report Focus →</button></div></div>}
-          {activeTab === 2 && <div className="progress-report-tab-panel"><h1>II. Report Focus</h1><fieldset className="progress-report-beneficiary-type"><legend>Beneficiary type</legend><label className="selected"><input type="radio" name="report-beneficiary-type" checked readOnly />Child</label><label className="static-option"><input type="radio" name="report-beneficiary-type" checked={false} disabled readOnly />Mother <span>Temporarily unavailable</span></label></fieldset><div className="progress-report-focus-section"><p>Choose the aggregation level for the selected community scope:</p>{!selection.schoolId ? <p className="progress-report-note">Select a school first to see valid focus options.</p> : <fieldset className="progress-report-focus-options">{focusOptions.map(([value, label]) => <label key={value}><input type="radio" name="report-focus" value={value} checked={reportFocus === value} onChange={() => setReportFocus(value)} />{label}</label>)}</fieldset>}</div><p className="progress-report-note">Mother level is not applicable for child growth metrics.</p><div className="progress-report-tab-actions"><button type="button" className="secondary-btn" onClick={() => setActiveTab(1)}>← Previous</button><button type="button" className="primary-btn" disabled={!selection.schoolId} onClick={() => setActiveTab(3)}>Next: Growth Metrics →</button></div></div>}
-          {activeTab === 3 && <div className="progress-report-tab-panel"><h1>III. Growth Metrics</h1><p>Choose one child growth indicator to display and export:</p><div className="growth-metric-cards">{GROWTH_METRICS.map(([id, label, description]) => <label key={id} className={growthMetrics.includes(id) ? 'selected' : ''}><input type="radio" name="growth-metric" checked={growthMetrics.includes(id)} onChange={() => selectGrowthMetric(id)} /><strong>{label}</strong><span>{description}</span></label>)}</div><p className="progress-report-note warning">This field reports the latest recorded measurement. It is not an age- and sex-standardized WHO z-score.</p><div className="progress-report-tab-actions"><button type="button" className="secondary-btn" onClick={() => setActiveTab(2)}>← Previous</button><button type="button" className="primary-btn" onClick={() => generateReport(1)} disabled={loadingOptions || loadingReport || !selection.schoolId || !growthMetrics.length}>{loadingReport ? 'Generating...' : 'Generate Report →'}</button></div></div>}
-          {activeTab === 4 && activeReport && <div className="progress-report-tab-panel results-tab-panel"><div className="progress-report-results-header"><div><h1>IV. Report Results</h1><p>{selectedSchool?.name || 'School'} &gt; {selection.groupId ? groups.find((item) => String(item.id) === String(selection.groupId))?.name : 'All Groups'} &gt; {selection.batchId ? batches.find((item) => String(item.id) === String(selection.batchId))?.name : 'All Batches'}</p></div><button type="button" className="secondary-btn" onClick={exportReport}>Export CSV</button></div><div className="results-view-toggle"><button type="button" className={resultsView === 'table' ? 'active' : ''} onClick={() => setResultsView('table')}>Table View</button><button type="button" className={resultsView === 'graph' ? 'active' : ''} onClick={() => setResultsView('graph')}>Graph View</button>{resultsView === 'graph' && <div className="graph-controls"><label className="report-chart-select">Display<select value={displayWeeks} onChange={(event) => setDisplayWeeks(event.target.value)}><option value="4">4 weeks</option><option value="12">12 weeks</option><option value="24">24 weeks</option><option value="48">48 weeks</option><option value="all">All weeks</option></select></label></div>}</div>{resultsView === 'graph' ? <article className="growth-report-card growth-report-single-card"><h3>📈 {GROWTH_METRICS.find(([id]) => id === growthMetrics[0])?.[1]}</h3><div className="growth-report-value">{averageMetric(growthMetrics[0], graphRows)}</div><p>Latest monitored measurements · values are plotted by monitoring week</p><GrowthChart rows={graphRows} metric={growthMetrics[0]} chartType="line" displayWeeks={displayWeeks} /></article> : <div className="progress-report-table-scroll"><table className="progress-report-flat-table"><thead><tr>{REPORT_FIELDS.filter(([id]) => displayVisibleFields.includes(id)).map(([id, label]) => <th key={id}>{sortLabel(label, id)}</th>)}</tr></thead><tbody>{sortedRows.map((row) => <tr key={`${row.motherId}-${row.child || 'mother'}`}>{REPORT_FIELDS.filter(([id]) => displayVisibleFields.includes(id)).map(([id]) => <td key={id}>{id === 'child' && displayGranularity === 'mother' ? row.mother : id === 'progress' ? <strong>{row[id]}%</strong> : formatCellValue(id, row[id])}</td>)}</tr>)}</tbody></table></div>}{resultsView === 'table' && <div className="progress-report-pagination"><button type="button" onClick={() => generateReport(displayPage - 1)} disabled={displayPage <= 1 || loadingReport}>Previous</button><span>Page {displayPage} of {activeReport.pagination.totalPages}</span><button type="button" onClick={() => generateReport(displayPage + 1)} disabled={displayPage >= activeReport.pagination.totalPages || loadingReport}>Next</button></div>}<div className="progress-report-tab-actions"><button type="button" className="secondary-btn" onClick={() => setActiveTab(3)}>← Previous</button><button type="button" className="secondary-btn" onClick={exportReport}>Export CSV</button></div></div>}
+          {activeTab === 2 && <div className="progress-report-tab-panel"><h1>II. Report Focus</h1><fieldset className="progress-report-report-category"><legend>Report category</legend><label className={reportCategory === 'profile' ? 'selected' : ''}><input type="radio" name="report-category" value="profile" checked={reportCategory === 'profile'} onChange={() => selectReportCategory('profile')} />Profile Report</label><label className={reportCategory === 'monitor' ? 'selected' : ''}><input type="radio" name="report-category" value="monitor" checked={reportCategory === 'monitor'} onChange={() => selectReportCategory('monitor')} />Monitor Report</label><label className={reportCategory === 'program' ? 'selected' : ''}><input type="radio" name="report-category" value="program" checked={reportCategory === 'program'} onChange={() => selectReportCategory('program')} />Program Report</label></fieldset><p className="progress-report-note">Monitor Report is selected by default and uses details from the Monitor module.</p><fieldset className="progress-report-beneficiary-type"><legend>Beneficiary type</legend><label className={beneficiaryType === 'child' ? 'selected' : ''}><input type="radio" name="report-beneficiary-type" checked={beneficiaryType === 'child'} onChange={() => selectBeneficiaryType('child')} />Child</label><label className={beneficiaryType === 'mother' ? 'selected' : ''}><input type="radio" name="report-beneficiary-type" checked={beneficiaryType === 'mother'} onChange={() => selectBeneficiaryType('mother')} />Mother</label></fieldset><div className="progress-report-focus-section"><p>Choose the aggregation level for the selected community scope:</p>{!selection.schoolId ? <p className="progress-report-note">Select a school first to see valid focus options.</p> : <fieldset className="progress-report-focus-options">{focusOptions.map(([value, label]) => <label key={value}><input type="radio" name="report-focus" value={value} checked={reportFocus === value} onChange={() => setReportFocus(value)} />{label}</label>)}</fieldset>}</div><p className="progress-report-note">{beneficiaryType === 'mother' ? 'Mother reports use BMI from Mother Monitoring checkups.' : 'Child reports use growth measurements from Child Monitoring checkups.'}</p><div className="progress-report-tab-actions"><button type="button" className="secondary-btn" onClick={() => setActiveTab(1)}>← Previous</button><button type="button" className="primary-btn" disabled={!selection.schoolId} onClick={() => setActiveTab(3)}>Next: Growth Metrics →</button></div></div>}
+          {activeTab === 3 && <div className="progress-report-tab-panel"><h1>III. Growth Metrics</h1><p>{beneficiaryType === 'mother' ? 'Review mother BMI from Mother Monitoring.' : 'Choose one child growth indicator to display and export:'}</p><div className="growth-metric-cards">{availableGrowthMetrics.map(([id, label, description]) => <label key={id} className={growthMetrics.includes(id) ? 'selected' : ''}><input type="radio" name="growth-metric" checked={growthMetrics.includes(id)} onChange={() => selectGrowthMetric(id)} /><strong>{label}</strong><span>{description}</span></label>)}</div><p className="progress-report-note warning">This field reports the latest recorded measurement. It is not an age- and sex-standardized WHO z-score.</p><div className="progress-report-tab-actions"><button type="button" className="secondary-btn" onClick={() => setActiveTab(2)}>← Previous</button><button type="button" className="primary-btn" onClick={() => generateReport(1)} disabled={loadingOptions || loadingReport || !selection.schoolId || !growthMetrics.length}>{loadingReport ? 'Generating...' : 'Generate Report →'}</button></div></div>}
+          {activeTab === 4 && activeReport && <div className="progress-report-tab-panel results-tab-panel"><div className="progress-report-results-header"><div><h1>IV. Report Results</h1><p>{selectedSchool?.name || 'School'} &gt; {selection.groupId ? groups.find((item) => String(item.id) === String(selection.groupId))?.name : 'All Groups'} &gt; {selection.batchId ? batches.find((item) => String(item.id) === String(selection.batchId))?.name : 'All Batches'}</p></div><button type="button" className="secondary-btn" onClick={exportReport}>Export CSV</button></div><div className="results-view-toggle"><button type="button" className={resultsView === 'table' ? 'active' : ''} onClick={() => setResultsView('table')}>Table View</button><button type="button" className={resultsView === 'graph' ? 'active' : ''} onClick={() => setResultsView('graph')}>Graph View</button>{resultsView === 'graph' && <div className="graph-controls"><label className="report-chart-select">Display<select value={displayWeeks} onChange={(event) => setDisplayWeeks(event.target.value)}><option value="4">4 weeks</option><option value="12">12 weeks</option><option value="24">24 weeks</option><option value="48">48 weeks</option><option value="all">All weeks</option></select></label></div>}</div>{resultsView === 'graph' ? <article className="growth-report-card growth-report-single-card"><h3>📈 {GROWTH_METRICS.find(([id]) => id === growthMetrics[0])?.[1]}</h3><div className="growth-report-value">{averageMetric(growthMetrics[0], graphRows)}</div><p>{beneficiaryType === 'mother' ? 'Latest mother BMI measurements · values are plotted by gestational week' : 'Latest monitored measurements · values are plotted by monitoring week'}</p><GrowthChart rows={graphRows} metric={growthMetrics[0]} chartType="line" displayWeeks={displayWeeks} beneficiaryType={beneficiaryType} /></article> : <div className="progress-report-table-scroll"><table className="progress-report-flat-table"><thead><tr>{REPORT_FIELDS.filter(([id]) => displayVisibleFields.includes(id)).map(([id, label]) => <th key={id}>{sortLabel(label, id)}</th>)}</tr></thead><tbody>{sortedRows.map((row) => <tr key={`${row.motherId}-${row.child || 'mother'}`}>{REPORT_FIELDS.filter(([id]) => displayVisibleFields.includes(id)).map(([id]) => <td key={id}>{id === 'child' && displayGranularity === 'mother' ? row.mother : id === 'progress' ? <strong>{row[id]}%</strong> : formatCellValue(id, row[id])}</td>)}</tr>)}</tbody></table></div>}{resultsView === 'table' && <div className="progress-report-pagination"><button type="button" onClick={() => generateReport(displayPage - 1)} disabled={displayPage <= 1 || loadingReport}>Previous</button><span>Page {displayPage} of {activeReport.pagination.totalPages}</span><button type="button" onClick={() => generateReport(displayPage + 1)} disabled={displayPage >= activeReport.pagination.totalPages || loadingReport}>Next</button></div>}<div className="progress-report-tab-actions"><button type="button" className="secondary-btn" onClick={() => setActiveTab(3)}>← Previous</button><button type="button" className="secondary-btn" onClick={exportReport}>Export CSV</button></div></div>}
           {error && <p className="form-error" role="alert">{error}</p>}
         </section>
       </div>

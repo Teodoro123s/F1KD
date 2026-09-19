@@ -922,6 +922,10 @@
 .progress-report-beneficiary-type label.selected { border-color: #7d1e2e; color: #7d1e2e; font-weight: 700; }
 .progress-report-beneficiary-type label.static-option { color: #94a3b8; cursor: not-allowed; }
 .progress-report-beneficiary-type label.static-option span { font-size: 0.75rem; font-weight: 400; }
+.progress-report-report-category { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 1.25rem 0 1.5rem; padding: 0; border: 0; }
+.progress-report-report-category legend { width: 100%; margin-bottom: 0.55rem; color: #334155; font-weight: 800; }
+.progress-report-report-category label { display: flex; align-items: center; gap: 0.5rem; padding: 0.7rem 1rem; border: 1px solid #dbe3ee; border-radius: 8px; color: #334155; cursor: pointer; }
+.progress-report-report-category label.selected { border-color: #7d1e2e; color: #7d1e2e; font-weight: 700; }
 .progress-report-focus-section { margin-top: 0.5rem; }
 .growth-metric-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.9rem; margin-top: 1.25rem; }
 .growth-metric-cards label { display: grid; grid-template-columns: auto 1fr; gap: 0.4rem 0.6rem; min-height: 130px; padding: 1rem; border: 1px solid #dbe3ee; border-radius: 10px; background: #fff; cursor: pointer; }

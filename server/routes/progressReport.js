@@ -61,7 +61,7 @@ router.get('/', async (req, res) => {
     const params = parseParams(req.query);
     const filters = hierarchyWhere(params);
     const progressExpression = `ROUND(COUNT(DISTINCT cc.id) * 100 / 48, 0)`;
-    const motherProgressExpression = `ROUND(COUNT(DISTINCT cc.id) * 100 / NULLIF(COUNT(DISTINCT c.id) * 48, 0), 0)`;
+    const motherProgressExpression = `ROUND(COUNT(DISTINCT mc.id) * 100 / 9, 0)`;
     const baseFrom = `
       FROM children c
       INNER JOIN mothers m ON m.id = c.mother_id
@@ -69,6 +69,7 @@ router.get('/', async (req, res) => {
       LEFT JOIN groups g ON g.id = COALESCE(c.group_id, m.group_id)
       LEFT JOIN batches b ON b.id = COALESCE(c.batch_id, m.batch_id)
       LEFT JOIN child_checkups cc ON cc.child_id = c.id
+      LEFT JOIN mother_checkups mc ON mc.mother_id = m.id
       ${filters.sql}`;
 
     const groupExpression = params.granularity === 'mother'
@@ -108,13 +109,13 @@ router.get('/', async (req, res) => {
         m.contact_number AS contact_number,
         CASE WHEN m.is_high_risk = 1 THEN 'High risk' ELSE 'Normal risk' END AS risk,
         m.program_type AS program,
-        MAX(cc.visit_date) AS last_activity_date,
-        MIN(cc.next_checkup_date) AS next_checkup_date,
+        ${params.granularity === 'mother' ? 'MAX(mc.checkup_date)' : 'MAX(cc.visit_date)'} AS last_activity_date,
+        ${params.granularity === 'mother' ? 'MIN(mc.next_checkup_date)' : 'MIN(cc.next_checkup_date)'} AS next_checkup_date,
         ${params.granularity === 'mother' ? 'NULL' : 'c.delivery_type'} AS delivery_type,
         ${params.granularity === 'mother' ? 'NULL' : '(SELECT latest_cc.weight FROM child_checkups latest_cc WHERE latest_cc.child_id = c.id ORDER BY latest_cc.visit_date DESC, latest_cc.id DESC LIMIT 1)'} AS weight_for_age,
         ${params.granularity === 'mother' ? 'NULL' : '(SELECT latest_cc.height FROM child_checkups latest_cc WHERE latest_cc.child_id = c.id ORDER BY latest_cc.visit_date DESC, latest_cc.id DESC LIMIT 1)'} AS height_for_age,
-        ${params.granularity === 'mother' ? 'NULL' : '(SELECT ROUND(latest_cc.weight / POW(NULLIF(latest_cc.height, 0) / 100, 2), 1) FROM child_checkups latest_cc WHERE latest_cc.child_id = c.id ORDER BY latest_cc.visit_date DESC, latest_cc.id DESC LIMIT 1)'} AS bmi_for_age,
-        ${params.granularity === 'mother' ? 'NULL' : '(SELECT latest_cc.visit_date FROM child_checkups latest_cc WHERE latest_cc.child_id = c.id ORDER BY latest_cc.visit_date DESC, latest_cc.id DESC LIMIT 1)'} AS measurement_date,
+        ${params.granularity === 'mother' ? '(SELECT latest_mc.bmi FROM mother_checkups latest_mc WHERE latest_mc.mother_id = m.id ORDER BY latest_mc.checkup_date DESC, latest_mc.id DESC LIMIT 1)' : '(SELECT ROUND(latest_cc.weight / POW(NULLIF(latest_cc.height, 0) / 100, 2), 1) FROM child_checkups latest_cc WHERE latest_cc.child_id = c.id ORDER BY latest_cc.visit_date DESC, latest_cc.id DESC LIMIT 1)'} AS bmi_for_age,
+        ${params.granularity === 'mother' ? '(SELECT latest_mc.checkup_date FROM mother_checkups latest_mc WHERE latest_mc.mother_id = m.id ORDER BY latest_mc.checkup_date DESC, latest_mc.id DESC LIMIT 1)' : '(SELECT latest_cc.visit_date FROM child_checkups latest_cc WHERE latest_cc.child_id = c.id ORDER BY latest_cc.visit_date DESC, latest_cc.id DESC LIMIT 1)'} AS measurement_date,
         COUNT(DISTINCT cc.id) AS activities_completed,
         ${totalExpression} AS total_activities,
         ${params.granularity === 'mother' ? motherProgressExpression : progressExpression} AS progress
@@ -183,6 +184,32 @@ router.get('/', async (req, res) => {
         seriesByChild.set(checkup.child_id, series);
       });
       normalizedRows.forEach((row) => { row.growthSeries = seriesByChild.get(row.childId) || []; });
+    }
+    const motherIds = normalizedRows.map((row) => row.motherId).filter(Boolean);
+    if (params.granularity === 'mother' && motherIds.length) {
+      const [checkupRows] = await pool.query(
+        `SELECT mother_id, checkup_date, gestational_age_weeks, bmi
+         FROM mother_checkups
+         WHERE mother_id IN (${motherIds.map(() => '?').join(',')})
+           AND checkup_date IS NOT NULL
+         ORDER BY checkup_date, id`,
+        motherIds,
+      );
+      const seriesByMother = new Map();
+      checkupRows.forEach((checkup) => {
+        const series = seriesByMother.get(checkup.mother_id) || [];
+        const bmi = Number(checkup.bmi);
+        const ageWeeks = Number(checkup.gestational_age_weeks);
+        series.push({
+          date: checkup.checkup_date,
+          ageWeeks: Number.isFinite(ageWeeks) ? ageWeeks : null,
+          weight: null,
+          height: null,
+          bmi: Number.isFinite(bmi) && bmi > 0 ? bmi : null,
+        });
+        seriesByMother.set(checkup.mother_id, series);
+      });
+      normalizedRows.forEach((row) => { row.growthSeries = seriesByMother.get(row.motherId) || []; });
     }
     const total = normalizedRows.length;
     const page = params.exportAll ? 1 : params.page;
