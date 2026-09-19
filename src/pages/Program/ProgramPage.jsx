@@ -13,7 +13,7 @@ import {
 } from "../Community/CommunityIcons";
 import { getSummary } from "../Community/communityService";
 import { apiGetChildren } from "../../api/children";
-import { apiCompleteNamedProgramCluster, apiCompleteProgramCluster, apiCreateProgram, apiCreateProgramClusters, apiDeleteProgram, apiGetProgramMonitoring, apiGetPrograms, apiSetProgramMonitoring, apiUpdateProgram } from "../../api/programs";
+import { apiCompleteNamedProgramCluster, apiCompleteProgramCluster, apiCreateProgram, apiCreateProgramClusters, apiDeleteProgram, apiEndProgram, apiGetProgramMonitoring, apiGetPrograms, apiRestoreProgram, apiSetProgramMonitoring, apiUpdateProgram } from "../../api/programs";
 import ExpandableTreeTable from "../Monitoring/ExpandableTreeTable";
 import {
   beneficiaryNames,
@@ -247,6 +247,7 @@ export default function ProgramPage() {
 
   const saveProgram = async (event) => {
     event.preventDefault();
+    if (form.id && String(form.status || '').trim().toLowerCase() === 'ended') return;
     if (!form.name.trim() || !form.provider.trim()) return;
     try {
       const response = form.id
@@ -266,6 +267,7 @@ export default function ProgramPage() {
   const selectedProgram = programId
     ? programs.find((program) => program.id === Number(programId))
     : programs.find((program) => program.id === Number(form.id)) || filteredPrograms[0];
+  const isEndedProgram = String(selectedProgram?.status || '').trim().toLowerCase() === 'ended';
   const expandedClusters = useMemo(() => {
     if (!selectedProgram) return [];
     const clusters = [...(selectedProgram.clusters || [])];
@@ -409,10 +411,33 @@ export default function ProgramPage() {
     );
     setShowActivityModal(false);
   };
-  const backToActivePrograms = () => {
+  const backToActivePrograms = async () => {
+    const programToRestore = actionProgram || selectedProgram;
+    if (!programToRestore) return;
     setActiveActionMenu(null);
-    setActiveTab('Active');
-    navigate('/program');
+    try {
+      const response = await apiRestoreProgram(programToRestore.id);
+      setPrograms((current) => current.map((program) => program.id === programToRestore.id ? mapApiProgram(response.program) : program));
+      setActiveTab('Active');
+      navigate('/program');
+      setProgramError('');
+    } catch (error) {
+      setProgramError(error.message || 'Unable to restore program.');
+    }
+  };
+  const endProgram = async () => {
+    const programToEnd = actionProgram || selectedProgram;
+    if (!programToEnd) return;
+    setActiveActionMenu(null);
+    try {
+      const response = await apiEndProgram(programToEnd.id);
+      setPrograms((current) => current.map((program) => program.id === programToEnd.id ? mapApiProgram(response.program) : program));
+      setActiveTab('Ended');
+      navigate('/program');
+      setProgramError('');
+    } catch (error) {
+      setProgramError(error.message || 'Unable to end program.');
+    }
   };
   const saveBeneficiaryScope = (event) => {
     event.preventDefault();
@@ -497,7 +522,7 @@ export default function ProgramPage() {
   const renderActionMenu = (menuId, menuProgram = selectedProgram) => canCreatePrograms && (
     <div className="program-action-menu-wrap" onClick={(event) => event.stopPropagation()}>
       <button type="button" className="program-more-button" aria-label="Program actions" aria-haspopup="true" aria-expanded={activeActionMenu === menuId} onClick={(event) => { event.stopPropagation(); setActionProgram(menuProgram); setActiveActionMenu(activeActionMenu === menuId ? null : menuId); }}><MoreVerticalIcon /></button>
-      {activeActionMenu === menuId && <div className="actions-dropdown program-actions-dropdown" role="menu"><button type="button" className="actions-dropdown-item" onClick={editProgram} role="menuitem">Edit</button><button type="button" className="actions-dropdown-item" onClick={backToActivePrograms} role="menuitem">Back to active programs</button><button type="button" className="actions-dropdown-item delete" onClick={deleteProgram} role="menuitem">Delete</button></div>}
+      {activeActionMenu === menuId && <div className="actions-dropdown program-actions-dropdown" role="menu">{String(menuProgram?.status || '').trim().toLowerCase() !== 'ended' && <button type="button" className="actions-dropdown-item" onClick={editProgram} role="menuitem">Edit</button>}{activeTab === 'Ended' ? <button type="button" className="actions-dropdown-item" onClick={backToActivePrograms} role="menuitem">Back to active programs</button> : <button type="button" className="actions-dropdown-item" onClick={endProgram} role="menuitem">End program</button>}<button type="button" className="actions-dropdown-item delete" onClick={deleteProgram} role="menuitem">Delete</button></div>}
     </div>
   );
 
@@ -507,7 +532,7 @@ export default function ProgramPage() {
         title={viewMode && selectedProgram ? selectedProgram.name : 'Program'}
         breadcrumbs={[{ label: 'Program' }]}
         actions={
-          canCreatePrograms && <button
+          canCreatePrograms && (!viewMode || !isEndedProgram) && <button
               className="view-btn view-btn--primary module-create-button"
               type="button"
               onClick={() =>
@@ -602,8 +627,8 @@ export default function ProgramPage() {
             data={programHierarchy}
             monitored={monitoringStatus}
             pending={monitoringPending}
-            canToggle={canCreatePrograms}
-            onMonitorChange={requestMonitoringChange}
+            canToggle={canCreatePrograms && !isEndedProgram}
+            onMonitorChange={isEndedProgram ? undefined : requestMonitoringChange}
             onBeneficiaryClick={openBeneficiaryReport}
             onHistoryClick={(node, level) => {
               if (level === 'beneficiary') return openBeneficiaryReport(node);

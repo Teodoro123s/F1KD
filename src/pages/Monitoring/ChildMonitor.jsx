@@ -18,10 +18,18 @@ function formatDateForPayload(value) {
   return String(value || '').trim().replaceAll('/', '-');
 }
 
+function getTodayDate() {
+  const today = new Date();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  return `${today.getFullYear()}-${month}-${day}`;
+}
+
 export default function ChildMonitor({ child, onSave, onCancel, completedWeeks = [] }) {
   const [week, setWeek] = useState(1);
   const [form, setForm] = useState(() => ({
-    checkupDate: '',
+    checkupDate: getTodayDate(),
+    nextCheckupDate: '',
     weight: '',
     height: '',
     headCircumference: '',
@@ -36,8 +44,11 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
   useEffect(() => {
     const savedCheckup = (child?.checkups || []).find((checkup) => Number(checkup.week_number ?? checkup.weekNumber) === week);
     if (!savedCheckup) {
+      const previousCheckup = (child?.checkups || [])
+        .filter((checkup) => Number(checkup.week_number ?? checkup.weekNumber) < week)
+        .sort((left, right) => Number(right.week_number ?? right.weekNumber) - Number(left.week_number ?? left.weekNumber))[0];
       setForm({
-        checkupDate: '',
+        checkupDate: formatDate(previousCheckup?.next_checkup_date ?? previousCheckup?.nextCheckupDate) || getTodayDate(),
         nextCheckupDate: '',
         weight: '',
         height: '',

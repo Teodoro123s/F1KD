@@ -99,10 +99,12 @@ const getCheckupForStep = (mother, step) => {
   return mother.checkups?.[trimesterIndex]?.[checkupIndex] || null;
 };
 
+const getPreviousCheckupForStep = (mother, step) => step > 0 ? getCheckupForStep(mother, step - 1) : null;
+
 const getFirstIncompleteStep = (checkups = [], startIndex = 0) => CHECKUPS.findIndex((_, index) => index >= startIndex && !checkups?.[Math.floor(index / 3)]?.[index % 3]?.completed);
 
-const createInitialFormState = (mother, checkup = null, blank = false) => ({
-  checkupDate: blank ? '' : checkup?.checkupDate ? formatDate(checkup.checkupDate) : formatDate(mother.prenatalRegDate || mother.prenatal_reg_date),
+const createInitialFormState = (mother, checkup = null, blank = false, previousCheckup = null) => ({
+  checkupDate: checkup?.checkupDate ? formatDate(checkup.checkupDate) : formatDate(previousCheckup?.nextCheckupDate || mother.prenatalRegDate || mother.prenatal_reg_date),
   gestationalAge: blank ? '' : ((checkup?.gestationalAge ?? getMonitoringStartDetails(mother).gestationalAge) || calculateGestationalAge(mother.lmpDate, mother.gestationalAge)),
   bp: blank ? '' : checkup?.bp ?? mother.prenatalBp ?? mother.bloodPressure ?? '',
   weight: blank ? '' : checkup?.weight ?? mother.prenatalWeight ?? mother.weight ?? '',
@@ -129,7 +131,7 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
   const initialStep = getInitialStep(monitoringStart.trimester, mother.checkups);
   const [activeStep, setActiveStep] = useState(initialStep);
   const previousMotherId = useRef(mother.id || mother.motherId);
-  const [formState, setFormState] = useState(() => createInitialFormState(mother, getCheckupForStep(mother, initialStep)));
+  const [formState, setFormState] = useState(() => createInitialFormState(mother, getCheckupForStep(mother, initialStep), false, getPreviousCheckupForStep(mother, initialStep)));
   const [pendingSave, setPendingSave] = useState(null);
   const [saving, setSaving] = useState(false);
 
@@ -145,7 +147,7 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
     const startTrimester = getMonitoringStartDetails(mother).trimester;
     const firstIncomplete = getFirstIncompleteStep(mother.checkups, getTrimesterIndex(startTrimester) * 3);
     const isFutureStep = firstIncomplete !== -1 && activeStep > firstIncomplete;
-    setFormState(createInitialFormState(mother, getCheckupForStep(mother, activeStep), isFutureStep));
+    setFormState(createInitialFormState(mother, getCheckupForStep(mother, activeStep), isFutureStep, getPreviousCheckupForStep(mother, activeStep)));
   }, [mother, activeStep]);
 
   const updateField = (field) => (value) => {
@@ -204,6 +206,7 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
   const activeCheckup = getCheckupForStep(mother, activeStep);
   const isCompleted = Boolean(activeCheckup?.completed);
   const firstIncompleteStep = getFirstIncompleteStep(mother.checkups, getTrimesterIndex(monitoringStart.trimester) * 3);
+  const isMaternalPhaseComplete = firstIncompleteStep === -1;
   const isFuture = firstIncompleteStep !== -1 && activeStep > firstIncompleteStep;
   const isReadOnly = !forceEdit && (isCompleted || isFuture);
 
@@ -276,7 +279,7 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
         <div className={`checkup-card${isCompleted ? ' checkup-card-completed' : ''}${isFuture ? ' checkup-card-locked' : ''}`}>
           <div className="checkup-card-body">
             <div className="checkup-section-title">Pregnancy Record</div>
-            {isCompleted && <p className="checkup-state-message">Completed check-up · view only</p>}
+            {isMaternalPhaseComplete ? <p className="checkup-state-message">Maternal monitoring phase complete · all 9 check-ups recorded</p> : isCompleted && <p className="checkup-state-message">Completed check-up · view only</p>}
             {isFuture && <p className="checkup-state-message">This check-up will be available after the previous visit is completed.</p>}
             <div className="checkup-grid">
               <div className="form-group full-width">

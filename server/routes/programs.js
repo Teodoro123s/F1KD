@@ -98,6 +98,20 @@ router.patch('/:id/end', async (req, res) => {
   }
 });
 
+router.patch('/:id/restore', async (req, res) => {
+  try {
+    const [result] = await pool.query(
+      "UPDATE programs SET status = 'Active', ended = NULL WHERE id = ?",
+      [req.params.id],
+    );
+    if (!result.affectedRows) return res.status(404).json({ error: 'Program not found' });
+    res.json({ program: await getProgram(req.params.id) });
+  } catch (error) {
+    console.error('[Programs API] restore error:', error.message);
+    res.status(500).json({ error: 'db error' });
+  }
+});
+
 router.delete('/:id', async (req, res) => {
   try {
     const [result] = await pool.query('DELETE FROM programs WHERE id = ?', [req.params.id]);

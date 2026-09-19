@@ -68,7 +68,7 @@ router.get('/', async (req, res) => {
       LEFT JOIN communities school ON school.id = COALESCE(c.community_id, m.community_id)
       LEFT JOIN groups g ON g.id = COALESCE(c.group_id, m.group_id)
       LEFT JOIN batches b ON b.id = COALESCE(c.batch_id, m.batch_id)
-      LEFT JOIN child_checkups cc ON cc.child_id = c.id AND cc.week_number IS NOT NULL
+      LEFT JOIN child_checkups cc ON cc.child_id = c.id
       ${filters.sql}`;
 
     const groupExpression = params.granularity === 'mother'
@@ -82,6 +82,9 @@ router.get('/', async (req, res) => {
     const ageExpression = params.granularity === 'mother'
       ? 'TIMESTAMPDIFF(YEAR, m.dob, CURDATE())'
       : 'ROUND(TIMESTAMPDIFF(MONTH, c.birth_date, CURDATE()) / 12, 1)';
+    const pediatricAgeWeeksExpression = params.granularity === 'mother'
+      ? 'NULL'
+      : `CASE WHEN c.birth_date IS NULL OR c.birth_date < '1900-01-01' OR c.birth_date > CURDATE() THEN NULL ELSE TIMESTAMPDIFF(WEEK, c.birth_date, COALESCE((SELECT latest_cc.visit_date FROM child_checkups latest_cc WHERE latest_cc.child_id = c.id ORDER BY latest_cc.visit_date DESC, latest_cc.id DESC LIMIT 1), CURDATE())) END`;
     const genderExpression = params.granularity === 'mother' ? 'NULL' : 'c.gender';
     const statusExpression = params.granularity === 'mother' ? 'm.status' : 'c.health_status';
     const dobExpression = params.granularity === 'mother' ? 'm.dob' : 'c.birth_date';
@@ -93,10 +96,12 @@ router.get('/', async (req, res) => {
         school.id AS school_id, school.name AS school_name,
         g.id AS group_id, g.name AS group_name,
         b.id AS batch_id, b.name AS batch_name,
+        ${params.granularity === 'mother' ? 'NULL' : 'c.id'} AS child_id,
         m.id AS mother_id, m.mother_code,
         ${nameExpression} AS mother_name,
         ${childNameExpression} AS child_name,
         ${ageExpression} AS age,
+        ${pediatricAgeWeeksExpression} AS pediatric_age_weeks,
         ${genderExpression} AS gender,
         ${statusExpression} AS status,
         ${dobExpression} AS date_of_birth,
@@ -109,6 +114,7 @@ router.get('/', async (req, res) => {
         ${params.granularity === 'mother' ? 'NULL' : '(SELECT latest_cc.weight FROM child_checkups latest_cc WHERE latest_cc.child_id = c.id ORDER BY latest_cc.visit_date DESC, latest_cc.id DESC LIMIT 1)'} AS weight_for_age,
         ${params.granularity === 'mother' ? 'NULL' : '(SELECT latest_cc.height FROM child_checkups latest_cc WHERE latest_cc.child_id = c.id ORDER BY latest_cc.visit_date DESC, latest_cc.id DESC LIMIT 1)'} AS height_for_age,
         ${params.granularity === 'mother' ? 'NULL' : '(SELECT ROUND(latest_cc.weight / POW(NULLIF(latest_cc.height, 0) / 100, 2), 1) FROM child_checkups latest_cc WHERE latest_cc.child_id = c.id ORDER BY latest_cc.visit_date DESC, latest_cc.id DESC LIMIT 1)'} AS bmi_for_age,
+        ${params.granularity === 'mother' ? 'NULL' : '(SELECT latest_cc.visit_date FROM child_checkups latest_cc WHERE latest_cc.child_id = c.id ORDER BY latest_cc.visit_date DESC, latest_cc.id DESC LIMIT 1)'} AS measurement_date,
         COUNT(DISTINCT cc.id) AS activities_completed,
         ${totalExpression} AS total_activities,
         ${params.granularity === 'mother' ? motherProgressExpression : progressExpression} AS progress
@@ -123,6 +129,7 @@ router.get('/', async (req, res) => {
       group: row.group_name || 'Unassigned group',
       batchId: row.batch_id,
       batch: row.batch_name || 'Unassigned batch',
+      childId: row.child_id,
       motherId: row.mother_id,
       mother: row.mother_name || row.mother_code || 'Unnamed mother',
       child: row.child_name || (params.granularity === 'mother' ? row.mother_name : 'Unnamed child'),
@@ -130,6 +137,7 @@ router.get('/', async (req, res) => {
       gender: row.gender || '',
       status: row.status || '',
       dateOfBirth: row.date_of_birth || '',
+      pediatricAgeWeeks: row.pediatric_age_weeks === null || row.pediatric_age_weeks === undefined ? '' : Number(row.pediatric_age_weeks),
       contact: row.contact_number || '',
       risk: row.risk || '',
       program: row.program || '',
@@ -139,10 +147,37 @@ router.get('/', async (req, res) => {
       weightForAge: row.weight_for_age === null || row.weight_for_age === undefined ? '' : Number(row.weight_for_age),
       heightForAge: row.height_for_age === null || row.height_for_age === undefined ? '' : Number(row.height_for_age),
       bmiForAge: row.bmi_for_age === null || row.bmi_for_age === undefined ? '' : Number(row.bmi_for_age),
+      measurementDate: row.measurement_date || '',
+      growthSeries: [],
       activitiesCompleted: Number(row.activities_completed || 0),
       totalActivities: Number(row.total_activities || 0),
       progress: Number(row.progress || 0),
     }));
+    const childIds = normalizedRows.map((row) => row.childId).filter(Boolean);
+    if (childIds.length) {
+      const [checkupRows] = await pool.query(
+        `SELECT child_id, visit_date, weight, height
+         FROM child_checkups
+         WHERE child_id IN (${childIds.map(() => '?').join(',')})
+           AND visit_date IS NOT NULL
+         ORDER BY visit_date, id`,
+        childIds,
+      );
+      const seriesByChild = new Map();
+      checkupRows.forEach((checkup) => {
+        const series = seriesByChild.get(checkup.child_id) || [];
+        const weight = Number(checkup.weight);
+        const height = Number(checkup.height);
+        series.push({
+          date: checkup.visit_date,
+          weight: Number.isFinite(weight) && weight > 0 ? weight : null,
+          height: Number.isFinite(height) && height > 0 ? height : null,
+          bmi: Number.isFinite(weight) && weight > 0 && Number.isFinite(height) && height > 0 ? Number((weight / ((height / 100) ** 2)).toFixed(1)) : null,
+        });
+        seriesByChild.set(checkup.child_id, series);
+      });
+      normalizedRows.forEach((row) => { row.growthSeries = seriesByChild.get(row.childId) || []; });
+    }
     const total = normalizedRows.length;
     const page = params.exportAll ? 1 : params.page;
     const perPage = params.exportAll ? Math.max(total, 1) : params.perPage;
