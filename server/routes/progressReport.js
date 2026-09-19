@@ -156,11 +156,14 @@ router.get('/', async (req, res) => {
     const childIds = normalizedRows.map((row) => row.childId).filter(Boolean);
     if (childIds.length) {
       const [checkupRows] = await pool.query(
-        `SELECT child_id, visit_date, weight, height
-         FROM child_checkups
-         WHERE child_id IN (${childIds.map(() => '?').join(',')})
-           AND visit_date IS NOT NULL
-         ORDER BY visit_date, id`,
+        `SELECT cc.child_id, cc.week_number, cc.visit_date, cc.weight, cc.height,
+                CASE WHEN c.birth_date IS NULL OR c.birth_date < '1900-01-01' OR c.birth_date > cc.visit_date
+                  THEN NULL ELSE TIMESTAMPDIFF(WEEK, c.birth_date, cc.visit_date) END AS calculated_age_weeks
+         FROM child_checkups cc
+         INNER JOIN children c ON c.id = cc.child_id
+         WHERE cc.child_id IN (${childIds.map(() => '?').join(',')})
+           AND cc.visit_date IS NOT NULL
+         ORDER BY cc.visit_date, cc.id`,
         childIds,
       );
       const seriesByChild = new Map();
@@ -170,6 +173,9 @@ router.get('/', async (req, res) => {
         const height = Number(checkup.height);
         series.push({
           date: checkup.visit_date,
+          ageWeeks: Number.isFinite(Number(checkup.week_number))
+            ? Number(checkup.week_number)
+            : Number.isFinite(Number(checkup.calculated_age_weeks)) ? Number(checkup.calculated_age_weeks) : null,
           weight: Number.isFinite(weight) && weight > 0 ? weight : null,
           height: Number.isFinite(height) && height > 0 ? height : null,
           bmi: Number.isFinite(weight) && weight > 0 && Number.isFinite(height) && height > 0 ? Number((weight / ((height / 100) ** 2)).toFixed(1)) : null,
