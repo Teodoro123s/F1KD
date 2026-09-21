@@ -514,11 +514,13 @@
 
 .view-content .monitor-tree-cell--group { padding-left: 20px; }
 .view-content .monitor-tree-cell--batch { padding-left: 40px; }
-.view-content .monitor-tree-chevron { width: 14px; color: var(--view-primary); font-size: 11px; }
+.view-content .monitor-tree-chevron { width: 14px; height: 14px; color: var(--view-primary); flex: 0 0 auto; transition: transform 150ms ease; }
+.view-content .monitor-tree-chevron.expanded { transform: rotate(90deg); }
 .program-page .monitor-tree-cell { display: inline-flex; align-items: center; gap: 8px; min-width: 180px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; font-weight: 600; text-align: left; cursor: pointer; }
 .program-page .monitor-tree-cell--group { padding-left: 20px; }
 .program-page .monitor-tree-cell--batch { padding-left: 40px; }
-.program-page .monitor-tree-chevron { width: 14px; color: var(--burgundy); font-size: 11px; }
+.program-page .monitor-tree-chevron { width: 14px; height: 14px; color: var(--burgundy); flex: 0 0 auto; transition: transform 150ms ease; }
+.program-page .monitor-tree-chevron.expanded { transform: rotate(90deg); }
 .program-page .monitor-tree-beneficiary { display: inline-block; padding-left: 60px; }
 .program-page .monitor-tree-beneficiary-button { border: 0; background: transparent; color: inherit; cursor: pointer; font: inherit; text-align: left; }
 .program-page .monitor-tree-beneficiary-button:hover { color: var(--view-primary); text-decoration: underline; }
@@ -588,9 +590,9 @@
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  min-width: 180px;
+  min-width: 120px;
   height: 44px;
-  padding: 0 12px;
+  padding: 0 16px;
   gap: 10px;
   border-radius: 12px;
   white-space: nowrap;

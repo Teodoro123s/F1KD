@@ -10,6 +10,18 @@ import { createMonitorModel } from './monitorModel';
 import { apiGetChild, apiGetChildren, apiSaveChildCheckup } from '../../api/children';
 import { apiGetMother, apiSaveMotherCheckup } from '../../api/mothers';
 
+function MonitoringIcon({ name }) {
+  const paths = {
+    back: <><path d="M19 12H5" /><path d="m12 19-7-7 7-7" /></>,
+    next: <><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></>,
+    open: <><path d="M2.5 12s3.5-5 9.5-5 9.5 5 9.5 5-3.5 5-9.5 5-9.5-5-9.5-5Z" /><circle cx="12" cy="12" r="2.5" /></>,
+    profile: <><circle cx="12" cy="8" r="3" /><path d="M5 21a7 7 0 0 1 14 0" /></>,
+    edit: <><path d="m4 16-.7 4.7L8 20l10.8-10.8a2.1 2.1 0 0 0-3-3L4 16Z" /><path d="m14.5 7.5 2 2" /></>,
+  };
+
+  return <svg className="monitoring-button-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
+}
+
 function getMotherName(mother) {
   return mother?.name || [mother?.firstName || mother?.first_name, mother?.middleName || mother?.middle_name, mother?.lastName || mother?.last_name]
     .filter(Boolean)
@@ -205,7 +217,7 @@ export default function MonitoringPage() {
         disabled={currentPage === 1}
         aria-label="Previous page"
       >
-        ‹
+        <MonitoringIcon name="back" />
       </button>
 
       <input
@@ -231,7 +243,7 @@ export default function MonitoringPage() {
         disabled={currentPage === pageCount}
         aria-label="Next page"
       >
-        ›
+        <MonitoringIcon name="next" />
       </button>
     </>
   );
@@ -247,7 +259,7 @@ export default function MonitoringPage() {
         title={selectedMother || selectedChild ? (selectedMother ? getMotherName(selectedMother) : getChildName(selectedChild)) : 'Monitor'}
         breadcrumbs={selectedMother || selectedChild ? [{ label: 'Monitor', href: '/monitoring' }, { label: selectedMother ? getMotherName(selectedMother) : getChildName(selectedChild) }] : [{ label: 'Monitor' }]}
         actions={selectedMother || selectedChild ? (
-          <button type="button" className="view-btn view-btn--secondary" onClick={handleBack}>Back</button>
+          <button type="button" className="view-btn view-btn--secondary monitoring-action-button" onClick={handleBack}><MonitoringIcon name="back" /><span>Back</span></button>
         ) : null}
       />
 
@@ -272,7 +284,7 @@ export default function MonitoringPage() {
                     const recordKey = beneficiaryType === 'Mother' ? beneficiary.id || beneficiary.motherId : beneficiary.child_code || beneficiary.id || 'No ID';
                     const locationName = beneficiary.community || beneficiary.area || beneficiary.community_name || 'No community';
                     const metadata = beneficiaryType === 'Mother' ? locationName : `${recordKey} · ${locationName}`;
-                    return <tr key={recordKey}><td><strong>{name}</strong><span className="monitoring-table-meta">{metadata}</span></td><td><div className="monitoring-progress"><span><span style={{ width: `${progress}%` }} /></span><b>{completed}/{total}</b></div></td><td><span className={`monitoring-status ${status.toLowerCase().replace(/\s+/g, '-')}`}>{status}</span></td><td><button type="button" className="btn-secondary monitoring-open-button" onClick={() => openBeneficiary(beneficiary)}>Open record</button></td></tr>;
+                    return <tr key={recordKey}><td><strong>{name}</strong><span className="monitoring-table-meta">{metadata}</span></td><td><div className="monitoring-progress"><span><span style={{ width: `${progress}%` }} /></span><b>{completed}/{total}</b></div></td><td><span className={`monitoring-status ${status.toLowerCase().replace(/\s+/g, '-')}`}>{status}</span></td><td><button type="button" className="btn-secondary monitoring-open-button monitoring-action-button" onClick={() => openBeneficiary(beneficiary)}><MonitoringIcon name="open" /><span>Open record</span></button></td></tr>;
                   }) : <tr><td colSpan="4" className="no-data">No monitoring records match your search.</td></tr>}
                 </tbody>
               </table>
@@ -288,10 +300,10 @@ export default function MonitoringPage() {
             </div>
             <div className="selected-record-actions">
               <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/child/${selectedChild.id}`, { state: { child: selectedChild } })}>
-                Beneficiary Profile
+                <MonitoringIcon name="profile" /><span>Beneficiary Profile</span>
               </button>
               <button type="button" className="btn-primary" onClick={() => navigate(`/beneficiary/child/${selectedChild.id}/edit`, { state: { child: selectedChild } })}>
-                Edit
+                <MonitoringIcon name="edit" /><span>Edit</span>
               </button>
             </div>
           </div>
@@ -324,10 +336,10 @@ export default function MonitoringPage() {
             </div>
             <div className="selected-record-actions">
               <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/mother/${selectedMother.id || selectedMother.motherId}`, { state: { mother: selectedMother } })}>
-                Beneficiary Profile
+                <MonitoringIcon name="profile" /><span>Beneficiary Profile</span>
               </button>
               <button type="button" className="btn-primary" onClick={() => setEditingCheckup((current) => !current)}>
-                {editingCheckup ? 'Cancel edit' : 'Edit checkup'}
+                <MonitoringIcon name="edit" /><span>{editingCheckup ? 'Cancel edit' : 'Edit checkup'}</span>
               </button>
             </div>
           </div>

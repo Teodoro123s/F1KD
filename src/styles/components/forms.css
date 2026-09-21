@@ -16,6 +16,9 @@
 .vaccine-form-table thead th { background: #f8fafc; color: #475569; font-weight: 800; text-align: left; }
 .vaccine-form-table tbody tr:last-child td { border-bottom: none; }
 .vaccine-form-table .table-input { width: 100%; }
+.vaccine-record-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.75rem; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; }
+.vaccine-record-card { display: grid; gap: 0.4rem; min-width: 0; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; }
+.vaccine-record-title { color: #0f172a; font-size: 0.9rem; }
 
 .view-content .form-input,
 .view-content .form-select {
@@ -41,6 +44,7 @@
 .form-row-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; }
 .form-row-4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.75rem; }
 .form-row-5 { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.75rem; }
+.create-view .form-row-5 { min-width: 0; }
 .name-row { align-items: end; }
 .name-row .form-group { display: flex; flex-direction: column; gap: 0.45rem; }
 .form-section-title { grid-column: 1 / -1; margin: 0 0 0.75rem; font-size: 0.95rem; font-weight: 700; color: #0f172a; }
@@ -53,8 +57,31 @@
   .form-row-5 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
+@media (min-width: 1100px) {
+  .create-view {
+    width: 100%;
+  }
+
+  .create-view .create-form-body,
+  .create-view .modal-body-scrollable {
+    width: 100%;
+  }
+
+  .create-view .form-row-2,
+  .create-view .form-row-3,
+  .create-view .form-row-4,
+  .create-view .form-row-5 {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .create-view .form-checkboxes-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 640px) {
   .form-row-2, .form-row-3, .form-row-4, .form-row-5 { grid-template-columns: 1fr; }
+  .vaccine-record-grid { grid-template-columns: 1fr; }
 }
 
 .mother-detail-page, .child-detail-page { display: flex; flex-direction: column; gap: 1rem; width: 100%; max-width: 1000px; margin: 0 auto; }

@@ -132,7 +132,7 @@ export default function BeneficiaryPage() {
     <div className="community-page beneficiary-page">
       <PageHeader
         title="Beneficiaries"
-        breadcrumbs={[{ label: 'Beneficiaries' }]}
+        breadcrumbs={[{ label: 'List of Mothers and Children under the F1KD Program' }]}
         actions={
           !isMotherDetail && !isCreateMother && !isCreateChild && canCreate ? (
             <div className="create-menu-wrapper">

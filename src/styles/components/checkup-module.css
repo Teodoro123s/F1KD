@@ -245,6 +245,8 @@
 
 .monitoring-filter-row > .tabs-list { flex: 1 1 0; min-width: 0; gap: 0.3rem; }
 .monitoring-filter-row > .tabs-list .tab-btn { min-width: 0; padding: 0.65rem 0.4rem; font-size: 0.85rem; white-space: nowrap; }
+.monitoring-filter-row > .tabs-list .tab-btn svg { width: 18px; height: 18px; flex: 0 0 18px; stroke: currentColor; }
+.monitoring-filter-row > .tabs-list .tab-btn.active svg { stroke: #fff; }
 .monitoring-filter-row .beneficiary-search-controls { flex: 1 1 0; min-width: 0; margin-left: auto; }
 .monitoring-filter-row .beneficiary-search-controls .search-container { flex: 1 1 auto; width: auto; min-width: 0; }
 
@@ -268,6 +270,9 @@
 .monitoring-status.in-progress { background: #eff6ff; color: #1d4ed8; }
 .monitoring-status.done { background: #ecfdf3; color: #027a48; }
 .monitoring-open-button { min-height: 34px; padding: 0.4rem 0.7rem; font-size: 0.8rem; }
+.monitoring-action-button { display: inline-flex; align-items: center; justify-content: center; gap: 0.45rem; white-space: nowrap; }
+.monitoring-button-icon { width: 1rem; height: 1rem; flex: 0 0 auto; }
+.monitoring-open-button .monitoring-button-icon { width: 0.95rem; height: 0.95rem; }
 
 .selected-mother-eyebrow {
   color: var(--burgundy);

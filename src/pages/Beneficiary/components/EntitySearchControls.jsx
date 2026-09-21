@@ -30,7 +30,7 @@ export default function EntitySearchControls({
             name="beneficiarySearch"
             type="text"
             className="search-input-field"
-            placeholder={selectedEntityFilter === 'Mother' ? 'Search mother/community...' : 'Search child name...'}
+            placeholder={selectedEntityFilter === 'Mother' ? 'Search mother...' : 'Search child...'}
             value={query}
             onChange={(event) => onQueryChange(event.target.value)}
             aria-label="Search items"

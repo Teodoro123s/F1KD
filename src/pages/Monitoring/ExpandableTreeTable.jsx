@@ -125,7 +125,9 @@ export default function ExpandableTreeTable({ data = [], monitored = {}, pending
 function TreeCell({ row, value, onClick }) {
   return (
     <button type="button" className={`monitor-tree-cell monitor-tree-cell--${row.level}`} onClick={onClick} aria-expanded={row.expanded}>
-      <span className="monitor-tree-chevron">{row.expanded ? '▼' : '▶'}</span>
+      <svg className={`monitor-tree-chevron${row.expanded ? ' expanded' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="m9 18 6-6-6-6" />
+      </svg>
       <span>{value}</span>
     </button>
   );

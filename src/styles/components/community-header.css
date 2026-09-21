@@ -32,10 +32,11 @@
 }
 
 .beneficiary-page .view-btn--primary {
-  height: 52px;
-  padding: 0 1.8rem;
+  height: 44px;
+  min-width: 120px;
+  padding: 0 1.15rem;
   border-radius: 12px;
-  font-size: 1.05rem;
+  font-size: 1rem;
   font-weight: 700;
 }
 

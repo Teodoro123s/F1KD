@@ -265,7 +265,7 @@ export default function CommunityPage() {
   }, [activeTab, selectedBatch, selectedGroup, selectedSchool]);
 
   const breadcrumbItems = useMemo(() => {
-    const items = [{ label: 'Schools', to: '/community', clickable: activeTab !== 'communities' }];
+    const items = [{ label: 'Communities under the following: ', to: '/community', clickable: activeTab !== 'communities' }];
 
     if (activeTab === 'groups' || activeTab === 'batches' || activeTab === 'mothers') {
       items.push({
