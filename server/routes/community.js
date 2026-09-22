@@ -83,7 +83,7 @@ router.get('/summary', async (req, res) => {
       ${schoolScope}
       GROUP BY c.id, c.name, c.area, c.coordinator_id, u.first_name, u.last_name
       ORDER BY c.id
-    `, req.groupId ? [req.groupId, req.groupId] : req.schoolId ? [req.schoolId] : []);
+    `, req.groupId ? [req.groupId, req.groupId, req.schoolId] : req.schoolId ? [req.schoolId] : []);
 
     const [batches] = await pool.query(`
       SELECT
