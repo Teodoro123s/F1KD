@@ -76,16 +76,27 @@ async function uploadFileToStorage(file, fieldName = 'document') {
 
   if (minioClient && file.buffer) {
     const objectKey = buildObjectKey(fieldName, file.originalname);
-    await minioClient.putObject(minioBucket, objectKey, file.buffer, file.size, {
-      'Content-Type': file.mimetype || 'application/octet-stream',
-    });
+    try {
+      await minioClient.putObject(minioBucket, objectKey, file.buffer, file.size, {
+        'Content-Type': file.mimetype || 'application/octet-stream',
+      });
 
-    const protocol = minioUseSSL ? 'https' : 'http';
-    return {
-      path: `${protocol}://${minioEndpoint}:${minioPort}/${minioBucket}/${objectKey}`,
-      name: file.originalname,
-      storage: 'minio',
-    };
+      return {
+        path: `/api/documents/${objectKey.split('/').map(encodeURIComponent).join('/')}`,
+        name: file.originalname,
+        storage: 'minio',
+      };
+    } catch (error) {
+      console.warn('[MinIO] upload failed; falling back to local storage:', error.message || error);
+      const extension = path.extname(file.originalname || '').toLowerCase();
+      const filename = `${fieldName}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}${extension}`;
+      await fs.promises.writeFile(path.join(uploadDirectory, filename), file.buffer);
+      return {
+        path: `/uploads/${filename}`,
+        name: file.originalname || filename,
+        storage: 'local-fallback',
+      };
+    }
   }
 
   const filename = file.filename || `${fieldName}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}${path.extname(file.originalname || '').toLowerCase()}`;
