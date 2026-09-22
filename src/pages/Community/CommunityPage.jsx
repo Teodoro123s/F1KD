@@ -8,7 +8,7 @@ import { MoreVerticalIcon } from './CommunityIcons';
 import { useCommunityData } from './hooks/useCommunityData';
 import { useCommunityMutations } from './hooks/useCommunityMutations';
 import { useAuth } from '../../auth/AuthProvider';
-import { can, hasRole, ROLES } from '../../utils/permissions';
+import { can, hasRole, isHealthWorkerRole, ROLES } from '../../utils/permissions';
 import { apiDeleteMother } from '../../api/mothers';
 import { apiGetChildren } from '../../api/children';
 
@@ -51,8 +51,8 @@ export default function CommunityPage() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const { schoolId, groupId, batchId } = useParams();
-  const canManage = can(currentUser?.role, 'admin-resources', 'create')
-    || can(currentUser?.role, 'partner-resources', 'create');
+  const canManage = !isHealthWorkerRole(currentUser?.role) && (can(currentUser?.role, 'admin-resources', 'create')
+    || can(currentUser?.role, 'partner-resources', 'create'));
   const assignedSchoolId = currentUser?.school_id ?? currentUser?.schoolId ?? null;
   const assignedGroupId = currentUser?.group_id ?? currentUser?.groupId ?? null;
   const isHealthWorker = ['health worker', 'healthworker']
@@ -72,6 +72,10 @@ export default function CommunityPage() {
       return String(rawId) === String(assignedSchoolId) || String(community.id) === String(assignedSchoolId);
     });
   }, [assignedSchoolId, communities, isSchoolScopedUser]);
+  const scopedGroups = useMemo(() => {
+    if (!isHealthWorker || !assignedGroupId) return groups;
+    return groups.filter((group) => String(group.id) === String(assignedGroupId));
+  }, [assignedGroupId, groups, isHealthWorker]);
   const mutations = useCommunityMutations({ refreshData });
 
   const [query, setQuery] = useState('');
@@ -104,7 +108,7 @@ export default function CommunityPage() {
   );
 
   const selectedGroup = useMemo(() => {
-    const groupFromRoute = groups.find((group) => String(group.id) === String(isHealthWorker ? assignedGroupId : groupId));
+    const groupFromRoute = scopedGroups.find((group) => String(group.id) === String(isHealthWorker ? assignedGroupId : groupId));
 
     if (groupFromRoute) {
       return groupFromRoute;
@@ -123,8 +127,8 @@ export default function CommunityPage() {
       return null;
     }
 
-    return groups.find((group) => group.name === groupNames[0]) || null;
-  }, [assignedGroupId, groupId, groups, isHealthWorker, selectedBatch]);
+    return scopedGroups.find((group) => group.name === groupNames[0]) || null;
+  }, [assignedGroupId, groupId, isHealthWorker, scopedGroups, selectedBatch]);
 
   const selectedSchool = useMemo(() => {
     const sourceCommunities = isSchoolScopedUser ? scopedCommunities : communities;
@@ -152,7 +156,7 @@ export default function CommunityPage() {
   const selectedSchoolGroups = useMemo(() => {
     if (!selectedSchool) return [];
 
-    return groups
+    return scopedGroups
       .filter((group) => group.community === selectedSchool.name)
       .filter((group) => {
         if (!query.trim()) return true;
@@ -161,7 +165,7 @@ export default function CommunityPage() {
           String(value || '').toLowerCase().includes(term)
         );
       });
-  }, [groups, query, selectedSchool]);
+  }, [query, scopedGroups, selectedSchool]);
 
   const selectedGroupBatches = useMemo(() => {
     if (!selectedGroup) return [];

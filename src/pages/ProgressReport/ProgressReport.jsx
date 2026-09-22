@@ -21,6 +21,9 @@ const REPORT_FIELDS = [
   ['weightForAge', 'Weight-for-Age (kg)', 'Growth & Monitoring'],
   ['heightForAge', 'Length-for-Age (cm)', 'Growth & Monitoring'],
   ['bmiForAge', 'BMI-for-Age', 'Growth & Monitoring'],
+  ['initialWeight', 'Initial Weight (kg)', 'Profile'],
+  ['initialHeight', 'Initial Height (cm)', 'Profile'],
+  ['initialBmi', 'Initial BMI', 'Profile'],
   ['activitiesCompleted', 'Activities Completed', 'Monitoring'],
   ['totalActivities', 'Total Activities', 'Monitoring'],
   ['progress', 'Progress %', 'Monitoring'],
@@ -35,6 +38,19 @@ const GROWTH_METRICS = [
   ['bmiForAge', 'BMI-for-Age', 'Use to screen for wasting or overweight by monitoring week.'],
 ];
 const MOTHER_GROWTH_METRICS = [['bmiForAge', 'BMI', 'Latest BMI recorded by Mother Monitoring.']];
+const PROFILE_METRICS = [
+  ['age', 'Age', 'Age calculated from the beneficiary profile date of birth.'],
+  ['initialWeight', 'Initial Weight (kg)', 'Birth weight for children or prenatal baseline weight for mothers.'],
+  ['initialHeight', 'Initial Height (cm)', 'Birth length for children or prenatal baseline height for mothers.'],
+  ['initialBmi', 'Initial BMI', 'Baseline BMI recorded or calculated from the profile measurements.'],
+];
+const PROGRAM_METRICS = [
+  ['program', 'Program', 'Program assigned to the beneficiary.'],
+  ['activitiesCompleted', 'Activities Completed', 'Completed program or monitoring activities.'],
+  ['totalActivities', 'Total Activities', 'Total activities expected for the selected report scope.'],
+  ['progress', 'Program Progress (%)', 'Completion percentage for the selected program activities.'],
+  ['lastActivityDate', 'Last Activity', 'Most recent recorded program activity date.'],
+];
 const REPORT_TABS = ['Community', 'Report Focus', 'Growth Metrics', 'Results'];
 const REPORT_FOCUS_OPTIONS = [
   ['beneficiary-batch', 'Individual Report', 'batch'],
@@ -269,6 +285,8 @@ export default function ProgressReport() {
   const [reportCategory, setReportCategory] = useState('monitor');
   const [beneficiaryType, setBeneficiaryType] = useState('child');
   const [growthMetrics, setGrowthMetrics] = useState(['weightForAge']);
+  const [profileMetrics, setProfileMetrics] = useState(['age', 'initialWeight', 'initialHeight']);
+  const [programMetrics, setProgramMetrics] = useState(['program', 'activitiesCompleted', 'totalActivities', 'progress', 'lastActivityDate']);
   const [resultsView, setResultsView] = useState('graph');
   const [displayWeeks, setDisplayWeeks] = useState('all');
 
@@ -286,6 +304,7 @@ export default function ProgressReport() {
   const displayPage = finalizedSnapshot?.page ?? page;
   const activeReport = finalizedSnapshot?.report ?? report;
   const displayReportFocus = finalizedSnapshot?.reportFocus ?? reportFocus;
+  const displayReportCategory = finalizedSnapshot?.reportCategory ?? reportCategory;
   const displayBeneficiaryType = finalizedSnapshot?.beneficiaryType ?? beneficiaryType;
   const availableGrowthMetrics = displayBeneficiaryType === 'mother' ? MOTHER_GROWTH_METRICS : GROWTH_METRICS;
   const focusScope = selection.batchId ? 'batch' : selection.groupId ? 'group' : selection.schoolId ? 'school' : '';
@@ -334,13 +353,19 @@ export default function ProgressReport() {
       setFinalizedSnapshot({
         report: result,
         selection: { ...selection },
-        visibleFields: [...new Set([...visibleFields.filter((field) => !GROWTH_METRICS.some(([id]) => id === field)), ...growthMetrics])],
+        visibleFields: reportCategory === 'profile'
+          ? [...new Set([...DEFAULT_VISIBLE_FIELDS.filter((field) => ['school', 'group', 'batch', 'mother', 'child', 'gender', 'dateOfBirth'].includes(field)), ...profileMetrics])]
+          : reportCategory === 'program'
+            ? [...new Set([...DEFAULT_VISIBLE_FIELDS.filter((field) => ['school', 'group', 'batch', 'mother', 'child'].includes(field)), ...programMetrics])]
+          : [...new Set([...visibleFields.filter((field) => !GROWTH_METRICS.some(([id]) => id === field)), ...growthMetrics])],
         granularity: beneficiaryType,
         sort: { ...sort },
         page: nextPage,
         reportFocus,
+        reportCategory,
         beneficiaryType,
         growthMetrics: [...growthMetrics],
+        profileMetrics: [...profileMetrics],
       });
       setPage(nextPage);
       setActiveTab(4);
@@ -412,6 +437,8 @@ export default function ProgressReport() {
     setFinalizedSnapshot(null);
     setVisibleFields(DEFAULT_VISIBLE_FIELDS);
     setGrowthMetrics(['weightForAge']);
+    setProfileMetrics(['age', 'initialWeight', 'initialHeight']);
+    setProgramMetrics(['program', 'activitiesCompleted', 'totalActivities', 'progress', 'lastActivityDate']);
     setReportFocus('beneficiary-batch');
     setReportCategory('monitor');
     setBeneficiaryType('child');
@@ -422,6 +449,8 @@ export default function ProgressReport() {
     setError('');
   };
   const selectGrowthMetric = (id) => setGrowthMetrics([id]);
+  const toggleProfileMetric = (id) => setProfileMetrics((current) => current.includes(id) ? current.filter((field) => field !== id) : [...current, id]);
+  const toggleProgramMetric = (id) => setProgramMetrics((current) => current.includes(id) ? current.filter((field) => field !== id) : [...current, id]);
   const selectBeneficiaryType = (type) => {
     setBeneficiaryType(type);
     setGrowthMetrics(type === 'mother' ? ['bmiForAge'] : ['weightForAge']);
@@ -431,8 +460,7 @@ export default function ProgressReport() {
   };
   const selectReportCategory = (category) => {
     setReportCategory(category);
-    if (category === 'profile') navigate('/beneficiary');
-    if (category === 'program') navigate('/program');
+    if (category === 'program' || category === 'profile') setResultsView('table');
   };
 
   useEffect(() => {
@@ -462,7 +490,7 @@ export default function ProgressReport() {
         <section className="progress-report-config" aria-label="Report parameters">
           {activeTab === 1 && <div className="progress-report-tab-panel"><h1>I. Community Selection</h1><div className="progress-report-config-grid"><label>School<select value={selection.schoolId} onChange={(event) => updateSelection('schoolId', event.target.value)}><option value="">Select school</option>{options.schools.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label>Group<select value={selection.groupId} onChange={(event) => updateSelection('groupId', event.target.value)} disabled={!selection.schoolId}><option value="">All groups</option>{groups.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label>Batch<select value={selection.batchId} onChange={(event) => updateSelection('batchId', event.target.value)} disabled={!selection.groupId}><option value="">All batches</option>{batches.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label></div><p className="progress-report-note">Select a School to begin. Group and Batch are optional filters.</p><div className="progress-report-tab-actions"><button type="button" className="primary-btn" disabled={!selection.schoolId} onClick={() => setActiveTab(2)}>Next: Report Focus →</button></div></div>}
           {activeTab === 2 && <div className="progress-report-tab-panel"><h1>II. Report Focus</h1><fieldset className="progress-report-report-category"><legend>Report category</legend><label className={reportCategory === 'profile' ? 'selected' : ''}><input type="radio" name="report-category" value="profile" checked={reportCategory === 'profile'} onChange={() => selectReportCategory('profile')} />Profile Report</label><label className={reportCategory === 'monitor' ? 'selected' : ''}><input type="radio" name="report-category" value="monitor" checked={reportCategory === 'monitor'} onChange={() => selectReportCategory('monitor')} />Monitor Report</label><label className={reportCategory === 'program' ? 'selected' : ''}><input type="radio" name="report-category" value="program" checked={reportCategory === 'program'} onChange={() => selectReportCategory('program')} />Program Report</label></fieldset><p className="progress-report-note">Monitor Report is selected by default and uses details from the Monitor module.</p><fieldset className="progress-report-beneficiary-type"><legend>Beneficiary type</legend><label className={beneficiaryType === 'child' ? 'selected' : ''}><input type="radio" name="report-beneficiary-type" checked={beneficiaryType === 'child'} onChange={() => selectBeneficiaryType('child')} />Child</label><label className={beneficiaryType === 'mother' ? 'selected' : ''}><input type="radio" name="report-beneficiary-type" checked={beneficiaryType === 'mother'} onChange={() => selectBeneficiaryType('mother')} />Mother</label></fieldset><div className="progress-report-focus-section"><p>Choose the aggregation level for the selected community scope:</p>{!selection.schoolId ? <p className="progress-report-note">Select a school first to see valid focus options.</p> : <fieldset className="progress-report-focus-options">{focusOptions.map(([value, label]) => <label key={value}><input type="radio" name="report-focus" value={value} checked={reportFocus === value} onChange={() => setReportFocus(value)} />{label}</label>)}</fieldset>}</div><p className="progress-report-note">{beneficiaryType === 'mother' ? 'Mother reports use BMI from Mother Monitoring checkups.' : 'Child reports use growth measurements from Child Monitoring checkups.'}</p><div className="progress-report-tab-actions"><button type="button" className="secondary-btn" onClick={() => setActiveTab(1)}>← Previous</button><button type="button" className="primary-btn" disabled={!selection.schoolId} onClick={() => setActiveTab(3)}>Next: Growth Metrics →</button></div></div>}
-          {activeTab === 3 && <div className="progress-report-tab-panel"><h1>III. Growth Metrics</h1><p>{beneficiaryType === 'mother' ? 'Review mother BMI from Mother Monitoring.' : 'Choose one child growth indicator to display and export:'}</p><div className="growth-metric-cards">{availableGrowthMetrics.map(([id, label, description]) => <label key={id} className={growthMetrics.includes(id) ? 'selected' : ''}><input type="radio" name="growth-metric" checked={growthMetrics.includes(id)} onChange={() => selectGrowthMetric(id)} /><strong>{label}</strong><span>{description}</span></label>)}</div><p className="progress-report-note warning">This field reports the latest recorded measurement. It is not an age- and sex-standardized WHO z-score.</p><div className="progress-report-tab-actions"><button type="button" className="secondary-btn" onClick={() => setActiveTab(2)}>← Previous</button><button type="button" className="primary-btn" onClick={() => generateReport(1)} disabled={loadingOptions || loadingReport || !selection.schoolId || !growthMetrics.length}>{loadingReport ? 'Generating...' : 'Generate Report →'}</button></div></div>}
+          {activeTab === 3 && <div className="progress-report-tab-panel"><h1>III. Growth Metrics</h1>{reportCategory === 'profile' ? <><p>Choose the beneficiary profile fields to include in the report:</p><div className="growth-metric-cards profile-metric-cards">{PROFILE_METRICS.map(([id, label, description]) => <label key={id} className={profileMetrics.includes(id) ? 'selected' : ''}><input type="checkbox" name="profile-metric" checked={profileMetrics.includes(id)} onChange={() => toggleProfileMetric(id)} /><strong>{label}</strong><span>{description}</span></label>)}</div><p className="progress-report-note">Profile values come from the Beneficiary module. Child baselines use birth weight and birth length; mother baselines use prenatal weight and height.</p></> : reportCategory === 'program' ? <><p>Choose the program progress fields to include in the report:</p><div className="growth-metric-cards profile-metric-cards">{PROGRAM_METRICS.map(([id, label, description]) => <label key={id} className={programMetrics.includes(id) ? 'selected' : ''}><input type="checkbox" name="program-metric" checked={programMetrics.includes(id)} onChange={() => toggleProgramMetric(id)} /><strong>{label}</strong><span>{description}</span></label>)}</div><p className="progress-report-note">Program values come from the Program and monitoring activity records for the selected community scope.</p></> : <><p>{beneficiaryType === 'mother' ? 'Review mother BMI from Mother Monitoring.' : 'Choose one child growth indicator to display and export:'}</p><div className="growth-metric-cards">{availableGrowthMetrics.map(([id, label, description]) => <label key={id} className={growthMetrics.includes(id) ? 'selected' : ''}><input type="radio" name="growth-metric" checked={growthMetrics.includes(id)} onChange={() => selectGrowthMetric(id)} /><strong>{label}</strong><span>{description}</span></label>)}</div><p className="progress-report-note warning">This field reports the latest recorded measurement. It is not an age- and sex-standardized WHO z-score.</p></>}<div className="progress-report-tab-actions"><button type="button" className="secondary-btn" onClick={() => setActiveTab(2)}>← Previous</button><button type="button" className="primary-btn" onClick={() => generateReport(1)} disabled={loadingOptions || loadingReport || !selection.schoolId || (reportCategory === 'profile' ? !profileMetrics.length : reportCategory === 'program' ? !programMetrics.length : !growthMetrics.length)}>{loadingReport ? 'Generating...' : 'Generate Report →'}</button></div></div>}
           {activeTab === 4 && activeReport && <div className="progress-report-tab-panel results-tab-panel"><div className="progress-report-results-header"><div><h1>IV. Report Results</h1><p>{selectedSchool?.name || 'School'} &gt; {selection.groupId ? groups.find((item) => String(item.id) === String(selection.groupId))?.name : 'All Groups'} &gt; {selection.batchId ? batches.find((item) => String(item.id) === String(selection.batchId))?.name : 'All Batches'}</p></div><button type="button" className="secondary-btn" onClick={exportReport}>Export CSV</button></div><div className="results-view-toggle"><button type="button" className={resultsView === 'table' ? 'active' : ''} onClick={() => setResultsView('table')}>Table View</button><button type="button" className={resultsView === 'graph' ? 'active' : ''} onClick={() => setResultsView('graph')}>Graph View</button>{resultsView === 'graph' && <div className="graph-controls"><label className="report-chart-select">Display<select value={displayWeeks} onChange={(event) => setDisplayWeeks(event.target.value)}><option value="4">4 weeks</option><option value="12">12 weeks</option><option value="24">24 weeks</option><option value="48">48 weeks</option><option value="all">All weeks</option></select></label></div>}</div>{resultsView === 'graph' ? <article className="growth-report-card growth-report-single-card"><h3>📈 {GROWTH_METRICS.find(([id]) => id === growthMetrics[0])?.[1]}</h3><div className="growth-report-value">{averageMetric(growthMetrics[0], graphRows)}</div><p>{beneficiaryType === 'mother' ? 'Latest mother BMI measurements · values are plotted by gestational week' : 'Latest monitored measurements · values are plotted by monitoring week'}</p><GrowthChart rows={graphRows} metric={growthMetrics[0]} chartType="line" displayWeeks={displayWeeks} beneficiaryType={beneficiaryType} /></article> : <div className="progress-report-table-scroll"><table className="progress-report-flat-table"><thead><tr>{REPORT_FIELDS.filter(([id]) => displayVisibleFields.includes(id)).map(([id, label]) => <th key={id}>{sortLabel(label, id)}</th>)}</tr></thead><tbody>{sortedRows.map((row) => <tr key={`${row.motherId}-${row.child || 'mother'}`}>{REPORT_FIELDS.filter(([id]) => displayVisibleFields.includes(id)).map(([id]) => <td key={id}>{id === 'child' && displayGranularity === 'mother' ? row.mother : id === 'progress' ? <strong>{row[id]}%</strong> : formatCellValue(id, row[id])}</td>)}</tr>)}</tbody></table></div>}{resultsView === 'table' && <div className="progress-report-pagination"><button type="button" onClick={() => generateReport(displayPage - 1)} disabled={displayPage <= 1 || loadingReport}>Previous</button><span>Page {displayPage} of {activeReport.pagination.totalPages}</span><button type="button" onClick={() => generateReport(displayPage + 1)} disabled={displayPage >= activeReport.pagination.totalPages || loadingReport}>Next</button></div>}<div className="progress-report-tab-actions"><button type="button" className="secondary-btn" onClick={() => setActiveTab(3)}>← Previous</button><button type="button" className="secondary-btn" onClick={exportReport}>Export CSV</button></div></div>}
           {error && <p className="form-error" role="alert">{error}</p>}
         </section>

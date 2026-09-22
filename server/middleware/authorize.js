@@ -15,6 +15,8 @@ const normalizeRole = (role) => {
   return ROLE_ALIASES[value] || value;
 };
 
+const isHealthWorkerRole = (role) => ['health worker', 'healthworker'].includes(String(role || '').trim().toLowerCase());
+
 const permissionResponse = (res, message = 'Forbidden') => {
   const payload = {
     status: 403,
@@ -57,6 +59,7 @@ function authorizeOperational(req, res, next) {
   }
 
   const userRole = normalizeRole(req.user.role);
+  req.isHealthWorker = isHealthWorkerRole(req.user.role);
   const scopedRoles = ['partner'];
   const hasSchoolAssignment = req.user.school_id !== undefined && req.user.school_id !== null && String(req.user.school_id).trim() !== '';
   const hasGroupAssignment = req.user.group_id !== undefined && req.user.group_id !== null && String(req.user.group_id).trim() !== '';
@@ -81,4 +84,4 @@ function authorizeOperational(req, res, next) {
   return next();
 }
 
-module.exports = { authorize, authorizeOperational, normalizeRole };
+module.exports = { authorize, authorizeOperational, normalizeRole, isHealthWorkerRole };

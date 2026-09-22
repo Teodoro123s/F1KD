@@ -9,9 +9,9 @@ const numberOrNull = (value) => {
   return Number.isInteger(number) ? number : null;
 };
 
-const parseParams = (query) => ({
-  schoolId: numberOrNull(query.schoolId),
-  groupId: numberOrNull(query.groupId),
+const parseParams = (query, scope = {}) => ({
+  schoolId: numberOrNull(scope.schoolId) ?? numberOrNull(query.schoolId),
+  groupId: numberOrNull(scope.groupId) ?? numberOrNull(query.groupId),
   batchId: numberOrNull(query.batchId),
   motherId: numberOrNull(query.motherId),
   granularity: query.granularity === 'mother' ? 'mother' : 'child',
@@ -40,15 +40,18 @@ const hierarchyWhere = (params, aliases = { mother: 'm', child: 'c' }) => {
 
 router.get('/options', async (req, res) => {
   try {
-    const [schools] = await pool.query('SELECT id, name FROM communities ORDER BY name');
-    const [groups] = await pool.query('SELECT id, name, community_id AS schoolId FROM groups ORDER BY name');
-    const [batches] = await pool.query('SELECT id, name, batch_code AS code, community_id AS schoolId FROM batches ORDER BY name');
+    const schoolClause = req.groupId ? 'WHERE id = (SELECT community_id FROM groups WHERE id = ?)' : req.schoolId ? 'WHERE id = ?' : '';
+    const groupClause = req.groupId ? 'WHERE id = ?' : req.schoolId ? 'WHERE community_id = ?' : '';
+    const batchClause = req.groupId ? 'WHERE EXISTS (SELECT 1 FROM group_batch WHERE group_batch.batch_id = batches.id AND group_batch.group_id = ?)' : req.schoolId ? 'WHERE community_id = ?' : '';
+    const [schools] = await pool.query(`SELECT id, name FROM communities ${schoolClause} ORDER BY name`, req.groupId ? [req.groupId] : req.schoolId ? [req.schoolId] : []);
+    const [groups] = await pool.query(`SELECT id, name, community_id AS schoolId FROM groups ${groupClause} ORDER BY name`, req.groupId ? [req.groupId] : req.schoolId ? [req.schoolId] : []);
+    const [batches] = await pool.query(`SELECT id, name, batch_code AS code, community_id AS schoolId FROM batches ${batchClause} ORDER BY name`, req.groupId ? [req.groupId] : req.schoolId ? [req.schoolId] : []);
     const [mothers] = await pool.query(`
       SELECT m.id, m.mother_code AS code,
         TRIM(CONCAT_WS(' ', m.first_name, m.middle_name, m.last_name, m.suffix)) AS name,
         m.community_id AS schoolId, m.group_id AS groupId, m.batch_id AS batchId
-      FROM mothers m ORDER BY name
-    `);
+      FROM mothers m ${req.groupId ? 'WHERE m.group_id = ?' : req.schoolId ? 'WHERE m.community_id = ?' : ''} ORDER BY name
+    `, req.groupId ? [req.groupId] : req.schoolId ? [req.schoolId] : []);
     res.json({ schools, groups, batches, mothers });
   } catch (error) {
     console.error('[Progress Report] options error:', error.message);
@@ -58,7 +61,7 @@ router.get('/options', async (req, res) => {
 
 router.get('/', async (req, res) => {
   try {
-    const params = parseParams(req.query);
+    const params = parseParams(req.query, req);
     const filters = hierarchyWhere(params);
     const progressExpression = `ROUND(COUNT(DISTINCT cc.id) * 100 / 48, 0)`;
     const motherProgressExpression = `ROUND(COUNT(DISTINCT mc.id) * 100 / 9, 0)`;
@@ -90,8 +93,8 @@ router.get('/', async (req, res) => {
     const statusExpression = params.granularity === 'mother' ? 'm.status' : 'c.health_status';
     const dobExpression = params.granularity === 'mother' ? 'm.dob' : 'c.birth_date';
     const groupDetails = params.granularity === 'mother'
-      ? 'm.dob, m.status, m.contact_number, m.is_high_risk, m.program_type'
-      : 'c.birth_date, c.gender, c.health_status, m.contact_number, m.is_high_risk, m.program_type';
+      ? 'm.dob, m.prenatal_weight, m.prenatal_height, m.status, m.contact_number, m.is_high_risk, m.program_type'
+      : 'c.birth_date, c.birth_weight, c.birth_length, c.gender, c.health_status, m.contact_number, m.is_high_risk, m.program_type';
     const query = `
       SELECT
         school.id AS school_id, school.name AS school_name,
@@ -106,6 +109,8 @@ router.get('/', async (req, res) => {
         ${genderExpression} AS gender,
         ${statusExpression} AS status,
         ${dobExpression} AS date_of_birth,
+        ${params.granularity === 'mother' ? 'm.prenatal_weight' : 'c.birth_weight'} AS initial_weight,
+        ${params.granularity === 'mother' ? 'm.prenatal_height' : 'c.birth_length'} AS initial_height,
         m.contact_number AS contact_number,
         CASE WHEN m.is_high_risk = 1 THEN 'High risk' ELSE 'Normal risk' END AS risk,
         m.program_type AS program,
@@ -138,6 +143,11 @@ router.get('/', async (req, res) => {
       gender: row.gender || '',
       status: row.status || '',
       dateOfBirth: row.date_of_birth || '',
+      initialWeight: row.initial_weight === null || row.initial_weight === undefined ? '' : Number(row.initial_weight),
+      initialHeight: row.initial_height === null || row.initial_height === undefined ? '' : Number(row.initial_height),
+      initialBmi: Number.isFinite(Number(row.initial_weight)) && Number(row.initial_weight) > 0 && Number.isFinite(Number(row.initial_height)) && Number(row.initial_height) > 0
+        ? Number((Number(row.initial_weight) / ((Number(row.initial_height) / 100) ** 2)).toFixed(1))
+        : '',
       pediatricAgeWeeks: row.pediatric_age_weeks === null || row.pediatric_age_weeks === undefined ? '' : Number(row.pediatric_age_weeks),
       contact: row.contact_number || '',
       risk: row.risk || '',

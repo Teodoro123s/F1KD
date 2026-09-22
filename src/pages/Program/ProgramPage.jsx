@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../../auth/AuthProvider";
-import { hasRole, ROLES } from "../../utils/permissions";
+import { hasRole, isHealthWorkerRole, ROLES } from "../../utils/permissions";
 import PageHeader from '../../components/ui/PageHeader';
 import {
   BatchesIcon,
@@ -34,7 +34,7 @@ export default function ProgramPage() {
   const canManagePrograms = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]);
   const isCommunityOrganizer = ['community organizer', 'communityorganizer']
     .includes(String(currentUser?.role || '').trim().toLowerCase());
-  const canCreatePrograms = canManagePrograms || hasRole(currentUser?.role, [ROLES.ADMIN]) || isCommunityOrganizer;
+  const canCreatePrograms = !isHealthWorkerRole(currentUser?.role) && (canManagePrograms || hasRole(currentUser?.role, [ROLES.ADMIN]) || isCommunityOrganizer);
   const [activeTab, setActiveTab] = useState("Active");
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState('');

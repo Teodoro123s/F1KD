@@ -35,3 +35,7 @@ export function hasRole(userRole, allowedRoles = []) {
 export function can(userRole, resource, action) {
   return hasRole(userRole, PERMISSIONS[resource]?.[action] || []);
 }
+
+export function isHealthWorkerRole(role) {
+  return ['health worker', 'healthworker'].includes(String(role || '').trim().toLowerCase());
+}

@@ -1,5 +1,12 @@
 const express = require('express');
 const router = express.Router();
+
+router.use((req, res, next) => {
+  if (req.isHealthWorker && req.method !== 'GET') {
+    return res.status(403).json({ error: 'Health workers have read-only access to community management' });
+  }
+  return next();
+});
 const pool = require('../db');
 
 function parseAssignedBatchIds(raw) {
@@ -51,8 +58,14 @@ router.get('/summary', async (req, res) => {
     console.info('[Community API] Fetching community summary from database (compatible mode)...');
     const schoolScope = req.schoolId ? 'WHERE c.id = ?' : '';
     const namedSchoolScope = req.schoolId ? 'WHERE b.community_id = ?' : '';
-    const groupSchoolScope = req.schoolId ? 'WHERE g.community_id = ?' : '';
-    const motherSchoolScope = req.schoolId ? 'WHERE m.community_id = ?' : '';
+    const groupScope = req.groupId ? 'WHERE g.id = ?' : req.schoolId ? 'WHERE g.community_id = ?' : '';
+    const motherScope = req.groupId ? 'WHERE m.group_id = ?' : req.schoolId ? 'WHERE m.community_id = ?' : '';
+    const communityBatchJoin = req.groupId
+      ? 'LEFT JOIN batches b ON b.community_id = c.id AND EXISTS (SELECT 1 FROM group_batch scoped_batch_group WHERE scoped_batch_group.batch_id = b.id AND scoped_batch_group.group_id = ?)'
+      : 'LEFT JOIN batches b ON b.community_id = c.id';
+    const communityMotherJoin = req.groupId
+      ? 'LEFT JOIN mothers m ON m.community_id = c.id AND m.group_id = ?'
+      : 'LEFT JOIN mothers m ON m.community_id = c.id';
 
     const [communities] = await pool.query(`
       SELECT
@@ -64,13 +77,13 @@ router.get('/summary', async (req, res) => {
         COUNT(DISTINCT b.id) AS batches,
         COUNT(DISTINCT m.id) AS records
       FROM communities c
-      LEFT JOIN batches b ON b.community_id = c.id
-      LEFT JOIN mothers m ON m.community_id = c.id
+      ${communityBatchJoin}
+      ${communityMotherJoin}
       LEFT JOIN users u ON u.id = c.coordinator_id
       ${schoolScope}
       GROUP BY c.id, c.name, c.area, c.coordinator_id, u.first_name, u.last_name
       ORDER BY c.id
-    `, req.schoolId ? [req.schoolId] : []);
+    `, req.groupId ? [req.groupId, req.groupId] : req.schoolId ? [req.schoolId] : []);
 
     const [batches] = await pool.query(`
       SELECT
@@ -89,10 +102,10 @@ router.get('/summary', async (req, res) => {
       LEFT JOIN communities c ON c.id = b.community_id
       LEFT JOIN group_batch gb ON gb.batch_id = b.id
       LEFT JOIN groups bg ON bg.id = gb.group_id
-      ${namedSchoolScope}
+      ${req.groupId ? 'WHERE EXISTS (SELECT 1 FROM group_batch scoped_gb WHERE scoped_gb.batch_id = b.id AND scoped_gb.group_id = ?)' : namedSchoolScope}
       GROUP BY b.id, b.batch_code, b.name, c.name, b.records, b.progress, b.status
       ORDER BY b.id
-    `, req.schoolId ? [req.schoolId] : []);
+    `, req.groupId ? [req.groupId] : req.schoolId ? [req.schoolId] : []);
 
     const [groupRows] = await pool.query(`
       SELECT
@@ -112,10 +125,10 @@ router.get('/summary', async (req, res) => {
       LEFT JOIN group_batch gb ON gb.group_id = g.id
       LEFT JOIN batches b ON b.community_id = g.community_id
       LEFT JOIN communities c ON c.id = g.community_id
-      ${groupSchoolScope}
+      ${groupScope}
       GROUP BY g.id, g.name, c.name, g.members_count, g.leader, g.status
       ORDER BY g.id
-    `, req.schoolId ? [req.schoolId] : []);
+    `, req.groupId ? [req.groupId] : req.schoolId ? [req.schoolId] : []);
 
     const [motherRows] = await pool.query(`
       SELECT
@@ -136,9 +149,9 @@ router.get('/summary', async (req, res) => {
       LEFT JOIN batches b ON b.id = m.batch_id
       LEFT JOIN groups g ON g.id = m.group_id
       LEFT JOIN communities c ON c.id = m.community_id
-      ${motherSchoolScope}
+      ${motherScope}
       ORDER BY m.id
-    `, req.schoolId ? [req.schoolId] : []);
+    `, req.groupId ? [req.groupId] : req.schoolId ? [req.schoolId] : []);
 
     const [childBatchRows] = await pool.query(`
       SELECT

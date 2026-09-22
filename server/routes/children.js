@@ -138,7 +138,7 @@ function sanitizeFieldSelection(fields = []) {
 router.get('/', async (req, res) => {
   try {
     const requestedFields = sanitizeFieldSelection(req.query.fields);
-    const scopeClause = req.schoolId ? 'WHERE c.community_id = ?' : '';
+    const scopeClause = req.groupId ? 'WHERE c.group_id = ?' : req.schoolId ? 'WHERE c.community_id = ?' : '';
     const [rows] = await pool.query(
       `SELECT c.*, m.first_name AS mother_first_name, m.last_name AS mother_last_name,
         m.mother_code, comm.name AS community_name, g.name AS group_name, b.name AS batch_name
@@ -149,7 +149,7 @@ router.get('/', async (req, res) => {
        LEFT JOIN batches b ON b.id = c.batch_id
       ${scopeClause}
        ORDER BY c.created_at DESC, c.id DESC`
-          , req.schoolId ? [req.schoolId] : []
+          , req.groupId ? [req.groupId] : req.schoolId ? [req.schoolId] : []
     );
 
     const children = await Promise.all(rows.map(async (row) => {
@@ -212,6 +212,10 @@ router.post('/', async (req, res) => {
     );
     if (!motherRows.length) return res.status(400).json({ error: 'Mother not found' });
     motherId = motherRows[0].id;
+    if (req.groupId) {
+      communityId = req.schoolId;
+      groupId = req.groupId;
+    }
     if (!groupId && b.group) {
       const [groupRows] = await pool.query('SELECT id FROM groups WHERE name = ? LIMIT 1', [b.group]);
       groupId = groupRows[0]?.id || null;
@@ -282,8 +286,8 @@ router.get('/:id', async (req, res) => {
        LEFT JOIN communities comm ON comm.id = c.community_id
        LEFT JOIN groups g ON g.id = c.group_id
        LEFT JOIN batches b ON b.id = c.batch_id
-      WHERE (c.id = ? OR c.child_code = ?)${req.schoolId ? ' AND c.community_id = ?' : ''}`,
-          req.schoolId ? [id, id, req.schoolId] : [id, id]
+        WHERE (c.id = ? OR c.child_code = ?)${req.groupId ? ' AND c.group_id = ?' : req.schoolId ? ' AND c.community_id = ?' : ''}`,
+          req.groupId ? [id, id, req.groupId] : req.schoolId ? [id, id, req.schoolId] : [id, id]
     );
     if (!rows.length) return res.status(404).json({ error: 'Not found' });
     const child = await attachClinicalData(rows[0]);
@@ -299,8 +303,8 @@ router.post('/:id/checkups', async (req, res) => {
     const { id } = req.params;
     const body = req.body || {};
     const [childRows] = await pool.query(
-      'SELECT id FROM children WHERE id = ? OR child_code = ? LIMIT 1',
-      [Number(id) || null, id]
+      `SELECT id FROM children WHERE (id = ? OR child_code = ?)${req.groupId ? ' AND group_id = ?' : req.schoolId ? ' AND community_id = ?' : ''} LIMIT 1`,
+      req.groupId ? [Number(id) || null, id, req.groupId] : req.schoolId ? [Number(id) || null, id, req.schoolId] : [Number(id) || null, id]
     );
     if (!childRows.length) return res.status(404).json({ error: 'Child not found' });
 
@@ -362,7 +366,7 @@ router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const body = req.body || {};
-    const [existingRows] = await pool.query('SELECT * FROM children WHERE id = ? OR child_code = ? LIMIT 1', [Number(id) || null, id]);
+    const [existingRows] = await pool.query(`SELECT * FROM children WHERE (id = ? OR child_code = ?)${req.groupId ? ' AND group_id = ?' : req.schoolId ? ' AND community_id = ?' : ''} LIMIT 1`, req.groupId ? [Number(id) || null, id, req.groupId] : req.schoolId ? [Number(id) || null, id, req.schoolId] : [Number(id) || null, id]);
     if (!existingRows.length) return res.status(404).json({ error: 'Child not found' });
     const current = existingRows[0];
     let motherId = getField(body, 'motherId', 'mother_id') || current.mother_id;
@@ -374,7 +378,8 @@ router.put('/:id', async (req, res) => {
     motherId = motherRows[0].id;
 
     let communityId = getField(body, 'communityId', 'community_id') || current.community_id;
-    let groupId = getField(body, 'groupId', 'group_id') || current.group_id;
+    let groupId = req.groupId || getField(body, 'groupId', 'group_id') || current.group_id;
+    if (req.groupId) communityId = req.schoolId;
     let batchId = getField(body, 'batchId', 'batch_id') || current.batch_id;
     if (!groupId && body.group) {
       const [groupRows] = await pool.query('SELECT id FROM groups WHERE name = ? LIMIT 1', [body.group]);
@@ -462,7 +467,7 @@ router.put('/:id', async (req, res) => {
 router.get('/mother/:motherId/children', async (req, res) => {
   try {
     const { motherId } = req.params;
-    const scopeClause = req.schoolId ? ' AND c.community_id = ?' : '';
+    const scopeClause = req.groupId ? ' AND c.group_id = ?' : req.schoolId ? ' AND c.community_id = ?' : '';
     const [rows] = await pool.query(
       `SELECT c.*, comm.name AS community_name, g.name AS group_name, b.name AS batch_name
        FROM children c
@@ -470,7 +475,7 @@ router.get('/mother/:motherId/children', async (req, res) => {
        LEFT JOIN groups g ON g.id = c.group_id
        LEFT JOIN batches b ON b.id = c.batch_id
       WHERE c.mother_id = ?${scopeClause} ORDER BY c.created_at DESC`,
-          req.schoolId ? [motherId, req.schoolId] : [motherId]
+          req.groupId ? [motherId, req.groupId] : req.schoolId ? [motherId, req.schoolId] : [motherId]
     );
     res.json({ children: rows });
   } catch (err) {

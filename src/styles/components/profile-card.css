@@ -109,6 +109,35 @@
   border-color: #7d1e2e;
   color: #fff;
 }
+.secondary-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0.55rem 0.9rem;
+  border: 1px solid #dfe6ee;
+  border-radius: 8px;
+  background: #fff;
+  color: #334155;
+  font: inherit;
+  font-weight: 700;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease, color 150ms ease, box-shadow 150ms ease;
+}
+.secondary-btn:hover {
+  border-color: #94a3b8;
+  background: #f8fafc;
+  color: #0f172a;
+}
+.secondary-btn:focus-visible {
+  outline: 3px solid rgba(125, 30, 46, 0.18);
+  outline-offset: 2px;
+}
+.secondary-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
 .ghost-btn.selected { border-color: #7d1e2e; color: #7d1e2e; }
 
 .progress-report-search-box {

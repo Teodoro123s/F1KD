@@ -1,5 +1,12 @@
 const express = require('express');
 const router = express.Router();
+
+router.use((req, res, next) => {
+  if (req.isHealthWorker && req.method !== 'GET') {
+    return res.status(403).json({ error: 'Health workers have read-only access to programs' });
+  }
+  return next();
+});
 const pool = require('../db');
 
 function cleanProgram(body = {}) {
@@ -40,7 +47,24 @@ async function getProgram(id) {
 
 router.get('/', async (req, res) => {
   try {
-    const scopeClause = req.schoolId
+    const scopeClause = req.groupId
+      ? `WHERE EXISTS (
+          SELECT 1
+          FROM program_clusters scoped_cluster
+          WHERE scoped_cluster.program_id = p.id
+            AND (
+              (scoped_cluster.scope_type = 'Group' AND EXISTS (
+                SELECT 1 FROM groups scoped_group
+                WHERE scoped_group.id = ? AND scoped_group.name = scoped_cluster.scope_name
+              ))
+              OR (scoped_cluster.scope_type = 'Batch' AND EXISTS (
+                SELECT 1 FROM group_batch scoped_group_batch
+                INNER JOIN batches scoped_batch ON scoped_batch.id = scoped_group_batch.batch_id
+                WHERE scoped_group_batch.group_id = ? AND scoped_batch.name = scoped_cluster.scope_name
+              ))
+            )
+        )`
+      : req.schoolId
       ? `WHERE EXISTS (
           SELECT 1
           FROM program_clusters scoped_cluster
@@ -50,7 +74,7 @@ router.get('/', async (req, res) => {
             AND scoped_school.id = ?
         )`
       : '';
-    const [rows] = await pool.query(`SELECT p.* FROM programs p ${scopeClause} ORDER BY p.id DESC`, req.schoolId ? [req.schoolId] : []);
+    const [rows] = await pool.query(`SELECT p.* FROM programs p ${scopeClause} ORDER BY p.id DESC`, req.groupId ? [req.groupId, req.groupId] : req.schoolId ? [req.schoolId] : []);
     const programs = await Promise.all(rows.map((row) => getProgram(row.id)));
     res.json({ programs });
   } catch (error) {

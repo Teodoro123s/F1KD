@@ -9,6 +9,8 @@ import ChildMonitor, { getChildName } from './ChildMonitor';
 import { createMonitorModel } from './monitorModel';
 import { apiGetChild, apiGetChildren, apiSaveChildCheckup } from '../../api/children';
 import { apiGetMother, apiSaveMotherCheckup } from '../../api/mothers';
+import { useAuth } from '../../auth/AuthProvider';
+import { isHealthWorkerRole } from '../../utils/permissions';
 
 function getMotherName(mother) {
   return mother?.name || [mother?.firstName || mother?.first_name, mother?.middleName || mother?.middle_name, mother?.lastName || mother?.last_name]
@@ -63,6 +65,7 @@ const getChildMonitoringStatus = (child, completed, total) => {
 };
 
 export default function MonitoringPage() {
+  const { currentUser } = useAuth();
   const { mothers, setMothers } = useMothers();
   const navigate = useNavigate();
   const location = useLocation();
@@ -79,6 +82,7 @@ export default function MonitoringPage() {
   const [statusFilter, setStatusFilter] = useState('All');
   const [perPage, setPerPage] = useState(10);
   const [page, setPage] = useState(1);
+  const assignedGroupId = currentUser?.group_id ?? currentUser?.groupId;
 
   React.useEffect(() => {
     let active = true;
@@ -92,23 +96,30 @@ export default function MonitoringPage() {
     return () => { active = false; };
   }, []);
 
+  const scopedMothers = useMemo(() => isHealthWorkerRole(currentUser?.role) && assignedGroupId
+    ? mothers.filter((mother) => String(mother.groupId ?? mother.group_id) === String(assignedGroupId))
+    : mothers, [assignedGroupId, currentUser?.role, mothers]);
+  const scopedChildren = useMemo(() => isHealthWorkerRole(currentUser?.role) && assignedGroupId
+    ? children.filter((child) => String(child.groupId ?? child.group_id) === String(assignedGroupId))
+    : children, [assignedGroupId, children, currentUser?.role]);
+
   const filteredMothers = useMemo(() => {
     const term = query.trim().toLowerCase();
-    if (!term) return mothers;
-    return mothers.filter((mother) => (
+    if (!term) return scopedMothers;
+    return scopedMothers.filter((mother) => (
       `${getMotherName(mother)} ${mother.motherCode || mother.mother_code || mother.id || ''} ${mother.community || mother.community_name || mother.area || ''}`
         .toLowerCase()
         .includes(term)
     ));
-  }, [mothers, query]);
+  }, [query, scopedMothers]);
 
   const filteredChildren = useMemo(() => {
     const term = query.trim().toLowerCase();
-    if (!term) return children;
-    return children.filter((child) => (
+    if (!term) return scopedChildren;
+    return scopedChildren.filter((child) => (
       `${getChildName(child)} ${child.child_code || child.id || ''} ${child.community || child.community_name || child.area || ''}`.toLowerCase().includes(term)
     ));
-  }, [children, query]);
+  }, [query, scopedChildren]);
 
   const handleSave = async (payload) => {
     try {

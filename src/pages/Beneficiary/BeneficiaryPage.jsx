@@ -10,7 +10,7 @@ import { useMothers } from '../../context/MothersContext';
 import { getSummary } from '../Community/communityService';
 import { apiGetMother } from '../../api/mothers';
 import { apiGetChildrenByMother } from '../../api/children';
-import { can } from '../../utils/permissions';
+import { can, isHealthWorkerRole } from '../../utils/permissions';
 import { useAuth } from '../../auth/AuthProvider';
 
 export default function BeneficiaryPage() {
@@ -65,7 +65,7 @@ export default function BeneficiaryPage() {
   const isCreateChild = location.pathname.includes('/beneficiary/create/child');
   const isMotherProfile = location.pathname.endsWith('/profile');
   const isMotherDetail = Boolean(selectedMother);
-  const canCreate = can(auth?.currentUser?.role, 'partner-resources', 'create');
+  const canCreate = can(auth?.currentUser?.role, 'partner-resources', 'create') && !isHealthWorkerRole(auth?.currentUser?.role);
   const assignedSchoolId = auth?.currentUser?.school_id ?? auth?.currentUser?.schoolId ?? null;
   const isSchoolScopedUser = ['community organizer', 'communityorganizer', 'health worker', 'healthworker']
     .includes(String(auth?.currentUser?.role || '').trim().toLowerCase());
@@ -74,13 +74,23 @@ export default function BeneficiaryPage() {
     return communities.filter((community) => String(community.id) === String(assignedSchoolId));
   }, [assignedSchoolId, communities, isSchoolScopedUser]);
   const scopedGroups = React.useMemo(() => {
-    if (!isSchoolScopedUser || !assignedSchoolId) return groups;
-    return groups.filter((group) => String(group.community_id) === String(assignedSchoolId) || group.community === (communities.find((community) => String(community.id) === String(assignedSchoolId))?.name));
-  }, [assignedSchoolId, communities, groups, isSchoolScopedUser]);
+    const schoolGroups = !isSchoolScopedUser || !assignedSchoolId
+      ? groups
+      : groups.filter((group) => String(group.community_id) === String(assignedSchoolId) || group.community === (communities.find((community) => String(community.id) === String(assignedSchoolId))?.name));
+    const assignedGroupId = auth?.currentUser?.group_id ?? auth?.currentUser?.groupId;
+    return isHealthWorkerRole(auth?.currentUser?.role) && assignedGroupId
+      ? schoolGroups.filter((group) => String(group.id) === String(assignedGroupId))
+      : schoolGroups;
+  }, [assignedSchoolId, auth?.currentUser?.groupId, auth?.currentUser?.group_id, auth?.currentUser?.role, communities, groups, isSchoolScopedUser]);
   const scopedBatches = React.useMemo(() => {
-    if (!isSchoolScopedUser || !assignedSchoolId) return batches;
-    return batches.filter((batch) => String(batch.community_id) === String(assignedSchoolId) || batch.community === (communities.find((community) => String(community.id) === String(assignedSchoolId))?.name));
-  }, [assignedSchoolId, batches, communities, isSchoolScopedUser]);
+    const schoolBatches = !isSchoolScopedUser || !assignedSchoolId
+      ? batches
+      : batches.filter((batch) => String(batch.community_id) === String(assignedSchoolId) || batch.community === (communities.find((community) => String(community.id) === String(assignedSchoolId))?.name));
+    const assignedGroupId = auth?.currentUser?.group_id ?? auth?.currentUser?.groupId;
+    if (!isHealthWorkerRole(auth?.currentUser?.role) || !assignedGroupId) return schoolBatches;
+    const assignedGroup = groups.find((group) => String(group.id) === String(assignedGroupId));
+    return schoolBatches.filter((batch) => String(batch.groupId) === String(assignedGroupId) || String(batch.group_id) === String(assignedGroupId) || String(batch.groupNames || '').split(',').map((name) => name.trim()).includes(assignedGroup?.name));
+  }, [assignedSchoolId, auth?.currentUser?.groupId, auth?.currentUser?.group_id, auth?.currentUser?.role, batches, communities, groups, isSchoolScopedUser]);
 
   // If navigation includes a mother in state (e.g., navigating from child pages or external links), ensure the selectedMother is populated
   React.useEffect(() => {
