@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import logo from '../assets/logo.svg';
+import logo from '../assets/Logo (2).png';
 import { useAuth } from '../auth/AuthProvider';
 import { ROLES, hasRole } from '../utils/permissions';
 
@@ -27,15 +27,15 @@ export default function Sidebar() {
   return (
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
       <div className="sidebar-top">
-        <img src={logo} alt="logo" className="logo" />
-        {!collapsed && <div className="brand">Sample Logo</div>}
         <button
-          className="collapse-btn"
+          type="button"
+          className="logo-button"
           onClick={() => setCollapsed(!collapsed)}
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
-          {collapsed ? '»' : '«'}
+          <img src={logo} alt="F1KD logo" className="logo" />
         </button>
+        {!collapsed && <div className="brand">F1KD</div>}
       </div>
 
       <nav className="sidebar-nav">

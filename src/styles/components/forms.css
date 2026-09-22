@@ -45,7 +45,7 @@
   right: 10px;
   border: 0;
   background: transparent;
-  color: var(--burgundy, #8f0925);
+  color: var(--burgundy, #15803D);
   cursor: pointer;
   font-weight: 700;
 }
@@ -65,7 +65,7 @@
   color: #18794e;
 }
 .form-input:hover, .form-select:hover { border-color: #94a3b8; }
-.form-input:focus, .form-select:focus { outline: none; border-color: var(--burgundy); box-shadow: 0 0 0 3px rgba(122, 12, 30, 0.08); }
+.form-input:focus, .form-select:focus { outline: none; border-color: var(--burgundy); box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.08); }
 .form-select { cursor: pointer; appearance: none; -webkit-appearance: none; -moz-appearance: none; }
 .vaccine-form-panel { padding: 0; overflow: hidden; }
 .vaccine-form-table-wrapper { width: 100%; overflow: hidden; border-radius: 10px; border: 1px solid #e2e8f0; background: #fff; }
@@ -150,7 +150,7 @@
   border: 1px solid #f5dfe1;
   border-radius: 16px;
   padding: 1.25rem 1.5rem;
-  box-shadow: 0 12px 28px rgba(122, 12, 30, 0.06);
+  box-shadow: 0 12px 28px rgba(21, 128, 61, 0.06);
 }
 .edit-mother-title { margin: 0; color: #0f172a; font-size: clamp(1.7rem, 2.1vw, 2.2rem); font-weight: 800; line-height: 1.15; }
 .mother-edit-form { display: flex; flex-direction: column; gap: 1.2rem; }

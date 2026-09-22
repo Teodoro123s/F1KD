@@ -15,8 +15,8 @@
   --view-bg-white: #FFFFFF;
   --view-bg-subtle: #F8FAFC;
   --view-shadow-modal: 0 20px 60px rgba(15, 23, 42, 0.15);
-  --view-primary: #7A0C1E;
-  --view-primary-hover: #5F0917;
+  --view-primary: #15803D;
+  --view-primary-hover: #166534;
   --view-text: #0f172a;
   --view-text-muted: #64748B;
   --view-text-soft: #94A3B8;
@@ -260,7 +260,7 @@
 
 .view-content .community-modal-content .form-input:focus,
 .view-content .community-modal-content .form-select:focus {
-  border: 1px solid var(--burgundy, #8f0925);
+  border: 1px solid var(--burgundy, #15803D);
   border-radius: 10px;
   outline: none;
   box-shadow: none;
