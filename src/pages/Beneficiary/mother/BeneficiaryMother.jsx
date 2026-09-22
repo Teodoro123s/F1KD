@@ -1,5 +1,6 @@
 import React from 'react';
 import { formatDateForInput } from '../../../utils/dateFormat';
+import { getPhilippineBarangays, getPhilippineCities, PHILIPPINE_PROVINCES } from '../../../utils/philippineLocations';
 
 export function MotherFormFields({
   activeTab,
@@ -20,6 +21,24 @@ export function MotherFormFields({
   const uniqueCommunities = Array.from(new Set(communities.map((comm) => comm.name))).filter(Boolean);
   const selectedGroups = groups.filter((group) => !form.community || group.community === form.community);
   const selectedBatches = batches.filter((batch) => !form.community || !batch.community || batch.community === form.community);
+  const selectedProvince = PHILIPPINE_PROVINCES.find((province) => province.toLowerCase() === String(form.province || '').toLowerCase()) || '';
+  const cityOptions = getPhilippineCities(selectedProvince);
+  const selectedCity = cityOptions.find((city) => city.toLowerCase() === String(form.city || '').toLowerCase()) || '';
+  const barangayOptions = getPhilippineBarangays(selectedProvince, selectedCity);
+  const selectedBarangay = barangayOptions.find((barangay) => barangay.toLowerCase() === String(form.barangay || '').toLowerCase()) || '';
+
+  React.useEffect(() => {
+    if ((selectedProvince && selectedProvince !== form.province)
+      || (selectedCity && selectedCity !== form.city)
+      || (selectedBarangay && selectedBarangay !== form.barangay)) {
+      setForm((prev) => ({
+        ...prev,
+        province: selectedProvince || prev.province,
+        city: selectedCity || prev.city,
+        barangay: selectedBarangay || prev.barangay,
+      }));
+    }
+  }, [selectedProvince, selectedCity, form.province, form.city, form.barangay, barangayOptions, selectedBarangay]);
 
   const handleLmpChange = (val) => {
     setForm((prev) => {
@@ -185,7 +204,7 @@ export function MotherFormFields({
     );
   };
 
-  const renderSelect = ({ id, label, name, options = [], placeholder = '', required = false, onChange }) => {
+  const renderSelect = ({ id, label, name, options = [], placeholder = '', required = false, onChange, disabled = false }) => {
     const value = form[name] ?? '';
     if (readOnly) {
       return (
@@ -213,6 +232,7 @@ export function MotherFormFields({
               : { ...prev, [name]: e.target.value });
           }}
           required={required}
+          disabled={disabled}
         >
           {placeholder && <option value="">{placeholder}</option>}
           {options.map((opt) => (
@@ -267,48 +287,36 @@ export function MotherFormFields({
           {renderField({ id: 'mother-contact', label: "Contact Number", name: 'contactNumber', type: 'tel', placeholder: '0917******' })}
           </div>
 
-          <div className="form-row-2 full-width">
-          {readOnly ? (
-            renderField({ id: 'mother-lmp', label: 'Date of LMP', name: 'lmpDate', type: 'date' })
-          ) : (
-            <div className="form-group">
-              <label className="form-label" htmlFor="mother-lmp">Date of LMP</label>
-              <input
-                id="mother-lmp"
-                type={slashDateInput ? 'text' : 'date'}
-                className="form-input"
-                placeholder={slashDateInput ? 'yyyy/mm/dd' : undefined}
-                value={getDateDisplayValue('lmpDate', form.lmpDate)}
-                onChange={(e) => updateDateValue('lmpDate', e.target.value, handleLmpChange)}
-                onBlur={() => commitDateValue('lmpDate', getDateDisplayValue('lmpDate', form.lmpDate), handleLmpChange)}
-                max={new Date().toISOString().split('T')[0]}
-                autoComplete="off"
-              />
-              {slashDateInput && <>
-                <button type="button" className="date-picker-button" onClick={() => openDatePicker('lmpDate')} aria-label="Open calendar for Date of LMP"><span aria-hidden="true">▣</span></button>
-                <input
-                  ref={(element) => { datePickerRefs.current.lmpDate = element; }}
-                  className="native-date-picker-input"
-                  type="date"
-                  value={formatDateForInput(form.lmpDate)}
-                  onChange={(e) => handleLmpChange(e.target.value)}
-                  tabIndex={-1}
-                  aria-hidden="true"
-                />
-              </>}
-            </div>
-          )}
-
-          {renderField({ id: 'mother-edd', label: "Expected Delivery Date (EDD)", name: 'eddDate', type: 'date', nativeDate: true })}
-          </div>
         </section>
 
         <section className="create-mother-category">
           <h4 className="form-section-title">I.B ADDRESS DETAILS</h4>
           <div className="form-row-3 full-width">
-          {renderField({ id: 'mother-province', label: 'Province', name: 'province', placeholder: 'Enter province' })}
-          {renderField({ id: 'mother-city', label: 'City', name: 'city', placeholder: 'Enter city' })}
-          {renderField({ id: 'mother-barangay', label: 'Barangay', name: 'barangay', placeholder: 'Enter barangay' })}
+          {renderSelect({
+            id: 'mother-province',
+            label: 'Province',
+            name: 'province',
+            options: PHILIPPINE_PROVINCES,
+            placeholder: 'Select province',
+            onChange: (value) => setForm((prev) => ({ ...prev, province: value, city: '', barangay: '' })),
+          })}
+          {renderSelect({
+            id: 'mother-city',
+            label: 'City / Municipality',
+            name: 'city',
+            options: cityOptions,
+            placeholder: form.province ? 'Select city / municipality' : 'Select province first',
+            onChange: (value) => setForm((prev) => ({ ...prev, city: value, barangay: '' })),
+            disabled: !form.province,
+          })}
+          {renderSelect({
+            id: 'mother-barangay',
+            label: 'Barangay',
+            name: 'barangay',
+            options: barangayOptions,
+            placeholder: form.city ? 'Select barangay' : 'Select city first',
+            disabled: !form.city,
+          })}
           </div>
         </section>
 
@@ -360,7 +368,7 @@ export function MotherFormFields({
 
         {!readOnly && (
           <section className="create-mother-category">
-            <h4 className="form-section-title">I.C REQUIRED DOCUMENTS</h4>
+            <h4 className="form-section-title">I.C DOCUMENTS</h4>
             <div className="document-upload-grid create-mother-document-grid">
               <div className="document-upload-field">
                 <label className="form-label" htmlFor="mother-birth-certificate">Mother's Birth Certificate</label>
@@ -369,7 +377,6 @@ export function MotherFormFields({
                   type="file"
                   accept=".pdf,.jpg,.jpeg,.png,.webp"
                   onChange={(event) => setDocumentFiles?.((current) => ({ ...current, birthCertificate: event.target.files?.[0] || null }))}
-                  required
                 />
               </div>
               <div className="document-upload-field">
@@ -379,7 +386,6 @@ export function MotherFormFields({
                   type="file"
                   accept=".pdf,.jpg,.jpeg,.png,.webp"
                   onChange={(event) => setDocumentFiles?.((current) => ({ ...current, consent: event.target.files?.[0] || null }))}
-                  required
                 />
               </div>
             </div>
@@ -429,6 +435,41 @@ export function MotherFormFields({
       <div className="create-mother-general create-mother-prenatal">
         <section className="create-mother-category">
           <h4 className="form-section-title">II. INITIAL PRENATAL ASSESSMENT & MATERNAL HEALTH PROFILE</h4>
+          <div className="form-row-2 full-width">
+          {readOnly ? (
+            renderField({ id: 'mother-lmp', label: 'Date of LMP', name: 'lmpDate', type: 'date' })
+          ) : (
+            <div className="form-group">
+              <label className="form-label" htmlFor="mother-lmp">Date of LMP</label>
+              <input
+                id="mother-lmp"
+                type={slashDateInput ? 'text' : 'date'}
+                className="form-input"
+                placeholder={slashDateInput ? 'yyyy/mm/dd' : undefined}
+                value={getDateDisplayValue('lmpDate', form.lmpDate)}
+                onChange={(e) => updateDateValue('lmpDate', e.target.value, handleLmpChange)}
+                onBlur={() => commitDateValue('lmpDate', getDateDisplayValue('lmpDate', form.lmpDate), handleLmpChange)}
+                max={new Date().toISOString().split('T')[0]}
+                autoComplete="off"
+              />
+              {slashDateInput && <>
+                <button type="button" className="date-picker-button" onClick={() => openDatePicker('lmpDate')} aria-label="Open calendar for Date of LMP"><span aria-hidden="true">▣</span></button>
+                <input
+                  ref={(element) => { datePickerRefs.current.lmpDate = element; }}
+                  className="native-date-picker-input"
+                  type="date"
+                  value={formatDateForInput(form.lmpDate)}
+                  onChange={(e) => handleLmpChange(e.target.value)}
+                  tabIndex={-1}
+                  aria-hidden="true"
+                />
+              </>}
+            </div>
+          )}
+
+          {renderField({ id: 'mother-edd', label: "Expected Delivery Date (EDD)", name: 'eddDate', type: 'date', nativeDate: true })}
+          </div>
+
           <div className="form-row-3 full-width">
           {renderField({ id: 'prenatal-reg-date', label: 'Date of Prenatal Registration', name: 'prenatalRegDate', type: 'date', nativeDate: true })}
           {renderSelect({ id: 'prenatal-trimester', label: 'Trimester at Registration', name: 'trimester', options: ['1st Trimester','2nd Trimester','3rd Trimester'] })}

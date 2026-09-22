@@ -142,12 +142,6 @@ export default function CreateMotherPage({
       setSubmitError('Please complete the required mother information before saving.');
       return;
     }
-    if (!documentFiles.birthCertificate || !documentFiles.consent) {
-      setSubmitError("Mother's Birth Certificate and Program Consent Form are required.");
-      setCreateActiveTab('general');
-      return;
-    }
-
     const initialCheckups = getInitialCheckups(
       communityForm.trimester,
       communityForm.prenatalBp,
@@ -235,8 +229,9 @@ export default function CreateMotherPage({
     try {
       const { mother } = await apiCreateMother(payload);
       const createdMotherId = mother?.id || mother?.motherId || mother?.mother_id;
-      if (!createdMotherId) throw new Error('Mother was created but no record ID was returned for document upload.');
-      await apiUploadMotherDocuments(createdMotherId, documentFiles);
+      if (createdMotherId && (documentFiles.birthCertificate || documentFiles.consent)) {
+        await apiUploadMotherDocuments(createdMotherId, documentFiles);
+      }
       const newCommunity = {
       id: `M-${Date.now()}`,
       name: fullName,

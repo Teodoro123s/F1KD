@@ -21,9 +21,11 @@ const REPORT_FIELDS = [
   ['weightForAge', 'Weight-for-Age (kg)', 'Growth & Monitoring'],
   ['heightForAge', 'Length-for-Age (cm)', 'Growth & Monitoring'],
   ['bmiForAge', 'BMI-for-Age', 'Growth & Monitoring'],
+  ['bmiInterpretation', 'BMI Interpretation', 'Growth & Monitoring'],
   ['initialWeight', 'Initial Weight (kg)', 'Profile'],
   ['initialHeight', 'Initial Height (cm)', 'Profile'],
   ['initialBmi', 'Initial BMI', 'Profile'],
+  ['philhealthMember', 'PhilHealth Member', 'Whether the beneficiary profile is registered as a PhilHealth member.'],
   ['activitiesCompleted', 'Activities Completed', 'Monitoring'],
   ['totalActivities', 'Total Activities', 'Monitoring'],
   ['progress', 'Progress %', 'Monitoring'],
@@ -31,7 +33,7 @@ const REPORT_FIELDS = [
   ['nextCheckupDate', 'Next Check-up', 'Monitoring'],
   ['measurementDate', 'Measurement Date', 'Monitoring'],
 ];
-const DEFAULT_VISIBLE_FIELDS = ['school', 'group', 'batch', 'mother', 'child', 'pediatricAgeWeeks', 'weightForAge', 'heightForAge', 'bmiForAge', 'activitiesCompleted', 'totalActivities', 'progress'];
+const DEFAULT_VISIBLE_FIELDS = ['school', 'group', 'batch', 'mother', 'child', 'pediatricAgeWeeks', 'weightForAge', 'heightForAge', 'bmiForAge', 'bmiInterpretation', 'activitiesCompleted', 'totalActivities', 'progress'];
 const GROWTH_METRICS = [
   ['weightForAge', 'Weight-for-Age (kg)', 'Use to screen for underweight by monitoring week.'],
   ['heightForAge', 'Length-for-Age (cm)', 'Use to screen for stunting by monitoring week.'],
@@ -43,6 +45,7 @@ const PROFILE_METRICS = [
   ['initialWeight', 'Initial Weight (kg)', 'Birth weight for children or prenatal baseline weight for mothers.'],
   ['initialHeight', 'Initial Height (cm)', 'Birth length for children or prenatal baseline height for mothers.'],
   ['initialBmi', 'Initial BMI', 'Baseline BMI recorded or calculated from the profile measurements.'],
+  ['philhealthMember', 'PhilHealth Member', 'Whether the beneficiary profile is registered as a PhilHealth member.'],
 ];
 const PROGRAM_METRICS = [
   ['program', 'Program', 'Program assigned to the beneficiary.'],
@@ -61,6 +64,14 @@ const REPORT_FOCUS_OPTIONS = [
   ['group-school', 'Group Report', 'school'],
 ];
 const csvValue = (value) => `"${String(value ?? '').replaceAll('"', '""')}"`;
+const getBmiInterpretation = (value) => {
+  const bmi = Number(value);
+  if (!Number.isFinite(bmi)) return '';
+  if (bmi < 18.5) return 'Underweight screening range';
+  if (bmi < 25) return 'Normal screening range';
+  if (bmi < 30) return 'Overweight screening range';
+  return 'Obese screening range';
+};
 const formatCellValue = (field, value) => {
   if (value === null || value === undefined || value === '') return '—';
   if (['dateOfBirth', 'lastActivityDate', 'nextCheckupDate', 'measurementDate'].includes(field)) {
@@ -131,6 +142,7 @@ const aggregateGrowthRows = (rows, focus) => {
       weightForAge: averageNumeric(groupRows.map((row) => row.weightForAge)),
       heightForAge: averageNumeric(groupRows.map((row) => row.heightForAge)),
       bmiForAge: averageNumeric(groupRows.map((row) => row.bmiForAge)),
+      bmiInterpretation: getBmiInterpretation(averageNumeric(groupRows.map((row) => row.bmiForAge))),
       growthSeries,
     };
   });
@@ -285,7 +297,7 @@ export default function ProgressReport() {
   const [reportCategory, setReportCategory] = useState('monitor');
   const [beneficiaryType, setBeneficiaryType] = useState('child');
   const [growthMetrics, setGrowthMetrics] = useState(['weightForAge']);
-  const [profileMetrics, setProfileMetrics] = useState(['age', 'initialWeight', 'initialHeight']);
+  const [profileMetrics, setProfileMetrics] = useState(['age', 'initialWeight', 'initialHeight', 'philhealthMember']);
   const [programMetrics, setProgramMetrics] = useState(['program', 'activitiesCompleted', 'totalActivities', 'progress', 'lastActivityDate']);
   const [resultsView, setResultsView] = useState('graph');
   const [displayWeeks, setDisplayWeeks] = useState('all');
@@ -437,7 +449,7 @@ export default function ProgressReport() {
     setFinalizedSnapshot(null);
     setVisibleFields(DEFAULT_VISIBLE_FIELDS);
     setGrowthMetrics(['weightForAge']);
-    setProfileMetrics(['age', 'initialWeight', 'initialHeight']);
+    setProfileMetrics(['age', 'initialWeight', 'initialHeight', 'philhealthMember']);
     setProgramMetrics(['program', 'activitiesCompleted', 'totalActivities', 'progress', 'lastActivityDate']);
     setReportFocus('beneficiary-batch');
     setReportCategory('monitor');

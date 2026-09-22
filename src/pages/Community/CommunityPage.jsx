@@ -170,20 +170,13 @@ export default function CommunityPage() {
   const selectedGroupBatches = useMemo(() => {
     if (!selectedGroup) return [];
 
-    const groupBatchIds = mothers
-      .filter((mother) => mother.group === selectedGroup.name && mother.batchId)
-      .map((mother) => String(mother.batchId));
-
     return batches
       .filter((batch) => {
         const assignedGroupIds = String(batch.groupIds || '')
           .split(',')
           .map((value) => value.trim())
           .filter(Boolean);
-        const hasExplicitGroup = assignedGroupIds.length > 0;
-        return assignedGroupIds.includes(String(selectedGroup.id))
-          || groupBatchIds.includes(String(batch.id))
-          || (!hasExplicitGroup && batch.community === selectedGroup.community);
+        return assignedGroupIds.includes(String(selectedGroup.id));
       })
       .filter((batch) => {
         if (!query.trim()) return true;
@@ -439,6 +432,7 @@ export default function CommunityPage() {
     setBatchForm({
       ...defaultBatchForm,
       community: selectedSchool?.name || selectedGroup?.community || communities[0]?.name || '',
+      groupId: selectedGroup?.id || groupId || '',
     });
     setShowModal('createBatch');
   };

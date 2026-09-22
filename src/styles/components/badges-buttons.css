@@ -40,6 +40,29 @@
   color: #fff;
 }
 
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0.7rem 1.1rem;
+  border: 1px solid #b91c1c;
+  border-radius: 10px;
+  background: #b91c1c;
+  color: #fff;
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.btn-danger:hover {
+  background: #991b1b;
+  border-color: #991b1b;
+  box-shadow: 0 4px 6px rgba(127, 29, 29, 0.15);
+}
+
 .btn-primary:hover {
   background: var(--burgundy-hover);
   box-shadow: 0 4px 6px rgba(122, 12, 30, 0.15);
@@ -47,6 +70,7 @@
 
 .btn-primary:focus-visible,
 .btn-secondary:focus-visible,
+.btn-danger:focus-visible,
 .btn-create-action:focus-visible,
 .form-input:focus-visible,
 .form-select:focus-visible,
@@ -57,10 +81,32 @@ textarea.form-input:focus-visible {
 
 .btn-primary:disabled,
 .btn-secondary:disabled,
+.btn-danger:disabled,
 .btn-create-action:disabled {
   cursor: not-allowed;
   opacity: 0.6;
   box-shadow: none;
+}
+
+.mother-delete-modal {
+  padding: 1.5rem;
+}
+
+.mother-delete-modal h2 {
+  margin: 0;
+  color: #7f1d1d;
+}
+
+.mother-delete-modal p {
+  color: #475569;
+  line-height: 1.6;
+}
+
+.mother-delete-modal .modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
 }
 
 /* Shared action styling for every create control. */

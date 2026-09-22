@@ -1,7 +1,7 @@
 ﻿import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDateForDisplay } from '../../../utils/dateFormat';
-import { apiGetMother, apiUploadMotherDocuments } from '../../../api/mothers';
+import { apiDeleteMother, apiGetMother, apiUploadMotherDocuments } from '../../../api/mothers';
 import { resolveAssetUrl } from '../../../api/authHeader';
 import { useAuth } from '../../../auth/AuthProvider';
 import { can } from '../../../utils/permissions';
@@ -113,6 +113,9 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
   const [profileTab, setProfileTab] = useState('general');
   const [documentEditState, setDocumentEditState] = useState({});
   const [previewDocument, setPreviewDocument] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   useEffect(() => {
     if (!selectedMother) return undefined;
@@ -240,9 +243,24 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
     }
   };
 
+  const deleteMother = async () => {
+    if (deleting) return;
+    setDeleting(true);
+    setDeleteError('');
+    try {
+      await apiDeleteMother(motherId);
+      setShowDeleteModal(false);
+      onClose?.();
+    } catch (error) {
+      setDeleteError(error.message || 'Unable to delete mother and children.');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const documentContent = (
     <section className="create-mother-category mother-detail-inline-documents">
-      <h4 className="form-section-title">I.C REQUIRED DOCUMENTS</h4>
+      <h4 className="form-section-title">I.C DOCUMENTS</h4>
       <div className="document-upload-grid">
         {[
           ['birthCertificate', "Mother's Birth Certificate", motherRecord.birthCertificateDocumentName, motherRecord.birthCertificateDocumentPath],
@@ -284,6 +302,7 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
         actions={(
           <div className="mother-detail-actions">
             {canManage && <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/mother/${motherId}/edit`, { state: { mother: selectedMother } })}>Edit</button>}
+            {canManage && <button type="button" className="btn-danger" onClick={() => { setDeleteError(''); setShowDeleteModal(true); }}>Delete</button>}
             <button type="button" className="btn-secondary" onClick={() => navigate(-1)}>Back</button>
           </div>
         )}
@@ -298,8 +317,26 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
               navigate(`/beneficiary/mother/${motherId}/child`, { state: { mother: selectedMother, children, returnTo: `/beneficiary/mother/${motherId}` } });
             }}>View Child</button>
             <button type="button" className="btn-primary" onClick={() => navigate('/monitoring', { state: { mother, returnTo: `/beneficiary/mother/${motherId}` } })}>Monitor</button>
+            {canManage && <button type="button" className="btn-danger" onClick={() => { setDeleteError(''); setShowDeleteModal(true); }}>Delete</button>}
           </div>
         </section>
+      )}
+
+      {showDeleteModal && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => !deleting && setShowDeleteModal(false)}>
+          <div className="modal mother-delete-modal" role="dialog" aria-modal="true" aria-labelledby="delete-mother-title" onMouseDown={(event) => event.stopPropagation()}>
+            <h2 id="delete-mother-title">Delete mother record?</h2>
+            <p>
+              This permanently deletes <strong>{fullName}</strong> and all linked child records and monitoring data.
+              {children.length > 0 && ` ${children.length} child record${children.length === 1 ? '' : 's'} will also be deleted.`}
+            </p>
+            {deleteError && <p className="form-error" role="alert">{deleteError}</p>}
+            <div className="modal-actions">
+              <button type="button" className="btn-secondary" onClick={() => setShowDeleteModal(false)} disabled={deleting}>Cancel</button>
+              <button type="button" className="btn-danger" onClick={deleteMother} disabled={deleting}>{deleting ? 'Deleting...' : 'Delete permanently'}</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {!overviewOnly && (activeTab === 'children' ? (

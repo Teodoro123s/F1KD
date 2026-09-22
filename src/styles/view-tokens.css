@@ -280,6 +280,7 @@
 .view-content .community-page .table-card .table-overflow {
   border: 0;
   border-radius: 0;
+  overflow: visible;
 }
 
 .view-content .table-overflow {

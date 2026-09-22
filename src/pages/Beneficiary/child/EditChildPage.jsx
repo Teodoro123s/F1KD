@@ -5,6 +5,7 @@ import { apiGetChild, apiUpdateChild } from '../../../api/children';
 import { getSummary } from '../../Community/communityService';
 import { formatDateForInput } from '../../../utils/dateFormat';
 import { useMothers } from '../../../context/MothersContext';
+import PageHeader from '../../../components/ui/PageHeader';
 
 const normalizeChild = (child) => ({
   ...child,

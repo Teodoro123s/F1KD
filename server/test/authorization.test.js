@@ -64,3 +64,30 @@ test('authorizeOperational attaches both school and group scope for assigned par
   assert.equal(req.groupId, 15);
   assert.equal(res.code, undefined);
 });
+
+test('authorizeOperational keeps community coordinators at school scope', () => {
+  let called = false;
+  const req = {
+    method: 'GET',
+    user: { role: 'Community Organizer', school_id: 7, group_id: 15 },
+  };
+  const res = {
+    status(code) {
+      this.code = code;
+      return this;
+    },
+    json(payload) {
+      this.payload = payload;
+      return this;
+    },
+  };
+
+  authorizeOperational(req, res, () => {
+    called = true;
+  });
+
+  assert.equal(called, true);
+  assert.equal(req.schoolId, 7);
+  assert.equal(req.groupId, null);
+  assert.equal(res.code, undefined);
+});

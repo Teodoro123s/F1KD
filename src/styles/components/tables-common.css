@@ -74,6 +74,11 @@
   bottom: calc(100% - 0.35rem);
 }
 
+.data-table tbody tr:nth-last-child(2) .actions-dropdown {
+  top: auto;
+  bottom: calc(100% - 0.35rem);
+}
+
 .data-table .actions-dropdown-item {
   display: block;
   width: 100%;

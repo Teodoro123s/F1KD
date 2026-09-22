@@ -324,6 +324,15 @@ router.post('/batches', async (req, res) => {
       return res.status(400).json({ error: 'Community is required' });
     }
 
+    const resolvedGroupId = groupId ? Number(groupId) : null;
+    if (resolvedGroupId) {
+      const [groupRows] = await pool.query(
+        'SELECT id FROM groups WHERE id = ? AND community_id = ? LIMIT 1',
+        [resolvedGroupId, communityId],
+      );
+      if (!groupRows.length) return res.status(400).json({ error: 'Selected group does not belong to this community' });
+    }
+
     const batchCode = await nextCode(pool, 'batches', 'batch_code', 'BAT');
     const [result] = await pool.query(
       'INSERT INTO batches (batch_code, community_id, name, records, progress, status) VALUES (?, ?, ?, ?, ?, ?)',
@@ -336,8 +345,14 @@ router.post('/batches', async (req, res) => {
     );
 
     const created = rows[0];
+    if (resolvedGroupId) {
+      await pool.query(
+        'INSERT INTO group_batch (group_id, batch_id) VALUES (?, ?)',
+        [resolvedGroupId, result.insertId],
+      );
+    }
     console.info('[Community API] Created batch', created);
-    res.status(201).json({ batch: { ...created, id: created.code || created.id, code: created.code || created.id } });
+    res.status(201).json({ batch: { ...created, id: created.code || created.id, code: created.code || created.id, groupId: resolvedGroupId } });
   } catch (error) {
     console.error('[Community API] create batch error:', error.message);
     res.status(500).json({ error: 'db error' });

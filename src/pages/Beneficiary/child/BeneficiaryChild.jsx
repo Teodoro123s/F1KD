@@ -258,13 +258,6 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
             options: [{ value: 'Vaginal', label: 'Vaginal' }, { value: 'Cesarean', label: 'Cesarean' }],
           })}
           {renderSelect({
-            id: 'child-exclusive-breastfeeding',
-            label: 'Exclusive Breastfeeding',
-            name: 'exclusiveBreastfeeding',
-            options: ['Yes', 'No', 'Unknown'],
-            placeholder: 'Select option',
-          })}
-          {renderSelect({
             id: 'child-expanded-newborn-screening',
             label: 'Expanded Newborn Screening',
             name: 'expandedNewbornScreening',
@@ -276,7 +269,6 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
         <div className="form-row-4 full-width">
           {renderField({ id: 'child-birth-attendant', label: 'Birth Attendant', name: 'birthAttendant', placeholder: 'Midwife / Doctor' })}
           {renderField({ id: 'child-apgar', label: 'Apgar Score', name: 'apgarScore', placeholder: 'e.g. 8/10' })}
-          {renderField({ id: 'child-feeding', label: 'Feeding Type', name: 'feedingType', placeholder: 'Exclusive Breastfeeding' })}
         </div>
 
         {renderTextarea({ id: 'child-nutrition-notes', label: 'Nutritional Notes', name: 'nutritionNotes', rows: 3, placeholder: 'Nutrition or feeding notes...' })}

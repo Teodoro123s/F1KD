@@ -9,6 +9,15 @@ const numberOrNull = (value) => {
   return Number.isInteger(number) ? number : null;
 };
 
+const getBmiInterpretation = (value) => {
+  const bmi = Number(value);
+  if (!Number.isFinite(bmi)) return '';
+  if (bmi < 18.5) return 'Underweight screening range';
+  if (bmi < 25) return 'Normal screening range';
+  if (bmi < 30) return 'Overweight screening range';
+  return 'Obese screening range';
+};
+
 const parseParams = (query, scope = {}) => ({
   schoolId: numberOrNull(scope.schoolId) ?? numberOrNull(query.schoolId),
   groupId: numberOrNull(scope.groupId) ?? numberOrNull(query.groupId),
@@ -93,8 +102,8 @@ router.get('/', async (req, res) => {
     const statusExpression = params.granularity === 'mother' ? 'm.status' : 'c.health_status';
     const dobExpression = params.granularity === 'mother' ? 'm.dob' : 'c.birth_date';
     const groupDetails = params.granularity === 'mother'
-      ? 'm.dob, m.prenatal_weight, m.prenatal_height, m.status, m.contact_number, m.is_high_risk, m.program_type'
-      : 'c.birth_date, c.birth_weight, c.birth_length, c.gender, c.health_status, m.contact_number, m.is_high_risk, m.program_type';
+      ? 'm.dob, m.prenatal_weight, m.prenatal_height, m.philhealth_member, m.status, m.contact_number, m.is_high_risk, m.program_type'
+      : 'c.birth_date, c.birth_weight, c.birth_length, m.philhealth_member, c.gender, c.health_status, m.contact_number, m.is_high_risk, m.program_type';
     const query = `
       SELECT
         school.id AS school_id, school.name AS school_name,
@@ -109,6 +118,7 @@ router.get('/', async (req, res) => {
         ${genderExpression} AS gender,
         ${statusExpression} AS status,
         ${dobExpression} AS date_of_birth,
+        m.philhealth_member AS philhealth_member,
         ${params.granularity === 'mother' ? 'm.prenatal_weight' : 'c.birth_weight'} AS initial_weight,
         ${params.granularity === 'mother' ? 'm.prenatal_height' : 'c.birth_length'} AS initial_height,
         m.contact_number AS contact_number,
@@ -143,6 +153,7 @@ router.get('/', async (req, res) => {
       gender: row.gender || '',
       status: row.status || '',
       dateOfBirth: row.date_of_birth || '',
+      philhealthMember: Number(row.philhealth_member) === 1 ? 'Yes' : 'No',
       initialWeight: row.initial_weight === null || row.initial_weight === undefined ? '' : Number(row.initial_weight),
       initialHeight: row.initial_height === null || row.initial_height === undefined ? '' : Number(row.initial_height),
       initialBmi: Number.isFinite(Number(row.initial_weight)) && Number(row.initial_weight) > 0 && Number.isFinite(Number(row.initial_height)) && Number(row.initial_height) > 0
@@ -158,6 +169,7 @@ router.get('/', async (req, res) => {
       weightForAge: row.weight_for_age === null || row.weight_for_age === undefined ? '' : Number(row.weight_for_age),
       heightForAge: row.height_for_age === null || row.height_for_age === undefined ? '' : Number(row.height_for_age),
       bmiForAge: row.bmi_for_age === null || row.bmi_for_age === undefined ? '' : Number(row.bmi_for_age),
+      bmiInterpretation: getBmiInterpretation(row.bmi_for_age),
       measurementDate: row.measurement_date || '',
       growthSeries: [],
       activitiesCompleted: Number(row.activities_completed || 0),

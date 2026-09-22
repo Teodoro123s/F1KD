@@ -25,14 +25,30 @@ function getTodayDate() {
   return `${today.getFullYear()}-${month}-${day}`;
 }
 
+function calculateBmi(weight, height) {
+  const numericWeight = Number(weight);
+  const numericHeight = Number(height);
+  if (!Number.isFinite(numericWeight) || !Number.isFinite(numericHeight) || numericWeight <= 0 || numericHeight <= 0) return '';
+  return (numericWeight / ((numericHeight / 100) ** 2)).toFixed(1);
+}
+
+function interpretBmi(bmi) {
+  const numericBmi = Number(bmi);
+  if (!Number.isFinite(numericBmi)) return 'Enter weight and height';
+  if (numericBmi < 18.5) return 'Underweight screening range';
+  if (numericBmi < 25) return 'Normal screening range';
+  if (numericBmi < 30) return 'Overweight screening range';
+  return 'Obese screening range';
+}
+
 export default function ChildMonitor({ child, onSave, onCancel, completedWeeks = [] }) {
   const [week, setWeek] = useState(1);
   const [form, setForm] = useState(() => ({
     checkupDate: getTodayDate(),
     nextCheckupDate: '',
+    feedingType: child?.feedingType || child?.feeding_type || '',
     weight: '',
     height: '',
-    headCircumference: '',
     developmentalStatus: 'Normal',
     serviceProvider: '',
     remarks: '',
@@ -50,9 +66,9 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
       setForm({
         checkupDate: formatDate(previousCheckup?.next_checkup_date ?? previousCheckup?.nextCheckupDate) || getTodayDate(),
         nextCheckupDate: '',
+        feedingType: child?.feedingType || child?.feeding_type || '',
         weight: '',
         height: '',
-        headCircumference: '',
         developmentalStatus: 'Normal',
         serviceProvider: '',
         remarks: '',
@@ -62,9 +78,9 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
     setForm({
       checkupDate: formatDate(savedCheckup.visit_date ?? savedCheckup.checkupDate),
       nextCheckupDate: formatDate(savedCheckup.next_checkup_date ?? savedCheckup.nextCheckupDate),
+      feedingType: child?.feedingType || child?.feeding_type || '',
       weight: savedCheckup.weight ?? '',
       height: savedCheckup.height ?? '',
-      headCircumference: savedCheckup.head_circumference ?? savedCheckup.headCircumference ?? '',
       developmentalStatus: savedCheckup.developmental_status ?? savedCheckup.developmentalStatus ?? 'Normal',
       serviceProvider: savedCheckup.service_provider ?? savedCheckup.serviceProvider ?? '',
       remarks: savedCheckup.notes ?? savedCheckup.remarks ?? '',
@@ -72,6 +88,8 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
   }, [child, week]);
 
   const goToWeek = (nextWeek) => setWeek(Math.max(1, Math.min(TOTAL_WEEKS, nextWeek)));
+  const bmi = calculateBmi(form.weight, form.height);
+  const bmiInterpretation = interpretBmi(bmi);
 
   const handleSubmit = (event) => {
     event.preventDefault();
@@ -128,6 +146,14 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
               <input id="child-next-checkup-date" type="date" className="checkup-field-input" value={form.nextCheckupDate} onChange={update('nextCheckupDate')} />
             </div>
             <div className="form-group">
+              <label className="checkup-field-label" htmlFor="child-monitor-feeding-type">Feeding Type</label>
+              <select id="child-monitor-feeding-type" className="checkup-field-input" value={form.feedingType} onChange={update('feedingType')}>
+                <option value="">Select feeding type</option>
+                <option value="Breastfeed">Breastfeed</option>
+                <option value="Bottle feed">Bottle feed</option>
+              </select>
+            </div>
+            <div className="form-group">
               <label className="checkup-field-label" htmlFor="child-monitor-weight">Weight (kg)</label>
               <input id="child-monitor-weight" type="number" step="0.1" className="checkup-field-input" value={form.weight} onChange={update('weight')} required />
             </div>
@@ -136,8 +162,12 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
               <input id="child-monitor-height" type="number" step="0.1" className="checkup-field-input" value={form.height} onChange={update('height')} required />
             </div>
             <div className="form-group">
-              <label className="checkup-field-label" htmlFor="child-head-circumference">Head Circumference (cm)</label>
-              <input id="child-head-circumference" type="number" step="0.1" className="checkup-field-input" value={form.headCircumference} onChange={update('headCircumference')} />
+              <label className="checkup-field-label" htmlFor="child-monitor-bmi">BMI</label>
+              <input id="child-monitor-bmi" type="text" className="checkup-field-input" value={bmi} readOnly placeholder="Auto-calculated" />
+            </div>
+            <div className="form-group">
+              <label className="checkup-field-label" htmlFor="child-monitor-bmi-interpretation">BMI Interpretation</label>
+              <input id="child-monitor-bmi-interpretation" type="text" className="checkup-field-input" value={bmiInterpretation} readOnly />
             </div>
             <div className="form-group">
               <label className="checkup-field-label" htmlFor="child-developmental-status">Developmental Screening</label>

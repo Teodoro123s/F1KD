@@ -68,6 +68,8 @@ function mapMother(row) {
     emergencyContact: row.emergency_contact || '',
     emergencyRelationship: row.emergency_relationship || '',
     spouseName: row.spouse_name || '',
+    philhealthMember: row.philhealth_member === true || row.philhealth_member === 1 || row.philhealth_member === '1',
+    philhealthNumber: row.philhealth_number || '',
     birthCertificateDocumentName: row.birth_certificate_document_name || '',
     birthCertificateDocumentPath: row.birth_certificate_document_path || '',
     consentDocumentName: row.consent_document_name || '',
@@ -534,10 +536,12 @@ router.put('/:id', async (req, res) => {
       suffix: firstNonEmpty(b.suffix, current.suffix),
       dob: b.dob || b.birthDate || current.dob || null,
       contact_number: firstNonEmpty(b.contactNumber, b.contact_number, current.contact_number),
-      community: firstNonEmpty(b.community, current.community),
-      area: firstNonEmpty(b.area, current.area),
       mother_external_id: firstNonEmpty(b.motherId, b.mother_id, b.motherExternalId, b.mother_external_id, current.mother_external_id),
-      address: firstNonEmpty(b.address, current.address),
+      address: firstNonEmpty(
+        [b.province, b.city, b.barangay].filter(Boolean).join(', '),
+        b.address,
+        current.address,
+      ),
       group_id: req.groupId || b.groupId || b.group_id || current.group_id,
       batch_id: b.batchId ?? b.batch_id ?? current.batch_id,
       lmp_date: b.lmpDate || b.lmp_date || current.lmp_date || null,
@@ -562,6 +566,8 @@ router.put('/:id', async (req, res) => {
       emergency_contact: b.emergencyContact || b.emergency_contact || current.emergency_contact || null,
       emergency_relationship: b.emergencyRelationship || b.emergency_relationship || current.emergency_relationship || null,
       spouse_name: b.spouseName || b.spouse_name || current.spouse_name || null,
+      philhealth_member: b.philhealthMember ?? b.philhealth_member ?? current.philhealth_member ?? 0,
+      philhealth_number: b.philhealthNumber || b.philhealth_number || current.philhealth_number || null,
       medical_conditions: b.medicalConditions ? JSON.stringify(b.medicalConditions) : current.medical_conditions || null,
       other_medical_history: b.otherMedicalHistory || b.other_medical_history || current.other_medical_history || null,
     };
@@ -608,7 +614,7 @@ router.put('/:id', async (req, res) => {
     }
 
     const [rows] = await pool.query(
-      `SELECT m.*, g.group_name, b.name AS batch_name
+      `SELECT m.*, g.name AS group_name, b.name AS batch_name
        FROM mothers m
        LEFT JOIN groups g ON g.id = m.group_id
        LEFT JOIN batches b ON b.id = m.batch_id
@@ -623,13 +629,48 @@ router.put('/:id', async (req, res) => {
 });
 
 router.delete('/:id', async (req, res) => {
+  let connection;
   try {
     const { id } = req.params;
-    const [result] = await pool.query(`DELETE FROM mothers WHERE (id = ? OR mother_code = ?)${req.groupId ? ' AND group_id = ?' : req.schoolId ? ' AND community_id = ?' : ''}`, req.groupId ? [Number(id) || null, id, req.groupId] : req.schoolId ? [Number(id) || null, id, req.schoolId] : [Number(id) || null, id]);
-    res.json({ success: true, deleted: result.affectedRows > 0 });
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+    const scopeClause = req.groupId ? ' AND group_id = ?' : req.schoolId ? ' AND community_id = ?' : '';
+    const scopeValues = req.groupId ? [req.groupId] : req.schoolId ? [req.schoolId] : [];
+    const [motherRows] = await connection.query(
+      `SELECT id FROM mothers WHERE (id = ? OR mother_code = ?)${scopeClause} LIMIT 1`,
+      [Number(id) || null, id, ...scopeValues],
+    );
+    if (!motherRows.length) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Mother not found' });
+    }
+
+    const motherDbId = motherRows[0].id;
+    const [childRows] = await connection.query('SELECT id FROM children WHERE mother_id = ?', [motherDbId]);
+    const childIds = childRows.map((child) => child.id);
+    if (childIds.length) {
+      const placeholders = childIds.map(() => '?').join(', ');
+      await connection.query('DELETE FROM monitoring_logs WHERE beneficiary_type = ? AND beneficiary_id IN (?)', ['child', childIds]);
+      await connection.query(`DELETE FROM child_checkups WHERE child_id IN (${placeholders})`, childIds);
+      await connection.query(`DELETE FROM child_medical_conditions WHERE child_id IN (${placeholders})`, childIds);
+      await connection.query(`DELETE FROM child_vaccinations WHERE child_id IN (${placeholders})`, childIds);
+      await connection.query(`DELETE FROM children WHERE id IN (${placeholders})`, childIds);
+    }
+    await connection.query('DELETE FROM monitoring_logs WHERE beneficiary_type = ? AND beneficiary_id = ?', ['mother', String(motherDbId)]);
+    await connection.query('DELETE FROM mother_checkups WHERE mother_id = ?', [motherDbId]);
+    await connection.query('DELETE FROM mother_ob_history WHERE mother_id = ?', [motherDbId]);
+    await connection.query('DELETE FROM mother_medical_conditions WHERE mother_id = ?', [motherDbId]);
+    await connection.query('DELETE FROM mother_dental_records WHERE mother_id = ?', [motherDbId]);
+    await connection.query('DELETE FROM mother_vaccinations WHERE mother_id = ?', [motherDbId]);
+    const [result] = await connection.query('DELETE FROM mothers WHERE id = ?', [motherDbId]);
+    await connection.commit();
+    res.json({ success: true, deleted: result.affectedRows > 0, childrenDeleted: childIds.length });
   } catch (error) {
+    if (connection) await connection.rollback();
     console.error('[Mothers API] DELETE /:id error:', error.message);
     res.status(500).json({ error: 'db error' });
+  } finally {
+    connection?.release();
   }
 });
 

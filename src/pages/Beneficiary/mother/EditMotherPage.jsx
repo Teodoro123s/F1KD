@@ -52,14 +52,14 @@ export default function EditMotherPage() {
   }, [initialMother]);
 
   useEffect(() => {
-    if (initialMother || !id) return undefined;
+    if (!id) return undefined;
     let active = true;
     apiGetMother(id)
       .then((response) => {
         if (active && response?.mother) setForm(normalizeMotherDates(response.mother));
       })
       .catch((loadError) => {
-        if (active) setError(loadError.message || 'Unable to load mother');
+        if (active && !initialMother) setError(loadError.message || 'Unable to load mother');
       });
     return () => { active = false; };
   }, [id, initialMother]);
