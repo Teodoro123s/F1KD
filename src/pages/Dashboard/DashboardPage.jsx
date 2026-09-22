@@ -6,7 +6,7 @@ import { getSummary } from '../Community/communityService';
 import { apiGetChildren } from '../../api/children';
 import { apiGetPrograms } from '../../api/programs';
 import { apiGetUsers } from '../../api/users';
-import { can, ROLES } from '../../utils/permissions';
+import { can, isHealthWorkerRole, normalizeRole, ROLES } from '../../utils/permissions';
 
 function getGreeting(name) {
   const hour = new Date().getHours();
@@ -37,6 +37,22 @@ function formatDayAndMonth(dateString) {
 export default function DashboardPage() {
   const { currentUser } = useAuth();
   const { mothers: contextMothers, loading: mothersLoading } = useMothers();
+  const normalizedRole = normalizeRole(currentUser?.role);
+  const isSuperAdmin = normalizedRole === ROLES.SUPER_ADMIN;
+  const isAdmin = normalizedRole === ROLES.ADMIN;
+  const isHealthWorker = isHealthWorkerRole(currentUser?.role);
+  const isPartner = normalizedRole === ROLES.PARTNER;
+  const moduleAccess = useMemo(() => ({
+    community: true,
+    beneficiary: true,
+    monitoring: true,
+    programs: true,
+    reports: true,
+    users: isSuperAdmin,
+    canCreateBeneficiary: !isHealthWorker && can(currentUser?.role, 'partner-resources', 'create'),
+    canManageCommunity: !isHealthWorker && (can(currentUser?.role, 'admin-resources', 'create') || can(currentUser?.role, 'partner-resources', 'create')),
+    canManagePrograms: !isHealthWorker && (isSuperAdmin || isAdmin || normalizedRole === ROLES.PARTNER),
+  }), [currentUser?.role, isAdmin, isHealthWorker, isPartner, isSuperAdmin, normalizedRole]);
 
   const [communitySummary, setCommunitySummary] = useState({
     communities: [],
@@ -60,7 +76,7 @@ export default function DashboardPage() {
           getSummary(),
           apiGetChildren(),
           apiGetPrograms(),
-          apiGetUsers(1, 100),
+          moduleAccess.users ? apiGetUsers(1, 100) : Promise.resolve(null),
         ]);
 
         if (!active) return;
@@ -106,7 +122,7 @@ export default function DashboardPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [moduleAccess.users]);
 
   // Prefer context mothers if populated, fallback to community summary mothers
   const allMothers = useMemo(() => {
@@ -265,7 +281,6 @@ export default function DashboardPage() {
     return items.slice(0, 4);
   }, [filteredMothers, filteredChildren]);
 
-  const isSuperAdmin = currentUser?.role === 'super_admin' || currentUser?.role === 'Superadmin';
   const assignedSchoolName = useMemo(() => {
     if (!currentUser?.school_id) return null;
     const match = communitySummary.communities?.find((c) => String(c.id) === String(currentUser.school_id));
@@ -322,6 +337,13 @@ export default function DashboardPage() {
     };
   }, [users, communitySummary.communities]);
 
+  const roleLabel = isSuperAdmin ? 'Superadmin' : isAdmin ? 'Administrator' : isHealthWorker ? 'Health Worker' : isPartner ? 'Community Partner' : 'Staff';
+  const assignedGroupName = useMemo(() => {
+    const assignedGroupId = currentUser?.group_id ?? currentUser?.groupId;
+    if (!assignedGroupId) return null;
+    return communitySummary.groups?.find((group) => String(group.id) === String(assignedGroupId))?.name || `Group #${assignedGroupId}`;
+  }, [communitySummary.groups, currentUser]);
+
   const systemLiveStats = useMemo(() => {
     const schoolCount = communitySummary.communities?.length || 0;
     const pendingPrograms = programs.filter((program) => {
@@ -347,14 +369,19 @@ export default function DashboardPage() {
           <div>
             <h2>
               {getGreeting(currentUser?.name)}
-              {isSuperAdmin && <span className="dashboard-user-badge superadmin">Superadmin</span>}
+              <span className={`dashboard-user-badge ${isSuperAdmin ? 'superadmin' : ''}`}>{roleLabel}</span>
               {assignedSchoolName && (
                 <span className="dashboard-school-pill">
                   📍 {assignedSchoolName}
                 </span>
               )}
+              {assignedGroupName && (
+                <span className="dashboard-group-pill">
+                  👥 {assignedGroupName}
+                </span>
+              )}
             </h2>
-            <p>First 1,000 Days Maternal &amp; Child Health Monitoring System</p>
+            <p>{isSuperAdmin ? 'Municipal operations overview across all modules' : `${roleLabel} workspace for assigned operations`}</p>
           </div>
         </div>
 
@@ -383,6 +410,20 @@ export default function DashboardPage() {
           )}
         </div>
       </header>
+
+      <section className="dashboard-module-strip" aria-label="Available dashboard modules">
+        <span className="dashboard-module-strip-label">Workspace</span>
+        {[
+          ['beneficiary', 'Beneficiaries', '/beneficiary', '👥'],
+          ['monitoring', 'Monitoring', '/monitoring', '🩺'],
+          ['community', 'Community', '/community', '🏫'],
+          ['programs', 'Programs', '/program', '🍱'],
+          ['reports', 'Reports', '/progress-report', '📊'],
+          ...(moduleAccess.users ? [['users', 'Users', '/user-management', '⚙️']] : []),
+        ].filter(([key]) => moduleAccess[key]).map(([, label, path, icon]) => (
+          <Link key={path} to={path} className="dashboard-module-link"><span aria-hidden="true">{icon}</span>{label}</Link>
+        ))}
+      </section>
 
       {/* 2. Cross-Module KPI Cards Grid */}
       <section className="dashboard-kpi-grid" aria-label="Key Performance Indicators">
@@ -499,7 +540,7 @@ export default function DashboardPage() {
           <div className="quick-action-grid">
             <Link to="/beneficiary" className="quick-action-tile accent">
               <div className="quick-action-tile-icon" aria-hidden="true">👥</div>
-              <span>Register Beneficiary</span>
+              <span>{moduleAccess.canCreateBeneficiary ? 'Register Beneficiary' : 'View Beneficiaries'}</span>
             </Link>
 
             <Link to="/monitoring" className="quick-action-tile">
@@ -509,7 +550,7 @@ export default function DashboardPage() {
 
             <Link to="/program" className="quick-action-tile highlight">
               <div className="quick-action-tile-icon" aria-hidden="true">🍱</div>
-              <span>Feeding Logs</span>
+              <span>{moduleAccess.canManagePrograms ? 'Manage Programs' : 'View Programs'}</span>
             </Link>
 
             <Link to="/progress-report" className="quick-action-tile">
@@ -519,7 +560,7 @@ export default function DashboardPage() {
 
             <Link to="/community" className="quick-action-tile">
               <div className="quick-action-tile-icon" aria-hidden="true">🏫</div>
-              <span>Schools &amp; Batches</span>
+              <span>{moduleAccess.canManageCommunity ? 'Manage Community' : 'View Assigned Group'}</span>
             </Link>
 
             {isSuperAdmin && (

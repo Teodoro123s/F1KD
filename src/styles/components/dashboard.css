@@ -85,6 +85,62 @@
   margin-left: 0.4rem;
 }
 
+.dashboard-group-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: #f4f1ff;
+  color: #5b4b9a;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.2rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid #e0d9ff;
+  margin-left: 0.4rem;
+}
+
+.dashboard-module-strip {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid #e2eaf2;
+  border-bottom: 1px solid #e2eaf2;
+}
+
+.dashboard-module-strip-label {
+  margin-right: 0.25rem;
+  color: #728499;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.dashboard-module-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 34px;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid #dfe7f1;
+  border-radius: 8px;
+  background: #fff;
+  color: #334155;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: border-color 150ms ease, background 150ms ease, color 150ms ease;
+}
+
+.dashboard-module-link:hover,
+.dashboard-module-link:focus-visible {
+  border-color: #7d1e2e;
+  background: #fff7f8;
+  color: #7d1e2e;
+}
+
 .dashboard-date-filter {
   display: inline-flex;
   align-items: center;
