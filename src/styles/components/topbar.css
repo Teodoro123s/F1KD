@@ -7,7 +7,7 @@
   justify-content: flex-end;
   padding: 0 1.25rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.18);
-  background: linear-gradient(135deg, #280905 0%, #740A03 100%);
+  background: linear-gradient(135deg, #063B00 0%, #FED24F 100%);
   backdrop-filter: blur(6px);
   width: 100%;
   margin: 0;
@@ -51,7 +51,7 @@
   justify-content: center;
   border-radius: 50%;
   background: #fff;
-  color: #7d1e2e;
+  color: #063B00;
   font-weight: 700;
   font-size: 0.9rem;
 }

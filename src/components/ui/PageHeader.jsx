@@ -1,11 +1,12 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 
-export default function PageHeader({ title, breadcrumbs = [], actions = null }) {
+export default function PageHeader({ title, subtitle = '', breadcrumbs = [], actions = null }) {
   return (
     <header className="view-page-header">
       <div className="view-page-header__content">
         <h1 className="view-page-title">{title}</h1>
+        {subtitle && <p className="view-page-subtitle">{subtitle}</p>}
         <nav className="view-breadcrumb" aria-label="Breadcrumb">
           {breadcrumbs.map((crumb, index) => (
             <React.Fragment key={`${crumb.label}-${index}`}>

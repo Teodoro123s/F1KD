@@ -14,8 +14,8 @@
   --view-bg-white: #FFFFFF;
   --view-bg-subtle: #F8FAFC;
   --view-shadow-modal: 0 20px 60px rgba(15, 23, 42, 0.15);
-  --view-primary: #7A0C1E;
-  --view-primary-hover: #5F0917;
+  --view-primary: #063B00;
+  --view-primary-hover: #283F24;
   --view-text: #0f172a;
   --view-text-muted: #64748B;
   --view-text-soft: #94A3B8;
@@ -83,6 +83,13 @@
   font-size: var(--view-text-h1);
   line-height: 28px;
   font-weight: 600;
+}
+
+.view-content .view-page-subtitle {
+  margin: 0.35rem 0 0;
+  color: var(--view-text-muted);
+  font-size: 0.95rem;
+  line-height: 1.4;
 }
 
 .view-content .community-breadcrumb,
@@ -360,9 +367,9 @@
 }
 
 .view-content .btn-secondary {
-  background: transparent;
-  border: 1px solid var(--view-border-color);
-  color: var(--view-text-muted);
+  background: #FED24F;
+  border: 1px solid #FED24F;
+  color: #063B00;
   padding: 0 16px;
 }
 
@@ -371,6 +378,16 @@
   border: 1px solid var(--view-border-color);
   color: var(--view-text);
   padding: 0 12px;
+}
+
+.view-content button svg,
+.view-btn svg,
+.btn-primary svg,
+.btn-secondary svg,
+.primary-btn svg,
+.ghost-btn svg {
+  color: currentColor;
+  stroke: currentColor;
 }
 
 .view-content .no-data {
@@ -694,13 +711,15 @@
 }
 
 .view-btn--secondary {
-  background: transparent;
-  border: 1px solid var(--view-border-color);
-  color: var(--view-text-muted);
+  background: #FED24F;
+  border: 1px solid #FED24F;
+  color: #063B00;
 }
 
 .view-btn--secondary:hover {
-  background: var(--view-bg-white);
+  background: #283F24;
+  border-color: #283F24;
+  color: #fff;
 }
 
 .view-stat-card {

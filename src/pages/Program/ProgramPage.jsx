@@ -190,8 +190,25 @@ export default function ProgramPage() {
     return filterPrograms(programs, query, activeTab).filter((program) => !typeFilter || program.type === typeFilter);
   }, [programs, query, activeTab, typeFilter]);
 
+  const programStats = useMemo(() => {
+    const normalized = programs.map((program) => String(program.status || '').trim().toLowerCase());
+    return [
+      { label: 'Total Programs', value: programs.length, detail: 'All programs', tone: 'total', icon: GroupsIcon },
+      { label: 'Active Programs', value: normalized.filter((status) => status === 'active').length, detail: 'Currently ongoing', tone: 'active', icon: BuildingIcon },
+      { label: 'Upcoming Programs', value: normalized.filter((status) => ['upcoming', 'scheduled', 'pending'].includes(status)).length, detail: 'Scheduled to start', tone: 'upcoming', icon: BatchesIcon },
+      { label: 'Completed Programs', value: normalized.filter((status) => ['ended', 'completed', 'complete'].includes(status)).length, detail: 'Successfully completed', tone: 'completed', icon: BatchesIcon },
+    ];
+  }, [programs]);
+
   const programTypes = useMemo(
-    () => [...new Set(programs.map((program) => String(program.type || '').trim()).filter(Boolean))].sort(),
+    () => [...new Set([
+      'Feeding',
+      'Milk Subsidy',
+      'Vitamin / Supplement',
+      'Third-party Support',
+      'Other',
+      ...programs.map((program) => String(program.type || '').trim()).filter(Boolean),
+    ])],
     [programs]
   );
 
@@ -458,7 +475,8 @@ export default function ProgramPage() {
   return (
     <div className="community-page program-page">
       <PageHeader
-        title={viewMode && selectedProgram ? selectedProgram.name : 'Program'}
+        title={viewMode && selectedProgram ? selectedProgram.name : 'Programs'}
+        subtitle={!viewMode ? 'View, manage and track all programs and activities.' : ''}
         breadcrumbs={[{ label: 'Program' }]}
         actions={
           canManagePrograms && <button
@@ -473,6 +491,21 @@ export default function ProgramPage() {
             </button>
         }
       />
+
+      {!viewMode && (
+        <section className="program-overview-grid" aria-label="Program summary">
+          {programStats.map(({ label, value, detail, tone, icon: Icon }) => (
+            <article className={`program-overview-card program-overview-card--${tone}`} key={label}>
+              <span className="program-overview-icon"><Icon /></span>
+              <div>
+                <strong>{value}</strong>
+                <h2>{label}</h2>
+                <p>{detail}</p>
+              </div>
+            </article>
+          ))}
+        </section>
+      )}
 
       {isLiveDataLoaded && (
         <div className="program-live-status" style={{ padding: "0 0 12px", color: "#475569", fontSize: "0.9rem" }}>
@@ -552,13 +585,6 @@ export default function ProgramPage() {
       )}
 
       <section className="table-card program-table-card">
-        <div className="program-table-heading">
-          <div>
-            <p className="program-section-eyebrow">Program coverage</p>
-            <h2>Program beneficiaries</h2>
-          </div>
-          <span>{viewMode ? 'Select a beneficiary to view receipt history.' : 'Active and ended programs'}</span>
-        </div>
         <div className="table-overflow">
           {viewMode && !clusterView ? <ExpandableTreeTable
             data={programHierarchy}

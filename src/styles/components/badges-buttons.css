@@ -5,9 +5,10 @@
 .badge.pending { background: #FFFBEB; color: #D97706; }
 
 /* Primary & Secondary buttons (used across app) */
-.btn-secondary { background: #fff; border: 1px solid #CBD5E1; color: #475569; padding: 0.85rem 1.4rem; border-radius: 12px; font-weight: 600; cursor: pointer; }
+.btn-secondary { background: #FED24F; border: 1px solid #FED24F; color: #063B00; padding: 0.85rem 1.4rem; border-radius: 12px; font-weight: 600; cursor: pointer; }
 .btn-primary { background: var(--burgundy); border: 1px solid var(--burgundy); color: #fff; padding: 0.85rem 1.4rem; border-radius: 12px; font-weight: 600; cursor: pointer; }
-.btn-primary:hover { background: var(--burgundy-hover); box-shadow: 0 4px 6px rgba(122, 12, 30, 0.15); }
+.btn-primary:hover { background: var(--burgundy-hover); box-shadow: 0 4px 6px rgba(6, 59, 0, 0.2); }
+.btn-secondary:hover { background: #283F24; border-color: #283F24; color: #fff; }
 
 /* Shared action styling for every create control. */
 .btn-create-action {
@@ -25,7 +26,7 @@
 	font-size: 0.95rem;
 	font-weight: 600;
 	cursor: pointer;
-	box-shadow: 0 2px 4px rgba(122, 12, 30, 0.15);
+	box-shadow: 0 2px 4px rgba(6, 59, 0, 0.2);
 	transition: background 150ms ease, box-shadow 150ms ease, opacity 150ms ease;
 }
 
@@ -37,7 +38,7 @@
 
 .btn-create-action:hover {
 	background: var(--burgundy-hover);
-	box-shadow: 0 4px 6px rgba(122, 12, 30, 0.2);
+	box-shadow: 0 4px 6px rgba(6, 59, 0, 0.25);
 }
 
 .btn-create-action:disabled {
