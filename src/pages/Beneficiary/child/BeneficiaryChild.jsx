@@ -1,5 +1,6 @@
 import React from 'react';
 import { formatDateForDisplay, formatDateForInput } from '../../../utils/dateFormat';
+import { capitalizeNameValue } from '../../../utils/nameFormat';
 
 export function ChildFormFields({ activeTab, form, setForm, communities = [], batches = [], readOnly = false, slashDateInput = true }) {
   const uniqueCommunities = Array.from(new Set(communities.map((comm) => comm.name))).filter(Boolean);
@@ -100,11 +101,14 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
               updateDateValue(name, e.target.value, onChange);
               return;
             }
+            const nextValue = /^(firstName|middleName|lastName|suffix|birthAttendant|birthPlace|leader)$/.test(name)
+              ? capitalizeNameValue(e.target.value)
+              : e.target.value;
             if (onChange) {
-              onChange(e.target.value);
+              onChange(nextValue);
               return;
             }
-            setForm((prev) => ({ ...prev, [name]: e.target.value }));
+            setForm((prev) => ({ ...prev, [name]: nextValue }));
           }}
           onBlur={isDate ? () => commitDateValue(name, getDateDisplayValue(name, value), onChange) : undefined}
           required={required}

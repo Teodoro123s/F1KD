@@ -9,6 +9,8 @@ import { useCommunityData } from './hooks/useCommunityData';
 import { useCommunityMutations } from './hooks/useCommunityMutations';
 import { useAuth } from '../../auth/AuthProvider';
 import { can, hasRole, isHealthWorkerRole, ROLES } from '../../utils/permissions';
+import { getMotherProfileProgress } from '../../utils/motherProgress';
+import { getChildProfileProgress } from '../../utils/childProgress';
 import { apiDeleteMother } from '../../api/mothers';
 import { apiGetChildren } from '../../api/children';
 import { notifyAction } from '../../components/ActionFeedback';
@@ -16,32 +18,6 @@ import { notifyAction } from '../../components/ActionFeedback';
 const defaultCommunityForm = { name: '', area: 'Poblacion', coordinator: '' };
 const defaultGroupForm = { name: '', community: '', assignedBatchIds: [], leader: '', members: 1, status: 'Active' };
 const defaultBatchForm = { name: '', community: '', records: 1, progress: 0, status: 'Active' };
-
-const getMotherProfileProgress = (mother) => {
-  const requiredFields = [
-    mother?.first_name || mother?.firstName,
-    mother?.last_name || mother?.lastName,
-    mother?.dob || mother?.dateOfBirth,
-    mother?.community || mother?.area,
-    mother?.birth_certificate_document_path || mother?.birthCertificateDocumentPath,
-    mother?.consent_document_path || mother?.consentDocumentPath,
-  ];
-
-  const completedFields = requiredFields.filter(Boolean).length;
-  return Math.round((completedFields / requiredFields.length) * 100);
-};
-
-const getChildProfileProgress = (child) => {
-  const requiredFields = [
-    child?.mother_id || child?.motherId,
-    child?.name || child?.first_name || child?.firstName,
-    child?.birth_date || child?.birthDate,
-    child?.birth_document_path || child?.birthDocumentPath,
-  ];
-
-  const completedFields = requiredFields.filter(Boolean).length;
-  return Math.round((completedFields / requiredFields.length) * 100);
-};
 
 const truncateLabel = (label, maxLength = 26) => {
   if (!label) return '—';

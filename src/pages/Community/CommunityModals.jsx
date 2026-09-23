@@ -1,4 +1,5 @@
 import React from 'react';
+import { capitalizeNameValue } from '../../utils/nameFormat';
 
 export function ConfirmActionModal({ show, title, message, confirmLabel = 'OK', onConfirm, onCancel, isSubmitting = false }) {
   if (!show) return null;
@@ -58,7 +59,7 @@ export function CreateCommunityModal({ showModal, onClose, communityForm, setCom
           className="form-input"
           placeholder="e.g. San Isidro High School"
           value={communityForm.name}
-          onChange={(e) => setCommunityForm({ ...communityForm, name: e.target.value })}
+          onChange={(e) => setCommunityForm({ ...communityForm, name: capitalizeNameValue(e.target.value) })}
           required
           autoFocus
         />
@@ -92,7 +93,7 @@ export function EditCommunityModal({ showModal, onClose, communityForm, setCommu
           type="text"
           className="form-input"
           value={communityForm.name}
-          onChange={(e) => setCommunityForm({ ...communityForm, name: e.target.value })}
+          onChange={(e) => setCommunityForm({ ...communityForm, name: capitalizeNameValue(e.target.value) })}
           required
           autoFocus
         />
@@ -127,7 +128,7 @@ export function CreateBatchModal({ showModal, onClose, batchForm, setBatchForm, 
           className="form-input"
           placeholder="e.g. Batch 1"
           value={batchForm.name}
-          onChange={(e) => setBatchForm({ ...batchForm, name: e.target.value })}
+          onChange={(e) => setBatchForm({ ...batchForm, name: capitalizeNameValue(e.target.value) })}
           required
           autoFocus
         />
@@ -163,7 +164,7 @@ export function EditBatchModal({ showModal, onClose, batchForm, setBatchForm, ha
           type="text"
           className="form-input"
           value={batchForm.name}
-          onChange={(e) => setBatchForm({ ...batchForm, name: e.target.value })}
+          onChange={(e) => setBatchForm({ ...batchForm, name: capitalizeNameValue(e.target.value) })}
           required
           autoFocus
         />
@@ -215,7 +216,7 @@ export function CreateGroupModal({ showModal, onClose, groupForm, setGroupForm, 
           className="form-input"
           placeholder="e.g. Group Alpha"
           value={groupForm.name}
-          onChange={(e) => setGroupForm({ ...groupForm, name: e.target.value })}
+          onChange={(e) => setGroupForm({ ...groupForm, name: capitalizeNameValue(e.target.value) })}
           required
           autoFocus
         />
@@ -253,7 +254,7 @@ export function EditGroupModal({ showModal, onClose, groupForm, setGroupForm, ha
           type="text"
           className="form-input"
           value={groupForm.name}
-          onChange={(e) => setGroupForm({ ...groupForm, name: e.target.value })}
+          onChange={(e) => setGroupForm({ ...groupForm, name: capitalizeNameValue(e.target.value) })}
           required
           autoFocus
         />

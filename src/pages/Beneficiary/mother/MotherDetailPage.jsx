@@ -1,7 +1,7 @@
 ﻿import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDateForDisplay } from '../../../utils/dateFormat';
-import { apiDeleteMother, apiGetMother, apiUploadMotherDocuments } from '../../../api/mothers';
+import { apiDeleteMother, apiDeleteMotherDocument, apiGetMother, apiUploadMotherDocuments } from '../../../api/mothers';
 import { resolveAssetUrl } from '../../../api/authHeader';
 import { useAuth } from '../../../auth/AuthProvider';
 import { can } from '../../../utils/permissions';
@@ -150,6 +150,14 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
   const motherId = mother.motherId || mother.id || 'M-unknown';
   const age = calculateAge(mother.dob);
 
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+    navigate('/beneficiary');
+  };
+
   const firstName = mother.firstName || '—';
   const middleName = mother.middleName || '—';
   const lastName = mother.lastName || '—';
@@ -243,6 +251,25 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
     }
   };
 
+  const removeDocument = async (field) => {
+    if (!field) return;
+    setUploadingDocument(field);
+    setUploadMessage('');
+    try {
+      const response = await apiDeleteMotherDocument(motherId, field);
+      if (response?.mother) {
+        const nextMother = { ...(motherRecord || mother), ...response.mother };
+        setMotherRecord(nextMother);
+        onMotherUpdated?.(nextMother);
+      }
+      setUploadMessage('Document removed successfully.');
+    } catch (error) {
+      setUploadMessage(error.message || 'Unable to remove document.');
+    } finally {
+      setUploadingDocument('');
+    }
+  };
+
   const deleteMother = async () => {
     if (deleting) return;
     setDeleting(true);
@@ -257,6 +284,20 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
       setDeleting(false);
     }
   };
+
+  const [documentMenuField, setDocumentMenuField] = useState(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!documentMenuField) return;
+      const activeMenu = document.querySelector(`.document-upload-menu[data-field="${documentMenuField}"]`);
+      if (!activeMenu || activeMenu.contains(event.target)) return;
+      setDocumentMenuField(null);
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [documentMenuField]);
 
   const documentContent = (
     <section className="create-mother-category mother-detail-inline-documents">
@@ -273,17 +314,52 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
             <div className="document-upload-field" key={field}>
               <div className="document-upload-header-row">
                 <label className="detail-form-label" htmlFor={`mother-document-${field}`}>{label}</label>
-                {hasFile && (
-                  <button type="button" className="document-upload-edit-button" onClick={() => setDocumentEditState((current) => ({ ...current, [field]: !current[field] }))}>
-                    {editing ? 'Cancel' : 'Edit'}
+                <div className="document-upload-menu-wrap">
+                  <button
+                    type="button"
+                    className="document-upload-menu-button"
+                    aria-label={`Document actions for ${label}`}
+                    aria-expanded={documentMenuField === field}
+                    onClick={() => setDocumentMenuField((current) => (current === field ? null : field))}
+                  >
+                    ⋯
                   </button>
-                )}
+                  {documentMenuField === field && (
+                    <div className="document-upload-menu" data-field={field} role="menu">
+                      {hasFile ? (
+                        <>
+                          <button type="button" role="menuitem" onClick={() => { setDocumentEditState((current) => ({ ...current, [field]: !current[field] })); setDocumentMenuField(null); }}>
+                            {editing ? 'Cancel edit' : 'Edit'}
+                          </button>
+                          <button type="button" role="menuitem" className="danger" onClick={() => { removeDocument(field); setDocumentMenuField(null); }} disabled={uploadingDocument === field}>
+                            Remove
+                          </button>
+                        </>
+                      ) : (
+                        <button type="button" role="menuitem" onClick={() => { setDocumentEditState((current) => ({ ...current, [field]: true })); setDocumentMenuField(null); }}>
+                          Upload file
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
               {(editing || !hasFile) && (
-                <input id={`mother-document-${field}`} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={(event) => {
-                  uploadDocument(field, event.target.files?.[0]);
-                  setDocumentEditState((current) => ({ ...current, [field]: false }));
-                }} disabled={uploadingDocument === field} />
+                <input
+                  id={`mother-document-${field}`}
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png,.webp"
+                  onChange={(event) => {
+                    const selectedFile = event.target.files?.[0] || null;
+                    if (selectedFile) {
+                      uploadDocument(field, selectedFile);
+                    }
+                    event.target.value = '';
+                    setDocumentEditState((current) => ({ ...current, [field]: false }));
+                    setDocumentMenuField(null);
+                  }}
+                  disabled={uploadingDocument === field}
+                />
               )}
               <DocumentPreview fileName={fileName} filePath={filePath} label={label} onPreviewOpen={(url, name, type) => setPreviewDocument({ url, name, type })} />
             </div>
@@ -303,7 +379,7 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
           <div className="mother-detail-actions">
             {canManage && <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/mother/${motherId}/edit`, { state: { mother: selectedMother } })}>Edit</button>}
             {canManage && <button type="button" className="btn-danger" onClick={() => { setDeleteError(''); setShowDeleteModal(true); }}>Delete</button>}
-            <button type="button" className="btn-secondary" onClick={() => navigate(-1)}>Back</button>
+            <button type="button" className="btn-secondary" onClick={handleBack}>Back</button>
           </div>
         )}
       />

@@ -1,5 +1,6 @@
 import React from 'react';
 import { formatDateForInput } from '../../../utils/dateFormat';
+import { capitalizeNameValue } from '../../../utils/nameFormat';
 import { getPhilippineBarangays, getPhilippineCities, PHILIPPINE_PROVINCES } from '../../../utils/philippineLocations';
 
 export function MotherFormFields({
@@ -165,7 +166,10 @@ export function MotherFormFields({
               updateDateValue(name, e.target.value, onChange);
               return;
             }
-            const nextValue = isNumeric ? e.target.value.replace(/\D/g, '') : e.target.value;
+            const rawValue = isNumeric ? e.target.value.replace(/\D/g, '') : e.target.value;
+            const nextValue = /^(firstName|middleName|lastName|maidenSurname|suffix|emergencyName|spouseFirstName|spouseSurname)$/.test(name)
+              ? capitalizeNameValue(rawValue)
+              : rawValue;
             if (onChange) {
               onChange(nextValue);
               return;

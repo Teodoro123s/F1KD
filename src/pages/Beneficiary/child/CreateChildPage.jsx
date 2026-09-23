@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { ChildFormFields } from './BeneficiaryChild';
 import { useMothers } from '../../../context/MothersContext';
+import { capitalizeNameValue } from '../../../utils/nameFormat';
 
 const CHILD_DRAFT_KEY = 'f1kd.create-child.draft';
 
@@ -129,7 +130,11 @@ export default function CreateChildPage({
       return;
     }
 
-    const fullName = `${groupForm.firstName.trim()} ${groupForm.middleName.trim()} ${groupForm.lastName.trim()} ${groupForm.suffix.trim()}`
+    const normalizedFirstName = capitalizeNameValue(groupForm.firstName.trim());
+    const normalizedMiddleName = capitalizeNameValue(groupForm.middleName.trim());
+    const normalizedLastName = capitalizeNameValue(groupForm.lastName.trim());
+    const normalizedSuffix = capitalizeNameValue(groupForm.suffix.trim());
+    const fullName = `${normalizedFirstName} ${normalizedMiddleName} ${normalizedLastName} ${normalizedSuffix}`
       .replace(/\s+/g, ' ')
       .trim();
 
@@ -138,10 +143,10 @@ export default function CreateChildPage({
       communityId: selectedMother?.raw?.community_id || selectedMother?.communityId || null,
       groupId: selectedMother?.raw?.group_id || selectedMother?.groupId || null,
       batchId: selectedMother?.raw?.batch_id || selectedMother?.batchId || null,
-      firstName: groupForm.firstName.trim(),
-      middleName: groupForm.middleName.trim(),
-      lastName: groupForm.lastName.trim(),
-      suffix: groupForm.suffix.trim(),
+      firstName: normalizedFirstName,
+      middleName: normalizedMiddleName,
+      lastName: normalizedLastName,
+      suffix: normalizedSuffix,
       birthDate: groupForm.birthDate || null,
       birthWeight: groupForm.birthWeight || null,
       birthLength: groupForm.birthLength || null,

@@ -4,8 +4,19 @@ import { MotherFormFields } from './BeneficiaryMother';
 import { useMothers } from '../../../context/MothersContext';
 import { apiGetMother, apiUpdateMother } from '../../../api/mothers';
 import { formatDateForInput } from '../../../utils/dateFormat';
+import { capitalizeNameValue } from '../../../utils/nameFormat';
 import { getSummary } from '../../Community/communityService';
 import PageHeader from '../../../components/ui/PageHeader';
+import { notifyAction } from '../../../components/ActionFeedback';
+
+const parseAddressParts = (address = '') => {
+  const parts = String(address || '').split(',').map((part) => part.trim()).filter(Boolean);
+  return {
+    province: parts[0] || '',
+    city: parts[1] || '',
+    barangay: parts[2] || '',
+  };
+};
 
 const normalizeMotherDates = (mother) => {
   const dateFields = ['dob', 'lmpDate', 'eddDate', 'prenatalRegDate', 'dentalCheckupDate'];
@@ -16,6 +27,25 @@ const normalizeMotherDates = (mother) => {
   }), { ...mother });
 };
 
+const normalizeMotherForm = (mother = {}) => {
+  const normalized = normalizeMotherDates(mother);
+  const addressParts = parseAddressParts(normalized.address || '');
+  return {
+    ...normalized,
+    firstName: capitalizeNameValue(normalized.firstName || ''),
+    middleName: capitalizeNameValue(normalized.middleName || ''),
+    lastName: capitalizeNameValue(normalized.lastName || ''),
+    maidenSurname: capitalizeNameValue(normalized.maidenSurname || ''),
+    suffix: capitalizeNameValue(normalized.suffix || ''),
+    emergencyName: capitalizeNameValue(normalized.emergencyName || ''),
+    spouseFirstName: capitalizeNameValue(normalized.spouseFirstName || ''),
+    spouseSurname: capitalizeNameValue(normalized.spouseSurname || ''),
+    province: normalized.province || addressParts.province,
+    city: normalized.city || addressParts.city,
+    barangay: normalized.barangay || addressParts.barangay,
+  };
+};
+
 export default function EditMotherPage() {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -24,9 +54,10 @@ export default function EditMotherPage() {
 
   const { mothers, setMothers } = useMothers();
 
-  const [form, setForm] = useState(() => (initialMother ? normalizeMotherDates(initialMother) : {}));
+  const [form, setForm] = useState(() => (initialMother ? normalizeMotherForm(initialMother) : {}));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [communityOptions, setCommunityOptions] = useState({ communities: [], groups: [], batches: [] });
   const [activeTab, setActiveTab] = useState('general');
 
@@ -48,7 +79,7 @@ export default function EditMotherPage() {
   }, []);
 
   useEffect(() => {
-    if (initialMother) setForm(normalizeMotherDates(initialMother));
+    if (initialMother) setForm(normalizeMotherForm(initialMother));
   }, [initialMother]);
 
   useEffect(() => {
@@ -56,7 +87,7 @@ export default function EditMotherPage() {
     let active = true;
     apiGetMother(id)
       .then((response) => {
-        if (active && response?.mother) setForm(normalizeMotherDates(response.mother));
+        if (active && response?.mother) setForm(normalizeMotherForm(response.mother));
       })
       .catch((loadError) => {
         if (active && !initialMother) setError(loadError.message || 'Unable to load mother');
@@ -81,8 +112,13 @@ export default function EditMotherPage() {
     .replace(/\s+/g, ' ')
     .trim() || 'Mother Profile';
 
-  const handleSave = async (e) => {
+  const handleSaveRequest = (e) => {
     e.preventDefault();
+    setShowSaveConfirm(true);
+  };
+
+  const handleSave = async () => {
+    setShowSaveConfirm(false);
     setSaving(true);
     setError(null);
     try {
@@ -98,11 +134,15 @@ export default function EditMotherPage() {
         return m;
       }));
 
+      notifyAction('Mother profile saved successfully.', 'success');
+
       // navigate back to the detail view and pass updated mother
       navigate(-1, { state: { updatedMother: updated } });
     } catch (err) {
       console.error('Failed to update mother', err);
-      setError(err.message || 'Failed to save changes');
+      const message = err.message || 'Failed to save changes';
+      setError(message);
+      notifyAction(message, 'error');
     } finally {
       setSaving(false);
     }
@@ -116,14 +156,34 @@ export default function EditMotherPage() {
         actions={(
           <>
             <button type="button" className="btn-secondary edit-mother-action" onClick={() => navigate(-1)}>Cancel</button>
-            <button type="submit" form="mother-edit-form" className="btn-primary edit-mother-action" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
+            <button type="button" className="btn-primary edit-mother-action" disabled={saving} onClick={() => setShowSaveConfirm(true)}>{saving ? 'Saving...' : 'Save'}</button>
           </>
         )}
       />
 
       {error && <div className="form-error" style={{ color: 'var(--danger-color)', margin: '8px 0' }}>{error}</div>}
 
-      <form id="mother-edit-form" onSubmit={handleSave} className="mother-edit-form">
+      {showSaveConfirm && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={(event) => {
+          if (event.target === event.currentTarget && !saving) setShowSaveConfirm(false);
+        }}>
+          <div className="modal-content signout-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="save-confirm-title" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="modal-header-section">
+              <h3 id="save-confirm-title">Save changes?</h3>
+              <button type="button" className="btn-close-modal" onClick={() => setShowSaveConfirm(false)} aria-label="Close save confirmation" disabled={saving}>✕</button>
+            </div>
+            <div className="modal-body">
+              <p>Are you sure you want to save the updated mother profile?</p>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn-secondary" onClick={() => setShowSaveConfirm(false)} disabled={saving}>Cancel</button>
+              <button type="button" className="btn-primary" onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <form id="mother-edit-form" onSubmit={handleSaveRequest} className="mother-edit-form">
         <div className="mother-detail-profile-content edit-mother-profile-content">
           <div className="stepper-progress mother-detail-stepper">
             <div className="stepper-steps" role="tablist" aria-label="Mother profile sections">

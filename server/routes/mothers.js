@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../db');
-const { documentUpload, uploadFileToStorage } = require('../middleware/documentUpload');
+const { documentUpload, uploadFileToStorage, deleteFileFromStorage } = require('../middleware/documentUpload');
 
 function firstNonEmpty(...values) {
   for (const value of values) {
@@ -27,6 +27,8 @@ function mapMother(row) {
     firstNonEmpty(row.suffix),
   ].filter((v) => String(v).trim()).join(' ').trim();
 
+  const addressParts = String(row.address || '').split(',').map((part) => part.trim()).filter(Boolean);
+
   return {
     id: row.mother_code || String(row.id),
     motherId: row.mother_external_id || row.mother_code || String(row.id),
@@ -40,6 +42,9 @@ function mapMother(row) {
     createdAt: row.created_at || '',
     contactNumber: row.contact_number || row.contactNumber || '',
     address: row.address || '',
+    province: row.province || addressParts[0] || '',
+    city: row.city || addressParts[1] || '',
+    barangay: row.barangay || addressParts[2] || '',
     community: row.community || row.area || '',
     area: row.area || row.community || '',
     groupId: row.group_id ?? null,
@@ -215,8 +220,48 @@ router.post('/:id/documents', documentUpload.fields([
   }
 });
 
+router.delete('/:id/documents/:field', async (req, res) => {
+  try {
+    const { id, field } = req.params;
+    const fieldMap = {
+      birthCertificate: {
+        nameColumn: 'birth_certificate_document_name',
+        pathColumn: 'birth_certificate_document_path',
+      },
+      consent: {
+        nameColumn: 'consent_document_name',
+        pathColumn: 'consent_document_path',
+      },
+    };
+
+    const selectedField = fieldMap[field];
+    if (!selectedField) {
+      return res.status(400).json({ error: 'Unsupported document field.' });
+    }
+
+    const [motherRows] = await pool.query(
+      `SELECT id, ${selectedField.pathColumn} AS document_path, ${selectedField.nameColumn} AS document_name FROM mothers WHERE id = ? OR mother_code = ? OR mother_external_id = ? LIMIT 1`,
+      [Number(id) || null, id, id]
+    );
+
+    if (!motherRows.length) {
+      return res.status(404).json({ error: 'Mother not found' });
+    }
+
+    const currentPath = motherRows[0].document_path;
+    await deleteFileFromStorage(currentPath);
+    await pool.query(`UPDATE mothers SET ${selectedField.nameColumn} = NULL, ${selectedField.pathColumn} = NULL WHERE id = ?`, [motherRows[0].id]);
+
+    const [rows] = await pool.query('SELECT * FROM mothers WHERE id = ?', [motherRows[0].id]);
+    res.json({ mother: await attachClinicalData(mapMother(rows[0])) });
+  } catch (error) {
+    console.error('[Mothers API] document delete error:', error.message);
+    res.status(400).json({ error: error.message || 'Unable to remove document' });
+  }
+});
+
 const MOTHER_ALLOWED_FIELDS = new Set([
-  'id', 'motherId', 'name', 'firstName', 'middleName', 'lastName', 'dob', 'age', 'phone', 'contactNumber', 'community', 'group', 'batch', 'programType', 'status', 'risk', 'trimester', 'gestationalAge', 'lmpDate', 'eddDate', 'prenatalRegDate', 'prenatalWeight', 'prenatalBp', 'prenatalHeight', 'fundalHeight', 'fhr', 'weight', 'height', 'bmi', 'gravida', 'para', 'abortion', 'stillbirth', 'emergencyName', 'emergencyContact', 'emergencyRelationship', 'spouseName', 'medicalConditions', 'otherMedicalHistory', 'tt1Date', 'tt2Date', 'tt3Date', 'tt4Date', 'tt5Date', 'dentalCheckupDate', 'dentalFacility', 'dentalFindings', 'dentalRemarks', 'birthCertificateDocumentName', 'consentDocumentName', 'assessment', 'progress', 'trend', 'createdAt', 'vaccines', 'oralHealth', 'programs', 'documents', 'checkups', 'source'
+  'id', 'motherId', 'name', 'firstName', 'middleName', 'lastName', 'maidenSurname', 'dob', 'age', 'phone', 'contactNumber', 'province', 'city', 'barangay', 'community', 'group', 'batch', 'programType', 'status', 'risk', 'trimester', 'gestationalAge', 'lmpDate', 'eddDate', 'prenatalRegDate', 'prenatalWeight', 'prenatalBp', 'prenatalHeight', 'fundalHeight', 'fhr', 'weight', 'height', 'bmi', 'gravida', 'para', 'abortion', 'stillbirth', 'emergencyName', 'emergencyContact', 'emergencyRelationship', 'spouseName', 'medicalConditions', 'otherMedicalHistory', 'tt1Date', 'tt2Date', 'tt3Date', 'tt4Date', 'tt5Date', 'dentalCheckupDate', 'dentalFacility', 'dentalFindings', 'dentalRemarks', 'birthCertificateDocumentName', 'consentDocumentName', 'assessment', 'progress', 'trend', 'createdAt', 'vaccines', 'oralHealth', 'programs', 'documents', 'checkups', 'source'
 ]);
 
 function getRequestedMotherFields(req) {
@@ -224,7 +269,13 @@ function getRequestedMotherFields(req) {
   const selected = Array.isArray(raw) ? raw.flatMap((item) => String(item).split(',')) : String(raw || '').split(',');
   const fields = selected.map((field) => field.trim()).filter(Boolean);
   const allowed = fields.filter((field) => MOTHER_ALLOWED_FIELDS.has(field));
-  const required = new Set(['id', 'motherId', 'name', 'community', 'group', 'batch', 'trimester', 'progress', 'risk', 'bmi', 'checkups', 'source']);
+  const required = new Set([
+    'id', 'motherId', 'name', 'firstName', 'middleName', 'lastName', 'maidenSurname', 'dob', 'contactNumber',
+    'province', 'city', 'barangay', 'community', 'group', 'batch', 'emergencyName', 'emergencyContact', 'emergencyRelationship',
+    'lmpDate', 'eddDate', 'prenatalRegDate', 'trimester', 'gestationalAge', 'prenatalWeight', 'prenatalBp', 'prenatalHeight',
+    'gravida', 'abortion', 'stillbirth', 'birthCertificateDocumentName', 'birthCertificateDocumentPath',
+    'consentDocumentName', 'consentDocumentPath', 'progress', 'status', 'checkups', 'source'
+  ]);
   return [...new Set([...allowed, ...required])];
 }
 
@@ -528,12 +579,13 @@ router.put('/:id', async (req, res) => {
 
     const current = existing[0];
     const motherDbId = current.id;
+    const optionalValue = (value, fallback) => (value === undefined ? fallback : value ?? '');
     const update = {
       first_name: firstNonEmpty(b.firstName, b.first_name, current.first_name),
       middle_name: firstNonEmpty(b.middleName, b.middle_name, current.middle_name),
       last_name: firstNonEmpty(b.lastName, b.last_name, current.last_name),
-      maiden_surname: firstNonEmpty(b.maidenSurname, b.maiden_surname, current.maiden_surname),
-      suffix: firstNonEmpty(b.suffix, current.suffix),
+      maiden_surname: optionalValue(b.maidenSurname, current.maiden_surname),
+      suffix: optionalValue(b.suffix, current.suffix),
       dob: b.dob || b.birthDate || current.dob || null,
       contact_number: firstNonEmpty(b.contactNumber, b.contact_number, current.contact_number),
       mother_external_id: firstNonEmpty(b.motherId, b.mother_id, b.motherExternalId, b.mother_external_id, current.mother_external_id),

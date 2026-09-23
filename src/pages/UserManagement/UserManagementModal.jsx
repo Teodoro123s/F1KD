@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { formatDateForDisplay, normalizeDateValue } from '../../utils/dateFormat';
+import { capitalizeNameValue } from '../../utils/nameFormat';
 import { generatePassword } from './lib';
 
 function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitting = false, notification = '' }) {
@@ -41,7 +42,10 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
   const title = mode === 'edit' ? 'Edit User' : 'Add User';
   const submitLabel = mode === 'edit' ? 'Save Changes' : 'Create';
 
-  const handleChange = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
+  const handleChange = (field, value) => {
+    const nextValue = ['firstName', 'lastName', 'middleInitial'].includes(field) ? capitalizeNameValue(value) : value;
+    setForm((prev) => ({ ...prev, [field]: nextValue }));
+  };
   const roleName = String(form.role || '').trim().toLowerCase();
   // Assignment controls follow operational role scope: organizers need a school; health workers need both.
   const requiresSchool = ['health worker', 'community organizer'].includes(roleName);

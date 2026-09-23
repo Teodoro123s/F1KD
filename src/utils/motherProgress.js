@@ -1,33 +1,57 @@
-const firstValue = (...values) => values.find((value) => value !== undefined && value !== null && String(value).trim() !== '');
+const hasMeaningfulValue = (value) => {
+  if (value === undefined || value === null) return false;
+  if (typeof value === 'string') return value.trim() !== '';
+  if (typeof value === 'number') return Number.isFinite(value);
+  if (typeof value === 'boolean') return value === true;
+  if (Array.isArray(value)) return value.some((item) => hasMeaningfulValue(item));
+  if (typeof value === 'object') return Object.values(value).some((item) => hasMeaningfulValue(item));
+  return true;
+};
+const firstMeaningfulValue = (...values) => values.find(hasMeaningfulValue);
 
 export function getMotherProfileProgress(mother = {}) {
-  const completedFields = [
-    firstValue(mother.firstName, mother.first_name, mother.name),
-    firstValue(mother.middleName, mother.middle_name),
-    firstValue(mother.lastName, mother.last_name),
-    firstValue(mother.maidenSurname, mother.maiden_surname),
-    firstValue(mother.dob, mother.dateOfBirth),
-    firstValue(mother.contactNumber, mother.contact_number, mother.contact),
-    firstValue(mother.province, mother.city, mother.barangay, mother.address, mother.area),
-    firstValue(mother.community, mother.community_name),
-    firstValue(mother.group, mother.group_name),
-    firstValue(mother.batch, mother.batch_name),
-    firstValue(mother.emergencyName, mother.emergency_name),
-    firstValue(mother.emergencyContact, mother.emergency_contact),
-    firstValue(mother.emergencyRelationship, mother.emergency_relationship),
-    firstValue(mother.lmpDate, mother.lmp),
-    firstValue(mother.eddDate, mother.edd),
-    firstValue(mother.prenatalRegDate, mother.prenatal_reg_date),
-    firstValue(mother.trimester),
-    firstValue(mother.gestationalAge, mother.gestational_age),
-    firstValue(mother.prenatalWeight, mother.prenatal_weight),
-    firstValue(mother.prenatalBp, mother.prenatal_bp),
-    firstValue(mother.prenatalHeight, mother.prenatal_height),
-    firstValue(mother.gravida),
-    firstValue(mother.para),
-    firstValue(mother.abortion),
-    firstValue(mother.stillbirth),
-  ].filter(Boolean).length;
+  const requiredFieldGroups = [
+    ['firstName', ['firstName', 'first_name', 'name']],
+    ['lastName', ['lastName', 'last_name']],
+    ['dob', ['dob', 'dateOfBirth']],
+    ['province', ['province']],
+    ['city', ['city']],
+    ['barangay', ['barangay']],
+    ['community', ['community', 'community_name']],
+    ['lmpDate', ['lmpDate', 'lmp']],
+    ['eddDate', ['eddDate', 'edd']],
+    ['prenatalRegDate', ['prenatalRegDate', 'prenatal_reg_date']],
+    ['trimester', ['trimester']],
+    ['gestationalAge', ['gestationalAge', 'gestational_age']],
+    ['prenatalWeight', ['prenatalWeight', 'prenatal_weight']],
+    ['prenatalBp', ['prenatalBp', 'prenatal_bp']],
+    ['prenatalHeight', ['prenatalHeight', 'prenatal_height']],
+    ['birthCertificateDocumentName', ['birthCertificateDocumentName', 'birth_certificate_document_name']],
+    ['consentDocumentName', ['consentDocumentName', 'consent_document_name']],
+  ];
 
-  return Math.round((completedFields / 24) * 100);
+  const completedEntries = requiredFieldGroups.filter(([, keys]) => {
+    const value = firstMeaningfulValue(...keys.map((key) => mother?.[key]));
+    return hasMeaningfulValue(value);
+  });
+
+  const completedFields = completedEntries.length;
+  const totalFields = requiredFieldGroups.length;
+
+  if (process.env.NODE_ENV !== 'production' && mother && Object.keys(mother).length > 0) {
+    const label = mother.id || mother.motherId || mother.name || `${mother.firstName || ''} ${mother.lastName || ''}`.trim() || 'unnamed-mother';
+    const missingFields = requiredFieldGroups
+      .filter(([fieldName]) => !completedEntries.some(([entryName]) => entryName === fieldName))
+      .map(([fieldName]) => fieldName);
+
+    console.debug('[motherProgress]', {
+      label,
+      completedFields,
+      totalFields,
+      missingFields,
+    });
+  }
+
+  if (totalFields === 0) return 0;
+  return Math.min(100, Math.round((completedFields / totalFields) * 100));
 }

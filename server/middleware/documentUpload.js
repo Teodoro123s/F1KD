@@ -122,4 +122,47 @@ async function uploadFileToStorage(file, fieldName = 'document') {
   };
 }
 
-module.exports = { documentUpload, uploadDirectory, uploadFileToStorage, useMinio, minioClient, minioBucket };
+async function deleteFileFromStorage(filePath) {
+  if (!filePath) return;
+
+  const normalized = String(filePath).trim();
+  if (!normalized || normalized === 'null' || normalized === 'undefined') return;
+
+  if (/^https?:\/\//i.test(normalized)) {
+    try {
+      const url = new URL(normalized);
+      const objectKey = decodeURIComponent((url.pathname || '').replace(/^\/api\/documents\//, '').replace(/^\//, ''));
+      if (objectKey && minioClient && objectKey !== 'undefined') {
+        await minioClient.removeObject(minioBucket, objectKey);
+      }
+      return;
+    } catch (error) {
+      // fall through to local-path handling below
+    }
+  }
+
+  if (normalized.startsWith('/api/documents/')) {
+    const objectKey = decodeURIComponent(normalized.replace(/^\/api\/documents\//, '')).replace(/^\//, '');
+    if (objectKey && minioClient) {
+      await minioClient.removeObject(minioBucket, objectKey);
+      return;
+    }
+  }
+
+  if (normalized.startsWith('/uploads/')) {
+    const fileName = decodeURIComponent(normalized.split('/').pop() || '');
+    if (!fileName) return;
+    const fileDiskPath = path.join(uploadDirectory, fileName);
+    await fs.promises.unlink(fileDiskPath).catch(() => null);
+  }
+}
+
+module.exports = {
+  documentUpload,
+  uploadDirectory,
+  uploadFileToStorage,
+  deleteFileFromStorage,
+  useMinio,
+  minioClient,
+  minioBucket,
+};

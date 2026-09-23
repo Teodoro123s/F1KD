@@ -58,6 +58,16 @@ export async function apiDeleteMother(motherId) {
   return handleResponse(res, 'Unable to delete mother');
 }
 
+export async function apiDeleteMotherDocument(motherId, fieldName) {
+  const id = encodeURIComponent(motherId);
+  const field = String(fieldName || '').replace(/[^a-zA-Z]/g, '');
+  const res = await fetchWithAuth(`${API_BASE}/api/mothers/${id}/documents/${field}`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  return handleResponse(res, 'Unable to remove document');
+}
+
 export async function apiSaveMotherCheckup(motherId, payload) {
   const id = encodeURIComponent(motherId);
   const res = await fetchWithAuth(`${API_BASE}/api/mothers/${id}/checkups`, {

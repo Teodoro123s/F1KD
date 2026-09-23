@@ -6,6 +6,7 @@ import { apiUploadChildBirthDocument } from '../../../api/children';
 import { resolveAssetUrl } from '../../../api/authHeader';
 import { useAuth } from '../../../auth/AuthProvider';
 import { can } from '../../../utils/permissions';
+import { capitalizeNameValue } from '../../../utils/nameFormat';
 import { ChildFormFields } from './BeneficiaryChild';
 import PageHeader from '../../../components/ui/PageHeader';
 
@@ -98,10 +99,10 @@ const getBmiStatus = (weight, heightCm) => {
 
 const normalizeChild = (child = {}) => ({
   ...child,
-  firstName: child.firstName || child.first_name || '',
-  middleName: child.middleName || child.middle_name || '',
-  lastName: child.lastName || child.last_name || '',
-  suffix: child.suffix || '',
+  firstName: capitalizeNameValue(child.firstName || child.first_name || ''),
+  middleName: capitalizeNameValue(child.middleName || child.middle_name || ''),
+  lastName: capitalizeNameValue(child.lastName || child.last_name || ''),
+  suffix: capitalizeNameValue(child.suffix || ''),
   motherId: child.motherId || child.mother_id || '',
   motherName: child.motherName || [child.mother_first_name, child.mother_last_name].filter(Boolean).join(' '),
   birthDate: child.birthDate || child.birth_date || '',
@@ -400,11 +401,24 @@ export default function ChildProfilePage() {
           <div className="document-upload-field full-width">
             <div className="document-upload-header-row">
               <label className="detail-form-label" htmlFor="child-birth-document">Live Birth Certificate / Birth Certificate</label>
-              {selectedChild.birthDocumentName && (
-                <button type="button" className="document-upload-edit-button" onClick={() => setIsEditingBirthDocument((current) => !current)}>
-                  {isEditingBirthDocument ? 'Cancel' : 'Edit'}
+              <div className="document-upload-menu-wrap">
+                <button
+                  type="button"
+                  className="document-upload-menu-button"
+                  aria-label="Document actions for birth certificate"
+                  aria-expanded={isEditingBirthDocument || false}
+                  onClick={() => setIsEditingBirthDocument((current) => !current)}
+                >
+                  ⋯
                 </button>
-              )}
+                {selectedChild.birthDocumentName && isEditingBirthDocument && (
+                  <div className="document-upload-menu" role="menu">
+                    <button type="button" role="menuitem" onClick={() => setIsEditingBirthDocument((current) => !current)}>
+                      {isEditingBirthDocument ? 'Cancel edit' : 'Edit'}
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
             {(isEditingBirthDocument || !selectedChild.birthDocumentName) && (
               <input id="child-birth-document" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={(event) => {

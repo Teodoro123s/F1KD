@@ -20,8 +20,12 @@ export function getApiBaseUrl() {
 export function resolveAssetUrl(pathname) {
   if (!pathname) return '';
   if (/^https?:\/\//i.test(pathname)) return pathname;
-  if (pathname.startsWith('/')) return `${API_BASE}${pathname}`;
-  return `${API_BASE}/${pathname}`;
+
+  const normalizedPath = encodeURI(String(pathname).trim());
+  if (!normalizedPath) return '';
+
+  if (normalizedPath.startsWith('/')) return `${API_BASE}${normalizedPath}`;
+  return `${API_BASE}/${normalizedPath}`;
 }
 
 export async function fetchWithAuth(url, options = {}) {

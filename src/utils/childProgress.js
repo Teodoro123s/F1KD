@@ -1,4 +1,5 @@
-const firstValue = (...values) => values.find((value) => value !== undefined && value !== null && String(value).trim() !== '');
+const hasMeaningfulValue = (value) => value !== undefined && value !== null && String(value).trim() !== '';
+const firstValue = (...values) => values.find(hasMeaningfulValue);
 
 export function getChildProfileProgress(child = {}) {
   const completedFields = [
@@ -22,7 +23,7 @@ export function getChildProfileProgress(child = {}) {
     firstValue(child.apgarScore, child.apgar_score),
     firstValue(child.feedingType, child.feeding_type),
     firstValue(child.nutritionNotes, child.nutrition_notes),
-  ].filter(Boolean).length;
+  ].filter((value) => hasMeaningfulValue(value)).length;
 
   return Math.round((completedFields / 18) * 100);
 }

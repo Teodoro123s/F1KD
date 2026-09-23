@@ -3,6 +3,7 @@ import { MotherFormFields } from './BeneficiaryMother';
 import { calculateGestationalDetails, getInitialCheckups } from '../../../utils/beneficiaryHelpers';
 import { useMothers } from '../../../context/MothersContext';
 import { apiCreateMother, apiUploadMotherDocuments } from '../../../api/mothers';
+import { capitalizeNameValue } from '../../../utils/nameFormat';
 
 const MOTHER_DRAFT_KEY = 'f1kd.create-mother.draft';
 
@@ -159,16 +160,21 @@ export default function CreateMotherPage({
     const { gestationalAge, trimester } = calculateGestationalDetails(communityForm.lmpDate);
     const resolvedTrimester = communityForm.trimester || trimester;
     const resolvedGestationalAge = communityForm.gestationalAge || gestationalAge;
-    const fullName = `${communityForm.firstName.trim()} ${communityForm.middleName.trim()} ${communityForm.lastName.trim()} ${communityForm.maidenSurname.trim()} ${communityForm.suffix.trim()}`
+    const normalizedFirstName = capitalizeNameValue(communityForm.firstName.trim());
+    const normalizedMiddleName = capitalizeNameValue(communityForm.middleName.trim());
+    const normalizedLastName = capitalizeNameValue(communityForm.lastName.trim());
+    const normalizedMaidenSurname = capitalizeNameValue(communityForm.maidenSurname.trim());
+    const normalizedSuffix = capitalizeNameValue(communityForm.suffix.trim());
+    const fullName = `${normalizedFirstName} ${normalizedMiddleName} ${normalizedLastName} ${normalizedMaidenSurname} ${normalizedSuffix}`
       .replace(/\s+/g, ' ')
       .trim();
 
     const payload = {
-      firstName: communityForm.firstName.trim(),
-      middleName: communityForm.middleName.trim(),
-      lastName: communityForm.lastName.trim(),
-      maidenSurname: communityForm.maidenSurname.trim(),
-      suffix: communityForm.suffix.trim(),
+      firstName: normalizedFirstName,
+      middleName: normalizedMiddleName,
+      lastName: normalizedLastName,
+      maidenSurname: normalizedMaidenSurname,
+      suffix: normalizedSuffix,
       motherId: communityForm.motherId,
       dob: communityForm.dob || null,
       contactNumber: communityForm.contactNumber,
