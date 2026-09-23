@@ -71,6 +71,10 @@
   animation: slideUp 220ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 .modal-content.wide-modal { width: min(1100px, calc(100vw - 32px)); max-width: 1100px; }
+.modal-content.signout-confirm-modal {
+  width: min(440px, calc(100vw - 2rem));
+  max-width: 440px;
+}
 .community-modal-content {
   width: min(520px, calc(100vw - 32px));
   max-width: 520px;
