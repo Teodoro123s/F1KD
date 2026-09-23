@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { formatDateForDisplay, normalizeDateValue } from '../../utils/dateFormat';
 import { generatePassword } from './lib';
 
 function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitting = false, notification = '' }) {
@@ -135,10 +136,13 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
           <input
             id="dob"
                       name="dob"
-                      type="date"
+                      type="text"
+                      inputMode="numeric"
+                      pattern="\d{4}/\d{2}/\d{2}"
                       className="form-input"
-                      value={form.dob}
-                      onChange={(e) => handleChange('dob', e.target.value)}
+                      placeholder="yyyy/mm/dd"
+                      value={form.dob ? formatDateForDisplay(form.dob) : ''}
+                      onChange={(e) => handleChange('dob', normalizeDateValue(e.target.value) || '')}
                       required
                     />
         </div>

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { formatDateForDisplay, normalizeDateValue } from '../../utils/dateFormat';
 
 const TOTAL_WEEKS = 48;
 
@@ -55,6 +56,11 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
   }));
 
   const update = (field) => (event) => setForm((current) => ({ ...current, [field]: event.target.value }));
+  const updateDateField = (field) => (event) => {
+    const masked = event.target.value;
+    const isoValue = normalizeDateValue(masked);
+    setForm((current) => ({ ...current, [field]: isoValue || '' }));
+  };
   const childName = getChildName(child);
 
   useEffect(() => {
@@ -139,11 +145,30 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
           <div className="checkup-grid">
             <div className="form-group full-width">
               <label className="checkup-field-label" htmlFor="child-checkup-date">Check-up Date</label>
-              <input id="child-checkup-date" type="date" className="checkup-field-input" value={form.checkupDate} onChange={update('checkupDate')} required />
+              <input
+                id="child-checkup-date"
+                type="text"
+                inputMode="numeric"
+                pattern="\d{4}/\d{2}/\d{2}"
+                className="checkup-field-input"
+                value={form.checkupDate ? formatDateForDisplay(form.checkupDate) : ''}
+                onChange={updateDateField('checkupDate')}
+                placeholder="yyyy/mm/dd"
+                required
+              />
             </div>
             <div className="form-group full-width">
               <label className="checkup-field-label" htmlFor="child-next-checkup-date">Next Check-up Date (Tentative)</label>
-              <input id="child-next-checkup-date" type="date" className="checkup-field-input" value={form.nextCheckupDate} onChange={update('nextCheckupDate')} />
+              <input
+                id="child-next-checkup-date"
+                type="text"
+                inputMode="numeric"
+                pattern="\d{4}/\d{2}/\d{2}"
+                className="checkup-field-input"
+                value={form.nextCheckupDate ? formatDateForDisplay(form.nextCheckupDate) : ''}
+                onChange={updateDateField('nextCheckupDate')}
+                placeholder="yyyy/mm/dd"
+              />
             </div>
             <div className="form-group">
               <label className="checkup-field-label" htmlFor="child-monitor-feeding-type">Feeding Type</label>

@@ -16,6 +16,7 @@ import { apiGetChildren } from "../../api/children";
 import { apiCompleteNamedProgramCluster, apiCompleteProgramCluster, apiCreateProgram, apiCreateProgramClusters, apiDeleteProgram, apiEndProgram, apiGetProgramMonitoring, apiGetPrograms, apiRestoreProgram, apiSetProgramMonitoring, apiUpdateProgram } from "../../api/programs";
 import { notifyAction } from '../../components/ActionFeedback';
 import ExpandableTreeTable from "../Monitoring/ExpandableTreeTable";
+import { formatDateForDisplay, normalizeDateValue } from '../../utils/dateFormat';
 import {
   beneficiaryNames,
   emptyProgram,
@@ -1029,9 +1030,16 @@ export default function ProgramPage() {
                 Activity date
                 <input
                   id="activity-date"
-                  type="date"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="\d{4}/\d{2}/\d{2}"
                   className="form-input"
-                  defaultValue="2026-08-26"
+                  placeholder="yyyy/mm/dd"
+                  defaultValue={formatDateForDisplay('2026-08-26')}
+                  onChange={(event) => {
+                    const iso = normalizeDateValue(event.target.value);
+                    if (iso) event.target.value = iso;
+                  }}
                   required
                 />
               </label>
