@@ -79,6 +79,7 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
 
   const handleChange = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
   const requiresSchool = ['health worker', 'community organizer'].includes(String(form.role || '').trim().toLowerCase());
+  const schoolIsRequired = String(form.role || '').trim().toLowerCase() === 'health worker';
   const selectedSchoolName = communities.find((school) => String(school.id) === String(form.schoolId || ''))?.name || '';
   const groupOptions = groups.filter((group) => {
     if (!form.schoolId) return true;
@@ -199,20 +200,14 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
       {requiresSchool && (
         <>
           <div className="form-group full-width">
-            <label className="form-label" htmlFor="school-id">Assigned School *</label>
-            <select id="school-id" name="schoolId" className="form-select" value={form.schoolId || ''} onChange={(e) => handleChange('schoolId', e.target.value)} required>
+            <label className="form-label" htmlFor="school-id">Assigned School{schoolIsRequired ? ' *' : ''}</label>
+            <select id="school-id" name="schoolId" className="form-select" value={form.schoolId || ''} onChange={(e) => handleChange('schoolId', e.target.value)}>
               <option value="">Select assigned school</option>
               {communities.map((school) => <option key={school.id} value={school.id}>{school.name}</option>)}
             </select>
           </div>
 
-          <div className="form-group full-width">
-            <label className="form-label" htmlFor="group-id">Assigned Group *</label>
-            <select id="group-id" name="groupId" className="form-select" value={form.groupId || ''} onChange={(e) => handleChange('groupId', e.target.value)} required>
-              <option value="">Select assigned group</option>
-              {groupOptions.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
-            </select>
-          </div>
+
         </>
       )}
 
