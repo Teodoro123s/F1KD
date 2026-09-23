@@ -31,7 +31,7 @@ export default function Topbar() {
   }, []);
 
   return (
-    <header className={`topbar${openNotif || openUser ? ' topbar--menu-open' : ''}`}>
+    <header className="topbar">
       <div className="topbar-actions">
         <span className="action-wrapper" ref={notifRef}>
           <button
