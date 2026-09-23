@@ -43,6 +43,40 @@ async function resolveCommunityId(pool, communityIdentifier) {
   return rows[0].id;
 }
 
+async function resolveCoordinatorId(pool, coordinatorIdentifier) {
+  if (!coordinatorIdentifier) return null;
+
+  const coordinatorId = Number(coordinatorIdentifier);
+  if (Number.isNaN(coordinatorId)) return null;
+
+  const [rows] = await pool.query(
+    `SELECT id FROM users
+     WHERE id = ? AND LOWER(TRIM(role)) IN ('community organizer', 'communityorganizer', 'co', 'partner')
+     LIMIT 1`,
+    [coordinatorId],
+  );
+
+  return rows.length ? coordinatorId : null;
+}
+
+// A school coordinator is also the operational user assigned to that school's data scope.
+async function syncCoordinatorAssignment(communityId, coordinatorId, previousCoordinatorId = null) {
+  if (coordinatorId) {
+    await pool.query(
+      'UPDATE communities SET coordinator_id = NULL WHERE coordinator_id = ? AND id <> ?',
+      [coordinatorId, communityId],
+    );
+    await pool.query('UPDATE users SET school_id = ? WHERE id = ?', [communityId, coordinatorId]);
+  }
+
+  if (previousCoordinatorId && String(previousCoordinatorId) !== String(coordinatorId || '')) {
+    await pool.query(
+      'UPDATE users SET school_id = NULL WHERE id = ? AND school_id = ?',
+      [previousCoordinatorId, communityId],
+    );
+  }
+}
+
 async function nextCode(pool, table, codeColumn, prefix) {
   // Generates the next numeric suffix for codes like SCH-0001, BAT-0001, GRP-0001
   // Use SUBSTRING_INDEX to obtain the numeric portion after the last '-' to be robust.
@@ -280,12 +314,19 @@ router.post('/communities', async (req, res) => {
       return res.status(400).json({ error: 'Community name is required' });
     }
 
+    const coordinatorId = await resolveCoordinatorId(pool, coordinator);
+    if (coordinator && !coordinatorId) {
+      return res.status(400).json({ error: 'Selected coordinator must be a Community Organizer' });
+    }
+
     const communityCode = await nextCode(pool, 'communities', 'community_code', 'COM');
 
     const [result] = await pool.query(
       'INSERT INTO communities (community_code, name, area, coordinator_id) VALUES (?, ?, ?, ?)',
-      [communityCode, cleanName, cleanArea, coordinator ? Number(coordinator) : null]
+      [communityCode, cleanName, cleanArea, coordinatorId]
     );
+
+    await syncCoordinatorAssignment(result.insertId, coordinatorId);
 
     const [rows] = await pool.query(
       'SELECT id, community_code AS code, name, area FROM communities WHERE id = ?',
@@ -448,10 +489,25 @@ router.put('/communities/:id', async (req, res) => {
       return res.status(400).json({ error: 'Invalid community id' });
     }
 
+    const [existingRows] = await pool.query(
+      'SELECT coordinator_id FROM communities WHERE id = ? LIMIT 1',
+      [communityId],
+    );
+    if (!existingRows.length) {
+      return res.status(404).json({ error: 'Community not found' });
+    }
+
+    const coordinatorId = await resolveCoordinatorId(pool, coordinator);
+    if (coordinator && !coordinatorId) {
+      return res.status(400).json({ error: 'Selected coordinator must be a Community Organizer' });
+    }
+
     await pool.query(
       'UPDATE communities SET name = ?, area = ?, coordinator_id = ? WHERE id = ?',
-      [cleanName, cleanArea, coordinator ? Number(coordinator) : null, communityId]
+      [cleanName, cleanArea, coordinatorId, communityId]
     );
+
+    await syncCoordinatorAssignment(communityId, coordinatorId, existingRows[0].coordinator_id);
 
     const [rows] = await pool.query(
       `SELECT c.id, c.community_code AS code, c.name, c.area, c.coordinator_id,

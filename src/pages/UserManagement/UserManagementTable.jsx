@@ -74,7 +74,9 @@ export default function UserManagementTable({
                           role="menuitem"
                           disabled={suspendLoadingIds.includes(row.id) || deletingId === row.id}
                         >
-                          {suspendLoadingIds.includes(row.id) ? 'Suspending...' : 'Suspend'}
+                          {suspendLoadingIds.includes(row.id)
+                            ? (row.status === 'Suspended' ? 'Unsuspending...' : 'Suspending...')
+                            : (row.status === 'Suspended' ? 'Unsuspend' : 'Suspend')}
                         </button>
                         <button
                           type="button"

@@ -1,9 +1,37 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../auth/AuthProvider';
+import { getSummary } from './Community/communityService';
 
 export default function ProfilePage() {
   const auth = useAuth();
   const user = auth.currentUser;
+  const [assignedSchoolName, setAssignedSchoolName] = useState('');
+  const [assignedGroupName, setAssignedGroupName] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    if (!user?.school_id && !user?.schoolId) {
+      setAssignedSchoolName('');
+      setAssignedGroupName('');
+      return undefined;
+    }
+
+    getSummary()
+      .then((summary) => {
+        if (!active) return;
+        const schoolId = user.school_id ?? user.schoolId;
+        const school = (summary.communities || []).find((item) => String(item.id) === String(schoolId));
+        setAssignedSchoolName(school?.name || `School ID ${schoolId}`);
+        const groupId = user.group_id ?? user.groupId;
+        const group = (summary.groups || []).find((item) => String(item.id) === String(groupId));
+        setAssignedGroupName(group?.name || (groupId ? `Group ID ${groupId}` : 'Not assigned'));
+      })
+      .catch(() => {
+        if (active) setAssignedSchoolName(`School ID ${user.school_id ?? user.schoolId}`);
+      });
+
+    return () => { active = false; };
+  }, [user]);
 
   if (auth.loading) return <div>Loading profile...</div>;
 
@@ -19,6 +47,10 @@ export default function ProfilePage() {
           <div><strong>Role:</strong> {user.role}</div>
           <div><strong>Contact:</strong> {user.contact_number || '—'}</div>
           <div><strong>Location:</strong> {user.location || '—'}</div>
+          <div><strong>Assigned School:</strong> {assignedSchoolName || 'Not assigned'}</div>
+          {String(user.role || '').trim().toLowerCase() === 'health worker' && (
+            <div><strong>Assigned Group:</strong> {assignedGroupName || 'Not assigned'}</div>
+          )}
         </div>
       )}
 

@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import { notifyAction } from '../../../components/ActionFeedback';
 import {
   createCommunity as createCommunityApi,
   updateCommunity as updateCommunityApi,
@@ -19,6 +20,7 @@ export const useCommunityMutations = ({ refreshData }) => {
       setLoading(true);
 
       try {
+        // Refresh after a successful write so all hierarchy levels reflect the saved database state.
         const result = await request();
 
         if (typeof refreshData === 'function') {
@@ -26,9 +28,11 @@ export const useCommunityMutations = ({ refreshData }) => {
         }
 
         console.info(`[CommunityMutations] ${successMessage}`, result);
+        notifyAction(successMessage);
         return result;
       } catch (error) {
         console.error(`[CommunityMutations] Failed to ${label}:`, error);
+        notifyAction(error?.message || `Unable to ${label}.`, 'error');
         throw error;
       } finally {
         setLoading(false);

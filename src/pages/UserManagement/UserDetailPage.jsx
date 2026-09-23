@@ -79,15 +79,16 @@ export default function UserDetailPage() {
   }, [id, location]);
 
   const displayName = user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || id;
-  const requiresSchoolAssignment = String(user.role || '').trim().toLowerCase() === 'health worker';
+  const requiresSchoolAssignment = ['health worker', 'community organizer'].includes(String(user.role || '').trim().toLowerCase());
   const schoolLabel = (() => {
     if (!requiresSchoolAssignment) return 'Not required';
     if (!user.schoolId) return 'Not assigned';
     const match = communities.find((school) => String(school.id) === String(user.schoolId));
     return match?.name || `School ID ${user.schoolId}`;
   })();
+  const isHealthWorker = String(user.role || '').trim().toLowerCase() === 'health worker';
   const groupLabel = (() => {
-    if (!requiresSchoolAssignment) return 'Not required';
+    if (!isHealthWorker) return '';
     if (!user.groupId) return 'Not assigned';
     const match = groups.find((group) => String(group.id) === String(user.groupId));
     return match?.name || `Group ID ${user.groupId}`;
@@ -176,10 +177,12 @@ export default function UserDetailPage() {
                     <label className="checkup-field-label">Assigned School</label>
                     <input className="checkup-field-input" value={schoolLabel} readOnly />
                   </div>
-                  <div className="form-group">
-                    <label className="checkup-field-label">Assigned Group</label>
-                    <input className="checkup-field-input" value={groupLabel} readOnly />
-                  </div>
+                  {isHealthWorker && (
+                    <div className="form-group">
+                      <label className="checkup-field-label">Assigned Group</label>
+                      <input className="checkup-field-input" value={groupLabel} readOnly />
+                    </div>
+                  )}
                 </>
               )}
             </div>

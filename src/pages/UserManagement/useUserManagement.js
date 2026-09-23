@@ -355,8 +355,9 @@ export function useUserManagement() {
     }
     if (!email) { setNotification('Email is required.'); try { console.log('Validation failed: missing email', { email }); } catch(e){}; return; }
     if (!isValidEmail(email)) { setNotification('Please enter a valid email address.'); try { console.log('Validation failed: invalid email', { email }); } catch(e){}; return; }
-    if (roleVal.trim().toLowerCase() === 'health worker' && !schoolIdVal) {
-      setNotification('Assigned school is required for Health worker accounts.');
+    // Both scoped roles need a school; only Health Workers require a group as well.
+    if (['health worker', 'community organizer'].includes(roleVal.trim().toLowerCase()) && !schoolIdVal) {
+      setNotification(`Assigned school is required for ${roleVal} accounts.`);
       return;
     }
     if (roleVal.trim().toLowerCase() === 'health worker' && !groupIdVal) {

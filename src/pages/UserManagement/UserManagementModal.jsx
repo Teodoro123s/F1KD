@@ -2,48 +2,6 @@ import React, { useState } from 'react';
 import { generatePassword } from './lib';
 
 function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitting = false, notification = '' }) {
-  const formRef = React.useRef(null);
-
-  const handleSubmitClick = () => {
-    if (isSubmitting) return; // guard against clicks while submitting
-    const formEl = formRef.current;
-    // If native HTML validation fails, show native messages and do not proceed
-    if (formEl && !formEl.checkValidity()) {
-      try { formEl.reportValidity(); } catch (e) { /* ignore */ }
-      return;
-    }
-    // record that submit was attempted
-    try { window.__modal_on_submit_called__ = window.__modal_on_submit_called__ || []; window.__modal_on_submit_called__.push(Date.now()); } catch (err) {}
-
-    // Trigger a native form submission so the handler receives the real submit event
-    if (formEl && typeof formEl.requestSubmit === 'function') {
-      formEl.requestSubmit();
-    } else if (formEl) {
-      // Fallback for older browsers
-      formEl.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-    } else if (onSubmit) {
-      try { onSubmit({ preventDefault: () => {} }); } catch (e) { /* ignore */ }
-    }
-  };
-
-  // Fallback for environments where the React-internal onClick/onSubmit wiring
-  // may not trigger as expected (HMR or build differences). Attach a click
-  // listener to the form that triggers the submit handler when the primary
-  // button is clicked.
-  React.useEffect(() => {
-    const formEl = formRef.current;
-    if (!formEl) return undefined;
-    const handler = (e) => {
-      const btn = e.target.closest && e.target.closest('.btn-primary');
-      if (btn) {
-        e.preventDefault();
-        handleSubmitClick();
-      }
-    };
-    formEl.addEventListener('click', handler);
-    return () => formEl.removeEventListener('click', handler);
-  }, []);
-
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -53,7 +11,10 @@ function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitt
             ✕
           </button>
         </div>
-        <form ref={formRef} onSubmit={(e) => { e.preventDefault(); if (onSubmit) { onSubmit(e); } else { handleSubmitClick(); } }}>
+        <form onSubmit={(event) => {
+          event.preventDefault();
+          if (!isSubmitting && onSubmit) onSubmit(event);
+        }}>
           <div className="modal-body">
             {notification && <div className="notification-banner" role="alert">{notification}</div>}
             {children}
@@ -63,7 +24,6 @@ function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitt
             <button
               type="submit"
               className="btn-primary"
-              onClick={(e) => { e.preventDefault(); handleSubmitClick(); }}
               disabled={isSubmitting}
             >{isSubmitting ? `${submitLabel}...` : submitLabel}</button>
           </div>
@@ -81,9 +41,12 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
   const submitLabel = mode === 'edit' ? 'Save Changes' : 'Create';
 
   const handleChange = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
-  const requiresSchool = ['health worker', 'community organizer'].includes(String(form.role || '').trim().toLowerCase());
-  const schoolIsRequired = String(form.role || '').trim().toLowerCase() === 'health worker';
+  const roleName = String(form.role || '').trim().toLowerCase();
+  const requiresSchool = ['health worker', 'community organizer'].includes(roleName);
+  const requiresGroup = roleName === 'health worker';
+  const schoolIsRequired = requiresSchool;
   const selectedSchoolName = communities.find((school) => String(school.id) === String(form.schoolId || ''))?.name || '';
+  // Health Workers are scoped to one school and one group; organizers only need the school assignment.
   const groupOptions = groups.filter((group) => {
     if (!form.schoolId) return true;
     const groupCommunity = group.community || group.communityName || group.schoolName || '';
@@ -204,12 +167,21 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
         <>
           <div className="form-group full-width">
             <label className="form-label" htmlFor="school-id">Assigned School{schoolIsRequired ? ' *' : ''}</label>
-            <select id="school-id" name="schoolId" className="form-select" value={form.schoolId || ''} onChange={(e) => handleChange('schoolId', e.target.value)}>
+            <select id="school-id" name="schoolId" className="form-select" value={form.schoolId || ''} onChange={(e) => setForm((prev) => ({ ...prev, schoolId: e.target.value, groupId: requiresGroup ? '' : prev.groupId }))}>
               <option value="">Select assigned school</option>
               {communities.map((school) => <option key={school.id} value={school.id}>{school.name}</option>)}
             </select>
           </div>
 
+          {requiresGroup && (
+            <div className="form-group full-width">
+              <label className="form-label" htmlFor="group-id">Assigned Group *</label>
+              <select id="group-id" name="groupId" className="form-select" value={form.groupId || ''} onChange={(e) => handleChange('groupId', e.target.value)} required>
+                <option value="">Select assigned group</option>
+                {groupOptions.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
+              </select>
+            </div>
+          )}
 
         </>
       )}

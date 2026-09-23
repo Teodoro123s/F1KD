@@ -96,8 +96,9 @@ router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
     // build username and full_name from provided fields if necessary
     const userName = username || (email ? email.split('@')[0] : null);
     const full_name = fullName || (firstName || lastName ? `${(firstName||'').trim()} ${(lastName||'').trim()}`.trim() : null);
-    const requiresSchool = String(role || '').trim().toLowerCase() === 'health worker';
-    const requiresGroup = requiresSchool;
+    const roleName = String(role || '').trim().toLowerCase();
+    const requiresSchool = ['health worker', 'community organizer'].includes(roleName);
+    const requiresGroup = roleName === 'health worker';
 
     if (!userName || !email) return res.status(400).json({ error: 'username and email are required' });
     if (requiresSchool && !schoolId) return res.status(400).json({ error: 'schoolId is required for this role' });
@@ -212,7 +213,7 @@ router.put('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
     if (role !== undefined && ['health worker', 'community organizer'].includes(String(role).trim().toLowerCase()) && !schoolId) {
       return res.status(400).json({ error: 'schoolId is required for this role' });
     }
-    if (role !== undefined && ['health worker', 'community organizer'].includes(String(role).trim().toLowerCase()) && !groupId && req.body.groupId !== undefined) {
+    if (role !== undefined && String(role).trim().toLowerCase() === 'health worker' && !groupId && req.body.groupId !== undefined) {
       return res.status(400).json({ error: 'groupId is required for this role' });
     }
 

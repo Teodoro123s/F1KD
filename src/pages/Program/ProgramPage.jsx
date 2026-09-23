@@ -14,6 +14,7 @@ import {
 import { getSummary } from "../Community/communityService";
 import { apiGetChildren } from "../../api/children";
 import { apiCompleteNamedProgramCluster, apiCompleteProgramCluster, apiCreateProgram, apiCreateProgramClusters, apiDeleteProgram, apiEndProgram, apiGetProgramMonitoring, apiGetPrograms, apiRestoreProgram, apiSetProgramMonitoring, apiUpdateProgram } from "../../api/programs";
+import { notifyAction } from '../../components/ActionFeedback';
 import ExpandableTreeTable from "../Monitoring/ExpandableTreeTable";
 import {
   beneficiaryNames,
@@ -259,8 +260,11 @@ export default function ProgramPage() {
       setForm(emptyProgram);
       setShowModal(false);
       setProgramError('');
+      notifyAction(`${form.id ? 'Updated' : 'Created'} program successfully.`);
     } catch (error) {
-      setProgramError(error.message || 'Unable to save program.');
+      const message = error.message || 'Unable to save program.';
+      setProgramError(message);
+      notifyAction(message, 'error');
     }
   };
 
@@ -421,8 +425,11 @@ export default function ProgramPage() {
       setActiveTab('Active');
       navigate('/program');
       setProgramError('');
+      notifyAction(`Restored ${programToRestore.name}.`);
     } catch (error) {
-      setProgramError(error.message || 'Unable to restore program.');
+      const message = error.message || 'Unable to restore program.';
+      setProgramError(message);
+      notifyAction(message, 'error');
     }
   };
   const endProgram = async () => {
@@ -435,8 +442,11 @@ export default function ProgramPage() {
       setActiveTab('Ended');
       navigate('/program');
       setProgramError('');
+      notifyAction(`Ended ${programToEnd.name}.`);
     } catch (error) {
-      setProgramError(error.message || 'Unable to end program.');
+      const message = error.message || 'Unable to end program.';
+      setProgramError(message);
+      notifyAction(message, 'error');
     }
   };
   const saveBeneficiaryScope = (event) => {
@@ -466,8 +476,13 @@ export default function ProgramPage() {
         setScopeGroupIds([]);
         setScopeBatchIds([]);
         setProgramError('');
+        notifyAction('Beneficiary scope saved successfully.');
       })
-      .catch((error) => setProgramError(error.message || 'Unable to save beneficiary cluster.'));
+      .catch((error) => {
+        const message = error.message || 'Unable to save beneficiary cluster.';
+        setProgramError(message);
+        notifyAction(message, 'error');
+      });
   };
   const completeCluster = (cluster) => {
     const completeRequest = cluster.id
@@ -516,8 +531,13 @@ export default function ProgramPage() {
     apiDeleteProgram(programToDelete.id).then(() => {
       setPrograms((current) => current.filter((program) => program.id !== programToDelete.id));
       setActiveActionMenu(null);
+      notifyAction(`Deleted ${programToDelete.name}.`);
       navigate("/program");
-    }).catch((error) => setProgramError(error.message || 'Unable to delete program.'));
+    }).catch((error) => {
+      const message = error.message || 'Unable to delete program.';
+      setProgramError(message);
+      notifyAction(message, 'error');
+    });
   };
   const renderActionMenu = (menuId, menuProgram = selectedProgram) => canCreatePrograms && (
     <div className="program-action-menu-wrap" onClick={(event) => event.stopPropagation()}>

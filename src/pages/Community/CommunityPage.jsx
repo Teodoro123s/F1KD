@@ -11,6 +11,7 @@ import { useAuth } from '../../auth/AuthProvider';
 import { can, hasRole, isHealthWorkerRole, ROLES } from '../../utils/permissions';
 import { apiDeleteMother } from '../../api/mothers';
 import { apiGetChildren } from '../../api/children';
+import { notifyAction } from '../../components/ActionFeedback';
 
 const defaultCommunityForm = { name: '', area: 'Poblacion', coordinator: '' };
 const defaultGroupForm = { name: '', community: '', assignedBatchIds: [], leader: '', members: 1, status: 'Active' };
@@ -52,15 +53,15 @@ export default function CommunityPage() {
   const navigate = useNavigate();
   const { schoolId, groupId, batchId } = useParams();
   const isSuperAdmin = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]);
-  const canManage = !isHealthWorkerRole(currentUser?.role) && (can(currentUser?.role, 'admin-resources', 'create')
+  const isCommunityOrganizer = ['community organizer', 'communityorganizer']
+    .includes(String(currentUser?.role || '').trim().toLowerCase());
+  const canManage = !isHealthWorkerRole(currentUser?.role) && !isCommunityOrganizer && (can(currentUser?.role, 'admin-resources', 'create')
     || can(currentUser?.role, 'partner-resources', 'create'));
   const assignedSchoolId = currentUser?.school_id ?? currentUser?.schoolId ?? null;
   const assignedGroupId = currentUser?.group_id ?? currentUser?.groupId ?? null;
   const isHealthWorker = ['health worker', 'healthworker']
     .includes(String(currentUser?.role || '').trim().toLowerCase());
   const isAssignedAdmin = hasRole(currentUser?.role, [ROLES.ADMIN]) && Boolean(assignedSchoolId);
-  const isCommunityOrganizer = ['community organizer', 'communityorganizer']
-    .includes(String(currentUser?.role || '').trim().toLowerCase());
   const isAssignedCommunityOrganizer = isCommunityOrganizer && Boolean(assignedSchoolId);
   const isSchoolScopedUser = ['community organizer', 'communityorganizer', 'health worker', 'healthworker']
     .includes(String(currentUser?.role || '').trim().toLowerCase()) || isAssignedAdmin;
@@ -547,8 +548,10 @@ export default function CommunityPage() {
     try {
       await apiDeleteMother(id);
       await refreshData();
+      notifyAction('Mother deleted successfully.');
     } catch (error) {
       console.error('[CommunityPage] Unable to delete mother:', error);
+      notifyAction(error?.message || 'Unable to delete mother.', 'error');
     }
   };
 
