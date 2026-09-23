@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../db');
 const bcrypt = require('bcrypt');
+const { ensureSuperadminAccount } = require('../services/superadminRecovery');
 const { verifyToken } = require('../middleware/auth');
 const { authorize } = require('../middleware/authorize');
 
@@ -245,6 +246,7 @@ router.delete('/:id', verifyToken, authorize('super_admin'), async (req, res) =>
   try {
     const { id } = req.params;
     await pool.query('DELETE FROM users WHERE id = ?', [id]);
+    await ensureSuperadminAccount(pool);
     res.status(204).end();
   } catch (err) {
     console.error('[Users API] DELETE /:id error:', err.message);

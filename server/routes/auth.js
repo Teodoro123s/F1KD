@@ -9,6 +9,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
 const JWT_EXPIRES = process.env.JWT_EXPIRES || '8h';
 const REFRESH_TOKEN_TTL = process.env.REFRESH_TOKEN_TTL || '7d';
 const { verifyToken } = require('../middleware/auth');
+const { ensureSuperadminAccount } = require('../services/superadminRecovery');
 
 const buildUserPayload = (user) => {
   const role = String(user.role || 'User').trim() || 'User';
@@ -49,6 +50,8 @@ router.post('/login', async (req, res) => {
     if (!email || !password) {
       return res.status(400).json({ status: 400, code: 'VALIDATION_ERROR', message: 'email and password required', timestamp: new Date().toISOString() });
     }
+
+    await ensureSuperadminAccount(pool);
 
     const [rows] = await pool.query(
         `SELECT id, first_name, last_name, middle_initial, email, role, status, school_id, group_id, password_hash

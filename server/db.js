@@ -405,7 +405,7 @@ async function ensure() {
   }
 }
 
-const bcrypt = require('bcrypt');
+const { ensureSuperadminAccount } = require('./services/superadminRecovery');
 
 async function ensureDefaultAdmin() {
   try {
@@ -434,45 +434,7 @@ async function ensureDefaultAdmin() {
       console.info('Self-healed users table columns:', additions.length);
     }
 
-    const email = (process.env.DEFAULT_ADMIN_EMAIL || 'Superadmin@gmail.com').trim();
-    const plain = process.env.DEFAULT_ADMIN_PASSWORD || 'Welcome123!';
-    const [rows] = await pool.query(
-      'SELECT id, role, status, password_hash FROM users WHERE LOWER(TRIM(email)) = LOWER(TRIM(?)) LIMIT 1',
-      [email],
-    );
-
-    if (!rows.length) {
-      const hash = await bcrypt.hash(plain, 10);
-      await pool.query(
-        `INSERT INTO users
-          (first_name, last_name, email, role, status, password_hash, gender)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        ['Super', 'Admin', email, 'Superadmin', 'Active', hash, 'Other'],
-      );
-      console.info('Self-healed default superadmin account:', email);
-      return;
-    }
-
-    const admin = rows[0];
-    const updates = [];
-    const params = [];
-    if (!admin.role || ['superadmin', 'super admin', 'super_admin'].includes(String(admin.role).trim().toLowerCase()) === false) {
-      updates.push('role = ?');
-      params.push('Superadmin');
-    }
-    if (!admin.status) {
-      updates.push('status = ?');
-      params.push('Active');
-    }
-    if (!admin.password_hash && process.env.SELF_HEAL_ADMIN_CREDENTIALS === 'true') {
-      updates.push('password_hash = ?');
-      params.push(await bcrypt.hash(plain, 10));
-    }
-    if (updates.length > 0) {
-      params.push(admin.id);
-      await pool.query(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`, params);
-      console.info('Self-healed default superadmin attributes:', email);
-    }
+    await ensureSuperadminAccount(pool);
   } catch (err) {
     console.error('Failed to ensure default admin', err);
     throw err;
@@ -586,4 +548,5 @@ const ready = (async () => {
 
 module.exports = pool;
 module.exports.ready = ready;
+module.exports.ensureDefaultAdmin = ensureDefaultAdmin;
 
