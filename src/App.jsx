@@ -1,4 +1,3 @@
-import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import { MothersProvider } from './context/MothersContext';
@@ -20,11 +19,12 @@ import SettingsPage from './pages/SettingsPage';
 import Login from './pages/Login';
 import { useAuth } from './auth/AuthProvider';
 import RoleBasedRoute from './components/RoleBasedRoute';
+import { LoadingScreen } from './components/LoadingSkeleton';
 import { ROLES } from './utils/permissions';
 
 function RequireAuth({ children }) {
   const auth = useAuth();
-  if (auth.loading) return null; // or a spinner
+  if (auth.loading) return <LoadingScreen message="Checking your session..." />;
   if (!auth.isAuthenticated) {
     return <Navigate to="/login" replace />;
   }

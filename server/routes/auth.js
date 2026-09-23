@@ -13,18 +13,25 @@ const { ensureSuperadminAccount } = require('../services/superadminRecovery');
 
 const buildUserPayload = (user) => {
   const role = String(user.role || 'User').trim() || 'User';
-  const derivedName = [user.first_name, user.middle_initial, user.last_name]
-    .filter((part) => String(part || '').trim())
-    .join(' ');
+  const firstName = String(user.first_name || '').trim();
+  const middleInitial = String(user.middle_initial || '').trim();
+  const lastName = String(user.last_name || '').trim();
+  const derivedName = [firstName, middleInitial, lastName].filter(Boolean).join(' ');
   const name = String(user.name || user.full_name || user.username || derivedName || 'User').trim() || 'User';
 
   return {
     id: user.id,
     role,
     name,
+    first_name: firstName,
+    middle_initial: middleInitial,
+    last_name: lastName,
     email: user.email,
+    status: user.status || 'Active',
     school_id: user.school_id ?? null,
     group_id: user.group_id ?? null,
+    contact_number: user.contact_number || null,
+    location: user.location || null,
   };
 };
 

@@ -32,6 +32,20 @@ export default function SuperAdminCommunityPage() {
   const activeTab = schoolId ? 'groups' : 'communities';
 
   useEffect(() => {
+    const handleDocumentClick = (event) => {
+      const clickedInsideDropdown = event.target.closest('.actions-dropdown');
+      const clickedToggleButton = event.target.closest('.btn-actions');
+
+      if (!clickedInsideDropdown && !clickedToggleButton) {
+        setActiveDropdownId(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleDocumentClick);
+    return () => document.removeEventListener('mousedown', handleDocumentClick);
+  }, []);
+
+  useEffect(() => {
     // Superadmin Community ends at Groups; batch URLs are no longer part of this module.
     if (batchId || groupId) {
       navigate(schoolId ? `/community/school/${schoolId}` : '/community', { replace: true });

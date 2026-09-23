@@ -61,6 +61,13 @@ if (minioClient) {
     });
 }
 
+/**
+ * Builds a deterministic object key for uploaded files kept in object storage.
+ *
+ * @param {string} fieldName - The form field name used for the upload.
+ * @param {string} originalName - The original file name supplied by the client.
+ * @returns {string} A safe, bucket-friendly object path.
+ */
 function buildObjectKey(fieldName, originalName) {
   const extension = path.extname(originalName || '').toLowerCase();
   const timestamp = Date.now();
@@ -69,6 +76,13 @@ function buildObjectKey(fieldName, originalName) {
   return `${safeField}/${timestamp}-${randomPart}${extension}`;
 }
 
+/**
+ * Persists an uploaded document to MinIO when configured, otherwise falls back to the local disk store.
+ *
+ * @param {Express.Multer.File | null | undefined} file - The uploaded file instance.
+ * @param {string} [fieldName='document'] - A label used to build the storage path.
+ * @returns {Promise<{path: string, name: string, storage: string}>} Metadata for the stored file.
+ */
 async function uploadFileToStorage(file, fieldName = 'document') {
   if (!file) {
     return { path: '', name: '', storage: 'none' };

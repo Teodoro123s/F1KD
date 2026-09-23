@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MoreVerticalIcon } from './UserManagementIcons';
 
@@ -13,6 +13,20 @@ export default function UserManagementTable({
   const [activeDropdownId, setActiveDropdownId] = useState(null);
   const emptyColSpan = 3;
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const handleDocumentClick = (event) => {
+      const clickedInsideDropdown = event.target.closest('.actions-dropdown');
+      const clickedToggleButton = event.target.closest('.btn-actions');
+
+      if (!clickedInsideDropdown && !clickedToggleButton) {
+        setActiveDropdownId(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleDocumentClick);
+    return () => document.removeEventListener('mousedown', handleDocumentClick);
+  }, []);
 
   const toggleDropdown = (event, id) => {
     event.stopPropagation();

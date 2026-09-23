@@ -79,16 +79,18 @@ export default function UserDetailPage() {
   }, [id, location]);
 
   const displayName = user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || id;
-  const requiresSchoolAssignment = ['health worker', 'community organizer'].includes(String(user.role || '').trim().toLowerCase());
+  const normalizedRole = String(user.role || '').trim().toLowerCase();
+  const isCommunityOrganizer = normalizedRole === 'community organizer';
+  const isHealthWorker = normalizedRole === 'health worker';
+  const requiresSchoolAssignment = isCommunityOrganizer || isHealthWorker;
   const schoolLabel = (() => {
     if (!requiresSchoolAssignment) return 'Not required';
     if (!user.schoolId) return 'Not assigned';
     const match = communities.find((school) => String(school.id) === String(user.schoolId));
     return match?.name || `School ID ${user.schoolId}`;
   })();
-  const isHealthWorker = String(user.role || '').trim().toLowerCase() === 'health worker';
   const groupLabel = (() => {
-    if (!isHealthWorker) return '';
+    if (!isHealthWorker) return 'Not required';
     if (!user.groupId) return 'Not assigned';
     const match = groups.find((group) => String(group.id) === String(user.groupId));
     return match?.name || `Group ID ${user.groupId}`;
@@ -144,24 +146,16 @@ export default function UserDetailPage() {
                 <input className="checkup-field-input" value={user.firstName || ''} readOnly />
               </div>
               <div className="form-group">
-                <label className="checkup-field-label">Last Name</label>
-                <input className="checkup-field-input" value={user.lastName || ''} readOnly />
-              </div>
-              <div className="form-group">
                 <label className="checkup-field-label">Middle Initial</label>
                 <input className="checkup-field-input" value={user.middleInitial || ''} readOnly />
               </div>
               <div className="form-group">
-                <label className="checkup-field-label">Contact Number</label>
-                <input className="checkup-field-input" value={user.contactNumber || user.contact || ''} readOnly />
+                <label className="checkup-field-label">Surname</label>
+                <input className="checkup-field-input" value={user.lastName || ''} readOnly />
               </div>
               <div className="form-group">
                 <label className="checkup-field-label">Email</label>
                 <input className="checkup-field-input" value={user.email || ''} readOnly />
-              </div>
-              <div className="form-group">
-                <label className="checkup-field-label">Date of Birth</label>
-                <input className="checkup-field-input" value={user.dob || user.dateOfBirth || ''} readOnly />
               </div>
               <div className="form-group">
                 <label className="checkup-field-label">Role</label>
@@ -169,17 +163,22 @@ export default function UserDetailPage() {
               </div>
               <div className="form-group">
                 <label className="checkup-field-label">Status</label>
-                <input className="checkup-field-input" value={user.status || ''} readOnly />
+                <input className="checkup-field-input" value={user.status || 'Active'} readOnly />
               </div>
+              <div className="form-group">
+                <label className="checkup-field-label">Contact Number</label>
+                <input className="checkup-field-input" value={user.contactNumber || user.contact || '—'} readOnly />
+              </div>
+
               {requiresSchoolAssignment && (
                 <>
                   <div className="form-group">
-                    <label className="checkup-field-label">Assigned School</label>
+                    <label className="checkup-field-label">School</label>
                     <input className="checkup-field-input" value={schoolLabel} readOnly />
                   </div>
                   {isHealthWorker && (
                     <div className="form-group">
-                      <label className="checkup-field-label">Assigned Group</label>
+                      <label className="checkup-field-label">Group</label>
                       <input className="checkup-field-input" value={groupLabel} readOnly />
                     </div>
                   )}

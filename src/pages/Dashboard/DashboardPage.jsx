@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthProvider';
 import { useMothers } from '../../context/MothersContext';
+import { PageSkeleton } from '../../components/LoadingSkeleton';
 import { getSummary } from '../Community/communityService';
 import { apiGetChildren } from '../../api/children';
 import { apiGetPrograms } from '../../api/programs';
@@ -359,6 +360,10 @@ export default function DashboardPage() {
       totalBeneficiaries: stats.totalBeneficiaries,
     };
   }, [communitySummary.communities, programs, superadminMetrics.totalUsers, stats.totalBeneficiaries]);
+
+  if (loading) {
+    return <PageSkeleton variant="dashboard" />;
+  }
 
   return (
     <div className="dashboard-shell">

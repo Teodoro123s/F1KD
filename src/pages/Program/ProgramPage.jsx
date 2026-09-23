@@ -75,6 +75,20 @@ export default function ProgramPage() {
   const [monitoringPending, setMonitoringPending] = useState({});
   const [monitorConfirmation, setMonitorConfirmation] = useState(null);
 
+  useEffect(() => {
+    const handleDocumentClick = (event) => {
+      const clickedInsideDropdown = event.target.closest('.actions-dropdown');
+      const clickedToggleButton = event.target.closest('.program-more-button');
+
+      if (!clickedInsideDropdown && !clickedToggleButton) {
+        setActiveActionMenu(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleDocumentClick);
+    return () => document.removeEventListener('mousedown', handleDocumentClick);
+  }, []);
+
   const mapApiProgram = (program) => ({
     ...program,
     id: Number(program.id),

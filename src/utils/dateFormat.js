@@ -1,3 +1,9 @@
+/**
+ * Formats a raw date entry as a YYYY/MM/DD-style string while accepting digits only.
+ *
+ * @param {string | number | Date | null | undefined} value - The raw input value.
+ * @returns {string} The masked date string, such as 2026/09/24.
+ */
 export function maskDateInput(value) {
   const digits = String(value ?? '').replace(/\D/g, '').slice(0, 8);
   if (!digits) return '';
@@ -6,6 +12,12 @@ export function maskDateInput(value) {
   return `${digits.slice(0, 4)}/${digits.slice(4, 6)}/${digits.slice(6, 8)}`;
 }
 
+/**
+ * Validates a masked date and converts it into an ISO-like YYYY-MM-DD value.
+ *
+ * @param {string | number | Date | null | undefined} value - The raw date input.
+ * @returns {string} A normalized ISO date when valid, otherwise an empty string.
+ */
 export function normalizeDateValue(value) {
   const masked = maskDateInput(value);
   if (!masked) return '';
@@ -17,6 +29,12 @@ export function normalizeDateValue(value) {
   return `${year}-${month}-${day}`;
 }
 
+/**
+ * Converts user input or stored database values into a form-friendly YYYY-MM-DD string.
+ *
+ * @param {string | number | Date | null | undefined} value - The value to normalize.
+ * @returns {string} A browser-friendly date string, or an empty string when invalid.
+ */
 export function formatDateForInput(value) {
   if (!value) return '';
   const candidate = String(value).trim();
@@ -32,6 +50,12 @@ export function formatDateForInput(value) {
   return `${date.getFullYear()}-${month}-${day}`;
 }
 
+/**
+ * Returns a readable display version of a date in YYYY/MM/DD format.
+ *
+ * @param {string | number | Date | null | undefined} value - The date to display.
+ * @returns {string} A formatted display date or a fallback placeholder.
+ */
 export function formatDateForDisplay(value) {
   const inputDate = formatDateForInput(value);
   if (!inputDate) return value || '—';
