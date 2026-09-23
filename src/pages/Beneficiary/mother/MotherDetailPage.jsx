@@ -317,7 +317,6 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
               navigate(`/beneficiary/mother/${motherId}/child`, { state: { mother: selectedMother, children, returnTo: `/beneficiary/mother/${motherId}` } });
             }}>View Child</button>
             <button type="button" className="btn-primary" onClick={() => navigate('/monitoring', { state: { mother, returnTo: `/beneficiary/mother/${motherId}` } })}>Monitor</button>
-            {canManage && <button type="button" className="btn-danger" onClick={() => { setDeleteError(''); setShowDeleteModal(true); }}>Delete</button>}
           </div>
         </section>
       )}

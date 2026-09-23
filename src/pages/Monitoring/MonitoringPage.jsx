@@ -11,6 +11,7 @@ import { apiGetChild, apiGetChildren, apiSaveChildCheckup } from '../../api/chil
 import { apiGetMother, apiSaveMotherCheckup } from '../../api/mothers';
 import { useAuth } from '../../auth/AuthProvider';
 import { isHealthWorkerRole } from '../../utils/permissions';
+import { notifyAction } from '../../components/ActionFeedback';
 
 function getMotherName(mother) {
   return mother?.name || [mother?.firstName || mother?.first_name, mother?.middleName || mother?.middle_name, mother?.lastName || mother?.last_name]
@@ -54,6 +55,28 @@ const getMotherMonitoringStatus = (mother, completed, total) => {
   if (dateStatus === 'Missing') return 'Missing';
   if (completed > 0) return 'In Progress';
   return dateStatus;
+};
+
+const getMotherMonitoringStartIndex = (mother) => {
+  const registeredTrimester = String(mother?.trimester || mother?.trimester_at_registration || '').toLowerCase();
+  if (registeredTrimester.includes('3rd') || registeredTrimester.includes('third')) return 2;
+  if (registeredTrimester.includes('2nd') || registeredTrimester.includes('second')) return 1;
+
+  const gestationalAge = Number.parseInt(mother?.gestationalAge ?? mother?.gestational_age, 10);
+  if (Number.isFinite(gestationalAge)) {
+    if (gestationalAge > 26) return 2;
+    if (gestationalAge > 12) return 1;
+  }
+
+  return 0;
+};
+
+const getMotherMonitoringProgress = (mother) => {
+  const startIndex = getMotherMonitoringStartIndex(mother);
+  const checkups = mother?.checkups || [];
+  const completed = checkups.slice(startIndex).flat().filter(Boolean).length;
+  const total = (3 - startIndex) * 3;
+  return { completed, total };
 };
 
 const getChildMonitoringStatus = (child, completed, total) => {
@@ -139,14 +162,17 @@ export default function MonitoringPage() {
       setSavedMessage(`Unable to save check-up: ${error.message}`);
       return false;
     }
-    setMotherCheckups((current) => {
-      const next = current.map((trimester) => [...trimester]);
-      const trimesterIndex = payload.trimester === '2nd Trimester' ? 1 : payload.trimester === '3rd Trimester' ? 2 : 0;
-      if (!next[trimesterIndex]) next[trimesterIndex] = [null, null, null];
-      next[trimesterIndex][payload.checkupNumber - 1] = { ...payload, completed: true };
-      return next;
-    });
-    setSavedMessage(`Check-up ${payload.trimester} ${payload.checkupNumber} captured for ${getMotherName(selectedMother)}.`);
+    const nextCheckups = motherCheckups.map((trimester) => [...trimester]);
+    const trimesterIndex = payload.trimester === '2nd Trimester' ? 1 : payload.trimester === '3rd Trimester' ? 2 : 0;
+    if (!nextCheckups[trimesterIndex]) nextCheckups[trimesterIndex] = [null, null, null];
+    nextCheckups[trimesterIndex][payload.checkupNumber - 1] = { ...payload, completed: true };
+    setMotherCheckups(nextCheckups);
+    const completedCount = nextCheckups.flat().filter(Boolean).length;
+    const message = completedCount >= 9
+      ? `Monitoring completed successfully for ${getMotherName(selectedMother)}.`
+      : `Check-up ${payload.trimester} ${payload.checkupNumber} captured successfully for ${getMotherName(selectedMother)}.`;
+    setSavedMessage(message);
+    notifyAction(message);
     return true;
   };
 
@@ -183,10 +209,9 @@ export default function MonitoringPage() {
   const visibleBeneficiaries = beneficiaryType === 'Mother' ? filteredMothers : filteredChildren;
 
   const monitoringRows = useMemo(() => visibleBeneficiaries.map((beneficiary) => {
-    const completed = beneficiaryType === 'Mother'
-      ? (beneficiary.checkups || []).flat().filter(Boolean).length
-      : (beneficiary.completedWeeks || []).length;
-    const total = beneficiaryType === 'Mother' ? 9 : 48;
+    const maternalProgress = beneficiaryType === 'Mother' ? getMotherMonitoringProgress(beneficiary) : null;
+    const completed = maternalProgress?.completed ?? (beneficiary.completedWeeks || []).length;
+    const total = maternalProgress?.total ?? 48;
     const progress = Math.min(100, Math.round((completed / total) * 100));
     const status = beneficiaryType === 'Mother'
       ? getMotherMonitoringStatus(beneficiary, completed, total)
@@ -322,7 +347,11 @@ export default function MonitoringPage() {
                 setSavedMessage(`Unable to save check-up: ${error.message}`);
                 return;
               }
-              setSavedMessage(`Week ${payload.week} progress captured for ${getChildName(selectedChild)}.`);
+              const message = completedWeeks.length >= 48
+                ? `Monitoring completed successfully for ${getChildName(selectedChild)}.`
+                : `Week ${payload.week} progress captured successfully for ${getChildName(selectedChild)}.`;
+              setSavedMessage(message);
+              notifyAction(message);
             }}
             onCancel={() => setSelectedChild(null)}
           />

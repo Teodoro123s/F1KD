@@ -298,6 +298,7 @@ export function MotherFormFields({
             name: 'province',
             options: PHILIPPINE_PROVINCES,
             placeholder: 'Select province',
+            required: true,
             onChange: (value) => setForm((prev) => ({ ...prev, province: value, city: '', barangay: '' })),
           })}
           {renderSelect({
@@ -306,6 +307,7 @@ export function MotherFormFields({
             name: 'city',
             options: cityOptions,
             placeholder: form.province ? 'Select city / municipality' : 'Select province first',
+            required: true,
             onChange: (value) => setForm((prev) => ({ ...prev, city: value, barangay: '' })),
             disabled: !form.province,
           })}
@@ -315,6 +317,7 @@ export function MotherFormFields({
             name: 'barangay',
             options: barangayOptions,
             placeholder: form.city ? 'Select barangay' : 'Select city first',
+            required: true,
             disabled: !form.city,
           })}
           </div>

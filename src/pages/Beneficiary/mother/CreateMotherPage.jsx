@@ -142,6 +142,11 @@ export default function CreateMotherPage({
       setSubmitError('Please complete the required mother information before saving.');
       return;
     }
+    if (!communityForm.province || !communityForm.city || !communityForm.barangay) {
+      setSubmitError('Province, City / Municipality, and Barangay are required.');
+      setCreateActiveTab('general');
+      return;
+    }
     const initialCheckups = getInitialCheckups(
       communityForm.trimester,
       communityForm.prenatalBp,
