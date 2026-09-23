@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import CommunityTable from './CommunityTable';
 import CommunityModalManager from './CommunityModalManager';
 import CommunityToolbar from './components/CommunityToolbar';
@@ -12,6 +12,7 @@ import { can, hasRole, isHealthWorkerRole, ROLES } from '../../utils/permissions
 import { apiDeleteMother } from '../../api/mothers';
 import { apiGetChildren } from '../../api/children';
 import { notifyAction } from '../../components/ActionFeedback';
+import { getGroupHealthWorkers } from './communityService';
 
 const defaultCommunityForm = { name: '', area: 'Poblacion', coordinator: '' };
 const defaultGroupForm = { name: '', community: '', assignedBatchIds: [], leader: '', members: 1, status: 'Active' };
@@ -51,7 +52,9 @@ const truncateLabel = (label, maxLength = 26) => {
 export default function CommunityPage() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { schoolId, groupId, batchId } = useParams();
+  const isHealthWorkersView = location.pathname.endsWith('/health-workers');
   const isSuperAdmin = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]);
   const isCommunityOrganizer = ['community organizer', 'communityorganizer']
     .includes(String(currentUser?.role || '').trim().toLowerCase());
@@ -91,18 +94,30 @@ export default function CommunityPage() {
   const [groupForm, setGroupForm] = useState(defaultGroupForm);
   const [batchForm, setBatchForm] = useState(defaultBatchForm);
   const [childrenRows, setChildrenRows] = useState([]);
+  const [healthWorkers, setHealthWorkers] = useState([]);
+  const [healthWorkersLoading, setHealthWorkersLoading] = useState(false);
 
-  const activeTab = batchId
+  const activeTab = isHealthWorkersView
+    ? 'healthWorkers'
+    : batchId
     ? (isSuperAdmin ? 'batches' : 'mothers')
     : isHealthWorker
       ? 'batches'
       : isAssignedAdmin || isAssignedCommunityOrganizer
         ? (groupId ? 'batches' : 'groups')
         : groupId
-          ? 'batches'
+            ? (isSuperAdmin ? 'groups' : 'batches')
           : schoolId
             ? 'groups'
             : 'communities';
+
+  useEffect(() => {
+    if (!isSuperAdmin || isHealthWorkersView || (!batchId && !groupId)) {
+      return;
+    }
+
+    navigate('/community', { replace: true });
+  }, [batchId, groupId, isHealthWorkersView, isSuperAdmin, navigate]);
 
   const selectedBatch = useMemo(
     () => batches.find((batch) => String(batch.id) === String(batchId)),
@@ -204,6 +219,31 @@ export default function CommunityPage() {
   }, [mothers, query, selectedBatch]);
 
   useEffect(() => {
+    if (!isHealthWorkersView || !groupId) {
+      setHealthWorkers([]);
+      return undefined;
+    }
+
+    let active = true;
+    setHealthWorkersLoading(true);
+    getGroupHealthWorkers(groupId)
+      .then((response) => {
+        if (active) setHealthWorkers(response.healthWorkers || []);
+      })
+      .catch((error) => {
+        if (active) {
+          setHealthWorkers([]);
+          notifyAction(error?.message || 'Unable to load Health Workers.', 'error');
+        }
+      })
+      .finally(() => {
+        if (active) setHealthWorkersLoading(false);
+      });
+
+    return () => { active = false; };
+  }, [groupId, isHealthWorkersView]);
+
+  useEffect(() => {
     if (activeTab !== 'mothers' || entityFilter !== 'Child') {
       setChildrenRows([]);
       return;
@@ -260,6 +300,14 @@ export default function CommunityPage() {
     }
 
     if (activeTab === 'groups') return selectedSchoolGroups;
+    if (activeTab === 'healthWorkers') {
+      return healthWorkers.filter((worker) => {
+        if (!term) return true;
+        return [worker.name, worker.email, worker.contact_number, worker.status].some((value) =>
+          String(value || '').toLowerCase().includes(term)
+        );
+      });
+    }
     if (activeTab === 'batches') return selectedGroupBatches;
 
     if (entityFilter === 'Child') {
@@ -287,7 +335,7 @@ export default function CommunityPage() {
     }
 
     return selectedBatchMothers;
-  }, [activeTab, childrenRows, communities, entityFilter, query, scopedCommunities, selectedBatch, selectedBatchMothers, selectedGroup, selectedGroupBatches, selectedSchool, selectedSchoolGroups]);
+  }, [activeTab, childrenRows, communities, entityFilter, healthWorkers, query, scopedCommunities, selectedBatch, selectedBatchMothers, selectedGroup, selectedGroupBatches, selectedSchool, selectedSchoolGroups]);
 
   const pageCount = Math.max(1, Math.ceil(filteredData.length / perPage));
   const currentPage = Math.min(page, pageCount);
@@ -307,6 +355,10 @@ export default function CommunityPage() {
       return selectedGroup?.name ? `Group: ${selectedGroup.name}` : 'Group';
     }
 
+    if (activeTab === 'healthWorkers') {
+      return selectedGroup?.name ? `Health Workers: ${selectedGroup.name}` : 'Health Workers';
+    }
+
     if (activeTab === 'mothers') {
       return selectedBatch?.name ? `Batch: ${selectedBatch.name}` : 'Batch';
     }
@@ -315,6 +367,14 @@ export default function CommunityPage() {
   }, [activeTab, selectedBatch, selectedGroup, selectedSchool]);
 
   const breadcrumbItems = useMemo(() => {
+    if (activeTab === 'healthWorkers') {
+      return [
+        { label: 'Groups', to: '/community', clickable: true },
+        { label: truncateLabel(selectedGroup?.name || 'Group'), clickable: false },
+        { label: 'Health Workers', clickable: false },
+      ];
+    }
+
     if (isHealthWorker || isAssignedAdmin || isAssignedCommunityOrganizer) {
       if (activeTab === 'mothers') {
         return [
@@ -593,6 +653,20 @@ export default function CommunityPage() {
             </button>
             {activeDropdownId === row.id && (
               <div className="actions-dropdown" role="menu">
+                {activeTab === 'groups' && (
+                  <button
+                    type="button"
+                    className="actions-dropdown-item"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      navigate(`/community/group/${row.id}/health-workers`);
+                      setActiveDropdownId(null);
+                    }}
+                    role="menuitem"
+                  >
+                    See Health Workers
+                  </button>
+                )}
                 {activeTab !== 'mothers' && (
                   <button
                     type="button"
@@ -639,6 +713,7 @@ export default function CommunityPage() {
     if (activeTab === 'communities') {
       return [
         { key: 'name', header: 'School Name', style: { width: '48%' }, renderCell: (row) => <span className="community-title-text" title={row.name}>{row.name}</span> },
+        { key: 'coordinatorName', header: 'Assigned Community Organizer', renderCell: (row) => row.coordinatorName || 'Not assigned' },
         { key: 'batches', header: 'Total Batches', cellClassName: 'small-column', renderCell: (row) => row.batches || 0 },
         { key: 'groups', header: 'Total Groups', cellClassName: 'small-column', renderCell: (row) => groups.filter((group) => group.community === row.name).length },
         actionColumn,
@@ -650,6 +725,16 @@ export default function CommunityPage() {
         { key: 'name', header: 'Group Name', style: { width: '60%' }, renderCell: (row) => <span className="community-title-text">{row.name}</span> },
         { key: 'assignedBatchIds', header: 'Total Batches', cellClassName: 'small-column', renderCell: (row) => row.assignedBatchIds?.length ?? row.batches ?? 0 },
         actionColumn,
+      ];
+    }
+
+    if (activeTab === 'healthWorkers') {
+      return [
+        { key: 'name', header: 'Health Worker', style: { width: '32%' }, renderCell: (row) => <span className="community-title-text">{row.name}</span> },
+        { key: 'school_name', header: 'School', renderCell: (row) => row.school_name || 'Not assigned' },
+        { key: 'group_name', header: 'Group', renderCell: (row) => row.group_name || 'Not assigned' },
+        { key: 'contact_number', header: 'Contact', renderCell: (row) => row.contact_number || '—' },
+        { key: 'status', header: 'Status', renderCell: (row) => row.status || '—' },
       ];
     }
 
@@ -684,7 +769,11 @@ export default function CommunityPage() {
     activeTab === 'communities'
       ? (school) => navigate(`/community/school/${school.id}`)
       : activeTab === 'groups'
-        ? (group) => navigate(`/community/group/${group.id}`)
+        ? isSuperAdmin
+          ? undefined
+          : (group) => navigate(`/community/group/${group.id}`)
+        : activeTab === 'healthWorkers'
+          ? undefined
         : activeTab === 'batches'
           ? isSuperAdmin
             ? undefined

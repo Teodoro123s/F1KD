@@ -50,6 +50,7 @@ export default function App() {
         <Route path="community" element={<CommunityPage />} />
         <Route path="community/school/:schoolId" element={<CommunityPage />} />
         <Route path="community/group/:groupId" element={<CommunityPage />} />
+        <Route path="community/group/:groupId/health-workers" element={<CommunityPage />} />
         <Route path="community/batch/:batchId" element={<CommunityPage />} />
         <Route path="beneficiary" element={<Beneficiary />} />
         <Route path="beneficiary/mother/:id" element={<Beneficiary />} />

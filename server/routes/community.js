@@ -473,6 +473,41 @@ router.get('/groups', async (req, res) => {
   }
 });
 
+router.get('/groups/:groupId/health-workers', async (req, res) => {
+  try {
+    const groupId = Number(req.params.groupId);
+    if (!Number.isInteger(groupId)) {
+      return res.status(400).json({ error: 'Invalid group id' });
+    }
+
+    const scope = req.schoolId ? 'AND g.community_id = ?' : '';
+    const params = req.schoolId ? [groupId, req.schoolId] : [groupId];
+    const [rows] = await pool.query(`
+      SELECT
+        u.id,
+        CONCAT_WS(' ', u.first_name, u.middle_initial, u.last_name) AS name,
+        u.email,
+        u.contact_number,
+        u.status,
+        u.school_id,
+        c.name AS school_name,
+        g.name AS group_name
+      FROM users u
+      INNER JOIN groups g ON g.id = u.group_id
+      LEFT JOIN communities c ON c.id = u.school_id
+      WHERE u.group_id = ?
+        AND LOWER(TRIM(u.role)) = 'health worker'
+        ${scope}
+      ORDER BY u.last_name, u.first_name, u.id
+    `, params);
+
+    return res.json({ healthWorkers: rows });
+  } catch (error) {
+    console.error('[Community API] GET group health workers error:', error.message);
+    return res.status(500).json({ error: 'db error' });
+  }
+});
+
 router.put('/communities/:id', async (req, res) => {
   try {
     const { id } = req.params;
