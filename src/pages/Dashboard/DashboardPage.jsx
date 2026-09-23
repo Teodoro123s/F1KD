@@ -361,6 +361,78 @@ export default function DashboardPage() {
     };
   }, [communitySummary.communities, programs, superadminMetrics.totalUsers, stats.totalBeneficiaries]);
 
+  const visibleModules = useMemo(() => {
+    const modules = [
+      ['beneficiary', 'Beneficiaries', '/beneficiary', '👥', true],
+      ['monitoring', 'Monitoring', '/monitoring', '🩺', true],
+      ['community', 'Community', '/community', '🏫', !isHealthWorker],
+      ['programs', 'Programs', '/program', '🍱', !isHealthWorker],
+      ['reports', 'Reports', '/progress-report', '📊', true],
+      ['users', 'Users', '/user-management', '⚙️', isSuperAdmin],
+    ];
+
+    return modules
+      .filter(([, , , , isVisible]) => isVisible)
+      .map(([key, label, path, icon]) => ({ key, label, path, icon }));
+  }, [isHealthWorker, isSuperAdmin]);
+
+  const visibleCards = useMemo(() => {
+    const cards = [
+      {
+        key: 'beneficiary',
+        title: 'Registered Beneficiaries',
+        to: '/beneficiary',
+        icon: '👩‍👧',
+        cardClass: 'teal',
+        value: stats.totalBeneficiaries,
+        subtitle: `${stats.motherCount} Mothers • ${stats.childCount} Children`,
+        show: true,
+      },
+      {
+        key: 'monitoring',
+        title: 'Monitoring Follow-Up',
+        to: '/monitoring',
+        icon: '🩺',
+        cardClass: 'amber',
+        value: stats.followUpCount,
+        subtitle: `${stats.onTrackCount} on track • ${stats.notStartedCount} pending`,
+        show: true,
+      },
+      {
+        key: 'community',
+        title: 'Community & Cohorts',
+        to: '/community',
+        icon: '🏫',
+        cardClass: 'indigo',
+        value: stats.communityCount,
+        subtitle: `${stats.batchCount} Batches • ${stats.groupCount} Groups`,
+        show: !isHealthWorker,
+      },
+      {
+        key: 'programs',
+        title: 'Feeding Programs',
+        to: '/program',
+        icon: '📦',
+        cardClass: 'rose',
+        value: stats.activeProgramsCount,
+        subtitle: `${stats.totalReceived.toLocaleString()} of ${stats.totalTarget.toLocaleString()} reached`,
+        show: !isHealthWorker,
+      },
+      {
+        key: 'users',
+        title: 'Team Access',
+        to: '/user-management',
+        icon: '⚙️',
+        cardClass: 'slate',
+        value: superadminMetrics.totalUsers,
+        subtitle: `${superadminMetrics.activeStaffCount} active staff`,
+        show: isSuperAdmin,
+      },
+    ];
+
+    return cards.filter((card) => card.show);
+  }, [isHealthWorker, isSuperAdmin, stats, superadminMetrics]);
+
   if (loading) {
     return <PageSkeleton variant="dashboard" />;
   }
@@ -417,70 +489,28 @@ export default function DashboardPage() {
       </header>
 
       <section className="dashboard-module-strip" aria-label="Available dashboard modules">
-        <span className="dashboard-module-strip-label">Workspace</span>
-        {[
-          ['beneficiary', 'Beneficiaries', '/beneficiary', '👥'],
-          ['monitoring', 'Monitoring', '/monitoring', '🩺'],
-          ['community', 'Community', '/community', '🏫'],
-          ['programs', 'Programs', '/program', '🍱'],
-          ['reports', 'Reports', '/progress-report', '📊'],
-          ...(moduleAccess.users ? [['users', 'Users', '/user-management', '⚙️']] : []),
-        ].filter(([key]) => moduleAccess[key]).map(([, label, path, icon]) => (
-          <Link key={path} to={path} className="dashboard-module-link"><span aria-hidden="true">{icon}</span>{label}</Link>
+        <span className="dashboard-module-strip-label">Quick links</span>
+        {visibleModules.map(({ key, label, path, icon }) => (
+          <Link key={key} to={path} className="dashboard-module-link"><span aria-hidden="true">{icon}</span>{label}</Link>
         ))}
       </section>
 
-      {/* 2. Cross-Module KPI Cards Grid */}
+      {/* 2. Role-relevant KPI Cards Grid */}
       <section className="dashboard-kpi-grid" aria-label="Key Performance Indicators">
-        {/* Beneficiaries Module Link */}
-        <Link to="/beneficiary" className="kpi-card" title="Open Beneficiaries Module">
-          <div className="kpi-card-top">
-            <span className="kpi-title">Registered Beneficiaries</span>
-            <span className="kpi-icon teal" aria-hidden="true">👩‍👧</span>
-          </div>
-          <div className="kpi-value">{loading ? '...' : stats.totalBeneficiaries.toLocaleString()}</div>
-          <div className="kpi-subtitle">
-            <span>{stats.motherCount} Mothers</span> • <span>{stats.childCount} Children</span>
-          </div>
-        </Link>
-
-        {/* High Risk Cases Alert */}
-        <Link to="/beneficiary" className="kpi-card alert-card" title="View High-Risk Maternal Cases">
-          <div className="kpi-card-top">
-            <span className="kpi-title">High-Risk Cases</span>
-            <span className="kpi-icon rose" aria-hidden="true">⚠️</span>
-          </div>
-          <div className="kpi-value" style={{ color: '#c22944' }}>
-            {loading ? '...' : stats.highRiskCount}
-          </div>
-          <div className="kpi-subtitle">
-            <span>{stats.highRiskCount > 0 ? 'Requires immediate clinical follow-up' : 'Zero critical alert cases'}</span>
-          </div>
-        </Link>
-
-        {/* Community & School Hierarchy Module Link */}
-        <Link to="/community" className="kpi-card" title="Open Community & School Module">
-          <div className="kpi-card-top">
-            <span className="kpi-title">Community &amp; Cohorts</span>
-            <span className="kpi-icon amber" aria-hidden="true">🏫</span>
-          </div>
-          <div className="kpi-value">{loading ? '...' : stats.communityCount}</div>
-          <div className="kpi-subtitle">
-            <span>{stats.batchCount} Batches</span> • <span>{stats.groupCount} Mother Groups</span>
-          </div>
-        </Link>
-
-        {/* Feeding & Programs Module Link */}
-        <Link to="/program" className="kpi-card" title="Open Programs & Feeding Module">
-          <div className="kpi-card-top">
-            <span className="kpi-title">Feeding Programs</span>
-            <span className="kpi-icon indigo" aria-hidden="true">📦</span>
-          </div>
-          <div className="kpi-value">{loading ? '...' : stats.activeProgramsCount}</div>
-          <div className="kpi-subtitle">
-            <span>{stats.totalReceived.toLocaleString()} of {stats.totalTarget.toLocaleString()} reached ({stats.programReachRate}%)</span>
-          </div>
-        </Link>
+        {visibleCards.map((card) => (
+          <Link key={card.key} to={card.to} className={`kpi-card ${card.key === 'monitoring' ? 'alert-card' : ''}`} title={`Open ${card.title}`}>
+            <div className="kpi-card-top">
+              <span className="kpi-title">{card.title}</span>
+              <span className={`kpi-icon ${card.cardClass}`} aria-hidden="true">{card.icon}</span>
+            </div>
+            <div className="kpi-value" style={card.key === 'monitoring' ? { color: '#c22944' } : undefined}>
+              {loading ? '...' : Number(card.value).toLocaleString()}
+            </div>
+            <div className="kpi-subtitle">
+              <span>{card.subtitle}</span>
+            </div>
+          </Link>
+        ))}
       </section>
 
       {/* 3. Clinical Monitoring Progress & Quick Action Launchpad */}

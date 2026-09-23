@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import logo from '../assets/Logo (2).png';
+import logo from '../assets/f1kd-logo.png';
 import { useAuth } from '../auth/AuthProvider';
 import { ROLES, hasRole } from '../utils/permissions';
 

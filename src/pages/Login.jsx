@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import logo from '../assets/f1kd-logo.png';
 import { useAuth } from '../auth/AuthProvider';
 
 export default function Login() {
@@ -30,9 +31,10 @@ export default function Login() {
   return (
     <div className="login-page">
       <div className="login-card">
-        <div className="login-kicker">F1KD</div>
+        <div className="login-kicker">
+          <img src={logo} alt="F1KD logo" className="login-logo" />
+        </div>
         <h1 className="login-title">Welcome back</h1>
-        <p className="login-subtitle">Sign in to access maternal and child health records.</p>
 
         <form className="login-form" onSubmit={handleLogin} noValidate>
           {error && (
