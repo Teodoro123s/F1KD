@@ -37,6 +37,33 @@ test('authorizeOperational denies scoped users without a school assignment to pr
   assert.equal(res.payload.message, 'This account is not assigned to a school');
 });
 
+test('authorizeOperational gives unassigned community organizers an empty school scope', () => {
+  let called = false;
+  const req = {
+    method: 'GET',
+    user: { role: 'Community Organizer', school_id: null },
+  };
+  const res = {
+    status(code) {
+      this.code = code;
+      return this;
+    },
+    json(payload) {
+      this.payload = payload;
+      return this;
+    },
+  };
+
+  authorizeOperational(req, res, () => {
+    called = true;
+  });
+
+  assert.equal(called, true);
+  assert.equal(req.schoolId, -1);
+  assert.equal(req.groupId, null);
+  assert.equal(res.code, undefined);
+});
+
 test('authorizeOperational attaches both school and group scope for assigned partner users', () => {
   let called = false;
   const req = {

@@ -144,6 +144,7 @@ export default function UserManagementPage() {
         groups={groups}
         mode={selectedUser ? 'edit' : 'add'}
         isSubmitting={isSubmitting}
+        notification={notification}
       />
 
       {oneTimeCredentials && (

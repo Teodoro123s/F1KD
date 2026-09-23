@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useLocation, useNavigate, Link } from 'react-router-dom';
 import PageHeader from '../../components/ui/PageHeader';
 import { generatePassword, formatDobForInput } from './lib';
-import { apiGetUser } from '../../api/users';
+import { apiGetUser, apiUpdateUser } from '../../api/users';
 import { getSummary } from '../Community/communityService';
 
 export default function UserDetailPage() {
@@ -79,7 +79,7 @@ export default function UserDetailPage() {
   }, [id, location]);
 
   const displayName = user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || id;
-  const requiresSchoolAssignment = ['health worker', 'community organizer'].includes(String(user.role || '').trim().toLowerCase());
+  const requiresSchoolAssignment = String(user.role || '').trim().toLowerCase() === 'health worker';
   const schoolLabel = (() => {
     if (!requiresSchoolAssignment) return 'Not required';
     if (!user.schoolId) return 'Not assigned';
@@ -98,15 +98,28 @@ export default function UserDetailPage() {
   };
 
   const [generatedPwd, setGeneratedPwd] = useState('');
+  const [passwordMessage, setPasswordMessage] = useState('');
+  const [isApplyingPassword, setIsApplyingPassword] = useState(false);
 
   const generateDefaultPassword = () => {
     const pwd = generatePassword(user);
     setGeneratedPwd(pwd);
   };
 
-  const applyGenerated = () => {
+  const applyGenerated = async () => {
     if (!generatedPwd) return;
-    navigate('/user-management', { state: { editUser: { ...user, password: generatedPwd } } });
+    const serverId = String(user.id || id).replace(/^USR-/, '');
+    setIsApplyingPassword(true);
+    setPasswordMessage('');
+    try {
+      await apiUpdateUser(serverId, { password: generatedPwd });
+      setPasswordMessage('Password updated successfully.');
+      setGeneratedPwd('');
+    } catch (error) {
+      setPasswordMessage(error?.message || 'Unable to update the password.');
+    } finally {
+      setIsApplyingPassword(false);
+    }
   };
 
   return (
@@ -186,8 +199,9 @@ export default function UserDetailPage() {
                   style={{ flex: 1 }}
                 />
                 <button type="button" className="btn-small" onClick={generateDefaultPassword}>Generate default password</button>
-                <button type="button" className="btn-small" onClick={applyGenerated} disabled={!generatedPwd}>Apply</button>
+                <button type="button" className="btn-small" onClick={applyGenerated} disabled={!generatedPwd || isApplyingPassword}>{isApplyingPassword ? 'Applying...' : 'Apply'}</button>
               </div>
+              {passwordMessage && <div className="notification-banner" role="status" style={{ marginTop: 8 }}>{passwordMessage}</div>}
 
             <div style={{ marginTop: 18, display: 'flex', gap: 8 }}>
               <button type="button" className="btn-primary" onClick={handleEdit}>Edit</button>

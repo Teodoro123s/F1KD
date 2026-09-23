@@ -51,6 +51,7 @@ export default function CommunityPage() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const { schoolId, groupId, batchId } = useParams();
+  const isSuperAdmin = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]);
   const canManage = !isHealthWorkerRole(currentUser?.role) && (can(currentUser?.role, 'admin-resources', 'create')
     || can(currentUser?.role, 'partner-resources', 'create'));
   const assignedSchoolId = currentUser?.school_id ?? currentUser?.schoolId ?? null;
@@ -91,7 +92,7 @@ export default function CommunityPage() {
   const [childrenRows, setChildrenRows] = useState([]);
 
   const activeTab = batchId
-    ? 'mothers'
+    ? (isSuperAdmin ? 'batches' : 'mothers')
     : isHealthWorker
       ? 'batches'
       : isAssignedAdmin || isAssignedCommunityOrganizer
@@ -682,7 +683,9 @@ export default function CommunityPage() {
       : activeTab === 'groups'
         ? (group) => navigate(`/community/group/${group.id}`)
         : activeTab === 'batches'
-          ? (batch) => navigate(`/beneficiary?batchId=${encodeURIComponent(batch.databaseId || batch.id)}`, { state: { batch } })
+          ? isSuperAdmin
+            ? undefined
+            : (batch) => navigate(`/beneficiary?batchId=${encodeURIComponent(batch.databaseId || batch.id)}`, { state: { batch } })
           : entityFilter === 'Child'
             ? (child) => handleChildRowClick(child)
             : (mother) => handleMotherRowClick(mother);

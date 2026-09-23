@@ -21,7 +21,7 @@ export default function Sidebar() {
   const isHealthWorker = ['health worker', 'healthworker']
     .includes(String(currentUser?.role || '').trim().toLowerCase());
   const visibleItems = isSuperAdmin
-    ? items.filter((item) => ['/dashboard', '/user-management'].includes(item.to))
+    ? items.filter((item) => ['/dashboard', '/community', '/user-management'].includes(item.to))
     : items.filter((item) => item.to !== '/user-management' && (!isHealthWorker || item.to !== '/user-management'));
 
   return (

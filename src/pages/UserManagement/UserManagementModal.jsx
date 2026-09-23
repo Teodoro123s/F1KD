@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { generatePassword } from './lib';
 
-function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitting = false }) {
+function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitting = false, notification = '' }) {
   const formRef = React.useRef(null);
 
   const handleSubmitClick = () => {
@@ -54,7 +54,10 @@ function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitt
           </button>
         </div>
         <form ref={formRef} onSubmit={(e) => { e.preventDefault(); if (onSubmit) { onSubmit(e); } else { handleSubmitClick(); } }}>
-          <div className="modal-body">{children}</div>
+          <div className="modal-body">
+            {notification && <div className="notification-banner" role="alert">{notification}</div>}
+            {children}
+          </div>
           <div className="modal-footer">
             <button type="button" className="btn-secondary" onClick={onClose}>Back</button>
             <button
@@ -70,7 +73,7 @@ function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitt
   );
 }
 
-export default function AddUserModal({ showModal, onClose, form, setForm, onSubmit, roleOptions, communities = [], groups = [], mode = 'add', isSubmitting = false }) {
+export default function AddUserModal({ showModal, onClose, form, setForm, onSubmit, roleOptions, communities = [], groups = [], mode = 'add', isSubmitting = false, notification = '' }) {
 
   if (!showModal) return null;
 
@@ -89,7 +92,7 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
   });
 
   return (
-    <ModalShell title={title} onClose={onClose} onSubmit={onSubmit} submitLabel={submitLabel} isSubmitting={isSubmitting}>
+    <ModalShell title={title} onClose={onClose} onSubmit={onSubmit} submitLabel={submitLabel} isSubmitting={isSubmitting} notification={notification}>
       <div className="form-row-3 full-width">
         <div className="form-group">
           <label className="form-label" htmlFor="first-name">First Name *</label>

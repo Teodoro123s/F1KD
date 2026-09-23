@@ -16,6 +16,7 @@ const normalizeRole = (role) => {
 };
 
 const isHealthWorkerRole = (role) => ['health worker', 'healthworker'].includes(String(role || '').trim().toLowerCase());
+const isCommunityOrganizerRole = (role) => ['community organizer', 'communityorganizer'].includes(String(role || '').trim().toLowerCase());
 
 const permissionResponse = (res, message = 'Forbidden') => {
   const payload = {
@@ -72,6 +73,11 @@ function authorizeOperational(req, res, next) {
 
   if (scopedRoles.includes(userRole)) {
     if (!hasSchoolAssignment) {
+      if (isCommunityOrganizerRole(req.user.role)) {
+        req.schoolId = -1;
+        req.groupId = null;
+        return next();
+      }
       return permissionResponse(res, 'This account is not assigned to a school');
     }
     req.schoolId = Number(req.user.school_id);

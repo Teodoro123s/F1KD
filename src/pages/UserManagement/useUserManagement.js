@@ -359,8 +359,8 @@ export function useUserManagement() {
       setNotification('Assigned school is required for Health worker accounts.');
       return;
     }
-    if (['health worker', 'community organizer'].includes(roleVal.trim().toLowerCase()) && !groupIdVal) {
-      setNotification('Assigned group is required for Health worker and Community Organizer accounts.');
+    if (roleVal.trim().toLowerCase() === 'health worker' && !groupIdVal) {
+      setNotification('Assigned group is required for Health worker accounts.');
       return;
     }
     // Use the provided email; rely on the server to signal duplicates and the retry logic to handle them.
