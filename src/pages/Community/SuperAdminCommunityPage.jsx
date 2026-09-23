@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import CommunityTable from './CommunityTable';
 import CommunityModalManager from './CommunityModalManager';
+import { ConfirmActionModal } from './CommunityModals';
 import CommunityToolbar from './components/CommunityToolbar';
 import CommunityPagination from './components/CommunityPagination';
 import { MoreVerticalIcon } from './CommunityIcons';
@@ -23,6 +24,7 @@ export default function SuperAdminCommunityPage() {
   const [activeDropdownId, setActiveDropdownId] = useState(null);
   const [showModal, setShowModal] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [pendingDeleteItem, setPendingDeleteItem] = useState(null);
   const [communityForm, setCommunityForm] = useState(defaultCommunityForm);
   const [groupForm, setGroupForm] = useState(defaultGroupForm);
   const [batchForm, setBatchForm] = useState(defaultBatchForm);
@@ -110,8 +112,16 @@ export default function SuperAdminCommunityPage() {
     return;
   };
 
-  const deleteItem = async (item) => {
-    if (!window.confirm(`Delete ${item.name}?`)) return;
+  const deleteItem = (item) => {
+    setPendingDeleteItem(item);
+  };
+
+  const confirmDeleteItem = async () => {
+    if (!pendingDeleteItem) return;
+
+    const item = pendingDeleteItem;
+    setPendingDeleteItem(null);
+
     if (activeTab === 'communities') await mutations.deleteCommunity(item.id);
     else if (activeTab === 'groups') await mutations.deleteGroup(item.id);
     else await mutations.deleteGroup(item.id);
@@ -214,6 +224,15 @@ export default function SuperAdminCommunityPage() {
         onEditCommunity={async (event) => { event.preventDefault(); await mutations.updateCommunity(selectedItem.id, communityForm); setShowModal(null); setSelectedItem(null); }}
         onCreateGroup={async (event) => { event.preventDefault(); await mutations.createGroup(groupForm); setShowModal(null); }}
         onEditGroup={async (event) => { event.preventDefault(); await mutations.updateGroup(selectedItem.id, groupForm); setShowModal(null); setSelectedItem(null); }}
+        isSubmitting={mutations.loading}
+      />
+      <ConfirmActionModal
+        show={Boolean(pendingDeleteItem)}
+        title="Delete school?"
+        message={pendingDeleteItem ? `Are you sure you want to delete ${pendingDeleteItem.name}?` : 'Are you sure you want to delete this school?'}
+        confirmLabel="OK"
+        onConfirm={confirmDeleteItem}
+        onCancel={() => setPendingDeleteItem(null)}
         isSubmitting={mutations.loading}
       />
     </div>

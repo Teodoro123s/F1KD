@@ -124,6 +124,75 @@
   background: #FAFBFF;
 }
 
+.confirmation-modal-content {
+  width: min(680px, calc(100vw - 36px));
+  max-width: 680px;
+  border-radius: 28px;
+}
+
+.confirmation-modal-header {
+  background: transparent;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 1.05rem 1.5rem 0.9rem;
+}
+
+.confirmation-modal-header h3 {
+  font-size: 1.2rem !important;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.confirmation-modal-content .btn-close-modal {
+  width: 32px;
+  height: 32px;
+  font-size: 1.8rem;
+  color: #9ca3af;
+}
+
+.confirmation-modal-body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 150px;
+  padding: 1.75rem 1.5rem 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.confirmation-modal-body p {
+  margin: 0;
+  font-size: 1.05rem !important;
+  color: #0f172a;
+  text-align: center;
+}
+
+.confirmation-modal-footer {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  padding: 1.15rem 1.5rem 1.4rem;
+  border-top: 0;
+  background: transparent;
+}
+
+.confirmation-cancel-btn,
+.confirmation-confirm-btn {
+  min-width: 130px;
+  min-height: 48px;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.confirmation-confirm-btn {
+  background: #2f9d6d;
+  border-color: #2f9d6d;
+}
+
+.confirmation-confirm-btn:hover {
+  background: #278a62;
+  border-color: #278a62;
+}
+
 .notification-banner {
   display: flex;
   align-items: center;

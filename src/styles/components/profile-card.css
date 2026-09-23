@@ -1070,76 +1070,99 @@
 
 /* Progress report visual refresh */
 .view-content .progress-report-shell {
-  background: #f4f8f6;
-  padding: 1.25rem clamp(0.75rem, 2vw, 2rem) 2rem;
+  background: transparent;
+  padding: 0;
 }
 .view-content .progress-report-panel {
-  max-width: 1280px;
-  margin: 0 auto;
+  max-width: none;
+  margin: 0;
 }
 .view-content .progress-report-panel > .view-page-header {
-  min-height: 76px;
-  padding: 0 1.25rem;
-  border: 1px solid #dce9e1;
-  border-radius: 14px;
-  background: #fff;
-  box-shadow: 0 8px 24px rgba(20, 83, 45, 0.06);
+  min-height: 64px;
+  padding: 0 var(--view-padding-x, 1rem);
+  border: 0;
+  border-bottom: 1px solid var(--view-border-color, #dfe7eb);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 .view-content .progress-report-panel > .view-page-header .view-page-title {
-  color: #123524;
-  font-size: 1.25rem;
-  font-weight: 800;
+  color: var(--view-text, #0f172a);
+  font-size: var(--view-text-h1, 2rem);
+  font-weight: 700;
+}
+.view-content .progress-report-panel > .view-page-header .view-breadcrumb {
+  font-size: var(--view-text-small, 0.75rem);
+  color: var(--view-text-muted, #64748b);
 }
 .progress-report-tab-bar {
-  gap: 0.35rem;
-  margin: 1rem 0 0;
-  padding: 0.35rem;
-  border: 1px solid #dce9e1;
-  border-radius: 12px;
-  background: #eaf3ed;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 0.85rem var(--view-padding-x, 1rem);
+  border-bottom: 1px solid var(--view-border-color, #dfe7eb);
+  background: var(--view-bg-subtle, #f8fafc);
+  border-radius: 0;
 }
 .progress-report-tab-bar button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
   min-height: 40px;
-  border-radius: 9px;
-  color: #527061;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--view-border-color, #dfe7eb);
+  border-radius: var(--view-radius, 12px);
+  background: var(--view-bg-white, #fff);
+  color: var(--view-text-muted, #475569);
+  font-size: var(--view-text-body, 0.95rem);
+  font-weight: 600;
   transition: background 160ms ease, color 160ms ease, box-shadow 160ms ease;
 }
 .progress-report-tab-bar button span {
   width: 24px;
   height: 24px;
-  background: #d4e6d9;
-  color: #527061;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--view-bg-subtle, #f1f5f9);
+  color: var(--view-text-muted, #475569);
+  font-size: 0.8rem;
 }
 .progress-report-tab-bar button.active {
-  color: #116b3a;
-  background: #fff;
-  box-shadow: 0 2px 8px rgba(20, 83, 45, 0.1);
+  color: #fff;
+  background: var(--view-primary, #15803d);
+  border-color: var(--view-primary, #15803d);
+  box-shadow: 0 8px 18px rgba(21, 128, 61, 0.12);
 }
 .progress-report-tab-bar button.active span {
-  background: #15803d;
+  background: rgba(255, 255, 255, 0.18);
   color: #fff;
 }
 .progress-report-tab-panel {
   margin-top: 1rem;
   padding: clamp(1rem, 2vw, 1.5rem);
-  border: 1px solid #dce9e1;
+  border: 1px solid var(--view-border-color, #dfe7eb);
   border-radius: 14px;
   background: #fff;
-  box-shadow: 0 10px 30px rgba(20, 83, 45, 0.05);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
 }
 .progress-report-tab-panel h1 {
-  color: #123524;
+  color: var(--view-text, #0f172a);
   font-size: 1.5rem;
   letter-spacing: -0.02em;
 }
 .progress-report-config-grid select,
 .progress-report-search-field input,
 .progress-report-config-row fieldset {
-  border-color: #cfe2d4;
+  border-color: var(--view-border-color, #dfe7eb);
 }
 .progress-report-config-grid select:focus,
 .progress-report-search-field input:focus {
-  border-color: #39a866;
+  border-color: var(--view-primary, #15803d);
   box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.12);
   outline: none;
 }

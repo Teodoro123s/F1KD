@@ -51,7 +51,7 @@ export const useCommunityMutations = ({ refreshData }) => {
 
       return runMutation({
         label: 'create community',
-        successMessage: 'Community created successfully',
+        successMessage: 'School created successfully.',
         request: () => createCommunityApi(normalized),
       });
     },
@@ -68,7 +68,7 @@ export const useCommunityMutations = ({ refreshData }) => {
 
       return runMutation({
         label: 'update community',
-        successMessage: 'Community updated successfully',
+        successMessage: 'School updated successfully.',
         request: () => updateCommunityApi(id, normalized),
       });
     },
@@ -79,7 +79,7 @@ export const useCommunityMutations = ({ refreshData }) => {
     async (id) => {
       return runMutation({
         label: 'delete community',
-        successMessage: 'Community deleted successfully',
+        successMessage: 'School deleted successfully.',
         request: () => deleteCommunityApi(id),
       });
     },

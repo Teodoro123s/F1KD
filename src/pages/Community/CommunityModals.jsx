@@ -1,5 +1,29 @@
 import React from 'react';
 
+export function ConfirmActionModal({ show, title, message, confirmLabel = 'OK', onConfirm, onCancel, isSubmitting = false }) {
+  if (!show) return null;
+
+  return (
+    <div className="modal-backdrop" role="presentation" onClick={onCancel}>
+      <div className="modal-content signout-confirm-modal confirmation-modal-content" role="dialog" aria-modal="true" aria-labelledby="confirm-action-title" onClick={(event) => event.stopPropagation()}>
+        <div className="modal-header-section confirmation-modal-header">
+          <h3 id="confirm-action-title">{title}</h3>
+          <button type="button" className="btn-close-modal" onClick={onCancel} aria-label="Close confirmation" disabled={isSubmitting}>✕</button>
+        </div>
+        <div className="modal-body confirmation-modal-body">
+          <p>{message}</p>
+        </div>
+        <div className="modal-footer confirmation-modal-footer">
+          <button type="button" className="btn-secondary confirmation-cancel-btn" onClick={onCancel} disabled={isSubmitting}>Cancel</button>
+          <button type="button" className="btn-primary confirmation-confirm-btn" onClick={onConfirm} disabled={isSubmitting}>
+            {isSubmitting ? 'Working...' : confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitting = false }) {
   return (
     <div className="modal-backdrop" onClick={onClose}>
