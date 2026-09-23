@@ -55,7 +55,7 @@ export default function CommunityPage() {
   const isSuperAdmin = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]);
   const isCommunityOrganizer = ['community organizer', 'communityorganizer']
     .includes(String(currentUser?.role || '').trim().toLowerCase());
-  const canManage = !isHealthWorkerRole(currentUser?.role) && !isCommunityOrganizer && (can(currentUser?.role, 'admin-resources', 'create')
+  const canManage = !isHealthWorkerRole(currentUser?.role) && (can(currentUser?.role, 'admin-resources', 'create')
     || can(currentUser?.role, 'partner-resources', 'create'));
   const assignedSchoolId = currentUser?.school_id ?? currentUser?.schoolId ?? null;
   const assignedGroupId = currentUser?.group_id ?? currentUser?.groupId ?? null;
