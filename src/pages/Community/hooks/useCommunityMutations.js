@@ -15,12 +15,12 @@ import {
 export const useCommunityMutations = ({ refreshData }) => {
   const [loading, setLoading] = useState(false);
 
+  // All Community CRUD operations share refresh, loading, and user feedback behavior.
   const runMutation = useCallback(
     async ({ label, request, successMessage }) => {
       setLoading(true);
 
       try {
-        // Refresh after a successful write so all hierarchy levels reflect the saved database state.
         const result = await request();
 
         if (typeof refreshData === 'function') {

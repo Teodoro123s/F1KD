@@ -355,7 +355,7 @@ export function useUserManagement() {
     }
     if (!email) { setNotification('Email is required.'); try { console.log('Validation failed: missing email', { email }); } catch(e){}; return; }
     if (!isValidEmail(email)) { setNotification('Please enter a valid email address.'); try { console.log('Validation failed: invalid email', { email }); } catch(e){}; return; }
-    // Both scoped roles need a school; only Health Workers require a group as well.
+    // Keep client validation aligned with the server's role assignment rules.
     if (['health worker', 'community organizer'].includes(roleVal.trim().toLowerCase()) && !schoolIdVal) {
       setNotification(`Assigned school is required for ${roleVal} accounts.`);
       return;

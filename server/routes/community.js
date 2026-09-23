@@ -59,7 +59,7 @@ async function resolveCoordinatorId(pool, coordinatorIdentifier) {
   return rows.length ? coordinatorId : null;
 }
 
-// A school coordinator is also the operational user assigned to that school's data scope.
+// Keep the school coordinator link and the organizer's operational school scope in sync.
 async function syncCoordinatorAssignment(communityId, coordinatorId, previousCoordinatorId = null) {
   if (coordinatorId) {
     await pool.query(
@@ -145,6 +145,7 @@ router.get('/summary', async (req, res) => {
       SELECT
         g.id,
         g.name AS name,
+        g.community_id AS community_id,
         '' AS description,
         c.name AS community,
         COALESCE(g.members_count, COUNT(m.id)) AS members,
@@ -258,6 +259,7 @@ router.get('/summary', async (req, res) => {
     const groupsData = groupRows.map((item) => ({
       id: item.id,
       name: item.name,
+      communityId: item.community_id,
       description: item.description,
       community: item.community || '',
       leader: item.leader || '',
@@ -473,38 +475,27 @@ router.get('/groups', async (req, res) => {
   }
 });
 
-router.get('/groups/:groupId/health-workers', async (req, res) => {
+// GET /api/community/groups/:id/health-workers - workers assigned to one group
+router.get('/groups/:id/health-workers', async (req, res) => {
   try {
-    const groupId = Number(req.params.groupId);
-    if (!Number.isInteger(groupId)) {
+    const groupId = Number(req.params.id);
+    if (Number.isNaN(groupId)) {
       return res.status(400).json({ error: 'Invalid group id' });
     }
 
-    const scope = req.schoolId ? 'AND g.community_id = ?' : '';
-    const params = req.schoolId ? [groupId, req.schoolId] : [groupId];
-    const [rows] = await pool.query(`
-      SELECT
-        u.id,
-        CONCAT_WS(' ', u.first_name, u.middle_initial, u.last_name) AS name,
-        u.email,
-        u.contact_number,
-        u.status,
-        u.school_id,
-        c.name AS school_name,
-        g.name AS group_name
-      FROM users u
-      INNER JOIN groups g ON g.id = u.group_id
-      LEFT JOIN communities c ON c.id = u.school_id
-      WHERE u.group_id = ?
-        AND LOWER(TRIM(u.role)) = 'health worker'
-        ${scope}
-      ORDER BY u.last_name, u.first_name, u.id
-    `, params);
+    const [rows] = await pool.query(
+      `SELECT id, CONCAT_WS(' ', first_name, middle_initial, last_name) AS name,
+          email, contact_number, status, school_id, group_id
+       FROM users
+       WHERE group_id = ? AND LOWER(TRIM(role)) = 'health worker'
+       ORDER BY last_name, first_name, id`,
+      [groupId],
+    );
 
-    return res.json({ healthWorkers: rows });
+    res.json({ healthWorkers: rows });
   } catch (error) {
-    console.error('[Community API] GET group health workers error:', error.message);
-    return res.status(500).json({ error: 'db error' });
+    console.error('[Community API] GET /groups/:id/health-workers error:', error.message);
+    res.status(500).json({ error: 'db error' });
   }
 });
 

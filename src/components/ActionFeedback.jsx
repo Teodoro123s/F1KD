@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 
 const EVENT_NAME = 'f1kd:action-feedback';
 
-// Keep action feedback independent from individual pages so every module can report results consistently.
+/** Broadcast a success or error message to the layout-level feedback toast. */
 export function notifyAction(message, tone = 'success') {
   window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: { message, tone } }));
 }
@@ -11,7 +11,7 @@ export default function ActionFeedback() {
   const [feedback, setFeedback] = useState(null);
 
   useEffect(() => {
-    // Listen once at the layout level and automatically clear transient messages.
+    // Keep feedback rendering centralized so pages do not need their own toast state.
     const handleFeedback = (event) => {
       setFeedback(event.detail || null);
       window.setTimeout(() => setFeedback(null), 3200);

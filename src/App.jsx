@@ -3,7 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import { MothersProvider } from './context/MothersContext';
 import DashboardPage from './pages/Dashboard/DashboardPage';
-import CommunityPage from './pages/Community/CommunityPage';
+import CommunityModulePage from './pages/Community/CommunityModulePage';
 import Beneficiary from './pages/Beneficiary/BeneficiaryPage';
 import MonitoringPage from './pages/Monitoring/MonitoringPage';
 import ChildProfilePage from './pages/Beneficiary/child/ChildProfilePage';
@@ -47,11 +47,11 @@ export default function App() {
       }
       >
         <Route path="dashboard" element={<DashboardPage />} />
-        <Route path="community" element={<CommunityPage />} />
-        <Route path="community/school/:schoolId" element={<CommunityPage />} />
-        <Route path="community/group/:groupId" element={<CommunityPage />} />
-        <Route path="community/group/:groupId/health-workers" element={<CommunityPage />} />
-        <Route path="community/batch/:batchId" element={<CommunityPage />} />
+        <Route path="community" element={<CommunityModulePage />} />
+        <Route path="community/school/:schoolId" element={<CommunityModulePage />} />
+        <Route path="community/group/:groupId" element={<CommunityModulePage />} />
+        <Route path="community/group/:groupId/health-workers" element={<CommunityModulePage />} />
+        <Route path="community/batch/:batchId" element={<CommunityModulePage />} />
         <Route path="beneficiary" element={<Beneficiary />} />
         <Route path="beneficiary/mother/:id" element={<Beneficiary />} />
         <Route path="beneficiary/mother/:id/profile" element={<Beneficiary />} />

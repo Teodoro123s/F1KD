@@ -42,11 +42,11 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
 
   const handleChange = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
   const roleName = String(form.role || '').trim().toLowerCase();
+  // Assignment controls follow operational role scope: organizers need a school; health workers need both.
   const requiresSchool = ['health worker', 'community organizer'].includes(roleName);
   const requiresGroup = roleName === 'health worker';
   const schoolIsRequired = requiresSchool;
   const selectedSchoolName = communities.find((school) => String(school.id) === String(form.schoolId || ''))?.name || '';
-  // Health Workers are scoped to one school and one group; organizers only need the school assignment.
   const groupOptions = groups.filter((group) => {
     if (!form.schoolId) return true;
     const groupCommunity = group.community || group.communityName || group.schoolName || '';
