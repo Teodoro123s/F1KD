@@ -193,6 +193,10 @@
   color: #fff;
 }
 
+.view-content .tab-btn.active svg {
+  stroke: currentColor;
+}
+
 .view-content .search-container,
 .view-content .subheader-right {
   display: flex;
