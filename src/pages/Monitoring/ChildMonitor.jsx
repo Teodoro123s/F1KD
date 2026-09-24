@@ -132,39 +132,39 @@ function getWhoWeightLengthZScore(weight, length, gender) {
   const numericWeight = Number(weight);
   const numericLength = Number(length);
   if (!Number.isFinite(numericWeight) || !Number.isFinite(numericLength) || numericWeight <= 0 || numericLength <= 0) return null;
+  if (numericLength < WHO_WEIGHT_LENGTH_REFERENCE.lengths[0] || numericLength > WHO_WEIGHT_LENGTH_REFERENCE.lengths.at(-1)) return null;
   const reference = WHO_WEIGHT_LENGTH_REFERENCE[String(gender || '').toLowerCase()] || WHO_WEIGHT_LENGTH_REFERENCE.male;
   const lengths = WHO_WEIGHT_LENGTH_REFERENCE.lengths;
-  const boundedLength = Math.max(lengths[0], Math.min(lengths[lengths.length - 1], numericLength));
-  const upperIndex = lengths.findIndex((value) => value > boundedLength);
+  const upperIndex = lengths.findIndex((value) => value > numericLength);
   const lowerIndex = upperIndex === -1 ? lengths.length - 2 : Math.max(0, upperIndex - 1);
   const lowerLength = lengths[lowerIndex];
   const upperLength = lengths[lowerIndex + 1];
-  const fraction = (boundedLength - lowerLength) / (upperLength - lowerLength);
+  const fraction = (numericLength - lowerLength) / (upperLength - lowerLength);
   const median = reference[lowerIndex] + (reference[lowerIndex + 1] - reference[lowerIndex]) * fraction;
   return (numericWeight - median) / (median * 0.15);
 }
 
 function interpretWeightForLength(weight, length, gender) {
   const zScore = getWhoWeightLengthZScore(weight, length, gender);
-  if (zScore === null) return 'Enter weight and length';
-  if (zScore < -3) return 'Severely wasted (WHO weight-for-length)';
-  if (zScore < -2) return 'Wasted (WHO weight-for-length)';
-  if (zScore > 3) return 'Obese (WHO weight-for-length)';
-  if (zScore > 2) return 'Overweight (WHO weight-for-length)';
-  return 'Normal (WHO weight-for-length)';
+  if (zScore === null) return 'Enter valid weight and length';
+  if (zScore < -3) return 'Severely wasted';
+  if (zScore < -2) return 'Wasted';
+  if (zScore > 3) return 'Obese';
+  if (zScore > 2) return 'Overweight';
+  return 'Normal';
 }
 
 function interpretAgeBasedMeasure(value, referenceValues, ageInMonths, gender, label, standardDeviationRatio) {
   const numericValue = Number(value);
   if (!Number.isFinite(numericValue)) return `Enter ${label.toLowerCase()}`;
-  if (ageInMonths === null) return 'Enter birth date for WHO age-for-growth';
+  if (ageInMonths === null) return 'Enter birth date';
   const sex = String(gender || '').toLowerCase() === 'female' ? 'female' : 'male';
   const median = getAgeReferenceValue(referenceValues[sex], ageInMonths);
   const zScore = (numericValue - median) / (median * standardDeviationRatio);
-  if (zScore < -3) return `Severely below expected (WHO ${label.toLowerCase()})`;
-  if (zScore < -2) return `Below expected (WHO ${label.toLowerCase()})`;
-  if (zScore > 2) return `Above expected (WHO ${label.toLowerCase()})`;
-  return `Within expected range (WHO ${label.toLowerCase()})`;
+  if (zScore < -3) return 'Severely below expected';
+  if (zScore < -2) return 'Below expected';
+  if (zScore > 2) return 'Above expected';
+  return 'Within expected range';
 }
 
 export default function ChildMonitor({ child, onSave, onCancel, completedWeeks = [] }) {
@@ -374,10 +374,10 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
             </div>
             <div className="form-group">
               <label className="checkup-field-label" htmlFor="child-monitor-height">Length (cm)</label>
-              <input id="child-monitor-height" type="number" min="0.1" step="0.1" className="checkup-field-input" value={form.height} onChange={update('height')} required />
+              <input id="child-monitor-height" type="number" min="45" max="100" step="0.1" className="checkup-field-input" value={form.height} onChange={update('height')} required />
             </div>
             <div className="form-group">
-              <label className="checkup-field-label" htmlFor="child-monitor-bmi">BMI</label>
+              <label className="checkup-field-label" htmlFor="child-monitor-bmi">BMI (Secondary Reference)</label>
               <input id="child-monitor-bmi" type="text" className="checkup-field-input" value={bmi} readOnly placeholder="Auto-calculated" />
             </div>
             <div className="form-group">

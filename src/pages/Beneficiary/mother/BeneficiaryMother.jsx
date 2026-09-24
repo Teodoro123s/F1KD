@@ -147,7 +147,7 @@ export function MotherFormFields({
       return (
         <div className="form-group">
           <label className="form-label">{label}</label>
-          <div className="form-readonly-value">{value}</div>
+          <div className="form-readonly-value">{value === '' || value === null || value === undefined ? '—' : value}</div>
         </div>
       );
     }
@@ -251,7 +251,7 @@ export function MotherFormFields({
       return (
         <div className="form-group">
           <label className="form-label">{label}</label>
-          <div className="form-readonly-value">{value}</div>
+          <div className="form-readonly-value">{value === '' || value === null || value === undefined ? '—' : value}</div>
         </div>
       );
     }
@@ -290,7 +290,7 @@ export function MotherFormFields({
       return (
         <div className="form-group full-width">
           <label className="form-label">{label}</label>
-          <div className="form-readonly-value">{value}</div>
+          <div className="form-readonly-value">{value === '' || value === null || value === undefined ? '—' : value}</div>
         </div>
       );
     }

@@ -18,6 +18,81 @@ const getBmiInterpretation = (value) => {
   return 'Obese screening range';
 };
 
+const WHO_AGE_REFERENCE = {
+  months: [0, 3, 6, 9, 12, 24],
+  weight: {
+    male: [3.3, 5.7, 7.9, 9.2, 10.2, 12.2],
+    female: [3.2, 5.2, 7.3, 8.6, 9.5, 11.5],
+  },
+  length: {
+    male: [50.0, 61.4, 67.6, 72.0, 75.7, 87.1],
+    female: [49.1, 59.8, 65.7, 70.1, 74.0, 85.7],
+  },
+};
+const WHO_WEIGHT_LENGTH_REFERENCE = {
+  lengths: [45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100],
+  male: [2.5, 3.3, 4.3, 5.4, 6.5, 7.6, 8.8, 10.0, 11.2, 12.4, 13.6, 14.8],
+  female: [2.4, 3.2, 4.1, 5.1, 6.1, 7.2, 8.3, 9.4, 10.5, 11.7, 12.8, 14.0],
+};
+
+const getAgeInMonths = (birthDate, measurementDate) => {
+  if (!birthDate || !measurementDate) return null;
+  const birth = new Date(birthDate);
+  const measurement = new Date(measurementDate);
+  if (Number.isNaN(birth.getTime()) || Number.isNaN(measurement.getTime()) || birth > measurement) return null;
+  return Math.max(0, (measurement.getFullYear() - birth.getFullYear()) * 12
+    + measurement.getMonth() - birth.getMonth() - (measurement.getDate() < birth.getDate() ? 1 : 0));
+};
+
+const getAgeReferenceValue = (values, ageInMonths) => {
+  const months = WHO_AGE_REFERENCE.months;
+  const boundedAge = Math.max(months[0], Math.min(months[months.length - 1], ageInMonths));
+  const upperIndex = months.findIndex((month) => month > boundedAge);
+  const lowerIndex = upperIndex === -1 ? months.length - 2 : Math.max(0, upperIndex - 1);
+  const fraction = (boundedAge - months[lowerIndex]) / (months[lowerIndex + 1] - months[lowerIndex]);
+  return values[lowerIndex] + (values[lowerIndex + 1] - values[lowerIndex]) * fraction;
+};
+
+const interpretAgeMeasure = (value, referenceValues, ageInMonths, gender) => {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue) || ageInMonths === null) return '';
+  const sex = String(gender || '').toLowerCase() === 'female' ? 'female' : 'male';
+  const median = getAgeReferenceValue(referenceValues[sex], ageInMonths);
+  const zScore = (numericValue - median) / (median * (referenceValues === WHO_AGE_REFERENCE.length ? 0.04 : 0.15));
+  if (zScore < -3) return 'Severely below expected';
+  if (zScore < -2) return 'Below expected';
+  if (zScore > 2) return 'Above expected';
+  return 'Within expected range';
+};
+
+const interpretWeightForLength = (weight, length, gender) => {
+  const numericWeight = Number(weight);
+  const numericLength = Number(length);
+  const lengths = WHO_WEIGHT_LENGTH_REFERENCE.lengths;
+  if (!Number.isFinite(numericWeight) || !Number.isFinite(numericLength) || numericWeight <= 0
+    || numericLength < lengths[0] || numericLength > lengths[lengths.length - 1]) return 'Enter valid weight and length';
+  const reference = WHO_WEIGHT_LENGTH_REFERENCE[String(gender || '').toLowerCase()] || WHO_WEIGHT_LENGTH_REFERENCE.male;
+  const upperIndex = lengths.findIndex((value) => value > numericLength);
+  const lowerIndex = upperIndex === -1 ? lengths.length - 2 : Math.max(0, upperIndex - 1);
+  const fraction = (numericLength - lengths[lowerIndex]) / (lengths[lowerIndex + 1] - lengths[lowerIndex]);
+  const median = reference[lowerIndex] + (reference[lowerIndex + 1] - reference[lowerIndex]) * fraction;
+  const zScore = (numericWeight - median) / (median * 0.15);
+  if (zScore < -3) return 'Severely wasted';
+  if (zScore < -2) return 'Wasted';
+  if (zScore > 3) return 'Obese';
+  if (zScore > 2) return 'Overweight';
+  return 'Normal';
+};
+
+const getChildGrowthInterpretations = (weight, height, gender, birthDate, measurementDate) => {
+  const ageInMonths = getAgeInMonths(birthDate, measurementDate);
+  return {
+    weightForLengthInterpretation: interpretWeightForLength(weight, height, gender),
+    weightForAgeInterpretation: interpretAgeMeasure(weight, WHO_AGE_REFERENCE.weight, ageInMonths, gender),
+    lengthForAgeInterpretation: interpretAgeMeasure(height, WHO_AGE_REFERENCE.length, ageInMonths, gender),
+  };
+};
+
 const parseParams = (query, scope = {}) => ({
   schoolId: numberOrNull(scope.schoolId) ?? numberOrNull(query.schoolId),
   groupId: numberOrNull(scope.groupId) ?? numberOrNull(query.groupId),
@@ -102,8 +177,8 @@ router.get('/', async (req, res) => {
     const statusExpression = params.granularity === 'mother' ? 'm.status' : 'c.health_status';
     const dobExpression = params.granularity === 'mother' ? 'm.dob' : 'c.birth_date';
     const groupDetails = params.granularity === 'mother'
-      ? 'm.dob, m.prenatal_weight, m.prenatal_height, m.philhealth_member, m.status, m.contact_number, m.is_high_risk, m.program_type'
-      : 'c.birth_date, c.birth_weight, c.birth_length, m.philhealth_member, c.gender, c.health_status, m.contact_number, m.is_high_risk, m.program_type';
+      ? 'm.dob, m.prenatal_weight, m.prenatal_height, m.philhealth_member, m.status, m.contact_number, m.address, m.birth_certificate_document_name, m.consent_document_name, m.gravida, m.abortion, m.stillbirth, m.is_high_risk, m.program_type'
+      : 'c.birth_date, c.birth_weight, c.birth_length, c.birth_document_name, m.philhealth_member, c.gender, c.blood_type, c.multiple_birth_type, c.delivery_type, c.health_status, m.contact_number, m.is_high_risk, m.program_type';
     const query = `
       SELECT
         school.id AS school_id, school.name AS school_name,
@@ -127,6 +202,15 @@ router.get('/', async (req, res) => {
         ${params.granularity === 'mother' ? 'MAX(mc.checkup_date)' : 'MAX(cc.visit_date)'} AS last_activity_date,
         ${params.granularity === 'mother' ? 'MIN(mc.next_checkup_date)' : 'MIN(cc.next_checkup_date)'} AS next_checkup_date,
         ${params.granularity === 'mother' ? 'NULL' : 'c.delivery_type'} AS delivery_type,
+        ${params.granularity === 'mother' ? 'NULL' : 'c.birth_document_name'} AS live_birth_document,
+        ${params.granularity === 'mother' ? 'NULL' : 'c.blood_type'} AS blood_type,
+        ${params.granularity === 'mother' ? 'NULL' : 'c.multiple_birth_type'} AS multiple_birth_type,
+        ${params.granularity === 'mother' ? 'm.address' : 'NULL'} AS address_details,
+        ${params.granularity === 'mother' ? 'm.birth_certificate_document_name' : 'NULL'} AS mother_birth_certificate,
+        ${params.granularity === 'mother' ? 'm.consent_document_name' : 'NULL'} AS program_consent_document,
+        ${params.granularity === 'mother' ? 'm.gravida' : 'NULL'} AS gravida,
+        ${params.granularity === 'mother' ? 'm.abortion' : 'NULL'} AS abortion,
+        ${params.granularity === 'mother' ? 'm.stillbirth' : 'NULL'} AS stillbirth,
         ${params.granularity === 'mother' ? 'NULL' : '(SELECT latest_cc.weight FROM child_checkups latest_cc WHERE latest_cc.child_id = c.id ORDER BY latest_cc.visit_date DESC, latest_cc.id DESC LIMIT 1)'} AS weight_for_age,
         ${params.granularity === 'mother' ? 'NULL' : '(SELECT latest_cc.height FROM child_checkups latest_cc WHERE latest_cc.child_id = c.id ORDER BY latest_cc.visit_date DESC, latest_cc.id DESC LIMIT 1)'} AS height_for_age,
         ${params.granularity === 'mother' ? '(SELECT latest_mc.bmi FROM mother_checkups latest_mc WHERE latest_mc.mother_id = m.id ORDER BY latest_mc.checkup_date DESC, latest_mc.id DESC LIMIT 1)' : '(SELECT ROUND(latest_cc.weight / POW(NULLIF(latest_cc.height, 0) / 100, 2), 1) FROM child_checkups latest_cc WHERE latest_cc.child_id = c.id ORDER BY latest_cc.visit_date DESC, latest_cc.id DESC LIMIT 1)'} AS bmi_for_age,
@@ -166,6 +250,18 @@ router.get('/', async (req, res) => {
       lastActivityDate: row.last_activity_date || '',
       nextCheckupDate: row.next_checkup_date || '',
       deliveryType: row.delivery_type || '',
+      liveBirthDocument: row.live_birth_document || '',
+      bloodType: row.blood_type || '',
+      multipleBirth: row.multiple_birth_type || '',
+      addressDetails: row.address_details || '',
+      motherBirthCertificate: row.mother_birth_certificate || '',
+      programConsentDocument: row.program_consent_document || '',
+      contactNumber: row.contact_number || '',
+      gravida: row.gravida === null || row.gravida === undefined ? '' : Number(row.gravida),
+      abortion: row.abortion === null || row.abortion === undefined ? '' : Number(row.abortion),
+      stillbirth: row.stillbirth === null || row.stillbirth === undefined ? '' : Number(row.stillbirth),
+      birthWeight: row.initial_weight === null || row.initial_weight === undefined ? '' : Number(row.initial_weight),
+      birthLength: row.initial_height === null || row.initial_height === undefined ? '' : Number(row.initial_height),
       weightForAge: row.weight_for_age === null || row.weight_for_age === undefined ? '' : Number(row.weight_for_age),
       heightForAge: row.height_for_age === null || row.height_for_age === undefined ? '' : Number(row.height_for_age),
       bmiForAge: row.bmi_for_age === null || row.bmi_for_age === undefined ? '' : Number(row.bmi_for_age),
@@ -179,7 +275,7 @@ router.get('/', async (req, res) => {
     const childIds = normalizedRows.map((row) => row.childId).filter(Boolean);
     if (childIds.length) {
       const [checkupRows] = await pool.query(
-        `SELECT cc.child_id, cc.week_number, cc.visit_date, cc.weight, cc.height,
+        `SELECT cc.child_id, cc.week_number, cc.visit_date, cc.weight, cc.height, c.gender, c.birth_date,
                 CASE WHEN c.birth_date IS NULL OR c.birth_date < '1900-01-01' OR c.birth_date > cc.visit_date
                   THEN NULL ELSE TIMESTAMPDIFF(WEEK, c.birth_date, cc.visit_date) END AS calculated_age_weeks
          FROM child_checkups cc
@@ -202,10 +298,17 @@ router.get('/', async (req, res) => {
           weight: Number.isFinite(weight) && weight > 0 ? weight : null,
           height: Number.isFinite(height) && height > 0 ? height : null,
           bmi: Number.isFinite(weight) && weight > 0 && Number.isFinite(height) && height > 0 ? Number((weight / ((height / 100) ** 2)).toFixed(1)) : null,
+          ...getChildGrowthInterpretations(weight, height, checkup.gender, checkup.birth_date, checkup.visit_date),
         });
         seriesByChild.set(checkup.child_id, series);
       });
-      normalizedRows.forEach((row) => { row.growthSeries = seriesByChild.get(row.childId) || []; });
+      normalizedRows.forEach((row) => {
+        row.growthSeries = seriesByChild.get(row.childId) || [];
+        const latestPoint = row.growthSeries.at(-1);
+        row.weightForLengthInterpretation = latestPoint?.weightForLengthInterpretation || '';
+        row.weightForAgeInterpretation = latestPoint?.weightForAgeInterpretation || '';
+        row.lengthForAgeInterpretation = latestPoint?.lengthForAgeInterpretation || '';
+      });
     }
     const motherIds = normalizedRows.map((row) => row.motherId).filter(Boolean);
     if (params.granularity === 'mother' && motherIds.length) {

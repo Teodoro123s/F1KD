@@ -3,6 +3,7 @@
 .form-group.full-width { grid-column: 1 / -1; }
 .form-group.narrow-field { max-width: 220px; width: 100%; }
 .form-label { font-size: 0.85rem; font-weight: 700; color: #475569; }
+.view-content .form-readonly-value { display: flex; align-items: center; min-height: 2.5rem; padding: 0.65rem 0.8rem; border: 1px solid #86efac; border-radius: 8px; background: #f0fdf4; color: #1e293b; box-shadow: none; }
 .form-panel { background: rgba(255,255,255,0.9); border: 1px solid #dfe6ef; border-radius: 12px; box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04); padding: 1rem; }
 .form-input, .form-select, textarea.form-input {
   width: 100%;
