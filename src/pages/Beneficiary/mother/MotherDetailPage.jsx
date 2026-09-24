@@ -6,6 +6,7 @@ import { resolveAssetUrl } from '../../../api/authHeader';
 import { useAuth } from '../../../auth/AuthProvider';
 import { can } from '../../../utils/permissions';
 import PageHeader from '../../../components/ui/PageHeader';
+import { notifyAction } from '../../../components/ActionFeedback';
 import { MotherFormFields } from './BeneficiaryMother';
 
 const calculateAge = (dobString) => {
@@ -115,7 +116,6 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
   const [previewDocument, setPreviewDocument] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState('');
 
   useEffect(() => {
     if (!selectedMother) return undefined;
@@ -273,13 +273,13 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
   const deleteMother = async () => {
     if (deleting) return;
     setDeleting(true);
-    setDeleteError('');
     try {
       await apiDeleteMother(motherId);
       setShowDeleteModal(false);
       onClose?.();
     } catch (error) {
-      setDeleteError(error.message || 'Unable to delete mother and children.');
+      const message = error.message || 'Unable to delete mother and children.';
+      notifyAction(message, 'error');
     } finally {
       setDeleting(false);
     }
@@ -378,7 +378,7 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
         actions={(
           <div className="mother-detail-actions">
             {canManage && <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/mother/${motherId}/edit`, { state: { mother: selectedMother } })}>Edit</button>}
-            {canManage && <button type="button" className="btn-danger" onClick={() => { setDeleteError(''); setShowDeleteModal(true); }}>Delete</button>}
+            {canManage && <button type="button" className="btn-danger" onClick={() => setShowDeleteModal(true)}>Delete</button>}
             <button type="button" className="btn-secondary" onClick={handleBack}>Back</button>
           </div>
         )}
@@ -405,7 +405,6 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
               This permanently deletes <strong>{fullName}</strong> and all linked child records and monitoring data.
               {children.length > 0 && ` ${children.length} child record${children.length === 1 ? '' : 's'} will also be deleted.`}
             </p>
-            {deleteError && <p className="form-error" role="alert">{deleteError}</p>}
             <div className="modal-actions">
               <button type="button" className="btn-secondary" onClick={() => setShowDeleteModal(false)} disabled={deleting}>Cancel</button>
               <button type="button" className="btn-danger" onClick={deleteMother} disabled={deleting}>{deleting ? 'Deleting...' : 'Delete permanently'}</button>

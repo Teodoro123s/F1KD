@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { ChildFormFields } from './BeneficiaryChild';
 import { useMothers } from '../../../context/MothersContext';
 import { capitalizeNameValue } from '../../../utils/nameFormat';
+import { notifyAction } from '../../../components/ActionFeedback';
 
 const CHILD_DRAFT_KEY = 'f1kd.create-child.draft';
 
@@ -71,7 +72,6 @@ export default function CreateChildPage({
   const motherFromState = location.state?.mother || null;
   const { mothers, setMothers } = useMothers();
   const [groupForm, setGroupForm] = useState(() => loadChildDraft(emptyGroupForm()));
-  const [submitError, setSubmitError] = useState('');
   const [selectedMotherId, setSelectedMotherId] = useState(() => {
     try { return motherFromState?.id || motherFromState?.motherId || JSON.parse(localStorage.getItem(CHILD_DRAFT_KEY) || 'null')?.selectedMotherId || ''; } catch (error) { return motherFromState?.id || motherFromState?.motherId || ''; }
   });
@@ -124,9 +124,13 @@ export default function CreateChildPage({
       setCreateActiveTab(CREATE_STEPS[Math.min(currentIndex + 1, CREATE_STEPS.length - 1)]);
       return;
     }
-    setSubmitError('');
+    if (!motherFromState && !selectedMotherId) {
+      notifyAction('Please select a mother before creating the child.', 'error');
+      return;
+    }
     if (!groupForm.firstName.trim() || !groupForm.lastName.trim()) {
-      setSubmitError('Please complete the required child details before saving.');
+      notifyAction('Please complete the required child details before saving.', 'error');
+      setCreateActiveTab('general');
       return;
     }
 
@@ -245,7 +249,7 @@ export default function CreateChildPage({
       navigate('/beneficiary');
     } catch (err) {
       console.error('Failed to create child', err);
-      setSubmitError(err?.message || 'Unable to create child. Please try again.');
+      notifyAction(err?.message || 'Unable to create child. Please try again.', 'error');
     }
   };
 
@@ -277,12 +281,6 @@ export default function CreateChildPage({
               }
             }}>Cancel</button>
           </div>
-        </div>
-      )}
-
-      {submitError && (
-        <div className="notification-banner" role="alert" style={{ marginBottom: 16 }}>
-          <span>{submitError}</span>
         </div>
       )}
 

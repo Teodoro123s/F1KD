@@ -152,38 +152,75 @@ export function MotherFormFields({
       );
     }
 
+    const isNativeDate = nativeDate || (isDate && !slashDateInput);
+
     return (
       <div className="form-group">
         <label className="form-label" htmlFor={id}>{label}</label>
-        <input
-          id={id}
-          type={nativeDate && !slashDateInput ? 'date' : isDate ? 'text' : type}
-          className="form-input"
-          placeholder={isDate ? 'yyyy/mm/dd' : placeholder}
-          value={isDate ? getDateDisplayValue(name, value) : value}
-          onChange={(e) => {
-            if (isDate) {
-              updateDateValue(name, e.target.value, onChange);
-              return;
-            }
-            const rawValue = isNumeric ? e.target.value.replace(/\D/g, '') : e.target.value;
-            const nextValue = /^(firstName|middleName|lastName|maidenSurname|suffix|emergencyName|spouseFirstName|spouseSurname)$/.test(name)
-              ? capitalizeNameValue(rawValue)
-              : rawValue;
-            if (onChange) {
-              onChange(nextValue);
-              return;
-            }
-            setForm((prev) => ({ ...prev, [name]: nextValue }));
-          }}
-          onBlur={isDate ? () => commitDateValue(name, getDateDisplayValue(name, value), onChange) : undefined}
-          inputMode={isNumeric ? 'numeric' : undefined}
-          pattern={isNumeric ? '[0-9]*' : undefined}
-          max={maxDate}
-          autoComplete={nativeDate ? 'off' : undefined}
-          required={required}
-        />
-        {isDate && slashDateInput && !readOnly && (
+        <div className={isNativeDate ? 'date-input-container' : undefined}>
+          <input
+            id={id}
+            type={isNativeDate ? 'date' : isDate ? 'text' : type}
+            className="form-input"
+            placeholder={isDate && !isNativeDate ? 'yyyy/mm/dd' : placeholder}
+            value={isNativeDate ? formatDateForInput(value) : isDate ? getDateDisplayValue(name, value) : value}
+            onChange={(e) => {
+              if (isNativeDate) {
+                const nextVal = e.target.value;
+                if (onChange) onChange(nextVal);
+                else setForm((prev) => ({ ...prev, [name]: nextVal }));
+                return;
+              }
+              if (isDate) {
+                updateDateValue(name, e.target.value, onChange);
+                return;
+              }
+              const rawValue = isNumeric ? e.target.value.replace(/\D/g, '') : e.target.value;
+              const nextValue = /^(firstName|middleName|lastName|maidenSurname|suffix|emergencyName|spouseFirstName|spouseSurname)$/.test(name)
+                ? capitalizeNameValue(rawValue)
+                : rawValue;
+              if (onChange) {
+                onChange(nextValue);
+                return;
+              }
+              setForm((prev) => ({ ...prev, [name]: nextValue }));
+            }}
+            onClick={isNativeDate ? (e) => { try { if (typeof e.target.showPicker === 'function') e.target.showPicker(); } catch (_) {} } : undefined}
+            onBlur={isDate && !isNativeDate ? () => commitDateValue(name, getDateDisplayValue(name, value), onChange) : undefined}
+            inputMode={isNumeric ? 'numeric' : undefined}
+            pattern={isNumeric ? '[0-9]*' : undefined}
+            max={maxDate}
+            autoComplete={nativeDate ? 'off' : undefined}
+            required={required}
+          />
+          {isNativeDate && (
+            <button
+              type="button"
+              className="calendar-toggle-btn"
+              onClick={() => {
+                const el = document.getElementById(id);
+                if (el) {
+                  try {
+                    if (typeof el.showPicker === 'function') el.showPicker();
+                    else el.focus();
+                  } catch (_) {
+                    el.focus();
+                  }
+                }
+              }}
+              aria-label={`Open calendar for ${label}`}
+              tabIndex={-1}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+            </button>
+          )}
+        </div>
+        {!isNativeDate && isDate && slashDateInput && !readOnly && (
           <>
             <button type="button" className="date-picker-button" onClick={() => openDatePicker(name)} aria-label={`Open calendar for ${label}`}>
               <span aria-hidden="true">▣</span>
@@ -466,7 +503,10 @@ export function MotherFormFields({
                   className="native-date-picker-input"
                   type="date"
                   value={formatDateForInput(form.lmpDate)}
-                  onChange={(e) => handleLmpChange(e.target.value)}
+                  onChange={(e) => {
+                    setDateDrafts((prev) => ({ ...prev, lmpDate: formatSlashDate(e.target.value) }));
+                    handleLmpChange(e.target.value);
+                  }}
                   tabIndex={-1}
                   aria-hidden="true"
                 />

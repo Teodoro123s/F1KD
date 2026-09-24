@@ -6,6 +6,7 @@ import { getSummary } from '../../Community/communityService';
 import { formatDateForInput } from '../../../utils/dateFormat';
 import { useMothers } from '../../../context/MothersContext';
 import PageHeader from '../../../components/ui/PageHeader';
+import { notifyAction } from '../../../components/ActionFeedback';
 
 const normalizeChild = (child) => ({
   ...child,
@@ -57,7 +58,6 @@ export default function EditChildPage() {
   const [form, setForm] = useState(() => normalizeChild(location.state?.child || {}));
   const [options, setOptions] = useState({ communities: [], batches: [] });
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('general');
   const EDIT_STEPS = ['general', 'prenatal', 'medical_dental', 'vaccine'];
 
@@ -77,7 +77,9 @@ export default function EditChildPage() {
         if (active && response?.child) setForm(normalizeChild(response.child));
       })
       .catch((loadError) => {
-        if (active && !location.state?.child) setError(loadError.message || 'Unable to load child');
+        if (active && !location.state?.child) {
+          notifyAction(loadError.message || 'Unable to load child', 'error');
+        }
       });
 
     return () => { active = false; };
@@ -91,7 +93,6 @@ export default function EditChildPage() {
       return;
     }
     setSaving(true);
-    setError(null);
     try {
       const payload = {
         ...form,
@@ -123,7 +124,7 @@ export default function EditChildPage() {
 
       navigate(-1, { state: { updatedChild } });
     } catch (saveError) {
-      setError(saveError.message || 'Unable to save child');
+      notifyAction(saveError.message || 'Unable to save child', 'error');
     } finally {
       setSaving(false);
     }
@@ -153,7 +154,6 @@ export default function EditChildPage() {
         title="Beneficiaries"
         breadcrumbs={[{ label: 'Beneficiaries', to: '/beneficiary' }, { label: 'Edit Child' }]}
       />
-      {error && <div className="form-error" style={{ color: 'var(--danger-color)', margin: '8px 0' }}>{error}</div>}
 
       <div className="stepper-progress">
         <div className="stepper-steps" role="tablist">

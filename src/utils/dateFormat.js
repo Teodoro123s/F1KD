@@ -13,19 +13,41 @@ export function maskDateInput(value) {
 }
 
 /**
- * Validates a masked date and converts it into an ISO-like YYYY-MM-DD value.
+ * Normalizes a partially typed date while the user is editing it.
  *
- * @param {string | number | Date | null | undefined} value - The raw date input.
- * @returns {string} A normalized ISO date when valid, otherwise an empty string.
+ * Examples:
+ * - 2026 -> 2026
+ * - 2026/09 -> 2026-09
+ * - 2026/09/24 -> 2026-09-24
+ *
+ * The function keeps incomplete values available while typing, but still validates
+ * and returns an empty string for impossible values.
  */
 export function normalizeDateValue(value) {
-  const masked = maskDateInput(value);
+  const raw = typeof value === 'string' ? value.trim() : String(value ?? '').trim();
+  if (!raw) return '';
+
+  const masked = maskDateInput(raw);
   if (!masked) return '';
-  const [year, month, day] = masked.split('/');
-  if (!year || !month || !day || year.length !== 4 || month.length !== 2 || day.length !== 2) return '';
+
+  const [yearPart, monthPart, dayPart] = masked.split('/');
+  const year = yearPart || '';
+  const month = monthPart || '';
+  const day = dayPart || '';
+
+  if (!year) return '';
+  if (year.length !== 4) return '';
+  if (!month && !day) return year;
+  if (!day && month.length >= 1 && month.length <= 2) return `${year}-${month}`;
+  if (month && !day) return `${year}-${month}`;
+  if (month.length !== 2 || day.length !== 2) return `${year}-${month || ''}${day ? `-${day}` : ''}`.replace(/-+$/, '');
+
   const monthNumber = Number(month);
   const dayNumber = Number(day);
-  if (monthNumber < 1 || monthNumber > 12 || dayNumber < 1 || dayNumber > 31) return '';
+  if (monthNumber < 1 || monthNumber > 12 || dayNumber < 1 || dayNumber > 31) {
+    return '';
+  }
+
   return `${year}-${month}-${day}`;
 }
 
@@ -41,8 +63,8 @@ export function formatDateForInput(value) {
   const isoDate = candidate.replace(/\//g, '-');
   const dateOnly = isoDate.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (dateOnly) return `${dateOnly[1]}-${dateOnly[2]}-${dateOnly[3]}`;
-  const normalized = normalizeDateValue(candidate);
-  if (normalized) return normalized;
+  const partial = normalizeDateValue(candidate);
+  if (partial) return partial;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -57,8 +79,23 @@ export function formatDateForInput(value) {
  * @returns {string} A formatted display date or a fallback placeholder.
  */
 export function formatDateForDisplay(value) {
-  const inputDate = formatDateForInput(value);
-  if (!inputDate) return value || '—';
-  const [year, month, day] = inputDate.split('-');
-  return `${year}/${month}/${day}`;
+  if (value === null || value === undefined || value === '') return '—';
+
+  const candidate = String(value).trim();
+  if (!candidate) return '—';
+
+  const normalized = normalizeDateValue(candidate);
+  if (normalized) {
+    const [year, month, day] = normalized.split('-');
+    if (year && month && day) return `${year}/${month}/${day}`;
+    if (year && month) return `${year}/${month}`;
+    return year || '—';
+  }
+
+  const raw = formatDateForInput(candidate);
+  if (!raw) return candidate;
+  const [year, month, day] = raw.split('-');
+  if (year && month && day) return `${year}/${month}/${day}`;
+  if (year && month) return `${year}/${month}`;
+  return year || '—';
 }

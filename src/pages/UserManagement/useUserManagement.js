@@ -327,7 +327,8 @@ export function useUserManagement() {
       const email = (fd.get('email') || '').toString().trim();
       const contactNumber = (fd.get('contactNumber') || '').toString().trim();
       const mi = (fd.get('middleInitial') || '').toString().trim();
-      const dobVal = (fd.get('dob') || '').toString().trim();
+      const dobVal = (fd.get('dob') || form.dob || '').toString().trim();
+      const normalizedDob = formatDobForInput(dobVal);
       const roleVal = (fd.get('role') || 'Superadmin').toString();
       const statusVal = (fd.get('status') || 'Active').toString();
       const schoolIdVal = (fd.get('schoolId') || '').toString();
@@ -366,10 +367,11 @@ export function useUserManagement() {
     }
     // Use the provided email; rely on the server to signal duplicates and the retry logic to handle them.
     let emailToUse = email;
-    const dobMsg = getDobValidationMessage(dobVal);
+    const dobToSave = normalizedDob || dobVal;
+    const dobMsg = getDobValidationMessage(dobToSave);
     if (dobMsg) {
       setNotification(dobMsg);
-      try { console.log('Validation failed: invalid dob', { dobVal }); } catch(e){}
+      try { console.log('Validation failed: invalid dob', { dobVal, normalizedDob, dobToSave }); } catch(e){}
       try { const el = document.querySelector('input[name="dob"]'); if (el) el.focus(); } catch(e){}
       return;
     }
@@ -387,7 +389,7 @@ export function useUserManagement() {
           middleInitial: mi || null,
           contactNumber: contactNumberSan,
           email,
-          dob: dobVal,
+          dob: dobToSave,
           role: roleVal,
           status: statusVal,
           password: fdPassword || form.password,
@@ -429,7 +431,7 @@ export function useUserManagement() {
           middleInitial: mi || null,
           contactNumber: contactNumberSan,
           email: emailToUse,
-          dob: dobVal,
+          dob: dobToSave,
           role: roleVal,
           status: statusVal,
           password: passwordToUse,
@@ -451,7 +453,7 @@ export function useUserManagement() {
               contactNumber: contactNumberSan,
               email: emailToUse,
               username: usernameToUse,
-              dob: dobVal,
+              dob: dobToSave,
               role: roleVal,
               status: statusVal,
               password: passwordToUse,

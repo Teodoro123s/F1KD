@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import PageHeader from '../components/ui/PageHeader';
+import { notifyAction } from '../components/ActionFeedback';
 import { useAuth } from '../auth/AuthProvider';
 import { hasRole, ROLES } from '../utils/permissions';
 import { changePassword } from '../api/auth';
@@ -8,8 +9,6 @@ export default function SettingsPage() {
   const { currentUser } = useAuth();
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('settings.darkMode') === 'true');
   const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
-  const [passwordMessage, setPasswordMessage] = useState('');
-  const [passwordError, setPasswordError] = useState('');
   const [changingPassword, setChangingPassword] = useState(false);
   const [visiblePasswords, setVisiblePasswords] = useState({
     currentPassword: false,
@@ -24,19 +23,17 @@ export default function SettingsPage() {
 
   const handlePasswordChange = async (event) => {
     event.preventDefault();
-    setPasswordMessage('');
-    setPasswordError('');
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      setPasswordError('New passwords do not match.');
+      notifyAction('New passwords do not match.', 'error');
       return;
     }
     setChangingPassword(true);
     try {
       await changePassword(passwordForm.currentPassword, passwordForm.newPassword, passwordForm.confirmPassword);
       setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-      setPasswordMessage('Password changed successfully.');
+      notifyAction('Password changed successfully.');
     } catch (error) {
-      setPasswordError(error.message || 'Unable to change password.');
+      notifyAction(error.message || 'Unable to change password.', 'error');
     } finally {
       setChangingPassword(false);
     }
@@ -48,8 +45,6 @@ export default function SettingsPage() {
 
   const updatePasswordField = (field, value) => {
     setPasswordForm((form) => ({ ...form, [field]: value }));
-    setPasswordMessage('');
-    setPasswordError('');
   };
 
   return (
@@ -143,8 +138,6 @@ export default function SettingsPage() {
                   <button type="submit" className="btn-primary" disabled={changingPassword}>
                     {changingPassword ? 'Changing...' : 'Change password'}
                   </button>
-                  {passwordMessage && <span role="status" style={{ color: '#0f766e', fontWeight: 600 }}>{passwordMessage}</span>}
-                  {passwordError && <span role="alert" style={{ color: '#b91c1c', fontWeight: 600 }}>{passwordError}</span>}
                 </div>
               </form>
             </div>

@@ -2,13 +2,15 @@
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useMothers } from '../../../context/MothersContext';
 import { formatDateForDisplay } from '../../../utils/dateFormat';
-import { apiUploadChildBirthDocument } from '../../../api/children';
+import { apiDeleteChild, apiUploadChildBirthDocument } from '../../../api/children';
 import { resolveAssetUrl } from '../../../api/authHeader';
 import { useAuth } from '../../../auth/AuthProvider';
 import { can } from '../../../utils/permissions';
 import { capitalizeNameValue } from '../../../utils/nameFormat';
 import { ChildFormFields } from './BeneficiaryChild';
 import PageHeader from '../../../components/ui/PageHeader';
+import ConfirmModal from '../../UserManagement/ConfirmModal';
+import { notifyAction } from '../../../components/ActionFeedback';
 
 const formatValue = (value) => (value === null || value === undefined || value === '' ? '—' : String(value));
 
@@ -200,6 +202,8 @@ export default function ChildProfilePage() {
   const [isEditingBirthDocument, setIsEditingBirthDocument] = useState(false);
   const [previewDocument, setPreviewDocument] = useState(null);
   const [profileTab, setProfileTab] = useState('general');
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const isChildProfile = location.pathname.endsWith('/profile');
 
   const uploadBirthDocument = async (file) => {
@@ -220,6 +224,26 @@ export default function ChildProfilePage() {
       setUploadMessage(error.message || 'Unable to upload document.');
     } finally {
       setUploadingBirthDocument(false);
+    }
+  };
+
+  const requestDeleteChild = () => {
+    if (!canManage || !selectedChild?.id || isDeleting) return;
+    setShowDeleteConfirm(true);
+  };
+
+  const deleteChild = async () => {
+    if (!canManage || !selectedChild?.id || isDeleting) return;
+    setShowDeleteConfirm(false);
+    setIsDeleting(true);
+    setUploadMessage('');
+    try {
+      await apiDeleteChild(selectedChild.id);
+      notifyAction(`${childName || 'Child'} deleted successfully.`);
+      navigate('/beneficiary');
+    } catch (error) {
+      setUploadMessage(error.message || 'Unable to delete child.');
+      setIsDeleting(false);
     }
   };
 
@@ -347,9 +371,21 @@ export default function ChildProfilePage() {
             {isChildProfile && canManage && (
               <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/child/${childIdentifier}/edit`, { state: { child: selectedChild, mother: resolvedMother, returnTo } })}>Edit</button>
             )}
+            {canManage && (
+              <button type="button" className="btn-secondary" onClick={requestDeleteChild} disabled={isDeleting}>
+                {isDeleting ? 'Deleting...' : 'Delete'}
+              </button>
+            )}
             <button type="button" className="btn-secondary" onClick={() => navigate(-1)}>Back</button>
           </div>
         )}
+      />
+
+      <ConfirmModal
+        show={showDeleteConfirm}
+        message={`Delete ${childName || 'this child'} and all of their beneficiary data? This cannot be undone.`}
+        onConfirm={deleteChild}
+        onCancel={() => setShowDeleteConfirm(false)}
       />
 
       {!isChildProfile && <section className="mother-detail-section">

@@ -1,4 +1,4 @@
-﻿/* Forms & Inputs */
+/* Forms & Inputs */
 .form-group { display: flex; flex-direction: column; gap: 0.45rem; }
 .form-group.full-width { grid-column: 1 / -1; }
 .form-group.narrow-field { max-width: 220px; width: 100%; }
@@ -117,6 +117,61 @@
 .date-picker-button:hover { color: var(--burgundy); }
 .form-group:has(.date-picker-button) .form-input { padding-right: 2.5rem; }
 .native-date-picker-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+
+/* Calendar / Native Date Input Enhancement */
+.view-content input[type="date"].form-input,
+input[type="date"].form-input {
+  appearance: auto;
+  -webkit-appearance: auto;
+  -moz-appearance: auto;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.date-input-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.date-input-container .form-input {
+  width: 100%;
+  padding-right: 2.5rem;
+}
+
+.date-input-container input[type="date"]::-webkit-calendar-picker-indicator {
+  position: absolute;
+  right: 0.5rem;
+  top: 0;
+  bottom: 0;
+  width: 2.2rem;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.calendar-toggle-btn {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: #64748b;
+  cursor: pointer;
+  z-index: 1;
+  transition: color 150ms ease;
+}
+
+.date-input-container:hover .calendar-toggle-btn,
+.calendar-toggle-btn:hover {
+  color: var(--burgundy, #7A0C1E);
+}
 .form-checkboxes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.75rem; padding: 0.5rem 0; grid-column: 1 / -1; }
 .form-checkbox-label { display: flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; color: #334155; cursor: pointer; user-select: none; }
 .form-checkbox { width: 16px; height: 16px; accent-color: var(--burgundy); cursor: pointer; }

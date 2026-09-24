@@ -345,13 +345,13 @@ export default function MonitoringPage() {
                 setChildren((current) => current.map((child) => String(child.id) === String(payload.childId) ? { ...child, ...savedChild } : child));
               } catch (error) {
                 setSavedMessage(`Unable to save check-up: ${error.message}`);
-                return;
+                return false;
               }
               const message = completedWeeks.length >= 48
                 ? `Monitoring completed successfully for ${getChildName(selectedChild)}.`
                 : `Week ${payload.week} progress captured successfully for ${getChildName(selectedChild)}.`;
               setSavedMessage(message);
-              notifyAction(message);
+              return true;
             }}
             onCancel={() => setSelectedChild(null)}
           />

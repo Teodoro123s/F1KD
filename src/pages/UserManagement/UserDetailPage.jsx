@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useLocation, useNavigate, Link } from 'react-router-dom';
 import PageHeader from '../../components/ui/PageHeader';
+import { notifyAction } from '../../components/ActionFeedback';
 import { generatePassword, formatDobForInput } from './lib';
 import { apiGetUser, apiUpdateUser } from '../../api/users';
 import { getSummary } from '../Community/communityService';
@@ -101,7 +102,6 @@ export default function UserDetailPage() {
   };
 
   const [generatedPwd, setGeneratedPwd] = useState('');
-  const [passwordMessage, setPasswordMessage] = useState('');
   const [isApplyingPassword, setIsApplyingPassword] = useState(false);
 
   const generateDefaultPassword = () => {
@@ -113,13 +113,12 @@ export default function UserDetailPage() {
     if (!generatedPwd) return;
     const serverId = String(user.id || id).replace(/^USR-/, '');
     setIsApplyingPassword(true);
-    setPasswordMessage('');
     try {
       await apiUpdateUser(serverId, { password: generatedPwd });
-      setPasswordMessage('Password updated successfully.');
+      notifyAction('Password updated successfully.');
       setGeneratedPwd('');
     } catch (error) {
-      setPasswordMessage(error?.message || 'Unable to update the password.');
+      notifyAction(error?.message || 'Unable to update the password.', 'error');
     } finally {
       setIsApplyingPassword(false);
     }
@@ -130,7 +129,12 @@ export default function UserDetailPage() {
       <PageHeader
         title={displayName}
         breadcrumbs={[{ label: 'User Management', href: '/user-management' }, { label: user.role || 'User' }]}
-        actions={<button type="button" className="view-btn view-btn--primary" onClick={handleEdit}>Edit</button>}
+        actions={(
+          <>
+            <button type="button" className="view-btn view-btn--primary" onClick={handleEdit}>Edit</button>
+            <button type="button" className="view-btn view-btn--secondary" onClick={() => navigate(-1)}>Back</button>
+          </>
+        )}
       />
 
       
@@ -169,6 +173,10 @@ export default function UserDetailPage() {
                 <label className="checkup-field-label">Contact Number</label>
                 <input className="checkup-field-input" value={user.contactNumber || user.contact || '—'} readOnly />
               </div>
+              <div className="form-group">
+                <label className="checkup-field-label">Date of Birth</label>
+                <input className="checkup-field-input" value={user.dob || '—'} readOnly />
+              </div>
 
               {requiresSchoolAssignment && (
                 <>
@@ -203,12 +211,6 @@ export default function UserDetailPage() {
                 <button type="button" className="btn-small" onClick={generateDefaultPassword}>Generate default password</button>
                 <button type="button" className="btn-small" onClick={applyGenerated} disabled={!generatedPwd || isApplyingPassword}>{isApplyingPassword ? 'Applying...' : 'Apply'}</button>
               </div>
-              {passwordMessage && <div className="notification-banner" role="status" style={{ marginTop: 8 }}>{passwordMessage}</div>}
-
-            <div style={{ marginTop: 18, display: 'flex', gap: 8 }}>
-              <button type="button" className="btn-primary" onClick={handleEdit}>Edit</button>
-              <button type="button" className="btn-secondary" onClick={() => navigate(-1)}>Back</button>
-            </div>
             </div>
           </div>
         </div>

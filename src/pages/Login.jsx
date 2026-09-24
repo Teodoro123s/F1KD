@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import logo from '../assets/f1kd-logo.png';
 import { useAuth } from '../auth/AuthProvider';
+import { notifyAction } from '../components/ActionFeedback';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -9,20 +10,18 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
 
   const auth = useAuth();
 
   async function handleLogin(event) {
     event.preventDefault();
-    setError('');
     setLoading(true);
     try {
       await auth.login(email, password);
       navigate('/dashboard');
     } catch (err) {
       console.error('Login failed', err);
-      setError(err.message || 'Login failed. Please check your credentials and try again.');
+      notifyAction(err.message || 'Login failed. Please check your credentials and try again.', 'error');
     } finally {
       setLoading(false);
     }
@@ -37,12 +36,6 @@ export default function Login() {
         <h1 className="login-title">Welcome back</h1>
 
         <form className="login-form" onSubmit={handleLogin} noValidate>
-          {error && (
-            <div className="form-error" role="alert" aria-live="assertive">
-              {error}
-            </div>
-          )}
-
           <div className="login-field">
             <label htmlFor="login-email">Email address</label>
             <input

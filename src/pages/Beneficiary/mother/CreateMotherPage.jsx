@@ -4,6 +4,7 @@ import { calculateGestationalDetails, getInitialCheckups } from '../../../utils/
 import { useMothers } from '../../../context/MothersContext';
 import { apiCreateMother, apiUploadMotherDocuments } from '../../../api/mothers';
 import { capitalizeNameValue } from '../../../utils/nameFormat';
+import { notifyAction } from '../../../components/ActionFeedback';
 
 const MOTHER_DRAFT_KEY = 'f1kd.create-mother.draft';
 
@@ -116,7 +117,6 @@ export default function CreateMotherPage({
   const { mothers, setMothers } = useMothers();
   const effectiveCommunities = communities && communities.length ? communities : mothers;
   const [communityForm, setCommunityForm] = useState(() => loadMotherDraft(emptyCommunityForm(effectiveCommunities)));
-  const [submitError, setSubmitError] = useState('');
   const [documentFiles, setDocumentFiles] = useState({ birthCertificate: null, consent: null });
   const [createActiveTab, setCreateActiveTab] = useState(() => {
     try { return JSON.parse(localStorage.getItem(MOTHER_DRAFT_KEY) || 'null')?.activeTab || 'general'; } catch (error) { return 'general'; }
@@ -138,13 +138,12 @@ export default function CreateMotherPage({
 
   const handleCreateCommunity = async (e) => {
     e.preventDefault();
-    setSubmitError('');
     if (!communityForm.firstName.trim() || !communityForm.lastName.trim()) {
-      setSubmitError('Please complete the required mother information before saving.');
+      notifyAction('Please complete the required mother information before saving.', 'error');
       return;
     }
     if (!communityForm.province || !communityForm.city || !communityForm.barangay) {
-      setSubmitError('Province, City / Municipality, and Barangay are required.');
+      notifyAction('Province, City / Municipality, and Barangay are required.', 'error');
       setCreateActiveTab('general');
       return;
     }
@@ -316,18 +315,12 @@ export default function CreateMotherPage({
       navigate('/beneficiary');
     } catch (error) {
       console.error('[CreateMotherPage] Failed to create mother:', error);
-      setSubmitError(error?.message || 'Unable to create mother. Please try again.');
+      notifyAction(error?.message || 'Unable to create mother. Please try again.', 'error');
     }
   };
 
   return (
     <section className="tabs-row create-view">
-      {submitError && (
-        <div className="notification-banner" role="alert" style={{ marginBottom: 16 }}>
-          <span>{submitError}</span>
-        </div>
-      )}
-
       <div className="stepper-progress">
         <div className="stepper-steps" role="tablist">
           {CREATE_STEPS.map((s, i) => {

@@ -19,30 +19,49 @@ export const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((value 
 
 export const formatDobForInput = (v) => {
   if (!v) return '';
+  const s = String(v).trim();
+  const match = s.match(/^(\d{4})[-/](\d{2})[-/](\d{2})/);
+  if (match) {
+    return `${match[1]}-${match[2]}-${match[3]}`;
+  }
   try {
     const d = new Date(v);
     if (Number.isNaN(d.getTime())) return '';
-    return d.toISOString().slice(0, 10);
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${d.getFullYear()}-${month}-${day}`;
   } catch (e) { return ''; }
 };
 
 // DOB validation: only ensure a valid date and not in the future. No minimum age enforced.
-export const isValidDob = (value) => {
-  if (!value) return false;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return false;
-  if (date > new Date()) return false; // future date invalid
-  return true;
-};
-
 export const getDobValidationMessage = (value) => {
   if (!value) return 'Date of Birth is required.';
+  const s = String(value).trim();
+  const match = s.match(/^(\d{4})[-/](\d{2})[-/](\d{2})/);
+  if (match) {
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1900) {
+      return 'Please enter a valid date.';
+    }
+    const today = new Date();
+    const curYear = today.getFullYear();
+    const curMonth = today.getMonth() + 1;
+    const curDay = today.getDate();
+    if (year > curYear || (year === curYear && (month > curMonth || (month === curMonth && day > curDay)))) {
+      return 'Date of birth cannot be in the future.';
+    }
+    return null;
+  }
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return 'Please enter a valid date.';
   const now = new Date();
   if (date > now) return 'Date of birth cannot be in the future.';
   return null;
 };
+
+export const isValidDob = (value) => !getDobValidationMessage(value);
 
 export const generatePassword = (nextForm) => {
   // Desired format: Surname-like (preserve casing, spaces -> hyphens) + '.' + 3 random digits, e.g. "Sta-Ana.223".

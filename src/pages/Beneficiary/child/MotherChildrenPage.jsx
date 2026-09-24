@@ -6,6 +6,7 @@ import BeneficiaryTable from '../BeneficiaryTable';
 import PageHeader from '../../../components/ui/PageHeader';
 import { useAuth } from '../../../auth/AuthProvider';
 import { can } from '../../../utils/permissions';
+import { notifyAction } from '../../../components/ActionFeedback';
 
 export default function MotherChildrenPage() {
   const { id } = useParams();
@@ -32,6 +33,7 @@ export default function MotherChildrenPage() {
         }
       } catch (loadError) {
         if (!active) return;
+        notifyAction(loadError.message || 'Unable to load children', 'error');
         setError(loadError.message || 'Unable to load children');
       } finally {
         if (active) setLoading(false);
@@ -111,7 +113,6 @@ export default function MotherChildrenPage() {
         )}
       />
 
-      {error && <div className="form-error">{error}</div>}
       {!error && <BeneficiaryTable
         currentRows={currentRows}
         loading={loading}

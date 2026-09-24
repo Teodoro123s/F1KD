@@ -146,7 +146,7 @@ export default function ProgramPage() {
       })
       .catch((error) => {
         if (!mounted) return;
-        setProgramError(error?.message || 'Unable to load saved programs.');
+        notifyAction(error?.message || 'Unable to load saved programs.', 'error');
         setPrograms([]);
         setIsLiveDataLoaded(true);
       });
@@ -172,7 +172,7 @@ export default function ProgramPage() {
       const next = {};
       (response.logs || []).forEach((log) => { next[`${log.beneficiary_type}:${log.beneficiary_id}`] = Boolean(log.monitored); });
       setMonitoringStatus(next);
-    }).catch(() => { if (active) setProgramError('Unable to load daily monitoring status.'); });
+    }).catch(() => { if (active) notifyAction('Unable to load daily monitoring status.', 'error'); });
     return () => { active = false; };
   }, [programId, monitorDate]);
 
@@ -200,7 +200,7 @@ export default function ProgramPage() {
       })));
     } catch (error) {
       setMonitoringStatus((current) => ({ ...current, ...previous }));
-      setProgramError(error.message || 'Unable to save monitoring status.');
+      notifyAction(error.message || 'Unable to save monitoring status.', 'error');
     } finally {
       setMonitoringPending((current) => ({ ...current, ...Object.fromEntries(keys.map((key) => [key, false])) }));
     }
@@ -274,11 +274,9 @@ export default function ProgramPage() {
         : [...current, mapApiProgram(response.program)]);
       setForm(emptyProgram);
       setShowModal(false);
-      setProgramError('');
       notifyAction(`${form.id ? 'Updated' : 'Created'} program successfully.`);
     } catch (error) {
       const message = error.message || 'Unable to save program.';
-      setProgramError(message);
       notifyAction(message, 'error');
     }
   };
@@ -439,11 +437,9 @@ export default function ProgramPage() {
       setPrograms((current) => current.map((program) => program.id === programToRestore.id ? mapApiProgram(response.program) : program));
       setActiveTab('Active');
       navigate('/program');
-      setProgramError('');
       notifyAction(`Restored ${programToRestore.name}.`);
     } catch (error) {
       const message = error.message || 'Unable to restore program.';
-      setProgramError(message);
       notifyAction(message, 'error');
     }
   };
@@ -456,11 +452,9 @@ export default function ProgramPage() {
       setPrograms((current) => current.map((program) => program.id === programToEnd.id ? mapApiProgram(response.program) : program));
       setActiveTab('Ended');
       navigate('/program');
-      setProgramError('');
       notifyAction(`Ended ${programToEnd.name}.`);
     } catch (error) {
       const message = error.message || 'Unable to end program.';
-      setProgramError(message);
       notifyAction(message, 'error');
     }
   };
@@ -468,10 +462,9 @@ export default function ProgramPage() {
     event.preventDefault();
     const selectedScopes = beneficiaryScope === 'School' ? selectedSchools : beneficiaryScope === 'Group' ? selectedGroups : selectedBatches;
     if (!selectedProgram || !selectedScopes.length) {
-      setScopeError(`Select at least one ${beneficiaryScope.toLowerCase()} before adding this cluster.`);
+      notifyAction(`Select at least one ${beneficiaryScope.toLowerCase()} before adding this cluster.`, 'error');
       return;
     }
-    setScopeError('');
     const scopes = selectedScopes.flatMap((scope) => {
       const name = scope.name || scope.group_name || scope.batch_code;
       const coverage = [{ type: beneficiaryScope, name, beneficiaries: Number(scope.records || scope.members_count || 0) }];
@@ -490,12 +483,10 @@ export default function ProgramPage() {
         setScopeSchoolIds([]);
         setScopeGroupIds([]);
         setScopeBatchIds([]);
-        setProgramError('');
         notifyAction('Beneficiary scope saved successfully.');
       })
       .catch((error) => {
         const message = error.message || 'Unable to save beneficiary cluster.';
-        setProgramError(message);
         notifyAction(message, 'error');
       });
   };
@@ -505,10 +496,9 @@ export default function ProgramPage() {
       : apiCompleteNamedProgramCluster(selectedProgram.id, cluster);
     completeRequest
       .then((response) => setPrograms((current) => current.map((program) => program.id === selectedProgram.id ? mapApiProgram(response.program) : program)))
-      .catch((error) => setProgramError(error.message || 'Unable to mark this cluster as done.'));
+      .catch((error) => notifyAction(error.message || 'Unable to mark this cluster as done.', 'error'));
   };
   const openBeneficiaryModal = () => {
-    setScopeError('');
     setScopeSchoolIds([]);
     setScopeGroupIds([]);
     setScopeBatchIds([]);
@@ -550,7 +540,6 @@ export default function ProgramPage() {
       navigate("/program");
     }).catch((error) => {
       const message = error.message || 'Unable to delete program.';
-      setProgramError(message);
       notifyAction(message, 'error');
     });
   };
@@ -579,8 +568,6 @@ export default function ProgramPage() {
             </button>
         }
       />
-
-      {programError && <p className="form-error" role="alert">{programError}</p>}
 
       {clusterView && selectedProgram && (
         <section className="program-cluster-subheader" aria-label="Program beneficiary clusters">
@@ -868,7 +855,6 @@ export default function ProgramPage() {
                   </div>
                 </label>
               )}
-              {scopeError && <p className="form-error" role="alert">{scopeError}</p>}
             </div>
             <div className="modal-footer">
               <button

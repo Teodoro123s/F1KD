@@ -10,23 +10,26 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
 
   const formatSlashDate = (value) => {
     const normalized = formatDateForInput(value);
-    return normalized ? normalized.replaceAll('-', '/') : String(value || '').replaceAll('-', '/');
+    if (!normalized) return String(value || '').replaceAll('-', '/');
+    const [year, month, day] = normalized.split('-');
+    return `${month}/${day}/${year}`;
   };
 
   const formatPartialSlashDate = (value) => {
     const digits = String(value || '').replace(/\D/g, '').slice(0, 8);
-    if (digits.length < 4) return digits;
-    if (digits.length === 4) return `${digits}/`;
-    if (digits.length <= 6) return `${digits.slice(0, 4)}/${digits.slice(4)}`;
-    return `${digits.slice(0, 4)}/${digits.slice(4, 6)}/${digits.slice(6)}`;
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+    return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
   };
 
   const normalizeSlashDate = (value) => {
     const digits = String(value || '').replace(/\D/g, '').slice(0, 8);
-    if (digits.length < 4) return '';
-    const year = digits.slice(0, 4);
-    const month = digits.slice(4, 6).padStart(2, '0');
-    const day = digits.slice(6, 8).padStart(2, '0');
+    if (digits.length !== 8) return '';
+    const month = digits.slice(0, 2);
+    const day = digits.slice(2, 4);
+    const year = digits.slice(4, 8);
+    const date = new Date(Number(year), Number(month) - 1, Number(day));
+    if (date.getFullYear() !== Number(year) || date.getMonth() !== Number(month) - 1 || date.getDate() !== Number(day)) return '';
     return `${year}-${month}-${day}`;
   };
 
@@ -81,39 +84,76 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
       );
     }
 
+    const isNativeDate = nativeDate || (isDate && !slashDateInput);
+
     return (
       <div className="form-group">
         <label className="form-label" htmlFor={id}>{label}</label>
-        <input
-          id={id}
-          type={nativeDate && !slashDateInput ? 'date' : isDate ? 'text' : type}
-          inputMode={isDate ? 'numeric' : undefined}
-          pattern={isDate ? '\\d{4}/\\d{2}/\\d{2}' : undefined}
-          className="form-input"
-          placeholder={isDate ? 'yyyy/mm/dd' : placeholder}
-          value={isDate ? getDateDisplayValue(name, value) : value}
-          min={min}
-          step={step}
-          max={maxDate}
-          autoComplete={nativeDate ? 'off' : undefined}
-          onChange={(e) => {
-            if (isDate) {
-              updateDateValue(name, e.target.value, onChange);
-              return;
-            }
-            const nextValue = /^(firstName|middleName|lastName|suffix|birthAttendant|birthPlace|leader)$/.test(name)
-              ? capitalizeNameValue(e.target.value)
-              : e.target.value;
-            if (onChange) {
-              onChange(nextValue);
-              return;
-            }
-            setForm((prev) => ({ ...prev, [name]: nextValue }));
-          }}
-          onBlur={isDate ? () => commitDateValue(name, getDateDisplayValue(name, value), onChange) : undefined}
-          required={required}
-        />
-        {isDate && slashDateInput && (
+        <div className={isNativeDate ? 'date-input-container' : undefined}>
+          <input
+            id={id}
+            type={isNativeDate ? 'date' : isDate ? 'text' : type}
+            inputMode={isDate && !isNativeDate ? 'numeric' : undefined}
+            pattern={isDate && !isNativeDate ? '\\d{2}/\\d{2}/\\d{4}' : undefined}
+            className="form-input"
+            placeholder={isDate && !isNativeDate ? 'MM/DD/YYYY' : placeholder}
+            value={isNativeDate ? formatDateForInput(value) : isDate ? getDateDisplayValue(name, value) : value}
+            min={min}
+            step={step}
+            max={maxDate}
+            autoComplete={nativeDate ? 'off' : undefined}
+            onChange={(e) => {
+              if (isNativeDate) {
+                const nextVal = e.target.value;
+                if (onChange) onChange(nextVal);
+                else setForm((prev) => ({ ...prev, [name]: nextVal }));
+                return;
+              }
+              if (isDate) {
+                updateDateValue(name, e.target.value, onChange);
+                return;
+              }
+              const nextValue = /^(firstName|middleName|lastName|suffix|birthAttendant|birthPlace|leader)$/.test(name)
+                ? capitalizeNameValue(e.target.value)
+                : e.target.value;
+              if (onChange) {
+                onChange(nextValue);
+                return;
+              }
+              setForm((prev) => ({ ...prev, [name]: nextValue }));
+            }}
+            onClick={isNativeDate ? (e) => { try { if (typeof e.target.showPicker === 'function') e.target.showPicker(); } catch (_) {} } : undefined}
+            onBlur={isDate && !isNativeDate ? () => commitDateValue(name, getDateDisplayValue(name, value), onChange) : undefined}
+            required={required}
+          />
+          {isNativeDate && (
+            <button
+              type="button"
+              className="calendar-toggle-btn"
+              onClick={() => {
+                const el = document.getElementById(id);
+                if (el) {
+                  try {
+                    if (typeof el.showPicker === 'function') el.showPicker();
+                    else el.focus();
+                  } catch (_) {
+                    el.focus();
+                  }
+                }
+              }}
+              aria-label={`Open calendar for ${label}`}
+              tabIndex={-1}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+            </button>
+          )}
+        </div>
+        {!isNativeDate && isDate && slashDateInput && (
           <>
             <button type="button" className="date-picker-button" onClick={() => openDatePicker(name)} aria-label={`Open calendar for ${label}`}>
               <span aria-hidden="true">▣</span>
@@ -217,7 +257,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
           {renderField({ id: 'child-birth-date', label: 'Birth Date', name: 'birthDate', type: 'date', nativeDate: true, maxDate: new Date().toISOString().split('T')[0] })}
           {renderSelect({
             id: 'child-gender',
-            label: 'Gender',
+            label: 'Sex',
             name: 'gender',
             options: [{ value: 'Male', label: 'Male' }, { value: 'Female', label: 'Female' }, { value: 'Other', label: 'Other' }],
           })}
@@ -253,7 +293,6 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
             label: 'Multiple Birth Type',
             name: 'multipleBirthType',
             options: [{ value: '', label: 'None' }, { value: 'Twin', label: 'Twin' }, { value: 'Triplet', label: 'Triplet' }],
-            placeholder: 'Select type',
           })}
           {renderSelect({
             id: 'child-delivery-type',

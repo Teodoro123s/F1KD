@@ -469,6 +469,29 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+router.delete('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const scopeClause = req.groupId ? ' AND group_id = ?' : req.schoolId ? ' AND community_id = ?' : '';
+    const scopeValue = req.groupId || req.schoolId;
+    const [rows] = await pool.query(
+      `SELECT id FROM children WHERE (id = ? OR child_code = ?)${scopeClause} LIMIT 1`,
+      scopeValue ? [Number(id) || null, id, scopeValue] : [Number(id) || null, id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Child not found' });
+
+    const childId = rows[0].id;
+    await pool.query('DELETE FROM child_checkups WHERE child_id = ?', [childId]);
+    await pool.query('DELETE FROM child_medical_conditions WHERE child_id = ?', [childId]);
+    await pool.query('DELETE FROM child_vaccinations WHERE child_id = ?', [childId]);
+    await pool.query('DELETE FROM children WHERE id = ?', [childId]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Failed to delete child', error);
+    res.status(500).json({ error: 'db error' });
+  }
+});
+
 // GET /api/mothers/:motherId/children
 router.get('/mother/:motherId/children', async (req, res) => {
   try {

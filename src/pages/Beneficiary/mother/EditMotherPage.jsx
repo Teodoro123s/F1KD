@@ -90,7 +90,10 @@ export default function EditMotherPage() {
         if (active && response?.mother) setForm(normalizeMotherForm(response.mother));
       })
       .catch((loadError) => {
-        if (active && !initialMother) setError(loadError.message || 'Unable to load mother');
+        if (active && !initialMother) {
+          notifyAction(loadError.message || 'Unable to load mother', 'error');
+          setError(loadError.message || 'Unable to load mother');
+        }
       });
     return () => { active = false; };
   }, [id, initialMother]);
@@ -160,8 +163,6 @@ export default function EditMotherPage() {
           </>
         )}
       />
-
-      {error && <div className="form-error" style={{ color: 'var(--danger-color)', margin: '8px 0' }}>{error}</div>}
 
       {showSaveConfirm && (
         <div className="modal-backdrop" role="presentation" onMouseDown={(event) => {

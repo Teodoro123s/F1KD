@@ -40,6 +40,14 @@ export async function apiUpdateChild(idOrCode, payload) {
   return handleResponse(res, 'Server error when updating child');
 }
 
+export async function apiDeleteChild(idOrCode) {
+  const res = await fetchWithAuth(`${API_BASE}/api/children/${encodeURIComponent(idOrCode)}`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  return handleResponse(res, 'Server error when deleting child');
+}
+
 export async function apiGetChild(idOrCode) {
   const res = await fetchWithAuth(`${API_BASE}/api/children/${encodeURIComponent(idOrCode)}`, {
     headers: { 'Content-Type': 'application/json' },

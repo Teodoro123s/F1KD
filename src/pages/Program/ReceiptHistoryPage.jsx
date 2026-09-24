@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import PageHeader from '../../components/ui/PageHeader';
+import { notifyAction } from '../../components/ActionFeedback';
 import { apiGetBeneficiaryMonitoringReport, apiGetClusterMonitoringReport, apiSetBeneficiaryMonitoring } from '../../api/programs';
 import { formatDateForDisplay, normalizeDateValue } from '../../utils/dateFormat';
 
@@ -50,7 +51,9 @@ export default function ReceiptHistoryPage() {
       setReportRows(response.report || []);
     } catch (loadError) {
       setReportRows([]);
-      setError(loadError.message || 'Unable to load receipt history.');
+      const message = loadError.message || 'Unable to load receipt history.';
+      setError(message);
+      notifyAction(message, 'error');
     } finally {
       setLoading(false);
     }
@@ -106,7 +109,9 @@ export default function ReceiptHistoryPage() {
       setReceiptModal(null);
       await loadHistory();
     } catch (saveError) {
-      setError(saveError.message || 'Unable to save receipt status.');
+      const message = saveError.message || 'Unable to save receipt status.';
+      setError(message);
+      notifyAction(message, 'error');
     } finally {
       setSavingReceipt(false);
     }
@@ -126,7 +131,6 @@ export default function ReceiptHistoryPage() {
           </div>
           <button type="button" className="view-btn view-btn--secondary" onClick={() => navigate(-1)}>Back to program</button>
         </div>
-        {error && <p className="form-error" role="alert">{error}</p>}
         {!loading && <div className="program-receipt-controls">
           <div className="program-receipt-controls-actions"><button type="button" className="view-btn view-btn--primary" onClick={() => openReceiptModal()}>Record receipt</button><div className="program-view-toggle" role="tablist" aria-label="Receipt history view"><button type="button" className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>List View</button><button type="button" className={view === 'calendar' ? 'active' : ''} onClick={() => setView('calendar')}>Calendar View</button></div></div>
         </div>}
