@@ -1,12 +1,6 @@
 import React from 'react';
-import { formatDateForDisplay } from '../../utils/dateFormat';
 import { getMotherProfileProgress } from '../../utils/motherProgress';
 import { getChildProfileProgress } from '../../utils/childProgress';
-
-const isUsableDate = (value) => {
-  const match = String(value || '').match(/^(\d{4})[-/]\d{2}[-/]\d{2}/);
-  return Boolean(match && Number(match[1]) >= 1900);
-};
 
 export default function BeneficiaryTable({
   currentRows,
@@ -59,18 +53,16 @@ export default function BeneficiaryTable({
                 // Lookup batch name
                 const batchId = row.assignedBatchIds?.[0] || row.original?.batch_id || row.original?.batchId;
                 const batchObj = batches.find((b) => b.id === batchId);
-                const batchName = batchObj?.name || row.original?.batch_name || '';
-
-                const motherBreadcrumb = `${area} > ${row.name} > ${batchName}`;
-                const childGroup = row.original?.group_name || row.original?.group || '';
-                const childBreadcrumb = [childGroup, batchName].filter(Boolean).join(' > ');
+                const batchName = batchObj?.name || row.original?.batch_name || row.original?.batch || '';
+                const schoolName = row.community || row.original?.community_name || row.original?.community || area;
+                const groupName = row.original?.group_name || row.original?.group || row.group || '';
+                const assignmentDetails = [
+                  schoolName,
+                  groupName,
+                  batchName,
+                ].filter(Boolean).join(' > ');
 
                 if (entityFilter === 'Mother') {
-                  const orig = row.original || {};
-                  const contact = orig.contactNumber || orig.contact || orig.contact_number || orig.phone || '';
-                  const edd = orig.eddDate || orig.edd_date || orig.edd || row.eddDate || '';
-                  const validEdd = isUsableDate(edd) ? edd : '';
-                  const ga = orig.gestationalAge || orig.gestational_age || row.gestationalAge || '';
                   return (
                     <tr key={row.id}>
                       <td className="mother-cell full-row-cell">
@@ -97,9 +89,7 @@ export default function BeneficiaryTable({
                               <span className="beneficiary-cell-percent">{motherProgress}%</span>
                             </div>
                             <div className="beneficiary-cell-line-2">
-                              {contact && <span className="muted">{contact}</span>}
-                              {(contact && (validEdd || ga)) && <span className="muted"> • </span>}
-                              {validEdd ? <span className="muted">EDD: {formatDateForDisplay(validEdd)}</span> : (ga ? <span className="muted">GA: {ga} wk</span> : null)}
+                              {assignmentDetails && <span className="muted">{assignmentDetails}</span>}
                             </div>
                             <div className="beneficiary-cell-line-3">
                               {getMotherStatus(motherProgress)}
@@ -138,7 +128,7 @@ export default function BeneficiaryTable({
                               <span className="beneficiary-cell-percent">{childProgress}%</span>
                             </div>
                             <div className="beneficiary-cell-line-2">
-                                {childBreadcrumb || null}
+                              {assignmentDetails && <span className="muted">{assignmentDetails}</span>}
                             </div>
                             <div className="beneficiary-cell-line-3">
                               {getChildStatus(childProgress)}
@@ -155,11 +145,6 @@ export default function BeneficiaryTable({
                   <tr key={row.id}>
                     <td className="mother-cell">
                       {(() => {
-                        const orig = row.original || {};
-                        const contact = orig.contactNumber || orig.contact || orig.contact_number || orig.phone || '';
-                        const edd = orig.eddDate || orig.edd_date || orig.edd || row.eddDate || '';
-                        const validEdd = isUsableDate(edd) ? edd : '';
-                        const ga = orig.gestationalAge || orig.gestational_age || row.gestationalAge || '';
                         return (
                           <button
                             type="button"
@@ -184,9 +169,7 @@ export default function BeneficiaryTable({
                                 <span className="beneficiary-cell-percent">{motherProgress}%</span>
                               </div>
                               <div className="beneficiary-cell-line-2">
-                                {contact && <span className="muted">{contact}</span>}
-                                {(contact && (validEdd || ga)) && <span className="muted"> • </span>}
-                                {validEdd ? <span className="muted">EDD: {formatDateForDisplay(validEdd)}</span> : (ga ? <span className="muted">GA: {ga} wk</span> : null)}
+                                {assignmentDetails && <span className="muted">{assignmentDetails}</span>}
                               </div>
                               <div className="beneficiary-cell-line-3">
                                 {getMotherStatus(motherProgress)}
@@ -220,7 +203,7 @@ export default function BeneficiaryTable({
                             <span className="beneficiary-cell-percent">{childProgress}%</span>
                           </div>
                           <div className="beneficiary-cell-line-2">
-                            {childBreadcrumb || null}
+                            {assignmentDetails && <span className="muted">{assignmentDetails}</span>}
                           </div>
                           <div className="beneficiary-cell-line-3">
                             {getChildStatus(childProgress)}

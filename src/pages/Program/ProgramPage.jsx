@@ -39,8 +39,8 @@ export default function ProgramPage() {
   const canCreatePrograms = !isHealthWorkerRole(currentUser?.role) && (canManagePrograms || hasRole(currentUser?.role, [ROLES.ADMIN]) || isCommunityOrganizer);
   const [activeTab, setActiveTab] = useState("Active");
   const [query, setQuery] = useState("");
-  const [typeFilter, setTypeFilter] = useState('');
-  const [showTypeFilter, setShowTypeFilter] = useState(false);
+  const [communityFilter, setCommunityFilter] = useState('');
+  const [showCommunityFilter, setShowCommunityFilter] = useState(false);
   const [programs, setPrograms] = useState([]);
   const [isLiveDataLoaded, setIsLiveDataLoaded] = useState(false);
   const viewMode = Boolean(programId);
@@ -253,11 +253,20 @@ export default function ProgramPage() {
   };
 
   const filteredPrograms = useMemo(() => {
-    return filterPrograms(programs, query, activeTab).filter((program) => !typeFilter || program.type === typeFilter);
-  }, [programs, query, activeTab, typeFilter]);
+    return filterPrograms(programs, query, activeTab).filter((program) => {
+      if (!communityFilter) return true;
+      return (program.clusters || []).some((cluster) => (
+        ['School', 'Group', 'Batch'].includes(cluster.type)
+        && String(cluster.name || '').trim().toLowerCase() === communityFilter.toLowerCase()
+      ));
+    });
+  }, [programs, query, activeTab, communityFilter]);
 
-  const programTypes = useMemo(
-    () => [...new Set(programs.map((program) => String(program.type || '').trim()).filter(Boolean))].sort(),
+  const communityOptions = useMemo(
+    () => [...new Set(programs.flatMap((program) => (program.clusters || [])
+      .filter((cluster) => ['School', 'Group', 'Batch'].includes(cluster.type))
+      .map((cluster) => String(cluster.name || '').trim())
+      .filter(Boolean)))].sort(),
     [programs]
   );
 
@@ -624,14 +633,14 @@ export default function ProgramPage() {
           </div>
           <div className="program-toolbar-controls">
             <div className="program-type-filter">
-              <button type="button" className={`program-type-filter-button${typeFilter ? ' active' : ''}`} onClick={() => setShowTypeFilter((current) => !current)} aria-haspopup="menu" aria-expanded={showTypeFilter}>
-                Type{typeFilter ? `: ${typeFilter}` : ''}
+              <button type="button" className={`program-type-filter-button${communityFilter ? ' active' : ''}`} onClick={() => setShowCommunityFilter((current) => !current)} aria-haspopup="menu" aria-expanded={showCommunityFilter}>
+                Community{communityFilter ? `: ${communityFilter}` : ''}
               </button>
-              {showTypeFilter && (
+              {showCommunityFilter && (
                 <div className="program-type-filter-menu" role="menu">
-                  <button type="button" className={!typeFilter ? 'selected' : ''} onClick={() => { setTypeFilter(''); setShowTypeFilter(false); }} role="menuitem">All types</button>
-                  {programTypes.map((type) => (
-                    <button type="button" key={type} className={typeFilter === type ? 'selected' : ''} onClick={() => { setTypeFilter(type); setShowTypeFilter(false); }} role="menuitem">{type}</button>
+                  <button type="button" className={!communityFilter ? 'selected' : ''} onClick={() => { setCommunityFilter(''); setShowCommunityFilter(false); }} role="menuitem">All communities</button>
+                  {communityOptions.map((community) => (
+                    <button type="button" key={community} className={communityFilter === community ? 'selected' : ''} onClick={() => { setCommunityFilter(community); setShowCommunityFilter(false); }} role="menuitem">{community}</button>
                   ))}
                 </div>
               )}
