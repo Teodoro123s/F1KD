@@ -1,5 +1,5 @@
 import React from 'react';
-import { getMotherProfileProgress } from '../../utils/motherProgress';
+import { getMotherDocumentProgress } from '../../utils/motherProgress';
 import { getChildProfileProgress } from '../../utils/childProgress';
 
 export default function BeneficiaryTable({
@@ -15,15 +15,16 @@ export default function BeneficiaryTable({
   onSelectMother,
   onSelectChild,
   communities = [],
+  groups = [],
   batches = [],
   entityFilter = 'Mother',
 }) {
   const emptyColSpan = entityFilter === 'Both' ? 2 : 1;
 
-  const getMotherStatus = (progress) => {
-    return progress >= 100
-      ? <span className="status-complete">Profile complete</span>
-      : <span className="status-pending">Profile incomplete</span>;
+  const getMotherStatus = (documentProgress) => {
+    return documentProgress.completed >= documentProgress.total
+      ? <span className="status-complete">Documents complete</span>
+      : <span className="status-pending">Documents pending</span>;
   };
 
   const getChildStatus = (progress) => {
@@ -43,19 +44,27 @@ export default function BeneficiaryTable({
               </tr>
             ) : currentRows.length > 0 ? (
               currentRows.map((row) => {
-                const motherProgress = getMotherProfileProgress(row.original || row);
+                const motherDocumentProgress = getMotherDocumentProgress(row.original || row);
                 const childProgress = getChildProfileProgress(row.original || row);
 
-                // Lookup mother's school/area
-                const motherObj = communities.find((c) => c.name === row.community);
-                const area = motherObj?.area || row.original?.area || 'Unknown area';
+                const original = row.original || row;
+                const motherObj = communities.find((community) => (
+                  community.name === row.community
+                  || String(community.id) === String(original.community_id ?? original.communityId)
+                ));
+                const groupObj = groups.find((group) => (
+                  String(group.id) === String(original.group_id ?? original.groupId)
+                  || group.name === original.group_name
+                  || group.name === original.group
+                ));
+                const area = motherObj?.area || original.area || '';
                 
                 // Lookup batch name
-                const batchId = row.assignedBatchIds?.[0] || row.original?.batch_id || row.original?.batchId;
+                const batchId = row.assignedBatchIds?.[0] || original.batch_id || original.batchId;
                 const batchObj = batches.find((b) => b.id === batchId);
-                const batchName = batchObj?.name || row.original?.batch_name || row.original?.batch || '';
-                const schoolName = row.community || row.original?.community_name || row.original?.community || area;
-                const groupName = row.original?.group_name || row.original?.group || row.group || '';
+                const batchName = batchObj?.name || original.batch_name || original.batch || '';
+                const schoolName = row.community || original.community_name || original.community || motherObj?.name || area;
+                const groupName = original.group_name || original.group || row.group || groupObj?.name || '';
                 const assignmentDetails = [
                   schoolName,
                   groupName,
@@ -83,16 +92,16 @@ export default function BeneficiaryTable({
                               <span className="beneficiary-cell-name">{row.name}</span>
                               <div className="beneficiary-progress-wrapper">
                                 <div className="progress-bar" aria-hidden="true">
-                                  <div className="progress-bar-fill" style={{ width: `${motherProgress}%` }} />
+                                  <div className="progress-bar-fill" style={{ width: `${motherDocumentProgress.percentage}%` }} />
                                 </div>
                               </div>
-                              <span className="beneficiary-cell-percent">{motherProgress}%</span>
+                              <span className="beneficiary-cell-percent">{motherDocumentProgress.completed}/{motherDocumentProgress.total}</span>
                             </div>
                             <div className="beneficiary-cell-line-2">
                               {assignmentDetails && <span className="muted">{assignmentDetails}</span>}
                             </div>
                             <div className="beneficiary-cell-line-3">
-                              {getMotherStatus(motherProgress)}
+                              {getMotherStatus(motherDocumentProgress)}
                             </div>
                           </div>
                         </button>
@@ -163,16 +172,16 @@ export default function BeneficiaryTable({
                                 <span className="beneficiary-cell-name">{row.name}</span>
                                 <div className="beneficiary-progress-wrapper">
                                   <div className="progress-bar" aria-hidden="true">
-                                    <div className="progress-bar-fill" style={{ width: `${motherProgress}%` }} />
+                                    <div className="progress-bar-fill" style={{ width: `${motherDocumentProgress.percentage}%` }} />
                                   </div>
                                 </div>
-                                <span className="beneficiary-cell-percent">{motherProgress}%</span>
+                                <span className="beneficiary-cell-percent">{motherDocumentProgress.completed}/{motherDocumentProgress.total}</span>
                               </div>
                               <div className="beneficiary-cell-line-2">
                                 {assignmentDetails && <span className="muted">{assignmentDetails}</span>}
                               </div>
                               <div className="beneficiary-cell-line-3">
-                                {getMotherStatus(motherProgress)}
+                                {getMotherStatus(motherDocumentProgress)}
                               </div>
                             </div>
                           </button>

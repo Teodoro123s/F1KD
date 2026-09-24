@@ -227,6 +227,7 @@ export default function BeneficiaryPage() {
           <BeneficiaryListPage
             mothers={mothers}
             communities={scopedCommunities}
+            groups={scopedGroups}
             batches={scopedBatches}
             onSelectMother={handleSelectMother}
             onSelectChild={handleSelectChild}

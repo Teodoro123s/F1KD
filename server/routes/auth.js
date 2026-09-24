@@ -61,7 +61,7 @@ router.post('/login', async (req, res) => {
     await ensureSuperadminAccount(pool);
 
     const [rows] = await pool.query(
-        `SELECT id, first_name, last_name, middle_initial, email, role, status, school_id, group_id, password_hash
+        `SELECT id, first_name, last_name, middle_initial, email, role, status, school_id, group_id, contact_number, password_hash
        FROM users
          WHERE email = ?
        LIMIT 1`,
@@ -133,7 +133,7 @@ router.post('/refresh', async (req, res) => {
     }
 
     const [rows] = await pool.query(
-      `SELECT id, first_name, last_name, middle_initial, email, role, status, school_id, group_id FROM users WHERE id = ? LIMIT 1`,
+      `SELECT id, first_name, last_name, middle_initial, email, role, status, school_id, group_id, contact_number FROM users WHERE id = ? LIMIT 1`,
       [payload.id]
     );
 

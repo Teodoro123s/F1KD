@@ -284,7 +284,7 @@ export function MotherFormFields({
     );
   };
 
-  const renderTextarea = ({ id, label, name, rows = 2, placeholder = '' }) => {
+  const renderTextarea = ({ id, label, name, rows = 2, placeholder = '', required = false }) => {
     const value = form[name] ?? '';
     if (readOnly) {
       return (
@@ -305,6 +305,7 @@ export function MotherFormFields({
           placeholder={placeholder}
           value={value}
           onChange={(e) => setForm((prev) => ({ ...prev, [name]: e.target.value }))}
+          required={required}
         />
       </div>
     );
@@ -317,15 +318,15 @@ export function MotherFormFields({
           <h4 className="form-section-title">I.A Mother's Information</h4>
           <div className="form-row-5 full-width name-row">
           {renderField({ id: 'mother-first-name', label: "First Name", name: 'firstName', placeholder: 'First name', required: true })}
-          {renderField({ id: 'mother-middle-name', label: "Middle Name", name: 'middleName', placeholder: 'Middle name' })}
+          {renderField({ id: 'mother-middle-name', label: "Middle Name", name: 'middleName', placeholder: 'Middle name', required: true })}
           {renderField({ id: 'mother-last-name', label: "Last Name", name: 'lastName', placeholder: 'Last name', required: true })}
-          {renderField({ id: 'mother-maiden-surname', label: "Maiden Surname", name: 'maidenSurname', placeholder: 'Maiden surname' })}
+          {renderField({ id: 'mother-maiden-surname', label: "Maiden Surname", name: 'maidenSurname', placeholder: 'Maiden surname', required: true })}
           {renderField({ id: 'mother-suffix', label: "Suffix", name: 'suffix', placeholder: 'Suffix' })}
           </div>
 
           <div className="form-row-2 full-width">
           {renderField({ id: 'mother-dob', label: "Date of Birth", name: 'dob', type: 'date', required: true, nativeDate: true, maxDate: new Date().toISOString().split('T')[0] })}
-          {renderField({ id: 'mother-contact', label: "Contact Number", name: 'contactNumber', type: 'tel', placeholder: '0917******' })}
+          {renderField({ id: 'mother-contact', label: "Contact Number", name: 'contactNumber', type: 'tel', placeholder: '0917******', required: true })}
           </div>
 
         </section>
@@ -381,6 +382,7 @@ export function MotherFormFields({
             name: 'groupId',
             options: selectedGroups.map((group) => ({ value: group.id, label: group.name })),
             placeholder: 'Select group',
+            required: true,
             onChange: (value) => {
               const selectedGroup = groups.find((group) => String(group.id) === String(value));
               setForm((prev) => ({
@@ -398,6 +400,7 @@ export function MotherFormFields({
             name: 'batchId',
             options: selectedBatches.map((batch) => ({ value: batch.databaseId ?? batch.id, label: batch.name })),
             placeholder: 'Select batch',
+            required: true,
             onChange: (value) => {
               const selectedBatch = batches.find((batch) => String(batch.databaseId ?? batch.id) === String(value));
               setForm((prev) => ({
@@ -441,9 +444,9 @@ export function MotherFormFields({
         <section className="create-mother-category">
           <h4 className="form-section-title">I.D EMERGENCY CONTACT</h4>
           <div className="form-row-3 full-width">
-          {renderField({ id: 'emergency-name', label: 'Name', name: 'emergencyName', placeholder: 'Enter contact name' })}
-          {renderField({ id: 'emergency-contact', label: 'Contact Number', name: 'emergencyContact', type: 'tel', placeholder: 'Enter contact number' })}
-          {renderField({ id: 'emergency-relationship', label: 'Relationship', name: 'emergencyRelationship', placeholder: 'e.g. husband' })}
+          {renderField({ id: 'emergency-name', label: 'Name', name: 'emergencyName', placeholder: 'Enter contact name', required: true })}
+          {renderField({ id: 'emergency-contact', label: 'Contact Number', name: 'emergencyContact', type: 'tel', placeholder: 'Enter contact number', required: true })}
+          {renderField({ id: 'emergency-relationship', label: 'Relationship', name: 'emergencyRelationship', placeholder: 'e.g. husband', required: true })}
           </div>
         </section>
 
@@ -481,7 +484,7 @@ export function MotherFormFields({
           <h4 className="form-section-title">II. INITIAL PRENATAL ASSESSMENT & MATERNAL HEALTH PROFILE</h4>
           <div className="form-row-2 full-width">
           {readOnly ? (
-            renderField({ id: 'mother-lmp', label: 'Date of LMP', name: 'lmpDate', type: 'date' })
+            renderField({ id: 'mother-lmp', label: 'Date of LMP', name: 'lmpDate', type: 'date', required: true })
           ) : (
             <div className="form-group">
               <label className="form-label" htmlFor="mother-lmp">Date of LMP</label>
@@ -495,6 +498,7 @@ export function MotherFormFields({
                 onBlur={() => commitDateValue('lmpDate', getDateDisplayValue('lmpDate', form.lmpDate), handleLmpChange)}
                 max={new Date().toISOString().split('T')[0]}
                 autoComplete="off"
+                required
               />
               {slashDateInput && <>
                 <button type="button" className="date-picker-button" onClick={() => openDatePicker('lmpDate')} aria-label="Open calendar for Date of LMP"><span aria-hidden="true">▣</span></button>
@@ -514,28 +518,28 @@ export function MotherFormFields({
             </div>
           )}
 
-          {renderField({ id: 'mother-edd', label: "Expected Delivery Date (EDD)", name: 'eddDate', type: 'date', nativeDate: true })}
+          {renderField({ id: 'mother-edd', label: "Expected Delivery Date (EDD)", name: 'eddDate', type: 'date', nativeDate: true, required: true })}
           </div>
 
           <div className="form-row-3 full-width">
-          {renderField({ id: 'prenatal-reg-date', label: 'Date of Prenatal Registration', name: 'prenatalRegDate', type: 'date', nativeDate: true })}
-          {renderSelect({ id: 'prenatal-trimester', label: 'Trimester at Registration', name: 'trimester', options: ['1st Trimester','2nd Trimester','3rd Trimester'] })}
-          {renderField({ id: 'prenatal-gest-age', label: 'Gestational Age at Reg (weeks)', name: 'gestationalAge', placeholder: 'e.g. 12' })}
+          {renderField({ id: 'prenatal-reg-date', label: 'Date of Prenatal Registration', name: 'prenatalRegDate', type: 'date', nativeDate: true, required: true })}
+          {renderSelect({ id: 'prenatal-trimester', label: 'Trimester at Registration', name: 'trimester', options: ['1st Trimester','2nd Trimester','3rd Trimester'], required: true })}
+          {renderField({ id: 'prenatal-gest-age', label: 'Gestational Age at Reg (weeks)', name: 'gestationalAge', placeholder: 'e.g. 12', required: true })}
           </div>
 
           <div className="form-row-3 full-width">
-          {renderField({ id: 'prenatal-weight', label: 'Weight (kg) at Reg', name: 'prenatalWeight', placeholder: 'e.g. 52' })}
-          {renderField({ id: 'prenatal-bp', label: 'Blood Pressure (BP) at Reg', name: 'prenatalBp', placeholder: 'e.g. 120/80' })}
-          {renderField({ id: 'prenatal-height', label: 'Height (cm) at Reg', name: 'prenatalHeight', placeholder: 'e.g. 150' })}
+          {renderField({ id: 'prenatal-weight', label: 'Weight (kg) at Reg', name: 'prenatalWeight', placeholder: 'e.g. 52', required: true })}
+          {renderField({ id: 'prenatal-bp', label: 'Blood Pressure (BP) at Reg', name: 'prenatalBp', placeholder: 'e.g. 120/80', required: true })}
+          {renderField({ id: 'prenatal-height', label: 'Height (cm) at Reg', name: 'prenatalHeight', placeholder: 'e.g. 150', required: true })}
           </div>
         </section>
 
         <section className="create-mother-category">
           <h4 className="form-section-title">III. NUMBER OF PREGNANCIES & BIRTHS (OB)</h4>
           <div className="form-row-3 full-width">
-          {renderField({ id: 'ob-gravida', label: 'Gravida (Pregnancies)', name: 'gravida', type: 'number', placeholder: 'Total pregnancies' })}
-          {renderField({ id: 'ob-abortion', label: 'Abortion', name: 'abortion', type: 'number', placeholder: 'Spontaneous/induced' })}
-          {renderField({ id: 'ob-stillbirth', label: 'Stillbirth', name: 'stillbirth', type: 'number', placeholder: 'Fetal death >20wks' })}
+          {renderField({ id: 'ob-gravida', label: 'Gravida (Pregnancies)', name: 'gravida', type: 'number', placeholder: 'Total pregnancies', required: true })}
+          {renderField({ id: 'ob-abortion', label: 'Abortion', name: 'abortion', type: 'number', placeholder: 'Spontaneous/induced', required: true })}
+          {renderField({ id: 'ob-stillbirth', label: 'Stillbirth', name: 'stillbirth', type: 'number', placeholder: 'Fetal death >20wks', required: true })}
           </div>
         </section>
 
@@ -597,26 +601,26 @@ export function MotherFormFields({
             ))
           )}
           </div>
-          {renderTextarea({ id: 'other-medical-notes', label: 'Other Medical History', name: 'otherMedicalHistory', rows: 2, placeholder: 'Other medical history notes...' })}
+          {renderTextarea({ id: 'other-medical-notes', label: 'Other Medical History', name: 'otherMedicalHistory', rows: 2, placeholder: 'Other medical history notes...', required: true })}
         </section>
 
         <section className="create-mother-category">
           <h4 className="form-section-title">IV.B DENTAL HEALTH CONDITION</h4>
           <div className="form-row-3 full-width">
-          {renderField({ id: 'dental-date', label: 'Date of Dental Check-up', name: 'dentalCheckupDate', type: 'date', nativeDate: true })}
-          {renderField({ id: 'dental-facility', label: 'Dental Clinic / Health Facility', name: 'dentalFacility', placeholder: 'Facility name' })}
-          {renderField({ id: 'dentist-charge', label: 'Dentist in Charge', name: 'dentistInCharge', placeholder: 'Dentist name' })}
+          {renderField({ id: 'dental-date', label: 'Date of Dental Check-up', name: 'dentalCheckupDate', type: 'date', nativeDate: true, required: true })}
+          {renderField({ id: 'dental-facility', label: 'Dental Clinic / Health Facility', name: 'dentalFacility', placeholder: 'Facility name', required: true })}
+          {renderField({ id: 'dentist-charge', label: 'Dentist in Charge', name: 'dentistInCharge', placeholder: 'Dentist name', required: true })}
           </div>
 
           <div className="form-row-3 full-width">
-          {renderField({ id: 'dentist-comm', label: 'Community Dentist Name', name: 'communityDentist', placeholder: 'Community dentist' })}
-          {renderField({ id: 'dentist-license', label: 'Dentist License No', name: 'dentistLicense', placeholder: 'License number' })}
-          {renderField({ id: 'dentist-contact', label: 'Dentist Contact No', name: 'dentistContact', type: 'tel', placeholder: 'Contact number' })}
+          {renderField({ id: 'dentist-comm', label: 'Community Dentist Name', name: 'communityDentist', placeholder: 'Community dentist', required: true })}
+          {renderField({ id: 'dentist-license', label: 'Dentist License No', name: 'dentistLicense', placeholder: 'License number', required: true })}
+          {renderField({ id: 'dentist-contact', label: 'Dentist Contact No', name: 'dentistContact', type: 'tel', placeholder: 'Contact number', required: true })}
           </div>
 
-          {renderField({ id: 'teeth-count', label: 'Number of Teeth Pregnant', name: 'teethCount', type: 'number', placeholder: 'e.g. 28' })}
+          {renderField({ id: 'teeth-count', label: 'Number of Teeth Pregnant', name: 'teethCount', type: 'number', placeholder: 'e.g. 28', required: true })}
 
-          {renderTextarea({ id: 'dental-findings', label: 'Dental Findings / Diagnosis', name: 'dentalFindings', rows: 2, placeholder: 'Findings or diagnosis...' })}
+          {renderTextarea({ id: 'dental-findings', label: 'Dental Findings / Diagnosis', name: 'dentalFindings', rows: 2, placeholder: 'Findings or diagnosis...', required: true })}
 
           <div className="form-group full-width">
           <label className="form-label">Dental Work Done</label>
@@ -647,7 +651,7 @@ export function MotherFormFields({
           )}
           </div>
 
-          {renderTextarea({ id: 'dental-remarks', label: 'Remarks / Recommendations', name: 'dentalRemarks', rows: 2, placeholder: 'Dental recommendations...' })}
+          {renderTextarea({ id: 'dental-remarks', label: 'Remarks / Recommendations', name: 'dentalRemarks', rows: 2, placeholder: 'Dental recommendations...', required: true })}
         </section>
       </div>
     );
@@ -683,6 +687,7 @@ export function MotherFormFields({
                               className="form-input table-input"
                               placeholder={slashDateInput ? 'yyyy/mm/dd' : undefined}
                               value={getDateDisplayValue(`tt${num}Date`, form[`tt${num}Date`] || '')}
+                              required
                               onChange={(e) => updateDateValue(`tt${num}Date`, e.target.value)}
                               onBlur={() => commitDateValue(`tt${num}Date`, getDateDisplayValue(`tt${num}Date`, form[`tt${num}Date`] || ''))}
                               autoComplete="off"
@@ -710,6 +715,7 @@ export function MotherFormFields({
                             type="text"
                             className="form-input table-input"
                             placeholder="Remarks..."
+                            required
                             value={form[`tt${num}Remarks`] || ''}
                             onChange={(e) => setForm((prev) => ({ ...prev, [`tt${num}Remarks`]: e.target.value }))}
                           />

@@ -12,7 +12,7 @@ const getGroupStatusByProgress = (g) => {
   return p >= 100 ? 'Complete' : 'Incomplete';
 };
 
-export default function BeneficiaryListPage({ communities = [], batches = [], mothers = [], loading = false, onSelectMother, onSelectChild, batchId = '' }) {
+export default function BeneficiaryListPage({ communities = [], groups = [], batches = [], mothers = [], loading = false, onSelectMother, onSelectChild, batchId = '' }) {
   const [query, setQuery] = useState('');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('All');
   const [perPage, setPerPage] = useState(10);
@@ -96,7 +96,7 @@ export default function BeneficiaryListPage({ communities = [], batches = [], mo
         return {
           id: item.id,
           name: item.name || `${item.firstName || item.first_name || ''} ${item.lastName || item.last_name || ''}`.trim(),
-          community: item.area || item.community || item.community_name || 'Unknown',
+          community: item.community || item.community_name || '',
           progress: getMotherProfileProgress(item),
           original: item,
         };
@@ -219,6 +219,7 @@ export default function BeneficiaryListPage({ communities = [], batches = [], mo
         onSelectMother={onSelectMother}
         onSelectChild={onSelectChild}
         communities={communities}
+        groups={groups}
         batches={batches}
         entityFilter={selectedEntityFilter}
       />
