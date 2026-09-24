@@ -284,6 +284,23 @@ export default function ProgramPage() {
   const selectedProgram = programId
     ? programs.find((program) => program.id === Number(programId))
     : programs.find((program) => program.id === Number(form.id)) || filteredPrograms[0];
+  const getProgramBeneficiaryCount = (program) => {
+    const requestedType = String(program?.beneficiaryType || program?.beneficiary_type || '').trim().toLowerCase();
+    const programCommunity = String(program?.community || '').trim().toLowerCase();
+    const uniqueBeneficiaries = new Set();
+
+    beneficiaryRecords.forEach((record) => {
+      const recordType = String(record.type || '').trim().toLowerCase();
+      const recordCommunity = String(record.school || '').trim().toLowerCase();
+      if (requestedType && recordType !== requestedType) return;
+      if (programCommunity && recordCommunity !== programCommunity) return;
+      if (record.sourceType && record.sourceId !== undefined && record.sourceId !== null) {
+        uniqueBeneficiaries.add(`${record.sourceType}:${record.sourceId}`);
+      }
+    });
+
+    return uniqueBeneficiaries.size;
+  };
   const isEndedProgram = String(selectedProgram?.status || '').trim().toLowerCase() === 'ended';
   const expandedClusters = useMemo(() => {
     if (!selectedProgram) return [];
@@ -719,7 +736,7 @@ export default function ProgramPage() {
                         <td>{program.type}</td>
                         <td>{program.provider}</td>
                         <td>
-                          {program.received} / {program.target}
+                          {Math.min(Number(program.received || 0), getProgramBeneficiaryCount(program))} / {getProgramBeneficiaryCount(program)}
                         </td>
                         <td>{renderActionMenu(`main-${program.id}`, program)}</td>
                       </tr>

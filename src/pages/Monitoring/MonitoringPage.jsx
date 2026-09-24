@@ -211,7 +211,7 @@ export default function MonitoringPage() {
   const monitoringRows = useMemo(() => visibleBeneficiaries.map((beneficiary) => {
     const maternalProgress = beneficiaryType === 'Mother' ? getMotherMonitoringProgress(beneficiary) : null;
     const completed = maternalProgress?.completed ?? (beneficiary.completedWeeks || []).length;
-    const total = maternalProgress?.total ?? 48;
+    const total = maternalProgress?.total ?? 24;
     const progress = Math.min(100, Math.round((completed / total) * 100));
     const status = beneficiaryType === 'Mother'
       ? getMotherMonitoringStatus(beneficiary, completed, total)
@@ -347,9 +347,9 @@ export default function MonitoringPage() {
                 setSavedMessage(`Unable to save check-up: ${error.message}`);
                 return false;
               }
-              const message = completedWeeks.length >= 48
+              const message = completedWeeks.length >= 24
                 ? `Monitoring completed successfully for ${getChildName(selectedChild)}.`
-                : `Week ${payload.week} progress captured successfully for ${getChildName(selectedChild)}.`;
+                : `M${payload.week} progress captured successfully for ${getChildName(selectedChild)}.`;
               setSavedMessage(message);
               return true;
             }}

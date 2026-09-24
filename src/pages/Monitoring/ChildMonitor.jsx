@@ -3,7 +3,7 @@ import { formatDateForDisplay, formatDateForInput } from '../../utils/dateFormat
 import ConfirmModal from '../UserManagement/ConfirmModal';
 import { notifyAction } from '../../components/ActionFeedback';
 
-const TOTAL_WEEKS = 48;
+const TOTAL_MONTHS = 24;
 
 function getChildName(child) {
   return child?.name || [child?.firstName || child?.first_name, child?.middleName || child?.middle_name, child?.lastName || child?.last_name]
@@ -223,7 +223,7 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
     });
   }, [child, week]);
 
-  const goToWeek = (nextWeek) => setWeek(Math.max(1, Math.min(TOTAL_WEEKS, nextWeek)));
+  const goToWeek = (nextWeek) => setWeek(Math.max(1, Math.min(TOTAL_MONTHS, nextWeek)));
   const bmi = calculateBmi(form.weight, form.height);
   const childBirthDate = getChildBirthDate(child);
   const ageInMonths = getAgeInMonths(childBirthDate, form.checkupDate);
@@ -300,7 +300,7 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
     try {
       const saved = await onSave({ ...form, checkupDate: formatDateForPayload(form.checkupDate), week, childId: child.id || child.child_id });
       if (saved === false) return;
-      notifyAction(`Week ${week} progress saved successfully.`);
+      notifyAction(`M${week} progress saved successfully.`);
       goToWeek(week + 1);
     } finally {
       setIsSaving(false);
@@ -309,31 +309,31 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
 
   return (
     <section className="child-monitor-page">
-      <div className="child-monitor-stepper" aria-label="Child monitoring weeks">
-        {Array.from({ length: TOTAL_WEEKS }, (_, index) => index + 1).map((weekNumber) => (
+      <div className="child-monitor-stepper" aria-label="Child monitoring months">
+        {Array.from({ length: TOTAL_MONTHS }, (_, index) => index + 1).map((weekNumber) => (
           <button
             type="button"
             key={weekNumber}
             className={`child-monitor-week${weekNumber === week ? ' active' : ''}${completedWeeks.includes(weekNumber) ? ' complete' : ''}`}
             onClick={() => setWeek(weekNumber)}
-            aria-label={`Week ${weekNumber}`}
+            aria-label={`Month ${weekNumber}`}
           >
-            W{weekNumber}
+            M{weekNumber}
           </button>
         ))}
       </div>
 
       <div className="child-monitor-navigation">
-        <button type="button" className="btn-secondary" onClick={() => goToWeek(week - 1)} disabled={week === 1}>Previous week</button>
+        <button type="button" className="btn-secondary" onClick={() => goToWeek(week - 1)} disabled={week === 1}>Previous month</button>
         <label htmlFor="child-monitor-week-select">
-          Current week
+          Current month
           <select id="child-monitor-week-select" value={week} onChange={(event) => goToWeek(Number(event.target.value))}>
-            {Array.from({ length: TOTAL_WEEKS }, (_, index) => index + 1).map((weekNumber) => (
-              <option key={weekNumber} value={weekNumber}>Week {weekNumber}</option>
+            {Array.from({ length: TOTAL_MONTHS }, (_, index) => index + 1).map((monthNumber) => (
+              <option key={monthNumber} value={monthNumber}>Month {monthNumber}</option>
             ))}
           </select>
         </label>
-        <button type="button" className="btn-secondary" onClick={() => goToWeek(week + 1)} disabled={week === TOTAL_WEEKS}>Next week</button>
+        <button type="button" className="btn-secondary" onClick={() => goToWeek(week + 1)} disabled={week === TOTAL_MONTHS}>Next month</button>
       </div>
 
       <form className="child-monitor-form" onSubmit={handleSubmit}>
@@ -343,9 +343,9 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
               <span className="checkup-module-kicker">Growth record</span>
               <div className="checkup-section-title">Child Check-up Record</div>
             </div>
-            <span className="checkup-week-badge">Week {week} / {TOTAL_WEEKS}</span>
+            <span className="checkup-week-badge">M{week} / {TOTAL_MONTHS}</span>
           </div>
-          <p className="child-monitor-subtitle">Week {week} of {TOTAL_WEEKS} · {childName} · Age: {ageInMonths === null ? 'Unavailable' : `${ageInMonths} months`} · Sex: {gender || 'Unavailable'}</p>
+          <p className="child-monitor-subtitle">M{week} of {TOTAL_MONTHS} · {childName}</p>
           <div className="checkup-grid">
             {renderDateField({ id: 'child-checkup-date', label: 'Check-up Date', name: 'checkupDate', required: true })}
             {renderDateField({ id: 'child-next-checkup-date', label: 'Next Check-up Date (Tentative)', name: 'nextCheckupDate' })}
@@ -416,7 +416,7 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
       </form>
       <ConfirmModal
         show={showSaveConfirm}
-        message={`Save the check-up record for ${childName} for Week ${week}?`}
+        message={`Save the check-up record for ${childName} for M${week}?`}
         onConfirm={confirmSave}
         onCancel={() => setShowSaveConfirm(false)}
       />
