@@ -865,12 +865,6 @@
 .program-search .search-input-field::placeholder {
   color: #94a3b8;
 }
-.program-type-filter { position: relative; }
-.program-type-filter-button { min-height: 40px; padding: 0.55rem 0.85rem; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; color: #475569; font: inherit; font-weight: 700; cursor: pointer; }
-.program-type-filter-button:hover, .program-type-filter-button.active { border-color: var(--burgundy); color: var(--burgundy); }
-.program-type-filter-menu { position: absolute; top: calc(100% + 0.4rem); right: 0; z-index: 10; display: grid; min-width: 180px; padding: 0.35rem; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12); }
-.program-type-filter-menu button { padding: 0.55rem 0.65rem; border: 0; border-radius: 6px; background: transparent; color: #475569; font: inherit; text-align: left; cursor: pointer; }
-.program-type-filter-menu button:hover, .program-type-filter-menu button.selected { background: #fff1f2; color: var(--burgundy); }
 .program-table-meta { display: block; margin-top: 0.25rem; color: #64748b; font-size: 0.8rem; }
 .program-status { display: inline-flex; padding: 0.35rem 0.6rem; border-radius: 999px; font-size: 0.75rem; font-weight: 800; }
 .program-status.active { background: #ecfdf3; color: #067647; }
@@ -1031,8 +1025,6 @@
   .program-toolbar-controls { width: 100%; flex: 1 1 100%; }
   .program-toolbar-controls { width: 100%; margin-left: 0; }
   .program-toolbar-controls .program-search { flex: 1; min-width: 0; }
-  .program-type-filter { flex: 0 0 auto; }
-  .program-type-filter-menu { left: 0; right: auto; }
 	.program-intro { align-items: flex-start; flex-direction: column; }
 	.program-level-subheader, .program-level-heading { align-items: flex-start; flex-direction: column; }
 	.program-summary { width: 100%; padding: 0.75rem 0 0; border-top: 1px solid #e2e8f0; border-left: 0; text-align: left; }

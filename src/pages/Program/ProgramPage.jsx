@@ -39,8 +39,6 @@ export default function ProgramPage() {
   const canCreatePrograms = !isHealthWorkerRole(currentUser?.role) && (canManagePrograms || hasRole(currentUser?.role, [ROLES.ADMIN]) || isCommunityOrganizer);
   const [activeTab, setActiveTab] = useState("Active");
   const [query, setQuery] = useState("");
-  const [communityFilter, setCommunityFilter] = useState('');
-  const [showCommunityFilter, setShowCommunityFilter] = useState(false);
   const [programs, setPrograms] = useState([]);
   const [isLiveDataLoaded, setIsLiveDataLoaded] = useState(false);
   const viewMode = Boolean(programId);
@@ -253,22 +251,8 @@ export default function ProgramPage() {
   };
 
   const filteredPrograms = useMemo(() => {
-    return filterPrograms(programs, query, activeTab).filter((program) => {
-      if (!communityFilter) return true;
-      return (program.clusters || []).some((cluster) => (
-        ['School', 'Group', 'Batch'].includes(cluster.type)
-        && String(cluster.name || '').trim().toLowerCase() === communityFilter.toLowerCase()
-      ));
-    });
-  }, [programs, query, activeTab, communityFilter]);
-
-  const communityOptions = useMemo(
-    () => [...new Set(programs.flatMap((program) => (program.clusters || [])
-      .filter((cluster) => ['School', 'Group', 'Batch'].includes(cluster.type))
-      .map((cluster) => String(cluster.name || '').trim())
-      .filter(Boolean)))].sort(),
-    [programs]
-  );
+    return filterPrograms(programs, query, activeTab);
+  }, [programs, query, activeTab]);
 
   const saveProgram = async (event) => {
     event.preventDefault();
@@ -632,19 +616,6 @@ export default function ProgramPage() {
             </button>
           </div>
           <div className="program-toolbar-controls">
-            <div className="program-type-filter">
-              <button type="button" className={`program-type-filter-button${communityFilter ? ' active' : ''}`} onClick={() => setShowCommunityFilter((current) => !current)} aria-haspopup="menu" aria-expanded={showCommunityFilter}>
-                Community{communityFilter ? `: ${communityFilter}` : ''}
-              </button>
-              {showCommunityFilter && (
-                <div className="program-type-filter-menu" role="menu">
-                  <button type="button" className={!communityFilter ? 'selected' : ''} onClick={() => { setCommunityFilter(''); setShowCommunityFilter(false); }} role="menuitem">All communities</button>
-                  {communityOptions.map((community) => (
-                    <button type="button" key={community} className={communityFilter === community ? 'selected' : ''} onClick={() => { setCommunityFilter(community); setShowCommunityFilter(false); }} role="menuitem">{community}</button>
-                  ))}
-                </div>
-              )}
-            </div>
             <div className="search-container program-search">
               <div className="search-field-container">
                 <SearchIcon />
