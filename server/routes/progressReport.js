@@ -98,6 +98,9 @@ const parseParams = (query, scope = {}) => ({
   groupId: numberOrNull(scope.groupId) ?? numberOrNull(query.groupId),
   batchId: numberOrNull(query.batchId),
   motherId: numberOrNull(query.motherId),
+  programName: String(query.programName || '').trim(),
+  benefitPeriod: query.benefitPeriod === 'month' ? 'month' : 'overall',
+  benefitMonth: /^\d{4}-\d{2}$/.test(String(query.benefitMonth || '')) ? String(query.benefitMonth) : '',
   granularity: query.granularity === 'mother' ? 'mother' : 'child',
   search: String(query.search || '').trim(),
   page: Math.max(1, Number(query.page) || 1),
@@ -222,7 +225,7 @@ router.get('/', async (req, res) => {
       GROUP BY ${groupExpression}, ${groupDetails}
       ORDER BY school.name, g.name, b.name, mother_name, child_name`;
     const [rows] = await pool.query(query, filters.values);
-    const normalizedRows = rows.map((row) => ({
+    let normalizedRows = rows.map((row) => ({
       schoolId: row.school_id,
       school: row.school_name || 'Unassigned school',
       groupId: row.group_id,
@@ -271,7 +274,51 @@ router.get('/', async (req, res) => {
       activitiesCompleted: Number(row.activities_completed || 0),
       totalActivities: Number(row.total_activities || 0),
       progress: Number(row.progress || 0),
+      receivedBenefitTotal: 0,
+      receivedBenefitFrequency: 0,
+      receivedBenefitAveragePerMonth: 0,
     }));
+    if (params.granularity !== 'mother' || normalizedRows.length) {
+      const benefitConditions = ['ml.monitored = 1'];
+      const benefitValues = [];
+      if (params.programName) {
+        benefitConditions.push('LOWER(TRIM(p.name)) = LOWER(TRIM(?))');
+        benefitValues.push(params.programName);
+      }
+      if (params.benefitPeriod === 'month' && params.benefitMonth) {
+        benefitConditions.push("DATE_FORMAT(ml.monitored_date, '%Y-%m') = ?");
+        benefitValues.push(params.benefitMonth);
+      }
+      if (params.schoolId) { benefitConditions.push('COALESCE(m.community_id, c.community_id) = ?'); benefitValues.push(params.schoolId); }
+      if (params.groupId) { benefitConditions.push('COALESCE(m.group_id, c.group_id) = ?'); benefitValues.push(params.groupId); }
+      if (params.batchId) { benefitConditions.push('COALESCE(m.batch_id, c.batch_id) = ?'); benefitValues.push(params.batchId); }
+      const [benefitRows] = await pool.query(
+        `SELECT ml.beneficiary_id, LOWER(ml.beneficiary_type) AS beneficiary_type,
+                COUNT(*) AS total_received,
+                COUNT(DISTINCT DATE_FORMAT(ml.monitored_date, '%Y-%m')) AS active_months
+         FROM monitoring_logs ml
+         INNER JOIN programs p ON p.id = ml.program_id
+         LEFT JOIN mothers m ON LOWER(ml.beneficiary_type) = 'mother' AND (CAST(ml.beneficiary_id AS CHAR) = CAST(m.id AS CHAR) OR LOWER(TRIM(CAST(ml.beneficiary_id AS CHAR))) = LOWER(TRIM(CAST(m.mother_code AS CHAR))))
+         LEFT JOIN children c ON LOWER(ml.beneficiary_type) = 'child' AND (CAST(ml.beneficiary_id AS CHAR) = CAST(c.id AS CHAR) OR LOWER(TRIM(CAST(ml.beneficiary_id AS CHAR))) = LOWER(TRIM(CAST(c.child_code AS CHAR))))
+         WHERE ${benefitConditions.join(' AND ')}
+         GROUP BY ml.beneficiary_id, LOWER(ml.beneficiary_type)`,
+        benefitValues,
+      );
+      const benefitMap = new Map(benefitRows.map((row) => [`${row.beneficiary_type}:${String(row.beneficiary_id)}`, row]));
+      normalizedRows.forEach((row) => {
+        const type = params.granularity === 'mother' ? 'mother' : 'child';
+        const ids = [row[type === 'mother' ? 'motherId' : 'childId'], row[type === 'mother' ? 'mother' : 'child']].filter(Boolean);
+        const benefit = ids.map((id) => benefitMap.get(`${type}:${String(id)}`)).find(Boolean);
+        const totalReceived = Number(benefit?.total_received || 0);
+        const activeMonths = Number(benefit?.active_months || 0);
+        row.receivedBenefitTotal = totalReceived;
+        row.receivedBenefitFrequency = totalReceived;
+        row.receivedBenefitAveragePerMonth = activeMonths ? Number((totalReceived / activeMonths).toFixed(1)) : 0;
+      });
+      if (params.programName) {
+        normalizedRows = normalizedRows.filter((row) => row.receivedBenefitTotal > 0);
+      }
+    }
     const childIds = normalizedRows.map((row) => row.childId).filter(Boolean);
     if (childIds.length) {
       const [checkupRows] = await pool.query(

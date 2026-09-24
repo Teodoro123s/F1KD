@@ -69,7 +69,10 @@ export default function ReceiptHistoryPage() {
   filteredRows.filter((row) => row.monitored).forEach((row) => {
     const key = toDateKey(row.date);
     const existing = receivedByDate.get(key) || [];
-    existing.push(row);
+    const beneficiaryKey = row.beneficiary_key || `${row.beneficiary_type || ''}:${row.beneficiary_id || row.beneficiary_name || ''}`;
+    if (!existing.some((receipt) => (receipt.beneficiary_key || `${receipt.beneficiary_type || ''}:${receipt.beneficiary_id || receipt.beneficiary_name || ''}`) === beneficiaryKey)) {
+      existing.push(row);
+    }
     receivedByDate.set(key, existing);
   });
   const selectedReceipts = selectedDate ? receivedByDate.get(selectedDate) || [] : [];
@@ -134,10 +137,10 @@ export default function ReceiptHistoryPage() {
         {!loading && <div className="program-receipt-controls">
           <div className="program-receipt-controls-actions"><button type="button" className="view-btn view-btn--primary" onClick={() => openReceiptModal()}>Record receipt</button><div className="program-view-toggle" role="tablist" aria-label="Receipt history view"><button type="button" className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>List View</button><button type="button" className={view === 'calendar' ? 'active' : ''} onClick={() => setView('calendar')}>Calendar View</button></div></div>
         </div>}
-        {loading ? <p>Loading receipt history...</p> : view === 'list' ? <table className="data-table">
+        {loading ? <p>Loading receipt history...</p> : view === 'list' ? <div className="program-receipt-table-scroll"><table className={`data-table ${isClusterHistory ? 'program-receipt-cluster-table' : 'program-receipt-beneficiary-table'}`}>
           <thead><tr><th>Date</th>{isClusterHistory ? <><th>Beneficiary</th>{showGroupColumn && <th>Group</th>}<th>Batch</th></> : null}<th>Recorded by</th><th>Action</th></tr></thead>
           <tbody>{filteredRows.length ? filteredRows.map((row) => <tr key={`${row.date}-${row.program_name}-${row.beneficiary_name || row.beneficiary_id || 'entry'}`}><td>{toDateKey(row.date)}</td>{isClusterHistory ? <><td>{row.beneficiary_name || row.beneficiary_id || 'Unknown beneficiary'}</td>{showGroupColumn && <td>{row.group_name || 'Unknown group'}</td>}<td>{row.batch_name || 'Unknown batch'}</td></> : null}<td>{row.monitored_by_name || 'Unknown'}</td><td><button type="button" className="view-btn view-btn--secondary" onClick={() => openReceiptModal(toDateKey(row.date))}>Edit</button></td></tr>) : <tr><td colSpan={isClusterHistory ? (showGroupColumn ? 6 : 5) : 3} className="no-data">No receipt history found.</td></tr>}</tbody>
-        </table> : <div className="program-calendar-wrap">
+        </table></div> : <div className="program-calendar-wrap">
           <div className="program-calendar-header"><button type="button" className="view-btn view-btn--secondary" onClick={() => setCalendarMonth((date) => new Date(date.getFullYear(), date.getMonth() - 1, 1))}>Previous</button><h3>{monthLabel(calendarMonth)}</h3><button type="button" className="view-btn view-btn--secondary" onClick={() => setCalendarMonth((date) => new Date(date.getFullYear(), date.getMonth() + 1, 1))}>Next</button></div>
           <div className="program-calendar-weekdays">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => <span key={day}>{day}</span>)}</div>
           <div className="program-calendar-grid">{days.map((day) => { const key = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`; const receipt = receivedByDate.get(key) || []; return <button type="button" key={key} className={`program-calendar-day${day.getMonth() !== calendarMonth.getMonth() ? ' muted' : ''}${receipt.length ? ' received' : ''}${selectedDate === key ? ' selected' : ''}`} onClick={() => openReceiptModal(key, true)}><span>{day.getDate()}</span>{receipt.length > 0 && <strong>{receipt.length > 1 ? `${receipt.length} Yes` : 'Yes'}</strong>}</button>; })}</div>

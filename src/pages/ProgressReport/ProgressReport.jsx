@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { apiGetProgressReport, apiGetProgressReportOptions } from '../../api/progressReport';
+import { apiGetPrograms } from '../../api/programs';
 import PageHeader from '../../components/ui/PageHeader';
 
 const EMPTY_SELECTIONS = { schoolId: '', groupId: '', batchId: '' };
@@ -45,6 +45,9 @@ const REPORT_FIELDS = [
   ['activitiesCompleted', 'Activities Completed', 'Monitoring'],
   ['totalActivities', 'Total Activities', 'Monitoring'],
   ['progress', 'Progress %', 'Monitoring'],
+  ['receivedBenefitTotal', 'Total Received Benefits', 'Program Report'],
+  ['receivedBenefitFrequency', 'Benefit Receipt Frequency', 'Program Report'],
+  ['receivedBenefitAveragePerMonth', 'Average Received per Month', 'Program Report'],
   ['lastActivityDate', 'Last Activity', 'Monitoring'],
   ['nextCheckupDate', 'Next Check-up', 'Monitoring'],
   ['measurementDate', 'Measurement Date', 'Monitoring'],
@@ -52,8 +55,8 @@ const REPORT_FIELDS = [
 const DEFAULT_VISIBLE_FIELDS = ['school', 'group', 'batch', 'mother', 'child', 'pediatricAgeWeeks', 'weightForLengthInterpretation', 'weightForAgeInterpretation', 'lengthForAgeInterpretation', 'activitiesCompleted', 'totalActivities', 'progress'];
 const GROWTH_METRICS = [
   ['weightForLengthInterpretation', 'Weight-for-Length', 'Primary proportionality interpretation for children under 24 months.'],
-  ['weightForAgeInterpretation', 'Weight-for-Age', 'Sex-specific age-based weight interpretation.'],
-  ['lengthForAgeInterpretation', 'Length-for-Age', 'Sex-specific age-based length interpretation.'],
+  ['weightForAgeInterpretation', 'Weight-for-Age', 'Supporting sex-specific weight interpretation by age.'],
+  ['lengthForAgeInterpretation', 'Length-for-Age', 'Supporting sex-specific linear-growth interpretation by age.'],
 ];
 const INTERPRETATION_METRICS = new Set(GROWTH_METRICS.map(([id]) => id));
 const MOTHER_GROWTH_METRICS = [['bmiForAge', 'BMI', 'Latest BMI recorded by Mother Monitoring.']];
@@ -122,11 +125,9 @@ const PROFILE_GRAPH_FIELDS = [
 const PROFILE_GRAPH_FIELD_MAP = new Map(PROFILE_GRAPH_FIELDS.map(([id, label, type]) => [id, { label, type }]));
 const PRESENCE_PROFILE_FIELDS = new Set(['contactNumber', 'addressDetails', 'liveBirthDocument', 'motherBirthCertificate', 'programConsentDocument', 'philhealthMember']);
 const PROGRAM_METRICS = [
-  ['program', 'Program', 'Program assigned to the beneficiary.'],
-  ['activitiesCompleted', 'Activities Completed', 'Completed program or monitoring activities.'],
-  ['totalActivities', 'Total Activities', 'Total activities expected for the selected report scope.'],
-  ['progress', 'Program Progress (%)', 'Completion percentage for the selected program activities.'],
-  ['lastActivityDate', 'Last Activity', 'Most recent recorded program activity date.'],
+  ['receivedBenefitTotal', 'Total Received Benefits', 'Total true benefit-receipt events in the selected period.'],
+  ['receivedBenefitFrequency', 'Receipt Frequency', 'Number of true receipt events in the selected period.'],
+  ['receivedBenefitAveragePerMonth', 'Average Received per Month', 'Average true receipt events per active month.'],
 ];
 const REPORT_TABS = ['Community', 'Report Focus', 'Growth Metrics', 'Results'];
 const REPORT_FOCUS_OPTIONS = [
@@ -276,6 +277,43 @@ const aggregateGrowthRows = (rows, focus) => {
   });
 };
 
+const aggregateReportRows = (rows, focus) => {
+  const groupField = focus === 'batch-group' || focus === 'batch-school'
+    ? 'batch'
+    : focus === 'group-school' ? 'group' : null;
+  if (!groupField) return rows;
+
+  const groupedRows = new Map();
+  rows.forEach((row) => {
+    const key = row[groupField] || `Unassigned ${groupField}`;
+    const groupRows = groupedRows.get(key) || [];
+    groupRows.push(row);
+    groupedRows.set(key, groupRows);
+  });
+
+  return [...groupedRows.entries()].map(([groupName, groupRows]) => {
+    const firstRow = groupRows[0] || {};
+    const totalActivities = groupRows.reduce((sum, row) => sum + Number(row.totalActivities || 0), 0);
+    const progress = totalActivities
+      ? Math.round(groupRows.reduce((sum, row) => sum + Number(row.progress || 0) * Number(row.totalActivities || 0), 0) / totalActivities)
+      : Math.round(groupRows.reduce((sum, row) => sum + Number(row.progress || 0), 0) / Math.max(groupRows.length, 1));
+
+    return {
+      ...firstRow,
+      mother: groupField === 'group' ? groupName : '',
+      child: groupField === 'group' ? groupName : '',
+      group: groupField === 'group' ? groupName : firstRow.group,
+      batch: groupField === 'batch' ? groupName : firstRow.batch,
+      activitiesCompleted: groupRows.reduce((sum, row) => sum + Number(row.activitiesCompleted || 0), 0),
+      totalActivities,
+      progress,
+      receivedBenefitTotal: groupRows.reduce((sum, row) => sum + Number(row.receivedBenefitTotal || 0), 0),
+      receivedBenefitFrequency: groupRows.reduce((sum, row) => sum + Number(row.receivedBenefitFrequency || 0), 0),
+      receivedBenefitAveragePerMonth: Number(groupRows.reduce((sum, row) => sum + Number(row.receivedBenefitAveragePerMonth || 0), 0).toFixed(1)),
+    };
+  });
+};
+
 const downloadChartImage = (svgElement, metricLabel) => {
   if (!svgElement) return;
   const serializedSvg = new XMLSerializer().serializeToString(svgElement.cloneNode(true));
@@ -332,15 +370,93 @@ function GrowthInterpretationChart({ rows, metric, displayWeeks = 'all', benefic
   const categories = [...new Set(visibleEntries.map((entry) => entry.interpretation))];
   const width = 720;
   const height = 220;
-  const paddingX = 54;
+  const paddingX = 160;
   const xForTimeline = (timeline) => visibleTimelines.length <= 1 ? width / 2 : paddingX + (visibleTimelines.indexOf(timeline) / (visibleTimelines.length - 1)) * (width - paddingX * 2);
-  const yForCategory = (category) => 24 + (categories.indexOf(category) / Math.max(1, categories.length - 1)) * (height - 48);
+  const yForCategory = (category) => categories.length === 1 ? height / 2 : 24 + (categories.indexOf(category) / (categories.length - 1)) * (height - 48);
   const colors = ['#15803d', '#b7791f', '#dc2626', '#2563eb', '#7d1e2e'];
-  return <div className="growth-report-line-chart interpretation-growth-chart"><svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Growth interpretation over time"><text className="growth-report-y-axis-label" x="14" y={height / 2} textAnchor="middle" transform={`rotate(-90 14 ${height / 2})`}>Interpretation</text>{visibleTimelines.map((timeline) => <line key={`interpretation-line-${timeline}`} className="growth-report-weekline" x1={xForTimeline(timeline)} x2={xForTimeline(timeline)} y1="12" y2={height - 12} />)}{categories.map((category) => <text key={category} className="growth-report-y-axis-tick" x={paddingX - 8} y={yForCategory(category) + 4} textAnchor="end">{category}</text>)}{visibleEntries.map(({ row, point, interpretation, timeline }, index) => <circle key={`${row.child || row.mother}-${timeline}-${index}`} cx={xForTimeline(timeline)} cy={yForCategory(interpretation)} r="6" fill={colors[categories.indexOf(interpretation) % colors.length]} stroke="#fff" strokeWidth="2"><title>{row.child || row.mother}: {interpretation} · {timelineLabel(timeline)}</title></circle>)} </svg><div className="growth-report-line-labels">{visibleTimelines.map((timeline) => <span key={timeline}>{timelineLabel(timeline)}</span>)}</div><div className="growth-report-legend">{categories.map((category, index) => <span key={category}><i style={{ background: colors[index % colors.length] }} />{category}</span>)}</div></div>;
+  const entriesByRow = new Map();
+  visibleEntries.forEach((entry) => {
+    const key = entry.row.child || entry.row.mother || 'Beneficiary';
+    const points = entriesByRow.get(key) || [];
+    points.push(entry);
+    entriesByRow.set(key, points);
+  });
+  const interpretationLines = [...entriesByRow.entries()].map(([key, points], index) => {
+    const sortedPoints = [...points].sort((left, right) => visibleTimelines.indexOf(left.timeline) - visibleTimelines.indexOf(right.timeline));
+    return <polyline key={`interpretation-series-${key}`} points={sortedPoints.map(({ interpretation, timeline }) => `${xForTimeline(timeline)},${yForCategory(interpretation)}`).join(' ')} fill="none" stroke="#15803d" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />;
+  });
+  return <div className="growth-report-line-chart interpretation-growth-chart"><svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Growth interpretation over time"><text className="growth-report-y-axis-label" x="24" y={height / 2} textAnchor="middle" transform={`rotate(-90 24 ${height / 2})`}>Interpretation</text>{categories.map((category) => <line key={`category-line-${category}`} className="growth-report-gridline" x1={paddingX} x2={width - 24} y1={yForCategory(category)} y2={yForCategory(category)} />)}{visibleTimelines.map((timeline) => <line key={`interpretation-line-${timeline}`} className="growth-report-weekline" x1={xForTimeline(timeline)} x2={xForTimeline(timeline)} y1="24" y2={height - 24} />)}{categories.map((category) => <text key={category} className="growth-report-y-axis-tick" x={paddingX - 8} y={yForCategory(category) + 4} textAnchor="end">{category}</text>)}{interpretationLines}{visibleEntries.map(({ row, point, interpretation, timeline }, index) => <circle key={`${row.child || row.mother}-${timeline}-${index}`} cx={xForTimeline(timeline)} cy={yForCategory(interpretation)} r="6" fill={colors[categories.indexOf(interpretation) % colors.length]} stroke="#fff" strokeWidth="2"><title>{row.child || row.mother}: {interpretation} · {timelineLabel(timeline)}</title></circle>)} </svg><div className="growth-report-line-labels">{visibleTimelines.map((timeline) => <span key={timeline}>{timelineLabel(timeline)}</span>)}</div><div className="growth-report-legend">{categories.map((category, index) => <span key={category}><i style={{ background: colors[index % colors.length] }} />{category}</span>)}</div></div>;
+}
+
+function ProgramAverageChart({ rows, metric = 'receivedBenefitAveragePerMonth' }) {
+  const metricLabel = PROGRAM_METRICS.find(([id]) => id === metric)?.[1] || 'Program Benefits';
+  const points = rows
+    .map((row) => ({ label: row.group || row.child || row.mother || 'Unassigned group', value: Number(row[metric]) }))
+    .filter(({ value }) => Number.isFinite(value));
+
+  if (!points.length) return <p className="growth-report-empty">No program receipt data available for the selected groups.</p>;
+
+  const maximum = Math.max(...points.map(({ value }) => value), 1);
+  const downloadChart = (format) => {
+    const width = Math.max(720, points.length * 150);
+    const height = 420;
+    const chartHeight = 280;
+    const barWidth = 72;
+    const gap = (width - points.length * barWidth) / (points.length + 1);
+    const bars = points.map(({ label, value }, index) => {
+      const x = gap + index * (barWidth + gap);
+      const barHeight = Math.max(value > 0 ? 8 : 2, (value / maximum) * chartHeight);
+      const y = 330 - barHeight;
+      return `<rect x="${x}" y="${y}" width="${barWidth}" height="${barHeight}" rx="6" fill="#15803d"/><text x="${x + barWidth / 2}" y="${y - 10}" text-anchor="middle" fill="#166534" font-size="16" font-weight="700">${value.toFixed(1)}</text><text x="${x + barWidth / 2}" y="360" text-anchor="middle" fill="#475569" font-size="14">${String(label).slice(0, 20)}</text>`;
+    }).join('');
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="100%" height="100%" fill="#ffffff"/><text x="24" y="32" fill="#173b2a" font-size="20" font-weight="700">${metricLabel} by Group</text><line x1="24" y1="330" x2="${width - 24}" y2="330" stroke="#cbd5e1"/>${bars}</svg>`;
+    const svgUrl = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+    if (format === 'svg') {
+      const link = document.createElement('a');
+      link.href = svgUrl;
+      link.download = `program-${metric}.svg`;
+      link.click();
+      URL.revokeObjectURL(svgUrl);
+      return;
+    }
+    const image = new Image();
+    image.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      canvas.getContext('2d').drawImage(image, 0, 0);
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `program-${metric}.png`;
+        link.click();
+        URL.revokeObjectURL(link.href);
+        URL.revokeObjectURL(svgUrl);
+      }, 'image/png');
+    };
+    image.src = svgUrl;
+  };
+  return <div className="program-average-chart" role="img" aria-label={`${metricLabel} by group`}>
+    <div className="program-average-chart-actions"><button type="button" className="secondary-btn" onClick={() => downloadChart('image')}>Download image</button></div>
+    <div className="program-average-chart-y-axis"><span>{maximum.toFixed(1)}</span><span>{(maximum / 2).toFixed(1)}</span><span>0</span></div>
+    <div className="program-average-chart-plot">
+      <div className="program-average-chart-grid"><span /><span /><span /></div>
+      <div className="program-average-chart-bars">
+        {points.map(({ label, value }) => <div className="program-average-chart-bar" key={label}>
+          <strong>{value.toFixed(1)}</strong>
+          <span style={{ '--bar-height': `${Math.max(value > 0 ? 8 : 2, (value / maximum) * 100)}%` }} title={`${label}: ${value.toFixed(1)} ${metricLabel}`} />
+          <small title={label}>{label}</small>
+        </div>)}
+      </div>
+      <p className="program-average-chart-axis-label">Group</p>
+    </div>
+  </div>;
 }
 
 function GrowthChart({ rows, metric, chartType, displayWeeks = 'all', beneficiaryType = 'child' }) {
   if (INTERPRETATION_METRICS.has(metric)) return <GrowthInterpretationChart rows={rows} metric={metric} displayWeeks={displayWeeks} beneficiaryType={beneficiaryType} />;
+  if (PROGRAM_METRICS.some(([id]) => id === metric)) return <ProgramAverageChart rows={rows} />;
   const chartRef = useRef(null);
   const values = rows
     .map((row) => ({ row, value: Number(row[metric]) }))
@@ -431,15 +547,15 @@ function GrowthChart({ rows, metric, chartType, displayWeeks = 'all', beneficiar
       }).join(' ');
       return <g key={`${row.child || row.mother}-line`}><polyline points={linePoints} fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />{series.map((point, pointIndex) => { const timelineValue = timelineKey(point); const value = getPointValue(point, metric); return <circle key={`${row.child || row.mother}-point-${pointIndex}`} cx={xForTimeline(timelineValue)} cy={yForValue(value)} r="4" fill="#fff" stroke={color} strokeWidth="2"><title>{row.child || row.mother}: {value} · {accessibleTimelineLabel(timelineValue)}</title></circle>; })}</g>;
     });
-    return <div className="growth-report-line-chart"><div className="growth-report-chart-actions"><button type="button" className="secondary-btn" onClick={() => downloadChartImage(chartRef.current, metricLabel)}>Download image</button></div><svg ref={chartRef} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${subjectLabel} growth measurements over ${periodLabel}`} preserveAspectRatio="none"><text className="growth-report-y-axis-label" x="14" y={height / 2} textAnchor="middle" transform={`rotate(-90 14 ${height / 2})`}>{metricLabel}</text>{timelineGridLines}{yAxisTicks.map(({ value, y }) => <g key={value}><line className="growth-report-gridline" x1={chartPaddingX} x2={width} y1={y} y2={y} /><text className="growth-report-y-axis-tick" x={chartPaddingX - 6} y={y + 4} textAnchor="end">{value.toFixed(1)}</text></g>)}{chartSeries}</svg><div className="growth-report-line-labels">{visibleTimelineDates.map((timelineValue) => <span key={timelineValue}>{timelineLabel(timelineValue)}</span>)}</div><div className="growth-report-legend">{visibleSeriesRows.map((row, index) => <span key={`${row.child || row.mother}-line-legend`}><i style={{ background: `hsl(${index * 67 % 360} 62% 42%)` }} />{row.child || row.mother}</span>)}</div></div>;
+    return <div className="growth-report-line-chart"><div className="growth-report-chart-actions"><button type="button" className="secondary-btn" onClick={() => downloadChartImage(chartRef.current, metricLabel)}>Download image</button></div><svg ref={chartRef} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${subjectLabel} growth measurements over ${periodLabel}`} preserveAspectRatio="none"><text className="growth-report-y-axis-label" x="14" y={height / 2} textAnchor="middle" transform={`rotate(-90 14 ${height / 2})`}>{metricLabel}</text>{timelineGridLines}{yAxisTicks.map(({ value, y }) => <g key={value}><line className={`growth-report-gridline${value === 0 ? ' zero-line' : ''}`} x1={chartPaddingX} x2={width} y1={y} y2={y} /><text className="growth-report-y-axis-tick" x={chartPaddingX - 6} y={y + 4} textAnchor="end">{value.toFixed(1)}</text></g>)}{chartSeries}</svg><div className="growth-report-line-labels">{visibleTimelineDates.map((timelineValue) => <span key={timelineValue}>{timelineLabel(timelineValue)}</span>)}</div><div className="growth-report-legend">{visibleSeriesRows.map((row, index) => <span key={`${row.child || row.mother}-line-legend`}><i style={{ background: `hsl(${index * 67 % 360} 62% 42%)` }} />{row.child || row.mother}</span>)}</div></div>;
   }
 
-  return <div className="growth-report-bars growth-report-bars-chart">{points.map(({ row, value }, index) => <div className="growth-report-bar-item" key={`${row.child || row.mother}-${index}`}><strong>{value}</strong><span style={{ '--bar-height': `${Math.max(6, (value / maxValue) * 100)}%` }} title={`${row.child || row.mother}: ${value} · ${chartDate(row.measurementDate)}`} /><small>{row.child || row.mother}</small><small>{chartDate(row.measurementDate)}</small></div>)}</div>;
+  return <div className="growth-report-bars growth-report-bars-chart">{points.map(({ row, value }, index) => { const label = row.child || row.mother || row.batch || row.group || 'Report total'; return <div className="growth-report-bar-item" key={`${label}-${index}`}><strong>{value}</strong><span style={{ '--bar-height': `${Math.max(6, (value / maxValue) * 100)}%` }} title={`${label}: ${value} · ${chartDate(row.measurementDate)}`} /><small>{label}</small><small>{chartDate(row.measurementDate)}</small></div>; })}</div>;
 }
 
 export default function ProgressReport() {
-  const navigate = useNavigate();
   const [options, setOptions] = useState({ schools: [], groups: [], batches: [], mothers: [] });
+  const [programs, setPrograms] = useState([]);
   const [selection, setSelection] = useState(EMPTY_SELECTIONS);
   const [granularity, setGranularity] = useState('child');
   const [visibleFields, setVisibleFields] = useState(DEFAULT_VISIBLE_FIELDS);
@@ -456,25 +572,35 @@ export default function ProgressReport() {
   const [beneficiaryType, setBeneficiaryType] = useState('child');
   const [growthMetrics, setGrowthMetrics] = useState(['weightForAge']);
   const [profileMetrics, setProfileMetrics] = useState(CHILD_PROFILE_METRICS.map(([id]) => id));
-  const [programMetrics, setProgramMetrics] = useState(['program', 'activitiesCompleted', 'totalActivities', 'progress', 'lastActivityDate']);
+  const [programMetrics, setProgramMetrics] = useState(['receivedBenefitTotal', 'receivedBenefitFrequency', 'receivedBenefitAveragePerMonth']);
   const [resultsView, setResultsView] = useState('graph');
   const [displayWeeks, setDisplayWeeks] = useState('all');
   const [profileGraphColumn, setProfileGraphColumn] = useState('gender');
+  const [programName, setProgramName] = useState('');
+  const [benefitPeriod, setBenefitPeriod] = useState('overall');
+  const [benefitMonth, setBenefitMonth] = useState(() => new Date().toISOString().slice(0, 7));
 
   useEffect(() => {
     apiGetProgressReportOptions()
       .then(setOptions)
       .catch((loadError) => notifyAction(loadError.message || 'Unable to load report options.', 'error'))
       .finally(() => setLoadingOptions(false));
+    apiGetPrograms().then((result) => setPrograms(result?.programs || [])).catch(() => setPrograms([]));
   }, []);
 
   const displaySelection = finalizedSnapshot?.selection ?? selection;
-  const displayVisibleFields = finalizedSnapshot?.visibleFields ?? visibleFields;
   const displayGranularity = finalizedSnapshot?.granularity ?? granularity;
   const displaySort = finalizedSnapshot?.sort ?? sort;
   const displayPage = finalizedSnapshot?.page ?? page;
   const activeReport = finalizedSnapshot?.report ?? report;
   const displayReportFocus = finalizedSnapshot?.reportFocus ?? reportFocus;
+  const displayVisibleFields = (finalizedSnapshot?.visibleFields ?? visibleFields).filter((field) => (
+    displayReportFocus === 'group-school'
+      ? !['mother', 'child', 'group'].includes(field)
+      : displayReportFocus === 'batch-group' || displayReportFocus === 'batch-school'
+        ? !['mother', 'child'].includes(field)
+        : true
+  ));
   const displayReportCategory = finalizedSnapshot?.reportCategory ?? reportCategory;
   const displayBeneficiaryType = finalizedSnapshot?.beneficiaryType ?? beneficiaryType;
   const displayProfileGraphColumn = profileGraphColumn;
@@ -520,7 +646,15 @@ export default function ProgressReport() {
     }
     setLoadingReport(true);
     try {
-      const result = await apiGetProgressReport({ ...selection, granularity: beneficiaryType, page: nextPage, perPage: 50 });
+      const selectedProgram = programs.find((program) => program.name === programName);
+      if (reportCategory === 'program') {
+        setGrowthMetrics(['receivedBenefitAveragePerMonth']);
+        setDisplayWeeks('receivedBenefitAveragePerMonth');
+      }
+      const reportGranularity = reportCategory === 'program'
+        ? String(selectedProgram?.beneficiaryType || selectedProgram?.beneficiary_type || '').trim().toLowerCase() === 'mother' ? 'mother' : 'child'
+        : beneficiaryType;
+      const result = await apiGetProgressReport({ ...selection, granularity: reportGranularity, programName, benefitPeriod, benefitMonth, page: nextPage, perPage: 50 });
       setReport(result);
       setFinalizedSnapshot({
         report: result,
@@ -530,15 +664,16 @@ export default function ProgressReport() {
           : reportCategory === 'program'
             ? [...new Set([...DEFAULT_VISIBLE_FIELDS.filter((field) => ['school', 'group', 'batch', 'mother', 'child'].includes(field)), ...programMetrics])]
           : [...new Set([...visibleFields.filter((field) => !GROWTH_METRICS.some(([id]) => id === field)), ...growthMetrics])],
-        granularity: beneficiaryType,
+        granularity: reportGranularity,
         sort: { ...sort },
         page: nextPage,
         reportFocus,
         reportCategory,
-        beneficiaryType,
+        beneficiaryType: reportGranularity,
         growthMetrics: [...growthMetrics],
         profileMetrics: [...profileMetrics],
         profileGraphColumn,
+        programName,
       });
       setPage(nextPage);
       setActiveTab(4);
@@ -551,14 +686,14 @@ export default function ProgressReport() {
   };
 
   const sortedRows = useMemo(() => {
-    const rows = [...(activeReport?.rows || [])];
+    const rows = aggregateReportRows(activeReport?.rows || [], displayReportFocus);
     return rows.sort((left, right) => {
       const a = left[displaySort.key] ?? '';
       const b = right[displaySort.key] ?? '';
       const result = typeof a === 'number' && typeof b === 'number' ? a - b : String(a).localeCompare(String(b));
       return displaySort.direction === 'asc' ? result : -result;
     });
-  }, [activeReport, displaySort]);
+  }, [activeReport, displayReportFocus, displaySort]);
 
   const breadcrumb = [
     'Home',
@@ -572,12 +707,16 @@ export default function ProgressReport() {
 
   const exportReport = async () => {
     if (!selection.schoolId) return;
-    const result = activeReport || (await apiGetProgressReport({ ...selection, granularity: beneficiaryType, export: 1, perPage: 100 }));
+    const selectedProgram = programs.find((program) => program.name === programName);
+    const reportGranularity = reportCategory === 'program'
+      ? String(selectedProgram?.beneficiaryType || selectedProgram?.beneficiary_type || '').trim().toLowerCase() === 'mother' ? 'mother' : 'child'
+      : beneficiaryType;
+    const result = activeReport || (await apiGetProgressReport({ ...selection, granularity: reportGranularity, programName, benefitPeriod, benefitMonth, export: 1, perPage: 100 }));
     const lines = [
       `# ${breadcrumb.join(' > ')}`,
       `# Generated ${new Date().toISOString()}`,
       REPORT_FIELDS.filter(([id]) => displayVisibleFields.includes(id)).map(([, label]) => label).map(csvValue).join(','),
-      ...result.rows.map((row) => REPORT_FIELDS.filter(([id]) => displayVisibleFields.includes(id)).map(([id]) => formatCellValue(id, row[id])).map(csvValue).join(',')),
+      ...aggregateReportRows(result.rows, displayReportFocus).map((row) => REPORT_FIELDS.filter(([id]) => displayVisibleFields.includes(id)).map(([id]) => formatCellValue(id, row[id])).map(csvValue).join(',')),
     ];
     const url = URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' }));
     const link = document.createElement('a');
@@ -589,8 +728,9 @@ export default function ProgressReport() {
 
   const selectedSchool = options.schools.find((item) => String(item.id) === String(displaySelection.schoolId));
   const resultsRows = sortedRows;
+  const graphSourceRows = displayReportCategory === 'program' ? aggregateReportRows(resultsRows, 'group-school') : resultsRows;
   const graphRows = aggregateGrowthRows(
-    resultsRows.filter((row) => growthMetrics.some((metric) => INTERPRETATION_METRICS.has(metric)
+    graphSourceRows.filter((row) => growthMetrics.some((metric) => INTERPRETATION_METRICS.has(metric)
       ? row.growthSeries?.some((point) => getPointInterpretation(point, metric))
       : Number.isFinite(Number(row[metric])) && Number(row[metric]) > 0)),
     displayReportFocus,
@@ -614,13 +754,16 @@ export default function ProgressReport() {
     setVisibleFields(DEFAULT_VISIBLE_FIELDS);
     setGrowthMetrics(['weightForLengthInterpretation']);
     setProfileMetrics(CHILD_PROFILE_METRICS.map(([id]) => id));
-    setProgramMetrics(['program', 'activitiesCompleted', 'totalActivities', 'progress', 'lastActivityDate']);
+    setProgramMetrics(['receivedBenefitTotal', 'receivedBenefitFrequency', 'receivedBenefitAveragePerMonth']);
     setReportFocus('beneficiary-batch');
     setReportCategory('monitor');
     setBeneficiaryType('child');
     setResultsView('graph');
     setDisplayWeeks('all');
     setProfileGraphColumn('gender');
+    setProgramName('');
+    setBenefitPeriod('overall');
+    setBenefitMonth(new Date().toISOString().slice(0, 7));
     setActiveTab(1);
     setPage(1);
     setError('');
@@ -638,36 +781,80 @@ export default function ProgressReport() {
   };
   const selectReportCategory = (category) => {
     setReportCategory(category);
-    if (category === 'program' || category === 'profile') setResultsView('table');
+    if (category === 'program') {
+      setProgramMetrics(['receivedBenefitAveragePerMonth']);
+      setGrowthMetrics(['receivedBenefitAveragePerMonth']);
+      setDisplayWeeks('receivedBenefitAveragePerMonth');
+      setResultsView('table');
+    }
+    if (category === 'profile') setResultsView('table');
   };
+
+  useEffect(() => {
+    if (reportCategory === 'program' && PROGRAM_METRICS.some(([id]) => id === displayWeeks) && growthMetrics[0] !== displayWeeks) {
+      setGrowthMetrics([displayWeeks]);
+    }
+  }, [displayWeeks, growthMetrics, reportCategory]);
 
   useEffect(() => {
     if (activeTab !== 4) return undefined;
     const selector = document.querySelector('.graph-controls select');
+    const selectorWrap = selector?.closest('.report-chart-select');
     const heading = document.querySelector('.growth-report-single-card h3');
     const subtitle = document.querySelector('.growth-report-single-card > p');
-    if (selector && displayReportCategory !== 'profile') {
+    const exportButton = document.querySelector('.progress-report-results-header > .secondary-btn')
+      || [...document.querySelectorAll('.results-tab-panel button.secondary-btn')].find((button) => button.textContent.trim() === 'Export CSV');
+    const resultsHeader = document.querySelector('.progress-report-results-header');
+    const chartActions = document.querySelector('.program-average-chart-actions');
+    if (exportButton && displayReportCategory === 'program' && chartActions) chartActions.appendChild(exportButton);
+    if (exportButton && displayReportCategory !== 'program' && resultsHeader) resultsHeader.appendChild(exportButton);
+    if (selectorWrap) selectorWrap.style.display = '';
+    if (selector && displayReportCategory === 'program') {
+      PROGRAM_METRICS.forEach(([id, label], index) => {
+        const option = selector.options[index];
+        if (!option) return;
+        option.value = id;
+        option.textContent = label;
+        option.style.display = '';
+      });
+      Array.from(selector.options).slice(PROGRAM_METRICS.length).forEach((option) => { option.style.display = 'none'; });
+      selector.value = displayWeeks;
+    } else if (selector && displayReportCategory !== 'profile') {
       const labels = beneficiaryType === 'mother'
         ? ['3 months', '6 months', '9 months', '12 months', 'All months']
         : ['4 weeks', '12 weeks', '24 weeks', '48 weeks', 'All weeks'];
-      Array.from(selector.options).forEach((option, index) => { option.textContent = labels[index]; });
+      const values = beneficiaryType === 'mother' ? ['3', '6', '9', '12', 'all'] : ['4', '12', '24', '48', 'all'];
+      Array.from(selector.options).forEach((option, index) => { option.value = values[index]; option.textContent = labels[index]; option.style.display = ''; });
     }
     if (heading && beneficiaryType === 'mother') heading.textContent = '📈 BMI';
     if (subtitle && beneficiaryType === 'mother') subtitle.textContent = 'Latest mother BMI measurements · values are plotted by month';
+    if (subtitle && displayReportCategory === 'monitor' && beneficiaryType === 'child') subtitle.textContent = 'Growth interpretations plotted by monitoring week';
+    if (displayReportCategory === 'program') {
+      const selectedMetric = PROGRAM_METRICS.find(([id]) => id === displayWeeks);
+      const selectedMetricLabel = selectedMetric?.[1] || 'Program Benefits';
+      if (heading) heading.textContent = selectedMetricLabel;
+      if (subtitle) subtitle.textContent = `${selectedMetricLabel} by group`;
+      const value = document.querySelector('.growth-report-single-card .growth-report-value');
+      if (value) value.textContent = averageMetric(displayWeeks, graphRows);
+      if (value) value.style.display = 'none';
+    } else {
+      const value = document.querySelector('.growth-report-single-card .growth-report-value');
+      if (value) value.style.display = '';
+    }
     return undefined;
-  }, [activeTab, beneficiaryType, displayReportCategory]);
+  }, [activeTab, beneficiaryType, displayReportCategory, displayWeeks, graphRows]);
 
   return (
     <div className="community-page progress-report-shell">
       <div className="progress-report-panel hierarchical-progress-report">
-        <PageHeader title="Progress Report" breadcrumbs={[{ label: 'Reports' }, { label: 'Progress Report' }]} actions={<><button type="button" className="secondary-btn" onClick={resetSetup}>Reset Setup</button><button type="button" className="secondary-btn" onClick={() => navigate('/dashboard')}>Back to Dashboard</button></>} />
+        <PageHeader title="Progress Report" breadcrumbs={[{ label: 'Reports' }, { label: 'Progress Report' }]} actions={<button type="button" className="secondary-btn" onClick={resetSetup}>Reset Setup</button>} />
         <div className="progress-report-tab-bar" role="tablist" aria-label="Progress report steps">
           {REPORT_TABS.map((tab, index) => { const number = index + 1; return <button key={tab} type="button" role="tab" aria-selected={activeTab === number} disabled={!canOpenTab(number)} className={activeTab === number ? 'active' : ''} onClick={() => goToTab(number)}><span>{number}</span>{tab}</button>; })}
         </div>
 
         <section className="progress-report-config" aria-label="Report parameters">
           {activeTab === 1 && <div className="progress-report-tab-panel"><h1>I. Community Selection</h1><div className="progress-report-config-grid"><label>School<select value={selection.schoolId} onChange={(event) => updateSelection('schoolId', event.target.value)}><option value="">Select school</option>{options.schools.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label>Group<select value={selection.groupId} onChange={(event) => updateSelection('groupId', event.target.value)} disabled={!selection.schoolId}><option value="">All groups</option>{groups.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label>Batch<select value={selection.batchId} onChange={(event) => updateSelection('batchId', event.target.value)} disabled={!selection.groupId}><option value="">All batches</option>{batches.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label></div><p className="progress-report-note">Select a School to begin. Group and Batch are optional filters.</p><div className="progress-report-tab-actions"><button type="button" className="primary-btn" disabled={!selection.schoolId} onClick={() => setActiveTab(2)}>Next: Report Focus →</button></div></div>}
-          {activeTab === 2 && <div className="progress-report-tab-panel"><h1>II. Report Focus</h1><fieldset className="progress-report-report-category"><legend>Report category</legend><label className={reportCategory === 'profile' ? 'selected' : ''}><input type="radio" name="report-category" value="profile" checked={reportCategory === 'profile'} onChange={() => selectReportCategory('profile')} />Profile Report</label><label className={reportCategory === 'monitor' ? 'selected' : ''}><input type="radio" name="report-category" value="monitor" checked={reportCategory === 'monitor'} onChange={() => selectReportCategory('monitor')} />Monitor Report</label><label className={reportCategory === 'program' ? 'selected' : ''}><input type="radio" name="report-category" value="program" checked={reportCategory === 'program'} onChange={() => selectReportCategory('program')} />Program Report</label></fieldset><p className="progress-report-note">Monitor Report is selected by default and uses details from the Monitor module.</p><fieldset className="progress-report-beneficiary-type"><legend>Beneficiary type</legend><label className={beneficiaryType === 'child' ? 'selected' : ''}><input type="radio" name="report-beneficiary-type" checked={beneficiaryType === 'child'} onChange={() => selectBeneficiaryType('child')} />Child</label><label className={beneficiaryType === 'mother' ? 'selected' : ''}><input type="radio" name="report-beneficiary-type" checked={beneficiaryType === 'mother'} onChange={() => selectBeneficiaryType('mother')} />Mother</label></fieldset><div className="progress-report-focus-section"><p>Choose the aggregation level for the selected community scope:</p>{!selection.schoolId ? <p className="progress-report-note">Select a school first to see valid focus options.</p> : <fieldset className="progress-report-focus-options">{focusOptions.map(([value, label]) => <label key={value}><input type="radio" name="report-focus" value={value} checked={reportFocus === value} onChange={() => setReportFocus(value)} />{label}</label>)}</fieldset>}</div><p className="progress-report-note">{beneficiaryType === 'mother' ? 'Mother reports use BMI from Mother Monitoring checkups.' : 'Child reports use growth measurements from Child Monitoring checkups.'}</p><div className="progress-report-tab-actions"><button type="button" className="secondary-btn" onClick={() => setActiveTab(1)}>← Previous</button><button type="button" className="primary-btn" disabled={!selection.schoolId} onClick={() => setActiveTab(3)}>Next: Growth Metrics →</button></div></div>}
+          {activeTab === 2 && <div className="progress-report-tab-panel"><h1>II. Report Focus</h1><fieldset className="progress-report-report-category"><legend>Report category</legend><label className={reportCategory === 'profile' ? 'selected' : ''}><input type="radio" name="report-category" value="profile" checked={reportCategory === 'profile'} onChange={() => selectReportCategory('profile')} />Profile Report</label><label className={reportCategory === 'monitor' ? 'selected' : ''}><input type="radio" name="report-category" value="monitor" checked={reportCategory === 'monitor'} onChange={() => selectReportCategory('monitor')} />Monitor Report</label><label className={reportCategory === 'program' ? 'selected' : ''}><input type="radio" name="report-category" value="program" checked={reportCategory === 'program'} onChange={() => selectReportCategory('program')} />Program Report</label></fieldset><p className="progress-report-note">Monitor Report is selected by default and uses details from the Monitor module.</p>{reportCategory === 'program' ? <fieldset className="progress-report-beneficiary-type"><legend>Program Name</legend><div className="program-report-controls"><label><span>Program</span><select value={programName} onChange={(event) => setProgramName(event.target.value)}><option value="">Select program</option>{programs.map((program) => <option key={program.id} value={program.name}>{program.name}</option>)}</select></label><label><span>Benefit period</span><select value={benefitPeriod} onChange={(event) => setBenefitPeriod(event.target.value)}><option value="overall">Overall</option><option value="month">Monthly</option></select></label>{benefitPeriod === 'month' && <label><span>Month</span><input type="month" value={benefitMonth} onChange={(event) => setBenefitMonth(event.target.value)} /></label>}</div></fieldset> : <fieldset className="progress-report-beneficiary-type"><legend>Beneficiary type</legend><label className={beneficiaryType === 'child' ? 'selected' : ''}><input type="radio" name="report-beneficiary-type" checked={beneficiaryType === 'child'} onChange={() => selectBeneficiaryType('child')} />Child</label><label className={beneficiaryType === 'mother' ? 'selected' : ''}><input type="radio" name="report-beneficiary-type" checked={beneficiaryType === 'mother'} onChange={() => selectBeneficiaryType('mother')} />Mother</label></fieldset>}<div className="progress-report-focus-section"><p>Choose the aggregation level for the selected community scope:</p>{!selection.schoolId ? <p className="progress-report-note">Select a school first to see valid focus options.</p> : <fieldset className="progress-report-focus-options">{focusOptions.map(([value, label]) => <label key={value}><input type="radio" name="report-focus" value={value} checked={reportFocus === value} onChange={() => setReportFocus(value)} />{label}</label>)}</fieldset>}</div><p className="progress-report-note">{reportCategory === 'program' ? 'Program reports show true received-benefit events for the selected period.' : beneficiaryType === 'mother' ? 'Mother reports use BMI from Mother Monitoring checkups.' : 'Child reports use growth measurements from Child Monitoring checkups.'}</p><div className="progress-report-tab-actions"><button type="button" className="secondary-btn" onClick={() => setActiveTab(1)}>← Previous</button><button type="button" className="primary-btn" disabled={!selection.schoolId || (reportCategory === 'program' && !programName)} onClick={() => setActiveTab(3)}>Next: Growth Metrics →</button></div></div>}
           {activeTab === 3 && <div className="progress-report-tab-panel"><h1>III. Growth Metrics</h1>{reportCategory === 'profile' ? <><p>Choose the beneficiary profile fields to include in the report:</p><div className="growth-metric-cards profile-metric-cards">{availableProfileMetrics.map(([id, label, description]) => <label key={id} className={profileMetrics.includes(id) ? 'selected' : ''}><input type="checkbox" name="profile-metric" checked={profileMetrics.includes(id)} onChange={() => toggleProfileMetric(id)} /><strong>{label}</strong><span>{description}</span></label>)}</div><p className="progress-report-note">Profile values come from the Beneficiary module. Child baselines use birth weight and birth length; mother baselines use prenatal weight and height.</p></> : reportCategory === 'program' ? <><p>Choose the program progress fields to include in the report:</p><div className="growth-metric-cards profile-metric-cards">{PROGRAM_METRICS.map(([id, label, description]) => <label key={id} className={programMetrics.includes(id) ? 'selected' : ''}><input type="checkbox" name="program-metric" checked={programMetrics.includes(id)} onChange={() => toggleProgramMetric(id)} /><strong>{label}</strong><span>{description}</span></label>)}</div><p className="progress-report-note">Program values come from the Program and monitoring activity records for the selected community scope.</p></> : <><p>{beneficiaryType === 'mother' ? 'Review mother BMI from Mother Monitoring.' : 'Choose one child growth indicator to display and export:'}</p><div className="growth-metric-cards">{availableGrowthMetrics.map(([id, label, description]) => <label key={id} className={growthMetrics.includes(id) ? 'selected' : ''}><input type="radio" name="growth-metric" checked={growthMetrics.includes(id)} onChange={() => selectGrowthMetric(id)} /><strong>{label}</strong><span>{description}</span></label>)}</div><p className="progress-report-note warning">This field reports the latest recorded measurement. It is not an age- and sex-standardized WHO z-score.</p></>}<div className="progress-report-tab-actions"><button type="button" className="secondary-btn" onClick={() => setActiveTab(2)}>← Previous</button><button type="button" className="primary-btn" onClick={() => generateReport(1)} disabled={loadingOptions || loadingReport || !selection.schoolId || (reportCategory === 'profile' ? !profileMetrics.length : reportCategory === 'program' ? !programMetrics.length : !growthMetrics.length)}>{loadingReport ? 'Generating...' : 'Generate Report →'}</button></div></div>}
           {activeTab === 4 && activeReport && <div className="progress-report-tab-panel results-tab-panel"><div className="progress-report-results-header"><div><h1>IV. Report Results</h1><p>{selectedSchool?.name || 'School'} &gt; {selection.groupId ? groups.find((item) => String(item.id) === String(selection.groupId))?.name : 'All Groups'} &gt; {selection.batchId ? batches.find((item) => String(item.id) === String(selection.batchId))?.name : 'All Batches'}</p></div><button type="button" className="secondary-btn" onClick={exportReport}>Export CSV</button></div><div className="results-view-toggle"><button type="button" className={resultsView === 'table' ? 'active' : ''} onClick={() => setResultsView('table')}>Table View</button><button type="button" className={resultsView === 'graph' ? 'active' : ''} onClick={() => setResultsView('graph')}>Graph View</button>{resultsView === 'graph' && <div className="graph-controls">{displayReportCategory === 'profile' ? <label className="report-chart-select">Graph column<select value={profileGraphColumn} onChange={(event) => setProfileGraphColumn(event.target.value)}>{PROFILE_GRAPH_FIELDS.map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label> : <label className="report-chart-select">Display<select value={displayWeeks} onChange={(event) => setDisplayWeeks(event.target.value)}><option value="4">4 weeks</option><option value="12">12 weeks</option><option value="24">24 weeks</option><option value="48">48 weeks</option><option value="all">All weeks</option></select></label>}</div>}</div>{resultsView === 'graph' ? displayReportCategory === 'profile' ? <article className="growth-report-card growth-report-single-card"><h3>📊 {PROFILE_GRAPH_FIELD_MAP.get(displayProfileGraphColumn)?.label || 'Profile distribution'}</h3><p>Distribution across the selected report results.</p><ProfileGraph rows={resultsRows} field={displayProfileGraphColumn} /></article> : <article className="growth-report-card growth-report-single-card"><h3>📈 {GROWTH_METRICS.find(([id]) => id === growthMetrics[0])?.[1]}</h3><div className="growth-report-value">{averageMetric(growthMetrics[0], graphRows)}</div><p>{beneficiaryType === 'mother' ? 'Latest mother BMI measurements · values are plotted by gestational week' : 'Latest monitored measurements · values are plotted by monitoring week'}</p><GrowthChart rows={graphRows} metric={growthMetrics[0]} chartType="line" displayWeeks={displayWeeks} beneficiaryType={beneficiaryType} /></article> : <div className="progress-report-table-scroll"><table className="progress-report-flat-table"><thead><tr>{REPORT_FIELDS.filter(([id]) => displayVisibleFields.includes(id)).map(([id, label]) => <th key={id}>{sortLabel(label, id)}</th>)}</tr></thead><tbody>{sortedRows.map((row) => <tr key={`${row.motherId}-${row.child || 'mother'}`}>{REPORT_FIELDS.filter(([id]) => displayVisibleFields.includes(id)).map(([id]) => <td key={id}>{id === 'child' && displayGranularity === 'mother' ? row.mother : id === 'progress' ? <strong>{row[id]}%</strong> : formatCellValue(id, row[id])}</td>)}</tr>)}</tbody></table></div>}{resultsView === 'table' && <div className="progress-report-pagination"><button type="button" onClick={() => generateReport(displayPage - 1)} disabled={displayPage <= 1 || loadingReport}>Previous</button><span>Page {displayPage} of {activeReport.pagination.totalPages}</span><button type="button" onClick={() => generateReport(displayPage + 1)} disabled={displayPage >= activeReport.pagination.totalPages || loadingReport}>Next</button></div>}<div className="progress-report-tab-actions"><button type="button" className="secondary-btn" onClick={() => setActiveTab(3)}>← Previous</button><button type="button" className="secondary-btn" onClick={exportReport}>Export CSV</button></div></div>}
         </section>

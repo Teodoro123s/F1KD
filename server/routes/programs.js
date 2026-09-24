@@ -2,7 +2,8 @@ const express = require('express');
 const router = express.Router();
 
 router.use((req, res, next) => {
-  if (req.isHealthWorker && req.method !== 'GET') {
+  const isMonitoringUpdate = req.method === 'PATCH' && /\/monitoring$/.test(req.path);
+  if (req.isHealthWorker && req.method !== 'GET' && !isMonitoringUpdate) {
     return res.status(403).json({ error: 'Health workers have read-only access to programs' });
   }
   return next();
@@ -227,6 +228,13 @@ router.patch('/:programId/monitoring', async (req, res) => {
     return res.status(400).json({ error: 'Beneficiary ID and type are required' });
   }
   try {
+    const [programRows] = await pool.query('SELECT beneficiary_type FROM programs WHERE id = ?', [req.params.programId]);
+    if (!programRows.length) return res.status(404).json({ error: 'Program not found' });
+    const configuredType = String(programRows[0].beneficiary_type || '').trim().toLowerCase();
+    if (!['mother and child', 'mother & child'].includes(configuredType) && configuredType !== beneficiaryType) {
+      return res.status(400).json({ error: `This program accepts ${programRows[0].beneficiary_type} beneficiaries only` });
+    }
+
     const [result] = await pool.query(
       `INSERT INTO monitoring_logs
         (beneficiary_id, beneficiary_type, program_id, monitored, monitored_date, monitored_by)
@@ -255,20 +263,34 @@ router.get('/:programId/monitoring/cluster-report/:clusterType/:clusterName', as
     const [logs] = await pool.query(
       `SELECT DATE_FORMAT(ml.monitored_date, '%Y-%m-%d') AS date, ml.monitored, ml.notes, p.name AS program_name,
         ml.beneficiary_type, ml.beneficiary_id,
-        COALESCE(NULLIF(TRIM(co.name), ''), 'Unknown school') AS school_name,
-        COALESCE(NULLIF(TRIM(g.name), ''), 'Unknown group') AS group_name,
-        COALESCE(NULLIF(TRIM(b.name), ''), 'Unknown batch') AS batch_name,
+        CASE
+          WHEN LOWER(TRIM(ml.beneficiary_type)) = 'mother' AND m.id IS NOT NULL THEN CONCAT('mother:', m.id)
+          WHEN LOWER(TRIM(ml.beneficiary_type)) = 'child' AND c.id IS NOT NULL THEN CONCAT('child:', c.id)
+          ELSE CONCAT(LOWER(TRIM(ml.beneficiary_type)), ':', ml.beneficiary_id)
+        END AS beneficiary_key,
+        COALESCE(NULLIF(TRIM(co.name), ''), NULLIF(TRIM(parent_co.name), ''), 'Unknown school') AS school_name,
+        COALESCE(NULLIF(TRIM(g.name), ''), NULLIF(TRIM(parent_g.name), ''), 'Unknown group') AS group_name,
+        COALESCE(NULLIF(TRIM(b.name), ''), NULLIF(TRIM(parent_b.name), ''), 'Unknown batch') AS batch_name,
         COALESCE(NULLIF(TRIM(CONCAT_WS(' ', m.first_name, m.last_name)), ''), NULLIF(TRIM(CONCAT_WS(' ', c.first_name, c.last_name)), ''), ml.beneficiary_id) AS beneficiary_name,
         NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.last_name)), '') AS monitored_by_name
        FROM monitoring_logs ml
        INNER JOIN programs p ON p.id = ml.program_id
        LEFT JOIN mothers m ON LOWER(CAST(ml.beneficiary_type AS CHAR)) = 'mother' AND (CAST(ml.beneficiary_id AS CHAR) = CAST(m.id AS CHAR) OR LOWER(TRIM(CAST(m.mother_code AS CHAR))) = LOWER(TRIM(CAST(ml.beneficiary_id AS CHAR))))
        LEFT JOIN children c ON LOWER(CAST(ml.beneficiary_type AS CHAR)) = 'child' AND (CAST(ml.beneficiary_id AS CHAR) = CAST(c.id AS CHAR) OR LOWER(TRIM(CAST(c.child_code AS CHAR))) = LOWER(TRIM(CAST(ml.beneficiary_id AS CHAR))))
-       LEFT JOIN communities co ON co.id = COALESCE(m.community_id, c.community_id)
-       LEFT JOIN \`groups\` g ON g.id = COALESCE(m.group_id, c.group_id)
-       LEFT JOIN batches b ON b.id = COALESCE(m.batch_id, c.batch_id)
+               LEFT JOIN mothers parent_m ON LOWER(CAST(ml.beneficiary_type AS CHAR)) = 'child' AND parent_m.id = c.mother_id
+               LEFT JOIN communities co ON co.id = COALESCE(m.community_id, c.community_id)
+               LEFT JOIN \`groups\` g ON g.id = COALESCE(m.group_id, c.group_id)
+               LEFT JOIN batches b ON b.id = COALESCE(m.batch_id, c.batch_id)
+               LEFT JOIN communities parent_co ON parent_co.id = parent_m.community_id
+               LEFT JOIN \`groups\` parent_g ON parent_g.id = parent_m.group_id
+               LEFT JOIN batches parent_b ON parent_b.id = parent_m.batch_id
        LEFT JOIN users u ON u.id = ml.monitored_by
-       WHERE ml.program_id = ? AND ${clusterFilter}
+       WHERE ml.program_id = ?
+         AND (
+           LOWER(TRIM(p.beneficiary_type)) IN ('mother and child', 'mother & child')
+           OR LOWER(TRIM(ml.beneficiary_type)) = LOWER(TRIM(p.beneficiary_type))
+         )
+         AND ${clusterFilter}
        ORDER BY ml.monitored_date DESC, beneficiary_name`,
       [req.params.programId, clusterName],
     );

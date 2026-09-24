@@ -37,6 +37,7 @@ export default function ProgramPage() {
   const isCommunityOrganizer = ['community organizer', 'communityorganizer']
     .includes(String(currentUser?.role || '').trim().toLowerCase());
   const canCreatePrograms = !isHealthWorkerRole(currentUser?.role) && (canManagePrograms || hasRole(currentUser?.role, [ROLES.ADMIN]) || isCommunityOrganizer);
+  const canMonitorPrograms = canCreatePrograms || hasRole(currentUser?.role, [ROLES.PARTNER]) || isHealthWorkerRole(currentUser?.role);
   const [activeTab, setActiveTab] = useState("Active");
   const [query, setQuery] = useState("");
   const [programs, setPrograms] = useState([]);
@@ -97,6 +98,30 @@ export default function ProgramPage() {
     recipients: program.recipients || [],
     latest: program.latest || 'No activity yet',
   });
+
+  const normalizeBeneficiaryType = (value) => String(value || '').trim().toLowerCase().replace(/\s+/g, '');
+
+  const getProgramBeneficiaryRecords = (program, records = beneficiaryRecords) => {
+    if (!program) return [];
+
+    const requestedType = normalizeBeneficiaryType(program?.beneficiaryType || program?.beneficiary_type || 'Mother and Child');
+    const programCommunity = String(program?.community || '').trim().toLowerCase();
+
+    return (records || []).filter((record) => {
+      const recordType = normalizeBeneficiaryType(record?.type || record?.sourceType || '');
+      const recordCommunity = String(record?.school || '').trim().toLowerCase();
+
+      if (requestedType && requestedType !== 'motherandchild' && recordType !== requestedType) {
+        return false;
+      }
+
+      if (programCommunity && recordCommunity && recordCommunity !== programCommunity) {
+        return false;
+      }
+
+      return true;
+    });
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -226,7 +251,8 @@ export default function ProgramPage() {
     const normalizedLevel = String(level || '').toLowerCase();
     const name = String(cluster?.name || cluster?.group_name || cluster?.batch_name || '').trim();
     if (!name) return [];
-    return (beneficiaryRecords || []).filter((record) => {
+    const scopedRecords = getProgramBeneficiaryRecords(selectedProgram);
+    return scopedRecords.filter((record) => {
       if (normalizedLevel === 'school') {
         return String(record.school || '').trim().toLowerCase() === name.toLowerCase();
       }
@@ -278,15 +304,9 @@ export default function ProgramPage() {
     ? programs.find((program) => program.id === Number(programId))
     : programs.find((program) => program.id === Number(form.id)) || filteredPrograms[0];
   const getProgramBeneficiaryCount = (program) => {
-    const requestedType = String(program?.beneficiaryType || program?.beneficiary_type || '').trim().toLowerCase();
-    const programCommunity = String(program?.community || '').trim().toLowerCase();
     const uniqueBeneficiaries = new Set();
 
-    beneficiaryRecords.forEach((record) => {
-      const recordType = String(record.type || '').trim().toLowerCase();
-      const recordCommunity = String(record.school || '').trim().toLowerCase();
-      if (requestedType && recordType !== requestedType) return;
-      if (programCommunity && recordCommunity !== programCommunity) return;
+    getProgramBeneficiaryRecords(program).forEach((record) => {
       if (record.sourceType && record.sourceId !== undefined && record.sourceId !== null) {
         uniqueBeneficiaries.add(`${record.sourceType}:${record.sourceId}`);
       }
@@ -320,6 +340,7 @@ export default function ProgramPage() {
   const selectedCluster = getCluster(selectedProgramView, clusterType, clusterName);
   const schoolRows = selectedProgramView?.clusters.filter((cluster) => cluster.type === 'School') || [];
   const programHierarchy = useMemo(() => schoolRows.map((schoolCluster, schoolIndex) => {
+    const scopedRecords = getProgramBeneficiaryRecords(selectedProgramView);
     const normalizedSchoolName = String(schoolCluster.name || '').replace(/ School$/i, '');
     const school = hierarchy.schools.find((item) => String(item.name || '').toLowerCase() === String(schoolCluster.name || '').toLowerCase() || String(item.name || '').toLowerCase() === normalizedSchoolName.toLowerCase());
     const schoolName = school?.name || normalizedSchoolName;
@@ -333,11 +354,14 @@ export default function ProgramPage() {
             const batchKeys = [batchName, batch.id, batch.databaseId, batch.code]
               .filter(Boolean)
               .map((value) => String(value).toLowerCase());
-            const hasMatchingBeneficiary = beneficiaryRecords.some((record) => (
-              String(record.school).toLowerCase() === String(schoolName).toLowerCase()
-              && String(record.group).toLowerCase() === String(groupName).toLowerCase()
-              && batchKeys.includes(String(record.batch).toLowerCase())
-            ));
+            const hasMatchingBeneficiary = scopedRecords.some((record) => {
+              const recordSchool = String(record.school || '').trim().toLowerCase();
+              const recordGroup = String(record.group || '').trim().toLowerCase();
+              const recordBatch = String(record.batch || '').trim().toLowerCase();
+              return batchKeys.includes(recordBatch)
+                && (!recordSchool || recordSchool === String(schoolName).toLowerCase())
+                && (!recordGroup || recordGroup === String(groupName).toLowerCase());
+            });
             return String(batch.community || '').toLowerCase() === String(schoolName || '').toLowerCase()
               && (
                 String(batch.group || batch.group_name || '').toLowerCase() === String(groupName || '').toLowerCase()
@@ -355,13 +379,20 @@ export default function ProgramPage() {
             return {
               id: batch.id || `${schoolIndex}-${groupIndex}-${batchIndex}`,
               name: batchName,
-              beneficiaries: beneficiaryRecords.filter((record) => String(record.school).toLowerCase() === String(schoolName).toLowerCase() && String(record.group).toLowerCase() === String(groupName).toLowerCase() && batchKeys.includes(String(record.batch).toLowerCase())),
+              beneficiaries: scopedRecords.filter((record) => {
+                const recordSchool = String(record.school || '').trim().toLowerCase();
+                const recordGroup = String(record.group || '').trim().toLowerCase();
+                const recordBatch = String(record.batch || '').trim().toLowerCase();
+                return batchKeys.includes(recordBatch)
+                  && (!recordSchool || recordSchool === String(schoolName).toLowerCase())
+                  && (!recordGroup || recordGroup === String(groupName).toLowerCase());
+              }),
             };
           });
         return { id: group.id || `${schoolIndex}-${groupIndex}`, name: groupName, batches };
       });
     return { id: school?.id || schoolCluster.name, name: schoolName, groups };
-  }), [beneficiaryRecords, hierarchy, schoolRows]);
+  }), [hierarchy, schoolRows, selectedProgramView]);
   const groupRows = drillSchool
     ? hierarchy.groups.filter((group) => String(group.community || '').toLowerCase() === String(drillSchool.name || '').toLowerCase())
     : [];
@@ -371,16 +402,19 @@ export default function ProgramPage() {
       || String(batch.community || '').toLowerCase() === String(drillSchool?.name || '').toLowerCase() && String(batch.group_id || '') === String(drillGroup.id || '')
     ))
     : [];
-  const drilledBeneficiaries = beneficiaryRecords.filter((record) => {
+  const scopedBeneficiaryRecords = useMemo(() => getProgramBeneficiaryRecords(selectedProgram), [selectedProgram, beneficiaryRecords]);
+
+  const drilledBeneficiaries = scopedBeneficiaryRecords.filter((record) => {
     if (!drillBatch) return false;
     return String(record.batch).toLowerCase() === String(drillBatch.name || drillBatch.batch_code || drillBatch.code || '').toLowerCase();
   });
   const beneficiaryRows = useMemo(() => {
     if (!selectedProgramView) return [];
+    const scopedRecords = getProgramBeneficiaryRecords(selectedProgramView);
     const schoolClusters = selectedProgramView.clusters.filter((cluster) => cluster.type === 'School');
     const rows = [];
     schoolClusters.forEach((school) => {
-      const records = beneficiaryRecords.filter((record) => String(record.school).toLowerCase() === String(school.name).toLowerCase());
+      const records = scopedRecords.filter((record) => String(record.school).toLowerCase() === String(school.name).toLowerCase());
       if (records.length) {
         records.forEach((record) => rows.push({ ...record, school: school.name }));
       } else {
@@ -388,7 +422,7 @@ export default function ProgramPage() {
       }
     });
     return rows;
-  }, [beneficiaryRecords, selectedProgramView]);
+  }, [selectedProgramView]);
   const schoolHierarchy = useMemo(() => {
     if (!selectedProgramView) return [];
     return selectedProgramView.clusters
@@ -644,10 +678,6 @@ export default function ProgramPage() {
         <div className="table-overflow">
           {viewMode && !clusterView ? <ExpandableTreeTable
             data={programHierarchy}
-            monitored={monitoringStatus}
-            pending={monitoringPending}
-            canToggle={canCreatePrograms && !isEndedProgram}
-            onMonitorChange={isEndedProgram ? undefined : requestMonitoringChange}
             onBeneficiaryClick={openBeneficiaryReport}
             onHistoryClick={(node, level) => {
               if (level === 'beneficiary') return openBeneficiaryReport(node);

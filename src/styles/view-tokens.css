@@ -572,9 +572,6 @@
 .program-page .monitor-tree-beneficiary-button { border: 0; background: transparent; color: inherit; cursor: pointer; font: inherit; text-align: left; }
 .program-page .monitor-tree-beneficiary-button:hover { color: var(--view-primary); text-decoration: underline; }
 .program-monitoring-report__toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
-.program-page .monitor-tree-toggle { display: inline-flex; align-items: center; gap: 8px; }
-.view-content .monitor-tree-toggle { display: inline-flex; align-items: center; gap: 8px; color: var(--view-text-muted); }
-.view-content .monitor-tree-toggle input { width: 16px; height: 16px; accent-color: var(--view-primary); }
 .view-content .view-table tbody tr:hover { background: var(--view-bg-subtle); }
 .view-content .view-table__empty { padding: 24px 16px; color: var(--view-text-muted); text-align: center; }
 
