@@ -32,7 +32,19 @@ async function getProgram(id) {
   if (!rows.length) return null;
   const [clusters] = await pool.query('SELECT id, scope_type AS type, scope_name AS name, beneficiaries, received FROM program_clusters WHERE program_id = ? ORDER BY id', [id]);
   const target = clusters.reduce((total, cluster) => total + Number(cluster.beneficiaries || 0), 0);
-  const received = clusters.reduce((total, cluster) => total + Number(cluster.received || 0), 0);
+  const [monitoringRows] = await pool.query(
+    `SELECT COUNT(DISTINCT CONCAT(LOWER(TRIM(ml.beneficiary_type)), ':', ml.beneficiary_id)) AS received
+     FROM monitoring_logs ml
+     WHERE ml.program_id = ?
+       AND ml.monitored = 1
+       AND (
+         LOWER(TRIM(?)) IN ('mother and child', 'mother & child')
+         OR LOWER(TRIM(ml.beneficiary_type)) = LOWER(TRIM(?))
+       )`,
+    [id, rows[0].beneficiary_type, rows[0].beneficiary_type],
+  );
+  const clusterReceived = clusters.reduce((total, cluster) => total + Number(cluster.received || 0), 0);
+  const received = Math.max(clusterReceived, Number(monitoringRows[0]?.received || 0));
   const schoolCluster = clusters.find((cluster) => cluster.type === 'School');
   const batchCluster = clusters.find((cluster) => cluster.type === 'Batch');
   return {
