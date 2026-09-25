@@ -35,6 +35,16 @@ function formatDayAndMonth(dateString) {
   };
 }
 
+function getProgramScopeLabel(program) {
+  const school = String(program?.community || program?.school_name || program?.schoolName || program?.school || '').trim();
+  const batch = String(program?.batch || program?.batch_name || program?.batchName || '').trim();
+
+  if (school && batch) return `${school} • ${batch}`;
+  if (school) return school;
+  if (batch) return batch;
+  return 'School scope';
+}
+
 export default function DashboardPage() {
   const { currentUser } = useAuth();
   const { mothers: contextMothers, loading: mothersLoading } = useMothers();
@@ -661,13 +671,13 @@ export default function DashboardPage() {
                   <Link key={prog.id} to={`/program/${prog.id}`} className="dashboard-program-item">
                     <div className="program-item-header">
                       <span className="program-item-title">{prog.name}</span>
-                      <span className="program-item-tag">{prog.beneficiary_type || 'Mother & Child'}</span>
+                      <span className="program-item-tag">{prog.type || prog.beneficiary_type || 'School scope'}</span>
                     </div>
                     <div className="program-progress-bar-wrap" aria-label={`Progress: ${percent}%`}>
                       <div className="program-progress-bar-fill" style={{ width: `${percent}%` }} />
                     </div>
                     <div className="program-item-meta">
-                      <span>Provider: {prog.provider}</span>
+                      <span>{prog.provider ? `${prog.provider} • ${getProgramScopeLabel(prog)}` : getProgramScopeLabel(prog)}</span>
                       <strong>{received.toLocaleString()} / {target.toLocaleString()} ({percent}%)</strong>
                     </div>
                   </Link>

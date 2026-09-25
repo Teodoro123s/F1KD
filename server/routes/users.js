@@ -23,7 +23,7 @@ function nameLike(column) {
 router.get('/coordinators', verifyToken, async (req, res) => {
   try {
     const [users] = await pool.query(
-      `SELECT id, CONCAT_WS(' ', first_name, last_name) AS username, CONCAT_WS(' ', first_name, last_name) AS full_name, role FROM users WHERE LOWER(TRIM(role)) IN ('community organizer', 'co', 'partner') ORDER BY id DESC`
+      `SELECT id, CONCAT_WS(' ', first_name, last_name) AS username, CONCAT_WS(' ', first_name, last_name) AS full_name, role FROM users WHERE LOWER(TRIM(role)) IN ('community organizer', 'community_coordinator', 'communitycoordinator', 'co', 'partner') ORDER BY id DESC`
     );
     res.json({ users });
   } catch (err) {
@@ -97,7 +97,7 @@ router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
     const userName = username || (email ? email.split('@')[0] : null);
     const full_name = fullName || (firstName || lastName ? `${(firstName||'').trim()} ${(lastName||'').trim()}`.trim() : null);
     const roleName = String(role || '').trim().toLowerCase();
-    const requiresSchool = ['health worker', 'community organizer'].includes(roleName);
+    const requiresSchool = ['health worker', 'community organizer', 'community_coordinator', 'communitycoordinator', 'coordinator'].includes(roleName);
     const requiresGroup = roleName === 'health worker';
 
     if (!userName || !email) return res.status(400).json({ error: 'username and email are required' });
@@ -210,7 +210,7 @@ router.put('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
     if (status !== undefined) { updates.push('status = ?'); params.push(normalizeDbStatus(status)); }
     if (schoolId !== undefined) { updates.push('school_id = ?'); params.push(schoolId || null); }
     if (groupId !== undefined) { updates.push('group_id = ?'); params.push(groupId || null); }
-    if (role !== undefined && ['health worker', 'community organizer'].includes(String(role).trim().toLowerCase()) && !schoolId) {
+    if (role !== undefined && ['health worker', 'community organizer', 'community_coordinator', 'communitycoordinator', 'coordinator'].includes(String(role).trim().toLowerCase()) && !schoolId) {
       return res.status(400).json({ error: 'schoolId is required for this role' });
     }
     if (role !== undefined && String(role).trim().toLowerCase() === 'health worker' && !groupId && req.body.groupId !== undefined) {
