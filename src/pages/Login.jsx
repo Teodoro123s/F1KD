@@ -10,6 +10,7 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const auth = useAuth();
 
@@ -21,7 +22,9 @@ export default function Login() {
       navigate('/dashboard');
     } catch (err) {
       console.error('Login failed', err);
-      notifyAction(err.message || 'Login failed. Please check your credentials and try again.', 'error');
+      const message = err.message || 'Login failed. Please check your credentials and try again.';
+      setErrorMessage(message);
+      notifyAction(message, 'error');
     } finally {
       setLoading(false);
     }
@@ -43,7 +46,7 @@ export default function Login() {
               name="email"
               type="email"
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              onChange={(event) => { setEmail(event.target.value); setErrorMessage(''); }}
               placeholder="Enter email"
               autoComplete="username"
               required
@@ -58,7 +61,7 @@ export default function Login() {
                 name="password"
                 type={showPassword ? 'text' : 'password'}
                 value={password}
-                onChange={(event) => setPassword(event.target.value)}
+                onChange={(event) => { setPassword(event.target.value); setErrorMessage(''); }}
                 placeholder="Enter password"
                 autoComplete="current-password"
                 required
@@ -73,6 +76,8 @@ export default function Login() {
               </button>
             </div>
           </div>
+
+          {errorMessage && <p className="form-error" role="alert">{errorMessage}</p>}
 
           <div className="login-actions">
             <button type="submit" className="login-button" disabled={loading}>

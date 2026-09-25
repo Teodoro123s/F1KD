@@ -148,7 +148,7 @@ export default function ChildProfilePage() {
   const location = useLocation();
   const navigate = useNavigate();
   const { currentUser } = useAuth();
-  const canManage = can(currentUser?.role, 'partner-resources', 'create');
+  const canManage = can(currentUser?.role, 'beneficiary-resources', 'update');
 
   const stateMother = location.state?.mother || null;
   const { mothers: contextMothers } = useMothers();

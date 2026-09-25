@@ -5,7 +5,7 @@ import { apiGetMother } from '../../../api/mothers';
 import BeneficiaryTable from '../BeneficiaryTable';
 import PageHeader from '../../../components/ui/PageHeader';
 import { useAuth } from '../../../auth/AuthProvider';
-import { can } from '../../../utils/permissions';
+import { can, isHealthWorkerRole } from '../../../utils/permissions';
 import { notifyAction } from '../../../components/ActionFeedback';
 
 export default function MotherChildrenPage() {
@@ -13,7 +13,7 @@ export default function MotherChildrenPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const { currentUser } = useAuth();
-  const canManage = can(currentUser?.role, 'partner-resources', 'create');
+  const canManage = can(currentUser?.role, 'beneficiary-resources', 'create') && !isHealthWorkerRole(currentUser?.role);
   const [mother, setMother] = useState(location.state?.mother || null);
   const [children, setChildren] = useState([]);
   const [loading, setLoading] = useState(true);

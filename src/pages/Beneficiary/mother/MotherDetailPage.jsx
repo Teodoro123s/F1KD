@@ -106,7 +106,7 @@ const ChipList = ({ items, emptyLabel = 'None' }) => {
 export default function MotherDetailPage({ selectedMother, onClose, onMotherUpdated, overviewOnly = false }) {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
-  const canManage = can(currentUser?.role, 'partner-resources', 'create');
+  const canManage = can(currentUser?.role, 'beneficiary-resources', 'update');
   const [motherRecord, setMotherRecord] = useState(selectedMother);
   const [uploadingDocument, setUploadingDocument] = useState('');
   const [uploadMessage, setUploadMessage] = useState('');

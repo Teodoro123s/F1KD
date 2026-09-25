@@ -34,9 +34,7 @@ export default function ProgramPage() {
   const { programId, clusterType, clusterName } = useParams();
   const { currentUser } = useAuth();
   const canManagePrograms = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]);
-  const isCommunityOrganizer = ['community organizer', 'communityorganizer']
-    .includes(String(currentUser?.role || '').trim().toLowerCase());
-  const canCreatePrograms = !isHealthWorkerRole(currentUser?.role) && (canManagePrograms || hasRole(currentUser?.role, [ROLES.ADMIN]) || isCommunityOrganizer);
+  const canCreatePrograms = canManagePrograms;
   const canMonitorPrograms = canCreatePrograms || hasRole(currentUser?.role, [ROLES.PARTNER]) || isHealthWorkerRole(currentUser?.role);
   const [activeTab, setActiveTab] = useState("Active");
   const [query, setQuery] = useState("");

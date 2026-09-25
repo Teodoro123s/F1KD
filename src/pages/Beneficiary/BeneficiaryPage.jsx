@@ -65,7 +65,7 @@ export default function BeneficiaryPage() {
   const isCreateChild = location.pathname.includes('/beneficiary/create/child');
   const isMotherProfile = location.pathname.endsWith('/profile');
   const isMotherDetail = Boolean(selectedMother);
-  const canCreate = can(auth?.currentUser?.role, 'partner-resources', 'create') && !isHealthWorkerRole(auth?.currentUser?.role);
+  const canCreate = can(auth?.currentUser?.role, 'beneficiary-resources', 'create') && !isHealthWorkerRole(auth?.currentUser?.role);
   const assignedSchoolId = auth?.currentUser?.school_id ?? auth?.currentUser?.schoolId ?? null;
   const isSchoolScopedUser = ['community organizer', 'communityorganizer', 'health worker', 'healthworker']
     .includes(String(auth?.currentUser?.role || '').trim().toLowerCase());
