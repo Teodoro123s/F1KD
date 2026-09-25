@@ -60,6 +60,9 @@ function authorizeOperational(req, res, next) {
   }
 
   const userRole = normalizeRole(req.user.role);
+  if (userRole !== 'super_admin' && !['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+    return permissionResponse(res, 'Admin and Partner accounts are read-only');
+  }
   req.isHealthWorker = isHealthWorkerRole(req.user.role);
   const scopedRoles = ['partner'];
   const hasSchoolAssignment = req.user.school_id !== undefined && req.user.school_id !== null && String(req.user.school_id).trim() !== '';

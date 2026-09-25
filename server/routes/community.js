@@ -51,7 +51,7 @@ async function resolveCoordinatorId(pool, coordinatorIdentifier) {
 
   const [rows] = await pool.query(
     `SELECT id FROM users
-     WHERE id = ? AND LOWER(TRIM(role)) IN ('community organizer', 'communityorganizer', 'co', 'partner')
+    WHERE id = ? AND LOWER(TRIM(role)) IN ('community organizer', 'community_coordinator', 'communitycoordinator', 'communityorganizer', 'co', 'partner')
      LIMIT 1`,
     [coordinatorId],
   );
@@ -188,19 +188,25 @@ router.get('/summary', async (req, res) => {
       ORDER BY m.id
     `, req.groupId ? [req.groupId] : req.schoolId ? [req.schoolId] : []);
 
-    const [childBatchRows] = await pool.query(`
+    const [monitoringRows] = await pool.query(`
       SELECT
-        c.batch_id AS batchId,
-        AVG(COALESCE(c.progress, 0)) AS childProgressAverage,
-        COUNT(c.id) AS totalChildren
-      FROM children c
-      WHERE c.batch_id IS NOT NULL
-      GROUP BY c.batch_id
+        m.batch_id AS batchId,
+        c.id AS childId,
+        COUNT(DISTINCT cc.id) AS childCheckups
+      FROM mothers m
+      INNER JOIN children c ON c.mother_id = m.id
+        AND (c.batch_id = m.batch_id OR c.batch_id IS NULL)
+      LEFT JOIN child_checkups cc ON cc.child_id = c.id
+      WHERE m.batch_id IS NOT NULL
+      GROUP BY m.batch_id, c.id
     `);
 
-    const childProgressByBatch = new Map(
-      childBatchRows.map((row) => [String(row.batchId), Number(row.childProgressAverage || 0)])
-    );
+    const monitoringByBatch = monitoringRows.reduce((byBatch, row) => {
+      const batchRows = byBatch.get(String(row.batchId)) || [];
+      batchRows.push(row);
+      byBatch.set(String(row.batchId), batchRows);
+      return byBatch;
+    }, new Map());
 
     const communitiesData = communities.map((item) => ({
       id: item.id,
@@ -212,33 +218,12 @@ router.get('/summary', async (req, res) => {
       records: Number(item.records || 0),
     }));
 
-    const mothersByBatch = new Map();
-
-    motherRows.forEach((mother) => {
-      const batchKey = String(mother.batchCode || mother.batchId || '');
-      if (!batchKey) return;
-
-      const current = mothersByBatch.get(batchKey) || [];
-      current.push(Number(mother.progress || 0));
-      mothersByBatch.set(batchKey, current);
-    });
-
     const batchesData = batches.map((item) => {
-      const batchKey = String(item.batch_code || item.id || '');
       const batchId = String(item.id || '');
-      const motherProgressValues = mothersByBatch.get(batchKey) || [];
-      const motherProgressAverage = motherProgressValues.length
-        ? motherProgressValues.reduce((sum, value) => sum + value, 0) / motherProgressValues.length
-        : null;
-
-      const childProgressAverage = childProgressByBatch.get(batchId) ?? childProgressByBatch.get(batchKey) ?? null;
-      const progressValues = [
-        ...(motherProgressAverage !== null ? [motherProgressAverage] : []),
-        ...(childProgressAverage !== null ? [childProgressAverage] : []),
-      ];
-
-      const progress = progressValues.length
-        ? Math.round(progressValues.reduce((sum, value) => sum + value, 0) / progressValues.length)
+      const childMonitoring = monitoringByBatch.get(batchId) || [];
+      const completedChildren = childMonitoring.filter((row) => Number(row.childCheckups) >= 24).length;
+      const progress = childMonitoring.length
+        ? Math.round((completedChildren / childMonitoring.length) * 100)
         : 0;
 
       return {

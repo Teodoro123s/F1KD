@@ -29,7 +29,7 @@ export default function CommunityPage() {
   const navigate = useNavigate();
   const { schoolId, groupId, batchId } = useParams();
   const isSuperAdmin = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]);
-  const isCommunityOrganizer = ['community organizer', 'communityorganizer']
+  const isCommunityOrganizer = ['community organizer', 'communityorganizer', 'community_coordinator', 'communitycoordinator', 'coordinator']
     .includes(String(currentUser?.role || '').trim().toLowerCase());
   const canManage = !isHealthWorkerRole(currentUser?.role) && (can(currentUser?.role, 'admin-resources', 'create')
     || can(currentUser?.role, 'partner-resources', 'create'));
@@ -39,7 +39,7 @@ export default function CommunityPage() {
     .includes(String(currentUser?.role || '').trim().toLowerCase());
   const isAssignedAdmin = hasRole(currentUser?.role, [ROLES.ADMIN]) && Boolean(assignedSchoolId);
   const isAssignedCommunityOrganizer = isCommunityOrganizer && Boolean(assignedSchoolId);
-  const isSchoolScopedUser = ['community organizer', 'communityorganizer', 'health worker', 'healthworker']
+  const isSchoolScopedUser = ['community organizer', 'communityorganizer', 'community_coordinator', 'communitycoordinator', 'coordinator', 'health worker', 'healthworker']
     .includes(String(currentUser?.role || '').trim().toLowerCase()) || isAssignedAdmin;
 
   const { communities, batches, groups, mothers, coordinators, loading, error, refreshData } = useCommunityData();
@@ -611,49 +611,45 @@ export default function CommunityPage() {
         );
       },
     };
+    const appendActions = (baseColumns) => canManage ? [...baseColumns, actionColumn] : baseColumns;
 
     if (activeTab === 'communities') {
-      return [
+      return appendActions([
         { key: 'name', header: 'School Name', style: { width: '48%' }, renderCell: (row) => <span className="community-title-text" title={row.name}>{row.name}</span> },
         { key: 'batches', header: 'Total Batches', cellClassName: 'small-column', renderCell: (row) => row.batches || 0 },
         { key: 'groups', header: 'Total Groups', cellClassName: 'small-column', renderCell: (row) => groups.filter((group) => group.community === row.name).length },
-        actionColumn,
-      ];
+      ]);
     }
 
     if (activeTab === 'groups') {
-      return [
+      return appendActions([
         { key: 'name', header: 'Group Name', style: { width: '60%' }, renderCell: (row) => <span className="community-title-text">{row.name}</span> },
         { key: 'assignedBatchIds', header: 'Total Batches', cellClassName: 'small-column', renderCell: (row) => row.assignedBatchIds?.length ?? row.batches ?? 0 },
-        actionColumn,
-      ];
+      ]);
     }
 
     if (activeTab === 'mothers') {
       if (entityFilter === 'Child') {
-        return [
+        return appendActions([
           { key: 'name', header: 'Child Name', style: { width: '42%' }, renderCell: (row) => <span className="community-title-text">{row.name}</span> },
           { key: 'motherName', header: 'Mother Name', style: { width: '24%' }, renderCell: (row) => row.motherName || '—' },
           { key: 'profileProgress', header: 'Profile Progress (%)', cellClassName: 'status-column', renderCell: (row) => `${Number(row.profileProgress ?? 0)}%` },
           { key: 'progress', header: 'Monitor Progress (%)', cellClassName: 'status-column', renderCell: (row) => `${Number(row.progress ?? 0)}%` },
-          actionColumn,
-        ];
+        ]);
       }
 
-      return [
+      return appendActions([
         { key: 'name', header: 'Mother Name', style: { width: '52%' }, renderCell: (row) => <span className="community-title-text">{row.name}</span> },
         { key: 'profileProgress', header: 'Profile Progress (%)', cellClassName: 'status-column', renderCell: (row) => `${getMotherProfileProgress(row)}%` },
         { key: 'progress', header: 'Monitor Progress (%)', cellClassName: 'status-column', renderCell: (row) => `${Number(row.progress ?? 0)}%` },
-        actionColumn,
-      ];
+      ]);
     }
 
-    return [
+    return appendActions([
       { key: 'name', header: 'Batch Name', style: { width: '42%' }, renderCell: (row) => <span className="community-title-text">{row.name}</span> },
       { key: 'records', header: 'Total Mothers', cellClassName: 'compact-column', renderCell: (row) => row.records },
       { key: 'progress', header: 'Progress (%)', cellClassName: 'status-column', renderCell: (row) => `${row.progress ?? 0}%` },
-      actionColumn,
-    ];
+    ]);
   }, [activeDropdownId, activeTab, canManage, entityFilter, groups, handleDeleteBatch, handleDeleteCommunity, handleDeleteGroup, handleDeleteMother, navigate, openEditModal]);
 
   const currentRowClickHandler =
