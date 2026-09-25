@@ -271,7 +271,7 @@ function getRequestedMotherFields(req) {
   const allowed = fields.filter((field) => MOTHER_ALLOWED_FIELDS.has(field));
   const required = new Set([
     'id', 'motherId', 'name', 'firstName', 'middleName', 'lastName', 'maidenSurname', 'dob', 'contactNumber',
-    'province', 'city', 'barangay', 'community', 'group', 'batch', 'emergencyName', 'emergencyContact', 'emergencyRelationship',
+    'province', 'city', 'barangay', 'community', 'communityId', 'group', 'groupId', 'batch', 'emergencyName', 'emergencyContact', 'emergencyRelationship',
     'lmpDate', 'eddDate', 'prenatalRegDate', 'trimester', 'gestationalAge', 'prenatalWeight', 'prenatalBp', 'prenatalHeight',
     'gravida', 'abortion', 'stillbirth', 'birthCertificateDocumentName', 'birthCertificateDocumentPath',
     'consentDocumentName', 'consentDocumentPath', 'progress', 'status', 'checkups', 'source'
