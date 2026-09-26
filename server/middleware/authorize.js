@@ -60,14 +60,19 @@ function authorizeOperational(req, res, next) {
   }
 
   const userRole = normalizeRole(req.user.role);
+  const isCommunityOrganizer = isCommunityOrganizerRole(req.user.role);
   const isCommunityOrganizerCreate = userRole === 'partner'
-    && isCommunityOrganizerRole(req.user.role)
+    && isCommunityOrganizer
     && req.method === 'POST'
-    && ['/api/mothers', '/api/children'].includes(req.baseUrl);
+    && (
+      ['/api/mothers', '/api/children'].includes(req.baseUrl)
+      || (req.baseUrl === '/api/community' && ['/batches', '/groups'].includes(req.path))
+    );
   if (userRole !== 'super_admin' && !['GET', 'HEAD', 'OPTIONS'].includes(req.method) && !isCommunityOrganizerCreate) {
     return permissionResponse(res, 'Admin and Partner accounts are read-only');
   }
   req.isHealthWorker = isHealthWorkerRole(req.user.role);
+  req.isCommunityOrganizer = isCommunityOrganizer;
   const scopedRoles = ['partner'];
   const hasSchoolAssignment = req.user.school_id !== undefined && req.user.school_id !== null && String(req.user.school_id).trim() !== '';
   const hasGroupAssignment = req.user.group_id !== undefined && req.user.group_id !== null && String(req.user.group_id).trim() !== '';

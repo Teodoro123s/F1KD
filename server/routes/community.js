@@ -149,16 +149,12 @@ router.get('/summary', async (req, res) => {
         '' AS description,
         c.name AS community,
         COALESCE(g.members_count, COUNT(m.id)) AS members,
-        CASE
-          WHEN COUNT(DISTINCT gb.batch_id) > 0 THEN COUNT(DISTINCT gb.batch_id)
-          ELSE COUNT(DISTINCT b.id)
-        END AS batches,
+        COUNT(DISTINCT gb.batch_id) AS batches,
         COALESCE(g.leader, '') AS leader,
         COALESCE(g.status, 'Active') AS status
       FROM groups g
       LEFT JOIN mothers m ON m.group_id = g.id
       LEFT JOIN group_batch gb ON gb.group_id = g.id
-      LEFT JOIN batches b ON b.community_id = g.community_id
       LEFT JOIN communities c ON c.id = g.community_id
       ${groupScope}
       GROUP BY g.id, g.name, c.name, g.members_count, g.leader, g.status
@@ -352,6 +348,10 @@ router.post('/batches', async (req, res) => {
       return res.status(400).json({ error: 'Community is required' });
     }
 
+    if (req.isCommunityOrganizer && String(req.schoolId) !== String(communityId)) {
+      return res.status(403).json({ error: 'Community organizers can only create batches for their assigned school' });
+    }
+
     const resolvedGroupId = groupId ? Number(groupId) : null;
     if (resolvedGroupId) {
       const [groupRows] = await pool.query(
@@ -399,6 +399,10 @@ router.post('/groups', async (req, res) => {
 
     if (!communityId) {
       return res.status(400).json({ error: 'Community is required' });
+    }
+
+    if (req.isCommunityOrganizer && String(req.schoolId) !== String(communityId)) {
+      return res.status(403).json({ error: 'Community organizers can only create groups for their assigned school' });
     }
 
     const cleanLeader = String(leader || '').trim();

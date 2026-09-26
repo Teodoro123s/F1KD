@@ -118,3 +118,89 @@ test('authorizeOperational keeps community coordinators at school scope', () => 
   assert.equal(req.groupId, null);
   assert.equal(res.code, undefined);
 });
+
+test('authorizeOperational allows assigned community organizers to create batches and groups', () => {
+  for (const path of ['/batches', '/groups']) {
+    let called = false;
+    const req = {
+      method: 'POST',
+      baseUrl: '/api/community',
+      path,
+      user: { role: 'Community Organizer', school_id: 7 },
+    };
+    const res = {
+      status(code) {
+        this.code = code;
+        return this;
+      },
+      json(payload) {
+        this.payload = payload;
+        return this;
+      },
+    };
+
+    authorizeOperational(req, res, () => {
+      called = true;
+    });
+
+    assert.equal(called, true);
+    assert.equal(req.schoolId, 7);
+    assert.equal(req.isCommunityOrganizer, true);
+    assert.equal(res.code, undefined);
+  }
+});
+
+test('authorizeOperational keeps health workers read-only for community creation', () => {
+  let called = false;
+  const req = {
+    method: 'POST',
+    baseUrl: '/api/community',
+    path: '/batches',
+    user: { role: 'Health worker', school_id: 7, group_id: 15 },
+  };
+  const res = {
+    status(code) {
+      this.code = code;
+      return this;
+    },
+    json(payload) {
+      this.payload = payload;
+      return this;
+    },
+  };
+
+  authorizeOperational(req, res, () => {
+    called = true;
+  });
+
+  assert.equal(called, false);
+  assert.equal(res.code, 403);
+  assert.equal(res.payload.message, 'Admin and Partner accounts are read-only');
+});
+
+test('authorizeOperational does not allow community organizers to create schools', () => {
+  let called = false;
+  const req = {
+    method: 'POST',
+    baseUrl: '/api/community',
+    path: '/communities',
+    user: { role: 'Community Organizer', school_id: 7 },
+  };
+  const res = {
+    status(code) {
+      this.code = code;
+      return this;
+    },
+    json(payload) {
+      this.payload = payload;
+      return this;
+    },
+  };
+
+  authorizeOperational(req, res, () => {
+    called = true;
+  });
+
+  assert.equal(called, false);
+  assert.equal(res.code, 403);
+});
