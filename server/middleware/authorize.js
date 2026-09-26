@@ -65,10 +65,21 @@ function authorizeOperational(req, res, next) {
     && isCommunityOrganizer
     && req.method === 'POST'
     && (
-      ['/api/mothers', '/api/children'].includes(req.baseUrl)
+      (['/api/mothers', '/api/children'].includes(req.baseUrl) && req.path === '/')
       || (req.baseUrl === '/api/community' && ['/batches', '/groups'].includes(req.path))
     );
-  if (userRole !== 'super_admin' && !['GET', 'HEAD', 'OPTIONS'].includes(req.method) && !isCommunityOrganizerCreate) {
+  const isBeneficiaryUpdate = ['admin', 'partner'].includes(userRole)
+    && req.baseUrl === '/api/mothers'
+    && (
+      (req.method === 'PUT' && /^\/[^/]+\/?$/.test(req.path))
+      || (req.method === 'POST' && /^\/[^/]+\/(documents|checkups)\/?$/.test(req.path))
+    );
+  const isCommunityOrganizerProgramCreate = userRole === 'partner'
+    && isCommunityOrganizer
+    && req.baseUrl === '/api/programs'
+    && req.method === 'POST'
+    && (req.path === '/' || /^\/[^/]+\/clusters\/?$/.test(req.path));
+  if (userRole !== 'super_admin' && !['GET', 'HEAD', 'OPTIONS'].includes(req.method) && !isCommunityOrganizerCreate && !isBeneficiaryUpdate && !isCommunityOrganizerProgramCreate) {
     return permissionResponse(res, 'Admin and Partner accounts are read-only');
   }
   req.isHealthWorker = isHealthWorkerRole(req.user.role);

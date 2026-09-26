@@ -1,10 +1,10 @@
 ﻿import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDateForDisplay } from '../../../utils/dateFormat';
-import { apiDeleteMother, apiDeleteMotherDocument, apiGetMother, apiUploadMotherDocuments } from '../../../api/mothers';
+import { apiDeleteMother, apiGetMother } from '../../../api/mothers';
 import { resolveAssetUrl } from '../../../api/authHeader';
 import { useAuth } from '../../../auth/AuthProvider';
-import { can } from '../../../utils/permissions';
+import { can, hasRole, ROLES } from '../../../utils/permissions';
 import PageHeader from '../../../components/ui/PageHeader';
 import { notifyAction } from '../../../components/ActionFeedback';
 import { MotherFormFields } from './BeneficiaryMother';
@@ -107,12 +107,10 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const canManage = can(currentUser?.role, 'beneficiary-resources', 'update');
+  const canEdit = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.PARTNER]);
   const [motherRecord, setMotherRecord] = useState(selectedMother);
-  const [uploadingDocument, setUploadingDocument] = useState('');
-  const [uploadMessage, setUploadMessage] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
   const [profileTab, setProfileTab] = useState('general');
-  const [documentEditState, setDocumentEditState] = useState({});
   const [previewDocument, setPreviewDocument] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -146,7 +144,12 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
     return value ? `[${value}]` : null;
   };
 
-  const fullName = mother.name || `${mother.firstName || ''} ${mother.middleName || ''} ${mother.lastName || ''} ${mother.suffix || ''}`.replace(/\s+/g, ' ').trim();
+  const fullName = [
+    mother.firstName || mother.first_name,
+    mother.middleName || mother.middle_name,
+    mother.lastName || mother.last_name,
+    mother.suffix,
+  ].filter(Boolean).join(' ');
   const motherId = mother.motherId || mother.id || 'M-unknown';
   const age = calculateAge(mother.dob);
 
@@ -232,44 +235,6 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
     tt5Date: vaccineRows[4].date,
   };
 
-  const uploadDocument = async (field, file) => {
-    if (!file) return;
-    setUploadingDocument(field);
-    setUploadMessage('');
-    try {
-      const response = await apiUploadMotherDocuments(motherId, { [field]: file });
-      if (response?.mother) {
-        const nextMother = { ...(motherRecord || mother), ...response.mother };
-        setMotherRecord(nextMother);
-        onMotherUpdated?.(nextMother);
-      }
-      setUploadMessage('Document uploaded successfully.');
-    } catch (error) {
-      setUploadMessage(error.message || 'Unable to upload document.');
-    } finally {
-      setUploadingDocument('');
-    }
-  };
-
-  const removeDocument = async (field) => {
-    if (!field) return;
-    setUploadingDocument(field);
-    setUploadMessage('');
-    try {
-      const response = await apiDeleteMotherDocument(motherId, field);
-      if (response?.mother) {
-        const nextMother = { ...(motherRecord || mother), ...response.mother };
-        setMotherRecord(nextMother);
-        onMotherUpdated?.(nextMother);
-      }
-      setUploadMessage('Document removed successfully.');
-    } catch (error) {
-      setUploadMessage(error.message || 'Unable to remove document.');
-    } finally {
-      setUploadingDocument('');
-    }
-  };
-
   const deleteMother = async () => {
     if (deleting) return;
     setDeleting(true);
@@ -285,20 +250,6 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
     }
   };
 
-  const [documentMenuField, setDocumentMenuField] = useState(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (!documentMenuField) return;
-      const activeMenu = document.querySelector(`.document-upload-menu[data-field="${documentMenuField}"]`);
-      if (!activeMenu || activeMenu.contains(event.target)) return;
-      setDocumentMenuField(null);
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [documentMenuField]);
-
   const documentContent = (
     <section className="create-mother-category mother-detail-inline-documents">
       <h4 className="form-section-title">I.C DOCUMENTS</h4>
@@ -307,66 +258,16 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
           ['birthCertificate', "Mother's Birth Certificate", motherRecord.birthCertificateDocumentName, motherRecord.birthCertificateDocumentPath],
           ['consent', 'Program Consent Form', motherRecord.consentDocumentName, motherRecord.consentDocumentPath],
         ].map(([field, label, fileName, filePath]) => {
-          const editing = Boolean(documentEditState[field]);
-          const hasFile = Boolean(fileName && filePath);
-
           return (
             <div className="document-upload-field" key={field}>
               <div className="document-upload-header-row">
-                <label className="detail-form-label" htmlFor={`mother-document-${field}`}>{label}</label>
-                <div className="document-upload-menu-wrap">
-                  <button
-                    type="button"
-                    className="document-upload-menu-button"
-                    aria-label={`Document actions for ${label}`}
-                    aria-expanded={documentMenuField === field}
-                    onClick={() => setDocumentMenuField((current) => (current === field ? null : field))}
-                  >
-                    ⋯
-                  </button>
-                  {documentMenuField === field && (
-                    <div className="document-upload-menu" data-field={field} role="menu">
-                      {hasFile ? (
-                        <>
-                          <button type="button" role="menuitem" onClick={() => { setDocumentEditState((current) => ({ ...current, [field]: !current[field] })); setDocumentMenuField(null); }}>
-                            {editing ? 'Cancel edit' : 'Edit'}
-                          </button>
-                          <button type="button" role="menuitem" className="danger" onClick={() => { removeDocument(field); setDocumentMenuField(null); }} disabled={uploadingDocument === field}>
-                            Remove
-                          </button>
-                        </>
-                      ) : (
-                        <button type="button" role="menuitem" onClick={() => { setDocumentEditState((current) => ({ ...current, [field]: true })); setDocumentMenuField(null); }}>
-                          Upload file
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
+                <span className="detail-form-label">{label}</span>
               </div>
-              {(editing || !hasFile) && (
-                <input
-                  id={`mother-document-${field}`}
-                  type="file"
-                  accept=".pdf,.jpg,.jpeg,.png,.webp"
-                  onChange={(event) => {
-                    const selectedFile = event.target.files?.[0] || null;
-                    if (selectedFile) {
-                      uploadDocument(field, selectedFile);
-                    }
-                    event.target.value = '';
-                    setDocumentEditState((current) => ({ ...current, [field]: false }));
-                    setDocumentMenuField(null);
-                  }}
-                  disabled={uploadingDocument === field}
-                />
-              )}
               <DocumentPreview fileName={fileName} filePath={filePath} label={label} onPreviewOpen={(url, name, type) => setPreviewDocument({ url, name, type })} />
             </div>
           );
         })}
       </div>
-      {uploadMessage && <p className="document-upload-message" role="status">{uploadMessage}</p>}
     </section>
   );
 
@@ -377,8 +278,8 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
         breadcrumbs={[{ label: 'Beneficiaries', href: '/beneficiary' }, { label: 'Mother Profile' }]}
         actions={(
           <div className="mother-detail-actions">
-            {canManage && <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/mother/${motherId}/edit`, { state: { mother: selectedMother } })}>Edit</button>}
             {canManage && <button type="button" className="btn-danger" onClick={() => setShowDeleteModal(true)}>Delete</button>}
+            {canEdit && <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/mother/${motherId}/edit`, { state: { mother: selectedMother } })}>Edit</button>}
             <button type="button" className="btn-secondary" onClick={handleBack}>Back</button>
           </div>
         )}

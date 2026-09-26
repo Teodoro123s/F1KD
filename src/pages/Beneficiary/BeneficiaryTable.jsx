@@ -1,6 +1,6 @@
 import React from 'react';
-import { getMotherDocumentProgress } from '../../utils/motherProgress';
-import { getChildProfileProgress } from '../../utils/childProgress';
+import { getMotherDocumentProgress, getMotherMonitoringProgress } from '../../utils/motherProgress';
+import { getChildMonitoringProgress, getChildProfileProgress } from '../../utils/childProgress';
 
 export default function BeneficiaryTable({
   currentRows,
@@ -44,10 +44,11 @@ export default function BeneficiaryTable({
               </tr>
             ) : currentRows.length > 0 ? (
               currentRows.map((row) => {
-                const motherDocumentProgress = getMotherDocumentProgress(row.original || row);
-                const childProgress = getChildProfileProgress(row.original || row);
-
                 const original = row.original || row;
+                const motherDocumentProgress = getMotherDocumentProgress(original);
+                const motherMonitoringProgress = getMotherMonitoringProgress(original);
+                const childProgress = getChildProfileProgress(original);
+                const childMonitoringProgress = getChildMonitoringProgress(original);
                 const motherObj = communities.find((community) => (
                   community.name === row.community
                   || String(community.id) === String(original.community_id ?? original.communityId)
@@ -92,10 +93,10 @@ export default function BeneficiaryTable({
                               <span className="beneficiary-cell-name">{row.name}</span>
                               <div className="beneficiary-progress-wrapper">
                                 <div className="progress-bar" aria-hidden="true">
-                                  <div className="progress-bar-fill" style={{ width: `${motherDocumentProgress.percentage}%` }} />
+                                  <div className="progress-bar-fill" style={{ width: `${motherMonitoringProgress.percentage}%` }} />
                                 </div>
                               </div>
-                              <span className="beneficiary-cell-percent">{motherDocumentProgress.completed}/{motherDocumentProgress.total}</span>
+                              <span className="beneficiary-cell-percent">{motherMonitoringProgress.completed}/{motherMonitoringProgress.total}</span>
                             </div>
                             <div className="beneficiary-cell-line-2">
                               {assignmentDetails && <span className="muted">{assignmentDetails}</span>}
@@ -131,10 +132,10 @@ export default function BeneficiaryTable({
                               <span className="beneficiary-cell-name">{row.name}</span>
                               <div className="beneficiary-progress-wrapper">
                                 <div className="progress-bar" aria-hidden="true">
-                                  <div className="progress-bar-fill child" style={{ width: `${childProgress}%` }} />
+                                  <div className="progress-bar-fill child" style={{ width: `${childMonitoringProgress.percentage}%` }} />
                                 </div>
                               </div>
-                              <span className="beneficiary-cell-percent">{childProgress}%</span>
+                              <span className="beneficiary-cell-percent">{childMonitoringProgress.completed}/{childMonitoringProgress.total}</span>
                             </div>
                             <div className="beneficiary-cell-line-2">
                               {assignmentDetails && <span className="muted">{assignmentDetails}</span>}
@@ -172,10 +173,10 @@ export default function BeneficiaryTable({
                                 <span className="beneficiary-cell-name">{row.name}</span>
                                 <div className="beneficiary-progress-wrapper">
                                   <div className="progress-bar" aria-hidden="true">
-                                    <div className="progress-bar-fill" style={{ width: `${motherDocumentProgress.percentage}%` }} />
+                                    <div className="progress-bar-fill" style={{ width: `${motherMonitoringProgress.percentage}%` }} />
                                   </div>
                                 </div>
-                                <span className="beneficiary-cell-percent">{motherDocumentProgress.completed}/{motherDocumentProgress.total}</span>
+                                <span className="beneficiary-cell-percent">{motherMonitoringProgress.completed}/{motherMonitoringProgress.total}</span>
                               </div>
                               <div className="beneficiary-cell-line-2">
                                 {assignmentDetails && <span className="muted">{assignmentDetails}</span>}
@@ -206,10 +207,10 @@ export default function BeneficiaryTable({
                             <span className="beneficiary-cell-name">{row.name}</span>
                             <div className="beneficiary-progress-wrapper">
                               <div className="progress-bar" aria-hidden="true">
-                                <div className="progress-bar-fill child" style={{ width: `${childProgress}%` }} />
+                                <div className="progress-bar-fill child" style={{ width: `${childMonitoringProgress.percentage}%` }} />
                               </div>
                             </div>
-                            <span className="beneficiary-cell-percent">{childProgress}%</span>
+                            <span className="beneficiary-cell-percent">{childMonitoringProgress.completed}/{childMonitoringProgress.total}</span>
                           </div>
                           <div className="beneficiary-cell-line-2">
                             {assignmentDetails && <span className="muted">{assignmentDetails}</span>}

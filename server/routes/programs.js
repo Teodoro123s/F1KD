@@ -97,6 +97,9 @@ router.get('/', async (req, res) => {
 });
 
 router.post('/', async (req, res) => {
+  if (req.isCommunityOrganizer && !(Number(req.schoolId) > 0)) {
+    return res.status(403).json({ error: 'Assign this Community Organizer to a school before creating programs' });
+  }
   const program = cleanProgram(req.body);
   if (!program) return res.status(400).json({ error: 'Program name and provider are required' });
   try {
@@ -168,6 +171,17 @@ router.post('/:id/clusters', async (req, res) => {
       const type = String(scope.type || '').trim();
       const name = String(scope.name || '').trim();
       if (!type || !name) continue;
+      if (req.isCommunityOrganizer) {
+        const scopeQueries = {
+          School: ['SELECT id FROM communities WHERE id = ? AND name = ? LIMIT 1', [req.schoolId, name]],
+          Group: ['SELECT id FROM groups WHERE community_id = ? AND name = ? LIMIT 1', [req.schoolId, name]],
+          Batch: ['SELECT id FROM batches WHERE community_id = ? AND name = ? LIMIT 1', [req.schoolId, name]],
+        };
+        const query = scopeQueries[type];
+        if (!query) return res.status(403).json({ error: 'Community Organizers may only add scopes from their assigned school' });
+        const [matchingScopes] = await pool.query(...query);
+        if (!matchingScopes.length) return res.status(403).json({ error: 'Community Organizers may only add scopes from their assigned school' });
+      }
       await pool.query('INSERT IGNORE INTO program_clusters (program_id, scope_type, scope_name, beneficiaries) VALUES (?, ?, ?, ?)', [req.params.id, type, name, Number(scope.beneficiaries) || 0]);
     }
     res.status(201).json({ program: await getProgram(req.params.id) });

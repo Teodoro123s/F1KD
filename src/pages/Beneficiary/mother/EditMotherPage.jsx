@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { MotherFormFields } from './BeneficiaryMother';
 import { useMothers } from '../../../context/MothersContext';
-import { apiGetMother, apiUpdateMother } from '../../../api/mothers';
+import { apiGetMother, apiUpdateMother, apiUploadMotherDocuments } from '../../../api/mothers';
 import { formatDateForInput } from '../../../utils/dateFormat';
 import { capitalizeNameValue } from '../../../utils/nameFormat';
 import { getSummary } from '../../Community/communityService';
@@ -55,6 +55,7 @@ export default function EditMotherPage() {
   const { mothers, setMothers } = useMothers();
 
   const [form, setForm] = useState(() => (initialMother ? normalizeMotherForm(initialMother) : {}));
+  const [documentFiles, setDocumentFiles] = useState({ birthCertificate: null, consent: null });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
@@ -127,7 +128,11 @@ export default function EditMotherPage() {
     try {
       const motherId = id || form.id || form.motherId;
       const res = await apiUpdateMother(motherId, form);
-      const updated = res && res.mother ? res.mother : (res || form);
+      let updated = res && res.mother ? res.mother : (res || form);
+      if (documentFiles.birthCertificate || documentFiles.consent) {
+        const documentResponse = await apiUploadMotherDocuments(motherId, documentFiles);
+        if (documentResponse?.mother) updated = { ...updated, ...documentResponse.mother };
+      }
 
       // Update context: replace matching mother by id or motherId
       setMothers((prev) => prev.map((m) => {
@@ -137,7 +142,7 @@ export default function EditMotherPage() {
         return m;
       }));
 
-      notifyAction('Mother profile saved successfully.', 'success');
+      notifyAction('Mother profile updated successfully.', 'success');
 
       // navigate back to the detail view and pass updated mother
       navigate(-1, { state: { updatedMother: updated } });
@@ -213,6 +218,8 @@ export default function EditMotherPage() {
                 communities={communityOptions.communities}
                 groups={communityOptions.groups}
                 batches={communityOptions.batches}
+                documentFiles={documentFiles}
+                setDocumentFiles={setDocumentFiles}
                 autoCalculate={false}
                 readOnly={false}
               />

@@ -687,7 +687,6 @@ export function MotherFormFields({
                               className="form-input table-input"
                               placeholder={slashDateInput ? 'yyyy/mm/dd' : undefined}
                               value={getDateDisplayValue(`tt${num}Date`, form[`tt${num}Date`] || '')}
-                              required
                               onChange={(e) => updateDateValue(`tt${num}Date`, e.target.value)}
                               onBlur={() => commitDateValue(`tt${num}Date`, getDateDisplayValue(`tt${num}Date`, form[`tt${num}Date`] || ''))}
                               autoComplete="off"
@@ -715,7 +714,6 @@ export function MotherFormFields({
                             type="text"
                             className="form-input table-input"
                             placeholder="Remarks..."
-                            required
                             value={form[`tt${num}Remarks`] || ''}
                             onChange={(e) => setForm((prev) => ({ ...prev, [`tt${num}Remarks`]: e.target.value }))}
                           />

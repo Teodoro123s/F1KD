@@ -138,13 +138,41 @@ export default function CreateMotherPage({
 
   const handleCreateCommunity = async (e) => {
     e.preventDefault();
-    if (!communityForm.firstName.trim() || !communityForm.lastName.trim()) {
-      notifyAction('Please complete the required mother information before saving.', 'error');
-      return;
-    }
-    if (!communityForm.province || !communityForm.city || !communityForm.barangay) {
-      notifyAction('Province, City / Municipality, and Barangay are required.', 'error');
-      setCreateActiveTab('general');
+    const requiredFieldsByStep = [
+      {
+        tab: 'general',
+        label: 'General',
+        fields: [
+          'firstName', 'middleName', 'lastName', 'maidenSurname', 'dob', 'contactNumber',
+          'province', 'city', 'barangay', 'community', 'groupId', 'batchId',
+          'emergencyName', 'emergencyContact', 'emergencyRelationship',
+        ],
+      },
+      {
+        tab: 'prenatal',
+        label: 'Prenatal/OB',
+        fields: [
+          'lmpDate', 'eddDate', 'prenatalRegDate', 'trimester', 'gestationalAge',
+          'prenatalWeight', 'prenatalBp', 'prenatalHeight', 'gravida', 'abortion', 'stillbirth',
+        ],
+      },
+      {
+        tab: 'medical_dental',
+        label: 'Medical & Dental',
+        fields: [
+          'otherMedicalHistory', 'dentalCheckupDate', 'dentalFacility', 'dentistInCharge',
+          'communityDentist', 'dentistLicense', 'dentistContact', 'teethCount',
+          'dentalFindings', 'dentalRemarks',
+        ],
+      },
+    ];
+    const incompleteStep = requiredFieldsByStep.find(({ fields }) =>
+      fields.some((field) => !String(communityForm[field] ?? '').trim())
+    );
+
+    if (incompleteStep) {
+      setCreateActiveTab(incompleteStep.tab);
+      notifyAction(`Complete the required fields in ${incompleteStep.label} before creating.`, 'error');
       return;
     }
     const initialCheckups = getInitialCheckups(
@@ -312,6 +340,7 @@ export default function CreateMotherPage({
         setMothers((prev) => [{ ...newCommunity, ...mother }, ...prev]);
       }
       localStorage.removeItem(MOTHER_DRAFT_KEY);
+      notifyAction('Mother created successfully.');
       navigate('/beneficiary');
     } catch (error) {
       console.error('[CreateMotherPage] Failed to create mother:', error);

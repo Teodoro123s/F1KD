@@ -79,7 +79,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
       return (
         <div className="form-group">
           <label className="form-label">{label}</label>
-          <div className="form-readonly-value">{isDate ? formatDateForDisplay(value) : value || '-'}</div>
+          <div className="form-readonly-value">{isDate ? formatDateForDisplay(value) : value === '' || value === null || value === undefined ? '-' : value}</div>
         </div>
       );
     }
@@ -182,10 +182,15 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
     const value = form[name] ?? '';
 
     if (readOnly) {
+      const selectedOption = options.find((option) => String(option.value ?? option) === String(value));
+      const displayValue = selectedOption
+        ? (selectedOption.label ?? selectedOption)
+        : value || '-';
+
       return (
         <div className="form-group">
           <label className="form-label">{label}</label>
-          <div className="form-readonly-value">{value || '-'}</div>
+          <div className="form-readonly-value">{displayValue}</div>
         </div>
       );
     }

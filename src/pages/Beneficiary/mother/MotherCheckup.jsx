@@ -486,12 +486,13 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
 
                   <div className="form-group full-width">
                     <label className="checkup-field-label">Facility Type</label>
-                    <div className="facility-btn-group">
+                    <div className="facility-type-buttons" role="group" aria-label="Facility type">
                       {['Govt', 'Private', 'Partner Org', 'Others'].map((type) => (
                         <button
                           type="button"
                           key={type}
-                          className={`facility-btn ${facilityType === type ? 'active' : ''}`}
+                          className={`facility-type-btn ${facilityType === type ? 'active' : ''}`}
+                          aria-pressed={facilityType === type}
                           onClick={() => updateField('facilityType')(type)}
                         >
                           {type}

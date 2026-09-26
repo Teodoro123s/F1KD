@@ -316,6 +316,12 @@
   color: #166534;
 }
 
+.checkup-save-message-error {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #b42318;
+}
+
 .checkup-entry-view .mother-checkup-page {
   padding: 0 1.5rem 1.5rem;
 }

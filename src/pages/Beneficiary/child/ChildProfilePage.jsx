@@ -108,12 +108,12 @@ const normalizeChild = (child = {}) => ({
   motherId: child.motherId || child.mother_id || '',
   motherName: child.motherName || [child.mother_first_name, child.mother_last_name].filter(Boolean).join(' '),
   birthDate: child.birthDate || child.birth_date || '',
-  birthWeight: child.birthWeight || child.birth_weight || '',
-  birthLength: child.birthLength || child.birth_length || '',
+  birthWeight: child.birthWeight ?? child.birth_weight ?? '',
+  birthLength: child.birthLength ?? child.birth_length ?? '',
   gender: child.gender || '',
   bloodType: child.bloodType || child.blood_type || '',
-  noOfChildDelivered: child.noOfChildDelivered || child.no_of_child_delivered || '',
-  multipleBirthType: child.multipleBirthType || child.multiple_birth_type || '',
+  noOfChildDelivered: child.noOfChildDelivered ?? child.no_of_child_delivered ?? '',
+  multipleBirthType: child.multipleBirthType ?? child.multiple_birth_type ?? '',
   exclusiveBreastfeeding: child.exclusiveBreastfeeding || child.exclusive_breastfeeding || '',
   expandedNewbornScreening: child.expandedNewbornScreening || child.expanded_newborn_screening || '',
   expandedNewbornScreeningResult: child.expandedNewbornScreeningResult || child.expanded_newborn_screening_result || '',
@@ -121,7 +121,7 @@ const normalizeChild = (child = {}) => ({
     healthStatus: child.healthStatus || child.health_status || 'Healthy',
     birthPlace: child.birthPlace || child.birth_place || '',
     birthAttendant: child.birthAttendant || child.birth_attendant || '',
-    apgarScore: child.apgarScore || child.apgar_score || '',
+    apgarScore: child.apgarScore ?? child.apgar_score ?? '',
     feedingType: child.feedingType || child.feeding_type || '',
     nutritionNotes: child.nutritionNotes || child.nutrition_notes || '',
     address: child.address || '',
@@ -322,8 +322,8 @@ export default function ChildProfilePage() {
 
   const childName = selectedChild?.name || `${selectedChild?.firstName || ''} ${selectedChild?.middleName || ''} ${selectedChild?.lastName || ''} ${selectedChild?.suffix || ''}`.replace(/\s+/g, ' ').trim();
   const childBirthDate = formatDateForDisplay(selectedChild?.birthDate || selectedChild?.birth_date);
-  const childWeight = selectedChild?.birthWeight || selectedChild?.birth_weight || '—';
-  const childHeight = selectedChild?.birthLength || selectedChild?.birth_length || '—';
+  const childWeight = selectedChild?.birthWeight ?? selectedChild?.birth_weight ?? '—';
+  const childHeight = selectedChild?.birthLength ?? selectedChild?.birth_length ?? '—';
   const childBmi = getBmiValue(childWeight, childHeight);
   const childBmiStatus = getBmiStatus(childWeight, childHeight);
   const vaccineRows = [
@@ -339,11 +339,11 @@ export default function ChildProfilePage() {
   const detailForm = {
     ...(selectedChild || {}),
     birthDate: formatDateForDisplay(selectedChild?.birthDate || selectedChild?.birth_date),
-    birthWeight: selectedChild?.birthWeight || selectedChild?.birth_weight || '',
-    birthLength: selectedChild?.birthLength || selectedChild?.birth_length || '',
+    birthWeight: selectedChild?.birthWeight ?? selectedChild?.birth_weight ?? '',
+    birthLength: selectedChild?.birthLength ?? selectedChild?.birth_length ?? '',
     deliveryType: selectedChild?.deliveryType || selectedChild?.delivery_type || '',
     birthAttendant: selectedChild?.birthAttendant || selectedChild?.birth_attendant || '',
-    apgarScore: selectedChild?.apgarScore || selectedChild?.apgar_score || '',
+    apgarScore: selectedChild?.apgarScore ?? selectedChild?.apgar_score ?? '',
     feedingType: selectedChild?.feedingType || selectedChild?.feeding_type || '',
     nutritionNotes: selectedChild?.nutritionNotes || selectedChild?.nutrition_notes || '',
     medicalConditions: selectedChild?.medicalConditions || {},

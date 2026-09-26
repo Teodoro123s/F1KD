@@ -34,7 +34,9 @@ export default function ProgramPage() {
   const { programId, clusterType, clusterName } = useParams();
   const { currentUser } = useAuth();
   const canManagePrograms = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]);
-  const canCreatePrograms = canManagePrograms;
+  const isCommunityOrganizer = ['community organizer', 'communityorganizer']
+    .includes(String(currentUser?.role || '').trim().toLowerCase());
+  const canCreatePrograms = canManagePrograms || isCommunityOrganizer;
   const canMonitorPrograms = canCreatePrograms || hasRole(currentUser?.role, [ROLES.PARTNER]) || isHealthWorkerRole(currentUser?.role);
   const [activeTab, setActiveTab] = useState("Active");
   const [query, setQuery] = useState("");
@@ -585,7 +587,7 @@ export default function ProgramPage() {
       notifyAction(message, 'error');
     });
   };
-  const renderActionMenu = (menuId, menuProgram = selectedProgram) => canCreatePrograms && (
+  const renderActionMenu = (menuId, menuProgram = selectedProgram) => canManagePrograms && (
     <div className="program-action-menu-wrap" onClick={(event) => event.stopPropagation()}>
       <button type="button" className="program-more-button" aria-label="Program actions" aria-haspopup="true" aria-expanded={activeActionMenu === menuId} onClick={(event) => { event.stopPropagation(); setActionProgram(menuProgram); setActiveActionMenu(activeActionMenu === menuId ? null : menuId); }}><MoreVerticalIcon /></button>
       {activeActionMenu === menuId && <div className="actions-dropdown program-actions-dropdown" role="menu">{String(menuProgram?.status || '').trim().toLowerCase() !== 'ended' && <button type="button" className="actions-dropdown-item" onClick={editProgram} role="menuitem">Edit</button>}{activeTab === 'Ended' ? <button type="button" className="actions-dropdown-item" onClick={backToActivePrograms} role="menuitem">Back to active programs</button> : <button type="button" className="actions-dropdown-item" onClick={endProgram} role="menuitem">End program</button>}<button type="button" className="actions-dropdown-item delete" onClick={deleteProgram} role="menuitem">Delete</button></div>}

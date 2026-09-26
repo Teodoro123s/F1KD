@@ -204,3 +204,85 @@ test('authorizeOperational does not allow community organizers to create schools
   assert.equal(called, false);
   assert.equal(res.code, 403);
 });
+
+test('authorizeOperational allows scoped admin and partner mother updates and document uploads', () => {
+  const requests = [
+    { method: 'PUT', path: '/MTH-1', role: 'Admin', schoolId: null, groupId: null },
+    { method: 'PUT', path: '/MTH-1', role: 'Community Organizer', school_id: 7, schoolId: 7, groupId: null },
+    { method: 'PUT', path: '/MTH-1', role: 'Health worker', school_id: 7, group_id: 15, schoolId: 7, groupId: 15 },
+    { method: 'POST', path: '/MTH-1/checkups', role: 'Admin', schoolId: null, groupId: null },
+    { method: 'POST', path: '/MTH-1/checkups', role: 'Health worker', school_id: 7, group_id: 15, schoolId: 7, groupId: 15 },
+    { method: 'POST', path: '/MTH-1/documents', role: 'Admin', schoolId: null, groupId: null },
+    { method: 'POST', path: '/MTH-1/documents', role: 'Health worker', school_id: 7, group_id: 15, schoolId: 7, groupId: 15 },
+  ];
+
+  for (const request of requests) {
+    let called = false;
+    const req = {
+      method: request.method,
+      baseUrl: '/api/mothers',
+      path: request.path,
+      user: {
+        role: request.role,
+        school_id: request.school_id,
+        group_id: request.group_id,
+      },
+    };
+    const res = {
+      status(code) {
+        this.code = code;
+        return this;
+      },
+      json(payload) {
+        this.payload = payload;
+        return this;
+      },
+    };
+
+    authorizeOperational(req, res, () => {
+      called = true;
+    });
+
+    assert.equal(called, true, `${request.role} should be allowed to ${request.method} ${request.path}`);
+    assert.equal(req.schoolId ?? null, request.schoolId);
+    assert.equal(req.groupId ?? null, request.groupId);
+    assert.equal(res.code, undefined);
+  }
+});
+
+test('authorizeOperational allows community organizers to create programs and add clusters only', () => {
+  const requests = [
+    { method: 'POST', path: '/', role: 'Community Organizer', allowed: true },
+    { method: 'POST', path: '/12/clusters', role: 'communityorganizer', allowed: true },
+    { method: 'PUT', path: '/12', role: 'Community Organizer', allowed: false },
+    { method: 'DELETE', path: '/12', role: 'Community Organizer', allowed: false },
+    { method: 'POST', path: '/', role: 'Health worker', allowed: false },
+  ];
+
+  for (const request of requests) {
+    let called = false;
+    const req = {
+      method: request.method,
+      baseUrl: '/api/programs',
+      path: request.path,
+      user: { role: request.role, school_id: 7 },
+    };
+    const res = {
+      status(code) {
+        this.code = code;
+        return this;
+      },
+      json(payload) {
+        this.payload = payload;
+        return this;
+      },
+    };
+
+    authorizeOperational(req, res, () => {
+      called = true;
+    });
+
+    assert.equal(called, request.allowed, `${request.role} ${request.method} ${request.path}`);
+    assert.equal(res.code, request.allowed ? undefined : 403);
+  }
+});

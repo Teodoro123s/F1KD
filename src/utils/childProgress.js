@@ -27,3 +27,13 @@ export function getChildProfileProgress(child = {}) {
 
   return Math.round((completedFields / 18) * 100);
 }
+
+export function getChildMonitoringProgress(child = {}) {
+  const completed = Array.isArray(child.completedWeeks) ? child.completedWeeks.length : 0;
+  const total = 24;
+  return {
+    completed,
+    total,
+    percentage: Math.min(100, Math.round((completed / total) * 100)),
+  };
+}

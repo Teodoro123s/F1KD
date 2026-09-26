@@ -188,9 +188,11 @@ router.post('/:id/documents', documentUpload.fields([
 ]), async (req, res) => {
   try {
     const { id } = req.params;
+    const scopeSql = req.groupId ? ' AND group_id = ?' : req.schoolId ? ' AND community_id = ?' : '';
+    const scopeParams = req.groupId ? [req.groupId] : req.schoolId ? [req.schoolId] : [];
     const [motherRows] = await pool.query(
-      'SELECT id FROM mothers WHERE id = ? OR mother_code = ? OR mother_external_id = ? LIMIT 1',
-      [Number(id) || null, id, id]
+      `SELECT id FROM mothers WHERE (id = ? OR mother_code = ? OR mother_external_id = ?)${scopeSql} LIMIT 1`,
+      [Number(id) || null, id, id, ...scopeParams]
     );
     if (!motherRows.length) return res.status(404).json({ error: 'Mother not found' });
 
@@ -579,6 +581,26 @@ router.put('/:id', async (req, res) => {
 
     const current = existing[0];
     const motherDbId = current.id;
+    if (req.schoolId) {
+      const nextGroupId = req.groupId || b.groupId || b.group_id || current.group_id;
+      const nextBatchId = b.batchId ?? b.batch_id ?? current.batch_id;
+
+      if (nextGroupId) {
+        const [groupRows] = await pool.query(
+          'SELECT id FROM groups WHERE id = ? AND community_id = ? LIMIT 1',
+          [nextGroupId, req.schoolId],
+        );
+        if (!groupRows.length) return res.status(403).json({ error: 'You can only assign mothers to groups in your school' });
+      }
+
+      if (nextBatchId) {
+        const [batchRows] = await pool.query(
+          'SELECT id FROM batches WHERE id = ? AND community_id = ? LIMIT 1',
+          [nextBatchId, req.schoolId],
+        );
+        if (!batchRows.length) return res.status(403).json({ error: 'You can only assign mothers to batches in your school' });
+      }
+    }
     const optionalValue = (value, fallback) => (value === undefined ? fallback : value ?? '');
     const update = {
       first_name: firstNonEmpty(b.firstName, b.first_name, current.first_name),

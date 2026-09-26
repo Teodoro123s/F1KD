@@ -72,6 +72,8 @@ export default function CreateChildPage({
   const motherFromState = location.state?.mother || null;
   const { mothers, setMothers } = useMothers();
   const [groupForm, setGroupForm] = useState(() => loadChildDraft(emptyGroupForm()));
+  const [pendingChild, setPendingChild] = useState(null);
+  const [creating, setCreating] = useState(false);
   const [selectedMotherId, setSelectedMotherId] = useState(() => {
     try { return motherFromState?.id || motherFromState?.motherId || JSON.parse(localStorage.getItem(CHILD_DRAFT_KEY) || 'null')?.selectedMotherId || ''; } catch (error) { return motherFromState?.id || motherFromState?.motherId || ''; }
   });
@@ -180,14 +182,20 @@ export default function CreateChildPage({
       mmrRemarks: groupForm.mmrRemarks || null,
     };
 
+    setPendingChild({ payload, fullName });
+  };
+
+  const confirmCreateChild = async () => {
+    if (!pendingChild || creating) return;
+    setCreating(true);
+
     try {
-      // call backend to create child
       const { apiCreateChild } = await import('../../../api/children');
-      const { child } = await apiCreateChild(payload);
+      const { child } = await apiCreateChild(pendingChild.payload);
 
       const newGroup = {
         id: child.id || `G-${Date.now()}`,
-        name: fullName,
+        name: pendingChild.fullName,
         firstName: child.first_name || child.firstName || groupForm.firstName.trim(),
         middleName: child.middle_name || child.middleName || groupForm.middleName.trim(),
         lastName: child.last_name || child.lastName || groupForm.lastName.trim(),
@@ -232,6 +240,9 @@ export default function CreateChildPage({
 
       // add to groups list
       setGroups((prev) => [newGroup, ...prev]);
+      notifyAction('Child created successfully.');
+      localStorage.removeItem(CHILD_DRAFT_KEY);
+      setPendingChild(null);
 
       // if we were navigated here from a mother, append the child into that mother's children array
       if (motherFromState && typeof setMothers === 'function') {
@@ -241,15 +252,15 @@ export default function CreateChildPage({
         )));
         // navigate to the new child's detail page and include the updated mother in state so the child shows immediately
         navigate(`/beneficiary/child/${newGroup.id}`, { state: { mother: updatedMother, child: newGroup, mothers: undefined } });
-        localStorage.removeItem(CHILD_DRAFT_KEY);
         return;
       }
 
-      localStorage.removeItem(CHILD_DRAFT_KEY);
       navigate('/beneficiary');
     } catch (err) {
       console.error('Failed to create child', err);
       notifyAction(err?.message || 'Unable to create child. Please try again.', 'error');
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -367,6 +378,25 @@ export default function CreateChildPage({
           </div>
         </form>
       </div>
+      {pendingChild && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={(event) => {
+          if (event.target === event.currentTarget && !creating) setPendingChild(null);
+        }}>
+          <div className="modal-content signout-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="create-child-confirm-title" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="modal-header-section">
+              <h3 id="create-child-confirm-title">Create child record?</h3>
+              <button type="button" className="btn-close-modal" onClick={() => setPendingChild(null)} aria-label="Close confirmation" disabled={creating}>✕</button>
+            </div>
+            <div className="modal-body">
+              <p>Create a child record for <strong>{pendingChild.fullName}</strong>?</p>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn-secondary" onClick={() => setPendingChild(null)} disabled={creating}>Cancel</button>
+              <button type="button" className="btn-primary" onClick={confirmCreateChild} disabled={creating}>{creating ? 'Creating...' : 'Confirm and create'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
