@@ -925,6 +925,8 @@
 .progress-report-config-header h1 { font-size: clamp(1.5rem, 2vw, 2rem); line-height: 1.1; }
 .progress-report-config-header p, .progress-report-results-header p { margin: 0.35rem 0 0; color: #64748b; }
 .progress-report-config-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.8rem; margin-top: 1.25rem; }
+.progress-report-config-grid.organizer-report-config-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.progress-report-assigned-school { margin: 1rem 0 0; color: #475569; font-size: 0.9rem; }
 .progress-report-config-grid label, .progress-report-search-field { display: grid; gap: 0.35rem; color: #334155; font-size: 0.82rem; font-weight: 800; }
 .progress-report-config-grid select, .progress-report-search-field input { min-height: 42px; padding: 0.55rem 0.7rem; border: 1px solid #cedae8; border-radius: 10px; background: #fff; color: #0f172a; font: inherit; font-weight: 400; box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.02); }
 .progress-report-config-grid select:disabled { background: #f8fafc; color: #94a3b8; }
@@ -1086,6 +1088,7 @@
 @media (max-width: 720px) {
   .progress-report-config-header, .progress-report-results-header, .progress-report-config-row { align-items: stretch; flex-direction: column; }
   .progress-report-config-grid, .progress-report-kpis, .progress-report-fields-grid { grid-template-columns: 1fr; }
+  .progress-report-config-grid.organizer-report-config-grid { grid-template-columns: 1fr; }
   .progress-report-step-title-row { align-items: stretch; flex-direction: column; }
   .progress-report-config-row fieldset { flex-wrap: wrap; }
   .progress-report-config-header .primary-btn, .progress-report-config-row .secondary-btn { width: 100%; }

@@ -286,3 +286,47 @@ test('authorizeOperational allows community organizers to create programs and ad
     assert.equal(res.code, request.allowed ? undefined : 403);
   }
 });
+
+test('authorizeOperational allows scoped admin and partner users to save child checkups only', () => {
+  const requests = [
+    { method: 'POST', path: '/C-1/checkups', role: 'Community Organizer', school_id: 7, schoolId: 7, groupId: null, allowed: true },
+    { method: 'POST', path: '/C-1/checkups', role: 'Health worker', school_id: 7, group_id: 15, schoolId: 7, groupId: 15, allowed: true },
+    { method: 'POST', path: '/C-1/checkups', role: 'Admin', schoolId: null, groupId: null, allowed: true },
+    { method: 'PUT', path: '/C-1', role: 'Community Organizer', school_id: 7, schoolId: 7, groupId: null, allowed: false },
+  ];
+
+  for (const request of requests) {
+    let called = false;
+    const req = {
+      method: request.method,
+      baseUrl: '/api/children',
+      path: request.path,
+      user: {
+        role: request.role,
+        school_id: request.school_id,
+        group_id: request.group_id,
+      },
+    };
+    const res = {
+      status(code) {
+        this.code = code;
+        return this;
+      },
+      json(payload) {
+        this.payload = payload;
+        return this;
+      },
+    };
+
+    authorizeOperational(req, res, () => {
+      called = true;
+    });
+
+    assert.equal(called, request.allowed, `${request.role} ${request.method} ${request.path}`);
+    if (request.allowed) {
+      assert.equal(req.schoolId ?? null, request.schoolId);
+      assert.equal(req.groupId ?? null, request.groupId);
+    }
+    assert.equal(res.code, request.allowed ? undefined : 403);
+  }
+});

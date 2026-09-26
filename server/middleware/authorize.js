@@ -74,12 +74,16 @@ function authorizeOperational(req, res, next) {
       (req.method === 'PUT' && /^\/[^/]+\/?$/.test(req.path))
       || (req.method === 'POST' && /^\/[^/]+\/(documents|checkups)\/?$/.test(req.path))
     );
+  const isChildCheckupUpdate = ['admin', 'partner'].includes(userRole)
+    && req.baseUrl === '/api/children'
+    && req.method === 'POST'
+    && /^\/[^/]+\/checkups\/?$/.test(req.path);
   const isCommunityOrganizerProgramCreate = userRole === 'partner'
     && isCommunityOrganizer
     && req.baseUrl === '/api/programs'
     && req.method === 'POST'
     && (req.path === '/' || /^\/[^/]+\/clusters\/?$/.test(req.path));
-  if (userRole !== 'super_admin' && !['GET', 'HEAD', 'OPTIONS'].includes(req.method) && !isCommunityOrganizerCreate && !isBeneficiaryUpdate && !isCommunityOrganizerProgramCreate) {
+  if (userRole !== 'super_admin' && !['GET', 'HEAD', 'OPTIONS'].includes(req.method) && !isCommunityOrganizerCreate && !isBeneficiaryUpdate && !isChildCheckupUpdate && !isCommunityOrganizerProgramCreate) {
     return permissionResponse(res, 'Admin and Partner accounts are read-only');
   }
   req.isHealthWorker = isHealthWorkerRole(req.user.role);

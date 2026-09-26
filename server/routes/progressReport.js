@@ -1,5 +1,6 @@
 const express = require('express');
 const pool = require('../db');
+const { getWhoGrowthStandards } = require('../services/whoGrowthStandards');
 
 const router = express.Router();
 
@@ -16,81 +17,6 @@ const getBmiInterpretation = (value) => {
   if (bmi < 25) return 'Normal screening range';
   if (bmi < 30) return 'Overweight screening range';
   return 'Obese screening range';
-};
-
-const WHO_AGE_REFERENCE = {
-  months: [0, 3, 6, 9, 12, 24],
-  weight: {
-    male: [3.3, 5.7, 7.9, 9.2, 10.2, 12.2],
-    female: [3.2, 5.2, 7.3, 8.6, 9.5, 11.5],
-  },
-  length: {
-    male: [50.0, 61.4, 67.6, 72.0, 75.7, 87.1],
-    female: [49.1, 59.8, 65.7, 70.1, 74.0, 85.7],
-  },
-};
-const WHO_WEIGHT_LENGTH_REFERENCE = {
-  lengths: [45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100],
-  male: [2.5, 3.3, 4.3, 5.4, 6.5, 7.6, 8.8, 10.0, 11.2, 12.4, 13.6, 14.8],
-  female: [2.4, 3.2, 4.1, 5.1, 6.1, 7.2, 8.3, 9.4, 10.5, 11.7, 12.8, 14.0],
-};
-
-const getAgeInMonths = (birthDate, measurementDate) => {
-  if (!birthDate || !measurementDate) return null;
-  const birth = new Date(birthDate);
-  const measurement = new Date(measurementDate);
-  if (Number.isNaN(birth.getTime()) || Number.isNaN(measurement.getTime()) || birth > measurement) return null;
-  return Math.max(0, (measurement.getFullYear() - birth.getFullYear()) * 12
-    + measurement.getMonth() - birth.getMonth() - (measurement.getDate() < birth.getDate() ? 1 : 0));
-};
-
-const getAgeReferenceValue = (values, ageInMonths) => {
-  const months = WHO_AGE_REFERENCE.months;
-  const boundedAge = Math.max(months[0], Math.min(months[months.length - 1], ageInMonths));
-  const upperIndex = months.findIndex((month) => month > boundedAge);
-  const lowerIndex = upperIndex === -1 ? months.length - 2 : Math.max(0, upperIndex - 1);
-  const fraction = (boundedAge - months[lowerIndex]) / (months[lowerIndex + 1] - months[lowerIndex]);
-  return values[lowerIndex] + (values[lowerIndex + 1] - values[lowerIndex]) * fraction;
-};
-
-const interpretAgeMeasure = (value, referenceValues, ageInMonths, gender) => {
-  const numericValue = Number(value);
-  if (!Number.isFinite(numericValue) || ageInMonths === null) return '';
-  const sex = String(gender || '').toLowerCase() === 'female' ? 'female' : 'male';
-  const median = getAgeReferenceValue(referenceValues[sex], ageInMonths);
-  const zScore = (numericValue - median) / (median * (referenceValues === WHO_AGE_REFERENCE.length ? 0.04 : 0.15));
-  if (zScore < -3) return 'Severely below expected';
-  if (zScore < -2) return 'Below expected';
-  if (zScore > 2) return 'Above expected';
-  return 'Within expected range';
-};
-
-const interpretWeightForLength = (weight, length, gender) => {
-  const numericWeight = Number(weight);
-  const numericLength = Number(length);
-  const lengths = WHO_WEIGHT_LENGTH_REFERENCE.lengths;
-  if (!Number.isFinite(numericWeight) || !Number.isFinite(numericLength) || numericWeight <= 0
-    || numericLength < lengths[0] || numericLength > lengths[lengths.length - 1]) return 'Enter valid weight and length';
-  const reference = WHO_WEIGHT_LENGTH_REFERENCE[String(gender || '').toLowerCase()] || WHO_WEIGHT_LENGTH_REFERENCE.male;
-  const upperIndex = lengths.findIndex((value) => value > numericLength);
-  const lowerIndex = upperIndex === -1 ? lengths.length - 2 : Math.max(0, upperIndex - 1);
-  const fraction = (numericLength - lengths[lowerIndex]) / (lengths[lowerIndex + 1] - lengths[lowerIndex]);
-  const median = reference[lowerIndex] + (reference[lowerIndex + 1] - reference[lowerIndex]) * fraction;
-  const zScore = (numericWeight - median) / (median * 0.15);
-  if (zScore < -3) return 'Severely wasted';
-  if (zScore < -2) return 'Wasted';
-  if (zScore > 3) return 'Obese';
-  if (zScore > 2) return 'Overweight';
-  return 'Normal';
-};
-
-const getChildGrowthInterpretations = (weight, height, gender, birthDate, measurementDate) => {
-  const ageInMonths = getAgeInMonths(birthDate, measurementDate);
-  return {
-    weightForLengthInterpretation: interpretWeightForLength(weight, height, gender),
-    weightForAgeInterpretation: interpretAgeMeasure(weight, WHO_AGE_REFERENCE.weight, ageInMonths, gender),
-    lengthForAgeInterpretation: interpretAgeMeasure(height, WHO_AGE_REFERENCE.length, ageInMonths, gender),
-  };
 };
 
 const parseParams = (query, scope = {}) => ({
@@ -332,6 +258,7 @@ router.get('/', async (req, res) => {
          ORDER BY cc.visit_date, cc.id`,
         childIds,
       );
+      const calculateWhoGrowthScores = await getWhoGrowthStandards();
       const seriesByChild = new Map();
       checkupRows.forEach((checkup) => {
         const series = seriesByChild.get(checkup.child_id) || [];
@@ -345,7 +272,13 @@ router.get('/', async (req, res) => {
           weight: Number.isFinite(weight) && weight > 0 ? weight : null,
           height: Number.isFinite(height) && height > 0 ? height : null,
           bmi: Number.isFinite(weight) && weight > 0 && Number.isFinite(height) && height > 0 ? Number((weight / ((height / 100) ** 2)).toFixed(1)) : null,
-          ...getChildGrowthInterpretations(weight, height, checkup.gender, checkup.birth_date, checkup.visit_date),
+          ...calculateWhoGrowthScores({
+            weight,
+            lengthHeight: height,
+            sex: checkup.gender,
+            birthDate: checkup.birth_date,
+            measurementDate: checkup.visit_date,
+          }),
         });
         seriesByChild.set(checkup.child_id, series);
       });
@@ -355,6 +288,9 @@ router.get('/', async (req, res) => {
         row.weightForLengthInterpretation = latestPoint?.weightForLengthInterpretation || '';
         row.weightForAgeInterpretation = latestPoint?.weightForAgeInterpretation || '';
         row.lengthForAgeInterpretation = latestPoint?.lengthForAgeInterpretation || '';
+        row.weightForLengthZScore = latestPoint?.weightForLengthZScore ?? '';
+        row.weightForAgeZScore = latestPoint?.weightForAgeZScore ?? '';
+        row.lengthForAgeZScore = latestPoint?.lengthForAgeZScore ?? '';
       });
     }
     const motherIds = normalizedRows.map((row) => row.motherId).filter(Boolean);

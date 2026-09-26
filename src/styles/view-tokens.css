@@ -467,7 +467,7 @@
 .view-content .selected-mother-bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   padding: 20px 24px;
   margin: 0 0 16px;
 }
@@ -475,6 +475,7 @@
 .view-content .selected-record-actions {
   display: flex;
   gap: 12px;
+  margin-left: auto;
 }
 
 .view-content .monitoring-list-container .monitoring-progress {

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { formatDateForDisplay, formatDateForInput } from '../../utils/dateFormat';
+import { calculateWhoGrowthScores } from '../../utils/whoGrowthStandards';
 import ConfirmModal from '../UserManagement/ConfirmModal';
 import { notifyAction } from '../../components/ActionFeedback';
 
@@ -27,9 +28,7 @@ function getChildBirthDate(child) {
 }
 
 function formatDate(value) {
-  if (!value) return '';
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? '' : date.toISOString().slice(0, 10);
+  return formatDateForInput(value);
 }
 
 function formatDateForPayload(value) {
@@ -76,24 +75,6 @@ function calculateBmi(weight, height) {
   return (numericWeight / ((numericLength / 100) ** 2)).toFixed(1);
 }
 
-const WHO_AGE_REFERENCE = {
-  months: [0, 3, 6, 9, 12, 24, 36, 48, 60],
-  weight: {
-    male: [3.3, 5.7, 7.9, 9.2, 10.2, 12.2, 14.3, 16.3, 18.3],
-    female: [3.2, 5.2, 7.3, 8.6, 9.5, 11.5, 13.9, 15.8, 17.9],
-  },
-  length: {
-    male: [50.0, 61.4, 67.6, 72.0, 75.7, 87.1, 95.1, 102.3, 109.2],
-    female: [49.1, 59.8, 65.7, 70.1, 74.0, 85.7, 94.1, 101.6, 108.4],
-  },
-};
-
-const WHO_WEIGHT_LENGTH_REFERENCE = {
-  lengths: [45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100],
-  male: [2.5, 3.3, 4.3, 5.4, 6.5, 7.6, 8.8, 10.0, 11.2, 12.4, 13.6, 14.8],
-  female: [2.4, 3.2, 4.1, 5.1, 6.1, 7.2, 8.3, 9.4, 10.5, 11.7, 12.8, 14.0],
-};
-
 function getAgeInMonths(birthDate, assessmentDate) {
   if (!birthDate || !assessmentDate) return null;
   const birth = new Date(`${formatDateForInput(birthDate)}T00:00:00`);
@@ -117,54 +98,6 @@ function getAgeInHalfMonths(birthDate, assessmentDate) {
   anniversary.setMonth(anniversary.getMonth() + completeMonths);
   const remainingDays = Math.max(0, Math.floor((assessment - anniversary) / (24 * 60 * 60 * 1000)));
   return completeMonths + (remainingDays >= 15 ? 0.5 : 0);
-}
-
-function getAgeReferenceValue(values, ageInMonths) {
-  const months = WHO_AGE_REFERENCE.months;
-  const boundedAge = Math.max(months[0], Math.min(months[months.length - 1], ageInMonths));
-  const upperIndex = months.findIndex((month) => month > boundedAge);
-  const lowerIndex = upperIndex === -1 ? months.length - 2 : Math.max(0, upperIndex - 1);
-  const fraction = (boundedAge - months[lowerIndex]) / (months[lowerIndex + 1] - months[lowerIndex]);
-  return values[lowerIndex] + (values[lowerIndex + 1] - values[lowerIndex]) * fraction;
-}
-
-function getWhoWeightLengthZScore(weight, length, gender) {
-  const numericWeight = Number(weight);
-  const numericLength = Number(length);
-  if (!Number.isFinite(numericWeight) || !Number.isFinite(numericLength) || numericWeight <= 0 || numericLength <= 0) return null;
-  if (numericLength < WHO_WEIGHT_LENGTH_REFERENCE.lengths[0] || numericLength > WHO_WEIGHT_LENGTH_REFERENCE.lengths.at(-1)) return null;
-  const reference = WHO_WEIGHT_LENGTH_REFERENCE[String(gender || '').toLowerCase()] || WHO_WEIGHT_LENGTH_REFERENCE.male;
-  const lengths = WHO_WEIGHT_LENGTH_REFERENCE.lengths;
-  const upperIndex = lengths.findIndex((value) => value > numericLength);
-  const lowerIndex = upperIndex === -1 ? lengths.length - 2 : Math.max(0, upperIndex - 1);
-  const lowerLength = lengths[lowerIndex];
-  const upperLength = lengths[lowerIndex + 1];
-  const fraction = (numericLength - lowerLength) / (upperLength - lowerLength);
-  const median = reference[lowerIndex] + (reference[lowerIndex + 1] - reference[lowerIndex]) * fraction;
-  return (numericWeight - median) / (median * 0.15);
-}
-
-function interpretWeightForLength(weight, length, gender) {
-  const zScore = getWhoWeightLengthZScore(weight, length, gender);
-  if (zScore === null) return 'Enter valid weight and length';
-  if (zScore < -3) return 'Severely wasted';
-  if (zScore < -2) return 'Wasted';
-  if (zScore > 3) return 'Obese';
-  if (zScore > 2) return 'Overweight';
-  return 'Normal';
-}
-
-function interpretAgeBasedMeasure(value, referenceValues, ageInMonths, gender, label, standardDeviationRatio) {
-  const numericValue = Number(value);
-  if (!Number.isFinite(numericValue)) return `Enter ${label.toLowerCase()}`;
-  if (ageInMonths === null) return 'Enter birth date';
-  const sex = String(gender || '').toLowerCase() === 'female' ? 'female' : 'male';
-  const median = getAgeReferenceValue(referenceValues[sex], ageInMonths);
-  const zScore = (numericValue - median) / (median * standardDeviationRatio);
-  if (zScore < -3) return 'Severely below expected';
-  if (zScore < -2) return 'Below expected';
-  if (zScore > 2) return 'Above expected';
-  return 'Within expected range';
 }
 
 export default function ChildMonitor({ child, onSave, onCancel, completedWeeks = [] }) {
@@ -194,6 +127,7 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
   const childName = getChildName(child);
 
   useEffect(() => {
+    setDateDrafts({});
     const savedCheckup = (child?.checkups || []).find((checkup) => Number(checkup.week_number ?? checkup.weekNumber) === week);
     if (!savedCheckup) {
       const previousCheckup = (child?.checkups || [])
@@ -229,9 +163,26 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
   const ageInMonths = getAgeInMonths(childBirthDate, form.checkupDate);
   const currentAgeInMonths = getAgeInHalfMonths(childBirthDate, form.checkupDate);
   const gender = child?.gender || child?.sex || '';
-  const weightLengthInterpretation = interpretWeightForLength(form.weight, form.height, gender);
-  const weightAgeInterpretation = interpretAgeBasedMeasure(form.weight, WHO_AGE_REFERENCE.weight, ageInMonths, gender, 'weight-for-age', 0.15);
-  const lengthAgeInterpretation = interpretAgeBasedMeasure(form.height, WHO_AGE_REFERENCE.length, ageInMonths, gender, 'length-for-age', 0.04);
+  const whoGrowthScores = calculateWhoGrowthScores({
+    weight: form.weight,
+    lengthHeight: form.height,
+    sex: gender,
+    birthDate: childBirthDate,
+    measurementDate: form.checkupDate,
+  });
+  const missingGrowthContext = !gender ? 'Enter sex' : ageInMonths === null ? 'Enter birth date' : '';
+  const weightLengthInterpretation = whoGrowthScores.weightForLengthInterpretation || missingGrowthContext
+    || (Number(form.weight) > 0 && Number(form.height) > 0 ? 'Outside WHO reference range' : 'Enter valid weight and length');
+  const weightLengthZScore = whoGrowthScores.weightForLengthZScore === null || whoGrowthScores.weightForLengthZScore === undefined
+    ? ''
+    : Number(whoGrowthScores.weightForLengthZScore).toFixed(2);
+  const weightAgeInterpretation = whoGrowthScores.weightForAgeInterpretation || missingGrowthContext
+    || (Number(form.weight) > 0 ? 'Outside WHO reference range' : 'Enter valid weight');
+  const weightAgeZScore = whoGrowthScores.weightForAgeZScore === null || whoGrowthScores.weightForAgeZScore === undefined
+    ? ''
+    : Number(whoGrowthScores.weightForAgeZScore).toFixed(2);
+  const lengthAgeInterpretation = whoGrowthScores.lengthForAgeInterpretation || missingGrowthContext
+    || (Number(form.height) > 0 ? 'Outside WHO reference range' : 'Enter valid length');
 
   const renderDateField = ({ id, label, name, required = false }) => (
     <div className="form-group full-width">
@@ -300,7 +251,7 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
     try {
       const saved = await onSave({ ...form, checkupDate: formatDateForPayload(form.checkupDate), week, childId: child.id || child.child_id });
       if (saved === false) return;
-      notifyAction(`M${week} progress saved successfully.`);
+      notifyAction(`Month ${week} monitoring saved successfully.`);
       goToWeek(week + 1);
     } finally {
       setIsSaving(false);
@@ -385,8 +336,16 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
               <input id="child-monitor-weight-length" type="text" className="checkup-field-input" value={weightLengthInterpretation} readOnly />
             </div>
             <div className="form-group">
+              <label className="checkup-field-label" htmlFor="child-monitor-weight-length-z">Weight-for-Length Z-Score (WHO)</label>
+              <input id="child-monitor-weight-length-z" type="text" className="checkup-field-input" value={weightLengthZScore} readOnly placeholder="Auto-calculated" />
+            </div>
+            <div className="form-group">
               <label className="checkup-field-label" htmlFor="child-monitor-weight-age">Weight-for-Age</label>
               <input id="child-monitor-weight-age" type="text" className="checkup-field-input" value={weightAgeInterpretation} readOnly />
+            </div>
+            <div className="form-group">
+              <label className="checkup-field-label" htmlFor="child-monitor-weight-age-z">Weight-for-Age Z-Score (WHO)</label>
+              <input id="child-monitor-weight-age-z" type="text" className="checkup-field-input" value={weightAgeZScore} readOnly placeholder="Auto-calculated" />
             </div>
             <div className="form-group">
               <label className="checkup-field-label" htmlFor="child-monitor-length-age">Length-for-Age</label>

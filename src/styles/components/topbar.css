@@ -31,15 +31,15 @@
 .user-button {
   display: inline-flex;
   align-items: center;
-  gap: 0.6rem;
+  justify-content: center;
   background: #f8fafc;
   border: 1px solid rgba(148, 163, 184, 0.45);
   border-radius: 999px;
-  padding: 0.4rem 0.75rem;
+  padding: 0.45rem 0.7rem;
   color: #111827;
   cursor: pointer;
   transition: background 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
-  min-width: 120px;
+  min-width: 0;
 }
 .user-button:hover {
   background: #f1f5f9;
@@ -56,14 +56,6 @@
   color: #fff;
   font-weight: 700;
   font-size: 0.9rem;
-}
-.compact-user-name {
-  max-width: 8rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.95rem;
-  font-weight: 600;
 }
 .signout-confirm-modal {
   width: min(440px, calc(100vw - 2rem));

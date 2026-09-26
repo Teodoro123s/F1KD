@@ -4,198 +4,43 @@ import { apiGetPrograms } from '../../api/programs';
 import PageHeader from '../../components/ui/PageHeader';
 import { useAuth } from '../../auth/AuthProvider';
 import { isHealthWorkerRole } from '../../utils/permissions';
-
-const EMPTY_SELECTIONS = { schoolId: '', groupId: '', batchId: '' };
-const REPORT_FIELDS = [
-  ['school', 'School', 'Hierarchy'],
-  ['group', 'Group', 'Hierarchy'],
-  ['batch', 'Batch', 'Hierarchy'],
-  ['mother', 'Mother Name', 'Identity'],
-  ['child', 'Child Name', 'Identity'],
-  ['age', 'Age', 'Identity'],
-  ['pediatricAgeWeeks', 'Pedia Age (weeks)', 'Identity'],
-  ['gender', 'Sex', 'Identity'],
-  ['dateOfBirth', 'Date of Birth', 'Identity'],
-  ['contact', 'Contact Number', 'Identity'],
-  ['status', 'Status', 'Health & Status'],
-  ['risk', 'Risk Level', 'Health & Status'],
-  ['program', 'Program', 'Health & Status'],
-  ['deliveryType', 'Delivery Type', 'Health & Status'],
-  ['liveBirthDocument', 'Live Birth Document', 'Profile'],
-  ['birthWeight', 'Birth Weight (kg)', 'Profile'],
-  ['birthLength', 'Birth Length (cm)', 'Profile'],
-  ['bloodType', 'Blood Type', 'Profile'],
-  ['multipleBirth', 'Multiple Birth', 'Profile'],
-  ['contactNumber', 'Contact Number', 'Profile'],
-  ['addressDetails', 'Address Details', 'Profile'],
-  ['motherBirthCertificate', "Mother's Birth Certificate", 'Profile'],
-  ['programConsentDocument', 'Program Consent Form', 'Profile'],
-  ['gravida', 'Gravida', 'Profile'],
-  ['abortion', 'Abortion', 'Profile'],
-  ['stillbirth', 'Stillbirth', 'Profile'],
-  ['weightForAge', 'Weight-for-Age (kg)', 'Growth & Monitoring'],
-  ['heightForAge', 'Length-for-Age (cm)', 'Growth & Monitoring'],
-  ['bmiForAge', 'BMI-for-Age', 'Growth & Monitoring'],
-  ['bmiInterpretation', 'BMI Interpretation', 'Growth & Monitoring'],
-  ['weightForLengthInterpretation', 'Weight-for-Length Interpretation', 'Growth & Monitoring'],
-  ['weightForAgeInterpretation', 'Weight-for-Age Interpretation', 'Growth & Monitoring'],
-  ['lengthForAgeInterpretation', 'Length-for-Age Interpretation', 'Growth & Monitoring'],
-  ['initialWeight', 'Initial Weight (kg)', 'Profile'],
-  ['initialHeight', 'Initial Height (cm)', 'Profile'],
-  ['initialBmi', 'Initial BMI', 'Profile'],
-  ['philhealthMember', 'PhilHealth Member', 'Whether the beneficiary profile is registered as a PhilHealth member.'],
-  ['activitiesCompleted', 'Activities Completed', 'Monitoring'],
-  ['totalActivities', 'Total Activities', 'Monitoring'],
-  ['progress', 'Progress %', 'Monitoring'],
-  ['receivedBenefitTotal', 'Total Received Benefits', 'Program Report'],
-  ['receivedBenefitFrequency', 'Benefit Receipt Frequency', 'Program Report'],
-  ['receivedBenefitAveragePerMonth', 'Average Received per Month', 'Program Report'],
-  ['lastActivityDate', 'Last Activity', 'Monitoring'],
-  ['nextCheckupDate', 'Next Check-up', 'Monitoring'],
-  ['measurementDate', 'Measurement Date', 'Monitoring'],
-];
-const DEFAULT_VISIBLE_FIELDS = ['school', 'group', 'batch', 'mother', 'child', 'pediatricAgeWeeks', 'weightForLengthInterpretation', 'weightForAgeInterpretation', 'lengthForAgeInterpretation', 'activitiesCompleted', 'totalActivities', 'progress'];
-const GROWTH_METRICS = [
-  ['weightForLengthInterpretation', 'Weight-for-Length', 'Primary proportionality interpretation for children under 24 months.'],
-  ['weightForAgeInterpretation', 'Weight-for-Age', 'Supporting sex-specific weight interpretation by age.'],
-  ['lengthForAgeInterpretation', 'Length-for-Age', 'Supporting sex-specific linear-growth interpretation by age.'],
-];
-const INTERPRETATION_METRICS = new Set(GROWTH_METRICS.map(([id]) => id));
-const MOTHER_GROWTH_METRICS = [['bmiForAge', 'BMI', 'Latest BMI recorded by Mother Monitoring.']];
-const PROFILE_METRICS = [
-  ['age', 'Age', 'Age calculated from the beneficiary profile date of birth.'],
-  ['initialWeight', 'Initial Weight (kg)', 'Birth weight for children or prenatal baseline weight for mothers.'],
-  ['initialHeight', 'Initial Height (cm)', 'Birth length for children or prenatal baseline height for mothers.'],
-  ['initialBmi', 'Initial BMI', 'Baseline BMI recorded or calculated from the profile measurements.'],
-  ['philhealthMember', 'PhilHealth Member', 'Whether the beneficiary profile is registered as a PhilHealth member.'],
-  ['gender', 'Sex', 'Sex recorded in the child profile.'],
-  ['liveBirthDocument', 'Live Birth Document', 'Uploaded live birth document for the child.'],
-  ['birthWeight', 'Birth Weight (kg)', 'Birth weight recorded in the child profile.'],
-  ['birthLength', 'Birth Length (cm)', 'Birth length recorded in the child profile.'],
-  ['bloodType', 'Blood Type', 'Blood type recorded in the child profile.'],
-  ['multipleBirth', 'Multiple Birth', 'Multiple-birth classification recorded in the child profile.'],
-  ['deliveryType', 'Delivery Type', 'Delivery type recorded in the child profile.'],
-  ['contactNumber', 'Contact Number', 'Contact number recorded in the mother profile.'],
-  ['addressDetails', 'Address Details', 'Address details recorded in the mother profile.'],
-  ['motherBirthCertificate', "Mother's Birth Certificate", 'Whether the mother birth certificate is uploaded.'],
-  ['programConsentDocument', 'Program Consent Form', 'Whether the program consent form is uploaded.'],
-  ['gravida', 'Gravida', 'Number of pregnancies recorded in the mother profile.'],
-  ['abortion', 'Abortion', 'Abortion count recorded in the mother profile.'],
-  ['stillbirth', 'Stillbirth', 'Stillbirth count recorded in the mother profile.'],
-];
-const CHILD_PROFILE_METRICS = [
-  ['age', 'Age', 'Age calculated from the child profile date of birth.'],
-  ['gender', 'Sex', 'Sex recorded in the child profile.'],
-  ['liveBirthDocument', 'Live Birth Document', 'Uploaded live birth document for the child.'],
-  ['birthWeight', 'Birth Weight (kg)', 'Birth weight recorded in the child profile.'],
-  ['birthLength', 'Birth Length (cm)', 'Birth length recorded in the child profile.'],
-  ['bloodType', 'Blood Type', 'Blood type recorded in the child profile.'],
-  ['multipleBirth', 'Multiple Birth', 'Multiple-birth classification recorded in the child profile.'],
-  ['deliveryType', 'Delivery Type', 'Delivery type recorded in the child profile.'],
-];
-const MOTHER_PROFILE_METRICS = [
-  ['age', 'Age', 'Age calculated from the beneficiary profile date of birth.'],
-  ['contactNumber', 'Contact Number', 'Contact number recorded in the mother profile.'],
-  ['addressDetails', 'Address Details', 'Whether address details are recorded in the mother profile.'],
-  ['motherBirthCertificate', "Mother's Birth Certificate", 'Whether the mother birth certificate is uploaded.'],
-  ['programConsentDocument', 'Program Consent Form', 'Whether the program consent form is uploaded.'],
-  ['philhealthMember', 'PhilHealth Member', 'Whether the mother is registered as a PhilHealth member.'],
-  ['initialWeight', 'Initial Weight (kg)', 'Prenatal baseline weight.'],
-  ['initialHeight', 'Initial Height (cm)', 'Prenatal baseline height.'],
-  ['gravida', 'Gravida', 'Number of pregnancies.'],
-  ['abortion', 'Abortion', 'Recorded abortion count.'],
-  ['stillbirth', 'Stillbirth', 'Recorded stillbirth count.'],
-];
-const PROFILE_GRAPH_FIELDS = [
-  ['gender', 'Sex', 'categorical'],
-  ['deliveryType', 'Delivery Type', 'categorical'],
-  ['liveBirthDocument', 'Live Birth Document', 'categorical'],
-  ['bloodType', 'Blood Type', 'categorical'],
-  ['philhealthMember', 'PhilHealth Member', 'categorical'],
-  ['age', 'Age', 'measurement'],
-  ['birthWeight', 'Birth Weight (kg)', 'measurement'],
-  ['birthLength', 'Birth Length (cm)', 'measurement'],
-  ['initialBmi', 'Initial BMI', 'measurement'],
-  ['contactNumber', 'Contact Number', 'categorical'],
-  ['addressDetails', 'Address Details', 'categorical'],
-  ['motherBirthCertificate', "Mother's Birth Certificate", 'categorical'],
-  ['programConsentDocument', 'Program Consent Form', 'categorical'],
-  ['gravida', 'Gravida', 'measurement'],
-  ['abortion', 'Abortion', 'measurement'],
-  ['stillbirth', 'Stillbirth', 'measurement'],
-];
-const PROFILE_GRAPH_FIELD_MAP = new Map(PROFILE_GRAPH_FIELDS.map(([id, label, type]) => [id, { label, type }]));
-const PRESENCE_PROFILE_FIELDS = new Set(['contactNumber', 'addressDetails', 'liveBirthDocument', 'motherBirthCertificate', 'programConsentDocument', 'philhealthMember']);
-const PROGRAM_METRICS = [
-  ['receivedBenefitTotal', 'Total Received Benefits', 'Total true benefit-receipt events in the selected period.'],
-  ['receivedBenefitFrequency', 'Receipt Frequency', 'Number of true receipt events in the selected period.'],
-  ['receivedBenefitAveragePerMonth', 'Average Received per Month', 'Average true receipt events per active month.'],
-];
-const REPORT_TABS = ['Community', 'Report Focus', 'Growth Metrics', 'Results'];
-const REPORT_FOCUS_OPTIONS = [
-  ['beneficiary-batch', 'Individual Report', 'batch'],
-  ['beneficiary-group', 'Individual Report', 'group'],
-  ['beneficiary-school', 'Individual Report', 'school'],
-  ['batch-group', 'Batch Report', 'group'],
-  ['batch-school', 'Batch Report', 'school'],
-  ['group-school', 'Group Report', 'school'],
-];
-const csvValue = (value) => `"${String(value ?? '').replaceAll('"', '""')}"`;
-const getBmiInterpretation = (value) => {
-  const bmi = Number(value);
-  if (!Number.isFinite(bmi)) return '';
-  if (bmi < 18.5) return 'Underweight screening range';
-  if (bmi < 25) return 'Normal screening range';
-  if (bmi < 30) return 'Overweight screening range';
-  return 'Obese screening range';
-};
-const formatCellValue = (field, value) => {
-  if (PRESENCE_PROFILE_FIELDS.has(field)) return value === null || value === undefined || String(value).trim() === '' ? 'No' : 'Yes';
-  if (value === null || value === undefined || value === '') return '—';
-  if (['dateOfBirth', 'lastActivityDate', 'nextCheckupDate', 'measurementDate'].includes(field)) {
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? String(value) : date.toISOString().slice(0, 10);
-  }
-  return String(value);
-};
-
-const chartDate = (value) => {
-  if (!value) return 'No date';
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? String(value) : date.toISOString().slice(0, 10);
-};
-
-const getPointValue = (point, metric) => {
-  const direct = point?.[metric];
-  if (Number.isFinite(Number(direct))) return Number(direct);
-  const aliases = {
-    weightForAge: point?.weight,
-    heightForAge: point?.height,
-    bmiForAge: point?.bmi,
-  };
-  const aliasValue = aliases[metric];
-  return Number.isFinite(Number(aliasValue)) ? Number(aliasValue) : null;
-};
-
-const getPointInterpretation = (point, metric) => String(point?.[metric] || '').trim();
-
-const averageNumeric = (values) => {
-  const numbers = values.map(Number).filter((value) => Number.isFinite(value));
-  return numbers.length ? Number((numbers.reduce((sum, value) => sum + value, 0) / numbers.length).toFixed(1)) : null;
-};
-
-const getMode = (values) => {
-  const counts = new Map();
-  values.filter(Boolean).forEach((value) => counts.set(value, (counts.get(value) || 0) + 1));
-  return [...counts.entries()].sort((left, right) => right[1] - left[1])[0]?.[0] || '';
-};
-
-const getProfileGraphValue = (row, field) => {
-  if (field === 'liveBirthDocument') return row?.liveBirthDocument ? 'Yes' : 'No';
-  if (['contactNumber', 'addressDetails', 'motherBirthCertificate', 'programConsentDocument'].includes(field)) return row?.[field] ? 'Yes' : 'No';
-  if (field === 'philhealthMember') return row?.philhealthMember || 'No';
-  return row?.[field] === undefined || row?.[field] === null || row?.[field] === '' ? 'Not recorded' : String(row[field]);
-};
+import { ReportTabBar } from './components/ReportTabBar';
+import { CommunitySelectionStep } from './components/CommunitySelectionStep';
+import { ReportFocusStep } from './components/ReportFocusStep';
+import { GrowthMetricsStep } from './components/GrowthMetricsStep';
+import { ResultsPanel } from './components/ResultsPanel';
+import {
+  EMPTY_SELECTIONS,
+  REPORT_FIELDS,
+  DEFAULT_VISIBLE_FIELDS,
+  addGrowthScoresBeforeInterpretations,
+  GROWTH_METRICS,
+  WHO_NUMERIC_GROWTH_METRICS,
+  INTERPRETATION_METRICS,
+  MOTHER_GROWTH_METRICS,
+  NUMERIC_GROWTH_METRICS,
+  PROFILE_METRICS,
+  CHILD_PROFILE_METRICS,
+  MOTHER_PROFILE_METRICS,
+  PROFILE_GRAPH_FIELDS,
+  PROFILE_GRAPH_FIELD_MAP,
+  PRESENCE_PROFILE_FIELDS,
+  PROGRAM_METRICS,
+  REPORT_TABS,
+  REPORT_FOCUS_OPTIONS,
+  csvValue,
+  getInterpretationLevels,
+  normalizeNutritionLabel,
+  mapInterpretationToBand,
+  getBmiInterpretation,
+  formatCellValue,
+  chartDate,
+  getPointValue,
+  getPointInterpretation,
+  averageNumeric,
+  getMode,
+  getProfileGraphValue,
+} from './progressReportConfig';
 
 function ProfileGraph({ rows, field }) {
   const metadata = PROFILE_GRAPH_FIELD_MAP.get(field) || PROFILE_GRAPH_FIELD_MAP.get('gender');
@@ -259,9 +104,9 @@ const aggregateGrowthRows = (rows, focus) => {
       weight: averageNumeric(points.map((point) => point.weight)),
       height: averageNumeric(points.map((point) => point.height)),
       bmi: averageNumeric(points.map((point) => point.bmi)),
-      weightForLengthInterpretation: getMode(points.map((point) => point.weightForLengthInterpretation)),
-      weightForAgeInterpretation: getMode(points.map((point) => point.weightForAgeInterpretation)),
-      lengthForAgeInterpretation: getMode(points.map((point) => point.lengthForAgeInterpretation)),
+      weightForLengthInterpretation: normalizeNutritionLabel(getMode(points.map((point) => point.weightForLengthInterpretation))),
+      weightForAgeInterpretation: normalizeNutritionLabel(getMode(points.map((point) => point.weightForAgeInterpretation))),
+      lengthForAgeInterpretation: normalizeNutritionLabel(getMode(points.map((point) => point.lengthForAgeInterpretation))),
     }));
     return {
       ...groupRows[0],
@@ -271,9 +116,9 @@ const aggregateGrowthRows = (rows, focus) => {
       heightForAge: averageNumeric(groupRows.map((row) => row.heightForAge)),
       bmiForAge: averageNumeric(groupRows.map((row) => row.bmiForAge)),
       bmiInterpretation: getBmiInterpretation(averageNumeric(groupRows.map((row) => row.bmiForAge))),
-      weightForLengthInterpretation: getMode(groupRows.map((row) => row.weightForLengthInterpretation)),
-      weightForAgeInterpretation: getMode(groupRows.map((row) => row.weightForAgeInterpretation)),
-      lengthForAgeInterpretation: getMode(groupRows.map((row) => row.lengthForAgeInterpretation)),
+      weightForLengthInterpretation: normalizeNutritionLabel(getMode(groupRows.map((row) => row.weightForLengthInterpretation))),
+      weightForAgeInterpretation: normalizeNutritionLabel(getMode(groupRows.map((row) => row.weightForAgeInterpretation))),
+      lengthForAgeInterpretation: normalizeNutritionLabel(getMode(groupRows.map((row) => row.lengthForAgeInterpretation))),
       growthSeries,
     };
   });
@@ -356,8 +201,19 @@ function GrowthInterpretationChart({ rows, metric, displayWeeks = 'all', benefic
     const date = new Date(dateValue);
     return Number.isNaN(date.getTime()) ? null : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
   };
-  const timelineKey = (point) => isMother ? monthKey(point.date) : Number.isFinite(Number(point.ageWeeks)) ? Number(point.ageWeeks) : null;
-  const timelineLabel = (value) => isMother ? new Date(`${value}-01T00:00:00`).toLocaleDateString(undefined, { month: 'short', year: '2-digit' }) : `W${value}`;
+  const childTimelineKey = (point) => {
+    const dateKey = monthKey(point?.date || point?.measurementDate);
+    if (dateKey) return dateKey;
+    if (Number.isFinite(Number(point?.ageWeeks))) return monthKey(new Date(Date.now() - (Math.max(0, Number(point.ageWeeks)) * 7 * 24 * 60 * 60 * 1000)));
+    return null;
+  };
+  const timelineKey = (point) => isMother ? monthKey(point.date) : childTimelineKey(point);
+  const timelineLabel = (value) => {
+    if (!value) return 'Unknown month';
+    const [year, monthNumber] = String(value).split('-').map(Number);
+    if (year && monthNumber) return new Date(year, monthNumber - 1, 1).toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
+    return 'Unknown month';
+  };
   const entries = rows.flatMap((row) => (row.growthSeries || []).map((point) => ({ row, point, interpretation: getPointInterpretation(point, metric), timeline: timelineKey(point) })))
     .filter((entry) => entry.interpretation && entry.timeline !== null);
   const timelines = [...new Set(entries.map((entry) => entry.timeline))].sort((left, right) => isMother ? left.localeCompare(right) : left - right);
@@ -369,25 +225,32 @@ function GrowthInterpretationChart({ rows, metric, displayWeeks = 'all', benefic
   const visibleEntries = entries.filter((entry) => visibleSet.has(entry.timeline));
   if (!visibleEntries.length) return <p className="growth-report-empty">No interpretation data available.</p>;
 
-  const categories = [...new Set(visibleEntries.map((entry) => entry.interpretation))];
+  const categories = getInterpretationLevels(metric);
   const width = 720;
   const height = 220;
   const paddingX = 160;
   const xForTimeline = (timeline) => visibleTimelines.length <= 1 ? width / 2 : paddingX + (visibleTimelines.indexOf(timeline) / (visibleTimelines.length - 1)) * (width - paddingX * 2);
-  const yForCategory = (category) => categories.length === 1 ? height / 2 : 24 + (categories.indexOf(category) / (categories.length - 1)) * (height - 48);
-  const colors = ['#15803d', '#b7791f', '#dc2626', '#2563eb', '#7d1e2e'];
+  const yForCategory = (category) => {
+    const index = categories.indexOf(category);
+    if (index < 0) return height / 2;
+    return 24 + (index / (categories.length - 1)) * (height - 48);
+  };
+  const colors = ['#15803d', '#1d9f6f', '#6ea86d', '#b7791f', '#d97706'];
   const entriesByRow = new Map();
   visibleEntries.forEach((entry) => {
     const key = entry.row.child || entry.row.mother || 'Beneficiary';
     const points = entriesByRow.get(key) || [];
-    points.push(entry);
+    points.push({ ...entry, interpretation: mapInterpretationToBand(entry.interpretation, metric) });
     entriesByRow.set(key, points);
   });
   const interpretationLines = [...entriesByRow.entries()].map(([key, points], index) => {
     const sortedPoints = [...points].sort((left, right) => visibleTimelines.indexOf(left.timeline) - visibleTimelines.indexOf(right.timeline));
     return <polyline key={`interpretation-series-${key}`} points={sortedPoints.map(({ interpretation, timeline }) => `${xForTimeline(timeline)},${yForCategory(interpretation)}`).join(' ')} fill="none" stroke="#15803d" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />;
   });
-  return <div className="growth-report-line-chart interpretation-growth-chart"><svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Growth interpretation over time"><text className="growth-report-y-axis-label" x="24" y={height / 2} textAnchor="middle" transform={`rotate(-90 24 ${height / 2})`}>Interpretation</text>{categories.map((category) => <line key={`category-line-${category}`} className="growth-report-gridline" x1={paddingX} x2={width - 24} y1={yForCategory(category)} y2={yForCategory(category)} />)}{visibleTimelines.map((timeline) => <line key={`interpretation-line-${timeline}`} className="growth-report-weekline" x1={xForTimeline(timeline)} x2={xForTimeline(timeline)} y1="24" y2={height - 24} />)}{categories.map((category) => <text key={category} className="growth-report-y-axis-tick" x={paddingX - 8} y={yForCategory(category) + 4} textAnchor="end">{category}</text>)}{interpretationLines}{visibleEntries.map(({ row, point, interpretation, timeline }, index) => <circle key={`${row.child || row.mother}-${timeline}-${index}`} cx={xForTimeline(timeline)} cy={yForCategory(interpretation)} r="6" fill={colors[categories.indexOf(interpretation) % colors.length]} stroke="#fff" strokeWidth="2"><title>{row.child || row.mother}: {interpretation} · {timelineLabel(timeline)}</title></circle>)} </svg><div className="growth-report-line-labels">{visibleTimelines.map((timeline) => <span key={timeline}>{timelineLabel(timeline)}</span>)}</div><div className="growth-report-legend">{categories.map((category, index) => <span key={category}><i style={{ background: colors[index % colors.length] }} />{category}</span>)}</div></div>;
+  return <div className="growth-report-line-chart interpretation-growth-chart"><svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Growth interpretation over time"><text className="growth-report-y-axis-label" x="24" y={height / 2} textAnchor="middle" transform={`rotate(-90 24 ${height / 2})`}>Interpretation</text>{categories.map((category) => <line key={`category-line-${category}`} className="growth-report-gridline" x1={paddingX} x2={width - 24} y1={yForCategory(category)} y2={yForCategory(category)} />)}{visibleTimelines.map((timeline) => <line key={`interpretation-line-${timeline}`} className="growth-report-weekline" x1={xForTimeline(timeline)} x2={xForTimeline(timeline)} y1="24" y2={height - 24} />)}{categories.map((category) => <text key={category} className="growth-report-y-axis-tick" x={paddingX - 8} y={yForCategory(category) + 4} textAnchor="end">{category}</text>)}{interpretationLines}{visibleEntries.map(({ row, point, interpretation, timeline }, index) => {
+    const band = mapInterpretationToBand(interpretation, metric);
+    return <circle key={`${row.child || row.mother}-${timeline}-${index}`} cx={xForTimeline(timeline)} cy={yForCategory(band)} r="6" fill={colors[categories.indexOf(band) % colors.length]} stroke="#fff" strokeWidth="2"><title>{row.child || row.mother}: {band} · {timelineLabel(timeline)}</title></circle>;
+  })} </svg><div className="growth-report-line-labels" style={{ position: 'relative', minHeight: '1.4rem', paddingLeft: '2.8rem', paddingRight: '1.1rem' }}>{visibleTimelines.map((timeline) => <span key={timeline} style={{ position: 'absolute', left: `${(xForTimeline(timeline) / width) * 100}%`, transform: 'translateX(-50%)', whiteSpace: 'nowrap' }}>{timelineLabel(timeline)}</span>)}</div><div className="growth-report-legend">{categories.map((category, index) => <span key={category}><i style={{ background: colors[index % colors.length] }} />{category}</span>)}</div></div>;
 }
 
 function ProgramAverageChart({ rows, metric = 'receivedBenefitAveragePerMonth' }) {
@@ -492,15 +355,19 @@ function GrowthChart({ rows, metric, chartType, displayWeeks = 'all', beneficiar
     };
     const monthLabel = (month) => {
       if (!month) return 'Unknown month';
-      const [year, monthNumber] = month.split('-').map(Number);
+      const [year, monthNumber] = String(month).split('-').map(Number);
+      if (!year || !monthNumber) return 'Unknown month';
       return new Date(year, monthNumber - 1, 1).toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
     };
-    const weekKey = (point) => Number.isFinite(Number(point.ageWeeks)) ? Number(point.ageWeeks) : null;
-    const weekLabel = (week) => Number.isFinite(week) ? `W${week}` : 'Unknown week';
-    const accessibleWeekLabel = (week) => Number.isFinite(week) ? `Week ${week}` : 'Unknown week';
-    const timelineKey = (point) => isMother ? monthKey(point.date) : weekKey(point);
-    const timelineLabel = (value) => isMother ? monthLabel(value) : weekLabel(value);
-    const accessibleTimelineLabel = (value) => isMother ? `Month ${monthLabel(value)}` : accessibleWeekLabel(value);
+    const childTimelineKey = (point) => {
+      const dateKey = monthKey(point?.date || point?.measurementDate);
+      if (dateKey) return dateKey;
+      if (Number.isFinite(Number(point?.ageWeeks))) return monthKey(new Date(Date.now() - (Math.max(0, Number(point.ageWeeks)) * 7 * 24 * 60 * 60 * 1000)));
+      return null;
+    };
+    const timelineKey = (point) => isMother ? monthKey(point.date) : childTimelineKey(point);
+    const timelineLabel = (value) => monthLabel(value);
+    const accessibleTimelineLabel = (value) => `Month ${monthLabel(value)}`;
     const allTimelineDates = [...new Set(seriesRows.flatMap((row) => row.growthSeries
       .filter((point) => Number.isFinite(getPointValue(point, metric)) && timelineKey(point) !== null)
       .map(timelineKey)))].sort((left, right) => isMother ? left.localeCompare(right) : left - right);
@@ -535,7 +402,7 @@ function GrowthChart({ rows, metric, chartType, displayWeeks = 'all', beneficiar
 
     if (!visibleSeriesRows.length) return <p className="growth-report-empty">No monitored measurements available for the selected period.</p>;
 
-    const periodLabel = normalizedDisplayWeeks === 'all' ? `all available ${isMother ? 'months' : 'monitoring weeks'}` : `the last ${requestedWeeks} ${isMother ? 'months' : 'weeks'}`;
+    const periodLabel = normalizedDisplayWeeks === 'all' ? `all available ${isMother ? 'months' : 'monitoring months'}` : `the last ${requestedWeeks} ${isMother ? 'months' : 'months'}`;
     const metricLabel = (isMother ? MOTHER_GROWTH_METRICS : GROWTH_METRICS).find(([id]) => id === metric)?.[1] || metric;
     const subjectLabel = isMother ? 'Mother' : 'Child';
     const timelineGridLines = visibleTimelineDates.map((timelineValue) => <line key={`timeline-line-${timelineValue}`} className="growth-report-weekline" x1={xForTimeline(timelineValue)} x2={xForTimeline(timelineValue)} y1="12" y2={height - 12} />);
@@ -549,7 +416,7 @@ function GrowthChart({ rows, metric, chartType, displayWeeks = 'all', beneficiar
       }).join(' ');
       return <g key={`${row.child || row.mother}-line`}><polyline points={linePoints} fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />{series.map((point, pointIndex) => { const timelineValue = timelineKey(point); const value = getPointValue(point, metric); return <circle key={`${row.child || row.mother}-point-${pointIndex}`} cx={xForTimeline(timelineValue)} cy={yForValue(value)} r="4" fill="#fff" stroke={color} strokeWidth="2"><title>{row.child || row.mother}: {value} · {accessibleTimelineLabel(timelineValue)}</title></circle>; })}</g>;
     });
-    return <div className="growth-report-line-chart"><div className="growth-report-chart-actions"><button type="button" className="secondary-btn" onClick={() => downloadChartImage(chartRef.current, metricLabel)}>Download image</button></div><svg ref={chartRef} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${subjectLabel} growth measurements over ${periodLabel}`} preserveAspectRatio="none"><text className="growth-report-y-axis-label" x="14" y={height / 2} textAnchor="middle" transform={`rotate(-90 14 ${height / 2})`}>{metricLabel}</text>{timelineGridLines}{yAxisTicks.map(({ value, y }) => <g key={value}><line className={`growth-report-gridline${value === 0 ? ' zero-line' : ''}`} x1={chartPaddingX} x2={width} y1={y} y2={y} /><text className="growth-report-y-axis-tick" x={chartPaddingX - 6} y={y + 4} textAnchor="end">{value.toFixed(1)}</text></g>)}{chartSeries}</svg><div className="growth-report-line-labels">{visibleTimelineDates.map((timelineValue) => <span key={timelineValue}>{timelineLabel(timelineValue)}</span>)}</div><div className="growth-report-legend">{visibleSeriesRows.map((row, index) => <span key={`${row.child || row.mother}-line-legend`}><i style={{ background: `hsl(${index * 67 % 360} 62% 42%)` }} />{row.child || row.mother}</span>)}</div></div>;
+    return <div className="growth-report-line-chart"><div className="growth-report-chart-actions"><button type="button" className="secondary-btn" onClick={() => downloadChartImage(chartRef.current, metricLabel)}>Download image</button></div><svg ref={chartRef} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${subjectLabel} growth measurements over ${periodLabel}`} preserveAspectRatio="none"><text className="growth-report-y-axis-label" x="14" y={height / 2} textAnchor="middle" transform={`rotate(-90 14 ${height / 2})`}>{metricLabel}</text>{timelineGridLines}{yAxisTicks.map(({ value, y }) => <g key={value}><line className={`growth-report-gridline${value === 0 ? ' zero-line' : ''}`} x1={chartPaddingX} x2={width} y1={y} y2={y} /><text className="growth-report-y-axis-tick" x={chartPaddingX - 6} y={y + 4} textAnchor="end">{value.toFixed(1)}</text></g>)}{chartSeries}</svg><div className="growth-report-line-labels" style={{ position: 'relative', minHeight: '1.4rem', paddingLeft: '2.7rem', paddingRight: '0.8rem' }}>{visibleTimelineDates.map((timelineValue) => <span key={timelineValue} style={{ position: 'absolute', left: `${(xForTimeline(timelineValue) / width) * 100}%`, transform: 'translateX(-50%)', whiteSpace: 'nowrap' }}>{timelineLabel(timelineValue)}</span>)}</div><div className="growth-report-legend">{visibleSeriesRows.map((row, index) => <span key={`${row.child || row.mother}-line-legend`}><i style={{ background: `hsl(${index * 67 % 360} 62% 42%)` }} />{row.child || row.mother}</span>)}</div></div>;
   }
 
   return <div className="growth-report-bars growth-report-bars-chart">{points.map(({ row, value }, index) => { const label = row.child || row.mother || row.batch || row.group || 'Report total'; return <div className="growth-report-bar-item" key={`${label}-${index}`}><strong>{value}</strong><span style={{ '--bar-height': `${Math.max(6, (value / maxValue) * 100)}%` }} title={`${label}: ${value} · ${chartDate(row.measurementDate)}`} /><small>{label}</small><small>{chartDate(row.measurementDate)}</small></div>; })}</div>;
@@ -558,7 +425,12 @@ function GrowthChart({ rows, metric, chartType, displayWeeks = 'all', beneficiar
 export default function ProgressReport() {
   const { currentUser } = useAuth();
   const isHealthWorker = isHealthWorkerRole(currentUser?.role);
+  const isCommunityOrganizer = ['community organizer', 'communityorganizer', 'community_coordinator', 'communitycoordinator', 'coordinator']
+    .includes(String(currentUser?.role || '').trim().toLowerCase());
+  const isSchoolAssignedUser = isHealthWorker || isCommunityOrganizer;
   const [options, setOptions] = useState({ schools: [], groups: [], batches: [], mothers: [] });
+  const assignedSchoolId = currentUser?.school_id ?? currentUser?.schoolId ?? '';
+  const assignedSchool = options.schools.find((item) => String(item.id) === String(assignedSchoolId));
   const [programs, setPrograms] = useState([]);
   const [selection, setSelection] = useState(EMPTY_SELECTIONS);
   const [granularity, setGranularity] = useState('child');
@@ -575,6 +447,7 @@ export default function ProgressReport() {
   const [reportCategory, setReportCategory] = useState('monitor');
   const [beneficiaryType, setBeneficiaryType] = useState('child');
   const [growthMetrics, setGrowthMetrics] = useState(['weightForAge']);
+  const [graphMetricType, setGraphMetricType] = useState('interpretation');
   const [profileMetrics, setProfileMetrics] = useState(CHILD_PROFILE_METRICS.map(([id]) => id));
   const [programMetrics, setProgramMetrics] = useState(['receivedBenefitTotal', 'receivedBenefitFrequency', 'receivedBenefitAveragePerMonth']);
   const [resultsView, setResultsView] = useState('graph');
@@ -593,19 +466,19 @@ export default function ProgressReport() {
   }, []);
 
   useEffect(() => {
-    if (!isHealthWorkerRole(currentUser?.role)) return;
-    const assignedSchoolId = currentUser.school_id ?? currentUser.schoolId;
+    if (!isSchoolAssignedUser) return;
     const assignedGroupId = currentUser.group_id ?? currentUser.groupId;
     const school = options.schools.find((item) => String(item.id) === String(assignedSchoolId));
-    const group = options.groups.find((item) => String(item.id) === String(assignedGroupId));
-    if (!school || !group) return;
+    const group = isHealthWorker ? options.groups.find((item) => String(item.id) === String(assignedGroupId)) : null;
+    if (!school || (isHealthWorker && !group)) return;
 
     setSelection((current) => {
-      if (String(current.schoolId) === String(school.id) && String(current.groupId) === String(group.id)) return current;
-      return { ...current, schoolId: String(school.id), groupId: String(group.id), batchId: '' };
+      const groupId = isHealthWorker ? String(group.id) : '';
+      if (String(current.schoolId) === String(school.id) && String(current.groupId) === groupId) return current;
+      return { ...current, schoolId: String(school.id), groupId, batchId: '' };
     });
-    setReportFocus('beneficiary-group');
-  }, [currentUser, options.groups, options.schools]);
+    setReportFocus(isHealthWorker ? 'beneficiary-group' : 'beneficiary-batch');
+  }, [currentUser, isHealthWorker, isSchoolAssignedUser, options.groups, options.schools]);
 
   const displaySelection = finalizedSnapshot?.selection ?? selection;
   const displayGranularity = finalizedSnapshot?.granularity ?? granularity;
@@ -613,18 +486,21 @@ export default function ProgressReport() {
   const displayPage = finalizedSnapshot?.page ?? page;
   const activeReport = finalizedSnapshot?.report ?? report;
   const displayReportFocus = finalizedSnapshot?.reportFocus ?? reportFocus;
-  const displayVisibleFields = (finalizedSnapshot?.visibleFields ?? visibleFields).filter((field) => (
+  const displayVisibleFields = addGrowthScoresBeforeInterpretations((finalizedSnapshot?.visibleFields ?? visibleFields).filter((field) => (
     displayReportFocus === 'group-school'
       ? !['mother', 'child', 'group'].includes(field)
       : displayReportFocus === 'batch-group' || displayReportFocus === 'batch-school'
         ? !['mother', 'child'].includes(field)
         : true
-  ));
+  )));
   const displayReportCategory = finalizedSnapshot?.reportCategory ?? reportCategory;
   const displayBeneficiaryType = finalizedSnapshot?.beneficiaryType ?? beneficiaryType;
   const displayProfileGraphColumn = profileGraphColumn;
   const availableGrowthMetrics = displayBeneficiaryType === 'mother' ? MOTHER_GROWTH_METRICS : GROWTH_METRICS;
+  const availableNumericGrowthMetrics = NUMERIC_GROWTH_METRICS(displayBeneficiaryType);
   const availableProfileMetrics = displayBeneficiaryType === 'mother' ? MOTHER_PROFILE_METRICS : CHILD_PROFILE_METRICS;
+  const graphMetricOptions = graphMetricType === 'interpretation' ? availableGrowthMetrics : availableNumericGrowthMetrics;
+  const selectedGraphMetric = growthMetrics[0] || graphMetricOptions[0]?.[0] || '';
   const focusScope = selection.batchId ? 'batch' : selection.groupId ? 'group' : selection.schoolId ? 'school' : '';
   const focusOptions = REPORT_FOCUS_OPTIONS.filter(([, , scope]) => scope === focusScope);
 
@@ -749,14 +625,17 @@ export default function ProgressReport() {
   const resultsRows = sortedRows;
   const graphSourceRows = displayReportCategory === 'program' ? aggregateReportRows(resultsRows, 'group-school') : resultsRows;
   const graphRows = aggregateGrowthRows(
-    graphSourceRows.filter((row) => growthMetrics.some((metric) => INTERPRETATION_METRICS.has(metric)
-      ? row.growthSeries?.some((point) => getPointInterpretation(point, metric))
-      : Number.isFinite(Number(row[metric])) && Number(row[metric]) > 0)),
+    graphSourceRows.filter((row) => growthMetrics.some((metric) => {
+      if (INTERPRETATION_METRICS.has(metric)) {
+        return row.growthSeries?.some((point) => getPointInterpretation(point, metric));
+      }
+      return row.growthSeries?.some((point) => Number.isFinite(getPointValue(point, metric))) || Number.isFinite(Number(row[metric]));
+    })),
     displayReportFocus,
   );
   const averageMetric = (field, rows = resultsRows) => {
     if (INTERPRETATION_METRICS.has(field)) return rows.map((row) => row[field]).find(Boolean) || '—';
-    const values = rows.map((row) => Number(row[field])).filter((value) => Number.isFinite(value) && value > 0);
+    const values = rows.map((row) => Number(row[field])).filter((value) => Number.isFinite(value));
     return values.length ? (values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(1) : '—';
   };
   const completedPercent = resultsRows.length
@@ -767,10 +646,10 @@ export default function ProgressReport() {
     if (canOpenTab(tab)) setActiveTab(tab);
   };
   const resetSetup = () => {
-    setSelection(isHealthWorker
+    setSelection(isSchoolAssignedUser
       ? {
         schoolId: currentUser.school_id ?? currentUser.schoolId ?? '',
-        groupId: currentUser.group_id ?? currentUser.groupId ?? '',
+        groupId: isHealthWorker ? currentUser.group_id ?? currentUser.groupId ?? '' : '',
         batchId: '',
       }
       : EMPTY_SELECTIONS);
@@ -783,6 +662,7 @@ export default function ProgressReport() {
     setReportFocus(isHealthWorker ? 'beneficiary-group' : 'beneficiary-batch');
     setReportCategory('monitor');
     setBeneficiaryType('child');
+    setGraphMetricType('interpretation');
     setResultsView('graph');
     setDisplayWeeks('all');
     setProfileGraphColumn('gender');
@@ -793,13 +673,19 @@ export default function ProgressReport() {
     setPage(1);
     setError('');
   };
-  const selectGrowthMetric = (id) => setGrowthMetrics([id]);
+  const selectGrowthMetric = (id) => {
+    const nextType = INTERPRETATION_METRICS.has(id) ? 'interpretation' : 'numeric';
+    setGraphMetricType(nextType);
+    setGrowthMetrics([id]);
+  };
   const toggleProfileMetric = (id) => setProfileMetrics((current) => current.includes(id) ? current.filter((field) => field !== id) : [...current, id]);
   const toggleProgramMetric = (id) => setProgramMetrics((current) => current.includes(id) ? current.filter((field) => field !== id) : [...current, id]);
   const selectBeneficiaryType = (type) => {
     setBeneficiaryType(type);
     setProfileMetrics((type === 'mother' ? MOTHER_PROFILE_METRICS : CHILD_PROFILE_METRICS).map(([id]) => id));
-    setGrowthMetrics(type === 'mother' ? ['bmiForAge'] : ['weightForLengthInterpretation']);
+    const initialMetric = type === 'mother' ? 'bmiForAge' : 'weightForLengthInterpretation';
+    setGraphMetricType(type === 'mother' ? 'numeric' : 'interpretation');
+    setGrowthMetrics([initialMetric]);
     setFinalizedSnapshot(null);
     setReport(null);
     setActiveTab(2);
@@ -822,9 +708,14 @@ export default function ProgressReport() {
   }, [displayWeeks, growthMetrics, reportCategory]);
 
   useEffect(() => {
+    const metricOptions = graphMetricType === 'interpretation' ? availableGrowthMetrics : availableNumericGrowthMetrics;
+    if (!metricOptions.some(([id]) => id === growthMetrics[0])) {
+      setGrowthMetrics([metricOptions[0]?.[0] || '']);
+    }
+  }, [availableGrowthMetrics, availableNumericGrowthMetrics, graphMetricType, growthMetrics]);
+
+  useEffect(() => {
     if (activeTab !== 4) return undefined;
-    const selector = document.querySelector('.graph-controls select');
-    const selectorWrap = selector?.closest('.report-chart-select');
     const heading = document.querySelector('.growth-report-single-card h3');
     const subtitle = document.querySelector('.growth-report-single-card > p');
     const exportButton = document.querySelector('.progress-report-results-header > .secondary-btn')
@@ -833,27 +724,9 @@ export default function ProgressReport() {
     const chartActions = document.querySelector('.program-average-chart-actions');
     if (exportButton && displayReportCategory === 'program' && chartActions) chartActions.appendChild(exportButton);
     if (exportButton && displayReportCategory !== 'program' && resultsHeader) resultsHeader.appendChild(exportButton);
-    if (selectorWrap) selectorWrap.style.display = '';
-    if (selector && displayReportCategory === 'program') {
-      PROGRAM_METRICS.forEach(([id, label], index) => {
-        const option = selector.options[index];
-        if (!option) return;
-        option.value = id;
-        option.textContent = label;
-        option.style.display = '';
-      });
-      Array.from(selector.options).slice(PROGRAM_METRICS.length).forEach((option) => { option.style.display = 'none'; });
-      selector.value = displayWeeks;
-    } else if (selector && displayReportCategory !== 'profile') {
-      const labels = beneficiaryType === 'mother'
-        ? ['3 months', '6 months', '9 months', '12 months', 'All months']
-        : ['4 weeks', '12 weeks', '24 weeks', '48 weeks', 'All weeks'];
-      const values = beneficiaryType === 'mother' ? ['3', '6', '9', '12', 'all'] : ['4', '12', '24', '48', 'all'];
-      Array.from(selector.options).forEach((option, index) => { option.value = values[index]; option.textContent = labels[index]; option.style.display = ''; });
-    }
     if (heading && beneficiaryType === 'mother') heading.textContent = '📈 BMI';
     if (subtitle && beneficiaryType === 'mother') subtitle.textContent = 'Latest mother BMI measurements · values are plotted by month';
-    if (subtitle && displayReportCategory === 'monitor' && beneficiaryType === 'child') subtitle.textContent = 'Growth interpretations plotted by monitoring week';
+    if (subtitle && displayReportCategory === 'monitor' && beneficiaryType === 'child') subtitle.textContent = 'Growth interpretations plotted by monitoring month';
     if (displayReportCategory === 'program') {
       const selectedMetric = PROGRAM_METRICS.find(([id]) => id === displayWeeks);
       const selectedMetricLabel = selectedMetric?.[1] || 'Program Benefits';
@@ -873,15 +746,90 @@ export default function ProgressReport() {
     <div className="community-page progress-report-shell">
       <div className="progress-report-panel hierarchical-progress-report">
         <PageHeader title="Progress Report" breadcrumbs={[{ label: 'Reports' }, { label: 'Progress Report' }]} actions={<button type="button" className="secondary-btn" onClick={resetSetup}>Reset Setup</button>} />
-        <div className="progress-report-tab-bar" role="tablist" aria-label="Progress report steps">
-          {REPORT_TABS.map((tab, index) => { const number = index + 1; return <button key={tab} type="button" role="tab" aria-selected={activeTab === number} disabled={!canOpenTab(number)} className={activeTab === number ? 'active' : ''} onClick={() => goToTab(number)}><span>{number}</span>{tab}</button>; })}
-        </div>
+        <ReportTabBar tabs={REPORT_TABS} activeTab={activeTab} canOpenTab={canOpenTab} goToTab={goToTab} />
 
         <section className="progress-report-config" aria-label="Report parameters">
-          {activeTab === 1 && <div className="progress-report-tab-panel"><h1>I. Community Selection</h1><div className="progress-report-config-grid"><label>School<select value={selection.schoolId} onChange={(event) => updateSelection('schoolId', event.target.value)} disabled={isHealthWorker}><option value="">Select school</option>{options.schools.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label>Group<select value={selection.groupId} onChange={(event) => updateSelection('groupId', event.target.value)} disabled={!selection.schoolId || isHealthWorker}><option value="">All groups</option>{groups.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label>Batch<select value={selection.batchId} onChange={(event) => updateSelection('batchId', event.target.value)} disabled={!selection.groupId}><option value="">All batches</option>{batches.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label></div><p className="progress-report-note">{isHealthWorker ? 'School and group are assigned to your account. Batch is an optional filter.' : 'Select a School to begin. Group and Batch are optional filters.'}</p><div className="progress-report-tab-actions"><button type="button" className="primary-btn" disabled={!selection.schoolId} onClick={() => setActiveTab(2)}>Next: Report Focus →</button></div></div>}
-          {activeTab === 2 && <div className="progress-report-tab-panel"><h1>II. Report Focus</h1><fieldset className="progress-report-report-category"><legend>Report category</legend><label className={reportCategory === 'profile' ? 'selected' : ''}><input type="radio" name="report-category" value="profile" checked={reportCategory === 'profile'} onChange={() => selectReportCategory('profile')} />Profile Report</label><label className={reportCategory === 'monitor' ? 'selected' : ''}><input type="radio" name="report-category" value="monitor" checked={reportCategory === 'monitor'} onChange={() => selectReportCategory('monitor')} />Monitor Report</label><label className={reportCategory === 'program' ? 'selected' : ''}><input type="radio" name="report-category" value="program" checked={reportCategory === 'program'} onChange={() => selectReportCategory('program')} />Program Report</label></fieldset><p className="progress-report-note">Monitor Report is selected by default and uses details from the Monitor module.</p>{reportCategory === 'program' ? <fieldset className="progress-report-beneficiary-type"><legend>Program Name</legend><div className="program-report-controls"><label><span>Program</span><select value={programName} onChange={(event) => setProgramName(event.target.value)}><option value="">Select program</option>{programs.map((program) => <option key={program.id} value={program.name}>{program.name}</option>)}</select></label><label><span>Benefit period</span><select value={benefitPeriod} onChange={(event) => setBenefitPeriod(event.target.value)}><option value="overall">Overall</option><option value="month">Monthly</option></select></label>{benefitPeriod === 'month' && <label><span>Month</span><input type="month" value={benefitMonth} onChange={(event) => setBenefitMonth(event.target.value)} /></label>}</div></fieldset> : <fieldset className="progress-report-beneficiary-type"><legend>Beneficiary type</legend><label className={beneficiaryType === 'child' ? 'selected' : ''}><input type="radio" name="report-beneficiary-type" checked={beneficiaryType === 'child'} onChange={() => selectBeneficiaryType('child')} />Child</label><label className={beneficiaryType === 'mother' ? 'selected' : ''}><input type="radio" name="report-beneficiary-type" checked={beneficiaryType === 'mother'} onChange={() => selectBeneficiaryType('mother')} />Mother</label></fieldset>}<div className="progress-report-focus-section"><p>Choose the aggregation level for the selected community scope:</p>{!selection.schoolId ? <p className="progress-report-note">Select a school first to see valid focus options.</p> : <fieldset className="progress-report-focus-options">{focusOptions.map(([value, label]) => <label key={value}><input type="radio" name="report-focus" value={value} checked={reportFocus === value} onChange={() => setReportFocus(value)} />{label}</label>)}</fieldset>}</div><p className="progress-report-note">{reportCategory === 'program' ? 'Program reports show true received-benefit events for the selected period.' : beneficiaryType === 'mother' ? 'Mother reports use BMI from Mother Monitoring checkups.' : 'Child reports use growth measurements from Child Monitoring checkups.'}</p><div className="progress-report-tab-actions"><button type="button" className="secondary-btn" onClick={() => setActiveTab(1)}>← Previous</button><button type="button" className="primary-btn" disabled={!selection.schoolId || (reportCategory === 'program' && !programName)} onClick={() => setActiveTab(3)}>Next: Growth Metrics →</button></div></div>}
-          {activeTab === 3 && <div className="progress-report-tab-panel"><h1>III. Growth Metrics</h1>{reportCategory === 'profile' ? <><p>Choose the beneficiary profile fields to include in the report:</p><div className="growth-metric-cards profile-metric-cards">{availableProfileMetrics.map(([id, label, description]) => <label key={id} className={profileMetrics.includes(id) ? 'selected' : ''}><input type="checkbox" name="profile-metric" checked={profileMetrics.includes(id)} onChange={() => toggleProfileMetric(id)} /><strong>{label}</strong><span>{description}</span></label>)}</div><p className="progress-report-note">Profile values come from the Beneficiary module. Child baselines use birth weight and birth length; mother baselines use prenatal weight and height.</p></> : reportCategory === 'program' ? <><p>Choose the program progress fields to include in the report:</p><div className="growth-metric-cards profile-metric-cards">{PROGRAM_METRICS.map(([id, label, description]) => <label key={id} className={programMetrics.includes(id) ? 'selected' : ''}><input type="checkbox" name="program-metric" checked={programMetrics.includes(id)} onChange={() => toggleProgramMetric(id)} /><strong>{label}</strong><span>{description}</span></label>)}</div><p className="progress-report-note">Program values come from the Program and monitoring activity records for the selected community scope.</p></> : <><p>{beneficiaryType === 'mother' ? 'Review mother BMI from Mother Monitoring.' : 'Choose one child growth indicator to display and export:'}</p><div className="growth-metric-cards">{availableGrowthMetrics.map(([id, label, description]) => <label key={id} className={growthMetrics.includes(id) ? 'selected' : ''}><input type="radio" name="growth-metric" checked={growthMetrics.includes(id)} onChange={() => selectGrowthMetric(id)} /><strong>{label}</strong><span>{description}</span></label>)}</div><p className="progress-report-note warning">This field reports the latest recorded measurement. It is not an age- and sex-standardized WHO z-score.</p></>}<div className="progress-report-tab-actions"><button type="button" className="secondary-btn" onClick={() => setActiveTab(2)}>← Previous</button><button type="button" className="primary-btn" onClick={() => generateReport(1)} disabled={loadingOptions || loadingReport || !selection.schoolId || (reportCategory === 'profile' ? !profileMetrics.length : reportCategory === 'program' ? !programMetrics.length : !growthMetrics.length)}>{loadingReport ? 'Generating...' : 'Generate Report →'}</button></div></div>}
-          {activeTab === 4 && activeReport && <div className="progress-report-tab-panel results-tab-panel"><div className="progress-report-results-header"><div><h1>IV. Report Results</h1><p>{selectedSchool?.name || 'School'} &gt; {selection.groupId ? groups.find((item) => String(item.id) === String(selection.groupId))?.name : 'All Groups'} &gt; {selection.batchId ? batches.find((item) => String(item.id) === String(selection.batchId))?.name : 'All Batches'}</p></div><button type="button" className="secondary-btn" onClick={exportReport}>Export CSV</button></div><div className="results-view-toggle"><button type="button" className={resultsView === 'table' ? 'active' : ''} onClick={() => setResultsView('table')}>Table View</button><button type="button" className={resultsView === 'graph' ? 'active' : ''} onClick={() => setResultsView('graph')}>Graph View</button>{resultsView === 'graph' && <div className="graph-controls">{displayReportCategory === 'profile' ? <label className="report-chart-select">Graph column<select value={profileGraphColumn} onChange={(event) => setProfileGraphColumn(event.target.value)}>{PROFILE_GRAPH_FIELDS.map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label> : <label className="report-chart-select">Display<select value={displayWeeks} onChange={(event) => setDisplayWeeks(event.target.value)}><option value="4">4 weeks</option><option value="12">12 weeks</option><option value="24">24 weeks</option><option value="48">48 weeks</option><option value="all">All weeks</option></select></label>}</div>}</div>{resultsView === 'graph' ? displayReportCategory === 'profile' ? <article className="growth-report-card growth-report-single-card"><h3>📊 {PROFILE_GRAPH_FIELD_MAP.get(displayProfileGraphColumn)?.label || 'Profile distribution'}</h3><p>Distribution across the selected report results.</p><ProfileGraph rows={resultsRows} field={displayProfileGraphColumn} /></article> : <article className="growth-report-card growth-report-single-card"><h3>📈 {GROWTH_METRICS.find(([id]) => id === growthMetrics[0])?.[1]}</h3><div className="growth-report-value">{averageMetric(growthMetrics[0], graphRows)}</div><p>{beneficiaryType === 'mother' ? 'Latest mother BMI measurements · values are plotted by gestational week' : 'Latest monitored measurements · values are plotted by monitoring week'}</p><GrowthChart rows={graphRows} metric={growthMetrics[0]} chartType="line" displayWeeks={displayWeeks} beneficiaryType={beneficiaryType} /></article> : <div className="progress-report-table-scroll"><table className="progress-report-flat-table"><thead><tr>{REPORT_FIELDS.filter(([id]) => displayVisibleFields.includes(id)).map(([id, label]) => <th key={id}>{sortLabel(label, id)}</th>)}</tr></thead><tbody>{sortedRows.map((row) => <tr key={`${row.motherId}-${row.child || 'mother'}`}>{REPORT_FIELDS.filter(([id]) => displayVisibleFields.includes(id)).map(([id]) => <td key={id}>{id === 'child' && displayGranularity === 'mother' ? row.mother : id === 'progress' ? <strong>{row[id]}%</strong> : formatCellValue(id, row[id])}</td>)}</tr>)}</tbody></table></div>}{resultsView === 'table' && <div className="progress-report-pagination"><button type="button" onClick={() => generateReport(displayPage - 1)} disabled={displayPage <= 1 || loadingReport}>Previous</button><span>Page {displayPage} of {activeReport.pagination.totalPages}</span><button type="button" onClick={() => generateReport(displayPage + 1)} disabled={displayPage >= activeReport.pagination.totalPages || loadingReport}>Next</button></div>}<div className="progress-report-tab-actions"><button type="button" className="secondary-btn" onClick={() => setActiveTab(3)}>← Previous</button><button type="button" className="secondary-btn" onClick={exportReport}>Export CSV</button></div></div>}
+          {activeTab === 1 && (
+            <CommunitySelectionStep
+              isCommunityOrganizer={isCommunityOrganizer}
+              assignedSchool={assignedSchool}
+              selection={selection}
+              groups={groups}
+              batches={batches}
+              isHealthWorker={isHealthWorker}
+              options={options}
+              updateSelection={updateSelection}
+              setActiveTab={setActiveTab}
+            />
+          )}
+
+          {activeTab === 2 && (
+            <ReportFocusStep
+              reportCategory={reportCategory}
+              selectReportCategory={selectReportCategory}
+              programName={programName}
+              setProgramName={setProgramName}
+              programs={programs}
+              benefitPeriod={benefitPeriod}
+              setBenefitPeriod={setBenefitPeriod}
+              benefitMonth={benefitMonth}
+              setBenefitMonth={setBenefitMonth}
+              beneficiaryType={beneficiaryType}
+              setBeneficiaryType={setBeneficiaryType}
+            />
+          )}
+
+          {activeTab === 3 && (
+            <GrowthMetricsStep
+              reportCategory={reportCategory}
+              availableProfileMetrics={availableProfileMetrics}
+              profileMetrics={profileMetrics}
+              toggleProfileMetric={toggleProfileMetric}
+              programMetrics={PROGRAM_METRICS}
+              toggleProgramMetric={toggleProgramMetric}
+              beneficiaryType={beneficiaryType}
+              availableGrowthMetrics={availableGrowthMetrics}
+              growthMetrics={growthMetrics}
+              selectGrowthMetric={selectGrowthMetric}
+            />
+          )}
+
+          {activeTab === 4 && activeReport && (
+            <ResultsPanel
+              selectedSchool={selectedSchool}
+              selection={selection}
+              groups={groups}
+              batches={batches}
+              exportReport={exportReport}
+              resultsView={resultsView}
+              setResultsView={setResultsView}
+              displayReportCategory={displayReportCategory}
+              profileGraphColumn={profileGraphColumn}
+              setProfileGraphColumn={setProfileGraphColumn}
+              graphMetricType={graphMetricType}
+              setGraphMetricType={setGraphMetricType}
+              availableGrowthMetrics={availableGrowthMetrics}
+              availableNumericGrowthMetrics={availableNumericGrowthMetrics}
+              selectedGraphMetric={selectedGraphMetric}
+              setGrowthMetrics={setGrowthMetrics}
+              displayWeeks={displayWeeks}
+              setDisplayWeeks={setDisplayWeeks}
+              averageMetric={averageMetric}
+              graphRows={graphRows}
+              resultsRows={resultsRows}
+              reportFields={REPORT_FIELDS}
+              displayVisibleFields={displayVisibleFields}
+              displaySort={displaySort}
+              changeSort={changeSort}
+              formatCellValue={formatCellValue}
+              displayBeneficiaryType={displayBeneficiaryType}
+              displayReportFocus={displayReportFocus}
+              profileGraphFields={PROFILE_GRAPH_FIELDS}
+              interpretationMetrics={INTERPRETATION_METRICS}
+              programMetrics={PROGRAM_METRICS}
+              GrowthChart={GrowthChart}
+            />
+          )}
         </section>
       </div>
     </div>

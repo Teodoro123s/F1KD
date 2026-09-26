@@ -1,4 +1,4 @@
-const DEFAULT_MONITORING_INTERVAL = 'weekly';
+const DEFAULT_MONITORING_INTERVAL = 'monthly';
 const DEFAULT_ALERT_THRESHOLD = 0;
 
 /**

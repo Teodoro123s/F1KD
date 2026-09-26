@@ -53,6 +53,8 @@ export default function DashboardPage() {
   const isAdmin = normalizedRole === ROLES.ADMIN;
   const isHealthWorker = isHealthWorkerRole(currentUser?.role);
   const isPartner = normalizedRole === ROLES.PARTNER;
+  const isCommunityOrganizer = ['community organizer', 'communityorganizer']
+    .includes(String(currentUser?.role || '').trim().toLowerCase());
   const moduleAccess = useMemo(() => ({
     community: true,
     beneficiary: true,
@@ -60,10 +62,10 @@ export default function DashboardPage() {
     programs: true,
     reports: true,
     users: isSuperAdmin,
-    canCreateBeneficiary: !isHealthWorker && can(currentUser?.role, 'partner-resources', 'create'),
-    canManageCommunity: !isHealthWorker && (can(currentUser?.role, 'admin-resources', 'create') || can(currentUser?.role, 'partner-resources', 'create')),
-    canManagePrograms: !isHealthWorker && (isSuperAdmin || isAdmin || normalizedRole === ROLES.PARTNER),
-  }), [currentUser?.role, isAdmin, isHealthWorker, isPartner, isSuperAdmin, normalizedRole]);
+    canCreateBeneficiary: !isHealthWorker && (isCommunityOrganizer || can(currentUser?.role, 'partner-resources', 'create')),
+    canManageCommunity: !isHealthWorker && (isCommunityOrganizer || can(currentUser?.role, 'admin-resources', 'create') || can(currentUser?.role, 'partner-resources', 'create')),
+    canManagePrograms: !isHealthWorker && (isSuperAdmin || isAdmin || isCommunityOrganizer),
+  }), [currentUser?.role, isAdmin, isCommunityOrganizer, isHealthWorker, isSuperAdmin]);
 
   const [communitySummary, setCommunitySummary] = useState({
     communities: [],
@@ -284,7 +286,7 @@ export default function DashboardPage() {
     if (items.length === 0) {
       return [
         { date: '2026-09-18', title: '1st & 2nd Trimester Prenatal Checkups', subtitle: 'Target: Barangay Health Clinic • 14 Beneficiaries', badge: 'Maternal', badgeClass: 'maternal', path: '/monitoring' },
-        { date: '2026-09-21', title: 'Pediatric 48-Week Growth & Weight Monitoring', subtitle: 'Calibrated Stadiometer & Scale • Cohort Batch 1', badge: 'Pediatric', badgeClass: 'child', path: '/monitoring' },
+        { date: '2026-09-21', title: 'Pediatric 24-Month Growth & Weight Monitoring', subtitle: 'Monthly checkups from birth to 24 months • Cohort Batch 1', badge: 'Pediatric', badgeClass: 'child', path: '/monitoring' },
         { date: '2026-09-24', title: 'F1KD Supplementary Feeding Distribution', subtitle: 'Fortified Milk & Hot Meals • School Catchment', badge: 'Program', badgeClass: 'program', path: '/program' },
       ];
     }
@@ -348,7 +350,7 @@ export default function DashboardPage() {
     };
   }, [users, communitySummary.communities]);
 
-  const roleLabel = isSuperAdmin ? 'Superadmin' : isAdmin ? 'Administrator' : isHealthWorker ? 'Health Worker' : isPartner ? 'Community Partner' : 'Staff';
+  const roleLabel = isSuperAdmin ? 'Superadmin' : isAdmin ? 'Administrator' : isHealthWorker ? 'Health Worker' : isCommunityOrganizer ? 'Community Organizer' : isPartner ? 'Community Partner' : 'Staff';
   const assignedGroupName = useMemo(() => {
     const assignedGroupId = currentUser?.group_id ?? currentUser?.groupId;
     if (!assignedGroupId) return null;

@@ -16,6 +16,7 @@ export function MotherFormFields({
   documentFiles = {},
   setDocumentFiles,
   documentContent = null,
+  hideSchoolField = false,
 }) {
   const [dateDrafts, setDateDrafts] = React.useState({});
   const datePickerRefs = React.useRef({});
@@ -368,7 +369,7 @@ export function MotherFormFields({
         <section className="create-mother-category">
           <h4 className="form-section-title">I.C COMMUNITY DETAILS</h4>
           <div className="form-row-3 full-width">
-          {renderSelect({
+          {!hideSchoolField && renderSelect({
             id: 'mother-community',
             label: 'School',
             name: 'community',

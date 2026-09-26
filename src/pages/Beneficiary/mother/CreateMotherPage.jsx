@@ -3,6 +3,7 @@ import { MotherFormFields } from './BeneficiaryMother';
 import { calculateGestationalDetails, getInitialCheckups } from '../../../utils/beneficiaryHelpers';
 import { useMothers } from '../../../context/MothersContext';
 import { apiCreateMother, apiUploadMotherDocuments } from '../../../api/mothers';
+import { useAuth } from '../../../auth/AuthProvider';
 import { capitalizeNameValue } from '../../../utils/nameFormat';
 import { notifyAction } from '../../../components/ActionFeedback';
 
@@ -114,6 +115,9 @@ export default function CreateMotherPage({
   batches,
   navigate,
 }) {
+  const { currentUser } = useAuth();
+  const isCommunityOrganizer = ['community organizer', 'communityorganizer', 'community_coordinator', 'communitycoordinator', 'coordinator']
+    .includes(String(currentUser?.role || '').trim().toLowerCase());
   const { mothers, setMothers } = useMothers();
   const effectiveCommunities = communities && communities.length ? communities : mothers;
   const [communityForm, setCommunityForm] = useState(() => loadMotherDraft(emptyCommunityForm(effectiveCommunities)));
@@ -125,8 +129,19 @@ export default function CreateMotherPage({
   const createActiveIndex = CREATE_STEPS.indexOf(createActiveTab) >= 0 ? CREATE_STEPS.indexOf(createActiveTab) : 0;
 
   useEffect(() => {
-    setCommunityForm((prev) => ({ ...prev, community: prev.community || communities[0]?.name || '' }));
-  }, [communities]);
+    const assignedCommunity = communities[0]?.name || '';
+    setCommunityForm((prev) => {
+      if (isCommunityOrganizer) {
+        const communityChanged = prev.community !== assignedCommunity;
+        return {
+          ...prev,
+          community: assignedCommunity,
+          ...(communityChanged ? { group: '', groupId: '', batch: '', batchId: '' } : {}),
+        };
+      }
+      return { ...prev, community: prev.community || assignedCommunity };
+    });
+  }, [communities, isCommunityOrganizer]);
 
   useEffect(() => {
     try {
@@ -393,6 +408,7 @@ export default function CreateMotherPage({
               batches={batches}
               documentFiles={documentFiles}
               setDocumentFiles={setDocumentFiles}
+              hideSchoolField={isCommunityOrganizer}
               slashDateInput
             />
           </div>

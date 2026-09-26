@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { formatCompactName, getInitials } from '../utils/nameFormat';
+import { getInitials } from '../utils/nameFormat';
 import { useAuth } from '../auth/AuthProvider';
 
 export default function Topbar() {
@@ -15,7 +15,6 @@ export default function Topbar() {
   const [signingOut, setSigningOut] = useState(false);
   const notifRef = useRef(null);
   const userRef = useRef(null);
-  const displayName = user ? formatCompactName(user.name) : 'Account';
 
   const notifications = [
     { id: 1, text: 'New user signed up' },
@@ -91,7 +90,6 @@ export default function Topbar() {
             disabled={signingOut}
           >
             <span className="avatar">{getInitials(user ? user.name : 'Account')}</span>
-            <span className="compact-user-name">{displayName}</span>
           </button>
           {openUser && (
             <div className="dropdown user-dropdown" role="menu" aria-label="User menu" aria-busy={signingOut}>

@@ -685,7 +685,7 @@ export default function CommunityPage() {
         onCreate={openCreateModal}
         breadcrumbItems={breadcrumbItems}
         navigate={navigate}
-        canManage={canManage}
+        canManage={canManage || (isCommunityOrganizer && activeTab !== 'communities')}
       />
 
       <CommunityTable

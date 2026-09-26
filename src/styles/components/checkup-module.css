@@ -13,6 +13,10 @@
   gap: 1rem;
 }
 
+.selected-mother-bar {
+  justify-content: flex-end;
+}
+
 .checkup-picker-count {
   margin-top: 0.65rem;
   color: var(--burgundy);

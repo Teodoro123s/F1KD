@@ -298,9 +298,6 @@ export default function MonitoringPage() {
       ) : selectedChild ? (
         <section className="checkup-entry-view" aria-labelledby="selected-child-title">
           <div className="selected-mother-bar">
-            <div>
-              <h2 id="selected-child-title">{getChildName(selectedChild)}</h2>
-            </div>
             <div className="selected-record-actions">
               <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/child/${selectedChild.id}`, { state: { child: selectedChild } })}>
                 Beneficiary Profile
@@ -310,15 +307,17 @@ export default function MonitoringPage() {
               </button>
             </div>
           </div>
-          {savedMessage && <p className={`checkup-save-message${savedMessage.startsWith('Unable to save check-up:') ? ' checkup-save-message-error' : ''}`} role="status">{savedMessage}</p>}
+          {savedMessage.startsWith('Unable to save check-up:') && <p className="checkup-save-message checkup-save-message-error" role="alert">{savedMessage}</p>}
           <ChildMonitor
             child={selectedChild}
             completedWeeks={childCompletedWeeks}
             onSave={async (payload) => {
+              setSavedMessage('');
+              let completedWeeks = [];
               try {
                 const response = await apiSaveChildCheckup(payload.childId, payload);
                 const savedChild = response?.child || null;
-                const completedWeeks = savedChild?.completedWeeks || [payload.week];
+                completedWeeks = savedChild?.completedWeeks || [payload.week];
                 setSelectedChild(savedChild || selectedChild);
                 setChildCompletedWeeks(completedWeeks);
                 setChildren((current) => current.map((child) => String(child.id) === String(payload.childId) ? { ...child, ...savedChild } : child));
@@ -338,9 +337,6 @@ export default function MonitoringPage() {
       ) : (
         <section className="checkup-entry-view" aria-labelledby="selected-mother-title">
           <div className="selected-mother-bar">
-            <div>
-              <h2 id="selected-mother-title">{getMotherName(selectedMother)}</h2>
-            </div>
             <div className="selected-record-actions">
               <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/mother/${selectedMother.id || selectedMother.motherId}`, { state: { mother: selectedMother } })}>
                 Beneficiary Profile
