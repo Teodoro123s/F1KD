@@ -1,11 +1,24 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { FilterIcon } from './UserManagementIcons';
 
 export default function RoleFilter({ options, selected, onSelect }) {
   const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (!containerRef.current || containerRef.current.contains(event.target)) {
+        return;
+      }
+      setIsOpen(false);
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   return (
-    <div className="role-filter-area">
+    <div className="role-filter-area" ref={containerRef}>
       <button
         type="button"
         className={`role-filter-button${isOpen ? ' open' : ''}`}

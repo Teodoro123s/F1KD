@@ -1,49 +1,39 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { formatDateForInput } from '../../utils/dateFormat';
+import { capitalizeNameValue } from '../../utils/nameFormat';
 import { generatePassword } from './lib';
 
-function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitting = false }) {
-  const formRef = React.useRef(null);
+function formatDobForDisplay(value) {
+  const inputDate = formatDateForInput(value);
+  if (!inputDate) return '';
+  const [year, month, day] = inputDate.split('-');
+  return `${month}/${day}/${year}`;
+}
 
-  const handleSubmitClick = () => {
-    if (isSubmitting) return; // guard against clicks while submitting
-    const formEl = formRef.current;
-    // If native HTML validation fails, show native messages and do not proceed
-    if (formEl && !formEl.checkValidity()) {
-      try { formEl.reportValidity(); } catch (e) { /* ignore */ }
-      return;
-    }
-    // record that submit was attempted
-    try { window.__modal_on_submit_called__ = window.__modal_on_submit_called__ || []; window.__modal_on_submit_called__.push(Date.now()); } catch (err) {}
+function parseDobInput(value) {
+  const digits = value.replace(/\D/g, '').slice(0, 8);
+  if (digits.length !== 8) return '';
 
-    // Trigger a native form submission so the handler receives the real submit event
-    if (formEl && typeof formEl.requestSubmit === 'function') {
-      formEl.requestSubmit();
-    } else if (formEl) {
-      // Fallback for older browsers
-      formEl.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-    } else if (onSubmit) {
-      try { onSubmit({ preventDefault: () => {} }); } catch (e) { /* ignore */ }
-    }
-  };
+  const month = Number(digits.slice(0, 2));
+  const day = Number(digits.slice(2, 4));
+  const year = Number(digits.slice(4, 8));
+  const date = new Date(year, month - 1, day);
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return '';
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (date > today) return '';
 
-  // Fallback for environments where the React-internal onClick/onSubmit wiring
-  // may not trigger as expected (HMR or build differences). Attach a click
-  // listener to the form that triggers the submit handler when the primary
-  // button is clicked.
-  React.useEffect(() => {
-    const formEl = formRef.current;
-    if (!formEl) return undefined;
-    const handler = (e) => {
-      const btn = e.target.closest && e.target.closest('.btn-primary');
-      if (btn) {
-        e.preventDefault();
-        handleSubmitClick();
-      }
-    };
-    formEl.addEventListener('click', handler);
-    return () => formEl.removeEventListener('click', handler);
-  }, []);
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
 
+function formatDobTyping(value) {
+  const digits = value.replace(/\D/g, '').slice(0, 8);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+}
+
+function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitting = false, notification = '' }) {
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -53,14 +43,19 @@ function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitt
             ✕
           </button>
         </div>
-        <form ref={formRef} onSubmit={(e) => { e.preventDefault(); if (onSubmit) { onSubmit(e); } else { handleSubmitClick(); } }}>
-          <div className="modal-body">{children}</div>
+        <form onSubmit={(event) => {
+          event.preventDefault();
+          if (!isSubmitting && onSubmit) onSubmit(event);
+        }}>
+          <div className="modal-body">
+            {notification && <div className="notification-banner" role="alert">{notification}</div>}
+            {children}
+          </div>
           <div className="modal-footer">
             <button type="button" className="btn-secondary" onClick={onClose}>Back</button>
             <button
               type="submit"
               className="btn-primary"
-              onClick={(e) => { e.preventDefault(); handleSubmitClick(); }}
               disabled={isSubmitting}
             >{isSubmitting ? `${submitLabel}...` : submitLabel}</button>
           </div>
@@ -70,18 +65,39 @@ function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitt
   );
 }
 
-export default function AddUserModal({ showModal, onClose, form, setForm, onSubmit, roleOptions, communities = [], mode = 'add', isSubmitting = false }) {
+export default function AddUserModal({ showModal, onClose, form, setForm, onSubmit, roleOptions, communities = [], groups = [], mode = 'add', isSubmitting = false, notification = '' }) {
+  const [dobInput, setDobInput] = useState(() => formatDobForDisplay(form.dob));
+
+  useEffect(() => {
+    if (parseDobInput(dobInput) !== formatDateForInput(form.dob)) {
+      setDobInput(formatDobForDisplay(form.dob));
+    }
+  }, [form.dob]);
 
   if (!showModal) return null;
 
   const title = mode === 'edit' ? 'Edit User' : 'Add User';
   const submitLabel = mode === 'edit' ? 'Save Changes' : 'Create';
 
-  const handleChange = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
-  const requiresSchool = ['health worker', 'community organizer'].includes(String(form.role || '').trim().toLowerCase());
+  const handleChange = (field, value) => {
+    const nextValue = ['firstName', 'lastName', 'middleInitial'].includes(field) ? capitalizeNameValue(value) : value;
+    setForm((prev) => ({ ...prev, [field]: nextValue }));
+  };
+  const roleName = String(form.role || '').trim().toLowerCase();
+  // Assignment controls follow operational role scope: organizers need a school; health workers need both.
+  const requiresSchool = ['health worker', 'community organizer'].includes(roleName);
+  const requiresGroup = roleName === 'health worker';
+  const schoolIsRequired = requiresSchool;
+  const selectedSchoolName = communities.find((school) => String(school.id) === String(form.schoolId || ''))?.name || '';
+  const groupOptions = groups.filter((group) => {
+    if (!form.schoolId) return true;
+    const groupCommunity = group.community || group.communityName || group.schoolName || '';
+    const schoolIdValues = [group.community_id, group.schoolId, group.school_id, group.communityId];
+    return !groupCommunity || groupCommunity.toLowerCase() === selectedSchoolName.toLowerCase() || schoolIdValues.some((value) => String(value) === String(form.schoolId));
+  });
 
   return (
-    <ModalShell title={title} onClose={onClose} onSubmit={onSubmit} submitLabel={submitLabel} isSubmitting={isSubmitting}>
+    <ModalShell title={title} onClose={onClose} onSubmit={onSubmit} submitLabel={submitLabel} isSubmitting={isSubmitting} notification={notification}>
       <div className="form-row-3 full-width">
         <div className="form-group">
           <label className="form-label" htmlFor="first-name">First Name *</label>
@@ -155,53 +171,67 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
         <div className="form-group" aria-hidden="true" />
       </div>
 
-
-
       <div className="form-row-3 full-width">
-        <div className="form-group">
-          <label className="form-label" htmlFor="gender">Gender *</label>
-          <select
-            id="gender"
-                      name="gender"
-                      className="form-select"
-                      value={form.gender}
-                      onChange={(e) => handleChange('gender', e.target.value)}
-                      required
-                    >
-            <option value="Male">Male</option>
-            <option value="Female">Female</option>
-            <option value="Other">Other</option>
-          </select>
-        </div>
-        <div className="form-group">
+        <div className="form-group date-input-group">
           <label className="form-label" htmlFor="dob">Date of Birth *</label>
-          <input
-            id="dob"
-                      name="dob"
-                      type="date"
-                      className="form-input"
-                      value={form.dob}
-                      onChange={(e) => handleChange('dob', e.target.value)}
-                      required
-                    />
+          <div className="date-input-container">
+            <input
+              id="dob"
+              name="dob"
+              type="text"
+              className="form-input"
+              inputMode="numeric"
+              autoComplete="bday"
+              placeholder="MM/DD/YYYY"
+              maxLength={10}
+              value={dobInput}
+              onChange={(e) => {
+                const nextValue = formatDobTyping(e.target.value);
+                setDobInput(nextValue);
+                handleChange('dob', parseDobInput(nextValue));
+              }}
+              required
+            />
+            <input
+              id="dob-picker"
+              type="date"
+              className="native-date-picker-input"
+              value={formatDateForInput(form.dob)}
+              max={new Date().toISOString().split('T')[0]}
+              onChange={(e) => handleChange('dob', e.target.value)}
+              tabIndex={-1}
+              aria-hidden="true"
+            />
+            <button
+              type="button"
+              className="calendar-toggle-btn"
+              onClick={() => {
+                const el = document.getElementById('dob-picker');
+                if (el) {
+                  try {
+                    if (typeof el.showPicker === 'function') el.showPicker();
+                    else el.focus();
+                  } catch (_) {
+                    el.focus();
+                  }
+                }
+              }}
+              aria-label="Open calendar picker for Date of Birth"
+              tabIndex={-1}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+            </button>
+          </div>
         </div>
         <div className="form-group" aria-hidden="true" />
       </div>
 
       <div className="form-row-3 full-width">
-        <div className="form-group">
-          <label className="form-label" htmlFor="location">Location *</label>
-          <input
-            id="location"
-            name="location"
-            type="text"
-            className="form-input"
-            placeholder="Enter location"
-            value={form.location}
-            onChange={(e) => handleChange('location', e.target.value)}
-            required
-          />
-        </div>
         <div className="form-group">
           <label className="form-label" htmlFor="role">Role *</label>
           <select
@@ -220,13 +250,26 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
       </div>
 
       {requiresSchool && (
-        <div className="form-group full-width">
-          <label className="form-label" htmlFor="school-id">Assigned School *</label>
-          <select id="school-id" name="schoolId" className="form-select" value={form.schoolId || ''} onChange={(e) => handleChange('schoolId', e.target.value)} required>
-            <option value="">Select assigned school</option>
-            {communities.map((school) => <option key={school.id} value={school.id}>{school.name}</option>)}
-          </select>
-        </div>
+        <>
+          <div className="form-group full-width">
+            <label className="form-label" htmlFor="school-id">Assigned School{schoolIsRequired ? ' *' : ''}</label>
+            <select id="school-id" name="schoolId" className="form-select" value={form.schoolId || ''} onChange={(e) => setForm((prev) => ({ ...prev, schoolId: e.target.value, groupId: requiresGroup ? '' : prev.groupId }))}>
+              <option value="">Select assigned school</option>
+              {communities.map((school) => <option key={school.id} value={school.id}>{school.name}</option>)}
+            </select>
+          </div>
+
+          {requiresGroup && (
+            <div className="form-group full-width">
+              <label className="form-label" htmlFor="group-id">Assigned Group *</label>
+              <select id="group-id" name="groupId" className="form-select" value={form.groupId || ''} onChange={(e) => handleChange('groupId', e.target.value)} required>
+                <option value="">Select assigned group</option>
+                {groupOptions.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
+              </select>
+            </div>
+          )}
+
+        </>
       )}
 
       <div className="form-group full-width">

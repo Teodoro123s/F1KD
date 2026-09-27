@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../db');
-const { documentUpload } = require('../middleware/documentUpload');
+const { documentUpload, uploadFileToStorage, deleteFileFromStorage } = require('../middleware/documentUpload');
 
 function firstNonEmpty(...values) {
   for (const value of values) {
@@ -27,6 +27,8 @@ function mapMother(row) {
     firstNonEmpty(row.suffix),
   ].filter((v) => String(v).trim()).join(' ').trim();
 
+  const addressParts = String(row.address || '').split(',').map((part) => part.trim()).filter(Boolean);
+
   return {
     id: row.mother_code || String(row.id),
     motherId: row.mother_external_id || row.mother_code || String(row.id),
@@ -40,7 +42,11 @@ function mapMother(row) {
     createdAt: row.created_at || '',
     contactNumber: row.contact_number || row.contactNumber || '',
     address: row.address || '',
+    province: row.province || addressParts[0] || '',
+    city: row.city || addressParts[1] || '',
+    barangay: row.barangay || addressParts[2] || '',
     community: row.community || row.area || '',
+    communityId: row.community_id ?? null,
     area: row.area || row.community || '',
     groupId: row.group_id ?? null,
     batchId: row.batch_id ?? null,
@@ -68,6 +74,8 @@ function mapMother(row) {
     emergencyContact: row.emergency_contact || '',
     emergencyRelationship: row.emergency_relationship || '',
     spouseName: row.spouse_name || '',
+    philhealthMember: row.philhealth_member === true || row.philhealth_member === 1 || row.philhealth_member === '1',
+    philhealthNumber: row.philhealth_number || '',
     birthCertificateDocumentName: row.birth_certificate_document_name || '',
     birthCertificateDocumentPath: row.birth_certificate_document_path || '',
     consentDocumentName: row.consent_document_name || '',
@@ -181,23 +189,30 @@ router.post('/:id/documents', documentUpload.fields([
 ]), async (req, res) => {
   try {
     const { id } = req.params;
+    const scopeSql = req.groupId ? ' AND group_id = ?' : req.schoolId ? ' AND community_id = ?' : '';
+    const scopeParams = req.groupId ? [req.groupId] : req.schoolId ? [req.schoolId] : [];
     const [motherRows] = await pool.query(
-      'SELECT id FROM mothers WHERE id = ? OR mother_code = ? OR mother_external_id = ? LIMIT 1',
-      [Number(id) || null, id, id]
+      `SELECT id FROM mothers WHERE (id = ? OR mother_code = ? OR mother_external_id = ?)${scopeSql} LIMIT 1`,
+      [Number(id) || null, id, id, ...scopeParams]
     );
     if (!motherRows.length) return res.status(404).json({ error: 'Mother not found' });
 
     const files = req.files || {};
     const updates = [];
     const values = [];
+
     if (files.birthCertificate?.[0]) {
+      const birthDoc = await uploadFileToStorage(files.birthCertificate[0], 'birth-certificate');
       updates.push('birth_certificate_document_name = ?', 'birth_certificate_document_path = ?');
-      values.push(files.birthCertificate[0].originalname, `/uploads/${files.birthCertificate[0].filename}`);
+      values.push(birthDoc.name, birthDoc.path);
     }
+
     if (files.consent?.[0]) {
+      const consentDoc = await uploadFileToStorage(files.consent[0], 'consent');
       updates.push('consent_document_name = ?', 'consent_document_path = ?');
-      values.push(files.consent[0].originalname, `/uploads/${files.consent[0].filename}`);
+      values.push(consentDoc.name, consentDoc.path);
     }
+
     if (!updates.length) return res.status(400).json({ error: 'At least one document is required' });
     await pool.query(`UPDATE mothers SET ${updates.join(', ')} WHERE id = ?`, [...values, motherRows[0].id]);
     const [rows] = await pool.query('SELECT * FROM mothers WHERE id = ?', [motherRows[0].id]);
@@ -208,8 +223,48 @@ router.post('/:id/documents', documentUpload.fields([
   }
 });
 
+router.delete('/:id/documents/:field', async (req, res) => {
+  try {
+    const { id, field } = req.params;
+    const fieldMap = {
+      birthCertificate: {
+        nameColumn: 'birth_certificate_document_name',
+        pathColumn: 'birth_certificate_document_path',
+      },
+      consent: {
+        nameColumn: 'consent_document_name',
+        pathColumn: 'consent_document_path',
+      },
+    };
+
+    const selectedField = fieldMap[field];
+    if (!selectedField) {
+      return res.status(400).json({ error: 'Unsupported document field.' });
+    }
+
+    const [motherRows] = await pool.query(
+      `SELECT id, ${selectedField.pathColumn} AS document_path, ${selectedField.nameColumn} AS document_name FROM mothers WHERE id = ? OR mother_code = ? OR mother_external_id = ? LIMIT 1`,
+      [Number(id) || null, id, id]
+    );
+
+    if (!motherRows.length) {
+      return res.status(404).json({ error: 'Mother not found' });
+    }
+
+    const currentPath = motherRows[0].document_path;
+    await deleteFileFromStorage(currentPath);
+    await pool.query(`UPDATE mothers SET ${selectedField.nameColumn} = NULL, ${selectedField.pathColumn} = NULL WHERE id = ?`, [motherRows[0].id]);
+
+    const [rows] = await pool.query('SELECT * FROM mothers WHERE id = ?', [motherRows[0].id]);
+    res.json({ mother: await attachClinicalData(mapMother(rows[0])) });
+  } catch (error) {
+    console.error('[Mothers API] document delete error:', error.message);
+    res.status(400).json({ error: error.message || 'Unable to remove document' });
+  }
+});
+
 const MOTHER_ALLOWED_FIELDS = new Set([
-  'id', 'motherId', 'name', 'firstName', 'middleName', 'lastName', 'dob', 'age', 'phone', 'contactNumber', 'community', 'group', 'batch', 'programType', 'status', 'risk', 'trimester', 'gestationalAge', 'lmpDate', 'eddDate', 'prenatalRegDate', 'prenatalWeight', 'prenatalBp', 'prenatalHeight', 'fundalHeight', 'fhr', 'weight', 'height', 'bmi', 'gravida', 'para', 'abortion', 'stillbirth', 'emergencyName', 'emergencyContact', 'emergencyRelationship', 'spouseName', 'medicalConditions', 'otherMedicalHistory', 'tt1Date', 'tt2Date', 'tt3Date', 'tt4Date', 'tt5Date', 'dentalCheckupDate', 'dentalFacility', 'dentalFindings', 'dentalRemarks', 'birthCertificateDocumentName', 'consentDocumentName', 'assessment', 'progress', 'trend', 'createdAt', 'vaccines', 'oralHealth', 'programs', 'documents', 'checkups', 'source'
+  'id', 'motherId', 'name', 'firstName', 'middleName', 'lastName', 'maidenSurname', 'dob', 'age', 'phone', 'contactNumber', 'province', 'city', 'barangay', 'community', 'communityId', 'group', 'groupId', 'batch', 'batchId', 'programType', 'status', 'risk', 'trimester', 'gestationalAge', 'lmpDate', 'eddDate', 'prenatalRegDate', 'prenatalWeight', 'prenatalBp', 'prenatalHeight', 'fundalHeight', 'fhr', 'weight', 'height', 'bmi', 'gravida', 'para', 'abortion', 'stillbirth', 'emergencyName', 'emergencyContact', 'emergencyRelationship', 'spouseName', 'medicalConditions', 'otherMedicalHistory', 'tt1Date', 'tt2Date', 'tt3Date', 'tt4Date', 'tt5Date', 'dentalCheckupDate', 'dentalFacility', 'dentalFindings', 'dentalRemarks', 'birthCertificateDocumentName', 'consentDocumentName', 'assessment', 'progress', 'trend', 'createdAt', 'vaccines', 'oralHealth', 'programs', 'documents', 'checkups', 'source'
 ]);
 
 function getRequestedMotherFields(req) {
@@ -217,14 +272,21 @@ function getRequestedMotherFields(req) {
   const selected = Array.isArray(raw) ? raw.flatMap((item) => String(item).split(',')) : String(raw || '').split(',');
   const fields = selected.map((field) => field.trim()).filter(Boolean);
   const allowed = fields.filter((field) => MOTHER_ALLOWED_FIELDS.has(field));
-  const required = new Set(['id', 'motherId', 'name', 'community', 'group', 'batch', 'trimester', 'progress', 'risk', 'bmi', 'checkups', 'source']);
+  const required = new Set([
+    'id', 'motherId', 'name', 'firstName', 'middleName', 'lastName', 'maidenSurname', 'dob', 'contactNumber',
+    'province', 'city', 'barangay', 'community', 'communityId', 'group', 'groupId', 'batch', 'batchId', 'emergencyName', 'emergencyContact', 'emergencyRelationship',
+    'lmpDate', 'eddDate', 'prenatalRegDate', 'trimester', 'gestationalAge', 'prenatalWeight', 'prenatalBp', 'prenatalHeight',
+    'gravida', 'abortion', 'stillbirth', 'birthCertificateDocumentName', 'birthCertificateDocumentPath',
+    'consentDocumentName', 'consentDocumentPath', 'progress', 'status', 'checkups', 'source'
+  ]);
   return [...new Set([...allowed, ...required])];
 }
 
 router.get('/', async (req, res) => {
   try {
     const requestedFields = getRequestedMotherFields(req);
-    const scopeClause = req.schoolId ? 'WHERE m.community_id = ?' : '';
+    const scopeClause = req.groupId ? 'WHERE m.group_id = ?' : req.schoolId ? 'WHERE m.community_id = ?' : '';
+    const scopeValues = req.groupId ? [req.groupId] : req.schoolId ? [req.schoolId] : [];
     const [rows] = await pool.query(`
       SELECT m.*,
         comm.name AS community,
@@ -237,9 +299,12 @@ router.get('/', async (req, res) => {
       LEFT JOIN batches b ON b.id = m.batch_id
       ${scopeClause}
       ORDER BY m.id DESC
-    `, req.schoolId ? [req.schoolId] : []);
+    `, scopeValues);
 
-    const [checkupRows] = await pool.query('SELECT * FROM mother_checkups');
+    const [checkupRows] = await pool.query(
+      `SELECT mc.* FROM mother_checkups mc INNER JOIN mothers scoped_mother ON scoped_mother.id = mc.mother_id ${req.groupId ? 'WHERE scoped_mother.group_id = ?' : req.schoolId ? 'WHERE scoped_mother.community_id = ?' : ''}`,
+      scopeValues,
+    );
     const checkupsByMotherId = {};
     for (const row of checkupRows) {
       if (!checkupsByMotherId[row.mother_id]) {
@@ -321,6 +386,8 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'firstName and lastName are required' });
     }
     if (!communityId) return res.status(400).json({ error: 'community is required' });
+    const groupId = req.groupId || b.groupId || b.group_id || null;
+    if (req.groupId) communityId = req.schoolId;
 
     const [result] = await pool.query(
       `INSERT INTO mothers (
@@ -359,9 +426,11 @@ router.post('/', async (req, res) => {
         emergency_contact,
         emergency_relationship,
         spouse_name,
+        philhealth_member,
+        philhealth_number,
         medical_conditions,
         other_medical_history
-      ) VALUES (${Array(37).fill('?').join(', ')})` ,
+      ) VALUES (${Array(39).fill('?').join(', ')})` ,
       [
         motherCode,
         firstName,
@@ -374,7 +443,7 @@ router.post('/', async (req, res) => {
         communityId,
         motherExternalId,
         firstNonEmpty(b.address, ''),
-        b.groupId ?? b.group_id ?? null,
+        groupId,
         b.batchId ?? b.batch_id ?? null,
         firstNonEmpty(b.lmpDate, b.lmp_date, null),
         firstNonEmpty(b.eddDate, b.edd_date, null),
@@ -398,6 +467,10 @@ router.post('/', async (req, res) => {
         firstNonEmpty(b.emergencyContact, b.emergency_contact, null),
         firstNonEmpty(b.emergencyRelationship, b.emergency_relationship, null),
         firstNonEmpty(b.spouseName, b.spouse_name, null),
+        b.philhealthMember === true || b.philhealth_member === true || b.philhealth_member === 1 ? 1 : 0,
+        b.philhealthMember === true || b.philhealth_member === true || b.philhealth_member === 1
+          ? firstNonEmpty(b.philhealthNumber, b.philhealth_number, null)
+          : null,
         b.medicalConditions ? JSON.stringify(b.medicalConditions) : null,
         firstNonEmpty(b.otherMedicalHistory, b.other_medical_history, null),
       ]
@@ -482,9 +555,9 @@ router.get('/:id', async (req, res) => {
        LEFT JOIN groups g ON g.id = m.group_id
        LEFT JOIN batches b ON b.id = m.batch_id
       WHERE (m.id = ? OR m.mother_code = ?)
-      ${req.schoolId ? 'AND m.community_id = ?' : ''}
+      ${req.groupId ? 'AND m.group_id = ?' : req.schoolId ? 'AND m.community_id = ?' : ''}
        LIMIT 1`,
-         req.schoolId ? [Number(id) || null, id, req.schoolId] : [Number(id) || null, id]
+        req.groupId ? [Number(id) || null, id, req.groupId] : req.schoolId ? [Number(id) || null, id, req.schoolId] : [Number(id) || null, id]
     );
 
     if (!rows.length) {
@@ -502,26 +575,49 @@ router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const b = req.body || {};
-    const [existing] = await pool.query('SELECT * FROM mothers WHERE id = ? OR mother_code = ? LIMIT 1', [Number(id) || null, id]);
+    const [existing] = await pool.query(`SELECT * FROM mothers WHERE (id = ? OR mother_code = ?)${req.groupId ? ' AND group_id = ?' : req.schoolId ? ' AND community_id = ?' : ''} LIMIT 1`, req.groupId ? [Number(id) || null, id, req.groupId] : req.schoolId ? [Number(id) || null, id, req.schoolId] : [Number(id) || null, id]);
     if (!existing.length) {
       return res.status(404).json({ error: 'Mother not found' });
     }
 
     const current = existing[0];
     const motherDbId = current.id;
+    if (req.schoolId) {
+      const nextGroupId = req.groupId || b.groupId || b.group_id || current.group_id;
+      const nextBatchId = b.batchId ?? b.batch_id ?? current.batch_id;
+
+      if (nextGroupId) {
+        const [groupRows] = await pool.query(
+          'SELECT id FROM groups WHERE id = ? AND community_id = ? LIMIT 1',
+          [nextGroupId, req.schoolId],
+        );
+        if (!groupRows.length) return res.status(403).json({ error: 'You can only assign mothers to groups in your school' });
+      }
+
+      if (nextBatchId) {
+        const [batchRows] = await pool.query(
+          'SELECT id FROM batches WHERE id = ? AND community_id = ? LIMIT 1',
+          [nextBatchId, req.schoolId],
+        );
+        if (!batchRows.length) return res.status(403).json({ error: 'You can only assign mothers to batches in your school' });
+      }
+    }
+    const optionalValue = (value, fallback) => (value === undefined ? fallback : value ?? '');
     const update = {
       first_name: firstNonEmpty(b.firstName, b.first_name, current.first_name),
       middle_name: firstNonEmpty(b.middleName, b.middle_name, current.middle_name),
       last_name: firstNonEmpty(b.lastName, b.last_name, current.last_name),
-      maiden_surname: firstNonEmpty(b.maidenSurname, b.maiden_surname, current.maiden_surname),
-      suffix: firstNonEmpty(b.suffix, current.suffix),
+      maiden_surname: optionalValue(b.maidenSurname, current.maiden_surname),
+      suffix: optionalValue(b.suffix, current.suffix),
       dob: b.dob || b.birthDate || current.dob || null,
       contact_number: firstNonEmpty(b.contactNumber, b.contact_number, current.contact_number),
-      community: firstNonEmpty(b.community, current.community),
-      area: firstNonEmpty(b.area, current.area),
       mother_external_id: firstNonEmpty(b.motherId, b.mother_id, b.motherExternalId, b.mother_external_id, current.mother_external_id),
-      address: firstNonEmpty(b.address, current.address),
-      group_id: b.groupId ?? b.group_id ?? current.group_id,
+      address: firstNonEmpty(
+        [b.province, b.city, b.barangay].filter(Boolean).join(', '),
+        b.address,
+        current.address,
+      ),
+      group_id: req.groupId || b.groupId || b.group_id || current.group_id,
       batch_id: b.batchId ?? b.batch_id ?? current.batch_id,
       lmp_date: b.lmpDate || b.lmp_date || current.lmp_date || null,
       edd_date: b.eddDate || b.edd_date || current.edd_date || null,
@@ -545,6 +641,8 @@ router.put('/:id', async (req, res) => {
       emergency_contact: b.emergencyContact || b.emergency_contact || current.emergency_contact || null,
       emergency_relationship: b.emergencyRelationship || b.emergency_relationship || current.emergency_relationship || null,
       spouse_name: b.spouseName || b.spouse_name || current.spouse_name || null,
+      philhealth_member: b.philhealthMember ?? b.philhealth_member ?? current.philhealth_member ?? 0,
+      philhealth_number: b.philhealthNumber || b.philhealth_number || current.philhealth_number || null,
       medical_conditions: b.medicalConditions ? JSON.stringify(b.medicalConditions) : current.medical_conditions || null,
       other_medical_history: b.otherMedicalHistory || b.other_medical_history || current.other_medical_history || null,
     };
@@ -591,7 +689,7 @@ router.put('/:id', async (req, res) => {
     }
 
     const [rows] = await pool.query(
-      `SELECT m.*, g.group_name, b.name AS batch_name
+      `SELECT m.*, g.name AS group_name, b.name AS batch_name
        FROM mothers m
        LEFT JOIN groups g ON g.id = m.group_id
        LEFT JOIN batches b ON b.id = m.batch_id
@@ -606,13 +704,48 @@ router.put('/:id', async (req, res) => {
 });
 
 router.delete('/:id', async (req, res) => {
+  let connection;
   try {
     const { id } = req.params;
-    const [result] = await pool.query('DELETE FROM mothers WHERE id = ? OR mother_code = ?', [Number(id) || null, id]);
-    res.json({ success: true, deleted: result.affectedRows > 0 });
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+    const scopeClause = req.groupId ? ' AND group_id = ?' : req.schoolId ? ' AND community_id = ?' : '';
+    const scopeValues = req.groupId ? [req.groupId] : req.schoolId ? [req.schoolId] : [];
+    const [motherRows] = await connection.query(
+      `SELECT id FROM mothers WHERE (id = ? OR mother_code = ?)${scopeClause} LIMIT 1`,
+      [Number(id) || null, id, ...scopeValues],
+    );
+    if (!motherRows.length) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Mother not found' });
+    }
+
+    const motherDbId = motherRows[0].id;
+    const [childRows] = await connection.query('SELECT id FROM children WHERE mother_id = ?', [motherDbId]);
+    const childIds = childRows.map((child) => child.id);
+    if (childIds.length) {
+      const placeholders = childIds.map(() => '?').join(', ');
+      await connection.query('DELETE FROM monitoring_logs WHERE beneficiary_type = ? AND beneficiary_id IN (?)', ['child', childIds]);
+      await connection.query(`DELETE FROM child_checkups WHERE child_id IN (${placeholders})`, childIds);
+      await connection.query(`DELETE FROM child_medical_conditions WHERE child_id IN (${placeholders})`, childIds);
+      await connection.query(`DELETE FROM child_vaccinations WHERE child_id IN (${placeholders})`, childIds);
+      await connection.query(`DELETE FROM children WHERE id IN (${placeholders})`, childIds);
+    }
+    await connection.query('DELETE FROM monitoring_logs WHERE beneficiary_type = ? AND beneficiary_id = ?', ['mother', String(motherDbId)]);
+    await connection.query('DELETE FROM mother_checkups WHERE mother_id = ?', [motherDbId]);
+    await connection.query('DELETE FROM mother_ob_history WHERE mother_id = ?', [motherDbId]);
+    await connection.query('DELETE FROM mother_medical_conditions WHERE mother_id = ?', [motherDbId]);
+    await connection.query('DELETE FROM mother_dental_records WHERE mother_id = ?', [motherDbId]);
+    await connection.query('DELETE FROM mother_vaccinations WHERE mother_id = ?', [motherDbId]);
+    const [result] = await connection.query('DELETE FROM mothers WHERE id = ?', [motherDbId]);
+    await connection.commit();
+    res.json({ success: true, deleted: result.affectedRows > 0, childrenDeleted: childIds.length });
   } catch (error) {
+    if (connection) await connection.rollback();
     console.error('[Mothers API] DELETE /:id error:', error.message);
     res.status(500).json({ error: 'db error' });
+  } finally {
+    connection?.release();
   }
 });
 
@@ -621,8 +754,8 @@ router.post('/:id/checkups', async (req, res) => {
     const { id } = req.params;
     const b = req.body || {};
     const [motherRows] = await pool.query(
-      'SELECT id FROM mothers WHERE id = ? OR mother_code = ? LIMIT 1',
-      [Number(id) || null, id]
+      `SELECT id FROM mothers WHERE (id = ? OR mother_code = ?)${req.groupId ? ' AND group_id = ?' : req.schoolId ? ' AND community_id = ?' : ''} LIMIT 1`,
+      req.groupId ? [Number(id) || null, id, req.groupId] : req.schoolId ? [Number(id) || null, id, req.schoolId] : [Number(id) || null, id]
     );
     if (!motherRows.length) {
       return res.status(404).json({ error: 'Mother not found' });

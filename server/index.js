@@ -10,10 +10,12 @@ const authRouter = require('./routes/auth');
 const childrenRouter = require('./routes/children');
 const programsRouter = require('./routes/programs');
 const progressReportRouter = require('./routes/progressReport');
+const documentsRouter = require('./routes/documents');
 const { verifyToken } = require('./middleware/auth');
 const { authorizeOperational } = require('./middleware/authorize');
 const { uploadDirectory } = require('./middleware/documentUpload');
 const { errorHandler } = require('./middleware/errorHandler');
+const db = require('./db');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -62,7 +64,10 @@ app.use('/api/mothers', verifyToken, authorizeOperational, mothersRouter);
 app.use('/api/children', verifyToken, authorizeOperational, childrenRouter);
 app.use('/api/programs', verifyToken, authorizeOperational, programsRouter);
 app.use('/api/progress-report', verifyToken, authorizeOperational, progressReportRouter);
+app.use('/api/documents', verifyToken, authorizeOperational, documentsRouter);
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => console.log(`Server listening on ${PORT}`));
+db.ready
+  .then(() => app.listen(PORT, () => console.log(`Server listening on ${PORT}`)))
+  .catch(() => process.exitCode = 1);

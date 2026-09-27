@@ -42,7 +42,7 @@ export default function CommunityToolbar({
           </div>
             )}
 
-            {activeTab !== 'mothers' && canManage && (
+            {activeTab !== 'mothers' && activeTab !== 'healthWorkers' && canManage && (
           <button className="btn-create-action module-create-button" onClick={onCreate}>
             <PlusIcon />
             <span>

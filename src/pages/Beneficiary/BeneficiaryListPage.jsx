@@ -3,30 +3,25 @@ import BeneficiaryTable from './BeneficiaryTable';
 import StatusFilterBar from './components/StatusFilterBar';
 import EntitySearchControls from './components/EntitySearchControls';
 import { apiGetChildren } from '../../api/children';
+import { getMotherProfileProgress, getMotherMonitoringProgress } from '../../utils/motherProgress';
+import { getChildProfileProgress, getChildMonitoringProgress } from '../../utils/childProgress';
 
 const getGroupStatusByProgress = (g) => {
   if (!g) return 'Incomplete';
+
+  if (g.monitoringProgress && typeof g.monitoringProgress === 'object') {
+    return g.monitoringProgress.completed >= g.monitoringProgress.total ? 'Complete' : 'Incomplete';
+  }
+
+  if (g.status && ['Complete', 'Incomplete'].includes(g.status)) {
+    return g.status;
+  }
+
   const p = g.progress ?? 0;
   return p >= 100 ? 'Complete' : 'Incomplete';
 };
 
-const getMotherProfileProgress = (mother) => Math.round([
-  mother?.firstName || mother?.first_name,
-  mother?.lastName || mother?.last_name,
-  mother?.dob,
-  mother?.community || mother?.area,
-  mother?.birthCertificateDocumentPath || mother?.birth_certificate_document_path,
-  mother?.consentDocumentPath || mother?.consent_document_path,
-].filter(Boolean).length * (100 / 6));
-
-const getChildProfileProgress = (child) => Math.round([
-  child?.mother_id || child?.motherId,
-  child?.name || child?.first_name || child?.firstName,
-  child?.birth_date || child?.birthDate,
-  child?.birthDocumentPath || child?.birth_document_path,
-].filter(Boolean).length * 25);
-
-export default function BeneficiaryListPage({ communities = [], batches = [], mothers = [], loading = false, onSelectMother, onSelectChild }) {
+export default function BeneficiaryListPage({ communities = [], groups = [], batches = [], mothers = [], loading = false, onSelectMother, onSelectChild, batchId = '' }) {
   const [query, setQuery] = useState('');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('All');
   const [perPage, setPerPage] = useState(10);
@@ -39,12 +34,6 @@ export default function BeneficiaryListPage({ communities = [], batches = [], mo
     let active = true;
 
     async function loadChildren() {
-      if (!mothers.length) {
-        setChildRows([]);
-        setChildrenLoading(false);
-        return;
-      }
-
       setChildrenLoading(true);
       apiGetChildren()
         .then((response) => {
@@ -93,23 +82,60 @@ export default function BeneficiaryListPage({ communities = [], batches = [], mo
     const term = (query || '').trim().toLowerCase();
     let data = selectedEntityFilter === 'Child' ? childRows : mothers;
 
+    if (batchId) {
+      const normalizedBatchId = String(batchId);
+      data = data.filter((item) => {
+        const original = item.original || item.raw || item;
+        const candidates = [
+          item.batchId,
+          item.batch_id,
+          item.batchCode,
+          item.batch_code,
+          original.batchId,
+          original.batch_id,
+          original.batchCode,
+          original.batch_code,
+          original.batch,
+          original.batch_name,
+          original.batchName,
+          item.assignedBatchIds,
+          original.assignedBatchIds,
+        ]
+          .flatMap((value) => Array.isArray(value) ? value : [value])
+          .filter((value) => value !== undefined && value !== null && value !== '');
+
+        return candidates.some((value) => String(value) === normalizedBatchId || String(value).toLowerCase() === normalizedBatchId.toLowerCase());
+      });
+    }
+
     // Normalize incoming items: support both 'group' objects and 'mother' objects
     data = data.map((item) => {
       if (selectedEntityFilter === 'Child') {
         return item;
       }
       if (item && (item.firstName || item.first_name || item.motherId || item.mother_id)) {
-        // it's a mother mock object
+        const monitoringProgress = getMotherMonitoringProgress(item);
         return {
           id: item.id,
           name: item.name || `${item.firstName || item.first_name || ''} ${item.lastName || item.last_name || ''}`.trim(),
-          community: item.area || item.community || item.community_name || 'Unknown',
+          community: item.community || item.community_name || '',
           progress: getMotherProfileProgress(item),
+          monitoringProgress,
+          status: monitoringProgress.completed >= monitoringProgress.total ? 'Complete' : 'Incomplete',
           original: item,
         };
       }
-      // assume group-like object
-      return { id: item.id, name: item.name, community: item.community, progress: item.progress ?? 0, original: item };
+
+      const monitoringProgress = selectedEntityFilter === 'Child' ? getChildMonitoringProgress(item) : getMotherMonitoringProgress(item);
+      return {
+        id: item.id,
+        name: item.name,
+        community: item.community,
+        progress: item.progress ?? 0,
+        monitoringProgress,
+        status: monitoringProgress.completed >= monitoringProgress.total ? 'Complete' : 'Incomplete',
+        original: item,
+      };
     });
 
     if (selectedStatusFilter !== 'All') {
@@ -130,7 +156,7 @@ export default function BeneficiaryListPage({ communities = [], batches = [], mo
       if (statusA !== statusB) return statusA - statusB;
       return (a.name || '').localeCompare(b.name || '');
     });
-  }, [mothers, childRows, query, selectedStatusFilter, selectedEntityFilter]);
+  }, [mothers, childRows, query, selectedStatusFilter, selectedEntityFilter, batchId]);
 
   const pageCount = Math.max(1, Math.ceil(filteredData.length / perPage));
   const currentPage = Math.min(page, pageCount);
@@ -226,6 +252,7 @@ export default function BeneficiaryListPage({ communities = [], batches = [], mo
         onSelectMother={onSelectMother}
         onSelectChild={onSelectChild}
         communities={communities}
+        groups={groups}
         batches={batches}
         entityFilter={selectedEntityFilter}
       />

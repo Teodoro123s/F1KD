@@ -80,15 +80,13 @@ export const getSchoolGroups = (groups, selectedSchool, query) => {
  */
 export const getGroupBatches = (batches, mothers, selectedGroup, query) => {
   if (!selectedGroup) return [];
-  const groupBatchIds = mothers
-    .filter(
-      (mother) =>
-        mother.group === selectedGroup.name && mother.batchId
-    )
-    .map((mother) => String(mother.batchId));
-  const filtered = batches.filter((batch) =>
-    groupBatchIds.includes(String(batch.id))
-  );
+  const filtered = batches.filter((batch) => {
+    const assignedGroupIds = String(batch.groupIds || '')
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
+    return assignedGroupIds.includes(String(selectedGroup.id));
+  });
   return filterItemsByQuery(filtered, query, [
     'name',
     'id',

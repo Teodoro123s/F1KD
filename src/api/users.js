@@ -1,4 +1,6 @@
 ﻿// API helpers for user management (improved error handling and consistent responses)
+import { fetchWithAuth } from './authHeader';
+
 const API_BASE = (typeof process !== 'undefined' && process.env && process.env.REACT_APP_API_URL)
   ? process.env.REACT_APP_API_URL
   : (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL)
@@ -21,69 +23,54 @@ async function handleResponse(res, defaultMsg) {
   throw err;
 }
 
-function authHeader() {
-  try {
-    const t = localStorage.getItem('auth_token');
-    if (t) return { Authorization: 'Bearer ' + t };
-  } catch (e) {
-    // ignore
-  }
-  return {};
-}
-
 export async function apiGetUsers(page = 1, perPage = 100) {
   const url = `${API_BASE}/api/users?page=${page}&perPage=${perPage}`;
-  const res = await fetch(url, { headers: { ...authHeader() }, credentials: 'same-origin' });
+  const res = await fetchWithAuth(url, { headers: { 'Content-Type': 'application/json' } });
   return handleResponse(res, 'Failed to fetch users');
 }
 
 export async function apiGetCoordinators() {
-  const res = await fetch(`${API_BASE}/api/users/coordinators`, {
-    headers: { ...authHeader() },
-    credentials: 'same-origin',
+  const res = await fetchWithAuth(`${API_BASE}/api/users/coordinators`, {
+    headers: { 'Content-Type': 'application/json' },
   });
   return handleResponse(res, 'Failed to fetch coordinators');
 }
 
 export async function apiCreateUser(payload) {
-  const res = await fetch(`${API_BASE}/api/users`, {
+  const res = await fetchWithAuth(`${API_BASE}/api/users`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...authHeader() },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
-    credentials: 'same-origin',
   });
   return handleResponse(res, 'Server error when creating user');
 }
 
 export async function apiUpdateUser(id, payload) {
-  const res = await fetch(`${API_BASE}/api/users/${id}`, {
+  const res = await fetchWithAuth(`${API_BASE}/api/users/${id}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json', ...authHeader() },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
-    credentials: 'same-origin',
   });
   return handleResponse(res, 'Server error when updating user');
 }
 
 export async function apiPatchUserStatus(id, status) {
-  const res = await fetch(`${API_BASE}/api/users/${id}/status`, {
+  const res = await fetchWithAuth(`${API_BASE}/api/users/${id}/status`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...authHeader() },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ status }),
-    credentials: 'same-origin',
   });
   return handleResponse(res, 'Failed to update user status');
 }
  
 export async function apiDeleteUser(id) {
-  const res = await fetch(`${API_BASE}/api/users/${id}`, { method: 'DELETE', headers: { ...authHeader() }, credentials: 'same-origin' });
+  const res = await fetchWithAuth(`${API_BASE}/api/users/${id}`, { method: 'DELETE' });
   return handleResponse(res, 'Failed to delete user');
 }
 
 export async function apiGetUser(id) {
- const res = await fetch(`${API_BASE}/api/users/${id}`, {
-   headers: { ...authHeader() },
-   credentials: 'same-origin',
+ const res = await fetchWithAuth(`${API_BASE}/api/users/${id}`, {
+   headers: { 'Content-Type': 'application/json' },
  });
  return handleResponse(res, 'Failed to fetch user');
 }

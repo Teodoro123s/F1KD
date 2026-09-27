@@ -1,17 +1,36 @@
 const mysql = require('mysql2/promise');
 require('dotenv').config();
 
+const databaseName = process.env.DB_NAME || 'f1kd';
+if (!/^[A-Za-z0-9_$]+$/.test(databaseName)) {
+  throw new Error('DB_NAME contains unsupported characters');
+}
+
 const pool = mysql.createPool({
   host: process.env.DB_HOST || '127.0.0.1',
   user: process.env.DB_USER || 'root',
   password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'f1kd',
+  database: databaseName,
   port: process.env.DB_PORT ? Number(process.env.DB_PORT) : 3306,
   waitForConnections: true,
   connectionLimit: 10,
 });
 
-console.log('DB pool configured for database:', process.env.DB_NAME || 'f1kd');
+console.log('DB pool configured for database:', databaseName);
+
+async function ensureDatabaseExists() {
+  const connection = await mysql.createConnection({
+    host: process.env.DB_HOST || '127.0.0.1',
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || '',
+    port: process.env.DB_PORT ? Number(process.env.DB_PORT) : 3306,
+  });
+  try {
+    await connection.query(`CREATE DATABASE IF NOT EXISTS \`${databaseName}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci`);
+  } finally {
+    await connection.end();
+  }
+}
 
 async function ensure() {
   const statements = [
@@ -28,9 +47,15 @@ async function ensure() {
       role VARCHAR(120),
       status ENUM('Active','Suspended') DEFAULT 'Active',
       password_hash VARCHAR(255),
+      school_id INT NULL,
+      group_id INT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+
+    `ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS school_id INT NULL,
+      ADD COLUMN IF NOT EXISTS group_id INT NULL;`,
 
 
 
@@ -41,6 +66,9 @@ async function ensure() {
       area VARCHAR(80) NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+
+    `ALTER TABLE communities
+      ADD COLUMN IF NOT EXISTS coordinator_id INT NULL;`,
 
     `CREATE TABLE IF NOT EXISTS batches (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -86,6 +114,7 @@ async function ensure() {
       maiden_surname VARCHAR(100),
       suffix VARCHAR(20),
       mother_id_no VARCHAR(50) UNIQUE,
+      mother_external_id VARCHAR(128),
       dob DATE,
       lmp_date DATE,
       edd_date DATE,
@@ -224,6 +253,9 @@ async function ensure() {
       ADD COLUMN IF NOT EXISTS birth_document_path VARCHAR(500);`,
 
     `ALTER TABLE mothers
+      ADD COLUMN IF NOT EXISTS mother_external_id VARCHAR(128),
+      ADD COLUMN IF NOT EXISTS philhealth_member BOOLEAN NOT NULL DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS philhealth_number VARCHAR(80) DEFAULT NULL,
       ADD COLUMN IF NOT EXISTS birth_certificate_document_name VARCHAR(255),
       ADD COLUMN IF NOT EXISTS birth_certificate_document_path VARCHAR(500),
       ADD COLUMN IF NOT EXISTS consent_document_name VARCHAR(255),
@@ -316,7 +348,51 @@ async function ensure() {
       KEY idx_monitoring_beneficiary (beneficiary_id, beneficiary_type),
       KEY idx_monitoring_program_date (program_id, monitored_date),
       CONSTRAINT fk_monitoring_program FOREIGN KEY (program_id) REFERENCES programs(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+
+    `CREATE TABLE IF NOT EXISTS roles (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      role_key VARCHAR(40) NOT NULL UNIQUE,
+      role_name VARCHAR(80) NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+
+    `CREATE TABLE IF NOT EXISTS permissions (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      resource_key VARCHAR(80) NOT NULL,
+      action_key ENUM('read', 'create', 'update', 'delete') NOT NULL,
+      UNIQUE KEY uq_permission_resource_action (resource_key, action_key)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+
+    `CREATE TABLE IF NOT EXISTS role_permissions (
+      role_id INT NOT NULL,
+      permission_id INT NOT NULL,
+      PRIMARY KEY (role_id, permission_id),
+      CONSTRAINT fk_role_permissions_role FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE,
+      CONSTRAINT fk_role_permissions_permission FOREIGN KEY (permission_id) REFERENCES permissions(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+
+    `INSERT INTO roles (role_key, role_name) VALUES
+      ('super_admin', 'Super Admin'), ('admin', 'Admin'), ('partner', 'Partner')
+    ON DUPLICATE KEY UPDATE role_name = VALUES(role_name);`,
+
+    `INSERT INTO permissions (resource_key, action_key) VALUES
+      ('user-management', 'read'), ('user-management', 'create'), ('user-management', 'update'), ('user-management', 'delete'),
+      ('admin-resources', 'read'), ('admin-resources', 'create'), ('admin-resources', 'update'), ('admin-resources', 'delete'),
+      ('partner-resources', 'read'), ('partner-resources', 'create'), ('partner-resources', 'update'), ('partner-resources', 'delete')
+    ON DUPLICATE KEY UPDATE action_key = VALUES(action_key);`,
+
+    `INSERT IGNORE INTO role_permissions (role_id, permission_id)
+      SELECT r.id, p.id FROM roles r CROSS JOIN permissions p WHERE r.role_key = 'super_admin';`,
+
+    `INSERT IGNORE INTO role_permissions (role_id, permission_id)
+      SELECT r.id, p.id FROM roles r JOIN permissions p
+      ON p.resource_key = 'admin-resources' AND p.action_key = 'read'
+      WHERE r.role_key = 'admin';`,
+
+    `INSERT IGNORE INTO role_permissions (role_id, permission_id)
+      SELECT r.id, p.id FROM roles r JOIN permissions p
+      ON p.resource_key = 'partner-resources' AND p.action_key = 'read'
+      WHERE r.role_key = 'partner';`
   ];
 
   const conn = await pool.getConnection();
@@ -329,46 +405,39 @@ async function ensure() {
   }
 }
 
-const bcrypt = require('bcrypt');
+const { ensureSuperadminAccount } = require('./services/superadminRecovery');
 
 async function ensureDefaultAdmin() {
   try {
-    // Detect users table columns to avoid inserting into absent columns
     const [cols] = await pool.query("SHOW COLUMNS FROM users");
-    const colNames = (cols || []).map(c => c.Field);
-    const hasFirstName = colNames.includes('first_name');
-    const hasUsername = colNames.includes('username');
+    const columns = new Set((cols || []).map((column) => column.Field));
+    const requiredColumns = {
+      first_name: "VARCHAR(120) NOT NULL DEFAULT ''",
+      last_name: "VARCHAR(120) NOT NULL DEFAULT ''",
+      middle_initial: 'CHAR(1) DEFAULT NULL',
+      contact_number: 'VARCHAR(20) DEFAULT NULL',
+      gender: "ENUM('Male','Female','Other') NOT NULL DEFAULT 'Male'",
+      dob: 'DATE DEFAULT NULL',
+      location: 'VARCHAR(120) DEFAULT NULL',
+      role: "VARCHAR(120) NOT NULL DEFAULT 'user'",
+      status: "VARCHAR(20) NOT NULL DEFAULT 'Active'",
+      password_hash: 'VARCHAR(255) DEFAULT NULL',
+      school_id: 'INT DEFAULT NULL',
+      group_id: 'INT DEFAULT NULL',
+    };
+    const additions = Object.entries(requiredColumns)
+      .filter(([name]) => !columns.has(name))
+      .map(([name, definition]) => `ADD COLUMN ${name} ${definition}`);
 
-    const [countRows] = await pool.query('SELECT COUNT(*) AS cnt FROM users');
-    const cnt = countRows[0].cnt || 0;
-
-    if (cnt === 0) {
-      const email = process.env.DEFAULT_ADMIN_EMAIL || 'Superadmin@gmail.com';
-      const plain = process.env.DEFAULT_ADMIN_PASSWORD || 'Welcome123!';
-      const hash = await bcrypt.hash(plain, 10);
-
-      if (hasFirstName) {
-        // older server schema that expects first_name / last_name
-        await pool.query(
-          `INSERT INTO users (first_name, last_name, email, role, status, password_hash) VALUES (?, ?, ?, ?, ?, ?)`,
-          ['Super', 'Admin', email, 'Superadmin', 'Active', hash]
-        );
-        console.info('Default admin user created (first_name schema):', email);
-      } else if (hasUsername) {
-        // current DB schema uses username / full_name
-        const username = (process.env.DEFAULT_ADMIN_USERNAME || 'superadmin').replace(/[^A-Za-z0-9_.-]/g, '').toLowerCase();
-        const fullName = 'Super Admin';
-        await pool.query(
-          `INSERT INTO users (username, email, full_name, role, status, password_hash) VALUES (?, ?, ?, ?, ?, ?)`,
-          [username, email, fullName, process.env.DEFAULT_ADMIN_ROLE || 'Superadmin', process.env.DEFAULT_ADMIN_STATUS || 'active', hash]
-        );
-        console.info('Default admin user created (username schema):', email);
-      } else {
-        console.info('Users table schema not recognized – skipping default admin creation');
-      }
+    if (additions.length > 0) {
+      await pool.query(`ALTER TABLE users ${additions.join(', ')}`);
+      console.info('Self-healed users table columns:', additions.length);
     }
+
+    await ensureSuperadminAccount(pool);
   } catch (err) {
     console.error('Failed to ensure default admin', err);
+    throw err;
   }
 }
 
@@ -466,11 +535,18 @@ async function migrateMothersTable() {
   }
 }
 
-ensure().catch((err) => console.error('DB init error', err)).finally(async () => {
+const ready = (async () => {
+  await ensureDatabaseExists();
+  await ensure();
   await migrateUsersTable();
   await migrateMothersTable();
-  ensureDefaultAdmin();
+  await ensureDefaultAdmin();
+})().catch((err) => {
+  console.error('DB init error', err);
+  throw err;
 });
 
 module.exports = pool;
+module.exports.ready = ready;
+module.exports.ensureDefaultAdmin = ensureDefaultAdmin;
 

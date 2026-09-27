@@ -1,5 +1,6 @@
 import React from 'react';
-import { formatDateForDisplay } from '../../utils/dateFormat';
+import { getMotherDocumentProgress, getMotherMonitoringProgress } from '../../utils/motherProgress';
+import { getChildMonitoringProgress, getChildProfileProgress } from '../../utils/childProgress';
 
 export default function BeneficiaryTable({
   currentRows,
@@ -14,32 +15,17 @@ export default function BeneficiaryTable({
   onSelectMother,
   onSelectChild,
   communities = [],
+  groups = [],
   batches = [],
   entityFilter = 'Mother',
 }) {
   const emptyColSpan = entityFilter === 'Both' ? 2 : 1;
 
-  const getMotherStatus = (progress) => {
-    return progress >= 100
-      ? <span className="status-complete">Profile complete</span>
-      : <span className="status-pending">Profile incomplete</span>;
+  const getMotherStatus = (documentProgress) => {
+    return documentProgress.completed >= documentProgress.total
+      ? <span className="status-complete">Documents complete</span>
+      : <span className="status-pending">Documents pending</span>;
   };
-
-  const getMotherProfileProgress = (mother) => Math.round([
-    mother?.firstName || mother?.first_name,
-    mother?.lastName || mother?.last_name,
-    mother?.dob,
-    mother?.community || mother?.area,
-    mother?.birthCertificateDocumentPath || mother?.birth_certificate_document_path,
-    mother?.consentDocumentPath || mother?.consent_document_path,
-  ].filter(Boolean).length * (100 / 6));
-
-  const getChildProfileProgress = (child) => Math.round([
-    child?.mother_id || child?.motherId,
-    child?.name || child?.first_name || child?.firstName,
-    child?.birth_date || child?.birthDate,
-    child?.birthDocumentPath || child?.birth_document_path,
-  ].filter(Boolean).length * 25);
 
   const getChildStatus = (progress) => {
     return progress >= 100
@@ -58,27 +44,35 @@ export default function BeneficiaryTable({
               </tr>
             ) : currentRows.length > 0 ? (
               currentRows.map((row) => {
-                const motherProgress = getMotherProfileProgress(row.original || row);
-                const childProgress = getChildProfileProgress(row.original || row);
-
-                // Lookup mother's school/area
-                const motherObj = communities.find((c) => c.name === row.community);
-                const area = motherObj?.area || row.original?.area || 'Unknown area';
+                const original = row.original || row;
+                const motherDocumentProgress = getMotherDocumentProgress(original);
+                const motherMonitoringProgress = getMotherMonitoringProgress(original);
+                const childProgress = getChildProfileProgress(original);
+                const childMonitoringProgress = getChildMonitoringProgress(original);
+                const motherObj = communities.find((community) => (
+                  community.name === row.community
+                  || String(community.id) === String(original.community_id ?? original.communityId)
+                ));
+                const groupObj = groups.find((group) => (
+                  String(group.id) === String(original.group_id ?? original.groupId)
+                  || group.name === original.group_name
+                  || group.name === original.group
+                ));
+                const area = motherObj?.area || original.area || '';
                 
                 // Lookup batch name
-                const batchId = row.assignedBatchIds?.[0] || row.original?.batch_id || row.original?.batchId;
+                const batchId = row.assignedBatchIds?.[0] || original.batch_id || original.batchId;
                 const batchObj = batches.find((b) => b.id === batchId);
-                const batchName = batchObj?.name || row.original?.batch_name || 'Unknown batch';
-
-                const motherBreadcrumb = `${area} > ${row.name} > ${batchName}`;
-                const childGroup = row.original?.group_name || row.original?.group || 'Group not assigned';
-                const childBreadcrumb = `${childGroup} > ${batchName}`;
+                const batchName = batchObj?.name || original.batch_name || original.batch || '';
+                const schoolName = row.community || original.community_name || original.community || motherObj?.name || area;
+                const groupName = original.group_name || original.group || row.group || groupObj?.name || '';
+                const assignmentDetails = [
+                  schoolName,
+                  groupName,
+                  batchName,
+                ].filter(Boolean).join(' > ');
 
                 if (entityFilter === 'Mother') {
-                  const orig = row.original || {};
-                  const contact = orig.contactNumber || orig.contact || orig.contact_number || orig.phone || '';
-                  const edd = orig.eddDate || orig.edd_date || orig.edd || row.eddDate || '';
-                  const ga = orig.gestationalAge || orig.gestational_age || row.gestationalAge || '';
                   return (
                     <tr key={row.id}>
                       <td className="mother-cell full-row-cell">
@@ -99,18 +93,16 @@ export default function BeneficiaryTable({
                               <span className="beneficiary-cell-name">{row.name}</span>
                               <div className="beneficiary-progress-wrapper">
                                 <div className="progress-bar" aria-hidden="true">
-                                  <div className="progress-bar-fill" style={{ width: `${motherProgress}%` }} />
+                                  <div className="progress-bar-fill" style={{ width: `${motherMonitoringProgress.percentage}%` }} />
                                 </div>
                               </div>
-                              <span className="beneficiary-cell-percent">{motherProgress}%</span>
+                              <span className="beneficiary-cell-percent">{motherMonitoringProgress.completed}/{motherMonitoringProgress.total}</span>
                             </div>
                             <div className="beneficiary-cell-line-2">
-                              {contact && <span className="muted">{contact}</span>}
-                              {(contact && (edd || ga)) && <span className="muted"> • </span>}
-                              {edd ? <span className="muted">EDD: {formatDateForDisplay(edd)}</span> : (ga ? <span className="muted">GA: {ga} wk</span> : null)}
+                              {assignmentDetails && <span className="muted">{assignmentDetails}</span>}
                             </div>
                             <div className="beneficiary-cell-line-3">
-                              {getMotherStatus(motherProgress)}
+                              {getMotherStatus(motherDocumentProgress)}
                             </div>
                           </div>
                         </button>
@@ -140,13 +132,13 @@ export default function BeneficiaryTable({
                               <span className="beneficiary-cell-name">{row.name}</span>
                               <div className="beneficiary-progress-wrapper">
                                 <div className="progress-bar" aria-hidden="true">
-                                  <div className="progress-bar-fill child" style={{ width: `${childProgress}%` }} />
+                                  <div className="progress-bar-fill child" style={{ width: `${childMonitoringProgress.percentage}%` }} />
                                 </div>
                               </div>
-                              <span className="beneficiary-cell-percent">{childProgress}%</span>
+                              <span className="beneficiary-cell-percent">{childMonitoringProgress.completed}/{childMonitoringProgress.total}</span>
                             </div>
                             <div className="beneficiary-cell-line-2">
-                              {childBreadcrumb}
+                              {assignmentDetails && <span className="muted">{assignmentDetails}</span>}
                             </div>
                             <div className="beneficiary-cell-line-3">
                               {getChildStatus(childProgress)}
@@ -163,10 +155,6 @@ export default function BeneficiaryTable({
                   <tr key={row.id}>
                     <td className="mother-cell">
                       {(() => {
-                        const orig = row.original || {};
-                        const contact = orig.contactNumber || orig.contact || orig.contact_number || orig.phone || '';
-                        const edd = orig.eddDate || orig.edd_date || orig.edd || row.eddDate || '';
-                        const ga = orig.gestationalAge || orig.gestational_age || row.gestationalAge || '';
                         return (
                           <button
                             type="button"
@@ -185,18 +173,16 @@ export default function BeneficiaryTable({
                                 <span className="beneficiary-cell-name">{row.name}</span>
                                 <div className="beneficiary-progress-wrapper">
                                   <div className="progress-bar" aria-hidden="true">
-                                    <div className="progress-bar-fill" style={{ width: `${motherProgress}%` }} />
+                                    <div className="progress-bar-fill" style={{ width: `${motherMonitoringProgress.percentage}%` }} />
                                   </div>
                                 </div>
-                                <span className="beneficiary-cell-percent">{motherProgress}%</span>
+                                <span className="beneficiary-cell-percent">{motherMonitoringProgress.completed}/{motherMonitoringProgress.total}</span>
                               </div>
                               <div className="beneficiary-cell-line-2">
-                                {contact && <span className="muted">{contact}</span>}
-                                {(contact && (edd || ga)) && <span className="muted"> • </span>}
-                                {edd ? <span className="muted">EDD: {formatDateForDisplay(edd)}</span> : (ga ? <span className="muted">GA: {ga} wk</span> : null)}
+                                {assignmentDetails && <span className="muted">{assignmentDetails}</span>}
                               </div>
                               <div className="beneficiary-cell-line-3">
-                                {getMotherStatus(motherProgress)}
+                                {getMotherStatus(motherDocumentProgress)}
                               </div>
                             </div>
                           </button>
@@ -221,13 +207,13 @@ export default function BeneficiaryTable({
                             <span className="beneficiary-cell-name">{row.name}</span>
                             <div className="beneficiary-progress-wrapper">
                               <div className="progress-bar" aria-hidden="true">
-                                <div className="progress-bar-fill child" style={{ width: `${childProgress}%` }} />
+                                <div className="progress-bar-fill child" style={{ width: `${childMonitoringProgress.percentage}%` }} />
                               </div>
                             </div>
-                            <span className="beneficiary-cell-percent">{childProgress}%</span>
+                            <span className="beneficiary-cell-percent">{childMonitoringProgress.completed}/{childMonitoringProgress.total}</span>
                           </div>
                           <div className="beneficiary-cell-line-2">
-                            {childBreadcrumb}
+                            {assignmentDetails && <span className="muted">{assignmentDetails}</span>}
                           </div>
                           <div className="beneficiary-cell-line-3">
                             {getChildStatus(childProgress)}

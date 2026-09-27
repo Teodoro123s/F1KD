@@ -1,5 +1,13 @@
 const express = require('express');
 const router = express.Router();
+
+router.use((req, res, next) => {
+  const isMonitoringUpdate = req.method === 'PATCH' && /\/monitoring$/.test(req.path);
+  if (req.isHealthWorker && req.method !== 'GET' && !isMonitoringUpdate) {
+    return res.status(403).json({ error: 'Health workers have read-only access to programs' });
+  }
+  return next();
+});
 const pool = require('../db');
 
 function cleanProgram(body = {}) {
@@ -24,7 +32,19 @@ async function getProgram(id) {
   if (!rows.length) return null;
   const [clusters] = await pool.query('SELECT id, scope_type AS type, scope_name AS name, beneficiaries, received FROM program_clusters WHERE program_id = ? ORDER BY id', [id]);
   const target = clusters.reduce((total, cluster) => total + Number(cluster.beneficiaries || 0), 0);
-  const received = clusters.reduce((total, cluster) => total + Number(cluster.received || 0), 0);
+  const [monitoringRows] = await pool.query(
+    `SELECT COUNT(DISTINCT CONCAT(LOWER(TRIM(ml.beneficiary_type)), ':', ml.beneficiary_id)) AS received
+     FROM monitoring_logs ml
+     WHERE ml.program_id = ?
+       AND ml.monitored = 1
+       AND (
+         LOWER(TRIM(?)) IN ('mother and child', 'mother & child')
+         OR LOWER(TRIM(ml.beneficiary_type)) = LOWER(TRIM(?))
+       )`,
+    [id, rows[0].beneficiary_type, rows[0].beneficiary_type],
+  );
+  const clusterReceived = clusters.reduce((total, cluster) => total + Number(cluster.received || 0), 0);
+  const received = Math.max(clusterReceived, Number(monitoringRows[0]?.received || 0));
   const schoolCluster = clusters.find((cluster) => cluster.type === 'School');
   const batchCluster = clusters.find((cluster) => cluster.type === 'Batch');
   return {
@@ -38,28 +58,73 @@ async function getProgram(id) {
   };
 }
 
+function programHasScopeMatch(clusters = [], { schoolId, groupId } = {}) {
+  if (!schoolId && !groupId) return true;
+  if (!clusters.length) return true;
+
+  if (groupId) {
+    return clusters.some((cluster) => {
+      if (cluster.type === 'Group') return true;
+      if (cluster.type === 'Batch') return true;
+      return false;
+    });
+  }
+
+  if (schoolId) {
+    return clusters.some((cluster) => cluster.type === 'School' || cluster.type === 'Group' || cluster.type === 'Batch');
+  }
+
+  return true;
+}
+
 router.get('/', async (req, res) => {
   try {
-    const scopeClause = req.schoolId
-      ? `WHERE EXISTS (
-          SELECT 1
-          FROM program_clusters scoped_cluster
-          INNER JOIN communities scoped_school ON scoped_school.name = scoped_cluster.scope_name
-          WHERE scoped_cluster.program_id = p.id
-            AND scoped_cluster.scope_type = 'School'
-            AND scoped_school.id = ?
+    const scopeClause = req.groupId
+      ? `WHERE (
+          NOT EXISTS (SELECT 1 FROM program_clusters scoped_cluster WHERE scoped_cluster.program_id = p.id)
+          OR EXISTS (
+            SELECT 1
+            FROM program_clusters scoped_cluster
+            WHERE scoped_cluster.program_id = p.id
+              AND (
+                (scoped_cluster.scope_type = 'Group' AND EXISTS (
+                  SELECT 1 FROM groups scoped_group
+                  WHERE scoped_group.id = ? AND scoped_group.name = scoped_cluster.scope_name
+                ))
+                OR (scoped_cluster.scope_type = 'Batch' AND EXISTS (
+                  SELECT 1 FROM group_batch scoped_group_batch
+                  INNER JOIN batches scoped_batch ON scoped_batch.id = scoped_group_batch.batch_id
+                  WHERE scoped_group_batch.group_id = ? AND scoped_batch.name = scoped_cluster.scope_name
+                ))
+              )
+          )
+        )`
+      : req.schoolId
+      ? `WHERE (
+          NOT EXISTS (SELECT 1 FROM program_clusters scoped_cluster WHERE scoped_cluster.program_id = p.id)
+          OR EXISTS (
+            SELECT 1
+            FROM program_clusters scoped_cluster
+            INNER JOIN communities scoped_school ON scoped_school.name = scoped_cluster.scope_name
+            WHERE scoped_cluster.program_id = p.id
+              AND scoped_cluster.scope_type = 'School'
+              AND scoped_school.id = ?
+          )
         )`
       : '';
-    const [rows] = await pool.query(`SELECT p.* FROM programs p ${scopeClause} ORDER BY p.id DESC`, req.schoolId ? [req.schoolId] : []);
+    const [rows] = await pool.query(`SELECT p.* FROM programs p ${scopeClause} ORDER BY p.id DESC`, req.groupId ? [req.groupId, req.groupId] : req.schoolId ? [req.schoolId] : []);
     const programs = await Promise.all(rows.map((row) => getProgram(row.id)));
     res.json({ programs });
   } catch (error) {
     console.error('[Programs API] list error:', error.message);
-    res.status(500).json({ error: 'db error' });
+    res.status(500).json({ error: error.message || 'db error' });
   }
 });
 
 router.post('/', async (req, res) => {
+  if (req.isCommunityOrganizer && !(Number(req.schoolId) > 0)) {
+    return res.status(403).json({ error: 'Assign this Community Organizer to a school before creating programs' });
+  }
   const program = cleanProgram(req.body);
   if (!program) return res.status(400).json({ error: 'Program name and provider are required' });
   try {
@@ -98,6 +163,20 @@ router.patch('/:id/end', async (req, res) => {
   }
 });
 
+router.patch('/:id/restore', async (req, res) => {
+  try {
+    const [result] = await pool.query(
+      "UPDATE programs SET status = 'Active', ended = NULL WHERE id = ?",
+      [req.params.id],
+    );
+    if (!result.affectedRows) return res.status(404).json({ error: 'Program not found' });
+    res.json({ program: await getProgram(req.params.id) });
+  } catch (error) {
+    console.error('[Programs API] restore error:', error.message);
+    res.status(500).json({ error: 'db error' });
+  }
+});
+
 router.delete('/:id', async (req, res) => {
   try {
     const [result] = await pool.query('DELETE FROM programs WHERE id = ?', [req.params.id]);
@@ -117,6 +196,17 @@ router.post('/:id/clusters', async (req, res) => {
       const type = String(scope.type || '').trim();
       const name = String(scope.name || '').trim();
       if (!type || !name) continue;
+      if (req.isCommunityOrganizer) {
+        const scopeQueries = {
+          School: ['SELECT id FROM communities WHERE id = ? AND name = ? LIMIT 1', [req.schoolId, name]],
+          Group: ['SELECT id FROM groups WHERE community_id = ? AND name = ? LIMIT 1', [req.schoolId, name]],
+          Batch: ['SELECT id FROM batches WHERE community_id = ? AND name = ? LIMIT 1', [req.schoolId, name]],
+        };
+        const query = scopeQueries[type];
+        if (!query) return res.status(403).json({ error: 'Community Organizers may only add scopes from their assigned school' });
+        const [matchingScopes] = await pool.query(...query);
+        if (!matchingScopes.length) return res.status(403).json({ error: 'Community Organizers may only add scopes from their assigned school' });
+      }
       await pool.query('INSERT IGNORE INTO program_clusters (program_id, scope_type, scope_name, beneficiaries) VALUES (?, ?, ?, ?)', [req.params.id, type, name, Number(scope.beneficiaries) || 0]);
     }
     res.status(201).json({ program: await getProgram(req.params.id) });
@@ -189,6 +279,13 @@ router.patch('/:programId/monitoring', async (req, res) => {
     return res.status(400).json({ error: 'Beneficiary ID and type are required' });
   }
   try {
+    const [programRows] = await pool.query('SELECT beneficiary_type FROM programs WHERE id = ?', [req.params.programId]);
+    if (!programRows.length) return res.status(404).json({ error: 'Program not found' });
+    const configuredType = String(programRows[0].beneficiary_type || '').trim().toLowerCase();
+    if (!['mother and child', 'mother & child'].includes(configuredType) && configuredType !== beneficiaryType) {
+      return res.status(400).json({ error: `This program accepts ${programRows[0].beneficiary_type} beneficiaries only` });
+    }
+
     const [result] = await pool.query(
       `INSERT INTO monitoring_logs
         (beneficiary_id, beneficiary_type, program_id, monitored, monitored_date, monitored_by)
@@ -203,15 +300,75 @@ router.patch('/:programId/monitoring', async (req, res) => {
   }
 });
 
+router.get('/:programId/monitoring/cluster-report/:clusterType/:clusterName', async (req, res) => {
+  const clusterType = String(req.params.clusterType || '').toLowerCase();
+  const clusterName = decodeURIComponent(String(req.params.clusterName || '')).trim();
+  const clusterFilters = {
+    school: 'LOWER(TRIM(COALESCE(co.name, ""))) = LOWER(TRIM(?))',
+    group: 'LOWER(TRIM(COALESCE(g.name, ""))) = LOWER(TRIM(?))',
+    batch: 'LOWER(TRIM(COALESCE(b.name, ""))) = LOWER(TRIM(?))',
+  };
+  const clusterFilter = clusterFilters[clusterType];
+  if (!clusterFilter || !clusterName) return res.status(400).json({ error: 'Invalid monitoring cluster' });
+  try {
+    const [logs] = await pool.query(
+      `SELECT DATE_FORMAT(ml.monitored_date, '%Y-%m-%d') AS date, ml.monitored, ml.notes, p.name AS program_name,
+        ml.beneficiary_type, ml.beneficiary_id,
+        CASE
+          WHEN LOWER(TRIM(ml.beneficiary_type)) = 'mother' AND m.id IS NOT NULL THEN CONCAT('mother:', m.id)
+          WHEN LOWER(TRIM(ml.beneficiary_type)) = 'child' AND c.id IS NOT NULL THEN CONCAT('child:', c.id)
+          ELSE CONCAT(LOWER(TRIM(ml.beneficiary_type)), ':', ml.beneficiary_id)
+        END AS beneficiary_key,
+        COALESCE(NULLIF(TRIM(co.name), ''), NULLIF(TRIM(parent_co.name), ''), 'Unknown school') AS school_name,
+        COALESCE(NULLIF(TRIM(g.name), ''), NULLIF(TRIM(parent_g.name), ''), 'Unknown group') AS group_name,
+        COALESCE(NULLIF(TRIM(b.name), ''), NULLIF(TRIM(parent_b.name), ''), 'Unknown batch') AS batch_name,
+        COALESCE(NULLIF(TRIM(CONCAT_WS(' ', m.first_name, m.last_name)), ''), NULLIF(TRIM(CONCAT_WS(' ', c.first_name, c.last_name)), ''), ml.beneficiary_id) AS beneficiary_name,
+        NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.last_name)), '') AS monitored_by_name
+       FROM monitoring_logs ml
+       INNER JOIN programs p ON p.id = ml.program_id
+       LEFT JOIN mothers m ON LOWER(CAST(ml.beneficiary_type AS CHAR)) = 'mother' AND (CAST(ml.beneficiary_id AS CHAR) = CAST(m.id AS CHAR) OR LOWER(TRIM(CAST(m.mother_code AS CHAR))) = LOWER(TRIM(CAST(ml.beneficiary_id AS CHAR))))
+       LEFT JOIN children c ON LOWER(CAST(ml.beneficiary_type AS CHAR)) = 'child' AND (CAST(ml.beneficiary_id AS CHAR) = CAST(c.id AS CHAR) OR LOWER(TRIM(CAST(c.child_code AS CHAR))) = LOWER(TRIM(CAST(ml.beneficiary_id AS CHAR))))
+               LEFT JOIN mothers parent_m ON LOWER(CAST(ml.beneficiary_type AS CHAR)) = 'child' AND parent_m.id = c.mother_id
+               LEFT JOIN communities co ON co.id = COALESCE(m.community_id, c.community_id)
+               LEFT JOIN \`groups\` g ON g.id = COALESCE(m.group_id, c.group_id)
+               LEFT JOIN batches b ON b.id = COALESCE(m.batch_id, c.batch_id)
+               LEFT JOIN communities parent_co ON parent_co.id = parent_m.community_id
+               LEFT JOIN \`groups\` parent_g ON parent_g.id = parent_m.group_id
+               LEFT JOIN batches parent_b ON parent_b.id = parent_m.batch_id
+       LEFT JOIN users u ON u.id = ml.monitored_by
+       WHERE ml.program_id = ?
+         AND (
+           LOWER(TRIM(p.beneficiary_type)) IN ('mother and child', 'mother & child')
+           OR LOWER(TRIM(ml.beneficiary_type)) = LOWER(TRIM(p.beneficiary_type))
+         )
+         AND ${clusterFilter}
+       ORDER BY ml.monitored_date DESC, beneficiary_name`,
+      [req.params.programId, clusterName],
+    );
+    res.json({ report: logs });
+  } catch (error) {
+    console.error('[Programs API] cluster monitoring report error:', error.message);
+    res.status(500).json({ error: 'db error' });
+  }
+});
+
 router.get('/:programId/monitoring/report/:beneficiaryType/:beneficiaryId', async (req, res) => {
   const beneficiaryType = String(req.params.beneficiaryType || '').toLowerCase();
   if (!['mother', 'child'].includes(beneficiaryType)) return res.status(400).json({ error: 'Invalid beneficiary type' });
   try {
     const [logs] = await pool.query(
             `SELECT DATE_FORMAT(ml.monitored_date, '%Y-%m-%d') AS date, ml.monitored, ml.notes, p.name AS program_name,
+              COALESCE(NULLIF(TRIM(co.name), ''), 'Unknown school') AS school_name,
+              COALESCE(NULLIF(TRIM(g.name), ''), 'Unknown group') AS group_name,
+              COALESCE(NULLIF(TRIM(b.name), ''), 'Unknown batch') AS batch_name,
               NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.last_name)), '') AS monitored_by_name
        FROM monitoring_logs ml
        INNER JOIN programs p ON p.id = ml.program_id
+       LEFT JOIN mothers m ON LOWER(CAST(ml.beneficiary_type AS CHAR)) = 'mother' AND (CAST(ml.beneficiary_id AS CHAR) = CAST(m.id AS CHAR) OR LOWER(TRIM(CAST(m.mother_code AS CHAR))) = LOWER(TRIM(CAST(ml.beneficiary_id AS CHAR))))
+       LEFT JOIN children c ON LOWER(CAST(ml.beneficiary_type AS CHAR)) = 'child' AND (CAST(ml.beneficiary_id AS CHAR) = CAST(c.id AS CHAR) OR LOWER(TRIM(CAST(c.child_code AS CHAR))) = LOWER(TRIM(CAST(ml.beneficiary_id AS CHAR))))
+       LEFT JOIN communities co ON co.id = COALESCE(m.community_id, c.community_id)
+       LEFT JOIN \`groups\` g ON g.id = COALESCE(m.group_id, c.group_id)
+       LEFT JOIN batches b ON b.id = COALESCE(m.batch_id, c.batch_id)
        LEFT JOIN users u ON u.id = ml.monitored_by
        WHERE ml.program_id = ? AND ml.beneficiary_id = ? AND ml.beneficiary_type = ?
        ORDER BY ml.monitored_date DESC`,

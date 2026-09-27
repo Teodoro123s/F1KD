@@ -15,6 +15,9 @@ const normalizeRole = (role) => {
   return ROLE_ALIASES[value] || value;
 };
 
+const isHealthWorkerRole = (role) => ['health worker', 'healthworker'].includes(String(role || '').trim().toLowerCase());
+const isCommunityOrganizerRole = (role) => ['community organizer', 'communityorganizer'].includes(String(role || '').trim().toLowerCase());
+
 const permissionResponse = (res, message = 'Forbidden') => {
   const payload = {
     status: 403,
@@ -57,28 +60,84 @@ function authorizeOperational(req, res, next) {
   }
 
   const userRole = normalizeRole(req.user.role);
-  const scopedRoles = ['admin', 'partner'];
+  const isCommunityOrganizer = isCommunityOrganizerRole(req.user.role);
+  const isCommunityOrganizerCreate = userRole === 'partner'
+    && isCommunityOrganizer
+    && req.method === 'POST'
+    && (
+      (['/api/mothers', '/api/children'].includes(req.baseUrl) && req.path === '/')
+      || (req.baseUrl === '/api/community' && ['/batches', '/groups'].includes(req.path))
+    );
+  const isBeneficiaryUpdate = ['admin', 'partner'].includes(userRole)
+    && req.baseUrl === '/api/mothers'
+    && (
+      (req.method === 'PUT' && /^\/[^/]+\/?$/.test(req.path))
+      || (req.method === 'POST' && /^\/[^/]+\/(documents|checkups)\/?$/.test(req.path))
+    );
+  const isChildCheckupUpdate = ['admin', 'partner'].includes(userRole)
+    && req.baseUrl === '/api/children'
+    && req.method === 'POST'
+    && /^\/[^/]+\/checkups\/?$/.test(req.path);
+  const isCommunityOrganizerProgramCreate = userRole === 'partner'
+    && isCommunityOrganizer
+    && req.baseUrl === '/api/programs'
+    && req.method === 'POST'
+    && (req.path === '/' || /^\/[^/]+\/clusters\/?$/.test(req.path));
+  const isCommunityOrganizerProgramLifecycle = userRole === 'partner'
+    && isCommunityOrganizer
+    && req.baseUrl === '/api/programs'
+    && req.method === 'PATCH'
+    && (/^\/[^/]+\/end\/?$/.test(req.path) || /^\/[^/]+\/restore\/?$/.test(req.path));
+  const isCommunityOrganizerProgramMutation = userRole === 'partner'
+    && isCommunityOrganizer
+    && req.baseUrl === '/api/programs'
+    && ['PUT', 'DELETE'].includes(req.method)
+    && /^\/[^/]+\/?$/.test(req.path);
+  const isCommunityOrganizerCommunityMutation = userRole === 'partner'
+    && isCommunityOrganizer
+    && req.baseUrl === '/api/community'
+    && ['POST', 'PUT', 'DELETE'].includes(req.method)
+    && /^\/(?:communities|groups|batches)(?:\/[^/]+)?\/?$/.test(req.path);
+  const isCommunityOrganizerBeneficiaryMutation = userRole === 'partner'
+    && isCommunityOrganizer
+    && ['POST', 'PUT', 'DELETE'].includes(req.method)
+    && [
+      '/api/mothers',
+      '/api/children',
+    ].includes(req.baseUrl)
+    && /^\/(?:[^/]+)?\/?$/.test(req.path);
+  if (userRole !== 'super_admin' && !['GET', 'HEAD', 'OPTIONS'].includes(req.method) && !isCommunityOrganizerCreate && !isBeneficiaryUpdate && !isChildCheckupUpdate && !isCommunityOrganizerProgramCreate && !isCommunityOrganizerProgramLifecycle && !isCommunityOrganizerProgramMutation && !isCommunityOrganizerCommunityMutation && !isCommunityOrganizerBeneficiaryMutation) {
+    return permissionResponse(res, 'Admin and Partner accounts are read-only');
+  }
+  req.isHealthWorker = isHealthWorkerRole(req.user.role);
+  req.isCommunityOrganizer = isCommunityOrganizer;
+  const scopedRoles = ['partner'];
   const hasSchoolAssignment = req.user.school_id !== undefined && req.user.school_id !== null && String(req.user.school_id).trim() !== '';
+  const hasGroupAssignment = req.user.group_id !== undefined && req.user.group_id !== null && String(req.user.group_id).trim() !== '';
 
   if (userRole === 'super_admin') {
     req.schoolId = null;
+    req.groupId = null;
     return next();
   }
 
   if (scopedRoles.includes(userRole)) {
     if (!hasSchoolAssignment) {
+      if (isCommunityOrganizerRole(req.user.role)) {
+        req.schoolId = -1;
+        req.groupId = null;
+        return next();
+      }
       return permissionResponse(res, 'This account is not assigned to a school');
     }
     req.schoolId = Number(req.user.school_id);
+    req.groupId = req.isHealthWorker && hasGroupAssignment ? Number(req.user.group_id) : null;
   } else {
     req.schoolId = null;
+    req.groupId = null;
   }
 
-  if (req.method === 'GET') {
-    return next();
-  }
-
-  return permissionResponse(res, 'Operational modules are read-only for this role');
+  return next();
 }
 
-module.exports = { authorize, authorizeOperational, normalizeRole };
+module.exports = { authorize, authorizeOperational, normalizeRole, isHealthWorkerRole };

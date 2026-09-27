@@ -2,7 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { MotherFormFields } from './BeneficiaryMother';
 import { calculateGestationalDetails, getInitialCheckups } from '../../../utils/beneficiaryHelpers';
 import { useMothers } from '../../../context/MothersContext';
-import { apiCreateMother } from '../../../api/mothers';
+import { apiCreateMother, apiUploadMotherDocuments } from '../../../api/mothers';
+import { useAuth } from '../../../auth/AuthProvider';
+import { capitalizeNameValue } from '../../../utils/nameFormat';
+import { notifyAction } from '../../../components/ActionFeedback';
 
 const MOTHER_DRAFT_KEY = 'f1kd.create-mother.draft';
 
@@ -28,11 +31,16 @@ const emptyCommunityForm = (communities = []) => ({
   lmpDate: '',
   eddDate: '',
   contactNumber: '',
+  province: '',
+  city: '',
+  barangay: '',
   isHighRisk: 'No',
   programType: 'Maternal Health Program',
   emergencyName: '',
   emergencyContact: '',
   emergencyRelationship: '',
+  philhealthMember: false,
+  philhealthNumber: '',
   spouseName: '',
   spouseFirstName: '',
   spouseSurname: '',
@@ -107,9 +115,13 @@ export default function CreateMotherPage({
   batches,
   navigate,
 }) {
+  const { currentUser } = useAuth();
+  const isCommunityOrganizer = ['community organizer', 'communityorganizer', 'community_coordinator', 'communitycoordinator', 'coordinator']
+    .includes(String(currentUser?.role || '').trim().toLowerCase());
   const { mothers, setMothers } = useMothers();
   const effectiveCommunities = communities && communities.length ? communities : mothers;
   const [communityForm, setCommunityForm] = useState(() => loadMotherDraft(emptyCommunityForm(effectiveCommunities)));
+  const [documentFiles, setDocumentFiles] = useState({ birthCertificate: null, consent: null });
   const [createActiveTab, setCreateActiveTab] = useState(() => {
     try { return JSON.parse(localStorage.getItem(MOTHER_DRAFT_KEY) || 'null')?.activeTab || 'general'; } catch (error) { return 'general'; }
   });
@@ -117,8 +129,19 @@ export default function CreateMotherPage({
   const createActiveIndex = CREATE_STEPS.indexOf(createActiveTab) >= 0 ? CREATE_STEPS.indexOf(createActiveTab) : 0;
 
   useEffect(() => {
-    setCommunityForm((prev) => ({ ...prev, community: prev.community || communities[0]?.name || '' }));
-  }, [communities]);
+    const assignedCommunity = communities[0]?.name || '';
+    setCommunityForm((prev) => {
+      if (isCommunityOrganizer) {
+        const communityChanged = prev.community !== assignedCommunity;
+        return {
+          ...prev,
+          community: assignedCommunity,
+          ...(communityChanged ? { group: '', groupId: '', batch: '', batchId: '' } : {}),
+        };
+      }
+      return { ...prev, community: prev.community || assignedCommunity };
+    });
+  }, [communities, isCommunityOrganizer]);
 
   useEffect(() => {
     try {
@@ -130,8 +153,43 @@ export default function CreateMotherPage({
 
   const handleCreateCommunity = async (e) => {
     e.preventDefault();
-    if (!communityForm.firstName.trim() || !communityForm.lastName.trim()) return;
+    const requiredFieldsByStep = [
+      {
+        tab: 'general',
+        label: 'General',
+        fields: [
+          'firstName', 'middleName', 'lastName', 'maidenSurname', 'dob', 'contactNumber',
+          'province', 'city', 'barangay', 'community', 'groupId', 'batchId',
+          'emergencyName', 'emergencyContact', 'emergencyRelationship',
+        ],
+      },
+      {
+        tab: 'prenatal',
+        label: 'Prenatal/OB',
+        fields: [
+          'lmpDate', 'eddDate', 'prenatalRegDate', 'trimester', 'gestationalAge',
+          'prenatalWeight', 'prenatalBp', 'prenatalHeight', 'gravida', 'abortion', 'stillbirth',
+        ],
+      },
+      {
+        tab: 'medical_dental',
+        label: 'Medical & Dental',
+        fields: [
+          'otherMedicalHistory', 'dentalCheckupDate', 'dentalFacility', 'dentistInCharge',
+          'communityDentist', 'dentistLicense', 'dentistContact', 'teethCount',
+          'dentalFindings', 'dentalRemarks',
+        ],
+      },
+    ];
+    const incompleteStep = requiredFieldsByStep.find(({ fields }) =>
+      fields.some((field) => !String(communityForm[field] ?? '').trim())
+    );
 
+    if (incompleteStep) {
+      setCreateActiveTab(incompleteStep.tab);
+      notifyAction(`Complete the required fields in ${incompleteStep.label} before creating.`, 'error');
+      return;
+    }
     const initialCheckups = getInitialCheckups(
       communityForm.trimester,
       communityForm.prenatalBp,
@@ -142,24 +200,31 @@ export default function CreateMotherPage({
       communityForm.lmpDate
     );
     const { gestationalAge, trimester } = calculateGestationalDetails(communityForm.lmpDate);
-    const resolvedTrimester = communityForm.lmpDate ? trimester : communityForm.trimester;
-    const resolvedGestationalAge = communityForm.lmpDate ? gestationalAge : communityForm.gestationalAge;
-    const fullName = `${communityForm.firstName.trim()} ${communityForm.middleName.trim()} ${communityForm.lastName.trim()} ${communityForm.maidenSurname.trim()} ${communityForm.suffix.trim()}`
+    const resolvedTrimester = communityForm.trimester || trimester;
+    const resolvedGestationalAge = communityForm.gestationalAge || gestationalAge;
+    const normalizedFirstName = capitalizeNameValue(communityForm.firstName.trim());
+    const normalizedMiddleName = capitalizeNameValue(communityForm.middleName.trim());
+    const normalizedLastName = capitalizeNameValue(communityForm.lastName.trim());
+    const normalizedMaidenSurname = capitalizeNameValue(communityForm.maidenSurname.trim());
+    const normalizedSuffix = capitalizeNameValue(communityForm.suffix.trim());
+    const fullName = `${normalizedFirstName} ${normalizedMiddleName} ${normalizedLastName} ${normalizedMaidenSurname} ${normalizedSuffix}`
       .replace(/\s+/g, ' ')
       .trim();
 
     const payload = {
-      firstName: communityForm.firstName.trim(),
-      middleName: communityForm.middleName.trim(),
-      lastName: communityForm.lastName.trim(),
-      maidenSurname: communityForm.maidenSurname.trim(),
-      suffix: communityForm.suffix.trim(),
+      firstName: normalizedFirstName,
+      middleName: normalizedMiddleName,
+      lastName: normalizedLastName,
+      maidenSurname: normalizedMaidenSurname,
+      suffix: normalizedSuffix,
       motherId: communityForm.motherId,
       dob: communityForm.dob || null,
       contactNumber: communityForm.contactNumber,
       community: communityForm.community,
       area: communityForm.area,
-      address: communityForm.address,
+      address: [communityForm.province, communityForm.city, communityForm.barangay]
+        .filter(Boolean)
+        .join(', '),
       group: communityForm.group,
       batch: communityForm.batch,
       groupId: communityForm.groupId || null,
@@ -185,6 +250,8 @@ export default function CreateMotherPage({
       emergencyName: communityForm.emergencyName,
       emergencyContact: communityForm.emergencyContact,
       emergencyRelationship: communityForm.emergencyRelationship,
+      philhealthMember: communityForm.philhealthMember,
+      philhealthNumber: communityForm.philhealthNumber,
       spouseName: `${communityForm.spouseFirstName} ${communityForm.spouseSurname}`.trim(),
       medicalConditions: communityForm.medicalConditions,
       otherMedicalHistory: communityForm.otherMedicalHistory,
@@ -214,6 +281,10 @@ export default function CreateMotherPage({
 
     try {
       const { mother } = await apiCreateMother(payload);
+      const createdMotherId = mother?.id || mother?.motherId || mother?.mother_id;
+      if (createdMotherId && (documentFiles.birthCertificate || documentFiles.consent)) {
+        await apiUploadMotherDocuments(createdMotherId, documentFiles);
+      }
       const newCommunity = {
       id: `M-${Date.now()}`,
       name: fullName,
@@ -284,10 +355,11 @@ export default function CreateMotherPage({
         setMothers((prev) => [{ ...newCommunity, ...mother }, ...prev]);
       }
       localStorage.removeItem(MOTHER_DRAFT_KEY);
+      notifyAction('Mother created successfully.');
       navigate('/beneficiary');
     } catch (error) {
       console.error('[CreateMotherPage] Failed to create mother:', error);
-      window.alert(error.message || 'Unable to create mother.');
+      notifyAction(error?.message || 'Unable to create mother. Please try again.', 'error');
     }
   };
 
@@ -334,6 +406,10 @@ export default function CreateMotherPage({
               communities={communities}
               groups={groups}
               batches={batches}
+              documentFiles={documentFiles}
+              setDocumentFiles={setDocumentFiles}
+              hideSchoolField={isCommunityOrganizer}
+              slashDateInput
             />
           </div>
 

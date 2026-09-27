@@ -9,6 +9,11 @@ import ChildMonitor, { getChildName } from './ChildMonitor';
 import { createMonitorModel } from './monitorModel';
 import { apiGetChild, apiGetChildren, apiSaveChildCheckup } from '../../api/children';
 import { apiGetMother, apiSaveMotherCheckup } from '../../api/mothers';
+import { useAuth } from '../../auth/AuthProvider';
+import { isHealthWorkerRole } from '../../utils/permissions';
+import { getChildMonitoringProgress } from '../../utils/childProgress';
+import { getMotherMonitoringProgress } from '../../utils/motherProgress';
+import { notifyAction } from '../../components/ActionFeedback';
 
 function getMotherName(mother) {
   return mother?.name || [mother?.firstName || mother?.first_name, mother?.middleName || mother?.middle_name, mother?.lastName || mother?.last_name]
@@ -63,6 +68,7 @@ const getChildMonitoringStatus = (child, completed, total) => {
 };
 
 export default function MonitoringPage() {
+  const { currentUser } = useAuth();
   const { mothers, setMothers } = useMothers();
   const navigate = useNavigate();
   const location = useLocation();
@@ -79,6 +85,7 @@ export default function MonitoringPage() {
   const [statusFilter, setStatusFilter] = useState('All');
   const [perPage, setPerPage] = useState(10);
   const [page, setPage] = useState(1);
+  const assignedGroupId = currentUser?.group_id ?? currentUser?.groupId;
 
   React.useEffect(() => {
     let active = true;
@@ -92,23 +99,30 @@ export default function MonitoringPage() {
     return () => { active = false; };
   }, []);
 
+  const scopedMothers = useMemo(() => isHealthWorkerRole(currentUser?.role) && assignedGroupId
+    ? mothers.filter((mother) => String(mother.groupId ?? mother.group_id) === String(assignedGroupId))
+    : mothers, [assignedGroupId, currentUser?.role, mothers]);
+  const scopedChildren = useMemo(() => isHealthWorkerRole(currentUser?.role) && assignedGroupId
+    ? children.filter((child) => String(child.groupId ?? child.group_id) === String(assignedGroupId))
+    : children, [assignedGroupId, children, currentUser?.role]);
+
   const filteredMothers = useMemo(() => {
     const term = query.trim().toLowerCase();
-    if (!term) return mothers;
-    return mothers.filter((mother) => (
+    if (!term) return scopedMothers;
+    return scopedMothers.filter((mother) => (
       `${getMotherName(mother)} ${mother.motherCode || mother.mother_code || mother.id || ''} ${mother.community || mother.community_name || mother.area || ''}`
         .toLowerCase()
         .includes(term)
     ));
-  }, [mothers, query]);
+  }, [query, scopedMothers]);
 
   const filteredChildren = useMemo(() => {
     const term = query.trim().toLowerCase();
-    if (!term) return children;
-    return children.filter((child) => (
+    if (!term) return scopedChildren;
+    return scopedChildren.filter((child) => (
       `${getChildName(child)} ${child.child_code || child.id || ''} ${child.community || child.community_name || child.area || ''}`.toLowerCase().includes(term)
     ));
-  }, [children, query]);
+  }, [query, scopedChildren]);
 
   const handleSave = async (payload) => {
     try {
@@ -128,14 +142,17 @@ export default function MonitoringPage() {
       setSavedMessage(`Unable to save check-up: ${error.message}`);
       return false;
     }
-    setMotherCheckups((current) => {
-      const next = current.map((trimester) => [...trimester]);
-      const trimesterIndex = payload.trimester === '2nd Trimester' ? 1 : payload.trimester === '3rd Trimester' ? 2 : 0;
-      if (!next[trimesterIndex]) next[trimesterIndex] = [null, null, null];
-      next[trimesterIndex][payload.checkupNumber - 1] = { ...payload, completed: true };
-      return next;
-    });
-    setSavedMessage(`Check-up ${payload.trimester} ${payload.checkupNumber} captured for ${getMotherName(selectedMother)}.`);
+    const nextCheckups = motherCheckups.map((trimester) => [...trimester]);
+    const trimesterIndex = payload.trimester === '2nd Trimester' ? 1 : payload.trimester === '3rd Trimester' ? 2 : 0;
+    if (!nextCheckups[trimesterIndex]) nextCheckups[trimesterIndex] = [null, null, null];
+    nextCheckups[trimesterIndex][payload.checkupNumber - 1] = { ...payload, completed: true };
+    setMotherCheckups(nextCheckups);
+    const completedCount = nextCheckups.flat().filter(Boolean).length;
+    const message = completedCount >= 9
+      ? `Monitoring completed successfully for ${getMotherName(selectedMother)}.`
+      : `Check-up ${payload.trimester} ${payload.checkupNumber} captured successfully for ${getMotherName(selectedMother)}.`;
+    setSavedMessage(message);
+    notifyAction(message);
     return true;
   };
 
@@ -172,10 +189,10 @@ export default function MonitoringPage() {
   const visibleBeneficiaries = beneficiaryType === 'Mother' ? filteredMothers : filteredChildren;
 
   const monitoringRows = useMemo(() => visibleBeneficiaries.map((beneficiary) => {
-    const completed = beneficiaryType === 'Mother'
-      ? (beneficiary.checkups || []).flat().filter(Boolean).length
-      : (beneficiary.completedWeeks || []).length;
-    const total = beneficiaryType === 'Mother' ? 9 : 48;
+    const maternalProgress = beneficiaryType === 'Mother' ? getMotherMonitoringProgress(beneficiary) : null;
+    const childProgress = beneficiaryType === 'Child' ? getChildMonitoringProgress(beneficiary) : null;
+    const completed = maternalProgress?.completed ?? childProgress?.completed ?? 0;
+    const total = maternalProgress?.total ?? childProgress?.total ?? 24;
     const progress = Math.min(100, Math.round((completed / total) * 100));
     const status = beneficiaryType === 'Mother'
       ? getMotherMonitoringStatus(beneficiary, completed, total)
@@ -270,9 +287,7 @@ export default function MonitoringPage() {
                   {childrenLoading && beneficiaryType === 'Child' ? <tr><td colSpan="4" className="no-data">Loading children...</td></tr> : currentRows.length ? currentRows.map(({ beneficiary, completed, total, progress, status }) => {
                     const name = beneficiaryType === 'Mother' ? getMotherName(beneficiary) : getChildName(beneficiary);
                     const recordKey = beneficiaryType === 'Mother' ? beneficiary.id || beneficiary.motherId : beneficiary.child_code || beneficiary.id || 'No ID';
-                    const locationName = beneficiary.community || beneficiary.area || beneficiary.community_name || 'No community';
-                    const metadata = beneficiaryType === 'Mother' ? locationName : `${recordKey} · ${locationName}`;
-                    return <tr key={recordKey}><td><strong>{name}</strong><span className="monitoring-table-meta">{metadata}</span></td><td><div className="monitoring-progress"><span><span style={{ width: `${progress}%` }} /></span><b>{completed}/{total}</b></div></td><td><span className={`monitoring-status ${status.toLowerCase().replace(/\s+/g, '-')}`}>{status}</span></td><td><button type="button" className="btn-secondary monitoring-open-button" onClick={() => openBeneficiary(beneficiary)}>Open record</button></td></tr>;
+                    return <tr key={recordKey}><td><strong>{name}</strong></td><td><div className="monitoring-progress"><span><span style={{ width: `${progress}%` }} /></span><b>{completed}/{total}</b></div></td><td><span className={`monitoring-status ${status.toLowerCase().replace(/\s+/g, '-')}`}>{status}</span></td><td><button type="button" className="btn-secondary monitoring-open-button" onClick={() => openBeneficiary(beneficiary)}>Open record</button></td></tr>;
                   }) : <tr><td colSpan="4" className="no-data">No monitoring records match your search.</td></tr>}
                 </tbody>
               </table>
@@ -283,9 +298,6 @@ export default function MonitoringPage() {
       ) : selectedChild ? (
         <section className="checkup-entry-view" aria-labelledby="selected-child-title">
           <div className="selected-mother-bar">
-            <div>
-              <h2 id="selected-child-title">{getChildName(selectedChild)}</h2>
-            </div>
             <div className="selected-record-actions">
               <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/child/${selectedChild.id}`, { state: { child: selectedChild } })}>
                 Beneficiary Profile
@@ -295,23 +307,29 @@ export default function MonitoringPage() {
               </button>
             </div>
           </div>
-          {savedMessage && <p className="checkup-save-message" role="status">{savedMessage}</p>}
+          {savedMessage.startsWith('Unable to save check-up:') && <p className="checkup-save-message checkup-save-message-error" role="alert">{savedMessage}</p>}
           <ChildMonitor
             child={selectedChild}
             completedWeeks={childCompletedWeeks}
             onSave={async (payload) => {
+              setSavedMessage('');
+              let completedWeeks = [];
               try {
                 const response = await apiSaveChildCheckup(payload.childId, payload);
                 const savedChild = response?.child || null;
-                const completedWeeks = savedChild?.completedWeeks || [payload.week];
+                completedWeeks = savedChild?.completedWeeks || [payload.week];
                 setSelectedChild(savedChild || selectedChild);
                 setChildCompletedWeeks(completedWeeks);
                 setChildren((current) => current.map((child) => String(child.id) === String(payload.childId) ? { ...child, ...savedChild } : child));
               } catch (error) {
                 setSavedMessage(`Unable to save check-up: ${error.message}`);
-                return;
+                return false;
               }
-              setSavedMessage(`Week ${payload.week} progress captured for ${getChildName(selectedChild)}.`);
+              const message = completedWeeks.length >= 24
+                ? `Monitoring completed successfully for ${getChildName(selectedChild)}.`
+                : `M${payload.week} progress captured successfully for ${getChildName(selectedChild)}.`;
+              setSavedMessage(message);
+              return true;
             }}
             onCancel={() => setSelectedChild(null)}
           />
@@ -319,9 +337,6 @@ export default function MonitoringPage() {
       ) : (
         <section className="checkup-entry-view" aria-labelledby="selected-mother-title">
           <div className="selected-mother-bar">
-            <div>
-              <h2 id="selected-mother-title">{getMotherName(selectedMother)}</h2>
-            </div>
             <div className="selected-record-actions">
               <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/mother/${selectedMother.id || selectedMother.motherId}`, { state: { mother: selectedMother } })}>
                 Beneficiary Profile
@@ -331,7 +346,7 @@ export default function MonitoringPage() {
               </button>
             </div>
           </div>
-          {savedMessage && <p className="checkup-save-message" role="status">{savedMessage}</p>}
+          {savedMessage.startsWith('Unable to save check-up:') && <p className="checkup-save-message checkup-save-message-error" role="alert">{savedMessage}</p>}
           <MotherCheckup
             mother={{ ...selectedMother, checkups: motherCheckups }}
             onSave={async (payload) => {

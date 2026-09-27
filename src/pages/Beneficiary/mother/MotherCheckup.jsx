@@ -17,9 +17,40 @@ const CHECKUPS = TRIMESTERS.flatMap((trimester, trimesterIndex) =>
   }))
 );
 
+const LAB_ASSISTANCE_OPTIONS = [
+  'Complete Blood Count (CBC)',
+  'Urinalysis',
+  'Blood Typing and Rh Factor',
+  'Hepatitis B, HIV, and Syphilis Screening',
+  'Glucose Screening (OGTT)',
+  'Genetic and Chromosomal Screening',
+];
+
 const getTrimesterIndex = (trimester) => {
   const index = TRIMESTERS.findIndex((item) => item.label === trimester);
   return index === -1 ? 0 : index;
+};
+
+const getTrimesterFromGestationalAge = (weeks) => {
+  if (weeks > 26) return '3rd Trimester';
+  if (weeks > 12) return '2nd Trimester';
+  return '1st Trimester';
+};
+
+const getMonitoringStartDetails = (mother = {}) => {
+  const registeredWeeks = Number.parseInt(mother.gestationalAge ?? mother.gestational_age, 10);
+  const registrationDate = mother.prenatalRegDate || mother.prenatal_reg_date || '';
+  const registeredTrimester = mother.trimester || mother.trimester_at_registration || '';
+  const currentWeeks = Number.isFinite(registeredWeeks) ? registeredWeeks : null;
+  const trimester = registeredTrimester || (currentWeeks !== null
+    ? getTrimesterFromGestationalAge(currentWeeks)
+    : '1st Trimester');
+
+  return {
+    registrationDate,
+    trimester,
+    gestationalAge: currentWeeks !== null ? String(currentWeeks) : String(mother.gestationalAge || ''),
+  };
 };
 
 const getInitialStep = (trimester, checkups = []) => {
@@ -35,7 +66,7 @@ const formatDate = (value) => {
   if (!value) return '';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
-  return date.toISOString().split('T')[0].replaceAll('-', '/');
+  return date.toISOString().split('T')[0];
 };
 
 const formatDateForPayload = (value) => String(value || '').trim().replaceAll('/', '-');
@@ -68,11 +99,13 @@ const getCheckupForStep = (mother, step) => {
   return mother.checkups?.[trimesterIndex]?.[checkupIndex] || null;
 };
 
+const getPreviousCheckupForStep = (mother, step) => step > 0 ? getCheckupForStep(mother, step - 1) : null;
+
 const getFirstIncompleteStep = (checkups = [], startIndex = 0) => CHECKUPS.findIndex((_, index) => index >= startIndex && !checkups?.[Math.floor(index / 3)]?.[index % 3]?.completed);
 
-const createInitialFormState = (mother, checkup = null, blank = false) => ({
-  checkupDate: blank ? '' : checkup?.checkupDate ? formatDate(checkup.checkupDate) : '',
-  gestationalAge: blank ? '' : checkup?.gestationalAge ?? calculateGestationalAge(mother.lmpDate, mother.gestationalAge),
+const createInitialFormState = (mother, checkup = null, blank = false, previousCheckup = null) => ({
+  checkupDate: checkup?.checkupDate ? formatDate(checkup.checkupDate) : formatDate(previousCheckup?.nextCheckupDate || mother.prenatalRegDate || mother.prenatal_reg_date),
+  gestationalAge: blank ? '' : ((checkup?.gestationalAge ?? getMonitoringStartDetails(mother).gestationalAge) || calculateGestationalAge(mother.lmpDate, mother.gestationalAge)),
   bp: blank ? '' : checkup?.bp ?? mother.prenatalBp ?? mother.bloodPressure ?? '',
   weight: blank ? '' : checkup?.weight ?? mother.prenatalWeight ?? mother.weight ?? '',
   height: blank ? '' : checkup?.height ?? mother.prenatalHeight ?? mother.height ?? '',
@@ -82,6 +115,7 @@ const createInitialFormState = (mother, checkup = null, blank = false) => ({
   nextCheckupDate: blank ? '' : formatDate(checkup?.nextCheckupDate),
   referral: checkup?.referral ?? false,
   labAssistance: checkup?.labAssistance ?? false,
+  labAssistanceTests: checkup?.labAssistanceTests ?? [],
   amount: checkup?.amount ?? '',
   sourceOfFunds: blank ? '' : checkup?.sourceOfFunds ?? 'Municipal Fund',
   facilityType: checkup?.facilityType ?? 'Govt',
@@ -93,23 +127,27 @@ const createInitialFormState = (mother, checkup = null, blank = false) => ({
 export default function MotherCheckup({ mother, onSave = () => {}, onCancel = () => {}, forceEdit = false }) {
   if (!mother) return null;
 
-  const initialStep = getInitialStep(mother.trimester || '1st Trimester', mother.checkups);
+  const monitoringStart = getMonitoringStartDetails(mother);
+  const initialStep = getInitialStep(monitoringStart.trimester, mother.checkups);
   const [activeStep, setActiveStep] = useState(initialStep);
   const previousMotherId = useRef(mother.id || mother.motherId);
-  const [formState, setFormState] = useState(() => createInitialFormState(mother, getCheckupForStep(mother, initialStep)));
+  const [formState, setFormState] = useState(() => createInitialFormState(mother, getCheckupForStep(mother, initialStep), false, getPreviousCheckupForStep(mother, initialStep)));
+  const [pendingSave, setPendingSave] = useState(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const motherId = mother.id || mother.motherId;
     if (previousMotherId.current !== motherId) {
       previousMotherId.current = motherId;
-      setActiveStep(getInitialStep(mother.trimester || '1st Trimester', mother.checkups));
+      setActiveStep(getInitialStep(getMonitoringStartDetails(mother).trimester, mother.checkups));
     }
   }, [mother]);
 
   useEffect(() => {
-    const firstIncomplete = getFirstIncompleteStep(mother.checkups, getTrimesterIndex(mother.trimester || '1st Trimester') * 3);
+    const startTrimester = getMonitoringStartDetails(mother).trimester;
+    const firstIncomplete = getFirstIncompleteStep(mother.checkups, getTrimesterIndex(startTrimester) * 3);
     const isFutureStep = firstIncomplete !== -1 && activeStep > firstIncomplete;
-    setFormState(createInitialFormState(mother, getCheckupForStep(mother, activeStep), isFutureStep));
+    setFormState(createInitialFormState(mother, getCheckupForStep(mother, activeStep), isFutureStep, getPreviousCheckupForStep(mother, activeStep)));
   }, [mother, activeStep]);
 
   const updateField = (field) => (value) => {
@@ -128,6 +166,7 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
     nextCheckupDate,
     referral,
     labAssistance,
+    labAssistanceTests,
     amount,
     sourceOfFunds,
     facilityType,
@@ -159,32 +198,15 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
     return null;
   }, [bp]);
 
-  const fhrWarning = useMemo(() => {
-    if (!fhr) return null;
-    const rate = parseInt(fhr, 10);
-    if (!Number.isNaN(rate) && (rate < 110 || rate > 160)) {
-      return `Abnormal Fetal Heart Rate Alert: FHR is ${rate} bpm (normal range 110-160).`;
-    }
-    return null;
-  }, [fhr]);
-
-  const growthWarning = useMemo(() => {
-    if (!fundalHeight || gestationalAge < 20) return null;
-    const fh = parseInt(fundalHeight, 10);
-    if (!Number.isNaN(fh) && Math.abs(fh - gestationalAge) > 3) {
-      return `Abnormal Growth Alert: Fundal height (${fh} cm) deviates from gestational age (${gestationalAge} weeks) by more than 3 cm.`;
-    }
-    return null;
-  }, [fundalHeight, gestationalAge]);
-
-  const hasWarnings = bpWarning || fhrWarning || growthWarning;
+  const hasWarnings = Boolean(bpWarning);
   const name = mother.motherName || mother.communityName || mother.name;
 
   const activeTrimester = Math.floor(activeStep / 3) + 1;
   const activeStepIndex = (activeStep % 3) + 1;
   const activeCheckup = getCheckupForStep(mother, activeStep);
   const isCompleted = Boolean(activeCheckup?.completed);
-  const firstIncompleteStep = getFirstIncompleteStep(mother.checkups, getTrimesterIndex(mother.trimester || '1st Trimester') * 3);
+  const firstIncompleteStep = getFirstIncompleteStep(mother.checkups, getTrimesterIndex(monitoringStart.trimester) * 3);
+  const isMaternalPhaseComplete = firstIncompleteStep === -1;
   const isFuture = firstIncompleteStep !== -1 && activeStep > firstIncompleteStep;
   const isReadOnly = !forceEdit && (isCompleted || isFuture);
 
@@ -223,7 +245,15 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
     };
 
     if (isReadOnly) return;
-    const saved = await onSave(payload);
+    setPendingSave({ payload, checkup: currentCheckup });
+  };
+
+  const confirmSave = async () => {
+    if (!pendingSave || saving) return;
+    setSaving(true);
+    const saved = await onSave(pendingSave.payload);
+    setSaving(false);
+    setPendingSave(null);
     if (saved !== false && !forceEdit) {
       setActiveStep((current) => Math.min(current + 1, CHECKUPS.length - 1));
     }
@@ -249,19 +279,16 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
         <div className={`checkup-card${isCompleted ? ' checkup-card-completed' : ''}${isFuture ? ' checkup-card-locked' : ''}`}>
           <div className="checkup-card-body">
             <div className="checkup-section-title">Pregnancy Record</div>
-            {isCompleted && <p className="checkup-state-message">Completed check-up · view only</p>}
+            {isMaternalPhaseComplete ? <p className="checkup-state-message">Maternal monitoring phase complete · all 9 check-ups recorded</p> : isCompleted && <p className="checkup-state-message">Completed check-up · view only</p>}
             {isFuture && <p className="checkup-state-message">This check-up will be available after the previous visit is completed.</p>}
             <div className="checkup-grid">
               <div className="form-group full-width">
                 <label className="checkup-field-label" htmlFor="checkup-date">Check-up Date</label>
                 <input
                   id="checkup-date"
-                  type="text"
-                  inputMode="numeric"
-                  pattern="\d{4}/\d{2}/\d{2}"
+                  type="date"
                   className="checkup-field-input"
                   value={checkupDate}
-                  placeholder="yyyy/mm/dd"
                   onChange={(e) => updateField('checkupDate')(e.target.value)}
                   required
                 />
@@ -341,30 +368,6 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
                 </div>
               </div>
 
-              <div className="form-group">
-                <label className="checkup-field-label" htmlFor="fundal-height">Fundal Height (cm)</label>
-                <input
-                  id="fundal-height"
-                  type="number"
-                  className="checkup-field-input"
-                  value={fundalHeight}
-                  placeholder="e.g. 20"
-                  onChange={(e) => updateField('fundalHeight')(e.target.value)}
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="checkup-field-label" htmlFor="fhr">Fetal Heart Rate (bpm)</label>
-                <input
-                  id="fhr"
-                  type="number"
-                  className="checkup-field-input"
-                  value={fhr}
-                  placeholder="e.g. 140"
-                  onChange={(e) => updateField('fhr')(e.target.value)}
-                />
-              </div>
-
               <div className="form-group full-width">
                 <label className="checkup-field-label" htmlFor="service-provider">Service Provider</label>
                 <input
@@ -381,12 +384,9 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
                 <label className="checkup-field-label" htmlFor="next-checkup-date">Next Checkup Date</label>
                 <input
                   id="next-checkup-date"
-                  type="text"
-                  inputMode="numeric"
-                  pattern="\d{4}/\d{2}/\d{2}"
+                  type="date"
                   className="checkup-field-input"
                   value={nextCheckupDate}
-                  placeholder="yyyy/mm/dd"
                   onChange={(e) => updateField('nextCheckupDate')(e.target.value)}
                 />
               </div>
@@ -428,6 +428,30 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
                     </label>
                   </div>
 
+                  {labAssistance && (
+                    <div className="form-group full-width">
+                      <details className="lab-assistance-dropdown" open>
+                        <summary>Choose assisted laboratory tests</summary>
+                        <div className="lab-assistance-options">
+                          {LAB_ASSISTANCE_OPTIONS.map((option) => (
+                            <label key={option} className="lab-assistance-option">
+                              <input
+                                type="checkbox"
+                                checked={labAssistanceTests.includes(option)}
+                                onChange={(event) => updateField('labAssistanceTests')(
+                                  event.target.checked
+                                    ? [...labAssistanceTests, option]
+                                    : labAssistanceTests.filter((test) => test !== option),
+                                )}
+                              />
+                              <span>{option}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </details>
+                    </div>
+                  )}
+
                   <div className="form-group">
                     <label className="checkup-field-label" htmlFor="amount">Assistance Amount (PHP)</label>
                     <input
@@ -462,12 +486,13 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
 
                   <div className="form-group full-width">
                     <label className="checkup-field-label">Facility Type</label>
-                    <div className="facility-btn-group">
+                    <div className="facility-type-buttons" role="group" aria-label="Facility type">
                       {['Govt', 'Private', 'Partner Org', 'Others'].map((type) => (
                         <button
                           type="button"
                           key={type}
-                          className={`facility-btn ${facilityType === type ? 'active' : ''}`}
+                          className={`facility-type-btn ${facilityType === type ? 'active' : ''}`}
+                          aria-pressed={facilityType === type}
                           onClick={() => updateField('facilityType')(type)}
                         >
                           {type}
@@ -535,8 +560,6 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
                 <div className="warning-title">⚠️ Clinical Warnings</div>
                 <ul>
                   {bpWarning && <li>{bpWarning}</li>}
-                  {fhrWarning && <li>{fhrWarning}</li>}
-                  {growthWarning && <li>{growthWarning}</li>}
                 </ul>
               </div>
             )}
@@ -553,6 +576,25 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
           </button>
         </div>
       </form>
+      {pendingSave && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => !saving && setPendingSave(null)}>
+          <div className="modal program-product-modal" role="dialog" aria-modal="true" aria-labelledby="save-checkup-title" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="modal-header">
+              <h2 id="save-checkup-title">Confirm check-up</h2>
+              <button type="button" className="modal-close" onClick={() => setPendingSave(null)} disabled={saving} aria-label="Close">×</button>
+            </div>
+            <div className="modal-body">
+              <p>Save this check-up record?</p>
+              <p><strong>{pendingSave.checkup.trimesterLabel} · Check-up {pendingSave.checkup.checkupNumber}</strong></p>
+              <p>Check-up date: {pendingSave.payload.checkupDate || 'Not selected'}</p>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn-secondary" onClick={() => setPendingSave(null)} disabled={saving}>Cancel</button>
+              <button type="button" className="btn-primary" onClick={confirmSave} disabled={saving}>{saving ? 'Saving...' : 'Confirm and save'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

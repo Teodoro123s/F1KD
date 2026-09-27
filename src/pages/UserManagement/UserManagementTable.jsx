@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MoreVerticalIcon } from './UserManagementIcons';
 
@@ -14,10 +14,80 @@ export default function UserManagementTable({
   const emptyColSpan = 3;
   const navigate = useNavigate();
 
+  useEffect(() => {
+    const handleDocumentClick = (event) => {
+      const clickedInsideDropdown = event.target.closest('.actions-dropdown');
+      const clickedToggleButton = event.target.closest('.btn-actions');
+
+      if (!clickedInsideDropdown && !clickedToggleButton) {
+        setActiveDropdownId(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleDocumentClick);
+    return () => document.removeEventListener('mousedown', handleDocumentClick);
+  }, []);
+
   const toggleDropdown = (event, id) => {
     event.stopPropagation();
     setActiveDropdownId((current) => (current === id ? null : id));
   };
+
+  const renderActionMenu = (row) => (
+    <td className={`actions-cell${row?.role === 'Community Organizer' ? ' community-organizer-actions' : ''}`}>
+      <button
+        type="button"
+        className="btn-actions"
+        onClick={(event) => toggleDropdown(event, row.id)}
+        aria-label="Actions menu"
+        aria-haspopup="true"
+        aria-expanded={activeDropdownId === row.id}
+      >
+        <MoreVerticalIcon />
+      </button>
+      {activeDropdownId === row.id && (
+        <div className="actions-dropdown" role="menu">
+          <button
+            type="button"
+            className="actions-dropdown-item"
+            onClick={(event) => {
+              event.stopPropagation();
+              openEditUser(row);
+            }}
+            role="menuitem"
+          >
+            Edit
+          </button>
+          <button
+            type="button"
+            className="actions-dropdown-item"
+            onClick={(event) => {
+              event.stopPropagation();
+              handleSuspendUser(row.id);
+            }}
+            role="menuitem"
+            disabled={suspendLoadingIds.includes(row.id) || deletingId === row.id}
+          >
+            {suspendLoadingIds.includes(row.id)
+              ? (row.status === 'Suspended' ? 'Unsuspending...' : 'Suspending...')
+              : (row.status === 'Suspended' ? 'Unsuspend' : 'Suspend')}
+          </button>
+          <button
+            type="button"
+            className="actions-dropdown-item delete"
+            onClick={(event) => {
+              event.stopPropagation();
+              handleDeleteUser(row.id);
+            }}
+            role="menuitem"
+            disabled={deletingId === row.id}
+          >
+            {deletingId === row.id ? 'Deleting...' : 'Delete'}
+          </button>
+        </div>
+      )}
+    </td>
+  );
 
   return (
     <section className="table-card">
@@ -33,64 +103,14 @@ export default function UserManagementTable({
           <tbody>
             {currentRows.length > 0 ? (
               currentRows.map((row) => (
-                  <tr
-                    key={row.id}
-                    onClick={() => navigate(`/user-management/user/${row.id}`, { state: { user: row } })}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <td>{row.name}</td>
-                    <td>{row.role}</td>
-                    <td className="actions-cell">
-                    <button
-                      type="button"
-                      className="btn-actions"
-                      onClick={(e) => toggleDropdown(e, row.id)}
-                      aria-label="Actions menu"
-                      aria-haspopup="true"
-                      aria-expanded={activeDropdownId === row.id}
-                    >
-                      <MoreVerticalIcon />
-                    </button>
-                    {activeDropdownId === row.id && (
-                      <div className="actions-dropdown" role="menu">
-                        <button
-                          type="button"
-                          className="actions-dropdown-item"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openEditUser(row);
-                          }}
-                          role="menuitem"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          className="actions-dropdown-item"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSuspendUser(row.id);
-                          }}
-                          role="menuitem"
-                          disabled={suspendLoadingIds.includes(row.id) || deletingId === row.id}
-                        >
-                          {suspendLoadingIds.includes(row.id) ? 'Suspending...' : 'Suspend'}
-                        </button>
-                        <button
-                          type="button"
-                          className="actions-dropdown-item delete"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteUser(row.id);
-                          }}
-                          role="menuitem"
-                          disabled={deletingId === row.id}
-                        >
-                          {deletingId === row.id ? 'Deleting...' : 'Delete'}
-                        </button>
-                      </div>
-                    )}
-                  </td>
+                <tr
+                  key={row.id}
+                  onClick={() => navigate(`/user-management/user/${row.id}`, { state: { user: row } })}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <td>{row.name}</td>
+                  <td>{row.role}</td>
+                  {renderActionMenu(row)}
                 </tr>
               ))
             ) : (

@@ -25,6 +25,8 @@ const StepWizard = ({
     return 'locked';
   };
 
+  const isPhaseComplete = flattenedSteps.every(({ groupIdx, stepIdx }) => checkups?.[groupIdx]?.[stepIdx]?.completed);
+
   return (
     <div className="step-wizard">
       <div className="step-wizard-body">
@@ -40,7 +42,7 @@ const StepWizard = ({
           <div className="step-wizard-steps">
             {flattenedSteps.map(({ group, groupIdx, stepIdx }, index) => {
               const status = getStatus(groupIdx, stepIdx);
-              const isActive = activeTrimester === groupIdx + 1 && activeStep === stepIdx + 1;
+              const isActive = !isPhaseComplete && activeTrimester === groupIdx + 1 && activeStep === stepIdx + 1;
               const stepIndex = groupIdx * 3 + stepIdx;
               const lineActive = status === 'completed';
 

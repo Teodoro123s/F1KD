@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import { notifyAction } from '../../../components/ActionFeedback';
 import {
   createCommunity as createCommunityApi,
   updateCommunity as updateCommunityApi,
@@ -14,6 +15,7 @@ import {
 export const useCommunityMutations = ({ refreshData }) => {
   const [loading, setLoading] = useState(false);
 
+  // All Community CRUD operations share refresh, loading, and user feedback behavior.
   const runMutation = useCallback(
     async ({ label, request, successMessage }) => {
       setLoading(true);
@@ -26,10 +28,11 @@ export const useCommunityMutations = ({ refreshData }) => {
         }
 
         console.info(`[CommunityMutations] ${successMessage}`, result);
+        notifyAction(successMessage);
         return result;
       } catch (error) {
         console.error(`[CommunityMutations] Failed to ${label}:`, error);
-        window.alert(error?.message || `Unable to ${label}.`);
+        notifyAction(error?.message || `Unable to ${label}.`, 'error');
         throw error;
       } finally {
         setLoading(false);
@@ -48,7 +51,7 @@ export const useCommunityMutations = ({ refreshData }) => {
 
       return runMutation({
         label: 'create community',
-        successMessage: 'Community created successfully',
+        successMessage: 'School created successfully.',
         request: () => createCommunityApi(normalized),
       });
     },
@@ -60,11 +63,12 @@ export const useCommunityMutations = ({ refreshData }) => {
       const normalized = {
         name: payload.name.trim(),
         area: payload.area,
+        coordinator: payload.coordinator,
       };
 
       return runMutation({
         label: 'update community',
-        successMessage: 'Community updated successfully',
+        successMessage: 'School updated successfully.',
         request: () => updateCommunityApi(id, normalized),
       });
     },
@@ -75,7 +79,7 @@ export const useCommunityMutations = ({ refreshData }) => {
     async (id) => {
       return runMutation({
         label: 'delete community',
-        successMessage: 'Community deleted successfully',
+        successMessage: 'School deleted successfully.',
         request: () => deleteCommunityApi(id),
       });
     },
@@ -87,6 +91,7 @@ export const useCommunityMutations = ({ refreshData }) => {
       const normalized = {
         name: payload.name.trim(),
         community: payload.community,
+        groupId: payload.groupId || null,
         records: Number(payload.records) || 0,
         progress: Number(payload.progress) || 0,
         status: payload.status,
@@ -106,6 +111,7 @@ export const useCommunityMutations = ({ refreshData }) => {
       const normalized = {
         name: payload.name.trim(),
         community: payload.community,
+        groupId: payload.groupId || null,
         records: Number(payload.records) || 0,
         progress: Number(payload.progress) || 0,
         status: payload.status,

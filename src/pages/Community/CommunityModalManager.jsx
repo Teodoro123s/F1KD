@@ -18,14 +18,17 @@ export default function CommunityModalManager({
   batchForm,
   setBatchForm,
   communities,
+  groups,
   batches,
   coordinators,
   onCreateCommunity,
   onEditCommunity,
   onCreateBatch,
   onEditBatch,
+  hideBatchSchoolField = false,
   onCreateGroup,
   onEditGroup,
+  hideGroupSchoolField = false,
   isSubmitting,
 }) {
   return (
@@ -45,6 +48,7 @@ export default function CommunityModalManager({
         communityForm={communityForm}
         setCommunityForm={setCommunityForm}
         handleEditCommunity={onEditCommunity}
+        coordinators={coordinators}
         isSubmitting={isSubmitting}
       />
       <CreateBatchModal
@@ -54,6 +58,7 @@ export default function CommunityModalManager({
         setBatchForm={setBatchForm}
         handleCreateBatch={onCreateBatch}
         communities={communities}
+        hideSchoolField={hideBatchSchoolField}
         isSubmitting={isSubmitting}
       />
       <EditBatchModal
@@ -63,6 +68,8 @@ export default function CommunityModalManager({
         setBatchForm={setBatchForm}
         handleEditBatch={onEditBatch}
         communities={communities}
+        groups={groups}
+        showGroupField={hideBatchSchoolField}
         isSubmitting={isSubmitting}
       />
       <CreateGroupModal
@@ -73,6 +80,7 @@ export default function CommunityModalManager({
         handleCreateGroup={onCreateGroup}
         communities={communities}
         batches={batches}
+        hideSchoolField={hideGroupSchoolField}
         isSubmitting={isSubmitting}
       />
       <EditGroupModal
@@ -83,6 +91,7 @@ export default function CommunityModalManager({
         handleEditGroup={onEditGroup}
         communities={communities}
         batches={batches}
+        hideSchoolField={hideGroupSchoolField}
         isSubmitting={isSubmitting}
       />
     </>

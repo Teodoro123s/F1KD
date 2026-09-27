@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { ChildFormFields } from './BeneficiaryChild';
 import { useMothers } from '../../../context/MothersContext';
+import { capitalizeNameValue } from '../../../utils/nameFormat';
+import { notifyAction } from '../../../components/ActionFeedback';
 
 const CHILD_DRAFT_KEY = 'f1kd.create-child.draft';
 
@@ -26,11 +28,9 @@ const emptyGroupForm = () => ({
   bloodType: '',
   noOfChildDelivered: '',
   multipleBirthType: '',
-  exclusiveBreastfeeding: '',
   expandedNewbornScreening: '',
   expandedNewbornScreeningResult: '',
   deliveryType: 'Vaginal',
-  healthStatus: 'Healthy',
   assignedBatchIds: [],
   leader: '',
   members: 1,
@@ -38,11 +38,7 @@ const emptyGroupForm = () => ({
   birthPlace: '',
   birthAttendant: '',
   apgarScore: '',
-  feedingType: '',
   nutritionNotes: '',
-  fatherName: '',
-  relationship: '',
-  address: '',
   medicalConditions: {
     congenitalHeartDisease: false,
     respiratoryIssues: false,
@@ -76,6 +72,8 @@ export default function CreateChildPage({
   const motherFromState = location.state?.mother || null;
   const { mothers, setMothers } = useMothers();
   const [groupForm, setGroupForm] = useState(() => loadChildDraft(emptyGroupForm()));
+  const [pendingChild, setPendingChild] = useState(null);
+  const [creating, setCreating] = useState(false);
   const [selectedMotherId, setSelectedMotherId] = useState(() => {
     try { return motherFromState?.id || motherFromState?.motherId || JSON.parse(localStorage.getItem(CHILD_DRAFT_KEY) || 'null')?.selectedMotherId || ''; } catch (error) { return motherFromState?.id || motherFromState?.motherId || ''; }
   });
@@ -123,9 +121,26 @@ export default function CreateChildPage({
 
   const handleCreateGroup = async (e) => {
     e.preventDefault();
-    if (!groupForm.firstName.trim() || !groupForm.lastName.trim()) return;
+    if (createActiveTab !== 'vaccine') {
+      const currentIndex = CREATE_STEPS.indexOf(createActiveTab);
+      setCreateActiveTab(CREATE_STEPS[Math.min(currentIndex + 1, CREATE_STEPS.length - 1)]);
+      return;
+    }
+    if (!motherFromState && !selectedMotherId) {
+      notifyAction('Please select a mother before creating the child.', 'error');
+      return;
+    }
+    if (!groupForm.firstName.trim() || !groupForm.lastName.trim()) {
+      notifyAction('Please complete the required child details before saving.', 'error');
+      setCreateActiveTab('general');
+      return;
+    }
 
-    const fullName = `${groupForm.firstName.trim()} ${groupForm.middleName.trim()} ${groupForm.lastName.trim()} ${groupForm.suffix.trim()}`
+    const normalizedFirstName = capitalizeNameValue(groupForm.firstName.trim());
+    const normalizedMiddleName = capitalizeNameValue(groupForm.middleName.trim());
+    const normalizedLastName = capitalizeNameValue(groupForm.lastName.trim());
+    const normalizedSuffix = capitalizeNameValue(groupForm.suffix.trim());
+    const fullName = `${normalizedFirstName} ${normalizedMiddleName} ${normalizedLastName} ${normalizedSuffix}`
       .replace(/\s+/g, ' ')
       .trim();
 
@@ -134,10 +149,10 @@ export default function CreateChildPage({
       communityId: selectedMother?.raw?.community_id || selectedMother?.communityId || null,
       groupId: selectedMother?.raw?.group_id || selectedMother?.groupId || null,
       batchId: selectedMother?.raw?.batch_id || selectedMother?.batchId || null,
-      firstName: groupForm.firstName.trim(),
-      middleName: groupForm.middleName.trim(),
-      lastName: groupForm.lastName.trim(),
-      suffix: groupForm.suffix.trim(),
+      firstName: normalizedFirstName,
+      middleName: normalizedMiddleName,
+      lastName: normalizedLastName,
+      suffix: normalizedSuffix,
       birthDate: groupForm.birthDate || null,
       birthWeight: groupForm.birthWeight || null,
       birthLength: groupForm.birthLength || null,
@@ -145,17 +160,14 @@ export default function CreateChildPage({
       bloodType: groupForm.bloodType || null,
       noOfChildDelivered: groupForm.noOfChildDelivered || null,
       multipleBirthType: groupForm.multipleBirthType || null,
-      exclusiveBreastfeeding: groupForm.exclusiveBreastfeeding || null,
       expandedNewbornScreening: groupForm.expandedNewbornScreening || null,
       expandedNewbornScreeningResult: groupForm.expandedNewbornScreeningResult || null,
       deliveryType: groupForm.deliveryType || null,
-      healthStatus: groupForm.healthStatus || null,
       community: selectedMother?.community || selectedMother?.raw?.community_name || selectedMother?.raw?.community || null,
       batch: selectedMother?.batch || selectedMother?.raw?.batch_name || selectedMother?.raw?.batch || null,
       birthPlace: groupForm.birthPlace || null,
       birthAttendant: groupForm.birthAttendant || null,
       apgarScore: groupForm.apgarScore || null,
-      feedingType: groupForm.feedingType || null,
       nutritionNotes: groupForm.nutritionNotes || null,
       medicalConditions: groupForm.medicalConditions || {},
       bcgDate: groupForm.bcgDate || null,
@@ -168,19 +180,22 @@ export default function CreateChildPage({
       dptRemarks: groupForm.dptRemarks || null,
       mmrDate: groupForm.mmrDate || null,
       mmrRemarks: groupForm.mmrRemarks || null,
-      fatherName: groupForm.fatherName || '',
-      relationship: groupForm.relationship || '',
-      address: groupForm.address || '',
     };
 
+    setPendingChild({ payload, fullName });
+  };
+
+  const confirmCreateChild = async () => {
+    if (!pendingChild || creating) return;
+    setCreating(true);
+
     try {
-      // call backend to create child
       const { apiCreateChild } = await import('../../../api/children');
-      const { child } = await apiCreateChild(payload);
+      const { child } = await apiCreateChild(pendingChild.payload);
 
       const newGroup = {
         id: child.id || `G-${Date.now()}`,
-        name: fullName,
+        name: pendingChild.fullName,
         firstName: child.first_name || child.firstName || groupForm.firstName.trim(),
         middleName: child.middle_name || child.middleName || groupForm.middleName.trim(),
         lastName: child.last_name || child.lastName || groupForm.lastName.trim(),
@@ -192,7 +207,6 @@ export default function CreateChildPage({
         bloodType: child.blood_type || child.bloodType || groupForm.bloodType,
         noOfChildDelivered: child.no_of_child_delivered || child.noOfChildDelivered || groupForm.noOfChildDelivered,
         multipleBirthType: child.multiple_birth_type || child.multipleBirthType || groupForm.multipleBirthType,
-        exclusiveBreastfeeding: child.exclusive_breastfeeding || child.exclusiveBreastfeeding || groupForm.exclusiveBreastfeeding,
         expandedNewbornScreening: child.expanded_newborn_screening || child.expandedNewbornScreening || groupForm.expandedNewbornScreening,
         expandedNewbornScreeningResult: child.expanded_newborn_screening_result || child.expandedNewbornScreeningResult || groupForm.expandedNewbornScreeningResult,
         deliveryType: child.delivery_type || groupForm.deliveryType,
@@ -206,7 +220,6 @@ export default function CreateChildPage({
         birthPlace: child.birth_place || groupForm.birthPlace,
         birthAttendant: child.birth_attendant || groupForm.birthAttendant,
         apgarScore: child.apgar_score || groupForm.apgarScore,
-        feedingType: child.feeding_type || groupForm.feedingType,
         nutritionNotes: child.nutrition_notes || groupForm.nutritionNotes,
         medicalConditions: groupForm.medicalConditions,
         medicalRemarks: groupForm.medicalRemarks,
@@ -220,8 +233,6 @@ export default function CreateChildPage({
         dptRemarks: child.dpt_remarks || groupForm.dptRemarks,
         mmrDate: child.mmr_date || groupForm.mmrDate,
         mmrRemarks: child.mmr_remarks || groupForm.mmrRemarks,
-        fatherName: child.father_name || child.fatherName || groupForm.fatherName || '',
-        relationship: child.relationship || groupForm.relationship || '',
         address: child.address || groupForm.address || '',
         progress: child.progress || 0,
         childCheckups: null,
@@ -229,6 +240,9 @@ export default function CreateChildPage({
 
       // add to groups list
       setGroups((prev) => [newGroup, ...prev]);
+      notifyAction('Child created successfully.');
+      localStorage.removeItem(CHILD_DRAFT_KEY);
+      setPendingChild(null);
 
       // if we were navigated here from a mother, append the child into that mother's children array
       if (motherFromState && typeof setMothers === 'function') {
@@ -238,15 +252,24 @@ export default function CreateChildPage({
         )));
         // navigate to the new child's detail page and include the updated mother in state so the child shows immediately
         navigate(`/beneficiary/child/${newGroup.id}`, { state: { mother: updatedMother, child: newGroup, mothers: undefined } });
-        localStorage.removeItem(CHILD_DRAFT_KEY);
         return;
       }
 
-      localStorage.removeItem(CHILD_DRAFT_KEY);
       navigate('/beneficiary');
     } catch (err) {
       console.error('Failed to create child', err);
-      try { alert(`Failed to create child: ${err.message || err}`); } catch (e) {}
+      notifyAction(err?.message || 'Unable to create child. Please try again.', 'error');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleNextStep = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const currentIndex = CREATE_STEPS.indexOf(createActiveTab);
+    if (currentIndex < CREATE_STEPS.length - 1) {
+      setCreateActiveTab(CREATE_STEPS[currentIndex + 1]);
     }
   };
 
@@ -348,17 +371,32 @@ export default function CreateChildPage({
               }}>Back</button>
             )}
             {createActiveTab !== 'vaccine' ? (
-              <button type="button" className="btn-primary btn-next" onClick={() => {
-                if (createActiveTab === 'general') setCreateActiveTab('prenatal');
-                else if (createActiveTab === 'prenatal') setCreateActiveTab('medical_dental');
-                else if (createActiveTab === 'medical_dental') setCreateActiveTab('vaccine');
-              }}>Next</button>
+              <button type="button" className="btn-primary btn-next" onClick={handleNextStep}>Next</button>
             ) : (
               <button type="submit" className="btn-create-action">Create</button>
             )}
           </div>
         </form>
       </div>
+      {pendingChild && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={(event) => {
+          if (event.target === event.currentTarget && !creating) setPendingChild(null);
+        }}>
+          <div className="modal-content signout-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="create-child-confirm-title" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="modal-header-section">
+              <h3 id="create-child-confirm-title">Create child record?</h3>
+              <button type="button" className="btn-close-modal" onClick={() => setPendingChild(null)} aria-label="Close confirmation" disabled={creating}>✕</button>
+            </div>
+            <div className="modal-body">
+              <p>Create a child record for <strong>{pendingChild.fullName}</strong>?</p>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn-secondary" onClick={() => setPendingChild(null)} disabled={creating}>Cancel</button>
+              <button type="button" className="btn-primary" onClick={confirmCreateChild} disabled={creating}>{creating ? 'Creating...' : 'Confirm and create'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

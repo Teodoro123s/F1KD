@@ -1,173 +1,513 @@
-# F1KD Database Schema
+# F1KD Database Schema Review
 
-This document describes the MySQL database used by the F1KD backend.
+This is the unified review of the database structure defined by the current schema scripts and the live verification of the `users` table.
 
-## Connection
+## 1. Source of truth
 
-The backend reads these values from `server/.env`:
+The current schema is represented by:
 
-| Setting | Current value |
-|---|---|
-| Database | `f1kd` |
-| Host | `localhost` |
-| Port | `3306` unless `DB_PORT` is set |
-| User | `root` unless `DB_USER` is set |
+- [server/create_users.sql](create_users.sql)
+- [server/f1kd_recreate.sql](f1kd_recreate.sql)
+- [server/db.js](db.js)
 
-The connection settings are defined in [server/db.js](db.js). The backend runs the `CREATE TABLE IF NOT EXISTS` statements in that file during startup. These statements create missing tables, but they do not automatically change the structure of an existing table.
+The live database was also checked directly with MySQL, and the current `users` table contains the following columns:
 
-## Live Table Inventory
+- `id`
+- `first_name`
+- `last_name`
+- `middle_initial`
+- `contact_number`
+- `email`
+- `gender`
+- `dob`
+- `location`
+- `role`
+- `status`
+- `password_hash`
+- `name`
+- `created_at`
+- `updated_at`
+- `school_id`
+- `group_id`
 
-The following row counts were read from the live `f1kd` database on 2026-09-04.
+This means the active app is aligned with the leaner user model and not with older legacy field names like `username`, `full_name`, or `middle_name` as stored table columns.
 
-| Table | Rows | Current assessment |
-|---|---:|---|
-| `users` | 12 | Active: authentication and user management |
-| `communities` | 9 | Active: community management |
-| `batches` | 8 | Active: community batch management |
-| `groups` | 9 | Active: community group management |
-| `group_batch` | 0 | Supporting many-to-many relationship; not currently populated |
-| `mothers` | 15 | Active: mother records |
-| `mother_checkups` | 41 | Active: prenatal monitoring records |
-| `children` | 9 | Active: child records |
-| `mother_ob_history` | 0 | Planned/supporting clinical data |
-| `mother_medical_conditions` | 1 | Supporting clinical data |
-| `mother_dental_records` | 0 | Supporting clinical data; not currently used by routes |
-| `mother_vaccinations` | 1 | Supporting clinical data |
-| `child_medical_conditions` | 1 | Supporting clinical data |
-| `child_vaccinations` | 7 | Supporting clinical data |
-| `child_checkups` | 21 | Active: child monitoring records |
+---
 
-The RBAC migration also defines `roles`, `permissions`, and `role_permissions`.
-Those tables are included in the compiled fresh-install schema but are not yet
-present in the inspected live database.
+## 2. Unified table inventory
 
-## Core Tables
+### users
 
-### `users`
+Primary application account table.
 
-Stores application users and access-control information.
+Columns:
+- `id`
+- `first_name`
+- `last_name`
+- `middle_initial`
+- `contact_number`
+- `email`
+- `gender`
+- `dob`
+- `location`
+- `role`
+- `status`
+- `password_hash`
+- `name` (generated column)
+- `created_at`
+- `updated_at`
+- `school_id`
+- `group_id`
 
-- Primary key: `id`
-- Identity fields: `first_name`, `middle_initial`, `last_name`, `email`
-- Account fields: `role`, `status`, `password_hash`
-- Profile fields: `contact_number`, `gender`, `dob`, `location`
-- Used by authentication and user-management routes
+Purpose:
+- authentication
+- authorization
+- assignment-based scoping
+- admin and partner user management
 
-### `communities`
+---
 
-Stores communities used to organize beneficiary records.
+### communities
 
-- Primary key: `id`
-- Unique identifier: `community_code`
-- Main fields: `name`, `area`
+Columns:
+- `id`
+- `community_code`
+- `name`
+- `area`
+- `created_at`
 
-### `batches`
+Purpose:
+- school/community structure used for beneficiary and operational assignment
 
-Stores beneficiary batches belonging to a community.
+---
 
-- Primary key: `id`
-- Unique identifier: `batch_code`
-- Foreign key: `community_id` -> `communities.id`
-- Delete behavior: deleting a community cascades to its batches
+### groups
 
-### `groups`
+Columns:
+- `id`
+- `group_code`
+- `community_id`
+- `name`
+- `leader`
+- `members_count`
+- `status`
+- `created_at`
 
-Stores beneficiary groups belonging to a community.
+Purpose:
+- operational group assignment within a community
+- used for health worker and partner scoping
 
-- Primary key: `id`
-- Unique identifier: `group_code`
-- Foreign key: `community_id` -> `communities.id`
-- Delete behavior: deleting a community cascades to its groups
+---
 
-### `group_batch`
+### batches
 
-Join table for assigning batches to groups.
+Columns:
+- `id`
+- `batch_code`
+- `community_id`
+- `name`
+- `records`
+- `progress`
+- `status`
+- `created_at`
 
-- Composite primary key: `group_id`, `batch_id`
-- Foreign keys: `group_id` -> `groups.id`, `batch_id` -> `batches.id`
-- Delete behavior: deleting either parent removes the assignment
+Purpose:
+- cohort/batch grouping for service delivery and reporting
 
-### `mothers`
+---
 
-Stores mother/beneficiary profiles and pregnancy-monitoring fields.
+### group_batch
 
-- Primary key: `id`
-- Unique identifier: `mother_code`
-- Optional external identifier: `mother_external_id`
-- Current relationship fields: `community` and `area` are stored as text; `group_id` and `batch_id` store the related numeric IDs
-- The live table does not contain `community_id`, `mother_id_no`, or a `status` column
-- Delete behavior for group and batch relationships is managed by the current application schema; verify foreign keys before changing them
-- Related clinical tables use `mother_id`
+Columns:
+- `group_id`
+- `batch_id`
 
-### `children`
+Purpose:
+- many-to-many relationship between groups and batches
 
-Stores child profiles linked to mothers.
+---
 
-- Primary key: `id`
-- Unique identifier: `child_code`
-- Required foreign key: `mother_id` -> `mothers.id`
-- Optional foreign keys: `community_id` -> `communities.id`, `batch_id` -> `batches.id`
-- Delete behavior: deleting a mother cascades to children; deleting a community or batch sets the corresponding field to `NULL`
-- Related clinical tables use `child_id`
+### mothers
 
-## Clinical Tables
+Columns:
+- `id`
+- `mother_code`
+- `community_id`
+- `group_id`
+- `batch_id`
+- `first_name`
+- `middle_name`
+- `last_name`
+- `maiden_surname`
+- `suffix`
+- `mother_id_no`
+- `mother_external_id`
+- `dob`
+- `lmp_date`
+- `edd_date`
+- `contact_number`
+- `is_high_risk`
+- `program_type`
+- `emergency_name`
+- `emergency_contact`
+- `emergency_relationship`
+- `spouse_name`
+- `address`
+- `prenatal_reg_date`
+- `trimester`
+- `gestational_age`
+- `prenatal_weight`
+- `prenatal_bp`
+- `prenatal_height`
+- `fundal_height`
+- `fhr`
+- `gravida`
+- `para`
+- `abortion`
+- `stillbirth`
+- `weight`
+- `height`
+- `medical_conditions`
+- `other_medical_history`
+- `status`
+- `visits`
+- `progress`
+- `birth_certificate_document_name`
+- `birth_certificate_document_path`
+- `consent_document_name`
+- `consent_document_path`
+- `created_at`
 
-These tables are part of the intended normalized data model. They currently exist in the live database but have no application routes that read or write them.
+Purpose:
+- maternal profile and pregnancy monitoring records
 
-### Mother-related tables
+---
 
-- `mother_ob_history`: obstetric history linked by `mother_id`
-- `mother_medical_conditions`: medical conditions linked by `mother_id`
-- `mother_dental_records`: dental records linked by `mother_id`
-- `mother_vaccinations`: vaccinations using `vaccine_name`, `vaccine_date`, and `remarks`, linked by `mother_id`
+### mother_ob_history
 
-### Child-related tables
+Columns:
+- `id`
+- `mother_id`
+- `event_label`
+- `event_code`
+- `gestational_age`
+- `outcome`
+- `seq`
+- `created_at`
 
-- `child_medical_conditions`: medical conditions linked by `child_id`
-- `child_vaccinations`: vaccinations using `vaccine_name`, `vaccine_date`, and `remarks`, linked by `child_id`
-- `child_checkups`: growth/checkup records linked by `child_id`
+Purpose:
+- obstetric history tracking for each mother
 
-## Legacy and Duplicate Tables
+---
 
-The following tables are empty in the current database and are not referenced by active backend code:
+### mother_medical_conditions
 
-### `mother_medical_condition`
+Columns:
+- `id`
+- `mother_id`
+- `visit_date`
+- `condition_name`
+- `has_condition`
 
-This is a singular alternate of `mother_medical_conditions`. It has different columns, including `notes` and `created_at`, so it should not be treated as a transparent rename.
+Purpose:
+- maternal clinical condition tracking
 
-### `mother_vaccines`
+---
 
-This is an alternate of `mother_vaccinations`. It uses `vaccine_code` and `date_given` instead of `vaccine_name` and `vaccine_date`.
+### mother_dental_records
 
-### `child_vaccines`
+Columns:
+- `id`
+- `mother_id`
+- `dental_facility`
+- `dentist_in_charge`
+- `community_dentist`
+- `dentist_license`
+- `dentist_contact`
+- `teeth_count`
+- `dental_findings`
+- `dental_remarks`
+- `tartar_removal`
+- `filling`
+- `cleaning`
+- `extraction`
+- `root_canal`
+- `other_procedure`
 
-This is an alternate of `child_vaccinations` with the same naming difference: `vaccine_code` and `date_given` instead of `vaccine_name` and `vaccine_date`.
+Purpose:
+- dental screening and treatment records
 
-Do not drop these tables solely because they are empty. Before cleanup, confirm that no external scripts, reports, manual queries, or future migration depends on them, and take a database backup.
+---
 
-## Application References
+### mother_vaccinations
 
-- Database creation and relationships: [server/db.js](db.js)
-- Authentication: [server/routes/auth.js](routes/auth.js)
-- User management: [server/routes/users.js](routes/users.js)
-- Community, batch, and group operations: [server/routes/community.js](routes/community.js)
-- Mother operations: [server/routes/mothers.js](routes/mothers.js)
-- Child operations: [server/routes/children.js](routes/children.js)
-- Archived or alternate schema proposals: [server/migrations/archive](migrations/archive)
+Columns:
+- `id`
+- `mother_id`
+- `vaccine_name`
+- `vaccine_date`
+- `remarks`
 
-## Known Schema Drift
+Purpose:
+- maternal immunization history
 
-There are older schema definitions in `server/migrations/archive`. The organized
-`server/migrations/compiled_schema.sql` is the canonical fresh-install schema;
-the individual migrations remain authoritative for upgrading an existing database.
+---
 
-The authoritative runtime schema is the one in [server/db.js](db.js), together with any additional columns already present in the live database. `CREATE TABLE IF NOT EXISTS` does not remove old tables or reconcile conflicting columns.
+### mother_checkups
 
-## Maintenance Guidance
+Columns:
+- `id`
+- `mother_id`
+- `trimester`
+- `checkup_number`
+- `checkup_date`
+- `gestational_age_weeks`
+- `blood_pressure`
+- `weight_kg`
+- `height_cm`
+- `bmi`
+- `nutritional_status`
+- `fundal_height_cm`
+- `fetal_heart_rate_bpm`
+- `service_provider`
+- `next_checkup_date`
+- `referred_to_hospital`
+- `lab_assistance_provided`
+- `assistance_amount`
+- `source_of_funds`
+- `facility_type`
+- `milk_subsidy_date`
+- `milk_quantity_pcs`
+- `remarks`
 
-1. Back up the database before deleting tables or changing columns.
-2. Use `SHOW TABLES` and `SHOW CREATE TABLE table_name` to verify the live database before applying cleanup.
-3. Keep only one canonical table for each data concept when the clinical features are implemented.
-4. Add routes and tests before writing clinical data to the currently unused clinical tables.
-5. Update this document whenever the live schema changes.
+Purpose:
+- prenatal monitoring and service tracking
 
+---
+
+### children
+
+Columns:
+- `id`
+- `child_code`
+- `mother_id`
+- `community_id`
+- `group_id`
+- `batch_id`
+- `first_name`
+- `middle_name`
+- `last_name`
+- `suffix`
+- `birth_date`
+- `birth_weight`
+- `birth_length`
+- `gender`
+- `blood_type`
+- `no_of_child_delivered`
+- `multiple_birth_type`
+- `exclusive_breastfeeding`
+- `expanded_newborn_screening`
+- `expanded_newborn_screening_result`
+- `delivery_type`
+- `health_status`
+- `birth_place`
+- `birth_attendant`
+- `apgar_score`
+- `feeding_type`
+- `nutrition_notes`
+- `father_name`
+- `relationship`
+- `address`
+- `progress`
+- `birth_document_name`
+- `birth_document_path`
+- `created_at`
+
+Purpose:
+- child profile and growth tracking linked to mother record
+
+---
+
+### child_medical_conditions
+
+Columns:
+- `id`
+- `child_id`
+- `condition_name`
+- `has_condition`
+
+Purpose:
+- child medical condition tracking
+
+---
+
+### child_vaccinations
+
+Columns:
+- `id`
+- `child_id`
+- `vaccine_name`
+- `vaccine_date`
+- `remarks`
+
+Purpose:
+- child immunization tracking
+
+---
+
+### child_checkups
+
+Columns:
+- `id`
+- `child_id`
+- `week_number`
+- `next_checkup_date`
+- `visit_date`
+- `weight`
+- `height`
+- `head_circumference`
+- `developmental_status`
+- `service_provider`
+- `notes`
+
+Purpose:
+- child growth and monitoring records
+
+---
+
+### roles
+
+Columns:
+- `id`
+- `role_key`
+- `role_name`
+
+Purpose:
+- catalog of roles for RBAC setup
+
+---
+
+### permissions
+
+Columns:
+- `id`
+- `resource_key`
+- `action_key`
+
+Purpose:
+- permission catalog for resources and actions
+
+---
+
+### role_permissions
+
+Columns:
+- `id`
+- `role_id`
+- `permission_id`
+
+Purpose:
+- join table linking roles to permissions
+
+---
+
+### programs
+
+Columns:
+- `id`
+- `name`
+- `type`
+- `provider`
+- `description`
+- `beneficiary_type`
+- `status`
+- `target`
+- `received`
+- `activities`
+- `latest`
+- `ended`
+- `created_at`
+- `updated_at`
+
+Purpose:
+- program records and operational delivery tracking
+
+---
+
+### program_clusters
+
+Columns:
+- `id`
+- `program_id`
+- `scope_type`
+- `scope_name`
+- `beneficiaries`
+- `received`
+- `created_at`
+
+Purpose:
+- program targets by scope such as community/group/batch
+
+---
+
+### monitoring_logs
+
+Columns:
+- `id`
+- `beneficiary_id`
+- `beneficiary_type`
+- `program_id`
+- `monitored`
+- `monitored_date`
+- `monitored_by`
+- `notes`
+- `created_at`
+- `updated_at`
+
+Purpose:
+- monitoring and follow-up log for program participation
+
+---
+
+## 3. Database review findings
+
+### Active and aligned fields
+
+The current active core schema is clean and consistent for the application’s operational use:
+
+- user identity and credentials: `first_name`, `last_name`, `middle_initial`, `email`, `password_hash`
+- user assignment: `school_id`, `group_id`
+- user status: `role`, `status`
+- profile metadata: `gender`, `dob`, `location`, `contact_number`
+
+### Legacy fields to treat carefully
+
+Older scripts and migration drafts mention legacy fields such as:
+
+- `username`
+- `full_name`
+- `middle_name` on `users`
+
+These are not part of the active live `users` table and should not be treated as current storage columns unless they are reintroduced intentionally.
+
+### Recommendation
+
+1. Keep the current `users` structure as the canonical user model.
+2. Treat `create_users.sql` and `f1kd_recreate.sql` as the authoritative schema definitions for the next cleanup or rebuild.
+3. Before dropping any older fields, verify whether they are only produced from SQL aliases or truly stored in a different table.
+4. Back up the database before any destructive cleanup.
+
+---
+
+## 4. Final assessment
+
+The database is generally organized around a clear separation of concerns:
+
+- `users` for auth and permissions
+- `communities`, `groups`, `batches` for hierarchy and assignment
+- `mothers` and `children` for beneficiary records
+- clinical support tables for conditions, vaccines, dental history, and checkups
+- `roles`, `permissions`, and `role_permissions` for RBAC scaffolding
+- `programs`, `program_clusters`, and `monitoring_logs` for program tracking and monitoring
+
+This is the cleanest single review summary of the database schema as it exists in the current project files and the live verification of the `users` table.

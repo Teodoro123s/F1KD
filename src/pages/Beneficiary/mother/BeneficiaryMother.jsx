@@ -1,5 +1,7 @@
 import React from 'react';
 import { formatDateForInput } from '../../../utils/dateFormat';
+import { capitalizeNameValue } from '../../../utils/nameFormat';
+import { getPhilippineBarangays, getPhilippineCities, PHILIPPINE_PROVINCES } from '../../../utils/philippineLocations';
 
 export function MotherFormFields({
   activeTab,
@@ -10,10 +12,35 @@ export function MotherFormFields({
   batches = [],
   autoCalculate = true,
   readOnly = false,
+  slashDateInput = false,
+  documentFiles = {},
+  setDocumentFiles,
+  documentContent = null,
+  hideSchoolField = false,
 }) {
+  const [dateDrafts, setDateDrafts] = React.useState({});
+  const datePickerRefs = React.useRef({});
   const uniqueCommunities = Array.from(new Set(communities.map((comm) => comm.name))).filter(Boolean);
   const selectedGroups = groups.filter((group) => !form.community || group.community === form.community);
   const selectedBatches = batches.filter((batch) => !form.community || !batch.community || batch.community === form.community);
+  const selectedProvince = PHILIPPINE_PROVINCES.find((province) => province.toLowerCase() === String(form.province || '').toLowerCase()) || '';
+  const cityOptions = getPhilippineCities(selectedProvince);
+  const selectedCity = cityOptions.find((city) => city.toLowerCase() === String(form.city || '').toLowerCase()) || '';
+  const barangayOptions = getPhilippineBarangays(selectedProvince, selectedCity);
+  const selectedBarangay = barangayOptions.find((barangay) => barangay.toLowerCase() === String(form.barangay || '').toLowerCase()) || '';
+
+  React.useEffect(() => {
+    if ((selectedProvince && selectedProvince !== form.province)
+      || (selectedCity && selectedCity !== form.city)
+      || (selectedBarangay && selectedBarangay !== form.barangay)) {
+      setForm((prev) => ({
+        ...prev,
+        province: selectedProvince || prev.province,
+        city: selectedCity || prev.city,
+        barangay: selectedBarangay || prev.barangay,
+      }));
+    }
+  }, [selectedProvince, selectedCity, form.province, form.city, form.barangay, barangayOptions, selectedBarangay]);
 
   const handleLmpChange = (val) => {
     setForm((prev) => {
@@ -62,6 +89,56 @@ export function MotherFormFields({
     }));
   };
 
+  const formatSlashDate = (value) => {
+    const normalized = formatDateForInput(value);
+    return normalized ? normalized.replaceAll('-', '/') : String(value || '').replaceAll('-', '/');
+  };
+
+  const formatPartialSlashDate = (value) => {
+    const digits = String(value || '').replace(/\D/g, '').slice(0, 8);
+    if (digits.length < 4) return digits;
+    if (digits.length === 4) return `${digits}/`;
+    if (digits.length <= 6) return `${digits.slice(0, 4)}/${digits.slice(4)}`;
+    return `${digits.slice(0, 4)}/${digits.slice(4, 6)}/${digits.slice(6)}`;
+  };
+
+  const normalizeSlashDate = (value) => {
+    const digits = String(value || '').replace(/\D/g, '').slice(0, 8);
+    if (digits.length < 4) return '';
+    const year = digits.slice(0, 4);
+    const month = digits.slice(4, 6).padStart(2, '0');
+    const day = digits.slice(6, 8).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const getDateDisplayValue = (name, value) => dateDrafts[name] ?? (slashDateInput ? formatSlashDate(value) : formatDateForInput(value));
+
+  const updateDateValue = (name, value, onChange) => {
+    const draft = slashDateInput ? formatPartialSlashDate(value) : value;
+    setDateDrafts((prev) => ({ ...prev, [name]: draft }));
+    const normalized = slashDateInput ? normalizeSlashDate(draft) : draft;
+    if (draft.replace(/\D/g, '').length === 8 && /^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+      if (onChange) onChange(normalized);
+      else setForm((prev) => ({ ...prev, [name]: normalized }));
+    }
+  };
+
+  const commitDateValue = (name, value, onChange) => {
+    const normalized = slashDateInput ? normalizeSlashDate(value) : value;
+    const isComplete = !slashDateInput || value.replace(/\D/g, '').length === 8;
+    setDateDrafts((prev) => ({ ...prev, [name]: isComplete && normalized ? formatSlashDate(normalized) : formatPartialSlashDate(value) }));
+    if (!isComplete) return;
+    if (onChange) onChange(normalized);
+    else setForm((prev) => ({ ...prev, [name]: normalized }));
+  };
+
+  const openDatePicker = (name) => {
+    const picker = datePickerRefs.current[name];
+    if (!picker) return;
+    if (typeof picker.showPicker === 'function') picker.showPicker();
+    else picker.click();
+  };
+
   // Helpers to reduce repetitive form markup and support read-only display
   const renderField = ({ id, label, name, type = 'text', placeholder = '', required = false, valueOverride, onChange, nativeDate = false, maxDate }) => {
     const value = valueOverride ?? form[name] ?? '';
@@ -71,47 +148,111 @@ export function MotherFormFields({
       return (
         <div className="form-group">
           <label className="form-label">{label}</label>
-          <div className="form-readonly-value">{value}</div>
+          <div className="form-readonly-value">{value === '' || value === null || value === undefined ? '—' : value}</div>
         </div>
       );
     }
 
+    const isNativeDate = nativeDate || (isDate && !slashDateInput);
+
     return (
       <div className="form-group">
         <label className="form-label" htmlFor={id}>{label}</label>
-        <input
-          id={id}
-          type={nativeDate ? 'date' : isDate ? 'text' : type}
-          className="form-input"
-          placeholder={nativeDate ? undefined : isDate ? 'yyyy/mm/dd' : placeholder}
-          value={isDate ? formatDateForInput(value) : value}
-          onChange={(e) => {
-            const nextValue = isDate
-              ? nativeDate ? e.target.value : e.target.value.replace(/[^0-9/]/g, '').replaceAll('/', '-').replace(/^(\d{4})-(\d{2})-(\d{2}).*$/, '$1-$2-$3')
-              : isNumeric ? e.target.value.replace(/\D/g, '') : e.target.value;
-            if (onChange) {
-              onChange(nextValue);
-              return;
-            }
-            setForm((prev) => ({ ...prev, [name]: nextValue }));
-          }}
-          inputMode={isNumeric ? 'numeric' : undefined}
-          pattern={isNumeric ? '[0-9]*' : undefined}
-          max={maxDate}
-          autoComplete={nativeDate ? 'off' : undefined}
-          required={required}
-        />
+        <div className={isNativeDate ? 'date-input-container' : undefined}>
+          <input
+            id={id}
+            type={isNativeDate ? 'date' : isDate ? 'text' : type}
+            className="form-input"
+            placeholder={isDate && !isNativeDate ? 'yyyy/mm/dd' : placeholder}
+            value={isNativeDate ? formatDateForInput(value) : isDate ? getDateDisplayValue(name, value) : value}
+            onChange={(e) => {
+              if (isNativeDate) {
+                const nextVal = e.target.value;
+                if (onChange) onChange(nextVal);
+                else setForm((prev) => ({ ...prev, [name]: nextVal }));
+                return;
+              }
+              if (isDate) {
+                updateDateValue(name, e.target.value, onChange);
+                return;
+              }
+              const rawValue = isNumeric ? e.target.value.replace(/\D/g, '') : e.target.value;
+              const nextValue = /^(firstName|middleName|lastName|maidenSurname|suffix|emergencyName|spouseFirstName|spouseSurname)$/.test(name)
+                ? capitalizeNameValue(rawValue)
+                : rawValue;
+              if (onChange) {
+                onChange(nextValue);
+                return;
+              }
+              setForm((prev) => ({ ...prev, [name]: nextValue }));
+            }}
+            onClick={isNativeDate ? (e) => { try { if (typeof e.target.showPicker === 'function') e.target.showPicker(); } catch (_) {} } : undefined}
+            onBlur={isDate && !isNativeDate ? () => commitDateValue(name, getDateDisplayValue(name, value), onChange) : undefined}
+            inputMode={isNumeric ? 'numeric' : undefined}
+            pattern={isNumeric ? '[0-9]*' : undefined}
+            max={maxDate}
+            autoComplete={nativeDate ? 'off' : undefined}
+            required={required}
+          />
+          {isNativeDate && (
+            <button
+              type="button"
+              className="calendar-toggle-btn"
+              onClick={() => {
+                const el = document.getElementById(id);
+                if (el) {
+                  try {
+                    if (typeof el.showPicker === 'function') el.showPicker();
+                    else el.focus();
+                  } catch (_) {
+                    el.focus();
+                  }
+                }
+              }}
+              aria-label={`Open calendar for ${label}`}
+              tabIndex={-1}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+            </button>
+          )}
+        </div>
+        {!isNativeDate && isDate && slashDateInput && !readOnly && (
+          <>
+            <button type="button" className="date-picker-button" onClick={() => openDatePicker(name)} aria-label={`Open calendar for ${label}`}>
+              <span aria-hidden="true">▣</span>
+            </button>
+            <input
+              ref={(element) => { datePickerRefs.current[name] = element; }}
+              className="native-date-picker-input"
+              type="date"
+              value={formatDateForInput(value)}
+              onChange={(event) => {
+                const nextValue = event.target.value;
+                setDateDrafts((prev) => ({ ...prev, [name]: formatSlashDate(nextValue) }));
+                if (onChange) onChange(nextValue);
+                else setForm((prev) => ({ ...prev, [name]: nextValue }));
+              }}
+              tabIndex={-1}
+              aria-hidden="true"
+            />
+          </>
+        )}
       </div>
     );
   };
 
-  const renderSelect = ({ id, label, name, options = [], placeholder = '', required = false, onChange }) => {
+  const renderSelect = ({ id, label, name, options = [], placeholder = '', required = false, onChange, disabled = false }) => {
     const value = form[name] ?? '';
     if (readOnly) {
       return (
         <div className="form-group">
           <label className="form-label">{label}</label>
-          <div className="form-readonly-value">{value}</div>
+          <div className="form-readonly-value">{value === '' || value === null || value === undefined ? '—' : value}</div>
         </div>
       );
     }
@@ -133,6 +274,7 @@ export function MotherFormFields({
               : { ...prev, [name]: e.target.value });
           }}
           required={required}
+          disabled={disabled}
         >
           {placeholder && <option value="">{placeholder}</option>}
           {options.map((opt) => (
@@ -143,13 +285,13 @@ export function MotherFormFields({
     );
   };
 
-  const renderTextarea = ({ id, label, name, rows = 2, placeholder = '' }) => {
+  const renderTextarea = ({ id, label, name, rows = 2, placeholder = '', required = false }) => {
     const value = form[name] ?? '';
     if (readOnly) {
       return (
         <div className="form-group full-width">
           <label className="form-label">{label}</label>
-          <div className="form-readonly-value">{value}</div>
+          <div className="form-readonly-value">{value === '' || value === null || value === undefined ? '—' : value}</div>
         </div>
       );
     }
@@ -164,57 +306,70 @@ export function MotherFormFields({
           placeholder={placeholder}
           value={value}
           onChange={(e) => setForm((prev) => ({ ...prev, [name]: e.target.value }))}
+          required={required}
         />
       </div>
     );
   };
 
   if (activeTab === 'general') {
-    const spouseNameParts = String(form.spouseName || '').trim().split(/\s+/).filter(Boolean);
-    const spouseFirstName = form.spouseFirstName ?? (spouseNameParts.length > 1 ? spouseNameParts.slice(0, -1).join(' ') : spouseNameParts[0] || '');
-    const spouseSurname = form.spouseSurname ?? (spouseNameParts.length > 1 ? spouseNameParts[spouseNameParts.length - 1] : '');
-
     return (
-      <>
-        <h4 className="form-section-title">I.A Mother's Information</h4>
-        <div className="form-row-5 full-width name-row">
+      <div className="create-mother-general">
+        <section className="create-mother-category">
+          <h4 className="form-section-title">I.A Mother's Information</h4>
+          <div className="form-row-5 full-width name-row">
           {renderField({ id: 'mother-first-name', label: "First Name", name: 'firstName', placeholder: 'First name', required: true })}
-          {renderField({ id: 'mother-middle-name', label: "Middle Name", name: 'middleName', placeholder: 'Middle name' })}
+          {renderField({ id: 'mother-middle-name', label: "Middle Name", name: 'middleName', placeholder: 'Middle name', required: true })}
           {renderField({ id: 'mother-last-name', label: "Last Name", name: 'lastName', placeholder: 'Last name', required: true })}
-          {renderField({ id: 'mother-maiden-surname', label: "Maiden Surname", name: 'maidenSurname', placeholder: 'Maiden surname' })}
+          {renderField({ id: 'mother-maiden-surname', label: "Maiden Surname", name: 'maidenSurname', placeholder: 'Maiden surname', required: true })}
           {renderField({ id: 'mother-suffix', label: "Suffix", name: 'suffix', placeholder: 'Suffix' })}
-        </div>
+          </div>
 
-        <div className="form-row-2 full-width">
+          <div className="form-row-2 full-width">
           {renderField({ id: 'mother-dob', label: "Date of Birth", name: 'dob', type: 'date', required: true, nativeDate: true, maxDate: new Date().toISOString().split('T')[0] })}
-          {renderField({ id: 'mother-contact', label: "Contact Number", name: 'contactNumber', type: 'tel', placeholder: '0917******' })}
-        </div>
+          {renderField({ id: 'mother-contact', label: "Contact Number", name: 'contactNumber', type: 'tel', placeholder: '0917******', required: true })}
+          </div>
 
-        <div className="form-row-4 full-width">
-          {readOnly ? (
-            renderField({ id: 'mother-lmp', label: 'Date of LMP', name: 'lmpDate', type: 'date' })
-          ) : (
-            <div className="form-group">
-              <label className="form-label" htmlFor="mother-lmp">Date of LMP</label>
-              <input
-                id="mother-lmp"
-                type="date"
-                className="form-input"
-                value={formatDateForInput(form.lmpDate)}
-                onChange={(e) => handleLmpChange(e.target.value)}
-                max={new Date().toISOString().split('T')[0]}
-                autoComplete="off"
-              />
-            </div>
-          )}
+        </section>
 
-          {renderField({ id: 'mother-edd', label: "Expected Delivery Date (EDD)", name: 'eddDate', type: 'date', nativeDate: true })}
-          {renderField({ id: 'mother-weight', label: "Mother's Weight (kg)", name: 'weight', placeholder: 'e.g. 50 kg' })}
-          {renderField({ id: 'mother-height', label: "Mother's Height (cm)", name: 'height', placeholder: 'e.g. 150 cm' })}
-        </div>
-
-        <div className="form-row-3 full-width">
+        <section className="create-mother-category">
+          <h4 className="form-section-title">I.B ADDRESS DETAILS</h4>
+          <div className="form-row-3 full-width">
           {renderSelect({
+            id: 'mother-province',
+            label: 'Province',
+            name: 'province',
+            options: PHILIPPINE_PROVINCES,
+            placeholder: 'Select province',
+            required: true,
+            onChange: (value) => setForm((prev) => ({ ...prev, province: value, city: '', barangay: '' })),
+          })}
+          {renderSelect({
+            id: 'mother-city',
+            label: 'City / Municipality',
+            name: 'city',
+            options: cityOptions,
+            placeholder: form.province ? 'Select city / municipality' : 'Select province first',
+            required: true,
+            onChange: (value) => setForm((prev) => ({ ...prev, city: value, barangay: '' })),
+            disabled: !form.province,
+          })}
+          {renderSelect({
+            id: 'mother-barangay',
+            label: 'Barangay',
+            name: 'barangay',
+            options: barangayOptions,
+            placeholder: form.city ? 'Select barangay' : 'Select city first',
+            required: true,
+            disabled: !form.city,
+          })}
+          </div>
+        </section>
+
+        <section className="create-mother-category">
+          <h4 className="form-section-title">I.C COMMUNITY DETAILS</h4>
+          <div className="form-row-3 full-width">
+          {!hideSchoolField && renderSelect({
             id: 'mother-community',
             label: 'School',
             name: 'community',
@@ -228,6 +383,7 @@ export function MotherFormFields({
             name: 'groupId',
             options: selectedGroups.map((group) => ({ value: group.id, label: group.name })),
             placeholder: 'Select group',
+            required: true,
             onChange: (value) => {
               const selectedGroup = groups.find((group) => String(group.id) === String(value));
               setForm((prev) => ({
@@ -245,6 +401,7 @@ export function MotherFormFields({
             name: 'batchId',
             options: selectedBatches.map((batch) => ({ value: batch.databaseId ?? batch.id, label: batch.name })),
             placeholder: 'Select batch',
+            required: true,
             onChange: (value) => {
               const selectedBatch = batches.find((batch) => String(batch.databaseId ?? batch.id) === String(value));
               setForm((prev) => ({
@@ -254,125 +411,140 @@ export function MotherFormFields({
               }));
             },
           })}
-        </div>
+          </div>
+        </section>
 
-        <h4 className="form-section-title">I.B EMERGENCY CONTACT DETAILS</h4>
-        <div className="form-row-3 full-width">
-          {renderField({ id: 'emergency-name', label: 'Name', name: 'emergencyName', placeholder: 'Enter contact name' })}
-          {renderField({ id: 'emergency-contact', label: 'Contact Number', name: 'emergencyContact', type: 'tel', placeholder: 'Enter contact number' })}
-          {renderField({ id: 'emergency-relationship', label: 'Relationship', name: 'emergencyRelationship', placeholder: 'e.g. husband' })}
-        </div>
+        {!readOnly && (
+          <section className="create-mother-category">
+            <h4 className="form-section-title">I.C DOCUMENTS</h4>
+            <div className="document-upload-grid create-mother-document-grid">
+              <div className="document-upload-field">
+                <label className="form-label" htmlFor="mother-birth-certificate">Mother's Birth Certificate</label>
+                <input
+                  id="mother-birth-certificate"
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png,.webp"
+                  onChange={(event) => setDocumentFiles?.((current) => ({ ...current, birthCertificate: event.target.files?.[0] || null }))}
+                />
+              </div>
+              <div className="document-upload-field">
+                <label className="form-label" htmlFor="mother-consent">Program Consent Form</label>
+                <input
+                  id="mother-consent"
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png,.webp"
+                  onChange={(event) => setDocumentFiles?.((current) => ({ ...current, consent: event.target.files?.[0] || null }))}
+                />
+              </div>
+            </div>
+          </section>
+        )}
 
-        <h4 className="form-section-title">I.C OTHER DETAILS</h4>
-        <div className="form-row-2 full-width">
-          {renderField({
-            id: 'spouse-first-name',
-            label: 'Spouse First Name',
-            name: 'spouseFirstName',
-            valueOverride: spouseFirstName,
-            placeholder: 'Enter first name',
-            onChange: (value) => setForm((prev) => ({
-              ...prev,
-              spouseFirstName: value,
-              spouseName: `${value} ${prev.spouseSurname || spouseSurname}`.trim(),
-            })),
+        {readOnly && documentContent}
+
+        <section className="create-mother-category">
+          <h4 className="form-section-title">I.D EMERGENCY CONTACT</h4>
+          <div className="form-row-3 full-width">
+          {renderField({ id: 'emergency-name', label: 'Name', name: 'emergencyName', placeholder: 'Enter contact name', required: true })}
+          {renderField({ id: 'emergency-contact', label: 'Contact Number', name: 'emergencyContact', type: 'tel', placeholder: 'Enter contact number', required: true })}
+          {renderField({ id: 'emergency-relationship', label: 'Relationship', name: 'emergencyRelationship', placeholder: 'e.g. husband', required: true })}
+          </div>
+        </section>
+
+        <section className="create-mother-category">
+          <h4 className="form-section-title">I.E OTHER DETAILS</h4>
+          <label className="form-toggle-label" htmlFor="philhealth-member">
+            <input
+              id="philhealth-member"
+              type="checkbox"
+              className="form-checkbox"
+              checked={!!form.philhealthMember}
+              onChange={(event) => setForm((prev) => ({
+                ...prev,
+                philhealthMember: event.target.checked,
+                philhealthNumber: event.target.checked ? prev.philhealthNumber : '',
+              }))}
+            />
+            <span>PhilHealth member</span>
+          </label>
+          {form.philhealthMember && renderField({
+            id: 'philhealth-number',
+            label: 'PhilHealth Number',
+            name: 'philhealthNumber',
+            placeholder: 'Enter PhilHealth number',
           })}
-          {renderField({
-            id: 'spouse-surname',
-            label: 'Spouse Surname',
-            name: 'spouseSurname',
-            valueOverride: spouseSurname,
-            placeholder: 'Enter surname',
-            onChange: (value) => setForm((prev) => ({
-              ...prev,
-              spouseSurname: value,
-              spouseName: `${prev.spouseFirstName || spouseFirstName} ${value}`.trim(),
-            })),
-          })}
-        </div>
-        {renderTextarea({ id: 'mother-address', label: 'Address', name: 'address', rows: 3, placeholder: 'Enter address...' })}
-      </>
+        </section>
+      </div>
     );
   }
 
   if (activeTab === 'prenatal') {
     return (
-      <>
-        <h4 className="form-section-title">II. INITIAL PRENATAL ASSESSMENT & MATERNAL HEALTH PROFILE</h4>
-        <div className="form-row-3 full-width">
-          {renderField({ id: 'prenatal-reg-date', label: 'Date of Prenatal Registration', name: 'prenatalRegDate', type: 'date', nativeDate: true })}
-          {renderSelect({ id: 'prenatal-trimester', label: 'Trimester at Registration', name: 'trimester', options: ['1st Trimester','2nd Trimester','3rd Trimester'] })}
-          {renderField({ id: 'prenatal-gest-age', label: 'Gestational Age at Reg (weeks)', name: 'gestationalAge', placeholder: 'e.g. 12' })}
-        </div>
+      <div className="create-mother-general create-mother-prenatal">
+        <section className="create-mother-category">
+          <h4 className="form-section-title">II. INITIAL PRENATAL ASSESSMENT & MATERNAL HEALTH PROFILE</h4>
+          <div className="form-row-2 full-width">
+          {readOnly ? (
+            renderField({ id: 'mother-lmp', label: 'Date of LMP', name: 'lmpDate', type: 'date', required: true })
+          ) : (
+            <div className="form-group">
+              <label className="form-label" htmlFor="mother-lmp">Date of LMP</label>
+              <input
+                id="mother-lmp"
+                type={slashDateInput ? 'text' : 'date'}
+                className="form-input"
+                placeholder={slashDateInput ? 'yyyy/mm/dd' : undefined}
+                value={getDateDisplayValue('lmpDate', form.lmpDate)}
+                onChange={(e) => updateDateValue('lmpDate', e.target.value, handleLmpChange)}
+                onBlur={() => commitDateValue('lmpDate', getDateDisplayValue('lmpDate', form.lmpDate), handleLmpChange)}
+                max={new Date().toISOString().split('T')[0]}
+                autoComplete="off"
+                required
+              />
+              {slashDateInput && <>
+                <button type="button" className="date-picker-button" onClick={() => openDatePicker('lmpDate')} aria-label="Open calendar for Date of LMP"><span aria-hidden="true">▣</span></button>
+                <input
+                  ref={(element) => { datePickerRefs.current.lmpDate = element; }}
+                  className="native-date-picker-input"
+                  type="date"
+                  value={formatDateForInput(form.lmpDate)}
+                  onChange={(e) => {
+                    setDateDrafts((prev) => ({ ...prev, lmpDate: formatSlashDate(e.target.value) }));
+                    handleLmpChange(e.target.value);
+                  }}
+                  tabIndex={-1}
+                  aria-hidden="true"
+                />
+              </>}
+            </div>
+          )}
 
-        <div className="form-row-3 full-width">
-          {renderField({ id: 'prenatal-weight', label: 'Weight (kg) at Reg', name: 'prenatalWeight', placeholder: 'e.g. 52' })}
-          {renderField({ id: 'prenatal-bp', label: 'Blood Pressure (BP) at Reg', name: 'prenatalBp', placeholder: 'e.g. 120/80' })}
-          {renderField({ id: 'prenatal-height', label: 'Height (cm) at Reg', name: 'prenatalHeight', placeholder: 'e.g. 150' })}
-        </div>
-
-        <div className="form-row-3 full-width">
-          {renderField({ id: 'prenatal-fundal', label: 'Fundal Height (cm) at Reg', name: 'fundalHeight', placeholder: 'e.g. 15' })}
-          {renderField({ id: 'prenatal-fhr', label: 'FHR (bpm) at Reg', name: 'fhr', placeholder: 'e.g. 145' })}
-          <div className="form-group" aria-hidden="true" />
-        </div>
-
-        <h4 className="form-section-title">III. NUMBER OF PREGNANCIES & BIRTHS (OB)</h4>
-        <div className="form-row-4 full-width">
-          {renderField({ id: 'ob-gravida', label: 'Gravida (Pregnancies)', name: 'gravida', type: 'number', placeholder: 'Total pregnancies' })}
-          {renderField({ id: 'ob-para', label: 'Para (Completed >20wks)', name: 'para', type: 'number', placeholder: 'Completed pregnancies' })}
-          {renderField({ id: 'ob-abortion', label: 'Abortion', name: 'abortion', type: 'number', placeholder: 'Spontaneous/induced' })}
-          {renderField({ id: 'ob-stillbirth', label: 'Stillbirth', name: 'stillbirth', type: 'number', placeholder: 'Fetal death >20wks' })}
-        </div>
-
-        <div className="form-group full-width">
-          <label className="form-label">OB History Table</label>
-          <div className="ob-history-form-table-wrapper">
-            <table className="ob-history-form-table">
-              <thead>
-                <tr>
-                  <th style={{ width: '15%' }}>Event</th>
-                  <th style={{ width: '35%' }}>Gestational Age (weeks)</th>
-                  <th style={{ width: '50%' }}>Outcomes / Complications</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(form.obHistory || []).map((row, index) => (
-                  <tr key={index}>
-                    <td><strong>{row.event}</strong></td>
-                    <td>
-                      {readOnly ? (
-                        <div className="form-readonly-value">{row.gestationalAge || '-'}</div>
-                      ) : (
-                        <input
-                          type="text"
-                          className="form-input table-input"
-                          placeholder="e.g. 38 weeks"
-                          value={row.gestationalAge || ''}
-                          onChange={(e) => handleObHistoryChange(index, 'gestationalAge', e.target.value)}
-                        />
-                      )}
-                    </td>
-                    <td>
-                      {readOnly ? (
-                        <div className="form-readonly-value">{row.outcome || '-'}</div>
-                      ) : (
-                        <input
-                          type="text"
-                          className="form-input table-input"
-                          placeholder="e.g. Normal Vaginal Delivery"
-                          value={row.outcome || ''}
-                          onChange={(e) => handleObHistoryChange(index, 'outcome', e.target.value)}
-                        />
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          {renderField({ id: 'mother-edd', label: "Expected Delivery Date (EDD)", name: 'eddDate', type: 'date', nativeDate: true, required: true })}
           </div>
-        </div>
-      </>
+
+          <div className="form-row-3 full-width">
+          {renderField({ id: 'prenatal-reg-date', label: 'Date of Prenatal Registration', name: 'prenatalRegDate', type: 'date', nativeDate: true, required: true })}
+          {renderSelect({ id: 'prenatal-trimester', label: 'Trimester at Registration', name: 'trimester', options: ['1st Trimester','2nd Trimester','3rd Trimester'], required: true })}
+          {renderField({ id: 'prenatal-gest-age', label: 'Gestational Age at Reg (weeks)', name: 'gestationalAge', placeholder: 'e.g. 12', required: true })}
+          </div>
+
+          <div className="form-row-3 full-width">
+          {renderField({ id: 'prenatal-weight', label: 'Weight (kg) at Reg', name: 'prenatalWeight', placeholder: 'e.g. 52', required: true })}
+          {renderField({ id: 'prenatal-bp', label: 'Blood Pressure (BP) at Reg', name: 'prenatalBp', placeholder: 'e.g. 120/80', required: true })}
+          {renderField({ id: 'prenatal-height', label: 'Height (cm) at Reg', name: 'prenatalHeight', placeholder: 'e.g. 150', required: true })}
+          </div>
+        </section>
+
+        <section className="create-mother-category">
+          <h4 className="form-section-title">III. NUMBER OF PREGNANCIES & BIRTHS (OB)</h4>
+          <div className="form-row-3 full-width">
+          {renderField({ id: 'ob-gravida', label: 'Gravida (Pregnancies)', name: 'gravida', type: 'number', placeholder: 'Total pregnancies', required: true })}
+          {renderField({ id: 'ob-abortion', label: 'Abortion', name: 'abortion', type: 'number', placeholder: 'Spontaneous/induced', required: true })}
+          {renderField({ id: 'ob-stillbirth', label: 'Stillbirth', name: 'stillbirth', type: 'number', placeholder: 'Fetal death >20wks', required: true })}
+          </div>
+        </section>
+
+      </div>
     );
   }
 
@@ -402,9 +574,10 @@ export function MotherFormFields({
     ];
 
     return (
-      <>
-        <h4 className="form-section-title">IV.A HISTORY OF MEDICAL CONDITIONS</h4>
-        <div className="form-checkboxes-grid full-width">
+      <div className="create-mother-general create-mother-medical">
+        <section className="create-mother-category">
+          <h4 className="form-section-title">IV.A HISTORY OF MEDICAL CONDITIONS</h4>
+          <div className="form-checkboxes-grid full-width">
           {readOnly ? (
             <div className="form-readonly-list">
               {(conditionsKeys.filter(({ key }) => !!form.medicalConditions?.[key]).map(c => c.label)).length > 0 ? (
@@ -428,27 +601,29 @@ export function MotherFormFields({
               </label>
             ))
           )}
-        </div>
-        {renderTextarea({ id: 'other-medical-notes', label: 'Other Medical History', name: 'otherMedicalHistory', rows: 2, placeholder: 'Other medical history notes...' })}
+          </div>
+          {renderTextarea({ id: 'other-medical-notes', label: 'Other Medical History', name: 'otherMedicalHistory', rows: 2, placeholder: 'Other medical history notes...', required: true })}
+        </section>
 
-        <h4 className="form-section-title">IV.B DENTAL HEALTH CONDITION</h4>
-        <div className="form-row-3 full-width">
-          {renderField({ id: 'dental-date', label: 'Date of Dental Check-up', name: 'dentalCheckupDate', type: 'date', nativeDate: true })}
-          {renderField({ id: 'dental-facility', label: 'Dental Clinic / Health Facility', name: 'dentalFacility', placeholder: 'Facility name' })}
-          {renderField({ id: 'dentist-charge', label: 'Dentist in Charge', name: 'dentistInCharge', placeholder: 'Dentist name' })}
-        </div>
+        <section className="create-mother-category">
+          <h4 className="form-section-title">IV.B DENTAL HEALTH CONDITION</h4>
+          <div className="form-row-3 full-width">
+          {renderField({ id: 'dental-date', label: 'Date of Dental Check-up', name: 'dentalCheckupDate', type: 'date', nativeDate: true, required: true })}
+          {renderField({ id: 'dental-facility', label: 'Dental Clinic / Health Facility', name: 'dentalFacility', placeholder: 'Facility name', required: true })}
+          {renderField({ id: 'dentist-charge', label: 'Dentist in Charge', name: 'dentistInCharge', placeholder: 'Dentist name', required: true })}
+          </div>
 
-        <div className="form-row-3 full-width">
-          {renderField({ id: 'dentist-comm', label: 'Community Dentist Name', name: 'communityDentist', placeholder: 'Community dentist' })}
-          {renderField({ id: 'dentist-license', label: 'Dentist License No', name: 'dentistLicense', placeholder: 'License number' })}
-          {renderField({ id: 'dentist-contact', label: 'Dentist Contact No', name: 'dentistContact', type: 'tel', placeholder: 'Contact number' })}
-        </div>
+          <div className="form-row-3 full-width">
+          {renderField({ id: 'dentist-comm', label: 'Community Dentist Name', name: 'communityDentist', placeholder: 'Community dentist', required: true })}
+          {renderField({ id: 'dentist-license', label: 'Dentist License No', name: 'dentistLicense', placeholder: 'License number', required: true })}
+          {renderField({ id: 'dentist-contact', label: 'Dentist Contact No', name: 'dentistContact', type: 'tel', placeholder: 'Contact number', required: true })}
+          </div>
 
-        {renderField({ id: 'teeth-count', label: 'Number of Teeth Pregnant', name: 'teethCount', type: 'number', placeholder: 'e.g. 28' })}
+          {renderField({ id: 'teeth-count', label: 'Number of Teeth Pregnant', name: 'teethCount', type: 'number', placeholder: 'e.g. 28', required: true })}
 
-        {renderTextarea({ id: 'dental-findings', label: 'Dental Findings / Diagnosis', name: 'dentalFindings', rows: 2, placeholder: 'Findings or diagnosis...' })}
+          {renderTextarea({ id: 'dental-findings', label: 'Dental Findings / Diagnosis', name: 'dentalFindings', rows: 2, placeholder: 'Findings or diagnosis...', required: true })}
 
-        <div className="form-group full-width">
+          <div className="form-group full-width">
           <label className="form-label">Dental Work Done</label>
           {readOnly ? (
             <div className="form-readonly-list">
@@ -475,18 +650,20 @@ export function MotherFormFields({
               ))}
             </div>
           )}
-        </div>
+          </div>
 
-        {renderTextarea({ id: 'dental-remarks', label: 'Remarks / Recommendations', name: 'dentalRemarks', rows: 2, placeholder: 'Dental recommendations...' })}
-      </>
+          {renderTextarea({ id: 'dental-remarks', label: 'Remarks / Recommendations', name: 'dentalRemarks', rows: 2, placeholder: 'Dental recommendations...', required: true })}
+        </section>
+      </div>
     );
   }
 
   if (activeTab === 'vaccine') {
     return (
-      <>
-        <h4 className="form-section-title">IV.C VACCINE RECORD</h4>
-        <div className="form-group full-width">
+      <div className="create-mother-general create-mother-vaccine">
+        <section className="create-mother-category">
+          <h4 className="form-section-title">IV.C VACCINE RECORD</h4>
+          <div className="form-group full-width">
           <div className="form-panel vaccine-form-panel">
             <div className="vaccine-form-table-wrapper">
               <table className="vaccine-form-table">
@@ -505,16 +682,29 @@ export function MotherFormFields({
                         {readOnly ? (
                           <div className="form-readonly-value">{form[`tt${num}Date`] || '-'}</div>
                         ) : (
-                          <input
-                            type="date"
-                            className="form-input table-input"
-                            value={formatDateForInput(form[`tt${num}Date`] || '')}
-                            onChange={(e) => setForm((prev) => ({
-                              ...prev,
-                              [`tt${num}Date`]: e.target.value,
-                            }))}
-                            autoComplete="off"
-                          />
+                          <>
+                            <input
+                              type={slashDateInput ? 'text' : 'date'}
+                              className="form-input table-input"
+                              placeholder={slashDateInput ? 'yyyy/mm/dd' : undefined}
+                              value={getDateDisplayValue(`tt${num}Date`, form[`tt${num}Date`] || '')}
+                              onChange={(e) => updateDateValue(`tt${num}Date`, e.target.value)}
+                              onBlur={() => commitDateValue(`tt${num}Date`, getDateDisplayValue(`tt${num}Date`, form[`tt${num}Date`] || ''))}
+                              autoComplete="off"
+                            />
+                            {slashDateInput && <>
+                              <button type="button" className="date-picker-button" onClick={() => openDatePicker(`tt${num}Date`)} aria-label={`Open calendar for TT${num} date`}><span aria-hidden="true">▣</span></button>
+                              <input
+                                ref={(element) => { datePickerRefs.current[`tt${num}Date`] = element; }}
+                                className="native-date-picker-input"
+                                type="date"
+                                value={formatDateForInput(form[`tt${num}Date`] || '')}
+                                onChange={(e) => setForm((prev) => ({ ...prev, [`tt${num}Date`]: e.target.value }))}
+                                tabIndex={-1}
+                                aria-hidden="true"
+                              />
+                            </>}
+                          </>
                         )}
                       </td>
                       <td>
@@ -536,8 +726,9 @@ export function MotherFormFields({
               </table>
             </div>
           </div>
-        </div>
-      </>
+          </div>
+        </section>
+      </div>
     );
   }
 

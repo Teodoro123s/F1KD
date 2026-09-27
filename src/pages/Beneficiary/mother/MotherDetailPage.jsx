@@ -1,9 +1,13 @@
 ﻿import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDateForDisplay } from '../../../utils/dateFormat';
-import { apiGetMother, apiUploadMotherDocuments } from '../../../api/mothers';
+import { apiDeleteMother, apiGetMother } from '../../../api/mothers';
+import { resolveAssetUrl } from '../../../api/authHeader';
 import { useAuth } from '../../../auth/AuthProvider';
-import { can } from '../../../utils/permissions';
+import { can, hasRole, ROLES } from '../../../utils/permissions';
+import PageHeader from '../../../components/ui/PageHeader';
+import { notifyAction } from '../../../components/ActionFeedback';
+import { MotherFormFields } from './BeneficiaryMother';
 
 const calculateAge = (dobString) => {
   if (!dobString) return null;
@@ -37,6 +41,47 @@ const Field = ({ label, value, className = '' }) => (
   </div>
 );
 
+const getDocumentPreviewType = (filePath = '') => {
+  const normalizedPath = String(filePath || '').toLowerCase();
+  if (!normalizedPath) return 'none';
+  if (normalizedPath.endsWith('.pdf')) return 'pdf';
+  if (/\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(normalizedPath)) return 'image';
+  return 'none';
+};
+
+const DocumentPreview = ({ fileName, filePath, label, onPreviewOpen }) => {
+  const normalizedUrl = resolveAssetUrl(filePath);
+  const previewType = getDocumentPreviewType(filePath);
+
+  if (!fileName || !normalizedUrl) {
+    return <span className="document-upload-empty">No document uploaded</span>;
+  }
+
+  return (
+    <div className="document-upload-preview-wrapper">
+      {previewType === 'image' && (
+        <button type="button" className="document-upload-preview-button" onClick={() => onPreviewOpen?.(normalizedUrl, fileName, 'image')}>
+          <img src={normalizedUrl} alt={fileName || label} className="document-upload-preview-image" />
+        </button>
+      )}
+      {previewType === 'pdf' && (
+        <button type="button" className="document-upload-preview-button" onClick={() => onPreviewOpen?.(normalizedUrl, fileName, 'pdf')}>
+          <div className="document-upload-preview-pdf-shell">
+            <object data={normalizedUrl} type="application/pdf" className="document-upload-preview-pdf">
+              <iframe src={normalizedUrl} title={fileName || label} className="document-upload-preview-pdf-frame" />
+            </object>
+          </div>
+        </button>
+      )}
+      {!previewType || previewType === 'none' ? (
+        <a href={normalizedUrl} target="_blank" rel="noreferrer">{fileName}</a>
+      ) : (
+        <button type="button" className="document-upload-filename-link" onClick={() => onPreviewOpen?.(normalizedUrl, fileName, previewType)}>{fileName}</button>
+      )}
+    </div>
+  );
+};
+
 const Section = ({ title, children }) => (
   <section className="mother-detail-section">
     <h3 className="mother-detail-section-title">{title}</h3>
@@ -58,14 +103,17 @@ const ChipList = ({ items, emptyLabel = 'None' }) => {
   );
 };
 
-export default function MotherDetailPage({ selectedMother, onClose }) {
+export default function MotherDetailPage({ selectedMother, onClose, onMotherUpdated, overviewOnly = false }) {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
-  const canManage = can(currentUser?.role, 'admin-resources', 'create');
+  const canManage = can(currentUser?.role, 'beneficiary-resources', 'update');
+  const canEdit = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.PARTNER]);
   const [motherRecord, setMotherRecord] = useState(selectedMother);
-  const [uploadingDocument, setUploadingDocument] = useState('');
-  const [uploadMessage, setUploadMessage] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
+  const [profileTab, setProfileTab] = useState('general');
+  const [previewDocument, setPreviewDocument] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!selectedMother) return undefined;
@@ -96,9 +144,22 @@ export default function MotherDetailPage({ selectedMother, onClose }) {
     return value ? `[${value}]` : null;
   };
 
-  const fullName = mother.name || `${mother.firstName || ''} ${mother.middleName || ''} ${mother.lastName || ''} ${mother.suffix || ''}`.replace(/\s+/g, ' ').trim();
+  const fullName = [
+    mother.firstName || mother.first_name,
+    mother.middleName || mother.middle_name,
+    mother.lastName || mother.last_name,
+    mother.suffix,
+  ].filter(Boolean).join(' ');
   const motherId = mother.motherId || mother.id || 'M-unknown';
   const age = calculateAge(mother.dob);
+
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+    navigate('/beneficiary');
+  };
 
   const firstName = mother.firstName || '—';
   const middleName = mother.middleName || '—';
@@ -112,6 +173,7 @@ export default function MotherDetailPage({ selectedMother, onClose }) {
   const community = mother.community || '—';
   const group = mother.group || '—';
   const batch = mother.batch || '—';
+  const addressParts = String(mother.address || '').split(',').map((part) => part.trim()).filter(Boolean);
   const highRisk = mother.isHighRisk ?? mother.is_high_risk ?? 'No';
   const program = mother.programType || mother.program || 'Maternal Health Program';
 
@@ -147,60 +209,174 @@ export default function MotherDetailPage({ selectedMother, onClose }) {
     remarks: mother[`tt${num}Remarks`] || '—',
   }));
 
-  const uploadDocument = async (field, file) => {
-    if (!file) return;
-    setUploadingDocument(field);
-    setUploadMessage('');
+  const detailForm = {
+    ...mother,
+    firstName,
+    middleName,
+    lastName,
+    maidenSurname,
+    suffix,
+    dob,
+    contactNumber: contact,
+    lmpDate: lmp,
+    eddDate: edd,
+    province: mother.province || addressParts[0] || '',
+    city: mother.city || addressParts[1] || '',
+    barangay: mother.barangay || addressParts[2] || '',
+    community,
+    groupId: group,
+    batchId: batch,
+    prenatalRegDate,
+    dentalCheckupDate: formatDateForDisplay(mother.dentalCheckupDate),
+    tt1Date: vaccineRows[0].date,
+    tt2Date: vaccineRows[1].date,
+    tt3Date: vaccineRows[2].date,
+    tt4Date: vaccineRows[3].date,
+    tt5Date: vaccineRows[4].date,
+  };
+
+  const deleteMother = async () => {
+    if (deleting) return;
+    setDeleting(true);
     try {
-      const response = await apiUploadMotherDocuments(motherId, { [field]: file });
-      if (response?.mother) setMotherRecord((current) => ({ ...current, ...response.mother }));
-      setUploadMessage('Document uploaded successfully.');
+      await apiDeleteMother(motherId);
+      setShowDeleteModal(false);
+      onClose?.();
     } catch (error) {
-      setUploadMessage(error.message || 'Unable to upload document.');
+      const message = error.message || 'Unable to delete mother and children.';
+      notifyAction(message, 'error');
     } finally {
-      setUploadingDocument('');
+      setDeleting(false);
     }
   };
 
+  const documentContent = (
+    <section className="create-mother-category mother-detail-inline-documents">
+      <h4 className="form-section-title">I.C DOCUMENTS</h4>
+      <div className="document-upload-grid">
+        {[
+          ['birthCertificate', "Mother's Birth Certificate", motherRecord.birthCertificateDocumentName, motherRecord.birthCertificateDocumentPath],
+          ['consent', 'Program Consent Form', motherRecord.consentDocumentName, motherRecord.consentDocumentPath],
+        ].map(([field, label, fileName, filePath]) => {
+          return (
+            <div className="document-upload-field" key={field}>
+              <div className="document-upload-header-row">
+                <span className="detail-form-label">{label}</span>
+              </div>
+              <DocumentPreview fileName={fileName} filePath={filePath} label={label} onPreviewOpen={(url, name, type) => setPreviewDocument({ url, name, type })} />
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+
   return (
     <section className="mother-detail-page">
-      <header className="mother-detail-header">
-        <div className="mother-detail-actions">
-          {canManage && <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/mother/${motherId}/edit`, { state: { mother: selectedMother } })}>Edit</button>}
-          <button type="button" className="btn-secondary" onClick={() => {
-            navigate(`/beneficiary/mother/${motherId}/child`, { state: { mother: selectedMother, children, returnTo: `/beneficiary/mother/${motherId}` } });
-          }}>View Children</button>
-          <button type="button" className="btn-primary" onClick={() => navigate('/monitoring', { state: { mother, returnTo: `/beneficiary/mother/${motherId}` } })}>Monitor</button>
-          <button type="button" className="btn-secondary" onClick={onClose} aria-label="Close mother profile">Close</button>
-        </div>
-      </header>
+      <PageHeader
+        title={fullName || 'Mother Profile'}
+        breadcrumbs={[{ label: 'Beneficiaries', href: '/beneficiary' }, { label: 'Mother Profile' }]}
+        actions={(
+          <div className="mother-detail-actions">
+            {canManage && <button type="button" className="btn-danger" onClick={() => setShowDeleteModal(true)}>Delete</button>}
+            {canEdit && <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/mother/${motherId}/edit`, { state: { mother: selectedMother } })}>Edit</button>}
+            <button type="button" className="btn-secondary" onClick={handleBack}>Back</button>
+          </div>
+        )}
+      />
 
-      {hasMultipleChildren && (
-        <div className="tabs-row" style={{ marginBottom: 16 }}>
-          <button type="button" className={`tab-button ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')}>Overview</button>
-          <button type="button" className={`tab-button ${activeTab === 'children' ? 'active' : ''}`} onClick={() => setActiveTab('children')}>Children</button>
+      {overviewOnly && (
+        <section className="mother-detail-section">
+          <h3 className="mother-detail-section-title">Mother Actions</h3>
+          <div className="mother-detail-actions mother-overview-actions">
+            <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/mother/${motherId}/profile`, { state: { mother: selectedMother } })}>Mother Profile</button>
+            <button type="button" className="btn-secondary" onClick={() => {
+              navigate(`/beneficiary/mother/${motherId}/child`, { state: { mother: selectedMother, children, returnTo: `/beneficiary/mother/${motherId}` } });
+            }}>View Child</button>
+            <button type="button" className="btn-primary" onClick={() => navigate('/monitoring', { state: { mother, returnTo: `/beneficiary/mother/${motherId}` } })}>Monitor</button>
+          </div>
+        </section>
+      )}
+
+      {showDeleteModal && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => !deleting && setShowDeleteModal(false)}>
+          <div className="modal mother-delete-modal" role="dialog" aria-modal="true" aria-labelledby="delete-mother-title" onMouseDown={(event) => event.stopPropagation()}>
+            <h2 id="delete-mother-title">Delete mother record?</h2>
+            <p>
+              This permanently deletes <strong>{fullName}</strong> and all linked child records and monitoring data.
+              {children.length > 0 && ` ${children.length} child record${children.length === 1 ? '' : 's'} will also be deleted.`}
+            </p>
+            <div className="modal-actions">
+              <button type="button" className="btn-secondary" onClick={() => setShowDeleteModal(false)} disabled={deleting}>Cancel</button>
+              <button type="button" className="btn-danger" onClick={deleteMother} disabled={deleting}>{deleting ? 'Deleting...' : 'Delete permanently'}</button>
+            </div>
+          </div>
         </div>
       )}
 
-      {activeTab === 'children' ? (
+      {!overviewOnly && (activeTab === 'children' ? (
         <section className="mother-detail-section">
           <h3 className="mother-detail-section-title">Children</h3>
-          <div className="mother-detail-grid">
+          <div className="table-card beneficiary-table-card mother-children-detail-table">
+            <div className="table-overflow">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Child Name</th>
+                    <th>Birth Date</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
             {children.map((child) => {
               const childNameValue = `${child.firstName || child.first_name || ''} ${child.middleName || child.middle_name || ''} ${child.lastName || child.last_name || ''}`.replace(/\s+/g, ' ').trim() || child.child_code || child.id;
               const badge = childBadge(child);
               return (
-                <button type="button" key={child.id || `${child.motherId || motherId}-${childNameValue}`} className="entity-card-button name-cell" onClick={() => navigate(`/beneficiary/child/${child.id}`, { state: { mother: selectedMother, child, returnTo: `/beneficiary/mother/${motherId}` } })}>
-                  <strong>{childNameValue}</strong>
-                  <span>{formatDateForDisplay(child.birthDate || child.birth_date) || 'Birth date not recorded'}</span>
-                  {badge && <span className="mother-detail-chip" style={{ marginTop: 8 }}>{badge}</span>}
-                </button>
+                <tr key={child.id || `${child.motherId || motherId}-${childNameValue}`}>
+                  <td><strong>{childNameValue}</strong>{badge && <span className="mother-detail-chip" style={{ marginLeft: 8 }}>{badge}</span>}</td>
+                  <td>{formatDateForDisplay(child.birthDate || child.birth_date) || 'Birth date not recorded'}</td>
+                  <td>
+                    <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/child/${child.id}`, { state: { mother: selectedMother, child, returnTo: `/beneficiary/mother/${motherId}` } })}>View Child</button>
+                  </td>
+                </tr>
               );
             })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </section>
       ) : (
-        <>
+        <div className="mother-detail-profile-content">
+          <div className="stepper-progress mother-detail-stepper">
+            <div className="stepper-steps" role="tablist" aria-label="Mother profile sections">
+              {[
+                ['general', 'General'],
+                ['prenatal', 'Prenatal/OB'],
+                ['medical_dental', 'Medical & Dental'],
+                ['vaccine', 'Vaccine'],
+              ].map(([tab, label], index) => (
+                <button
+                  key={tab}
+                  type="button"
+                  role="tab"
+                  aria-selected={profileTab === tab}
+                  className={`stepper-step ${profileTab === tab ? 'active' : ''}`}
+                  onClick={() => setProfileTab(tab)}
+                >
+                  <span className="stepper-step-index">{index + 1}</span>
+                  <span className="stepper-step-label">{label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="create-form-body mother-detail-shared-form">
+            <div className="modal-body-scrollable">
+              <MotherFormFields activeTab={profileTab} form={detailForm} readOnly documentContent={documentContent} />
+            </div>
+          </div>
+
           <section className="mother-detail-section">
             <h3 className="mother-detail-section-title">I.A MOTHER'S INFORMATION</h3>
             <div className="mother-detail-grid">
@@ -226,32 +402,21 @@ export default function MotherDetailPage({ selectedMother, onClose }) {
             </div>
           </section>
 
-          <section className="mother-detail-section">
-            <h3 className="mother-detail-section-title">I.B EMERGENCY CONTACT DETAILS</h3>
-            <div className="mother-detail-grid">
-              <Field label="Name" value={emergencyName} />
-              <Field label="Phone Number" value={emergencyContact} />
-              <Field label="Relationship" value={emergencyRelationship} />
-              <Field label="Spouse / Partner" value={spouseName} />
-            </div>
-          </section>
-
-          <section className="mother-detail-section">
-            <h3 className="mother-detail-section-title">I.C REQUIRED DOCUMENTS</h3>
-            <div className="document-upload-grid">
-              {[
-                ['birthCertificate', "Mother's Birth Certificate", motherRecord.birthCertificateDocumentName, motherRecord.birthCertificateDocumentPath],
-                ['consent', 'Program Consent Form', motherRecord.consentDocumentName, motherRecord.consentDocumentPath],
-              ].map(([field, label, fileName, filePath]) => (
-                <div className="document-upload-field" key={field}>
-                  <label className="detail-form-label" htmlFor={`mother-document-${field}`}>{label}</label>
-                  <input id={`mother-document-${field}`} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={(event) => uploadDocument(field, event.target.files?.[0])} disabled={uploadingDocument === field} />
-                  {fileName ? <a href={`http://localhost:4000${filePath}`} target="_blank" rel="noreferrer">{fileName}</a> : <span className="document-upload-empty">No document uploaded</span>}
+          {previewDocument && (
+            <div className="document-preview-modal-backdrop" onClick={() => setPreviewDocument(null)}>
+              <div className="document-preview-modal" onClick={(event) => event.stopPropagation()}>
+                <div className="document-preview-modal-header">
+                  <strong>{previewDocument.name}</strong>
+                  <button type="button" className="document-preview-close" onClick={() => setPreviewDocument(null)}>Close</button>
                 </div>
-              ))}
+                {previewDocument.type === 'image' ? (
+                  <img src={previewDocument.url} alt={previewDocument.name} className="document-preview-modal-image" />
+                ) : (
+                  <iframe src={previewDocument.url} title={previewDocument.name} className="document-preview-modal-frame" />
+                )}
+              </div>
             </div>
-            {uploadMessage && <p className="document-upload-message" role="status">{uploadMessage}</p>}
-          </section>
+          )}
 
           <section className="mother-detail-section">
             <h3 className="mother-detail-section-title">I.C OTHER DETAILS</h3>
@@ -376,8 +541,8 @@ export default function MotherDetailPage({ selectedMother, onClose }) {
               </div>
             </div>
           </section>
-        </>
-      )}
+        </div>
+      ))}
     </section>
   );
 }

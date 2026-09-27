@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { formatCompactName, getInitials } from '../utils/nameFormat';
+import { getInitials } from '../utils/nameFormat';
 import { useAuth } from '../auth/AuthProvider';
 
 export default function Topbar() {
@@ -10,10 +11,10 @@ export default function Topbar() {
   const user = current ? { name: current.name, email: current.email, role: current.role } : null;
   const [openNotif, setOpenNotif] = useState(false);
   const [openUser, setOpenUser] = useState(false);
+  const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const notifRef = useRef(null);
   const userRef = useRef(null);
-  const displayName = user ? formatCompactName(user.name) : 'Account';
 
   const notifications = [
     { id: 1, text: 'New user signed up' },
@@ -29,6 +30,31 @@ export default function Topbar() {
     document.addEventListener('mousedown', onDocClick);
     return () => document.removeEventListener('mousedown', onDocClick);
   }, []);
+
+  useEffect(() => {
+    if (!showSignOutModal) return undefined;
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape' && !signingOut) setShowSignOutModal(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [showSignOutModal, signingOut]);
+
+  const handleSignOut = async () => {
+    if (signingOut) return;
+    try {
+      setShowSignOutModal(false);
+      setOpenUser(false);
+      setSigningOut(true);
+      await Promise.resolve();
+      auth.logout();
+      navigate('/login');
+    } catch (error) {
+      console.error('Sign out failed', error);
+    } finally {
+      setSigningOut(false);
+    }
+  };
 
   return (
     <header className="topbar">
@@ -64,7 +90,6 @@ export default function Topbar() {
             disabled={signingOut}
           >
             <span className="avatar">{getInitials(user ? user.name : 'Account')}</span>
-            <span className="compact-user-name">{displayName}</span>
           </button>
           {openUser && (
             <div className="dropdown user-dropdown" role="menu" aria-label="User menu" aria-busy={signingOut}>
@@ -76,21 +101,7 @@ export default function Topbar() {
                   <div className="dropdown-item" role="button" onClick={() => { setOpenUser(false); navigate('/settings'); }}>Settings</div>
                   <div
                     className="dropdown-item"
-                    onClick={async () => {
-                      if (signingOut) return;
-                      if (!confirm('Sign out?')) return;
-                      try {
-                        setOpenUser(false);
-                        setSigningOut(true);
-                        await Promise.resolve(); // allow state update
-                        auth.logout();
-                        navigate('/login');
-                      } catch (e) {
-                        console.error('Sign out failed', e);
-                      } finally {
-                        setSigningOut(false);
-                      }
-                    }}
+                    onClick={() => { if (!signingOut) setShowSignOutModal(true); }}
                     aria-busy={signingOut}
                     role="button"
                     style={{ opacity: signingOut ? 0.6 : 1, pointerEvents: signingOut ? 'none' : 'auto' }}
@@ -108,6 +119,48 @@ export default function Topbar() {
           )}
         </span>
       </div>
+
+      {showSignOutModal && createPortal((
+        <div
+          className="modal-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !signingOut) setShowSignOutModal(false);
+          }}
+        >
+          <div
+            className="modal-content signout-confirm-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="signout-confirm-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="modal-header-section">
+              <h3 id="signout-confirm-title">Sign out?</h3>
+              <button
+                type="button"
+                className="btn-close-modal"
+                onClick={() => setShowSignOutModal(false)}
+                aria-label="Close sign-out confirmation"
+                disabled={signingOut}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="modal-body">
+              <p>Are you sure you want to sign out of your account?</p>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn-secondary" onClick={() => setShowSignOutModal(false)} disabled={signingOut}>
+                Cancel
+              </button>
+              <button type="button" className="btn-primary" onClick={handleSignOut} disabled={signingOut}>
+                {signingOut ? 'Signing out...' : 'Sign out'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ), document.body)}
     </header>
   );
 }

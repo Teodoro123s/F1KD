@@ -10,7 +10,7 @@ import { useMothers } from '../../context/MothersContext';
 import { getSummary } from '../Community/communityService';
 import { apiGetMother } from '../../api/mothers';
 import { apiGetChildrenByMother } from '../../api/children';
-import { can } from '../../utils/permissions';
+import { can, isHealthWorkerRole } from '../../utils/permissions';
 import { useAuth } from '../../auth/AuthProvider';
 
 export default function BeneficiaryPage() {
@@ -36,6 +36,7 @@ export default function BeneficiaryPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { id: motherRouteId } = useParams();
+  const batchId = new URLSearchParams(location.search).get('batchId') || '';
 
   useEffect(() => {
     function closeDropdowns() {
@@ -62,8 +63,34 @@ export default function BeneficiaryPage() {
 
   const isCreateMother = location.pathname.includes('/beneficiary/create/mother');
   const isCreateChild = location.pathname.includes('/beneficiary/create/child');
+  const isMotherProfile = location.pathname.endsWith('/profile');
   const isMotherDetail = Boolean(selectedMother);
-  const canCreate = can(auth?.currentUser?.role, 'admin-resources', 'create');
+  const canCreate = can(auth?.currentUser?.role, 'beneficiary-resources', 'create') && !isHealthWorkerRole(auth?.currentUser?.role);
+  const assignedSchoolId = auth?.currentUser?.school_id ?? auth?.currentUser?.schoolId ?? null;
+  const isSchoolScopedUser = ['community organizer', 'communityorganizer', 'health worker', 'healthworker']
+    .includes(String(auth?.currentUser?.role || '').trim().toLowerCase());
+  const scopedCommunities = React.useMemo(() => {
+    if (!isSchoolScopedUser || !assignedSchoolId) return communities;
+    return communities.filter((community) => String(community.id) === String(assignedSchoolId));
+  }, [assignedSchoolId, communities, isSchoolScopedUser]);
+  const scopedGroups = React.useMemo(() => {
+    const schoolGroups = !isSchoolScopedUser || !assignedSchoolId
+      ? groups
+      : groups.filter((group) => String(group.community_id) === String(assignedSchoolId) || group.community === (communities.find((community) => String(community.id) === String(assignedSchoolId))?.name));
+    const assignedGroupId = auth?.currentUser?.group_id ?? auth?.currentUser?.groupId;
+    return isHealthWorkerRole(auth?.currentUser?.role) && assignedGroupId
+      ? schoolGroups.filter((group) => String(group.id) === String(assignedGroupId))
+      : schoolGroups;
+  }, [assignedSchoolId, auth?.currentUser?.groupId, auth?.currentUser?.group_id, auth?.currentUser?.role, communities, groups, isSchoolScopedUser]);
+  const scopedBatches = React.useMemo(() => {
+    const schoolBatches = !isSchoolScopedUser || !assignedSchoolId
+      ? batches
+      : batches.filter((batch) => String(batch.community_id) === String(assignedSchoolId) || batch.community === (communities.find((community) => String(community.id) === String(assignedSchoolId))?.name));
+    const assignedGroupId = auth?.currentUser?.group_id ?? auth?.currentUser?.groupId;
+    if (!isHealthWorkerRole(auth?.currentUser?.role) || !assignedGroupId) return schoolBatches;
+    const assignedGroup = groups.find((group) => String(group.id) === String(assignedGroupId));
+    return schoolBatches.filter((batch) => String(batch.groupId) === String(assignedGroupId) || String(batch.group_id) === String(assignedGroupId) || String(batch.groupNames || '').split(',').map((name) => name.trim()).includes(assignedGroup?.name));
+  }, [assignedSchoolId, auth?.currentUser?.groupId, auth?.currentUser?.group_id, auth?.currentUser?.role, batches, communities, groups, isSchoolScopedUser]);
 
   // If navigation includes a mother in state (e.g., navigating from child pages or external links), ensure the selectedMother is populated
   React.useEffect(() => {
@@ -107,6 +134,15 @@ export default function BeneficiaryPage() {
         ...(motherResponse?.mother || {}),
         children: childrenResponse?.children || [],
       });
+        navigate(`/beneficiary/mother/${mother.id || mother.motherId}`, {
+          state: {
+            mother: {
+              ...mother,
+              ...(motherResponse?.mother || {}),
+              children: childrenResponse?.children || [],
+            },
+          },
+        });
     } catch (error) {
       console.error('[BeneficiaryPage] Unable to load mother detail:', error);
       setSelectedMother(mother);
@@ -115,6 +151,7 @@ export default function BeneficiaryPage() {
 
   const handleCloseMotherDetail = () => {
     setSelectedMother(null);
+    navigate('/beneficiary');
   };
 
   const handleSelectChild = (child) => {
@@ -159,29 +196,42 @@ export default function BeneficiaryPage() {
         {/* Check create routes before showing selected mother detail so navigation to create pages works even when a mother is selected */}
         {isCreateMother ? (
           <CreateMotherPage
-            communities={communities}
-            groups={groups}
-            batches={batches}
+            communities={scopedCommunities}
+            groups={scopedGroups}
+            batches={scopedBatches}
             navigate={navigate}
           />
         ) : isCreateChild ? (
           <CreateChildPage
-            communities={communities}
-            batches={batches}
+            communities={scopedCommunities}
+            batches={scopedBatches}
             mothers={mothers}
             loading={mothersLoading}
             setGroups={setGroups}
             navigate={navigate}
           />
         ) : isMotherDetail ? (
-          <MotherDetailPage selectedMother={selectedMother} onClose={handleCloseMotherDetail} />
+          <MotherDetailPage
+            selectedMother={selectedMother}
+            overviewOnly={!isMotherProfile}
+            onClose={handleCloseMotherDetail}
+            onMotherUpdated={(nextMother) => {
+              setSelectedMother((current) => ({ ...(current || {}), ...nextMother }));
+              setMothers((current) => current.map((mother) => {
+                const idMatches = String(mother.id) === String(nextMother.id || nextMother.motherId || '') || String(mother.motherId) === String(nextMother.motherId || nextMother.id || '');
+                return idMatches ? { ...mother, ...nextMother } : mother;
+              }));
+            }}
+          />
         ) : (
           <BeneficiaryListPage
             mothers={mothers}
-            communities={communities}
-            batches={batches}
+            communities={scopedCommunities}
+            groups={scopedGroups}
+            batches={scopedBatches}
             onSelectMother={handleSelectMother}
             onSelectChild={handleSelectChild}
+            batchId={batchId}
           />
         )}
       </main>

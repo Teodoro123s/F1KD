@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import logo from '../assets/logo.svg';
+import logo from '../assets/f1kd-logo.png';
 import { useAuth } from '../auth/AuthProvider';
 import { ROLES, hasRole } from '../utils/permissions';
 
@@ -17,19 +17,25 @@ const items = [
 export default function Sidebar() {
   const { currentUser } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
-  const visibleItems = items.filter((item) => item.to !== '/user-management' || hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]));
+  const isSuperAdmin = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]);
+  const isHealthWorker = ['health worker', 'healthworker']
+    .includes(String(currentUser?.role || '').trim().toLowerCase());
+  const visibleItems = isSuperAdmin
+    ? items.filter((item) => ['/dashboard', '/community', '/user-management'].includes(item.to))
+    : items.filter((item) => item.to !== '/user-management' && (!isHealthWorker || item.to !== '/user-management'));
+
   return (
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
       <div className="sidebar-top">
-        <img src={logo} alt="logo" className="logo" />
-        {!collapsed && <div className="brand">Sample Logo</div>}
         <button
-          className="collapse-btn"
+          type="button"
+          className="logo-button"
           onClick={() => setCollapsed(!collapsed)}
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
-          {collapsed ? '»' : '«'}
+          <img src={logo} alt="F1KD logo" className="logo" />
         </button>
+        {!collapsed && <div className="brand">F1KD</div>}
       </div>
 
       <nav className="sidebar-nav">

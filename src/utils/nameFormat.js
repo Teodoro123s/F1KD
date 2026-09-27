@@ -1,3 +1,13 @@
+export function capitalizeNameValue(value = '') {
+  const text = String(value ?? '');
+  if (!text.trim()) return '';
+
+  return text
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/(^|[\s'-])([a-z])/g, (match, prefix, character) => `${prefix}${character.toUpperCase()}`);
+}
+
 export function formatCompactName(fullName) {
   const parts = fullName.trim().split(/\s+/);
   if (parts.length === 0) return '';

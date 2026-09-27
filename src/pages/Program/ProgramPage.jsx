@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../../auth/AuthProvider";
-import { hasRole, ROLES } from "../../utils/permissions";
+import { hasRole, isHealthWorkerRole, ROLES } from "../../utils/permissions";
 import PageHeader from '../../components/ui/PageHeader';
 import {
   BatchesIcon,
@@ -13,8 +13,11 @@ import {
 } from "../Community/CommunityIcons";
 import { getSummary } from "../Community/communityService";
 import { apiGetChildren } from "../../api/children";
-import { apiCompleteNamedProgramCluster, apiCompleteProgramCluster, apiCreateProgram, apiCreateProgramClusters, apiDeleteProgram, apiEndProgram, apiGetProgramMonitoring, apiGetPrograms, apiSetProgramMonitoring, apiUpdateProgram } from "../../api/programs";
+import { apiCompleteNamedProgramCluster, apiCompleteProgramCluster, apiCreateProgram, apiCreateProgramClusters, apiDeleteProgram, apiEndProgram, apiGetProgramMonitoring, apiGetPrograms, apiRestoreProgram, apiSetProgramMonitoring, apiUpdateProgram } from "../../api/programs";
+import { notifyAction } from '../../components/ActionFeedback';
 import ExpandableTreeTable from "../Monitoring/ExpandableTreeTable";
+import { ConfirmActionModal } from "../Community/CommunityModals";
+import { formatDateForDisplay, normalizeDateValue } from '../../utils/dateFormat';
 import {
   beneficiaryNames,
   emptyProgram,
@@ -31,11 +34,16 @@ export default function ProgramPage() {
   const navigate = useNavigate();
   const { programId, clusterType, clusterName } = useParams();
   const { currentUser } = useAuth();
-  const canManagePrograms = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]);
+  const isCommunityOrganizer = ['community organizer', 'communityorganizer']
+    .includes(String(currentUser?.role || '').trim().toLowerCase());
+  const isSuperAdmin = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]);
+  const canManagePrograms = isSuperAdmin || isCommunityOrganizer;
+  const canCreatePrograms = isSuperAdmin || isCommunityOrganizer;
+  const canDeletePrograms = isSuperAdmin || isCommunityOrganizer;
+  const canEndPrograms = isSuperAdmin || isCommunityOrganizer;
+  const canMonitorPrograms = canCreatePrograms || hasRole(currentUser?.role, [ROLES.PARTNER]) || isHealthWorkerRole(currentUser?.role);
   const [activeTab, setActiveTab] = useState("Active");
   const [query, setQuery] = useState("");
-  const [typeFilter, setTypeFilter] = useState('');
-  const [showTypeFilter, setShowTypeFilter] = useState(false);
   const [programs, setPrograms] = useState([]);
   const [isLiveDataLoaded, setIsLiveDataLoaded] = useState(false);
   const viewMode = Boolean(programId);
@@ -59,6 +67,7 @@ export default function ProgramPage() {
   const [scopeError, setScopeError] = useState('');
   const [activeActionMenu, setActiveActionMenu] = useState(null);
   const [actionProgram, setActionProgram] = useState(null);
+  const [pendingDeleteProgram, setPendingDeleteProgram] = useState(null);
   const [programError, setProgramError] = useState('');
   const [beneficiaryRecords, setBeneficiaryRecords] = useState([]);
   const [drillLevel, setDrillLevel] = useState('school');
@@ -68,11 +77,26 @@ export default function ProgramPage() {
   const [monitorDate, setMonitorDate] = useState(localDate);
   const [monitoringStatus, setMonitoringStatus] = useState({});
   const [monitoringPending, setMonitoringPending] = useState({});
+  const [monitorConfirmation, setMonitorConfirmation] = useState(null);
+
+  useEffect(() => {
+    const handleDocumentClick = (event) => {
+      const clickedInsideDropdown = event.target.closest('.actions-dropdown');
+      const clickedToggleButton = event.target.closest('.program-more-button');
+
+      if (!clickedInsideDropdown && !clickedToggleButton) {
+        setActiveActionMenu(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleDocumentClick);
+    return () => document.removeEventListener('mousedown', handleDocumentClick);
+  }, []);
 
   const mapApiProgram = (program) => ({
     ...program,
     id: Number(program.id),
-    beneficiaryType: program.beneficiaryType || program.beneficiary_type || 'Mother and Child',
+    beneficiaryType: program.beneficiaryType || program.beneficiary_type || 'Mother',
     target: Number(program.target || 0),
     received: Number(program.received || 0),
     clusters: program.clusters || [],
@@ -80,12 +104,42 @@ export default function ProgramPage() {
     latest: program.latest || 'No activity yet',
   });
 
+  const normalizeBeneficiaryType = (value) => String(value || '').trim().toLowerCase().replace(/\s+/g, '');
+
+  const getProgramBeneficiaryRecords = (program, records = beneficiaryRecords) => {
+    if (!program) return [];
+
+    const requestedType = normalizeBeneficiaryType(program?.beneficiaryType || program?.beneficiary_type || 'Mother and Child');
+    const programCommunity = String(program?.community || '').trim().toLowerCase();
+
+    return (records || []).filter((record) => {
+      const recordType = normalizeBeneficiaryType(record?.type || record?.sourceType || '');
+      const recordCommunity = String(record?.school || '').trim().toLowerCase();
+
+      if (requestedType && requestedType !== 'motherandchild' && recordType !== requestedType) {
+        return false;
+      }
+
+      if (programCommunity && recordCommunity && recordCommunity !== programCommunity) {
+        return false;
+      }
+
+      return true;
+    });
+  };
+
   useEffect(() => {
     let mounted = true;
 
-    Promise.all([apiGetPrograms(), getSummary(), apiGetChildren()])
-      .then(([programResponse, summary, childrenResponse]) => {
+    Promise.allSettled([apiGetPrograms(), getSummary(), apiGetChildren()])
+      .then(([programResult, summaryResult, childrenResult]) => {
         if (!mounted) return;
+        if (programResult.status !== 'fulfilled') {
+          throw programResult.reason;
+        }
+        const programResponse = programResult.value || {};
+        const summary = summaryResult.status === 'fulfilled' ? summaryResult.value || {} : {};
+        const childrenResponse = childrenResult.status === 'fulfilled' ? childrenResult.value || {} : {};
         const savedPrograms = (programResponse.programs || []).map(mapApiProgram);
         setHierarchy({ schools: summary.communities || [], groups: summary.groups || [], batches: summary.batches || [] });
         const mothers = (summary.mothers || []).map((mother) => ({
@@ -118,9 +172,9 @@ export default function ProgramPage() {
       .then(() => {
         if (mounted) setIsLiveDataLoaded(true);
       })
-      .catch(() => {
+      .catch((error) => {
         if (!mounted) return;
-        setProgramError('Unable to load saved programs.');
+        notifyAction(error?.message || 'Unable to load saved programs.', 'error');
         setPrograms([]);
         setIsLiveDataLoaded(true);
       });
@@ -146,7 +200,7 @@ export default function ProgramPage() {
       const next = {};
       (response.logs || []).forEach((log) => { next[`${log.beneficiary_type}:${log.beneficiary_id}`] = Boolean(log.monitored); });
       setMonitoringStatus(next);
-    }).catch(() => { if (active) setProgramError('Unable to load daily monitoring status.'); });
+    }).catch(() => { if (active) notifyAction('Unable to load daily monitoring status.', 'error'); });
     return () => { active = false; };
   }, [programId, monitorDate]);
 
@@ -174,10 +228,22 @@ export default function ProgramPage() {
       })));
     } catch (error) {
       setMonitoringStatus((current) => ({ ...current, ...previous }));
-      setProgramError(error.message || 'Unable to save monitoring status.');
+      notifyAction(error.message || 'Unable to save monitoring status.', 'error');
     } finally {
       setMonitoringPending((current) => ({ ...current, ...Object.fromEntries(keys.map((key) => [key, false])) }));
     }
+  };
+
+  const requestMonitoringChange = (beneficiary, monitored, descendants = null) => {
+    const affectedCount = descendants?.length || 1;
+    setMonitorConfirmation({ beneficiary, monitored, descendants, affectedCount });
+  };
+
+  const confirmMonitoringChange = async () => {
+    if (!monitorConfirmation) return;
+    const { beneficiary, monitored, descendants } = monitorConfirmation;
+    setMonitorConfirmation(null);
+    await toggleMonitoring(beneficiary, monitored, descendants);
   };
 
   const openBeneficiaryReport = (beneficiary) => {
@@ -186,17 +252,42 @@ export default function ProgramPage() {
     });
   };
 
-  const filteredPrograms = useMemo(() => {
-    return filterPrograms(programs, query, activeTab).filter((program) => !typeFilter || program.type === typeFilter);
-  }, [programs, query, activeTab, typeFilter]);
+  const collectClusterBeneficiaries = (cluster, level) => {
+    const normalizedLevel = String(level || '').toLowerCase();
+    const name = String(cluster?.name || cluster?.group_name || cluster?.batch_name || '').trim();
+    if (!name) return [];
+    const scopedRecords = getProgramBeneficiaryRecords(selectedProgram);
+    return scopedRecords.filter((record) => {
+      if (normalizedLevel === 'school') {
+        return String(record.school || '').trim().toLowerCase() === name.toLowerCase();
+      }
+      if (normalizedLevel === 'group') {
+        return String(record.group || '').trim().toLowerCase() === name.toLowerCase();
+      }
+      if (normalizedLevel === 'batch') {
+        return String(record.batch || '').trim().toLowerCase() === name.toLowerCase();
+      }
+      return false;
+    }).map((record) => ({ id: record.sourceId, type: record.sourceType }));
+  };
 
-  const programTypes = useMemo(
-    () => [...new Set(programs.map((program) => String(program.type || '').trim()).filter(Boolean))].sort(),
-    [programs]
-  );
+  const openClusterHistory = (cluster, level) => {
+    const clusterType = level?.toLowerCase?.() || 'school';
+    const clusterName = cluster?.name || cluster?.group_name || cluster?.batch_name || '';
+    if (!clusterName) return;
+    const beneficiaries = collectClusterBeneficiaries(cluster, clusterType);
+    navigate(`/program/${programId}/cluster/${encodeURIComponent(clusterType)}/${encodeURIComponent(clusterName)}/receipt-history`, {
+      state: { clusterName, clusterType, beneficiaries },
+    });
+  };
+
+  const filteredPrograms = useMemo(() => {
+    return filterPrograms(programs, query, activeTab);
+  }, [programs, query, activeTab]);
 
   const saveProgram = async (event) => {
     event.preventDefault();
+    if (form.id && String(form.status || '').trim().toLowerCase() === 'ended') return;
     if (!form.name.trim() || !form.provider.trim()) return;
     try {
       const response = form.id
@@ -207,15 +298,28 @@ export default function ProgramPage() {
         : [...current, mapApiProgram(response.program)]);
       setForm(emptyProgram);
       setShowModal(false);
-      setProgramError('');
+      notifyAction(`${form.id ? 'Updated' : 'Created'} program successfully.`);
     } catch (error) {
-      setProgramError(error.message || 'Unable to save program.');
+      const message = error.message || 'Unable to save program.';
+      notifyAction(message, 'error');
     }
   };
 
   const selectedProgram = programId
     ? programs.find((program) => program.id === Number(programId))
     : programs.find((program) => program.id === Number(form.id)) || filteredPrograms[0];
+  const getProgramBeneficiaryCount = (program) => {
+    const uniqueBeneficiaries = new Set();
+
+    getProgramBeneficiaryRecords(program).forEach((record) => {
+      if (record.sourceType && record.sourceId !== undefined && record.sourceId !== null) {
+        uniqueBeneficiaries.add(`${record.sourceType}:${record.sourceId}`);
+      }
+    });
+
+    return uniqueBeneficiaries.size;
+  };
+  const isEndedProgram = String(selectedProgram?.status || '').trim().toLowerCase() === 'ended';
   const expandedClusters = useMemo(() => {
     if (!selectedProgram) return [];
     const clusters = [...(selectedProgram.clusters || [])];
@@ -241,6 +345,7 @@ export default function ProgramPage() {
   const selectedCluster = getCluster(selectedProgramView, clusterType, clusterName);
   const schoolRows = selectedProgramView?.clusters.filter((cluster) => cluster.type === 'School') || [];
   const programHierarchy = useMemo(() => schoolRows.map((schoolCluster, schoolIndex) => {
+    const scopedRecords = getProgramBeneficiaryRecords(selectedProgramView);
     const normalizedSchoolName = String(schoolCluster.name || '').replace(/ School$/i, '');
     const school = hierarchy.schools.find((item) => String(item.name || '').toLowerCase() === String(schoolCluster.name || '').toLowerCase() || String(item.name || '').toLowerCase() === normalizedSchoolName.toLowerCase());
     const schoolName = school?.name || normalizedSchoolName;
@@ -254,11 +359,14 @@ export default function ProgramPage() {
             const batchKeys = [batchName, batch.id, batch.databaseId, batch.code]
               .filter(Boolean)
               .map((value) => String(value).toLowerCase());
-            const hasMatchingBeneficiary = beneficiaryRecords.some((record) => (
-              String(record.school).toLowerCase() === String(schoolName).toLowerCase()
-              && String(record.group).toLowerCase() === String(groupName).toLowerCase()
-              && batchKeys.includes(String(record.batch).toLowerCase())
-            ));
+            const hasMatchingBeneficiary = scopedRecords.some((record) => {
+              const recordSchool = String(record.school || '').trim().toLowerCase();
+              const recordGroup = String(record.group || '').trim().toLowerCase();
+              const recordBatch = String(record.batch || '').trim().toLowerCase();
+              return batchKeys.includes(recordBatch)
+                && (!recordSchool || recordSchool === String(schoolName).toLowerCase())
+                && (!recordGroup || recordGroup === String(groupName).toLowerCase());
+            });
             return String(batch.community || '').toLowerCase() === String(schoolName || '').toLowerCase()
               && (
                 String(batch.group || batch.group_name || '').toLowerCase() === String(groupName || '').toLowerCase()
@@ -276,13 +384,20 @@ export default function ProgramPage() {
             return {
               id: batch.id || `${schoolIndex}-${groupIndex}-${batchIndex}`,
               name: batchName,
-              beneficiaries: beneficiaryRecords.filter((record) => String(record.school).toLowerCase() === String(schoolName).toLowerCase() && String(record.group).toLowerCase() === String(groupName).toLowerCase() && batchKeys.includes(String(record.batch).toLowerCase())),
+              beneficiaries: scopedRecords.filter((record) => {
+                const recordSchool = String(record.school || '').trim().toLowerCase();
+                const recordGroup = String(record.group || '').trim().toLowerCase();
+                const recordBatch = String(record.batch || '').trim().toLowerCase();
+                return batchKeys.includes(recordBatch)
+                  && (!recordSchool || recordSchool === String(schoolName).toLowerCase())
+                  && (!recordGroup || recordGroup === String(groupName).toLowerCase());
+              }),
             };
           });
         return { id: group.id || `${schoolIndex}-${groupIndex}`, name: groupName, batches };
       });
     return { id: school?.id || schoolCluster.name, name: schoolName, groups };
-  }), [beneficiaryRecords, hierarchy, schoolRows]);
+  }), [hierarchy, schoolRows, selectedProgramView]);
   const groupRows = drillSchool
     ? hierarchy.groups.filter((group) => String(group.community || '').toLowerCase() === String(drillSchool.name || '').toLowerCase())
     : [];
@@ -292,16 +407,19 @@ export default function ProgramPage() {
       || String(batch.community || '').toLowerCase() === String(drillSchool?.name || '').toLowerCase() && String(batch.group_id || '') === String(drillGroup.id || '')
     ))
     : [];
-  const drilledBeneficiaries = beneficiaryRecords.filter((record) => {
+  const scopedBeneficiaryRecords = useMemo(() => getProgramBeneficiaryRecords(selectedProgram), [selectedProgram, beneficiaryRecords]);
+
+  const drilledBeneficiaries = scopedBeneficiaryRecords.filter((record) => {
     if (!drillBatch) return false;
     return String(record.batch).toLowerCase() === String(drillBatch.name || drillBatch.batch_code || drillBatch.code || '').toLowerCase();
   });
   const beneficiaryRows = useMemo(() => {
     if (!selectedProgramView) return [];
+    const scopedRecords = getProgramBeneficiaryRecords(selectedProgramView);
     const schoolClusters = selectedProgramView.clusters.filter((cluster) => cluster.type === 'School');
     const rows = [];
     schoolClusters.forEach((school) => {
-      const records = beneficiaryRecords.filter((record) => String(record.school).toLowerCase() === String(school.name).toLowerCase());
+      const records = scopedRecords.filter((record) => String(record.school).toLowerCase() === String(school.name).toLowerCase());
       if (records.length) {
         records.forEach((record) => rows.push({ ...record, school: school.name }));
       } else {
@@ -309,7 +427,7 @@ export default function ProgramPage() {
       }
     });
     return rows;
-  }, [beneficiaryRecords, selectedProgramView]);
+  }, [selectedProgramView]);
   const schoolHierarchy = useMemo(() => {
     if (!selectedProgramView) return [];
     return selectedProgramView.clusters
@@ -359,23 +477,43 @@ export default function ProgramPage() {
     );
     setShowActivityModal(false);
   };
-  const endProgram = (programToEnd = selectedProgram) => {
+  const backToActivePrograms = async () => {
+    const programToRestore = actionProgram || selectedProgram;
+    if (!programToRestore) return;
+    setActiveActionMenu(null);
+    try {
+      const response = await apiRestoreProgram(programToRestore.id);
+      setPrograms((current) => current.map((program) => program.id === programToRestore.id ? mapApiProgram(response.program) : program));
+      setActiveTab('Active');
+      navigate('/program');
+      notifyAction(`Restored ${programToRestore.name}.`);
+    } catch (error) {
+      const message = error.message || 'Unable to restore program.';
+      notifyAction(message, 'error');
+    }
+  };
+  const endProgram = async () => {
+    const programToEnd = actionProgram || selectedProgram;
     if (!programToEnd) return;
-    apiEndProgram(programToEnd.id)
-      .then((response) => {
-        setPrograms((current) => current.map((program) => program.id === programToEnd.id ? mapApiProgram(response.program) : program));
-        setForm(emptyProgram);
-      })
-      .catch(() => setProgramError('Unable to end program.'));
+    setActiveActionMenu(null);
+    try {
+      const response = await apiEndProgram(programToEnd.id);
+      setPrograms((current) => current.map((program) => program.id === programToEnd.id ? mapApiProgram(response.program) : program));
+      setActiveTab('Ended');
+      navigate('/program');
+      notifyAction(`Ended ${programToEnd.name}.`);
+    } catch (error) {
+      const message = error.message || 'Unable to end program.';
+      notifyAction(message, 'error');
+    }
   };
   const saveBeneficiaryScope = (event) => {
     event.preventDefault();
     const selectedScopes = beneficiaryScope === 'School' ? selectedSchools : beneficiaryScope === 'Group' ? selectedGroups : selectedBatches;
     if (!selectedProgram || !selectedScopes.length) {
-      setScopeError(`Select at least one ${beneficiaryScope.toLowerCase()} before adding this cluster.`);
+      notifyAction(`Select at least one ${beneficiaryScope.toLowerCase()} before adding this cluster.`, 'error');
       return;
     }
-    setScopeError('');
     const scopes = selectedScopes.flatMap((scope) => {
       const name = scope.name || scope.group_name || scope.batch_code;
       const coverage = [{ type: beneficiaryScope, name, beneficiaries: Number(scope.records || scope.members_count || 0) }];
@@ -394,9 +532,12 @@ export default function ProgramPage() {
         setScopeSchoolIds([]);
         setScopeGroupIds([]);
         setScopeBatchIds([]);
-        setProgramError('');
+        notifyAction('Beneficiary scope saved successfully.');
       })
-      .catch((error) => setProgramError(error.message || 'Unable to save beneficiary cluster.'));
+      .catch((error) => {
+        const message = error.message || 'Unable to save beneficiary cluster.';
+        notifyAction(message, 'error');
+      });
   };
   const completeCluster = (cluster) => {
     const completeRequest = cluster.id
@@ -404,10 +545,9 @@ export default function ProgramPage() {
       : apiCompleteNamedProgramCluster(selectedProgram.id, cluster);
     completeRequest
       .then((response) => setPrograms((current) => current.map((program) => program.id === selectedProgram.id ? mapApiProgram(response.program) : program)))
-      .catch((error) => setProgramError(error.message || 'Unable to mark this cluster as done.'));
+      .catch((error) => notifyAction(error.message || 'Unable to mark this cluster as done.', 'error'));
   };
   const openBeneficiaryModal = () => {
-    setScopeError('');
     setScopeSchoolIds([]);
     setScopeGroupIds([]);
     setScopeBatchIds([]);
@@ -441,17 +581,43 @@ export default function ProgramPage() {
   };
   const deleteProgram = () => {
     const programToDelete = actionProgram || selectedProgram;
-    if (!programToDelete || !window.confirm(`Delete ${programToDelete.name}?`)) return;
-    apiDeleteProgram(programToDelete.id).then(() => {
+    if (!programToDelete) return;
+    setPendingDeleteProgram(programToDelete);
+    setActiveActionMenu(null);
+  };
+
+  const confirmDeleteProgram = async () => {
+    if (!pendingDeleteProgram) return;
+    const programToDelete = pendingDeleteProgram;
+    setPendingDeleteProgram(null);
+    try {
+      await apiDeleteProgram(programToDelete.id);
       setPrograms((current) => current.filter((program) => program.id !== programToDelete.id));
-      setActiveActionMenu(null);
-      navigate("/program");
-    }).catch((error) => setProgramError(error.message || 'Unable to delete program.'));
+      notifyAction(`Deleted ${programToDelete.name}.`);
+      navigate('/program');
+    } catch (error) {
+      const message = error.message || 'Unable to delete program.';
+      notifyAction(message, 'error');
+    }
   };
   const renderActionMenu = (menuId, menuProgram = selectedProgram) => canManagePrograms && (
     <div className="program-action-menu-wrap" onClick={(event) => event.stopPropagation()}>
       <button type="button" className="program-more-button" aria-label="Program actions" aria-haspopup="true" aria-expanded={activeActionMenu === menuId} onClick={(event) => { event.stopPropagation(); setActionProgram(menuProgram); setActiveActionMenu(activeActionMenu === menuId ? null : menuId); }}><MoreVerticalIcon /></button>
-      {activeActionMenu === menuId && <div className="actions-dropdown program-actions-dropdown" role="menu"><button type="button" className="actions-dropdown-item" onClick={editProgram} role="menuitem">Edit</button><button type="button" className="actions-dropdown-item" onClick={() => { setActiveActionMenu(null); endProgram(actionProgram); }} role="menuitem">End program</button><button type="button" className="actions-dropdown-item delete" onClick={deleteProgram} role="menuitem">Delete</button></div>}
+      {activeActionMenu === menuId && (
+        <div className="actions-dropdown program-actions-dropdown" role="menu">
+          {(isSuperAdmin || isCommunityOrganizer) && String(menuProgram?.status || '').trim().toLowerCase() !== 'ended' && (
+            <button type="button" className="actions-dropdown-item" onClick={editProgram} role="menuitem">Edit</button>
+          )}
+          {canEndPrograms && (
+            activeTab === 'Ended'
+              ? <button type="button" className="actions-dropdown-item" onClick={backToActivePrograms} role="menuitem">Back to active programs</button>
+              : <button type="button" className="actions-dropdown-item" onClick={endProgram} role="menuitem">End program</button>
+          )}
+          {canDeletePrograms && (
+            <button type="button" className="actions-dropdown-item delete" onClick={deleteProgram} role="menuitem">Delete</button>
+          )}
+        </div>
+      )}
     </div>
   );
 
@@ -461,7 +627,7 @@ export default function ProgramPage() {
         title={viewMode && selectedProgram ? selectedProgram.name : 'Program'}
         breadcrumbs={[{ label: 'Program' }]}
         actions={
-          canManagePrograms && <button
+          canCreatePrograms && (!viewMode || !isEndedProgram) && <button
               className="view-btn view-btn--primary module-create-button"
               type="button"
               onClick={() =>
@@ -473,14 +639,6 @@ export default function ProgramPage() {
             </button>
         }
       />
-
-      {isLiveDataLoaded && (
-        <div className="program-live-status" style={{ padding: "0 0 12px", color: "#475569", fontSize: "0.9rem" }}>
-          {programs.length > 0 ? `Showing ${programs.length} live program record${programs.length > 1 ? "s" : ""} from community data.` : "No program records available."}
-        </div>
-      )}
-
-      {programError && <p className="form-error" role="alert">{programError}</p>}
 
       {clusterView && selectedProgram && (
         <section className="program-cluster-subheader" aria-label="Program beneficiary clusters">
@@ -519,19 +677,6 @@ export default function ProgramPage() {
             </button>
           </div>
           <div className="program-toolbar-controls">
-            <div className="program-type-filter">
-              <button type="button" className={`program-type-filter-button${typeFilter ? ' active' : ''}`} onClick={() => setShowTypeFilter((current) => !current)} aria-haspopup="menu" aria-expanded={showTypeFilter}>
-                Type{typeFilter ? `: ${typeFilter}` : ''}
-              </button>
-              {showTypeFilter && (
-                <div className="program-type-filter-menu" role="menu">
-                  <button type="button" className={!typeFilter ? 'selected' : ''} onClick={() => { setTypeFilter(''); setShowTypeFilter(false); }} role="menuitem">All types</button>
-                  {programTypes.map((type) => (
-                    <button type="button" key={type} className={typeFilter === type ? 'selected' : ''} onClick={() => { setTypeFilter(type); setShowTypeFilter(false); }} role="menuitem">{type}</button>
-                  ))}
-                </div>
-              )}
-            </div>
             <div className="search-container program-search">
               <div className="search-field-container">
                 <SearchIcon />
@@ -554,19 +699,17 @@ export default function ProgramPage() {
       <section className="table-card program-table-card">
         <div className="program-table-heading">
           <div>
-            <p className="program-section-eyebrow">Program coverage</p>
             <h2>Program beneficiaries</h2>
           </div>
-          <span>{viewMode ? 'Select a beneficiary to view receipt history.' : 'Active and ended programs'}</span>
         </div>
         <div className="table-overflow">
           {viewMode && !clusterView ? <ExpandableTreeTable
             data={programHierarchy}
-            monitored={monitoringStatus}
-            pending={monitoringPending}
-            canToggle={canManagePrograms}
-            onMonitorChange={toggleMonitoring}
             onBeneficiaryClick={openBeneficiaryReport}
+            onHistoryClick={(node, level) => {
+              if (level === 'beneficiary') return openBeneficiaryReport(node);
+              return openClusterHistory(node, level);
+            }}
           /> : <table className="data-table">
             {clusterView && selectedCluster ? (
               <>
@@ -630,7 +773,7 @@ export default function ProgramPage() {
                         <td>{program.type}</td>
                         <td>{program.provider}</td>
                         <td>
-                          {program.received} / {program.target}
+                          {Math.min(Number(program.received || 0), getProgramBeneficiaryCount(program))} / {getProgramBeneficiaryCount(program)}
                         </td>
                         <td>{renderActionMenu(`main-${program.id}`, program)}</td>
                       </tr>
@@ -648,6 +791,15 @@ export default function ProgramPage() {
           </table>}
         </div>
       </section>
+
+      <ConfirmActionModal
+        show={Boolean(pendingDeleteProgram)}
+        title="Delete program?"
+        message={pendingDeleteProgram ? `Delete ${pendingDeleteProgram.name}?` : 'Delete this program?'}
+        confirmLabel="Delete"
+        onConfirm={confirmDeleteProgram}
+        onCancel={() => setPendingDeleteProgram(null)}
+      />
 
       {showBeneficiaryModal && selectedProgram && (
         <div
@@ -766,7 +918,6 @@ export default function ProgramPage() {
                   </div>
                 </label>
               )}
-              {scopeError && <p className="form-error" role="alert">{scopeError}</p>}
             </div>
             <div className="modal-footer">
               <button
@@ -781,6 +932,25 @@ export default function ProgramPage() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+      {monitorConfirmation && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => setMonitorConfirmation(null)}>
+          <div className="modal program-product-modal" role="dialog" aria-modal="true" aria-labelledby="monitor-confirmation-title" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="modal-header">
+              <h2 id="monitor-confirmation-title">Confirm monitored status</h2>
+              <button type="button" className="modal-close" onClick={() => setMonitorConfirmation(null)} aria-label="Close">×</button>
+            </div>
+            <div className="modal-body">
+              <p>
+                {monitorConfirmation.monitored ? 'Mark' : 'Clear'} {monitorConfirmation.affectedCount > 1 ? `${monitorConfirmation.affectedCount} beneficiaries` : 'this beneficiary'} {monitorConfirmation.monitored ? 'as monitored' : 'as not monitored'} for {monitorDate}?
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn-secondary" onClick={() => setMonitorConfirmation(null)}>Cancel</button>
+              <button type="button" className="btn-primary" onClick={confirmMonitoringChange}>Confirm</button>
+            </div>
+          </div>
         </div>
       )}
       {showModal && (
@@ -871,7 +1041,6 @@ export default function ProgramPage() {
                 >
                   <option>Mother</option>
                   <option>Child</option>
-                  <option>Mother and Child</option>
                 </select>
               </label>
             </div>
@@ -924,9 +1093,16 @@ export default function ProgramPage() {
                 Activity date
                 <input
                   id="activity-date"
-                  type="date"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="\d{4}/\d{2}/\d{2}"
                   className="form-input"
-                  defaultValue="2026-08-26"
+                  placeholder="yyyy/mm/dd"
+                  defaultValue={formatDateForDisplay('2026-08-26')}
+                  onChange={(event) => {
+                    const iso = normalizeDateValue(event.target.value);
+                    if (iso) event.target.value = iso;
+                  }}
                   required
                 />
               </label>

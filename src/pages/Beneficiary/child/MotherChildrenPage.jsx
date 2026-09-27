@@ -5,14 +5,15 @@ import { apiGetMother } from '../../../api/mothers';
 import BeneficiaryTable from '../BeneficiaryTable';
 import PageHeader from '../../../components/ui/PageHeader';
 import { useAuth } from '../../../auth/AuthProvider';
-import { can } from '../../../utils/permissions';
+import { can, isHealthWorkerRole } from '../../../utils/permissions';
+import { notifyAction } from '../../../components/ActionFeedback';
 
 export default function MotherChildrenPage() {
   const { id } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
   const { currentUser } = useAuth();
-  const canManage = can(currentUser?.role, 'admin-resources', 'create');
+  const canManage = can(currentUser?.role, 'beneficiary-resources', 'create') && !isHealthWorkerRole(currentUser?.role);
   const [mother, setMother] = useState(location.state?.mother || null);
   const [children, setChildren] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -32,6 +33,7 @@ export default function MotherChildrenPage() {
         }
       } catch (loadError) {
         if (!active) return;
+        notifyAction(loadError.message || 'Unable to load children', 'error');
         setError(loadError.message || 'Unable to load children');
       } finally {
         if (active) setLoading(false);
@@ -51,8 +53,8 @@ export default function MotherChildrenPage() {
     progress: child.progress ?? 0,
     original: {
       ...child,
-      group_name: child.group_name || child.group || '',
-      batch_name: child.batch_name || child.batch || '',
+      group_name: child.group_name || child.group || child.groupName || mother?.group || mother?.group_name || '',
+      batch_name: child.batch_name || child.batch || child.batchName || mother?.batch || mother?.batch_name || '',
     },
   })), [children, mother]);
   const pageCount = Math.max(1, Math.ceil(childRows.length / perPage));
@@ -106,12 +108,11 @@ export default function MotherChildrenPage() {
         actions={(
           <>
             {canManage && <button type="button" className="view-btn view-btn--primary module-create-button" onClick={() => navigate(`/beneficiary/create/child`, { state: { mother, returnTo } })}>Create Child</button>}
-            <button type="button" className="btn-secondary mother-children-back-button" onClick={() => navigate(returnTo || -1, { state: { mother } })}>Back</button>
+            <button type="button" className="btn-secondary mother-children-back-button" onClick={() => navigate(-1)}>Back</button>
           </>
         )}
       />
 
-      {error && <div className="form-error">{error}</div>}
       {!error && <BeneficiaryTable
         currentRows={currentRows}
         loading={loading}

@@ -5,13 +5,6 @@ function getNodeKey(node) {
   return `${node.level}-${node.id}`;
 }
 
-function getDescendantBeneficiaries(row) {
-  if (row.level === 'beneficiary') return [row.node];
-  if (row.level === 'batch') return row.node.beneficiaries || [];
-  if (row.level === 'group') return (row.node.batches || []).flatMap((batch) => batch.beneficiaries || []);
-  return (row.node.groups || []).flatMap((group) => (group.batches || []).flatMap((batch) => batch.beneficiaries || []));
-}
-
 function flattenVisibleRows(data, expandedPath) {
   const rows = [];
   const expandedSchool = expandedPath[0];
@@ -27,7 +20,6 @@ function flattenVisibleRows(data, expandedPath) {
       group: '',
       batch: '',
       beneficiary: '',
-      monitored: '',
       hasChildren: school.groups.length > 0,
       expanded: expandedSchool === schoolKey,
       node: school,
@@ -43,7 +35,6 @@ function flattenVisibleRows(data, expandedPath) {
         group: group.name,
         batch: '',
         beneficiary: '',
-        monitored: '',
         hasChildren: group.batches.length > 0,
         expanded: expandedGroup === groupKey,
         node: group,
@@ -59,7 +50,6 @@ function flattenVisibleRows(data, expandedPath) {
           group: '',
           batch: batch.name,
           beneficiary: '',
-          monitored: '',
           hasChildren: batch.beneficiaries.length > 0,
           expanded: expandedBatch === batchKey,
           node: batch,
@@ -74,7 +64,6 @@ function flattenVisibleRows(data, expandedPath) {
             group: '',
             batch: '',
             beneficiary: beneficiary.name,
-            monitored: beneficiary.isMonitored ? 'Yes' : 'No',
             hasChildren: false,
             expanded: false,
             node: beneficiary,
@@ -87,16 +76,19 @@ function flattenVisibleRows(data, expandedPath) {
   return rows;
 }
 
-export default function ExpandableTreeTable({ data = [], monitored = {}, pending = {}, canToggle = false, onMonitorChange, onBeneficiaryClick }) {
+export default function ExpandableTreeTable({ data = [], onBeneficiaryClick, onHistoryClick }) {
   const [expandedPath, setExpandedPath] = useState([]);
   const rows = useMemo(() => flattenVisibleRows(data, expandedPath), [data, expandedPath]);
 
   const toggleRow = (row) => {
     if (!row.hasChildren) return;
     const key = row.id;
-    if (row.level === 'school') setExpandedPath(expandedPath[0] === key ? [] : [key]);
-    if (row.level === 'group') setExpandedPath(expandedPath[1] === key ? [expandedPath[0]] : [expandedPath[0], key]);
-    if (row.level === 'batch') setExpandedPath(expandedPath[2] === key ? expandedPath.slice(0, 2) : [expandedPath[0], expandedPath[1], key]);
+    setExpandedPath((currentPath) => {
+      if (row.level === 'school') return currentPath[0] === key ? [] : [key];
+      if (row.level === 'group') return currentPath[1] === key ? [currentPath[0]] : [currentPath[0], key];
+      if (row.level === 'batch') return currentPath[2] === key ? currentPath.slice(0, 2) : [currentPath[0], currentPath[1], key];
+      return currentPath;
+    });
   };
 
   const columns = [
@@ -106,16 +98,10 @@ export default function ExpandableTreeTable({ data = [], monitored = {}, pending
     { key: 'beneficiary', label: 'Beneficiary', render: (value, row) => row.level === 'beneficiary' ? (
       onBeneficiaryClick ? <button type="button" className="monitor-tree-beneficiary monitor-tree-beneficiary-button" onClick={() => onBeneficiaryClick(row.node)}>{value}</button> : <span className="monitor-tree-beneficiary">{value}</span>
     ) : value },
-    { key: 'monitored', label: 'Monitored?', render: (value, row) => {
-      const descendants = getDescendantBeneficiaries(row);
-      const descendantKeys = descendants.map((beneficiary) => beneficiary.monitorKey).filter(Boolean);
-      const checked = descendantKeys.length > 0 && descendantKeys.every((key) => monitored[key]);
-      const saving = descendantKeys.some((key) => pending[key]);
-      if (!canToggle || !onMonitorChange) return row.level === 'beneficiary' ? <span className={`program-recipient-status ${monitored[row.node.monitorKey] ? 'received' : 'pending'}`}>{monitored[row.node.monitorKey] ? 'Yes' : 'No'}</span> : '';
-      return <label className="monitor-tree-toggle">
-        <input id={`monitor-${row.level}-${row.id}`} name={`monitor-${row.level}`} type="checkbox" checked={checked} disabled={!descendantKeys.length || saving} onChange={(event) => onMonitorChange(row.node, event.target.checked, descendants)} />
-        <span>{saving ? 'Saving...' : checked ? 'Yes' : 'No'}</span>
-      </label>;
+    { key: 'history', label: 'Receipt history', render: (_, row) => {
+      if (!onHistoryClick) return null;
+      const label = row.level === 'beneficiary' ? 'History' : 'View';
+      return <button type="button" className="view-btn view-btn--secondary" onClick={() => onHistoryClick(row.node, row.level)}>{label}</button>;
     } },
   ];
 
@@ -123,8 +109,9 @@ export default function ExpandableTreeTable({ data = [], monitored = {}, pending
 }
 
 function TreeCell({ row, value, onClick }) {
+  if (!row.hasChildren) return <span className={`monitor-tree-cell monitor-tree-cell--${row.level} monitor-tree-cell--leaf`}><span className="monitor-tree-chevron" aria-hidden="true" /> <span>{value}</span></span>;
   return (
-    <button type="button" className={`monitor-tree-cell monitor-tree-cell--${row.level}`} onClick={onClick} aria-expanded={row.expanded}>
+    <button type="button" className={`monitor-tree-cell monitor-tree-cell--${row.level}`} onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); onClick(); }} aria-expanded={row.expanded}>
       <span className="monitor-tree-chevron">{row.expanded ? '▼' : '▶'}</span>
       <span>{value}</span>
     </button>

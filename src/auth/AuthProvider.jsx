@@ -13,11 +13,11 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // on mount, try to load token from localStorage
     const t = apiAuth.loadToken();
     if (t) {
       setToken(t);
-      // Decode token payload locally to populate currentUser quickly (avoid relying on /me endpoint)
+
+      // Decode first for a fast render, then refresh from the database so assignments changed by an admin are current.
       try {
         const parts = t.split('.');
         if (parts.length >= 2) {
@@ -26,20 +26,18 @@ export function AuthProvider({ children }) {
           const payload = JSON.parse(atob(padded));
           setCurrentUser(payload || null);
           setLoading(false);
-          return;
         }
       } catch (err) {
         console.warn('Failed to decode token payload', err);
       }
-      // fallback: try validating with /me
-      apiAuth.me(t).then((data) => {
+
+      apiAuth.refreshSession().then((data) => {
+        setToken(data.token);
         setCurrentUser(data.user || null);
-        setLoading(false);
       }).catch((err) => {
+        // A valid access token can continue working when no refresh cookie is available.
         console.warn('Failed to validate saved token', err);
-        apiAuth.clearToken();
-        setToken(null);
-        setCurrentUser(null);
+      }).finally(() => {
         setLoading(false);
       });
     } else {
