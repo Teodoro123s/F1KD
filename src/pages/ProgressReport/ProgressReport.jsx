@@ -22,6 +22,8 @@ import {
   PROFILE_METRICS,
   CHILD_PROFILE_METRICS,
   MOTHER_PROFILE_METRICS,
+  CHILD_PROFILE_FIELD_SECTIONS,
+  PROFILE_SECTION_LABELS,
   PROFILE_GRAPH_FIELDS,
   PRESENCE_PROFILE_FIELDS,
   PROGRAM_METRICS,
@@ -66,6 +68,7 @@ export default function ProgressReport() {
   const [growthMetrics, setGrowthMetrics] = useState(['weightForAge']);
   const [graphMetricType, setGraphMetricType] = useState('interpretation');
   const [profileMetrics, setProfileMetrics] = useState(CHILD_PROFILE_METRICS.map(([id]) => id));
+  const [profileSection, setProfileSection] = useState('general');
   const [programMetrics, setProgramMetrics] = useState(['receivedBenefitTotal', 'receivedBenefitFrequency', 'receivedBenefitAveragePerMonth']);
   const [resultsView, setResultsView] = useState('graph');
   const [tableDisplayMode, setTableDisplayMode] = useState('general');
@@ -316,6 +319,7 @@ export default function ProgressReport() {
     setVisibleFields(DEFAULT_VISIBLE_FIELDS);
     setGrowthMetrics(['weightForLengthInterpretation']);
     setProfileMetrics(CHILD_PROFILE_METRICS.map(([id]) => id));
+    setProfileSection('general');
     setProgramMetrics(['receivedBenefitTotal', 'receivedBenefitFrequency', 'receivedBenefitAveragePerMonth']);
     setReportFocus(isHealthWorker ? 'beneficiary-group' : 'beneficiary-batch');
     setReportCategory('monitor');
@@ -459,6 +463,10 @@ export default function ProgressReport() {
               selectGrowthMetric={selectGrowthMetric}
               setActiveTab={setActiveTab}
               generateReport={generateReport}
+              profileFieldSections={CHILD_PROFILE_FIELD_SECTIONS}
+              profileSectionLabels={PROFILE_SECTION_LABELS}
+              profileSection={profileSection}
+              setProfileSection={setProfileSection}
             />
           )}
 
@@ -476,6 +484,11 @@ export default function ProgressReport() {
               tableRows={tableRows}
               tableVisibleFields={tableVisibleFields}
               monitoringRows={monitoringTableRows}
+              showProfileFilter={displayReportCategory === 'profile' && displayBeneficiaryType === 'child'}
+              profileFieldSections={CHILD_PROFILE_FIELD_SECTIONS}
+              profileSectionLabels={PROFILE_SECTION_LABELS}
+              profileSection={profileSection}
+              setProfileSection={setProfileSection}
               displayPage={displayPage}
               reportPagination={activeReport?.pagination}
               generateReport={generateReport}

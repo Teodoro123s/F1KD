@@ -13,15 +13,28 @@ export function GrowthMetricsStep({
   selectGrowthMetric,
   setActiveTab,
   generateReport,
+  profileFieldSections = {},
+  profileSectionLabels = {},
+  profileSection = 'general',
+  setProfileSection,
 }) {
+  const hasProfilePages = reportCategory === 'profile' && beneficiaryType === 'child' && Object.keys(profileFieldSections).length > 0;
+  const profilePageFields = availableProfileMetrics.filter(([id]) => !hasProfilePages || profileFieldSections[id] === profileSection);
   return (
     <div className="progress-report-tab-panel">
       <h1>III. Growth Metrics</h1>
       {reportCategory === 'profile' ? (
         <>
           <p>Choose the beneficiary profile fields to include in the report:</p>
+          {hasProfilePages && (
+            <div className="profile-report-page-tabs" role="tablist" aria-label="Profile report pages">
+              {Object.entries(profileSectionLabels).filter(([value]) => value !== 'all').map(([value, label]) => (
+                <button key={value} type="button" className={profileSection === value ? 'active' : ''} onClick={() => setProfileSection(value)}>{label}</button>
+              ))}
+            </div>
+          )}
           <div className="growth-metric-cards profile-metric-cards">
-            {availableProfileMetrics.map(([id, label, description]) => (
+            {profilePageFields.map(([id, label, description]) => (
               <label key={id} className={profileMetrics.includes(id) ? 'selected' : ''}>
                 <input type="checkbox" name="profile-metric" checked={profileMetrics.includes(id)} onChange={() => toggleProfileMetric(id)} />
                 <strong>{label}</strong>

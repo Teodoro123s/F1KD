@@ -109,6 +109,19 @@ function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleField
   );
 }
 
+function StandardResultsTable({ resultsRows, fields, formatCellValue, emptyMessage = 'No results found.' }) {
+  if (!resultsRows.length) return <p className="growth-report-empty">{emptyMessage}</p>;
+
+  return (
+    <div className="progress-report-table-shell">
+      <table className="progress-report-table standard-results-table">
+        <thead><tr>{fields.map(([id, label]) => <th key={id}>{label}</th>)}</tr></thead>
+        <tbody>{resultsRows.map((row, index) => <tr key={row.historyRowKey || index}>{fields.map(([id]) => <td key={id}>{formatCellValue(id, row[id])}</td>)}</tr>)}</tbody>
+      </table>
+    </div>
+  );
+}
+
 function LatestResultsTable({ resultsRows, reportFields, displayVisibleFields, formatCellValue, beneficiaryType }) {
   const identityFields = beneficiaryType === 'mother' ? ['mother'] : ['child', 'mother'];
   const selectedFields = reportFields.filter(([id]) => displayVisibleFields.includes(id));
@@ -119,16 +132,7 @@ function LatestResultsTable({ resultsRows, reportFields, displayVisibleFields, f
     ...selectedFields.filter(([id]) => id !== 'measurementDate' && !identityFields.includes(id)),
   ];
 
-  if (!resultsRows.length) return <p className="growth-report-empty">No results found for this period.</p>;
-
-  return (
-    <div className="progress-report-table-shell">
-      <table className="progress-report-table latest-results-table">
-        <thead><tr>{latestFields.map(([id, label]) => <th key={id}>{label}</th>)}</tr></thead>
-        <tbody>{resultsRows.map((row, index) => <tr key={row.historyRowKey || index}>{latestFields.map(([id]) => <td key={id}>{formatCellValue(id, row[id])}</td>)}</tr>)}</tbody>
-      </table>
-    </div>
-  );
+  return <StandardResultsTable resultsRows={resultsRows} fields={latestFields} formatCellValue={formatCellValue} emptyMessage="No results found for this period." />;
 }
 
 export function ResultsTable({
@@ -141,13 +145,19 @@ export function ResultsTable({
   communitySelection,
   beneficiaryType,
   monitoringRows,
+  showProfileFilter,
+  profileFieldSections = {},
+  profileSectionLabels = {},
+  profileSection = 'general',
+  setProfileSection,
   displaySort,
   sortLabel,
   formatCellValue,
 }) {
   const visibleFields = reportFields.filter(([id]) => displayVisibleFields.includes(id));
   const [hiddenFields, setHiddenFields] = useState(() => new Set());
-  const customizedFields = visibleFields.filter(([id]) => !hiddenFields.has(id));
+  const sectionFields = visibleFields.filter(([id]) => !showProfileFilter || !profileFieldSections[id] || profileFieldSections[id] === profileSection);
+  const customizedFields = sectionFields.filter(([id]) => !hiddenFields.has(id));
   const showCustomize = !showMonitoringFilter || tableDisplayMode === 'general';
   const [resultPeriod, setResultPeriod] = useState('latest');
   const today = new Date();
@@ -187,12 +197,6 @@ export function ResultsTable({
   const periodRows = resultPeriod.startsWith('month:')
     ? rowsByBeneficiary(validMonitoringRows.filter((row) => String(row.measurementDate || '').startsWith(resultPeriod.slice(6))))
     : [...monitoringRowsByBeneficiary.values()].map((rows) => rows[selectedDateIndex]).filter(Boolean);
-  const columnLabel = (row, index) => {
-    const name = row.child || row.mother || row.group || row.batch || `Record ${index + 1}`;
-    const date = row.measurementDate ? ` · ${formatCellValue('measurementDate', row.measurementDate)}` : '';
-    return `${name}${date}`;
-  };
-
   return (
     <div className="results-table-wrap">
       {showMonitoringFilter && (
@@ -210,10 +214,10 @@ export function ResultsTable({
             <summary>Customize table</summary>
             <div className="results-table-customizer-menu">
               <div className="results-table-customizer-heading">
-                <strong>Visible row labels</strong>
+                <strong>Visible columns</strong>
                 <button type="button" onClick={() => setHiddenFields(new Set())}>Reset</button>
               </div>
-              {visibleFields.map(([id, label]) => (
+              {sectionFields.map(([id, label]) => (
                 <label key={id}>
                   <input type="checkbox" checked={!hiddenFields.has(id)} onChange={() => setHiddenFields((current) => {
                     const next = new Set(current);
@@ -232,33 +236,21 @@ export function ResultsTable({
               </select>
             </label>
           )}
+          {showProfileFilter && (
+            <label className="results-table-period-filter">Profile section
+                <select value={profileSection} onChange={(event) => setProfileSection(event.target.value)}>
+                {Object.entries(profileSectionLabels).filter(([value]) => value !== 'all').map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+            </label>
+          )}
         </div>
       )}
       {showMonitoringFilter && tableDisplayMode === 'monitoring-dates' ? (
         <MonitoringHistoryTable resultsRows={resultsRows} reportFields={reportFields} displayVisibleFields={displayVisibleFields} formatCellValue={formatCellValue} communitySelection={communitySelection} />
       ) : showMonitoringFilter && tableDisplayMode === 'general' ? (
-        <LatestResultsTable resultsRows={periodRows.length ? periodRows : resultsRows} reportFields={reportFields} displayVisibleFields={customizedFields.map(([id]) => id)} formatCellValue={formatCellValue} beneficiaryType={beneficiaryType} />
+        <LatestResultsTable resultsRows={periodRows} reportFields={reportFields} displayVisibleFields={customizedFields.map(([id]) => id)} formatCellValue={formatCellValue} beneficiaryType={beneficiaryType} />
       ) : (
-      <div className="progress-report-table-shell">
-        <table className="progress-report-table">
-          <thead>
-            <tr>
-              <th>Report field</th>
-              {resultsRows.map((row, index) => <th key={`column-${row.historyRowKey || index}`}>{columnLabel(row, index)}</th>)}
-            </tr>
-          </thead>
-          <tbody>
-            {customizedFields.map(([id, label]) => (
-              <tr key={id}>
-                <th scope="row">{label}</th>
-                {resultsRows.map((row, index) => (
-                  <td key={`${id}-${row.historyRowKey || index}`}>{formatCellValue(id, row[id])}</td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <StandardResultsTable resultsRows={resultsRows} fields={customizedFields} formatCellValue={formatCellValue} />
       )}
     </div>
   );

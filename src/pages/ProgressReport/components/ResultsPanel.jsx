@@ -15,6 +15,11 @@ export function ResultsPanel({
   tableRows,
   tableVisibleFields,
   monitoringRows,
+  showProfileFilter,
+  profileFieldSections,
+  profileSectionLabels,
+  profileSection,
+  setProfileSection,
   displayPage,
   reportPagination,
   generateReport,
@@ -106,6 +111,11 @@ export function ResultsPanel({
           communitySelection={selection}
           beneficiaryType={displayBeneficiaryType}
           monitoringRows={monitoringRows}
+          showProfileFilter={showProfileFilter}
+          profileFieldSections={profileFieldSections}
+          profileSectionLabels={profileSectionLabels}
+          profileSection={profileSection}
+          setProfileSection={setProfileSection}
           displaySort={displaySort}
           sortLabel={(label, key) => (
             <button type="button" className="progress-report-sort-button" onClick={() => changeSort(key)}>

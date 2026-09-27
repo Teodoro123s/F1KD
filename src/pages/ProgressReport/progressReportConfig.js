@@ -17,11 +17,36 @@ export const REPORT_FIELDS = [
   ['risk', 'Risk Level', 'Health & Status'],
   ['program', 'Program', 'Health & Status'],
   ['deliveryType', 'Delivery Type', 'Health & Status'],
+  ['healthStatus', 'Health Status', 'Health & Status'],
   ['liveBirthDocument', 'Live Birth Document', 'Profile'],
   ['birthWeight', 'Birth Weight (kg)', 'Profile'],
   ['birthLength', 'Birth Length (cm)', 'Profile'],
   ['bloodType', 'Blood Type', 'Profile'],
   ['multipleBirth', 'Multiple Birth', 'Profile'],
+  ['noOfChildDelivered', 'No. of Children Delivered', 'Profile'],
+  ['expandedNewbornScreening', 'Expanded Newborn Screening', 'Profile'],
+  ['expandedNewbornScreeningResult', 'Newborn Screening Result', 'Profile'],
+  ['birthPlace', 'Birth Place', 'Profile'],
+  ['birthAttendant', 'Birth Attendant', 'Profile'],
+  ['apgarScore', 'APGAR Score', 'Profile'],
+  ['feedingType', 'Feeding Type', 'Profile'],
+  ['exclusiveBreastfeeding', 'Exclusive Breastfeeding', 'Profile'],
+  ['nutritionNotes', 'Nutritional Notes', 'Profile'],
+  ['fatherName', 'Father Name', 'Profile'],
+  ['relationship', 'Relationship', 'Profile'],
+  ['address', 'Address', 'Profile'],
+  ['medicalConditions', 'Medical Conditions', 'Profile'],
+  ['vaccineRemarks', 'Vaccine Remarks', 'Profile'],
+  ['bcgDate', 'BCG Date', 'Profile'],
+  ['bcgRemarks', 'BCG Remarks', 'Profile'],
+  ['hepbDate', 'HepB Date', 'Profile'],
+  ['hepbRemarks', 'HepB Remarks', 'Profile'],
+  ['opvDate', 'OPV Date', 'Profile'],
+  ['opvRemarks', 'OPV Remarks', 'Profile'],
+  ['dptDate', 'DPT Date', 'Profile'],
+  ['dptRemarks', 'DPT Remarks', 'Profile'],
+  ['mmrDate', 'MMR Date', 'Profile'],
+  ['mmrRemarks', 'MMR Remarks', 'Profile'],
   ['contactNumber', 'Contact Number', 'Profile'],
   ['addressDetails', 'Address Details', 'Profile'],
   ['motherBirthCertificate', "Mother's Birth Certificate", 'Profile'],
@@ -122,7 +147,48 @@ export const CHILD_PROFILE_METRICS = [
   ['bloodType', 'Blood Type', 'Blood type recorded in the child profile.'],
   ['multipleBirth', 'Multiple Birth', 'Multiple-birth classification recorded in the child profile.'],
   ['deliveryType', 'Delivery Type', 'Delivery type recorded in the child profile.'],
+  ['healthStatus', 'Health Status', 'Child health status recorded in the child profile.'],
+  ['noOfChildDelivered', 'No. of Children Delivered', 'Number of children delivered in the birth event.'],
+  ['expandedNewbornScreening', 'Expanded Newborn Screening', 'Expanded newborn screening status.'],
+  ['expandedNewbornScreeningResult', 'Newborn Screening Result', 'Expanded newborn screening result.'],
+  ['birthPlace', 'Birth Place', 'Birth place recorded in the child profile.'],
+  ['birthAttendant', 'Birth Attendant', 'Birth attendant recorded in the child profile.'],
+  ['apgarScore', 'APGAR Score', 'APGAR score recorded in the child profile.'],
+  ['feedingType', 'Feeding Type', 'Feeding type recorded in the child profile.'],
+  ['exclusiveBreastfeeding', 'Exclusive Breastfeeding', 'Exclusive breastfeeding value recorded in the child profile.'],
+  ['nutritionNotes', 'Nutritional Notes', 'Nutrition notes recorded in the child profile.'],
+  ['fatherName', 'Father Name', 'Father name recorded in the child profile.'],
+  ['relationship', 'Relationship', 'Relationship value recorded in the child profile.'],
+  ['address', 'Address', 'Address recorded in the child profile.'],
+  ['medicalConditions', 'Medical Conditions', 'Recorded child medical conditions.'],
+  ['vaccineRemarks', 'Vaccine Remarks', 'Remarks recorded across the child vaccination records.'],
+  ['bcgDate', 'BCG Date', 'BCG vaccination date.'],
+  ['bcgRemarks', 'BCG Remarks', 'BCG vaccination remarks.'],
+  ['hepbDate', 'HepB Date', 'Hepatitis B vaccination date.'],
+  ['hepbRemarks', 'HepB Remarks', 'Hepatitis B vaccination remarks.'],
+  ['opvDate', 'OPV Date', 'OPV vaccination date.'],
+  ['opvRemarks', 'OPV Remarks', 'OPV vaccination remarks.'],
+  ['dptDate', 'DPT Date', 'DPT vaccination date.'],
+  ['dptRemarks', 'DPT Remarks', 'DPT vaccination remarks.'],
+  ['mmrDate', 'MMR Date', 'MMR vaccination date.'],
+  ['mmrRemarks', 'MMR Remarks', 'MMR vaccination remarks.'],
 ];
+
+export const CHILD_PROFILE_FIELD_SECTIONS = {
+  age: 'general', gender: 'general', liveBirthDocument: 'general', address: 'general', fatherName: 'general', relationship: 'general',
+  birthWeight: 'prenatal-ob', birthLength: 'prenatal-ob', bloodType: 'prenatal-ob', multipleBirth: 'prenatal-ob', deliveryType: 'prenatal-ob',
+  noOfChildDelivered: 'prenatal-ob', expandedNewbornScreening: 'prenatal-ob', expandedNewbornScreeningResult: 'prenatal-ob', birthPlace: 'prenatal-ob', birthAttendant: 'prenatal-ob', apgarScore: 'prenatal-ob',
+  healthStatus: 'medical-dental', feedingType: 'medical-dental', exclusiveBreastfeeding: 'medical-dental', nutritionNotes: 'medical-dental', medicalConditions: 'medical-dental',
+  vaccineRemarks: 'vaccine', bcgDate: 'vaccine', bcgRemarks: 'vaccine', hepbDate: 'vaccine', hepbRemarks: 'vaccine', opvDate: 'vaccine', opvRemarks: 'vaccine', dptDate: 'vaccine', dptRemarks: 'vaccine', mmrDate: 'vaccine', mmrRemarks: 'vaccine',
+};
+
+export const PROFILE_SECTION_LABELS = {
+  all: 'All profile fields',
+  general: 'General',
+  'prenatal-ob': 'Prenatal / OB',
+  'medical-dental': 'Medical / Dental',
+  vaccine: 'Vaccine',
+};
 
 export const MOTHER_PROFILE_METRICS = [
   ['age', 'Age', 'Age calculated from the beneficiary profile date of birth.'],
@@ -248,7 +314,7 @@ export const formatCellValue = (field, value) => {
   if (value === null || value === undefined || value === '') return '—';
   if (field && /Interpretation$/i.test(field)) return normalizeNutritionLabel(value);
   if (field && /ZScore$/i.test(field)) return Number(value).toFixed(2);
-  if (['dateOfBirth', 'lastActivityDate', 'nextCheckupDate', 'measurementDate'].includes(field)) {
+  if (['dateOfBirth', 'lastActivityDate', 'nextCheckupDate', 'measurementDate', 'bcgDate', 'hepbDate', 'opvDate', 'dptDate', 'mmrDate'].includes(field)) {
     return formatDateForDisplay(value);
   }
   return String(value);
