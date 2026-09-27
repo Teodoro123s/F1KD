@@ -15,6 +15,9 @@ export function ResultsPanel({
   tableRows,
   tableVisibleFields,
   monitoringRows,
+  displayPage,
+  reportPagination,
+  generateReport,
   displayReportCategory,
   profileGraphColumn,
   setProfileGraphColumn,
@@ -39,7 +42,6 @@ export function ResultsPanel({
   profileGraphFields,
   interpretationMetrics,
   programMetrics,
-  GrowthChart,
 }) {
   const viewToggle = [
     { key: 'table', label: 'Table View' },
@@ -89,7 +91,6 @@ export function ResultsPanel({
           setDisplayWeeks={setDisplayWeeks}
           displayBeneficiaryType={displayBeneficiaryType}
           averageMetric={averageMetric}
-          GrowthChart={GrowthChart}
           profileGraphFields={profileGraphFields}
           interpretationMetrics={interpretationMetrics}
           programMetrics={programMetrics}
@@ -113,6 +114,13 @@ export function ResultsPanel({
           )}
           formatCellValue={formatCellValue}
         />
+      )}
+      {reportPagination && reportPagination.totalPages > 1 && (
+        <div className="progress-report-pagination" aria-label="Report pagination">
+          <button type="button" className="secondary-btn" disabled={displayPage <= 1} onClick={() => generateReport(displayPage - 1)}>Previous</button>
+          <span>Page {displayPage} of {reportPagination.totalPages}</span>
+          <button type="button" className="secondary-btn" disabled={displayPage >= reportPagination.totalPages} onClick={() => generateReport(displayPage + 1)}>Next</button>
+        </div>
       )}
     </div>
   );

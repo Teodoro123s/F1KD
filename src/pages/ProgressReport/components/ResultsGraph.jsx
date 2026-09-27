@@ -1,4 +1,5 @@
 import React from 'react';
+import { GrowthChart } from './GrowthChart';
 
 function ProfileGraph({ rows, field, profileGraphFields }) {
   const fieldMap = new Map(profileGraphFields.map(([id, label, type]) => [id, { label, type }]));
@@ -82,7 +83,6 @@ export function ResultsGraph({
   setDisplayWeeks,
   displayBeneficiaryType,
   averageMetric,
-  GrowthChart,
   profileGraphFields,
   interpretationMetrics,
   programMetrics,

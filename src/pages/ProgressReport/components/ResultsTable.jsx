@@ -119,6 +119,8 @@ function LatestResultsTable({ resultsRows, reportFields, displayVisibleFields, f
     ...selectedFields.filter(([id]) => id !== 'measurementDate' && !identityFields.includes(id)),
   ];
 
+  if (!resultsRows.length) return <p className="growth-report-empty">No results found for this period.</p>;
+
   return (
     <div className="progress-report-table-shell">
       <table className="progress-report-table latest-results-table">
@@ -169,9 +171,22 @@ export function ResultsTable({
     ...(monitorDates[1] ? [{ value: 'second-latest', label: `2nd latest (${formatCellValue('measurementDate', monitorDates[1])})` }] : []),
     ...monitorMonths.map((month) => ({ value: `month:${month}`, label: new Date(`${month}-01T00:00:00`).toLocaleDateString(undefined, { month: 'long', year: 'numeric' }) })),
   ];
+  const rowsByBeneficiary = (rows) => [...new Map(rows
+    .sort((left, right) => String(right.measurementDate).localeCompare(String(left.measurementDate)))
+    .map((row) => [String(row.childId || row.motherId || row.child || row.mother), row])).values()];
+  const monitoringRowsByBeneficiary = validMonitoringRows
+    .sort((left, right) => String(right.measurementDate).localeCompare(String(left.measurementDate)))
+    .reduce((groups, row) => {
+      const key = String(row.childId || row.motherId || row.child || row.mother);
+      const entries = groups.get(key) || [];
+      if (entries.length < 2) entries.push(row);
+      groups.set(key, entries);
+      return groups;
+    }, new Map());
+  const selectedDateIndex = resultPeriod === 'second-latest' ? 1 : 0;
   const periodRows = resultPeriod.startsWith('month:')
-    ? [...new Map(validMonitoringRows.filter((row) => String(row.measurementDate || '').startsWith(resultPeriod.slice(6))).sort((left, right) => String(right.measurementDate).localeCompare(String(left.measurementDate))).map((row) => [String(row.childId || row.motherId || row.child || row.mother), row])).values()]
-    : validMonitoringRows.filter((row) => String(row.measurementDate || '').slice(0, 10) === (monitorDates[resultPeriod === 'second-latest' ? 1 : 0] || ''));
+    ? rowsByBeneficiary(validMonitoringRows.filter((row) => String(row.measurementDate || '').startsWith(resultPeriod.slice(6))))
+    : [...monitoringRowsByBeneficiary.values()].map((rows) => rows[selectedDateIndex]).filter(Boolean);
   const columnLabel = (row, index) => {
     const name = row.child || row.mother || row.group || row.batch || `Record ${index + 1}`;
     const date = row.measurementDate ? ` · ${formatCellValue('measurementDate', row.measurementDate)}` : '';
