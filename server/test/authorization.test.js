@@ -250,14 +250,113 @@ test('authorizeOperational allows scoped admin and partner mother updates and do
   }
 });
 
-test('authorizeOperational allows community organizers to create programs and add clusters only', () => {
+test('authorizeOperational allows community organizers to create, edit, delete, end, and restore programs', () => {
   const requests = [
     { method: 'POST', path: '/', role: 'Community Organizer', allowed: true },
     { method: 'POST', path: '/12/clusters', role: 'communityorganizer', allowed: true },
-    { method: 'PUT', path: '/12', role: 'Community Organizer', allowed: false },
-    { method: 'DELETE', path: '/12', role: 'Community Organizer', allowed: false },
+    { method: 'PATCH', path: '/12/end', role: 'Community Organizer', allowed: true },
+    { method: 'PATCH', path: '/12/restore', role: 'Community Organizer', allowed: true },
+    { method: 'PUT', path: '/12', role: 'Community Organizer', allowed: true },
+    { method: 'DELETE', path: '/12', role: 'Community Organizer', allowed: true },
     { method: 'POST', path: '/', role: 'Health worker', allowed: false },
   ];
+
+  for (const request of requests) {
+    let called = false;
+    const req = {
+      method: request.method,
+      baseUrl: '/api/programs',
+      path: request.path,
+      user: { role: request.role, school_id: 7 },
+    };
+    const res = {
+      status(code) {
+        this.code = code;
+        return this;
+      },
+      json(payload) {
+        this.payload = payload;
+        return this;
+      },
+    };
+
+    authorizeOperational(req, res, () => {
+      called = true;
+    });
+
+    assert.equal(called, request.allowed, `${request.role} ${request.method} ${request.path}`);
+    assert.equal(res.code, request.allowed ? undefined : 403);
+  }
+});
+
+test('authorizeOperational allows community organizers to use CRUD on non-user-management resources', () => {
+  const requests = [
+    { method: 'POST', baseUrl: '/api/community', path: '/groups', role: 'Community Organizer', allowed: true },
+    { method: 'PUT', baseUrl: '/api/community', path: '/groups/12', role: 'Community Organizer', allowed: true },
+    { method: 'DELETE', baseUrl: '/api/community', path: '/groups/12', role: 'Community Organizer', allowed: true },
+    { method: 'POST', baseUrl: '/api/mothers', path: '/', role: 'Community Organizer', allowed: true },
+    { method: 'PUT', baseUrl: '/api/mothers', path: '/12', role: 'Community Organizer', allowed: true },
+    { method: 'DELETE', baseUrl: '/api/mothers', path: '/12', role: 'Community Organizer', allowed: true },
+    { method: 'POST', baseUrl: '/api/children', path: '/', role: 'Community Organizer', allowed: true },
+    { method: 'PUT', baseUrl: '/api/children', path: '/12', role: 'Community Organizer', allowed: true },
+    { method: 'DELETE', baseUrl: '/api/children', path: '/12', role: 'Community Organizer', allowed: true },
+  ];
+
+  for (const request of requests) {
+    let called = false;
+    const req = {
+      method: request.method,
+      baseUrl: request.baseUrl,
+      path: request.path,
+      user: { role: request.role, school_id: 7 },
+    };
+    const res = {
+      status(code) {
+        this.code = code;
+        return this;
+      },
+      json(payload) {
+        this.payload = payload;
+        return this;
+      },
+    };
+
+    authorizeOperational(req, res, () => {
+      called = true;
+    });
+
+    assert.equal(called, request.allowed, `${request.role} ${request.method} ${request.baseUrl}${request.path}`);
+    assert.equal(res.code, request.allowed ? undefined : 403);
+  }
+});
+
+test('authorizeOperational keeps user-management restricted to super admins', () => {
+  let called = false;
+  const req = {
+    method: 'DELETE',
+    baseUrl: '/api/users',
+    path: '/12',
+    user: { role: 'Community Organizer', school_id: 7 },
+  };
+  const res = {
+    status(code) {
+      this.code = code;
+      return this;
+    },
+    json(payload) {
+      this.payload = payload;
+      return this;
+    },
+  };
+
+  authorizeOperational(req, res, () => {
+    called = true;
+  });
+
+  assert.equal(called, false);
+  assert.equal(res.code, 403);
+});
+
 
   for (const request of requests) {
     let called = false;

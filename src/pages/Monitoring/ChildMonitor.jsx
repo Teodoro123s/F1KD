@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { formatDateForDisplay, formatDateForInput } from '../../utils/dateFormat';
 import { calculateWhoGrowthScores } from '../../utils/whoGrowthStandards';
+import { getAgeInHalfMonths, getAgeInMonths } from '../../utils/childAge.mjs';
 import ConfirmModal from '../UserManagement/ConfirmModal';
 import { notifyAction } from '../../components/ActionFeedback';
 
@@ -75,30 +76,6 @@ function calculateBmi(weight, height) {
   return (numericWeight / ((numericLength / 100) ** 2)).toFixed(1);
 }
 
-function getAgeInMonths(birthDate, assessmentDate) {
-  if (!birthDate || !assessmentDate) return null;
-  const birth = new Date(`${formatDateForInput(birthDate)}T00:00:00`);
-  const assessment = new Date(`${formatDateForInput(assessmentDate)}T00:00:00`);
-  if (Number.isNaN(birth.getTime()) || Number.isNaN(assessment.getTime()) || birth > assessment) return null;
-  return Math.max(0, (assessment.getFullYear() - birth.getFullYear()) * 12
-    + assessment.getMonth() - birth.getMonth() - (assessment.getDate() < birth.getDate() ? 1 : 0));
-}
-
-function getAgeInHalfMonths(birthDate, assessmentDate) {
-  if (!birthDate || !assessmentDate) return null;
-  const birth = new Date(`${formatDateForInput(birthDate)}T00:00:00`);
-  const assessment = new Date(`${formatDateForInput(assessmentDate)}T00:00:00`);
-  if (Number.isNaN(birth.getTime()) || Number.isNaN(assessment.getTime()) || birth > assessment) return null;
-
-  let completeMonths = (assessment.getFullYear() - birth.getFullYear()) * 12
-    + assessment.getMonth() - birth.getMonth();
-  if (assessment.getDate() < birth.getDate()) completeMonths -= 1;
-
-  const anniversary = new Date(birth);
-  anniversary.setMonth(anniversary.getMonth() + completeMonths);
-  const remainingDays = Math.max(0, Math.floor((assessment - anniversary) / (24 * 60 * 60 * 1000)));
-  return completeMonths + (remainingDays >= 15 ? 0.5 : 0);
-}
 
 export default function ChildMonitor({ child, onSave, onCancel, completedWeeks = [] }) {
   const [week, setWeek] = useState(1);
@@ -336,16 +313,8 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
               <input id="child-monitor-weight-length" type="text" className="checkup-field-input" value={weightLengthInterpretation} readOnly />
             </div>
             <div className="form-group">
-              <label className="checkup-field-label" htmlFor="child-monitor-weight-length-z">Weight-for-Length Z-Score (WHO)</label>
-              <input id="child-monitor-weight-length-z" type="text" className="checkup-field-input" value={weightLengthZScore} readOnly placeholder="Auto-calculated" />
-            </div>
-            <div className="form-group">
               <label className="checkup-field-label" htmlFor="child-monitor-weight-age">Weight-for-Age</label>
               <input id="child-monitor-weight-age" type="text" className="checkup-field-input" value={weightAgeInterpretation} readOnly />
-            </div>
-            <div className="form-group">
-              <label className="checkup-field-label" htmlFor="child-monitor-weight-age-z">Weight-for-Age Z-Score (WHO)</label>
-              <input id="child-monitor-weight-age-z" type="text" className="checkup-field-input" value={weightAgeZScore} readOnly placeholder="Auto-calculated" />
             </div>
             <div className="form-group">
               <label className="checkup-field-label" htmlFor="child-monitor-length-age">Length-for-Age</label>

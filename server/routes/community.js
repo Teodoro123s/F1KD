@@ -87,6 +87,14 @@ async function nextCode(pool, table, codeColumn, prefix) {
   return `${prefix}-${String(nextNo).padStart(4, '0')}`;
 }
 
+function getEffectiveRecordCount(item = {}) {
+  const actualCount = Number(item.actual_records ?? item.live_records ?? item.mother_count ?? NaN);
+  if (Number.isFinite(actualCount)) return actualCount;
+
+  const storedCount = Number(item.records ?? item.record_count ?? item.total_records ?? 0);
+  return Number.isFinite(storedCount) ? storedCount : 0;
+}
+
 router.get('/summary', async (req, res) => {
   try {
     console.info('[Community API] Fetching community summary from database (compatible mode)...');
@@ -126,7 +134,8 @@ router.get('/summary', async (req, res) => {
         b.name,
         '' AS description,
         c.name AS community,
-        COALESCE(b.records, COUNT(DISTINCT m.id)) AS records,
+        COUNT(DISTINCT m.id) AS actual_records,
+        b.records AS stored_records,
         COALESCE(b.progress, 0) AS progress,
         COALESCE(b.status, 'Active') AS status,
         GROUP_CONCAT(DISTINCT gb.group_id ORDER BY gb.group_id) AS group_ids,
@@ -229,7 +238,7 @@ router.get('/summary', async (req, res) => {
         name: item.name,
         description: item.description,
         community: item.community || '',
-        records: Number(item.records || 0),
+        records: getEffectiveRecordCount(item),
         progress,
         status: item.status || 'Active',
         groupIds: item.group_ids || '',
@@ -702,7 +711,7 @@ router.get('/batches', async (req, res) => {
       name: r.name,
       description: r.description,
       community: r.community || '',
-      records: Number(r.records || 0),
+      records: getEffectiveRecordCount(r),
       progress: 0,
       status: r.status || 'Active',
     }));
@@ -714,3 +723,4 @@ router.get('/batches', async (req, res) => {
 });
 
 module.exports = router;
+module.exports.getEffectiveRecordCount = getEffectiveRecordCount;

@@ -3,11 +3,20 @@ import BeneficiaryTable from './BeneficiaryTable';
 import StatusFilterBar from './components/StatusFilterBar';
 import EntitySearchControls from './components/EntitySearchControls';
 import { apiGetChildren } from '../../api/children';
-import { getMotherProfileProgress } from '../../utils/motherProgress';
-import { getChildProfileProgress } from '../../utils/childProgress';
+import { getMotherProfileProgress, getMotherMonitoringProgress } from '../../utils/motherProgress';
+import { getChildProfileProgress, getChildMonitoringProgress } from '../../utils/childProgress';
 
 const getGroupStatusByProgress = (g) => {
   if (!g) return 'Incomplete';
+
+  if (g.monitoringProgress && typeof g.monitoringProgress === 'object') {
+    return g.monitoringProgress.completed >= g.monitoringProgress.total ? 'Complete' : 'Incomplete';
+  }
+
+  if (g.status && ['Complete', 'Incomplete'].includes(g.status)) {
+    return g.status;
+  }
+
   const p = g.progress ?? 0;
   return p >= 100 ? 'Complete' : 'Incomplete';
 };
@@ -77,12 +86,25 @@ export default function BeneficiaryListPage({ communities = [], groups = [], bat
       const normalizedBatchId = String(batchId);
       data = data.filter((item) => {
         const original = item.original || item.raw || item;
-        return [
+        const candidates = [
           item.batchId,
           item.batch_id,
+          item.batchCode,
+          item.batch_code,
           original.batchId,
           original.batch_id,
-        ].some((value) => value !== undefined && value !== null && String(value) === normalizedBatchId);
+          original.batchCode,
+          original.batch_code,
+          original.batch,
+          original.batch_name,
+          original.batchName,
+          item.assignedBatchIds,
+          original.assignedBatchIds,
+        ]
+          .flatMap((value) => Array.isArray(value) ? value : [value])
+          .filter((value) => value !== undefined && value !== null && value !== '');
+
+        return candidates.some((value) => String(value) === normalizedBatchId || String(value).toLowerCase() === normalizedBatchId.toLowerCase());
       });
     }
 
@@ -92,17 +114,28 @@ export default function BeneficiaryListPage({ communities = [], groups = [], bat
         return item;
       }
       if (item && (item.firstName || item.first_name || item.motherId || item.mother_id)) {
-        // it's a mother mock object
+        const monitoringProgress = getMotherMonitoringProgress(item);
         return {
           id: item.id,
           name: item.name || `${item.firstName || item.first_name || ''} ${item.lastName || item.last_name || ''}`.trim(),
           community: item.community || item.community_name || '',
           progress: getMotherProfileProgress(item),
+          monitoringProgress,
+          status: monitoringProgress.completed >= monitoringProgress.total ? 'Complete' : 'Incomplete',
           original: item,
         };
       }
-      // assume group-like object
-      return { id: item.id, name: item.name, community: item.community, progress: item.progress ?? 0, original: item };
+
+      const monitoringProgress = selectedEntityFilter === 'Child' ? getChildMonitoringProgress(item) : getMotherMonitoringProgress(item);
+      return {
+        id: item.id,
+        name: item.name,
+        community: item.community,
+        progress: item.progress ?? 0,
+        monitoringProgress,
+        status: monitoringProgress.completed >= monitoringProgress.total ? 'Complete' : 'Incomplete',
+        original: item,
+      };
     });
 
     if (selectedStatusFilter !== 'All') {

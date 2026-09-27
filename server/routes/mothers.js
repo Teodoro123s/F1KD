@@ -46,6 +46,7 @@ function mapMother(row) {
     city: row.city || addressParts[1] || '',
     barangay: row.barangay || addressParts[2] || '',
     community: row.community || row.area || '',
+    communityId: row.community_id ?? null,
     area: row.area || row.community || '',
     groupId: row.group_id ?? null,
     batchId: row.batch_id ?? null,
@@ -263,7 +264,7 @@ router.delete('/:id/documents/:field', async (req, res) => {
 });
 
 const MOTHER_ALLOWED_FIELDS = new Set([
-  'id', 'motherId', 'name', 'firstName', 'middleName', 'lastName', 'maidenSurname', 'dob', 'age', 'phone', 'contactNumber', 'province', 'city', 'barangay', 'community', 'group', 'batch', 'programType', 'status', 'risk', 'trimester', 'gestationalAge', 'lmpDate', 'eddDate', 'prenatalRegDate', 'prenatalWeight', 'prenatalBp', 'prenatalHeight', 'fundalHeight', 'fhr', 'weight', 'height', 'bmi', 'gravida', 'para', 'abortion', 'stillbirth', 'emergencyName', 'emergencyContact', 'emergencyRelationship', 'spouseName', 'medicalConditions', 'otherMedicalHistory', 'tt1Date', 'tt2Date', 'tt3Date', 'tt4Date', 'tt5Date', 'dentalCheckupDate', 'dentalFacility', 'dentalFindings', 'dentalRemarks', 'birthCertificateDocumentName', 'consentDocumentName', 'assessment', 'progress', 'trend', 'createdAt', 'vaccines', 'oralHealth', 'programs', 'documents', 'checkups', 'source'
+  'id', 'motherId', 'name', 'firstName', 'middleName', 'lastName', 'maidenSurname', 'dob', 'age', 'phone', 'contactNumber', 'province', 'city', 'barangay', 'community', 'communityId', 'group', 'groupId', 'batch', 'batchId', 'programType', 'status', 'risk', 'trimester', 'gestationalAge', 'lmpDate', 'eddDate', 'prenatalRegDate', 'prenatalWeight', 'prenatalBp', 'prenatalHeight', 'fundalHeight', 'fhr', 'weight', 'height', 'bmi', 'gravida', 'para', 'abortion', 'stillbirth', 'emergencyName', 'emergencyContact', 'emergencyRelationship', 'spouseName', 'medicalConditions', 'otherMedicalHistory', 'tt1Date', 'tt2Date', 'tt3Date', 'tt4Date', 'tt5Date', 'dentalCheckupDate', 'dentalFacility', 'dentalFindings', 'dentalRemarks', 'birthCertificateDocumentName', 'consentDocumentName', 'assessment', 'progress', 'trend', 'createdAt', 'vaccines', 'oralHealth', 'programs', 'documents', 'checkups', 'source'
 ]);
 
 function getRequestedMotherFields(req) {
@@ -273,7 +274,7 @@ function getRequestedMotherFields(req) {
   const allowed = fields.filter((field) => MOTHER_ALLOWED_FIELDS.has(field));
   const required = new Set([
     'id', 'motherId', 'name', 'firstName', 'middleName', 'lastName', 'maidenSurname', 'dob', 'contactNumber',
-    'province', 'city', 'barangay', 'community', 'communityId', 'group', 'groupId', 'batch', 'emergencyName', 'emergencyContact', 'emergencyRelationship',
+    'province', 'city', 'barangay', 'community', 'communityId', 'group', 'groupId', 'batch', 'batchId', 'emergencyName', 'emergencyContact', 'emergencyRelationship',
     'lmpDate', 'eddDate', 'prenatalRegDate', 'trimester', 'gestationalAge', 'prenatalWeight', 'prenatalBp', 'prenatalHeight',
     'gravida', 'abortion', 'stillbirth', 'birthCertificateDocumentName', 'birthCertificateDocumentPath',
     'consentDocumentName', 'consentDocumentPath', 'progress', 'status', 'checkups', 'source'

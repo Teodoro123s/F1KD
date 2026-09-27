@@ -96,9 +96,13 @@ router.get('/', async (req, res) => {
       : `TRIM(CONCAT_WS(' ', c.first_name, c.middle_name, c.last_name, c.suffix))`;
     const childNameExpression = params.granularity === 'mother' ? 'NULL' : `TRIM(CONCAT_WS(' ', c.first_name, c.middle_name, c.last_name, c.suffix))`;
     const totalExpression = params.granularity === 'mother' ? 'COUNT(DISTINCT c.id) * 48' : '48';
+    const monthAgeExpression = `CASE
+      WHEN c.birth_date IS NULL OR c.birth_date < '1900-01-01' OR c.birth_date > CURDATE() THEN NULL
+      ELSE TIMESTAMPDIFF(MONTH, c.birth_date, CURDATE()) - CASE WHEN DAY(CURDATE()) < DAY(c.birth_date) THEN 1 ELSE 0 END
+    END`;
     const ageExpression = params.granularity === 'mother'
       ? 'TIMESTAMPDIFF(YEAR, m.dob, CURDATE())'
-      : 'ROUND(TIMESTAMPDIFF(MONTH, c.birth_date, CURDATE()) / 12, 1)';
+      : monthAgeExpression;
     const pediatricAgeWeeksExpression = params.granularity === 'mother'
       ? 'NULL'
       : `CASE WHEN c.birth_date IS NULL OR c.birth_date < '1900-01-01' OR c.birth_date > CURDATE() THEN NULL ELSE TIMESTAMPDIFF(WEEK, c.birth_date, COALESCE((SELECT latest_cc.visit_date FROM child_checkups latest_cc WHERE latest_cc.child_id = c.id ORDER BY latest_cc.visit_date DESC, latest_cc.id DESC LIMIT 1), CURDATE())) END`;

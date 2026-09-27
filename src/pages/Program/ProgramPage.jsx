@@ -16,6 +16,7 @@ import { apiGetChildren } from "../../api/children";
 import { apiCompleteNamedProgramCluster, apiCompleteProgramCluster, apiCreateProgram, apiCreateProgramClusters, apiDeleteProgram, apiEndProgram, apiGetProgramMonitoring, apiGetPrograms, apiRestoreProgram, apiSetProgramMonitoring, apiUpdateProgram } from "../../api/programs";
 import { notifyAction } from '../../components/ActionFeedback';
 import ExpandableTreeTable from "../Monitoring/ExpandableTreeTable";
+import { ConfirmActionModal } from "../Community/CommunityModals";
 import { formatDateForDisplay, normalizeDateValue } from '../../utils/dateFormat';
 import {
   beneficiaryNames,
@@ -33,10 +34,13 @@ export default function ProgramPage() {
   const navigate = useNavigate();
   const { programId, clusterType, clusterName } = useParams();
   const { currentUser } = useAuth();
-  const canManagePrograms = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]);
   const isCommunityOrganizer = ['community organizer', 'communityorganizer']
     .includes(String(currentUser?.role || '').trim().toLowerCase());
-  const canCreatePrograms = canManagePrograms || isCommunityOrganizer;
+  const isSuperAdmin = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]);
+  const canManagePrograms = isSuperAdmin || isCommunityOrganizer;
+  const canCreatePrograms = isSuperAdmin || isCommunityOrganizer;
+  const canDeletePrograms = isSuperAdmin || isCommunityOrganizer;
+  const canEndPrograms = isSuperAdmin || isCommunityOrganizer;
   const canMonitorPrograms = canCreatePrograms || hasRole(currentUser?.role, [ROLES.PARTNER]) || isHealthWorkerRole(currentUser?.role);
   const [activeTab, setActiveTab] = useState("Active");
   const [query, setQuery] = useState("");
@@ -63,6 +67,7 @@ export default function ProgramPage() {
   const [scopeError, setScopeError] = useState('');
   const [activeActionMenu, setActiveActionMenu] = useState(null);
   const [actionProgram, setActionProgram] = useState(null);
+  const [pendingDeleteProgram, setPendingDeleteProgram] = useState(null);
   const [programError, setProgramError] = useState('');
   const [beneficiaryRecords, setBeneficiaryRecords] = useState([]);
   const [drillLevel, setDrillLevel] = useState('school');
@@ -576,21 +581,43 @@ export default function ProgramPage() {
   };
   const deleteProgram = () => {
     const programToDelete = actionProgram || selectedProgram;
-    if (!programToDelete || !window.confirm(`Delete ${programToDelete.name}?`)) return;
-    apiDeleteProgram(programToDelete.id).then(() => {
+    if (!programToDelete) return;
+    setPendingDeleteProgram(programToDelete);
+    setActiveActionMenu(null);
+  };
+
+  const confirmDeleteProgram = async () => {
+    if (!pendingDeleteProgram) return;
+    const programToDelete = pendingDeleteProgram;
+    setPendingDeleteProgram(null);
+    try {
+      await apiDeleteProgram(programToDelete.id);
       setPrograms((current) => current.filter((program) => program.id !== programToDelete.id));
-      setActiveActionMenu(null);
       notifyAction(`Deleted ${programToDelete.name}.`);
-      navigate("/program");
-    }).catch((error) => {
+      navigate('/program');
+    } catch (error) {
       const message = error.message || 'Unable to delete program.';
       notifyAction(message, 'error');
-    });
+    }
   };
   const renderActionMenu = (menuId, menuProgram = selectedProgram) => canManagePrograms && (
     <div className="program-action-menu-wrap" onClick={(event) => event.stopPropagation()}>
       <button type="button" className="program-more-button" aria-label="Program actions" aria-haspopup="true" aria-expanded={activeActionMenu === menuId} onClick={(event) => { event.stopPropagation(); setActionProgram(menuProgram); setActiveActionMenu(activeActionMenu === menuId ? null : menuId); }}><MoreVerticalIcon /></button>
-      {activeActionMenu === menuId && <div className="actions-dropdown program-actions-dropdown" role="menu">{String(menuProgram?.status || '').trim().toLowerCase() !== 'ended' && <button type="button" className="actions-dropdown-item" onClick={editProgram} role="menuitem">Edit</button>}{activeTab === 'Ended' ? <button type="button" className="actions-dropdown-item" onClick={backToActivePrograms} role="menuitem">Back to active programs</button> : <button type="button" className="actions-dropdown-item" onClick={endProgram} role="menuitem">End program</button>}<button type="button" className="actions-dropdown-item delete" onClick={deleteProgram} role="menuitem">Delete</button></div>}
+      {activeActionMenu === menuId && (
+        <div className="actions-dropdown program-actions-dropdown" role="menu">
+          {(isSuperAdmin || isCommunityOrganizer) && String(menuProgram?.status || '').trim().toLowerCase() !== 'ended' && (
+            <button type="button" className="actions-dropdown-item" onClick={editProgram} role="menuitem">Edit</button>
+          )}
+          {canEndPrograms && (
+            activeTab === 'Ended'
+              ? <button type="button" className="actions-dropdown-item" onClick={backToActivePrograms} role="menuitem">Back to active programs</button>
+              : <button type="button" className="actions-dropdown-item" onClick={endProgram} role="menuitem">End program</button>
+          )}
+          {canDeletePrograms && (
+            <button type="button" className="actions-dropdown-item delete" onClick={deleteProgram} role="menuitem">Delete</button>
+          )}
+        </div>
+      )}
     </div>
   );
 
@@ -764,6 +791,15 @@ export default function ProgramPage() {
           </table>}
         </div>
       </section>
+
+      <ConfirmActionModal
+        show={Boolean(pendingDeleteProgram)}
+        title="Delete program?"
+        message={pendingDeleteProgram ? `Delete ${pendingDeleteProgram.name}?` : 'Delete this program?'}
+        confirmLabel="Delete"
+        onConfirm={confirmDeleteProgram}
+        onCancel={() => setPendingDeleteProgram(null)}
+      />
 
       {showBeneficiaryModal && selectedProgram && (
         <div

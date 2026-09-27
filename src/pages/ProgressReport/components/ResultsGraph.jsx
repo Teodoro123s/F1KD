@@ -88,68 +88,72 @@ export function ResultsGraph({
   programMetrics,
 }) {
   const graphMetricOptions = graphMetricType === 'interpretation' ? availableGrowthMetrics : availableNumericGrowthMetrics;
+  const metricLabel = (graphMetricOptions.find(([id]) => id === selectedGraphMetric)?.[1] || selectedGraphMetric || 'Metric')
+    .replace(/([a-z])([A-Z])/g, '$1 $2');
+  const chartTitle = displayReportCategory === 'program'
+    ? programMetrics.find(([id]) => id === displayWeeks)?.[1] || 'Program Benefits'
+    : displayReportCategory === 'profile'
+      ? 'Profile Summary'
+      : displayBeneficiaryType === 'mother'
+        ? 'BMI'
+        : metricLabel.replace(/\s+Z-Score$/i, '').replace(/\s+Interpretation$/i, '');
+  const chartSubtitle = displayReportCategory === 'program'
+    ? 'Program benefits by group'
+    : displayReportCategory === 'profile'
+      ? 'Profile distribution snapshot'
+      : displayBeneficiaryType === 'mother'
+        ? 'Latest mother BMI measurements · values are plotted by month'
+        : 'Weight and length plotted against age in months';
+
+  const isWeightLengthFocus = chartTitle === 'Weight-for-Length/Height';
 
   return (
     <div className="results-graph-wrap">
-      <div className="graph-controls">
-        {displayReportCategory === 'profile' ? (
-          <label className="report-chart-select">
-            Graph column
-            <select value={profileGraphColumn} onChange={(event) => setProfileGraphColumn(event.target.value)}>
-              {profileGraphFields.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
-            </select>
-          </label>
-        ) : (
-          <>
+      <div className={`growth-report-single-card${isWeightLengthFocus ? ' weight-length-focus-card' : ''}`}>
+        <h3>{chartTitle}</h3>
+        <p>{chartSubtitle}</p>
+        <div className="graph-controls">
+          {displayReportCategory === 'profile' ? (
+            <label className="report-chart-select">
+              Graph column
+              <select value={profileGraphColumn} onChange={(event) => setProfileGraphColumn(event.target.value)}>
+                {profileGraphFields.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+              </select>
+            </label>
+          ) : (
             <label className="report-chart-select">
               Y-axis
               <select value={graphMetricType} onChange={(event) => {
                 const nextType = event.target.value;
                 setGraphMetricType(nextType);
-                const nextMetric = (nextType === 'interpretation' ? availableGrowthMetrics : availableNumericGrowthMetrics)[0]?.[0] || '';
+                const nextOptions = nextType === 'interpretation' ? availableGrowthMetrics : availableNumericGrowthMetrics;
+                const nextMetric = nextOptions.find(([id]) => id === selectedGraphMetric)?.[0] || nextOptions[0]?.[0] || '';
                 if (nextMetric) setGrowthMetrics([nextMetric]);
               }}>
                 <option value="interpretation">Interpretation</option>
                 <option value="numeric">WHO values</option>
               </select>
             </label>
+          )}
+          {displayReportCategory === 'monitor' && (
             <label className="report-chart-select">
-              Metric
-              <select value={selectedGraphMetric} onChange={(event) => {
-                const nextMetric = event.target.value;
-                setGrowthMetrics([nextMetric]);
-                setGraphMetricType(interpretationMetrics.has(nextMetric) ? 'interpretation' : 'numeric');
-              }}>
-                {graphMetricOptions.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+              Display last
+              <select value={displayWeeks} onChange={(event) => setDisplayWeeks(event.target.value)}>
+                <option value="all">All</option>
+                <option value="1">1 month</option>
+                <option value="3">3 months</option>
+                <option value="6">6 months</option>
+                <option value="12">12 months</option>
               </select>
             </label>
-          </>
-        )}
-        {displayReportCategory === 'monitor' && (
-          <label className="report-chart-select">
-            Display last
-            <select value={displayWeeks} onChange={(event) => setDisplayWeeks(event.target.value)}>
-              <option value="all">All</option>
-              <option value="1">1 month</option>
-              <option value="3">3 months</option>
-              <option value="6">6 months</option>
-              <option value="12">12 months</option>
-            </select>
-          </label>
-        )}
-      </div>
-
-      {displayReportCategory === 'profile' ? (
-        <ProfileGraph rows={resultsRows} field={profileGraphColumn} profileGraphFields={profileGraphFields} />
-      ) : (
-        <GrowthChart rows={graphRows} metric={selectedGraphMetric} chartType="line" displayWeeks={displayWeeks} beneficiaryType={displayBeneficiaryType} />
-      )}
-      <div className="growth-report-single-card">
-        <h3>{displayReportCategory === 'program' ? programMetrics.find(([id]) => id === displayWeeks)?.[1] || 'Program Benefits' : displayReportCategory === 'profile' ? 'Profile Summary' : (displayBeneficiaryType === 'mother' ? 'BMI' : selectedGraphMetric)}</h3>
-        <p>{displayReportCategory === 'program' ? 'Program benefits by group' : displayReportCategory === 'profile' ? 'Profile distribution snapshot' : displayBeneficiaryType === 'mother' ? 'Latest mother BMI measurements · values are plotted by month' : 'Growth interpretations plotted by monitoring month'}</p>
-        <div className="growth-report-value">
-          {displayReportCategory === 'program' ? averageMetric(displayWeeks, graphRows) : displayReportCategory === 'profile' ? `${resultsRows.length} records` : averageMetric(selectedGraphMetric, resultsRows)}
+          )}
         </div>
+
+        {displayReportCategory === 'profile' ? (
+          <ProfileGraph rows={resultsRows} field={profileGraphColumn} profileGraphFields={profileGraphFields} />
+        ) : (
+          <GrowthChart rows={graphRows} metric={selectedGraphMetric} chartType="line" displayWeeks={displayWeeks} beneficiaryType={displayBeneficiaryType} />
+        )}
       </div>
     </div>
   );

@@ -11,6 +11,8 @@ export function GrowthMetricsStep({
   availableGrowthMetrics,
   growthMetrics,
   selectGrowthMetric,
+  setActiveTab,
+  generateReport,
 }) {
   return (
     <div className="progress-report-tab-panel">
@@ -55,9 +57,16 @@ export function GrowthMetricsStep({
               </label>
             ))}
           </div>
-          <p className="progress-report-note warning">This field reports the latest recorded measurement. Use the display filter to view older monitoring periods in the chart.</p>
         </>
       )}
+      <div className="progress-report-tab-actions">
+        <button type="button" className="primary-btn" onClick={() => {
+          setActiveTab(4);
+          if (generateReport) generateReport();
+        }}>
+          Next: Results →
+        </button>
+      </div>
     </div>
   );
 }

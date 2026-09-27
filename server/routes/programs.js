@@ -58,33 +58,58 @@ async function getProgram(id) {
   };
 }
 
+function programHasScopeMatch(clusters = [], { schoolId, groupId } = {}) {
+  if (!schoolId && !groupId) return true;
+  if (!clusters.length) return true;
+
+  if (groupId) {
+    return clusters.some((cluster) => {
+      if (cluster.type === 'Group') return true;
+      if (cluster.type === 'Batch') return true;
+      return false;
+    });
+  }
+
+  if (schoolId) {
+    return clusters.some((cluster) => cluster.type === 'School' || cluster.type === 'Group' || cluster.type === 'Batch');
+  }
+
+  return true;
+}
+
 router.get('/', async (req, res) => {
   try {
     const scopeClause = req.groupId
-      ? `WHERE EXISTS (
-          SELECT 1
-          FROM program_clusters scoped_cluster
-          WHERE scoped_cluster.program_id = p.id
-            AND (
-              (scoped_cluster.scope_type = 'Group' AND EXISTS (
-                SELECT 1 FROM groups scoped_group
-                WHERE scoped_group.id = ? AND scoped_group.name = scoped_cluster.scope_name
-              ))
-              OR (scoped_cluster.scope_type = 'Batch' AND EXISTS (
-                SELECT 1 FROM group_batch scoped_group_batch
-                INNER JOIN batches scoped_batch ON scoped_batch.id = scoped_group_batch.batch_id
-                WHERE scoped_group_batch.group_id = ? AND scoped_batch.name = scoped_cluster.scope_name
-              ))
-            )
+      ? `WHERE (
+          NOT EXISTS (SELECT 1 FROM program_clusters scoped_cluster WHERE scoped_cluster.program_id = p.id)
+          OR EXISTS (
+            SELECT 1
+            FROM program_clusters scoped_cluster
+            WHERE scoped_cluster.program_id = p.id
+              AND (
+                (scoped_cluster.scope_type = 'Group' AND EXISTS (
+                  SELECT 1 FROM groups scoped_group
+                  WHERE scoped_group.id = ? AND scoped_group.name = scoped_cluster.scope_name
+                ))
+                OR (scoped_cluster.scope_type = 'Batch' AND EXISTS (
+                  SELECT 1 FROM group_batch scoped_group_batch
+                  INNER JOIN batches scoped_batch ON scoped_batch.id = scoped_group_batch.batch_id
+                  WHERE scoped_group_batch.group_id = ? AND scoped_batch.name = scoped_cluster.scope_name
+                ))
+              )
+          )
         )`
       : req.schoolId
-      ? `WHERE EXISTS (
-          SELECT 1
-          FROM program_clusters scoped_cluster
-          INNER JOIN communities scoped_school ON scoped_school.name = scoped_cluster.scope_name
-          WHERE scoped_cluster.program_id = p.id
-            AND scoped_cluster.scope_type = 'School'
-            AND scoped_school.id = ?
+      ? `WHERE (
+          NOT EXISTS (SELECT 1 FROM program_clusters scoped_cluster WHERE scoped_cluster.program_id = p.id)
+          OR EXISTS (
+            SELECT 1
+            FROM program_clusters scoped_cluster
+            INNER JOIN communities scoped_school ON scoped_school.name = scoped_cluster.scope_name
+            WHERE scoped_cluster.program_id = p.id
+              AND scoped_cluster.scope_type = 'School'
+              AND scoped_school.id = ?
+          )
         )`
       : '';
     const [rows] = await pool.query(`SELECT p.* FROM programs p ${scopeClause} ORDER BY p.id DESC`, req.groupId ? [req.groupId, req.groupId] : req.schoolId ? [req.schoolId] : []);

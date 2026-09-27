@@ -1,5 +1,5 @@
 const DAYS_PER_MONTH = 30.4375;
-const MAX_AGE_DAYS = 1856;
+const WHO_CHILD_GROWTH_MAX_AGE_DAYS = 731;
 const STANDING_HEIGHT_AGE_DAYS = 731;
 
 const parseReference = (raw, measureColumn) => {
@@ -50,8 +50,8 @@ export const getAgeInDays = (birthDate, measurementDate) => {
 
 const isEligibleAge = (ageInDays) => Number.isFinite(ageInDays)
   && ageInDays >= 0
-  && ageInDays <= MAX_AGE_DAYS
-  && ageInDays / DAYS_PER_MONTH < 60;
+  && ageInDays <= WHO_CHILD_GROWTH_MAX_AGE_DAYS
+  && ageInDays / DAYS_PER_MONTH <= 24;
 
 const calculateLmsScore = (measurement, lms) => {
   const value = Number(measurement);
