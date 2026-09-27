@@ -1,7 +1,17 @@
 import React from 'react';
 import { formatDateForInput } from '../../../utils/dateFormat';
+import { calculateGestationalDetails } from '../../../utils/beneficiaryHelpers';
 import { capitalizeNameValue } from '../../../utils/nameFormat';
 import { getPhilippineBarangays, getPhilippineCities, PHILIPPINE_PROVINCES } from '../../../utils/philippineLocations';
+
+const calculateEddDate = (value) => {
+  const normalized = formatDateForInput(value);
+  if (!normalized) return '';
+  const [year, month, day] = normalized.split('-').map(Number);
+  const edd = new Date(year, month - 1, day);
+  edd.setDate(edd.getDate() + 280);
+  return `${edd.getFullYear()}-${String(edd.getMonth() + 1).padStart(2, '0')}-${String(edd.getDate()).padStart(2, '0')}`;
+};
 
 export function MotherFormFields({
   activeTab,
@@ -10,7 +20,6 @@ export function MotherFormFields({
   communities = [],
   groups = [],
   batches = [],
-  autoCalculate = true,
   readOnly = false,
   slashDateInput = false,
   documentFiles = {},
@@ -30,6 +39,7 @@ export function MotherFormFields({
   const selectedBarangay = barangayOptions.find((barangay) => barangay.toLowerCase() === String(form.barangay || '').toLowerCase()) || '';
 
   React.useEffect(() => {
+    if (readOnly || typeof setForm !== 'function') return;
     if ((selectedProvince && selectedProvince !== form.province)
       || (selectedCity && selectedCity !== form.city)
       || (selectedBarangay && selectedBarangay !== form.barangay)) {
@@ -43,33 +53,19 @@ export function MotherFormFields({
   }, [selectedProvince, selectedCity, form.province, form.city, form.barangay, barangayOptions, selectedBarangay]);
 
   const handleLmpChange = (val) => {
-    setForm((prev) => {
-      const newForm = { ...prev, lmpDate: val };
-      if (val && autoCalculate) {
-        const lmp = new Date(val);
-        if (!isNaN(lmp.getTime())) {
-          const edd = new Date(lmp.getTime() + 280 * 24 * 60 * 60 * 1000);
-          newForm.eddDate = edd.toISOString().split('T')[0];
-
-          // Calculate Gestational Age (GA) in weeks
-          const today = new Date();
-          const diffTime = today - lmp;
-          const diffWeeks = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24 * 7)));
-          newForm.gestationalAge = String(diffWeeks);
-
-          // Determine Trimester
-          if (diffWeeks <= 12) {
-            newForm.trimester = '1st Trimester';
-          } else if (diffWeeks <= 26) {
-            newForm.trimester = '2nd Trimester';
-          } else {
-            newForm.trimester = '3rd Trimester';
-          }
-        }
-      }
-      return newForm;
-    });
+    setForm((prev) => ({ ...prev, lmpDate: val }));
   };
+
+  React.useEffect(() => {
+    if (readOnly || typeof setForm !== 'function') return;
+    const eddDate = calculateEddDate(form.lmpDate);
+    if (!eddDate) return;
+    const pregnancyDetails = calculateGestationalDetails(form.lmpDate, form.prenatalRegDate);
+    if (form.eddDate === eddDate
+      && form.gestationalAge === pregnancyDetails.gestationalAge
+      && form.trimester === pregnancyDetails.trimester) return;
+    setForm((prev) => ({ ...prev, eddDate, ...pregnancyDetails }));
+  }, [form.lmpDate, form.prenatalRegDate]);
 
   const handleObHistoryChange = (index, field, value) => {
     setForm((prev) => {
@@ -126,7 +122,10 @@ export function MotherFormFields({
   const commitDateValue = (name, value, onChange) => {
     const normalized = slashDateInput ? normalizeSlashDate(value) : value;
     const isComplete = !slashDateInput || value.replace(/\D/g, '').length === 8;
-    setDateDrafts((prev) => ({ ...prev, [name]: isComplete && normalized ? formatSlashDate(normalized) : formatPartialSlashDate(value) }));
+    const displayValue = isComplete && normalized
+      ? (slashDateInput ? formatSlashDate(normalized) : normalized)
+      : (slashDateInput ? formatPartialSlashDate(value) : value);
+    setDateDrafts((prev) => ({ ...prev, [name]: displayValue }));
     if (!isComplete) return;
     if (onChange) onChange(normalized);
     else setForm((prev) => ({ ...prev, [name]: normalized }));
@@ -140,7 +139,7 @@ export function MotherFormFields({
   };
 
   // Helpers to reduce repetitive form markup and support read-only display
-  const renderField = ({ id, label, name, type = 'text', placeholder = '', required = false, valueOverride, onChange, nativeDate = false, maxDate }) => {
+  const renderField = ({ id, label, name, type = 'text', placeholder = '', required = false, valueOverride, onChange, nativeDate = false, maxDate, minValue, disabled = false }) => {
     const value = valueOverride ?? form[name] ?? '';
     const isDate = type === 'date';
     const isNumeric = type === 'tel';
@@ -191,8 +190,10 @@ export function MotherFormFields({
             inputMode={isNumeric ? 'numeric' : undefined}
             pattern={isNumeric ? '[0-9]*' : undefined}
             max={maxDate}
+            min={minValue}
             autoComplete={nativeDate ? 'off' : undefined}
             required={required}
+            disabled={disabled}
           />
           {isNativeDate && (
             <button
@@ -211,6 +212,7 @@ export function MotherFormFields({
               }}
               aria-label={`Open calendar for ${label}`}
               tabIndex={-1}
+              disabled={disabled}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
@@ -519,13 +521,13 @@ export function MotherFormFields({
             </div>
           )}
 
-          {renderField({ id: 'mother-edd', label: "Expected Delivery Date (EDD)", name: 'eddDate', type: 'date', nativeDate: true, required: true })}
+          {renderField({ id: 'mother-edd', label: "Expected Delivery Date (EDD)", name: 'eddDate', type: 'date', nativeDate: true, required: true, disabled: true })}
           </div>
 
           <div className="form-row-3 full-width">
           {renderField({ id: 'prenatal-reg-date', label: 'Date of Prenatal Registration', name: 'prenatalRegDate', type: 'date', nativeDate: true, required: true })}
-          {renderSelect({ id: 'prenatal-trimester', label: 'Trimester at Registration', name: 'trimester', options: ['1st Trimester','2nd Trimester','3rd Trimester'], required: true })}
-          {renderField({ id: 'prenatal-gest-age', label: 'Gestational Age at Reg (weeks)', name: 'gestationalAge', placeholder: 'e.g. 12', required: true })}
+          {renderSelect({ id: 'prenatal-trimester', label: 'Trimester at Registration', name: 'trimester', options: ['1st Trimester','2nd Trimester','3rd Trimester'], required: true, disabled: true })}
+          {renderField({ id: 'prenatal-gest-age', label: 'Gestational Age at Reg (weeks)', name: 'gestationalAge', required: true, disabled: true })}
           </div>
 
           <div className="form-row-3 full-width">
@@ -538,9 +540,9 @@ export function MotherFormFields({
         <section className="create-mother-category">
           <h4 className="form-section-title">III. NUMBER OF PREGNANCIES & BIRTHS (OB)</h4>
           <div className="form-row-3 full-width">
-          {renderField({ id: 'ob-gravida', label: 'Gravida (Pregnancies)', name: 'gravida', type: 'number', placeholder: 'Total pregnancies', required: true })}
-          {renderField({ id: 'ob-abortion', label: 'Abortion', name: 'abortion', type: 'number', placeholder: 'Spontaneous/induced', required: true })}
-          {renderField({ id: 'ob-stillbirth', label: 'Stillbirth', name: 'stillbirth', type: 'number', placeholder: 'Fetal death >20wks', required: true })}
+          {renderField({ id: 'ob-gravida', label: 'Gravida (Pregnancies)', name: 'gravida', type: 'number', placeholder: 'Total pregnancies', required: true, minValue: 0 })}
+          {renderField({ id: 'ob-abortion', label: 'Abortion', name: 'abortion', type: 'number', placeholder: 'Spontaneous/induced', required: true, minValue: 0 })}
+          {renderField({ id: 'ob-stillbirth', label: 'Stillbirth', name: 'stillbirth', type: 'number', placeholder: 'Fetal death >20wks', required: true, minValue: 0 })}
           </div>
         </section>
 
@@ -602,26 +604,26 @@ export function MotherFormFields({
             ))
           )}
           </div>
-          {renderTextarea({ id: 'other-medical-notes', label: 'Other Medical History', name: 'otherMedicalHistory', rows: 2, placeholder: 'Other medical history notes...', required: true })}
+          {renderTextarea({ id: 'other-medical-notes', label: 'Other Medical History', name: 'otherMedicalHistory', rows: 2, placeholder: 'Other medical history notes...' })}
         </section>
 
         <section className="create-mother-category">
           <h4 className="form-section-title">IV.B DENTAL HEALTH CONDITION</h4>
           <div className="form-row-3 full-width">
-          {renderField({ id: 'dental-date', label: 'Date of Dental Check-up', name: 'dentalCheckupDate', type: 'date', nativeDate: true, required: true })}
-          {renderField({ id: 'dental-facility', label: 'Dental Clinic / Health Facility', name: 'dentalFacility', placeholder: 'Facility name', required: true })}
-          {renderField({ id: 'dentist-charge', label: 'Dentist in Charge', name: 'dentistInCharge', placeholder: 'Dentist name', required: true })}
+          {renderField({ id: 'dental-date', label: 'Date of Dental Check-up', name: 'dentalCheckupDate', type: 'date', nativeDate: true })}
+          {renderField({ id: 'dental-facility', label: 'Dental Clinic / Health Facility', name: 'dentalFacility', placeholder: 'Facility name' })}
+          {renderField({ id: 'dentist-charge', label: 'Dentist in Charge', name: 'dentistInCharge', placeholder: 'Dentist name' })}
           </div>
 
           <div className="form-row-3 full-width">
-          {renderField({ id: 'dentist-comm', label: 'Community Dentist Name', name: 'communityDentist', placeholder: 'Community dentist', required: true })}
-          {renderField({ id: 'dentist-license', label: 'Dentist License No', name: 'dentistLicense', placeholder: 'License number', required: true })}
-          {renderField({ id: 'dentist-contact', label: 'Dentist Contact No', name: 'dentistContact', type: 'tel', placeholder: 'Contact number', required: true })}
+          {renderField({ id: 'dentist-comm', label: 'Community Dentist Name', name: 'communityDentist', placeholder: 'Community dentist' })}
+          {renderField({ id: 'dentist-license', label: 'Dentist License No', name: 'dentistLicense', placeholder: 'License number' })}
+          {renderField({ id: 'dentist-contact', label: 'Dentist Contact No', name: 'dentistContact', type: 'tel', placeholder: 'Contact number' })}
           </div>
 
-          {renderField({ id: 'teeth-count', label: 'Number of Teeth Pregnant', name: 'teethCount', type: 'number', placeholder: 'e.g. 28', required: true })}
+          {renderField({ id: 'teeth-count', label: 'Number of Teeth Pregnant', name: 'teethCount', type: 'number', placeholder: 'e.g. 28' })}
 
-          {renderTextarea({ id: 'dental-findings', label: 'Dental Findings / Diagnosis', name: 'dentalFindings', rows: 2, placeholder: 'Findings or diagnosis...', required: true })}
+          {renderTextarea({ id: 'dental-findings', label: 'Dental Findings / Diagnosis', name: 'dentalFindings', rows: 2, placeholder: 'Findings or diagnosis...' })}
 
           <div className="form-group full-width">
           <label className="form-label">Dental Work Done</label>
@@ -652,7 +654,7 @@ export function MotherFormFields({
           )}
           </div>
 
-          {renderTextarea({ id: 'dental-remarks', label: 'Remarks / Recommendations', name: 'dentalRemarks', rows: 2, placeholder: 'Dental recommendations...', required: true })}
+          {renderTextarea({ id: 'dental-remarks', label: 'Remarks / Recommendations', name: 'dentalRemarks', rows: 2, placeholder: 'Dental recommendations...' })}
         </section>
       </div>
     );

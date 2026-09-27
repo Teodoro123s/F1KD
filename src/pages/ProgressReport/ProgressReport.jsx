@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { apiGetProgressReport, apiGetProgressReportOptions } from '../../api/progressReport';
 import { apiGetPrograms } from '../../api/programs';
 import PageHeader from '../../components/ui/PageHeader';
 import { useAuth } from '../../auth/AuthProvider';
-import { isHealthWorkerRole } from '../../utils/permissions';
+import { isCommunityCoordinatorRole, isHealthWorkerRole } from '../../utils/permissions';
 import { ReportTabBar } from './components/ReportTabBar';
 import { CommunitySelectionStep } from './components/CommunitySelectionStep';
 import { ReportFocusStep } from './components/ReportFocusStep';
@@ -120,6 +121,7 @@ const aggregateGrowthRows = (rows, focus) => {
       weightForAgeInterpretation: normalizeNutritionLabel(getMode(groupRows.map((row) => row.weightForAgeInterpretation))),
       lengthForAgeInterpretation: normalizeNutritionLabel(getMode(groupRows.map((row) => row.lengthForAgeInterpretation))),
       growthSeries,
+      isGroupAggregate: true,
     };
   });
 };
@@ -196,6 +198,8 @@ const downloadChartImage = (svgElement, metricLabel) => {
 };
 
 function GrowthInterpretationChart({ rows, metric, displayWeeks = 'all', beneficiaryType = 'child' }) {
+  const navigate = useNavigate();
+  const [hoveredSeries, setHoveredSeries] = useState('');
   const isMother = beneficiaryType === 'mother';
   const monthKey = (dateValue) => {
     const date = new Date(dateValue);
@@ -216,7 +220,7 @@ function GrowthInterpretationChart({ rows, metric, displayWeeks = 'all', benefic
   };
   const entries = rows.flatMap((row) => (row.growthSeries || []).map((point) => ({ row, point, interpretation: getPointInterpretation(point, metric), timeline: timelineKey(point) })))
     .filter((entry) => entry.interpretation && entry.timeline !== null);
-  const timelines = [...new Set(entries.map((entry) => entry.timeline))].sort((left, right) => isMother ? left.localeCompare(right) : left - right);
+  const timelines = [...new Set(entries.map((entry) => entry.timeline))].sort((left, right) => left.localeCompare(right));
   const requestedWeeks = Number(displayWeeks);
   const visibleTimelines = String(displayWeeks) === 'all' || !Number.isFinite(requestedWeeks) || requestedWeeks <= 0
     ? timelines
@@ -226,32 +230,50 @@ function GrowthInterpretationChart({ rows, metric, displayWeeks = 'all', benefic
   if (!visibleEntries.length) return <p className="growth-report-empty">No interpretation data available.</p>;
 
   const categories = getInterpretationLevels(metric);
+  const axisCategories = [...categories].reverse();
   const width = Math.max(520, visibleTimelines.length * 150 + 120);
   const height = 220;
-  const paddingX = 100;
-  const yAxisLabelX = 36;
+  const paddingX = 175;
+  const yAxisLabelX = 12;
   const xForTimeline = (timeline) => visibleTimelines.length <= 1 ? width / 2 : paddingX + (visibleTimelines.indexOf(timeline) / (visibleTimelines.length - 1)) * (width - paddingX * 2);
   const yForCategory = (category) => {
-    const index = categories.indexOf(category);
+    const index = axisCategories.indexOf(category);
     if (index < 0) return height / 2;
-    return 24 + (index / (categories.length - 1)) * (height - 48);
+    return 24 + (index / (axisCategories.length - 1)) * (height - 48);
   };
   const colors = ['#15803d', '#1d9f6f', '#6ea86d', '#b7791f', '#d97706'];
+  const seriesColors = ['#15803d', '#2563eb', '#d97706', '#7c3aed', '#0f766e', '#be123c'];
   const entriesByRow = new Map();
   visibleEntries.forEach((entry) => {
     const key = entry.row.child || entry.row.mother || 'Beneficiary';
     const points = entriesByRow.get(key) || [];
-    points.push({ ...entry, interpretation: mapInterpretationToBand(entry.interpretation, metric) });
+    const band = mapInterpretationToBand(entry.interpretation, metric);
+    points.push({ ...entry, interpretation: band });
     entriesByRow.set(key, points);
   });
+  const latestPointByBeneficiary = new Map(
+    [...entriesByRow.entries()].map(([name, points]) => [name, points.at(-1)?.point])
+  );
   const interpretationLines = [...entriesByRow.entries()].map(([key, points], index) => {
     const sortedPoints = [...points].sort((left, right) => visibleTimelines.indexOf(left.timeline) - visibleTimelines.indexOf(right.timeline));
-    return <polyline key={`interpretation-series-${key}`} points={sortedPoints.map(({ interpretation, timeline }) => `${xForTimeline(timeline)},${yForCategory(interpretation)}`).join(' ')} fill="none" stroke="#15803d" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />;
+    const seriesState = hoveredSeries ? (hoveredSeries === key ? ' is-active' : ' is-muted') : '';
+    return <polyline key={`interpretation-series-${key}`} className={`growth-report-series-line${seriesState}`} points={sortedPoints.map(({ interpretation, timeline }) => `${xForTimeline(timeline)},${yForCategory(interpretation)}`).join(' ')} fill="none" stroke={seriesColors[index % seriesColors.length]} strokeWidth={hoveredSeries === key ? '5' : '3'} strokeLinecap="round" strokeLinejoin="round" />;
   });
-  return <div className="growth-report-line-chart interpretation-growth-chart" style={{ overflowX: 'auto' }}><svg viewBox={`0 0 ${width} ${height}`} style={{ minWidth: `${Math.max(width, 720)}px` }} role="img" aria-label="Growth interpretation over time"><text className="growth-report-y-axis-label" x={yAxisLabelX} y={height / 2} textAnchor="middle" transform={`rotate(-90 ${yAxisLabelX} ${height / 2})`}>Interpretation</text>{categories.map((category) => <line key={`category-line-${category}`} className="growth-report-gridline" x1={paddingX} x2={width - 24} y1={yForCategory(category)} y2={yForCategory(category)} />)}{visibleTimelines.map((timeline) => <line key={`interpretation-line-${timeline}`} className="growth-report-weekline" x1={xForTimeline(timeline)} x2={xForTimeline(timeline)} y1="24" y2={height - 24} />)}{categories.map((category) => <text key={category} className="growth-report-y-axis-tick" x={paddingX - 18} y={yForCategory(category) + 4} textAnchor="end">{category}</text>)}{interpretationLines}{visibleEntries.map(({ row, point, interpretation, timeline }, index) => {
+  return <div className="growth-report-line-chart interpretation-growth-chart" style={{ overflowX: 'auto' }}><svg viewBox={`0 0 ${width} ${height}`} style={{ minWidth: `${Math.max(width, 720)}px` }} role="img" aria-label="Growth interpretation over time"><text className="growth-report-y-axis-label" x={yAxisLabelX} y={height / 2} textAnchor="middle" transform={`rotate(-90 ${yAxisLabelX} ${height / 2})`}>Interpretation</text>{axisCategories.map((category) => <line key={`category-line-${category}`} className="growth-report-gridline" x1={paddingX} x2={width - 24} y1={yForCategory(category)} y2={yForCategory(category)} />)}{visibleTimelines.map((timeline) => <line key={`interpretation-line-${timeline}`} className="growth-report-weekline" x1={xForTimeline(timeline)} x2={xForTimeline(timeline)} y1="24" y2={height - 24} />)}{axisCategories.map((category) => <text key={category} className="growth-report-y-axis-tick" x={paddingX - 18} y={yForCategory(category) + 4} textAnchor="end">{category}</text>)}{interpretationLines}{visibleEntries.map(({ row, point, interpretation, timeline }, index) => {
     const band = mapInterpretationToBand(interpretation, metric);
-    return <circle key={`${row.child || row.mother}-${timeline}-${index}`} cx={xForTimeline(timeline)} cy={yForCategory(band)} r="6" fill={colors[categories.indexOf(band) % colors.length]} stroke="#fff" strokeWidth="2"><title>{row.child || row.mother}: {band} · {timelineLabel(timeline)}</title></circle>;
-  })} </svg><div className="growth-report-line-labels" style={{ position: 'relative', minHeight: '1.4rem', paddingLeft: '3.2rem', paddingRight: '1.1rem', width: `${Math.max(width, 720)}px`, minWidth: `${Math.max(width, 720)}px` }}>{visibleTimelines.map((timeline) => <span key={timeline} style={{ position: 'absolute', left: `${xForTimeline(timeline)}px`, transform: 'translateX(-50%)', whiteSpace: 'nowrap' }}>{timelineLabel(timeline)}</span>)}</div><div className="growth-report-legend">{categories.map((category, index) => <span key={category}><i style={{ background: colors[index % colors.length] }} />{category}</span>)}</div></div>;
+    const beneficiaryName = row.child || row.mother || 'Beneficiary';
+    const isLatestPoint = latestPointByBeneficiary.get(beneficiaryName) === point;
+    const profilePath = row.isGroupAggregate
+      ? ''
+      : isMother && row.motherId
+        ? `/beneficiary/mother/${encodeURIComponent(row.motherId)}/profile`
+        : !isMother && row.childId
+          ? `/beneficiary/child/${encodeURIComponent(row.childId)}/profile`
+          : '';
+            const seriesState = hoveredSeries ? (hoveredSeries === beneficiaryName ? ' is-active' : ' is-muted') : '';
+    const openProfile = () => { if (profilePath) navigate(profilePath); };
+            return <circle key={`${beneficiaryName}-${timeline}-${index}`} className={`${profilePath ? 'growth-report-data-point ' : ''}growth-report-series-point${isLatestPoint ? ' is-latest' : ''}${seriesState}`} cx={xForTimeline(timeline)} cy={yForCategory(band)} r={isLatestPoint ? '9' : '6'} fill={colors[categories.indexOf(band) % colors.length]} stroke="#fff" strokeWidth={isLatestPoint ? '3' : '2'} role={profilePath ? 'link' : undefined} aria-label={profilePath ? `Open ${beneficiaryName} profile, ${band}, ${timelineLabel(timeline)}${isLatestPoint ? ', latest measurement' : ''}` : undefined} tabIndex={profilePath ? 0 : undefined} onClick={profilePath ? openProfile : undefined} onKeyDown={profilePath ? (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openProfile(); } } : undefined}><title>{beneficiaryName}: {band} · {timelineLabel(timeline)}{isLatestPoint ? ' · Latest measurement' : ''}{profilePath ? ' · Click to view profile' : ''}</title></circle>;
+  })} </svg><div className="growth-report-line-labels" style={{ position: 'relative', minHeight: '1.4rem', paddingLeft: '3.2rem', paddingRight: '1.1rem', width: `${Math.max(width, 720)}px`, minWidth: `${Math.max(width, 720)}px` }}>{visibleTimelines.map((timeline) => <span key={timeline} style={{ position: 'absolute', left: `${xForTimeline(timeline)}px`, transform: 'translateX(-50%)', whiteSpace: 'nowrap' }}>{timelineLabel(timeline)}</span>)}</div><div className="growth-report-legend growth-report-series-legend">{[...entriesByRow.keys()].map((name, index) => <span key={name} className={hoveredSeries ? (hoveredSeries === name ? 'is-active' : 'is-muted') : ''} tabIndex={0} onMouseEnter={() => setHoveredSeries(name)} onMouseLeave={() => setHoveredSeries('')} onFocus={() => setHoveredSeries(name)} onBlur={() => setHoveredSeries('')}><i style={{ '--series-color': seriesColors[index % seriesColors.length] }} />{name}</span>)}</div><div className="growth-report-legend">{categories.map((category, index) => <span key={category}><i style={{ background: colors[index % colors.length] }} />{category}</span>)}</div></div>;
 }
 
 function ProgramAverageChart({ rows, metric = 'receivedBenefitAveragePerMonth' }) {
@@ -463,8 +485,7 @@ function GrowthChart({ rows, metric, chartType, displayWeeks = 'all', beneficiar
 export default function ProgressReport() {
   const { currentUser } = useAuth();
   const isHealthWorker = isHealthWorkerRole(currentUser?.role);
-  const isCommunityOrganizer = ['community organizer', 'communityorganizer', 'community_coordinator', 'communitycoordinator', 'coordinator']
-    .includes(String(currentUser?.role || '').trim().toLowerCase());
+  const isCommunityOrganizer = isCommunityCoordinatorRole(currentUser?.role);
   const isSchoolAssignedUser = isHealthWorker || isCommunityOrganizer;
   const [options, setOptions] = useState({ schools: [], groups: [], batches: [], mothers: [] });
   const assignedSchoolId = currentUser?.school_id ?? currentUser?.schoolId ?? '';
@@ -821,7 +842,6 @@ export default function ProgressReport() {
               beneficiaryType={beneficiaryType}
               setBeneficiaryType={setBeneficiaryType}
               setActiveTab={setActiveTab}
-              generateReport={generateReport}
             />
           )}
 

@@ -1,36 +1,30 @@
 import React from 'react';
-import { StatusAllIcon, StatusMissingIcon, StatusPendingIcon, StatusDoneIcon } from '../BeneficiaryIcons';
 
 const MONITOR_STATUS_OPTIONS = [
-  { key: 'All', label: 'All', icon: StatusAllIcon },
-  { key: 'Missing', label: 'Missing', icon: StatusMissingIcon },
-  { key: 'In Progress', label: 'In Progress', icon: StatusPendingIcon },
-  { key: 'Done', label: 'Done', icon: StatusDoneIcon },
+  { key: 'All', label: 'All' },
+  { key: 'Missing', label: 'Missing' },
+  { key: 'Pending', label: 'Pending' },
+  { key: 'Done', label: 'Done' },
 ];
 
 const BENEFICIARY_STATUS_OPTIONS = [
-  { key: 'All', label: 'All', icon: StatusAllIcon },
-  { key: 'Incomplete', label: 'Incomplete', icon: StatusPendingIcon },
-  { key: 'Complete', label: 'Complete', icon: StatusDoneIcon },
+  { key: 'All', label: 'All' },
+  { key: 'Incomplete', label: 'Incomplete' },
+  { key: 'Complete', label: 'Complete' },
 ];
 
 export default function StatusFilterBar({ selectedStatusFilter, onChange, mode = 'monitor' }) {
-  const statusOptions = mode === 'beneficiary' ? BENEFICIARY_STATUS_OPTIONS : MONITOR_STATUS_OPTIONS;
+  const isBeneficiary = mode === 'beneficiary';
+  const statusOptions = isBeneficiary ? BENEFICIARY_STATUS_OPTIONS : MONITOR_STATUS_OPTIONS;
   return (
-    <div className="tabs-list" role="tablist" aria-label={`${mode === 'beneficiary' ? 'Beneficiary profile' : 'Monitor'} status filter`}>
-      {statusOptions.map(({ key, label, icon: Icon }) => (
-        <button
-          key={key}
-          role="tab"
-          aria-selected={selectedStatusFilter === key}
-          type="button"
-          className={`tab-btn${selectedStatusFilter === key ? ' active' : ''}`}
-          onClick={() => onChange(key)}
-        >
-          <Icon />
-          <span>{label}</span>
-        </button>
-      ))}
+    <div className={isBeneficiary ? 'beneficiary-status-filter' : 'monitoring-status-filter'}>
+      <select
+        aria-label={`${isBeneficiary ? 'Beneficiary' : 'Monitoring'} status filter`}
+        value={selectedStatusFilter}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        {statusOptions.map(({ key, label }) => <option key={key} value={key}>{label}</option>)}
+      </select>
     </div>
   );
 }

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { formatDateForInput } from '../../utils/dateFormat';
 import { capitalizeNameValue } from '../../utils/nameFormat';
 import { generatePassword } from './lib';
+import { isCommunityCoordinatorRole, isHealthWorkerRole } from '../../utils/permissions';
 
 function formatDobForDisplay(value) {
   const inputDate = formatDateForInput(value);
@@ -83,10 +84,8 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
     const nextValue = ['firstName', 'lastName', 'middleInitial'].includes(field) ? capitalizeNameValue(value) : value;
     setForm((prev) => ({ ...prev, [field]: nextValue }));
   };
-  const roleName = String(form.role || '').trim().toLowerCase();
-  // Assignment controls follow operational role scope: organizers need a school; health workers need both.
-  const requiresSchool = ['health worker', 'community organizer'].includes(roleName);
-  const requiresGroup = roleName === 'health worker';
+  const requiresSchool = isCommunityCoordinatorRole(form.role) || isHealthWorkerRole(form.role);
+  const requiresGroup = isHealthWorkerRole(form.role);
   const schoolIsRequired = requiresSchool;
   const selectedSchoolName = communities.find((school) => String(school.id) === String(form.schoolId || ''))?.name || '';
   const groupOptions = groups.filter((group) => {

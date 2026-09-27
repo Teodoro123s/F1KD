@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ChildFormFields } from './BeneficiaryChild';
-import { apiGetChild, apiUpdateChild } from '../../../api/children';
+import { apiGetChild, apiUpdateChild, apiUploadChildBirthDocument } from '../../../api/children';
 import { getSummary } from '../../Community/communityService';
 import { formatDateForInput } from '../../../utils/dateFormat';
 import { useMothers } from '../../../context/MothersContext';
@@ -13,6 +13,8 @@ const normalizeChild = (child) => ({
   firstName: child.firstName || child.first_name || '',
   middleName: child.middleName || child.middle_name || '',
   lastName: child.lastName || child.last_name || '',
+  birthDocumentName: child.birthDocumentName || child.birth_document_name || '',
+  birthDocumentPath: child.birthDocumentPath || child.birth_document_path || '',
   birthDate: formatDateForInput(child.birthDate || child.birth_date),
   birthWeight: child.birthWeight || child.birth_weight || '',
   birthLength: child.birthLength || child.birth_length || '',
@@ -56,6 +58,7 @@ export default function EditChildPage() {
   const location = useLocation();
   const { setMothers } = useMothers();
   const [form, setForm] = useState(() => normalizeChild(location.state?.child || {}));
+  const [birthDocumentFile, setBirthDocumentFile] = useState(null);
   const [options, setOptions] = useState({ communities: [], batches: [] });
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('general');
@@ -105,7 +108,18 @@ export default function EditChildPage() {
         mmrDate: normalizeDatePayload(form.mmrDate),
       };
       const response = await apiUpdateChild(childId || form.id || form.child_code, payload);
-      const updatedChild = normalizeChild(response.child || form);
+      let savedChild = response.child || form;
+      let documentUploadFailed = false;
+      if (birthDocumentFile) {
+        try {
+          const documentResponse = await apiUploadChildBirthDocument(childId || form.id || form.child_code, birthDocumentFile);
+          savedChild = documentResponse?.child || savedChild;
+        } catch (documentError) {
+          documentUploadFailed = true;
+          console.error('Child details saved but birth document upload failed:', documentError);
+        }
+      }
+      const updatedChild = normalizeChild(savedChild);
       const childKeys = [updatedChild.id, updatedChild.child_code, form.id, form.child_code]
         .filter((key) => key !== undefined && key !== null && key !== '')
         .map(String);
@@ -122,6 +136,7 @@ export default function EditChildPage() {
           : mother.children,
       })));
 
+      if (documentUploadFailed) notifyAction('Child details saved, but the birth document upload failed. Edit the child to try again.', 'error');
       navigate(-1, { state: { updatedChild } });
     } catch (saveError) {
       notifyAction(saveError.message || 'Unable to save child', 'error');
@@ -185,6 +200,9 @@ export default function EditChildPage() {
               setForm={setForm}
               communities={options.communities}
               batches={options.batches}
+              birthDocumentFile={birthDocumentFile}
+              setBirthDocumentFile={setBirthDocumentFile}
+              existingBirthDocumentName={form.birthDocumentName}
             />
           </div>
 

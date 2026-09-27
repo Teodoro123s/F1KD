@@ -4,7 +4,7 @@ import { formatDateForDisplay } from '../../../utils/dateFormat';
 import { apiDeleteMother, apiGetMother } from '../../../api/mothers';
 import { resolveAssetUrl } from '../../../api/authHeader';
 import { useAuth } from '../../../auth/AuthProvider';
-import { can, hasRole, ROLES } from '../../../utils/permissions';
+import { can } from '../../../utils/permissions';
 import PageHeader from '../../../components/ui/PageHeader';
 import { notifyAction } from '../../../components/ActionFeedback';
 import { MotherFormFields } from './BeneficiaryMother';
@@ -106,8 +106,8 @@ const ChipList = ({ items, emptyLabel = 'None' }) => {
 export default function MotherDetailPage({ selectedMother, onClose, onMotherUpdated, overviewOnly = false }) {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
-  const canManage = can(currentUser?.role, 'beneficiary-resources', 'update');
-  const canEdit = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.PARTNER]);
+  const canManage = can(currentUser?.role, 'beneficiary-resources', 'delete');
+  const canEdit = can(currentUser?.role, 'beneficiary-resources', 'update');
   const [motherRecord, setMotherRecord] = useState(selectedMother);
   const [activeTab, setActiveTab] = useState('overview');
   const [profileTab, setProfileTab] = useState('general');

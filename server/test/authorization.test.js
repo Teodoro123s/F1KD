@@ -5,8 +5,9 @@ const { normalizeRole, authorizeOperational } = require('../middleware/authorize
 test('normalizeRole maps common role labels to canonical values', () => {
   assert.equal(normalizeRole('Super Admin'), 'super_admin');
   assert.equal(normalizeRole('Administrator'), 'admin');
-  assert.equal(normalizeRole('Community Organizer'), 'partner');
-  assert.equal(normalizeRole('Health worker'), 'partner');
+  assert.equal(normalizeRole('Community Organizer'), 'community_coordinator');
+  assert.equal(normalizeRole('Community Coordinator'), 'community_coordinator');
+  assert.equal(normalizeRole('Health worker'), 'health_worker');
 });
 
 test('authorizeOperational denies scoped users without a school assignment to prevent data leaks', () => {
@@ -357,41 +358,14 @@ test('authorizeOperational keeps user-management restricted to super admins', ()
   assert.equal(res.code, 403);
 });
 
-
-  for (const request of requests) {
-    let called = false;
-    const req = {
-      method: request.method,
-      baseUrl: '/api/programs',
-      path: request.path,
-      user: { role: request.role, school_id: 7 },
-    };
-    const res = {
-      status(code) {
-        this.code = code;
-        return this;
-      },
-      json(payload) {
-        this.payload = payload;
-        return this;
-      },
-    };
-
-    authorizeOperational(req, res, () => {
-      called = true;
-    });
-
-    assert.equal(called, request.allowed, `${request.role} ${request.method} ${request.path}`);
-    assert.equal(res.code, request.allowed ? undefined : 403);
-  }
-});
-
-test('authorizeOperational allows scoped admin and partner users to save child checkups only', () => {
+test('authorizeOperational allows coordinators to update child records and save checkups', () => {
   const requests = [
     { method: 'POST', path: '/C-1/checkups', role: 'Community Organizer', school_id: 7, schoolId: 7, groupId: null, allowed: true },
     { method: 'POST', path: '/C-1/checkups', role: 'Health worker', school_id: 7, group_id: 15, schoolId: 7, groupId: 15, allowed: true },
     { method: 'POST', path: '/C-1/checkups', role: 'Admin', schoolId: null, groupId: null, allowed: true },
-    { method: 'PUT', path: '/C-1', role: 'Community Organizer', school_id: 7, schoolId: 7, groupId: null, allowed: false },
+    { method: 'PUT', path: '/C-1', role: 'Community Organizer', school_id: 7, schoolId: 7, groupId: null, allowed: true },
+    { method: 'PUT', path: '/C-1', role: 'Community Coordinator', school_id: 7, schoolId: 7, groupId: null, allowed: true },
+    { method: 'PUT', path: '/C-1', role: 'Health worker', school_id: 7, group_id: 15, schoolId: 7, groupId: 15, allowed: false },
   ];
 
   for (const request of requests) {

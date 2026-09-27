@@ -18,13 +18,20 @@ export const getFirstIncompleteCheckup = (checkups = DEFAULT_CHECKUPS) => {
   return null;
 };
 
-export const calculateGestationalDetails = (lmpDate) => {
-  if (!lmpDate) return { gestationalAge: '', trimester: '1st Trimester' };
-  const lmp = new Date(lmpDate);
-  if (Number.isNaN(lmp.getTime())) return { gestationalAge: '', trimester: '1st Trimester' };
+const parseDateOnly = (value) => {
+  if (!value) return null;
+  const match = String(value).trim().match(/^(\d{4})[-/](\d{2})[-/](\d{2})/);
+  if (!match) return null;
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  return Number.isNaN(date.getTime()) ? null : date;
+};
 
-  const today = new Date();
-  const diffDays = Math.max(0, Math.floor((today - lmp) / (1000 * 60 * 60 * 24)));
+export const calculateGestationalDetails = (lmpDate, registrationDate) => {
+  const lmp = parseDateOnly(lmpDate);
+  if (!lmp) return { gestationalAge: '', trimester: '' };
+
+  const registration = parseDateOnly(registrationDate) || new Date();
+  const diffDays = Math.max(0, Math.floor((registration - lmp) / (1000 * 60 * 60 * 24)));
   const gestationalAge = String(Math.floor(diffDays / 7));
 
   let trimester = '1st Trimester';

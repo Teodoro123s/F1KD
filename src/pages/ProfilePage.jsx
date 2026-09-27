@@ -3,6 +3,7 @@ import PageHeader from '../components/ui/PageHeader';
 import { PageSkeleton } from '../components/LoadingSkeleton';
 import { useAuth } from '../auth/AuthProvider';
 import { getSummary } from './Community/communityService';
+import { isCommunityCoordinatorRole, isHealthWorkerRole } from '../utils/permissions';
 
 export default function ProfilePage() {
   const auth = useAuth();
@@ -50,9 +51,8 @@ export default function ProfilePage() {
 
   if (auth.loading) return <PageSkeleton rows={5} />;
 
-  const normalizedRole = String(user?.role || '').trim().toLowerCase();
-  const isCommunityOrganizer = normalizedRole === 'community organizer';
-  const isHealthWorker = normalizedRole === 'health worker';
+  const isCommunityOrganizer = isCommunityCoordinatorRole(user?.role);
+  const isHealthWorker = isHealthWorkerRole(user?.role);
   const requiresSchoolAssignment = isCommunityOrganizer || isHealthWorker;
 
   return (

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../../auth/AuthProvider";
-import { hasRole, isHealthWorkerRole, ROLES } from "../../utils/permissions";
+import { hasRole, isCommunityCoordinatorRole, isHealthWorkerRole, ROLES } from "../../utils/permissions";
 import PageHeader from '../../components/ui/PageHeader';
 import {
   BatchesIcon,
@@ -34,13 +34,12 @@ export default function ProgramPage() {
   const navigate = useNavigate();
   const { programId, clusterType, clusterName } = useParams();
   const { currentUser } = useAuth();
-  const isCommunityOrganizer = ['community organizer', 'communityorganizer']
-    .includes(String(currentUser?.role || '').trim().toLowerCase());
+  const isCommunityOrganizer = isCommunityCoordinatorRole(currentUser?.role);
   const isSuperAdmin = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]);
-  const canManagePrograms = isSuperAdmin || isCommunityOrganizer;
-  const canCreatePrograms = isSuperAdmin || isCommunityOrganizer;
-  const canDeletePrograms = isSuperAdmin || isCommunityOrganizer;
-  const canEndPrograms = isSuperAdmin || isCommunityOrganizer;
+  const canManagePrograms = isCommunityOrganizer;
+  const canCreatePrograms = isCommunityOrganizer;
+  const canDeletePrograms = isCommunityOrganizer;
+  const canEndPrograms = isCommunityOrganizer;
   const canMonitorPrograms = canCreatePrograms || hasRole(currentUser?.role, [ROLES.PARTNER]) || isHealthWorkerRole(currentUser?.role);
   const [activeTab, setActiveTab] = useState("Active");
   const [query, setQuery] = useState("");
@@ -754,7 +753,6 @@ export default function ProgramPage() {
                     <th>Program</th>
                     <th>Type</th>
                     <th>Provider</th>
-                    <th>Reached</th>
                     <th>Action</th>
                   </tr>
                 </thead>
@@ -772,15 +770,12 @@ export default function ProgramPage() {
                         </td>
                         <td>{program.type}</td>
                         <td>{program.provider}</td>
-                        <td>
-                          {Math.min(Number(program.received || 0), getProgramBeneficiaryCount(program))} / {getProgramBeneficiaryCount(program)}
-                        </td>
                         <td>{renderActionMenu(`main-${program.id}`, program)}</td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="5" className="no-data">
+                      <td colSpan="4" className="no-data">
                         No programs match your search.
                       </td>
                     </tr>

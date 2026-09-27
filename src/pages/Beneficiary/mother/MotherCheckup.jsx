@@ -44,7 +44,7 @@ const getMonitoringStartDetails = (mother = {}) => {
   const currentWeeks = Number.isFinite(registeredWeeks) ? registeredWeeks : null;
   const trimester = registeredTrimester || (currentWeeks !== null
     ? getTrimesterFromGestationalAge(currentWeeks)
-    : '1st Trimester');
+    : '2nd Trimester');
 
   return {
     registrationDate,

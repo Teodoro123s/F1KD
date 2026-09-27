@@ -2,7 +2,7 @@
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useMothers } from '../../../context/MothersContext';
 import { formatDateForDisplay } from '../../../utils/dateFormat';
-import { apiDeleteChild, apiUploadChildBirthDocument } from '../../../api/children';
+import { apiDeleteChild } from '../../../api/children';
 import { resolveAssetUrl } from '../../../api/authHeader';
 import { useAuth } from '../../../auth/AuthProvider';
 import { can } from '../../../utils/permissions';
@@ -126,6 +126,7 @@ const normalizeChild = (child = {}) => ({
     nutritionNotes: child.nutritionNotes || child.nutrition_notes || '',
     address: child.address || '',
   community: child.community || child.community_name || '',
+    group: child.group || child.group_name || '',
   batch: child.batch || child.batch_name || '',
     medicalConditions: child.medicalConditions || child.medical_conditions || {},
     medicalRemarks: child.medicalRemarks || child.medical_remarks || '',
@@ -197,35 +198,11 @@ export default function ChildProfilePage() {
 
   const initialSelected = childFromState || (resolvedFromUrl?.child ? normalizeChild(resolvedFromUrl.child) : null);
   const [selectedChild, setSelectedChild] = useState(initialSelected);
-  const [uploadingBirthDocument, setUploadingBirthDocument] = useState(false);
-  const [uploadMessage, setUploadMessage] = useState('');
-  const [isEditingBirthDocument, setIsEditingBirthDocument] = useState(false);
   const [previewDocument, setPreviewDocument] = useState(null);
   const [profileTab, setProfileTab] = useState('general');
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const isChildProfile = location.pathname.endsWith('/profile');
-
-  const uploadBirthDocument = async (file) => {
-    if (!file || !selectedChild?.id) return;
-    setUploadingBirthDocument(true);
-    setUploadMessage('');
-    try {
-      const response = await apiUploadChildBirthDocument(selectedChild.id, file);
-      if (response?.child) {
-        const nextChild = normalizeChild(response.child);
-        setSelectedChild(nextChild);
-        if (location.state) {
-          location.state.updatedChild = nextChild;
-        }
-      }
-      setUploadMessage('Document uploaded successfully.');
-    } catch (error) {
-      setUploadMessage(error.message || 'Unable to upload document.');
-    } finally {
-      setUploadingBirthDocument(false);
-    }
-  };
 
   const requestDeleteChild = () => {
     if (!canManage || !selectedChild?.id || isDeleting) return;
@@ -236,13 +213,12 @@ export default function ChildProfilePage() {
     if (!canManage || !selectedChild?.id || isDeleting) return;
     setShowDeleteConfirm(false);
     setIsDeleting(true);
-    setUploadMessage('');
     try {
       await apiDeleteChild(selectedChild.id);
       notifyAction(`${childName || 'Child'} deleted successfully.`);
       navigate('/beneficiary');
     } catch (error) {
-      setUploadMessage(error.message || 'Unable to delete child.');
+      notifyAction(error.message || 'Unable to delete child.', 'error');
       setIsDeleting(false);
     }
   };
@@ -341,6 +317,13 @@ export default function ChildProfilePage() {
     birthDate: formatDateForDisplay(selectedChild?.birthDate || selectedChild?.birth_date),
     birthWeight: selectedChild?.birthWeight ?? selectedChild?.birth_weight ?? '',
     birthLength: selectedChild?.birthLength ?? selectedChild?.birth_length ?? '',
+            motherName: selectedChild?.motherName
+              || [selectedChild?.mother_first_name, selectedChild?.mother_last_name].filter(Boolean).join(' ')
+              || resolvedMother?.name
+              || [resolvedMother?.firstName, resolvedMother?.lastName].filter(Boolean).join(' '),
+            community: selectedChild?.community || selectedChild?.community_name || resolvedMother?.community || resolvedMother?.school || '',
+            group: selectedChild?.group || selectedChild?.group_name || resolvedMother?.group || '',
+            batch: selectedChild?.batch || selectedChild?.batch_name || resolvedMother?.batch || '',
     deliveryType: selectedChild?.deliveryType || selectedChild?.delivery_type || '',
     birthAttendant: selectedChild?.birthAttendant || selectedChild?.birth_attendant || '',
     apgarScore: selectedChild?.apgarScore ?? selectedChild?.apgar_score ?? '',
@@ -435,35 +418,8 @@ export default function ChildProfilePage() {
       {profileTab === 'general' && (
         <ChildSection title="I.B REQUIRED DOCUMENTS">
           <div className="document-upload-field full-width">
-            <div className="document-upload-header-row">
-              <label className="detail-form-label" htmlFor="child-birth-document">Live Birth Certificate / Birth Certificate</label>
-              <div className="document-upload-menu-wrap">
-                <button
-                  type="button"
-                  className="document-upload-menu-button"
-                  aria-label="Document actions for birth certificate"
-                  aria-expanded={isEditingBirthDocument || false}
-                  onClick={() => setIsEditingBirthDocument((current) => !current)}
-                >
-                  ⋯
-                </button>
-                {selectedChild.birthDocumentName && isEditingBirthDocument && (
-                  <div className="document-upload-menu" role="menu">
-                    <button type="button" role="menuitem" onClick={() => setIsEditingBirthDocument((current) => !current)}>
-                      {isEditingBirthDocument ? 'Cancel edit' : 'Edit'}
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-            {(isEditingBirthDocument || !selectedChild.birthDocumentName) && (
-              <input id="child-birth-document" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={(event) => {
-                uploadBirthDocument(event.target.files?.[0]);
-                setIsEditingBirthDocument(false);
-              }} disabled={uploadingBirthDocument} />
-            )}
+            <div className="detail-form-label">Live Birth Certificate / Birth Certificate</div>
             <DocumentPreview fileName={selectedChild.birthDocumentName} filePath={selectedChild.birthDocumentPath} label="Live Birth Certificate" onPreviewOpen={(url, name, type) => setPreviewDocument({ url, name, type })} />
-            {uploadMessage && <span className="document-upload-message" role="status">{uploadMessage}</span>}
           </div>
         </ChildSection>
       )}

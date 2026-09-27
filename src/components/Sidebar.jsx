@@ -5,7 +5,6 @@ import { useAuth } from '../auth/AuthProvider';
 import { ROLES, hasRole } from '../utils/permissions';
 
 const items = [
-  { to: '/dashboard', label: 'Dashboard', icon: '🏠' },
   { to: '/community', label: 'Community', icon: '👥' },
   { to: '/beneficiary', label: 'Beneficiary', icon: '🎯' },
   { to: '/monitoring', label: 'Monitor', icon: '📈' },
@@ -21,7 +20,7 @@ export default function Sidebar() {
   const isHealthWorker = ['health worker', 'healthworker']
     .includes(String(currentUser?.role || '').trim().toLowerCase());
   const visibleItems = isSuperAdmin
-    ? items.filter((item) => ['/dashboard', '/community', '/user-management'].includes(item.to))
+    ? items.filter((item) => ['/community', '/user-management'].includes(item.to))
     : items.filter((item) => item.to !== '/user-management' && (!isHealthWorker || item.to !== '/user-management'));
 
   return (

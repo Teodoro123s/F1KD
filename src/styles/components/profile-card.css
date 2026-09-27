@@ -1043,6 +1043,18 @@
 .results-tab-panel .growth-report-line-labels { position: relative; min-height: 1.25rem; margin-top: 0.35rem; margin-left: 0; padding: 0 1.4rem 0 1.2rem; color: #557262; font-size: 0.74rem; font-weight: 700; }
 .results-tab-panel .growth-report-legend { display: flex; flex-wrap: wrap; gap: 0.45rem 0.9rem; margin: 0.8rem 0 0; padding-top: 0.7rem; border-top: 1px solid #e8f1ea; color: #557262; font-size: 0.76rem; justify-content: flex-start; }
 .results-tab-panel .growth-report-legend span { display: inline-flex; align-items: center; gap: 0.3rem; max-width: 100%; }
+.results-tab-panel .growth-report-series-legend { margin-top: 0.5rem; padding-top: 0; border-top: 0; }
+.results-tab-panel .growth-report-series-legend i { width: 18px; height: 0; margin: 0; border-top: 3px solid var(--series-color); border-radius: 0; }
+.results-tab-panel .growth-report-series-legend span { padding: 0.15rem 0.3rem; border-radius: 5px; cursor: pointer; transition: background-color 120ms ease, opacity 120ms ease; }
+.results-tab-panel .growth-report-series-legend span.is-active { background: #e8f3ec; color: #173b2a; font-weight: 800; }
+.results-tab-panel .growth-report-series-legend span.is-muted { opacity: 0.45; }
+.results-tab-panel .growth-report-series-legend span:focus-visible { outline: 2px solid #15803d; outline-offset: 2px; }
+.results-tab-panel .growth-report-series-line, .results-tab-panel .growth-report-series-point { transition: opacity 120ms ease, stroke-width 120ms ease; }
+.results-tab-panel .growth-report-series-line.is-muted, .results-tab-panel .growth-report-series-point.is-muted { opacity: 0.14; }
+.results-tab-panel .growth-report-series-line.is-active { filter: drop-shadow(0 0 2px rgba(15, 23, 42, 0.45)); }
+.results-tab-panel .growth-report-series-point.is-active { stroke: #0f172a; stroke-width: 3; }
+.results-tab-panel .growth-report-data-point { cursor: pointer; }
+.results-tab-panel .growth-report-data-point:focus-visible { outline: none; stroke: #0f172a; stroke-width: 3; }
 
 .weight-length-focus-card {
   border-color: #dbe7df;

@@ -13,7 +13,6 @@ export function ReportFocusStep({
   beneficiaryType,
   setBeneficiaryType,
   setActiveTab,
-  generateReport,
 }) {
   return (
     <div className="progress-report-tab-panel">
@@ -69,10 +68,7 @@ export function ReportFocusStep({
         </fieldset>
       )}
       <div className="progress-report-tab-actions">
-        <button type="button" className="primary-btn" onClick={() => {
-          setActiveTab(3);
-          if (generateReport) generateReport();
-        }}>
+        <button type="button" className="primary-btn" onClick={() => setActiveTab(3)}>
           Next: Growth Metrics →
         </button>
       </div>

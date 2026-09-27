@@ -2,7 +2,7 @@ import React from 'react';
 import { formatDateForDisplay, formatDateForInput } from '../../../utils/dateFormat';
 import { capitalizeNameValue } from '../../../utils/nameFormat';
 
-export function ChildFormFields({ activeTab, form, setForm, communities = [], batches = [], readOnly = false, slashDateInput = true }) {
+export function ChildFormFields({ activeTab, form, setForm, communities = [], batches = [], readOnly = false, slashDateInput = true, birthDocumentFile, setBirthDocumentFile, existingBirthDocumentName = '' }) {
   const uniqueCommunities = Array.from(new Set(communities.map((comm) => comm.name))).filter(Boolean);
   const uniqueBatches = Array.from(new Set((batches || []).map((batch) => batch.name))).filter(Boolean);
   const [dateDrafts, setDateDrafts] = React.useState({});
@@ -267,8 +267,40 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
             options: [{ value: 'Male', label: 'Male' }, { value: 'Female', label: 'Female' }, { value: 'Other', label: 'Other' }],
           })}
         </div>
+        {readOnly && (
+          <div className="form-group full-width">
+            <label className="form-label">Mother</label>
+            <div className="form-readonly-value">{form.motherName || '—'}</div>
+          </div>
+        )}
+        {readOnly && (
+          <div className="form-row-3 full-width">
+            {['community', 'group', 'batch'].map((field) => (
+              <div className="form-group" key={field}>
+                <label className="form-label">{field === 'community' ? 'School' : field === 'group' ? 'Group' : 'Batch'}</label>
+                <div className="form-readonly-value">{form[field] || '—'}</div>
+              </div>
+            ))}
+          </div>
+        )}
 
         </section>
+        {!readOnly && (
+          <section className="create-mother-category">
+            <h4 className="form-section-title">Required Documents</h4>
+            <div className="document-upload-field full-width">
+              <label className="form-label" htmlFor="child-birth-document">Live Birth Certificate / Birth Certificate</label>
+              <input
+                id="child-birth-document"
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png,.webp"
+                onChange={(event) => setBirthDocumentFile?.(event.target.files?.[0] || null)}
+              />
+              {existingBirthDocumentName && <span className="document-upload-message">Current file: {existingBirthDocumentName}</span>}
+              {birthDocumentFile && <span className="document-upload-message">Selected file: {birthDocumentFile.name}</span>}
+            </div>
+          </section>
+        )}
       </div>
     );
   }
@@ -339,6 +371,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
       <div className="create-mother-general child-form-layout">
         <section className="create-mother-category">
         <h4 className="form-section-title">Medical Conditions</h4>
+        <p className="form-optional-note">Optional</p>
         <div className="form-checkboxes-grid full-width">
           {readOnly ? (
             <div className="form-readonly-list">
@@ -359,7 +392,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
             </label>
           ))}
         </div>
-        {renderTextarea({ id: 'child-medical-remarks', label: 'Medical Remarks', name: 'medicalRemarks', rows: 3, placeholder: 'Medical observations or remarks...' })}
+        {renderTextarea({ id: 'child-medical-remarks', label: 'Medical Remarks', name: 'medicalRemarks', rows: 3, placeholder: 'Medical observations or remarks...', required: false })}
         </section>
       </div>
     );
@@ -370,23 +403,24 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
       <div className="create-mother-general child-form-layout">
         <section className="create-mother-category">
         <h4 className="form-section-title">Vaccination Record</h4>
+        <p className="form-optional-note">Optional</p>
         <div className="form-group full-width">
           <div className="form-panel">
             <div className="form-row-4 full-width">
-              {renderField({ id: 'child-bcg-date', label: 'BCG Date', name: 'bcgDate', type: 'date', nativeDate: true })}
-              {renderField({ id: 'child-bcg-remarks', label: 'BCG Remarks', name: 'bcgRemarks', placeholder: 'Remarks' })}
-              {renderField({ id: 'child-hepb-date', label: 'HepB Date', name: 'hepbDate', type: 'date', nativeDate: true })}
-              {renderField({ id: 'child-hepb-remarks', label: 'HepB Remarks', name: 'hepbRemarks', placeholder: 'Remarks' })}
+              {renderField({ id: 'child-bcg-date', label: 'BCG Date', name: 'bcgDate', type: 'date', nativeDate: true, required: false })}
+              {renderField({ id: 'child-bcg-remarks', label: 'BCG Remarks', name: 'bcgRemarks', placeholder: 'Remarks', required: false })}
+              {renderField({ id: 'child-hepb-date', label: 'HepB Date', name: 'hepbDate', type: 'date', nativeDate: true, required: false })}
+              {renderField({ id: 'child-hepb-remarks', label: 'HepB Remarks', name: 'hepbRemarks', placeholder: 'Remarks', required: false })}
             </div>
             <div className="form-row-4 full-width">
-              {renderField({ id: 'child-opv-date', label: 'OPV Date', name: 'opvDate', type: 'date', nativeDate: true })}
-              {renderField({ id: 'child-opv-remarks', label: 'OPV Remarks', name: 'opvRemarks', placeholder: 'Remarks' })}
-              {renderField({ id: 'child-dpt-date', label: 'DPT Date', name: 'dptDate', type: 'date', nativeDate: true })}
-              {renderField({ id: 'child-dpt-remarks', label: 'DPT Remarks', name: 'dptRemarks', placeholder: 'Remarks' })}
+              {renderField({ id: 'child-opv-date', label: 'OPV Date', name: 'opvDate', type: 'date', nativeDate: true, required: false })}
+              {renderField({ id: 'child-opv-remarks', label: 'OPV Remarks', name: 'opvRemarks', placeholder: 'Remarks', required: false })}
+              {renderField({ id: 'child-dpt-date', label: 'DPT Date', name: 'dptDate', type: 'date', nativeDate: true, required: false })}
+              {renderField({ id: 'child-dpt-remarks', label: 'DPT Remarks', name: 'dptRemarks', placeholder: 'Remarks', required: false })}
             </div>
             <div className="form-row-2 full-width">
-              {renderField({ id: 'child-mmr-date', label: 'MMR Date', name: 'mmrDate', type: 'date', nativeDate: true })}
-              {renderField({ id: 'child-mmr-remarks', label: 'MMR Remarks', name: 'mmrRemarks', placeholder: 'Remarks' })}
+              {renderField({ id: 'child-mmr-date', label: 'MMR Date', name: 'mmrDate', type: 'date', nativeDate: true, required: false })}
+              {renderField({ id: 'child-mmr-remarks', label: 'MMR Remarks', name: 'mmrRemarks', placeholder: 'Remarks', required: false })}
             </div>
           </div>
         </div>

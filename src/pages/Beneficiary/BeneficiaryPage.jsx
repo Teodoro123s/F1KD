@@ -10,7 +10,7 @@ import { useMothers } from '../../context/MothersContext';
 import { getSummary } from '../Community/communityService';
 import { apiGetMother } from '../../api/mothers';
 import { apiGetChildrenByMother } from '../../api/children';
-import { can, isHealthWorkerRole } from '../../utils/permissions';
+import { can, isHealthWorkerRole, isSchoolScopedRole } from '../../utils/permissions';
 import { useAuth } from '../../auth/AuthProvider';
 
 export default function BeneficiaryPage() {
@@ -67,8 +67,7 @@ export default function BeneficiaryPage() {
   const isMotherDetail = Boolean(selectedMother);
   const canCreate = can(auth?.currentUser?.role, 'beneficiary-resources', 'create') && !isHealthWorkerRole(auth?.currentUser?.role);
   const assignedSchoolId = auth?.currentUser?.school_id ?? auth?.currentUser?.schoolId ?? null;
-  const isSchoolScopedUser = ['community organizer', 'communityorganizer', 'health worker', 'healthworker']
-    .includes(String(auth?.currentUser?.role || '').trim().toLowerCase());
+  const isSchoolScopedUser = isSchoolScopedRole(auth?.currentUser?.role);
   const scopedCommunities = React.useMemo(() => {
     if (!isSchoolScopedUser || !assignedSchoolId) return communities;
     return communities.filter((community) => String(community.id) === String(assignedSchoolId));

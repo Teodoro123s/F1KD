@@ -151,9 +151,9 @@ router.get('/', async (req, res) => {
         comm.name AS community_name, g.name AS group_name, b.name AS batch_name
        FROM children c
        LEFT JOIN mothers m ON c.mother_id = m.id
-       LEFT JOIN communities comm ON comm.id = c.community_id
-       LEFT JOIN groups g ON g.id = c.group_id
-       LEFT JOIN batches b ON b.id = c.batch_id
+             LEFT JOIN communities comm ON comm.id = COALESCE(c.community_id, m.community_id)
+             LEFT JOIN groups g ON g.id = COALESCE(c.group_id, m.group_id)
+             LEFT JOIN batches b ON b.id = COALESCE(c.batch_id, m.batch_id)
         ${scopeClause}
        ORDER BY c.created_at DESC, c.id DESC`
           , req.groupId ? [req.groupId, req.groupId] : req.schoolId ? [req.schoolId, req.schoolId] : []
@@ -295,9 +295,9 @@ router.get('/:id', async (req, res) => {
         comm.name AS community_name, g.name AS group_name, b.name AS batch_name
        FROM children c
        LEFT JOIN mothers m ON c.mother_id = m.id
-       LEFT JOIN communities comm ON comm.id = c.community_id
-       LEFT JOIN groups g ON g.id = c.group_id
-       LEFT JOIN batches b ON b.id = c.batch_id
+             LEFT JOIN communities comm ON comm.id = COALESCE(c.community_id, m.community_id)
+             LEFT JOIN groups g ON g.id = COALESCE(c.group_id, m.group_id)
+             LEFT JOIN batches b ON b.id = COALESCE(c.batch_id, m.batch_id)
         WHERE (c.id = ? OR c.child_code = ?)${req.groupId ? ' AND (c.group_id = ? OR (c.group_id IS NULL AND m.group_id = ?))' : req.schoolId ? ' AND (c.community_id = ? OR (c.community_id IS NULL AND m.community_id = ?))' : ''}`,
           req.groupId ? [id, id, req.groupId, req.groupId] : req.schoolId ? [id, id, req.schoolId, req.schoolId] : [id, id]
     );

@@ -25,7 +25,7 @@ export function getMotherDocumentProgress(mother = {}) {
 
 export function getMotherMonitoringProgress(mother = {}) {
   const registeredTrimester = String(mother.trimester || mother.trimester_at_registration || '').toLowerCase();
-  let startIndex = 0;
+  let startIndex = 1;
   if (registeredTrimester.includes('3rd') || registeredTrimester.includes('third')) startIndex = 2;
   else if (registeredTrimester.includes('2nd') || registeredTrimester.includes('second')) startIndex = 1;
   else {

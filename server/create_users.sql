@@ -267,28 +267,3 @@ CREATE TABLE IF NOT EXISTS child_checkups (
   UNIQUE KEY uq_child_checkup (child_id, week_number),
   CONSTRAINT fk_child_checkup_child FOREIGN KEY (child_id) REFERENCES children(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- Optional baseline seed data for a clean local copy.
--- Uncomment the blocks below if you want the fresh database to start with demo data.
-
--- INSERT INTO communities (community_code, name, area) VALUES
---   ('COMM-01', 'Monitor Demo School', 'Demo Area'),
---   ('COMM-02', 'Poblacion', 'Poblacion Area'),
---   ('COMM-03', 'Upang', 'Upang Area'),
---   ('COMM-04', 'San Roque', 'San Roque Area');
---
--- INSERT INTO groups (group_code, community_id, name, leader, members_count, status)
--- SELECT 'GRP-01', id, 'Monitor Demo Group 1', 'Demo Leader', 0, 'Active' FROM communities WHERE name = 'Monitor Demo School';
--- INSERT INTO groups (group_code, community_id, name, leader, members_count, status)
--- SELECT 'GRP-02', id, 'Monitor Demo Group 2', 'Demo Leader', 0, 'Active' FROM communities WHERE name = 'Monitor Demo School';
---
--- INSERT INTO batches (batch_code, community_id, name, records, progress, status)
--- SELECT 'BATCH-A1', id, 'Demo Batch A1', 0, 0, 'Active' FROM communities WHERE name = 'Monitor Demo School';
--- INSERT INTO batches (batch_code, community_id, name, records, progress, status)
--- SELECT 'BATCH-A2', id, 'Demo Batch A2', 0, 0, 'Active' FROM communities WHERE name = 'Monitor Demo School';
-
--- Recommended final step for a cloned install:
--- 1. Create the database using this script.
--- 2. Start the app backend.
--- 3. Run the project seed scripts if you want demo content loaded.
-

@@ -72,6 +72,7 @@ export default function CreateChildPage({
   const motherFromState = location.state?.mother || null;
   const { mothers, setMothers } = useMothers();
   const [groupForm, setGroupForm] = useState(() => loadChildDraft(emptyGroupForm()));
+  const [birthDocumentFile, setBirthDocumentFile] = useState(null);
   const [pendingChild, setPendingChild] = useState(null);
   const [creating, setCreating] = useState(false);
   const [selectedMotherId, setSelectedMotherId] = useState(() => {
@@ -190,8 +191,19 @@ export default function CreateChildPage({
     setCreating(true);
 
     try {
-      const { apiCreateChild } = await import('../../../api/children');
+      const { apiCreateChild, apiUploadChildBirthDocument } = await import('../../../api/children');
       const { child } = await apiCreateChild(pendingChild.payload);
+      let savedChild = child;
+      let documentUploadFailed = false;
+      if (birthDocumentFile) {
+        try {
+          const documentResponse = await apiUploadChildBirthDocument(child.id || child.child_code, birthDocumentFile);
+          savedChild = documentResponse?.child || child;
+        } catch (documentError) {
+          documentUploadFailed = true;
+          console.error('Child created but birth document upload failed:', documentError);
+        }
+      }
 
       const newGroup = {
         id: child.id || `G-${Date.now()}`,
@@ -233,6 +245,8 @@ export default function CreateChildPage({
         dptRemarks: child.dpt_remarks || groupForm.dptRemarks,
         mmrDate: child.mmr_date || groupForm.mmrDate,
         mmrRemarks: child.mmr_remarks || groupForm.mmrRemarks,
+        birthDocumentName: savedChild.birth_document_name || savedChild.birthDocumentName || '',
+        birthDocumentPath: savedChild.birth_document_path || savedChild.birthDocumentPath || '',
         address: child.address || groupForm.address || '',
         progress: child.progress || 0,
         childCheckups: null,
@@ -240,7 +254,9 @@ export default function CreateChildPage({
 
       // add to groups list
       setGroups((prev) => [newGroup, ...prev]);
-      notifyAction('Child created successfully.');
+      notifyAction(documentUploadFailed
+        ? 'Child created, but the birth document upload failed. You can upload it from Edit Child.'
+        : 'Child created successfully.', documentUploadFailed ? 'error' : 'success');
       localStorage.removeItem(CHILD_DRAFT_KEY);
       setPendingChild(null);
 
@@ -355,6 +371,8 @@ export default function CreateChildPage({
               setForm={setGroupForm}
               communities={communities}
               batches={batches}
+              birthDocumentFile={birthDocumentFile}
+              setBirthDocumentFile={setBirthDocumentFile}
             />
           </div>
           <div className="modal-footer">

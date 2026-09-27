@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { apiGetUsers, apiCreateUser, apiUpdateUser, apiPatchUserStatus, apiDeleteUser } from '../../api/users';
 import { isValidName, isValidMiddleInitial, sanitizeDigits, normalizeContact, isValidContact, isValidEmail, formatDobForInput, isValidDob, getDobValidationMessage, generatePassword } from './lib';
 import { getSummary } from '../Community/communityService';
+import { isCommunityCoordinatorRole, isHealthWorkerRole } from '../../utils/permissions';
 
 const ROLE_OPTIONS = [
   'Superadmin',
@@ -27,7 +28,7 @@ function normalizeRole(role) {
   const lower = value.toLowerCase();
   if (lower === 'superadmin') return 'Superadmin';
   if (lower === 'admin') return 'Admin';
-  if (lower === 'community organizer') return 'Community Organizer';
+  if (['community organizer', 'community coordinator', 'community_coordinator', 'coordinator'].includes(lower)) return 'Community Organizer';
   if (lower === 'health worker') return 'Health worker';
   return value;
 }
@@ -357,11 +358,11 @@ export function useUserManagement() {
     if (!email) { setNotification('Email is required.'); try { console.log('Validation failed: missing email', { email }); } catch(e){}; return; }
     if (!isValidEmail(email)) { setNotification('Please enter a valid email address.'); try { console.log('Validation failed: invalid email', { email }); } catch(e){}; return; }
     // Keep client validation aligned with the server's role assignment rules.
-    if (['health worker', 'community organizer'].includes(roleVal.trim().toLowerCase()) && !schoolIdVal) {
+    if ((isHealthWorkerRole(roleVal) || isCommunityCoordinatorRole(roleVal)) && !schoolIdVal) {
       setNotification(`Assigned school is required for ${roleVal} accounts.`);
       return;
     }
-    if (roleVal.trim().toLowerCase() === 'health worker' && !groupIdVal) {
+    if (isHealthWorkerRole(roleVal) && !groupIdVal) {
       setNotification('Assigned group is required for Health worker accounts.');
       return;
     }

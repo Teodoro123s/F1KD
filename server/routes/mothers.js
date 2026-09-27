@@ -652,8 +652,8 @@ router.put('/:id', async (req, res) => {
     for (const [index, item] of (b.obHistory || []).entries()) {
       if (item.gestationalAge || item.outcome) {
         await pool.query(
-          'INSERT INTO mother_ob_history (mother_id, event_label, gestational_age, outcome, seq) VALUES (?, ?, ?, ?, ?)',
-          [motherDbId, item.event || `G${index + 1}`, item.gestationalAge || null, item.outcome || null, index + 1]
+          'INSERT INTO mother_ob_history (mother_id, event_code, event_label, gestational_age, outcome, seq) VALUES (?, ?, ?, ?, ?, ?)',
+          [motherDbId, item.event || `G${index + 1}`, item.event || `G${index + 1}`, item.gestationalAge || null, item.outcome || null, index + 1]
         );
       }
     }
@@ -681,10 +681,32 @@ router.put('/:id', async (req, res) => {
     }
 
     await pool.query('DELETE FROM mother_dental_records WHERE mother_id = ?', [motherDbId]);
-    if (b.dentalCheckupDate || b.dentalFacility || b.dentalFindings || b.dentalRemarks) {
+    const dentalWork = b.dentalWork || {};
+    if (b.dentalCheckupDate || b.dentalFacility || b.dentistInCharge || b.communityDentist || b.dentistLicense || b.dentistContact || b.teethCount || b.dentalFindings || b.dentalRemarks || Object.values(dentalWork).some(Boolean)) {
       await pool.query(
-        'INSERT INTO mother_dental_records (mother_id, visit_date, treatment, remarks) VALUES (?, ?, ?, ?)',
-        [motherDbId, b.dentalCheckupDate || null, b.dentalFacility || b.dentalFindings || null, b.dentalRemarks || null]
+        `INSERT INTO mother_dental_records (
+          mother_id, visit_date, dental_facility, dentist_in_charge, community_dentist,
+          dentist_license, dentist_contact, teeth_count, dental_findings, dental_remarks,
+          tartar_removal, filling, cleaning, extraction, root_canal, other_procedure
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          motherDbId,
+          b.dentalCheckupDate || null,
+          b.dentalFacility || null,
+          b.dentistInCharge || null,
+          b.communityDentist || null,
+          b.dentistLicense || null,
+          b.dentistContact || null,
+          b.teethCount || null,
+          b.dentalFindings || null,
+          b.dentalRemarks || null,
+          Boolean(dentalWork.tartarRemoval),
+          Boolean(dentalWork.filling),
+          Boolean(dentalWork.cleaning),
+          Boolean(dentalWork.extraction),
+          Boolean(dentalWork.rootCanal),
+          Boolean(dentalWork.other),
+        ]
       );
     }
 

@@ -8,7 +8,7 @@ import { MoreVerticalIcon } from './CommunityIcons';
 import { useCommunityData } from './hooks/useCommunityData';
 import { useCommunityMutations } from './hooks/useCommunityMutations';
 import { useAuth } from '../../auth/AuthProvider';
-import { can, hasRole, isHealthWorkerRole, ROLES } from '../../utils/permissions';
+import { can, hasRole, isCommunityCoordinatorRole, isHealthWorkerRole, isSchoolScopedRole, ROLES } from '../../utils/permissions';
 import { getMotherProfileProgress } from '../../utils/motherProgress';
 import { getChildProfileProgress } from '../../utils/childProgress';
 import { apiDeleteMother } from '../../api/mothers';
@@ -29,18 +29,15 @@ export default function CommunityPage() {
   const navigate = useNavigate();
   const { schoolId, groupId, batchId } = useParams();
   const isSuperAdmin = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]);
-  const isCommunityOrganizer = ['community organizer', 'communityorganizer', 'community_coordinator', 'communitycoordinator', 'coordinator']
-    .includes(String(currentUser?.role || '').trim().toLowerCase());
-  const canManage = !isHealthWorkerRole(currentUser?.role) && (can(currentUser?.role, 'admin-resources', 'create')
-    || can(currentUser?.role, 'partner-resources', 'create'));
+  const isCommunityOrganizer = isCommunityCoordinatorRole(currentUser?.role);
+  const canManageSchools = isSuperAdmin;
+  const canManage = can(currentUser?.role, 'community-resources', 'update') && !isHealthWorkerRole(currentUser?.role);
   const assignedSchoolId = currentUser?.school_id ?? currentUser?.schoolId ?? null;
   const assignedGroupId = currentUser?.group_id ?? currentUser?.groupId ?? null;
-  const isHealthWorker = ['health worker', 'healthworker']
-    .includes(String(currentUser?.role || '').trim().toLowerCase());
+  const isHealthWorker = isHealthWorkerRole(currentUser?.role);
   const isAssignedAdmin = hasRole(currentUser?.role, [ROLES.ADMIN]) && Boolean(assignedSchoolId);
   const isAssignedCommunityOrganizer = isCommunityOrganizer && Boolean(assignedSchoolId);
-  const isSchoolScopedUser = ['community organizer', 'communityorganizer', 'community_coordinator', 'communitycoordinator', 'coordinator', 'health worker', 'healthworker']
-    .includes(String(currentUser?.role || '').trim().toLowerCase()) || isAssignedAdmin;
+  const isSchoolScopedUser = isSchoolScopedRole(currentUser?.role) || isAssignedAdmin;
 
   const { communities, batches, groups, mothers, coordinators, loading, error, refreshData } = useCommunityData();
   const scopedCommunities = useMemo(() => {
@@ -551,7 +548,8 @@ export default function CommunityPage() {
       thClassName: 'actions-cell batch-actions-cell',
       cellClassName: activeTab === 'batches' ? 'actions-cell batch-actions-cell' : 'actions-cell',
       renderCell: (row) => {
-        if (!canManage) {
+        const canMutateRow = canManage && (activeTab !== 'communities' || canManageSchools);
+        if (!canMutateRow) {
           return <span className="no-actions">—</span>;
         }
 
@@ -611,7 +609,7 @@ export default function CommunityPage() {
         );
       },
     };
-    const appendActions = (baseColumns) => canManage ? [...baseColumns, actionColumn] : baseColumns;
+    const appendActions = (baseColumns) => (canManage && (activeTab !== 'communities' || canManageSchools)) ? [...baseColumns, actionColumn] : baseColumns;
 
     if (activeTab === 'communities') {
       return appendActions([
@@ -650,7 +648,7 @@ export default function CommunityPage() {
       { key: 'records', header: 'Total Mothers', cellClassName: 'compact-column', renderCell: (row) => row.records },
       { key: 'progress', header: 'Progress (%)', cellClassName: 'status-column', renderCell: (row) => `${row.progress ?? 0}%` },
     ]);
-  }, [activeDropdownId, activeTab, canManage, entityFilter, groups, handleDeleteBatch, handleDeleteCommunity, handleDeleteGroup, handleDeleteMother, navigate, openEditModal]);
+  }, [activeDropdownId, activeTab, canManage, canManageSchools, entityFilter, groups, handleDeleteBatch, handleDeleteCommunity, handleDeleteGroup, handleDeleteMother, navigate, openEditModal]);
 
   const currentRowClickHandler =
     activeTab === 'communities'
@@ -685,7 +683,7 @@ export default function CommunityPage() {
         onCreate={openCreateModal}
         breadcrumbItems={breadcrumbItems}
         navigate={navigate}
-        canManage={canManage || (isCommunityOrganizer && activeTab !== 'communities')}
+        canManage={canManage && (activeTab !== 'communities' || canManageSchools)}
       />
 
       <CommunityTable

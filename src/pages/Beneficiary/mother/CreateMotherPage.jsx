@@ -4,6 +4,7 @@ import { calculateGestationalDetails, getInitialCheckups } from '../../../utils/
 import { useMothers } from '../../../context/MothersContext';
 import { apiCreateMother, apiUploadMotherDocuments } from '../../../api/mothers';
 import { useAuth } from '../../../auth/AuthProvider';
+import { isCommunityCoordinatorRole } from '../../../utils/permissions';
 import { capitalizeNameValue } from '../../../utils/nameFormat';
 import { notifyAction } from '../../../components/ActionFeedback';
 
@@ -46,7 +47,7 @@ const emptyCommunityForm = (communities = []) => ({
   spouseSurname: '',
   address: '',
   prenatalRegDate: '',
-  trimester: '1st Trimester',
+  trimester: '',
   gestationalAge: '',
   prenatalWeight: '',
   prenatalBp: '',
@@ -116,8 +117,7 @@ export default function CreateMotherPage({
   navigate,
 }) {
   const { currentUser } = useAuth();
-  const isCommunityOrganizer = ['community organizer', 'communityorganizer', 'community_coordinator', 'communitycoordinator', 'coordinator']
-    .includes(String(currentUser?.role || '').trim().toLowerCase());
+  const isCommunityOrganizer = isCommunityCoordinatorRole(currentUser?.role);
   const { mothers, setMothers } = useMothers();
   const effectiveCommunities = communities && communities.length ? communities : mothers;
   const [communityForm, setCommunityForm] = useState(() => loadMotherDraft(emptyCommunityForm(effectiveCommunities)));
@@ -174,11 +174,7 @@ export default function CreateMotherPage({
       {
         tab: 'medical_dental',
         label: 'Medical & Dental',
-        fields: [
-          'otherMedicalHistory', 'dentalCheckupDate', 'dentalFacility', 'dentistInCharge',
-          'communityDentist', 'dentistLicense', 'dentistContact', 'teethCount',
-          'dentalFindings', 'dentalRemarks',
-        ],
+        fields: [],
       },
     ];
     const incompleteStep = requiredFieldsByStep.find(({ fields }) =>
@@ -190,6 +186,13 @@ export default function CreateMotherPage({
       notifyAction(`Complete the required fields in ${incompleteStep.label} before creating.`, 'error');
       return;
     }
+    const hasNegativePregnancyCount = ['gravida', 'abortion', 'stillbirth']
+      .some((field) => Number(communityForm[field]) < 0);
+    if (hasNegativePregnancyCount) {
+      setCreateActiveTab('prenatal');
+      notifyAction('Gravida, abortion, and stillbirth cannot be negative.', 'error');
+      return;
+    }
     const initialCheckups = getInitialCheckups(
       communityForm.trimester,
       communityForm.prenatalBp,
@@ -199,9 +202,9 @@ export default function CreateMotherPage({
       communityForm.prenatalRegDate,
       communityForm.lmpDate
     );
-    const { gestationalAge, trimester } = calculateGestationalDetails(communityForm.lmpDate);
-    const resolvedTrimester = communityForm.trimester || trimester;
-    const resolvedGestationalAge = communityForm.gestationalAge || gestationalAge;
+    const { gestationalAge, trimester } = calculateGestationalDetails(communityForm.lmpDate, communityForm.prenatalRegDate);
+    const resolvedTrimester = trimester || communityForm.trimester;
+    const resolvedGestationalAge = gestationalAge || communityForm.gestationalAge;
     const normalizedFirstName = capitalizeNameValue(communityForm.firstName.trim());
     const normalizedMiddleName = capitalizeNameValue(communityForm.middleName.trim());
     const normalizedLastName = capitalizeNameValue(communityForm.lastName.trim());

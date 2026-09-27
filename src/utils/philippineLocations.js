@@ -2,7 +2,9 @@ import { barangays, provinces } from 'psgc';
 
 const provinceRecords = provinces.all();
 
-export const PHILIPPINE_PROVINCES = provinceRecords.map((province) => province.name);
+export const PHILIPPINE_PROVINCES = provinceRecords
+  .map((province) => province.name)
+  .sort((a, b) => a.localeCompare(b));
 
 export const getPhilippineCities = (provinceName) => {
   const province = provinceRecords.find((item) => item.name === provinceName);

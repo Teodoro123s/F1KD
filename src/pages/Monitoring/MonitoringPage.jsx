@@ -55,7 +55,7 @@ const getMotherMonitoringStatus = (mother, completed, total) => {
     .sort((a, b) => String(b.nextCheckupDate).localeCompare(String(a.nextCheckupDate)))[0]?.nextCheckupDate;
   const dateStatus = getDateStatus(parseDateOnly(nextDate));
   if (dateStatus === 'Missing') return 'Missing';
-  if (completed > 0) return 'In Progress';
+  if (completed > 0) return 'Pending';
   return dateStatus;
 };
 
@@ -63,7 +63,7 @@ const getChildMonitoringStatus = (child, completed, total) => {
   if (completed >= total) return 'Done';
   const dateStatus = getDateStatus(parseDateOnly(child.nextCheckupDate));
   if (dateStatus === 'Missing') return 'Missing';
-  if (completed > 0) return 'In Progress';
+  if (completed > 0) return 'Pending';
   return dateStatus;
 };
 

@@ -24,14 +24,20 @@ function normalizeRole(role) {
   const aliases = {
     superadmin: 'super_admin',
     'super admin': 'super_admin',
+    super_admin: 'super_admin',
     administrator: 'admin',
     admin: 'admin',
     'community organizer': 'community_coordinator',
     communityorganizer: 'community_coordinator',
+    'community coordinator': 'community_coordinator',
+    community_coordinator: 'community_coordinator',
+    communitycoordinator: 'community_coordinator',
     coordinator: 'community_coordinator',
+    co: 'community_coordinator',
     partner: 'partner',
-    'health worker': 'partner',
-    healthworker: 'partner',
+    'health worker': 'health_worker',
+    healthworker: 'health_worker',
+    health_worker: 'health_worker',
   };
   return aliases[value] || value;
 }
