@@ -77,8 +77,8 @@ function calculateBmi(weight, height) {
 }
 
 
-export default function ChildMonitor({ child, onSave, onCancel, completedWeeks = [] }) {
-  const [week, setWeek] = useState(1);
+export default function ChildMonitor({ child, onSave, onCancel, completedWeeks = [], initialWeek = 1 }) {
+  const [week, setWeek] = useState(() => Math.max(1, Math.min(TOTAL_MONTHS, Math.floor(Number(initialWeek) || 1))));
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [dateDrafts, setDateDrafts] = useState({});
