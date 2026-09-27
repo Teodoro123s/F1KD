@@ -1,3 +1,5 @@
+import { formatDateForDisplay } from '../../utils/dateFormat';
+
 export const MATERNAL_PROGRESS_REPORT_FIELD_LIBRARY = [
   { id: 'name', label: 'Beneficiary Name', category: 'Demographics' },
   { id: 'phone', label: 'Phone', category: 'Demographics' },
@@ -202,7 +204,7 @@ export const SEARCH_FILTER_RULES = [
   { id: 'gpa', pattern: /\bprimigravida\b/i, label: 'Gravida: 1' },
 ];
 
-export const formatDate = (value) => value ? new Date(value).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : 'Not recorded';
+export const formatDate = (value) => value ? formatDateForDisplay(value) : 'Not recorded';
 
 export const formatDelta = (current, previous) => {
   const delta = Number(current) - Number(previous);

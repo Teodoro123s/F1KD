@@ -91,9 +91,7 @@ router.get('/', async (req, res) => {
     const groupExpression = params.granularity === 'mother'
       ? 'm.id, m.mother_code, m.first_name, m.middle_name, m.last_name, m.suffix, school.name, g.name, b.name'
       : 'c.id, c.child_code, c.first_name, c.middle_name, c.last_name, m.id, m.mother_code, m.first_name, m.last_name, school.name, g.name, b.name';
-    const nameExpression = params.granularity === 'mother'
-      ? `TRIM(CONCAT_WS(' ', m.first_name, m.middle_name, m.last_name, m.suffix))`
-      : `TRIM(CONCAT_WS(' ', c.first_name, c.middle_name, c.last_name, c.suffix))`;
+    const motherNameExpression = `TRIM(CONCAT_WS(' ', m.first_name, m.middle_name, m.last_name, m.suffix))`;
     const childNameExpression = params.granularity === 'mother' ? 'NULL' : `TRIM(CONCAT_WS(' ', c.first_name, c.middle_name, c.last_name, c.suffix))`;
     const totalExpression = params.granularity === 'mother' ? 'COUNT(DISTINCT c.id) * 48' : '48';
     const monthAgeExpression = `CASE
@@ -119,7 +117,7 @@ router.get('/', async (req, res) => {
         b.id AS batch_id, b.name AS batch_name,
         ${params.granularity === 'mother' ? 'NULL' : 'c.id'} AS child_id,
         m.id AS mother_id, m.mother_code,
-        ${nameExpression} AS mother_name,
+        ${motherNameExpression} AS mother_name,
         ${childNameExpression} AS child_name,
         ${ageExpression} AS age,
         ${pediatricAgeWeeksExpression} AS pediatric_age_weeks,

@@ -1,3 +1,5 @@
+import { formatDateForDisplay } from '../../utils/dateFormat';
+
 export const EMPTY_SELECTIONS = { schoolId: '', groupId: '', batchId: '' };
 
 export const REPORT_FIELDS = [
@@ -247,16 +249,13 @@ export const formatCellValue = (field, value) => {
   if (field && /Interpretation$/i.test(field)) return normalizeNutritionLabel(value);
   if (field && /ZScore$/i.test(field)) return Number(value).toFixed(2);
   if (['dateOfBirth', 'lastActivityDate', 'nextCheckupDate', 'measurementDate'].includes(field)) {
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? String(value) : date.toISOString().slice(0, 10);
+    return formatDateForDisplay(value);
   }
   return String(value);
 };
 
 export const chartDate = (value) => {
-  if (!value) return 'No date';
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? String(value) : date.toISOString().slice(0, 10);
+  return value ? formatDateForDisplay(value) : 'No date';
 };
 
 export const getPointValue = (point, metric) => {

@@ -37,10 +37,7 @@ function formatDateForPayload(value) {
 }
 
 function formatDateDisplay(value) {
-  const normalized = formatDateForInput(value);
-  if (!normalized) return '';
-  const [year, month, day] = normalized.split('-');
-  return `${month}/${day}/${year}`;
+  return formatDateForDisplay(value) === '—' ? '' : formatDateForDisplay(value);
 }
 
 function formatDateTyping(value) {

@@ -8,6 +8,7 @@ import { apiGetChildren } from '../../api/children';
 import { apiGetPrograms } from '../../api/programs';
 import { apiGetUsers } from '../../api/users';
 import { can, isCommunityCoordinatorRole, isHealthWorkerRole, normalizeRole, ROLES } from '../../utils/permissions';
+import { formatDateForDisplay } from '../../utils/dateFormat';
 
 function getGreeting(name) {
   const hour = new Date().getHours();
@@ -21,8 +22,7 @@ function getGreeting(name) {
 
 function formatDateRange() {
   const today = new Date();
-  const options = { month: 'short', day: 'numeric', year: 'numeric' };
-  return today.toLocaleDateString('en-US', options);
+  return formatDateForDisplay(today);
 }
 
 function formatDayAndMonth(dateString) {

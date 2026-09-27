@@ -43,6 +43,45 @@ import {
   getProfileGraphValue,
 } from './progressReportConfig';
 
+const GROWTH_TABLE_FIELDS = new Set([
+  'weightForAge',
+  'heightForAge',
+  'weightForLengthZScore',
+  'weightForLengthInterpretation',
+  'weightForAgeZScore',
+  'weightForAgeInterpretation',
+  'bmiForAge',
+  'bmiInterpretation',
+  'lengthForAgeZScore',
+  'lengthForAgeInterpretation',
+]);
+
+const MONITORING_HISTORY_EXCLUDED_FIELDS = new Set([
+  'progress',
+  'totalActivities',
+  'activitiesCompleted',
+  'weightForAgeInterpretation',
+  'pediatricAgeWeeks',
+]);
+
+const growthTableFieldsForMetric = (metric) => {
+  if (metric?.startsWith('weightForLength')) return ['weightForLengthZScore', 'weightForLengthInterpretation'];
+  if (metric?.startsWith('weightForAge')) return ['weightForAge', 'weightForAgeZScore', 'weightForAgeInterpretation'];
+  if (metric?.startsWith('lengthForAge') || metric?.startsWith('heightForAge')) return ['heightForAge', 'lengthForAgeZScore', 'lengthForAgeInterpretation'];
+  if (metric === 'bmiForAge') return ['bmiForAge', 'bmiInterpretation'];
+  if (metric) return [metric];
+  return [];
+};
+
+const pointValueForTableField = (point, field) => {
+  if (field.endsWith('Interpretation')) return getPointInterpretation(point, field);
+  if (field.endsWith('ZScore')) return getPointValue(point, field);
+  if (field === 'heightForAge') return getPointValue(point, 'heightForAge');
+  if (field === 'weightForAge') return getPointValue(point, 'weightForAge');
+  if (field === 'bmiForAge') return getPointValue(point, 'bmiForAge');
+  return getPointValue(point, field);
+};
+
 function ProfileGraph({ rows, field }) {
   const metadata = PROFILE_GRAPH_FIELD_MAP.get(field) || PROFILE_GRAPH_FIELD_MAP.get('gender');
   const values = rows.map((row) => row[field]).filter((value) => value !== undefined && value !== null && value !== '');
@@ -388,9 +427,10 @@ function ProgramAverageChart({ rows, metric = 'receivedBenefitAveragePerMonth' }
 }
 
 function GrowthChart({ rows, metric, chartType, displayWeeks = 'all', beneficiaryType = 'child' }) {
+  const chartRef = useRef(null);
+  const navigate = useNavigate();
   if (INTERPRETATION_METRICS.has(metric)) return <GrowthInterpretationChart rows={rows} metric={metric} displayWeeks={displayWeeks} beneficiaryType={beneficiaryType} />;
   if (PROGRAM_METRICS.some(([id]) => id === metric)) return <ProgramAverageChart rows={rows} />;
-  const chartRef = useRef(null);
   const values = rows
     .map((row) => ({ row, value: Number(row[metric]) }))
     .filter(({ value }) => Number.isFinite(value));
@@ -411,9 +451,21 @@ function GrowthChart({ rows, metric, chartType, displayWeeks = 'all', beneficiar
   }
 
   if (chartType === 'line') {
-    const width = 620;
     const height = 180;
-    const seriesRows = rows.filter((row) => row.growthSeries?.some((point) => Number.isFinite(getPointValue(point, metric))));
+    const isZScoreMetric = metric.endsWith('ZScore');
+    const rawMeasurementValue = (point) => {
+      const directValue = point?.[metric];
+      if (directValue !== null && directValue !== undefined && directValue !== '' && Number.isFinite(Number(directValue))) {
+        return Number(directValue);
+      }
+      if (isZScoreMetric) return null;
+      const aliases = { weightForAge: 'weight', heightForAge: 'height', bmiForAge: 'bmi' };
+      const aliasValue = point?.[aliases[metric]];
+      return aliasValue !== null && aliasValue !== undefined && aliasValue !== '' && Number.isFinite(Number(aliasValue))
+        ? Number(aliasValue)
+        : null;
+    };
+    const seriesRows = rows.filter((row) => row.growthSeries?.some((point) => rawMeasurementValue(point) !== null));
     if (!seriesRows.length) return <p className="growth-report-empty">No monitored measurements available.</p>;
 
     const isMother = beneficiaryType === 'mother';
@@ -437,8 +489,8 @@ function GrowthChart({ rows, metric, chartType, displayWeeks = 'all', beneficiar
     const timelineLabel = (value) => monthLabel(value);
     const accessibleTimelineLabel = (value) => `Month ${monthLabel(value)}`;
     const allTimelineDates = [...new Set(seriesRows.flatMap((row) => row.growthSeries
-      .filter((point) => Number.isFinite(getPointValue(point, metric)) && timelineKey(point) !== null)
-      .map(timelineKey)))].sort((left, right) => isMother ? left.localeCompare(right) : left - right);
+      .filter((point) => rawMeasurementValue(point) !== null && timelineKey(point) !== null)
+      .map(timelineKey)))].sort((left, right) => left.localeCompare(right));
 
     const normalizedDisplayWeeks = String(displayWeeks ?? 'all').toLowerCase();
     const requestedWeeks = Number(normalizedDisplayWeeks);
@@ -447,82 +499,78 @@ function GrowthChart({ rows, metric, chartType, displayWeeks = 'all', beneficiar
       : allTimelineDates.slice(-requestedWeeks);
     const visibleTimelineSet = new Set(visibleTimelineDates);
     const visibleSeriesRows = seriesRows
-      .map((row) => ({ ...row, visibleGrowthSeries: row.growthSeries.filter((point) => visibleTimelineSet.has(timelineKey(point)) && Number.isFinite(getPointValue(point, metric))) }))
+      .map((row) => ({ ...row, visibleGrowthSeries: row.growthSeries.filter((point) => visibleTimelineSet.has(timelineKey(point)) && rawMeasurementValue(point) !== null) }))
       .filter((row) => row.visibleGrowthSeries.length);
 
     if (!visibleTimelineDates.length) {
       return <p className="growth-report-empty">No monitored measurements with timeline data available.</p>;
     };
 
-    const lineMax = Math.max(...visibleSeriesRows.flatMap((row) => row.visibleGrowthSeries.map((point) => getPointValue(point, metric))), 1);
-    const chartPaddingX = 10;
+    const chartPaddingX = 64;
+    const width = Math.max(620, visibleTimelineDates.length * 74 + chartPaddingX * 2);
     const xForTimeline = (timelineValue) => {
       if (visibleTimelineDates.length <= 1) return width / 2;
       const index = visibleTimelineDates.indexOf(timelineValue);
       const usableWidth = width - (chartPaddingX * 2);
       return chartPaddingX + (index / (visibleTimelineDates.length - 1)) * usableWidth;
     };
-    const yForValue = (value) => height - (value / lineMax) * (height - 24) - 12;
-    const yAxisTicks = [0, 0.25, 0.5, 0.75, 1].map((ratio) => ({
-      value: lineMax * ratio,
-      y: yForValue(lineMax * ratio),
-    }));
-
     if (!visibleSeriesRows.length) return <p className="growth-report-empty">No monitored measurements available for the selected period.</p>;
 
-    const periodLabel = normalizedDisplayWeeks === 'all' ? `all available ${isMother ? 'months' : 'monitoring months'}` : `the last ${requestedWeeks} ${isMother ? 'months' : 'months'}`;
-    const metricLabel = (isMother ? MOTHER_GROWTH_METRICS : GROWTH_METRICS).find(([id]) => id === metric)?.[1] || metric;
     const subjectLabel = isMother ? 'Mother' : 'Child';
-    const plotMetricKey = metric.endsWith('ZScore') || metric.endsWith('Interpretation')
-      ? (() => {
-        if (metric.startsWith('weightForAge')) return 'weight';
-        if (metric.startsWith('lengthForAge') || metric.startsWith('heightForAge')) return 'height';
-        if (metric.startsWith('weightForLength')) return 'weight';
-        if (metric.startsWith('bmiForAge')) return 'bmi';
-        return metric;
-      })()
-      : metric;
-    const rawMeasurementValue = (point) => {
-      const metricNumericValue = getPointValue(point, metric);
-      if (Number.isFinite(metricNumericValue)) return metricNumericValue;
-      const aliasNumericValue = Number.isFinite(Number(point?.[plotMetricKey])) ? Number(point?.[plotMetricKey]) : null;
-      return Number.isFinite(aliasNumericValue) ? aliasNumericValue : null;
-    };
+    const metricOptions = isMother ? MOTHER_GROWTH_METRICS : WHO_NUMERIC_GROWTH_METRICS;
+    const metricLabel = metricOptions.find(([id]) => id === metric)?.[1] || metric;
+    const valueUnit = isZScoreMetric ? 'Z-score' : metric === 'bmiForAge' ? 'BMI' : metric === 'weightForAge' ? 'kg' : metric === 'heightForAge' ? 'cm' : 'units';
     const timelineGridLines = visibleTimelineDates.map((timelineValue) => <line key={`timeline-line-${timelineValue}`} className="growth-report-weekline" x1={xForTimeline(timelineValue)} x2={xForTimeline(timelineValue)} y1="12" y2={height - 12} />);
     const monthLabels = visibleTimelineDates.map((timelineValue) => ({
       timelineValue,
       xPosition: xForTimeline(timelineValue),
       label: timelineLabel(timelineValue),
     }));
-    const currentTimeline = visibleTimelineDates[visibleTimelineDates.length - 1];
-    const currentMonthPlot = visibleSeriesRows.map((row, rowIndex) => {
-      const latestPoint = [...row.visibleGrowthSeries]
-        .filter((point) => Number.isFinite(rawMeasurementValue(point)))
-        .sort((left, right) => visibleTimelineDates.indexOf(timelineKey(left)) - visibleTimelineDates.indexOf(timelineKey(right)))
-        .at(-1);
-      if (!latestPoint) return null;
-      const rawValue = rawMeasurementValue(latestPoint);
-      const plottedX = xForTimeline(timelineKey(latestPoint) || currentTimeline);
-      const color = `hsl(${rowIndex * 67 % 360} 62% 42%)`;
-      return <circle key={`${row.child || row.mother}-plot-point`} cx={plottedX} cy={yForValue(rawValue)} r="6" fill="#fff" stroke={color} strokeWidth="3"><title>{row.child || row.mother}: {rawValue} {plotMetricKey === 'weight' ? 'kg' : plotMetricKey === 'height' ? 'cm' : 'units'} · {timelineLabel(timelineKey(latestPoint))}</title></circle>;
-    }).filter(Boolean);
-    const numericValues = visibleSeriesRows.flatMap((row) => row.visibleGrowthSeries.map((point) => rawMeasurementValue(point) ?? 0)).filter((value) => Number.isFinite(value));
-    const plotYMax = Math.max(...numericValues, 1);
-    const plotRangeMax = Math.max(plotYMax * 1.2, 1);
-    const plotYForValue = (value) => {
-      const safeValue = Number.isFinite(value) ? value : 0;
-      const ratio = Math.min(Math.max(safeValue / plotRangeMax, 0), 1);
-      return height - 18 - ratio * (height - 34);
-    };
-    const plotYTicks = [0, 0.25, 0.5, 0.75, 1].map((ratio) => {
-      const value = plotRangeMax * ratio;
-      return {
-        value,
-        y: plotYForValue(value),
-      };
+    const numericValues = visibleSeriesRows.flatMap((row) => row.visibleGrowthSeries.map(rawMeasurementValue).filter((value) => value !== null));
+    if (!numericValues.length) return <p className="growth-report-empty">No WHO values available for the selected period.</p>;
+    const minValue = Math.min(...numericValues);
+    const maxValue = Math.max(...numericValues);
+    const valueSpan = Math.max(maxValue - minValue, isZScoreMetric ? 1 : Math.max(Math.abs(maxValue) * 0.1, 1));
+    const paddingValue = valueSpan * 0.1;
+    const yMin = isZScoreMetric ? -6.5 : minValue - paddingValue;
+    const yMax = isZScoreMetric ? 6.5 : maxValue + paddingValue;
+    const plotTop = 12;
+    const plotBottom = height - 18;
+    const yForValue = (value) => plotBottom - ((value - yMin) / (yMax - yMin)) * (plotBottom - plotTop);
+    const yAxisTicks = (isZScoreMetric ? [-6, -3, 0, 3, 6] : Array.from({ length: 5 }, (_, index) => yMin + ((yMax - yMin) * index) / 4)).map((value) => {
+      return { value, y: yForValue(value) };
     });
-    const chartPoints = currentMonthPlot.map((point) => point);
-    return <div className="growth-report-line-chart"><svg ref={chartRef} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${subjectLabel} month-based growth relationship`} preserveAspectRatio="none"><text className="growth-report-y-axis-label" x="14" y={height / 2} textAnchor="middle" transform={`rotate(-90 14 ${height / 2})`}>{plotMetricKey === 'height' ? 'Length (cm)' : plotMetricKey === 'weight' ? 'Weight (kg)' : plotMetricKey === 'bmi' ? 'BMI' : metricLabel}</text>{timelineGridLines}{plotYTicks.map(({ value, y }) => <g key={value}><line className={`growth-report-gridline${value === 0 ? ' zero-line' : ''}`} x1={chartPaddingX} x2={width} y1={y} y2={y} /><text className="growth-report-y-axis-tick" x={chartPaddingX - 4} y={y + 3} textAnchor="end" style={{ fontSize: '10px' }}>{value.toFixed(1)}</text></g>)}{chartPoints}</svg><div className="growth-report-line-labels" style={{ position: 'relative', minHeight: '1.2rem', paddingLeft: '1.3rem', paddingRight: '0.5rem', fontSize: '10px' }}>{monthLabels.map(({ timelineValue, xPosition, label }) => <span key={`label-${timelineValue}`} style={{ position: 'absolute', left: `${Math.max(4, Math.min(96, (xPosition / width) * 100))}%`, transform: 'translateX(-50%)', whiteSpace: 'nowrap', maxWidth: '72px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>)}</div><div className="growth-report-legend">{visibleSeriesRows.map((row, index) => <span key={`${row.child || row.mother}-line-legend`}><i style={{ background: `hsl(${index * 67 % 360} 62% 42%)` }} />{row.child || row.mother}</span>)}</div></div>;
+    const seriesColors = ['#15803d', '#2563eb', '#d97706', '#7c3aed', '#0f766e', '#be123c'];
+    const chartSeries = visibleSeriesRows.map((row, rowIndex) => {
+      const beneficiaryName = row.child || row.mother || 'Beneficiary';
+      const color = seriesColors[rowIndex % seriesColors.length];
+      const points = [...row.visibleGrowthSeries]
+        .map((point) => ({ point, value: rawMeasurementValue(point), timeline: timelineKey(point) }))
+        .filter((item) => item.value !== null && visibleTimelineDates.includes(item.timeline))
+        .sort((left, right) => left.timeline.localeCompare(right.timeline));
+      const latestTimeline = points.at(-1)?.timeline;
+      const polyline = points.length > 1
+        ? <polyline key={`${beneficiaryName}-numeric-line`} points={points.map(({ timeline, value }) => `${xForTimeline(timeline)},${yForValue(isZScoreMetric ? Math.max(-6, Math.min(6, value)) : value)}`).join(' ')} fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+        : null;
+      const markers = points.map(({ point, value, timeline }, pointIndex) => {
+        const monitoringTarget = row.isGroupAggregate ? null : isMother
+          ? row.motherId ? { mother: { id: row.motherId, motherId: row.motherId, name: beneficiaryName } } : null
+          : row.childId ? { child: { id: row.childId, childId: row.childId, name: beneficiaryName }, week: point.ageWeeks } : null;
+        const interpretationMetric = metric.startsWith('weightForAge') ? 'weightForAgeInterpretation'
+          : metric.startsWith('lengthForAge') || metric.startsWith('heightForAge') ? 'lengthForAgeInterpretation'
+            : metric.startsWith('weightForLength') ? 'weightForLengthInterpretation' : '';
+        const interpretation = interpretationMetric ? getPointInterpretation(point, interpretationMetric) : '';
+        const isLatestPoint = timeline === latestTimeline;
+        const isOutsideWhoRange = isZScoreMetric && (value < -6 || value > 6);
+        const displayedValue = isZScoreMetric ? Math.max(-6, Math.min(6, value)) : value;
+        const navigateToMonitor = () => { if (monitoringTarget) navigate('/monitoring', { state: monitoringTarget }); };
+        const rangeNote = isOutsideWhoRange ? ` · Beyond WHO display range (${value > 6 ? 'above +6' : 'below -6'})` : '';
+        return <circle key={`${beneficiaryName}-${timeline}-${pointIndex}`} className={monitoringTarget ? 'growth-report-data-point' : undefined} cx={xForTimeline(timeline)} cy={yForValue(displayedValue)} r={isLatestPoint ? '8' : '5'} fill={isOutsideWhoRange ? '#fff7ed' : '#fff'} stroke={isOutsideWhoRange ? '#c2410c' : color} strokeWidth={isLatestPoint || isOutsideWhoRange ? '4' : '3'} role={monitoringTarget ? 'link' : undefined} tabIndex={monitoringTarget ? 0 : undefined} aria-label={monitoringTarget ? `Open ${beneficiaryName} monitoring form, ${value.toFixed(2)} ${valueUnit}, ${timelineLabel(timeline)}${isLatestPoint ? ', latest measurement' : ''}${isOutsideWhoRange ? ', outside WHO display range' : ''}` : undefined} onClick={monitoringTarget ? navigateToMonitor : undefined} onKeyDown={monitoringTarget ? (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); navigateToMonitor(); } } : undefined}><title>{beneficiaryName}: {value.toFixed(2)} {valueUnit}{interpretation ? ` · ${interpretation}` : ''}{rangeNote} · {timelineLabel(timeline)}{isLatestPoint ? ' · Latest measurement' : ''}</title></circle>;
+      });
+      return <g key={`${beneficiaryName}-numeric-series`}>{polyline}{markers}</g>;
+    });
+    const yAxisLabel = isZScoreMetric ? metricLabel : metric === 'bmiForAge' ? 'BMI' : metric === 'weightForAge' ? 'Weight (kg)' : metric === 'heightForAge' ? 'Length (cm)' : metricLabel;
+    return <div className="growth-report-line-chart"><svg ref={chartRef} viewBox={`0 0 ${width} ${height}`} style={{ minWidth: `${width}px` }} role="img" aria-label={`${subjectLabel} ${metricLabel} over time`} preserveAspectRatio="none"><text className="growth-report-y-axis-label" x="18" y={height / 2} textAnchor="middle" transform={`rotate(-90 18 ${height / 2})`}>{yAxisLabel}</text>{timelineGridLines}{yAxisTicks.map(({ value, y }) => <g key={value}><line className={`growth-report-gridline${Math.abs(value) < 1e-9 ? ' zero-line' : ''}`} x1={chartPaddingX} x2={width} y1={y} y2={y} /><text className="growth-report-y-axis-tick" x={chartPaddingX - 8} y={y + 3} textAnchor="end" style={{ fontSize: '10px' }}>{value.toFixed(1)}</text></g>)}{chartSeries}</svg><div className="growth-report-line-labels" style={{ position: 'relative', minHeight: '1.2rem', minWidth: `${width}px`, paddingLeft: '1.3rem', paddingRight: '0.5rem', fontSize: '10px' }}>{monthLabels.map(({ timelineValue, xPosition, label }) => <span key={`label-${timelineValue}`} style={{ position: 'absolute', left: `${Math.max(4, Math.min(96, (xPosition / width) * 100))}%`, transform: 'translateX(-50%)', whiteSpace: 'nowrap', maxWidth: '72px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>)}</div><div className="growth-report-legend">{visibleSeriesRows.map((row, index) => <span key={`${row.child || row.mother}-line-legend`}><i style={{ background: seriesColors[index % seriesColors.length] }} />{row.child || row.mother}</span>)}</div></div>;
   }
 
   return <div className="growth-report-bars growth-report-bars-chart">{points.map(({ row, value }, index) => { const label = row.child || row.mother || row.batch || row.group || 'Report total'; return <div className="growth-report-bar-item" key={`${label}-${index}`}><strong>{value}</strong><span style={{ '--bar-height': `${Math.max(6, (value / maxValue) * 100)}%` }} title={`${label}: ${value} · ${chartDate(row.measurementDate)}`} /><small>{label}</small><small>{chartDate(row.measurementDate)}</small></div>; })}</div>;
@@ -556,6 +604,7 @@ export default function ProgressReport() {
   const [profileMetrics, setProfileMetrics] = useState(CHILD_PROFILE_METRICS.map(([id]) => id));
   const [programMetrics, setProgramMetrics] = useState(['receivedBenefitTotal', 'receivedBenefitFrequency', 'receivedBenefitAveragePerMonth']);
   const [resultsView, setResultsView] = useState('graph');
+  const [tableDisplayMode, setTableDisplayMode] = useState('general');
   const [displayWeeks, setDisplayWeeks] = useState('all');
   const [profileGraphColumn, setProfileGraphColumn] = useState('gender');
   const [programName, setProgramName] = useState('');
@@ -591,7 +640,7 @@ export default function ProgressReport() {
   const displayPage = finalizedSnapshot?.page ?? page;
   const activeReport = finalizedSnapshot?.report ?? report;
   const displayReportFocus = finalizedSnapshot?.reportFocus ?? reportFocus;
-  const displayVisibleFields = addGrowthScoresBeforeInterpretations((finalizedSnapshot?.visibleFields ?? visibleFields).filter((field) => (
+  const baseDisplayVisibleFields = addGrowthScoresBeforeInterpretations((finalizedSnapshot?.visibleFields ?? visibleFields).filter((field) => (
     displayReportFocus === 'group-school'
       ? !['mother', 'child', 'group'].includes(field)
       : displayReportFocus === 'batch-group' || displayReportFocus === 'batch-school'
@@ -606,6 +655,19 @@ export default function ProgressReport() {
   const availableProfileMetrics = displayBeneficiaryType === 'mother' ? MOTHER_PROFILE_METRICS : CHILD_PROFILE_METRICS;
   const graphMetricOptions = graphMetricType === 'interpretation' ? availableGrowthMetrics : availableNumericGrowthMetrics;
   const selectedGraphMetric = growthMetrics[0] || graphMetricOptions[0]?.[0] || '';
+  const selectedTableGrowthFields = growthTableFieldsForMetric(selectedGraphMetric);
+  const tableBaseFields = baseDisplayVisibleFields.filter((field) => !GROWTH_TABLE_FIELDS.has(field));
+  const monitoringHierarchyFields = new Set([
+    ...(displaySelection.schoolId ? ['school'] : []),
+    ...(displaySelection.groupId ? ['group'] : []),
+    ...(displaySelection.batchId ? ['batch'] : []),
+  ]);
+  const monitoringTableBaseFields = tableBaseFields.filter((field) => (
+    !MONITORING_HISTORY_EXCLUDED_FIELDS.has(field) && !monitoringHierarchyFields.has(field)
+  ));
+  const displayVisibleFields = displayReportCategory === 'monitor'
+    ? addGrowthScoresBeforeInterpretations([...tableBaseFields, ...selectedTableGrowthFields])
+    : baseDisplayVisibleFields;
   const focusScope = selection.batchId ? 'batch' : selection.groupId ? 'group' : selection.schoolId ? 'school' : '';
   const focusOptions = REPORT_FOCUS_OPTIONS.filter(([, , scope]) => scope === focusScope);
 
@@ -728,16 +790,33 @@ export default function ProgressReport() {
 
   const selectedSchool = options.schools.find((item) => String(item.id) === String(displaySelection.schoolId));
   const resultsRows = sortedRows;
+  const monitoringTableRows = useMemo(() => {
+    if (displayReportCategory !== 'monitor') return resultsRows;
+    return (activeReport?.rows || []).flatMap((row) => (row.growthSeries || []).map((point, index) => ({
+      ...row,
+      measurementDate: point.date || point.measurementDate || '',
+      ...Object.fromEntries(selectedTableGrowthFields.map((field) => [field, pointValueForTableField(point, field)])),
+      historyRowKey: `${row.childId || row.motherId || row.child || row.mother || index}-${point.date || point.measurementDate || index}`,
+    })));
+  }, [activeReport, displayReportCategory, resultsRows, selectedTableGrowthFields]);
+  const tableRows = tableDisplayMode === 'monitoring-dates' ? monitoringTableRows : resultsRows;
+  const tableVisibleFields = tableDisplayMode === 'general'
+    ? displayVisibleFields
+    : tableDisplayMode === 'monitoring-dates'
+      ? addGrowthScoresBeforeInterpretations([...monitoringTableBaseFields, 'measurementDate', ...selectedTableGrowthFields])
+      : displayVisibleFields;
   const graphSourceRows = displayReportCategory === 'program'
     ? aggregateReportRows(resultsRows, 'group-school')
     : displayReportCategory === 'monitor'
       ? (activeReport?.rows || [])
       : resultsRows;
-  const graphAggregationFocus = displaySelection.batchId
-    ? 'batch-group'
-    : displaySelection.schoolId
-      ? 'group-school'
-      : displayReportFocus;
+  const graphAggregationFocus = displayReportCategory === 'monitor' && !INTERPRETATION_METRICS.has(growthMetrics[0])
+    ? null
+    : displaySelection.batchId
+      ? 'batch-group'
+      : displaySelection.schoolId
+        ? 'group-school'
+        : displayReportFocus;
   const graphRows = aggregateGrowthRows(
     graphSourceRows.filter((row) => growthMetrics.some((metric) => {
       if (INTERPRETATION_METRICS.has(metric)) {
@@ -779,6 +858,7 @@ export default function ProgressReport() {
     setBeneficiaryType('child');
     setGraphMetricType('interpretation');
     setResultsView('graph');
+    setTableDisplayMode('general');
     setDisplayWeeks('all');
     setProfileGraphColumn('gender');
     setProgramName('');
@@ -927,6 +1007,11 @@ export default function ProgressReport() {
               exportReport={exportReport}
               resultsView={resultsView}
               setResultsView={setResultsView}
+              tableDisplayMode={tableDisplayMode}
+              setTableDisplayMode={setTableDisplayMode}
+              tableRows={tableRows}
+              tableVisibleFields={tableVisibleFields}
+              monitoringRows={monitoringTableRows}
               displayReportCategory={displayReportCategory}
               profileGraphColumn={profileGraphColumn}
               setProfileGraphColumn={setProfileGraphColumn}

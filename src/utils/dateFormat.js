@@ -1,5 +1,5 @@
 /**
- * Formats a raw date entry as a YYYY/MM/DD-style string while accepting digits only.
+ * Formats a raw date entry as a YYYY/MM/DD-style input mask while accepting digits only.
  *
  * @param {string | number | Date | null | undefined} value - The raw input value.
  * @returns {string} The masked date string, such as 2026/09/24.
@@ -73,7 +73,7 @@ export function formatDateForInput(value) {
 }
 
 /**
- * Returns a readable display version of a date in YYYY/MM/DD format.
+ * Returns a readable display version of a date in DD/MM/YYYY format.
  *
  * @param {string | number | Date | null | undefined} value - The date to display.
  * @returns {string} A formatted display date or a fallback placeholder.
@@ -87,7 +87,7 @@ export function formatDateForDisplay(value) {
   const normalized = normalizeDateValue(candidate);
   if (normalized) {
     const [year, month, day] = normalized.split('-');
-    if (year && month && day) return `${year}/${month}/${day}`;
+    if (year && month && day) return `${day}/${month}/${year}`;
     if (year && month) return `${year}/${month}`;
     return year || '—';
   }
@@ -95,7 +95,7 @@ export function formatDateForDisplay(value) {
   const raw = formatDateForInput(candidate);
   if (!raw) return candidate;
   const [year, month, day] = raw.split('-');
-  if (year && month && day) return `${year}/${month}/${day}`;
+  if (year && month && day) return `${day}/${month}/${year}`;
   if (year && month) return `${year}/${month}`;
   return year || '—';
 }
