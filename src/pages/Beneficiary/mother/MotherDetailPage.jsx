@@ -434,7 +434,6 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
             <h3 className="mother-detail-section-title">II. INITIAL PRENATAL ASSESSMENT &amp; MATERNAL HEALTH PROFILE</h3>
             <div className="mother-detail-grid">
               <Field label="Date of Prenatal Registration" value={prenatalRegDate} />
-              <Field label="Trimester at Registration" value={trimester} />
               <Field label="Gestational Age at Reg (weeks)" value={gestationalAge} />
               <Field label="Weight (kg) at Reg" value={mother.prenatalWeight || '—'} />
               <Field label="Blood Pressure (BP) at Reg" value={prenatalBp} />

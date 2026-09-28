@@ -172,7 +172,7 @@ export default function CreateMotherPage({
         tab: 'prenatal',
         label: 'Prenatal/OB',
         fields: [
-          'lmpDate', 'eddDate', 'prenatalRegDate', 'trimester', 'gestationalAge',
+          'lmpDate', 'eddDate', 'trimester', 'gestationalAge',
           'prenatalWeight', 'prenatalBp', 'prenatalHeight', 'gravida', 'abortion', 'stillbirth',
         ],
       },

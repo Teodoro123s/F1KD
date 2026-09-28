@@ -58,14 +58,15 @@ export function MotherFormFields({
 
   React.useEffect(() => {
     if (readOnly || typeof setForm !== 'function') return;
+    const referenceDate = form.prenatalRegDate || new Date().toISOString().slice(0, 10);
     const eddDate = calculateEddDate(form.lmpDate);
     if (!eddDate) return;
-    const pregnancyDetails = calculateGestationalDetails(form.lmpDate, form.prenatalRegDate);
+    const pregnancyDetails = calculateGestationalDetails(form.lmpDate, referenceDate);
     if (form.eddDate === eddDate
       && form.gestationalAge === pregnancyDetails.gestationalAge
       && form.trimester === pregnancyDetails.trimester) return;
     setForm((prev) => ({ ...prev, eddDate, ...pregnancyDetails }));
-  }, [form.lmpDate, form.prenatalRegDate]);
+  }, [form.lmpDate, form.prenatalRegDate, readOnly, setForm]);
 
   const handleObHistoryChange = (index, field, value) => {
     setForm((prev) => {
@@ -529,9 +530,9 @@ export function MotherFormFields({
           </div>
 
           <div className="form-row-3 full-width">
-          {renderField({ id: 'prenatal-reg-date', label: 'Date of Prenatal Registration', name: 'prenatalRegDate', type: 'date', required: true })}
-          {renderSelect({ id: 'prenatal-trimester', label: 'Trimester at Registration', name: 'trimester', options: ['1st Trimester','2nd Trimester','3rd Trimester'], required: true, disabled: true })}
+          {renderField({ id: 'prenatal-reg-date', label: 'Date of Prenatal Registration', name: 'prenatalRegDate', type: 'date' })}
           {renderField({ id: 'prenatal-gest-age', label: 'Gestational Age at Reg (weeks)', name: 'gestationalAge', required: true, disabled: true })}
+          {renderField({ id: 'mother-trimester', label: 'Trimester', name: 'trimester', required: true, disabled: true })}
           </div>
 
           <div className="form-row-3 full-width">

@@ -5,7 +5,6 @@ import { getSummary } from '../Community/communityService';
 import { isCommunityCoordinatorRole, isHealthWorkerRole } from '../../utils/permissions';
 
 const ROLE_OPTIONS = [
-  'Superadmin',
   'Admin',
   'Partner',
   'Community Organizer',
@@ -128,7 +127,7 @@ export function useUserManagement() {
     gender: 'Male',
     dob: '',
     location: 'Poblacion',
-    role: 'Superadmin',
+    role: 'Admin',
     status: 'Active',
     password: '',
     schoolId: '',
@@ -158,6 +157,10 @@ export function useUserManagement() {
   const filteredData = useMemo(() => {
     const term = query.trim().toLowerCase();
     return users.filter((user) => {
+      if (user.role === 'Superadmin') {
+        return false;
+      }
+
       // Compare normalized status so UI filters work regardless of server casing/enum values
       const matchesStatus = selectedStatusFilter === 'All'
         ? true
@@ -224,7 +227,7 @@ export function useUserManagement() {
     gender: 'Male',
     dob: '',
     location: 'Poblacion',
-    role: 'Superadmin',
+    role: 'Admin',
     status: 'Active',
     password: '',
     schoolId: '',
@@ -253,7 +256,7 @@ export function useUserManagement() {
       gender: user.gender || 'Male',
       dob: formatDobForInput(user.dob ?? user.dateOfBirth ?? user.date_of_birth) || '',
       location: user.location || 'Poblacion',
-      role: user.role || 'Superadmin',
+      role: user.role || 'Admin',
       status: user.status || 'Active',
       password: user.password || '',
       schoolId: user.schoolId || '',
@@ -330,7 +333,7 @@ export function useUserManagement() {
       const mi = (fd.get('middleInitial') || '').toString().trim();
       const dobVal = (fd.get('dob') || form.dob || '').toString().trim();
       const normalizedDob = formatDobForInput(dobVal);
-      const roleVal = (fd.get('role') || 'Superadmin').toString();
+      const roleVal = (fd.get('role') || 'Admin').toString();
       const statusVal = (fd.get('status') || 'Active').toString();
       const schoolIdVal = (fd.get('schoolId') || '').toString();
       const groupIdVal = (fd.get('groupId') || '').toString();
@@ -357,6 +360,11 @@ export function useUserManagement() {
     }
     if (!email) { setNotification('Email is required.'); try { console.log('Validation failed: missing email', { email }); } catch(e){}; return; }
     if (!isValidEmail(email)) { setNotification('Please enter a valid email address.'); try { console.log('Validation failed: invalid email', { email }); } catch(e){}; return; }
+    if (roleVal === 'Superadmin' || normalizeRole(roleVal) === 'Superadmin') {
+      setNotification('Creating a Superadmin account is not allowed. Please choose another role.');
+      return;
+    }
+
     // Keep client validation aligned with the server's role assignment rules.
     if ((isHealthWorkerRole(roleVal) || isCommunityCoordinatorRole(roleVal)) && !schoolIdVal) {
       setNotification(`Assigned school is required for ${roleVal} accounts.`);

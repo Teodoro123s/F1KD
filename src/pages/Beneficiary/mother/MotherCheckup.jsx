@@ -40,27 +40,47 @@ const getTrimesterFromGestationalAge = (weeks) => {
 };
 
 const getMonitoringStartDetails = (mother = {}) => {
-  const registeredWeeks = Number.parseInt(mother.gestationalAge ?? mother.gestational_age, 10);
   const registrationDate = mother.prenatalRegDate || mother.prenatal_reg_date || '';
   const registeredTrimester = mother.trimester || mother.trimester_at_registration || '';
-  const currentWeeks = Number.isFinite(registeredWeeks) ? registeredWeeks : null;
-  const trimester = registeredTrimester || (currentWeeks !== null
+  const lmpDate = mother.lmpDate || mother.lmp || '';
+
+  let currentWeeks = Number.parseInt(mother.gestationalAge ?? mother.gestational_age, 10);
+  if (lmpDate) {
+    const lmp = new Date(lmpDate);
+    if (!Number.isNaN(lmp.getTime())) {
+      const today = new Date();
+      const diffDays = Math.max(0, Math.floor((today - lmp) / (1000 * 60 * 60 * 24)));
+      currentWeeks = Math.floor(diffDays / 7);
+    }
+  }
+
+  const trimester = registeredTrimester || (Number.isFinite(currentWeeks)
     ? getTrimesterFromGestationalAge(currentWeeks)
     : '2nd Trimester');
+
+  const monthIndex = Number.isFinite(currentWeeks)
+    ? Math.max(1, Math.min(3, Math.floor((currentWeeks - 1) / 4) + 1))
+    : 1;
 
   return {
     registrationDate,
     trimester,
-    gestationalAge: currentWeeks !== null ? String(currentWeeks) : String(mother.gestationalAge || ''),
+    gestationalAge: Number.isFinite(currentWeeks) ? String(currentWeeks) : String(mother.gestationalAge || ''),
+    monthOffset: Math.max(0, Math.min(2, Math.max(0, monthIndex - 1))),
   };
 };
 
-const getInitialStep = (trimester, checkups = []) => {
-  const registeredStep = getTrimesterIndex(trimester) * 3;
+const getInitialStep = (trimester, checkups = [], gestationalAge = null) => {
+  const trimesterStart = getTrimesterIndex(trimester) * 3;
+  const weeks = Number.parseInt(gestationalAge, 10);
+  const monthOffset = Number.isFinite(weeks)
+    ? Math.max(0, Math.min(2, Math.max(0, Math.floor((weeks - 1) / 4))))
+    : 0;
+  const startStep = trimesterStart + (trimester === '1st Trimester' ? Math.max(0, monthOffset - 1) : monthOffset);
   const hasAnySavedCheckup = Array.isArray(checkups) && checkups.flat().some(Boolean);
-  if (!hasAnySavedCheckup) return registeredStep;
+  if (!hasAnySavedCheckup) return startStep;
 
-  const firstIncompleteStep = CHECKUPS.findIndex((_, index) => index >= registeredStep && !checkups?.[Math.floor(index / 3)]?.[index % 3]?.completed);
+  const firstIncompleteStep = CHECKUPS.findIndex((_, index) => index >= startStep && !checkups?.[Math.floor(index / 3)]?.[index % 3]?.completed);
   return firstIncompleteStep === -1 ? CHECKUPS.length - 1 : firstIncompleteStep;
 };
 
@@ -130,7 +150,7 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
   if (!mother) return null;
 
   const monitoringStart = getMonitoringStartDetails(mother);
-  const initialStep = getInitialStep(monitoringStart.trimester, mother.checkups);
+  const initialStep = getInitialStep(monitoringStart.trimester, mother.checkups, monitoringStart.gestationalAge);
   const [activeStep, setActiveStep] = useState(initialStep);
   const previousMotherId = useRef(mother.id || mother.motherId);
   const [formState, setFormState] = useState(() => createInitialFormState(mother, getCheckupForStep(mother, initialStep), false, getPreviousCheckupForStep(mother, initialStep)));
@@ -141,7 +161,8 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
     const motherId = mother.id || mother.motherId;
     if (previousMotherId.current !== motherId) {
       previousMotherId.current = motherId;
-      setActiveStep(getInitialStep(getMonitoringStartDetails(mother).trimester, mother.checkups));
+      const start = getMonitoringStartDetails(mother);
+      setActiveStep(getInitialStep(start.trimester, mother.checkups, start.gestationalAge));
     }
   }, [mother]);
 

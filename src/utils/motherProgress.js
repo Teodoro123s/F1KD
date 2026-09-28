@@ -25,20 +25,21 @@ export function getMotherDocumentProgress(mother = {}) {
 
 export function getMotherMonitoringProgress(mother = {}) {
   const registeredTrimester = String(mother.trimester || mother.trimester_at_registration || '').toLowerCase();
-  let startIndex = 1;
-  if (registeredTrimester.includes('3rd') || registeredTrimester.includes('third')) startIndex = 2;
-  else if (registeredTrimester.includes('2nd') || registeredTrimester.includes('second')) startIndex = 1;
+  let startIndex = 0;
+  if (registeredTrimester.includes('3rd') || registeredTrimester.includes('third')) startIndex = 6;
+  else if (registeredTrimester.includes('2nd') || registeredTrimester.includes('second')) startIndex = 3;
   else {
     const gestationalAge = Number.parseInt(mother.gestationalAge ?? mother.gestational_age, 10);
     if (Number.isFinite(gestationalAge)) {
-      if (gestationalAge > 26) startIndex = 2;
-      else if (gestationalAge > 12) startIndex = 1;
+      if (gestationalAge > 26) startIndex = 6;
+      else if (gestationalAge > 12) startIndex = 3;
+      else if (gestationalAge > 4) startIndex = 1;
     }
   }
 
   const checkups = Array.isArray(mother.checkups) ? mother.checkups : [];
   const completed = checkups.slice(startIndex).flat().filter(Boolean).length;
-  const total = (3 - startIndex) * 3;
+  const total = Math.max(1, 9 - startIndex);
 
   return {
     completed,
