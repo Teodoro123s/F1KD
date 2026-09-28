@@ -6,6 +6,7 @@ export function GrowthMetricsStep({
   profileMetrics,
   toggleProfileMetric,
   programMetrics,
+  selectedProgramMetrics,
   toggleProgramMetric,
   beneficiaryType,
   availableGrowthMetrics,
@@ -49,8 +50,8 @@ export function GrowthMetricsStep({
           <p>Choose the program progress fields to include in the report:</p>
           <div className="growth-metric-cards profile-metric-cards">
             {programMetrics.map(([id, label, description]) => (
-              <label key={id} className={programMetrics.includes(id) ? 'selected' : ''}>
-                <input type="checkbox" name="program-metric" checked={programMetrics.includes(id)} onChange={() => toggleProgramMetric(id)} />
+              <label key={id} className={selectedProgramMetrics.includes(id) ? 'selected' : ''}>
+                <input type="checkbox" name="program-metric" checked={selectedProgramMetrics.includes(id)} onChange={() => toggleProgramMetric(id)} />
                 <strong>{label}</strong>
                 <span>{description}</span>
               </label>

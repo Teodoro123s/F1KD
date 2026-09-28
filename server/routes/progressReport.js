@@ -25,12 +25,29 @@ const getBmiInterpretation = (value) => {
   return 'Obese screening range';
 };
 
+const normalizeProgramBeneficiaryType = (value) => String(value || '').trim().toLowerCase().replace(/\s*&\s*/g, ' and ');
+
+function shouldApplyProgramMonitoringData({ programName } = {}) {
+  return String(programName || '').trim().length > 0;
+}
+
+function resolveProgramReportTargets({ row, granularity, programBeneficiaryType }) {
+  const normalizedType = normalizeProgramBeneficiaryType(programBeneficiaryType);
+  const includeMother = normalizedType === 'mother' || normalizedType === 'mother and child' || normalizedType === 'mother & child' || granularity === 'mother';
+  const includeChild = normalizedType === 'child' || normalizedType === 'mother and child' || normalizedType === 'mother & child' || granularity !== 'mother';
+  const targets = [];
+  if (includeMother && row?.motherId) targets.push({ type: 'mother', id: row.motherId });
+  if (includeChild && row?.childId) targets.push({ type: 'child', id: row.childId });
+  return targets;
+}
+
 const parseParams = (query, scope = {}) => ({
   schoolId: numberOrNull(scope.schoolId) ?? numberOrNull(query.schoolId),
   groupId: numberOrNull(scope.groupId) ?? numberOrNull(query.groupId),
   batchId: numberOrNull(query.batchId),
   motherId: numberOrNull(query.motherId),
   programName: String(query.programName || '').trim(),
+  programBeneficiaryType: String(query.programBeneficiaryType || '').trim(),
   benefitPeriod: query.benefitPeriod === 'month' ? 'month' : 'overall',
   benefitMonth: /^\d{4}-\d{2}$/.test(String(query.benefitMonth || '')) ? String(query.benefitMonth) : '',
   granularity: query.granularity === 'mother' ? 'mother' : 'child',
@@ -166,7 +183,7 @@ router.get('/', async (req, res) => {
         ${params.granularity === 'mother' ? "(SELECT dentist_contact FROM mother_dental_records mdr WHERE mdr.mother_id = m.id ORDER BY id DESC LIMIT 1)" : 'NULL'} AS dentist_contact,
         ${params.granularity === 'mother' ? "(SELECT teeth_count FROM mother_dental_records mdr WHERE mdr.mother_id = m.id ORDER BY id DESC LIMIT 1)" : 'NULL'} AS teeth_count,
         ${params.granularity === 'mother' ? "(SELECT dental_findings FROM mother_dental_records mdr WHERE mdr.mother_id = m.id ORDER BY id DESC LIMIT 1)" : 'NULL'} AS dental_findings,
-        ${params.granularity === 'mother' ? "(SELECT CONCAT_WS(', ', IF(tartar_removal = 1, 'Tartar Removal', NULL), IF(filling = 1, 'Filling', NULL), IF(cleaning = 1, 'Cleaning', NULL), IF(extraction = 1, 'Extraction', NULL), IF(root_canal = 1, 'Root Canal', NULL), IF(other_procedure = 1, 'Other')) FROM mother_dental_records mdr WHERE mdr.mother_id = m.id ORDER BY id DESC LIMIT 1)" : 'NULL'} AS dental_work,
+        ${params.granularity === 'mother' ? "(SELECT CONCAT_WS(', ', IF(tartar_removal = 1, 'Tartar Removal', NULL), IF(filling = 1, 'Filling', NULL), IF(cleaning = 1, 'Cleaning', NULL), IF(extraction = 1, 'Extraction', NULL), IF(root_canal = 1, 'Root Canal', NULL), IF(other_procedure = 1, 'Other', NULL)) FROM mother_dental_records mdr WHERE mdr.mother_id = m.id ORDER BY id DESC LIMIT 1)" : 'NULL'} AS dental_work,
         ${params.granularity === 'mother' ? "(SELECT dental_remarks FROM mother_dental_records mdr WHERE mdr.mother_id = m.id ORDER BY id DESC LIMIT 1)" : 'NULL'} AS dental_remarks,
         ${params.granularity === 'mother' ? "(SELECT vaccine_date FROM mother_vaccinations mv WHERE mv.mother_id = m.id AND vaccine_name = 'TT1' ORDER BY id DESC LIMIT 1)" : 'NULL'} AS tt1_date,
         ${params.granularity === 'mother' ? "(SELECT remarks FROM mother_vaccinations mv WHERE mv.mother_id = m.id AND vaccine_name = 'TT1' ORDER BY id DESC LIMIT 1)" : 'NULL'} AS tt1_remarks,
@@ -344,43 +361,48 @@ router.get('/', async (req, res) => {
       receivedBenefitAveragePerMonth: 0,
     }));
     if (params.granularity !== 'mother' || normalizedRows.length) {
-      const benefitConditions = ['ml.monitored = 1'];
-      const benefitValues = [];
-      if (params.programName) {
-        benefitConditions.push('LOWER(TRIM(p.name)) = LOWER(TRIM(?))');
-        benefitValues.push(params.programName);
-      }
-      if (params.benefitPeriod === 'month' && params.benefitMonth) {
-        benefitConditions.push("DATE_FORMAT(ml.monitored_date, '%Y-%m') = ?");
-        benefitValues.push(params.benefitMonth);
-      }
-      if (params.schoolId) { benefitConditions.push('COALESCE(m.community_id, c.community_id) = ?'); benefitValues.push(params.schoolId); }
-      if (params.groupId) { benefitConditions.push('COALESCE(m.group_id, c.group_id) = ?'); benefitValues.push(params.groupId); }
-      if (params.batchId) { benefitConditions.push('COALESCE(m.batch_id, c.batch_id) = ?'); benefitValues.push(params.batchId); }
-      const [benefitRows] = await pool.query(
-        `SELECT ml.beneficiary_id, LOWER(ml.beneficiary_type) AS beneficiary_type,
-                COUNT(*) AS total_received,
-                COUNT(DISTINCT DATE_FORMAT(ml.monitored_date, '%Y-%m')) AS active_months
-         FROM monitoring_logs ml
-         INNER JOIN programs p ON p.id = ml.program_id
-         LEFT JOIN mothers m ON LOWER(ml.beneficiary_type) = 'mother' AND (CAST(ml.beneficiary_id AS CHAR) = CAST(m.id AS CHAR) OR LOWER(TRIM(CAST(ml.beneficiary_id AS CHAR))) = LOWER(TRIM(CAST(m.mother_code AS CHAR))))
-         LEFT JOIN children c ON LOWER(ml.beneficiary_type) = 'child' AND (CAST(ml.beneficiary_id AS CHAR) = CAST(c.id AS CHAR) OR LOWER(TRIM(CAST(ml.beneficiary_id AS CHAR))) = LOWER(TRIM(CAST(c.child_code AS CHAR))))
-         WHERE ${benefitConditions.join(' AND ')}
-         GROUP BY ml.beneficiary_id, LOWER(ml.beneficiary_type)`,
-        benefitValues,
-      );
-      const benefitMap = new Map(benefitRows.map((row) => [`${row.beneficiary_type}:${String(row.beneficiary_id)}`, row]));
-      normalizedRows.forEach((row) => {
-        const type = params.granularity === 'mother' ? 'mother' : 'child';
-        const ids = [row[type === 'mother' ? 'motherId' : 'childId'], row[type === 'mother' ? 'mother' : 'child']].filter(Boolean);
-        const benefit = ids.map((id) => benefitMap.get(`${type}:${String(id)}`)).find(Boolean);
-        const totalReceived = Number(benefit?.total_received || 0);
-        const activeMonths = Number(benefit?.active_months || 0);
-        row.receivedBenefitTotal = totalReceived;
-        row.receivedBenefitFrequency = totalReceived;
-        row.receivedBenefitAveragePerMonth = activeMonths ? Number((totalReceived / activeMonths).toFixed(1)) : 0;
-      });
-      if (params.programName) {
+      const applyMonitoringData = shouldApplyProgramMonitoringData(params);
+      if (applyMonitoringData) {
+        const benefitConditions = ['ml.monitored = 1'];
+        const benefitValues = [];
+        if (params.programName) {
+          benefitConditions.push('LOWER(TRIM(p.name)) = LOWER(TRIM(?))');
+          benefitValues.push(params.programName);
+        }
+        if (params.benefitPeriod === 'month' && params.benefitMonth) {
+          benefitConditions.push("DATE_FORMAT(ml.monitored_date, '%Y-%m') = ?");
+          benefitValues.push(params.benefitMonth);
+        }
+        if (params.schoolId) { benefitConditions.push('COALESCE(m.community_id, c.community_id) = ?'); benefitValues.push(params.schoolId); }
+        if (params.groupId) { benefitConditions.push('COALESCE(m.group_id, c.group_id) = ?'); benefitValues.push(params.groupId); }
+        if (params.batchId) { benefitConditions.push('COALESCE(m.batch_id, c.batch_id) = ?'); benefitValues.push(params.batchId); }
+        const [benefitRows] = await pool.query(
+          `SELECT ml.beneficiary_id, LOWER(ml.beneficiary_type) AS beneficiary_type,
+                  COUNT(*) AS total_received,
+                  COUNT(DISTINCT DATE_FORMAT(ml.monitored_date, '%Y-%m')) AS active_months
+           FROM monitoring_logs ml
+           INNER JOIN programs p ON p.id = ml.program_id
+           LEFT JOIN mothers m ON LOWER(ml.beneficiary_type) = 'mother' AND (CAST(ml.beneficiary_id AS CHAR) = CAST(m.id AS CHAR) OR LOWER(TRIM(CAST(ml.beneficiary_id AS CHAR))) = LOWER(TRIM(CAST(m.mother_code AS CHAR))))
+           LEFT JOIN children c ON LOWER(ml.beneficiary_type) = 'child' AND (CAST(ml.beneficiary_id AS CHAR) = CAST(c.id AS CHAR) OR LOWER(TRIM(CAST(ml.beneficiary_id AS CHAR))) = LOWER(TRIM(CAST(c.child_code AS CHAR))))
+           WHERE ${benefitConditions.join(' AND ')}
+           GROUP BY ml.beneficiary_id, LOWER(ml.beneficiary_type)`,
+          benefitValues,
+        );
+        const benefitMap = new Map(benefitRows.map((row) => [`${row.beneficiary_type}:${String(row.beneficiary_id)}`, row]));
+        const programBeneficiaryType = params.programBeneficiaryType || 'Mother and Child';
+        normalizedRows.forEach((row) => {
+          const targets = resolveProgramReportTargets({
+            row,
+            granularity: params.granularity,
+            programBeneficiaryType,
+          });
+          const benefitDetails = targets.map(({ type, id }) => benefitMap.get(`${type}:${String(id)}`)).filter(Boolean);
+          const totalReceived = benefitDetails.reduce((sum, benefit) => sum + Number(benefit.total_received || 0), 0);
+          const activeMonths = benefitDetails.reduce((sum, benefit) => sum + Number(benefit.active_months || 0), 0);
+          row.receivedBenefitTotal = totalReceived;
+          row.receivedBenefitFrequency = totalReceived;
+          row.receivedBenefitAveragePerMonth = activeMonths ? Number((totalReceived / activeMonths).toFixed(1)) : 0;
+        });
         normalizedRows = normalizedRows.filter((row) => row.receivedBenefitTotal > 0);
       }
     }
@@ -472,9 +494,11 @@ router.get('/', async (req, res) => {
       breadcrumb: [params.schoolId ? normalizedRows[0]?.school : 'All Schools', params.groupId ? normalizedRows[0]?.group : 'All Groups', params.batchId ? normalizedRows[0]?.batch : 'All Batches'].filter(Boolean),
     });
   } catch (error) {
-    console.error('[Progress Report] report error:', error.message);
-    res.status(500).json({ error: 'db error' });
+    console.error('[Progress Report] report error:', error);
+    res.status(500).json({ error: process.env.NODE_ENV === 'production' ? 'db error' : error.message });
   }
 });
 
 module.exports = router;
+module.exports.resolveProgramReportTargets = resolveProgramReportTargets;
+module.exports.shouldApplyProgramMonitoringData = shouldApplyProgramMonitoringData;

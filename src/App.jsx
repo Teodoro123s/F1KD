@@ -81,6 +81,9 @@ export default function App() {
         <Route path="program" element={<RoleBasedRoute allowedRoles={OPERATIONAL_ROLES}><Program /></RoleBasedRoute>} />
         <Route path="program/:programId/beneficiaries/:beneficiaryType/:beneficiaryId/receipt-history" element={<RoleBasedRoute allowedRoles={OPERATIONAL_ROLES}><ReceiptHistoryPage /></RoleBasedRoute>} />
         <Route path="program/:programId/cluster/:clusterType/:clusterName/receipt-history" element={<RoleBasedRoute allowedRoles={OPERATIONAL_ROLES}><ReceiptHistoryPage /></RoleBasedRoute>} />
+        <Route path="program/:programId/school/:schoolId" element={<RoleBasedRoute allowedRoles={OPERATIONAL_ROLES}><Program /></RoleBasedRoute>} />
+        <Route path="program/:programId/group/:groupId" element={<RoleBasedRoute allowedRoles={OPERATIONAL_ROLES}><Program /></RoleBasedRoute>} />
+        <Route path="program/:programId/batch/:batchId" element={<RoleBasedRoute allowedRoles={OPERATIONAL_ROLES}><Program /></RoleBasedRoute>} />
         <Route path="program/:programId" element={<RoleBasedRoute allowedRoles={OPERATIONAL_ROLES}><Program /></RoleBasedRoute>} />
         <Route path="program/:programId/cluster/:clusterType/:clusterName" element={<RoleBasedRoute allowedRoles={OPERATIONAL_ROLES}><Program /></RoleBasedRoute>} />
         <Route path="progress-report" element={<RoleBasedRoute allowedRoles={OPERATIONAL_ROLES}><ProgressReport /></RoleBasedRoute>} />
@@ -88,7 +91,7 @@ export default function App() {
         <Route path="user-management/user/:id" element={<RoleBasedRoute allowedRoles={[ROLES.SUPER_ADMIN]}><UserDetailPage /></RoleBasedRoute>} />
         <Route path="profile" element={<ProfilePage />} />
         <Route path="settings" element={<SettingsPage />} />
-        <Route path="*" element={<Navigate to="community" replace />} />
+        <Route path="*" element={<Navigate to="/community" replace />} />
       </Route>
     </Routes>
   );

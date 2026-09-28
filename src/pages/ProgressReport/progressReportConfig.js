@@ -158,16 +158,9 @@ export const PROFILE_METRICS = [
   ['multipleBirth', 'Multiple Birth', 'Multiple-birth classification recorded in the child profile.'],
   ['deliveryType', 'Delivery Type', 'Delivery type recorded in the child profile.'],
   ['contactNumber', 'Contact Number', 'Contact number recorded in the mother profile.'],
-  ['addressDetails', 'Address Details', 'Address details recorded in the mother profile.'],
-  ['motherBirthCertificate', "Mother's Birth Certificate", 'Whether the mother birth certificate is uploaded.'],
-  ['programConsentDocument', 'Program Consent Form', 'Whether the program consent form is uploaded.'],
-  ['gravida', 'Gravida', 'Number of pregnancies recorded in the mother profile.'],
-  ['abortion', 'Abortion', 'Abortion count recorded in the mother profile.'],
-  ['stillbirth', 'Stillbirth', 'Stillbirth count recorded in the mother profile.'],
 ];
 
 export const CHILD_PROFILE_METRICS = [
-  ['age', 'Age', 'Age calculated from the child profile date of birth.'],
   ['gender', 'Sex', 'Sex recorded in the child profile.'],
   ['liveBirthDocument', 'Live Birth Document', 'Uploaded live birth document for the child.'],
   ['birthWeight', 'Birth Weight (kg)', 'Birth weight recorded in the child profile.'],
@@ -197,7 +190,7 @@ export const CHILD_PROFILE_METRICS = [
 ];
 
 export const CHILD_PROFILE_FIELD_SECTIONS = {
-  age: 'general', gender: 'general', liveBirthDocument: 'general', address: 'general', fatherName: 'general', relationship: 'general',
+  gender: 'general', liveBirthDocument: 'general', address: 'general', fatherName: 'general', relationship: 'general',
   birthWeight: 'prenatal-ob', birthLength: 'prenatal-ob', bloodType: 'prenatal-ob', multipleBirth: 'prenatal-ob', deliveryType: 'prenatal-ob',
   noOfChildDelivered: 'prenatal-ob', expandedNewbornScreening: 'prenatal-ob', expandedNewbornScreeningResult: 'prenatal-ob', birthPlace: 'prenatal-ob', birthAttendant: 'prenatal-ob', apgarScore: 'prenatal-ob',
   healthStatus: 'medical-dental', feedingType: 'medical-dental', exclusiveBreastfeeding: 'medical-dental', nutritionNotes: 'medical-dental', medicalConditions: 'medical-dental',
@@ -213,7 +206,7 @@ export const PROFILE_SECTION_LABELS = {
 };
 
 export const MOTHER_PROFILE_FIELD_SECTIONS = {
-  age: 'general', contactNumber: 'general', addressDetails: 'general', motherBirthCertificate: 'general', programConsentDocument: 'general', philhealthMember: 'general', philhealthNumber: 'general', spouseName: 'general', emergencyName: 'general', emergencyContact: 'general', emergencyRelationship: 'general',
+  contactNumber: 'general', addressDetails: 'general', motherBirthCertificate: 'general', programConsentDocument: 'general', philhealthMember: 'general', philhealthNumber: 'general', spouseName: 'general', emergencyName: 'general', emergencyContact: 'general', emergencyRelationship: 'general',
   initialWeight: 'prenatal-ob', initialHeight: 'prenatal-ob', lmpDate: 'prenatal-ob', eddDate: 'prenatal-ob', prenatalRegDate: 'prenatal-ob', trimester: 'prenatal-ob', gestationalAge: 'prenatal-ob', prenatalWeight: 'prenatal-ob', prenatalBp: 'prenatal-ob', prenatalHeight: 'prenatal-ob', fundalHeight: 'prenatal-ob', fhr: 'prenatal-ob', gravida: 'prenatal-ob', para: 'prenatal-ob', abortion: 'prenatal-ob', stillbirth: 'prenatal-ob',
   medicalConditions: 'medical-dental', otherMedicalHistory: 'medical-dental', dentalCheckupDate: 'medical-dental', dentalFacility: 'medical-dental', dentistInCharge: 'medical-dental', communityDentist: 'medical-dental', dentistLicense: 'medical-dental', dentistContact: 'medical-dental', teethCount: 'medical-dental', dentalFindings: 'medical-dental', dentalWork: 'medical-dental', dentalRemarks: 'medical-dental',
   ttVaccineRecord: 'vaccine',
@@ -227,7 +220,6 @@ export const MOTHER_PROFILE_SECTION_LABELS = {
 };
 
 export const MOTHER_PROFILE_METRICS = [
-  ['age', 'Age', 'Age calculated from the beneficiary profile date of birth.'],
   ['contactNumber', 'Contact Number', 'Contact number recorded in the mother profile.'],
   ['addressDetails', 'Address Details', 'Whether address details are recorded in the mother profile.'],
   ['motherBirthCertificate', "Mother's Birth Certificate", 'Whether the mother birth certificate is uploaded.'],
@@ -270,26 +262,21 @@ export const MOTHER_PROFILE_METRICS = [
 ];
 
 export const PROFILE_GRAPH_FIELDS = [
-  ['gender', 'Sex', 'categorical'],
-  ['deliveryType', 'Delivery Type', 'categorical'],
-  ['liveBirthDocument', 'Live Birth Document', 'categorical'],
-  ['bloodType', 'Blood Type', 'categorical'],
-  ['philhealthMember', 'PhilHealth Member', 'categorical'],
-  ['age', 'Age', 'measurement'],
-  ['birthWeight', 'Birth Weight (kg)', 'measurement'],
-  ['birthLength', 'Birth Length (cm)', 'measurement'],
-  ['initialBmi', 'Initial BMI', 'measurement'],
-  ['contactNumber', 'Contact Number', 'categorical'],
-  ['addressDetails', 'Address Details', 'categorical'],
-  ['motherBirthCertificate', "Mother's Birth Certificate", 'categorical'],
-  ['programConsentDocument', 'Program Consent Form', 'categorical'],
-  ['gravida', 'Gravida', 'measurement'],
-  ['abortion', 'Abortion', 'measurement'],
-  ['stillbirth', 'Stillbirth', 'measurement'],
+  ['gender', 'Sex', 'pie'],
+  ['deliveryType', 'Delivery Type', 'pie'],
+  ['liveBirthDocument', 'Live Birth Document', 'boolean'],
+  ['bloodType', 'Blood Type', 'pie'],
+  ['philhealthMember', 'PhilHealth Member', 'pie'],
+  ['birthWeight', 'Birth Weight (kg)', 'histogram'],
+  ['birthLength', 'Birth Length (cm)', 'histogram'],
+  ['initialWeight', 'Initial Weight (kg)', 'histogram'],
+  ['initialHeight', 'Initial Height (cm)', 'histogram'],
+  ['bmiInterpretation', 'BMI Interpretation', 'pie'],
+  ['contactNumber', 'Contact Number', 'boolean'],
 ];
 
 export const PROFILE_GRAPH_FIELD_MAP = new Map(PROFILE_GRAPH_FIELDS.map(([id, label, type]) => [id, { label, type }]));
-export const PRESENCE_PROFILE_FIELDS = new Set(['contactNumber', 'addressDetails', 'liveBirthDocument', 'motherBirthCertificate', 'programConsentDocument', 'philhealthMember']);
+export const PRESENCE_PROFILE_FIELDS = new Set(['contactNumber', 'liveBirthDocument', 'philhealthMember']);
 
 export const PROGRAM_METRICS = [
   ['receivedBenefitTotal', 'Total Received Benefits', 'Total true benefit-receipt events in the selected period.'],

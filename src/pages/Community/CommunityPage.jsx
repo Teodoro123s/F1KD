@@ -151,7 +151,16 @@ export default function CommunityPage() {
           .split(',')
           .map((value) => value.trim())
           .filter(Boolean);
-        return assignedGroupIds.includes(String(selectedGroup.id));
+        const groupNames = String(batch.groupNames || batch.group_name || batch.group || '')
+          .split(',')
+          .map((value) => value.trim())
+          .filter(Boolean);
+        const sameGroupName = groupNames.some((name) => String(name).toLowerCase() === String(selectedGroup.name || '').toLowerCase());
+        const sameCommunity = String(batch.community || '').toLowerCase() === String(selectedGroup.community || '').toLowerCase();
+
+        return assignedGroupIds.includes(String(selectedGroup.id))
+          || sameGroupName
+          || (assignedGroupIds.length === 0 && sameCommunity);
       })
       .filter((batch) => {
         if (!query.trim()) return true;

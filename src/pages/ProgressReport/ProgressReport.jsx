@@ -38,6 +38,8 @@ import {
   getPointInterpretation,
 } from './progressReportConfig';
 import { aggregateGrowthRows, aggregateReportRows } from './utils/reportAggregation';
+import { buildProgressReportParams } from './utils/apiUtils';
+import { matchesProgramBeneficiaryType } from './utils/programEligibility';
 import {
   GROWTH_TABLE_FIELDS,
   MONITORING_HISTORY_EXCLUDED_FIELDS,
@@ -119,7 +121,17 @@ export default function ProgressReport() {
   )));
   const displayReportCategory = finalizedSnapshot?.reportCategory ?? reportCategory;
   const displayBeneficiaryType = finalizedSnapshot?.beneficiaryType ?? beneficiaryType;
-  const displayProfileGraphColumn = profileGraphColumn;
+  const normalizeProgramName = (value) => String(value ?? '').trim().toLowerCase();
+  const eligiblePrograms = useMemo(
+    () => programs.filter((program) => matchesProgramBeneficiaryType(program, displayBeneficiaryType)),
+    [displayBeneficiaryType, programs],
+  );
+  useEffect(() => {
+    if (!programName) return;
+    if (!eligiblePrograms.some((program) => normalizeProgramName(program.name) === normalizeProgramName(programName))) {
+      setProgramName('');
+    }
+  }, [eligiblePrograms, programName]);
   const availableGrowthMetrics = displayBeneficiaryType === 'mother' ? MOTHER_GROWTH_METRICS : GROWTH_METRICS;
   const availableNumericGrowthMetrics = NUMERIC_GROWTH_METRICS(displayBeneficiaryType);
   const availableProfileMetrics = displayBeneficiaryType === 'mother' ? MOTHER_PROFILE_METRICS : CHILD_PROFILE_METRICS;
@@ -158,22 +170,53 @@ export default function ProgressReport() {
     if (!matchesSchool || !selection.groupId) return matchesSchool;
     return options.mothers.some((mother) => String(mother.groupId) === String(selection.groupId) && String(mother.batchId) === String(item.id));
   }), [options.batches, options.mothers, selection.groupId, selection.schoolId]);
+  const normalizeSelectionHierarchy = (nextSelection) => {
+    const normalized = {
+      schoolId: nextSelection.schoolId ? String(nextSelection.schoolId) : '',
+      groupId: nextSelection.groupId ? String(nextSelection.groupId) : '',
+      batchId: nextSelection.batchId ? String(nextSelection.batchId) : '',
+    };
+    if (!normalized.schoolId) {
+      normalized.groupId = '';
+      normalized.batchId = '';
+      return normalized;
+    }
+    const validGroupIds = new Set(options.groups
+      .filter((item) => String(item.schoolId) === String(normalized.schoolId))
+      .map((item) => String(item.id)));
+    if (normalized.groupId && !validGroupIds.has(normalized.groupId)) {
+      normalized.groupId = '';
+      normalized.batchId = '';
+      return normalized;
+    }
+    if (normalized.batchId && (!normalized.groupId || !options.batches.some((item) =>
+      String(item.id) === String(normalized.batchId)
+      && String(item.schoolId) === String(normalized.schoolId)
+      && options.mothers.some((mother) => String(mother.groupId) === String(normalized.groupId) && String(mother.batchId) === String(item.id))
+    ))) {
+      normalized.batchId = '';
+    }
+    return normalized;
+  };
   const updateSelection = (key, value) => {
     setPage(1);
     setError('');
-    if (key === 'schoolId') {
-      setSelection({ schoolId: value, groupId: '', batchId: '' });
-      setFinalizedSnapshot(null);
-      setActiveTab(1);
-      setReportFocus('beneficiary-school');
-    }
-    else if (key === 'groupId') {
-      setSelection((current) => ({ ...current, groupId: value, batchId: '' }));
-      setReportFocus(value ? 'beneficiary-group' : 'beneficiary-school');
-    } else {
-      setSelection((current) => ({ ...current, [key]: value }));
-      setReportFocus(value ? 'beneficiary-batch' : 'beneficiary-group');
-    }
+    const nextSelection = (() => {
+      if (key === 'schoolId') {
+        return { ...selection, schoolId: value, groupId: '', batchId: '' };
+      }
+      if (key === 'groupId') {
+        return { ...selection, groupId: value, batchId: '' };
+      }
+      return { ...selection, [key]: value };
+    })();
+    const normalized = normalizeSelectionHierarchy(nextSelection);
+    setSelection(normalized);
+    setFinalizedSnapshot(null);
+    setActiveTab(1);
+    if (key === 'schoolId') setReportFocus('beneficiary-school');
+    else if (key === 'groupId') setReportFocus(normalized.groupId ? 'beneficiary-group' : 'beneficiary-school');
+    else setReportFocus(normalized.batchId ? 'beneficiary-batch' : normalized.groupId ? 'beneficiary-group' : 'beneficiary-school');
   };
 
   useEffect(() => {
@@ -183,36 +226,46 @@ export default function ProgressReport() {
   }, [focusOptions, reportFocus]);
 
   const generateReport = async (nextPage = 1) => {
-    if (!selection.schoolId) {
+    const safeSelection = normalizeSelectionHierarchy(selection);
+    if (!safeSelection.schoolId) {
       notifyAction('Please select at least a School to view the report.', 'error');
       return;
     }
+    setSelection(safeSelection);
     setLoadingReport(true);
     try {
-      const selectedProgram = programs.find((program) => program.name === programName);
+      const selectedProgram = programs.find((program) => normalizeProgramName(program.name) === normalizeProgramName(programName));
       if (reportCategory === 'program') {
         setGrowthMetrics(['receivedBenefitAveragePerMonth']);
         setDisplayWeeks('receivedBenefitAveragePerMonth');
       }
-      const reportGranularity = reportCategory === 'program'
-        ? String(selectedProgram?.beneficiaryType || selectedProgram?.beneficiary_type || '').trim().toLowerCase() === 'mother' ? 'mother' : 'child'
-        : beneficiaryType;
-      const result = await apiGetProgressReport({ ...selection, granularity: reportGranularity, programName, benefitPeriod, benefitMonth, page: nextPage, perPage: 50 });
+      const requestParams = buildProgressReportParams({
+        selection: safeSelection,
+        reportCategory,
+        beneficiaryType,
+        selectedProgram,
+        programName,
+        benefitPeriod,
+        benefitMonth,
+        page: nextPage,
+        perPage: 50,
+      });
+      const result = await apiGetProgressReport(requestParams);
       setReport(result);
       setFinalizedSnapshot({
         report: result,
-        selection: { ...selection },
+        selection: { ...safeSelection },
         visibleFields: reportCategory === 'profile'
           ? [...new Set([...DEFAULT_VISIBLE_FIELDS.filter((field) => ['school', 'group', 'batch', 'mother', 'child', 'gender', 'dateOfBirth'].includes(field)), ...profileMetrics])]
           : reportCategory === 'program'
             ? [...new Set([...DEFAULT_VISIBLE_FIELDS.filter((field) => ['school', 'group', 'batch', 'mother', 'child'].includes(field)), ...programMetrics])]
           : [...new Set([...visibleFields.filter((field) => !GROWTH_METRICS.some(([id]) => id === field)), ...growthMetrics])],
-        granularity: reportGranularity,
+        granularity: requestParams.granularity,
         sort: { ...sort },
         page: nextPage,
         reportFocus,
         reportCategory,
-        beneficiaryType: reportGranularity,
+        beneficiaryType: requestParams.granularity,
         growthMetrics: [...growthMetrics],
         profileMetrics: [...profileMetrics],
         profileGraphColumn,
@@ -229,7 +282,9 @@ export default function ProgressReport() {
   };
 
   const sortedRows = useMemo(() => {
-    const rows = aggregateReportRows(activeReport?.rows || [], displayReportFocus);
+    const sourceRows = activeReport?.rows || [];
+    const aggregatedRows = aggregateReportRows(sourceRows, displayReportFocus);
+    const rows = aggregatedRows.length ? aggregatedRows : sourceRows;
     return rows.sort((left, right) => {
       const a = left[displaySort.key] ?? '';
       const b = right[displaySort.key] ?? '';
@@ -250,11 +305,19 @@ export default function ProgressReport() {
 
   const exportReport = async () => {
     if (!selection.schoolId) return;
-    const selectedProgram = programs.find((program) => program.name === programName);
-    const reportGranularity = reportCategory === 'program'
-      ? String(selectedProgram?.beneficiaryType || selectedProgram?.beneficiary_type || '').trim().toLowerCase() === 'mother' ? 'mother' : 'child'
-      : beneficiaryType;
-    const result = await apiGetProgressReport({ ...selection, granularity: reportGranularity, programName, benefitPeriod, benefitMonth, export: 1, perPage: 100 });
+    const selectedProgram = programs.find((program) => normalizeProgramName(program.name) === normalizeProgramName(programName));
+    const requestParams = buildProgressReportParams({
+      selection,
+      reportCategory,
+      beneficiaryType,
+      selectedProgram,
+      programName,
+      benefitPeriod,
+      benefitMonth,
+      perPage: 100,
+      exportAll: true,
+    });
+    const result = await apiGetProgressReport(requestParams);
     const lines = [
       `# ${breadcrumb.join(' > ')}`,
       `# Generated ${new Date().toISOString()}`,
@@ -362,6 +425,7 @@ export default function ProgressReport() {
     setBeneficiaryType(type);
     setProfileSection('general');
     setProfileMetrics((type === 'mother' ? MOTHER_PROFILE_METRICS : CHILD_PROFILE_METRICS).map(([id]) => id));
+    setProfileGraphColumn(type === 'mother' ? 'bmiInterpretation' : 'gender');
     const initialMetric = type === 'mother' ? 'bmiForAge' : 'weightForLengthInterpretation';
     setGraphMetricType(type === 'mother' ? 'numeric' : 'interpretation');
     setGrowthMetrics([initialMetric]);
@@ -389,13 +453,14 @@ export default function ProgressReport() {
   }, [displayWeeks, growthMetrics, reportCategory]);
 
   useEffect(() => {
+    if (reportCategory === 'program') return;
     const metricOptions = graphMetricType === 'interpretation' ? availableGrowthMetrics : availableNumericGrowthMetrics;
     if (!metricOptions.some(([id]) => id === growthMetrics[0])) {
       const nextMetric = metricOptions[0]?.[0] || '';
       setGrowthMetrics([nextMetric]);
       if (nextMetric) syncVisibleFieldsForGrowthMetric([nextMetric]);
     }
-  }, [availableGrowthMetrics, availableNumericGrowthMetrics, graphMetricType, growthMetrics]);
+  }, [availableGrowthMetrics, availableNumericGrowthMetrics, graphMetricType, growthMetrics, reportCategory]);
 
   useEffect(() => {
     if (activeTab !== 4) return undefined;
@@ -407,8 +472,8 @@ export default function ProgressReport() {
     const chartActions = document.querySelector('.program-average-chart-actions');
     if (exportButton && displayReportCategory === 'program' && chartActions) chartActions.appendChild(exportButton);
     if (exportButton && displayReportCategory !== 'program' && resultsHeader) resultsHeader.appendChild(exportButton);
-    if (heading && beneficiaryType === 'mother') heading.textContent = '📈 BMI';
-    if (subtitle && beneficiaryType === 'mother') subtitle.textContent = 'Latest mother BMI measurements · values are plotted by month';
+    if (heading && displayReportCategory === 'monitor' && beneficiaryType === 'mother') heading.textContent = '📈 BMI';
+    if (subtitle && displayReportCategory === 'monitor' && beneficiaryType === 'mother') subtitle.textContent = 'Latest mother BMI measurements · values are plotted by month';
     if (subtitle && displayReportCategory === 'monitor' && beneficiaryType === 'child') subtitle.textContent = 'Weight and length plotted against age in months';
     if (heading && displayReportCategory === 'monitor' && beneficiaryType === 'child') {
       const metricText = (availableGrowthMetrics.find(([id]) => id === growthMetrics[0])?.[1] || 'Weight-for-Length/Height')
@@ -464,7 +529,7 @@ export default function ProgressReport() {
               benefitMonth={benefitMonth}
               setBenefitMonth={setBenefitMonth}
               beneficiaryType={beneficiaryType}
-              setBeneficiaryType={setBeneficiaryType}
+              setBeneficiaryType={selectBeneficiaryType}
               setActiveTab={setActiveTab}
             />
           )}
@@ -476,6 +541,7 @@ export default function ProgressReport() {
               profileMetrics={profileMetrics}
               toggleProfileMetric={toggleProfileMetric}
               programMetrics={PROGRAM_METRICS}
+              selectedProgramMetrics={programMetrics}
               toggleProgramMetric={toggleProgramMetric}
               beneficiaryType={beneficiaryType}
               availableGrowthMetrics={availableGrowthMetrics}

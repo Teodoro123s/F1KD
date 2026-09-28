@@ -110,13 +110,23 @@ function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleField
 }
 
 function StandardResultsTable({ resultsRows, fields, formatCellValue, emptyMessage = 'No results found.' }) {
-  if (!resultsRows.length) return <p className="growth-report-empty">{emptyMessage}</p>;
+  const safeFields = Array.isArray(fields) && fields.length ? fields : [];
 
   return (
     <div className="progress-report-table-shell">
       <table className="progress-report-table standard-results-table">
-        <thead><tr>{fields.map(([id, label]) => <th key={id}>{label}</th>)}</tr></thead>
-        <tbody>{resultsRows.map((row, index) => <tr key={row.historyRowKey || index}>{fields.map(([id]) => <td key={id}>{formatCellValue(id, row[id])}</td>)}</tr>)}</tbody>
+        <thead>
+          <tr>{safeFields.map(([id, label]) => <th key={id}>{label}</th>)}</tr>
+        </thead>
+        <tbody>
+          {resultsRows.length ? (
+            resultsRows.map((row, index) => <tr key={row.historyRowKey || index}>{safeFields.map(([id]) => <td key={id}>{formatCellValue(id, row[id])}</td>)}</tr>)
+          ) : (
+            <tr>
+              <td colSpan={Math.max(safeFields.length, 1)} className="growth-report-empty">{emptyMessage}</td>
+            </tr>
+          )}
+        </tbody>
       </table>
     </div>
   );
@@ -161,10 +171,11 @@ export function ResultsTable({
     return value !== undefined && value !== null && String(value).trim() !== '';
   });
   const sectionFields = visibleFields.filter(([id]) => {
-    if (!showProfileFilter || !profileFieldSections[id] || profileFieldSections[id] === profileSection) {
-      return hasColumnValues(id);
+    if (showProfileFilter && profileFieldSections[id] && profileFieldSections[id] !== profileSection) {
+      return false;
     }
-    return false;
+    if ((resultsRows || []).length === 0) return true;
+    return hasColumnValues(id);
   });
   const customizedFields = sectionFields.filter(([id]) => !hiddenFields.has(id));
   const showCustomize = !showMonitoringFilter || tableDisplayMode === 'general';
