@@ -8,15 +8,15 @@ function formatDobForDisplay(value) {
   const inputDate = formatDateForInput(value);
   if (!inputDate) return '';
   const [year, month, day] = inputDate.split('-');
-  return `${month}/${day}/${year}`;
+  return `${day}/${month}/${year}`;
 }
 
 function parseDobInput(value) {
   const digits = value.replace(/\D/g, '').slice(0, 8);
   if (digits.length !== 8) return '';
 
-  const month = Number(digits.slice(0, 2));
-  const day = Number(digits.slice(2, 4));
+  const day = Number(digits.slice(0, 2));
+  const month = Number(digits.slice(2, 4));
   const year = Number(digits.slice(4, 8));
   const date = new Date(year, month - 1, day);
   if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return '';
@@ -181,7 +181,7 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
               className="form-input"
               inputMode="numeric"
               autoComplete="bday"
-              placeholder="MM/DD/YYYY"
+              placeholder="DD/MM/YYYY"
               maxLength={10}
               value={dobInput}
               onChange={(e) => {

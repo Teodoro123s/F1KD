@@ -4,6 +4,7 @@ import { apiGetPrograms } from '../../api/programs';
 import PageHeader from '../../components/ui/PageHeader';
 import { useAuth } from '../../auth/AuthProvider';
 import { isCommunityCoordinatorRole, isHealthWorkerRole } from '../../utils/permissions';
+import { notifyAction } from '../../components/ActionFeedback';
 import { ReportTabBar } from './components/ReportTabBar';
 import { CommunitySelectionStep } from './components/CommunitySelectionStep';
 import { ReportFocusStep } from './components/ReportFocusStep';
@@ -24,6 +25,8 @@ import {
   MOTHER_PROFILE_METRICS,
   CHILD_PROFILE_FIELD_SECTIONS,
   PROFILE_SECTION_LABELS,
+  MOTHER_PROFILE_FIELD_SECTIONS,
+  MOTHER_PROFILE_SECTION_LABELS,
   PROFILE_GRAPH_FIELDS,
   PRESENCE_PROFILE_FIELDS,
   PROGRAM_METRICS,
@@ -120,6 +123,8 @@ export default function ProgressReport() {
   const availableGrowthMetrics = displayBeneficiaryType === 'mother' ? MOTHER_GROWTH_METRICS : GROWTH_METRICS;
   const availableNumericGrowthMetrics = NUMERIC_GROWTH_METRICS(displayBeneficiaryType);
   const availableProfileMetrics = displayBeneficiaryType === 'mother' ? MOTHER_PROFILE_METRICS : CHILD_PROFILE_METRICS;
+  const activeProfileFieldSections = displayBeneficiaryType === 'mother' ? MOTHER_PROFILE_FIELD_SECTIONS : CHILD_PROFILE_FIELD_SECTIONS;
+  const activeProfileSectionLabels = displayBeneficiaryType === 'mother' ? MOTHER_PROFILE_SECTION_LABELS : PROFILE_SECTION_LABELS;
   const graphMetricOptions = graphMetricType === 'interpretation' ? availableGrowthMetrics : availableNumericGrowthMetrics;
   const selectedGraphMetric = growthMetrics[0] || graphMetricOptions[0]?.[0] || '';
   const selectedTableGrowthFields = growthTableFieldsForMetric(selectedGraphMetric);
@@ -137,6 +142,15 @@ export default function ProgressReport() {
     : baseDisplayVisibleFields;
   const focusScope = selection.batchId ? 'batch' : selection.groupId ? 'group' : selection.schoolId ? 'school' : '';
   const focusOptions = REPORT_FOCUS_OPTIONS.filter(([, , scope]) => scope === focusScope);
+
+  const syncVisibleFieldsForGrowthMetric = (nextGrowthMetrics = growthMetrics) => {
+    setVisibleFields((current) => addGrowthScoresBeforeInterpretations([
+      ...new Set([
+        ...current.filter((field) => !GROWTH_METRICS.some(([id]) => id === field) && !GROWTH_TABLE_FIELDS.has(field)),
+        ...nextGrowthMetrics,
+      ]),
+    ]));
+  };
 
   const groups = useMemo(() => options.groups.filter((item) => !selection.schoolId || String(item.schoolId) === String(selection.schoolId)), [options.groups, selection.schoolId]);
   const batches = useMemo(() => options.batches.filter((item) => {
@@ -340,15 +354,18 @@ export default function ProgressReport() {
     const nextType = INTERPRETATION_METRICS.has(id) ? 'interpretation' : 'numeric';
     setGraphMetricType(nextType);
     setGrowthMetrics([id]);
+    syncVisibleFieldsForGrowthMetric([id]);
   };
   const toggleProfileMetric = (id) => setProfileMetrics((current) => current.includes(id) ? current.filter((field) => field !== id) : [...current, id]);
   const toggleProgramMetric = (id) => setProgramMetrics((current) => current.includes(id) ? current.filter((field) => field !== id) : [...current, id]);
   const selectBeneficiaryType = (type) => {
     setBeneficiaryType(type);
+    setProfileSection('general');
     setProfileMetrics((type === 'mother' ? MOTHER_PROFILE_METRICS : CHILD_PROFILE_METRICS).map(([id]) => id));
     const initialMetric = type === 'mother' ? 'bmiForAge' : 'weightForLengthInterpretation';
     setGraphMetricType(type === 'mother' ? 'numeric' : 'interpretation');
     setGrowthMetrics([initialMetric]);
+    syncVisibleFieldsForGrowthMetric([initialMetric]);
     setFinalizedSnapshot(null);
     setReport(null);
     setActiveTab(2);
@@ -358,6 +375,7 @@ export default function ProgressReport() {
     if (category === 'program') {
       setProgramMetrics(['receivedBenefitAveragePerMonth']);
       setGrowthMetrics(['receivedBenefitAveragePerMonth']);
+      syncVisibleFieldsForGrowthMetric(['receivedBenefitAveragePerMonth']);
       setDisplayWeeks('receivedBenefitAveragePerMonth');
       setResultsView('table');
     }
@@ -373,7 +391,9 @@ export default function ProgressReport() {
   useEffect(() => {
     const metricOptions = graphMetricType === 'interpretation' ? availableGrowthMetrics : availableNumericGrowthMetrics;
     if (!metricOptions.some(([id]) => id === growthMetrics[0])) {
-      setGrowthMetrics([metricOptions[0]?.[0] || '']);
+      const nextMetric = metricOptions[0]?.[0] || '';
+      setGrowthMetrics([nextMetric]);
+      if (nextMetric) syncVisibleFieldsForGrowthMetric([nextMetric]);
     }
   }, [availableGrowthMetrics, availableNumericGrowthMetrics, graphMetricType, growthMetrics]);
 
@@ -463,60 +483,66 @@ export default function ProgressReport() {
               selectGrowthMetric={selectGrowthMetric}
               setActiveTab={setActiveTab}
               generateReport={generateReport}
-              profileFieldSections={CHILD_PROFILE_FIELD_SECTIONS}
-              profileSectionLabels={PROFILE_SECTION_LABELS}
+              profileFieldSections={activeProfileFieldSections}
+              profileSectionLabels={activeProfileSectionLabels}
               profileSection={profileSection}
               setProfileSection={setProfileSection}
             />
           )}
 
-          {activeTab === 4 && activeReport && (
-            <ResultsPanel
-              selectedSchool={selectedSchool}
-              selection={selection}
-              groups={groups}
-              batches={batches}
-              exportReport={exportReport}
-              resultsView={resultsView}
-              setResultsView={setResultsView}
-              tableDisplayMode={tableDisplayMode}
-              setTableDisplayMode={setTableDisplayMode}
-              tableRows={tableRows}
-              tableVisibleFields={tableVisibleFields}
-              monitoringRows={monitoringTableRows}
-              showProfileFilter={displayReportCategory === 'profile' && displayBeneficiaryType === 'child'}
-              profileFieldSections={CHILD_PROFILE_FIELD_SECTIONS}
-              profileSectionLabels={PROFILE_SECTION_LABELS}
-              profileSection={profileSection}
-              setProfileSection={setProfileSection}
-              displayPage={displayPage}
-              reportPagination={activeReport?.pagination}
-              generateReport={generateReport}
-              displayReportCategory={displayReportCategory}
-              profileGraphColumn={profileGraphColumn}
-              setProfileGraphColumn={setProfileGraphColumn}
-              graphMetricType={graphMetricType}
-              setGraphMetricType={setGraphMetricType}
-              availableGrowthMetrics={availableGrowthMetrics}
-              availableNumericGrowthMetrics={availableNumericGrowthMetrics}
-              selectedGraphMetric={selectedGraphMetric}
-              setGrowthMetrics={setGrowthMetrics}
-              displayWeeks={displayWeeks}
-              setDisplayWeeks={setDisplayWeeks}
-              averageMetric={averageMetric}
-              graphRows={graphRows}
-              resultsRows={resultsRows}
-              reportFields={REPORT_FIELDS}
-              displayVisibleFields={displayVisibleFields}
-              displaySort={displaySort}
-              changeSort={changeSort}
-              formatCellValue={formatCellValue}
-              displayBeneficiaryType={displayBeneficiaryType}
-              displayReportFocus={displayReportFocus}
-              profileGraphFields={PROFILE_GRAPH_FIELDS}
-              interpretationMetrics={INTERPRETATION_METRICS}
-              programMetrics={PROGRAM_METRICS}
-            />
+          {activeTab === 4 && (loadingReport || activeReport) && (
+            loadingReport ? (
+              <div className="progress-report-tab-panel results-tab-panel">
+                <div className="progress-report-empty">Generating report…</div>
+              </div>
+            ) : (
+              <ResultsPanel
+                selectedSchool={selectedSchool}
+                selection={selection}
+                groups={groups}
+                batches={batches}
+                exportReport={exportReport}
+                resultsView={resultsView}
+                setResultsView={setResultsView}
+                tableDisplayMode={tableDisplayMode}
+                setTableDisplayMode={setTableDisplayMode}
+                tableRows={tableRows}
+                tableVisibleFields={tableVisibleFields}
+                monitoringRows={monitoringTableRows}
+                showProfileFilter={displayReportCategory === 'profile'}
+                profileFieldSections={activeProfileFieldSections}
+                profileSectionLabels={activeProfileSectionLabels}
+                profileSection={profileSection}
+                setProfileSection={setProfileSection}
+                displayPage={displayPage}
+                reportPagination={activeReport?.pagination}
+                generateReport={generateReport}
+                displayReportCategory={displayReportCategory}
+                profileGraphColumn={profileGraphColumn}
+                setProfileGraphColumn={setProfileGraphColumn}
+                graphMetricType={graphMetricType}
+                setGraphMetricType={setGraphMetricType}
+                availableGrowthMetrics={availableGrowthMetrics}
+                availableNumericGrowthMetrics={availableNumericGrowthMetrics}
+                selectedGraphMetric={selectedGraphMetric}
+                setGrowthMetrics={setGrowthMetrics}
+                displayWeeks={displayWeeks}
+                setDisplayWeeks={setDisplayWeeks}
+                averageMetric={averageMetric}
+                graphRows={graphRows}
+                resultsRows={resultsRows}
+                reportFields={REPORT_FIELDS}
+                displayVisibleFields={displayVisibleFields}
+                displaySort={displaySort}
+                changeSort={changeSort}
+                formatCellValue={formatCellValue}
+                displayBeneficiaryType={displayBeneficiaryType}
+                displayReportFocus={displayReportFocus}
+                profileGraphFields={PROFILE_GRAPH_FIELDS}
+                interpretationMetrics={INTERPRETATION_METRICS}
+                programMetrics={PROGRAM_METRICS}
+              />
+            )
           )}
         </section>
       </div>

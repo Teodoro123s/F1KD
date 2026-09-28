@@ -13,7 +13,12 @@ const MOTHER_DRAFT_KEY = 'f1kd.create-mother.draft';
 const loadMotherDraft = (fallback) => {
   try {
     const savedDraft = JSON.parse(localStorage.getItem(MOTHER_DRAFT_KEY) || 'null');
-    return savedDraft?.form ? { ...fallback, ...savedDraft.form } : fallback;
+    if (!savedDraft?.form) return fallback;
+    const form = { ...fallback, ...savedDraft.form };
+    if (savedDraft.form.ttRemarks === undefined) {
+      form.ttRemarks = [1, 2, 3, 4, 5].map((num) => form[`tt${num}Remarks`]).filter(Boolean).join('; ');
+    }
+    return form;
   } catch (error) {
     return fallback;
   }
@@ -269,6 +274,7 @@ export default function CreateMotherPage({
       dentalFindings: communityForm.dentalFindings,
       dentalWork: communityForm.dentalWork,
       dentalRemarks: communityForm.dentalRemarks,
+      ttRemarks: communityForm.ttRemarks,
       tt1Date: communityForm.tt1Date,
       tt1Remarks: communityForm.tt1Remarks,
       tt2Date: communityForm.tt2Date,
@@ -335,6 +341,7 @@ export default function CreateMotherPage({
       dentalFindings: communityForm.dentalFindings,
       dentalWork: communityForm.dentalWork,
       dentalRemarks: communityForm.dentalRemarks,
+      ttRemarks: communityForm.ttRemarks,
       tt1Date: communityForm.tt1Date,
       tt1Remarks: communityForm.tt1Remarks,
       tt2Date: communityForm.tt2Date,

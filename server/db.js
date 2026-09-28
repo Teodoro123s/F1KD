@@ -277,10 +277,14 @@ async function ensure() {
       id INT AUTO_INCREMENT PRIMARY KEY,
       child_id INT NOT NULL,
       vaccine_name VARCHAR(50) NOT NULL,
+      dose_number TINYINT UNSIGNED NOT NULL DEFAULT 1,
       vaccine_date DATE,
       remarks TEXT,
       FOREIGN KEY (child_id) REFERENCES children(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+
+    `ALTER TABLE child_vaccinations
+      ADD COLUMN IF NOT EXISTS dose_number TINYINT UNSIGNED NOT NULL DEFAULT 1;`,
 
     `CREATE TABLE IF NOT EXISTS child_checkups (
       id INT AUTO_INCREMENT PRIMARY KEY,

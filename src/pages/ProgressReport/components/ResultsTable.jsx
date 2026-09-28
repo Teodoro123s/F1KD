@@ -156,7 +156,16 @@ export function ResultsTable({
 }) {
   const visibleFields = reportFields.filter(([id]) => displayVisibleFields.includes(id));
   const [hiddenFields, setHiddenFields] = useState(() => new Set());
-  const sectionFields = visibleFields.filter(([id]) => !showProfileFilter || !profileFieldSections[id] || profileFieldSections[id] === profileSection);
+  const hasColumnValues = (fieldId) => (resultsRows || []).some((row) => {
+    const value = row[fieldId];
+    return value !== undefined && value !== null && String(value).trim() !== '';
+  });
+  const sectionFields = visibleFields.filter(([id]) => {
+    if (!showProfileFilter || !profileFieldSections[id] || profileFieldSections[id] === profileSection) {
+      return hasColumnValues(id);
+    }
+    return false;
+  });
   const customizedFields = sectionFields.filter(([id]) => !hiddenFields.has(id));
   const showCustomize = !showMonitoringFilter || tableDisplayMode === 'general';
   const [resultPeriod, setResultPeriod] = useState('latest');

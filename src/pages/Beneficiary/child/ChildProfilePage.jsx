@@ -302,14 +302,20 @@ export default function ChildProfilePage() {
   const childHeight = selectedChild?.birthLength ?? selectedChild?.birth_length ?? '—';
   const childBmi = getBmiValue(childWeight, childHeight);
   const childBmiStatus = getBmiStatus(childWeight, childHeight);
+  const formatVaccineDoses = (vaccine, fallbackDate) => {
+    const doses = [vaccine?.dose1 || fallbackDate, vaccine?.dose2, vaccine?.dose3]
+      .map((date, index) => date ? `Dose ${index + 1}: ${formatDateForDisplay(date)}` : null)
+      .filter(Boolean);
+    return doses.join(' | ') || '—';
+  };
   const vaccineRows = [
-    { label: 'BCG', date: formatDateForDisplay(selectedChild?.bcgDate), remarks: selectedChild?.bcgRemarks || '—' },
-    { label: 'Hepatitis B', date: formatDateForDisplay(selectedChild?.hepbDate), remarks: selectedChild?.hepbRemarks || '—' },
+    { label: 'BCG', date: formatVaccineDoses(selectedChild?.BCG, selectedChild?.bcgDate), remarks: selectedChild?.bcgRemarks || selectedChild?.BCG?.remarks || '—' },
+    { label: 'Hepatitis B', date: formatVaccineDoses(selectedChild?.HepB, selectedChild?.hepbDate), remarks: selectedChild?.hepbRemarks || selectedChild?.HepB?.remarks || '—' },
     { label: 'Inactivated Polio Vaccine', date: formatDateForDisplay(selectedChild?.ipvDate || selectedChild?.ipv_date), remarks: selectedChild?.ipvRemarks || selectedChild?.ipv_remarks || '—' },
-    { label: 'Pentavalent Vaccine', date: formatDateForDisplay(selectedChild?.dptDate), remarks: selectedChild?.dptRemarks || '—' },
-    { label: 'Oral Polio Vaccine (OPV)', date: formatDateForDisplay(selectedChild?.opvDate), remarks: selectedChild?.opvRemarks || '—' },
+    { label: 'Pentavalent Vaccine', date: formatVaccineDoses(selectedChild?.DPT, selectedChild?.dptDate), remarks: selectedChild?.dptRemarks || selectedChild?.DPT?.remarks || '—' },
+    { label: 'Oral Polio Vaccine (OPV)', date: formatVaccineDoses(selectedChild?.OPV, selectedChild?.opvDate), remarks: selectedChild?.opvRemarks || selectedChild?.OPV?.remarks || '—' },
     { label: 'Pneumococcal (PCV)', date: formatDateForDisplay(selectedChild?.pcvDate || selectedChild?.pcv_date), remarks: selectedChild?.pcvRemarks || selectedChild?.pcv_remarks || '—' },
-    { label: 'Measles, Mumps, Rubella (MMR)', date: formatDateForDisplay(selectedChild?.mmrDate), remarks: selectedChild?.mmrRemarks || '—' },
+    { label: 'Measles, Mumps, Rubella (MMR)', date: formatVaccineDoses(selectedChild?.MMR, selectedChild?.mmrDate), remarks: selectedChild?.mmrRemarks || selectedChild?.MMR?.remarks || '—' },
   ];
 
   const detailForm = {

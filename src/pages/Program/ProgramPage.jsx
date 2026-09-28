@@ -1090,13 +1090,13 @@ export default function ProgramPage() {
                   id="activity-date"
                   type="text"
                   inputMode="numeric"
-                  pattern="\d{4}/\d{2}/\d{2}"
+                  pattern="\d{2}/\d{2}/\d{4}"
                   className="form-input"
-                  placeholder="yyyy/mm/dd"
+                  placeholder="dd/mm/yyyy"
                   defaultValue={formatDateForDisplay('2026-08-26')}
                   onChange={(event) => {
                     const iso = normalizeDateValue(event.target.value);
-                    if (iso) event.target.value = iso;
+                    if (iso) event.target.value = formatDateForDisplay(iso);
                   }}
                   required
                 />

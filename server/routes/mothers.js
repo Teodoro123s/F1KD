@@ -500,7 +500,9 @@ router.post('/', async (req, res) => {
     }
     for (let index = 1; index <= 5; index += 1) {
       const date = b[`tt${index}Date`];
-      const remarks = b[`tt${index}Remarks`];
+      const remarks = b.ttRemarks !== undefined
+        ? (index === 1 ? b.ttRemarks : null)
+        : b[`tt${index}Remarks`];
       if (date || remarks) {
         await pool.query(
           'INSERT INTO mother_vaccinations (mother_id, vaccine_name, vaccine_date, remarks) VALUES (?, ?, ?, ?)',
@@ -671,7 +673,9 @@ router.put('/:id', async (req, res) => {
     await pool.query('DELETE FROM mother_vaccinations WHERE mother_id = ?', [motherDbId]);
     for (let index = 1; index <= 5; index += 1) {
       const date = b[`tt${index}Date`];
-      const remarks = b[`tt${index}Remarks`];
+      const remarks = b.ttRemarks !== undefined
+        ? (index === 1 ? b.ttRemarks : null)
+        : b[`tt${index}Remarks`];
       if (date || remarks) {
         await pool.query(
           'INSERT INTO mother_vaccinations (mother_id, vaccine_name, vaccine_date, remarks) VALUES (?, ?, ?, ?)',

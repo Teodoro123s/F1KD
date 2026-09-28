@@ -234,6 +234,7 @@ CREATE TABLE IF NOT EXISTS child_vaccinations (
   id INT AUTO_INCREMENT PRIMARY KEY,
   child_id INT NOT NULL,
   vaccine_name VARCHAR(100),
+  dose_number TINYINT UNSIGNED NOT NULL DEFAULT 1,
   vaccine_date DATE,
   remarks TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

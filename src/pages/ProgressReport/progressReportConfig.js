@@ -36,17 +36,11 @@ export const REPORT_FIELDS = [
   ['relationship', 'Relationship', 'Profile'],
   ['address', 'Address', 'Profile'],
   ['medicalConditions', 'Medical Conditions', 'Profile'],
-  ['vaccineRemarks', 'Vaccine Remarks', 'Profile'],
-  ['bcgDate', 'BCG Date', 'Profile'],
-  ['bcgRemarks', 'BCG Remarks', 'Profile'],
-  ['hepbDate', 'HepB Date', 'Profile'],
-  ['hepbRemarks', 'HepB Remarks', 'Profile'],
-  ['opvDate', 'OPV Date', 'Profile'],
-  ['opvRemarks', 'OPV Remarks', 'Profile'],
-  ['dptDate', 'DPT Date', 'Profile'],
-  ['dptRemarks', 'DPT Remarks', 'Profile'],
-  ['mmrDate', 'MMR Date', 'Profile'],
-  ['mmrRemarks', 'MMR Remarks', 'Profile'],
+  ['bcgDate', 'BCG Vaccine Record', 'Profile'],
+  ['hepbDate', 'HepB Vaccine Record', 'Profile'],
+  ['opvDate', 'OPV Vaccine Record', 'Profile'],
+  ['dptDate', 'DPT Vaccine Record', 'Profile'],
+  ['mmrDate', 'MMR Vaccine Record', 'Profile'],
   ['contactNumber', 'Contact Number', 'Profile'],
   ['addressDetails', 'Address Details', 'Profile'],
   ['motherBirthCertificate', "Mother's Birth Certificate", 'Profile'],
@@ -54,6 +48,40 @@ export const REPORT_FIELDS = [
   ['gravida', 'Gravida', 'Profile'],
   ['abortion', 'Abortion', 'Profile'],
   ['stillbirth', 'Stillbirth', 'Profile'],
+  ['philhealthNumber', 'PhilHealth Number', 'Profile'],
+  ['spouseName', 'Spouse Name', 'Profile'],
+  ['emergencyName', 'Emergency Contact Name', 'Profile'],
+  ['emergencyContact', 'Emergency Contact Number', 'Profile'],
+  ['emergencyRelationship', 'Emergency Relationship', 'Profile'],
+  ['lmpDate', 'Date of LMP', 'Profile'],
+  ['eddDate', 'Expected Delivery Date', 'Profile'],
+  ['prenatalRegDate', 'Prenatal Registration Date', 'Profile'],
+  ['trimester', 'Trimester', 'Profile'],
+  ['gestationalAge', 'Gestational Age', 'Profile'],
+  ['prenatalWeight', 'Prenatal Weight (kg)', 'Profile'],
+  ['prenatalBp', 'Prenatal Blood Pressure', 'Profile'],
+  ['prenatalHeight', 'Prenatal Height (cm)', 'Profile'],
+  ['fundalHeight', 'Fundal Height', 'Profile'],
+  ['fhr', 'Fetal Heart Rate', 'Profile'],
+  ['para', 'Para', 'Profile'],
+  ['medicalConditions', 'Medical Conditions', 'Profile'],
+  ['otherMedicalHistory', 'Other Medical History', 'Profile'],
+  ['dentalCheckupDate', 'Dental Check-up Date', 'Profile'],
+  ['dentalFacility', 'Dental Facility', 'Profile'],
+  ['dentistInCharge', 'Dentist in Charge', 'Profile'],
+  ['communityDentist', 'Community Dentist', 'Profile'],
+  ['dentistLicense', 'Dentist License No.', 'Profile'],
+  ['dentistContact', 'Dentist Contact', 'Profile'],
+  ['teethCount', 'Number of Teeth', 'Profile'],
+  ['dentalFindings', 'Dental Findings', 'Profile'],
+  ['dentalWork', 'Dental Work Done', 'Profile'],
+  ['dentalRemarks', 'Dental Remarks', 'Profile'],
+  ['tt1Date', 'TT1 Date', 'Profile'], ['tt1Remarks', 'TT1 Remarks', 'Profile'],
+  ['tt2Date', 'TT2 Date', 'Profile'], ['tt2Remarks', 'TT2 Remarks', 'Profile'],
+  ['tt3Date', 'TT3 Date', 'Profile'], ['tt3Remarks', 'TT3 Remarks', 'Profile'],
+  ['tt4Date', 'TT4 Date', 'Profile'], ['tt4Remarks', 'TT4 Remarks', 'Profile'],
+  ['tt5Date', 'TT5 Date', 'Profile'], ['tt5Remarks', 'TT5 Remarks', 'Profile'],
+  ['ttVaccineRecord', 'Tetanus Toxoid Vaccine Record', 'Profile'],
   ['weightForAge', 'Weight-for-Age (kg)', 'Growth & Monitoring'],
   ['heightForAge', 'Length-for-Age (cm)', 'Growth & Monitoring'],
   ['weightForLengthZScore', 'Weight-for-Length/Height Z-Score', 'Growth & Monitoring'],
@@ -80,7 +108,7 @@ export const REPORT_FIELDS = [
 ];
 
 export const DEFAULT_VISIBLE_FIELDS = [
-  'school', 'group', 'batch', 'mother', 'child', 'pediatricAgeWeeks',
+  'school', 'group', 'batch', 'mother', 'child',
   'weightForLengthInterpretation', 'weightForAgeInterpretation', 'heightForAge',
   'lengthForAgeZScore', 'lengthForAgeInterpretation', 'activitiesCompleted',
   'totalActivities', 'progress',
@@ -161,17 +189,11 @@ export const CHILD_PROFILE_METRICS = [
   ['relationship', 'Relationship', 'Relationship value recorded in the child profile.'],
   ['address', 'Address', 'Address recorded in the child profile.'],
   ['medicalConditions', 'Medical Conditions', 'Recorded child medical conditions.'],
-  ['vaccineRemarks', 'Vaccine Remarks', 'Remarks recorded across the child vaccination records.'],
-  ['bcgDate', 'BCG Date', 'BCG vaccination date.'],
-  ['bcgRemarks', 'BCG Remarks', 'BCG vaccination remarks.'],
-  ['hepbDate', 'HepB Date', 'Hepatitis B vaccination date.'],
-  ['hepbRemarks', 'HepB Remarks', 'Hepatitis B vaccination remarks.'],
-  ['opvDate', 'OPV Date', 'OPV vaccination date.'],
-  ['opvRemarks', 'OPV Remarks', 'OPV vaccination remarks.'],
-  ['dptDate', 'DPT Date', 'DPT vaccination date.'],
-  ['dptRemarks', 'DPT Remarks', 'DPT vaccination remarks.'],
-  ['mmrDate', 'MMR Date', 'MMR vaccination date.'],
-  ['mmrRemarks', 'MMR Remarks', 'MMR vaccination remarks.'],
+  ['bcgDate', 'BCG Vaccine Record', 'All recorded BCG dose dates and remarks.'],
+  ['hepbDate', 'HepB Vaccine Record', 'All recorded Hepatitis B dose dates and remarks.'],
+  ['opvDate', 'OPV Vaccine Record', 'All recorded OPV dose dates and remarks.'],
+  ['dptDate', 'DPT Vaccine Record', 'All recorded DPT dose dates and remarks.'],
+  ['mmrDate', 'MMR Vaccine Record', 'All recorded MMR dose dates and remarks.'],
 ];
 
 export const CHILD_PROFILE_FIELD_SECTIONS = {
@@ -179,11 +201,25 @@ export const CHILD_PROFILE_FIELD_SECTIONS = {
   birthWeight: 'prenatal-ob', birthLength: 'prenatal-ob', bloodType: 'prenatal-ob', multipleBirth: 'prenatal-ob', deliveryType: 'prenatal-ob',
   noOfChildDelivered: 'prenatal-ob', expandedNewbornScreening: 'prenatal-ob', expandedNewbornScreeningResult: 'prenatal-ob', birthPlace: 'prenatal-ob', birthAttendant: 'prenatal-ob', apgarScore: 'prenatal-ob',
   healthStatus: 'medical-dental', feedingType: 'medical-dental', exclusiveBreastfeeding: 'medical-dental', nutritionNotes: 'medical-dental', medicalConditions: 'medical-dental',
-  vaccineRemarks: 'vaccine', bcgDate: 'vaccine', bcgRemarks: 'vaccine', hepbDate: 'vaccine', hepbRemarks: 'vaccine', opvDate: 'vaccine', opvRemarks: 'vaccine', dptDate: 'vaccine', dptRemarks: 'vaccine', mmrDate: 'vaccine', mmrRemarks: 'vaccine',
+  bcgDate: 'vaccine', hepbDate: 'vaccine', opvDate: 'vaccine', dptDate: 'vaccine', mmrDate: 'vaccine',
 };
 
 export const PROFILE_SECTION_LABELS = {
   all: 'All profile fields',
+  general: 'General',
+  'prenatal-ob': 'Prenatal / OB',
+  'medical-dental': 'Medical / Dental',
+  vaccine: 'Vaccine',
+};
+
+export const MOTHER_PROFILE_FIELD_SECTIONS = {
+  age: 'general', contactNumber: 'general', addressDetails: 'general', motherBirthCertificate: 'general', programConsentDocument: 'general', philhealthMember: 'general', philhealthNumber: 'general', spouseName: 'general', emergencyName: 'general', emergencyContact: 'general', emergencyRelationship: 'general',
+  initialWeight: 'prenatal-ob', initialHeight: 'prenatal-ob', lmpDate: 'prenatal-ob', eddDate: 'prenatal-ob', prenatalRegDate: 'prenatal-ob', trimester: 'prenatal-ob', gestationalAge: 'prenatal-ob', prenatalWeight: 'prenatal-ob', prenatalBp: 'prenatal-ob', prenatalHeight: 'prenatal-ob', fundalHeight: 'prenatal-ob', fhr: 'prenatal-ob', gravida: 'prenatal-ob', para: 'prenatal-ob', abortion: 'prenatal-ob', stillbirth: 'prenatal-ob',
+  medicalConditions: 'medical-dental', otherMedicalHistory: 'medical-dental', dentalCheckupDate: 'medical-dental', dentalFacility: 'medical-dental', dentistInCharge: 'medical-dental', communityDentist: 'medical-dental', dentistLicense: 'medical-dental', dentistContact: 'medical-dental', teethCount: 'medical-dental', dentalFindings: 'medical-dental', dentalWork: 'medical-dental', dentalRemarks: 'medical-dental',
+  ttVaccineRecord: 'vaccine',
+};
+
+export const MOTHER_PROFILE_SECTION_LABELS = {
   general: 'General',
   'prenatal-ob': 'Prenatal / OB',
   'medical-dental': 'Medical / Dental',
@@ -197,11 +233,40 @@ export const MOTHER_PROFILE_METRICS = [
   ['motherBirthCertificate', "Mother's Birth Certificate", 'Whether the mother birth certificate is uploaded.'],
   ['programConsentDocument', 'Program Consent Form', 'Whether the program consent form is uploaded.'],
   ['philhealthMember', 'PhilHealth Member', 'Whether the mother is registered as a PhilHealth member.'],
+  ['philhealthNumber', 'PhilHealth Number', 'PhilHealth number recorded in the mother profile.'],
+  ['spouseName', 'Spouse Name', 'Spouse name recorded in the mother profile.'],
+  ['emergencyName', 'Emergency Contact Name', 'Emergency contact name recorded in the mother profile.'],
+  ['emergencyContact', 'Emergency Contact Number', 'Emergency contact number recorded in the mother profile.'],
+  ['emergencyRelationship', 'Emergency Relationship', 'Emergency contact relationship.'],
   ['initialWeight', 'Initial Weight (kg)', 'Prenatal baseline weight.'],
   ['initialHeight', 'Initial Height (cm)', 'Prenatal baseline height.'],
   ['gravida', 'Gravida', 'Number of pregnancies.'],
   ['abortion', 'Abortion', 'Recorded abortion count.'],
   ['stillbirth', 'Stillbirth', 'Recorded stillbirth count.'],
+  ['lmpDate', 'Date of LMP', 'Last menstrual period date.'],
+  ['eddDate', 'Expected Delivery Date', 'Expected delivery date.'],
+  ['prenatalRegDate', 'Prenatal Registration Date', 'Date of prenatal registration.'],
+  ['trimester', 'Trimester', 'Trimester at registration.'],
+  ['gestationalAge', 'Gestational Age', 'Gestational age at registration.'],
+  ['prenatalWeight', 'Prenatal Weight (kg)', 'Weight at prenatal registration.'],
+  ['prenatalBp', 'Prenatal Blood Pressure', 'Blood pressure at prenatal registration.'],
+  ['prenatalHeight', 'Prenatal Height (cm)', 'Height at prenatal registration.'],
+  ['fundalHeight', 'Fundal Height', 'Fundal height recorded in the mother profile.'],
+  ['fhr', 'Fetal Heart Rate', 'Fetal heart rate recorded in the mother profile.'],
+  ['para', 'Para', 'Number of births recorded in the mother profile.'],
+  ['medicalConditions', 'Medical Conditions', 'Recorded maternal medical conditions.'],
+  ['otherMedicalHistory', 'Other Medical History', 'Other medical history notes.'],
+  ['dentalCheckupDate', 'Dental Check-up Date', 'Date of dental check-up.'],
+  ['dentalFacility', 'Dental Facility', 'Dental clinic or health facility.'],
+  ['dentistInCharge', 'Dentist in Charge', 'Dentist in charge.'],
+  ['communityDentist', 'Community Dentist', 'Community dentist name.'],
+  ['dentistLicense', 'Dentist License No.', 'Dentist license number.'],
+  ['dentistContact', 'Dentist Contact', 'Dentist contact number.'],
+  ['teethCount', 'Number of Teeth', 'Number of teeth recorded.'],
+  ['dentalFindings', 'Dental Findings', 'Dental findings or diagnosis.'],
+  ['dentalWork', 'Dental Work Done', 'Dental work recorded.'],
+  ['dentalRemarks', 'Dental Remarks', 'Dental recommendations or remarks.'],
+  ['ttVaccineRecord', 'Tetanus Toxoid Vaccine Record', 'All recorded TT dose dates and remarks.'],
 ];
 
 export const PROFILE_GRAPH_FIELDS = [
@@ -312,9 +377,19 @@ export const getBmiInterpretation = (value) => {
 export const formatCellValue = (field, value) => {
   if (PRESENCE_PROFILE_FIELDS.has(field)) return value === null || value === undefined || String(value).trim() === '' ? 'No' : 'Yes';
   if (value === null || value === undefined || value === '') return '—';
+  if (['bcgDate', 'hepbDate', 'opvDate', 'dptDate', 'mmrDate', 'ttVaccineRecord'].includes(field)) {
+    if (Array.isArray(value)) {
+      return value.map(({ dose, date }) => `Dose ${dose}: ${formatDateForDisplay(date)}`).join('; ') || '—';
+    }
+    if (value && typeof value === 'object') {
+      const doses = (value.doses || []).map(({ dose, date }) => `Dose ${dose}: ${formatDateForDisplay(date)}`);
+      if (value.remarks) doses.push(`Remarks: ${value.remarks}`);
+      return doses.join('; ') || '—';
+    }
+  }
   if (field && /Interpretation$/i.test(field)) return normalizeNutritionLabel(value);
   if (field && /ZScore$/i.test(field)) return Number(value).toFixed(2);
-  if (['dateOfBirth', 'lastActivityDate', 'nextCheckupDate', 'measurementDate', 'bcgDate', 'hepbDate', 'opvDate', 'dptDate', 'mmrDate'].includes(field)) {
+  if (['dateOfBirth', 'lastActivityDate', 'nextCheckupDate', 'measurementDate', 'bcgDate', 'hepbDate', 'opvDate', 'dptDate', 'mmrDate', 'lmpDate', 'eddDate', 'prenatalRegDate', 'dentalCheckupDate', 'tt1Date', 'tt2Date', 'tt3Date', 'tt4Date', 'tt5Date'].includes(field)) {
     return formatDateForDisplay(value);
   }
   return String(value);

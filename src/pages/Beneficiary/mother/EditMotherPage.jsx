@@ -30,8 +30,13 @@ const normalizeMotherDates = (mother) => {
 const normalizeMotherForm = (mother = {}) => {
   const normalized = normalizeMotherDates(mother);
   const addressParts = parseAddressParts(normalized.address || '');
+  const legacyVaccineRemarks = [1, 2, 3, 4, 5]
+    .map((num) => normalized[`tt${num}Remarks`])
+    .filter(Boolean)
+    .join('; ');
   return {
     ...normalized,
+    ttRemarks: normalized.ttRemarks ?? legacyVaccineRemarks,
     firstName: capitalizeNameValue(normalized.firstName || ''),
     middleName: capitalizeNameValue(normalized.middleName || ''),
     lastName: capitalizeNameValue(normalized.lastName || ''),

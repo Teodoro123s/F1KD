@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import StepWizard from '../../../components/StepWizard';
+import DateInput from '../../../components/ui/DateInput';
+import { formatDateForDisplay, normalizeDateValue } from '../../../utils/dateFormat';
 
 const TRIMESTERS = [
   { label: '1st Trimester', code: 'T1' },
@@ -69,7 +71,7 @@ const formatDate = (value) => {
   return date.toISOString().split('T')[0];
 };
 
-const formatDateForPayload = (value) => String(value || '').trim().replaceAll('/', '-');
+const formatDateForPayload = (value) => normalizeDateValue(value) || '';
 
 const calculateBmi = (weight, height) => {
   const w = parseFloat(weight);
@@ -284,14 +286,14 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
             <div className="checkup-grid">
               <div className="form-group full-width">
                 <label className="checkup-field-label" htmlFor="checkup-date">Check-up Date</label>
-                <input
-                  id="checkup-date"
-                  type="date"
-                  className="checkup-field-input"
-                  value={checkupDate}
-                  onChange={(e) => updateField('checkupDate')(e.target.value)}
-                  required
-                />
+                  <DateInput
+                    id="checkup-date"
+                    className="checkup-field-input"
+                    value={checkupDate}
+                    onChange={updateField('checkupDate')}
+                    ariaLabel="Checkup date"
+                    required
+                  />
               </div>
 
               <div className="form-group">
@@ -382,13 +384,13 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
 
               <div className="form-group full-width">
                 <label className="checkup-field-label" htmlFor="next-checkup-date">Next Checkup Date</label>
-                <input
-                  id="next-checkup-date"
-                  type="date"
-                  className="checkup-field-input"
-                  value={nextCheckupDate}
-                  onChange={(e) => updateField('nextCheckupDate')(e.target.value)}
-                />
+                  <DateInput
+                    id="next-checkup-date"
+                    className="checkup-field-input"
+                    value={nextCheckupDate}
+                    onChange={updateField('nextCheckupDate')}
+                    ariaLabel="Next checkup date"
+                  />
               </div>
 
               <div className="horizontal-toggle-row full-width">
@@ -510,10 +512,10 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
                       id="milk-date"
                       type="text"
                       inputMode="numeric"
-                      pattern="\d{4}/\d{2}/\d{2}"
+                      pattern="\d{2}/\d{2}/\d{4}"
                       className="checkup-field-input"
-                      value={milkDate}
-                      placeholder="yyyy/mm/dd"
+                      value={formatDateForDisplay(milkDate) === '—' ? '' : formatDateForDisplay(milkDate)}
+                      placeholder="dd/mm/yyyy"
                       onChange={(e) => updateField('milkDate')(e.target.value)}
                     />
                   </div>

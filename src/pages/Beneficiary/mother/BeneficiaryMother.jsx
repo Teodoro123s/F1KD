@@ -1,5 +1,5 @@
 import React from 'react';
-import { formatDateForInput } from '../../../utils/dateFormat';
+import { formatDateForDisplay, formatDateForInput } from '../../../utils/dateFormat';
 import { calculateGestationalDetails } from '../../../utils/beneficiaryHelpers';
 import { capitalizeNameValue } from '../../../utils/nameFormat';
 import { getPhilippineBarangays, getPhilippineCities, PHILIPPINE_PROVINCES } from '../../../utils/philippineLocations';
@@ -21,7 +21,7 @@ export function MotherFormFields({
   groups = [],
   batches = [],
   readOnly = false,
-  slashDateInput = false,
+  slashDateInput = true,
   documentFiles = {},
   setDocumentFiles,
   documentContent = null,
@@ -87,7 +87,9 @@ export function MotherFormFields({
 
   const formatSlashDate = (value) => {
     const normalized = formatDateForInput(value);
-    return normalized ? normalized.replaceAll('-', '/') : String(value || '').replaceAll('-', '/');
+    if (!normalized) return String(value || '').replaceAll('-', '/');
+    const [year, month, day] = normalized.split('-');
+    return `${day}/${month}/${year}`;
   };
 
   const formatPartialSlashDate = (value) => {
@@ -100,10 +102,12 @@ export function MotherFormFields({
 
   const normalizeSlashDate = (value) => {
     const digits = String(value || '').replace(/\D/g, '').slice(0, 8);
-    if (digits.length < 4) return '';
-    const year = digits.slice(0, 4);
-    const month = digits.slice(4, 6).padStart(2, '0');
-    const day = digits.slice(6, 8).padStart(2, '0');
+    if (digits.length !== 8) return '';
+    const day = digits.slice(0, 2);
+    const month = digits.slice(2, 4);
+    const year = digits.slice(4, 8);
+    const date = new Date(Number(year), Number(month) - 1, Number(day));
+    if (date.getFullYear() !== Number(year) || date.getMonth() !== Number(month) - 1 || date.getDate() !== Number(day)) return '';
     return `${year}-${month}-${day}`;
   };
 
@@ -147,7 +151,7 @@ export function MotherFormFields({
       return (
         <div className="form-group">
           <label className="form-label">{label}</label>
-          <div className="form-readonly-value">{value === '' || value === null || value === undefined ? '—' : value}</div>
+          <div className="form-readonly-value">{isDate ? formatDateForDisplay(value) : value === '' || value === null || value === undefined ? '—' : value}</div>
         </div>
       );
     }
@@ -162,7 +166,7 @@ export function MotherFormFields({
             id={id}
             type={isNativeDate ? 'date' : isDate ? 'text' : type}
             className="form-input"
-            placeholder={isDate && !isNativeDate ? 'yyyy/mm/dd' : placeholder}
+            placeholder={isDate && !isNativeDate ? 'dd/mm/yyyy' : placeholder}
             value={isNativeDate ? formatDateForInput(value) : isDate ? getDateDisplayValue(name, value) : value}
             onChange={(e) => {
               if (isNativeDate) {
@@ -328,7 +332,7 @@ export function MotherFormFields({
           </div>
 
           <div className="form-row-2 full-width">
-          {renderField({ id: 'mother-dob', label: "Date of Birth", name: 'dob', type: 'date', required: true, nativeDate: true, maxDate: new Date().toISOString().split('T')[0] })}
+          {renderField({ id: 'mother-dob', label: "Date of Birth", name: 'dob', type: 'date', required: true, maxDate: new Date().toISOString().split('T')[0] })}
           {renderField({ id: 'mother-contact', label: "Contact Number", name: 'contactNumber', type: 'tel', placeholder: '0917******', required: true })}
           </div>
 
@@ -495,7 +499,7 @@ export function MotherFormFields({
                 id="mother-lmp"
                 type={slashDateInput ? 'text' : 'date'}
                 className="form-input"
-                placeholder={slashDateInput ? 'yyyy/mm/dd' : undefined}
+                placeholder={slashDateInput ? 'dd/mm/yyyy' : undefined}
                 value={getDateDisplayValue('lmpDate', form.lmpDate)}
                 onChange={(e) => updateDateValue('lmpDate', e.target.value, handleLmpChange)}
                 onBlur={() => commitDateValue('lmpDate', getDateDisplayValue('lmpDate', form.lmpDate), handleLmpChange)}
@@ -521,11 +525,11 @@ export function MotherFormFields({
             </div>
           )}
 
-          {renderField({ id: 'mother-edd', label: "Expected Delivery Date (EDD)", name: 'eddDate', type: 'date', nativeDate: true, required: true, disabled: true })}
+          {renderField({ id: 'mother-edd', label: "Expected Delivery Date (EDD)", name: 'eddDate', type: 'date', required: true, disabled: true })}
           </div>
 
           <div className="form-row-3 full-width">
-          {renderField({ id: 'prenatal-reg-date', label: 'Date of Prenatal Registration', name: 'prenatalRegDate', type: 'date', nativeDate: true, required: true })}
+          {renderField({ id: 'prenatal-reg-date', label: 'Date of Prenatal Registration', name: 'prenatalRegDate', type: 'date', required: true })}
           {renderSelect({ id: 'prenatal-trimester', label: 'Trimester at Registration', name: 'trimester', options: ['1st Trimester','2nd Trimester','3rd Trimester'], required: true, disabled: true })}
           {renderField({ id: 'prenatal-gest-age', label: 'Gestational Age at Reg (weeks)', name: 'gestationalAge', required: true, disabled: true })}
           </div>
@@ -610,7 +614,7 @@ export function MotherFormFields({
         <section className="create-mother-category">
           <h4 className="form-section-title">IV.B DENTAL HEALTH CONDITION</h4>
           <div className="form-row-3 full-width">
-          {renderField({ id: 'dental-date', label: 'Date of Dental Check-up', name: 'dentalCheckupDate', type: 'date', nativeDate: true })}
+          {renderField({ id: 'dental-date', label: 'Date of Dental Check-up', name: 'dentalCheckupDate', type: 'date' })}
           {renderField({ id: 'dental-facility', label: 'Dental Clinic / Health Facility', name: 'dentalFacility', placeholder: 'Facility name' })}
           {renderField({ id: 'dentist-charge', label: 'Dentist in Charge', name: 'dentistInCharge', placeholder: 'Dentist name' })}
           </div>
@@ -671,16 +675,18 @@ export function MotherFormFields({
               <table className="vaccine-form-table">
                 <thead>
                   <tr>
-                    <th style={{ width: '25%' }}>Vaccine</th>
-                    <th style={{ width: '35%' }}>Date Given</th>
-                    <th style={{ width: '40%' }}>Remarks</th>
+                    <th style={{ width: '20%' }}>Vaccine</th>
+                    {[1, 2, 3].map((num) => (
+                      <th key={num} style={{ width: '14%' }}>Dose {num}</th>
+                    ))}
+                    <th style={{ width: '38%' }}>Remarks</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {[1, 2, 3, 4, 5].map((num) => (
-                    <tr key={num}>
-                      <td><strong>Tetanus Toxoid {num} (TT{num})</strong></td>
-                      <td>
+                  <tr>
+                    <td><strong>Tetanus Toxoid (TT)</strong></td>
+                    {[1, 2, 3].map((num) => (
+                      <td key={num}>
                         {readOnly ? (
                           <div className="form-readonly-value">{form[`tt${num}Date`] || '-'}</div>
                         ) : (
@@ -688,14 +694,15 @@ export function MotherFormFields({
                             <input
                               type={slashDateInput ? 'text' : 'date'}
                               className="form-input table-input"
-                              placeholder={slashDateInput ? 'yyyy/mm/dd' : undefined}
+                              placeholder={slashDateInput ? 'dd/mm/yyyy' : undefined}
+                              aria-label={`TT dose ${num} date`}
                               value={getDateDisplayValue(`tt${num}Date`, form[`tt${num}Date`] || '')}
                               onChange={(e) => updateDateValue(`tt${num}Date`, e.target.value)}
                               onBlur={() => commitDateValue(`tt${num}Date`, getDateDisplayValue(`tt${num}Date`, form[`tt${num}Date`] || ''))}
                               autoComplete="off"
                             />
                             {slashDateInput && <>
-                              <button type="button" className="date-picker-button" onClick={() => openDatePicker(`tt${num}Date`)} aria-label={`Open calendar for TT${num} date`}><span aria-hidden="true">▣</span></button>
+                              <button type="button" className="date-picker-button" onClick={() => openDatePicker(`tt${num}Date`)} aria-label={`Open calendar for TT dose ${num}`}><span aria-hidden="true">▣</span></button>
                               <input
                                 ref={(element) => { datePickerRefs.current[`tt${num}Date`] = element; }}
                                 className="native-date-picker-input"
@@ -709,21 +716,22 @@ export function MotherFormFields({
                           </>
                         )}
                       </td>
-                      <td>
-                        {readOnly ? (
-                          <div className="form-readonly-value">{form[`tt${num}Remarks`] || '-'}</div>
-                        ) : (
-                          <input
-                            type="text"
-                            className="form-input table-input"
-                            placeholder="Remarks..."
-                            value={form[`tt${num}Remarks`] || ''}
-                            onChange={(e) => setForm((prev) => ({ ...prev, [`tt${num}Remarks`]: e.target.value }))}
-                          />
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                    ))}
+                    <td>
+                      {readOnly ? (
+                        <div className="form-readonly-value">{form.ttRemarks || [1, 2, 3, 4, 5].map((num) => form[`tt${num}Remarks`]).filter(Boolean).join('; ') || '-'}</div>
+                      ) : (
+                        <input
+                          type="text"
+                          className="form-input table-input"
+                          aria-label="Tetanus Toxoid remarks"
+                          placeholder="Remarks..."
+                          value={form.ttRemarks ?? ''}
+                          onChange={(e) => setForm((prev) => ({ ...prev, ttRemarks: e.target.value }))}
+                        />
+                      )}
+                    </td>
+                  </tr>
                 </tbody>
               </table>
             </div>

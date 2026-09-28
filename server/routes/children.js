@@ -14,13 +14,57 @@ function getField(body, ...keys) {
 async function attachClinicalData(child) {
   const [[medicalRows], [vaccineRows]] = await Promise.all([
     pool.query('SELECT * FROM child_medical_conditions WHERE child_id = ? ORDER BY id', [child.id]),
-    pool.query('SELECT * FROM child_vaccinations WHERE child_id = ? ORDER BY id', [child.id]),
+    pool.query('SELECT * FROM child_vaccinations WHERE child_id = ? ORDER BY vaccine_name, dose_number, id', [child.id]),
   ]);
+  const vaccines = {};
+  for (const row of vaccineRows) {
+    const vaccine = vaccines[row.vaccine_name] || { ...row, dose1: null, dose2: null, dose3: null };
+    const doseNumber = Number(row.dose_number) || 1;
+    if (doseNumber >= 1 && doseNumber <= 3) vaccine[`dose${doseNumber}`] = row.vaccine_date;
+    if (doseNumber === 1 || !vaccine.remarks) vaccine.remarks = row.remarks || vaccine.remarks || null;
+    vaccines[row.vaccine_name] = vaccine;
+  }
+  for (const vaccine of Object.values(vaccines)) {
+    vaccine.vaccine_date = vaccine.dose1;
+  }
   return {
     ...child,
     medicalConditions: Object.fromEntries(medicalRows.map((row) => [row.condition_name, Boolean(row.has_condition)])),
-    ...Object.fromEntries(vaccineRows.map((row) => [row.vaccine_name, row])),
+    ...vaccines,
   };
+}
+
+const CHILD_VACCINES = [
+  { name: 'BCG', field: 'bcg' },
+  { name: 'HepB', field: 'hepb' },
+  { name: 'OPV', field: 'opv' },
+  { name: 'DPT', field: 'dpt' },
+  { name: 'MMR', field: 'mmr' },
+];
+
+function getChildVaccines(body = {}) {
+  return CHILD_VACCINES.map(({ name, field }) => ({
+    name,
+    remarks: body[`${field}Remarks`] || null,
+    doses: [1, 2, 3].map((doseNumber) => (
+      body[`${field}Dose${doseNumber}`] || (doseNumber === 1 ? body[`${field}Date`] : null) || null
+    )),
+  }));
+}
+
+async function saveChildVaccines(childId, body = {}) {
+  for (const vaccine of getChildVaccines(body)) {
+    for (const [index, date] of vaccine.doses.entries()) {
+      const doseNumber = index + 1;
+      const remarks = doseNumber === 1 ? vaccine.remarks : null;
+      if (date || remarks) {
+        await pool.query(
+          'INSERT INTO child_vaccinations (child_id, vaccine_name, dose_number, vaccine_date, remarks) VALUES (?, ?, ?, ?, ?)',
+          [childId, vaccine.name, doseNumber, date, remarks]
+        );
+      }
+    }
+  }
 }
 
 function withChildAliases(child = {}) {
@@ -262,21 +306,7 @@ router.post('/', async (req, res) => {
         );
       }
     }
-    const vaccines = [
-      ['BCG', b.bcgDate, b.bcgRemarks],
-      ['HepB', b.hepbDate, b.hepbRemarks],
-      ['OPV', b.opvDate, b.opvRemarks],
-      ['DPT', b.dptDate, b.dptRemarks],
-      ['MMR', b.mmrDate, b.mmrRemarks],
-    ];
-    for (const [name, date, remarks] of vaccines) {
-      if (date || remarks) {
-        await pool.query(
-          'INSERT INTO child_vaccinations (child_id, vaccine_name, vaccine_date, remarks) VALUES (?, ?, ?, ?)',
-          [result.insertId, name, date || null, remarks || null]
-        );
-      }
-    }
+    await saveChildVaccines(result.insertId, b);
     const child = await attachClinicalData(rows[0]);
     res.status(201).json({ child: await attachMonitoringData(child) });
   } catch (err) {
@@ -453,17 +483,7 @@ router.put('/:id', async (req, res) => {
       );
     }
     await pool.query('DELETE FROM child_vaccinations WHERE child_id = ?', [current.id]);
-    const vaccines = [
-      ['BCG', body.bcgDate, body.bcgRemarks], ['HepB', body.hepbDate, body.hepbRemarks],
-      ['OPV', body.opvDate, body.opvRemarks], ['DPT', body.dptDate, body.dptRemarks],
-      ['MMR', body.mmrDate, body.mmrRemarks],
-    ];
-    for (const [name, date, remarks] of vaccines) {
-      if (date || remarks) await pool.query(
-        'INSERT INTO child_vaccinations (child_id, vaccine_name, vaccine_date, remarks) VALUES (?, ?, ?, ?)',
-        [current.id, name, date || null, remarks || null]
-      );
-    }
+    await saveChildVaccines(current.id, body);
 
     const [rows] = await pool.query(
       `SELECT c.*, m.first_name AS mother_first_name, m.last_name AS mother_last_name, m.mother_code,

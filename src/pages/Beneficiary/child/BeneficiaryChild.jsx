@@ -12,7 +12,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
     const normalized = formatDateForInput(value);
     if (!normalized) return String(value || '').replaceAll('-', '/');
     const [year, month, day] = normalized.split('-');
-    return `${month}/${day}/${year}`;
+    return `${day}/${month}/${year}`;
   };
 
   const formatPartialSlashDate = (value) => {
@@ -25,8 +25,8 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
   const normalizeSlashDate = (value) => {
     const digits = String(value || '').replace(/\D/g, '').slice(0, 8);
     if (digits.length !== 8) return '';
-    const month = digits.slice(0, 2);
-    const day = digits.slice(2, 4);
+    const day = digits.slice(0, 2);
+    const month = digits.slice(2, 4);
     const year = digits.slice(4, 8);
     const date = new Date(Number(year), Number(month) - 1, Number(day));
     if (date.getFullYear() !== Number(year) || date.getMonth() !== Number(month) - 1 || date.getDate() !== Number(day)) return '';
@@ -96,7 +96,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
             inputMode={isDate && !isNativeDate ? 'numeric' : undefined}
             pattern={isDate && !isNativeDate ? '\\d{2}/\\d{2}/\\d{4}' : undefined}
             className="form-input"
-            placeholder={isDate && !isNativeDate ? 'MM/DD/YYYY' : placeholder}
+            placeholder={isDate && !isNativeDate ? 'DD/MM/YYYY' : placeholder}
             value={isNativeDate ? formatDateForInput(value) : isDate ? getDateDisplayValue(name, value) : value}
             min={min}
             step={step}
@@ -259,7 +259,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
         </div>
 
         <div className="form-row-4 full-width">
-          {renderField({ id: 'child-birth-date', label: 'Birth Date', name: 'birthDate', type: 'date', nativeDate: true, maxDate: new Date().toISOString().split('T')[0] })}
+          {renderField({ id: 'child-birth-date', label: 'Birth Date', name: 'birthDate', type: 'date', maxDate: new Date().toISOString().split('T')[0] })}
           {renderSelect({
             id: 'child-gender',
             label: 'Sex',
@@ -399,31 +399,56 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
   }
 
   if (activeTab === 'vaccine') {
+    const vaccineRows = [
+      { key: 'BCG', label: 'BCG', doseFields: ['bcgDose1', 'bcgDose2', 'bcgDose3'], remarksField: 'bcgRemarks' },
+      { key: 'HepB', label: 'HepB', doseFields: ['hepbDose1', 'hepbDose2', 'hepbDose3'], remarksField: 'hepbRemarks' },
+      { key: 'OPV', label: 'OPV', doseFields: ['opvDose1', 'opvDose2', 'opvDose3'], remarksField: 'opvRemarks' },
+      { key: 'DPT', label: 'DPT', doseFields: ['dptDose1', 'dptDose2', 'dptDose3'], remarksField: 'dptRemarks' },
+      { key: 'MMR', label: 'MMR', doseFields: ['mmrDose1', 'mmrDose2', 'mmrDose3'], remarksField: 'mmrRemarks' },
+    ];
+
     return (
       <div className="create-mother-general child-form-layout">
         <section className="create-mother-category">
-        <h4 className="form-section-title">Vaccination Record</h4>
-        <p className="form-optional-note">Optional</p>
-        <div className="form-group full-width">
-          <div className="form-panel">
-            <div className="form-row-4 full-width">
-              {renderField({ id: 'child-bcg-date', label: 'BCG Date', name: 'bcgDate', type: 'date', nativeDate: true, required: false })}
-              {renderField({ id: 'child-bcg-remarks', label: 'BCG Remarks', name: 'bcgRemarks', placeholder: 'Remarks', required: false })}
-              {renderField({ id: 'child-hepb-date', label: 'HepB Date', name: 'hepbDate', type: 'date', nativeDate: true, required: false })}
-              {renderField({ id: 'child-hepb-remarks', label: 'HepB Remarks', name: 'hepbRemarks', placeholder: 'Remarks', required: false })}
-            </div>
-            <div className="form-row-4 full-width">
-              {renderField({ id: 'child-opv-date', label: 'OPV Date', name: 'opvDate', type: 'date', nativeDate: true, required: false })}
-              {renderField({ id: 'child-opv-remarks', label: 'OPV Remarks', name: 'opvRemarks', placeholder: 'Remarks', required: false })}
-              {renderField({ id: 'child-dpt-date', label: 'DPT Date', name: 'dptDate', type: 'date', nativeDate: true, required: false })}
-              {renderField({ id: 'child-dpt-remarks', label: 'DPT Remarks', name: 'dptRemarks', placeholder: 'Remarks', required: false })}
-            </div>
-            <div className="form-row-2 full-width">
-              {renderField({ id: 'child-mmr-date', label: 'MMR Date', name: 'mmrDate', type: 'date', nativeDate: true, required: false })}
-              {renderField({ id: 'child-mmr-remarks', label: 'MMR Remarks', name: 'mmrRemarks', placeholder: 'Remarks', required: false })}
+          <h4 className="form-section-title">Vaccination Record</h4>
+          <p className="form-optional-note">Optional</p>
+          <div className="form-group full-width">
+            <div className="form-panel">
+              <div className="vaccine-dose-grid" style={{ display: 'grid', gridTemplateColumns: '1.4fr repeat(3, minmax(140px, 1fr)) 1.3fr', gap: '0.75rem', alignItems: 'start' }}>
+                <div style={{ fontWeight: 800, color: '#0f172a', paddingTop: '0.5rem' }}>Vaccine</div>
+                <div style={{ fontWeight: 800, color: '#0f172a', paddingTop: '0.5rem' }}>Dose 1</div>
+                <div style={{ fontWeight: 800, color: '#0f172a', paddingTop: '0.5rem' }}>Dose 2</div>
+                <div style={{ fontWeight: 800, color: '#0f172a', paddingTop: '0.5rem' }}>Dose 3</div>
+                <div style={{ fontWeight: 800, color: '#0f172a', paddingTop: '0.5rem' }}>Remarks</div>
+
+                {vaccineRows.map(({ key, label, doseFields, remarksField }) => (
+                  <React.Fragment key={key}>
+                    <div style={{ display: 'flex', alignItems: 'center', minHeight: '62px', fontSize: '1.05rem', fontWeight: 700, color: '#1e293b' }}>{label}</div>
+                    {doseFields.map((doseField, index) => (
+                      <div key={`${key}-${doseField}`}>
+                        {renderField({
+                          id: `child-${key.toLowerCase()}-${index + 1}`,
+                          label: `${label} Dose ${index + 1}`,
+                          name: doseField,
+                          type: 'date',
+                          required: false,
+                        })}
+                      </div>
+                    ))}
+                    <div>
+                      {renderField({
+                        id: `child-${key.toLowerCase()}-remarks`,
+                        label: `${label} Remarks`,
+                        name: remarksField,
+                        placeholder: 'Remarks',
+                        required: false,
+                      })}
+                    </div>
+                  </React.Fragment>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
         </section>
       </div>
     );

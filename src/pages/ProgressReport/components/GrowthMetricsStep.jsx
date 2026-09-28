@@ -18,7 +18,7 @@ export function GrowthMetricsStep({
   profileSection = 'general',
   setProfileSection,
 }) {
-  const hasProfilePages = reportCategory === 'profile' && beneficiaryType === 'child' && Object.keys(profileFieldSections).length > 0;
+  const hasProfilePages = reportCategory === 'profile' && Object.keys(profileFieldSections).length > 0;
   const profilePageFields = availableProfileMetrics.filter(([id]) => !hasProfilePages || profileFieldSections[id] === profileSection);
   return (
     <div className="progress-report-tab-panel">
@@ -73,9 +73,8 @@ export function GrowthMetricsStep({
         </>
       )}
       <div className="progress-report-tab-actions">
-        <button type="button" className="primary-btn" onClick={() => {
-          setActiveTab(4);
-          if (generateReport) generateReport();
+        <button type="button" className="primary-btn" onClick={async () => {
+          if (generateReport) await generateReport();
         }}>
           Next: Results →
         </button>

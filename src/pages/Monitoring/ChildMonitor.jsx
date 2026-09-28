@@ -50,8 +50,8 @@ function formatDateTyping(value) {
 function parseDateInput(value) {
   const digits = String(value || '').replace(/\D/g, '').slice(0, 8);
   if (digits.length !== 8) return '';
-  const month = Number(digits.slice(0, 2));
-  const day = Number(digits.slice(2, 4));
+  const day = Number(digits.slice(0, 2));
+  const month = Number(digits.slice(2, 4));
   const year = Number(digits.slice(4, 8));
   const date = new Date(year, month - 1, day);
   if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return '';
@@ -170,7 +170,7 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
           className="checkup-field-input"
           value={dateDrafts[name] ?? formatDateDisplay(form[name])}
           onChange={updateDateField(name)}
-          placeholder="MM/DD/YYYY"
+          placeholder="DD/MM/YYYY"
           required={required}
         />
         <input
