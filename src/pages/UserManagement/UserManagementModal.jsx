@@ -1,38 +1,8 @@
-import React, { useEffect, useState } from 'react';
-import { formatDateForInput } from '../../utils/dateFormat';
+import React from 'react';
+import DateInput from '../../components/ui/DateInput';
 import { capitalizeNameValue } from '../../utils/nameFormat';
 import { generatePassword } from './lib';
 import { isCommunityCoordinatorRole, isHealthWorkerRole } from '../../utils/permissions';
-
-function formatDobForDisplay(value) {
-  const inputDate = formatDateForInput(value);
-  if (!inputDate) return '';
-  const [year, month, day] = inputDate.split('-');
-  return `${day}/${month}/${year}`;
-}
-
-function parseDobInput(value) {
-  const digits = value.replace(/\D/g, '').slice(0, 8);
-  if (digits.length !== 8) return '';
-
-  const day = Number(digits.slice(0, 2));
-  const month = Number(digits.slice(2, 4));
-  const year = Number(digits.slice(4, 8));
-  const date = new Date(year, month - 1, day);
-  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return '';
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  if (date > today) return '';
-
-  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-}
-
-function formatDobTyping(value) {
-  const digits = value.replace(/\D/g, '').slice(0, 8);
-  if (digits.length <= 2) return digits;
-  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
-  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
-}
 
 function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitting = false, notification = '' }) {
   return (
@@ -67,14 +37,6 @@ function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitt
 }
 
 export default function AddUserModal({ showModal, onClose, form, setForm, onSubmit, roleOptions, communities = [], groups = [], mode = 'add', isSubmitting = false, notification = '' }) {
-  const [dobInput, setDobInput] = useState(() => formatDobForDisplay(form.dob));
-
-  useEffect(() => {
-    if (parseDobInput(dobInput) !== formatDateForInput(form.dob)) {
-      setDobInput(formatDobForDisplay(form.dob));
-    }
-  }, [form.dob]);
-
   if (!showModal) return null;
 
   const title = mode === 'edit' ? 'Edit User' : 'Add User';
@@ -173,59 +135,16 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
       <div className="form-row-3 full-width">
         <div className="form-group date-input-group">
           <label className="form-label" htmlFor="dob">Date of Birth *</label>
-          <div className="date-input-container">
-            <input
-              id="dob"
-              name="dob"
-              type="text"
-              className="form-input"
-              inputMode="numeric"
-              autoComplete="bday"
-              placeholder="DD/MM/YYYY"
-              maxLength={10}
-              value={dobInput}
-              onChange={(e) => {
-                const nextValue = formatDobTyping(e.target.value);
-                setDobInput(nextValue);
-                handleChange('dob', parseDobInput(nextValue));
-              }}
-              required
-            />
-            <input
-              id="dob-picker"
-              type="date"
-              className="native-date-picker-input"
-              value={formatDateForInput(form.dob)}
-              max={new Date().toISOString().split('T')[0]}
-              onChange={(e) => handleChange('dob', e.target.value)}
-              tabIndex={-1}
-              aria-hidden="true"
-            />
-            <button
-              type="button"
-              className="calendar-toggle-btn"
-              onClick={() => {
-                const el = document.getElementById('dob-picker');
-                if (el) {
-                  try {
-                    if (typeof el.showPicker === 'function') el.showPicker();
-                    else el.focus();
-                  } catch (_) {
-                    el.focus();
-                  }
-                }
-              }}
-              aria-label="Open calendar picker for Date of Birth"
-              tabIndex={-1}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                <line x1="16" y1="2" x2="16" y2="6" />
-                <line x1="8" y1="2" x2="8" y2="6" />
-                <line x1="3" y1="10" x2="21" y2="10" />
-              </svg>
-            </button>
-          </div>
+          <DateInput
+            id="dob"
+            className="form-input"
+            value={form.dob}
+            onChange={(value) => handleChange('dob', value)}
+            required
+            max={new Date().toISOString().split('T')[0]}
+            autoComplete="bday"
+            ariaLabel="Date of birth"
+          />
         </div>
         <div className="form-group" aria-hidden="true" />
       </div>

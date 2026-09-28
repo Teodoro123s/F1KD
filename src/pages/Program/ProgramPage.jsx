@@ -310,21 +310,27 @@ export default function ProgramPage() {
     if (!name) return [];
     const scopedRecords = getProgramBeneficiaryRecords(selectedProgram);
     return scopedRecords.filter((record) => {
+      if (normalizedLevel === 'group') {
+        return String(record.group || '').trim().toLowerCase() === name.toLowerCase();
+      }
+      if (normalizedLevel === 'batch') {
+        return String(record.batch || '').trim().toLowerCase() === name.toLowerCase();
+      }
       if (normalizedLevel === 'school') {
         const hasExplicitGroupScope = (selectedProgram?.clusters || []).some((item) => item?.type === 'Group' && String(item?.name || '').trim());
         const hasExplicitBatchScope = (selectedProgram?.clusters || []).some((item) => item?.type === 'Batch' && String(item?.name || '').trim());
         if (hasExplicitGroupScope && String(record.group || '').trim()) {
           return String(record.school || '').trim().toLowerCase() === name.toLowerCase()
-            && String(record.group || '').trim().toLowerCase() === String(record.group || '').trim().toLowerCase();
+            && (selectedProgram?.clusters || []).some((item) => item.type === 'Group' && String(item.name || '').trim().toLowerCase() === String(record.group || '').trim().toLowerCase());
         }
         if (hasExplicitBatchScope && String(record.batch || '').trim()) {
           return String(record.school || '').trim().toLowerCase() === name.toLowerCase()
-            && String(record.batch || '').trim().toLowerCase() === String(record.batch || '').trim().toLowerCase();
+            && (selectedProgram?.clusters || []).some((item) => item.type === 'Batch' && String(item.name || '').trim().toLowerCase() === String(record.batch || '').trim().toLowerCase());
         }
-        return String(record.batch || '').trim().toLowerCase() === name.toLowerCase();
+        return String(record.school || '').trim().toLowerCase() === name.toLowerCase();
       }
       return false;
-    }).map((record) => ({ id: record.sourceId, type: record.sourceType }));
+    }).map((record) => ({ id: record.sourceId, type: record.sourceType, name: record.name }));
   };
 
   const openClusterHistory = (cluster, level) => {
@@ -622,7 +628,7 @@ export default function ProgramPage() {
                 Math.max(program.received, checkedRecipients.length),
               ),
               activities: program.activities + 1,
-              latest: "Aug 26, 2026",
+              latest: formatDateForDisplay('2026-08-26'),
             }
           : program,
       ),
@@ -765,7 +771,7 @@ export default function ProgramPage() {
       notifyAction(message, 'error');
     }
   };
-  const renderActionMenu = (menuId, menuProgram = selectedProgram) => canManagePrograms && (
+  const renderActionMenu = (menuId, menuProgram = selectedProgram) => menuProgram && (
     <div className="actions-cell" onClick={(event) => event.stopPropagation()}>
       <button
         type="button"
@@ -1121,7 +1127,7 @@ export default function ProgramPage() {
                       <tr key={batch.id} className="program-clickable-row" onClick={() => navigate(`/program/${programId}/batch/${batch.id}`)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); navigate(`/program/${programId}/batch/${batch.id}`); } }} tabIndex={0} role="button">
                         <td><strong>{batch.name}</strong></td>
                         <td>{(batch.beneficiaries || []).length || Number(batch.scopeBeneficiaries || 0)}</td>
-                        <td><button type="button" className="view-btn view-btn--secondary" onClick={(event) => { event.stopPropagation(); navigate(`/program/${programId}/batch/${batch.id}`); }}>View</button></td>
+                        <td><button type="button" className="view-btn view-btn--secondary" onClick={(event) => { event.stopPropagation(); openClusterHistory({ name: batch.name }, 'batch'); }}>View</button></td>
                       </tr>
                     )) : (
                       <tr>
@@ -1210,7 +1216,7 @@ export default function ProgramPage() {
                       <td><strong>{group.name || group.group_name}</strong></td>
                       <td>{group.batchCount}</td>
                       <td>{group.beneficiaryCount}</td>
-                      <td><button type="button" className="view-btn view-btn--secondary" onClick={(event) => { event.stopPropagation(); navigate(`/program/${programId}/group/${group.id}`); }}>View</button></td>
+                      <td><button type="button" className="view-btn view-btn--secondary" onClick={(event) => { event.stopPropagation(); openClusterHistory({ name: group.name || group.group_name }, 'group'); }}>View</button></td>
                     </tr>
                   )) : directScopeClusters.length ? directScopeClusters.map((cluster) => {
                     const entity = cluster.type === 'Group'
@@ -1660,7 +1666,7 @@ export default function ProgramPage() {
                   inputMode="numeric"
                   pattern="\d{2}/\d{2}/\d{4}"
                   className="form-input"
-                  placeholder="dd/mm/yyyy"
+                  placeholder="DD/MM/YYYY"
                   defaultValue={formatDateForDisplay('2026-08-26')}
                   onChange={(event) => {
                     const iso = normalizeDateValue(event.target.value);

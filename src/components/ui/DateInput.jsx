@@ -13,12 +13,19 @@ export default function DateInput({
   onChange,
   required = false,
   disabled = false,
+  readOnly = false,
+  autoComplete = 'off',
   min,
   max,
   ariaLabel,
 }) {
   const pickerRef = useRef(null);
   const [draft, setDraft] = useState(() => displayDate(value));
+  const isWithinBounds = (normalized) => {
+    const minimum = min ? normalizeDateValue(min) : '';
+    const maximum = max ? normalizeDateValue(max) : '';
+    return (!minimum || normalized >= minimum) && (!maximum || normalized <= maximum);
+  };
 
   useEffect(() => {
     setDraft(displayDate(value));
@@ -28,12 +35,13 @@ export default function DateInput({
     const nextDraft = maskDateInput(nextValue);
     setDraft(nextDraft);
     const normalized = normalizeDateValue(nextDraft);
-    if (normalized || !nextDraft) onChange(normalized);
+    if (!nextDraft) onChange('');
+    else if (normalized && isWithinBounds(normalized)) onChange(normalized);
   };
 
   const commitDraft = () => {
     const normalized = normalizeDateValue(draft);
-    if (normalized) {
+    if (normalized && isWithinBounds(normalized)) {
       setDraft(displayDate(normalized));
       onChange(normalized);
     } else if (draft) {
@@ -43,6 +51,7 @@ export default function DateInput({
   };
 
   const openPicker = () => {
+    if (disabled || readOnly) return;
     const picker = pickerRef.current;
     if (!picker) return;
     if (typeof picker.showPicker === 'function') picker.showPicker();
@@ -61,11 +70,12 @@ export default function DateInput({
         value={draft}
         onChange={(event) => updateDraft(event.target.value)}
         onBlur={commitDraft}
-        placeholder="dd/mm/yyyy"
+        placeholder="DD/MM/YYYY"
         required={required}
         disabled={disabled}
+        readOnly={readOnly}
         aria-label={ariaLabel}
-        autoComplete="off"
+        autoComplete={autoComplete}
       />
       <input
         ref={pickerRef}
@@ -76,19 +86,20 @@ export default function DateInput({
         max={max}
         onChange={(event) => {
           const nextValue = event.target.value;
+          if (nextValue && !isWithinBounds(nextValue)) return;
           setDraft(displayDate(nextValue));
           onChange(nextValue);
         }}
         tabIndex={-1}
         aria-hidden="true"
-        disabled={disabled}
+        disabled={disabled || readOnly}
       />
-      <button
+      {!readOnly && <button
         type="button"
         className="calendar-toggle-btn"
         onClick={openPicker}
         aria-label={`Open calendar${ariaLabel ? ` for ${ariaLabel}` : ''}`}
-        disabled={disabled}
+        disabled={disabled || readOnly}
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
@@ -96,7 +107,7 @@ export default function DateInput({
           <line x1="8" y1="2" x2="8" y2="6" />
           <line x1="3" y1="10" x2="21" y2="10" />
         </svg>
-      </button>
+      </button>}
     </div>
   );
 }

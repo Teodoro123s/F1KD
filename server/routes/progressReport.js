@@ -68,7 +68,10 @@ const hierarchyWhere = (params, aliases = { mother: 'm', child: 'c' }) => {
   if (params.motherId) { conditions.push(`${aliases.mother}.id = ?`); values.push(params.motherId); }
   if (params.search) {
     const term = `%${params.search}%`;
-    conditions.push(`CONCAT_WS(' ', ${aliases.child}.first_name, ${aliases.child}.middle_name, ${aliases.child}.last_name, ${aliases.mother}.first_name, ${aliases.mother}.last_name, ${aliases.child}.child_code, ${aliases.mother}.mother_code) LIKE ?`);
+    const searchableName = aliases.child
+      ? `CONCAT_WS(' ', ${aliases.child}.first_name, ${aliases.child}.middle_name, ${aliases.child}.last_name, ${aliases.mother}.first_name, ${aliases.mother}.last_name, ${aliases.child}.child_code, ${aliases.mother}.mother_code)`
+      : `CONCAT_WS(' ', ${mother}.first_name, ${mother}.middle_name, ${mother}.last_name, ${mother}.mother_code)`;
+    conditions.push(`${searchableName} LIKE ?`);
     values.push(term);
   }
   return { sql: conditions.length ? `WHERE ${conditions.join(' AND ')}` : '', values };
@@ -98,10 +101,17 @@ router.get('/options', async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     const params = parseParams(req.query, req);
-    const filters = hierarchyWhere(params);
+    const isMotherReport = params.granularity === 'mother';
+    const filters = hierarchyWhere(params, isMotherReport ? { mother: 'm' } : undefined);
     const progressExpression = `ROUND(COUNT(DISTINCT cc.id) * 100 / 48, 0)`;
     const motherProgressExpression = `ROUND(COUNT(DISTINCT mc.id) * 100 / 9, 0)`;
-    const baseFrom = `
+    const baseFrom = isMotherReport ? `
+      FROM mothers m
+      LEFT JOIN communities school ON school.id = m.community_id
+      LEFT JOIN groups g ON g.id = m.group_id
+      LEFT JOIN batches b ON b.id = m.batch_id
+      LEFT JOIN mother_checkups mc ON mc.mother_id = m.id
+      ${filters.sql}` : `
       FROM children c
       INNER JOIN mothers m ON m.id = c.mother_id
       LEFT JOIN communities school ON school.id = COALESCE(c.community_id, m.community_id)
@@ -116,7 +126,7 @@ router.get('/', async (req, res) => {
       : 'c.id, c.child_code, c.first_name, c.middle_name, c.last_name, m.id, m.mother_code, m.first_name, m.last_name, school.name, g.name, b.name';
     const motherNameExpression = `TRIM(CONCAT_WS(' ', m.first_name, m.middle_name, m.last_name, m.suffix))`;
     const childNameExpression = params.granularity === 'mother' ? 'NULL' : `TRIM(CONCAT_WS(' ', c.first_name, c.middle_name, c.last_name, c.suffix))`;
-    const totalExpression = params.granularity === 'mother' ? 'COUNT(DISTINCT c.id) * 48' : '48';
+    const totalExpression = isMotherReport ? '9' : '48';
     const monthAgeExpression = `CASE
       WHEN c.birth_date IS NULL OR c.birth_date < '1900-01-01' OR c.birth_date > CURDATE() THEN NULL
       ELSE TIMESTAMPDIFF(MONTH, c.birth_date, CURDATE()) - CASE WHEN DAY(CURDATE()) < DAY(c.birth_date) THEN 1 ELSE 0 END
@@ -241,7 +251,7 @@ router.get('/', async (req, res) => {
         ${params.granularity === 'mother' ? 'NULL' : '(SELECT latest_cc.height FROM child_checkups latest_cc WHERE latest_cc.child_id = c.id ORDER BY latest_cc.visit_date DESC, latest_cc.id DESC LIMIT 1)'} AS height_for_age,
         ${params.granularity === 'mother' ? '(SELECT latest_mc.bmi FROM mother_checkups latest_mc WHERE latest_mc.mother_id = m.id ORDER BY latest_mc.checkup_date DESC, latest_mc.id DESC LIMIT 1)' : '(SELECT ROUND(latest_cc.weight / POW(NULLIF(latest_cc.height, 0) / 100, 2), 1) FROM child_checkups latest_cc WHERE latest_cc.child_id = c.id ORDER BY latest_cc.visit_date DESC, latest_cc.id DESC LIMIT 1)'} AS bmi_for_age,
         ${params.granularity === 'mother' ? '(SELECT latest_mc.checkup_date FROM mother_checkups latest_mc WHERE latest_mc.mother_id = m.id ORDER BY latest_mc.checkup_date DESC, latest_mc.id DESC LIMIT 1)' : '(SELECT latest_cc.visit_date FROM child_checkups latest_cc WHERE latest_cc.child_id = c.id ORDER BY latest_cc.visit_date DESC, latest_cc.id DESC LIMIT 1)'} AS measurement_date,
-        COUNT(DISTINCT cc.id) AS activities_completed,
+        ${isMotherReport ? 'COUNT(DISTINCT mc.id)' : 'COUNT(DISTINCT cc.id)'} AS activities_completed,
         ${totalExpression} AS total_activities,
         ${params.granularity === 'mother' ? motherProgressExpression : progressExpression} AS progress
       ${baseFrom}

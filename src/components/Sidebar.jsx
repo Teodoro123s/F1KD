@@ -44,6 +44,7 @@ export default function Sidebar() {
             to={it.to}
             className={({isActive}) => 'sidebar-link' + (isActive ? ' active' : '')}
             data-label={it.label}
+            title={it.label}
           >
             <span className="icon">{it.icon}</span>
             <span className="label">{it.label}</span>

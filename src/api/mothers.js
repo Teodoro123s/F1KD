@@ -22,6 +22,13 @@ async function handleResponse(res, defaultMsg) {
   throw err;
 }
 
+export async function apiGetMothers() {
+  const res = await fetchWithAuth(`${API_BASE}/api/mothers`, {
+    headers: { 'Content-Type': 'application/json' },
+  });
+  return handleResponse(res, 'Failed to fetch mothers');
+}
+
 export async function apiUpdateMother(motherId, payload) {
   const id = encodeURIComponent(motherId);
   const res = await fetchWithAuth(`${API_BASE}/api/mothers/${id}`, {

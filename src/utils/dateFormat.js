@@ -99,7 +99,7 @@ export function formatDateForDisplay(value) {
   if (!candidate) return '—';
 
   const raw = formatDateForInput(value);
-  if (!raw) return candidate;
+  if (!raw) return '—';
   const [year, month, day] = raw.split('-');
   return year && month && day ? `${day}/${month}/${year}` : candidate;
 }

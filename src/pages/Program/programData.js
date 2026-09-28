@@ -10,7 +10,7 @@ export const initialPrograms = [
     target: 24,
     received: 20,
     activities: 6,
-    latest: "Aug 26, 2026",
+    latest: "26/08/2026",
     ended: "",
     clusters: [
       { type: "School", name: "Cebu Community School", beneficiaries: 24, received: 20 },
@@ -29,7 +29,7 @@ export const initialPrograms = [
     target: 30,
     received: 26,
     activities: 4,
-    latest: "Aug 22, 2026",
+    latest: "22/08/2026",
     ended: "",
     clusters: [
       { type: "School", name: "Cebu Community School", beneficiaries: 30, received: 26 },
@@ -48,8 +48,8 @@ export const initialPrograms = [
     target: 18,
     received: 18,
     activities: 8,
-    latest: "Jul 30, 2026",
-    ended: "Jul 30, 2026",
+    latest: "30/07/2026",
+    ended: "30/07/2026",
     clusters: [
       { type: "Group", name: "January Wellness Group", beneficiaries: 18, received: 18 },
       { type: "Batch", name: "January Batch", beneficiaries: 18, received: 18 },

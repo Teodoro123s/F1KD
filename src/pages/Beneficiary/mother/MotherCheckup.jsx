@@ -529,15 +529,12 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
                 <div className="checkup-grid">
                   <div className="form-group">
                     <label className="checkup-field-label" htmlFor="milk-date">Milk Subsidy Date</label>
-                    <input
+                    <DateInput
                       id="milk-date"
-                      type="text"
-                      inputMode="numeric"
-                      pattern="\d{2}/\d{2}/\d{4}"
                       className="checkup-field-input"
-                      value={formatDateForDisplay(milkDate) === '—' ? '' : formatDateForDisplay(milkDate)}
-                      placeholder="dd/mm/yyyy"
-                      onChange={(e) => updateField('milkDate')(e.target.value)}
+                      value={milkDate}
+                      onChange={updateField('milkDate')}
+                      ariaLabel="Milk subsidy date"
                     />
                   </div>
 

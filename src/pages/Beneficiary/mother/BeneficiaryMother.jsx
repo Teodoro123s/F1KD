@@ -163,7 +163,7 @@ export function MotherFormFields({
             id={id}
             type={isNativeDate ? 'date' : isDate ? 'text' : type}
             className={`form-input${hasMissingValue ? ' invalid' : ''}`}
-            placeholder={isDate && !isNativeDate ? 'dd/mm/yyyy' : placeholder}
+            placeholder={isDate && !isNativeDate ? 'DD/MM/YYYY' : placeholder}
             value={isNativeDate ? formatDateForInput(value) : isDate ? getDateDisplayValue(name, value) : value}
             onChange={(e) => {
               if (isNativeDate) {
@@ -504,7 +504,7 @@ export function MotherFormFields({
                 id="mother-lmp"
                 type={slashDateInput ? 'text' : 'date'}
                 className="form-input"
-                placeholder="dd/mm/yyyy"
+                placeholder="DD/MM/YYYY"
                 value={getDateDisplayValue('lmpDate', form.lmpDate)}
                 onChange={(e) => updateDateValue('lmpDate', e.target.value, handleLmpChange)}
                 onBlur={() => commitDateValue('lmpDate', getDateDisplayValue('lmpDate', form.lmpDate), handleLmpChange)}
@@ -700,7 +700,7 @@ export function MotherFormFields({
                             <input
                               type={slashDateInput ? 'text' : 'date'}
                               className="form-input table-input"
-                              placeholder={slashDateInput ? 'dd/mm/yyyy' : undefined}
+                              placeholder={slashDateInput ? 'DD/MM/YYYY' : undefined}
                               aria-label={`TT dose ${num} date`}
                               value={getDateDisplayValue(`tt${num}Date`, form[`tt${num}Date`] || '')}
                               onChange={(e) => updateDateValue(`tt${num}Date`, e.target.value)}
