@@ -37,8 +37,9 @@ export function getMotherMonitoringProgress(mother = {}) {
     }
   }
 
-  const checkups = Array.isArray(mother.checkups) ? mother.checkups : [];
-  const completed = checkups.slice(startIndex).flat().filter(Boolean).length;
+  const checkups = Array.isArray(mother.checkups) ? mother.checkups.flat() : [];
+  const remainingCheckups = checkups.slice(startIndex);
+  const completed = remainingCheckups.filter(Boolean).length;
   const total = Math.max(1, 9 - startIndex);
 
   return {

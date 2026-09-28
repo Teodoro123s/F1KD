@@ -22,16 +22,26 @@ test('getMotherMonitoringProgress starts in September when the LMP was in July a
       [null, null, null],
       [null, null, null],
       [null, null, null],
-      [null, null, null],
-      [null, null, null],
-      [null, null, null],
-      [null, null, null],
-      [null, null, null],
-      [null, null, null],
     ],
   });
 
   assert.equal(progress.total, 8);
   assert.equal(progress.completed, 0);
   assert.equal(progress.percentage, 0);
+});
+
+test('getMotherMonitoringProgress counts remaining checkups from the second trimester correctly', () => {
+  const progress = getMotherMonitoringProgress({
+    gestationalAge: '16',
+    trimester: '2nd Trimester',
+    checkups: [
+      [null, null, null],
+      [{ completed: true }, { completed: true }, null],
+      [null, null, null],
+    ],
+  });
+
+  assert.equal(progress.total, 6);
+  assert.equal(progress.completed, 2);
+  assert.equal(progress.percentage, 33);
 });

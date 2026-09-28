@@ -105,14 +105,25 @@ router.get('/', async (req, res) => {
           OR EXISTS (
             SELECT 1
             FROM program_clusters scoped_cluster
-            INNER JOIN communities scoped_school ON scoped_school.name = scoped_cluster.scope_name
             WHERE scoped_cluster.program_id = p.id
-              AND scoped_cluster.scope_type = 'School'
-              AND scoped_school.id = ?
+              AND (
+                (scoped_cluster.scope_type = 'School' AND EXISTS (
+                  SELECT 1 FROM communities scoped_school
+                  WHERE scoped_school.id = ? AND scoped_school.name = scoped_cluster.scope_name
+                ))
+                OR (scoped_cluster.scope_type = 'Group' AND EXISTS (
+                  SELECT 1 FROM groups scoped_group
+                  WHERE scoped_group.community_id = ? AND scoped_group.name = scoped_cluster.scope_name
+                ))
+                OR (scoped_cluster.scope_type = 'Batch' AND EXISTS (
+                  SELECT 1 FROM batches scoped_batch
+                  WHERE scoped_batch.community_id = ? AND scoped_batch.name = scoped_cluster.scope_name
+                ))
+              )
           )
         )`
       : '';
-    const [rows] = await pool.query(`SELECT p.* FROM programs p ${scopeClause} ORDER BY p.id DESC`, req.groupId ? [req.groupId, req.groupId] : req.schoolId ? [req.schoolId] : []);
+    const [rows] = await pool.query(`SELECT p.* FROM programs p ${scopeClause} ORDER BY p.id DESC`, req.groupId ? [req.groupId, req.groupId] : req.schoolId ? [req.schoolId, req.schoolId, req.schoolId] : []);
     const programs = await Promise.all(rows.map((row) => getProgram(row.id)));
     res.json({ programs });
   } catch (error) {

@@ -127,6 +127,7 @@ export default function CreateMotherPage({
   const effectiveCommunities = communities && communities.length ? communities : mothers;
   const [communityForm, setCommunityForm] = useState(() => loadMotherDraft(emptyCommunityForm(effectiveCommunities)));
   const [documentFiles, setDocumentFiles] = useState({ birthCertificate: null, consent: null });
+  const [showRequiredValidation, setShowRequiredValidation] = useState(false);
   const [createActiveTab, setCreateActiveTab] = useState(() => {
     try { return JSON.parse(localStorage.getItem(MOTHER_DRAFT_KEY) || 'null')?.activeTab || 'general'; } catch (error) { return 'general'; }
   });
@@ -166,6 +167,7 @@ export default function CreateMotherPage({
           'firstName', 'middleName', 'lastName', 'maidenSurname', 'dob', 'contactNumber',
           'province', 'city', 'barangay', 'community', 'groupId', 'batchId',
           'emergencyName', 'emergencyContact', 'emergencyRelationship',
+          ...(communityForm.philhealthMember ? ['philhealthNumber'] : []),
         ],
       },
       {
@@ -187,6 +189,7 @@ export default function CreateMotherPage({
     );
 
     if (incompleteStep) {
+      setShowRequiredValidation(true);
       setCreateActiveTab(incompleteStep.tab);
       notifyAction(`Complete the required fields in ${incompleteStep.label} before creating.`, 'error');
       return;
@@ -420,6 +423,7 @@ export default function CreateMotherPage({
               setDocumentFiles={setDocumentFiles}
               hideSchoolField={isCommunityOrganizer}
               slashDateInput
+              showRequiredValidation={showRequiredValidation}
             />
           </div>
 

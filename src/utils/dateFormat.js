@@ -103,3 +103,11 @@ export function formatDateForDisplay(value) {
   const [year, month, day] = raw.split('-');
   return year && month && day ? `${day}/${month}/${year}` : candidate;
 }
+
+export function formatDateMaskValue(value) {
+  return maskDateInput(value);
+}
+
+export function normalizeMaskedDate(value) {
+  return normalizeDateValue(value);
+}

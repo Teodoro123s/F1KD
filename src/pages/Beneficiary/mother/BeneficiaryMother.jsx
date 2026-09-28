@@ -1,5 +1,5 @@
 import React from 'react';
-import { formatDateForDisplay, formatDateForInput } from '../../../utils/dateFormat';
+import { formatDateForDisplay, formatDateForInput, maskDateInput, normalizeDateValue } from '../../../utils/dateFormat';
 import { calculateGestationalDetails } from '../../../utils/beneficiaryHelpers';
 import { capitalizeNameValue } from '../../../utils/nameFormat';
 import { getPhilippineBarangays, getPhilippineCities, PHILIPPINE_PROVINCES } from '../../../utils/philippineLocations';
@@ -26,12 +26,25 @@ export function MotherFormFields({
   setDocumentFiles,
   documentContent = null,
   hideSchoolField = false,
+  showRequiredValidation = false,
 }) {
   const [dateDrafts, setDateDrafts] = React.useState({});
   const datePickerRefs = React.useRef({});
   const uniqueCommunities = Array.from(new Set(communities.map((comm) => comm.name))).filter(Boolean);
   const selectedGroups = groups.filter((group) => !form.community || group.community === form.community);
-  const selectedBatches = batches.filter((batch) => !form.community || !batch.community || batch.community === form.community);
+  const selectedGroupId = String(form.groupId ?? '').trim();
+  const selectedBatches = batches.filter((batch) => {
+    const sameCommunity = !form.community || !batch.community || batch.community === form.community;
+    if (!sameCommunity) return false;
+    if (!selectedGroupId) return true;
+
+    const batchGroupIds = String(batch.groupIds || batch.group_id || batch.groupId || '')
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
+
+    return batchGroupIds.length === 0 || batchGroupIds.includes(selectedGroupId) || String(batch.group_id || batch.groupId || '') === selectedGroupId;
+  });
   const selectedProvince = PHILIPPINE_PROVINCES.find((province) => province.toLowerCase() === String(form.province || '').toLowerCase()) || '';
   const cityOptions = getPhilippineCities(selectedProvince);
   const selectedCity = cityOptions.find((city) => city.toLowerCase() === String(form.city || '').toLowerCase()) || '';
@@ -86,52 +99,32 @@ export function MotherFormFields({
     }));
   };
 
-  const formatSlashDate = (value) => {
-    const normalized = formatDateForInput(value);
-    if (!normalized) return String(value || '').replaceAll('-', '/');
-    const [year, month, day] = normalized.split('-');
-    return `${day}/${month}/${year}`;
-  };
-
-  const formatPartialSlashDate = (value) => {
-    const digits = String(value || '').replace(/\D/g, '').slice(0, 8);
-    if (digits.length < 4) return digits;
-    if (digits.length === 4) return `${digits}/`;
-    if (digits.length <= 6) return `${digits.slice(0, 4)}/${digits.slice(4)}`;
-    return `${digits.slice(0, 4)}/${digits.slice(4, 6)}/${digits.slice(6)}`;
-  };
-
-  const normalizeSlashDate = (value) => {
-    const digits = String(value || '').replace(/\D/g, '').slice(0, 8);
-    if (digits.length !== 8) return '';
-    const day = digits.slice(0, 2);
-    const month = digits.slice(2, 4);
-    const year = digits.slice(4, 8);
-    const date = new Date(Number(year), Number(month) - 1, Number(day));
-    if (date.getFullYear() !== Number(year) || date.getMonth() !== Number(month) - 1 || date.getDate() !== Number(day)) return '';
-    return `${year}-${month}-${day}`;
-  };
-
-  const getDateDisplayValue = (name, value) => dateDrafts[name] ?? (slashDateInput ? formatSlashDate(value) : formatDateForInput(value));
+  const getDateDisplayValue = (name, value) => dateDrafts[name] ?? (slashDateInput ? maskDateInput(value) : formatDateForInput(value));
 
   const updateDateValue = (name, value, onChange) => {
-    const draft = slashDateInput ? formatPartialSlashDate(value) : value;
-    setDateDrafts((prev) => ({ ...prev, [name]: draft }));
-    const normalized = slashDateInput ? normalizeSlashDate(draft) : draft;
-    if (draft.replace(/\D/g, '').length === 8 && /^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+    const masked = slashDateInput ? maskDateInput(value) : value;
+    setDateDrafts((prev) => ({ ...prev, [name]: masked }));
+
+    if (!slashDateInput) return;
+
+    const normalized = normalizeDateValue(masked);
+    if (masked.replace(/\D/g, '').length === 8 && normalized) {
       if (onChange) onChange(normalized);
       else setForm((prev) => ({ ...prev, [name]: normalized }));
     }
   };
 
   const commitDateValue = (name, value, onChange) => {
-    const normalized = slashDateInput ? normalizeSlashDate(value) : value;
-    const isComplete = !slashDateInput || value.replace(/\D/g, '').length === 8;
-    const displayValue = isComplete && normalized
-      ? (slashDateInput ? formatSlashDate(normalized) : normalized)
-      : (slashDateInput ? formatPartialSlashDate(value) : value);
-    setDateDrafts((prev) => ({ ...prev, [name]: displayValue }));
-    if (!isComplete) return;
+    const masked = slashDateInput ? maskDateInput(value) : value;
+    const normalized = slashDateInput ? normalizeDateValue(masked) : value;
+    setDateDrafts((prev) => ({ ...prev, [name]: masked }));
+
+    if (!slashDateInput || !normalized) {
+      if (onChange) onChange('');
+      else setForm((prev) => ({ ...prev, [name]: '' }));
+      return;
+    }
+
     if (onChange) onChange(normalized);
     else setForm((prev) => ({ ...prev, [name]: normalized }));
   };
@@ -148,6 +141,7 @@ export function MotherFormFields({
     const value = valueOverride ?? form[name] ?? '';
     const isDate = type === 'date';
     const isNumeric = type === 'tel';
+    const hasMissingValue = required && !String(value ?? '').trim() && showRequiredValidation;
     if (readOnly) {
       return (
         <div className="form-group">
@@ -161,12 +155,14 @@ export function MotherFormFields({
 
     return (
       <div className="form-group">
-        <label className="form-label" htmlFor={id}>{label}</label>
+        <label className="form-label" htmlFor={id}>
+          {label}{required && <span className="form-required-indicator" aria-hidden="true"> *</span>}
+        </label>
         <div className={isNativeDate ? 'date-input-container' : undefined}>
           <input
             id={id}
             type={isNativeDate ? 'date' : isDate ? 'text' : type}
-            className="form-input"
+            className={`form-input${hasMissingValue ? ' invalid' : ''}`}
             placeholder={isDate && !isNativeDate ? 'dd/mm/yyyy' : placeholder}
             value={isNativeDate ? formatDateForInput(value) : isDate ? getDateDisplayValue(name, value) : value}
             onChange={(e) => {
@@ -198,6 +194,7 @@ export function MotherFormFields({
             min={minValue}
             autoComplete={nativeDate ? 'off' : undefined}
             required={required}
+            aria-invalid={hasMissingValue}
             disabled={disabled}
           />
           {isNativeDate && (
@@ -240,7 +237,7 @@ export function MotherFormFields({
               value={formatDateForInput(value)}
               onChange={(event) => {
                 const nextValue = event.target.value;
-                setDateDrafts((prev) => ({ ...prev, [name]: formatSlashDate(nextValue) }));
+                setDateDrafts((prev) => ({ ...prev, [name]: maskDateInput(nextValue) }));
                 if (onChange) onChange(nextValue);
                 else setForm((prev) => ({ ...prev, [name]: nextValue }));
               }}
@@ -255,6 +252,7 @@ export function MotherFormFields({
 
   const renderSelect = ({ id, label, name, options = [], placeholder = '', required = false, onChange, disabled = false }) => {
     const value = form[name] ?? '';
+    const hasMissingValue = required && !String(value ?? '').trim() && showRequiredValidation;
     if (readOnly) {
       return (
         <div className="form-group">
@@ -266,10 +264,12 @@ export function MotherFormFields({
 
     return (
       <div className="form-group">
-        <label className="form-label" htmlFor={id}>{label}</label>
+        <label className="form-label" htmlFor={id}>
+          {label}{required && <span className="form-required-indicator" aria-hidden="true"> *</span>}
+        </label>
         <select
           id={id}
-          className="form-select"
+          className={`form-select${hasMissingValue ? ' invalid' : ''}`}
           value={value}
           onChange={(e) => {
             if (onChange) {
@@ -281,6 +281,7 @@ export function MotherFormFields({
               : { ...prev, [name]: e.target.value });
           }}
           required={required}
+          aria-invalid={hasMissingValue}
           disabled={disabled}
         >
           {placeholder && <option value="">{placeholder}</option>}
@@ -305,7 +306,9 @@ export function MotherFormFields({
 
     return (
       <div className="form-group full-width">
-        <label className="form-label" htmlFor={id}>{label}</label>
+        <label className="form-label" htmlFor={id}>
+          {label}{required && <span className="form-required-indicator" aria-hidden="true"> *</span>}
+        </label>
         <textarea
           id={id}
           className="form-input"
@@ -479,6 +482,7 @@ export function MotherFormFields({
             label: 'PhilHealth Number',
             name: 'philhealthNumber',
             placeholder: 'Enter PhilHealth number',
+            required: true,
           })}
         </section>
       </div>
@@ -500,12 +504,13 @@ export function MotherFormFields({
                 id="mother-lmp"
                 type={slashDateInput ? 'text' : 'date'}
                 className="form-input"
-                placeholder={slashDateInput ? 'dd/mm/yyyy' : undefined}
+                placeholder="dd/mm/yyyy"
                 value={getDateDisplayValue('lmpDate', form.lmpDate)}
                 onChange={(e) => updateDateValue('lmpDate', e.target.value, handleLmpChange)}
                 onBlur={() => commitDateValue('lmpDate', getDateDisplayValue('lmpDate', form.lmpDate), handleLmpChange)}
                 max={new Date().toISOString().split('T')[0]}
                 autoComplete="off"
+                pattern="\\d{2}/\\d{2}/\\d{4}"
                 required
               />
               {slashDateInput && <>
@@ -516,7 +521,7 @@ export function MotherFormFields({
                   type="date"
                   value={formatDateForInput(form.lmpDate)}
                   onChange={(e) => {
-                    setDateDrafts((prev) => ({ ...prev, lmpDate: formatSlashDate(e.target.value) }));
+                    setDateDrafts((prev) => ({ ...prev, lmpDate: maskDateInput(e.target.value) }));
                     handleLmpChange(e.target.value);
                   }}
                   tabIndex={-1}

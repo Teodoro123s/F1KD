@@ -115,9 +115,15 @@ export default function BeneficiaryListPage({ communities = [], groups = [], bat
       }
       if (item && (item.firstName || item.first_name || item.motherId || item.mother_id)) {
         const monitoringProgress = getMotherMonitoringProgress(item);
+        const displayName = [
+          item.firstName || item.first_name,
+          item.middleName || item.middle_name,
+          item.lastName || item.last_name,
+          item.suffix,
+        ].filter((part) => String(part || '').trim()).join(' ') || item.name || '';
         return {
           id: item.id,
-          name: item.name || `${item.firstName || item.first_name || ''} ${item.lastName || item.last_name || ''}`.trim(),
+          name: displayName,
           community: item.community || item.community_name || '',
           progress: getMotherProfileProgress(item),
           monitoringProgress,

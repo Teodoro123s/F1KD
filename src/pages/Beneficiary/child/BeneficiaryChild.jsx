@@ -1,5 +1,5 @@
 import React from 'react';
-import { formatDateForDisplay, formatDateForInput } from '../../../utils/dateFormat';
+import { formatDateForDisplay, formatDateForInput, maskDateInput, normalizeDateValue } from '../../../utils/dateFormat';
 import { capitalizeNameValue } from '../../../utils/nameFormat';
 
 export function ChildFormFields({ activeTab, form, setForm, communities = [], batches = [], readOnly = false, slashDateInput = true, birthDocumentFile, setBirthDocumentFile, existingBirthDocumentName = '' }) {
@@ -8,48 +8,30 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
   const [dateDrafts, setDateDrafts] = React.useState({});
   const datePickerRefs = React.useRef({});
 
-  const formatSlashDate = (value) => {
-    const normalized = formatDateForInput(value);
-    if (!normalized) return String(value || '').replaceAll('-', '/');
-    const [year, month, day] = normalized.split('-');
-    return `${day}/${month}/${year}`;
-  };
-
-  const formatPartialSlashDate = (value) => {
-    const digits = String(value || '').replace(/\D/g, '').slice(0, 8);
-    if (digits.length <= 2) return digits;
-    if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
-    return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
-  };
-
-  const normalizeSlashDate = (value) => {
-    const digits = String(value || '').replace(/\D/g, '').slice(0, 8);
-    if (digits.length !== 8) return '';
-    const day = digits.slice(0, 2);
-    const month = digits.slice(2, 4);
-    const year = digits.slice(4, 8);
-    const date = new Date(Number(year), Number(month) - 1, Number(day));
-    if (date.getFullYear() !== Number(year) || date.getMonth() !== Number(month) - 1 || date.getDate() !== Number(day)) return '';
-    return `${year}-${month}-${day}`;
-  };
-
-  const getDateDisplayValue = (name, value) => dateDrafts[name] ?? (slashDateInput ? formatSlashDate(value) : formatDateForInput(value));
+  const getDateDisplayValue = (name, value) => dateDrafts[name] ?? (slashDateInput ? maskDateInput(value) : formatDateForInput(value));
 
   const updateDateValue = (name, value, onChange) => {
-    const draft = slashDateInput ? formatPartialSlashDate(value) : value;
-    setDateDrafts((prev) => ({ ...prev, [name]: draft }));
-    const normalized = slashDateInput ? normalizeSlashDate(draft) : draft;
-    if (draft.replace(/\D/g, '').length === 8 && /^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
-      if (onChange) onChange(normalized);
-      else setForm((prev) => ({ ...prev, [name]: normalized }));
+    const mask = slashDateInput ? maskDateInput(value) : value;
+    setDateDrafts((prev) => ({ ...prev, [name]: mask }));
+
+    const normalized = slashDateInput ? normalizeDateValue(mask) : value;
+    if (!slashDateInput || (mask.replace(/\D/g, '').length === 8 && normalized)) {
+      if (onChange) onChange(normalized || value);
+      else setForm((prev) => ({ ...prev, [name]: normalized || value }));
     }
   };
 
   const commitDateValue = (name, value, onChange) => {
-    const normalized = slashDateInput ? normalizeSlashDate(value) : value;
-    const isComplete = !slashDateInput || value.replace(/\D/g, '').length === 8;
-    setDateDrafts((prev) => ({ ...prev, [name]: isComplete && normalized ? formatSlashDate(normalized) : formatPartialSlashDate(value) }));
-    if (!isComplete) return;
+    const masked = slashDateInput ? maskDateInput(value) : value;
+    const normalized = slashDateInput ? normalizeDateValue(masked) : value;
+    setDateDrafts((prev) => ({ ...prev, [name]: masked }));
+
+    if (!slashDateInput || !normalized) {
+      if (onChange) onChange('');
+      else setForm((prev) => ({ ...prev, [name]: '' }));
+      return;
+    }
+
     if (onChange) onChange(normalized);
     else setForm((prev) => ({ ...prev, [name]: normalized }));
   };
@@ -96,7 +78,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
             inputMode={isDate && !isNativeDate ? 'numeric' : undefined}
             pattern={isDate && !isNativeDate ? '\\d{2}/\\d{2}/\\d{4}' : undefined}
             className="form-input"
-            placeholder={isDate && !isNativeDate ? 'DD/MM/YYYY' : placeholder}
+            placeholder={isDate && !isNativeDate ? 'dd/mm/yyyy' : placeholder}
             value={isNativeDate ? formatDateForInput(value) : isDate ? getDateDisplayValue(name, value) : value}
             min={min}
             step={step}
@@ -165,7 +147,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
               value={formatDateForInput(value)}
               onChange={(event) => {
                 const nextValue = event.target.value;
-                setDateDrafts((prev) => ({ ...prev, [name]: formatSlashDate(nextValue) }));
+                setDateDrafts((prev) => ({ ...prev, [name]: maskDateInput(nextValue) }));
                 if (onChange) onChange(nextValue);
                 else setForm((prev) => ({ ...prev, [name]: nextValue }));
               }}

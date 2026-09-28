@@ -944,6 +944,42 @@
 .program-recipient-status.pending { background: #fffaeb; color: #b54708; }
 .program-product-modal { max-width: 520px; }
 .program-product-modal .form-label { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.85rem; }
+.modal.program-beneficiary-modal { width: min(780px, calc(100vw - 2rem)); max-width: 780px; max-height: min(860px, calc(100vh - 2rem)); overflow: hidden; border-radius: 14px; }
+.program-beneficiary-modal .modal-header { flex: 0 0 auto; }
+.program-beneficiary-modal .modal-header h2 { font-size: 1.45rem; }
+.program-beneficiary-modal .modal-body { min-height: 0; flex: 1 1 auto; overflow-y: auto; padding: 1.25rem 1.5rem; }
+.program-beneficiary-modal .modal-footer { flex: 0 0 auto; padding: 1rem 1.5rem; }
+.program-beneficiary-modal .program-modal-context { margin-bottom: 1.15rem; }
+.program-scope-options { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; }
+.program-scope-pill { min-width: 0; min-height: 92px; padding: 0.85rem; border: 1px solid #dbe2ea; border-radius: 8px; background: #fff; color: #334155; text-align: left; cursor: pointer; transition: border-color 120ms ease, background-color 120ms ease, box-shadow 120ms ease; }
+.program-scope-pill:hover { border-color: #a51f36; background: #fffafa; }
+.program-scope-pill.active { border-color: #a51f36; background: #fff5f5; box-shadow: inset 0 0 0 1px #a51f36; }
+.program-scope-pill:focus-visible { outline: 3px solid rgba(165, 31, 54, 0.25); outline-offset: 2px; }
+.program-scope-pill span, .program-scope-pill small { display: block; }
+.program-scope-pill span { color: #334155; font-weight: 750; }
+.program-scope-pill small { margin-top: 0.35rem; color: #64748b; font-size: 0.78rem; line-height: 1.4; }
+.program-hierarchy-field { margin-top: 1.25rem; }
+.program-hierarchy-label { display: block; margin-bottom: 0.45rem; color: #475569; font-size: 0.9rem; font-weight: 750; }
+.program-scope-error { margin: 0 0 0.6rem; padding: 0.65rem 0.8rem; border: 1px solid #fecaca; border-radius: 6px; background: #fef2f2; color: #b42318; font-size: 0.88rem; font-weight: 650; }
+.program-community-hierarchy { max-height: 360px; margin-top: 0; }
+.program-community-cluster { padding: 0.2rem 0.85rem; border-bottom: 1px solid #edf1f5; }
+.program-community-cluster:last-child { border-bottom: 0; }
+.program-community-cluster .program-recipient { padding: 0.65rem 0; border-top: 0; }
+.program-recipient--school { font-weight: 750; }
+.program-community-subgroups { margin: 0 0 0.35rem 0.45rem; padding-left: 0.85rem; border-left: 2px solid #e6ebf1; }
+.program-community-subgroup + .program-community-subgroup { border-top: 1px solid #f1f4f7; }
+.program-recipient-heading { padding: 0.55rem 0; color: #475569; }
+.program-recipient-heading strong { font-size: 0.88rem; }
+.program-community-batches { padding: 0 0 0.45rem 0.8rem; }
+.program-recipient--batch { grid-template-columns: 20px 1fr; padding: 0.5rem 0; border-top: 0; color: #475569; }
+.program-hierarchy-empty { display: block; padding: 0.45rem 0; color: #64748b; font-size: 0.82rem; }
+@media (max-width: 640px) {
+  .program-scope-options { grid-template-columns: 1fr; }
+  .program-scope-pill { min-height: 0; }
+  .program-beneficiary-modal .modal-header { padding: 1rem; }
+  .program-beneficiary-modal .modal-body { padding: 1rem; }
+  .program-beneficiary-modal .modal-footer { padding: 0.85rem 1rem; }
+}
 
 .hierarchical-progress-report { padding-bottom: 2rem; }
 .progress-report-breadcrumb { display: flex; flex-wrap: wrap; gap: 0.45rem; margin: 0.75rem 0 1rem; color: #64748b; font-size: 0.9rem; }

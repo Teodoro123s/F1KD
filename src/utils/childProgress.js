@@ -16,16 +16,13 @@ export function getChildProfileProgress(child = {}) {
     firstValue(child.noOfChildDelivered, child.no_of_child_delivered),
     firstValue(child.multipleBirthType, child.multiple_birth_type),
     firstValue(child.deliveryType, child.delivery_type),
-    firstValue(child.exclusiveBreastfeeding, child.exclusive_breastfeeding),
     firstValue(child.expandedNewbornScreening, child.expanded_newborn_screening),
-    firstValue(child.expandedNewbornScreeningResult, child.expanded_newborn_screening_result),
     firstValue(child.birthAttendant, child.birth_attendant),
     firstValue(child.apgarScore, child.apgar_score),
-    firstValue(child.feedingType, child.feeding_type),
     firstValue(child.nutritionNotes, child.nutrition_notes),
   ].filter((value) => hasMeaningfulValue(value)).length;
 
-  return Math.round((completedFields / 18) * 100);
+  return Math.round((completedFields / 15) * 100);
 }
 
 export function getChildMonitoringProgress(child = {}) {
