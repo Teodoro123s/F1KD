@@ -60,6 +60,7 @@ export default function ProgressReport() {
   const [granularity, setGranularity] = useState('child');
   const [visibleFields, setVisibleFields] = useState(DEFAULT_VISIBLE_FIELDS);
   const [report, setReport] = useState(null);
+  const [graphReportRows, setGraphReportRows] = useState(null);
   const [finalizedSnapshot, setFinalizedSnapshot] = useState(null);
   const [sort, setSort] = useState({ key: 'school', direction: 'asc' });
   const [page, setPage] = useState(1);
@@ -233,6 +234,7 @@ export default function ProgressReport() {
     }
     setSelection(safeSelection);
     setLoadingReport(true);
+    if (nextPage === 1) setGraphReportRows(null);
     try {
       const selectedProgram = programs.find((program) => normalizeProgramName(program.name) === normalizeProgramName(programName));
       if (reportCategory === 'program') {
@@ -251,6 +253,27 @@ export default function ProgressReport() {
         perPage: 50,
       });
       const result = await apiGetProgressReport(requestParams);
+      let completeGraphRows = result.rows || [];
+      if (nextPage === 1 && reportCategory === 'monitor' && result.pagination?.total > completeGraphRows.length) {
+        try {
+          const completeResult = await apiGetProgressReport(buildProgressReportParams({
+            selection: safeSelection,
+            reportCategory,
+            beneficiaryType,
+            selectedProgram,
+            programName,
+            benefitPeriod,
+            benefitMonth,
+            page: 1,
+            perPage: 50,
+            exportAll: true,
+          }));
+          if (Array.isArray(completeResult.rows)) completeGraphRows = completeResult.rows;
+        } catch {
+          notifyAction('The chart could not load every beneficiary in this report.', 'error');
+        }
+      }
+      if (nextPage === 1) setGraphReportRows(reportCategory === 'monitor' ? completeGraphRows : null);
       setReport(result);
       setFinalizedSnapshot({
         report: result,
@@ -370,9 +393,9 @@ export default function ProgressReport() {
   const graphSourceRows = displayReportCategory === 'program'
     ? aggregateReportRows(resultsRows, 'group-school')
     : displayReportCategory === 'monitor'
-      ? filterRowsBySelectedRange(activeReport?.rows || [])
+      ? filterRowsBySelectedRange(graphReportRows ?? activeReport?.rows ?? [])
       : resultsRows;
-  const graphAggregationFocus = displayReportCategory === 'monitor' && !INTERPRETATION_METRICS.has(growthMetrics[0])
+  const graphAggregationFocus = displayReportCategory === 'monitor'
     ? null
     : displaySelection.batchId
       ? 'batch-group'
@@ -631,6 +654,7 @@ export default function ProgressReport() {
                 setGrowthMetrics={setGrowthMetrics}
                 displayWeeks={displayWeeks}
                 setDisplayWeeks={setDisplayWeeks}
+                rangeRows={displayReportCategory === 'monitor' ? graphReportRows ?? activeReport?.rows ?? [] : resultsRows}
                 averageMetric={averageMetric}
                 graphRows={graphRows}
                 resultsRows={resultsRows}

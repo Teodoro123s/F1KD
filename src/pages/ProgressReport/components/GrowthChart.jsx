@@ -71,7 +71,7 @@ function GrowthInterpretationChart({ rows, progressRows, metric, displayWeeks = 
   const timelineLabel = (value) => {
     if (!value) return 'Unknown month';
     const [year, monthNumber] = String(value).split('-').map(Number);
-    if (year && monthNumber) return new Date(year, monthNumber - 1, 1).toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
+    if (year && monthNumber) return new Date(year, monthNumber - 1, 1).toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
     return 'Unknown month';
   };
   const entries = rows.flatMap((row) => (row.growthSeries || []).map((point) => ({ row, point, interpretation: getPointInterpretation(point, metric), timeline: timelineKey(point) })))
@@ -96,37 +96,39 @@ function GrowthInterpretationChart({ rows, progressRows, metric, displayWeeks = 
   const categories = getInterpretationLevels(metric);
   const axisCategories = [...categories].reverse();
   const width = Math.max(520, displayTimelines.length * 150 + 120);
-  const height = 220;
+  const height = 260;
   const paddingX = 175;
   const yAxisLabelX = 12;
   const xForTimeline = (timeline) => displayTimelines.length <= 1 ? width / 2 : paddingX + (displayTimelines.indexOf(timeline) / (displayTimelines.length - 1)) * (width - paddingX * 2);
   const yForCategory = (category) => {
     const index = axisCategories.indexOf(category);
     if (index < 0) return height / 2;
-    return 24 + (index / (axisCategories.length - 1)) * (height - 48);
+    return 24 + (index / (axisCategories.length - 1)) * (height - 64);
   };
   const colors = ['#15803d', '#1d9f6f', '#6ea86d', '#b7791f', '#d97706'];
   const seriesColors = ['#15803d', '#2563eb', '#d97706', '#7c3aed', '#0f766e', '#be123c'];
+  const beneficiaryKey = (row) => String(row.childId || row.motherId || row.child || row.mother || 'beneficiary');
   const entriesByRow = new Map();
   visibleEntries.forEach((entry) => {
-    const key = entry.row.child || entry.row.mother || 'Beneficiary';
+    const key = beneficiaryKey(entry.row);
     const points = entriesByRow.get(key) || [];
     const band = mapInterpretationToBand(entry.interpretation, metric);
     points.push({ ...entry, interpretation: band });
     entriesByRow.set(key, points);
   });
   const latestPointByBeneficiary = new Map(
-    [...entriesByRow.entries()].map(([name, points]) => [name, points.at(-1)?.point])
+    [...entriesByRow.entries()].map(([key, points]) => [key, points.at(-1)?.point])
   );
   const interpretationLines = [...entriesByRow.entries()].map(([key, points], index) => {
     const sortedPoints = [...points].sort((left, right) => displayTimelines.indexOf(left.timeline) - displayTimelines.indexOf(right.timeline));
     const seriesState = hoveredSeries ? (hoveredSeries === key ? ' is-active' : ' is-muted') : '';
     return <polyline key={`interpretation-series-${key}`} className={`growth-report-series-line${seriesState}`} points={sortedPoints.map(({ interpretation, timeline }) => `${xForTimeline(timeline)},${yForCategory(interpretation)}`).join(' ')} fill="none" stroke={seriesColors[index % seriesColors.length]} strokeWidth={hoveredSeries === key ? '5' : '3'} strokeLinecap="round" strokeLinejoin="round" />;
   });
-  return <div className="growth-report-line-chart interpretation-growth-chart" style={{ overflowX: 'auto' }}><svg viewBox={`0 0 ${width} ${height}`} style={{ minWidth: `${Math.max(width, 720)}px` }} role="img" aria-label="Growth interpretation over time"><text className="growth-report-y-axis-label" x={yAxisLabelX} y={height / 2} textAnchor="middle" transform={`rotate(-90 ${yAxisLabelX} ${height / 2})`}>Interpretation</text>{axisCategories.map((category) => <line key={`category-line-${category}`} className="growth-report-gridline" x1={paddingX} x2={width - 24} y1={yForCategory(category)} y2={yForCategory(category)} />)}{displayTimelines.map((timeline) => <line key={`interpretation-line-${timeline}`} className="growth-report-weekline" x1={xForTimeline(timeline)} x2={xForTimeline(timeline)} y1="24" y2={height - 24} />)}{axisCategories.map((category) => <text key={category} className="growth-report-y-axis-tick" x={paddingX - 18} y={yForCategory(category) + 4} textAnchor="end">{category}</text>)}{interpretationLines}{visibleEntries.map(({ row, point, interpretation, timeline }, index) => {
+  return <div className="growth-report-line-chart interpretation-growth-chart" style={{ overflowX: 'auto' }}><svg viewBox={`0 0 ${width} ${height}`} style={{ minWidth: `${Math.max(width, 720)}px` }} role="img" aria-label="Growth interpretation over time"><text className="growth-report-y-axis-label" x={yAxisLabelX} y={height / 2} textAnchor="middle" transform={`rotate(-90 ${yAxisLabelX} ${height / 2})`}>Interpretation</text>{axisCategories.map((category) => <line key={`category-line-${category}`} className="growth-report-gridline" x1={paddingX} x2={width - 24} y1={yForCategory(category)} y2={yForCategory(category)} />)}{displayTimelines.map((timeline) => <line key={`interpretation-line-${timeline}`} className="growth-report-weekline" x1={xForTimeline(timeline)} x2={xForTimeline(timeline)} y1="24" y2={height - 64} />)}{axisCategories.map((category) => <text key={category} className="growth-report-y-axis-tick" x={paddingX - 18} y={yForCategory(category) + 4} textAnchor="end">{category}</text>)}{displayTimelines.map((timeline) => <text key={`interpretation-label-${timeline}`} className="growth-report-x-axis-tick" x={xForTimeline(timeline)} y={height - 20} textAnchor="middle">{timelineLabel(timeline)}</text>)}{interpretationLines}{visibleEntries.map(({ row, point, interpretation, timeline }, index) => {
     const band = mapInterpretationToBand(interpretation, metric);
     const beneficiaryName = row.child || row.mother || 'Beneficiary';
-    const isLatestPoint = latestPointByBeneficiary.get(beneficiaryName) === point;
+    const key = beneficiaryKey(row);
+    const isLatestPoint = latestPointByBeneficiary.get(key) === point;
     const monitoringTarget = row.isGroupAggregate ? null : isMother
       ? (row.motherId ? { mother: { id: row.motherId, motherId: row.motherId, name: beneficiaryName } } : null)
       : (row.childId ? { child: { id: row.childId, childId: row.childId, name: beneficiaryName }, week: point.ageWeeks } : null);
@@ -135,10 +137,13 @@ function GrowthInterpretationChart({ rows, progressRows, metric, displayWeeks = 
     const modeCountText = row.isGroupAggregate && modeTotal > 0
       ? ` · Mode count: ${modeCount}/${modeTotal} ${isMother ? 'mothers' : 'children'}`
       : '';
-            const seriesState = hoveredSeries ? (hoveredSeries === beneficiaryName ? ' is-active' : ' is-muted') : '';
+            const seriesState = hoveredSeries ? (hoveredSeries === key ? ' is-active' : ' is-muted') : '';
     const openMonitoringForm = () => { if (monitoringTarget) navigate('/monitoring', { state: monitoringTarget }); };
     return <circle key={`${beneficiaryName}-${timeline}-${index}`} className={`${monitoringTarget ? 'growth-report-data-point ' : ''}growth-report-series-point${isLatestPoint ? ' is-latest' : ''}${seriesState}`} cx={xForTimeline(timeline)} cy={yForCategory(band)} r={isLatestPoint ? '9' : '6'} fill={colors[categories.indexOf(band) % colors.length]} stroke="#fff" strokeWidth={isLatestPoint ? '3' : '2'} role={monitoringTarget ? 'link' : undefined} aria-label={monitoringTarget ? `Open ${beneficiaryName} monitoring form, ${band}, ${timelineLabel(timeline)}${isLatestPoint ? ', latest measurement' : ''}` : undefined} tabIndex={monitoringTarget ? 0 : undefined} onClick={monitoringTarget ? openMonitoringForm : undefined} onKeyDown={monitoringTarget ? (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openMonitoringForm(); } } : undefined}><title>{beneficiaryName}: {band}{modeCountText} · {timelineLabel(timeline)}{isLatestPoint ? ' · Latest measurement' : ''}{monitoringTarget ? ' · Click to open monitoring form' : ''}</title></circle>;
-  })} </svg><div className="growth-report-line-labels" style={{ position: 'relative', minHeight: '1.4rem', paddingLeft: '3.2rem', paddingRight: '1.1rem', width: `${Math.max(width, 720)}px`, minWidth: `${Math.max(width, 720)}px` }}>{displayTimelines.map((timeline) => <span key={timeline} style={{ position: 'absolute', left: `${xForTimeline(timeline)}px`, transform: 'translateX(-50%)', whiteSpace: 'nowrap' }}>{timelineLabel(timeline)}</span>)}</div><div className="growth-report-legend growth-report-series-legend">{[...entriesByRow.keys()].map((name, index) => <span key={name} className={hoveredSeries ? (hoveredSeries === name ? 'is-active' : 'is-muted') : ''} tabIndex={0} onMouseEnter={() => setHoveredSeries(name)} onMouseLeave={() => setHoveredSeries('')} onFocus={() => setHoveredSeries(name)} onBlur={() => setHoveredSeries('')}><i style={{ '--series-color': seriesColors[index % seriesColors.length] }} />{name}</span>)}</div><div className="growth-report-legend">{categories.map((category, index) => <span key={category}><i style={{ background: colors[index % colors.length] }} />{category}</span>)}</div></div>;
+  })} </svg><div className="growth-report-legend growth-report-series-legend">{[...entriesByRow.entries()].map(([key, points], index) => {
+    const name = points[0]?.row.child || points[0]?.row.mother || 'Beneficiary';
+    return <span key={key} className={hoveredSeries ? (hoveredSeries === key ? 'is-active' : 'is-muted') : ''} tabIndex={0} onMouseEnter={() => setHoveredSeries(key)} onMouseLeave={() => setHoveredSeries('')} onFocus={() => setHoveredSeries(key)} onBlur={() => setHoveredSeries('')}><i style={{ '--series-color': seriesColors[index % seriesColors.length] }} />{name}</span>;
+  })}</div><div className="growth-report-legend">{categories.map((category, index) => <span key={category}><i style={{ background: colors[index % colors.length] }} />{category}</span>)}</div></div>;
 }
 
 function ProgramAverageChart({ rows, metric = 'receivedBenefitAveragePerMonth' }) {
@@ -209,6 +214,7 @@ function ProgramAverageChart({ rows, metric = 'receivedBenefitAveragePerMonth' }
 export function GrowthChart({ rows, progressRows = [], metric, chartType, displayWeeks = 'all', beneficiaryType = 'child' }) {
   const chartRef = useRef(null);
   const navigate = useNavigate();
+  const [hoveredSeries, setHoveredSeries] = useState('');
   if (INTERPRETATION_METRICS.has(metric)) return <GrowthInterpretationChart rows={rows} progressRows={progressRows} metric={metric} displayWeeks={displayWeeks} beneficiaryType={beneficiaryType} />;
   if (PROGRAM_METRICS.some(([id]) => id === metric)) return <ProgramAverageChart rows={rows} />;
   const values = rows
@@ -307,6 +313,7 @@ export function GrowthChart({ rows, progressRows = [], metric, chartType, displa
     const metricOptions = isMother ? MOTHER_GROWTH_METRICS : WHO_NUMERIC_GROWTH_METRICS;
     const metricLabel = metricOptions.find(([id]) => id === metric)?.[1] || metric;
     const valueUnit = isZScoreMetric ? 'Z-score' : metric === 'bmiForAge' ? 'BMI' : metric === 'weightForAge' ? 'kg' : metric === 'heightForAge' ? 'cm' : 'units';
+    const beneficiaryKey = (row, index) => String(row.childId || row.motherId || `${row.child || row.mother || 'beneficiary'}-${index}`);
     const timelineGridLines = visibleTimelineDates.map((timelineValue) => <line key={`timeline-line-${timelineValue}`} className="growth-report-weekline" x1={xForTimeline(timelineValue)} x2={xForTimeline(timelineValue)} y1="12" y2={height - 12} />);
     const monthLabels = visibleTimelineDates.map((timelineValue) => ({
       timelineValue,
@@ -330,14 +337,16 @@ export function GrowthChart({ rows, progressRows = [], metric, chartType, displa
     const seriesColors = ['#15803d', '#2563eb', '#d97706', '#7c3aed', '#0f766e', '#be123c'];
     const chartSeries = visibleSeriesRows.map((row, rowIndex) => {
       const beneficiaryName = row.child || row.mother || 'Beneficiary';
+      const seriesKey = beneficiaryKey(row, rowIndex);
       const color = seriesColors[rowIndex % seriesColors.length];
+      const seriesState = hoveredSeries ? (hoveredSeries === seriesKey ? ' is-active' : ' is-muted') : '';
       const points = [...row.visibleGrowthSeries]
         .map((point) => ({ point, value: rawMeasurementValue(point), timeline: timelineKey(point) }))
         .filter((item) => item.value !== null && visibleTimelineDates.includes(item.timeline))
         .sort((left, right) => left.timeline.localeCompare(right.timeline));
       const latestTimeline = points.at(-1)?.timeline;
       const polyline = points.length > 1
-        ? <polyline key={`${beneficiaryName}-numeric-line`} points={points.map(({ timeline, value }) => `${xForTimeline(timeline)},${yForValue(isZScoreMetric ? Math.max(-6, Math.min(6, value)) : value)}`).join(' ')} fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+        ? <polyline key={`${seriesKey}-numeric-line`} className={`growth-report-series-line${seriesState}`} points={points.map(({ timeline, value }) => `${xForTimeline(timeline)},${yForValue(isZScoreMetric ? Math.max(-6, Math.min(6, value)) : value)}`).join(' ')} fill="none" stroke={color} strokeWidth={hoveredSeries === seriesKey ? '5' : '3'} strokeLinecap="round" strokeLinejoin="round" />
         : null;
       const markers = points.map(({ point, value, timeline }, pointIndex) => {
         const monitoringTarget = row.isGroupAggregate ? null : isMother
@@ -352,12 +361,16 @@ export function GrowthChart({ rows, progressRows = [], metric, chartType, displa
         const displayedValue = isZScoreMetric ? Math.max(-6, Math.min(6, value)) : value;
         const navigateToMonitor = () => { if (monitoringTarget) navigate('/monitoring', { state: monitoringTarget }); };
         const rangeNote = isOutsideWhoRange ? ` · Beyond WHO display range (${value > 6 ? 'above +6' : 'below -6'})` : '';
-        return <circle key={`${beneficiaryName}-${timeline}-${pointIndex}`} className={monitoringTarget ? 'growth-report-data-point' : undefined} cx={xForTimeline(timeline)} cy={yForValue(displayedValue)} r={isLatestPoint ? '8' : '5'} fill={isOutsideWhoRange ? '#fff7ed' : '#fff'} stroke={isOutsideWhoRange ? '#c2410c' : color} strokeWidth={isLatestPoint || isOutsideWhoRange ? '4' : '3'} role={monitoringTarget ? 'link' : undefined} tabIndex={monitoringTarget ? 0 : undefined} aria-label={monitoringTarget ? `Open ${beneficiaryName} monitoring form, ${value.toFixed(2)} ${valueUnit}, ${timelineLabel(timeline)}${isLatestPoint ? ', latest measurement' : ''}${isOutsideWhoRange ? ', outside WHO display range' : ''}` : undefined} onClick={monitoringTarget ? navigateToMonitor : undefined} onKeyDown={monitoringTarget ? (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); navigateToMonitor(); } } : undefined}><title>{beneficiaryName}: {value.toFixed(2)} {valueUnit}{interpretation ? ` · ${interpretation}` : ''}{rangeNote} · {timelineLabel(timeline)}{isLatestPoint ? ' · Latest measurement' : ''}</title></circle>;
+        return <circle key={`${seriesKey}-${timeline}-${pointIndex}`} className={`${monitoringTarget ? 'growth-report-data-point ' : ''}growth-report-series-point${seriesState}`} cx={xForTimeline(timeline)} cy={yForValue(displayedValue)} r={isLatestPoint ? '8' : '5'} fill={isOutsideWhoRange ? '#fff7ed' : '#fff'} stroke={isOutsideWhoRange ? '#c2410c' : color} strokeWidth={isLatestPoint || isOutsideWhoRange ? '4' : '3'} role={monitoringTarget ? 'link' : undefined} tabIndex={monitoringTarget ? 0 : undefined} aria-label={monitoringTarget ? `Open ${beneficiaryName} monitoring form, ${value.toFixed(2)} ${valueUnit}, ${timelineLabel(timeline)}${isLatestPoint ? ', latest measurement' : ''}${isOutsideWhoRange ? ', outside WHO display range' : ''}` : undefined} onClick={monitoringTarget ? navigateToMonitor : undefined} onKeyDown={monitoringTarget ? (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); navigateToMonitor(); } } : undefined}><title>{beneficiaryName}: {value.toFixed(2)} {valueUnit}{interpretation ? ` · ${interpretation}` : ''}{rangeNote} · {timelineLabel(timeline)}{isLatestPoint ? ' · Latest measurement' : ''}</title></circle>;
       });
-      return <g key={`${beneficiaryName}-numeric-series`}>{polyline}{markers}</g>;
+      return <g key={`${seriesKey}-numeric-series`}>{polyline}{markers}</g>;
     });
-    const yAxisLabel = isZScoreMetric ? metricLabel : metric === 'bmiForAge' ? 'BMI' : metric === 'weightForAge' ? 'Weight (kg)' : metric === 'heightForAge' ? 'Length (cm)' : metricLabel;
-    return <div className="growth-report-line-chart"><svg ref={chartRef} viewBox={`0 0 ${width} ${height}`} style={{ minWidth: `${width}px` }} role="img" aria-label={`${subjectLabel} ${metricLabel} over time`} preserveAspectRatio="none"><text className="growth-report-y-axis-label" x="18" y={height / 2} textAnchor="middle" transform={`rotate(-90 18 ${height / 2})`}>{yAxisLabel}</text>{timelineGridLines}{yAxisTicks.map(({ value, y }) => <g key={value}><line className={`growth-report-gridline${Math.abs(value) < 1e-9 ? ' zero-line' : ''}`} x1={chartPaddingX} x2={width} y1={y} y2={y} /><text className="growth-report-y-axis-tick" x={chartPaddingX - 8} y={y + 3} textAnchor="end" style={{ fontSize: '10px' }}>{value.toFixed(1)}</text></g>)}{chartSeries}</svg><div className="growth-report-line-labels" style={{ position: 'relative', minHeight: '1.2rem', minWidth: `${width}px`, paddingLeft: '1.3rem', paddingRight: '0.5rem', fontSize: '10px' }}>{monthLabels.map(({ timelineValue, xPosition, label }) => <span key={`label-${timelineValue}`} style={{ position: 'absolute', left: `${Math.max(4, Math.min(96, (xPosition / width) * 100))}%`, transform: 'translateX(-50%)', whiteSpace: 'nowrap', maxWidth: '72px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>)}</div><div className="growth-report-legend">{visibleSeriesRows.map((row, index) => <span key={`${row.child || row.mother}-line-legend`}><i style={{ background: seriesColors[index % seriesColors.length] }} />{row.child || row.mother}</span>)}</div></div>;
+    const yAxisLabel = isZScoreMetric ? metricLabel.replace(/\s+Z-Score$/i, '') : metric === 'bmiForAge' ? 'BMI' : metric === 'weightForAge' ? 'Weight (kg)' : metric === 'heightForAge' ? 'Length (cm)' : metricLabel;
+    return <div className="growth-report-line-chart"><svg ref={chartRef} viewBox={`0 0 ${width} ${height}`} style={{ minWidth: `${width}px` }} role="img" aria-label={`${subjectLabel} ${metricLabel} over time`} preserveAspectRatio="none"><text className="growth-report-y-axis-label" x="18" y={height / 2} textAnchor="middle" transform={`rotate(-90 18 ${height / 2})`}>{yAxisLabel}</text>{timelineGridLines}{yAxisTicks.map(({ value, y }) => <g key={value}><line className={`growth-report-gridline${Math.abs(value) < 1e-9 ? ' zero-line' : ''}`} x1={chartPaddingX} x2={width} y1={y} y2={y} /><text className="growth-report-y-axis-tick" x={chartPaddingX - 8} y={y + 3} textAnchor="end" style={{ fontSize: '10px' }}>{value.toFixed(1)}</text></g>)}{chartSeries}</svg><div className="growth-report-line-labels" style={{ position: 'relative', minHeight: '1.2rem', minWidth: `${width}px`, paddingLeft: '1.3rem', paddingRight: '0.5rem', fontSize: '10px' }}>{monthLabels.map(({ timelineValue, xPosition, label }) => <span key={`label-${timelineValue}`} style={{ position: 'absolute', left: `${Math.max(4, Math.min(96, (xPosition / width) * 100))}%`, transform: 'translateX(-50%)', whiteSpace: 'nowrap', maxWidth: '72px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>)}</div><div className="growth-report-legend growth-report-series-legend">{visibleSeriesRows.map((row, index) => {
+      const seriesKey = beneficiaryKey(row, index);
+      const name = row.child || row.mother || 'Beneficiary';
+      return <span key={`${seriesKey}-line-legend`} className={hoveredSeries ? (hoveredSeries === seriesKey ? 'is-active' : 'is-muted') : ''} tabIndex={0} onMouseEnter={() => setHoveredSeries(seriesKey)} onMouseLeave={() => setHoveredSeries('')} onFocus={() => setHoveredSeries(seriesKey)} onBlur={() => setHoveredSeries('')}><i style={{ '--series-color': seriesColors[index % seriesColors.length] }} />{name}</span>;
+    })}</div></div>;
   }
 
   return <div className="growth-report-bars growth-report-bars-chart">{points.map(({ row, value }, index) => { const label = row.child || row.mother || row.batch || row.group || 'Report total'; return <div className="growth-report-bar-item" key={`${label}-${index}`}><strong>{value}</strong><span style={{ '--bar-height': `${Math.max(6, (value / maxValue) * 100)}%` }} title={`${label}: ${value} · ${chartDate(row.measurementDate)}`} /><small>{label}</small><small>{chartDate(row.measurementDate)}</small></div>; })}</div>;

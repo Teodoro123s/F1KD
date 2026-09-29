@@ -34,6 +34,7 @@ export function ResultsPanel({
   setGrowthMetrics,
   displayWeeks,
   setDisplayWeeks,
+  rangeRows,
   averageMetric,
   graphRows,
   resultsRows,
@@ -94,6 +95,7 @@ export function ResultsPanel({
           resultsRows={resultsRows}
           displayWeeks={displayWeeks}
           setDisplayWeeks={setDisplayWeeks}
+          rangeRows={rangeRows}
           displayBeneficiaryType={displayBeneficiaryType}
           averageMetric={averageMetric}
           profileGraphFields={profileGraphFields}

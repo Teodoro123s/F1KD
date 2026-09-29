@@ -114,7 +114,7 @@ router.get('/', async (req, res) => {
     const params = parseParams(req.query, req);
     const isMotherReport = params.granularity === 'mother';
     const filters = hierarchyWhere(params, isMotherReport ? { mother: 'm' } : undefined);
-    const childCheckupDateFilter = (alias) => `${alias}.visit_date <= CURDATE() AND (c.birth_date IS NULL OR c.birth_date < '1900-01-01' OR ${alias}.visit_date >= c.birth_date)`;
+    const childCheckupDateFilter = (alias) => `(c.birth_date IS NULL OR c.birth_date < '1900-01-01' OR ${alias}.visit_date >= c.birth_date)`;
     const motherCheckupDateFilter = (alias) => `${alias}.checkup_date IS NOT NULL`;
     const childActivitiesExpression = `(SELECT COUNT(*) FROM child_checkups completed_cc WHERE completed_cc.child_id = c.id AND completed_cc.week_number IS NOT NULL)`;
     const progressExpression = `ROUND(${childActivitiesExpression} * 100 / 24, 0)`;

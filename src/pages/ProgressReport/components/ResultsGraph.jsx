@@ -334,6 +334,7 @@ export function ResultsGraph({
   setGrowthMetrics,
   graphRows,
   resultsRows,
+  rangeRows = resultsRows,
   displayWeeks,
   setDisplayWeeks,
   displayBeneficiaryType,
@@ -360,10 +361,14 @@ export function ResultsGraph({
   const metricLabel = (graphMetricOptions.find(([id]) => id === selectedGraphMetric)?.[1] || selectedGraphMetric || 'Metric')
     .replace(/([a-z])([A-Z])/g, '$1 $2');
   const selectedProfileField = availableProfileGraphFields.find(([id]) => id === effectiveProfileGraphColumn);
-  const graphicMonthOptions = [...new Set(graphRows.flatMap((row) => (row.growthSeries || []).map((point) => {
+  const graphicMonthOptions = [...new Set(rangeRows.flatMap((row) => (row.growthSeries || []).map((point) => {
     const dateValue = point?.date || point?.measurementDate;
-    if (!dateValue) return '';
-    const date = new Date(dateValue);
+    const date = dateValue
+      ? new Date(dateValue)
+      : Number.isFinite(Number(point?.ageWeeks))
+        ? new Date(Date.now() - (Math.max(0, Number(point.ageWeeks)) * 7 * 24 * 60 * 60 * 1000))
+        : null;
+    if (!date) return '';
     if (Number.isNaN(date.getTime())) return '';
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
   })).filter(Boolean))].sort();
@@ -385,7 +390,7 @@ export function ResultsGraph({
   const displayRangeEnd = graphicMonthOptions.includes(currentRange.endMonth) ? currentRange.endMonth : (graphicMonthOptions.at(-1) || '');
   const applyMonthRange = (startMonth, endMonth) => {
     const safeStart = startMonth || graphicMonthOptions[0] || '';
-    const safeEnd = endMonth || graphicMonthOptions.at(-1) || '';
+    const safeEnd = endMonth && endMonth >= safeStart ? endMonth : safeStart || graphicMonthOptions.at(-1) || '';
     setDisplayWeeks(`range:${safeStart}:${safeEnd}`);
   };
   const chartTitle = displayReportCategory === 'program'
@@ -443,31 +448,20 @@ export function ResultsGraph({
             </label>
           )}
           {displayReportCategory === 'monitor' && (
-            displayBeneficiaryType === 'mother' ? (
-              <label className="report-chart-select">
-                Date range
-                <div className="report-chart-date-range" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <select value={displayRangeStart} onChange={(event) => applyMonthRange(event.target.value, displayRangeEnd)}>
-                    {graphicMonthOptions.map((monthKey) => <option key={monthKey} value={monthKey}>{formatMonthKey(monthKey)}</option>)}
-                  </select>
-                  <span>to</span>
-                  <select value={displayRangeEnd} onChange={(event) => applyMonthRange(displayRangeStart, event.target.value)}>
-                    {graphicMonthOptions.map((monthKey) => <option key={monthKey} value={monthKey}>{formatMonthKey(monthKey)}</option>)}
-                  </select>
-                </div>
-              </label>
-            ) : (
-              <label className="report-chart-select">
-                Display last
-                <select value={displayWeeks} onChange={(event) => setDisplayWeeks(event.target.value)}>
-                  <option value="all">All</option>
-                  <option value="1">1 month</option>
-                  <option value="3">3 months</option>
-                  <option value="6">6 months</option>
-                  <option value="12">12 months</option>
+            <label className="report-chart-select">
+              Date range
+              <div className="report-chart-date-range">
+                <select aria-label="Range start month" value={displayRangeStart} onChange={(event) => applyMonthRange(event.target.value, displayRangeEnd)} disabled={!graphicMonthOptions.length}>
+                  {!graphicMonthOptions.length && <option value="">No dates</option>}
+                  {graphicMonthOptions.map((monthKey) => <option key={monthKey} value={monthKey}>{formatMonthKey(monthKey)}</option>)}
                 </select>
-              </label>
-            )
+                <span>to</span>
+                <select aria-label="Range end month" value={displayRangeEnd} onChange={(event) => applyMonthRange(displayRangeStart, event.target.value)} disabled={!graphicMonthOptions.length}>
+                  {!graphicMonthOptions.length && <option value="">No dates</option>}
+                  {graphicMonthOptions.map((monthKey) => <option key={monthKey} value={monthKey}>{formatMonthKey(monthKey)}</option>)}
+                </select>
+              </div>
+            </label>
           )}
         </div>
 

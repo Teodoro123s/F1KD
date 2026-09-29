@@ -342,8 +342,8 @@ export default function MonitoringPage() {
               <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/child/${selectedChild.id}`, { state: { child: selectedChild } })}>
                 Beneficiary Profile
               </button>
-              <button type="button" className="btn-primary" onClick={() => navigate(`/beneficiary/child/${selectedChild.id}/edit`, { state: { child: selectedChild } })}>
-                Edit
+              <button type="button" className="btn-primary" onClick={() => setEditingCheckup((current) => !current)}>
+                {editingCheckup ? 'Cancel edit' : 'Edit checkup'}
               </button>
             </div>
           </div>
@@ -362,6 +362,7 @@ export default function MonitoringPage() {
                 setSelectedChild(savedChild || selectedChild);
                 setChildCompletedWeeks(completedWeeks);
                 setChildren((current) => current.map((child) => String(child.id) === String(payload.childId) ? { ...child, ...savedChild } : child));
+                setEditingCheckup(false);
               } catch (error) {
                 setSavedMessage(`Unable to save check-up: ${error.message}`);
                 return false;
@@ -372,7 +373,8 @@ export default function MonitoringPage() {
               setSavedMessage(message);
               return true;
             }}
-            onCancel={() => setSelectedChild(null)}
+            onCancel={() => setEditingCheckup(false)}
+            forceEdit={editingCheckup}
           />
         </section>
       ) : selectedRecordLoading ? (

@@ -86,6 +86,21 @@ export function formatDateForInput(value) {
   return `${date.getFullYear()}-${month}-${day}`;
 }
 
+export function addMonthsPreservingDay(value, monthOffset = 1, preferredDay) {
+  const normalized = normalizeDateValue(value);
+  if (!normalized || !Number.isInteger(monthOffset)) return '';
+
+  const [year, month, day] = normalized.split('-').map(Number);
+  const targetMonthIndex = year * 12 + month - 1 + monthOffset;
+  const targetYear = Math.floor(targetMonthIndex / 12);
+  const targetMonth = targetMonthIndex - targetYear * 12;
+  const anchorDay = Number.isInteger(Number(preferredDay)) ? Number(preferredDay) : day;
+  const lastDay = new Date(targetYear, targetMonth + 1, 0).getDate();
+  const targetDay = Math.min(Math.max(anchorDay, 1), lastDay);
+
+  return `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}-${String(targetDay).padStart(2, '0')}`;
+}
+
 /**
  * Returns a readable display version of a date in DD/MM/YYYY format.
  *
