@@ -360,6 +360,34 @@ export function ResultsGraph({
   const metricLabel = (graphMetricOptions.find(([id]) => id === selectedGraphMetric)?.[1] || selectedGraphMetric || 'Metric')
     .replace(/([a-z])([A-Z])/g, '$1 $2');
   const selectedProfileField = availableProfileGraphFields.find(([id]) => id === effectiveProfileGraphColumn);
+  const graphicMonthOptions = [...new Set(graphRows.flatMap((row) => (row.growthSeries || []).map((point) => {
+    const dateValue = point?.date || point?.measurementDate;
+    if (!dateValue) return '';
+    const date = new Date(dateValue);
+    if (Number.isNaN(date.getTime())) return '';
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+  })).filter(Boolean))].sort();
+  const formatMonthKey = (monthKey) => {
+    if (!monthKey) return 'Unknown';
+    const [year, monthNumber] = String(monthKey).split('-').map(Number);
+    if (!year || !monthNumber) return monthKey;
+    return new Date(year, monthNumber - 1, 1).toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+  };
+  const parseRangeValue = (value) => {
+    if (String(value || '').startsWith('range:')) {
+      const [startMonth, endMonth] = String(value).slice(6).split(':');
+      return { startMonth: startMonth || '', endMonth: endMonth || '' };
+    }
+    return { startMonth: graphicMonthOptions[0] || '', endMonth: graphicMonthOptions.at(-1) || '' };
+  };
+  const currentRange = parseRangeValue(displayWeeks);
+  const displayRangeStart = graphicMonthOptions.includes(currentRange.startMonth) ? currentRange.startMonth : (graphicMonthOptions[0] || '');
+  const displayRangeEnd = graphicMonthOptions.includes(currentRange.endMonth) ? currentRange.endMonth : (graphicMonthOptions.at(-1) || '');
+  const applyMonthRange = (startMonth, endMonth) => {
+    const safeStart = startMonth || graphicMonthOptions[0] || '';
+    const safeEnd = endMonth || graphicMonthOptions.at(-1) || '';
+    setDisplayWeeks(`range:${safeStart}:${safeEnd}`);
+  };
   const chartTitle = displayReportCategory === 'program'
     ? programMetrics.find(([id]) => id === displayWeeks)?.[1] || 'Program Benefits'
     : displayReportCategory === 'profile'
@@ -381,10 +409,11 @@ export function ResultsGraph({
       : ['boolean', 'pie'].includes(selectedProfileField?.[2]) ? 'Pie chart' : 'Bar chart';
 
   const isWeightLengthFocus = chartTitle === 'Weight-for-Length/Height';
+  const graphCardClass = `${displayReportCategory}-report-graph-card`;
 
   return (
     <div className="results-graph-wrap">
-      <div className={`growth-report-single-card${isWeightLengthFocus ? ' weight-length-focus-card' : ''}`}>
+      <div className={`growth-report-single-card ${graphCardClass}${isWeightLengthFocus ? ' weight-length-focus-card' : ''}`}>
         <h3>{chartTitle}</h3>
         <p>{chartSubtitle}</p>
         <div className="graph-controls">
@@ -414,16 +443,31 @@ export function ResultsGraph({
             </label>
           )}
           {displayReportCategory === 'monitor' && (
-            <label className="report-chart-select">
-              Display last
-              <select value={displayWeeks} onChange={(event) => setDisplayWeeks(event.target.value)}>
-                <option value="all">All</option>
-                <option value="1">1 month</option>
-                <option value="3">3 months</option>
-                <option value="6">6 months</option>
-                <option value="12">12 months</option>
-              </select>
-            </label>
+            displayBeneficiaryType === 'mother' ? (
+              <label className="report-chart-select">
+                Date range
+                <div className="report-chart-date-range" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <select value={displayRangeStart} onChange={(event) => applyMonthRange(event.target.value, displayRangeEnd)}>
+                    {graphicMonthOptions.map((monthKey) => <option key={monthKey} value={monthKey}>{formatMonthKey(monthKey)}</option>)}
+                  </select>
+                  <span>to</span>
+                  <select value={displayRangeEnd} onChange={(event) => applyMonthRange(displayRangeStart, event.target.value)}>
+                    {graphicMonthOptions.map((monthKey) => <option key={monthKey} value={monthKey}>{formatMonthKey(monthKey)}</option>)}
+                  </select>
+                </div>
+              </label>
+            ) : (
+              <label className="report-chart-select">
+                Display last
+                <select value={displayWeeks} onChange={(event) => setDisplayWeeks(event.target.value)}>
+                  <option value="all">All</option>
+                  <option value="1">1 month</option>
+                  <option value="3">3 months</option>
+                  <option value="6">6 months</option>
+                  <option value="12">12 months</option>
+                </select>
+              </label>
+            )
           )}
         </div>
 

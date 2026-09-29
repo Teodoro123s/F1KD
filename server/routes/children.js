@@ -72,6 +72,7 @@ function withChildAliases(child = {}) {
     ...child,
     groupId: child.group_id ?? child.mother_group_id ?? child.groupId ?? '',
     communityId: child.community_id ?? child.mother_community_id ?? child.communityId ?? '',
+    batchId: child.effective_batch_id ?? child.batch_id ?? child.batchId ?? '',
     childCode: child.child_code ?? child.childCode ?? '',
     motherId: child.mother_id ?? child.motherId ?? '',
     firstName: child.first_name ?? child.firstName ?? '',
@@ -166,7 +167,7 @@ const CHILD_ALLOWED_FIELDS = new Set([
   'father_name', 'fatherName',
   'relationship', 'address',
   'birth_document_path', 'birthDocumentPath',
-  'community_id', 'group_id', 'batch_id',
+  'community_id', 'group_id', 'batch_id', 'batchId',
   'community_name', 'community', 'group_name', 'group', 'batch_name', 'batch',
   'mother_first_name', 'motherFirstName', 'mother_last_name', 'motherLastName',
   'name', 'dob', 'age', 'programType', 'status', 'risk', 'pediatricWeek', 'zScore', 'nutritionalStatus',
@@ -175,7 +176,7 @@ const CHILD_ALLOWED_FIELDS = new Set([
 
 function sanitizeFieldSelection(fields = []) {
   const selected = Array.isArray(fields) ? fields : String(fields || '').split(',').map((value) => value.trim()).filter(Boolean);
-  const requiredFields = new Set(['id', 'child_code', 'mother_id', 'first_name', 'middle_name', 'last_name', 'suffix', 'birth_date', 'birth_document_path', 'community_id', 'group_id', 'communityId', 'groupId', 'community_name', 'group_name', 'batch_name', 'name', 'community', 'group', 'batch', 'progress', 'completedWeeks', 'nextCheckupDate', 'trimester', 'assessment', 'trend', 'risk', 'source']);
+  const requiredFields = new Set(['id', 'child_code', 'mother_id', 'first_name', 'middle_name', 'last_name', 'suffix', 'birth_date', 'birth_document_path', 'community_id', 'group_id', 'communityId', 'groupId', 'batchId', 'community_name', 'group_name', 'batch_name', 'name', 'community', 'group', 'batch', 'progress', 'completedWeeks', 'nextCheckupDate', 'trimester', 'assessment', 'trend', 'risk', 'source']);
   const allowed = [...new Set(selected.filter((field) => CHILD_ALLOWED_FIELDS.has(field)).concat([...requiredFields]))];
   return allowed;
 }
@@ -185,12 +186,13 @@ router.get('/', async (req, res) => {
   try {
     const requestedFields = sanitizeFieldSelection(req.query.fields);
     const scopeClause = req.groupId
-      ? 'WHERE c.group_id = ? OR (c.group_id IS NULL AND m.group_id = ?)'
+      ? 'WHERE c.group_id = ? OR (c.group_id IS NULL AND m.group_id = ?) OR COALESCE(c.batch_id, m.batch_id) IN (SELECT batch_id FROM group_batch WHERE group_id = ?)'
       : req.schoolId
         ? 'WHERE c.community_id = ? OR (c.community_id IS NULL AND m.community_id = ?)'
         : '';
     const [rows] = await pool.query(
-      `SELECT c.*, m.first_name AS mother_first_name, m.last_name AS mother_last_name,
+      `SELECT c.*, COALESCE(c.batch_id, m.batch_id) AS effective_batch_id,
+        m.first_name AS mother_first_name, m.last_name AS mother_last_name,
         m.mother_code, m.group_id AS mother_group_id, m.community_id AS mother_community_id,
         comm.name AS community_name, g.name AS group_name, b.name AS batch_name
        FROM children c
@@ -200,7 +202,7 @@ router.get('/', async (req, res) => {
              LEFT JOIN batches b ON b.id = COALESCE(c.batch_id, m.batch_id)
         ${scopeClause}
        ORDER BY c.created_at DESC, c.id DESC`
-          , req.groupId ? [req.groupId, req.groupId] : req.schoolId ? [req.schoolId, req.schoolId] : []
+          , req.groupId ? [req.groupId, req.groupId, req.groupId] : req.schoolId ? [req.schoolId, req.schoolId] : []
     );
 
     const children = await Promise.all(rows.map(async (row) => {

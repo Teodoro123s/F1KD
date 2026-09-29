@@ -48,24 +48,9 @@ const downloadChartImage = (svgElement, metricLabel) => {
 function MonitoringProgressFallback({ rows = [] }) {
   const uniqueRows = [...new Map(rows.map((row, index) => [String(row.childId || row.motherId || row.child || row.mother || index), row])).values()];
   const progressRows = uniqueRows.filter((row) => Number(row.totalActivities) > 0);
-  if (!progressRows.length) return <p className="growth-report-empty">No growth measurements or monitoring progress are available.</p>;
+  if (!progressRows.length) return <p className="growth-report-empty">No growth measurements are available.</p>;
 
-  const completed = progressRows.reduce((total, row) => total + Math.max(0, Number(row.activitiesCompleted) || 0), 0);
-  const total = progressRows.reduce((sum, row) => sum + Number(row.totalActivities), 0);
-  const percentage = Math.min(100, Math.round((completed / total) * 100));
-
-  return (
-    <div className="growth-report-monitoring-fallback" role="status">
-      <p>No dated weight or height measurements are available. Showing monitoring completion instead.</p>
-      <div className="growth-report-monitoring-fallback-summary">
-        <strong>Monitoring completion</strong>
-        <span>{completed}/{total} check-ups · {percentage}% · {progressRows.length} {progressRows.length === 1 ? 'child' : 'children'}</span>
-      </div>
-      <div className="growth-report-monitoring-fallback-track" role="progressbar" aria-label="Child monitoring completion" aria-valuemin="0" aria-valuemax="100" aria-valuenow={percentage}>
-        <span style={{ width: `${percentage}%` }} />
-      </div>
-    </div>
-  );
+  return null;
 }
 
 function GrowthInterpretationChart({ rows, progressRows, metric, displayWeeks = 'all', beneficiaryType = 'child' }) {
@@ -92,21 +77,29 @@ function GrowthInterpretationChart({ rows, progressRows, metric, displayWeeks = 
   const entries = rows.flatMap((row) => (row.growthSeries || []).map((point) => ({ row, point, interpretation: getPointInterpretation(point, metric), timeline: timelineKey(point) })))
     .filter((entry) => entry.interpretation && entry.timeline !== null);
   const timelines = [...new Set(entries.map((entry) => entry.timeline))].sort((left, right) => left.localeCompare(right));
+  const rangeSpec = String(displayWeeks || '').startsWith('range:') ? String(displayWeeks).slice(6).split(':') : null;
   const requestedWeeks = Number(displayWeeks);
-  const visibleTimelines = String(displayWeeks) === 'all' || !Number.isFinite(requestedWeeks) || requestedWeeks <= 0
-    ? timelines
-    : timelines.slice(-requestedWeeks);
-  const visibleSet = new Set(visibleTimelines);
+  const visibleTimelines = (() => {
+    if (rangeSpec && rangeSpec[0] && rangeSpec[1]) {
+      const [startMonth, endMonth] = rangeSpec;
+      return timelines.filter((timeline) => timeline >= startMonth && timeline <= endMonth);
+    }
+    return String(displayWeeks) === 'all' || !Number.isFinite(requestedWeeks) || requestedWeeks <= 0
+      ? timelines
+      : timelines.slice(-requestedWeeks);
+  })();
+  const fallbackTimelines = visibleTimelines.length ? visibleTimelines : ['1', '2', '3', '4', '5', '6'];
+  const displayTimelines = visibleTimelines.length ? visibleTimelines : fallbackTimelines;
+  const visibleSet = new Set(displayTimelines);
   const visibleEntries = entries.filter((entry) => visibleSet.has(entry.timeline));
-  if (!visibleEntries.length) return <MonitoringProgressFallback rows={progressRows} />;
 
   const categories = getInterpretationLevels(metric);
   const axisCategories = [...categories].reverse();
-  const width = Math.max(520, visibleTimelines.length * 150 + 120);
+  const width = Math.max(520, displayTimelines.length * 150 + 120);
   const height = 220;
   const paddingX = 175;
   const yAxisLabelX = 12;
-  const xForTimeline = (timeline) => visibleTimelines.length <= 1 ? width / 2 : paddingX + (visibleTimelines.indexOf(timeline) / (visibleTimelines.length - 1)) * (width - paddingX * 2);
+  const xForTimeline = (timeline) => displayTimelines.length <= 1 ? width / 2 : paddingX + (displayTimelines.indexOf(timeline) / (displayTimelines.length - 1)) * (width - paddingX * 2);
   const yForCategory = (category) => {
     const index = axisCategories.indexOf(category);
     if (index < 0) return height / 2;
@@ -126,11 +119,11 @@ function GrowthInterpretationChart({ rows, progressRows, metric, displayWeeks = 
     [...entriesByRow.entries()].map(([name, points]) => [name, points.at(-1)?.point])
   );
   const interpretationLines = [...entriesByRow.entries()].map(([key, points], index) => {
-    const sortedPoints = [...points].sort((left, right) => visibleTimelines.indexOf(left.timeline) - visibleTimelines.indexOf(right.timeline));
+    const sortedPoints = [...points].sort((left, right) => displayTimelines.indexOf(left.timeline) - displayTimelines.indexOf(right.timeline));
     const seriesState = hoveredSeries ? (hoveredSeries === key ? ' is-active' : ' is-muted') : '';
     return <polyline key={`interpretation-series-${key}`} className={`growth-report-series-line${seriesState}`} points={sortedPoints.map(({ interpretation, timeline }) => `${xForTimeline(timeline)},${yForCategory(interpretation)}`).join(' ')} fill="none" stroke={seriesColors[index % seriesColors.length]} strokeWidth={hoveredSeries === key ? '5' : '3'} strokeLinecap="round" strokeLinejoin="round" />;
   });
-  return <div className="growth-report-line-chart interpretation-growth-chart" style={{ overflowX: 'auto' }}><svg viewBox={`0 0 ${width} ${height}`} style={{ minWidth: `${Math.max(width, 720)}px` }} role="img" aria-label="Growth interpretation over time"><text className="growth-report-y-axis-label" x={yAxisLabelX} y={height / 2} textAnchor="middle" transform={`rotate(-90 ${yAxisLabelX} ${height / 2})`}>Interpretation</text>{axisCategories.map((category) => <line key={`category-line-${category}`} className="growth-report-gridline" x1={paddingX} x2={width - 24} y1={yForCategory(category)} y2={yForCategory(category)} />)}{visibleTimelines.map((timeline) => <line key={`interpretation-line-${timeline}`} className="growth-report-weekline" x1={xForTimeline(timeline)} x2={xForTimeline(timeline)} y1="24" y2={height - 24} />)}{axisCategories.map((category) => <text key={category} className="growth-report-y-axis-tick" x={paddingX - 18} y={yForCategory(category) + 4} textAnchor="end">{category}</text>)}{interpretationLines}{visibleEntries.map(({ row, point, interpretation, timeline }, index) => {
+  return <div className="growth-report-line-chart interpretation-growth-chart" style={{ overflowX: 'auto' }}><svg viewBox={`0 0 ${width} ${height}`} style={{ minWidth: `${Math.max(width, 720)}px` }} role="img" aria-label="Growth interpretation over time"><text className="growth-report-y-axis-label" x={yAxisLabelX} y={height / 2} textAnchor="middle" transform={`rotate(-90 ${yAxisLabelX} ${height / 2})`}>Interpretation</text>{axisCategories.map((category) => <line key={`category-line-${category}`} className="growth-report-gridline" x1={paddingX} x2={width - 24} y1={yForCategory(category)} y2={yForCategory(category)} />)}{displayTimelines.map((timeline) => <line key={`interpretation-line-${timeline}`} className="growth-report-weekline" x1={xForTimeline(timeline)} x2={xForTimeline(timeline)} y1="24" y2={height - 24} />)}{axisCategories.map((category) => <text key={category} className="growth-report-y-axis-tick" x={paddingX - 18} y={yForCategory(category) + 4} textAnchor="end">{category}</text>)}{interpretationLines}{visibleEntries.map(({ row, point, interpretation, timeline }, index) => {
     const band = mapInterpretationToBand(interpretation, metric);
     const beneficiaryName = row.child || row.mother || 'Beneficiary';
     const isLatestPoint = latestPointByBeneficiary.get(beneficiaryName) === point;
@@ -145,7 +138,7 @@ function GrowthInterpretationChart({ rows, progressRows, metric, displayWeeks = 
             const seriesState = hoveredSeries ? (hoveredSeries === beneficiaryName ? ' is-active' : ' is-muted') : '';
     const openMonitoringForm = () => { if (monitoringTarget) navigate('/monitoring', { state: monitoringTarget }); };
     return <circle key={`${beneficiaryName}-${timeline}-${index}`} className={`${monitoringTarget ? 'growth-report-data-point ' : ''}growth-report-series-point${isLatestPoint ? ' is-latest' : ''}${seriesState}`} cx={xForTimeline(timeline)} cy={yForCategory(band)} r={isLatestPoint ? '9' : '6'} fill={colors[categories.indexOf(band) % colors.length]} stroke="#fff" strokeWidth={isLatestPoint ? '3' : '2'} role={monitoringTarget ? 'link' : undefined} aria-label={monitoringTarget ? `Open ${beneficiaryName} monitoring form, ${band}, ${timelineLabel(timeline)}${isLatestPoint ? ', latest measurement' : ''}` : undefined} tabIndex={monitoringTarget ? 0 : undefined} onClick={monitoringTarget ? openMonitoringForm : undefined} onKeyDown={monitoringTarget ? (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openMonitoringForm(); } } : undefined}><title>{beneficiaryName}: {band}{modeCountText} · {timelineLabel(timeline)}{isLatestPoint ? ' · Latest measurement' : ''}{monitoringTarget ? ' · Click to open monitoring form' : ''}</title></circle>;
-  })} </svg><div className="growth-report-line-labels" style={{ position: 'relative', minHeight: '1.4rem', paddingLeft: '3.2rem', paddingRight: '1.1rem', width: `${Math.max(width, 720)}px`, minWidth: `${Math.max(width, 720)}px` }}>{visibleTimelines.map((timeline) => <span key={timeline} style={{ position: 'absolute', left: `${xForTimeline(timeline)}px`, transform: 'translateX(-50%)', whiteSpace: 'nowrap' }}>{timelineLabel(timeline)}</span>)}</div><div className="growth-report-legend growth-report-series-legend">{[...entriesByRow.keys()].map((name, index) => <span key={name} className={hoveredSeries ? (hoveredSeries === name ? 'is-active' : 'is-muted') : ''} tabIndex={0} onMouseEnter={() => setHoveredSeries(name)} onMouseLeave={() => setHoveredSeries('')} onFocus={() => setHoveredSeries(name)} onBlur={() => setHoveredSeries('')}><i style={{ '--series-color': seriesColors[index % seriesColors.length] }} />{name}</span>)}</div><div className="growth-report-legend">{categories.map((category, index) => <span key={category}><i style={{ background: colors[index % colors.length] }} />{category}</span>)}</div></div>;
+  })} </svg><div className="growth-report-line-labels" style={{ position: 'relative', minHeight: '1.4rem', paddingLeft: '3.2rem', paddingRight: '1.1rem', width: `${Math.max(width, 720)}px`, minWidth: `${Math.max(width, 720)}px` }}>{displayTimelines.map((timeline) => <span key={timeline} style={{ position: 'absolute', left: `${xForTimeline(timeline)}px`, transform: 'translateX(-50%)', whiteSpace: 'nowrap' }}>{timelineLabel(timeline)}</span>)}</div><div className="growth-report-legend growth-report-series-legend">{[...entriesByRow.keys()].map((name, index) => <span key={name} className={hoveredSeries ? (hoveredSeries === name ? 'is-active' : 'is-muted') : ''} tabIndex={0} onMouseEnter={() => setHoveredSeries(name)} onMouseLeave={() => setHoveredSeries('')} onFocus={() => setHoveredSeries(name)} onBlur={() => setHoveredSeries('')}><i style={{ '--series-color': seriesColors[index % seriesColors.length] }} />{name}</span>)}</div><div className="growth-report-legend">{categories.map((category, index) => <span key={category}><i style={{ background: colors[index % colors.length] }} />{category}</span>)}</div></div>;
 }
 
 function ProgramAverageChart({ rows, metric = 'receivedBenefitAveragePerMonth' }) {
@@ -224,7 +217,7 @@ export function GrowthChart({ rows, progressRows = [], metric, chartType, displa
   const maxValue = Math.max(...values.map(({ value }) => value), 1);
   const points = values.slice(0, 20);
 
-  if (!points.length) return <MonitoringProgressFallback rows={progressRows} />;
+  if (!points.length) return null;
 
   if (chartType === 'pie') {
     const total = points.reduce((sum, item) => sum + Math.max(0, item.value), 0) || 1;
@@ -253,7 +246,7 @@ export function GrowthChart({ rows, progressRows = [], metric, chartType, displa
         : null;
     };
     const seriesRows = rows.filter((row) => row.growthSeries?.some((point) => rawMeasurementValue(point) !== null));
-    if (!seriesRows.length) return <MonitoringProgressFallback rows={progressRows} />;
+    if (!seriesRows.length) return null;
 
     const isMother = beneficiaryType === 'mother';
     const monthKey = (dateValue) => {
@@ -281,17 +274,24 @@ export function GrowthChart({ rows, progressRows = [], metric, chartType, displa
 
     const normalizedDisplayWeeks = String(displayWeeks ?? 'all').toLowerCase();
     const requestedWeeks = Number(normalizedDisplayWeeks);
-    const visibleTimelineDates = normalizedDisplayWeeks === 'all' || !Number.isFinite(requestedWeeks) || requestedWeeks <= 0 || requestedWeeks >= allTimelineDates.length
-      ? allTimelineDates
-      : allTimelineDates.slice(-requestedWeeks);
+    const rangeSpec = normalizedDisplayWeeks.startsWith('range:') ? normalizedDisplayWeeks.slice(6).split(':') : null;
+    const visibleTimelineDates = (() => {
+      if (rangeSpec && rangeSpec[0] && rangeSpec[1]) {
+        const [startMonth, endMonth] = rangeSpec;
+        return allTimelineDates.filter((timeline) => timeline >= startMonth && timeline <= endMonth);
+      }
+      return normalizedDisplayWeeks === 'all' || !Number.isFinite(requestedWeeks) || requestedWeeks <= 0 || requestedWeeks >= allTimelineDates.length
+        ? allTimelineDates
+        : allTimelineDates.slice(-requestedWeeks);
+    })();
     const visibleTimelineSet = new Set(visibleTimelineDates);
     const visibleSeriesRows = seriesRows
       .map((row) => ({ ...row, visibleGrowthSeries: row.growthSeries.filter((point) => visibleTimelineSet.has(timelineKey(point)) && rawMeasurementValue(point) !== null) }))
       .filter((row) => row.visibleGrowthSeries.length);
 
     if (!visibleTimelineDates.length) {
-      return <MonitoringProgressFallback rows={progressRows} />;
-    };
+      return null;
+    }
 
     const chartPaddingX = 64;
     const width = Math.max(620, visibleTimelineDates.length * 74 + chartPaddingX * 2);
@@ -301,7 +301,7 @@ export function GrowthChart({ rows, progressRows = [], metric, chartType, displa
       const usableWidth = width - (chartPaddingX * 2);
       return chartPaddingX + (index / (visibleTimelineDates.length - 1)) * usableWidth;
     };
-    if (!visibleSeriesRows.length) return <MonitoringProgressFallback rows={progressRows} />;
+    if (!visibleSeriesRows.length) return null;
 
     const subjectLabel = isMother ? 'Mother' : 'Child';
     const metricOptions = isMother ? MOTHER_GROWTH_METRICS : WHO_NUMERIC_GROWTH_METRICS;

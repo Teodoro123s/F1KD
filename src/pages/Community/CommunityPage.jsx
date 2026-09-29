@@ -254,9 +254,10 @@ export default function CommunityPage() {
         const matchesBatch = !selectedBatch
           || selectedBatchKeys.includes(String(child.batchId ?? ''))
           || child.batch === selectedBatch.name;
+        const selectedBatchBelongsToGroup = Boolean(selectedGroup && selectedBatch && selectedGroupBatches.some((batch) => String(batch.id) === String(selectedBatch.id)));
         const matchesGroup = !selectedGroup
           || child.group === selectedGroup.name
-          || (matchesBatch && !child.group);
+          || (matchesBatch && selectedBatchBelongsToGroup);
         const matchesSchool = !selectedSchool || child.community === selectedSchool.name;
 
         if (!matchesBatch || !matchesGroup || !matchesSchool) return false;

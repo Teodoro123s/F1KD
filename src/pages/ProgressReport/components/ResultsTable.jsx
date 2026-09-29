@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { getBmiInterpretation } from '../progressReportConfig';
 
 const historyFieldIds = new Set(['measurementDate', 'weightForAge', 'heightForAge', 'bmiForAge', 'weightForLengthZScore', 'weightForLengthInterpretation', 'weightForAgeZScore', 'weightForAgeInterpretation', 'lengthForAgeZScore', 'lengthForAgeInterpretation', 'bmiInterpretation']);
 
@@ -132,17 +133,67 @@ function StandardResultsTable({ resultsRows, fields, formatCellValue, emptyMessa
   );
 }
 
-function LatestResultsTable({ resultsRows, reportFields, displayVisibleFields, formatCellValue, beneficiaryType }) {
-  const identityFields = beneficiaryType === 'mother' ? ['mother'] : ['child', 'mother'];
-  const selectedFields = reportFields.filter(([id]) => displayVisibleFields.includes(id));
-  const selectedFieldMap = new Map(selectedFields.map((field) => [field[0], field]));
-  const latestFields = [
-    ['measurementDate', 'Report Date'],
-    ...identityFields.map((id) => selectedFieldMap.get(id)).filter(Boolean),
-    ...selectedFields.filter(([id]) => id !== 'measurementDate' && !identityFields.includes(id)),
-  ];
+function LatestResultsTable({ resultsRows, formatCellValue, beneficiaryType, resultPeriod }) {
+  const beneficiaryField = beneficiaryType === 'mother' ? 'mother' : 'child';
+  const beneficiaryLabel = beneficiaryType === 'mother' ? 'Mother Name' : 'Child Name';
+  const rowsWithBmi = resultsRows.map((row) => {
+    const visitDate = String(row.measurementDate || '').slice(0, 10);
+    const visit = row.growthSeries?.find((point) => String(point.date || point.measurementDate || '').slice(0, 10) === visitDate);
+    const rawBmi = visit ? visit.bmi : row.bmiForAge;
+    const hasBmi = rawBmi !== null && rawBmi !== undefined && rawBmi !== '' && Number.isFinite(Number(rawBmi));
+    const bmi = hasBmi ? Number(rawBmi) : '';
+    return {
+      ...row,
+      bmiForAge: bmi,
+      bmiInterpretation: hasBmi ? getBmiInterpretation(bmi) : '',
+    };
+  });
 
-  return <StandardResultsTable resultsRows={resultsRows} fields={latestFields} formatCellValue={formatCellValue} emptyMessage="No results found for this period." />;
+  if (resultPeriod === 'latest') {
+    const latestFields = [
+      [beneficiaryField, beneficiaryLabel],
+      ['measurementDate', 'Latest Report Date'],
+      ['bmiForAge', 'BMI'],
+      ['bmiInterpretation', 'BMI Interpretation'],
+    ];
+    return <StandardResultsTable resultsRows={rowsWithBmi} fields={latestFields} formatCellValue={formatCellValue} emptyMessage="No results found for this period." />;
+  }
+
+  const monthColumns = [...new Set(rowsWithBmi
+    .map((row) => String(row.measurementDate || '').slice(0, 7))
+    .filter(Boolean))].sort((left, right) => right.localeCompare(left));
+  const fields = [
+    ['beneficiaryName', beneficiaryLabel],
+    ...monthColumns.map((month) => [month, new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric' }).format(new Date(`${month}-01T00:00:00`))]),
+  ];
+  const rowsByBeneficiary = new Map();
+  rowsWithBmi.forEach((row) => {
+    const visitDate = String(row.measurementDate || '').slice(0, 10);
+    const beneficiaryKey = String(row.childId || row.motherId || row[beneficiaryField] || row.beneficiaryName || '');
+    const beneficiaryRow = rowsByBeneficiary.get(beneficiaryKey) || {
+      beneficiaryName: row[beneficiaryField] || 'Unnamed beneficiary',
+      historyRowKey: beneficiaryKey,
+    };
+    const visitMonth = visitDate.slice(0, 7);
+    if (visitMonth && row.bmiForAge !== '') {
+      const currentMonthBmi = beneficiaryRow[visitMonth];
+      if (!currentMonthBmi || visitDate > currentMonthBmi.date) {
+        beneficiaryRow[visitMonth] = { date: visitDate, bmi: row.bmiForAge };
+      }
+    }
+    rowsByBeneficiary.set(beneficiaryKey, beneficiaryRow);
+  });
+  const matrixRows = [...rowsByBeneficiary.values()].map((row) => ({
+    ...row,
+    ...Object.fromEntries(monthColumns.map((month) => [month, row[month]?.bmi ?? ''])),
+  }));
+
+  return (
+    <>
+      <StandardResultsTable resultsRows={matrixRows} fields={fields} formatCellValue={formatCellValue} emptyMessage="No results found for this period." />
+      {monthColumns.length === 0 && rowsByBeneficiary.size > 0 && <p className="growth-report-empty" role="status">No dated BMI readings are available for the selected period.</p>}
+    </>
+  );
 }
 
 export function ResultsTable({
@@ -178,53 +229,29 @@ export function ResultsTable({
     return hasColumnValues(id);
   });
   const customizedFields = sectionFields.filter(([id]) => !hiddenFields.has(id));
-  const showCustomize = !showMonitoringFilter || tableDisplayMode === 'general';
-  const [resultPeriod, setResultPeriod] = useState('latest');
+  const showCustomize = !showMonitoringFilter;
+  const showResultPeriod = showMonitoringFilter && tableDisplayMode === 'general';
+  const [resultPeriod, setResultPeriod] = useState('all');
   const today = new Date();
-  const currentMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
   const validMonitoringRows = (monitoringRows || []).filter((row) => {
     const date = new Date(row.measurementDate);
-    return row.measurementDate && !Number.isNaN(date.getTime()) && date <= today;
+    return row.measurementDate && !Number.isNaN(date.getTime());
   });
-  const monitorDates = [...new Set(validMonitoringRows.map((row) => String(row.measurementDate || '').slice(0, 10)).filter(Boolean))].sort().reverse();
-  const earliestMonth = monitorDates.at(-1)?.slice(0, 7) || currentMonth;
-  const monthRange = [];
-  const [startYear, startMonth] = earliestMonth.split('-').map(Number);
-  const [endYear, endMonth] = currentMonth.split('-').map(Number);
-  for (let year = startYear, month = startMonth; year < endYear || (year === endYear && month <= endMonth); month += 1) {
-    monthRange.push(`${year}-${String(month).padStart(2, '0')}`);
-    if (month === 12) { year += 1; month = 0; }
-  }
-  const monitorMonths = monthRange.reverse();
   const resultPeriodOptions = [
-    { value: 'latest', label: `Latest (${monitorDates[0] ? formatCellValue('measurementDate', monitorDates[0]) : 'No date'})` },
-    ...(monitorDates[1] ? [{ value: 'second-latest', label: `2nd latest (${formatCellValue('measurementDate', monitorDates[1])})` }] : []),
-    ...monitorMonths.map((month) => ({ value: `month:${month}`, label: new Date(`${month}-01T00:00:00`).toLocaleDateString(undefined, { month: 'long', year: 'numeric' }) })),
+    { value: 'all', label: 'All' },
+    { value: 'latest', label: 'Latest' },
   ];
   const getBeneficiaryKey = (row) => String(row.childId || row.motherId || row.child || row.mother);
   const rowsByBeneficiary = (rows) => [...new Map([...rows]
     .sort((left, right) => String(right.measurementDate).localeCompare(String(left.measurementDate)))
     .map((row) => [getBeneficiaryKey(row), row])).values()];
-  const monitoringRowsByBeneficiary = validMonitoringRows
-    .sort((left, right) => String(right.measurementDate).localeCompare(String(left.measurementDate)))
-    .reduce((groups, row) => {
-      const key = String(row.childId || row.motherId || row.child || row.mother);
-      const entries = groups.get(key) || [];
-      if (entries.length < 2) entries.push(row);
-      groups.set(key, entries);
-      return groups;
-    }, new Map());
-  const selectedDateIndex = resultPeriod === 'second-latest' ? 1 : 0;
-  const latestDatedRows = [...monitoringRowsByBeneficiary.values()].map((rows) => rows[0]).filter(Boolean);
-  const latestDatedBeneficiaries = new Set(latestDatedRows.map(getBeneficiaryKey));
-  const beneficiariesWithoutDatedMeasurements = resultPeriod === 'latest'
-    ? rowsByBeneficiary(resultsRows).filter((row) => !latestDatedBeneficiaries.has(getBeneficiaryKey(row)))
-    : [];
-  const periodRows = resultPeriod.startsWith('month:')
-    ? rowsByBeneficiary(validMonitoringRows.filter((row) => String(row.measurementDate || '').startsWith(resultPeriod.slice(6))))
-    : resultPeriod === 'latest'
-      ? [...latestDatedRows, ...beneficiariesWithoutDatedMeasurements]
-      : [...monitoringRowsByBeneficiary.values()].map((rows) => rows[selectedDateIndex]).filter(Boolean);
+  const datedBeneficiaries = new Set(validMonitoringRows.map(getBeneficiaryKey));
+  const beneficiariesWithoutDatedMeasurements = rowsByBeneficiary(resultsRows)
+    .filter((row) => !datedBeneficiaries.has(getBeneficiaryKey(row)));
+  const latestDatedRows = rowsByBeneficiary(validMonitoringRows);
+  const periodRows = resultPeriod === 'latest'
+    ? [...latestDatedRows, ...beneficiariesWithoutDatedMeasurements]
+    : [...validMonitoringRows, ...beneficiariesWithoutDatedMeasurements];
   return (
     <div className="results-table-wrap">
       {showMonitoringFilter && (
@@ -236,28 +263,30 @@ export function ResultsTable({
           </select>
         </div>
       )}
-      {showCustomize && (
+      {(showCustomize || showResultPeriod || showProfileFilter) && (
         <div className="results-table-tools">
-          <details className="results-table-customizer">
-            <summary>Customize table</summary>
-            <div className="results-table-customizer-menu">
-              <div className="results-table-customizer-heading">
-                <strong>Visible columns</strong>
-                <button type="button" onClick={() => setHiddenFields(new Set())}>Reset</button>
+          {showCustomize && (
+            <details className="results-table-customizer">
+              <summary>Customize table</summary>
+              <div className="results-table-customizer-menu">
+                <div className="results-table-customizer-heading">
+                  <strong>Visible columns</strong>
+                  <button type="button" onClick={() => setHiddenFields(new Set())}>Reset</button>
+                </div>
+                {sectionFields.map(([id, label]) => (
+                  <label key={id}>
+                    <input type="checkbox" checked={!hiddenFields.has(id)} onChange={() => setHiddenFields((current) => {
+                      const next = new Set(current);
+                      if (next.has(id)) next.delete(id); else next.add(id);
+                      return next;
+                    })} />
+                    {label}
+                  </label>
+                ))}
               </div>
-              {sectionFields.map(([id, label]) => (
-                <label key={id}>
-                  <input type="checkbox" checked={!hiddenFields.has(id)} onChange={() => setHiddenFields((current) => {
-                    const next = new Set(current);
-                    if (next.has(id)) next.delete(id); else next.add(id);
-                    return next;
-                  })} />
-                  {label}
-                </label>
-              ))}
-            </div>
-          </details>
-          {showMonitoringFilter && tableDisplayMode === 'general' && (
+            </details>
+          )}
+          {showResultPeriod && (
             <label className="results-table-period-filter">Result period
               <select value={resultPeriod} onChange={(event) => setResultPeriod(event.target.value)}>
                 {resultPeriodOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
@@ -276,7 +305,7 @@ export function ResultsTable({
       {showMonitoringFilter && tableDisplayMode === 'monitoring-dates' ? (
         <MonitoringHistoryTable resultsRows={resultsRows} reportFields={reportFields} displayVisibleFields={displayVisibleFields} formatCellValue={formatCellValue} communitySelection={communitySelection} />
       ) : showMonitoringFilter && tableDisplayMode === 'general' ? (
-        <LatestResultsTable resultsRows={periodRows} reportFields={reportFields} displayVisibleFields={customizedFields.map(([id]) => id)} formatCellValue={formatCellValue} beneficiaryType={beneficiaryType} />
+        <LatestResultsTable resultsRows={periodRows} formatCellValue={formatCellValue} beneficiaryType={beneficiaryType} resultPeriod={resultPeriod} />
       ) : (
       <StandardResultsTable resultsRows={resultsRows} fields={customizedFields} formatCellValue={formatCellValue} />
       )}

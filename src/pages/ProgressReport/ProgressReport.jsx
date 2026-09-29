@@ -281,8 +281,26 @@ export default function ProgressReport() {
     }
   };
 
+  const activeRange = String(displayWeeks || '').startsWith('range:') ? String(displayWeeks).slice(6).split(':') : null;
+
+  const filterRowsBySelectedRange = (rows) => {
+    if (!activeRange || !activeRange[0] || !activeRange[1]) return rows;
+    return rows.filter((row) => {
+      const growthSeries = Array.isArray(row.growthSeries) ? row.growthSeries : [];
+      if (!growthSeries.length) return true;
+      return growthSeries.some((point) => {
+        const dateValue = point?.date || point?.measurementDate;
+        if (!dateValue) return false;
+        const date = new Date(dateValue);
+        if (Number.isNaN(date.getTime())) return false;
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        return monthKey >= activeRange[0] && monthKey <= activeRange[1];
+      });
+    });
+  };
+
   const sortedRows = useMemo(() => {
-    const sourceRows = activeReport?.rows || [];
+    const sourceRows = filterRowsBySelectedRange(activeReport?.rows || []);
     const aggregatedRows = aggregateReportRows(sourceRows, displayReportFocus);
     const rows = aggregatedRows.length ? aggregatedRows : sourceRows;
     return rows.sort((left, right) => {
@@ -336,7 +354,7 @@ export default function ProgressReport() {
   const resultsRows = sortedRows;
   const monitoringTableRows = useMemo(() => {
     if (displayReportCategory !== 'monitor') return resultsRows;
-    return (activeReport?.rows || []).flatMap((row) => (row.growthSeries || []).map((point, index) => ({
+    return filterRowsBySelectedRange(activeReport?.rows || []).flatMap((row) => (row.growthSeries || []).map((point, index) => ({
       ...row,
       measurementDate: point.date || point.measurementDate || '',
       ...Object.fromEntries(selectedTableGrowthFields.map((field) => [field, pointValueForTableField(point, field)])),
@@ -352,7 +370,7 @@ export default function ProgressReport() {
   const graphSourceRows = displayReportCategory === 'program'
     ? aggregateReportRows(resultsRows, 'group-school')
     : displayReportCategory === 'monitor'
-      ? (activeReport?.rows || [])
+      ? filterRowsBySelectedRange(activeReport?.rows || [])
       : resultsRows;
   const graphAggregationFocus = displayReportCategory === 'monitor' && !INTERPRETATION_METRICS.has(growthMetrics[0])
     ? null
@@ -361,13 +379,32 @@ export default function ProgressReport() {
       : displaySelection.schoolId
         ? 'group-school'
         : displayReportFocus;
+  const filterGraphRowsByRange = (rows) => {
+    if (!activeRange || !activeRange[0] || !activeRange[1]) return rows;
+    const [startMonth, endMonth] = activeRange;
+    return rows
+      .map((row) => ({
+        ...row,
+        growthSeries: (row.growthSeries || []).filter((point) => {
+          const dateValue = point?.date || point?.measurementDate;
+          if (!dateValue) return false;
+          const date = new Date(dateValue);
+          if (Number.isNaN(date.getTime())) return false;
+          const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+          return monthKey >= startMonth && monthKey <= endMonth;
+        }),
+      }))
+      .filter((row) => row.growthSeries?.length || (row[displayBeneficiaryType === 'mother' ? 'bmiForAge' : 'weightForAge'] !== undefined && row[displayBeneficiaryType === 'mother' ? 'bmiForAge' : 'weightForAge'] !== null));
+  };
   const graphRows = aggregateGrowthRows(
-    graphSourceRows.filter((row) => growthMetrics.some((metric) => {
-      if (INTERPRETATION_METRICS.has(metric)) {
-        return row.growthSeries?.some((point) => getPointInterpretation(point, metric));
-      }
-      return row.growthSeries?.some((point) => Number.isFinite(getPointValue(point, metric))) || Number.isFinite(Number(row[metric]));
-    })),
+    filterGraphRowsByRange(
+      graphSourceRows.filter((row) => growthMetrics.some((metric) => {
+        if (INTERPRETATION_METRICS.has(metric)) {
+          return row.growthSeries?.some((point) => getPointInterpretation(point, metric));
+        }
+        return row.growthSeries?.some((point) => Number.isFinite(getPointValue(point, metric))) || Number.isFinite(Number(row[metric]));
+      }))
+    ),
     graphAggregationFocus,
     displayBeneficiaryType,
   );

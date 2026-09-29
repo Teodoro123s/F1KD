@@ -193,15 +193,19 @@ export default function ProgramPage() {
         const summary = summaryResult.status === 'fulfilled' ? summaryResult.value || {} : {};
         const childrenResponse = childrenResult.status === 'fulfilled' ? childrenResult.value || {} : {};
         const savedPrograms = (programResponse.programs || []).map(mapApiProgram);
-        setHierarchy({ schools: summary.communities || [], groups: summary.groups || [], batches: summary.batches || [] });
+        const schools = summary.communities || [];
+        const groups = summary.groups || [];
+        const batches = summary.batches || [];
+        const batchesById = new Map(batches.map((batch) => [String(batch.id), batch]));
+        setHierarchy({ schools, groups, batches });
         const mothers = (summary.mothers || []).map((mother) => ({
           id: `mother-${mother.id}`,
           sourceId: mother.id,
           sourceType: 'mother',
           monitorKey: `mother:${mother.id}`,
           school: mother.community || '',
-          group: mother.group || '',
-          batch: mother.batchId || '',
+          group: mother.groupName || mother.group || '',
+          batch: batchesById.get(String(mother.batchId))?.name || mother.batch || '',
           name: mother.name,
           type: 'Mother',
           isMonitored: Boolean(mother.isMonitored ?? mother.is_monitored),

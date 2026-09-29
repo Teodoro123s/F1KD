@@ -49,6 +49,7 @@ export const REPORT_FIELDS = [
   ['abortion', 'Abortion', 'Profile'],
   ['stillbirth', 'Stillbirth', 'Profile'],
   ['philhealthNumber', 'PhilHealth Number', 'Profile'],
+  ['philhealthMember', 'PhilHealth Member', 'Whether the beneficiary profile is registered as a PhilHealth member.'],
   ['spouseName', 'Spouse Name', 'Profile'],
   ['emergencyName', 'Emergency Contact Name', 'Profile'],
   ['emergencyContact', 'Emergency Contact Number', 'Profile'],
@@ -95,7 +96,6 @@ export const REPORT_FIELDS = [
   ['initialWeight', 'Initial Weight (kg)', 'Profile'],
   ['initialHeight', 'Initial Height (cm)', 'Profile'],
   ['initialBmi', 'Initial BMI', 'Profile'],
-  ['philhealthMember', 'PhilHealth Member', 'Whether the beneficiary profile is registered as a PhilHealth member.'],
   ['activitiesCompleted', 'Activities Completed', 'Monitoring'],
   ['totalActivities', 'Total Activities', 'Monitoring'],
   ['progress', 'Progress %', 'Monitoring'],
@@ -353,6 +353,7 @@ export const mapInterpretationToBand = (value, metric) => {
 };
 
 export const getBmiInterpretation = (value) => {
+  if (value === undefined || value === null || value === '') return '';
   const bmi = Number(value);
   if (!Number.isFinite(bmi)) return '';
   if (bmi < 18.5) return 'Underweight screening range';
@@ -375,7 +376,10 @@ export const formatCellValue = (field, value) => {
     }
   }
   if (field && /Interpretation$/i.test(field)) return normalizeNutritionLabel(value);
-  if (field && /ZScore$/i.test(field)) return Number(value).toFixed(2);
+  if (field && /ZScore$/i.test(field)) {
+    const score = Number(value);
+    return value !== null && value !== undefined && value !== '' && Number.isFinite(score) ? score.toFixed(2) : '—';
+  }
   if (['dateOfBirth', 'lastActivityDate', 'nextCheckupDate', 'measurementDate', 'bcgDate', 'hepbDate', 'opvDate', 'dptDate', 'mmrDate', 'lmpDate', 'eddDate', 'prenatalRegDate', 'dentalCheckupDate', 'tt1Date', 'tt2Date', 'tt3Date', 'tt4Date', 'tt5Date'].includes(field)) {
     return formatDateForDisplay(value);
   }
@@ -388,14 +392,14 @@ export const chartDate = (value) => {
 
 export const getPointValue = (point, metric) => {
   const direct = point?.[metric];
-  if (Number.isFinite(Number(direct))) return Number(direct);
+  if (direct !== null && direct !== undefined && direct !== '' && Number.isFinite(Number(direct))) return Number(direct);
   const aliases = {
     weightForAge: point?.weight,
     heightForAge: point?.height,
     bmiForAge: point?.bmi,
   };
   const aliasValue = aliases[metric];
-  return Number.isFinite(Number(aliasValue)) ? Number(aliasValue) : null;
+  return aliasValue !== null && aliasValue !== undefined && aliasValue !== '' && Number.isFinite(Number(aliasValue)) ? Number(aliasValue) : null;
 };
 
 export const getPointInterpretation = (point, metric) => normalizeNutritionLabel(String(point?.[metric] || '').trim());

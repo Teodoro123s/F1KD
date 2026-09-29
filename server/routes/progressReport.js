@@ -17,6 +17,7 @@ const numberOrNull = (value) => {
 };
 
 const getBmiInterpretation = (value) => {
+  if (value === undefined || value === null || value === '') return '';
   const bmi = Number(value);
   if (!Number.isFinite(bmi)) return '';
   if (bmi < 18.5) return 'Underweight screening range';
@@ -63,7 +64,17 @@ const hierarchyWhere = (params, aliases = { mother: 'm', child: 'c' }) => {
   const owner = aliases.child || aliases.mother;
   const mother = aliases.mother || 'm';
   if (params.schoolId) { conditions.push(`COALESCE(${owner}.community_id, ${mother}.community_id) = ?`); values.push(params.schoolId); }
-  if (params.groupId) { conditions.push(`COALESCE(${owner}.group_id, ${mother}.group_id) = ?`); values.push(params.groupId); }
+  if (params.groupId) {
+    conditions.push(`(
+      COALESCE(${owner}.group_id, ${mother}.group_id) = ?
+      OR COALESCE(${owner}.batch_id, ${mother}.batch_id) IN (
+        SELECT scoped_group_batch.batch_id
+        FROM group_batch scoped_group_batch
+        WHERE scoped_group_batch.group_id = ?
+      )
+    )`);
+    values.push(params.groupId, params.groupId);
+  }
   if (params.batchId) { conditions.push(`COALESCE(${owner}.batch_id, ${mother}.batch_id) = ?`); values.push(params.batchId); }
   if (params.motherId) { conditions.push(`${aliases.mother}.id = ?`); values.push(params.motherId); }
   if (params.search) {
@@ -103,6 +114,8 @@ router.get('/', async (req, res) => {
     const params = parseParams(req.query, req);
     const isMotherReport = params.granularity === 'mother';
     const filters = hierarchyWhere(params, isMotherReport ? { mother: 'm' } : undefined);
+    const childCheckupDateFilter = (alias) => `${alias}.visit_date <= CURDATE() AND (c.birth_date IS NULL OR c.birth_date < '1900-01-01' OR ${alias}.visit_date >= c.birth_date)`;
+    const motherCheckupDateFilter = (alias) => `${alias}.checkup_date IS NOT NULL`;
     const childActivitiesExpression = `(SELECT COUNT(*) FROM child_checkups completed_cc WHERE completed_cc.child_id = c.id AND completed_cc.week_number IS NOT NULL)`;
     const progressExpression = `ROUND(${childActivitiesExpression} * 100 / 24, 0)`;
     const motherProgressExpression = `ROUND(COUNT(DISTINCT mc.id) * 100 / 9, 0)`;
@@ -111,14 +124,14 @@ router.get('/', async (req, res) => {
       LEFT JOIN communities school ON school.id = m.community_id
       LEFT JOIN groups g ON g.id = m.group_id
       LEFT JOIN batches b ON b.id = m.batch_id
-      LEFT JOIN mother_checkups mc ON mc.mother_id = m.id
+      LEFT JOIN mother_checkups mc ON mc.mother_id = m.id AND ${motherCheckupDateFilter('mc')}
       ${filters.sql}` : `
       FROM children c
       INNER JOIN mothers m ON m.id = c.mother_id
       LEFT JOIN communities school ON school.id = COALESCE(c.community_id, m.community_id)
       LEFT JOIN groups g ON g.id = COALESCE(c.group_id, m.group_id)
       LEFT JOIN batches b ON b.id = COALESCE(c.batch_id, m.batch_id)
-      LEFT JOIN child_checkups cc ON cc.child_id = c.id
+      LEFT JOIN child_checkups cc ON cc.child_id = c.id AND ${childCheckupDateFilter('cc')}
       LEFT JOIN mother_checkups mc ON mc.mother_id = m.id
       ${filters.sql}`;
 
@@ -137,7 +150,7 @@ router.get('/', async (req, res) => {
       : monthAgeExpression;
     const pediatricAgeWeeksExpression = params.granularity === 'mother'
       ? 'NULL'
-      : `CASE WHEN c.birth_date IS NULL OR c.birth_date < '1900-01-01' OR c.birth_date > CURDATE() THEN NULL ELSE TIMESTAMPDIFF(WEEK, c.birth_date, COALESCE((SELECT latest_cc.visit_date FROM child_checkups latest_cc WHERE latest_cc.child_id = c.id ORDER BY latest_cc.visit_date DESC, latest_cc.id DESC LIMIT 1), CURDATE())) END`;
+      : `CASE WHEN c.birth_date IS NULL OR c.birth_date < '1900-01-01' OR c.birth_date > CURDATE() THEN NULL ELSE TIMESTAMPDIFF(WEEK, c.birth_date, COALESCE((SELECT latest_cc.visit_date FROM child_checkups latest_cc WHERE latest_cc.child_id = c.id AND ${childCheckupDateFilter('latest_cc')} ORDER BY latest_cc.visit_date DESC, latest_cc.id DESC LIMIT 1), CURDATE())) END`;
     const genderExpression = params.granularity === 'mother' ? 'NULL' : 'c.gender';
     const statusExpression = params.granularity === 'mother' ? 'm.status' : 'c.health_status';
     const dobExpression = params.granularity === 'mother' ? 'm.dob' : 'c.birth_date';
@@ -248,10 +261,10 @@ router.get('/', async (req, res) => {
         ${params.granularity === 'mother' ? 'm.gravida' : 'NULL'} AS gravida,
         ${params.granularity === 'mother' ? 'm.abortion' : 'NULL'} AS abortion,
         ${params.granularity === 'mother' ? 'm.stillbirth' : 'NULL'} AS stillbirth,
-        ${params.granularity === 'mother' ? 'NULL' : '(SELECT latest_cc.weight FROM child_checkups latest_cc WHERE latest_cc.child_id = c.id ORDER BY latest_cc.visit_date DESC, latest_cc.id DESC LIMIT 1)'} AS weight_for_age,
-        ${params.granularity === 'mother' ? 'NULL' : '(SELECT latest_cc.height FROM child_checkups latest_cc WHERE latest_cc.child_id = c.id ORDER BY latest_cc.visit_date DESC, latest_cc.id DESC LIMIT 1)'} AS height_for_age,
-        ${params.granularity === 'mother' ? '(SELECT latest_mc.bmi FROM mother_checkups latest_mc WHERE latest_mc.mother_id = m.id ORDER BY latest_mc.checkup_date DESC, latest_mc.id DESC LIMIT 1)' : '(SELECT ROUND(latest_cc.weight / POW(NULLIF(latest_cc.height, 0) / 100, 2), 1) FROM child_checkups latest_cc WHERE latest_cc.child_id = c.id ORDER BY latest_cc.visit_date DESC, latest_cc.id DESC LIMIT 1)'} AS bmi_for_age,
-        ${params.granularity === 'mother' ? '(SELECT latest_mc.checkup_date FROM mother_checkups latest_mc WHERE latest_mc.mother_id = m.id ORDER BY latest_mc.checkup_date DESC, latest_mc.id DESC LIMIT 1)' : '(SELECT latest_cc.visit_date FROM child_checkups latest_cc WHERE latest_cc.child_id = c.id ORDER BY latest_cc.visit_date DESC, latest_cc.id DESC LIMIT 1)'} AS measurement_date,
+        ${params.granularity === 'mother' ? 'NULL' : `(SELECT latest_cc.weight FROM child_checkups latest_cc WHERE latest_cc.child_id = c.id AND ${childCheckupDateFilter('latest_cc')} ORDER BY latest_cc.visit_date DESC, latest_cc.id DESC LIMIT 1)`} AS weight_for_age,
+        ${params.granularity === 'mother' ? 'NULL' : `(SELECT latest_cc.height FROM child_checkups latest_cc WHERE latest_cc.child_id = c.id AND ${childCheckupDateFilter('latest_cc')} ORDER BY latest_cc.visit_date DESC, latest_cc.id DESC LIMIT 1)`} AS height_for_age,
+        ${params.granularity === 'mother' ? `(SELECT latest_mc.bmi FROM mother_checkups latest_mc WHERE latest_mc.mother_id = m.id AND ${motherCheckupDateFilter('latest_mc')} ORDER BY latest_mc.checkup_date DESC, latest_mc.id DESC LIMIT 1)` : `(SELECT ROUND(latest_cc.weight / POW(NULLIF(latest_cc.height, 0) / 100, 2), 1) FROM child_checkups latest_cc WHERE latest_cc.child_id = c.id AND ${childCheckupDateFilter('latest_cc')} ORDER BY latest_cc.visit_date DESC, latest_cc.id DESC LIMIT 1)`} AS bmi_for_age,
+        ${params.granularity === 'mother' ? `(SELECT latest_mc.checkup_date FROM mother_checkups latest_mc WHERE latest_mc.mother_id = m.id AND ${motherCheckupDateFilter('latest_mc')} ORDER BY latest_mc.checkup_date DESC, latest_mc.id DESC LIMIT 1)` : `(SELECT latest_cc.visit_date FROM child_checkups latest_cc WHERE latest_cc.child_id = c.id AND ${childCheckupDateFilter('latest_cc')} ORDER BY latest_cc.visit_date DESC, latest_cc.id DESC LIMIT 1)`} AS measurement_date,
         ${isMotherReport ? 'COUNT(DISTINCT mc.id)' : childActivitiesExpression} AS activities_completed,
         ${totalExpression} AS total_activities,
         ${params.granularity === 'mother' ? motherProgressExpression : progressExpression} AS progress
@@ -427,6 +440,7 @@ router.get('/', async (req, res) => {
          INNER JOIN children c ON c.id = cc.child_id
          WHERE cc.child_id IN (${childIds.map(() => '?').join(',')})
            AND cc.visit_date IS NOT NULL
+           AND ${childCheckupDateFilter('cc')}
          ORDER BY cc.visit_date, cc.id`,
         childIds,
       );
@@ -472,6 +486,7 @@ router.get('/', async (req, res) => {
          FROM mother_checkups
          WHERE mother_id IN (${motherIds.map(() => '?').join(',')})
            AND checkup_date IS NOT NULL
+           AND ${motherCheckupDateFilter('mother_checkups')}
          ORDER BY checkup_date, id`,
         motherIds,
       );
