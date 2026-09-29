@@ -23,7 +23,7 @@ export function getMotherDocumentProgress(mother = {}) {
   };
 }
 
-export function getMotherMonitoringProgress(mother = {}) {
+export function getMotherMonitoringStartIndex(mother = {}) {
   const registeredTrimester = String(mother.trimester || mother.trimester_at_registration || '').toLowerCase();
   let startIndex = 0;
   if (registeredTrimester.includes('3rd') || registeredTrimester.includes('third')) startIndex = 6;
@@ -36,6 +36,12 @@ export function getMotherMonitoringProgress(mother = {}) {
       else if (gestationalAge > 4) startIndex = 1;
     }
   }
+
+  return startIndex;
+}
+
+export function getMotherMonitoringProgress(mother = {}) {
+  const startIndex = getMotherMonitoringStartIndex(mother);
 
   const checkups = Array.isArray(mother.checkups) ? mother.checkups.flat() : [];
   const remainingCheckups = checkups.slice(startIndex);

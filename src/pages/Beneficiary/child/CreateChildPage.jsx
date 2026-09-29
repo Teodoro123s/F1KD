@@ -85,6 +85,7 @@ export default function CreateChildPage({
   const [birthDocumentFile, setBirthDocumentFile] = useState(null);
   const [pendingChild, setPendingChild] = useState(null);
   const [creating, setCreating] = useState(false);
+  const [showRequiredValidation, setShowRequiredValidation] = useState(false);
   const [selectedMotherId, setSelectedMotherId] = useState(() => {
     try { return motherFromState?.id || motherFromState?.motherId || JSON.parse(localStorage.getItem(CHILD_DRAFT_KEY) || 'null')?.selectedMotherId || ''; } catch (error) { return motherFromState?.id || motherFromState?.motherId || ''; }
   });
@@ -117,6 +118,14 @@ export default function CreateChildPage({
     }
   }, [groupForm, selectedMotherId, createActiveTab]);
 
+  useEffect(() => {
+    if (!showRequiredValidation || createActiveTab !== 'general') return;
+    const invalidField = document.querySelector('[aria-invalid="true"]');
+    if (!invalidField) return;
+    invalidField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    invalidField.focus({ preventScroll: true });
+  }, [createActiveTab, selectedMotherId, showRequiredValidation, groupForm.firstName, groupForm.lastName]);
+
   // If navigated from a mother, prefill mother-related fields and show mother info
   useEffect(() => {
     if (motherFromState) {
@@ -138,10 +147,13 @@ export default function CreateChildPage({
       return;
     }
     if (!motherFromState && !selectedMotherId) {
+      setShowRequiredValidation(true);
+      setCreateActiveTab('general');
       notifyAction('Please select a mother before creating the child.', 'error');
       return;
     }
     if (!groupForm.firstName.trim() || !groupForm.lastName.trim()) {
+      setShowRequiredValidation(true);
       notifyAction('Please complete the required child details before saving.', 'error');
       setCreateActiveTab('general');
       return;
@@ -351,10 +363,12 @@ export default function CreateChildPage({
           <label className="form-label" htmlFor="child-mother-select">Mother</label>
           <select
             id="child-mother-select"
-            className="form-select"
+            className={`form-select${showRequiredValidation && !selectedMotherId ? ' invalid' : ''}`}
             value={selectedMotherId}
             onChange={(event) => setSelectedMotherId(event.target.value)}
             required
+            aria-invalid={showRequiredValidation && !selectedMotherId}
+            aria-describedby={showRequiredValidation && !selectedMotherId ? 'child-mother-error' : undefined}
           >
             <option value="">Select mother</option>
             {availableMothers.map((mother) => (
@@ -363,6 +377,7 @@ export default function CreateChildPage({
               </option>
             ))}
           </select>
+          {showRequiredValidation && !selectedMotherId && <p id="child-mother-error" className="form-error" role="alert">Select a mother before creating the child.</p>}
         </div>
       )}
 
@@ -408,6 +423,7 @@ export default function CreateChildPage({
               batches={batches}
               birthDocumentFile={birthDocumentFile}
               setBirthDocumentFile={setBirthDocumentFile}
+              showRequiredValidation={showRequiredValidation}
             />
           </div>
           <div className="modal-footer">

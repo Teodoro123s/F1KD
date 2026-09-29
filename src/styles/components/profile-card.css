@@ -683,6 +683,7 @@
   min-width: 190px;
   background: #f8fafc;
 }
+.standard-results-table thead th:first-child { position: static; left: auto; z-index: auto; }
 .latest-results-table tbody td:first-child {
   position: sticky;
   left: 0;
@@ -1116,6 +1117,11 @@
 .growth-report-value { margin-top: 0.8rem; color: #7d1e2e; font-size: 2rem; font-weight: 800; }
 .results-tab-panel .growth-report-single-card .growth-report-value { position: static; display: inline-flex; align-items: center; min-height: 2.35rem; margin: 0.75rem 0 0.2rem; padding: 0.25rem 0.75rem; border: 1px solid #b9dfc5; border-radius: 999px; background: #effaf2; color: #147a3d; font-size: 1.15rem; line-height: 1.2; }
 .growth-report-card p { margin: 0; color: #64748b; font-size: 0.85rem; }
+.growth-report-monitoring-fallback { display: grid; gap: 0.7rem; padding: 0.75rem 0; color: #475569; }
+.growth-report-monitoring-fallback-summary { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.5rem 1rem; }
+.growth-report-monitoring-fallback-summary strong { color: #334155; }
+.growth-report-monitoring-fallback-track { height: 0.65rem; overflow: hidden; border-radius: 999px; background: #e2e8f0; }
+.growth-report-monitoring-fallback-track span { display: block; height: 100%; border-radius: inherit; background: #15803d; }
 .growth-report-bars { display: flex; align-items: flex-end; gap: 0.35rem; height: 80px; margin-top: 1rem; padding-top: 0.5rem; border-bottom: 1px solid #cbd5e1; }
 .growth-report-bars span { flex: 1; min-width: 4px; border-radius: 4px 4px 0 0; background: #7d1e2e; opacity: 0.8; }
 .growth-report-bars-chart { height: 220px; margin-top: 1.5rem; }

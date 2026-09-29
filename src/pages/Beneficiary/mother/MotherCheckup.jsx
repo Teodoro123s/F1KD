@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import StepWizard from '../../../components/StepWizard';
 import DateInput from '../../../components/ui/DateInput';
 import { formatDateForDisplay, normalizeDateValue } from '../../../utils/dateFormat';
+import { getMotherMonitoringStartIndex } from '../../../utils/motherProgress';
 
 const TRIMESTERS = [
   { label: '1st Trimester', code: 'T1' },
@@ -27,11 +28,6 @@ const LAB_ASSISTANCE_OPTIONS = [
   'Glucose Screening (OGTT)',
   'Genetic and Chromosomal Screening',
 ];
-
-const getTrimesterIndex = (trimester) => {
-  const index = TRIMESTERS.findIndex((item) => item.label === trimester);
-  return index === -1 ? 0 : index;
-};
 
 const getTrimesterFromGestationalAge = (weeks) => {
   if (weeks > 26) return '3rd Trimester';
@@ -70,13 +66,7 @@ const getMonitoringStartDetails = (mother = {}) => {
   };
 };
 
-const getInitialStep = (trimester, checkups = [], gestationalAge = null) => {
-  const trimesterStart = getTrimesterIndex(trimester) * 3;
-  const weeks = Number.parseInt(gestationalAge, 10);
-  const monthOffset = Number.isFinite(weeks)
-    ? Math.max(0, Math.min(2, Math.max(0, Math.floor((weeks - 1) / 4))))
-    : 0;
-  const startStep = trimesterStart + (trimester === '1st Trimester' ? Math.max(0, monthOffset - 1) : monthOffset);
+const getInitialStep = (checkups = [], startStep = 0) => {
   const hasAnySavedCheckup = Array.isArray(checkups) && checkups.flat().some(Boolean);
   if (!hasAnySavedCheckup) return startStep;
 
@@ -150,7 +140,8 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
   if (!mother) return null;
 
   const monitoringStart = getMonitoringStartDetails(mother);
-  const initialStep = getInitialStep(monitoringStart.trimester, mother.checkups, monitoringStart.gestationalAge);
+  const monitoringStartStep = getMotherMonitoringStartIndex(mother);
+  const initialStep = getInitialStep(mother.checkups, monitoringStartStep);
   const [activeStep, setActiveStep] = useState(initialStep);
   const previousMotherId = useRef(mother.id || mother.motherId);
   const [formState, setFormState] = useState(() => createInitialFormState(mother, getCheckupForStep(mother, initialStep), false, getPreviousCheckupForStep(mother, initialStep)));
@@ -167,8 +158,7 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
   }, [mother]);
 
   useEffect(() => {
-    const startTrimester = getMonitoringStartDetails(mother).trimester;
-    const firstIncomplete = getFirstIncompleteStep(mother.checkups, getTrimesterIndex(startTrimester) * 3);
+    const firstIncomplete = getFirstIncompleteStep(mother.checkups, getMotherMonitoringStartIndex(mother));
     const isFutureStep = firstIncomplete !== -1 && activeStep > firstIncomplete;
     setFormState(createInitialFormState(mother, getCheckupForStep(mother, activeStep), isFutureStep, getPreviousCheckupForStep(mother, activeStep)));
   }, [mother, activeStep]);
@@ -228,10 +218,11 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
   const activeStepIndex = (activeStep % 3) + 1;
   const activeCheckup = getCheckupForStep(mother, activeStep);
   const isCompleted = Boolean(activeCheckup?.completed);
-  const firstIncompleteStep = getFirstIncompleteStep(mother.checkups, getTrimesterIndex(monitoringStart.trimester) * 3);
+  const firstIncompleteStep = getFirstIncompleteStep(mother.checkups, monitoringStartStep);
   const isMaternalPhaseComplete = firstIncompleteStep === -1;
   const isFuture = firstIncompleteStep !== -1 && activeStep > firstIncompleteStep;
-  const isReadOnly = !forceEdit && (isCompleted || isFuture);
+  const isSkipped = activeStep < monitoringStartStep && !isCompleted;
+  const isReadOnly = !forceEdit && (isCompleted || isFuture || isSkipped);
 
   const handleStepClick = (trimester, step) => {
     const nextStep = (trimester - 1) * 3 + (step - 1);
@@ -293,17 +284,19 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
         mother={mother}
         activeTrimester={activeTrimester}
         activeStep={activeStepIndex}
+        startStep={monitoringStartStep}
         onStepClick={handleStepClick}
         checkups={mother.checkups || []}
       />
 
       <form className="mother-checkup-form" onSubmit={handleSubmit}>
         <fieldset disabled={isReadOnly}>
-        <div className={`checkup-card${isCompleted ? ' checkup-card-completed' : ''}${isFuture ? ' checkup-card-locked' : ''}`}>
+        <div className={`checkup-card${isCompleted ? ' checkup-card-completed' : ''}${isFuture || isSkipped ? ' checkup-card-locked' : ''}`}>
           <div className="checkup-card-body">
             <div className="checkup-section-title">Pregnancy Record</div>
             {isMaternalPhaseComplete ? <p className="checkup-state-message">Maternal monitoring phase complete · all 9 check-ups recorded</p> : isCompleted && <p className="checkup-state-message">Completed check-up · view only</p>}
             {isFuture && <p className="checkup-state-message">This check-up will be available after the previous visit is completed.</p>}
+            {isSkipped && <p className="checkup-state-message">This visit was skipped based on gestational age at registration.</p>}
             <div className="checkup-grid">
               <div className="form-group full-width">
                 <label className="checkup-field-label" htmlFor="checkup-date">Check-up Date</label>

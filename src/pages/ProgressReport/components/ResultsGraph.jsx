@@ -436,7 +436,7 @@ export function ResultsGraph({
             beneficiaryType={displayBeneficiaryType}
           />
         ) : (
-          <GrowthChart rows={graphRows} metric={selectedGraphMetric} chartType="line" displayWeeks={displayWeeks} beneficiaryType={displayBeneficiaryType} />
+          <GrowthChart rows={graphRows} progressRows={resultsRows} metric={selectedGraphMetric} chartType="line" displayWeeks={displayWeeks} beneficiaryType={displayBeneficiaryType} />
         )}
       </div>
     </div>

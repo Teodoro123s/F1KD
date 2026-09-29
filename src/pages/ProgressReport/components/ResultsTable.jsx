@@ -201,9 +201,10 @@ export function ResultsTable({
     ...(monitorDates[1] ? [{ value: 'second-latest', label: `2nd latest (${formatCellValue('measurementDate', monitorDates[1])})` }] : []),
     ...monitorMonths.map((month) => ({ value: `month:${month}`, label: new Date(`${month}-01T00:00:00`).toLocaleDateString(undefined, { month: 'long', year: 'numeric' }) })),
   ];
-  const rowsByBeneficiary = (rows) => [...new Map(rows
+  const getBeneficiaryKey = (row) => String(row.childId || row.motherId || row.child || row.mother);
+  const rowsByBeneficiary = (rows) => [...new Map([...rows]
     .sort((left, right) => String(right.measurementDate).localeCompare(String(left.measurementDate)))
-    .map((row) => [String(row.childId || row.motherId || row.child || row.mother), row])).values()];
+    .map((row) => [getBeneficiaryKey(row), row])).values()];
   const monitoringRowsByBeneficiary = validMonitoringRows
     .sort((left, right) => String(right.measurementDate).localeCompare(String(left.measurementDate)))
     .reduce((groups, row) => {
@@ -214,9 +215,16 @@ export function ResultsTable({
       return groups;
     }, new Map());
   const selectedDateIndex = resultPeriod === 'second-latest' ? 1 : 0;
+  const latestDatedRows = [...monitoringRowsByBeneficiary.values()].map((rows) => rows[0]).filter(Boolean);
+  const latestDatedBeneficiaries = new Set(latestDatedRows.map(getBeneficiaryKey));
+  const beneficiariesWithoutDatedMeasurements = resultPeriod === 'latest'
+    ? rowsByBeneficiary(resultsRows).filter((row) => !latestDatedBeneficiaries.has(getBeneficiaryKey(row)))
+    : [];
   const periodRows = resultPeriod.startsWith('month:')
     ? rowsByBeneficiary(validMonitoringRows.filter((row) => String(row.measurementDate || '').startsWith(resultPeriod.slice(6))))
-    : [...monitoringRowsByBeneficiary.values()].map((rows) => rows[selectedDateIndex]).filter(Boolean);
+    : resultPeriod === 'latest'
+      ? [...latestDatedRows, ...beneficiariesWithoutDatedMeasurements]
+      : [...monitoringRowsByBeneficiary.values()].map((rows) => rows[selectedDateIndex]).filter(Boolean);
   return (
     <div className="results-table-wrap">
       {showMonitoringFilter && (

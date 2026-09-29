@@ -45,7 +45,30 @@ const downloadChartImage = (svgElement, metricLabel) => {
   image.src = svgUrl;
 };
 
-function GrowthInterpretationChart({ rows, metric, displayWeeks = 'all', beneficiaryType = 'child' }) {
+function MonitoringProgressFallback({ rows = [] }) {
+  const uniqueRows = [...new Map(rows.map((row, index) => [String(row.childId || row.motherId || row.child || row.mother || index), row])).values()];
+  const progressRows = uniqueRows.filter((row) => Number(row.totalActivities) > 0);
+  if (!progressRows.length) return <p className="growth-report-empty">No growth measurements or monitoring progress are available.</p>;
+
+  const completed = progressRows.reduce((total, row) => total + Math.max(0, Number(row.activitiesCompleted) || 0), 0);
+  const total = progressRows.reduce((sum, row) => sum + Number(row.totalActivities), 0);
+  const percentage = Math.min(100, Math.round((completed / total) * 100));
+
+  return (
+    <div className="growth-report-monitoring-fallback" role="status">
+      <p>No dated weight or height measurements are available. Showing monitoring completion instead.</p>
+      <div className="growth-report-monitoring-fallback-summary">
+        <strong>Monitoring completion</strong>
+        <span>{completed}/{total} check-ups · {percentage}% · {progressRows.length} {progressRows.length === 1 ? 'child' : 'children'}</span>
+      </div>
+      <div className="growth-report-monitoring-fallback-track" role="progressbar" aria-label="Child monitoring completion" aria-valuemin="0" aria-valuemax="100" aria-valuenow={percentage}>
+        <span style={{ width: `${percentage}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function GrowthInterpretationChart({ rows, progressRows, metric, displayWeeks = 'all', beneficiaryType = 'child' }) {
   const navigate = useNavigate();
   const [hoveredSeries, setHoveredSeries] = useState('');
   const isMother = beneficiaryType === 'mother';
@@ -75,7 +98,7 @@ function GrowthInterpretationChart({ rows, metric, displayWeeks = 'all', benefic
     : timelines.slice(-requestedWeeks);
   const visibleSet = new Set(visibleTimelines);
   const visibleEntries = entries.filter((entry) => visibleSet.has(entry.timeline));
-  if (!visibleEntries.length) return <p className="growth-report-empty">No interpretation data available.</p>;
+  if (!visibleEntries.length) return <MonitoringProgressFallback rows={progressRows} />;
 
   const categories = getInterpretationLevels(metric);
   const axisCategories = [...categories].reverse();
@@ -190,10 +213,10 @@ function ProgramAverageChart({ rows, metric = 'receivedBenefitAveragePerMonth' }
   </div>;
 }
 
-export function GrowthChart({ rows, metric, chartType, displayWeeks = 'all', beneficiaryType = 'child' }) {
+export function GrowthChart({ rows, progressRows = [], metric, chartType, displayWeeks = 'all', beneficiaryType = 'child' }) {
   const chartRef = useRef(null);
   const navigate = useNavigate();
-  if (INTERPRETATION_METRICS.has(metric)) return <GrowthInterpretationChart rows={rows} metric={metric} displayWeeks={displayWeeks} beneficiaryType={beneficiaryType} />;
+  if (INTERPRETATION_METRICS.has(metric)) return <GrowthInterpretationChart rows={rows} progressRows={progressRows} metric={metric} displayWeeks={displayWeeks} beneficiaryType={beneficiaryType} />;
   if (PROGRAM_METRICS.some(([id]) => id === metric)) return <ProgramAverageChart rows={rows} />;
   const values = rows
     .map((row) => ({ row, value: Number(row[metric]) }))
@@ -201,7 +224,7 @@ export function GrowthChart({ rows, metric, chartType, displayWeeks = 'all', ben
   const maxValue = Math.max(...values.map(({ value }) => value), 1);
   const points = values.slice(0, 20);
 
-  if (!points.length) return <p className="growth-report-empty">No monitored measurements available.</p>;
+  if (!points.length) return <MonitoringProgressFallback rows={progressRows} />;
 
   if (chartType === 'pie') {
     const total = points.reduce((sum, item) => sum + Math.max(0, item.value), 0) || 1;
@@ -230,7 +253,7 @@ export function GrowthChart({ rows, metric, chartType, displayWeeks = 'all', ben
         : null;
     };
     const seriesRows = rows.filter((row) => row.growthSeries?.some((point) => rawMeasurementValue(point) !== null));
-    if (!seriesRows.length) return <p className="growth-report-empty">No monitored measurements available.</p>;
+    if (!seriesRows.length) return <MonitoringProgressFallback rows={progressRows} />;
 
     const isMother = beneficiaryType === 'mother';
     const monthKey = (dateValue) => {
@@ -267,7 +290,7 @@ export function GrowthChart({ rows, metric, chartType, displayWeeks = 'all', ben
       .filter((row) => row.visibleGrowthSeries.length);
 
     if (!visibleTimelineDates.length) {
-      return <p className="growth-report-empty">No monitored measurements with timeline data available.</p>;
+      return <MonitoringProgressFallback rows={progressRows} />;
     };
 
     const chartPaddingX = 64;
@@ -278,7 +301,7 @@ export function GrowthChart({ rows, metric, chartType, displayWeeks = 'all', ben
       const usableWidth = width - (chartPaddingX * 2);
       return chartPaddingX + (index / (visibleTimelineDates.length - 1)) * usableWidth;
     };
-    if (!visibleSeriesRows.length) return <p className="growth-report-empty">No monitored measurements available for the selected period.</p>;
+    if (!visibleSeriesRows.length) return <MonitoringProgressFallback rows={progressRows} />;
 
     const subjectLabel = isMother ? 'Mother' : 'Child';
     const metricOptions = isMother ? MOTHER_GROWTH_METRICS : WHO_NUMERIC_GROWTH_METRICS;

@@ -2,7 +2,7 @@ import React from 'react';
 import { formatDateForDisplay, formatDateForInput, maskDateInput, normalizeDateValue } from '../../../utils/dateFormat';
 import { capitalizeNameValue } from '../../../utils/nameFormat';
 
-export function ChildFormFields({ activeTab, form, setForm, communities = [], batches = [], readOnly = false, slashDateInput = true, birthDocumentFile, setBirthDocumentFile, existingBirthDocumentName = '' }) {
+export function ChildFormFields({ activeTab, form, setForm, communities = [], batches = [], readOnly = false, slashDateInput = true, birthDocumentFile, setBirthDocumentFile, existingBirthDocumentName = '', showRequiredValidation = false }) {
   const uniqueCommunities = Array.from(new Set(communities.map((comm) => comm.name))).filter(Boolean);
   const uniqueBatches = Array.from(new Set((batches || []).map((batch) => batch.name))).filter(Boolean);
   const [dateDrafts, setDateDrafts] = React.useState({});
@@ -56,6 +56,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
   const renderField = ({ id, label, name, type = 'text', placeholder = '', required = false, min, step, nativeDate = false, maxDate, onChange }) => {
     const value = form[name] ?? '';
     const isDate = type === 'date';
+    const hasMissingValue = required && !String(value ?? '').trim() && showRequiredValidation;
 
     if (readOnly) {
       return (
@@ -77,7 +78,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
             type={isNativeDate ? 'date' : isDate ? 'text' : type}
             inputMode={isDate && !isNativeDate ? 'numeric' : undefined}
             pattern={isDate && !isNativeDate ? '\\d{2}/\\d{2}/\\d{4}' : undefined}
-            className="form-input"
+            className={`form-input${hasMissingValue ? ' invalid' : ''}`}
             placeholder={isDate && !isNativeDate ? 'DD/MM/YYYY' : placeholder}
             value={isNativeDate ? formatDateForInput(value) : isDate ? getDateDisplayValue(name, value) : value}
             min={min}
@@ -107,6 +108,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
             onClick={isNativeDate ? (e) => { try { if (typeof e.target.showPicker === 'function') e.target.showPicker(); } catch (_) {} } : undefined}
             onBlur={isDate && !isNativeDate ? () => commitDateValue(name, getDateDisplayValue(name, value), onChange) : undefined}
             required={required}
+            aria-invalid={hasMissingValue}
           />
           {isNativeDate && (
             <button

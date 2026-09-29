@@ -103,7 +103,8 @@ router.get('/', async (req, res) => {
     const params = parseParams(req.query, req);
     const isMotherReport = params.granularity === 'mother';
     const filters = hierarchyWhere(params, isMotherReport ? { mother: 'm' } : undefined);
-    const progressExpression = `ROUND(COUNT(DISTINCT cc.id) * 100 / 48, 0)`;
+    const childActivitiesExpression = `(SELECT COUNT(*) FROM child_checkups completed_cc WHERE completed_cc.child_id = c.id AND completed_cc.week_number IS NOT NULL)`;
+    const progressExpression = `ROUND(${childActivitiesExpression} * 100 / 24, 0)`;
     const motherProgressExpression = `ROUND(COUNT(DISTINCT mc.id) * 100 / 9, 0)`;
     const baseFrom = isMotherReport ? `
       FROM mothers m
@@ -126,7 +127,7 @@ router.get('/', async (req, res) => {
       : 'c.id, c.child_code, c.first_name, c.middle_name, c.last_name, m.id, m.mother_code, m.first_name, m.last_name, school.name, g.name, b.name';
     const motherNameExpression = `TRIM(CONCAT_WS(' ', m.first_name, m.middle_name, m.last_name, m.suffix))`;
     const childNameExpression = params.granularity === 'mother' ? 'NULL' : `TRIM(CONCAT_WS(' ', c.first_name, c.middle_name, c.last_name, c.suffix))`;
-    const totalExpression = isMotherReport ? '9' : '48';
+    const totalExpression = isMotherReport ? '9' : '24';
     const monthAgeExpression = `CASE
       WHEN c.birth_date IS NULL OR c.birth_date < '1900-01-01' OR c.birth_date > CURDATE() THEN NULL
       ELSE TIMESTAMPDIFF(MONTH, c.birth_date, CURDATE()) - CASE WHEN DAY(CURDATE()) < DAY(c.birth_date) THEN 1 ELSE 0 END
@@ -251,7 +252,7 @@ router.get('/', async (req, res) => {
         ${params.granularity === 'mother' ? 'NULL' : '(SELECT latest_cc.height FROM child_checkups latest_cc WHERE latest_cc.child_id = c.id ORDER BY latest_cc.visit_date DESC, latest_cc.id DESC LIMIT 1)'} AS height_for_age,
         ${params.granularity === 'mother' ? '(SELECT latest_mc.bmi FROM mother_checkups latest_mc WHERE latest_mc.mother_id = m.id ORDER BY latest_mc.checkup_date DESC, latest_mc.id DESC LIMIT 1)' : '(SELECT ROUND(latest_cc.weight / POW(NULLIF(latest_cc.height, 0) / 100, 2), 1) FROM child_checkups latest_cc WHERE latest_cc.child_id = c.id ORDER BY latest_cc.visit_date DESC, latest_cc.id DESC LIMIT 1)'} AS bmi_for_age,
         ${params.granularity === 'mother' ? '(SELECT latest_mc.checkup_date FROM mother_checkups latest_mc WHERE latest_mc.mother_id = m.id ORDER BY latest_mc.checkup_date DESC, latest_mc.id DESC LIMIT 1)' : '(SELECT latest_cc.visit_date FROM child_checkups latest_cc WHERE latest_cc.child_id = c.id ORDER BY latest_cc.visit_date DESC, latest_cc.id DESC LIMIT 1)'} AS measurement_date,
-        ${isMotherReport ? 'COUNT(DISTINCT mc.id)' : 'COUNT(DISTINCT cc.id)'} AS activities_completed,
+        ${isMotherReport ? 'COUNT(DISTINCT mc.id)' : childActivitiesExpression} AS activities_completed,
         ${totalExpression} AS total_activities,
         ${params.granularity === 'mother' ? motherProgressExpression : progressExpression} AS progress
       ${baseFrom}
