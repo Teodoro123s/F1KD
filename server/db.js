@@ -152,6 +152,39 @@ async function ensure() {
       FOREIGN KEY (batch_id) REFERENCES batches(id) ON DELETE SET NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
 
+    `CREATE TABLE IF NOT EXISTS mother_checkups (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      mother_id INT NOT NULL,
+      trimester VARCHAR(30) NOT NULL,
+      checkup_number TINYINT UNSIGNED NOT NULL,
+      checkup_date DATE NOT NULL,
+      gestational_age_weeks INT UNSIGNED NULL,
+      blood_pressure VARCHAR(20) NULL,
+      weight_kg DECIMAL(5,2) NULL,
+      height_cm DECIMAL(5,2) NULL,
+      bmi DECIMAL(5,2) NULL,
+      nutritional_status VARCHAR(30) NULL,
+      fundal_height_cm DECIMAL(5,2) NULL,
+      fetal_heart_rate_bpm SMALLINT UNSIGNED NULL,
+      service_provider VARCHAR(150) NULL,
+      next_checkup_date DATE NULL,
+      referred_to_hospital BOOLEAN NOT NULL DEFAULT FALSE,
+      lab_assistance_provided BOOLEAN NOT NULL DEFAULT FALSE,
+      assistance_amount DECIMAL(10,2) NULL,
+      source_of_funds VARCHAR(80) NULL,
+      facility_type VARCHAR(40) NULL,
+      milk_subsidy_date DATE NULL,
+      milk_quantity_pcs INT UNSIGNED NULL,
+      remarks TEXT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      CONSTRAINT fk_mother_checkups_mother
+        FOREIGN KEY (mother_id) REFERENCES mothers(id) ON DELETE CASCADE,
+      CONSTRAINT uq_mother_checkup_step
+        UNIQUE (mother_id, trimester, checkup_number),
+      KEY idx_mother_checkups_date (mother_id, checkup_date)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+
     `CREATE TABLE IF NOT EXISTS mother_ob_history (
       id INT AUTO_INCREMENT PRIMARY KEY,
       mother_id INT NOT NULL,
