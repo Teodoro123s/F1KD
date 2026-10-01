@@ -401,7 +401,30 @@ async function ensure() {
     `INSERT IGNORE INTO role_permissions (role_id, permission_id)
       SELECT r.id, p.id FROM roles r JOIN permissions p
       ON p.resource_key = 'partner-resources' AND p.action_key = 'read'
-      WHERE r.role_key = 'partner';`
+      WHERE r.role_key = 'partner';`,
+    `CREATE TABLE IF NOT EXISTS notifications (
+      id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      event_type VARCHAR(80) NOT NULL,
+      category VARCHAR(40) NOT NULL,
+      title VARCHAR(120) NOT NULL DEFAULT 'Notification',
+      message VARCHAR(500) NOT NULL,
+      entity_type VARCHAR(32) DEFAULT NULL,
+      entity_id VARCHAR(80) DEFAULT NULL,
+      link_to VARCHAR(255) DEFAULT NULL,
+      school_id INT DEFAULT NULL,
+      group_id INT DEFAULT NULL,
+      school_scope_ids VARCHAR(1000) DEFAULT NULL,
+      actor_user_id INT DEFAULT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_notifications_created_at (created_at),
+      KEY idx_notifications_category (category)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+    `ALTER TABLE notifications
+      ADD COLUMN IF NOT EXISTS title VARCHAR(120) NOT NULL DEFAULT 'Notification',
+      ADD COLUMN IF NOT EXISTS link_to VARCHAR(255) DEFAULT NULL,
+      ADD COLUMN IF NOT EXISTS school_id INT DEFAULT NULL,
+      ADD COLUMN IF NOT EXISTS group_id INT DEFAULT NULL,
+      ADD COLUMN IF NOT EXISTS school_scope_ids VARCHAR(1000) DEFAULT NULL;`
   ];
 
   const conn = await pool.getConnection();

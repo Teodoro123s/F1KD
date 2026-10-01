@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { apiGetProgressReport, apiGetProgressReportOptions } from '../../api/progressReport';
+import { apiRecordReportDownload } from '../../api/notifications';
 import { apiGetPrograms } from '../../api/programs';
 import PageHeader from '../../components/ui/PageHeader';
 import { useAuth } from '../../auth/AuthProvider';
-import { isCommunityCoordinatorRole, isHealthWorkerRole } from '../../utils/permissions';
+import { hasRole, isCommunityCoordinatorRole, isHealthWorkerRole, ROLES } from '../../utils/permissions';
 import { notifyAction } from '../../components/ActionFeedback';
 import { ReportTabBar } from './components/ReportTabBar';
 import { CommunitySelectionStep } from './components/CommunitySelectionStep';
@@ -51,6 +52,7 @@ export default function ProgressReport() {
   const { currentUser } = useAuth();
   const isHealthWorker = isHealthWorkerRole(currentUser?.role);
   const isCommunityOrganizer = isCommunityCoordinatorRole(currentUser?.role);
+  const canRecordReportDownload = hasRole(currentUser?.role, [ROLES.ADMIN, ROLES.PARTNER]);
   const isSchoolAssignedUser = isHealthWorker || isCommunityOrganizer;
   const [options, setOptions] = useState({ schools: [], groups: [], batches: [], mothers: [] });
   const assignedSchoolId = currentUser?.school_id ?? currentUser?.schoolId ?? '';
@@ -371,6 +373,12 @@ export default function ProgressReport() {
     link.download = `progress-report-${beneficiaryType}.csv`;
     link.click();
     URL.revokeObjectURL(url);
+    notifyAction('Progress report CSV download started.');
+    if (canRecordReportDownload) {
+      apiRecordReportDownload().catch((downloadError) => {
+        console.error('Unable to record report download notification:', downloadError);
+      });
+    }
   };
 
   const selectedSchool = options.schools.find((item) => String(item.id) === String(displaySelection.schoolId));

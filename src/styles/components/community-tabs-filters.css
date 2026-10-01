@@ -173,3 +173,6 @@
 .status-toggle-btn:not(:last-child) { border-right: 1px solid var(--border-color); }
 .status-toggle-btn:hover { background: #F8FAFC; }
 .status-toggle-btn.active { color: var(--burgundy); background: #FEF2F2; }
+
+.notification-category-filter { display: inline-flex; align-items: center; gap: 0.55rem; color: var(--text-muted); font-size: 0.9rem; font-weight: 600; }
+.notification-category-filter select { min-width: 190px; min-height: 42px; padding: 0.5rem 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: #fff; color: var(--text); font: inherit; }

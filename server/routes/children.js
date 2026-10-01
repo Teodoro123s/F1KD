@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../db');
 const { documentUpload, uploadFileToStorage } = require('../middleware/documentUpload');
+const { createSuperadminNotification } = require('../services/notifications');
 
 // Helper to normalize incoming body keys (accept camelCase or snake_case)
 function getField(body, ...keys) {
@@ -122,7 +123,14 @@ async function attachMonitoringData(child) {
 router.post('/:id/documents', documentUpload.single('birthDocument'), async (req, res) => {
   try {
     const { id } = req.params;
-    const [childRows] = await pool.query('SELECT id FROM children WHERE id = ? OR child_code = ? LIMIT 1', [Number(id) || null, id]);
+    const [childRows] = await pool.query(
+      `SELECT c.id, c.child_code, c.first_name, c.last_name,
+          COALESCE(c.community_id, m.community_id) AS community_id,
+          COALESCE(c.group_id, m.group_id) AS group_id
+       FROM children c LEFT JOIN mothers m ON m.id = c.mother_id
+       WHERE c.id = ? OR c.child_code = ? LIMIT 1`,
+      [Number(id) || null, id],
+    );
     if (!childRows.length) return res.status(404).json({ error: 'Child not found' });
     if (!req.file) return res.status(400).json({ error: 'Birth document is required' });
     const storedFile = await uploadFileToStorage(req.file, 'birth-document');
@@ -130,6 +138,19 @@ router.post('/:id/documents', documentUpload.single('birthDocument'), async (req
       'UPDATE children SET birth_document_name = ?, birth_document_path = ? WHERE id = ?',
       [storedFile.name, storedFile.path, childRows[0].id]
     );
+    const childName = [childRows[0].first_name, childRows[0].last_name].filter(Boolean).join(' ');
+    await createSuperadminNotification({
+      eventType: 'beneficiary.child.document_uploaded',
+      category: 'Beneficiaries',
+      title: 'Child document uploaded',
+      message: `A birth document was uploaded for ${childName}.`,
+      entityType: 'child',
+      entityId: childRows[0].id,
+      linkTo: `/beneficiary/child/${childRows[0].child_code}/profile`,
+      schoolId: childRows[0].community_id,
+      groupId: childRows[0].group_id,
+      actorUserId: req.user?.id,
+    });
     const [rows] = await pool.query('SELECT * FROM children WHERE id = ?', [childRows[0].id]);
     const child = await attachClinicalData(rows[0]);
     res.json({ child: await attachMonitoringData(child) });
@@ -310,6 +331,20 @@ router.post('/', async (req, res) => {
     }
     await saveChildVaccines(result.insertId, b);
     const child = await attachClinicalData(rows[0]);
+    const childName = [child.first_name, child.last_name].filter(Boolean).join(' ');
+    await createSuperadminNotification({
+      eventType: 'beneficiary.child.created',
+      category: 'Beneficiaries',
+      title: 'Child created',
+      message: `${childName} was added as a beneficiary.`,
+      entityType: 'child',
+      entityId: child.id,
+      linkTo: `/beneficiary/child/${child.child_code}/profile`,
+      schoolId: child.community_id || communityId || null,
+      groupId: child.group_id || groupId || null,
+      schoolIds: [child.community_id || communityId].filter(Boolean),
+      actorUserId: req.user?.id,
+    });
     res.status(201).json({ child: await attachMonitoringData(child) });
   } catch (err) {
     console.error('Failed to create child', err);
@@ -347,7 +382,11 @@ router.post('/:id/checkups', async (req, res) => {
     const { id } = req.params;
     const body = req.body || {};
     const [childRows] = await pool.query(
-      `SELECT c.id FROM children c LEFT JOIN mothers m ON m.id = c.mother_id WHERE (c.id = ? OR c.child_code = ?)${req.groupId ? ' AND (c.group_id = ? OR (c.group_id IS NULL AND m.group_id = ?))' : req.schoolId ? ' AND (c.community_id = ? OR (c.community_id IS NULL AND m.community_id = ?))' : ''} LIMIT 1`,
+        `SELECT c.id, c.child_code, c.first_name, c.last_name,
+          COALESCE(c.community_id, m.community_id) AS community_id,
+          COALESCE(c.group_id, m.group_id) AS group_id
+         FROM children c LEFT JOIN mothers m ON m.id = c.mother_id
+         WHERE (c.id = ? OR c.child_code = ?)${req.groupId ? ' AND (c.group_id = ? OR (c.group_id IS NULL AND m.group_id = ?))' : req.schoolId ? ' AND (c.community_id = ? OR (c.community_id IS NULL AND m.community_id = ?))' : ''} LIMIT 1`,
       req.groupId ? [Number(id) || null, id, req.groupId, req.groupId] : req.schoolId ? [Number(id) || null, id, req.schoolId, req.schoolId] : [Number(id) || null, id]
     );
     if (!childRows.length) return res.status(404).json({ error: 'Child not found' });
@@ -406,6 +445,20 @@ router.post('/:id/checkups', async (req, res) => {
       [childId]
     );
     const child = await attachClinicalData(rows[0]);
+    const childName = [child.first_name, child.last_name].filter(Boolean).join(' ');
+    const checkupAction = existingRows.length ? 'updated' : 'created';
+    await createSuperadminNotification({
+      eventType: `monitoring.child.checkup_${checkupAction}`,
+      category: 'Monitoring',
+      title: `Child check-up ${checkupAction}`,
+      message: `Week ${week} check-up for ${childName} was ${checkupAction}.`,
+      entityType: 'child',
+      entityId: childId,
+      linkTo: `/beneficiary/child/${child.child_code}/profile`,
+      schoolId: child.community_id || child.mother_community_id,
+      groupId: child.group_id || child.mother_group_id,
+      actorUserId: req.user?.id,
+    });
     res.json({ child: await attachMonitoringData(child) });
   } catch (err) {
     console.error('Failed to save child checkup', err);
@@ -417,7 +470,7 @@ router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const body = req.body || {};
-    const [existingRows] = await pool.query(`SELECT c.* FROM children c LEFT JOIN mothers m ON m.id = c.mother_id WHERE (c.id = ? OR c.child_code = ?)${req.groupId ? ' AND (c.group_id = ? OR (c.group_id IS NULL AND m.group_id = ?))' : req.schoolId ? ' AND (c.community_id = ? OR (c.community_id IS NULL AND m.community_id = ?))' : ''} LIMIT 1`, req.groupId ? [Number(id) || null, id, req.groupId, req.groupId] : req.schoolId ? [Number(id) || null, id, req.schoolId, req.schoolId] : [Number(id) || null, id]);
+    const [existingRows] = await pool.query(`SELECT c.*, m.community_id AS current_mother_community_id, m.group_id AS current_mother_group_id FROM children c LEFT JOIN mothers m ON m.id = c.mother_id WHERE (c.id = ? OR c.child_code = ?)${req.groupId ? ' AND (c.group_id = ? OR (c.group_id IS NULL AND m.group_id = ?))' : req.schoolId ? ' AND (c.community_id = ? OR (c.community_id IS NULL AND m.community_id = ?))' : ''} LIMIT 1`, req.groupId ? [Number(id) || null, id, req.groupId, req.groupId] : req.schoolId ? [Number(id) || null, id, req.schoolId, req.schoolId] : [Number(id) || null, id]);
     if (!existingRows.length) return res.status(404).json({ error: 'Child not found' });
     const current = existingRows[0];
     let motherId = getField(body, 'motherId', 'mother_id') || current.mother_id;
@@ -489,6 +542,7 @@ router.put('/:id', async (req, res) => {
 
     const [rows] = await pool.query(
       `SELECT c.*, m.first_name AS mother_first_name, m.last_name AS mother_last_name, m.mother_code,
+        m.group_id AS mother_group_id, m.community_id AS mother_community_id,
         comm.name AS community_name, g.name AS group_name, b.name AS batch_name
        FROM children c LEFT JOIN mothers m ON m.id = c.mother_id
        LEFT JOIN communities comm ON comm.id = c.community_id
@@ -497,7 +551,30 @@ router.put('/:id', async (req, res) => {
        WHERE c.id = ?`,
       [current.id]
     );
-    res.json({ child: await attachClinicalData(rows[0]) });
+    const updatedChild = rows[0];
+    const assignmentChanged = ['mother_id', 'community_id', 'group_id', 'batch_id'].some((field) => (
+      String(current[field] ?? '') !== String(updatedChild[field] ?? '')
+    ));
+    const updatedName = [updatedChild.first_name, updatedChild.last_name].filter(Boolean).join(' ');
+    await createSuperadminNotification({
+      eventType: assignmentChanged ? 'beneficiary.child.transferred' : 'beneficiary.child.updated',
+      category: 'Beneficiaries',
+      title: assignmentChanged ? 'Child assignment changed' : 'Child updated',
+      message: assignmentChanged
+        ? `${updatedName} was transferred to a different mother, school, group, or batch.`
+        : `${updatedName}'s beneficiary record was updated.`,
+      entityType: 'child',
+      entityId: updatedChild.id,
+      linkTo: `/beneficiary/child/${updatedChild.child_code}/profile`,
+      schoolId: updatedChild.community_id || updatedChild.mother_community_id,
+      groupId: updatedChild.group_id || updatedChild.mother_group_id,
+      schoolIds: [
+        current.community_id || current.current_mother_community_id,
+        updatedChild.community_id || updatedChild.mother_community_id,
+      ].filter(Boolean),
+      actorUserId: req.user?.id,
+    });
+    res.json({ child: await attachClinicalData(updatedChild) });
   } catch (error) {
     console.error('Failed to update child', error);
     res.status(500).json({ error: 'db error' });
@@ -513,7 +590,11 @@ router.delete('/:id', async (req, res) => {
         ? ' AND (c.community_id = ? OR (c.community_id IS NULL AND m.community_id = ?))'
         : '';
     const [rows] = await pool.query(
-      `SELECT c.id FROM children c LEFT JOIN mothers m ON m.id = c.mother_id WHERE (c.id = ? OR c.child_code = ?)${scopeClause} LIMIT 1`,
+        `SELECT c.id, c.child_code, c.first_name, c.last_name,
+          COALESCE(c.community_id, m.community_id) AS community_id,
+          COALESCE(c.group_id, m.group_id) AS group_id
+         FROM children c LEFT JOIN mothers m ON m.id = c.mother_id
+         WHERE (c.id = ? OR c.child_code = ?)${scopeClause} LIMIT 1`,
       req.groupId ? [Number(id) || null, id, req.groupId, req.groupId] : req.schoolId ? [Number(id) || null, id, req.schoolId, req.schoolId] : [Number(id) || null, id]
     );
     if (!rows.length) return res.status(404).json({ error: 'Child not found' });
@@ -523,6 +604,20 @@ router.delete('/:id', async (req, res) => {
     await pool.query('DELETE FROM child_medical_conditions WHERE child_id = ?', [childId]);
     await pool.query('DELETE FROM child_vaccinations WHERE child_id = ?', [childId]);
     await pool.query('DELETE FROM children WHERE id = ?', [childId]);
+    const deletedChild = rows[0];
+    const deletedName = [deletedChild.first_name, deletedChild.last_name].filter(Boolean).join(' ');
+    await createSuperadminNotification({
+      eventType: 'beneficiary.child.deleted',
+      category: 'Beneficiaries',
+      title: 'Child deleted',
+      message: `${deletedName} was removed from beneficiaries.`,
+      entityType: 'child',
+      entityId: childId,
+      linkTo: '/beneficiary',
+      schoolId: deletedChild.community_id,
+      groupId: deletedChild.group_id,
+      actorUserId: req.user?.id,
+    });
     res.json({ success: true });
   } catch (error) {
     console.error('Failed to delete child', error);

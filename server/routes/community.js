@@ -8,6 +8,7 @@ router.use((req, res, next) => {
   return next();
 });
 const pool = require('../db');
+const { createSuperadminNotification } = require('../services/notifications');
 
 function parseAssignedBatchIds(raw) {
   if (!raw) return [];
@@ -326,6 +327,17 @@ router.post('/communities', async (req, res) => {
     );
 
     const created = rows[0];
+    await createSuperadminNotification({
+      eventType: 'school.created',
+      category: 'Community',
+      title: 'School created',
+      message: `School created: ${created.name}.`,
+      entityType: 'school',
+      entityId: created.id,
+      linkTo: `/community/school/${created.id}`,
+      schoolId: created.id,
+      actorUserId: req.user.id,
+    });
     console.info('[Community API] Created community', created);
     res.status(201).json({
       community: {
@@ -388,6 +400,18 @@ router.post('/batches', async (req, res) => {
         [resolvedGroupId, result.insertId],
       );
     }
+    await createSuperadminNotification({
+      eventType: 'batch.created',
+      category: 'Community',
+      title: 'Batch created',
+      message: `Batch created: ${created.name}.`,
+      entityType: 'batch',
+      entityId: created.id,
+      linkTo: resolvedGroupId ? `/community/group/${resolvedGroupId}` : `/community/school/${communityId}`,
+      schoolId: communityId,
+      groupId: resolvedGroupId,
+      actorUserId: req.user.id,
+    });
     console.info('[Community API] Created batch', created);
     res.status(201).json({ batch: { ...created, id: created.code || created.id, code: created.code || created.id, groupId: resolvedGroupId } });
   } catch (error) {
@@ -428,6 +452,18 @@ router.post('/groups', async (req, res) => {
     );
 
     const created = rows[0];
+    await createSuperadminNotification({
+      eventType: 'group.created',
+      category: 'Community',
+      title: 'Group created',
+      message: `Group created: ${created.name}.`,
+      entityType: 'group',
+      entityId: created.id,
+      linkTo: `/community/group/${created.id}`,
+      schoolId: created.community_id,
+      groupId: created.id,
+      actorUserId: req.user.id,
+    });
     console.info('[Community API] Created group', created);
     res.status(201).json({ group: { ...created, assignedBatchIds: [] } });
   } catch (error) {
@@ -543,6 +579,17 @@ router.put('/communities/:id', async (req, res) => {
     );
 
     const updated = rows[0];
+    await createSuperadminNotification({
+      eventType: 'school.updated',
+      category: 'Community',
+      title: 'School updated',
+      message: `School updated: ${updated.name}.`,
+      entityType: 'school',
+      entityId: updated.id,
+      linkTo: `/community/school/${updated.id}`,
+      schoolId: updated.id,
+      actorUserId: req.user.id,
+    });
     res.json({
       community: {
         id: updated.id,
@@ -569,7 +616,21 @@ router.delete('/communities/:id', async (req, res) => {
       return res.status(400).json({ error: 'Invalid community id' });
     }
 
+    const [existingRows] = await pool.query('SELECT id, name FROM communities WHERE id = ? LIMIT 1', [communityId]);
     const [result] = await pool.query('DELETE FROM communities WHERE id = ?', [communityId]);
+    if (result.affectedRows > 0) {
+      await createSuperadminNotification({
+        eventType: 'school.deleted',
+        category: 'Community',
+        title: 'School deleted',
+        message: `School deleted: ${existingRows[0]?.name || 'School'}.`,
+        entityType: 'school',
+        entityId: communityId,
+        linkTo: '/community',
+        schoolId: communityId,
+        actorUserId: req.user.id,
+      });
+    }
     res.json({ success: true, deleted: result.affectedRows > 0 });
   } catch (error) {
     console.error('[Community API] delete community error:', error.message);
@@ -604,6 +665,19 @@ router.put('/groups/:id', async (req, res) => {
     );
 
     const updated = rows[0];
+    if (!updated) return res.status(404).json({ error: 'Group not found' });
+    await createSuperadminNotification({
+      eventType: 'group.updated',
+      category: 'Community',
+      title: 'Group updated',
+      message: `Group updated: ${updated.name}.`,
+      entityType: 'group',
+      entityId: updated.id,
+      linkTo: `/community/group/${updated.id}`,
+      schoolId: updated.community_id,
+      groupId: updated.id,
+      actorUserId: req.user.id,
+    });
     res.json({ group: { ...updated, assignedBatchIds: [] } });
   } catch (error) {
     console.error('[Community API] update group error:', error.message);
@@ -619,7 +693,22 @@ router.delete('/groups/:id', async (req, res) => {
       return res.status(400).json({ error: 'Invalid group id' });
     }
 
+    const [existingRows] = await pool.query('SELECT id, name, community_id FROM groups WHERE id = ? LIMIT 1', [groupId]);
     const [result] = await pool.query('DELETE FROM groups WHERE id = ?', [groupId]);
+    if (result.affectedRows > 0) {
+      await createSuperadminNotification({
+        eventType: 'group.deleted',
+        category: 'Community',
+        title: 'Group deleted',
+        message: `Group deleted: ${existingRows[0]?.name || 'Group'}.`,
+        entityType: 'group',
+        entityId: groupId,
+        linkTo: existingRows[0]?.community_id ? `/community/school/${existingRows[0].community_id}` : '/community',
+        schoolId: existingRows[0]?.community_id,
+        groupId,
+        actorUserId: req.user.id,
+      });
+    }
     res.json({ success: true, deleted: result.affectedRows > 0 });
   } catch (error) {
     console.error('[Community API] delete group error:', error.message);
@@ -656,11 +745,26 @@ router.put('/batches/:id', async (req, res) => {
     }
 
     const [rows] = await pool.query(
-      'SELECT id, batch_code AS code, name, records, progress, status, community_id FROM batches WHERE id = ?',
+      `SELECT b.id, b.batch_code AS code, b.name, b.records, b.progress, b.status, b.community_id,
+          (SELECT group_id FROM group_batch WHERE batch_id = b.id ORDER BY group_id LIMIT 1) AS group_id
+       FROM batches b WHERE b.id = ?`,
       [batchId]
     );
 
     const updated = rows[0];
+    if (!updated) return res.status(404).json({ error: 'Batch not found' });
+    await createSuperadminNotification({
+      eventType: 'batch.updated',
+      category: 'Community',
+      title: 'Batch updated',
+      message: `Batch updated: ${updated.name}.`,
+      entityType: 'batch',
+      entityId: updated.id,
+      linkTo: updated.group_id ? `/community/group/${updated.group_id}` : `/community/school/${updated.community_id}`,
+      schoolId: updated.community_id,
+      groupId: updated.group_id,
+      actorUserId: req.user.id,
+    });
     res.json({ batch: { ...updated, id: updated.code || updated.id, code: updated.code || updated.id } });
   } catch (error) {
     console.error('[Community API] update batch error:', error.message);
@@ -676,7 +780,29 @@ router.delete('/batches/:id', async (req, res) => {
       return res.status(404).json({ error: 'Batch not found' });
     }
 
+    const [existingRows] = await pool.query(
+      `SELECT b.id, b.name, b.community_id, gb.group_id
+       FROM batches b LEFT JOIN group_batch gb ON gb.batch_id = b.id
+       WHERE b.id = ? ORDER BY gb.group_id LIMIT 1`,
+      [batchId],
+    );
     const [result] = await pool.query('DELETE FROM batches WHERE id = ?', [batchId]);
+    if (result.affectedRows > 0) {
+      await createSuperadminNotification({
+        eventType: 'batch.deleted',
+        category: 'Community',
+        title: 'Batch deleted',
+        message: `Batch deleted: ${existingRows[0]?.name || 'Batch'}.`,
+        entityType: 'batch',
+        entityId: batchId,
+        linkTo: existingRows[0]?.group_id
+          ? `/community/group/${existingRows[0].group_id}`
+          : existingRows[0]?.community_id ? `/community/school/${existingRows[0].community_id}` : '/community',
+        schoolId: existingRows[0]?.community_id,
+        groupId: existingRows[0]?.group_id,
+        actorUserId: req.user.id,
+      });
+    }
     res.json({ success: true, deleted: result.affectedRows > 0 });
   } catch (error) {
     console.error('[Community API] delete batch error:', error.message);

@@ -3,24 +3,24 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { getInitials } from '../utils/nameFormat';
 import { useAuth } from '../auth/AuthProvider';
+import { ROLES, hasRole } from '../utils/permissions';
+import { apiGetNotifications } from '../api/notifications';
 
 export default function Topbar() {
   const navigate = useNavigate();
   const auth = useAuth();
   const current = auth?.currentUser;
   const user = current ? { name: current.name, email: current.email, role: current.role } : null;
+  const canReadNotifications = hasRole(current?.role, [ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.COMMUNITY_COORDINATOR, ROLES.PARTNER, ROLES.HEALTH_WORKER]);
   const [openNotif, setOpenNotif] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [notificationsError, setNotificationsError] = useState('');
   const [openUser, setOpenUser] = useState(false);
   const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const notifRef = useRef(null);
   const userRef = useRef(null);
-
-  const notifications = [
-    { id: 1, text: 'New user signed up' },
-    { id: 2, text: 'Backup completed' },
-    { id: 3, text: 'New comment on report' },
-  ];
 
   useEffect(() => {
     function onDocClick(e) {
@@ -30,6 +30,26 @@ export default function Topbar() {
     document.addEventListener('mousedown', onDocClick);
     return () => document.removeEventListener('mousedown', onDocClick);
   }, []);
+
+  useEffect(() => {
+    if (!openNotif || !canReadNotifications) return undefined;
+    let active = true;
+    setNotificationsLoading(true);
+    setNotificationsError('');
+    apiGetNotifications({ page: 1, perPage: 5 })
+      .then((response) => {
+        if (active) setNotifications(response.notifications || []);
+      })
+      .catch((error) => {
+        if (!active) return;
+        setNotifications([]);
+        setNotificationsError(error.message || 'Unable to load notifications.');
+      })
+      .finally(() => {
+        if (active) setNotificationsLoading(false);
+      });
+    return () => { active = false; };
+  }, [canReadNotifications, openNotif]);
 
   useEffect(() => {
     if (!showSignOutModal) return undefined;
@@ -56,6 +76,16 @@ export default function Topbar() {
     }
   };
 
+  const openNotificationTarget = (notification) => {
+    const target = String(notification.linkTo || '');
+    const isCommunityTarget = target === '/community' || target.startsWith('/community/');
+    const isUserTarget = target === '/user-management' || target.startsWith('/user-management/');
+    const isProgressReportTarget = target === '/progress-report' || target.startsWith('/progress-report/');
+    setOpenNotif(false);
+    if (isCommunityTarget || isUserTarget || isProgressReportTarget) navigate(target);
+    else navigate('/notifications');
+  };
+
   return (
     <header className="topbar">
       <div className="topbar-actions">
@@ -63,20 +93,49 @@ export default function Topbar() {
           <button
             className="icon-button"
             aria-label="Notifications"
-            onClick={() => { if (signingOut) return; setOpenNotif((s) => !s); setOpenUser(false); }}
+            aria-expanded={openNotif}
+            onClick={() => { if (!signingOut) { setOpenUser(false); setOpenNotif((open) => !open); } }}
             disabled={signingOut}
           >
             🔔
           </button>
           {openNotif && (
-            <div className="dropdown notifications-dropdown" role="menu" aria-label="Notifications list">
-              <div className="dropdown-header">Notifications</div>
+            <div className="dropdown notifications-dropdown" role="menu" aria-label="Recent notifications">
+              <div className="dropdown-header">Recent notifications</div>
               <div className="notifications-list">
-                {notifications.map((n) => (
-                  <div key={n.id} className="dropdown-item">{n.text}</div>
+                {canReadNotifications && notificationsLoading && <div className="dropdown-item muted">Loading notifications...</div>}
+                {canReadNotifications && !notificationsLoading && notificationsError && <div className="dropdown-item muted">{notificationsError}</div>}
+                {canReadNotifications && !notificationsLoading && !notificationsError && notifications.map((notification) => (
+                  <button
+                    key={notification.id}
+                    type="button"
+                    className="notification-dropdown-item"
+                    onClick={() => openNotificationTarget(notification)}
+                    role="menuitem"
+                  >
+                    <span className="notification-dropdown-title">{notification.title || notification.category}</span>
+                    <span className="notification-dropdown-message">{notification.message}</span>
+                    {notification.actorName && (
+                      <span className="notification-dropdown-category">
+                        By {notification.actorName}{notification.actorRole ? ` · ${notification.actorRole}` : ''}
+                      </span>
+                    )}
+                    <span className="notification-dropdown-category">{notification.category}</span>
+                  </button>
                 ))}
-                {notifications.length === 0 && <div className="dropdown-item muted">No notifications</div>}
+                {(!canReadNotifications || (!notificationsLoading && !notificationsError && notifications.length === 0)) && (
+                  <div className="dropdown-item muted">No notifications</div>
+                )}
               </div>
+              {canReadNotifications && (
+                <button
+                  type="button"
+                  className="notification-dropdown-all"
+                  onClick={() => { setOpenNotif(false); navigate('/notifications'); }}
+                >
+                  View all notifications
+                </button>
+              )}
             </div>
           )}
         </span>

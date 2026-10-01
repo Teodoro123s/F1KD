@@ -1,5 +1,7 @@
 const express = require('express');
 const router = express.Router();
+const pool = require('../db');
+const { createSuperadminNotification } = require('../services/notifications');
 
 router.use((req, res, next) => {
   const isMonitoringUpdate = req.method === 'PATCH' && /\/monitoring$/.test(req.path);
@@ -8,8 +10,6 @@ router.use((req, res, next) => {
   }
   return next();
 });
-const pool = require('../db');
-
 function cleanProgram(body = {}) {
   const name = String(body.name || '').trim();
   const provider = String(body.provider || '').trim();
@@ -56,6 +56,54 @@ async function getProgram(id) {
     batch: batchCluster?.name || '',
     clusters,
   };
+}
+
+async function getProgramNotificationScope(programId, req) {
+  if (req.schoolId) {
+    return { schoolId: req.schoolId, groupId: req.groupId || null, schoolIds: [req.schoolId] };
+  }
+
+  const [clusters] = await pool.query(
+    'SELECT scope_type, scope_name FROM program_clusters WHERE program_id = ? ORDER BY id',
+    [programId],
+  );
+  const schoolIds = new Set();
+  let groupId = null;
+  for (const cluster of clusters) {
+    let rows = [];
+    if (cluster.scope_type === 'School') {
+      [rows] = await pool.query('SELECT id FROM communities WHERE name = ?', [cluster.scope_name]);
+      rows.forEach((row) => schoolIds.add(Number(row.id)));
+    } else if (cluster.scope_type === 'Group') {
+      [rows] = await pool.query('SELECT id, community_id FROM groups WHERE name = ? ORDER BY id', [cluster.scope_name]);
+      rows.forEach((row) => schoolIds.add(Number(row.community_id)));
+      if (!groupId && rows.length) groupId = rows[0].id;
+    } else if (cluster.scope_type === 'Batch') {
+      [rows] = await pool.query('SELECT id, community_id FROM batches WHERE name = ? ORDER BY id', [cluster.scope_name]);
+      for (const row of rows) {
+        schoolIds.add(Number(row.community_id));
+        const [groupRows] = await pool.query('SELECT group_id FROM group_batch WHERE batch_id = ? ORDER BY group_id LIMIT 1', [row.id]);
+        if (!groupId && groupRows.length) groupId = groupRows[0].group_id;
+      }
+    }
+  }
+  const scopedSchoolIds = [...schoolIds].filter((id) => id > 0);
+  return { schoolId: scopedSchoolIds[0] || null, groupId, schoolIds: scopedSchoolIds };
+}
+
+async function notifyProgramChange(req, programId, event, scope) {
+  const notificationScope = scope || await getProgramNotificationScope(programId, req);
+  await createSuperadminNotification({
+    ...event,
+    category: event.category || 'Programs',
+    entityType: 'program',
+    entityId: programId,
+    linkTo: `/program/${programId}`,
+    schoolId: notificationScope.schoolId,
+    groupId: notificationScope.groupId,
+    schoolIds: notificationScope.schoolIds,
+    actorUserId: req.user?.id,
+  });
 }
 
 function programHasScopeMatch(clusters = [], { schoolId, groupId } = {}) {
@@ -140,7 +188,13 @@ router.post('/', async (req, res) => {
   if (!program) return res.status(400).json({ error: 'Program name and provider are required' });
   try {
     const [result] = await pool.query('INSERT INTO programs (name, type, provider, description, beneficiary_type) VALUES (?, ?, ?, ?, ?)', Object.values(program));
-    res.status(201).json({ program: await getProgram(result.insertId) });
+    const createdProgram = await getProgram(result.insertId);
+    await notifyProgramChange(req, result.insertId, {
+      eventType: 'program.created',
+      title: 'Program created',
+      message: `Program ${createdProgram.name} was created.`,
+    });
+    res.status(201).json({ program: createdProgram });
   } catch (error) {
     console.error('[Programs API] create error:', error.message);
     res.status(500).json({ error: 'db error' });
@@ -153,7 +207,13 @@ router.put('/:id', async (req, res) => {
   try {
     const [result] = await pool.query('UPDATE programs SET name = ?, type = ?, provider = ?, description = ?, beneficiary_type = ? WHERE id = ?', [...Object.values(program), req.params.id]);
     if (!result.affectedRows) return res.status(404).json({ error: 'Program not found' });
-    res.json({ program: await getProgram(req.params.id) });
+    const updatedProgram = await getProgram(req.params.id);
+    await notifyProgramChange(req, req.params.id, {
+      eventType: 'program.updated',
+      title: 'Program updated',
+      message: `Program ${updatedProgram.name} was updated.`,
+    });
+    res.json({ program: updatedProgram });
   } catch (error) {
     console.error('[Programs API] update error:', error.message);
     res.status(500).json({ error: 'db error' });
@@ -162,12 +222,19 @@ router.put('/:id', async (req, res) => {
 
 router.patch('/:id/end', async (req, res) => {
   try {
+    const scope = await getProgramNotificationScope(req.params.id, req);
     const [result] = await pool.query(
       "UPDATE programs SET status = 'Ended', ended = CURRENT_DATE WHERE id = ?",
       [req.params.id],
     );
     if (!result.affectedRows) return res.status(404).json({ error: 'Program not found' });
-    res.json({ program: await getProgram(req.params.id) });
+    const program = await getProgram(req.params.id);
+    await notifyProgramChange(req, req.params.id, {
+      eventType: 'program.ended',
+      title: 'Program ended',
+      message: `Program ${program.name} was ended.`,
+    }, scope);
+    res.json({ program });
   } catch (error) {
     console.error('[Programs API] end error:', error.message);
     res.status(500).json({ error: 'db error' });
@@ -176,12 +243,19 @@ router.patch('/:id/end', async (req, res) => {
 
 router.patch('/:id/restore', async (req, res) => {
   try {
+    const scope = await getProgramNotificationScope(req.params.id, req);
     const [result] = await pool.query(
       "UPDATE programs SET status = 'Active', ended = NULL WHERE id = ?",
       [req.params.id],
     );
     if (!result.affectedRows) return res.status(404).json({ error: 'Program not found' });
-    res.json({ program: await getProgram(req.params.id) });
+    const program = await getProgram(req.params.id);
+    await notifyProgramChange(req, req.params.id, {
+      eventType: 'program.restored',
+      title: 'Program restored',
+      message: `Program ${program.name} was restored.`,
+    }, scope);
+    res.json({ program });
   } catch (error) {
     console.error('[Programs API] restore error:', error.message);
     res.status(500).json({ error: 'db error' });
@@ -190,8 +264,16 @@ router.patch('/:id/restore', async (req, res) => {
 
 router.delete('/:id', async (req, res) => {
   try {
+    const [programRows] = await pool.query('SELECT name FROM programs WHERE id = ? LIMIT 1', [req.params.id]);
+    if (!programRows.length) return res.status(404).json({ error: 'Program not found' });
+    const scope = await getProgramNotificationScope(req.params.id, req);
     const [result] = await pool.query('DELETE FROM programs WHERE id = ?', [req.params.id]);
     if (!result.affectedRows) return res.status(404).json({ error: 'Program not found' });
+    await notifyProgramChange(req, req.params.id, {
+      eventType: 'program.deleted',
+      title: 'Program deleted',
+      message: `Program ${programRows[0].name} was deleted.`,
+    }, scope);
     res.status(204).end();
   } catch (error) {
     console.error('[Programs API] delete error:', error.message);
@@ -203,6 +285,7 @@ router.post('/:id/clusters', async (req, res) => {
   const scopes = Array.isArray(req.body?.scopes) ? req.body.scopes : [];
   if (!scopes.length) return res.status(400).json({ error: 'At least one scope is required' });
   try {
+    const addedScopes = [];
     for (const scope of scopes) {
       const type = String(scope.type || '').trim();
       const name = String(scope.name || '').trim();
@@ -218,9 +301,21 @@ router.post('/:id/clusters', async (req, res) => {
         const [matchingScopes] = await pool.query(...query);
         if (!matchingScopes.length) return res.status(403).json({ error: 'Community Organizers may only add scopes from their assigned school' });
       }
-      await pool.query('INSERT IGNORE INTO program_clusters (program_id, scope_type, scope_name, beneficiaries) VALUES (?, ?, ?, ?)', [req.params.id, type, name, Number(scope.beneficiaries) || 0]);
+      const [result] = await pool.query('INSERT IGNORE INTO program_clusters (program_id, scope_type, scope_name, beneficiaries) VALUES (?, ?, ?, ?)', [req.params.id, type, name, Number(scope.beneficiaries) || 0]);
+      if (result.affectedRows) addedScopes.push({ type, name });
     }
-    res.status(201).json({ program: await getProgram(req.params.id) });
+    const program = await getProgram(req.params.id);
+    if (addedScopes.length) {
+      const scope = req.schoolId
+        ? { schoolId: req.schoolId, groupId: req.groupId || null }
+        : await getProgramNotificationScope(req.params.id, req);
+      await notifyProgramChange(req, req.params.id, {
+        eventType: 'program.scopes_assigned',
+        title: 'Program beneficiaries assigned',
+        message: `${addedScopes.length} school/group/batch scope(s) were assigned to ${program.name}.`,
+      }, scope);
+    }
+    res.status(201).json({ program });
   } catch (error) {
     console.error('[Programs API] cluster error:', error.message);
     res.status(500).json({ error: 'db error' });
@@ -229,12 +324,24 @@ router.post('/:id/clusters', async (req, res) => {
 
 router.patch('/:programId/clusters/:clusterId/complete', async (req, res) => {
   try {
+    const [clusterRows] = await pool.query(
+      'SELECT scope_type, scope_name FROM program_clusters WHERE id = ? AND program_id = ? LIMIT 1',
+      [req.params.clusterId, req.params.programId],
+    );
+    if (!clusterRows.length) return res.status(404).json({ error: 'Cluster not found' });
+    const scope = await getProgramNotificationScope(req.params.programId, req);
     const [result] = await pool.query(
       'UPDATE program_clusters SET received = beneficiaries WHERE id = ? AND program_id = ?',
       [req.params.clusterId, req.params.programId],
     );
     if (!result.affectedRows) return res.status(404).json({ error: 'Cluster not found' });
-    res.json({ program: await getProgram(req.params.programId) });
+    const program = await getProgram(req.params.programId);
+    await notifyProgramChange(req, req.params.programId, {
+      eventType: 'program.cluster_completed',
+      title: 'Program scope completed',
+      message: `${clusterRows[0].scope_type} ${clusterRows[0].scope_name} was marked complete for ${program.name}.`,
+    }, scope);
+    res.json({ program });
   } catch (error) {
     console.error('[Programs API] complete cluster error:', error.message);
     res.status(500).json({ error: 'db error' });
@@ -247,6 +354,7 @@ router.patch('/:programId/clusters/complete', async (req, res) => {
   const beneficiaries = Number(req.body?.beneficiaries || 0);
   if (!type || !name) return res.status(400).json({ error: 'Cluster type and name are required' });
   try {
+    const scope = await getProgramNotificationScope(req.params.programId, req);
     const [result] = await pool.query(
       'UPDATE program_clusters SET received = beneficiaries WHERE program_id = ? AND scope_type = ? AND scope_name = ?',
       [req.params.programId, type, name],
@@ -257,7 +365,13 @@ router.patch('/:programId/clusters/complete', async (req, res) => {
         [req.params.programId, type, name, beneficiaries, beneficiaries],
       );
     }
-    res.json({ program: await getProgram(req.params.programId) });
+    const program = await getProgram(req.params.programId);
+    await notifyProgramChange(req, req.params.programId, {
+      eventType: 'program.cluster_completed',
+      title: 'Program scope completed',
+      message: `${type} ${name} was marked complete for ${program.name}.`,
+    }, scope);
+    res.json({ program });
   } catch (error) {
     console.error('[Programs API] complete named cluster error:', error.message);
     res.status(500).json({ error: 'db error' });
@@ -297,6 +411,24 @@ router.patch('/:programId/monitoring', async (req, res) => {
       return res.status(400).json({ error: `This program accepts ${programRows[0].beneficiary_type} beneficiaries only` });
     }
 
+    const beneficiaryRows = beneficiaryType === 'mother'
+      ? await pool.query(
+        'SELECT id, mother_code AS code, first_name, last_name, community_id, group_id FROM mothers WHERE id = ? OR mother_code = ? LIMIT 1',
+        [Number(beneficiaryId) || null, beneficiaryId],
+      ).then(([rows]) => rows)
+      : await pool.query(
+        `SELECT c.id, c.child_code AS code, c.first_name, c.last_name,
+            COALESCE(c.community_id, m.community_id) AS community_id,
+            COALESCE(c.group_id, m.group_id) AS group_id
+         FROM children c LEFT JOIN mothers m ON m.id = c.mother_id
+         WHERE c.id = ? OR c.child_code = ? LIMIT 1`,
+        [Number(beneficiaryId) || null, beneficiaryId],
+      ).then(([rows]) => rows);
+
+    const [existingReceiptRows] = await pool.query(
+      'SELECT id FROM monitoring_logs WHERE beneficiary_id = ? AND beneficiary_type = ? AND program_id = ? AND monitored_date = ? LIMIT 1',
+      [beneficiaryId, beneficiaryType, req.params.programId, date],
+    );
     const [result] = await pool.query(
       `INSERT INTO monitoring_logs
         (beneficiary_id, beneficiary_type, program_id, monitored, monitored_date, monitored_by)
@@ -304,6 +436,18 @@ router.patch('/:programId/monitoring', async (req, res) => {
        ON DUPLICATE KEY UPDATE monitored = VALUES(monitored), monitored_by = VALUES(monitored_by), updated_at = CURRENT_TIMESTAMP`,
       [beneficiaryId, beneficiaryType, req.params.programId, monitored, date, req.user?.id || null],
     );
+    const beneficiary = beneficiaryRows[0];
+    const program = await getProgram(req.params.programId);
+    const receiptAction = existingReceiptRows.length ? 'updated' : 'created';
+    await notifyProgramChange(req, req.params.programId, {
+      eventType: `program.receipt_${receiptAction}`,
+      category: 'Monitoring',
+      title: `Program receipt ${receiptAction}`,
+      message: `Receipt for ${[beneficiary?.first_name, beneficiary?.last_name].filter(Boolean).join(' ') || beneficiaryId} in ${program.name} was ${receiptAction} as ${monitored ? 'received' : 'not received'} on ${date}.`,
+    }, {
+      schoolId: req.schoolId || beneficiary?.community_id || null,
+      groupId: req.groupId || beneficiary?.group_id || null,
+    });
     res.json({ success: true, date, monitored, id: result.insertId || null });
   } catch (error) {
     console.error('[Programs API] monitoring update error:', error.message);

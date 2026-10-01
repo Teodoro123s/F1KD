@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../db');
 const { documentUpload, uploadFileToStorage, deleteFileFromStorage } = require('../middleware/documentUpload');
+const { createSuperadminNotification } = require('../services/notifications');
 
 function firstNonEmpty(...values) {
   for (const value of values) {
@@ -192,7 +193,7 @@ router.post('/:id/documents', documentUpload.fields([
     const scopeSql = req.groupId ? ' AND group_id = ?' : req.schoolId ? ' AND community_id = ?' : '';
     const scopeParams = req.groupId ? [req.groupId] : req.schoolId ? [req.schoolId] : [];
     const [motherRows] = await pool.query(
-      `SELECT id FROM mothers WHERE (id = ? OR mother_code = ? OR mother_external_id = ?)${scopeSql} LIMIT 1`,
+      `SELECT id, first_name, last_name, mother_code, community_id, group_id FROM mothers WHERE (id = ? OR mother_code = ? OR mother_external_id = ?)${scopeSql} LIMIT 1`,
       [Number(id) || null, id, id, ...scopeParams]
     );
     if (!motherRows.length) return res.status(404).json({ error: 'Mother not found' });
@@ -216,6 +217,19 @@ router.post('/:id/documents', documentUpload.fields([
     if (!updates.length) return res.status(400).json({ error: 'At least one document is required' });
     await pool.query(`UPDATE mothers SET ${updates.join(', ')} WHERE id = ?`, [...values, motherRows[0].id]);
     const [rows] = await pool.query('SELECT * FROM mothers WHERE id = ?', [motherRows[0].id]);
+    const motherName = [motherRows[0].first_name, motherRows[0].last_name].filter(Boolean).join(' ');
+    await createSuperadminNotification({
+      eventType: 'beneficiary.mother.document_uploaded',
+      category: 'Beneficiaries',
+      title: 'Mother document uploaded',
+      message: `A document was uploaded for ${motherName}.`,
+      entityType: 'mother',
+      entityId: motherRows[0].id,
+      linkTo: `/beneficiary/mother/${motherRows[0].mother_code || motherRows[0].id}`,
+      schoolId: motherRows[0].community_id,
+      groupId: motherRows[0].group_id,
+      actorUserId: req.user?.id,
+    });
     res.json({ mother: await attachClinicalData(mapMother(rows[0])) });
   } catch (error) {
     console.error('[Mothers API] document upload error:', error.message);
@@ -243,7 +257,9 @@ router.delete('/:id/documents/:field', async (req, res) => {
     }
 
     const [motherRows] = await pool.query(
-      `SELECT id, ${selectedField.pathColumn} AS document_path, ${selectedField.nameColumn} AS document_name FROM mothers WHERE id = ? OR mother_code = ? OR mother_external_id = ? LIMIT 1`,
+        `SELECT id, first_name, last_name, mother_code, community_id, group_id,
+          ${selectedField.pathColumn} AS document_path, ${selectedField.nameColumn} AS document_name
+         FROM mothers WHERE id = ? OR mother_code = ? OR mother_external_id = ? LIMIT 1`,
       [Number(id) || null, id, id]
     );
 
@@ -254,6 +270,22 @@ router.delete('/:id/documents/:field', async (req, res) => {
     const currentPath = motherRows[0].document_path;
     await deleteFileFromStorage(currentPath);
     await pool.query(`UPDATE mothers SET ${selectedField.nameColumn} = NULL, ${selectedField.pathColumn} = NULL WHERE id = ?`, [motherRows[0].id]);
+
+    if (currentPath) {
+      const motherName = [motherRows[0].first_name, motherRows[0].last_name].filter(Boolean).join(' ');
+      await createSuperadminNotification({
+        eventType: 'beneficiary.mother.document_deleted',
+        category: 'Beneficiaries',
+        title: 'Mother document removed',
+        message: `A document was removed from ${motherName}.`,
+        entityType: 'mother',
+        entityId: motherRows[0].id,
+        linkTo: `/beneficiary/mother/${motherRows[0].mother_code || motherRows[0].id}`,
+        schoolId: motherRows[0].community_id,
+        groupId: motherRows[0].group_id,
+        actorUserId: req.user?.id,
+      });
+    }
 
     const [rows] = await pool.query('SELECT * FROM mothers WHERE id = ?', [motherRows[0].id]);
     res.json({ mother: await attachClinicalData(mapMother(rows[0])) });
@@ -536,6 +568,19 @@ router.post('/', async (req, res) => {
         ]
       );
     }
+    const motherName = [mother.first_name, mother.last_name].filter(Boolean).join(' ');
+    await createSuperadminNotification({
+      eventType: 'beneficiary.mother.created',
+      category: 'Beneficiaries',
+      title: 'Mother created',
+      message: `${motherName} was added as a beneficiary.`,
+      entityType: 'mother',
+      entityId: mother.id,
+      linkTo: `/beneficiary/mother/${mother.mother_code || mother.id}`,
+      schoolId: mother.community_id,
+      groupId: mother.group_id,
+      actorUserId: req.user?.id,
+    });
     res.status(201).json({ mother: await attachClinicalData(mapMother(mother)) });
   } catch (error) {
     console.error('[Mothers API] POST / error:', error.message);
@@ -722,7 +767,26 @@ router.put('/:id', async (req, res) => {
        WHERE m.id = ?`,
       [motherDbId]
     );
-    res.json({ mother: await attachClinicalData(mapMother(rows[0])) });
+    const updatedMother = rows[0];
+    const assignmentChanged = ['community_id', 'group_id', 'batch_id'].some((field) => (
+      String(current[field] ?? '') !== String(updatedMother[field] ?? '')
+    ));
+    const updatedName = [updatedMother.first_name, updatedMother.last_name].filter(Boolean).join(' ');
+    await createSuperadminNotification({
+      eventType: assignmentChanged ? 'beneficiary.mother.transferred' : 'beneficiary.mother.updated',
+      category: 'Beneficiaries',
+      title: assignmentChanged ? 'Mother assignment changed' : 'Mother updated',
+      message: assignmentChanged
+        ? `${updatedName} was transferred to a different school, group, or batch.`
+        : `${updatedName}'s beneficiary record was updated.`,
+      entityType: 'mother',
+      entityId: updatedMother.id,
+      linkTo: `/beneficiary/mother/${updatedMother.mother_code || updatedMother.id}`,
+      schoolId: updatedMother.community_id,
+      groupId: updatedMother.group_id,
+      actorUserId: req.user?.id,
+    });
+    res.json({ mother: await attachClinicalData(mapMother(updatedMother)) });
   } catch (error) {
     console.error('[Mothers API] PUT /:id error:', error.message);
     res.status(500).json({ error: 'db error' });
@@ -738,7 +802,7 @@ router.delete('/:id', async (req, res) => {
     const scopeClause = req.groupId ? ' AND group_id = ?' : req.schoolId ? ' AND community_id = ?' : '';
     const scopeValues = req.groupId ? [req.groupId] : req.schoolId ? [req.schoolId] : [];
     const [motherRows] = await connection.query(
-      `SELECT id FROM mothers WHERE (id = ? OR mother_code = ?)${scopeClause} LIMIT 1`,
+      `SELECT id, first_name, last_name, mother_code, community_id, group_id FROM mothers WHERE (id = ? OR mother_code = ?)${scopeClause} LIMIT 1`,
       [Number(id) || null, id, ...scopeValues],
     );
     if (!motherRows.length) {
@@ -747,7 +811,7 @@ router.delete('/:id', async (req, res) => {
     }
 
     const motherDbId = motherRows[0].id;
-    const [childRows] = await connection.query('SELECT id FROM children WHERE mother_id = ?', [motherDbId]);
+    const [childRows] = await connection.query('SELECT id, community_id FROM children WHERE mother_id = ?', [motherDbId]);
     const childIds = childRows.map((child) => child.id);
     if (childIds.length) {
       const placeholders = childIds.map(() => '?').join(', ');
@@ -765,6 +829,21 @@ router.delete('/:id', async (req, res) => {
     await connection.query('DELETE FROM mother_vaccinations WHERE mother_id = ?', [motherDbId]);
     const [result] = await connection.query('DELETE FROM mothers WHERE id = ?', [motherDbId]);
     await connection.commit();
+    const deletedMother = motherRows[0];
+    const deletedName = [deletedMother.first_name, deletedMother.last_name].filter(Boolean).join(' ');
+    await createSuperadminNotification({
+      eventType: 'beneficiary.mother.deleted',
+      category: 'Beneficiaries',
+      title: 'Mother deleted',
+      message: `${deletedName} and ${childIds.length} associated child record(s) were deleted.`,
+      entityType: 'mother',
+      entityId: motherDbId,
+      linkTo: '/beneficiary',
+      schoolId: deletedMother.community_id,
+      groupId: deletedMother.group_id,
+      schoolIds: [deletedMother.community_id, ...childRows.map((child) => child.community_id)].filter(Boolean),
+      actorUserId: req.user?.id,
+    });
     res.json({ success: true, deleted: result.affectedRows > 0, childrenDeleted: childIds.length });
   } catch (error) {
     if (connection) await connection.rollback();
@@ -780,7 +859,7 @@ router.post('/:id/checkups', async (req, res) => {
     const { id } = req.params;
     const b = req.body || {};
     const [motherRows] = await pool.query(
-      `SELECT id FROM mothers WHERE (id = ? OR mother_code = ?)${req.groupId ? ' AND group_id = ?' : req.schoolId ? ' AND community_id = ?' : ''} LIMIT 1`,
+      `SELECT id, first_name, last_name, mother_code, community_id, group_id FROM mothers WHERE (id = ? OR mother_code = ?)${req.groupId ? ' AND group_id = ?' : req.schoolId ? ' AND community_id = ?' : ''} LIMIT 1`,
       req.groupId ? [Number(id) || null, id, req.groupId] : req.schoolId ? [Number(id) || null, id, req.schoolId] : [Number(id) || null, id]
     );
     if (!motherRows.length) {
@@ -814,6 +893,10 @@ router.post('/:id/checkups', async (req, res) => {
     const milkQuantityPcs = b.milkQuantity || null;
     const remarks = b.remarks || null;
 
+    const [existingCheckups] = await pool.query(
+      'SELECT id FROM mother_checkups WHERE mother_id = ? AND trimester = ? AND checkup_number = ? LIMIT 1',
+      [motherDbId, trimester, checkupNumber],
+    );
     await pool.query(
       `INSERT INTO mother_checkups (
         mother_id, trimester, checkup_number, checkup_date,
@@ -859,6 +942,21 @@ router.post('/:id/checkups', async (req, res) => {
       )) WHERE id = ?`,
       [motherDbId, motherDbId]
     );
+
+    const motherName = [motherRows[0].first_name, motherRows[0].last_name].filter(Boolean).join(' ');
+    const checkupAction = existingCheckups.length ? 'updated' : 'created';
+    await createSuperadminNotification({
+      eventType: `monitoring.mother.checkup_${checkupAction}`,
+      category: 'Monitoring',
+      title: `Mother check-up ${checkupAction}`,
+      message: `Check-up ${checkupNumber} for ${motherName} was ${checkupAction}.`,
+      entityType: 'mother',
+      entityId: motherDbId,
+      linkTo: `/beneficiary/mother/${motherRows[0].mother_code || motherDbId}/monitoring`,
+      schoolId: motherRows[0].community_id,
+      groupId: motherRows[0].group_id,
+      actorUserId: req.user?.id,
+    });
 
     res.json({ success: true });
   } catch (error) {
