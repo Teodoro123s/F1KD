@@ -3,7 +3,7 @@ import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useMothers } from '../../../context/MothersContext';
 import { formatDateForDisplay } from '../../../utils/dateFormat';
 import { apiDeleteChild } from '../../../api/children';
-import { resolveAssetUrl } from '../../../api/authHeader';
+import { DocumentPreview, DocumentPreviewModal } from '../../../components/DocumentPreview';
 import { useAuth } from '../../../auth/AuthProvider';
 import { can } from '../../../utils/permissions';
 import { capitalizeNameValue } from '../../../utils/nameFormat';
@@ -22,47 +22,6 @@ const ChildField = ({ label, value, className = '' }) => (
     </div>
   </div>
 );
-
-const getDocumentPreviewType = (filePath = '') => {
-  const normalizedPath = String(filePath || '').toLowerCase();
-  if (!normalizedPath) return 'none';
-  if (normalizedPath.endsWith('.pdf')) return 'pdf';
-  if (/\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(normalizedPath)) return 'image';
-  return 'none';
-};
-
-const DocumentPreview = ({ fileName, filePath, label, onPreviewOpen }) => {
-  const normalizedUrl = resolveAssetUrl(filePath);
-  const previewType = getDocumentPreviewType(filePath);
-
-  if (!fileName || !normalizedUrl) {
-    return <span className="document-upload-empty">No document uploaded</span>;
-  }
-
-  return (
-    <div className="document-upload-preview-wrapper">
-      {previewType === 'image' && (
-        <button type="button" className="document-upload-preview-button" onClick={() => onPreviewOpen?.(normalizedUrl, fileName, 'image')}>
-          <img src={normalizedUrl} alt={fileName || label} className="document-upload-preview-image" />
-        </button>
-      )}
-      {previewType === 'pdf' && (
-        <button type="button" className="document-upload-preview-button" onClick={() => onPreviewOpen?.(normalizedUrl, fileName, 'pdf')}>
-          <div className="document-upload-preview-pdf-shell">
-            <object data={normalizedUrl} type="application/pdf" className="document-upload-preview-pdf">
-              <iframe src={normalizedUrl} title={fileName || label} className="document-upload-preview-pdf-frame" />
-            </object>
-          </div>
-        </button>
-      )}
-      {!previewType || previewType === 'none' ? (
-        <a href={normalizedUrl} target="_blank" rel="noreferrer">{fileName}</a>
-      ) : (
-        <button type="button" className="document-upload-filename-link" onClick={() => onPreviewOpen?.(normalizedUrl, fileName, previewType)}>{fileName}</button>
-      )}
-    </div>
-  );
-};
 
 const ChildSection = ({ title, children, fullWidth = false }) => (
   <section className="child-detail-section">
@@ -430,21 +389,7 @@ export default function ChildProfilePage() {
         </ChildSection>
       )}
 
-      {previewDocument && (
-        <div className="document-preview-modal-backdrop" onClick={() => setPreviewDocument(null)}>
-          <div className="document-preview-modal" onClick={(event) => event.stopPropagation()}>
-            <div className="document-preview-modal-header">
-              <strong>{previewDocument.name}</strong>
-              <button type="button" className="document-preview-close" onClick={() => setPreviewDocument(null)}>Close</button>
-            </div>
-            {previewDocument.type === 'image' ? (
-              <img src={previewDocument.url} alt={previewDocument.name} className="document-preview-modal-image" />
-            ) : (
-              <iframe src={previewDocument.url} title={previewDocument.name} className="document-preview-modal-frame" />
-            )}
-          </div>
-        </div>
-      )}
+      <DocumentPreviewModal document={previewDocument} onClose={() => setPreviewDocument(null)} />
       </>)}
     </section>
   ));
