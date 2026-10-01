@@ -10,7 +10,8 @@ function firstNonEmpty(...values) {
       return value;
     }
   }
-  return '';
+  const fallback = values[values.length - 1];
+  return fallback === undefined ? '' : fallback;
 }
 
 function parseJsonObject(value) {
@@ -653,6 +654,9 @@ router.put('/:id', async (req, res) => {
       }
     }
     const optionalValue = (value, fallback) => (value === undefined ? fallback : value ?? '');
+    const optionalNumber = (value, fallback) => (
+      value === undefined || value === null || value === '' ? fallback : value
+    );
     const update = {
       first_name: firstNonEmpty(b.firstName, b.first_name, current.first_name),
       middle_name: firstNonEmpty(b.middleName, b.middle_name, current.middle_name),
@@ -679,10 +683,10 @@ router.put('/:id', async (req, res) => {
       prenatal_height: b.prenatalHeight || b.prenatal_height || current.prenatal_height || null,
       fundal_height: b.fundalHeight || b.fundal_height || current.fundal_height || null,
       fhr: b.fhr || current.fhr || null,
-      gravida: b.gravida ?? current.gravida ?? null,
-      para: b.para ?? current.para ?? null,
-      abortion: b.abortion ?? current.abortion ?? 0,
-      stillbirth: b.stillbirth ?? current.stillbirth ?? 0,
+      gravida: optionalNumber(b.gravida, current.gravida ?? null),
+      para: optionalNumber(b.para, current.para ?? null),
+      abortion: optionalNumber(b.abortion, current.abortion ?? 0),
+      stillbirth: optionalNumber(b.stillbirth, current.stillbirth ?? 0),
       weight: b.weight || current.weight || null,
       height: b.height || current.height || null,
       is_high_risk: b.isHighRisk === 'Yes' || b.is_high_risk === true || b.is_high_risk === 1 ? 1 : 0,

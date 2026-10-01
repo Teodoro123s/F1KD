@@ -401,7 +401,8 @@ router.get('/', async (req, res) => {
         if (params.groupId) { benefitConditions.push('COALESCE(m.group_id, c.group_id) = ?'); benefitValues.push(params.groupId); }
         if (params.batchId) { benefitConditions.push('COALESCE(m.batch_id, c.batch_id) = ?'); benefitValues.push(params.batchId); }
         const [benefitRows] = await pool.query(
-          `SELECT ml.beneficiary_id, LOWER(ml.beneficiary_type) AS beneficiary_type,
+            `SELECT COALESCE(CAST(m.id AS CHAR), CAST(c.id AS CHAR), CAST(ml.beneficiary_id AS CHAR)) AS beneficiary_id,
+              LOWER(ml.beneficiary_type) AS beneficiary_type,
                   COUNT(*) AS total_received,
                   COUNT(DISTINCT DATE_FORMAT(ml.monitored_date, '%Y-%m')) AS active_months
            FROM monitoring_logs ml
@@ -409,7 +410,8 @@ router.get('/', async (req, res) => {
            LEFT JOIN mothers m ON LOWER(ml.beneficiary_type) = 'mother' AND (CAST(ml.beneficiary_id AS CHAR) = CAST(m.id AS CHAR) OR LOWER(TRIM(CAST(ml.beneficiary_id AS CHAR))) = LOWER(TRIM(CAST(m.mother_code AS CHAR))))
            LEFT JOIN children c ON LOWER(ml.beneficiary_type) = 'child' AND (CAST(ml.beneficiary_id AS CHAR) = CAST(c.id AS CHAR) OR LOWER(TRIM(CAST(ml.beneficiary_id AS CHAR))) = LOWER(TRIM(CAST(c.child_code AS CHAR))))
            WHERE ${benefitConditions.join(' AND ')}
-           GROUP BY ml.beneficiary_id, LOWER(ml.beneficiary_type)`,
+           GROUP BY COALESCE(CAST(m.id AS CHAR), CAST(c.id AS CHAR), CAST(ml.beneficiary_id AS CHAR)),
+                    LOWER(ml.beneficiary_type)`,
           benefitValues,
         );
         const benefitMap = new Map(benefitRows.map((row) => [`${row.beneficiary_type}:${String(row.beneficiary_id)}`, row]));
