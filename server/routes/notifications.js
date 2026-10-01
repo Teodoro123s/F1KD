@@ -6,8 +6,6 @@ const { authorize } = require('../middleware/authorize');
 const { getNotificationScope } = require('../services/notificationAccess');
 const { createSuperadminNotification } = require('../services/notifications');
 
-const { seedNotificationSamples } = require('../services/notificationSeed');
-
 router.use(verifyToken);
 
 router.get('/', authorize('super_admin', 'admin', 'community_coordinator', 'partner', 'health_worker'), async (req, res) => {
@@ -99,16 +97,6 @@ router.get('/', authorize('super_admin', 'admin', 'community_coordinator', 'part
   } catch (error) {
     console.error('[Notifications API] GET / error:', error.message);
     res.status(500).json({ error: 'Unable to load notifications' });
-  }
-});
-
-router.post('/seed-sample', authorize('super_admin', 'community_coordinator'), async (req, res) => {
-  try {
-    const result = await seedNotificationSamples(pool, req.user);
-    res.json({ success: true, count: result.count, message: 'Sample notification data generated successfully.' });
-  } catch (error) {
-    console.error('[Notifications API] POST /seed-sample error:', error.message);
-    res.status(500).json({ error: error.message || 'Unable to seed sample notifications' });
   }
 });
 

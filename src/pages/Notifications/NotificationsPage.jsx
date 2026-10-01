@@ -4,8 +4,7 @@ import PageHeader from '../../components/ui/PageHeader';
 import CommunityTable from '../Community/CommunityTable';
 import CommunityPagination from '../Community/components/CommunityPagination';
 import { SearchIcon } from '../Community/CommunityIcons';
-import { apiGetNotifications, apiSeedSampleNotifications } from '../../api/notifications';
-import { notifyAction } from '../../components/ActionFeedback';
+import { apiGetNotifications } from '../../api/notifications';
 import { useAuth } from '../../auth/AuthProvider';
 import { hasRole, isHealthWorkerRole, ROLES } from '../../utils/permissions';
 
@@ -16,7 +15,6 @@ export default function NotificationsPage() {
   const { currentUser } = useAuth();
   const isHealthWorker = isHealthWorkerRole(currentUser?.role);
   const isSuperAdmin = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]);
-  const canSeedSamples = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN, ROLES.COMMUNITY_COORDINATOR]);
   const categories = isHealthWorker
     ? ['All', 'Monitoring', 'Beneficiaries']
     : isSuperAdmin
@@ -30,9 +28,7 @@ export default function NotificationsPage() {
   const [notifications, setNotifications] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [seeding, setSeeding] = useState(false);
   const [error, setError] = useState('');
-  const [refreshIndex, setRefreshIndex] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -54,21 +50,7 @@ export default function NotificationsPage() {
         if (active) setLoading(false);
       });
     return () => { active = false; };
-  }, [page, perPage, query, selectedCategory, refreshIndex]);
-
-  const handleSeedSamples = async () => {
-    try {
-      setSeeding(true);
-      const result = await apiSeedSampleNotifications();
-      notifyAction(result?.message || 'Sample notifications added successfully.');
-      setPage(1);
-      setRefreshIndex((prev) => prev + 1);
-    } catch (err) {
-      notifyAction(err.message || 'Failed to add sample notifications.', 'error');
-    } finally {
-      setSeeding(false);
-    }
-  };
+  }, [page, perPage, query, selectedCategory]);
 
   const pageCount = Math.max(1, Math.ceil(total / perPage));
   const currentPage = Math.min(page, pageCount);
@@ -137,16 +119,6 @@ export default function NotificationsPage() {
       <PageHeader
         title="Notifications"
         breadcrumbs={[{ label: 'Community', href: '/community' }, { label: 'Notifications' }]}
-        actionButton={canSeedSamples && (
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={handleSeedSamples}
-            disabled={seeding}
-          >
-            {seeding ? 'Adding sample data...' : '+ Add sample data'}
-          </button>
-        )}
       />
 
       <section className="subheader-row" style={{ alignItems: 'center', gap: '1rem' }}>

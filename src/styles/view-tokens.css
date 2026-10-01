@@ -270,6 +270,11 @@
   box-shadow: none;
 }
 
+.view-content :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 3px solid rgba(21, 128, 61, 0.45);
+  outline-offset: 2px;
+}
+
 .view-content .table-card,
 .view-content .program-table-card,
 .view-content .monitoring-table-card,

@@ -7,6 +7,8 @@ services:
       MARIADB_USER: ${DB_USER:-f1kd_app}
       MARIADB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in the root .env file}
       MARIADB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in the root .env file}
+    ports:
+      - "127.0.0.1:${DB_PORT:-3306}:3306"
     volumes:
       - mariadb-data:/var/lib/mysql
     healthcheck:
@@ -25,6 +27,7 @@ services:
     volumes:
       - minio-data:/data
     ports:
+      - "127.0.0.1:${MINIO_PORT:-9000}:9000"
       - "127.0.0.1:${MINIO_CONSOLE_PORT:-9001}:9001"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]

@@ -20,10 +20,6 @@ export function apiGetNotifications({ page = 1, perPage = 10, search = '', categ
   return requestNotifications(`/api/notifications?${params.toString()}`);
 }
 
-export function apiSeedSampleNotifications() {
-  return requestNotifications('/api/notifications/seed-sample', { method: 'POST' });
-}
-
 export function apiRecordReportDownload() {
   return requestNotifications('/api/notifications/download-success', {
     method: 'POST',

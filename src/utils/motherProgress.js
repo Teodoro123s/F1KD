@@ -8,13 +8,17 @@ const hasMeaningfulValue = (value) => {
   return true;
 };
 const firstMeaningfulValue = (...values) => values.find(hasMeaningfulValue);
+const hasDocumentReference = (mother, nameKeys, pathKeys) => (
+  hasMeaningfulValue(firstMeaningfulValue(...nameKeys.map((key) => mother?.[key])))
+  && hasMeaningfulValue(firstMeaningfulValue(...pathKeys.map((key) => mother?.[key])))
+);
 
 export function getMotherDocumentProgress(mother = {}) {
   const documentGroups = [
-    ['birthCertificate', ['birthCertificateDocumentName', 'birth_certificate_document_name', 'birthCertificateDocumentPath', 'birth_certificate_document_path']],
-    ['consent', ['consentDocumentName', 'consent_document_name', 'consentDocumentPath', 'consent_document_path']],
+    ['birthCertificate', ['birthCertificateDocumentName', 'birth_certificate_document_name'], ['birthCertificateDocumentPath', 'birth_certificate_document_path']],
+    ['consent', ['consentDocumentName', 'consent_document_name'], ['consentDocumentPath', 'consent_document_path']],
   ];
-  const completed = documentGroups.filter(([, keys]) => hasMeaningfulValue(firstMeaningfulValue(...keys.map((key) => mother?.[key])))).length;
+  const completed = documentGroups.filter(([, nameKeys, pathKeys]) => hasDocumentReference(mother, nameKeys, pathKeys)).length;
 
   return {
     completed,

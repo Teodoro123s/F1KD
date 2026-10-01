@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { normalizeRole, authorizeOperational } = require('../middleware/authorize');
+const { normalizeRole, authorizeOperational, authorizeProgressReport } = require('../middleware/authorize');
 
 test('normalizeRole maps common role labels to canonical values', () => {
   assert.equal(normalizeRole('Super Admin'), 'super_admin');
@@ -8,6 +8,38 @@ test('normalizeRole maps common role labels to canonical values', () => {
   assert.equal(normalizeRole('Community Organizer'), 'community_coordinator');
   assert.equal(normalizeRole('Community Coordinator'), 'community_coordinator');
   assert.equal(normalizeRole('Health worker'), 'health_worker');
+});
+
+test('authorizeProgressReport denies admin and partner while preserving other operational roles', () => {
+  for (const role of ['Admin', 'Partner']) {
+    let called = false;
+    const req = { user: { role } };
+    const res = {
+      status(code) {
+        this.code = code;
+        return this;
+      },
+      json(payload) {
+        this.payload = payload;
+        return this;
+      },
+    };
+
+    authorizeProgressReport(req, res, () => {
+      called = true;
+    });
+
+    assert.equal(called, false);
+    assert.equal(res.code, 403);
+  }
+
+  for (const role of ['Community Coordinator', 'Health worker']) {
+    let called = false;
+    authorizeProgressReport({ user: { role } }, {}, () => {
+      called = true;
+    });
+    assert.equal(called, true);
+  }
 });
 
 test('authorizeOperational denies scoped users without a school assignment to prevent data leaks', () => {

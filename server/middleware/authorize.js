@@ -151,9 +151,18 @@ function authorizeOperational(req, res, next) {
   return next();
 }
 
+function authorizeProgressReport(req, res, next) {
+  const userRole = normalizeRole(req.user?.role);
+  if (userRole === 'admin' || userRole === 'partner') {
+    return permissionResponse(res, 'Admin and Partner accounts cannot access progress reports');
+  }
+  return next();
+}
+
 module.exports = {
   authorize,
   authorizeOperational,
+  authorizeProgressReport,
   normalizeRole,
   isHealthWorkerRole,
   isCommunityCoordinatorRole,

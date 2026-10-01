@@ -35,6 +35,7 @@ const OPERATIONAL_ROLES = [
   ROLES.PARTNER,
   ROLES.HEALTH_WORKER,
 ];
+const PROGRESS_REPORT_ROLES = [ROLES.COMMUNITY_COORDINATOR, ROLES.HEALTH_WORKER];
 const BENEFICIARY_MUTATION_ROLES = [ROLES.COMMUNITY_COORDINATOR, ROLES.ADMIN, ROLES.PARTNER];
 
 function RequireAuth({ children }) {
@@ -87,7 +88,7 @@ export default function App() {
         <Route path="program/:programId/batch/:batchId" element={<RoleBasedRoute allowedRoles={OPERATIONAL_ROLES}><Program /></RoleBasedRoute>} />
         <Route path="program/:programId" element={<RoleBasedRoute allowedRoles={OPERATIONAL_ROLES}><Program /></RoleBasedRoute>} />
         <Route path="program/:programId/cluster/:clusterType/:clusterName" element={<RoleBasedRoute allowedRoles={OPERATIONAL_ROLES}><Program /></RoleBasedRoute>} />
-        <Route path="progress-report" element={<RoleBasedRoute allowedRoles={OPERATIONAL_ROLES}><ProgressReport /></RoleBasedRoute>} />
+        <Route path="progress-report" element={<RoleBasedRoute allowedRoles={PROGRESS_REPORT_ROLES}><ProgressReport /></RoleBasedRoute>} />
         <Route path="user-management" element={<RoleBasedRoute allowedRoles={[ROLES.SUPER_ADMIN]}><UserManagementPage /></RoleBasedRoute>} />
         <Route path="user-management/school/:schoolId" element={<RoleBasedRoute allowedRoles={[ROLES.SUPER_ADMIN]}><UserManagementPage /></RoleBasedRoute>} />
         <Route path="user-management/batch/:batchId" element={<RoleBasedRoute allowedRoles={[ROLES.SUPER_ADMIN]}><UserManagementPage /></RoleBasedRoute>} />
