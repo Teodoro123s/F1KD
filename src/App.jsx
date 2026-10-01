@@ -16,6 +16,7 @@ import UserDetailPage from './pages/UserManagement/UserDetailPage';
 import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
 import NotificationsPage from './pages/Notifications/NotificationsPage';
+import DashboardsPage from './pages/Dashboards/DashboardsPage';
 import Login from './pages/Login';
 import { useAuth } from './auth/AuthProvider';
 import RoleBasedRoute from './components/RoleBasedRoute';
@@ -64,6 +65,7 @@ export default function App() {
       }
       >
         <Route path="community" element={<RoleBasedRoute allowedRoles={COMMUNITY_ROLES}><CommunityModulePage /></RoleBasedRoute>} />
+        <Route path="dashboard" element={<RoleBasedRoute allowedRoles={[...COMMUNITY_ROLES, ...OPERATIONAL_ROLES]}><DashboardsPage /></RoleBasedRoute>} />
         <Route path="community/school/:schoolId" element={<RoleBasedRoute allowedRoles={COMMUNITY_ROLES}><CommunityModulePage /></RoleBasedRoute>} />
         <Route path="community/group/:groupId" element={<RoleBasedRoute allowedRoles={COMMUNITY_ROLES}><CommunityModulePage /></RoleBasedRoute>} />
         <Route path="community/group/:groupId/health-workers" element={<RoleBasedRoute allowedRoles={COMMUNITY_ROLES}><CommunityModulePage /></RoleBasedRoute>} />

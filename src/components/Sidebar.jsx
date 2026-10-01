@@ -3,9 +3,10 @@ import { NavLink } from 'react-router-dom';
 import logo from '../assets/f1kd-logo.png';
 import { useAuth } from '../auth/AuthProvider';
 import { ROLES, hasRole } from '../utils/permissions';
-import { ActivityIcon, BatchesIcon, BuildingIcon, GroupsIcon, UsersIcon } from '../pages/Community/CommunityIcons';
+import { ActivityIcon, BatchesIcon, BuildingIcon, DashboardIcon, GroupsIcon, UsersIcon } from '../pages/Community/CommunityIcons';
 
 const items = [
+  { to: '/dashboard', label: 'Dashboard', icon: DashboardIcon },
   { to: '/community', label: 'Community', icon: BuildingIcon },
   { to: '/beneficiary', label: 'Beneficiary', icon: UsersIcon },
   { to: '/monitoring', label: 'Monitor', icon: ActivityIcon },
@@ -19,7 +20,7 @@ export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const isSuperAdmin = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]);
   const visibleItems = isSuperAdmin
-    ? items.filter((item) => ['/community', '/user-management'].includes(item.to))
+    ? items.filter((item) => ['/dashboard', '/community', '/user-management'].includes(item.to))
     : items.filter((item) => item.to !== '/user-management');
 
   return (
