@@ -89,9 +89,7 @@ export default function CreateChildPage({
   const [selectedMotherId, setSelectedMotherId] = useState(() => {
     try { return motherFromState?.id || motherFromState?.motherId || JSON.parse(localStorage.getItem(CHILD_DRAFT_KEY) || 'null')?.selectedMotherId || ''; } catch (error) { return motherFromState?.id || motherFromState?.motherId || ''; }
   });
-  const [createActiveTab, setCreateActiveTab] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(CHILD_DRAFT_KEY) || 'null')?.activeTab || 'general'; } catch (error) { return 'general'; }
-  });
+  const [createActiveTab, setCreateActiveTab] = useState('general');
   const CREATE_STEPS = ['general', 'prenatal', 'medical_dental', 'vaccine'];
   const createActiveIndex = CREATE_STEPS.indexOf(createActiveTab) >= 0 ? CREATE_STEPS.indexOf(createActiveTab) : 0;
 
@@ -112,11 +110,11 @@ export default function CreateChildPage({
 
   useEffect(() => {
     try {
-      localStorage.setItem(CHILD_DRAFT_KEY, JSON.stringify({ form: groupForm, selectedMotherId, activeTab: createActiveTab }));
+      localStorage.setItem(CHILD_DRAFT_KEY, JSON.stringify({ form: groupForm, selectedMotherId }));
     } catch (error) {
       console.warn('[CreateChildPage] Unable to save form draft:', error);
     }
-  }, [groupForm, selectedMotherId, createActiveTab]);
+  }, [groupForm, selectedMotherId]);
 
   useEffect(() => {
     if (!showRequiredValidation || createActiveTab !== 'general') return;
@@ -433,7 +431,7 @@ export default function CreateChildPage({
             else navigate('/beneficiary');
           }}>Cancel</button>
           {createActiveTab !== 'general' && (
-              <button type="button" className="btn-secondary btn-back" onClick={() => {
+              <button type="button" className="btn-secondary btn-back back-action" onClick={() => {
                 if (createActiveTab === 'vaccine') setCreateActiveTab('medical_dental');
                 else if (createActiveTab === 'medical_dental') setCreateActiveTab('prenatal');
                 else setCreateActiveTab('general');

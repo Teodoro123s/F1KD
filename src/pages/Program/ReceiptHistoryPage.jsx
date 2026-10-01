@@ -144,7 +144,6 @@ export default function ReceiptHistoryPage() {
     }
     receivedByDate.set(key, existing);
   });
-  const selectedReceipts = selectedDate ? receivedByDate.get(selectedDate) || [] : [];
   const days = calendarDays(calendarMonth);
 
   const openReceiptModal = (date = monitorDate, defaultMonitored = false) => {
@@ -177,6 +176,12 @@ export default function ReceiptHistoryPage() {
       setMonitorDate(receiptModal.date);
       setSelectedDate(receiptModal.monitored ? receiptModal.date : null);
       setReceiptModal(null);
+      const targetNames = targets.map((target) => isClusterHistory
+        ? clusterRecipients.find((recipient) => getRecipientKey(recipient) === getRecipientKey(target))?.name
+        : beneficiaryName).filter(Boolean);
+      const receiptCount = targets.length;
+      const receiptLabel = receiptCount === 1 ? 'beneficiary' : 'beneficiaries';
+      notifyAction(`${formatDateForDisplay(receiptModal.date)} · ${receiptCount} ${receiptLabel} marked ${receiptModal.monitored ? 'received' : 'not received'}${targetNames.length ? `: ${targetNames.join(', ')}` : ''}.`);
       await loadHistory();
     } catch (saveError) {
       const message = saveError.message || 'Unable to save receipt status.';
@@ -199,7 +204,7 @@ export default function ReceiptHistoryPage() {
             <p className="program-section-eyebrow">Receipt history</p>
             <h2 id="receipt-history-title">{beneficiaryName}</h2>
           </div>
-          <button type="button" className="view-btn view-btn--secondary" onClick={() => navigate(-1)}>Back to program</button>
+          <button type="button" className="view-btn view-btn--secondary back-action" onClick={() => navigate(-1)}>Back to program</button>
         </div>
         {!loading && <div className="program-receipt-controls">
           <div className="program-receipt-controls-actions"><button type="button" className="view-btn view-btn--primary" onClick={() => openReceiptModal()} disabled={isClusterHistory && recipientsLoading}>Record receipt</button><div className="program-view-toggle" role="tablist" aria-label="Receipt history view"><button type="button" className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>List View</button><button type="button" className={view === 'calendar' ? 'active' : ''} onClick={() => setView('calendar')}>Calendar View</button></div></div>
@@ -211,18 +216,6 @@ export default function ReceiptHistoryPage() {
           <div className="program-calendar-header"><button type="button" className="view-btn view-btn--secondary" onClick={() => setCalendarMonth((date) => new Date(date.getFullYear(), date.getMonth() - 1, 1))}>Previous</button><h3>{monthLabel(calendarMonth)}</h3><button type="button" className="view-btn view-btn--secondary" onClick={() => setCalendarMonth((date) => new Date(date.getFullYear(), date.getMonth() + 1, 1))}>Next</button></div>
           <div className="program-calendar-weekdays">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => <span key={day}>{day}</span>)}</div>
           <div className="program-calendar-grid">{days.map((day) => { const key = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`; const receipt = receivedByDate.get(key) || []; return <button type="button" key={key} className={`program-calendar-day${day.getMonth() !== calendarMonth.getMonth() ? ' muted' : ''}${receipt.length ? ' received' : ''}${selectedDate === key ? ' selected' : ''}`} onClick={() => openReceiptModal(key, true)}><span>{day.getDate()}</span>{receipt.length > 0 && <strong>{receipt.length > 1 ? `${receipt.length} Yes` : 'Yes'}</strong>}</button>; })}</div>
-          {selectedReceipts.length ? <div className="program-calendar-detail">
-                <strong>{formatDateForDisplay(selectedDate)}</strong>
-            <span>{selectedReceipts.length} received on this date</span>
-            {selectedReceipts.map((selectedReceipt, index) => (
-              <div key={`${selectedDate}-${selectedReceipt.beneficiary_id || index}`}>
-                <span>{selectedReceipt.program_name}</span>
-                {isClusterHistory && <span>Beneficiary: {selectedReceipt.beneficiary_name || selectedReceipt.beneficiary_id || 'Unknown beneficiary'}</span>}
-                {isClusterHistory && <><span>School: {selectedReceipt.school_name || 'Unknown school'}</span><span>Group: {selectedReceipt.group_name || 'Unknown group'}</span><span>Batch: {selectedReceipt.batch_name || 'Unknown batch'}</span></>}
-                <span>Recorded by {selectedReceipt.monitored_by_name || 'Unknown'}</span>
-              </div>
-            ))}
-          </div> : <p className="program-calendar-empty">{filteredRows.some((row) => row.monitored) ? 'Select a highlighted date to view receipt details.' : 'No receipt history found.'}</p>}
         </div>}
         {receiptModal && <div className="modal-backdrop" role="presentation" onClick={() => !savingReceipt && setReceiptModal(null)}><div className="program-receipt-modal" role="dialog" aria-modal="true" aria-labelledby="receipt-modal-title" onClick={(event) => event.stopPropagation()}><div className="program-receipt-modal-header"><h3 id="receipt-modal-title">Record program receipt</h3><button type="button" className="document-preview-close" onClick={() => setReceiptModal(null)} disabled={savingReceipt}>Close</button></div><form onSubmit={saveReceipt}><label htmlFor="receipt-date">Date<DateInput id="receipt-date" className="form-input" value={receiptModal.date} onChange={(value) => setReceiptModal((current) => ({ ...current, date: value }))} required disabled={savingReceipt} ariaLabel="Receipt date" /></label>{isClusterHistory && <fieldset className="receipt-beneficiary-selection" disabled={savingReceipt || recipientsLoading}><legend>Beneficiaries ({selectedRecipientKeys.length}/{clusterRecipients.length})</legend><label className="receipt-beneficiary-select-all"><input type="checkbox" checked={clusterRecipients.length > 0 && selectedRecipientKeys.length === clusterRecipients.length} onChange={(event) => setSelectedRecipientKeys(event.target.checked ? clusterRecipients.map(getRecipientKey) : [])} /><span>Select all in this {clusterType}</span></label><div className="receipt-beneficiary-list">{clusterRecipients.length ? clusterRecipients.map((recipient) => { const key = getRecipientKey(recipient); return <label key={key} className="receipt-beneficiary-option"><input type="checkbox" checked={selectedRecipientKeys.includes(key)} onChange={(event) => setSelectedRecipientKeys((current) => event.target.checked ? [...current, key] : current.filter((value) => value !== key))} /><span>{recipient.name || `${recipient.type} ${recipient.id}`}</span></label>; }) : <p className="receipt-beneficiary-empty">No beneficiaries found in this {clusterType}.</p>}</div></fieldset>}<label>Received this program item?<select value={receiptModal.monitored ? 'yes' : 'no'} onChange={(event) => setReceiptModal((current) => ({ ...current, monitored: event.target.value === 'yes' }))}><option value="yes">Yes</option><option value="no">No</option></select></label><div className="program-receipt-modal-actions"><button type="button" className="view-btn view-btn--secondary" onClick={() => setReceiptModal(null)} disabled={savingReceipt}>Cancel</button><button type="submit" className="view-btn view-btn--primary" disabled={savingReceipt || (isClusterHistory && recipientsLoading)}>{savingReceipt ? 'Saving...' : 'Save status'}</button></div></form></div></div>}
       </section>

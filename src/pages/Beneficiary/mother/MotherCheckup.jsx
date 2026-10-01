@@ -299,7 +299,7 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
             {isSkipped && <p className="checkup-state-message">This visit was skipped based on gestational age at registration.</p>}
             <div className="checkup-grid">
               <div className="form-group full-width">
-                <label className="checkup-field-label" htmlFor="checkup-date">Check-up Date</label>
+                <label className="checkup-field-label is-required" htmlFor="checkup-date">Check-up Date</label>
                   <DateInput
                     id="checkup-date"
                     className="checkup-field-input"
@@ -327,7 +327,7 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
               </div>
 
               <div className="form-group">
-                <label className="checkup-field-label" htmlFor="weight">Weight (kg)</label>
+                <label className="checkup-field-label is-required" htmlFor="weight">Weight (kg)</label>
                 <input
                   id="weight"
                   type="number"
@@ -353,7 +353,7 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
               </div>
 
               <div className="form-group">
-                <label className="checkup-field-label" htmlFor="bp">Blood Pressure</label>
+                <label className="checkup-field-label is-required" htmlFor="bp">Blood Pressure</label>
                 <input
                   id="bp"
                   type="text"
@@ -518,33 +518,6 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
                   </div>
                 </div>
 
-                <div className="checkup-section-title">Milk Subsidy</div>
-                <div className="checkup-grid">
-                  <div className="form-group">
-                    <label className="checkup-field-label" htmlFor="milk-date">Milk Subsidy Date</label>
-                    <DateInput
-                      id="milk-date"
-                      className="checkup-field-input"
-                      value={milkDate}
-                      onChange={updateField('milkDate')}
-                      ariaLabel="Milk subsidy date"
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="checkup-field-label" htmlFor="milk-quantity">Milk Quantity (pcs)</label>
-                    <input
-                      id="milk-quantity"
-                      type="number"
-                      className="checkup-field-input"
-                      value={milkQuantity}
-                      min="0"
-                      step="1"
-                      placeholder="e.g. 1"
-                      onChange={(e) => updateField('milkQuantity')(e.target.value)}
-                    />
-                  </div>
-                </div>
               </>
             ) : (
               <div className="checkup-grid" style={{ marginTop: '16px' }}>

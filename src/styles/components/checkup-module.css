@@ -562,7 +562,7 @@ textarea.checkup-field-input { min-height: 88px; line-height: 1.45; resize: vert
   cursor: pointer;
 }
 
-.child-monitor-week:hover {
+.child-monitor-week:hover:not(.at-risk):not(.needs-follow-up) {
   border-color: var(--burgundy);
   background: var(--burgundy);
   color: #fff;
@@ -581,6 +581,34 @@ textarea.checkup-field-input { min-height: 88px; line-height: 1.45; resize: vert
   background: #15803d;
   color: #fff;
   box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.2);
+}
+
+.child-monitor-week.at-risk,
+.child-monitor-week.at-risk:hover {
+  border-color: #b42318;
+  background: #fef2f2;
+  color: #b42318;
+}
+
+.child-monitor-week.needs-follow-up,
+.child-monitor-week.needs-follow-up:hover {
+  border-color: #d97706;
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.child-monitor-week.active.at-risk,
+.child-monitor-week.active.at-risk:hover {
+  background: #b42318;
+  color: #fff;
+  box-shadow: 0 0 0 3px rgba(180, 35, 24, 0.2);
+}
+
+.child-monitor-week.active.needs-follow-up,
+.child-monitor-week.active.needs-follow-up:hover {
+  background: #d97706;
+  color: #fff;
+  box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.2);
 }
 
 .child-monitor-form {

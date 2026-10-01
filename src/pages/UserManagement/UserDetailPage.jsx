@@ -132,7 +132,7 @@ export default function UserDetailPage() {
         actions={(
           <>
             <button type="button" className="view-btn view-btn--primary" onClick={handleEdit}>Edit</button>
-            <button type="button" className="view-btn view-btn--secondary" onClick={() => navigate(-1)}>Back</button>
+            <button type="button" className="view-btn view-btn--secondary back-action" onClick={() => navigate(-1)}>Back</button>
           </>
         )}
       />

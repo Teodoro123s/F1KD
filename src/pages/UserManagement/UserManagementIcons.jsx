@@ -36,6 +36,22 @@ export const FilterIcon = () => (
   </svg>
 );
 
+export const UserRoleIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: '1.1rem', height: '1.1rem' }}>
+    <circle cx="9" cy="8" r="3.5" />
+    <path d="M2.5 20a6.5 6.5 0 0 1 13 0" />
+    <path d="m17 11 1.5 1.5L21.5 9" />
+  </svg>
+);
+
+export const SchoolIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: '1.1rem', height: '1.1rem' }}>
+    <path d="m3 9 9-6 9 6" />
+    <path d="M5 10v10h14V10" />
+    <path d="M9 20v-5h6v5M8 11h.01M12 11h.01M16 11h.01" />
+  </svg>
+);
+
 export const PlusIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
     <line x1="12" y1="5" x2="12" y2="19" />

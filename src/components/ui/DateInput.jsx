@@ -50,6 +50,10 @@ export default function DateInput({
     }
   };
 
+  const handleKeyDown = (event) => {
+    if (event.key === 'Enter') commitDraft();
+  };
+
   const openPicker = () => {
     if (disabled || readOnly) return;
     const picker = pickerRef.current;
@@ -69,6 +73,7 @@ export default function DateInput({
         className={className}
         value={draft}
         onChange={(event) => updateDraft(event.target.value)}
+        onKeyDown={handleKeyDown}
         onBlur={commitDraft}
         placeholder="DD/MM/YYYY"
         required={required}

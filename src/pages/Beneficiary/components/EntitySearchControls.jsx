@@ -3,6 +3,9 @@ import { SearchIcon } from '../BeneficiaryIcons';
 
 export default function EntitySearchControls({
   selectedEntityFilter,
+  communities = [],
+  selectedCommunity = '',
+  onCommunityChange,
   query,
   onEntityToggle,
   onEntityChange,
@@ -22,6 +25,17 @@ export default function EntitySearchControls({
         <option value="Mother">Mother</option>
         <option value="Child">Child</option>
       </select>
+      {communities.length > 0 && onCommunityChange && (
+        <select
+          className="entity-filter-btn"
+          value={selectedCommunity}
+          onChange={(event) => onCommunityChange(event.target.value)}
+          aria-label="Filter beneficiaries by community"
+        >
+          <option value="">All communities</option>
+          {communities.map((community) => <option key={community.id || community.name} value={community.name}>{community.name}</option>)}
+        </select>
+      )}
       <div className="search-container">
         <div className="search-field-container">
           <SearchIcon />

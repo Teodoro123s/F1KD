@@ -1,11 +1,11 @@
 import React from 'react';
 
-export default function ConfirmModal({ show, message, onConfirm, onCancel }) {
+export default function ConfirmModal({ show, message, onConfirm, onCancel, className = '' }) {
   if (!show) return null;
 
   return (
     <div className="modal-backdrop" onClick={onCancel}>
-      <div className="modal-content" onClick={(event) => event.stopPropagation()}>
+      <div className={`modal-content ${className}`.trim()} onClick={(event) => event.stopPropagation()}>
         <div className="modal-header-section">
           <h3>Confirm action</h3>
           <button className="btn-close-modal" onClick={onCancel} aria-label="Close confirmation">

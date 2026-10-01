@@ -482,7 +482,9 @@ router.get('/', async (req, res) => {
     const motherIds = normalizedRows.map((row) => row.motherId).filter(Boolean);
     if (params.granularity === 'mother' && motherIds.length) {
       const [checkupRows] = await pool.query(
-        `SELECT mother_id, checkup_date, gestational_age_weeks, bmi
+        `SELECT mother_id, checkup_date, gestational_age_weeks, bmi,
+          referred_to_hospital, lab_assistance_provided, assistance_amount,
+          source_of_funds, facility_type
          FROM mother_checkups
          WHERE mother_id IN (${motherIds.map(() => '?').join(',')})
            AND checkup_date IS NOT NULL
@@ -501,6 +503,13 @@ router.get('/', async (req, res) => {
           weight: null,
           height: null,
           bmi: Number.isFinite(bmi) && bmi > 0 ? bmi : null,
+          hospitalReferral: Boolean(checkup.referred_to_hospital),
+          labAssistanceProvided: Boolean(checkup.lab_assistance_provided),
+          assistanceAmount: checkup.assistance_amount === null || checkup.assistance_amount === undefined
+            ? null
+            : Number(checkup.assistance_amount),
+          sourceOfFunds: checkup.source_of_funds || '',
+          facilityType: checkup.facility_type || '',
         });
         seriesByMother.set(checkup.mother_id, series);
       });

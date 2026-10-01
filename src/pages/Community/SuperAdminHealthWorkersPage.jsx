@@ -49,7 +49,7 @@ export default function SuperAdminHealthWorkersPage() {
           { label: schoolName, to: group ? `/community/school/${group.communityId || ''}` : '/community' },
           { label: group?.name || 'Group' },
         ]}
-        actions={<Link className="view-btn view-btn--secondary" to={group ? `/community/group/${group.id}` : '/community'}>Back to Group</Link>}
+        actions={<Link className="view-btn view-btn--secondary back-action" to={group ? `/community/group/${group.id}` : '/community'}>Back to Group</Link>}
       />
       {groupLoading || loading ? <p>Loading health workers...</p> : error ? <p className="error-message">{error}</p> : (
         <CommunityTable

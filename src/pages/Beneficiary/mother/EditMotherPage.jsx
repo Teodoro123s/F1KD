@@ -113,7 +113,7 @@ export default function EditMotherPage() {
     return (
       <div className="edit-mother-page">
         <p>Unable to load mother data for editing. Try opening the mother profile and clicking Edit.</p>
-        <button type="button" onClick={() => navigate(-1)} className="btn-secondary">Back</button>
+        <button type="button" onClick={() => navigate(-1)} className="btn-secondary back-action">Back</button>
       </div>
     );
   }

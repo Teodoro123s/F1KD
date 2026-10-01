@@ -1,5 +1,31 @@
 import React from 'react';
 import { GrowthChart } from './GrowthChart';
+import { formatDateForDisplay } from '../../../utils/dateFormat';
+
+function ReferralAssistanceTable({ rows }) {
+  const visits = rows.flatMap((row) => (row.growthSeries || [])
+    .filter((point) => point.hospitalReferral)
+    .map((point, index) => ({
+      key: `${row.motherId || row.mother}-${point.date || index}`,
+      beneficiary: row.mother || 'Unknown beneficiary',
+      ...point,
+    })))
+    .sort((left, right) => String(right.date || '').localeCompare(String(left.date || '')));
+
+  if (!visits.length) return <p className="growth-report-empty">No hospital referrals are recorded for this date range.</p>;
+
+  return <div className="progress-report-table-shell"><table className="progress-report-table referral-assistance-table">
+    <thead><tr><th>Reported date</th><th>Mother</th><th>Lab assistance</th><th>Assistance amount</th><th>Source of funds</th><th>Facility type</th></tr></thead>
+    <tbody>{visits.map((visit) => <tr key={visit.key}>
+      <td>{formatDateForDisplay(visit.date)}</td>
+      <td>{visit.beneficiary}</td>
+      <td>{visit.labAssistanceProvided ? 'Yes' : 'No'}</td>
+      <td>{visit.assistanceAmount === null || visit.assistanceAmount === undefined ? '—' : `₱${Number(visit.assistanceAmount).toFixed(2)}`}</td>
+      <td>{visit.sourceOfFunds || '—'}</td>
+      <td>{visit.facilityType || '—'}</td>
+    </tr>)}</tbody>
+  </table></div>;
+}
 
 function getHistogramRange(field, beneficiaryType, values) {
   if (beneficiaryType === 'mother' && field === 'initialWeight') return { min: 40, max: 100 };
@@ -398,14 +424,14 @@ export function ResultsGraph({
     : displayReportCategory === 'profile'
       ? selectedProfileField?.[1] || 'Profile Summary'
       : displayBeneficiaryType === 'mother'
-        ? 'BMI'
+        ? selectedGraphMetric === 'hospitalReferral' ? 'Referral to Hospital' : 'BMI'
         : metricLabel.replace(/\s+Z-Score$/i, '').replace(/\s+Interpretation$/i, '');
   const chartSubtitle = displayReportCategory === 'program'
     ? 'Program benefits by group'
     : displayReportCategory === 'profile'
       ? `Profile values for ${selectedProfileField?.[1] || 'selected field'}`
       : displayBeneficiaryType === 'mother'
-        ? 'Latest mother BMI measurements · values are plotted by month'
+        ? selectedGraphMetric === 'hospitalReferral' ? 'Referral and assistance recorded at maternal check-ups' : 'Latest mother BMI measurements · values are plotted by month'
         : 'Weight and length plotted against age in months';
   const profileGraphType = selectedProfileField?.[2] === 'measurement'
     ? 'Scatterplot'
@@ -432,7 +458,7 @@ export function ResultsGraph({
               </label>
               {profileGraphType && <span className="profile-graph-type">{profileGraphType}</span>}
             </>
-          ) : (
+          ) : selectedGraphMetric !== 'hospitalReferral' ? (
             <label className="report-chart-select">
               Y-axis
               <select value={graphMetricType} onChange={(event) => {
@@ -446,7 +472,7 @@ export function ResultsGraph({
                 <option value="numeric">WHO values</option>
               </select>
             </label>
-          )}
+          ) : null}
           {displayReportCategory === 'monitor' && (
             <label className="report-chart-select">
               Date range
@@ -473,6 +499,8 @@ export function ResultsGraph({
             profileGraphFields={availableProfileGraphFields}
             beneficiaryType={displayBeneficiaryType}
           />
+        ) : displayReportCategory === 'monitor' && displayBeneficiaryType === 'mother' && selectedGraphMetric === 'hospitalReferral' ? (
+          <ReferralAssistanceTable rows={graphRows} />
         ) : (
           <GrowthChart rows={graphRows} progressRows={resultsRows} metric={selectedGraphMetric} chartType="line" displayWeeks={displayWeeks} beneficiaryType={displayBeneficiaryType} />
         )}

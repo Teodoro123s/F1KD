@@ -23,7 +23,7 @@ function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitt
             {children}
           </div>
           <div className="modal-footer">
-            <button type="button" className="btn-secondary" onClick={onClose}>Back</button>
+            <button type="button" className="btn-secondary back-action" onClick={onClose}>Back</button>
             <button
               type="submit"
               className="btn-primary"

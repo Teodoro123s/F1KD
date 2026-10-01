@@ -61,7 +61,7 @@ export function GrowthMetricsStep({
         </>
       ) : (
         <>
-          <p>{beneficiaryType === 'mother' ? 'Review mother BMI from Mother Monitoring.' : 'Choose one child growth indicator to display and export:'}</p>
+          <p>{beneficiaryType === 'mother' ? 'Choose a mother monitoring metric to review.' : 'Choose one child growth indicator to display and export:'}</p>
           <div className="growth-metric-cards">
             {availableGrowthMetrics.map(([id, label, description]) => (
               <label key={id} className={growthMetrics.includes(id) ? 'selected' : ''}>

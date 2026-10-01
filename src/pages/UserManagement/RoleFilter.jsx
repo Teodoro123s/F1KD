@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { FilterIcon } from './UserManagementIcons';
+import { SchoolIcon, UserRoleIcon } from './UserManagementIcons';
 
-export default function RoleFilter({ options, selected, onSelect }) {
+export default function RoleFilter({ options, selected, onSelect, filterLabel = 'Role', allLabel = 'All roles' }) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef(null);
 
@@ -23,9 +23,10 @@ export default function RoleFilter({ options, selected, onSelect }) {
         type="button"
         className={`role-filter-button${isOpen ? ' open' : ''}`}
         onClick={() => setIsOpen((open) => !open)}
-        aria-label="Role filter"
+        aria-label={`${filterLabel} filter`}
+        title={`${filterLabel} filter`}
       >
-        <FilterIcon />
+        {filterLabel === 'School' ? <SchoolIcon /> : <UserRoleIcon />}
       </button>
 
       {isOpen && (
@@ -39,22 +40,26 @@ export default function RoleFilter({ options, selected, onSelect }) {
             }}
             role="menuitem"
           >
-            All roles
+            {allLabel}
           </button>
-          {options.map((role) => (
-            <button
-              key={role}
-              type="button"
-              className={`role-filter-item${selected === role ? ' active' : ''}`}
-              onClick={() => {
-                onSelect(role);
-                setIsOpen(false);
-              }}
-              role="menuitem"
-            >
-              {role}
-            </button>
-          ))}
+          {options.map((option) => {
+            const value = typeof option === 'string' ? option : option.value;
+            const label = typeof option === 'string' ? option : option.label;
+            return (
+              <button
+                key={value}
+                type="button"
+                className={`role-filter-item${selected === value ? ' active' : ''}`}
+                onClick={() => {
+                  onSelect(value);
+                  setIsOpen(false);
+                }}
+                role="menuitem"
+              >
+                {label}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

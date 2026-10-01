@@ -482,7 +482,7 @@ export default function ProgressReport() {
     setError('');
   };
   const selectGrowthMetric = (id) => {
-    const nextType = INTERPRETATION_METRICS.has(id) ? 'interpretation' : 'numeric';
+    const nextType = INTERPRETATION_METRICS.has(id) || id === 'hospitalReferral' ? 'interpretation' : 'numeric';
     setGraphMetricType(nextType);
     setGrowthMetrics([id]);
     syncVisibleFieldsForGrowthMetric([id]);

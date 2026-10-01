@@ -138,7 +138,10 @@ export const WHO_NUMERIC_GROWTH_METRICS = [
 ];
 
 export const INTERPRETATION_METRICS = new Set(GROWTH_METRICS.map(([id]) => id));
-export const MOTHER_GROWTH_METRICS = [['bmiForAge', 'BMI', 'Latest BMI recorded by Mother Monitoring.']];
+export const MOTHER_GROWTH_METRICS = [
+  ['bmiForAge', 'BMI', 'Latest BMI recorded by Mother Monitoring.'],
+  ['hospitalReferral', 'Referral to Hospital', 'Review referral and assistance details recorded at maternal check-ups.'],
+];
 
 export const NUMERIC_GROWTH_METRICS = (beneficiaryType = 'child') => beneficiaryType === 'mother'
   ? [['bmiForAge', 'BMI', 'Latest BMI recorded by Mother Monitoring.']]

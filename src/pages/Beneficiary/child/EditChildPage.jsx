@@ -234,7 +234,7 @@ export default function EditChildPage() {
           <div className="modal-footer">
             <button type="button" className="btn-secondary" onClick={() => navigate(-1)} disabled={saving}>Cancel</button>
             {activeTab !== 'general' && (
-              <button type="button" className="btn-secondary btn-back" onClick={handleBackStep} disabled={saving}>Back</button>
+              <button type="button" className="btn-secondary btn-back back-action" onClick={handleBackStep} disabled={saving}>Back</button>
             )}
             {activeTab !== 'vaccine' ? (
               <button type="button" className="btn-primary btn-next" onClick={handleNextStep} disabled={saving}>Next</button>

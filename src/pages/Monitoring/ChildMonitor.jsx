@@ -70,6 +70,11 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
 
   const childName = getChildName(child);
   const savedCheckup = (child?.checkups || []).find((checkup) => Number(checkup.week_number ?? checkup.weekNumber) === week);
+  const getWeekDevelopmentalStatus = (weekNumber) => {
+    if (weekNumber === week) return form.developmentalStatus;
+    const checkup = (child?.checkups || []).find((item) => Number(item.week_number ?? item.weekNumber) === weekNumber);
+    return checkup?.developmental_status ?? checkup?.developmentalStatus ?? '';
+  };
   const firstRecordedCheckup = (child?.checkups || [])
     .map((checkup) => ({
       week: Number(checkup.week_number ?? checkup.weekNumber),
@@ -149,7 +154,7 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
 
   const renderDateField = ({ id, label, name, required = false }) => (
     <div className="form-group full-width">
-      <label className="checkup-field-label" htmlFor={id}>{label}</label>
+      <label className={`checkup-field-label${required ? ' is-required' : ''}`} htmlFor={id}>{label}</label>
       <DateInput
         id={id}
         className="checkup-field-input"
@@ -189,16 +194,21 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
     <section className="child-monitor-page">
       <div className="child-monitor-stepper" aria-label="Child monitoring months">
         {Array.from({ length: TOTAL_MONTHS }, (_, index) => index + 1).map((weekNumber) => (
-          <button
-            type="button"
-            key={weekNumber}
-            className={`child-monitor-week${weekNumber === week ? ' active' : ''}${completedWeeks.includes(weekNumber) ? ' complete' : ''}`}
-            aria-current={weekNumber === week ? 'step' : undefined}
-            onClick={() => setWeek(weekNumber)}
-            aria-label={`Month ${weekNumber}`}
-          >
-            M{weekNumber}
-          </button>
+          (() => {
+            const status = String(getWeekDevelopmentalStatus(weekNumber)).toLowerCase();
+            const statusClass = status === 'at risk' ? ' at-risk' : status === 'needs follow-up' ? ' needs-follow-up' : '';
+            const statusLabel = status === 'at risk' ? ', At Risk' : status === 'needs follow-up' ? ', Needs Follow-up' : '';
+            return <button
+              type="button"
+              key={weekNumber}
+              className={`child-monitor-week${weekNumber === week ? ' active' : ''}${completedWeeks.includes(weekNumber) ? ' complete' : ''}${statusClass}`}
+              aria-current={weekNumber === week ? 'step' : undefined}
+              onClick={() => setWeek(weekNumber)}
+              aria-label={`Month ${weekNumber}${statusLabel}`}
+            >
+              M{weekNumber}
+            </button>;
+          })()
         ))}
       </div>
 
@@ -248,11 +258,11 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
               </select>
             </div>
             <div className="form-group">
-              <label className="checkup-field-label" htmlFor="child-monitor-weight">Weight (kg)</label>
+              <label className="checkup-field-label is-required" htmlFor="child-monitor-weight">Weight (kg)</label>
               <input id="child-monitor-weight" type="number" step="0.1" className="checkup-field-input" value={form.weight} onChange={update('weight')} required readOnly={isReadOnly} />
             </div>
             <div className="form-group">
-              <label className="checkup-field-label" htmlFor="child-monitor-height">Length (cm)</label>
+              <label className="checkup-field-label is-required" htmlFor="child-monitor-height">Length (cm)</label>
               <input id="child-monitor-height" type="number" min="45" max="100" step="0.1" className="checkup-field-input" value={form.height} onChange={update('height')} required readOnly={isReadOnly} />
             </div>
             <div className="form-group">
@@ -297,6 +307,7 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
       </form>
       <ConfirmModal
         show={showSaveConfirm}
+        className="checkup-confirm-modal"
         message={`Save the check-up record for ${childName} for M${week}?`}
         onConfirm={confirmSave}
         onCancel={() => setShowSaveConfirm(false)}

@@ -26,6 +26,7 @@ export default function CommunityModalManager({
   onCreateBatch,
   onEditBatch,
   hideBatchSchoolField = false,
+  showBatchGroupField = false,
   onCreateGroup,
   onEditGroup,
   hideGroupSchoolField = false,
@@ -58,6 +59,8 @@ export default function CommunityModalManager({
         setBatchForm={setBatchForm}
         handleCreateBatch={onCreateBatch}
         communities={communities}
+        groups={groups}
+        showGroupField={showBatchGroupField}
         hideSchoolField={hideBatchSchoolField}
         isSubmitting={isSubmitting}
       />

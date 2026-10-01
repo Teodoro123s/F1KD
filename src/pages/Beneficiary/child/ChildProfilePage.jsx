@@ -365,7 +365,7 @@ export default function ChildProfilePage() {
                 {isDeleting ? 'Deleting...' : 'Delete'}
               </button>
             )}
-            <button type="button" className="btn-secondary" onClick={() => navigate(-1)}>Back</button>
+            <button type="button" className="btn-secondary back-action" onClick={() => navigate(-1)}>Back</button>
           </div>
         )}
       />

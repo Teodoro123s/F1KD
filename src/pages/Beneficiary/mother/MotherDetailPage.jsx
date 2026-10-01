@@ -280,7 +280,7 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
           <div className="mother-detail-actions">
             {canManage && <button type="button" className="btn-danger" onClick={() => setShowDeleteModal(true)}>Delete</button>}
             {canEdit && <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/mother/${motherId}/edit`, { state: { mother: selectedMother } })}>Edit</button>}
-            <button type="button" className="btn-secondary" onClick={handleBack}>Back</button>
+            <button type="button" className="btn-secondary back-action" onClick={handleBack}>Back</button>
           </div>
         )}
       />

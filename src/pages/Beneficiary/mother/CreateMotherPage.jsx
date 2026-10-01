@@ -128,9 +128,7 @@ export default function CreateMotherPage({
   const [communityForm, setCommunityForm] = useState(() => loadMotherDraft(emptyCommunityForm(effectiveCommunities)));
   const [documentFiles, setDocumentFiles] = useState({ birthCertificate: null, consent: null });
   const [showRequiredValidation, setShowRequiredValidation] = useState(false);
-  const [createActiveTab, setCreateActiveTab] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(MOTHER_DRAFT_KEY) || 'null')?.activeTab || 'general'; } catch (error) { return 'general'; }
-  });
+  const [createActiveTab, setCreateActiveTab] = useState('general');
   const CREATE_STEPS = ['general', 'prenatal', 'medical_dental', 'vaccine'];
   const createActiveIndex = CREATE_STEPS.indexOf(createActiveTab) >= 0 ? CREATE_STEPS.indexOf(createActiveTab) : 0;
 
@@ -151,11 +149,11 @@ export default function CreateMotherPage({
 
   useEffect(() => {
     try {
-      localStorage.setItem(MOTHER_DRAFT_KEY, JSON.stringify({ form: communityForm, activeTab: createActiveTab }));
+      localStorage.setItem(MOTHER_DRAFT_KEY, JSON.stringify({ form: communityForm }));
     } catch (error) {
       console.warn('[CreateMotherPage] Unable to save form draft:', error);
     }
-  }, [communityForm, createActiveTab]);
+  }, [communityForm]);
 
   const handleCreateCommunity = async (e) => {
     e.preventDefault();
@@ -430,7 +428,7 @@ export default function CreateMotherPage({
           <div className="modal-footer">
             <button type="button" className="btn-secondary" onClick={() => { localStorage.removeItem(MOTHER_DRAFT_KEY); navigate('/beneficiary'); }}>Cancel</button>
             {createActiveTab !== 'general' && (
-              <button type="button" className="btn-secondary btn-back" onClick={() => {
+              <button type="button" className="btn-secondary btn-back back-action" onClick={() => {
                 if (createActiveTab === 'vaccine') setCreateActiveTab('medical_dental');
                 else if (createActiveTab === 'medical_dental') setCreateActiveTab('prenatal');
                 else setCreateActiveTab('general');

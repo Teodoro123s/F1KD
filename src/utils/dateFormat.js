@@ -8,6 +8,14 @@ export function maskDateInput(value) {
   const candidate = String(value ?? '').trim();
   const isoDate = candidate.match(/^(\d{4})[-/](\d{2})[-/](\d{2})$/);
   if (isoDate) return `${isoDate[3]}/${isoDate[2]}/${isoDate[1]}`;
+  const explicitDate = candidate.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  if (explicitDate) return `${explicitDate[1].padStart(2, '0')}/${explicitDate[2].padStart(2, '0')}/${explicitDate[3]}`;
+  const partialDateParts = candidate.split(/[/-]/);
+  if (partialDateParts.length > 1
+    && partialDateParts.length <= 3
+    && partialDateParts.every((part, index) => /^\d*$/.test(part) && part.length <= [2, 2, 4][index])) {
+    return partialDateParts.join('/');
+  }
   const digits = candidate.replace(/\D/g, '').slice(0, 8);
   if (!digits) return '';
   if (digits.length <= 2) return digits;
@@ -57,6 +65,7 @@ export function normalizeDateValue(value) {
     return '';
   }
 
+  if (Number(month) < 1 || Number(month) > 12) return '';
   const date = new Date(Number(year), Number(month) - 1, Number(day));
   if (date.getFullYear() !== Number(year)
     || date.getMonth() !== Number(month) - 1

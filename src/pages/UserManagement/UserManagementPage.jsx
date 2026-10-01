@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useParams } from 'react-router-dom';
 import UserManagementTable from './UserManagementTable';
 import { SearchIcon, PlusIcon, UserCheckIcon, UserXIcon } from './UserManagementIcons';
 import AddUserModal from './UserManagementModal';
@@ -13,11 +13,13 @@ import NotificationBanner from './NotificationBanner';
 import PageHeader from '../../components/ui/PageHeader';
 
 export default function UserManagementPage() {
+  const { schoolId, batchId } = useParams();
   const {
     form,
     query,
     selectedStatusFilter,
     selectedRoleFilter,
+    selectedSchoolFilter,
     showAddModal,
     page,
     perPage,
@@ -36,6 +38,7 @@ export default function UserManagementPage() {
     handleSearch,
     setStatusFilter,
     selectRoleFilter,
+    selectSchoolFilter,
     handlePerPageChange,
     handlePageChange,
     openAddModal,
@@ -56,12 +59,27 @@ export default function UserManagementPage() {
     clearOneTimeCredentials,
     communities,
     groups,
-  } = useUserManagement();
+    batches,
+  } = useUserManagement({ schoolId, batchId });
 
   const location = useLocation();
   const auth = useAuth();
   const canCreate = hasRole(auth?.currentUser?.role, [ROLES.SUPER_ADMIN]);
   const [copyNotice, setCopyNotice] = useState('');
+  const selectedBatch = batches.find((batch) => String(batch.id || batch.code) === String(batchId)) || null;
+  const batchSchool = selectedBatch
+    ? communities.find((community) => community.name === selectedBatch.community) || null
+    : null;
+  const scopedSchoolId = schoolId || batchSchool?.id || location.state?.schoolId || '';
+  const selectedSchool = communities.find((community) => String(community.id) === String(scopedSchoolId)) || null;
+  const schoolName = selectedSchool?.name || location.state?.schoolName || selectedBatch?.community || 'School';
+  const batchName = selectedBatch?.name || location.state?.batchName || 'Batch';
+  const pageTitle = batchId ? `Users in ${batchName}` : schoolId ? `Users at ${schoolName}` : 'User Management';
+  const pageBreadcrumbs = batchId
+    ? [{ label: 'Schools', href: '/community' }, { label: schoolName, href: `/community/school/${scopedSchoolId}` }, { label: batchName, href: `/community/group/${String(selectedBatch?.groupIds || '').split(',')[0] || ''}` }, { label: 'Users' }]
+    : schoolId
+    ? [{ label: 'Schools', href: '/community' }, { label: schoolName, href: `/community/school/${schoolId}` }, { label: 'Users' }]
+    : breadcrumbItems;
 
   useEffect(() => {
     if (!copyNotice) return undefined;
@@ -83,8 +101,8 @@ export default function UserManagementPage() {
       <NotificationBanner message={notification} actionLabel={!apiOnline ? 'Retry' : null} onAction={!apiOnline ? retryLoad : null} />
 
       <PageHeader
-        title="User Management"
-        breadcrumbs={breadcrumbItems}
+        title={pageTitle}
+        breadcrumbs={pageBreadcrumbs}
         actions={
           <button className="view-btn view-btn--primary module-create-button" type="button" onClick={openAddModal} disabled={!canCreate}>
             <PlusIcon />
@@ -115,6 +133,16 @@ export default function UserManagementPage() {
             options={ROLE_OPTIONS}
             selected={selectedRoleFilter}
             onSelect={selectRoleFilter}
+          />
+          <RoleFilter
+            options={[
+              ...communities.map((school) => ({ value: String(school.id), label: school.name })),
+              { value: '__unassigned__', label: 'Unassigned' },
+            ]}
+            selected={selectedSchoolFilter}
+            onSelect={selectSchoolFilter}
+            filterLabel="School"
+            allLabel="All schools"
           />
 
           <div className="search-container">
