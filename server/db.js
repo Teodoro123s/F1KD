@@ -26,7 +26,12 @@ async function ensureDatabaseExists() {
     port: process.env.DB_PORT ? Number(process.env.DB_PORT) : 3306,
   });
   try {
-    await connection.query(`CREATE DATABASE IF NOT EXISTS \`${databaseName}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci`);
+    try {
+      await connection.query(`CREATE DATABASE IF NOT EXISTS \`${databaseName}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci`);
+    } catch (error) {
+      if (error.code !== 'ER_DBACCESS_DENIED_ERROR' && error.code !== 'ER_ACCESS_DENIED_ERROR') throw error;
+      await connection.query(`USE \`${databaseName}\``);
+    }
   } finally {
     await connection.end();
   }

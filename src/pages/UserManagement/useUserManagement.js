@@ -3,6 +3,9 @@ import { apiGetUsers, apiCreateUser, apiUpdateUser, apiPatchUserStatus, apiDelet
 import { isValidName, isValidMiddleInitial, sanitizeDigits, normalizeContact, isValidContact, isValidEmail, formatDobForInput, isValidDob, getDobValidationMessage, generatePassword } from './lib';
 import { getSummary } from '../Community/communityService';
 import { isCommunityCoordinatorRole, isHealthWorkerRole } from '../../utils/permissions';
+import { getApiBaseUrl } from '../../api/authHeader';
+
+const API_BASE = getApiBaseUrl();
 
 const ROLE_OPTIONS = [
   'Admin',
@@ -42,11 +45,6 @@ function buildDisplayName(user) {
 
 export function useUserManagement() {
   const [users, setUsers] = useState([]);
-  const API_BASE = (typeof process !== 'undefined' && process.env && process.env.REACT_APP_API_URL)
-    ? process.env.REACT_APP_API_URL
-    : (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL)
-    ? import.meta.env.VITE_API_URL
-    : 'http://localhost:4000';
 
   const [apiOnline, setApiOnline] = useState(true);
   const [communities, setCommunities] = useState([]);
