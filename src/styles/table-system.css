@@ -1,0 +1,93 @@
+:root {
+  --table-border: #dfe6ee;
+  --table-divider: #e8edf3;
+  --table-header-bg: #f8fafc;
+  --table-header-text: #475569;
+  --table-cell-text: #334155;
+  --table-radius: 12px;
+}
+
+.table-card,
+.view-table-wrap,
+.progress-report-table-shell,
+.program-receipt-table-scroll,
+.vaccine-form-table-wrapper {
+  border: 1px solid var(--table-border);
+  border-radius: var(--table-radius);
+  background: #fff;
+}
+
+.table-card,
+.view-table-wrap,
+.progress-report-table-shell,
+.program-receipt-table-scroll {
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+.table-card > .table-overflow {
+  border: 0;
+  border-radius: inherit;
+}
+
+.data-table,
+.view-table,
+.progress-report-table {
+  border-spacing: 0;
+}
+
+.data-table th,
+.view-table th,
+.progress-report-table th {
+  background: var(--table-header-bg);
+  color: var(--table-header-text);
+  border-bottom: 1px solid var(--table-divider);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.data-table td,
+.view-table td,
+.progress-report-table td {
+  color: var(--table-cell-text);
+  border-bottom: 1px solid var(--table-divider);
+}
+
+.data-table tbody tr:last-child td,
+.view-table tbody tr:last-child td,
+.progress-report-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.data-table tbody tr:hover,
+.view-table tbody tr:hover,
+.progress-report-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.data-table .actions-dropdown {
+  border-color: var(--table-border);
+  border-radius: 10px;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
+}
+
+.progress-report-table-shell {
+  border-radius: var(--table-radius);
+}
+
+.progress-report-table thead th:first-child,
+.progress-report-table tbody th[scope='row'] {
+  background: var(--table-header-bg);
+}
+
+@media (max-width: 640px) {
+  .table-card,
+  .view-table-wrap,
+  .progress-report-table-shell,
+  .program-receipt-table-scroll,
+  .vaccine-form-table-wrapper {
+    border-radius: 10px;
+  }
+}

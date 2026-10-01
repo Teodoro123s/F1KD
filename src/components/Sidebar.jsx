@@ -3,14 +3,15 @@ import { NavLink } from 'react-router-dom';
 import logo from '../assets/f1kd-logo.png';
 import { useAuth } from '../auth/AuthProvider';
 import { ROLES, hasRole } from '../utils/permissions';
+import { ActivityIcon, BatchesIcon, BuildingIcon, GroupsIcon, UsersIcon } from '../pages/Community/CommunityIcons';
 
 const items = [
-  { to: '/community', label: 'Community', icon: '👥' },
-  { to: '/beneficiary', label: 'Beneficiary', icon: '🎯' },
-  { to: '/monitoring', label: 'Monitor', icon: '📈' },
-  { to: '/program', label: 'Program', icon: '📚' },
-  { to: '/progress-report', label: 'Progress Report', icon: '📝' },
-  { to: '/user-management', label: 'User Management', icon: '🔧' },
+  { to: '/community', label: 'Community', icon: BuildingIcon },
+  { to: '/beneficiary', label: 'Beneficiary', icon: UsersIcon },
+  { to: '/monitoring', label: 'Monitor', icon: ActivityIcon },
+  { to: '/program', label: 'Program', icon: GroupsIcon },
+  { to: '/progress-report', label: 'Progress Report', icon: BatchesIcon },
+  { to: '/user-management', label: 'User Management', icon: UsersIcon },
 ];
 
 export default function Sidebar() {
@@ -44,7 +45,7 @@ export default function Sidebar() {
             data-label={it.label}
             title={it.label}
           >
-            <span className="icon">{it.icon}</span>
+            <span className="icon" aria-hidden="true"><it.icon /></span>
             <span className="label">{it.label}</span>
           </NavLink>
         ))}
