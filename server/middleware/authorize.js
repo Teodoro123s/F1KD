@@ -103,6 +103,10 @@ function authorizeOperational(req, res, next) {
   }
 
   const userRole = normalizeRole(req.user.role);
+  const operationalRoles = ['super_admin', 'admin', 'community_coordinator', 'partner', 'health_worker'];
+  if (!operationalRoles.includes(userRole)) {
+    return permissionResponse(res, 'You do not have permission to access this resource');
+  }
   const isCommunityOrganizer = isCommunityCoordinatorRole(req.user.role);
   req.isHealthWorker = isHealthWorkerRole(req.user.role);
   req.isCommunityOrganizer = isCommunityOrganizer;
@@ -116,13 +120,14 @@ function authorizeOperational(req, res, next) {
       return permissionResponse(res, 'Community Coordinators cannot create or delete schools');
     }
 
-    const isAllowedHealthWorkerUpdate = userRole === 'health_worker' && isHealthWorkerChildUpdate(req);
-    if (!['super_admin', 'community_coordinator'].includes(userRole) && !isLimitedWrite(req) && !isAllowedHealthWorkerUpdate) {
+    const isAllowedHealthWorkerWrite = userRole === 'health_worker'
+      && (isLimitedWrite(req) || isHealthWorkerChildUpdate(req));
+    if (!['super_admin', 'community_coordinator'].includes(userRole) && !isAllowedHealthWorkerWrite) {
       return permissionResponse(res, 'Admin and Partner accounts are read-only');
     }
   }
 
-  const scopedRoles = ['community_coordinator', 'partner', 'health_worker'];
+  const scopedRoles = ['community_coordinator', 'health_worker'];
   const hasSchoolAssignment = req.user.school_id !== undefined && req.user.school_id !== null && String(req.user.school_id).trim() !== '';
   const hasGroupAssignment = req.user.group_id !== undefined && req.user.group_id !== null && String(req.user.group_id).trim() !== '';
 
@@ -153,8 +158,8 @@ function authorizeOperational(req, res, next) {
 
 function authorizeProgressReport(req, res, next) {
   const userRole = normalizeRole(req.user?.role);
-  if (userRole === 'admin' || userRole === 'partner') {
-    return permissionResponse(res, 'Admin and Partner accounts cannot access progress reports');
+  if (!['admin', 'partner', 'community_coordinator', 'health_worker'].includes(userRole)) {
+    return permissionResponse(res, 'You do not have permission to access progress reports');
   }
   return next();
 }

@@ -35,8 +35,9 @@ const OPERATIONAL_ROLES = [
   ROLES.PARTNER,
   ROLES.HEALTH_WORKER,
 ];
-const PROGRESS_REPORT_ROLES = [ROLES.COMMUNITY_COORDINATOR, ROLES.HEALTH_WORKER];
-const BENEFICIARY_MUTATION_ROLES = [ROLES.COMMUNITY_COORDINATOR, ROLES.ADMIN, ROLES.PARTNER];
+const PROGRESS_REPORT_ROLES = [ROLES.ADMIN, ROLES.COMMUNITY_COORDINATOR, ROLES.PARTNER, ROLES.HEALTH_WORKER];
+const BENEFICIARY_CREATE_ROLES = [ROLES.COMMUNITY_COORDINATOR];
+const BENEFICIARY_EDIT_ROLES = [ROLES.COMMUNITY_COORDINATOR, ROLES.HEALTH_WORKER];
 
 function RequireAuth({ children }) {
   const auth = useAuth();
@@ -70,14 +71,14 @@ export default function App() {
         <Route path="beneficiary" element={<RoleBasedRoute allowedRoles={OPERATIONAL_ROLES}><Beneficiary /></RoleBasedRoute>} />
         <Route path="beneficiary/mother/:id" element={<RoleBasedRoute allowedRoles={OPERATIONAL_ROLES}><Beneficiary /></RoleBasedRoute>} />
         <Route path="beneficiary/mother/:id/profile" element={<RoleBasedRoute allowedRoles={OPERATIONAL_ROLES}><Beneficiary /></RoleBasedRoute>} />
-        <Route path="beneficiary/create/mother" element={<RoleBasedRoute allowedRoles={BENEFICIARY_MUTATION_ROLES}><Beneficiary /></RoleBasedRoute>} />
-        <Route path="beneficiary/create/child" element={<RoleBasedRoute allowedRoles={BENEFICIARY_MUTATION_ROLES}><Beneficiary /></RoleBasedRoute>} />
+        <Route path="beneficiary/create/mother" element={<RoleBasedRoute allowedRoles={BENEFICIARY_CREATE_ROLES}><Beneficiary /></RoleBasedRoute>} />
+        <Route path="beneficiary/create/child" element={<RoleBasedRoute allowedRoles={BENEFICIARY_CREATE_ROLES}><Beneficiary /></RoleBasedRoute>} />
         <Route path="beneficiary/mother/:id/child" element={<RoleBasedRoute allowedRoles={OPERATIONAL_ROLES}><MotherChildrenPage /></RoleBasedRoute>} />
         <Route path="beneficiary/child/:childId/profile" element={<RoleBasedRoute allowedRoles={OPERATIONAL_ROLES}><ChildProfilePage /></RoleBasedRoute>} />
         <Route path="beneficiary/child/:childId" element={<RoleBasedRoute allowedRoles={OPERATIONAL_ROLES}><ChildProfilePage /></RoleBasedRoute>} />
-        <Route path="beneficiary/child/:childId/edit" element={<RoleBasedRoute allowedRoles={BENEFICIARY_MUTATION_ROLES}><EditChildPage /></RoleBasedRoute>} />
+        <Route path="beneficiary/child/:childId/edit" element={<RoleBasedRoute allowedRoles={BENEFICIARY_EDIT_ROLES}><EditChildPage /></RoleBasedRoute>} />
         <Route path="beneficiary/mother/:id/monitoring" element={<RoleBasedRoute allowedRoles={OPERATIONAL_ROLES}><MonitoringPage /></RoleBasedRoute>} />
-        <Route path="beneficiary/mother/:id/edit" element={<RoleBasedRoute allowedRoles={BENEFICIARY_MUTATION_ROLES}><EditMotherPage /></RoleBasedRoute>} />
+        <Route path="beneficiary/mother/:id/edit" element={<RoleBasedRoute allowedRoles={BENEFICIARY_EDIT_ROLES}><EditMotherPage /></RoleBasedRoute>} />
         <Route path="monitoring" element={<RoleBasedRoute allowedRoles={OPERATIONAL_ROLES}><MonitoringPage /></RoleBasedRoute>} />
         <Route path="checkup" element={<RoleBasedRoute allowedRoles={OPERATIONAL_ROLES}><MonitoringPage /></RoleBasedRoute>} />
         <Route path="program" element={<RoleBasedRoute allowedRoles={OPERATIONAL_ROLES}><Program /></RoleBasedRoute>} />

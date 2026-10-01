@@ -35,9 +35,8 @@ export default function CommunityPage() {
   const assignedSchoolId = currentUser?.school_id ?? currentUser?.schoolId ?? null;
   const assignedGroupId = currentUser?.group_id ?? currentUser?.groupId ?? null;
   const isHealthWorker = isHealthWorkerRole(currentUser?.role);
-  const isAssignedAdmin = hasRole(currentUser?.role, [ROLES.ADMIN]) && Boolean(assignedSchoolId);
   const isAssignedCommunityOrganizer = isCommunityOrganizer && Boolean(assignedSchoolId);
-  const isSchoolScopedUser = isSchoolScopedRole(currentUser?.role) || isAssignedAdmin;
+  const isSchoolScopedUser = isSchoolScopedRole(currentUser?.role);
 
   const { communities, batches, groups, mothers, coordinators, loading, error, refreshData } = useCommunityData();
   const scopedCommunities = useMemo(() => {
@@ -69,7 +68,7 @@ export default function CommunityPage() {
     ? (isSuperAdmin ? 'batches' : 'mothers')
     : isHealthWorker
       ? 'batches'
-      : isAssignedAdmin || isAssignedCommunityOrganizer
+      : isAssignedCommunityOrganizer
         ? (groupId ? 'batches' : 'groups')
         : groupId
           ? 'batches'
@@ -298,7 +297,7 @@ export default function CommunityPage() {
   }, [activeTab, selectedBatch, selectedGroup, selectedSchool]);
 
   const breadcrumbItems = useMemo(() => {
-    if (isHealthWorker || isAssignedAdmin || isAssignedCommunityOrganizer) {
+    if (isHealthWorker || isAssignedCommunityOrganizer) {
       if (activeTab === 'mothers') {
         return [
           { label: isHealthWorker ? 'Batches' : 'Groups', to: '/community', clickable: true },
@@ -734,7 +733,7 @@ export default function CommunityPage() {
         hideBatchSchoolField={isHealthWorker || Boolean(schoolId || groupId)}
         onCreateGroup={handleCreateGroup}
         onEditGroup={handleEditGroup}
-        hideGroupSchoolField={isHealthWorker || isAssignedAdmin || isAssignedCommunityOrganizer || Boolean(schoolId)}
+        hideGroupSchoolField={isHealthWorker || isAssignedCommunityOrganizer || Boolean(schoolId)}
         isSubmitting={mutations.loading}
       />
     </div>

@@ -42,7 +42,7 @@ export default function ProgramPage() {
   const canCreatePrograms = isCommunityOrganizer;
   const canDeletePrograms = isCommunityOrganizer;
   const canEndPrograms = isCommunityOrganizer;
-  const canMonitorPrograms = canCreatePrograms || hasRole(currentUser?.role, [ROLES.PARTNER]) || isHealthWorkerRole(currentUser?.role);
+  const canMonitorPrograms = canCreatePrograms || isHealthWorkerRole(currentUser?.role);
   const [activeTab, setActiveTab] = useState("Active");
   const [query, setQuery] = useState("");
   const [programs, setPrograms] = useState([]);

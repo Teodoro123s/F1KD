@@ -27,10 +27,10 @@ test('Community Organizers receive only their assigned school scope', () => {
   });
 });
 
-test('Partners receive only their assigned school scope', () => {
-  assert.deepEqual(getNotificationScope({ role: 'Partner', school_id: 6 }), {
-    global: false,
-    schoolId: 6,
+test('Partners receive global notification scope without user-management notifications', () => {
+  assert.deepEqual(getNotificationScope({ role: 'Partner' }), {
+    global: true,
+    schoolId: null,
     excludeUserManagement: true,
   });
 });

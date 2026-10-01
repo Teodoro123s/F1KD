@@ -17,13 +17,9 @@ export default function Sidebar() {
   const { currentUser } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const isSuperAdmin = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]);
-  const isHealthWorker = ['health worker', 'healthworker']
-    .includes(String(currentUser?.role || '').trim().toLowerCase());
-  const isAdminOrPartner = ['admin', 'administrator', 'partner']
-    .includes(String(currentUser?.role || '').trim().toLowerCase());
   const visibleItems = isSuperAdmin
     ? items.filter((item) => ['/community', '/user-management'].includes(item.to))
-    : items.filter((item) => item.to !== '/user-management' && (!isHealthWorker || item.to !== '/user-management') && (!isAdminOrPartner || item.to !== '/progress-report'));
+    : items.filter((item) => item.to !== '/user-management');
 
   return (
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>

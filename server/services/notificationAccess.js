@@ -14,9 +14,7 @@ function getNotificationScope(user) {
   if (role === 'community_coordinator') {
     return { global: false, schoolId: user.school_id || null, excludeUserManagement: true };
   }
-  if (role === 'partner') {
-    return { global: false, schoolId: user.school_id || null, excludeUserManagement: true };
-  }
+  if (role === 'partner') return { global: true, schoolId: null, excludeUserManagement: true };
   if (role === 'health_worker') {
     return {
       global: false,
