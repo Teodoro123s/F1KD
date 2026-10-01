@@ -6,9 +6,12 @@ async function createSuperadminNotification(event, database) {
   try {
     const store = database || require('../db');
     const hasCreatedAt = Boolean(event.createdAt);
+    const recipientUserIds = Array.isArray(event.recipientUserIds)
+      ? [...new Set(event.recipientUserIds.map(Number).filter((userId) => Number.isInteger(userId) && userId > 0))].join(',') || null
+      : null;
     const sql = `INSERT INTO notifications
-        (event_type, category, title, message, entity_type, entity_id, link_to, school_id, group_id, school_scope_ids, actor_user_id${hasCreatedAt ? ', created_at' : ''})
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?${hasCreatedAt ? ', ?' : ''})`;
+        (event_type, category, title, message, entity_type, entity_id, link_to, school_id, group_id, school_scope_ids, recipient_user_ids, actor_user_id${hasCreatedAt ? ', created_at' : ''})
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?${hasCreatedAt ? ', ?' : ''})`;
     const params = [
       String(event.eventType || 'system.event').slice(0, 80),
       String(event.category || 'System').slice(0, 40),
@@ -22,6 +25,7 @@ async function createSuperadminNotification(event, database) {
       Array.isArray(event.schoolIds)
         ? [...new Set(event.schoolIds.map(Number).filter((schoolId) => Number.isInteger(schoolId) && schoolId > 0))].join(',') || null
         : (event.schoolScopeIds ? String(event.schoolScopeIds) : null),
+      recipientUserIds,
       event.actorUserId || null,
     ];
     if (hasCreatedAt) {
@@ -33,4 +37,30 @@ async function createSuperadminNotification(event, database) {
   }
 }
 
-module.exports = { createSuperadminNotification };
+async function getBeneficiaryUpdateRecipients(database, schoolId, actorUserId) {
+  const recipientIds = new Set(
+    [actorUserId].map(Number).filter((userId) => Number.isInteger(userId) && userId > 0),
+  );
+  const assignedSchoolId = Number(schoolId);
+  if (!Number.isInteger(assignedSchoolId) || assignedSchoolId <= 0) return [...recipientIds];
+
+  try {
+    const store = database || require('../db');
+    const [coordinators] = await store.query(
+      `SELECT id FROM users
+       WHERE school_id = ?
+         AND LOWER(TRIM(status)) = 'active'
+         AND LOWER(TRIM(role)) IN ('community organizer', 'community coordinator', 'community_organizer', 'community_coordinator', 'communitycoordinator', 'communityorganizer', 'coordinator', 'co', 'partner')`,
+      [assignedSchoolId],
+    );
+    coordinators.forEach(({ id }) => {
+      const userId = Number(id);
+      if (Number.isInteger(userId) && userId > 0) recipientIds.add(userId);
+    });
+  } catch (error) {
+    console.error('[Notifications] Unable to resolve beneficiary update recipients:', error.message);
+  }
+  return [...recipientIds];
+}
+
+module.exports = { createSuperadminNotification, getBeneficiaryUpdateRecipients };

@@ -18,7 +18,7 @@ export default function NotificationsPage() {
   const isSuperAdmin = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]);
   const canSeedSamples = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN, ROLES.COMMUNITY_COORDINATOR]);
   const categories = isHealthWorker
-    ? ['All', 'Monitoring']
+    ? ['All', 'Monitoring', 'Beneficiaries']
     : isSuperAdmin
       ? ['Community', 'User Management']
       : CATEGORIES.filter((item) => item !== 'User Management');

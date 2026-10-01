@@ -65,6 +65,12 @@ const isLimitedWrite = (req) => {
   return false;
 };
 
+const isHealthWorkerChildUpdate = (req) => (
+  req.baseUrl === '/api/children'
+  && req.method === 'PUT'
+  && /^\/[^/]+\/?$/.test(req.path)
+);
+
 function authorize(...allowedRoles) {
   return (req, res, next) => {
     if (!req.user) {
@@ -110,7 +116,8 @@ function authorizeOperational(req, res, next) {
       return permissionResponse(res, 'Community Coordinators cannot create or delete schools');
     }
 
-    if (!['super_admin', 'community_coordinator'].includes(userRole) && !isLimitedWrite(req)) {
+    const isAllowedHealthWorkerUpdate = userRole === 'health_worker' && isHealthWorkerChildUpdate(req);
+    if (!['super_admin', 'community_coordinator'].includes(userRole) && !isLimitedWrite(req) && !isAllowedHealthWorkerUpdate) {
       return permissionResponse(res, 'Admin and Partner accounts are read-only');
     }
   }

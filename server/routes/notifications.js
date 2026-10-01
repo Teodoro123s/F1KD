@@ -25,6 +25,8 @@ router.get('/', authorize('super_admin', 'admin', 'community_coordinator', 'part
 
     const filters = [];
     const params = [];
+    filters.push('(n.recipient_user_ids IS NULL OR FIND_IN_SET(?, n.recipient_user_ids) > 0)');
+    params.push(String(req.user.id));
     if (!scope.global) {
       filters.push('(n.school_id = ? OR FIND_IN_SET(?, n.school_scope_ids) > 0)');
       params.push(scope.schoolId, scope.schoolId);
@@ -41,13 +43,13 @@ router.get('/', authorize('super_admin', 'admin', 'community_coordinator', 'part
       }
     }
     if (scope.healthWorker) {
-      filters.push('n.category = ?');
-      params.push('Monitoring');
+      filters.push('(n.category = ? OR FIND_IN_SET(?, n.recipient_user_ids) > 0)');
+      params.push('Monitoring', String(req.user.id));
       if (scope.groupId) {
         filters.push('(n.group_id = ? OR n.group_id IS NULL)');
         params.push(scope.groupId);
       }
-      if (category && category !== 'All' && category !== 'Monitoring') {
+      if (category && category !== 'All' && category !== 'Monitoring' && category !== 'Beneficiaries') {
         filters.push('1 = 0');
       }
     }

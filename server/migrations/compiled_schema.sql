@@ -331,6 +331,7 @@ CREATE TABLE IF NOT EXISTS notifications (
   school_id INT DEFAULT NULL,
   group_id INT DEFAULT NULL,
   school_scope_ids VARCHAR(1000) DEFAULT NULL,
+  recipient_user_ids VARCHAR(1000) DEFAULT NULL,
   actor_user_id INT DEFAULT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   KEY idx_notifications_created_at (created_at),

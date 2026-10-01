@@ -108,7 +108,8 @@ export default function ChildProfilePage() {
   const location = useLocation();
   const navigate = useNavigate();
   const { currentUser } = useAuth();
-  const canManage = can(currentUser?.role, 'beneficiary-resources', 'update');
+  const canEdit = can(currentUser?.role, 'beneficiary-resources', 'update');
+  const canDelete = can(currentUser?.role, 'beneficiary-resources', 'delete');
 
   const stateMother = location.state?.mother || null;
   const { mothers: contextMothers } = useMothers();
@@ -164,12 +165,12 @@ export default function ChildProfilePage() {
   const isChildProfile = location.pathname.endsWith('/profile');
 
   const requestDeleteChild = () => {
-    if (!canManage || !selectedChild?.id || isDeleting) return;
+    if (!canDelete || !selectedChild?.id || isDeleting) return;
     setShowDeleteConfirm(true);
   };
 
   const deleteChild = async () => {
-    if (!canManage || !selectedChild?.id || isDeleting) return;
+    if (!canDelete || !selectedChild?.id || isDeleting) return;
     setShowDeleteConfirm(false);
     setIsDeleting(true);
     try {
@@ -316,10 +317,10 @@ export default function ChildProfilePage() {
         breadcrumbs={[{ label: 'Beneficiaries', href: '/beneficiary' }, { label: 'Child Profile' }]}
         actions={(
           <div className="mother-detail-actions">
-            {isChildProfile && canManage && (
+            {isChildProfile && canEdit && (
               <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/child/${childIdentifier}/edit`, { state: { child: selectedChild, mother: resolvedMother, returnTo } })}>Edit</button>
             )}
-            {canManage && (
+            {canDelete && (
               <button type="button" className="btn-secondary" onClick={requestDeleteChild} disabled={isDeleting}>
                 {isDeleting ? 'Deleting...' : 'Delete'}
               </button>

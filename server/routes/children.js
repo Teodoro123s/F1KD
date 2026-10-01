@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../db');
 const { documentUpload, uploadFileToStorage } = require('../middleware/documentUpload');
-const { createSuperadminNotification } = require('../services/notifications');
+const { createSuperadminNotification, getBeneficiaryUpdateRecipients } = require('../services/notifications');
 
 // Helper to normalize incoming body keys (accept camelCase or snake_case)
 function getField(body, ...keys) {
@@ -468,12 +468,15 @@ router.post('/:id/checkups', async (req, res) => {
 
 router.put('/:id', async (req, res) => {
   try {
+    if (req.isHealthWorker && !req.groupId) {
+      return res.status(403).json({ error: 'Health workers must be assigned to a group to edit beneficiary profiles' });
+    }
     const { id } = req.params;
     const body = req.body || {};
-    const [existingRows] = await pool.query(`SELECT c.*, m.community_id AS current_mother_community_id, m.group_id AS current_mother_group_id FROM children c LEFT JOIN mothers m ON m.id = c.mother_id WHERE (c.id = ? OR c.child_code = ?)${req.groupId ? ' AND (c.group_id = ? OR (c.group_id IS NULL AND m.group_id = ?))' : req.schoolId ? ' AND (c.community_id = ? OR (c.community_id IS NULL AND m.community_id = ?))' : ''} LIMIT 1`, req.groupId ? [Number(id) || null, id, req.groupId, req.groupId] : req.schoolId ? [Number(id) || null, id, req.schoolId, req.schoolId] : [Number(id) || null, id]);
+    const [existingRows] = await pool.query(`SELECT c.*, m.community_id AS current_mother_community_id, m.group_id AS current_mother_group_id, m.batch_id AS current_mother_batch_id FROM children c LEFT JOIN mothers m ON m.id = c.mother_id WHERE (c.id = ? OR c.child_code = ?)${req.groupId ? ' AND (c.group_id = ? OR (c.group_id IS NULL AND m.group_id = ?))' : req.schoolId ? ' AND (c.community_id = ? OR (c.community_id IS NULL AND m.community_id = ?))' : ''} LIMIT 1`, req.groupId ? [Number(id) || null, id, req.groupId, req.groupId] : req.schoolId ? [Number(id) || null, id, req.schoolId, req.schoolId] : [Number(id) || null, id]);
     if (!existingRows.length) return res.status(404).json({ error: 'Child not found' });
     const current = existingRows[0];
-    let motherId = getField(body, 'motherId', 'mother_id') || current.mother_id;
+    let motherId = req.isHealthWorker ? current.mother_id : (getField(body, 'motherId', 'mother_id') || current.mother_id);
     const [motherRows] = await pool.query(
       'SELECT id FROM mothers WHERE id = ? OR mother_code = ? LIMIT 1',
       [Number(motherId) || null, motherId]
@@ -481,10 +484,16 @@ router.put('/:id', async (req, res) => {
     if (!motherRows.length) return res.status(400).json({ error: 'Mother not found' });
     motherId = motherRows[0].id;
 
-    let communityId = getField(body, 'communityId', 'community_id') || current.community_id;
-    let groupId = req.groupId || getField(body, 'groupId', 'group_id') || current.group_id;
+    let communityId = req.isHealthWorker
+      ? (current.community_id || current.current_mother_community_id || req.schoolId)
+      : (getField(body, 'communityId', 'community_id') || current.community_id);
+    let groupId = req.isHealthWorker
+      ? req.groupId
+      : (req.groupId || getField(body, 'groupId', 'group_id') || current.group_id);
     if (req.groupId) communityId = req.schoolId;
-    let batchId = getField(body, 'batchId', 'batch_id') || current.batch_id;
+    let batchId = req.isHealthWorker
+      ? (current.batch_id || current.current_mother_batch_id)
+      : (getField(body, 'batchId', 'batch_id') || current.batch_id);
     if (!groupId && body.group) {
       const [groupRows] = await pool.query('SELECT id FROM groups WHERE name = ? LIMIT 1', [body.group]);
       groupId = groupRows[0]?.id || null;
@@ -572,6 +581,9 @@ router.put('/:id', async (req, res) => {
         current.community_id || current.current_mother_community_id,
         updatedChild.community_id || updatedChild.mother_community_id,
       ].filter(Boolean),
+      recipientUserIds: req.isHealthWorker
+        ? await getBeneficiaryUpdateRecipients(pool, updatedChild.community_id || updatedChild.mother_community_id, req.user?.id)
+        : undefined,
       actorUserId: req.user?.id,
     });
     res.json({ child: await attachClinicalData(updatedChild) });

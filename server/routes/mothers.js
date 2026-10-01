@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../db');
 const { documentUpload, uploadFileToStorage, deleteFileFromStorage } = require('../middleware/documentUpload');
-const { createSuperadminNotification } = require('../services/notifications');
+const { createSuperadminNotification, getBeneficiaryUpdateRecipients } = require('../services/notifications');
 
 function firstNonEmpty(...values) {
   for (const value of values) {
@@ -620,6 +620,9 @@ router.get('/:id', async (req, res) => {
 
 router.put('/:id', async (req, res) => {
   try {
+    if (req.isHealthWorker && !req.groupId) {
+      return res.status(403).json({ error: 'Health workers must be assigned to a group to edit beneficiary profiles' });
+    }
     const { id } = req.params;
     const b = req.body || {};
     const [existing] = await pool.query(`SELECT * FROM mothers WHERE (id = ? OR mother_code = ?)${req.groupId ? ' AND group_id = ?' : req.schoolId ? ' AND community_id = ?' : ''} LIMIT 1`, req.groupId ? [Number(id) || null, id, req.groupId] : req.schoolId ? [Number(id) || null, id, req.schoolId] : [Number(id) || null, id]);
@@ -631,7 +634,7 @@ router.put('/:id', async (req, res) => {
     const motherDbId = current.id;
     if (req.schoolId) {
       const nextGroupId = req.groupId || b.groupId || b.group_id || current.group_id;
-      const nextBatchId = b.batchId ?? b.batch_id ?? current.batch_id;
+      const nextBatchId = req.isHealthWorker ? current.batch_id : (b.batchId ?? b.batch_id ?? current.batch_id);
 
       if (nextGroupId) {
         const [groupRows] = await pool.query(
@@ -665,7 +668,7 @@ router.put('/:id', async (req, res) => {
         current.address,
       ),
       group_id: req.groupId || b.groupId || b.group_id || current.group_id,
-      batch_id: b.batchId ?? b.batch_id ?? current.batch_id,
+      batch_id: req.isHealthWorker ? current.batch_id : (b.batchId ?? b.batch_id ?? current.batch_id),
       lmp_date: b.lmpDate || b.lmp_date || current.lmp_date || null,
       edd_date: b.eddDate || b.edd_date || current.edd_date || null,
       prenatal_reg_date: b.prenatalRegDate || b.prenatal_reg_date || current.prenatal_reg_date || null,
@@ -784,6 +787,9 @@ router.put('/:id', async (req, res) => {
       linkTo: `/beneficiary/mother/${updatedMother.mother_code || updatedMother.id}`,
       schoolId: updatedMother.community_id,
       groupId: updatedMother.group_id,
+      recipientUserIds: req.isHealthWorker
+        ? await getBeneficiaryUpdateRecipients(pool, updatedMother.community_id, req.user?.id)
+        : undefined,
       actorUserId: req.user?.id,
     });
     res.json({ mother: await attachClinicalData(mapMother(updatedMother)) });

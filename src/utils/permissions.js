@@ -43,7 +43,7 @@ export const PERMISSIONS = {
   'beneficiary-resources': {
     read: OPERATIONAL_READ,
     create: COORDINATOR,
-    update: COORDINATOR,
+    update: [ROLES.COMMUNITY_COORDINATOR, ROLES.HEALTH_WORKER],
     delete: COORDINATOR,
   },
   'program-resources': {

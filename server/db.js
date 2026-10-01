@@ -414,6 +414,7 @@ async function ensure() {
       school_id INT DEFAULT NULL,
       group_id INT DEFAULT NULL,
       school_scope_ids VARCHAR(1000) DEFAULT NULL,
+      recipient_user_ids VARCHAR(1000) DEFAULT NULL,
       actor_user_id INT DEFAULT NULL,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       KEY idx_notifications_created_at (created_at),
@@ -424,7 +425,8 @@ async function ensure() {
       ADD COLUMN IF NOT EXISTS link_to VARCHAR(255) DEFAULT NULL,
       ADD COLUMN IF NOT EXISTS school_id INT DEFAULT NULL,
       ADD COLUMN IF NOT EXISTS group_id INT DEFAULT NULL,
-      ADD COLUMN IF NOT EXISTS school_scope_ids VARCHAR(1000) DEFAULT NULL;`
+      ADD COLUMN IF NOT EXISTS school_scope_ids VARCHAR(1000) DEFAULT NULL,
+      ADD COLUMN IF NOT EXISTS recipient_user_ids VARCHAR(1000) DEFAULT NULL;`
   ];
 
   const conn = await pool.getConnection();
