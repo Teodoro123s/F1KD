@@ -1,10 +1,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { fetchWithAuth } from '../api/authHeader';
+import { fetchWithAuth, getApiBaseUrl } from '../api/authHeader';
 
 const MothersContext = createContext(null);
-const API_BASE = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL)
-  ? import.meta.env.VITE_API_URL
-  : 'http://localhost:4000';
+const API_BASE = getApiBaseUrl();
 
 export function MothersProvider({ children }) {
   const [mothers, setMothers] = useState([]);

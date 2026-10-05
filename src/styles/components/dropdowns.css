@@ -22,6 +22,15 @@
 .dropdown-item.muted { color: #666; }
 
 .notifications-list { max-height: 220px; overflow: auto; }
+.notifications-dropdown { width: min(380px, calc(100vw - 2rem)); }
+.notifications-dropdown .notifications-list { max-height: min(360px, 60vh); }
+.notification-dropdown-item { display: flex; width: 100%; flex-direction: column; gap: 0.3rem; padding: 0.75rem 0.85rem; border: 0; border-bottom: 1px solid #edf2f7; background: #fff; text-align: left; cursor: pointer; }
+.notification-dropdown-item:hover, .notification-dropdown-item:focus-visible { background: #f4f6f9; outline: none; }
+.notification-dropdown-title { color: #1e293b; font-size: 0.88rem; font-weight: 700; }
+.notification-dropdown-message { color: #475569; font-size: 0.84rem; line-height: 1.35; }
+.notification-dropdown-category { color: #64748b; font-size: 0.74rem; }
+.notification-dropdown-all { width: 100%; padding: 0.7rem 0.85rem; border: 0; background: #fff; color: #146b3a; font-size: 0.84rem; font-weight: 700; text-align: left; cursor: pointer; }
+.notification-dropdown-all:hover, .notification-dropdown-all:focus-visible { background: #f4f6f9; outline: none; }
 
 .content-body {
   padding: 1.25rem 1.5rem 1.75rem;

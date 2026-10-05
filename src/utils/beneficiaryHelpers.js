@@ -18,20 +18,47 @@ export const getFirstIncompleteCheckup = (checkups = DEFAULT_CHECKUPS) => {
   return null;
 };
 
-export const calculateGestationalDetails = (lmpDate) => {
-  if (!lmpDate) return { gestationalAge: '', trimester: '1st Trimester' };
-  const lmp = new Date(lmpDate);
-  if (Number.isNaN(lmp.getTime())) return { gestationalAge: '', trimester: '1st Trimester' };
+const parseDateOnly = (value) => {
+  if (!value) return null;
+  const match = String(value).trim().match(/^(\d{4})[-/](\d{2})[-/](\d{2})/);
+  if (!match) return null;
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  return Number.isNaN(date.getTime()) ? null : date;
+};
 
-  const today = new Date();
-  const diffDays = Math.max(0, Math.floor((today - lmp) / (1000 * 60 * 60 * 24)));
-  const gestationalAge = String(Math.floor(diffDays / 7));
+export const getTrimesterMonthOffset = (weeks) => {
+  const value = Number.parseInt(weeks, 10);
+  if (!Number.isFinite(value) || value <= 0) return 1;
+  if (value <= 4) return 1;
+  if (value <= 8) return 1;
+  if (value <= 12) return 2;
+  if (value <= 17) return 1;
+  if (value <= 21) return 2;
+  if (value <= 26) return 3;
+  if (value <= 30) return 1;
+  if (value <= 34) return 2;
+  if (value <= 39) return 3;
+  return 3;
+};
+
+export const calculateGestationalDetails = (lmpDate, registrationDate) => {
+  const lmp = parseDateOnly(lmpDate);
+  if (!lmp) return { gestationalAge: '', trimester: '', monthInTrimester: 1 };
+
+  const registration = parseDateOnly(registrationDate) || new Date();
+  const diffDays = Math.max(0, Math.floor((registration - lmp) / (1000 * 60 * 60 * 24)));
+  const gestationalAge = Math.floor(diffDays / 7);
+  const ageValue = String(gestationalAge);
 
   let trimester = '1st Trimester';
   if (gestationalAge > 26) trimester = '3rd Trimester';
   else if (gestationalAge > 12) trimester = '2nd Trimester';
 
-  return { gestationalAge, trimester };
+  return {
+    gestationalAge: ageValue,
+    trimester,
+    monthInTrimester: getTrimesterMonthOffset(gestationalAge),
+  };
 };
 
 export const getInitialCheckups = () => {

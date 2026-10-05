@@ -234,6 +234,7 @@ CREATE TABLE IF NOT EXISTS child_vaccinations (
   id INT AUTO_INCREMENT PRIMARY KEY,
   child_id INT NOT NULL,
   vaccine_name VARCHAR(100),
+  dose_number TINYINT UNSIGNED NOT NULL DEFAULT 1,
   vaccine_date DATE,
   remarks TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -313,4 +314,26 @@ CREATE TABLE IF NOT EXISTS program_clusters (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY uq_program_cluster (program_id, scope_type, scope_name),
   CONSTRAINT fk_program_clusters_program FOREIGN KEY (program_id) REFERENCES programs(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ---------------------------------------------------------------------------
+-- Superadmin notifications
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS notifications (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  event_type VARCHAR(80) NOT NULL,
+  category VARCHAR(40) NOT NULL,
+  title VARCHAR(120) NOT NULL DEFAULT 'Notification',
+  message VARCHAR(500) NOT NULL,
+  entity_type VARCHAR(32) DEFAULT NULL,
+  entity_id VARCHAR(80) DEFAULT NULL,
+  link_to VARCHAR(255) DEFAULT NULL,
+  school_id INT DEFAULT NULL,
+  group_id INT DEFAULT NULL,
+  school_scope_ids VARCHAR(1000) DEFAULT NULL,
+  recipient_user_ids VARCHAR(1000) DEFAULT NULL,
+  actor_user_id INT DEFAULT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_notifications_created_at (created_at),
+  KEY idx_notifications_category (category)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

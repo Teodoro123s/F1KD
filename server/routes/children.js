@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../db');
 const { documentUpload, uploadFileToStorage } = require('../middleware/documentUpload');
+const { createSuperadminNotification, getBeneficiaryUpdateRecipients } = require('../services/notifications');
 
 // Helper to normalize incoming body keys (accept camelCase or snake_case)
 function getField(body, ...keys) {
@@ -14,13 +15,57 @@ function getField(body, ...keys) {
 async function attachClinicalData(child) {
   const [[medicalRows], [vaccineRows]] = await Promise.all([
     pool.query('SELECT * FROM child_medical_conditions WHERE child_id = ? ORDER BY id', [child.id]),
-    pool.query('SELECT * FROM child_vaccinations WHERE child_id = ? ORDER BY id', [child.id]),
+    pool.query('SELECT * FROM child_vaccinations WHERE child_id = ? ORDER BY vaccine_name, dose_number, id', [child.id]),
   ]);
+  const vaccines = {};
+  for (const row of vaccineRows) {
+    const vaccine = vaccines[row.vaccine_name] || { ...row, dose1: null, dose2: null, dose3: null };
+    const doseNumber = Number(row.dose_number) || 1;
+    if (doseNumber >= 1 && doseNumber <= 3) vaccine[`dose${doseNumber}`] = row.vaccine_date;
+    if (doseNumber === 1 || !vaccine.remarks) vaccine.remarks = row.remarks || vaccine.remarks || null;
+    vaccines[row.vaccine_name] = vaccine;
+  }
+  for (const vaccine of Object.values(vaccines)) {
+    vaccine.vaccine_date = vaccine.dose1;
+  }
   return {
     ...child,
     medicalConditions: Object.fromEntries(medicalRows.map((row) => [row.condition_name, Boolean(row.has_condition)])),
-    ...Object.fromEntries(vaccineRows.map((row) => [row.vaccine_name, row])),
+    ...vaccines,
   };
+}
+
+const CHILD_VACCINES = [
+  { name: 'BCG', field: 'bcg' },
+  { name: 'HepB', field: 'hepb' },
+  { name: 'OPV', field: 'opv' },
+  { name: 'DPT', field: 'dpt' },
+  { name: 'MMR', field: 'mmr' },
+];
+
+function getChildVaccines(body = {}) {
+  return CHILD_VACCINES.map(({ name, field }) => ({
+    name,
+    remarks: body[`${field}Remarks`] || null,
+    doses: [1, 2, 3].map((doseNumber) => (
+      body[`${field}Dose${doseNumber}`] || (doseNumber === 1 ? body[`${field}Date`] : null) || null
+    )),
+  }));
+}
+
+async function saveChildVaccines(childId, body = {}) {
+  for (const vaccine of getChildVaccines(body)) {
+    for (const [index, date] of vaccine.doses.entries()) {
+      const doseNumber = index + 1;
+      const remarks = doseNumber === 1 ? vaccine.remarks : null;
+      if (date || remarks) {
+        await pool.query(
+          'INSERT INTO child_vaccinations (child_id, vaccine_name, dose_number, vaccine_date, remarks) VALUES (?, ?, ?, ?, ?)',
+          [childId, vaccine.name, doseNumber, date, remarks]
+        );
+      }
+    }
+  }
 }
 
 function withChildAliases(child = {}) {
@@ -28,6 +73,7 @@ function withChildAliases(child = {}) {
     ...child,
     groupId: child.group_id ?? child.mother_group_id ?? child.groupId ?? '',
     communityId: child.community_id ?? child.mother_community_id ?? child.communityId ?? '',
+    batchId: child.effective_batch_id ?? child.batch_id ?? child.batchId ?? '',
     childCode: child.child_code ?? child.childCode ?? '',
     motherId: child.mother_id ?? child.motherId ?? '',
     firstName: child.first_name ?? child.firstName ?? '',
@@ -77,7 +123,14 @@ async function attachMonitoringData(child) {
 router.post('/:id/documents', documentUpload.single('birthDocument'), async (req, res) => {
   try {
     const { id } = req.params;
-    const [childRows] = await pool.query('SELECT id FROM children WHERE id = ? OR child_code = ? LIMIT 1', [Number(id) || null, id]);
+    const [childRows] = await pool.query(
+      `SELECT c.id, c.child_code, c.first_name, c.last_name,
+          COALESCE(c.community_id, m.community_id) AS community_id,
+          COALESCE(c.group_id, m.group_id) AS group_id
+       FROM children c LEFT JOIN mothers m ON m.id = c.mother_id
+       WHERE c.id = ? OR c.child_code = ? LIMIT 1`,
+      [Number(id) || null, id],
+    );
     if (!childRows.length) return res.status(404).json({ error: 'Child not found' });
     if (!req.file) return res.status(400).json({ error: 'Birth document is required' });
     const storedFile = await uploadFileToStorage(req.file, 'birth-document');
@@ -85,6 +138,19 @@ router.post('/:id/documents', documentUpload.single('birthDocument'), async (req
       'UPDATE children SET birth_document_name = ?, birth_document_path = ? WHERE id = ?',
       [storedFile.name, storedFile.path, childRows[0].id]
     );
+    const childName = [childRows[0].first_name, childRows[0].last_name].filter(Boolean).join(' ');
+    await createSuperadminNotification({
+      eventType: 'beneficiary.child.document_uploaded',
+      category: 'Beneficiaries',
+      title: 'Child document uploaded',
+      message: `A birth document was uploaded for ${childName}.`,
+      entityType: 'child',
+      entityId: childRows[0].id,
+      linkTo: `/beneficiary/child/${childRows[0].child_code}/profile`,
+      schoolId: childRows[0].community_id,
+      groupId: childRows[0].group_id,
+      actorUserId: req.user?.id,
+    });
     const [rows] = await pool.query('SELECT * FROM children WHERE id = ?', [childRows[0].id]);
     const child = await attachClinicalData(rows[0]);
     res.json({ child: await attachMonitoringData(child) });
@@ -122,7 +188,7 @@ const CHILD_ALLOWED_FIELDS = new Set([
   'father_name', 'fatherName',
   'relationship', 'address',
   'birth_document_path', 'birthDocumentPath',
-  'community_id', 'group_id', 'batch_id',
+  'community_id', 'group_id', 'batch_id', 'batchId',
   'community_name', 'community', 'group_name', 'group', 'batch_name', 'batch',
   'mother_first_name', 'motherFirstName', 'mother_last_name', 'motherLastName',
   'name', 'dob', 'age', 'programType', 'status', 'risk', 'pediatricWeek', 'zScore', 'nutritionalStatus',
@@ -131,7 +197,7 @@ const CHILD_ALLOWED_FIELDS = new Set([
 
 function sanitizeFieldSelection(fields = []) {
   const selected = Array.isArray(fields) ? fields : String(fields || '').split(',').map((value) => value.trim()).filter(Boolean);
-  const requiredFields = new Set(['id', 'child_code', 'mother_id', 'first_name', 'middle_name', 'last_name', 'suffix', 'birth_date', 'birth_document_path', 'community_id', 'group_id', 'communityId', 'groupId', 'community_name', 'group_name', 'batch_name', 'name', 'community', 'group', 'batch', 'progress', 'completedWeeks', 'nextCheckupDate', 'trimester', 'assessment', 'trend', 'risk', 'source']);
+  const requiredFields = new Set(['id', 'child_code', 'mother_id', 'first_name', 'middle_name', 'last_name', 'suffix', 'birth_date', 'birth_document_path', 'community_id', 'group_id', 'communityId', 'groupId', 'batchId', 'community_name', 'group_name', 'batch_name', 'name', 'community', 'group', 'batch', 'progress', 'completedWeeks', 'nextCheckupDate', 'trimester', 'assessment', 'trend', 'risk', 'source']);
   const allowed = [...new Set(selected.filter((field) => CHILD_ALLOWED_FIELDS.has(field)).concat([...requiredFields]))];
   return allowed;
 }
@@ -141,22 +207,23 @@ router.get('/', async (req, res) => {
   try {
     const requestedFields = sanitizeFieldSelection(req.query.fields);
     const scopeClause = req.groupId
-      ? 'WHERE c.group_id = ? OR (c.group_id IS NULL AND m.group_id = ?)'
+      ? 'WHERE c.group_id = ? OR (c.group_id IS NULL AND m.group_id = ?) OR COALESCE(c.batch_id, m.batch_id) IN (SELECT batch_id FROM group_batch WHERE group_id = ?)'
       : req.schoolId
         ? 'WHERE c.community_id = ? OR (c.community_id IS NULL AND m.community_id = ?)'
         : '';
     const [rows] = await pool.query(
-      `SELECT c.*, m.first_name AS mother_first_name, m.last_name AS mother_last_name,
+      `SELECT c.*, COALESCE(c.batch_id, m.batch_id) AS effective_batch_id,
+        m.first_name AS mother_first_name, m.last_name AS mother_last_name,
         m.mother_code, m.group_id AS mother_group_id, m.community_id AS mother_community_id,
         comm.name AS community_name, g.name AS group_name, b.name AS batch_name
        FROM children c
        LEFT JOIN mothers m ON c.mother_id = m.id
-       LEFT JOIN communities comm ON comm.id = c.community_id
-       LEFT JOIN groups g ON g.id = c.group_id
-       LEFT JOIN batches b ON b.id = c.batch_id
+             LEFT JOIN communities comm ON comm.id = COALESCE(c.community_id, m.community_id)
+             LEFT JOIN groups g ON g.id = COALESCE(c.group_id, m.group_id)
+             LEFT JOIN batches b ON b.id = COALESCE(c.batch_id, m.batch_id)
         ${scopeClause}
        ORDER BY c.created_at DESC, c.id DESC`
-          , req.groupId ? [req.groupId, req.groupId] : req.schoolId ? [req.schoolId, req.schoolId] : []
+          , req.groupId ? [req.groupId, req.groupId, req.groupId] : req.schoolId ? [req.schoolId, req.schoolId] : []
     );
 
     const children = await Promise.all(rows.map(async (row) => {
@@ -262,22 +329,22 @@ router.post('/', async (req, res) => {
         );
       }
     }
-    const vaccines = [
-      ['BCG', b.bcgDate, b.bcgRemarks],
-      ['HepB', b.hepbDate, b.hepbRemarks],
-      ['OPV', b.opvDate, b.opvRemarks],
-      ['DPT', b.dptDate, b.dptRemarks],
-      ['MMR', b.mmrDate, b.mmrRemarks],
-    ];
-    for (const [name, date, remarks] of vaccines) {
-      if (date || remarks) {
-        await pool.query(
-          'INSERT INTO child_vaccinations (child_id, vaccine_name, vaccine_date, remarks) VALUES (?, ?, ?, ?)',
-          [result.insertId, name, date || null, remarks || null]
-        );
-      }
-    }
+    await saveChildVaccines(result.insertId, b);
     const child = await attachClinicalData(rows[0]);
+    const childName = [child.first_name, child.last_name].filter(Boolean).join(' ');
+    await createSuperadminNotification({
+      eventType: 'beneficiary.child.created',
+      category: 'Beneficiaries',
+      title: 'Child created',
+      message: `${childName} was added as a beneficiary.`,
+      entityType: 'child',
+      entityId: child.id,
+      linkTo: `/beneficiary/child/${child.child_code}/profile`,
+      schoolId: child.community_id || communityId || null,
+      groupId: child.group_id || groupId || null,
+      schoolIds: [child.community_id || communityId].filter(Boolean),
+      actorUserId: req.user?.id,
+    });
     res.status(201).json({ child: await attachMonitoringData(child) });
   } catch (err) {
     console.error('Failed to create child', err);
@@ -295,9 +362,9 @@ router.get('/:id', async (req, res) => {
         comm.name AS community_name, g.name AS group_name, b.name AS batch_name
        FROM children c
        LEFT JOIN mothers m ON c.mother_id = m.id
-       LEFT JOIN communities comm ON comm.id = c.community_id
-       LEFT JOIN groups g ON g.id = c.group_id
-       LEFT JOIN batches b ON b.id = c.batch_id
+             LEFT JOIN communities comm ON comm.id = COALESCE(c.community_id, m.community_id)
+             LEFT JOIN groups g ON g.id = COALESCE(c.group_id, m.group_id)
+             LEFT JOIN batches b ON b.id = COALESCE(c.batch_id, m.batch_id)
         WHERE (c.id = ? OR c.child_code = ?)${req.groupId ? ' AND (c.group_id = ? OR (c.group_id IS NULL AND m.group_id = ?))' : req.schoolId ? ' AND (c.community_id = ? OR (c.community_id IS NULL AND m.community_id = ?))' : ''}`,
           req.groupId ? [id, id, req.groupId, req.groupId] : req.schoolId ? [id, id, req.schoolId, req.schoolId] : [id, id]
     );
@@ -315,7 +382,11 @@ router.post('/:id/checkups', async (req, res) => {
     const { id } = req.params;
     const body = req.body || {};
     const [childRows] = await pool.query(
-      `SELECT c.id FROM children c LEFT JOIN mothers m ON m.id = c.mother_id WHERE (c.id = ? OR c.child_code = ?)${req.groupId ? ' AND (c.group_id = ? OR (c.group_id IS NULL AND m.group_id = ?))' : req.schoolId ? ' AND (c.community_id = ? OR (c.community_id IS NULL AND m.community_id = ?))' : ''} LIMIT 1`,
+        `SELECT c.id, c.child_code, c.first_name, c.last_name,
+          COALESCE(c.community_id, m.community_id) AS community_id,
+          COALESCE(c.group_id, m.group_id) AS group_id
+         FROM children c LEFT JOIN mothers m ON m.id = c.mother_id
+         WHERE (c.id = ? OR c.child_code = ?)${req.groupId ? ' AND (c.group_id = ? OR (c.group_id IS NULL AND m.group_id = ?))' : req.schoolId ? ' AND (c.community_id = ? OR (c.community_id IS NULL AND m.community_id = ?))' : ''} LIMIT 1`,
       req.groupId ? [Number(id) || null, id, req.groupId, req.groupId] : req.schoolId ? [Number(id) || null, id, req.schoolId, req.schoolId] : [Number(id) || null, id]
     );
     if (!childRows.length) return res.status(404).json({ error: 'Child not found' });
@@ -374,6 +445,20 @@ router.post('/:id/checkups', async (req, res) => {
       [childId]
     );
     const child = await attachClinicalData(rows[0]);
+    const childName = [child.first_name, child.last_name].filter(Boolean).join(' ');
+    const checkupAction = existingRows.length ? 'updated' : 'created';
+    await createSuperadminNotification({
+      eventType: `monitoring.child.checkup_${checkupAction}`,
+      category: 'Monitoring',
+      title: `Child check-up ${checkupAction}`,
+      message: `Week ${week} check-up for ${childName} was ${checkupAction}.`,
+      entityType: 'child',
+      entityId: childId,
+      linkTo: `/beneficiary/child/${child.child_code}/profile`,
+      schoolId: child.community_id || child.mother_community_id,
+      groupId: child.group_id || child.mother_group_id,
+      actorUserId: req.user?.id,
+    });
     res.json({ child: await attachMonitoringData(child) });
   } catch (err) {
     console.error('Failed to save child checkup', err);
@@ -383,12 +468,15 @@ router.post('/:id/checkups', async (req, res) => {
 
 router.put('/:id', async (req, res) => {
   try {
+    if (req.isHealthWorker && !req.groupId) {
+      return res.status(403).json({ error: 'Health workers must be assigned to a group to edit beneficiary profiles' });
+    }
     const { id } = req.params;
     const body = req.body || {};
-    const [existingRows] = await pool.query(`SELECT c.* FROM children c LEFT JOIN mothers m ON m.id = c.mother_id WHERE (c.id = ? OR c.child_code = ?)${req.groupId ? ' AND (c.group_id = ? OR (c.group_id IS NULL AND m.group_id = ?))' : req.schoolId ? ' AND (c.community_id = ? OR (c.community_id IS NULL AND m.community_id = ?))' : ''} LIMIT 1`, req.groupId ? [Number(id) || null, id, req.groupId, req.groupId] : req.schoolId ? [Number(id) || null, id, req.schoolId, req.schoolId] : [Number(id) || null, id]);
+    const [existingRows] = await pool.query(`SELECT c.*, m.community_id AS current_mother_community_id, m.group_id AS current_mother_group_id, m.batch_id AS current_mother_batch_id FROM children c LEFT JOIN mothers m ON m.id = c.mother_id WHERE (c.id = ? OR c.child_code = ?)${req.groupId ? ' AND (c.group_id = ? OR (c.group_id IS NULL AND m.group_id = ?))' : req.schoolId ? ' AND (c.community_id = ? OR (c.community_id IS NULL AND m.community_id = ?))' : ''} LIMIT 1`, req.groupId ? [Number(id) || null, id, req.groupId, req.groupId] : req.schoolId ? [Number(id) || null, id, req.schoolId, req.schoolId] : [Number(id) || null, id]);
     if (!existingRows.length) return res.status(404).json({ error: 'Child not found' });
     const current = existingRows[0];
-    let motherId = getField(body, 'motherId', 'mother_id') || current.mother_id;
+    let motherId = req.isHealthWorker ? current.mother_id : (getField(body, 'motherId', 'mother_id') || current.mother_id);
     const [motherRows] = await pool.query(
       'SELECT id FROM mothers WHERE id = ? OR mother_code = ? LIMIT 1',
       [Number(motherId) || null, motherId]
@@ -396,10 +484,16 @@ router.put('/:id', async (req, res) => {
     if (!motherRows.length) return res.status(400).json({ error: 'Mother not found' });
     motherId = motherRows[0].id;
 
-    let communityId = getField(body, 'communityId', 'community_id') || current.community_id;
-    let groupId = req.groupId || getField(body, 'groupId', 'group_id') || current.group_id;
+    let communityId = req.isHealthWorker
+      ? (current.community_id || current.current_mother_community_id || req.schoolId)
+      : (getField(body, 'communityId', 'community_id') || current.community_id);
+    let groupId = req.isHealthWorker
+      ? req.groupId
+      : (req.groupId || getField(body, 'groupId', 'group_id') || current.group_id);
     if (req.groupId) communityId = req.schoolId;
-    let batchId = getField(body, 'batchId', 'batch_id') || current.batch_id;
+    let batchId = req.isHealthWorker
+      ? (current.batch_id || current.current_mother_batch_id)
+      : (getField(body, 'batchId', 'batch_id') || current.batch_id);
     if (!groupId && body.group) {
       const [groupRows] = await pool.query('SELECT id FROM groups WHERE name = ? LIMIT 1', [body.group]);
       groupId = groupRows[0]?.id || null;
@@ -453,20 +547,11 @@ router.put('/:id', async (req, res) => {
       );
     }
     await pool.query('DELETE FROM child_vaccinations WHERE child_id = ?', [current.id]);
-    const vaccines = [
-      ['BCG', body.bcgDate, body.bcgRemarks], ['HepB', body.hepbDate, body.hepbRemarks],
-      ['OPV', body.opvDate, body.opvRemarks], ['DPT', body.dptDate, body.dptRemarks],
-      ['MMR', body.mmrDate, body.mmrRemarks],
-    ];
-    for (const [name, date, remarks] of vaccines) {
-      if (date || remarks) await pool.query(
-        'INSERT INTO child_vaccinations (child_id, vaccine_name, vaccine_date, remarks) VALUES (?, ?, ?, ?)',
-        [current.id, name, date || null, remarks || null]
-      );
-    }
+    await saveChildVaccines(current.id, body);
 
     const [rows] = await pool.query(
       `SELECT c.*, m.first_name AS mother_first_name, m.last_name AS mother_last_name, m.mother_code,
+        m.group_id AS mother_group_id, m.community_id AS mother_community_id,
         comm.name AS community_name, g.name AS group_name, b.name AS batch_name
        FROM children c LEFT JOIN mothers m ON m.id = c.mother_id
        LEFT JOIN communities comm ON comm.id = c.community_id
@@ -475,7 +560,33 @@ router.put('/:id', async (req, res) => {
        WHERE c.id = ?`,
       [current.id]
     );
-    res.json({ child: await attachClinicalData(rows[0]) });
+    const updatedChild = rows[0];
+    const assignmentChanged = ['mother_id', 'community_id', 'group_id', 'batch_id'].some((field) => (
+      String(current[field] ?? '') !== String(updatedChild[field] ?? '')
+    ));
+    const updatedName = [updatedChild.first_name, updatedChild.last_name].filter(Boolean).join(' ');
+    await createSuperadminNotification({
+      eventType: assignmentChanged ? 'beneficiary.child.transferred' : 'beneficiary.child.updated',
+      category: 'Beneficiaries',
+      title: assignmentChanged ? 'Child assignment changed' : 'Child updated',
+      message: assignmentChanged
+        ? `${updatedName} was transferred to a different mother, school, group, or batch.`
+        : `${updatedName}'s beneficiary record was updated.`,
+      entityType: 'child',
+      entityId: updatedChild.id,
+      linkTo: `/beneficiary/child/${updatedChild.child_code}/profile`,
+      schoolId: updatedChild.community_id || updatedChild.mother_community_id,
+      groupId: updatedChild.group_id || updatedChild.mother_group_id,
+      schoolIds: [
+        current.community_id || current.current_mother_community_id,
+        updatedChild.community_id || updatedChild.mother_community_id,
+      ].filter(Boolean),
+      recipientUserIds: req.isHealthWorker
+        ? await getBeneficiaryUpdateRecipients(pool, updatedChild.community_id || updatedChild.mother_community_id, req.user?.id)
+        : undefined,
+      actorUserId: req.user?.id,
+    });
+    res.json({ child: await attachClinicalData(updatedChild) });
   } catch (error) {
     console.error('Failed to update child', error);
     res.status(500).json({ error: 'db error' });
@@ -491,7 +602,11 @@ router.delete('/:id', async (req, res) => {
         ? ' AND (c.community_id = ? OR (c.community_id IS NULL AND m.community_id = ?))'
         : '';
     const [rows] = await pool.query(
-      `SELECT c.id FROM children c LEFT JOIN mothers m ON m.id = c.mother_id WHERE (c.id = ? OR c.child_code = ?)${scopeClause} LIMIT 1`,
+        `SELECT c.id, c.child_code, c.first_name, c.last_name,
+          COALESCE(c.community_id, m.community_id) AS community_id,
+          COALESCE(c.group_id, m.group_id) AS group_id
+         FROM children c LEFT JOIN mothers m ON m.id = c.mother_id
+         WHERE (c.id = ? OR c.child_code = ?)${scopeClause} LIMIT 1`,
       req.groupId ? [Number(id) || null, id, req.groupId, req.groupId] : req.schoolId ? [Number(id) || null, id, req.schoolId, req.schoolId] : [Number(id) || null, id]
     );
     if (!rows.length) return res.status(404).json({ error: 'Child not found' });
@@ -501,6 +616,20 @@ router.delete('/:id', async (req, res) => {
     await pool.query('DELETE FROM child_medical_conditions WHERE child_id = ?', [childId]);
     await pool.query('DELETE FROM child_vaccinations WHERE child_id = ?', [childId]);
     await pool.query('DELETE FROM children WHERE id = ?', [childId]);
+    const deletedChild = rows[0];
+    const deletedName = [deletedChild.first_name, deletedChild.last_name].filter(Boolean).join(' ');
+    await createSuperadminNotification({
+      eventType: 'beneficiary.child.deleted',
+      category: 'Beneficiaries',
+      title: 'Child deleted',
+      message: `${deletedName} was removed from beneficiaries.`,
+      entityType: 'child',
+      entityId: childId,
+      linkTo: '/beneficiary',
+      schoolId: deletedChild.community_id,
+      groupId: deletedChild.group_id,
+      actorUserId: req.user?.id,
+    });
     res.json({ success: true });
   } catch (error) {
     console.error('Failed to delete child', error);

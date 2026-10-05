@@ -1,10 +1,6 @@
-import { authHeader, fetchWithAuth, resolveAssetUrl } from './authHeader';
+import { authHeader, fetchWithAuth, getApiBaseUrl, resolveAssetUrl } from './authHeader';
 
-const API_BASE = (typeof process !== 'undefined' && process.env && process.env.REACT_APP_API_URL)
-  ? process.env.REACT_APP_API_URL
-  : (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL)
-  ? import.meta.env.VITE_API_URL
-  : 'http://localhost:4000';
+const API_BASE = getApiBaseUrl();
 
 async function handleResponse(res, defaultMsg) {
   const contentType = res.headers.get('content-type') || '';
@@ -20,6 +16,13 @@ async function handleResponse(res, defaultMsg) {
   err.status = res.status;
   err.body = body;
   throw err;
+}
+
+export async function apiGetMothers() {
+  const res = await fetchWithAuth(`${API_BASE}/api/mothers`, {
+    headers: { 'Content-Type': 'application/json' },
+  });
+  return handleResponse(res, 'Failed to fetch mothers');
 }
 
 export async function apiUpdateMother(motherId, payload) {

@@ -2,9 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { apiGetUsers, apiCreateUser, apiUpdateUser, apiPatchUserStatus, apiDeleteUser } from '../../api/users';
 import { isValidName, isValidMiddleInitial, sanitizeDigits, normalizeContact, isValidContact, isValidEmail, formatDobForInput, isValidDob, getDobValidationMessage, generatePassword } from './lib';
 import { getSummary } from '../Community/communityService';
+import { isCommunityCoordinatorRole, isHealthWorkerRole } from '../../utils/permissions';
+import { getApiBaseUrl } from '../../api/authHeader';
+
+const API_BASE = getApiBaseUrl();
 
 const ROLE_OPTIONS = [
-  'Superadmin',
   'Admin',
   'Partner',
   'Community Organizer',
@@ -27,7 +30,7 @@ function normalizeRole(role) {
   const lower = value.toLowerCase();
   if (lower === 'superadmin') return 'Superadmin';
   if (lower === 'admin') return 'Admin';
-  if (lower === 'community organizer') return 'Community Organizer';
+  if (['community organizer', 'community coordinator', 'community_coordinator', 'coordinator'].includes(lower)) return 'Community Organizer';
   if (lower === 'health worker') return 'Health worker';
   return value;
 }
@@ -40,27 +43,51 @@ function buildDisplayName(user) {
   return String(user?.username || 'Unnamed user').trim();
 }
 
-export function useUserManagement() {
-  const [users, setUsers] = useState([]);
-  const API_BASE = (typeof process !== 'undefined' && process.env && process.env.REACT_APP_API_URL)
-    ? process.env.REACT_APP_API_URL
-    : (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL)
-    ? import.meta.env.VITE_API_URL
-    : 'http://localhost:4000';
+const USER_PAGE_SIZE = 100;
 
+async function fetchAllUsers() {
+  const firstPage = await apiGetUsers(1, USER_PAGE_SIZE);
+  const firstPageUsers = Array.isArray(firstPage.users) ? firstPage.users : [];
+  const total = Number(firstPage.total) || firstPageUsers.length;
+  const pageCount = Math.ceil(total / USER_PAGE_SIZE);
+  const remainingPages = await Promise.all(Array.from({ length: Math.max(0, pageCount - 1) }, (_, index) => apiGetUsers(index + 2, USER_PAGE_SIZE)));
+  return [...firstPageUsers, ...remainingPages.flatMap((page) => Array.isArray(page.users) ? page.users : [])].map((user) => ({
+    id: `USR-${String(user.id).padStart(4, '0')}`,
+    firstName: user.first_name,
+    lastName: user.last_name,
+    middleInitial: user.middle_initial,
+    contactNumber: user.contact_number,
+    email: user.email,
+    gender: user.gender,
+    dob: formatDobForInput(user.dob),
+    location: user.location,
+    schoolId: user.school_id,
+    groupId: user.group_id,
+    role: normalizeRole(user.role),
+    status: normalizeStatus(user.status),
+    password: '',
+    name: buildDisplayName(user),
+  }));
+}
+
+export function useUserManagement({ schoolId = '', batchId = '' } = {}) {
+  const [users, setUsers] = useState([]);
   const [apiOnline, setApiOnline] = useState(true);
   const [communities, setCommunities] = useState([]);
   const [groups, setGroups] = useState([]);
+  const [batches, setBatches] = useState([]);
 
   useEffect(() => {
     getSummary()
       .then((summary) => {
         setCommunities(summary.communities || []);
         setGroups(summary.groups || []);
+        setBatches(summary.batches || []);
       })
       .catch(() => {
         setCommunities([]);
         setGroups([]);
+        setBatches([]);
       });
   }, []);
 
@@ -71,31 +98,11 @@ export function useUserManagement() {
       try {
         // record the attempted fetch for debugging
         try { window.__last_user_fetch__ = { url: `${API_BASE}/api/users?page=1&perPage=100`, time: Date.now() }; } catch (e) {}
-        const data = await apiGetUsers(1, 100);
+        const mapped = await fetchAllUsers();
         if (!mounted) return;
         setApiOnline(true);
-        if (Array.isArray(data.users)) {
-          // normalize to existing shape
-          const mapped = data.users.map((u) => ({
-            id: `USR-${String(u.id).padStart(4, '0')}`,
-            firstName: u.first_name,
-            lastName: u.last_name,
-            middleInitial: u.middle_initial,
-            contactNumber: u.contact_number,
-            email: u.email,
-            gender: u.gender,
-            dob: formatDobForInput(u.dob),
-            location: u.location,
-            schoolId: u.school_id,
-            groupId: u.group_id,
-            role: normalizeRole(u.role),
-            status: normalizeStatus(u.status),
-            password: '',
-            name: buildDisplayName(u),
-          }));
-          setUsers(mapped);
-          try { console.log('Fetched users from server', mapped); } catch (e) { /* ignore console errors */ }
-        }
+        setUsers(schoolId ? mapped.filter((user) => String(user.schoolId || '') === String(schoolId)) : mapped);
+        try { console.log('Fetched users from server', mapped); } catch (e) { /* ignore console errors */ }
       } catch (e) {
         try { console.error('Failed to fetch users from server', e?.message || e); } catch (c) {}
         // If a transient network error occurred, retry a couple of times
@@ -112,11 +119,12 @@ export function useUserManagement() {
     }
     load();
     return () => { mounted = false; };
-  }, []);
+  }, [schoolId]);
 
   const [query, setQuery] = useState('');
   const [selectedRoleFilter, setSelectedRoleFilter] = useState('');
-  const [selectedStatusFilter, setSelectedStatusFilter] = useState('Active');
+  const [selectedSchoolFilter, setSelectedSchoolFilter] = useState('');
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState(schoolId || batchId ? 'All' : 'Active');
   const [showAddModal, setShowAddModal] = useState(false);
   const [form, setFormState] = useState({
     firstName: '',
@@ -127,7 +135,7 @@ export function useUserManagement() {
     gender: 'Male',
     dob: '',
     location: 'Poblacion',
-    role: 'Superadmin',
+    role: 'Admin',
     status: 'Active',
     password: '',
     schoolId: '',
@@ -146,6 +154,11 @@ export function useUserManagement() {
   // One-time plaintext credential shown after creation (dev only)
   const [oneTimeCredentials, setOneTimeCredentials] = useState(null);
 
+  useEffect(() => {
+    setSelectedStatusFilter(schoolId || batchId ? 'All' : 'Active');
+    setPage(1);
+  }, [batchId, schoolId]);
+
   const clearOneTimeCredentials = () => setOneTimeCredentials(null);
 
   useEffect(() => {
@@ -156,19 +169,31 @@ export function useUserManagement() {
 
   const filteredData = useMemo(() => {
     const term = query.trim().toLowerCase();
+    const selectedBatch = batches.find((batch) => String(batch.id || batch.code) === String(batchId));
+    const batchGroupIds = String(selectedBatch?.groupIds || '').split(',').map((id) => id.trim()).filter(Boolean);
     return users.filter((user) => {
+      if (user.role === 'Superadmin') {
+        return false;
+      }
+
+      const matchesSchoolScope = !schoolId || String(user.schoolId || '') === String(schoolId);
+      const matchesBatch = !batchId || batchGroupIds.includes(String(user.groupId || ''));
+
       // Compare normalized status so UI filters work regardless of server casing/enum values
       const matchesStatus = selectedStatusFilter === 'All'
         ? true
         : (typeof user.status === 'string' && (user.status === selectedStatusFilter || (typeof normalizeStatus === 'function' && normalizeStatus(user.status) === selectedStatusFilter)));
       const matchesRole = !selectedRoleFilter || user.role === selectedRoleFilter;
+      const matchesSelectedSchool = !selectedSchoolFilter || (selectedSchoolFilter === '__unassigned__'
+        ? !user.schoolId
+        : String(user.schoolId || '') === String(selectedSchoolFilter));
       const matchesSearch =
         !term ||
         user.name.toLowerCase().includes(term) ||
         user.role.toLowerCase().includes(term);
-      return matchesStatus && matchesRole && matchesSearch;
+      return matchesSchoolScope && matchesBatch && matchesStatus && matchesRole && matchesSelectedSchool && matchesSearch;
     });
-  }, [query, selectedRoleFilter, selectedStatusFilter, users]);
+  }, [batchId, batches, query, schoolId, selectedRoleFilter, selectedSchoolFilter, selectedStatusFilter, users]);
 
   const pageCount = useMemo(
     () => Math.max(1, Math.ceil(filteredData.length / perPage)),
@@ -209,6 +234,11 @@ export function useUserManagement() {
     setPage(1);
   };
 
+  const selectSchoolFilter = (selectedSchoolId) => {
+    setSelectedSchoolFilter(selectedSchoolId);
+    setPage(1);
+  };
+
   const handlePerPageChange = (val) => {
     setPerPage(Number(val));
     setPage(1);
@@ -223,7 +253,7 @@ export function useUserManagement() {
     gender: 'Male',
     dob: '',
     location: 'Poblacion',
-    role: 'Superadmin',
+    role: 'Admin',
     status: 'Active',
     password: '',
     schoolId: '',
@@ -252,7 +282,7 @@ export function useUserManagement() {
       gender: user.gender || 'Male',
       dob: formatDobForInput(user.dob ?? user.dateOfBirth ?? user.date_of_birth) || '',
       location: user.location || 'Poblacion',
-      role: user.role || 'Superadmin',
+      role: user.role || 'Admin',
       status: user.status || 'Active',
       password: user.password || '',
       schoolId: user.schoolId || '',
@@ -278,31 +308,10 @@ export function useUserManagement() {
   const retryLoad = async () => {
     setNotification('Retrying connection to server...');
     try {
-      const data = await apiGetUsers(1, 100);
-      if (Array.isArray(data.users)) {
-        const mapped = data.users.map((u) => ({
-          id: `USR-${String(u.id).padStart(4, '0')}`,
-          firstName: u.first_name,
-          lastName: u.last_name,
-          middleInitial: u.middle_initial,
-          contactNumber: u.contact_number,
-          email: u.email,
-          gender: u.gender,
-          dob: formatDobForInput(u.dob),
-          location: u.location,
-          schoolId: u.school_id,
-          groupId: u.group_id,
-          role: u.role,
-          status: u.status,
-          password: '',
-          name: `${u.first_name} ${u.middle_initial ? u.middle_initial + ' ' : ''}${u.last_name}`,
-        }));
-        setUsers(mapped);
-        setApiOnline(true);
-        setNotification('Reconnected to server. User list refreshed.');
-      } else {
-        setNotification('Server responded but returned unexpected data.');
-      }
+      const mapped = await fetchAllUsers();
+      setUsers(schoolId ? mapped.filter((user) => String(user.schoolId || '') === String(schoolId)) : mapped);
+      setApiOnline(true);
+      setNotification('Reconnected to server. User list refreshed.');
     } catch (err) {
       setApiOnline(false);
       setNotification('Retry failed. Server still unreachable.');
@@ -329,7 +338,7 @@ export function useUserManagement() {
       const mi = (fd.get('middleInitial') || '').toString().trim();
       const dobVal = (fd.get('dob') || form.dob || '').toString().trim();
       const normalizedDob = formatDobForInput(dobVal);
-      const roleVal = (fd.get('role') || 'Superadmin').toString();
+      const roleVal = (fd.get('role') || 'Admin').toString();
       const statusVal = (fd.get('status') || 'Active').toString();
       const schoolIdVal = (fd.get('schoolId') || '').toString();
       const groupIdVal = (fd.get('groupId') || '').toString();
@@ -356,12 +365,17 @@ export function useUserManagement() {
     }
     if (!email) { setNotification('Email is required.'); try { console.log('Validation failed: missing email', { email }); } catch(e){}; return; }
     if (!isValidEmail(email)) { setNotification('Please enter a valid email address.'); try { console.log('Validation failed: invalid email', { email }); } catch(e){}; return; }
+    if (roleVal === 'Superadmin' || normalizeRole(roleVal) === 'Superadmin') {
+      setNotification('Creating a Superadmin account is not allowed. Please choose another role.');
+      return;
+    }
+
     // Keep client validation aligned with the server's role assignment rules.
-    if (['health worker', 'community organizer'].includes(roleVal.trim().toLowerCase()) && !schoolIdVal) {
+    if ((isHealthWorkerRole(roleVal) || isCommunityCoordinatorRole(roleVal)) && !schoolIdVal) {
       setNotification(`Assigned school is required for ${roleVal} accounts.`);
       return;
     }
-    if (roleVal.trim().toLowerCase() === 'health worker' && !groupIdVal) {
+    if (isHealthWorkerRole(roleVal) && !groupIdVal) {
       setNotification('Assigned group is required for Health worker accounts.');
       return;
     }
@@ -665,6 +679,7 @@ export function useUserManagement() {
     query,
     selectedStatusFilter,
     selectedRoleFilter,
+    selectedSchoolFilter,
     showAddModal,
     page,
     perPage,
@@ -683,6 +698,7 @@ export function useUserManagement() {
     handleSearch,
     setStatusFilter,
     selectRoleFilter,
+    selectSchoolFilter,
     handlePerPageChange,
     handlePageChange,
     openAddModal,
@@ -703,5 +719,6 @@ export function useUserManagement() {
     clearOneTimeCredentials,
     communities,
     groups,
+    batches,
   };
 }

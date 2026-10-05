@@ -1,13 +1,20 @@
 const ROLE_ALIASES = {
   superadmin: 'super_admin',
   'super admin': 'super_admin',
+  super_admin: 'super_admin',
   administrator: 'admin',
   admin: 'admin',
-  'community organizer': 'partner',
-  communityorganizer: 'partner',
+  'community organizer': 'community_coordinator',
+  communityorganizer: 'community_coordinator',
+  'community coordinator': 'community_coordinator',
+  community_coordinator: 'community_coordinator',
+  communitycoordinator: 'community_coordinator',
+  coordinator: 'community_coordinator',
+  co: 'community_coordinator',
   partner: 'partner',
-  'health worker': 'partner',
-  healthworker: 'partner',
+  'health worker': 'health_worker',
+  healthworker: 'health_worker',
+  health_worker: 'health_worker',
 };
 
 const normalizeRole = (role) => {
@@ -15,8 +22,8 @@ const normalizeRole = (role) => {
   return ROLE_ALIASES[value] || value;
 };
 
-const isHealthWorkerRole = (role) => ['health worker', 'healthworker'].includes(String(role || '').trim().toLowerCase());
-const isCommunityOrganizerRole = (role) => ['community organizer', 'communityorganizer'].includes(String(role || '').trim().toLowerCase());
+const isHealthWorkerRole = (role) => normalizeRole(role) === 'health_worker';
+const isCommunityCoordinatorRole = (role) => normalizeRole(role) === 'community_coordinator';
 
 const permissionResponse = (res, message = 'Forbidden') => {
   const payload = {
@@ -27,6 +34,42 @@ const permissionResponse = (res, message = 'Forbidden') => {
   };
   return res.status(403).json(payload);
 };
+
+const isReadMethod = (method) => ['GET', 'HEAD', 'OPTIONS'].includes(method);
+
+const isUsersRequest = (req) => req.baseUrl === '/api/users';
+
+const isSchoolCreate = (req) => (
+  req.baseUrl === '/api/community'
+  && req.method === 'POST'
+  && /^\/communities\/?$/.test(req.path)
+);
+
+const isSchoolDelete = (req) => (
+  req.baseUrl === '/api/community'
+  && req.method === 'DELETE'
+  && /^\/communities\/[^/]+\/?$/.test(req.path)
+);
+
+const isLimitedWrite = (req) => {
+  if (req.baseUrl === '/api/mothers') {
+    return (req.method === 'PUT' && /^\/[^/]+\/?$/.test(req.path))
+      || (req.method === 'POST' && /^\/[^/]+\/(documents|checkups)\/?$/.test(req.path));
+  }
+  if (req.baseUrl === '/api/children') {
+    return req.method === 'POST' && /^\/[^/]+\/checkups\/?$/.test(req.path);
+  }
+  if (req.baseUrl === '/api/programs') {
+    return req.method === 'PATCH' && /\/monitoring\/?$/.test(req.path);
+  }
+  return false;
+};
+
+const isHealthWorkerChildUpdate = (req) => (
+  req.baseUrl === '/api/children'
+  && req.method === 'PUT'
+  && /^\/[^/]+\/?$/.test(req.path)
+);
 
 function authorize(...allowedRoles) {
   return (req, res, next) => {
@@ -60,58 +103,31 @@ function authorizeOperational(req, res, next) {
   }
 
   const userRole = normalizeRole(req.user.role);
-  const isCommunityOrganizer = isCommunityOrganizerRole(req.user.role);
-  const isCommunityOrganizerCreate = userRole === 'partner'
-    && isCommunityOrganizer
-    && req.method === 'POST'
-    && (
-      (['/api/mothers', '/api/children'].includes(req.baseUrl) && req.path === '/')
-      || (req.baseUrl === '/api/community' && ['/batches', '/groups'].includes(req.path))
-    );
-  const isBeneficiaryUpdate = ['admin', 'partner'].includes(userRole)
-    && req.baseUrl === '/api/mothers'
-    && (
-      (req.method === 'PUT' && /^\/[^/]+\/?$/.test(req.path))
-      || (req.method === 'POST' && /^\/[^/]+\/(documents|checkups)\/?$/.test(req.path))
-    );
-  const isChildCheckupUpdate = ['admin', 'partner'].includes(userRole)
-    && req.baseUrl === '/api/children'
-    && req.method === 'POST'
-    && /^\/[^/]+\/checkups\/?$/.test(req.path);
-  const isCommunityOrganizerProgramCreate = userRole === 'partner'
-    && isCommunityOrganizer
-    && req.baseUrl === '/api/programs'
-    && req.method === 'POST'
-    && (req.path === '/' || /^\/[^/]+\/clusters\/?$/.test(req.path));
-  const isCommunityOrganizerProgramLifecycle = userRole === 'partner'
-    && isCommunityOrganizer
-    && req.baseUrl === '/api/programs'
-    && req.method === 'PATCH'
-    && (/^\/[^/]+\/end\/?$/.test(req.path) || /^\/[^/]+\/restore\/?$/.test(req.path));
-  const isCommunityOrganizerProgramMutation = userRole === 'partner'
-    && isCommunityOrganizer
-    && req.baseUrl === '/api/programs'
-    && ['PUT', 'DELETE'].includes(req.method)
-    && /^\/[^/]+\/?$/.test(req.path);
-  const isCommunityOrganizerCommunityMutation = userRole === 'partner'
-    && isCommunityOrganizer
-    && req.baseUrl === '/api/community'
-    && ['POST', 'PUT', 'DELETE'].includes(req.method)
-    && /^\/(?:communities|groups|batches)(?:\/[^/]+)?\/?$/.test(req.path);
-  const isCommunityOrganizerBeneficiaryMutation = userRole === 'partner'
-    && isCommunityOrganizer
-    && ['POST', 'PUT', 'DELETE'].includes(req.method)
-    && [
-      '/api/mothers',
-      '/api/children',
-    ].includes(req.baseUrl)
-    && /^\/(?:[^/]+)?\/?$/.test(req.path);
-  if (userRole !== 'super_admin' && !['GET', 'HEAD', 'OPTIONS'].includes(req.method) && !isCommunityOrganizerCreate && !isBeneficiaryUpdate && !isChildCheckupUpdate && !isCommunityOrganizerProgramCreate && !isCommunityOrganizerProgramLifecycle && !isCommunityOrganizerProgramMutation && !isCommunityOrganizerCommunityMutation && !isCommunityOrganizerBeneficiaryMutation) {
-    return permissionResponse(res, 'Admin and Partner accounts are read-only');
+  const operationalRoles = ['super_admin', 'admin', 'community_coordinator', 'partner', 'health_worker'];
+  if (!operationalRoles.includes(userRole)) {
+    return permissionResponse(res, 'You do not have permission to access this resource');
   }
+  const isCommunityOrganizer = isCommunityCoordinatorRole(req.user.role);
   req.isHealthWorker = isHealthWorkerRole(req.user.role);
   req.isCommunityOrganizer = isCommunityOrganizer;
-  const scopedRoles = ['partner'];
+
+  if (!isReadMethod(req.method)) {
+    if (userRole !== 'super_admin' && isUsersRequest(req)) {
+      return permissionResponse(res, 'User management is restricted to Superadmin');
+    }
+
+    if (userRole === 'community_coordinator' && (isSchoolCreate(req) || isSchoolDelete(req))) {
+      return permissionResponse(res, 'Community Coordinators cannot create or delete schools');
+    }
+
+    const isAllowedHealthWorkerWrite = userRole === 'health_worker'
+      && (isLimitedWrite(req) || isHealthWorkerChildUpdate(req));
+    if (!['super_admin', 'community_coordinator'].includes(userRole) && !isAllowedHealthWorkerWrite) {
+      return permissionResponse(res, 'Admin and Partner accounts are read-only');
+    }
+  }
+
+  const scopedRoles = ['community_coordinator', 'health_worker'];
   const hasSchoolAssignment = req.user.school_id !== undefined && req.user.school_id !== null && String(req.user.school_id).trim() !== '';
   const hasGroupAssignment = req.user.group_id !== undefined && req.user.group_id !== null && String(req.user.group_id).trim() !== '';
 
@@ -123,7 +139,7 @@ function authorizeOperational(req, res, next) {
 
   if (scopedRoles.includes(userRole)) {
     if (!hasSchoolAssignment) {
-      if (isCommunityOrganizerRole(req.user.role)) {
+      if (isCommunityOrganizer) {
         req.schoolId = -1;
         req.groupId = null;
         return next();
@@ -140,4 +156,19 @@ function authorizeOperational(req, res, next) {
   return next();
 }
 
-module.exports = { authorize, authorizeOperational, normalizeRole, isHealthWorkerRole };
+function authorizeProgressReport(req, res, next) {
+  const userRole = normalizeRole(req.user?.role);
+  if (!['admin', 'partner', 'community_coordinator', 'health_worker'].includes(userRole)) {
+    return permissionResponse(res, 'You do not have permission to access progress reports');
+  }
+  return next();
+}
+
+module.exports = {
+  authorize,
+  authorizeOperational,
+  authorizeProgressReport,
+  normalizeRole,
+  isHealthWorkerRole,
+  isCommunityCoordinatorRole,
+};

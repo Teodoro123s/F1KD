@@ -1,0 +1,217 @@
+:root {
+  --field-height: 42px;
+  --field-border: #cbd5e1;
+  --field-border-focus: #15803d;
+  --field-focus-ring: rgba(21, 128, 61, 0.12);
+  --field-placeholder: #94a3b8;
+  --field-radius: 10px;
+}
+
+.form-input,
+.form-select,
+textarea.form-input,
+.checkup-field-input,
+.checkup-search-label input,
+.monitoring-search input,
+.monitoring-status-filter select,
+.beneficiary-status-filter select,
+.child-monitor-navigation select {
+  box-sizing: border-box;
+  min-height: var(--field-height);
+  border: 1px solid var(--field-border);
+  border-radius: var(--field-radius);
+  background: #fff;
+  color: var(--slate-dark);
+  font: inherit;
+  line-height: 1.35;
+}
+
+.form-input,
+.form-select,
+textarea.form-input,
+.checkup-field-input,
+.checkup-search-label input,
+.monitoring-search input {
+  padding: 0.65rem 0.85rem;
+}
+
+.form-input::placeholder,
+.form-select::placeholder,
+textarea.form-input::placeholder,
+.checkup-field-input::placeholder,
+.checkup-search-label input::placeholder,
+.monitoring-search input::placeholder {
+  color: var(--field-placeholder);
+  opacity: 1;
+}
+
+.form-input:hover,
+.form-select:hover,
+textarea.form-input:hover,
+.checkup-field-input:hover,
+.checkup-search-label input:hover,
+.monitoring-search input:hover,
+.monitoring-status-filter select:hover,
+.beneficiary-status-filter select:hover,
+.child-monitor-navigation select:hover {
+  border-color: #94a3b8;
+}
+
+.form-input:focus,
+.form-select:focus,
+textarea.form-input:focus,
+.checkup-field-input:focus,
+.checkup-search-label input:focus,
+.monitoring-search input:focus,
+.monitoring-status-filter select:focus,
+.beneficiary-status-filter select:focus,
+.child-monitor-navigation select:focus {
+  outline: none;
+  border-color: var(--field-border-focus);
+  box-shadow: 0 0 0 3px var(--field-focus-ring);
+}
+
+.form-input:disabled,
+.form-select:disabled,
+textarea.form-input:disabled,
+.checkup-field-input:disabled,
+.checkup-search-label input:disabled,
+.monitoring-search input:disabled,
+.monitoring-status-filter select:disabled,
+.beneficiary-status-filter select:disabled,
+.child-monitor-navigation select:disabled,
+.checkup-field-input[readonly] {
+  background: #f8fafc;
+  color: #64748b;
+  cursor: not-allowed;
+}
+
+.form-input.invalid,
+.form-select.invalid,
+.checkup-field-input.invalid {
+  border-color: #dc2626;
+  background: #fff5f5;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.08);
+}
+
+.form-label,
+.checkup-field-label,
+.checkup-search-label,
+.monitoring-search {
+  color: #475569;
+  font-size: 0.84rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.checkup-field-label.is-required::after {
+  color: #b42318;
+  content: ' *';
+}
+
+.checkup-grid {
+  gap: 1rem;
+}
+
+.checkup-card-body {
+  padding: 1.5rem;
+}
+
+.checkup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e8edf3;
+}
+
+.checkup-actions .btn-primary,
+.checkup-actions .btn-secondary {
+  min-height: 42px;
+  padding: 0.65rem 1rem;
+  border-radius: 10px;
+  font: inherit;
+  font-weight: 700;
+}
+
+.checkup-save-message,
+.checkup-save-message-error,
+.form-error {
+  border-radius: 12px;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+}
+
+.checkup-save-message {
+  border-color: var(--toast-success-border);
+  background: var(--toast-success-bg);
+  color: var(--toast-success-text);
+}
+
+.checkup-save-message-error {
+  border-color: var(--toast-error-border);
+  background: var(--toast-error-bg);
+  color: var(--toast-error-text);
+}
+
+/* Keep the view-layer check-up and profile forms compact on desktop and mobile. */
+.view-content .checkup-card-body {
+  padding: 1.25rem 1.5rem;
+}
+
+.view-content .checkup-section-title {
+  margin-bottom: 0.85rem;
+  font-size: 1.35rem;
+  line-height: 1.25;
+}
+
+.view-content .checkup-grid {
+  gap: 0.85rem 1rem;
+}
+
+.view-content .form-group {
+  gap: 0.4rem;
+}
+
+.view-content .checkup-field-label {
+  font-size: 0.84rem;
+  line-height: 1.25;
+}
+
+.view-content .checkup-field-input {
+  min-height: var(--field-height);
+  padding: 0.65rem 0.85rem;
+  border-radius: var(--field-radius);
+  background: #fff;
+  color: var(--slate-dark);
+  font-size: 0.95rem;
+}
+
+.view-content .checkup-field-input[readonly],
+.view-content .checkup-field-input:disabled {
+  border-color: var(--field-border);
+  background: #f8fafc;
+  color: #64748b;
+}
+
+@media (max-width: 720px) {
+  .view-content .checkup-card-body,
+  .checkup-card-body {
+    padding: 1rem;
+  }
+
+  .view-content .checkup-grid {
+    gap: 0.75rem;
+  }
+
+  .view-content .checkup-field-input {
+    min-height: var(--field-height);
+    font-size: 0.95rem;
+  }
+
+  .checkup-actions .btn-primary,
+  .checkup-actions .btn-secondary {
+    flex: 1 1 140px;
+  }
+}

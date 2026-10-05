@@ -5,6 +5,7 @@ import { notifyAction } from '../../components/ActionFeedback';
 import { generatePassword, formatDobForInput } from './lib';
 import { apiGetUser, apiUpdateUser } from '../../api/users';
 import { getSummary } from '../Community/communityService';
+import { isCommunityCoordinatorRole, isHealthWorkerRole } from '../../utils/permissions';
 
 export default function UserDetailPage() {
   const { id } = useParams();
@@ -80,9 +81,8 @@ export default function UserDetailPage() {
   }, [id, location]);
 
   const displayName = user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || id;
-  const normalizedRole = String(user.role || '').trim().toLowerCase();
-  const isCommunityOrganizer = normalizedRole === 'community organizer';
-  const isHealthWorker = normalizedRole === 'health worker';
+  const isCommunityOrganizer = isCommunityCoordinatorRole(user.role);
+  const isHealthWorker = isHealthWorkerRole(user.role);
   const requiresSchoolAssignment = isCommunityOrganizer || isHealthWorker;
   const schoolLabel = (() => {
     if (!requiresSchoolAssignment) return 'Not required';
@@ -132,7 +132,7 @@ export default function UserDetailPage() {
         actions={(
           <>
             <button type="button" className="view-btn view-btn--primary" onClick={handleEdit}>Edit</button>
-            <button type="button" className="view-btn view-btn--secondary" onClick={() => navigate(-1)}>Back</button>
+            <button type="button" className="view-btn view-btn--secondary back-action" onClick={() => navigate(-1)}>Back</button>
           </>
         )}
       />

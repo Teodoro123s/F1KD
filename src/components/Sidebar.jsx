@@ -3,26 +3,25 @@ import { NavLink } from 'react-router-dom';
 import logo from '../assets/f1kd-logo.png';
 import { useAuth } from '../auth/AuthProvider';
 import { ROLES, hasRole } from '../utils/permissions';
+import { ActivityIcon, BatchesIcon, BuildingIcon, DashboardIcon, GroupsIcon, UsersIcon } from '../pages/Community/CommunityIcons';
 
 const items = [
-  { to: '/dashboard', label: 'Dashboard', icon: '🏠' },
-  { to: '/community', label: 'Community', icon: '👥' },
-  { to: '/beneficiary', label: 'Beneficiary', icon: '🎯' },
-  { to: '/monitoring', label: 'Monitor', icon: '📈' },
-  { to: '/program', label: 'Program', icon: '📚' },
-  { to: '/progress-report', label: 'Progress Report', icon: '📝' },
-  { to: '/user-management', label: 'User Management', icon: '🔧' },
+  { to: '/dashboard', label: 'Dashboard', icon: DashboardIcon },
+  { to: '/community', label: 'Community', icon: BuildingIcon },
+  { to: '/beneficiary', label: 'Beneficiary', icon: UsersIcon },
+  { to: '/monitoring', label: 'Monitor', icon: ActivityIcon },
+  { to: '/program', label: 'Program', icon: GroupsIcon },
+  { to: '/progress-report', label: 'Progress Report', icon: BatchesIcon },
+  { to: '/user-management', label: 'User Management', icon: UsersIcon },
 ];
 
 export default function Sidebar() {
   const { currentUser } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const isSuperAdmin = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]);
-  const isHealthWorker = ['health worker', 'healthworker']
-    .includes(String(currentUser?.role || '').trim().toLowerCase());
   const visibleItems = isSuperAdmin
     ? items.filter((item) => ['/dashboard', '/community', '/user-management'].includes(item.to))
-    : items.filter((item) => item.to !== '/user-management' && (!isHealthWorker || item.to !== '/user-management'));
+    : items.filter((item) => item.to !== '/user-management');
 
   return (
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
@@ -45,8 +44,9 @@ export default function Sidebar() {
             to={it.to}
             className={({isActive}) => 'sidebar-link' + (isActive ? ' active' : '')}
             data-label={it.label}
+            title={it.label}
           >
-            <span className="icon">{it.icon}</span>
+            <span className="icon" aria-hidden="true"><it.icon /></span>
             <span className="label">{it.label}</span>
           </NavLink>
         ))}

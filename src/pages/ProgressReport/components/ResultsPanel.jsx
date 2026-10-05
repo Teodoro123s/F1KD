@@ -10,6 +10,19 @@ export function ResultsPanel({
   exportReport,
   resultsView,
   setResultsView,
+  tableDisplayMode,
+  setTableDisplayMode,
+  tableRows,
+  tableVisibleFields,
+  monitoringRows,
+  showProfileFilter,
+  profileFieldSections,
+  profileSectionLabels,
+  profileSection,
+  setProfileSection,
+  displayPage,
+  reportPagination,
+  generateReport,
   displayReportCategory,
   profileGraphColumn,
   setProfileGraphColumn,
@@ -21,6 +34,7 @@ export function ResultsPanel({
   setGrowthMetrics,
   displayWeeks,
   setDisplayWeeks,
+  rangeRows,
   averageMetric,
   graphRows,
   resultsRows,
@@ -34,7 +48,6 @@ export function ResultsPanel({
   profileGraphFields,
   interpretationMetrics,
   programMetrics,
-  GrowthChart,
 }) {
   const viewToggle = [
     { key: 'table', label: 'Table View' },
@@ -82,18 +95,29 @@ export function ResultsPanel({
           resultsRows={resultsRows}
           displayWeeks={displayWeeks}
           setDisplayWeeks={setDisplayWeeks}
+          rangeRows={rangeRows}
           displayBeneficiaryType={displayBeneficiaryType}
           averageMetric={averageMetric}
-          GrowthChart={GrowthChart}
           profileGraphFields={profileGraphFields}
           interpretationMetrics={interpretationMetrics}
           programMetrics={programMetrics}
         />
       ) : (
         <ResultsTable
-          resultsRows={resultsRows}
+          resultsRows={tableRows}
           reportFields={reportFields}
-          displayVisibleFields={displayVisibleFields}
+          displayVisibleFields={tableVisibleFields}
+          tableDisplayMode={tableDisplayMode}
+          setTableDisplayMode={setTableDisplayMode}
+          showMonitoringFilter={displayReportCategory === 'monitor'}
+          communitySelection={selection}
+          beneficiaryType={displayBeneficiaryType}
+          monitoringRows={monitoringRows}
+          showProfileFilter={showProfileFilter}
+          profileFieldSections={profileFieldSections}
+          profileSectionLabels={profileSectionLabels}
+          profileSection={profileSection}
+          setProfileSection={setProfileSection}
           displaySort={displaySort}
           sortLabel={(label, key) => (
             <button type="button" className="progress-report-sort-button" onClick={() => changeSort(key)}>
@@ -102,6 +126,13 @@ export function ResultsPanel({
           )}
           formatCellValue={formatCellValue}
         />
+      )}
+      {reportPagination && reportPagination.totalPages > 1 && (
+        <div className="progress-report-pagination" aria-label="Report pagination">
+          <button type="button" className="secondary-btn" disabled={displayPage <= 1} onClick={() => generateReport(displayPage - 1)}>Previous</button>
+          <span>Page {displayPage} of {reportPagination.totalPages}</span>
+          <button type="button" className="secondary-btn" disabled={displayPage >= reportPagination.totalPages} onClick={() => generateReport(displayPage + 1)}>Next</button>
+        </div>
       )}
     </div>
   );

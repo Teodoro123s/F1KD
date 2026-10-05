@@ -108,7 +108,7 @@ export default function MotherChildrenPage() {
         actions={(
           <>
             {canManage && <button type="button" className="view-btn view-btn--primary module-create-button" onClick={() => navigate(`/beneficiary/create/child`, { state: { mother, returnTo } })}>Create Child</button>}
-            <button type="button" className="btn-secondary mother-children-back-button" onClick={() => navigate(-1)}>Back</button>
+            <button type="button" className="btn-secondary mother-children-back-button back-action" onClick={() => navigate(-1)}>Back</button>
           </>
         )}
       />

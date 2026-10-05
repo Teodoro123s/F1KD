@@ -16,7 +16,7 @@ export default function MotherMonitoringPage() {
           <p style={{ margin: 0 }}>{mother ? mother.name || mother.motherName : 'Mother'}</p>
         </div>
         <div>
-          <button className="btn-secondary" onClick={() => navigate(-1)}>Back</button>
+          <button className="btn-secondary back-action" onClick={() => navigate(-1)}>Back</button>
         </div>
       </header>
 

@@ -7,7 +7,8 @@ import { getSummary } from '../Community/communityService';
 import { apiGetChildren } from '../../api/children';
 import { apiGetPrograms } from '../../api/programs';
 import { apiGetUsers } from '../../api/users';
-import { can, isHealthWorkerRole, normalizeRole, ROLES } from '../../utils/permissions';
+import { can, isCommunityCoordinatorRole, isHealthWorkerRole, normalizeRole, ROLES } from '../../utils/permissions';
+import { formatDateForDisplay } from '../../utils/dateFormat';
 
 function getGreeting(name) {
   const hour = new Date().getHours();
@@ -21,8 +22,7 @@ function getGreeting(name) {
 
 function formatDateRange() {
   const today = new Date();
-  const options = { month: 'short', day: 'numeric', year: 'numeric' };
-  return today.toLocaleDateString('en-US', options);
+  return formatDateForDisplay(today);
 }
 
 function formatDayAndMonth(dateString) {
@@ -53,19 +53,18 @@ export default function DashboardPage() {
   const isAdmin = normalizedRole === ROLES.ADMIN;
   const isHealthWorker = isHealthWorkerRole(currentUser?.role);
   const isPartner = normalizedRole === ROLES.PARTNER;
-  const isCommunityOrganizer = ['community organizer', 'communityorganizer']
-    .includes(String(currentUser?.role || '').trim().toLowerCase());
+  const isCommunityOrganizer = isCommunityCoordinatorRole(currentUser?.role);
   const moduleAccess = useMemo(() => ({
     community: true,
-    beneficiary: true,
-    monitoring: true,
-    programs: true,
-    reports: true,
+    beneficiary: !isSuperAdmin,
+    monitoring: !isSuperAdmin,
+    programs: !isSuperAdmin,
+    reports: !isSuperAdmin,
     users: isSuperAdmin,
-    canCreateBeneficiary: !isHealthWorker && (isCommunityOrganizer || can(currentUser?.role, 'partner-resources', 'create')),
-    canManageCommunity: !isHealthWorker && (isCommunityOrganizer || can(currentUser?.role, 'admin-resources', 'create') || can(currentUser?.role, 'partner-resources', 'create')),
-    canManagePrograms: !isHealthWorker && (isSuperAdmin || isAdmin || isCommunityOrganizer),
-  }), [currentUser?.role, isAdmin, isCommunityOrganizer, isHealthWorker, isSuperAdmin]);
+    canCreateBeneficiary: can(currentUser?.role, 'beneficiary-resources', 'create'),
+    canManageCommunity: can(currentUser?.role, 'community-resources', 'update'),
+    canManagePrograms: can(currentUser?.role, 'program-resources', 'update'),
+  }), [currentUser?.role, isSuperAdmin]);
 
   const [communitySummary, setCommunitySummary] = useState({
     communities: [],
@@ -302,7 +301,7 @@ export default function DashboardPage() {
 
   const superadminMetrics = useMemo(() => {
     const activeUsers = Array.isArray(users) ? users : [];
-    const operationalRoles = ['admin', 'partner', 'health worker', 'community organizer'];
+      const operationalRoles = ['admin', 'partner', 'health worker', 'community organizer', 'community coordinator'];
 
     const normalizedUsers = activeUsers.map((user) => ({
       name: user.full_name || user.username || `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Unnamed User',
@@ -315,7 +314,7 @@ export default function DashboardPage() {
 
     const activeStaffCount = normalizedUsers.filter((user) => {
       const roleName = (user.role || '').toLowerCase();
-      return user.status.toLowerCase() === 'active' && (roleName.includes('admin') || roleName.includes('partner') || roleName.includes('health') || roleName.includes('community organizer'));
+      return user.status.toLowerCase() === 'active' && (roleName.includes('admin') || roleName.includes('partner') || roleName.includes('health') || roleName.includes('community organizer') || roleName.includes('community coordinator'));
     }).length;
 
     const unassignedCount = normalizedUsers.filter((user) => {
@@ -350,7 +349,7 @@ export default function DashboardPage() {
     };
   }, [users, communitySummary.communities]);
 
-  const roleLabel = isSuperAdmin ? 'Superadmin' : isAdmin ? 'Administrator' : isHealthWorker ? 'Health Worker' : isCommunityOrganizer ? 'Community Organizer' : isPartner ? 'Community Partner' : 'Staff';
+  const roleLabel = isSuperAdmin ? 'Superadmin' : isAdmin ? 'Administrator' : isHealthWorker ? 'Health Worker' : isCommunityOrganizer ? 'Community Coordinator' : isPartner ? 'Community Partner' : 'Staff';
   const assignedGroupName = useMemo(() => {
     const assignedGroupId = currentUser?.group_id ?? currentUser?.groupId;
     if (!assignedGroupId) return null;
@@ -375,11 +374,11 @@ export default function DashboardPage() {
 
   const visibleModules = useMemo(() => {
     const modules = [
-      ['beneficiary', 'Beneficiaries', '/beneficiary', '👥', true],
-      ['monitoring', 'Monitoring', '/monitoring', '🩺', true],
-      ['community', 'Community', '/community', '🏫', !isHealthWorker],
-      ['programs', 'Programs', '/program', '🍱', !isHealthWorker],
-      ['reports', 'Reports', '/progress-report', '📊', true],
+      ['beneficiary', 'Beneficiaries', '/beneficiary', '👥', !isSuperAdmin],
+      ['monitoring', 'Monitoring', '/monitoring', '🩺', !isSuperAdmin],
+      ['community', 'Community', '/community', '🏫', !isHealthWorker || isSuperAdmin],
+      ['programs', 'Programs', '/program', '🍱', !isSuperAdmin && !isHealthWorker],
+      ['reports', 'Reports', '/progress-report', '📊', !isSuperAdmin],
       ['users', 'Users', '/user-management', '⚙️', isSuperAdmin],
     ];
 
@@ -398,7 +397,7 @@ export default function DashboardPage() {
         cardClass: 'teal',
         value: stats.totalBeneficiaries,
         subtitle: `${stats.motherCount} Mothers • ${stats.childCount} Children`,
-        show: true,
+        show: !isSuperAdmin,
       },
       {
         key: 'monitoring',
@@ -408,7 +407,7 @@ export default function DashboardPage() {
         cardClass: 'amber',
         value: stats.followUpCount,
         subtitle: `${stats.onTrackCount} on track • ${stats.notStartedCount} pending`,
-        show: true,
+        show: !isSuperAdmin,
       },
       {
         key: 'community',
@@ -428,7 +427,7 @@ export default function DashboardPage() {
         cardClass: 'rose',
         value: stats.activeProgramsCount,
         subtitle: `${stats.totalReceived.toLocaleString()} of ${stats.totalTarget.toLocaleString()} reached`,
-        show: !isHealthWorker,
+        show: !isSuperAdmin && !isHealthWorker,
       },
       {
         key: 'users',
@@ -585,25 +584,33 @@ export default function DashboardPage() {
           </div>
 
           <div className="quick-action-grid">
-            <Link to="/beneficiary" className="quick-action-tile accent">
-              <div className="quick-action-tile-icon" aria-hidden="true">👥</div>
-              <span>{moduleAccess.canCreateBeneficiary ? 'Register Beneficiary' : 'View Beneficiaries'}</span>
-            </Link>
+            {!isSuperAdmin && (
+              <Link to="/beneficiary" className="quick-action-tile accent">
+                <div className="quick-action-tile-icon" aria-hidden="true">👥</div>
+                <span>{moduleAccess.canCreateBeneficiary ? 'Register Beneficiary' : 'View Beneficiaries'}</span>
+              </Link>
+            )}
 
-            <Link to="/monitoring" className="quick-action-tile">
-              <div className="quick-action-tile-icon" aria-hidden="true">📋</div>
-              <span>Record Checkup</span>
-            </Link>
+            {!isSuperAdmin && (
+              <Link to="/monitoring" className="quick-action-tile">
+                <div className="quick-action-tile-icon" aria-hidden="true">📋</div>
+                <span>Record Checkup</span>
+              </Link>
+            )}
 
-            <Link to="/program" className="quick-action-tile highlight">
-              <div className="quick-action-tile-icon" aria-hidden="true">🍱</div>
-              <span>{moduleAccess.canManagePrograms ? 'Manage Programs' : 'View Programs'}</span>
-            </Link>
+            {!isSuperAdmin && (
+              <Link to="/program" className="quick-action-tile highlight">
+                <div className="quick-action-tile-icon" aria-hidden="true">🍱</div>
+                <span>{moduleAccess.canManagePrograms ? 'Manage Programs' : 'View Programs'}</span>
+              </Link>
+            )}
 
-            <Link to="/progress-report" className="quick-action-tile">
-              <div className="quick-action-tile-icon" aria-hidden="true">📊</div>
-              <span>Progress Reports</span>
-            </Link>
+            {!isSuperAdmin && (
+              <Link to="/progress-report" className="quick-action-tile">
+                <div className="quick-action-tile-icon" aria-hidden="true">📊</div>
+                <span>Progress Reports</span>
+              </Link>
+            )}
 
             <Link to="/community" className="quick-action-tile">
               <div className="quick-action-tile-icon" aria-hidden="true">🏫</div>

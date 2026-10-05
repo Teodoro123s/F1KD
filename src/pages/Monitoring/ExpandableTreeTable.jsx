@@ -76,14 +76,16 @@ function flattenVisibleRows(data, expandedPath) {
   return rows;
 }
 
-export default function ExpandableTreeTable({ data = [], onBeneficiaryClick, onHistoryClick }) {
-  const [expandedPath, setExpandedPath] = useState([]);
+export default function ExpandableTreeTable({ data = [], onBeneficiaryClick, onHistoryClick, onNodeClick, expandedPath: controlledExpandedPath }) {
+  const [internalExpandedPath, setInternalExpandedPath] = useState([]);
+  const expandedPath = controlledExpandedPath ?? internalExpandedPath;
   const rows = useMemo(() => flattenVisibleRows(data, expandedPath), [data, expandedPath]);
 
   const toggleRow = (row) => {
+    if (controlledExpandedPath) return;
     if (!row.hasChildren) return;
     const key = row.id;
-    setExpandedPath((currentPath) => {
+    setInternalExpandedPath((currentPath) => {
       if (row.level === 'school') return currentPath[0] === key ? [] : [key];
       if (row.level === 'group') return currentPath[1] === key ? [currentPath[0]] : [currentPath[0], key];
       if (row.level === 'batch') return currentPath[2] === key ? currentPath.slice(0, 2) : [currentPath[0], currentPath[1], key];
@@ -91,10 +93,18 @@ export default function ExpandableTreeTable({ data = [], onBeneficiaryClick, onH
     });
   };
 
+  const handleRowClick = (row) => {
+    if (onNodeClick) {
+      onNodeClick(row.node, row.level);
+      return;
+    }
+    toggleRow(row);
+  };
+
   const columns = [
-    { key: 'school', label: 'School', render: (value, row) => row.level === 'school' ? <TreeCell row={row} value={value} onClick={() => toggleRow(row)} /> : value },
-    { key: 'group', label: 'Group', render: (value, row) => row.level === 'group' ? <TreeCell row={row} value={value} onClick={() => toggleRow(row)} /> : value },
-    { key: 'batch', label: 'Batch', render: (value, row) => row.level === 'batch' ? <TreeCell row={row} value={value} onClick={() => toggleRow(row)} /> : value },
+    { key: 'school', label: 'School', render: (value, row) => row.level === 'school' ? <TreeCell row={row} value={value} onClick={() => handleRowClick(row)} /> : value },
+    { key: 'group', label: 'Group', render: (value, row) => row.level === 'group' ? <TreeCell row={row} value={value} onClick={() => handleRowClick(row)} /> : value },
+    { key: 'batch', label: 'Batch', render: (value, row) => row.level === 'batch' ? <TreeCell row={row} value={value} onClick={() => handleRowClick(row)} /> : value },
     { key: 'beneficiary', label: 'Beneficiary', render: (value, row) => row.level === 'beneficiary' ? (
       onBeneficiaryClick ? <button type="button" className="monitor-tree-beneficiary monitor-tree-beneficiary-button" onClick={() => onBeneficiaryClick(row.node)}>{value}</button> : <span className="monitor-tree-beneficiary">{value}</span>
     ) : value },

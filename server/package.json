@@ -6,11 +6,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js",
-    "seed:program": "node scripts/seed_program_data.js",
-    "seed:schools": "node scripts/seed_three_schools.js",
-    "seed:role-accounts": "node seeds/seed_role_accounts.js",
-    "seed:local": "npm run seed:schools && npm run seed:program && npm run seed:role-accounts"
+    "dev": "nodemon index.js"
   },
   "dependencies": {
     "bcrypt": "^5.1.0",

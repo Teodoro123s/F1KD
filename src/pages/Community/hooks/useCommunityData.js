@@ -46,10 +46,11 @@ export const useCommunityData = () => {
 
         setCoordinators(
           users
-            .filter((user) => ['community organizer', 'community_coordinator', 'communitycoordinator', 'co', 'partner'].includes(String(user.role || '').trim().toLowerCase()))
+            .filter((user) => ['community organizer', 'community_coordinator', 'communitycoordinator', 'communityorganizer', 'coordinator', 'co', 'partner'].includes(String(user.role || '').trim().toLowerCase()))
             .map((user) => ({
               id: user.id,
               name: user.full_name || user.username || `User ${user.id}`,
+              schoolId: user.school_id ?? user.schoolId ?? '',
             }))
         );
       } catch (coordinatorError) {

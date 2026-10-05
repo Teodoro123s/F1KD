@@ -55,6 +55,12 @@
   margin-right: auto;
 }
 
+.beneficiary-page .beneficiary-filter-row > .beneficiary-status-filter {
+  flex: 0 0 150px;
+  min-width: 130px;
+  margin-right: auto;
+}
+
 .beneficiary-page .beneficiary-filter-row .search-container {
   margin-left: auto;
 }

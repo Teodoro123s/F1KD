@@ -55,7 +55,7 @@ const getMotherMonitoringStatus = (mother, completed, total) => {
     .sort((a, b) => String(b.nextCheckupDate).localeCompare(String(a.nextCheckupDate)))[0]?.nextCheckupDate;
   const dateStatus = getDateStatus(parseDateOnly(nextDate));
   if (dateStatus === 'Missing') return 'Missing';
-  if (completed > 0) return 'In Progress';
+  if (completed > 0) return 'Pending';
   return dateStatus;
 };
 
@@ -63,7 +63,7 @@ const getChildMonitoringStatus = (child, completed, total) => {
   if (completed >= total) return 'Done';
   const dateStatus = getDateStatus(parseDateOnly(child.nextCheckupDate));
   if (dateStatus === 'Missing') return 'Missing';
-  if (completed > 0) return 'In Progress';
+  if (completed > 0) return 'Pending';
   return dateStatus;
 };
 
@@ -77,6 +77,7 @@ export default function MonitoringPage() {
   const [children, setChildren] = useState([]);
   const [childrenLoading, setChildrenLoading] = useState(true);
   const [selectedChild, setSelectedChild] = useState(() => location.state?.child || null);
+  const [selectedRecordLoading, setSelectedRecordLoading] = useState(() => Boolean(location.state?.child || location.state?.mother));
   const [beneficiaryType, setBeneficiaryType] = useState(() => (location.state?.child ? 'Child' : 'Mother'));
   const [savedMessage, setSavedMessage] = useState('');
   const [motherCheckups, setMotherCheckups] = useState(() => location.state?.mother?.checkups || []);
@@ -98,6 +99,45 @@ export default function MonitoringPage() {
     });
     return () => { active = false; };
   }, []);
+
+  React.useEffect(() => {
+    const routeChild = location.state?.child;
+    const routeMother = location.state?.mother;
+    if (!routeChild && !routeMother) return undefined;
+
+    let active = true;
+    setSelectedRecordLoading(true);
+    const loadSelectedRecord = async () => {
+      try {
+        if (routeChild) {
+          const childId = routeChild.id || routeChild.childId || routeChild.child_id || routeChild.child_code;
+          const response = await apiGetChild(childId);
+          if (!active) return;
+          const detailedChild = response?.child || routeChild;
+          setSelectedChild(detailedChild);
+          setSelectedMother(null);
+          setBeneficiaryType('Child');
+          setChildCompletedWeeks(detailedChild.completedWeeks || []);
+        } else {
+          const motherId = routeMother.id || routeMother.motherId || routeMother.mother_id || routeMother.mother_code;
+          const response = await apiGetMother(motherId);
+          if (!active) return;
+          const detailedMother = response?.mother || routeMother;
+          setSelectedMother(detailedMother);
+          setSelectedChild(null);
+          setBeneficiaryType('Mother');
+          setMotherCheckups(detailedMother.checkups || []);
+        }
+      } catch (error) {
+        if (active) notifyAction(error.message || 'Unable to load monitoring record.', 'error');
+      } finally {
+        if (active) setSelectedRecordLoading(false);
+      }
+    };
+
+    loadSelectedRecord();
+    return () => { active = false; };
+  }, [location.state]);
 
   const scopedMothers = useMemo(() => isHealthWorkerRole(currentUser?.role) && assignedGroupId
     ? mothers.filter((mother) => String(mother.groupId ?? mother.group_id) === String(assignedGroupId))
@@ -264,7 +304,7 @@ export default function MonitoringPage() {
         title={selectedMother || selectedChild ? (selectedMother ? getMotherName(selectedMother) : getChildName(selectedChild)) : 'Monitor'}
         breadcrumbs={selectedMother || selectedChild ? [{ label: 'Monitor', href: '/monitoring' }, { label: selectedMother ? getMotherName(selectedMother) : getChildName(selectedChild) }] : [{ label: 'Monitor' }]}
         actions={selectedMother || selectedChild ? (
-          <button type="button" className="view-btn view-btn--secondary" onClick={handleBack}>Back</button>
+          <button type="button" className="view-btn view-btn--secondary back-action" onClick={handleBack}>Back</button>
         ) : null}
       />
 
@@ -296,14 +336,14 @@ export default function MonitoringPage() {
           </div>
         </section>
       ) : selectedChild ? (
-        <section className="checkup-entry-view" aria-labelledby="selected-child-title">
+        selectedRecordLoading ? <section className="checkup-entry-view" aria-live="polite"><p>Loading child monitoring record...</p></section> : <section className="checkup-entry-view" aria-labelledby="selected-child-title">
           <div className="selected-mother-bar">
             <div className="selected-record-actions">
               <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/child/${selectedChild.id}`, { state: { child: selectedChild } })}>
                 Beneficiary Profile
               </button>
-              <button type="button" className="btn-primary" onClick={() => navigate(`/beneficiary/child/${selectedChild.id}/edit`, { state: { child: selectedChild } })}>
-                Edit
+              <button type="button" className="btn-primary" onClick={() => setEditingCheckup((current) => !current)}>
+                {editingCheckup ? 'Cancel edit' : 'Edit checkup'}
               </button>
             </div>
           </div>
@@ -311,6 +351,7 @@ export default function MonitoringPage() {
           <ChildMonitor
             child={selectedChild}
             completedWeeks={childCompletedWeeks}
+            initialWeek={location.state?.week}
             onSave={async (payload) => {
               setSavedMessage('');
               let completedWeeks = [];
@@ -321,6 +362,7 @@ export default function MonitoringPage() {
                 setSelectedChild(savedChild || selectedChild);
                 setChildCompletedWeeks(completedWeeks);
                 setChildren((current) => current.map((child) => String(child.id) === String(payload.childId) ? { ...child, ...savedChild } : child));
+                setEditingCheckup(false);
               } catch (error) {
                 setSavedMessage(`Unable to save check-up: ${error.message}`);
                 return false;
@@ -331,9 +373,12 @@ export default function MonitoringPage() {
               setSavedMessage(message);
               return true;
             }}
-            onCancel={() => setSelectedChild(null)}
+            onCancel={() => setEditingCheckup(false)}
+            forceEdit={editingCheckup}
           />
         </section>
+      ) : selectedRecordLoading ? (
+        <section className="checkup-entry-view" aria-live="polite"><p>Loading mother monitoring record...</p></section>
       ) : (
         <section className="checkup-entry-view" aria-labelledby="selected-mother-title">
           <div className="selected-mother-bar">

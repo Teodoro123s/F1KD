@@ -116,8 +116,9 @@ export function EditCommunityModal({ showModal, onClose, communityForm, setCommu
   );
 }
 
-export function CreateBatchModal({ showModal, onClose, batchForm, setBatchForm, handleCreateBatch, communities, hideSchoolField = false, isSubmitting }) {
+export function CreateBatchModal({ showModal, onClose, batchForm, setBatchForm, handleCreateBatch, communities, groups = [], showGroupField = false, hideSchoolField = false, isSubmitting }) {
   if (!showModal) return null;
+  const availableGroups = groups.filter((group) => group.community === batchForm.community);
   return (
     <ModalShell title="Create Batch" onClose={onClose} onSubmit={handleCreateBatch} submitLabel="Create" isSubmitting={isSubmitting}>
       <div className="form-group">
@@ -145,6 +146,20 @@ export function CreateBatchModal({ showModal, onClose, batchForm, setBatchForm, 
             {communities.map((comm) => (
               <option key={comm.id} value={comm.name}>{comm.name}</option>
             ))}
+          </select>
+        </div>
+      )}
+      {showGroupField && (
+        <div className="form-group">
+          <label className="form-label" htmlFor="batch-group">Group</label>
+          <select
+            id="batch-group"
+            className="form-select"
+            value={batchForm.groupId || ''}
+            onChange={(event) => setBatchForm({ ...batchForm, groupId: event.target.value })}
+            required
+          >
+            {availableGroups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
           </select>
         </div>
       )}

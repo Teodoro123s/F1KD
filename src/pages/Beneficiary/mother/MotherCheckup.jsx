@@ -1,5 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import StepWizard from '../../../components/StepWizard';
+import DateInput from '../../../components/ui/DateInput';
+import { formatDateForDisplay, normalizeDateValue } from '../../../utils/dateFormat';
+import { getMotherMonitoringStartIndex } from '../../../utils/motherProgress';
 
 const TRIMESTERS = [
   { label: '1st Trimester', code: 'T1' },
@@ -26,11 +29,6 @@ const LAB_ASSISTANCE_OPTIONS = [
   'Genetic and Chromosomal Screening',
 ];
 
-const getTrimesterIndex = (trimester) => {
-  const index = TRIMESTERS.findIndex((item) => item.label === trimester);
-  return index === -1 ? 0 : index;
-};
-
 const getTrimesterFromGestationalAge = (weeks) => {
   if (weeks > 26) return '3rd Trimester';
   if (weeks > 12) return '2nd Trimester';
@@ -38,27 +36,41 @@ const getTrimesterFromGestationalAge = (weeks) => {
 };
 
 const getMonitoringStartDetails = (mother = {}) => {
-  const registeredWeeks = Number.parseInt(mother.gestationalAge ?? mother.gestational_age, 10);
   const registrationDate = mother.prenatalRegDate || mother.prenatal_reg_date || '';
   const registeredTrimester = mother.trimester || mother.trimester_at_registration || '';
-  const currentWeeks = Number.isFinite(registeredWeeks) ? registeredWeeks : null;
-  const trimester = registeredTrimester || (currentWeeks !== null
+  const lmpDate = mother.lmpDate || mother.lmp || '';
+
+  let currentWeeks = Number.parseInt(mother.gestationalAge ?? mother.gestational_age, 10);
+  if (lmpDate) {
+    const lmp = new Date(lmpDate);
+    if (!Number.isNaN(lmp.getTime())) {
+      const today = new Date();
+      const diffDays = Math.max(0, Math.floor((today - lmp) / (1000 * 60 * 60 * 24)));
+      currentWeeks = Math.floor(diffDays / 7);
+    }
+  }
+
+  const trimester = registeredTrimester || (Number.isFinite(currentWeeks)
     ? getTrimesterFromGestationalAge(currentWeeks)
-    : '1st Trimester');
+    : '2nd Trimester');
+
+  const monthIndex = Number.isFinite(currentWeeks)
+    ? Math.max(1, Math.min(3, Math.floor((currentWeeks - 1) / 4) + 1))
+    : 1;
 
   return {
     registrationDate,
     trimester,
-    gestationalAge: currentWeeks !== null ? String(currentWeeks) : String(mother.gestationalAge || ''),
+    gestationalAge: Number.isFinite(currentWeeks) ? String(currentWeeks) : String(mother.gestationalAge || ''),
+    monthOffset: Math.max(0, Math.min(2, Math.max(0, monthIndex - 1))),
   };
 };
 
-const getInitialStep = (trimester, checkups = []) => {
-  const registeredStep = getTrimesterIndex(trimester) * 3;
+const getInitialStep = (checkups = [], startStep = 0) => {
   const hasAnySavedCheckup = Array.isArray(checkups) && checkups.flat().some(Boolean);
-  if (!hasAnySavedCheckup) return registeredStep;
+  if (!hasAnySavedCheckup) return startStep;
 
-  const firstIncompleteStep = CHECKUPS.findIndex((_, index) => index >= registeredStep && !checkups?.[Math.floor(index / 3)]?.[index % 3]?.completed);
+  const firstIncompleteStep = CHECKUPS.findIndex((_, index) => index >= startStep && !checkups?.[Math.floor(index / 3)]?.[index % 3]?.completed);
   return firstIncompleteStep === -1 ? CHECKUPS.length - 1 : firstIncompleteStep;
 };
 
@@ -69,7 +81,7 @@ const formatDate = (value) => {
   return date.toISOString().split('T')[0];
 };
 
-const formatDateForPayload = (value) => String(value || '').trim().replaceAll('/', '-');
+const formatDateForPayload = (value) => normalizeDateValue(value) || '';
 
 const calculateBmi = (weight, height) => {
   const w = parseFloat(weight);
@@ -128,7 +140,8 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
   if (!mother) return null;
 
   const monitoringStart = getMonitoringStartDetails(mother);
-  const initialStep = getInitialStep(monitoringStart.trimester, mother.checkups);
+  const monitoringStartStep = getMotherMonitoringStartIndex(mother);
+  const initialStep = getInitialStep(mother.checkups, monitoringStartStep);
   const [activeStep, setActiveStep] = useState(initialStep);
   const previousMotherId = useRef(mother.id || mother.motherId);
   const [formState, setFormState] = useState(() => createInitialFormState(mother, getCheckupForStep(mother, initialStep), false, getPreviousCheckupForStep(mother, initialStep)));
@@ -139,13 +152,13 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
     const motherId = mother.id || mother.motherId;
     if (previousMotherId.current !== motherId) {
       previousMotherId.current = motherId;
-      setActiveStep(getInitialStep(getMonitoringStartDetails(mother).trimester, mother.checkups));
+      const start = getMonitoringStartDetails(mother);
+      setActiveStep(getInitialStep(start.trimester, mother.checkups, start.gestationalAge));
     }
   }, [mother]);
 
   useEffect(() => {
-    const startTrimester = getMonitoringStartDetails(mother).trimester;
-    const firstIncomplete = getFirstIncompleteStep(mother.checkups, getTrimesterIndex(startTrimester) * 3);
+    const firstIncomplete = getFirstIncompleteStep(mother.checkups, getMotherMonitoringStartIndex(mother));
     const isFutureStep = firstIncomplete !== -1 && activeStep > firstIncomplete;
     setFormState(createInitialFormState(mother, getCheckupForStep(mother, activeStep), isFutureStep, getPreviousCheckupForStep(mother, activeStep)));
   }, [mother, activeStep]);
@@ -205,10 +218,11 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
   const activeStepIndex = (activeStep % 3) + 1;
   const activeCheckup = getCheckupForStep(mother, activeStep);
   const isCompleted = Boolean(activeCheckup?.completed);
-  const firstIncompleteStep = getFirstIncompleteStep(mother.checkups, getTrimesterIndex(monitoringStart.trimester) * 3);
+  const firstIncompleteStep = getFirstIncompleteStep(mother.checkups, monitoringStartStep);
   const isMaternalPhaseComplete = firstIncompleteStep === -1;
   const isFuture = firstIncompleteStep !== -1 && activeStep > firstIncompleteStep;
-  const isReadOnly = !forceEdit && (isCompleted || isFuture);
+  const isSkipped = activeStep < monitoringStartStep && !isCompleted;
+  const isReadOnly = !forceEdit && (isCompleted || isFuture || isSkipped);
 
   const handleStepClick = (trimester, step) => {
     const nextStep = (trimester - 1) * 3 + (step - 1);
@@ -270,28 +284,30 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
         mother={mother}
         activeTrimester={activeTrimester}
         activeStep={activeStepIndex}
+        startStep={monitoringStartStep}
         onStepClick={handleStepClick}
         checkups={mother.checkups || []}
       />
 
       <form className="mother-checkup-form" onSubmit={handleSubmit}>
         <fieldset disabled={isReadOnly}>
-        <div className={`checkup-card${isCompleted ? ' checkup-card-completed' : ''}${isFuture ? ' checkup-card-locked' : ''}`}>
+        <div className={`checkup-card${isCompleted ? ' checkup-card-completed' : ''}${isFuture || isSkipped ? ' checkup-card-locked' : ''}`}>
           <div className="checkup-card-body">
             <div className="checkup-section-title">Pregnancy Record</div>
             {isMaternalPhaseComplete ? <p className="checkup-state-message">Maternal monitoring phase complete · all 9 check-ups recorded</p> : isCompleted && <p className="checkup-state-message">Completed check-up · view only</p>}
             {isFuture && <p className="checkup-state-message">This check-up will be available after the previous visit is completed.</p>}
+            {isSkipped && <p className="checkup-state-message">This visit was skipped based on gestational age at registration.</p>}
             <div className="checkup-grid">
               <div className="form-group full-width">
-                <label className="checkup-field-label" htmlFor="checkup-date">Check-up Date</label>
-                <input
-                  id="checkup-date"
-                  type="date"
-                  className="checkup-field-input"
-                  value={checkupDate}
-                  onChange={(e) => updateField('checkupDate')(e.target.value)}
-                  required
-                />
+                <label className="checkup-field-label is-required" htmlFor="checkup-date">Check-up Date</label>
+                  <DateInput
+                    id="checkup-date"
+                    className="checkup-field-input"
+                    value={checkupDate}
+                    onChange={updateField('checkupDate')}
+                    ariaLabel="Checkup date"
+                    required
+                  />
               </div>
 
               <div className="form-group">
@@ -311,7 +327,7 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
               </div>
 
               <div className="form-group">
-                <label className="checkup-field-label" htmlFor="weight">Weight (kg)</label>
+                <label className="checkup-field-label is-required" htmlFor="weight">Weight (kg)</label>
                 <input
                   id="weight"
                   type="number"
@@ -337,7 +353,7 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
               </div>
 
               <div className="form-group">
-                <label className="checkup-field-label" htmlFor="bp">Blood Pressure</label>
+                <label className="checkup-field-label is-required" htmlFor="bp">Blood Pressure</label>
                 <input
                   id="bp"
                   type="text"
@@ -382,13 +398,13 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
 
               <div className="form-group full-width">
                 <label className="checkup-field-label" htmlFor="next-checkup-date">Next Checkup Date</label>
-                <input
-                  id="next-checkup-date"
-                  type="date"
-                  className="checkup-field-input"
-                  value={nextCheckupDate}
-                  onChange={(e) => updateField('nextCheckupDate')(e.target.value)}
-                />
+                  <DateInput
+                    id="next-checkup-date"
+                    className="checkup-field-input"
+                    value={nextCheckupDate}
+                    onChange={updateField('nextCheckupDate')}
+                    ariaLabel="Next checkup date"
+                  />
               </div>
 
               <div className="horizontal-toggle-row full-width">
@@ -502,36 +518,6 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
                   </div>
                 </div>
 
-                <div className="checkup-section-title">Milk Subsidy</div>
-                <div className="checkup-grid">
-                  <div className="form-group">
-                    <label className="checkup-field-label" htmlFor="milk-date">Milk Subsidy Date</label>
-                    <input
-                      id="milk-date"
-                      type="text"
-                      inputMode="numeric"
-                      pattern="\d{4}/\d{2}/\d{2}"
-                      className="checkup-field-input"
-                      value={milkDate}
-                      placeholder="yyyy/mm/dd"
-                      onChange={(e) => updateField('milkDate')(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="checkup-field-label" htmlFor="milk-quantity">Milk Quantity (pcs)</label>
-                    <input
-                      id="milk-quantity"
-                      type="number"
-                      className="checkup-field-input"
-                      value={milkQuantity}
-                      min="0"
-                      step="1"
-                      placeholder="e.g. 1"
-                      onChange={(e) => updateField('milkQuantity')(e.target.value)}
-                    />
-                  </div>
-                </div>
               </>
             ) : (
               <div className="checkup-grid" style={{ marginTop: '16px' }}>

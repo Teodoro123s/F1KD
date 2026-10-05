@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --test server/test/authorization.test.js server/test/community_count_accuracy.test.js server/test/program_report.test.js server/test/superadmin_recovery.test.js server/test/notifications.test.js server/test/notification_access.test.js server/test/who_growth_standards.test.cjs src/pages/Program/programData.test.js src/utils/childAge.test.js src/utils/childAge.test.mjs"
   },
   "dependencies": {
     "psgc": "^2.2.0",

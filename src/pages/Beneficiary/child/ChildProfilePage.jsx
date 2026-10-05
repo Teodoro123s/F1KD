@@ -2,8 +2,8 @@
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useMothers } from '../../../context/MothersContext';
 import { formatDateForDisplay } from '../../../utils/dateFormat';
-import { apiDeleteChild, apiUploadChildBirthDocument } from '../../../api/children';
-import { resolveAssetUrl } from '../../../api/authHeader';
+import { apiDeleteChild } from '../../../api/children';
+import { DocumentPreview, DocumentPreviewModal } from '../../../components/DocumentPreview';
 import { useAuth } from '../../../auth/AuthProvider';
 import { can } from '../../../utils/permissions';
 import { capitalizeNameValue } from '../../../utils/nameFormat';
@@ -22,47 +22,6 @@ const ChildField = ({ label, value, className = '' }) => (
     </div>
   </div>
 );
-
-const getDocumentPreviewType = (filePath = '') => {
-  const normalizedPath = String(filePath || '').toLowerCase();
-  if (!normalizedPath) return 'none';
-  if (normalizedPath.endsWith('.pdf')) return 'pdf';
-  if (/\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(normalizedPath)) return 'image';
-  return 'none';
-};
-
-const DocumentPreview = ({ fileName, filePath, label, onPreviewOpen }) => {
-  const normalizedUrl = resolveAssetUrl(filePath);
-  const previewType = getDocumentPreviewType(filePath);
-
-  if (!fileName || !normalizedUrl) {
-    return <span className="document-upload-empty">No document uploaded</span>;
-  }
-
-  return (
-    <div className="document-upload-preview-wrapper">
-      {previewType === 'image' && (
-        <button type="button" className="document-upload-preview-button" onClick={() => onPreviewOpen?.(normalizedUrl, fileName, 'image')}>
-          <img src={normalizedUrl} alt={fileName || label} className="document-upload-preview-image" />
-        </button>
-      )}
-      {previewType === 'pdf' && (
-        <button type="button" className="document-upload-preview-button" onClick={() => onPreviewOpen?.(normalizedUrl, fileName, 'pdf')}>
-          <div className="document-upload-preview-pdf-shell">
-            <object data={normalizedUrl} type="application/pdf" className="document-upload-preview-pdf">
-              <iframe src={normalizedUrl} title={fileName || label} className="document-upload-preview-pdf-frame" />
-            </object>
-          </div>
-        </button>
-      )}
-      {!previewType || previewType === 'none' ? (
-        <a href={normalizedUrl} target="_blank" rel="noreferrer">{fileName}</a>
-      ) : (
-        <button type="button" className="document-upload-filename-link" onClick={() => onPreviewOpen?.(normalizedUrl, fileName, previewType)}>{fileName}</button>
-      )}
-    </div>
-  );
-};
 
 const ChildSection = ({ title, children, fullWidth = false }) => (
   <section className="child-detail-section">
@@ -126,6 +85,7 @@ const normalizeChild = (child = {}) => ({
     nutritionNotes: child.nutritionNotes || child.nutrition_notes || '',
     address: child.address || '',
   community: child.community || child.community_name || '',
+    group: child.group || child.group_name || '',
   batch: child.batch || child.batch_name || '',
     medicalConditions: child.medicalConditions || child.medical_conditions || {},
     medicalRemarks: child.medicalRemarks || child.medical_remarks || '',
@@ -148,7 +108,8 @@ export default function ChildProfilePage() {
   const location = useLocation();
   const navigate = useNavigate();
   const { currentUser } = useAuth();
-  const canManage = can(currentUser?.role, 'beneficiary-resources', 'update');
+  const canEdit = can(currentUser?.role, 'beneficiary-resources', 'update');
+  const canDelete = can(currentUser?.role, 'beneficiary-resources', 'delete');
 
   const stateMother = location.state?.mother || null;
   const { mothers: contextMothers } = useMothers();
@@ -197,52 +158,27 @@ export default function ChildProfilePage() {
 
   const initialSelected = childFromState || (resolvedFromUrl?.child ? normalizeChild(resolvedFromUrl.child) : null);
   const [selectedChild, setSelectedChild] = useState(initialSelected);
-  const [uploadingBirthDocument, setUploadingBirthDocument] = useState(false);
-  const [uploadMessage, setUploadMessage] = useState('');
-  const [isEditingBirthDocument, setIsEditingBirthDocument] = useState(false);
   const [previewDocument, setPreviewDocument] = useState(null);
   const [profileTab, setProfileTab] = useState('general');
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const isChildProfile = location.pathname.endsWith('/profile');
 
-  const uploadBirthDocument = async (file) => {
-    if (!file || !selectedChild?.id) return;
-    setUploadingBirthDocument(true);
-    setUploadMessage('');
-    try {
-      const response = await apiUploadChildBirthDocument(selectedChild.id, file);
-      if (response?.child) {
-        const nextChild = normalizeChild(response.child);
-        setSelectedChild(nextChild);
-        if (location.state) {
-          location.state.updatedChild = nextChild;
-        }
-      }
-      setUploadMessage('Document uploaded successfully.');
-    } catch (error) {
-      setUploadMessage(error.message || 'Unable to upload document.');
-    } finally {
-      setUploadingBirthDocument(false);
-    }
-  };
-
   const requestDeleteChild = () => {
-    if (!canManage || !selectedChild?.id || isDeleting) return;
+    if (!canDelete || !selectedChild?.id || isDeleting) return;
     setShowDeleteConfirm(true);
   };
 
   const deleteChild = async () => {
-    if (!canManage || !selectedChild?.id || isDeleting) return;
+    if (!canDelete || !selectedChild?.id || isDeleting) return;
     setShowDeleteConfirm(false);
     setIsDeleting(true);
-    setUploadMessage('');
     try {
       await apiDeleteChild(selectedChild.id);
       notifyAction(`${childName || 'Child'} deleted successfully.`);
       navigate('/beneficiary');
     } catch (error) {
-      setUploadMessage(error.message || 'Unable to delete child.');
+      notifyAction(error.message || 'Unable to delete child.', 'error');
       setIsDeleting(false);
     }
   };
@@ -326,14 +262,20 @@ export default function ChildProfilePage() {
   const childHeight = selectedChild?.birthLength ?? selectedChild?.birth_length ?? '—';
   const childBmi = getBmiValue(childWeight, childHeight);
   const childBmiStatus = getBmiStatus(childWeight, childHeight);
+  const formatVaccineDoses = (vaccine, fallbackDate) => {
+    const doses = [vaccine?.dose1 || fallbackDate, vaccine?.dose2, vaccine?.dose3]
+      .map((date, index) => date ? `Dose ${index + 1}: ${formatDateForDisplay(date)}` : null)
+      .filter(Boolean);
+    return doses.join(' | ') || '—';
+  };
   const vaccineRows = [
-    { label: 'BCG', date: formatDateForDisplay(selectedChild?.bcgDate), remarks: selectedChild?.bcgRemarks || '—' },
-    { label: 'Hepatitis B', date: formatDateForDisplay(selectedChild?.hepbDate), remarks: selectedChild?.hepbRemarks || '—' },
+    { label: 'BCG', date: formatVaccineDoses(selectedChild?.BCG, selectedChild?.bcgDate), remarks: selectedChild?.bcgRemarks || selectedChild?.BCG?.remarks || '—' },
+    { label: 'Hepatitis B', date: formatVaccineDoses(selectedChild?.HepB, selectedChild?.hepbDate), remarks: selectedChild?.hepbRemarks || selectedChild?.HepB?.remarks || '—' },
     { label: 'Inactivated Polio Vaccine', date: formatDateForDisplay(selectedChild?.ipvDate || selectedChild?.ipv_date), remarks: selectedChild?.ipvRemarks || selectedChild?.ipv_remarks || '—' },
-    { label: 'Pentavalent Vaccine', date: formatDateForDisplay(selectedChild?.dptDate), remarks: selectedChild?.dptRemarks || '—' },
-    { label: 'Oral Polio Vaccine (OPV)', date: formatDateForDisplay(selectedChild?.opvDate), remarks: selectedChild?.opvRemarks || '—' },
+    { label: 'Pentavalent Vaccine', date: formatVaccineDoses(selectedChild?.DPT, selectedChild?.dptDate), remarks: selectedChild?.dptRemarks || selectedChild?.DPT?.remarks || '—' },
+    { label: 'Oral Polio Vaccine (OPV)', date: formatVaccineDoses(selectedChild?.OPV, selectedChild?.opvDate), remarks: selectedChild?.opvRemarks || selectedChild?.OPV?.remarks || '—' },
     { label: 'Pneumococcal (PCV)', date: formatDateForDisplay(selectedChild?.pcvDate || selectedChild?.pcv_date), remarks: selectedChild?.pcvRemarks || selectedChild?.pcv_remarks || '—' },
-    { label: 'Measles, Mumps, Rubella (MMR)', date: formatDateForDisplay(selectedChild?.mmrDate), remarks: selectedChild?.mmrRemarks || '—' },
+    { label: 'Measles, Mumps, Rubella (MMR)', date: formatVaccineDoses(selectedChild?.MMR, selectedChild?.mmrDate), remarks: selectedChild?.mmrRemarks || selectedChild?.MMR?.remarks || '—' },
   ];
 
   const detailForm = {
@@ -341,6 +283,13 @@ export default function ChildProfilePage() {
     birthDate: formatDateForDisplay(selectedChild?.birthDate || selectedChild?.birth_date),
     birthWeight: selectedChild?.birthWeight ?? selectedChild?.birth_weight ?? '',
     birthLength: selectedChild?.birthLength ?? selectedChild?.birth_length ?? '',
+            motherName: selectedChild?.motherName
+              || [selectedChild?.mother_first_name, selectedChild?.mother_last_name].filter(Boolean).join(' ')
+              || resolvedMother?.name
+              || [resolvedMother?.firstName, resolvedMother?.lastName].filter(Boolean).join(' '),
+            community: selectedChild?.community || selectedChild?.community_name || resolvedMother?.community || resolvedMother?.school || '',
+            group: selectedChild?.group || selectedChild?.group_name || resolvedMother?.group || '',
+            batch: selectedChild?.batch || selectedChild?.batch_name || resolvedMother?.batch || '',
     deliveryType: selectedChild?.deliveryType || selectedChild?.delivery_type || '',
     birthAttendant: selectedChild?.birthAttendant || selectedChild?.birth_attendant || '',
     apgarScore: selectedChild?.apgarScore ?? selectedChild?.apgar_score ?? '',
@@ -368,15 +317,15 @@ export default function ChildProfilePage() {
         breadcrumbs={[{ label: 'Beneficiaries', href: '/beneficiary' }, { label: 'Child Profile' }]}
         actions={(
           <div className="mother-detail-actions">
-            {isChildProfile && canManage && (
+            {isChildProfile && canEdit && (
               <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/child/${childIdentifier}/edit`, { state: { child: selectedChild, mother: resolvedMother, returnTo } })}>Edit</button>
             )}
-            {canManage && (
+            {canDelete && (
               <button type="button" className="btn-secondary" onClick={requestDeleteChild} disabled={isDeleting}>
                 {isDeleting ? 'Deleting...' : 'Delete'}
               </button>
             )}
-            <button type="button" className="btn-secondary" onClick={() => navigate(-1)}>Back</button>
+            <button type="button" className="btn-secondary back-action" onClick={() => navigate(-1)}>Back</button>
           </div>
         )}
       />
@@ -435,54 +384,13 @@ export default function ChildProfilePage() {
       {profileTab === 'general' && (
         <ChildSection title="I.B REQUIRED DOCUMENTS">
           <div className="document-upload-field full-width">
-            <div className="document-upload-header-row">
-              <label className="detail-form-label" htmlFor="child-birth-document">Live Birth Certificate / Birth Certificate</label>
-              <div className="document-upload-menu-wrap">
-                <button
-                  type="button"
-                  className="document-upload-menu-button"
-                  aria-label="Document actions for birth certificate"
-                  aria-expanded={isEditingBirthDocument || false}
-                  onClick={() => setIsEditingBirthDocument((current) => !current)}
-                >
-                  ⋯
-                </button>
-                {selectedChild.birthDocumentName && isEditingBirthDocument && (
-                  <div className="document-upload-menu" role="menu">
-                    <button type="button" role="menuitem" onClick={() => setIsEditingBirthDocument((current) => !current)}>
-                      {isEditingBirthDocument ? 'Cancel edit' : 'Edit'}
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-            {(isEditingBirthDocument || !selectedChild.birthDocumentName) && (
-              <input id="child-birth-document" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={(event) => {
-                uploadBirthDocument(event.target.files?.[0]);
-                setIsEditingBirthDocument(false);
-              }} disabled={uploadingBirthDocument} />
-            )}
+            <div className="detail-form-label">Live Birth Certificate / Birth Certificate</div>
             <DocumentPreview fileName={selectedChild.birthDocumentName} filePath={selectedChild.birthDocumentPath} label="Live Birth Certificate" onPreviewOpen={(url, name, type) => setPreviewDocument({ url, name, type })} />
-            {uploadMessage && <span className="document-upload-message" role="status">{uploadMessage}</span>}
           </div>
         </ChildSection>
       )}
 
-      {previewDocument && (
-        <div className="document-preview-modal-backdrop" onClick={() => setPreviewDocument(null)}>
-          <div className="document-preview-modal" onClick={(event) => event.stopPropagation()}>
-            <div className="document-preview-modal-header">
-              <strong>{previewDocument.name}</strong>
-              <button type="button" className="document-preview-close" onClick={() => setPreviewDocument(null)}>Close</button>
-            </div>
-            {previewDocument.type === 'image' ? (
-              <img src={previewDocument.url} alt={previewDocument.name} className="document-preview-modal-image" />
-            ) : (
-              <iframe src={previewDocument.url} title={previewDocument.name} className="document-preview-modal-frame" />
-            )}
-          </div>
-        </div>
-      )}
+      <DocumentPreviewModal document={previewDocument} onClose={() => setPreviewDocument(null)} />
       </>)}
     </section>
   ));

@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { formatDateForDisplay, formatDateForInput } from '../../utils/dateFormat';
+import DateInput from '../../components/ui/DateInput';
+import { addMonthsPreservingDay, formatDateForInput } from '../../utils/dateFormat';
 import { calculateWhoGrowthScores } from '../../utils/whoGrowthStandards';
-import { getAgeInHalfMonths, getAgeInMonths } from '../../utils/childAge.mjs';
+import { getAgeInDecimalMonths, getAgeInMonths } from '../../utils/childAge.mjs';
 import ConfirmModal from '../UserManagement/ConfirmModal';
 import { notifyAction } from '../../components/ActionFeedback';
 
@@ -36,31 +37,6 @@ function formatDateForPayload(value) {
   return String(value || '').trim().replaceAll('/', '-');
 }
 
-function formatDateDisplay(value) {
-  const normalized = formatDateForInput(value);
-  if (!normalized) return '';
-  const [year, month, day] = normalized.split('-');
-  return `${month}/${day}/${year}`;
-}
-
-function formatDateTyping(value) {
-  const digits = String(value || '').replace(/\D/g, '').slice(0, 8);
-  if (digits.length <= 2) return digits;
-  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
-  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
-}
-
-function parseDateInput(value) {
-  const digits = String(value || '').replace(/\D/g, '').slice(0, 8);
-  if (digits.length !== 8) return '';
-  const month = Number(digits.slice(0, 2));
-  const day = Number(digits.slice(2, 4));
-  const year = Number(digits.slice(4, 8));
-  const date = new Date(year, month - 1, day);
-  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return '';
-  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-}
-
 function getTodayDate() {
   const today = new Date();
   const month = String(today.getMonth() + 1).padStart(2, '0');
@@ -77,12 +53,10 @@ function calculateBmi(weight, height) {
 }
 
 
-export default function ChildMonitor({ child, onSave, onCancel, completedWeeks = [] }) {
-  const [week, setWeek] = useState(1);
+export default function ChildMonitor({ child, onSave, onCancel, completedWeeks = [], initialWeek = 1, forceEdit = false }) {
+  const [week, setWeek] = useState(() => Math.max(1, Math.min(TOTAL_MONTHS, Math.floor(Number(initialWeek) || 1))));
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [dateDrafts, setDateDrafts] = useState({});
-  const datePickerRefs = React.useRef({});
   const [form, setForm] = useState(() => ({
     checkupDate: getTodayDate(),
     nextCheckupDate: '',
@@ -94,25 +68,40 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
     remarks: '',
   }));
 
-  const update = (field) => (event) => setForm((current) => ({ ...current, [field]: event.target.value }));
-  const updateDateField = (field) => (event) => {
-    const draft = formatDateTyping(event.target.value);
-    setDateDrafts((current) => ({ ...current, [field]: draft }));
-    const isoValue = parseDateInput(draft);
-    if (isoValue) setForm((current) => ({ ...current, [field]: isoValue }));
-  };
   const childName = getChildName(child);
+  const savedCheckup = (child?.checkups || []).find((checkup) => Number(checkup.week_number ?? checkup.weekNumber) === week);
+  const getWeekDevelopmentalStatus = (weekNumber) => {
+    if (weekNumber === week) return form.developmentalStatus;
+    const checkup = (child?.checkups || []).find((item) => Number(item.week_number ?? item.weekNumber) === weekNumber);
+    return checkup?.developmental_status ?? checkup?.developmentalStatus ?? '';
+  };
+  const firstRecordedCheckup = (child?.checkups || [])
+    .map((checkup) => ({
+      week: Number(checkup.week_number ?? checkup.weekNumber),
+      date: formatDate(checkup.visit_date ?? checkup.checkupDate),
+    }))
+    .filter((checkup) => Number.isInteger(checkup.week) && checkup.date)
+    .sort((left, right) => left.week - right.week)[0];
+  const scheduleAnchorDate = firstRecordedCheckup?.date || form.checkupDate || getTodayDate();
+  const scheduleAnchorWeek = firstRecordedCheckup?.week || 1;
+  const scheduleAnchorDay = Number(scheduleAnchorDate.slice(-2));
+  const update = (field) => (event) => setForm((current) => {
+    const nextValue = event.target.value;
+    const nextForm = { ...current, [field]: nextValue };
+    if (field === 'checkupDate') {
+      nextForm.nextCheckupDate = addMonthsPreservingDay(nextValue, 1, scheduleAnchorDay);
+    }
+    return nextForm;
+  });
+  const isWeekCompleted = Boolean(savedCheckup) || completedWeeks.some((weekNumber) => Number(weekNumber) === week);
+  const isReadOnly = isWeekCompleted && !forceEdit;
 
   useEffect(() => {
-    setDateDrafts({});
-    const savedCheckup = (child?.checkups || []).find((checkup) => Number(checkup.week_number ?? checkup.weekNumber) === week);
+    const scheduledDate = addMonthsPreservingDay(scheduleAnchorDate, week - scheduleAnchorWeek, scheduleAnchorDay) || getTodayDate();
     if (!savedCheckup) {
-      const previousCheckup = (child?.checkups || [])
-        .filter((checkup) => Number(checkup.week_number ?? checkup.weekNumber) < week)
-        .sort((left, right) => Number(right.week_number ?? right.weekNumber) - Number(left.week_number ?? left.weekNumber))[0];
       setForm({
-        checkupDate: formatDate(previousCheckup?.next_checkup_date ?? previousCheckup?.nextCheckupDate) || getTodayDate(),
-        nextCheckupDate: '',
+        checkupDate: scheduledDate,
+        nextCheckupDate: addMonthsPreservingDay(scheduledDate, 1, scheduleAnchorDay),
         feedingType: child?.feedingType || child?.feeding_type || '',
         weight: '',
         height: '',
@@ -122,9 +111,10 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
       });
       return;
     }
+    const savedDate = formatDate(savedCheckup.visit_date ?? savedCheckup.checkupDate);
     setForm({
-      checkupDate: formatDate(savedCheckup.visit_date ?? savedCheckup.checkupDate),
-      nextCheckupDate: formatDate(savedCheckup.next_checkup_date ?? savedCheckup.nextCheckupDate),
+      checkupDate: savedDate,
+      nextCheckupDate: addMonthsPreservingDay(savedDate, 1, scheduleAnchorDay),
       feedingType: child?.feedingType || child?.feeding_type || '',
       weight: savedCheckup.weight ?? '',
       height: savedCheckup.height ?? '',
@@ -132,13 +122,13 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
       serviceProvider: savedCheckup.service_provider ?? savedCheckup.serviceProvider ?? '',
       remarks: savedCheckup.notes ?? savedCheckup.remarks ?? '',
     });
-  }, [child, week]);
+  }, [child, forceEdit, savedCheckup, scheduleAnchorDate, scheduleAnchorDay, scheduleAnchorWeek, week]);
 
   const goToWeek = (nextWeek) => setWeek(Math.max(1, Math.min(TOTAL_MONTHS, nextWeek)));
   const bmi = calculateBmi(form.weight, form.height);
   const childBirthDate = getChildBirthDate(child);
   const ageInMonths = getAgeInMonths(childBirthDate, form.checkupDate);
-  const currentAgeInMonths = getAgeInHalfMonths(childBirthDate, form.checkupDate);
+  const currentAgeInMonths = getAgeInDecimalMonths(childBirthDate, form.checkupDate);
   const gender = child?.gender || child?.sex || '';
   const whoGrowthScores = calculateWhoGrowthScores({
     weight: form.weight,
@@ -160,76 +150,41 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
     : Number(whoGrowthScores.weightForAgeZScore).toFixed(2);
   const lengthAgeInterpretation = whoGrowthScores.lengthForAgeInterpretation || missingGrowthContext
     || (Number(form.height) > 0 ? 'Outside WHO reference range' : 'Enter valid length');
+  const interpretationClass = (value) => `checkup-field-input checkup-interpretation ${String(value).trim().toLowerCase() === 'normal' ? 'is-normal' : 'is-abnormal'}`;
 
   const renderDateField = ({ id, label, name, required = false }) => (
     <div className="form-group full-width">
-      <label className="checkup-field-label" htmlFor={id}>{label}</label>
-      <div className="date-input-container">
-        <input
-          id={id}
-          type="text"
-          inputMode="numeric"
-          pattern="\d{2}/\d{2}/\d{4}"
-          className="checkup-field-input"
-          value={dateDrafts[name] ?? formatDateDisplay(form[name])}
-          onChange={updateDateField(name)}
-          placeholder="MM/DD/YYYY"
-          required={required}
-        />
-        <input
-          ref={(element) => { datePickerRefs.current[name] = element; }}
-          className="native-date-picker-input"
-          type="date"
-          value={formatDateForInput(form[name])}
-          onChange={(event) => {
-            const nextValue = event.target.value;
-            setDateDrafts((current) => ({ ...current, [name]: formatDateDisplay(nextValue) }));
-            setForm((current) => ({ ...current, [name]: nextValue }));
-          }}
-          tabIndex={-1}
-          aria-hidden="true"
-        />
-        <button
-          type="button"
-          className="calendar-toggle-btn"
-          onClick={() => {
-            const picker = datePickerRefs.current[name];
-            if (picker) {
-              try {
-                if (typeof picker.showPicker === 'function') picker.showPicker();
-                else picker.focus();
-              } catch (_) {
-                picker.focus();
-              }
-            }
-          }}
-          aria-label={`Open calendar for ${label}`}
-          tabIndex={-1}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <rect x="3" y="4" width="18" height="18" rx="2" />
-            <line x1="16" y1="2" x2="16" y2="6" />
-            <line x1="8" y1="2" x2="8" y2="6" />
-            <line x1="3" y1="10" x2="21" y2="10" />
-          </svg>
-        </button>
-      </div>
+      <label className={`checkup-field-label${required ? ' is-required' : ''}`} htmlFor={id}>{label}</label>
+      <DateInput
+        id={id}
+        className="checkup-field-input"
+        value={form[name]}
+        onChange={(value) => setForm((current) => ({
+          ...current,
+          [name]: value,
+          ...(name === 'checkupDate' ? { nextCheckupDate: addMonthsPreservingDay(value, 1, scheduleAnchorDay) } : {}),
+        }))}
+        required={required}
+        readOnly={isReadOnly}
+        ariaLabel={label}
+      />
     </div>
   );
 
   const handleSubmit = (event) => {
     event.preventDefault();
-    if (!isSaving) setShowSaveConfirm(true);
+    if (!isSaving && !isReadOnly) setShowSaveConfirm(true);
   };
 
   const confirmSave = async () => {
+    if (isReadOnly) return;
     setShowSaveConfirm(false);
     setIsSaving(true);
     try {
       const saved = await onSave({ ...form, checkupDate: formatDateForPayload(form.checkupDate), week, childId: child.id || child.child_id });
       if (saved === false) return;
       notifyAction(`Month ${week} monitoring saved successfully.`);
-      goToWeek(week + 1);
+      if (!forceEdit || !isWeekCompleted) goToWeek(week + 1);
     } finally {
       setIsSaving(false);
     }
@@ -239,15 +194,21 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
     <section className="child-monitor-page">
       <div className="child-monitor-stepper" aria-label="Child monitoring months">
         {Array.from({ length: TOTAL_MONTHS }, (_, index) => index + 1).map((weekNumber) => (
-          <button
-            type="button"
-            key={weekNumber}
-            className={`child-monitor-week${weekNumber === week ? ' active' : ''}${completedWeeks.includes(weekNumber) ? ' complete' : ''}`}
-            onClick={() => setWeek(weekNumber)}
-            aria-label={`Month ${weekNumber}`}
-          >
-            M{weekNumber}
-          </button>
+          (() => {
+            const status = String(getWeekDevelopmentalStatus(weekNumber)).toLowerCase();
+            const statusClass = status === 'at risk' ? ' at-risk' : status === 'needs follow-up' ? ' needs-follow-up' : '';
+            const statusLabel = status === 'at risk' ? ', At Risk' : status === 'needs follow-up' ? ', Needs Follow-up' : '';
+            return <button
+              type="button"
+              key={weekNumber}
+              className={`child-monitor-week${weekNumber === week ? ' active' : ''}${completedWeeks.includes(weekNumber) ? ' complete' : ''}${statusClass}`}
+              aria-current={weekNumber === week ? 'step' : undefined}
+              onClick={() => setWeek(weekNumber)}
+              aria-label={`Month ${weekNumber}${statusLabel}`}
+            >
+              M{weekNumber}
+            </button>;
+          })()
         ))}
       </div>
 
@@ -264,7 +225,7 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
         <button type="button" className="btn-secondary" onClick={() => goToWeek(week + 1)} disabled={week === TOTAL_MONTHS}>Next month</button>
       </div>
 
-      <form className="child-monitor-form" onSubmit={handleSubmit}>
+      <form className="child-monitor-form" onSubmit={handleSubmit} aria-readonly={isReadOnly}>
         <div className="checkup-card-body">
           <div className="checkup-form-heading">
             <div>
@@ -290,19 +251,19 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
             </div>
             <div className="form-group">
               <label className="checkup-field-label" htmlFor="child-monitor-feeding-type">Feeding Type</label>
-              <select id="child-monitor-feeding-type" className="checkup-field-input" value={form.feedingType} onChange={update('feedingType')}>
+              <select id="child-monitor-feeding-type" className="checkup-field-input" value={form.feedingType} onChange={update('feedingType')} disabled={isReadOnly}>
                 <option value="">Select feeding type</option>
                 <option value="Breastfeed">Breastfeed</option>
                 <option value="Bottle feed">Bottle feed</option>
               </select>
             </div>
             <div className="form-group">
-              <label className="checkup-field-label" htmlFor="child-monitor-weight">Weight (kg)</label>
-              <input id="child-monitor-weight" type="number" step="0.1" className="checkup-field-input" value={form.weight} onChange={update('weight')} required />
+              <label className="checkup-field-label is-required" htmlFor="child-monitor-weight">Weight (kg)</label>
+              <input id="child-monitor-weight" type="number" step="0.1" className="checkup-field-input" value={form.weight} onChange={update('weight')} required readOnly={isReadOnly} />
             </div>
             <div className="form-group">
-              <label className="checkup-field-label" htmlFor="child-monitor-height">Length (cm)</label>
-              <input id="child-monitor-height" type="number" min="45" max="100" step="0.1" className="checkup-field-input" value={form.height} onChange={update('height')} required />
+              <label className="checkup-field-label is-required" htmlFor="child-monitor-height">Length (cm)</label>
+              <input id="child-monitor-height" type="number" min="45" max="100" step="0.1" className="checkup-field-input" value={form.height} onChange={update('height')} required readOnly={isReadOnly} />
             </div>
             <div className="form-group">
               <label className="checkup-field-label" htmlFor="child-monitor-bmi">BMI (Secondary Reference)</label>
@@ -310,19 +271,19 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
             </div>
             <div className="form-group">
               <label className="checkup-field-label" htmlFor="child-monitor-weight-length">Weight-for-Length (Primary Standard)</label>
-              <input id="child-monitor-weight-length" type="text" className="checkup-field-input" value={weightLengthInterpretation} readOnly />
+              <input id="child-monitor-weight-length" type="text" className={interpretationClass(weightLengthInterpretation)} value={weightLengthInterpretation} readOnly />
             </div>
             <div className="form-group">
               <label className="checkup-field-label" htmlFor="child-monitor-weight-age">Weight-for-Age</label>
-              <input id="child-monitor-weight-age" type="text" className="checkup-field-input" value={weightAgeInterpretation} readOnly />
+              <input id="child-monitor-weight-age" type="text" className={interpretationClass(weightAgeInterpretation)} value={weightAgeInterpretation} readOnly />
             </div>
             <div className="form-group">
               <label className="checkup-field-label" htmlFor="child-monitor-length-age">Length-for-Age</label>
-              <input id="child-monitor-length-age" type="text" className="checkup-field-input" value={lengthAgeInterpretation} readOnly />
+              <input id="child-monitor-length-age" type="text" className={interpretationClass(lengthAgeInterpretation)} value={lengthAgeInterpretation} readOnly />
             </div>
             <div className="form-group">
               <label className="checkup-field-label" htmlFor="child-developmental-status">Developmental Screening</label>
-              <select id="child-developmental-status" className="checkup-field-input" value={form.developmentalStatus} onChange={update('developmentalStatus')}>
+              <select id="child-developmental-status" className="checkup-field-input" value={form.developmentalStatus} onChange={update('developmentalStatus')} disabled={isReadOnly}>
                 <option>Normal</option>
                 <option>Needs Follow-up</option>
                 <option>At Risk</option>
@@ -330,20 +291,23 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
             </div>
             <div className="form-group full-width">
               <label className="checkup-field-label" htmlFor="child-service-provider">Health Worker / Provider</label>
-              <input id="child-service-provider" type="text" className="checkup-field-input" value={form.serviceProvider} onChange={update('serviceProvider')} placeholder="e.g. Nurse or midwife" />
+              <input id="child-service-provider" type="text" className="checkup-field-input" value={form.serviceProvider} onChange={update('serviceProvider')} placeholder="e.g. Nurse or midwife" readOnly={isReadOnly} />
             </div>
             <div className="form-group full-width">
               <label className="checkup-field-label" htmlFor="child-monitor-remarks">Growth and Development Notes</label>
-              <textarea id="child-monitor-remarks" className="checkup-field-input" rows="3" value={form.remarks} onChange={update('remarks')} placeholder="Growth, feeding, or health observations" />
+              <textarea id="child-monitor-remarks" className="checkup-field-input" rows="3" value={form.remarks} onChange={update('remarks')} placeholder="Growth, feeding, or health observations" readOnly={isReadOnly} />
             </div>
           </div>
           <div className="checkup-actions">
-            <button type="submit" className="btn-primary" disabled={isSaving}>{isSaving ? 'Saving...' : 'Save Progress'}</button>
+            <button type="submit" className="btn-primary" disabled={isReadOnly || isSaving}>{isSaving ? 'Saving...' : 'Save Checkup'}</button>
+            <button type="button" className="btn-secondary" onClick={() => onCancel?.()} disabled={isReadOnly || isSaving}>Cancel</button>
+            {isReadOnly && <span className="checkup-week-badge" role="status">Saved · Read-only</span>}
           </div>
         </div>
       </form>
       <ConfirmModal
         show={showSaveConfirm}
+        className="checkup-confirm-modal"
         message={`Save the check-up record for ${childName} for M${week}?`}
         onConfirm={confirmSave}
         onCancel={() => setShowSaveConfirm(false)}

@@ -8,13 +8,17 @@ const hasMeaningfulValue = (value) => {
   return true;
 };
 const firstMeaningfulValue = (...values) => values.find(hasMeaningfulValue);
+const hasDocumentReference = (mother, nameKeys, pathKeys) => (
+  hasMeaningfulValue(firstMeaningfulValue(...nameKeys.map((key) => mother?.[key])))
+  && hasMeaningfulValue(firstMeaningfulValue(...pathKeys.map((key) => mother?.[key])))
+);
 
 export function getMotherDocumentProgress(mother = {}) {
   const documentGroups = [
-    ['birthCertificate', ['birthCertificateDocumentName', 'birth_certificate_document_name', 'birthCertificateDocumentPath', 'birth_certificate_document_path']],
-    ['consent', ['consentDocumentName', 'consent_document_name', 'consentDocumentPath', 'consent_document_path']],
+    ['birthCertificate', ['birthCertificateDocumentName', 'birth_certificate_document_name'], ['birthCertificateDocumentPath', 'birth_certificate_document_path']],
+    ['consent', ['consentDocumentName', 'consent_document_name'], ['consentDocumentPath', 'consent_document_path']],
   ];
-  const completed = documentGroups.filter(([, keys]) => hasMeaningfulValue(firstMeaningfulValue(...keys.map((key) => mother?.[key])))).length;
+  const completed = documentGroups.filter(([, nameKeys, pathKeys]) => hasDocumentReference(mother, nameKeys, pathKeys)).length;
 
   return {
     completed,
@@ -23,22 +27,30 @@ export function getMotherDocumentProgress(mother = {}) {
   };
 }
 
-export function getMotherMonitoringProgress(mother = {}) {
+export function getMotherMonitoringStartIndex(mother = {}) {
   const registeredTrimester = String(mother.trimester || mother.trimester_at_registration || '').toLowerCase();
   let startIndex = 0;
-  if (registeredTrimester.includes('3rd') || registeredTrimester.includes('third')) startIndex = 2;
-  else if (registeredTrimester.includes('2nd') || registeredTrimester.includes('second')) startIndex = 1;
+  if (registeredTrimester.includes('3rd') || registeredTrimester.includes('third')) startIndex = 6;
+  else if (registeredTrimester.includes('2nd') || registeredTrimester.includes('second')) startIndex = 3;
   else {
     const gestationalAge = Number.parseInt(mother.gestationalAge ?? mother.gestational_age, 10);
     if (Number.isFinite(gestationalAge)) {
-      if (gestationalAge > 26) startIndex = 2;
-      else if (gestationalAge > 12) startIndex = 1;
+      if (gestationalAge > 26) startIndex = 6;
+      else if (gestationalAge > 12) startIndex = 3;
+      else if (gestationalAge > 4) startIndex = 1;
     }
   }
 
-  const checkups = Array.isArray(mother.checkups) ? mother.checkups : [];
-  const completed = checkups.slice(startIndex).flat().filter(Boolean).length;
-  const total = (3 - startIndex) * 3;
+  return startIndex;
+}
+
+export function getMotherMonitoringProgress(mother = {}) {
+  const startIndex = getMotherMonitoringStartIndex(mother);
+
+  const checkups = Array.isArray(mother.checkups) ? mother.checkups.flat() : [];
+  const remainingCheckups = checkups.slice(startIndex);
+  const completed = remainingCheckups.filter(Boolean).length;
+  const total = Math.max(1, 9 - startIndex);
 
   return {
     completed,

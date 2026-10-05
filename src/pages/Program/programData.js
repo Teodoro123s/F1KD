@@ -10,7 +10,7 @@ export const initialPrograms = [
     target: 24,
     received: 20,
     activities: 6,
-    latest: "Aug 26, 2026",
+    latest: "26/08/2026",
     ended: "",
     clusters: [
       { type: "School", name: "Cebu Community School", beneficiaries: 24, received: 20 },
@@ -29,7 +29,7 @@ export const initialPrograms = [
     target: 30,
     received: 26,
     activities: 4,
-    latest: "Aug 22, 2026",
+    latest: "22/08/2026",
     ended: "",
     clusters: [
       { type: "School", name: "Cebu Community School", beneficiaries: 30, received: 26 },
@@ -48,8 +48,8 @@ export const initialPrograms = [
     target: 18,
     received: 18,
     activities: 8,
-    latest: "Jul 30, 2026",
-    ended: "Jul 30, 2026",
+    latest: "30/07/2026",
+    ended: "30/07/2026",
     clusters: [
       { type: "Group", name: "January Wellness Group", beneficiaries: 18, received: 18 },
       { type: "Batch", name: "January Batch", beneficiaries: 18, received: 18 },
@@ -153,6 +153,67 @@ export function filterPrograms(programs, query, status) {
 
     return searchableText.includes(term);
   });
+}
+
+export function normalizeBeneficiaryType(value) {
+  return String(value || '').trim().toLowerCase().replace(/\s+/g, '');
+}
+
+export function recordMatchesProgramScope(record = {}, program = {}) {
+  if (!record || !program) return false;
+
+  const requestedType = normalizeBeneficiaryType(program?.beneficiaryType || program?.beneficiary_type || 'Mother and Child');
+  const recordType = normalizeBeneficiaryType(record?.type || record?.sourceType || '');
+
+  if (requestedType && requestedType !== 'motherandchild' && recordType && recordType !== requestedType) {
+    return false;
+  }
+
+  const programClusters = Array.isArray(program.clusters) ? program.clusters : [];
+  if (!programClusters.length) return true;
+
+  const programSchoolNames = new Set(programClusters
+    .filter((cluster) => cluster?.type === 'School')
+    .map((cluster) => String(cluster?.name || '').trim().toLowerCase())
+    .filter(Boolean));
+  const programGroupNames = new Set(programClusters
+    .filter((cluster) => cluster?.type === 'Group')
+    .map((cluster) => String(cluster?.name || '').trim().toLowerCase())
+    .filter(Boolean));
+  const programBatchNames = new Set(programClusters
+    .filter((cluster) => cluster?.type === 'Batch')
+    .map((cluster) => String(cluster?.name || '').trim().toLowerCase())
+    .filter(Boolean));
+
+  const recordSchool = String(record?.school || '').trim().toLowerCase();
+  const recordGroup = String(record?.group || '').trim().toLowerCase();
+  const recordBatch = String(record?.batch || '').trim().toLowerCase();
+
+  const hasExplicitGroupScope = programGroupNames.size > 0;
+  const hasExplicitBatchScope = programBatchNames.size > 0;
+
+  if (hasExplicitGroupScope && recordGroup && ![...programGroupNames].some((name) => name === recordGroup)) {
+    return false;
+  }
+  if (hasExplicitGroupScope && !recordGroup && !recordBatch) {
+    return false;
+  }
+
+  if (hasExplicitBatchScope && recordBatch && ![...programBatchNames].some((name) => name === recordBatch)) {
+    return false;
+  }
+  if (hasExplicitBatchScope && !recordBatch && !recordGroup) {
+    return false;
+  }
+
+  if (programSchoolNames.size && recordSchool && ![...programSchoolNames].some((name) => name === recordSchool || name === `${recordSchool} school`)) {
+    return false;
+  }
+
+  const directSchoolMatch = !programSchoolNames.size || !recordSchool || [...programSchoolNames].some((name) => name === recordSchool || name === `${recordSchool} school`);
+  if (!directSchoolMatch) return false;
+
+  return true;
 }
 
 export function getCluster(program, type, encodedName) {

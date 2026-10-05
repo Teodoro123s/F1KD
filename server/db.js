@@ -26,7 +26,12 @@ async function ensureDatabaseExists() {
     port: process.env.DB_PORT ? Number(process.env.DB_PORT) : 3306,
   });
   try {
-    await connection.query(`CREATE DATABASE IF NOT EXISTS \`${databaseName}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci`);
+    try {
+      await connection.query(`CREATE DATABASE IF NOT EXISTS \`${databaseName}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci`);
+    } catch (error) {
+      if (error.code !== 'ER_DBACCESS_DENIED_ERROR' && error.code !== 'ER_ACCESS_DENIED_ERROR') throw error;
+      await connection.query(`USE \`${databaseName}\``);
+    }
   } finally {
     await connection.end();
   }
@@ -145,6 +150,39 @@ async function ensure() {
       FOREIGN KEY (community_id) REFERENCES communities(id) ON DELETE CASCADE,
       FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE SET NULL,
       FOREIGN KEY (batch_id) REFERENCES batches(id) ON DELETE SET NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+
+    `CREATE TABLE IF NOT EXISTS mother_checkups (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      mother_id INT NOT NULL,
+      trimester VARCHAR(30) NOT NULL,
+      checkup_number TINYINT UNSIGNED NOT NULL,
+      checkup_date DATE NOT NULL,
+      gestational_age_weeks INT UNSIGNED NULL,
+      blood_pressure VARCHAR(20) NULL,
+      weight_kg DECIMAL(5,2) NULL,
+      height_cm DECIMAL(5,2) NULL,
+      bmi DECIMAL(5,2) NULL,
+      nutritional_status VARCHAR(30) NULL,
+      fundal_height_cm DECIMAL(5,2) NULL,
+      fetal_heart_rate_bpm SMALLINT UNSIGNED NULL,
+      service_provider VARCHAR(150) NULL,
+      next_checkup_date DATE NULL,
+      referred_to_hospital BOOLEAN NOT NULL DEFAULT FALSE,
+      lab_assistance_provided BOOLEAN NOT NULL DEFAULT FALSE,
+      assistance_amount DECIMAL(10,2) NULL,
+      source_of_funds VARCHAR(80) NULL,
+      facility_type VARCHAR(40) NULL,
+      milk_subsidy_date DATE NULL,
+      milk_quantity_pcs INT UNSIGNED NULL,
+      remarks TEXT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      CONSTRAINT fk_mother_checkups_mother
+        FOREIGN KEY (mother_id) REFERENCES mothers(id) ON DELETE CASCADE,
+      CONSTRAINT uq_mother_checkup_step
+        UNIQUE (mother_id, trimester, checkup_number),
+      KEY idx_mother_checkups_date (mother_id, checkup_date)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
 
     `CREATE TABLE IF NOT EXISTS mother_ob_history (
@@ -277,10 +315,14 @@ async function ensure() {
       id INT AUTO_INCREMENT PRIMARY KEY,
       child_id INT NOT NULL,
       vaccine_name VARCHAR(50) NOT NULL,
+      dose_number TINYINT UNSIGNED NOT NULL DEFAULT 1,
       vaccine_date DATE,
       remarks TEXT,
       FOREIGN KEY (child_id) REFERENCES children(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+
+    `ALTER TABLE child_vaccinations
+      ADD COLUMN IF NOT EXISTS dose_number TINYINT UNSIGNED NOT NULL DEFAULT 1;`,
 
     `CREATE TABLE IF NOT EXISTS child_checkups (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -392,7 +434,32 @@ async function ensure() {
     `INSERT IGNORE INTO role_permissions (role_id, permission_id)
       SELECT r.id, p.id FROM roles r JOIN permissions p
       ON p.resource_key = 'partner-resources' AND p.action_key = 'read'
-      WHERE r.role_key = 'partner';`
+      WHERE r.role_key = 'partner';`,
+    `CREATE TABLE IF NOT EXISTS notifications (
+      id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      event_type VARCHAR(80) NOT NULL,
+      category VARCHAR(40) NOT NULL,
+      title VARCHAR(120) NOT NULL DEFAULT 'Notification',
+      message VARCHAR(500) NOT NULL,
+      entity_type VARCHAR(32) DEFAULT NULL,
+      entity_id VARCHAR(80) DEFAULT NULL,
+      link_to VARCHAR(255) DEFAULT NULL,
+      school_id INT DEFAULT NULL,
+      group_id INT DEFAULT NULL,
+      school_scope_ids VARCHAR(1000) DEFAULT NULL,
+      recipient_user_ids VARCHAR(1000) DEFAULT NULL,
+      actor_user_id INT DEFAULT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_notifications_created_at (created_at),
+      KEY idx_notifications_category (category)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+    `ALTER TABLE notifications
+      ADD COLUMN IF NOT EXISTS title VARCHAR(120) NOT NULL DEFAULT 'Notification',
+      ADD COLUMN IF NOT EXISTS link_to VARCHAR(255) DEFAULT NULL,
+      ADD COLUMN IF NOT EXISTS school_id INT DEFAULT NULL,
+      ADD COLUMN IF NOT EXISTS group_id INT DEFAULT NULL,
+      ADD COLUMN IF NOT EXISTS school_scope_ids VARCHAR(1000) DEFAULT NULL,
+      ADD COLUMN IF NOT EXISTS recipient_user_ids VARCHAR(1000) DEFAULT NULL;`
   ];
 
   const conn = await pool.getConnection();

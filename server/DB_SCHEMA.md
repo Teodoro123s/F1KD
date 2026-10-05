@@ -347,6 +347,7 @@ Columns:
 - `id`
 - `child_id`
 - `vaccine_name`
+- `dose_number` (1-3; existing records default to 1)
 - `vaccine_date`
 - `remarks`
 

@@ -65,6 +65,37 @@ export const buildApiQueryParams = (fields, additionalParams = {}) => {
   };
 };
 
+export const buildProgressReportParams = ({
+  selection,
+  reportCategory,
+  beneficiaryType,
+  selectedProgram,
+  programName,
+  benefitPeriod,
+  benefitMonth,
+  page = 1,
+  perPage = 50,
+  exportAll = false,
+}) => {
+  const isProgramReport = reportCategory === 'program';
+  const programBeneficiaryType = String(selectedProgram?.beneficiaryType || selectedProgram?.beneficiary_type || 'Mother and Child')
+    .trim();
+
+  return {
+    ...selection,
+    granularity: isProgramReport
+      ? programBeneficiaryType.toLowerCase() === 'mother' ? 'mother' : 'child'
+      : beneficiaryType,
+    programName: isProgramReport ? programName : '',
+    programBeneficiaryType: isProgramReport ? programBeneficiaryType : '',
+    benefitPeriod: isProgramReport ? benefitPeriod : 'overall',
+    benefitMonth: isProgramReport ? benefitMonth : '',
+    page,
+    perPage,
+    ...(exportAll ? { export: 1 } : {}),
+  };
+};
+
 /**
  * Extract just the field names from column definitions
  */

@@ -1,3 +1,7 @@
+import { formatDateForDisplay } from '../../../utils/dateFormat';
+
+const MULTI_DOSE_DATE_FIELDS = new Set(['bcgDate', 'hepbDate', 'opvDate', 'dptDate', 'mmrDate', 'ttVaccineRecord']);
+
 /**
  * exportUtils.js - CSV/JSON Export Generation & Download Utilities
  * 
@@ -33,6 +37,17 @@ const getRowValue = (row, fieldId) => {
   if (fieldId === 'range') return row.range ?? '';
   if (fieldId === 'count') return row.count ?? 0;
   if (fieldId === 'share') return `${row.share ?? 0}%`;
+  if (MULTI_DOSE_DATE_FIELDS.has(fieldId)) {
+    const vaccineRecord = row[fieldId];
+    if (Array.isArray(vaccineRecord)) {
+      return vaccineRecord.map(({ dose, date }) => `Dose ${dose}: ${formatDateForDisplay(date)}`).join('; ');
+    }
+    if (vaccineRecord && typeof vaccineRecord === 'object') {
+      const parts = (vaccineRecord.doses || []).map(({ dose, date }) => `Dose ${dose}: ${formatDateForDisplay(date)}`);
+      if (vaccineRecord.remarks) parts.push(`Remarks: ${vaccineRecord.remarks}`);
+      return parts.join('; ');
+    }
+  }
   return row[fieldId] ?? '';
 };
 

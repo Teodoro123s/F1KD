@@ -2,9 +2,9 @@
 import { useNavigate } from 'react-router-dom';
 import { formatDateForDisplay } from '../../../utils/dateFormat';
 import { apiDeleteMother, apiGetMother } from '../../../api/mothers';
-import { resolveAssetUrl } from '../../../api/authHeader';
+import { DocumentPreview, DocumentPreviewModal } from '../../../components/DocumentPreview';
 import { useAuth } from '../../../auth/AuthProvider';
-import { can, hasRole, ROLES } from '../../../utils/permissions';
+import { can } from '../../../utils/permissions';
 import PageHeader from '../../../components/ui/PageHeader';
 import { notifyAction } from '../../../components/ActionFeedback';
 import { MotherFormFields } from './BeneficiaryMother';
@@ -41,47 +41,6 @@ const Field = ({ label, value, className = '' }) => (
   </div>
 );
 
-const getDocumentPreviewType = (filePath = '') => {
-  const normalizedPath = String(filePath || '').toLowerCase();
-  if (!normalizedPath) return 'none';
-  if (normalizedPath.endsWith('.pdf')) return 'pdf';
-  if (/\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(normalizedPath)) return 'image';
-  return 'none';
-};
-
-const DocumentPreview = ({ fileName, filePath, label, onPreviewOpen }) => {
-  const normalizedUrl = resolveAssetUrl(filePath);
-  const previewType = getDocumentPreviewType(filePath);
-
-  if (!fileName || !normalizedUrl) {
-    return <span className="document-upload-empty">No document uploaded</span>;
-  }
-
-  return (
-    <div className="document-upload-preview-wrapper">
-      {previewType === 'image' && (
-        <button type="button" className="document-upload-preview-button" onClick={() => onPreviewOpen?.(normalizedUrl, fileName, 'image')}>
-          <img src={normalizedUrl} alt={fileName || label} className="document-upload-preview-image" />
-        </button>
-      )}
-      {previewType === 'pdf' && (
-        <button type="button" className="document-upload-preview-button" onClick={() => onPreviewOpen?.(normalizedUrl, fileName, 'pdf')}>
-          <div className="document-upload-preview-pdf-shell">
-            <object data={normalizedUrl} type="application/pdf" className="document-upload-preview-pdf">
-              <iframe src={normalizedUrl} title={fileName || label} className="document-upload-preview-pdf-frame" />
-            </object>
-          </div>
-        </button>
-      )}
-      {!previewType || previewType === 'none' ? (
-        <a href={normalizedUrl} target="_blank" rel="noreferrer">{fileName}</a>
-      ) : (
-        <button type="button" className="document-upload-filename-link" onClick={() => onPreviewOpen?.(normalizedUrl, fileName, previewType)}>{fileName}</button>
-      )}
-    </div>
-  );
-};
-
 const Section = ({ title, children }) => (
   <section className="mother-detail-section">
     <h3 className="mother-detail-section-title">{title}</h3>
@@ -106,8 +65,8 @@ const ChipList = ({ items, emptyLabel = 'None' }) => {
 export default function MotherDetailPage({ selectedMother, onClose, onMotherUpdated, overviewOnly = false }) {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
-  const canManage = can(currentUser?.role, 'beneficiary-resources', 'update');
-  const canEdit = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.PARTNER]);
+  const canManage = can(currentUser?.role, 'beneficiary-resources', 'delete');
+  const canEdit = can(currentUser?.role, 'beneficiary-resources', 'update');
   const [motherRecord, setMotherRecord] = useState(selectedMother);
   const [activeTab, setActiveTab] = useState('overview');
   const [profileTab, setProfileTab] = useState('general');
@@ -280,7 +239,7 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
           <div className="mother-detail-actions">
             {canManage && <button type="button" className="btn-danger" onClick={() => setShowDeleteModal(true)}>Delete</button>}
             {canEdit && <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/mother/${motherId}/edit`, { state: { mother: selectedMother } })}>Edit</button>}
-            <button type="button" className="btn-secondary" onClick={handleBack}>Back</button>
+            <button type="button" className="btn-secondary back-action" onClick={handleBack}>Back</button>
           </div>
         )}
       />
@@ -402,21 +361,7 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
             </div>
           </section>
 
-          {previewDocument && (
-            <div className="document-preview-modal-backdrop" onClick={() => setPreviewDocument(null)}>
-              <div className="document-preview-modal" onClick={(event) => event.stopPropagation()}>
-                <div className="document-preview-modal-header">
-                  <strong>{previewDocument.name}</strong>
-                  <button type="button" className="document-preview-close" onClick={() => setPreviewDocument(null)}>Close</button>
-                </div>
-                {previewDocument.type === 'image' ? (
-                  <img src={previewDocument.url} alt={previewDocument.name} className="document-preview-modal-image" />
-                ) : (
-                  <iframe src={previewDocument.url} title={previewDocument.name} className="document-preview-modal-frame" />
-                )}
-              </div>
-            </div>
-          )}
+          <DocumentPreviewModal document={previewDocument} onClose={() => setPreviewDocument(null)} />
 
           <section className="mother-detail-section">
             <h3 className="mother-detail-section-title">I.C OTHER DETAILS</h3>
@@ -434,7 +379,6 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
             <h3 className="mother-detail-section-title">II. INITIAL PRENATAL ASSESSMENT &amp; MATERNAL HEALTH PROFILE</h3>
             <div className="mother-detail-grid">
               <Field label="Date of Prenatal Registration" value={prenatalRegDate} />
-              <Field label="Trimester at Registration" value={trimester} />
               <Field label="Gestational Age at Reg (weeks)" value={gestationalAge} />
               <Field label="Weight (kg) at Reg" value={mother.prenatalWeight || '—'} />
               <Field label="Blood Pressure (BP) at Reg" value={prenatalBp} />

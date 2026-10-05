@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { MotherFormFields } from './BeneficiaryMother';
 import { useMothers } from '../../../context/MothersContext';
@@ -30,8 +30,13 @@ const normalizeMotherDates = (mother) => {
 const normalizeMotherForm = (mother = {}) => {
   const normalized = normalizeMotherDates(mother);
   const addressParts = parseAddressParts(normalized.address || '');
+  const legacyVaccineRemarks = [1, 2, 3, 4, 5]
+    .map((num) => normalized[`tt${num}Remarks`])
+    .filter(Boolean)
+    .join('; ');
   return {
     ...normalized,
+    ttRemarks: normalized.ttRemarks ?? legacyVaccineRemarks,
     firstName: capitalizeNameValue(normalized.firstName || ''),
     middleName: capitalizeNameValue(normalized.middleName || ''),
     lastName: capitalizeNameValue(normalized.lastName || ''),
@@ -53,6 +58,7 @@ export default function EditMotherPage() {
   const initialMother = location.state?.mother || null;
 
   const { mothers, setMothers } = useMothers();
+  const formRef = useRef(null);
 
   const [form, setForm] = useState(() => (initialMother ? normalizeMotherForm(initialMother) : {}));
   const [documentFiles, setDocumentFiles] = useState({ birthCertificate: null, consent: null });
@@ -107,7 +113,7 @@ export default function EditMotherPage() {
     return (
       <div className="edit-mother-page">
         <p>Unable to load mother data for editing. Try opening the mother profile and clicking Edit.</p>
-        <button type="button" onClick={() => navigate(-1)} className="btn-secondary">Back</button>
+        <button type="button" onClick={() => navigate(-1)} className="btn-secondary back-action">Back</button>
       </div>
     );
   }
@@ -118,6 +124,13 @@ export default function EditMotherPage() {
 
   const handleSaveRequest = (e) => {
     e.preventDefault();
+    const hasNegativePregnancyCount = ['gravida', 'abortion', 'stillbirth']
+      .some((field) => Number(form[field]) < 0);
+    if (hasNegativePregnancyCount) {
+      setActiveTab('prenatal');
+      notifyAction('Gravida, abortion, and stillbirth cannot be negative.', 'error');
+      return;
+    }
     setShowSaveConfirm(true);
   };
 
@@ -164,7 +177,7 @@ export default function EditMotherPage() {
         actions={(
           <>
             <button type="button" className="btn-secondary edit-mother-action" onClick={() => navigate(-1)}>Cancel</button>
-            <button type="button" className="btn-primary edit-mother-action" disabled={saving} onClick={() => setShowSaveConfirm(true)}>{saving ? 'Saving...' : 'Save'}</button>
+            <button type="button" className="btn-primary edit-mother-action" disabled={saving} onClick={() => formRef.current?.requestSubmit()}>{saving ? 'Saving...' : 'Save'}</button>
           </>
         )}
       />
@@ -189,7 +202,7 @@ export default function EditMotherPage() {
         </div>
       )}
 
-      <form id="mother-edit-form" onSubmit={handleSaveRequest} className="mother-edit-form">
+      <form ref={formRef} id="mother-edit-form" onSubmit={handleSaveRequest} className="mother-edit-form">
         <div className="mother-detail-profile-content edit-mother-profile-content">
           <div className="stepper-progress mother-detail-stepper">
             <div className="stepper-steps" role="tablist" aria-label="Mother profile sections">

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../../auth/AuthProvider";
-import { hasRole, isHealthWorkerRole, ROLES } from "../../utils/permissions";
+import { hasRole, isCommunityCoordinatorRole, isHealthWorkerRole, ROLES } from "../../utils/permissions";
 import PageHeader from '../../components/ui/PageHeader';
 import {
   BatchesIcon,
@@ -23,6 +23,8 @@ import {
   emptyProgram,
   filterPrograms,
   getCluster,
+  normalizeBeneficiaryType,
+  recordMatchesProgramScope,
 } from "./programData";
 
 const localDate = () => {
@@ -32,16 +34,15 @@ const localDate = () => {
 
 export default function ProgramPage() {
   const navigate = useNavigate();
-  const { programId, clusterType, clusterName } = useParams();
+  const { programId, clusterType, clusterName, schoolId, groupId, batchId } = useParams();
   const { currentUser } = useAuth();
-  const isCommunityOrganizer = ['community organizer', 'communityorganizer']
-    .includes(String(currentUser?.role || '').trim().toLowerCase());
+  const isCommunityOrganizer = isCommunityCoordinatorRole(currentUser?.role);
   const isSuperAdmin = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]);
-  const canManagePrograms = isSuperAdmin || isCommunityOrganizer;
-  const canCreatePrograms = isSuperAdmin || isCommunityOrganizer;
-  const canDeletePrograms = isSuperAdmin || isCommunityOrganizer;
-  const canEndPrograms = isSuperAdmin || isCommunityOrganizer;
-  const canMonitorPrograms = canCreatePrograms || hasRole(currentUser?.role, [ROLES.PARTNER]) || isHealthWorkerRole(currentUser?.role);
+  const canManagePrograms = isCommunityOrganizer;
+  const canCreatePrograms = isCommunityOrganizer;
+  const canDeletePrograms = isCommunityOrganizer;
+  const canEndPrograms = isCommunityOrganizer;
+  const canMonitorPrograms = canCreatePrograms || isHealthWorkerRole(currentUser?.role);
   const [activeTab, setActiveTab] = useState("Active");
   const [query, setQuery] = useState("");
   const [programs, setPrograms] = useState([]);
@@ -65,11 +66,11 @@ export default function ProgramPage() {
   const [scopeBatchIds, setScopeBatchIds] = useState([]);
   const [hierarchy, setHierarchy] = useState({ schools: [], groups: [], batches: [] });
   const [scopeError, setScopeError] = useState('');
-  const [activeActionMenu, setActiveActionMenu] = useState(null);
   const [actionProgram, setActionProgram] = useState(null);
   const [pendingDeleteProgram, setPendingDeleteProgram] = useState(null);
   const [programError, setProgramError] = useState('');
   const [beneficiaryRecords, setBeneficiaryRecords] = useState([]);
+  const [activeActionMenu, setActiveActionMenu] = useState(null);
   const [drillLevel, setDrillLevel] = useState('school');
   const [drillSchool, setDrillSchool] = useState(null);
   const [drillGroup, setDrillGroup] = useState(null);
@@ -104,27 +105,78 @@ export default function ProgramPage() {
     latest: program.latest || 'No activity yet',
   });
 
-  const normalizeBeneficiaryType = (value) => String(value || '').trim().toLowerCase().replace(/\s+/g, '');
+  const normalizeDisplayValue = (value) => String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b(school|group|batch)\b/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const collectDisplayCandidates = (...values) => (
+    values.flatMap((value) => {
+      if (value === null || value === undefined) return [];
+      const text = String(value).trim();
+      if (!text) return [];
+      const normalized = text
+        .split(/[|,/]+/)
+        .map((segment) => segment.trim())
+        .filter(Boolean);
+      return normalized;
+    })
+      .filter(Boolean)
+      .map((value) => normalizeDisplayValue(value))
+      .filter(Boolean)
+  );
+
+  const valueMatchesTarget = (value, target) => {
+    const normalizedValue = normalizeDisplayValue(value);
+    const normalizedTarget = normalizeDisplayValue(target);
+    if (!normalizedValue || !normalizedTarget) return false;
+    return normalizedValue === normalizedTarget
+      || normalizedValue.includes(normalizedTarget)
+      || normalizedTarget.includes(normalizedValue);
+  };
 
   const getProgramBeneficiaryRecords = (program, records = beneficiaryRecords) => {
     if (!program) return [];
 
-    const requestedType = normalizeBeneficiaryType(program?.beneficiaryType || program?.beneficiary_type || 'Mother and Child');
-    const programCommunity = String(program?.community || '').trim().toLowerCase();
+    return (records || []).filter((record) => recordMatchesProgramScope(record, program));
+  };
 
-    return (records || []).filter((record) => {
-      const recordType = normalizeBeneficiaryType(record?.type || record?.sourceType || '');
-      const recordCommunity = String(record?.school || '').trim().toLowerCase();
+  const getRouteBeneficiaryRecords = (program, { schoolName = '', groupName = '', batchName = '' } = {}) => {
+    const scopedRecords = getProgramBeneficiaryRecords(program);
+    const filtered = scopedRecords.filter((record) => {
+      const schoolCandidates = collectDisplayCandidates(record?.school, record?.community, record?.community_name, record?.area);
+      const groupCandidates = collectDisplayCandidates(record?.group, record?.group_name, record?.groupName);
+      const batchCandidates = collectDisplayCandidates(record?.batch, record?.batch_name, record?.batchName, record?.batchCode, record?.batchId, record?.batch_code);
+      const targetSchool = String(schoolName || '').trim();
+      const targetGroup = String(groupName || '').trim();
+      const targetBatch = String(batchName || '').trim();
 
-      if (requestedType && requestedType !== 'motherandchild' && recordType !== requestedType) {
-        return false;
-      }
-
-      if (programCommunity && recordCommunity && recordCommunity !== programCommunity) {
-        return false;
-      }
-
+      if (targetSchool && schoolCandidates.length && !schoolCandidates.some((candidate) => valueMatchesTarget(candidate, targetSchool))) return false;
+      if (targetSchool && schoolCandidates.length === 0 && record?.school) return false;
+      if (targetGroup && groupCandidates.length && !groupCandidates.some((candidate) => valueMatchesTarget(candidate, targetGroup))) return false;
+      if (targetBatch && batchCandidates.length && !batchCandidates.some((candidate) => valueMatchesTarget(candidate, targetBatch))) return false;
+      if (targetGroup && !groupCandidates.length && targetBatch && !batchCandidates.length) return false;
+      if (targetBatch && !batchCandidates.length && targetGroup && !groupCandidates.length) return false;
       return true;
+    });
+
+    if (filtered.length > 0) return filtered;
+
+    return (beneficiaryRecords || []).filter((record) => {
+      const schoolCandidates = collectDisplayCandidates(record?.school, record?.community, record?.community_name, record?.area);
+      const groupCandidates = collectDisplayCandidates(record?.group, record?.group_name, record?.groupName);
+      const batchCandidates = collectDisplayCandidates(record?.batch, record?.batch_name, record?.batchName, record?.batchCode, record?.batchId, record?.batch_code);
+      const targetSchool = String(schoolName || '').trim();
+      const targetGroup = String(groupName || '').trim();
+      const targetBatch = String(batchName || '').trim();
+
+      const schoolMatches = !targetSchool || !schoolCandidates.length || schoolCandidates.some((candidate) => valueMatchesTarget(candidate, targetSchool));
+      const groupMatches = !targetGroup || !groupCandidates.length || groupCandidates.some((candidate) => valueMatchesTarget(candidate, targetGroup));
+      const batchMatches = !targetBatch || !batchCandidates.length || batchCandidates.some((candidate) => valueMatchesTarget(candidate, targetBatch));
+      return schoolMatches && groupMatches && batchMatches;
     });
   };
 
@@ -141,15 +193,19 @@ export default function ProgramPage() {
         const summary = summaryResult.status === 'fulfilled' ? summaryResult.value || {} : {};
         const childrenResponse = childrenResult.status === 'fulfilled' ? childrenResult.value || {} : {};
         const savedPrograms = (programResponse.programs || []).map(mapApiProgram);
-        setHierarchy({ schools: summary.communities || [], groups: summary.groups || [], batches: summary.batches || [] });
+        const schools = summary.communities || [];
+        const groups = summary.groups || [];
+        const batches = summary.batches || [];
+        const batchesById = new Map(batches.map((batch) => [String(batch.id), batch]));
+        setHierarchy({ schools, groups, batches });
         const mothers = (summary.mothers || []).map((mother) => ({
           id: `mother-${mother.id}`,
           sourceId: mother.id,
           sourceType: 'mother',
           monitorKey: `mother:${mother.id}`,
           school: mother.community || '',
-          group: mother.group || '',
-          batch: mother.batchId || '',
+          group: mother.groupName || mother.group || '',
+          batch: batchesById.get(String(mother.batchId))?.name || mother.batch || '',
           name: mother.name,
           type: 'Mother',
           isMonitored: Boolean(mother.isMonitored ?? mother.is_monitored),
@@ -258,17 +314,27 @@ export default function ProgramPage() {
     if (!name) return [];
     const scopedRecords = getProgramBeneficiaryRecords(selectedProgram);
     return scopedRecords.filter((record) => {
-      if (normalizedLevel === 'school') {
-        return String(record.school || '').trim().toLowerCase() === name.toLowerCase();
-      }
       if (normalizedLevel === 'group') {
         return String(record.group || '').trim().toLowerCase() === name.toLowerCase();
       }
       if (normalizedLevel === 'batch') {
         return String(record.batch || '').trim().toLowerCase() === name.toLowerCase();
       }
+      if (normalizedLevel === 'school') {
+        const hasExplicitGroupScope = (selectedProgram?.clusters || []).some((item) => item?.type === 'Group' && String(item?.name || '').trim());
+        const hasExplicitBatchScope = (selectedProgram?.clusters || []).some((item) => item?.type === 'Batch' && String(item?.name || '').trim());
+        if (hasExplicitGroupScope && String(record.group || '').trim()) {
+          return String(record.school || '').trim().toLowerCase() === name.toLowerCase()
+            && (selectedProgram?.clusters || []).some((item) => item.type === 'Group' && String(item.name || '').trim().toLowerCase() === String(record.group || '').trim().toLowerCase());
+        }
+        if (hasExplicitBatchScope && String(record.batch || '').trim()) {
+          return String(record.school || '').trim().toLowerCase() === name.toLowerCase()
+            && (selectedProgram?.clusters || []).some((item) => item.type === 'Batch' && String(item.name || '').trim().toLowerCase() === String(record.batch || '').trim().toLowerCase());
+        }
+        return String(record.school || '').trim().toLowerCase() === name.toLowerCase();
+      }
       return false;
-    }).map((record) => ({ id: record.sourceId, type: record.sourceType }));
+    }).map((record) => ({ id: record.sourceId, type: record.sourceType, name: record.name }));
   };
 
   const openClusterHistory = (cluster, level) => {
@@ -308,6 +374,44 @@ export default function ProgramPage() {
   const selectedProgram = programId
     ? programs.find((program) => program.id === Number(programId))
     : programs.find((program) => program.id === Number(form.id)) || filteredPrograms[0];
+  const routeMatchesValue = (entity, routeValue, extraKeys = []) => {
+    if (!entity || !routeValue) return false;
+    const target = String(routeValue).trim().toLowerCase();
+    const candidates = new Set([
+      entity.id,
+      entity.databaseId,
+      entity.code,
+      entity.batch_code,
+      entity.group_code,
+      entity.community_code,
+      entity.name,
+      entity.group_name,
+      entity.batch_name,
+      entity.community_name,
+      ...extraKeys.map((key) => entity?.[key]),
+    ].filter((value) => value !== undefined && value !== null && value !== '')
+      .map((value) => String(value).trim().toLowerCase()));
+    return candidates.has(target);
+  };
+  const selectedRouteSchool = useMemo(() => hierarchy.schools.find((school) => routeMatchesValue(school, schoolId, ['schoolId', 'communityId', 'school_code', 'code'])), [hierarchy.schools, schoolId]);
+  const selectedRouteGroup = useMemo(() => hierarchy.groups.find((group) => routeMatchesValue(group, groupId, ['groupId', 'group_code', 'code'])), [hierarchy.groups, groupId]);
+  const selectedRouteBatch = useMemo(() => hierarchy.batches.find((batch) => routeMatchesValue(batch, batchId, ['batchId', 'batch_code', 'code', 'name'])), [hierarchy.batches, batchId]);
+  const selectedRouteBatchGroup = selectedRouteBatch ? hierarchy.groups.find((group) => (
+    String(selectedRouteBatch.group_id || '') === String(group.id || '')
+    || String(selectedRouteBatch.groupIds || '').split(',').map((value) => value.trim()).includes(String(group.id || ''))
+    || String(selectedRouteBatch.group || selectedRouteBatch.group_name || '').trim().toLowerCase() === String(group.name || group.group_name || '').trim().toLowerCase()
+  )) : null;
+  const programBreadcrumbs = [{ label: 'Program', to: '/program' }];
+  if (viewMode && selectedProgram) {
+    programBreadcrumbs.push({ label: selectedProgram.name, to: `/program/${programId}` });
+    if (selectedRouteSchool) programBreadcrumbs.push({ label: selectedRouteSchool.name });
+    if (selectedRouteGroup) programBreadcrumbs.push({ label: selectedRouteGroup.name || selectedRouteGroup.group_name });
+    if (selectedRouteBatchGroup) programBreadcrumbs.push({
+      label: selectedRouteBatchGroup.name || selectedRouteBatchGroup.group_name,
+      to: `/program/${programId}/group/${selectedRouteBatchGroup.id}`,
+    });
+    if (selectedRouteBatch) programBreadcrumbs.push({ label: selectedRouteBatch.name || selectedRouteBatch.batch_code || selectedRouteBatch.code });
+  }
   const getProgramBeneficiaryCount = (program) => {
     const uniqueBeneficiaries = new Set();
 
@@ -344,6 +448,56 @@ export default function ProgramPage() {
   const selectedProgramView = selectedProgram ? { ...selectedProgram, clusters: expandedClusters } : selectedProgram;
   const selectedCluster = getCluster(selectedProgramView, clusterType, clusterName);
   const schoolRows = selectedProgramView?.clusters.filter((cluster) => cluster.type === 'School') || [];
+  const directScopeClusters = selectedProgramView?.clusters.filter((cluster) => cluster.type === 'Group' || cluster.type === 'Batch') || [];
+  const directScopeGroups = useMemo(() => {
+    const clusters = selectedProgramView?.clusters || [];
+    const groupClusters = clusters.filter((cluster) => cluster.type === 'Group');
+    const batchClusters = clusters.filter((cluster) => cluster.type === 'Batch');
+    const normalize = (value) => String(value || '').trim().toLowerCase();
+    const findBatch = (cluster) => hierarchy.batches.find((batch) => normalize(batch.name || batch.batch_code || batch.code) === normalize(cluster.name));
+    const belongsToGroup = (batch, group) => {
+      if (!batch) return false;
+      const groupId = String(group.id || '');
+      const groupName = normalize(group.name || group.group_name);
+      return String(batch.group_id || '') === groupId
+        || String(batch.groupIds || '').split(',').map((value) => value.trim()).includes(groupId)
+        || normalize(batch.group || batch.group_name) === groupName
+        || String(batch.groupNames || '').split(',').map(normalize).includes(groupName);
+    };
+    const groups = hierarchy.groups.filter((group) => (
+      groupClusters.some((cluster) => normalize(cluster.name) === normalize(group.name || group.group_name))
+      || batchClusters.some((cluster) => belongsToGroup(findBatch(cluster), group))
+    ));
+
+    return groups.map((group) => {
+      const groupName = normalize(group.name || group.group_name);
+      const groupScope = groupClusters.find((cluster) => normalize(cluster.name) === groupName);
+      const selectedBatches = batchClusters.filter((cluster) => belongsToGroup(findBatch(cluster), group));
+      const allGroupBatches = hierarchy.batches.filter((batch) => belongsToGroup(batch, group));
+      return {
+        ...group,
+        batchCount: selectedBatches.length || (groupScope ? allGroupBatches.length : 0),
+        beneficiaryCount: selectedBatches.length
+          ? selectedBatches.reduce((total, cluster) => total + Number(cluster.beneficiaries || 0), 0)
+          : Number(groupScope?.beneficiaries || 0),
+      };
+    });
+  }, [hierarchy, selectedProgramView]);
+  const matchesSchoolGroupBatch = (record, schoolName, groupName, batchName) => {
+    const recordSchool = String(record?.school || '').trim().toLowerCase();
+    const recordGroup = String(record?.group || '').trim().toLowerCase();
+    const recordBatch = String(record?.batch || '').trim().toLowerCase();
+    const normalizedSchoolName = String(schoolName || '').trim().toLowerCase();
+    const normalizedGroupName = String(groupName || '').trim().toLowerCase();
+    const normalizedBatchName = String(batchName || '').trim().toLowerCase();
+
+    if (normalizedSchoolName && recordSchool && recordSchool !== normalizedSchoolName) return false;
+    if (normalizedBatchName && recordBatch && recordBatch !== normalizedBatchName) return false;
+    if (normalizedGroupName && recordGroup && recordGroup !== normalizedGroupName) return false;
+    if (normalizedGroupName && !recordGroup && normalizedBatchName && !recordBatch) return false;
+    if (normalizedBatchName && !recordBatch && normalizedGroupName && !recordGroup) return false;
+    return true;
+  };
   const programHierarchy = useMemo(() => schoolRows.map((schoolCluster, schoolIndex) => {
     const scopedRecords = getProgramBeneficiaryRecords(selectedProgramView);
     const normalizedSchoolName = String(schoolCluster.name || '').replace(/ School$/i, '');
@@ -360,9 +514,9 @@ export default function ProgramPage() {
               .filter(Boolean)
               .map((value) => String(value).toLowerCase());
             const hasMatchingBeneficiary = scopedRecords.some((record) => {
+              const recordBatch = String(record.batch || '').trim().toLowerCase();
               const recordSchool = String(record.school || '').trim().toLowerCase();
               const recordGroup = String(record.group || '').trim().toLowerCase();
-              const recordBatch = String(record.batch || '').trim().toLowerCase();
               return batchKeys.includes(recordBatch)
                 && (!recordSchool || recordSchool === String(schoolName).toLowerCase())
                 && (!recordGroup || recordGroup === String(groupName).toLowerCase());
@@ -385,12 +539,9 @@ export default function ProgramPage() {
               id: batch.id || `${schoolIndex}-${groupIndex}-${batchIndex}`,
               name: batchName,
               beneficiaries: scopedRecords.filter((record) => {
-                const recordSchool = String(record.school || '').trim().toLowerCase();
-                const recordGroup = String(record.group || '').trim().toLowerCase();
                 const recordBatch = String(record.batch || '').trim().toLowerCase();
                 return batchKeys.includes(recordBatch)
-                  && (!recordSchool || recordSchool === String(schoolName).toLowerCase())
-                  && (!recordGroup || recordGroup === String(groupName).toLowerCase());
+                  && matchesSchoolGroupBatch(record, schoolName, groupName, batchName);
               }),
             };
           });
@@ -438,19 +589,30 @@ export default function ProgramPage() {
         batches: selectedProgramView.clusters.filter((cluster) => cluster.type === 'Batch' && hierarchy.batches.some((batch) => (batch.name || batch.batch_code) === cluster.name && String(batch.community || '').toLowerCase() === String(school.name || '').toLowerCase())),
       }));
   }, [hierarchy, selectedProgramView]);
-  const selectedSchools = hierarchy.schools.filter((school) => scopeSchoolIds.includes(String(school.id)));
-  const availableGroups = hierarchy.groups.filter((group) => (
-    scopeSchoolIds.includes(String(group.community_id || ''))
-    || selectedSchools.some((school) => String(group.community || group.community_name || '').toLowerCase() === String(school.name || '').toLowerCase())
-  ));
-  const selectedGroups = availableGroups.filter((group) => scopeGroupIds.includes(String(group.id)));
-  const availableBatches = hierarchy.batches.filter((batch) => (
-    scopeGroupIds.includes(String(batch.group_id || ''))
-    || selectedGroups.some((group) => String(batch.group || batch.group_name || '').toLowerCase() === String(group.name || group.group_name || '').toLowerCase())
-    || (scopeSchoolIds.includes(String(batch.community_id || '')) && !batch.group_id)
-    || (selectedSchools.some((school) => String(batch.community || '').toLowerCase() === String(school.name || '').toLowerCase()) && !batch.group_id)
-  ));
-  const selectedBatches = availableBatches.filter((batch) => scopeBatchIds.includes(String(batch.id)));
+  const selectedSchools = hierarchy.schools.filter((school) => scopeSchoolIds.includes(String(school.id || school.school_id || school.community_id)));
+  const selectedGroups = hierarchy.groups.filter((group) => scopeGroupIds.includes(String(group.id)));
+  const selectedBatches = hierarchy.batches.filter((batch) => scopeBatchIds.includes(String(batch.id)));
+  const communityHierarchyGroups = useMemo(() => hierarchy.schools.map((school) => {
+    const schoolName = String(school.name || '').trim().toLowerCase();
+    const schoolId = String(school.id || school.school_id || school.community_id || '').trim();
+    const matchingGroups = hierarchy.groups.filter((group) => {
+      const communityName = String(group.community || group.community_name || group.school_name || '').trim().toLowerCase();
+      const communityId = String(group.community_id || group.school_id || group.communityId || '').trim();
+      return communityName === schoolName || communityId === schoolId || String(group.community || group.community_name || '').trim().toLowerCase() === schoolName;
+    });
+    const matchingBatches = hierarchy.batches.filter((batch) => {
+      const communityName = String(batch.community || batch.community_name || batch.school_name || '').trim().toLowerCase();
+      const communityId = String(batch.community_id || batch.school_id || batch.communityId || '').trim();
+      const groupCommunityName = String(batch.group_community || batch.groupCommunity || '').trim().toLowerCase();
+      return communityName === schoolName || communityId === schoolId || groupCommunityName === schoolName || String(batch.community || '').trim().toLowerCase() === schoolName;
+    });
+
+    return {
+      school,
+      groups: matchingGroups.length ? matchingGroups : hierarchy.groups.filter((group) => String(group.community || group.community_name || '').trim().toLowerCase() === schoolName || String(group.name || group.group_name || '').trim().toLowerCase().includes(schoolName)),
+      batches: matchingBatches.length ? matchingBatches : hierarchy.batches.filter((batch) => String(batch.community || '').trim().toLowerCase() === schoolName || String(batch.name || batch.batch_code || batch.code || '').trim().toLowerCase().includes(schoolName)),
+    };
+  }), [hierarchy]);
   const toggleRecipient = (recipient) =>
     setCheckedRecipients((current) =>
       current.includes(recipient)
@@ -470,7 +632,7 @@ export default function ProgramPage() {
                 Math.max(program.received, checkedRecipients.length),
               ),
               activities: program.activities + 1,
-              latest: "Aug 26, 2026",
+              latest: formatDateForDisplay('2026-08-26'),
             }
           : program,
       ),
@@ -511,9 +673,10 @@ export default function ProgramPage() {
     event.preventDefault();
     const selectedScopes = beneficiaryScope === 'School' ? selectedSchools : beneficiaryScope === 'Group' ? selectedGroups : selectedBatches;
     if (!selectedProgram || !selectedScopes.length) {
-      notifyAction(`Select at least one ${beneficiaryScope.toLowerCase()} before adding this cluster.`, 'error');
+      setScopeError(`Select at least one ${beneficiaryScope.toLowerCase()} before adding this cluster.`);
       return;
     }
+    setScopeError('');
     const scopes = selectedScopes.flatMap((scope) => {
       const name = scope.name || scope.group_name || scope.batch_code;
       const coverage = [{ type: beneficiaryScope, name, beneficiaries: Number(scope.records || scope.members_count || 0) }];
@@ -532,6 +695,7 @@ export default function ProgramPage() {
         setScopeSchoolIds([]);
         setScopeGroupIds([]);
         setScopeBatchIds([]);
+        setScopeError('');
         notifyAction('Beneficiary scope saved successfully.');
       })
       .catch((error) => {
@@ -551,6 +715,7 @@ export default function ProgramPage() {
     setScopeSchoolIds([]);
     setScopeGroupIds([]);
     setScopeBatchIds([]);
+    setScopeError('');
     setShowBeneficiaryModal(true);
   };
   const resetDrill = () => {
@@ -560,30 +725,40 @@ export default function ProgramPage() {
     setDrillBatch(null);
   };
   const openSchool = (school) => {
+    if (programId && school?.id) {
+      navigate(`/program/${programId}/school/${school.id}`);
+      return;
+    }
     setDrillSchool(school);
     setDrillGroup(null);
     setDrillBatch(null);
     setDrillLevel('group');
   };
   const openGroup = (group) => {
+    if (programId && group?.id) {
+      navigate(`/program/${programId}/group/${group.id}`);
+      return;
+    }
     setDrillGroup(group);
     setDrillBatch(null);
     setDrillLevel('batch');
   };
   const openBatch = (batch) => {
+    if (programId && batch?.id) {
+      navigate(`/program/${programId}/batch/${batch.id}`);
+      return;
+    }
     setDrillBatch(batch);
     setDrillLevel('beneficiary');
   };
   const editProgram = () => {
     setForm(actionProgram || selectedProgram);
-    setActiveActionMenu(null);
     setShowModal(true);
   };
   const deleteProgram = () => {
     const programToDelete = actionProgram || selectedProgram;
     if (!programToDelete) return;
     setPendingDeleteProgram(programToDelete);
-    setActiveActionMenu(null);
   };
 
   const confirmDeleteProgram = async () => {
@@ -600,32 +775,234 @@ export default function ProgramPage() {
       notifyAction(message, 'error');
     }
   };
-  const renderActionMenu = (menuId, menuProgram = selectedProgram) => canManagePrograms && (
-    <div className="program-action-menu-wrap" onClick={(event) => event.stopPropagation()}>
-      <button type="button" className="program-more-button" aria-label="Program actions" aria-haspopup="true" aria-expanded={activeActionMenu === menuId} onClick={(event) => { event.stopPropagation(); setActionProgram(menuProgram); setActiveActionMenu(activeActionMenu === menuId ? null : menuId); }}><MoreVerticalIcon /></button>
+  const renderActionMenu = (menuId, menuProgram = selectedProgram) => menuProgram && (
+    <div className="actions-cell" onClick={(event) => event.stopPropagation()}>
+      <button
+        type="button"
+        className="btn-actions"
+        onClick={(event) => {
+          event.stopPropagation();
+          setActiveActionMenu((currentMenuId) => currentMenuId === menuId ? null : menuId);
+        }}
+        aria-label="Program actions menu"
+        aria-haspopup="true"
+        aria-expanded={activeActionMenu === menuId}
+      >
+        <MoreVerticalIcon />
+      </button>
       {activeActionMenu === menuId && (
-        <div className="actions-dropdown program-actions-dropdown" role="menu">
+        <div className="actions-dropdown" role="menu">
+          <button type="button" className="actions-dropdown-item" onClick={() => { setActiveActionMenu(null); navigate(`/program/${menuProgram.id}`); }} role="menuitem">Open</button>
           {(isSuperAdmin || isCommunityOrganizer) && String(menuProgram?.status || '').trim().toLowerCase() !== 'ended' && (
-            <button type="button" className="actions-dropdown-item" onClick={editProgram} role="menuitem">Edit</button>
+            <button type="button" className="actions-dropdown-item" onClick={() => { setActionProgram(menuProgram); setActiveActionMenu(null); editProgram(); }} role="menuitem">Edit</button>
           )}
           {canEndPrograms && (
-            activeTab === 'Ended'
-              ? <button type="button" className="actions-dropdown-item" onClick={backToActivePrograms} role="menuitem">Back to active programs</button>
-              : <button type="button" className="actions-dropdown-item" onClick={endProgram} role="menuitem">End program</button>
+            <button type="button" className="actions-dropdown-item" onClick={() => { setActionProgram(menuProgram); setActiveActionMenu(null); activeTab === 'Ended' ? backToActivePrograms() : endProgram(); }} role="menuitem">
+              {activeTab === 'Ended' ? 'Reactivate' : 'End'}
+            </button>
           )}
           {canDeletePrograms && (
-            <button type="button" className="actions-dropdown-item delete" onClick={deleteProgram} role="menuitem">Delete</button>
+            <button type="button" className="actions-dropdown-item delete" onClick={() => { setActionProgram(menuProgram); setActiveActionMenu(null); deleteProgram(); }} role="menuitem">Delete</button>
           )}
         </div>
       )}
     </div>
   );
 
+  const openHierarchyNode = (node, level) => {
+    if (!programId || !node) return;
+    if (level === 'school') {
+      navigate(`/program/${programId}/school/${node.id}`);
+      return;
+    }
+    if (level === 'group') {
+      navigate(`/program/${programId}/group/${node.id}`);
+      return;
+    }
+    if (level === 'batch') {
+      navigate(`/program/${programId}/batch/${node.id}`);
+      return;
+    }
+    openBeneficiaryReport(node);
+  };
+
+  const selectedRouteTreeData = useMemo(() => {
+    if (!selectedProgramView) return programHierarchy;
+    if (selectedRouteSchool) {
+      const routeGroups = hierarchy.groups.filter((group) => {
+        const groupCommunity = String(group.community || group.community_name || '').trim();
+        return valueMatchesTarget(groupCommunity, selectedRouteSchool.name || '') || valueMatchesTarget(selectedRouteSchool.name || '', groupCommunity);
+      });
+      return [{
+        id: selectedRouteSchool.id,
+        name: selectedRouteSchool.name,
+        groups: routeGroups.map((group) => {
+          const groupName = group.name || group.group_name;
+          const routeBatches = hierarchy.batches.filter((batch) => {
+            const batchCommunity = String(batch.community || '').trim();
+            const batchGroupName = String(batch.group || batch.group_name || '').trim();
+            const batchGroupIds = String(batch.groupIds || '').split(',').map((value) => value.trim());
+            return valueMatchesTarget(batchCommunity, selectedRouteSchool.name || '')
+              && (
+                valueMatchesTarget(batchGroupName, groupName || '')
+                || batchGroupIds.includes(String(group.id || ''))
+                || valueMatchesTarget(String(group.id || ''), String(batch.group_id || ''))
+              );
+          });
+          return {
+            id: group.id,
+            name: groupName,
+            batches: routeBatches.map((batch) => ({
+              id: batch.id,
+              name: batch.name || batch.batch_code || batch.code,
+              beneficiaries: getRouteBeneficiaryRecords(selectedProgramView, {
+                schoolName: selectedRouteSchool.name,
+                groupName: groupName,
+                batchName: batch.name || batch.batch_code || batch.code,
+              }),
+            })),
+          };
+        }),
+      }];
+    }
+    if (selectedRouteGroup) {
+      const programClusters = selectedProgramView.clusters || [];
+      const groupName = String(selectedRouteGroup.name || selectedRouteGroup.group_name || '').trim().toLowerCase();
+      const hasGroupScope = programClusters.some((cluster) => cluster.type === 'Group' && String(cluster.name || '').trim().toLowerCase() === groupName);
+      const batchScopeNames = new Set(programClusters
+        .filter((cluster) => cluster.type === 'Batch')
+        .filter((cluster) => {
+          const scopedBatchName = String(cluster.name || '').trim().toLowerCase();
+          return hierarchy.batches.some((batch) => {
+            const batchName = String(batch.name || batch.batch_code || batch.code || '').trim().toLowerCase();
+            const batchGroupName = String(batch.group || batch.group_name || '').trim().toLowerCase();
+            const batchGroupIds = String(batch.groupIds || '').split(',').map((value) => value.trim());
+            const belongsToGroup = valueMatchesTarget(batchGroupName, groupName)
+              || batchGroupIds.includes(String(selectedRouteGroup.id || ''))
+              || valueMatchesTarget(String(batch.group_id || ''), String(selectedRouteGroup.id || ''));
+            return batchName === scopedBatchName && belongsToGroup;
+          });
+        })
+        .map((cluster) => String(cluster.name || '').trim().toLowerCase()));
+      const routeBatches = hierarchy.batches.filter((batch) => {
+        const batchGroupName = String(batch.group || batch.group_name || '').trim();
+        const batchGroupIds = String(batch.groupIds || '').split(',').map((value) => value.trim());
+        const belongsToGroup = valueMatchesTarget(batchGroupName, groupName)
+          || batchGroupIds.includes(String(selectedRouteGroup.id || ''))
+          || valueMatchesTarget(String(batch.group_id || ''), String(selectedRouteGroup.id || ''));
+        const batchName = String(batch.name || batch.batch_code || batch.code || '').trim().toLowerCase();
+        return belongsToGroup && (batchScopeNames.size ? batchScopeNames.has(batchName) : hasGroupScope);
+      });
+      return [{
+        id: selectedRouteGroup.id,
+        name: selectedRouteGroup.name || selectedRouteGroup.group_name,
+        groups: [{
+          id: selectedRouteGroup.id,
+          name: selectedRouteGroup.name || selectedRouteGroup.group_name,
+          batches: routeBatches.map((batch) => ({
+            id: batch.id,
+            name: batch.name || batch.batch_code || batch.code,
+            scopeBeneficiaries: Number(programClusters.find((cluster) => cluster.type === 'Batch' && String(cluster.name || '').trim().toLowerCase() === String(batch.name || batch.batch_code || batch.code || '').trim().toLowerCase())?.beneficiaries || 0),
+            beneficiaries: getRouteBeneficiaryRecords(selectedProgramView, {
+              schoolName: selectedRouteSchool?.name || '',
+              groupName: selectedRouteGroup?.name || selectedRouteGroup?.group_name || '',
+              batchName: batch.name || batch.batch_code || batch.code,
+            }),
+          })),
+        }],
+      }];
+    }
+    if (selectedRouteBatch) {
+      const batchName = selectedRouteBatch.name || selectedRouteBatch.batch_code || selectedRouteBatch.code;
+      return [{
+        id: selectedRouteBatch.id,
+        name: selectedRouteBatch.community || selectedRouteSchool?.name || 'School',
+        groups: [{
+          id: selectedRouteBatch.id,
+          name: selectedRouteBatch.group || selectedRouteBatch.group_name || 'Group',
+          batches: [{
+            id: selectedRouteBatch.id,
+            name: batchName,
+            beneficiaries: getRouteBeneficiaryRecords(selectedProgramView, {
+              schoolName: selectedRouteSchool?.name || selectedRouteBatch?.community || '',
+              groupName: selectedRouteBatch?.group || selectedRouteBatch?.group_name || '',
+              batchName,
+            }),
+          }],
+        }],
+      }];
+    }
+    return programHierarchy;
+  }, [programHierarchy, selectedProgramView, selectedRouteBatch, selectedRouteGroup, selectedRouteSchool, hierarchy]);
+
+  const selectedRouteExpandedPath = useMemo(() => {
+    if (!selectedRouteTreeData?.length) return [];
+
+    const buildPath = (schoolNode, groupNode, batchNode) => {
+      const segments = [];
+
+      if (schoolNode) {
+        segments.push(`school-${schoolNode.id}`);
+      }
+
+      if (groupNode) {
+        segments.push(`group-${groupNode.id}`);
+      }
+
+      if (batchNode) {
+        segments.push(`batch-${batchNode.id}`);
+      }
+
+      return segments;
+    };
+
+    for (const school of selectedRouteTreeData) {
+      if (selectedRouteSchool && String(school.id) !== String(selectedRouteSchool.id)) continue;
+      const schoolKey = `school-${school.id}`;
+      const schoolPath = [schoolKey];
+
+      for (const group of school.groups || []) {
+        if (selectedRouteBatch) {
+          const matchingBatch = (group.batches || []).find((batch) => String(batch.id) === String(selectedRouteBatch.id));
+          if (matchingBatch) {
+            return [...schoolPath, `group-${group.id}`, `batch-${matchingBatch.id}`];
+          }
+        }
+
+        if (selectedRouteGroup && String(group.id) === String(selectedRouteGroup.id)) {
+          const batchMatch = (group.batches || []).find((batch) => String(batch.id) === String(selectedRouteBatch?.id || ''));
+          return batchMatch ? [...schoolPath, `group-${group.id}`, `batch-${batchMatch.id}`] : [...schoolPath, `group-${group.id}`];
+        }
+      }
+
+      if (selectedRouteSchool && !selectedRouteGroup && !selectedRouteBatch) {
+        return schoolPath;
+      }
+    }
+
+    if (selectedRouteBatch && !selectedRouteSchool) {
+      const schoolMatch = selectedRouteTreeData.find((school) => (school.groups || []).some((group) => (group.batches || []).some((batch) => String(batch.id) === String(selectedRouteBatch.id))));
+      if (schoolMatch) {
+        const groupMatch = (schoolMatch.groups || []).find((group) => (group.batches || []).some((batch) => String(batch.id) === String(selectedRouteBatch.id)));
+        const batchMatch = (groupMatch?.batches || []).find((batch) => String(batch.id) === String(selectedRouteBatch.id));
+        return buildPath(schoolMatch, groupMatch, batchMatch);
+      }
+    }
+
+    if (selectedRouteGroup && !selectedRouteSchool) {
+      const schoolMatch = selectedRouteTreeData.find((school) => (school.groups || []).some((group) => String(group.id) === String(selectedRouteGroup.id)));
+      const groupMatch = (schoolMatch?.groups || []).find((group) => String(group.id) === String(selectedRouteGroup.id));
+      return buildPath(schoolMatch, groupMatch);
+    }
+
+    return [];
+  }, [selectedRouteBatch, selectedRouteGroup, selectedRouteSchool, selectedRouteTreeData]);
+
   return (
     <div className="community-page program-page">
       <PageHeader
         title={viewMode && selectedProgram ? selectedProgram.name : 'Program'}
-        breadcrumbs={[{ label: 'Program' }]}
+        breadcrumbs={programBreadcrumbs}
         actions={
           canCreatePrograms && (!viewMode || !isEndedProgram) && <button
               className="view-btn view-btn--primary module-create-button"
@@ -703,14 +1080,172 @@ export default function ProgramPage() {
           </div>
         </div>
         <div className="table-overflow">
-          {viewMode && !clusterView ? <ExpandableTreeTable
-            data={programHierarchy}
-            onBeneficiaryClick={openBeneficiaryReport}
-            onHistoryClick={(node, level) => {
-              if (level === 'beneficiary') return openBeneficiaryReport(node);
-              return openClusterHistory(node, level);
-            }}
-          /> : <table className="data-table">
+          {viewMode && !clusterView ? (() => {
+            if (selectedRouteBatch) {
+              const batchBeneficiaries = getProgramBeneficiaryRecords(selectedProgramView).filter((record) =>
+                String(record.batch || '').trim().toLowerCase() === String(selectedRouteBatch.name || selectedRouteBatch.batch_code || selectedRouteBatch.code || '').trim().toLowerCase()
+              );
+
+              return (
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Beneficiary</th>
+                      <th>School</th>
+                      <th>Group</th>
+                      <th>Receipt history</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {batchBeneficiaries.length ? batchBeneficiaries.map((record) => (
+                      <tr key={`${record.sourceType}-${record.sourceId}`} className="program-clickable-row" onClick={() => openBeneficiaryReport(record)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openBeneficiaryReport(record); } }} tabIndex={0} role="button">
+                        <td><strong>{record.name}</strong></td>
+                        <td>{record.school || '—'}</td>
+                        <td>{record.group || '—'}</td>
+                        <td><button type="button" className="view-btn view-btn--secondary" onClick={(event) => { event.stopPropagation(); openBeneficiaryReport(record); }}>View</button></td>
+                      </tr>
+                    )) : (
+                      <tr>
+                        <td colSpan="4" className="no-data">No beneficiaries found for this batch.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              );
+            }
+
+            if (selectedRouteGroup) {
+              const routeBatches = (selectedRouteTreeData[0]?.groups || []).find((group) => String(group.id) === String(selectedRouteGroup.id))?.batches || [];
+
+              return (
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Batch</th>
+                      <th>Members</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {routeBatches.length ? routeBatches.map((batch) => (
+                      <tr key={batch.id} className="program-clickable-row" onClick={() => navigate(`/program/${programId}/batch/${batch.id}`)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); navigate(`/program/${programId}/batch/${batch.id}`); } }} tabIndex={0} role="button">
+                        <td><strong>{batch.name}</strong></td>
+                        <td>{(batch.beneficiaries || []).length || Number(batch.scopeBeneficiaries || 0)}</td>
+                        <td><button type="button" className="view-btn view-btn--secondary" onClick={(event) => { event.stopPropagation(); openClusterHistory({ name: batch.name }, 'batch'); }}>View</button></td>
+                      </tr>
+                    )) : (
+                      <tr>
+                        <td colSpan="3" className="no-data">No batches found for this group.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              );
+            }
+
+            if (selectedRouteSchool) {
+              const routeGroups = selectedRouteTreeData[0]?.groups || [];
+
+              return (
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Group</th>
+                      <th>Batches</th>
+                      <th>Beneficiaries</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {routeGroups.length ? routeGroups.map((group) => {
+                      const batchCount = (group.batches || []).length;
+                      const beneficiaryCount = (group.batches || []).reduce((total, batch) => total + ((batch.beneficiaries || []).length || 0), 0);
+
+                      return (
+                        <tr key={group.id} className="program-clickable-row" onClick={() => navigate(`/program/${programId}/group/${group.id}`)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); navigate(`/program/${programId}/group/${group.id}`); } }} tabIndex={0} role="button">
+                          <td><strong>{group.name}</strong></td>
+                          <td>{batchCount}</td>
+                          <td>{beneficiaryCount}</td>
+                          <td><button type="button" className="view-btn view-btn--secondary" onClick={(event) => { event.stopPropagation(); navigate(`/program/${programId}/group/${group.id}`); }}>View</button></td>
+                        </tr>
+                      );
+                    }) : (
+                      <tr>
+                        <td colSpan="4" className="no-data">No groups found for this school.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              );
+            }
+
+            return (
+              <table className="data-table">
+                {directScopeGroups.length ? (
+                  <thead>
+                    <tr>
+                      <th>Group</th>
+                      <th>Batches</th>
+                      <th>Beneficiaries</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                ) : directScopeClusters.length ? (
+                  <thead>
+                    <tr>
+                      <th>Cluster</th>
+                      <th>Scope</th>
+                      <th>Beneficiaries</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                ) : (
+                  <thead>
+                    <tr>
+                      <th>School</th>
+                      <th>Groups</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                )}
+                <tbody>
+                  {programHierarchy.length ? programHierarchy.map((school) => (
+                    <tr key={school.id} className="program-clickable-row" onClick={() => navigate(`/program/${programId}/school/${school.id}`)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); navigate(`/program/${programId}/school/${school.id}`); } }} tabIndex={0} role="button">
+                      <td><strong>{school.name}</strong></td>
+                      <td>{(school.groups || []).length}</td>
+                      <td><button type="button" className="view-btn view-btn--secondary" onClick={(event) => { event.stopPropagation(); navigate(`/program/${programId}/school/${school.id}`); }}>View</button></td>
+                    </tr>
+                  )) : directScopeGroups.length ? directScopeGroups.map((group) => (
+                    <tr key={group.id} className="program-clickable-row" onClick={() => navigate(`/program/${programId}/group/${group.id}`)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); navigate(`/program/${programId}/group/${group.id}`); } }} tabIndex={0} role="button">
+                      <td><strong>{group.name || group.group_name}</strong></td>
+                      <td>{group.batchCount}</td>
+                      <td>{group.beneficiaryCount}</td>
+                      <td><button type="button" className="view-btn view-btn--secondary" onClick={(event) => { event.stopPropagation(); openClusterHistory({ name: group.name || group.group_name }, 'group'); }}>View</button></td>
+                    </tr>
+                  )) : directScopeClusters.length ? directScopeClusters.map((cluster) => {
+                    const entity = cluster.type === 'Group'
+                      ? hierarchy.groups.find((group) => String(group.name || group.group_name).toLowerCase() === String(cluster.name).toLowerCase())
+                      : hierarchy.batches.find((batch) => String(batch.name || batch.batch_code || batch.code).toLowerCase() === String(cluster.name).toLowerCase());
+                    const scopeRoute = entity?.id
+                      ? `/program/${programId}/${cluster.type.toLowerCase()}/${entity.id}`
+                      : '';
+                    return (
+                      <tr key={`${cluster.type}-${cluster.name}`}>
+                        <td><strong>{cluster.name}</strong></td>
+                        <td>{cluster.type}</td>
+                        <td>{Number(cluster.beneficiaries || 0)}</td>
+                        <td>{scopeRoute ? <button type="button" className="view-btn view-btn--secondary" onClick={() => navigate(scopeRoute)}>View</button> : '—'}</td>
+                      </tr>
+                    );
+                  }) : (
+                    <tr>
+                      <td colSpan="3" className="no-data">No schools found for this program.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            );
+          })() : <table className="data-table">
             {clusterView && selectedCluster ? (
               <>
                 <thead>
@@ -754,7 +1289,6 @@ export default function ProgramPage() {
                     <th>Program</th>
                     <th>Type</th>
                     <th>Provider</th>
-                    <th>Reached</th>
                     <th>Action</th>
                   </tr>
                 </thead>
@@ -772,15 +1306,12 @@ export default function ProgramPage() {
                         </td>
                         <td>{program.type}</td>
                         <td>{program.provider}</td>
-                        <td>
-                          {Math.min(Number(program.received || 0), getProgramBeneficiaryCount(program))} / {getProgramBeneficiaryCount(program)}
-                        </td>
                         <td>{renderActionMenu(`main-${program.id}`, program)}</td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="5" className="no-data">
+                      <td colSpan="4" className="no-data">
                         No programs match your search.
                       </td>
                     </tr>
@@ -808,7 +1339,7 @@ export default function ProgramPage() {
           onMouseDown={() => setShowBeneficiaryModal(false)}
         >
           <form
-            className="modal program-product-modal"
+            className="modal program-product-modal program-beneficiary-modal"
             onSubmit={saveBeneficiaryScope}
             onMouseDown={(event) => event.stopPropagation()}
           >
@@ -828,102 +1359,144 @@ export default function ProgramPage() {
                 {selectedProgram.name} · Choose the coverage cluster for this
                 program.
               </p>
-              <fieldset className="program-scope-options">
-                <legend>Beneficiary scope</legend>
-                <label>
-                  <input
-                    type="radio"
-                    name="beneficiary-scope"
-                    value="School"
-                    checked={beneficiaryScope === "School"}
-                    onChange={(event) =>
-                      setBeneficiaryScope(event.target.value)
-                    }
-                  />
-                  <span>Whole school / community</span>
-                  <small>
-                    Cover all eligible beneficiaries in this school or
-                    community.
-                  </small>
-                </label>
-                <label>
-                  <input
-                    type="radio"
-                    name="beneficiary-scope"
-                    value="Group"
-                    checked={beneficiaryScope === "Group"}
-                    onChange={(event) =>
-                      setBeneficiaryScope(event.target.value)
-                    }
-                  />
-                  <span>Group</span>
-                  <small>Cover one group within the school or community.</small>
-                </label>
-                <label>
-                  <input
-                    type="radio"
-                    name="beneficiary-scope"
-                    value="Batch"
-                    checked={beneficiaryScope === "Batch"}
-                    onChange={(event) =>
-                      setBeneficiaryScope(event.target.value)
-                    }
-                  />
-                  <span>Batch</span>
-                  <small>Cover one batch within the selected group.</small>
-                </label>
-              </fieldset>
-              <label className="form-label" htmlFor="beneficiary-scope-school">
-                1. Select school or community (you can choose more than one)
-                <div id="beneficiary-scope-school" className="program-hierarchy-options">
-                  {hierarchy.schools.map((school) => <label key={school.id} className="program-recipient">
-                    <input id={`scope-school-${school.id}`} name="scopeSchools" type="checkbox" checked={scopeSchoolIds.includes(String(school.id))} onChange={() => {
-                      const id = String(school.id);
-                      setScopeSchoolIds((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current, id]);
+              <div className="program-scope-options" aria-label="Beneficiary scope options">
+                {[
+                  { value: 'School', label: 'Whole school / community', detail: 'Cover all eligible beneficiaries in this school or community.' },
+                  { value: 'Group', label: 'Group', detail: 'Cover one group within the school or community.' },
+                  { value: 'Batch', label: 'Batch', detail: 'Cover one batch within the selected group.' },
+                ].map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    className={`program-scope-pill${beneficiaryScope === option.value ? ' active' : ''}`}
+                    aria-pressed={beneficiaryScope === option.value}
+                    onClick={() => {
+                      if (beneficiaryScope === option.value) return;
+                      setBeneficiaryScope(option.value);
+                      setScopeSchoolIds([]);
                       setScopeGroupIds([]);
                       setScopeBatchIds([]);
-                    }} />
-                    <span>{school.name}</span>
-                  </label>)}
+                      setScopeError('');
+                    }}
+                  >
+                    <span>{option.label}</span>
+                    <small>{option.detail}</small>
+                  </button>
+                ))}
+              </div>
+
+              <div className="program-hierarchy-field">
+                <span className="program-hierarchy-label">Select {beneficiaryScope === 'School' ? 'schools or communities' : beneficiaryScope === 'Group' ? 'groups' : 'batches'} for this program</span>
+                {scopeError && <p className="program-scope-error" role="alert">{scopeError}</p>}
+                <div className="program-hierarchy-options program-community-hierarchy" role="group" aria-label="Community hierarchy selector">
+                  {communityHierarchyGroups.length ? communityHierarchyGroups.map(({ school, groups, batches }) => {
+                    const schoolId = String(school.id || school.school_id || school.community_id);
+                    const schoolChecked = scopeSchoolIds.includes(schoolId);
+                    const schoolGroups = groups.filter((group) => {
+                      const groupName = String(group.name || group.group_name || '').trim().toLowerCase();
+                      return groupName;
+                    });
+                    const schoolBatches = batches.filter((batch) => {
+                      const batchName = String(batch.name || batch.batch_code || batch.code || '').trim();
+                      return batchName;
+                    });
+
+                    return (
+                      <div key={school.id} className="program-community-cluster">
+                          {beneficiaryScope === 'School' ? (
+                            <label className="program-recipient program-recipient--school">
+                              <input
+                                id={`scope-school-${schoolId}`}
+                                name="scopeSchools"
+                                type="checkbox"
+                                checked={schoolChecked}
+                                onChange={() => {
+                                  setScopeSchoolIds((current) => current.includes(schoolId) ? current.filter((value) => value !== schoolId) : [...current, schoolId]);
+                                  setScopeError('');
+                                }}
+                              />
+                              <span>{school.name}</span>
+                            </label>
+                          ) : (
+                            <div className="program-recipient-heading"><strong>{school.name}</strong></div>
+                          )}
+
+                        {(beneficiaryScope !== 'School') && (
+                          <div className="program-community-subgroups">
+                            {schoolGroups.length ? schoolGroups.map((group) => {
+                              const groupId = String(group.id);
+                              const groupChecked = scopeGroupIds.includes(groupId);
+                              const groupName = String(group.name || group.group_name || '').trim().toLowerCase();
+                              const groupBatches = schoolBatches.filter((batch) => {
+                                const batchGroupIds = String(batch.groupIds || '').split(',').map((value) => value.trim());
+                                const batchGroupNames = String(batch.groupNames || '').split(',').map((value) => value.trim().toLowerCase());
+                                return String(batch.group_id || '') === groupId
+                                  || batchGroupIds.includes(groupId)
+                                  || String(batch.group || batch.group_name || '').trim().toLowerCase() === groupName
+                                  || batchGroupNames.includes(groupName);
+                              });
+                              return (
+                                <div key={group.id} className="program-community-subgroup">
+                                  {beneficiaryScope === 'Group' ? (
+                                    <label className="program-recipient">
+                                      <input
+                                        id={`scope-group-${group.id}`}
+                                        name="scopeGroups"
+                                        type="checkbox"
+                                        checked={groupChecked}
+                                        onChange={() => {
+                                          setScopeGroupIds((current) => current.includes(groupId) ? current.filter((value) => value !== groupId) : [...current, groupId]);
+                                          setScopeError('');
+                                        }}
+                                      />
+                                      <span>{group.name || group.group_name}</span>
+                                    </label>
+                                  ) : (
+                                    <div className="program-recipient-heading"><strong>{group.name || group.group_name}</strong></div>
+                                  )}
+
+                                  {beneficiaryScope === 'Batch' && (
+                                    <div className="program-community-batches">
+                                      {groupBatches.length ? groupBatches.map((batch) => {
+                                        const batchId = String(batch.id);
+                                        const batchChecked = scopeBatchIds.includes(batchId);
+                                        return (
+                                          <label key={batch.id} className="program-recipient program-recipient--batch">
+                                            <input
+                                              id={`scope-batch-${batch.id}`}
+                                              name="scopeBatches"
+                                              type="checkbox"
+                                              checked={batchChecked}
+                                              onChange={() => {
+                                                setScopeBatchIds((current) => current.includes(batchId) ? current.filter((value) => value !== batchId) : [...current, batchId]);
+                                                setScopeError('');
+                                              }}
+                                            />
+                                            <span>{batch.name || batch.batch_code || batch.code}</span>
+                                          </label>
+                                        );
+                                      }) : <small className="program-hierarchy-empty">No batches in this group.</small>}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            }) : <small className="program-hierarchy-empty">No groups under this school.</small>}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }) : <small>No communities available yet.</small>}
                 </div>
-              </label>
-              {beneficiaryScope !== "School" && (
-                <label className="form-label" htmlFor="beneficiary-scope-group">
-                  2. Select group within the chosen school(s)
-                  <div id="beneficiary-scope-group" className="program-hierarchy-options">
-                    {availableGroups.map((group) => <label key={group.id} className="program-recipient">
-                      <input id={`scope-group-${group.id}`} name="scopeGroups" type="checkbox" checked={scopeGroupIds.includes(String(group.id))} onChange={() => {
-                        const id = String(group.id);
-                        setScopeGroupIds((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current, id]);
-                        setScopeBatchIds([]);
-                      }} />
-                      <span>{group.name || group.group_name}</span>
-                    </label>)}
-                    {!scopeSchoolIds.length && <small>Choose a school first.</small>}
-                  </div>
-                </label>
-              )}
-              {beneficiaryScope === "Batch" && (
-                <label className="form-label" htmlFor="beneficiary-scope-batch">
-                  3. Select batch within the chosen group(s)
-                  <div id="beneficiary-scope-batch" className="program-hierarchy-options">
-                    {availableBatches.map((batch) => <label key={batch.id} className="program-recipient">
-                      <input id={`scope-batch-${batch.id}`} name="scopeBatches" type="checkbox" checked={scopeBatchIds.includes(String(batch.id))} onChange={() => {
-                        const id = String(batch.id);
-                        setScopeBatchIds((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current, id]);
-                      }} />
-                      <span>{batch.name || batch.batch_code}</span>
-                    </label>)}
-                    {!scopeGroupIds.length && <small>Choose a group first.</small>}
-                  </div>
-                </label>
-              )}
+              </div>
             </div>
             <div className="modal-footer">
               <button
                 type="button"
                 className="btn-secondary"
-                onClick={() => setShowBeneficiaryModal(false)}
+                onClick={() => {
+                  setShowBeneficiaryModal(false);
+                  setScopeError('');
+                }}
               >
                 Cancel
               </button>
@@ -1095,13 +1668,13 @@ export default function ProgramPage() {
                   id="activity-date"
                   type="text"
                   inputMode="numeric"
-                  pattern="\d{4}/\d{2}/\d{2}"
+                  pattern="\d{2}/\d{2}/\d{4}"
                   className="form-input"
-                  placeholder="yyyy/mm/dd"
+                  placeholder="DD/MM/YYYY"
                   defaultValue={formatDateForDisplay('2026-08-26')}
                   onChange={(event) => {
                     const iso = normalizeDateValue(event.target.value);
-                    if (iso) event.target.value = iso;
+                    if (iso) event.target.value = formatDateForDisplay(iso);
                   }}
                   required
                 />

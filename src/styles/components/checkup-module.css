@@ -247,7 +247,8 @@
   flex-wrap: nowrap;
 }
 
-.monitoring-filter-row > .tabs-list { flex: 1 1 0; min-width: 0; gap: 0.3rem; }
+.monitoring-filter-row > .monitoring-status-filter { flex: 0 0 140px; min-width: 120px; }
+.monitoring-status-filter select, .beneficiary-status-filter select { width: 100%; min-height: 42px; padding: 0.5rem 2rem 0.5rem 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: #fff; color: var(--slate-dark); font: inherit; font-weight: 700; }
 .monitoring-filter-row > .tabs-list .tab-btn { min-width: 0; padding: 0.65rem 0.4rem; font-size: 0.85rem; white-space: nowrap; }
 .monitoring-filter-row .beneficiary-search-controls { flex: 1 1 0; min-width: 0; margin-left: auto; }
 .monitoring-filter-row .beneficiary-search-controls .search-container { flex: 1 1 auto; width: auto; min-width: 0; }
@@ -531,6 +532,7 @@ textarea.checkup-field-input { min-height: 88px; line-height: 1.45; resize: vert
 .facility-type-btn.active { border-color: var(--burgundy); background: var(--burgundy); color: #fff; }
 
 .bmi-status-badge { display: flex; align-items: center; min-height: 2.55rem; padding: 0.65rem 0.85rem; border: 1px solid #bbf7d0; border-radius: 8px; background: #f0fdf4; color: #15803d; font-size: 0.85rem; font-weight: 800; }
+.bmi-status-badge:not(.normal) { border-color: #fecaca; background: #fef2f2; color: #b42318; }
 
 .child-monitor-page {
   padding: 1.25rem 1.5rem 1.5rem;
@@ -560,8 +562,7 @@ textarea.checkup-field-input { min-height: 88px; line-height: 1.45; resize: vert
   cursor: pointer;
 }
 
-.child-monitor-week:hover,
-.child-monitor-week.active {
+.child-monitor-week:hover:not(.at-risk):not(.needs-follow-up) {
   border-color: var(--burgundy);
   background: var(--burgundy);
   color: #fff;
@@ -571,6 +572,43 @@ textarea.checkup-field-input { min-height: 88px; line-height: 1.45; resize: vert
   border-color: var(--burgundy-border);
   background: var(--burgundy-light);
   color: var(--burgundy);
+}
+
+.child-monitor-week.active {
+  position: relative;
+  z-index: 1;
+  border-color: #14532d;
+  background: #15803d;
+  color: #fff;
+  box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.2);
+}
+
+.child-monitor-week.at-risk,
+.child-monitor-week.at-risk:hover {
+  border-color: #b42318;
+  background: #fef2f2;
+  color: #b42318;
+}
+
+.child-monitor-week.needs-follow-up,
+.child-monitor-week.needs-follow-up:hover {
+  border-color: #d97706;
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.child-monitor-week.active.at-risk,
+.child-monitor-week.active.at-risk:hover {
+  background: #b42318;
+  color: #fff;
+  box-shadow: 0 0 0 3px rgba(180, 35, 24, 0.2);
+}
+
+.child-monitor-week.active.needs-follow-up,
+.child-monitor-week.active.needs-follow-up:hover {
+  background: #d97706;
+  color: #fff;
+  box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.2);
 }
 
 .child-monitor-form {

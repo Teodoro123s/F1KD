@@ -1,8 +1,11 @@
-const API_BASE = (typeof process !== 'undefined' && process.env && process.env.REACT_APP_API_URL)
+const configuredApiBase = (typeof process !== 'undefined' && process.env && process.env.REACT_APP_API_URL)
   ? process.env.REACT_APP_API_URL
   : (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL)
   ? import.meta.env.VITE_API_URL
-  : 'http://localhost:4000';
+  : '';
+const API_BASE = configuredApiBase || (import.meta.env?.DEV
+  ? 'http://localhost:4000'
+  : (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:4000'));
 
 export function authHeader() {
   try {

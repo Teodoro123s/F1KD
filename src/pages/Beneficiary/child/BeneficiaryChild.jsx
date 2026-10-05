@@ -1,55 +1,37 @@
 import React from 'react';
-import { formatDateForDisplay, formatDateForInput } from '../../../utils/dateFormat';
+import { formatDateForDisplay, formatDateForInput, maskDateInput, normalizeDateValue } from '../../../utils/dateFormat';
 import { capitalizeNameValue } from '../../../utils/nameFormat';
 
-export function ChildFormFields({ activeTab, form, setForm, communities = [], batches = [], readOnly = false, slashDateInput = true }) {
+export function ChildFormFields({ activeTab, form, setForm, communities = [], batches = [], readOnly = false, slashDateInput = true, birthDocumentFile, setBirthDocumentFile, existingBirthDocumentName = '', showRequiredValidation = false }) {
   const uniqueCommunities = Array.from(new Set(communities.map((comm) => comm.name))).filter(Boolean);
   const uniqueBatches = Array.from(new Set((batches || []).map((batch) => batch.name))).filter(Boolean);
   const [dateDrafts, setDateDrafts] = React.useState({});
   const datePickerRefs = React.useRef({});
 
-  const formatSlashDate = (value) => {
-    const normalized = formatDateForInput(value);
-    if (!normalized) return String(value || '').replaceAll('-', '/');
-    const [year, month, day] = normalized.split('-');
-    return `${month}/${day}/${year}`;
-  };
-
-  const formatPartialSlashDate = (value) => {
-    const digits = String(value || '').replace(/\D/g, '').slice(0, 8);
-    if (digits.length <= 2) return digits;
-    if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
-    return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
-  };
-
-  const normalizeSlashDate = (value) => {
-    const digits = String(value || '').replace(/\D/g, '').slice(0, 8);
-    if (digits.length !== 8) return '';
-    const month = digits.slice(0, 2);
-    const day = digits.slice(2, 4);
-    const year = digits.slice(4, 8);
-    const date = new Date(Number(year), Number(month) - 1, Number(day));
-    if (date.getFullYear() !== Number(year) || date.getMonth() !== Number(month) - 1 || date.getDate() !== Number(day)) return '';
-    return `${year}-${month}-${day}`;
-  };
-
-  const getDateDisplayValue = (name, value) => dateDrafts[name] ?? (slashDateInput ? formatSlashDate(value) : formatDateForInput(value));
+  const getDateDisplayValue = (name, value) => dateDrafts[name] ?? (slashDateInput ? maskDateInput(value) : formatDateForInput(value));
 
   const updateDateValue = (name, value, onChange) => {
-    const draft = slashDateInput ? formatPartialSlashDate(value) : value;
-    setDateDrafts((prev) => ({ ...prev, [name]: draft }));
-    const normalized = slashDateInput ? normalizeSlashDate(draft) : draft;
-    if (draft.replace(/\D/g, '').length === 8 && /^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
-      if (onChange) onChange(normalized);
-      else setForm((prev) => ({ ...prev, [name]: normalized }));
+    const mask = slashDateInput ? maskDateInput(value) : value;
+    setDateDrafts((prev) => ({ ...prev, [name]: mask }));
+
+    const normalized = slashDateInput ? normalizeDateValue(mask) : value;
+    if (!slashDateInput || (mask.replace(/\D/g, '').length === 8 && normalized)) {
+      if (onChange) onChange(normalized || value);
+      else setForm((prev) => ({ ...prev, [name]: normalized || value }));
     }
   };
 
   const commitDateValue = (name, value, onChange) => {
-    const normalized = slashDateInput ? normalizeSlashDate(value) : value;
-    const isComplete = !slashDateInput || value.replace(/\D/g, '').length === 8;
-    setDateDrafts((prev) => ({ ...prev, [name]: isComplete && normalized ? formatSlashDate(normalized) : formatPartialSlashDate(value) }));
-    if (!isComplete) return;
+    const masked = slashDateInput ? maskDateInput(value) : value;
+    const normalized = slashDateInput ? normalizeDateValue(masked) : value;
+    setDateDrafts((prev) => ({ ...prev, [name]: masked }));
+
+    if (!slashDateInput || !normalized) {
+      if (onChange) onChange('');
+      else setForm((prev) => ({ ...prev, [name]: '' }));
+      return;
+    }
+
     if (onChange) onChange(normalized);
     else setForm((prev) => ({ ...prev, [name]: normalized }));
   };
@@ -74,6 +56,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
   const renderField = ({ id, label, name, type = 'text', placeholder = '', required = false, min, step, nativeDate = false, maxDate, onChange }) => {
     const value = form[name] ?? '';
     const isDate = type === 'date';
+    const hasMissingValue = required && !String(value ?? '').trim() && showRequiredValidation;
 
     if (readOnly) {
       return (
@@ -95,8 +78,8 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
             type={isNativeDate ? 'date' : isDate ? 'text' : type}
             inputMode={isDate && !isNativeDate ? 'numeric' : undefined}
             pattern={isDate && !isNativeDate ? '\\d{2}/\\d{2}/\\d{4}' : undefined}
-            className="form-input"
-            placeholder={isDate && !isNativeDate ? 'MM/DD/YYYY' : placeholder}
+            className={`form-input${hasMissingValue ? ' invalid' : ''}`}
+            placeholder={isDate && !isNativeDate ? 'DD/MM/YYYY' : placeholder}
             value={isNativeDate ? formatDateForInput(value) : isDate ? getDateDisplayValue(name, value) : value}
             min={min}
             step={step}
@@ -125,6 +108,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
             onClick={isNativeDate ? (e) => { try { if (typeof e.target.showPicker === 'function') e.target.showPicker(); } catch (_) {} } : undefined}
             onBlur={isDate && !isNativeDate ? () => commitDateValue(name, getDateDisplayValue(name, value), onChange) : undefined}
             required={required}
+            aria-invalid={hasMissingValue}
           />
           {isNativeDate && (
             <button
@@ -165,7 +149,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
               value={formatDateForInput(value)}
               onChange={(event) => {
                 const nextValue = event.target.value;
-                setDateDrafts((prev) => ({ ...prev, [name]: formatSlashDate(nextValue) }));
+                setDateDrafts((prev) => ({ ...prev, [name]: maskDateInput(nextValue) }));
                 if (onChange) onChange(nextValue);
                 else setForm((prev) => ({ ...prev, [name]: nextValue }));
               }}
@@ -259,7 +243,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
         </div>
 
         <div className="form-row-4 full-width">
-          {renderField({ id: 'child-birth-date', label: 'Birth Date', name: 'birthDate', type: 'date', nativeDate: true, maxDate: new Date().toISOString().split('T')[0] })}
+          {renderField({ id: 'child-birth-date', label: 'Birth Date', name: 'birthDate', type: 'date', maxDate: new Date().toISOString().split('T')[0] })}
           {renderSelect({
             id: 'child-gender',
             label: 'Sex',
@@ -267,8 +251,40 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
             options: [{ value: 'Male', label: 'Male' }, { value: 'Female', label: 'Female' }, { value: 'Other', label: 'Other' }],
           })}
         </div>
+        {readOnly && (
+          <div className="form-group full-width">
+            <label className="form-label">Mother</label>
+            <div className="form-readonly-value">{form.motherName || '—'}</div>
+          </div>
+        )}
+        {readOnly && (
+          <div className="form-row-3 full-width">
+            {['community', 'group', 'batch'].map((field) => (
+              <div className="form-group" key={field}>
+                <label className="form-label">{field === 'community' ? 'School' : field === 'group' ? 'Group' : 'Batch'}</label>
+                <div className="form-readonly-value">{form[field] || '—'}</div>
+              </div>
+            ))}
+          </div>
+        )}
 
         </section>
+        {!readOnly && (
+          <section className="create-mother-category">
+            <h4 className="form-section-title">Required Documents</h4>
+            <div className="document-upload-field full-width">
+              <label className="form-label" htmlFor="child-birth-document">Live Birth Certificate / Birth Certificate</label>
+              <input
+                id="child-birth-document"
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png,.webp"
+                onChange={(event) => setBirthDocumentFile?.(event.target.files?.[0] || null)}
+              />
+              {existingBirthDocumentName && <span className="document-upload-message">Current file: {existingBirthDocumentName}</span>}
+              {birthDocumentFile && <span className="document-upload-message">Selected file: {birthDocumentFile.name}</span>}
+            </div>
+          </section>
+        )}
       </div>
     );
   }
@@ -339,6 +355,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
       <div className="create-mother-general child-form-layout">
         <section className="create-mother-category">
         <h4 className="form-section-title">Medical Conditions</h4>
+        <p className="form-optional-note">Optional</p>
         <div className="form-checkboxes-grid full-width">
           {readOnly ? (
             <div className="form-readonly-list">
@@ -359,37 +376,63 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
             </label>
           ))}
         </div>
-        {renderTextarea({ id: 'child-medical-remarks', label: 'Medical Remarks', name: 'medicalRemarks', rows: 3, placeholder: 'Medical observations or remarks...' })}
+        {renderTextarea({ id: 'child-medical-remarks', label: 'Medical Remarks', name: 'medicalRemarks', rows: 3, placeholder: 'Medical observations or remarks...', required: false })}
         </section>
       </div>
     );
   }
 
   if (activeTab === 'vaccine') {
+    const vaccineRows = [
+      { key: 'BCG', label: 'BCG', doseFields: ['bcgDose1', 'bcgDose2', 'bcgDose3'], remarksField: 'bcgRemarks' },
+      { key: 'HepB', label: 'HepB', doseFields: ['hepbDose1', 'hepbDose2', 'hepbDose3'], remarksField: 'hepbRemarks' },
+      { key: 'OPV', label: 'OPV', doseFields: ['opvDose1', 'opvDose2', 'opvDose3'], remarksField: 'opvRemarks' },
+      { key: 'DPT', label: 'DPT', doseFields: ['dptDose1', 'dptDose2', 'dptDose3'], remarksField: 'dptRemarks' },
+      { key: 'MMR', label: 'MMR', doseFields: ['mmrDose1', 'mmrDose2', 'mmrDose3'], remarksField: 'mmrRemarks' },
+    ];
+
     return (
       <div className="create-mother-general child-form-layout">
         <section className="create-mother-category">
-        <h4 className="form-section-title">Vaccination Record</h4>
-        <div className="form-group full-width">
-          <div className="form-panel">
-            <div className="form-row-4 full-width">
-              {renderField({ id: 'child-bcg-date', label: 'BCG Date', name: 'bcgDate', type: 'date', nativeDate: true })}
-              {renderField({ id: 'child-bcg-remarks', label: 'BCG Remarks', name: 'bcgRemarks', placeholder: 'Remarks' })}
-              {renderField({ id: 'child-hepb-date', label: 'HepB Date', name: 'hepbDate', type: 'date', nativeDate: true })}
-              {renderField({ id: 'child-hepb-remarks', label: 'HepB Remarks', name: 'hepbRemarks', placeholder: 'Remarks' })}
-            </div>
-            <div className="form-row-4 full-width">
-              {renderField({ id: 'child-opv-date', label: 'OPV Date', name: 'opvDate', type: 'date', nativeDate: true })}
-              {renderField({ id: 'child-opv-remarks', label: 'OPV Remarks', name: 'opvRemarks', placeholder: 'Remarks' })}
-              {renderField({ id: 'child-dpt-date', label: 'DPT Date', name: 'dptDate', type: 'date', nativeDate: true })}
-              {renderField({ id: 'child-dpt-remarks', label: 'DPT Remarks', name: 'dptRemarks', placeholder: 'Remarks' })}
-            </div>
-            <div className="form-row-2 full-width">
-              {renderField({ id: 'child-mmr-date', label: 'MMR Date', name: 'mmrDate', type: 'date', nativeDate: true })}
-              {renderField({ id: 'child-mmr-remarks', label: 'MMR Remarks', name: 'mmrRemarks', placeholder: 'Remarks' })}
+          <h4 className="form-section-title">Vaccination Record</h4>
+          <p className="form-optional-note">Optional</p>
+          <div className="form-group full-width">
+            <div className="form-panel">
+              <div className="vaccine-dose-grid" style={{ display: 'grid', gridTemplateColumns: '1.4fr repeat(3, minmax(140px, 1fr)) 1.3fr', gap: '0.75rem', alignItems: 'start' }}>
+                <div style={{ fontWeight: 800, color: '#0f172a', paddingTop: '0.5rem' }}>Vaccine</div>
+                <div style={{ fontWeight: 800, color: '#0f172a', paddingTop: '0.5rem' }}>Dose 1</div>
+                <div style={{ fontWeight: 800, color: '#0f172a', paddingTop: '0.5rem' }}>Dose 2</div>
+                <div style={{ fontWeight: 800, color: '#0f172a', paddingTop: '0.5rem' }}>Dose 3</div>
+                <div style={{ fontWeight: 800, color: '#0f172a', paddingTop: '0.5rem' }}>Remarks</div>
+
+                {vaccineRows.map(({ key, label, doseFields, remarksField }) => (
+                  <React.Fragment key={key}>
+                    <div style={{ display: 'flex', alignItems: 'center', minHeight: '62px', fontSize: '1.05rem', fontWeight: 700, color: '#1e293b' }}>{label}</div>
+                    {doseFields.map((doseField, index) => (
+                      <div key={`${key}-${doseField}`}>
+                        {renderField({
+                          id: `child-${key.toLowerCase()}-${index + 1}`,
+                          label: `${label} Dose ${index + 1}`,
+                          name: doseField,
+                          type: 'date',
+                          required: false,
+                        })}
+                      </div>
+                    ))}
+                    <div>
+                      {renderField({
+                        id: `child-${key.toLowerCase()}-remarks`,
+                        label: `${label} Remarks`,
+                        name: remarksField,
+                        placeholder: 'Remarks',
+                        required: false,
+                      })}
+                    </div>
+                  </React.Fragment>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
         </section>
       </div>
     );

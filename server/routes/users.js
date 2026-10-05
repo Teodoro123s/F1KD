@@ -5,6 +5,7 @@ const bcrypt = require('bcrypt');
 const { ensureSuperadminAccount } = require('../services/superadminRecovery');
 const { verifyToken } = require('../middleware/auth');
 const { authorize } = require('../middleware/authorize');
+const { createSuperadminNotification } = require('../services/notifications');
 
 function normalizeDbStatus(value) {
   const normalized = String(value || '').trim().toLowerCase();
@@ -23,7 +24,7 @@ function nameLike(column) {
 router.get('/coordinators', verifyToken, async (req, res) => {
   try {
     const [users] = await pool.query(
-      `SELECT id, CONCAT_WS(' ', first_name, last_name) AS username, CONCAT_WS(' ', first_name, last_name) AS full_name, role FROM users WHERE LOWER(TRIM(role)) IN ('community organizer', 'community_coordinator', 'communitycoordinator', 'co', 'partner') ORDER BY id DESC`
+      `SELECT id, CONCAT_WS(' ', first_name, last_name) AS username, CONCAT_WS(' ', first_name, last_name) AS full_name, role, school_id FROM users WHERE LOWER(TRIM(role)) IN ('community organizer', 'community_coordinator', 'communitycoordinator', 'communityorganizer', 'coordinator', 'co', 'partner') ORDER BY id DESC`
     );
     res.json({ users });
   } catch (err) {
@@ -142,6 +143,19 @@ router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
       [result.insertId]
     );
     const user = rows[0];
+    const createdName = [user.first_name, user.middle_initial, user.last_name].filter(Boolean).join(' ');
+    await createSuperadminNotification({
+      eventType: 'user.created',
+      category: 'User Management',
+      title: 'User created',
+      message: `User account created: ${createdName} (${user.role}).`,
+      entityType: 'user',
+      entityId: user.id,
+      linkTo: `/user-management/user/${user.id}`,
+      schoolId: user.school_id,
+      groupId: user.group_id,
+      actorUserId: req.user.id,
+    });
     // Return created user WITHOUT plaintext password for security.
     res.status(201).json({ user });
   } catch (err) {
@@ -191,6 +205,13 @@ router.put('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
       groupId,
     } = req.body;
 
+    const [existingRows] = await pool.query(
+      'SELECT id, first_name, middle_initial, last_name, role, status, school_id, group_id FROM users WHERE id = ? LIMIT 1',
+      [id],
+    );
+    if (!existingRows.length) return res.status(404).json({ error: 'Not found' });
+    const existingUser = existingRows[0];
+
     const updates = [];
     const params = [];
     if (email) { updates.push('email = ?'); params.push(email); }
@@ -234,7 +255,44 @@ router.put('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
        FROM users WHERE id = ?`,
       [id]
     );
-    res.json(rows[0]);
+    const updatedUser = rows[0];
+    const updatedName = [updatedUser.first_name, updatedUser.middle_initial, updatedUser.last_name].filter(Boolean).join(' ');
+    const accessChanges = [];
+    if (String(existingUser.role ?? '') !== String(updatedUser.role ?? '')) accessChanges.push(`role changed to ${updatedUser.role}`);
+    if (String(existingUser.school_id ?? '') !== String(updatedUser.school_id ?? '')) accessChanges.push('school assignment changed');
+    if (String(existingUser.group_id ?? '') !== String(updatedUser.group_id ?? '')) accessChanges.push('group assignment changed');
+    if (accessChanges.length) {
+      await createSuperadminNotification({
+        eventType: 'user.access_updated',
+        category: 'User Management',
+        title: 'User access updated',
+        message: `Access updated for ${updatedName}: ${accessChanges.join(', ')}.`,
+        entityType: 'user',
+        entityId: updatedUser.id,
+        linkTo: `/user-management/user/${updatedUser.id}`,
+        schoolId: updatedUser.school_id,
+        groupId: updatedUser.group_id,
+        actorUserId: req.user.id,
+      });
+    }
+    const previousStatus = normalizeDbStatus(existingUser.status);
+    const updatedStatus = normalizeDbStatus(updatedUser.status);
+    if (previousStatus !== updatedStatus) {
+      const isSuspended = updatedStatus === 'Suspended';
+      await createSuperadminNotification({
+        eventType: isSuspended ? 'user.suspended' : 'user.reactivated',
+        category: 'User Management',
+        title: isSuspended ? 'User suspended' : 'User reactivated',
+        message: `User account ${isSuspended ? 'suspended' : 'reactivated'}: ${updatedName}.`,
+        entityType: 'user',
+        entityId: updatedUser.id,
+        linkTo: `/user-management/user/${updatedUser.id}`,
+        schoolId: updatedUser.school_id,
+        groupId: updatedUser.group_id,
+        actorUserId: req.user.id,
+      });
+    }
+    res.json(updatedUser);
   } catch (err) {
     console.error('[Users API] PUT /:id error:', err.message);
     res.status(500).json({ error: 'db error' });
@@ -246,7 +304,26 @@ router.put('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
 router.delete('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
   try {
     const { id } = req.params;
+    const [userRows] = await pool.query(
+      'SELECT id, first_name, middle_initial, last_name, school_id, group_id FROM users WHERE id = ? LIMIT 1',
+      [id],
+    );
+    if (!userRows.length) return res.status(404).json({ error: 'Not found' });
+    const deletedUser = userRows[0];
     await pool.query('DELETE FROM users WHERE id = ?', [id]);
+    const deletedName = [deletedUser.first_name, deletedUser.middle_initial, deletedUser.last_name].filter(Boolean).join(' ');
+    await createSuperadminNotification({
+      eventType: 'user.deleted',
+      category: 'User Management',
+      title: 'User deleted',
+      message: `User account deleted: ${deletedName}.`,
+      entityType: 'user',
+      entityId: id,
+      linkTo: '/user-management',
+      schoolId: deletedUser.school_id,
+      groupId: deletedUser.group_id,
+      actorUserId: String(req.user.id) === String(id) ? null : req.user.id,
+    });
     await ensureSuperadminAccount(pool);
     res.status(204).end();
   } catch (err) {
@@ -262,8 +339,30 @@ router.patch('/:id/status', verifyToken, authorize('super_admin'), async (req, r
     const { id } = req.params;
     const { status } = req.body;
     if (!status) return res.status(400).json({ error: 'status required' });
+    const [userRows] = await pool.query(
+      'SELECT id, first_name, middle_initial, last_name, status, school_id, group_id FROM users WHERE id = ? LIMIT 1',
+      [id],
+    );
+    if (!userRows.length) return res.status(404).json({ error: 'Not found' });
+    const existingUser = userRows[0];
     const dbStatus = normalizeDbStatus(status);
     await pool.query('UPDATE users SET status = ? WHERE id = ?', [dbStatus, id]);
+    if (normalizeDbStatus(existingUser.status) !== dbStatus) {
+      const isSuspended = dbStatus === 'Suspended';
+      const fullName = [existingUser.first_name, existingUser.middle_initial, existingUser.last_name].filter(Boolean).join(' ');
+      await createSuperadminNotification({
+        eventType: isSuspended ? 'user.suspended' : 'user.reactivated',
+        category: 'User Management',
+        title: isSuspended ? 'User suspended' : 'User reactivated',
+        message: `User account ${isSuspended ? 'suspended' : 'reactivated'}: ${fullName}.`,
+        entityType: 'user',
+        entityId: id,
+        linkTo: `/user-management/user/${id}`,
+        schoolId: existingUser.school_id,
+        groupId: existingUser.group_id,
+        actorUserId: req.user.id,
+      });
+    }
     res.json({ ok: true, status: dbStatus });
   } catch (err) {
     console.error('[Users API] PATCH /:id/status error:', err.message);

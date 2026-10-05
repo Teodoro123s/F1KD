@@ -27,6 +27,7 @@ export default function BeneficiaryListPage({ communities = [], groups = [], bat
   const [perPage, setPerPage] = useState(10);
   const [page, setPage] = useState(1);
   const [selectedEntityFilter, setSelectedEntityFilter] = useState('Mother');
+  const [selectedCommunityFilter, setSelectedCommunityFilter] = useState('');
   const [childRows, setChildRows] = useState([]);
   const [childrenLoading, setChildrenLoading] = useState(false);
 
@@ -115,9 +116,15 @@ export default function BeneficiaryListPage({ communities = [], groups = [], bat
       }
       if (item && (item.firstName || item.first_name || item.motherId || item.mother_id)) {
         const monitoringProgress = getMotherMonitoringProgress(item);
+        const displayName = [
+          item.firstName || item.first_name,
+          item.middleName || item.middle_name,
+          item.lastName || item.last_name,
+          item.suffix,
+        ].filter((part) => String(part || '').trim()).join(' ') || item.name || '';
         return {
           id: item.id,
-          name: item.name || `${item.firstName || item.first_name || ''} ${item.lastName || item.last_name || ''}`.trim(),
+          name: displayName,
           community: item.community || item.community_name || '',
           progress: getMotherProfileProgress(item),
           monitoringProgress,
@@ -142,6 +149,10 @@ export default function BeneficiaryListPage({ communities = [], groups = [], bat
       data = data.filter((g) => getGroupStatusByProgress(g) === selectedStatusFilter);
     }
 
+    if (selectedCommunityFilter) {
+      data = data.filter((item) => String(item.community || '').trim() === selectedCommunityFilter);
+    }
+
     if (term) {
       // Respect the selected entity filter when searching
       data = data.filter((g) => (
@@ -156,7 +167,7 @@ export default function BeneficiaryListPage({ communities = [], groups = [], bat
       if (statusA !== statusB) return statusA - statusB;
       return (a.name || '').localeCompare(b.name || '');
     });
-  }, [mothers, childRows, query, selectedStatusFilter, selectedEntityFilter, batchId]);
+  }, [mothers, childRows, query, selectedStatusFilter, selectedEntityFilter, selectedCommunityFilter, batchId]);
 
   const pageCount = Math.max(1, Math.ceil(filteredData.length / perPage));
   const currentPage = Math.min(page, pageCount);
@@ -233,6 +244,9 @@ export default function BeneficiaryListPage({ communities = [], groups = [], bat
 
         <EntitySearchControls
           selectedEntityFilter={selectedEntityFilter}
+          communities={communities}
+          selectedCommunity={selectedCommunityFilter}
+          onCommunityChange={(value) => { setSelectedCommunityFilter(value); setPage(1); }}
           query={query}
             onEntityChange={(nextType) => { setSelectedEntityFilter(nextType); setQuery(''); setPage(1); }}
           onQueryChange={handleSearch}

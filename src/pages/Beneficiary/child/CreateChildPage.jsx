@@ -48,15 +48,25 @@ const emptyGroupForm = () => ({
     growthDelay: false,
   },
   medicalRemarks: '',
-  bcgDate: '',
+  bcgDose1: '',
+  bcgDose2: '',
+  bcgDose3: '',
   bcgRemarks: '',
-  hepbDate: '',
+  hepbDose1: '',
+  hepbDose2: '',
+  hepbDose3: '',
   hepbRemarks: '',
-  opvDate: '',
+  opvDose1: '',
+  opvDose2: '',
+  opvDose3: '',
   opvRemarks: '',
-  dptDate: '',
+  dptDose1: '',
+  dptDose2: '',
+  dptDose3: '',
   dptRemarks: '',
-  mmrDate: '',
+  mmrDose1: '',
+  mmrDose2: '',
+  mmrDose3: '',
   mmrRemarks: '',
   batch: '',
 });
@@ -72,14 +82,14 @@ export default function CreateChildPage({
   const motherFromState = location.state?.mother || null;
   const { mothers, setMothers } = useMothers();
   const [groupForm, setGroupForm] = useState(() => loadChildDraft(emptyGroupForm()));
+  const [birthDocumentFile, setBirthDocumentFile] = useState(null);
   const [pendingChild, setPendingChild] = useState(null);
   const [creating, setCreating] = useState(false);
+  const [showRequiredValidation, setShowRequiredValidation] = useState(false);
   const [selectedMotherId, setSelectedMotherId] = useState(() => {
     try { return motherFromState?.id || motherFromState?.motherId || JSON.parse(localStorage.getItem(CHILD_DRAFT_KEY) || 'null')?.selectedMotherId || ''; } catch (error) { return motherFromState?.id || motherFromState?.motherId || ''; }
   });
-  const [createActiveTab, setCreateActiveTab] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(CHILD_DRAFT_KEY) || 'null')?.activeTab || 'general'; } catch (error) { return 'general'; }
-  });
+  const [createActiveTab, setCreateActiveTab] = useState('general');
   const CREATE_STEPS = ['general', 'prenatal', 'medical_dental', 'vaccine'];
   const createActiveIndex = CREATE_STEPS.indexOf(createActiveTab) >= 0 ? CREATE_STEPS.indexOf(createActiveTab) : 0;
 
@@ -100,11 +110,19 @@ export default function CreateChildPage({
 
   useEffect(() => {
     try {
-      localStorage.setItem(CHILD_DRAFT_KEY, JSON.stringify({ form: groupForm, selectedMotherId, activeTab: createActiveTab }));
+      localStorage.setItem(CHILD_DRAFT_KEY, JSON.stringify({ form: groupForm, selectedMotherId }));
     } catch (error) {
       console.warn('[CreateChildPage] Unable to save form draft:', error);
     }
-  }, [groupForm, selectedMotherId, createActiveTab]);
+  }, [groupForm, selectedMotherId]);
+
+  useEffect(() => {
+    if (!showRequiredValidation || createActiveTab !== 'general') return;
+    const invalidField = document.querySelector('[aria-invalid="true"]');
+    if (!invalidField) return;
+    invalidField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    invalidField.focus({ preventScroll: true });
+  }, [createActiveTab, selectedMotherId, showRequiredValidation, groupForm.firstName, groupForm.lastName]);
 
   // If navigated from a mother, prefill mother-related fields and show mother info
   useEffect(() => {
@@ -127,10 +145,13 @@ export default function CreateChildPage({
       return;
     }
     if (!motherFromState && !selectedMotherId) {
+      setShowRequiredValidation(true);
+      setCreateActiveTab('general');
       notifyAction('Please select a mother before creating the child.', 'error');
       return;
     }
     if (!groupForm.firstName.trim() || !groupForm.lastName.trim()) {
+      setShowRequiredValidation(true);
       notifyAction('Please complete the required child details before saving.', 'error');
       setCreateActiveTab('general');
       return;
@@ -170,15 +191,30 @@ export default function CreateChildPage({
       apgarScore: groupForm.apgarScore || null,
       nutritionNotes: groupForm.nutritionNotes || null,
       medicalConditions: groupForm.medicalConditions || {},
-      bcgDate: groupForm.bcgDate || null,
+      bcgDate: groupForm.bcgDose1 || null,
+      bcgDose1: groupForm.bcgDose1 || null,
+      bcgDose2: groupForm.bcgDose2 || null,
+      bcgDose3: groupForm.bcgDose3 || null,
       bcgRemarks: groupForm.bcgRemarks || null,
-      hepbDate: groupForm.hepbDate || null,
+      hepbDate: groupForm.hepbDose1 || null,
+      hepbDose1: groupForm.hepbDose1 || null,
+      hepbDose2: groupForm.hepbDose2 || null,
+      hepbDose3: groupForm.hepbDose3 || null,
       hepbRemarks: groupForm.hepbRemarks || null,
-      opvDate: groupForm.opvDate || null,
+      opvDate: groupForm.opvDose1 || null,
+      opvDose1: groupForm.opvDose1 || null,
+      opvDose2: groupForm.opvDose2 || null,
+      opvDose3: groupForm.opvDose3 || null,
       opvRemarks: groupForm.opvRemarks || null,
-      dptDate: groupForm.dptDate || null,
+      dptDate: groupForm.dptDose1 || null,
+      dptDose1: groupForm.dptDose1 || null,
+      dptDose2: groupForm.dptDose2 || null,
+      dptDose3: groupForm.dptDose3 || null,
       dptRemarks: groupForm.dptRemarks || null,
-      mmrDate: groupForm.mmrDate || null,
+      mmrDate: groupForm.mmrDose1 || null,
+      mmrDose1: groupForm.mmrDose1 || null,
+      mmrDose2: groupForm.mmrDose2 || null,
+      mmrDose3: groupForm.mmrDose3 || null,
       mmrRemarks: groupForm.mmrRemarks || null,
     };
 
@@ -190,8 +226,19 @@ export default function CreateChildPage({
     setCreating(true);
 
     try {
-      const { apiCreateChild } = await import('../../../api/children');
+      const { apiCreateChild, apiUploadChildBirthDocument } = await import('../../../api/children');
       const { child } = await apiCreateChild(pendingChild.payload);
+      let savedChild = child;
+      let documentUploadFailed = false;
+      if (birthDocumentFile) {
+        try {
+          const documentResponse = await apiUploadChildBirthDocument(child.id || child.child_code, birthDocumentFile);
+          savedChild = documentResponse?.child || child;
+        } catch (documentError) {
+          documentUploadFailed = true;
+          console.error('Child created but birth document upload failed:', documentError);
+        }
+      }
 
       const newGroup = {
         id: child.id || `G-${Date.now()}`,
@@ -223,16 +270,28 @@ export default function CreateChildPage({
         nutritionNotes: child.nutrition_notes || groupForm.nutritionNotes,
         medicalConditions: groupForm.medicalConditions,
         medicalRemarks: groupForm.medicalRemarks,
-        bcgDate: child.bcg_date || groupForm.bcgDate,
-        bcgRemarks: child.bcg_remarks || groupForm.bcgRemarks,
-        hepbDate: child.hepb_date || groupForm.hepbDate,
-        hepbRemarks: child.hepb_remarks || groupForm.hepbRemarks,
-        opvDate: child.opv_date || groupForm.opvDate,
-        opvRemarks: child.opv_remarks || groupForm.opvRemarks,
-        dptDate: child.dpt_date || groupForm.dptDate,
-        dptRemarks: child.dpt_remarks || groupForm.dptRemarks,
-        mmrDate: child.mmr_date || groupForm.mmrDate,
-        mmrRemarks: child.mmr_remarks || groupForm.mmrRemarks,
+        bcgDose1: child.BCG?.dose1 || child.bcgDose1 || groupForm.bcgDose1,
+        bcgDose2: child.BCG?.dose2 || child.bcgDose2 || groupForm.bcgDose2,
+        bcgDose3: child.BCG?.dose3 || child.bcgDose3 || groupForm.bcgDose3,
+        bcgRemarks: child.BCG?.remarks || child.bcgRemarks || groupForm.bcgRemarks,
+        hepbDose1: child.HepB?.dose1 || child.hepbDose1 || groupForm.hepbDose1,
+        hepbDose2: child.HepB?.dose2 || child.hepbDose2 || groupForm.hepbDose2,
+        hepbDose3: child.HepB?.dose3 || child.hepbDose3 || groupForm.hepbDose3,
+        hepbRemarks: child.HepB?.remarks || child.hepbRemarks || groupForm.hepbRemarks,
+        opvDose1: child.OPV?.dose1 || child.opvDose1 || groupForm.opvDose1,
+        opvDose2: child.OPV?.dose2 || child.opvDose2 || groupForm.opvDose2,
+        opvDose3: child.OPV?.dose3 || child.opvDose3 || groupForm.opvDose3,
+        opvRemarks: child.OPV?.remarks || child.opvRemarks || groupForm.opvRemarks,
+        dptDose1: child.DPT?.dose1 || child.dptDose1 || groupForm.dptDose1,
+        dptDose2: child.DPT?.dose2 || child.dptDose2 || groupForm.dptDose2,
+        dptDose3: child.DPT?.dose3 || child.dptDose3 || groupForm.dptDose3,
+        dptRemarks: child.DPT?.remarks || child.dptRemarks || groupForm.dptRemarks,
+        mmrDose1: child.MMR?.dose1 || child.mmrDose1 || groupForm.mmrDose1,
+        mmrDose2: child.MMR?.dose2 || child.mmrDose2 || groupForm.mmrDose2,
+        mmrDose3: child.MMR?.dose3 || child.mmrDose3 || groupForm.mmrDose3,
+        mmrRemarks: child.MMR?.remarks || child.mmrRemarks || groupForm.mmrRemarks,
+        birthDocumentName: savedChild.birth_document_name || savedChild.birthDocumentName || '',
+        birthDocumentPath: savedChild.birth_document_path || savedChild.birthDocumentPath || '',
         address: child.address || groupForm.address || '',
         progress: child.progress || 0,
         childCheckups: null,
@@ -240,7 +299,9 @@ export default function CreateChildPage({
 
       // add to groups list
       setGroups((prev) => [newGroup, ...prev]);
-      notifyAction('Child created successfully.');
+      notifyAction(documentUploadFailed
+        ? 'Child created, but the birth document upload failed. You can upload it from Edit Child.'
+        : 'Child created successfully.', documentUploadFailed ? 'error' : 'success');
       localStorage.removeItem(CHILD_DRAFT_KEY);
       setPendingChild(null);
 
@@ -300,10 +361,12 @@ export default function CreateChildPage({
           <label className="form-label" htmlFor="child-mother-select">Mother</label>
           <select
             id="child-mother-select"
-            className="form-select"
+            className={`form-select${showRequiredValidation && !selectedMotherId ? ' invalid' : ''}`}
             value={selectedMotherId}
             onChange={(event) => setSelectedMotherId(event.target.value)}
             required
+            aria-invalid={showRequiredValidation && !selectedMotherId}
+            aria-describedby={showRequiredValidation && !selectedMotherId ? 'child-mother-error' : undefined}
           >
             <option value="">Select mother</option>
             {availableMothers.map((mother) => (
@@ -312,6 +375,7 @@ export default function CreateChildPage({
               </option>
             ))}
           </select>
+          {showRequiredValidation && !selectedMotherId && <p id="child-mother-error" className="form-error" role="alert">Select a mother before creating the child.</p>}
         </div>
       )}
 
@@ -355,6 +419,9 @@ export default function CreateChildPage({
               setForm={setGroupForm}
               communities={communities}
               batches={batches}
+              birthDocumentFile={birthDocumentFile}
+              setBirthDocumentFile={setBirthDocumentFile}
+              showRequiredValidation={showRequiredValidation}
             />
           </div>
           <div className="modal-footer">
@@ -364,7 +431,7 @@ export default function CreateChildPage({
             else navigate('/beneficiary');
           }}>Cancel</button>
           {createActiveTab !== 'general' && (
-              <button type="button" className="btn-secondary btn-back" onClick={() => {
+              <button type="button" className="btn-secondary btn-back back-action" onClick={() => {
                 if (createActiveTab === 'vaccine') setCreateActiveTab('medical_dental');
                 else if (createActiveTab === 'medical_dental') setCreateActiveTab('prenatal');
                 else setCreateActiveTab('general');

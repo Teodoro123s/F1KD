@@ -13,8 +13,14 @@ export function ReportFocusStep({
   beneficiaryType,
   setBeneficiaryType,
   setActiveTab,
-  generateReport,
 }) {
+  const eligiblePrograms = programs.filter((program) => {
+    const programType = String(program?.beneficiaryType || program?.beneficiary_type || 'Mother and Child').trim().toLowerCase();
+    const selectedType = String(beneficiaryType || '').trim().toLowerCase();
+    if (!selectedType || selectedType === 'all') return true;
+    if (programType === 'mother and child' || programType === 'mother & child') return true;
+    return programType === selectedType;
+  });
   return (
     <div className="progress-report-tab-panel">
       <h1>II. Report Focus</h1>
@@ -30,16 +36,27 @@ export function ReportFocusStep({
           <input type="radio" name="report-category" value="program" checked={reportCategory === 'program'} onChange={() => selectReportCategory('program')} />Program Report
         </label>
       </fieldset>
-      <p className="progress-report-note">Monitor Report is selected by default and uses details from the Monitor module.</p>
-      {reportCategory === 'program' ? (
+      {reportCategory === 'monitor' && (
+        <p className="progress-report-note">Monitor Report is selected by default and uses details from the Monitor module.</p>
+      )}
+      <fieldset className="progress-report-beneficiary-type">
+        <legend>Beneficiary type</legend>
+        <label className={beneficiaryType === 'child' ? 'selected' : ''}>
+          <input type="radio" name="beneficiary-type" value="child" checked={beneficiaryType === 'child'} onChange={() => setBeneficiaryType('child')} />Child
+        </label>
+        <label className={beneficiaryType === 'mother' ? 'selected' : ''}>
+          <input type="radio" name="beneficiary-type" value="mother" checked={beneficiaryType === 'mother'} onChange={() => setBeneficiaryType('mother')} />Mother
+        </label>
+      </fieldset>
+      {reportCategory === 'program' && (
         <fieldset className="progress-report-beneficiary-type">
           <legend>Program Name</legend>
           <div className="program-report-controls">
             <label>
               <span>Program</span>
-              <select value={programName} onChange={(event) => setProgramName(event.target.value)}>
-                <option value="">Select program</option>
-                {programs.map((program) => <option key={program.id} value={program.name}>{program.name}</option>)}
+              <select value={programName} onChange={(event) => setProgramName(event.target.value)} disabled={!eligiblePrograms.length}>
+                <option value="">{eligiblePrograms.length ? 'Select program' : 'No eligible programs'}</option>
+                {eligiblePrograms.map((program) => <option key={program.id} value={program.name}>{program.name}</option>)}
               </select>
             </label>
             <label>
@@ -57,22 +74,9 @@ export function ReportFocusStep({
             )}
           </div>
         </fieldset>
-      ) : (
-        <fieldset className="progress-report-beneficiary-type">
-          <legend>Beneficiary type</legend>
-          <label className={beneficiaryType === 'child' ? 'selected' : ''}>
-            <input type="radio" name="beneficiary-type" value="child" checked={beneficiaryType === 'child'} onChange={() => setBeneficiaryType('child')} />Child
-          </label>
-          <label className={beneficiaryType === 'mother' ? 'selected' : ''}>
-            <input type="radio" name="beneficiary-type" value="mother" checked={beneficiaryType === 'mother'} onChange={() => setBeneficiaryType('mother')} />Mother
-          </label>
-        </fieldset>
       )}
       <div className="progress-report-tab-actions">
-        <button type="button" className="primary-btn" onClick={() => {
-          setActiveTab(3);
-          if (generateReport) generateReport();
-        }}>
+        <button type="button" className="primary-btn" onClick={() => setActiveTab(3)}>
           Next: Growth Metrics →
         </button>
       </div>

@@ -1,0 +1,2 @@
+ALTER TABLE notifications
+  ADD COLUMN IF NOT EXISTS recipient_user_ids VARCHAR(1000) DEFAULT NULL;
