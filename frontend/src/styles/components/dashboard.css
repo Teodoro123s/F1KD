@@ -35,6 +35,7 @@
   font-size: 1.5rem;
   box-shadow: 0 4px 12px rgba(27, 131, 84, 0.12);
 }
+.welcome-icon svg { width: 24px; height: 24px; }
 
 .dashboard-welcome h2 {
   margin: 0 0 0.25rem;
@@ -133,6 +134,7 @@
   text-decoration: none;
   transition: border-color 150ms ease, background 150ms ease, color 150ms ease;
 }
+.dashboard-module-link svg { width: 16px; height: 16px; flex: 0 0 auto; }
 
 .dashboard-module-link:hover,
 .dashboard-module-link:focus-visible {
@@ -155,6 +157,10 @@
   font-size: 0.9rem;
   box-shadow: 0 2px 6px rgba(15, 23, 42, 0.02);
 }
+.dashboard-date-filter svg,
+.dashboard-scope-select > svg,
+.dashboard-school-pill svg,
+.dashboard-group-pill svg { width: 16px; height: 16px; flex: 0 0 auto; }
 
 .dashboard-header-actions {
   display: flex;
@@ -241,6 +247,7 @@
   border-radius: 10px;
   font-size: 1.2rem;
 }
+.kpi-icon svg { width: 20px; height: 20px; }
 
 .kpi-icon.teal { background: #e6f8f3; color: #0d8267; }
 .kpi-icon.rose { background: #feecef; color: #c22944; }
@@ -308,6 +315,7 @@
   background: #f2f6fb;
   font-size: 1.05rem;
 }
+.panel-icon svg { width: 18px; height: 18px; }
 
 .panel-title-row h3 {
   margin: 0;
@@ -450,9 +458,13 @@
 .quick-action-tile.highlight:hover { border-color: #f7be9f; }
 
 .quick-action-tile-icon {
-  font-size: 1.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.6rem;
   margin-bottom: 0.5rem;
 }
+.quick-action-tile-icon svg { width: 20px; height: 20px; }
 
 .quick-action-tile span {
   font-size: 0.85rem;
@@ -555,6 +567,7 @@
   font-size: 1.4rem;
   line-height: 1;
 }
+.monitoring-arrow svg { display: block; width: 18px; height: 18px; }
 
 /* Active Programs List */
 .dashboard-program-list {

@@ -1,4 +1,5 @@
 import React from 'react';
+import { ChevronLeftIcon, ChevronRightIcon } from '../CommunityIcons';
 
 export default function CommunityPagination({
   currentPage,
@@ -35,7 +36,7 @@ export default function CommunityPagination({
           disabled={currentPage === 1}
           aria-label="Previous page"
         >
-          ‹
+          <ChevronLeftIcon />
         </button>
 
         <input
@@ -61,7 +62,7 @@ export default function CommunityPagination({
           disabled={currentPage === pageCount}
           aria-label="Next page"
         >
-          ›
+          <ChevronRightIcon />
         </button>
       </div>
 

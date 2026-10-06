@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { getBmiInterpretation } from '../progressReportConfig';
+import { CalendarIcon, UsersIcon } from '../../Community/CommunityIcons';
 
 const historyFieldIds = new Set(['measurementDate', 'weightForAge', 'heightForAge', 'bmiForAge', 'weightForLengthZScore', 'weightForLengthInterpretation', 'weightForAgeZScore', 'weightForAgeInterpretation', 'lengthForAgeZScore', 'lengthForAgeInterpretation', 'bmiInterpretation']);
 
@@ -59,8 +60,8 @@ function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleField
   return (
     <div className="monitoring-history-view">
       <div className="monitoring-history-tabs" role="tablist" aria-label="Monitoring table view">
-        <button type="button" className={viewMode === 'individual' ? 'active' : ''} onClick={() => setViewMode('individual')}>👤 Individual History</button>
-        <button type="button" className={viewMode === 'monthly' ? 'active' : ''} onClick={() => setViewMode('monthly')}>📅 Monthly Snapshot</button>
+        <button type="button" className={viewMode === 'individual' ? 'active' : ''} onClick={() => setViewMode('individual')}><UsersIcon /> Individual History</button>
+        <button type="button" className={viewMode === 'monthly' ? 'active' : ''} onClick={() => setViewMode('monthly')}><CalendarIcon /> Monthly Snapshot</button>
       </div>
       <div className="monitoring-history-filters">
         {viewMode === 'individual' ? (

@@ -156,6 +156,7 @@
   color: #94a3b8;
   font-size: 1.1rem;
 }
+.search-icon svg { display: block; width: 18px; height: 18px; }
 .progress-report-search-box input {
   width: 100%;
   border: 0;
@@ -208,6 +209,8 @@
 .filter-select-icon {
   font-size: 0.9rem;
 }
+.filter-select-icon { display: inline-flex; align-items: center; color: #64748b; }
+.filter-select-icon svg { width: 18px; height: 18px; }
 .filter-select-wrap select {
   flex: 1 1 auto;
   min-width: 0;
@@ -307,6 +310,7 @@
   letter-spacing: 0.02em;
   opacity: 0.75;
 }
+.chip small svg { display: block; width: 13px; height: 13px; }
 .advanced-filters-row {
   display: flex;
   align-items: center;

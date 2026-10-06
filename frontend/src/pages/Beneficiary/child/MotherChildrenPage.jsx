@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { ChevronLeftIcon, ChevronRightIcon } from '../BeneficiaryIcons';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { apiGetChildrenByMother } from '../../../api/children';
 import { apiGetMother } from '../../../api/mothers';
@@ -69,7 +70,7 @@ export default function MotherChildrenPage() {
         disabled={currentPage === 1}
         aria-label="Previous page"
       >
-        ‹
+        <ChevronLeftIcon />
       </button>
 
       <input
@@ -95,7 +96,7 @@ export default function MotherChildrenPage() {
         disabled={currentPage === pageCount}
         aria-label="Next page"
       >
-        ›
+        <ChevronRightIcon />
       </button>
     </>
   );

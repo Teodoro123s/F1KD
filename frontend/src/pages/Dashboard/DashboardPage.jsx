@@ -9,6 +9,16 @@ import { apiGetPrograms } from '../../api/programs';
 import { apiGetUsers } from '../../api/users';
 import { can, isCommunityCoordinatorRole, isHealthWorkerRole, normalizeRole, ROLES } from '../../utils/permissions';
 import { formatDateForDisplay } from '../../utils/dateFormat';
+import {
+  ActivityIcon,
+  BatchesIcon,
+  BuildingIcon,
+  CalendarIcon,
+  ChevronRightIcon,
+  GroupsIcon,
+  MapPinIcon,
+  UsersIcon,
+} from '../Community/CommunityIcons';
 
 function getGreeting(name) {
   const hour = new Date().getHours();
@@ -374,17 +384,15 @@ export default function DashboardPage() {
 
   const visibleModules = useMemo(() => {
     const modules = [
-      ['beneficiary', 'Beneficiaries', '/beneficiary', '👥', !isSuperAdmin],
-      ['monitoring', 'Monitoring', '/monitoring', '🩺', !isSuperAdmin],
-      ['community', 'Community', '/community', '🏫', !isHealthWorker || isSuperAdmin],
-      ['programs', 'Programs', '/program', '🍱', !isSuperAdmin && !isHealthWorker],
-      ['reports', 'Reports', '/progress-report', '📊', !isSuperAdmin],
-      ['users', 'Users', '/user-management', '⚙️', isSuperAdmin],
+      { key: 'beneficiary', label: 'Beneficiaries', path: '/beneficiary', icon: UsersIcon, show: !isSuperAdmin },
+      { key: 'monitoring', label: 'Monitoring', path: '/monitoring', icon: ActivityIcon, show: !isSuperAdmin },
+      { key: 'community', label: 'Community', path: '/community', icon: BuildingIcon, show: !isHealthWorker || isSuperAdmin },
+      { key: 'programs', label: 'Programs', path: '/program', icon: GroupsIcon, show: !isSuperAdmin && !isHealthWorker },
+      { key: 'reports', label: 'Reports', path: '/progress-report', icon: BatchesIcon, show: !isSuperAdmin },
+      { key: 'users', label: 'Users', path: '/user-management', icon: UsersIcon, show: isSuperAdmin },
     ];
 
-    return modules
-      .filter(([, , , , isVisible]) => isVisible)
-      .map(([key, label, path, icon]) => ({ key, label, path, icon }));
+    return modules.filter((module) => module.show);
   }, [isHealthWorker, isSuperAdmin]);
 
   const visibleCards = useMemo(() => {
@@ -393,7 +401,7 @@ export default function DashboardPage() {
         key: 'beneficiary',
         title: 'Registered Beneficiaries',
         to: '/beneficiary',
-        icon: '👩‍👧',
+        icon: UsersIcon,
         cardClass: 'teal',
         value: stats.totalBeneficiaries,
         subtitle: `${stats.motherCount} Mothers • ${stats.childCount} Children`,
@@ -403,7 +411,7 @@ export default function DashboardPage() {
         key: 'monitoring',
         title: 'Monitoring Follow-Up',
         to: '/monitoring',
-        icon: '🩺',
+        icon: ActivityIcon,
         cardClass: 'amber',
         value: stats.followUpCount,
         subtitle: `${stats.onTrackCount} on track • ${stats.notStartedCount} pending`,
@@ -413,7 +421,7 @@ export default function DashboardPage() {
         key: 'community',
         title: 'Community & Cohorts',
         to: '/community',
-        icon: '🏫',
+        icon: BuildingIcon,
         cardClass: 'indigo',
         value: stats.communityCount,
         subtitle: `${stats.batchCount} Batches • ${stats.groupCount} Groups`,
@@ -423,7 +431,7 @@ export default function DashboardPage() {
         key: 'programs',
         title: 'Feeding Programs',
         to: '/program',
-        icon: '📦',
+        icon: GroupsIcon,
         cardClass: 'rose',
         value: stats.activeProgramsCount,
         subtitle: `${stats.totalReceived.toLocaleString()} of ${stats.totalTarget.toLocaleString()} reached`,
@@ -433,7 +441,7 @@ export default function DashboardPage() {
         key: 'users',
         title: 'Team Access',
         to: '/user-management',
-        icon: '⚙️',
+        icon: UsersIcon,
         cardClass: 'slate',
         value: superadminMetrics.totalUsers,
         subtitle: `${superadminMetrics.activeStaffCount} active staff`,
@@ -453,19 +461,19 @@ export default function DashboardPage() {
       {/* 1. Header Row */}
       <header className="dashboard-top-row">
         <div className="dashboard-welcome">
-          <div className="welcome-icon" aria-hidden="true">🌱</div>
+          <div className="welcome-icon" aria-hidden="true"><ActivityIcon /></div>
           <div>
             <h2>
               {getGreeting(currentUser?.name)}
               <span className={`dashboard-user-badge ${isSuperAdmin ? 'superadmin' : ''}`}>{roleLabel}</span>
               {assignedSchoolName && (
                 <span className="dashboard-school-pill">
-                  📍 {assignedSchoolName}
+                  <MapPinIcon /> {assignedSchoolName}
                 </span>
               )}
               {assignedGroupName && (
                 <span className="dashboard-group-pill">
-                  👥 {assignedGroupName}
+                  <UsersIcon /> {assignedGroupName}
                 </span>
               )}
             </h2>
@@ -475,13 +483,13 @@ export default function DashboardPage() {
 
         <div className="dashboard-header-actions">
           <div className="dashboard-date-filter">
-            <span aria-hidden="true">📅</span>
+            <CalendarIcon />
             <span>{formatDateRange()}</span>
           </div>
 
           {isSuperAdmin && (
             <label className="dashboard-scope-select">
-              <span aria-hidden="true">🏫</span>
+              <BuildingIcon />
               <select
                 value={selectedSchoolId}
                 onChange={(event) => setSelectedSchoolId(event.target.value)}
@@ -501,18 +509,19 @@ export default function DashboardPage() {
 
       <section className="dashboard-module-strip" aria-label="Available dashboard modules">
         <span className="dashboard-module-strip-label">Quick links</span>
-        {visibleModules.map(({ key, label, path, icon }) => (
-          <Link key={key} to={path} className="dashboard-module-link"><span aria-hidden="true">{icon}</span>{label}</Link>
+        {visibleModules.map(({ key, label, path, icon: Icon }) => (
+          <Link key={key} to={path} className="dashboard-module-link"><Icon />{label}</Link>
         ))}
       </section>
 
       {/* 2. Role-relevant KPI Cards Grid */}
       <section className="dashboard-kpi-grid" aria-label="Key Performance Indicators">
-        {visibleCards.map((card) => (
-          <Link key={card.key} to={card.to} className={`kpi-card ${card.key === 'monitoring' ? 'alert-card' : ''}`} title={`Open ${card.title}`}>
+        {visibleCards.map((card) => {
+          const Icon = card.icon;
+          return <Link key={card.key} to={card.to} className={`kpi-card ${card.key === 'monitoring' ? 'alert-card' : ''}`} title={`Open ${card.title}`}>
             <div className="kpi-card-top">
               <span className="kpi-title">{card.title}</span>
-              <span className={`kpi-icon ${card.cardClass}`} aria-hidden="true">{card.icon}</span>
+              <span className={`kpi-icon ${card.cardClass}`} aria-hidden="true"><Icon /></span>
             </div>
             <div className="kpi-value" style={card.key === 'monitoring' ? { color: '#c22944' } : undefined}>
               {loading ? '...' : Number(card.value).toLocaleString()}
@@ -520,8 +529,8 @@ export default function DashboardPage() {
             <div className="kpi-subtitle">
               <span>{card.subtitle}</span>
             </div>
-          </Link>
-        ))}
+          </Link>;
+        })}
       </section>
 
       {/* 3. Clinical Monitoring Progress & Quick Action Launchpad */}
@@ -530,7 +539,7 @@ export default function DashboardPage() {
         <div className="dashboard-panel">
           <div className="panel-title-row">
             <div className="panel-title-wrap">
-              <span className="panel-icon" aria-hidden="true">🩺</span>
+              <span className="panel-icon" aria-hidden="true"><ActivityIcon /></span>
               <h3>Clinical Milestone Progress</h3>
             </div>
             <Link to="/monitoring" className="panel-link">Open Monitoring →</Link>
@@ -578,7 +587,7 @@ export default function DashboardPage() {
         <div className="dashboard-panel">
           <div className="panel-title-row">
             <div className="panel-title-wrap">
-              <span className="panel-icon" aria-hidden="true">⚡</span>
+              <span className="panel-icon" aria-hidden="true"><GroupsIcon /></span>
               <h3>Module Quick Actions</h3>
             </div>
           </div>
@@ -586,40 +595,40 @@ export default function DashboardPage() {
           <div className="quick-action-grid">
             {!isSuperAdmin && (
               <Link to="/beneficiary" className="quick-action-tile accent">
-                <div className="quick-action-tile-icon" aria-hidden="true">👥</div>
+                <div className="quick-action-tile-icon" aria-hidden="true"><UsersIcon /></div>
                 <span>{moduleAccess.canCreateBeneficiary ? 'Register Beneficiary' : 'View Beneficiaries'}</span>
               </Link>
             )}
 
             {!isSuperAdmin && (
               <Link to="/monitoring" className="quick-action-tile">
-                <div className="quick-action-tile-icon" aria-hidden="true">📋</div>
+                <div className="quick-action-tile-icon" aria-hidden="true"><ActivityIcon /></div>
                 <span>Record Checkup</span>
               </Link>
             )}
 
             {!isSuperAdmin && (
               <Link to="/program" className="quick-action-tile highlight">
-                <div className="quick-action-tile-icon" aria-hidden="true">🍱</div>
+                <div className="quick-action-tile-icon" aria-hidden="true"><GroupsIcon /></div>
                 <span>{moduleAccess.canManagePrograms ? 'Manage Programs' : 'View Programs'}</span>
               </Link>
             )}
 
             {!isSuperAdmin && (
               <Link to="/progress-report" className="quick-action-tile">
-                <div className="quick-action-tile-icon" aria-hidden="true">📊</div>
+                <div className="quick-action-tile-icon" aria-hidden="true"><BatchesIcon /></div>
                 <span>Progress Reports</span>
               </Link>
             )}
 
             <Link to="/community" className="quick-action-tile">
-              <div className="quick-action-tile-icon" aria-hidden="true">🏫</div>
+              <div className="quick-action-tile-icon" aria-hidden="true"><BuildingIcon /></div>
               <span>{moduleAccess.canManageCommunity ? 'Manage Community' : 'View Assigned Group'}</span>
             </Link>
 
             {isSuperAdmin && (
               <Link to="/user-management" className="quick-action-tile">
-                <div className="quick-action-tile-icon" aria-hidden="true">⚙️</div>
+                <div className="quick-action-tile-icon" aria-hidden="true"><UsersIcon /></div>
                 <span>User Management</span>
               </Link>
             )}
@@ -633,7 +642,7 @@ export default function DashboardPage() {
         <div className="dashboard-panel monitoring-panel">
           <div className="panel-title-row">
             <div className="panel-title-wrap">
-              <span className="panel-icon" aria-hidden="true">🗓</span>
+              <span className="panel-icon" aria-hidden="true"><CalendarIcon /></span>
               <h3>Upcoming Clinical &amp; Monitoring Activities</h3>
             </div>
             <Link to="/monitoring" className="panel-link">View Monitoring →</Link>
@@ -653,7 +662,7 @@ export default function DashboardPage() {
                     <span className="monitoring-subtitle">{item.subtitle}</span>
                     <span className={`monitoring-badge ${item.badgeClass}`}>{item.badge}</span>
                   </div>
-                  <span className="monitoring-arrow" aria-hidden="true">›</span>
+                  <span className="monitoring-arrow" aria-hidden="true"><ChevronRightIcon /></span>
                 </Link>
               );
             })}
@@ -664,7 +673,7 @@ export default function DashboardPage() {
         <div className="dashboard-panel">
           <div className="panel-title-row">
             <div className="panel-title-wrap">
-              <span className="panel-icon" aria-hidden="true">🍲</span>
+              <span className="panel-icon" aria-hidden="true"><GroupsIcon /></span>
               <h3>Intervention Programs Overview</h3>
             </div>
             <Link to="/program" className="panel-link">View Programs →</Link>
@@ -710,7 +719,7 @@ export default function DashboardPage() {
             <div className="dashboard-panel governance-panel">
               <div className="panel-title-row">
                 <div className="panel-title-wrap">
-                  <span className="panel-icon" aria-hidden="true">👥</span>
+                  <span className="panel-icon" aria-hidden="true"><UsersIcon /></span>
                   <h3>Staff &amp; User Governance</h3>
                 </div>
                 <Link to="/user-management" className="panel-link">Manage Users →</Link>
@@ -738,7 +747,7 @@ export default function DashboardPage() {
             <div className="dashboard-panel">
               <div className="panel-title-row">
                 <div className="panel-title-wrap">
-                  <span className="panel-icon" aria-hidden="true">🛡️</span>
+                  <span className="panel-icon" aria-hidden="true"><ActivityIcon /></span>
                   <h3>Live Audit Trail</h3>
                 </div>
               </div>
@@ -764,7 +773,7 @@ export default function DashboardPage() {
           <section className="dashboard-panel dashboard-health-panel">
             <div className="panel-title-row">
               <div className="panel-title-wrap">
-                <span className="panel-icon" aria-hidden="true">⚙️</span>
+                <span className="panel-icon" aria-hidden="true"><GroupsIcon /></span>
                 <h3>System Infrastructure &amp; Database Health</h3>
               </div>
             </div>

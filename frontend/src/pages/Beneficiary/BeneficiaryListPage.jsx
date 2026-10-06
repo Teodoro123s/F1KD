@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { ChevronLeftIcon, ChevronRightIcon } from './BeneficiaryIcons';
 import BeneficiaryTable from './BeneficiaryTable';
 import StatusFilterBar from './components/StatusFilterBar';
 import EntitySearchControls from './components/EntitySearchControls';
@@ -186,7 +187,7 @@ export default function BeneficiaryListPage({ communities = [], groups = [], bat
         disabled={currentPage === 1}
         aria-label="Previous page"
       >
-        ‹
+        <ChevronLeftIcon />
       </button>
 
       <input
@@ -212,7 +213,7 @@ export default function BeneficiaryListPage({ communities = [], groups = [], bat
         disabled={currentPage === pageCount}
         aria-label="Next page"
       >
-        ›
+        <ChevronRightIcon />
       </button>
     </>
   );

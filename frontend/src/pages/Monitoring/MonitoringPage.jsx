@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { ChevronLeftIcon, ChevronRightIcon } from '../Community/CommunityIcons';
 import { useLocation, useNavigate } from 'react-router-dom';
 import PageHeader from '../../components/ui/PageHeader';
 import { useMothers } from '../../context/MothersContext';
@@ -262,7 +263,7 @@ export default function MonitoringPage() {
         disabled={currentPage === 1}
         aria-label="Previous page"
       >
-        ‹
+        <ChevronLeftIcon />
       </button>
 
       <input
@@ -288,7 +289,7 @@ export default function MonitoringPage() {
         disabled={currentPage === pageCount}
         aria-label="Next page"
       >
-        ›
+        <ChevronRightIcon />
       </button>
     </>
   );

@@ -5,6 +5,7 @@ import { getInitials } from '../utils/nameFormat';
 import { useAuth } from '../auth/AuthProvider';
 import { ROLES, hasRole } from '../utils/permissions';
 import { apiGetNotifications } from '../api/notifications';
+import { BellIcon } from '../pages/Community/CommunityIcons';
 
 export default function Topbar() {
   const navigate = useNavigate();
@@ -97,7 +98,7 @@ export default function Topbar() {
             onClick={() => { if (!signingOut) { setOpenUser(false); setOpenNotif((open) => !open); } }}
             disabled={signingOut}
           >
-            🔔
+            <BellIcon />
           </button>
           {openNotif && (
             <div className="dropdown notifications-dropdown" role="menu" aria-label="Recent notifications">
@@ -165,7 +166,7 @@ export default function Topbar() {
                     role="button"
                     style={{ opacity: signingOut ? 0.6 : 1, pointerEvents: signingOut ? 'none' : 'auto' }}
                   >
-                    {signingOut ? '⏳ Signing out...' : 'Sign out'}
+                    {signingOut ? 'Signing out...' : 'Sign out'}
                   </div>
                 </>
               ) : (

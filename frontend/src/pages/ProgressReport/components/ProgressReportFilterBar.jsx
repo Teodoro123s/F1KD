@@ -1,4 +1,5 @@
 import React from 'react';
+import { BatchesIcon, MapPinIcon, SearchIcon, UsersIcon } from '../../Community/CommunityIcons';
 
 export default function ProgressReportFilterBar({
   activeFilterCount,
@@ -27,19 +28,19 @@ export default function ProgressReportFilterBar({
 
         <div className="progress-report-context-selectors">
           <label className="filter-select-wrap">
-            <span className="filter-select-icon">📍</span>
+            <span className="filter-select-icon"><MapPinIcon /></span>
             <select value={school} onChange={(event) => setSchool(event.target.value)} aria-label="School scope">
               {schoolOptions.map((option) => <option key={option}>{option}</option>)}
             </select>
           </label>
           <label className="filter-select-wrap">
-            <span className="filter-select-icon">👥</span>
+            <span className="filter-select-icon"><UsersIcon /></span>
             <select value={group} onChange={(event) => setGroup(event.target.value)} aria-label="Group scope">
               {groupOptions.map((option) => <option key={option}>{option}</option>)}
             </select>
           </label>
           <label className="filter-select-wrap">
-            <span className="filter-select-icon">📅</span>
+            <span className="filter-select-icon"><BatchesIcon /></span>
             <select value={batch} onChange={(event) => setBatch(event.target.value)} aria-label="Batch scope">
               {batchOptions.map((option) => <option key={option}>{option}</option>)}
             </select>
@@ -48,7 +49,7 @@ export default function ProgressReportFilterBar({
       </div>
 
       <div className="progress-report-search-box">
-        <span className="search-icon" aria-hidden="true">⌕</span>
+        <span className="search-icon" aria-hidden="true"><SearchIcon /></span>
         <input
           type="text"
           value={search}
@@ -86,17 +87,17 @@ export default function ProgressReportFilterBar({
           <div className="active-filter-strip">
             {school !== 'All Schools' && (
               <button type="button" className="chip context-chip danger" onClick={() => setSchool('All Schools')}>
-                <small>📍</small> School: {school} ×
+                <small><MapPinIcon /></small> School: {school} ×
               </button>
             )}
             {group !== 'All Groups' && (
               <button type="button" className="chip context-chip neutral" onClick={() => setGroup('All Groups')}>
-                <small>👥</small> Group: {group} ×
+                <small><UsersIcon /></small> Group: {group} ×
               </button>
             )}
             {batch !== 'All Batches' && (
               <button type="button" className="chip context-chip neutral" onClick={() => setBatch('All Batches')}>
-                <small>📅</small> Batch: {batch} ×
+                <small><BatchesIcon /></small> Batch: {batch} ×
               </button>
             )}
             {searchFilters.map((filter) => (

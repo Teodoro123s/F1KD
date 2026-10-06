@@ -664,14 +664,15 @@
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  min-width: 180px;
-  height: 44px;
-  padding: 0 12px;
+  min-width: 0;
+  min-height: 40px;
+  height: 40px;
+  padding: 0 14px;
   gap: 10px;
   border-radius: 12px;
   white-space: nowrap;
-  font-size: 1rem;
-  font-weight: 700;
+  font-size: 0.9rem;
+  font-weight: 600;
 }
 
 @media (max-width: 640px) {
@@ -682,8 +683,9 @@
 }
 
 .view-page-header__actions .module-create-button svg {
-  width: 20px;
-  height: 20px;
+  display: block;
+  width: 18px;
+  height: 18px;
   flex: 0 0 auto;
 }
 
