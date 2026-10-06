@@ -2,6 +2,14 @@
 
 F1KD beneficiary monitoring and reporting app.
 
+## Repository layout
+
+- `frontend/` contains the React/Vite app, its dependencies, and its Nginx production image configuration.
+- `server/` contains the Express API, its dependencies, and backend tests.
+- The root contains Docker Compose configuration and the deployment `.env` file.
+
+The WHO growth calculator and reference data are bundled separately in each app so both Docker images can build from their own context; keep those copies in sync when updating the standards.
+
 ## Docker: Full Stack
 
 Docker Compose runs a MySQL-compatible MariaDB database, MinIO document storage, the Express API, and the built React app. This does not require a MySQL installation on the Docker host.
@@ -28,44 +36,35 @@ docker compose -f docker-compose.minio.yml down
 
 ## Local Development
 
-## Quick start
+The frontend and backend are separate Node projects. Run each in its own terminal from the repository root.
 
-Install dependencies:
-
-```bash
-npm install
-```
-
-Run dev server:
+### Frontend (React + Vite)
 
 ```bash
+cd frontend
+npm ci
 npm run dev
 ```
 
-Build for production:
+The Vite development server proxies `/api` requests to `http://localhost:4000`. Build and preview the frontend with:
 
 ```bash
 npm run build
 npm run preview
 ```
 
-## Backend (Express + MySQL/MariaDB)
+Run frontend tests from `frontend/` with `npm test`.
 
-A minimal Node/Express backend lives in the `server` folder and provides a small users API.
+### Backend (Express + MySQL/MariaDB)
 
-Quick setup:
+Run the backend from a separate terminal:
 
 ```bash
 cd server
-npm install
+npm ci
 cp .env.example .env
 # edit .env to set DB_HOST, DB_USER, DB_PASSWORD, DB_NAME
 npm run dev
 ```
 
-Endpoints:
-- `GET /api/health` — health check
-- `GET /api/users` — list users
-- `POST /api/users` — create user `{ "name": "...", "email": "..." }`
-
-The backend uses `mysql2` and will ensure a simple `users` table exists on startup.
+Run backend tests from `server/` with `npm test`.

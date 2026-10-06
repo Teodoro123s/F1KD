@@ -4,11 +4,13 @@ Quick setup:
 
 ```bash
 cd server
-npm install
+npm ci
 cp .env.example .env
 # edit .env to set DB_* variables
 npm run dev
 ```
+
+Run the backend test suite with `npm test`.
 
 Available endpoints:
 - `GET /api/health` — health check
