@@ -41,35 +41,9 @@ export async function fetchWithAuth(url, options = {}) {
     },
   };
 
-  let response = await fetch(url, requestOptions);
-  if (response.status !== 401 || requestOptions.__retry) return response;
-
-  try {
-    const refreshResponse = await fetch(`${API_BASE}/api/auth/refresh`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-    });
-
-    if (refreshResponse.ok) {
-      const refreshData = await refreshResponse.json();
-      const nextToken = refreshData && refreshData.token;
-      if (nextToken) {
-        localStorage.setItem('auth_token', nextToken);
-        const retryOptions = {
-          ...requestOptions,
-          __retry: true,
-          headers: {
-            ...authHeader(),
-            ...(options.headers || {}),
-          },
-        };
-        response = await fetch(url, retryOptions);
-      }
-    }
-  } catch (error) {
-    console.warn('Auth refresh failed', error);
+  const response = await fetch(url, requestOptions);
+  if (response.status === 401 && typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('f1kd:session-expired'));
   }
-
   return response;
 }

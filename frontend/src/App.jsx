@@ -16,6 +16,7 @@ import UserDetailPage from './pages/UserManagement/UserDetailPage';
 import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
 import NotificationsPage from './pages/Notifications/NotificationsPage';
+import DashboardPage from './pages/Dashboard/DashboardPage';
 import Login from './pages/Login';
 import { useAuth } from './auth/AuthProvider';
 import RoleBasedRoute from './components/RoleBasedRoute';
@@ -48,11 +49,23 @@ function RequireAuth({ children }) {
   return children;
 }
 
+function InitialRoute() {
+  const auth = useAuth();
+  if (auth.loading) return <LoadingScreen message="Checking your session..." />;
+  return <Navigate to={auth.isAuthenticated ? '/dashboard' : '/login'} replace />;
+}
+
+function GuestRoute({ children }) {
+  const auth = useAuth();
+  if (auth.loading) return <LoadingScreen message="Checking your session..." />;
+  return auth.isAuthenticated ? <Navigate to="/dashboard" replace /> : children;
+}
+
 export default function App() {
   return (
     <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/" element={<Login />} />
+      <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
+      <Route path="/" element={<InitialRoute />} />
       <Route
         path="/*"
         element={
@@ -63,6 +76,7 @@ export default function App() {
         </RequireAuth>
       }
       >
+        <Route path="dashboard" element={<DashboardPage />} />
         <Route path="community" element={<RoleBasedRoute allowedRoles={COMMUNITY_ROLES}><CommunityModulePage /></RoleBasedRoute>} />
         <Route path="community/school/:schoolId" element={<RoleBasedRoute allowedRoles={COMMUNITY_ROLES}><CommunityModulePage /></RoleBasedRoute>} />
         <Route path="community/group/:groupId" element={<RoleBasedRoute allowedRoles={COMMUNITY_ROLES}><CommunityModulePage /></RoleBasedRoute>} />
@@ -97,7 +111,7 @@ export default function App() {
         <Route path="notifications" element={<RoleBasedRoute allowedRoles={[ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.COMMUNITY_COORDINATOR, ROLES.PARTNER, ROLES.HEALTH_WORKER]}><NotificationsPage /></RoleBasedRoute>} />
         <Route path="profile" element={<ProfilePage />} />
         <Route path="settings" element={<SettingsPage />} />
-        <Route path="*" element={<Navigate to="/community" replace />} />
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>
     </Routes>
   );

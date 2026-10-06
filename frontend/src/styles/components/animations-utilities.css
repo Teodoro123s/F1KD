@@ -3,9 +3,11 @@
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes slideUp { from { transform: translateY(12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
-/* Keep route changes calm and consistent across the application. */
-.view-content > * {
-	animation: viewEnter 260ms ease-out both;
+/* Give newly opened views the same soft drop-in motion as a dropdown. */
+.view-content > *,
+.login-page {
+	transform-origin: top center;
+	animation: dropdownEnter 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 button,
@@ -18,9 +20,9 @@ textarea,
 		box-shadow 160ms ease, opacity 160ms ease, transform 160ms ease;
 }
 
-@keyframes viewEnter {
-	from { opacity: 0; transform: translateY(8px); }
-	to { opacity: 1; transform: translateY(0); }
+@keyframes dropdownEnter {
+	from { opacity: 0; transform: translateY(-10px) scale(0.985); }
+	to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 @media (prefers-reduced-motion: reduce) {
