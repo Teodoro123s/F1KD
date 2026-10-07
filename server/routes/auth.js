@@ -3,6 +3,7 @@ const router = express.Router();
 const pool = require('../db');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 require('dotenv').config();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
@@ -10,6 +11,21 @@ const JWT_EXPIRES = process.env.JWT_EXPIRES || '8h';
 const REFRESH_TOKEN_TTL = process.env.REFRESH_TOKEN_TTL || '7d';
 const { verifyToken } = require('../middleware/auth');
 const { ensureSuperadminAccount } = require('../services/superadminRecovery');
+const { sendPasswordResetCode } = require('../services/emailjs');
+
+const PASSWORD_RESET_TTL_MINUTES = 15;
+const PASSWORD_RESET_RESEND_SECONDS = 60;
+const PASSWORD_RESET_MAX_ATTEMPTS = 5;
+
+function hashPasswordResetCode(userId, code) {
+  return crypto.createHmac('sha256', JWT_SECRET).update(`${userId}:${code}`).digest('hex');
+}
+
+function safeHashEqual(expectedHash, actualHash) {
+  const expected = Buffer.from(expectedHash, 'hex');
+  const actual = Buffer.from(actualHash, 'hex');
+  return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
+}
 
 const buildUserPayload = (user) => {
   const role = String(user.role || 'User').trim() || 'User';
@@ -117,6 +133,126 @@ router.post('/change-password', verifyToken, async (req, res) => {
   } catch (error) {
     console.error('Change password error:', error.message);
     return res.status(500).json({ error: 'Unable to change password' });
+  }
+});
+
+router.post('/password-reset/request', verifyToken, async (req, res) => {
+  try {
+    const [users] = await pool.query(
+      'SELECT id, email, first_name, middle_initial, last_name FROM users WHERE id = ? LIMIT 1',
+      [req.user.id],
+    );
+    const user = users[0];
+    if (!user?.email) return res.status(400).json({ error: 'No email address is configured for this account.' });
+
+    const [existingCodes] = await pool.query(
+      'SELECT requested_at FROM user_password_reset_codes WHERE user_id = ? LIMIT 1',
+      [user.id],
+    );
+    if (existingCodes.length) {
+      const lastRequestedAt = new Date(existingCodes[0].requested_at).getTime();
+      const waitMilliseconds = PASSWORD_RESET_RESEND_SECONDS * 1000 - (Date.now() - lastRequestedAt);
+      if (waitMilliseconds > 0) {
+        return res.status(429).json({
+          error: `Please wait ${Math.ceil(waitMilliseconds / 1000)} seconds before requesting another code.`,
+        });
+      }
+    }
+
+    const code = String(crypto.randomInt(100000, 1000000));
+    const expiresAt = new Date(Date.now() + PASSWORD_RESET_TTL_MINUTES * 60 * 1000);
+    const expiresTimeLabel = expiresAt.toLocaleTimeString('en', { hour: 'numeric', minute: '2-digit', timeZone: 'UTC', timeZoneName: 'short' });
+    const name = [user.first_name, user.middle_initial, user.last_name].filter(Boolean).join(' ').trim() || 'User';
+
+    await pool.query(
+      `INSERT INTO user_password_reset_codes (user_id, code_hash, expires_at, requested_at, attempts)
+       VALUES (?, ?, ?, CURRENT_TIMESTAMP, 0)
+       ON DUPLICATE KEY UPDATE
+         code_hash = VALUES(code_hash),
+         expires_at = VALUES(expires_at),
+         requested_at = CURRENT_TIMESTAMP,
+         attempts = 0`,
+      [user.id, hashPasswordResetCode(user.id, code), expiresAt],
+    );
+    try {
+      await sendPasswordResetCode({
+        email: user.email,
+        name,
+        passcode: code,
+        time: expiresTimeLabel,
+      });
+    } catch (error) {
+      await pool.query('DELETE FROM user_password_reset_codes WHERE user_id = ?', [user.id]);
+      throw error;
+    }
+    return res.json({ message: `A verification code was sent to ${user.email}. It expires in ${PASSWORD_RESET_TTL_MINUTES} minutes.` });
+  } catch (error) {
+    console.error('Password reset email request failed:', error.message);
+    if (String(error.message || '').startsWith('EmailJS')) {
+      return res.status(502).json({ error: 'Unable to send the verification email. Please try again later.' });
+    }
+    return res.status(500).json({ error: 'Unable to request a verification code. Please try again.' });
+  }
+});
+
+router.post('/password-reset/confirm', verifyToken, async (req, res) => {
+  const { passcode, newPassword, confirmPassword } = req.body || {};
+  if (!/^\d{6}$/.test(String(passcode || ''))) {
+    return res.status(400).json({ error: 'Enter the six-digit verification code from your email.' });
+  }
+  if (typeof newPassword !== 'string' || newPassword.length < 8) {
+    return res.status(400).json({ error: 'New password must be at least 8 characters.' });
+  }
+  if (newPassword !== confirmPassword) {
+    return res.status(400).json({ error: 'New passwords do not match.' });
+  }
+
+  let connection;
+  try {
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+    const [codes] = await connection.query(
+      'SELECT code_hash, expires_at, attempts FROM user_password_reset_codes WHERE user_id = ? FOR UPDATE',
+      [req.user.id],
+    );
+    const resetCode = codes[0];
+    if (!resetCode || new Date(resetCode.expires_at).getTime() <= Date.now()) {
+      await connection.query('DELETE FROM user_password_reset_codes WHERE user_id = ?', [req.user.id]);
+      await connection.commit();
+      return res.status(400).json({ error: 'The verification code is invalid or expired. Request a new code.' });
+    }
+
+    if (Number(resetCode.attempts) >= PASSWORD_RESET_MAX_ATTEMPTS) {
+      await connection.query('DELETE FROM user_password_reset_codes WHERE user_id = ?', [req.user.id]);
+      await connection.commit();
+      return res.status(429).json({ error: 'Too many incorrect attempts. Request a new verification code.' });
+    }
+
+    const submittedHash = hashPasswordResetCode(req.user.id, String(passcode));
+    if (!safeHashEqual(resetCode.code_hash, submittedHash)) {
+      await connection.query(
+        'UPDATE user_password_reset_codes SET attempts = attempts + 1 WHERE user_id = ?',
+        [req.user.id],
+      );
+      await connection.commit();
+      return res.status(400).json({ error: 'The verification code is incorrect.' });
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await connection.query('UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, req.user.id]);
+    await connection.query('DELETE FROM user_password_reset_codes WHERE user_id = ?', [req.user.id]);
+    await connection.commit();
+    return res.json({ message: 'Password reset successfully.' });
+  } catch (error) {
+    if (connection) {
+      try { await connection.rollback(); } catch (rollbackError) {
+        console.error('Password reset rollback failed:', rollbackError.message);
+      }
+    }
+    console.error('Password reset confirmation failed:', error.message);
+    return res.status(500).json({ error: 'Unable to reset password. Please try again.' });
+  } finally {
+    connection?.release();
   }
 });
 

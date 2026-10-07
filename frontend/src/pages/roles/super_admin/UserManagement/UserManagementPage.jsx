@@ -11,6 +11,7 @@ import Pagination from './Pagination';
 import ConfirmModal from './ConfirmModal';
 import NotificationBanner from './NotificationBanner';
 import PageHeader from '../../../../components/ui/PageHeader';
+import './user-management.css';
 
 export default function UserManagementPage() {
   const { schoolId, batchId } = useParams();
@@ -65,7 +66,6 @@ export default function UserManagementPage() {
   const location = useLocation();
   const auth = useAuth();
   const canCreate = hasRole(auth?.currentUser?.role, [ROLES.SUPER_ADMIN]);
-  const [copyNotice, setCopyNotice] = useState('');
   const selectedBatch = batches.find((batch) => String(batch.id || batch.code) === String(batchId)) || null;
   const batchSchool = selectedBatch
     ? communities.find((community) => community.name === selectedBatch.community) || null
@@ -82,12 +82,6 @@ export default function UserManagementPage() {
     : breadcrumbItems;
 
   useEffect(() => {
-    if (!copyNotice) return undefined;
-    const timer = window.setTimeout(() => setCopyNotice(''), 2400);
-    return () => window.clearTimeout(timer);
-  }, [copyNotice]);
-
-  useEffect(() => {
     // If navigated here with an editUser in state, open edit modal
     if (location?.state?.editUser) {
       openEditUser(location.state.editUser);
@@ -97,7 +91,7 @@ export default function UserManagementPage() {
   }, [location]);
 
   return (
-    <div className="community-page">
+    <div className="community-page user-management-page">
       <NotificationBanner message={notification} actionLabel={!apiOnline ? 'Retry' : null} onAction={!apiOnline ? retryLoad : null} />
 
       <PageHeader
@@ -178,33 +172,16 @@ export default function UserManagementPage() {
       {oneTimeCredentials && (
         <div className="one-time-credentials">
           <div className="one-time-credentials-header">
-            <h3>Temporary access</h3>
-            <span>Saved for this session only</span>
+            <h3>{oneTimeCredentials.emailSent ? 'Temporary access emailed' : 'Email delivery failed'}</h3>
+            <span>{oneTimeCredentials.emailSent ? 'The temporary password was sent to this address.' : 'Review the EmailJS configuration and retry creating the account.'}</span>
           </div>
           <div className="cred-row">
             <div><strong>Email:</strong> {oneTimeCredentials.email}</div>
-            <div><strong>Password:</strong> <code>{oneTimeCredentials.password}</code></div>
           </div>
           <div className="cred-actions">
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={async () => {
-                if (navigator.clipboard) {
-                  await navigator.clipboard.writeText(oneTimeCredentials.password);
-                }
-                setCopyNotice('Password copied to clipboard.');
-              }}
-            >
-              Copy password
-            </button>
             <button type="button" className="btn-primary" onClick={clearOneTimeCredentials}>Dismiss</button>
           </div>
         </div>
-      )}
-
-      {copyNotice && (
-        <div className="inline-toast" role="status" aria-live="polite">{copyNotice}</div>
       )}
 
       <UserManagementTable

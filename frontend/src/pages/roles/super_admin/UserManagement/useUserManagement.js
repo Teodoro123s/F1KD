@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiGetUsers, apiCreateUser, apiUpdateUser, apiPatchUserStatus, apiDeleteUser } from '../../../../api/users';
-import { isValidName, isValidMiddleInitial, sanitizeDigits, normalizeContact, isValidContact, isValidEmail, formatDobForInput, isValidDob, getDobValidationMessage, generatePassword } from './lib';
+import { isValidName, isValidMiddleInitial, sanitizeDigits, normalizeContact, isValidContact, isValidEmail, formatDobForInput, isValidDob, getDobValidationMessage } from './lib';
 import { getSummary } from '../Community/communityService';
 import { isCommunityCoordinatorRole, isHealthWorkerRole } from '../../../../utils/permissions';
 import { getApiBaseUrl } from '../../../../api/authHeader';
@@ -432,9 +432,6 @@ export function useUserManagement({ schoolId = '', batchId = '' } = {}) {
         setPage(1);
       } else {
         // Create new user
-        const passwordToUse = (fdPassword && fdPassword.length >= 8) ? fdPassword : generatePassword({ lastName, contactNumber: contactNumberSan });
-        if (!passwordToUse || passwordToUse.length < 8) { setNotification('Password must be at least 8 characters.'); try { console.log('Validation failed: password too short', { passwordToUse }); } catch(e){}; return; }
-
         const data = await apiCreateUser({
           firstName,
           lastName,
@@ -445,7 +442,7 @@ export function useUserManagement({ schoolId = '', batchId = '' } = {}) {
           dob: dobToSave,
           role: roleVal,
           status: statusVal,
-          password: passwordToUse,
+          ...(fdPassword && fdPassword.length >= 8 ? { password: fdPassword } : {}),
           schoolId: schoolIdVal || null,
           groupId: groupIdVal || null,
         });
@@ -470,11 +467,11 @@ export function useUserManagement({ schoolId = '', batchId = '' } = {}) {
           name: `${created.first_name} ${created.middle_initial ? created.middle_initial + ' ' : ''}${created.last_name}`,
         };
             setUsers((prev) => [newUser, ...prev]);
-        // Expose the one-time credentials for the UI to show once (dev only). The frontend computed passwordToUse, so show that.
-        setOneTimeCredentials({ email, password: passwordToUse });
-        setNotification(`Created ${fullName}.`);
+        setOneTimeCredentials({ email, emailSent: data.emailSent });
+        setNotification(data.emailSent
+          ? `Created ${fullName}. Temporary credentials were emailed to ${email}.`
+          : `Created ${fullName}, but the credential email was not sent.`);
         try { console.log('Created and added user to UI', publicId, fullName); } catch(e) {}
-        try { console.log('One-time plaintext password for created user (dev):', passwordToUse); } catch(e) {}
         closeModal();
         setPage(1);
       }

@@ -16,7 +16,7 @@ import { apiGetChildren } from '../../../../api/children';
 import { notifyAction } from '../_shared/components/ActionFeedback';
 
 const defaultCommunityForm = { name: '', area: 'Poblacion', coordinator: '' };
-const defaultGroupForm = { name: '', community: '', assignedBatchIds: [], leader: '', members: 1, status: 'Active' };
+const defaultGroupForm = { name: '', batchName: '', community: '', assignedBatchIds: [], leader: '', members: 1, status: 'Active' };
 const defaultBatchForm = { name: '', community: '', records: 1, progress: 0, status: 'Active' };
 
 const truncateLabel = (label, maxLength = 26) => {

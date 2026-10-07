@@ -439,9 +439,11 @@ router.post('/batches', async (req, res) => {
 });
 
 router.post('/groups', async (req, res) => {
+  let connection;
   try {
-    const { name, community, leader, members, status } = req.body || {};
+    const { name, batchName, community, leader, members, status } = req.body || {};
     const cleanName = String(name || '').trim();
+    const cleanBatchName = String(batchName || '').trim();
     const communityId = await resolveCommunityId(pool, community);
 
     if (!cleanName) {
@@ -452,32 +454,64 @@ router.post('/groups', async (req, res) => {
       return res.status(400).json({ error: 'Community is required' });
     }
 
-    const [duplicateGroups] = await pool.query(
-      'SELECT id FROM groups WHERE community_id = ? AND LOWER(TRIM(name)) = LOWER(TRIM(?)) LIMIT 1',
-      [communityId, cleanName],
-    );
-    if (duplicateGroups.length) {
-      return res.status(409).json({ error: 'A group with this name already exists in this community.' });
-    }
-
     if (req.isCommunityOrganizer && String(req.schoolId) !== String(communityId)) {
       return res.status(403).json({ error: 'Community organizers can only create groups for their assigned school' });
     }
 
-    const cleanLeader = String(leader || '').trim();
-    const groupCode = await nextCode(pool, 'groups', 'group_code', 'GRP');
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+    const [duplicateGroups] = await connection.query(
+      'SELECT id FROM groups WHERE community_id = ? AND LOWER(TRIM(name)) = LOWER(TRIM(?)) LIMIT 1',
+      [communityId, cleanName],
+    );
+    if (duplicateGroups.length) {
+      await connection.rollback();
+      return res.status(409).json({ error: 'A group with this name already exists in this community.' });
+    }
+    if (cleanBatchName) {
+      const [duplicateBatches] = await connection.query(
+        'SELECT id FROM batches WHERE community_id = ? AND LOWER(TRIM(name)) = LOWER(TRIM(?)) LIMIT 1',
+        [communityId, cleanBatchName],
+      );
+      if (duplicateBatches.length) {
+        await connection.rollback();
+        return res.status(409).json({ error: 'A batch with this name already exists in this community.' });
+      }
+    }
 
-    const [result] = await pool.query(
+    const cleanLeader = String(leader || '').trim();
+    const groupCode = await nextCode(connection, 'groups', 'group_code', 'GRP');
+
+    const [result] = await connection.query(
       'INSERT INTO groups (group_code, community_id, name, leader, members_count, status) VALUES (?, ?, ?, ?, ?, ?)',
       [groupCode, communityId, cleanName, cleanLeader || null, Number(members) || 0, status || 'Active']
     );
 
-    const [rows] = await pool.query(
+    const [rows] = await connection.query(
       'SELECT id, group_code AS code, name, leader, members_count AS members, status, community_id FROM groups WHERE id = ?',
       [result.insertId]
     );
 
     const created = rows[0];
+    let createdBatch = null;
+    if (cleanBatchName) {
+      const batchCode = await nextCode(connection, 'batches', 'batch_code', 'BAT');
+      const [batchResult] = await connection.query(
+        'INSERT INTO batches (batch_code, community_id, name, records, progress, status) VALUES (?, ?, ?, 0, 0, ?)',
+        [batchCode, communityId, cleanBatchName, 'Active'],
+      );
+      await connection.query(
+        'INSERT INTO group_batch (group_id, batch_id) VALUES (?, ?)',
+        [created.id, batchResult.insertId],
+      );
+      const [batchRows] = await connection.query(
+        'SELECT id, batch_code AS code, name, records, progress, status, community_id FROM batches WHERE id = ?',
+        [batchResult.insertId],
+      );
+      createdBatch = batchRows[0];
+    }
+    await connection.commit();
+
     await createSuperadminNotification({
       eventType: 'group.created',
       category: 'Community',
@@ -490,12 +524,39 @@ router.post('/groups', async (req, res) => {
       groupId: created.id,
       actorUserId: req.user.id,
     });
+    if (createdBatch) {
+      await createSuperadminNotification({
+        eventType: 'batch.created',
+        category: 'Community',
+        title: 'Batch created',
+        message: `Batch created: ${createdBatch.name}.`,
+        entityType: 'batch',
+        entityId: createdBatch.id,
+        linkTo: `/community/group/${created.id}`,
+        schoolId: communityId,
+        groupId: created.id,
+        actorUserId: req.user.id,
+      });
+    }
     console.info('[Community API] Created group', created);
-    res.status(201).json({ group: { ...created, assignedBatchIds: [] } });
+    res.status(201).json({ group: { ...created, assignedBatchIds: [], batch: createdBatch } });
   } catch (error) {
+    if (connection) {
+      try { await connection.rollback(); } catch (rollbackError) {
+        console.error('[Community API] create group rollback error:', rollbackError.message);
+      }
+    }
     console.error('[Community API] create group error:', error.message);
-    if (error?.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'A group with this name already exists in this community.' });
+    if (error?.code === 'ER_DUP_ENTRY') {
+      const keyName = String(error.sqlMessage || error.message || '').toLowerCase();
+      const message = keyName.includes('batch')
+        ? 'A batch with this name already exists in this community.'
+        : 'A group with this name already exists in this community.';
+      return res.status(409).json({ error: message });
+    }
     res.status(500).json({ error: 'db error' });
+  } finally {
+    connection?.release();
   }
 });
 

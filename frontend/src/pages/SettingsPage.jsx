@@ -2,16 +2,16 @@ import React, { useEffect, useState } from 'react';
 import PageHeader from '../components/ui/PageHeader';
 import { notifyAction } from '../components/ActionFeedback';
 import { useAuth } from '../auth/AuthProvider';
-import { hasRole, ROLES } from '../utils/permissions';
-import { changePassword } from '../api/auth';
+import { confirmPasswordReset, requestPasswordResetCode } from '../api/auth';
 
 export default function SettingsPage() {
   const { currentUser } = useAuth();
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('settings.darkMode') === 'true');
-  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
-  const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ passcode: '', newPassword: '', confirmPassword: '' });
+  const [sendingCode, setSendingCode] = useState(false);
+  const [resettingPassword, setResettingPassword] = useState(false);
+  const [codeSent, setCodeSent] = useState(false);
   const [visiblePasswords, setVisiblePasswords] = useState({
-    currentPassword: false,
     newPassword: false,
     confirmPassword: false,
   });
@@ -21,21 +21,39 @@ export default function SettingsPage() {
     localStorage.setItem('settings.darkMode', String(darkMode));
   }, [darkMode]);
 
-  const handlePasswordChange = async (event) => {
+  const handleRequestCode = async () => {
+    setSendingCode(true);
+    try {
+      const result = await requestPasswordResetCode();
+      setCodeSent(true);
+      notifyAction(result.message || 'Verification code sent to your account email.');
+    } catch (error) {
+      notifyAction(error.message || 'Unable to send verification code.', 'error');
+    } finally {
+      setSendingCode(false);
+    }
+  };
+
+  const handlePasswordReset = async (event) => {
     event.preventDefault();
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
       notifyAction('New passwords do not match.', 'error');
       return;
     }
-    setChangingPassword(true);
+    setResettingPassword(true);
     try {
-      await changePassword(passwordForm.currentPassword, passwordForm.newPassword, passwordForm.confirmPassword);
-      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-      notifyAction('Password changed successfully.');
+      const result = await confirmPasswordReset(
+        passwordForm.passcode,
+        passwordForm.newPassword,
+        passwordForm.confirmPassword,
+      );
+      setPasswordForm({ passcode: '', newPassword: '', confirmPassword: '' });
+      setCodeSent(false);
+      notifyAction(result.message || 'Password reset successfully.');
     } catch (error) {
-      notifyAction(error.message || 'Unable to change password.', 'error');
+      notifyAction(error.message || 'Unable to reset password.', 'error');
     } finally {
-      setChangingPassword(false);
+      setResettingPassword(false);
     }
   };
 
@@ -74,27 +92,33 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]) && (
-          <div className="checkup-card" style={{ marginTop: '1rem' }}>
+        <div className="checkup-card" style={{ marginTop: '1rem' }}>
             <div className="checkup-card-body">
-              <div className="checkup-section-title">Change password</div>
-              <form className="settings-password-form" onSubmit={handlePasswordChange}>
+              <div className="checkup-section-title">Reset password</div>
+              <p>
+                Request a one-time verification code to {currentUser?.email || 'your account email'}, then choose a new password.
+              </p>
+              <div style={{ marginBottom: '1rem' }}>
+                <button type="button" className="btn-secondary" onClick={handleRequestCode} disabled={sendingCode}>
+                  {sendingCode ? 'Sending...' : codeSent ? 'Resend verification code' : 'Email me a verification code'}
+                </button>
+              </div>
+              <form className="settings-password-form" onSubmit={handlePasswordReset}>
                 <div className="checkup-grid user-profile-grid">
                   <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                    <label className="checkup-field-label">Current password</label>
-                    <span className="password-input-wrap" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <label className="checkup-field-label" htmlFor="password-reset-code">Email verification code</label>
                       <input
+                        id="password-reset-code"
                         className="checkup-field-input"
-                        type={visiblePasswords.currentPassword ? 'text' : 'password'}
-                        value={passwordForm.currentPassword}
-                        onChange={(event) => updatePasswordField('currentPassword', event.target.value)}
-                        autoComplete="current-password"
+                        type="text"
+                        value={passwordForm.passcode}
+                        onChange={(event) => updatePasswordField('passcode', event.target.value.replace(/\D/g, '').slice(0, 6))}
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        pattern="\d{6}"
+                        maxLength={6}
                         required
                       />
-                      <button type="button" className="btn-secondary" onClick={() => togglePasswordVisibility('currentPassword')}>
-                        {visiblePasswords.currentPassword ? 'Hide' : 'Show'}
-                      </button>
-                    </span>
                   </div>
 
                   <div className="form-group" style={{ gridColumn: '1 / -1' }}>
@@ -135,14 +159,13 @@ export default function SettingsPage() {
                 </div>
 
                 <div style={{ marginTop: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-                  <button type="submit" className="btn-primary" disabled={changingPassword}>
-                    {changingPassword ? 'Changing...' : 'Change password'}
+                  <button type="submit" className="btn-primary" disabled={resettingPassword}>
+                    {resettingPassword ? 'Resetting...' : 'Reset password'}
                   </button>
                 </div>
               </form>
             </div>
-          </div>
-        )}
+        </div>
       </main>
     </div>
   );

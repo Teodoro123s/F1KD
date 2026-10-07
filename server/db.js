@@ -453,6 +453,14 @@ async function ensure() {
       KEY idx_notifications_created_at (created_at),
       KEY idx_notifications_category (category)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+    `CREATE TABLE IF NOT EXISTS user_password_reset_codes (
+      user_id INT NOT NULL PRIMARY KEY,
+      code_hash CHAR(64) NOT NULL,
+      expires_at DATETIME NOT NULL,
+      requested_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      attempts TINYINT UNSIGNED NOT NULL DEFAULT 0,
+      CONSTRAINT fk_password_reset_code_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
     `ALTER TABLE notifications
       ADD COLUMN IF NOT EXISTS title VARCHAR(120) NOT NULL DEFAULT 'Notification',
       ADD COLUMN IF NOT EXISTS link_to VARCHAR(255) DEFAULT NULL,
@@ -616,4 +624,3 @@ const ready = (async () => {
 module.exports = pool;
 module.exports.ready = ready;
 module.exports.ensureDefaultAdmin = ensureDefaultAdmin;
-

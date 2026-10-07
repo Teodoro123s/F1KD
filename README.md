@@ -22,6 +22,22 @@ Docker Compose runs a MySQL-compatible MariaDB database, MinIO document storage,
 docker compose -f docker-compose.minio.yml up --build -d
 ```
 
+### EmailJS setup
+
+The backend uses EmailJS to send a temporary password when Superadmin creates
+an account and a one-time code when any signed-in user resets their password.
+In `.env`, set `EMAILJS_SERVICE_ID`, `EMAILJS_PUBLIC_KEY`,
+`EMAILJS_PRIVATE_KEY`, `EMAILJS_USER_TEMPLATE_ID`, and
+`EMAILJS_OTP_TEMPLATE_ID` from EmailJS. Keep these values private and do not
+put them in frontend variables.
+
+Create an account template with `to_email`, `to_name`, `password`, and `role`
+variables. Create an OTP template whose recipient is `{{to_email}}` and whose
+body uses `{{passcode}}` and `{{time}}` (optionally `{{to_name}}`). After
+changing the root `.env`, recreate the backend with
+`docker compose -f docker-compose.minio.yml up --build -d backend`.
+For local backend development, add the same values to `server/.env`.
+
 Open `http://localhost:8080` on the Docker host. Other devices on the same network can open `http://<docker-host-LAN-IP>:8080`; allow that port through the host firewall. The database and API are not published directly to the network. The MinIO console is bound to the host only at `http://localhost:9001`.
 
 Data persists in the `mariadb-data` and `minio-data` Docker volumes. Local-upload fallback files persist under `server/data/uploads`. `docker compose down` keeps this data; `docker compose down -v` deletes the database and MinIO volumes and should not be used unless you intend to erase them. Back up the SQL database and MinIO objects before moving to a different Docker host; volumes are local to the host and are not automatically synchronized to client devices.

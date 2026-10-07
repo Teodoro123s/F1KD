@@ -149,6 +149,7 @@ export const useCommunityMutations = ({ refreshData }) => {
     async (payload) => {
       const normalized = {
         name: payload.name.trim(),
+        batchName: String(payload.batchName || '').trim(),
         community: payload.community,
         leader: String(payload.leader || '').trim(),
         members: Number(payload.members) || 0,
@@ -157,7 +158,9 @@ export const useCommunityMutations = ({ refreshData }) => {
 
       return runMutation({
         label: 'create group',
-        successMessage: 'Group created successfully',
+        successMessage: normalized.batchName
+          ? 'Group and batch created successfully'
+          : 'Group created successfully',
         request: () => createGroupApi(normalized),
       });
     },

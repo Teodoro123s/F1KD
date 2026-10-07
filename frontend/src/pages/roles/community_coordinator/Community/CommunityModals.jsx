@@ -217,9 +217,8 @@ export function EditBatchModal({ showModal, onClose, batchForm, setBatchForm, ha
   );
 }
 
-export function CreateGroupModal({ showModal, onClose, groupForm, setGroupForm, handleCreateGroup, communities, batches, hideSchoolField = false, isSubmitting }) {
+export function CreateGroupModal({ showModal, onClose, groupForm, setGroupForm, handleCreateGroup, communities, hideSchoolField = false, isSubmitting }) {
   if (!showModal) return null;
-  const availableBatches = batches.filter((batch) => batch.community === groupForm.community);
 
   return (
     <ModalShell title="Create Group" onClose={onClose} onSubmit={handleCreateGroup} submitLabel="Create" isSubmitting={isSubmitting}>
@@ -234,6 +233,17 @@ export function CreateGroupModal({ showModal, onClose, groupForm, setGroupForm, 
           onChange={(e) => setGroupForm({ ...groupForm, name: capitalizeNameValue(e.target.value) })}
           required
           autoFocus
+        />
+      </div>
+      <div className="form-group">
+        <label className="form-label" htmlFor="group-initial-batch">Batch Name (Optional)</label>
+        <input
+          id="group-initial-batch"
+          type="text"
+          className="form-input"
+          placeholder="Enter a batch name to create one"
+          value={groupForm.batchName || ''}
+          onChange={(e) => setGroupForm({ ...groupForm, batchName: capitalizeNameValue(e.target.value) })}
         />
       </div>
       {!hideSchoolField && (

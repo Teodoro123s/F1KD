@@ -82,7 +82,6 @@ export default function CommunityModalManager({
         setGroupForm={setGroupForm}
         handleCreateGroup={onCreateGroup}
         communities={communities}
-        batches={batches}
         hideSchoolField={hideGroupSchoolField}
         isSubmitting={isSubmitting}
       />

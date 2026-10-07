@@ -6,6 +6,8 @@ const { ensureSuperadminAccount } = require('../services/superadminRecovery');
 const { verifyToken } = require('../middleware/auth');
 const { authorize } = require('../middleware/authorize');
 const { createSuperadminNotification } = require('../services/notifications');
+const { sendAccountCredentials } = require('../services/emailjs');
+const crypto = require('crypto');
 
 function normalizeDbStatus(value) {
   const normalized = String(value || '').trim().toLowerCase();
@@ -75,6 +77,7 @@ router.get('/', verifyToken, authorize('super_admin'), async (req, res) => {
 // POST /api/users
 // Require authentication to create users (only Admin/Superadmin allowed in this example)
 router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
+  let connection;
   try {
     const {
       username,
@@ -118,19 +121,17 @@ router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
       return res.status(409).json({ error: 'A user with this email address or contact number already exists.' });
     }
 
-    // generate password if none provided
+    // Generate a strong server-side password when the form does not provide one.
     let plainPassword = password;
     if (!plainPassword || plainPassword.length < 8) {
-      const rand3 = Math.floor(100 + Math.random() * 900);
-      plainPassword = `${userName}.${rand3}`;
-      while (plainPassword.length < 8) {
-        plainPassword += Math.floor(Math.random() * 10).toString();
-      }
+      plainPassword = crypto.randomBytes(18).toString('base64url');
     }
     const hash = await bcrypt.hash(plainPassword, 10);
 
     const dbStatus = normalizeDbStatus(status || 'active');
-    const [result] = await pool.query(
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+    const [result] = await connection.query(
       `INSERT INTO users (email, role, status, password_hash, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, group_id)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
       [
@@ -150,30 +151,51 @@ router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
       ]
     );
 
-    const [rows] = await pool.query(
+    const [rows] = await connection.query(
       `SELECT id, CONCAT_WS(' ', first_name, last_name) AS username, CONCAT_WS(' ', first_name, last_name) AS full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, group_id, created_at
        FROM users WHERE id = ?`,
       [result.insertId]
     );
     const user = rows[0];
     const createdName = [user.first_name, user.middle_initial, user.last_name].filter(Boolean).join(' ');
-    await createSuperadminNotification({
-      eventType: 'user.created',
-      category: 'User Management',
-      title: 'User created',
-      message: `User account created: ${createdName} (${user.role}).`,
-      entityType: 'user',
-      entityId: user.id,
-      linkTo: `/user-management/user/${user.id}`,
-      schoolId: user.school_id,
-      groupId: user.group_id,
-      actorUserId: req.user.id,
+    await sendAccountCredentials({
+      email: user.email,
+      name: createdName,
+      password: plainPassword,
+      role: user.role,
     });
-    // Return created user WITHOUT plaintext password for security.
-    res.status(201).json({ user });
+    await connection.commit();
+    connection.release();
+    connection = null;
+    try {
+      await createSuperadminNotification({
+        eventType: 'user.created',
+        category: 'User Management',
+        title: 'User created',
+        message: `User account created: ${createdName} (${user.role}).`,
+        entityType: 'user',
+        entityId: user.id,
+        linkTo: `/user-management/user/${user.id}`,
+        schoolId: user.school_id,
+        groupId: user.group_id,
+        actorUserId: req.user.id,
+      });
+    } catch (notificationError) {
+      console.error('[Users API] User created, but notification failed:', notificationError.message);
+    }
+    res.status(201).json({ user, emailSent: true });
   } catch (err) {
+    if (connection) {
+      try { await connection.rollback(); } catch (rollbackError) {
+        console.error('[Users API] User creation rollback failed:', rollbackError.message);
+      }
+      connection.release();
+    }
     console.error('[Users API] POST / error:', err.message);
     if (err && err.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'A user with this email address or contact number already exists.' });
+    if (String(err.message || '').startsWith('EmailJS')) {
+      return res.status(502).json({ error: 'The user was not created because the credential email could not be sent. Check the EmailJS configuration and try again.' });
+    }
     res.status(500).json({ error: 'db error' });
   }
 });

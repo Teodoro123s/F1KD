@@ -38,6 +38,24 @@ export async function changePassword(currentPassword, newPassword, confirmPasswo
   return handleResponse(res, 'Password change failed');
 }
 
+export async function requestPasswordResetCode() {
+  const res = await fetchWithAuth(`${API_BASE}/api/auth/password-reset/request`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({}),
+  });
+  return handleResponse(res, 'Unable to send verification code');
+}
+
+export async function confirmPasswordReset(passcode, newPassword, confirmPassword) {
+  const res = await fetchWithAuth(`${API_BASE}/api/auth/password-reset/confirm`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ passcode, newPassword, confirmPassword }),
+  });
+  return handleResponse(res, 'Unable to reset password');
+}
+
 export async function refreshSession() {
   const res = await fetch(`${API_BASE}/api/auth/refresh`, {
     method: 'POST',
