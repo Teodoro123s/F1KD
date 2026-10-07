@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "test": "node --test test/authorization.test.js test/community_count_accuracy.test.js test/program_report.test.js test/superadmin_recovery.test.js test/notifications.test.js test/notification_access.test.js test/who_growth_standards.test.cjs test/emailjs.test.js test/credential_cipher.test.js"
+    "test": "node --test test/authorization.test.js test/community_count_accuracy.test.js test/program_report.test.js test/superadmin_recovery.test.js test/notifications.test.js test/notification_access.test.js test/who_growth_standards.test.cjs test/emailjs.test.js test/credential_cipher.test.js test/password_policy.test.js"
   },
   "dependencies": {
     "bcrypt": "^5.1.0",

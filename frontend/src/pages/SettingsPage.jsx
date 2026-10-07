@@ -3,10 +3,19 @@ import PageHeader from '../components/ui/PageHeader';
 import { notifyAction } from '../components/ActionFeedback';
 import { useAuth } from '../auth/AuthProvider';
 import { confirmPasswordReset, requestPasswordResetCode } from '../api/auth';
+import { applyTheme, getSavedTheme, THEME_STORAGE_KEY } from '../utils/theme';
+
+const PASSWORD_REQUIREMENTS = [
+  { label: 'At least 12 characters', test: (password) => password.length >= 12 },
+  { label: 'A lowercase letter', test: (password) => /[a-z]/.test(password) },
+  { label: 'An uppercase letter', test: (password) => /[A-Z]/.test(password) },
+  { label: 'A number', test: (password) => /\d/.test(password) },
+  { label: 'A symbol (for example, ! or #)', test: (password) => /[^A-Za-z0-9]/.test(password) },
+];
 
 export default function SettingsPage() {
   const { currentUser } = useAuth();
-  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('settings.darkMode') === 'true');
+  const [darkMode, setDarkMode] = useState(() => getSavedTheme() === 'dark');
   const [passwordForm, setPasswordForm] = useState({ passcode: '', newPassword: '', confirmPassword: '' });
   const [sendingCode, setSendingCode] = useState(false);
   const [resettingPassword, setResettingPassword] = useState(false);
@@ -17,8 +26,13 @@ export default function SettingsPage() {
   });
 
   useEffect(() => {
-    document.body.dataset.theme = darkMode ? 'dark' : 'light';
-    localStorage.setItem('settings.darkMode', String(darkMode));
+    const theme = darkMode ? 'dark' : 'light';
+    applyTheme(theme);
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, String(darkMode));
+    } catch (error) {
+      console.error('Unable to save appearance preference:', error);
+    }
   }, [darkMode]);
 
   const handleRequestCode = async () => {
@@ -64,6 +78,9 @@ export default function SettingsPage() {
   const updatePasswordField = (field, value) => {
     setPasswordForm((form) => ({ ...form, [field]: value }));
   };
+  const unmetPasswordRequirements = PASSWORD_REQUIREMENTS
+    .filter(({ test }) => !test(passwordForm.newPassword))
+    .map(({ label }) => label);
 
   return (
     <div className="community-page">
@@ -78,14 +95,16 @@ export default function SettingsPage() {
             <div className="checkup-grid user-profile-grid">
               <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                 <label className="checkup-field-label" htmlFor="dark-mode-toggle">Appearance</label>
-                <label htmlFor="dark-mode-toggle" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', minHeight: '2.75rem', padding: '0.75rem 0.85rem', border: '1px solid #cbd5e1', borderRadius: '8px', background: '#fff', color: '#0f172a', fontWeight: 600 }}>
-                  <span>Dark mode</span>
+                <label className="appearance-toggle" htmlFor="dark-mode-toggle">
+                  <span>{darkMode ? 'Dark mode' : 'Light mode'}</span>
                   <input
                     id="dark-mode-toggle"
+                    className="appearance-toggle__input"
                     type="checkbox"
                     checked={darkMode}
                     onChange={(event) => setDarkMode(event.target.checked)}
                   />
+                  <span className="appearance-toggle__switch" aria-hidden="true" />
                 </label>
               </div>
             </div>
@@ -129,14 +148,23 @@ export default function SettingsPage() {
                         type={visiblePasswords.newPassword ? 'text' : 'password'}
                         value={passwordForm.newPassword}
                         onChange={(event) => updatePasswordField('newPassword', event.target.value)}
-                        minLength={8}
+                        minLength={12}
                         autoComplete="new-password"
+                        aria-describedby="password-strength-guidance"
                         required
                       />
                       <button type="button" className="btn-secondary" onClick={() => togglePasswordVisibility('newPassword')}>
                         {visiblePasswords.newPassword ? 'Hide' : 'Show'}
                       </button>
                     </span>
+                    <div id="password-strength-guidance" style={{ marginTop: '0.5rem', color: '#475569', fontSize: '0.9rem' }} aria-live="polite">
+                      <p style={{ margin: '0 0 0.25rem' }}>
+                        Use a strong password. A passphrase with several unrelated words is easier to remember; avoid names and reused passwords.
+                      </p>
+                      {unmetPasswordRequirements.length
+                        ? <p style={{ margin: 0 }}>Still needed: {unmetPasswordRequirements.join(', ')}.</p>
+                        : <p style={{ margin: 0, color: '#15803d' }}>Your password meets the strength requirements.</p>}
+                    </div>
                   </div>
 
                   <div className="form-group" style={{ gridColumn: '1 / -1' }}>
@@ -147,7 +175,7 @@ export default function SettingsPage() {
                         type={visiblePasswords.confirmPassword ? 'text' : 'password'}
                         value={passwordForm.confirmPassword}
                         onChange={(event) => updatePasswordField('confirmPassword', event.target.value)}
-                        minLength={8}
+                        minLength={12}
                         autoComplete="new-password"
                         required
                       />

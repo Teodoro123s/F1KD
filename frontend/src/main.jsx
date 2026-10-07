@@ -5,7 +5,9 @@ import App from './App';
 import './index.css';
 import { AuthProvider } from './auth/AuthProvider';
 import { LoadingScreen } from './components/LoadingSkeleton';
+import { applyTheme, getSavedTheme } from './utils/theme';
 
+applyTheme(getSavedTheme());
 const root = createRoot(document.getElementById('root'));
 
 root.render(

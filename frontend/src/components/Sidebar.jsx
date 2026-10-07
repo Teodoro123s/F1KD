@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import logo from '../assets/f1kd-logo.png';
+import lightLogo from '../assets/f1kd-logo.png';
+import darkLogo from '../assets/F1KD-bg-transparent.png';
 import { useAuth } from '../auth/AuthProvider';
 import { canAccessModule } from '../utils/permissions';
 import { ActivityIcon, BatchesIcon, BellIcon, BuildingIcon, GroupsIcon, HomeIcon, UsersIcon } from './ui/ModuleIcons';
@@ -30,7 +31,8 @@ export default function Sidebar() {
           onClick={() => setCollapsed(!collapsed)}
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
-          <img src={logo} alt="F1KD logo" className="logo" />
+          <img src={lightLogo} alt="F1KD logo" className="logo theme-logo theme-logo--light" />
+          <img src={darkLogo} alt="" aria-hidden="true" className="logo theme-logo theme-logo--dark" />
         </button>
         {!collapsed && <div className="brand">F1KD</div>}
       </div>

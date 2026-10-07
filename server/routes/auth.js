@@ -12,6 +12,7 @@ const REFRESH_TOKEN_TTL = process.env.REFRESH_TOKEN_TTL || '7d';
 const { verifyToken } = require('../middleware/auth');
 const { ensureSuperadminAccount } = require('../services/superadminRecovery');
 const { sendPasswordResetCode } = require('../services/emailjs');
+const { getPasswordPolicyError } = require('../services/passwordPolicy');
 
 const PASSWORD_RESET_TTL_MINUTES = 15;
 const PASSWORD_RESET_RESEND_SECONDS = 60;
@@ -109,8 +110,9 @@ router.post('/change-password', verifyToken, async (req, res) => {
     if (!currentPassword || !newPassword || newPassword !== confirmPassword) {
       return res.status(400).json({ error: 'Current password and matching new passwords are required' });
     }
-    if (String(newPassword).length < 8) {
-      return res.status(400).json({ error: 'New password must be at least 8 characters' });
+    const passwordPolicyError = getPasswordPolicyError(newPassword);
+    if (passwordPolicyError) {
+      return res.status(400).json({ error: passwordPolicyError });
     }
     if (currentPassword === newPassword) {
       return res.status(400).json({ error: 'New password must be different from the current password' });
@@ -216,8 +218,9 @@ router.post('/password-reset/confirm', verifyToken, async (req, res) => {
   if (!/^\d{6}$/.test(String(passcode || ''))) {
     return res.status(400).json({ error: 'Enter the six-digit verification code from your email.' });
   }
-  if (typeof newPassword !== 'string' || newPassword.length < 8) {
-    return res.status(400).json({ error: 'New password must be at least 8 characters.' });
+  const passwordPolicyError = getPasswordPolicyError(newPassword);
+  if (passwordPolicyError) {
+    return res.status(400).json({ error: passwordPolicyError });
   }
   if (newPassword !== confirmPassword) {
     return res.status(400).json({ error: 'New passwords do not match.' });
