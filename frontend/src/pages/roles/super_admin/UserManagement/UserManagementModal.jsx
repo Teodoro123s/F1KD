@@ -1,7 +1,6 @@
 import React from 'react';
 import DateInput from '../../../../components/ui/DateInput';
 import { capitalizeNameValue } from '../_shared/utils/nameFormat';
-import { generatePassword } from './lib';
 import { isCommunityCoordinatorRole, isHealthWorkerRole } from '../../../../utils/permissions';
 
 function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitting = false, notification = '' }) {

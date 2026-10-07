@@ -79,13 +79,32 @@ async function syncCoordinatorAssignment(communityId, coordinatorId, previousCoo
 }
 
 async function nextCode(pool, table, codeColumn, prefix) {
-  // Generates the next numeric suffix for codes like SCH-0001, BAT-0001, GRP-0001
-  // Use SUBSTRING_INDEX to obtain the numeric portion after the last '-' to be robust.
-  const [rows] = await pool.query(
-    `SELECT COALESCE(MAX(CAST(SUBSTRING_INDEX(${codeColumn}, '-', -1) AS UNSIGNED)), 0) + 1 AS nextNo FROM ${table}`
-  );
-  const nextNo = rows[0].nextNo || 1;
-  return `${prefix}-${String(nextNo).padStart(4, '0')}`;
+  const sequenceTypes = {
+    communities: { column: 'community_code', prefix: 'COM' },
+    batches: { column: 'batch_code', prefix: 'BAT' },
+    groups: { column: 'group_code', prefix: 'GRP' },
+  };
+  const sequence = sequenceTypes[table];
+  if (!sequence || sequence.column !== codeColumn || sequence.prefix !== prefix) {
+    throw new Error('Unsupported code sequence');
+  }
+
+  const ownsConnection = typeof pool.getConnection === 'function';
+  const connection = ownsConnection ? await pool.getConnection() : pool;
+  try {
+    await connection.query(
+      'UPDATE code_sequences SET next_value = LAST_INSERT_ID(next_value + 1) WHERE entity_type = ?',
+      [table],
+    );
+    const [rows] = await connection.query('SELECT LAST_INSERT_ID() AS nextNo');
+    const nextNo = Number(rows[0]?.nextNo);
+    if (!Number.isSafeInteger(nextNo) || nextNo < 1) {
+      throw new Error(`Unable to allocate ${table} code`);
+    }
+    return `${prefix}-${String(nextNo).padStart(4, '0')}`;
+  } finally {
+    if (ownsConnection) connection.release();
+  }
 }
 
 function getEffectiveRecordCount(item = {}) {
@@ -365,6 +384,7 @@ router.post('/communities', async (req, res) => {
 });
 
 router.post('/batches', async (req, res) => {
+  let connection;
   try {
     const { name, community, groupId, records, progress, status } = req.body || {};
     const cleanName = String(name || '').trim();
@@ -378,45 +398,64 @@ router.post('/batches', async (req, res) => {
       return res.status(400).json({ error: 'Community is required' });
     }
 
-    const [duplicateBatches] = await pool.query(
-      'SELECT id FROM batches WHERE community_id = ? AND LOWER(TRIM(name)) = LOWER(TRIM(?)) LIMIT 1',
-      [communityId, cleanName],
-    );
-    if (duplicateBatches.length) {
-      return res.status(409).json({ error: 'A batch with this name already exists in this community.' });
-    }
-
     if (req.isCommunityOrganizer && String(req.schoolId) !== String(communityId)) {
       return res.status(403).json({ error: 'Community organizers can only create batches for their assigned school' });
     }
 
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+    const [communities] = await connection.query(
+      'SELECT id FROM communities WHERE id = ? FOR UPDATE',
+      [communityId],
+    );
+    if (!communities.length) {
+      await connection.rollback();
+      return res.status(400).json({ error: 'Community is required' });
+    }
+
+    const [duplicateBatches] = await connection.query(
+      'SELECT id FROM batches WHERE community_id = ? AND LOWER(TRIM(name)) = LOWER(TRIM(?)) LIMIT 1',
+      [communityId, cleanName],
+    );
+    if (duplicateBatches.length) {
+      await connection.rollback();
+      return res.status(409).json({ error: 'A batch with this name already exists in this community.' });
+    }
+
     const resolvedGroupId = groupId ? Number(groupId) : null;
     if (resolvedGroupId) {
-      const [groupRows] = await pool.query(
+      const [groupRows] = await connection.query(
         'SELECT id FROM groups WHERE id = ? AND community_id = ? LIMIT 1',
         [resolvedGroupId, communityId],
       );
-      if (!groupRows.length) return res.status(400).json({ error: 'Selected group does not belong to this community' });
+      if (!groupRows.length) {
+        await connection.rollback();
+        return res.status(400).json({ error: 'Selected group does not belong to this community' });
+      }
     }
 
-    const batchCode = await nextCode(pool, 'batches', 'batch_code', 'BAT');
-    const [result] = await pool.query(
+    const batchCode = await nextCode(connection, 'batches', 'batch_code', 'BAT');
+    const [result] = await connection.query(
       'INSERT INTO batches (batch_code, community_id, name, records, progress, status) VALUES (?, ?, ?, ?, ?, ?)',
       [batchCode, communityId, cleanName, Number(records) || 0, Number(progress) || 0, status || 'Active']
     );
 
-    const [rows] = await pool.query(
+    const [rows] = await connection.query(
       'SELECT id, batch_code AS code, name, records, progress, status, community_id FROM batches WHERE id = ?',
       [result.insertId]
     );
 
     const created = rows[0];
     if (resolvedGroupId) {
-      await pool.query(
+      await connection.query(
         'INSERT INTO group_batch (group_id, batch_id) VALUES (?, ?)',
         [resolvedGroupId, result.insertId],
       );
     }
+    await connection.commit();
+    connection.release();
+    connection = null;
+
     await createSuperadminNotification({
       eventType: 'batch.created',
       category: 'Community',
@@ -432,9 +471,16 @@ router.post('/batches', async (req, res) => {
     console.info('[Community API] Created batch', created);
     res.status(201).json({ batch: { ...created, id: created.code || created.id, code: created.code || created.id, groupId: resolvedGroupId } });
   } catch (error) {
+    if (connection) {
+      try { await connection.rollback(); } catch (rollbackError) {
+        console.error('[Community API] create batch rollback error:', rollbackError.message);
+      }
+    }
     console.error('[Community API] create batch error:', error.message);
     if (error?.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'A batch with this name already exists in this community.' });
     res.status(500).json({ error: 'db error' });
+  } finally {
+    connection?.release();
   }
 });
 
@@ -460,6 +506,14 @@ router.post('/groups', async (req, res) => {
 
     connection = await pool.getConnection();
     await connection.beginTransaction();
+    const [communities] = await connection.query(
+      'SELECT id FROM communities WHERE id = ? FOR UPDATE',
+      [communityId],
+    );
+    if (!communities.length) {
+      await connection.rollback();
+      return res.status(400).json({ error: 'Community is required' });
+    }
     const [duplicateGroups] = await connection.query(
       'SELECT id FROM groups WHERE community_id = ? AND LOWER(TRIM(name)) = LOWER(TRIM(?)) LIMIT 1',
       [communityId, cleanName],
@@ -736,6 +790,7 @@ router.delete('/communities/:id', async (req, res) => {
 });
 
 router.put('/groups/:id', async (req, res) => {
+  let connection;
   try {
     const { id } = req.params;
     const { name, community, leader, members, status } = req.body || {};
@@ -751,29 +806,50 @@ router.put('/groups/:id', async (req, res) => {
       return res.status(400).json({ error: 'Invalid group id' });
     }
 
-    const [duplicateGroups] = await pool.query(
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+    const [communities] = await connection.query(
+      'SELECT id FROM communities WHERE id = ? FOR UPDATE',
+      [communityId],
+    );
+    if (!communities.length) {
+      await connection.rollback();
+      return res.status(400).json({ error: 'Community is required' });
+    }
+
+    const [duplicateGroups] = await connection.query(
       'SELECT id FROM groups WHERE community_id = ? AND LOWER(TRIM(name)) = LOWER(TRIM(?)) AND id <> ? LIMIT 1',
       [communityId, cleanName, groupId],
     );
     if (duplicateGroups.length) {
+      await connection.rollback();
       return res.status(409).json({ error: 'A group with this name already exists in this community.' });
     }
 
-    const [existingGroups] = await pool.query('SELECT id FROM groups WHERE id = ? LIMIT 1', [groupId]);
-    if (!existingGroups.length) return res.status(404).json({ error: 'Group not found' });
+    const [existingGroups] = await connection.query('SELECT id FROM groups WHERE id = ? LIMIT 1', [groupId]);
+    if (!existingGroups.length) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Group not found' });
+    }
 
-    await pool.query(
+    await connection.query(
       'UPDATE groups SET name = ?, community_id = ?, leader = ?, members_count = ?, status = ? WHERE id = ?',
       [cleanName, communityId || null, String(leader || '').trim() || null, Number(members) || 0, status || 'Active', groupId]
     );
 
-    const [rows] = await pool.query(
+    const [rows] = await connection.query(
       'SELECT id, group_code AS code, name, leader, members_count AS members, status, community_id FROM groups WHERE id = ?',
       [groupId]
     );
 
     const updated = rows[0];
-    if (!updated) return res.status(404).json({ error: 'Group not found' });
+    if (!updated) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Group not found' });
+    }
+    await connection.commit();
+    connection.release();
+    connection = null;
     await createSuperadminNotification({
       eventType: 'group.updated',
       category: 'Community',
@@ -788,9 +864,16 @@ router.put('/groups/:id', async (req, res) => {
     });
     res.json({ group: { ...updated, assignedBatchIds: [] } });
   } catch (error) {
+    if (connection) {
+      try { await connection.rollback(); } catch (rollbackError) {
+        console.error('[Community API] update group rollback error:', rollbackError.message);
+      }
+    }
     console.error('[Community API] update group error:', error.message);
     if (error?.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'A group with this name already exists in this community.' });
     res.status(500).json({ error: 'db error' });
+  } finally {
+    connection?.release();
   }
 });
 
@@ -826,6 +909,7 @@ router.delete('/groups/:id', async (req, res) => {
 });
 
 router.put('/batches/:id', async (req, res) => {
+  let connection;
   try {
     const { id } = req.params;
     const { name, community, groupId, records, progress, status } = req.body || {};
@@ -841,27 +925,39 @@ router.put('/batches/:id', async (req, res) => {
       return res.status(404).json({ error: 'Batch not found' });
     }
 
-    const [duplicateBatches] = await pool.query(
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+    const [communities] = await connection.query(
+      'SELECT id FROM communities WHERE id = ? FOR UPDATE',
+      [communityId],
+    );
+    if (!communities.length) {
+      await connection.rollback();
+      return res.status(400).json({ error: 'Community is required' });
+    }
+
+    const [duplicateBatches] = await connection.query(
       'SELECT id FROM batches WHERE community_id = ? AND LOWER(TRIM(name)) = LOWER(TRIM(?)) AND id <> ? LIMIT 1',
       [communityId, cleanName, batchId],
     );
     if (duplicateBatches.length) {
+      await connection.rollback();
       return res.status(409).json({ error: 'A batch with this name already exists in this community.' });
     }
 
-    await pool.query(
+    await connection.query(
       'UPDATE batches SET name = ?, community_id = ?, records = ?, progress = ?, status = ? WHERE id = ?',
       [cleanName, communityId || null, Number(records) || 0, Number(progress) || 0, status || 'Active', batchId]
     );
 
     if (groupId !== undefined) {
-      await pool.query('DELETE FROM group_batch WHERE batch_id = ?', [batchId]);
+      await connection.query('DELETE FROM group_batch WHERE batch_id = ?', [batchId]);
       if (groupId) {
-        await pool.query('INSERT INTO group_batch (group_id, batch_id) VALUES (?, ?)', [Number(groupId), batchId]);
+        await connection.query('INSERT INTO group_batch (group_id, batch_id) VALUES (?, ?)', [Number(groupId), batchId]);
       }
     }
 
-    const [rows] = await pool.query(
+    const [rows] = await connection.query(
       `SELECT b.id, b.batch_code AS code, b.name, b.records, b.progress, b.status, b.community_id,
           (SELECT group_id FROM group_batch WHERE batch_id = b.id ORDER BY group_id LIMIT 1) AS group_id
        FROM batches b WHERE b.id = ?`,
@@ -869,7 +965,13 @@ router.put('/batches/:id', async (req, res) => {
     );
 
     const updated = rows[0];
-    if (!updated) return res.status(404).json({ error: 'Batch not found' });
+    if (!updated) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Batch not found' });
+    }
+    await connection.commit();
+    connection.release();
+    connection = null;
     await createSuperadminNotification({
       eventType: 'batch.updated',
       category: 'Community',
@@ -884,9 +986,16 @@ router.put('/batches/:id', async (req, res) => {
     });
     res.json({ batch: { ...updated, id: updated.code || updated.id, code: updated.code || updated.id } });
   } catch (error) {
+    if (connection) {
+      try { await connection.rollback(); } catch (rollbackError) {
+        console.error('[Community API] update batch rollback error:', rollbackError.message);
+      }
+    }
     console.error('[Community API] update batch error:', error.message);
     if (error?.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'A batch with this name already exists in this community.' });
     res.status(500).json({ error: 'db error' });
+  } finally {
+    connection?.release();
   }
 });
 

@@ -8,6 +8,19 @@ import { capitalizeNameValue } from '../../_shared/utils/nameFormat';
 import { getSummary } from '../../_shared/pages/shared/Community/communityService';
 import PageHeader from '../../../../../components/ui/PageHeader';
 import { notifyAction } from '../../_shared/components/ActionFeedback';
+import { isHealthWorkerRole } from '../../../../../utils/permissions';
+
+const HEALTH_WORKER_MOTHER_FIELDS = [
+  'lmpDate', 'eddDate', 'prenatalRegDate', 'trimester', 'gestationalAge',
+  'prenatalWeight', 'prenatalBp', 'prenatalHeight', 'fundalHeight', 'fhr',
+  'gravida', 'para', 'abortion', 'stillbirth', 'weight', 'height', 'isHighRisk',
+  'medicalConditions', 'otherMedicalHistory', 'obHistory',
+  'ttRemarks', 'tt1Date', 'tt2Date', 'tt3Date', 'tt4Date', 'tt5Date',
+  'tt1Remarks', 'tt2Remarks', 'tt3Remarks', 'tt4Remarks', 'tt5Remarks',
+  'dentalCheckupDate', 'dentalFacility', 'dentistInCharge', 'communityDentist',
+  'dentistLicense', 'dentistContact', 'teethCount', 'dentalFindings',
+  'dentalRemarks', 'dentalWork',
+];
 
 const parseAddressParts = (address = '') => {
   const parts = String(address || '').split(',').map((part) => part.trim()).filter(Boolean);
@@ -56,6 +69,8 @@ export default function EditMotherPage() {
   const { id } = useParams();
   const location = useLocation();
   const initialMother = location.state?.mother || null;
+  const { currentUser } = useAuth();
+  const isHealthWorker = isHealthWorkerRole(currentUser?.role);
 
   const { mothers, setMothers } = useMothers();
   const formRef = useRef(null);
@@ -66,14 +81,16 @@ export default function EditMotherPage() {
   const [error, setError] = useState(null);
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [communityOptions, setCommunityOptions] = useState({ communities: [], groups: [], batches: [] });
-  const [activeTab, setActiveTab] = useState('general');
-
   const profileSteps = [
     ['general', 'General'],
     ['prenatal', 'Prenatal/OB'],
     ['medical_dental', 'Medical & Dental'],
     ['vaccine', 'Vaccine'],
   ];
+  const editableProfileSteps = isHealthWorker
+    ? profileSteps.filter(([tab]) => tab !== 'general')
+    : profileSteps;
+  const [activeTab, setActiveTab] = useState(isHealthWorker ? 'prenatal' : 'general');
 
   useEffect(() => {
     getSummary()
@@ -140,9 +157,14 @@ export default function EditMotherPage() {
     setError(null);
     try {
       const motherId = id || form.id || form.motherId;
-      const res = await apiUpdateMother(motherId, form);
+      const updatePayload = isHealthWorker
+        ? Object.fromEntries(HEALTH_WORKER_MOTHER_FIELDS
+          .filter((field) => Object.prototype.hasOwnProperty.call(form, field))
+          .map((field) => [field, form[field]]))
+        : form;
+      const res = await apiUpdateMother(motherId, updatePayload);
       let updated = res && res.mother ? res.mother : (res || form);
-      if (documentFiles.birthCertificate || documentFiles.consent) {
+      if (!isHealthWorker && (documentFiles.birthCertificate || documentFiles.consent)) {
         const documentResponse = await apiUploadMotherDocuments(motherId, documentFiles);
         if (documentResponse?.mother) updated = { ...updated, ...documentResponse.mother };
       }
@@ -206,7 +228,7 @@ export default function EditMotherPage() {
         <div className="mother-detail-profile-content edit-mother-profile-content">
           <div className="stepper-progress mother-detail-stepper">
             <div className="stepper-steps" role="tablist" aria-label="Mother profile sections">
-              {profileSteps.map(([tab, label], index) => (
+              {editableProfileSteps.map(([tab, label], index) => (
                 <button
                   key={tab}
                   type="button"
@@ -235,6 +257,7 @@ export default function EditMotherPage() {
                 setDocumentFiles={setDocumentFiles}
                 autoCalculate={false}
                 readOnly={false}
+                healthWorkerMode={isHealthWorker}
               />
             </div>
           </div>

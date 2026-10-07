@@ -52,6 +52,8 @@ export default function UserManagementPage() {
     cancelDelete,
     setForm,
     isSubmitting,
+    isResendingCredentials,
+    resendCredentials,
     suspendLoadingIds,
     deletingId,
     apiOnline,
@@ -173,12 +175,17 @@ export default function UserManagementPage() {
         <div className="one-time-credentials">
           <div className="one-time-credentials-header">
             <h3>{oneTimeCredentials.emailSent ? 'Temporary access emailed' : 'Email delivery failed'}</h3>
-            <span>{oneTimeCredentials.emailSent ? 'The temporary password was sent to this address.' : 'Review the EmailJS configuration and retry creating the account.'}</span>
+            <span>{oneTimeCredentials.emailSent ? 'The temporary password was sent to this address.' : 'The account exists, but the password email was not confirmed. Retry sending credentials.'}</span>
           </div>
           <div className="cred-row">
             <div><strong>Email:</strong> {oneTimeCredentials.email}</div>
           </div>
           <div className="cred-actions">
+            {!oneTimeCredentials.emailSent && (
+              <button type="button" className="btn-secondary" onClick={resendCredentials} disabled={isResendingCredentials}>
+                {isResendingCredentials ? 'Sending...' : 'Resend credentials'}
+              </button>
+            )}
             <button type="button" className="btn-primary" onClick={clearOneTimeCredentials}>Dismiss</button>
           </div>
         </div>

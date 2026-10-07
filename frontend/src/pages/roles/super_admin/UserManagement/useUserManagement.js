@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { apiGetUsers, apiCreateUser, apiUpdateUser, apiPatchUserStatus, apiDeleteUser } from '../../../../api/users';
+import { apiGetUsers, apiCreateUser, apiResendUserCredentials, apiUpdateUser, apiPatchUserStatus, apiDeleteUser } from '../../../../api/users';
 import { isValidName, isValidMiddleInitial, sanitizeDigits, normalizeContact, isValidContact, isValidEmail, formatDobForInput, isValidDob, getDobValidationMessage } from './lib';
 import { getSummary } from '../Community/communityService';
 import { isCommunityCoordinatorRole, isHealthWorkerRole } from '../../../../utils/permissions';
@@ -148,6 +148,7 @@ export function useUserManagement({ schoolId = '', batchId = '' } = {}) {
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   // Prevent double submits
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isResendingCredentials, setIsResendingCredentials] = useState(false);
   const submitLock = useRef(false);
   // Loading flags for individual actions
   const [suspendLoadingIds, setSuspendLoadingIds] = useState(() => new Set());
@@ -467,7 +468,7 @@ export function useUserManagement({ schoolId = '', batchId = '' } = {}) {
           name: `${created.first_name} ${created.middle_initial ? created.middle_initial + ' ' : ''}${created.last_name}`,
         };
             setUsers((prev) => [newUser, ...prev]);
-        setOneTimeCredentials({ email, emailSent: data.emailSent });
+        setOneTimeCredentials({ id: serverId, email, emailSent: data.emailSent });
         setNotification(data.emailSent
           ? `Created ${fullName}. Temporary credentials were emailed to ${email}.`
           : `Created ${fullName}, but the credential email was not sent.`);
@@ -485,6 +486,19 @@ export function useUserManagement({ schoolId = '', batchId = '' } = {}) {
     }
   };
 
+  const resendCredentials = async () => {
+    if (!oneTimeCredentials?.id || isResendingCredentials) return;
+    setIsResendingCredentials(true);
+    try {
+      await apiResendUserCredentials(oneTimeCredentials.id);
+      setOneTimeCredentials((current) => current ? { ...current, emailSent: true } : current);
+      setNotification(`Temporary credentials were sent to ${oneTimeCredentials.email}.`);
+    } catch (error) {
+      setNotification(error.message || 'Unable to resend credentials.');
+    } finally {
+      setIsResendingCredentials(false);
+    }
+  };
 
 
   const handleSuspendUser = async (id) => {
@@ -633,6 +647,8 @@ export function useUserManagement({ schoolId = '', batchId = '' } = {}) {
     cancelDelete,
     setForm,
     isSubmitting,
+    isResendingCredentials,
+    resendCredentials,
     // loading indicators for row-level actions
     suspendLoadingIds: Array.from(suspendLoadingIds),
     deletingId,

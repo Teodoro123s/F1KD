@@ -52,6 +52,8 @@ async function ensure() {
       role VARCHAR(120),
       status ENUM('Active','Suspended') DEFAULT 'Active',
       password_hash VARCHAR(255),
+      auth_version INT NOT NULL DEFAULT 0,
+      pending_credential_email TEXT NULL,
       school_id INT NULL,
       group_id INT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -60,7 +62,9 @@ async function ensure() {
 
     `ALTER TABLE users
       ADD COLUMN IF NOT EXISTS school_id INT NULL,
-      ADD COLUMN IF NOT EXISTS group_id INT NULL;`,
+      ADD COLUMN IF NOT EXISTS group_id INT NULL,
+      ADD COLUMN IF NOT EXISTS auth_version INT NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS pending_credential_email TEXT NULL;`,
 
 
 
@@ -106,6 +110,22 @@ async function ensure() {
       FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE,
       FOREIGN KEY (batch_id) REFERENCES batches(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+    `CREATE TABLE IF NOT EXISTS code_sequences (
+      entity_type VARCHAR(24) NOT NULL PRIMARY KEY,
+      next_value BIGINT UNSIGNED NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+    `INSERT INTO code_sequences (entity_type, next_value)
+      SELECT 'communities', COALESCE(MAX(CAST(SUBSTRING_INDEX(community_code, '-', -1) AS UNSIGNED)), 0)
+      FROM communities WHERE 1 = 1
+      ON DUPLICATE KEY UPDATE next_value = GREATEST(next_value, VALUES(next_value));`,
+    `INSERT INTO code_sequences (entity_type, next_value)
+      SELECT 'batches', COALESCE(MAX(CAST(SUBSTRING_INDEX(batch_code, '-', -1) AS UNSIGNED)), 0)
+      FROM batches WHERE 1 = 1
+      ON DUPLICATE KEY UPDATE next_value = GREATEST(next_value, VALUES(next_value));`,
+    `INSERT INTO code_sequences (entity_type, next_value)
+      SELECT 'groups', COALESCE(MAX(CAST(SUBSTRING_INDEX(group_code, '-', -1) AS UNSIGNED)), 0)
+      FROM groups WHERE 1 = 1
+      ON DUPLICATE KEY UPDATE next_value = GREATEST(next_value, VALUES(next_value));`,
 
     `CREATE TABLE IF NOT EXISTS mothers (
       id INT AUTO_INCREMENT PRIMARY KEY,

@@ -69,7 +69,7 @@ export default function DashboardOverview({ variant }) {
   const moduleAccess = useMemo(() => ({
     community: canAccessModule(currentUser?.role, 'community'),
     beneficiary: canAccessModule(currentUser?.role, 'beneficiary'),
-    monitoring: canAccessModule(currentUser?.role, 'beneficiary'),
+    monitoring: canAccessModule(currentUser?.role, 'monitoring'),
     programs: canAccessModule(currentUser?.role, 'program'),
     reports: canAccessModule(currentUser?.role, 'progressReport'),
     users: canAccessModule(currentUser?.role, 'userManagement'),
@@ -475,7 +475,7 @@ export default function DashboardOverview({ variant }) {
                 </span>
               )}
             </h2>
-            <p>{isSuperAdmin ? 'Municipal operations overview across all modules' : `${roleLabel} workspace for assigned operations`}</p>
+            <p>{isSuperAdmin ? 'Municipal overview of community and user operations' : `${roleLabel} workspace for assigned operations`}</p>
           </div>
         </div>
 

@@ -7,6 +7,7 @@ const { verifyToken } = require('../middleware/auth');
 const { authorize } = require('../middleware/authorize');
 const { createSuperadminNotification } = require('../services/notifications');
 const { sendAccountCredentials } = require('../services/emailjs');
+const { encryptCredential, decryptCredential } = require('../services/credentialCipher');
 const crypto = require('crypto');
 
 function normalizeDbStatus(value) {
@@ -132,13 +133,14 @@ router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
     connection = await pool.getConnection();
     await connection.beginTransaction();
     const [result] = await connection.query(
-      `INSERT INTO users (email, role, status, password_hash, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, group_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
+      `INSERT INTO users (email, role, status, password_hash, auth_version, pending_credential_email, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, group_id)
+       VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
       [
         email,
         role || 'user',
         dbStatus,
         hash,
+        encryptCredential(plainPassword),
         firstName || '',
         lastName || '',
         middleInitial || null,
@@ -158,15 +160,22 @@ router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
     );
     const user = rows[0];
     const createdName = [user.first_name, user.middle_initial, user.last_name].filter(Boolean).join(' ');
-    await sendAccountCredentials({
-      email: user.email,
-      name: createdName,
-      password: plainPassword,
-      role: user.role,
-    });
     await connection.commit();
     connection.release();
     connection = null;
+    let emailSent = false;
+    try {
+      await sendAccountCredentials({
+        email: user.email,
+        name: createdName,
+        password: plainPassword,
+        role: user.role,
+      });
+      await pool.query('UPDATE users SET pending_credential_email = NULL WHERE id = ?', [user.id]);
+      emailSent = true;
+    } catch (emailError) {
+      console.error('[Users API] User created, but credential email failed:', emailError.message);
+    }
     try {
       await createSuperadminNotification({
         eventType: 'user.created',
@@ -183,7 +192,7 @@ router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
     } catch (notificationError) {
       console.error('[Users API] User created, but notification failed:', notificationError.message);
     }
-    res.status(201).json({ user, emailSent: true });
+    res.status(201).json({ user, emailSent });
   } catch (err) {
     if (connection) {
       try { await connection.rollback(); } catch (rollbackError) {
@@ -193,10 +202,68 @@ router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
     }
     console.error('[Users API] POST / error:', err.message);
     if (err && err.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'A user with this email address or contact number already exists.' });
-    if (String(err.message || '').startsWith('EmailJS')) {
-      return res.status(502).json({ error: 'The user was not created because the credential email could not be sent. Check the EmailJS configuration and try again.' });
-    }
     res.status(500).json({ error: 'db error' });
+  }
+});
+
+router.post('/:id/resend-credentials', verifyToken, authorize('super_admin'), async (req, res) => {
+  let connection;
+  let needsNewPassword = false;
+  try {
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+    const [users] = await connection.query(
+      'SELECT id, email, first_name, middle_initial, last_name, role, pending_credential_email FROM users WHERE id = ? LIMIT 1 FOR UPDATE',
+      [req.params.id],
+    );
+    const user = users[0];
+    if (!user) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Not found' });
+    }
+
+    needsNewPassword = !user.pending_credential_email;
+    const password = user.pending_credential_email
+      ? decryptCredential(user.pending_credential_email)
+      : crypto.randomBytes(18).toString('base64url');
+    if (needsNewPassword) {
+      const passwordHash = await bcrypt.hash(password, 10);
+      await connection.query(
+        'UPDATE users SET password_hash = ?, auth_version = auth_version + 1, pending_credential_email = ? WHERE id = ?',
+        [passwordHash, encryptCredential(password), user.id],
+      );
+    }
+    await connection.commit();
+    connection.release();
+    connection = null;
+
+    await sendAccountCredentials({
+      email: user.email,
+      name: [user.first_name, user.middle_initial, user.last_name].filter(Boolean).join(' '),
+      password,
+      role: user.role,
+    });
+    await pool.query('UPDATE users SET pending_credential_email = NULL WHERE id = ?', [user.id]);
+    return res.json({ emailSent: true });
+  } catch (error) {
+    if (connection) {
+      try { await connection.rollback(); } catch (rollbackError) {
+        console.error('[Users API] Credential resend rollback failed:', rollbackError.message);
+      }
+    }
+    console.error('[Users API] Credential resend failed:', error.message);
+    if (String(error.message || '').startsWith('EmailJS')) {
+      return res.status(502).json({
+        error: needsNewPassword
+          ? 'The password was updated, but the credential email was not confirmed. Retry sending credentials.'
+          : 'The credential email was not confirmed. Retry sending credentials.',
+        emailSent: false,
+        passwordChanged: needsNewPassword,
+      });
+    }
+    return res.status(500).json({ error: 'Unable to resend credentials.' });
+  } finally {
+    connection?.release();
   }
 });
 
@@ -301,6 +368,8 @@ router.put('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
       const hash = await bcrypt.hash(password, 10);
       updates.push('password_hash = ?');
       params.push(hash);
+      updates.push('auth_version = auth_version + 1');
+      updates.push('pending_credential_email = NULL');
     }
 
     if (!updates.length) return res.status(400).json({ error: 'No fields to update' });

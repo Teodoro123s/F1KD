@@ -39,11 +39,11 @@ test('normalizeRole maps common role labels to canonical values', () => {
 test('operational API modules follow the role access matrix', () => {
   const cases = [
     ['Super Admin', '/api/community', true],
-    ['Super Admin', '/api/mothers', true],
-    ['Super Admin', '/api/children', true],
-    ['Super Admin', '/api/programs', true],
-    ['Super Admin', '/api/progress-report', true],
-    ['Super Admin', '/api/documents', true],
+    ['Super Admin', '/api/mothers', false],
+    ['Super Admin', '/api/children', false],
+    ['Super Admin', '/api/programs', false],
+    ['Super Admin', '/api/progress-report', false],
+    ['Super Admin', '/api/documents', false],
     ['Admin', '/api/community', true],
     ['Admin', '/api/mothers', true],
     ['Admin', '/api/children', true],
@@ -53,7 +53,7 @@ test('operational API modules follow the role access matrix', () => {
     ['Community Coordinator', '/api/mothers', true],
     ['Community Coordinator', '/api/children', true],
     ['Community Coordinator', '/api/progress-report', true],
-    ['Community Coordinator', '/api/programs', false],
+    ['Community Coordinator', '/api/programs', true],
     ['Partner', '/api/programs', true],
     ['Partner', '/api/progress-report', true],
     ['Partner', '/api/community', false],
@@ -100,6 +100,17 @@ test('superadmins have global scope while other roles are forced to assigned sco
     school_id: 7,
     group_id: 15,
   });
+
+  test('superadmins are denied progress report API access', () => {
+    const req = { user: { role: 'Super Admin' } };
+    const res = responseMock();
+    let called = false;
+
+    authorizeProgressReport(req, res, () => { called = true; });
+
+    assert.equal(called, false);
+    assert.equal(res.code, 403);
+  });
   assert.equal(partner.called, true);
   assert.equal(partner.req.schoolId, 7);
   assert.equal(partner.req.groupId, null);
@@ -120,16 +131,25 @@ test('Admin and Partner are read-only', () => {
     ['Admin', '/api/community', 'POST', '/groups'],
     ['Admin', '/api/mothers', 'PUT', '/MTH-1'],
     ['Partner', '/api/programs', 'PATCH', '/4/monitoring'],
-    ['Partner', '/api/progress-report', 'POST', '/'],
   ]) {
     const { called, res } = authorizeRequest({ role, baseUrl, method, path });
     assert.equal(called, false, `${role} ${method} ${baseUrl}${path}`);
     assert.equal(res.code, 403);
     assert.equal(res.payload.message, 'This role has read-only access to this module');
   }
+
+  const partnerReportWrite = authorizeRequest({
+    role: 'Partner',
+    baseUrl: '/api/progress-report',
+    method: 'POST',
+    path: '/',
+  });
+  assert.equal(partnerReportWrite.called, false);
+  assert.equal(partnerReportWrite.res.code, 403);
+  assert.equal(partnerReportWrite.res.payload.message, 'Progress reports are read-only');
 });
 
-test('Community Coordinators can manage assigned community and beneficiary records but not create/delete schools', () => {
+test('Community Coordinators can manage assigned groups and batches but cannot mutate schools', () => {
   for (const path of ['/batches', '/groups']) {
     const result = authorizeRequest({
       role: 'Community Organizer',
@@ -141,15 +161,34 @@ test('Community Coordinators can manage assigned community and beneficiary recor
     assert.equal(result.req.isCommunityOrganizer, true);
   }
 
-  for (const [method, path] of [['POST', '/communities'], ['DELETE', '/communities/7']]) {
+  for (const [method, path] of [
+    ['POST', '/communities'],
+    ['PUT', '/communities/7'],
+    ['DELETE', '/communities/7'],
+  ]) {
     const { called, res } = authorizeRequest({
       role: 'Community Coordinator',
       baseUrl: '/api/community',
       method,
       path,
     });
+
     assert.equal(called, false);
     assert.equal(res.code, 403);
+  }
+});
+
+test('Progress report endpoints are read-only for all permitted roles', () => {
+  for (const role of ['Community Coordinator', 'Partner']) {
+    const { called, res } = authorizeRequest({
+      role,
+      baseUrl: '/api/progress-report',
+      method: 'POST',
+      path: '/',
+    });
+    assert.equal(called, false, `${role} cannot mutate progress reports`);
+    assert.equal(res.code, 403);
+    assert.equal(res.payload.message, 'Progress reports are read-only');
   }
 });
 
@@ -228,13 +267,13 @@ test('Health Worker profile updates strip demographic and assignment fields', ()
   });
 });
 
-test('Progress Report is available only to Super Admin, Community Coordinator, and Partner', () => {
-  for (const role of ['Super Admin', 'Community Coordinator', 'Partner']) {
+test('Progress Report is available only to Community Coordinator and Partner', () => {
+  for (const role of ['Community Coordinator', 'Partner']) {
     let called = false;
     authorizeProgressReport({ user: { role } }, {}, () => { called = true; });
     assert.equal(called, true, role);
   }
-  for (const role of ['Admin', 'Health worker', 'viewer']) {
+  for (const role of ['Super Admin', 'Admin', 'Health worker', 'viewer']) {
     const res = responseMock();
     let called = false;
     authorizeProgressReport({ user: { role } }, res, () => { called = true; });

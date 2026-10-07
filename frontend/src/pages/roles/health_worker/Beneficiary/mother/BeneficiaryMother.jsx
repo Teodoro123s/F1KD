@@ -18,6 +18,7 @@ export function MotherFormFields({
   documentContent = null,
   hideSchoolField = false,
   showRequiredValidation = false,
+  healthWorkerMode = false,
 }) {
   const [dateDrafts, setDateDrafts] = React.useState({});
   const [barangayOptions, setBarangayOptions] = React.useState([]);
@@ -532,7 +533,7 @@ export function MotherFormFields({
           <h4 className="form-section-title">II. INITIAL PRENATAL ASSESSMENT & MATERNAL HEALTH PROFILE</h4>
           <div className="form-row-2 full-width">
           {readOnly ? (
-            renderField({ id: 'mother-lmp', label: 'Date of LMP', name: 'lmpDate', type: 'date', required: true })
+            renderField({ id: 'mother-lmp', label: 'Date of LMP', name: 'lmpDate', type: 'date', required: !healthWorkerMode })
           ) : (
             <div className="form-group">
               <label className="form-label" htmlFor="mother-lmp">Date of LMP</label>
@@ -547,7 +548,7 @@ export function MotherFormFields({
                 max={new Date().toISOString().split('T')[0]}
                 autoComplete="off"
                 pattern="\\d{2}/\\d{2}/\\d{4}"
-                required
+                required={!healthWorkerMode}
               />
               {slashDateInput && <>
                 <button type="button" className="date-picker-button" onClick={() => openDatePicker('lmpDate')} aria-label="Open calendar for Date of LMP"><span aria-hidden="true">▣</span></button>
@@ -567,28 +568,28 @@ export function MotherFormFields({
             </div>
           )}
 
-          {renderField({ id: 'mother-edd', label: "Expected Delivery Date (EDD)", name: 'eddDate', type: 'date', required: true, disabled: true })}
+          {renderField({ id: 'mother-edd', label: "Expected Delivery Date (EDD)", name: 'eddDate', type: 'date', required: !healthWorkerMode, disabled: true })}
           </div>
 
           <div className="form-row-3 full-width">
           {renderField({ id: 'prenatal-reg-date', label: 'Date of Prenatal Registration', name: 'prenatalRegDate', type: 'date' })}
-          {renderField({ id: 'prenatal-gest-age', label: 'Gestational Age at Reg (weeks)', name: 'gestationalAge', required: true, disabled: true })}
-          {renderField({ id: 'mother-trimester', label: 'Trimester', name: 'trimester', required: true, disabled: true })}
+          {renderField({ id: 'prenatal-gest-age', label: 'Gestational Age at Reg (weeks)', name: 'gestationalAge', required: !healthWorkerMode, disabled: true })}
+          {renderField({ id: 'mother-trimester', label: 'Trimester', name: 'trimester', required: !healthWorkerMode, disabled: true })}
           </div>
 
           <div className="form-row-3 full-width">
-          {renderField({ id: 'prenatal-weight', label: 'Weight (kg) at Reg', name: 'prenatalWeight', placeholder: 'e.g. 52', required: true })}
-          {renderField({ id: 'prenatal-bp', label: 'Blood Pressure (BP) at Reg', name: 'prenatalBp', placeholder: 'e.g. 120/80', required: true })}
-          {renderField({ id: 'prenatal-height', label: 'Height (cm) at Reg', name: 'prenatalHeight', placeholder: 'e.g. 150', required: true })}
+          {renderField({ id: 'prenatal-weight', label: 'Weight (kg) at Reg', name: 'prenatalWeight', placeholder: 'e.g. 52', required: !healthWorkerMode })}
+          {renderField({ id: 'prenatal-bp', label: 'Blood Pressure (BP) at Reg', name: 'prenatalBp', placeholder: 'e.g. 120/80', required: !healthWorkerMode })}
+          {renderField({ id: 'prenatal-height', label: 'Height (cm) at Reg', name: 'prenatalHeight', placeholder: 'e.g. 150', required: !healthWorkerMode })}
           </div>
         </section>
 
         <section className="create-mother-category">
           <h4 className="form-section-title">III. NUMBER OF PREGNANCIES & BIRTHS (OB)</h4>
           <div className="form-row-3 full-width">
-          {renderField({ id: 'ob-gravida', label: 'Gravida (Pregnancies)', name: 'gravida', type: 'number', placeholder: 'Total pregnancies', required: true, minValue: 0 })}
-          {renderField({ id: 'ob-abortion', label: 'Abortion', name: 'abortion', type: 'number', placeholder: 'Spontaneous/induced', required: true, minValue: 0 })}
-          {renderField({ id: 'ob-stillbirth', label: 'Stillbirth', name: 'stillbirth', type: 'number', placeholder: 'Fetal death >20wks', required: true, minValue: 0 })}
+          {renderField({ id: 'ob-gravida', label: 'Gravida (Pregnancies)', name: 'gravida', type: 'number', placeholder: 'Total pregnancies', required: !healthWorkerMode, minValue: 0 })}
+          {renderField({ id: 'ob-abortion', label: 'Abortion', name: 'abortion', type: 'number', placeholder: 'Spontaneous/induced', required: !healthWorkerMode, minValue: 0 })}
+          {renderField({ id: 'ob-stillbirth', label: 'Stillbirth', name: 'stillbirth', type: 'number', placeholder: 'Fetal death >20wks', required: !healthWorkerMode, minValue: 0 })}
           </div>
         </section>
 

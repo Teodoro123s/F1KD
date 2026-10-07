@@ -1,19 +1,31 @@
 const jwt = require('jsonwebtoken');
+const pool = require('../db');
 require('dotenv').config();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
 
-function verifyToken(req, res, next) {
+async function verifyToken(req, res, next) {
   const auth = req.headers.authorization || req.headers.Authorization || '';
   const parts = auth.split(' ');
   if (parts.length === 2 && parts[0] === 'Bearer') {
     const token = parts[1];
+    let payload;
     try {
-      const payload = jwt.verify(token, JWT_SECRET);
+      payload = jwt.verify(token, JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({ error: 'Invalid or expired token' });
+    }
+
+    try {
+      const [users] = await pool.query('SELECT auth_version FROM users WHERE id = ? LIMIT 1', [payload.id]);
+      if (!users.length || Number(users[0].auth_version || 0) !== Number(payload.auth_version || 0)) {
+        return res.status(401).json({ error: 'Session expired. Please sign in again.' });
+      }
       req.user = payload;
       return next();
     } catch (err) {
-      return res.status(401).json({ error: 'Invalid or expired token' });
+      console.error('[Auth] Unable to validate session version:', err.message);
+      return res.status(503).json({ error: 'Authentication service is temporarily unavailable.' });
     }
   }
   return res.status(401).json({ error: 'Authorization header missing or invalid' });

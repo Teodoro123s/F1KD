@@ -41,6 +41,14 @@ export async function apiCreateUser(payload) {
   return handleResponse(res, 'Server error when creating user');
 }
 
+export async function apiResendUserCredentials(id) {
+  const res = await fetchWithAuth(`${API_BASE}/api/users/${id}/resend-credentials`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  return handleResponse(res, 'Failed to resend user credentials');
+}
+
 export async function apiUpdateUser(id, payload) {
   const res = await fetchWithAuth(`${API_BASE}/api/users/${id}`, {
     method: 'PUT',

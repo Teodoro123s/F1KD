@@ -189,7 +189,7 @@ export default function SuperAdminCommunityPage() {
           {activeDropdownId === row.id && (
             <div className="actions-dropdown" role="menu">
               {activeTab === 'communities' && (
-                <button type="button" className="actions-dropdown-item" onClick={(event) => { event.stopPropagation(); navigate(`/user-management/school/${row.id}`, { state: { schoolName: row.name } }); setActiveDropdownId(null); }} role="menuitem">View</button>
+                <button type="button" className="actions-dropdown-item" onClick={(event) => { event.stopPropagation(); navigate(`/community/school/${row.id}`); setActiveDropdownId(null); }} role="menuitem">View</button>
               )}
               {activeTab === 'groups' && (
                 <button type="button" className="actions-dropdown-item" onClick={(event) => { event.stopPropagation(); navigate(`/community/group/${row.id}/health-workers`); setActiveDropdownId(null); }} role="menuitem">View Health Workers</button>
@@ -233,7 +233,7 @@ export default function SuperAdminCommunityPage() {
     : activeTab === 'groups'
       ? (row) => navigate(`/community/group/${row.id}`)
       : activeTab === 'batches'
-        ? (row) => navigate(`/user-management/batch/${row.id}`, { state: { batchName: row.name, schoolId: selectedSchool?.id, schoolName: selectedSchool?.name } })
+        ? (row) => navigate(`/community/batch/${row.id}`)
       : undefined;
 
   if (loading) return <div className="community-page"><p>Loading community data...</p></div>;

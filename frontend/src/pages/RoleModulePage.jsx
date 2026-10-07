@@ -39,6 +39,7 @@ const modulePages = {
   program: {
     [ROLES.SUPER_ADMIN]: lazy(() => import('./roles/super_admin/Program')),
     [ROLES.ADMIN]: lazy(() => import('./roles/admin/Program')),
+    [ROLES.COMMUNITY_COORDINATOR]: lazy(() => import('./roles/community_coordinator/Program')),
     [ROLES.PARTNER]: lazy(() => import('./roles/partner/Program')),
   },
   progressReport: {
@@ -82,6 +83,7 @@ const moduleDetailPages = {
     receiptHistory: {
       [ROLES.SUPER_ADMIN]: lazy(() => import('./roles/super_admin/Program').then((pages) => ({ default: pages.ReceiptHistoryPage }))),
       [ROLES.ADMIN]: lazy(() => import('./roles/admin/Program').then((pages) => ({ default: pages.ReceiptHistoryPage }))),
+      [ROLES.COMMUNITY_COORDINATOR]: lazy(() => import('./roles/community_coordinator/Program').then((pages) => ({ default: pages.ReceiptHistoryPage }))),
       [ROLES.PARTNER]: lazy(() => import('./roles/partner/Program').then((pages) => ({ default: pages.ReceiptHistoryPage }))),
     },
   },

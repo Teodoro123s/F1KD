@@ -29,7 +29,7 @@ export const getMissingChildGeneralFields = (form) =>
 export const getMissingChildPrenatalFields = (form) =>
   CHILD_PRENATAL_REQUIRED_FIELDS.filter(([name]) => !String(form[name] ?? '').trim());
 
-export function ChildFormFields({ activeTab, form, setForm, communities = [], batches = [], readOnly = false, slashDateInput = true, birthDocumentFile, setBirthDocumentFile, existingBirthDocumentName = '', showRequiredValidation = false }) {
+export function ChildFormFields({ activeTab, form, setForm, communities = [], batches = [], readOnly = false, slashDateInput = true, birthDocumentFile, setBirthDocumentFile, existingBirthDocumentName = '', showRequiredValidation = false, hideMedicalRemarks = false }) {
   const uniqueCommunities = Array.from(new Set(communities.map((comm) => comm.name))).filter(Boolean);
   const uniqueBatches = Array.from(new Set((batches || []).map((batch) => batch.name))).filter(Boolean);
   const [dateDrafts, setDateDrafts] = React.useState({});
@@ -420,7 +420,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
             </label>
           ))}
         </div>
-        {renderTextarea({ id: 'child-medical-remarks', label: 'Medical Remarks', name: 'medicalRemarks', rows: 3, placeholder: 'Medical observations or remarks...', required: false })}
+        {!hideMedicalRemarks && renderTextarea({ id: 'child-medical-remarks', label: 'Medical Remarks', name: 'medicalRemarks', rows: 3, placeholder: 'Medical observations or remarks...', required: false })}
         </section>
       </div>
     );

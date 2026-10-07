@@ -39,11 +39,11 @@ const isReadMethod = (method) => ['GET', 'HEAD', 'OPTIONS'].includes(method);
 
 const MODULE_ROLES = {
   '/api/community': ['super_admin', 'admin', 'community_coordinator'],
-  '/api/mothers': ['super_admin', 'admin', 'community_coordinator', 'health_worker'],
-  '/api/children': ['super_admin', 'admin', 'community_coordinator', 'health_worker'],
-  '/api/documents': ['super_admin', 'admin', 'community_coordinator', 'health_worker'],
-  '/api/programs': ['super_admin', 'admin', 'partner'],
-  '/api/progress-report': ['super_admin', 'community_coordinator', 'partner'],
+  '/api/mothers': ['admin', 'community_coordinator', 'health_worker'],
+  '/api/children': ['admin', 'community_coordinator', 'health_worker'],
+  '/api/documents': ['admin', 'community_coordinator', 'health_worker'],
+  '/api/programs': ['admin', 'community_coordinator', 'partner'],
+  '/api/progress-report': ['community_coordinator', 'partner'],
 };
 
 const MOTHER_HEALTH_FIELDS = [
@@ -91,6 +91,12 @@ const isSchoolCreate = (req) => (
 const isSchoolDelete = (req) => (
   req.baseUrl === '/api/community'
   && req.method === 'DELETE'
+  && /^\/communities\/[^/]+\/?$/.test(req.path)
+);
+
+const isSchoolUpdate = (req) => (
+  req.baseUrl === '/api/community'
+  && req.method === 'PUT'
   && /^\/communities\/[^/]+\/?$/.test(req.path)
 );
 
@@ -153,8 +159,12 @@ function authorizeOperational(req, res, next) {
   req.isPartner = userRole === 'partner';
 
   if (!isReadMethod(req.method)) {
-    if (userRole === 'community_coordinator' && req.baseUrl === '/api/community' && (isSchoolCreate(req) || isSchoolDelete(req))) {
-      return permissionResponse(res, 'Community Coordinators cannot create or delete schools');
+    if (req.baseUrl === '/api/progress-report') {
+      return permissionResponse(res, 'Progress reports are read-only');
+    }
+    if (userRole === 'community_coordinator' && req.baseUrl === '/api/community'
+      && (isSchoolCreate(req) || isSchoolUpdate(req) || isSchoolDelete(req))) {
+      return permissionResponse(res, 'Community Coordinators cannot create, update, or delete schools');
     }
 
     const isAllowedHealthWorkerWrite = userRole === 'health_worker'
@@ -198,7 +208,7 @@ function authorizeOperational(req, res, next) {
 
 function authorizeProgressReport(req, res, next) {
   const userRole = normalizeRole(req.user?.role);
-  if (!['super_admin', 'partner', 'community_coordinator'].includes(userRole)) {
+  if (!['partner', 'community_coordinator'].includes(userRole)) {
     return permissionResponse(res, 'You do not have permission to access progress reports');
   }
   return next();

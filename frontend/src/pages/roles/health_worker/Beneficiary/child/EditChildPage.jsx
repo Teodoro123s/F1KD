@@ -5,12 +5,26 @@ import {
   getMissingChildGeneralFields,
   getMissingChildPrenatalFields,
 } from './BeneficiaryChild';
+import { useAuth } from '../../../../../auth/AuthProvider';
 import { apiGetChild, apiUpdateChild, apiUploadChildBirthDocument } from '../../../../../api/children';
 import { getSummary } from '../../_shared/pages/shared/Community/communityService';
 import { formatDateForInput } from '../../_shared/utils/dateFormat';
 import { useMothers } from '../../_shared/context/MothersContext';
 import PageHeader from '../../../../../components/ui/PageHeader';
 import { notifyAction } from '../../_shared/components/ActionFeedback';
+import { isHealthWorkerRole } from '../../../../../utils/permissions';
+
+const HEALTH_WORKER_CHILD_FIELDS = [
+  'birthWeight', 'birthLength', 'bloodType', 'noOfChildDelivered', 'multipleBirthType',
+  'exclusiveBreastfeeding', 'expandedNewbornScreening', 'expandedNewbornScreeningResult',
+  'deliveryType', 'healthStatus', 'birthPlace', 'birthAttendant', 'apgarScore',
+  'feedingType', 'nutritionNotes', 'medicalConditions',
+  'bcgDate', 'bcgDose1', 'bcgDose2', 'bcgDose3', 'bcgRemarks',
+  'hepbDate', 'hepbDose1', 'hepbDose2', 'hepbDose3', 'hepbRemarks',
+  'opvDate', 'opvDose1', 'opvDose2', 'opvDose3', 'opvRemarks',
+  'dptDate', 'dptDose1', 'dptDose2', 'dptDose3', 'dptRemarks',
+  'mmrDate', 'mmrDose1', 'mmrDose2', 'mmrDose3', 'mmrRemarks',
+];
 
 const normalizeChild = (child) => ({
   ...child,
@@ -71,13 +85,17 @@ export default function EditChildPage() {
   const { childId } = useParams();
   const location = useLocation();
   const { setMothers } = useMothers();
+  const { currentUser } = useAuth();
+  const isHealthWorker = isHealthWorkerRole(currentUser?.role);
   const [form, setForm] = useState(() => normalizeChild(location.state?.child || {}));
   const [birthDocumentFile, setBirthDocumentFile] = useState(null);
   const [options, setOptions] = useState({ communities: [], batches: [] });
   const [saving, setSaving] = useState(false);
   const [showRequiredValidation, setShowRequiredValidation] = useState(false);
-  const [activeTab, setActiveTab] = useState('general');
-  const EDIT_STEPS = ['general', 'prenatal', 'medical_dental', 'vaccine'];
+  const EDIT_STEPS = isHealthWorker
+    ? ['prenatal', 'medical_dental', 'vaccine']
+    : ['general', 'prenatal', 'medical_dental', 'vaccine'];
+  const [activeTab, setActiveTab] = useState(EDIT_STEPS[0]);
 
   useEffect(() => {
     getSummary().then((summary) => setOptions({
@@ -113,7 +131,7 @@ export default function EditChildPage() {
 
   const handleSave = async (event) => {
     event.preventDefault();
-    if (activeTab === 'general') {
+    if (!isHealthWorker && activeTab === 'general') {
       const missingFields = getMissingChildGeneralFields(form);
       if (missingFields.length) {
         setShowRequiredValidation(true);
@@ -121,7 +139,7 @@ export default function EditChildPage() {
         return;
       }
     }
-    if (activeTab === 'prenatal') {
+    if (!isHealthWorker && activeTab === 'prenatal') {
       const missingPrenatalFields = getMissingChildPrenatalFields(form);
       if (missingPrenatalFields.length) {
         setShowRequiredValidation(true);
@@ -134,19 +152,21 @@ export default function EditChildPage() {
       setActiveTab(EDIT_STEPS[Math.min(currentIndex + 1, EDIT_STEPS.length - 1)]);
       return;
     }
-    const missingGeneralFields = getMissingChildGeneralFields(form);
-    if (missingGeneralFields.length) {
-      setShowRequiredValidation(true);
-      setActiveTab('general');
-      notifyAction(`Complete the required Child Information fields: ${missingGeneralFields.map(([, label]) => label).join(', ')}.`, 'error');
-      return;
-    }
-    const missingPrenatalFields = getMissingChildPrenatalFields(form);
-    if (missingPrenatalFields.length) {
-      setShowRequiredValidation(true);
-      setActiveTab('prenatal');
-      notifyAction(`Complete the required Prenatal / OB fields: ${missingPrenatalFields.map(([, label]) => label).join(', ')}.`, 'error');
-      return;
+    if (!isHealthWorker) {
+      const missingGeneralFields = getMissingChildGeneralFields(form);
+      if (missingGeneralFields.length) {
+        setShowRequiredValidation(true);
+        setActiveTab('general');
+        notifyAction(`Complete the required Child Information fields: ${missingGeneralFields.map(([, label]) => label).join(', ')}.`, 'error');
+        return;
+      }
+      const missingPrenatalFields = getMissingChildPrenatalFields(form);
+      if (missingPrenatalFields.length) {
+        setShowRequiredValidation(true);
+        setActiveTab('prenatal');
+        notifyAction(`Complete the required Prenatal / OB fields: ${missingPrenatalFields.map(([, label]) => label).join(', ')}.`, 'error');
+        return;
+      }
     }
     setSaving(true);
     try {
@@ -175,10 +195,15 @@ export default function EditChildPage() {
         mmrDose2: normalizeDatePayload(form.mmrDose2),
         mmrDose3: normalizeDatePayload(form.mmrDose3),
       };
-      const response = await apiUpdateChild(childId || form.id || form.child_code, payload);
+      const updatePayload = isHealthWorker
+        ? Object.fromEntries(HEALTH_WORKER_CHILD_FIELDS
+          .filter((field) => Object.prototype.hasOwnProperty.call(payload, field))
+          .map((field) => [field, payload[field]]))
+        : payload;
+      const response = await apiUpdateChild(childId || form.id || form.child_code, updatePayload);
       let savedChild = response.child || form;
       let documentUploadFailed = false;
-      if (birthDocumentFile) {
+      if (birthDocumentFile && !isHealthWorker) {
         try {
           const documentResponse = await apiUploadChildBirthDocument(childId || form.id || form.child_code, birthDocumentFile);
           savedChild = documentResponse?.child || savedChild;
@@ -216,7 +241,7 @@ export default function EditChildPage() {
   const handleNextStep = (event) => {
     event.preventDefault();
     event.stopPropagation();
-    if (activeTab === 'general') {
+    if (!isHealthWorker && activeTab === 'general') {
       const missingFields = getMissingChildGeneralFields(form);
       if (missingFields.length) {
         setShowRequiredValidation(true);
@@ -224,7 +249,7 @@ export default function EditChildPage() {
         return;
       }
     }
-    if (activeTab === 'prenatal') {
+    if (!isHealthWorker && activeTab === 'prenatal') {
       const missingFields = getMissingChildPrenatalFields(form);
       if (missingFields.length) {
         setShowRequiredValidation(true);
@@ -288,6 +313,7 @@ export default function EditChildPage() {
               setBirthDocumentFile={setBirthDocumentFile}
               existingBirthDocumentName={form.birthDocumentName}
               showRequiredValidation={showRequiredValidation}
+              hideMedicalRemarks={isHealthWorker}
             />
           </div>
 

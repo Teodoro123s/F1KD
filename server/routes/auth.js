@@ -37,6 +37,7 @@ const buildUserPayload = (user) => {
 
   return {
     id: user.id,
+    auth_version: Number(user.auth_version || 0),
     role,
     name,
     first_name: firstName,
@@ -54,7 +55,7 @@ const buildUserPayload = (user) => {
 const issueTokens = (res, user) => {
   const payload = buildUserPayload(user);
   const accessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES });
-  const refreshToken = jwt.sign({ id: payload.id, type: 'refresh' }, JWT_SECRET, { expiresIn: REFRESH_TOKEN_TTL });
+  const refreshToken = jwt.sign({ id: payload.id, auth_version: payload.auth_version, type: 'refresh' }, JWT_SECRET, { expiresIn: REFRESH_TOKEN_TTL });
 
   const isProduction = process.env.NODE_ENV === 'production';
   res.cookie('refreshToken', refreshToken, {
@@ -77,7 +78,7 @@ router.post('/login', async (req, res) => {
     await ensureSuperadminAccount(pool);
 
     const [rows] = await pool.query(
-        `SELECT id, first_name, last_name, middle_initial, email, role, status, school_id, group_id, contact_number, password_hash
+        `SELECT id, first_name, last_name, middle_initial, email, role, status, school_id, group_id, contact_number, password_hash, auth_version
        FROM users
          WHERE email = ?
        LIMIT 1`,
@@ -128,7 +129,10 @@ router.post('/change-password', verifyToken, async (req, res) => {
     }
 
     const passwordHash = await bcrypt.hash(newPassword, 10);
-    await pool.query('UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, user.id]);
+    await pool.query(
+      'UPDATE users SET password_hash = ?, auth_version = auth_version + 1, pending_credential_email = NULL WHERE id = ?',
+      [passwordHash, user.id],
+    );
     return res.json({ message: 'Password changed successfully' });
   } catch (error) {
     console.error('Change password error:', error.message);
@@ -137,15 +141,21 @@ router.post('/change-password', verifyToken, async (req, res) => {
 });
 
 router.post('/password-reset/request', verifyToken, async (req, res) => {
+  let connection;
   try {
-    const [users] = await pool.query(
-      'SELECT id, email, first_name, middle_initial, last_name FROM users WHERE id = ? LIMIT 1',
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+    const [users] = await connection.query(
+      'SELECT id, email, first_name, middle_initial, last_name FROM users WHERE id = ? LIMIT 1 FOR UPDATE',
       [req.user.id],
     );
     const user = users[0];
-    if (!user?.email) return res.status(400).json({ error: 'No email address is configured for this account.' });
+    if (!user?.email) {
+      await connection.rollback();
+      return res.status(400).json({ error: 'No email address is configured for this account.' });
+    }
 
-    const [existingCodes] = await pool.query(
+    const [existingCodes] = await connection.query(
       'SELECT requested_at FROM user_password_reset_codes WHERE user_id = ? LIMIT 1',
       [user.id],
     );
@@ -153,6 +163,7 @@ router.post('/password-reset/request', verifyToken, async (req, res) => {
       const lastRequestedAt = new Date(existingCodes[0].requested_at).getTime();
       const waitMilliseconds = PASSWORD_RESET_RESEND_SECONDS * 1000 - (Date.now() - lastRequestedAt);
       if (waitMilliseconds > 0) {
+        await connection.rollback();
         return res.status(429).json({
           error: `Please wait ${Math.ceil(waitMilliseconds / 1000)} seconds before requesting another code.`,
         });
@@ -164,7 +175,7 @@ router.post('/password-reset/request', verifyToken, async (req, res) => {
     const expiresTimeLabel = expiresAt.toLocaleTimeString('en', { hour: 'numeric', minute: '2-digit', timeZone: 'UTC', timeZoneName: 'short' });
     const name = [user.first_name, user.middle_initial, user.last_name].filter(Boolean).join(' ').trim() || 'User';
 
-    await pool.query(
+    await connection.query(
       `INSERT INTO user_password_reset_codes (user_id, code_hash, expires_at, requested_at, attempts)
        VALUES (?, ?, ?, CURRENT_TIMESTAMP, 0)
        ON DUPLICATE KEY UPDATE
@@ -174,24 +185,29 @@ router.post('/password-reset/request', verifyToken, async (req, res) => {
          attempts = 0`,
       [user.id, hashPasswordResetCode(user.id, code), expiresAt],
     );
-    try {
-      await sendPasswordResetCode({
-        email: user.email,
-        name,
-        passcode: code,
-        time: expiresTimeLabel,
-      });
-    } catch (error) {
-      await pool.query('DELETE FROM user_password_reset_codes WHERE user_id = ?', [user.id]);
-      throw error;
-    }
+    await sendPasswordResetCode({
+      email: user.email,
+      name,
+      passcode: code,
+      time: expiresTimeLabel,
+    });
+    await connection.commit();
+    connection.release();
+    connection = null;
     return res.json({ message: `A verification code was sent to ${user.email}. It expires in ${PASSWORD_RESET_TTL_MINUTES} minutes.` });
   } catch (error) {
+    if (connection) {
+      try { await connection.rollback(); } catch (rollbackError) {
+        console.error('Password reset request rollback failed:', rollbackError.message);
+      }
+    }
     console.error('Password reset email request failed:', error.message);
     if (String(error.message || '').startsWith('EmailJS')) {
       return res.status(502).json({ error: 'Unable to send the verification email. Please try again later.' });
     }
     return res.status(500).json({ error: 'Unable to request a verification code. Please try again.' });
+  } finally {
+    connection?.release();
   }
 });
 
@@ -239,7 +255,10 @@ router.post('/password-reset/confirm', verifyToken, async (req, res) => {
     }
 
     const passwordHash = await bcrypt.hash(newPassword, 10);
-    await connection.query('UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, req.user.id]);
+    await connection.query(
+      'UPDATE users SET password_hash = ?, auth_version = auth_version + 1, pending_credential_email = NULL WHERE id = ?',
+      [passwordHash, req.user.id],
+    );
     await connection.query('DELETE FROM user_password_reset_codes WHERE user_id = ?', [req.user.id]);
     await connection.commit();
     return res.json({ message: 'Password reset successfully.' });
@@ -269,12 +288,15 @@ router.post('/refresh', async (req, res) => {
     }
 
     const [rows] = await pool.query(
-      `SELECT id, first_name, last_name, middle_initial, email, role, status, school_id, group_id, contact_number FROM users WHERE id = ? LIMIT 1`,
+      `SELECT id, first_name, last_name, middle_initial, email, role, status, school_id, group_id, contact_number, auth_version FROM users WHERE id = ? LIMIT 1`,
       [payload.id]
     );
 
     const user = rows && rows[0];
     if (!user) {
+      return res.status(401).json({ status: 401, code: 'INVALID_REFRESH_TOKEN', message: 'Refresh token is invalid', timestamp: new Date().toISOString() });
+    }
+    if (Number(payload.auth_version || 0) !== Number(user.auth_version || 0)) {
       return res.status(401).json({ status: 401, code: 'INVALID_REFRESH_TOKEN', message: 'Refresh token is invalid', timestamp: new Date().toISOString() });
     }
 
