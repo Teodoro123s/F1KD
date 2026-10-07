@@ -14,23 +14,26 @@ Run the backend test suite with `npm test`.
 
 ## Duplicate record policy
 
-Create and update endpoints enforce uniqueness on the server; clients should
-display the returned `409 Conflict` error and must not retry with altered key
-values. Comparisons ignore surrounding whitespace and letter case.
+Create and identity-changing update endpoints enforce uniqueness on the server.
+Comparisons ignore surrounding whitespace and letter case. Duplicate records
+return `409 Conflict`; uniqueness-lock timeouts return `503 Service Unavailable`
+and may be retried without changing the submitted values.
 
 | Record | Uniqueness key |
 | --- | --- |
-| User | Email address and contact number (checked independently) |
-| Mother beneficiary | First, middle, and last name + date of birth + community; external/government identifier |
-| Child beneficiary | First, middle, and last name + date of birth + mother |
+| User | Email address, full name, and contact number (checked independently) |
+| Beneficiary (mother or child) | Full name, checked globally across both beneficiary types |
+| Mother beneficiary | External/government identifier |
 | Community | Name |
 | Group | Community + name |
 | Batch | Community + name |
 | Program | Name + type |
 
-Update checks exclude the record being edited, so unchanged keys remain valid.
-Database unique keys on identifiers and generated codes remain an additional
-integrity safeguard.
+Beneficiary full names include each record's stored name parts (including a
+mother's maiden surname and suffix, or a child's suffix); date of birth,
+community, and mother-child relationship do not scope the full-name check.
+Update checks exclude the record being edited, so unchanged identity keys are
+not rejected. Existing data is not automatically merged or deleted.
 
 Available endpoints:
 - `GET /api/health` — health check

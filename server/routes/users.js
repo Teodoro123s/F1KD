@@ -8,6 +8,12 @@ const { authorize } = require('../middleware/authorize');
 const { createSuperadminNotification } = require('../services/notifications');
 const { sendAccountCredentials } = require('../services/emailjs');
 const { encryptCredential, decryptCredential } = require('../services/credentialCipher');
+const {
+  findDuplicateUser,
+  normalizeEmail,
+  normalizeFullName,
+  withUniquenessLocks,
+} = require('../services/uniqueness');
 const crypto = require('crypto');
 
 function normalizeDbStatus(value) {
@@ -98,71 +104,93 @@ router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
       groupId,
     } = req.body;
 
-    // build username and full_name from provided fields if necessary
+    // build username and full name from provided fields if necessary
     const userName = username || (email ? email.split('@')[0] : null);
-    const full_name = fullName || (firstName || lastName ? `${(firstName||'').trim()} ${(lastName||'').trim()}`.trim() : null);
+    const nameParts = String(fullName || '').trim().split(/\s+/).filter(Boolean);
+    const resolvedFirstName = firstName || nameParts.shift();
+    const resolvedLastName = lastName || (nameParts.length ? nameParts.pop() : '');
+    const resolvedMiddleInitial = String(middleInitial || nameParts.join(' ') || '').trim().charAt(0) || null;
+    const providedFullName = [resolvedFirstName, resolvedMiddleInitial, resolvedLastName].filter(Boolean).join(' ');
     const roleName = String(role || '').trim().toLowerCase();
     const requiresSchool = ['health worker', 'community organizer', 'community_coordinator', 'communitycoordinator', 'coordinator'].includes(roleName);
     const requiresGroup = roleName === 'health worker';
 
     if (!userName || !email) return res.status(400).json({ error: 'username and email are required' });
+    if (!resolvedFirstName || !resolvedLastName) return res.status(400).json({ error: 'firstName and lastName are required' });
     if (requiresSchool && !schoolId) return res.status(400).json({ error: 'schoolId is required for this role' });
     if (requiresGroup && !groupId) return res.status(400).json({ error: 'groupId is required for this role' });
 
-    const normalizedEmail = String(email).trim().toLowerCase();
+    const normalizedEmail = normalizeEmail(email);
     const normalizedContact = String(contactNumber || '').replace(/\D/g, '');
-    const [duplicateUsers] = await pool.query(
-      `SELECT id FROM users
-       WHERE LOWER(TRIM(email)) = ?
-          OR (? <> '' AND REPLACE(REPLACE(REPLACE(contact_number, '+', ''), ' ', ''), '-', '') = ?)
-       LIMIT 1`,
-      [normalizedEmail, normalizedContact, normalizedContact],
-    );
-    if (duplicateUsers.length) {
-      return res.status(409).json({ error: 'A user with this email address or contact number already exists.' });
+    const fullNameKey = normalizeFullName(providedFullName.split(/\s+/));
+    if (!fullNameKey) return res.status(400).json({ error: 'A full name is required.' });
+    const created = await withUniquenessLocks(pool, [
+      `user-email:${normalizedEmail}`,
+      `user-name:${fullNameKey}`,
+      normalizedContact ? `user-contact:${normalizedContact}` : null,
+    ], async () => {
+      const duplicateField = await findDuplicateUser(pool, {
+        email: normalizedEmail,
+        fullName: providedFullName,
+      });
+      if (duplicateField) return { duplicateField };
+
+      const [duplicateContacts] = await pool.query(
+        `SELECT id FROM users
+         WHERE ? <> ''
+           AND REPLACE(REPLACE(REPLACE(contact_number, '+', ''), ' ', ''), '-', '') = ?
+         LIMIT 1`,
+        [normalizedContact, normalizedContact],
+      );
+      if (duplicateContacts.length) return { duplicateField: 'contact number' };
+
+      let plainPassword = password;
+      if (!plainPassword || plainPassword.length < 8) {
+        plainPassword = crypto.randomBytes(18).toString('base64url');
+      }
+      const hash = await bcrypt.hash(plainPassword, 10);
+      const dbStatus = normalizeDbStatus(status || 'active');
+      connection = await pool.getConnection();
+      await connection.beginTransaction();
+      const [result] = await connection.query(
+        `INSERT INTO users (email, role, status, password_hash, auth_version, pending_credential_email, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, group_id)
+         VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
+        [
+          normalizedEmail,
+          role || 'user',
+          dbStatus,
+          hash,
+          encryptCredential(plainPassword),
+          resolvedFirstName.trim(),
+          resolvedLastName.trim(),
+          resolvedMiddleInitial ? String(resolvedMiddleInitial).trim() : null,
+          contactNumber || null,
+          gender || 'Male',
+          dob || null,
+          location || null,
+          schoolId || null,
+          groupId || null
+        ]
+      );
+
+      const [rows] = await connection.query(
+        `SELECT id, CONCAT_WS(' ', first_name, last_name) AS username, CONCAT_WS(' ', first_name, last_name) AS full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, group_id, created_at
+         FROM users WHERE id = ?`,
+        [result.insertId]
+      );
+      await connection.commit();
+      connection.release();
+      connection = null;
+      return {
+        user: rows[0],
+        createdName: [rows[0].first_name, rows[0].middle_initial, rows[0].last_name].filter(Boolean).join(' '),
+        plainPassword,
+      };
+    });
+    if (created.duplicateField) {
+      return res.status(409).json({ error: `A user with this ${created.duplicateField} already exists.` });
     }
-
-    // Generate a strong server-side password when the form does not provide one.
-    let plainPassword = password;
-    if (!plainPassword || plainPassword.length < 8) {
-      plainPassword = crypto.randomBytes(18).toString('base64url');
-    }
-    const hash = await bcrypt.hash(plainPassword, 10);
-
-    const dbStatus = normalizeDbStatus(status || 'active');
-    connection = await pool.getConnection();
-    await connection.beginTransaction();
-    const [result] = await connection.query(
-      `INSERT INTO users (email, role, status, password_hash, auth_version, pending_credential_email, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, group_id)
-       VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
-      [
-        email,
-        role || 'user',
-        dbStatus,
-        hash,
-        encryptCredential(plainPassword),
-        firstName || '',
-        lastName || '',
-        middleInitial || null,
-        contactNumber || null,
-        gender || 'Male',
-        dob || null,
-        location || null,
-        schoolId || null,
-        groupId || null
-      ]
-    );
-
-    const [rows] = await connection.query(
-      `SELECT id, CONCAT_WS(' ', first_name, last_name) AS username, CONCAT_WS(' ', first_name, last_name) AS full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, group_id, created_at
-       FROM users WHERE id = ?`,
-      [result.insertId]
-    );
-    const user = rows[0];
-    const createdName = [user.first_name, user.middle_initial, user.last_name].filter(Boolean).join(' ');
-    await connection.commit();
-    connection.release();
-    connection = null;
+    const { user, createdName, plainPassword } = created;
     let emailSent = false;
     try {
       await sendAccountCredentials({
@@ -201,6 +229,7 @@ router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
       connection.release();
     }
     console.error('[Users API] POST / error:', err.message);
+    if (err?.code === 'UNIQUENESS_LOCK_TIMEOUT') return res.status(503).json({ error: err.message });
     if (err && err.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'A user with this email address or contact number already exists.' });
     res.status(500).json({ error: 'db error' });
   }
@@ -308,7 +337,7 @@ router.put('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
     } = req.body;
 
     const [existingRows] = await pool.query(
-      'SELECT id, first_name, middle_initial, last_name, role, status, school_id, group_id FROM users WHERE id = ? LIMIT 1',
+      'SELECT id, email, first_name, middle_initial, last_name, contact_number, role, status, school_id, group_id FROM users WHERE id = ? LIMIT 1',
       [id],
     );
     if (!existingRows.length) return res.status(404).json({ error: 'Not found' });
@@ -316,7 +345,7 @@ router.put('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
 
     const updates = [];
     const params = [];
-    if (email) { updates.push('email = ?'); params.push(email); }
+    if (email !== undefined) { updates.push('email = ?'); params.push(normalizeEmail(email)); }
       if (fullName !== undefined && firstName === undefined && lastName === undefined) {
         const nameParts = String(fullName || '').trim().split(/\s+/);
         updates.push('first_name = ?', 'last_name = ?');
@@ -324,7 +353,10 @@ router.put('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
       }
       if (firstName !== undefined) { updates.push('first_name = ?'); params.push(firstName); }
     if (lastName !== undefined) { updates.push('last_name = ?'); params.push(lastName); }
-    if (middleInitial !== undefined) { updates.push('middle_initial = ?'); params.push(middleInitial || null); }
+    if (middleInitial !== undefined) {
+      updates.push('middle_initial = ?');
+      params.push(String(middleInitial || '').trim().charAt(0) || null);
+    }
     if (contactNumber !== undefined) { updates.push('contact_number = ?'); params.push(contactNumber || null); }
     if (gender !== undefined) { updates.push('gender = ?'); params.push(gender || 'Male'); }
     if (dob !== undefined) { updates.push('dob = ?'); params.push(dob || null); }
@@ -340,30 +372,6 @@ router.put('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
       return res.status(400).json({ error: 'groupId is required for this role' });
     }
 
-    const nextEmail = String(email || '').trim().toLowerCase();
-    if (nextEmail) {
-      const [duplicates] = await pool.query(
-        'SELECT id FROM users WHERE LOWER(TRIM(email)) = ? AND id <> ? LIMIT 1',
-        [nextEmail, id],
-      );
-      if (duplicates.length) {
-        return res.status(409).json({ error: 'A user with this email address already exists.' });
-      }
-    }
-    if (contactNumber !== undefined && contactNumber) {
-      const normalizedContact = String(contactNumber).replace(/\D/g, '');
-      const [duplicates] = await pool.query(
-        `SELECT id FROM users
-         WHERE REPLACE(REPLACE(REPLACE(contact_number, '+', ''), ' ', ''), '-', '') = ?
-           AND id <> ?
-         LIMIT 1`,
-        [normalizedContact, id],
-      );
-      if (duplicates.length) {
-        return res.status(409).json({ error: 'A user with this contact number already exists.' });
-      }
-    }
-
     if (password) {
       const hash = await bcrypt.hash(password, 10);
       updates.push('password_hash = ?');
@@ -374,9 +382,60 @@ router.put('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
 
     if (!updates.length) return res.status(400).json({ error: 'No fields to update' });
 
-    params.push(id);
-    const sql = `UPDATE users SET ${updates.join(', ')} WHERE id = ?`;
-    await pool.query(sql, params);
+    const nextEmail = email !== undefined ? normalizeEmail(email) : normalizeEmail(existingUser.email);
+    let nextFirstName = firstName !== undefined ? firstName : existingUser.first_name;
+    let nextLastName = lastName !== undefined ? lastName : existingUser.last_name;
+    let nextMiddleInitial = middleInitial !== undefined
+      ? String(middleInitial || '').trim().charAt(0) || null
+      : existingUser.middle_initial;
+    if (fullName !== undefined && firstName === undefined && lastName === undefined) {
+      const nameParts = String(fullName || '').trim().split(/\s+/);
+      nextFirstName = nameParts.shift() || '';
+      nextLastName = nameParts.join(' ');
+    }
+    const normalizedContact = String(contactNumber !== undefined ? contactNumber : existingUser.contact_number || '').replace(/\D/g, '');
+    const nameWasProvided = fullName !== undefined
+      || firstName !== undefined
+      || lastName !== undefined
+      || middleInitial !== undefined;
+    const fullNameKey = normalizeFullName([nextFirstName, nextMiddleInitial, nextLastName]);
+    const nameChanged = nameWasProvided && fullNameKey !== normalizeFullName([
+      existingUser.first_name,
+      existingUser.middle_initial,
+      existingUser.last_name,
+    ]);
+    const emailChanged = email !== undefined && nextEmail !== normalizeEmail(existingUser.email);
+    const contactChanged = contactNumber !== undefined
+      && normalizedContact !== String(existingUser.contact_number || '').replace(/\D/g, '');
+    const updated = await withUniquenessLocks(pool, [
+      emailChanged ? `user-email:${nextEmail}` : null,
+      nameChanged ? `user-name:${fullNameKey}` : null,
+      contactChanged && normalizedContact ? `user-contact:${normalizedContact}` : null,
+    ], async () => {
+      const duplicateField = await findDuplicateUser(pool, {
+        email: emailChanged ? nextEmail : null,
+        fullName: nameChanged ? [nextFirstName, nextMiddleInitial, nextLastName].filter(Boolean).join(' ') : null,
+        excludeId: id,
+      });
+      if (duplicateField) return { duplicateField };
+
+      if (contactChanged && normalizedContact) {
+        const [duplicates] = await pool.query(
+          `SELECT id FROM users
+           WHERE REPLACE(REPLACE(REPLACE(contact_number, '+', ''), ' ', ''), '-', '') = ?
+             AND id <> ?
+           LIMIT 1`,
+          [normalizedContact, id],
+        );
+        if (duplicates.length) return { duplicateField: 'contact number' };
+      }
+      const sql = `UPDATE users SET ${updates.join(', ')} WHERE id = ?`;
+      await pool.query(sql, [...params, id]);
+      return { duplicateField: null };
+    });
+    if (updated.duplicateField) {
+      return res.status(409).json({ error: `A user with this ${updated.duplicateField} already exists.` });
+    }
 
     const [rows] = await pool.query(
       `SELECT id, CONCAT_WS(' ', first_name, last_name) AS username, CONCAT_WS(' ', first_name, last_name) AS full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, group_id, updated_at
@@ -423,6 +482,7 @@ router.put('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
     res.json(updatedUser);
   } catch (err) {
     console.error('[Users API] PUT /:id error:', err.message);
+    if (err?.code === 'UNIQUENESS_LOCK_TIMEOUT') return res.status(503).json({ error: err.message });
     if (err?.code === 'ER_DUP_ENTRY') {
       return res.status(409).json({ error: 'A user with this email address already exists.' });
     }

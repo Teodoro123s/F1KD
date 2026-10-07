@@ -3,6 +3,7 @@ const router = express.Router();
 const pool = require('../db');
 const { documentUpload, uploadFileToStorage, deleteFileFromStorage } = require('../middleware/documentUpload');
 const { createSuperadminNotification, getBeneficiaryUpdateRecipients } = require('../services/notifications');
+const { findDuplicateBeneficiary, normalizeFullName, withUniquenessLocks } = require('../services/uniqueness');
 
 function firstNonEmpty(...values) {
   for (const value of values) {
@@ -422,19 +423,6 @@ router.post('/', async (req, res) => {
     const groupId = req.groupId || b.groupId || b.group_id || null;
     if (req.groupId) communityId = req.schoolId;
     const dateOfBirth = firstNonEmpty(b.dob, b.birthDate, null);
-    const [duplicateMothers] = await pool.query(
-      `SELECT id FROM mothers
-       WHERE community_id = ?
-         AND LOWER(TRIM(first_name)) = LOWER(TRIM(?))
-         AND LOWER(TRIM(COALESCE(middle_name, ''))) = LOWER(TRIM(?))
-         AND LOWER(TRIM(last_name)) = LOWER(TRIM(?))
-         AND dob <=> ?
-       LIMIT 1`,
-      [communityId, firstName, middleName || '', lastName, dateOfBirth],
-    );
-    if (duplicateMothers.length) {
-      return res.status(409).json({ error: 'A beneficiary with this name and date of birth already exists in this community.' });
-    }
     if (motherExternalId) {
       const [duplicateIdentifiers] = await pool.query(
         `SELECT id FROM mothers
@@ -448,7 +436,11 @@ router.post('/', async (req, res) => {
       }
     }
 
-    const [result] = await pool.query(
+    const beneficiaryName = [firstName, middleName, lastName, maidenSurname, suffix].filter(Boolean).join(' ');
+    const fullNameKey = normalizeFullName(beneficiaryName.split(/\s+/));
+    const created = await withUniquenessLocks(pool, [`beneficiary-name:${fullNameKey}`], async () => {
+      if (await findDuplicateBeneficiary(pool, { fullName: beneficiaryName })) return { duplicate: true };
+      const [result] = await pool.query(
       `INSERT INTO mothers (
         mother_code,
         first_name,
@@ -533,16 +525,21 @@ router.post('/', async (req, res) => {
         b.medicalConditions ? JSON.stringify(b.medicalConditions) : null,
         firstNonEmpty(b.otherMedicalHistory, b.other_medical_history, null),
       ]
-    );
+      );
+      return { insertId: result.insertId };
+    });
+    if (created.duplicate) {
+      return res.status(409).json({ error: 'A beneficiary with this full name already exists.' });
+    }
 
-    const [rows] = await pool.query('SELECT * FROM mothers WHERE id = ?', [result.insertId]);
+    const [rows] = await pool.query('SELECT * FROM mothers WHERE id = ?', [created.insertId]);
     const mother = rows[0];
     if (Array.isArray(b.obHistory)) {
       for (const [index, item] of b.obHistory.entries()) {
         if (item.gestationalAge || item.outcome) {
           await pool.query(
             'INSERT INTO mother_ob_history (mother_id, event_label, gestational_age, outcome, seq) VALUES (?, ?, ?, ?, ?)',
-            [result.insertId, item.event || `G${index + 1}`, item.gestationalAge || null, item.outcome || null, index + 1]
+            [created.insertId, item.event || `G${index + 1}`, item.gestationalAge || null, item.outcome || null, index + 1]
           );
         }
       }
@@ -552,7 +549,7 @@ router.post('/', async (req, res) => {
         if (hasCondition) {
           await pool.query(
             'INSERT INTO mother_medical_conditions (mother_id, condition_name, has_condition) VALUES (?, ?, ?)',
-            [result.insertId, conditionName, true]
+            [created.insertId, conditionName, true]
           );
         }
       }
@@ -565,7 +562,7 @@ router.post('/', async (req, res) => {
       if (date || remarks) {
         await pool.query(
           'INSERT INTO mother_vaccinations (mother_id, vaccine_name, vaccine_date, remarks) VALUES (?, ?, ?, ?)',
-          [result.insertId, `TT${index}`, date || null, remarks || null]
+          [created.insertId, `TT${index}`, date || null, remarks || null]
         );
       }
     }
@@ -577,7 +574,7 @@ router.post('/', async (req, res) => {
           filling, cleaning, extraction, root_canal, other_procedure
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
-          result.insertId,
+          created.insertId,
           b.dentalFacility || null,
           b.dentistInCharge || null,
           b.communityDentist || null,
@@ -611,6 +608,7 @@ router.post('/', async (req, res) => {
     res.status(201).json({ mother: await attachClinicalData(mapMother(mother)) });
   } catch (error) {
     console.error('[Mothers API] POST / error:', error.message);
+    if (error?.code === 'UNIQUENESS_LOCK_TIMEOUT') return res.status(503).json({ error: error.message });
     if (error?.code === 'ER_DUP_ENTRY') {
       return res.status(409).json({ error: 'A beneficiary with this identifier already exists.' });
     }
@@ -732,20 +730,6 @@ router.put('/:id', async (req, res) => {
       medical_conditions: medicalConditions ? JSON.stringify(medicalConditions) : current.medical_conditions || null,
       other_medical_history: b.otherMedicalHistory || b.other_medical_history || current.other_medical_history || null,
     };
-    const [duplicateMothers] = await pool.query(
-      `SELECT id FROM mothers
-       WHERE id <> ?
-         AND community_id = ?
-         AND LOWER(TRIM(first_name)) = LOWER(TRIM(?))
-         AND LOWER(TRIM(COALESCE(middle_name, ''))) = LOWER(TRIM(?))
-         AND LOWER(TRIM(last_name)) = LOWER(TRIM(?))
-         AND dob <=> ?
-       LIMIT 1`,
-      [motherDbId, current.community_id, update.first_name, update.middle_name || '', update.last_name, update.dob],
-    );
-    if (duplicateMothers.length) {
-      return res.status(409).json({ error: 'A beneficiary with this name and date of birth already exists in this community.' });
-    }
     if (update.mother_external_id) {
       const [duplicateIdentifiers] = await pool.query(
         `SELECT id FROM mothers
@@ -759,7 +743,34 @@ router.put('/:id', async (req, res) => {
         return res.status(409).json({ error: 'A beneficiary with this identifier already exists.' });
       }
     }
-    await pool.query('UPDATE mothers SET ? WHERE id = ?', [update, motherDbId]);
+    const beneficiaryName = [
+      update.first_name,
+      update.middle_name,
+      update.last_name,
+      update.maiden_surname,
+      update.suffix,
+    ].filter(Boolean).join(' ');
+    const fullNameKey = normalizeFullName(beneficiaryName.split(/\s+/));
+    const currentFullNameKey = normalizeFullName([
+      current.first_name,
+      current.middle_name,
+      current.last_name,
+      current.maiden_surname,
+      current.suffix,
+    ]);
+    const nameChanged = fullNameKey !== currentFullNameKey;
+    const updated = await withUniquenessLocks(pool, [nameChanged ? `beneficiary-name:${fullNameKey}` : null], async () => {
+      if (nameChanged && await findDuplicateBeneficiary(pool, {
+        fullName: beneficiaryName,
+        excludeType: 'mother',
+        excludeId: motherDbId,
+      })) return { duplicate: true };
+      await pool.query('UPDATE mothers SET ? WHERE id = ?', [update, motherDbId]);
+      return { duplicate: false };
+    });
+    if (updated.duplicate) {
+      return res.status(409).json({ error: 'A beneficiary with this full name already exists.' });
+    }
 
     if (b.obHistory !== undefined) {
       await pool.query('DELETE FROM mother_ob_history WHERE mother_id = ?', [motherDbId]);
@@ -872,6 +883,7 @@ router.put('/:id', async (req, res) => {
     res.json({ mother: await attachClinicalData(mapMother(updatedMother)) });
   } catch (error) {
     console.error('[Mothers API] PUT /:id error:', error.message);
+    if (error?.code === 'UNIQUENESS_LOCK_TIMEOUT') return res.status(503).json({ error: error.message });
     if (error?.code === 'ER_DUP_ENTRY') {
       return res.status(409).json({ error: 'A beneficiary with this identifier already exists.' });
     }

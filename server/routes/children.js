@@ -3,6 +3,7 @@ const router = express.Router();
 const pool = require('../db');
 const { documentUpload, uploadFileToStorage } = require('../middleware/documentUpload');
 const { createSuperadminNotification, getBeneficiaryUpdateRecipients } = require('../services/notifications');
+const { findDuplicateBeneficiary, normalizeFullName, withUniquenessLocks } = require('../services/uniqueness');
 
 // Helper to normalize incoming body keys (accept camelCase or snake_case)
 function getField(body, ...keys) {
@@ -307,43 +308,37 @@ router.post('/', async (req, res) => {
       batchId = batchRows[0]?.id || null;
     }
 
-    const [duplicateChildren] = await pool.query(
-      `SELECT id FROM children
-       WHERE mother_id = ?
-         AND LOWER(TRIM(first_name)) = LOWER(TRIM(?))
-         AND LOWER(TRIM(COALESCE(middle_name, ''))) = LOWER(TRIM(?))
-         AND LOWER(TRIM(last_name)) = LOWER(TRIM(?))
-         AND birth_date <=> ?
-       LIMIT 1`,
-      [motherId, firstName, getField(b, 'middleName', 'middle_name') || '', lastName, birthDate || null],
-    );
-    if (duplicateChildren.length) {
-      return res.status(409).json({ error: 'This child is already registered for this mother.' });
-    }
-
     // generate child_code
     const childCode = `C-${Date.now()}`;
 
     const fatherName = getField(b, 'fatherName', 'father_name');
     const relationship = getField(b, 'relationship');
     const address = getField(b, 'address');
+    const beneficiaryName = [firstName, middleName, lastName, suffix].filter(Boolean).join(' ');
+    const fullNameKey = normalizeFullName(beneficiaryName.split(/\s+/));
+    const created = await withUniquenessLocks(pool, [`beneficiary-name:${fullNameKey}`], async () => {
+      if (await findDuplicateBeneficiary(pool, { fullName: beneficiaryName })) return { duplicate: true };
+      const [insertResult] = await pool.query(
+        `INSERT INTO children (child_code, mother_id, community_id, group_id, batch_id, first_name, middle_name, last_name, suffix, birth_date, birth_weight, birth_length, gender, blood_type, no_of_child_delivered, multiple_birth_type, exclusive_breastfeeding, expanded_newborn_screening, expanded_newborn_screening_result, delivery_type, health_status, birth_place, birth_attendant, apgar_score, feeding_type, nutrition_notes, father_name, relationship, address)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
+        [childCode, motherId || null, communityId || null, groupId || null, batchId || null, firstName, middleName || null, lastName, suffix || null, birthDate || null, birthWeight || null, birthLength || null, gender || null, bloodType || null, noOfChildDelivered || null, multipleBirthType || null, exclusiveBreastfeeding || null, expandedNewbornScreening || null, expandedNewbornScreeningResult || null, deliveryType || null, healthStatus || null, birthPlace || null, birthAttendant || null, apgarScore || null, feedingType || null, nutritionNotes || null, fatherName || null, relationship || null, address || null]
+      );
+      return { insertId: insertResult.insertId };
+    });
+    if (created.duplicate) {
+      return res.status(409).json({ error: 'A beneficiary with this full name already exists.' });
+    }
 
-    const [result] = await pool.query(
-      `INSERT INTO children (child_code, mother_id, community_id, group_id, batch_id, first_name, middle_name, last_name, suffix, birth_date, birth_weight, birth_length, gender, blood_type, no_of_child_delivered, multiple_birth_type, exclusive_breastfeeding, expanded_newborn_screening, expanded_newborn_screening_result, delivery_type, health_status, birth_place, birth_attendant, apgar_score, feeding_type, nutrition_notes, father_name, relationship, address)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
-      [childCode, motherId || null, communityId || null, groupId || null, batchId || null, firstName, middleName || null, lastName, suffix || null, birthDate || null, birthWeight || null, birthLength || null, gender || null, bloodType || null, noOfChildDelivered || null, multipleBirthType || null, exclusiveBreastfeeding || null, expandedNewbornScreening || null, expandedNewbornScreeningResult || null, deliveryType || null, healthStatus || null, birthPlace || null, birthAttendant || null, apgarScore || null, feedingType || null, nutritionNotes || null, fatherName || null, relationship || null, address || null]
-    );
-
-    const [rows] = await pool.query('SELECT * FROM children WHERE id = ?', [result.insertId]);
+    const [rows] = await pool.query('SELECT * FROM children WHERE id = ?', [created.insertId]);
     for (const [conditionName, hasCondition] of Object.entries(b.medicalConditions || {})) {
       if (hasCondition) {
         await pool.query(
           'INSERT INTO child_medical_conditions (child_id, condition_name, has_condition) VALUES (?, ?, ?)',
-          [result.insertId, conditionName, true]
+          [created.insertId, conditionName, true]
         );
       }
     }
-    await saveChildVaccines(result.insertId, b);
+    await saveChildVaccines(created.insertId, b);
     const child = await attachClinicalData(rows[0]);
     const childName = [child.first_name, child.last_name].filter(Boolean).join(' ');
     await createSuperadminNotification({
@@ -362,6 +357,7 @@ router.post('/', async (req, res) => {
     res.status(201).json({ child: await attachMonitoringData(child) });
   } catch (err) {
     console.error('Failed to create child', err);
+    if (err?.code === 'UNIQUENESS_LOCK_TIMEOUT') return res.status(503).json({ error: err.message });
     if (err?.code === 'ER_DUP_ENTRY') {
       return res.status(409).json({ error: 'This child is already registered.' });
     }
@@ -554,21 +550,27 @@ router.put('/:id', async (req, res) => {
       relationship: getField(body, 'relationship') || current.relationship || null,
       address: getField(body, 'address') || current.address || null,
     };
-    const [duplicateChildren] = await pool.query(
-      `SELECT id FROM children
-       WHERE id <> ?
-         AND mother_id = ?
-         AND LOWER(TRIM(first_name)) = LOWER(TRIM(?))
-         AND LOWER(TRIM(COALESCE(middle_name, ''))) = LOWER(TRIM(?))
-         AND LOWER(TRIM(last_name)) = LOWER(TRIM(?))
-         AND birth_date <=> ?
-       LIMIT 1`,
-      [current.id, motherId, update.first_name, update.middle_name || '', update.last_name, update.birth_date],
-    );
-    if (duplicateChildren.length) {
-      return res.status(409).json({ error: 'This child is already registered for this mother.' });
+    const beneficiaryName = [update.first_name, update.middle_name, update.last_name, update.suffix].filter(Boolean).join(' ');
+    const fullNameKey = normalizeFullName(beneficiaryName.split(/\s+/));
+    const currentFullNameKey = normalizeFullName([
+      current.first_name,
+      current.middle_name,
+      current.last_name,
+      current.suffix,
+    ]);
+    const nameChanged = fullNameKey !== currentFullNameKey;
+    const updated = await withUniquenessLocks(pool, [nameChanged ? `beneficiary-name:${fullNameKey}` : null], async () => {
+      if (nameChanged && await findDuplicateBeneficiary(pool, {
+        fullName: beneficiaryName,
+        excludeType: 'child',
+        excludeId: current.id,
+      })) return { duplicate: true };
+      await pool.query('UPDATE children SET ? WHERE id = ?', [update, current.id]);
+      return { duplicate: false };
+    });
+    if (updated.duplicate) {
+      return res.status(409).json({ error: 'A beneficiary with this full name already exists.' });
     }
-    await pool.query('UPDATE children SET ? WHERE id = ?', [update, current.id]);
 
     const medicalConditions = body.medicalConditions ?? body.medical_conditions;
     if (medicalConditions !== undefined) {
@@ -627,6 +629,7 @@ router.put('/:id', async (req, res) => {
     res.json({ child: await attachClinicalData(updatedChild) });
   } catch (error) {
     console.error('Failed to update child', error);
+    if (error?.code === 'UNIQUENESS_LOCK_TIMEOUT') return res.status(503).json({ error: error.message });
     if (error?.code === 'ER_DUP_ENTRY') {
       return res.status(409).json({ error: 'This child is already registered.' });
     }
