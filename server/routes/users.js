@@ -134,7 +134,7 @@ router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
     await connection.beginTransaction();
     const [result] = await connection.query(
       `INSERT INTO users (email, role, status, password_hash, auth_version, pending_credential_email, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, group_id)
-       VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
+       VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
       [
         email,
         role || 'user',

@@ -65,6 +65,7 @@ test('EmailJS sends the OTP template variables and private access token', async 
       user_id: 'public-key',
       accessToken: 'private-key',
       template_params: {
+        email: 'person@example.test',
         to_email: 'person@example.test',
         to_name: 'Person',
         passcode: '123456',
@@ -94,6 +95,7 @@ test('EmailJS sends temporary credentials with the account template variables', 
     });
 
     assert.deepEqual(requestBody.template_params, {
+      email: 'person@example.test',
       to_email: 'person@example.test',
       to_name: 'Person',
       password: 'temporary-password',
@@ -103,16 +105,48 @@ test('EmailJS sends temporary credentials with the account template variables', 
   });
 });
 
+test('EmailJS uses a non-empty greeting when the account has no name', async () => {
+  await withEmailJsEnv({
+    EMAILJS_SERVICE_ID: 'service-id',
+    EMAILJS_PUBLIC_KEY: 'public-key',
+    EMAILJS_OTP_TEMPLATE_ID: 'otp-template',
+  }, async () => {
+    let requestBody;
+    global.fetch = async (_url, options) => {
+      requestBody = JSON.parse(options.body);
+      return { ok: true, status: 200 };
+    };
+
+    await sendPasswordResetCode({
+      email: 'person@example.test',
+      name: '',
+      passcode: '123456',
+      time: '10:00 UTC',
+    });
+
+    assert.equal(requestBody.template_params.to_name, 'User');
+  });
+});
+
 test('EmailJS surfaces provider errors instead of reporting success', async () => {
   await withEmailJsEnv({
     EMAILJS_SERVICE_ID: 'service-id',
     EMAILJS_PUBLIC_KEY: 'public-key',
     EMAILJS_OTP_TEMPLATE_ID: 'otp-template',
   }, async () => {
-    global.fetch = async () => ({ ok: false, status: 429 });
+    global.fetch = async () => ({
+      ok: false,
+      status: 403,
+      text: async () => 'Invalid user_id for person@example.test',
+    });
     await assert.rejects(
       sendPasswordResetCode({ email: 'person@example.test', name: 'Person', passcode: '123456', time: '10:00 UTC' }),
-      /EmailJS send failed with HTTP 429/,
+      (error) => {
+        assert.match(error.message, /EmailJS send failed with HTTP 403/);
+        assert.match(error.message, /Invalid user_id for \[email redacted\]/);
+        assert.doesNotMatch(error.message, /person@example\.test/);
+        return true;
+      },
     );
   });
 });

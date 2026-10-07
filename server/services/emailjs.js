@@ -1,5 +1,13 @@
 const EMAILJS_SEND_URL = 'https://api.emailjs.com/api/v1.0/email/send';
 
+function sanitizeProviderError(value) {
+  return String(value || '')
+    .trim()
+    .slice(0, 500)
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[email redacted]')
+    .replace(/\b(?:accessToken|privateKey|publicKey|user_id)\b(["']?\s*[:=]\s*["']?)[^"',}\s]+/gi, '$1[redacted]');
+}
+
 function getEmailJsConfig(templateId) {
   const config = {
     serviceId: process.env.EMAILJS_SERVICE_ID,
@@ -39,7 +47,11 @@ async function sendEmailJsTemplate(templateId, templateParams) {
       signal: AbortSignal.timeout(10000),
     });
     if (!response.ok) {
-      throw new Error(`EmailJS send failed with HTTP ${response.status}`);
+      const providerMessage = typeof response.text === 'function'
+        ? sanitizeProviderError(await response.text())
+        : '';
+      const detail = providerMessage ? `: ${providerMessage}` : '';
+      throw new Error(`EmailJS send failed with HTTP ${response.status}${detail}`);
     }
   } catch (error) {
     if (error.message.startsWith('EmailJS')) throw error;
@@ -48,18 +60,22 @@ async function sendEmailJsTemplate(templateId, templateParams) {
 }
 
 async function sendAccountCredentials({ email, name, password, role }) {
+  const recipientName = String(name || '').trim() || 'User';
   await sendEmailJsTemplate(process.env.EMAILJS_USER_TEMPLATE_ID, {
+    email,
     to_email: email,
-    to_name: name,
+    to_name: recipientName,
     password,
     role,
   });
 }
 
 async function sendPasswordResetCode({ email, name, passcode, time }) {
+  const recipientName = String(name || '').trim() || 'User';
   await sendEmailJsTemplate(process.env.EMAILJS_OTP_TEMPLATE_ID, {
+    email,
     to_email: email,
-    to_name: name,
+    to_name: recipientName,
     passcode,
     time,
   });
