@@ -1,6 +1,32 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { normalizeRole, authorizeOperational, authorizeProgressReport } = require('../middleware/authorize');
+const {
+  normalizeRole,
+  authorizeOperational,
+  authorizeProgressReport,
+  retainHealthFields,
+} = require('../middleware/authorize');
+
+function responseMock() {
+  return {
+    status(code) {
+      this.code = code;
+      return this;
+    },
+    json(payload) {
+      this.payload = payload;
+      return this;
+    },
+  };
+}
+
+function authorizeRequest({ role, baseUrl, method = 'GET', path = '/', school_id = 7, group_id = null, body }) {
+  const req = { user: { role, school_id, group_id }, baseUrl, method, path, body };
+  const res = responseMock();
+  let called = false;
+  authorizeOperational(req, res, () => { called = true; });
+  return { req, res, called };
+}
 
 test('normalizeRole maps common role labels to canonical values', () => {
   assert.equal(normalizeRole('Super Admin'), 'super_admin');
@@ -10,476 +36,209 @@ test('normalizeRole maps common role labels to canonical values', () => {
   assert.equal(normalizeRole('Health worker'), 'health_worker');
 });
 
-test('authorizeProgressReport allows operational roles and denies super admins', () => {
-  for (const role of ['Admin', 'Partner', 'Community Coordinator', 'Health worker']) {
-    let called = false;
-    authorizeProgressReport({ user: { role } }, {}, () => {
-      called = true;
+test('operational API modules follow the role access matrix', () => {
+  const cases = [
+    ['Super Admin', '/api/community', true],
+    ['Super Admin', '/api/mothers', true],
+    ['Super Admin', '/api/children', true],
+    ['Super Admin', '/api/programs', true],
+    ['Super Admin', '/api/progress-report', true],
+    ['Super Admin', '/api/documents', true],
+    ['Admin', '/api/community', true],
+    ['Admin', '/api/mothers', true],
+    ['Admin', '/api/children', true],
+    ['Admin', '/api/programs', true],
+    ['Admin', '/api/progress-report', false],
+    ['Community Coordinator', '/api/community', true],
+    ['Community Coordinator', '/api/mothers', true],
+    ['Community Coordinator', '/api/children', true],
+    ['Community Coordinator', '/api/progress-report', true],
+    ['Community Coordinator', '/api/programs', false],
+    ['Partner', '/api/programs', true],
+    ['Partner', '/api/progress-report', true],
+    ['Partner', '/api/community', false],
+    ['Partner', '/api/mothers', false],
+    ['Health worker', '/api/mothers', true],
+    ['Health worker', '/api/children', true],
+    ['Health worker', '/api/community', false],
+    ['Health worker', '/api/programs', false],
+    ['Health worker', '/api/progress-report', false],
+  ];
+
+  for (const [role, baseUrl, allowed] of cases) {
+    const { req, res, called } = authorizeRequest({ role, baseUrl });
+    assert.equal(called, allowed, `${role} access to ${baseUrl}`);
+    assert.equal(res.code, allowed ? undefined : 403);
+    if (allowed && role !== 'Super Admin') {
+      assert.equal(req.schoolId, 7);
+    }
+  }
+});
+
+test('all non-superadmin operational access requires an assigned school', () => {
+  for (const role of ['Admin', 'Community Coordinator', 'Partner', 'Health worker']) {
+    const { called, res } = authorizeRequest({
+      role,
+      baseUrl: role === 'Partner' ? '/api/programs' : '/api/mothers',
+      school_id: null,
     });
-    assert.equal(called, true);
-  }
-
-  for (const role of ['Super Admin', 'viewer']) {
-    let called = false;
-    const res = {
-      status(code) {
-        this.code = code;
-        return this;
-      },
-      json(payload) {
-        this.payload = payload;
-        return this;
-      },
-    };
-    authorizeProgressReport({ user: { role } }, res, () => { called = true; });
-    assert.equal(called, false);
+    assert.equal(called, false, `${role} without assignment`);
     assert.equal(res.code, 403);
+    assert.equal(res.payload.message, 'This account is not assigned to a school');
   }
 });
 
-test('authorizeOperational gives Admin and Partner global read scope without assignments', () => {
-  for (const role of ['Admin', 'Partner']) {
-    const req = { method: 'GET', user: { role } };
-    let called = false;
-    const res = {
-      status(code) {
-        this.code = code;
-        return this;
-      },
-      json(payload) {
-        this.payload = payload;
-        return this;
-      },
-    };
-    authorizeOperational(req, res, () => { called = true; });
-    assert.equal(called, true, `${role} should read without a school assignment`);
-    assert.equal(req.schoolId, null);
-    assert.equal(req.groupId, null);
+test('superadmins have global scope while other roles are forced to assigned scope', () => {
+  const superadmin = authorizeRequest({ role: 'Super Admin', baseUrl: '/api/community', school_id: 44 });
+  assert.equal(superadmin.called, true);
+  assert.equal(superadmin.req.schoolId, null);
+  assert.equal(superadmin.req.groupId, null);
+
+  const partner = authorizeRequest({
+    role: 'Partner',
+    baseUrl: '/api/programs',
+    school_id: 7,
+    group_id: 15,
+  });
+  assert.equal(partner.called, true);
+  assert.equal(partner.req.schoolId, 7);
+  assert.equal(partner.req.groupId, null);
+
+  const healthWorker = authorizeRequest({
+    role: 'Health worker',
+    baseUrl: '/api/children',
+    school_id: 7,
+    group_id: 15,
+  });
+  assert.equal(healthWorker.called, true);
+  assert.equal(healthWorker.req.schoolId, 7);
+  assert.equal(healthWorker.req.groupId, 15);
+});
+
+test('Admin and Partner are read-only', () => {
+  for (const [role, baseUrl, method, path] of [
+    ['Admin', '/api/community', 'POST', '/groups'],
+    ['Admin', '/api/mothers', 'PUT', '/MTH-1'],
+    ['Partner', '/api/programs', 'PATCH', '/4/monitoring'],
+    ['Partner', '/api/progress-report', 'POST', '/'],
+  ]) {
+    const { called, res } = authorizeRequest({ role, baseUrl, method, path });
+    assert.equal(called, false, `${role} ${method} ${baseUrl}${path}`);
+    assert.equal(res.code, 403);
+    assert.equal(res.payload.message, 'This role has read-only access to this module');
   }
 });
 
-test('authorizeOperational denies scoped users without a school assignment to prevent data leaks', () => {
-  let called = false;
-  const req = {
-    method: 'GET',
-    user: { role: 'Health worker', school_id: null },
-  };
-  const res = {
-    status(code) {
-      this.code = code;
-      return this;
-    },
-    json(payload) {
-      this.payload = payload;
-      return this;
-    },
-  };
-
-  authorizeOperational(req, res, () => {
-    called = true;
-  });
-
-  assert.equal(called, false);
-  assert.equal(req.schoolId, undefined);
-  assert.equal(res.code, 403);
-  assert.equal(res.payload.code, 'PERMISSION_DENIED');
-  assert.equal(res.payload.message, 'This account is not assigned to a school');
-});
-
-test('authorizeOperational gives unassigned community organizers an empty school scope', () => {
-  let called = false;
-  const req = {
-    method: 'GET',
-    user: { role: 'Community Organizer', school_id: null },
-  };
-  const res = {
-    status(code) {
-      this.code = code;
-      return this;
-    },
-    json(payload) {
-      this.payload = payload;
-      return this;
-    },
-  };
-
-  authorizeOperational(req, res, () => {
-    called = true;
-  });
-
-  assert.equal(called, true);
-  assert.equal(req.schoolId, -1);
-  assert.equal(req.groupId, null);
-  assert.equal(res.code, undefined);
-});
-
-test('authorizeOperational attaches both school and group scope for assigned partner users', () => {
-  let called = false;
-  const req = {
-    method: 'GET',
-    user: { role: 'Health worker', school_id: 7, group_id: 15 },
-  };
-
-  const res = {
-    status(code) {
-      this.code = code;
-      return this;
-    },
-    json(payload) {
-      this.payload = payload;
-      return this;
-    },
-  };
-
-  authorizeOperational(req, res, () => {
-    called = true;
-  });
-
-  assert.equal(called, true);
-  assert.equal(req.schoolId, 7);
-  assert.equal(req.groupId, 15);
-  assert.equal(res.code, undefined);
-});
-
-test('authorizeOperational keeps community coordinators at school scope', () => {
-  let called = false;
-  const req = {
-    method: 'GET',
-    user: { role: 'Community Organizer', school_id: 7, group_id: 15 },
-  };
-  const res = {
-    status(code) {
-      this.code = code;
-      return this;
-    },
-    json(payload) {
-      this.payload = payload;
-      return this;
-    },
-  };
-
-  authorizeOperational(req, res, () => {
-    called = true;
-  });
-
-  assert.equal(called, true);
-  assert.equal(req.schoolId, 7);
-  assert.equal(req.groupId, null);
-  assert.equal(res.code, undefined);
-});
-
-test('authorizeOperational allows assigned community organizers to create batches and groups', () => {
+test('Community Coordinators can manage assigned community and beneficiary records but not create/delete schools', () => {
   for (const path of ['/batches', '/groups']) {
-    let called = false;
-    const req = {
-      method: 'POST',
+    const result = authorizeRequest({
+      role: 'Community Organizer',
       baseUrl: '/api/community',
+      method: 'POST',
       path,
-      user: { role: 'Community Organizer', school_id: 7 },
-    };
-    const res = {
-      status(code) {
-        this.code = code;
-        return this;
-      },
-      json(payload) {
-        this.payload = payload;
-        return this;
-      },
-    };
-
-    authorizeOperational(req, res, () => {
-      called = true;
     });
-
-    assert.equal(called, true);
-    assert.equal(req.schoolId, 7);
-    assert.equal(req.isCommunityOrganizer, true);
-    assert.equal(res.code, undefined);
+    assert.equal(result.called, true);
+    assert.equal(result.req.isCommunityOrganizer, true);
   }
-});
 
-test('authorizeOperational keeps health workers read-only for community creation', () => {
-  let called = false;
-  const req = {
-    method: 'POST',
-    baseUrl: '/api/community',
-    path: '/batches',
-    user: { role: 'Health worker', school_id: 7, group_id: 15 },
-  };
-  const res = {
-    status(code) {
-      this.code = code;
-      return this;
-    },
-    json(payload) {
-      this.payload = payload;
-      return this;
-    },
-  };
-
-  authorizeOperational(req, res, () => {
-    called = true;
-  });
-
-  assert.equal(called, false);
-  assert.equal(res.code, 403);
-  assert.equal(res.payload.message, 'Admin and Partner accounts are read-only');
-});
-
-test('authorizeOperational does not allow community organizers to create schools', () => {
-  let called = false;
-  const req = {
-    method: 'POST',
-    baseUrl: '/api/community',
-    path: '/communities',
-    user: { role: 'Community Organizer', school_id: 7 },
-  };
-  const res = {
-    status(code) {
-      this.code = code;
-      return this;
-    },
-    json(payload) {
-      this.payload = payload;
-      return this;
-    },
-  };
-
-  authorizeOperational(req, res, () => {
-    called = true;
-  });
-
-  assert.equal(called, false);
-  assert.equal(res.code, 403);
-});
-
-test('authorizeOperational keeps Admin and Partner read-only while allowing coordinator and health-worker beneficiary writes', () => {
-  const requests = [
-    { method: 'PUT', path: '/MTH-1', role: 'Admin', allowed: false },
-    { method: 'PUT', path: '/MTH-1', role: 'Partner', allowed: false },
-    { method: 'PUT', path: '/MTH-1', role: 'Community Organizer', school_id: 7, schoolId: 7, groupId: null, allowed: true },
-    { method: 'PUT', path: '/MTH-1', role: 'Health worker', school_id: 7, group_id: 15, schoolId: 7, groupId: 15, allowed: true },
-    { method: 'POST', path: '/MTH-1/checkups', role: 'Admin', allowed: false },
-    { method: 'POST', path: '/MTH-1/checkups', role: 'Partner', allowed: false },
-    { method: 'POST', path: '/MTH-1/checkups', role: 'Health worker', school_id: 7, group_id: 15, schoolId: 7, groupId: 15, allowed: true },
-    { method: 'POST', path: '/MTH-1/documents', role: 'Admin', allowed: false },
-    { method: 'POST', path: '/MTH-1/documents', role: 'Partner', allowed: false },
-    { method: 'POST', path: '/MTH-1/documents', role: 'Health worker', school_id: 7, group_id: 15, schoolId: 7, groupId: 15, allowed: true },
-    { method: 'PUT', baseUrl: '/api/children', path: '/CH-1', role: 'Health worker', school_id: 7, group_id: 15, schoolId: 7, groupId: 15, allowed: true },
-  ];
-
-  for (const request of requests) {
-    let called = false;
-    const req = {
-      method: request.method,
-      baseUrl: request.baseUrl || '/api/mothers',
-      path: request.path,
-      user: {
-        role: request.role,
-        school_id: request.school_id,
-        group_id: request.group_id,
-      },
-    };
-    const res = {
-      status(code) {
-        this.code = code;
-        return this;
-      },
-      json(payload) {
-        this.payload = payload;
-        return this;
-      },
-    };
-
-    authorizeOperational(req, res, () => {
-      called = true;
+  for (const [method, path] of [['POST', '/communities'], ['DELETE', '/communities/7']]) {
+    const { called, res } = authorizeRequest({
+      role: 'Community Coordinator',
+      baseUrl: '/api/community',
+      method,
+      path,
     });
-
-    assert.equal(called, request.allowed, `${request.role} ${request.method} ${request.path}`);
-    if (request.allowed) {
-      assert.equal(req.schoolId ?? null, request.schoolId);
-      assert.equal(req.groupId ?? null, request.groupId);
-    }
-    assert.equal(res.code, request.allowed ? undefined : 403);
-  }
-});
-
-test('authorizeOperational keeps child profile updates restricted to health workers', () => {
-  for (const role of ['Admin', 'Partner']) {
-    const req = {
-      method: 'PUT',
-      baseUrl: '/api/children',
-      path: '/CH-1',
-      user: { role, school_id: 7 },
-    };
-    const res = {
-      status(code) {
-        this.code = code;
-        return this;
-      },
-      json(payload) {
-        this.payload = payload;
-        return this;
-      },
-    };
-    let called = false;
-    authorizeOperational(req, res, () => { called = true; });
     assert.equal(called, false);
     assert.equal(res.code, 403);
   }
 });
 
-test('authorizeOperational allows community organizers to create, edit, delete, end, and restore programs', () => {
-  const requests = [
-    { method: 'POST', path: '/', role: 'Community Organizer', allowed: true },
-    { method: 'POST', path: '/12/clusters', role: 'communityorganizer', allowed: true },
-    { method: 'PATCH', path: '/12/end', role: 'Community Organizer', allowed: true },
-    { method: 'PATCH', path: '/12/restore', role: 'Community Organizer', allowed: true },
-    { method: 'PUT', path: '/12', role: 'Community Organizer', allowed: true },
-    { method: 'DELETE', path: '/12', role: 'Community Organizer', allowed: true },
-    { method: 'POST', path: '/', role: 'Health worker', allowed: false },
-  ];
-
-  for (const request of requests) {
-    let called = false;
-    const req = {
-      method: request.method,
-      baseUrl: '/api/programs',
-      path: request.path,
-      user: { role: request.role, school_id: 7 },
-    };
-    const res = {
-      status(code) {
-        this.code = code;
-        return this;
-      },
-      json(payload) {
-        this.payload = payload;
-        return this;
-      },
-    };
-
-    authorizeOperational(req, res, () => {
-      called = true;
+test('Health Workers can write only beneficiary health workflows', () => {
+  for (const [baseUrl, method, path] of [
+    ['/api/mothers', 'PUT', '/MTH-1'],
+    ['/api/mothers', 'POST', '/MTH-1/checkups'],
+    ['/api/children', 'PUT', '/CH-1'],
+    ['/api/children', 'POST', '/CH-1/checkups'],
+  ]) {
+    const { called } = authorizeRequest({
+      role: 'Health worker',
+      baseUrl,
+      method,
+      path,
+      group_id: 15,
     });
+    assert.equal(called, true, `${method} ${baseUrl}${path}`);
+  }
 
-    assert.equal(called, request.allowed, `${request.role} ${request.method} ${request.path}`);
-    assert.equal(res.code, request.allowed ? undefined : 403);
+  for (const [baseUrl, method, path] of [
+    ['/api/mothers', 'POST', '/'],
+    ['/api/mothers', 'POST', '/MTH-1/documents'],
+    ['/api/children', 'POST', '/'],
+    ['/api/children', 'POST', '/CH-1/documents'],
+    ['/api/programs', 'PATCH', '/4/monitoring'],
+    ['/api/community', 'POST', '/groups'],
+  ]) {
+    const { called } = authorizeRequest({
+      role: 'Health worker',
+      baseUrl,
+      method,
+      path,
+      group_id: 15,
+    });
+    assert.equal(called, false, `${method} ${baseUrl}${path}`);
   }
 });
 
-test('authorizeOperational allows community organizers to use CRUD on non-user-management resources', () => {
-  const requests = [
-    { method: 'POST', baseUrl: '/api/community', path: '/groups', role: 'Community Organizer', allowed: true },
-    { method: 'PUT', baseUrl: '/api/community', path: '/groups/12', role: 'Community Organizer', allowed: true },
-    { method: 'DELETE', baseUrl: '/api/community', path: '/groups/12', role: 'Community Organizer', allowed: true },
-    { method: 'POST', baseUrl: '/api/mothers', path: '/', role: 'Community Organizer', allowed: true },
-    { method: 'PUT', baseUrl: '/api/mothers', path: '/12', role: 'Community Organizer', allowed: true },
-    { method: 'DELETE', baseUrl: '/api/mothers', path: '/12', role: 'Community Organizer', allowed: true },
-    { method: 'POST', baseUrl: '/api/children', path: '/', role: 'Community Organizer', allowed: true },
-    { method: 'PUT', baseUrl: '/api/children', path: '/12', role: 'Community Organizer', allowed: true },
-    { method: 'DELETE', baseUrl: '/api/children', path: '/12', role: 'Community Organizer', allowed: true },
-  ];
-
-  for (const request of requests) {
-    let called = false;
-    const req = {
-      method: request.method,
-      baseUrl: request.baseUrl,
-      path: request.path,
-      user: { role: request.role, school_id: 7 },
-    };
-    const res = {
-      status(code) {
-        this.code = code;
-        return this;
-      },
-      json(payload) {
-        this.payload = payload;
-        return this;
-      },
-    };
-
-    authorizeOperational(req, res, () => {
-      called = true;
-    });
-
-    assert.equal(called, request.allowed, `${request.role} ${request.method} ${request.baseUrl}${request.path}`);
-    assert.equal(res.code, request.allowed ? undefined : 403);
-  }
-});
-
-test('authorizeOperational keeps user-management restricted to super admins', () => {
-  let called = false;
-  const req = {
-    method: 'DELETE',
-    baseUrl: '/api/users',
-    path: '/12',
-    user: { role: 'Community Organizer', school_id: 7 },
-  };
-  const res = {
-    status(code) {
-      this.code = code;
-      return this;
+test('Health Worker profile updates strip demographic and assignment fields', () => {
+  const mother = authorizeRequest({
+    role: 'Health worker',
+    baseUrl: '/api/mothers',
+    method: 'PUT',
+    path: '/MTH-1',
+    group_id: 15,
+    body: {
+      firstName: 'Changed',
+      address: 'Changed address',
+      groupId: 999,
+      lmpDate: '2026-01-02',
+      medicalConditions: { anemia: true },
     },
-    json(payload) {
-      this.payload = payload;
-      return this;
-    },
-  };
-
-  authorizeOperational(req, res, () => {
-    called = true;
+  });
+  assert.deepEqual(mother.req.body, {
+    lmpDate: '2026-01-02',
+    medicalConditions: { anemia: true },
   });
 
-  assert.equal(called, false);
-  assert.equal(res.code, 403);
+  const child = authorizeRequest({
+    role: 'Health worker',
+    baseUrl: '/api/children',
+    method: 'PUT',
+    path: '/CH-1',
+    group_id: 15,
+    body: {
+      firstName: 'Changed',
+      motherId: 999,
+      birthWeight: 3.1,
+      bcgDose1: '2026-01-02',
+    },
+  });
+  assert.deepEqual(child.req.body, { birthWeight: 3.1, bcgDose1: '2026-01-02' });
+  assert.deepEqual(retainHealthFields({ address: 'private', healthStatus: 'Healthy' }, ['healthStatus']), {
+    healthStatus: 'Healthy',
+  });
 });
 
-test('authorizeOperational allows coordinators and health workers, but not Admin/Partner, to write child records', () => {
-  const requests = [
-    { method: 'POST', path: '/C-1/checkups', role: 'Community Organizer', school_id: 7, schoolId: 7, groupId: null, allowed: true },
-    { method: 'POST', path: '/C-1/checkups', role: 'Health worker', school_id: 7, group_id: 15, schoolId: 7, groupId: 15, allowed: true },
-    { method: 'POST', path: '/C-1/checkups', role: 'Admin', allowed: false },
-    { method: 'POST', path: '/C-1/checkups', role: 'Partner', allowed: false },
-    { method: 'PUT', path: '/C-1', role: 'Community Organizer', school_id: 7, schoolId: 7, groupId: null, allowed: true },
-    { method: 'PUT', path: '/C-1', role: 'Community Coordinator', school_id: 7, schoolId: 7, groupId: null, allowed: true },
-    { method: 'PUT', path: '/C-1', role: 'Health worker', school_id: 7, group_id: 15, schoolId: 7, groupId: 15, allowed: true },
-  ];
-
-  for (const request of requests) {
+test('Progress Report is available only to Super Admin, Community Coordinator, and Partner', () => {
+  for (const role of ['Super Admin', 'Community Coordinator', 'Partner']) {
     let called = false;
-    const req = {
-      method: request.method,
-      baseUrl: '/api/children',
-      path: request.path,
-      user: {
-        role: request.role,
-        school_id: request.school_id,
-        group_id: request.group_id,
-      },
-    };
-    const res = {
-      status(code) {
-        this.code = code;
-        return this;
-      },
-      json(payload) {
-        this.payload = payload;
-        return this;
-      },
-    };
-
-    authorizeOperational(req, res, () => {
-      called = true;
-    });
-
-    assert.equal(called, request.allowed, `${request.role} ${request.method} ${request.path}`);
-    if (request.allowed) {
-      assert.equal(req.schoolId ?? null, request.schoolId);
-      assert.equal(req.groupId ?? null, request.groupId);
-    }
-    assert.equal(res.code, request.allowed ? undefined : 403);
+    authorizeProgressReport({ user: { role } }, {}, () => { called = true; });
+    assert.equal(called, true, role);
+  }
+  for (const role of ['Admin', 'Health worker', 'viewer']) {
+    const res = responseMock();
+    let called = false;
+    authorizeProgressReport({ user: { role } }, res, () => { called = true; });
+    assert.equal(called, false, role);
+    assert.equal(res.code, 403);
   }
 });

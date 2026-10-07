@@ -1,0 +1,139 @@
+import React from 'react';
+import { ResultsTable } from './ResultsTable';
+import { ResultsGraph } from './ResultsGraph';
+
+export function ResultsPanel({
+  selectedSchool,
+  selection,
+  groups,
+  batches,
+  exportReport,
+  resultsView,
+  setResultsView,
+  tableDisplayMode,
+  setTableDisplayMode,
+  tableRows,
+  tableVisibleFields,
+  monitoringRows,
+  showProfileFilter,
+  profileFieldSections,
+  profileSectionLabels,
+  profileSection,
+  setProfileSection,
+  displayPage,
+  reportPagination,
+  generateReport,
+  displayReportCategory,
+  profileGraphColumn,
+  setProfileGraphColumn,
+  graphMetricType,
+  setGraphMetricType,
+  availableGrowthMetrics,
+  availableNumericGrowthMetrics,
+  selectedGraphMetric,
+  setGrowthMetrics,
+  displayWeeks,
+  setDisplayWeeks,
+  rangeRows,
+  averageMetric,
+  graphRows,
+  resultsRows,
+  reportFields,
+  displayVisibleFields,
+  displaySort,
+  changeSort,
+  formatCellValue,
+  displayBeneficiaryType,
+  displayReportFocus,
+  profileGraphFields,
+  interpretationMetrics,
+  programMetrics,
+}) {
+  const viewToggle = [
+    { key: 'table', label: 'Table View' },
+    { key: 'graph', label: 'Graph View' },
+  ];
+
+  return (
+    <div className="progress-report-tab-panel results-tab-panel">
+      <div className="progress-report-results-header">
+        <div>
+          <h1>IV. Report Results</h1>
+          <p>
+            {selectedSchool?.name || 'School'} &gt; {selection.groupId ? groups.find((item) => String(item.id) === String(selection.groupId))?.name : 'All Groups'} &gt; {selection.batchId ? batches.find((item) => String(item.id) === String(selection.batchId))?.name : 'All Batches'}
+          </p>
+        </div>
+
+        <div className="results-view-toggle" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          {viewToggle.map((view) => (
+            <button
+              key={view.key}
+              type="button"
+              className={`secondary-btn ${resultsView === view.key ? 'is-active' : ''}`}
+              onClick={() => setResultsView(view.key)}
+              aria-pressed={resultsView === view.key}
+            >
+              {view.label}
+            </button>
+          ))}
+          <button type="button" className="secondary-btn" onClick={exportReport}>Export CSV</button>
+        </div>
+      </div>
+
+      {resultsView === 'graph' ? (
+        <ResultsGraph
+          displayReportCategory={displayReportCategory}
+          profileGraphColumn={profileGraphColumn}
+          setProfileGraphColumn={setProfileGraphColumn}
+          graphMetricType={graphMetricType}
+          setGraphMetricType={setGraphMetricType}
+          availableGrowthMetrics={availableGrowthMetrics}
+          availableNumericGrowthMetrics={availableNumericGrowthMetrics}
+          selectedGraphMetric={selectedGraphMetric}
+          setGrowthMetrics={setGrowthMetrics}
+          graphRows={graphRows}
+          resultsRows={resultsRows}
+          displayWeeks={displayWeeks}
+          setDisplayWeeks={setDisplayWeeks}
+          rangeRows={rangeRows}
+          displayBeneficiaryType={displayBeneficiaryType}
+          averageMetric={averageMetric}
+          profileGraphFields={profileGraphFields}
+          interpretationMetrics={interpretationMetrics}
+          programMetrics={programMetrics}
+        />
+      ) : (
+        <ResultsTable
+          resultsRows={tableRows}
+          reportFields={reportFields}
+          displayVisibleFields={tableVisibleFields}
+          tableDisplayMode={tableDisplayMode}
+          setTableDisplayMode={setTableDisplayMode}
+          showMonitoringFilter={displayReportCategory === 'monitor'}
+          communitySelection={selection}
+          beneficiaryType={displayBeneficiaryType}
+          monitoringRows={monitoringRows}
+          showProfileFilter={showProfileFilter}
+          profileFieldSections={profileFieldSections}
+          profileSectionLabels={profileSectionLabels}
+          profileSection={profileSection}
+          setProfileSection={setProfileSection}
+          displaySort={displaySort}
+          sortLabel={(label, key) => (
+            <button type="button" className="progress-report-sort-button" onClick={() => changeSort(key)}>
+              {label} {displaySort.key === key ? (displaySort.direction === 'asc' ? '↑' : '↓') : ''}
+            </button>
+          )}
+          formatCellValue={formatCellValue}
+        />
+      )}
+      {reportPagination && reportPagination.totalPages > 1 && (
+        <div className="progress-report-pagination" aria-label="Report pagination">
+          <button type="button" className="secondary-btn" disabled={displayPage <= 1} onClick={() => generateReport(displayPage - 1)}>Previous</button>
+          <span>Page {displayPage} of {reportPagination.totalPages}</span>
+          <button type="button" className="secondary-btn" disabled={displayPage >= reportPagination.totalPages} onClick={() => generateReport(displayPage + 1)}>Next</button>
+        </div>
+      )}
+    </div>
+  );
+}

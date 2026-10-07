@@ -5,7 +5,7 @@ import { getInitials } from '../utils/nameFormat';
 import { useAuth } from '../auth/AuthProvider';
 import { ROLES, hasRole } from '../utils/permissions';
 import { apiGetNotifications } from '../api/notifications';
-import { BellIcon } from '../pages/Community/CommunityIcons';
+import { BellIcon } from './ui/ModuleIcons';
 
 export default function Topbar() {
   const navigate = useNavigate();

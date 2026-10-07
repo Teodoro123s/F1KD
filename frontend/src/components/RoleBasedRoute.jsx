@@ -7,7 +7,7 @@ export default function RoleBasedRoute({ allowedRoles = [], children }) {
   const { currentUser } = useAuth();
 
   if (!hasRole(currentUser?.role, allowedRoles)) {
-    return <Navigate to="/community" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   return children;

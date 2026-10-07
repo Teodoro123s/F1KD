@@ -1,1 +1,5 @@
-export { default } from './Program/ProgramPage';
+import RoleModulePage from './RoleModulePage';
+
+export default function ProgramPage() {
+  return <RoleModulePage module="program" />;
+}

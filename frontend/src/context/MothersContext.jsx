@@ -1,12 +1,15 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { fetchWithAuth, getApiBaseUrl } from '../api/authHeader';
+import { useAuth } from '../auth/AuthProvider';
+import { canAccessModule } from '../utils/permissions';
 
 const MothersContext = createContext(null);
 const API_BASE = getApiBaseUrl();
 
 export function MothersProvider({ children }) {
+  const { currentUser } = useAuth();
   const [mothers, setMothers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => canAccessModule(currentUser?.role, 'beneficiary'));
 
   const loadMothers = useCallback(async (fields = []) => {
     try {
@@ -32,6 +35,12 @@ export function MothersProvider({ children }) {
   }, []);
 
   useEffect(() => {
+    if (!canAccessModule(currentUser?.role, 'beneficiary')) {
+      setMothers([]);
+      setLoading(false);
+      return undefined;
+    }
+
     let active = true;
 
     const run = async () => {
@@ -43,7 +52,7 @@ export function MothersProvider({ children }) {
 
     run();
     return () => { active = false; };
-  }, [loadMothers]);
+  }, [currentUser?.role, loadMothers]);
 
   const value = useMemo(() => ({ mothers, setMothers, loading, refreshMothers: loadMothers }), [mothers, loading, loadMothers]);
 

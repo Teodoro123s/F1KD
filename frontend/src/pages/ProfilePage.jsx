@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import PageHeader from '../components/ui/PageHeader';
 import { PageSkeleton } from '../components/LoadingSkeleton';
 import { useAuth } from '../auth/AuthProvider';
-import { getSummary } from './Community/communityService';
+import { fetchWithAuth } from '../api/authHeader';
 import { isCommunityCoordinatorRole, isHealthWorkerRole } from '../utils/permissions';
 
 export default function ProfilePage() {
@@ -29,7 +29,11 @@ export default function ProfilePage() {
       return undefined;
     }
 
-    getSummary()
+    fetchWithAuth('/api/community/summary')
+      .then((response) => {
+        if (!response.ok) throw new Error(`Unable to load assigned community (${response.status})`);
+        return response.json();
+      })
       .then((summary) => {
         if (!active) return;
         const schoolId = user.school_id ?? user.schoolId;

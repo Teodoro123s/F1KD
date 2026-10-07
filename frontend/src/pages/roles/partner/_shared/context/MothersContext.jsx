@@ -1,0 +1,70 @@
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { fetchWithAuth, getApiBaseUrl } from '../../../../../api/authHeader';
+import { useAuth } from '../../../../../auth/AuthProvider';
+import { canAccessModule } from '../../../../../utils/permissions';
+
+const MothersContext = createContext(null);
+const API_BASE = getApiBaseUrl();
+
+export function MothersProvider({ children }) {
+  const { currentUser } = useAuth();
+  const [mothers, setMothers] = useState([]);
+  const [loading, setLoading] = useState(() => canAccessModule(currentUser?.role, 'beneficiary'));
+
+  const loadMothers = useCallback(async (fields = []) => {
+    try {
+      const params = new URLSearchParams();
+      if (Array.isArray(fields) && fields.length) {
+        params.set('fields', fields.join(','));
+      }
+      const queryString = params.toString() ? `?${params.toString()}` : '';
+      const response = await fetchWithAuth(`${API_BASE}/api/mothers${queryString}`, { headers: { 'Content-Type': 'application/json' } });
+      if (!response.ok) {
+        throw new Error('Failed to load mothers');
+      }
+
+      const payload = await response.json();
+      const nextMothers = Array.isArray(payload) ? payload : (payload.mothers || []);
+      setMothers(nextMothers);
+      return nextMothers;
+    } catch (error) {
+      console.error('[MothersContext] Unable to load mothers from database:', error);
+      setMothers([]);
+      return [];
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!canAccessModule(currentUser?.role, 'beneficiary')) {
+      setMothers([]);
+      setLoading(false);
+      return undefined;
+    }
+
+    let active = true;
+
+    const run = async () => {
+      const nextMothers = await loadMothers();
+      if (!active) return;
+      setMothers(nextMothers);
+      setLoading(false);
+    };
+
+    run();
+    return () => { active = false; };
+  }, [currentUser?.role, loadMothers]);
+
+  const value = useMemo(() => ({ mothers, setMothers, loading, refreshMothers: loadMothers }), [mothers, loading, loadMothers]);
+
+  return (
+    <MothersContext.Provider value={value}>
+      {children}
+    </MothersContext.Provider>
+  );
+}
+
+export function useMothers() {
+  const ctx = useContext(MothersContext);
+  if (!ctx) throw new Error('useMothers must be used within MothersProvider');
+  return ctx;
+}

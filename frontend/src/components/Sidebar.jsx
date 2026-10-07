@@ -2,25 +2,24 @@ import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import logo from '../assets/f1kd-logo.png';
 import { useAuth } from '../auth/AuthProvider';
-import { ROLES, hasRole } from '../utils/permissions';
-import { ActivityIcon, BatchesIcon, BuildingIcon, GroupsIcon, UsersIcon } from '../pages/Community/CommunityIcons';
+import { canAccessModule } from '../utils/permissions';
+import { ActivityIcon, BatchesIcon, BellIcon, BuildingIcon, GroupsIcon, HomeIcon, UsersIcon } from './ui/ModuleIcons';
 
 const items = [
-  { to: '/community', label: 'Community', icon: BuildingIcon },
-  { to: '/beneficiary', label: 'Beneficiary', icon: UsersIcon },
-  { to: '/monitoring', label: 'Monitor', icon: ActivityIcon },
-  { to: '/program', label: 'Program', icon: GroupsIcon },
-  { to: '/progress-report', label: 'Progress Report', icon: BatchesIcon },
-  { to: '/user-management', label: 'User Management', icon: UsersIcon },
+  { to: '/dashboard', label: 'Dashboard', icon: HomeIcon, module: 'dashboard' },
+  { to: '/community', label: 'Community', icon: BuildingIcon, module: 'community' },
+  { to: '/beneficiary', label: 'Beneficiary', icon: UsersIcon, module: 'beneficiary' },
+  { to: '/monitoring', label: 'Monitoring', icon: ActivityIcon, module: 'monitoring' },
+  { to: '/notifications', label: 'Notifications', icon: BellIcon, module: 'notifications' },
+  { to: '/program', label: 'Program', icon: GroupsIcon, module: 'program' },
+  { to: '/progress-report', label: 'Progress Report', icon: BatchesIcon, module: 'progressReport' },
+  { to: '/user-management', label: 'User Management', icon: UsersIcon, module: 'userManagement' },
 ];
 
 export default function Sidebar() {
   const { currentUser } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
-  const isSuperAdmin = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]);
-  const visibleItems = isSuperAdmin
-    ? items.filter((item) => ['/community', '/user-management'].includes(item.to))
-    : items.filter((item) => item.to !== '/user-management');
+  const visibleItems = items.filter((item) => canAccessModule(currentUser?.role, item.module));
 
   return (
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>

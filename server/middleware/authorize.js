@@ -37,7 +37,50 @@ const permissionResponse = (res, message = 'Forbidden') => {
 
 const isReadMethod = (method) => ['GET', 'HEAD', 'OPTIONS'].includes(method);
 
-const isUsersRequest = (req) => req.baseUrl === '/api/users';
+const MODULE_ROLES = {
+  '/api/community': ['super_admin', 'admin', 'community_coordinator'],
+  '/api/mothers': ['super_admin', 'admin', 'community_coordinator', 'health_worker'],
+  '/api/children': ['super_admin', 'admin', 'community_coordinator', 'health_worker'],
+  '/api/documents': ['super_admin', 'admin', 'community_coordinator', 'health_worker'],
+  '/api/programs': ['super_admin', 'admin', 'partner'],
+  '/api/progress-report': ['super_admin', 'community_coordinator', 'partner'],
+};
+
+const MOTHER_HEALTH_FIELDS = [
+  'lmpDate', 'lmp_date', 'eddDate', 'edd_date', 'prenatalRegDate', 'prenatal_reg_date',
+  'trimester', 'gestationalAge', 'gestational_age', 'prenatalWeight', 'prenatal_weight',
+  'prenatalBp', 'prenatal_bp', 'prenatalHeight', 'prenatal_height', 'fundalHeight',
+  'fundal_height', 'fhr', 'gravida', 'para', 'abortion', 'stillbirth', 'weight', 'height',
+  'isHighRisk', 'is_high_risk', 'medicalConditions', 'medical_conditions',
+  'otherMedicalHistory', 'other_medical_history', 'obHistory',
+  'ttRemarks', 'tt1Date', 'tt2Date', 'tt3Date', 'tt4Date', 'tt5Date',
+  'tt1Remarks', 'tt2Remarks', 'tt3Remarks', 'tt4Remarks', 'tt5Remarks',
+  'dentalCheckupDate', 'dentalFacility', 'dentistInCharge', 'communityDentist',
+  'dentistLicense', 'dentistContact', 'teethCount', 'dentalFindings', 'dentalRemarks',
+  'dentalWork',
+];
+const CHILD_HEALTH_FIELDS = [
+  'birthWeight', 'birth_weight', 'birthLength', 'birth_length', 'bloodType', 'blood_type',
+  'noOfChildDelivered', 'no_of_child_delivered', 'multipleBirthType', 'multiple_birth_type',
+  'exclusiveBreastfeeding', 'exclusive_breastfeeding', 'expandedNewbornScreening',
+  'expanded_newborn_screening', 'expandedNewbornScreeningResult',
+  'expanded_newborn_screening_result', 'deliveryType', 'delivery_type', 'healthStatus',
+  'health_status', 'birthPlace', 'birth_place', 'birthAttendant', 'birth_attendant',
+  'apgarScore', 'apgar_score', 'feedingType', 'feeding_type', 'nutritionNotes',
+  'nutrition_notes', 'medicalConditions', 'medical_conditions',
+  'bcgDate', 'bcgDose1', 'bcgDose2', 'bcgDose3', 'bcgRemarks',
+  'hepbDate', 'hepbDose1', 'hepbDose2', 'hepbDose3', 'hepbRemarks',
+  'opvDate', 'opvDose1', 'opvDose2', 'opvDose3', 'opvRemarks',
+  'dptDate', 'dptDose1', 'dptDose2', 'dptDose3', 'dptRemarks',
+  'mmrDate', 'mmrDose1', 'mmrDose2', 'mmrDose3', 'mmrRemarks',
+];
+
+function retainHealthFields(body, allowedFields) {
+  const source = body && typeof body === 'object' && !Array.isArray(body) ? body : {};
+  return Object.fromEntries(allowedFields
+    .filter((field) => Object.prototype.hasOwnProperty.call(source, field))
+    .map((field) => [field, source[field]]));
+}
 
 const isSchoolCreate = (req) => (
   req.baseUrl === '/api/community'
@@ -54,13 +97,10 @@ const isSchoolDelete = (req) => (
 const isLimitedWrite = (req) => {
   if (req.baseUrl === '/api/mothers') {
     return (req.method === 'PUT' && /^\/[^/]+\/?$/.test(req.path))
-      || (req.method === 'POST' && /^\/[^/]+\/(documents|checkups)\/?$/.test(req.path));
+      || (req.method === 'POST' && /^\/[^/]+\/checkups\/?$/.test(req.path));
   }
   if (req.baseUrl === '/api/children') {
     return req.method === 'POST' && /^\/[^/]+\/checkups\/?$/.test(req.path);
-  }
-  if (req.baseUrl === '/api/programs') {
-    return req.method === 'PATCH' && /\/monitoring\/?$/.test(req.path);
   }
   return false;
 };
@@ -103,31 +143,30 @@ function authorizeOperational(req, res, next) {
   }
 
   const userRole = normalizeRole(req.user.role);
-  const operationalRoles = ['super_admin', 'admin', 'community_coordinator', 'partner', 'health_worker'];
-  if (!operationalRoles.includes(userRole)) {
+  const moduleRoles = MODULE_ROLES[req.baseUrl];
+  if (!moduleRoles || !moduleRoles.includes(userRole)) {
     return permissionResponse(res, 'You do not have permission to access this resource');
   }
   const isCommunityOrganizer = isCommunityCoordinatorRole(req.user.role);
   req.isHealthWorker = isHealthWorkerRole(req.user.role);
   req.isCommunityOrganizer = isCommunityOrganizer;
+  req.isPartner = userRole === 'partner';
 
   if (!isReadMethod(req.method)) {
-    if (userRole !== 'super_admin' && isUsersRequest(req)) {
-      return permissionResponse(res, 'User management is restricted to Superadmin');
-    }
-
-    if (userRole === 'community_coordinator' && (isSchoolCreate(req) || isSchoolDelete(req))) {
+    if (userRole === 'community_coordinator' && req.baseUrl === '/api/community' && (isSchoolCreate(req) || isSchoolDelete(req))) {
       return permissionResponse(res, 'Community Coordinators cannot create or delete schools');
     }
 
     const isAllowedHealthWorkerWrite = userRole === 'health_worker'
+      && req.baseUrl !== '/api/programs'
       && (isLimitedWrite(req) || isHealthWorkerChildUpdate(req));
-    if (!['super_admin', 'community_coordinator'].includes(userRole) && !isAllowedHealthWorkerWrite) {
-      return permissionResponse(res, 'Admin and Partner accounts are read-only');
+    if (userRole !== 'super_admin'
+      && userRole !== 'community_coordinator'
+      && !isAllowedHealthWorkerWrite) {
+      return permissionResponse(res, 'This role has read-only access to this module');
     }
   }
 
-  const scopedRoles = ['community_coordinator', 'health_worker'];
   const hasSchoolAssignment = req.user.school_id !== undefined && req.user.school_id !== null && String(req.user.school_id).trim() !== '';
   const hasGroupAssignment = req.user.group_id !== undefined && req.user.group_id !== null && String(req.user.group_id).trim() !== '';
 
@@ -137,20 +176,21 @@ function authorizeOperational(req, res, next) {
     return next();
   }
 
-  if (scopedRoles.includes(userRole)) {
-    if (!hasSchoolAssignment) {
-      if (isCommunityOrganizer) {
-        req.schoolId = -1;
-        req.groupId = null;
-        return next();
-      }
-      return permissionResponse(res, 'This account is not assigned to a school');
-    }
-    req.schoolId = Number(req.user.school_id);
-    req.groupId = req.isHealthWorker && hasGroupAssignment ? Number(req.user.group_id) : null;
-  } else {
-    req.schoolId = null;
-    req.groupId = null;
+  if (!hasSchoolAssignment || !Number.isInteger(Number(req.user.school_id)) || Number(req.user.school_id) <= 0) {
+    return permissionResponse(res, 'This account is not assigned to a school');
+  }
+  req.schoolId = Number(req.user.school_id);
+  if (req.isHealthWorker && hasGroupAssignment
+    && (!Number.isInteger(Number(req.user.group_id)) || Number(req.user.group_id) <= 0)) {
+    return permissionResponse(res, 'This account has an invalid group assignment');
+  }
+  req.groupId = req.isHealthWorker && hasGroupAssignment ? Number(req.user.group_id) : null;
+
+  if (req.isHealthWorker && req.method === 'PUT' && /^\/[^/]+\/?$/.test(req.path)) {
+    req.body = retainHealthFields(
+      req.body,
+      req.baseUrl === '/api/mothers' ? MOTHER_HEALTH_FIELDS : CHILD_HEALTH_FIELDS,
+    );
   }
 
   return next();
@@ -158,7 +198,7 @@ function authorizeOperational(req, res, next) {
 
 function authorizeProgressReport(req, res, next) {
   const userRole = normalizeRole(req.user?.role);
-  if (!['admin', 'partner', 'community_coordinator', 'health_worker'].includes(userRole)) {
+  if (!['super_admin', 'partner', 'community_coordinator'].includes(userRole)) {
     return permissionResponse(res, 'You do not have permission to access progress reports');
   }
   return next();
@@ -171,4 +211,5 @@ module.exports = {
   normalizeRole,
   isHealthWorkerRole,
   isCommunityCoordinatorRole,
+  retainHealthFields,
 };

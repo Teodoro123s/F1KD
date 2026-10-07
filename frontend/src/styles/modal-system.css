@@ -21,6 +21,15 @@
   backdrop-filter: blur(5px);
 }
 
+.modal-backdrop,
+.view-modal-backdrop,
+.report-modal-backdrop,
+.document-preview-modal-backdrop {
+  box-sizing: border-box;
+  overflow-y: auto;
+  padding: 1rem;
+}
+
 .modal-content,
 .modal,
 .view-modal,
@@ -31,13 +40,93 @@
   border-radius: var(--modal-radius);
   background: var(--modal-surface);
   box-shadow: var(--modal-shadow);
+  min-height: 0;
+  max-height: min(90vh, calc(100vh - 2rem));
 }
 
 .modal-content,
 .modal,
 .view-modal,
+.report-modal,
 .document-preview-modal {
   overflow: hidden;
+}
+
+.modal-content > form,
+.modal > form {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.modal-content > .modal-body,
+.modal > .modal-body,
+.modal-content > form > .modal-body,
+.modal > form > .modal-body,
+.modal-content > .modal-body-scrollable,
+.modal > .modal-body-scrollable,
+.modal-content > form > .modal-body-scrollable,
+.modal > form > .modal-body-scrollable {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.modal-content > .modal-header-section,
+.modal-content > .modal-header,
+.modal-content > form > .modal-header-section,
+.modal-content > form > .modal-footer,
+.modal > .modal-header,
+.modal > .modal-footer,
+.view-modal__header,
+.view-modal__footer,
+.document-preview-modal-header,
+.program-receipt-modal-header {
+  flex: 0 0 auto;
+}
+
+.view-modal__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.report-modal {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.program-receipt-modal {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.program-receipt-modal form {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+@supports (height: 100dvh) {
+  .modal-content,
+  .modal,
+  .view-modal,
+  .report-modal,
+  .document-preview-modal,
+  .program-receipt-modal {
+    max-height: min(90dvh, calc(100dvh - 2rem));
+  }
 }
 
 .modal-header-section,
@@ -179,7 +268,36 @@
     border-radius: 14px;
   }
 
+  .modal-backdrop,
+  .view-modal-backdrop,
+  .report-modal-backdrop,
+  .document-preview-modal-backdrop {
+    padding: 0.5rem;
+  }
+
+  .modal-content,
+  .modal,
+  .view-modal,
+  .report-modal,
+  .document-preview-modal,
+  .program-receipt-modal {
+    max-height: min(94vh, calc(100vh - 1rem));
+  }
+
   .action-feedback {
     top: 72px;
+  }
+}
+
+@media (max-width: 640px) {
+  @supports (height: 100dvh) {
+    .modal-content,
+    .modal,
+    .view-modal,
+    .report-modal,
+    .document-preview-modal,
+    .program-receipt-modal {
+      max-height: min(94dvh, calc(100dvh - 1rem));
+    }
   }
 }

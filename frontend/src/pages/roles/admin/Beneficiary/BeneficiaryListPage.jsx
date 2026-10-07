@@ -1,0 +1,276 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import { ChevronLeftIcon, ChevronRightIcon } from './BeneficiaryIcons';
+import BeneficiaryTable from './BeneficiaryTable';
+import StatusFilterBar from './components/StatusFilterBar';
+import EntitySearchControls from './components/EntitySearchControls';
+import { apiGetChildren } from '../../../../api/children';
+import { getMotherProfileProgress, getMotherMonitoringProgress } from '../_shared/utils/motherProgress';
+import { getChildProfileProgress, getChildMonitoringProgress } from '../_shared/utils/childProgress';
+
+const getGroupStatusByProgress = (g) => {
+  if (!g) return 'Incomplete';
+
+  if (g.monitoringProgress && typeof g.monitoringProgress === 'object') {
+    return g.monitoringProgress.completed >= g.monitoringProgress.total ? 'Complete' : 'Incomplete';
+  }
+
+  if (g.status && ['Complete', 'Incomplete'].includes(g.status)) {
+    return g.status;
+  }
+
+  const p = g.progress ?? 0;
+  return p >= 100 ? 'Complete' : 'Incomplete';
+};
+
+export default function BeneficiaryListPage({ communities = [], groups = [], batches = [], mothers = [], loading = false, onSelectMother, onSelectChild, batchId = '' }) {
+  const [query, setQuery] = useState('');
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState('All');
+  const [perPage, setPerPage] = useState(10);
+  const [page, setPage] = useState(1);
+  const [selectedEntityFilter, setSelectedEntityFilter] = useState('Mother');
+  const [selectedCommunityFilter, setSelectedCommunityFilter] = useState('');
+  const [childRows, setChildRows] = useState([]);
+  const [childrenLoading, setChildrenLoading] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadChildren() {
+      setChildrenLoading(true);
+      apiGetChildren()
+        .then((response) => {
+          const mothersByDbId = new Map();
+          mothers.forEach((mother) => {
+            const dbId = mother.raw?.id || mother.original?.raw?.id || mother.id;
+            if (dbId !== undefined && dbId !== null) mothersByDbId.set(String(dbId), mother);
+          });
+          const rows = (response.children || []).map((child) => {
+            const mother = mothersByDbId.get(String(child.mother_id || child.mother_db_id));
+            const childName = child.name || [child.first_name, child.middle_name, child.last_name, child.suffix].filter(Boolean).join(' ');
+            return {
+              id: child.id,
+              name: childName || 'Unnamed child',
+              community: child.community_name || mother?.community || mother?.area || 'Unknown',
+              progress: getChildProfileProgress(child),
+              original: {
+                ...child,
+                mother,
+                group_name: child.group_name || child.group || '',
+                batch_name: child.batch_name || child.batch || '',
+              },
+            };
+          });
+          if (active) setChildRows(rows);
+        })
+        .catch((error) => {
+          if (active) {
+            console.error('[BeneficiaryListPage] Unable to load children:', error);
+            setChildRows([]);
+          }
+        })
+        .finally(() => {
+          if (active) setChildrenLoading(false);
+        });
+    }
+
+    loadChildren();
+    return () => { active = false; };
+  }, [mothers]);
+
+  const handleSearch = (val) => { setQuery(val); setPage(1); };
+  const handlePerPageChange = (val) => { setPerPage(Number(val)); setPage(1); };
+
+  const filteredData = useMemo(() => {
+    const term = (query || '').trim().toLowerCase();
+    let data = selectedEntityFilter === 'Child' ? childRows : mothers;
+
+    if (batchId) {
+      const normalizedBatchId = String(batchId);
+      data = data.filter((item) => {
+        const original = item.original || item.raw || item;
+        const candidates = [
+          item.batchId,
+          item.batch_id,
+          item.batchCode,
+          item.batch_code,
+          original.batchId,
+          original.batch_id,
+          original.batchCode,
+          original.batch_code,
+          original.batch,
+          original.batch_name,
+          original.batchName,
+          item.assignedBatchIds,
+          original.assignedBatchIds,
+        ]
+          .flatMap((value) => Array.isArray(value) ? value : [value])
+          .filter((value) => value !== undefined && value !== null && value !== '');
+
+        return candidates.some((value) => String(value) === normalizedBatchId || String(value).toLowerCase() === normalizedBatchId.toLowerCase());
+      });
+    }
+
+    // Normalize incoming items: support both 'group' objects and 'mother' objects
+    data = data.map((item) => {
+      if (selectedEntityFilter === 'Child') {
+        return item;
+      }
+      if (item && (item.firstName || item.first_name || item.motherId || item.mother_id)) {
+        const monitoringProgress = getMotherMonitoringProgress(item);
+        const displayName = [
+          item.firstName || item.first_name,
+          item.middleName || item.middle_name,
+          item.lastName || item.last_name,
+          item.suffix,
+        ].filter((part) => String(part || '').trim()).join(' ') || item.name || '';
+        return {
+          id: item.id,
+          name: displayName,
+          community: item.community || item.community_name || '',
+          progress: getMotherProfileProgress(item),
+          monitoringProgress,
+          status: monitoringProgress.completed >= monitoringProgress.total ? 'Complete' : 'Incomplete',
+          original: item,
+        };
+      }
+
+      const monitoringProgress = selectedEntityFilter === 'Child' ? getChildMonitoringProgress(item) : getMotherMonitoringProgress(item);
+      return {
+        id: item.id,
+        name: item.name,
+        community: item.community,
+        progress: item.progress ?? 0,
+        monitoringProgress,
+        status: monitoringProgress.completed >= monitoringProgress.total ? 'Complete' : 'Incomplete',
+        original: item,
+      };
+    });
+
+    if (selectedStatusFilter !== 'All') {
+      data = data.filter((g) => getGroupStatusByProgress(g) === selectedStatusFilter);
+    }
+
+    if (selectedCommunityFilter) {
+      data = data.filter((item) => String(item.community || '').trim() === selectedCommunityFilter);
+    }
+
+    if (term) {
+      // Respect the selected entity filter when searching
+      data = data.filter((g) => (
+        `${g.name || ''} ${g.community || ''}`.toLowerCase().includes(term)
+      ));
+    }
+
+    const statusOrder = { Incomplete: 0, Complete: 1 };
+    return [...data].sort((a, b) => {
+      const statusA = statusOrder[getGroupStatusByProgress(a)];
+      const statusB = statusOrder[getGroupStatusByProgress(b)];
+      if (statusA !== statusB) return statusA - statusB;
+      return (a.name || '').localeCompare(b.name || '');
+    });
+  }, [mothers, childRows, query, selectedStatusFilter, selectedEntityFilter, selectedCommunityFilter, batchId]);
+
+  const pageCount = Math.max(1, Math.ceil(filteredData.length / perPage));
+  const currentPage = Math.min(page, pageCount);
+  const currentStart = (currentPage - 1) * perPage;
+  const currentRows = filteredData.slice(currentStart, currentStart + perPage);
+
+  const rangeStart = filteredData.length === 0 ? 0 : currentStart + 1;
+  const rangeEnd = Math.min(currentStart + perPage, filteredData.length);
+
+  const renderPaginationButtons = () => (
+    <>
+      <button
+        type="button"
+        className={`pagination-btn${currentPage === 1 ? ' disabled' : ''}`}
+        onClick={() => setPage((value) => Math.max(1, value - 1))}
+        disabled={currentPage === 1}
+        aria-label="Previous page"
+      >
+        <ChevronLeftIcon />
+      </button>
+
+      <input
+        type="number"
+        min={1}
+        max={pageCount}
+        value={currentPage}
+        className="pagination-page-input"
+        placeholder="Page"
+        aria-label="Jump to a page"
+        onChange={(event) => {
+          const nextPage = Number(event.target.value);
+          if (!Number.isNaN(nextPage) && nextPage >= 1 && nextPage <= pageCount) {
+            setPage(nextPage);
+          }
+        }}
+      />
+
+      <button
+        type="button"
+        className={`pagination-btn${currentPage === pageCount ? ' disabled' : ''}`}
+        onClick={() => setPage((value) => Math.min(pageCount, value + 1))}
+        disabled={currentPage === pageCount}
+        aria-label="Next page"
+      >
+        <ChevronRightIcon />
+      </button>
+    </>
+  );
+
+  const motherProgressByName = useMemo(() => Object.fromEntries(communities.map((comm) => [comm.name, comm.progress ?? 0])), [communities]);
+
+  const displayRows = useMemo(() => {
+    return currentRows.map((row) => {
+      const groupBatchIds = row.assignedBatchIds || [];
+      const groupBatches = batches.filter((batch) => groupBatchIds.includes(batch.id));
+      const childProgress = groupBatches.length
+        ? Math.round(groupBatches.reduce((sum, batch) => sum + (batch.progress ?? 0), 0) / groupBatches.length)
+        : null;
+      return { ...row, childProgress };
+    });
+  }, [currentRows, batches]);
+
+  return (
+    <>
+      <section className="tabs-row beneficiary-filter-row">
+        <StatusFilterBar
+          mode="beneficiary"
+          selectedStatusFilter={selectedStatusFilter}
+          onChange={(nextStatus) => {
+            setSelectedStatusFilter(nextStatus);
+            setPage(1);
+          }}
+        />
+
+        <EntitySearchControls
+          selectedEntityFilter={selectedEntityFilter}
+          communities={communities}
+          selectedCommunity={selectedCommunityFilter}
+          onCommunityChange={(value) => { setSelectedCommunityFilter(value); setPage(1); }}
+          query={query}
+            onEntityChange={(nextType) => { setSelectedEntityFilter(nextType); setQuery(''); setPage(1); }}
+          onQueryChange={handleSearch}
+        />
+      </section>
+
+      <BeneficiaryTable
+        currentRows={displayRows}
+        loading={loading || (selectedEntityFilter === 'Child' && childrenLoading)}
+        filteredDataLength={filteredData.length}
+        rangeStart={rangeStart}
+        rangeEnd={rangeEnd}
+        perPage={perPage}
+        handlePerPageChange={handlePerPageChange}
+        renderPaginationButtons={renderPaginationButtons}
+        motherProgressByName={motherProgressByName}
+        onSelectMother={onSelectMother}
+        onSelectChild={onSelectChild}
+        communities={communities}
+        groups={groups}
+        batches={batches}
+        entityFilter={selectedEntityFilter}
+      />
+    </>
+  );
+}

@@ -307,6 +307,20 @@ router.post('/', async (req, res) => {
       batchId = batchRows[0]?.id || null;
     }
 
+    const [duplicateChildren] = await pool.query(
+      `SELECT id FROM children
+       WHERE mother_id = ?
+         AND LOWER(TRIM(first_name)) = LOWER(TRIM(?))
+         AND LOWER(TRIM(COALESCE(middle_name, ''))) = LOWER(TRIM(?))
+         AND LOWER(TRIM(last_name)) = LOWER(TRIM(?))
+         AND birth_date <=> ?
+       LIMIT 1`,
+      [motherId, firstName, getField(b, 'middleName', 'middle_name') || '', lastName, birthDate || null],
+    );
+    if (duplicateChildren.length) {
+      return res.status(409).json({ error: 'This child is already registered for this mother.' });
+    }
+
     // generate child_code
     const childCode = `C-${Date.now()}`;
 
@@ -348,6 +362,9 @@ router.post('/', async (req, res) => {
     res.status(201).json({ child: await attachMonitoringData(child) });
   } catch (err) {
     console.error('Failed to create child', err);
+    if (err?.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ error: 'This child is already registered.' });
+    }
     res.status(500).json({ error: 'db error' });
   }
 });
@@ -537,17 +554,38 @@ router.put('/:id', async (req, res) => {
       relationship: getField(body, 'relationship') || current.relationship || null,
       address: getField(body, 'address') || current.address || null,
     };
+    const [duplicateChildren] = await pool.query(
+      `SELECT id FROM children
+       WHERE id <> ?
+         AND mother_id = ?
+         AND LOWER(TRIM(first_name)) = LOWER(TRIM(?))
+         AND LOWER(TRIM(COALESCE(middle_name, ''))) = LOWER(TRIM(?))
+         AND LOWER(TRIM(last_name)) = LOWER(TRIM(?))
+         AND birth_date <=> ?
+       LIMIT 1`,
+      [current.id, motherId, update.first_name, update.middle_name || '', update.last_name, update.birth_date],
+    );
+    if (duplicateChildren.length) {
+      return res.status(409).json({ error: 'This child is already registered for this mother.' });
+    }
     await pool.query('UPDATE children SET ? WHERE id = ?', [update, current.id]);
 
-    await pool.query('DELETE FROM child_medical_conditions WHERE child_id = ?', [current.id]);
-    for (const [conditionName, hasCondition] of Object.entries(body.medicalConditions || {})) {
-      if (hasCondition) await pool.query(
-        'INSERT INTO child_medical_conditions (child_id, condition_name, has_condition) VALUES (?, ?, ?)',
-        [current.id, conditionName, true]
-      );
+    const medicalConditions = body.medicalConditions ?? body.medical_conditions;
+    if (medicalConditions !== undefined) {
+      await pool.query('DELETE FROM child_medical_conditions WHERE child_id = ?', [current.id]);
+      for (const [conditionName, hasCondition] of Object.entries(medicalConditions || {})) {
+        if (hasCondition) await pool.query(
+          'INSERT INTO child_medical_conditions (child_id, condition_name, has_condition) VALUES (?, ?, ?)',
+          [current.id, conditionName, true]
+        );
+      }
     }
-    await pool.query('DELETE FROM child_vaccinations WHERE child_id = ?', [current.id]);
-    await saveChildVaccines(current.id, body);
+    const vaccineFields = ['bcg', 'hepb', 'opv', 'dpt', 'mmr']
+      .flatMap((field) => [`${field}Date`, `${field}Dose1`, `${field}Dose2`, `${field}Dose3`, `${field}Remarks`]);
+    if (vaccineFields.some((field) => body[field] !== undefined)) {
+      await pool.query('DELETE FROM child_vaccinations WHERE child_id = ?', [current.id]);
+      await saveChildVaccines(current.id, body);
+    }
 
     const [rows] = await pool.query(
       `SELECT c.*, m.first_name AS mother_first_name, m.last_name AS mother_last_name, m.mother_code,
@@ -589,6 +627,9 @@ router.put('/:id', async (req, res) => {
     res.json({ child: await attachClinicalData(updatedChild) });
   } catch (error) {
     console.error('Failed to update child', error);
+    if (error?.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ error: 'This child is already registered.' });
+    }
     res.status(500).json({ error: 'db error' });
   }
 });

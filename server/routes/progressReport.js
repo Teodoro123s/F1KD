@@ -28,6 +28,27 @@ const getBmiInterpretation = (value) => {
 
 const normalizeProgramBeneficiaryType = (value) => String(value || '').trim().toLowerCase().replace(/\s*&\s*/g, ' and ');
 
+function getPartnerProgramScopeSql() {
+  return `EXISTS (
+    SELECT 1 FROM program_clusters scoped_cluster
+    WHERE scoped_cluster.program_id = p.id
+      AND (
+        (scoped_cluster.scope_type = 'School' AND EXISTS (
+          SELECT 1 FROM communities scoped_school
+          WHERE scoped_school.id = ? AND scoped_school.name = scoped_cluster.scope_name
+        ))
+        OR (scoped_cluster.scope_type = 'Group' AND EXISTS (
+          SELECT 1 FROM groups scoped_group
+          WHERE scoped_group.community_id = ? AND scoped_group.name = scoped_cluster.scope_name
+        ))
+        OR (scoped_cluster.scope_type = 'Batch' AND EXISTS (
+          SELECT 1 FROM batches scoped_batch
+          WHERE scoped_batch.community_id = ? AND scoped_batch.name = scoped_cluster.scope_name
+        ))
+      )
+  )`;
+}
+
 function shouldApplyProgramMonitoringData({ programName } = {}) {
   return String(programName || '').trim().length > 0;
 }
@@ -95,13 +116,22 @@ router.get('/options', async (req, res) => {
     const batchClause = req.groupId ? 'WHERE EXISTS (SELECT 1 FROM group_batch WHERE group_batch.batch_id = batches.id AND group_batch.group_id = ?)' : req.schoolId ? 'WHERE community_id = ?' : '';
     const [schools] = await pool.query(`SELECT id, name FROM communities ${schoolClause} ORDER BY name`, req.groupId ? [req.groupId] : req.schoolId ? [req.schoolId] : []);
     const [groups] = await pool.query(`SELECT id, name, community_id AS schoolId FROM groups ${groupClause} ORDER BY name`, req.groupId ? [req.groupId] : req.schoolId ? [req.schoolId] : []);
-    const [batches] = await pool.query(`SELECT id, name, batch_code AS code, community_id AS schoolId FROM batches ${batchClause} ORDER BY name`, req.groupId ? [req.groupId] : req.schoolId ? [req.schoolId] : []);
-    const [mothers] = await pool.query(`
-      SELECT m.id, m.mother_code AS code,
-        TRIM(CONCAT_WS(' ', m.first_name, m.middle_name, m.last_name, m.suffix)) AS name,
-        m.community_id AS schoolId, m.group_id AS groupId, m.batch_id AS batchId
-      FROM mothers m ${req.groupId ? 'WHERE m.group_id = ?' : req.schoolId ? 'WHERE m.community_id = ?' : ''} ORDER BY name
+    const [batches] = await pool.query(`
+      SELECT id, name, batch_code AS code, community_id AS schoolId,
+        (SELECT GROUP_CONCAT(group_id ORDER BY group_id)
+         FROM group_batch WHERE group_batch.batch_id = batches.id) AS groupIds
+      FROM batches ${batchClause}
+      ORDER BY name
     `, req.groupId ? [req.groupId] : req.schoolId ? [req.schoolId] : []);
+    let mothers = [];
+    if (!req.isPartner) {
+      [mothers] = await pool.query(`
+        SELECT m.id, m.mother_code AS code,
+          TRIM(CONCAT_WS(' ', m.first_name, m.middle_name, m.last_name, m.suffix)) AS name,
+          m.community_id AS schoolId, m.group_id AS groupId, m.batch_id AS batchId
+        FROM mothers m ${req.groupId ? 'WHERE m.group_id = ?' : req.schoolId ? 'WHERE m.community_id = ?' : ''} ORDER BY name
+      `, req.groupId ? [req.groupId] : req.schoolId ? [req.schoolId] : []);
+    }
     res.json({ schools, groups, batches, mothers });
   } catch (error) {
     console.error('[Progress Report] options error:', error.message);
@@ -112,6 +142,25 @@ router.get('/options', async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     const params = parseParams(req.query, req);
+    if (req.isPartner) {
+      if (!params.programName) {
+        return res.status(400).json({ error: 'Select a program to view its progress report' });
+      }
+      const [programRows] = await pool.query(
+        `SELECT p.id, p.name, p.beneficiary_type
+         FROM programs p
+         WHERE LOWER(TRIM(p.name)) = LOWER(TRIM(?))
+           AND ${getPartnerProgramScopeSql()}
+         LIMIT 1`,
+        [params.programName, req.schoolId, req.schoolId, req.schoolId],
+      );
+      if (!programRows.length) {
+        return res.status(403).json({ error: 'This program is not assigned to your community' });
+      }
+      params.programId = programRows[0].id;
+      params.programName = programRows[0].name;
+      params.programBeneficiaryType = programRows[0].beneficiary_type;
+    }
     const isMotherReport = params.granularity === 'mother';
     const filters = hierarchyWhere(params, isMotherReport ? { mother: 'm' } : undefined);
     const childCheckupDateFilter = (alias) => `(c.birth_date IS NULL OR c.birth_date < '1900-01-01' OR ${alias}.visit_date >= c.birth_date)`;
@@ -389,7 +438,10 @@ router.get('/', async (req, res) => {
       if (applyMonitoringData) {
         const benefitConditions = ['ml.monitored = 1'];
         const benefitValues = [];
-        if (params.programName) {
+        if (params.programId) {
+          benefitConditions.push('p.id = ?');
+          benefitValues.push(params.programId);
+        } else if (params.programName) {
           benefitConditions.push('LOWER(TRIM(p.name)) = LOWER(TRIM(?))');
           benefitValues.push(params.programName);
         }

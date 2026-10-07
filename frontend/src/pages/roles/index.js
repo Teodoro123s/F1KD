@@ -1,0 +1,52 @@
+export { default as SuperAdminDashboard } from './super_admin/Dashboard';
+export { default as SuperAdminCommunity } from './super_admin/Community';
+export { default as SuperAdminBeneficiary } from './super_admin/Beneficiary';
+export { ChildProfilePage as SuperAdminChildProfile } from './super_admin/Beneficiary';
+export { EditChildPage as SuperAdminEditChild } from './super_admin/Beneficiary';
+export { MotherChildrenPage as SuperAdminMotherChildren } from './super_admin/Beneficiary';
+export { EditMotherPage as SuperAdminEditMother } from './super_admin/Beneficiary';
+export { default as SuperAdminMonitoring } from './super_admin/Monitoring';
+export { default as SuperAdminNotifications } from './super_admin/Notifications';
+export { default as SuperAdminProgram } from './super_admin/Program';
+export { ReceiptHistoryPage as SuperAdminReceiptHistory } from './super_admin/Program';
+export { default as SuperAdminProgressReport } from './super_admin/ProgressReport';
+export { default as SuperAdminUserManagement } from './super_admin/UserManagement';
+export { UserDetailPage as SuperAdminUserDetail } from './super_admin/UserManagement';
+
+export { default as AdminDashboard } from './admin/Dashboard';
+export { default as AdminCommunity } from './admin/Community';
+export { default as AdminBeneficiary } from './admin/Beneficiary';
+export { ChildProfilePage as AdminChildProfile } from './admin/Beneficiary';
+export { EditChildPage as AdminEditChild } from './admin/Beneficiary';
+export { MotherChildrenPage as AdminMotherChildren } from './admin/Beneficiary';
+export { EditMotherPage as AdminEditMother } from './admin/Beneficiary';
+export { default as AdminMonitoring } from './admin/Monitoring';
+export { default as AdminNotifications } from './admin/Notifications';
+export { default as AdminProgram } from './admin/Program';
+export { ReceiptHistoryPage as AdminReceiptHistory } from './admin/Program';
+
+export { default as CommunityCoordinatorDashboard } from './community_coordinator/Dashboard';
+export { default as CommunityCoordinatorCommunity } from './community_coordinator/Community';
+export { default as CommunityCoordinatorBeneficiary } from './community_coordinator/Beneficiary';
+export { ChildProfilePage as CommunityCoordinatorChildProfile } from './community_coordinator/Beneficiary';
+export { EditChildPage as CommunityCoordinatorEditChild } from './community_coordinator/Beneficiary';
+export { MotherChildrenPage as CommunityCoordinatorMotherChildren } from './community_coordinator/Beneficiary';
+export { EditMotherPage as CommunityCoordinatorEditMother } from './community_coordinator/Beneficiary';
+export { default as CommunityCoordinatorMonitoring } from './community_coordinator/Monitoring';
+export { default as CommunityCoordinatorNotifications } from './community_coordinator/Notifications';
+export { default as CommunityCoordinatorProgressReport } from './community_coordinator/ProgressReport';
+
+export { default as PartnerDashboard } from './partner/Dashboard';
+export { default as PartnerNotifications } from './partner/Notifications';
+export { default as PartnerProgram } from './partner/Program';
+export { ReceiptHistoryPage as PartnerReceiptHistory } from './partner/Program';
+export { default as PartnerProgressReport } from './partner/ProgressReport';
+
+export { default as HealthWorkerDashboard } from './health_worker/Dashboard';
+export { default as HealthWorkerBeneficiary } from './health_worker/Beneficiary';
+export { ChildProfilePage as HealthWorkerChildProfile } from './health_worker/Beneficiary';
+export { EditChildPage as HealthWorkerEditChild } from './health_worker/Beneficiary';
+export { MotherChildrenPage as HealthWorkerMotherChildren } from './health_worker/Beneficiary';
+export { EditMotherPage as HealthWorkerEditMother } from './health_worker/Beneficiary';
+export { default as HealthWorkerMonitoring } from './health_worker/Monitoring';
+export { default as HealthWorkerNotifications } from './health_worker/Notifications';

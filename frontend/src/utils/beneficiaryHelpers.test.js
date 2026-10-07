@@ -1,7 +1,22 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateGestationalDetails } from './beneficiaryHelpers.js';
+import {
+  calculateExpectedDeliveryDate,
+  calculateGestationalDetails,
+  normalizeLmpDate,
+} from './beneficiaryHelpers.js';
 import { getMotherMonitoringProgress, getMotherMonitoringStartIndex } from './motherProgress.js';
+
+test('calculateExpectedDeliveryDate computes 280 days from ISO or day-first LMP dates', () => {
+  assert.equal(calculateExpectedDeliveryDate('2026-04-13'), '2027-01-18');
+  assert.equal(calculateExpectedDeliveryDate('13/04/2026'), '2027-01-18');
+});
+
+test('normalizeLmpDate accepts unambiguous month-first dates shown by native date inputs', () => {
+  assert.equal(normalizeLmpDate('04/13/2026'), '2026-04-13');
+  assert.equal(calculateExpectedDeliveryDate('04/13/2026'), '2027-01-18');
+  assert.equal(calculateExpectedDeliveryDate('13/13/2026'), '');
+});
 
 test('calculateGestationalDetails keeps first-trimester monitoring aligned with the LMP-based month progression', () => {
   const julyToSeptember = calculateGestationalDetails('2026-07-01', '2026-09-15');

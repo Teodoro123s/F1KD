@@ -8,12 +8,16 @@ export const ROLES = {
 
 const COORDINATOR = [ROLES.COMMUNITY_COORDINATOR];
 const SUPER_ADMIN = [ROLES.SUPER_ADMIN];
-const OPERATIONAL_READ = [
-  ROLES.ADMIN,
-  ROLES.COMMUNITY_COORDINATOR,
-  ROLES.PARTNER,
-  ROLES.HEALTH_WORKER,
-];
+export const MODULE_ROLES = {
+  dashboard: Object.values(ROLES),
+  community: [ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.COMMUNITY_COORDINATOR],
+  beneficiary: [ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.COMMUNITY_COORDINATOR, ROLES.HEALTH_WORKER],
+  monitoring: [ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.COMMUNITY_COORDINATOR, ROLES.HEALTH_WORKER],
+  notifications: Object.values(ROLES),
+  program: [ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.PARTNER],
+  progressReport: [ROLES.SUPER_ADMIN, ROLES.COMMUNITY_COORDINATOR, ROLES.PARTNER],
+  userManagement: SUPER_ADMIN,
+};
 
 export const PERMISSIONS = {
   'user-management': {
@@ -23,7 +27,7 @@ export const PERMISSIONS = {
     delete: SUPER_ADMIN,
   },
   'community-resources': {
-    read: [ROLES.SUPER_ADMIN, ...OPERATIONAL_READ],
+    read: MODULE_ROLES.community,
     create: [ROLES.SUPER_ADMIN, ROLES.COMMUNITY_COORDINATOR],
     update: [ROLES.SUPER_ADMIN, ROLES.COMMUNITY_COORDINATOR],
     delete: [ROLES.SUPER_ADMIN, ROLES.COMMUNITY_COORDINATOR],
@@ -41,28 +45,28 @@ export const PERMISSIONS = {
     delete: COORDINATOR,
   },
   'beneficiary-resources': {
-    read: OPERATIONAL_READ,
-    create: COORDINATOR,
-    update: [ROLES.COMMUNITY_COORDINATOR, ROLES.HEALTH_WORKER],
-    delete: COORDINATOR,
+    read: MODULE_ROLES.beneficiary,
+    create: [ROLES.SUPER_ADMIN, ROLES.COMMUNITY_COORDINATOR],
+    update: [ROLES.SUPER_ADMIN, ROLES.COMMUNITY_COORDINATOR, ROLES.HEALTH_WORKER],
+    delete: [ROLES.SUPER_ADMIN, ROLES.COMMUNITY_COORDINATOR],
   },
   'program-resources': {
-    read: OPERATIONAL_READ,
-    create: COORDINATOR,
-    update: COORDINATOR,
-    delete: COORDINATOR,
+    read: MODULE_ROLES.program,
+    create: SUPER_ADMIN,
+    update: SUPER_ADMIN,
+    delete: SUPER_ADMIN,
   },
   'monitor-resources': {
-    read: OPERATIONAL_READ,
-    create: [ROLES.COMMUNITY_COORDINATOR, ROLES.HEALTH_WORKER],
-    update: [ROLES.COMMUNITY_COORDINATOR, ROLES.HEALTH_WORKER],
-    delete: COORDINATOR,
+    read: MODULE_ROLES.beneficiary,
+    create: [ROLES.SUPER_ADMIN, ROLES.COMMUNITY_COORDINATOR, ROLES.HEALTH_WORKER],
+    update: [ROLES.SUPER_ADMIN, ROLES.COMMUNITY_COORDINATOR, ROLES.HEALTH_WORKER],
+    delete: [ROLES.SUPER_ADMIN, ROLES.COMMUNITY_COORDINATOR],
   },
   'progress-report': {
-    read: OPERATIONAL_READ,
-    create: COORDINATOR,
-    update: COORDINATOR,
-    delete: COORDINATOR,
+    read: MODULE_ROLES.progressReport,
+    create: [ROLES.SUPER_ADMIN, ROLES.COMMUNITY_COORDINATOR],
+    update: [ROLES.SUPER_ADMIN, ROLES.COMMUNITY_COORDINATOR],
+    delete: [ROLES.SUPER_ADMIN, ROLES.COMMUNITY_COORDINATOR],
   },
 };
 
@@ -99,6 +103,10 @@ export function can(userRole, resource, action) {
   return hasRole(userRole, PERMISSIONS[resource]?.[action] || []);
 }
 
+export function canAccessModule(userRole, module) {
+  return hasRole(userRole, MODULE_ROLES[module] || []);
+}
+
 export function isHealthWorkerRole(role) {
   return normalizeRole(role) === ROLES.HEALTH_WORKER;
 }
@@ -108,5 +116,11 @@ export function isCommunityCoordinatorRole(role) {
 }
 
 export function isSchoolScopedRole(role) {
-  return isCommunityCoordinatorRole(role) || isHealthWorkerRole(role);
+  const normalizedRole = normalizeRole(role);
+  return [
+    ROLES.ADMIN,
+    ROLES.COMMUNITY_COORDINATOR,
+    ROLES.PARTNER,
+    ROLES.HEALTH_WORKER,
+  ].includes(normalizedRole);
 }

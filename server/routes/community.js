@@ -307,6 +307,14 @@ router.post('/communities', async (req, res) => {
       return res.status(400).json({ error: 'Community name is required' });
     }
 
+    const [duplicateCommunities] = await pool.query(
+      'SELECT id FROM communities WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) LIMIT 1',
+      [cleanName],
+    );
+    if (duplicateCommunities.length) {
+      return res.status(409).json({ error: 'A community with this name already exists.' });
+    }
+
     const coordinatorId = await resolveCoordinatorId(pool, coordinator);
     if (coordinator && !coordinatorId) {
       return res.status(400).json({ error: 'Selected coordinator must be a Community Organizer' });
@@ -351,6 +359,7 @@ router.post('/communities', async (req, res) => {
     });
   } catch (error) {
     console.error('[Community API] create community error:', error.message);
+    if (error?.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'A community with this name already exists.' });
     res.status(500).json({ error: 'db error' });
   }
 });
@@ -367,6 +376,14 @@ router.post('/batches', async (req, res) => {
 
     if (!communityId) {
       return res.status(400).json({ error: 'Community is required' });
+    }
+
+    const [duplicateBatches] = await pool.query(
+      'SELECT id FROM batches WHERE community_id = ? AND LOWER(TRIM(name)) = LOWER(TRIM(?)) LIMIT 1',
+      [communityId, cleanName],
+    );
+    if (duplicateBatches.length) {
+      return res.status(409).json({ error: 'A batch with this name already exists in this community.' });
     }
 
     if (req.isCommunityOrganizer && String(req.schoolId) !== String(communityId)) {
@@ -416,6 +433,7 @@ router.post('/batches', async (req, res) => {
     res.status(201).json({ batch: { ...created, id: created.code || created.id, code: created.code || created.id, groupId: resolvedGroupId } });
   } catch (error) {
     console.error('[Community API] create batch error:', error.message);
+    if (error?.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'A batch with this name already exists in this community.' });
     res.status(500).json({ error: 'db error' });
   }
 });
@@ -432,6 +450,14 @@ router.post('/groups', async (req, res) => {
 
     if (!communityId) {
       return res.status(400).json({ error: 'Community is required' });
+    }
+
+    const [duplicateGroups] = await pool.query(
+      'SELECT id FROM groups WHERE community_id = ? AND LOWER(TRIM(name)) = LOWER(TRIM(?)) LIMIT 1',
+      [communityId, cleanName],
+    );
+    if (duplicateGroups.length) {
+      return res.status(409).json({ error: 'A group with this name already exists in this community.' });
     }
 
     if (req.isCommunityOrganizer && String(req.schoolId) !== String(communityId)) {
@@ -468,6 +494,7 @@ router.post('/groups', async (req, res) => {
     res.status(201).json({ group: { ...created, assignedBatchIds: [] } });
   } catch (error) {
     console.error('[Community API] create group error:', error.message);
+    if (error?.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'A group with this name already exists in this community.' });
     res.status(500).json({ error: 'db error' });
   }
 });
@@ -557,6 +584,14 @@ router.put('/communities/:id', async (req, res) => {
       return res.status(404).json({ error: 'Community not found' });
     }
 
+    const [duplicateCommunities] = await pool.query(
+      'SELECT id FROM communities WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) AND id <> ? LIMIT 1',
+      [cleanName, communityId],
+    );
+    if (duplicateCommunities.length) {
+      return res.status(409).json({ error: 'A community with this name already exists.' });
+    }
+
     const coordinatorId = await resolveCoordinatorId(pool, coordinator);
     if (coordinator && !coordinatorId) {
       return res.status(400).json({ error: 'Selected coordinator must be a Community Organizer' });
@@ -604,6 +639,7 @@ router.put('/communities/:id', async (req, res) => {
     });
   } catch (error) {
     console.error('[Community API] update community error:', error.message);
+    if (error?.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'A community with this name already exists.' });
     res.status(500).json({ error: 'db error' });
   }
 });
@@ -654,6 +690,17 @@ router.put('/groups/:id', async (req, res) => {
       return res.status(400).json({ error: 'Invalid group id' });
     }
 
+    const [duplicateGroups] = await pool.query(
+      'SELECT id FROM groups WHERE community_id = ? AND LOWER(TRIM(name)) = LOWER(TRIM(?)) AND id <> ? LIMIT 1',
+      [communityId, cleanName, groupId],
+    );
+    if (duplicateGroups.length) {
+      return res.status(409).json({ error: 'A group with this name already exists in this community.' });
+    }
+
+    const [existingGroups] = await pool.query('SELECT id FROM groups WHERE id = ? LIMIT 1', [groupId]);
+    if (!existingGroups.length) return res.status(404).json({ error: 'Group not found' });
+
     await pool.query(
       'UPDATE groups SET name = ?, community_id = ?, leader = ?, members_count = ?, status = ? WHERE id = ?',
       [cleanName, communityId || null, String(leader || '').trim() || null, Number(members) || 0, status || 'Active', groupId]
@@ -681,6 +728,7 @@ router.put('/groups/:id', async (req, res) => {
     res.json({ group: { ...updated, assignedBatchIds: [] } });
   } catch (error) {
     console.error('[Community API] update group error:', error.message);
+    if (error?.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'A group with this name already exists in this community.' });
     res.status(500).json({ error: 'db error' });
   }
 });
@@ -732,6 +780,14 @@ router.put('/batches/:id', async (req, res) => {
       return res.status(404).json({ error: 'Batch not found' });
     }
 
+    const [duplicateBatches] = await pool.query(
+      'SELECT id FROM batches WHERE community_id = ? AND LOWER(TRIM(name)) = LOWER(TRIM(?)) AND id <> ? LIMIT 1',
+      [communityId, cleanName, batchId],
+    );
+    if (duplicateBatches.length) {
+      return res.status(409).json({ error: 'A batch with this name already exists in this community.' });
+    }
+
     await pool.query(
       'UPDATE batches SET name = ?, community_id = ?, records = ?, progress = ?, status = ? WHERE id = ?',
       [cleanName, communityId || null, Number(records) || 0, Number(progress) || 0, status || 'Active', batchId]
@@ -768,6 +824,7 @@ router.put('/batches/:id', async (req, res) => {
     res.json({ batch: { ...updated, id: updated.code || updated.id, code: updated.code || updated.id } });
   } catch (error) {
     console.error('[Community API] update batch error:', error.message);
+    if (error?.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'A batch with this name already exists in this community.' });
     res.status(500).json({ error: 'db error' });
   }
 });

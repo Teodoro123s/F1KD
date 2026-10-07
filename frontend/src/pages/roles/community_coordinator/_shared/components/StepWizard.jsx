@@ -1,0 +1,77 @@
+import React from 'react';
+
+const StepWizard = ({
+  mother,
+  activeTrimester = 1,
+  activeStep = 1,
+  startStep = 0,
+  onStepClick = () => {},
+  checkups = [],
+}) => {
+  const groups = [
+    { id: 1, label: '1st Trimester' },
+    { id: 2, label: '2nd Trimester' },
+    { id: 3, label: '3rd Trimester' },
+  ];
+
+  const flattenedSteps = groups.flatMap((group, groupIdx) =>
+    [0, 1, 2].map((stepIdx) => ({ group, groupIdx, stepIdx }))
+  );
+
+  const getStatus = (groupIdx, stepIdx) => {
+    const item = checkups?.[groupIdx]?.[stepIdx];
+    if (item?.completed) return 'completed';
+    const isActive = activeTrimester === groupIdx + 1 && activeStep === stepIdx + 1;
+    if (isActive) return 'in-progress';
+    return 'locked';
+  };
+
+  const isPhaseComplete = flattenedSteps.every(({ groupIdx, stepIdx }) => checkups?.[groupIdx]?.[stepIdx]?.completed);
+
+  return (
+    <div className="step-wizard">
+      <div className="step-wizard-body">
+        <div className="step-wizard-trimesters-header">
+          {groups.map((group) => (
+            <div key={group.id} className="step-wizard-trimester-header">
+              <span className="step-wizard-trimester-label">{group.label}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="step-wizard-steps-wrapper">
+          <div className="step-wizard-steps">
+            {flattenedSteps.map(({ group, groupIdx, stepIdx }, index) => {
+              const status = getStatus(groupIdx, stepIdx);
+              const isActive = !isPhaseComplete && activeTrimester === groupIdx + 1 && activeStep === stepIdx + 1;
+              const stepIndex = groupIdx * 3 + stepIdx;
+              const lineActive = status === 'completed';
+
+              return (
+                <div key={`${group.id}-${stepIdx}`} className="step-wizard-step-wrapper">
+                  <button
+                    type="button"
+                    className={`step-wizard-step ${status} ${isActive ? 'active' : ''}`}
+                    onClick={() => onStepClick(group.id, stepIdx + 1)}
+                    aria-label={`Trimester ${group.id} ${stepIdx + 1} ${status}`}
+                    aria-current={isActive ? 'step' : undefined}
+                    disabled={stepIndex < startStep && status !== 'completed'}
+                  >
+                    <div className="step-wizard-step-circle">
+                      {status === 'completed' ? '✓' : `T${group.id}-C${stepIdx + 1}`}
+                    </div>
+                  </button>
+                  {index < flattenedSteps.length - 1 && (
+                    <div className={`step-wizard-step-line ${lineActive ? 'active' : ''}`} />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default StepWizard;

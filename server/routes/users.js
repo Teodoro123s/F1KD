@@ -105,6 +105,19 @@ router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
     if (requiresSchool && !schoolId) return res.status(400).json({ error: 'schoolId is required for this role' });
     if (requiresGroup && !groupId) return res.status(400).json({ error: 'groupId is required for this role' });
 
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const normalizedContact = String(contactNumber || '').replace(/\D/g, '');
+    const [duplicateUsers] = await pool.query(
+      `SELECT id FROM users
+       WHERE LOWER(TRIM(email)) = ?
+          OR (? <> '' AND REPLACE(REPLACE(REPLACE(contact_number, '+', ''), ' ', ''), '-', '') = ?)
+       LIMIT 1`,
+      [normalizedEmail, normalizedContact, normalizedContact],
+    );
+    if (duplicateUsers.length) {
+      return res.status(409).json({ error: 'A user with this email address or contact number already exists.' });
+    }
+
     // generate password if none provided
     let plainPassword = password;
     if (!plainPassword || plainPassword.length < 8) {
@@ -160,7 +173,7 @@ router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
     res.status(201).json({ user });
   } catch (err) {
     console.error('[Users API] POST / error:', err.message);
-    if (err && err.code === 'ER_DUP_ENTRY') return res.status(400).json({ error: 'Email or username already exists' });
+    if (err && err.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'A user with this email address or contact number already exists.' });
     res.status(500).json({ error: 'db error' });
   }
 });
@@ -238,6 +251,30 @@ router.put('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
       return res.status(400).json({ error: 'groupId is required for this role' });
     }
 
+    const nextEmail = String(email || '').trim().toLowerCase();
+    if (nextEmail) {
+      const [duplicates] = await pool.query(
+        'SELECT id FROM users WHERE LOWER(TRIM(email)) = ? AND id <> ? LIMIT 1',
+        [nextEmail, id],
+      );
+      if (duplicates.length) {
+        return res.status(409).json({ error: 'A user with this email address already exists.' });
+      }
+    }
+    if (contactNumber !== undefined && contactNumber) {
+      const normalizedContact = String(contactNumber).replace(/\D/g, '');
+      const [duplicates] = await pool.query(
+        `SELECT id FROM users
+         WHERE REPLACE(REPLACE(REPLACE(contact_number, '+', ''), ' ', ''), '-', '') = ?
+           AND id <> ?
+         LIMIT 1`,
+        [normalizedContact, id],
+      );
+      if (duplicates.length) {
+        return res.status(409).json({ error: 'A user with this contact number already exists.' });
+      }
+    }
+
     if (password) {
       const hash = await bcrypt.hash(password, 10);
       updates.push('password_hash = ?');
@@ -295,6 +332,9 @@ router.put('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
     res.json(updatedUser);
   } catch (err) {
     console.error('[Users API] PUT /:id error:', err.message);
+    if (err?.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ error: 'A user with this email address already exists.' });
+    }
     res.status(500).json({ error: 'db error' });
   }
 });
