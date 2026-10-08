@@ -14,16 +14,16 @@ export function useActionCooldown(cooldownMs = DEFAULT_COOLDOWN_MS) {
 
     locked.current = true;
     setIsCoolingDown(true);
-    const startedAt = Date.now();
 
     try {
+      await new Promise((resolve) => {
+        timeout.current = window.setTimeout(resolve, cooldownMs);
+      });
       return await action(...args);
     } finally {
-      const remainingCooldown = Math.max(cooldownMs - (Date.now() - startedAt), 0);
-      timeout.current = window.setTimeout(() => {
-        locked.current = false;
-        setIsCoolingDown(false);
-      }, remainingCooldown);
+      timeout.current = null;
+      locked.current = false;
+      setIsCoolingDown(false);
     }
   }, [cooldownMs]);
 

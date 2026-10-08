@@ -1,0 +1,120 @@
+.monitoring-progress-report {
+  margin-top: 1.25rem;
+  padding: 1.25rem;
+  border: 1px solid #dfe6ee;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.monitoring-progress-report-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.monitoring-progress-report-header h2 {
+  margin: 0.25rem 0;
+  color: #142033;
+  font-size: 1.25rem;
+}
+
+.monitoring-progress-report-header p {
+  margin: 0;
+  color: #64748b;
+}
+
+.monitoring-progress-report-count {
+  display: grid;
+  gap: 0.15rem;
+  text-align: right;
+}
+
+.monitoring-progress-report-count strong {
+  color: #137a3c;
+  font-size: 1.25rem;
+}
+
+.monitoring-progress-report-count span,
+.monitoring-progress-report-latest {
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.monitoring-progress-report-meter {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: #e8edf3;
+}
+
+.monitoring-progress-report-meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #168348;
+  transition: width 180ms ease;
+}
+
+.monitoring-progress-report-latest {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  margin: 1rem 0;
+  padding: 0.85rem 1rem;
+  border-radius: 8px;
+  background: #f6f8fb;
+}
+
+.monitoring-progress-report-latest strong {
+  color: #142033;
+}
+
+.monitoring-progress-report-table-wrap {
+  overflow-x: auto;
+}
+
+.monitoring-progress-report-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.monitoring-progress-report-table th,
+.monitoring-progress-report-table td {
+  padding: 0.7rem 0.75rem;
+  border-bottom: 1px solid #e8edf3;
+  vertical-align: top;
+}
+
+.monitoring-progress-report-table th {
+  color: #52637a;
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.monitoring-progress-report-table td {
+  color: #26364a;
+  font-size: 0.9rem;
+}
+
+.monitoring-progress-report-empty {
+  margin: 1rem 0 0;
+  color: #64748b;
+}
+
+@media (max-width: 640px) {
+  .monitoring-progress-report {
+    padding: 1rem;
+  }
+
+  .monitoring-progress-report-header {
+    flex-direction: column;
+  }
+
+  .monitoring-progress-report-count {
+    text-align: left;
+  }
+}

@@ -5,6 +5,7 @@ import { calculateWhoGrowthScores } from '../_shared/utils/whoGrowthStandards';
 import { getAgeInDecimalMonths, getAgeInMonths } from '../_shared/utils/childAge.mjs';
 import ConfirmModal from '../UserManagement/ConfirmModal';
 import { notifyAction } from '../_shared/components/ActionFeedback';
+import MonitoringProgressReport from '../../../shared/Beneficiary/MonitoringProgressReport';
 
 const TOTAL_MONTHS = 24;
 
@@ -305,6 +306,7 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
           </div>
         </div>
       </form>
+      <MonitoringProgressReport beneficiaryType="Child" beneficiary={child} />
       <ConfirmModal
         show={showSaveConfirm}
         className="checkup-confirm-modal"

@@ -4,6 +4,7 @@ import { isValidName, isValidMiddleInitial, sanitizeDigits, normalizeContact, is
 import { getSummary } from '../Community/communityService';
 import { isCommunityCoordinatorRole, isHealthWorkerRole } from '../../../../utils/permissions';
 import { getApiBaseUrl } from '../../../../api/authHeader';
+import { notifyAction } from '../../../../components/ActionFeedback';
 
 const API_BASE = getApiBaseUrl();
 
@@ -428,6 +429,7 @@ export function useUserManagement({ schoolId = '', batchId = '' } = {}) {
           groupId: updated.group_id ?? u.groupId,
         } : u)));
         setNotification(`Saved changes for ${fullName}.`);
+        notifyAction(`Saved changes for ${fullName}.`);
         try { console.log('Saved changes for user', fullName); } catch(e) {}
         closeModal();
         setPage(1);
@@ -479,6 +481,7 @@ export function useUserManagement({ schoolId = '', batchId = '' } = {}) {
     } catch (err) {
       console.error('User submit error:', err);
       setNotification(err.message || 'An error occurred while saving the user.');
+      if (selectedUser) notifyAction(err.message || 'Unable to save user changes.', 'error');
     } finally {
       // allow new submissions after this attempt completes
       submitLock.current = false;
@@ -504,12 +507,15 @@ export function useUserManagement({ schoolId = '', batchId = '' } = {}) {
   const handleSuspendUser = async (id) => {
     // prevent duplicate suspend toggles on same id
     if (suspendLoadingIds.has(id)) {
-      setNotification('Status change already in progress for this user.');
+      notifyAction('Status change already in progress for this user.', 'error');
       return;
     }
 
     const user = users.find((u) => u.id === id);
-    if (!user) { setNotification('User not found.'); return; }
+    if (!user) {
+      notifyAction('User not found.', 'error');
+      return;
+    }
 
     const prevStatus = user.status;
     const targetStatus = prevStatus === 'Active' ? 'Suspended' : 'Active';
@@ -525,7 +531,7 @@ export function useUserManagement({ schoolId = '', batchId = '' } = {}) {
       try {
         const serverId = parseServerId(id);
         await apiPatchUserStatus(serverId, targetStatus);
-        setNotification(`User status updated to ${targetStatus}.`);
+        notifyAction(`User ${targetStatus === 'Suspended' ? 'suspended' : 'unsuspended'} successfully.`);
         try { console.log('Updated user status on server', serverId, targetStatus); } catch (e) {}
         break;
       } catch (err) {
@@ -533,13 +539,12 @@ export function useUserManagement({ schoolId = '', batchId = '' } = {}) {
         const msg = (err && err.message) ? err.message.toString().toLowerCase() : '';
         try { console.log(`Attempt ${attempts} to update status failed:`, msg); } catch (e) {}
         if (attempts < 3 && (/failed to fetch|networkerror|network error|timeout|502|503|504/.test(msg) || (err && err.status && err.status >= 500))) {
-          setNotification(`Network error updating status, retrying (attempt ${attempts + 1})...`);
           try { await sleep(300 * attempts); } catch (e) {}
           continue;
         }
         // non-recoverable - rollback optimistic update
         setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, status: prevStatus } : u)));
-        setNotification(err.message || 'Failed to update user status.');
+        notifyAction(err.message || 'Failed to update user status.', 'error');
         try { console.error('Failed to update user status after retries', err); } catch (e) {}
         break;
       }
@@ -572,6 +577,7 @@ export function useUserManagement({ schoolId = '', batchId = '' } = {}) {
         // remove from UI only after server confirms deletion
         setUsers((prev) => prev.filter((user) => user.id !== id));
         setNotification('User deleted.');
+        notifyAction('User deleted successfully.');
         try { console.log('Deleted user on server', serverId); } catch (e) {}
         break;
       } catch (err) {
@@ -584,6 +590,7 @@ export function useUserManagement({ schoolId = '', batchId = '' } = {}) {
           continue;
         }
         setNotification(err.message || 'Failed to delete user.');
+        notifyAction(err.message || 'Failed to delete user.', 'error');
         try { console.error('Failed to delete user after retries', err); } catch (e) {}
         break;
       }

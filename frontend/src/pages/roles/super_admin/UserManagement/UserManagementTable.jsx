@@ -4,8 +4,8 @@ import { MoreVerticalIcon } from './UserManagementIcons';
 
 export default function UserManagementTable({
   currentRows,
-  openEditUser,
-  handleSuspendUser,
+  requestEditUser,
+  requestStatusChange,
   handleDeleteUser,
   suspendLoadingIds = [],
   deletingId = null,
@@ -52,7 +52,7 @@ export default function UserManagementTable({
             className="actions-dropdown-item"
             onClick={(event) => {
               event.stopPropagation();
-              openEditUser(row);
+              requestEditUser(row);
             }}
             role="menuitem"
           >
@@ -63,7 +63,7 @@ export default function UserManagementTable({
             className="actions-dropdown-item"
             onClick={(event) => {
               event.stopPropagation();
-              handleSuspendUser(row.id);
+              requestStatusChange(row);
             }}
             role="menuitem"
             disabled={suspendLoadingIds.includes(row.id) || deletingId === row.id}

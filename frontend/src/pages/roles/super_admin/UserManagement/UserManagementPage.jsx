@@ -28,6 +28,7 @@ export default function UserManagementPage() {
     selectedUser,
     notification,
     confirmDeleteId,
+    users,
     currentRows,
     rangeStart,
     rangeEnd,
@@ -67,7 +68,28 @@ export default function UserManagementPage() {
 
   const location = useLocation();
   const auth = useAuth();
+  const [confirmEditUser, setConfirmEditUser] = useState(null);
+  const [confirmStatusUser, setConfirmStatusUser] = useState(null);
+  const [isConfirmingStatus, setIsConfirmingStatus] = useState(false);
   const canCreate = hasRole(auth?.currentUser?.role, [ROLES.SUPER_ADMIN]);
+  const requestEditUser = (user) => setConfirmEditUser(user);
+  const requestStatusChange = (user) => setConfirmStatusUser(user);
+  const confirmEdit = () => {
+    if (!confirmEditUser) return;
+    const user = confirmEditUser;
+    setConfirmEditUser(null);
+    openEditUser(user);
+  };
+  const confirmStatusChange = async () => {
+    if (!confirmStatusUser || isConfirmingStatus) return;
+    setIsConfirmingStatus(true);
+    try {
+      await handleSuspendUser(confirmStatusUser.id);
+    } finally {
+      setIsConfirmingStatus(false);
+      setConfirmStatusUser(null);
+    }
+  };
   const selectedBatch = batches.find((batch) => String(batch.id || batch.code) === String(batchId)) || null;
   const batchSchool = selectedBatch
     ? communities.find((community) => community.name === selectedBatch.community) || null
@@ -201,8 +223,8 @@ export default function UserManagementPage() {
         currentPage={currentPage}
         pageCount={pageCount}
         onChangePage={handlePageChange}
-        openEditUser={openEditUser}
-        handleSuspendUser={handleSuspendUser}
+        requestEditUser={requestEditUser}
+        requestStatusChange={requestStatusChange}
         handleDeleteUser={requestDeleteUser}
         suspendLoadingIds={suspendLoadingIds}
         deletingId={deletingId}
@@ -221,9 +243,29 @@ export default function UserManagementPage() {
 
       <ConfirmModal
         show={Boolean(confirmDeleteId)}
-        message="Are you sure you want to delete this user?"
+        message={`Are you sure you want to permanently delete ${currentRows.find((user) => user.id === confirmDeleteId)?.name || 'this user'}? This action cannot be undone.`}
         onConfirm={confirmDelete}
         onCancel={cancelDelete}
+        confirmLabel="Delete"
+        isLoading={deletingId === confirmDeleteId}
+      />
+
+      <ConfirmModal
+        show={Boolean(confirmEditUser)}
+        message={`Open the edit form for ${confirmEditUser?.name || 'this user'}?`}
+        onConfirm={confirmEdit}
+        onCancel={() => setConfirmEditUser(null)}
+        confirmLabel="Edit user"
+      />
+
+      <ConfirmModal
+        show={Boolean(confirmStatusUser)}
+        title={confirmStatusUser?.status === 'Suspended' ? 'Unsuspend user?' : 'Suspend user?'}
+        message={`Are you sure you want to ${confirmStatusUser?.status === 'Suspended' ? 'unsuspend' : 'suspend'} ${confirmStatusUser?.name || 'this user'}?`}
+        onConfirm={confirmStatusChange}
+        onCancel={() => setConfirmStatusUser(null)}
+        confirmLabel={confirmStatusUser?.status === 'Suspended' ? 'Unsuspend' : 'Suspend'}
+        isLoading={isConfirmingStatus || suspendLoadingIds.includes(confirmStatusUser?.id)}
       />
     </div>
   );

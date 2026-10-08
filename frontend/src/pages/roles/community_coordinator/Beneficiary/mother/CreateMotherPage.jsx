@@ -419,7 +419,7 @@ export default function CreateMotherPage({
       </div>
 
       <div className="create-form-body">
-        <form onSubmit={runWithCooldown(handleCreateCommunity)}>
+        <form onSubmit={handleCreateCommunity}>
           <div className="modal-body-scrollable">
             <MotherFormFields
               activeTab={createActiveTab}
@@ -439,11 +439,11 @@ export default function CreateMotherPage({
           <div className="modal-footer">
             <button type="button" className="btn-secondary" disabled={isCoolingDown} onClick={() => { localStorage.removeItem(MOTHER_DRAFT_KEY); navigate('/beneficiary'); }}>Cancel</button>
             {createActiveTab !== 'general' && (
-              <button type="button" className="btn-secondary btn-back back-action" disabled={isCoolingDown} onClick={runWithCooldown(() => {
+              <button type="button" className="btn-secondary btn-back back-action" disabled={isCoolingDown} onClick={() => {
                 if (createActiveTab === 'vaccine') setCreateActiveTab('medical_dental');
                 else if (createActiveTab === 'medical_dental') setCreateActiveTab('prenatal');
                 else setCreateActiveTab('general');
-              })}>Back</button>
+              }}>Back</button>
             )}
             {createActiveTab !== 'vaccine' ? (
               <button type="button" className="btn-primary btn-next" disabled={isCoolingDown} onClick={runWithCooldown(() => {

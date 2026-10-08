@@ -3,6 +3,7 @@ import StepWizard from '../../_shared/components/StepWizard';
 import DateInput from '../../../../../components/ui/DateInput';
 import { formatDateForDisplay, normalizeDateValue } from '../../_shared/utils/dateFormat';
 import { getMotherMonitoringStartIndex } from '../../_shared/utils/motherProgress';
+import MonitoringProgressReport from '../../../../shared/Beneficiary/MonitoringProgressReport';
 
 const TRIMESTERS = [
   { label: '1st Trimester', code: 'T1' },
@@ -562,6 +563,7 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
           </button>
         </div>
       </form>
+      <MonitoringProgressReport beneficiaryType="Mother" beneficiary={mother} />
       {pendingSave && (
         <div className="modal-backdrop" role="presentation" onMouseDown={() => !saving && setPendingSave(null)}>
           <div className="modal program-product-modal" role="dialog" aria-modal="true" aria-labelledby="save-checkup-title" onMouseDown={(event) => event.stopPropagation()}>

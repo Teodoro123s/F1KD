@@ -467,7 +467,7 @@ export default function CreateChildPage({
       </div>
 
       <div className="create-form-body">
-        <form onSubmit={runWithCooldown(handleCreateGroup)}>
+        <form onSubmit={handleCreateGroup}>
           <div className="modal-body-scrollable">
             <ChildFormFields
               activeTab={createActiveTab}
@@ -487,11 +487,11 @@ export default function CreateChildPage({
             else navigate('/beneficiary');
           }}>Cancel</button>
           {createActiveTab !== 'general' && (
-              <button type="button" className="btn-secondary btn-back back-action" disabled={isCoolingDown} onClick={runWithCooldown(() => {
+              <button type="button" className="btn-secondary btn-back back-action" disabled={isCoolingDown} onClick={() => {
                 if (createActiveTab === 'vaccine') setCreateActiveTab('medical_dental');
                 else if (createActiveTab === 'medical_dental') setCreateActiveTab('prenatal');
                 else setCreateActiveTab('general');
-              })}>Back</button>
+              }}>Back</button>
             )}
             {createActiveTab !== 'vaccine' ? (
               <button type="button" className="btn-primary btn-next" onClick={runWithCooldown(handleNextStep)} disabled={isCoolingDown} aria-busy={isCoolingDown}>

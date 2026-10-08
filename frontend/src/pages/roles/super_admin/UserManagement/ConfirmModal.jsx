@@ -1,14 +1,23 @@
 import React from 'react';
 
-export default function ConfirmModal({ show, message, onConfirm, onCancel, className = '' }) {
+export default function ConfirmModal({
+  show,
+  message,
+  onConfirm,
+  onCancel,
+  className = '',
+  title = 'Confirm action',
+  confirmLabel = 'Confirm',
+  isLoading = false,
+}) {
   if (!show) return null;
 
   return (
-    <div className="modal-backdrop" onClick={onCancel}>
+    <div className="modal-backdrop" onClick={() => { if (!isLoading) onCancel(); }}>
       <div className={`modal-content ${className}`.trim()} onClick={(event) => event.stopPropagation()}>
         <div className="modal-header-section">
-          <h3>Confirm action</h3>
-          <button className="btn-close-modal" onClick={onCancel} aria-label="Close confirmation">
+          <h3>{title}</h3>
+          <button className="btn-close-modal" onClick={onCancel} aria-label="Close confirmation" disabled={isLoading}>
             ✕
           </button>
         </div>
@@ -16,11 +25,11 @@ export default function ConfirmModal({ show, message, onConfirm, onCancel, class
           <p>{message}</p>
         </div>
         <div className="modal-footer">
-          <button type="button" className="btn-secondary" onClick={onCancel}>
+          <button type="button" className="btn-secondary" onClick={onCancel} disabled={isLoading}>
             Cancel
           </button>
-          <button type="button" className="btn-primary" onClick={onConfirm}>
-            Confirm
+          <button type="button" className="btn-primary" onClick={onConfirm} disabled={isLoading}>
+            {isLoading ? `${confirmLabel}...` : confirmLabel}
           </button>
         </div>
       </div>
