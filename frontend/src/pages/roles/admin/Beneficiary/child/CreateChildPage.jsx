@@ -9,6 +9,7 @@ import { useMothers } from '../../_shared/context/MothersContext';
 import { capitalizeNameValue } from '../../_shared/utils/nameFormat';
 import { notifyAction } from '../../_shared/components/ActionFeedback';
 import { apiCreateChild, apiUploadChildBirthDocument } from '../../../../../api/children';
+import { useActionCooldown } from '../../../../../utils/useActionCooldown';
 
 const CHILD_DRAFT_KEY = 'f1kd.create-child.draft';
 
@@ -100,6 +101,7 @@ export default function CreateChildPage({
   const [createActiveTab, setCreateActiveTab] = useState('general');
   const CREATE_STEPS = ['general', 'prenatal', 'medical_dental', 'vaccine'];
   const createActiveIndex = CREATE_STEPS.indexOf(createActiveTab) >= 0 ? CREATE_STEPS.indexOf(createActiveTab) : 0;
+  const { isCoolingDown, runWithCooldown } = useActionCooldown();
 
   const selectedMother = motherFromState || availableMothers.find((mother) => (
     String(mother.id || mother.motherId || '') === String(selectedMotherId)
@@ -445,6 +447,7 @@ export default function CreateChildPage({
                 role="tab"
                 aria-selected={isActive}
                 className={`stepper-step ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}`}
+                disabled={isCoolingDown}
                 onClick={() => setCreateActiveTab(s)}
               >
                 <span className="stepper-step-index">
@@ -464,7 +467,7 @@ export default function CreateChildPage({
       </div>
 
       <div className="create-form-body">
-        <form onSubmit={handleCreateGroup}>
+        <form onSubmit={runWithCooldown(handleCreateGroup)}>
           <div className="modal-body-scrollable">
             <ChildFormFields
               activeTab={createActiveTab}
@@ -484,16 +487,18 @@ export default function CreateChildPage({
             else navigate('/beneficiary');
           }}>Cancel</button>
           {createActiveTab !== 'general' && (
-              <button type="button" className="btn-secondary btn-back back-action" onClick={() => {
+              <button type="button" className="btn-secondary btn-back back-action" disabled={isCoolingDown} onClick={runWithCooldown(() => {
                 if (createActiveTab === 'vaccine') setCreateActiveTab('medical_dental');
                 else if (createActiveTab === 'medical_dental') setCreateActiveTab('prenatal');
                 else setCreateActiveTab('general');
-              }}>Back</button>
+              })}>Back</button>
             )}
             {createActiveTab !== 'vaccine' ? (
-              <button type="button" className="btn-primary btn-next" onClick={handleNextStep}>Next</button>
+              <button type="button" className="btn-primary btn-next" onClick={runWithCooldown(handleNextStep)} disabled={isCoolingDown} aria-busy={isCoolingDown}>
+                {isCoolingDown ? <><span className="spinner spinner-sm" aria-hidden="true" /> Loading...</> : 'Next'}
+              </button>
             ) : (
-              <button type="submit" className="btn-create-action">Create</button>
+              <button type="submit" className="btn-create-action" disabled={isCoolingDown || creating}>Create</button>
             )}
           </div>
         </form>

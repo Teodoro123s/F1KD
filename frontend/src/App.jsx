@@ -5,6 +5,7 @@ import RoleModulePage from './pages/RoleModulePage';
 import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
 import Login from './pages/Login';
+import ConsentPage from './pages/ConsentPage';
 import { useAuth } from './auth/AuthProvider';
 import RoleBasedRoute from './components/RoleBasedRoute';
 import { LoadingScreen } from './components/LoadingSkeleton';
@@ -23,25 +24,39 @@ function RequireAuth({ children }) {
   if (!auth.isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
+  if (!auth.currentUser?.has_accepted_terms) {
+    return <Navigate to="/consent" replace />;
+  }
   return children;
 }
 
 function InitialRoute() {
   const auth = useAuth();
   if (auth.loading) return <LoadingScreen message="Checking your session..." />;
-  return <Navigate to={auth.isAuthenticated ? '/dashboard' : '/login'} replace />;
+  if (!auth.isAuthenticated) return <Navigate to="/login" replace />;
+  return <Navigate to={auth.currentUser?.has_accepted_terms ? '/dashboard' : '/consent'} replace />;
 }
 
 function GuestRoute({ children }) {
   const auth = useAuth();
   if (auth.loading) return <LoadingScreen message="Checking your session..." />;
-  return auth.isAuthenticated ? <Navigate to="/dashboard" replace /> : children;
+  if (!auth.isAuthenticated) return children;
+  return <Navigate to={auth.currentUser?.has_accepted_terms ? '/dashboard' : '/consent'} replace />;
+}
+
+function ConsentRoute() {
+  const auth = useAuth();
+  if (auth.loading) return <LoadingScreen message="Checking your session..." />;
+  if (!auth.isAuthenticated) return <Navigate to="/login" replace />;
+  if (auth.currentUser?.has_accepted_terms) return <Navigate to="/dashboard" replace />;
+  return <ConsentPage />;
 }
 
 export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
+      <Route path="/consent" element={<ConsentRoute />} />
       <Route path="/" element={<InitialRoute />} />
       <Route
         path="/*"

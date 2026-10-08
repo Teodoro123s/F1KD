@@ -9,7 +9,7 @@ require('dotenv').config();
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
 const JWT_EXPIRES = process.env.JWT_EXPIRES || '8h';
 const REFRESH_TOKEN_TTL = process.env.REFRESH_TOKEN_TTL || '7d';
-const { verifyToken } = require('../middleware/auth');
+const { verifyToken, verifyTokenAllowUnconsented } = require('../middleware/auth');
 const { ensureSuperadminAccount } = require('../services/superadminRecovery');
 const { sendPasswordResetCode } = require('../services/emailjs');
 const { getPasswordPolicyError } = require('../services/passwordPolicy');
@@ -39,6 +39,7 @@ const buildUserPayload = (user) => {
   return {
     id: user.id,
     auth_version: Number(user.auth_version || 0),
+    has_accepted_terms: Boolean(user.consent_accepted_at),
     role,
     name,
     first_name: firstName,
@@ -79,7 +80,7 @@ router.post('/login', async (req, res) => {
     await ensureSuperadminAccount(pool);
 
     const [rows] = await pool.query(
-        `SELECT id, first_name, last_name, middle_initial, email, role, status, school_id, group_id, contact_number, password_hash, auth_version
+        `SELECT id, first_name, last_name, middle_initial, email, role, status, school_id, group_id, contact_number, password_hash, auth_version, consent_accepted_at
        FROM users
          WHERE email = ?
        LIMIT 1`,
@@ -139,6 +140,23 @@ router.post('/change-password', verifyToken, async (req, res) => {
   } catch (error) {
     console.error('Change password error:', error.message);
     return res.status(500).json({ error: 'Unable to change password' });
+  }
+});
+
+router.post('/consent', verifyTokenAllowUnconsented, async (req, res) => {
+  if (req.body?.accepted !== true) {
+    return res.status(400).json({ error: 'Consent must be accepted to continue.' });
+  }
+
+  try {
+    await pool.query(
+      'UPDATE users SET consent_accepted_at = COALESCE(consent_accepted_at, CURRENT_TIMESTAMP) WHERE id = ?',
+      [req.user.id],
+    );
+    return res.json({ has_accepted_terms: true });
+  } catch (error) {
+    console.error('Consent recording failed:', error.message);
+    return res.status(500).json({ error: 'Unable to record consent. Please try again.' });
   }
 });
 
@@ -291,7 +309,7 @@ router.post('/refresh', async (req, res) => {
     }
 
     const [rows] = await pool.query(
-      `SELECT id, first_name, last_name, middle_initial, email, role, status, school_id, group_id, contact_number, auth_version FROM users WHERE id = ? LIMIT 1`,
+      `SELECT id, first_name, last_name, middle_initial, email, role, status, school_id, group_id, contact_number, auth_version, consent_accepted_at FROM users WHERE id = ? LIMIT 1`,
       [payload.id]
     );
 
@@ -310,7 +328,7 @@ router.post('/refresh', async (req, res) => {
   }
 });
 
-router.get('/me', verifyToken, async (req, res) => {
+router.get('/me', verifyTokenAllowUnconsented, async (req, res) => {
   res.json({ user: req.user });
 });
 

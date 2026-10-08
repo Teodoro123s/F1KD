@@ -53,6 +53,7 @@ async function ensure() {
       status ENUM('Active','Suspended') DEFAULT 'Active',
       password_hash VARCHAR(255),
       auth_version INT NOT NULL DEFAULT 0,
+      consent_accepted_at DATETIME NULL,
       pending_credential_email TEXT NULL,
       school_id INT NULL,
       group_id INT NULL,
@@ -64,6 +65,7 @@ async function ensure() {
       ADD COLUMN IF NOT EXISTS school_id INT NULL,
       ADD COLUMN IF NOT EXISTS group_id INT NULL,
       ADD COLUMN IF NOT EXISTS auth_version INT NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS consent_accepted_at DATETIME NULL,
       ADD COLUMN IF NOT EXISTS pending_credential_email TEXT NULL;`,
 
 

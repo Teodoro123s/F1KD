@@ -137,6 +137,45 @@
   margin-bottom: 0.25rem;
 }
 
+.consent-card {
+  width: min(520px, 100%);
+}
+
+.consent-copy {
+  color: #475569;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  margin: 1rem 0;
+}
+
+.consent-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.consent-checkbox {
+  align-items: center;
+  color: #0f172a;
+  display: flex;
+  gap: 0.6rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.consent-checkbox input {
+  accent-color: var(--burgundy);
+  height: 1.1rem;
+  width: 1.1rem;
+}
+
+.consent-note {
+  color: #64748b;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  margin: 0;
+}
+
 @media (max-width: 480px) {
   .login-page {
     padding: 0.75rem;

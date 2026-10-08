@@ -87,11 +87,17 @@ export function AuthProvider({ children }) {
     throw new Error('Login failed');
   };
 
+  const acceptConsent = async () => {
+    await apiAuth.acceptConsent();
+    setCurrentUser((user) => user ? { ...user, has_accepted_terms: true } : user);
+  };
+
   const value = {
     token,
     currentUser,
     loading,
     login,
+    acceptConsent,
     logout,
     isAuthenticated: Boolean(currentUser),
   };

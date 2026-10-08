@@ -4,32 +4,44 @@ require('dotenv').config();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
 
-async function verifyToken(req, res, next) {
-  const auth = req.headers.authorization || req.headers.Authorization || '';
-  const parts = auth.split(' ');
-  if (parts.length === 2 && parts[0] === 'Bearer') {
-    const token = parts[1];
-    let payload;
-    try {
-      payload = jwt.verify(token, JWT_SECRET);
-    } catch (err) {
-      return res.status(401).json({ error: 'Invalid or expired token' });
-    }
-
-    try {
-      const [users] = await pool.query('SELECT auth_version FROM users WHERE id = ? LIMIT 1', [payload.id]);
-      if (!users.length || Number(users[0].auth_version || 0) !== Number(payload.auth_version || 0)) {
-        return res.status(401).json({ error: 'Session expired. Please sign in again.' });
+function createVerifyToken(options = {}) {
+  return async (req, res, next) => {
+    const auth = req.headers.authorization || req.headers.Authorization || '';
+    const parts = auth.split(' ');
+    if (parts.length === 2 && parts[0] === 'Bearer') {
+      const token = parts[1];
+      let payload;
+      try {
+        payload = jwt.verify(token, JWT_SECRET);
+      } catch (err) {
+        return res.status(401).json({ error: 'Invalid or expired token' });
       }
-      req.user = payload;
-      return next();
-    } catch (err) {
-      console.error('[Auth] Unable to validate session version:', err.message);
-      return res.status(503).json({ error: 'Authentication service is temporarily unavailable.' });
+
+      try {
+        const [users] = await pool.query(
+          'SELECT auth_version, consent_accepted_at FROM users WHERE id = ? LIMIT 1',
+          [payload.id],
+        );
+        if (!users.length || Number(users[0].auth_version || 0) !== Number(payload.auth_version || 0)) {
+          return res.status(401).json({ error: 'Session expired. Please sign in again.' });
+        }
+        const hasAcceptedTerms = Boolean(users[0].consent_accepted_at);
+        if (!hasAcceptedTerms && !options.allowUnconsented) {
+          return res.status(403).json({ error: 'Please accept the user consent form before continuing.' });
+        }
+        req.user = { ...payload, has_accepted_terms: hasAcceptedTerms };
+        return next();
+      } catch (err) {
+        console.error('[Auth] Unable to validate session version:', err.message);
+        return res.status(503).json({ error: 'Authentication service is temporarily unavailable.' });
+      }
     }
-  }
-  return res.status(401).json({ error: 'Authorization header missing or invalid' });
+    return res.status(401).json({ error: 'Authorization header missing or invalid' });
+  };
 }
+
+const verifyToken = createVerifyToken();
+const verifyTokenAllowUnconsented = createVerifyToken({ allowUnconsented: true });
 
 function normalizeRole(role) {
   const value = String(role || '').trim().toLowerCase();
@@ -65,4 +77,4 @@ function requireRole(...roles) {
   };
 }
 
-module.exports = { verifyToken, requireRole, normalizeRole };
+module.exports = { verifyToken, verifyTokenAllowUnconsented, requireRole, normalizeRole };

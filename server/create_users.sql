@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS users (
   role VARCHAR(120) NOT NULL DEFAULT 'Superadmin',
   status ENUM('Active','Suspended') NOT NULL DEFAULT 'Active',
   password_hash VARCHAR(255) DEFAULT NULL,
+  consent_accepted_at DATETIME DEFAULT NULL,
   name VARCHAR(255) GENERATED ALWAYS AS (
     CONCAT(
       first_name,

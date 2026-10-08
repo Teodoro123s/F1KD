@@ -9,6 +9,7 @@ The current schema is represented by:
 - [server/create_users.sql](create_users.sql)
 - [server/f1kd_recreate.sql](f1kd_recreate.sql)
 - [server/db.js](db.js)
+- [server/migrations/20261008_user_consent.sql](migrations/20261008_user_consent.sql)
 
 The live database was also checked directly with MySQL, and the current `users` table contains the following columns:
 
@@ -24,6 +25,7 @@ The live database was also checked directly with MySQL, and the current `users` 
 - `role`
 - `status`
 - `password_hash`
+- `consent_accepted_at`
 - `name`
 - `created_at`
 - `updated_at`
@@ -53,6 +55,7 @@ Columns:
 - `role`
 - `status`
 - `password_hash`
+- `consent_accepted_at`
 - `name` (generated column)
 - `created_at`
 - `updated_at`

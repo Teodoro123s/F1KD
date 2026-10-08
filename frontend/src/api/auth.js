@@ -29,6 +29,15 @@ export async function login(email, password) {
   return handleResponse(res, 'Login failed');
 }
 
+export async function acceptConsent() {
+  const res = await fetchWithAuth(`${API_BASE}/api/auth/consent`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ accepted: true }),
+  });
+  return handleResponse(res, 'Unable to record consent');
+}
+
 export async function changePassword(currentPassword, newPassword, confirmPassword) {
   const res = await fetchWithAuth(`${API_BASE}/api/auth/change-password`, {
     method: 'POST',

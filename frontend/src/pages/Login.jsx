@@ -19,8 +19,8 @@ export default function Login() {
     event.preventDefault();
     setLoading(true);
     try {
-      await auth.login(email, password);
-      navigate('/dashboard');
+      const user = await auth.login(email, password);
+      navigate(user?.has_accepted_terms ? '/dashboard' : '/consent', { replace: true });
     } catch (err) {
       console.error('Login failed', err);
       const message = err.message || 'Login failed. Please check your credentials and try again.';

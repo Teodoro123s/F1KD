@@ -7,6 +7,7 @@ import { useAuth } from '../../../../../auth/AuthProvider';
 import { isCommunityCoordinatorRole } from '../../../../../utils/permissions';
 import { capitalizeNameValue } from '../../_shared/utils/nameFormat';
 import { notifyAction } from '../../_shared/components/ActionFeedback';
+import { useActionCooldown } from '../../../../../utils/useActionCooldown';
 
 const MOTHER_DRAFT_KEY = 'f1kd.create-mother.draft';
 
@@ -132,6 +133,7 @@ export default function CreateMotherPage({
   const [createActiveTab, setCreateActiveTab] = useState('general');
   const CREATE_STEPS = ['general', 'prenatal', 'medical_dental', 'vaccine'];
   const createActiveIndex = CREATE_STEPS.indexOf(createActiveTab) >= 0 ? CREATE_STEPS.indexOf(createActiveTab) : 0;
+  const { isCoolingDown, runWithCooldown } = useActionCooldown();
 
   useEffect(() => {
     const assignedCommunity = communities[0]?.name || '';
@@ -397,6 +399,7 @@ export default function CreateMotherPage({
                 role="tab"
                 aria-selected={isActive}
                 className={`stepper-step ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}`}
+                disabled={isCoolingDown}
                 onClick={() => setCreateActiveTab(s)}
               >
                 <span className="stepper-step-index">
@@ -416,7 +419,7 @@ export default function CreateMotherPage({
       </div>
 
       <div className="create-form-body">
-        <form onSubmit={handleCreateCommunity}>
+        <form onSubmit={runWithCooldown(handleCreateCommunity)}>
           <div className="modal-body-scrollable">
             <MotherFormFields
               activeTab={createActiveTab}
@@ -434,22 +437,24 @@ export default function CreateMotherPage({
           </div>
 
           <div className="modal-footer">
-            <button type="button" className="btn-secondary" onClick={() => { localStorage.removeItem(MOTHER_DRAFT_KEY); navigate('/beneficiary'); }}>Cancel</button>
+            <button type="button" className="btn-secondary" disabled={isCoolingDown} onClick={() => { localStorage.removeItem(MOTHER_DRAFT_KEY); navigate('/beneficiary'); }}>Cancel</button>
             {createActiveTab !== 'general' && (
-              <button type="button" className="btn-secondary btn-back back-action" onClick={() => {
+              <button type="button" className="btn-secondary btn-back back-action" disabled={isCoolingDown} onClick={runWithCooldown(() => {
                 if (createActiveTab === 'vaccine') setCreateActiveTab('medical_dental');
                 else if (createActiveTab === 'medical_dental') setCreateActiveTab('prenatal');
                 else setCreateActiveTab('general');
-              }}>Back</button>
+              })}>Back</button>
             )}
             {createActiveTab !== 'vaccine' ? (
-              <button type="button" className="btn-primary btn-next" onClick={() => {
+              <button type="button" className="btn-primary btn-next" disabled={isCoolingDown} onClick={runWithCooldown(() => {
                 if (createActiveTab === 'general') setCreateActiveTab('prenatal');
                 else if (createActiveTab === 'prenatal') setCreateActiveTab('medical_dental');
                 else if (createActiveTab === 'medical_dental') setCreateActiveTab('vaccine');
-              }}>Next</button>
+              })}>
+                {isCoolingDown ? <><span className="spinner spinner-sm" aria-hidden="true" /> Loading...</> : 'Next'}
+              </button>
             ) : (
-              <button type="submit" className="btn-create-action">Create</button>
+              <button type="submit" className="btn-create-action" disabled={isCoolingDown}>Create</button>
             )}
           </div>
         </form>
