@@ -1,4 +1,4 @@
-import { formatDateForDisplay } from '../../../utils/dateFormat';
+import { formatDateForDisplay } from '../../../utils/dateFormat.js';
 
 export const EMPTY_SELECTIONS = { schoolId: '', groupId: '', batchId: '' };
 
@@ -137,15 +137,36 @@ export const WHO_NUMERIC_GROWTH_METRICS = [
   ['lengthForAgeZScore', 'Length/Height-for-Age Z-Score', 'WHO LMS z-score for length/height relative to age.'],
 ];
 
-export const INTERPRETATION_METRICS = new Set(GROWTH_METRICS.map(([id]) => id));
+export const INTERPRETATION_METRICS = new Set([...GROWTH_METRICS.map(([id]) => id), 'bmiInterpretation']);
 export const MOTHER_GROWTH_METRICS = [
-  ['bmiForAge', 'BMI', 'Latest BMI recorded by Mother Monitoring.'],
+  ['bmiInterpretation', 'BMI Interpretation', 'BMI screening range based on maternal monitoring check-ups.'],
   ['hospitalReferral', 'Referral to Hospital', 'Review referral and assistance details recorded at maternal check-ups.'],
 ];
 
 export const NUMERIC_GROWTH_METRICS = (beneficiaryType = 'child') => beneficiaryType === 'mother'
   ? [['bmiForAge', 'BMI', 'Latest BMI recorded by Mother Monitoring.']]
   : WHO_NUMERIC_GROWTH_METRICS;
+
+export const getMetricForYAxis = (metric, axisType, beneficiaryType = 'child') => {
+  const options = axisType === 'interpretation'
+    ? beneficiaryType === 'mother' ? MOTHER_GROWTH_METRICS : GROWTH_METRICS
+    : NUMERIC_GROWTH_METRICS(beneficiaryType);
+  const matchingMetric = options.find(([id]) => id === metric)?.[0];
+  if (matchingMetric) return matchingMetric;
+
+  const pairedMetrics = {
+    weightForLengthInterpretation: 'weightForLengthZScore',
+    weightForAgeInterpretation: 'weightForAgeZScore',
+    lengthForAgeInterpretation: 'lengthForAgeZScore',
+    bmiInterpretation: 'bmiForAge',
+    weightForLengthZScore: 'weightForLengthInterpretation',
+    weightForAgeZScore: 'weightForAgeInterpretation',
+    lengthForAgeZScore: 'lengthForAgeInterpretation',
+    bmiForAge: 'bmiInterpretation',
+  };
+  const pairedMetric = pairedMetrics[metric];
+  return options.find(([id]) => id === pairedMetric)?.[0] || options[0]?.[0] || '';
+};
 
 export const PROFILE_METRICS = [
   ['age', 'Age', 'Age calculated from the beneficiary profile date of birth.'],
@@ -301,6 +322,9 @@ export const csvValue = (value) => `"${String(value ?? '').replaceAll('"', '""')
 
 export const getInterpretationLevels = (metric = '') => {
   const key = String(metric || '').toLowerCase();
+  if (key.includes('bmi')) {
+    return ['Underweight screening range', 'Normal screening range', 'Overweight screening range', 'Obese screening range'];
+  }
   if (key.includes('weight-for-age')) {
     return ['Severely Underweight', 'Underweight', 'Normal', 'High weight-for-age'];
   }
@@ -326,6 +350,10 @@ export const normalizeNutritionLabel = (value) => {
   if (['stunted'].includes(normalized)) return 'Stunted';
   if (['tall', 'above expected', 'above-expected', 'above_expected'].includes(normalized)) return 'Tall';
   if (['very tall', 'very_tall', 'very-tall'].includes(normalized)) return 'Very Tall';
+  if (normalized === 'underweight screening range') return 'Underweight screening range';
+  if (normalized === 'normal screening range') return 'Normal screening range';
+  if (normalized === 'overweight screening range') return 'Overweight screening range';
+  if (normalized === 'obese screening range') return 'Obese screening range';
   if (['obese', 'severely obese', 'severely_obese', 'severely-obese'].includes(normalized)) return normalized.includes('severely') ? 'Severely Obese' : 'Obese';
   if (['overweight'].includes(normalized)) return 'Overweight';
   if (['normal', 'within expected range', 'within expected', 'within_expected', 'normal screening range'].includes(normalized)) return 'Normal';
@@ -405,7 +433,29 @@ export const getPointValue = (point, metric) => {
   return aliasValue !== null && aliasValue !== undefined && aliasValue !== '' && Number.isFinite(Number(aliasValue)) ? Number(aliasValue) : null;
 };
 
-export const getPointInterpretation = (point, metric) => normalizeNutritionLabel(String(point?.[metric] || '').trim());
+export const getPointInterpretation = (point, metric) => {
+  const interpretation = String(point?.[metric] || '').trim();
+  if (metric === 'bmiInterpretation') {
+    const bmiBands = getInterpretationLevels(metric);
+    if (interpretation) return bmiBands.includes(interpretation) ? interpretation : '';
+    return getBmiInterpretation(getPointValue(point, 'bmiForAge'));
+  }
+  if (interpretation) return normalizeNutritionLabel(interpretation);
+  return '';
+};
+
+export const isHospitalReferral = (value) => value === true || value === 1 || value === '1' || value === 'true';
+
+export const hasGrowthMetricData = (row, metric) => {
+  if (metric === 'hospitalReferral') {
+    return (row.growthSeries || []).some((point) => isHospitalReferral(point.hospitalReferral));
+  }
+  if (INTERPRETATION_METRICS.has(metric)) {
+    return (row.growthSeries || []).some((point) => getPointInterpretation(point, metric));
+  }
+  return (row.growthSeries || []).some((point) => getPointValue(point, metric) !== null)
+    || (row[metric] !== null && row[metric] !== undefined && row[metric] !== '' && Number.isFinite(Number(row[metric])));
+};
 
 export const averageNumeric = (values) => {
   const numbers = values.map(Number).filter((value) => Number.isFinite(value));

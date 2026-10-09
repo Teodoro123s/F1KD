@@ -53,6 +53,74 @@ function MonitoringProgressFallback({ rows = [] }) {
   return null;
 }
 
+function LatestMeasurementChart({ rows, metric, beneficiaryType }) {
+  const aliases = { weightForAge: 'weight', heightForAge: 'height', bmiForAge: 'bmi' };
+  const measurements = rows.flatMap((row, index) => {
+    const rawValue = row[metric] ?? row[aliases[metric]];
+    if (rawValue === null || rawValue === undefined || rawValue === '') return [];
+    const value = Number(rawValue);
+    if (!Number.isFinite(value)) return [];
+    return [{
+      label: row.child || row.mother || row.group || `Record ${index + 1}`,
+      value,
+      date: row.measurementDate || '',
+    }];
+  });
+
+  if (!measurements.length) {
+    return <p className="growth-report-empty">No monitoring measurements are available for this report.</p>;
+  }
+
+  const width = Math.max(620, measurements.length * 90 + 110);
+  const height = 240;
+  const left = 66;
+  const right = width - 20;
+  const top = 18;
+  const bottom = height - 54;
+  const minimum = Math.min(...measurements.map(({ value }) => value));
+  const maximum = Math.max(...measurements.map(({ value }) => value));
+  const span = Math.max(maximum - minimum, Math.abs(maximum) * 0.1, 1);
+  const yMin = minimum - span * 0.1;
+  const yMax = maximum + span * 0.1;
+  const x = (index) => measurements.length === 1
+    ? (left + right) / 2
+    : left + (index / (measurements.length - 1)) * (right - left);
+  const y = (value) => bottom - ((value - yMin) / (yMax - yMin)) * (bottom - top);
+  const ticks = Array.from({ length: 5 }, (_, index) => yMin + ((yMax - yMin) * index) / 4);
+  const subjectLabel = beneficiaryType === 'mother' ? 'Mother' : 'Child';
+
+  return (
+    <div className="growth-report-line-chart latest-measurements-chart">
+      <p className="growth-report-fallback-note">Showing latest available measurements because dated check-up history is unavailable.</p>
+      <svg viewBox={`0 0 ${width} ${height}`} style={{ minWidth: `${width}px` }} role="img" aria-label={`Latest ${subjectLabel.toLowerCase()} measurements`}>
+        <text className="growth-report-y-axis-label" x="18" y={height / 2} textAnchor="middle" transform={`rotate(-90 18 ${height / 2})`}>
+          {metric === 'bmiForAge' ? 'BMI' : metric === 'weightForAge' ? 'Weight (kg)' : metric === 'heightForAge' ? 'Length (cm)' : metric}
+        </text>
+        {ticks.map((tick) => {
+          const tickY = y(tick);
+          return (
+            <g key={tick}>
+              <line className="growth-report-gridline" x1={left} x2={right} y1={tickY} y2={tickY} />
+              <text className="growth-report-y-axis-tick" x={left - 8} y={tickY + 3} textAnchor="end">{tick.toFixed(1)}</text>
+            </g>
+          );
+        })}
+        {measurements.map((measurement, index) => (
+          <g key={`${measurement.label}-${index}`}>
+            <line className="growth-report-weekline" x1={x(index)} x2={x(index)} y1={top} y2={bottom} />
+            <circle className="growth-report-series-point is-latest" cx={x(index)} cy={y(measurement.value)} r="7">
+              <title>{`${measurement.label}: ${measurement.value.toFixed(1)}${measurement.date ? ` · ${measurement.date}` : ''}`}</title>
+            </circle>
+            <text className="growth-report-x-axis-tick" x={x(index)} y={height - 28} textAnchor="middle">
+              {measurement.label.length > 16 ? `${measurement.label.slice(0, 14)}…` : measurement.label}
+            </text>
+          </g>
+        ))}
+      </svg>
+    </div>
+  );
+}
+
 function GrowthInterpretationChart({ rows, progressRows, metric, displayWeeks = 'all', beneficiaryType = 'child' }) {
   const navigate = useNavigate();
   const [hoveredSeries, setHoveredSeries] = useState('');
@@ -252,7 +320,7 @@ export function GrowthChart({ rows, progressRows = [], metric, chartType, displa
         : null;
     };
     const seriesRows = rows.filter((row) => row.growthSeries?.some((point) => rawMeasurementValue(point) !== null));
-    if (!seriesRows.length) return null;
+    if (!seriesRows.length) return <LatestMeasurementChart rows={progressRows} metric={metric} beneficiaryType={beneficiaryType} />;
 
     const isMother = beneficiaryType === 'mother';
     const monthKey = (dateValue) => {
@@ -296,7 +364,7 @@ export function GrowthChart({ rows, progressRows = [], metric, chartType, displa
       .filter((row) => row.visibleGrowthSeries.length);
 
     if (!visibleTimelineDates.length) {
-      return null;
+      return <LatestMeasurementChart rows={progressRows} metric={metric} beneficiaryType={beneficiaryType} />;
     }
 
     const chartPaddingX = 64;
@@ -307,7 +375,7 @@ export function GrowthChart({ rows, progressRows = [], metric, chartType, displa
       const usableWidth = width - (chartPaddingX * 2);
       return chartPaddingX + (index / (visibleTimelineDates.length - 1)) * usableWidth;
     };
-    if (!visibleSeriesRows.length) return null;
+    if (!visibleSeriesRows.length) return <LatestMeasurementChart rows={progressRows} metric={metric} beneficiaryType={beneficiaryType} />;
 
     const subjectLabel = isMother ? 'Mother' : 'Child';
     const metricOptions = isMother ? MOTHER_GROWTH_METRICS : WHO_NUMERIC_GROWTH_METRICS;

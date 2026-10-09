@@ -6,7 +6,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test src/pages/shared/Program/programData.test.js src/pages/shared/Dashboard/dashboardRole.test.js src/utils/permissions.test.js src/utils/childAge.test.mjs src/utils/sessionToken.test.mjs"
+    "test": "node --test src/pages/shared/Program/programData.test.js src/pages/shared/Dashboard/dashboardRole.test.js src/pages/shared/ProgressReport/progressReportConfig.test.js src/pages/shared/ProgressReport/referralGraphData.test.js src/utils/permissions.test.js src/utils/childAge.test.mjs src/utils/sessionToken.test.mjs"
   },
   "dependencies": {
     "psgc": "^2.2.0",

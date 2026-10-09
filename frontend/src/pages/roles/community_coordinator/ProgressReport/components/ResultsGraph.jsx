@@ -1,10 +1,13 @@
 import React from 'react';
 import { GrowthChart } from './GrowthChart';
+import { ReferralAssistanceGraph } from '../../../../shared/ProgressReport/components/ReferralAssistanceGraph';
+import { getMetricForYAxis, isHospitalReferral } from '../progressReportConfig';
+import { filterReferralRowsByMonth } from '../../../../shared/ProgressReport/referralGraphData';
 import { formatDateForDisplay } from '../../_shared/utils/dateFormat';
 
 function ReferralAssistanceTable({ rows }) {
   const visits = rows.flatMap((row) => (row.growthSeries || [])
-    .filter((point) => point.hospitalReferral)
+    .filter((point) => isHospitalReferral(point.hospitalReferral))
     .map((point, index) => ({
       key: `${row.motherId || row.mother}-${point.date || index}`,
       beneficiary: row.mother || 'Unknown beneficiary',
@@ -441,6 +444,7 @@ export function ResultsGraph({
 
   const isWeightLengthFocus = chartTitle === 'Weight-for-Length/Height';
   const graphCardClass = `${displayReportCategory}-report-graph-card`;
+  const referralRows = filterReferralRowsByMonth(graphRows, displayWeeks);
 
   return (
     <div className="results-graph-wrap">
@@ -458,18 +462,17 @@ export function ResultsGraph({
               </label>
               {profileGraphType && <span className="profile-graph-type">{profileGraphType}</span>}
             </>
-          ) : selectedGraphMetric !== 'hospitalReferral' ? (
+          ) : displayReportCategory === 'monitor' && selectedGraphMetric !== 'hospitalReferral' ? (
             <label className="report-chart-select">
               Y-axis
               <select value={graphMetricType} onChange={(event) => {
                 const nextType = event.target.value;
                 setGraphMetricType(nextType);
-                const nextOptions = nextType === 'interpretation' ? availableGrowthMetrics : availableNumericGrowthMetrics;
-                const nextMetric = nextOptions.find(([id]) => id === selectedGraphMetric)?.[0] || nextOptions[0]?.[0] || '';
+                const nextMetric = getMetricForYAxis(selectedGraphMetric, nextType, displayBeneficiaryType);
                 if (nextMetric) setGrowthMetrics([nextMetric]);
               }}>
                 <option value="interpretation">Interpretation</option>
-                <option value="numeric">WHO values</option>
+                <option value="numeric">{displayBeneficiaryType === 'mother' ? 'Standard formula (BMI)' : 'WHO values'}</option>
               </select>
             </label>
           ) : null}
@@ -500,7 +503,11 @@ export function ResultsGraph({
             beneficiaryType={displayBeneficiaryType}
           />
         ) : displayReportCategory === 'monitor' && displayBeneficiaryType === 'mother' && selectedGraphMetric === 'hospitalReferral' ? (
-          <ReferralAssistanceTable rows={graphRows} />
+          <>
+            <ReferralAssistanceGraph rows={referralRows} />
+            <h4 className="referral-details-heading">Referral details</h4>
+            <ReferralAssistanceTable rows={referralRows} />
+          </>
         ) : (
           <GrowthChart rows={graphRows} progressRows={resultsRows} metric={selectedGraphMetric} chartType="line" displayWeeks={displayWeeks} beneficiaryType={displayBeneficiaryType} />
         )}

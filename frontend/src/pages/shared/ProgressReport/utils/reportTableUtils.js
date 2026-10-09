@@ -25,7 +25,7 @@ export const growthTableFieldsForMetric = (metric) => {
   if (metric?.startsWith('weightForLength')) return ['weightForLengthZScore', 'weightForLengthInterpretation'];
   if (metric?.startsWith('weightForAge')) return ['weightForAge', 'weightForAgeZScore', 'weightForAgeInterpretation'];
   if (metric?.startsWith('lengthForAge') || metric?.startsWith('heightForAge')) return ['heightForAge', 'lengthForAgeZScore', 'lengthForAgeInterpretation'];
-  if (metric === 'bmiForAge') return ['bmiForAge', 'bmiInterpretation'];
+  if (metric === 'bmiForAge' || metric === 'bmiInterpretation') return ['bmiForAge', 'bmiInterpretation'];
   if (metric) return [metric];
   return [];
 };

@@ -37,6 +37,7 @@ import {
   formatCellValue,
   getPointValue,
   getPointInterpretation,
+  hasGrowthMetricData,
 } from './progressReportConfig';
 import { aggregateGrowthRows, aggregateReportRows } from './utils/reportAggregation';
 import { buildProgressReportParams } from './utils/apiUtils';
@@ -436,12 +437,7 @@ export default function ProgressReport() {
   };
   const graphRows = aggregateGrowthRows(
     filterGraphRowsByRange(
-      graphSourceRows.filter((row) => growthMetrics.some((metric) => {
-        if (INTERPRETATION_METRICS.has(metric)) {
-          return row.growthSeries?.some((point) => getPointInterpretation(point, metric));
-        }
-        return row.growthSeries?.some((point) => Number.isFinite(getPointValue(point, metric))) || Number.isFinite(Number(row[metric]));
-      }))
+      graphSourceRows.filter((row) => growthMetrics.some((metric) => hasGrowthMetricData(row, metric)))
     ),
     graphAggregationFocus,
     displayBeneficiaryType,
@@ -547,15 +543,6 @@ export default function ProgressReport() {
     const chartActions = document.querySelector('.program-average-chart-actions');
     if (exportButton && displayReportCategory === 'program' && chartActions) chartActions.appendChild(exportButton);
     if (exportButton && displayReportCategory !== 'program' && resultsHeader) resultsHeader.appendChild(exportButton);
-    if (heading && displayReportCategory === 'monitor' && beneficiaryType === 'mother') heading.textContent = '📈 BMI';
-    if (subtitle && displayReportCategory === 'monitor' && beneficiaryType === 'mother') subtitle.textContent = 'Latest mother BMI measurements · values are plotted by month';
-    if (subtitle && displayReportCategory === 'monitor' && beneficiaryType === 'child') subtitle.textContent = 'Weight and length plotted against age in months';
-    if (heading && displayReportCategory === 'monitor' && beneficiaryType === 'child') {
-      const metricText = (availableGrowthMetrics.find(([id]) => id === growthMetrics[0])?.[1] || 'Weight-for-Length/Height')
-        .replace(/\s+Z-Score$/i, '')
-        .replace(/\s+Interpretation$/i, '');
-      heading.textContent = metricText;
-    }
     if (displayReportCategory === 'program') {
       const selectedMetric = PROGRAM_METRICS.find(([id]) => id === displayWeeks);
       const selectedMetricLabel = selectedMetric?.[1] || 'Program Benefits';

@@ -312,7 +312,7 @@ router.get('/', async (req, res) => {
         ${params.granularity === 'mother' ? 'm.stillbirth' : 'NULL'} AS stillbirth,
         ${params.granularity === 'mother' ? 'NULL' : `(SELECT latest_cc.weight FROM child_checkups latest_cc WHERE latest_cc.child_id = c.id AND ${childCheckupDateFilter('latest_cc')} ORDER BY latest_cc.visit_date DESC, latest_cc.id DESC LIMIT 1)`} AS weight_for_age,
         ${params.granularity === 'mother' ? 'NULL' : `(SELECT latest_cc.height FROM child_checkups latest_cc WHERE latest_cc.child_id = c.id AND ${childCheckupDateFilter('latest_cc')} ORDER BY latest_cc.visit_date DESC, latest_cc.id DESC LIMIT 1)`} AS height_for_age,
-        ${params.granularity === 'mother' ? `(SELECT latest_mc.bmi FROM mother_checkups latest_mc WHERE latest_mc.mother_id = m.id AND ${motherCheckupDateFilter('latest_mc')} ORDER BY latest_mc.checkup_date DESC, latest_mc.id DESC LIMIT 1)` : `(SELECT ROUND(latest_cc.weight / POW(NULLIF(latest_cc.height, 0) / 100, 2), 1) FROM child_checkups latest_cc WHERE latest_cc.child_id = c.id AND ${childCheckupDateFilter('latest_cc')} ORDER BY latest_cc.visit_date DESC, latest_cc.id DESC LIMIT 1)`} AS bmi_for_age,
+        ${params.granularity === 'mother' ? `(SELECT ROUND(latest_mc.weight_kg / POW(NULLIF(latest_mc.height_cm, 0) / 100, 2), 1) FROM mother_checkups latest_mc WHERE latest_mc.mother_id = m.id AND latest_mc.weight_kg > 0 AND latest_mc.height_cm > 0 AND ${motherCheckupDateFilter('latest_mc')} ORDER BY latest_mc.checkup_date DESC, latest_mc.id DESC LIMIT 1)` : `(SELECT ROUND(latest_cc.weight / POW(NULLIF(latest_cc.height, 0) / 100, 2), 1) FROM child_checkups latest_cc WHERE latest_cc.child_id = c.id AND ${childCheckupDateFilter('latest_cc')} ORDER BY latest_cc.visit_date DESC, latest_cc.id DESC LIMIT 1)`} AS bmi_for_age,
         ${params.granularity === 'mother' ? `(SELECT latest_mc.checkup_date FROM mother_checkups latest_mc WHERE latest_mc.mother_id = m.id AND ${motherCheckupDateFilter('latest_mc')} ORDER BY latest_mc.checkup_date DESC, latest_mc.id DESC LIMIT 1)` : `(SELECT latest_cc.visit_date FROM child_checkups latest_cc WHERE latest_cc.child_id = c.id AND ${childCheckupDateFilter('latest_cc')} ORDER BY latest_cc.visit_date DESC, latest_cc.id DESC LIMIT 1)`} AS measurement_date,
         ${isMotherReport ? 'COUNT(DISTINCT mc.id)' : childActivitiesExpression} AS activities_completed,
         ${totalExpression} AS total_activities,
@@ -536,7 +536,7 @@ router.get('/', async (req, res) => {
     const motherIds = normalizedRows.map((row) => row.motherId).filter(Boolean);
     if (params.granularity === 'mother' && motherIds.length) {
       const [checkupRows] = await pool.query(
-        `SELECT mother_id, checkup_date, gestational_age_weeks, bmi,
+        `SELECT mother_id, checkup_date, gestational_age_weeks, weight_kg, height_cm, bmi,
           referred_to_hospital, lab_assistance_provided, assistance_amount,
           source_of_funds, facility_type
          FROM mother_checkups
@@ -549,13 +549,17 @@ router.get('/', async (req, res) => {
       const seriesByMother = new Map();
       checkupRows.forEach((checkup) => {
         const series = seriesByMother.get(checkup.mother_id) || [];
-        const bmi = Number(checkup.bmi);
+        const weight = Number(checkup.weight_kg);
+        const height = Number(checkup.height_cm);
+        const bmi = weight > 0 && height > 0
+          ? Number((weight / ((height / 100) ** 2)).toFixed(1))
+          : Number(checkup.bmi);
         const ageWeeks = Number(checkup.gestational_age_weeks);
         series.push({
           date: checkup.checkup_date,
           ageWeeks: Number.isFinite(ageWeeks) ? ageWeeks : null,
-          weight: null,
-          height: null,
+          weight: Number.isFinite(weight) && weight > 0 ? weight : null,
+          height: Number.isFinite(height) && height > 0 ? height : null,
           bmi: Number.isFinite(bmi) && bmi > 0 ? bmi : null,
           hospitalReferral: Boolean(checkup.referred_to_hospital),
           labAssistanceProvided: Boolean(checkup.lab_assistance_provided),
