@@ -417,20 +417,23 @@ export function ResultsGraph({
   const currentRange = parseRangeValue(displayWeeks);
   const displayRangeStart = graphicMonthOptions.includes(currentRange.startMonth) ? currentRange.startMonth : (graphicMonthOptions[0] || '');
   const displayRangeEnd = graphicMonthOptions.includes(currentRange.endMonth) ? currentRange.endMonth : (graphicMonthOptions.at(-1) || '');
+  const selectedProgramMetric = programMetrics.some(([id]) => id === displayWeeks)
+    ? displayWeeks
+    : programMetrics[0]?.[0] || '';
   const applyMonthRange = (startMonth, endMonth) => {
     const safeStart = startMonth || graphicMonthOptions[0] || '';
     const safeEnd = endMonth && endMonth >= safeStart ? endMonth : safeStart || graphicMonthOptions.at(-1) || '';
     setDisplayWeeks(`range:${safeStart}:${safeEnd}`);
   };
   const chartTitle = displayReportCategory === 'program'
-    ? programMetrics.find(([id]) => id === displayWeeks)?.[1] || 'Program Benefits'
+    ? programMetrics.find(([id]) => id === selectedProgramMetric)?.[1] || 'Program Benefits'
     : displayReportCategory === 'profile'
       ? selectedProfileField?.[1] || 'Profile Summary'
       : displayBeneficiaryType === 'mother'
         ? selectedGraphMetric === 'hospitalReferral' ? 'Referral to Hospital' : 'BMI'
         : metricLabel.replace(/\s+Z-Score$/i, '').replace(/\s+Interpretation$/i, '');
   const chartSubtitle = displayReportCategory === 'program'
-    ? 'Program benefits by group'
+    ? 'Compare reported benefits by beneficiary or community scope.'
     : displayReportCategory === 'profile'
       ? `Profile values for ${selectedProfileField?.[1] || 'selected field'}`
       : displayBeneficiaryType === 'mother'
@@ -462,6 +465,13 @@ export function ResultsGraph({
               </label>
               {profileGraphType && <span className="profile-graph-type">{profileGraphType}</span>}
             </>
+          ) : displayReportCategory === 'program' ? (
+            <label className="report-chart-select">
+              Graph metric
+              <select value={selectedProgramMetric} onChange={(event) => setDisplayWeeks(event.target.value)}>
+                {programMetrics.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+              </select>
+            </label>
           ) : displayReportCategory === 'monitor' && selectedGraphMetric !== 'hospitalReferral' ? (
             <label className="report-chart-select">
               Y-axis
@@ -509,7 +519,7 @@ export function ResultsGraph({
             <ReferralAssistanceTable rows={referralRows} />
           </>
         ) : (
-          <GrowthChart rows={graphRows} progressRows={resultsRows} metric={selectedGraphMetric} chartType="line" displayWeeks={displayWeeks} beneficiaryType={displayBeneficiaryType} />
+          <GrowthChart rows={graphRows} progressRows={resultsRows} metric={displayReportCategory === 'program' ? selectedProgramMetric : selectedGraphMetric} chartType="line" displayWeeks={displayWeeks} beneficiaryType={displayBeneficiaryType} />
         )}
       </div>
     </div>

@@ -264,7 +264,8 @@ export default function ProgressReport() {
       });
       const result = await apiGetProgressReport(requestParams);
       let completeGraphRows = result.rows || [];
-      if (nextPage === 1 && reportCategory === 'monitor' && result.pagination?.total > completeGraphRows.length) {
+      const needsCompleteGraphRows = reportCategory === 'monitor' || reportCategory === 'program';
+      if (nextPage === 1 && needsCompleteGraphRows && result.pagination?.total > completeGraphRows.length) {
         try {
           const completeResult = await apiGetProgressReport(buildProgressReportParams({
             selection: safeSelection,
@@ -283,7 +284,7 @@ export default function ProgressReport() {
           notifyAction('The chart could not load every beneficiary in this report.', 'error');
         }
       }
-      if (nextPage === 1) setGraphReportRows(reportCategory === 'monitor' ? completeGraphRows : null);
+      if (nextPage === 1) setGraphReportRows(needsCompleteGraphRows ? completeGraphRows : null);
       setReport(result);
       setFinalizedSnapshot({
         report: result,
@@ -407,11 +408,11 @@ export default function ProgressReport() {
       ? addGrowthScoresBeforeInterpretations([...monitoringTableBaseFields, 'measurementDate', ...selectedTableGrowthFields])
       : displayVisibleFields;
   const graphSourceRows = displayReportCategory === 'program'
-    ? aggregateReportRows(resultsRows, 'group-school')
+    ? graphReportRows ?? activeReport?.rows ?? []
     : displayReportCategory === 'monitor'
       ? filterRowsBySelectedRange(graphReportRows ?? activeReport?.rows ?? [])
       : resultsRows;
-  const graphAggregationFocus = displayReportCategory === 'monitor'
+  const graphAggregationFocus = displayReportCategory === 'monitor' || displayReportCategory === 'program'
     ? null
     : displaySelection.batchId
       ? 'batch-group'
@@ -535,28 +536,12 @@ export default function ProgressReport() {
 
   useEffect(() => {
     if (activeTab !== 4) return undefined;
-    const heading = document.querySelector('.growth-report-single-card h3');
-    const subtitle = document.querySelector('.growth-report-single-card > p');
     const exportButton = document.querySelector('.progress-report-results-header > .secondary-btn')
       || [...document.querySelectorAll('.results-tab-panel button.secondary-btn')].find((button) => button.textContent.trim() === 'Export CSV');
     const resultsHeader = document.querySelector('.progress-report-results-header');
-    const chartActions = document.querySelector('.program-average-chart-actions');
-    if (exportButton && displayReportCategory === 'program' && chartActions) chartActions.appendChild(exportButton);
     if (exportButton && displayReportCategory !== 'program' && resultsHeader) resultsHeader.appendChild(exportButton);
-    if (displayReportCategory === 'program') {
-      const selectedMetric = PROGRAM_METRICS.find(([id]) => id === displayWeeks);
-      const selectedMetricLabel = selectedMetric?.[1] || 'Program Benefits';
-      if (heading) heading.textContent = selectedMetricLabel;
-      if (subtitle) subtitle.textContent = `${selectedMetricLabel} by group`;
-      const value = document.querySelector('.growth-report-single-card .growth-report-value');
-      if (value) value.textContent = averageMetric(displayWeeks, graphRows);
-      if (value) value.style.display = 'none';
-    } else {
-      const value = document.querySelector('.growth-report-single-card .growth-report-value');
-      if (value) value.style.display = '';
-    }
     return undefined;
-  }, [activeTab, beneficiaryType, displayReportCategory, displayWeeks, graphRows]);
+  }, [activeTab, displayReportCategory]);
 
   return (
     <div className="community-page progress-report-shell">

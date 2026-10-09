@@ -3,7 +3,7 @@ import {
   getBmiInterpretation,
   averageNumeric,
   getMode,
-} from '../progressReportConfig';
+} from '../progressReportConfig.js';
 
 export const getGrowthMonthKey = (point, isMother = false) => {
   const dateValue = point?.date || point?.measurementDate;
@@ -133,7 +133,7 @@ export const aggregateReportRows = (rows, focus) => {
       progress,
       receivedBenefitTotal: groupRows.reduce((sum, row) => sum + Number(row.receivedBenefitTotal || 0), 0),
       receivedBenefitFrequency: groupRows.reduce((sum, row) => sum + Number(row.receivedBenefitFrequency || 0), 0),
-      receivedBenefitAveragePerMonth: Number(groupRows.reduce((sum, row) => sum + Number(row.receivedBenefitAveragePerMonth || 0), 0).toFixed(1)),
+      receivedBenefitAveragePerMonth: Number((groupRows.reduce((sum, row) => sum + Number(row.receivedBenefitAveragePerMonth || 0), 0) / Math.max(groupRows.length, 1)).toFixed(1)),
     };
   });
 };

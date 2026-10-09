@@ -10,6 +10,7 @@ import {
   getPointInterpretation,
   mapInterpretationToBand,
 } from '../progressReportConfig';
+import { aggregateProgramGraphRows, PROGRAM_GRAPH_BREAKDOWNS } from '../../../../shared/ProgressReport/programReportGraphData';
 
 const downloadChartImage = (svgElement, metricLabel) => {
   if (!svgElement) return;
@@ -214,69 +215,47 @@ function GrowthInterpretationChart({ rows, progressRows, metric, displayWeeks = 
   })}</div><div className="growth-report-legend">{categories.map((category, index) => <span key={category}><i style={{ background: colors[index % colors.length] }} />{category}</span>)}</div></div>;
 }
 
-function ProgramAverageChart({ rows, metric = 'receivedBenefitAveragePerMonth' }) {
+function ProgramBenefitsChart({ rows, metric, beneficiaryType }) {
+  const [breakdown, setBreakdown] = useState('beneficiary');
   const metricLabel = PROGRAM_METRICS.find(([id]) => id === metric)?.[1] || 'Program Benefits';
-  const points = rows
-    .map((row) => ({ label: row.group || row.child || row.mother || 'Unassigned group', value: Number(row[metric]) }))
-    .filter(({ value }) => Number.isFinite(value));
+  const points = aggregateProgramGraphRows(rows, metric, breakdown, beneficiaryType);
 
   if (!points.length) return <p className="growth-report-empty">No program receipt data available for the selected groups.</p>;
 
   const maximum = Math.max(...points.map(({ value }) => value), 1);
-  const downloadChart = (format) => {
-    const width = Math.max(720, points.length * 150);
-    const height = 420;
-    const chartHeight = 280;
-    const barWidth = 72;
-    const gap = (width - points.length * barWidth) / (points.length + 1);
-    const bars = points.map(({ label, value }, index) => {
-      const x = gap + index * (barWidth + gap);
-      const barHeight = Math.max(value > 0 ? 8 : 2, (value / maximum) * chartHeight);
-      const y = 330 - barHeight;
-      return `<rect x="${x}" y="${y}" width="${barWidth}" height="${barHeight}" rx="6" fill="#15803d"/><text x="${x + barWidth / 2}" y="${y - 10}" text-anchor="middle" fill="#166534" font-size="16" font-weight="700">${value.toFixed(1)}</text><text x="${x + barWidth / 2}" y="360" text-anchor="middle" fill="#475569" font-size="14">${String(label).slice(0, 20)}</text>`;
-    }).join('');
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="100%" height="100%" fill="#ffffff"/><text x="24" y="32" fill="#173b2a" font-size="20" font-weight="700">${metricLabel} by Group</text><line x1="24" y1="330" x2="${width - 24}" y2="330" stroke="#cbd5e1"/>${bars}</svg>`;
-    const svgUrl = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
-    if (format === 'svg') {
-      const link = document.createElement('a');
-      link.href = svgUrl;
-      link.download = `program-${metric}.svg`;
-      link.click();
-      URL.revokeObjectURL(svgUrl);
-      return;
-    }
-    const image = new Image();
-    image.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      canvas.getContext('2d').drawImage(image, 0, 0);
-      canvas.toBlob((blob) => {
-        if (!blob) return;
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = `program-${metric}.png`;
-        link.click();
-        URL.revokeObjectURL(link.href);
-        URL.revokeObjectURL(svgUrl);
-      }, 'image/png');
-    };
-    image.src = svgUrl;
-  };
-  return <div className="program-average-chart" role="img" aria-label={`${metricLabel} by group`}>
-    <div className="program-average-chart-y-axis"><span>{maximum.toFixed(1)}</span><span>{(maximum / 2).toFixed(1)}</span><span>0</span></div>
-    <div className="program-average-chart-plot">
-      <div className="program-average-chart-grid"><span /><span /><span /></div>
-      <div className="program-average-chart-bars">
-        {points.map(({ label, value }) => <div className="program-average-chart-bar" key={label}>
-          <strong>{value.toFixed(1)}</strong>
-          <span style={{ '--bar-height': `${Math.max(value > 0 ? 8 : 2, (value / maximum) * 100)}%` }} title={`${label}: ${value.toFixed(1)} ${metricLabel}`} />
-          <small title={label}>{label}</small>
-        </div>)}
+  const formatValue = (value) => metric === 'receivedBenefitAveragePerMonth' ? value.toFixed(1) : value.toLocaleString();
+  const breakdownLabel = PROGRAM_GRAPH_BREAKDOWNS.find(([id]) => id === breakdown)?.[1] || 'Beneficiary';
+
+  return (
+    <section className="program-average-chart" aria-label={`${metricLabel} by ${breakdownLabel.toLowerCase()}`}>
+      <div className="program-chart-controls">
+        <label className="report-chart-select">
+          Break down by
+          <select value={breakdown} onChange={(event) => setBreakdown(event.target.value)}>
+            {PROGRAM_GRAPH_BREAKDOWNS.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+          </select>
+        </label>
+        <span>{points.length} {breakdownLabel.toLowerCase()}{points.length === 1 ? '' : 's'}</span>
       </div>
-      <p className="program-average-chart-axis-label">Group</p>
-    </div>
-  </div>;
+      <div className="program-chart-axis" aria-hidden="true">
+        <span>{formatValue(0)}</span>
+        <span>{formatValue(maximum / 2)}</span>
+        <span>{formatValue(maximum)}</span>
+      </div>
+      <div className="program-chart-rows" role="list" aria-label={`${metricLabel} values`}>
+        {points.map(({ key, label, value, count }) => (
+          <div className="program-chart-row" key={key} role="listitem">
+            <span className="program-chart-label" title={label}>{label}</span>
+            <span className="program-chart-track">
+              <span className="program-chart-bar" style={{ '--bar-width': `${(value / maximum) * 100}%` }} title={`${label}: ${formatValue(value)} ${metricLabel}`} />
+            </span>
+            <strong>{formatValue(value)}</strong>
+            {breakdown !== 'beneficiary' && <small>{count} {count === 1 ? 'record' : 'records'}</small>}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
 }
 
 export function GrowthChart({ rows, progressRows = [], metric, chartType, displayWeeks = 'all', beneficiaryType = 'child' }) {
@@ -284,7 +263,7 @@ export function GrowthChart({ rows, progressRows = [], metric, chartType, displa
   const navigate = useNavigate();
   const [hoveredSeries, setHoveredSeries] = useState('');
   if (INTERPRETATION_METRICS.has(metric)) return <GrowthInterpretationChart rows={rows} progressRows={progressRows} metric={metric} displayWeeks={displayWeeks} beneficiaryType={beneficiaryType} />;
-  if (PROGRAM_METRICS.some(([id]) => id === metric)) return <ProgramAverageChart rows={rows} />;
+  if (PROGRAM_METRICS.some(([id]) => id === metric)) return <ProgramBenefitsChart rows={rows} metric={metric} beneficiaryType={beneficiaryType} />;
   const values = rows
     .map((row) => ({ row, value: Number(row[metric]) }))
     .filter(({ value }) => Number.isFinite(value));
