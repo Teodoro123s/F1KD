@@ -32,18 +32,55 @@ export function resolveAssetUrl(pathname) {
 }
 
 export async function fetchWithAuth(url, options = {}) {
+  const { timeoutMs = 30000, signal, ...fetchOptions } = options;
+  const controller = new AbortController();
+  let timedOut = false;
+  const abortFromCaller = () => controller.abort(signal.reason);
+  if (signal?.aborted) {
+    abortFromCaller();
+  } else {
+    signal?.addEventListener('abort', abortFromCaller, { once: true });
+  }
+  const timeout = window.setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+
   const requestOptions = {
     credentials: 'include',
-    ...options,
+    ...fetchOptions,
+    signal: controller.signal,
     headers: {
       ...authHeader(),
-      ...(options.headers || {}),
+      ...(fetchOptions.headers || {}),
     },
   };
 
-  const response = await fetch(url, requestOptions);
-  if (response.status === 401 && typeof window !== 'undefined') {
-    window.dispatchEvent(new Event('f1kd:session-expired'));
+  try {
+    const response = await fetch(url, requestOptions);
+    if (response.status === 401) {
+      window.dispatchEvent(new Event('f1kd:session-expired'));
+    }
+    const method = String(requestOptions.method || 'GET').toUpperCase();
+    if (
+      response.ok
+      && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)
+      && !String(url).includes('/api/notifications/mark-read')
+    ) {
+      window.dispatchEvent(new Event('f1kd:notifications-changed'));
+    }
+    return response;
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    if (timedOut) {
+      throw new Error('The request timed out. Your entered information is still available. Check your connection and try again.');
+    }
+    if (error instanceof TypeError) {
+      throw new Error('Unable to reach the server. Check your internet connection. Your entered information is still available; try again when connected.');
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+    signal?.removeEventListener('abort', abortFromCaller);
   }
-  return response;
 }

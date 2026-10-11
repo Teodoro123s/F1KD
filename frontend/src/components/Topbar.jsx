@@ -4,7 +4,11 @@ import { useNavigate } from 'react-router-dom';
 import { getInitials } from '../utils/nameFormat';
 import { useAuth } from '../auth/AuthProvider';
 import { ROLES, hasRole } from '../utils/permissions';
-import { apiGetNotifications } from '../api/notifications';
+import {
+  apiGetNotifications,
+  apiGetUnreadNotificationCount,
+  apiMarkNotificationsRead,
+} from '../api/notifications';
 import { BellIcon } from './ui/ModuleIcons';
 
 export default function Topbar() {
@@ -15,6 +19,7 @@ export default function Topbar() {
   const canReadNotifications = hasRole(current?.role, [ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.COMMUNITY_COORDINATOR, ROLES.PARTNER, ROLES.HEALTH_WORKER]);
   const [openNotif, setOpenNotif] = useState(false);
   const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [notificationsError, setNotificationsError] = useState('');
   const [openUser, setOpenUser] = useState(false);
@@ -31,6 +36,37 @@ export default function Topbar() {
     document.addEventListener('mousedown', onDocClick);
     return () => document.removeEventListener('mousedown', onDocClick);
   }, []);
+
+  useEffect(() => {
+    if (!canReadNotifications) {
+      setUnreadCount(0);
+      return undefined;
+    }
+
+    let active = true;
+    const refreshUnreadCount = () => {
+      apiGetUnreadNotificationCount()
+        .then((response) => {
+          if (active) setUnreadCount(Number(response.unreadCount) || 0);
+        })
+        .catch((error) => {
+          if (active) console.error('Unable to refresh unread notification count:', error);
+        });
+    };
+    refreshUnreadCount();
+    const interval = window.setInterval(refreshUnreadCount, 10000);
+    const onNotificationsRead = () => refreshUnreadCount();
+    window.addEventListener('focus', refreshUnreadCount);
+    window.addEventListener('f1kd:notifications-changed', refreshUnreadCount);
+    window.addEventListener('f1kd:notifications-read', onNotificationsRead);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refreshUnreadCount);
+      window.removeEventListener('f1kd:notifications-changed', refreshUnreadCount);
+      window.removeEventListener('f1kd:notifications-read', onNotificationsRead);
+    };
+  }, [canReadNotifications, current?.id]);
 
   useEffect(() => {
     if (!openNotif || !canReadNotifications) return undefined;
@@ -87,18 +123,40 @@ export default function Topbar() {
     else navigate('/notifications');
   };
 
+  const toggleNotifications = () => {
+    if (signingOut) return;
+    setOpenUser(false);
+    const willOpen = !openNotif;
+    setOpenNotif(willOpen);
+    if (willOpen && canReadNotifications) {
+      apiMarkNotificationsRead()
+        .then(() => {
+          setUnreadCount(0);
+          window.dispatchEvent(new Event('f1kd:notifications-read'));
+        })
+        .catch((error) => {
+          console.error('Unable to mark notifications as read:', error);
+        });
+    }
+  };
+
   return (
     <header className="topbar">
       <div className="topbar-actions">
         <span className="action-wrapper" ref={notifRef}>
           <button
             className="icon-button"
-            aria-label="Notifications"
+            aria-label={unreadCount ? `Notifications, ${unreadCount} unread` : 'Notifications'}
             aria-expanded={openNotif}
-            onClick={() => { if (!signingOut) { setOpenUser(false); setOpenNotif((open) => !open); } }}
+            onClick={toggleNotifications}
             disabled={signingOut}
           >
             <BellIcon />
+            {unreadCount > 0 && (
+              <span className="notification-unread-badge" aria-hidden="true">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
           </button>
           {openNotif && (
             <div className="dropdown notifications-dropdown" role="menu" aria-label="Recent notifications">

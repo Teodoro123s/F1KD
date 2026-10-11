@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../db');
-const { documentUpload, uploadFileToStorage } = require('../middleware/documentUpload');
+const { documentUpload, validateDocumentUpload, uploadFileToStorage } = require('../middleware/documentUpload');
 const { createSuperadminNotification, getBeneficiaryUpdateRecipients } = require('../services/notifications');
 const { findDuplicateBeneficiary, normalizeFullName, withUniquenessLocks } = require('../services/uniqueness');
 
@@ -121,7 +121,7 @@ async function attachMonitoringData(child) {
   });
 }
 
-router.post('/:id/documents', documentUpload.single('birthDocument'), async (req, res) => {
+router.post('/:id/documents', documentUpload.single('birthDocument'), validateDocumentUpload, async (req, res) => {
   try {
     const { id } = req.params;
     const [childRows] = await pool.query(
@@ -638,6 +638,7 @@ router.put('/:id', async (req, res) => {
 });
 
 router.delete('/:id', async (req, res) => {
+  let connection;
   try {
     const { id } = req.params;
     const scopeClause = req.groupId
@@ -645,7 +646,9 @@ router.delete('/:id', async (req, res) => {
       : req.schoolId
         ? ' AND (c.community_id = ? OR (c.community_id IS NULL AND m.community_id = ?))'
         : '';
-    const [rows] = await pool.query(
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+    const [rows] = await connection.query(
         `SELECT c.id, c.child_code, c.first_name, c.last_name,
           COALESCE(c.community_id, m.community_id) AS community_id,
           COALESCE(c.group_id, m.group_id) AS group_id
@@ -653,13 +656,20 @@ router.delete('/:id', async (req, res) => {
          WHERE (c.id = ? OR c.child_code = ?)${scopeClause} LIMIT 1`,
       req.groupId ? [Number(id) || null, id, req.groupId, req.groupId] : req.schoolId ? [Number(id) || null, id, req.schoolId, req.schoolId] : [Number(id) || null, id]
     );
-    if (!rows.length) return res.status(404).json({ error: 'Child not found' });
+    if (!rows.length) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Child not found' });
+    }
 
     const childId = rows[0].id;
-    await pool.query('DELETE FROM child_checkups WHERE child_id = ?', [childId]);
-    await pool.query('DELETE FROM child_medical_conditions WHERE child_id = ?', [childId]);
-    await pool.query('DELETE FROM child_vaccinations WHERE child_id = ?', [childId]);
-    await pool.query('DELETE FROM children WHERE id = ?', [childId]);
+    await connection.query('DELETE FROM monitoring_logs WHERE beneficiary_type = ? AND beneficiary_id = ?', ['child', String(childId)]);
+    await connection.query('DELETE FROM child_checkups WHERE child_id = ?', [childId]);
+    await connection.query('DELETE FROM child_medical_conditions WHERE child_id = ?', [childId]);
+    await connection.query('DELETE FROM child_vaccinations WHERE child_id = ?', [childId]);
+    await connection.query('DELETE FROM children WHERE id = ?', [childId]);
+    await connection.commit();
+    connection.release();
+    connection = null;
     const deletedChild = rows[0];
     const deletedName = [deletedChild.first_name, deletedChild.last_name].filter(Boolean).join(' ');
     await createSuperadminNotification({
@@ -676,8 +686,17 @@ router.delete('/:id', async (req, res) => {
     });
     res.json({ success: true });
   } catch (error) {
+    if (connection) {
+      try {
+        await connection.rollback();
+      } catch (rollbackError) {
+        console.error('[Children API] DELETE /:id rollback error:', rollbackError.message);
+      }
+    }
     console.error('Failed to delete child', error);
     res.status(500).json({ error: 'db error' });
+  } finally {
+    connection?.release();
   }
 });
 

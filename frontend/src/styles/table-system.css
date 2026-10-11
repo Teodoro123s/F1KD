@@ -82,6 +82,53 @@
   background: var(--table-header-bg);
 }
 
+.table-skeleton {
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.table-skeleton__label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.table-skeleton table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table-skeleton td {
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid var(--table-divider);
+}
+
+.table-skeleton__cell {
+  display: block;
+  width: min(100%, 12rem);
+  height: 0.8rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #eef2f6 25%, #f8fafc 50%, #eef2f6 75%);
+  background-size: 200% 100%;
+  animation: table-skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.table-skeleton tr:nth-child(2n) .table-skeleton__cell {
+  width: min(76%, 9rem);
+}
+
+@keyframes table-skeleton-shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
 @media (max-width: 640px) {
   .table-card,
   .view-table-wrap,
@@ -89,5 +136,11 @@
   .program-receipt-table-scroll,
   .vaccine-form-table-wrapper {
     border-radius: 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .table-skeleton__cell {
+    animation: none;
   }
 }

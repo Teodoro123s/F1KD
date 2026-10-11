@@ -1,4 +1,5 @@
 import React from 'react';
+import { TableSkeletonRows } from '../../../../components/LoadingSkeleton';
 import { getMotherDocumentProgress, getMotherMonitoringProgress } from '../_shared/utils/motherProgress';
 import { getChildMonitoringProgress, getChildProfileProgress } from '../_shared/utils/childProgress';
 
@@ -36,12 +37,17 @@ export default function BeneficiaryTable({
   return (
     <section className="table-card beneficiary-table-card">
       <div className="table-overflow">
-        <table className="data-table">
+        <table className="data-table" aria-busy={loading}>
           <tbody>
             {loading ? (
-              <tr>
-                <td colSpan={emptyColSpan} className="no-data">Loading beneficiaries...</td>
-              </tr>
+              <>
+                <tr className="table-skeleton__status">
+                  <td colSpan={emptyColSpan}>
+                    <span className="table-skeleton__label" role="status">Loading beneficiaries...</span>
+                  </td>
+                </tr>
+                <TableSkeletonRows rows={5} columns={emptyColSpan} />
+              </>
             ) : currentRows.length > 0 ? (
               currentRows.map((row) => {
                 const original = row.original || row;

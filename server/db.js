@@ -55,6 +55,7 @@ async function ensure() {
       auth_version INT NOT NULL DEFAULT 0,
       consent_accepted_at DATETIME NULL,
       pending_credential_email TEXT NULL,
+      last_notifications_read_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
       school_id INT NULL,
       group_id INT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -66,7 +67,8 @@ async function ensure() {
       ADD COLUMN IF NOT EXISTS group_id INT NULL,
       ADD COLUMN IF NOT EXISTS auth_version INT NOT NULL DEFAULT 0,
       ADD COLUMN IF NOT EXISTS consent_accepted_at DATETIME NULL,
-      ADD COLUMN IF NOT EXISTS pending_credential_email TEXT NULL;`,
+      ADD COLUMN IF NOT EXISTS pending_credential_email TEXT NULL,
+      ADD COLUMN IF NOT EXISTS last_notifications_read_id BIGINT UNSIGNED NOT NULL DEFAULT 0;`,
 
 
 

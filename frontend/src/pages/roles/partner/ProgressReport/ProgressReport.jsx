@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { apiGetProgressReport, apiGetProgressReportOptions } from '../../../../api/progressReport';
 import { apiRecordReportDownload } from '../../../../api/notifications';
 import { apiGetPrograms } from '../../../../api/programs';
@@ -70,6 +70,9 @@ export default function ProgressReport() {
   const [page, setPage] = useState(1);
   const [loadingOptions, setLoadingOptions] = useState(true);
   const [loadingReport, setLoadingReport] = useState(false);
+  const reportRequestLock = useRef(false);
+  const exportRequestLock = useRef(false);
+  const [exportingReport, setExportingReport] = useState(false);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState(1);
   const [reportFocus, setReportFocus] = useState('beneficiary-batch');
@@ -237,11 +240,13 @@ export default function ProgressReport() {
   }, [focusOptions, reportFocus]);
 
   const generateReport = async (nextPage = 1) => {
+    if (reportRequestLock.current) return;
     const safeSelection = normalizeSelectionHierarchy(selection);
     if (!safeSelection.schoolId) {
       notifyAction('Please select at least a School to view the report.', 'error');
       return;
     }
+    reportRequestLock.current = true;
     setSelection(safeSelection);
     setLoadingReport(true);
     if (nextPage === 1) setGraphReportRows(null);
@@ -311,6 +316,7 @@ export default function ProgressReport() {
       notifyAction(reportError.message || 'Unable to generate report.', 'error');
       setReport(null);
     } finally {
+      reportRequestLock.current = false;
       setLoadingReport(false);
     }
   };
@@ -356,7 +362,10 @@ export default function ProgressReport() {
   const sortLabel = (label, key) => <button type="button" className="progress-report-sort-button" onClick={() => changeSort(key)}>{label} {displaySort.key === key ? (displaySort.direction === 'asc' ? '↑' : '↓') : ''}</button>;
 
   const exportReport = async () => {
-    if (!selection.schoolId) return;
+    if (!selection.schoolId || exportRequestLock.current) return;
+    exportRequestLock.current = true;
+    setExportingReport(true);
+    try {
     const selectedProgram = programs.find((program) => normalizeProgramName(program.name) === normalizeProgramName(programName));
     const requestParams = buildProgressReportParams({
       selection,
@@ -387,6 +396,12 @@ export default function ProgressReport() {
       apiRecordReportDownload().catch((downloadError) => {
         console.error('Unable to record report download notification:', downloadError);
       });
+    }
+    } catch (exportError) {
+      notifyAction(exportError.message || 'Unable to export report.', 'error');
+    } finally {
+      exportRequestLock.current = false;
+      setExportingReport(false);
     }
   };
 
@@ -598,6 +613,7 @@ export default function ProgressReport() {
               selectGrowthMetric={selectGrowthMetric}
               setActiveTab={setActiveTab}
               generateReport={generateReport}
+              loadingReport={loadingReport}
               profileFieldSections={activeProfileFieldSections}
               profileSectionLabels={activeProfileSectionLabels}
               profileSection={profileSection}
@@ -632,6 +648,8 @@ export default function ProgressReport() {
                 displayPage={displayPage}
                 reportPagination={activeReport?.pagination}
                 generateReport={generateReport}
+                loadingReport={loadingReport}
+                exportingReport={exportingReport}
                 displayReportCategory={displayReportCategory}
                 profileGraphColumn={profileGraphColumn}
                 setProfileGraphColumn={setProfileGraphColumn}

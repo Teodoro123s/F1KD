@@ -4,7 +4,7 @@ import PageHeader from '../../../../components/ui/PageHeader';
 import CommunityTable from '../Community/CommunityTable';
 import CommunityPagination from '../Community/components/CommunityPagination';
 import { SearchIcon } from '../Community/CommunityIcons';
-import { apiGetNotifications } from '../../../../api/notifications';
+import { apiGetNotifications, apiMarkNotificationsRead } from '../../../../api/notifications';
 import { useAuth } from '../../../../auth/AuthProvider';
 import { hasRole, isHealthWorkerRole, ROLES } from '../../../../utils/permissions';
 
@@ -29,6 +29,15 @@ export default function NotificationsPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    apiMarkNotificationsRead()
+      .then(() => window.dispatchEvent(new Event('f1kd:notifications-read')))
+      .catch((readError) => {
+        console.error('Unable to mark notifications as read:', readError);
+      });
+  }, [currentUser?.id]);
 
   useEffect(() => {
     let active = true;

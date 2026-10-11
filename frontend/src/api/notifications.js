@@ -20,6 +20,14 @@ export function apiGetNotifications({ page = 1, perPage = 10, search = '', categ
   return requestNotifications(`/api/notifications?${params.toString()}`);
 }
 
+export function apiGetUnreadNotificationCount() {
+  return requestNotifications('/api/notifications/unread-count');
+}
+
+export function apiMarkNotificationsRead() {
+  return requestNotifications('/api/notifications/mark-read', { method: 'POST' });
+}
+
 export function apiRecordReportDownload() {
   return requestNotifications('/api/notifications/download-success', {
     method: 'POST',

@@ -8,12 +8,14 @@ import { isCommunityCoordinatorRole } from '../../../../../utils/permissions';
 import { capitalizeNameValue } from '../../_shared/utils/nameFormat';
 import { notifyAction } from '../../_shared/components/ActionFeedback';
 import { useActionCooldown } from '../../../../../utils/useActionCooldown';
+import { getUserDraftKey } from '../../../../../utils/draftStorage';
 
-const MOTHER_DRAFT_KEY = 'f1kd.create-mother.draft';
+const MOTHER_DRAFT_TYPE = 'create-mother';
 
-const loadMotherDraft = (fallback) => {
+const loadMotherDraft = (fallback, draftKey) => {
+  if (!draftKey) return fallback;
   try {
-    const savedDraft = JSON.parse(localStorage.getItem(MOTHER_DRAFT_KEY) || 'null');
+    const savedDraft = JSON.parse(localStorage.getItem(draftKey) || 'null');
     if (!savedDraft?.form) return fallback;
     const form = { ...fallback, ...savedDraft.form };
     if (savedDraft.form.ttRemarks === undefined) {
@@ -21,6 +23,7 @@ const loadMotherDraft = (fallback) => {
     }
     return form;
   } catch (error) {
+    console.warn('[CreateMotherPage] Unable to restore form draft:', error);
     return fallback;
   }
 };
@@ -123,11 +126,13 @@ export default function CreateMotherPage({
   navigate,
 }) {
   const { currentUser } = useAuth();
+  const motherDraftKey = getUserDraftKey(MOTHER_DRAFT_TYPE, currentUser?.id);
   const isCommunityOrganizer = isCommunityCoordinatorRole(currentUser?.role);
   const { mothers, setMothers } = useMothers();
   const effectiveCommunities = communities && communities.length ? communities : mothers;
-  const [communityForm, setCommunityForm] = useState(() => loadMotherDraft(emptyCommunityForm(effectiveCommunities)));
+  const [communityForm, setCommunityForm] = useState(() => loadMotherDraft(emptyCommunityForm(effectiveCommunities), motherDraftKey));
   const createLock = useRef(false);
+  const [creating, setCreating] = useState(false);
   const [documentFiles, setDocumentFiles] = useState({ birthCertificate: null, consent: null });
   const [showRequiredValidation, setShowRequiredValidation] = useState(false);
   const [createActiveTab, setCreateActiveTab] = useState('general');
@@ -151,12 +156,13 @@ export default function CreateMotherPage({
   }, [communities, isCommunityOrganizer]);
 
   useEffect(() => {
+    if (!motherDraftKey) return;
     try {
-      localStorage.setItem(MOTHER_DRAFT_KEY, JSON.stringify({ form: communityForm }));
+      localStorage.setItem(motherDraftKey, JSON.stringify({ form: communityForm }));
     } catch (error) {
       console.warn('[CreateMotherPage] Unable to save form draft:', error);
     }
-  }, [communityForm]);
+  }, [communityForm, motherDraftKey]);
 
   const handleCreateCommunity = async (e) => {
     e.preventDefault();
@@ -297,6 +303,7 @@ export default function CreateMotherPage({
       return;
     }
     createLock.current = true;
+    setCreating(true);
     try {
       const { mother } = await apiCreateMother(payload);
       const createdMotherId = mother?.id || mother?.motherId || mother?.mother_id;
@@ -373,7 +380,7 @@ export default function CreateMotherPage({
       if (typeof setMothers === 'function') {
         setMothers((prev) => [{ ...newCommunity, ...mother }, ...prev]);
       }
-      localStorage.removeItem(MOTHER_DRAFT_KEY);
+      if (motherDraftKey) localStorage.removeItem(motherDraftKey);
       notifyAction('Mother created successfully.');
       navigate('/beneficiary');
     } catch (error) {
@@ -381,6 +388,7 @@ export default function CreateMotherPage({
       notifyAction(error?.message || 'Unable to create mother. Please try again.', 'error');
     } finally {
       createLock.current = false;
+      setCreating(false);
     }
   };
 
@@ -437,9 +445,9 @@ export default function CreateMotherPage({
           </div>
 
           <div className="modal-footer">
-            <button type="button" className="btn-secondary" disabled={isCoolingDown} onClick={() => { localStorage.removeItem(MOTHER_DRAFT_KEY); navigate('/beneficiary'); }}>Cancel</button>
+            <button type="button" className="btn-secondary" disabled={isCoolingDown || creating} onClick={() => { if (motherDraftKey) localStorage.removeItem(motherDraftKey); navigate('/beneficiary'); }}>Cancel</button>
             {createActiveTab !== 'general' && (
-              <button type="button" className="btn-secondary btn-back back-action" disabled={isCoolingDown} onClick={() => {
+              <button type="button" className="btn-secondary btn-back back-action" disabled={isCoolingDown || creating} onClick={() => {
                 if (createActiveTab === 'vaccine') setCreateActiveTab('medical_dental');
                 else if (createActiveTab === 'medical_dental') setCreateActiveTab('prenatal');
                 else setCreateActiveTab('general');
@@ -454,7 +462,9 @@ export default function CreateMotherPage({
                 {isCoolingDown ? <><span className="spinner spinner-sm" aria-hidden="true" /> Loading...</> : 'Next'}
               </button>
             ) : (
-              <button type="submit" className="btn-create-action" disabled={isCoolingDown}>Create</button>
+              <button type="submit" className="btn-create-action" disabled={isCoolingDown || creating} aria-busy={creating}>
+                {creating ? <><span className="spinner spinner-sm" aria-hidden="true" /> Creating...</> : 'Create'}
+              </button>
             )}
           </div>
         </form>

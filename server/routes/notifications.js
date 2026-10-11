@@ -3,10 +3,55 @@ const router = express.Router();
 const pool = require('../db');
 const { verifyToken } = require('../middleware/auth');
 const { authorize } = require('../middleware/authorize');
-const { getNotificationScope } = require('../services/notificationAccess');
+const { getNotificationScope, getNotificationFilters } = require('../services/notificationAccess');
 const { createSuperadminNotification } = require('../services/notifications');
 
 router.use(verifyToken);
+
+router.get('/unread-count', authorize('super_admin', 'admin', 'community_coordinator', 'partner', 'health_worker'), async (req, res) => {
+  try {
+    const notificationFilters = getNotificationFilters(req.user);
+    if (!notificationFilters) return res.status(403).json({ error: 'Forbidden' });
+    if (notificationFilters.where === '1 = 0') return res.json({ unreadCount: 0 });
+
+    const [rows] = await pool.query(
+      `SELECT COUNT(*) AS unreadCount
+       FROM notifications n
+       JOIN users read_state ON read_state.id = ?
+       LEFT JOIN users actor ON actor.id = n.actor_user_id
+       WHERE ${notificationFilters.where}
+         AND n.id > read_state.last_notifications_read_id`,
+      [req.user.id, ...notificationFilters.params],
+    );
+    res.json({ unreadCount: Number(rows[0]?.unreadCount || 0) });
+  } catch (error) {
+    console.error('[Notifications API] GET /unread-count error:', error.message);
+    res.status(500).json({ error: 'Unable to load unread notification count' });
+  }
+});
+
+router.post('/mark-read', authorize('super_admin', 'admin', 'community_coordinator', 'partner', 'health_worker'), async (req, res) => {
+  try {
+    const notificationFilters = getNotificationFilters(req.user);
+    if (!notificationFilters) return res.status(403).json({ error: 'Forbidden' });
+
+    const [rows] = await pool.query(
+      `SELECT COALESCE(MAX(n.id), 0) AS latestNotificationId
+       FROM notifications n
+       LEFT JOIN users actor ON actor.id = n.actor_user_id
+       WHERE ${notificationFilters.where}`,
+      notificationFilters.params,
+    );
+    await pool.query(
+      'UPDATE users SET last_notifications_read_id = GREATEST(last_notifications_read_id, ?) WHERE id = ?',
+      [rows[0]?.latestNotificationId || 0, req.user.id],
+    );
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[Notifications API] POST /mark-read error:', error.message);
+    res.status(500).json({ error: 'Unable to mark notifications as read' });
+  }
+});
 
 router.get('/', authorize('super_admin', 'admin', 'community_coordinator', 'partner', 'health_worker'), async (req, res) => {
   try {
@@ -15,54 +60,17 @@ router.get('/', authorize('super_admin', 'admin', 'community_coordinator', 'part
     const offset = (page - 1) * perPage;
     const search = String(req.query.search || '').trim();
     const category = String(req.query.category || '').trim();
-    const scope = getNotificationScope(req.user);
-    if (!scope) return res.status(403).json({ error: 'Forbidden' });
-    if (!scope.global && !scope.schoolId) {
+    const notificationFilters = getNotificationFilters(req.user, { category, search });
+    if (!notificationFilters) return res.status(403).json({ error: 'Forbidden' });
+    const { scope } = notificationFilters;
+    if (notificationFilters.where === '1 = 0') {
       return res.json({ total: 0, notifications: [] });
     }
 
-    const filters = [];
-    const params = [];
-    filters.push('(n.recipient_user_ids IS NULL OR FIND_IN_SET(?, n.recipient_user_ids) > 0)');
-    params.push(String(req.user.id));
-    if (!scope.global) {
-      filters.push('(n.school_id = ? OR FIND_IN_SET(?, n.school_scope_ids) > 0)');
-      params.push(scope.schoolId, scope.schoolId);
-    }
-    if (scope.excludeUserManagement) {
-      filters.push('n.category <> ?');
-      params.push('User Management');
-    }
-    if (scope.categories) {
-      filters.push(`n.category IN (${scope.categories.map(() => '?').join(', ')})`);
-      params.push(...scope.categories);
-      if (category && category !== 'All' && !scope.categories.includes(category)) {
-        filters.push('1 = 0');
-      }
-    }
-    if (scope.healthWorker) {
-      filters.push('(n.category = ? OR FIND_IN_SET(?, n.recipient_user_ids) > 0)');
-      params.push('Monitoring', String(req.user.id));
-      if (scope.groupId) {
-        filters.push('(n.group_id = ? OR n.group_id IS NULL)');
-        params.push(scope.groupId);
-      }
-      if (category && category !== 'All' && category !== 'Monitoring' && category !== 'Beneficiaries') {
-        filters.push('1 = 0');
-      }
-    }
-    if (category && category !== 'All') {
-      filters.push('n.category = ?');
-      params.push(category);
-    }
-    if (search) {
-      filters.push('(n.title LIKE ? OR n.message LIKE ? OR n.category LIKE ? OR actor.first_name LIKE ? OR actor.last_name LIKE ?)');
-      params.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
-    }
-    const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
+    const where = `WHERE ${notificationFilters.where}`;
     const [[countRow]] = await pool.query(
       `SELECT COUNT(*) AS total FROM notifications n LEFT JOIN users actor ON actor.id = n.actor_user_id ${where}`,
-      params,
+      notificationFilters.params,
     );
     const [notifications] = await pool.query(
         `SELECT n.id, n.event_type AS eventType, n.category, n.title, n.message, n.entity_type AS entityType,
@@ -75,7 +83,7 @@ router.get('/', authorize('super_admin', 'admin', 'community_coordinator', 'part
        ${where}
        ORDER BY n.created_at DESC, n.id DESC
        LIMIT ? OFFSET ?`,
-      [...params, perPage, offset],
+      [...notificationFilters.params, perPage, offset],
     );
 
     const scopedNotifications = notifications.map((notification) => {

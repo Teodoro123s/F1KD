@@ -1,0 +1,2 @@
+ALTER TABLE users
+  ADD COLUMN IF NOT EXISTS last_notifications_read_id BIGINT UNSIGNED NOT NULL DEFAULT 0;

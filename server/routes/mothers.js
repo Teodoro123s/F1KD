@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../db');
-const { documentUpload, uploadFileToStorage, deleteFileFromStorage } = require('../middleware/documentUpload');
+const { documentUpload, validateDocumentUpload, uploadFileToStorage, deleteFileFromStorage } = require('../middleware/documentUpload');
 const { createSuperadminNotification, getBeneficiaryUpdateRecipients } = require('../services/notifications');
 const { findDuplicateBeneficiary, normalizeFullName, withUniquenessLocks } = require('../services/uniqueness');
 
@@ -189,7 +189,7 @@ async function attachClinicalData(mother) {
 router.post('/:id/documents', documentUpload.fields([
   { name: 'birthCertificate', maxCount: 1 },
   { name: 'consent', maxCount: 1 },
-]), async (req, res) => {
+]), validateDocumentUpload, async (req, res) => {
   try {
     const { id } = req.params;
     const scopeSql = req.groupId ? ' AND group_id = ?' : req.schoolId ? ' AND community_id = ?' : '';

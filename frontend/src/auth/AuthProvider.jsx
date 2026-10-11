@@ -1,6 +1,9 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import * as apiAuth from '../api/auth';
 import { getTokenExpiration, isTokenExpired } from '../utils/sessionToken.mjs';
+import { notifyAction } from '../components/ActionFeedback';
+
+const SESSION_WARNING_MS = 5 * 60 * 1000;
 
 const AuthContext = createContext(null);
 
@@ -72,8 +75,19 @@ export function AuthProvider({ children }) {
     }
 
     const timeout = window.setTimeout(logout, Math.max(0, expiration - Date.now()));
+    const warningDelay = expiration - Date.now() - SESSION_WARNING_MS;
+    const warningTimeout = window.setTimeout(() => {
+      const minutesRemaining = Math.max(1, Math.ceil((expiration - Date.now()) / 60000));
+      notifyAction(
+        `Your session expires in about ${minutesRemaining} minute${minutesRemaining === 1 ? '' : 's'}. Save your work before signing in again.`,
+        'warning',
+      );
+    }, Math.max(0, warningDelay));
 
-    return () => window.clearTimeout(timeout);
+    return () => {
+      window.clearTimeout(timeout);
+      window.clearTimeout(warningTimeout);
+    };
   }, [logout, token]);
 
   const login = async (email, password) => {

@@ -46,3 +46,35 @@ export function PageSkeleton({ variant = 'default', rows = 3 }) {
     </div>
   );
 }
+
+export function TableSkeleton({ rows = 5, columns = 4 }) {
+  const skeletonRows = Array.from({ length: rows }, (_, row) => row);
+  const skeletonColumns = Array.from({ length: columns }, (_, column) => column);
+
+  return (
+    <div className="table-skeleton" role="status" aria-live="polite" aria-busy="true">
+      <span className="table-skeleton__label">Loading table data...</span>
+      <table aria-hidden="true">
+        <tbody>
+          {skeletonRows.map((row) => (
+            <tr key={row}>
+              {skeletonColumns.map((column) => (
+                <td key={column}><span className="table-skeleton__cell" /></td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+export function TableSkeletonRows({ rows = 5, columns = 1 }) {
+  return Array.from({ length: rows }, (_, row) => (
+    <tr key={`loading-row-${row}`} className="table-skeleton__row" aria-hidden="true">
+      {Array.from({ length: columns }, (_, column) => (
+        <td key={`loading-cell-${column}`}><span className="table-skeleton__cell" /></td>
+      ))}
+    </tr>
+  ));
+}

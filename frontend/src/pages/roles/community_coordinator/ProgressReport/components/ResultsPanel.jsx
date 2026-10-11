@@ -23,6 +23,8 @@ export function ResultsPanel({
   displayPage,
   reportPagination,
   generateReport,
+  loadingReport = false,
+  exportingReport = false,
   displayReportCategory,
   profileGraphColumn,
   setProfileGraphColumn,
@@ -76,7 +78,9 @@ export function ResultsPanel({
               {view.label}
             </button>
           ))}
-          <button type="button" className="secondary-btn" onClick={exportReport}>Export CSV</button>
+          <button type="button" className="secondary-btn" onClick={exportReport} disabled={exportingReport} aria-busy={exportingReport}>
+            {exportingReport ? <><span className="spinner spinner-sm" aria-hidden="true" /> Exporting...</> : 'Export CSV'}
+          </button>
         </div>
       </div>
 
@@ -129,9 +133,9 @@ export function ResultsPanel({
       )}
       {reportPagination && reportPagination.totalPages > 1 && (
         <div className="progress-report-pagination" aria-label="Report pagination">
-          <button type="button" className="secondary-btn" disabled={displayPage <= 1} onClick={() => generateReport(displayPage - 1)}>Previous</button>
+          <button type="button" className="secondary-btn" disabled={displayPage <= 1 || loadingReport} onClick={() => generateReport(displayPage - 1)}>Previous</button>
           <span>Page {displayPage} of {reportPagination.totalPages}</span>
-          <button type="button" className="secondary-btn" disabled={displayPage >= reportPagination.totalPages} onClick={() => generateReport(displayPage + 1)}>Next</button>
+          <button type="button" className="secondary-btn" disabled={displayPage >= reportPagination.totalPages || loadingReport} onClick={() => generateReport(displayPage + 1)}>Next</button>
         </div>
       )}
     </div>

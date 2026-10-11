@@ -10,16 +10,20 @@ import { capitalizeNameValue } from '../../_shared/utils/nameFormat';
 import { notifyAction } from '../../_shared/components/ActionFeedback';
 import { apiCreateChild, apiUploadChildBirthDocument } from '../../../../../api/children';
 import { useActionCooldown } from '../../../../../utils/useActionCooldown';
+import { useAuth } from '../../../../../auth/AuthProvider';
+import { getUserDraftKey } from '../../../../../utils/draftStorage';
 
-const CHILD_DRAFT_KEY = 'f1kd.create-child.draft';
+const CHILD_DRAFT_TYPE = 'create-child';
 
-const loadChildDraft = (fallback) => {
+const loadChildDraft = (fallback, draftKey) => {
+  if (!draftKey) return fallback;
   try {
-    const savedDraft = JSON.parse(localStorage.getItem(CHILD_DRAFT_KEY) || 'null');
+    const savedDraft = JSON.parse(localStorage.getItem(draftKey) || 'null');
     return savedDraft?.form
       ? { ...fallback, ...savedDraft.form, multipleBirthType: savedDraft.form.multipleBirthType || 'None' }
       : fallback;
   } catch (error) {
+    console.warn('[CreateChildPage] Unable to restore form draft:', error);
     return fallback;
   }
 };
@@ -88,15 +92,17 @@ export default function CreateChildPage({
 }) {
   const location = useLocation();
   const motherFromState = location.state?.mother || null;
+  const { currentUser } = useAuth();
+  const childDraftKey = getUserDraftKey(CHILD_DRAFT_TYPE, currentUser?.id);
   const { mothers, setMothers } = useMothers();
-  const [groupForm, setGroupForm] = useState(() => loadChildDraft(emptyGroupForm()));
+  const [groupForm, setGroupForm] = useState(() => loadChildDraft(emptyGroupForm(), childDraftKey));
   const [birthDocumentFile, setBirthDocumentFile] = useState(null);
   const [pendingChild, setPendingChild] = useState(null);
   const [creating, setCreating] = useState(false);
   const createLock = useRef(false);
   const [showRequiredValidation, setShowRequiredValidation] = useState(false);
   const [selectedMotherId, setSelectedMotherId] = useState(() => {
-    try { return motherFromState?.id || motherFromState?.motherId || JSON.parse(localStorage.getItem(CHILD_DRAFT_KEY) || 'null')?.selectedMotherId || ''; } catch (error) { return motherFromState?.id || motherFromState?.motherId || ''; }
+    try { return motherFromState?.id || motherFromState?.motherId || (childDraftKey ? JSON.parse(localStorage.getItem(childDraftKey) || 'null')?.selectedMotherId : '') || ''; } catch (error) { console.warn('[CreateChildPage] Unable to restore selected mother from draft:', error); return motherFromState?.id || motherFromState?.motherId || ''; }
   });
   const [createActiveTab, setCreateActiveTab] = useState('general');
   const CREATE_STEPS = ['general', 'prenatal', 'medical_dental', 'vaccine'];
@@ -119,12 +125,13 @@ export default function CreateChildPage({
   }, [selectedMother]);
 
   useEffect(() => {
+    if (!childDraftKey) return;
     try {
-      localStorage.setItem(CHILD_DRAFT_KEY, JSON.stringify({ form: groupForm, selectedMotherId }));
+      localStorage.setItem(childDraftKey, JSON.stringify({ form: groupForm, selectedMotherId }));
     } catch (error) {
       console.warn('[CreateChildPage] Unable to save form draft:', error);
     }
-  }, [groupForm, selectedMotherId]);
+  }, [childDraftKey, groupForm, selectedMotherId]);
 
   useEffect(() => {
     if (!showRequiredValidation || !['general', 'prenatal'].includes(createActiveTab)) return;
@@ -340,7 +347,7 @@ export default function CreateChildPage({
       notifyAction(documentUploadFailed
         ? 'Child created, but the birth document upload failed. You can upload it from Edit Child.'
         : 'Child created successfully.', documentUploadFailed ? 'error' : 'success');
-      localStorage.removeItem(CHILD_DRAFT_KEY);
+      if (childDraftKey) localStorage.removeItem(childDraftKey);
       setPendingChild(null);
 
       // if we were navigated here from a mother, append the child into that mother's children array
@@ -481,8 +488,8 @@ export default function CreateChildPage({
             />
           </div>
           <div className="modal-footer">
-          <button type="button" className="btn-secondary" onClick={() => {
-            localStorage.removeItem(CHILD_DRAFT_KEY);
+          <button type="button" className="btn-secondary" disabled={creating} onClick={() => {
+            if (childDraftKey) localStorage.removeItem(childDraftKey);
             if (motherFromState) navigate(`/beneficiary/mother/${motherFromState.id || motherFromState.motherId}`, { state: { mother: motherFromState } });
             else navigate('/beneficiary');
           }}>Cancel</button>
@@ -498,7 +505,9 @@ export default function CreateChildPage({
                 {isCoolingDown ? <><span className="spinner spinner-sm" aria-hidden="true" /> Loading...</> : 'Next'}
               </button>
             ) : (
-              <button type="submit" className="btn-create-action" disabled={isCoolingDown || creating}>Create</button>
+              <button type="submit" className="btn-create-action" disabled={isCoolingDown || creating || Boolean(pendingChild)} aria-busy={Boolean(pendingChild) || creating}>
+                {creating ? <><span className="spinner spinner-sm" aria-hidden="true" /> Creating...</> : pendingChild ? 'Reviewing...' : 'Create'}
+              </button>
             )}
           </div>
         </form>
@@ -517,7 +526,9 @@ export default function CreateChildPage({
             </div>
             <div className="modal-footer">
               <button type="button" className="btn-secondary" onClick={() => setPendingChild(null)} disabled={creating}>Cancel</button>
-              <button type="button" className="btn-primary" onClick={confirmCreateChild} disabled={creating}>{creating ? 'Creating...' : 'Confirm and create'}</button>
+              <button type="button" className="btn-primary" onClick={confirmCreateChild} disabled={creating} aria-busy={creating}>
+                {creating ? <><span className="spinner spinner-sm" aria-hidden="true" /> Creating...</> : 'Confirm and create'}
+              </button>
             </div>
           </div>
         </div>

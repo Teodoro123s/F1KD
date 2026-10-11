@@ -21,24 +21,47 @@ const minioSecretKey = process.env.MINIO_SECRET_KEY || 'minioadmin';
 const minioBucket = process.env.MINIO_BUCKET || 'f1kd-documents';
 const useMinio = Boolean(process.env.MINIO_ENDPOINT || process.env.MINIO_ACCESS_KEY || process.env.MINIO_SECRET_KEY);
 
-const storage = useMinio
-  ? multer.memoryStorage()
-  : multer.diskStorage({
-      destination: uploadDirectory,
-      filename: (req, file, callback) => {
-        const extension = path.extname(file.originalname).toLowerCase();
-        callback(null, `${file.fieldname}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}${extension}`);
-      },
-    });
-
 const documentUpload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, callback) => {
     if (allowedTypes.has(file.mimetype)) return callback(null, true);
     return callback(new Error('Only PDF, JPG, PNG, and WEBP files are allowed.'));
   },
 });
+
+const signatures = {
+  'application/pdf': (buffer) => buffer.subarray(0, 5).equals(Buffer.from('%PDF-')),
+  'image/jpeg': (buffer) => buffer.length >= 3
+    && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff,
+  'image/png': (buffer) => buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])),
+  'image/webp': (buffer) => buffer.length >= 12
+    && buffer.toString('ascii', 0, 4) === 'RIFF'
+    && buffer.toString('ascii', 8, 12) === 'WEBP',
+};
+
+function validateDocumentFile(file) {
+  if (!file || !Buffer.isBuffer(file.buffer)) {
+    throw new Error('The uploaded file could not be read. Please choose the file again.');
+  }
+  if (!allowedTypes.has(file.mimetype) || !signatures[file.mimetype]?.(file.buffer)) {
+    throw new Error('File content does not match an allowed PDF, JPG, PNG, or WEBP document.');
+  }
+  return true;
+}
+
+function validateDocumentUpload(req, res, next) {
+  const files = req.file
+    ? [req.file]
+    : Object.values(req.files || {}).flat();
+
+  try {
+    files.forEach(validateDocumentFile);
+    next();
+  } catch (error) {
+    res.status(400).json({ error: error.message || 'Invalid document file.' });
+  }
+}
 
 const minioClient = useMinio && Minio
   ? new Minio.Client({
@@ -113,7 +136,10 @@ async function uploadFileToStorage(file, fieldName = 'document') {
     }
   }
 
-  const filename = file.filename || `${fieldName}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}${path.extname(file.originalname || '').toLowerCase()}`;
+  const filename = `${fieldName}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}${path.extname(file.originalname || '').toLowerCase()}`;
+  if (file.buffer) {
+    await fs.promises.writeFile(path.join(uploadDirectory, filename), file.buffer);
+  }
   const relativePath = `/uploads/${filename}`;
   return {
     path: relativePath,
@@ -159,6 +185,8 @@ async function deleteFileFromStorage(filePath) {
 
 module.exports = {
   documentUpload,
+  validateDocumentFile,
+  validateDocumentUpload,
   uploadDirectory,
   uploadFileToStorage,
   deleteFileFromStorage,

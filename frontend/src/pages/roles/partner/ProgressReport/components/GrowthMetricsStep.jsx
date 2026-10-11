@@ -14,6 +14,7 @@ export function GrowthMetricsStep({
   selectGrowthMetric,
   setActiveTab,
   generateReport,
+  loadingReport = false,
   profileFieldSections = {},
   profileSectionLabels = {},
   profileSection = 'general',
@@ -74,10 +75,10 @@ export function GrowthMetricsStep({
         </>
       )}
       <div className="progress-report-tab-actions">
-        <button type="button" className="primary-btn" onClick={async () => {
+        <button type="button" className="primary-btn" disabled={loadingReport} aria-busy={loadingReport} onClick={async () => {
           if (generateReport) await generateReport();
         }}>
-          Next: Results →
+          {loadingReport ? <><span className="spinner spinner-sm" aria-hidden="true" /> Generating report...</> : 'Next: Results →'}
         </button>
       </div>
     </div>
