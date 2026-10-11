@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider';
 import lightLogo from '../assets/f1kd-logo.png';
-import darkLogo from '../assets/F1KD-bg-transparent.png';
 
 export default function ConsentPage() {
   const auth = useAuth();
@@ -35,8 +34,7 @@ export default function ConsentPage() {
     <div className="login-page">
       <section className="login-card consent-card" aria-labelledby="consent-title">
         <div className="login-kicker">
-          <img src={lightLogo} alt="F1KD logo" className="login-logo theme-logo theme-logo--light" />
-          <img src={darkLogo} alt="" aria-hidden="true" className="login-logo theme-logo theme-logo--dark" />
+          <img src={lightLogo} alt="F1KD logo" className="login-logo" />
         </div>
         <h1 className="login-title" id="consent-title">User consent</h1>
         <p className="consent-copy">

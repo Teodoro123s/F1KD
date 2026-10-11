@@ -178,11 +178,19 @@ export default function MonitoringProgressReport({ beneficiaryType, beneficiary 
   const progress = Math.min(100, Math.round((records.length / total) * 100));
   const selectedMetric = metrics.find(({ id }) => id === metricId) || metrics[0];
   const openCheckup = (record) => {
-    const motherId = beneficiary?.id || beneficiary?.motherId || beneficiary?.mother_id;
-    if (!isMother || !motherId || !Number.isInteger(record.stepIndex)) return;
-    navigate(`/beneficiary/mother/${motherId}/monitoring`, {
-      state: { mother: beneficiary, checkupStep: record.stepIndex },
-    });
+    if (isMother) {
+      const motherId = beneficiary?.id || beneficiary?.motherId || beneficiary?.mother_id;
+      if (!motherId || !Number.isInteger(record.stepIndex)) return;
+      navigate(`/beneficiary/mother/${motherId}/monitoring`, {
+        state: { mother: beneficiary, checkupStep: record.stepIndex },
+      });
+      return;
+    }
+
+    const childId = beneficiary?.id || beneficiary?.childId || beneficiary?.child_id || beneficiary?.child_code;
+    const week = Number(record.stepIndex);
+    if (!childId || !Number.isInteger(week) || week < 1 || week > total) return;
+    navigate('/monitoring', { state: { child: beneficiary, week } });
   };
 
   return (
@@ -255,40 +263,51 @@ export default function MonitoringProgressReport({ beneficiaryType, beneficiary 
                 </tr>
               </thead>
               <tbody>
-                {records.map((record, index) => (
-                  <tr
-                    key={`${record.period}-${record.date || index}`}
-                    className={isMother ? 'is-clickable' : ''}
-                    onClick={isMother ? () => openCheckup(record) : undefined}
-                    onKeyDown={isMother ? (event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        openCheckup(record);
-                      }
-                    } : undefined}
-                    tabIndex={isMother ? 0 : undefined}
-                    role={isMother ? 'link' : undefined}
-                    aria-label={isMother ? `Open ${record.period} monitoring check-up` : undefined}
-                  >
-                    <td>{record.period}</td>
-                    <td>{formatDateForDisplay(record.date)}</td>
-                    {isMother ? (
-                      <>
-                        <td>{valueOrDash(record.gestationalAge, ' weeks')}</td>
-                        <td>{valueOrDash(record.weight, ' kg')}</td>
-                        <td>{valueOrDash(record.bloodPressure)}</td>
-                        <td>{valueOrDash(record.remarks || record.notes)}</td>
-                      </>
-                    ) : (
-                      <>
-                        <td>{valueOrDash(record.weight, ' kg')}</td>
-                        <td>{valueOrDash(record.height, ' cm')}</td>
-                        <td>{valueOrDash(record.status)}</td>
-                        <td>{valueOrDash(record.notes || record.remarks)}</td>
-                      </>
-                    )}
-                  </tr>
-                ))}
+                {records.map((record, index) => {
+                  const isClickable = isMother
+                    ? Boolean((beneficiary?.id || beneficiary?.motherId || beneficiary?.mother_id) && Number.isInteger(record.stepIndex))
+                    : Boolean(
+                      (beneficiary?.id || beneficiary?.childId || beneficiary?.child_id || beneficiary?.child_code)
+                      && Number.isInteger(Number(record.stepIndex))
+                      && Number(record.stepIndex) >= 1
+                      && Number(record.stepIndex) <= total,
+                    );
+
+                  return (
+                    <tr
+                      key={`${record.period}-${record.date || index}`}
+                      className={isClickable ? 'is-clickable' : ''}
+                      onClick={isClickable ? () => openCheckup(record) : undefined}
+                      onKeyDown={isClickable ? (event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          openCheckup(record);
+                        }
+                      } : undefined}
+                      tabIndex={isClickable ? 0 : undefined}
+                      role={isClickable ? 'link' : undefined}
+                      aria-label={isClickable ? `Open ${record.period} monitoring check-up` : undefined}
+                    >
+                      <td>{record.period}</td>
+                      <td>{formatDateForDisplay(record.date)}</td>
+                      {isMother ? (
+                        <>
+                          <td>{valueOrDash(record.gestationalAge, ' weeks')}</td>
+                          <td>{valueOrDash(record.weight, ' kg')}</td>
+                          <td>{valueOrDash(record.bloodPressure)}</td>
+                          <td>{valueOrDash(record.remarks || record.notes)}</td>
+                        </>
+                      ) : (
+                        <>
+                          <td>{valueOrDash(record.weight, ' kg')}</td>
+                          <td>{valueOrDash(record.height, ' cm')}</td>
+                          <td>{valueOrDash(record.status)}</td>
+                          <td>{valueOrDash(record.notes || record.remarks)}</td>
+                        </>
+                      )}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

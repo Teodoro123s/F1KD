@@ -1,9 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import PageHeader from '../components/ui/PageHeader';
 import { notifyAction } from '../components/ActionFeedback';
 import { useAuth } from '../auth/AuthProvider';
 import { confirmPasswordReset, requestPasswordResetCode } from '../api/auth';
-import { applyTheme, getSavedTheme, THEME_STORAGE_KEY } from '../utils/theme';
 
 const PASSWORD_REQUIREMENTS = [
   { label: 'At least 12 characters', test: (password) => password.length >= 12 },
@@ -15,7 +14,6 @@ const PASSWORD_REQUIREMENTS = [
 
 export default function SettingsPage() {
   const { currentUser } = useAuth();
-  const [darkMode, setDarkMode] = useState(() => getSavedTheme() === 'dark');
   const [passwordForm, setPasswordForm] = useState({ passcode: '', newPassword: '', confirmPassword: '' });
   const [sendingCode, setSendingCode] = useState(false);
   const [resettingPassword, setResettingPassword] = useState(false);
@@ -24,16 +22,6 @@ export default function SettingsPage() {
     newPassword: false,
     confirmPassword: false,
   });
-
-  useEffect(() => {
-    const theme = darkMode ? 'dark' : 'light';
-    applyTheme(theme);
-    try {
-      localStorage.setItem(THEME_STORAGE_KEY, String(darkMode));
-    } catch (error) {
-      console.error('Unable to save appearance preference:', error);
-    }
-  }, [darkMode]);
 
   const handleRequestCode = async () => {
     setSendingCode(true);
@@ -92,37 +80,16 @@ export default function SettingsPage() {
       <main style={{ padding: '1rem' }}>
         <div className="checkup-card">
           <div className="checkup-card-body">
-            <div className="checkup-grid user-profile-grid">
-              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                <label className="checkup-field-label" htmlFor="dark-mode-toggle">Appearance</label>
-                <label className="appearance-toggle" htmlFor="dark-mode-toggle">
-                  <span>{darkMode ? 'Dark mode' : 'Light mode'}</span>
-                  <input
-                    id="dark-mode-toggle"
-                    className="appearance-toggle__input"
-                    type="checkbox"
-                    checked={darkMode}
-                    onChange={(event) => setDarkMode(event.target.checked)}
-                  />
-                  <span className="appearance-toggle__switch" aria-hidden="true" />
-                </label>
-              </div>
+            <div className="checkup-section-title">Reset password</div>
+            <p>
+              Request a one-time verification code to {currentUser?.email || 'your account email'}, then choose a new password.
+            </p>
+            <div style={{ marginBottom: '1rem' }}>
+              <button type="button" className="btn-secondary" onClick={handleRequestCode} disabled={sendingCode}>
+                {sendingCode ? 'Sending...' : codeSent ? 'Resend verification code' : 'Email me a verification code'}
+              </button>
             </div>
-          </div>
-        </div>
-
-        <div className="checkup-card" style={{ marginTop: '1rem' }}>
-            <div className="checkup-card-body">
-              <div className="checkup-section-title">Reset password</div>
-              <p>
-                Request a one-time verification code to {currentUser?.email || 'your account email'}, then choose a new password.
-              </p>
-              <div style={{ marginBottom: '1rem' }}>
-                <button type="button" className="btn-secondary" onClick={handleRequestCode} disabled={sendingCode}>
-                  {sendingCode ? 'Sending...' : codeSent ? 'Resend verification code' : 'Email me a verification code'}
-                </button>
-              </div>
-              <form className="settings-password-form" onSubmit={handlePasswordReset}>
+            <form className="settings-password-form" onSubmit={handlePasswordReset}>
                 <div className="checkup-grid user-profile-grid">
                   <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                     <label className="checkup-field-label" htmlFor="password-reset-code">Email verification code</label>
@@ -191,8 +158,8 @@ export default function SettingsPage() {
                     {resettingPassword ? 'Resetting...' : 'Reset password'}
                   </button>
                 </div>
-              </form>
-            </div>
+            </form>
+          </div>
         </div>
       </main>
     </div>

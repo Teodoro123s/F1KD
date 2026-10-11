@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import lightLogo from '../assets/f1kd-logo.png';
-import darkLogo from '../assets/F1KD-bg-transparent.png';
 import { useAuth } from '../auth/AuthProvider';
 import { notifyAction } from '../components/ActionFeedback';
 
@@ -35,8 +34,7 @@ export default function Login() {
     <div className="login-page">
       <div className="login-card">
         <div className="login-kicker">
-          <img src={lightLogo} alt="F1KD logo" className="login-logo theme-logo theme-logo--light" />
-          <img src={darkLogo} alt="" aria-hidden="true" className="login-logo theme-logo theme-logo--dark" />
+          <img src={lightLogo} alt="F1KD logo" className="login-logo" />
         </div>
         <h1 className="login-title">Welcome back</h1>
 
