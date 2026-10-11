@@ -8,6 +8,7 @@ import { can } from '../../../../../utils/permissions';
 import PageHeader from '../../../../../components/ui/PageHeader';
 import { notifyAction } from '../../_shared/components/ActionFeedback';
 import { MotherFormFields } from './BeneficiaryMother';
+import MonitoringProgressReport from '../../../../shared/Beneficiary/MonitoringProgressReport';
 
 const calculateAge = (dobString) => {
   if (!dobString) return null;
@@ -245,16 +246,19 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
       />
 
       {overviewOnly && (
-        <section className="mother-detail-section">
-          <h3 className="mother-detail-section-title">Mother Actions</h3>
-          <div className="mother-detail-actions mother-overview-actions">
-            <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/mother/${motherId}/profile`, { state: { mother: selectedMother } })}>Mother Profile</button>
-            <button type="button" className="btn-secondary" onClick={() => {
-              navigate(`/beneficiary/mother/${motherId}/child`, { state: { mother: selectedMother, children, returnTo: `/beneficiary/mother/${motherId}` } });
-            }}>View Child</button>
-            <button type="button" className="btn-primary" onClick={() => navigate('/monitoring', { state: { mother, returnTo: `/beneficiary/mother/${motherId}` } })}>Monitor</button>
-          </div>
-        </section>
+        <>
+          <section className="mother-detail-section">
+            <h3 className="mother-detail-section-title">Mother Actions</h3>
+            <div className="mother-detail-actions mother-overview-actions">
+              <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/mother/${motherId}/profile`, { state: { mother: selectedMother } })}>Mother Profile</button>
+              <button type="button" className="btn-secondary" onClick={() => {
+                navigate(`/beneficiary/mother/${motherId}/child`, { state: { mother: selectedMother, children, returnTo: `/beneficiary/mother/${motherId}` } });
+              }}>View Child</button>
+              <button type="button" className="btn-primary" onClick={() => navigate('/monitoring', { state: { mother, returnTo: `/beneficiary/mother/${motherId}` } })}>Monitor</button>
+            </div>
+          </section>
+          <MonitoringProgressReport beneficiaryType="Mother" beneficiary={{ ...mother, name: fullName }} />
+        </>
       )}
 
       {showDeleteModal && (

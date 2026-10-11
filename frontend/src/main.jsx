@@ -7,6 +7,11 @@ import { AuthProvider } from './auth/AuthProvider';
 import { LoadingScreen } from './components/LoadingSkeleton';
 import { applyTheme, getSavedTheme } from './utils/theme';
 
+window.addEventListener('vite:preloadError', (event) => {
+  event.preventDefault();
+  window.location.reload();
+});
+
 applyTheme(getSavedTheme());
 const root = createRoot(document.getElementById('root'));
 

@@ -16,6 +16,20 @@
   background: #fff;
   transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease;
 }
+.blood-pressure-input {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+.blood-pressure-input input {
+  min-width: 0;
+  flex: 1;
+}
+.blood-pressure-input > span {
+  color: #64748b;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
 
 .settings-password-form {
   display: grid;

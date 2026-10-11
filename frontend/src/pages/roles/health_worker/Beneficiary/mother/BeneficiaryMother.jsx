@@ -3,6 +3,7 @@ import { formatDateForDisplay, formatDateForInput, maskDateInput, normalizeDateV
 import { calculateExpectedDeliveryDate, calculateGestationalDetails, normalizeLmpDate } from '../../_shared/utils/beneficiaryHelpers';
 import { capitalizeNameValue } from '../../_shared/utils/nameFormat';
 import { getPhilippineBarangays, getPhilippineCities, PHILIPPINE_PROVINCES } from '../../_shared/utils/philippineLocations';
+import BloodPressureInput from '../../../../shared/Beneficiary/BloodPressureInput';
 
 export function MotherFormFields({
   activeTab,
@@ -176,13 +177,14 @@ export function MotherFormFields({
   const renderField = ({ id, label, name, type = 'text', placeholder = '', required = false, valueOverride, onChange, nativeDate = false, maxDate, minValue, disabled = false }) => {
     const value = valueOverride ?? form[name] ?? '';
     const isDate = type === 'date';
+    const isBloodPressure = type === 'bloodPressure';
     const isNumeric = type === 'tel';
     const hasMissingValue = required && !String(value ?? '').trim() && showRequiredValidation;
     if (readOnly) {
       return (
         <div className="form-group">
           <label className="form-label">{label}</label>
-          <div className="form-readonly-value">{isDate ? formatDateForDisplay(value) : value === '' || value === null || value === undefined ? '—' : value}</div>
+          <div className="form-readonly-value">{isDate ? formatDateForDisplay(value) : value === '' || value === null || value === undefined ? '—' : isBloodPressure ? `${value} mmHg` : value}</div>
         </div>
       );
     }
@@ -195,7 +197,19 @@ export function MotherFormFields({
           {label}{required && <span className="form-required-indicator" aria-hidden="true"> *</span>}
         </label>
         <div className={isNativeDate ? 'date-input-container' : undefined}>
-          <input
+          {isBloodPressure ? (
+            <BloodPressureInput
+              id={id}
+              className={`form-input${hasMissingValue ? ' invalid' : ''}`}
+              value={value}
+              onChange={(nextValue) => {
+                if (onChange) onChange(nextValue);
+                else setForm((prev) => ({ ...prev, [name]: nextValue }));
+              }}
+              required={required}
+              disabled={disabled}
+            />
+          ) : <input
             id={id}
             type={isNativeDate ? 'date' : isDate ? 'text' : type}
             className={`form-input${hasMissingValue ? ' invalid' : ''}`}
@@ -232,7 +246,7 @@ export function MotherFormFields({
             required={required}
             aria-invalid={hasMissingValue}
             disabled={disabled}
-          />
+          />}
           {isNativeDate && (
             <button
               type="button"
@@ -579,7 +593,7 @@ export function MotherFormFields({
 
           <div className="form-row-3 full-width">
           {renderField({ id: 'prenatal-weight', label: 'Weight (kg) at Reg', name: 'prenatalWeight', placeholder: 'e.g. 52', required: !healthWorkerMode })}
-          {renderField({ id: 'prenatal-bp', label: 'Blood Pressure (BP) at Reg', name: 'prenatalBp', placeholder: 'e.g. 120/80', required: !healthWorkerMode })}
+          {renderField({ id: 'prenatal-bp', label: 'Blood Pressure (BP) at Reg', name: 'prenatalBp', type: 'bloodPressure', required: !healthWorkerMode })}
           {renderField({ id: 'prenatal-height', label: 'Height (cm) at Reg', name: 'prenatalHeight', placeholder: 'e.g. 150', required: !healthWorkerMode })}
           </div>
         </section>

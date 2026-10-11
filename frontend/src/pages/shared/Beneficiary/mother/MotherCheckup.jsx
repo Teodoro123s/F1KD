@@ -3,6 +3,7 @@ import StepWizard from '../../../../components/StepWizard';
 import DateInput from '../../../../components/ui/DateInput';
 import { formatDateForDisplay, normalizeDateValue } from '../../../../utils/dateFormat';
 import { getMotherMonitoringStartIndex } from '../../../../utils/motherProgress';
+import BloodPressureInput from '../BloodPressureInput';
 
 const TRIMESTERS = [
   { label: '1st Trimester', code: 'T1' },
@@ -354,13 +355,11 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
 
               <div className="form-group">
                 <label className="checkup-field-label is-required" htmlFor="bp">Blood Pressure</label>
-                <input
+                <BloodPressureInput
                   id="bp"
-                  type="text"
                   className="checkup-field-input"
                   value={bp}
-                  placeholder="120/80"
-                  onChange={(e) => updateField('bp')(e.target.value)}
+                  onChange={(value) => updateField('bp')(value)}
                   required
                 />
               </div>

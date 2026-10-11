@@ -400,6 +400,7 @@ export default function MonitoringPage() {
             }}
             onCancel={() => { setEditingCheckup(false); setSelectedMother(null); }}
             forceEdit={editingCheckup}
+            selectedCheckupStep={location.state?.checkupStep}
           />
         </section>
       )}

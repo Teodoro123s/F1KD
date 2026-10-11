@@ -25,6 +25,7 @@ export default function MotherMonitoringPage() {
           mother={mother || { id, name: 'Mother' }}
           onSave={() => navigate(-1)}
           onCancel={() => navigate(-1)}
+          selectedCheckupStep={location.state?.checkupStep}
         />
       </main>
     </div>

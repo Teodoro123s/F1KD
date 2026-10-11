@@ -4,6 +4,7 @@ import DateInput from '../../../../../components/ui/DateInput';
 import { formatDateForDisplay, normalizeDateValue } from '../../_shared/utils/dateFormat';
 import { getMotherMonitoringStartIndex } from '../../_shared/utils/motherProgress';
 import MonitoringProgressReport from '../../../../shared/Beneficiary/MonitoringProgressReport';
+import BloodPressureInput from '../../../../shared/Beneficiary/BloodPressureInput';
 
 const TRIMESTERS = [
   { label: '1st Trimester', code: 'T1' },
@@ -137,12 +138,13 @@ const createInitialFormState = (mother, checkup = null, blank = false, previousC
   remarks: checkup?.remarks ?? '',
 });
 
-export default function MotherCheckup({ mother, onSave = () => {}, onCancel = () => {}, forceEdit = false }) {
+export default function MotherCheckup({ mother, onSave = () => {}, onCancel = () => {}, forceEdit = false, selectedCheckupStep }) {
   if (!mother) return null;
 
   const monitoringStart = getMonitoringStartDetails(mother);
   const monitoringStartStep = getMotherMonitoringStartIndex(mother);
-  const initialStep = getInitialStep(mother.checkups, monitoringStartStep);
+  const hasSelectedStep = Number.isInteger(selectedCheckupStep) && selectedCheckupStep >= 0 && selectedCheckupStep < CHECKUPS.length;
+  const initialStep = hasSelectedStep ? selectedCheckupStep : getInitialStep(mother.checkups, monitoringStartStep);
   const [activeStep, setActiveStep] = useState(initialStep);
   const previousMotherId = useRef(mother.id || mother.motherId);
   const [formState, setFormState] = useState(() => createInitialFormState(mother, getCheckupForStep(mother, initialStep), false, getPreviousCheckupForStep(mother, initialStep)));
@@ -157,6 +159,10 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
       setActiveStep(getInitialStep(start.trimester, mother.checkups, start.gestationalAge));
     }
   }, [mother]);
+
+  useEffect(() => {
+    if (hasSelectedStep) setActiveStep(selectedCheckupStep);
+  }, [hasSelectedStep, selectedCheckupStep]);
 
   useEffect(() => {
     const firstIncomplete = getFirstIncompleteStep(mother.checkups, getMotherMonitoringStartIndex(mother));
@@ -355,13 +361,11 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
 
               <div className="form-group">
                 <label className="checkup-field-label is-required" htmlFor="bp">Blood Pressure</label>
-                <input
+                <BloodPressureInput
                   id="bp"
-                  type="text"
                   className="checkup-field-input"
                   value={bp}
-                  placeholder="120/80"
-                  onChange={(e) => updateField('bp')(e.target.value)}
+                  onChange={(value) => updateField('bp')(value)}
                   required
                 />
               </div>

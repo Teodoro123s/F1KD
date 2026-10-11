@@ -11,6 +11,7 @@ import { ChildFormFields } from './BeneficiaryChild';
 import PageHeader from '../../../../components/ui/PageHeader';
 import ConfirmModal from '../../UserManagement/ConfirmModal';
 import { notifyAction } from '../../../../components/ActionFeedback';
+import MonitoringProgressReport from '../MonitoringProgressReport';
 
 const formatValue = (value) => (value === null || value === undefined || value === '' ? '—' : String(value));
 
@@ -356,6 +357,12 @@ export default function ChildProfilePage() {
           </button>
         </div>
       </section>}
+      {!isChildProfile && (
+        <MonitoringProgressReport
+          beneficiaryType="Child"
+          beneficiary={{ ...selectedChild, name: childName }}
+        />
+      )}
 
       {isChildProfile && (<>
       <div className="stepper-progress child-detail-stepper">
