@@ -7,8 +7,11 @@ export default function CommunityTable({
   rowKey = 'id',
   emptyMessage = 'No results found matching your search.',
   tableTitle,
+  minRows = 0,
 }) {
   const colSpan = Math.max(columns.length, 1);
+  const renderedRowCount = data.length || 1;
+  const fillerRowCount = Math.max(0, minRows - renderedRowCount);
 
   return (
     <section className="table-card">
@@ -22,7 +25,7 @@ export default function CommunityTable({
                   key={column.key || column.header}
                   scope="col"
                   className={column.thClassName || column.className}
-                  style={column.style}
+                  
                 >
                   {column.header}
                 </th>
@@ -56,7 +59,7 @@ export default function CommunityTable({
                       <td
                         key={`${row[rowKey]}-${column.key || column.header}`}
                         className={column.cellClassName || column.className}
-                        style={column.cellStyle}
+                        
                       >
                         {column.renderCell ? column.renderCell(row, value) : value ?? '—'}
                       </td>
@@ -71,6 +74,11 @@ export default function CommunityTable({
                 </td>
               </tr>
             )}
+            {Array.from({ length: fillerRowCount }, (_, index) => (
+              <tr key={`empty-row-${index}`} aria-hidden="true" className="community-table-filler-row">
+                <td colSpan={colSpan} />
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>

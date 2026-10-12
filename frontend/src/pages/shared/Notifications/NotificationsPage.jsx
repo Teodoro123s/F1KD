@@ -4,9 +4,10 @@ import PageHeader from '../../../components/ui/PageHeader';
 import CommunityTable from '../Community/CommunityTable';
 import CommunityPagination from '../Community/components/CommunityPagination';
 import { SearchIcon } from '../Community/CommunityIcons';
-import { apiGetNotifications } from '../../../api/notifications';
+import { apiGetNotifications, apiGetUnreadNotificationCount } from '../../../api/notifications';
 import { useAuth } from '../../../auth/AuthProvider';
 import { hasRole, isHealthWorkerRole, ROLES } from '../../../utils/permissions';
+import './notifications-page.css';
 
 const CATEGORIES = ['All', 'Beneficiaries', 'Monitoring', 'Programs', 'Downloads', 'Community', 'User Management'];
 
@@ -27,6 +28,7 @@ export default function NotificationsPage() {
   const [perPage, setPerPage] = useState(10);
   const [notifications, setNotifications] = useState([]);
   const [total, setTotal] = useState(0);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -52,12 +54,24 @@ export default function NotificationsPage() {
     return () => { active = false; };
   }, [page, perPage, query, selectedCategory]);
 
+  useEffect(() => {
+    let active = true;
+    apiGetUnreadNotificationCount()
+      .then((response) => {
+        if (active) setUnreadCount(Number(response.unreadCount) || 0);
+      })
+      .catch((requestError) => {
+        if (active) console.error('Unable to load unread notification count:', requestError);
+      });
+    return () => { active = false; };
+  }, []);
+
   const pageCount = Math.max(1, Math.ceil(total / perPage));
   const currentPage = Math.min(page, pageCount);
   const startIndex = (currentPage - 1) * perPage;
 
   const columns = [
-    { key: 'title', header: 'Subject', style: { width: '22%' } },
+    { key: 'title', header: 'Subject', cellClassName: 'notification-subject', style: { width: '22%' } },
     {
       key: 'message',
       header: 'Message',
@@ -78,7 +92,7 @@ export default function NotificationsPage() {
       header: 'Category',
       style: { width: '15%' },
       renderCell: (notification) => (
-        <span className="badge" style={{ background: '#F1F5F9', color: '#334155' }}>
+        <span className="badge notification-category-badge">
           {notification.category}
         </span>
       ),
@@ -102,8 +116,7 @@ export default function NotificationsPage() {
       renderCell: (notification) => notification.linkTo && notification.linkTo !== '/notifications' ? (
         <button
           type="button"
-          className="btn-secondary"
-          style={{ minHeight: '30px', padding: '0.25rem 0.65rem', fontSize: '0.82rem' }}
+          className="btn-secondary notification-view-button"
           onClick={(event) => {
             event.stopPropagation();
             navigate(notification.linkTo);
@@ -116,14 +129,15 @@ export default function NotificationsPage() {
   ];
 
   return (
-    <div className="community-page">
+    <div className="community-page community-page--organizer notifications-page">
       <PageHeader
         title="Notifications"
+        description="Stay up to date with activity across your workspace."
         breadcrumbs={[{ label: 'Community', href: '/community' }, { label: 'Notifications' }]}
       />
 
-      <section className="subheader-row" style={{ alignItems: 'center', gap: '1rem' }}>
-        <div className="subheader-left" style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+      <section className="subheader-row notifications-toolbar">
+        <div className="subheader-left" >
           <label className="notification-category-filter">
             <span>Category</span>
             <select
@@ -137,8 +151,8 @@ export default function NotificationsPage() {
               {categories.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
             </select>
           </label>
-          <span role="status" aria-live="polite" style={{ fontSize: '0.9rem', color: '#64748B' }}>
-            {total} {total === 1 ? 'notification' : 'notifications'}
+          <span className="notifications-count" role="status" aria-live="polite">
+            {unreadCount} unread {unreadCount === 1 ? 'notification' : 'notifications'}
           </span>
         </div>
         <div className="subheader-right">
@@ -158,28 +172,30 @@ export default function NotificationsPage() {
         </div>
       </section>
 
-      <CommunityTable
-        columns={columns}
-        data={notifications}
-        tableTitle="Notifications timeline"
-        onRowClick={(row) => {
-          if (row.linkTo && row.linkTo !== '/notifications') {
-            navigate(row.linkTo);
-          }
-        }}
-        emptyMessage={loading ? 'Loading notifications...' : error || 'No notifications match your search or category filter.'}
-      />
+      <div className="notifications-table-card">
+        <CommunityTable
+          columns={columns}
+          data={notifications}
+          tableTitle="Notifications timeline"
+          onRowClick={(row) => {
+            if (row.linkTo && row.linkTo !== '/notifications') {
+              navigate(row.linkTo);
+            }
+          }}
+          emptyMessage={loading ? 'Loading notifications...' : error || 'No notifications match your search or category filter.'}
+        />
 
-      <CommunityPagination
-        currentPage={currentPage}
-        pageCount={pageCount}
-        onPageChange={setPage}
-        perPage={perPage}
-        onPerPageChange={(value) => { setPerPage(Number(value)); setPage(1); }}
-        rangeStart={total ? startIndex + 1 : 0}
-        rangeEnd={Math.min(startIndex + perPage, total)}
-        totalItems={total}
-      />
+        <CommunityPagination
+          currentPage={currentPage}
+          pageCount={pageCount}
+          onPageChange={setPage}
+          perPage={perPage}
+          onPerPageChange={(value) => { setPerPage(Number(value)); setPage(1); }}
+          rangeStart={total ? startIndex + 1 : 0}
+          rangeEnd={Math.min(startIndex + perPage, total)}
+          totalItems={total}
+        />
+      </div>
     </div>
   );
 }

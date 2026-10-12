@@ -12,7 +12,6 @@ export const CHILD_PRENATAL_REQUIRED_FIELDS = [
   ['expandedNewbornScreening', 'Expanded Newborn Screening'],
   ['birthAttendant', 'Birth Attendant'],
   ['apgarScore', 'Apgar Score'],
-  ['nutritionNotes', 'Nutritional Notes'],
 ];
 
 export const CHILD_GENERAL_REQUIRED_FIELDS = [
@@ -101,7 +100,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
         <label className="form-label" htmlFor={id}>
           {label}{required && <span className="form-required-indicator" aria-hidden="true"> *</span>}
         </label>
-        <div className={isNativeDate ? 'date-input-container' : undefined}>
+        <div className={isDate && (isNativeDate || slashDateInput) ? 'date-input-container' : undefined}>
           <input
             id={id}
             type={isNativeDate ? 'date' : isDate ? 'text' : type}
@@ -165,28 +164,31 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
               </svg>
             </button>
           )}
+          {!isNativeDate && isDate && slashDateInput && (
+            <>
+              <button type="button" className="date-picker-button" onClick={() => openDatePicker(name)} aria-label={`Open calendar for ${label}`}>
+                <svg aria-hidden="true" viewBox="0 0 24 24">
+                  <rect x="3" y="4" width="18" height="17" rx="2" />
+                  <path d="M16 2v4M8 2v4M3 10h18" />
+                </svg>
+              </button>
+              <input
+                ref={(element) => { datePickerRefs.current[name] = element; }}
+                className="native-date-picker-input"
+                type="date"
+                value={formatDateForInput(value)}
+                onChange={(event) => {
+                  const nextValue = event.target.value;
+                  setDateDrafts((prev) => ({ ...prev, [name]: maskDateInput(nextValue) }));
+                  if (onChange) onChange(nextValue);
+                  else setForm((prev) => ({ ...prev, [name]: nextValue }));
+                }}
+                tabIndex={-1}
+                aria-hidden="true"
+              />
+            </>
+          )}
         </div>
-        {!isNativeDate && isDate && slashDateInput && (
-          <>
-            <button type="button" className="date-picker-button" onClick={() => openDatePicker(name)} aria-label={`Open calendar for ${label}`}>
-              <span aria-hidden="true">▣</span>
-            </button>
-            <input
-              ref={(element) => { datePickerRefs.current[name] = element; }}
-              className="native-date-picker-input"
-              type="date"
-              value={formatDateForInput(value)}
-              onChange={(event) => {
-                const nextValue = event.target.value;
-                setDateDrafts((prev) => ({ ...prev, [name]: maskDateInput(nextValue) }));
-                if (onChange) onChange(nextValue);
-                else setForm((prev) => ({ ...prev, [name]: nextValue }));
-              }}
-              tabIndex={-1}
-              aria-hidden="true"
-            />
-          </>
-        )}
       </div>
     );
   };
@@ -297,18 +299,20 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
             <div className="form-readonly-value">{form.motherName || '—'}</div>
           </div>
         )}
-        {readOnly && (
-          <div className="form-row-3 full-width">
-            {['community', 'group', 'batch'].map((field) => (
-              <div className="form-group" key={field}>
-                <label className="form-label">{field === 'community' ? 'School' : field === 'group' ? 'Group' : 'Batch'}</label>
-                <div className="form-readonly-value">{form[field] || '—'}</div>
-              </div>
-            ))}
-          </div>
-        )}
-
         </section>
+        {readOnly && (
+          <section className="create-mother-category child-community-details">
+            <h4 className="form-section-title">Community Details</h4>
+            <div className="form-row-3 full-width">
+              {['community', 'group', 'batch'].map((field) => (
+                <div className="form-group" key={field}>
+                  <label className="form-label">{field === 'community' ? 'School' : field === 'group' ? 'Group' : 'Batch'}</label>
+                  <div className="form-readonly-value">{form[field] || '—'}</div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
         {!readOnly && (
           <section className="create-mother-category">
             <h4 className="form-section-title">Required Documents</h4>
@@ -379,7 +383,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
           {renderField({ id: 'child-apgar', label: 'Apgar Score', name: 'apgarScore', placeholder: 'e.g. 8/10', required: true })}
         </div>
 
-        {renderTextarea({ id: 'child-nutrition-notes', label: 'Nutritional Notes', name: 'nutritionNotes', rows: 3, placeholder: 'Nutrition or feeding notes...', required: true })}
+        {renderTextarea({ id: 'child-nutrition-notes', label: 'Nutritional Notes', name: 'nutritionNotes', rows: 3, placeholder: 'Nutrition or feeding notes...' })}
         </section>
       </div>
     );
@@ -442,16 +446,16 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
           <p className="form-optional-note">Optional</p>
           <div className="form-group full-width">
             <div className="form-panel">
-              <div className="vaccine-dose-grid" style={{ display: 'grid', gridTemplateColumns: '1.4fr repeat(3, minmax(140px, 1fr)) 1.3fr', gap: '0.75rem', alignItems: 'start' }}>
-                <div style={{ fontWeight: 800, color: '#0f172a', paddingTop: '0.5rem' }}>Vaccine</div>
-                <div style={{ fontWeight: 800, color: '#0f172a', paddingTop: '0.5rem' }}>Dose 1</div>
-                <div style={{ fontWeight: 800, color: '#0f172a', paddingTop: '0.5rem' }}>Dose 2</div>
-                <div style={{ fontWeight: 800, color: '#0f172a', paddingTop: '0.5rem' }}>Dose 3</div>
-                <div style={{ fontWeight: 800, color: '#0f172a', paddingTop: '0.5rem' }}>Remarks</div>
+              <div className="vaccine-dose-grid" >
+                <div >Vaccine</div>
+                <div >Dose 1</div>
+                <div >Dose 2</div>
+                <div >Dose 3</div>
+                <div >Remarks</div>
 
                 {vaccineRows.map(({ key, label, doseFields, remarksField }) => (
                   <React.Fragment key={key}>
-                    <div style={{ display: 'flex', alignItems: 'center', minHeight: '62px', fontSize: '1.05rem', fontWeight: 700, color: '#1e293b' }}>{label}</div>
+                    <div >{label}</div>
                     {doseFields.map((doseField, index) => (
                       <div key={`${key}-${doseField}`}>
                         {renderField({

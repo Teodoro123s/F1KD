@@ -195,7 +195,7 @@ export function MotherFormFields({
         <label className="form-label" htmlFor={id}>
           {label}{required && <span className="form-required-indicator" aria-hidden="true"> *</span>}
         </label>
-        <div className={isNativeDate ? 'date-input-container' : undefined}>
+        <div className={isNativeDate || (isDate && slashDateInput) ? 'date-input-container' : undefined}>
           {isBloodPressure ? (
             <BloodPressureInput
               id={id}
@@ -273,28 +273,31 @@ export function MotherFormFields({
               </svg>
             </button>
           )}
+          {!isNativeDate && isDate && slashDateInput && (
+            <>
+              <button type="button" className="date-picker-button" onClick={() => openDatePicker(name)} aria-label={`Open calendar for ${label}`}>
+                <svg aria-hidden="true" viewBox="0 0 24 24">
+                  <rect x="3" y="4" width="18" height="17" rx="2" />
+                  <path d="M16 2v4M8 2v4M3 10h18" />
+                </svg>
+              </button>
+              <input
+                ref={(element) => { datePickerRefs.current[name] = element; }}
+                className="native-date-picker-input"
+                type="date"
+                value={formatDateForInput(value)}
+                onChange={(event) => {
+                  const nextValue = event.target.value;
+                  setDateDrafts((prev) => ({ ...prev, [name]: maskDateInput(nextValue) }));
+                  if (onChange) onChange(nextValue);
+                  else setForm((prev) => ({ ...prev, [name]: nextValue }));
+                }}
+                tabIndex={-1}
+                aria-hidden="true"
+              />
+            </>
+          )}
         </div>
-        {!isNativeDate && isDate && slashDateInput && !readOnly && (
-          <>
-            <button type="button" className="date-picker-button" onClick={() => openDatePicker(name)} aria-label={`Open calendar for ${label}`}>
-              <span aria-hidden="true">▣</span>
-            </button>
-            <input
-              ref={(element) => { datePickerRefs.current[name] = element; }}
-              className="native-date-picker-input"
-              type="date"
-              value={formatDateForInput(value)}
-              onChange={(event) => {
-                const nextValue = event.target.value;
-                setDateDrafts((prev) => ({ ...prev, [name]: maskDateInput(nextValue) }));
-                if (onChange) onChange(nextValue);
-                else setForm((prev) => ({ ...prev, [name]: nextValue }));
-              }}
-              tabIndex={-1}
-              aria-hidden="true"
-            />
-          </>
-        )}
       </div>
     );
   };
@@ -513,20 +516,27 @@ export function MotherFormFields({
 
         <section className="create-mother-category">
           <h4 className="form-section-title">I.E OTHER DETAILS</h4>
-          <label className="form-toggle-label" htmlFor="philhealth-member">
-            <input
-              id="philhealth-member"
-              type="checkbox"
-              className="form-checkbox"
-              checked={!!form.philhealthMember}
-              onChange={(event) => setForm((prev) => ({
-                ...prev,
-                philhealthMember: event.target.checked,
-                philhealthNumber: event.target.checked ? prev.philhealthNumber : '',
-              }))}
-            />
-            <span>PhilHealth member</span>
-          </label>
+          {readOnly ? (
+            <div className="mother-profile-readonly-status">
+              <span>PhilHealth member</span>
+              <strong>{form.philhealthMember ? 'Yes' : 'No'}</strong>
+            </div>
+          ) : (
+            <label className="form-toggle-label" htmlFor="philhealth-member">
+              <input
+                id="philhealth-member"
+                type="checkbox"
+                className="form-checkbox"
+                checked={!!form.philhealthMember}
+                onChange={(event) => setForm((prev) => ({
+                  ...prev,
+                  philhealthMember: event.target.checked,
+                  philhealthNumber: event.target.checked ? prev.philhealthNumber : '',
+                }))}
+              />
+              <span>PhilHealth member</span>
+            </label>
+          )}
           {form.philhealthMember && renderField({
             id: 'philhealth-number',
             label: 'PhilHealth Number',
@@ -550,34 +560,38 @@ export function MotherFormFields({
           ) : (
             <div className="form-group">
               <label className="form-label" htmlFor="mother-lmp">Date of LMP</label>
-              <input
-                id="mother-lmp"
-                type={slashDateInput ? 'text' : 'date'}
-                className="form-input"
-                placeholder="DD/MM/YYYY"
-                value={getDateDisplayValue('lmpDate', form.lmpDate)}
-                onChange={(e) => updateDateValue('lmpDate', e.target.value, handleLmpChange)}
-                onBlur={() => commitDateValue('lmpDate', getDateDisplayValue('lmpDate', form.lmpDate), handleLmpChange)}
-                max={new Date().toISOString().split('T')[0]}
-                autoComplete="off"
-                pattern="\\d{2}/\\d{2}/\\d{4}"
-                required
-              />
-              {slashDateInput && <>
-                <button type="button" className="date-picker-button" onClick={() => openDatePicker('lmpDate')} aria-label="Open calendar for Date of LMP"><span aria-hidden="true">▣</span></button>
+              <div className="date-input-container">
                 <input
-                  ref={(element) => { datePickerRefs.current.lmpDate = element; }}
-                  className="native-date-picker-input"
-                  type="date"
-                  value={formatDateForInput(form.lmpDate)}
-                  onChange={(e) => {
-                    setDateDrafts((prev) => ({ ...prev, lmpDate: maskDateInput(e.target.value) }));
-                    handleLmpChange(e.target.value);
-                  }}
-                  tabIndex={-1}
-                  aria-hidden="true"
+                  id="mother-lmp"
+                  type={slashDateInput ? 'text' : 'date'}
+                  className="form-input"
+                  placeholder="DD/MM/YYYY"
+                  value={getDateDisplayValue('lmpDate', form.lmpDate)}
+                  onChange={(e) => updateDateValue('lmpDate', e.target.value, handleLmpChange)}
+                  onBlur={() => commitDateValue('lmpDate', getDateDisplayValue('lmpDate', form.lmpDate), handleLmpChange)}
+                  max={new Date().toISOString().split('T')[0]}
+                  autoComplete="off"
+                  pattern="\\d{2}/\\d{2}/\\d{4}"
+                  required
                 />
-              </>}
+                {slashDateInput && <>
+                  <button type="button" className="date-picker-button" onClick={() => openDatePicker('lmpDate')} aria-label="Open calendar for Date of LMP">
+                    <svg aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
+                  </button>
+                  <input
+                    ref={(element) => { datePickerRefs.current.lmpDate = element; }}
+                    className="native-date-picker-input"
+                    type="date"
+                    value={formatDateForInput(form.lmpDate)}
+                    onChange={(e) => {
+                      setDateDrafts((prev) => ({ ...prev, lmpDate: maskDateInput(e.target.value) }));
+                      handleLmpChange(e.target.value);
+                    }}
+                    tabIndex={-1}
+                    aria-hidden="true"
+                  />
+                </>}
+              </div>
             </div>
           )}
 
@@ -731,11 +745,11 @@ export function MotherFormFields({
               <table className="vaccine-form-table">
                 <thead>
                   <tr>
-                    <th style={{ width: '20%' }}>Vaccine</th>
+                    <th >Vaccine</th>
                     {[1, 2, 3].map((num) => (
-                      <th key={num} style={{ width: '14%' }}>Dose {num}</th>
+                      <th key={num} >Dose {num}</th>
                     ))}
-                    <th style={{ width: '38%' }}>Remarks</th>
+                    <th >Remarks</th>
                   </tr>
                 </thead>
                 <tbody>

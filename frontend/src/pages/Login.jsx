@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import lightLogo from '../assets/f1kd-logo.png';
 import { useAuth } from '../auth/AuthProvider';
 import { notifyAction } from '../components/ActionFeedback';
+import './auth-pages.css';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -37,6 +38,7 @@ export default function Login() {
           <img src={lightLogo} alt="F1KD logo" className="login-logo" />
         </div>
         <h1 className="login-title">Welcome back</h1>
+        <p className="login-subtitle">Sign in to continue to your F1KD account.</p>
 
         <form className="login-form" onSubmit={handleLogin} noValidate>
           <div className="login-field">

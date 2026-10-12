@@ -12,6 +12,7 @@ import { apiGetMother } from '../../../../api/mothers';
 import { apiGetChildrenByMother } from '../../../../api/children';
 import { can, isHealthWorkerRole, isSchoolScopedRole } from '../../../../utils/permissions';
 import { useAuth } from '../../../../auth/AuthProvider';
+import './beneficiary-page.css';
 
 export default function BeneficiaryPage() {
   // Mothers are loaded from the DB via MothersContext
@@ -165,9 +166,10 @@ export default function BeneficiaryPage() {
   };
 
   return (
-    <div className="community-page beneficiary-page">
+    <div className="community-page beneficiary-page beneficiary-page--organizer">
       <PageHeader
         title="Beneficiaries"
+        description="Manage mother and child profiles across your assigned communities."
         breadcrumbs={[{ label: 'Beneficiaries' }]}
         actions={
           !isMotherDetail && !isCreateMother && !isCreateChild && canCreate ? (

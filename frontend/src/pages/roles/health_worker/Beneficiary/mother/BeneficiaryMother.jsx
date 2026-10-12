@@ -732,11 +732,11 @@ export function MotherFormFields({
               <table className="vaccine-form-table">
                 <thead>
                   <tr>
-                    <th style={{ width: '20%' }}>Vaccine</th>
+                    <th >Vaccine</th>
                     {[1, 2, 3].map((num) => (
-                      <th key={num} style={{ width: '14%' }}>Dose {num}</th>
+                      <th key={num} >Dose {num}</th>
                     ))}
-                    <th style={{ width: '38%' }}>Remarks</th>
+                    <th >Remarks</th>
                   </tr>
                 </thead>
                 <tbody>

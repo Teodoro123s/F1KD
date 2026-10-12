@@ -5,12 +5,17 @@ import {
   getMissingChildGeneralFields,
   getMissingChildPrenatalFields,
 } from './BeneficiaryChild';
-import { apiGetChild, apiUpdateChild, apiUploadChildBirthDocument } from '../../../../../api/children';
+import { apiDeleteChild, apiGetChild, apiUpdateChild, apiUploadChildBirthDocument } from '../../../../../api/children';
 import { getSummary } from '../../Community/communityService';
 import { formatDateForInput } from '../../_shared/utils/dateFormat';
 import { useMothers } from '../../_shared/context/MothersContext';
 import PageHeader from '../../../../../components/ui/PageHeader';
+import { useAuth } from '../../../../../auth/AuthProvider';
+import { can } from '../../../../../utils/permissions';
 import { notifyAction } from '../../_shared/components/ActionFeedback';
+import '../beneficiary-page.css';
+import './child-page.css';
+import './edit-child-page.css';
 
 const normalizeChild = (child) => ({
   ...child,
@@ -71,13 +76,19 @@ export default function EditChildPage() {
   const { childId } = useParams();
   const location = useLocation();
   const { setMothers } = useMothers();
+  const { currentUser } = useAuth();
+  const canDelete = can(currentUser?.role, 'beneficiary-resources', 'delete');
   const [form, setForm] = useState(() => normalizeChild(location.state?.child || {}));
   const [birthDocumentFile, setBirthDocumentFile] = useState(null);
   const [options, setOptions] = useState({ communities: [], batches: [] });
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmationAction, setConfirmationAction] = useState(null);
   const [showRequiredValidation, setShowRequiredValidation] = useState(false);
   const [activeTab, setActiveTab] = useState('general');
   const EDIT_STEPS = ['general', 'prenatal', 'medical_dental', 'vaccine'];
+  const childIdentifier = childId || form.id || form.child_code;
+  const childName = [form.firstName, form.middleName, form.lastName, form.suffix].filter(Boolean).join(' ');
 
   useEffect(() => {
     getSummary().then((summary) => setOptions({
@@ -148,6 +159,11 @@ export default function EditChildPage() {
       notifyAction(`Complete the required Prenatal / OB fields: ${missingPrenatalFields.map(([, label]) => label).join(', ')}.`, 'error');
       return;
     }
+    setConfirmationAction('save');
+  };
+
+  const persistChild = async () => {
+    setConfirmationAction(null);
     setSaving(true);
     try {
       const payload = {
@@ -204,13 +220,37 @@ export default function EditChildPage() {
           : mother.children,
       })));
 
-      if (documentUploadFailed) notifyAction('Child details saved, but the birth document upload failed. Edit the child to try again.', 'error');
+      if (documentUploadFailed) {
+        notifyAction('Child details saved, but the birth document upload failed. Edit the child to try again.', 'error');
+      } else {
+        notifyAction('Child profile updated successfully.', 'success');
+      }
       navigate(-1, { state: { updatedChild } });
     } catch (saveError) {
       notifyAction(saveError.message || 'Unable to save child', 'error');
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSaveChanges = async () => {
+    const missingGeneralFields = getMissingChildGeneralFields(form);
+    if (missingGeneralFields.length) {
+      setShowRequiredValidation(true);
+      setActiveTab('general');
+      notifyAction(`Complete the required Child Information fields: ${missingGeneralFields.map(([, label]) => label).join(', ')}.`, 'error');
+      return;
+    }
+
+    const missingPrenatalFields = getMissingChildPrenatalFields(form);
+    if (missingPrenatalFields.length) {
+      setShowRequiredValidation(true);
+      setActiveTab('prenatal');
+      notifyAction(`Complete the required Prenatal / OB fields: ${missingPrenatalFields.map(([, label]) => label).join(', ')}.`, 'error');
+      return;
+    }
+
+    setConfirmationAction('save');
   };
 
   const handleNextStep = (event) => {
@@ -247,62 +287,147 @@ export default function EditChildPage() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!canDelete || !childIdentifier || deleting) return;
+    setDeleting(true);
+    try {
+      await apiDeleteChild(childIdentifier);
+      notifyAction(`${childName || 'Child'} deleted successfully.`);
+      setConfirmationAction(null);
+      navigate('/beneficiary');
+    } catch (deleteError) {
+      notifyAction(deleteError.message || 'Unable to delete child.', 'error');
+      setDeleting(false);
+      setConfirmationAction(null);
+    }
+  };
+
   return (
-    <section className="tabs-row create-view">
+    <section className="tabs-row create-view beneficiary-page beneficiary-page--organizer edit-child-page">
       <PageHeader
         title="Beneficiaries"
         breadcrumbs={[{ label: 'Beneficiaries', to: '/beneficiary' }, { label: 'Edit Child' }]}
+        actions={(
+          <div className="edit-child-header-actions">
+            <button
+              type="button"
+              className="edit-child-save-button"
+              onClick={handleSaveChanges}
+              disabled={saving || deleting || !childIdentifier}
+            >
+              {saving ? 'Saving...' : 'Save'}
+            </button>
+            {canDelete && (
+              <button
+                type="button"
+                className="edit-child-delete-button"
+                onClick={() => setConfirmationAction('delete')}
+                disabled={!childIdentifier || deleting || saving}
+              >
+                {deleting ? 'Deleting...' : 'Delete'}
+              </button>
+            )}
+          </div>
+        )}
       />
 
-      <div className="stepper-progress">
-        <div className="stepper-steps" role="tablist">
-          {EDIT_STEPS.map((step, index) => {
-            const label = step === 'general' ? 'General' : step === 'prenatal' ? 'Prenatal/OB' : step === 'medical_dental' ? 'Medical & Dental' : 'Vaccine';
-            return (
+      {confirmationAction && (
+        <div
+          className="modal-backdrop edit-child-confirm-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !saving && !deleting) setConfirmationAction(null);
+          }}
+        >
+          <div
+            className={`modal edit-child-confirm-modal${confirmationAction === 'delete' ? ' edit-child-confirm-modal--delete' : ''}`}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-child-confirm-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <h2 id="edit-child-confirm-title">
+              {confirmationAction === 'save' ? 'Save child changes?' : 'Delete child record?'}
+            </h2>
+            <p>
+              {confirmationAction === 'save'
+                ? `Are you sure you want to save the updated profile for ${childName || 'this child'}?`
+                : <>This permanently deletes <strong>{childName || 'this child'}</strong> and all of their beneficiary data. This cannot be undone.</>}
+            </p>
+            <div className="modal-actions">
               <button
-                key={step}
                 type="button"
-                role="tab"
-                aria-selected={activeTab === step}
-                className={`stepper-step ${activeTab === step ? 'active' : ''}`}
-                onClick={() => setActiveTab(step)}
+                className="btn-secondary"
+                onClick={() => setConfirmationAction(null)}
+                disabled={saving || deleting}
               >
-                <span className="stepper-step-index">{index + 1}</span>
-                <span className="stepper-step-label">{label}</span>
+                Cancel
               </button>
-            );
-          })}
+              {confirmationAction === 'save' ? (
+                <button type="button" className="btn-primary" onClick={persistChild} disabled={saving}>
+                  {saving ? 'Saving...' : 'Save changes'}
+                </button>
+              ) : (
+                <button type="button" className="btn-danger" onClick={handleDelete} disabled={deleting}>
+                  {deleting ? 'Deleting...' : 'Delete permanently'}
+                </button>
+              )}
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
-      <div className="create-form-body">
-        <form onSubmit={handleSave}>
-          <div className="modal-body-scrollable">
-            <ChildFormFields
-              activeTab={activeTab}
-              form={form}
-              setForm={setForm}
-              communities={options.communities}
-              batches={options.batches}
-              birthDocumentFile={birthDocumentFile}
-              setBirthDocumentFile={setBirthDocumentFile}
-              existingBirthDocumentName={form.birthDocumentName}
-              showRequiredValidation={showRequiredValidation}
-            />
+      <div className="edit-child-form-panel">
+        <div className="stepper-progress">
+          <div className="stepper-steps" role="tablist" aria-label="Child edit sections">
+            {EDIT_STEPS.map((step, index) => {
+              const label = step === 'general' ? 'General' : step === 'prenatal' ? 'Prenatal/OB' : step === 'medical_dental' ? 'Medical & Dental' : 'Vaccine';
+              return (
+                <button
+                  key={step}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === step}
+                  className={`stepper-step ${activeTab === step ? 'active' : ''}`}
+                  onClick={() => setActiveTab(step)}
+                >
+                  <span className="stepper-step-index">{index + 1}</span>
+                  <span className="stepper-step-label">{label}</span>
+                </button>
+              );
+            })}
           </div>
+        </div>
 
-          <div className="modal-footer">
-            <button type="button" className="btn-secondary" onClick={() => navigate(-1)} disabled={saving}>Cancel</button>
-            {activeTab !== 'general' && (
-              <button type="button" className="btn-secondary btn-back back-action" onClick={handleBackStep} disabled={saving}>Back</button>
-            )}
-            {activeTab !== 'vaccine' ? (
-              <button type="button" className="btn-primary btn-next" onClick={handleNextStep} disabled={saving}>Next</button>
-            ) : (
-              <button type="submit" className="btn-create-action" disabled={saving}>{saving ? 'Saving...' : 'Save Changes'}</button>
-            )}
-          </div>
-        </form>
+        <div className="create-form-body">
+          <form onSubmit={handleSave}>
+            <div className="modal-body-scrollable">
+              <ChildFormFields
+                activeTab={activeTab}
+                form={form}
+                setForm={setForm}
+                communities={options.communities}
+                batches={options.batches}
+                birthDocumentFile={birthDocumentFile}
+                setBirthDocumentFile={setBirthDocumentFile}
+                existingBirthDocumentName={form.birthDocumentName}
+                showRequiredValidation={showRequiredValidation}
+              />
+            </div>
+
+            <div className="modal-footer">
+              <button type="button" className="btn-secondary" onClick={() => navigate(-1)} disabled={saving}>Cancel</button>
+              {activeTab !== 'general' && (
+                <button type="button" className="btn-secondary btn-back back-action" onClick={handleBackStep} disabled={saving || deleting}>Back</button>
+              )}
+              {activeTab !== 'vaccine' ? (
+                <button type="button" className="btn-primary btn-next" onClick={handleNextStep} disabled={saving || deleting}>Next</button>
+              ) : (
+                <button type="submit" className="btn-create-action" disabled={saving || deleting}>{saving ? 'Saving...' : 'Save Changes'}</button>
+              )}
+            </div>
+          </form>
+        </div>
       </div>
     </section>
   );

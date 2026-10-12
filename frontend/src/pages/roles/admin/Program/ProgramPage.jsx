@@ -26,6 +26,8 @@ import {
   normalizeBeneficiaryType,
   recordMatchesProgramScope,
 } from "./programData";
+import CommunityPagination from "../Community/components/CommunityPagination";
+import "../../../shared/Program/program-page.css";
 
 const localDate = () => {
   const date = new Date();
@@ -45,6 +47,8 @@ export default function ProgramPage() {
   const canMonitorPrograms = canCreatePrograms || isHealthWorkerRole(currentUser?.role);
   const [activeTab, setActiveTab] = useState("Active");
   const [query, setQuery] = useState("");
+  const [programPage, setProgramPage] = useState(1);
+  const [programPerPage, setProgramPerPage] = useState(10);
   const [programs, setPrograms] = useState([]);
   const [isLiveDataLoaded, setIsLiveDataLoaded] = useState(false);
   const viewMode = Boolean(programId);
@@ -351,6 +355,10 @@ export default function ProgramPage() {
   const filteredPrograms = useMemo(() => {
     return filterPrograms(programs, query, activeTab);
   }, [programs, query, activeTab]);
+  const programPageCount = Math.max(1, Math.ceil(filteredPrograms.length / programPerPage));
+  const currentProgramPage = Math.min(programPage, programPageCount);
+  const programStartIndex = (currentProgramPage - 1) * programPerPage;
+  const visiblePrograms = filteredPrograms.slice(programStartIndex, programStartIndex + programPerPage);
 
   const saveProgram = async (event) => {
     event.preventDefault();
@@ -1007,9 +1015,10 @@ export default function ProgramPage() {
   }, [selectedRouteBatch, selectedRouteGroup, selectedRouteSchool, selectedRouteTreeData]);
 
   return (
-    <div className="community-page program-page">
+    <div className="community-page program-page program-page--organizer">
       <PageHeader
         title={viewMode && selectedProgram ? selectedProgram.name : 'Program'}
+        description="Manage programs and beneficiary enrollment across your assigned communities."
         breadcrumbs={programBreadcrumbs}
         actions={
           canCreatePrograms && (!viewMode || !isEndedProgram) && <button
@@ -1035,6 +1044,7 @@ export default function ProgramPage() {
 
       {!viewMode && (
         <section className="tabs-row program-tabs-row">
+          <h2 className="program-filter-title">Program</h2>
           <div
             className="tabs-list"
             role="tablist"
@@ -1048,7 +1058,7 @@ export default function ProgramPage() {
               onClick={() => setActiveTab("Active")}
             >
               <GroupsIcon />
-              <span>Active Programs</span>
+              <span>Active</span>
             </button>
             <button
               type="button"
@@ -1058,7 +1068,7 @@ export default function ProgramPage() {
               onClick={() => setActiveTab("Ended")}
             >
               <BatchesIcon />
-              <span>Ended Programs</span>
+              <span>Suspended</span>
             </button>
           </div>
           <div className="program-toolbar-controls">
@@ -1082,11 +1092,6 @@ export default function ProgramPage() {
       )}
 
       <section className="table-card program-table-card">
-        <div className="program-table-heading">
-          <div>
-            <h2>Program beneficiaries</h2>
-          </div>
-        </div>
         <div className="table-overflow">
           {viewMode && !clusterView ? (() => {
             if (selectedRouteBatch) {
@@ -1302,7 +1307,7 @@ export default function ProgramPage() {
                 </thead>
                 <tbody>
                   {filteredPrograms.length ? (
-                    filteredPrograms.map((program) => (
+                    visiblePrograms.map((program) => (
                       <tr key={program.id} className="program-clickable-row" onClick={() => navigate(`/program/${program.id}`)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") navigate(`/program/${program.id}`); }} tabIndex="0">
                         <td>
                           <a className="program-row-link" href={`/program/${program.id}`} onClick={(event) => event.stopPropagation()}>
@@ -1329,6 +1334,20 @@ export default function ProgramPage() {
             )}
           </table>}
         </div>
+        {!viewMode && !clusterView && (
+          <div className="program-pagination">
+            <CommunityPagination
+              currentPage={currentProgramPage}
+              pageCount={programPageCount}
+              onPageChange={setProgramPage}
+              perPage={programPerPage}
+              onPerPageChange={(value) => { setProgramPerPage(Number(value)); setProgramPage(1); }}
+              rangeStart={filteredPrograms.length ? programStartIndex + 1 : 0}
+              rangeEnd={Math.min(programStartIndex + programPerPage, filteredPrograms.length)}
+              totalItems={filteredPrograms.length}
+            />
+          </div>
+        )}
       </section>
 
       <ConfirmActionModal

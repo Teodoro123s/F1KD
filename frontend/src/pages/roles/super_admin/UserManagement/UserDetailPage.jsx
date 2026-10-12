@@ -6,6 +6,7 @@ import { generatePassword, formatDobForInput } from './lib';
 import { apiGetUser, apiUpdateUser } from '../../../../api/users';
 import { getSummary } from '../Community/communityService';
 import { isCommunityCoordinatorRole, isHealthWorkerRole } from '../../../../utils/permissions';
+import './user-management-page.css';
 
 export default function UserDetailPage() {
   const { id } = useParams();
@@ -125,7 +126,7 @@ export default function UserDetailPage() {
   };
 
   return (
-    <div className="community-page">
+    <div className="community-page user-management-page user-management-detail-page">
       <PageHeader
         title={displayName}
         breadcrumbs={[{ label: 'User Management', href: '/user-management' }, { label: user.role || 'User' }]}
@@ -139,7 +140,7 @@ export default function UserDetailPage() {
 
       
 
-      <main style={{ padding: '1rem' }}>
+      <main className="user-management-detail-content">
         <div className="checkup-card">
           <div className="checkup-card-body">
             <div className="checkup-section-title">Profile</div>
@@ -196,9 +197,9 @@ export default function UserDetailPage() {
 
             
 
-            <div style={{ marginTop: 18 }}>
+            <div className="user-detail-password">
               <div className="checkup-section-title">Password</div>
-              <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' }}>
+              <div className="user-detail-password-controls">
                 <input
                   type="text"
                   className="checkup-field-input"
@@ -206,7 +207,6 @@ export default function UserDetailPage() {
                   readOnly
                   placeholder="Generate default password"
                   aria-label="Generated password"
-                  style={{ flex: 1 }}
                 />
                 <button type="button" className="btn-small" onClick={generateDefaultPassword}>Generate default password</button>
                 <button type="button" className="btn-small" onClick={applyGenerated} disabled={!generatedPwd || isApplyingPassword}>{isApplyingPassword ? 'Applying...' : 'Apply'}</button>

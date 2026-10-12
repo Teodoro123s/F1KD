@@ -41,7 +41,7 @@ export default function SuperAdminHealthWorkersPage() {
   ];
 
   return (
-    <div className="community-page">
+    <div className="community-page community-module-page">
       <PageHeader
         title="Health Workers"
         breadcrumbs={[
@@ -52,12 +52,15 @@ export default function SuperAdminHealthWorkersPage() {
         actions={<Link className="view-btn view-btn--secondary back-action" to={group ? `/community/group/${group.id}` : '/community'}>Back to Group</Link>}
       />
       {groupLoading || loading ? <p>Loading health workers...</p> : error ? <p className="error-message">{error}</p> : (
-        <CommunityTable
-          columns={columns}
-          data={workers}
-          tableTitle={`Health Workers assigned to ${group?.name || 'Group'}`}
-          emptyMessage="No health workers are assigned to this group."
-        />
+        <div className="community-module-table-card">
+          <CommunityTable
+            columns={columns}
+            data={workers}
+            tableTitle={`Health Workers assigned to ${group?.name || 'Group'}`}
+            emptyMessage="No health workers are assigned to this group."
+            minRows={10}
+          />
+        </div>
       )}
     </div>
   );

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDateForDisplay, formatDateForInput } from '../../../utils/dateFormat';
 import { calculateWhoGrowthScores } from '../../../utils/whoGrowthStandards';
-import './monitoring-progress-report.css';
+import './MonitoringProgressReport.css';
 
 const valueOrDash = (value, suffix = '') => (
   value === null || value === undefined || String(value).trim() === '' ? '—' : `${value}${suffix}`
@@ -130,7 +130,7 @@ function ProgressGraph({ records, metric }) {
       <svg
         className="monitoring-progress-report-graph"
         viewBox={`0 0 ${width} ${height}`}
-        style={{ minWidth: `${width}px` }}
+        style={{ width: `max(100%, ${width}px)` }}
         role="img"
         aria-label={`${metric.label} progress graph`}
       >
@@ -143,19 +143,19 @@ function ProgressGraph({ records, metric }) {
               y2={y(tick)}
               className={`monitoring-progress-report-gridline${metric.series === 'who' && [0, -2, 2, -3, 3].includes(tick) ? ` is-reference is-reference-${Math.abs(tick)}` : ''}${metric.series === 'who' && tick === 0 ? ' is-zero' : ''}`}
             />
-            <text x={left - 8} y={y(tick) + 4} textAnchor="end">
+            <text className="monitoring-progress-report-y-label" x={left - 10} y={y(tick) + 4} textAnchor="end">
               {metric.series === 'who' ? tick : tick.toFixed(1)}
             </text>
           </g>
         ))}
         {plotRecords.map((record, index) => (
-          <text key={`${record.period}-${index}`} x={x(index)} y={bottom + 22} textAnchor="middle">
+          <text className="monitoring-progress-report-x-label" key={`${record.period}-${index}`} x={x(index)} y={bottom + 22} textAnchor="middle">
             {record.period.replace(' Trimester · Check-up ', ' · ')}
           </text>
         ))}
-        {points.length > 1 && <polyline points={linePoints} fill="none" stroke={metric.color} strokeWidth="3" />}
+        {points.length > 1 && <polyline className="monitoring-progress-report-line" points={linePoints} fill="none" stroke={metric.color} strokeWidth="3" />}
         {points.map(({ record, index, value }) => (
-          <circle key={`${record.period}-${index}`} cx={x(index)} cy={y(value)} r="5" fill={metric.color}>
+          <circle className="monitoring-progress-report-point" key={`${record.period}-${index}`} cx={x(index)} cy={y(value)} r="5" style={{ fill: metric.color }}>
             <title>{`${record.period}: ${value.toFixed(2)} ${metric.unit}`}</title>
           </circle>
         ))}
@@ -314,7 +314,7 @@ export default function MonitoringProgressReport({ beneficiaryType, beneficiary 
         ) : (
           <div className="monitoring-progress-report-graph-panel">
             {isMother ? (
-              <p className="monitoring-progress-report-graph-metric">Maternal monitoring metric: <strong>BMI</strong></p>
+              <p className="monitoring-progress-report-graph-metric"><span>Maternal monitoring metric</span><strong>BMI</strong></p>
             ) : (
               <label>
                 Growth indicator

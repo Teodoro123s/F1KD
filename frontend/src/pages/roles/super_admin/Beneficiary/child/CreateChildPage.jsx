@@ -400,10 +400,10 @@ export default function CreateChildPage({
     <section className="tabs-row create-view">
       {/* Header showing mother info when available */}
       {motherFromState && (
-        <div className="create-child-header" style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="create-child-header" >
           <div>
-            <h2 style={{ margin: 0 }}>Create Child for {motherFromState.name || `${motherFromState.firstName || ''} ${motherFromState.lastName || ''}`.trim()}</h2>
-            {motherFromState.program && <div style={{ fontSize: '0.9rem', color: '#64748b' }}>{motherFromState.program}</div>}
+            <h2 >Create Child for {motherFromState.name || `${motherFromState.firstName || ''} ${motherFromState.lastName || ''}`.trim()}</h2>
+            {motherFromState.program && <div >{motherFromState.program}</div>}
           </div>
           <div>
             <button className="btn-secondary" onClick={() => {
@@ -419,7 +419,7 @@ export default function CreateChildPage({
       )}
 
       {!motherFromState && (
-        <div className="form-group" style={{ maxWidth: 520, marginBottom: 16 }}>
+        <div className="form-group" >
           <label className="form-label" htmlFor="child-mother-select">Mother</label>
           <select
             id="child-mother-select"

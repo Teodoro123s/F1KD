@@ -19,7 +19,6 @@ import {
   MapPinIcon,
   UsersIcon,
 } from '../../_shared/pages/shared/Community/CommunityIcons';
-import '../dashboard.css';
 
 function getGreeting(name) {
   const hour = new Date().getHours();
@@ -521,7 +520,7 @@ export default function DashboardOverview({ variant }) {
               <span className="kpi-title">{card.title}</span>
               <span className={`kpi-icon ${card.cardClass}`} aria-hidden="true"><Icon /></span>
             </div>
-            <div className="kpi-value" style={card.key === 'monitoring' ? { color: '#c22944' } : undefined}>
+            <div className="kpi-value" >
               {loading ? '...' : Number(card.value).toLocaleString()}
             </div>
             <div className="kpi-subtitle">
@@ -702,7 +701,7 @@ export default function DashboardOverview({ variant }) {
             ) : (
               <div className="dashboard-empty-state">
                 No intervention programs registered yet.{' '}
-                <Link to="/program" style={{ color: '#2b6cb0', fontWeight: 700 }}>
+                <Link to="/program" >
                   Create a program
                 </Link>
               </div>

@@ -8,6 +8,7 @@ import CommunityPagination from './components/CommunityPagination';
 import { MoreVerticalIcon } from './CommunityIcons';
 import { useCommunityData } from './hooks/useCommunityData';
 import { useCommunityMutations } from './hooks/useCommunityMutations';
+import '../../_shared/community-module.css';
 
 const defaultCommunityForm = { name: '', area: 'Poblacion', coordinator: '' };
 const defaultGroupForm = { name: '', community: '', assignedBatchIds: [], leader: '', members: 1, status: 'Active' };
@@ -236,11 +237,11 @@ export default function SuperAdminCommunityPage() {
         ? (row) => navigate(`/user-management/batch/${row.id}`, { state: { batchName: row.name, schoolId: selectedSchool?.id, schoolName: selectedSchool?.name } })
       : undefined;
 
-  if (loading) return <div className="community-page"><p>Loading community data...</p></div>;
-  if (error) return <div className="community-page"><p className="error-message">{error}</p></div>;
+  if (loading) return <div className="community-page community-module-page"><p>Loading community data...</p></div>;
+  if (error) return <div className="community-page community-module-page"><p className="error-message">{error}</p></div>;
 
   return (
-    <div className="community-page">
+    <div className="community-page community-module-page">
       <CommunityToolbar
         activeTab={activeTab}
         query={query}
@@ -252,17 +253,19 @@ export default function SuperAdminCommunityPage() {
         navigate={navigate}
         canManage
       />
-      <CommunityTable columns={columns} data={currentRows} onRowClick={onRowClick} tableTitle={tableTitle} />
-      <CommunityPagination
-        currentPage={currentPage}
-        pageCount={pageCount}
-        onPageChange={setPage}
-        perPage={perPage}
-        onPerPageChange={(value) => { setPerPage(Number(value)); setPage(1); }}
-        rangeStart={filteredData.length ? startIndex + 1 : 0}
-        rangeEnd={Math.min(startIndex + perPage, filteredData.length)}
-        totalItems={filteredData.length}
-      />
+      <div className="community-module-table-card">
+        <CommunityTable columns={columns} data={currentRows} onRowClick={onRowClick} tableTitle={tableTitle} minRows={10} />
+        <CommunityPagination
+          currentPage={currentPage}
+          pageCount={pageCount}
+          onPageChange={setPage}
+          perPage={perPage}
+          onPerPageChange={(value) => { setPerPage(Number(value)); setPage(1); }}
+          rangeStart={filteredData.length ? startIndex + 1 : 0}
+          rangeEnd={Math.min(startIndex + perPage, filteredData.length)}
+          totalItems={filteredData.length}
+        />
+      </div>
       <CommunityModalManager
         showModal={showModal}
         onClose={() => setShowModal(null)}

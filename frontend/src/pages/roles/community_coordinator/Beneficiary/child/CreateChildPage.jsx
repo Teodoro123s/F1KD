@@ -12,6 +12,7 @@ import { apiCreateChild, apiUploadChildBirthDocument } from '../../../../../api/
 import { useActionCooldown } from '../../../../../utils/useActionCooldown';
 import { useAuth } from '../../../../../auth/AuthProvider';
 import { getUserDraftKey } from '../../../../../utils/draftStorage';
+import './create-child-page.css';
 
 const CHILD_DRAFT_TYPE = 'create-child';
 
@@ -397,13 +398,13 @@ export default function CreateChildPage({
   };
 
   return (
-    <section className="tabs-row create-view">
+    <section className="tabs-row create-view create-child-page">
       {/* Header showing mother info when available */}
       {motherFromState && (
-        <div className="create-child-header" style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="create-child-header" >
           <div>
-            <h2 style={{ margin: 0 }}>Create Child for {motherFromState.name || `${motherFromState.firstName || ''} ${motherFromState.lastName || ''}`.trim()}</h2>
-            {motherFromState.program && <div style={{ fontSize: '0.9rem', color: '#64748b' }}>{motherFromState.program}</div>}
+            <h2 >Create Child for {motherFromState.name || `${motherFromState.firstName || ''} ${motherFromState.lastName || ''}`.trim()}</h2>
+            {motherFromState.program && <div >{motherFromState.program}</div>}
           </div>
           <div>
             <button className="btn-secondary" onClick={() => {
@@ -418,99 +419,100 @@ export default function CreateChildPage({
         </div>
       )}
 
-      {!motherFromState && (
-        <div className="form-group" style={{ maxWidth: 520, marginBottom: 16 }}>
-          <label className="form-label" htmlFor="child-mother-select">Mother</label>
-          <select
-            id="child-mother-select"
-            className={`form-select${showRequiredValidation && !selectedMotherId ? ' invalid' : ''}`}
-            value={selectedMotherId}
-            onChange={(event) => setSelectedMotherId(event.target.value)}
-            required
-            aria-invalid={showRequiredValidation && !selectedMotherId}
-            aria-describedby={showRequiredValidation && !selectedMotherId ? 'child-mother-error' : undefined}
-          >
-            <option value="">Select mother</option>
-            {availableMothers.map((mother) => (
-              <option key={mother.id || mother.motherId} value={mother.id || mother.motherId}>
-                {mother.name || `${mother.firstName || ''} ${mother.lastName || ''}`.trim()}
-              </option>
-            ))}
-          </select>
-          {showRequiredValidation && !selectedMotherId && <p id="child-mother-error" className="form-error" role="alert">Select a mother before creating the child.</p>}
-        </div>
-      )}
-
-      <div className="stepper-progress">
-        <div className="stepper-steps" role="tablist">
-          {CREATE_STEPS.map((s, i) => {
-            const label = s === 'general' ? 'General' : s === 'prenatal' ? 'Prenatal/OB' : s === 'medical_dental' ? 'Medical & Dental' : 'Vaccine';
-            const isActive = createActiveTab === s;
-            const isCompleted = i < createActiveIndex;
-            return (
-              <button
-                key={s}
-                type="button"
-                role="tab"
-                aria-selected={isActive}
-                className={`stepper-step ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}`}
-                disabled={isCoolingDown}
-                onClick={() => setCreateActiveTab(s)}
-              >
-                <span className="stepper-step-index">
-                  {isCompleted ? (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-                      <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  ) : (
-                    i + 1
-                  )}
-                </span>
-                <span className="stepper-step-label">{label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="create-form-body">
-        <form onSubmit={handleCreateGroup}>
-          <div className="modal-body-scrollable">
-            <ChildFormFields
-              activeTab={createActiveTab}
-              form={groupForm}
-              setForm={setGroupForm}
-              communities={communities}
-              batches={batches}
-              birthDocumentFile={birthDocumentFile}
-              setBirthDocumentFile={setBirthDocumentFile}
-              showRequiredValidation={showRequiredValidation}
-            />
+      <div className="mother-detail-profile-panel create-form-panel">
+        <div className="stepper-progress mother-detail-stepper">
+          <div className="stepper-steps" role="tablist">
+            {CREATE_STEPS.map((s, i) => {
+              const label = s === 'general' ? 'General' : s === 'prenatal' ? 'Prenatal/OB' : s === 'medical_dental' ? 'Medical & Dental' : 'Vaccine';
+              const isActive = createActiveTab === s;
+              const isCompleted = i < createActiveIndex;
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  className={`stepper-step ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}`}
+                  disabled={isCoolingDown}
+                  onClick={() => setCreateActiveTab(s)}
+                >
+                  <span className="stepper-step-index">
+                    {isCompleted ? (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                        <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    ) : (
+                      i + 1
+                    )}
+                  </span>
+                  <span className="stepper-step-label">{label}</span>
+                </button>
+              );
+            })}
           </div>
-          <div className="modal-footer">
-          <button type="button" className="btn-secondary" disabled={creating} onClick={() => {
-            if (childDraftKey) localStorage.removeItem(childDraftKey);
-            if (motherFromState) navigate(`/beneficiary/mother/${motherFromState.id || motherFromState.motherId}`, { state: { mother: motherFromState } });
-            else navigate('/beneficiary');
-          }}>Cancel</button>
-          {createActiveTab !== 'general' && (
-              <button type="button" className="btn-secondary btn-back back-action" disabled={isCoolingDown} onClick={() => {
-                if (createActiveTab === 'vaccine') setCreateActiveTab('medical_dental');
-                else if (createActiveTab === 'medical_dental') setCreateActiveTab('prenatal');
-                else setCreateActiveTab('general');
-              }}>Back</button>
-            )}
-            {createActiveTab !== 'vaccine' ? (
-              <button type="button" className="btn-primary btn-next" onClick={runWithCooldown(handleNextStep)} disabled={isCoolingDown} aria-busy={isCoolingDown}>
-                {isCoolingDown ? <><span className="spinner spinner-sm" aria-hidden="true" /> Loading...</> : 'Next'}
-              </button>
-            ) : (
-              <button type="submit" className="btn-create-action" disabled={isCoolingDown || creating || Boolean(pendingChild)} aria-busy={Boolean(pendingChild) || creating}>
-                {creating ? <><span className="spinner spinner-sm" aria-hidden="true" /> Creating...</> : pendingChild ? 'Reviewing...' : 'Create'}
-              </button>
-            )}
-          </div>
-        </form>
+        </div>
+
+        <div className="create-form-body">
+          <form onSubmit={handleCreateGroup}>
+            <div className="modal-body-scrollable">
+              {createActiveTab === 'general' && !motherFromState && (
+                <div className="form-group full-width child-mother-selector">
+                  <label className="form-label" htmlFor="child-mother-select">Mother</label>
+                  <select
+                    id="child-mother-select"
+                    className={`form-select${showRequiredValidation && !selectedMotherId ? ' invalid' : ''}`}
+                    value={selectedMotherId}
+                    onChange={(event) => setSelectedMotherId(event.target.value)}
+                    required
+                    aria-invalid={showRequiredValidation && !selectedMotherId}
+                    aria-describedby={showRequiredValidation && !selectedMotherId ? 'child-mother-error' : undefined}
+                  >
+                    <option value="">Select mother</option>
+                    {availableMothers.map((mother) => (
+                      <option key={mother.id || mother.motherId} value={mother.id || mother.motherId}>
+                        {mother.name || `${mother.firstName || ''} ${mother.lastName || ''}`.trim()}
+                      </option>
+                    ))}
+                  </select>
+                  {showRequiredValidation && !selectedMotherId && <p id="child-mother-error" className="form-error" role="alert">Select a mother before creating the child.</p>}
+                </div>
+              )}
+              <ChildFormFields
+                activeTab={createActiveTab}
+                form={groupForm}
+                setForm={setGroupForm}
+                communities={communities}
+                batches={batches}
+                birthDocumentFile={birthDocumentFile}
+                setBirthDocumentFile={setBirthDocumentFile}
+                showRequiredValidation={showRequiredValidation}
+              />
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn-secondary" disabled={creating} onClick={() => {
+                if (childDraftKey) localStorage.removeItem(childDraftKey);
+                if (motherFromState) navigate(`/beneficiary/mother/${motherFromState.id || motherFromState.motherId}`, { state: { mother: motherFromState } });
+                else navigate('/beneficiary');
+              }}>Cancel</button>
+              {createActiveTab !== 'general' && (
+                <button type="button" className="btn-secondary btn-back back-action" disabled={isCoolingDown} onClick={() => {
+                  if (createActiveTab === 'vaccine') setCreateActiveTab('medical_dental');
+                  else if (createActiveTab === 'medical_dental') setCreateActiveTab('prenatal');
+                  else setCreateActiveTab('general');
+                }}>Back</button>
+              )}
+              {createActiveTab !== 'vaccine' ? (
+                <button type="button" className="btn-primary btn-next" onClick={runWithCooldown(handleNextStep)} disabled={isCoolingDown} aria-busy={isCoolingDown}>
+                  {isCoolingDown ? <><span className="spinner spinner-sm" aria-hidden="true" /> Loading...</> : 'Next'}
+                </button>
+              ) : (
+                <button type="submit" className="btn-create-action" disabled={isCoolingDown || creating || Boolean(pendingChild)} aria-busy={Boolean(pendingChild) || creating}>
+                  {creating ? <><span className="spinner spinner-sm" aria-hidden="true" /> Creating...</> : pendingChild ? 'Reviewing...' : 'Create'}
+                </button>
+              )}
+            </div>
+          </form>
+        </div>
       </div>
       {pendingChild && (
         <div className="modal-backdrop" role="presentation" onMouseDown={(event) => {

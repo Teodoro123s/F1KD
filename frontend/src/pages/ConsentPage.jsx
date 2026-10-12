@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider';
 import lightLogo from '../assets/f1kd-logo.png';
+import './auth-pages.css';
 
 export default function ConsentPage() {
   const auth = useAuth();

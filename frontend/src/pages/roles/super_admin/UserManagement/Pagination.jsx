@@ -12,13 +12,13 @@ export default function Pagination({
   totalItems,
 }) {
   return (
-    <footer className="pagination-container">
-      <div className="pagination-center">
+    <footer className="user-management-pagination">
+      <div className="user-management-pagination__entries">
         <span>Show</span>
         <select
           value={perPage}
           onChange={(event) => onPerPageChange(event.target.value)}
-          className="select-entries"
+          className="user-management-pagination__select"
           aria-label="Entries per page"
         >
           <option value={10}>10</option>
@@ -28,10 +28,10 @@ export default function Pagination({
         <span>entries</span>
       </div>
 
-      <div className="pagination-left" aria-label="Pagination navigation">
+      <div className="user-management-pagination__navigation" aria-label="Pagination navigation">
         <button
           type="button"
-          className={`pagination-btn${currentPage === 1 ? ' disabled' : ''}`}
+          className="user-management-pagination__button"
           onClick={() => onPageChange(Math.max(1, currentPage - 1))}
           disabled={currentPage === 1}
           aria-label="Previous page"
@@ -44,7 +44,7 @@ export default function Pagination({
           min={1}
           max={pageCount}
           value={currentPage}
-          className="pagination-page-input"
+          className="user-management-pagination__page"
           placeholder="Page"
           aria-label="Jump to a page"
           onChange={(event) => {
@@ -57,7 +57,7 @@ export default function Pagination({
 
         <button
           type="button"
-          className={`pagination-btn${currentPage === pageCount ? ' disabled' : ''}`}
+          className="user-management-pagination__button"
           onClick={() => onPageChange(Math.min(pageCount, currentPage + 1))}
           disabled={currentPage === pageCount}
           aria-label="Next page"
@@ -66,7 +66,7 @@ export default function Pagination({
         </button>
       </div>
 
-      <div className="pagination-right" role="status" aria-live="polite">
+      <div className="user-management-pagination__range" role="status" aria-live="polite">
         {rangeStart}–{rangeEnd} of {totalItems}
       </div>
     </footer>

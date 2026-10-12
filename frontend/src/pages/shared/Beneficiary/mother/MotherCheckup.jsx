@@ -486,7 +486,7 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
                     <select
                       id="source-of-funds"
                       className="checkup-field-input"
-                      style={{ appearance: 'auto' }}
+                      
                       value={sourceOfFunds}
                       onChange={(e) => updateField('sourceOfFunds')(e.target.value)}
                     >
@@ -519,7 +519,7 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
 
               </>
             ) : (
-              <div className="checkup-grid" style={{ marginTop: '16px' }}>
+              <div className="checkup-grid" >
                 <div className="form-group full-width">
                   <p className="checkup-state-message">Referral to hospital is not selected. Assistance and funding fields are not required for this checkup.</p>
                 </div>
@@ -527,7 +527,7 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
             )}
 
             <div className="checkup-grid">
-              <div className="form-group full-width" style={{ marginTop: '12px' }}>
+              <div className="form-group full-width" >
                 <label className="checkup-field-label" htmlFor="remarks">Remarks / Notes</label>
                 <textarea
                   id="remarks"
@@ -541,7 +541,7 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
             </div>
 
             {hasWarnings && (
-              <div className="clinical-warnings" style={{ marginTop: '24px' }}>
+              <div className="clinical-warnings" >
                 <div className="warning-title">⚠️ Clinical Warnings</div>
                 <ul>
                   {bpWarning && <li>{bpWarning}</li>}
@@ -552,7 +552,7 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
         </div>
         </fieldset>
 
-        <div className="form-actions" style={{ justifyContent: 'flex-start', marginTop: '24px' }}>
+        <div className="form-actions" >
           <button type="submit" className="btn-primary" disabled={isReadOnly}>
             Save Checkup
           </button>

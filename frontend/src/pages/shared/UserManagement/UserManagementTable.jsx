@@ -95,7 +95,7 @@ export default function UserManagementTable({
         <table className="data-table">
           <thead>
             <tr>
-              <th scope="col" style={{ width: '45%' }}>Account Name</th>
+              <th scope="col" >Account Name</th>
               <th scope="col">Role</th>
               <th scope="col" className="actions-cell">Actions</th>
             </tr>
@@ -106,7 +106,6 @@ export default function UserManagementTable({
                 <tr
                   key={row.id}
                   onClick={() => navigate(`/user-management/user/${row.id}`, { state: { user: row } })}
-                  style={{ cursor: 'pointer' }}
                 >
                   <td>{row.name}</td>
                   <td>{row.role}</td>

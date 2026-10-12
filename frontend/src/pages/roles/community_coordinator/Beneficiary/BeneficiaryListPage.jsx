@@ -22,9 +22,32 @@ const getGroupStatusByProgress = (g) => {
   return p >= 100 ? 'Complete' : 'Incomplete';
 };
 
+const getRelatedValues = (record, keys) => keys.flatMap((key) => {
+  const value = record?.[key];
+  return Array.isArray(value) ? value : String(value ?? '').split(',');
+}).map((value) => String(value).trim()).filter(Boolean);
+
+const includesRecordValue = (values, record) => {
+  const recordValues = [record?.id, record?.name].filter((value) => value !== undefined && value !== null).map(String);
+  return values.some((value) => recordValues.some((candidate) => (
+    value.toLowerCase() === candidate.toLowerCase()
+  )));
+};
+
+const batchBelongsToGroup = (batch, group) => {
+  const groupValues = getRelatedValues(batch, ['groupIds', 'group_ids', 'groupId', 'group_id', 'groupNames', 'group_name', 'group']);
+  if (includesRecordValue(groupValues, group)) return true;
+
+  const batchCommunity = String(batch.community_id ?? batch.communityId ?? batch.community ?? '').trim().toLowerCase();
+  const groupCommunity = String(group.community_id ?? group.communityId ?? group.community ?? '').trim().toLowerCase();
+  return !groupValues.length && Boolean(batchCommunity && groupCommunity && batchCommunity === groupCommunity);
+};
+
 export default function BeneficiaryListPage({ communities = [], groups = [], batches = [], mothers = [], loading = false, onSelectMother, onSelectChild, batchId = '' }) {
   const [query, setQuery] = useState('');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('All');
+  const [selectedGroupId, setSelectedGroupId] = useState('');
+  const [selectedBatchId, setSelectedBatchId] = useState('');
   const [perPage, setPerPage] = useState(10);
   const [page, setPage] = useState(1);
   const [selectedEntityFilter, setSelectedEntityFilter] = useState('Mother');
@@ -78,6 +101,11 @@ export default function BeneficiaryListPage({ communities = [], groups = [], bat
 
   const handleSearch = (val) => { setQuery(val); setPage(1); };
   const handlePerPageChange = (val) => { setPerPage(Number(val)); setPage(1); };
+  const selectedGroup = groups.find((group) => String(group.id) === selectedGroupId);
+  const availableBatches = useMemo(
+    () => selectedGroup ? batches.filter((batch) => batchBelongsToGroup(batch, selectedGroup)) : [],
+    [batches, selectedGroup]
+  );
 
   const filteredData = useMemo(() => {
     const term = (query || '').trim().toLowerCase();
@@ -107,6 +135,39 @@ export default function BeneficiaryListPage({ communities = [], groups = [], bat
 
         return candidates.some((value) => String(value) === normalizedBatchId || String(value).toLowerCase() === normalizedBatchId.toLowerCase());
       });
+    }
+
+    if (selectedGroup) {
+      data = data.filter((item) => {
+        const original = item.original || item.raw || item;
+        const relatedRecords = [original, original.mother, original.mother?.raw, item];
+        const groupValues = relatedRecords.flatMap((record) => getRelatedValues(record, [
+          'groupId', 'group_id', 'groupIds', 'group_ids', 'groupName', 'group_name', 'group',
+        ]));
+        if (includesRecordValue(groupValues, selectedGroup)) return true;
+
+        const itemBatchValues = relatedRecords.flatMap((record) => getRelatedValues(record, [
+          'batchId', 'batch_id', 'batchCode', 'batch_code', 'batchName', 'batch_name', 'batch',
+        ]));
+        return batches.some((batch) => (
+          batchBelongsToGroup(batch, selectedGroup)
+          && includesRecordValue(itemBatchValues, batch)
+        ));
+      });
+    }
+
+    if (selectedBatchId) {
+      const selectedBatch = availableBatches.find((batch) => String(batch.id) === selectedBatchId);
+      if (selectedBatch) {
+        data = data.filter((item) => {
+          const original = item.original || item.raw || item;
+          const relatedRecords = [original, original.mother, original.mother?.raw, item];
+          const batchValues = relatedRecords.flatMap((record) => getRelatedValues(record, [
+            'batchId', 'batch_id', 'batchCode', 'batch_code', 'batchName', 'batch_name', 'batch',
+          ]));
+          return includesRecordValue(batchValues, selectedBatch);
+        });
+      }
     }
 
     // Normalize incoming items: support both 'group' objects and 'mother' objects
@@ -163,7 +224,7 @@ export default function BeneficiaryListPage({ communities = [], groups = [], bat
       if (statusA !== statusB) return statusA - statusB;
       return (a.name || '').localeCompare(b.name || '');
     });
-  }, [mothers, childRows, query, selectedStatusFilter, selectedEntityFilter, batchId]);
+  }, [mothers, childRows, query, selectedStatusFilter, selectedEntityFilter, batchId, selectedGroup, selectedBatchId, batches, availableBatches]);
 
   const pageCount = Math.max(1, Math.ceil(filteredData.length / perPage));
   const currentPage = Math.min(page, pageCount);
@@ -228,24 +289,6 @@ export default function BeneficiaryListPage({ communities = [], groups = [], bat
 
   return (
     <>
-      <section className="tabs-row beneficiary-filter-row">
-        <StatusFilterBar
-          mode="beneficiary"
-          selectedStatusFilter={selectedStatusFilter}
-          onChange={(nextStatus) => {
-            setSelectedStatusFilter(nextStatus);
-            setPage(1);
-          }}
-        />
-
-        <EntitySearchControls
-          selectedEntityFilter={selectedEntityFilter}
-          query={query}
-            onEntityChange={(nextType) => { setSelectedEntityFilter(nextType); setQuery(''); setPage(1); }}
-          onQueryChange={handleSearch}
-        />
-      </section>
-
       <BeneficiaryTable
         currentRows={displayRows}
         loading={loading || (selectedEntityFilter === 'Child' && childrenLoading)}
@@ -262,6 +305,38 @@ export default function BeneficiaryListPage({ communities = [], groups = [], bat
         groups={groups}
         batches={batches}
         entityFilter={selectedEntityFilter}
+        tableTitle={selectedEntityFilter === 'Child' ? 'Children' : 'Mothers'}
+        tableControls={(
+          <div className="beneficiary-table-controls">
+            <StatusFilterBar
+              mode="beneficiary"
+              selectedStatusFilter={selectedStatusFilter}
+              onChange={(nextStatus) => {
+                setSelectedStatusFilter(nextStatus);
+                setPage(1);
+              }}
+            />
+            <EntitySearchControls
+              selectedEntityFilter={selectedEntityFilter}
+              query={query}
+              groups={groups}
+              batches={availableBatches}
+              selectedGroupId={selectedGroupId}
+              selectedBatchId={selectedBatchId}
+              onGroupChange={(value) => {
+                setSelectedGroupId(value);
+                setSelectedBatchId('');
+                setPage(1);
+              }}
+              onBatchChange={(value) => {
+                setSelectedBatchId(value);
+                setPage(1);
+              }}
+              onEntityChange={(nextType) => { setSelectedEntityFilter(nextType); setQuery(''); setPage(1); }}
+              onQueryChange={handleSearch}
+            />
+          </div>
+        )}
       />
     </>
   );

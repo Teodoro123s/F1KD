@@ -27,11 +27,17 @@ export function ConfirmActionModal({ show, title, message, confirmLabel = 'OK', 
 
 function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitting = false }) {
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-content community-modal-content" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+      <div
+        className="modal-content community-modal-content"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="community-modal-title"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="modal-header-section community-modal-header-section">
-          <h3>{title}</h3>
-          <button className="btn-close-modal" onClick={onClose} aria-label="Close modal">✕</button>
+          <h3 id="community-modal-title">{title}</h3>
+          <button type="button" className="btn-close-modal" onClick={onClose} aria-label="Close modal" disabled={isSubmitting}>✕</button>
         </div>
         <form onSubmit={onSubmit}>
           <div className="modal-body">{children}</div>

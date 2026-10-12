@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider';
 import { PageSkeleton } from '../components/LoadingSkeleton';
 import { normalizeRole, ROLES } from '../utils/permissions';
+import './shared/Dashboard/dashboard.css';
 
 const modulePages = {
   dashboard: {

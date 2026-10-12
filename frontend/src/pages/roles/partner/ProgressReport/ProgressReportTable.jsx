@@ -67,7 +67,7 @@ export default function ProgressReportTable({
                         ? (
                           <div className="progress-cell">
                             <div className="mini-progress-track">
-                              <span style={{ width: `${row.progress}%` }} />
+                              <span  />
                             </div>
                             <strong>{row.progress}%</strong>
                           </div>

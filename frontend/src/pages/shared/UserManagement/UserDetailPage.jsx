@@ -139,7 +139,7 @@ export default function UserDetailPage() {
 
       
 
-      <main style={{ padding: '1rem' }}>
+      <main >
         <div className="checkup-card">
           <div className="checkup-card-body">
             <div className="checkup-section-title">Profile</div>
@@ -196,9 +196,9 @@ export default function UserDetailPage() {
 
             
 
-            <div style={{ marginTop: 18 }}>
+            <div >
               <div className="checkup-section-title">Password</div>
-              <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' }}>
+              <div >
                 <input
                   type="text"
                   className="checkup-field-input"
@@ -206,7 +206,7 @@ export default function UserDetailPage() {
                   readOnly
                   placeholder="Generate default password"
                   aria-label="Generated password"
-                  style={{ flex: 1 }}
+                  
                 />
                 <button type="button" className="btn-small" onClick={generateDefaultPassword}>Generate default password</button>
                 <button type="button" className="btn-small" onClick={applyGenerated} disabled={!generatedPwd || isApplyingPassword}>{isApplyingPassword ? 'Applying...' : 'Apply'}</button>

@@ -64,7 +64,7 @@ export function ResultsPanel({
           </p>
         </div>
 
-        <div className="results-view-toggle" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div className="results-view-toggle" >
           {viewToggle.map((view) => (
             <button
               key={view.key}

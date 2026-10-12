@@ -4,6 +4,7 @@ import PageHeader from '../components/ui/PageHeader';
 import { notifyAction } from '../components/ActionFeedback';
 import { useAuth } from '../auth/AuthProvider';
 import { changePassword, confirmPasswordReset, requestPasswordResetCode } from '../api/auth';
+import './settings-page.css';
 
 const PASSWORD_REQUIREMENTS = [
   { label: 'At least 12 characters', test: (password) => password.length >= 12 },
@@ -102,21 +103,21 @@ export default function SettingsPage() {
     .map(({ label }) => label);
 
   return (
-    <div className="community-page">
+    <div className="settings-page">
       <PageHeader
         title="Settings"
         breadcrumbs={[{ label: 'Settings' }]}
       />
 
-      <main style={{ padding: '1rem' }}>
+      <main className="settings-page__content">
         {currentUser?.must_change_password && (
-          <div className="checkup-card" style={{ marginBottom: '1rem' }}>
+          <div className="checkup-card" >
             <div className="checkup-card-body">
               <div className="checkup-section-title">Set a new password</div>
               <p>Your temporary password must be replaced before you can use the rest of the app.</p>
               <form className="settings-password-form" onSubmit={handleTemporaryPasswordChange}>
                 <div className="checkup-grid user-profile-grid">
-                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                  <div className="form-group" >
                     <label className="checkup-field-label" htmlFor="temporary-password">Temporary password</label>
                     <input
                       id="temporary-password"
@@ -128,7 +129,7 @@ export default function SettingsPage() {
                       required
                     />
                   </div>
-                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                  <div className="form-group" >
                     <label className="checkup-field-label" htmlFor="temporary-new-password">New password</label>
                     <input
                       id="temporary-new-password"
@@ -140,11 +141,11 @@ export default function SettingsPage() {
                       onChange={(event) => setTemporaryPasswordForm((form) => ({ ...form, newPassword: event.target.value }))}
                       required
                     />
-                    <div style={{ marginTop: '0.5rem', color: '#475569', fontSize: '0.9rem' }}>
+                    <div >
                       Use at least 12 characters, including uppercase and lowercase letters, a number, and a symbol.
                     </div>
                   </div>
-                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                  <div className="form-group" >
                     <label className="checkup-field-label" htmlFor="temporary-confirm-password">Confirm new password</label>
                     <input
                       id="temporary-confirm-password"
@@ -158,7 +159,7 @@ export default function SettingsPage() {
                     />
                   </div>
                 </div>
-                <div style={{ marginTop: '1.25rem' }}>
+                <div >
                   <button type="submit" className="btn-primary" disabled={changingTemporaryPassword}>
                     {changingTemporaryPassword ? 'Changing...' : 'Change password'}
                   </button>
@@ -172,16 +173,16 @@ export default function SettingsPage() {
           <div className="checkup-card-body">
             <div className="checkup-section-title">Reset password</div>
             <p>
-              Request a one-time verification code to {currentUser?.email || 'your account email'}, then choose a new password.
+              Get a one-time code at {currentUser?.email || 'your account email'} to verify your identity and set a new password.
             </p>
-            <div style={{ marginBottom: '1rem' }}>
+            <div >
               <button type="button" className="btn-secondary" onClick={handleRequestCode} disabled={sendingCode}>
                 {sendingCode ? 'Sending...' : codeSent ? 'Resend verification code' : 'Email me a verification code'}
               </button>
             </div>
-            <form className="settings-password-form" onSubmit={handlePasswordReset}>
+            <form className="settings-password-form settings-password-form--reset" onSubmit={handlePasswordReset}>
                 <div className="checkup-grid user-profile-grid">
-                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                  <div className="form-group" >
                     <label className="checkup-field-label" htmlFor="password-reset-code">Email verification code</label>
                       <input
                         id="password-reset-code"
@@ -197,9 +198,9 @@ export default function SettingsPage() {
                       />
                   </div>
 
-                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                  <div className="form-group" >
                     <label className="checkup-field-label">New password</label>
-                    <span className="password-input-wrap" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span className="password-input-wrap" >
                       <input
                         className="checkup-field-input"
                         type={visiblePasswords.newPassword ? 'text' : 'password'}
@@ -214,19 +215,19 @@ export default function SettingsPage() {
                         {visiblePasswords.newPassword ? 'Hide' : 'Show'}
                       </button>
                     </span>
-                    <div id="password-strength-guidance" style={{ marginTop: '0.5rem', color: '#475569', fontSize: '0.9rem' }} aria-live="polite">
-                      <p style={{ margin: '0 0 0.25rem' }}>
-                        Use a strong password. A passphrase with several unrelated words is easier to remember; avoid names and reused passwords.
+                    <div id="password-strength-guidance"  aria-live="polite">
+                      <p >
+                        Use 12 or more characters with uppercase and lowercase letters, a number, and a symbol. Avoid names and reused passwords.
                       </p>
                       {unmetPasswordRequirements.length
-                        ? <p style={{ margin: 0 }}>Still needed: {unmetPasswordRequirements.join(', ')}.</p>
-                        : <p style={{ margin: 0, color: '#15803d' }}>Your password meets the strength requirements.</p>}
+                        ? <p >Still needed: {unmetPasswordRequirements.join(', ')}.</p>
+                        : <p >Your password meets the strength requirements.</p>}
                     </div>
                   </div>
 
-                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                  <div className="form-group" >
                     <label className="checkup-field-label">Confirm new password</label>
-                    <span className="password-input-wrap" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span className="password-input-wrap" >
                       <input
                         className="checkup-field-input"
                         type={visiblePasswords.confirmPassword ? 'text' : 'password'}
@@ -243,7 +244,7 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <div style={{ marginTop: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <div >
                   <button type="submit" className="btn-primary" disabled={resettingPassword}>
                     {resettingPassword ? 'Resetting...' : 'Reset password'}
                   </button>

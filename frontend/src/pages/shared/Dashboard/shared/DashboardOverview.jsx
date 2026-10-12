@@ -520,7 +520,7 @@ export default function DashboardOverview({ variant }) {
               <span className="kpi-title">{card.title}</span>
               <span className={`kpi-icon ${card.cardClass}`} aria-hidden="true"><Icon /></span>
             </div>
-            <div className="kpi-value" style={card.key === 'monitoring' ? { color: '#c22944' } : undefined}>
+            <div className="kpi-value" >
               {loading ? '...' : Number(card.value).toLocaleString()}
             </div>
             <div className="kpi-subtitle">
@@ -545,9 +545,7 @@ export default function DashboardOverview({ variant }) {
           <div className="program-progress-layout">
             <div
               className="progress-ring"
-              style={{
-                background: `conic-gradient(#38a46d 0% ${stats.onTrackPercent}%, #f0ad2d ${stats.onTrackPercent}% ${Math.min(100, stats.onTrackPercent + stats.followUpPercent)}%, #df6d75 ${Math.min(100, stats.onTrackPercent + stats.followUpPercent)}% ${Math.min(100, stats.onTrackPercent + stats.followUpPercent + stats.notStartedPercent)}%, #cdd9e6 ${Math.min(100, stats.onTrackPercent + stats.followUpPercent + stats.notStartedPercent)}% 100%)`,
-              }}
+              
             >
               <div className="progress-ring-inner">
                 <strong>{stats.onTrackPercent}%</strong>
@@ -689,7 +687,7 @@ export default function DashboardOverview({ variant }) {
                       <span className="program-item-tag">{prog.type || prog.beneficiary_type || 'School scope'}</span>
                     </div>
                     <div className="program-progress-bar-wrap" aria-label={`Progress: ${percent}%`}>
-                      <div className="program-progress-bar-fill" style={{ width: `${percent}%` }} />
+                      <div className="program-progress-bar-fill"  />
                     </div>
                     <div className="program-item-meta">
                       <span>{prog.provider ? `${prog.provider} • ${getProgramScopeLabel(prog)}` : getProgramScopeLabel(prog)}</span>
@@ -701,7 +699,7 @@ export default function DashboardOverview({ variant }) {
             ) : (
               <div className="dashboard-empty-state">
                 No intervention programs registered yet.{' '}
-                <Link to="/program" style={{ color: '#2b6cb0', fontWeight: 700 }}>
+                <Link to="/program" >
                   Create a program
                 </Link>
               </div>

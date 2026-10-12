@@ -13,7 +13,7 @@ export default function MotherMonitoringPage() {
       <header className="community-header">
         <div className="community-title-section">
           <h1>Monitoring</h1>
-          <p style={{ margin: 0 }}>{mother ? mother.name || mother.motherName : 'Mother'}</p>
+          <p >{mother ? mother.name || mother.motherName : 'Mother'}</p>
         </div>
         <div>
           <button className="btn-secondary back-action" onClick={() => navigate(-1)}>Back</button>

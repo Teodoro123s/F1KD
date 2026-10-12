@@ -28,7 +28,7 @@ export default function CommunityPagination({
         <span>entries</span>
       </div>
 
-      <div className="community-pagination-right" aria-label="Pagination navigation">
+      <div className="community-pagination-navigation" aria-label="Pagination navigation">
         <button
           type="button"
           className="community-pagination-nav"
@@ -66,7 +66,7 @@ export default function CommunityPagination({
         </button>
       </div>
 
-      <div className="community-pagination-summary" role="status" aria-live="polite">
+      <div className="community-pagination-right" role="status" aria-live="polite">
         {rangeStart}–{rangeEnd} of {totalItems}
       </div>
     </footer>

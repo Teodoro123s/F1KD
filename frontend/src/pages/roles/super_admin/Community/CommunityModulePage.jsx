@@ -5,6 +5,7 @@ import SuperAdminCommunityPage from './SuperAdminCommunityPage';
 import SuperAdminHealthWorkersPage from './SuperAdminHealthWorkersPage';
 import { useAuth } from '../../../../auth/AuthProvider';
 import { hasRole, ROLES } from '../../../../utils/permissions';
+import '../../_shared/community-module.css';
 
 /** Selects the isolated Community implementation for superadmins. */
 export default function CommunityModulePage() {

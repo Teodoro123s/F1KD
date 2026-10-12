@@ -41,6 +41,7 @@ import {
 } from './progressReportConfig';
 import { aggregateGrowthRows, aggregateReportRows } from './utils/reportAggregation';
 import { buildProgressReportParams } from './utils/apiUtils';
+import '../../../shared/ProgressReport/progress-report.css';
 import { matchesProgramBeneficiaryType } from './utils/programEligibility';
 import {
   GROWTH_TABLE_FIELDS,

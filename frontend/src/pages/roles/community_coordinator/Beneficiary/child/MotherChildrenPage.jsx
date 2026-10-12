@@ -8,6 +8,8 @@ import PageHeader from '../../../../../components/ui/PageHeader';
 import { useAuth } from '../../../../../auth/AuthProvider';
 import { can, isHealthWorkerRole } from '../../../../../utils/permissions';
 import { notifyAction } from '../../_shared/components/ActionFeedback';
+import '../beneficiary-page.css';
+import './child-page.css';
 
 export default function MotherChildrenPage() {
   const { id } = useParams();
@@ -102,7 +104,7 @@ export default function MotherChildrenPage() {
   );
 
   return (
-    <section className="community-page beneficiary-page mother-children-page">
+    <section className="community-page beneficiary-page beneficiary-page--organizer mother-children-page">
       <PageHeader
         title={`Children of ${motherName}`}
         breadcrumbs={[{ label: 'Beneficiaries', to: '/beneficiary' }, { label: 'Children' }]}

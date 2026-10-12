@@ -275,7 +275,7 @@ export * from './mother/MotherCheckup';
                 <select
                   id="source-of-funds"
                   className="checkup-field-input"
-                  style={{ appearance: 'auto' }}
+                  
                   value={sourceOfFunds}
                   onChange={(e) => updateField('sourceOfFunds')(e.target.value)}
                 >
@@ -330,7 +330,7 @@ export * from './mother/MotherCheckup';
                 />
               </div>
 
-              <div className="form-group full-width" style={{ marginTop: '12px' }}>
+              <div className="form-group full-width" >
                 <label className="checkup-field-label" htmlFor="remarks">Remarks / Notes</label>
                 <textarea
                   id="remarks"
@@ -344,7 +344,7 @@ export * from './mother/MotherCheckup';
             </div>
 
             {hasWarnings && (
-              <div className="clinical-warnings" style={{ marginTop: '24px' }}>
+              <div className="clinical-warnings" >
                 <div className="warning-title">⚠️ Clinical Warnings</div>
                 <ul>
                   {bpWarning && <li>{bpWarning}</li>}
@@ -356,7 +356,7 @@ export * from './mother/MotherCheckup';
           </div>
         </div>
 
-        <div className="form-actions" style={{ justifyContent: 'flex-start', marginTop: '24px' }}>
+        <div className="form-actions" >
           <button type="submit" className="btn-primary">
             Save Checkup
           </button>

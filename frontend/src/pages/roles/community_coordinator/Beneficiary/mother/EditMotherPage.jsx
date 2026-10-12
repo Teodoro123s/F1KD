@@ -8,6 +8,8 @@ import { capitalizeNameValue } from '../../_shared/utils/nameFormat';
 import { getSummary } from '../../Community/communityService';
 import PageHeader from '../../../../../components/ui/PageHeader';
 import { notifyAction } from '../../_shared/components/ActionFeedback';
+import './edit-mother-page.css';
+import '../beneficiary-page.css';
 
 const parseAddressParts = (address = '') => {
   const parts = String(address || '').split(',').map((part) => part.trim()).filter(Boolean);
@@ -170,31 +172,38 @@ export default function EditMotherPage() {
   };
 
   return (
-    <section className="community-page beneficiary-page edit-mother-page">
+    <section className="community-page beneficiary-page beneficiary-page--organizer edit-mother-page">
       <PageHeader
-        title={fullName}
-        breadcrumbs={[{ label: 'Beneficiaries', href: '/beneficiary' }, { label: 'Mother Profile' }, { label: 'Edit' }]}
-        actions={(
-          <>
-            <button type="button" className="btn-secondary edit-mother-action" onClick={() => navigate(-1)}>Cancel</button>
-            <button type="button" className="btn-primary edit-mother-action" disabled={saving} onClick={() => formRef.current?.requestSubmit()}>{saving ? 'Saving...' : 'Save'}</button>
-          </>
-        )}
+        title="Beneficiaries"
+        description="Manage mother and child profiles across your assigned communities."
+        breadcrumbs={[{ label: 'Beneficiaries' }]}
       />
+      <section className="edit-mother-header-card">
+        <PageHeader
+          title={fullName}
+          breadcrumbs={[{ label: 'Beneficiaries', href: '/beneficiary' }, { label: 'Mother Profile' }, { label: 'Edit' }]}
+          actions={(
+            <div className="edit-mother-actions">
+              <button type="button" className="edit-mother-button edit-mother-button--secondary" onClick={() => navigate(-1)}>Cancel</button>
+              <button type="button" className="edit-mother-button edit-mother-button--primary" disabled={saving} onClick={() => formRef.current?.requestSubmit()}>{saving ? 'Saving...' : 'Save'}</button>
+            </div>
+          )}
+        />
+      </section>
 
       {showSaveConfirm && (
         <div className="modal-backdrop" role="presentation" onMouseDown={(event) => {
           if (event.target === event.currentTarget && !saving) setShowSaveConfirm(false);
         }}>
-          <div className="modal-content signout-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="save-confirm-title" onMouseDown={(event) => event.stopPropagation()}>
-            <div className="modal-header-section">
+          <div className="modal-content signout-confirm-modal edit-mother-save-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="save-confirm-title" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="modal-header-section edit-mother-save-confirm-header">
               <h3 id="save-confirm-title">Save changes?</h3>
-              <button type="button" className="btn-close-modal" onClick={() => setShowSaveConfirm(false)} aria-label="Close save confirmation" disabled={saving}>✕</button>
+              <button type="button" className="btn-close-modal edit-mother-save-confirm-close" onClick={() => setShowSaveConfirm(false)} aria-label="Close save confirmation" disabled={saving}>✕</button>
             </div>
-            <div className="modal-body">
+            <div className="modal-body edit-mother-save-confirm-body">
               <p>Are you sure you want to save the updated mother profile?</p>
             </div>
-            <div className="modal-footer">
+            <div className="modal-footer edit-mother-save-confirm-footer">
               <button type="button" className="btn-secondary" onClick={() => setShowSaveConfirm(false)} disabled={saving}>Cancel</button>
               <button type="button" className="btn-primary" onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
             </div>
@@ -204,38 +213,40 @@ export default function EditMotherPage() {
 
       <form ref={formRef} id="mother-edit-form" onSubmit={handleSaveRequest} className="mother-edit-form">
         <div className="mother-detail-profile-content edit-mother-profile-content">
-          <div className="stepper-progress mother-detail-stepper">
-            <div className="stepper-steps" role="tablist" aria-label="Mother profile sections">
-              {profileSteps.map(([tab, label], index) => (
-                <button
-                  key={tab}
-                  type="button"
-                  role="tab"
-                  aria-selected={activeTab === tab}
-                  className={`stepper-step ${activeTab === tab ? 'active' : ''}`}
-                  onClick={() => setActiveTab(tab)}
-                >
-                  <span className="stepper-step-index">{index + 1}</span>
-                  <span className="stepper-step-label">{label}</span>
-                </button>
-              ))}
+          <div className="mother-detail-profile-panel">
+            <div className="stepper-progress mother-detail-stepper">
+              <div className="stepper-steps" role="tablist" aria-label="Mother profile sections">
+                {profileSteps.map(([tab, label], index) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    role="tab"
+                    aria-selected={activeTab === tab}
+                    className={`stepper-step ${activeTab === tab ? 'active' : ''}`}
+                    onClick={() => setActiveTab(tab)}
+                  >
+                    <span className="stepper-step-index">{index + 1}</span>
+                    <span className="stepper-step-label">{label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
 
-          <div className="create-form-body mother-detail-shared-form">
-            <div className="modal-body-scrollable">
-              <MotherFormFields
-                activeTab={activeTab}
-                form={form}
-                setForm={setForm}
-                communities={communityOptions.communities}
-                groups={communityOptions.groups}
-                batches={communityOptions.batches}
-                documentFiles={documentFiles}
-                setDocumentFiles={setDocumentFiles}
-                autoCalculate={false}
-                readOnly={false}
-              />
+            <div className="create-form-body mother-detail-shared-form">
+              <div className="modal-body-scrollable">
+                <MotherFormFields
+                  activeTab={activeTab}
+                  form={form}
+                  setForm={setForm}
+                  communities={communityOptions.communities}
+                  groups={communityOptions.groups}
+                  batches={communityOptions.batches}
+                  documentFiles={documentFiles}
+                  setDocumentFiles={setDocumentFiles}
+                  autoCalculate={false}
+                  readOnly={false}
+                />
+              </div>
             </div>
           </div>
         </div>

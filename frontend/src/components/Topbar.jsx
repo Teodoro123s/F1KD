@@ -105,7 +105,7 @@ export default function Topbar() {
       setSigningOut(true);
       await Promise.resolve();
       auth.logout();
-      navigate('/login');
+      navigate('/login', { replace: true });
     } catch (error) {
       console.error('Sign out failed', error);
     } finally {
@@ -175,7 +175,7 @@ export default function Topbar() {
                     <span className="notification-dropdown-title">{notification.title || notification.category}</span>
                     <span className="notification-dropdown-message">{notification.message}</span>
                     {notification.actorName && (
-                      <span className="notification-dropdown-category">
+                      <span className="notification-dropdown-category notification-dropdown-attribution">
                         By {notification.actorName}{notification.actorRole ? ` · ${notification.actorRole}` : ''}
                       </span>
                     )}
@@ -203,6 +203,7 @@ export default function Topbar() {
           <button
             className="user-button"
             aria-label={`Account menu for ${user ? user.name : 'Account'}`}
+            aria-expanded={openUser}
             onClick={() => { if (signingOut) return; setOpenUser((s) => !s); setOpenNotif(false); }}
             title={user ? user.name : 'Account'}
             disabled={signingOut}
@@ -217,15 +218,19 @@ export default function Topbar() {
                   <div className="dropdown-separator" />
                   <div className="dropdown-item" role="button" onClick={() => { setOpenUser(false); navigate('/profile'); }}>Profile</div>
                   <div className="dropdown-item" role="button" onClick={() => { setOpenUser(false); navigate('/settings'); }}>Settings</div>
-                  <div
-                    className="dropdown-item"
-                    onClick={() => { if (!signingOut) setShowSignOutModal(true); }}
+                  <button
+                    type="button"
+                    className="dropdown-item dropdown-action signout-menu-action"
+                    onClick={() => {
+                      if (signingOut) return;
+                      setOpenUser(false);
+                      setShowSignOutModal(true);
+                    }}
                     aria-busy={signingOut}
-                    role="button"
-                    style={{ opacity: signingOut ? 0.6 : 1, pointerEvents: signingOut ? 'none' : 'auto' }}
+                    disabled={signingOut}
                   >
                     {signingOut ? 'Signing out...' : 'Sign out'}
-                  </div>
+                  </button>
                 </>
               ) : (
                 <>
@@ -240,24 +245,23 @@ export default function Topbar() {
 
       {showSignOutModal && createPortal((
         <div
-          className="modal-backdrop"
-          role="presentation"
+          className="signout-modal-backdrop"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget && !signingOut) setShowSignOutModal(false);
           }}
         >
           <div
-            className="modal-content signout-confirm-modal"
+            className="signout-confirm-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="signout-confirm-title"
             onMouseDown={(event) => event.stopPropagation()}
           >
-            <div className="modal-header-section">
+            <div className="signout-modal-header">
               <h3 id="signout-confirm-title">Sign out?</h3>
               <button
                 type="button"
-                className="btn-close-modal"
+                className="signout-modal-close"
                 onClick={() => setShowSignOutModal(false)}
                 aria-label="Close sign-out confirmation"
                 disabled={signingOut}
@@ -265,14 +269,14 @@ export default function Topbar() {
                 ✕
               </button>
             </div>
-            <div className="modal-body">
+            <div className="signout-modal-body">
               <p>Are you sure you want to sign out of your account?</p>
             </div>
-            <div className="modal-footer">
-              <button type="button" className="btn-secondary" onClick={() => setShowSignOutModal(false)} disabled={signingOut}>
+            <div className="signout-modal-footer">
+              <button type="button" className="signout-cancel-button" onClick={() => setShowSignOutModal(false)} disabled={signingOut}>
                 Cancel
               </button>
-              <button type="button" className="btn-primary" onClick={handleSignOut} disabled={signingOut}>
+              <button type="button" className="signout-confirm-button" onClick={handleSignOut} disabled={signingOut}>
                 {signingOut ? 'Signing out...' : 'Sign out'}
               </button>
             </div>

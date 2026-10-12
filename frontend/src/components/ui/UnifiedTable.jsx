@@ -14,7 +14,7 @@ export default function UnifiedTable({
           <thead>
             <tr>
               {columns.map((column) => (
-                <th key={column.key} style={column.width ? { width: column.width } : undefined}>
+                <th key={column.key} >
                   {column.label}
                 </th>
               ))}

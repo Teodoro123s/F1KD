@@ -29,13 +29,16 @@ export default function Sidebar() {
           className="logo-button"
           onClick={() => setCollapsed(!collapsed)}
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-expanded={!collapsed}
+          aria-controls="primary-navigation"
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           <img src={lightLogo} alt="F1KD logo" className="logo" />
+          {!collapsed && <span className="brand">F1KD</span>}
         </button>
-        {!collapsed && <div className="brand">F1KD</div>}
       </div>
 
-      <nav className="sidebar-nav">
+      <nav id="primary-navigation" className="sidebar-nav" aria-label="Primary navigation">
         {visibleItems.map((it) => (
           <NavLink
             key={it.to}

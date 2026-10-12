@@ -22,7 +22,7 @@ export default function CommunityTable({
                   key={column.key || column.header}
                   scope="col"
                   className={column.thClassName || column.className}
-                  style={column.style}
+                  
                 >
                   {column.header}
                 </th>
@@ -56,7 +56,7 @@ export default function CommunityTable({
                       <td
                         key={`${row[rowKey]}-${column.key || column.header}`}
                         className={column.cellClassName || column.className}
-                        style={column.cellStyle}
+                        
                       >
                         {column.renderCell ? column.renderCell(row, value) : value ?? '—'}
                       </td>

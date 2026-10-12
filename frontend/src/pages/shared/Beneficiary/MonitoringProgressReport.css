@@ -1,0 +1,314 @@
+.monitoring-progress-report {
+  min-width: 0;
+  padding: 18px;
+  color: #0f172a;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgb(15 23 42 / 4%);
+}
+
+.monitoring-progress-report-header,
+.monitoring-progress-report-latest {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.monitoring-progress-report-header h2 {
+  margin: 3px 0 5px;
+  color: #14532d;
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.monitoring-progress-report-header p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.checkup-module-kicker {
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.monitoring-progress-report-count {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  color: #166534;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.monitoring-progress-report-count strong {
+  font-size: 1rem;
+}
+
+.monitoring-progress-report-meter {
+  height: 8px;
+  margin: 14px 0;
+  overflow: hidden;
+  background: #dcfce7;
+  border-radius: 999px;
+}
+
+.monitoring-progress-report-meter > span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #22c55e, #15803d);
+  border-radius: inherit;
+  transition: width 180ms ease;
+}
+
+.monitoring-progress-report-latest {
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 11px 13px;
+  color: #475569;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  font-size: 0.78rem;
+}
+
+.monitoring-progress-report-latest strong {
+  color: #334155;
+}
+
+.monitoring-progress-report-view-controls {
+  display: inline-flex;
+  gap: 4px;
+  margin: 14px 0 12px;
+  padding: 4px;
+  background: #f1f5f9;
+  border-radius: 9px;
+}
+
+.monitoring-progress-report-view-controls button {
+  min-height: 34px;
+  padding: 0 12px;
+  color: #475569;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: color 120ms ease, background-color 120ms ease, box-shadow 120ms ease;
+}
+
+.monitoring-progress-report-view-controls button:hover {
+  color: #166534;
+}
+
+.monitoring-progress-report-view-controls button.active {
+  color: #166534;
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(15 23 42 / 12%);
+}
+
+.monitoring-progress-report-view-controls button:focus-visible {
+  outline: 3px solid #86efac;
+  outline-offset: 2px;
+}
+
+.monitoring-progress-report-table-wrap,
+.monitoring-progress-report-graph-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-color: #cbd5e1 #f1f5f9;
+  scrollbar-width: thin;
+}
+
+.monitoring-progress-report-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  color: #334155;
+  font-size: 0.8rem;
+  text-align: left;
+}
+
+.monitoring-progress-report-table th,
+.monitoring-progress-report-table td {
+  padding: 9px 10px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.monitoring-progress-report-table th {
+  color: #475569;
+  background: #f8fafc;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.monitoring-progress-report-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.monitoring-progress-report-table tbody tr.is-clickable {
+  cursor: pointer;
+}
+
+.monitoring-progress-report-table tbody tr.is-clickable:hover td,
+.monitoring-progress-report-table tbody tr.is-clickable:focus td {
+  background: #f0fdf4;
+  outline: none;
+}
+
+.monitoring-progress-report-graph-panel {
+  min-width: 0;
+  padding: 14px;
+  background: #fbfdfb;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.monitoring-progress-report-graph-metric {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.monitoring-progress-report-graph-metric strong {
+  padding: 4px 9px;
+  color: #166534;
+  background: #dcfce7;
+  border-radius: 999px;
+  font-size: 0.76rem;
+}
+
+.monitoring-progress-report-graph-scroll {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #fff 0%, #fcfefd 100%);
+}
+
+.monitoring-progress-report-graph {
+  display: block;
+  width: 100%;
+  min-width: 720px;
+  height: auto;
+  max-width: none;
+}
+
+.monitoring-progress-report-gridline {
+  stroke: #e8eef0;
+  stroke-width: 1;
+}
+
+.monitoring-progress-report-gridline.is-reference {
+  stroke: #cbd5e1;
+  stroke-dasharray: 4 5;
+}
+
+.monitoring-progress-report-gridline.is-zero {
+  stroke: #94a3b8;
+  stroke-dasharray: none;
+  stroke-width: 1.5;
+}
+
+.monitoring-progress-report-y-label,
+.monitoring-progress-report-x-label {
+  fill: #64748b;
+  font-family: inherit;
+  font-size: 11px;
+}
+
+.monitoring-progress-report-x-label {
+  fill: #475569;
+  font-size: 10px;
+}
+
+.monitoring-progress-report-line {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.monitoring-progress-report-point {
+  fill: #168348;
+  stroke: #fff;
+  stroke-width: 2;
+}
+
+.monitoring-progress-report-axis-label {
+  fill: #334155;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.monitoring-progress-report-graph-panel > label {
+  display: flex;
+  width: min(100%, 320px);
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.monitoring-progress-report-graph-panel select {
+  min-height: 36px;
+  padding: 0 10px;
+  color: #334155;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font: inherit;
+}
+
+.monitoring-progress-report-empty {
+  margin: 0;
+  padding: 14px;
+  color: #64748b;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.monitoring-progress-report-graph-metric + .monitoring-progress-report-graph-scroll {
+  margin-top: 2px;
+}
+
+@media (max-width: 640px) {
+  .monitoring-progress-report {
+    padding: 14px;
+  }
+
+  .monitoring-progress-report-header,
+  .monitoring-progress-report-latest {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .monitoring-progress-report-latest {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .monitoring-progress-report-graph-panel {
+    padding: 10px;
+  }
+
+  .monitoring-progress-report-graph {
+    min-width: 680px;
+  }
+}

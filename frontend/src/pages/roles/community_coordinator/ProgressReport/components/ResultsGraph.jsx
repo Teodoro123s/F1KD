@@ -174,7 +174,7 @@ function ProfileMeasurementGraph({ rows, field, label, beneficiaryType, numbers 
           {bins.map((bin) => (
             <div className="growth-report-bar-item" key={`${bin.start}-${bin.end}`}>
               <strong>{bin.count}</strong>
-              <span style={{ '--bar-height': `${Math.max(6, (bin.count / maxCount) * 100)}%` }} title={`${bin.count} records`} />
+              <span style={{ height: `${(bin.count / maxCount) * 100}%` }} title={`${bin.count} records`} />
               <small>{bin.start.toFixed(1)}{rangeSpan === 0 ? '' : `–${bin.end.toFixed(1)}`}</small>
             </div>
           ))}
@@ -219,7 +219,7 @@ function ProfileGraph({ rows, field, profileGraphFields, beneficiaryType }) {
         <div className="profile-pie-legend">
           {entries.map(([label, count], index) => (
             <div key={label}>
-              <span><i style={{ background: colors[index % colors.length] }} />{label}</span>
+              <span><i style={{ backgroundColor: colors[index % colors.length] }} />{label}</span>
               <strong>{count} · {Math.round((count / total) * 100)}%</strong>
             </div>
           ))}
@@ -243,7 +243,7 @@ function ProfileGraph({ rows, field, profileGraphFields, beneficiaryType }) {
           {entries.map(([label, count]) => (
             <div className="growth-report-bar-item" key={label}>
               <strong>{count}</strong>
-              <span style={{ '--bar-height': `${Math.max(6, (count / maxCount) * 100)}%` }} title={`${label}: ${count}`} />
+              <span style={{ height: `${(count / maxCount) * 100}%` }} title={`${label}: ${count}`} />
               <small>{label}</small>
             </div>
           ))}
@@ -341,7 +341,7 @@ function ProfileGraph({ rows, field, profileGraphFields, beneficiaryType }) {
         {bins.map((bin) => (
           <div className="growth-report-bar-item" key={`${bin.start}-${bin.end}`}>
             <strong>{bin.count}</strong>
-            <span style={{ '--bar-height': `${Math.max(6, (bin.count / maxCount) * 100)}%` }} title={`${bin.count} records`} />
+            <span style={{ height: `${(bin.count / maxCount) * 100}%` }} title={`${bin.count} records`} />
             <small>{bin.start.toFixed(1)}{max === min ? '' : `–${bin.end.toFixed(1)}`}</small>
           </div>
         ))}

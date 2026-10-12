@@ -13,11 +13,13 @@ export default function CommunityToolbar({
   breadcrumbItems,
   navigate,
   canManage = false,
+  isCommunityOrganizer = false,
 }) {
   return (
     <>
       <PageHeader
         title="Communities"
+        description={isCommunityOrganizer ? 'Manage groups, batches, and beneficiaries for your school.' : undefined}
         breadcrumbs={breadcrumbItems.map((item) => ({ label: item.label, to: item.clickable ? item.to : undefined }))}
         actions={(
           <>

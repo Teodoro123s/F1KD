@@ -442,16 +442,16 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
           <p className="form-optional-note">Optional</p>
           <div className="form-group full-width">
             <div className="form-panel">
-              <div className="vaccine-dose-grid" style={{ display: 'grid', gridTemplateColumns: '1.4fr repeat(3, minmax(140px, 1fr)) 1.3fr', gap: '0.75rem', alignItems: 'start' }}>
-                <div style={{ fontWeight: 800, color: '#0f172a', paddingTop: '0.5rem' }}>Vaccine</div>
-                <div style={{ fontWeight: 800, color: '#0f172a', paddingTop: '0.5rem' }}>Dose 1</div>
-                <div style={{ fontWeight: 800, color: '#0f172a', paddingTop: '0.5rem' }}>Dose 2</div>
-                <div style={{ fontWeight: 800, color: '#0f172a', paddingTop: '0.5rem' }}>Dose 3</div>
-                <div style={{ fontWeight: 800, color: '#0f172a', paddingTop: '0.5rem' }}>Remarks</div>
+              <div className="vaccine-dose-grid" >
+                <div >Vaccine</div>
+                <div >Dose 1</div>
+                <div >Dose 2</div>
+                <div >Dose 3</div>
+                <div >Remarks</div>
 
                 {vaccineRows.map(({ key, label, doseFields, remarksField }) => (
                   <React.Fragment key={key}>
-                    <div style={{ display: 'flex', alignItems: 'center', minHeight: '62px', fontSize: '1.05rem', fontWeight: 700, color: '#1e293b' }}>{label}</div>
+                    <div >{label}</div>
                     {doseFields.map((doseField, index) => (
                       <div key={`${key}-${doseField}`}>
                         {renderField({

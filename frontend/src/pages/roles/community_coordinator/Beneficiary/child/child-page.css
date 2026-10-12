@@ -1,0 +1,138 @@
+.mother-children-page .view-page-header__actions,
+.mother-children-page .mother-children-page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.mother-children-page .view-page-header__actions .module-create-button,
+.mother-children-page .mother-children-back-button {
+  min-height: 40px;
+  border-radius: 8px;
+}
+
+.mother-children-page .mother-children-back-button {
+  padding: 0 14px;
+  color: #334155;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.mother-children-page .mother-children-back-button:hover {
+  color: #166534;
+  background: #f0fdf4;
+  border-color: #86efac;
+}
+
+.edit-child-page {
+  display: flex;
+  width: min(100%, 1440px);
+  box-sizing: border-box;
+  flex-direction: column;
+  align-self: center;
+  gap: 18px;
+  padding: 24px clamp(16px, 3vw, 36px);
+  color: #0f172a;
+}
+
+.edit-child-page .view-page-header,
+.edit-child-page .stepper-progress,
+.edit-child-page .create-form-body {
+  min-width: 0;
+  box-sizing: border-box;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgb(15 23 42 / 4%);
+}
+
+.edit-child-page .view-page-header {
+  padding: 20px 22px;
+}
+
+.edit-child-page .stepper-progress {
+  overflow-x: auto;
+}
+
+.edit-child-page .stepper-steps {
+  display: grid;
+  min-width: 520px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.edit-child-page .stepper-step {
+  min-height: 58px;
+  border-radius: 0;
+}
+
+.edit-child-page .create-form-body {
+  padding: 14px;
+}
+
+.edit-child-page .modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 16px;
+}
+
+.edit-child-page .modal-footer button {
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.edit-child-page .modal-footer .btn-secondary {
+  color: #334155;
+  background: #fff;
+}
+
+.edit-child-page .modal-footer .btn-primary,
+.edit-child-page .modal-footer .btn-create-action {
+  color: #fff;
+  background: #15803d;
+  border-color: #15803d;
+}
+
+.edit-child-page .modal-footer button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.edit-child-page :is(button, a):focus-visible,
+.mother-children-page :is(button, a):focus-visible,
+.child-detail-page :is(button, a):focus-visible {
+  outline: 3px solid #86efac;
+  outline-offset: 2px;
+}
+
+@media (max-width: 720px) {
+  .mother-children-page .view-page-header__actions {
+    width: 100%;
+  }
+
+  .mother-children-page .view-page-header__actions button {
+    flex: 1 1 auto;
+  }
+
+  .edit-child-page {
+    gap: 12px;
+    padding: 14px 12px;
+  }
+
+  .edit-child-page .view-page-header,
+  .edit-child-page .create-form-body {
+    padding: 14px;
+  }
+}

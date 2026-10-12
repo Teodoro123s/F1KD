@@ -1,0 +1,243 @@
+html,
+body,
+#root {
+  min-height: 100%;
+  margin: 0;
+}
+
+.login-page {
+  display: flex;
+  min-height: 100vh;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 24px;
+  color: #0f172a;
+  background:
+    radial-gradient(ellipse at 15% 10%, rgb(187 247 208 / 55%), transparent 40%),
+    radial-gradient(ellipse at 90% 90%, rgb(220 252 231 / 75%), transparent 38%),
+    #f4f8f5;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.login-card {
+  width: min(420px, 100%);
+  box-sizing: border-box;
+  padding: 36px;
+  background: #fff;
+  border: 1px solid #e2e8e4;
+  border-radius: 18px;
+  box-shadow: 0 20px 55px rgb(15 23 42 / 10%);
+}
+
+.login-kicker {
+  display: flex;
+  width: fit-content;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 24px;
+  padding: 10px;
+  background: #f0fdf4;
+  border-radius: 12px;
+}
+
+.login-logo {
+  display: block;
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+}
+
+.login-title {
+  margin: 0;
+  color: #14532d;
+  font-size: clamp(1.7rem, 5vw, 2rem);
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1.2;
+}
+
+.login-subtitle {
+  margin: 8px 0 24px;
+  color: #64748b;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.login-form,
+.login-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.login-form {
+  gap: 18px;
+}
+
+.login-field {
+  min-width: 0;
+  gap: 7px;
+}
+
+.login-field label {
+  color: #334155;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.login-field input {
+  width: 100%;
+  min-height: 46px;
+  box-sizing: border-box;
+  padding: 0 13px;
+  color: #0f172a;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+  font: inherit;
+  font-size: 0.9rem;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.login-field input::placeholder {
+  color: #94a3b8;
+}
+
+.login-field input:focus {
+  outline: none;
+  border-color: #16a34a;
+  box-shadow: 0 0 0 3px rgb(34 197 94 / 16%);
+}
+
+.login-password-wrap {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.login-password-wrap input {
+  flex: 1;
+  min-width: 0;
+}
+
+.btn-icon {
+  min-height: 42px;
+  padding: 0 10px;
+  color: #166534;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 9px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.btn-icon:hover {
+  background: #dcfce7;
+}
+
+.login-actions {
+  margin-top: 2px;
+}
+
+.login-button {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 16px;
+  color: #fff;
+  background: #15803d;
+  border: 1px solid #15803d;
+  border-radius: 9px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 700;
+  transition: background-color 150ms ease, box-shadow 150ms ease;
+}
+
+.login-button:hover:not(:disabled) {
+  background: #166534;
+  box-shadow: 0 5px 14px rgb(21 128 61 / 20%);
+}
+
+.login-button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.login-button:focus-visible,
+.btn-icon:focus-visible,
+.consent-checkbox input:focus-visible {
+  outline: 3px solid #86efac;
+  outline-offset: 2px;
+}
+
+.form-error {
+  margin: 0;
+  padding: 10px 12px;
+  color: #b42318;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.consent-card {
+  width: min(520px, 100%);
+}
+
+.consent-copy {
+  margin: 16px 0;
+  color: #475569;
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.consent-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.consent-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #0f172a;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.consent-checkbox input {
+  width: 17px;
+  height: 17px;
+  accent-color: #15803d;
+}
+
+.consent-note {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 480px) {
+  .login-page {
+    padding: 16px;
+  }
+
+  .login-card {
+    padding: 28px 22px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,1151 @@
+.progress-report-shell {
+  display: flex;
+  width: min(100%, 1440px);
+  min-width: 0;
+  box-sizing: border-box;
+  flex-direction: column;
+  align-self: center;
+  gap: 18px;
+  padding: 24px clamp(16px, 3vw, 36px);
+  color: #0f172a;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.progress-report-shell .progress-report-panel {
+  min-width: 0;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgb(15 23 42 / 4%);
+}
+
+.progress-report-shell .view-page-header {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.progress-report-shell .view-page-title {
+  margin: 0;
+  color: #14532d;
+  font-size: clamp(1.45rem, 2.5vw, 1.9rem);
+  line-height: 1.2;
+}
+
+.progress-report-shell .view-page-header__content {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.progress-report-shell .view-breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: #64748b;
+  font-size: 0.84rem;
+}
+
+.progress-report-shell .secondary-btn,
+.progress-report-shell .primary-btn {
+  min-height: 40px;
+  padding: 0 15px;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.progress-report-shell .secondary-btn {
+  color: #475569;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+}
+
+.progress-report-shell .primary-btn {
+  color: #fff;
+  background: #15803d;
+  border: 1px solid #15803d;
+}
+
+.progress-report-shell :is(.primary-btn, .secondary-btn):hover:not(:disabled) {
+  filter: brightness(0.96);
+}
+
+.progress-report-shell :is(button, select, input, textarea):focus-visible {
+  outline: 3px solid rgb(34 197 94 / 24%);
+  outline-offset: 2px;
+}
+
+.progress-report-shell .progress-report-tab-bar {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 24px;
+  overflow-x: auto;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.progress-report-shell .progress-report-tab-bar button {
+  display: inline-flex;
+  min-height: 38px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  padding: 0 13px;
+  color: #64748b;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.progress-report-shell .progress-report-tab-bar button span {
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  background: #e2e8f0;
+  border-radius: 50%;
+  font-size: 0.72rem;
+}
+
+.progress-report-shell .progress-report-tab-bar button.active {
+  color: #166534;
+  background: #f0fdf4;
+  border-color: #86efac;
+}
+
+.progress-report-shell .progress-report-tab-bar button.active span {
+  color: #fff;
+  background: #15803d;
+}
+
+.progress-report-shell .progress-report-tab-bar button:disabled {
+  color: #94a3b8;
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.progress-report-shell .progress-report-config {
+  padding: 24px;
+}
+
+.progress-report-shell .progress-report-tab-panel {
+  display: flex;
+  max-width: 1000px;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.progress-report-shell .progress-report-tab-panel > p:not(.progress-report-note) {
+  margin: 0;
+  color: #334155;
+  font-size: 0.94rem;
+  line-height: 1.5;
+}
+
+.progress-report-shell .growth-metric-cards {
+  display: grid;
+  gap: 12px;
+}
+
+.progress-report-shell .growth-metric-cards > label {
+  display: grid;
+  grid-template-columns: 22px minmax(0, max-content) minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  padding: 14px 16px;
+  color: #475569;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  cursor: pointer;
+  line-height: 1.45;
+}
+
+.progress-report-shell .growth-metric-cards > label:hover {
+  border-color: #86efac;
+  background: #f8fcf9;
+}
+
+.progress-report-shell .growth-metric-cards > label.selected {
+  color: #1e293b;
+  background: #f0fdf4;
+  border-color: #86efac;
+  box-shadow: inset 3px 0 0 #16a34a;
+}
+
+.progress-report-shell .growth-metric-cards > label input {
+  width: 18px;
+  min-height: 18px;
+  margin: 2px 0 0;
+  padding: 0;
+  accent-color: #16a34a;
+}
+
+.progress-report-shell .growth-metric-cards > label strong {
+  min-width: 0;
+  color: #0f172a;
+  font-size: 0.9rem;
+}
+
+.progress-report-shell .growth-metric-cards > label span {
+  min-width: 0;
+  color: #64748b;
+  font-size: 0.86rem;
+}
+
+.progress-report-shell .profile-report-page-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-bottom: 2px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.progress-report-shell .profile-report-page-tabs button {
+  min-height: 36px;
+  padding: 0 12px;
+  color: #64748b;
+  background: transparent;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.progress-report-shell .profile-report-page-tabs button.active {
+  color: #166534;
+  border-bottom-color: #16a34a;
+}
+
+.progress-report-shell .progress-report-tab-panel h1 {
+  margin: 0;
+  color: #0f172a;
+  font-size: clamp(1.3rem, 2.4vw, 1.75rem);
+}
+
+.progress-report-shell .progress-report-assigned-school {
+  margin: 0;
+  color: #475569;
+  font-size: 0.94rem;
+}
+
+.progress-report-shell .progress-report-config-grid,
+.progress-report-shell .program-report-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.progress-report-shell .progress-report-config-grid label,
+.progress-report-shell .program-report-controls label {
+  display: grid;
+  gap: 7px;
+  color: #334155;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.progress-report-shell :is(select, input, textarea) {
+  min-height: 42px;
+  box-sizing: border-box;
+  padding: 0 11px;
+  color: #1e293b;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.88rem;
+}
+
+.progress-report-shell textarea {
+  padding-top: 10px;
+}
+
+.progress-report-shell .progress-report-note {
+  margin: 0;
+  padding: 12px 14px;
+  color: #475569;
+  background: #f8fafc;
+  border-left: 3px solid #86efac;
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+.progress-report-shell fieldset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.progress-report-shell legend {
+  padding: 0 6px;
+  color: #334155;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.progress-report-shell fieldset label {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  color: #475569;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.84rem;
+}
+
+.progress-report-shell fieldset label.selected {
+  color: #166534;
+  background: #f0fdf4;
+  border-color: #86efac;
+}
+
+.progress-report-shell .progress-report-tab-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 4px;
+}
+
+.progress-report-shell .progress-report-empty {
+  padding: 56px 20px;
+  color: #64748b;
+  text-align: center;
+}
+
+.progress-report-shell .progress-report-results-header,
+.progress-report-shell .results-toolbar,
+.progress-report-shell .progress-report-filter-bar {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.progress-report-shell .progress-report-results-header {
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.progress-report-shell .progress-report-results-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.progress-report-shell .results-tab-panel {
+  max-width: none;
+}
+
+.progress-report-shell .progress-report-results-header h1 {
+  margin: 0;
+  color: #0f172a;
+  font-size: clamp(1.3rem, 2.3vw, 1.7rem);
+}
+
+.progress-report-shell .progress-report-results-header p {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 0.86rem;
+}
+
+.progress-report-shell .results-view-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.progress-report-shell .results-view-toggle .secondary-btn.is-active {
+  color: #166534;
+  background: #f0fdf4;
+  border-color: #86efac;
+}
+
+.progress-report-shell .results-graph-wrap,
+.progress-report-shell .results-table-wrap {
+  min-width: 0;
+}
+
+.progress-report-shell .growth-report-single-card {
+  min-width: 0;
+  padding: 20px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgb(15 23 42 / 4%);
+}
+
+.progress-report-shell .growth-report-single-card h3 {
+  margin: 0;
+  color: #14532d;
+  font-size: 1.05rem;
+}
+
+.progress-report-shell .growth-report-single-card > p {
+  margin: 6px 0 18px;
+  color: #64748b;
+  font-size: 0.84rem;
+}
+
+.progress-report-shell .graph-controls,
+.progress-report-shell .results-table-tools,
+.progress-report-shell .results-table-subheader {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 12px;
+  margin-bottom: 16px;
+  padding: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.progress-report-shell .monitoring-history-view {
+  display: grid;
+  min-width: 0;
+  gap: 16px;
+}
+
+.progress-report-shell .monitoring-history-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.progress-report-shell .monitoring-history-tabs button {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 14px;
+  color: #475569;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px 8px 0 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 650;
+}
+
+.progress-report-shell .monitoring-history-tabs button.active {
+  color: #166534;
+  background: #f0fdf4;
+  border-color: #86efac;
+  box-shadow: inset 0 -2px 0 #15803d;
+}
+
+.progress-report-shell .monitoring-history-tabs svg {
+  width: 18px;
+  height: 18px;
+}
+
+.progress-report-shell .monitoring-history-filters {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.6fr) repeat(2, minmax(150px, 1fr));
+  align-items: end;
+  gap: 12px;
+  padding: 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.progress-report-shell .monitoring-history-filters label {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+  color: #475569;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.progress-report-shell .monitoring-history-filters select,
+.progress-report-shell .results-table-subheader select {
+  min-width: 0;
+  min-height: 40px;
+  padding: 0 34px 0 11px;
+  color: #334155;
+  background-color: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.84rem;
+}
+
+.progress-report-shell .monitoring-history-filters select {
+  width: 100%;
+}
+
+.progress-report-shell .results-table-subheader select {
+  width: min(350px, 100%);
+  flex: 0 1 350px;
+}
+
+.progress-report-shell .monitoring-history-filters select:focus,
+.progress-report-shell .results-table-subheader select:focus {
+  border-color: #22c55e;
+  outline: 3px solid rgb(34 197 94 / 16%);
+}
+
+.progress-report-shell .monitoring-history-filters select:disabled {
+  color: #64748b;
+  background-color: #f1f5f9;
+  cursor: not-allowed;
+}
+
+.progress-report-shell .monitoring-history-profile {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  padding: 12px 14px;
+  color: #475569;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.progress-report-shell .monitoring-history-profile strong {
+  color: #0f172a;
+  font-size: 0.88rem;
+}
+
+.progress-report-shell .monitoring-history-profile > * {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.progress-report-shell .graph-controls {
+  align-items: flex-start;
+}
+
+.progress-report-shell .graph-controls > .report-chart-select {
+  flex: 0 1 230px;
+}
+
+.progress-report-shell .graph-controls > .report-chart-select:has(.report-chart-date-range) {
+  flex-basis: 310px;
+}
+
+.progress-report-shell .growth-report-line-chart,
+.progress-report-shell .profile-scatterplot-wrap,
+.progress-report-shell .profile-histogram-shell,
+.progress-report-shell .referral-assistance-graph,
+.progress-report-shell .program-average-chart {
+  min-width: 0;
+  margin-top: 18px;
+}
+
+.progress-report-shell .growth-report-line-chart {
+  overflow-x: auto;
+  padding: 8px 2px 4px;
+}
+
+.progress-report-shell .growth-report-line-chart > svg {
+  display: block;
+  width: 100%;
+  min-width: 620px;
+  height: auto;
+  min-height: 240px;
+  overflow: visible;
+}
+
+.progress-report-shell .growth-report-gridline,
+.progress-report-shell .profile-scatterplot-gridline {
+  stroke: #e2e8f0;
+  stroke-width: 1;
+}
+
+.progress-report-shell .growth-report-weekline {
+  stroke: #f1f5f9;
+  stroke-width: 1;
+}
+
+.progress-report-shell .growth-report-y-axis-label,
+.progress-report-shell .growth-report-y-axis-tick,
+.progress-report-shell .growth-report-x-axis-tick,
+.progress-report-shell .profile-scatterplot-tick {
+  fill: #64748b;
+  font-size: 11px;
+}
+
+.progress-report-shell .growth-report-series-line {
+  transition: opacity 160ms ease, stroke-width 160ms ease;
+}
+
+.progress-report-shell .growth-report-series-point,
+.progress-report-shell .growth-report-data-point {
+  cursor: pointer;
+}
+
+.progress-report-shell .growth-report-series-point.is-muted,
+.progress-report-shell .growth-report-series-line.is-muted {
+  opacity: 0.22;
+}
+
+.progress-report-shell .growth-report-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin: 12px 8px 0;
+  color: #475569;
+  font-size: 0.76rem;
+}
+
+.progress-report-shell .growth-report-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.progress-report-shell .growth-report-legend i,
+.progress-report-shell .profile-pie-legend i,
+.progress-report-shell .referral-chart-legend i {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  flex: 0 0 9px;
+  background: #15803d;
+  border-radius: 50%;
+}
+
+.progress-report-shell .growth-report-empty {
+  margin: 18px 0 0;
+  padding: 28px 16px;
+  color: #64748b;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  text-align: center;
+}
+
+.progress-report-shell .profile-scatterplot-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.progress-report-shell .profile-scatterplot {
+  display: block;
+  width: 100%;
+  min-width: 620px;
+  height: auto;
+}
+
+.progress-report-shell .profile-scatterplot-axis {
+  stroke: #94a3b8;
+  stroke-width: 1.5;
+}
+
+.progress-report-shell .profile-scatterplot-point {
+  fill: #15803d;
+  stroke: #fff;
+  stroke-width: 2;
+}
+
+.progress-report-shell .profile-scatterplot-label {
+  fill: #475569;
+  font-size: 11px;
+}
+
+.progress-report-shell .profile-pie-layout,
+.progress-report-shell .referral-pie-layout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 28px;
+  padding: 18px 8px;
+}
+
+.progress-report-shell .growth-report-pie {
+  width: min(220px, 55vw);
+  aspect-ratio: 1;
+  flex: 0 0 auto;
+  background: conic-gradient(#15803d 0 35%, #e07a45 35% 60%, #3973a8 60% 100%);
+  border: 10px solid #f8fafc;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px #e2e8f0;
+}
+
+.progress-report-shell .profile-pie-legend,
+.progress-report-shell .referral-chart-legend,
+.progress-report-shell .growth-report-legend {
+  display: grid;
+  gap: 9px;
+}
+
+.progress-report-shell .profile-pie-legend > div,
+.progress-report-shell .referral-chart-legend > div {
+  display: flex;
+  min-width: 180px;
+  justify-content: space-between;
+  gap: 16px;
+  color: #475569;
+  font-size: 0.78rem;
+}
+
+.progress-report-shell .profile-pie-legend > div > span,
+.progress-report-shell .referral-chart-legend > div > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.progress-report-shell .profile-histogram-shell {
+  position: relative;
+  min-height: 280px;
+  padding: 22px 24px 38px 42px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.progress-report-shell .growth-report-bars {
+  display: flex;
+  height: 220px;
+  align-items: end;
+  justify-content: space-around;
+  gap: 10px;
+  padding: 12px 8px 0;
+  border-bottom: 1px solid #94a3b8;
+}
+
+.progress-report-shell .growth-report-bar-item {
+  display: flex;
+  min-width: 34px;
+  height: 100%;
+  flex: 1 1 0;
+  max-width: 90px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: end;
+  gap: 5px;
+  color: #475569;
+  font-size: 0.72rem;
+  text-align: center;
+}
+
+.progress-report-shell .growth-report-bar-item > span {
+  display: block;
+  width: min(100%, 52px);
+  min-height: 4px;
+  background: #15803d;
+  border-radius: 6px 6px 0 0;
+}
+
+.progress-report-shell .growth-report-bar-item small {
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.progress-report-shell .profile-histogram-axis-label {
+  position: absolute;
+  color: #64748b;
+  font-size: 0.72rem;
+}
+
+.progress-report-shell .profile-histogram-y-label {
+  top: 10px;
+  left: 12px;
+}
+
+.progress-report-shell .profile-histogram-x-label {
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.progress-report-shell .program-chart-controls {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+.progress-report-shell .program-chart-rows {
+  display: grid;
+  gap: 12px;
+}
+
+.progress-report-shell .program-chart-row {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.3fr) minmax(160px, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  color: #334155;
+  font-size: 0.8rem;
+}
+
+.progress-report-shell .program-chart-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.progress-report-shell .program-chart-track {
+  height: 14px;
+  overflow: hidden;
+  background: #e2e8f0;
+  border-radius: 999px;
+}
+
+.progress-report-shell .program-chart-bar {
+  display: block;
+  max-width: 100%;
+  height: 100%;
+  background: #15803d;
+  border-radius: inherit;
+}
+
+.progress-report-shell .referral-month-chart {
+  display: flex;
+  min-height: 260px;
+  align-items: end;
+  justify-content: space-around;
+  gap: 10px;
+  padding: 24px 14px 34px;
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.progress-report-shell .referral-month-bar {
+  display: flex;
+  min-width: 46px;
+  height: 200px;
+  flex: 1 0 46px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: end;
+  gap: 6px;
+  color: #475569;
+  font-size: 0.74rem;
+}
+
+.progress-report-shell .referral-month-bar > span {
+  display: block;
+  width: min(100%, 44px);
+  min-height: 4px;
+  background: #15803d;
+  border-radius: 6px 6px 0 0;
+}
+
+.progress-report-shell .referral-month-bar small {
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.progress-report-shell .referral-graph-summary,
+.progress-report-shell .referral-chart-note {
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+.progress-report-shell .report-chart-select,
+.progress-report-shell .results-table-period-filter,
+.progress-report-shell .results-table-subheader label {
+  display: grid;
+  min-width: 150px;
+  gap: 6px;
+  color: #475569;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.progress-report-shell .report-chart-select select,
+.progress-report-shell .results-table-period-filter select,
+.progress-report-shell .results-table-subheader select {
+  min-height: 36px;
+  padding: 0 9px;
+  font-size: 0.82rem;
+}
+
+.progress-report-shell .report-chart-date-range {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.progress-report-shell .report-chart-date-range select {
+  min-width: 120px;
+}
+
+.progress-report-shell .profile-graph-type {
+  align-self: center;
+  padding: 8px 10px;
+  color: #166534;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 7px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.progress-report-shell .progress-report-table-shell {
+  max-width: 100%;
+  overflow: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.progress-report-shell .progress-report-table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: separate;
+  border-spacing: 0;
+  color: #334155;
+  font-size: 0.82rem;
+}
+
+.progress-report-shell .progress-report-table th {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  padding: 11px 13px;
+  color: #475569;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 0.7rem;
+  letter-spacing: 0.03em;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.progress-report-shell .progress-report-table td {
+  padding: 11px 13px;
+  background: #fff;
+  border-bottom: 1px solid #f1f5f9;
+  line-height: 1.4;
+  vertical-align: top;
+}
+
+.progress-report-shell .progress-report-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.progress-report-shell .progress-report-table tbody tr:hover td {
+  background: #f8fcf9;
+}
+
+.progress-report-shell .results-table-customizer {
+  position: relative;
+}
+
+.progress-report-shell .results-table-customizer summary {
+  min-height: 36px;
+  box-sizing: border-box;
+  padding: 9px 11px;
+  color: #475569;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 700;
+  list-style: none;
+}
+
+.progress-report-shell .results-table-customizer summary::-webkit-details-marker {
+  display: none;
+}
+
+.progress-report-shell .results-table-customizer-menu {
+  position: absolute;
+  z-index: 4;
+  top: calc(100% + 6px);
+  left: 0;
+  display: grid;
+  width: min(300px, 80vw);
+  max-height: 300px;
+  gap: 8px;
+  padding: 12px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 14px 30px rgb(15 23 42 / 16%);
+}
+
+.progress-report-shell .results-table-customizer-heading {
+  display: flex;
+  justify-content: space-between;
+  color: #334155;
+  font-size: 0.8rem;
+}
+
+.progress-report-shell .results-table-customizer-heading button {
+  padding: 0;
+  color: #166534;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+}
+
+.progress-report-shell .results-table-customizer-menu label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #475569;
+  font-size: 0.8rem;
+}
+
+.progress-report-shell .progress-report-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 16px;
+  color: #64748b;
+  font-size: 0.82rem;
+}
+
+.progress-report-shell .progress-report-table-wrap {
+  max-width: 100%;
+  overflow: auto;
+}
+
+@media (max-width: 720px) {
+  .progress-report-shell {
+    gap: 12px;
+    padding: 14px 12px;
+  }
+
+  .progress-report-shell .view-page-header,
+  .progress-report-shell .progress-report-config {
+    padding: 16px;
+  }
+
+  .progress-report-shell .view-page-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .progress-report-shell .progress-report-config-grid,
+  .progress-report-shell .program-report-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .progress-report-shell .growth-metric-cards > label {
+    grid-template-columns: 22px minmax(0, 1fr);
+  }
+
+  .progress-report-shell .growth-metric-cards > label span {
+    grid-column: 2;
+  }
+
+  .progress-report-shell .progress-report-tab-actions,
+  .progress-report-shell .progress-report-tab-actions button {
+    width: 100%;
+  }
+
+  .progress-report-shell .growth-report-single-card {
+    padding: 14px;
+  }
+
+  .progress-report-shell .graph-controls,
+  .progress-report-shell .results-table-tools,
+  .progress-report-shell .results-table-subheader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .progress-report-shell .monitoring-history-filters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .progress-report-shell .monitoring-history-tabs button {
+    flex: 1 1 180px;
+  }
+
+  .progress-report-shell .results-table-subheader select {
+    width: 100%;
+    flex-basis: auto;
+  }
+
+  .progress-report-shell .graph-controls > .report-chart-select,
+  .progress-report-shell .graph-controls > .report-chart-select:has(.report-chart-date-range) {
+    width: 100%;
+    flex-basis: auto;
+  }
+
+  .progress-report-shell .report-chart-date-range {
+    width: 100%;
+  }
+
+  .progress-report-shell .report-chart-date-range select {
+    min-width: 0;
+    flex: 1 1 0;
+  }
+
+  .progress-report-shell .profile-pie-layout,
+  .progress-report-shell .referral-pie-layout {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .progress-report-shell .growth-report-pie {
+    align-self: center;
+  }
+
+  .progress-report-shell .profile-pie-legend > div,
+  .progress-report-shell .referral-chart-legend > div {
+    min-width: 0;
+  }
+
+  .progress-report-shell .profile-histogram-shell {
+    padding-left: 30px;
+  }
+
+  .progress-report-shell .program-chart-row {
+    grid-template-columns: minmax(90px, 0.4fr) minmax(100px, 1fr) auto;
+    gap: 8px;
+  }
+
+  .progress-report-shell .progress-report-pagination {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+}

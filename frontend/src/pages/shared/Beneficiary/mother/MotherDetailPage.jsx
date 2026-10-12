@@ -296,7 +296,7 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
               const badge = childBadge(child);
               return (
                 <tr key={child.id || `${child.motherId || motherId}-${childNameValue}`}>
-                  <td><strong>{childNameValue}</strong>{badge && <span className="mother-detail-chip" style={{ marginLeft: 8 }}>{badge}</span>}</td>
+                  <td><strong>{childNameValue}</strong>{badge && <span className="mother-detail-chip" >{badge}</span>}</td>
                   <td>{formatDateForDisplay(child.birthDate || child.birth_date) || 'Birth date not recorded'}</td>
                   <td>
                     <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/child/${child.id}`, { state: { mother: selectedMother, child, returnTo: `/beneficiary/mother/${motherId}` } })}>View Child</button>
@@ -401,7 +401,7 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
               <Field label="Stillbirth" value={stillbirth} />
             </div>
 
-            <div className="detail-form-field full-width" style={{ marginTop: '0.9rem' }}>
+            <div className="detail-form-field full-width" >
               <div className="detail-form-label">OB History</div>
               <div className="mother-detail-table-wrap">
                 <table className="mother-detail-table">
@@ -451,12 +451,12 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
               <Field label="Number of Teeth" value={mother.teethCount || '—'} />
             </div>
 
-            <div className="detail-form-field full-width" style={{ marginTop: '0.9rem' }}>
+            <div className="detail-form-field full-width" >
               <div className="detail-form-label">Dental Findings / Diagnosis</div>
               <div className="detail-form-value">{mother.dentalFindings || '—'}</div>
             </div>
 
-            <div className="detail-form-field full-width" style={{ marginTop: '0.9rem' }}>
+            <div className="detail-form-field full-width" >
               <div className="detail-form-label">Dental Work Done</div>
               <ChipList items={dentalList} emptyLabel="None" />
             </div>

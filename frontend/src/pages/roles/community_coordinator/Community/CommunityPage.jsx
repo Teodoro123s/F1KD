@@ -2,6 +2,7 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import CommunityTable from './CommunityTable';
 import CommunityModalManager from './CommunityModalManager';
+import { ConfirmActionModal } from './CommunityModals';
 import CommunityToolbar from './components/CommunityToolbar';
 import CommunityPagination from './components/CommunityPagination';
 import { MoreVerticalIcon } from './CommunityIcons';
@@ -14,6 +15,9 @@ import { getChildProfileProgress } from '../_shared/utils/childProgress';
 import { apiDeleteMother } from '../../../../api/mothers';
 import { apiGetChildren } from '../../../../api/children';
 import { notifyAction } from '../_shared/components/ActionFeedback';
+import { BatchesIcon, GroupsIcon, UsersIcon } from '../../../../components/ui/ModuleIcons';
+import '../../_shared/community-module.css';
+import './community-page.css';
 
 const defaultCommunityForm = { name: '', area: 'Poblacion', coordinator: '' };
 const defaultGroupForm = { name: '', batchName: '', community: '', assignedBatchIds: [], leader: '', members: 1, status: 'Active' };
@@ -59,6 +63,8 @@ export default function CommunityPage() {
   const [activeDropdownId, setActiveDropdownId] = useState(null);
   const [showModal, setShowModal] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [pendingDelete, setPendingDelete] = useState(null);
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [communityForm, setCommunityForm] = useState(defaultCommunityForm);
   const [groupForm, setGroupForm] = useState(defaultGroupForm);
   const [batchForm, setBatchForm] = useState(defaultBatchForm);
@@ -141,7 +147,7 @@ export default function CommunityPage() {
       });
   }, [query, scopedGroups, selectedSchool]);
 
-  const selectedGroupBatches = useMemo(() => {
+  const groupBatches = useMemo(() => {
     if (!selectedGroup) return [];
 
     return batches
@@ -160,15 +166,18 @@ export default function CommunityPage() {
         return assignedGroupIds.includes(String(selectedGroup.id))
           || sameGroupName
           || (assignedGroupIds.length === 0 && sameCommunity);
-      })
-      .filter((batch) => {
-        if (!query.trim()) return true;
-        const term = query.trim().toLowerCase();
-        return [batch.name, String(batch.id), batch.community, batch.status].some((value) =>
-          String(value || '').toLowerCase().includes(term)
-        );
       });
-  }, [batches, mothers, query, selectedGroup]);
+  }, [batches, selectedGroup]);
+
+  const selectedGroupBatches = useMemo(() => {
+    if (!query.trim()) return groupBatches;
+    const term = query.trim().toLowerCase();
+    return groupBatches.filter((batch) =>
+      [batch.name, String(batch.id), batch.community, batch.status].some((value) =>
+        String(value || '').toLowerCase().includes(term)
+      )
+    );
+  }, [groupBatches, query]);
 
   const selectedBatchMothers = useMemo(() => {
     if (!selectedBatch) return [];
@@ -270,6 +279,64 @@ export default function CommunityPage() {
 
     return selectedBatchMothers;
   }, [activeTab, childrenRows, communities, entityFilter, query, scopedCommunities, selectedBatch, selectedBatchMothers, selectedGroup, selectedGroupBatches, selectedSchool, selectedSchoolGroups]);
+
+  const organizerOverview = useMemo(() => {
+    const schoolGroups = selectedSchool
+      ? scopedGroups.filter((group) => String(group.community || '').toLowerCase() === String(selectedSchool.name || '').toLowerCase())
+      : [];
+    const groupIds = new Set(schoolGroups.map((group) => String(group.id)));
+    const groupNames = new Set(schoolGroups.map((group) => String(group.name || '').trim().toLowerCase()).filter(Boolean));
+    const schoolBatches = selectedSchool
+      ? batches.filter((batch) => {
+        const batchGroupIds = String(batch.groupIds || '')
+          .split(',')
+          .map((value) => value.trim())
+          .filter(Boolean);
+        const batchGroupNames = String(batch.groupNames || batch.group_name || batch.group || '')
+          .split(',')
+          .map((value) => value.trim().toLowerCase())
+          .filter(Boolean);
+        return batchGroupIds.some((id) => groupIds.has(id))
+          || batchGroupNames.some((name) => groupNames.has(name))
+          || (!batchGroupIds.length && !batchGroupNames.length
+            && String(batch.community || '').toLowerCase() === String(selectedSchool.name || '').toLowerCase());
+      })
+      : [];
+    const batchIds = new Set(schoolBatches.flatMap((batch) => [
+      batch.id,
+      batch.databaseId,
+      batch.batchCode,
+      batch.code,
+    ]).filter((id) => id !== null && id !== undefined && id !== '').map(String));
+    const beneficiaryCount = mothers.filter((mother) => batchIds.has(String(mother.batchId ?? mother.batch_id ?? ''))).length;
+
+    return {
+      groupCount: schoolGroups.length,
+      batchCount: schoolBatches.length,
+      beneficiaryCount,
+    };
+  }, [batches, mothers, scopedGroups, selectedSchool]);
+
+  const organizerGroupOverview = useMemo(() => {
+    const batchIds = new Set(groupBatches.flatMap((batch) => [
+      batch.id,
+      batch.databaseId,
+      batch.batchCode,
+      batch.code,
+    ]).filter((id) => id !== null && id !== undefined && id !== '').map(String));
+    const motherCount = mothers.filter((mother) =>
+      batchIds.has(String(mother.batchId ?? mother.batch_id ?? ''))
+    ).length;
+    const averageProgress = groupBatches.length
+      ? Math.round(groupBatches.reduce((total, batch) => total + Number(batch.progress ?? 0), 0) / groupBatches.length)
+      : 0;
+
+    return {
+      batchCount: groupBatches.length,
+      motherCount,
+      averageProgress,
+    };
+  }, [groupBatches, mothers]);
 
   const pageCount = Math.max(1, Math.ceil(filteredData.length / perPage));
   const currentPage = Math.min(page, pageCount);
@@ -509,31 +576,50 @@ export default function CommunityPage() {
     setSelectedItem(null);
   };
 
-  const handleDeleteCommunity = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this community?')) return;
-    await mutations.deleteCommunity(id);
+  const requestDelete = (item) => {
+    const type = activeTab === 'communities'
+      ? 'school'
+      : activeTab === 'groups'
+        ? 'group'
+        : activeTab === 'batches'
+          ? 'batch'
+          : 'mother';
+    setPendingDelete({ id: item.id, name: item.name, type });
   };
 
-  const handleDeleteGroup = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this group?')) return;
-    await mutations.deleteGroup(id);
-  };
+  const confirmDelete = async () => {
+    if (!pendingDelete || deleteSubmitting) return;
+    setDeleteSubmitting(true);
 
-  const handleDeleteBatch = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this batch?')) return;
-    await mutations.deleteBatch(id);
+    try {
+      if (pendingDelete.type === 'school') {
+        await mutations.deleteCommunity(pendingDelete.id);
+      } else if (pendingDelete.type === 'group') {
+        await mutations.deleteGroup(pendingDelete.id);
+      } else if (pendingDelete.type === 'batch') {
+        await mutations.deleteBatch(pendingDelete.id);
+      } else {
+        const deleted = await handleDeleteMother(pendingDelete.id);
+        if (!deleted) return;
+      }
+      setPendingDelete(null);
+    } catch (error) {
+      console.error(`[CommunityPage] Unable to delete ${pendingDelete.type}:`, error);
+    } finally {
+      setDeleteSubmitting(false);
+    }
   };
 
   const handleDeleteMother = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this mother?')) return;
-
     try {
       await apiDeleteMother(id);
       await refreshData();
       notifyAction('Mother deleted successfully.');
+      return true;
     } catch (error) {
       console.error('[CommunityPage] Unable to delete mother:', error);
       notifyAction(error?.message || 'Unable to delete mother.', 'error');
+      return false;
     }
   };
 
@@ -595,18 +681,13 @@ export default function CommunityPage() {
                   className="actions-dropdown-item delete"
                   onClick={(event) => {
                     event.stopPropagation();
+                    setActiveDropdownId(null);
                     if (activeTab === 'mothers') {
-                      handleDeleteMother(row.id);
+                      requestDelete(row);
                       return;
                     }
 
-                    if (activeTab === 'communities') {
-                      handleDeleteCommunity(row.id);
-                    } else if (activeTab === 'groups') {
-                      handleDeleteGroup(row.id);
-                    } else {
-                      handleDeleteBatch(row.id);
-                    }
+                    requestDelete(row);
                   }}
                   role="menuitem"
                 >
@@ -657,7 +738,7 @@ export default function CommunityPage() {
       { key: 'records', header: 'Total Mothers', cellClassName: 'compact-column', renderCell: (row) => row.records },
       { key: 'progress', header: 'Progress (%)', cellClassName: 'status-column', renderCell: (row) => `${row.progress ?? 0}%` },
     ]);
-  }, [activeDropdownId, activeTab, canManage, canManageSchools, entityFilter, groups, handleDeleteBatch, handleDeleteCommunity, handleDeleteGroup, handleDeleteMother, navigate, openEditModal]);
+  }, [activeDropdownId, activeTab, canManage, canManageSchools, entityFilter, groups, navigate, openEditModal, requestDelete]);
 
   const currentRowClickHandler =
     activeTab === 'communities'
@@ -673,15 +754,15 @@ export default function CommunityPage() {
             : (mother) => handleMotherRowClick(mother);
 
   if (loading) {
-    return <div className="community-page"><p>Loading community data...</p></div>;
+    return <div className={`community-page community-module-page${isCommunityOrganizer ? ' community-page--organizer' : ''}`}><p>Loading community data...</p></div>;
   }
 
   if (error) {
-    return <div className="community-page"><p className="error-message">{error}</p></div>;
+    return <div className={`community-page community-module-page${isCommunityOrganizer ? ' community-page--organizer' : ''}`}><p className="error-message">{error}</p></div>;
   }
 
   return (
-    <div className="community-page">
+    <div className={`community-page community-module-page${isCommunityOrganizer ? ' community-page--organizer' : ''}`}>
       <CommunityToolbar
         activeTab={activeTab}
         query={query}
@@ -693,25 +774,99 @@ export default function CommunityPage() {
         breadcrumbItems={breadcrumbItems}
         navigate={navigate}
         canManage={canManage && (activeTab !== 'communities' || canManageSchools)}
+        isCommunityOrganizer={isCommunityOrganizer}
       />
+
+      {isCommunityOrganizer && activeTab === 'groups' && (
+        <section className="organizer-community-summary" aria-label="School community overview">
+          <article className="organizer-community-stat">
+            <div className="organizer-community-stat__label">Total groups</div>
+            <div className="organizer-community-stat__value">{organizerOverview.groupCount}</div>
+            <div className="organizer-community-stat__detail">{selectedSchool?.name || 'Assigned school'}</div>
+            <span className="organizer-community-stat__icon organizer-community-stat__icon--groups" aria-hidden="true"><GroupsIcon /></span>
+          </article>
+          <article className="organizer-community-stat">
+            <div className="organizer-community-stat__label">Total batches</div>
+            <div className="organizer-community-stat__value">{organizerOverview.batchCount}</div>
+            <div className="organizer-community-stat__detail">Across your groups</div>
+            <span className="organizer-community-stat__icon organizer-community-stat__icon--batches" aria-hidden="true"><BatchesIcon /></span>
+          </article>
+          <article className="organizer-community-stat">
+            <div className="organizer-community-stat__label">Mothers</div>
+            <div className="organizer-community-stat__value">{organizerOverview.beneficiaryCount}</div>
+            <div className="organizer-community-stat__detail">In your assigned batches</div>
+            <span className="organizer-community-stat__icon organizer-community-stat__icon--beneficiaries" aria-hidden="true"><UsersIcon /></span>
+          </article>
+        </section>
+      )}
+
+      {isCommunityOrganizer && activeTab === 'batches' && (
+        <section className="organizer-community-summary" aria-label="Group overview">
+          <article className="organizer-community-stat">
+            <div className="organizer-community-stat__label">Total batches</div>
+            <div className="organizer-community-stat__value">{organizerGroupOverview.batchCount}</div>
+            <div className="organizer-community-stat__detail">{selectedGroup?.name || 'Selected group'}</div>
+            <span className="organizer-community-stat__icon organizer-community-stat__icon--batches" aria-hidden="true"><BatchesIcon /></span>
+          </article>
+          <article className="organizer-community-stat">
+            <div className="organizer-community-stat__label">Mothers</div>
+            <div className="organizer-community-stat__value">{organizerGroupOverview.motherCount}</div>
+            <div className="organizer-community-stat__detail">Across this group's batches</div>
+            <span className="organizer-community-stat__icon organizer-community-stat__icon--beneficiaries" aria-hidden="true"><UsersIcon /></span>
+          </article>
+          <article className="organizer-community-stat">
+            <div className="organizer-community-stat__label">Average progress</div>
+            <div className="organizer-community-stat__value">{organizerGroupOverview.averageProgress}%</div>
+            <div className="organizer-community-stat__detail">Across this group's batches</div>
+            <span className="organizer-community-stat__icon organizer-community-stat__icon--groups" aria-hidden="true"><GroupsIcon /></span>
+          </article>
+        </section>
+      )}
 
       <CommunityTable
         columns={columns}
         data={currentRows}
         onRowClick={currentRowClickHandler}
         tableTitle={tableTitle}
+        minRows={10}
+        tableControls={isCommunityOrganizer && (
+          <label className="organizer-community-search">
+            <span className="organizer-community-search__icon" aria-hidden="true">⌕</span>
+            <span className="sr-only">Search community records</span>
+            <input
+              type="search"
+              value={query}
+              onChange={(event) => handleSearch(event.target.value)}
+              placeholder={`Search ${activeTab === 'groups' ? 'groups' : activeTab === 'batches' ? 'batches' : 'beneficiaries'}...`}
+            />
+          </label>
+        )}
+        tableFooter={isCommunityOrganizer && (
+          <CommunityPagination
+            currentPage={currentPage}
+            pageCount={pageCount}
+            onPageChange={setPage}
+            perPage={perPage}
+            onPerPageChange={handlePerPageChange}
+            rangeStart={filteredData.length === 0 ? 0 : startIndex + 1}
+            rangeEnd={Math.min(startIndex + perPage, filteredData.length)}
+            totalItems={filteredData.length}
+          />
+        )}
       />
 
-      <CommunityPagination
-        currentPage={currentPage}
-        pageCount={pageCount}
-        onPageChange={setPage}
-        perPage={perPage}
-        onPerPageChange={handlePerPageChange}
-        rangeStart={filteredData.length === 0 ? 0 : startIndex + 1}
-        rangeEnd={Math.min(startIndex + perPage, filteredData.length)}
-        totalItems={filteredData.length}
-      />
+      {!isCommunityOrganizer && (
+        <CommunityPagination
+          currentPage={currentPage}
+          pageCount={pageCount}
+          onPageChange={setPage}
+          perPage={perPage}
+          onPerPageChange={handlePerPageChange}
+          rangeStart={filteredData.length === 0 ? 0 : startIndex + 1}
+          rangeEnd={Math.min(startIndex + perPage, filteredData.length)}
+          totalItems={filteredData.length}
+        />
+      )}
 
       <CommunityModalManager
         showModal={showModal}
@@ -735,6 +890,26 @@ export default function CommunityPage() {
         onEditGroup={handleEditGroup}
         hideGroupSchoolField={isHealthWorker || isAssignedCommunityOrganizer || Boolean(schoolId)}
         isSubmitting={mutations.loading}
+      />
+
+      <ConfirmActionModal
+        show={Boolean(pendingDelete)}
+        title={pendingDelete?.type === 'group' || pendingDelete?.type === 'batch'
+          ? `Delete ${pendingDelete.type} and its content?`
+          : pendingDelete ? `Delete ${pendingDelete.type}?` : 'Confirm deletion'}
+        message={pendingDelete
+          ? ['group', 'batch'].includes(pendingDelete.type)
+            ? `Are you sure you want to delete "${pendingDelete.name}" and its content? This action cannot be undone.`
+            : `Are you sure you want to delete "${pendingDelete.name}"? This action cannot be undone.`
+          : ''}
+        confirmLabel={['group', 'batch'].includes(pendingDelete?.type)
+          ? `Delete ${pendingDelete.type} and its content`
+          : 'Delete'}
+        onConfirm={confirmDelete}
+        onCancel={() => {
+          if (!deleteSubmitting) setPendingDelete(null);
+        }}
+        isSubmitting={deleteSubmitting}
       />
     </div>
   );

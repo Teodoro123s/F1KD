@@ -12,6 +12,9 @@ import PageHeader from '../../../../../components/ui/PageHeader';
 import ConfirmModal from '../../_shared/pages/shared/UserManagement/ConfirmModal';
 import { notifyAction } from '../../_shared/components/ActionFeedback';
 import MonitoringProgressReport from '../../../../shared/Beneficiary/MonitoringProgressReport';
+import '../beneficiary-page.css';
+import './child-page.css';
+import './child-profile-page.css';
 
 const formatValue = (value) => (value === null || value === undefined || value === '' ? '—' : String(value));
 
@@ -311,7 +314,7 @@ export default function ChildProfilePage() {
       <p>Select a child from the list or create a new child record for this mother.</p>
     </div>
   ) : (
-    <section className="mother-detail-page child-detail-page">
+    <section className="child-detail-page">
       <PageHeader
         title={childName || 'Child Profile'}
         breadcrumbs={[{ label: 'Beneficiaries', href: '/beneficiary' }, { label: 'Child Profile' }]}
@@ -335,10 +338,11 @@ export default function ChildProfilePage() {
         message={`Delete ${childName || 'this child'} and all of their beneficiary data? This cannot be undone.`}
         onConfirm={deleteChild}
         onCancel={() => setShowDeleteConfirm(false)}
+        className="child-profile-delete-confirm"
       />
 
-      {!isChildProfile && <section className="mother-detail-section">
-        <h3 className="mother-detail-section-title">Child Actions</h3>
+      {!isChildProfile && <section className="child-detail-section">
+        <h3 className="child-detail-section-title">Child Actions</h3>
         <div className="mother-detail-actions mother-overview-actions">
           <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/child/${childIdentifier}/profile`, { state: { child: selectedChild, mother: resolvedMother, returnTo } })}>
             Child Profile
@@ -365,36 +369,37 @@ export default function ChildProfilePage() {
       )}
 
       {isChildProfile && (<>
-      <div className="stepper-progress child-detail-stepper">
-        <div className="stepper-steps" role="tablist" aria-label="Child profile sections">
-          {[
-            ['general', 'General'],
-            ['prenatal', 'Prenatal/OB'],
-            ['medical_dental', 'Medical & Dental'],
-            ['vaccine', 'Vaccine'],
-          ].map(([tab, label], index) => (
-            <button key={tab} type="button" role="tab" aria-selected={profileTab === tab} className={`stepper-step ${profileTab === tab ? 'active' : ''}`} onClick={() => setProfileTab(tab)}>
-              <span className="stepper-step-index">{index + 1}</span>
-              <span className="stepper-step-label">{label}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="create-form-body child-detail-shared-form">
-        <div className="modal-body-scrollable">
-          <ChildFormFields activeTab={profileTab} form={detailForm} readOnly />
-        </div>
-      </div>
-
-      {profileTab === 'general' && (
-        <ChildSection title="I.B REQUIRED DOCUMENTS">
-          <div className="document-upload-field full-width">
-            <div className="detail-form-label">Live Birth Certificate / Birth Certificate</div>
-            <DocumentPreview fileName={selectedChild.birthDocumentName} filePath={selectedChild.birthDocumentPath} label="Live Birth Certificate" onPreviewOpen={(url, name, type) => setPreviewDocument({ url, name, type })} />
+      <div className="child-detail-profile-panel">
+        <div className="child-detail-stepper">
+          <div className="stepper-steps" role="tablist" aria-label="Child profile sections">
+            {[
+              ['general', 'General'],
+              ['prenatal', 'Prenatal/OB'],
+              ['medical_dental', 'Medical & Dental'],
+              ['vaccine', 'Vaccine'],
+            ].map(([tab, label], index) => (
+              <button key={tab} type="button" role="tab" aria-selected={profileTab === tab} className={`stepper-step ${profileTab === tab ? 'active' : ''}`} onClick={() => setProfileTab(tab)}>
+                <span className="stepper-step-index">{index + 1}</span>
+                <span className="stepper-step-label">{label}</span>
+              </button>
+            ))}
           </div>
-        </ChildSection>
-      )}
+        </div>
+
+        <div className="child-detail-shared-form">
+          <div className="modal-body-scrollable">
+            <ChildFormFields activeTab={profileTab} form={detailForm} readOnly />
+            {profileTab === 'general' && (
+              <ChildSection title="I.B REQUIRED DOCUMENTS">
+                <div className="document-upload-field full-width">
+                  <div className="detail-form-label">Live Birth Certificate / Birth Certificate</div>
+                  <DocumentPreview fileName={selectedChild.birthDocumentName} filePath={selectedChild.birthDocumentPath} label="Live Birth Certificate" onPreviewOpen={(url, name, type) => setPreviewDocument({ url, name, type })} />
+                </div>
+              </ChildSection>
+            )}
+          </div>
+        </div>
+      </div>
 
       <DocumentPreviewModal document={previewDocument} onClose={() => setPreviewDocument(null)} />
       </>)}
@@ -402,7 +407,7 @@ export default function ChildProfilePage() {
   ));
 
   return (
-    <div className="community-page beneficiary-page">
+    <div className="community-page beneficiary-page beneficiary-page--organizer child-profile-page">
       <PageHeader title="Beneficiaries" breadcrumbs={[{ label: 'Beneficiaries' }]} />
       <main className="beneficiary-main">
         {rightColumnContent}

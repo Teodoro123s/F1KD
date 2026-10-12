@@ -4,6 +4,7 @@ import { PageSkeleton } from '../components/LoadingSkeleton';
 import { useAuth } from '../auth/AuthProvider';
 import { fetchWithAuth } from '../api/authHeader';
 import { isCommunityCoordinatorRole, isHealthWorkerRole } from '../utils/permissions';
+import './profile-page.css';
 
 export default function ProfilePage() {
   const auth = useAuth();
@@ -60,14 +61,14 @@ export default function ProfilePage() {
   const requiresSchoolAssignment = isCommunityOrganizer || isHealthWorker;
 
   return (
-    <div className="community-page">
+    <div className="profile-page">
       <PageHeader
         title="My Profile"
         breadcrumbs={[{ label: 'Profile' }]}
       />
 
       {!user ? (
-        <main style={{ padding: '1rem' }}>
+        <main className="profile-page__content">
           <div className="checkup-card">
             <div className="checkup-card-body">
               <p className="form-error">No user information available.</p>
@@ -75,7 +76,7 @@ export default function ProfilePage() {
           </div>
         </main>
       ) : (
-        <main style={{ padding: '1rem' }}>
+        <main className="profile-page__content">
           <div className="checkup-card">
             <div className="checkup-card-body">
               <div className="checkup-section-title">Profile</div>

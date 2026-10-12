@@ -14,6 +14,7 @@ import { getChildProfileProgress } from '../_shared/utils/childProgress';
 import { apiDeleteMother } from '../../../../api/mothers';
 import { apiGetChildren } from '../../../../api/children';
 import { notifyAction } from '../_shared/components/ActionFeedback';
+import '../../_shared/community-module.css';
 
 const defaultCommunityForm = { name: '', area: 'Poblacion', coordinator: '' };
 const defaultGroupForm = { name: '', community: '', assignedBatchIds: [], leader: '', members: 1, status: 'Active' };
@@ -673,15 +674,15 @@ export default function CommunityPage() {
             : (mother) => handleMotherRowClick(mother);
 
   if (loading) {
-    return <div className="community-page"><p>Loading community data...</p></div>;
+    return <div className="community-page community-module-page"><p>Loading community data...</p></div>;
   }
 
   if (error) {
-    return <div className="community-page"><p className="error-message">{error}</p></div>;
+    return <div className="community-page community-module-page"><p className="error-message">{error}</p></div>;
   }
 
   return (
-    <div className="community-page">
+    <div className="community-page community-module-page">
       <CommunityToolbar
         activeTab={activeTab}
         query={query}
@@ -695,23 +696,26 @@ export default function CommunityPage() {
         canManage={canManage && (activeTab !== 'communities' || canManageSchools)}
       />
 
-      <CommunityTable
-        columns={columns}
-        data={currentRows}
-        onRowClick={currentRowClickHandler}
-        tableTitle={tableTitle}
-      />
+      <div className="community-module-table-card">
+        <CommunityTable
+          columns={columns}
+          data={currentRows}
+          onRowClick={currentRowClickHandler}
+          tableTitle={tableTitle}
+          minRows={10}
+        />
 
-      <CommunityPagination
-        currentPage={currentPage}
-        pageCount={pageCount}
-        onPageChange={setPage}
-        perPage={perPage}
-        onPerPageChange={handlePerPageChange}
-        rangeStart={filteredData.length === 0 ? 0 : startIndex + 1}
-        rangeEnd={Math.min(startIndex + perPage, filteredData.length)}
-        totalItems={filteredData.length}
-      />
+        <CommunityPagination
+          currentPage={currentPage}
+          pageCount={pageCount}
+          onPageChange={setPage}
+          perPage={perPage}
+          onPerPageChange={handlePerPageChange}
+          rangeStart={filteredData.length === 0 ? 0 : startIndex + 1}
+          rangeEnd={Math.min(startIndex + perPage, filteredData.length)}
+          totalItems={filteredData.length}
+        />
+      </div>
 
       <CommunityModalManager
         showModal={showModal}

@@ -22,8 +22,8 @@ function CategoryPieChart({ visits, field }) {
 
   return (
     <div className="referral-pie-layout">
-      <div className="growth-report-pie referral-pie" role="img" aria-label={`${REFERRAL_GRAPH_FIELDS.find(([id]) => id === field)?.[1]} distribution`}>
-        <span style={{ background: `conic-gradient(${gradient})` }} />
+      <div className="growth-report-pie referral-pie" role="img" aria-label={`${REFERRAL_GRAPH_FIELDS.find(([id]) => id === field)?.[1]} distribution`} style={{ background: `conic-gradient(${gradient})` }}>
+        <span  />
       </div>
       <div className="referral-chart-legend">
         {categories.map(({ label, count }, index) => (
@@ -50,7 +50,7 @@ function AssistanceHistogram({ visits }) {
           {bins.map((bin) => (
             <div className="growth-report-bar-item" key={`${bin.start}-${bin.end}`}>
               <strong>{bin.count}</strong>
-              <span style={{ '--bar-height': `${Math.max(6, (bin.count / maxCount) * 100)}%` }} title={`${bin.count} referrals`} />
+              <span style={{ height: `${(bin.count / maxCount) * 100}%` }} title={`${bin.count} referrals`} />
               <small>{bins.length === 1 ? formatCurrency(bin.start) : `${formatCurrency(bin.start)}–${formatCurrency(bin.end)}`}</small>
             </div>
           ))}
@@ -70,7 +70,7 @@ function ReferralMonthChart({ visits }) {
       {months.map(({ label, count }) => (
         <div className="referral-month-bar" key={label}>
           <strong>{count}</strong>
-          <span style={{ '--bar-height': `${Math.max(6, (count / maxCount) * 100)}%` }} title={`${count} referrals`} />
+          <span style={{ height: `${(count / maxCount) * 100}%` }} title={`${count} referrals`} />
           <small>{label}</small>
         </div>
       ))}

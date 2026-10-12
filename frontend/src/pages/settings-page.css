@@ -1,0 +1,251 @@
+.settings-page,
+.settings-page * {
+  box-sizing: border-box;
+}
+
+.settings-page {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex-direction: column;
+  gap: 20px;
+  padding: 28px clamp(16px, 3vw, 36px) 40px;
+  color: #0f172a;
+}
+
+.settings-page > .view-page-header {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0 20px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.settings-page .view-page-header__content {
+  min-width: 0;
+}
+
+.settings-page .view-page-title {
+  margin: 0;
+  color: #14532d;
+  font-size: clamp(1.6rem, 2.6vw, 2.15rem);
+  font-weight: 750;
+  line-height: 1.2;
+}
+
+.settings-page .view-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  color: #64748b;
+  font-size: 0.86rem;
+}
+
+.settings-page__content {
+  display: grid;
+  width: min(100%, 920px);
+  min-width: 0;
+  gap: 20px;
+  align-self: center;
+}
+
+.settings-page .checkup-card {
+  width: 100%;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  box-shadow: 0 4px 18px rgb(15 23 42 / 5%);
+}
+
+.settings-page .checkup-card-body {
+  padding: clamp(18px, 3vw, 30px);
+}
+
+.settings-page .checkup-section-title {
+  margin-bottom: 12px;
+  padding-bottom: 14px;
+  color: #14532d;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 1.08rem;
+  font-weight: 700;
+}
+
+.settings-page .checkup-card-body > p {
+  margin: 0 0 18px;
+  color: #64748b;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.settings-page .settings-password-form {
+  display: grid;
+  gap: 20px;
+  margin-top: 16px;
+}
+
+.settings-page .settings-password-form--reset .user-profile-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+}
+
+.settings-page .settings-password-form--reset .user-profile-grid > .form-group:first-child {
+  grid-column: 1 / -1;
+}
+
+.settings-page .settings-password-form--reset .user-profile-grid > .form-group:nth-child(2),
+.settings-page .settings-password-form--reset .user-profile-grid > .form-group:nth-child(3) {
+  grid-column: span 1;
+}
+
+.settings-page .user-profile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 18px 20px;
+}
+
+.settings-page .user-profile-grid .form-group {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+}
+
+.settings-page .checkup-field-label {
+  color: #475569;
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.settings-page .checkup-field-input {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  padding: 9px 12px;
+  color: #334155;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.settings-page .checkup-field-input:focus {
+  border-color: #22c55e;
+  outline: 3px solid rgb(34 197 94 / 16%);
+}
+
+.settings-page .password-input-wrap {
+  display: flex;
+  min-width: 0;
+  gap: 8px;
+}
+
+.settings-page .password-input-wrap .checkup-field-input {
+  flex: 1 1 auto;
+}
+
+.settings-page .password-input-wrap .btn-secondary {
+  min-width: 64px;
+  flex: 0 0 auto;
+}
+
+.settings-page .btn-primary,
+.settings-page .btn-secondary {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 650;
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+
+.settings-page .btn-primary {
+  color: #fff;
+  background: #15803d;
+  border-color: #15803d;
+}
+
+.settings-page .btn-primary:hover:not(:disabled) {
+  background: #166534;
+  border-color: #166534;
+}
+
+.settings-page .btn-secondary {
+  color: #334155;
+  background: #fff;
+  border-color: #cbd5e1;
+}
+
+.settings-page .btn-secondary:hover:not(:disabled) {
+  color: #166534;
+  background: #f0fdf4;
+  border-color: #86efac;
+}
+
+.settings-page .btn-primary:disabled,
+.settings-page .btn-secondary:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.settings-page :is(.btn-primary, .btn-secondary):focus-visible {
+  outline: 3px solid rgb(34 197 94 / 25%);
+  outline-offset: 2px;
+}
+
+.settings-page #password-strength-guidance {
+  display: grid;
+  gap: 6px;
+  margin-top: 3px;
+}
+
+.settings-page #password-strength-guidance p,
+.settings-page .settings-password-form .form-group > div {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.76rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.settings-page #password-strength-guidance p:last-child {
+  color: #475569;
+}
+
+@media (max-width: 640px) {
+  .settings-page {
+    gap: 16px;
+    padding: 20px 14px 28px;
+  }
+
+  .settings-page > .view-page-header {
+    align-items: flex-start;
+  }
+
+  .settings-page .user-profile-grid,
+  .settings-page .settings-password-form--reset .user-profile-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .settings-page .settings-password-form--reset .user-profile-grid > .form-group:first-child {
+    grid-column: auto;
+  }
+
+  .settings-page__content > .checkup-card > .checkup-card-body > div:has(> .btn-secondary) .btn-secondary,
+  .settings-page .settings-password-form > div:last-child .btn-primary {
+    width: 100%;
+  }
+}

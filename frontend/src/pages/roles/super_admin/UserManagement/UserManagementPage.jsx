@@ -11,7 +11,7 @@ import Pagination from './Pagination';
 import ConfirmModal from './ConfirmModal';
 import NotificationBanner from './NotificationBanner';
 import PageHeader from '../../../../components/ui/PageHeader';
-import './user-management.css';
+import './user-management-page.css';
 
 export default function UserManagementPage() {
   const { schoolId, batchId } = useParams();
@@ -213,33 +213,27 @@ export default function UserManagementPage() {
         </div>
       )}
 
-      <UserManagementTable
-        currentRows={currentRows}
-        filteredDataLength={filteredData.length}
-        rangeStart={rangeStart}
-        rangeEnd={rangeEnd}
-        perPage={perPage}
-        handlePerPageChange={handlePerPageChange}
-        currentPage={currentPage}
-        pageCount={pageCount}
-        onChangePage={handlePageChange}
-        requestEditUser={requestEditUser}
-        requestStatusChange={requestStatusChange}
-        handleDeleteUser={requestDeleteUser}
-        suspendLoadingIds={suspendLoadingIds}
-        deletingId={deletingId}
-      />
+      <div className="user-management-table-card">
+        <UserManagementTable
+          currentRows={currentRows}
+          requestEditUser={requestEditUser}
+          requestStatusChange={requestStatusChange}
+          handleDeleteUser={requestDeleteUser}
+          suspendLoadingIds={suspendLoadingIds}
+          deletingId={deletingId}
+        />
 
-      <Pagination
-        currentPage={currentPage}
-        pageCount={pageCount}
-        onPageChange={handlePageChange}
-        perPage={perPage}
-        onPerPageChange={handlePerPageChange}
-        rangeStart={rangeStart}
-        rangeEnd={rangeEnd}
-        totalItems={filteredData.length}
-      />
+        <Pagination
+          currentPage={currentPage}
+          pageCount={pageCount}
+          onPageChange={handlePageChange}
+          perPage={perPage}
+          onPerPageChange={handlePerPageChange}
+          rangeStart={rangeStart}
+          rangeEnd={rangeEnd}
+          totalItems={filteredData.length}
+        />
+      </div>
 
       <ConfirmModal
         show={Boolean(confirmDeleteId)}
