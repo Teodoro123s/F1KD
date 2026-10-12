@@ -40,6 +40,7 @@ const buildUserPayload = (user) => {
     id: user.id,
     auth_version: Number(user.auth_version || 0),
     has_accepted_terms: Boolean(user.consent_accepted_at),
+    must_change_password: Boolean(user.must_change_password),
     role,
     name,
     first_name: firstName,
@@ -80,7 +81,7 @@ router.post('/login', async (req, res) => {
     await ensureSuperadminAccount(pool);
 
     const [rows] = await pool.query(
-        `SELECT id, first_name, last_name, middle_initial, email, role, status, school_id, group_id, contact_number, password_hash, auth_version, consent_accepted_at
+        `SELECT id, first_name, last_name, middle_initial, email, role, status, school_id, group_id, contact_number, password_hash, auth_version, consent_accepted_at, must_change_password
        FROM users
          WHERE email = ?
        LIMIT 1`,
@@ -133,7 +134,7 @@ router.post('/change-password', verifyToken, async (req, res) => {
 
     const passwordHash = await bcrypt.hash(newPassword, 10);
     await pool.query(
-      'UPDATE users SET password_hash = ?, auth_version = auth_version + 1, pending_credential_email = NULL WHERE id = ?',
+      'UPDATE users SET password_hash = ?, auth_version = auth_version + 1, pending_credential_email = NULL, must_change_password = 0 WHERE id = ?',
       [passwordHash, user.id],
     );
     return res.json({ message: 'Password changed successfully' });
@@ -277,7 +278,7 @@ router.post('/password-reset/confirm', verifyToken, async (req, res) => {
 
     const passwordHash = await bcrypt.hash(newPassword, 10);
     await connection.query(
-      'UPDATE users SET password_hash = ?, auth_version = auth_version + 1, pending_credential_email = NULL WHERE id = ?',
+      'UPDATE users SET password_hash = ?, auth_version = auth_version + 1, pending_credential_email = NULL, must_change_password = 0 WHERE id = ?',
       [passwordHash, req.user.id],
     );
     await connection.query('DELETE FROM user_password_reset_codes WHERE user_id = ?', [req.user.id]);
@@ -309,7 +310,7 @@ router.post('/refresh', async (req, res) => {
     }
 
     const [rows] = await pool.query(
-      `SELECT id, first_name, last_name, middle_initial, email, role, status, school_id, group_id, contact_number, auth_version, consent_accepted_at FROM users WHERE id = ? LIMIT 1`,
+      `SELECT id, first_name, last_name, middle_initial, email, role, status, school_id, group_id, contact_number, auth_version, consent_accepted_at, must_change_password FROM users WHERE id = ? LIMIT 1`,
       [payload.id]
     );
 

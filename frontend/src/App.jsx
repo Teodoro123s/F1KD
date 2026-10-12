@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Layout from './components/Layout';
 import RoleMothersProvider from './context/RoleMothersProvider';
 import RoleModulePage from './pages/RoleModulePage';
@@ -20,6 +20,7 @@ const BENEFICIARY_EDIT_ROLES = PERMISSIONS['beneficiary-resources'].update;
 
 function RequireAuth({ children }) {
   const auth = useAuth();
+  const location = useLocation();
   if (auth.loading) return <LoadingScreen message="Checking your session..." />;
   if (!auth.isAuthenticated) {
     return <Navigate to="/login" replace />;
@@ -27,28 +28,39 @@ function RequireAuth({ children }) {
   if (!auth.currentUser?.has_accepted_terms) {
     return <Navigate to="/consent" replace />;
   }
+  if (auth.currentUser?.must_change_password && location.pathname !== '/settings') {
+    return <Navigate to="/settings" replace />;
+  }
   return children;
+}
+
+function getAuthenticatedDestination(user) {
+  if (!user?.has_accepted_terms) return '/consent';
+  if (user?.must_change_password) return '/settings';
+  return '/dashboard';
 }
 
 function InitialRoute() {
   const auth = useAuth();
   if (auth.loading) return <LoadingScreen message="Checking your session..." />;
   if (!auth.isAuthenticated) return <Navigate to="/login" replace />;
-  return <Navigate to={auth.currentUser?.has_accepted_terms ? '/dashboard' : '/consent'} replace />;
+  return <Navigate to={getAuthenticatedDestination(auth.currentUser)} replace />;
 }
 
 function GuestRoute({ children }) {
   const auth = useAuth();
   if (auth.loading) return <LoadingScreen message="Checking your session..." />;
   if (!auth.isAuthenticated) return children;
-  return <Navigate to={auth.currentUser?.has_accepted_terms ? '/dashboard' : '/consent'} replace />;
+  return <Navigate to={getAuthenticatedDestination(auth.currentUser)} replace />;
 }
 
 function ConsentRoute() {
   const auth = useAuth();
   if (auth.loading) return <LoadingScreen message="Checking your session..." />;
   if (!auth.isAuthenticated) return <Navigate to="/login" replace />;
-  if (auth.currentUser?.has_accepted_terms) return <Navigate to="/dashboard" replace />;
+  if (auth.currentUser?.has_accepted_terms) {
+    return <Navigate to={getAuthenticatedDestination(auth.currentUser)} replace />;
+  }
   return <ConsentPage />;
 }
 

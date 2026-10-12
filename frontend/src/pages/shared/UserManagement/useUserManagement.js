@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { apiGetUsers, apiCreateUser, apiUpdateUser, apiPatchUserStatus, apiDeleteUser } from '../../../api/users';
-import { isValidName, isValidMiddleInitial, sanitizeDigits, normalizeContact, isValidContact, isValidEmail, formatDobForInput, isValidDob, getDobValidationMessage, generatePassword } from './lib';
+import { isValidName, isValidMiddleInitial, sanitizeDigits, normalizeContact, isValidContact, isValidEmail, formatDobForInput, isValidDob, getDobValidationMessage } from './lib';
 import { getSummary } from '../Community/communityService';
 import { isCommunityCoordinatorRole, isHealthWorkerRole } from '../../../utils/permissions';
 import { getApiBaseUrl } from '../../../api/authHeader';
@@ -433,24 +433,6 @@ export function useUserManagement({ schoolId = '', batchId = '' } = {}) {
         setPage(1);
       } else {
         // Create new user
-        const passwordToUse = (fdPassword && fdPassword.length >= 8) ? fdPassword : generatePassword({ lastName, contactNumber: contactNumberSan });
-        try { console.log('Computed passwordToUse', { fdPasswordLength: (fdPassword || '').length, passwordToUse }); } catch(e) {}
-        try { console.log('Password to use for new user (plaintext):', passwordToUse); } catch (e) {}
-        if (!passwordToUse || passwordToUse.length < 8) { setNotification('Password must be at least 8 characters.'); try { console.log('Validation failed: password too short', { passwordToUse }); } catch(e){}; return; }
-
-        // Log payload for debug (we'll retry up to 5 times on duplicate username/email)
-        try { console.log('Creating user payload (initial)', {
-          firstName,
-          lastName,
-          middleInitial: mi || null,
-          contactNumber: contactNumberSan,
-          email: emailToUse,
-          dob: dobToSave,
-          role: roleVal,
-          status: statusVal,
-          password: passwordToUse,
-        }); } catch (e) {}
-
         // Use the normalized contact number as the username by default
         const baseUsername = contactNumberSan || `user${Date.now().toString().slice(-6)}`;
         let usernameToUse = baseUsername;
@@ -470,13 +452,10 @@ export function useUserManagement({ schoolId = '', batchId = '' } = {}) {
               dob: dobToSave,
               role: roleVal,
               status: statusVal,
-              password: passwordToUse,
               schoolId: schoolIdVal || null,
               groupId: groupIdVal || null,
             };
-            try { console.log(`Attempt ${attempts}: creating user with username=${usernameToUse} and email=${emailToUse}`, payload); } catch(e){}
             data = await apiCreateUser(payload);
-            try { console.log('Created user response', data); } catch(e) {}
             // success
             break;
           } catch (err) {
@@ -546,11 +525,13 @@ export function useUserManagement({ schoolId = '', batchId = '' } = {}) {
           name: `${created.first_name} ${created.middle_initial ? created.middle_initial + ' ' : ''}${created.last_name}`,
         };
             setUsers((prev) => [newUser, ...prev]);
-        // Expose the one-time credentials for the UI to show once (dev only). The frontend computed passwordToUse, so show that.
-        setOneTimeCredentials({ email: emailToUse, password: passwordToUse });
+        setOneTimeCredentials({
+          id: serverId,
+          email: created.email,
+          emailSent: data.emailSent,
+        });
         setNotification(`Created ${fullName}.`);
         try { console.log('Created and added user to UI', publicId, fullName); } catch(e) {}
-        try { console.log('One-time plaintext password for created user (dev):', passwordToUse); } catch(e) {}
         closeModal();
         setPage(1);
       }

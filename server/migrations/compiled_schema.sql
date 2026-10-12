@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS users (
   username VARCHAR(100) UNIQUE,
   email VARCHAR(255) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
+  must_change_password TINYINT(1) NOT NULL DEFAULT 0,
   consent_accepted_at DATETIME DEFAULT NULL,
   last_notifications_read_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
   full_name VARCHAR(150),

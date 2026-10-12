@@ -24,8 +24,11 @@ docker compose -f docker-compose.minio.yml up --build -d
 
 ### EmailJS setup
 
-The backend uses EmailJS to send a temporary password when Superadmin creates
-an account and a one-time code when any signed-in user resets their password.
+The backend generates an eight-character random temporary password and uses
+EmailJS to send it when Superadmin creates an account. The temporary password
+is checked against its bcrypt hash at login, and the user must set a stronger
+password before accessing the rest of the app. EmailJS also sends a one-time
+code when any signed-in user resets their password.
 In `.env`, set `EMAILJS_SERVICE_ID`, `EMAILJS_PUBLIC_KEY`,
 `EMAILJS_PRIVATE_KEY`, `EMAILJS_USER_TEMPLATE_ID`, and
 `EMAILJS_OTP_TEMPLATE_ID` from EmailJS. Keep these values private and do not

@@ -445,7 +445,6 @@ export function useUserManagement({ schoolId = '', batchId = '' } = {}) {
           dob: dobToSave,
           role: roleVal,
           status: statusVal,
-          ...(fdPassword && fdPassword.length >= 8 ? { password: fdPassword } : {}),
           schoolId: schoolIdVal || null,
           groupId: groupIdVal || null,
         });
@@ -470,7 +469,11 @@ export function useUserManagement({ schoolId = '', batchId = '' } = {}) {
           name: `${created.first_name} ${created.middle_initial ? created.middle_initial + ' ' : ''}${created.last_name}`,
         };
             setUsers((prev) => [newUser, ...prev]);
-        setOneTimeCredentials({ id: serverId, email, emailSent: data.emailSent });
+        setOneTimeCredentials({
+          id: serverId,
+          email: created.email,
+          emailSent: data.emailSent,
+        });
         setNotification(data.emailSent
           ? `Created ${fullName}. Temporary credentials were emailed to ${email}.`
           : `Created ${fullName}, but the credential email was not sent.`);

@@ -48,11 +48,36 @@
   text-transform: uppercase;
 }
 
+.community-page .table-card .data-table th {
+  padding: 0.75rem 1rem;
+  font-size: 0.72rem;
+}
+
 .data-table td,
 .view-table td,
 .progress-report-table td {
   color: var(--table-cell-text);
   border-bottom: 1px solid var(--table-divider);
+}
+
+.community-page .table-card .data-table td {
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.community-page .notification-actor {
+  display: block;
+  margin-top: 0.2rem;
+  color: #64748b;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.community-page .table-card .data-table td.notification-received {
+  font-size: 0.78rem;
+  line-height: 1.3;
+  white-space: nowrap;
 }
 
 .data-table tbody tr:last-child td,

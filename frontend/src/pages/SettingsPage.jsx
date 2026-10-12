@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import PageHeader from '../components/ui/PageHeader';
 import { notifyAction } from '../components/ActionFeedback';
 import { useAuth } from '../auth/AuthProvider';
-import { confirmPasswordReset, requestPasswordResetCode } from '../api/auth';
+import { changePassword, confirmPasswordReset, requestPasswordResetCode } from '../api/auth';
 
 const PASSWORD_REQUIREMENTS = [
   { label: 'At least 12 characters', test: (password) => password.length >= 12 },
@@ -13,7 +14,14 @@ const PASSWORD_REQUIREMENTS = [
 ];
 
 export default function SettingsPage() {
-  const { currentUser } = useAuth();
+  const { currentUser, logout } = useAuth();
+  const navigate = useNavigate();
+  const [temporaryPasswordForm, setTemporaryPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [changingTemporaryPassword, setChangingTemporaryPassword] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ passcode: '', newPassword: '', confirmPassword: '' });
   const [sendingCode, setSendingCode] = useState(false);
   const [resettingPassword, setResettingPassword] = useState(false);
@@ -59,6 +67,29 @@ export default function SettingsPage() {
     }
   };
 
+  const handleTemporaryPasswordChange = async (event) => {
+    event.preventDefault();
+    if (temporaryPasswordForm.newPassword !== temporaryPasswordForm.confirmPassword) {
+      notifyAction('New passwords do not match.', 'error');
+      return;
+    }
+    setChangingTemporaryPassword(true);
+    try {
+      await changePassword(
+        temporaryPasswordForm.currentPassword,
+        temporaryPasswordForm.newPassword,
+        temporaryPasswordForm.confirmPassword,
+      );
+      notifyAction('Password changed. Sign in with your new password.');
+      logout();
+      navigate('/login', { replace: true });
+    } catch (error) {
+      notifyAction(error.message || 'Unable to change password.', 'error');
+    } finally {
+      setChangingTemporaryPassword(false);
+    }
+  };
+
   const togglePasswordVisibility = (field) => {
     setVisiblePasswords((visible) => ({ ...visible, [field]: !visible[field] }));
   };
@@ -78,6 +109,65 @@ export default function SettingsPage() {
       />
 
       <main style={{ padding: '1rem' }}>
+        {currentUser?.must_change_password && (
+          <div className="checkup-card" style={{ marginBottom: '1rem' }}>
+            <div className="checkup-card-body">
+              <div className="checkup-section-title">Set a new password</div>
+              <p>Your temporary password must be replaced before you can use the rest of the app.</p>
+              <form className="settings-password-form" onSubmit={handleTemporaryPasswordChange}>
+                <div className="checkup-grid user-profile-grid">
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label className="checkup-field-label" htmlFor="temporary-password">Temporary password</label>
+                    <input
+                      id="temporary-password"
+                      className="checkup-field-input"
+                      type="password"
+                      autoComplete="current-password"
+                      value={temporaryPasswordForm.currentPassword}
+                      onChange={(event) => setTemporaryPasswordForm((form) => ({ ...form, currentPassword: event.target.value }))}
+                      required
+                    />
+                  </div>
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label className="checkup-field-label" htmlFor="temporary-new-password">New password</label>
+                    <input
+                      id="temporary-new-password"
+                      className="checkup-field-input"
+                      type="password"
+                      autoComplete="new-password"
+                      minLength={12}
+                      value={temporaryPasswordForm.newPassword}
+                      onChange={(event) => setTemporaryPasswordForm((form) => ({ ...form, newPassword: event.target.value }))}
+                      required
+                    />
+                    <div style={{ marginTop: '0.5rem', color: '#475569', fontSize: '0.9rem' }}>
+                      Use at least 12 characters, including uppercase and lowercase letters, a number, and a symbol.
+                    </div>
+                  </div>
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label className="checkup-field-label" htmlFor="temporary-confirm-password">Confirm new password</label>
+                    <input
+                      id="temporary-confirm-password"
+                      className="checkup-field-input"
+                      type="password"
+                      autoComplete="new-password"
+                      minLength={12}
+                      value={temporaryPasswordForm.confirmPassword}
+                      onChange={(event) => setTemporaryPasswordForm((form) => ({ ...form, confirmPassword: event.target.value }))}
+                      required
+                    />
+                  </div>
+                </div>
+                <div style={{ marginTop: '1.25rem' }}>
+                  <button type="submit" className="btn-primary" disabled={changingTemporaryPassword}>
+                    {changingTemporaryPassword ? 'Changing...' : 'Change password'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+        {!currentUser?.must_change_password && (
         <div className="checkup-card">
           <div className="checkup-card-body">
             <div className="checkup-section-title">Reset password</div>
@@ -161,6 +251,7 @@ export default function SettingsPage() {
             </form>
           </div>
         </div>
+        )}
       </main>
     </div>
   );

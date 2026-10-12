@@ -19,17 +19,30 @@ function createVerifyToken(options = {}) {
 
       try {
         const [users] = await pool.query(
-          'SELECT auth_version, consent_accepted_at FROM users WHERE id = ? LIMIT 1',
+          'SELECT auth_version, consent_accepted_at, must_change_password FROM users WHERE id = ? LIMIT 1',
           [payload.id],
         );
         if (!users.length || Number(users[0].auth_version || 0) !== Number(payload.auth_version || 0)) {
           return res.status(401).json({ error: 'Session expired. Please sign in again.' });
         }
         const hasAcceptedTerms = Boolean(users[0].consent_accepted_at);
+        const mustChangePassword = Boolean(users[0].must_change_password);
         if (!hasAcceptedTerms && !options.allowUnconsented) {
           return res.status(403).json({ error: 'Please accept the user consent form before continuing.' });
         }
-        req.user = { ...payload, has_accepted_terms: hasAcceptedTerms };
+        const authPath = req.baseUrl === '/api/auth' ? req.path : '';
+        const allowedDuringPasswordChange = ['/change-password', '/consent', '/me'].includes(authPath);
+        if (mustChangePassword && !allowedDuringPasswordChange) {
+          return res.status(403).json({
+            code: 'PASSWORD_CHANGE_REQUIRED',
+            error: 'Change your temporary password before continuing.',
+          });
+        }
+        req.user = {
+          ...payload,
+          has_accepted_terms: hasAcceptedTerms,
+          must_change_password: mustChangePassword,
+        };
         return next();
       } catch (err) {
         console.error('[Auth] Unable to validate session version:', err.message);

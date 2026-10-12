@@ -8,13 +8,13 @@ const { authorize } = require('../middleware/authorize');
 const { createSuperadminNotification } = require('../services/notifications');
 const { sendAccountCredentials } = require('../services/emailjs');
 const { encryptCredential, decryptCredential } = require('../services/credentialCipher');
+const { generateTemporaryPassword } = require('../services/temporaryPassword');
 const {
   findDuplicateUser,
   normalizeEmail,
   normalizeFullName,
   withUniquenessLocks,
 } = require('../services/uniqueness');
-const crypto = require('crypto');
 
 function normalizeDbStatus(value) {
   const normalized = String(value || '').trim().toLowerCase();
@@ -89,7 +89,6 @@ router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
     const {
       username,
       email,
-      password,
       fullName,
       firstName,
       lastName,
@@ -144,17 +143,14 @@ router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
       );
       if (duplicateContacts.length) return { duplicateField: 'contact number' };
 
-      let plainPassword = password;
-      if (!plainPassword || plainPassword.length < 8) {
-        plainPassword = crypto.randomBytes(18).toString('base64url');
-      }
+      const plainPassword = generateTemporaryPassword();
       const hash = await bcrypt.hash(plainPassword, 10);
       const dbStatus = normalizeDbStatus(status || 'active');
       connection = await pool.getConnection();
       await connection.beginTransaction();
       const [result] = await connection.query(
-        `INSERT INTO users (email, role, status, password_hash, auth_version, pending_credential_email, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, group_id)
-         VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
+        `INSERT INTO users (email, role, status, password_hash, auth_version, pending_credential_email, must_change_password, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, group_id)
+         VALUES (?, ?, ?, ?, 0, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
         [
           normalizedEmail,
           role || 'user',
@@ -254,13 +250,15 @@ router.post('/:id/resend-credentials', verifyToken, authorize('super_admin'), as
     needsNewPassword = !user.pending_credential_email;
     const password = user.pending_credential_email
       ? decryptCredential(user.pending_credential_email)
-      : crypto.randomBytes(18).toString('base64url');
+      : generateTemporaryPassword();
     if (needsNewPassword) {
       const passwordHash = await bcrypt.hash(password, 10);
       await connection.query(
-        'UPDATE users SET password_hash = ?, auth_version = auth_version + 1, pending_credential_email = ? WHERE id = ?',
+        'UPDATE users SET password_hash = ?, auth_version = auth_version + 1, pending_credential_email = ?, must_change_password = 1 WHERE id = ?',
         [passwordHash, encryptCredential(password), user.id],
       );
+    } else {
+      await connection.query('UPDATE users SET must_change_password = 1 WHERE id = ?', [user.id]);
     }
     await connection.commit();
     connection.release();
@@ -378,6 +376,7 @@ router.put('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
       params.push(hash);
       updates.push('auth_version = auth_version + 1');
       updates.push('pending_credential_email = NULL');
+      updates.push('must_change_password = 1');
     }
 
     if (!updates.length) return res.status(400).json({ error: 'No fields to update' });

@@ -86,6 +86,7 @@ export default function NotificationsPage() {
     {
       key: 'createdAt',
       header: 'Received',
+      cellClassName: 'notification-received',
       style: { width: '13%' },
       renderCell: (notification) => new Date(notification.createdAt).toLocaleString(undefined, {
         month: 'short',

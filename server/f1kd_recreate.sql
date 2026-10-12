@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS users (
   role VARCHAR(120) NOT NULL DEFAULT 'Superadmin',
   status ENUM('Active','Suspended') NOT NULL DEFAULT 'Active',
   password_hash VARCHAR(255) DEFAULT NULL,
+  must_change_password TINYINT(1) NOT NULL DEFAULT 0,
   consent_accepted_at DATETIME DEFAULT NULL,
   school_id INT DEFAULT NULL,
   name VARCHAR(255) GENERATED ALWAYS AS (
