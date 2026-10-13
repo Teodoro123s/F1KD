@@ -30,14 +30,16 @@ function HistoryCell({ field, value, formatCellValue }) {
   );
 }
 
-function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleFields, formatCellValue, communitySelection }) {
+function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleFields, formatCellValue, communitySelection, beneficiaryType }) {
   const [viewMode, setViewMode] = useState('individual');
   const [selectedBeneficiary, setSelectedBeneficiary] = useState('');
   const [selectedMonth, setSelectedMonth] = useState('');
   const [selectedSchool, setSelectedSchool] = useState('');
   const [selectedGroup, setSelectedGroup] = useState('');
   const visibleHistoryFields = reportFields.filter(([id]) => displayVisibleFields.includes(id) && historyFieldIds.has(id));
-  const identityFields = reportFields.filter(([id]) => ['mother', 'child'].includes(id));
+  const identityFields = reportFields.filter(([id]) => (
+    beneficiaryType === 'mother' ? id === 'mother' : ['mother', 'child'].includes(id)
+  ));
   const beneficiaries = useMemo(() => [...new Map(resultsRows.map((row) => [String(row.childId || row.motherId || row.child || row.mother), row])).values()], [resultsRows]);
   const months = useMemo(() => [...new Set(resultsRows.map((row) => String(row.measurementDate || '').slice(0, 7)).filter(Boolean))].sort(), [resultsRows]);
   const schools = useMemo(() => [...new Set(resultsRows.map((row) => row.school).filter(Boolean))].sort(), [resultsRows]);
@@ -87,8 +89,12 @@ function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleField
       {viewMode === 'individual' ? (
         <>
           <div className="monitoring-history-profile">
-            <strong>Child: {selectedProfile.child || '—'}</strong>
-            <span>Mother: {selectedProfile.mother || '—'}</span>
+            {beneficiaryType === 'mother'
+              ? <strong>Mother: {selectedProfile.mother || '—'}</strong>
+              : <>
+                <strong>Child: {selectedProfile.child || '—'}</strong>
+                <span>Mother: {selectedProfile.mother || '—'}</span>
+              </>}
             <span>School: {selectedProfile.school || '—'}</span>
             <span>Group: {selectedProfile.group || '—'}</span>
           </div>
@@ -304,7 +310,7 @@ export function ResultsTable({
         </div>
       )}
       {showMonitoringFilter && tableDisplayMode === 'monitoring-dates' ? (
-        <MonitoringHistoryTable resultsRows={resultsRows} reportFields={reportFields} displayVisibleFields={displayVisibleFields} formatCellValue={formatCellValue} communitySelection={communitySelection} />
+        <MonitoringHistoryTable resultsRows={resultsRows} reportFields={reportFields} displayVisibleFields={displayVisibleFields} formatCellValue={formatCellValue} communitySelection={communitySelection} beneficiaryType={beneficiaryType} />
       ) : showMonitoringFilter && tableDisplayMode === 'general' ? (
         <LatestResultsTable resultsRows={periodRows} formatCellValue={formatCellValue} beneficiaryType={beneficiaryType} resultPeriod={resultPeriod} />
       ) : (

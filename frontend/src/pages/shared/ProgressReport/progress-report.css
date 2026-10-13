@@ -585,6 +585,263 @@
   overflow: visible;
 }
 
+.progress-report-shell .growth-report-series-legend {
+  margin: 12px 8px 0;
+  color: #475569;
+  font-size: 0.8rem;
+}
+
+.progress-report-shell .growth-report-large-cohort {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.progress-report-shell .growth-report-population-summary {
+  width: 100%;
+  min-width: 0;
+}
+
+.progress-report-shell .growth-report-population-summary .growth-report-line-chart {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.progress-report-shell .growth-report-cohort-controls {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.progress-report-shell .growth-report-cohort-controls > div {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.progress-report-shell .growth-report-cohort-controls span,
+.progress-report-shell .growth-report-population-summary > p,
+.progress-report-shell .growth-report-beneficiary-picker > p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.82rem;
+}
+
+.progress-report-shell .growth-report-population-summary > p {
+  margin: 0 0 10px;
+}
+
+.progress-report-shell .growth-report-beneficiary-picker {
+  display: grid;
+  min-width: 0;
+  gap: 10px;
+  padding: 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.progress-report-shell .growth-report-beneficiary-picker > label {
+  display: grid;
+  max-width: 460px;
+  gap: 6px;
+  color: #475569;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.progress-report-shell .growth-report-beneficiary-picker input {
+  min-height: 40px;
+  padding: 0 11px;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  font: inherit;
+}
+
+.progress-report-shell .growth-report-beneficiary-options {
+  display: grid;
+  max-height: 180px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 6px 10px;
+  overflow: auto;
+}
+
+.progress-report-shell .growth-report-beneficiary-options button {
+  min-width: 0;
+  padding: 7px 9px;
+  overflow: hidden;
+  color: #475569;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 7px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.progress-report-shell .growth-report-beneficiary-options button.is-selected {
+  color: #166534;
+  background: #f0fdf4;
+  border-color: #86efac;
+}
+
+.progress-report-shell .growth-report-beneficiary-options p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+.progress-report-shell .growth-report-category-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 12px;
+}
+
+.progress-report-shell .growth-report-category-legend i {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  flex: 0 0 9px;
+  border-radius: 50%;
+}
+
+.progress-report-shell .growth-report-point-details {
+  display: grid;
+  min-width: 0;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.progress-report-shell .growth-report-point-details-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+}
+
+.progress-report-shell .growth-report-point-details-header span,
+.progress-report-shell .growth-report-point-details li small {
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.progress-report-shell .growth-report-point-details ul {
+  display: grid;
+  max-height: 240px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
+  gap: 8px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.progress-report-shell .growth-report-point-details button {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  gap: 4px;
+  padding: 9px 11px;
+  color: #166534;
+  background: #fff;
+  border: 1px solid #bbf7d0;
+  border-radius: 7px;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.progress-report-shell .growth-report-point-details button:disabled {
+  color: #64748b;
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+  cursor: not-allowed;
+}
+
+.progress-report-shell .growth-report-point-details li small {
+  overflow-wrap: anywhere;
+}
+
+.progress-report-shell .growth-report-series-legend summary {
+  width: fit-content;
+  cursor: pointer;
+  font-weight: 650;
+}
+
+.progress-report-shell .growth-report-legend-search {
+  display: grid;
+  max-width: 360px;
+  gap: 6px;
+  margin: 12px 0 8px;
+  font-size: 0.76rem;
+  font-weight: 650;
+}
+
+.progress-report-shell .growth-report-legend-search input {
+  min-height: 38px;
+  padding: 0 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  font: inherit;
+}
+
+.progress-report-shell .growth-report-legend-list {
+  display: grid;
+  max-height: 240px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 8px 14px;
+  overflow: auto;
+  padding: 2px 4px 8px 0;
+}
+
+.progress-report-shell .growth-report-legend-list > span {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  overflow-wrap: anywhere;
+}
+
+.progress-report-shell .growth-report-legend-list > span.is-muted {
+  opacity: 0.45;
+}
+
+.progress-report-shell .growth-report-legend-list i {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  flex: 0 0 9px;
+  border-radius: 50%;
+}
+
+.progress-report-shell .growth-report-legend-empty {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #64748b;
+  font-size: 0.76rem;
+}
+
 .progress-report-shell .growth-report-gridline,
 .progress-report-shell .profile-scatterplot-gridline {
   stroke: #e2e8f0;
@@ -610,6 +867,10 @@
 
 .progress-report-shell .growth-report-series-point,
 .progress-report-shell .growth-report-data-point {
+  cursor: pointer;
+}
+
+.progress-report-shell .growth-report-summary-point[role="button"] {
   cursor: pointer;
 }
 

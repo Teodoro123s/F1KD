@@ -14,6 +14,7 @@ export function GrowthMetricsStep({
   selectGrowthMetric,
   setActiveTab,
   generateReport,
+  hasEligibleProgramSelection = true,
   loadingReport = false,
   profileFieldSections = {},
   profileSectionLabels = {},
@@ -59,6 +60,7 @@ export function GrowthMetricsStep({
             ))}
           </div>
           <p className="progress-report-note">Program values come from the Program and monitoring activity records for the selected community scope.</p>
+          {!hasEligibleProgramSelection && <p className="progress-report-note" role="alert">Select an eligible program on Report Focus before generating results.</p>}
         </>
       ) : (
         <>
@@ -75,7 +77,7 @@ export function GrowthMetricsStep({
         </>
       )}
       <div className="progress-report-tab-actions">
-        <button type="button" className="primary-btn" disabled={loadingReport} aria-busy={loadingReport} onClick={async () => {
+        <button type="button" className="primary-btn" disabled={loadingReport || (reportCategory === 'program' && !hasEligibleProgramSelection)} aria-busy={loadingReport} onClick={async () => {
           if (generateReport) await generateReport();
         }}>
           {loadingReport ? <><span className="spinner spinner-sm" aria-hidden="true" /> Generating report...</> : 'Next: Results →'}

@@ -217,7 +217,7 @@ export function EditBatchModal({ showModal, onClose, batchForm, setBatchForm, ha
   );
 }
 
-export function CreateGroupModal({ showModal, onClose, groupForm, setGroupForm, handleCreateGroup, communities, hideSchoolField = false, isSubmitting }) {
+export function CreateGroupModal({ showModal, onClose, groupForm, setGroupForm, handleCreateGroup, communities, hideSchoolField = false, hideBatchField = false, isSubmitting }) {
   if (!showModal) return null;
 
   return (
@@ -235,17 +235,19 @@ export function CreateGroupModal({ showModal, onClose, groupForm, setGroupForm, 
           autoFocus
         />
       </div>
-      <div className="form-group">
-        <label className="form-label" htmlFor="group-initial-batch">Batch Name (Optional)</label>
-        <input
-          id="group-initial-batch"
-          type="text"
-          className="form-input"
-          placeholder="Enter a batch name to create one"
-          value={groupForm.batchName || ''}
-          onChange={(e) => setGroupForm({ ...groupForm, batchName: capitalizeNameValue(e.target.value) })}
-        />
-      </div>
+      {!hideBatchField && (
+        <div className="form-group">
+          <label className="form-label" htmlFor="group-initial-batch">Batch Name (Optional)</label>
+          <input
+            id="group-initial-batch"
+            type="text"
+            className="form-input"
+            placeholder="Enter a batch name to create one"
+            value={groupForm.batchName || ''}
+            onChange={(e) => setGroupForm({ ...groupForm, batchName: capitalizeNameValue(e.target.value) })}
+          />
+        </div>
+      )}
       {!hideSchoolField && (
         <div className="form-group">
           <label className="form-label" htmlFor="group-school">School</label>

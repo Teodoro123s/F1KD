@@ -112,6 +112,14 @@ const getCheckupForStep = (mother, step) => {
   return mother.checkups?.[trimesterIndex]?.[checkupIndex] || null;
 };
 
+const getStepForCheckupDate = (mother, checkupDate) => {
+  if (!checkupDate) return -1;
+  const targetDate = String(checkupDate).slice(0, 10);
+  return CHECKUPS.findIndex(({ stepIndex }) => (
+    String(getCheckupForStep(mother, stepIndex)?.checkupDate || '').slice(0, 10) === targetDate
+  ));
+};
+
 const getPreviousCheckupForStep = (mother, step) => step > 0 ? getCheckupForStep(mother, step - 1) : null;
 
 const getFirstIncompleteStep = (checkups = [], startIndex = 0) => CHECKUPS.findIndex((_, index) => index >= startIndex && !checkups?.[Math.floor(index / 3)]?.[index % 3]?.completed);
@@ -137,26 +145,41 @@ const createInitialFormState = (mother, checkup = null, blank = false, previousC
   remarks: checkup?.remarks ?? '',
 });
 
-export default function MotherCheckup({ mother, onSave = () => {}, onCancel = () => {}, forceEdit = false }) {
+export default function MotherCheckup({ mother, onSave = () => {}, onCancel = () => {}, forceEdit = false, initialCheckupDate = '' }) {
   if (!mother) return null;
 
   const monitoringStart = getMonitoringStartDetails(mother);
   const monitoringStartStep = getMotherMonitoringStartIndex(mother);
-  const initialStep = getInitialStep(mother.checkups, monitoringStartStep);
+  const requestedStep = getStepForCheckupDate(mother, initialCheckupDate);
+  const initialStep = requestedStep >= 0 ? requestedStep : getInitialStep(mother.checkups, monitoringStartStep);
   const [activeStep, setActiveStep] = useState(initialStep);
   const previousMotherId = useRef(mother.id || mother.motherId);
+  const previousCheckupDate = useRef(initialCheckupDate);
+  const initialCheckupSelectionApplied = useRef(requestedStep >= 0 || !initialCheckupDate);
   const [formState, setFormState] = useState(() => createInitialFormState(mother, getCheckupForStep(mother, initialStep), false, getPreviousCheckupForStep(mother, initialStep)));
   const [pendingSave, setPendingSave] = useState(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const motherId = mother.id || mother.motherId;
-    if (previousMotherId.current !== motherId) {
+    const selectionChanged = previousMotherId.current !== motherId || previousCheckupDate.current !== initialCheckupDate;
+    if (selectionChanged) {
       previousMotherId.current = motherId;
-      const start = getMonitoringStartDetails(mother);
-      setActiveStep(getInitialStep(start.trimester, mother.checkups, start.gestationalAge));
+      previousCheckupDate.current = initialCheckupDate;
+      initialCheckupSelectionApplied.current = !initialCheckupDate;
     }
-  }, [mother]);
+
+    if (initialCheckupSelectionApplied.current || !initialCheckupDate) return;
+
+    const targetStep = getStepForCheckupDate(mother, initialCheckupDate);
+    if (targetStep >= 0) {
+      setActiveStep(targetStep);
+      initialCheckupSelectionApplied.current = true;
+    } else if (Array.isArray(mother.checkups)) {
+      setActiveStep(getInitialStep(mother.checkups, getMotherMonitoringStartIndex(mother)));
+      initialCheckupSelectionApplied.current = true;
+    }
+  }, [initialCheckupDate, mother]);
 
   useEffect(() => {
     const firstIncomplete = getFirstIncompleteStep(mother.checkups, getMotherMonitoringStartIndex(mother));
@@ -294,7 +317,7 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
         <fieldset disabled={isReadOnly}>
         <div className={`checkup-card${isCompleted ? ' checkup-card-completed' : ''}${isFuture || isSkipped ? ' checkup-card-locked' : ''}`}>
           <div className="checkup-card-body">
-            <div className="checkup-section-title">Pregnancy Record</div>
+            <div className="checkup-section-title" id="selected-mother-title">Pregnancy Record</div>
             {isMaternalPhaseComplete ? <p className="checkup-state-message">Maternal monitoring phase complete · all 9 check-ups recorded</p> : isCompleted && <p className="checkup-state-message">Completed check-up · view only</p>}
             {isFuture && <p className="checkup-state-message">This check-up will be available after the previous visit is completed.</p>}
             {isSkipped && <p className="checkup-state-message">This visit was skipped based on gestational age at registration.</p>}

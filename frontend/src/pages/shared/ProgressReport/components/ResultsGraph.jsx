@@ -420,6 +420,10 @@ export function ResultsGraph({
   const selectedProgramMetric = programMetrics.some(([id]) => id === displayWeeks)
     ? displayWeeks
     : programMetrics[0]?.[0] || '';
+  const isInterpretationChart = displayReportCategory === 'monitor'
+    && graphMetricType === 'interpretation'
+    && selectedGraphMetric !== 'hospitalReferral';
+  const interpretationMetricLabel = metricLabel.replace(/\s+Interpretation$/i, '');
   const applyMonthRange = (startMonth, endMonth) => {
     const safeStart = startMonth || graphicMonthOptions[0] || '';
     const safeEnd = endMonth && endMonth >= safeStart ? endMonth : safeStart || graphicMonthOptions.at(-1) || '';
@@ -429,16 +433,28 @@ export function ResultsGraph({
     ? programMetrics.find(([id]) => id === selectedProgramMetric)?.[1] || 'Program Benefits'
     : displayReportCategory === 'profile'
       ? selectedProfileField?.[1] || 'Profile Summary'
-      : displayBeneficiaryType === 'mother'
-        ? selectedGraphMetric === 'hospitalReferral' ? 'Referral to Hospital' : 'BMI'
-        : metricLabel.replace(/\s+Z-Score$/i, '').replace(/\s+Interpretation$/i, '');
+      : displayReportCategory === 'monitor'
+        ? selectedGraphMetric === 'hospitalReferral'
+          ? 'Referral to Hospital'
+          : isInterpretationChart
+            ? `${interpretationMetricLabel} Interpretation Summary`
+            : metricLabel
+        : displayBeneficiaryType === 'mother'
+          ? selectedGraphMetric === 'hospitalReferral' ? 'Referral to Hospital' : 'BMI'
+          : metricLabel.replace(/\s+Z-Score$/i, '').replace(/\s+Interpretation$/i, '');
   const chartSubtitle = displayReportCategory === 'program'
     ? 'Compare reported benefits by beneficiary or community scope.'
     : displayReportCategory === 'profile'
       ? `Profile values for ${selectedProfileField?.[1] || 'selected field'}`
-      : displayBeneficiaryType === 'mother'
-        ? selectedGraphMetric === 'hospitalReferral' ? 'Referral and assistance recorded at maternal check-ups' : 'Latest mother BMI measurements · values are plotted by month'
-        : 'Weight and length plotted against age in months';
+      : displayReportCategory === 'monitor'
+        ? selectedGraphMetric === 'hospitalReferral'
+          ? 'Referral and assistance recorded at maternal check-ups'
+          : isInterpretationChart
+            ? `Monthly ${displayBeneficiaryType === 'mother' ? 'mother' : 'child'} counts by latest ${interpretationMetricLabel.toLowerCase()} interpretation. Select a point to open matching check-ups.`
+            : `${displayBeneficiaryType === 'mother' ? 'Maternal BMI' : metricLabel} values by check-up month. Select a point to open that check-up.`
+        : displayBeneficiaryType === 'mother'
+          ? selectedGraphMetric === 'hospitalReferral' ? 'Referral and assistance recorded at maternal check-ups' : 'Latest mother BMI measurements · values are plotted by month'
+          : 'Weight and length plotted against age in months';
   const profileGraphType = selectedProfileField?.[2] === 'measurement'
     ? 'Scatterplot'
     : selectedProfileField?.[2] === 'histogram'

@@ -178,6 +178,33 @@ test('Community Coordinators can manage assigned groups and batches but cannot m
   }
 });
 
+test('Super Admins cannot write batches directly or while creating a group', () => {
+  for (const request of [
+    { method: 'POST', path: '/batches' },
+    { method: 'PUT', path: '/batches/12' },
+    { method: 'DELETE', path: '/batches/12' },
+    { method: 'POST', path: '/groups', body: { name: 'Group A', batchName: 'Batch 1' } },
+  ]) {
+    const { called, res } = authorizeRequest({
+      role: 'Super Admin',
+      baseUrl: '/api/community',
+      ...request,
+    });
+    assert.equal(called, false);
+    assert.equal(res.code, 403);
+    assert.equal(res.payload.message, 'Super Admins can manage communities only through the group level');
+  }
+
+  const groupWithoutBatch = authorizeRequest({
+    role: 'Super Admin',
+    baseUrl: '/api/community',
+    method: 'POST',
+    path: '/groups',
+    body: { name: 'Group A' },
+  });
+  assert.equal(groupWithoutBatch.called, true);
+});
+
 test('Progress report endpoints are read-only for all permitted roles', () => {
   for (const role of ['Community Coordinator', 'Partner']) {
     const { called, res } = authorizeRequest({

@@ -312,6 +312,13 @@ export default function MonitoringPage() {
 
       {!selectedMother && !selectedChild ? (
         <section className="monitoring-list-container" aria-labelledby="monitoring-list-title">
+          <div className="monitoring-overview">
+            <div>
+              <h2 id="monitoring-list-title">Beneficiary monitoring</h2>
+              <p>Review check-up progress and open a child or maternal monitoring record.</p>
+            </div>
+            <span className="monitoring-record-count">{monitoringRows.length} {beneficiaryType === 'Mother' ? 'mothers' : 'children'}</span>
+          </div>
           <div className="tabs-row monitoring-filter-row">
             <StatusFilterBar selectedStatusFilter={statusFilter} onChange={(nextStatus) => { setStatusFilter(nextStatus); setPage(1); }} />
             <EntitySearchControls
@@ -354,6 +361,7 @@ export default function MonitoringPage() {
             child={selectedChild}
             completedWeeks={childCompletedWeeks}
             initialWeek={location.state?.week}
+            initialCheckupDate={location.state?.checkupDate}
             onSave={async (payload) => {
               setSavedMessage('');
               let completedWeeks = [];
@@ -396,6 +404,7 @@ export default function MonitoringPage() {
           {savedMessage.startsWith('Unable to save check-up:') && <p className="checkup-save-message checkup-save-message-error" role="alert">{savedMessage}</p>}
           <MotherCheckup
             mother={{ ...selectedMother, checkups: motherCheckups }}
+            initialCheckupDate={location.state?.checkupDate}
             onSave={async (payload) => {
               if (await handleSave(payload)) setEditingCheckup(false);
             }}

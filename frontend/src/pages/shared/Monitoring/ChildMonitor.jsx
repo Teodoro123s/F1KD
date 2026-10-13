@@ -53,8 +53,13 @@ function calculateBmi(weight, height) {
 }
 
 
-export default function ChildMonitor({ child, onSave, onCancel, completedWeeks = [], initialWeek = 1, forceEdit = false }) {
-  const [week, setWeek] = useState(() => Math.max(1, Math.min(TOTAL_MONTHS, Math.floor(Number(initialWeek) || 1))));
+export default function ChildMonitor({ child, onSave, onCancel, completedWeeks = [], initialWeek = 1, initialCheckupDate = '', forceEdit = false }) {
+  const requestedCheckup = (child?.checkups || []).find((checkup) => (
+    formatDate(checkup.visit_date ?? checkup.checkupDate) === String(initialCheckupDate).slice(0, 10)
+  ));
+  const requestedWeek = Number(requestedCheckup?.week_number ?? requestedCheckup?.weekNumber);
+  const selectedInitialWeek = Number.isInteger(requestedWeek) && requestedWeek > 0 ? requestedWeek : initialWeek;
+  const [week, setWeek] = useState(() => Math.max(1, Math.min(TOTAL_MONTHS, Math.floor(Number(selectedInitialWeek) || 1))));
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [form, setForm] = useState(() => ({
@@ -230,7 +235,7 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
           <div className="checkup-form-heading">
             <div>
               <span className="checkup-module-kicker">Growth record</span>
-              <div className="checkup-section-title">Child Check-up Record</div>
+              <div className="checkup-section-title" id="selected-child-title">Child Check-up Record</div>
             </div>
             <span className="checkup-week-badge">M{week} / {TOTAL_MONTHS}</span>
           </div>

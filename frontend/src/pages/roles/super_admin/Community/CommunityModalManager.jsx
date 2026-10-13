@@ -30,6 +30,7 @@ export default function CommunityModalManager({
   onCreateGroup,
   onEditGroup,
   hideGroupSchoolField = false,
+  hideGroupBatchField = false,
   isSubmitting,
 }) {
   return (
@@ -83,6 +84,7 @@ export default function CommunityModalManager({
         handleCreateGroup={onCreateGroup}
         communities={communities}
         hideSchoolField={hideGroupSchoolField}
+        hideBatchField={hideGroupBatchField}
         isSubmitting={isSubmitting}
       />
       <EditGroupModal

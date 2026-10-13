@@ -12,7 +12,6 @@ import '../../_shared/community-module.css';
 
 const defaultCommunityForm = { name: '', area: 'Poblacion', coordinator: '' };
 const defaultGroupForm = { name: '', community: '', assignedBatchIds: [], leader: '', members: 1, status: 'Active' };
-const defaultBatchForm = { name: '', community: '', records: 1, progress: 0, status: 'Active' };
 
 export default function SuperAdminCommunityPage() {
   const navigate = useNavigate();
@@ -28,9 +27,8 @@ export default function SuperAdminCommunityPage() {
   const [pendingDeleteItem, setPendingDeleteItem] = useState(null);
   const [communityForm, setCommunityForm] = useState(defaultCommunityForm);
   const [groupForm, setGroupForm] = useState(defaultGroupForm);
-  const [batchForm, setBatchForm] = useState(defaultBatchForm);
 
-  const activeTab = groupId ? 'batches' : schoolId ? 'groups' : 'communities';
+  const activeTab = schoolId || groupId ? 'groups' : 'communities';
 
   useEffect(() => {
     const handleDocumentClick = (event) => {
@@ -68,12 +66,28 @@ export default function SuperAdminCommunityPage() {
     if (!batchId || loading) return;
     const selectedBatch = batches.find((batch) => String(batch.id || batch.code) === String(batchId));
     const parentGroupId = String(selectedBatch?.groupIds || '').split(',').map((id) => id.trim()).find(Boolean);
-    if (parentGroupId) navigate(`/community/group/${parentGroupId}`, { replace: true });
+    const parentGroup = groups.find((group) => String(group.id) === String(parentGroupId));
+    if (parentGroup) {
+      const parentSchool = communities.find((community) => String(community.id) === String(parentGroup.communityId))
+        || communities.find((community) => community.name === parentGroup.community);
+      navigate(parentSchool ? `/community/school/${parentSchool.id}` : '/community', { replace: true });
+    }
     else if (selectedBatch?.community) {
       const parentSchool = communities.find((community) => community.name === selectedBatch.community);
       navigate(parentSchool ? `/community/school/${parentSchool.id}` : '/community', { replace: true });
     } else navigate('/community', { replace: true });
-  }, [batchId, batches, communities, loading, navigate]);
+  }, [batchId, batches, communities, groups, loading, navigate]);
+
+  useEffect(() => {
+    if (!groupId || batchId || loading) return;
+    if (!selectedGroup || !selectedSchool) {
+      navigate('/community', { replace: true });
+      return;
+    }
+    if (String(selectedSchool.id) !== String(schoolId || '')) {
+      navigate(`/community/school/${selectedSchool.id}`, { replace: true });
+    }
+  }, [batchId, groupId, loading, navigate, schoolId, selectedGroup, selectedSchool]);
 
   const filteredData = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -81,14 +95,12 @@ export default function SuperAdminCommunityPage() {
 
     if (activeTab === 'groups') {
       rows = groups.filter((group) => String(group.community || '') === String(selectedSchool?.name || ''));
-    } else if (activeTab === 'batches') {
-      rows = batches.filter((batch) => String(batch.groupIds || '').split(',').map((id) => id.trim()).includes(String(groupId)));
     }
 
     if (!term) return rows;
     return rows.filter((row) => [row.name, row.area, row.community, row.status, row.leader, row.id]
       .some((value) => String(value || '').toLowerCase().includes(term)));
-  }, [activeTab, batches, communities, groupId, groups, query, selectedSchool]);
+  }, [activeTab, communities, groups, query, selectedSchool]);
 
   const pageCount = Math.max(1, Math.ceil(filteredData.length / perPage));
   const currentPage = Math.min(page, pageCount);
@@ -97,19 +109,11 @@ export default function SuperAdminCommunityPage() {
 
   const tableTitle = activeTab === 'communities'
     ? 'Schools'
-    : activeTab === 'groups'
-      ? `School: ${selectedSchool?.name || 'School'}`
-      : `Group: ${selectedGroup?.name || 'Group'}`;
+    : `School: ${selectedSchool?.name || 'School'}`;
 
   const breadcrumbItems = activeTab === 'communities'
     ? [{ label: 'Schools', clickable: false }]
-    : activeTab === 'groups'
-      ? [{ label: 'Schools', to: '/community', clickable: true }, { label: selectedSchool?.name || 'School', clickable: false }]
-      : [
-        { label: 'Schools', to: '/community', clickable: true },
-        { label: selectedSchool?.name || 'School', to: `/community/school/${selectedSchool?.id || ''}`, clickable: true },
-        { label: selectedGroup?.name || 'Group', clickable: false },
-      ];
+    : [{ label: 'Schools', to: '/community', clickable: true }, { label: selectedSchool?.name || 'School', clickable: false }];
 
   const handleSearch = (value) => {
     setQuery(value);
@@ -129,11 +133,6 @@ export default function SuperAdminCommunityPage() {
       return;
     }
 
-    if (activeTab === 'batches') {
-      setBatchForm({ ...defaultBatchForm, community: selectedSchool?.name || '', groupId: String(selectedGroup?.id || '') });
-      setShowModal('createBatch');
-    }
-
     return;
   };
 
@@ -149,15 +148,6 @@ export default function SuperAdminCommunityPage() {
       setShowModal('editGroup');
       return;
     }
-    if (activeTab === 'batches') {
-      setBatchForm({
-        ...defaultBatchForm,
-        ...item,
-        community: item.community || selectedSchool?.name || '',
-        groupId: String(selectedGroup?.id || String(item.groupIds || '').split(',')[0] || ''),
-      });
-      setShowModal('editBatch');
-    }
     return;
   };
 
@@ -172,8 +162,7 @@ export default function SuperAdminCommunityPage() {
     setPendingDeleteItem(null);
 
     if (activeTab === 'communities') await mutations.deleteCommunity(item.id);
-    else if (activeTab === 'groups') await mutations.deleteGroup(item.id);
-    else await mutations.deleteBatch(item.id);
+    else await mutations.deleteGroup(item.id);
   };
 
   const columns = useMemo(() => {
@@ -221,21 +210,12 @@ export default function SuperAdminCommunityPage() {
       ];
     }
 
-    return [
-      { key: 'name', header: 'Batch Name', style: { width: '42%' }, renderCell: (row) => <span className="community-title-text">{row.name}</span> },
-      { key: 'records', header: 'Total Mothers', cellClassName: 'small-column', renderCell: (row) => row.records || 0 },
-      { key: 'progress', header: 'Progress (%)', cellClassName: 'small-column', renderCell: (row) => `${row.progress || 0}%` },
-      actionColumn,
-    ];
+    return [];
   }, [activeDropdownId, activeTab, coordinators, groups, selectedSchool]);
 
   const onRowClick = activeTab === 'communities'
     ? (row) => navigate(`/community/school/${row.id}`)
-    : activeTab === 'groups'
-      ? (row) => navigate(`/community/group/${row.id}`)
-      : activeTab === 'batches'
-        ? (row) => navigate(`/user-management/batch/${row.id}`, { state: { batchName: row.name, schoolId: selectedSchool?.id, schoolName: selectedSchool?.name } })
-      : undefined;
+    : undefined;
 
   if (loading) return <div className="community-page community-module-page"><p>Loading community data...</p></div>;
   if (error) return <div className="community-page community-module-page"><p className="error-message">{error}</p></div>;
@@ -276,22 +256,19 @@ export default function SuperAdminCommunityPage() {
         batchForm={batchForm}
         setBatchForm={setBatchForm}
         communities={communities}
-        groups={activeTab === 'batches' && selectedGroup ? [selectedGroup] : groups}
+        groups={groups}
         batches={batches}
-        showBatchGroupField={activeTab === 'batches'}
-        hideBatchSchoolField={activeTab === 'batches'}
         coordinators={coordinators}
         onCreateCommunity={async (event) => { event.preventDefault(); await mutations.createCommunity(communityForm); setShowModal(null); }}
         onEditCommunity={async (event) => { event.preventDefault(); await mutations.updateCommunity(selectedItem.id, communityForm); setShowModal(null); setSelectedItem(null); }}
         onCreateGroup={async (event) => { event.preventDefault(); await mutations.createGroup(groupForm); setShowModal(null); }}
         onEditGroup={async (event) => { event.preventDefault(); await mutations.updateGroup(selectedItem.id, groupForm); setShowModal(null); setSelectedItem(null); }}
-        onCreateBatch={async (event) => { event.preventDefault(); await mutations.createBatch(batchForm); setShowModal(null); }}
-        onEditBatch={async (event) => { event.preventDefault(); await mutations.updateBatch(selectedItem.id, batchForm); setShowModal(null); setSelectedItem(null); }}
+        hideGroupBatchField
         isSubmitting={mutations.loading}
       />
       <ConfirmActionModal
         show={Boolean(pendingDeleteItem)}
-        title={`Delete ${activeTab === 'communities' ? 'school' : activeTab === 'groups' ? 'group' : 'batch'}?`}
+        title={`Delete ${activeTab === 'communities' ? 'school' : 'group'}?`}
         message={pendingDeleteItem ? `Are you sure you want to delete ${pendingDeleteItem.name}?` : 'Are you sure?'}
         confirmLabel="OK"
         onConfirm={confirmDeleteItem}

@@ -231,7 +231,7 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
           <div className="checkup-form-heading">
             <div>
               <span className="checkup-module-kicker">Growth record</span>
-              <div className="checkup-section-title">Child Check-up Record</div>
+              <div className="checkup-section-title" id="selected-child-title">Child Check-up Record</div>
             </div>
             <span className="checkup-week-badge">M{week} / {TOTAL_MONTHS}</span>
           </div>

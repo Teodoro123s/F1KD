@@ -141,6 +141,10 @@ export default function ProgressReport() {
     () => programs.filter((program) => matchesProgramBeneficiaryType(program, displayBeneficiaryType)),
     [displayBeneficiaryType, programs],
   );
+  const normalizedProgramSelection = normalizeProgramName(programName);
+  const hasEligibleProgramSelection = Boolean(normalizedProgramSelection) && eligiblePrograms.some(
+    (program) => normalizeProgramName(program.name) === normalizedProgramSelection,
+  );
   useEffect(() => {
     if (!programName) return;
     if (!eligiblePrograms.some((program) => normalizeProgramName(program.name) === normalizeProgramName(programName))) {
@@ -245,6 +249,10 @@ export default function ProgressReport() {
     const safeSelection = normalizeSelectionHierarchy(selection);
     if (!safeSelection.schoolId) {
       notifyAction('Please select at least a School to view the report.', 'error');
+      return;
+    }
+    if (reportCategory === 'program' && !hasEligibleProgramSelection) {
+      notifyAction('Select an eligible program before generating the report.', 'error');
       return;
     }
     reportRequestLock.current = true;
@@ -587,6 +595,7 @@ export default function ProgressReport() {
               programName={programName}
               setProgramName={setProgramName}
               programs={programs}
+              hasEligibleProgramSelection={hasEligibleProgramSelection}
               isPartner={isPartner}
               canViewPrograms={canAccessModule(currentUser?.role, 'program')}
               benefitPeriod={benefitPeriod}
@@ -614,6 +623,7 @@ export default function ProgressReport() {
               selectGrowthMetric={selectGrowthMetric}
               setActiveTab={setActiveTab}
               generateReport={generateReport}
+              hasEligibleProgramSelection={hasEligibleProgramSelection}
               loadingReport={loadingReport}
               profileFieldSections={activeProfileFieldSections}
               profileSectionLabels={activeProfileSectionLabels}

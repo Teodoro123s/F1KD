@@ -153,6 +153,16 @@ function authorizeOperational(req, res, next) {
   if (!moduleRoles || !moduleRoles.includes(userRole)) {
     return permissionResponse(res, 'You do not have permission to access this resource');
   }
+  const isSuperAdminBatchWrite = userRole === 'super_admin'
+    && req.baseUrl === '/api/community'
+    && (
+      (/^\/batches(?:\/[^/]+)?\/?$/.test(req.path) && !isReadMethod(req.method))
+      || (req.method === 'POST' && /^\/groups\/?$/.test(req.path) && String(req.body?.batchName || '').trim())
+    );
+  if (isSuperAdminBatchWrite) {
+    return permissionResponse(res, 'Super Admins can manage communities only through the group level');
+  }
+
   const isCommunityOrganizer = isCommunityCoordinatorRole(req.user.role);
   req.isHealthWorker = isHealthWorkerRole(req.user.role);
   req.isCommunityOrganizer = isCommunityOrganizer;

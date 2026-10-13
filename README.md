@@ -45,6 +45,19 @@ Open `http://localhost:8080` on the Docker host. Other devices on the same netwo
 
 Data persists in the `mariadb-data` and `minio-data` Docker volumes. Local-upload fallback files persist under `server/data/uploads`. `docker compose down` keeps this data; `docker compose down -v` deletes the database and MinIO volumes and should not be used unless you intend to erase them. Back up the SQL database and MinIO objects before moving to a different Docker host; volumes are local to the host and are not automatically synchronized to client devices.
 
+To populate a local/demo database with repeatable synthetic records for the
+Community, Monitoring, Program, User Management, and report graph/table views,
+run this from the repository root in PowerShell:
+
+```powershell
+Get-Content -Raw .\server\seed_visual_qa_data.sql | docker compose -f docker-compose.minio.yml exec -T mariadb sh -c 'mariadb --user="$MARIADB_USER" --password="$MARIADB_PASSWORD" "$MARIADB_DATABASE"'
+```
+
+The seed uses the existing `COM-0001` community, adds clearly named Visual QA
+schools and records, and can be run more than once. Its synthetic user accounts
+have no password hash and cannot sign in. Do not run demo seeds against a
+production database.
+
 An existing local MySQL/MariaDB database is not copied automatically. Export it with `mysqldump`, start the stack, then import the dump into the `mariadb` service before using the app. Copy existing local document files into MinIO or `server/data/uploads` as appropriate; changing the database host alone does not migrate documents.
 
 To stop without deleting stored data:

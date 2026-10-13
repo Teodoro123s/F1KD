@@ -6,6 +6,7 @@ export function ReportFocusStep({
   programName,
   setProgramName,
   programs,
+  hasEligibleProgramSelection,
   isPartner = false,
   canViewPrograms = true,
   benefitPeriod,
@@ -62,7 +63,7 @@ export function ReportFocusStep({
           <div className="program-report-controls">
             <label>
               <span>Program</span>
-              <select value={programName} onChange={(event) => setProgramName(event.target.value)} disabled={!eligiblePrograms.length}>
+              <select value={programName} onChange={(event) => setProgramName(event.target.value)} disabled={!eligiblePrograms.length} required aria-describedby="program-selection-note">
                 <option value="">{eligiblePrograms.length ? 'Select program' : 'No eligible programs'}</option>
                 {eligiblePrograms.map((program) => <option key={program.id} value={program.name}>{program.name}</option>)}
               </select>
@@ -81,10 +82,11 @@ export function ReportFocusStep({
               </label>
             )}
           </div>
+          {!hasEligibleProgramSelection && <p id="program-selection-note" className="progress-report-note">Select an eligible program to continue.</p>}
         </fieldset>
       )}
       <div className="progress-report-tab-actions">
-        <button type="button" className="primary-btn" onClick={() => setActiveTab(3)}>
+        <button type="button" className="primary-btn" disabled={reportCategory === 'program' && !hasEligibleProgramSelection} onClick={() => setActiveTab(3)}>
           Next: Growth Metrics →
         </button>
       </div>

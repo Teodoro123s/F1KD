@@ -312,6 +312,13 @@ export default function MonitoringPage() {
 
       {!selectedMother && !selectedChild ? (
         <section className="monitoring-list-container" aria-labelledby="monitoring-list-title">
+          <div className="monitoring-overview">
+            <div>
+              <h2 id="monitoring-list-title">Beneficiary monitoring</h2>
+              <p>Review check-up progress and open a child or maternal monitoring record.</p>
+            </div>
+            <span className="monitoring-record-count">{monitoringRows.length} {beneficiaryType === 'Mother' ? 'mothers' : 'children'}</span>
+          </div>
           <div className="tabs-row monitoring-filter-row">
             <StatusFilterBar selectedStatusFilter={statusFilter} onChange={(nextStatus) => { setStatusFilter(nextStatus); setPage(1); }} />
             <EntitySearchControls
