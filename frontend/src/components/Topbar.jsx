@@ -245,23 +245,24 @@ export default function Topbar() {
 
       {showSignOutModal && createPortal((
         <div
-          className="signout-modal-backdrop"
+          className="modal-backdrop"
+          role="presentation"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget && !signingOut) setShowSignOutModal(false);
           }}
         >
           <div
-            className="signout-confirm-modal"
+            className="modal-content signout-confirm-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="signout-confirm-title"
             onMouseDown={(event) => event.stopPropagation()}
           >
-            <div className="signout-modal-header">
+            <div className="modal-header-section">
               <h3 id="signout-confirm-title">Sign out?</h3>
               <button
                 type="button"
-                className="signout-modal-close"
+                className="btn-close-modal"
                 onClick={() => setShowSignOutModal(false)}
                 aria-label="Close sign-out confirmation"
                 disabled={signingOut}
@@ -269,14 +270,14 @@ export default function Topbar() {
                 ✕
               </button>
             </div>
-            <div className="signout-modal-body">
+            <div className="modal-body">
               <p>Are you sure you want to sign out of your account?</p>
             </div>
-            <div className="signout-modal-footer">
-              <button type="button" className="signout-cancel-button" onClick={() => setShowSignOutModal(false)} disabled={signingOut}>
+            <div className="modal-footer">
+              <button type="button" className="btn-secondary" onClick={() => setShowSignOutModal(false)} disabled={signingOut}>
                 Cancel
               </button>
-              <button type="button" className="signout-confirm-button" onClick={handleSignOut} disabled={signingOut}>
+              <button type="button" className="btn-primary" onClick={handleSignOut} disabled={signingOut}>
                 {signingOut ? 'Signing out...' : 'Sign out'}
               </button>
             </div>

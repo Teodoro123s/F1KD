@@ -307,6 +307,7 @@ CREATE TABLE IF NOT EXISTS programs (
   provider VARCHAR(150) NOT NULL,
   description TEXT,
   beneficiary_type VARCHAR(40) NOT NULL DEFAULT 'Mother and Child',
+  owner_school_id INT NULL,
   status VARCHAR(20) NOT NULL DEFAULT 'Active',
   target INT NOT NULL DEFAULT 0,
   received INT NOT NULL DEFAULT 0,

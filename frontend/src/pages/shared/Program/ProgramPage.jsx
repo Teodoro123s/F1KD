@@ -1317,7 +1317,11 @@ export default function ProgramPage() {
                   ) : (
                     <tr>
                       <td colSpan="4" className="no-data">
-                        No programs match your search.
+                        {query.trim()
+                          ? 'No programs match your search.'
+                          : activeTab === 'Ended'
+                            ? 'No suspended programs yet.'
+                            : 'No programs yet.'}
                       </td>
                     </tr>
                   )}

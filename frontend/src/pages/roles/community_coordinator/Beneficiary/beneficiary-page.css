@@ -159,11 +159,11 @@
 }
 
 .beneficiary-page--organizer .beneficiary-table-header {
-  display: grid;
+  display: flex;
   min-width: 0;
-  align-items: center;
-  grid-template-columns: minmax(90px, auto) minmax(0, 1fr);
-  gap: 12px 18px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 12px;
   box-sizing: border-box;
   padding: 10px 16px;
   background: #fff;
@@ -172,7 +172,7 @@
 
 .beneficiary-page--organizer .beneficiary-table-title {
   min-width: 0;
-  grid-column: 1;
+  flex: 0 0 100%;
   margin: 0;
   color: #334155;
   font-size: 0.92rem;
@@ -181,22 +181,44 @@
 }
 
 .beneficiary-page--organizer .beneficiary-table-controls {
-  display: grid;
-  grid-column: 2;
+  display: flex;
+  width: 100%;
   min-width: 0;
   align-items: center;
-  grid-template-columns: minmax(100px, 140px) minmax(0, 1fr);
+  flex-wrap: wrap;
   gap: 10px;
 }
 
 .beneficiary-page--organizer .beneficiary-search-controls {
-  display: grid;
-  width: 100%;
+  display: flex;
+  width: auto;
   min-width: 0;
   align-items: center;
-  grid-template-columns: minmax(90px, 120px) auto minmax(180px, 280px);
-  justify-content: end;
+  flex: 1 1 460px;
   gap: 10px;
+}
+
+.beneficiary-page--organizer .beneficiary-table-controls > .beneficiary-status-filter {
+  flex: 0 0 120px;
+}
+
+.beneficiary-page--organizer .beneficiary-table-controls > .beneficiary-status-filter select,
+.beneficiary-page--organizer .beneficiary-search-controls > .entity-filter-btn {
+  width: 100%;
+}
+
+.beneficiary-page--organizer .beneficiary-search-controls > .entity-filter-btn {
+  flex: 0 0 130px;
+}
+
+.beneficiary-page--organizer .beneficiary-search-controls > .beneficiary-more-filters {
+  flex: 0 0 auto;
+}
+
+.beneficiary-page--organizer .beneficiary-search-controls > .search-container {
+  width: auto;
+  min-width: 180px;
+  flex: 1 1 240px;
 }
 
 .beneficiary-page--organizer .beneficiary-status-filter select,
@@ -587,6 +609,9 @@
   }
 
   .beneficiary-page--organizer .beneficiary-search-controls {
+    display: grid;
+    width: 100%;
+    flex-basis: 100%;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     justify-content: stretch;
   }
@@ -613,19 +638,6 @@
 
 @media (min-width: 721px) and (max-width: 1100px) {
   .beneficiary-page--organizer .beneficiary-table-header {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .beneficiary-page--organizer .beneficiary-table-controls {
-    grid-column: 1;
-    grid-template-columns: minmax(100px, 140px) minmax(0, 1fr);
-  }
-
-  .beneficiary-page--organizer .beneficiary-search-controls {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .beneficiary-page--organizer .search-container {
-    grid-column: 1 / -1;
+    gap: 10px 14px;
   }
 }

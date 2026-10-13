@@ -296,6 +296,75 @@
   text-decoration: underline;
 }
 
+.program-page .actions-cell {
+  position: relative;
+  width: 1%;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.program-page .btn-actions {
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  color: #475569;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.program-page .btn-actions svg {
+  display: block;
+  width: 20px;
+  height: 20px;
+}
+
+.program-page .btn-actions:hover,
+.program-page .btn-actions[aria-expanded="true"] {
+  color: #166534;
+  background: #f0fdf4;
+  border-color: #dcfce7;
+}
+
+.program-page .actions-dropdown {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% - 4px);
+  right: 8px;
+  min-width: 140px;
+  padding: 4px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  box-shadow: 0 10px 24px rgb(15 23 42 / 14%);
+}
+
+.program-page .actions-dropdown-item {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  color: #334155;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+}
+
+.program-page .actions-dropdown-item:hover {
+  background: #f1f5f9;
+}
+
+.program-page .actions-dropdown-item.delete {
+  color: #b42318;
+}
+
 .program-page .no-data {
   padding: 32px 16px;
   color: #64748b;
@@ -687,7 +756,138 @@
   outline-offset: 2px;
 }
 
+.program-page .program-scope-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.program-page .program-scope-pill {
+  display: grid;
+  min-width: 0;
+  min-height: 92px;
+  align-content: start;
+  gap: 6px;
+  padding: 12px;
+  color: #334155;
+  text-align: left;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.program-page .program-scope-pill > span {
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.program-page .program-scope-pill small {
+  color: #64748b;
+  font-size: 0.74rem;
+  line-height: 1.4;
+}
+
+.program-page .program-scope-pill:hover,
+.program-page .program-scope-pill.active {
+  color: #166534;
+  background: #f0fdf4;
+  border-color: #4ade80;
+}
+
+.program-page .program-scope-pill:focus-visible {
+  outline: 3px solid rgb(34 197 94 / 24%);
+  outline-offset: 2px;
+}
+
+.program-page .program-hierarchy-field {
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+}
+
+.program-page .program-hierarchy-label {
+  color: #475569;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.program-page .program-hierarchy-options {
+  display: grid;
+  max-height: 260px;
+  gap: 8px;
+  overflow-y: auto;
+}
+
+.program-page .program-community-cluster {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+}
+
+.program-page .program-recipient,
+.program-page .program-recipient-heading {
+  display: flex;
+  min-height: 28px;
+  align-items: center;
+  gap: 9px;
+  color: #334155;
+  font-size: 0.86rem;
+}
+
+.program-page .program-recipient {
+  cursor: pointer;
+}
+
+.program-page .program-recipient input {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  margin: 0;
+  accent-color: #15803d;
+}
+
+.program-page .program-community-subgroups {
+  display: grid;
+  gap: 8px;
+  padding-left: 20px;
+}
+
+.program-page .program-community-subgroup {
+  display: grid;
+  gap: 6px;
+}
+
+.program-page .program-community-batches {
+  display: grid;
+  gap: 4px;
+  padding-left: 18px;
+}
+
+.program-page .program-scope-error {
+  margin: 0;
+  color: #b91c1c;
+  font-size: 0.82rem;
+}
+
+.program-page .program-hierarchy-empty {
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
 @media (max-width: 720px) {
+  .program-page .program-scope-options {
+    grid-template-columns: 1fr;
+  }
+
+  .program-page .program-scope-pill {
+    min-height: auto;
+  }
+
   .community-page.program-page.program-page--organizer .program-tabs-row {
     align-items: stretch;
     flex-direction: column;

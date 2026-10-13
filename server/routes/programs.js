@@ -30,7 +30,7 @@ async function getProgram(id, req) {
        INNER JOIN programs p ON p.id = pc.program_id
        WHERE pc.program_id = ? AND ${getProgramSchoolScopeSql('p')}
        ORDER BY pc.id`,
-      [id, req.schoolId, req.schoolId, req.schoolId],
+      [id, req.schoolId, req.schoolId, req.schoolId, req.schoolId],
     )
     : await pool.query(
       'SELECT id, scope_type AS type, scope_name AS name, beneficiaries, received FROM program_clusters WHERE program_id = ? ORDER BY id',
@@ -68,7 +68,7 @@ async function getProgram(id, req) {
 }
 
 function getProgramSchoolScopeSql(programAlias = 'p') {
-  return `EXISTS (
+  return `(EXISTS (
     SELECT 1 FROM program_clusters scoped_cluster
     WHERE scoped_cluster.program_id = ${programAlias}.id
       AND (
@@ -85,7 +85,7 @@ function getProgramSchoolScopeSql(programAlias = 'p') {
           WHERE scoped_batch.community_id = ? AND scoped_batch.name = scoped_cluster.scope_name
         ))
       )
-  )`;
+  ) OR ${programAlias}.owner_school_id = ?)`;
 }
 
 function getBeneficiarySchoolScopeSql() {
@@ -146,7 +146,7 @@ router.use('/:id', async (req, res, next) => {
   try {
     const [rows] = await pool.query(
       `SELECT p.id FROM programs p WHERE p.id = ? AND ${getProgramSchoolScopeSql('p')} LIMIT 1`,
-      [req.params.id, req.schoolId, req.schoolId, req.schoolId],
+      [req.params.id, req.schoolId, req.schoolId, req.schoolId, req.schoolId],
     );
     if (!rows.length) return res.status(404).json({ error: 'Program not found' });
     return next();
@@ -207,7 +207,7 @@ async function notifyProgramChange(req, programId, event, scope) {
 router.get('/', async (req, res) => {
   try {
     const scopeClause = req.schoolId ? `WHERE ${getProgramSchoolScopeSql('p')}` : '';
-    const scopeValues = req.schoolId ? [req.schoolId, req.schoolId, req.schoolId] : [];
+    const scopeValues = req.schoolId ? [req.schoolId, req.schoolId, req.schoolId, req.schoolId] : [];
     const [rows] = await pool.query(`SELECT p.* FROM programs p ${scopeClause} ORDER BY p.id DESC`, scopeValues);
     const programs = await Promise.all(rows.map((row) => getProgram(row.id, req)));
     res.json({ programs });
@@ -235,7 +235,10 @@ router.post('/', async (req, res) => {
       return res.status(409).json({ error: 'A program with this name and type already exists.' });
     }
 
-    const [result] = await pool.query('INSERT INTO programs (name, type, provider, description, beneficiary_type) VALUES (?, ?, ?, ?, ?)', Object.values(program));
+    const [result] = await pool.query(
+      'INSERT INTO programs (name, type, provider, description, beneficiary_type, owner_school_id) VALUES (?, ?, ?, ?, ?, ?)',
+      [...Object.values(program), req.isCommunityOrganizer ? req.schoolId : null],
+    );
     const createdProgram = await getProgram(result.insertId);
     await notifyProgramChange(req, result.insertId, {
       eventType: 'program.created',

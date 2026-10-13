@@ -58,8 +58,8 @@
   padding: 16px;
   background: #fff;
   border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgb(15 23 42 / 4%);
+  border-bottom: 0;
+  border-radius: 12px 12px 0 0;
 }
 
 .notifications-page .notifications-toolbar + .notifications-table-card {
@@ -70,7 +70,8 @@
   min-width: 0;
   overflow: hidden;
   border: 1px solid #e2e8f0;
-  border-radius: 12px;
+  border-top: 0;
+  border-radius: 0 0 12px 12px;
   box-shadow: 0 2px 8px rgb(15 23 42 / 4%);
 }
 
