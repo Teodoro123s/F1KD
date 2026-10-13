@@ -72,6 +72,8 @@ export default function ProgramPage() {
   const [scopeError, setScopeError] = useState('');
   const [actionProgram, setActionProgram] = useState(null);
   const [pendingDeleteProgram, setPendingDeleteProgram] = useState(null);
+  const [pendingProgramStatusAction, setPendingProgramStatusAction] = useState(null);
+  const [isChangingProgramStatus, setIsChangingProgramStatus] = useState(false);
   const [programError, setProgramError] = useState('');
   const programSaveLock = useRef(false);
   const [beneficiaryRecords, setBeneficiaryRecords] = useState([]);
@@ -103,6 +105,8 @@ export default function ProgramPage() {
     ...program,
     id: Number(program.id),
     beneficiaryType: program.beneficiaryType || program.beneficiary_type || 'Mother',
+    startsOn: program.startsOn || program.starts_on || '',
+    endsOn: program.endsOn || program.ends_on || '',
     target: Number(program.target || 0),
     received: Number(program.received || 0),
     clusters: program.clusters || [],
@@ -309,7 +313,12 @@ export default function ProgramPage() {
 
   const openBeneficiaryReport = (beneficiary) => {
     navigate(`/program/${programId}/beneficiaries/${beneficiary.sourceType}/${beneficiary.sourceId}/receipt-history`, {
-      state: { beneficiaryName: beneficiary.name },
+      state: {
+        beneficiaryName: beneficiary.name,
+        beneficiaryType: selectedProgram?.beneficiaryType || selectedProgram?.beneficiary_type,
+        startsOn: selectedProgram?.startsOn || selectedProgram?.starts_on,
+        endsOn: selectedProgram?.endsOn || selectedProgram?.ends_on,
+      },
     });
   };
 
@@ -348,7 +357,14 @@ export default function ProgramPage() {
     if (!clusterName) return;
     const beneficiaries = collectClusterBeneficiaries(cluster, clusterType);
     navigate(`/program/${programId}/cluster/${encodeURIComponent(clusterType)}/${encodeURIComponent(clusterName)}/receipt-history`, {
-      state: { clusterName, clusterType, beneficiaries },
+      state: {
+        clusterName,
+        clusterType,
+        beneficiaries,
+        beneficiaryType: selectedProgram?.beneficiaryType || selectedProgram?.beneficiary_type,
+        startsOn: selectedProgram?.startsOn || selectedProgram?.starts_on,
+        endsOn: selectedProgram?.endsOn || selectedProgram?.ends_on,
+      },
     });
   };
 
@@ -364,6 +380,10 @@ export default function ProgramPage() {
     event.preventDefault();
     if (form.id && String(form.status || '').trim().toLowerCase() === 'ended') return;
     if (!form.name.trim() || !form.provider.trim()) return;
+    if (!form.startsOn || !form.endsOn || form.endsOn < form.startsOn) {
+      notifyAction('Set a valid start date and end date for the program.', 'error');
+      return;
+    }
     if (programSaveLock.current) {
       notifyAction('A program save is already in progress.', 'error');
       return;
@@ -655,8 +675,7 @@ export default function ProgramPage() {
     );
     setShowActivityModal(false);
   };
-  const backToActivePrograms = async () => {
-    const programToRestore = actionProgram || selectedProgram;
+  const backToActivePrograms = async (programToRestore = actionProgram || selectedProgram) => {
     if (!programToRestore) return;
     setActiveActionMenu(null);
     try {
@@ -670,8 +689,7 @@ export default function ProgramPage() {
       notifyAction(message, 'error');
     }
   };
-  const endProgram = async () => {
-    const programToEnd = actionProgram || selectedProgram;
+  const endProgram = async (programToEnd = actionProgram || selectedProgram) => {
     if (!programToEnd) return;
     setActiveActionMenu(null);
     try {
@@ -683,6 +701,20 @@ export default function ProgramPage() {
     } catch (error) {
       const message = error.message || 'Unable to end program.';
       notifyAction(message, 'error');
+    }
+  };
+  const confirmProgramStatusAction = async () => {
+    if (!pendingProgramStatusAction || isChangingProgramStatus) return;
+    setIsChangingProgramStatus(true);
+    try {
+      if (pendingProgramStatusAction.action === 'resume') {
+        await backToActivePrograms(pendingProgramStatusAction.program);
+      } else {
+        await endProgram(pendingProgramStatusAction.program);
+      }
+    } finally {
+      setIsChangingProgramStatus(false);
+      setPendingProgramStatusAction(null);
     }
   };
   const saveBeneficiaryScope = (event) => {
@@ -808,13 +840,12 @@ export default function ProgramPage() {
       </button>
       {activeActionMenu === menuId && (
         <div className="actions-dropdown" role="menu">
-          <button type="button" className="actions-dropdown-item" onClick={() => { setActiveActionMenu(null); navigate(`/program/${menuProgram.id}`); }} role="menuitem">Open</button>
           {(isSuperAdmin || isCommunityOrganizer) && String(menuProgram?.status || '').trim().toLowerCase() !== 'ended' && (
             <button type="button" className="actions-dropdown-item" onClick={() => { setActionProgram(menuProgram); setActiveActionMenu(null); editProgram(); }} role="menuitem">Edit</button>
           )}
           {canEndPrograms && (
-            <button type="button" className="actions-dropdown-item" onClick={() => { setActionProgram(menuProgram); setActiveActionMenu(null); activeTab === 'Ended' ? backToActivePrograms() : endProgram(); }} role="menuitem">
-              {activeTab === 'Ended' ? 'Reactivate' : 'End'}
+            <button type="button" className="actions-dropdown-item" onClick={() => { setActiveActionMenu(null); setPendingProgramStatusAction({ program: menuProgram, action: String(menuProgram.status || '').trim().toLowerCase() === 'ended' ? 'resume' : 'end' }); }} role="menuitem">
+              {String(menuProgram.status || '').trim().toLowerCase() === 'ended' ? 'Resume program' : 'End program'}
             </button>
           )}
           {canDeletePrograms && (
@@ -1018,7 +1049,9 @@ export default function ProgramPage() {
     <div className="community-page program-page program-page--organizer">
       <PageHeader
         title={viewMode && selectedProgram ? selectedProgram.name : 'Program'}
-        description="Manage programs and beneficiary enrollment across your assigned communities."
+        description={viewMode
+          ? 'Review program coverage and receipt history.'
+          : 'Track active and ended programs, coverage, and delivery.'}
         breadcrumbs={programBreadcrumbs}
         actions={
           canCreatePrograms && (!viewMode || !isEndedProgram) && <button
@@ -1029,7 +1062,7 @@ export default function ProgramPage() {
               }
             >
               <PlusIcon />
-              <span>{viewMode ? 'Add beneficiary' : 'Create Program'}</span>
+              <span>{viewMode ? 'Add coverage' : 'Create program'}</span>
             </button>
         }
       />
@@ -1044,7 +1077,6 @@ export default function ProgramPage() {
 
       {!viewMode && (
         <section className="tabs-row program-tabs-row">
-          <h2 className="program-filter-title">Program</h2>
           <div
             className="tabs-list"
             role="tablist"
@@ -1068,7 +1100,7 @@ export default function ProgramPage() {
               onClick={() => setActiveTab("Ended")}
             >
               <BatchesIcon />
-              <span>Suspended</span>
+              <span>Ended</span>
             </button>
           </div>
           <div className="program-toolbar-controls">
@@ -1080,7 +1112,7 @@ export default function ProgramPage() {
                   name="programSearch"
                   type="text"
                   className="search-input-field"
-                  placeholder="Search programs, partners, or communities..."
+                  placeholder="Search programs..."
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   aria-label="Search programs"
@@ -1222,13 +1254,7 @@ export default function ProgramPage() {
                   </thead>
                 )}
                 <tbody>
-                  {programHierarchy.length ? programHierarchy.map((school) => (
-                    <tr key={school.id} className="program-clickable-row" onClick={() => navigate(`/program/${programId}/school/${school.id}`)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); navigate(`/program/${programId}/school/${school.id}`); } }} tabIndex={0} role="button">
-                      <td><strong>{school.name}</strong></td>
-                      <td>{(school.groups || []).length}</td>
-                      <td><button type="button" className="view-btn view-btn--secondary" onClick={(event) => { event.stopPropagation(); navigate(`/program/${programId}/school/${school.id}`); }}>View</button></td>
-                    </tr>
-                  )) : directScopeGroups.length ? directScopeGroups.map((group) => (
+                  {directScopeGroups.length ? directScopeGroups.map((group) => (
                     <tr key={group.id} className="program-clickable-row" onClick={() => navigate(`/program/${programId}/group/${group.id}`)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); navigate(`/program/${programId}/group/${group.id}`); } }} tabIndex={0} role="button">
                       <td><strong>{group.name || group.group_name}</strong></td>
                       <td>{group.batchCount}</td>
@@ -1250,9 +1276,19 @@ export default function ProgramPage() {
                         <td>{scopeRoute ? <button type="button" className="view-btn view-btn--secondary" onClick={() => navigate(scopeRoute)}>View</button> : '—'}</td>
                       </tr>
                     );
-                  }) : (
+                  }) : programHierarchy.length ? programHierarchy.map((school) => (
+                    <tr key={school.id} className="program-clickable-row" onClick={() => navigate(`/program/${programId}/school/${school.id}`)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); navigate(`/program/${programId}/school/${school.id}`); } }} tabIndex={0} role="button">
+                      <td><strong>{school.name}</strong></td>
+                      <td>{(school.groups || []).length}</td>
+                      <td><button type="button" className="view-btn view-btn--secondary" onClick={(event) => { event.stopPropagation(); navigate(`/program/${programId}/school/${school.id}`); }}>View</button></td>
+                    </tr>
+                  )) : (
                     <tr>
-                      <td colSpan="3" className="no-data">No schools found for this program.</td>
+                      <td colSpan={directScopeGroups.length || directScopeClusters.length ? 4 : 3} className="no-data">
+                        {directScopeGroups.length ? 'No groups found for this program.'
+                          : directScopeClusters.length ? 'No program clusters found.'
+                            : 'No schools found for this program.'}
+                      </td>
                     </tr>
                   )}
                 </tbody>
@@ -1308,7 +1344,7 @@ export default function ProgramPage() {
                 <tbody>
                   {filteredPrograms.length ? (
                     visiblePrograms.map((program) => (
-                      <tr key={program.id} className="program-clickable-row" onClick={() => navigate(`/program/${program.id}`)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") navigate(`/program/${program.id}`); }} tabIndex="0">
+                      <tr key={program.id} className="program-clickable-row" onClick={() => navigate(`/program/${program.id}`)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); navigate(`/program/${program.id}`); } }} tabIndex="0" role="button">
                         <td>
                           <a className="program-row-link" href={`/program/${program.id}`} onClick={(event) => event.stopPropagation()}>
                             <strong>{program.name}</strong>
@@ -1319,16 +1355,28 @@ export default function ProgramPage() {
                         </td>
                         <td>{program.type}</td>
                         <td>{program.provider}</td>
-                        <td>{renderActionMenu(`main-${program.id}`, program)}</td>
+                        <td className="program-list-actions">
+                          <button
+                            type="button"
+                            className="view-btn view-btn--secondary"
+                            onClick={(event) => { event.stopPropagation(); navigate(`/program/${program.id}`); }}
+                            aria-label={`Open ${program.name}`}
+                          >
+                            Open
+                          </button>
+                          {renderActionMenu(`main-${program.id}`, program)}
+                        </td>
                       </tr>
                     ))
                   ) : (
                     <tr>
                       <td colSpan="4" className="no-data">
-                        {query.trim()
+                        {!isLiveDataLoaded
+                          ? 'Loading programs...'
+                          : query.trim()
                           ? 'No programs match your search.'
                           : activeTab === 'Ended'
-                            ? 'No suspended programs yet.'
+                            ? 'No ended programs yet.'
                             : 'No programs yet.'}
                       </td>
                     </tr>
@@ -1362,6 +1410,17 @@ export default function ProgramPage() {
         onConfirm={confirmDeleteProgram}
         onCancel={() => setPendingDeleteProgram(null)}
       />
+      <ConfirmActionModal
+        show={Boolean(pendingProgramStatusAction)}
+        title={pendingProgramStatusAction?.action === 'resume' ? 'Resume program?' : 'End program?'}
+        message={pendingProgramStatusAction?.action === 'resume'
+          ? `Resume ${pendingProgramStatusAction.program.name}? This reopens receipt entry without changing the program schedule or existing history.`
+          : `End ${pendingProgramStatusAction?.program?.name}? Receipt history stays available, and you can resume the program later without changing its schedule.`}
+        confirmLabel={pendingProgramStatusAction?.action === 'resume' ? 'Resume program' : 'End program'}
+        onConfirm={confirmProgramStatusAction}
+        onCancel={() => !isChangingProgramStatus && setPendingProgramStatusAction(null)}
+        isSubmitting={isChangingProgramStatus}
+      />
 
       {showBeneficiaryModal && selectedProgram && (
         <div
@@ -1375,7 +1434,7 @@ export default function ProgramPage() {
             onMouseDown={(event) => event.stopPropagation()}
           >
             <div className="modal-header">
-              <h2>Add beneficiary cluster</h2>
+              <h2>Add coverage</h2>
               <button
                 type="button"
                 className="modal-close"
@@ -1532,7 +1591,7 @@ export default function ProgramPage() {
                 Cancel
               </button>
               <button type="submit" className="btn-primary">
-                Add beneficiary cluster
+                Add coverage
               </button>
             </div>
           </form>
@@ -1569,7 +1628,7 @@ export default function ProgramPage() {
             onMouseDown={(event) => event.stopPropagation()}
           >
             <div className="modal-header">
-              <h2>Create program</h2>
+              <h2>{form.id ? 'Edit program' : 'Create program'}</h2>
               <button
                 type="button"
                 className="modal-close"
@@ -1647,6 +1706,32 @@ export default function ProgramPage() {
                   <option>Child</option>
                 </select>
               </label>
+              <div className="program-schedule-fields">
+                <label className="form-label" htmlFor="program-start-date">
+                  Start date
+                  <input
+                    id="program-start-date"
+                    className="form-input"
+                    type="date"
+                    value={form.startsOn || ''}
+                    onChange={(event) => setForm({ ...form, startsOn: event.target.value })}
+                    required
+                  />
+                </label>
+                <label className="form-label" htmlFor="program-end-date">
+                  End date
+                  <input
+                    id="program-end-date"
+                    className="form-input"
+                    type="date"
+                    min={form.startsOn || undefined}
+                    value={form.endsOn || ''}
+                    onChange={(event) => setForm({ ...form, endsOn: event.target.value })}
+                    required
+                  />
+                </label>
+              </div>
+              <p className="program-schedule-help">Receipt records must use a date within this schedule. Programs without dates cannot record receipts.</p>
             </div>
             <div className="modal-footer">
               <button

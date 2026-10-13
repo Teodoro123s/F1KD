@@ -119,6 +119,8 @@ export const emptyProgram = {
   batch: "",
   beneficiaryType: "Mother",
   description: "",
+  startsOn: "",
+  endsOn: "",
 };
 
 export function filterPrograms(programs, query, status) {

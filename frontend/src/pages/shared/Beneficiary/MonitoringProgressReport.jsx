@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDateForDisplay, formatDateForInput } from '../../../utils/dateFormat';
+import { getMotherMonitoringProgress, getMotherMonitoringStartIndex } from '../../../utils/motherProgress';
 import { calculateWhoGrowthScores } from '../../../utils/whoGrowthStandards';
 import './MonitoringProgressReport.css';
 
@@ -171,11 +172,14 @@ export default function MonitoringProgressReport({ beneficiaryType, beneficiary 
   const isMother = beneficiaryType === 'Mother';
   const metrics = getChartMetrics(isMother);
   const [metricId, setMetricId] = useState(isMother ? 'bmi' : 'weightForLengthZScore');
+  const maternalProgress = isMother ? getMotherMonitoringProgress(beneficiary) : null;
   const records = (isMother ? getMotherRecords(beneficiary) : getChildRecords(beneficiary))
+    .filter((record) => !isMother || record.stepIndex >= getMotherMonitoringStartIndex(beneficiary))
     .sort((left, right) => formatDateForInput(right.date).localeCompare(formatDateForInput(left.date)));
-  const total = isMother ? 9 : 24;
+  const total = maternalProgress?.total ?? 24;
+  const completed = maternalProgress?.completed ?? records.length;
   const latest = records[0];
-  const progress = Math.min(100, Math.round((records.length / total) * 100));
+  const progress = Math.min(100, Math.round((completed / total) * 100));
   const selectedMetric = metrics.find(({ id }) => id === metricId) || metrics[0];
   const openCheckup = (record) => {
     if (isMother) {
@@ -201,8 +205,8 @@ export default function MonitoringProgressReport({ beneficiaryType, beneficiary 
           <h2 id="monitoring-progress-report-title">Current Progress Report</h2>
           <p>{beneficiary?.name || beneficiary?.full_name || 'Beneficiary'} · {beneficiaryType}</p>
         </div>
-        <div className="monitoring-progress-report-count" aria-label={`${records.length} of ${total} check-ups recorded`}>
-          <strong>{records.length}/{total}</strong>
+        <div className="monitoring-progress-report-count" aria-label={`${completed} of ${total} check-ups recorded`}>
+          <strong>{completed}/{total}</strong>
           <span>check-ups recorded</span>
         </div>
       </header>

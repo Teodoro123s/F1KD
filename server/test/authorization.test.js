@@ -61,7 +61,7 @@ test('operational API modules follow the role access matrix', () => {
     ['Health worker', '/api/mothers', true],
     ['Health worker', '/api/children', true],
     ['Health worker', '/api/community', false],
-    ['Health worker', '/api/programs', false],
+    ['Health worker', '/api/programs', true],
     ['Health worker', '/api/progress-report', false],
   ];
 
@@ -144,6 +144,28 @@ test('Admin and Partner are read-only', () => {
     method: 'POST',
     path: '/',
   });
+
+  test('health workers may record program receipts but cannot manage program setup or closure', () => {
+    const receiptWrite = authorizeRequest({
+      role: 'Health worker',
+      baseUrl: '/api/programs',
+      method: 'PATCH',
+      path: '/4/monitoring',
+    });
+    assert.equal(receiptWrite.called, true);
+
+    for (const [method, path] of [
+      ['POST', '/'],
+      ['PUT', '/4'],
+      ['PATCH', '/4/end'],
+      ['PATCH', '/4/restore'],
+      ['DELETE', '/4'],
+    ]) {
+      const result = authorizeRequest({ role: 'Health worker', baseUrl: '/api/programs', method, path });
+      assert.equal(result.called, false, `Health Worker ${method} ${path}`);
+      assert.equal(result.res.code, 403);
+    }
+  });
   assert.equal(partnerReportWrite.called, false);
   assert.equal(partnerReportWrite.res.code, 403);
   assert.equal(partnerReportWrite.res.payload.message, 'Progress reports are read-only');
@@ -219,7 +241,7 @@ test('Progress report endpoints are read-only for all permitted roles', () => {
   }
 });
 
-test('Health Workers can write only beneficiary health workflows', () => {
+test('Health Workers can write beneficiary health workflows and program receipts', () => {
   for (const [baseUrl, method, path] of [
     ['/api/mothers', 'PUT', '/MTH-1'],
     ['/api/mothers', 'POST', '/MTH-1/checkups'],
@@ -241,7 +263,6 @@ test('Health Workers can write only beneficiary health workflows', () => {
     ['/api/mothers', 'POST', '/MTH-1/documents'],
     ['/api/children', 'POST', '/'],
     ['/api/children', 'POST', '/CH-1/documents'],
-    ['/api/programs', 'PATCH', '/4/monitoring'],
     ['/api/community', 'POST', '/groups'],
   ]) {
     const { called } = authorizeRequest({

@@ -12,12 +12,11 @@
 }
 
 .progress-report-shell .progress-report-panel {
+  display: flex;
   min-width: 0;
-  overflow: hidden;
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  box-shadow: 0 2px 8px rgb(15 23 42 / 4%);
+  flex-direction: column;
+  gap: 18px;
+  overflow: visible;
 }
 
 .progress-report-shell .view-page-header {
@@ -28,7 +27,9 @@
   gap: 16px;
   padding: 20px 24px;
   background: #fff;
-  border-bottom: 1px solid #e2e8f0;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgb(15 23 42 / 4%);
 }
 
 .progress-report-shell .view-page-title {
@@ -92,7 +93,10 @@
   gap: 6px;
   padding: 14px 24px;
   overflow-x: auto;
-  border-bottom: 1px solid #e2e8f0;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgb(15 23 42 / 4%);
 }
 
 .progress-report-shell .progress-report-tab-bar button {
@@ -143,6 +147,10 @@
 
 .progress-report-shell .progress-report-config {
   padding: 24px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgb(15 23 42 / 4%);
 }
 
 .progress-report-shell .progress-report-tab-panel {

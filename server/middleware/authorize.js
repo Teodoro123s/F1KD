@@ -42,7 +42,7 @@ const MODULE_ROLES = {
   '/api/mothers': ['admin', 'community_coordinator', 'health_worker'],
   '/api/children': ['admin', 'community_coordinator', 'health_worker'],
   '/api/documents': ['admin', 'community_coordinator', 'health_worker'],
-  '/api/programs': ['admin', 'community_coordinator', 'partner'],
+  '/api/programs': ['admin', 'community_coordinator', 'partner', 'health_worker'],
   '/api/progress-report': ['community_coordinator', 'partner'],
 };
 
@@ -177,9 +177,12 @@ function authorizeOperational(req, res, next) {
       return permissionResponse(res, 'Community Coordinators cannot create, update, or delete schools');
     }
 
+    const isAllowedProgramReceiptWrite = req.baseUrl === '/api/programs'
+      && req.method === 'PATCH'
+      && /^\/\d+\/monitoring\/?$/.test(req.path);
     const isAllowedHealthWorkerWrite = userRole === 'health_worker'
-      && req.baseUrl !== '/api/programs'
-      && (isLimitedWrite(req) || isHealthWorkerChildUpdate(req));
+      && (isAllowedProgramReceiptWrite
+        || (req.baseUrl !== '/api/programs' && (isLimitedWrite(req) || isHealthWorkerChildUpdate(req))));
     if (userRole !== 'super_admin'
       && userRole !== 'community_coordinator'
       && !isAllowedHealthWorkerWrite) {

@@ -223,7 +223,23 @@ export default function MonitoringPage() {
   };
 
   const handleBack = () => {
-    navigate('/monitoring');
+    setSelectedMother(null);
+    setSelectedChild(null);
+    setMotherCheckups([]);
+    setChildCompletedWeeks([]);
+    setSelectedRecordLoading(false);
+    setEditingCheckup(false);
+    setSavedMessage('');
+
+    if (location.state?.mother || location.state?.child || location.state?.returnTo) {
+      navigate(-1);
+      return;
+    }
+
+    const routeMotherId = location.pathname.match(/^\/beneficiary\/mother\/([^/]+)\/monitoring$/)?.[1];
+    if (routeMotherId) {
+      navigate(`/beneficiary/mother/${routeMotherId}`, { replace: true, state: null });
+    }
   };
 
   const clearSearch = () => { setQuery(''); setPage(1); };
@@ -317,7 +333,6 @@ export default function MonitoringPage() {
               <h2 id="monitoring-list-title">Beneficiary monitoring</h2>
               <p>Review check-up progress and open a child or maternal monitoring record.</p>
             </div>
-            <span className="monitoring-record-count">{monitoringRows.length} {beneficiaryType === 'Mother' ? 'mothers' : 'children'}</span>
           </div>
           <div className="tabs-row monitoring-filter-row">
             <StatusFilterBar selectedStatusFilter={statusFilter} onChange={(nextStatus) => { setStatusFilter(nextStatus); setPage(1); }} />
@@ -405,6 +420,7 @@ export default function MonitoringPage() {
           <MotherCheckup
             mother={{ ...selectedMother, checkups: motherCheckups }}
             initialCheckupDate={location.state?.checkupDate}
+            selectedCheckupStep={location.state?.checkupStep}
             onSave={async (payload) => {
               if (await handleSave(payload)) setEditingCheckup(false);
             }}

@@ -58,6 +58,19 @@ schools and records, and can be run more than once. Its synthetic user accounts
 have no password hash and cannot sign in. Do not run demo seeds against a
 production database.
 
+To add focused Program and Receipt History cases for the assigned demo school,
+first run `seed_visual_qa_assigned_school.sql`, then run this from the repository
+root in PowerShell:
+
+```powershell
+Get-Content -Raw .\server\seed_program_receipt_matrix.sql | docker compose -f docker-compose.minio.yml exec -T mariadb sh -c 'mariadb --user="$MARIADB_USER" --****** "$MARIADB_DATABASE"'
+```
+
+This repeatable seed creates active scheduled, ended, and legacy-without-schedule
+programs with synthetic mother/child receipts. Use it to check mixed outcomes,
+inclusive schedule boundaries, retained history, and school-inherited group and
+batch history. Do not run demo seeds against a production database.
+
 An existing local MySQL/MariaDB database is not copied automatically. Export it with `mysqldump`, start the stack, then import the dump into the `mariadb` service before using the app. Copy existing local document files into MinIO or `server/data/uploads` as appropriate; changing the database host alone does not migrate documents.
 
 To stop without deleting stored data:

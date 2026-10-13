@@ -393,12 +393,16 @@ async function ensure() {
       activities INT NOT NULL DEFAULT 0,
       latest DATE NULL,
       ended DATE NULL,
+      starts_on DATE NULL,
+      ends_on DATE NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
 
     `ALTER TABLE programs
-      ADD COLUMN IF NOT EXISTS owner_school_id INT NULL;`,
+      ADD COLUMN IF NOT EXISTS owner_school_id INT NULL,
+      ADD COLUMN IF NOT EXISTS starts_on DATE NULL,
+      ADD COLUMN IF NOT EXISTS ends_on DATE NULL;`,
 
     `CREATE TABLE IF NOT EXISTS program_clusters (
       id INT AUTO_INCREMENT PRIMARY KEY,

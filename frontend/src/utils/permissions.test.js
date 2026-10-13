@@ -8,7 +8,7 @@ test('module access matches the role allocation', () => {
     [ROLES.ADMIN]: ['dashboard', 'community', 'beneficiary', 'monitoring', 'notifications', 'program'],
     [ROLES.COMMUNITY_COORDINATOR]: ['dashboard', 'community', 'beneficiary', 'monitoring', 'notifications', 'program', 'progressReport'],
     [ROLES.PARTNER]: ['dashboard', 'notifications', 'program', 'progressReport'],
-    [ROLES.HEALTH_WORKER]: ['dashboard', 'beneficiary', 'monitoring', 'notifications'],
+    [ROLES.HEALTH_WORKER]: ['dashboard', 'beneficiary', 'monitoring', 'notifications', 'program'],
   };
 
   for (const role of Object.values(ROLES)) {
@@ -61,7 +61,7 @@ test('CRUD permissions match actual role capabilities', () => {
       delete: [ROLES.COMMUNITY_COORDINATOR],
     },
     'program-resources': {
-      read: [ROLES.ADMIN, ROLES.COMMUNITY_COORDINATOR, ROLES.PARTNER],
+      read: [ROLES.ADMIN, ROLES.COMMUNITY_COORDINATOR, ROLES.PARTNER, ROLES.HEALTH_WORKER],
       create: [ROLES.COMMUNITY_COORDINATOR],
       update: [ROLES.COMMUNITY_COORDINATOR],
       delete: [ROLES.COMMUNITY_COORDINATOR],

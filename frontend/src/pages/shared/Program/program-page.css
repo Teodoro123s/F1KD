@@ -116,15 +116,6 @@
   gap: 4px;
 }
 
-.program-page .program-filter-title {
-  flex: 0 0 auto;
-  margin: 0 12px 0 0;
-  color: #334155;
-  font-size: 1rem;
-  font-weight: 700;
-  line-height: 1.3;
-}
-
 .program-page .tab-btn,
 .program-page .program-cluster-tab {
   display: inline-flex;
@@ -296,6 +287,14 @@
   text-decoration: underline;
 }
 
+.program-page .program-list-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+  gap: 6px;
+}
+
 .program-page .actions-cell {
   position: relative;
   width: 1%;
@@ -383,7 +382,7 @@
 
 .program-page .program-table-card .table-overflow {
   min-width: 0;
-  min-height: 550px;
+  min-height: 280px;
   max-height: 550px;
   overflow: auto;
 }
@@ -919,5 +918,24 @@
 
   .community-page.program-page.program-page--organizer .program-product-modal .modal-footer button {
     width: 100%;
+  }
+}
+.program-schedule-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.program-schedule-help {
+  margin: -12px 0 0;
+  color: #64748b;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+@media (max-width: 640px) {
+  .program-schedule-fields {
+    grid-template-columns: 1fr;
+    gap: 0;
   }
 }

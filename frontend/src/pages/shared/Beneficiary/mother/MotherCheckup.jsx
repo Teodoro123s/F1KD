@@ -145,13 +145,16 @@ const createInitialFormState = (mother, checkup = null, blank = false, previousC
   remarks: checkup?.remarks ?? '',
 });
 
-export default function MotherCheckup({ mother, onSave = () => {}, onCancel = () => {}, forceEdit = false, initialCheckupDate = '' }) {
+export default function MotherCheckup({ mother, onSave = () => {}, onCancel = () => {}, forceEdit = false, initialCheckupDate = '', selectedCheckupStep }) {
   if (!mother) return null;
 
   const monitoringStart = getMonitoringStartDetails(mother);
   const monitoringStartStep = getMotherMonitoringStartIndex(mother);
   const requestedStep = getStepForCheckupDate(mother, initialCheckupDate);
-  const initialStep = requestedStep >= 0 ? requestedStep : getInitialStep(mother.checkups, monitoringStartStep);
+  const hasSelectedStep = Number.isInteger(selectedCheckupStep) && selectedCheckupStep >= 0 && selectedCheckupStep < CHECKUPS.length;
+  const initialStep = requestedStep >= 0
+    ? requestedStep
+    : hasSelectedStep ? selectedCheckupStep : getInitialStep(mother.checkups, monitoringStartStep);
   const [activeStep, setActiveStep] = useState(initialStep);
   const previousMotherId = useRef(mother.id || mother.motherId);
   const previousCheckupDate = useRef(initialCheckupDate);
@@ -180,6 +183,10 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
       initialCheckupSelectionApplied.current = true;
     }
   }, [initialCheckupDate, mother]);
+
+  useEffect(() => {
+    if (hasSelectedStep) setActiveStep(selectedCheckupStep);
+  }, [hasSelectedStep, selectedCheckupStep]);
 
   useEffect(() => {
     const firstIncomplete = getFirstIncompleteStep(mother.checkups, getMotherMonitoringStartIndex(mother));
