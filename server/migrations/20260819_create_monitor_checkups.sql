@@ -40,7 +40,11 @@ CREATE INDEX idx_mother_checkups_date ON mother_checkups (mother_id, checkup_dat
 ALTER TABLE child_checkups
   ADD COLUMN IF NOT EXISTS week_number TINYINT UNSIGNED NULL,
   ADD COLUMN IF NOT EXISTS developmental_status VARCHAR(40) NULL,
-  ADD COLUMN IF NOT EXISTS service_provider VARCHAR(150) NULL;
+  ADD COLUMN IF NOT EXISTS service_provider VARCHAR(150) NULL,
+  ADD COLUMN IF NOT EXISTS head_circumference DECIMAL(5,2) NULL,
+  ADD COLUMN IF NOT EXISTS arm_circumference DECIMAL(5,2) NULL,
+  ADD COLUMN IF NOT EXISTS triceps_skinfold DECIMAL(5,2) NULL,
+  ADD COLUMN IF NOT EXISTS subscapular_skinfold DECIMAL(5,2) NULL;
 
 CREATE INDEX idx_child_checkups_week ON child_checkups (child_id, week_number);
 

@@ -64,6 +64,10 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
     feedingType: child?.feedingType || child?.feeding_type || '',
     weight: '',
     height: '',
+    headCircumference: '',
+    armCircumference: '',
+    tricepsSkinfold: '',
+    subscapularSkinfold: '',
     developmentalStatus: 'Normal',
     serviceProvider: '',
     remarks: '',
@@ -106,6 +110,10 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
         feedingType: child?.feedingType || child?.feeding_type || '',
         weight: '',
         height: '',
+        headCircumference: '',
+        armCircumference: '',
+        tricepsSkinfold: '',
+        subscapularSkinfold: '',
         developmentalStatus: 'Normal',
         serviceProvider: '',
         remarks: '',
@@ -119,6 +127,10 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
       feedingType: child?.feedingType || child?.feeding_type || '',
       weight: savedCheckup.weight ?? '',
       height: savedCheckup.height ?? '',
+      headCircumference: savedCheckup.head_circumference ?? savedCheckup.headCircumference ?? '',
+      armCircumference: savedCheckup.arm_circumference ?? savedCheckup.armCircumference ?? '',
+      tricepsSkinfold: savedCheckup.triceps_skinfold ?? savedCheckup.tricepsSkinfold ?? '',
+      subscapularSkinfold: savedCheckup.subscapular_skinfold ?? savedCheckup.subscapularSkinfold ?? '',
       developmentalStatus: savedCheckup.developmental_status ?? savedCheckup.developmentalStatus ?? 'Normal',
       serviceProvider: savedCheckup.service_provider ?? savedCheckup.serviceProvider ?? '',
       remarks: savedCheckup.notes ?? savedCheckup.remarks ?? '',
@@ -134,6 +146,10 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
   const whoGrowthScores = calculateWhoGrowthScores({
     weight: form.weight,
     lengthHeight: form.height,
+    headCircumference: form.headCircumference,
+    armCircumference: form.armCircumference,
+    tricepsSkinfold: form.tricepsSkinfold,
+    subscapularSkinfold: form.subscapularSkinfold,
     sex: gender,
     birthDate: childBirthDate,
     measurementDate: form.checkupDate,
@@ -150,7 +166,10 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
     ? ''
     : Number(whoGrowthScores.weightForAgeZScore).toFixed(2);
   const lengthAgeInterpretation = whoGrowthScores.lengthForAgeInterpretation || missingGrowthContext
-    || (Number(form.height) > 0 ? 'Outside WHO reference range' : 'Enter valid length');
+    || (Number(form.height) > 0 ? 'Outside WHO reference range' : 'Enter valid length/height');
+  const whoZScore = (key) => whoGrowthScores[key] === null || whoGrowthScores[key] === undefined
+    ? ''
+    : Number(whoGrowthScores[key]).toFixed(2);
   const interpretationClass = (value) => `checkup-field-input checkup-interpretation ${String(value).trim().toLowerCase() === 'normal' ? 'is-normal' : 'is-abnormal'}`;
 
   const renderDateField = ({ id, label, name, required = false }) => (
@@ -263,15 +282,51 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
               <input id="child-monitor-weight" type="number" step="0.1" className="checkup-field-input" value={form.weight} onChange={update('weight')} required readOnly={isReadOnly} />
             </div>
             <div className="form-group">
-              <label className="checkup-field-label is-required" htmlFor="child-monitor-height">Length (cm)</label>
-              <input id="child-monitor-height" type="number" min="45" max="100" step="0.1" className="checkup-field-input" value={form.height} onChange={update('height')} required readOnly={isReadOnly} />
+              <label className="checkup-field-label is-required" htmlFor="child-monitor-height">Length/Height (cm)</label>
+              <input id="child-monitor-height" type="number" step="0.1" className="checkup-field-input" value={form.height} onChange={update('height')} required readOnly={isReadOnly} />
             </div>
             <div className="form-group">
-              <label className="checkup-field-label" htmlFor="child-monitor-bmi">BMI (Secondary Reference)</label>
+              <label className="checkup-field-label" htmlFor="child-monitor-head-circumference">Head Circumference (cm)</label>
+              <input id="child-monitor-head-circumference" type="number" min="0" step="0.1" className="checkup-field-input" value={form.headCircumference} onChange={update('headCircumference')} readOnly={isReadOnly} />
+            </div>
+            <div className="form-group">
+              <label className="checkup-field-label" htmlFor="child-monitor-arm-circumference">Mid-Upper Arm Circumference (cm)</label>
+              <input id="child-monitor-arm-circumference" type="number" min="0" step="0.1" className="checkup-field-input" value={form.armCircumference} onChange={update('armCircumference')} readOnly={isReadOnly} />
+            </div>
+            <div className="form-group">
+              <label className="checkup-field-label" htmlFor="child-monitor-triceps-skinfold">Triceps Skinfold (mm)</label>
+              <input id="child-monitor-triceps-skinfold" type="number" min="0" step="0.1" className="checkup-field-input" value={form.tricepsSkinfold} onChange={update('tricepsSkinfold')} readOnly={isReadOnly} />
+            </div>
+            <div className="form-group">
+              <label className="checkup-field-label" htmlFor="child-monitor-subscapular-skinfold">Subscapular Skinfold (mm)</label>
+              <input id="child-monitor-subscapular-skinfold" type="number" min="0" step="0.1" className="checkup-field-input" value={form.subscapularSkinfold} onChange={update('subscapularSkinfold')} readOnly={isReadOnly} />
+            </div>
+            <div className="form-group">
+              <label className="checkup-field-label" htmlFor="child-monitor-bmi">BMI (kg/m²)</label>
               <input id="child-monitor-bmi" type="text" className="checkup-field-input" value={bmi} readOnly placeholder="Auto-calculated" />
             </div>
             <div className="form-group">
-              <label className="checkup-field-label" htmlFor="child-monitor-weight-length">Weight-for-Length (Primary Standard)</label>
+              <label className="checkup-field-label" htmlFor="child-monitor-bmi-for-age">BMI-for-Age Z-Score</label>
+              <input id="child-monitor-bmi-for-age" type="text" className="checkup-field-input" value={whoZScore('bmiForAgeZScore')} readOnly placeholder="Requires valid age, weight, and height" />
+            </div>
+            <div className="form-group">
+              <label className="checkup-field-label" htmlFor="child-monitor-head-circumference-for-age">Head Circumference-for-Age Z-Score</label>
+              <input id="child-monitor-head-circumference-for-age" type="text" className="checkup-field-input" value={whoZScore('headCircumferenceForAgeZScore')} readOnly placeholder="Enter measurement and valid age" />
+            </div>
+            <div className="form-group">
+              <label className="checkup-field-label" htmlFor="child-monitor-arm-circumference-for-age">Arm Circumference-for-Age Z-Score</label>
+              <input id="child-monitor-arm-circumference-for-age" type="text" className="checkup-field-input" value={whoZScore('armCircumferenceForAgeZScore')} readOnly placeholder="WHO reference starts at 3 months" />
+            </div>
+            <div className="form-group">
+              <label className="checkup-field-label" htmlFor="child-monitor-triceps-for-age">Triceps Skinfold-for-Age Z-Score</label>
+              <input id="child-monitor-triceps-for-age" type="text" className="checkup-field-input" value={whoZScore('tricepsSkinfoldForAgeZScore')} readOnly placeholder="WHO reference starts at 3 months" />
+            </div>
+            <div className="form-group">
+              <label className="checkup-field-label" htmlFor="child-monitor-subscapular-for-age">Subscapular Skinfold-for-Age Z-Score</label>
+              <input id="child-monitor-subscapular-for-age" type="text" className="checkup-field-input" value={whoZScore('subscapularSkinfoldForAgeZScore')} readOnly placeholder="WHO reference starts at 3 months" />
+            </div>
+            <div className="form-group">
+              <label className="checkup-field-label" htmlFor="child-monitor-weight-length">Weight-for-Length/Height (WHO)</label>
               <input id="child-monitor-weight-length" type="text" className={interpretationClass(weightLengthInterpretation)} value={weightLengthInterpretation} readOnly />
             </div>
             <div className="form-group">
@@ -279,7 +334,7 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
               <input id="child-monitor-weight-age" type="text" className={interpretationClass(weightAgeInterpretation)} value={weightAgeInterpretation} readOnly />
             </div>
             <div className="form-group">
-              <label className="checkup-field-label" htmlFor="child-monitor-length-age">Length-for-Age</label>
+              <label className="checkup-field-label" htmlFor="child-monitor-length-age">Length/Height-for-Age</label>
               <input id="child-monitor-length-age" type="text" className={interpretationClass(lengthAgeInterpretation)} value={lengthAgeInterpretation} readOnly />
             </div>
             <div className="form-group">

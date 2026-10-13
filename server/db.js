@@ -359,6 +359,9 @@ async function ensure() {
       weight DECIMAL(5,2),
       height DECIMAL(5,2),
       head_circumference DECIMAL(5,2),
+      arm_circumference DECIMAL(5,2),
+      triceps_skinfold DECIMAL(5,2),
+      subscapular_skinfold DECIMAL(5,2),
       developmental_status VARCHAR(40),
       service_provider VARCHAR(150),
       notes TEXT,
@@ -370,7 +373,11 @@ async function ensure() {
       ADD COLUMN IF NOT EXISTS week_number TINYINT UNSIGNED NULL,
       ADD COLUMN IF NOT EXISTS developmental_status VARCHAR(40),
       ADD COLUMN IF NOT EXISTS service_provider VARCHAR(150),
-      ADD COLUMN IF NOT EXISTS next_checkup_date DATE;`,
+      ADD COLUMN IF NOT EXISTS next_checkup_date DATE,
+      ADD COLUMN IF NOT EXISTS head_circumference DECIMAL(5,2),
+      ADD COLUMN IF NOT EXISTS arm_circumference DECIMAL(5,2),
+      ADD COLUMN IF NOT EXISTS triceps_skinfold DECIMAL(5,2),
+      ADD COLUMN IF NOT EXISTS subscapular_skinfold DECIMAL(5,2);`,
 
     `CREATE TABLE IF NOT EXISTS programs (
       id INT AUTO_INCREMENT PRIMARY KEY,

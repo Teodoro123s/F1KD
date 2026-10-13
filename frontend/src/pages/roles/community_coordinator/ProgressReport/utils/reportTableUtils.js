@@ -11,6 +11,15 @@ export const GROWTH_TABLE_FIELDS = new Set([
   'bmiInterpretation',
   'lengthForAgeZScore',
   'lengthForAgeInterpretation',
+  'bmiForAgeZScore',
+  'headCircumference',
+  'headCircumferenceForAgeZScore',
+  'armCircumference',
+  'armCircumferenceForAgeZScore',
+  'tricepsSkinfold',
+  'tricepsSkinfoldForAgeZScore',
+  'subscapularSkinfold',
+  'subscapularSkinfoldForAgeZScore',
 ]);
 
 export const MONITORING_HISTORY_EXCLUDED_FIELDS = new Set([
@@ -26,6 +35,11 @@ export const growthTableFieldsForMetric = (metric) => {
   if (metric?.startsWith('weightForAge')) return ['weightForAge', 'weightForAgeZScore', 'weightForAgeInterpretation'];
   if (metric?.startsWith('lengthForAge') || metric?.startsWith('heightForAge')) return ['heightForAge', 'lengthForAgeZScore', 'lengthForAgeInterpretation'];
   if (metric === 'bmiForAge' || metric === 'bmiInterpretation') return ['bmiForAge', 'bmiInterpretation'];
+  if (metric === 'bmiForAgeZScore') return ['bmiForAge', 'bmiForAgeZScore'];
+  if (metric === 'headCircumferenceForAgeZScore') return ['headCircumference', metric];
+  if (metric === 'armCircumferenceForAgeZScore') return ['armCircumference', metric];
+  if (metric === 'tricepsSkinfoldForAgeZScore') return ['tricepsSkinfold', metric];
+  if (metric === 'subscapularSkinfoldForAgeZScore') return ['subscapularSkinfold', metric];
   if (metric) return [metric];
   return [];
 };

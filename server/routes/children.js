@@ -410,6 +410,27 @@ router.post('/:id/checkups', async (req, res) => {
       return res.status(400).json({ error: 'Valid week (1-48) is required' });
     }
 
+    const optionalMeasurement = (value, field) => {
+      if (value === undefined || value === null || String(value).trim() === '') return null;
+      const measurement = Number(value);
+      if (!Number.isFinite(measurement) || measurement <= 0 || measurement > 999.99) {
+        throw new Error(`${field} must be a positive measurement`);
+      }
+      return measurement;
+    };
+    let headCircumference;
+    let armCircumference;
+    let tricepsSkinfold;
+    let subscapularSkinfold;
+    try {
+      headCircumference = optionalMeasurement(body.headCircumference ?? body.head_circumference, 'Head circumference');
+      armCircumference = optionalMeasurement(body.armCircumference ?? body.arm_circumference, 'Mid-upper arm circumference');
+      tricepsSkinfold = optionalMeasurement(body.tricepsSkinfold ?? body.triceps_skinfold, 'Triceps skinfold');
+      subscapularSkinfold = optionalMeasurement(body.subscapularSkinfold ?? body.subscapular_skinfold, 'Subscapular skinfold');
+    } catch (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
     if (body.exclusiveBreastfeeding !== undefined || body.exclusive_breastfeeding !== undefined || body.feedingType !== undefined || body.feeding_type !== undefined) {
       await pool.query(
         'UPDATE children SET exclusive_breastfeeding = ?, feeding_type = ? WHERE id = ?',
@@ -422,6 +443,10 @@ router.post('/:id/checkups', async (req, res) => {
       body.checkupDate || null,
       body.weight || null,
       body.height || null,
+      headCircumference,
+      armCircumference,
+      tricepsSkinfold,
+      subscapularSkinfold,
       body.developmentalStatus || null,
       body.serviceProvider || null,
       body.remarks || null,
@@ -433,14 +458,16 @@ router.post('/:id/checkups', async (req, res) => {
     if (existingRows.length) {
       await pool.query(
         `UPDATE child_checkups SET next_checkup_date = ?, visit_date = ?, weight = ?, height = ?,
+          head_circumference = ?, arm_circumference = ?, triceps_skinfold = ?, subscapular_skinfold = ?,
           developmental_status = ?, service_provider = ?, notes = ? WHERE id = ?`,
         [...values, existingRows[0].id]
       );
     } else {
       await pool.query(
         `INSERT INTO child_checkups
-          (child_id, next_checkup_date, visit_date, weight, height, developmental_status, service_provider, notes, week_number)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
+          (child_id, next_checkup_date, visit_date, weight, height, head_circumference, arm_circumference,
+           triceps_skinfold, subscapular_skinfold, developmental_status, service_provider, notes, week_number)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
         [childId, ...values, week]
       );
     }

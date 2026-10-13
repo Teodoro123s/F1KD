@@ -6,7 +6,20 @@ The tab-separated LMS tables in this directory are the reference data used by th
 - `who-lenanthro.txt`: Length/Height-for-Age, by sex and exact age in days.
 - `who-wflanthro.txt`: Weight-for-Length, by sex and length in 0.1 cm increments.
 - `who-wfhanthro.txt`: Weight-for-Height, by sex and height in 0.1 cm increments.
+- `who-bmianthro.txt`: BMI-for-Age, calculated from weight and length/height.
+- `who-hcanthro.txt`: Head Circumference-for-Age.
+- `who-acanthro.txt`: Mid-Upper Arm Circumference-for-Age.
+- `who-tsanthro.txt`: Triceps Skinfold-for-Age.
+- `who-ssanthro.txt`: Subscapular Skinfold-for-Age.
 
 Source: [WHO Anthro growth-standard data](https://github.com/WorldHealthOrganization/anthro/tree/master/data-raw/growthstandards). Standards and charts are also published by the [World Health Organization](https://www.who.int/tools/child-growth-standards/standards).
 
-The application applies the LMS method and WHO Anthro's age rounding, extreme-tail adjustment, age limits, and length/height indicator transition at 24 months. Weight-for-Age identifies underweight; it does not define an overweight category. Scores are screening indicators and are not a diagnosis.
+The application applies the LMS method and WHO Anthro's age rounding, extreme-tail adjustment, age limits, and length/height indicator transition at 24 months. The WHO reference standards cover birth through 60 months, while this application intentionally limits WHO scores and child-growth Progress Report history to check-ups on or before the child's second birthday. Weight-for-Age identifies underweight; it does not define an overweight category. Scores are screening indicators and are not a diagnosis.
+
+The calculator returns z-scores for all eight standard indicators. The MUAC
+and skinfold reference tables start at 91 days; missing measurements or ages
+outside an indicator's published table yield no score. Monitoring records the
+additional anthropometric measurements as optional values. The app does not
+currently capture measurement posture, edema, or all WHO Anthro quality flags,
+so calculated values should support screening rather than replace clinical
+assessment.

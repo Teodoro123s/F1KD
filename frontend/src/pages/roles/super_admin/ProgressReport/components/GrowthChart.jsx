@@ -108,7 +108,7 @@ function LatestMeasurementChart({ rows, metric, beneficiaryType }) {
       <p className="growth-report-fallback-note">Showing latest available measurements because dated check-up history is unavailable.</p>
       <svg viewBox={`0 0 ${width} ${height}`}  role="img" aria-label={`Latest ${subjectLabel.toLowerCase()} measurements`}>
         <text className="growth-report-y-axis-label" x="18" y={height / 2} textAnchor="middle" transform={`rotate(-90 18 ${height / 2})`}>
-          {metric === 'bmiForAge' ? 'BMI' : metric === 'weightForAge' ? 'Weight (kg)' : metric === 'heightForAge' ? 'Length (cm)' : metric}
+          {metric === 'bmiForAge' ? 'BMI' : metric === 'weightForAge' ? 'Weight (kg)' : metric === 'heightForAge' ? 'Length/Height (cm)' : metric}
         </text>
         {ticks.map((tick) => {
           const tickY = y(tick);
@@ -499,7 +499,7 @@ export function GrowthChart({ rows, progressRows = [], metric, chartType, displa
       });
       return <g key={`${seriesKey}-numeric-series`}>{polyline}{markers}</g>;
     });
-    const yAxisLabel = isZScoreMetric ? metricLabel.replace(/\s+Z-Score$/i, '') : metric === 'bmiForAge' ? 'BMI' : metric === 'weightForAge' ? 'Weight (kg)' : metric === 'heightForAge' ? 'Length (cm)' : metricLabel;
+    const yAxisLabel = isZScoreMetric ? metricLabel.replace(/\s+Z-Score$/i, '') : metric === 'bmiForAge' ? 'BMI' : metric === 'weightForAge' ? 'Weight (kg)' : metric === 'heightForAge' ? 'Length/Height (cm)' : metricLabel;
     return <div className="growth-report-line-chart"><svg ref={chartRef} viewBox={`0 0 ${width} ${height}`} style={{ width: `${width}px`, height: `${height}px` }} role="img" aria-label={`${subjectLabel} ${metricLabel} over time`} preserveAspectRatio="none"><text className="growth-report-y-axis-label" x="18" y={height / 2} textAnchor="middle" transform={`rotate(-90 18 ${height / 2})`}>{yAxisLabel}</text>{timelineGridLines}{yAxisTicks.map(({ value, y }) => <g key={value}><line className={`growth-report-gridline${Math.abs(value) < 1e-9 ? ' zero-line' : ''}`} x1={chartPaddingX} x2={width} y1={y} y2={y} /><text className="growth-report-y-axis-tick" x={chartPaddingX - 8} y={y + 3} textAnchor="end" >{value.toFixed(1)}</text></g>)}{chartSeries}</svg><div className="growth-report-line-labels" >{monthLabels.map(({ timelineValue, xPosition, label }) => <span key={`label-${timelineValue}`} >{label}</span>)}</div><div className="growth-report-legend growth-report-series-legend">{visibleSeriesRows.map((row, index) => {
       const seriesKey = beneficiaryKey(row, index);
       const name = row.child || row.mother || 'Beneficiary';

@@ -163,7 +163,7 @@ router.get('/', async (req, res) => {
     }
     const isMotherReport = params.granularity === 'mother';
     const filters = hierarchyWhere(params, isMotherReport ? { mother: 'm' } : undefined);
-    const childCheckupDateFilter = (alias) => `(c.birth_date IS NULL OR c.birth_date < '1900-01-01' OR ${alias}.visit_date >= c.birth_date)`;
+    const childCheckupDateFilter = (alias) => `(c.birth_date IS NULL OR c.birth_date < '1900-01-01' OR (${alias}.visit_date >= c.birth_date AND ${alias}.visit_date <= DATE_ADD(c.birth_date, INTERVAL 2 YEAR)))`;
     const motherCheckupDateFilter = (alias) => `${alias}.checkup_date IS NOT NULL`;
     const childActivitiesExpression = `(SELECT COUNT(*) FROM child_checkups completed_cc WHERE completed_cc.child_id = c.id AND completed_cc.week_number IS NOT NULL)`;
     const progressExpression = `ROUND(${childActivitiesExpression} * 100 / 24, 0)`;
@@ -487,7 +487,9 @@ router.get('/', async (req, res) => {
     const childIds = normalizedRows.map((row) => row.childId).filter(Boolean);
     if (childIds.length) {
       const [checkupRows] = await pool.query(
-        `SELECT cc.child_id, cc.week_number, cc.visit_date, cc.weight, cc.height, c.gender, c.birth_date,
+        `SELECT cc.child_id, cc.week_number, cc.visit_date, cc.weight, cc.height,
+                cc.head_circumference, cc.arm_circumference, cc.triceps_skinfold, cc.subscapular_skinfold,
+                c.gender, c.birth_date,
                 CASE WHEN c.birth_date IS NULL OR c.birth_date < '1900-01-01' OR c.birth_date > cc.visit_date
                   THEN NULL ELSE TIMESTAMPDIFF(WEEK, c.birth_date, cc.visit_date) END AS calculated_age_weeks
          FROM child_checkups cc
@@ -511,10 +513,18 @@ router.get('/', async (req, res) => {
             : Number.isFinite(Number(checkup.calculated_age_weeks)) ? Number(checkup.calculated_age_weeks) : null,
           weight: Number.isFinite(weight) && weight > 0 ? weight : null,
           height: Number.isFinite(height) && height > 0 ? height : null,
+          headCircumference: checkup.head_circumference,
+          armCircumference: checkup.arm_circumference,
+          tricepsSkinfold: checkup.triceps_skinfold,
+          subscapularSkinfold: checkup.subscapular_skinfold,
           bmi: Number.isFinite(weight) && weight > 0 && Number.isFinite(height) && height > 0 ? Number((weight / ((height / 100) ** 2)).toFixed(1)) : null,
           ...calculateWhoGrowthScores({
             weight,
             lengthHeight: height,
+            headCircumference: checkup.head_circumference,
+            armCircumference: checkup.arm_circumference,
+            tricepsSkinfold: checkup.triceps_skinfold,
+            subscapularSkinfold: checkup.subscapular_skinfold,
             sex: checkup.gender,
             birthDate: checkup.birth_date,
             measurementDate: checkup.visit_date,
@@ -531,6 +541,11 @@ router.get('/', async (req, res) => {
         row.weightForLengthZScore = latestPoint?.weightForLengthZScore ?? '';
         row.weightForAgeZScore = latestPoint?.weightForAgeZScore ?? '';
         row.lengthForAgeZScore = latestPoint?.lengthForAgeZScore ?? '';
+        row.bmiForAgeZScore = latestPoint?.bmiForAgeZScore ?? '';
+        row.headCircumferenceForAgeZScore = latestPoint?.headCircumferenceForAgeZScore ?? '';
+        row.armCircumferenceForAgeZScore = latestPoint?.armCircumferenceForAgeZScore ?? '';
+        row.tricepsSkinfoldForAgeZScore = latestPoint?.tricepsSkinfoldForAgeZScore ?? '';
+        row.subscapularSkinfoldForAgeZScore = latestPoint?.subscapularSkinfoldForAgeZScore ?? '';
       });
     }
     const motherIds = normalizedRows.map((row) => row.motherId).filter(Boolean);

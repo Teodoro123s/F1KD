@@ -41,6 +41,18 @@ const utcDate = (value) => {
   return Number.isNaN(date.getTime()) ? null : Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
 };
 
+const isWithinTwoYears = (birthDate, measurementDate) => {
+  const birth = utcDate(birthDate);
+  const measurement = utcDate(measurementDate);
+  if (birth === null || measurement === null || measurement < birth) return false;
+
+  const birthDay = new Date(birth);
+  const limitYear = birthDay.getUTCFullYear() + 2;
+  const month = birthDay.getUTCMonth();
+  const day = Math.min(birthDay.getUTCDate(), new Date(Date.UTC(limitYear, month + 1, 0)).getUTCDate());
+  return measurement <= Date.UTC(limitYear, month, day);
+};
+
 export const getAgeInDays = (birthDate, measurementDate) => {
   const birth = utcDate(birthDate);
   const measurement = utcDate(measurementDate);
@@ -143,26 +155,66 @@ const lengthForAgeInterpretation = (zScore) => {
   return 'Normal';
 };
 
-export const createWhoGrowthStandards = ({ weightForAge, lengthForAge, weightForLength, weightForHeight }) => {
+export const createWhoGrowthStandards = ({
+  weightForAge,
+  lengthForAge,
+  weightForLength,
+  weightForHeight,
+  bmiForAge,
+  headCircumferenceForAge,
+  armCircumferenceForAge,
+  tricepsSkinfoldForAge,
+  subscapularSkinfoldForAge,
+}) => {
   const references = {
     weightForAge: parseReference(weightForAge, 'age'),
     lengthForAge: parseReference(lengthForAge, 'age'),
     weightForLength: parseReference(weightForLength, 'length'),
     weightForHeight: parseReference(weightForHeight, 'height'),
+    bmiForAge: parseReference(bmiForAge, 'age'),
+    headCircumferenceForAge: parseReference(headCircumferenceForAge, 'age'),
+    armCircumferenceForAge: parseReference(armCircumferenceForAge, 'age'),
+    tricepsSkinfoldForAge: parseReference(tricepsSkinfoldForAge, 'age'),
+    subscapularSkinfoldForAge: parseReference(subscapularSkinfoldForAge, 'age'),
   };
 
-  return ({ weight, lengthHeight, sex, birthDate, measurementDate }) => {
-    const ageInDays = getAgeInDays(birthDate, measurementDate);
+  return ({
+    weight,
+    lengthHeight,
+    bodyMassIndex,
+    headCircumference,
+    armCircumference,
+    tricepsSkinfold,
+    subscapularSkinfold,
+    sex,
+    birthDate,
+    measurementDate,
+  }) => {
+    const ageInDays = isWithinTwoYears(birthDate, measurementDate)
+      ? getAgeInDays(birthDate, measurementDate)
+      : null;
     const normalizedSex = sexCode(sex);
     const weightForAgeZScore = scoreForAge(references.weightForAge, weight, ageInDays, normalizedSex);
     const lengthForAgeZScore = scoreForAge(references.lengthForAge, lengthHeight, ageInDays, normalizedSex);
     const weightForLengthZScore = scoreForWeightForLengthOrHeight(weight, lengthHeight, ageInDays, normalizedSex, references);
+    const numericWeight = Number(weight);
+    const numericLengthHeight = Number(lengthHeight);
+    const numericBmi = Number(bodyMassIndex) > 0
+      ? Number(bodyMassIndex)
+      : numericWeight > 0 && numericLengthHeight > 0
+        ? numericWeight / ((numericLengthHeight / 100) ** 2)
+        : null;
 
     return {
       ageInDays,
       weightForAgeZScore,
       weightForLengthZScore,
       lengthForAgeZScore,
+      bmiForAgeZScore: scoreForAge(references.bmiForAge, numericBmi, ageInDays, normalizedSex),
+      headCircumferenceForAgeZScore: scoreForAge(references.headCircumferenceForAge, headCircumference, ageInDays, normalizedSex),
+      armCircumferenceForAgeZScore: scoreForAge(references.armCircumferenceForAge, armCircumference, ageInDays, normalizedSex),
+      tricepsSkinfoldForAgeZScore: scoreForAge(references.tricepsSkinfoldForAge, tricepsSkinfold, ageInDays, normalizedSex),
+      subscapularSkinfoldForAgeZScore: scoreForAge(references.subscapularSkinfoldForAge, subscapularSkinfold, ageInDays, normalizedSex),
       weightForAgeInterpretation: weightForAgeInterpretation(weightForAgeZScore),
       weightForLengthInterpretation: weightForLengthInterpretation(weightForLengthZScore),
       lengthForAgeInterpretation: lengthForAgeInterpretation(lengthForAgeZScore),
