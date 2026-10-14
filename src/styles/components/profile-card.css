@@ -789,6 +789,14 @@
 .program-table-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.1rem 1.25rem; border-bottom: 1px solid #e2e8f0; background: #fff; }
 .program-table-heading h2 { margin: 0.2rem 0 0; color: #0f172a; font-size: 1.1rem; }
 .program-table-heading > span { color: #64748b; font-size: 0.85rem; text-align: right; }
+.program-table-heading > .community-table-search { flex: 0 1 540px; width: 100%; padding: 0; border: 0; }
+.program-table-heading > .community-table-search .search-container { width: 100%; }
+@media (max-width: 640px) {
+  .program-table-heading { align-items: stretch; flex-direction: column; }
+  .program-table-heading > .community-table-search { flex: 1 1 auto; min-width: 0; }
+  .program-table-heading > .community-table-search .search-container { gap: 0.4rem; padding: 0 0.55rem; }
+  .program-table-heading > .community-table-search .search-input-field { flex: 1 1 0; }
+}
 .program-monitoring-report { margin-bottom: 1.5rem; padding: 1.25rem; border: 1px solid #dbe3ee; border-radius: 10px; background: #fff; }
 .program-monitoring-report__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding-bottom: 1rem; border-bottom: 1px solid #e2e8f0; }
 .program-monitoring-report__header h2 { margin: 0.2rem 0 0; color: #0f172a; font-size: 1.25rem; }
@@ -1370,24 +1378,6 @@
 .view-content .progress-report-panel {
   max-width: none;
   margin: 0;
-}
-.view-content .progress-report-panel > .view-page-header {
-  min-height: 64px;
-  padding: 0 var(--view-padding-x, 1rem);
-  border: 0;
-  border-bottom: 1px solid var(--view-border-color, #dfe7eb);
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-}
-.view-content .progress-report-panel > .view-page-header .view-page-title {
-  color: var(--view-text, #0f172a);
-  font-size: var(--view-text-h1, 2rem);
-  font-weight: 700;
-}
-.view-content .progress-report-panel > .view-page-header .view-breadcrumb {
-  font-size: var(--view-text-small, 0.75rem);
-  color: var(--view-text-muted, #64748b);
 }
 .progress-report-tab-bar {
   display: flex;

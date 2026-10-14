@@ -520,6 +520,12 @@ router.get('/groups/:id/health-workers', async (req, res) => {
       return res.status(400).json({ error: 'Invalid group id' });
     }
 
+    const scopeClause = req.groupId
+      ? 'AND g.id = ?'
+      : req.schoolId
+        ? 'AND g.community_id = ?'
+        : '';
+    const scopeValues = req.groupId ? [req.groupId] : req.schoolId ? [req.schoolId] : [];
     const [rows] = await pool.query(
       `SELECT DISTINCT u.id, CONCAT_WS(' ', u.first_name, u.middle_initial, u.last_name) AS name,
           u.email, u.contact_number, u.status, u.school_id, u.group_id, u.role
@@ -532,9 +538,9 @@ router.get('/groups/:id/health-workers', async (req, res) => {
          OR
          (u.id = c.coordinator_id AND LOWER(REPLACE(TRIM(u.role), '_', ' ')) IN ('community organizer', 'communityorganizer', 'community coordinator', 'communitycoordinator', 'coordinator', 'co', 'partner'))
        )
-       WHERE g.id = ?
+       WHERE g.id = ? ${scopeClause}
        ORDER BY u.role, u.last_name, u.first_name, u.id`,
-      [groupId],
+      [groupId, ...scopeValues],
     );
 
     res.json({
@@ -563,6 +569,9 @@ router.put('/communities/:id', async (req, res) => {
     const communityId = Number(id);
     if (Number.isNaN(communityId)) {
       return res.status(400).json({ error: 'Invalid community id' });
+    }
+    if (req.isCommunityOrganizer && communityId !== Number(req.schoolId)) {
+      return res.status(404).json({ error: 'Community not found' });
     }
 
     const [existingRows] = await pool.query(
@@ -670,14 +679,27 @@ router.put('/groups/:id', async (req, res) => {
       return res.status(400).json({ error: 'Invalid group id' });
     }
 
+    if (req.isCommunityOrganizer) {
+      if (!communityId || Number(communityId) !== Number(req.schoolId)) {
+        return res.status(403).json({ error: 'Community organizers can only assign groups to their assigned school' });
+      }
+      const [existingRows] = await pool.query(
+        'SELECT id FROM groups WHERE id = ? AND community_id = ? LIMIT 1',
+        [groupId, req.schoolId],
+      );
+      if (!existingRows.length) return res.status(404).json({ error: 'Group not found' });
+    }
+
+    const updateScopeClause = req.isCommunityOrganizer ? ' AND community_id = ?' : '';
+    const updateScopeValues = req.isCommunityOrganizer ? [req.schoolId] : [];
     await pool.query(
-      'UPDATE groups SET name = ?, community_id = ?, leader = ?, members_count = ?, status = ? WHERE id = ?',
-      [cleanName, communityId || null, String(leader || '').trim() || null, Number(members) || 0, status || 'Active', groupId]
+      `UPDATE groups SET name = ?, community_id = ?, leader = ?, members_count = ?, status = ? WHERE id = ?${updateScopeClause}`,
+      [cleanName, communityId || null, String(leader || '').trim() || null, Number(members) || 0, status || 'Active', groupId, ...updateScopeValues]
     );
 
     const [rows] = await pool.query(
-      'SELECT id, group_code AS code, name, leader, members_count AS members, status, community_id FROM groups WHERE id = ?',
-      [groupId]
+      `SELECT id, group_code AS code, name, leader, members_count AS members, status, community_id FROM groups WHERE id = ?${updateScopeClause}`,
+      [groupId, ...updateScopeValues]
     );
 
     const updated = rows[0];
@@ -709,8 +731,17 @@ router.delete('/groups/:id', async (req, res) => {
       return res.status(400).json({ error: 'Invalid group id' });
     }
 
-    const [existingRows] = await pool.query('SELECT id, name, community_id FROM groups WHERE id = ? LIMIT 1', [groupId]);
-    const [result] = await pool.query('DELETE FROM groups WHERE id = ?', [groupId]);
+    const scopeClause = req.isCommunityOrganizer ? ' AND community_id = ?' : '';
+    const scopeValues = req.isCommunityOrganizer ? [req.schoolId] : [];
+    const [existingRows] = await pool.query(
+      `SELECT id, name, community_id FROM groups WHERE id = ?${scopeClause} LIMIT 1`,
+      [groupId, ...scopeValues],
+    );
+    if (!existingRows.length) return res.status(404).json({ error: 'Group not found' });
+    const [result] = await pool.query(
+      `DELETE FROM groups WHERE id = ?${scopeClause}`,
+      [groupId, ...scopeValues],
+    );
     if (result.affectedRows > 0) {
       await createSuperadminNotification({
         eventType: 'group.deleted',
@@ -748,9 +779,31 @@ router.put('/batches/:id', async (req, res) => {
       return res.status(404).json({ error: 'Batch not found' });
     }
 
+    if (req.isCommunityOrganizer) {
+      if (!communityId || Number(communityId) !== Number(req.schoolId)) {
+        return res.status(403).json({ error: 'Community organizers can only assign batches to their assigned school' });
+      }
+      const [existingRows] = await pool.query(
+        'SELECT id FROM batches WHERE id = ? AND community_id = ? LIMIT 1',
+        [batchId, req.schoolId],
+      );
+      if (!existingRows.length) return res.status(404).json({ error: 'Batch not found' });
+      if (groupId) {
+        const [groupRows] = await pool.query(
+          'SELECT id FROM groups WHERE id = ? AND community_id = ? LIMIT 1',
+          [Number(groupId), req.schoolId],
+        );
+        if (!groupRows.length) {
+          return res.status(403).json({ error: 'Community organizers can only assign groups from their assigned school' });
+        }
+      }
+    }
+
+    const updateScopeClause = req.isCommunityOrganizer ? ' AND community_id = ?' : '';
+    const updateScopeValues = req.isCommunityOrganizer ? [req.schoolId] : [];
     await pool.query(
-      'UPDATE batches SET name = ?, community_id = ?, records = ?, progress = ?, status = ? WHERE id = ?',
-      [cleanName, communityId || null, Number(records) || 0, Number(progress) || 0, status || 'Active', batchId]
+      `UPDATE batches SET name = ?, community_id = ?, records = ?, progress = ?, status = ? WHERE id = ?${updateScopeClause}`,
+      [cleanName, communityId || null, Number(records) || 0, Number(progress) || 0, status || 'Active', batchId, ...updateScopeValues]
     );
 
     if (groupId !== undefined) {
@@ -763,8 +816,8 @@ router.put('/batches/:id', async (req, res) => {
     const [rows] = await pool.query(
       `SELECT b.id, b.batch_code AS code, b.name, b.records, b.progress, b.status, b.community_id,
           (SELECT group_id FROM group_batch WHERE batch_id = b.id ORDER BY group_id LIMIT 1) AS group_id
-       FROM batches b WHERE b.id = ?`,
-      [batchId]
+       FROM batches b WHERE b.id = ?${req.isCommunityOrganizer ? ' AND b.community_id = ?' : ''}`,
+      [batchId, ...scopeValues]
     );
 
     const updated = rows[0];
@@ -796,13 +849,19 @@ router.delete('/batches/:id', async (req, res) => {
       return res.status(404).json({ error: 'Batch not found' });
     }
 
+    const scopeClause = req.isCommunityOrganizer ? ' AND b.community_id = ?' : '';
+    const scopeValues = req.isCommunityOrganizer ? [req.schoolId] : [];
     const [existingRows] = await pool.query(
       `SELECT b.id, b.name, b.community_id, gb.group_id
        FROM batches b LEFT JOIN group_batch gb ON gb.batch_id = b.id
-       WHERE b.id = ? ORDER BY gb.group_id LIMIT 1`,
-      [batchId],
+       WHERE b.id = ?${scopeClause} ORDER BY gb.group_id LIMIT 1`,
+      [batchId, ...scopeValues],
     );
-    const [result] = await pool.query('DELETE FROM batches WHERE id = ?', [batchId]);
+    if (!existingRows.length) return res.status(404).json({ error: 'Batch not found' });
+    const [result] = await pool.query(
+      `DELETE FROM batches WHERE id = ?${scopeClause}`,
+      [batchId, ...scopeValues],
+    );
     if (result.affectedRows > 0) {
       await createSuperadminNotification({
         eventType: 'batch.deleted',

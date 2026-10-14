@@ -124,6 +124,14 @@ export default function UserManagementTable({
                 <tr
                   key={row.id}
                   onClick={allowProfileNavigation ? () => navigate(`/user-management/user/${row.id}`, { state: { user: row } }) : undefined}
+                  onKeyDown={allowProfileNavigation ? (event) => {
+                    if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
+                      event.preventDefault();
+                      navigate(`/user-management/user/${row.id}`, { state: { user: row } });
+                    }
+                  } : undefined}
+                  tabIndex={allowProfileNavigation ? 0 : undefined}
+                  aria-label={allowProfileNavigation ? `View profile for ${row.name}` : undefined}
                   style={{ cursor: allowProfileNavigation ? 'pointer' : 'default' }}
                 >
                   <td>{row.name}</td>

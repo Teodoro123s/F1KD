@@ -304,14 +304,27 @@ router.post('/', async (req, res) => {
 
     if (!motherId || !firstName || !lastName) return res.status(400).json({ error: 'motherId, firstName and lastName are required' });
 
+    const motherScope = req.groupId
+      ? ' AND group_id = ?'
+      : req.schoolId
+        ? ' AND community_id = ?'
+        : '';
+    const motherScopeValues = req.groupId ? [req.groupId] : req.schoolId ? [req.schoolId] : [];
     const [motherRows] = await pool.query(
-      'SELECT id, community_id, group_id, batch_id FROM mothers WHERE id = ? OR mother_code = ? LIMIT 1',
-      [Number(motherId) || null, motherId]
+      `SELECT id, community_id, group_id, batch_id FROM mothers WHERE (id = ? OR mother_code = ?)${motherScope} LIMIT 1`,
+      [Number(motherId) || null, motherId, ...motherScopeValues]
     );
     if (!motherRows.length) return res.status(400).json({ error: 'Mother not found' });
     const mother = motherRows[0];
     motherId = mother.id;
-    communityId = communityId || mother.community_id;
+    if (req.isCommunityOrganizer) {
+      if (communityId && Number(communityId) !== Number(req.schoolId)) {
+        return res.status(403).json({ error: 'Community organizers can only create beneficiaries in their assigned school' });
+      }
+      communityId = req.schoolId;
+    } else {
+      communityId = communityId || mother.community_id;
+    }
     groupId = groupId || mother.group_id;
     batchId = batchId || mother.batch_id;
     if (req.groupId) {
@@ -319,7 +332,10 @@ router.post('/', async (req, res) => {
       groupId = req.groupId;
     }
     if (!groupId && b.group) {
-      const [groupRows] = await pool.query('SELECT id FROM groups WHERE name = ? LIMIT 1', [b.group]);
+      const [groupRows] = await pool.query(
+        `SELECT id FROM groups WHERE name = ?${req.isCommunityOrganizer ? ' AND community_id = ?' : ''} LIMIT 1`,
+        req.isCommunityOrganizer ? [b.group, req.schoolId] : [b.group],
+      );
       groupId = groupRows[0]?.id || null;
     }
     if (!communityId && b.community) {
@@ -327,8 +343,31 @@ router.post('/', async (req, res) => {
       communityId = communityRows[0]?.id || null;
     }
     if (!batchId && b.batch) {
-      const [batchRows] = await pool.query('SELECT id FROM batches WHERE id = ? OR batch_code = ? OR name = ? LIMIT 1', [Number(b.batch) || null, b.batch, b.batch]);
+      const [batchRows] = await pool.query(
+        `SELECT id FROM batches WHERE (id = ? OR batch_code = ? OR name = ?)${req.isCommunityOrganizer ? ' AND community_id = ?' : ''} LIMIT 1`,
+        req.isCommunityOrganizer
+          ? [Number(b.batch) || null, b.batch, b.batch, req.schoolId]
+          : [Number(b.batch) || null, b.batch, b.batch],
+      );
       batchId = batchRows[0]?.id || null;
+    }
+    if (req.isCommunityOrganizer && groupId) {
+      const [groupRows] = await pool.query(
+        'SELECT id FROM groups WHERE id = ? AND community_id = ? LIMIT 1',
+        [groupId, req.schoolId],
+      );
+      if (!groupRows.length) {
+        return res.status(403).json({ error: 'Community organizers can only assign groups from their assigned school' });
+      }
+    }
+    if (req.isCommunityOrganizer && batchId) {
+      const [batchRows] = await pool.query(
+        'SELECT id FROM batches WHERE id = ? AND community_id = ? LIMIT 1',
+        [batchId, req.schoolId],
+      );
+      if (!batchRows.length) {
+        return res.status(403).json({ error: 'Community organizers can only assign batches from their assigned school' });
+      }
     }
 
     // generate child_code

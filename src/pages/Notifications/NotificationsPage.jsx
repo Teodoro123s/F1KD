@@ -1,25 +1,24 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import PageHeader from '../../components/ui/PageHeader';
 import ModuleSummaryCards from '../../components/ui/ModuleSummaryCards';
 import CommunityTable from '../Community/CommunityTable';
 import CommunityPagination from '../Community/components/CommunityPagination';
 import { SearchIcon } from '../Community/CommunityIcons';
 import { apiGetNotifications, apiMarkNotificationRead } from '../../api/notifications';
+import NotificationDetailsModal from '../../components/ui/NotificationDetailsModal';
 import { useAuth } from '../../auth/AuthProvider';
 import { hasRole, isHealthWorkerRole, ROLES } from '../../utils/permissions';
 
 const CATEGORIES = ['All', 'Beneficiaries', 'Monitoring', 'Programs', 'Downloads', 'Community', 'User Management'];
 
 export default function NotificationsPage() {
-  const navigate = useNavigate();
   const { currentUser } = useAuth();
   const isHealthWorker = isHealthWorkerRole(currentUser?.role);
   const isSuperAdmin = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]);
   const categories = isHealthWorker
     ? ['All', 'Monitoring', 'Beneficiaries']
     : isSuperAdmin
-      ? ['Community', 'User Management']
+      ? ['All', 'Community', 'User Management']
       : CATEGORIES.filter((item) => item !== 'User Management');
   const [category, setCategory] = useState('All');
   const selectedCategory = categories.includes(category) ? category : categories[0];
@@ -33,6 +32,7 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
+  const [selectedNotification, setSelectedNotification] = useState(null);
 
   useEffect(() => {
     let active = true;
@@ -73,13 +73,15 @@ export default function NotificationsPage() {
   const startIndex = (currentPage - 1) * perPage;
 
   const openNotification = async (notification) => {
+    setError('');
+    setSelectedNotification(notification);
     try {
       if (!notification.isRead) {
         await apiMarkNotificationRead(notification.id);
+        setSelectedNotification((current) => current?.id === notification.id
+          ? { ...current, isRead: true }
+          : current);
         setRefreshKey((key) => key + 1);
-      }
-      if (notification.linkTo && notification.linkTo !== '/notifications') {
-        navigate(notification.linkTo);
       }
     } catch (requestError) {
       setError(requestError.message || 'Unable to mark notification as read.');
@@ -145,24 +147,6 @@ export default function NotificationsPage() {
           {notification.isRead ? 'Read' : 'Unread'}
         </span>
       ),
-    },
-    {
-      key: 'action',
-      header: 'Action',
-      style: { width: '9%' },
-      renderCell: (notification) => notification.linkTo && notification.linkTo !== '/notifications' ? (
-        <button
-          type="button"
-          className="btn-secondary"
-          style={{ minHeight: '30px', padding: '0.25rem 0.65rem', fontSize: '0.82rem' }}
-          onClick={(event) => {
-            event.stopPropagation();
-            openNotification(notification);
-          }}
-        >
-          View
-        </button>
-      ) : '—',
     },
   ];
 
@@ -246,6 +230,11 @@ export default function NotificationsPage() {
           />
         </>
       )}
+      <NotificationDetailsModal
+        notification={selectedNotification}
+        onClose={() => setSelectedNotification(null)}
+        error={error}
+      />
     </div>
   );
 }

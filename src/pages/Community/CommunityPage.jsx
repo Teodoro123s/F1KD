@@ -66,31 +66,41 @@ export default function CommunityPage() {
   const [childrenRows, setChildrenRows] = useState([]);
   const [childrenOverviewError, setChildrenOverviewError] = useState('');
   const [schoolOverviewSelection, setSchoolOverviewSelection] = useState(null);
+  const [drilldownSchoolId, setDrilldownSchoolId] = useState(null);
+  const [drilldownGroupId, setDrilldownGroupId] = useState(null);
+  const [drilldownBatchId, setDrilldownBatchId] = useState(null);
 
   const activeTab = batchId
     ? (isSuperAdmin ? 'batches' : 'mothers')
-    : isHealthWorker
-      ? 'batches'
-      : isAssignedCommunityOrganizer
-        ? (groupId ? 'batches' : 'groups')
-        : groupId
-          ? 'batches'
-          : schoolId
-            ? 'groups'
-            : 'communities';
+    : drilldownBatchId
+      ? 'mothers'
+      : drilldownGroupId || groupId
+        ? 'batches'
+        : drilldownSchoolId || schoolId
+          ? 'groups'
+          : isHealthWorker
+            ? 'batches'
+            : isAssignedCommunityOrganizer
+              ? (groupId ? 'batches' : 'groups')
+              : 'communities';
 
   useEffect(() => {
     setSchoolOverviewSelection(null);
+    setDrilldownSchoolId(null);
+    setDrilldownGroupId(null);
+    setDrilldownBatchId(null);
     setPage(1);
-  }, [schoolId, groupId]);
+  }, [schoolId, groupId, batchId]);
 
   const selectedBatch = useMemo(
-    () => batches.find((batch) => String(batch.id) === String(batchId)),
-    [batches, batchId]
+    () => batches.find((batch) => String(batch.id) === String(drilldownBatchId || batchId)),
+    [batches, batchId, drilldownBatchId]
   );
 
   const selectedGroup = useMemo(() => {
-    const groupFromRoute = scopedGroups.find((group) => String(group.id) === String(isHealthWorker ? assignedGroupId : groupId));
+    const groupFromRoute = scopedGroups.find((group) =>
+      String(group.id) === String(drilldownGroupId || (isHealthWorker ? assignedGroupId : groupId))
+    );
 
     if (groupFromRoute) {
       return groupFromRoute;
@@ -110,11 +120,13 @@ export default function CommunityPage() {
     }
 
     return scopedGroups.find((group) => group.name === groupNames[0]) || null;
-  }, [assignedGroupId, groupId, isHealthWorker, scopedGroups, selectedBatch]);
+  }, [assignedGroupId, drilldownGroupId, groupId, isHealthWorker, scopedGroups, selectedBatch]);
 
   const selectedSchool = useMemo(() => {
     const sourceCommunities = isSchoolScopedUser ? scopedCommunities : communities;
-    const schoolFromRoute = sourceCommunities.find((community) => String(community.id) === String(schoolId || assignedSchoolId));
+    const schoolFromRoute = sourceCommunities.find((community) =>
+      String(community.id) === String(drilldownSchoolId || schoolId || assignedSchoolId)
+    );
 
     if (schoolFromRoute) {
       return schoolFromRoute;
@@ -133,7 +145,7 @@ export default function CommunityPage() {
     }
 
     return null;
-  }, [assignedSchoolId, communities, isSchoolScopedUser, scopedCommunities, schoolId, selectedBatch, selectedGroup]);
+  }, [assignedSchoolId, communities, drilldownSchoolId, isSchoolScopedUser, scopedCommunities, schoolId, selectedBatch, selectedGroup]);
 
   const selectedSchoolGroups = useMemo(() => {
     if (!selectedSchool) return [];
@@ -440,6 +452,10 @@ export default function CommunityPage() {
     setQuery('');
     setPage(1);
     setActiveDropdownId(null);
+    setDrilldownSchoolId(null);
+    setDrilldownGroupId(null);
+    setDrilldownBatchId(null);
+    setSchoolOverviewSelection(null);
 
     if (nextTab === 'communities') {
       navigate('/community');
@@ -457,6 +473,31 @@ export default function CommunityPage() {
     }
 
     navigate(selectedBatch ? `/community/batch/${selectedBatch.id}` : '/community');
+  };
+
+  const handleSchoolRowClick = (school) => {
+    setDrilldownSchoolId(school.id);
+    setDrilldownGroupId(null);
+    setDrilldownBatchId(null);
+    setSchoolOverviewSelection('groups');
+    setQuery('');
+    setPage(1);
+  };
+
+  const handleGroupRowClick = (group) => {
+    setDrilldownSchoolId(null);
+    setDrilldownGroupId(group.id);
+    setDrilldownBatchId(null);
+    setSchoolOverviewSelection(null);
+    setQuery('');
+    setPage(1);
+  };
+
+  const handleBatchRowClick = (batch) => {
+    setDrilldownBatchId(batch.id);
+    setSchoolOverviewSelection(null);
+    setQuery('');
+    setPage(1);
   };
 
   const toggleDropdown = (event, id) => {
@@ -760,23 +801,19 @@ export default function CommunityPage() {
 
   const currentRowClickHandler =
     schoolOverviewSelection === 'groups'
-      ? (group) => navigate(`/community/group/${group.id}`)
+      ? handleGroupRowClick
       : schoolOverviewSelection === 'mothers'
       ? (mother) => handleMotherRowClick(mother)
       : schoolOverviewSelection === 'children'
         ? (child) => handleChildRowClick(child)
         : schoolOverviewSelection === 'batches'
-          ? isSuperAdmin
-            ? undefined
-            : (batch) => navigate(`/beneficiary?batchId=${encodeURIComponent(batch.databaseId || batch.id)}`, { state: { batch } })
+          ? handleBatchRowClick
           : activeTab === 'communities'
-            ? (school) => navigate(`/community/school/${school.id}`)
+            ? handleSchoolRowClick
             : activeTab === 'groups'
-              ? (group) => navigate(`/community/group/${group.id}`)
+              ? handleGroupRowClick
               : activeTab === 'batches'
-                ? isSuperAdmin
-                  ? undefined
-                  : (batch) => navigate(`/beneficiary?batchId=${encodeURIComponent(batch.databaseId || batch.id)}`, { state: { batch } })
+                ? handleBatchRowClick
                 : entityFilter === 'Child'
                   ? (child) => handleChildRowClick(child)
                   : (mother) => handleMotherRowClick(mother);
@@ -883,10 +920,10 @@ export default function CommunityPage() {
         onEditCommunity={handleEditCommunity}
         onCreateBatch={handleCreateBatch}
         onEditBatch={handleEditBatch}
-        hideBatchSchoolField={isHealthWorker || Boolean(schoolId || groupId)}
+        hideBatchSchoolField={isHealthWorker || Boolean(selectedSchool || selectedGroup)}
         onCreateGroup={handleCreateGroup}
         onEditGroup={handleEditGroup}
-        hideGroupSchoolField={isHealthWorker || isAssignedCommunityOrganizer || Boolean(schoolId)}
+        hideGroupSchoolField={isHealthWorker || isAssignedCommunityOrganizer || Boolean(selectedSchool)}
         isSubmitting={mutations.loading}
       />
     </div>

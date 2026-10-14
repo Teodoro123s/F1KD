@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { MotherFormFields } from './BeneficiaryMother';
+import { MotherFormFields, OTHER_MATERNAL_VACCINES } from './BeneficiaryMother';
 import { calculateGestationalDetails, getInitialCheckups } from '../../../utils/beneficiaryHelpers';
 import { useMothers } from '../../../context/MothersContext';
 import { apiCreateMother, apiUploadMotherDocuments } from '../../../api/mothers';
@@ -130,9 +130,13 @@ const emptyCommunityForm = (communities = []) => ({
   tt4Date: '', tt4Remarks: '',
   tt5Date: '', tt5Remarks: '',
   influenzaDate: '', influenzaRemarks: '',
+  influenzaDose2Date: '', influenzaDose3Date: '',
   hepatitisADate: '', hepatitisARemarks: '',
+  hepatitisADose2Date: '', hepatitisADose3Date: '',
   hepatitisBDate: '', hepatitisBRemarks: '',
+  hepatitisBDose2Date: '', hepatitisBDose3Date: '',
   covid19Date: '', covid19Remarks: '',
+  covid19Dose2Date: '', covid19Dose3Date: '',
   area: 'Poblacion',
   community: communities[0]?.name || '',
   group: '',
@@ -324,6 +328,10 @@ export default function CreateMotherPage({
       tt5Remarks: communityForm.tt5Remarks,
       influenzaDate: communityForm.influenzaDate,
       influenzaRemarks: communityForm.influenzaRemarks,
+      ...Object.fromEntries(OTHER_MATERNAL_VACCINES.flatMap(({ key }) => [2, 3].map((num) => [
+        `${key}Dose${num}Date`,
+        communityForm[`${key}Dose${num}Date`],
+      ]))),
       hepatitisADate: communityForm.hepatitisADate,
       hepatitisARemarks: communityForm.hepatitisARemarks,
       hepatitisBDate: communityForm.hepatitisBDate,
@@ -411,6 +419,10 @@ export default function CreateMotherPage({
       tt5Remarks: communityForm.tt5Remarks,
       influenzaDate: communityForm.influenzaDate,
       influenzaRemarks: communityForm.influenzaRemarks,
+      ...Object.fromEntries(OTHER_MATERNAL_VACCINES.flatMap(({ key }) => [2, 3].map((num) => [
+        `${key}Dose${num}Date`,
+        communityForm[`${key}Dose${num}Date`],
+      ]))),
       hepatitisADate: communityForm.hepatitisADate,
       hepatitisARemarks: communityForm.hepatitisARemarks,
       hepatitisBDate: communityForm.hepatitisBDate,

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import logo from '../assets/f1kd-logo.png';
 import { useAuth } from '../auth/AuthProvider';
@@ -24,14 +24,42 @@ function NotificationIcon() {
   );
 }
 
+function ReportsIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 19V5" />
+      <path d="M4 19h17" />
+      <path d="m7 15 4-4 3 2 5-6" />
+      <path d="M16 7h3v3" />
+    </svg>
+  );
+}
+
 export default function Sidebar() {
   const { currentUser } = useAuth();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => (
+    typeof window !== 'undefined'
+    && typeof window.matchMedia === 'function'
+    && window.matchMedia('(max-width: 720px)').matches
+  ));
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return undefined;
+    const mobileViewport = window.matchMedia('(max-width: 720px)');
+    const updateCollapsedState = (event) => setCollapsed(event.matches);
+    mobileViewport.addEventListener('change', updateCollapsedState);
+    return () => mobileViewport.removeEventListener('change', updateCollapsedState);
+  }, []);
+
   const isSuperAdmin = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]);
   const isCommunityOrganizer = isCommunityCoordinatorRole(currentUser?.role);
   const notificationsItem = { to: '/notifications', label: 'Notifications', icon: NotificationIcon };
   const visibleItems = isSuperAdmin
-    ? [...items.filter((item) => ['/dashboard', '/community', '/user-management'].includes(item.to)), notificationsItem]
+    ? [...items.filter((item) => ['/dashboard', '/community', '/user-management'].includes(item.to)), {
+      to: '/reports',
+      label: 'Reports',
+      icon: ReportsIcon,
+    }, notificationsItem]
     : isCommunityOrganizer
       ? [...items.filter((item) => item.to !== '/user-management'), {
         to: '/user-management',

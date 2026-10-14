@@ -61,8 +61,13 @@ test('Community Organizer can manage only Health workers in their assigned schoo
   let createdUser = null;
   let credentialEmail = null;
   const updateQueries = [];
+  const activityEvents = [];
 
   pool.query = async (sql, params = []) => {
+    if (sql.startsWith('INSERT INTO activity_logs')) {
+      activityEvents.push(params);
+      return [{ insertId: activityEvents.length }];
+    }
     if (sql.includes('FROM groups WHERE id = ? AND community_id = ?')) {
       return [Number(params[0]) === 20 && Number(params[1]) === 12 ? [{ id: 20 }] : []];
     }
@@ -133,6 +138,13 @@ test('Community Organizer can manage only Health workers in their assigned schoo
   assert.equal(list.total, 1);
   assert.deepEqual(list.users.map((user) => user.id), [5]);
 
+  const managedWorkerResponse = await request('/health-workers/5', organizer);
+  assert.equal(managedWorkerResponse.status, 200);
+  assert.equal((await managedWorkerResponse.json()).id, 5);
+
+  const otherSchoolWorkerResponse = await request('/health-workers/6', organizer);
+  assert.equal(otherSchoolWorkerResponse.status, 404);
+
   const otherRoleResponse = await request('/health-workers', { id: 2, role: 'Admin', school_id: 12 });
   assert.equal(otherRoleResponse.status, 403);
 
@@ -185,6 +197,9 @@ test('Community Organizer can manage only Health workers in their assigned schoo
   assert.equal(insertedUserValues[2], 'New');
   assert.equal(insertedUserValues[9], 12);
   assert.equal(insertedUserValues[10], 20);
+  assert.equal(activityEvents.length, 1);
+  assert.equal(activityEvents[0][4], 'User Management');
+  assert.equal(activityEvents[0][5], 'create');
 
   const crossSchoolEditResponse = await request('/health-workers/6', organizer, {
     method: 'PUT',
@@ -205,6 +220,8 @@ test('Community Organizer can manage only Health workers in their assigned schoo
   assert.equal(statusResponse.status, 200);
   assert.equal((await statusResponse.json()).status, 'Suspended');
   assert.equal(updateQueries.length, 1);
+  assert.equal(activityEvents.length, 2);
+  assert.equal(activityEvents[1][5], 'suspend');
 
   const deleteResponse = await request('/5', organizer, { method: 'DELETE' });
   assert.equal(deleteResponse.status, 403);

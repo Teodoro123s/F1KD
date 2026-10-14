@@ -15,13 +15,15 @@ export default function UnifiedModal({
   onSave,
   children,
   footer,
+  className = '',
+  backdropClassName = '',
 }) {
   if (!isOpen) return null;
 
   return (
-    <div className="view-modal-backdrop" onClick={onClose}>
+    <div className={`view-modal-backdrop ${backdropClassName}`.trim()} onClick={onClose}>
       <div
-        className={`view-modal ${sizeMap[size] || sizeMap.md}`}
+        className={`view-modal ${sizeMap[size] || sizeMap.md} ${className}`.trim()}
         role="dialog"
         aria-modal="true"
         aria-labelledby="view-modal-title"

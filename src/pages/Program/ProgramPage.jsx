@@ -1046,17 +1046,15 @@ export default function ProgramPage() {
       {(viewMode || selectedProgramCard) && (
       <section className="table-card program-table-card">
         <div className="program-table-heading">
-          <div>
-            <h2>{viewMode ? 'Program beneficiaries' : 'Programs'}</h2>
-          </div>
+          <h2>{viewMode ? 'Program beneficiaries' : 'Programs'}</h2>
+          {!viewMode && (
+            <TableSearch
+              value={query}
+              onChange={setQuery}
+              placeholder="Search programs, partners, or communities (case-sensitive)"
+            />
+          )}
         </div>
-        {!viewMode && (
-          <TableSearch
-            value={query}
-            onChange={setQuery}
-            placeholder="Search programs, partners, or communities (case-sensitive)"
-          />
-        )}
         <div className="table-overflow">
           {viewMode && !clusterView ? (() => {
             if (selectedRouteBatch) {

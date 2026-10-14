@@ -4,11 +4,24 @@ const pool = require('../db');
 const { documentUpload, uploadFileToStorage, deleteFileFromStorage } = require('../middleware/documentUpload');
 const { createSuperadminNotification, getBeneficiaryUpdateRecipients } = require('../services/notifications');
 const MOTHER_ADDITIONAL_VACCINES = [
-  { name: 'Influenza', dateField: 'influenzaDate', remarksField: 'influenzaRemarks' },
-  { name: 'Hepatitis A', dateField: 'hepatitisADate', remarksField: 'hepatitisARemarks' },
-  { name: 'Hepatitis B', dateField: 'hepatitisBDate', remarksField: 'hepatitisBRemarks' },
-  { name: 'COVID-19', dateField: 'covid19Date', remarksField: 'covid19Remarks' },
-];
+  { name: 'Influenza', key: 'influenza', remarksField: 'influenzaRemarks' },
+  { name: 'Hepatitis A', key: 'hepatitisA', remarksField: 'hepatitisARemarks' },
+  { name: 'Hepatitis B', key: 'hepatitisB', remarksField: 'hepatitisBRemarks' },
+  { name: 'COVID-19', key: 'covid19', remarksField: 'covid19Remarks' },
+].flatMap(({ name, key, remarksField }) => [1, 2, 3].map((dose) => ({
+  name: dose === 1 ? name : `${name} Dose ${dose}`,
+  dateField: `${key}${dose === 1 ? 'Date' : `Dose${dose}Date`}`,
+  remarksField: dose === 1 ? remarksField : null,
+})));
+
+function getAdditionalVaccineFormFields(vaccines) {
+  return Object.fromEntries(MOTHER_ADDITIONAL_VACCINES.flatMap((vaccine) => {
+    const record = vaccines[vaccine.name];
+    const fields = [[vaccine.dateField, record?.vaccine_date || '']];
+    if (vaccine.remarksField) fields.push([vaccine.remarksField, record?.remarks || '']);
+    return fields;
+  }));
+}
 
 function firstNonEmpty(...values) {
   for (const value of values) {
@@ -215,14 +228,7 @@ async function attachClinicalData(mother) {
     tt4Remarks: vaccines.TT4?.remarks || '',
     tt5Date: vaccines.TT5?.vaccine_date || '',
     tt5Remarks: vaccines.TT5?.remarks || '',
-    influenzaDate: vaccines.Influenza?.vaccine_date || '',
-    influenzaRemarks: vaccines.Influenza?.remarks || '',
-    hepatitisADate: vaccines['Hepatitis A']?.vaccine_date || '',
-    hepatitisARemarks: vaccines['Hepatitis A']?.remarks || '',
-    hepatitisBDate: vaccines['Hepatitis B']?.vaccine_date || '',
-    hepatitisBRemarks: vaccines['Hepatitis B']?.remarks || '',
-    covid19Date: vaccines['COVID-19']?.vaccine_date || '',
-    covid19Remarks: vaccines['COVID-19']?.remarks || '',
+    ...getAdditionalVaccineFormFields(vaccines),
   };
 }
 
@@ -338,7 +344,7 @@ router.delete('/:id/documents/:field', async (req, res) => {
 });
 
 const MOTHER_ALLOWED_FIELDS = new Set([
-  'id', 'motherId', 'name', 'firstName', 'middleName', 'lastName', 'maidenSurname', 'dob', 'birthPlace', 'allergies', 'bloodType', 'civilStatus', 'employmentStatus', 'educationalAttainment', 'dataPrivacySigned', 'mediaReleaseSigned', 'age', 'phone', 'contactNumber', 'province', 'city', 'barangay', 'community', 'communityId', 'group', 'groupId', 'batch', 'batchId', 'programType', 'status', 'risk', 'trimester', 'gestationalAge', 'lmpDate', 'eddDate', 'prenatalRegDate', 'prenatalWeight', 'prenatalBp', 'prenatalHeight', 'fundalHeight', 'fhr', 'weight', 'height', 'bmi', 'gravida', 'para', 'abortion', 'stillbirth', 'totalChildren', 'childrenBornAlive', 'miscarriages', 'childrenDiedAfterBirth', 'emergencyName', 'emergencyContact', 'emergencyRelationship', 'spouseName', 'medicalConditions', 'otherMedicalHistory', 'tt1Date', 'tt2Date', 'tt3Date', 'tt4Date', 'tt5Date', 'influenzaDate', 'influenzaRemarks', 'hepatitisADate', 'hepatitisARemarks', 'hepatitisBDate', 'hepatitisBRemarks', 'covid19Date', 'covid19Remarks', 'dentalCheckupDate', 'dentalFacility', 'dentalFindings', 'dentalRemarks', 'birthCertificateDocumentName', 'consentDocumentName', 'assessment', 'progress', 'trend', 'createdAt', 'vaccines', 'oralHealth', 'programs', 'documents', 'checkups', 'source'
+  'id', 'motherId', 'name', 'firstName', 'middleName', 'lastName', 'maidenSurname', 'dob', 'birthPlace', 'allergies', 'bloodType', 'civilStatus', 'employmentStatus', 'educationalAttainment', 'dataPrivacySigned', 'mediaReleaseSigned', 'age', 'phone', 'contactNumber', 'province', 'city', 'barangay', 'community', 'communityId', 'group', 'groupId', 'batch', 'batchId', 'programType', 'status', 'risk', 'trimester', 'gestationalAge', 'lmpDate', 'eddDate', 'prenatalRegDate', 'prenatalWeight', 'prenatalBp', 'prenatalHeight', 'fundalHeight', 'fhr', 'weight', 'height', 'bmi', 'gravida', 'para', 'abortion', 'stillbirth', 'totalChildren', 'childrenBornAlive', 'miscarriages', 'childrenDiedAfterBirth', 'emergencyName', 'emergencyContact', 'emergencyRelationship', 'spouseName', 'medicalConditions', 'otherMedicalHistory', 'tt1Date', 'tt2Date', 'tt3Date', 'tt4Date', 'tt5Date', 'influenzaDate', 'influenzaDose2Date', 'influenzaDose3Date', 'influenzaRemarks', 'hepatitisADate', 'hepatitisADose2Date', 'hepatitisADose3Date', 'hepatitisARemarks', 'hepatitisBDate', 'hepatitisBDose2Date', 'hepatitisBDose3Date', 'hepatitisBRemarks', 'covid19Date', 'covid19Dose2Date', 'covid19Dose3Date', 'covid19Remarks', 'dentalCheckupDate', 'dentalFacility', 'dentalFindings', 'dentalRemarks', 'birthCertificateDocumentName', 'consentDocumentName', 'assessment', 'progress', 'trend', 'createdAt', 'vaccines', 'oralHealth', 'programs', 'documents', 'checkups', 'source'
 ]);
 
 function getRequestedMotherFields(req) {
@@ -454,7 +460,8 @@ router.post('/', async (req, res) => {
     const suffix = firstNonEmpty(b.suffix, '');
     const motherCode = firstNonEmpty(b.motherCode, b.mother_code, `MTH-${Date.now()}`);
     const motherExternalId = firstNonEmpty(b.motherId, b.mother_id, b.motherExternalId, b.mother_external_id, motherCode);
-    let communityId = b.communityId ?? b.community_id ?? null;
+    const requestedCommunityId = b.communityId ?? b.community_id ?? null;
+    let communityId = requestedCommunityId;
     if (!communityId && b.community) {
       const [communityRows] = await pool.query('SELECT id FROM communities WHERE name = ? LIMIT 1', [b.community]);
       communityId = communityRows[0]?.id || null;
@@ -463,9 +470,34 @@ router.post('/', async (req, res) => {
     if (!firstName || !lastName) {
       return res.status(400).json({ error: 'firstName and lastName are required' });
     }
+    if (req.isCommunityOrganizer) {
+      if (communityId && Number(communityId) !== Number(req.schoolId)) {
+        return res.status(403).json({ error: 'Community organizers can only create beneficiaries in their assigned school' });
+      }
+      communityId = req.schoolId;
+    }
     if (!communityId) return res.status(400).json({ error: 'community is required' });
     const groupId = req.groupId || b.groupId || b.group_id || null;
     if (req.groupId) communityId = req.schoolId;
+    if (req.isCommunityOrganizer && groupId) {
+      const [groupRows] = await pool.query(
+        'SELECT id FROM groups WHERE id = ? AND community_id = ? LIMIT 1',
+        [groupId, req.schoolId],
+      );
+      if (!groupRows.length) {
+        return res.status(403).json({ error: 'Community organizers can only assign groups from their assigned school' });
+      }
+    }
+    const batchId = b.batchId ?? b.batch_id ?? null;
+    if (req.isCommunityOrganizer && batchId) {
+      const [batchRows] = await pool.query(
+        'SELECT id FROM batches WHERE id = ? AND community_id = ? LIMIT 1',
+        [batchId, req.schoolId],
+      );
+      if (!batchRows.length) {
+        return res.status(403).json({ error: 'Community organizers can only assign batches from their assigned school' });
+      }
+    }
 
     const [result] = await pool.query(
       `INSERT INTO mothers (
@@ -534,7 +566,7 @@ router.post('/', async (req, res) => {
         motherExternalId,
         firstNonEmpty(b.address, ''),
         groupId,
-        b.batchId ?? b.batch_id ?? null,
+        batchId,
         firstNonEmpty(b.birthPlace, b.birth_place, null),
         firstNonEmpty(b.allergies, null),
         firstNonEmpty(b.bloodType, b.blood_type, null),
@@ -614,7 +646,7 @@ router.post('/', async (req, res) => {
     }
     for (const vaccine of MOTHER_ADDITIONAL_VACCINES) {
       const date = b[vaccine.dateField];
-      const remarks = b[vaccine.remarksField];
+      const remarks = vaccine.remarksField ? b[vaccine.remarksField] : null;
       if (date || remarks) {
         await pool.query(
           'INSERT INTO mother_vaccinations (mother_id, vaccine_name, vaccine_date, remarks) VALUES (?, ?, ?, ?)',
@@ -825,7 +857,7 @@ router.put('/:id', async (req, res) => {
     }
     for (const vaccine of MOTHER_ADDITIONAL_VACCINES) {
       const date = b[vaccine.dateField];
-      const remarks = b[vaccine.remarksField];
+      const remarks = vaccine.remarksField ? b[vaccine.remarksField] : null;
       if (date || remarks) {
         await pool.query(
           'INSERT INTO mother_vaccinations (mother_id, vaccine_name, vaccine_date, remarks) VALUES (?, ?, ?, ?)',

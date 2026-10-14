@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import logo from '../../assets/f1kd-logo.png';
 import { useAuth } from '../../auth/AuthProvider';
@@ -27,14 +27,37 @@ export default function Login() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [testRoleLoading, setTestRoleLoading] = useState('');
+  const [testMenuOpen, setTestMenuOpen] = useState(false);
+  const testMenuRef = useRef(null);
+  const canUseTestShortcuts = import.meta.env.DEV
+    || import.meta.env.VITE_ENABLE_TEST_ROLE_SHORTCUTS === 'true'
+    || window.location.hostname === 'localhost'
+    || window.location.hostname === '127.0.0.1';
 
   const auth = useAuth();
+
+  useEffect(() => {
+    if (!testMenuOpen) return undefined;
+    const closeOnOutsideClick = (event) => {
+      if (!testMenuRef.current?.contains(event.target)) setTestMenuOpen(false);
+    };
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setTestMenuOpen(false);
+    };
+    document.addEventListener('mousedown', closeOnOutsideClick);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('mousedown', closeOnOutsideClick);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [testMenuOpen]);
 
   async function handleTestRoleLogin(role) {
     setTestRoleLoading(role);
     setErrorMessage('');
     try {
       await auth.loginAsTestRole(role);
+      setTestMenuOpen(false);
       navigate('/dashboard');
     } catch (err) {
       console.error('Test role sign-in failed', err);
@@ -128,6 +151,41 @@ export default function Login() {
   return (
     <div className="login-page">
       <div className="login-card">
+        {!forgotPassword && canUseTestShortcuts && (
+          <div className="login-test-menu" ref={testMenuRef}>
+            <button
+              type="button"
+              className="login-test-menu-toggle"
+              aria-label="Open testing sign-in menu"
+              aria-haspopup="menu"
+              aria-expanded={testMenuOpen}
+              onClick={() => setTestMenuOpen((open) => !open)}
+              disabled={loading || Boolean(testRoleLoading)}
+            >
+              <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M9 3h6M10 3v6l-5.2 8.4A2.4 2.4 0 0 0 6.9 21h10.2a2.4 2.4 0 0 0 2.1-3.6L14 9V3" />
+                <path d="M8 14h8" />
+              </svg>
+            </button>
+            {testMenuOpen && (
+              <div className="login-test-menu-panel" role="menu" aria-label="Testing sign-in">
+                <span className="login-test-menu-heading">Sign in as</span>
+                {TEST_ROLES.map((role) => (
+                  <button
+                    key={role.value}
+                    type="button"
+                    className="login-test-menu-item"
+                    role="menuitem"
+                    onClick={() => handleTestRoleLogin(role.value)}
+                    disabled={loading || Boolean(testRoleLoading)}
+                  >
+                    {testRoleLoading === role.value ? 'Signing in…' : role.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         <div className="login-kicker">
           <img src={logo} alt="F1KD logo" className="login-logo" />
         </div>
@@ -253,25 +311,6 @@ export default function Login() {
           )}
         </form>
 
-        {!forgotPassword && (import.meta.env.DEV || import.meta.env.VITE_ENABLE_TEST_ROLE_SHORTCUTS === 'true' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && (
-          <section className="login-test-shortcuts" aria-labelledby="login-test-shortcuts-title">
-            <h2 id="login-test-shortcuts-title">Testing shortcuts</h2>
-            <p>Testing only: signs in as the first active account for each role.</p>
-            <div className="login-test-shortcuts-grid">
-              {TEST_ROLES.map((role) => (
-                <button
-                  key={role.value}
-                  type="button"
-                  className="login-test-shortcut"
-                  onClick={() => handleTestRoleLogin(role.value)}
-                  disabled={loading || Boolean(testRoleLoading)}
-                >
-                  {testRoleLoading === role.value ? 'Signing in…' : role.label}
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
       </div>
     </div>
   );

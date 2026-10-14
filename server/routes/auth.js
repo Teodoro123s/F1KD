@@ -16,6 +16,7 @@ const {
   getEmailJsConfig,
   sendPasswordResetCodeEmail,
 } = require('../services/emailjs');
+const { recordActivity } = require('../services/activityLog');
 
 const passwordResetRequestLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -187,6 +188,14 @@ router.post('/login', async (req, res) => {
     const ok = await bcrypt.compare(password, user.password_hash || '');
     if (!ok) return res.status(401).json({ status: 401, code: 'INVALID_CREDENTIALS', message: 'Invalid credentials', timestamp: new Date().toISOString() });
 
+    await recordActivity({
+      actor: { ...user, name: [user.first_name, user.middle_initial, user.last_name].filter(Boolean).join(' ') },
+      category: 'User Management',
+      action: 'sign_in',
+      entityType: 'user',
+      entityId: user.id,
+      description: 'Signed in',
+    });
     const tokens = issueTokens(res, user);
     res.json(tokens);
   } catch (err) {

@@ -12,7 +12,9 @@ export default function ModuleSummaryCards({ cards, onSelect, selected, toggleOn
             </strong>
             {card.description && (
               <span className="module-summary-card__description">
-                {selected === card.key && toggleOnSelect ? 'Hide list' : card.description}
+                {selected === card.key && toggleOnSelect
+                  ? card.selectedDescription || 'Hide list'
+                  : card.description}
               </span>
             )}
           </>

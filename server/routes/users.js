@@ -7,6 +7,7 @@ const { verifyToken } = require('../middleware/auth');
 const { authorize } = require('../middleware/authorize');
 const { createSuperadminNotification } = require('../services/notifications');
 const { sendAccountCredentialsEmail } = require('../services/emailjs');
+const { recordActivity } = require('../services/activityLog');
 
 function normalizeDbStatus(value) {
   const normalized = String(value || '').trim().toLowerCase();
@@ -64,6 +65,22 @@ router.get('/health-workers', verifyToken, authorize('community_coordinator'), a
   }
 });
 
+router.get('/health-workers/:id', verifyToken, authorize('community_coordinator'), async (req, res) => {
+  const schoolId = getOrganizerSchoolId(req, res);
+  if (!schoolId) return;
+  try {
+    const [users] = await pool.query(
+      `${healthWorkerSelectSql(`WHERE id = ? AND school_id = ? AND ${HEALTH_WORKER_ROLE_SQL}`)} LIMIT 1`,
+      [req.params.id, schoolId],
+    );
+    if (!users.length) return res.status(404).json({ error: 'Health worker not found' });
+    res.json(users[0]);
+  } catch (error) {
+    console.error('[Users API] GET /health-workers/:id error:', error.message);
+    res.status(500).json({ error: 'Unable to load assigned health worker' });
+  }
+});
+
 router.post('/health-workers', verifyToken, authorize('community_coordinator'), async (req, res) => {
   const schoolId = getOrganizerSchoolId(req, res);
   if (!schoolId) return;
@@ -117,6 +134,14 @@ router.post('/health-workers', verifyToken, authorize('community_coordinator'), 
     );
     const user = rows[0];
     const fullName = [user.first_name, user.middle_initial, user.last_name].filter(Boolean).join(' ');
+    await recordActivity({
+      actor: req.user,
+      category: 'User Management',
+      action: 'create',
+      entityType: 'user',
+      entityId: user.id,
+      description: `Created health worker account: ${fullName}`,
+    });
     let emailSent = false;
     try {
       await sendAccountCredentialsEmail({
@@ -210,6 +235,14 @@ router.put('/health-workers/:id', verifyToken, authorize('community_coordinator'
       `${healthWorkerSelectSql('WHERE id = ? AND school_id = ? AND ' + HEALTH_WORKER_ROLE_SQL)} LIMIT 1`,
       [id, schoolId],
     );
+    await recordActivity({
+      actor: req.user,
+      category: 'User Management',
+      action: 'update',
+      entityType: 'user',
+      entityId: id,
+      description: `Updated health worker account: ${[rows[0].first_name, rows[0].middle_initial, rows[0].last_name].filter(Boolean).join(' ')}`,
+    });
     res.json(rows[0]);
   } catch (error) {
     console.error('[Users API] PUT /health-workers/:id error:', error.message);
@@ -240,6 +273,14 @@ router.patch('/health-workers/:id/status', verifyToken, authorize('community_coo
     );
     if (normalizeDbStatus(rows[0].status) !== status) {
       const fullName = [rows[0].first_name, rows[0].middle_initial, rows[0].last_name].filter(Boolean).join(' ');
+      await recordActivity({
+        actor: req.user,
+        category: 'User Management',
+        action: status === 'Suspended' ? 'suspend' : 'reactivate',
+        entityType: 'user',
+        entityId: req.params.id,
+        description: `${status === 'Suspended' ? 'Suspended' : 'Reactivated'} health worker account: ${fullName}`,
+      });
       const suspended = status === 'Suspended';
       await createSuperadminNotification({
         eventType: suspended ? 'user.suspended' : 'user.reactivated',
@@ -385,6 +426,14 @@ router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
     );
     const user = rows[0];
     const createdName = [user.first_name, user.middle_initial, user.last_name].filter(Boolean).join(' ');
+    await recordActivity({
+      actor: req.user,
+      category: 'User Management',
+      action: 'create',
+      entityType: 'user',
+      entityId: user.id,
+      description: `Created ${user.role} account: ${createdName}`,
+    });
     let emailSent = false;
     try {
       await sendAccountCredentialsEmail({
@@ -510,6 +559,14 @@ router.put('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
     );
     const updatedUser = rows[0];
     const updatedName = [updatedUser.first_name, updatedUser.middle_initial, updatedUser.last_name].filter(Boolean).join(' ');
+    await recordActivity({
+      actor: req.user,
+      category: 'User Management',
+      action: 'update',
+      entityType: 'user',
+      entityId: updatedUser.id,
+      description: `Updated ${updatedUser.role} account: ${updatedName}`,
+    });
     const accessChanges = [];
     if (String(existingUser.role ?? '') !== String(updatedUser.role ?? '')) accessChanges.push(`role changed to ${updatedUser.role}`);
     if (String(existingUser.school_id ?? '') !== String(updatedUser.school_id ?? '')) accessChanges.push('school assignment changed');
@@ -565,6 +622,14 @@ router.delete('/:id', verifyToken, authorize('super_admin'), async (req, res) =>
     const deletedUser = userRows[0];
     await pool.query('DELETE FROM users WHERE id = ?', [id]);
     const deletedName = [deletedUser.first_name, deletedUser.middle_initial, deletedUser.last_name].filter(Boolean).join(' ');
+    await recordActivity({
+      actor: req.user,
+      category: 'User Management',
+      action: 'delete',
+      entityType: 'user',
+      entityId: id,
+      description: `Deleted user account: ${deletedName}`,
+    });
     await createSuperadminNotification({
       eventType: 'user.deleted',
       category: 'User Management',
@@ -603,6 +668,14 @@ router.patch('/:id/status', verifyToken, authorize('super_admin'), async (req, r
     if (normalizeDbStatus(existingUser.status) !== dbStatus) {
       const isSuspended = dbStatus === 'Suspended';
       const fullName = [existingUser.first_name, existingUser.middle_initial, existingUser.last_name].filter(Boolean).join(' ');
+      await recordActivity({
+        actor: req.user,
+        category: 'User Management',
+        action: isSuspended ? 'suspend' : 'reactivate',
+        entityType: 'user',
+        entityId: id,
+        description: `${isSuspended ? 'Suspended' : 'Reactivated'} user account: ${fullName}`,
+      });
       await createSuperadminNotification({
         eventType: isSuspended ? 'user.suspended' : 'user.reactivated',
         category: 'User Management',

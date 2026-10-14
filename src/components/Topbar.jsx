@@ -4,7 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { getInitials } from '../utils/nameFormat';
 import { useAuth } from '../auth/AuthProvider';
 import { ROLES, hasRole } from '../utils/permissions';
-import { apiGetNotifications } from '../api/notifications';
+import { apiGetNotifications, apiMarkNotificationRead } from '../api/notifications';
+import NotificationDetailsModal from './ui/NotificationDetailsModal';
 
 export default function Topbar() {
   const navigate = useNavigate();
@@ -17,6 +18,8 @@ export default function Topbar() {
   const [notificationCount, setNotificationCount] = useState(0);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [notificationsError, setNotificationsError] = useState('');
+  const [selectedNotification, setSelectedNotification] = useState(null);
+  const [notificationDetailsError, setNotificationDetailsError] = useState('');
   const [openUser, setOpenUser] = useState(false);
   const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
@@ -41,16 +44,19 @@ export default function Topbar() {
     const refreshNotificationCount = () => {
       apiGetNotifications({ page: 1, perPage: 1 })
         .then((response) => {
-          if (active) setNotificationCount(Math.max(0, Number(response.total) || 0));
+          if (active) setNotificationCount(Math.max(0, Number(response.counts?.unread) || 0));
         })
         .catch((error) => {
           if (active) console.error('Unable to refresh notification badge:', error);
         });
     };
+    const handleReadStateChange = () => refreshNotificationCount();
+    window.addEventListener('notifications:read-state-changed', handleReadStateChange);
     refreshNotificationCount();
     const interval = window.setInterval(refreshNotificationCount, 60000);
     return () => {
       active = false;
+      window.removeEventListener('notifications:read-state-changed', handleReadStateChange);
       window.clearInterval(interval);
     };
   }, [canReadNotifications, current?.id]);
@@ -64,7 +70,7 @@ export default function Topbar() {
       .then((response) => {
         if (active) {
           setNotifications(response.notifications || []);
-          setNotificationCount(Math.max(0, Number(response.total) || 0));
+          setNotificationCount(Math.max(0, Number(response.counts?.unread) || 0));
         }
       })
       .catch((error) => {
@@ -103,14 +109,23 @@ export default function Topbar() {
     }
   };
 
-  const openNotificationTarget = (notification) => {
-    const target = String(notification.linkTo || '');
-    const isCommunityTarget = target === '/community' || target.startsWith('/community/');
-    const isUserTarget = target === '/user-management' || target.startsWith('/user-management/');
-    const isProgressReportTarget = target === '/progress-report' || target.startsWith('/progress-report/');
+  const openNotificationDetails = async (notification) => {
+    setSelectedNotification(notification);
+    setNotificationDetailsError('');
     setOpenNotif(false);
-    if (isCommunityTarget || isUserTarget || isProgressReportTarget) navigate(target);
-    else navigate('/notifications');
+    if (notification.isRead) return;
+    try {
+      await apiMarkNotificationRead(notification.id);
+      setSelectedNotification((current) => current?.id === notification.id
+        ? { ...current, isRead: true }
+        : current);
+      setNotificationCount((count) => Math.max(0, count - 1));
+      setNotifications((items) => items.map((item) => (
+        item.id === notification.id ? { ...item, isRead: true } : item
+      )));
+    } catch (error) {
+      setNotificationDetailsError(error.message || 'Unable to mark notification as read.');
+    }
   };
 
   return (
@@ -136,7 +151,7 @@ export default function Topbar() {
           </button>
           {openNotif && (
             <div className="dropdown notifications-dropdown" role="menu" aria-label="Recent notifications">
-              <div className="dropdown-header">Recent notifications</div>
+              <div className="dropdown-header">Recent</div>
               <div className="notifications-list">
                 {canReadNotifications && notificationsLoading && <div className="dropdown-item muted">Loading notifications...</div>}
                 {canReadNotifications && !notificationsLoading && notificationsError && <div className="dropdown-item muted">{notificationsError}</div>}
@@ -145,17 +160,14 @@ export default function Topbar() {
                     key={notification.id}
                     type="button"
                     className="notification-dropdown-item"
-                    onClick={() => openNotificationTarget(notification)}
+                    onClick={() => openNotificationDetails(notification)}
                     role="menuitem"
                   >
                     <span className="notification-dropdown-title">{notification.title || notification.category}</span>
-                    <span className="notification-dropdown-message">{notification.message}</span>
-                    {notification.actorName && (
-                      <span className="notification-dropdown-category">
-                        By {notification.actorName}{notification.actorRole ? ` · ${notification.actorRole}` : ''}
-                      </span>
-                    )}
-                    <span className="notification-dropdown-category">{notification.category}</span>
+                    <span className="notification-dropdown-message" title={notification.message}>{notification.message}</span>
+                    <span className="notification-dropdown-category">
+                      {[notification.actorName, notification.actorRole, notification.category].filter(Boolean).join(' · ')}
+                    </span>
                   </button>
                 ))}
                 {(!canReadNotifications || (!notificationsLoading && !notificationsError && notifications.length === 0)) && (
@@ -168,7 +180,7 @@ export default function Topbar() {
                   className="notification-dropdown-all"
                   onClick={() => { setOpenNotif(false); navigate('/notifications'); }}
                 >
-                  View all notifications
+                  View all
                 </button>
               )}
             </div>
@@ -255,6 +267,11 @@ export default function Topbar() {
           </div>
         </div>
       ), document.body)}
+      <NotificationDetailsModal
+        notification={selectedNotification}
+        onClose={() => setSelectedNotification(null)}
+        error={notificationDetailsError}
+      />
     </header>
   );
 }

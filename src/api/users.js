@@ -32,6 +32,13 @@ export async function apiGetManagedHealthWorkers() {
   return handleResponse(res, 'Failed to fetch assigned health workers');
 }
 
+export async function apiGetManagedHealthWorker(id) {
+  const res = await fetchWithAuth(`${API_BASE}/api/users/health-workers/${encodeURIComponent(id)}`, {
+    headers: { 'Content-Type': 'application/json' },
+  });
+  return handleResponse(res, 'Failed to fetch assigned health worker');
+}
+
 export async function apiCreateManagedHealthWorker(payload) {
   const res = await fetchWithAuth(`${API_BASE}/api/users/health-workers`, {
     method: 'POST',

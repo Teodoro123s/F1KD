@@ -6,9 +6,8 @@ import { DocumentPreview, DocumentPreviewModal } from '../../../components/Docum
 import { useAuth } from '../../../auth/AuthProvider';
 import { can } from '../../../utils/permissions';
 import PageHeader from '../../../components/ui/PageHeader';
-import ProgressTrendChart from '../../../components/ui/ProgressTrendChart';
 import { notifyAction } from '../../../components/ActionFeedback';
-import { MotherFormFields } from './BeneficiaryMother';
+import { MotherFormFields, OTHER_MATERNAL_VACCINES } from './BeneficiaryMother';
 
 const calculateAge = (dobString) => {
   if (!dobString) return null;
@@ -156,15 +155,6 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
   const prenatalRegDate = formatDateForDisplay(mother.prenatalRegDate);
   const trimester = mother.trimester || '—';
   const gestationalAge = mother.gestationalAge || '—';
-  const maternalProgressPoints = (Array.isArray(mother.checkups) ? mother.checkups.flat() : [])
-    .filter(Boolean)
-    .map((checkup) => ({
-      label: `${(checkup.trimester || '').replace(' Trimester', '')} ${checkup.checkupNumber || ''}`.trim() || 'Check-up',
-      date: checkup.checkupDate || checkup.checkup_date || '',
-      weight: checkup.weight ?? checkup.weight_kg,
-      fundalHeight: checkup.fundalHeight ?? checkup.fundal_height_cm,
-      fetalHeartRate: checkup.fhr ?? checkup.fetal_heart_rate_bpm,
-    }));
 
   const medicalConditions = mother.medicalConditions || {};
   const medicalList = getListValues(medicalConditions);
@@ -173,15 +163,19 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
 
   const obHistory = Array.isArray(mother.obHistory) ? mother.obHistory : [];
   const vaccineRows = [
-    ...[1, 2, 3, 4, 5].map((num) => ({
-      vaccine: `TT${num}`,
-      date: formatDateForDisplay(mother[`tt${num}Date`]),
-      remarks: mother[`tt${num}Remarks`] || '—',
+    {
+      vaccine: 'Tetanus Toxoid (TT)',
+      dates: [1, 2, 3].map((num) => formatDateForDisplay(mother[`tt${num}Date`])),
+      remarks: mother.ttRemarks || [1, 2, 3, 4, 5].map((num) => mother[`tt${num}Remarks`]).filter(Boolean).join('; ') || '—',
+    },
+    ...OTHER_MATERNAL_VACCINES.map(({ label, key }) => ({
+      vaccine: label,
+      dates: [1, 2, 3].map((num) => {
+        const field = `${key}${num === 1 ? 'Date' : `Dose${num}Date`}`;
+        return formatDateForDisplay(mother[field]);
+      }),
+      remarks: mother[`${key}Remarks`] || '—',
     })),
-    { vaccine: 'Influenza (flu)', date: formatDateForDisplay(mother.influenzaDate), remarks: mother.influenzaRemarks || '—' },
-    { vaccine: 'Hepatitis A', date: formatDateForDisplay(mother.hepatitisADate), remarks: mother.hepatitisARemarks || '—' },
-    { vaccine: 'Hepatitis B', date: formatDateForDisplay(mother.hepatitisBDate), remarks: mother.hepatitisBRemarks || '—' },
-    { vaccine: 'COVID-19', date: formatDateForDisplay(mother.covid19Date), remarks: mother.covid19Remarks || '—' },
   ];
 
   const detailForm = {
@@ -203,11 +197,15 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
     batchId: batch,
     prenatalRegDate,
     dentalCheckupDate: formatDateForDisplay(mother.dentalCheckupDate),
-    tt1Date: vaccineRows[0].date,
-    tt2Date: vaccineRows[1].date,
-    tt3Date: vaccineRows[2].date,
-    tt4Date: vaccineRows[3].date,
-    tt5Date: vaccineRows[4].date,
+    tt1Date: formatDateForDisplay(mother.tt1Date),
+    tt2Date: formatDateForDisplay(mother.tt2Date),
+    tt3Date: formatDateForDisplay(mother.tt3Date),
+    tt4Date: formatDateForDisplay(mother.tt4Date),
+    tt5Date: formatDateForDisplay(mother.tt5Date),
+    ...Object.fromEntries(OTHER_MATERNAL_VACCINES.flatMap(({ key }) => [1, 2, 3].map((num) => {
+      const field = `${key}${num === 1 ? 'Date' : `Dose${num}Date`}`;
+      return [field, formatDateForDisplay(mother[field])];
+    }))),
   };
 
   const deleteMother = async () => {
@@ -242,6 +240,18 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
             </div>
           );
         })}
+        <div className="document-upload-field">
+          <span className="detail-form-label">Data privacy consent signed</span>
+          <div className="detail-form-value">
+            {(motherRecord.dataPrivacySigned ?? motherRecord.data_privacy_signed) ? 'Signed' : 'Not signed'}
+          </div>
+        </div>
+        <div className="document-upload-field">
+          <span className="detail-form-label">Media release signed</span>
+          <div className="detail-form-value">
+            {(motherRecord.mediaReleaseSigned ?? motherRecord.media_release_signed) ? 'Signed' : 'Not signed'}
+          </div>
+        </div>
       </div>
     </section>
   );
@@ -272,17 +282,6 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
           </div>
         </section>
       )}
-
-      <ProgressTrendChart
-        title="Individual Maternal Progress"
-        description="Recorded prenatal measurements by check-up."
-        data={maternalProgressPoints}
-        metrics={[
-          { key: 'weight', label: 'Weight', unit: 'kg', color: '#168447' },
-          { key: 'fundalHeight', label: 'Fundal height', unit: 'cm', color: '#2563eb' },
-          { key: 'fetalHeartRate', label: 'Fetal heart rate', unit: 'bpm', color: '#c2410c' },
-        ]}
-      />
 
       {showDeleteModal && (
         <div className="modal-backdrop" role="presentation" onMouseDown={() => !deleting && setShowDeleteModal(false)}>
@@ -495,7 +494,9 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
                   <thead>
                     <tr>
                       <th>Vaccine</th>
-                      <th>Date Given</th>
+                      <th>Dose 1</th>
+                      <th>Dose 2</th>
+                      <th>Dose 3</th>
                       <th>Remarks</th>
                     </tr>
                   </thead>
@@ -503,7 +504,9 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
                     {vaccineRows.map((row) => (
                       <tr key={row.vaccine}>
                         <td>{row.vaccine}</td>
-                        <td>{row.date}</td>
+                        {[0, 1, 2].map((index) => (
+                          <td key={index}>{row.dates[index]}</td>
+                        ))}
                         <td>{row.remarks}</td>
                       </tr>
                     ))}

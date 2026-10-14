@@ -27,9 +27,9 @@ function formatDateRange() {
 }
 
 function formatDayAndMonth(dateString) {
-  if (!dateString) return { day: '--', month: 'N/A' };
+  if (!dateString) return null;
   const d = new Date(dateString);
-  if (Number.isNaN(d.getTime())) return { day: '15', month: 'Sep' };
+  if (Number.isNaN(d.getTime())) return null;
   return {
     day: d.getDate(),
     month: d.toLocaleString('en-US', { month: 'short' }),
@@ -253,13 +253,14 @@ export default function DashboardPage() {
     };
   }, [filteredMothers, filteredChildren, communitySummary, programs]);
 
-  // Upcoming clinical & monitoring events synthesized from live data
   const upcomingEvents = useMemo(() => {
     const items = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
     filteredMothers.forEach((m) => {
       const dateVal = m.nextCheckupDate || m.next_checkup_date || m.eddDate || m.edd_date;
-      if (dateVal) {
+      if (dateVal && !Number.isNaN(new Date(dateVal).getTime()) && new Date(dateVal) >= today) {
         items.push({
           date: dateVal,
           title: `Prenatal Checkup: ${m.name || m.motherId || 'Maternal Beneficiary'}`,
@@ -272,8 +273,8 @@ export default function DashboardPage() {
     });
 
     filteredChildren.forEach((c) => {
-      const dateVal = c.nextCheckupDate || c.next_checkup_date || c.birthDate || c.birth_date;
-      if (dateVal) {
+      const dateVal = c.nextCheckupDate || c.next_checkup_date;
+      if (dateVal && !Number.isNaN(new Date(dateVal).getTime()) && new Date(dateVal) >= today) {
         const childName = [c.firstName || c.first_name, c.lastName || c.last_name].filter(Boolean).join(' ') || c.childCode || c.child_code || 'Child';
         items.push({
           date: dateVal,
@@ -287,14 +288,6 @@ export default function DashboardPage() {
     });
 
     items.sort((a, b) => String(a.date).localeCompare(String(b.date)));
-
-    if (items.length === 0) {
-      return [
-        { date: '2026-09-18', title: '1st & 2nd Trimester Prenatal Checkups', subtitle: 'Target: Barangay Health Clinic • 14 Beneficiaries', badge: 'Maternal', badgeClass: 'maternal', path: '/monitoring' },
-        { date: '2026-09-21', title: 'Pediatric 24-Month Growth & Weight Monitoring', subtitle: 'Monthly checkups from birth to 24 months • Cohort Batch 1', badge: 'Pediatric', badgeClass: 'child', path: '/monitoring' },
-        { date: '2026-09-24', title: 'F1KD Supplementary Feeding Distribution', subtitle: 'Fortified Milk & Hot Meals • School Catchment', badge: 'Program', badgeClass: 'program', path: '/program' },
-      ];
-    }
 
     return items.slice(0, 4);
   }, [filteredMothers, filteredChildren]);
@@ -337,7 +330,7 @@ export default function DashboardPage() {
       .slice(0, 4)
       .map((user) => {
         const timestamp = new Date(user.updated_at || user.created_at);
-        const time = timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const time = timestamp.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
         const schoolName = communitySummary.communities?.find((community) => String(community.id) === String(user.school_id))?.name;
         const assignmentText = schoolName ? `assigned to ${schoolName}` : 'school assignment review required';
         return {
@@ -384,7 +377,7 @@ export default function DashboardPage() {
       ['monitoring', 'Monitoring', '/monitoring', '🩺', !isSuperAdmin],
       ['community', 'Community', '/community', '🏫', !isHealthWorker || isSuperAdmin],
       ['programs', 'Programs', '/program', '🍱', !isSuperAdmin && !isHealthWorker],
-      ['reports', 'Reports', '/progress-report', '📊', !isSuperAdmin],
+      ['reports', 'Reports', isSuperAdmin ? '/reports' : '/progress-report', '📊', true],
       ['users', isCommunityOrganizer ? 'Health Workers' : 'Users', '/user-management', '⚙️', moduleAccess.users],
     ];
 
@@ -593,7 +586,7 @@ export default function DashboardPage() {
                 </span>
               )}
             </h2>
-            <p>{isSuperAdmin ? 'Municipal operations overview across all modules' : `${roleLabel} workspace for assigned operations`}</p>
+            <p>{isSuperAdmin ? 'Municipal overview of schools, users, and login activity' : `${roleLabel} workspace for assigned operations`}</p>
           </div>
         </div>
 
@@ -673,9 +666,9 @@ export default function DashboardPage() {
       )}
 
       {/* 3. Clinical Monitoring Progress & Quick Action Launchpad */}
-      <section className="dashboard-lower-grid">
+      <section className={`dashboard-lower-grid${isSuperAdmin ? ' dashboard-lower-grid--superadmin' : ''}`}>
         {/* Left: Clinical Monitoring Progress Widget */}
-        <div className="dashboard-panel">
+        {!isSuperAdmin && <div className="dashboard-panel">
           <div className="panel-title-row">
             <div className="panel-title-wrap">
               <span className="panel-icon" aria-hidden="true">🩺</span>
@@ -720,7 +713,7 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
-        </div>
+        </div>}
 
         {/* Right: Quick Actions / Module Launchpad */}
         <div className="dashboard-panel">
@@ -771,12 +764,19 @@ export default function DashboardPage() {
                 <span>{isCommunityOrganizer ? 'Manage Health Workers' : 'User Management'}</span>
               </Link>
             )}
+
+            {isSuperAdmin && (
+              <Link to="/reports" className="quick-action-tile highlight">
+                <div className="quick-action-tile-icon" aria-hidden="true">📊</div>
+                <span>User Login Reports</span>
+              </Link>
+            )}
           </div>
         </div>
       </section>
 
       {/* 4. Upcoming Activities & Supplementary Feeding Program Snapshot */}
-      <section className="dashboard-lower-grid">
+      {!isSuperAdmin && <section className="dashboard-lower-grid">
         {/* Left: Upcoming Monitoring Checkups */}
         <div className="dashboard-panel monitoring-panel">
           <div className="panel-title-row">
@@ -788,8 +788,9 @@ export default function DashboardPage() {
           </div>
 
           <div className="monitoring-list">
-            {upcomingEvents.map((item, idx) => {
+            {upcomingEvents.length ? upcomingEvents.map((item, idx) => {
               const { day, month } = formatDayAndMonth(item.date);
+              if (!day) return null;
               return (
                 <Link key={idx} to={item.path} className="monitoring-row">
                   <div className="monitoring-date-badge">
@@ -804,7 +805,7 @@ export default function DashboardPage() {
                   <span className="monitoring-arrow" aria-hidden="true">›</span>
                 </Link>
               );
-            })}
+            }) : <p className="dashboard-empty-state">No upcoming activities are scheduled.</p>}
           </div>
         </div>
 
@@ -850,7 +851,7 @@ export default function DashboardPage() {
             )}
           </div>
         </div>
-      </section>
+      </section>}
 
       {isSuperAdmin && (
         <>
@@ -887,7 +888,7 @@ export default function DashboardPage() {
               <div className="panel-title-row">
                 <div className="panel-title-wrap">
                   <span className="panel-icon" aria-hidden="true">🛡️</span>
-                  <h3>Live Audit Trail</h3>
+                  <h3>Recently Added or Updated Accounts</h3>
                 </div>
               </div>
 
@@ -902,7 +903,7 @@ export default function DashboardPage() {
                 ) : (
                   <li>
                     <span className="audit-time">--</span>
-                    <span className="audit-detail">No recent user activity available yet.</span>
+                    <span className="audit-detail">No account records are available yet.</span>
                   </li>
                 )}
               </ul>
@@ -913,7 +914,7 @@ export default function DashboardPage() {
             <div className="panel-title-row">
               <div className="panel-title-wrap">
                 <span className="panel-icon" aria-hidden="true">⚙️</span>
-                <h3>System Infrastructure &amp; Database Health</h3>
+                <h3>System Overview</h3>
               </div>
             </div>
 
@@ -929,7 +930,7 @@ export default function DashboardPage() {
                 <small>Operational schools and communities</small>
               </div>
               <div className="health-metric warning">
-                <span className="metric-label">Program Gaps</span>
+                <span className="metric-label">Programs Below Target</span>
                 <strong>{systemLiveStats.programGapCount}</strong>
                 <small>Programs still below target reach</small>
               </div>

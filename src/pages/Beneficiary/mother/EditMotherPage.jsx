@@ -22,6 +22,10 @@ const normalizeMotherDates = (mother) => {
   const dateFields = [
     'dob', 'lmpDate', 'eddDate', 'prenatalRegDate', 'dentalCheckupDate',
     'influenzaDate', 'hepatitisADate', 'hepatitisBDate', 'covid19Date',
+    'influenzaDose2Date', 'influenzaDose3Date',
+    'hepatitisADose2Date', 'hepatitisADose3Date',
+    'hepatitisBDose2Date', 'hepatitisBDose3Date',
+    'covid19Dose2Date', 'covid19Dose3Date',
   ];
   const vaccineFields = ['tt1Date', 'tt2Date', 'tt3Date', 'tt4Date', 'tt5Date'];
   return [...dateFields, ...vaccineFields].reduce((result, field) => ({

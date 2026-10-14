@@ -292,6 +292,10 @@
   gap: 1.25rem;
 }
 
+.dashboard-lower-grid--superadmin {
+  grid-template-columns: 1fr;
+}
+
 .dashboard-panel {
   background: #ffffff;
   border: 1px solid #e2eaf2;

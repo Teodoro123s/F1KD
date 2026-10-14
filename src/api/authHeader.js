@@ -4,8 +4,8 @@ const configuredApiBase = (typeof process !== 'undefined' && process.env && proc
   ? import.meta.env.VITE_API_URL
   : '';
 const API_BASE = configuredApiBase || (import.meta.env?.DEV
-  ? 'http://localhost:4000'
-  : (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:4000'));
+  ? ''
+  : (typeof window !== 'undefined' ? window.location.origin : ''));
 
 export function authHeader() {
   try {

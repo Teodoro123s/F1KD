@@ -522,6 +522,60 @@ async function ensure() {
       KEY idx_notification_reads_user (user_id),
       CONSTRAINT fk_notification_reads_notification FOREIGN KEY (notification_id) REFERENCES notifications(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+    `CREATE TABLE IF NOT EXISTS activity_logs (
+      id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      source_notification_id BIGINT UNSIGNED DEFAULT NULL,
+      actor_user_id INT DEFAULT NULL,
+      actor_name VARCHAR(255) NOT NULL DEFAULT 'Unknown user',
+      actor_email VARCHAR(255) DEFAULT NULL,
+      actor_role VARCHAR(120) DEFAULT NULL,
+      category VARCHAR(60) NOT NULL,
+      action VARCHAR(60) NOT NULL,
+      entity_type VARCHAR(60) DEFAULT NULL,
+      entity_id VARCHAR(120) DEFAULT NULL,
+      description VARCHAR(500) NOT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_activity_logs_source_notification (source_notification_id),
+      KEY idx_activity_logs_created_at (created_at),
+      KEY idx_activity_logs_category_created_at (category, created_at),
+      KEY idx_activity_logs_actor_created_at (actor_user_id, created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+    `ALTER TABLE activity_logs
+      ADD COLUMN IF NOT EXISTS source_notification_id BIGINT UNSIGNED DEFAULT NULL;`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS uq_activity_logs_source_notification
+      ON activity_logs (source_notification_id);`,
+    `INSERT IGNORE INTO activity_logs
+      (source_notification_id, actor_user_id, actor_name, actor_email, actor_role,
+       category, action, entity_type, entity_id, description, created_at)
+     SELECT n.id, n.actor_user_id,
+       COALESCE(NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.middle_initial, u.last_name)), ''), 'Unknown user'),
+       u.email, u.role, n.category,
+       CASE
+         WHEN n.event_type LIKE '%.created' THEN 'create'
+         WHEN n.event_type LIKE '%.updated' OR n.event_type = 'user.access_updated' THEN 'update'
+         WHEN n.event_type LIKE '%.deleted' THEN 'delete'
+         WHEN n.event_type LIKE '%.suspended' THEN 'suspend'
+         WHEN n.event_type LIKE '%.reactivated' THEN 'reactivate'
+         ELSE n.event_type
+       END,
+       n.entity_type,
+       CAST(n.entity_id AS CHAR), n.message, n.created_at
+     FROM notifications n
+     LEFT JOIN users u ON u.id = n.actor_user_id
+     WHERE n.category = 'User Management';`,
+    `UPDATE activity_logs a
+     JOIN notifications n ON n.id = a.source_notification_id
+     SET a.description = n.message,
+       a.action = CASE
+         WHEN n.event_type LIKE '%.created' THEN 'create'
+         WHEN n.event_type LIKE '%.updated' OR n.event_type = 'user.access_updated' THEN 'update'
+         WHEN n.event_type LIKE '%.deleted' THEN 'delete'
+         WHEN n.event_type LIKE '%.suspended' THEN 'suspend'
+         WHEN n.event_type LIKE '%.reactivated' THEN 'reactivate'
+         ELSE n.event_type
+       END
+     WHERE a.source_notification_id IS NOT NULL
+       AND n.category = 'User Management';`,
     `CREATE TABLE IF NOT EXISTS password_reset_codes (
       email VARCHAR(255) PRIMARY KEY,
       code_hash CHAR(64) NOT NULL,

@@ -3,7 +3,7 @@ import { formatDateForDisplay, formatDateForInput, maskDateInput, normalizeDateV
 import { calculateGestationalDetails } from '../../../utils/beneficiaryHelpers';
 import { capitalizeNameValue } from '../../../utils/nameFormat';
 
-const OTHER_MATERNAL_VACCINES = [
+export const OTHER_MATERNAL_VACCINES = [
   { label: 'Influenza (flu)', key: 'influenza' },
   { label: 'Hepatitis A', key: 'hepatitisA' },
   { label: 'Hepatitis B', key: 'hepatitisB' },
@@ -546,6 +546,22 @@ export function MotherFormFields({
                   onChange={(event) => setDocumentFiles?.((current) => ({ ...current, consent: event.target.files?.[0] || null }))}
                 />
               </div>
+              <div className="form-checkboxes-grid full-width">
+                {[
+                  ['dataPrivacySigned', 'Data privacy consent signed'],
+                  ['mediaReleaseSigned', 'Media release signed'],
+                ].map(([field, label]) => (
+                  <label key={field} className="form-checkbox-label">
+                    <input
+                      type="checkbox"
+                      className="form-checkbox"
+                      checked={!!form[field]}
+                      onChange={(event) => setForm((current) => ({ ...current, [field]: event.target.checked }))}
+                    />
+                    <span>{label}</span>
+                  </label>
+                ))}
+              </div>
             </div>
           </section>
         )}
@@ -584,23 +600,6 @@ export function MotherFormFields({
             placeholder: 'Enter PhilHealth number',
             required: true,
           })}
-          <div className="form-checkboxes-grid full-width">
-            {[
-              ['dataPrivacySigned', 'Data privacy consent signed'],
-              ['mediaReleaseSigned', 'Media release signed'],
-            ].map(([field, label]) => (
-              <label key={field} className="form-checkbox-label">
-                <input
-                  type="checkbox"
-                  className="form-checkbox"
-                  checked={!!form[field]}
-                  disabled={readOnly}
-                  onChange={(event) => setForm((current) => ({ ...current, [field]: event.target.checked }))}
-                />
-                <span>{label}</span>
-              </label>
-            ))}
-          </div>
         </section>
       </div>
     );
@@ -816,6 +815,7 @@ export function MotherFormFields({
       <div className="create-mother-general create-mother-vaccine">
         <section className="create-mother-category">
           <h4 className="form-section-title">IV.C VACCINE RECORD</h4>
+          <p className="form-optional-note">Optional</p>
           <div className="form-group full-width">
           <div className="form-panel vaccine-form-panel">
             <div className="vaccine-form-table-wrapper">
@@ -882,22 +882,27 @@ export function MotherFormFields({
                   {OTHER_MATERNAL_VACCINES.map(({ label, key }) => (
                     <tr key={key}>
                       <td><strong>{label}</strong></td>
-                      <td colSpan="3">
-                        {readOnly ? (
-                          <div className="form-readonly-value">{formatDateForDisplay(form[`${key}Date`]) || '—'}</div>
-                        ) : (
-                          <input
-                            type={slashDateInput ? 'text' : 'date'}
-                            className="form-input table-input"
-                            placeholder={slashDateInput ? 'DD/MM/YYYY' : undefined}
-                            aria-label={`${label} date given`}
-                            value={getDateDisplayValue(`${key}Date`, form[`${key}Date`] || '')}
-                            onChange={(event) => updateDateValue(`${key}Date`, event.target.value)}
-                            onBlur={() => commitDateValue(`${key}Date`, getDateDisplayValue(`${key}Date`, form[`${key}Date`] || ''))}
-                            autoComplete="off"
-                          />
-                        )}
-                      </td>
+                      {[1, 2, 3].map((num) => {
+                        const dateField = `${key}${num === 1 ? 'Date' : `Dose${num}Date`}`;
+                        return (
+                          <td key={dateField}>
+                            {readOnly ? (
+                              <div className="form-readonly-value">{getDateDisplayValue(dateField, form[dateField] || '') || '—'}</div>
+                            ) : (
+                              <input
+                                type={slashDateInput ? 'text' : 'date'}
+                                className="form-input table-input"
+                                placeholder={slashDateInput ? 'DD/MM/YYYY' : undefined}
+                                aria-label={`${label} dose ${num} date`}
+                                value={getDateDisplayValue(dateField, form[dateField] || '')}
+                                onChange={(event) => updateDateValue(dateField, event.target.value)}
+                                onBlur={() => commitDateValue(dateField, getDateDisplayValue(dateField, form[dateField] || ''))}
+                                autoComplete="off"
+                              />
+                            )}
+                          </td>
+                        );
+                      })}
                       <td>
                         {readOnly ? (
                           <div className="form-readonly-value">{form[`${key}Remarks`] || '—'}</div>

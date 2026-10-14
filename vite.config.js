@@ -1,13 +1,19 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
+const apiProxyTarget = process.env.VITE_API_PROXY_TARGET || 'http://localhost:8080';
+
 export default defineConfig({
   plugins: [react()],
   server: {
-    // Proxy API requests in dev to the backend to avoid 404s from the dev server
     proxy: {
       '/api': {
-        target: 'http://localhost:4000',
+        target: apiProxyTarget,
+        changeOrigin: true,
+        secure: false,
+      },
+      '/uploads': {
+        target: apiProxyTarget,
         changeOrigin: true,
         secure: false,
       },
