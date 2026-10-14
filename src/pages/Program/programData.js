@@ -122,17 +122,17 @@ export const emptyProgram = {
 };
 
 export function filterPrograms(programs, query, status) {
-  const term = String(query || '').trim().toLowerCase();
+  const term = String(query || '').trim();
   const requestedStatus = String(status || '').trim().toLowerCase();
 
   return programs.filter((program) => {
     const programStatus = String(program.status || '').trim().toLowerCase();
 
-    if (requestedStatus && programStatus && programStatus !== requestedStatus) {
+    if (requestedStatus && requestedStatus !== 'all' && programStatus && programStatus !== requestedStatus) {
       return false;
     }
 
-    if (requestedStatus && !programStatus) {
+    if (requestedStatus && requestedStatus !== 'all' && !programStatus) {
       return false;
     }
 
@@ -148,8 +148,7 @@ export function filterPrograms(programs, query, status) {
       program.beneficiaryType,
     ]
       .filter(Boolean)
-      .join(' ')
-      .toLowerCase();
+      .join(' ');
 
     return searchableText.includes(term);
   });

@@ -10,6 +10,7 @@ export function ResultsPanel({
   exportReport,
   resultsView,
   setResultsView,
+  graphAllowed,
   tableDisplayMode,
   setTableDisplayMode,
   tableRows,
@@ -51,7 +52,7 @@ export function ResultsPanel({
 }) {
   const viewToggle = [
     { key: 'table', label: 'Table View' },
-    { key: 'graph', label: 'Graph View' },
+    { key: 'graph', label: 'Graph View', disabled: !graphAllowed },
   ];
 
   return (
@@ -70,8 +71,10 @@ export function ResultsPanel({
               key={view.key}
               type="button"
               className={`secondary-btn ${resultsView === view.key ? 'is-active' : ''}`}
-              onClick={() => setResultsView(view.key)}
+              onClick={() => { if (!view.disabled) setResultsView(view.key); }}
+              disabled={view.disabled}
               aria-pressed={resultsView === view.key}
+              title={view.disabled ? 'Graphs are available for a single beneficiary or a selected batch.' : undefined}
             >
               {view.label}
             </button>
@@ -80,7 +83,13 @@ export function ResultsPanel({
         </div>
       </div>
 
-      {resultsView === 'graph' ? (
+      {!graphAllowed && (
+        <p className="progress-report-note" role="status">
+          Graphs are limited to a single beneficiary or a selected batch to keep charts readable. Use Table View for school- or group-wide reports.
+        </p>
+      )}
+
+      {resultsView === 'graph' && graphAllowed ? (
         <ResultsGraph
           displayReportCategory={displayReportCategory}
           profileGraphColumn={profileGraphColumn}

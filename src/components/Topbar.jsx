@@ -14,6 +14,7 @@ export default function Topbar() {
   const canReadNotifications = hasRole(current?.role, [ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.COMMUNITY_COORDINATOR, ROLES.PARTNER, ROLES.HEALTH_WORKER]);
   const [openNotif, setOpenNotif] = useState(false);
   const [notifications, setNotifications] = useState([]);
+  const [notificationCount, setNotificationCount] = useState(0);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [notificationsError, setNotificationsError] = useState('');
   const [openUser, setOpenUser] = useState(false);
@@ -32,13 +33,39 @@ export default function Topbar() {
   }, []);
 
   useEffect(() => {
+    if (!canReadNotifications) {
+      setNotificationCount(0);
+      return undefined;
+    }
+    let active = true;
+    const refreshNotificationCount = () => {
+      apiGetNotifications({ page: 1, perPage: 1 })
+        .then((response) => {
+          if (active) setNotificationCount(Math.max(0, Number(response.total) || 0));
+        })
+        .catch((error) => {
+          if (active) console.error('Unable to refresh notification badge:', error);
+        });
+    };
+    refreshNotificationCount();
+    const interval = window.setInterval(refreshNotificationCount, 60000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [canReadNotifications, current?.id]);
+
+  useEffect(() => {
     if (!openNotif || !canReadNotifications) return undefined;
     let active = true;
     setNotificationsLoading(true);
     setNotificationsError('');
     apiGetNotifications({ page: 1, perPage: 5 })
       .then((response) => {
-        if (active) setNotifications(response.notifications || []);
+        if (active) {
+          setNotifications(response.notifications || []);
+          setNotificationCount(Math.max(0, Number(response.total) || 0));
+        }
       })
       .catch((error) => {
         if (!active) return;
@@ -91,13 +118,21 @@ export default function Topbar() {
       <div className="topbar-actions">
         <span className="action-wrapper" ref={notifRef}>
           <button
-            className="icon-button"
-            aria-label="Notifications"
+            className="icon-button notification-button"
+            aria-label={`Notifications${notificationCount ? `, ${notificationCount} available` : ''}`}
             aria-expanded={openNotif}
             onClick={() => { if (!signingOut) { setOpenUser(false); setOpenNotif((open) => !open); } }}
             disabled={signingOut}
           >
-            🔔
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+              <path d="M10 21h4" />
+            </svg>
+            {notificationCount > 0 && (
+              <span className="notification-badge" aria-hidden="true">
+                {notificationCount > 99 ? '99+' : notificationCount}
+              </span>
+            )}
           </button>
           {openNotif && (
             <div className="dropdown notifications-dropdown" role="menu" aria-label="Recent notifications">

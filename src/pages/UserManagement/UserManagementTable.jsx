@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MoreVerticalIcon } from './UserManagementIcons';
+import TableSearch from '../../components/ui/TableSearch';
 
 export default function UserManagementTable({
   currentRows,
@@ -9,9 +10,17 @@ export default function UserManagementTable({
   handleDeleteUser,
   suspendLoadingIds = [],
   deletingId = null,
+  allowDelete = true,
+  allowProfileNavigation = true,
+  showGroup = false,
+  groups = [],
+  searchValue = '',
+  onSearchChange,
+  toolbarActions,
 }) {
   const [activeDropdownId, setActiveDropdownId] = useState(null);
-  const emptyColSpan = 3;
+  const emptyColSpan = showGroup ? 4 : 3;
+  const groupNames = new Map(groups.map((group) => [String(group.id), group.name]));
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -72,18 +81,20 @@ export default function UserManagementTable({
               ? (row.status === 'Suspended' ? 'Unsuspending...' : 'Suspending...')
               : (row.status === 'Suspended' ? 'Unsuspend' : 'Suspend')}
           </button>
-          <button
-            type="button"
-            className="actions-dropdown-item delete"
-            onClick={(event) => {
-              event.stopPropagation();
-              handleDeleteUser(row.id);
-            }}
-            role="menuitem"
-            disabled={deletingId === row.id}
-          >
-            {deletingId === row.id ? 'Deleting...' : 'Delete'}
-          </button>
+          {allowDelete && (
+            <button
+              type="button"
+              className="actions-dropdown-item delete"
+              onClick={(event) => {
+                event.stopPropagation();
+                handleDeleteUser(row.id);
+              }}
+              role="menuitem"
+              disabled={deletingId === row.id}
+            >
+              {deletingId === row.id ? 'Deleting...' : 'Delete'}
+            </button>
+          )}
         </div>
       )}
     </td>
@@ -91,12 +102,19 @@ export default function UserManagementTable({
 
   return (
     <section className="table-card">
+      {(toolbarActions || onSearchChange) && (
+        <div className="user-management-table-toolbar">
+          {toolbarActions}
+          {onSearchChange && <TableSearch value={searchValue} onChange={onSearchChange} placeholder="Search users (case-sensitive)" />}
+        </div>
+      )}
       <div className="table-overflow">
         <table className="data-table">
           <thead>
             <tr>
               <th scope="col" style={{ width: '45%' }}>Account Name</th>
               <th scope="col">Role</th>
+              {showGroup && <th scope="col">Assigned Group</th>}
               <th scope="col" className="actions-cell">Actions</th>
             </tr>
           </thead>
@@ -105,11 +123,12 @@ export default function UserManagementTable({
               currentRows.map((row) => (
                 <tr
                   key={row.id}
-                  onClick={() => navigate(`/user-management/user/${row.id}`, { state: { user: row } })}
-                  style={{ cursor: 'pointer' }}
+                  onClick={allowProfileNavigation ? () => navigate(`/user-management/user/${row.id}`, { state: { user: row } }) : undefined}
+                  style={{ cursor: allowProfileNavigation ? 'pointer' : 'default' }}
                 >
                   <td>{row.name}</td>
                   <td>{row.role}</td>
+                  {showGroup && <td>{groupNames.get(String(row.groupId || '')) || '—'}</td>}
                   {renderActionMenu(row)}
                 </tr>
               ))

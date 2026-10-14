@@ -1,4 +1,4 @@
-import { barangays, provinces } from 'psgc';
+import provinces from 'psgc/dist/provinces';
 
 const provinceRecords = provinces.all();
 
@@ -11,13 +11,14 @@ export const getPhilippineCities = (provinceName) => {
   return (province?.municipalities || []).map((municipality) => municipality.name);
 };
 
-export const getPhilippineBarangays = (provinceName, cityName) => {
+export const getPhilippineBarangays = async (provinceName, cityName) => {
   const province = provinceRecords.find((item) => item.name === provinceName);
   const municipality = province?.municipalities?.find((item) => item.name === cityName);
   if (municipality?.barangays?.length) return municipality.barangays.map((barangay) => barangay.name);
 
   const cityAliases = new Set([cityName, `${cityName} City`, `${cityName} City Capital`]);
-  return barangays.all()
+  const { getBarangays } = await import('./philippineBarangays');
+  return getBarangays()
     .filter((barangay) => cityAliases.has(barangay.citymun))
     .map((barangay) => barangay.name);
 };

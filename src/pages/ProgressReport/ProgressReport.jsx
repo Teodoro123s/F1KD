@@ -114,6 +114,8 @@ export default function ProgressReport() {
   const displaySort = finalizedSnapshot?.sort ?? sort;
   const displayPage = finalizedSnapshot?.page ?? page;
   const activeReport = finalizedSnapshot?.report ?? report;
+  const activeReportRowCount = Number(activeReport?.pagination?.total ?? activeReport?.rows?.length ?? 0);
+  const graphAllowed = Boolean(displaySelection.batchId) || activeReportRowCount <= 1;
   const displayReportFocus = finalizedSnapshot?.reportFocus ?? reportFocus;
   const baseDisplayVisibleFields = addGrowthScoresBeforeInterpretations((finalizedSnapshot?.visibleFields ?? visibleFields).filter((field) => (
     displayReportFocus === 'group-school'
@@ -255,6 +257,8 @@ export default function ProgressReport() {
         perPage: 50,
       });
       const result = await apiGetProgressReport(requestParams);
+      const reportRowCount = Number(result.pagination?.total ?? result.rows?.length ?? 0);
+      const graphAllowed = Boolean(safeSelection.batchId) || reportRowCount <= 1;
       let completeGraphRows = result.rows || [];
       if (nextPage === 1 && reportCategory === 'monitor' && result.pagination?.total > completeGraphRows.length) {
         try {
@@ -277,6 +281,7 @@ export default function ProgressReport() {
       }
       if (nextPage === 1) setGraphReportRows(reportCategory === 'monitor' ? completeGraphRows : null);
       setReport(result);
+      setResultsView(graphAllowed ? 'graph' : 'table');
       setFinalizedSnapshot({
         report: result,
         selection: { ...safeSelection },
@@ -638,6 +643,7 @@ export default function ProgressReport() {
                 exportReport={exportReport}
                 resultsView={resultsView}
                 setResultsView={setResultsView}
+                graphAllowed={graphAllowed}
                 tableDisplayMode={tableDisplayMode}
                 setTableDisplayMode={setTableDisplayMode}
                 tableRows={tableRows}

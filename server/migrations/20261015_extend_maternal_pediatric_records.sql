@@ -1,0 +1,32 @@
+ALTER TABLE mothers
+  ADD COLUMN IF NOT EXISTS birth_place VARCHAR(150),
+  ADD COLUMN IF NOT EXISTS allergies TEXT,
+  ADD COLUMN IF NOT EXISTS blood_type VARCHAR(10),
+  ADD COLUMN IF NOT EXISTS civil_status VARCHAR(30),
+  ADD COLUMN IF NOT EXISTS employment_status VARCHAR(40),
+  ADD COLUMN IF NOT EXISTS educational_attainment VARCHAR(50),
+  ADD COLUMN IF NOT EXISTS data_privacy_signed BOOLEAN NOT NULL DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS media_release_signed BOOLEAN NOT NULL DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS total_children INT,
+  ADD COLUMN IF NOT EXISTS children_born_alive INT,
+  ADD COLUMN IF NOT EXISTS miscarriages INT,
+  ADD COLUMN IF NOT EXISTS children_died_after_birth INT;
+
+ALTER TABLE mother_checkups
+  ADD COLUMN IF NOT EXISTS milk_subsidy_provided BOOLEAN NOT NULL DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS lab_assistance_tests TEXT NULL,
+  ADD COLUMN IF NOT EXISTS laboratory_requests TEXT NULL,
+  ADD COLUMN IF NOT EXISTS treatment_services TEXT NULL;
+
+ALTER TABLE children
+  ADD COLUMN IF NOT EXISTS head_circumference DECIMAL(5,2),
+  ADD COLUMN IF NOT EXISTS chest_circumference DECIMAL(5,2);
+
+ALTER TABLE child_checkups
+  ADD COLUMN IF NOT EXISTS exclusive_breastfeeding VARCHAR(10),
+  ADD COLUMN IF NOT EXISTS laboratory_requests TEXT,
+  ADD COLUMN IF NOT EXISTS laboratory_assistance_provided BOOLEAN NOT NULL DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS referred_to_hospital BOOLEAN NOT NULL DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS assistance_amount DECIMAL(10,2),
+  ADD COLUMN IF NOT EXISTS source_of_funds VARCHAR(80),
+  ADD COLUMN IF NOT EXISTS facility_type VARCHAR(40);

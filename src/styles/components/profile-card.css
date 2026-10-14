@@ -782,6 +782,10 @@
 .program-summary span { display: block; color: #0f172a; font-size: 1.5rem; font-weight: 800; }
 .program-summary small { color: #64748b; }
 .program-table-card { margin-top: 1.5rem; }
+.program-page > .module-summary-cards {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 1rem;
+}
 .program-table-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.1rem 1.25rem; border-bottom: 1px solid #e2e8f0; background: #fff; }
 .program-table-heading h2 { margin: 0.2rem 0 0; color: #0f172a; font-size: 1.1rem; }
 .program-table-heading > span { color: #64748b; font-size: 0.85rem; text-align: right; }
@@ -1320,6 +1324,7 @@
 	.program-intro { align-items: flex-start; flex-direction: column; }
 	.program-level-subheader, .program-level-heading { align-items: flex-start; flex-direction: column; }
 	.program-summary { width: 100%; padding: 0.75rem 0 0; border-top: 1px solid #e2e8f0; border-left: 0; text-align: left; }
+	.program-page > .module-summary-cards { grid-template-columns: 1fr; }
 	.program-detail-stats { grid-template-columns: repeat(2, 1fr); }
 	.program-detail-header { flex-direction: column; }
 	.program-form-columns { grid-template-columns: 1fr; }

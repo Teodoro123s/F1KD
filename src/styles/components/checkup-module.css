@@ -241,17 +241,31 @@
 .monitoring-count { color: var(--burgundy); font-size: 0.8rem; font-weight: 700; }
 
 .monitoring-filter-row {
-  margin: 0 0 1.5rem;
-  padding: 0 0 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0.75rem;
+  background: #fff;
   justify-content: flex-start;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border-color);
 }
 
-.monitoring-filter-row > .monitoring-status-filter { flex: 0 0 140px; min-width: 120px; }
+.view-content .monitoring-table-card .monitoring-filter-row {
+  justify-content: flex-start;
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--border-color);
+  background: #fff;
+}
+
+.monitoring-filter-row .beneficiary-search-controls { flex: 0 0 auto; margin: 0; }
+.monitoring-filter-row .beneficiary-search-controls select { min-height: 42px; }
 .monitoring-status-filter select, .beneficiary-status-filter select { width: 100%; min-height: 42px; padding: 0.5rem 2rem 0.5rem 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: #fff; color: var(--slate-dark); font: inherit; font-weight: 700; }
 .monitoring-filter-row > .tabs-list .tab-btn { min-width: 0; padding: 0.65rem 0.4rem; font-size: 0.85rem; white-space: nowrap; }
-.monitoring-filter-row .beneficiary-search-controls { flex: 1 1 0; min-width: 0; margin-left: auto; }
-.monitoring-filter-row .beneficiary-search-controls .search-container { flex: 1 1 auto; width: auto; min-width: 0; }
+.monitoring-filter-row > .monitoring-status-filter { flex: 0 0 140px; min-width: 120px; }
+.monitoring-filter-row > .community-table-search { flex: 1 1 260px; min-width: 220px; margin-left: auto; padding: 0; border: 0; }
+.monitoring-filter-row > .community-table-search .search-container { width: 100%; }
 
 .monitoring-status-filters { display: inline-flex; gap: 0.2rem; }
 .monitoring-status-filters button { padding: 0.45rem 0.7rem; border: 0; border-radius: 6px; background: transparent; color: var(--text-muted); font: inherit; font-size: 0.82rem; font-weight: 700; cursor: pointer; }
@@ -690,6 +704,9 @@ textarea.checkup-field-input { min-height: 88px; line-height: 1.45; resize: vert
   }
 
   .monitoring-filter-row { align-items: stretch; }
+  .monitoring-filter-row > .beneficiary-search-controls,
+  .monitoring-filter-row > .monitoring-status-filter,
+  .monitoring-filter-row > .community-table-search { flex: 1 1 100%; min-width: 0; margin-left: 0; }
   .monitoring-filter-row .search-container { margin-left: 0; }
   .monitoring-table-card .data-table { min-width: 720px; }
 

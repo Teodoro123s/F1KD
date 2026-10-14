@@ -9,8 +9,9 @@ import {
   GroupsIcon,
   MoreVerticalIcon,
   PlusIcon,
-  SearchIcon,
 } from "../Community/CommunityIcons";
+import ModuleSummaryCards from '../../components/ui/ModuleSummaryCards';
+import TableSearch from '../../components/ui/TableSearch';
 import { getSummary } from "../Community/communityService";
 import { apiGetChildren } from "../../api/children";
 import { apiCompleteNamedProgramCluster, apiCompleteProgramCluster, apiCreateProgram, apiCreateProgramClusters, apiDeleteProgram, apiEndProgram, apiGetProgramMonitoring, apiGetPrograms, apiRestoreProgram, apiSetProgramMonitoring, apiUpdateProgram } from "../../api/programs";
@@ -44,6 +45,7 @@ export default function ProgramPage() {
   const canEndPrograms = isCommunityOrganizer;
   const canMonitorPrograms = canCreatePrograms || isHealthWorkerRole(currentUser?.role);
   const [activeTab, setActiveTab] = useState("Active");
+  const [selectedProgramCard, setSelectedProgramCard] = useState(null);
   const [query, setQuery] = useState("");
   const [programs, setPrograms] = useState([]);
   const [isLiveDataLoaded, setIsLiveDataLoaded] = useState(false);
@@ -1026,59 +1028,35 @@ export default function ProgramPage() {
       )}
 
       {!viewMode && (
-        <section className="tabs-row program-tabs-row">
-          <div
-            className="tabs-list"
-            role="tablist"
-            aria-label="Program sections"
-          >
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeTab === "Active"}
-              className={`tab-btn${activeTab === "Active" ? " active" : ""}`}
-              onClick={() => setActiveTab("Active")}
-            >
-              <GroupsIcon />
-              <span>Active Programs</span>
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeTab === "Ended"}
-              className={`tab-btn${activeTab === "Ended" ? " active" : ""}`}
-              onClick={() => setActiveTab("Ended")}
-            >
-              <BatchesIcon />
-              <span>Ended Programs</span>
-            </button>
-          </div>
-          <div className="program-toolbar-controls">
-            <div className="search-container program-search">
-              <div className="search-field-container">
-                <SearchIcon />
-                <input
-                  id="program-search"
-                  name="programSearch"
-                  type="text"
-                  className="search-input-field"
-                  placeholder="Search programs, partners, or communities..."
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  aria-label="Search programs"
-                />
-              </div>
-            </div>
-          </div>
-        </section>
+        <ModuleSummaryCards
+          selected={selectedProgramCard}
+          toggleOnSelect
+          onSelect={(selection) => {
+            setSelectedProgramCard(selection);
+            if (selection) setActiveTab(selection);
+          }}
+          cards={[
+            { key: 'All', label: 'Total Programs', value: programs.length, description: 'View list' },
+            { key: 'Active', label: 'Active Programs', value: filterPrograms(programs, '', 'Active').length, description: 'View list' },
+            { key: 'Ended', label: 'Ended Programs', value: filterPrograms(programs, '', 'Ended').length, description: 'View list' },
+          ]}
+        />
       )}
 
+      {(viewMode || selectedProgramCard) && (
       <section className="table-card program-table-card">
         <div className="program-table-heading">
           <div>
-            <h2>Program beneficiaries</h2>
+            <h2>{viewMode ? 'Program beneficiaries' : 'Programs'}</h2>
           </div>
         </div>
+        {!viewMode && (
+          <TableSearch
+            value={query}
+            onChange={setQuery}
+            placeholder="Search programs, partners, or communities (case-sensitive)"
+          />
+        )}
         <div className="table-overflow">
           {viewMode && !clusterView ? (() => {
             if (selectedRouteBatch) {
@@ -1322,6 +1300,7 @@ export default function ProgramPage() {
           </table>}
         </div>
       </section>
+      )}
 
       <ConfirmActionModal
         show={Boolean(pendingDeleteProgram)}

@@ -14,6 +14,8 @@ import { isHealthWorkerRole } from '../../utils/permissions';
 import { getChildMonitoringProgress } from '../../utils/childProgress';
 import { getMotherMonitoringProgress } from '../../utils/motherProgress';
 import { notifyAction } from '../../components/ActionFeedback';
+import TableSearch from '../../components/ui/TableSearch';
+import ModuleSummaryCards from '../../components/ui/ModuleSummaryCards';
 
 function getMotherName(mother) {
   return mother?.name || [mother?.firstName || mother?.first_name, mother?.middleName || mother?.middle_name, mother?.lastName || mother?.last_name]
@@ -84,6 +86,7 @@ export default function MonitoringPage() {
   const [childCompletedWeeks, setChildCompletedWeeks] = useState(() => location.state?.child?.completedWeeks || []);
   const [editingCheckup, setEditingCheckup] = useState(false);
   const [statusFilter, setStatusFilter] = useState('All');
+  const [selectedMonitoringCard, setSelectedMonitoringCard] = useState(null);
   const [perPage, setPerPage] = useState(10);
   const [page, setPage] = useState(1);
   const assignedGroupId = currentUser?.group_id ?? currentUser?.groupId;
@@ -145,24 +148,6 @@ export default function MonitoringPage() {
   const scopedChildren = useMemo(() => isHealthWorkerRole(currentUser?.role) && assignedGroupId
     ? children.filter((child) => String(child.groupId ?? child.group_id) === String(assignedGroupId))
     : children, [assignedGroupId, children, currentUser?.role]);
-
-  const filteredMothers = useMemo(() => {
-    const term = query.trim().toLowerCase();
-    if (!term) return scopedMothers;
-    return scopedMothers.filter((mother) => (
-      `${getMotherName(mother)} ${mother.motherCode || mother.mother_code || mother.id || ''} ${mother.community || mother.community_name || mother.area || ''}`
-        .toLowerCase()
-        .includes(term)
-    ));
-  }, [query, scopedMothers]);
-
-  const filteredChildren = useMemo(() => {
-    const term = query.trim().toLowerCase();
-    if (!term) return scopedChildren;
-    return scopedChildren.filter((child) => (
-      `${getChildName(child)} ${child.child_code || child.id || ''} ${child.community || child.community_name || child.area || ''}`.toLowerCase().includes(term)
-    ));
-  }, [query, scopedChildren]);
 
   const handleSave = async (payload) => {
     try {
@@ -226,9 +211,9 @@ export default function MonitoringPage() {
 
   const clearSearch = () => { setQuery(''); setPage(1); };
 
-  const visibleBeneficiaries = beneficiaryType === 'Mother' ? filteredMothers : filteredChildren;
+  const visibleBeneficiaries = beneficiaryType === 'Mother' ? scopedMothers : scopedChildren;
 
-  const monitoringRows = useMemo(() => visibleBeneficiaries.map((beneficiary) => {
+  const allMonitoringRows = useMemo(() => visibleBeneficiaries.map((beneficiary) => {
     const maternalProgress = beneficiaryType === 'Mother' ? getMotherMonitoringProgress(beneficiary) : null;
     const childProgress = beneficiaryType === 'Child' ? getChildMonitoringProgress(beneficiary) : null;
     const completed = maternalProgress?.completed ?? childProgress?.completed ?? 0;
@@ -245,7 +230,17 @@ export default function MonitoringPage() {
       progress,
       status,
     };
-  }).filter((row) => statusFilter === 'All' || row.status === statusFilter), [visibleBeneficiaries, beneficiaryType, statusFilter]);
+  }), [visibleBeneficiaries, beneficiaryType]);
+  const monitoringRows = useMemo(() => {
+    const term = query.trim();
+    return allMonitoringRows.filter(({ beneficiary, status }) => {
+      const searchableText = beneficiaryType === 'Mother'
+        ? `${getMotherName(beneficiary)} ${beneficiary.motherCode || beneficiary.mother_code || beneficiary.id || ''} ${beneficiary.community || beneficiary.community_name || beneficiary.area || ''}`
+        : `${getChildName(beneficiary)} ${beneficiary.child_code || beneficiary.id || ''} ${beneficiary.community || beneficiary.community_name || beneficiary.area || ''}`;
+      return (!term || searchableText.includes(term))
+        && (statusFilter === 'All' || status === statusFilter);
+    });
+  }, [allMonitoringRows, beneficiaryType, query, statusFilter]);
 
   const pageCount = Math.max(1, Math.ceil(monitoringRows.length / perPage));
   const currentPage = Math.min(page, pageCount);
@@ -310,16 +305,44 @@ export default function MonitoringPage() {
 
       {!selectedMother && !selectedChild ? (
         <section className="monitoring-list-container" aria-labelledby="monitoring-list-title">
-          <div className="tabs-row monitoring-filter-row">
-            <StatusFilterBar selectedStatusFilter={statusFilter} onChange={(nextStatus) => { setStatusFilter(nextStatus); setPage(1); }} />
-            <EntitySearchControls
-              selectedEntityFilter={beneficiaryType}
-              query={query}
-              onEntityChange={(nextType) => { setBeneficiaryType(nextType); setQuery(''); setPage(1); }}
-              onQueryChange={(value) => { setQuery(value); setPage(1); }}
-            />
-          </div>
+          <ModuleSummaryCards
+            selected={selectedMonitoringCard}
+            toggleOnSelect
+            onSelect={(key) => {
+              setSelectedMonitoringCard(key);
+              if (key) setStatusFilter(key);
+              setPage(1);
+            }}
+            cards={[
+              { key: 'All', label: 'Total Records', value: allMonitoringRows.length, description: 'View list' },
+              { key: 'Missing', label: 'Missing', value: allMonitoringRows.filter((row) => row.status === 'Missing').length, description: 'View list' },
+              { key: 'Pending', label: 'Pending', value: allMonitoringRows.filter((row) => row.status === 'Pending').length, description: 'View list' },
+              { key: 'Done', label: 'Done', value: allMonitoringRows.filter((row) => row.status === 'Done').length, description: 'View list' },
+            ]}
+          />
+          {selectedMonitoringCard && (
+            <>
           <div className="table-card monitoring-table-card">
+            <div className="monitoring-filter-row">
+              <EntitySearchControls
+                selectedEntityFilter={beneficiaryType}
+                showSearch={false}
+                onEntityChange={(nextType) => { setBeneficiaryType(nextType); setQuery(''); setPage(1); }}
+              />
+              <StatusFilterBar
+                selectedStatusFilter={statusFilter}
+                onChange={(nextStatus) => {
+                  setStatusFilter(nextStatus);
+                  setSelectedMonitoringCard(nextStatus);
+                  setPage(1);
+                }}
+              />
+              <TableSearch
+                value={query}
+                onChange={(value) => { setQuery(value); setPage(1); }}
+                placeholder={`Search ${beneficiaryType.toLowerCase()} records (case-sensitive)`}
+              />
+            </div>
             <div className="table-overflow">
               <table className="data-table">
                 <thead><tr><th>{beneficiaryType}</th><th>Progress</th><th>Status</th><th>Action</th></tr></thead>
@@ -334,6 +357,8 @@ export default function MonitoringPage() {
             </div>
             <footer className="pagination-container"><div className="pagination-left" aria-label="Pagination navigation">{renderPaginationButtons()}</div><div className="pagination-center"><span>Show</span><select className="select-entries" value={perPage} onChange={(event) => { setPerPage(Number(event.target.value)); setPage(1); }}><option value="10">10</option><option value="25">25</option><option value="50">50</option></select></div><div className="pagination-right">Showing {rangeStart}-{rangeEnd} of {monitoringRows.length}</div></footer>
           </div>
+            </>
+          )}
         </section>
       ) : selectedChild ? (
         selectedRecordLoading ? <section className="checkup-entry-view" aria-live="polite"><p>Loading child monitoring record...</p></section> : <section className="checkup-entry-view" aria-labelledby="selected-child-title">

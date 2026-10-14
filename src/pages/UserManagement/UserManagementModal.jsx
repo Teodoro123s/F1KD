@@ -36,7 +36,7 @@ function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitt
   );
 }
 
-export default function AddUserModal({ showModal, onClose, form, setForm, onSubmit, roleOptions, communities = [], groups = [], mode = 'add', isSubmitting = false, notification = '' }) {
+export default function AddUserModal({ showModal, onClose, form, setForm, onSubmit, roleOptions, communities = [], groups = [], mode = 'add', isSubmitting = false, notification = '', managedHealthWorker = false }) {
   if (!showModal) return null;
 
   const title = mode === 'edit' ? 'Edit User' : 'Add User';
@@ -152,17 +152,24 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
       <div className="form-row-3 full-width">
         <div className="form-group">
           <label className="form-label" htmlFor="role">Role *</label>
-          <select
-            id="role"
-                      name="role"
-                      className="form-select"
-                      value={form.role}
-                      onChange={(e) => handleChange('role', e.target.value)}
-                    >
-                      {roleOptions.map((role) => (
-                        <option key={role} value={role}>{role}</option>
-                      ))}
-                    </select>
+          {managedHealthWorker ? (
+            <>
+              <input id="role" className="form-input" value="Health worker" readOnly />
+              <input type="hidden" name="role" value="Health worker" />
+            </>
+          ) : (
+            <select
+              id="role"
+              name="role"
+              className="form-select"
+              value={form.role}
+              onChange={(e) => handleChange('role', e.target.value)}
+            >
+              {roleOptions.map((role) => (
+                <option key={role} value={role}>{role}</option>
+              ))}
+            </select>
+          )}
         </div>
         <div className="form-group" aria-hidden="true" />
       </div>
@@ -171,10 +178,17 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
         <>
           <div className="form-group full-width">
             <label className="form-label" htmlFor="school-id">Assigned School{schoolIsRequired ? ' *' : ''}</label>
-            <select id="school-id" name="schoolId" className="form-select" value={form.schoolId || ''} onChange={(e) => setForm((prev) => ({ ...prev, schoolId: e.target.value, groupId: requiresGroup ? '' : prev.groupId }))}>
-              <option value="">Select assigned school</option>
-              {communities.map((school) => <option key={school.id} value={school.id}>{school.name}</option>)}
-            </select>
+            {managedHealthWorker ? (
+              <>
+                <input id="school-id" className="form-input" value={selectedSchoolName || 'Assigned school'} readOnly />
+                <input type="hidden" name="schoolId" value={form.schoolId || ''} />
+              </>
+            ) : (
+              <select id="school-id" name="schoolId" className="form-select" value={form.schoolId || ''} onChange={(e) => setForm((prev) => ({ ...prev, schoolId: e.target.value, groupId: requiresGroup ? '' : prev.groupId }))}>
+                <option value="">Select assigned school</option>
+                {communities.map((school) => <option key={school.id} value={school.id}>{school.name}</option>)}
+              </select>
+            )}
           </div>
 
           {requiresGroup && (
@@ -190,13 +204,15 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
         </>
       )}
 
-      <div className="form-group full-width">
-        <label className="form-label" htmlFor="status">Status *</label>
-        <select id="status" name="status" className="form-select" value={form.status || 'Active'} onChange={(e) => handleChange('status', e.target.value)} required>
-          <option value="Active">Active</option>
-          <option value="Suspended">Suspended</option>
-        </select>
-      </div>
+      {!managedHealthWorker && (
+        <div className="form-group full-width">
+          <label className="form-label" htmlFor="status">Status *</label>
+          <select id="status" name="status" className="form-select" value={form.status || 'Active'} onChange={(e) => handleChange('status', e.target.value)} required>
+            <option value="Active">Active</option>
+            <option value="Suspended">Suspended</option>
+          </select>
+        </div>
+      )}
 
     </ModalShell>
   );

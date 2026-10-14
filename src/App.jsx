@@ -1,26 +1,29 @@
+import { lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import { MothersProvider } from './context/MothersContext';
-import CommunityModulePage from './pages/Community/CommunityModulePage';
-import Beneficiary from './pages/Beneficiary/BeneficiaryPage';
-import MonitoringPage from './pages/Monitoring/MonitoringPage';
-import ChildProfilePage from './pages/Beneficiary/child/ChildProfilePage';
-import EditChildPage from './pages/Beneficiary/child/EditChildPage';
-import MotherChildrenPage from './pages/Beneficiary/child/MotherChildrenPage';
-import EditMotherPage from './pages/Beneficiary/mother/EditMotherPage';
-import Program from './pages/Program';
-import ProgressReport from './pages/ProgressReport/ProgressReport';
-import ReceiptHistoryPage from './pages/Program/ReceiptHistoryPage';
-import UserManagementPage from './pages/UserManagement/UserManagementPage';
-import UserDetailPage from './pages/UserManagement/UserDetailPage';
-import ProfilePage from './pages/ProfilePage';
-import SettingsPage from './pages/SettingsPage';
-import NotificationsPage from './pages/Notifications/NotificationsPage';
-import Login from './pages/Login';
+import Login from './pages/Auth/LoginPage';
 import { useAuth } from './auth/AuthProvider';
 import RoleBasedRoute from './components/RoleBasedRoute';
 import { LoadingScreen } from './components/LoadingSkeleton';
 import { ROLES } from './utils/permissions';
+
+const CommunityModulePage = lazy(() => import('./pages/Community/CommunityModulePage'));
+const Beneficiary = lazy(() => import('./pages/Beneficiary/BeneficiaryPage'));
+const MonitoringPage = lazy(() => import('./pages/Monitoring/MonitoringPage'));
+const ChildProfilePage = lazy(() => import('./pages/Beneficiary/child/ChildProfilePage'));
+const EditChildPage = lazy(() => import('./pages/Beneficiary/child/EditChildPage'));
+const MotherChildrenPage = lazy(() => import('./pages/Beneficiary/child/MotherChildrenPage'));
+const EditMotherPage = lazy(() => import('./pages/Beneficiary/mother/EditMotherPage'));
+const Program = lazy(() => import('./pages/Program/ProgramPage'));
+const ProgressReport = lazy(() => import('./pages/ProgressReport/ProgressReport'));
+const ReceiptHistoryPage = lazy(() => import('./pages/Program/ReceiptHistoryPage'));
+const UserManagementPage = lazy(() => import('./pages/UserManagement/UserManagementPage'));
+const UserDetailPage = lazy(() => import('./pages/UserManagement/UserDetailPage'));
+const ProfilePage = lazy(() => import('./pages/Profile/ProfilePage'));
+const SettingsPage = lazy(() => import('./pages/Settings/SettingsPage'));
+const NotificationsPage = lazy(() => import('./pages/Notifications/NotificationsPage'));
+const DashboardPage = lazy(() => import('./pages/Dashboard/DashboardPage'));
 
 const COMMUNITY_ROLES = [
   ROLES.SUPER_ADMIN,
@@ -35,6 +38,7 @@ const OPERATIONAL_ROLES = [
   ROLES.PARTNER,
   ROLES.HEALTH_WORKER,
 ];
+const DASHBOARD_ROLES = [ROLES.SUPER_ADMIN, ...OPERATIONAL_ROLES];
 const PROGRESS_REPORT_ROLES = [ROLES.ADMIN, ROLES.COMMUNITY_COORDINATOR, ROLES.PARTNER, ROLES.HEALTH_WORKER];
 const BENEFICIARY_CREATE_ROLES = [ROLES.COMMUNITY_COORDINATOR];
 const BENEFICIARY_EDIT_ROLES = [ROLES.COMMUNITY_COORDINATOR, ROLES.HEALTH_WORKER];
@@ -63,6 +67,7 @@ export default function App() {
         </RequireAuth>
       }
       >
+        <Route path="dashboard" element={<RoleBasedRoute allowedRoles={DASHBOARD_ROLES}><DashboardPage /></RoleBasedRoute>} />
         <Route path="community" element={<RoleBasedRoute allowedRoles={COMMUNITY_ROLES}><CommunityModulePage /></RoleBasedRoute>} />
         <Route path="community/school/:schoolId" element={<RoleBasedRoute allowedRoles={COMMUNITY_ROLES}><CommunityModulePage /></RoleBasedRoute>} />
         <Route path="community/group/:groupId" element={<RoleBasedRoute allowedRoles={COMMUNITY_ROLES}><CommunityModulePage /></RoleBasedRoute>} />
@@ -90,7 +95,8 @@ export default function App() {
         <Route path="program/:programId" element={<RoleBasedRoute allowedRoles={OPERATIONAL_ROLES}><Program /></RoleBasedRoute>} />
         <Route path="program/:programId/cluster/:clusterType/:clusterName" element={<RoleBasedRoute allowedRoles={OPERATIONAL_ROLES}><Program /></RoleBasedRoute>} />
         <Route path="progress-report" element={<RoleBasedRoute allowedRoles={PROGRESS_REPORT_ROLES}><ProgressReport /></RoleBasedRoute>} />
-        <Route path="user-management" element={<RoleBasedRoute allowedRoles={[ROLES.SUPER_ADMIN]}><UserManagementPage /></RoleBasedRoute>} />
+        <Route path="user-management/health-workers" element={<RoleBasedRoute allowedRoles={[ROLES.COMMUNITY_COORDINATOR]}><UserManagementPage /></RoleBasedRoute>} />
+        <Route path="user-management" element={<RoleBasedRoute allowedRoles={[ROLES.SUPER_ADMIN, ROLES.COMMUNITY_COORDINATOR]}><UserManagementPage /></RoleBasedRoute>} />
         <Route path="user-management/school/:schoolId" element={<RoleBasedRoute allowedRoles={[ROLES.SUPER_ADMIN]}><UserManagementPage /></RoleBasedRoute>} />
         <Route path="user-management/batch/:batchId" element={<RoleBasedRoute allowedRoles={[ROLES.SUPER_ADMIN]}><UserManagementPage /></RoleBasedRoute>} />
         <Route path="user-management/user/:id" element={<RoleBasedRoute allowedRoles={[ROLES.SUPER_ADMIN]}><UserDetailPage /></RoleBasedRoute>} />

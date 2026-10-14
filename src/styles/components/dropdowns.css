@@ -33,7 +33,7 @@
 .notification-dropdown-all:hover, .notification-dropdown-all:focus-visible { background: #f4f6f9; outline: none; }
 
 .content-body {
-  padding: 1.25rem 1.5rem 1.75rem;
+  padding: 1rem 1.25rem 1.5rem;
   display: flex;
   flex-direction: column;
 }

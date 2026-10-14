@@ -3,6 +3,8 @@ const router = express.Router();
 const pool = require('../db');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
@@ -10,6 +12,29 @@ const JWT_EXPIRES = process.env.JWT_EXPIRES || '8h';
 const REFRESH_TOKEN_TTL = process.env.REFRESH_TOKEN_TTL || '7d';
 const { verifyToken } = require('../middleware/auth');
 const { ensureSuperadminAccount } = require('../services/superadminRecovery');
+const {
+  getEmailJsConfig,
+  sendPasswordResetCodeEmail,
+} = require('../services/emailjs');
+
+const passwordResetRequestLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many password reset requests. Please try again later.' },
+});
+const passwordResetSubmitLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many password reset attempts. Please try again later.' },
+});
+
+function hashResetCode(email, code) {
+  return crypto.createHmac('sha256', JWT_SECRET).update(`${email}:${code}`).digest('hex');
+}
 
 const buildUserPayload = (user) => {
   const role = String(user.role || 'User').trim() || 'User';
@@ -51,6 +76,90 @@ const issueTokens = (res, user) => {
   return { token: accessToken, refreshToken, user: payload };
 };
 
+const TEST_ROLE_ALIASES = {
+  super_admin: ['super_admin', 'superadmin', 'super admin'],
+  admin: ['admin', 'administrator'],
+  partner: ['partner'],
+  community_coordinator: [
+    'community_coordinator',
+    'community coordinator',
+    'communityorganizer',
+    'community organizer',
+    'coordinator',
+    'co',
+  ],
+  health_worker: ['health_worker', 'healthworker', 'health worker'],
+};
+
+function normalizeIp(value = '') {
+  return String(value)
+    .toLowerCase()
+    .replace(/^::ffff:/, '')
+    .replace(/\[|\]/g, '')
+    .trim();
+}
+
+function isLoopbackAddress(address = '') {
+  const normalized = normalizeIp(address);
+  return normalized === '127.0.0.1'
+    || normalized === '::1'
+    || normalized.startsWith('127.')
+    || normalized.startsWith('::ffff:127.');
+}
+
+function isLocalLoopbackRequest(req) {
+  const headers = req.headers || {};
+  const host = String(headers.host || '').split(':')[0].toLowerCase();
+  const origin = String(headers.origin || '').replace(/^https?:\/\//i, '').split(':')[0].toLowerCase();
+  const forwardedFor = String(headers['x-forwarded-for'] || '').split(',')[0].trim();
+  const realIp = String(headers['x-real-ip'] || '').trim();
+  const remoteAddress = normalizeIp(req.socket?.remoteAddress || '');
+  const requestIp = normalizeIp(req.ip || '');
+
+  return host === 'localhost'
+    || host === '127.0.0.1'
+    || host === '::1'
+    || origin === 'localhost'
+    || origin === '127.0.0.1'
+    || isLoopbackAddress(remoteAddress)
+    || isLoopbackAddress(forwardedFor)
+    || isLoopbackAddress(realIp)
+    || isLoopbackAddress(requestIp);
+}
+
+router.post('/test-role', async (req, res) => {
+  const localDevelopment = process.env.NODE_ENV === 'development' && isLocalLoopbackRequest(req);
+  const explicitlyEnabled = process.env.ENABLE_TEST_ROLE_SHORTCUTS === 'true';
+  const localhostAllowed = isLocalLoopbackRequest(req);
+  if (!localDevelopment && !explicitlyEnabled && !localhostAllowed) {
+    return res.status(404).json({ error: 'Not found' });
+  }
+
+  const aliases = TEST_ROLE_ALIASES[String(req.body?.role || '').trim().toLowerCase()];
+  if (!aliases) return res.status(400).json({ error: 'Select a supported test role' });
+
+  try {
+    const placeholders = aliases.map(() => '?').join(', ');
+    const [rows] = await pool.query(
+      `SELECT id, first_name, last_name, middle_initial, email, role, status,
+          school_id, group_id, contact_number, location
+       FROM users
+       WHERE LOWER(TRIM(role)) IN (${placeholders})
+         AND LOWER(TRIM(status)) IN ('active', 'enabled')
+       ORDER BY (school_id IS NOT NULL) DESC, (group_id IS NOT NULL) DESC, id DESC
+       LIMIT 1`,
+      aliases,
+    );
+    if (!rows.length) {
+      return res.status(404).json({ error: 'No active account exists for this role' });
+    }
+    return res.json(issueTokens(res, rows[0]));
+  } catch (error) {
+    console.error('[Auth API] Test role sign-in error:', error.message);
+    return res.status(500).json({ error: 'Unable to sign in to the selected test role' });
+  }
+});
+
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body || {};
@@ -83,6 +192,138 @@ router.post('/login', async (req, res) => {
   } catch (err) {
     console.error('Auth login error:', err.message);
     res.status(500).json({ status: 500, code: 'SERVER_ERROR', message: 'Server error', timestamp: new Date().toISOString() });
+  }
+});
+
+router.post('/forgot-password', passwordResetRequestLimiter, async (req, res) => {
+  const email = String(req.body?.email || '').trim().toLowerCase();
+  if (!email || email.length > 255 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: 'Enter a valid email address' });
+  }
+
+  try {
+    getEmailJsConfig('otp');
+  } catch (error) {
+    console.error('[Auth API] Password reset email configuration error:', error.message);
+    return res.status(503).json({ error: 'Password reset email is not configured. Please contact an administrator.' });
+  }
+
+  try {
+    const [users] = await pool.query(
+      `SELECT id, email, first_name, middle_initial, last_name
+       FROM users WHERE LOWER(TRIM(email)) = ? LIMIT 1`,
+      [email],
+    );
+
+    if (users.length) {
+      const user = users[0];
+      const code = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+      await pool.query(
+        `INSERT INTO password_reset_codes (email, code_hash, expires_at, attempts)
+         VALUES (?, ?, DATE_ADD(UTC_TIMESTAMP(), INTERVAL 15 MINUTE), 0)
+         ON DUPLICATE KEY UPDATE code_hash = VALUES(code_hash),
+           expires_at = VALUES(expires_at), attempts = 0, created_at = CURRENT_TIMESTAMP`,
+        [email, hashResetCode(email, code)],
+      );
+
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+      const time = expiresAt.toLocaleTimeString('en-US', {
+        timeZone: 'UTC',
+        hour: 'numeric',
+        minute: '2-digit',
+      });
+      const name = [user.first_name, user.middle_initial, user.last_name].filter(Boolean).join(' ') || 'F1KD user';
+      try {
+        await sendPasswordResetCodeEmail({
+          email: user.email,
+          name,
+          passcode: code,
+          time,
+        });
+      } catch (emailError) {
+        await pool.query('DELETE FROM password_reset_codes WHERE email = ?', [email]);
+        console.error('[Auth API] Unable to send password reset code:', emailError.message);
+        return res.status(503).json({ error: 'Unable to send a verification code right now. Please try again later.' });
+      }
+    }
+
+    return res.json({
+      message: 'If an account exists for that email, a verification code has been sent.',
+    });
+  } catch (error) {
+    console.error('[Auth API] Password reset request error:', error.message);
+    return res.status(500).json({ error: 'Unable to start password reset. Please try again later.' });
+  }
+});
+
+router.post('/reset-password', passwordResetSubmitLimiter, async (req, res) => {
+  const email = String(req.body?.email || '').trim().toLowerCase();
+  const code = String(req.body?.passcode || '').trim();
+  const newPassword = String(req.body?.newPassword || '');
+  const confirmPassword = String(req.body?.confirmPassword || '');
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: 'Enter a valid email address' });
+  }
+  if (!/^\d{6}$/.test(code)) {
+    return res.status(400).json({ error: 'Enter the six-digit verification code' });
+  }
+  if (newPassword.length < 8) {
+    return res.status(400).json({ error: 'New password must be at least 8 characters' });
+  }
+  if (newPassword !== confirmPassword) {
+    return res.status(400).json({ error: 'The new passwords do not match' });
+  }
+
+  let connection;
+  try {
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+    const [codes] = await connection.query(
+      `SELECT code_hash, attempts, expires_at > UTC_TIMESTAMP() AS is_unexpired
+       FROM password_reset_codes WHERE email = ? FOR UPDATE`,
+      [email],
+    );
+    const reset = codes[0];
+    if (!reset || !reset.is_unexpired) {
+      if (reset) await connection.query('DELETE FROM password_reset_codes WHERE email = ?', [email]);
+      await connection.commit();
+      return res.status(400).json({ error: 'The verification code is invalid or expired. Request a new code.' });
+    }
+
+    const expectedHash = Buffer.from(reset.code_hash, 'hex');
+    const submittedHash = Buffer.from(hashResetCode(email, code), 'hex');
+    const validCode = expectedHash.length === submittedHash.length
+      && crypto.timingSafeEqual(expectedHash, submittedHash);
+    if (!validCode) {
+      if (Number(reset.attempts) + 1 >= 5) {
+        await connection.query('DELETE FROM password_reset_codes WHERE email = ?', [email]);
+      } else {
+        await connection.query(
+          'UPDATE password_reset_codes SET attempts = attempts + 1 WHERE email = ?',
+          [email],
+        );
+      }
+      await connection.commit();
+      return res.status(400).json({ error: 'The verification code is invalid or expired. Request a new code.' });
+    }
+
+    const [updated] = await connection.query(
+      'UPDATE users SET password_hash = ? WHERE LOWER(TRIM(email)) = ?',
+      [passwordHash, email],
+    );
+    await connection.query('DELETE FROM password_reset_codes WHERE email = ?', [email]);
+    await connection.commit();
+    if (!updated.affectedRows) {
+      return res.status(400).json({ error: 'The verification code is invalid or expired. Request a new code.' });
+    }
+    return res.json({ message: 'Password reset successfully. You can now sign in.' });
+  } catch (error) {
+    if (connection) await connection.rollback();
+    console.error('[Auth API] Password reset submission error:', error.message);
+    return res.status(500).json({ error: 'Unable to reset your password. Please try again later.' });
+  } finally {
+    if (connection) connection.release();
   }
 });
 

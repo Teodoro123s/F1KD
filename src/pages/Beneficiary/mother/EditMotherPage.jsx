@@ -19,7 +19,10 @@ const parseAddressParts = (address = '') => {
 };
 
 const normalizeMotherDates = (mother) => {
-  const dateFields = ['dob', 'lmpDate', 'eddDate', 'prenatalRegDate', 'dentalCheckupDate'];
+  const dateFields = [
+    'dob', 'lmpDate', 'eddDate', 'prenatalRegDate', 'dentalCheckupDate',
+    'influenzaDate', 'hepatitisADate', 'hepatitisBDate', 'covid19Date',
+  ];
   const vaccineFields = ['tt1Date', 'tt2Date', 'tt3Date', 'tt4Date', 'tt5Date'];
   return [...dateFields, ...vaccineFields].reduce((result, field) => ({
     ...result,
@@ -124,11 +127,11 @@ export default function EditMotherPage() {
 
   const handleSaveRequest = (e) => {
     e.preventDefault();
-    const hasNegativePregnancyCount = ['gravida', 'abortion', 'stillbirth']
+    const hasNegativePregnancyCount = ['gravida', 'abortion', 'stillbirth', 'totalChildren', 'childrenBornAlive', 'miscarriages', 'childrenDiedAfterBirth']
       .some((field) => Number(form[field]) < 0);
     if (hasNegativePregnancyCount) {
       setActiveTab('prenatal');
-      notifyAction('Gravida, abortion, and stillbirth cannot be negative.', 'error');
+      notifyAction('Pregnancy and birth counts cannot be negative.', 'error');
       return;
     }
     setShowSaveConfirm(true);

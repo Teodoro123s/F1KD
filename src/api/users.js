@@ -25,6 +25,40 @@ export async function apiGetUsers(page = 1, perPage = 100) {
   return handleResponse(res, 'Failed to fetch users');
 }
 
+export async function apiGetManagedHealthWorkers() {
+  const res = await fetchWithAuth(`${API_BASE}/api/users/health-workers`, {
+    headers: { 'Content-Type': 'application/json' },
+  });
+  return handleResponse(res, 'Failed to fetch assigned health workers');
+}
+
+export async function apiCreateManagedHealthWorker(payload) {
+  const res = await fetchWithAuth(`${API_BASE}/api/users/health-workers`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(res, 'Unable to create health worker');
+}
+
+export async function apiUpdateManagedHealthWorker(id, payload) {
+  const res = await fetchWithAuth(`${API_BASE}/api/users/health-workers/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(res, 'Unable to update health worker');
+}
+
+export async function apiPatchManagedHealthWorkerStatus(id, status) {
+  const res = await fetchWithAuth(`${API_BASE}/api/users/health-workers/${encodeURIComponent(id)}/status`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status }),
+  });
+  return handleResponse(res, 'Unable to update health worker status');
+}
+
 export async function apiGetCoordinators() {
   const res = await fetchWithAuth(`${API_BASE}/api/users/coordinators`, {
     headers: { 'Content-Type': 'application/json' },

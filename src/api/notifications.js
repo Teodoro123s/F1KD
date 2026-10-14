@@ -12,12 +12,21 @@ async function requestNotifications(url, options = {}) {
   return body;
 }
 
-export function apiGetNotifications({ page = 1, perPage = 10, search = '', category = '' } = {}) {
+export function apiGetNotifications({ page = 1, perPage = 10, search = '', category = '', readStatus = 'all' } = {}) {
   const params = new URLSearchParams({ page: String(page), perPage: String(perPage), search });
   if (category && category !== 'All') {
     params.set('category', category);
   }
+  if (readStatus !== 'all') {
+    params.set('readStatus', readStatus);
+  }
   return requestNotifications(`/api/notifications?${params.toString()}`);
+}
+
+export function apiMarkNotificationRead(id) {
+  return requestNotifications(`/api/notifications/${encodeURIComponent(id)}/read`, {
+    method: 'POST',
+  });
 }
 
 export function apiRecordReportDownload() {

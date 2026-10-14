@@ -464,6 +464,7 @@ router.get('/', async (req, res) => {
             sex: checkup.gender,
             birthDate: checkup.birth_date,
             measurementDate: checkup.visit_date,
+            maxAgeMonths: 24,
           }),
         });
         seriesByChild.set(checkup.child_id, series);

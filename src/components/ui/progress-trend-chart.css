@@ -1,0 +1,195 @@
+.beneficiary-progress-chart {
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 1px solid var(--border-color, #e4e8ee);
+  border-radius: 12px;
+  background: var(--surface-color, #fff);
+}
+
+.beneficiary-progress-chart__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.beneficiary-progress-chart__header h3 {
+  margin: 0;
+  color: var(--text-primary, #1f2937);
+  font-size: 1rem;
+}
+
+.beneficiary-progress-chart__header p {
+  margin: 0.3rem 0 0;
+  color: var(--text-secondary, #64748b);
+  font-size: 0.82rem;
+}
+
+.beneficiary-progress-chart__metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.beneficiary-progress-chart__views {
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 0.2rem;
+  padding: 0.2rem;
+  border: 1px solid var(--border-color, #e4e8ee);
+  border-radius: 8px;
+  background: var(--background-color, #f5f7fa);
+}
+
+.beneficiary-progress-chart__views button {
+  padding: 0.4rem 0.75rem;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary, #64748b);
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.beneficiary-progress-chart__views button.active {
+  background: var(--surface-color, #fff);
+  color: var(--text-primary, #1f2937);
+  box-shadow: 0 1px 3px rgb(15 23 42 / 12%);
+}
+
+.beneficiary-progress-chart__metrics button {
+  padding: 0.35rem 0.65rem;
+  border: 1px solid var(--border-color, #e4e8ee);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary, #64748b);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.beneficiary-progress-chart__metrics button.active {
+  border-color: var(--primary-color, #168447);
+  background: var(--primary-color, #168447);
+  color: #fff;
+}
+
+.beneficiary-progress-chart__summary {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  color: var(--text-secondary, #64748b);
+  font-size: 0.82rem;
+}
+
+.beneficiary-progress-chart__summary strong {
+  color: var(--text-primary, #1f2937);
+  font-size: 1.15rem;
+}
+
+.beneficiary-progress-chart__summary .positive {
+  color: #168447;
+}
+
+.beneficiary-progress-chart__summary .negative {
+  color: #b42318;
+}
+
+.beneficiary-progress-chart__plot {
+  width: 100%;
+  margin-top: 0.25rem;
+}
+
+.beneficiary-progress-chart__plot svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.beneficiary-progress-chart__grid line {
+  stroke: var(--border-color, #e4e8ee);
+  stroke-dasharray: 3 4;
+}
+
+.beneficiary-progress-chart__grid text,
+.beneficiary-progress-chart__x-label {
+  fill: var(--text-secondary, #64748b);
+  font-size: 11px;
+}
+
+.beneficiary-progress-chart__footnote {
+  margin: 0;
+  color: var(--text-secondary, #64748b);
+  font-size: 0.75rem;
+}
+
+.beneficiary-progress-chart__empty {
+  margin-top: 0.8rem;
+  padding: 1.25rem;
+  border-radius: 8px;
+  background: var(--background-color, #f5f7fa);
+  color: var(--text-secondary, #64748b);
+  font-size: 0.88rem;
+}
+
+.beneficiary-progress-chart__table-wrap {
+  width: 100%;
+  margin-top: 1rem;
+  overflow-x: auto;
+}
+
+.beneficiary-progress-chart__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.beneficiary-progress-chart__table th,
+.beneficiary-progress-chart__table td {
+  padding: 0.7rem 0.8rem;
+  border-bottom: 1px solid var(--border-color, #e4e8ee);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.beneficiary-progress-chart__table th {
+  background: var(--background-color, #f5f7fa);
+  color: var(--text-secondary, #64748b);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.beneficiary-progress-chart__table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.beneficiary-progress-chart__table tbody tr:only-child td[colspan] {
+  padding: 1.25rem;
+  color: var(--text-secondary, #64748b);
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .beneficiary-progress-chart__header {
+    flex-direction: column;
+  }
+
+  .beneficiary-progress-chart__views {
+    align-self: flex-start;
+  }
+
+  .beneficiary-progress-chart__summary {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .beneficiary-progress-chart__grid text,
+  .beneficiary-progress-chart__x-label {
+    font-size: 10px;
+  }
+}

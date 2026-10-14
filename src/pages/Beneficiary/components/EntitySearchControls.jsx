@@ -1,6 +1,4 @@
 import React from 'react';
-import { SearchIcon } from '../BeneficiaryIcons';
-
 export default function EntitySearchControls({
   selectedEntityFilter,
   communities = [],
@@ -9,22 +7,26 @@ export default function EntitySearchControls({
   query,
   onEntityToggle,
   onEntityChange,
+  showEntityFilter = true,
+  showSearch = true,
   onQueryChange,
 }) {
   return (
     <div className="beneficiary-search-controls">
-      <select
-        className="entity-filter-btn"
-        value={selectedEntityFilter}
-        onChange={(event) => {
-          if (onEntityChange) onEntityChange(event.target.value);
-          else if (onEntityToggle) onEntityToggle();
-        }}
-        aria-label="Filter beneficiaries by type"
-      >
-        <option value="Mother">Mother</option>
-        <option value="Child">Child</option>
-      </select>
+      {showEntityFilter && (
+        <select
+          className="entity-filter-btn"
+          value={selectedEntityFilter}
+          onChange={(event) => {
+            if (onEntityChange) onEntityChange(event.target.value);
+            else if (onEntityToggle) onEntityToggle();
+          }}
+          aria-label="Filter beneficiaries by type"
+        >
+          <option value="Mother">Mother</option>
+          <option value="Child">Child</option>
+        </select>
+      )}
       {communities.length > 0 && onCommunityChange && (
         <select
           className="entity-filter-btn"
@@ -36,9 +38,8 @@ export default function EntitySearchControls({
           {communities.map((community) => <option key={community.id || community.name} value={community.name}>{community.name}</option>)}
         </select>
       )}
-      <div className="search-container">
-        <div className="search-field-container">
-          <SearchIcon />
+      {showSearch && onQueryChange && (
+        <div className="search-container">
           <input
             id="beneficiary-search"
             name="beneficiarySearch"
@@ -50,7 +51,7 @@ export default function EntitySearchControls({
             aria-label="Search items"
           />
         </div>
-      </div>
+      )}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import CommunityTable from './CommunityTable';
 import CommunityModalManager from './CommunityModalManager';
 import CommunityToolbar from './components/CommunityToolbar';
 import CommunityPagination from './components/CommunityPagination';
+import CommunityOverviewCards from './components/CommunityOverviewCards';
 import { MoreVerticalIcon } from './CommunityIcons';
 import { useCommunityData } from './hooks/useCommunityData';
 import { useCommunityMutations } from './hooks/useCommunityMutations';
@@ -63,6 +64,8 @@ export default function CommunityPage() {
   const [groupForm, setGroupForm] = useState(defaultGroupForm);
   const [batchForm, setBatchForm] = useState(defaultBatchForm);
   const [childrenRows, setChildrenRows] = useState([]);
+  const [childrenOverviewError, setChildrenOverviewError] = useState('');
+  const [schoolOverviewSelection, setSchoolOverviewSelection] = useState(null);
 
   const activeTab = batchId
     ? (isSuperAdmin ? 'batches' : 'mothers')
@@ -75,6 +78,11 @@ export default function CommunityPage() {
           : schoolId
             ? 'groups'
             : 'communities';
+
+  useEffect(() => {
+    setSchoolOverviewSelection(null);
+    setPage(1);
+  }, [schoolId, groupId]);
 
   const selectedBatch = useMemo(
     () => batches.find((batch) => String(batch.id) === String(batchId)),
@@ -134,9 +142,9 @@ export default function CommunityPage() {
       .filter((group) => group.community === selectedSchool.name)
       .filter((group) => {
         if (!query.trim()) return true;
-        const term = query.trim().toLowerCase();
+        const term = query.trim();
         return [group.name, String(group.id), group.leader, group.status].some((value) =>
-          String(value || '').toLowerCase().includes(term)
+          String(value || '').includes(term)
         );
       });
   }, [query, scopedGroups, selectedSchool]);
@@ -163,9 +171,9 @@ export default function CommunityPage() {
       })
       .filter((batch) => {
         if (!query.trim()) return true;
-        const term = query.trim().toLowerCase();
+        const term = query.trim();
         return [batch.name, String(batch.id), batch.community, batch.status].some((value) =>
-          String(value || '').toLowerCase().includes(term)
+          String(value || '').includes(term)
         );
       });
   }, [batches, mothers, query, selectedGroup]);
@@ -177,20 +185,49 @@ export default function CommunityPage() {
       .filter((mother) => mother.batchId === selectedBatch.id)
       .filter((mother) => {
         if (!query.trim()) return true;
-        const term = query.trim().toLowerCase();
+        const term = query.trim();
         return [mother.name, String(mother.id), mother.group, mother.status].some((value) =>
-          String(value || '').toLowerCase().includes(term)
+          String(value || '').includes(term)
         );
       });
   }, [mothers, query, selectedBatch]);
 
+  const schoolOverviewGroups = useMemo(
+    () => selectedSchool
+      ? scopedGroups.filter((group) => String(group.community || '').toLowerCase() === String(selectedSchool.name || '').toLowerCase())
+      : [],
+    [scopedGroups, selectedSchool],
+  );
+  const schoolOverviewMothers = useMemo(
+    () => selectedSchool
+      ? mothers.filter((mother) => String(mother.community || '').toLowerCase() === String(selectedSchool.name || '').toLowerCase())
+      : [],
+    [mothers, selectedSchool],
+  );
+  const schoolOverviewChildren = useMemo(
+    () => selectedSchool
+      ? childrenRows.filter((child) => String(child.community || '').toLowerCase() === String(selectedSchool.name || '').toLowerCase())
+      : [],
+    [childrenRows, selectedSchool],
+  );
+  const schoolOverviewBatches = useMemo(
+    () => selectedSchool
+      ? batches.filter((batch) => String(batch.community || '').toLowerCase() === String(selectedSchool.name || '').toLowerCase())
+      : [],
+    [batches, selectedSchool],
+  );
+
   useEffect(() => {
-    if (activeTab !== 'mothers' || entityFilter !== 'Child') {
+    const shouldLoadChildren = (activeTab === 'mothers' && entityFilter === 'Child')
+      || (activeTab === 'groups' && Boolean(selectedSchool));
+    if (!shouldLoadChildren) {
       setChildrenRows([]);
+      setChildrenOverviewError('');
       return;
     }
 
     let active = true;
+    setChildrenOverviewError('');
 
     apiGetChildren()
       .then((response) => {
@@ -222,20 +259,21 @@ export default function CommunityPage() {
         console.error('[CommunityPage] Unable to load child rows:', error);
         if (active) {
           setChildrenRows([]);
+          setChildrenOverviewError(error?.message || 'Unable to load children for this school.');
         }
       });
 
     return () => { active = false; };
-  }, [activeTab, entityFilter]);
+  }, [activeTab, entityFilter, selectedSchool]);
 
   const filteredData = useMemo(() => {
-    const term = query.trim().toLowerCase();
+    const term = query.trim();
 
     if (activeTab === 'communities') {
       return scopedCommunities.filter((community) => {
         if (!term) return true;
         return [community.name, String(community.id), community.area].some((value) =>
-          String(value || '').toLowerCase().includes(term)
+          String(value || '').includes(term)
         );
       });
     }
@@ -263,7 +301,7 @@ export default function CommunityPage() {
         if (!term) return true;
 
         return [child.name, child.motherName, child.community, child.group, String(child.id)].some((value) =>
-          String(value || '').toLowerCase().includes(term)
+          String(value || '').includes(term)
         );
       });
     }
@@ -271,12 +309,41 @@ export default function CommunityPage() {
     return selectedBatchMothers;
   }, [activeTab, childrenRows, communities, entityFilter, query, scopedCommunities, selectedBatch, selectedBatchMothers, selectedGroup, selectedGroupBatches, selectedSchool, selectedSchoolGroups]);
 
-  const pageCount = Math.max(1, Math.ceil(filteredData.length / perPage));
+  const overviewRows = useMemo(() => {
+    const source = schoolOverviewSelection === 'mothers'
+      ? schoolOverviewMothers
+      : schoolOverviewSelection === 'children'
+        ? schoolOverviewChildren
+        : schoolOverviewSelection === 'batches'
+          ? schoolOverviewBatches
+          : schoolOverviewSelection === 'groups'
+            ? (activeTab === 'communities' ? scopedGroups : schoolOverviewGroups)
+          : [];
+    const rows = schoolOverviewSelection === 'groups' && activeTab === 'communities'
+      ? source.map((row) => ({
+        ...row,
+        schoolName: row.community || row.school_name || row.schoolName || 'Unknown school',
+      }))
+      : source;
+    const term = query.trim();
+    return rows.filter((row) => {
+      if (!term) return true;
+      return [row.name, row.motherName, row.group, row.community, row.schoolName, String(row.id)]
+        .some((value) => String(value || '').includes(term));
+    });
+  }, [activeTab, query, schoolOverviewBatches, schoolOverviewChildren, schoolOverviewGroups, schoolOverviewMothers, schoolOverviewSelection, scopedGroups]);
+  const tableData = schoolOverviewSelection ? overviewRows : filteredData;
+  const pageCount = Math.max(1, Math.ceil(tableData.length / perPage));
   const currentPage = Math.min(page, pageCount);
   const startIndex = (currentPage - 1) * perPage;
-  const currentRows = filteredData.slice(startIndex, startIndex + perPage);
+  const currentRows = tableData.slice(startIndex, startIndex + perPage);
 
   const tableTitle = useMemo(() => {
+    if (schoolOverviewSelection === 'groups') return `Groups: ${selectedSchool?.name || 'All schools'}`;
+    if (schoolOverviewSelection === 'mothers') return `Mothers: ${selectedSchool?.name || 'School'}`;
+    if (schoolOverviewSelection === 'children') return `Children: ${selectedSchool?.name || 'School'}`;
+    if (schoolOverviewSelection === 'batches') return `Batches: ${selectedSchool?.name || 'School'}`;
+
     if (activeTab === 'communities') {
       return 'Schools';
     }
@@ -294,7 +361,7 @@ export default function CommunityPage() {
     }
 
     return '';
-  }, [activeTab, selectedBatch, selectedGroup, selectedSchool]);
+  }, [activeTab, schoolOverviewSelection, selectedBatch, selectedGroup, selectedSchool]);
 
   const breadcrumbItems = useMemo(() => {
     if (isHealthWorker || isAssignedCommunityOrganizer) {
@@ -659,18 +726,60 @@ export default function CommunityPage() {
     ]);
   }, [activeDropdownId, activeTab, canManage, canManageSchools, entityFilter, groups, handleDeleteBatch, handleDeleteCommunity, handleDeleteGroup, handleDeleteMother, navigate, openEditModal]);
 
+  const overviewColumns = useMemo(() => {
+    if (schoolOverviewSelection === 'groups') {
+      return [
+        { key: 'name', header: 'Group Name', renderCell: (row) => <span className="community-title-text">{row.name}</span> },
+        ...(activeTab === 'communities' ? [{ key: 'schoolName', header: 'School' }] : []),
+        { key: 'assignedBatchIds', header: 'Total Batches', cellClassName: 'small-column', renderCell: (row) => row.assignedBatchIds?.length ?? row.batches ?? 0 },
+        ...(activeTab === 'groups' ? columns.filter((column) => column.key === 'actions') : []),
+      ];
+    }
+    if (schoolOverviewSelection === 'mothers') {
+      return [
+        { key: 'name', header: 'Mother Name', renderCell: (row) => <span className="community-title-text">{row.name}</span> },
+        { key: 'group', header: 'Group', renderCell: (row) => row.group || '—' },
+      ];
+    }
+    if (schoolOverviewSelection === 'children') {
+      return [
+        { key: 'name', header: 'Child Name', renderCell: (row) => <span className="community-title-text">{row.name}</span> },
+        { key: 'motherName', header: 'Mother Name', renderCell: (row) => row.motherName || '—' },
+        { key: 'group', header: 'Group', renderCell: (row) => row.group || '—' },
+      ];
+    }
+    if (schoolOverviewSelection === 'batches') {
+      return [
+        { key: 'name', header: 'Batch Name', renderCell: (row) => <span className="community-title-text">{row.name}</span> },
+        { key: 'records', header: 'Total Mothers', cellClassName: 'compact-column', renderCell: (row) => row.records || 0 },
+        { key: 'progress', header: 'Progress (%)', cellClassName: 'status-column', renderCell: (row) => `${row.progress ?? 0}%` },
+      ];
+    }
+    return columns;
+  }, [activeTab, columns, schoolOverviewSelection]);
+
   const currentRowClickHandler =
-    activeTab === 'communities'
-      ? (school) => navigate(`/community/school/${school.id}`)
-      : activeTab === 'groups'
-        ? (group) => navigate(`/community/group/${group.id}`)
-        : activeTab === 'batches'
+    schoolOverviewSelection === 'groups'
+      ? (group) => navigate(`/community/group/${group.id}`)
+      : schoolOverviewSelection === 'mothers'
+      ? (mother) => handleMotherRowClick(mother)
+      : schoolOverviewSelection === 'children'
+        ? (child) => handleChildRowClick(child)
+        : schoolOverviewSelection === 'batches'
           ? isSuperAdmin
             ? undefined
             : (batch) => navigate(`/beneficiary?batchId=${encodeURIComponent(batch.databaseId || batch.id)}`, { state: { batch } })
-          : entityFilter === 'Child'
-            ? (child) => handleChildRowClick(child)
-            : (mother) => handleMotherRowClick(mother);
+          : activeTab === 'communities'
+            ? (school) => navigate(`/community/school/${school.id}`)
+            : activeTab === 'groups'
+              ? (group) => navigate(`/community/group/${group.id}`)
+              : activeTab === 'batches'
+                ? isSuperAdmin
+                  ? undefined
+                  : (batch) => navigate(`/beneficiary?batchId=${encodeURIComponent(batch.databaseId || batch.id)}`, { state: { batch } })
+                : entityFilter === 'Child'
+                  ? (child) => handleChildRowClick(child)
+                  : (mother) => handleMotherRowClick(mother);
 
   if (loading) {
     return <div className="community-page"><p>Loading community data...</p></div>;
@@ -684,9 +793,7 @@ export default function CommunityPage() {
     <div className="community-page">
       <CommunityToolbar
         activeTab={activeTab}
-        query={query}
         entityFilter={entityFilter}
-        onSearch={handleSearch}
         onEntityFilterChange={handleEntityFilterChange}
         onTabChange={handleTabChange}
         onCreate={openCreateModal}
@@ -695,23 +802,69 @@ export default function CommunityPage() {
         canManage={canManage && (activeTab !== 'communities' || canManageSchools)}
       />
 
-      <CommunityTable
-        columns={columns}
-        data={currentRows}
-        onRowClick={currentRowClickHandler}
-        tableTitle={tableTitle}
-      />
+      {(activeTab === 'communities' || (activeTab === 'groups' && selectedSchool)) && (
+        <>
+          <CommunityOverviewCards
+            selected={schoolOverviewSelection}
+            onSelect={(selection) => { setSchoolOverviewSelection(selection); setPage(1); }}
+            cards={[
+              { key: 'groups', label: 'Total Groups', value: activeTab === 'communities' ? groups.length : schoolOverviewGroups.length },
+              { key: 'batches', label: 'Total Batches', value: activeTab === 'communities' ? batches.length : schoolOverviewBatches.length },
+              { key: 'mothers', label: 'Total Mothers', value: activeTab === 'communities' ? mothers.length : schoolOverviewMothers.length },
+              { key: 'children', label: 'Total Children', value: activeTab === 'communities' ? (childrenOverviewError ? 'Unavailable' : childrenRows.length) : (childrenOverviewError ? 'Unavailable' : schoolOverviewChildren.length) },
+            ]}
+          />
+          {childrenOverviewError && <p className="error-message" role="alert">{childrenOverviewError}</p>}
+          {schoolOverviewSelection ? (
+            <>
+              <CommunityTable
+                columns={overviewColumns}
+                data={currentRows}
+                onRowClick={currentRowClickHandler}
+                tableTitle={tableTitle}
+                emptyMessage={`No ${schoolOverviewSelection} found for this school.`}
+                searchValue={query}
+                onSearchChange={handleSearch}
+              />
+              <CommunityPagination
+                currentPage={currentPage}
+                pageCount={pageCount}
+                onPageChange={setPage}
+                perPage={perPage}
+                onPerPageChange={handlePerPageChange}
+                rangeStart={tableData.length === 0 ? 0 : startIndex + 1}
+                rangeEnd={Math.min(startIndex + perPage, tableData.length)}
+                totalItems={tableData.length}
+              />
+            </>
+          ) : (
+            <p className="community-overview-hint">Select a card to view its list.</p>
+          )}
+        </>
+      )}
+      {!(activeTab === 'communities' || (activeTab === 'groups' && selectedSchool)) && (
+        <>
+          <CommunityTable
+            columns={columns}
+            data={currentRows}
+            onRowClick={currentRowClickHandler}
+            tableTitle={tableTitle}
+            searchValue={query}
+            onSearchChange={handleSearch}
+          />
 
-      <CommunityPagination
-        currentPage={currentPage}
-        pageCount={pageCount}
-        onPageChange={setPage}
-        perPage={perPage}
-        onPerPageChange={handlePerPageChange}
-        rangeStart={filteredData.length === 0 ? 0 : startIndex + 1}
-        rangeEnd={Math.min(startIndex + perPage, filteredData.length)}
-        totalItems={filteredData.length}
-      />
+          <CommunityPagination
+            currentPage={currentPage}
+            pageCount={pageCount}
+            onPageChange={setPage}
+            perPage={perPage}
+            onPerPageChange={handlePerPageChange}
+            rangeStart={tableData.length === 0 ? 0 : startIndex + 1}
+            rangeEnd={Math.min(startIndex + perPage, tableData.length)}
+            totalItems={tableData.length}
+          />
+        </>
+      )}
 
       <CommunityModalManager
         showModal={showModal}

@@ -6,6 +6,7 @@ const { ensureSuperadminAccount } = require('../services/superadminRecovery');
 const { verifyToken } = require('../middleware/auth');
 const { authorize } = require('../middleware/authorize');
 const { createSuperadminNotification } = require('../services/notifications');
+const { sendAccountCredentialsEmail } = require('../services/emailjs');
 
 function normalizeDbStatus(value) {
   const normalized = String(value || '').trim().toLowerCase();
@@ -15,10 +16,250 @@ function normalizeDbStatus(value) {
   return 'Active';
 }
 
+const HEALTH_WORKER_ROLE_SQL = `LOWER(TRIM(role)) IN ('health worker', 'health_worker', 'healthworker')`;
+
+function getOrganizerSchoolId(req, res) {
+  const schoolId = Number(req.user?.school_id);
+  if (!Number.isInteger(schoolId) || schoolId <= 0) {
+    res.status(403).json({ error: 'Assign this account to a school before managing health workers' });
+    return null;
+  }
+  return schoolId;
+}
+
+async function isGroupInSchool(groupId, schoolId) {
+  const [groups] = await pool.query(
+    'SELECT id FROM groups WHERE id = ? AND community_id = ? LIMIT 1',
+    [groupId, schoolId],
+  );
+  return groups.length > 0;
+}
+
+function healthWorkerSelectSql(whereClause) {
+  return `SELECT id, CONCAT_WS(' ', first_name, last_name) AS username,
+      CONCAT_WS(' ', first_name, last_name) AS full_name, email, role, status,
+      first_name, last_name, middle_initial, contact_number, gender, dob, location,
+      school_id, group_id, created_at, updated_at
+    FROM users ${whereClause}`;
+}
+
 // Helper: normalize searchable name/value
 function nameLike(column) {
   return `CONCAT_WS(' ', first_name, last_name)`;
 }
+
+// Community Coordinators can manage only health workers assigned to their own school.
+router.get('/health-workers', verifyToken, authorize('community_coordinator'), async (req, res) => {
+  const schoolId = getOrganizerSchoolId(req, res);
+  if (!schoolId) return;
+  try {
+    const [users] = await pool.query(
+      `${healthWorkerSelectSql(`WHERE school_id = ? AND ${HEALTH_WORKER_ROLE_SQL}`)} ORDER BY id DESC`,
+      [schoolId],
+    );
+    res.json({ total: users.length, users });
+  } catch (error) {
+    console.error('[Users API] GET /health-workers error:', error.message);
+    res.status(500).json({ error: 'Unable to load assigned health workers' });
+  }
+});
+
+router.post('/health-workers', verifyToken, authorize('community_coordinator'), async (req, res) => {
+  const schoolId = getOrganizerSchoolId(req, res);
+  if (!schoolId) return;
+  try {
+    const {
+      email, password, firstName, lastName, middleInitial, contactNumber,
+      gender, dob, location, groupId,
+    } = req.body || {};
+    const normalizedEmail = String(email || '').trim();
+    const normalizedFirstName = String(firstName || '').trim();
+    const normalizedLastName = String(lastName || '').trim();
+    const assignedGroupId = Number(groupId);
+    if (!normalizedEmail || !normalizedFirstName || !normalizedLastName) {
+      return res.status(400).json({ error: 'First name, last name, and email are required' });
+    }
+    if (!Number.isInteger(assignedGroupId) || assignedGroupId <= 0) {
+      return res.status(400).json({ error: 'A valid group assignment is required' });
+    }
+    if (!(await isGroupInSchool(assignedGroupId, schoolId))) {
+      return res.status(400).json({ error: 'Select a group within your assigned school' });
+    }
+
+    const userName = String(req.body.username || normalizedEmail.split('@')[0]).trim();
+    const plainPassword = String(password || `${userName}.${require('crypto').randomBytes(4).toString('hex')}`);
+    if (plainPassword.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
+    const passwordHash = await bcrypt.hash(plainPassword, 10);
+    const [result] = await pool.query(
+      `INSERT INTO users
+        (email, role, status, password_hash, first_name, last_name, middle_initial,
+         contact_number, gender, dob, location, school_id, group_id)
+       VALUES (?, 'Health worker', 'Active', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        normalizedEmail,
+        passwordHash,
+        normalizedFirstName,
+        normalizedLastName,
+        middleInitial || null,
+        contactNumber || null,
+        gender || 'Male',
+        dob || null,
+        location || null,
+        schoolId,
+        assignedGroupId,
+      ],
+    );
+    const [rows] = await pool.query(
+      `${healthWorkerSelectSql('WHERE id = ? AND school_id = ? AND ' + HEALTH_WORKER_ROLE_SQL)} LIMIT 1`,
+      [result.insertId, schoolId],
+    );
+    const user = rows[0];
+    const fullName = [user.first_name, user.middle_initial, user.last_name].filter(Boolean).join(' ');
+    let emailSent = false;
+    try {
+      await sendAccountCredentialsEmail({
+        email: user.email,
+        name: fullName,
+        role: user.role,
+        password: plainPassword,
+      });
+      emailSent = true;
+    } catch (emailError) {
+      console.error('[Users API] Unable to email health worker credentials:', emailError.message);
+    }
+    await createSuperadminNotification({
+      eventType: 'user.created',
+      category: 'User Management',
+      title: 'Health worker account created',
+      message: `Health worker account created: ${fullName}.`,
+      entityType: 'user',
+      entityId: user.id,
+      linkTo: '/user-management',
+      schoolId,
+      groupId: assignedGroupId,
+      actorUserId: req.user.id,
+    });
+    res.status(201).json({ user, emailSent });
+  } catch (error) {
+    console.error('[Users API] POST /health-workers error:', error.message);
+    if (error?.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ error: 'Email is already assigned to an account' });
+    }
+    res.status(500).json({ error: 'Unable to create health worker account' });
+  }
+});
+
+router.put('/health-workers/:id', verifyToken, authorize('community_coordinator'), async (req, res) => {
+  const schoolId = getOrganizerSchoolId(req, res);
+  if (!schoolId) return;
+  try {
+    const { id } = req.params;
+    const [existingRows] = await pool.query(
+      `SELECT id FROM users WHERE id = ? AND school_id = ? AND ${HEALTH_WORKER_ROLE_SQL} LIMIT 1`,
+      [id, schoolId],
+    );
+    if (!existingRows.length) return res.status(404).json({ error: 'Health worker not found' });
+
+    const {
+      email, firstName, lastName, middleInitial, contactNumber,
+      gender, dob, location, groupId,
+    } = req.body || {};
+    const assignedGroupId = Number(groupId);
+    if (!Number.isInteger(assignedGroupId) || assignedGroupId <= 0
+      || !(await isGroupInSchool(assignedGroupId, schoolId))) {
+      return res.status(400).json({ error: 'Select a group within your assigned school' });
+    }
+    if (!String(email || '').trim() || !String(firstName || '').trim() || !String(lastName || '').trim()) {
+      return res.status(400).json({ error: 'First name, last name, and email are required' });
+    }
+
+    const updates = [
+      'email = ?',
+      'first_name = ?',
+      'last_name = ?',
+      'middle_initial = ?',
+      'contact_number = ?',
+      'dob = ?',
+      'group_id = ?',
+    ];
+    const updateValues = [
+      String(email).trim(),
+      String(firstName).trim(),
+      String(lastName).trim(),
+      middleInitial || null,
+      contactNumber || null,
+      dob || null,
+      assignedGroupId,
+    ];
+    if (gender !== undefined) {
+      updates.push('gender = ?');
+      updateValues.push(gender || 'Male');
+    }
+    if (location !== undefined) {
+      updates.push('location = ?');
+      updateValues.push(location || null);
+    }
+    await pool.query(
+      `UPDATE users SET ${updates.join(', ')}
+       WHERE id = ? AND school_id = ? AND ${HEALTH_WORKER_ROLE_SQL}`,
+      [...updateValues, id, schoolId],
+    );
+    const [rows] = await pool.query(
+      `${healthWorkerSelectSql('WHERE id = ? AND school_id = ? AND ' + HEALTH_WORKER_ROLE_SQL)} LIMIT 1`,
+      [id, schoolId],
+    );
+    res.json(rows[0]);
+  } catch (error) {
+    console.error('[Users API] PUT /health-workers/:id error:', error.message);
+    if (error?.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ error: 'Email is already assigned to an account' });
+    }
+    res.status(500).json({ error: 'Unable to update health worker account' });
+  }
+});
+
+router.patch('/health-workers/:id/status', verifyToken, authorize('community_coordinator'), async (req, res) => {
+  const schoolId = getOrganizerSchoolId(req, res);
+  if (!schoolId) return;
+  try {
+    const status = String(req.body?.status || '').trim();
+    if (!['Active', 'Suspended'].includes(status)) {
+      return res.status(400).json({ error: 'Status must be Active or Suspended' });
+    }
+    const [rows] = await pool.query(
+      `SELECT id, first_name, middle_initial, last_name, status, group_id
+       FROM users WHERE id = ? AND school_id = ? AND ${HEALTH_WORKER_ROLE_SQL} LIMIT 1`,
+      [req.params.id, schoolId],
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Health worker not found' });
+    await pool.query(
+      `UPDATE users SET status = ? WHERE id = ? AND school_id = ? AND ${HEALTH_WORKER_ROLE_SQL}`,
+      [status, req.params.id, schoolId],
+    );
+    if (normalizeDbStatus(rows[0].status) !== status) {
+      const fullName = [rows[0].first_name, rows[0].middle_initial, rows[0].last_name].filter(Boolean).join(' ');
+      const suspended = status === 'Suspended';
+      await createSuperadminNotification({
+        eventType: suspended ? 'user.suspended' : 'user.reactivated',
+        category: 'User Management',
+        title: suspended ? 'Health worker suspended' : 'Health worker reactivated',
+        message: `Health worker account ${suspended ? 'suspended' : 'reactivated'}: ${fullName}.`,
+        entityType: 'user',
+        entityId: req.params.id,
+        linkTo: '/user-management',
+        schoolId,
+        groupId: rows[0].group_id,
+        actorUserId: req.user.id,
+      });
+    }
+    res.json({ id: Number(req.params.id), status });
+  } catch (error) {
+    console.error('[Users API] PATCH /health-workers/:id/status error:', error.message);
+    res.status(500).json({ error: 'Unable to update health worker status' });
+  }
+});
 
 // GET /api/users/coordinators - limited data for operational assignment fields
 router.get('/coordinators', verifyToken, async (req, res) => {
@@ -144,6 +385,18 @@ router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
     );
     const user = rows[0];
     const createdName = [user.first_name, user.middle_initial, user.last_name].filter(Boolean).join(' ');
+    let emailSent = false;
+    try {
+      await sendAccountCredentialsEmail({
+        email: user.email,
+        name: createdName,
+        role: user.role,
+        password: plainPassword,
+      });
+      emailSent = true;
+    } catch (emailError) {
+      console.error('[Users API] Unable to email account credentials:', emailError.message);
+    }
     await createSuperadminNotification({
       eventType: 'user.created',
       category: 'User Management',
@@ -157,7 +410,7 @@ router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
       actorUserId: req.user.id,
     });
     // Return created user WITHOUT plaintext password for security.
-    res.status(201).json({ user });
+    res.status(201).json({ user, emailSent });
   } catch (err) {
     console.error('[Users API] POST / error:', err.message);
     if (err && err.code === 'ER_DUP_ENTRY') return res.status(400).json({ error: 'Email or username already exists' });

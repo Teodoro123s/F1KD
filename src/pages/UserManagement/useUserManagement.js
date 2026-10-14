@@ -1,5 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
-import { apiGetUsers, apiCreateUser, apiUpdateUser, apiPatchUserStatus, apiDeleteUser } from '../../api/users';
+import {
+  apiGetUsers,
+  apiGetManagedHealthWorkers,
+  apiCreateUser,
+  apiCreateManagedHealthWorker,
+  apiUpdateUser,
+  apiUpdateManagedHealthWorker,
+  apiPatchUserStatus,
+  apiPatchManagedHealthWorkerStatus,
+  apiDeleteUser,
+} from '../../api/users';
 import { isValidName, isValidMiddleInitial, sanitizeDigits, normalizeContact, isValidContact, isValidEmail, formatDobForInput, isValidDob, getDobValidationMessage, generatePassword } from './lib';
 import { getSummary } from '../Community/communityService';
 import { isCommunityCoordinatorRole, isHealthWorkerRole } from '../../utils/permissions';
@@ -45,13 +55,8 @@ function buildDisplayName(user) {
 
 const USER_PAGE_SIZE = 100;
 
-async function fetchAllUsers() {
-  const firstPage = await apiGetUsers(1, USER_PAGE_SIZE);
-  const firstPageUsers = Array.isArray(firstPage.users) ? firstPage.users : [];
-  const total = Number(firstPage.total) || firstPageUsers.length;
-  const pageCount = Math.ceil(total / USER_PAGE_SIZE);
-  const remainingPages = await Promise.all(Array.from({ length: Math.max(0, pageCount - 1) }, (_, index) => apiGetUsers(index + 2, USER_PAGE_SIZE)));
-  return [...firstPageUsers, ...remainingPages.flatMap((page) => Array.isArray(page.users) ? page.users : [])].map((user) => ({
+function mapApiUser(user) {
+  return {
     id: `USR-${String(user.id).padStart(4, '0')}`,
     firstName: user.first_name,
     lastName: user.last_name,
@@ -67,10 +72,23 @@ async function fetchAllUsers() {
     status: normalizeStatus(user.status),
     password: '',
     name: buildDisplayName(user),
-  }));
+  };
 }
 
-export function useUserManagement({ schoolId = '', batchId = '' } = {}) {
+async function fetchAllUsers(healthWorkerManagement = false) {
+  if (healthWorkerManagement) {
+    const response = await apiGetManagedHealthWorkers();
+    return (Array.isArray(response.users) ? response.users : []).map(mapApiUser);
+  }
+  const firstPage = await apiGetUsers(1, USER_PAGE_SIZE);
+  const firstPageUsers = Array.isArray(firstPage.users) ? firstPage.users : [];
+  const total = Number(firstPage.total) || firstPageUsers.length;
+  const pageCount = Math.ceil(total / USER_PAGE_SIZE);
+  const remainingPages = await Promise.all(Array.from({ length: Math.max(0, pageCount - 1) }, (_, index) => apiGetUsers(index + 2, USER_PAGE_SIZE)));
+  return [...firstPageUsers, ...remainingPages.flatMap((page) => Array.isArray(page.users) ? page.users : [])].map(mapApiUser);
+}
+
+export function useUserManagement({ schoolId = '', batchId = '', healthWorkerManagement = false } = {}) {
   const [users, setUsers] = useState([]);
   const [apiOnline, setApiOnline] = useState(true);
   const [communities, setCommunities] = useState([]);
@@ -80,7 +98,10 @@ export function useUserManagement({ schoolId = '', batchId = '' } = {}) {
   useEffect(() => {
     getSummary()
       .then((summary) => {
-        setCommunities(summary.communities || []);
+        const summaryCommunities = summary.communities || [];
+        setCommunities(healthWorkerManagement
+          ? summaryCommunities.filter((community) => String(community.id) === String(schoolId))
+          : summaryCommunities);
         setGroups(summary.groups || []);
         setBatches(summary.batches || []);
       })
@@ -89,7 +110,7 @@ export function useUserManagement({ schoolId = '', batchId = '' } = {}) {
         setGroups([]);
         setBatches([]);
       });
-  }, []);
+  }, [healthWorkerManagement, schoolId]);
 
   // Load the database as the single source of truth.
   useEffect(() => {
@@ -97,29 +118,30 @@ export function useUserManagement({ schoolId = '', batchId = '' } = {}) {
     async function load(attempts = 0) {
       try {
         // record the attempted fetch for debugging
-        try { window.__last_user_fetch__ = { url: `${API_BASE}/api/users?page=1&perPage=100`, time: Date.now() }; } catch (e) {}
-        const mapped = await fetchAllUsers();
+        try { window.__last_user_fetch__ = { url: healthWorkerManagement ? `${API_BASE}/api/users/health-workers` : `${API_BASE}/api/users?page=1&perPage=100`, time: Date.now() }; } catch (e) {}
+        const mapped = await fetchAllUsers(healthWorkerManagement);
         if (!mounted) return;
         setApiOnline(true);
-        setUsers(schoolId ? mapped.filter((user) => String(user.schoolId || '') === String(schoolId)) : mapped);
+        setUsers(healthWorkerManagement
+          ? mapped
+          : schoolId ? mapped.filter((user) => String(user.schoolId || '') === String(schoolId)) : mapped);
         try { console.log('Fetched users from server', mapped); } catch (e) { /* ignore console errors */ }
       } catch (e) {
         try { console.error('Failed to fetch users from server', e?.message || e); } catch (c) {}
-        // If a transient network error occurred, retry a couple of times
-        if (attempts < 2) {
+        const canRetry = !e?.status || e.status >= 500;
+        if (canRetry && attempts < 2) {
           try { console.log('Retrying user fetch (attempt)', attempts + 1); } catch (e2) {}
           try { await sleep(300 * (attempts + 1)); } catch (e3) {}
           return load(attempts + 1);
         }
-        // Mark API as offline and leave the list empty rather than showing fabricated users.
-        setApiOnline(false);
+        setApiOnline(Boolean(e?.status && e.status < 500));
         setUsers([]);
-        setNotification('Backend unreachable — user list is unavailable. Click Retry to try again.');
+        setNotification(e?.message || 'User list is unavailable. Click Retry to try again.');
       }
     }
     load();
     return () => { mounted = false; };
-  }, [schoolId]);
+  }, [healthWorkerManagement, schoolId]);
 
   const [query, setQuery] = useState('');
   const [selectedRoleFilter, setSelectedRoleFilter] = useState('');
@@ -135,10 +157,10 @@ export function useUserManagement({ schoolId = '', batchId = '' } = {}) {
     gender: 'Male',
     dob: '',
     location: 'Poblacion',
-    role: 'Admin',
+    role: healthWorkerManagement ? 'Health worker' : 'Admin',
     status: 'Active',
     password: '',
-    schoolId: '',
+    schoolId: healthWorkerManagement ? String(schoolId || '') : '',
     groupId: '',
   });
   const [page, setPage] = useState(1);
@@ -168,7 +190,7 @@ export function useUserManagement({ schoolId = '', batchId = '' } = {}) {
   }, [notification]);
 
   const filteredData = useMemo(() => {
-    const term = query.trim().toLowerCase();
+    const term = query.trim();
     const selectedBatch = batches.find((batch) => String(batch.id || batch.code) === String(batchId));
     const batchGroupIds = String(selectedBatch?.groupIds || '').split(',').map((id) => id.trim()).filter(Boolean);
     return users.filter((user) => {
@@ -189,8 +211,8 @@ export function useUserManagement({ schoolId = '', batchId = '' } = {}) {
         : String(user.schoolId || '') === String(selectedSchoolFilter));
       const matchesSearch =
         !term ||
-        user.name.toLowerCase().includes(term) ||
-        user.role.toLowerCase().includes(term);
+        user.name.includes(term) ||
+        user.role.includes(term);
       return matchesSchoolScope && matchesBatch && matchesStatus && matchesRole && matchesSelectedSchool && matchesSearch;
     });
   }, [batchId, batches, query, schoolId, selectedRoleFilter, selectedSchoolFilter, selectedStatusFilter, users]);
@@ -253,10 +275,10 @@ export function useUserManagement({ schoolId = '', batchId = '' } = {}) {
     gender: 'Male',
     dob: '',
     location: 'Poblacion',
-    role: 'Admin',
+    role: healthWorkerManagement ? 'Health worker' : 'Admin',
     status: 'Active',
     password: '',
-    schoolId: '',
+    schoolId: healthWorkerManagement ? String(schoolId || '') : '',
     groupId: '',
   });
 
@@ -282,10 +304,10 @@ export function useUserManagement({ schoolId = '', batchId = '' } = {}) {
       gender: user.gender || 'Male',
       dob: formatDobForInput(user.dob ?? user.dateOfBirth ?? user.date_of_birth) || '',
       location: user.location || 'Poblacion',
-      role: user.role || 'Admin',
+      role: healthWorkerManagement ? 'Health worker' : user.role || 'Admin',
       status: user.status || 'Active',
       password: user.password || '',
-      schoolId: user.schoolId || '',
+      schoolId: healthWorkerManagement ? String(schoolId || '') : user.schoolId || '',
       groupId: user.groupId || '',
     });
     setShowAddModal(true);
@@ -308,13 +330,15 @@ export function useUserManagement({ schoolId = '', batchId = '' } = {}) {
   const retryLoad = async () => {
     setNotification('Retrying connection to server...');
     try {
-      const mapped = await fetchAllUsers();
-      setUsers(schoolId ? mapped.filter((user) => String(user.schoolId || '') === String(schoolId)) : mapped);
+      const mapped = await fetchAllUsers(healthWorkerManagement);
+      setUsers(healthWorkerManagement
+        ? mapped
+        : schoolId ? mapped.filter((user) => String(user.schoolId || '') === String(schoolId)) : mapped);
       setApiOnline(true);
       setNotification('Reconnected to server. User list refreshed.');
     } catch (err) {
-      setApiOnline(false);
-      setNotification('Retry failed. Server still unreachable.');
+      setApiOnline(Boolean(err?.status && err.status < 500));
+      setNotification(err?.message || 'Unable to reload user list.');
     }
   };
 
@@ -338,9 +362,9 @@ export function useUserManagement({ schoolId = '', batchId = '' } = {}) {
       const mi = (fd.get('middleInitial') || '').toString().trim();
       const dobVal = (fd.get('dob') || form.dob || '').toString().trim();
       const normalizedDob = formatDobForInput(dobVal);
-      const roleVal = (fd.get('role') || 'Admin').toString();
+      const roleVal = healthWorkerManagement ? 'Health worker' : (fd.get('role') || 'Admin').toString();
       const statusVal = (fd.get('status') || 'Active').toString();
-      const schoolIdVal = (fd.get('schoolId') || '').toString();
+      const schoolIdVal = healthWorkerManagement ? String(schoolId || '') : (fd.get('schoolId') || '').toString();
       const groupIdVal = (fd.get('groupId') || '').toString();
       // Prefer password provided by the submitted form (FormData). Falls back to state-derived password if missing.
       const fdPassword = (fd.get('password') || '').toString();
@@ -397,19 +421,24 @@ export function useUserManagement({ schoolId = '', batchId = '' } = {}) {
       if (selectedUser) {
         // Update existing user
         const serverId = parseServerId(selectedUser.id);
-        const updated = await apiUpdateUser(serverId, {
+        const updatePayload = {
           firstName,
           lastName,
           middleInitial: mi || null,
           contactNumber: contactNumberSan,
           email,
           dob: dobToSave,
-          role: roleVal,
-          status: statusVal,
-          password: fdPassword || form.password,
           schoolId: schoolIdVal || null,
           groupId: groupIdVal || null,
-        });
+        };
+        const updated = healthWorkerManagement
+          ? await apiUpdateManagedHealthWorker(serverId, updatePayload)
+          : await apiUpdateUser(serverId, {
+            ...updatePayload,
+            role: roleVal,
+            status: statusVal,
+            password: fdPassword || form.password,
+          });
         try { console.log('Updated user from server', updated); } catch(e) {}
         setUsers((prev) => prev.map((u) => (u.id === selectedUser.id ? {
           ...u,
@@ -434,22 +463,7 @@ export function useUserManagement({ schoolId = '', batchId = '' } = {}) {
       } else {
         // Create new user
         const passwordToUse = (fdPassword && fdPassword.length >= 8) ? fdPassword : generatePassword({ lastName, contactNumber: contactNumberSan });
-        try { console.log('Computed passwordToUse', { fdPasswordLength: (fdPassword || '').length, passwordToUse }); } catch(e) {}
-        try { console.log('Password to use for new user (plaintext):', passwordToUse); } catch (e) {}
         if (!passwordToUse || passwordToUse.length < 8) { setNotification('Password must be at least 8 characters.'); try { console.log('Validation failed: password too short', { passwordToUse }); } catch(e){}; return; }
-
-        // Log payload for debug (we'll retry up to 5 times on duplicate username/email)
-        try { console.log('Creating user payload (initial)', {
-          firstName,
-          lastName,
-          middleInitial: mi || null,
-          contactNumber: contactNumberSan,
-          email: emailToUse,
-          dob: dobToSave,
-          role: roleVal,
-          status: statusVal,
-          password: passwordToUse,
-        }); } catch (e) {}
 
         // Use the normalized contact number as the username by default
         const baseUsername = contactNumberSan || `user${Date.now().toString().slice(-6)}`;
@@ -469,20 +483,20 @@ export function useUserManagement({ schoolId = '', batchId = '' } = {}) {
               username: usernameToUse,
               dob: dobToSave,
               role: roleVal,
-              status: statusVal,
+              status: healthWorkerManagement ? 'Active' : statusVal,
               password: passwordToUse,
-              schoolId: schoolIdVal || null,
+              schoolId: healthWorkerManagement ? undefined : schoolIdVal || null,
               groupId: groupIdVal || null,
             };
-            try { console.log(`Attempt ${attempts}: creating user with username=${usernameToUse} and email=${emailToUse}`, payload); } catch(e){}
-            data = await apiCreateUser(payload);
-            try { console.log('Created user response', data); } catch(e) {}
+            data = healthWorkerManagement
+              ? await apiCreateManagedHealthWorker(payload)
+              : await apiCreateUser(payload);
             // success
             break;
           } catch (err) {
             lastErr = err;
             const msg = (err && err.message) ? err.message.toString().toLowerCase() : '';
-            try { console.log(`Create attempt ${attempts} failed:`, msg); } catch(e){}
+            if (healthWorkerManagement) break;
             // If the server complains about email already existing, generate a new fallback email and retry
             if (/email already exists|email.*already.*exists|duplicate email|email.*taken/.test(msg)) {
               try {
@@ -547,10 +561,16 @@ export function useUserManagement({ schoolId = '', batchId = '' } = {}) {
         };
             setUsers((prev) => [newUser, ...prev]);
         // Expose the one-time credentials for the UI to show once (dev only). The frontend computed passwordToUse, so show that.
-        setOneTimeCredentials({ email: emailToUse, password: passwordToUse });
-        setNotification(`Created ${fullName}.`);
+        const emailSent = data.emailSent === true;
+        setOneTimeCredentials({
+          email: emailToUse,
+          password: emailSent ? null : passwordToUse,
+          emailSent,
+        });
+        setNotification(emailSent
+          ? `Created ${fullName} and emailed the account credentials.`
+          : `Created ${fullName}, but the credentials email could not be sent. Share the temporary password securely.`);
         try { console.log('Created and added user to UI', publicId, fullName); } catch(e) {}
-        try { console.log('One-time plaintext password for created user (dev):', passwordToUse); } catch(e) {}
         closeModal();
         setPage(1);
       }
@@ -588,7 +608,11 @@ export function useUserManagement({ schoolId = '', batchId = '' } = {}) {
       attempts += 1;
       try {
         const serverId = parseServerId(id);
-        await apiPatchUserStatus(serverId, targetStatus);
+        if (healthWorkerManagement) {
+          await apiPatchManagedHealthWorkerStatus(serverId, targetStatus);
+        } else {
+          await apiPatchUserStatus(serverId, targetStatus);
+        }
         setNotification(`User status updated to ${targetStatus}.`);
         try { console.log('Updated user status on server', serverId, targetStatus); } catch (e) {}
         break;
@@ -632,6 +656,9 @@ export function useUserManagement({ schoolId = '', batchId = '' } = {}) {
       attempts += 1;
       try {
         const serverId = parseServerId(id);
+        if (healthWorkerManagement) {
+          throw new Error('Permanent deletion is reserved for Super Admins.');
+        }
         await apiDeleteUser(serverId);
         // remove from UI only after server confirms deletion
         setUsers((prev) => prev.filter((user) => user.id !== id));
@@ -693,7 +720,8 @@ export function useUserManagement({ schoolId = '', batchId = '' } = {}) {
     pageCount,
     currentPage,
     breadcrumbItems,
-    ROLE_OPTIONS,
+    ROLE_OPTIONS: healthWorkerManagement ? ['Health worker'] : ROLE_OPTIONS,
+    healthWorkerManagement,
     STATUS_OPTIONS,
     handleSearch,
     setStatusFilter,

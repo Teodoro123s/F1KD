@@ -1,4 +1,5 @@
 ﻿import React from 'react';
+import TableSearch from '../../components/ui/TableSearch';
 
 export default function CommunityTable({
   columns = [],
@@ -7,12 +8,25 @@ export default function CommunityTable({
   rowKey = 'id',
   emptyMessage = 'No results found matching your search.',
   tableTitle,
+  searchValue = '',
+  onSearchChange,
 }) {
   const colSpan = Math.max(columns.length, 1);
+  const hasTableToolbar = tableTitle && onSearchChange;
 
   return (
     <section className="table-card">
-      {tableTitle && <div className="community-table-title">{tableTitle}</div>}
+      {hasTableToolbar ? (
+        <div className="community-table-toolbar">
+          <div className="community-table-title">{tableTitle}</div>
+          <TableSearch value={searchValue} onChange={onSearchChange} />
+        </div>
+      ) : (
+        <>
+          {tableTitle && <div className="community-table-title">{tableTitle}</div>}
+          {onSearchChange && <TableSearch value={searchValue} onChange={onSearchChange} />}
+        </>
+      )}
       <div className="table-overflow">
         <table className="data-table">
           <thead>

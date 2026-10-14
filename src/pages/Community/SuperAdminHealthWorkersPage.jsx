@@ -21,10 +21,10 @@ export default function SuperAdminHealthWorkersPage() {
 
     getGroupHealthWorkers(groupId)
       .then((response) => {
-        if (active) setWorkers(response.healthWorkers || []);
+        if (active) setWorkers(response.users || response.healthWorkers || []);
       })
       .catch((requestError) => {
-        if (active) setError(requestError.message || 'Unable to load health workers.');
+        if (active) setError(requestError.message || 'Unable to load group users.');
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -34,7 +34,8 @@ export default function SuperAdminHealthWorkersPage() {
   }, [groupId]);
 
   const columns = [
-    { key: 'name', header: 'Health Worker', renderCell: (row) => <span className="community-title-text">{row.name || 'Unnamed worker'}</span> },
+    { key: 'name', header: 'Name', renderCell: (row) => <span className="community-title-text">{row.name || 'Unnamed user'}</span> },
+    { key: 'role', header: 'Role', renderCell: (row) => row.role || '—' },
     { key: 'email', header: 'Email', renderCell: (row) => row.email || '—' },
     { key: 'contact_number', header: 'Contact Number', renderCell: (row) => row.contact_number || '—' },
     { key: 'status', header: 'Status', renderCell: (row) => row.status || 'Active' },
@@ -43,20 +44,21 @@ export default function SuperAdminHealthWorkersPage() {
   return (
     <div className="community-page">
       <PageHeader
-        title="Health Workers"
+        title="Group Users"
         breadcrumbs={[
           { label: 'Schools', to: '/community' },
           { label: schoolName, to: group ? `/community/school/${group.communityId || ''}` : '/community' },
-          { label: group?.name || 'Group' },
+          { label: group?.name || 'Group', to: group ? `/community/group/${group.id}` : undefined },
+          { label: 'Assigned Users' },
         ]}
-        actions={<Link className="view-btn view-btn--secondary back-action" to={group ? `/community/group/${group.id}` : '/community'}>Back to Group</Link>}
+        actions={<Link className="view-btn view-btn--secondary back-action" to={group?.communityId ? `/community/school/${group.communityId}` : '/community'}>Back to School Groups</Link>}
       />
-      {groupLoading || loading ? <p>Loading health workers...</p> : error ? <p className="error-message">{error}</p> : (
+      {groupLoading || loading ? <p>Loading group users...</p> : error ? <p className="error-message">{error}</p> : (
         <CommunityTable
           columns={columns}
           data={workers}
-          tableTitle={`Health Workers assigned to ${group?.name || 'Group'}`}
-          emptyMessage="No health workers are assigned to this group."
+          tableTitle={`Health Workers and Community Organizers for ${group?.name || 'Group'}`}
+          emptyMessage="No health workers or community organizers are assigned to this group."
         />
       )}
     </div>

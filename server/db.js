@@ -58,6 +58,12 @@ async function ensure() {
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
 
+    `ALTER TABLE mother_checkups
+      ADD COLUMN IF NOT EXISTS milk_subsidy_provided BOOLEAN NOT NULL DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS lab_assistance_tests TEXT NULL,
+      ADD COLUMN IF NOT EXISTS laboratory_requests TEXT NULL,
+      ADD COLUMN IF NOT EXISTS treatment_services TEXT NULL;`,
+
     `ALTER TABLE users
       ADD COLUMN IF NOT EXISTS school_id INT NULL,
       ADD COLUMN IF NOT EXISTS group_id INT NULL;`,
@@ -121,6 +127,14 @@ async function ensure() {
       mother_id_no VARCHAR(50) UNIQUE,
       mother_external_id VARCHAR(128),
       dob DATE,
+      birth_place VARCHAR(150),
+      allergies TEXT,
+      blood_type VARCHAR(10),
+      civil_status VARCHAR(30),
+      employment_status VARCHAR(40),
+      educational_attainment VARCHAR(50),
+      data_privacy_signed BOOLEAN NOT NULL DEFAULT FALSE,
+      media_release_signed BOOLEAN NOT NULL DEFAULT FALSE,
       lmp_date DATE,
       edd_date DATE,
       contact_number VARCHAR(20),
@@ -143,6 +157,10 @@ async function ensure() {
       para INT,
       abortion INT DEFAULT 0,
       stillbirth INT DEFAULT 0,
+      total_children INT,
+      children_born_alive INT,
+      miscarriages INT,
+      children_died_after_birth INT,
       status VARCHAR(20) DEFAULT 'Active',
       visits INT DEFAULT 0,
       progress INT DEFAULT 0,
@@ -175,6 +193,10 @@ async function ensure() {
       facility_type VARCHAR(40) NULL,
       milk_subsidy_date DATE NULL,
       milk_quantity_pcs INT UNSIGNED NULL,
+      milk_subsidy_provided BOOLEAN NOT NULL DEFAULT FALSE,
+      lab_assistance_tests TEXT NULL,
+      laboratory_requests TEXT NULL,
+      treatment_services TEXT NULL,
       remarks TEXT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -254,6 +276,8 @@ async function ensure() {
       birth_date DATE,
       birth_weight DECIMAL(5,2),
       birth_length DECIMAL(5,2),
+      head_circumference DECIMAL(5,2),
+      chest_circumference DECIMAL(5,2),
       gender ENUM('Male','Female','Other') DEFAULT 'Female',
       blood_type VARCHAR(5),
       no_of_child_delivered INT,
@@ -288,7 +312,9 @@ async function ensure() {
       ADD COLUMN IF NOT EXISTS expanded_newborn_screening TEXT,
       ADD COLUMN IF NOT EXISTS expanded_newborn_screening_result TEXT,
       ADD COLUMN IF NOT EXISTS birth_document_name VARCHAR(255),
-      ADD COLUMN IF NOT EXISTS birth_document_path VARCHAR(500);`,
+      ADD COLUMN IF NOT EXISTS birth_document_path VARCHAR(500),
+      ADD COLUMN IF NOT EXISTS head_circumference DECIMAL(5,2),
+      ADD COLUMN IF NOT EXISTS chest_circumference DECIMAL(5,2);`,
 
     `ALTER TABLE mothers
       ADD COLUMN IF NOT EXISTS mother_external_id VARCHAR(128),
@@ -302,6 +328,20 @@ async function ensure() {
       ADD COLUMN IF NOT EXISTS height DECIMAL(5,2),
       ADD COLUMN IF NOT EXISTS medical_conditions JSON,
       ADD COLUMN IF NOT EXISTS other_medical_history TEXT;`,
+
+    `ALTER TABLE mothers
+      ADD COLUMN IF NOT EXISTS birth_place VARCHAR(150),
+      ADD COLUMN IF NOT EXISTS allergies TEXT,
+      ADD COLUMN IF NOT EXISTS blood_type VARCHAR(10),
+      ADD COLUMN IF NOT EXISTS civil_status VARCHAR(30),
+      ADD COLUMN IF NOT EXISTS employment_status VARCHAR(40),
+      ADD COLUMN IF NOT EXISTS educational_attainment VARCHAR(50),
+      ADD COLUMN IF NOT EXISTS data_privacy_signed BOOLEAN NOT NULL DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS media_release_signed BOOLEAN NOT NULL DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS total_children INT,
+      ADD COLUMN IF NOT EXISTS children_born_alive INT,
+      ADD COLUMN IF NOT EXISTS miscarriages INT,
+      ADD COLUMN IF NOT EXISTS children_died_after_birth INT;`,
 
     `CREATE TABLE IF NOT EXISTS child_medical_conditions (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -333,6 +373,13 @@ async function ensure() {
       weight DECIMAL(5,2),
       height DECIMAL(5,2),
       head_circumference DECIMAL(5,2),
+      exclusive_breastfeeding VARCHAR(10),
+      laboratory_requests TEXT,
+      laboratory_assistance_provided BOOLEAN NOT NULL DEFAULT FALSE,
+      referred_to_hospital BOOLEAN NOT NULL DEFAULT FALSE,
+      assistance_amount DECIMAL(10,2),
+      source_of_funds VARCHAR(80),
+      facility_type VARCHAR(40),
       developmental_status VARCHAR(40),
       service_provider VARCHAR(150),
       notes TEXT,
@@ -344,7 +391,14 @@ async function ensure() {
       ADD COLUMN IF NOT EXISTS week_number TINYINT UNSIGNED NULL,
       ADD COLUMN IF NOT EXISTS developmental_status VARCHAR(40),
       ADD COLUMN IF NOT EXISTS service_provider VARCHAR(150),
-      ADD COLUMN IF NOT EXISTS next_checkup_date DATE;`,
+      ADD COLUMN IF NOT EXISTS next_checkup_date DATE,
+      ADD COLUMN IF NOT EXISTS exclusive_breastfeeding VARCHAR(10),
+      ADD COLUMN IF NOT EXISTS laboratory_requests TEXT,
+      ADD COLUMN IF NOT EXISTS laboratory_assistance_provided BOOLEAN NOT NULL DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS referred_to_hospital BOOLEAN NOT NULL DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS assistance_amount DECIMAL(10,2),
+      ADD COLUMN IF NOT EXISTS source_of_funds VARCHAR(80),
+      ADD COLUMN IF NOT EXISTS facility_type VARCHAR(40);`,
 
     `CREATE TABLE IF NOT EXISTS programs (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -459,7 +513,22 @@ async function ensure() {
       ADD COLUMN IF NOT EXISTS school_id INT DEFAULT NULL,
       ADD COLUMN IF NOT EXISTS group_id INT DEFAULT NULL,
       ADD COLUMN IF NOT EXISTS school_scope_ids VARCHAR(1000) DEFAULT NULL,
-      ADD COLUMN IF NOT EXISTS recipient_user_ids VARCHAR(1000) DEFAULT NULL;`
+      ADD COLUMN IF NOT EXISTS recipient_user_ids VARCHAR(1000) DEFAULT NULL;`,
+    `CREATE TABLE IF NOT EXISTS notification_reads (
+      notification_id BIGINT UNSIGNED NOT NULL,
+      user_id INT NOT NULL,
+      read_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (notification_id, user_id),
+      KEY idx_notification_reads_user (user_id),
+      CONSTRAINT fk_notification_reads_notification FOREIGN KEY (notification_id) REFERENCES notifications(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+    `CREATE TABLE IF NOT EXISTS password_reset_codes (
+      email VARCHAR(255) PRIMARY KEY,
+      code_hash CHAR(64) NOT NULL,
+      expires_at DATETIME NOT NULL,
+      attempts TINYINT UNSIGNED NOT NULL DEFAULT 0,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`
   ];
 
   const conn = await pool.getConnection();
@@ -616,4 +685,3 @@ const ready = (async () => {
 module.exports = pool;
 module.exports.ready = ready;
 module.exports.ensureDefaultAdmin = ensureDefaultAdmin;
-

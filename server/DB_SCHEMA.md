@@ -143,6 +143,14 @@ Columns:
 - `mother_id_no`
 - `mother_external_id`
 - `dob`
+- `birth_place`
+- `allergies`
+- `blood_type`
+- `civil_status`
+- `employment_status`
+- `educational_attainment`
+- `data_privacy_signed`
+- `media_release_signed`
 - `lmp_date`
 - `edd_date`
 - `contact_number`
@@ -165,6 +173,10 @@ Columns:
 - `para`
 - `abortion`
 - `stillbirth`
+- `total_children`
+- `children_born_alive`
+- `miscarriages`
+- `children_died_after_birth`
 - `weight`
 - `height`
 - `medical_conditions`
@@ -278,10 +290,15 @@ Columns:
 - `facility_type`
 - `milk_subsidy_date`
 - `milk_quantity_pcs`
+- `milk_subsidy_provided`
+- `lab_assistance_tests`
+- `laboratory_requests`
+- `treatment_services`
 - `remarks`
 
 Purpose:
-- prenatal monitoring and service tracking
+- maternal prenatal monitoring and service tracking across trimester check-ups
+- laboratory requests, assistance, milk subsidy, and treatment/service notes from the maternal record
 
 ---
 
@@ -301,6 +318,8 @@ Columns:
 - `birth_date`
 - `birth_weight`
 - `birth_length`
+- `head_circumference`
+- `chest_circumference`
 - `gender`
 - `blood_type`
 - `no_of_child_delivered`
@@ -367,12 +386,21 @@ Columns:
 - `weight`
 - `height`
 - `head_circumference`
+- `exclusive_breastfeeding`
+- `laboratory_requests`
+- `laboratory_assistance_provided`
+- `referred_to_hospital`
+- `assistance_amount`
+- `source_of_funds`
+- `facility_type`
 - `developmental_status`
 - `service_provider`
 - `notes`
 
 Purpose:
-- child growth and monitoring records
+- pediatric growth monitoring with monthly follow-ups through 24 months
+- per-visit breastfeeding, laboratory, referral, and assistance records
+- supplementary feeding is intentionally excluded here; it remains part of Program records
 
 ---
 
@@ -512,3 +540,9 @@ The database is generally organized around a clear separation of concerns:
 - `programs`, `program_clusters`, and `monitoring_logs` for program tracking and monitoring
 
 This is the cleanest single review summary of the database schema as it exists in the current project files and the live verification of the `users` table.
+
+## 5. Notification read receipts
+
+`notification_reads` stores a per-user receipt for each notification opened from the Notifications page. Its composite primary key (`notification_id`, `user_id`) ensures each user has an independent read state, and deleting a notification cascades to its receipts. The Notifications API uses this table to provide accurate All, Read, and Unread counts and filters.
+
+The table is created during database initialization in `db.js` and is also defined in `migrations/20261016_create_notification_reads.sql`.

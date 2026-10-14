@@ -8,7 +8,8 @@ Docker Compose runs a MySQL-compatible MariaDB database, MinIO document storage,
 
 1. Install Docker Desktop (Windows/macOS) or Docker Engine with the Compose plugin (Linux).
 2. Copy `.env.docker.example` to `.env` and replace every password/secret placeholder with unique values.
-3. Start the services from the repository root:
+3. Add the EmailJS service ID, public key, private key, credentials template ID (named `EMAILJS_CREDENTIALS_TEMPLATE_ID` or `EMAILJS_USER_TEMPLATE_ID`), and OTP template ID to `.env` to enable account emails and password resets. Rotate any private key exposed in screenshots before configuring it. Keep the private key server-side; never use a `VITE_*` variable for it. The credentials template needs an email recipient field (`email` or `to_email`), `to_name`, `role`, and `password`; the OTP template needs an email recipient field (`email` or `to_email`), `to_name`, `passcode`, and `time`.
+4. Start the services from the repository root:
 
 ```sh
 docker compose -f docker-compose.minio.yml up --build -d
@@ -19,6 +20,20 @@ Open `http://localhost:8080` on the Docker host. Other devices on the same netwo
 Data persists in the `mariadb-data` and `minio-data` Docker volumes. Local-upload fallback files persist under `server/data/uploads`. `docker compose down` keeps this data; `docker compose down -v` deletes the database and MinIO volumes and should not be used unless you intend to erase them. Back up the SQL database and MinIO objects before moving to a different Docker host; volumes are local to the host and are not automatically synchronized to client devices.
 
 An existing local MySQL/MariaDB database is not copied automatically. Export it with `mysqldump`, start the stack, then import the dump into the `mariadb` service before using the app. Copy existing local document files into MinIO or `server/data/uploads` as appropriate; changing the database host alone does not migrate documents.
+
+For local testing only, role shortcuts can be explicitly enabled while keeping the web port bound to loopback:
+
+```powershell
+$env:ENABLE_TEST_ROLE_SHORTCUTS = "true"
+$env:WEB_PORT = "127.0.0.1:8080"
+docker compose -f docker-compose.minio.yml up --build -d
+Remove-Item Env:ENABLE_TEST_ROLE_SHORTCUTS
+Remove-Item Env:WEB_PORT
+```
+
+For the local Express API, copy `server/.env.example` to `server/.env` and set the same five EmailJS variables there.
+
+The shortcuts sign in to the first existing active account for the selected role. Do not enable them in a publicly accessible deployment.
 
 To stop without deleting stored data:
 
@@ -41,6 +56,8 @@ Run dev server:
 ```bash
 npm run dev
 ```
+
+For local role testing, start the backend with `NODE_ENV=development` to enable the login shortcuts for loopback requests. In Docker, use the explicit opt-in above; normal email/password login remains available.
 
 Build for production:
 

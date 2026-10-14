@@ -28,6 +28,21 @@ const LAB_ASSISTANCE_OPTIONS = [
   'Glucose Screening (OGTT)',
   'Genetic and Chromosomal Screening',
 ];
+const LAB_REQUEST_OPTIONS = [
+  'Complete Blood Count',
+  'Hemoglobin Count',
+  'Oral Glucose Tolerance',
+  'Breast Examination',
+  'Stool Examination',
+  'Sputum Analysis',
+  'Acetic Acid Wash',
+  'Bacterium Screening',
+  'Urinalysis',
+  'Pap Smear',
+  'STI / HIV / AIDS Screening',
+  'Hepatitis B Screening',
+  'Other',
+];
 
 const getTrimesterFromGestationalAge = (weeks) => {
   if (weeks > 26) return '3rd Trimester';
@@ -128,11 +143,14 @@ const createInitialFormState = (mother, checkup = null, blank = false, previousC
   referral: checkup?.referral ?? false,
   labAssistance: checkup?.labAssistance ?? false,
   labAssistanceTests: checkup?.labAssistanceTests ?? [],
+  laboratoryRequests: checkup?.laboratoryRequests ?? [],
   amount: checkup?.amount ?? '',
   sourceOfFunds: blank ? '' : checkup?.sourceOfFunds ?? 'Municipal Fund',
   facilityType: checkup?.facilityType ?? 'Govt',
   milkDate: formatDate(checkup?.milkDate),
   milkQuantity: checkup?.milkQuantity ?? '',
+  milkSubsidy: checkup?.milkSubsidy ?? Boolean(checkup?.milkDate || checkup?.milkQuantity),
+  treatmentServices: checkup?.treatmentServices ?? '',
   remarks: checkup?.remarks ?? '',
 });
 
@@ -180,16 +198,19 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
     referral,
     labAssistance,
     labAssistanceTests,
+    laboratoryRequests,
     amount,
     sourceOfFunds,
     facilityType,
     milkDate,
     milkQuantity,
+    milkSubsidy,
+    treatmentServices,
     remarks,
   } = formState;
 
   const bmi = calculateBmi(weight, height);
-  const showReferralFields = referral === true;
+  const showReferralFields = referral === true || labAssistance === true;
 
   const nutritionalStatus = useMemo(() => {
     const value = parseFloat(bmi);
@@ -247,11 +268,15 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
       nextCheckupDate: formatDateForPayload(nextCheckupDate),
       referral,
       labAssistance,
+      labAssistanceTests,
+      laboratoryRequests,
       amount,
       sourceOfFunds,
       facilityType,
       milkDate: formatDateForPayload(milkDate),
       milkQuantity,
+      milkSubsidy,
+      treatmentServices,
       remarks,
       motherId: mother.id,
       trimester: currentCheckup.trimesterLabel,
@@ -426,48 +451,97 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
                   </button>
                 </div>
               </div>
+              <div className="horizontal-toggle-row full-width">
+                <span className="horizontal-toggle-label">Laboratory Assistance Provided</span>
+                <label className="ios-switch">
+                  <input
+                    type="checkbox"
+                    checked={labAssistance}
+                    onChange={(e) => updateField('labAssistance')(e.target.checked)}
+                  />
+                  <span className="ios-slider"></span>
+                </label>
+              </div>
+              {labAssistance && (
+                <div className="form-group full-width">
+                  <details className="lab-assistance-dropdown" open>
+                    <summary>Choose assisted laboratory tests</summary>
+                    <div className="lab-assistance-options">
+                      {LAB_ASSISTANCE_OPTIONS.map((option) => (
+                        <label key={option} className="lab-assistance-option">
+                          <input
+                            type="checkbox"
+                            checked={labAssistanceTests.includes(option)}
+                            onChange={(event) => updateField('labAssistanceTests')(
+                              event.target.checked
+                                ? [...labAssistanceTests, option]
+                                : labAssistanceTests.filter((test) => test !== option),
+                            )}
+                          />
+                          <span>{option}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </details>
+                </div>
+              )}
+              <div className="form-group full-width">
+                <label className="checkup-field-label" htmlFor="mother-laboratory-requests">Laboratory Request(s)</label>
+                <select
+                  id="mother-laboratory-requests"
+                  className="checkup-field-input"
+                  multiple
+                  value={Array.isArray(laboratoryRequests) ? laboratoryRequests : []}
+                  onChange={(event) => updateField('laboratoryRequests')([...event.target.selectedOptions].map((option) => option.value))}
+                  size={Math.min(5, LAB_REQUEST_OPTIONS.length)}
+                >
+                  {LAB_REQUEST_OPTIONS.map((option) => <option key={option}>{option}</option>)}
+                </select>
+                <span className="checkup-field-help">Use Ctrl or Command to select multiple tests.</span>
+              </div>
+              <div className="horizontal-toggle-row full-width">
+                <span className="horizontal-toggle-label">Milk Subsidy Provided</span>
+                <label className="ios-switch">
+                  <input
+                    type="checkbox"
+                    checked={milkSubsidy}
+                    onChange={(e) => updateField('milkSubsidy')(e.target.checked)}
+                  />
+                  <span className="ios-slider"></span>
+                </label>
+              </div>
+              {milkSubsidy && (
+                <>
+                  <div className="form-group">
+                    <label className="checkup-field-label" htmlFor="mother-milk-date">Milk Subsidy Date</label>
+                    <DateInput
+                      id="mother-milk-date"
+                      className="checkup-field-input"
+                      value={milkDate}
+                      onChange={updateField('milkDate')}
+                      ariaLabel="Milk subsidy date"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="checkup-field-label" htmlFor="mother-milk-quantity">Milk Quantity (pcs.)</label>
+                    <input
+                      id="mother-milk-quantity"
+                      type="number"
+                      min="0"
+                      step="1"
+                      className="checkup-field-input"
+                      value={milkQuantity}
+                      onChange={(e) => updateField('milkQuantity')(e.target.value)}
+                    />
+                  </div>
+                </>
+              )}
             </div>
 
             {showReferralFields ? (
               <>
                 <div className="checkup-section-title">Assistance & Funding</div>
                 <div className="checkup-grid">
-                  <div className="horizontal-toggle-row full-width">
-                    <span className="horizontal-toggle-label">Lab Assistance Provided</span>
-                    <label className="ios-switch">
-                      <input
-                        type="checkbox"
-                        checked={labAssistance}
-                        onChange={(e) => updateField('labAssistance')(e.target.checked)}
-                      />
-                      <span className="ios-slider"></span>
-                    </label>
-                  </div>
-
-                  {labAssistance && (
-                    <div className="form-group full-width">
-                      <details className="lab-assistance-dropdown" open>
-                        <summary>Choose assisted laboratory tests</summary>
-                        <div className="lab-assistance-options">
-                          {LAB_ASSISTANCE_OPTIONS.map((option) => (
-                            <label key={option} className="lab-assistance-option">
-                              <input
-                                type="checkbox"
-                                checked={labAssistanceTests.includes(option)}
-                                onChange={(event) => updateField('labAssistanceTests')(
-                                  event.target.checked
-                                    ? [...labAssistanceTests, option]
-                                    : labAssistanceTests.filter((test) => test !== option),
-                                )}
-                              />
-                              <span>{option}</span>
-                            </label>
-                          ))}
-                        </div>
-                      </details>
-                    </div>
-                  )}
-
                   <div className="form-group">
                     <label className="checkup-field-label" htmlFor="amount">Assistance Amount (PHP)</label>
                     <input
@@ -522,12 +596,28 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
             ) : (
               <div className="checkup-grid" style={{ marginTop: '16px' }}>
                 <div className="form-group full-width">
-                  <p className="checkup-state-message">Referral to hospital is not selected. Assistance and funding fields are not required for this checkup.</p>
+                  <p className="checkup-state-message">Referral and laboratory assistance were not selected for this check-up.</p>
                 </div>
               </div>
             )}
 
             <div className="checkup-grid">
+              <div className="form-group full-width">
+                <details className="lab-assistance-dropdown">
+                  <summary>Treatment and other services</summary>
+                  <label className="checkup-field-label" htmlFor="mother-treatment-services">
+                    Micronutrients, medication, screening, referral, and financial assistance
+                  </label>
+                  <textarea
+                    id="mother-treatment-services"
+                    className="checkup-field-input"
+                    rows="4"
+                    value={treatmentServices}
+                    onChange={(event) => updateField('treatmentServices')(event.target.value)}
+                    placeholder="Record services or micronutrients provided, including source, date, and quantity."
+                  />
+                </details>
+              </div>
               <div className="form-group full-width" style={{ marginTop: '12px' }}>
                 <label className="checkup-field-label" htmlFor="remarks">Remarks / Notes</label>
                 <textarea

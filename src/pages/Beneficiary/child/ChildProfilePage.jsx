@@ -2,13 +2,14 @@
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useMothers } from '../../../context/MothersContext';
 import { formatDateForDisplay } from '../../../utils/dateFormat';
-import { apiDeleteChild } from '../../../api/children';
+import { apiDeleteChild, apiGetChild } from '../../../api/children';
 import { DocumentPreview, DocumentPreviewModal } from '../../../components/DocumentPreview';
 import { useAuth } from '../../../auth/AuthProvider';
 import { can } from '../../../utils/permissions';
 import { capitalizeNameValue } from '../../../utils/nameFormat';
 import { ChildFormFields } from './BeneficiaryChild';
 import PageHeader from '../../../components/ui/PageHeader';
+import ProgressTrendChart from '../../../components/ui/ProgressTrendChart';
 import ConfirmModal from '../../UserManagement/ConfirmModal';
 import { notifyAction } from '../../../components/ActionFeedback';
 
@@ -69,6 +70,8 @@ const normalizeChild = (child = {}) => ({
   birthDate: child.birthDate || child.birth_date || '',
   birthWeight: child.birthWeight ?? child.birth_weight ?? '',
   birthLength: child.birthLength ?? child.birth_length ?? '',
+  headCircumference: child.headCircumference ?? child.head_circumference ?? '',
+  chestCircumference: child.chestCircumference ?? child.chest_circumference ?? '',
   gender: child.gender || '',
   bloodType: child.bloodType || child.blood_type || '',
   noOfChildDelivered: child.noOfChildDelivered ?? child.no_of_child_delivered ?? '',
@@ -220,8 +223,7 @@ export default function ChildProfilePage() {
     if (idToFetch) {
       (async () => {
         try {
-          const mod = await import('../../../api/children');
-          const res = await mod.apiGetChild(idToFetch);
+          const res = await apiGetChild(idToFetch);
           if (res && res.child && !canceled) {
             // normalize returned child to match expected shape
             const c = res.child;
@@ -271,10 +273,10 @@ export default function ChildProfilePage() {
   const vaccineRows = [
     { label: 'BCG', date: formatVaccineDoses(selectedChild?.BCG, selectedChild?.bcgDate), remarks: selectedChild?.bcgRemarks || selectedChild?.BCG?.remarks || '—' },
     { label: 'Hepatitis B', date: formatVaccineDoses(selectedChild?.HepB, selectedChild?.hepbDate), remarks: selectedChild?.hepbRemarks || selectedChild?.HepB?.remarks || '—' },
-    { label: 'Inactivated Polio Vaccine', date: formatDateForDisplay(selectedChild?.ipvDate || selectedChild?.ipv_date), remarks: selectedChild?.ipvRemarks || selectedChild?.ipv_remarks || '—' },
+    { label: 'Inactivated Polio Vaccine', date: formatVaccineDoses(selectedChild?.IPV, selectedChild?.ipvDate || selectedChild?.ipv_date), remarks: selectedChild?.ipvRemarks || selectedChild?.IPV?.remarks || selectedChild?.ipv_remarks || '—' },
     { label: 'Pentavalent Vaccine', date: formatVaccineDoses(selectedChild?.DPT, selectedChild?.dptDate), remarks: selectedChild?.dptRemarks || selectedChild?.DPT?.remarks || '—' },
     { label: 'Oral Polio Vaccine (OPV)', date: formatVaccineDoses(selectedChild?.OPV, selectedChild?.opvDate), remarks: selectedChild?.opvRemarks || selectedChild?.OPV?.remarks || '—' },
-    { label: 'Pneumococcal (PCV)', date: formatDateForDisplay(selectedChild?.pcvDate || selectedChild?.pcv_date), remarks: selectedChild?.pcvRemarks || selectedChild?.pcv_remarks || '—' },
+    { label: 'Pneumococcal (PCV)', date: formatVaccineDoses(selectedChild?.PCV, selectedChild?.pcvDate || selectedChild?.pcv_date), remarks: selectedChild?.pcvRemarks || selectedChild?.PCV?.remarks || selectedChild?.pcv_remarks || '—' },
     { label: 'Measles, Mumps, Rubella (MMR)', date: formatVaccineDoses(selectedChild?.MMR, selectedChild?.mmrDate), remarks: selectedChild?.mmrRemarks || selectedChild?.MMR?.remarks || '—' },
   ];
 
@@ -283,6 +285,8 @@ export default function ChildProfilePage() {
     birthDate: formatDateForDisplay(selectedChild?.birthDate || selectedChild?.birth_date),
     birthWeight: selectedChild?.birthWeight ?? selectedChild?.birth_weight ?? '',
     birthLength: selectedChild?.birthLength ?? selectedChild?.birth_length ?? '',
+    headCircumference: selectedChild?.headCircumference ?? selectedChild?.head_circumference ?? '',
+    chestCircumference: selectedChild?.chestCircumference ?? selectedChild?.chest_circumference ?? '',
             motherName: selectedChild?.motherName
               || [selectedChild?.mother_first_name, selectedChild?.mother_last_name].filter(Boolean).join(' ')
               || resolvedMother?.name
@@ -298,6 +302,17 @@ export default function ChildProfilePage() {
     medicalConditions: selectedChild?.medicalConditions || {},
     medicalRemarks: selectedChild?.medicalRemarks || selectedChild?.medical_remarks || '',
   };
+
+  const childProgressPoints = (selectedChild?.checkups || [])
+    .map((checkup, index) => {
+      const month = checkup.weekNumber ?? checkup.week_number;
+      return {
+        label: month !== null && month !== undefined ? `M${month}` : `Visit ${index + 1}`,
+        date: checkup.checkupDate || checkup.visit_date || '',
+        weight: checkup.weight,
+        height: checkup.height,
+      };
+    });
 
   const rightColumnContent = (!selectedChild && (childId || id)) ? (
     <div>
@@ -335,6 +350,16 @@ export default function ChildProfilePage() {
         message={`Delete ${childName || 'this child'} and all of their beneficiary data? This cannot be undone.`}
         onConfirm={deleteChild}
         onCancel={() => setShowDeleteConfirm(false)}
+      />
+
+      <ProgressTrendChart
+        title="Individual Growth Progress"
+        description="Recorded growth measurements by monthly monitoring visit."
+        data={childProgressPoints}
+        metrics={[
+          { key: 'weight', label: 'Weight', unit: 'kg', color: '#168447' },
+          { key: 'height', label: 'Height', unit: 'cm', color: '#2563eb' },
+        ]}
       />
 
       {!isChildProfile && <section className="mother-detail-section">

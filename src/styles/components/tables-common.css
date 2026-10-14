@@ -4,8 +4,25 @@
 .data-table { width: 100%; border-collapse: collapse; text-align: left; }
 
 /* General table layout & cells */
-.data-table th { padding: 1rem 1.2rem; font-size: 0.78rem; font-weight: 700; color: var(--text-muted); letter-spacing: 0.08em; text-transform: uppercase; border-bottom: 1.5px solid #EDF2F7; background: #FBFDFF; }
-.data-table td { padding: 1.1rem 1.5rem; font-size: 0.95rem; color: var(--slate-dark); border-bottom: 1px solid #EDF2F7; vertical-align: middle; }
+.data-table th { padding: 0.65rem 0.85rem; font-size: 0.72rem; font-weight: 700; color: var(--text-muted); letter-spacing: 0.06em; text-transform: uppercase; border-bottom: 1.5px solid #EDF2F7; background: #FBFDFF; }
+.data-table td { padding: 0.7rem 0.95rem; font-size: 0.86rem; color: var(--slate-dark); border-bottom: 1px solid #EDF2F7; vertical-align: middle; }
+.data-table th:last-child,
+.data-table td:last-child {
+  width: 110px;
+  min-width: 110px;
+  text-align: center;
+  white-space: nowrap;
+}
+.data-table td:last-child .view-btn,
+.data-table td:last-child .btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 68px;
+  min-height: 28px;
+  padding: 0.25rem 0.55rem;
+  white-space: nowrap;
+}
 .data-table tbody tr:hover { background: #F8FAFC; }
 .no-data {
   padding: 3rem 1.5rem;

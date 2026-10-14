@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import PageHeader from '../components/ui/PageHeader';
-import { PageSkeleton } from '../components/LoadingSkeleton';
-import { useAuth } from '../auth/AuthProvider';
-import { getSummary } from './Community/communityService';
-import { isCommunityCoordinatorRole, isHealthWorkerRole } from '../utils/permissions';
+import PageHeader from '../../components/ui/PageHeader';
+import { PageSkeleton } from '../../components/LoadingSkeleton';
+import { useAuth } from '../../auth/AuthProvider';
+import { getSummary } from '../Community/communityService';
+import { isCommunityCoordinatorRole, isHealthWorkerRole } from '../../utils/permissions';
+import ChangePasswordForm from '../../components/ChangePasswordForm';
 
 export default function ProfilePage() {
   const auth = useAuth();
@@ -122,6 +123,9 @@ export default function ProfilePage() {
                 )}
               </div>
             </div>
+          </div>
+          <div style={{ marginTop: '1rem' }}>
+            <ChangePasswordForm />
           </div>
         </main>
       )}

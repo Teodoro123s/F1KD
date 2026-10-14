@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import BeneficiaryTable from './BeneficiaryTable';
 import StatusFilterBar from './components/StatusFilterBar';
 import EntitySearchControls from './components/EntitySearchControls';
+import ModuleSummaryCards from '../../components/ui/ModuleSummaryCards';
 import { apiGetChildren } from '../../api/children';
 import { getMotherProfileProgress, getMotherMonitoringProgress } from '../../utils/motherProgress';
 import { getChildProfileProgress, getChildMonitoringProgress } from '../../utils/childProgress';
@@ -28,6 +29,7 @@ export default function BeneficiaryListPage({ communities = [], groups = [], bat
   const [page, setPage] = useState(1);
   const [selectedEntityFilter, setSelectedEntityFilter] = useState('Mother');
   const [selectedCommunityFilter, setSelectedCommunityFilter] = useState('');
+  const [selectedSummaryCard, setSelectedSummaryCard] = useState(null);
   const [childRows, setChildRows] = useState([]);
   const [childrenLoading, setChildrenLoading] = useState(false);
 
@@ -80,7 +82,7 @@ export default function BeneficiaryListPage({ communities = [], groups = [], bat
   const handlePerPageChange = (val) => { setPerPage(Number(val)); setPage(1); };
 
   const filteredData = useMemo(() => {
-    const term = (query || '').trim().toLowerCase();
+    const term = (query || '').trim();
     let data = selectedEntityFilter === 'Child' ? childRows : mothers;
 
     if (batchId) {
@@ -156,7 +158,7 @@ export default function BeneficiaryListPage({ communities = [], groups = [], bat
     if (term) {
       // Respect the selected entity filter when searching
       data = data.filter((g) => (
-        `${g.name || ''} ${g.community || ''}`.toLowerCase().includes(term)
+        `${g.name || ''} ${g.community || ''}`.includes(term)
       ));
     }
 
@@ -232,44 +234,65 @@ export default function BeneficiaryListPage({ communities = [], groups = [], bat
 
   return (
     <>
-      <section className="tabs-row beneficiary-filter-row">
-        <StatusFilterBar
-          mode="beneficiary"
-          selectedStatusFilter={selectedStatusFilter}
-          onChange={(nextStatus) => {
-            setSelectedStatusFilter(nextStatus);
-            setPage(1);
-          }}
-        />
-
-        <EntitySearchControls
-          selectedEntityFilter={selectedEntityFilter}
-          communities={communities}
-          selectedCommunity={selectedCommunityFilter}
-          onCommunityChange={(value) => { setSelectedCommunityFilter(value); setPage(1); }}
-          query={query}
-            onEntityChange={(nextType) => { setSelectedEntityFilter(nextType); setQuery(''); setPage(1); }}
-          onQueryChange={handleSearch}
-        />
-      </section>
-
-      <BeneficiaryTable
-        currentRows={displayRows}
-        loading={loading || (selectedEntityFilter === 'Child' && childrenLoading)}
-        filteredDataLength={filteredData.length}
-        rangeStart={rangeStart}
-        rangeEnd={rangeEnd}
-        perPage={perPage}
-        handlePerPageChange={handlePerPageChange}
-        renderPaginationButtons={renderPaginationButtons}
-        motherProgressByName={motherProgressByName}
-        onSelectMother={onSelectMother}
-        onSelectChild={onSelectChild}
-        communities={communities}
-        groups={groups}
-        batches={batches}
-        entityFilter={selectedEntityFilter}
+      <ModuleSummaryCards
+        selected={selectedSummaryCard}
+        toggleOnSelect
+        onSelect={(selection) => {
+          setSelectedSummaryCard(selection);
+          if (selection === 'mothers') setSelectedEntityFilter('Mother');
+          if (selection === 'children') setSelectedEntityFilter('Child');
+          setPage(1);
+        }}
+        cards={[
+          { key: 'mothers', label: 'Mothers', value: mothers.length, description: 'View list' },
+          { key: 'children', label: 'Children', value: childRows.length, description: 'View list' },
+          { key: 'total', label: 'Total Beneficiaries', value: mothers.length + childRows.length, interactive: false },
+        ]}
       />
+      {selectedSummaryCard && (
+        <>
+          <section className="tabs-row beneficiary-filter-row">
+            <StatusFilterBar
+              mode="beneficiary"
+              selectedStatusFilter={selectedStatusFilter}
+              onChange={(nextStatus) => {
+                setSelectedStatusFilter(nextStatus);
+                setPage(1);
+              }}
+            />
+
+            <EntitySearchControls
+              selectedEntityFilter={selectedEntityFilter}
+              showEntityFilter={false}
+              communities={communities}
+              selectedCommunity={selectedCommunityFilter}
+              onCommunityChange={(value) => { setSelectedCommunityFilter(value); setPage(1); }}
+              showSearch={false}
+              query={query}
+            />
+          </section>
+
+          <BeneficiaryTable
+            currentRows={displayRows}
+            loading={loading || (selectedEntityFilter === 'Child' && childrenLoading)}
+            filteredDataLength={filteredData.length}
+            rangeStart={rangeStart}
+            rangeEnd={rangeEnd}
+            perPage={perPage}
+            handlePerPageChange={handlePerPageChange}
+            renderPaginationButtons={renderPaginationButtons}
+            motherProgressByName={motherProgressByName}
+            onSelectMother={onSelectMother}
+            onSelectChild={onSelectChild}
+            communities={communities}
+            groups={groups}
+            batches={batches}
+            entityFilter={selectedEntityFilter}
+            searchValue={query}
+            onSearchChange={handleSearch}
+          />
+        </>
+      )}
     </>
   );
 }

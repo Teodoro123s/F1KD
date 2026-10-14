@@ -1,6 +1,7 @@
 import React from 'react';
 import { formatDateForDisplay, formatDateForInput, maskDateInput, normalizeDateValue } from '../../../utils/dateFormat';
 import { capitalizeNameValue } from '../../../utils/nameFormat';
+import { calculateWhoGrowthScores } from '../../../utils/whoGrowthStandards';
 
 export function ChildFormFields({ activeTab, form, setForm, communities = [], batches = [], readOnly = false, slashDateInput = true, birthDocumentFile, setBirthDocumentFile, existingBirthDocumentName = '', showRequiredValidation = false }) {
   const uniqueCommunities = Array.from(new Set(communities.map((comm) => comm.name))).filter(Boolean);
@@ -290,6 +291,14 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
   }
 
   if (activeTab === 'prenatal') {
+    const weightForHeightStatus = calculateWhoGrowthScores({
+      weight: form.birthWeight,
+      lengthHeight: form.birthLength,
+      sex: form.gender,
+      birthDate: form.birthDate,
+      measurementDate: form.birthDate,
+    }).weightForLengthInterpretation || 'Enter birth date, sex, weight, and length';
+
     return (
       <div className="create-mother-general child-form-layout">
         <section className="create-mother-category">
@@ -298,6 +307,11 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
         <div className="form-row-4 full-width">
           {renderField({ id: 'child-birth-weight', label: 'Birth Weight (kg)', name: 'birthWeight', placeholder: 'e.g. 3.2' })}
           {renderField({ id: 'child-birth-length', label: 'Birth Length (cm)', name: 'birthLength', placeholder: 'e.g. 49' })}
+          {renderField({ id: 'child-head-circumference', label: 'Head Circumference (cm)', name: 'headCircumference', placeholder: 'e.g. 34' })}
+          {renderField({ id: 'child-chest-circumference', label: 'Chest Circumference (cm)', name: 'chestCircumference', placeholder: 'e.g. 32' })}
+        </div>
+        <div className="form-row-4 full-width">
+          {renderField({ id: 'child-birth-place', label: 'Place of Birth', name: 'birthPlace', placeholder: 'City / Municipality' })}
           {renderSelect({
             id: 'child-blood-type',
             label: 'Blood Type',
@@ -325,14 +339,26 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
             id: 'child-expanded-newborn-screening',
             label: 'Expanded Newborn Screening',
             name: 'expandedNewbornScreening',
-            options: ['Normal', 'Needs Follow-up', 'Unknown'],
-            placeholder: 'Select option',
+            options: ['Negative', 'Potentially Positive', 'Inconclusive', 'Not Screened'],
+            placeholder: 'Select result',
+          })}
+          {renderSelect({
+            id: 'child-exclusive-breastfeeding',
+            label: 'Exclusive Breastfeeding',
+            name: 'exclusiveBreastfeeding',
+            options: ['Yes', 'No'],
+            placeholder: 'Select answer',
           })}
         </div>
 
         <div className="form-row-4 full-width">
           {renderField({ id: 'child-birth-attendant', label: 'Birth Attendant', name: 'birthAttendant', placeholder: 'Midwife / Doctor' })}
           {renderField({ id: 'child-apgar', label: 'Apgar Score', name: 'apgarScore', placeholder: 'e.g. 8/10' })}
+          {renderField({ id: 'child-newborn-screening-result', label: 'Newborn Screening Notes / Result', name: 'expandedNewbornScreeningResult', placeholder: 'Enter result details' })}
+          <div className="form-group">
+            <label className="form-label" htmlFor="child-weight-for-height-status">Weight-for-Height Status (WHO)</label>
+            <div id="child-weight-for-height-status" className="form-readonly-value">{weightForHeightStatus}</div>
+          </div>
         </div>
 
         {renderTextarea({ id: 'child-nutrition-notes', label: 'Nutritional Notes', name: 'nutritionNotes', rows: 3, placeholder: 'Nutrition or feeding notes...' })}
@@ -386,8 +412,10 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
     const vaccineRows = [
       { key: 'BCG', label: 'BCG', doseFields: ['bcgDose1', 'bcgDose2', 'bcgDose3'], remarksField: 'bcgRemarks' },
       { key: 'HepB', label: 'HepB', doseFields: ['hepbDose1', 'hepbDose2', 'hepbDose3'], remarksField: 'hepbRemarks' },
+      { key: 'IPV', label: 'Inactivated Polio Vaccine', doseFields: ['ipvDose1', 'ipvDose2', 'ipvDose3'], remarksField: 'ipvRemarks' },
       { key: 'OPV', label: 'OPV', doseFields: ['opvDose1', 'opvDose2', 'opvDose3'], remarksField: 'opvRemarks' },
-      { key: 'DPT', label: 'DPT', doseFields: ['dptDose1', 'dptDose2', 'dptDose3'], remarksField: 'dptRemarks' },
+      { key: 'PCV', label: 'Pneumococcal (PCV)', doseFields: ['pcvDose1', 'pcvDose2', 'pcvDose3'], remarksField: 'pcvRemarks' },
+      { key: 'DPT', label: 'Pentavalent Vaccine', doseFields: ['dptDose1', 'dptDose2', 'dptDose3'], remarksField: 'dptRemarks' },
       { key: 'MMR', label: 'MMR', doseFields: ['mmrDose1', 'mmrDose2', 'mmrDose3'], remarksField: 'mmrRemarks' },
     ];
 

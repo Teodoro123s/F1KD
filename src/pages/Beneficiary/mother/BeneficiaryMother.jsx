@@ -2,7 +2,13 @@ import React from 'react';
 import { formatDateForDisplay, formatDateForInput, maskDateInput, normalizeDateValue } from '../../../utils/dateFormat';
 import { calculateGestationalDetails } from '../../../utils/beneficiaryHelpers';
 import { capitalizeNameValue } from '../../../utils/nameFormat';
-import { getPhilippineBarangays, getPhilippineCities, PHILIPPINE_PROVINCES } from '../../../utils/philippineLocations';
+
+const OTHER_MATERNAL_VACCINES = [
+  { label: 'Influenza (flu)', key: 'influenza' },
+  { label: 'Hepatitis A', key: 'hepatitisA' },
+  { label: 'Hepatitis B', key: 'hepatitisB' },
+  { label: 'COVID-19', key: 'covid19' },
+];
 
 const calculateEddDate = (value) => {
   const normalized = formatDateForInput(value);
@@ -30,6 +36,11 @@ export function MotherFormFields({
 }) {
   const [dateDrafts, setDateDrafts] = React.useState({});
   const datePickerRefs = React.useRef({});
+  const [locationOptions, setLocationOptions] = React.useState(null);
+  const [locationLoadError, setLocationLoadError] = React.useState('');
+  const [barangayOptions, setBarangayOptions] = React.useState([]);
+  const [barangaysLoading, setBarangaysLoading] = React.useState(false);
+  const [barangaysLoadError, setBarangaysLoadError] = React.useState('');
   const uniqueCommunities = Array.from(new Set(communities.map((comm) => comm.name))).filter(Boolean);
   const selectedGroups = groups.filter((group) => !form.community || group.community === form.community);
   const selectedGroupId = String(form.groupId ?? '').trim();
@@ -45,11 +56,58 @@ export function MotherFormFields({
 
     return batchGroupIds.length === 0 || batchGroupIds.includes(selectedGroupId) || String(batch.group_id || batch.groupId || '') === selectedGroupId;
   });
-  const selectedProvince = PHILIPPINE_PROVINCES.find((province) => province.toLowerCase() === String(form.province || '').toLowerCase()) || '';
-  const cityOptions = getPhilippineCities(selectedProvince);
+  const selectedProvince = locationOptions?.PHILIPPINE_PROVINCES.find((province) => province.toLowerCase() === String(form.province || '').toLowerCase()) || '';
+  const cityOptions = selectedProvince ? locationOptions?.getPhilippineCities(selectedProvince) || [] : [];
   const selectedCity = cityOptions.find((city) => city.toLowerCase() === String(form.city || '').toLowerCase()) || '';
-  const barangayOptions = getPhilippineBarangays(selectedProvince, selectedCity);
   const selectedBarangay = barangayOptions.find((barangay) => barangay.toLowerCase() === String(form.barangay || '').toLowerCase()) || '';
+  const prenatalWeight = Number(form.prenatalWeight);
+  const prenatalHeight = Number(form.prenatalHeight);
+  const prenatalBmiValue = Number.isFinite(prenatalWeight) && prenatalWeight > 0
+    && Number.isFinite(prenatalHeight) && prenatalHeight > 0
+    ? prenatalWeight / ((prenatalHeight / 100) ** 2)
+    : null;
+  const prenatalBmi = prenatalBmiValue === null ? '—' : prenatalBmiValue.toFixed(1);
+  const prenatalBmiStatus = prenatalBmiValue === null
+    ? '—'
+    : prenatalBmiValue < 18.5 ? 'Underweight' : prenatalBmiValue < 25 ? 'Normal' : prenatalBmiValue < 30 ? 'Overweight' : 'Obese';
+
+  React.useEffect(() => {
+    let active = true;
+    import('../../../utils/philippineLocations')
+      .then((locations) => {
+        if (active) setLocationOptions(locations);
+      })
+      .catch((error) => {
+        console.error('Failed to load Philippine location options:', error);
+        if (active) setLocationLoadError('Unable to load province and city options. Please refresh and try again.');
+      });
+    return () => { active = false; };
+  }, []);
+
+  React.useEffect(() => {
+    let active = true;
+    setBarangayOptions([]);
+    setBarangaysLoadError('');
+    if (!selectedProvince || !selectedCity || !locationOptions) {
+      setBarangaysLoading(false);
+      return undefined;
+    }
+
+    setBarangaysLoading(true);
+    locationOptions.getPhilippineBarangays(selectedProvince, selectedCity)
+      .then((options) => {
+        if (active) setBarangayOptions(options);
+      })
+      .catch((error) => {
+        console.error('Failed to load Philippine barangay options:', error);
+        if (active) setBarangaysLoadError('Unable to load barangay options. Please refresh and try again.');
+      })
+      .finally(() => {
+        if (active) setBarangaysLoading(false);
+      });
+
+    return () => { active = false; };
+  }, [locationOptions, selectedCity, selectedProvince]);
 
   React.useEffect(() => {
     if (readOnly || typeof setForm !== 'function') return;
@@ -340,6 +398,41 @@ export function MotherFormFields({
           {renderField({ id: 'mother-contact', label: "Contact Number", name: 'contactNumber', type: 'tel', placeholder: '0917******', required: true })}
           </div>
 
+          <div className="form-row-2 full-width">
+          {renderField({ id: 'mother-place-of-birth', label: 'Place of Birth', name: 'birthPlace', placeholder: 'City / Municipality' })}
+          {renderField({ id: 'mother-allergies', label: 'Allergies', name: 'allergies', placeholder: 'List known allergies, if any' })}
+          </div>
+          <div className="form-row-3 full-width">
+          {renderSelect({
+            id: 'mother-blood-type',
+            label: 'Blood Type',
+            name: 'bloodType',
+            options: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'],
+            placeholder: 'Select blood type',
+          })}
+          {renderSelect({
+            id: 'mother-civil-status',
+            label: 'Civil Status',
+            name: 'civilStatus',
+            options: ['Single', 'Married', 'Widowed', 'Separated', 'Divorced'],
+            placeholder: 'Select civil status',
+          })}
+          {renderSelect({
+            id: 'mother-employment-status',
+            label: 'Employment Status',
+            name: 'employmentStatus',
+            options: ['Part-Time', 'Full-Time', 'Housewife', 'Looking for Employment', 'Other'],
+            placeholder: 'Select employment status',
+          })}
+          {renderSelect({
+            id: 'mother-education',
+            label: 'Educational Attainment',
+            name: 'educationalAttainment',
+            options: ['Elementary', 'High School', 'College', 'Post-Graduate', 'Other'],
+            placeholder: 'Select educational attainment',
+          })}
+          </div>
+
         </section>
 
         <section className="create-mother-category">
@@ -349,8 +442,8 @@ export function MotherFormFields({
             id: 'mother-province',
             label: 'Province',
             name: 'province',
-            options: PHILIPPINE_PROVINCES,
-            placeholder: 'Select province',
+            options: locationOptions?.PHILIPPINE_PROVINCES || [],
+            placeholder: locationLoadError ? 'Location options unavailable' : locationOptions ? 'Select province' : 'Loading provinces…',
             required: true,
             onChange: (value) => setForm((prev) => ({ ...prev, province: value, city: '', barangay: '' })),
           })}
@@ -359,21 +452,28 @@ export function MotherFormFields({
             label: 'City / Municipality',
             name: 'city',
             options: cityOptions,
-            placeholder: form.province ? 'Select city / municipality' : 'Select province first',
+            placeholder: locationLoadError
+              ? 'Location options unavailable'
+              : locationOptions
+                ? (form.province ? 'Select city / municipality' : 'Select province first')
+                : 'Loading cities…',
             required: true,
             onChange: (value) => setForm((prev) => ({ ...prev, city: value, barangay: '' })),
-            disabled: !form.province,
+            disabled: !form.province || !locationOptions,
           })}
           {renderSelect({
             id: 'mother-barangay',
             label: 'Barangay',
             name: 'barangay',
             options: barangayOptions,
-            placeholder: form.city ? 'Select barangay' : 'Select city first',
+            placeholder: barangaysLoading ? 'Loading barangays…' : (form.city ? 'Select barangay' : 'Select city first'),
             required: true,
-            disabled: !form.city,
+            disabled: !form.city || barangaysLoading,
           })}
           </div>
+          {(locationLoadError || barangaysLoadError) && (
+            <p className="error-message" role="alert">{locationLoadError || barangaysLoadError}</p>
+          )}
         </section>
 
         <section className="create-mother-category">
@@ -484,6 +584,23 @@ export function MotherFormFields({
             placeholder: 'Enter PhilHealth number',
             required: true,
           })}
+          <div className="form-checkboxes-grid full-width">
+            {[
+              ['dataPrivacySigned', 'Data privacy consent signed'],
+              ['mediaReleaseSigned', 'Media release signed'],
+            ].map(([field, label]) => (
+              <label key={field} className="form-checkbox-label">
+                <input
+                  type="checkbox"
+                  className="form-checkbox"
+                  checked={!!form[field]}
+                  disabled={readOnly}
+                  onChange={(event) => setForm((current) => ({ ...current, [field]: event.target.checked }))}
+                />
+                <span>{label}</span>
+              </label>
+            ))}
+          </div>
         </section>
       </div>
     );
@@ -535,7 +652,7 @@ export function MotherFormFields({
           </div>
 
           <div className="form-row-3 full-width">
-          {renderField({ id: 'prenatal-reg-date', label: 'Date of Prenatal Registration', name: 'prenatalRegDate', type: 'date' })}
+          {renderField({ id: 'prenatal-reg-date', label: 'Date of First Prenatal Check-up', name: 'prenatalRegDate', type: 'date' })}
           {renderField({ id: 'prenatal-gest-age', label: 'Gestational Age at Reg (weeks)', name: 'gestationalAge', required: true, disabled: true })}
           {renderField({ id: 'mother-trimester', label: 'Trimester', name: 'trimester', required: true, disabled: true })}
           </div>
@@ -545,6 +662,16 @@ export function MotherFormFields({
           {renderField({ id: 'prenatal-bp', label: 'Blood Pressure (BP) at Reg', name: 'prenatalBp', placeholder: 'e.g. 120/80', required: true })}
           {renderField({ id: 'prenatal-height', label: 'Height (cm) at Reg', name: 'prenatalHeight', placeholder: 'e.g. 150', required: true })}
           </div>
+          <div className="form-row-2 full-width">
+            <div className="form-group">
+              <label className="form-label">Initial BMI</label>
+              <div className="form-readonly-value">{prenatalBmi}</div>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Nutritional Status (BMI)</label>
+              <div className="form-readonly-value">{prenatalBmiStatus}</div>
+            </div>
+          </div>
         </section>
 
         <section className="create-mother-category">
@@ -553,6 +680,12 @@ export function MotherFormFields({
           {renderField({ id: 'ob-gravida', label: 'Gravida (Pregnancies)', name: 'gravida', type: 'number', placeholder: 'Total pregnancies', required: true, minValue: 0 })}
           {renderField({ id: 'ob-abortion', label: 'Abortion', name: 'abortion', type: 'number', placeholder: 'Spontaneous/induced', required: true, minValue: 0 })}
           {renderField({ id: 'ob-stillbirth', label: 'Stillbirth', name: 'stillbirth', type: 'number', placeholder: 'Fetal death >20wks', required: true, minValue: 0 })}
+          </div>
+          <div className="form-row-4 full-width">
+          {renderField({ id: 'ob-total-children', label: 'Total Children', name: 'totalChildren', type: 'number', minValue: 0, placeholder: '0' })}
+          {renderField({ id: 'ob-born-alive', label: 'Children Born Alive', name: 'childrenBornAlive', type: 'number', minValue: 0, placeholder: '0' })}
+          {renderField({ id: 'ob-miscarriages', label: 'Miscarriages', name: 'miscarriages', type: 'number', minValue: 0, placeholder: '0' })}
+          {renderField({ id: 'ob-died-after-birth', label: 'Children Born Alive but Now Deceased', name: 'childrenDiedAfterBirth', type: 'number', minValue: 0, placeholder: '0' })}
           </div>
         </section>
 
@@ -570,6 +703,14 @@ export function MotherFormFields({
       { key: 'epilepsy', label: 'Epilepsy' },
       { key: 'goiter', label: 'Goiter' },
       { key: 'tuberculosis', label: 'Tuberculosis' },
+      { key: 'parasitism', label: 'Parasitism' },
+      { key: 'anemia', label: 'Anemia' },
+      { key: 'urinaryTractInfection', label: 'Urinary Tract Infection' },
+      { key: 'genitalTractInfection', label: 'Genital Tract Infection' },
+      { key: 'smoking', label: 'Smoking' },
+      { key: 'alcoholIntake', label: 'Alcohol Intake' },
+      { key: 'illegalDrugUse', label: 'Illegal Drug Use' },
+      { key: 'otherInfectiousDisease', label: 'Other Infectious Disease' },
       { key: 'cancer', label: 'Cancer' },
       { key: 'std', label: 'Sexually Transmitted Diseases' },
       { key: 'multiplePregnancy', label: 'Multiple Pregnancy (e.g. twins)' },
@@ -738,6 +879,41 @@ export function MotherFormFields({
                       )}
                     </td>
                   </tr>
+                  {OTHER_MATERNAL_VACCINES.map(({ label, key }) => (
+                    <tr key={key}>
+                      <td><strong>{label}</strong></td>
+                      <td colSpan="3">
+                        {readOnly ? (
+                          <div className="form-readonly-value">{formatDateForDisplay(form[`${key}Date`]) || '—'}</div>
+                        ) : (
+                          <input
+                            type={slashDateInput ? 'text' : 'date'}
+                            className="form-input table-input"
+                            placeholder={slashDateInput ? 'DD/MM/YYYY' : undefined}
+                            aria-label={`${label} date given`}
+                            value={getDateDisplayValue(`${key}Date`, form[`${key}Date`] || '')}
+                            onChange={(event) => updateDateValue(`${key}Date`, event.target.value)}
+                            onBlur={() => commitDateValue(`${key}Date`, getDateDisplayValue(`${key}Date`, form[`${key}Date`] || ''))}
+                            autoComplete="off"
+                          />
+                        )}
+                      </td>
+                      <td>
+                        {readOnly ? (
+                          <div className="form-readonly-value">{form[`${key}Remarks`] || '—'}</div>
+                        ) : (
+                          <input
+                            type="text"
+                            className="form-input table-input"
+                            aria-label={`${label} source or facility`}
+                            placeholder="Source / facility"
+                            value={form[`${key}Remarks`] || ''}
+                            onChange={(event) => setForm((current) => ({ ...current, [`${key}Remarks`]: event.target.value }))}
+                          />
+                        )}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>

@@ -4,9 +4,7 @@ import PageHeader from '../../../components/ui/PageHeader';
 
 export default function CommunityToolbar({
   activeTab,
-  query,
   entityFilter = 'Mother',
-  onSearch,
   onEntityFilterChange,
   onTabChange,
   onCreate,
@@ -57,7 +55,6 @@ export default function CommunityToolbar({
           </>
         )}
       />
-
     </>
   );
 }

@@ -71,6 +71,11 @@ export function GrowthMetricsStep({
               </label>
             ))}
           </div>
+          {beneficiaryType === 'child' && (
+            <p className="progress-report-note">
+              WHO growth scores are calculated through 24 months using the age- and sex-specific LMS references. Weight-for-length uses recumbent length before 24 months; weight-for-height uses standing height from 24 months.
+            </p>
+          )}
         </>
       )}
       <div className="progress-report-tab-actions">

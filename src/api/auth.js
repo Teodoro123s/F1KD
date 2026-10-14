@@ -29,6 +29,34 @@ export async function login(email, password) {
   return handleResponse(res, 'Login failed');
 }
 
+export async function requestPasswordReset(email) {
+  const res = await fetch(`${API_BASE}/api/auth/forgot-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  return handleResponse(res, 'Unable to request a password reset');
+}
+
+export async function resetPassword(email, passcode, newPassword, confirmPassword) {
+  const res = await fetch(`${API_BASE}/api/auth/reset-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, passcode, newPassword, confirmPassword }),
+  });
+  return handleResponse(res, 'Unable to reset password');
+}
+
+export async function loginAsTestRole(role) {
+  const res = await fetch(`${API_BASE}/api/auth/test-role`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ role }),
+    credentials: 'include',
+  });
+  return handleResponse(res, 'Test role sign-in failed');
+}
+
 export async function changePassword(currentPassword, newPassword, confirmPassword) {
   const res = await fetchWithAuth(`${API_BASE}/api/auth/change-password`, {
     method: 'POST',

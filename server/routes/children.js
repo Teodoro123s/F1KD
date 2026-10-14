@@ -38,7 +38,9 @@ async function attachClinicalData(child) {
 const CHILD_VACCINES = [
   { name: 'BCG', field: 'bcg' },
   { name: 'HepB', field: 'hepb' },
+  { name: 'IPV', field: 'ipv' },
   { name: 'OPV', field: 'opv' },
+  { name: 'PCV', field: 'pcv' },
   { name: 'DPT', field: 'dpt' },
   { name: 'MMR', field: 'mmr' },
 ];
@@ -82,6 +84,8 @@ function withChildAliases(child = {}) {
     birthDate: child.birth_date ?? child.birthDate ?? '',
     birthWeight: child.birth_weight ?? child.birthWeight ?? '',
     birthLength: child.birth_length ?? child.birthLength ?? '',
+    headCircumference: child.head_circumference ?? child.headCircumference ?? '',
+    chestCircumference: child.chest_circumference ?? child.chestCircumference ?? '',
     bloodType: child.blood_type ?? child.bloodType ?? '',
     noOfChildDelivered: child.no_of_child_delivered ?? child.noOfChildDelivered ?? '',
     multipleBirthType: child.multiple_birth_type ?? child.multipleBirthType ?? '',
@@ -116,7 +120,23 @@ async function attachMonitoringData(child) {
       .map((row) => row.next_checkup_date)
       .filter(Boolean)
       .sort((a, b) => String(a).localeCompare(String(b)))[0] || '',
-    checkups: checkupRows,
+    checkups: checkupRows.map((row) => ({
+      ...row,
+      weekNumber: row.week_number === null ? null : Number(row.week_number),
+      checkupDate: row.visit_date,
+      nextCheckupDate: row.next_checkup_date,
+      headCircumference: row.head_circumference,
+      breastfeedingStatus: row.exclusive_breastfeeding || '',
+      laboratoryRequests: row.laboratory_requests || '',
+      laboratoryAssistanceProvided: Boolean(row.laboratory_assistance_provided),
+      referredToHospital: Boolean(row.referred_to_hospital),
+      assistanceAmount: row.assistance_amount ?? '',
+      sourceOfFunds: row.source_of_funds || '',
+      facilityType: row.facility_type || '',
+      developmentalStatus: row.developmental_status || '',
+      serviceProvider: row.service_provider || '',
+      remarks: row.notes || '',
+    })),
   });
 }
 
@@ -171,6 +191,8 @@ const CHILD_ALLOWED_FIELDS = new Set([
   'birth_date', 'birthDate',
   'birth_weight', 'birthWeight',
   'birth_length', 'birthLength',
+  'head_circumference', 'headCircumference',
+  'chest_circumference', 'chestCircumference',
   'gender',
   'blood_type', 'bloodType',
   'no_of_child_delivered', 'noOfChildDelivered',
@@ -263,6 +285,8 @@ router.post('/', async (req, res) => {
     const birthDate = getField(b, 'birthDate', 'birth_date');
     const birthWeight = getField(b, 'birthWeight', 'birth_weight');
     const birthLength = getField(b, 'birthLength', 'birth_length');
+    const headCircumference = getField(b, 'headCircumference', 'head_circumference');
+    const chestCircumference = getField(b, 'chestCircumference', 'chest_circumference');
     const gender = getField(b, 'gender');
     const bloodType = getField(b, 'bloodType', 'blood_type');
     const noOfChildDelivered = getField(b, 'noOfChildDelivered', 'no_of_child_delivered');
@@ -315,9 +339,9 @@ router.post('/', async (req, res) => {
     const address = getField(b, 'address');
 
     const [result] = await pool.query(
-      `INSERT INTO children (child_code, mother_id, community_id, group_id, batch_id, first_name, middle_name, last_name, suffix, birth_date, birth_weight, birth_length, gender, blood_type, no_of_child_delivered, multiple_birth_type, exclusive_breastfeeding, expanded_newborn_screening, expanded_newborn_screening_result, delivery_type, health_status, birth_place, birth_attendant, apgar_score, feeding_type, nutrition_notes, father_name, relationship, address)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
-      [childCode, motherId || null, communityId || null, groupId || null, batchId || null, firstName, middleName || null, lastName, suffix || null, birthDate || null, birthWeight || null, birthLength || null, gender || null, bloodType || null, noOfChildDelivered || null, multipleBirthType || null, exclusiveBreastfeeding || null, expandedNewbornScreening || null, expandedNewbornScreeningResult || null, deliveryType || null, healthStatus || null, birthPlace || null, birthAttendant || null, apgarScore || null, feedingType || null, nutritionNotes || null, fatherName || null, relationship || null, address || null]
+      `INSERT INTO children (child_code, mother_id, community_id, group_id, batch_id, first_name, middle_name, last_name, suffix, birth_date, birth_weight, birth_length, head_circumference, chest_circumference, gender, blood_type, no_of_child_delivered, multiple_birth_type, exclusive_breastfeeding, expanded_newborn_screening, expanded_newborn_screening_result, delivery_type, health_status, birth_place, birth_attendant, apgar_score, feeding_type, nutrition_notes, father_name, relationship, address)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
+      [childCode, motherId || null, communityId || null, groupId || null, batchId || null, firstName, middleName || null, lastName, suffix || null, birthDate || null, birthWeight || null, birthLength || null, headCircumference || null, chestCircumference || null, gender || null, bloodType || null, noOfChildDelivered || null, multipleBirthType || null, exclusiveBreastfeeding || null, expandedNewbornScreening || null, expandedNewbornScreeningResult || null, deliveryType || null, healthStatus || null, birthPlace || null, birthAttendant || null, apgarScore || null, feedingType || null, nutritionNotes || null, fatherName || null, relationship || null, address || null]
     );
 
     const [rows] = await pool.query('SELECT * FROM children WHERE id = ?', [result.insertId]);
@@ -409,6 +433,13 @@ router.post('/:id/checkups', async (req, res) => {
       body.checkupDate || null,
       body.weight || null,
       body.height || null,
+      body.breastfeedingStatus ?? body.checkupBreastfeedingStatus ?? null,
+      body.laboratoryRequests || null,
+      body.laboratoryAssistanceProvided === true || body.laboratoryAssistanceProvided === 1 ? 1 : 0,
+      body.referredToHospital === true || body.referredToHospital === 1 ? 1 : 0,
+      body.assistanceAmount || null,
+      body.sourceOfFunds || null,
+      body.facilityType || null,
       body.developmentalStatus || null,
       body.serviceProvider || null,
       body.remarks || null,
@@ -420,14 +451,18 @@ router.post('/:id/checkups', async (req, res) => {
     if (existingRows.length) {
       await pool.query(
         `UPDATE child_checkups SET next_checkup_date = ?, visit_date = ?, weight = ?, height = ?,
+          exclusive_breastfeeding = ?, laboratory_requests = ?, laboratory_assistance_provided = ?,
+          referred_to_hospital = ?, assistance_amount = ?, source_of_funds = ?, facility_type = ?,
           developmental_status = ?, service_provider = ?, notes = ? WHERE id = ?`,
         [...values, existingRows[0].id]
       );
     } else {
       await pool.query(
         `INSERT INTO child_checkups
-          (child_id, next_checkup_date, visit_date, weight, height, developmental_status, service_provider, notes, week_number)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
+          (child_id, next_checkup_date, visit_date, weight, height, exclusive_breastfeeding,
+           laboratory_requests, laboratory_assistance_provided, referred_to_hospital, assistance_amount,
+           source_of_funds, facility_type, developmental_status, service_provider, notes, week_number)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
         [childId, ...values, week]
       );
     }
@@ -519,6 +554,8 @@ router.put('/:id', async (req, res) => {
       birth_date: getField(body, 'birthDate', 'birth_date') || current.birth_date || null,
       birth_weight: getField(body, 'birthWeight', 'birth_weight') || current.birth_weight || null,
       birth_length: getField(body, 'birthLength', 'birth_length') || current.birth_length || null,
+      head_circumference: getField(body, 'headCircumference', 'head_circumference') ?? current.head_circumference ?? null,
+      chest_circumference: getField(body, 'chestCircumference', 'chest_circumference') ?? current.chest_circumference ?? null,
       gender: getField(body, 'gender') || current.gender,
       blood_type: getField(body, 'bloodType', 'blood_type') ?? current.blood_type ?? null,
       no_of_child_delivered: getField(body, 'noOfChildDelivered', 'no_of_child_delivered') ?? current.no_of_child_delivered ?? null,

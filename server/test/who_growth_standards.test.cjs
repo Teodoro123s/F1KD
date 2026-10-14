@@ -64,3 +64,28 @@ test('uses exact WHO median LMS values and requires recorded sex', async () => {
   assert.equal(unknownSex.weightForLengthZScore, null);
   assert.equal(unknownSex.lengthForAgeZScore, null);
 });
+
+test('includes the two-year birthday and excludes measurements after 24 months when requested', async () => {
+  const calculate = await getWhoGrowthStandards();
+  const onSecondBirthday = calculate({
+    sex: 'male',
+    birthDate: '2024-01-01',
+    measurementDate: '2026-01-01',
+    weight: 12,
+    lengthHeight: 85,
+    maxAgeMonths: 24,
+  });
+  const afterSecondBirthday = calculate({
+    sex: 'male',
+    birthDate: '2024-01-01',
+    measurementDate: '2026-01-02',
+    weight: 12,
+    lengthHeight: 85,
+    maxAgeMonths: 24,
+  });
+
+  assert.notEqual(onSecondBirthday.weightForAgeZScore, null);
+  assert.notEqual(onSecondBirthday.weightForLengthZScore, null);
+  assert.equal(afterSecondBirthday.weightForAgeZScore, null);
+  assert.equal(afterSecondBirthday.weightForLengthZScore, null);
+});

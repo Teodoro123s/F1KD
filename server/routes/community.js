@@ -154,6 +154,7 @@ router.get('/summary', async (req, res) => {
     const [groupRows] = await pool.query(`
       SELECT
         g.id,
+        g.community_id AS communityId,
         g.name AS name,
         g.community_id AS community_id,
         '' AS description,
@@ -167,7 +168,7 @@ router.get('/summary', async (req, res) => {
       LEFT JOIN group_batch gb ON gb.group_id = g.id
       LEFT JOIN communities c ON c.id = g.community_id
       ${groupScope}
-      GROUP BY g.id, g.name, c.name, g.members_count, g.leader, g.status
+      GROUP BY g.id, g.community_id, g.name, c.name, g.members_count, g.leader, g.status
       ORDER BY g.id
     `, req.groupId ? [req.groupId] : req.schoolId ? [req.schoolId] : []);
 
@@ -479,6 +480,7 @@ router.get('/groups', async (req, res) => {
     const [rows] = await pool.query(`
       SELECT
         g.id,
+        g.community_id AS communityId,
         g.name AS name,
         '' AS description,
         c.name AS community,
@@ -489,11 +491,12 @@ router.get('/groups', async (req, res) => {
       LEFT JOIN mothers m ON m.group_id = g.id
       LEFT JOIN communities c ON c.id = g.community_id
       ${scopeClause}
-      GROUP BY g.id, g.name, c.name
+      GROUP BY g.id, g.community_id, g.name, c.name
       ORDER BY g.id
     `, req.schoolId ? [req.schoolId] : []);
     const groups = rows.map((r) => ({
       id: r.id,
+      communityId: r.communityId,
       name: r.name,
       description: r.description,
       community: r.community || '',
@@ -518,15 +521,28 @@ router.get('/groups/:id/health-workers', async (req, res) => {
     }
 
     const [rows] = await pool.query(
-      `SELECT id, CONCAT_WS(' ', first_name, middle_initial, last_name) AS name,
-          email, contact_number, status, school_id, group_id
-       FROM users
-       WHERE group_id = ? AND LOWER(TRIM(role)) = 'health worker'
-       ORDER BY last_name, first_name, id`,
+      `SELECT DISTINCT u.id, CONCAT_WS(' ', u.first_name, u.middle_initial, u.last_name) AS name,
+          u.email, u.contact_number, u.status, u.school_id, u.group_id, u.role
+       FROM groups g
+       JOIN communities c ON c.id = g.community_id
+       JOIN users u ON (
+         (u.group_id = g.id AND LOWER(TRIM(u.role)) = 'health worker')
+         OR
+         (u.school_id = c.id AND LOWER(REPLACE(TRIM(u.role), '_', ' ')) IN ('community organizer', 'communityorganizer', 'community coordinator', 'communitycoordinator', 'coordinator', 'co', 'partner'))
+         OR
+         (u.id = c.coordinator_id AND LOWER(REPLACE(TRIM(u.role), '_', ' ')) IN ('community organizer', 'communityorganizer', 'community coordinator', 'communitycoordinator', 'coordinator', 'co', 'partner'))
+       )
+       WHERE g.id = ?
+       ORDER BY u.role, u.last_name, u.first_name, u.id`,
       [groupId],
     );
 
-    res.json({ healthWorkers: rows });
+    res.json({
+      users: rows,
+      healthWorkers: rows.filter((user) => String(user.role || '').trim().toLowerCase() === 'health worker'),
+      communityOrganizers: rows.filter((user) => ['community organizer', 'community_coordinator', 'community coordinator', 'communityorganizer', 'coordinator', 'co']
+        .includes(String(user.role || '').trim().toLowerCase())),
+    });
   } catch (error) {
     console.error('[Community API] GET /groups/:id/health-workers error:', error.message);
     res.status(500).json({ error: 'db error' });

@@ -4,6 +4,7 @@ import { ChildFormFields } from './BeneficiaryChild';
 import { useMothers } from '../../../context/MothersContext';
 import { capitalizeNameValue } from '../../../utils/nameFormat';
 import { notifyAction } from '../../../components/ActionFeedback';
+import { apiCreateChild, apiUploadChildBirthDocument } from '../../../api/children';
 
 const CHILD_DRAFT_KEY = 'f1kd.create-child.draft';
 
@@ -24,8 +25,11 @@ const emptyGroupForm = () => ({
   birthDate: '',
   birthWeight: '',
   birthLength: '',
+  headCircumference: '',
+  chestCircumference: '',
   gender: 'Male',
   bloodType: '',
+  exclusiveBreastfeeding: '',
   noOfChildDelivered: '',
   multipleBirthType: '',
   expandedNewbornScreening: '',
@@ -56,10 +60,18 @@ const emptyGroupForm = () => ({
   hepbDose2: '',
   hepbDose3: '',
   hepbRemarks: '',
+  ipvDose1: '',
+  ipvDose2: '',
+  ipvDose3: '',
+  ipvRemarks: '',
   opvDose1: '',
   opvDose2: '',
   opvDose3: '',
   opvRemarks: '',
+  pcvDose1: '',
+  pcvDose2: '',
+  pcvDose3: '',
+  pcvRemarks: '',
   dptDose1: '',
   dptDose2: '',
   dptDose3: '',
@@ -177,6 +189,8 @@ export default function CreateChildPage({
       birthDate: groupForm.birthDate || null,
       birthWeight: groupForm.birthWeight || null,
       birthLength: groupForm.birthLength || null,
+      headCircumference: groupForm.headCircumference || null,
+      chestCircumference: groupForm.chestCircumference || null,
       gender: groupForm.gender || null,
       bloodType: groupForm.bloodType || null,
       noOfChildDelivered: groupForm.noOfChildDelivered || null,
@@ -201,11 +215,21 @@ export default function CreateChildPage({
       hepbDose2: groupForm.hepbDose2 || null,
       hepbDose3: groupForm.hepbDose3 || null,
       hepbRemarks: groupForm.hepbRemarks || null,
+      ipvDate: groupForm.ipvDose1 || null,
+      ipvDose1: groupForm.ipvDose1 || null,
+      ipvDose2: groupForm.ipvDose2 || null,
+      ipvDose3: groupForm.ipvDose3 || null,
+      ipvRemarks: groupForm.ipvRemarks || null,
       opvDate: groupForm.opvDose1 || null,
       opvDose1: groupForm.opvDose1 || null,
       opvDose2: groupForm.opvDose2 || null,
       opvDose3: groupForm.opvDose3 || null,
       opvRemarks: groupForm.opvRemarks || null,
+      pcvDate: groupForm.pcvDose1 || null,
+      pcvDose1: groupForm.pcvDose1 || null,
+      pcvDose2: groupForm.pcvDose2 || null,
+      pcvDose3: groupForm.pcvDose3 || null,
+      pcvRemarks: groupForm.pcvRemarks || null,
       dptDate: groupForm.dptDose1 || null,
       dptDose1: groupForm.dptDose1 || null,
       dptDose2: groupForm.dptDose2 || null,
@@ -226,7 +250,6 @@ export default function CreateChildPage({
     setCreating(true);
 
     try {
-      const { apiCreateChild, apiUploadChildBirthDocument } = await import('../../../api/children');
       const { child } = await apiCreateChild(pendingChild.payload);
       let savedChild = child;
       let documentUploadFailed = false;
@@ -250,6 +273,8 @@ export default function CreateChildPage({
         birthDate: child.birth_date || child.birthDate || groupForm.birthDate,
         birthWeight: child.birth_weight || child.birthWeight || groupForm.birthWeight,
         birthLength: child.birth_length || child.birthLength || groupForm.birthLength,
+        headCircumference: child.head_circumference || child.headCircumference || groupForm.headCircumference,
+        chestCircumference: child.chest_circumference || child.chestCircumference || groupForm.chestCircumference,
         gender: child.gender || groupForm.gender,
         bloodType: child.blood_type || child.bloodType || groupForm.bloodType,
         noOfChildDelivered: child.no_of_child_delivered || child.noOfChildDelivered || groupForm.noOfChildDelivered,
@@ -278,10 +303,18 @@ export default function CreateChildPage({
         hepbDose2: child.HepB?.dose2 || child.hepbDose2 || groupForm.hepbDose2,
         hepbDose3: child.HepB?.dose3 || child.hepbDose3 || groupForm.hepbDose3,
         hepbRemarks: child.HepB?.remarks || child.hepbRemarks || groupForm.hepbRemarks,
+        ipvDose1: child.IPV?.dose1 || child.ipvDose1 || groupForm.ipvDose1,
+        ipvDose2: child.IPV?.dose2 || child.ipvDose2 || groupForm.ipvDose2,
+        ipvDose3: child.IPV?.dose3 || child.ipvDose3 || groupForm.ipvDose3,
+        ipvRemarks: child.IPV?.remarks || child.ipvRemarks || groupForm.ipvRemarks,
         opvDose1: child.OPV?.dose1 || child.opvDose1 || groupForm.opvDose1,
         opvDose2: child.OPV?.dose2 || child.opvDose2 || groupForm.opvDose2,
         opvDose3: child.OPV?.dose3 || child.opvDose3 || groupForm.opvDose3,
         opvRemarks: child.OPV?.remarks || child.opvRemarks || groupForm.opvRemarks,
+        pcvDose1: child.PCV?.dose1 || child.pcvDose1 || groupForm.pcvDose1,
+        pcvDose2: child.PCV?.dose2 || child.pcvDose2 || groupForm.pcvDose2,
+        pcvDose3: child.PCV?.dose3 || child.pcvDose3 || groupForm.pcvDose3,
+        pcvRemarks: child.PCV?.remarks || child.pcvRemarks || groupForm.pcvRemarks,
         dptDose1: child.DPT?.dose1 || child.dptDose1 || groupForm.dptDose1,
         dptDose2: child.DPT?.dose2 || child.dptDose2 || groupForm.dptDose2,
         dptDose3: child.DPT?.dose3 || child.dptDose3 || groupForm.dptDose3,

@@ -6,9 +6,10 @@ import { PageSkeleton } from '../../components/LoadingSkeleton';
 import { getSummary } from '../Community/communityService';
 import { apiGetChildren } from '../../api/children';
 import { apiGetPrograms } from '../../api/programs';
-import { apiGetUsers } from '../../api/users';
+import { apiGetManagedHealthWorkers, apiGetUsers } from '../../api/users';
 import { can, isCommunityCoordinatorRole, isHealthWorkerRole, normalizeRole, ROLES } from '../../utils/permissions';
 import { formatDateForDisplay } from '../../utils/dateFormat';
+import CommunityTable from '../Community/CommunityTable';
 
 function getGreeting(name) {
   const hour = new Date().getHours();
@@ -60,11 +61,11 @@ export default function DashboardPage() {
     monitoring: !isSuperAdmin,
     programs: !isSuperAdmin,
     reports: !isSuperAdmin,
-    users: isSuperAdmin,
+    users: isSuperAdmin || isCommunityOrganizer,
     canCreateBeneficiary: can(currentUser?.role, 'beneficiary-resources', 'create'),
     canManageCommunity: can(currentUser?.role, 'community-resources', 'update'),
     canManagePrograms: can(currentUser?.role, 'program-resources', 'update'),
-  }), [currentUser?.role, isSuperAdmin]);
+  }), [currentUser?.role, isCommunityOrganizer, isSuperAdmin]);
 
   const [communitySummary, setCommunitySummary] = useState({
     communities: [],
@@ -77,6 +78,7 @@ export default function DashboardPage() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedSchoolId, setSelectedSchoolId] = useState('all');
+  const [selectedDashboardCard, setSelectedDashboardCard] = useState(null);
 
   // Load modules data concurrently
   useEffect(() => {
@@ -88,7 +90,11 @@ export default function DashboardPage() {
           getSummary(),
           apiGetChildren(),
           apiGetPrograms(),
-          moduleAccess.users ? apiGetUsers(1, 100) : Promise.resolve(null),
+          isSuperAdmin
+            ? apiGetUsers(1, 100)
+            : isCommunityOrganizer
+              ? apiGetManagedHealthWorkers()
+              : Promise.resolve(null),
         ]);
 
         if (!active) return;
@@ -134,7 +140,7 @@ export default function DashboardPage() {
     return () => {
       active = false;
     };
-  }, [moduleAccess.users]);
+  }, [isCommunityOrganizer, isSuperAdmin, moduleAccess.users]);
 
   // Prefer context mothers if populated, fallback to community summary mothers
   const allMothers = useMemo(() => {
@@ -379,13 +385,13 @@ export default function DashboardPage() {
       ['community', 'Community', '/community', '🏫', !isHealthWorker || isSuperAdmin],
       ['programs', 'Programs', '/program', '🍱', !isSuperAdmin && !isHealthWorker],
       ['reports', 'Reports', '/progress-report', '📊', !isSuperAdmin],
-      ['users', 'Users', '/user-management', '⚙️', isSuperAdmin],
+      ['users', isCommunityOrganizer ? 'Health Workers' : 'Users', '/user-management', '⚙️', moduleAccess.users],
     ];
 
     return modules
       .filter(([, , , , isVisible]) => isVisible)
       .map(([key, label, path, icon]) => ({ key, label, path, icon }));
-  }, [isHealthWorker, isSuperAdmin]);
+  }, [isCommunityOrganizer, isHealthWorker, isSuperAdmin, moduleAccess.users]);
 
   const visibleCards = useMemo(() => {
     const cards = [
@@ -431,18 +437,136 @@ export default function DashboardPage() {
       },
       {
         key: 'users',
-        title: 'Team Access',
+        title: isCommunityOrganizer ? 'Managed Health Workers' : 'Team Access',
         to: '/user-management',
         icon: '⚙️',
         cardClass: 'slate',
         value: superadminMetrics.totalUsers,
-        subtitle: `${superadminMetrics.activeStaffCount} active staff`,
-        show: isSuperAdmin,
+        subtitle: isCommunityOrganizer
+          ? `${superadminMetrics.activeStaffCount} active in your assigned school`
+          : `${superadminMetrics.activeStaffCount} active staff`,
+        show: moduleAccess.users,
       },
     ];
 
     return cards.filter((card) => card.show);
-  }, [isHealthWorker, isSuperAdmin, stats, superadminMetrics]);
+  }, [isCommunityOrganizer, isHealthWorker, isSuperAdmin, moduleAccess.users, stats, superadminMetrics]);
+
+  const dashboardTable = useMemo(() => {
+    if (!selectedDashboardCard) return null;
+    if (selectedDashboardCard === 'beneficiary') {
+      const rows = [
+        ...filteredMothers.map((mother, index) => ({
+          id: `mother-${mother.id ?? mother.mother_id ?? mother.motherId ?? index}`,
+          name: mother.name || [mother.first_name || mother.firstName, mother.last_name || mother.lastName].filter(Boolean).join(' ') || mother.mother_id || mother.motherId || 'Mother',
+          type: 'Mother',
+          school: mother.community || mother.school_name || mother.schoolName || '—',
+          status: mother.status || (mother.is_high_risk || mother.isHighRisk ? 'High risk' : 'Registered'),
+        })),
+        ...filteredChildren.map((child, index) => ({
+          id: `child-${child.id ?? child.child_id ?? child.childId ?? index}`,
+          name: [child.first_name || child.firstName, child.last_name || child.lastName].filter(Boolean).join(' ') || child.child_code || child.childCode || 'Child',
+          type: 'Child',
+          school: child.community || child.school_name || child.schoolName || '—',
+          status: child.status || 'Registered',
+        })),
+      ];
+      return {
+        title: 'Registered Beneficiaries',
+        link: '/beneficiary',
+        columns: [
+          { key: 'name', header: 'Name' },
+          { key: 'type', header: 'Type' },
+          { key: 'school', header: 'School / Community' },
+          { key: 'status', header: 'Status' },
+        ],
+        rows,
+      };
+    }
+    if (selectedDashboardCard === 'monitoring') {
+      const rows = [
+        ...filteredMothers.map((mother, index) => ({
+          id: `mother-${mother.id ?? mother.mother_id ?? mother.motherId ?? index}`,
+          name: mother.name || [mother.first_name || mother.firstName, mother.last_name || mother.lastName].filter(Boolean).join(' ') || mother.mother_id || mother.motherId || 'Mother',
+          type: 'Mother',
+          progress: Number(mother.progress) || 0,
+          school: mother.community || mother.school_name || mother.schoolName || '—',
+        })).filter((mother) => mother.progress > 0 && mother.progress < 60),
+        ...filteredChildren.map((child, index) => ({
+          id: `child-${child.id ?? child.child_id ?? child.childId ?? index}`,
+          name: [child.first_name || child.firstName, child.last_name || child.lastName].filter(Boolean).join(' ') || child.child_code || child.childCode || 'Child',
+          type: 'Child',
+          progress: Number(child.progress) || 0,
+          school: child.community || child.school_name || child.schoolName || '—',
+        })).filter((child) => child.progress > 0 && child.progress < 24),
+      ];
+      return {
+        title: 'Beneficiaries Needing Follow-Up',
+        link: '/monitoring',
+        columns: [
+          { key: 'name', header: 'Beneficiary' },
+          { key: 'type', header: 'Type' },
+          { key: 'school', header: 'School / Community' },
+          { key: 'progress', header: 'Progress' },
+        ],
+        rows: rows.map((row) => ({ ...row, progress: `${row.progress} milestones` })),
+      };
+    }
+    if (selectedDashboardCard === 'community') {
+      return {
+        title: 'Schools & Communities',
+        link: '/community',
+        columns: [
+          { key: 'name', header: 'School / Community' },
+          { key: 'area', header: 'Area' },
+        ],
+        rows: (communitySummary.communities || []).map((community, index) => ({
+          id: community.id ?? `community-${index}`,
+          name: community.name || `School #${community.id}`,
+          area: community.area || community.location || '—',
+        })),
+      };
+    }
+    if (selectedDashboardCard === 'programs') {
+      return {
+        title: 'Intervention Programs',
+        link: '/program',
+        columns: [
+          { key: 'name', header: 'Program' },
+          { key: 'type', header: 'Type' },
+          { key: 'scope', header: 'School / Batch' },
+          { key: 'reach', header: 'Reached / Target' },
+        ],
+        rows: programs.map((program, index) => ({
+          id: program.id ?? `program-${index}`,
+          name: program.name || 'Untitled program',
+          type: program.type || program.beneficiary_type || '—',
+          scope: getProgramScopeLabel(program),
+          reach: `${Number(program.received) || 0} / ${Number(program.target) || 0}`,
+        })),
+      };
+    }
+    if (selectedDashboardCard === 'users') {
+      return {
+        title: isCommunityOrganizer ? 'Managed Health Workers' : 'Team Access',
+        link: '/user-management',
+        columns: [
+          { key: 'name', header: 'Name' },
+          { key: 'role', header: 'Role' },
+          { key: 'school', header: 'School' },
+          { key: 'status', header: 'Status' },
+        ],
+        rows: users.map((user, index) => ({
+          id: user.id ?? `user-${index}`,
+          name: user.full_name || user.name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.username || 'Unnamed user',
+          role: user.role || '—',
+          school: user.school_name || user.schoolName || user.school_id || user.schoolId || '—',
+          status: user.status || 'Active',
+        })),
+      };
+    }
+    return null;
+  }, [communitySummary.communities, filteredChildren, filteredMothers, isCommunityOrganizer, programs, selectedDashboardCard, users]);
 
   if (loading) {
     return <PageSkeleton variant="dashboard" />;
@@ -509,7 +633,14 @@ export default function DashboardPage() {
       {/* 2. Role-relevant KPI Cards Grid */}
       <section className="dashboard-kpi-grid" aria-label="Key Performance Indicators">
         {visibleCards.map((card) => (
-          <Link key={card.key} to={card.to} className={`kpi-card ${card.key === 'monitoring' ? 'alert-card' : ''}`} title={`Open ${card.title}`}>
+          <button
+            key={card.key}
+            type="button"
+            className={`kpi-card dashboard-kpi-button${card.key === 'monitoring' ? ' alert-card' : ''}${selectedDashboardCard === card.key ? ' is-selected' : ''}`}
+            title={`Show ${card.title} table`}
+            aria-pressed={selectedDashboardCard === card.key}
+            onClick={() => setSelectedDashboardCard((selected) => selected === card.key ? null : card.key)}
+          >
             <div className="kpi-card-top">
               <span className="kpi-title">{card.title}</span>
               <span className={`kpi-icon ${card.cardClass}`} aria-hidden="true">{card.icon}</span>
@@ -520,9 +651,26 @@ export default function DashboardPage() {
             <div className="kpi-subtitle">
               <span>{card.subtitle}</span>
             </div>
-          </Link>
+          </button>
         ))}
       </section>
+
+      {dashboardTable && (
+        <section className="dashboard-table-section" aria-label={`${dashboardTable.title} table`}>
+          <div className="panel-title-row">
+            <div className="panel-title-wrap">
+              <span className="panel-icon" aria-hidden="true">📋</span>
+              <h3>{dashboardTable.title}</h3>
+            </div>
+            <Link to={dashboardTable.link} className="panel-link">Open module →</Link>
+          </div>
+          <CommunityTable
+            columns={dashboardTable.columns}
+            data={dashboardTable.rows}
+            emptyMessage={`No ${dashboardTable.title.toLowerCase()} to display.`}
+          />
+        </section>
+      )}
 
       {/* 3. Clinical Monitoring Progress & Quick Action Launchpad */}
       <section className="dashboard-lower-grid">
@@ -617,10 +765,10 @@ export default function DashboardPage() {
               <span>{moduleAccess.canManageCommunity ? 'Manage Community' : 'View Assigned Group'}</span>
             </Link>
 
-            {isSuperAdmin && (
+            {moduleAccess.users && (
               <Link to="/user-management" className="quick-action-tile">
                 <div className="quick-action-tile-icon" aria-hidden="true">⚙️</div>
-                <span>User Management</span>
+                <span>{isCommunityOrganizer ? 'Manage Health Workers' : 'User Management'}</span>
               </Link>
             )}
           </div>

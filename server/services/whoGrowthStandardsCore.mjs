@@ -1,7 +1,4 @@
-const DAYS_PER_MONTH = 30.4375;
-const WHO_CHILD_GROWTH_MAX_AGE_DAYS = 731;
-const STANDING_HEIGHT_AGE_DAYS = 731;
-
+// Shared by the browser and API so both calculate identical WHO growth scores.
 const parseReference = (raw, measureColumn) => {
   const [headerLine, ...dataLines] = String(raw || '').trim().split(/\r?\n/);
   const headers = headerLine.trim().split(/\s+/);
@@ -48,10 +45,34 @@ export const getAgeInDays = (birthDate, measurementDate) => {
   return Math.floor((measurement - birth) / 86400000 + 0.5);
 };
 
-const isEligibleAge = (ageInDays) => Number.isFinite(ageInDays)
-  && ageInDays >= 0
-  && ageInDays <= WHO_CHILD_GROWTH_MAX_AGE_DAYS
-  && ageInDays / DAYS_PER_MONTH <= 24;
+const isEligibleAge = (ageInDays, ageEligible) => ageEligible
+  && Number.isFinite(ageInDays)
+  && ageInDays >= 0;
+
+const dateAtAgeMonths = (birthDate, ageMonths) => {
+  const birth = utcDate(birthDate);
+  if (birth === null) return null;
+
+  const birthDateUtc = new Date(birth);
+  const targetMonth = birthDateUtc.getUTCMonth() + ageMonths;
+  const targetYear = birthDateUtc.getUTCFullYear() + Math.floor(targetMonth / 12);
+  const normalizedMonth = targetMonth % 12;
+  const lastDayOfTargetMonth = new Date(Date.UTC(targetYear, normalizedMonth + 1, 0)).getUTCDate();
+  return Date.UTC(
+    targetYear,
+    normalizedMonth,
+    Math.min(birthDateUtc.getUTCDate(), lastDayOfTargetMonth),
+  );
+};
+
+const isWithinAgeLimit = (birthDate, measurementDate, maxAgeMonths) => {
+  const birth = utcDate(birthDate);
+  const measurement = utcDate(measurementDate);
+  const anniversary = dateAtAgeMonths(birthDate, maxAgeMonths);
+  return birth !== null && anniversary !== null && measurement !== null
+    && measurement >= birth
+    && measurement <= anniversary;
+};
 
 const calculateLmsScore = (measurement, lms) => {
   const value = Number(measurement);
@@ -80,27 +101,34 @@ const calculateLmsScore = (measurement, lms) => {
   return Number(zScore.toFixed(2));
 };
 
-const scoreForAge = (reference, measure, ageInDays, sex) => {
-  if (!isEligibleAge(ageInDays) || sex === null) return null;
+const scoreForAge = (reference, measure, ageInDays, sex, ageEligible) => {
+  if (!isEligibleAge(ageInDays, ageEligible) || sex === null) return null;
   const roundedAge = Math.floor(ageInDays + 0.5);
   return calculateLmsScore(measure, reference.get(`${sex}:${roundedAge}`));
 };
 
-const scoreForWeightForLengthOrHeight = (weight, lengthHeight, ageInDays, sex, references) => {
+const scoreForWeightForLengthOrHeight = (
+  weight,
+  lengthHeight,
+  ageInDays,
+  sex,
+  references,
+  ageEligible,
+  useRecumbentLength,
+) => {
   const numericWeight = Number(weight);
   const numericLengthHeight = Number(lengthHeight);
-  if (!isEligibleAge(ageInDays) || sex === null || !Number.isFinite(numericWeight) || numericWeight <= 0
+  if (!isEligibleAge(ageInDays, ageEligible) || sex === null || !Number.isFinite(numericWeight) || numericWeight <= 0
     || !Number.isFinite(numericLengthHeight)) return null;
 
-  const useLength = ageInDays < STANDING_HEIGHT_AGE_DAYS;
-  const lowerBound = useLength ? 45 : 65;
-  const upperBound = useLength ? 110 : 120;
+  const lowerBound = useRecumbentLength ? 45 : 65;
+  const upperBound = useRecumbentLength ? 110 : 120;
   if (numericLengthHeight < lowerBound || numericLengthHeight > upperBound) return null;
 
   const scaledLength = numericLengthHeight * 10;
   const lowerTenth = Math.floor(scaledLength + 1e-8);
   const fraction = scaledLength - lowerTenth;
-  const reference = useLength ? references.weightForLength : references.weightForHeight;
+  const reference = useRecumbentLength ? references.weightForLength : references.weightForHeight;
   const lowerLms = reference.get(`${sex}:${lowerTenth / 10}`);
   if (!lowerLms) return null;
 
@@ -143,7 +171,13 @@ const lengthForAgeInterpretation = (zScore) => {
   return 'Normal';
 };
 
-export const createWhoGrowthStandards = ({ weightForAge, lengthForAge, weightForLength, weightForHeight }) => {
+export const createWhoGrowthStandards = ({
+  weightForAge,
+  lengthForAge,
+  weightForLength,
+  weightForHeight,
+  maxAgeMonths = 60,
+}) => {
   const references = {
     weightForAge: parseReference(weightForAge, 'age'),
     lengthForAge: parseReference(lengthForAge, 'age'),
@@ -151,12 +185,27 @@ export const createWhoGrowthStandards = ({ weightForAge, lengthForAge, weightFor
     weightForHeight: parseReference(weightForHeight, 'height'),
   };
 
-  return ({ weight, lengthHeight, sex, birthDate, measurementDate }) => {
+  return ({ weight, lengthHeight, sex, birthDate, measurementDate, maxAgeMonths: recordMaxAgeMonths = maxAgeMonths }) => {
     const ageInDays = getAgeInDays(birthDate, measurementDate);
     const normalizedSex = sexCode(sex);
-    const weightForAgeZScore = scoreForAge(references.weightForAge, weight, ageInDays, normalizedSex);
-    const lengthForAgeZScore = scoreForAge(references.lengthForAge, lengthHeight, ageInDays, normalizedSex);
-    const weightForLengthZScore = scoreForWeightForLengthOrHeight(weight, lengthHeight, ageInDays, normalizedSex, references);
+    const boundedMaxAgeMonths = Math.min(60, Math.max(0, Number(recordMaxAgeMonths) || 0));
+    const ageEligible = isWithinAgeLimit(birthDate, measurementDate, boundedMaxAgeMonths);
+    const standingHeightBoundary = dateAtAgeMonths(birthDate, 24);
+    const measurementDateUtc = utcDate(measurementDate);
+    const useRecumbentLength = standingHeightBoundary !== null
+      && measurementDateUtc !== null
+      && measurementDateUtc < standingHeightBoundary;
+    const weightForAgeZScore = scoreForAge(references.weightForAge, weight, ageInDays, normalizedSex, ageEligible);
+    const lengthForAgeZScore = scoreForAge(references.lengthForAge, lengthHeight, ageInDays, normalizedSex, ageEligible);
+    const weightForLengthZScore = scoreForWeightForLengthOrHeight(
+      weight,
+      lengthHeight,
+      ageInDays,
+      normalizedSex,
+      references,
+      ageEligible,
+      useRecumbentLength,
+    );
 
     return {
       ageInDays,
