@@ -262,25 +262,25 @@ export default function SuperAdminCommunityPage() {
     setPage(1);
   };
 
-  const openCreateModal = () => {
-    if (activeTab === 'communities') {
+  const openCreateModal = (type = activeTab === 'communities' ? 'community' : activeTab === 'groups' ? 'group' : 'batch') => {
+    if (type === 'community') {
       setCommunityForm(defaultCommunityForm);
       setShowModal('createCommunity');
       return;
     }
 
-    if (activeTab === 'groups') {
-      setGroupForm({ ...defaultGroupForm, community: selectedSchool?.name || '' });
+    if (type === 'group') {
+      setGroupForm({ ...defaultGroupForm, community: selectedSchool?.name || communities[0]?.name || '' });
       setShowModal('createGroup');
       return;
     }
 
-    if (activeTab === 'batches') {
-      setBatchForm({ ...defaultBatchForm, community: selectedSchool?.name || '', groupId: String(selectedGroup?.id || '') });
-      setShowModal('createBatch');
-    }
-
-    return;
+    setBatchForm({
+      ...defaultBatchForm,
+      community: selectedSchool?.name || selectedGroup?.community || communities[0]?.name || '',
+      groupId: String(selectedGroup?.id || ''),
+    });
+    setShowModal('createBatch');
   };
 
   const openEditModal = (item) => {
@@ -484,8 +484,8 @@ export default function SuperAdminCommunityPage() {
         communities={communities}
         groups={activeTab === 'batches' && selectedGroup ? [selectedGroup] : groups}
         batches={batches}
-        showBatchGroupField={activeTab === 'batches'}
-        hideBatchSchoolField={activeTab === 'batches'}
+        showBatchGroupField={showModal === 'createBatch'}
+        hideBatchSchoolField={showModal === 'createBatch' && Boolean(selectedSchool || selectedGroup)}
         coordinators={coordinators}
         onCreateCommunity={async (event) => { event.preventDefault(); await mutations.createCommunity(communityForm); setShowModal(null); }}
         onEditCommunity={async (event) => { event.preventDefault(); await mutations.updateCommunity(selectedItem.id, communityForm); setShowModal(null); setSelectedItem(null); }}

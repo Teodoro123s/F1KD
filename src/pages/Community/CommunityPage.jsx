@@ -538,14 +538,14 @@ export default function CommunityPage() {
     setActiveDropdownId((current) => (current === id ? null : id));
   };
 
-  const openCreateModal = () => {
-    if (activeTab === 'communities') {
+  const openCreateModal = (type = activeTab === 'communities' ? 'community' : activeTab === 'groups' ? 'group' : 'batch') => {
+    if (type === 'community') {
       setCommunityForm(defaultCommunityForm);
       setShowModal('createCommunity');
       return;
     }
 
-    if (activeTab === 'groups') {
+    if (type === 'group') {
       setGroupForm({
         ...defaultGroupForm,
         community: selectedSchool?.name || communities[0]?.name || '',
@@ -976,7 +976,8 @@ export default function CommunityPage() {
         onEditCommunity={handleEditCommunity}
         onCreateBatch={handleCreateBatch}
         onEditBatch={handleEditBatch}
-        hideBatchSchoolField={isHealthWorker || Boolean(selectedSchool || selectedGroup)}
+        showBatchGroupField={showModal === 'createBatch'}
+        hideBatchSchoolField={showModal === 'createBatch' && (isHealthWorker || Boolean(selectedSchool || selectedGroup))}
         onCreateGroup={handleCreateGroup}
         onEditGroup={handleEditGroup}
         hideGroupSchoolField={isHealthWorker || isAssignedCommunityOrganizer || Boolean(selectedSchool)}
