@@ -1,0 +1,273 @@
+import React, { useMemo, useState } from 'react';
+import { formatDateForDisplay } from '../../utils/dateFormat';
+import { calculateWhoGrowthScores } from '../../utils/whoGrowthStandards';
+
+const CHILD_METRICS = [
+  { key: 'weightForAge', label: 'Weight-for-Age', score: 'weightForAgeZScore', interpretation: 'weightForAgeInterpretation' },
+  { key: 'lengthForAge', label: 'Length/Height-for-Age', score: 'lengthForAgeZScore', interpretation: 'lengthForAgeInterpretation' },
+  { key: 'weightForLength', label: 'Weight-for-Length/Height', score: 'weightForLengthZScore', interpretation: 'weightForLengthInterpretation' },
+];
+
+const getBmi = (checkup) => {
+  const recordedBmi = Number(checkup.bmi);
+  if (Number.isFinite(recordedBmi) && recordedBmi > 0) return recordedBmi;
+
+  const weight = Number(checkup.weight ?? checkup.weight_kg);
+  const heightCm = Number(checkup.height ?? checkup.height_cm);
+  if (!Number.isFinite(weight) || !Number.isFinite(heightCm) || weight <= 0 || heightCm <= 0) return null;
+  const heightM = heightCm / 100;
+  return weight / (heightM * heightM);
+};
+
+const getBmiInterpretation = (bmi) => {
+  if (bmi === null) return 'Not available';
+  if (bmi < 18.5) return 'Underweight';
+  if (bmi < 25) return 'Normal range';
+  if (bmi < 30) return 'Overweight';
+  return 'Obesity range';
+};
+
+const toFiniteNumber = (value) => {
+  if (value === null || value === undefined || value === '') return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+};
+
+const ReportTrendGraph = ({ rows, valueKey, valueGetter, label, unit, precision = 1, normalRange, axisRange, styleVariant }) => {
+  const points = rows
+    .map((row) => ({ ...row, value: toFiniteNumber(valueGetter ? valueGetter(row) : row[valueKey]) }))
+    .filter((row) => row.value !== null)
+    .reverse();
+
+  if (!points.length) {
+    return <p className="monitor-report-empty">No numeric measurements are available to graph.</p>;
+  }
+
+  const width = 640;
+  const height = 260;
+  const padding = { top: 24, right: 22, bottom: 52, left: 58 };
+  const plotWidth = width - padding.left - padding.right;
+  const plotHeight = height - padding.top - padding.bottom;
+  const values = points.map((point) => point.value);
+  const minValue = Math.min(...values);
+  const maxValue = Math.max(...values);
+  const range = maxValue - minValue;
+  const valuePadding = range === 0 ? Math.max(Math.abs(maxValue) * 0.1, 0.5) : range * 0.12;
+  const axisMin = axisRange?.min ?? Math.min(minValue - valuePadding, normalRange?.min ?? Infinity);
+  const axisMax = axisRange?.max ?? Math.max(maxValue + valuePadding, normalRange?.max ?? -Infinity);
+  const axisSpan = axisMax - axisMin || 1;
+  const getX = (index) => padding.left + (points.length === 1 ? plotWidth / 2 : (index / (points.length - 1)) * plotWidth);
+  const getY = (value) => padding.top + ((axisMax - value) / axisSpan) * plotHeight;
+  const linePoints = points.map((point, index) => `${getX(index)},${getY(point.value)}`).join(' ');
+  const labelInterval = Math.max(1, Math.ceil(points.length / 6));
+
+  return (
+    <div className={`monitor-report-graph${styleVariant === 'who' ? ' monitor-report-graph--who growth-report-line-chart' : ''}`} role="img" aria-label={`${label} trend graph with ${points.length} monitoring ${points.length === 1 ? 'visit' : 'visits'}${normalRange ? `. Shaded area shows the normal range from ${normalRange.min} to ${normalRange.max} Z-score` : ''}.`}>
+      <svg viewBox={`0 0 ${width} ${height}`} aria-hidden="true">
+        {normalRange && (
+          <rect
+            className="monitor-report-graph__normal-range"
+            x={padding.left}
+            y={getY(normalRange.max)}
+            width={plotWidth}
+            height={getY(normalRange.min) - getY(normalRange.max)}
+          />
+        )}
+        {[0, 1, 2, 3, 4].map((index) => {
+          const y = padding.top + (index / 4) * plotHeight;
+          const value = axisMax - (index / 4) * axisSpan;
+          return (
+            <g key={index} className="monitor-report-graph__grid">
+              <line className={styleVariant === 'who' ? 'growth-report-gridline' : undefined} x1={padding.left} y1={y} x2={width - padding.right} y2={y} />
+              <text className={styleVariant === 'who' ? 'growth-report-y-axis-tick' : undefined} x={padding.left - 10} y={y + 4} textAnchor="end">{value.toFixed(precision)}</text>
+            </g>
+          );
+        })}
+        {points.length > 1 && (
+          <polyline points={linePoints} fill="none" stroke="#168447" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
+        )}
+        {points.map((point, index) => (
+          <g key={point.key}>
+            <circle cx={getX(index)} cy={getY(point.value)} r="5" fill="#168447" stroke="white" strokeWidth="2">
+              <title>{`${formatDateForDisplay(point.date)}: ${point.value.toFixed(precision)} ${unit}`}</title>
+            </circle>
+            {(index % labelInterval === 0 || index === points.length - 1) && (
+              <text className={`monitor-report-graph__x-label${styleVariant === 'who' ? ' growth-report-x-axis-tick' : ''}`} x={getX(index)} y={height - 18} textAnchor="middle">
+                {formatDateForDisplay(point.date)}
+              </text>
+            )}
+          </g>
+        ))}
+      </svg>
+      <p>{label} ({unit}) by visit date</p>
+    </div>
+  );
+};
+
+export default function MonitorReportCard({ beneficiaryType, beneficiary }) {
+  const [metricKey, setMetricKey] = useState(CHILD_METRICS[0].key);
+  const [displayMode, setDisplayMode] = useState('value');
+  const [reportView, setReportView] = useState('table');
+
+  const motherRows = useMemo(() => {
+    if (beneficiaryType !== 'mother') return [];
+    const checkups = Array.isArray(beneficiary?.checkups) ? beneficiary.checkups.flat().filter(Boolean) : [];
+    return checkups
+      .map((checkup, index) => {
+        const bmi = getBmi(checkup);
+        return {
+          key: checkup.id || `${checkup.checkupDate || checkup.checkup_date || 'checkup'}-${index}`,
+          date: checkup.checkupDate || checkup.checkup_date,
+          trimester: checkup.trimester || '—',
+          bmi,
+          interpretation: getBmiInterpretation(bmi),
+        };
+      })
+      .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+  }, [beneficiary, beneficiaryType]);
+
+  const childRows = useMemo(() => {
+    if (beneficiaryType !== 'child') return [];
+    const checks = Array.isArray(beneficiary?.checkups) ? beneficiary.checkups : [];
+    const birthDate = beneficiary.birthDate || beneficiary.birth_date;
+    const sex = beneficiary.gender || beneficiary.sex;
+
+    return checks
+      .map((checkup, index) => {
+        const date = checkup.checkupDate || checkup.visit_date || checkup.checkup_date;
+        const scores = calculateWhoGrowthScores({
+          weight: checkup.weight,
+          lengthHeight: checkup.height ?? checkup.lengthHeight ?? checkup.length_height,
+          sex,
+          birthDate,
+          measurementDate: date,
+        });
+        return {
+          key: checkup.id || `${date || 'checkup'}-${index}`,
+          date,
+          week: checkup.weekNumber ?? checkup.week_number,
+          scores,
+        };
+      })
+      .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+  }, [beneficiary, beneficiaryType]);
+
+  if (beneficiaryType === 'mother') {
+    return (
+      <section className="mother-detail-section monitor-report-card" aria-labelledby="mother-monitor-report-title">
+        <div className="monitor-report-heading">
+          <div>
+            <h3 className="mother-detail-section-title" id="mother-monitor-report-title">Monitor Report</h3>
+            <p>Maternal BMI values recorded during monitoring visits.</p>
+          </div>
+          <div className="monitor-report-views" role="group" aria-label="Choose monitor report view">
+            <button type="button" className={reportView === 'table' ? 'active' : ''} aria-pressed={reportView === 'table'} onClick={() => setReportView('table')}>Table</button>
+            <button type="button" className={reportView === 'graph' ? 'active' : ''} aria-pressed={reportView === 'graph'} onClick={() => setReportView('graph')}>Graph</button>
+          </div>
+        </div>
+        {reportView === 'table' ? (
+          <div className="monitor-report-table-wrap">
+            <table className="mother-detail-table monitor-report-table">
+              <thead>
+                <tr>
+                  <th>Visit date</th>
+                  <th>Trimester</th>
+                  <th>BMI</th>
+                  <th>Interpretation</th>
+                </tr>
+              </thead>
+              <tbody>
+                {motherRows.length ? motherRows.map((row) => (
+                  <tr key={row.key}>
+                    <td>{formatDateForDisplay(row.date)}</td>
+                    <td>{row.trimester}</td>
+                    <td>{row.bmi === null ? '—' : row.bmi.toFixed(1)}</td>
+                    <td>{row.interpretation}</td>
+                  </tr>
+                )) : (
+                  <tr><td colSpan="4" className="mother-detail-empty-row">No maternal monitoring BMI has been recorded.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <ReportTrendGraph rows={motherRows} valueKey="bmi" label="BMI" unit="kg/m²" />
+        )}
+        <p className="monitor-report-note">BMI categories are informational adult ranges and are not a pregnancy-specific assessment. Interpret with the care provider.</p>
+      </section>
+    );
+  }
+
+  const selectedMetric = CHILD_METRICS.find((metric) => metric.key === metricKey) || CHILD_METRICS[0];
+  const rowsWithValues = childRows.filter((row) => toFiniteNumber(row.scores[selectedMetric.score]) !== null
+    || Boolean(row.scores[selectedMetric.interpretation]));
+
+  return (
+    <section className="mother-detail-section monitor-report-card" aria-labelledby="child-monitor-report-title">
+      <div className="monitor-report-heading">
+        <div>
+          <h3 className="mother-detail-section-title" id="child-monitor-report-title">Monitor Report</h3>
+          <p>WHO growth standards calculated from recorded monitoring measurements.</p>
+        </div>
+        <div className="monitor-report-filters">
+          <label>
+            <span>WHO indicator</span>
+            <select value={metricKey} onChange={(event) => setMetricKey(event.target.value)}>
+              {CHILD_METRICS.map((metric) => <option key={metric.key} value={metric.key}>{metric.label}</option>)}
+            </select>
+          </label>
+          {reportView === 'table' && (
+            <label>
+              <span>Display</span>
+              <select value={displayMode} onChange={(event) => setDisplayMode(event.target.value)}>
+                <option value="value">WHO value (Z-score)</option>
+                <option value="interpretation">Interpretation</option>
+              </select>
+            </label>
+          )}
+          <div className="monitor-report-views" role="group" aria-label="Choose monitor report view">
+            <button type="button" className={reportView === 'table' ? 'active' : ''} aria-pressed={reportView === 'table'} onClick={() => setReportView('table')}>Table</button>
+            <button type="button" className={reportView === 'graph' ? 'active' : ''} aria-pressed={reportView === 'graph'} onClick={() => setReportView('graph')}>Graph</button>
+          </div>
+        </div>
+      </div>
+      {reportView === 'table' ? (
+        <div className="monitor-report-table-wrap">
+          <table className="mother-detail-table monitor-report-table">
+            <thead>
+              <tr>
+                <th>Visit date</th>
+                <th>Age at visit</th>
+                <th>{displayMode === 'value' ? 'WHO Z-score' : 'Interpretation'}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rowsWithValues.length ? rowsWithValues.map((row) => {
+                const score = toFiniteNumber(row.scores[selectedMetric.score]);
+                const interpretation = row.scores[selectedMetric.interpretation];
+                const ageMonths = Number.isFinite(Number(row.scores.ageInDays))
+                  ? Math.floor(Number(row.scores.ageInDays) / 30.4375)
+                  : null;
+                return (
+                  <tr key={row.key}>
+                    <td>{formatDateForDisplay(row.date)}</td>
+                    <td>{ageMonths === null ? (row.week === null || row.week === undefined ? '—' : `${Math.round(Number(row.week) / 4.35)} mo`) : `${ageMonths} mo`}</td>
+                    <td>{displayMode === 'value' ? (score === null ? 'Not available' : score.toFixed(2)) : (interpretation || 'Not available')}</td>
+                  </tr>
+                );
+              }) : (
+                <tr><td colSpan="3" className="mother-detail-empty-row">No eligible measurements are available for this WHO indicator.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <>
+          <p className="monitor-report-graph-caption">Graph view displays WHO Z-scores for the selected indicator.</p>
+          <ReportTrendGraph rows={rowsWithValues} valueGetter={(row) => row.scores[selectedMetric.score]} label={`${selectedMetric.label} WHO Z-score`} unit="Z" precision={2} normalRange={{ min: -2, max: 2 }} axisRange={{ min: -5, max: 5 }} styleVariant="who" />
+        </>
+      )}
+      <p className="monitor-report-note">WHO growth references apply through 60 months of age. Values are screening indicators and are not a diagnosis.</p>
+    </section>
+  );
+}

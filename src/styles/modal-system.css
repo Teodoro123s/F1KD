@@ -140,9 +140,25 @@
 }
 
 .action-feedback {
-  top: 76px;
-  min-width: min(320px, calc(100vw - 2rem));
+  position: fixed;
+  top: max(76px, env(safe-area-inset-top));
+  right: max(1rem, env(safe-area-inset-right));
+  left: auto;
+  z-index: 1100;
+  width: min(420px, calc(100vw - 2rem));
+  min-width: 0;
+  max-width: calc(100vw - 2rem);
   padding: 0.85rem 1rem;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate3d(0, -12px, 0);
+  transition: opacity 220ms ease, transform 220ms ease;
+}
+
+.action-feedback--visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate3d(0, 0, 0);
 }
 
 .action-feedback--error {

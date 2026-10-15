@@ -57,6 +57,7 @@ test('EmailJS sends credential and OTP templates using server-side credentials',
   assert.deepEqual(requests[0].body.template_params, {
     email: 'worker@example.test',
     to_email: 'worker@example.test',
+    username: 'worker@example.test',
     to_name: 'Test Worker',
     role: 'Health Worker',
     password: 'temporary-password',

@@ -960,7 +960,20 @@
 .program-recipient-status { display: inline-flex; padding: 0.35rem 0.6rem; border-radius: 999px; font-size: 0.75rem; font-weight: 800; }
 .program-recipient-status.received { background: #ecfdf3; color: #067647; }
 .program-recipient-status.pending { background: #fffaeb; color: #b54708; }
-.program-product-modal { max-width: 520px; }
+.program-product-modal {
+  width: min(520px, calc(100vw - 2rem));
+  max-width: 520px;
+  max-height: min(90vh, calc(100vh - 2rem));
+  overflow: hidden;
+}
+.program-product-modal > .modal-header,
+.program-product-modal > .modal-footer { flex: 0 0 auto; }
+.program-product-modal > .modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
 .program-product-modal .form-label { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.85rem; }
 .modal.program-beneficiary-modal { width: min(780px, calc(100vw - 2rem)); max-width: 780px; max-height: min(860px, calc(100vh - 2rem)); overflow: hidden; border-radius: 14px; }
 .program-beneficiary-modal .modal-header { flex: 0 0 auto; }
@@ -1138,7 +1151,7 @@
 .growth-report-bar-item strong { color: #7d1e2e; font-size: 0.78rem; }
 .growth-report-bar-item span { width: 100%; height: var(--bar-height); flex: 0 0 var(--bar-height); }
 .growth-report-bar-item small { width: 100%; overflow: hidden; color: #64748b; font-size: 0.68rem; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
-.growth-report-line-chart { position: relative; margin-top: 1.5rem; margin-left: 0.75rem; overflow-x: auto; }
+.growth-report-line-chart { position: relative; margin-top: 1rem; margin-left: 0; padding: 0.9rem 0.9rem 0.65rem; overflow-x: auto; border: 1px solid #dfece2; border-radius: 12px; background: linear-gradient(180deg, #ffffff 0%, #f8fcf9 100%); }
 .program-average-chart { position: relative; display: flex; min-height: 260px; margin-top: 1.5rem; padding: 0.75rem 0.5rem 0; color: #64748b; }
 .program-average-chart-actions { position: absolute; top: -4.25rem; right: 0; display: flex; gap: 0.5rem; z-index: 2; }
 .program-average-chart-actions .secondary-btn { padding: 0.4rem 0.65rem; font-size: 0.75rem; }
@@ -1155,8 +1168,9 @@
 .growth-report-chart-actions { position: absolute; top: 1rem; right: 1rem; z-index: 1; }
 .growth-report-chart-actions .secondary-btn { padding: 0.4rem 0.7rem; font-size: 0.78rem; }
 .growth-report-line-chart svg { display: block; width: 100%; min-width: 420px; max-width: 100%; height: 220px; margin-left: 0.5rem; overflow: visible; }
-.growth-report-gridline { stroke: #e8eef5; stroke-width: 1.5; }
+.growth-report-gridline { stroke: #e4eee7; stroke-width: 1.5; }
 .growth-report-gridline.zero-line { stroke: #64748b; stroke-width: 2.5; }
+.growth-report-normal-band { fill: #dcfce7; opacity: 0.75; }
 .growth-report-weekline { stroke: #cbd5e1; stroke-width: 1.25; opacity: 0.9; }
 .growth-report-y-axis-label { fill: #64748b; font-size: 12px; font-weight: 700; }
 .growth-report-y-axis-tick { fill: #64748b; font-size: 10px; font-weight: 600; }

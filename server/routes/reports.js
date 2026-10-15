@@ -4,6 +4,19 @@ const pool = require('../db');
 const { verifyToken } = require('../middleware/auth');
 const { authorize } = require('../middleware/authorize');
 
+const normalizedRoleSql = (column) => (
+  `LOWER(REPLACE(REPLACE(REPLACE(TRIM(COALESCE(${column}, '')), '_', ''), ' ', ''), '-', ''))`
+);
+const superAdminActivityExclusion = `(
+  ${normalizedRoleSql('activity_logs.actor_role')} <> 'superadmin'
+  AND NOT EXISTS (
+    SELECT 1
+    FROM users report_superadmin
+    WHERE report_superadmin.id = activity_logs.actor_user_id
+      AND ${normalizedRoleSql('report_superadmin.role')} = 'superadmin'
+  )
+)`;
+
 router.get('/scopes', verifyToken, authorize('super_admin'), async (req, res) => {
   try {
     const [schoolResult, groupResult] = await Promise.all([
@@ -30,6 +43,8 @@ router.get('/users', verifyToken, authorize('super_admin'), async (req, res) => 
          ON activity_logs.actor_user_id = users.id
          AND activity_logs.category = 'User Management'
          AND activity_logs.action = 'sign_in'
+         AND ${superAdminActivityExclusion}
+       WHERE ${normalizedRoleSql('users.role')} <> 'superadmin'
        GROUP BY users.id, users.first_name, users.middle_initial, users.last_name,
           users.email, users.role, users.school_id, users.group_id
        ORDER BY name`,
@@ -46,7 +61,11 @@ router.get('/activity', verifyToken, authorize('super_admin'), async (req, res) 
     const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
     const perPage = Math.min(100, Math.max(1, Number.parseInt(req.query.perPage, 10) || 20));
     const search = String(req.query.search || '').trim();
-    const filters = ["category = 'User Management'", "action = 'sign_in'"];
+    const filters = [
+      "activity_logs.category = 'User Management'",
+      "activity_logs.action = 'sign_in'",
+      superAdminActivityExclusion,
+    ];
     const params = [];
     const actorUserId = req.query.actorUserId === undefined ? '' : String(req.query.actorUserId);
     const schoolId = req.query.schoolId === undefined ? '' : String(req.query.schoolId);

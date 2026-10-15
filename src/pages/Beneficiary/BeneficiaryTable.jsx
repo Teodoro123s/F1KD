@@ -6,6 +6,7 @@ import TableSearch from '../../components/ui/TableSearch';
 export default function BeneficiaryTable({
   currentRows,
   loading = false,
+  errorMessage = '',
   filteredDataLength,
   rangeStart,
   rangeEnd,
@@ -45,6 +46,10 @@ export default function BeneficiaryTable({
             {loading ? (
               <tr>
                 <td colSpan={emptyColSpan} className="no-data">Loading beneficiaries...</td>
+              </tr>
+            ) : errorMessage ? (
+              <tr>
+                <td colSpan={emptyColSpan} className="no-data">{errorMessage}</td>
               </tr>
             ) : currentRows.length > 0 ? (
               currentRows.map((row) => {
@@ -103,7 +108,7 @@ export default function BeneficiaryTable({
                               <span className="beneficiary-cell-percent">{motherMonitoringProgress.completed}/{motherMonitoringProgress.total}</span>
                             </div>
                             <div className="beneficiary-cell-line-2">
-                              {assignmentDetails && <span className="muted">{assignmentDetails}</span>}
+                              {assignmentDetails && <span className="muted" title={assignmentDetails}>{assignmentDetails}</span>}
                             </div>
                             <div className="beneficiary-cell-line-3">
                               {getMotherStatus(motherDocumentProgress)}
@@ -142,7 +147,7 @@ export default function BeneficiaryTable({
                               <span className="beneficiary-cell-percent">{childMonitoringProgress.completed}/{childMonitoringProgress.total}</span>
                             </div>
                             <div className="beneficiary-cell-line-2">
-                              {assignmentDetails && <span className="muted">{assignmentDetails}</span>}
+                              {assignmentDetails && <span className="muted" title={assignmentDetails}>{assignmentDetails}</span>}
                             </div>
                             <div className="beneficiary-cell-line-3">
                               {getChildStatus(childProgress)}
@@ -183,7 +188,7 @@ export default function BeneficiaryTable({
                                 <span className="beneficiary-cell-percent">{motherMonitoringProgress.completed}/{motherMonitoringProgress.total}</span>
                               </div>
                               <div className="beneficiary-cell-line-2">
-                                {assignmentDetails && <span className="muted">{assignmentDetails}</span>}
+                                {assignmentDetails && <span className="muted" title={assignmentDetails}>{assignmentDetails}</span>}
                               </div>
                               <div className="beneficiary-cell-line-3">
                                 {getMotherStatus(motherDocumentProgress)}

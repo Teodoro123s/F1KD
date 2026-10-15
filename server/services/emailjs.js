@@ -43,6 +43,7 @@ async function sendAccountCredentialsEmail({ email, name, role, password }) {
   return sendTemplateEmail('credentials', {
     email,
     to_email: email,
+    username: email,
     to_name: name,
     role,
     password,

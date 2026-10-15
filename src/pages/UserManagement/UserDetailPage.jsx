@@ -8,7 +8,6 @@ import { apiGetActivityReport } from '../../api/reports';
 import { getSummary } from '../Community/communityService';
 import { isCommunityCoordinatorRole, isHealthWorkerRole } from '../../utils/permissions';
 import { useAuth } from '../../auth/AuthProvider';
-import ModuleSummaryCards from '../../components/ui/ModuleSummaryCards';
 import CommunityTable from '../Community/CommunityTable';
 import CommunityPagination from '../Community/components/CommunityPagination';
 import { ActivityChart } from '../Reports/ReportsPage';
@@ -24,6 +23,15 @@ function formatActivityAction(action) {
   return String(action || '')
     .replace(/[._-]+/g, ' ')
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function ProfileField({ label, value }) {
+  return (
+    <div className="detail-form-field">
+      <div className="detail-form-label">{label}</div>
+      <div className={`detail-form-value${value ? '' : ' empty'}`}>{value || '—'}</div>
+    </div>
+  );
 }
 
 export default function UserDetailPage() {
@@ -200,7 +208,7 @@ export default function UserDetailPage() {
   const activityRangeEnd = Math.min(activityPage * activityPerPage, activityReport.total || 0);
 
   return (
-    <div className="community-page">
+    <section className="mother-detail-page user-detail-page">
       <PageHeader
         title={displayName}
         breadcrumbs={[{ label: 'User Management', href: '/user-management' }, { label: user.role || 'User' }]}
@@ -212,141 +220,106 @@ export default function UserDetailPage() {
         )}
       />
 
-      
+      <section className="mother-detail-section">
+        <h3 className="mother-detail-section-title">{isHealthWorker ? 'Health Worker Actions' : 'User Actions'}</h3>
+        <div className="mother-detail-actions mother-overview-actions">
+          <button type="button" className={selectedCard === 'profile' ? 'btn-primary' : 'btn-secondary'} onClick={() => setSelectedCard('profile')}>User Profile</button>
+          {!isCoordinator && (
+            <button
+              type="button"
+              className={selectedCard === 'activity' ? 'btn-primary' : 'btn-secondary'}
+              onClick={() => {
+                setSelectedCard('activity');
+                setActivityPage(1);
+                if (isHealthWorker) setActivityView('table');
+              }}
+            >
+              {isHealthWorker ? 'Reports' : 'Actions Performed'}
+            </button>
+          )}
+        </div>
+      </section>
 
-      <main style={{ padding: '1rem' }}>
-        <ModuleSummaryCards
-          selected={selectedCard}
-          toggleOnSelect
-          onSelect={(key) => {
-            setSelectedCard(key);
-            setActivityPage(1);
-          }}
-          cards={[
-            { key: 'profile', label: 'User Profile', value: 'Bio', description: 'View profile details', selectedDescription: 'Hide profile' },
-            ...(!isCoordinator ? [{ key: 'activity', label: 'Actions Performed', value: activityReport.total ?? '—', description: 'View actions performed by this user', selectedDescription: 'Hide activity' }] : []),
-          ]}
-        />
-
-        {!selectedCard && <p className="user-detail-hint">Select a card to view this user’s profile or activity.</p>}
-
-        {selectedCard === 'profile' && <div className="checkup-card">
-          <div className="checkup-card-body">
-            <div className="checkup-section-title">Profile</div>
-
-            <div className="checkup-grid user-profile-grid">
-              <div className="form-group">
-                <label className="checkup-field-label">First Name</label>
-                <input className="checkup-field-input" value={user.firstName || ''} readOnly />
-              </div>
-              <div className="form-group">
-                <label className="checkup-field-label">Middle Initial</label>
-                <input className="checkup-field-input" value={user.middleInitial || ''} readOnly />
-              </div>
-              <div className="form-group">
-                <label className="checkup-field-label">Surname</label>
-                <input className="checkup-field-input" value={user.lastName || ''} readOnly />
-              </div>
-              <div className="form-group">
-                <label className="checkup-field-label">Email</label>
-                <input className="checkup-field-input" value={user.email || ''} readOnly />
-              </div>
-              <div className="form-group">
-                <label className="checkup-field-label">Role</label>
-                <input className="checkup-field-input" value={user.role || ''} readOnly />
-              </div>
-              <div className="form-group">
-                <label className="checkup-field-label">Status</label>
-                <input className="checkup-field-input" value={user.status || 'Active'} readOnly />
-              </div>
-              <div className="form-group">
-                <label className="checkup-field-label">Contact Number</label>
-                <input className="checkup-field-input" value={user.contactNumber || user.contact || '—'} readOnly />
-              </div>
-              <div className="form-group">
-                <label className="checkup-field-label">Date of Birth</label>
-                <input className="checkup-field-input" value={user.dob || '—'} readOnly />
-              </div>
-
-              {requiresSchoolAssignment && (
-                <>
-                  <div className="form-group">
-                    <label className="checkup-field-label">School</label>
-                    <input className="checkup-field-input" value={schoolLabel} readOnly />
-                  </div>
-                  {isHealthWorker && (
-                    <div className="form-group">
-                      <label className="checkup-field-label">Group</label>
-                      <input className="checkup-field-input" value={groupLabel} readOnly />
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-
-            
-
-            {!isCoordinator && <div style={{ marginTop: 18 }}>
-              <div className="checkup-section-title">Password</div>
-              <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' }}>
-                <input
-                  type="text"
-                  className="checkup-field-input"
-                  value={generatedPwd}
-                  readOnly
-                  placeholder="Generate default password"
-                  aria-label="Generated password"
-                  style={{ flex: 1 }}
-                />
-                <button type="button" className="btn-small" onClick={generateDefaultPassword}>Generate default password</button>
-                <button type="button" className="btn-small" onClick={applyGenerated} disabled={!generatedPwd || isApplyingPassword}>{isApplyingPassword ? 'Applying...' : 'Apply'}</button>
-              </div>
-            </div>}
+      {selectedCard === 'profile' && (
+        <section className="mother-detail-section">
+          <h3 className="mother-detail-section-title">{isHealthWorker ? 'Health Worker Profile' : 'User Profile'}</h3>
+          <div className="mother-detail-grid user-detail-profile-grid">
+            <ProfileField label="First Name" value={user.firstName} />
+            <ProfileField label="Middle Initial" value={user.middleInitial} />
+            <ProfileField label="Surname" value={user.lastName} />
+            <ProfileField label="Email" value={user.email} />
+            <ProfileField label="Role" value={user.role} />
+            <ProfileField label="Status" value={user.status || 'Active'} />
+            <ProfileField label="Contact Number" value={user.contactNumber || user.contact} />
+            <ProfileField label="Date of Birth" value={user.dob} />
+            {requiresSchoolAssignment && <ProfileField label="School" value={schoolLabel} />}
+            {isHealthWorker && <ProfileField label="Group" value={groupLabel} />}
           </div>
-        </div>}
 
-        {selectedCard === 'activity' && (
-          <section className="user-activity-panel" aria-label={`${displayName} activity report`}>
-            <h2>Actions performed by {displayName}</h2>
-            {activityError && <div role="alert" className="error-message">{activityError}</div>}
-            <div className="user-activity-view-switch" role="group" aria-label="User activity view">
-              <button type="button" aria-pressed={activityView === 'graph'} className={activityView === 'graph' ? 'is-active' : ''} onClick={() => setActivityView('graph')}>Graph view</button>
-              <button type="button" aria-pressed={activityView === 'table'} className={activityView === 'table' ? 'is-active' : ''} onClick={() => setActivityView('table')}>Table view</button>
-            </div>
-            {activityLoading ? <p role="status">Loading user activity…</p> : activityView === 'graph' ? (
-              <ActivityChart
-                dailyActivity={activityReport.dailyActivity}
-                title="Actions performed over time"
-                ariaLabel={`Daily actions performed by ${displayName}`}
-                emptyMessage="No activity recorded for this user during the selected period."
+          {!isCoordinator && <div className="user-detail-password">
+            <div className="mother-detail-section-title">Password</div>
+            <div className="user-detail-password-controls">
+              <input
+                type="text"
+                className="checkup-field-input"
+                value={generatedPwd}
+                readOnly
+                placeholder="Generate default password"
+                aria-label="Generated password"
+                style={{ flex: 1 }}
               />
-            ) : (
-              <>
-                <CommunityTable
-                  columns={activityColumns}
-                  data={activityReport.activities}
-                  rowKey="id"
-                  tableTitle={activityLoading ? 'Loading activity…' : 'User logs and activity'}
-                  emptyMessage={activityLoading ? 'Loading activity…' : 'No activity recorded for this user.'}
-                />
-                <CommunityPagination
-                  currentPage={activityPage}
-                  pageCount={activityPageCount}
-                  onPageChange={setActivityPage}
-                  perPage={activityPerPage}
-                  onPerPageChange={(value) => { setActivityPerPage(Number(value)); setActivityPage(1); }}
-                  rangeStart={activityRangeStart}
-                  rangeEnd={activityRangeEnd}
-                  totalItems={activityReport.total}
-                />
-              </>
-            )}
-          </section>
-        )}
-      </main>
+              <button type="button" className="btn-small" onClick={generateDefaultPassword}>Generate default password</button>
+              <button type="button" className="btn-small" onClick={applyGenerated} disabled={!generatedPwd || isApplyingPassword}>{isApplyingPassword ? 'Applying...' : 'Apply'}</button>
+            </div>
+          </div>}
+        </section>
+      )}
+
+      {selectedCard === 'activity' && (
+        <section className="user-activity-panel" aria-label={`${displayName} activity report`}>
+          <h2>{isHealthWorker ? `Reports: ${displayName}` : `Actions performed by ${displayName}`}</h2>
+          {activityError && <div role="alert" className="error-message">{activityError}</div>}
+          <div className="user-activity-view-switch" role="group" aria-label="User activity view">
+            <button type="button" aria-pressed={activityView === 'graph'} className={activityView === 'graph' ? 'is-active' : ''} onClick={() => setActivityView('graph')}>Graph view</button>
+            <button type="button" aria-pressed={activityView === 'table'} className={activityView === 'table' ? 'is-active' : ''} onClick={() => setActivityView('table')}>Table view</button>
+          </div>
+          {activityLoading ? <p role="status">Loading user activity…</p> : activityView === 'graph' ? (
+            <ActivityChart
+              dailyActivity={activityReport.dailyActivity}
+              title="Actions performed over time"
+              ariaLabel={`Daily actions performed by ${displayName}`}
+              emptyMessage="No activity recorded for this user during the selected period."
+            />
+          ) : (
+            <>
+              <CommunityTable
+                columns={activityColumns}
+                data={activityReport.activities}
+                rowKey="id"
+                tableTitle={activityLoading ? 'Loading activity…' : isHealthWorker ? 'Individual user logs' : 'User logs and activity'}
+                emptyMessage={activityLoading ? 'Loading activity…' : isHealthWorker ? 'No user logs found for this account.' : 'No activity recorded for this user.'}
+              />
+              <CommunityPagination
+                currentPage={activityPage}
+                pageCount={activityPageCount}
+                onPageChange={setActivityPage}
+                perPage={activityPerPage}
+                onPerPageChange={(value) => { setActivityPerPage(Number(value)); setActivityPage(1); }}
+                rangeStart={activityRangeStart}
+                rangeEnd={activityRangeEnd}
+                totalItems={activityReport.total}
+              />
+            </>
+          )}
+        </section>
+      )}
+
       <style>{`
-        .user-detail-hint { margin: 1.25rem 0; color: #64748b; text-align: center; }
-        .user-activity-panel { margin-top: 1rem; }
+        .user-detail-page .user-detail-profile-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .user-detail-page .user-detail-password { margin-top: 1.25rem; }
+        .user-detail-page .user-detail-password-controls { display: flex; gap: 0.5rem; align-items: center; }
+        .user-detail-page .user-detail-password-controls input { min-width: 0; }
+        .user-detail-page .user-activity-panel { margin-top: 0; padding: 1rem 1.15rem 1.1rem; border: 1px solid #e2e8f0; border-radius: 14px; background: linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(248,250,252,0.95) 100%); }
         .user-activity-panel > h2 { margin: 0 0 0.75rem; color: #0f172a; font-size: 1.1rem; }
         .user-activity-view-switch { display: flex; gap: 0.5rem; margin: 1rem 0; }
         .user-activity-view-switch button { padding: 0.55rem 0.9rem; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; color: #334155; cursor: pointer; }
@@ -359,7 +332,13 @@ export default function UserDetailPage() {
         .user-activity-panel .report-activity-chart { display: block; width: 100%; min-width: 540px; height: auto; }
         .user-activity-panel .report-activity-chart g[tabindex="0"] { outline: none; cursor: pointer; }
         .user-activity-panel .report-activity-chart g[tabindex="0"]:focus circle:nth-of-type(2) { stroke: #0f172a; stroke-width: 2.5; }
+        @media (max-width: 900px) { .user-detail-page .user-detail-profile-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media (max-width: 640px) {
+          .user-detail-page .user-detail-profile-grid { grid-template-columns: 1fr; }
+          .user-detail-page .user-detail-password-controls { align-items: stretch; flex-direction: column; }
+          .user-detail-page .user-detail-password-controls > * { width: 100%; }
+        }
       `}</style>
-    </div>
+    </section>
   );
 }

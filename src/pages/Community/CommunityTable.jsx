@@ -6,6 +6,8 @@ export default function CommunityTable({
   data = [],
   onRowClick,
   rowKey = 'id',
+  tableClassName = '',
+  activeRowKey = null,
   emptyMessage = 'No results found matching your search.',
   tableTitle,
   searchValue = '',
@@ -28,7 +30,7 @@ export default function CommunityTable({
         </>
       )}
       <div className="table-overflow">
-        <table className="data-table">
+        <table className={`data-table ${tableClassName}`.trim()}>
           <thead>
             <tr>
               {columns.map((column) => (
@@ -48,6 +50,10 @@ export default function CommunityTable({
               data.map((row) => (
                 <tr
                   key={row[rowKey]}
+                  className={[
+                    onRowClick ? 'clickable-row' : '',
+                    activeRowKey != null && String(row[rowKey]) === String(activeRowKey) ? 'actions-row-open' : '',
+                  ].filter(Boolean).join(' ') || undefined}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
                   role={onRowClick ? 'button' : undefined}
                   tabIndex={onRowClick ? 0 : undefined}
@@ -61,7 +67,6 @@ export default function CommunityTable({
                         }
                       : undefined
                   }
-                  className={onRowClick ? 'clickable-row' : undefined}
                 >
                   {columns.map((column) => {
                     const value = column.accessor ? row[column.accessor] : row[column.key];

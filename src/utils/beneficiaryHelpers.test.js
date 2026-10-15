@@ -51,3 +51,35 @@ test('getMotherMonitoringProgress counts remaining checkups from the second trim
   assert.equal(progress.completed, 2);
   assert.equal(progress.percentage, 33);
 });
+
+test('getMotherMonitoringProgress includes recorded checkups before the registration trimester', () => {
+  const progress = getMotherMonitoringProgress({
+    gestationalAge: '36',
+    trimester: '3rd Trimester',
+    checkups: [
+      [{ completed: true }, { completed: true }, { completed: true }],
+      [{ completed: true }, { completed: true }, { completed: true }],
+      [{ completed: true }, { completed: true }, { completed: true }],
+    ],
+  });
+
+  assert.equal(progress.total, 9);
+  assert.equal(progress.completed, 9);
+  assert.equal(progress.percentage, 100);
+});
+
+test('getMotherMonitoringProgress still counts only visits from late registration when earlier slots are empty', () => {
+  const progress = getMotherMonitoringProgress({
+    gestationalAge: '36',
+    trimester: '3rd Trimester',
+    checkups: [
+      [null, null, null],
+      [null, null, null],
+      [{ completed: true }, { completed: true }, { completed: true }],
+    ],
+  });
+
+  assert.equal(progress.total, 3);
+  assert.equal(progress.completed, 3);
+  assert.equal(progress.percentage, 100);
+});

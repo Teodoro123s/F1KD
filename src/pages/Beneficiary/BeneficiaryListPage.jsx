@@ -22,7 +22,7 @@ const getGroupStatusByProgress = (g) => {
   return p >= 100 ? 'Complete' : 'Incomplete';
 };
 
-export default function BeneficiaryListPage({ communities = [], groups = [], batches = [], mothers = [], loading = false, onSelectMother, onSelectChild, batchId = '' }) {
+export default function BeneficiaryListPage({ communities = [], groups = [], batches = [], mothers = [], loading = false, mothersError = '', onSelectMother, onSelectChild, batchId = '' }) {
   const [query, setQuery] = useState('');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('All');
   const [perPage, setPerPage] = useState(10);
@@ -244,7 +244,7 @@ export default function BeneficiaryListPage({ communities = [], groups = [], bat
           setPage(1);
         }}
         cards={[
-          { key: 'mothers', label: 'Mothers', value: mothers.length, description: 'View list' },
+          { key: 'mothers', label: 'Mothers', value: loading ? '...' : mothersError ? 'Error' : mothers.length, description: 'View list' },
           { key: 'children', label: 'Children', value: childRows.length, description: 'View list' },
         ]}
       />
@@ -274,6 +274,7 @@ export default function BeneficiaryListPage({ communities = [], groups = [], bat
           <BeneficiaryTable
             currentRows={displayRows}
             loading={loading || (selectedEntityFilter === 'Child' && childrenLoading)}
+            errorMessage={selectedEntityFilter === 'Mother' ? mothersError : ''}
             filteredDataLength={filteredData.length}
             rangeStart={rangeStart}
             rangeEnd={rangeEnd}

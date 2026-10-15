@@ -12,7 +12,7 @@ import {
 } from '../../api/users';
 import { isValidName, isValidMiddleInitial, sanitizeDigits, normalizeContact, isValidContact, isValidEmail, formatDobForInput, isValidDob, getDobValidationMessage, generatePassword } from './lib';
 import { getSummary } from '../Community/communityService';
-import { isCommunityCoordinatorRole, isHealthWorkerRole } from '../../utils/permissions';
+import { isCommunityCoordinatorRole, isHealthWorkerRole, normalizeRole as normalizeRoleKey } from '../../utils/permissions';
 import { getApiBaseUrl } from '../../api/authHeader';
 
 const API_BASE = getApiBaseUrl();
@@ -194,7 +194,7 @@ export function useUserManagement({ schoolId = '', batchId = '', healthWorkerMan
     const selectedBatch = batches.find((batch) => String(batch.id || batch.code) === String(batchId));
     const batchGroupIds = String(selectedBatch?.groupIds || '').split(',').map((id) => id.trim()).filter(Boolean);
     return users.filter((user) => {
-      if (user.role === 'Superadmin') {
+      if (normalizeRoleKey(user.role) === 'super_admin') {
         return false;
       }
 

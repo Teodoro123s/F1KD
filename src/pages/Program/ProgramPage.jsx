@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../../auth/AuthProvider";
 import { hasRole, isCommunityCoordinatorRole, isHealthWorkerRole, ROLES } from "../../utils/permissions";
@@ -1317,7 +1318,7 @@ export default function ProgramPage() {
         onCancel={() => setPendingDeleteProgram(null)}
       />
 
-      {showBeneficiaryModal && selectedProgram && (
+      {showBeneficiaryModal && selectedProgram && createPortal((
         <div
           className="modal-backdrop"
           role="presentation"
@@ -1491,8 +1492,9 @@ export default function ProgramPage() {
             </div>
           </form>
         </div>
-      )}
-      {monitorConfirmation && (
+      ), document.body)}
+
+      {monitorConfirmation && createPortal((
         <div className="modal-backdrop" role="presentation" onMouseDown={() => setMonitorConfirmation(null)}>
           <div className="modal program-product-modal" role="dialog" aria-modal="true" aria-labelledby="monitor-confirmation-title" onMouseDown={(event) => event.stopPropagation()}>
             <div className="modal-header">
@@ -1510,8 +1512,8 @@ export default function ProgramPage() {
             </div>
           </div>
         </div>
-      )}
-      {showModal && (
+      ), document.body)}
+      {showModal && createPortal((
         <div
           className="modal-backdrop"
           role="presentation"
@@ -1616,8 +1618,8 @@ export default function ProgramPage() {
             </div>
           </form>
         </div>
-      )}
-      {showActivityModal && selectedProgram && (
+      ), document.body)}
+      {showActivityModal && selectedProgram && createPortal((
         <div
           className="modal-backdrop"
           role="presentation"
@@ -1729,7 +1731,7 @@ export default function ProgramPage() {
             </div>
           </form>
         </div>
-      )}
+      ), document.body)}
     </div>
   );
 }

@@ -92,6 +92,125 @@ const TEST_ROLE_ALIASES = {
   health_worker: ['health_worker', 'healthworker', 'health worker'],
 };
 
+const LOCAL_TEST_ROLE_DEFAULTS = {
+  super_admin: {
+    first_name: 'Test',
+    last_name: 'Super Admin',
+    email: 'super_admin@local.test',
+    role: 'Superadmin',
+    status: 'Active',
+    school_id: null,
+    group_id: null,
+  },
+  admin: {
+    first_name: 'Test',
+    last_name: 'Admin',
+    email: 'admin@local.test',
+    role: 'Admin',
+    status: 'Active',
+    school_id: null,
+    group_id: null,
+  },
+  partner: {
+    first_name: 'Test',
+    last_name: 'Partner',
+    email: 'partner@local.test',
+    role: 'Partner',
+    status: 'Active',
+    school_id: null,
+    group_id: null,
+  },
+  community_coordinator: {
+    first_name: 'Test',
+    last_name: 'Community Organizer',
+    email: 'community_coordinator@local.test',
+    role: 'Community Organizer',
+    status: 'Active',
+    school_id: 1,
+    group_id: null,
+  },
+  health_worker: {
+    first_name: 'Test',
+    last_name: 'Health Worker',
+    email: 'health_worker@local.test',
+    role: 'Health worker',
+    status: 'Active',
+    school_id: 1,
+    group_id: 1,
+  },
+};
+
+async function ensureLocalTestRoleAccount(roleKey) {
+  const aliases = TEST_ROLE_ALIASES[roleKey];
+  if (!aliases) return null;
+  const placeholders = aliases.map(() => '?').join(', ');
+  const [existingRows] = await pool.query(
+    `SELECT id, first_name, last_name, middle_initial, email, role, status,
+        school_id, group_id, contact_number, location
+     FROM users
+     WHERE LOWER(TRIM(role)) IN (${placeholders})
+       AND LOWER(TRIM(status)) IN ('active', 'enabled')
+     ORDER BY (school_id IS NOT NULL) DESC, (group_id IS NOT NULL) DESC, id DESC
+     LIMIT 1`,
+    aliases,
+  );
+
+  if (existingRows.length) return existingRows[0];
+
+  const defaults = LOCAL_TEST_ROLE_DEFAULTS[roleKey];
+  if (!defaults) return null;
+
+  const passwordHash = await bcrypt.hash('Password123!', 10);
+  try {
+    const [result] = await pool.query(
+      `INSERT INTO users
+        (first_name, last_name, email, role, status, password_hash, gender, school_id, group_id, contact_number, location)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        defaults.first_name,
+        defaults.last_name,
+        defaults.email,
+        defaults.role,
+        defaults.status,
+        passwordHash,
+        'Other',
+        defaults.school_id,
+        defaults.group_id,
+        null,
+        null,
+      ],
+    );
+
+    return {
+      id: result.insertId,
+      first_name: defaults.first_name,
+      last_name: defaults.last_name,
+      middle_initial: null,
+      email: defaults.email,
+      role: defaults.role,
+      status: defaults.status,
+      school_id: defaults.school_id,
+      group_id: defaults.group_id,
+      contact_number: null,
+      location: null,
+      password_hash: passwordHash,
+    };
+  } catch (error) {
+    if (error.code === 'ER_DUP_ENTRY') {
+      const [retries] = await pool.query(
+        `SELECT id, first_name, last_name, middle_initial, email, role, status,
+            school_id, group_id, contact_number, location
+         FROM users
+         WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))
+         LIMIT 1`,
+        [defaults.email],
+      );
+      return retries[0] || null;
+    }
+    throw error;
+  }
+}
+
 function normalizeIp(value = '') {
   return String(value)
     .toLowerCase()
@@ -136,7 +255,8 @@ router.post('/test-role', async (req, res) => {
     return res.status(404).json({ error: 'Not found' });
   }
 
-  const aliases = TEST_ROLE_ALIASES[String(req.body?.role || '').trim().toLowerCase()];
+  const roleKey = String(req.body?.role || '').trim().toLowerCase();
+  const aliases = TEST_ROLE_ALIASES[roleKey];
   if (!aliases) return res.status(400).json({ error: 'Select a supported test role' });
 
   try {
@@ -151,10 +271,11 @@ router.post('/test-role', async (req, res) => {
        LIMIT 1`,
       aliases,
     );
-    if (!rows.length) {
+    const matchedUser = rows[0] || await ensureLocalTestRoleAccount(roleKey);
+    if (!matchedUser) {
       return res.status(404).json({ error: 'No active account exists for this role' });
     }
-    return res.json(issueTokens(res, rows[0]));
+    return res.json(issueTokens(res, matchedUser));
   } catch (error) {
     console.error('[Auth API] Test role sign-in error:', error.message);
     return res.status(500).json({ error: 'Unable to sign in to the selected test role' });

@@ -95,7 +95,16 @@ router.get('/options', async (req, res) => {
     const batchClause = req.groupId ? 'WHERE EXISTS (SELECT 1 FROM group_batch WHERE group_batch.batch_id = batches.id AND group_batch.group_id = ?)' : req.schoolId ? 'WHERE community_id = ?' : '';
     const [schools] = await pool.query(`SELECT id, name FROM communities ${schoolClause} ORDER BY name`, req.groupId ? [req.groupId] : req.schoolId ? [req.schoolId] : []);
     const [groups] = await pool.query(`SELECT id, name, community_id AS schoolId FROM groups ${groupClause} ORDER BY name`, req.groupId ? [req.groupId] : req.schoolId ? [req.schoolId] : []);
-    const [batches] = await pool.query(`SELECT id, name, batch_code AS code, community_id AS schoolId FROM batches ${batchClause} ORDER BY name`, req.groupId ? [req.groupId] : req.schoolId ? [req.schoolId] : []);
+    const [batches] = await pool.query(`
+      SELECT batches.id, batches.name, batches.batch_code AS code,
+        batches.community_id AS schoolId,
+        GROUP_CONCAT(DISTINCT group_batch.group_id ORDER BY group_batch.group_id) AS groupIds
+      FROM batches
+      LEFT JOIN group_batch ON group_batch.batch_id = batches.id
+      ${batchClause}
+      GROUP BY batches.id, batches.name, batches.batch_code, batches.community_id
+      ORDER BY batches.name
+    `, req.groupId ? [req.groupId] : req.schoolId ? [req.schoolId] : []);
     const [mothers] = await pool.query(`
       SELECT m.id, m.mother_code AS code,
         TRIM(CONCAT_WS(' ', m.first_name, m.middle_name, m.last_name, m.suffix)) AS name,

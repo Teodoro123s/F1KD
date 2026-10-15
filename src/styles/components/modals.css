@@ -111,9 +111,27 @@
   display: block;
   overflow: visible;
 }
+.modal-content > form {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+.modal-content > form > .modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.modal-content > form > .modal-footer {
+  flex: 0 0 auto;
+}
 /* Ensure form rows inside modals control their own grid layout */
 .modal-body .form-row-3, .modal-body .form-row-4 { width: 100%; }
 .modal-body .form-row-3 { margin-bottom: 0.5rem; }
+.user-management-modal .modal-body > .form-group.full-width {
+  max-width: 440px;
+}
 
 .modal-body-scrollable { max-height: 60vh; overflow-y: auto; padding: 1.5rem; }
 .modal-footer {

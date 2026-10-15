@@ -5,7 +5,7 @@ import { PlusIcon } from './UserManagementIcons';
 import AddUserModal from './UserManagementModal';
 import { useUserManagement } from './useUserManagement';
 import { useAuth } from '../../auth/AuthProvider';
-import { ROLES, hasRole } from '../../utils/permissions';
+import { ROLES, hasRole, normalizeRole } from '../../utils/permissions';
 import RoleFilter from './RoleFilter';
 import Pagination from './Pagination';
 import ConfirmModal from './ConfirmModal';
@@ -92,10 +92,11 @@ export default function UserManagementPage() {
     : schoolId
     ? [{ label: 'Schools', href: '/community' }, { label: schoolName, href: `/community/school/${schoolId}` }, { label: 'Users' }]
     : breadcrumbItems;
+  const countedUsers = users.filter((user) => normalizeRole(user.role) !== ROLES.SUPER_ADMIN);
   const userStatusCounts = {
-    all: users.length,
-    active: users.filter((user) => user.status === 'Active').length,
-    suspended: users.filter((user) => user.status === 'Suspended').length,
+    all: countedUsers.length,
+    active: countedUsers.filter((user) => user.status === 'Active').length,
+    suspended: countedUsers.filter((user) => user.status === 'Suspended').length,
   };
 
   useEffect(() => {

@@ -1,10 +1,11 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { capitalizeNameValue } from '../../utils/nameFormat';
 
 export function ConfirmActionModal({ show, title, message, confirmLabel = 'OK', onConfirm, onCancel, isSubmitting = false }) {
   if (!show) return null;
 
-  return (
+  return createPortal((
     <div className="modal-backdrop" role="presentation" onClick={onCancel}>
       <div className="modal-content signout-confirm-modal confirmation-modal-content" role="dialog" aria-modal="true" aria-labelledby="confirm-action-title" onClick={(event) => event.stopPropagation()}>
         <div className="modal-header-section confirmation-modal-header">
@@ -22,11 +23,11 @@ export function ConfirmActionModal({ show, title, message, confirmLabel = 'OK', 
         </div>
       </div>
     </div>
-  );
+  ), document.body);
 }
 
 function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitting = false }) {
-  return (
+  return createPortal((
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-content community-modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header-section community-modal-header-section">
@@ -44,7 +45,7 @@ function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitt
         </form>
       </div>
     </div>
-  );
+  ), document.body);
 }
 
 export function CreateCommunityModal({ showModal, onClose, communityForm, setCommunityForm, handleCreateCommunity, coordinators, isSubmitting }) {

@@ -129,3 +129,51 @@ test('test-role login only signs into active existing accounts on local developm
   assert.equal(explicitlyEnabled.status, 200);
   assert.equal((await explicitlyEnabled.json()).user.role, 'Community Organizer');
 });
+
+test('test-role login creates a local fallback account when no active role match exists', async (t) => {
+  const originalNodeEnv = process.env.NODE_ENV;
+  const originalShortcutFlag = process.env.ENABLE_TEST_ROLE_SHORTCUTS;
+  process.env.NODE_ENV = 'development';
+  process.env.ENABLE_TEST_ROLE_SHORTCUTS = 'true';
+  process.env.JWT_SECRET = 'test-role-login-test-secret';
+
+  const app = express();
+  app.use(express.json());
+  app.use('/api/auth', authRouter);
+
+  const originalQuery = pool.query;
+  pool.query = async (sql, params = []) => {
+    if (sql.includes('FROM users') && sql.includes('LOWER(TRIM(role)) IN')) {
+      return [[]];
+    }
+    if (sql.includes('INSERT INTO users')) {
+      return [{ insertId: 99 }];
+    }
+    if (sql.includes('WHERE LOWER(TRIM(email)) = LOWER(TRIM')) {
+      return [[{ id: 99, first_name: 'Test', last_name: 'Admin', email: 'admin@local.test', role: 'Admin', status: 'Active', school_id: null, group_id: null, contact_number: null, location: null }]];
+    }
+    throw new Error(`Unexpected test SQL: ${sql}`);
+  };
+
+  const server = app.listen(0, '127.0.0.1');
+  t.after(async () => {
+    pool.query = originalQuery;
+    if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = originalNodeEnv;
+    if (originalShortcutFlag === undefined) delete process.env.ENABLE_TEST_ROLE_SHORTCUTS;
+    else process.env.ENABLE_TEST_ROLE_SHORTCUTS = originalShortcutFlag;
+    await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  });
+
+  await new Promise((resolve) => server.once('listening', resolve));
+  const response = await fetch(`http://127.0.0.1:${server.address().port}/api/auth/test-role`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ role: 'admin' }),
+  });
+
+  assert.equal(response.status, 200);
+  const result = await response.json();
+  assert.equal(jwt.verify(result.token, process.env.JWT_SECRET).email, 'admin@local.test');
+  assert.equal(result.user.role, 'Admin');
+});

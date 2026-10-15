@@ -46,11 +46,10 @@ export function getMotherMonitoringStartIndex(mother = {}) {
 
 export function getMotherMonitoringProgress(mother = {}) {
   const startIndex = getMotherMonitoringStartIndex(mother);
-
-  const checkups = Array.isArray(mother.checkups) ? mother.checkups.flat() : [];
-  const remainingCheckups = checkups.slice(startIndex);
-  const completed = remainingCheckups.filter(Boolean).length;
-  const total = Math.max(1, 9 - startIndex);
+  const checkups = Array.isArray(mother.checkups) ? mother.checkups.flat().slice(0, 9) : [];
+  const completed = checkups.filter(Boolean).length;
+  const completedBeforeStart = checkups.slice(0, startIndex).filter(Boolean).length;
+  const total = Math.max(1, 9 - startIndex + completedBeforeStart);
 
   return {
     completed,

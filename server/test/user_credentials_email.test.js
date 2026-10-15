@@ -109,6 +109,7 @@ test('Super Admin user creation sends the account credential template', async (t
   assert.deepEqual(emailRequest.template_params, {
     email: 'new-account@example.test',
     to_email: 'new-account@example.test',
+    username: 'new-account@example.test',
     to_name: 'New Account',
     role: 'Partner',
     password: 'temporary-password',

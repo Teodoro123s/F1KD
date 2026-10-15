@@ -48,7 +48,7 @@
   text-decoration: none;
 }
 
-.mother-children-page .beneficiary-table-card .table-overflow { min-height: 0; }
+.mother-children-page .beneficiary-table-card .table-overflow { min-height: 320px; }
 
 .beneficiary-table-card .entity-card-button:hover,
 .beneficiary-table-card .entity-card-button:focus-visible {
@@ -117,8 +117,9 @@
   color: #64748b;
   font-weight: 500;
   min-width: 0;
-  white-space: normal;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .beneficiary-cell-line-3 {
   font-size: 0.82rem;
@@ -160,6 +161,8 @@
 }
 
 @media (max-width: 640px) {
+  .mother-children-page .beneficiary-table-card .table-overflow { min-height: 260px; }
+
   .beneficiary-table-card .entity-card-button {
     padding: 0.9rem;
   }

@@ -156,7 +156,7 @@ export default function Login() {
             <button
               type="button"
               className="login-test-menu-toggle"
-              aria-label="Open testing sign-in menu"
+              aria-label="Open test sign-in options"
               aria-haspopup="menu"
               aria-expanded={testMenuOpen}
               onClick={() => setTestMenuOpen((open) => !open)}
@@ -166,6 +166,7 @@ export default function Login() {
                 <path d="M9 3h6M10 3v6l-5.2 8.4A2.4 2.4 0 0 0 6.9 21h10.2a2.4 2.4 0 0 0 2.1-3.6L14 9V3" />
                 <path d="M8 14h8" />
               </svg>
+              <span>Test sign-in</span>
             </button>
             {testMenuOpen && (
               <div className="login-test-menu-panel" role="menu" aria-label="Testing sign-in">

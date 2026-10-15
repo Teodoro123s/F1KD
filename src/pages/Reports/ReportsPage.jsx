@@ -83,6 +83,9 @@ export function ActivityChart({
     y: padding.top + plotHeight - ((Number(item.count) || 0) / maxCount) * plotHeight,
   }));
   const linePoints = points.map(({ x, y }) => `${x},${y}`).join(' ');
+  const areaPath = points.length
+    ? `M ${points[0].x} ${padding.top + plotHeight} ${points.map(({ x, y }) => `L ${x} ${y}`).join(' ')} L ${points[points.length - 1].x} ${padding.top + plotHeight} Z`
+    : '';
 
   return (
     <section className="report-chart-card" aria-label={title}>
@@ -95,15 +98,22 @@ export function ActivityChart({
             role="group"
             aria-label={ariaLabel}
           >
+            <defs>
+              <linearGradient id="report-activity-fill" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.28" />
+                <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.02" />
+              </linearGradient>
+            </defs>
             {yTicks.map((tick) => {
               const y = padding.top + plotHeight - (tick / maxCount) * plotHeight;
               return (
                 <g key={tick}>
-                  <line x1={padding.left} x2={width - padding.right} y1={y} y2={y} stroke="#e2e8f0" />
+                  <line x1={padding.left} x2={width - padding.right} y1={y} y2={y} stroke="#e2e8f0" strokeDasharray="4 6" />
                   <text x={padding.left - 9} y={y + 4} textAnchor="end" fill="#64748b" fontSize="11">{tick}</text>
                 </g>
               );
             })}
+            <path d={areaPath} fill="url(#report-activity-fill)" />
             <polyline
               points={linePoints}
               fill="none"
@@ -324,7 +334,7 @@ export default function ReportsPage() {
           </button>
         ) : null}
       />
-      <p className="reports-intro">Review successful user login records by school, group, or individual account. School and group reports use users’ current assignments.</p>
+      <p className="reports-intro">Review successful user login records by school, group, or individual account. Super Admin accounts and their sign-ins are excluded from report users, totals, charts, and tables. School and group reports use users’ current assignments.</p>
       <ModuleSummaryCards
         selected={selectedCard}
         toggleOnSelect
@@ -537,9 +547,28 @@ export default function ReportsPage() {
           .reports-date-range { display: grid; grid-template-columns: minmax(0, 1fr); }
           .reports-date-range .reports-filter-field { width: auto; }
         }
-        .report-chart-card { margin: 0.5rem 0 1rem; padding: 1rem 1.25rem; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; }
-        .report-chart-card h2 { margin: 0 0 0.75rem; font-size: 1rem; color: #0f172a; }
-        .report-chart-scroll { overflow-x: auto; }
+        .report-chart-card {
+          margin: 0.5rem 0 1rem;
+          padding: 1.25rem 1.5rem 1.5rem;
+          border: 1px solid #e2e8f0;
+          border-radius: 18px;
+          background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(248,250,252,0.96));
+          box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
+        }
+        .report-chart-card h2 {
+          margin: 0 0 1rem;
+          font-size: clamp(1.8rem, 2vw, 2.5rem);
+          line-height: 1.1;
+          letter-spacing: -0.04em;
+          color: #0f172a;
+        }
+        .report-chart-scroll {
+          overflow-x: auto;
+          padding: 0.25rem 0.25rem 0;
+          border: 1px solid #edf2f7;
+          border-radius: 14px;
+          background: linear-gradient(180deg, rgba(248,250,252,0.8), rgba(255,255,255,0.8));
+        }
         .report-activity-chart { display: block; width: 100%; min-width: 540px; height: auto; }
         .report-activity-chart g[tabindex="0"] { outline: none; cursor: pointer; }
         .report-activity-chart g[tabindex="0"]:focus circle:nth-of-type(2) { stroke: #0f172a; stroke-width: 2.5; }

@@ -9,9 +9,9 @@ import { can } from '../../../utils/permissions';
 import { capitalizeNameValue } from '../../../utils/nameFormat';
 import { ChildFormFields } from './BeneficiaryChild';
 import PageHeader from '../../../components/ui/PageHeader';
-import ProgressTrendChart from '../../../components/ui/ProgressTrendChart';
 import ConfirmModal from '../../UserManagement/ConfirmModal';
 import { notifyAction } from '../../../components/ActionFeedback';
+import MonitorReportCard from '../MonitorReportCard';
 
 const formatValue = (value) => (value === null || value === undefined || value === '' ? '—' : String(value));
 
@@ -303,17 +303,6 @@ export default function ChildProfilePage() {
     medicalRemarks: selectedChild?.medicalRemarks || selectedChild?.medical_remarks || '',
   };
 
-  const childProgressPoints = (selectedChild?.checkups || [])
-    .map((checkup, index) => {
-      const month = checkup.weekNumber ?? checkup.week_number;
-      return {
-        label: month !== null && month !== undefined ? `M${month}` : `Visit ${index + 1}`,
-        date: checkup.checkupDate || checkup.visit_date || '',
-        weight: checkup.weight,
-        height: checkup.height,
-      };
-    });
-
   const rightColumnContent = (!selectedChild && (childId || id)) ? (
     <div>
       <h2>Child data not available in this session</h2>
@@ -352,16 +341,6 @@ export default function ChildProfilePage() {
         onCancel={() => setShowDeleteConfirm(false)}
       />
 
-      <ProgressTrendChart
-        title="Individual Growth Progress"
-        description="Recorded growth measurements by monthly monitoring visit."
-        data={childProgressPoints}
-        metrics={[
-          { key: 'weight', label: 'Weight', unit: 'kg', color: '#168447' },
-          { key: 'height', label: 'Height', unit: 'cm', color: '#2563eb' },
-        ]}
-      />
-
       {!isChildProfile && <section className="mother-detail-section">
         <h3 className="mother-detail-section-title">Child Actions</h3>
         <div className="mother-detail-actions mother-overview-actions">
@@ -382,6 +361,8 @@ export default function ChildProfilePage() {
           </button>
         </div>
       </section>}
+
+      {!isChildProfile && <MonitorReportCard beneficiaryType="child" beneficiary={selectedChild} />}
 
       {isChildProfile && (<>
       <div className="stepper-progress child-detail-stepper">

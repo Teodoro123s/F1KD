@@ -300,29 +300,34 @@ export default function DashboardPage() {
 
   const superadminMetrics = useMemo(() => {
     const activeUsers = Array.isArray(users) ? users : [];
-      const operationalRoles = ['admin', 'partner', 'health worker', 'community organizer', 'community coordinator'];
+    const operationalRoles = new Set([
+      ROLES.ADMIN,
+      ROLES.PARTNER,
+      ROLES.HEALTH_WORKER,
+      ROLES.COMMUNITY_COORDINATOR,
+    ]);
 
     const normalizedUsers = activeUsers.map((user) => ({
       name: user.full_name || user.username || `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Unnamed User',
-      role: String(user.role || '').trim(),
-      status: String(user.status || 'Active').trim(),
+      role: normalizeRole(user.role),
+      roleLabel: String(user.role || '').trim(),
+      status: String(user.status || 'Active').trim().toLowerCase(),
       school_id: user.school_id ?? user.schoolId ?? null,
       created_at: user.created_at || user.createdAt || null,
       updated_at: user.updated_at || user.updatedAt || null,
     }));
 
     const activeStaffCount = normalizedUsers.filter((user) => {
-      const roleName = (user.role || '').toLowerCase();
-      return user.status.toLowerCase() === 'active' && (roleName.includes('admin') || roleName.includes('partner') || roleName.includes('health') || roleName.includes('community organizer') || roleName.includes('community coordinator'));
+      return user.status === 'active' && operationalRoles.has(user.role);
     }).length;
 
     const unassignedCount = normalizedUsers.filter((user) => {
-      const roleName = (user.role || '').toLowerCase();
-      const isOperational = operationalRoles.some((role) => roleName.includes(role));
-      return user.status.toLowerCase() === 'active' && isOperational && !user.school_id;
+      return user.status === 'active' && operationalRoles.has(user.role) && !user.school_id;
     }).length;
 
-    const suspendedCount = normalizedUsers.filter((user) => user.status.toLowerCase() === 'suspended').length;
+    const suspendedCount = normalizedUsers.filter((user) => (
+      user.status === 'suspended' && operationalRoles.has(user.role)
+    )).length;
 
     const recentActivity = normalizedUsers
       .filter((user) => user.updated_at || user.created_at)
@@ -335,7 +340,7 @@ export default function DashboardPage() {
         const assignmentText = schoolName ? `assigned to ${schoolName}` : 'school assignment review required';
         return {
           time,
-          detail: `${user.name} • ${user.role || 'User'} • ${assignmentText}`,
+          detail: `${user.name} • ${user.roleLabel || 'User'} • ${assignmentText}`,
         };
       });
 

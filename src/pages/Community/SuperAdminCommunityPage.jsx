@@ -341,8 +341,14 @@ export default function SuperAdminCommunityPage() {
               {activeTab === 'groups' && (
                 <button type="button" className="actions-dropdown-item" onClick={(event) => { event.stopPropagation(); selectGroup(row); setActiveDropdownId(null); }} role="menuitem">View Health Workers</button>
               )}
-              <button type="button" className="actions-dropdown-item" onClick={(event) => { event.stopPropagation(); openEditModal(row); setActiveDropdownId(null); }} role="menuitem">Edit</button>
-              <button type="button" className="actions-dropdown-item delete" onClick={(event) => { event.stopPropagation(); setActiveDropdownId(null); deleteItem(row); }} role="menuitem">Delete</button>
+              {activeTab === 'healthWorkers' ? (
+                <button type="button" className="actions-dropdown-item" onClick={(event) => { event.stopPropagation(); navigate(`/user-management/user/${row.id}`); setActiveDropdownId(null); }} role="menuitem">View User</button>
+              ) : (
+                <>
+                  <button type="button" className="actions-dropdown-item" onClick={(event) => { event.stopPropagation(); openEditModal(row); setActiveDropdownId(null); }} role="menuitem">Edit</button>
+                  <button type="button" className="actions-dropdown-item delete" onClick={(event) => { event.stopPropagation(); setActiveDropdownId(null); deleteItem(row); }} role="menuitem">Delete</button>
+                </>
+              )}
             </div>
           )}
         </>
@@ -384,19 +390,44 @@ export default function SuperAdminCommunityPage() {
           ),
         },
         ...(!selectedSchool ? [{ key: 'schoolName', header: 'School' }] : []),
+        { key: 'healthWorkers', header: 'Health Workers', cellClassName: 'small-column', renderCell: (row) => row.healthWorkers || 0 },
         actionColumn,
       ];
     }
 
     if (activeTab === 'healthWorkers') {
       return [
-        { key: 'name', header: 'Health Worker', renderCell: (row) => <span className="community-title-text">{row.name || row.full_name || 'Unnamed user'}</span> },
-        { key: 'role', header: 'Role', renderCell: (row) => row.role || 'Health worker' },
-        ...(!activeGroupId ? [{ key: 'schoolName', header: 'School', renderCell: (row) => row.school_name || '—' }] : []),
-        ...(!activeGroupId ? [{ key: 'groupName', header: 'Group', renderCell: (row) => row.group_name || '—' }] : []),
-        { key: 'email', header: 'Email', renderCell: (row) => row.email || '—' },
-        { key: 'contact_number', header: 'Contact Number', renderCell: (row) => row.contact_number || '—' },
-        { key: 'status', header: 'Status', renderCell: (row) => row.status || 'Active' },
+        {
+          key: 'name',
+          header: 'Health Worker',
+          style: { width: '52%' },
+          renderCell: (row) => (
+            <button
+              type="button"
+              className="community-title-text community-health-worker-link"
+              onClick={(event) => {
+                event.stopPropagation();
+                navigate(`/user-management/user/${row.id}`, {
+                  state: {
+                    user: {
+                      ...row,
+                      firstName: row.first_name || '',
+                      middleInitial: row.middle_initial || '',
+                      lastName: row.last_name || '',
+                      contactNumber: row.contact_number || '',
+                      schoolId: row.school_id || '',
+                      groupId: row.group_id || '',
+                    },
+                  },
+                });
+              }}
+            >
+              {row.name || row.full_name || 'Unnamed user'}
+            </button>
+          ),
+        },
+        { key: 'groupName', header: 'Group', style: { width: '32%' }, renderCell: (row) => activeGroupId ? selectedGroup?.name || row.group_name || '—' : row.group_name || '—' },
+        actionColumn,
       ];
     }
 
@@ -406,7 +437,7 @@ export default function SuperAdminCommunityPage() {
       { key: 'progress', header: 'Progress (%)', cellClassName: 'small-column', renderCell: (row) => `${row.progress || 0}%` },
       actionColumn,
     ];
-  }, [activeDropdownId, activeTab, communities, coordinators, groups, selectGroup, selectedSchool]);
+  }, [activeDropdownId, activeGroupId, activeTab, communities, coordinators, groups, navigate, selectGroup, selectedGroup, selectedSchool]);
 
   const onRowClick = activeTab === 'communities'
     ? selectSchool
@@ -454,6 +485,8 @@ export default function SuperAdminCommunityPage() {
           <CommunityTable
             columns={columns}
             data={currentRows}
+            tableClassName={activeTab === 'healthWorkers' ? 'community-health-workers-table' : ''}
+            activeRowKey={activeDropdownId}
             onRowClick={onRowClick}
             tableTitle={tableTitle}
             emptyMessage={activeTab === 'healthWorkers' ? 'No health workers found.' : `No ${activeTab === 'communities' ? 'schools' : activeTab}${selectedSchool ? ` for ${selectedSchool.name}` : ''} found.`}

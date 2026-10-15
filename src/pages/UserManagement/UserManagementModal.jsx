@@ -1,13 +1,164 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import DateInput from '../../components/ui/DateInput';
 import { capitalizeNameValue } from '../../utils/nameFormat';
 import { generatePassword } from './lib';
 import { isCommunityCoordinatorRole, isHealthWorkerRole } from '../../utils/permissions';
 
-function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitting = false, notification = '' }) {
+function FormDropdown({ id, label, name, options, value, onChange, required = false, disabled = false, emptyMessage = '' }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const [menuStyle, setMenuStyle] = useState(null);
+  const selectRef = useRef(null);
+  const triggerRef = useRef(null);
+  const optionsRef = useRef(null);
+  const selectedIndex = options.findIndex((option) => String(option.value) === String(value || ''));
+  const selectedOption = selectedIndex >= 0 ? options[selectedIndex] : null;
+  const listboxId = `${id}-options`;
+
+  useEffect(() => {
+    if (!isOpen) {
+      setMenuStyle(null);
+      return undefined;
+    }
+
+    const closeOnOutsideClick = (event) => {
+      if (!selectRef.current?.contains(event.target) && !optionsRef.current?.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setIsOpen(false);
+    };
+    const positionMenu = () => {
+      const trigger = triggerRef.current;
+      if (!trigger) return;
+      const bounds = trigger.getBoundingClientRect();
+      const belowSpace = window.innerHeight - bounds.bottom - 8;
+      const estimatedHeight = Math.min(220, options.length * 40 + 8);
+      const openAbove = belowSpace < estimatedHeight && bounds.top > belowSpace;
+      const availableSpace = openAbove ? bounds.top - 8 : belowSpace;
+      const height = Math.min(220, availableSpace);
+      setMenuStyle({
+        position: 'fixed',
+        top: openAbove ? Math.max(8, bounds.top - height - 6) : bounds.bottom + 6,
+        left: bounds.left,
+        width: bounds.width,
+        maxHeight: height,
+      });
+    };
+    positionMenu();
+    window.addEventListener('resize', positionMenu);
+    window.addEventListener('scroll', positionMenu, true);
+    document.addEventListener('mousedown', closeOnOutsideClick);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      window.removeEventListener('resize', positionMenu);
+      window.removeEventListener('scroll', positionMenu, true);
+      document.removeEventListener('mousedown', closeOnOutsideClick);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [isOpen, options.length]);
+
+  useEffect(() => {
+    if (!isOpen || activeIndex < 0) return;
+    document.getElementById(`${listboxId}-${activeIndex}`)?.scrollIntoView({ block: 'nearest' });
+  }, [activeIndex, isOpen]);
+
+  const chooseOption = (option) => {
+    onChange(String(option.value));
+    setIsOpen(false);
+  };
+
+  const handleKeyDown = (event) => {
+    if (!options.length) return;
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      if (!isOpen) {
+        setIsOpen(true);
+        setActiveIndex(selectedIndex >= 0 ? selectedIndex : 0);
+        return;
+      }
+      const direction = event.key === 'ArrowDown' ? 1 : -1;
+      setActiveIndex((index) => (index + direction + options.length) % options.length);
+    } else if (event.key === 'Home' && isOpen) {
+      event.preventDefault();
+      setActiveIndex(0);
+    } else if (event.key === 'End' && isOpen) {
+      event.preventDefault();
+      setActiveIndex(options.length - 1);
+    } else if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      if (isOpen && activeIndex >= 0) chooseOption(options[activeIndex]);
+      else {
+        setIsOpen(true);
+        setActiveIndex(selectedIndex >= 0 ? selectedIndex : 0);
+      }
+    }
+  };
+
   return (
+    <div className="form-dropdown" ref={selectRef}>
+      <input type="hidden" name={name} value={value || ''} />
+      <button
+        id={id}
+        type="button"
+        className="form-select form-dropdown-trigger"
+        role="combobox"
+        aria-label={label}
+        aria-haspopup="listbox"
+        aria-controls={listboxId}
+        aria-expanded={isOpen}
+        aria-required={required}
+        aria-activedescendant={isOpen && activeIndex >= 0 ? `${listboxId}-${activeIndex}` : undefined}
+        disabled={disabled || !options.length}
+        ref={triggerRef}
+        onClick={() => {
+          setIsOpen((open) => !open);
+          setActiveIndex(selectedIndex >= 0 ? selectedIndex : 0);
+        }}
+        onKeyDown={handleKeyDown}
+      >
+        <span>{selectedOption?.label || (options.length ? `Select ${label.toLowerCase()}` : `No ${label.toLowerCase()} options available`)}</span>
+        <svg viewBox="0 0 20 20" width="16" height="16" fill="none" aria-hidden="true">
+          <path d="m5 7.5 5 5 5-5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      {isOpen && options.length > 0 && menuStyle && createPortal(
+        <div
+          id={listboxId}
+          ref={optionsRef}
+          className="form-dropdown-options"
+          style={menuStyle}
+          role="listbox"
+          aria-label={`${label} options`}
+        >
+          {options.map((option, index) => (
+            <div
+              id={`${listboxId}-${index}`}
+              key={option.value}
+              className={`form-dropdown-option${String(option.value) === String(value) ? ' is-selected' : ''}${index === activeIndex ? ' is-active' : ''}`}
+              role="option"
+              aria-selected={String(option.value) === String(value)}
+              onMouseEnter={() => setActiveIndex(index)}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => chooseOption(option)}
+            >
+              {option.label}
+            </div>
+          ))}
+        </div>,
+        document.body,
+      )}
+      {!options.length && emptyMessage && <span className="form-dropdown-empty">{emptyMessage}</span>}
+    </div>
+  );
+}
+
+function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitting = false, notification = '' }) {
+  return createPortal((
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-content user-management-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header-section">
           <h3>{title}</h3>
           <button className="btn-close-modal" onClick={onClose} aria-label="Close modal">
@@ -33,7 +184,7 @@ function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitt
         </form>
       </div>
     </div>
-  );
+  ), document.body);
 }
 
 export default function AddUserModal({ showModal, onClose, form, setForm, onSubmit, roleOptions, communities = [], groups = [], mode = 'add', isSubmitting = false, notification = '', managedHealthWorker = false }) {
@@ -158,17 +309,14 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
               <input type="hidden" name="role" value="Health worker" />
             </>
           ) : (
-            <select
+            <FormDropdown
               id="role"
+              label="Role"
               name="role"
-              className="form-select"
+              options={roleOptions.map((role) => ({ value: role, label: role }))}
               value={form.role}
-              onChange={(e) => handleChange('role', e.target.value)}
-            >
-              {roleOptions.map((role) => (
-                <option key={role} value={role}>{role}</option>
-              ))}
-            </select>
+              onChange={(role) => handleChange('role', role)}
+            />
           )}
         </div>
         <div className="form-group" aria-hidden="true" />
@@ -184,20 +332,32 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
                 <input type="hidden" name="schoolId" value={form.schoolId || ''} />
               </>
             ) : (
-              <select id="school-id" name="schoolId" className="form-select" value={form.schoolId || ''} onChange={(e) => setForm((prev) => ({ ...prev, schoolId: e.target.value, groupId: requiresGroup ? '' : prev.groupId }))}>
-                <option value="">Select assigned school</option>
-                {communities.map((school) => <option key={school.id} value={school.id}>{school.name}</option>)}
-              </select>
+              <FormDropdown
+                id="school-id"
+                label="Assigned School"
+                name="schoolId"
+                options={communities.map((school) => ({ value: school.id, label: school.name }))}
+                value={form.schoolId || ''}
+                required={schoolIsRequired}
+                emptyMessage="Create a school in Community before assigning this role."
+                onChange={(schoolId) => setForm((prev) => ({ ...prev, schoolId, groupId: requiresGroup ? '' : prev.groupId }))}
+              />
             )}
           </div>
 
           {requiresGroup && (
             <div className="form-group full-width">
               <label className="form-label" htmlFor="group-id">Assigned Group *</label>
-              <select id="group-id" name="groupId" className="form-select" value={form.groupId || ''} onChange={(e) => handleChange('groupId', e.target.value)} required>
-                <option value="">Select assigned group</option>
-                {groupOptions.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
-              </select>
+              <FormDropdown
+                id="group-id"
+                label="Assigned Group"
+                name="groupId"
+                options={groupOptions.map((group) => ({ value: group.id, label: group.name }))}
+                value={form.groupId || ''}
+                required
+                emptyMessage="No groups are available for the selected school."
+                onChange={(groupId) => handleChange('groupId', groupId)}
+              />
             </div>
           )}
 
@@ -207,10 +367,15 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
       {!managedHealthWorker && (
         <div className="form-group full-width">
           <label className="form-label" htmlFor="status">Status *</label>
-          <select id="status" name="status" className="form-select" value={form.status || 'Active'} onChange={(e) => handleChange('status', e.target.value)} required>
-            <option value="Active">Active</option>
-            <option value="Suspended">Suspended</option>
-          </select>
+          <FormDropdown
+            id="status"
+            label="Status"
+            name="status"
+            options={[{ value: 'Active', label: 'Active' }, { value: 'Suspended', label: 'Suspended' }]}
+            value={form.status || 'Active'}
+            required
+            onChange={(status) => handleChange('status', status)}
+          />
         </div>
       )}
 

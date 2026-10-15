@@ -48,6 +48,13 @@ import {
   pointValueForTableField,
 } from './utils/reportTableUtils';
 
+const batchAvailableForGroup = (batch, groupId, mothers) => {
+  const linkedGroupIds = String(batch.groupIds || '').split(',').map((id) => id.trim()).filter(Boolean);
+  if (linkedGroupIds.includes(String(groupId))) return true;
+  if (mothers.some((mother) => String(mother.groupId) === String(groupId) && String(mother.batchId) === String(batch.id))) return true;
+  return linkedGroupIds.length === 0;
+};
+
 export default function ProgressReport() {
   const { currentUser } = useAuth();
   const isHealthWorker = isHealthWorkerRole(currentUser?.role);
@@ -173,7 +180,7 @@ export default function ProgressReport() {
   const batches = useMemo(() => options.batches.filter((item) => {
     const matchesSchool = !selection.schoolId || String(item.schoolId) === String(selection.schoolId);
     if (!matchesSchool || !selection.groupId) return matchesSchool;
-    return options.mothers.some((mother) => String(mother.groupId) === String(selection.groupId) && String(mother.batchId) === String(item.id));
+    return batchAvailableForGroup(item, selection.groupId, options.mothers);
   }), [options.batches, options.mothers, selection.groupId, selection.schoolId]);
   const normalizeSelectionHierarchy = (nextSelection) => {
     const normalized = {
@@ -197,7 +204,7 @@ export default function ProgressReport() {
     if (normalized.batchId && (!normalized.groupId || !options.batches.some((item) =>
       String(item.id) === String(normalized.batchId)
       && String(item.schoolId) === String(normalized.schoolId)
-      && options.mothers.some((mother) => String(mother.groupId) === String(normalized.groupId) && String(mother.batchId) === String(item.id))
+      && batchAvailableForGroup(item, normalized.groupId, options.mothers)
     ))) {
       normalized.batchId = '';
     }

@@ -184,6 +184,10 @@ router.get('/summary', async (req, res) => {
         c.name AS community,
         COALESCE(g.members_count, COUNT(m.id)) AS members,
         COUNT(DISTINCT gb.batch_id) AS batches,
+        (SELECT COUNT(*)
+         FROM users hu
+         WHERE hu.group_id = g.id
+           AND LOWER(REPLACE(REPLACE(TRIM(hu.role), '_', ''), ' ', '')) = 'healthworker') AS health_workers,
         COALESCE(g.leader, '') AS leader,
         COALESCE(g.status, 'Active') AS status
       FROM groups g
@@ -285,6 +289,7 @@ router.get('/summary', async (req, res) => {
       leader: item.leader || '',
       members: Number(item.members || 0),
       batches: Number(item.batches || 0),
+      healthWorkers: Number(item.health_workers || 0),
       status: item.status || 'Active',
     }));
 
