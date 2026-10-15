@@ -14,11 +14,12 @@ export const getPhilippineCities = (provinceName) => {
 export const getPhilippineBarangays = async (provinceName, cityName) => {
   const province = provinceRecords.find((item) => item.name === provinceName);
   const municipality = province?.municipalities?.find((item) => item.name === cityName);
-  if (municipality?.barangays?.length) return municipality.barangays.map((barangay) => barangay.name);
+  if (municipality?.barangays?.length) return municipality.barangays.slice(0, 5).map((barangay) => barangay.name);
 
   const cityAliases = new Set([cityName, `${cityName} City`, `${cityName} City Capital`]);
   const { getBarangays } = await import('./philippineBarangays');
   return getBarangays()
     .filter((barangay) => cityAliases.has(barangay.citymun))
+    .slice(0, 5)
     .map((barangay) => barangay.name);
 };

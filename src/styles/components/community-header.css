@@ -118,6 +118,30 @@
   gap: 0.65rem;
 }
 
+.community-child-column-filters {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  padding: 0 0 0.75rem;
+}
+
+.community-child-column-filters .entity-filter-btn {
+  min-width: 180px;
+  max-width: 100%;
+}
+
+@media (max-width: 520px) {
+  .community-child-column-filters {
+    justify-content: stretch;
+  }
+
+  .community-child-column-filters .entity-filter-btn {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+}
+
 .community-table-search {
   display: flex;
   justify-content: flex-end;

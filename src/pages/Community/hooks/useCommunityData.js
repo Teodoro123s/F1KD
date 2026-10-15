@@ -7,6 +7,7 @@ export const useCommunityData = () => {
   const [batches, setBatches] = useState([]);
   const [groups, setGroups] = useState([]);
   const [mothers, setMothers] = useState([]);
+  const [totalHealthWorkers, setTotalHealthWorkers] = useState(0);
   const [coordinators, setCoordinators] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -22,18 +23,21 @@ export const useCommunityData = () => {
         batches: summaryData.batches || [],
         groups: summaryData.groups || [],
         mothers: summaryData.mothers || [],
+        totalHealthWorkers: Number(summaryData.totalHealthWorkers || 0),
       };
 
       setCommunities(normalizedData.communities);
       setBatches(normalizedData.batches);
       setGroups(normalizedData.groups);
       setMothers(normalizedData.mothers);
+      setTotalHealthWorkers(normalizedData.totalHealthWorkers);
 
       console.info('[CommunityData] Community data load succeeded', {
         communities: normalizedData.communities.length,
         batches: normalizedData.batches.length,
         groups: normalizedData.groups.length,
         mothers: normalizedData.mothers.length,
+        totalHealthWorkers: normalizedData.totalHealthWorkers,
       });
 
       if (normalizedData.communities.length === 0) {
@@ -73,6 +77,7 @@ export const useCommunityData = () => {
     batches,
     groups,
     mothers,
+    totalHealthWorkers,
     coordinators,
     loading,
     error,

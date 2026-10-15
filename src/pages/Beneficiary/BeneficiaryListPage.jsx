@@ -246,7 +246,6 @@ export default function BeneficiaryListPage({ communities = [], groups = [], bat
         cards={[
           { key: 'mothers', label: 'Mothers', value: mothers.length, description: 'View list' },
           { key: 'children', label: 'Children', value: childRows.length, description: 'View list' },
-          { key: 'total', label: 'Total Beneficiaries', value: mothers.length + childRows.length, interactive: false },
         ]}
       />
       {selectedSummaryCard && (

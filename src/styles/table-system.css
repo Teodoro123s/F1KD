@@ -36,6 +36,12 @@
   border-spacing: 0;
 }
 
+table th,
+table td {
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
 .data-table th,
 .view-table th,
 .progress-report-table th {

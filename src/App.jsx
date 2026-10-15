@@ -1,6 +1,5 @@
 import { lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import Layout from './components/Layout';
 import { MothersProvider } from './context/MothersContext';
 import Login from './pages/Auth/LoginPage';
 import { useAuth } from './auth/AuthProvider';
@@ -8,6 +7,7 @@ import RoleBasedRoute from './components/RoleBasedRoute';
 import { LoadingScreen } from './components/LoadingSkeleton';
 import { ROLES } from './utils/permissions';
 
+const Layout = lazy(() => import('./components/Layout'));
 const CommunityModulePage = lazy(() => import('./pages/Community/CommunityModulePage'));
 const Beneficiary = lazy(() => import('./pages/Beneficiary/BeneficiaryPage'));
 const MonitoringPage = lazy(() => import('./pages/Monitoring/MonitoringPage'));

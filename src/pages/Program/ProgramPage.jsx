@@ -1157,7 +1157,15 @@ export default function ProgramPage() {
 
             return (
               <table className="data-table">
-                {directScopeGroups.length ? (
+                {programHierarchy.length ? (
+                  <thead>
+                    <tr>
+                      <th>School</th>
+                      <th>Groups</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                ) : directScopeGroups.length ? (
                   <thead>
                     <tr>
                       <th>Group</th>

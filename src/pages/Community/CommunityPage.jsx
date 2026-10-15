@@ -65,6 +65,8 @@ export default function CommunityPage() {
   const [batchForm, setBatchForm] = useState(defaultBatchForm);
   const [childrenRows, setChildrenRows] = useState([]);
   const [childrenOverviewError, setChildrenOverviewError] = useState('');
+  const [showChildMotherColumn, setShowChildMotherColumn] = useState(true);
+  const [showChildBatchColumn, setShowChildBatchColumn] = useState(true);
   const [schoolOverviewSelection, setSchoolOverviewSelection] = useState(null);
   const [drilldownSchoolId, setDrilldownSchoolId] = useState(null);
   const [drilldownGroupId, setDrilldownGroupId] = useState(null);
@@ -161,26 +163,19 @@ export default function CommunityPage() {
       });
   }, [query, scopedGroups, selectedSchool]);
 
+  const batchesForSelectedGroup = useMemo(() => {
+    if (!selectedGroup) return [];
+
+    return batches.filter((batch) => String(batch.groupIds || '')
+      .split(',')
+      .map((value) => value.trim())
+      .includes(String(selectedGroup.id)));
+  }, [batches, selectedGroup]);
+
   const selectedGroupBatches = useMemo(() => {
     if (!selectedGroup) return [];
 
-    return batches
-      .filter((batch) => {
-        const assignedGroupIds = String(batch.groupIds || '')
-          .split(',')
-          .map((value) => value.trim())
-          .filter(Boolean);
-        const groupNames = String(batch.groupNames || batch.group_name || batch.group || '')
-          .split(',')
-          .map((value) => value.trim())
-          .filter(Boolean);
-        const sameGroupName = groupNames.some((name) => String(name).toLowerCase() === String(selectedGroup.name || '').toLowerCase());
-        const sameCommunity = String(batch.community || '').toLowerCase() === String(selectedGroup.community || '').toLowerCase();
-
-        return assignedGroupIds.includes(String(selectedGroup.id))
-          || sameGroupName
-          || (assignedGroupIds.length === 0 && sameCommunity);
-      })
+    return batchesForSelectedGroup
       .filter((batch) => {
         if (!query.trim()) return true;
         const term = query.trim();
@@ -188,7 +183,30 @@ export default function CommunityPage() {
           String(value || '').includes(term)
         );
       });
-  }, [batches, mothers, query, selectedGroup]);
+  }, [batchesForSelectedGroup, query]);
+
+  const selectedGroupBatchKeys = useMemo(
+    () => new Set(batchesForSelectedGroup.flatMap((batch) =>
+      [batch.id, batch.databaseId, batch.code]
+        .filter((value) => value !== undefined && value !== null && value !== '')
+        .map(String)
+    )),
+    [batchesForSelectedGroup],
+  );
+  const selectedGroupMothers = useMemo(
+    () => selectedGroup
+      ? mothers.filter((mother) => mother.group === selectedGroup.name
+        || selectedGroupBatchKeys.has(String(mother.batchId || '')))
+      : [],
+    [mothers, selectedGroup, selectedGroupBatchKeys],
+  );
+  const selectedGroupChildren = useMemo(
+    () => selectedGroup
+      ? childrenRows.filter((child) => String(child.groupId || '') === String(selectedGroup.id)
+        || selectedGroupBatchKeys.has(String(child.batchId || '')))
+      : [],
+    [childrenRows, selectedGroup, selectedGroupBatchKeys],
+  );
 
   const selectedBatchMothers = useMemo(() => {
     if (!selectedBatch) return [];
@@ -222,6 +240,11 @@ export default function CommunityPage() {
       : [],
     [childrenRows, selectedSchool],
   );
+  const childOverviewRows = activeTab === 'batches' && selectedGroup
+    ? selectedGroupChildren
+    : activeTab === 'communities'
+      ? childrenRows
+      : schoolOverviewChildren;
   const schoolOverviewBatches = useMemo(
     () => selectedSchool
       ? batches.filter((batch) => String(batch.community || '').toLowerCase() === String(selectedSchool.name || '').toLowerCase())
@@ -231,7 +254,9 @@ export default function CommunityPage() {
 
   useEffect(() => {
     const shouldLoadChildren = (activeTab === 'mothers' && entityFilter === 'Child')
-      || (activeTab === 'groups' && Boolean(selectedSchool));
+      || activeTab === 'communities'
+      || (activeTab === 'groups' && Boolean(selectedSchool))
+      || (activeTab === 'batches' && Boolean(selectedGroup));
     if (!shouldLoadChildren) {
       setChildrenRows([]);
       setChildrenOverviewError('');
@@ -245,9 +270,11 @@ export default function CommunityPage() {
       .then((response) => {
         const rows = (response.children || []).map((child) => {
           const childName = child.name || [child.first_name, child.middle_name, child.last_name, child.suffix].filter(Boolean).join(' ');
-          const motherName = child.mother_first_name || child.motherFirstName
-            ? `${child.mother_first_name || child.motherFirstName || ''} ${child.mother_last_name || child.motherLastName || ''}`.trim()
-            : child.mother_name || '';
+          const motherName = child.mother_name || [
+            child.mother_first_name || child.motherFirstName,
+            child.mother_middle_name || child.motherMiddleName,
+            child.mother_last_name || child.motherLastName,
+          ].filter(Boolean).join(' ');
 
           return {
             id: child.id,
@@ -255,8 +282,9 @@ export default function CommunityPage() {
             motherName,
             community: child.community_name || child.community || '',
             group: child.group_name || child.group || '',
+            groupId: child.group_id ?? child.mother_group_id ?? child.groupId ?? '',
             batch: child.batch_name || child.batch || '',
-            batchId: child.batch_id ?? child.batchId ?? null,
+            batchId: child.effective_batch_id ?? child.batchId ?? child.batch_id ?? null,
             progress: Number(child.progress ?? 0),
             profileProgress: getChildProfileProgress(child),
             raw: child,
@@ -276,7 +304,7 @@ export default function CommunityPage() {
       });
 
     return () => { active = false; };
-  }, [activeTab, entityFilter, selectedSchool]);
+  }, [activeTab, entityFilter, selectedGroup, selectedSchool]);
 
   const filteredData = useMemo(() => {
     const term = query.trim();
@@ -323,11 +351,11 @@ export default function CommunityPage() {
 
   const overviewRows = useMemo(() => {
     const source = schoolOverviewSelection === 'mothers'
-      ? schoolOverviewMothers
+      ? (activeTab === 'batches' && selectedGroup ? selectedGroupMothers : schoolOverviewMothers)
       : schoolOverviewSelection === 'children'
-        ? schoolOverviewChildren
+        ? childOverviewRows
         : schoolOverviewSelection === 'batches'
-          ? schoolOverviewBatches
+          ? (activeTab === 'batches' && selectedGroup ? selectedGroupBatches : schoolOverviewBatches)
           : schoolOverviewSelection === 'groups'
             ? (activeTab === 'communities' ? scopedGroups : schoolOverviewGroups)
           : [];
@@ -340,10 +368,10 @@ export default function CommunityPage() {
     const term = query.trim();
     return rows.filter((row) => {
       if (!term) return true;
-      return [row.name, row.motherName, row.group, row.community, row.schoolName, String(row.id)]
+      return [row.name, row.motherName, row.batch, row.group, row.community, row.schoolName, String(row.id)]
         .some((value) => String(value || '').includes(term));
     });
-  }, [activeTab, query, schoolOverviewBatches, schoolOverviewChildren, schoolOverviewGroups, schoolOverviewMothers, schoolOverviewSelection, scopedGroups]);
+  }, [activeTab, childOverviewRows, query, schoolOverviewBatches, schoolOverviewGroups, schoolOverviewMothers, schoolOverviewSelection, scopedGroups, selectedGroup, selectedGroupBatches, selectedGroupMothers]);
   const tableData = schoolOverviewSelection ? overviewRows : filteredData;
   const pageCount = Math.max(1, Math.ceil(tableData.length / perPage));
   const currentPage = Math.min(page, pageCount);
@@ -354,7 +382,7 @@ export default function CommunityPage() {
     if (schoolOverviewSelection === 'groups') return `Groups: ${selectedSchool?.name || 'All schools'}`;
     if (schoolOverviewSelection === 'mothers') return `Mothers: ${selectedSchool?.name || 'School'}`;
     if (schoolOverviewSelection === 'children') return `Children: ${selectedSchool?.name || 'School'}`;
-    if (schoolOverviewSelection === 'batches') return `Batches: ${selectedSchool?.name || 'School'}`;
+    if (schoolOverviewSelection === 'batches') return `Batches: ${selectedGroup?.name || selectedSchool?.name || 'School'}`;
 
     if (activeTab === 'communities') {
       return 'Schools';
@@ -488,7 +516,7 @@ export default function CommunityPage() {
     setDrilldownSchoolId(null);
     setDrilldownGroupId(group.id);
     setDrilldownBatchId(null);
-    setSchoolOverviewSelection(null);
+    setSchoolOverviewSelection('batches');
     setQuery('');
     setPage(1);
   };
@@ -497,6 +525,11 @@ export default function CommunityPage() {
     setDrilldownBatchId(batch.id);
     setSchoolOverviewSelection(null);
     setQuery('');
+    setPage(1);
+  };
+
+  const handleOverviewSelection = (selection) => {
+    setSchoolOverviewSelection(selection);
     setPage(1);
   };
 
@@ -785,7 +818,8 @@ export default function CommunityPage() {
     if (schoolOverviewSelection === 'children') {
       return [
         { key: 'name', header: 'Child Name', renderCell: (row) => <span className="community-title-text">{row.name}</span> },
-        { key: 'motherName', header: 'Mother Name', renderCell: (row) => row.motherName || '—' },
+        ...(showChildMotherColumn ? [{ key: 'motherName', header: 'Mother Name', renderCell: (row) => row.motherName || '—' }] : []),
+        ...(showChildBatchColumn ? [{ key: 'batch', header: 'Batch', renderCell: (row) => row.batch || '—' }] : []),
         { key: 'group', header: 'Group', renderCell: (row) => row.group || '—' },
       ];
     }
@@ -797,7 +831,7 @@ export default function CommunityPage() {
       ];
     }
     return columns;
-  }, [activeTab, columns, schoolOverviewSelection]);
+  }, [activeTab, columns, schoolOverviewSelection, showChildBatchColumn, showChildMotherColumn]);
 
   const currentRowClickHandler =
     schoolOverviewSelection === 'groups'
@@ -839,21 +873,43 @@ export default function CommunityPage() {
         canManage={canManage && (activeTab !== 'communities' || canManageSchools)}
       />
 
-      {(activeTab === 'communities' || (activeTab === 'groups' && selectedSchool)) && (
+      {(activeTab === 'communities' || (activeTab === 'groups' && selectedSchool) || (activeTab === 'batches' && selectedGroup)) && (
         <>
           <CommunityOverviewCards
             selected={schoolOverviewSelection}
-            onSelect={(selection) => { setSchoolOverviewSelection(selection); setPage(1); }}
+            onSelect={handleOverviewSelection}
             cards={[
               { key: 'groups', label: 'Total Groups', value: activeTab === 'communities' ? groups.length : schoolOverviewGroups.length },
               { key: 'batches', label: 'Total Batches', value: activeTab === 'communities' ? batches.length : schoolOverviewBatches.length },
               { key: 'mothers', label: 'Total Mothers', value: activeTab === 'communities' ? mothers.length : schoolOverviewMothers.length },
-              { key: 'children', label: 'Total Children', value: activeTab === 'communities' ? (childrenOverviewError ? 'Unavailable' : childrenRows.length) : (childrenOverviewError ? 'Unavailable' : schoolOverviewChildren.length) },
+              { key: 'children', label: 'Total Children', value: childrenOverviewError ? 'Unavailable' : activeTab === 'communities' ? childrenRows.length : schoolOverviewChildren.length },
             ]}
           />
           {childrenOverviewError && <p className="error-message" role="alert">{childrenOverviewError}</p>}
           {schoolOverviewSelection ? (
             <>
+              {schoolOverviewSelection === 'children' && (
+                <div className="community-child-column-filters" role="group" aria-label="Choose child table columns">
+                  <select
+                    className="entity-filter-btn"
+                    value={showChildMotherColumn ? 'show' : 'hide'}
+                    onChange={(event) => setShowChildMotherColumn(event.target.value === 'show')}
+                    aria-label="Show or hide Mother Name column"
+                  >
+                    <option value="show">Show Mother Name</option>
+                    <option value="hide">Hide Mother Name</option>
+                  </select>
+                  <select
+                    className="entity-filter-btn"
+                    value={showChildBatchColumn ? 'show' : 'hide'}
+                    onChange={(event) => setShowChildBatchColumn(event.target.value === 'show')}
+                    aria-label="Show or hide Batch column"
+                  >
+                    <option value="show">Show Batch</option>
+                    <option value="hide">Hide Batch</option>
+                  </select>
+                </div>
+              )}
               <CommunityTable
                 columns={overviewColumns}
                 data={currentRows}
@@ -879,7 +935,7 @@ export default function CommunityPage() {
           )}
         </>
       )}
-      {!(activeTab === 'communities' || (activeTab === 'groups' && selectedSchool)) && (
+      {!(activeTab === 'communities' || (activeTab === 'groups' && selectedSchool) || (activeTab === 'batches' && selectedGroup)) && (
         <>
           <CommunityTable
             columns={columns}

@@ -17,7 +17,7 @@ function normalizeDbStatus(value) {
   return 'Active';
 }
 
-const HEALTH_WORKER_ROLE_SQL = `LOWER(TRIM(role)) IN ('health worker', 'health_worker', 'healthworker')`;
+const HEALTH_WORKER_ROLE_SQL = `LOWER(REPLACE(REPLACE(TRIM(role), '_', ''), ' ', '')) = 'healthworker'`;
 
 function getOrganizerSchoolId(req, res) {
   const schoolId = Number(req.user?.school_id);
@@ -312,6 +312,26 @@ router.get('/coordinators', verifyToken, async (req, res) => {
   } catch (err) {
     console.error('[Users API] GET /coordinators error:', err.message);
     res.status(500).json({ error: 'db error' });
+  }
+});
+
+router.get('/all-health-workers', verifyToken, authorize('super_admin'), async (req, res) => {
+  try {
+    const [users] = await pool.query(
+      `SELECT u.id, CONCAT_WS(' ', u.first_name, u.middle_initial, u.last_name) AS name,
+          CONCAT_WS(' ', u.first_name, u.last_name) AS full_name, u.email, u.role, u.status,
+          u.first_name, u.last_name, u.middle_initial, u.contact_number, u.gender, u.dob,
+          u.location, u.school_id, u.group_id, c.name AS school_name, g.name AS group_name
+       FROM users u
+       LEFT JOIN communities c ON c.id = u.school_id
+       LEFT JOIN groups g ON g.id = u.group_id
+       WHERE LOWER(REPLACE(REPLACE(TRIM(u.role), '_', ''), ' ', '')) = 'healthworker'
+       ORDER BY u.last_name, u.first_name, u.id`,
+    );
+    res.json({ total: users.length, users });
+  } catch (error) {
+    console.error('[Users API] GET /all-health-workers error:', error.message);
+    res.status(500).json({ error: 'Unable to load health workers' });
   }
 });
 

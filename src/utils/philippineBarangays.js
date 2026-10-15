@@ -1,3 +1,3 @@
-import barangays from 'psgc/dist/barangays';
+import barangays from './sampleBarangays.json';
 
-export const getBarangays = () => barangays.all();
+export const getBarangays = () => barangays;

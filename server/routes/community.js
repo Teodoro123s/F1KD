@@ -96,6 +96,27 @@ function getEffectiveRecordCount(item = {}) {
   return Number.isFinite(storedCount) ? storedCount : 0;
 }
 
+function getMotherWeightedProgress(rows = []) {
+  const progressByMother = new Map();
+
+  rows.forEach((row) => {
+    const motherId = String(row.motherId ?? row.mother_id ?? '');
+    if (!motherId) return;
+
+    const motherChildren = progressByMother.get(motherId) || [];
+    motherChildren.push(Math.min(100, (Number(row.childCheckups ?? row.child_checkups ?? 0) / 24) * 100));
+    progressByMother.set(motherId, motherChildren);
+  });
+
+  if (!progressByMother.size) return 0;
+
+  const motherProgressTotal = [...progressByMother.values()].reduce((total, childProgress) => (
+    total + childProgress.reduce((sum, progress) => sum + progress, 0) / childProgress.length
+  ), 0);
+
+  return Math.round(motherProgressTotal / progressByMother.size);
+}
+
 router.get('/summary', async (req, res) => {
   try {
     console.info('[Community API] Fetching community summary from database (compatible mode)...');
@@ -103,6 +124,8 @@ router.get('/summary', async (req, res) => {
     const namedSchoolScope = req.schoolId ? 'WHERE b.community_id = ?' : '';
     const groupScope = req.groupId ? 'WHERE g.id = ?' : req.schoolId ? 'WHERE g.community_id = ?' : '';
     const motherScope = req.groupId ? 'WHERE m.group_id = ?' : req.schoolId ? 'WHERE m.community_id = ?' : '';
+    const healthWorkerScope = req.groupId ? 'AND group_id = ?' : req.schoolId ? 'AND school_id = ?' : '';
+    const healthWorkerScopeValues = req.groupId ? [req.groupId] : req.schoolId ? [req.schoolId] : [];
     const communityBatchJoin = req.groupId
       ? 'LEFT JOIN batches b ON b.community_id = c.id AND EXISTS (SELECT 1 FROM group_batch scoped_batch_group WHERE scoped_batch_group.batch_id = b.id AND scoped_batch_group.group_id = ?)'
       : 'LEFT JOIN batches b ON b.community_id = c.id';
@@ -172,6 +195,13 @@ router.get('/summary', async (req, res) => {
       ORDER BY g.id
     `, req.groupId ? [req.groupId] : req.schoolId ? [req.schoolId] : []);
 
+    const [healthWorkerCountRows] = await pool.query(
+      `SELECT COUNT(*) AS total
+       FROM users
+       WHERE LOWER(REPLACE(REPLACE(TRIM(role), '_', ''), ' ', '')) = 'healthworker' ${healthWorkerScope}`,
+      healthWorkerScopeValues,
+    );
+
     const [motherRows] = await pool.query(`
       SELECT
         m.mother_code AS id,
@@ -198,10 +228,11 @@ router.get('/summary', async (req, res) => {
     const [monitoringRows] = await pool.query(`
       SELECT
         m.batch_id AS batchId,
+        m.id AS motherId,
         c.id AS childId,
         COUNT(DISTINCT cc.id) AS childCheckups
       FROM mothers m
-      INNER JOIN children c ON c.mother_id = m.id
+      LEFT JOIN children c ON c.mother_id = m.id
         AND (c.batch_id = m.batch_id OR c.batch_id IS NULL)
       LEFT JOIN child_checkups cc ON cc.child_id = c.id
       WHERE m.batch_id IS NOT NULL
@@ -228,10 +259,7 @@ router.get('/summary', async (req, res) => {
     const batchesData = batches.map((item) => {
       const batchId = String(item.id || '');
       const childMonitoring = monitoringByBatch.get(batchId) || [];
-      const completedChildren = childMonitoring.filter((row) => Number(row.childCheckups) >= 24).length;
-      const progress = childMonitoring.length
-        ? Math.round((completedChildren / childMonitoring.length) * 100)
-        : 0;
+      const progress = getMotherWeightedProgress(childMonitoring);
 
       return {
         id: item.batch_code || String(item.id),
@@ -282,6 +310,7 @@ router.get('/summary', async (req, res) => {
       batches: batchesData,
       groups: groupsData,
       mothers: mothersData,
+      totalHealthWorkers: Number(healthWorkerCountRows[0]?.total || 0),
     };
 
     console.info('[Community API] Summary loaded successfully', {
@@ -289,6 +318,7 @@ router.get('/summary', async (req, res) => {
       batches: summary.batches.length,
       groups: summary.groups.length,
       mothers: summary.mothers.length,
+      totalHealthWorkers: summary.totalHealthWorkers,
     });
 
     res.json(summary);
@@ -925,3 +955,4 @@ router.get('/batches', async (req, res) => {
 
 module.exports = router;
 module.exports.getEffectiveRecordCount = getEffectiveRecordCount;
+module.exports.getMotherWeightedProgress = getMotherWeightedProgress;

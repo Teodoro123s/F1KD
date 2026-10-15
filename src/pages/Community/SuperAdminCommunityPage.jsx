@@ -9,6 +9,7 @@ import { MoreVerticalIcon } from './CommunityIcons';
 import { useCommunityData } from './hooks/useCommunityData';
 import { useCommunityMutations } from './hooks/useCommunityMutations';
 import CommunityOverviewCards from './components/CommunityOverviewCards';
+import { getAllHealthWorkers, getGroupHealthWorkers } from './communityService';
 
 const defaultCommunityForm = { name: '', area: 'Poblacion', coordinator: '' };
 const defaultGroupForm = { name: '', community: '', assignedBatchIds: [], leader: '', members: 1, status: 'Active' };
@@ -17,11 +18,11 @@ const defaultBatchForm = { name: '', community: '', records: 1, progress: 0, sta
 export default function SuperAdminCommunityPage() {
   const navigate = useNavigate();
   const { schoolId, groupId, batchId } = useParams();
-  const { communities, batches, groups, coordinators, loading, error, refreshData } = useCommunityData();
+  const { communities, batches, groups, coordinators, totalHealthWorkers, loading, error, refreshData } = useCommunityData();
   const mutations = useCommunityMutations({ refreshData });
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
-  const [perPage, setPerPage] = useState(10);
+  const [perPage, setPerPage] = useState(50);
   const [activeDropdownId, setActiveDropdownId] = useState(null);
   const [showModal, setShowModal] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
@@ -29,9 +30,19 @@ export default function SuperAdminCommunityPage() {
   const [communityForm, setCommunityForm] = useState(defaultCommunityForm);
   const [groupForm, setGroupForm] = useState(defaultGroupForm);
   const [batchForm, setBatchForm] = useState(defaultBatchForm);
-  const [schoolOverviewSelection, setSchoolOverviewSelection] = useState(null);
+  const [selectedSchoolId, setSelectedSchoolId] = useState(schoolId || null);
+  const [selectedGroupId, setSelectedGroupId] = useState(groupId || null);
+  const [rootListType, setRootListType] = useState('communities');
+  const [healthWorkers, setHealthWorkers] = useState([]);
+  const [healthWorkersLoading, setHealthWorkersLoading] = useState(false);
+  const [healthWorkersError, setHealthWorkersError] = useState('');
+  const [groupHealthWorkers, setGroupHealthWorkers] = useState([]);
+  const [groupHealthWorkersLoading, setGroupHealthWorkersLoading] = useState(false);
+  const [groupHealthWorkersError, setGroupHealthWorkersError] = useState('');
 
-  const activeTab = groupId ? 'batches' : schoolId ? 'groups' : 'communities';
+  const activeSchoolId = selectedSchoolId;
+  const activeGroupId = selectedGroupId;
+  const activeTab = activeGroupId ? 'healthWorkers' : activeSchoolId ? 'groups' : rootListType;
 
   useEffect(() => {
     const handleDocumentClick = (event) => {
@@ -48,35 +59,103 @@ export default function SuperAdminCommunityPage() {
   }, []);
 
   useEffect(() => {
+    if (rootListType !== 'healthWorkers') return undefined;
+
+    let active = true;
+    setHealthWorkersLoading(true);
+    setHealthWorkersError('');
+    getAllHealthWorkers()
+      .then((response) => {
+        if (active) setHealthWorkers(Array.isArray(response.users) ? response.users : []);
+      })
+      .catch((requestError) => {
+        if (active) setHealthWorkersError(requestError.message || 'Unable to load health workers.');
+      })
+      .finally(() => {
+        if (active) setHealthWorkersLoading(false);
+      });
+
+    return () => { active = false; };
+  }, [rootListType]);
+
+  useEffect(() => {
     setPage(1);
     setQuery('');
     setActiveDropdownId(null);
-    setSchoolOverviewSelection(null);
-  }, [schoolId, groupId]);
+    setSelectedSchoolId(schoolId || null);
+    setSelectedGroupId(groupId || null);
+    setRootListType('communities');
+  }, [groupId, schoolId]);
 
   const selectedGroup = useMemo(
-    () => groups.find((group) => String(group.id) === String(groupId)) || null,
-    [groupId, groups],
+    () => groups.find((group) => String(group.id) === String(activeGroupId)) || null,
+    [activeGroupId, groups],
   );
   const selectedSchool = useMemo(
-    () => communities.find((community) => String(community.id) === String(schoolId || selectedGroup?.communityId))
+    () => communities.find((community) => String(community.id) === String(activeSchoolId || selectedGroup?.communityId))
       || communities.find((community) => community.name === selectedGroup?.community)
       || null,
-    [communities, schoolId, selectedGroup],
+    [activeSchoolId, communities, selectedGroup],
   );
   const getSchoolCoordinator = (school) => coordinators.find((coordinator) => String(coordinator.schoolId || '') === String(school?.id || ''));
 
+  useEffect(() => {
+    if (!selectedGroup || activeSchoolId) return;
+    const parentSchool = communities.find((community) => String(community.id) === String(selectedGroup.communityId))
+      || communities.find((community) => community.name === selectedGroup.community);
+    if (parentSchool) setSelectedSchoolId(parentSchool.id);
+  }, [activeSchoolId, communities, selectedGroup]);
+
+  useEffect(() => {
+    if (!activeGroupId) return undefined;
+
+    let active = true;
+    setGroupHealthWorkersLoading(true);
+    setGroupHealthWorkersError('');
+    getGroupHealthWorkers(activeGroupId)
+      .then((response) => {
+        if (!active) return;
+        const workers = Array.isArray(response.users) ? response.users : [];
+        setGroupHealthWorkers(workers
+          .filter((worker) => String(worker.role || '').trim().toLowerCase().replace(/[\s_]/g, '') === 'healthworker')
+          .map((worker) => ({
+            ...worker,
+            school_name: worker.school_name || selectedSchool?.name || selectedGroup?.community || '',
+            group_name: worker.group_name || selectedGroup?.name || '',
+          })));
+      })
+      .catch((requestError) => {
+        if (active) setGroupHealthWorkersError(requestError.message || 'Unable to load group health workers.');
+      })
+      .finally(() => {
+        if (active) setGroupHealthWorkersLoading(false);
+      });
+
+    return () => { active = false; };
+  }, [activeGroupId, selectedGroup, selectedSchool]);
+
   const schoolGroups = useMemo(
     () => selectedSchool
-      ? groups.filter((group) => String(group.community || '').toLowerCase() === String(selectedSchool.name || '').toLowerCase())
+      ? groups.filter((group) => (
+        group.communityId != null
+          ? String(group.communityId) === String(selectedSchool.id)
+          : String(group.community || '').toLowerCase() === String(selectedSchool.name || '').toLowerCase()
+      ))
       : [],
     [groups, selectedSchool],
   );
+  const selectedGroupBatches = useMemo(
+    () => activeGroupId
+      ? batches.filter((batch) => String(batch.groupIds || '').split(',').map((id) => id.trim()).includes(String(activeGroupId)))
+      : [],
+    [activeGroupId, batches],
+  );
   const overviewCards = [
-    ...(schoolId
-      ? [{ key: 'groups', label: 'Total Groups', value: schoolGroups.length }]
-      : [{ key: 'communities', label: 'Total Schools', value: communities.length }]),
+    { key: 'communities', label: 'Total Schools', value: communities.length },
+    { key: 'groups', label: 'Total Groups', value: activeSchoolId ? schoolGroups.length : groups.length },
+    { key: 'healthWorkers', label: 'Total Health Workers', value: activeGroupId ? groupHealthWorkers.length : totalHealthWorkers },
   ];
+  const selectedOverviewCard = activeGroupId ? 'healthWorkers' : activeSchoolId ? 'groups' : rootListType;
 
   useEffect(() => {
     if (!batchId || loading) return;
@@ -94,64 +173,92 @@ export default function SuperAdminCommunityPage() {
     let rows = communities;
 
     if (activeTab === 'groups') {
-      rows = groups.filter((group) => String(group.community || '') === String(selectedSchool?.name || ''));
+      rows = (selectedSchool ? schoolGroups : groups).map((group) => ({
+        ...group,
+        schoolName: group.community || communities.find((community) => String(community.id) === String(group.communityId))?.name || selectedSchool?.name || 'Unknown school',
+      }));
     } else if (activeTab === 'batches') {
-      rows = batches.filter((batch) => String(batch.groupIds || '').split(',').map((id) => id.trim()).includes(String(groupId)));
+      rows = selectedGroupBatches;
+    } else if (activeTab === 'healthWorkers') {
+      rows = activeGroupId ? groupHealthWorkers : healthWorkers;
     }
 
     if (!term) return rows;
-    return rows.filter((row) => [row.name, row.area, row.community, row.status, row.leader, row.id]
+    return rows.filter((row) => [row.name, row.area, row.community, row.schoolName, row.groupName, row.email, row.contact_number, row.status, row.leader, row.id]
       .some((value) => String(value || '').includes(term)));
-  }, [activeTab, batches, communities, groupId, groups, query, selectedSchool]);
-
-  const overviewRows = useMemo(() => {
-    const isRootView = activeTab === 'communities';
-    const source = schoolOverviewSelection === 'communities'
-      ? communities
-      : schoolOverviewSelection === 'groups'
-        ? (isRootView ? groups : schoolGroups)
-        : [];
-    const rows = isRootView && schoolOverviewSelection === 'groups'
-      ? source.map((row) => ({ ...row, schoolName: row.community || 'Unknown school' }))
-      : source;
-    const term = query.trim();
-    if (!term) return rows;
-    return rows.filter((row) => [row.name, row.motherName, row.group, String(row.id)]
-      .concat([row.community, row.schoolName, row.leader, row.status])
-      .some((value) => String(value || '').includes(term)));
-  }, [activeTab, communities, groups, query, schoolGroups, schoolOverviewSelection]);
-  const tableData = schoolOverviewSelection && activeTab === 'communities'
-    ? overviewRows
-    : schoolOverviewSelection === 'groups'
-    ? filteredData
-    : schoolOverviewSelection
-      ? overviewRows
-      : filteredData;
+  }, [activeGroupId, activeTab, communities, groupHealthWorkers, groups, healthWorkers, query, schoolGroups, selectedGroupBatches, selectedSchool]);
+  const tableData = filteredData;
   const pageCount = Math.max(1, Math.ceil(tableData.length / perPage));
   const currentPage = Math.min(page, pageCount);
   const startIndex = (currentPage - 1) * perPage;
   const currentRows = tableData.slice(startIndex, startIndex + perPage);
 
-  const tableTitle = schoolOverviewSelection === 'communities'
+  const tableTitle = activeTab === 'communities'
     ? 'Schools'
-    : schoolOverviewSelection === 'groups'
-      ? `Groups: ${selectedSchool?.name || 'All schools'}`
-      : activeTab === 'communities'
-        ? 'Schools'
-        : `School: ${selectedSchool?.name || 'School'}`;
-
-  const breadcrumbItems = activeTab === 'communities'
-    ? [{ label: 'Schools', clickable: false }]
     : activeTab === 'groups'
-      ? [{ label: 'Schools', to: '/community', clickable: true }, { label: selectedSchool?.name || 'School', clickable: false }]
-      : [
-        { label: 'Schools', to: '/community', clickable: true },
-        { label: selectedSchool?.name || 'School', to: `/community/school/${selectedSchool?.id || ''}`, clickable: true },
-        { label: selectedGroup?.name || 'Group', clickable: false },
-      ];
+      ? selectedSchool ? `Groups: ${selectedSchool.name}` : 'Groups: All schools'
+      : activeTab === 'healthWorkers'
+        ? activeGroupId ? `Health Workers: ${selectedGroup?.name || 'Group'}` : 'Health Workers: All schools'
+        : `Batches: ${selectedGroup?.name || 'Group'}`;
+
+  const breadcrumbItems = [
+    { label: 'Schools', clickable: false },
+    ...(selectedSchool ? [{ label: selectedSchool.name, clickable: false }] : []),
+    ...(selectedGroup ? [{ label: selectedGroup.name, clickable: false }] : []),
+    ...(activeTab === 'healthWorkers' ? [{ label: 'Health Workers', clickable: false }] : []),
+  ];
 
   const handleSearch = (value) => {
     setQuery(value);
+    setPage(1);
+  };
+
+  const selectGroup = (group) => {
+    const parentSchool = communities.find((community) => String(community.id) === String(group.communityId))
+      || communities.find((community) => community.name === group.community);
+    setSelectedGroupId(group.id);
+    setSelectedSchoolId(parentSchool?.id || group.communityId || null);
+    setRootListType('communities');
+    setQuery('');
+    setPage(1);
+  };
+
+  const selectSchool = (school) => {
+    setSelectedSchoolId(school.id);
+    setSelectedGroupId(null);
+    setQuery('');
+    setPage(1);
+  };
+
+  const handleOverviewSelect = (selection) => {
+    if (selection === 'healthWorkers') {
+      if (!activeGroupId) {
+        setSelectedSchoolId(null);
+        setSelectedGroupId(null);
+        setRootListType('healthWorkers');
+      }
+      setQuery('');
+      setPage(1);
+      return;
+    }
+    if (selection === 'batches') {
+      setQuery('');
+      setPage(1);
+      return;
+    }
+    if (selection === 'communities') {
+      setSelectedSchoolId(null);
+      setSelectedGroupId(null);
+      setRootListType('communities');
+    } else if (activeGroupId) {
+      setSelectedGroupId(null);
+    } else if (activeSchoolId) {
+      setSelectedGroupId(null);
+    } else {
+      setRootListType('groups');
+    }
+
+    setQuery('');
     setPage(1);
   };
 
@@ -232,7 +339,7 @@ export default function SuperAdminCommunityPage() {
                 <button type="button" className="actions-dropdown-item" onClick={(event) => { event.stopPropagation(); navigate(`/user-management/school/${row.id}`, { state: { schoolName: row.name } }); setActiveDropdownId(null); }} role="menuitem">View Users</button>
               )}
               {activeTab === 'groups' && (
-                <button type="button" className="actions-dropdown-item" onClick={(event) => { event.stopPropagation(); navigate(`/community/group/${row.id}`); setActiveDropdownId(null); }} role="menuitem">View Assigned Users</button>
+                <button type="button" className="actions-dropdown-item" onClick={(event) => { event.stopPropagation(); selectGroup(row); setActiveDropdownId(null); }} role="menuitem">View Health Workers</button>
               )}
               <button type="button" className="actions-dropdown-item" onClick={(event) => { event.stopPropagation(); openEditModal(row); setActiveDropdownId(null); }} role="menuitem">Edit</button>
               <button type="button" className="actions-dropdown-item delete" onClick={(event) => { event.stopPropagation(); setActiveDropdownId(null); deleteItem(row); }} role="menuitem">Delete</button>
@@ -246,15 +353,50 @@ export default function SuperAdminCommunityPage() {
       return [
         { key: 'name', header: 'School Name', style: { width: '48%' }, renderCell: (row) => <span className="community-title-text">{row.name}</span> },
         { key: 'coordinatorName', header: 'Assigned Community Coordinator', renderCell: (row) => row.coordinatorName || getSchoolCoordinator(row)?.name || 'Not assigned' },
-        { key: 'groups', header: 'Total Groups', cellClassName: 'small-column', renderCell: (row) => groups.filter((group) => group.community === row.name).length },
+        { key: 'groups', header: 'Total Groups', cellClassName: 'small-column', renderCell: (row) => groups.filter((group) => (
+          group.communityId != null
+            ? String(group.communityId) === String(row.id)
+            : String(group.community || '').toLowerCase() === String(row.name || '').toLowerCase()
+        )).length },
         actionColumn,
       ];
     }
 
     if (activeTab === 'groups') {
       return [
-        { key: 'name', header: 'Group Name', style: { width: '60%' }, renderCell: (row) => <span className="community-title-text">{row.name}</span> },
+        {
+          key: 'name',
+          header: 'Group Name',
+          style: { width: selectedSchool ? '60%' : '45%' },
+          renderCell: (row) => (
+            <button
+              type="button"
+              className="community-title-text"
+              aria-label={`View health workers in ${row.name}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                selectGroup(row);
+              }}
+              style={{ border: 0, padding: 0, background: 'transparent', font: 'inherit', cursor: 'pointer', textAlign: 'left' }}
+            >
+              {row.name}
+            </button>
+          ),
+        },
+        ...(!selectedSchool ? [{ key: 'schoolName', header: 'School' }] : []),
         actionColumn,
+      ];
+    }
+
+    if (activeTab === 'healthWorkers') {
+      return [
+        { key: 'name', header: 'Health Worker', renderCell: (row) => <span className="community-title-text">{row.name || row.full_name || 'Unnamed user'}</span> },
+        { key: 'role', header: 'Role', renderCell: (row) => row.role || 'Health worker' },
+        ...(!activeGroupId ? [{ key: 'schoolName', header: 'School', renderCell: (row) => row.school_name || '—' }] : []),
+        ...(!activeGroupId ? [{ key: 'groupName', header: 'Group', renderCell: (row) => row.group_name || '—' }] : []),
+        { key: 'email', header: 'Email', renderCell: (row) => row.email || '—' },
+        { key: 'contact_number', header: 'Contact Number', renderCell: (row) => row.contact_number || '—' },
+        { key: 'status', header: 'Status', renderCell: (row) => row.status || 'Active' },
       ];
     }
 
@@ -264,55 +406,15 @@ export default function SuperAdminCommunityPage() {
       { key: 'progress', header: 'Progress (%)', cellClassName: 'small-column', renderCell: (row) => `${row.progress || 0}%` },
       actionColumn,
     ];
-  }, [activeDropdownId, activeTab, coordinators, groups, selectedSchool]);
+  }, [activeDropdownId, activeTab, communities, coordinators, groups, selectGroup, selectedSchool]);
 
   const onRowClick = activeTab === 'communities'
-    ? (row) => navigate(`/community/school/${row.id}`)
+    ? selectSchool
     : activeTab === 'groups'
-      ? (row) => navigate(`/community/group/${row.id}`)
+      ? selectGroup
       : activeTab === 'batches'
         ? (row) => navigate(`/user-management/batch/${row.id}`, { state: { batchName: row.name, schoolId: selectedSchool?.id, schoolName: selectedSchool?.name } })
       : undefined;
-  const overviewColumns = schoolOverviewSelection === 'groups'
-    ? [
-      { key: 'name', header: 'Group Name', renderCell: (row) => <span className="community-title-text">{row.name}</span> },
-      ...(activeTab === 'communities' ? [{ key: 'schoolName', header: 'School' }] : []),
-      ...(activeTab === 'groups' ? [columns[columns.length - 1]] : []),
-    ]
-    : schoolOverviewSelection === 'mothers'
-    ? [
-      { key: 'name', header: 'Mother Name', renderCell: (row) => <span className="community-title-text">{row.name}</span> },
-      ...(activeTab === 'communities' ? [{ key: 'schoolName', header: 'School' }] : []),
-      { key: 'group', header: 'Group', renderCell: (row) => row.group || '—' },
-    ]
-    : schoolOverviewSelection === 'children'
-      ? [
-        { key: 'name', header: 'Child Name', renderCell: (row) => <span className="community-title-text">{row.name}</span> },
-        ...(activeTab === 'communities' ? [{ key: 'schoolName', header: 'School' }] : []),
-        { key: 'motherName', header: 'Mother Name', renderCell: (row) => row.motherName || '—' },
-        { key: 'group', header: 'Group', renderCell: (row) => row.group || '—' },
-      ]
-      : schoolOverviewSelection === 'batches'
-        ? [
-          { key: 'name', header: 'Batch Name', renderCell: (row) => <span className="community-title-text">{row.name}</span> },
-          ...(activeTab === 'communities' ? [{ key: 'schoolName', header: 'School' }] : []),
-          { key: 'records', header: 'Total Mothers', cellClassName: 'small-column', renderCell: (row) => row.records || 0 },
-          { key: 'progress', header: 'Progress (%)', cellClassName: 'small-column', renderCell: (row) => `${row.progress || 0}%` },
-        ]
-        : columns;
-  const overviewRowClick = schoolOverviewSelection === 'groups'
-    ? (row) => navigate(`/community/group/${row.id}`)
-    : schoolOverviewSelection === 'mothers'
-    ? (row) => navigate(`/beneficiary/mother/${row.id}`, { state: { mother: row } })
-    : schoolOverviewSelection === 'children'
-      ? (row) => navigate(`/beneficiary/child/${row.id}`, { state: { child: row, mother: row.mother || null } })
-      : schoolOverviewSelection === 'batches'
-        ? (row) => {
-          const parentSchool = communities.find((community) => community.name === row.community);
-          navigate(`/user-management/batch/${row.id}`, { state: { batchName: row.name, schoolId: selectedSchool?.id || parentSchool?.id, schoolName: selectedSchool?.name || parentSchool?.name } });
-        }
-        : onRowClick;
-
   if (loading) return <div className="community-page"><p>Loading community data...</p></div>;
   if (error) return <div className="community-page"><p className="error-message">{error}</p></div>;
 
@@ -321,45 +423,32 @@ export default function SuperAdminCommunityPage() {
       <CommunityToolbar
         activeTab={activeTab}
         onEntityFilterChange={() => {}}
-        onTabChange={(tab) => navigate(tab === 'communities' ? '/community' : `/community/school/${selectedSchool?.id || ''}`)}
+        onTabChange={(tab) => {
+          setSelectedGroupId(null);
+          if (tab === 'communities') {
+            setSelectedSchoolId(null);
+            setRootListType('communities');
+          } else if (!selectedSchool) {
+            setRootListType('groups');
+          }
+          setQuery('');
+          setPage(1);
+        }}
         onCreate={openCreateModal}
         breadcrumbItems={breadcrumbItems}
         navigate={navigate}
         canManage
       />
-      {activeTab === 'communities' || (activeTab === 'groups' && selectedSchool) ? (
-        <>
-          <CommunityOverviewCards
-            selected={schoolOverviewSelection}
-            onSelect={(selection) => { setSchoolOverviewSelection(selection); setPage(1); }}
-            cards={overviewCards}
-          />
-          {schoolOverviewSelection ? (
-            <>
-              <CommunityTable
-                columns={overviewColumns}
-                data={currentRows}
-                onRowClick={overviewRowClick}
-                tableTitle={tableTitle}
-                emptyMessage={`No ${schoolOverviewSelection} found${selectedSchool ? ` for ${selectedSchool.name}` : ''}.`}
-                searchValue={query}
-                onSearchChange={handleSearch}
-              />
-              <CommunityPagination
-                currentPage={currentPage}
-                pageCount={pageCount}
-                onPageChange={setPage}
-                perPage={perPage}
-                onPerPageChange={(value) => { setPerPage(Number(value)); setPage(1); }}
-                rangeStart={tableData.length ? startIndex + 1 : 0}
-                rangeEnd={Math.min(startIndex + perPage, tableData.length)}
-                totalItems={tableData.length}
-              />
-            </>
-          ) : (
-            <p className="community-overview-hint">Select a card to view its list.</p>
-          )}
-        </>
+      <CommunityOverviewCards
+        selected={selectedOverviewCard}
+        onSelect={handleOverviewSelect}
+        cards={overviewCards}
+        toggleSelection={false}
+      />
+      {activeTab === 'healthWorkers' && (activeGroupId ? groupHealthWorkersLoading : healthWorkersLoading) ? (
+        <p>Loading health workers...</p>
+      ) : activeTab === 'healthWorkers' && (activeGroupId ? groupHealthWorkersError : healthWorkersError) ? (
+        <p className="error-message" role="alert">{activeGroupId ? groupHealthWorkersError : healthWorkersError}</p>
       ) : (
         <>
           <CommunityTable
@@ -367,6 +456,7 @@ export default function SuperAdminCommunityPage() {
             data={currentRows}
             onRowClick={onRowClick}
             tableTitle={tableTitle}
+            emptyMessage={activeTab === 'healthWorkers' ? 'No health workers found.' : `No ${activeTab === 'communities' ? 'schools' : activeTab}${selectedSchool ? ` for ${selectedSchool.name}` : ''} found.`}
             searchValue={query}
             onSearchChange={handleSearch}
           />

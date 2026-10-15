@@ -219,7 +219,7 @@ const CHILD_ALLOWED_FIELDS = new Set([
 
 function sanitizeFieldSelection(fields = []) {
   const selected = Array.isArray(fields) ? fields : String(fields || '').split(',').map((value) => value.trim()).filter(Boolean);
-  const requiredFields = new Set(['id', 'child_code', 'mother_id', 'first_name', 'middle_name', 'last_name', 'suffix', 'birth_date', 'birth_document_path', 'community_id', 'group_id', 'communityId', 'groupId', 'batchId', 'community_name', 'group_name', 'batch_name', 'name', 'community', 'group', 'batch', 'progress', 'completedWeeks', 'nextCheckupDate', 'trimester', 'assessment', 'trend', 'risk', 'source']);
+  const requiredFields = new Set(['id', 'child_code', 'mother_id', 'mother_name', 'mother_first_name', 'mother_middle_name', 'mother_last_name', 'first_name', 'middle_name', 'last_name', 'suffix', 'birth_date', 'birth_document_path', 'community_id', 'group_id', 'communityId', 'groupId', 'batchId', 'community_name', 'group_name', 'batch_name', 'name', 'community', 'group', 'batch', 'progress', 'completedWeeks', 'nextCheckupDate', 'trimester', 'assessment', 'trend', 'risk', 'source']);
   const allowed = [...new Set(selected.filter((field) => CHILD_ALLOWED_FIELDS.has(field)).concat([...requiredFields]))];
   return allowed;
 }
@@ -235,7 +235,8 @@ router.get('/', async (req, res) => {
         : '';
     const [rows] = await pool.query(
       `SELECT c.*, COALESCE(c.batch_id, m.batch_id) AS effective_batch_id,
-        m.first_name AS mother_first_name, m.last_name AS mother_last_name,
+        CONCAT_WS(' ', NULLIF(TRIM(m.first_name), ''), NULLIF(TRIM(m.middle_name), ''), NULLIF(TRIM(m.last_name), '')) AS mother_name,
+        m.first_name AS mother_first_name, m.middle_name AS mother_middle_name, m.last_name AS mother_last_name,
         m.mother_code, m.group_id AS mother_group_id, m.community_id AS mother_community_id,
         comm.name AS community_name, g.name AS group_name, b.name AS batch_name
        FROM children c
