@@ -3,6 +3,7 @@ const router = express.Router();
 const pool = require('../db');
 const { documentUpload, uploadFileToStorage } = require('../middleware/documentUpload');
 const { createSuperadminNotification, getBeneficiaryUpdateRecipients } = require('../services/notifications');
+const { canViewAuditSignatures } = require('../middleware/authorize');
 
 // Helper to normalize incoming body keys (accept camelCase or snake_case)
 function getField(body, ...keys) {
@@ -108,9 +109,23 @@ function withChildAliases(child = {}) {
   };
 }
 
-async function attachMonitoringData(child) {
+async function attachMonitoringData(child, includeAuditDetails = false) {
+  const auditSelect = includeAuditDetails
+    ? `,
+        NULLIF(TRIM(CONCAT_WS(' ', creator.first_name, creator.middle_initial, creator.last_name)), '') AS created_by_name,
+        creator.role AS created_by_role,
+        NULLIF(TRIM(CONCAT_WS(' ', updater.first_name, updater.middle_initial, updater.last_name)), '') AS updated_by_name,
+        updater.role AS updated_by_role`
+    : '';
+  const auditJoins = includeAuditDetails
+    ? `LEFT JOIN users creator ON creator.id = COALESCE(cc.created_by_user_id, cc.recorded_by_user_id)
+       LEFT JOIN users updater ON updater.id = COALESCE(cc.updated_by_user_id, cc.recorded_by_user_id)`
+    : '';
   const [checkupRows] = await pool.query(
-    'SELECT * FROM child_checkups WHERE child_id = ? ORDER BY week_number, visit_date, id',
+    `SELECT cc.*${auditSelect}
+     FROM child_checkups cc
+     ${auditJoins}
+     WHERE cc.child_id = ? ORDER BY cc.week_number, cc.visit_date, cc.id`,
     [child.id]
   );
   return withChildAliases({
@@ -120,23 +135,45 @@ async function attachMonitoringData(child) {
       .map((row) => row.next_checkup_date)
       .filter(Boolean)
       .sort((a, b) => String(a).localeCompare(String(b)))[0] || '',
-    checkups: checkupRows.map((row) => ({
-      ...row,
-      weekNumber: row.week_number === null ? null : Number(row.week_number),
-      checkupDate: row.visit_date,
-      nextCheckupDate: row.next_checkup_date,
-      headCircumference: row.head_circumference,
-      breastfeedingStatus: row.exclusive_breastfeeding || '',
-      laboratoryRequests: row.laboratory_requests || '',
-      laboratoryAssistanceProvided: Boolean(row.laboratory_assistance_provided),
-      referredToHospital: Boolean(row.referred_to_hospital),
-      assistanceAmount: row.assistance_amount ?? '',
-      sourceOfFunds: row.source_of_funds || '',
-      facilityType: row.facility_type || '',
-      developmentalStatus: row.developmental_status || '',
-      serviceProvider: row.service_provider || '',
-      remarks: row.notes || '',
-    })),
+    checkups: checkupRows.map((row) => {
+      const {
+        recorded_by_user_id,
+        created_by_user_id,
+        updated_by_user_id,
+        created_at,
+        updated_at,
+        created_by_name,
+        created_by_role,
+        updated_by_name,
+        updated_by_role,
+        ...checkup
+      } = row;
+      return {
+        ...checkup,
+        weekNumber: row.week_number === null ? null : Number(row.week_number),
+        ...(includeAuditDetails && {
+          createdByName: created_by_name || '',
+          createdByRole: created_by_role || '',
+          createdAt: created_at,
+          updatedByName: updated_by_name || '',
+          updatedByRole: updated_by_role || '',
+          updatedAt: updated_at,
+        }),
+        checkupDate: row.visit_date,
+        nextCheckupDate: row.next_checkup_date,
+        headCircumference: row.head_circumference,
+        breastfeedingStatus: row.exclusive_breastfeeding || '',
+        laboratoryRequests: row.laboratory_requests || '',
+        laboratoryAssistanceProvided: Boolean(row.laboratory_assistance_provided),
+        referredToHospital: Boolean(row.referred_to_hospital),
+        assistanceAmount: row.assistance_amount ?? '',
+        sourceOfFunds: row.source_of_funds || '',
+        facilityType: row.facility_type || '',
+        developmentalStatus: row.developmental_status || '',
+        serviceProvider: row.service_provider || '',
+        remarks: row.notes || '',
+      };
+    }),
   });
 }
 
@@ -173,7 +210,7 @@ router.post('/:id/documents', documentUpload.single('birthDocument'), async (req
     });
     const [rows] = await pool.query('SELECT * FROM children WHERE id = ?', [childRows[0].id]);
     const child = await attachClinicalData(rows[0]);
-    res.json({ child: await attachMonitoringData(child) });
+    res.json({ child: await attachMonitoringData(child, canViewAuditSignatures(req.user?.role)) });
   } catch (error) {
     console.error('Child document upload error:', error.message);
     res.status(400).json({ error: error.message || 'Unable to upload document' });
@@ -250,7 +287,7 @@ router.get('/', async (req, res) => {
     );
 
     const children = await Promise.all(rows.map(async (row) => {
-      const hydrated = await attachMonitoringData(row);
+      const hydrated = await attachMonitoringData(row, canViewAuditSignatures(req.user?.role));
       if (!requestedFields.length || requestedFields.includes('*')) return hydrated;
       const subset = {};
       for (const field of requestedFields) {
@@ -409,7 +446,7 @@ router.post('/', async (req, res) => {
       schoolIds: [child.community_id || communityId].filter(Boolean),
       actorUserId: req.user?.id,
     });
-    res.status(201).json({ child: await attachMonitoringData(child) });
+    res.status(201).json({ child: await attachMonitoringData(child, canViewAuditSignatures(req.user?.role)) });
   } catch (err) {
     console.error('Failed to create child', err);
     res.status(500).json({ error: 'db error' });
@@ -434,7 +471,7 @@ router.get('/:id', async (req, res) => {
     );
     if (!rows.length) return res.status(404).json({ error: 'Not found' });
     const child = await attachClinicalData(rows[0]);
-    res.json({ child: await attachMonitoringData(child) });
+    res.json({ child: await attachMonitoringData(child, canViewAuditSignatures(req.user?.role)) });
   } catch (err) {
     console.error('Failed to fetch child', err);
     res.status(500).json({ error: 'db error' });
@@ -493,17 +530,19 @@ router.post('/:id/checkups', async (req, res) => {
         `UPDATE child_checkups SET next_checkup_date = ?, visit_date = ?, weight = ?, height = ?,
           exclusive_breastfeeding = ?, laboratory_requests = ?, laboratory_assistance_provided = ?,
           referred_to_hospital = ?, assistance_amount = ?, source_of_funds = ?, facility_type = ?,
-          developmental_status = ?, service_provider = ?, notes = ? WHERE id = ?`,
-        [...values, existingRows[0].id]
+          developmental_status = ?, service_provider = ?, notes = ?, recorded_by_user_id = ?,
+          updated_by_user_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+        [...values, req.user?.id || null, req.user?.id || null, existingRows[0].id]
       );
     } else {
       await pool.query(
         `INSERT INTO child_checkups
           (child_id, next_checkup_date, visit_date, weight, height, exclusive_breastfeeding,
            laboratory_requests, laboratory_assistance_provided, referred_to_hospital, assistance_amount,
-           source_of_funds, facility_type, developmental_status, service_provider, notes, week_number)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
-        [childId, ...values, week]
+           source_of_funds, facility_type, developmental_status, service_provider, notes, week_number,
+           recorded_by_user_id, created_by_user_id, updated_by_user_id, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)` ,
+        [childId, ...values, week, req.user?.id || null, req.user?.id || null, req.user?.id || null]
       );
     }
 
@@ -534,7 +573,7 @@ router.post('/:id/checkups', async (req, res) => {
       groupId: child.group_id || child.mother_group_id,
       actorUserId: req.user?.id,
     });
-    res.json({ child: await attachMonitoringData(child) });
+    res.json({ child: await attachMonitoringData(child, canViewAuditSignatures(req.user?.role)) });
   } catch (err) {
     console.error('Failed to save child checkup', err);
     res.status(500).json({ error: 'db error' });

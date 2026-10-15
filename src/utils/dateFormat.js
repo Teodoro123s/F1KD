@@ -95,6 +95,16 @@ export function formatDateForInput(value) {
   return `${date.getFullYear()}-${month}-${day}`;
 }
 
+export function formatDateTimeForDisplay(value) {
+  if (!value) return '';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date);
+}
+
 export function addMonthsPreservingDay(value, monthOffset = 1, preferredDay) {
   const normalized = normalizeDateValue(value);
   if (!normalized || !Number.isInteger(monthOffset)) return '';

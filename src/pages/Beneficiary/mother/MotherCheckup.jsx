@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import StepWizard from '../../../components/StepWizard';
 import DateInput from '../../../components/ui/DateInput';
+import AuditSignatures from '../../../components/ui/AuditSignatures';
 import { formatDateForDisplay, normalizeDateValue } from '../../../utils/dateFormat';
 import { getMotherMonitoringStartIndex } from '../../../utils/motherProgress';
 
@@ -154,7 +155,7 @@ const createInitialFormState = (mother, checkup = null, blank = false, previousC
   remarks: checkup?.remarks ?? '',
 });
 
-export default function MotherCheckup({ mother, onSave = () => {}, onCancel = () => {}, forceEdit = false }) {
+export default function MotherCheckup({ mother, onSave = () => {}, onCancel = () => {}, forceEdit = false, showAuditSignatures = false }) {
   if (!mother) return null;
 
   const monitoringStart = getMonitoringStartDetails(mother);
@@ -320,6 +321,7 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
           <div className="checkup-card-body">
             <div className="checkup-section-title">Pregnancy Record</div>
             {isMaternalPhaseComplete ? <p className="checkup-state-message">Maternal monitoring phase complete · all 9 check-ups recorded</p> : isCompleted && <p className="checkup-state-message">Completed check-up · view only</p>}
+            {showAuditSignatures && <AuditSignatures {...activeCheckup} />}
             {isFuture && <p className="checkup-state-message">This check-up will be available after the previous visit is completed.</p>}
             {isSkipped && <p className="checkup-state-message">This visit was skipped based on gestational age at registration.</p>}
             <div className="checkup-grid">

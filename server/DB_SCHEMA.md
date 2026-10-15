@@ -295,10 +295,16 @@ Columns:
 - `laboratory_requests`
 - `treatment_services`
 - `remarks`
+- `recorded_by_user_id`
+- `created_by_user_id`
+- `updated_by_user_id`
+- `created_at`
+- `updated_at`
 
 Purpose:
 - maternal prenatal monitoring and service tracking across trimester check-ups
 - laboratory requests, assistance, milk subsidy, and treatment/service notes from the maternal record
+- authenticated users who created and last updated the check-up, with timestamps
 
 ---
 
@@ -396,10 +402,16 @@ Columns:
 - `developmental_status`
 - `service_provider`
 - `notes`
+- `recorded_by_user_id`
+- `created_by_user_id`
+- `updated_by_user_id`
+- `created_at`
+- `updated_at`
 
 Purpose:
 - pediatric growth monitoring with monthly follow-ups through 24 months
 - per-visit breastfeeding, laboratory, referral, and assistance records
+- authenticated users who created and last updated the check-up, with timestamps
 - supplementary feeding is intentionally excluded here; it remains part of Program records
 
 ---
@@ -489,12 +501,15 @@ Columns:
 - `monitored`
 - `monitored_date`
 - `monitored_by`
+- `created_by_user_id`
+- `updated_by_user_id`
 - `notes`
 - `created_at`
 - `updated_at`
 
 Purpose:
 - monitoring and follow-up log for program participation
+- preserves the creator and latest updater for each receipt
 
 ---
 

@@ -24,7 +24,7 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  width: min(360px, 100%);
+  width: min(300px, 100%);
   max-width: 100%;
   height: 42px;
   padding: 0 0.85rem;
@@ -51,7 +51,7 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  width: min(360px, 100%);
+  width: min(300px, 100%);
   flex: 0 1 auto;
 }
 
@@ -176,3 +176,8 @@
 
 .notification-category-filter { display: inline-flex; align-items: center; gap: 0.55rem; color: var(--text-muted); font-size: 0.9rem; font-weight: 600; }
 .notification-category-filter select { min-width: 190px; min-height: 42px; padding: 0.5rem 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: #fff; color: var(--text); font: inherit; }
+
+.notification-mark-read-button { padding: 0.4rem 0.6rem; border: 1px solid #15803d; border-radius: 6px; background: #fff; color: #15803d; font: inherit; font-size: 0.8rem; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.notification-mark-read-button:hover:not(:disabled) { background: #f0fdf4; }
+.notification-mark-read-button:focus-visible { outline: 2px solid #15803d; outline-offset: 2px; }
+.notification-mark-read-button:disabled { color: #64748b; border-color: #cbd5e1; cursor: wait; }

@@ -20,6 +20,7 @@ export default function Topbar() {
   const [notificationsError, setNotificationsError] = useState('');
   const [selectedNotification, setSelectedNotification] = useState(null);
   const [notificationDetailsError, setNotificationDetailsError] = useState('');
+  const [markingNotificationId, setMarkingNotificationId] = useState(null);
   const [openUser, setOpenUser] = useState(false);
   const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
@@ -109,11 +110,15 @@ export default function Topbar() {
     }
   };
 
-  const openNotificationDetails = async (notification) => {
+  const openNotificationDetails = (notification) => {
     setSelectedNotification(notification);
     setNotificationDetailsError('');
     setOpenNotif(false);
-    if (notification.isRead) return;
+  };
+
+  const markNotificationRead = async (notification) => {
+    if (notification.isRead || markingNotificationId === notification.id) return;
+    setMarkingNotificationId(notification.id);
     try {
       await apiMarkNotificationRead(notification.id);
       setSelectedNotification((current) => current?.id === notification.id
@@ -123,8 +128,12 @@ export default function Topbar() {
       setNotifications((items) => items.map((item) => (
         item.id === notification.id ? { ...item, isRead: true } : item
       )));
+      setNotificationDetailsError('');
     } catch (error) {
       setNotificationDetailsError(error.message || 'Unable to mark notification as read.');
+      setNotificationsError(error.message || 'Unable to mark notification as read.');
+    } finally {
+      setMarkingNotificationId(null);
     }
   };
 
@@ -155,20 +164,32 @@ export default function Topbar() {
               <div className="notifications-list">
                 {canReadNotifications && notificationsLoading && <div className="dropdown-item muted">Loading notifications...</div>}
                 {canReadNotifications && !notificationsLoading && notificationsError && <div className="dropdown-item muted">{notificationsError}</div>}
-                {canReadNotifications && !notificationsLoading && !notificationsError && notifications.map((notification) => (
-                  <button
-                    key={notification.id}
-                    type="button"
-                    className="notification-dropdown-item"
-                    onClick={() => openNotificationDetails(notification)}
-                    role="menuitem"
-                  >
-                    <span className="notification-dropdown-title">{notification.title || notification.category}</span>
-                    <span className="notification-dropdown-message" title={notification.message}>{notification.message}</span>
-                    <span className="notification-dropdown-category">
-                      {[notification.actorName, notification.actorRole, notification.category].filter(Boolean).join(' · ')}
-                    </span>
-                  </button>
+                {canReadNotifications && !notificationsLoading && notifications.map((notification) => (
+                  <div key={notification.id} className={`notification-dropdown-item${notification.isRead ? '' : ' is-unread'}`}>
+                    <button
+                      type="button"
+                      className="notification-dropdown-content"
+                      onClick={() => openNotificationDetails(notification)}
+                      role="menuitem"
+                    >
+                      <span className="notification-dropdown-title">{notification.title || notification.category}</span>
+                      <span className="notification-dropdown-message" title={notification.message}>{notification.message}</span>
+                      <span className="notification-dropdown-category">
+                        {[notification.actorName, notification.actorRole, notification.category].filter(Boolean).join(' · ')}
+                      </span>
+                    </button>
+                    {!notification.isRead && (
+                      <button
+                        type="button"
+                        className="notification-dropdown-mark-read"
+                        onClick={() => markNotificationRead(notification)}
+                        disabled={markingNotificationId === notification.id}
+                        aria-label={`Mark "${notification.title || notification.category}" as read`}
+                      >
+                        {markingNotificationId === notification.id ? 'Marking...' : 'Mark as read'}
+                      </button>
+                    )}
+                  </div>
                 ))}
                 {(!canReadNotifications || (!notificationsLoading && !notificationsError && notifications.length === 0)) && (
                   <div className="dropdown-item muted">No notifications</div>
@@ -270,6 +291,8 @@ export default function Topbar() {
       <NotificationDetailsModal
         notification={selectedNotification}
         onClose={() => setSelectedNotification(null)}
+        onMarkAsRead={markNotificationRead}
+        markingRead={markingNotificationId === selectedNotification?.id}
         error={notificationDetailsError}
       />
     </header>

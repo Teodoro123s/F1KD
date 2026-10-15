@@ -10,7 +10,7 @@ import { createMonitorModel } from './monitorModel';
 import { apiGetChild, apiGetChildren, apiSaveChildCheckup } from '../../api/children';
 import { apiGetMother, apiSaveMotherCheckup } from '../../api/mothers';
 import { useAuth } from '../../auth/AuthProvider';
-import { isHealthWorkerRole } from '../../utils/permissions';
+import { canViewAuditSignatures, isHealthWorkerRole } from '../../utils/permissions';
 import { getChildMonitoringProgress } from '../../utils/childProgress';
 import { getMotherMonitoringProgress } from '../../utils/motherProgress';
 import { notifyAction } from '../../components/ActionFeedback';
@@ -90,6 +90,7 @@ export default function MonitoringPage() {
   const [perPage, setPerPage] = useState(10);
   const [page, setPage] = useState(1);
   const assignedGroupId = currentUser?.group_id ?? currentUser?.groupId;
+  const showAuditSignatures = canViewAuditSignatures(currentUser?.role);
 
   React.useEffect(() => {
     let active = true;
@@ -375,6 +376,7 @@ export default function MonitoringPage() {
           {savedMessage.startsWith('Unable to save check-up:') && <p className="checkup-save-message checkup-save-message-error" role="alert">{savedMessage}</p>}
           <ChildMonitor
             child={selectedChild}
+            showAuditSignatures={showAuditSignatures}
             completedWeeks={childCompletedWeeks}
             initialWeek={location.state?.week}
             onSave={async (payload) => {
@@ -419,6 +421,7 @@ export default function MonitoringPage() {
           {savedMessage.startsWith('Unable to save check-up:') && <p className="checkup-save-message checkup-save-message-error" role="alert">{savedMessage}</p>}
           <MotherCheckup
             mother={{ ...selectedMother, checkups: motherCheckups }}
+            showAuditSignatures={showAuditSignatures}
             onSave={async (payload) => {
               if (await handleSave(payload)) setEditingCheckup(false);
             }}

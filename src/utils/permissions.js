@@ -99,6 +99,10 @@ export function can(userRole, resource, action) {
   return hasRole(userRole, PERMISSIONS[resource]?.[action] || []);
 }
 
+export function canViewAuditSignatures(role) {
+  return [ROLES.ADMIN, ROLES.COMMUNITY_COORDINATOR, ROLES.PARTNER].includes(normalizeRole(role));
+}
+
 export function isHealthWorkerRole(role) {
   return normalizeRole(role) === ROLES.HEALTH_WORKER;
 }

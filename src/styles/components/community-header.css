@@ -168,14 +168,14 @@
 }
 
 .community-table-toolbar .community-table-search {
-  flex: 0 1 360px;
+  flex: 0 1 300px;
   width: 100%;
   padding: 0;
   border-bottom: 0;
 }
 
 .community-table-search .search-container {
-  width: min(360px, 100%);
+  width: min(300px, 100%);
 }
 
 .module-summary-cards {
@@ -203,7 +203,7 @@
 }
 
 .user-management-table-toolbar .community-table-search {
-  flex: 0 1 360px;
+  flex: 0 1 300px;
   padding: 0;
   border: 0;
 }

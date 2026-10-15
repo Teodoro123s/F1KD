@@ -214,6 +214,9 @@ CREATE TABLE IF NOT EXISTS mother_checkups (
   facility_type VARCHAR(40),
   milk_subsidy_date DATE,
   milk_quantity_pcs INT UNSIGNED,
+  recorded_by_user_id INT NULL,
+  created_by_user_id INT NULL,
+  updated_by_user_id INT NULL,
   remarks TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
@@ -251,6 +254,10 @@ CREATE TABLE IF NOT EXISTS child_checkups (
   week_number INT UNSIGNED,
   developmental_status VARCHAR(40),
   service_provider VARCHAR(150),
+  recorded_by_user_id INT NULL,
+  created_by_user_id INT NULL,
+  updated_by_user_id INT NULL,
+  updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   KEY idx_child_checkups_week (child_id, week_number)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 -- ---------------------------------------------------------------------------

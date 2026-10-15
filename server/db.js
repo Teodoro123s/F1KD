@@ -58,12 +58,6 @@ async function ensure() {
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
 
-    `ALTER TABLE mother_checkups
-      ADD COLUMN IF NOT EXISTS milk_subsidy_provided BOOLEAN NOT NULL DEFAULT FALSE,
-      ADD COLUMN IF NOT EXISTS lab_assistance_tests TEXT NULL,
-      ADD COLUMN IF NOT EXISTS laboratory_requests TEXT NULL,
-      ADD COLUMN IF NOT EXISTS treatment_services TEXT NULL;`,
-
     `ALTER TABLE users
       ADD COLUMN IF NOT EXISTS school_id INT NULL,
       ADD COLUMN IF NOT EXISTS group_id INT NULL;`,
@@ -198,6 +192,7 @@ async function ensure() {
       laboratory_requests TEXT NULL,
       treatment_services TEXT NULL,
       remarks TEXT NULL,
+      recorded_by_user_id INT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       CONSTRAINT fk_mother_checkups_mother
@@ -383,7 +378,11 @@ async function ensure() {
       developmental_status VARCHAR(40),
       service_provider VARCHAR(150),
       notes TEXT,
+      recorded_by_user_id INT NULL,
+      created_by_user_id INT NULL,
+      updated_by_user_id INT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       FOREIGN KEY (child_id) REFERENCES children(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
 
@@ -398,7 +397,33 @@ async function ensure() {
       ADD COLUMN IF NOT EXISTS referred_to_hospital BOOLEAN NOT NULL DEFAULT FALSE,
       ADD COLUMN IF NOT EXISTS assistance_amount DECIMAL(10,2),
       ADD COLUMN IF NOT EXISTS source_of_funds VARCHAR(80),
-      ADD COLUMN IF NOT EXISTS facility_type VARCHAR(40);`,
+      ADD COLUMN IF NOT EXISTS facility_type VARCHAR(40),
+      ADD COLUMN IF NOT EXISTS recorded_by_user_id INT NULL,
+      ADD COLUMN IF NOT EXISTS created_by_user_id INT NULL,
+      ADD COLUMN IF NOT EXISTS updated_by_user_id INT NULL,
+      ADD COLUMN IF NOT EXISTS created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+      ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;`,
+
+    `ALTER TABLE mother_checkups
+      ADD COLUMN IF NOT EXISTS recorded_by_user_id INT NULL,
+      ADD COLUMN IF NOT EXISTS milk_subsidy_provided BOOLEAN NOT NULL DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS lab_assistance_tests TEXT NULL,
+      ADD COLUMN IF NOT EXISTS laboratory_requests TEXT NULL,
+      ADD COLUMN IF NOT EXISTS treatment_services TEXT NULL,
+      ADD COLUMN IF NOT EXISTS created_by_user_id INT NULL,
+      ADD COLUMN IF NOT EXISTS updated_by_user_id INT NULL,
+      ADD COLUMN IF NOT EXISTS created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+      ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;`,
+
+    `UPDATE mother_checkups
+     SET created_by_user_id = COALESCE(created_by_user_id, recorded_by_user_id),
+         updated_by_user_id = COALESCE(updated_by_user_id, recorded_by_user_id)
+     WHERE recorded_by_user_id IS NOT NULL;`,
+
+    `UPDATE child_checkups
+     SET created_by_user_id = COALESCE(created_by_user_id, recorded_by_user_id),
+         updated_by_user_id = COALESCE(updated_by_user_id, recorded_by_user_id)
+     WHERE recorded_by_user_id IS NOT NULL;`,
 
     `CREATE TABLE IF NOT EXISTS programs (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -445,6 +470,15 @@ async function ensure() {
       KEY idx_monitoring_program_date (program_id, monitored_date),
       CONSTRAINT fk_monitoring_program FOREIGN KEY (program_id) REFERENCES programs(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+
+    `ALTER TABLE monitoring_logs
+      ADD COLUMN IF NOT EXISTS created_by_user_id INT NULL,
+      ADD COLUMN IF NOT EXISTS updated_by_user_id INT NULL;`,
+
+    `UPDATE monitoring_logs
+     SET created_by_user_id = COALESCE(created_by_user_id, monitored_by),
+         updated_by_user_id = COALESCE(updated_by_user_id, monitored_by)
+     WHERE monitored_by IS NOT NULL;`,
 
     `CREATE TABLE IF NOT EXISTS roles (
       id INT AUTO_INCREMENT PRIMARY KEY,

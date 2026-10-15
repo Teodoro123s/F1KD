@@ -212,20 +212,8 @@
   overflow: hidden;
 }
 
-.dashboard-kpi-button {
-  width: 100%;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  appearance: none;
-}
-
-.dashboard-kpi-button.is-selected {
-  border-color: #2b6cb0;
-  box-shadow: 0 0 0 3px rgba(43, 108, 176, 0.14), 0 8px 24px rgba(15, 23, 42, 0.06);
-}
-
-.dashboard-kpi-button:focus-visible {
+.kpi-card:focus-visible,
+.quick-action-tile:focus-visible {
   outline: 3px solid rgba(43, 108, 176, 0.45);
   outline-offset: 3px;
 }
@@ -279,10 +267,6 @@
   display: flex;
   align-items: center;
   gap: 0.4rem;
-}
-
-.kpi-card.alert-card {
-  border-left: 4px solid #e03151;
 }
 
 /* Two Column Layout */

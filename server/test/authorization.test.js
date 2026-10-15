@@ -1,6 +1,11 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { normalizeRole, authorizeOperational, authorizeProgressReport } = require('../middleware/authorize');
+const {
+  normalizeRole,
+  authorizeOperational,
+  authorizeProgressReport,
+  canViewAuditSignatures,
+} = require('../middleware/authorize');
 
 test('normalizeRole maps common role labels to canonical values', () => {
   assert.equal(normalizeRole('Super Admin'), 'super_admin');
@@ -8,6 +13,16 @@ test('normalizeRole maps common role labels to canonical values', () => {
   assert.equal(normalizeRole('Community Organizer'), 'community_coordinator');
   assert.equal(normalizeRole('Community Coordinator'), 'community_coordinator');
   assert.equal(normalizeRole('Health worker'), 'health_worker');
+});
+
+test('audit signatures are visible only to community coordinators, admins, and partners', () => {
+  for (const role of ['Community Organizer', 'Community Coordinator', 'Admin', 'Partner']) {
+    assert.equal(canViewAuditSignatures(role), true);
+  }
+
+  for (const role of ['Super Admin', 'Health worker', 'viewer']) {
+    assert.equal(canViewAuditSignatures(role), false);
+  }
 });
 
 test('authorizeProgressReport allows operational roles and denies super admins', () => {

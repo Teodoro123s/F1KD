@@ -33,6 +33,7 @@ export default function NotificationsPage() {
   const [error, setError] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
   const [selectedNotification, setSelectedNotification] = useState(null);
+  const [markingNotificationId, setMarkingNotificationId] = useState(null);
 
   useEffect(() => {
     let active = true;
@@ -72,19 +73,28 @@ export default function NotificationsPage() {
   const currentPage = Math.min(page, pageCount);
   const startIndex = (currentPage - 1) * perPage;
 
-  const openNotification = async (notification) => {
+  const openNotification = (notification) => {
     setError('');
     setSelectedNotification(notification);
+  };
+
+  const markNotificationRead = async (notification) => {
+    if (notification.isRead || markingNotificationId === notification.id) return;
+    setMarkingNotificationId(notification.id);
+    setError('');
     try {
-      if (!notification.isRead) {
-        await apiMarkNotificationRead(notification.id);
-        setSelectedNotification((current) => current?.id === notification.id
-          ? { ...current, isRead: true }
-          : current);
-        setRefreshKey((key) => key + 1);
-      }
+      await apiMarkNotificationRead(notification.id);
+      setNotifications((current) => current.map((item) => (
+        item.id === notification.id ? { ...item, isRead: true } : item
+      )));
+      setSelectedNotification((current) => current?.id === notification.id
+        ? { ...current, isRead: true }
+        : current);
+      setRefreshKey((key) => key + 1);
     } catch (requestError) {
       setError(requestError.message || 'Unable to mark notification as read.');
+    } finally {
+      setMarkingNotificationId(null);
     }
   };
 
@@ -136,7 +146,7 @@ export default function NotificationsPage() {
     {
       key: 'readStatus',
       header: 'Status',
-      style: { width: '10%' },
+      style: { width: '8%' },
       renderCell: (notification) => (
         <span
           className="badge"
@@ -146,6 +156,28 @@ export default function NotificationsPage() {
         >
           {notification.isRead ? 'Read' : 'Unread'}
         </span>
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'Action',
+      style: { width: '12%' },
+      renderCell: (notification) => notification.isRead ? (
+        <span style={{ color: '#64748B', fontSize: '0.85rem' }}>—</span>
+      ) : (
+        <button
+          type="button"
+          className="notification-mark-read-button"
+          onClick={(event) => {
+            event.stopPropagation();
+            markNotificationRead(notification);
+          }}
+          onKeyDown={(event) => event.stopPropagation()}
+          disabled={markingNotificationId === notification.id}
+          aria-label={`Mark "${notification.title}" as read`}
+        >
+          {markingNotificationId === notification.id ? 'Marking...' : 'Mark as read'}
+        </button>
       ),
     },
   ];
@@ -233,6 +265,8 @@ export default function NotificationsPage() {
       <NotificationDetailsModal
         notification={selectedNotification}
         onClose={() => setSelectedNotification(null)}
+        onMarkAsRead={markNotificationRead}
+        markingRead={markingNotificationId === selectedNotification?.id}
         error={error}
       />
     </div>

@@ -3,6 +3,7 @@ const router = express.Router();
 const pool = require('../db');
 const { documentUpload, uploadFileToStorage, deleteFileFromStorage } = require('../middleware/documentUpload');
 const { createSuperadminNotification, getBeneficiaryUpdateRecipients } = require('../services/notifications');
+const { canViewAuditSignatures } = require('../middleware/authorize');
 const MOTHER_ADDITIONAL_VACCINES = [
   { name: 'Influenza', key: 'influenza', remarksField: 'influenzaRemarks' },
   { name: 'Hepatitis A', key: 'hepatitisA', remarksField: 'hepatitisARemarks' },
@@ -134,16 +135,34 @@ function mapMother(row) {
   };
 }
 
-async function attachClinicalData(mother) {
+async function attachClinicalData(mother, includeAuditDetails = false) {
   const motherDbId = mother.raw?.id;
   if (!motherDbId) return mother;
+
+  const auditSelect = includeAuditDetails
+    ? `,
+        NULLIF(TRIM(CONCAT_WS(' ', creator.first_name, creator.middle_initial, creator.last_name)), '') AS created_by_name,
+        creator.role AS created_by_role,
+        NULLIF(TRIM(CONCAT_WS(' ', updater.first_name, updater.middle_initial, updater.last_name)), '') AS updated_by_name,
+        updater.role AS updated_by_role`
+    : '';
+  const auditJoins = includeAuditDetails
+    ? `LEFT JOIN users creator ON creator.id = COALESCE(mc.created_by_user_id, mc.recorded_by_user_id)
+       LEFT JOIN users updater ON updater.id = COALESCE(mc.updated_by_user_id, mc.recorded_by_user_id)`
+    : '';
 
   const [[obRows], [medicalRows], [dentalRows], [vaccineRows], [checkupRows]] = await Promise.all([
     pool.query('SELECT * FROM mother_ob_history WHERE mother_id = ? ORDER BY id', [motherDbId]),
     pool.query('SELECT * FROM mother_medical_conditions WHERE mother_id = ? ORDER BY id', [motherDbId]),
     pool.query('SELECT * FROM mother_dental_records WHERE mother_id = ? ORDER BY id DESC LIMIT 1', [motherDbId]),
     pool.query('SELECT * FROM mother_vaccinations WHERE mother_id = ? ORDER BY id', [motherDbId]),
-    pool.query('SELECT * FROM mother_checkups WHERE mother_id = ? ORDER BY trimester, checkup_number', [motherDbId]),
+    pool.query(
+      `SELECT mc.*${auditSelect}
+       FROM mother_checkups mc
+       ${auditJoins}
+       WHERE mc.mother_id = ? ORDER BY mc.trimester, mc.checkup_number`,
+      [motherDbId],
+    ),
   ]);
 
   const checkups = [
@@ -157,6 +176,14 @@ async function attachClinicalData(mother) {
     checkups[trimesterIndex][checkupIndex] = {
       id: row.id,
       motherId: row.mother_id,
+      ...(includeAuditDetails && {
+        createdByName: row.created_by_name || '',
+        createdByRole: row.created_by_role || '',
+        createdAt: row.created_at,
+        updatedByName: row.updated_by_name || '',
+        updatedByRole: row.updated_by_role || '',
+        updatedAt: row.updated_at,
+      }),
       trimester: row.trimester,
       checkupNumber: row.checkup_number,
       checkupDate: row.checkup_date,
@@ -278,7 +305,7 @@ router.post('/:id/documents', documentUpload.fields([
       groupId: motherRows[0].group_id,
       actorUserId: req.user?.id,
     });
-    res.json({ mother: await attachClinicalData(mapMother(rows[0])) });
+    res.json({ mother: await attachClinicalData(mapMother(rows[0]), canViewAuditSignatures(req.user?.role)) });
   } catch (error) {
     console.error('[Mothers API] document upload error:', error.message);
     res.status(400).json({ error: error.message || 'Unable to upload documents' });
@@ -336,7 +363,7 @@ router.delete('/:id/documents/:field', async (req, res) => {
     }
 
     const [rows] = await pool.query('SELECT * FROM mothers WHERE id = ?', [motherRows[0].id]);
-    res.json({ mother: await attachClinicalData(mapMother(rows[0])) });
+    res.json({ mother: await attachClinicalData(mapMother(rows[0]), canViewAuditSignatures(req.user?.role)) });
   } catch (error) {
     console.error('[Mothers API] document delete error:', error.message);
     res.status(400).json({ error: error.message || 'Unable to remove document' });
@@ -381,8 +408,24 @@ router.get('/', async (req, res) => {
       ORDER BY m.id DESC
     `, scopeValues);
 
+    const includeAuditDetails = canViewAuditSignatures(req.user?.role);
+    const auditSelect = includeAuditDetails
+      ? `,
+          NULLIF(TRIM(CONCAT_WS(' ', creator.first_name, creator.middle_initial, creator.last_name)), '') AS created_by_name,
+          creator.role AS created_by_role,
+          NULLIF(TRIM(CONCAT_WS(' ', updater.first_name, updater.middle_initial, updater.last_name)), '') AS updated_by_name,
+          updater.role AS updated_by_role`
+      : '';
+    const auditJoins = includeAuditDetails
+      ? `LEFT JOIN users creator ON creator.id = COALESCE(mc.created_by_user_id, mc.recorded_by_user_id)
+         LEFT JOIN users updater ON updater.id = COALESCE(mc.updated_by_user_id, mc.recorded_by_user_id)`
+      : '';
     const [checkupRows] = await pool.query(
-      `SELECT mc.* FROM mother_checkups mc INNER JOIN mothers scoped_mother ON scoped_mother.id = mc.mother_id ${req.groupId ? 'WHERE scoped_mother.group_id = ?' : req.schoolId ? 'WHERE scoped_mother.community_id = ?' : ''}`,
+      `SELECT mc.*${auditSelect}
+       FROM mother_checkups mc
+       INNER JOIN mothers scoped_mother ON scoped_mother.id = mc.mother_id
+       ${auditJoins}
+       ${req.groupId ? 'WHERE scoped_mother.group_id = ?' : req.schoolId ? 'WHERE scoped_mother.community_id = ?' : ''}`,
       scopeValues,
     );
     const checkupsByMotherId = {};
@@ -399,6 +442,14 @@ router.get('/', async (req, res) => {
       checkupsByMotherId[row.mother_id][trimesterIndex][checkupIndex] = {
         id: row.id,
         motherId: row.mother_id,
+        ...(includeAuditDetails && {
+          createdByName: row.created_by_name || '',
+          createdByRole: row.created_by_role || '',
+          createdAt: row.created_at,
+          updatedByName: row.updated_by_name || '',
+          updatedByRole: row.updated_by_role || '',
+          updatedAt: row.updated_at,
+        }),
         trimester: row.trimester,
         checkupNumber: row.checkup_number,
         checkupDate: row.checkup_date,
@@ -693,7 +744,7 @@ router.post('/', async (req, res) => {
       groupId: mother.group_id,
       actorUserId: req.user?.id,
     });
-    res.status(201).json({ mother: await attachClinicalData(mapMother(mother)) });
+    res.status(201).json({ mother: await attachClinicalData(mapMother(mother), canViewAuditSignatures(req.user?.role)) });
   } catch (error) {
     console.error('[Mothers API] POST / error:', error.message);
     res.status(500).json({ error: 'db error' });
@@ -723,7 +774,7 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Mother not found' });
     }
 
-    res.json({ mother: await attachClinicalData(mapMother(rows[0])) });
+    res.json({ mother: await attachClinicalData(mapMother(rows[0]), canViewAuditSignatures(req.user?.role)) });
   } catch (error) {
     console.error('[Mothers API] GET /:id error:', error.message);
     res.status(500).json({ error: 'db error' });
@@ -926,7 +977,7 @@ router.put('/:id', async (req, res) => {
         : undefined,
       actorUserId: req.user?.id,
     });
-    res.json({ mother: await attachClinicalData(mapMother(updatedMother)) });
+    res.json({ mother: await attachClinicalData(mapMother(updatedMother), canViewAuditSignatures(req.user?.role)) });
   } catch (error) {
     console.error('[Mothers API] PUT /:id error:', error.message);
     res.status(500).json({ error: 'db error' });
@@ -1050,8 +1101,8 @@ router.post('/:id/checkups', async (req, res) => {
         lab_assistance_provided, assistance_amount, source_of_funds,
         facility_type, milk_subsidy_date, milk_quantity_pcs,
         milk_subsidy_provided, lab_assistance_tests, laboratory_requests,
-        treatment_services, remarks
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        treatment_services, remarks, recorded_by_user_id, created_by_user_id, updated_by_user_id, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
       ON DUPLICATE KEY UPDATE
         checkup_date = VALUES(checkup_date),
         gestational_age_weeks = VALUES(gestational_age_weeks),
@@ -1075,7 +1126,10 @@ router.post('/:id/checkups', async (req, res) => {
         lab_assistance_tests = VALUES(lab_assistance_tests),
         laboratory_requests = VALUES(laboratory_requests),
         treatment_services = VALUES(treatment_services),
-        remarks = VALUES(remarks)`,
+        remarks = VALUES(remarks),
+        recorded_by_user_id = VALUES(recorded_by_user_id),
+        updated_by_user_id = VALUES(updated_by_user_id),
+        updated_at = CURRENT_TIMESTAMP`,
       [
         motherDbId, trimester, checkupNumber, checkupDate,
         gestationalAgeWeeks, bloodPressure, weightKg, heightCm,
@@ -1083,7 +1137,8 @@ router.post('/:id/checkups', async (req, res) => {
         serviceProvider, nextCheckupDate, referredToHospital,
         labAssistanceProvided, assistanceAmount, sourceOfFunds,
         facilityType, milkSubsidyDate, milkQuantityPcs,
-        milkSubsidyProvided, labAssistanceTests, laboratoryRequests, treatmentServices, remarks
+        milkSubsidyProvided, labAssistanceTests, laboratoryRequests, treatmentServices, remarks,
+        req.user?.id || null, req.user?.id || null, req.user?.id || null
       ]
     );
 

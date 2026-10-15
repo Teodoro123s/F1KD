@@ -12,7 +12,13 @@ function formatTimestamp(value) {
   }).format(date);
 }
 
-export default function NotificationDetailsModal({ notification, onClose, error = '' }) {
+export default function NotificationDetailsModal({
+  notification,
+  onClose,
+  onMarkAsRead,
+  markingRead = false,
+  error = '',
+}) {
   if (!notification) return null;
 
   return createPortal((
@@ -24,9 +30,21 @@ export default function NotificationDetailsModal({ notification, onClose, error 
       backdropClassName="notification-details-backdrop"
       onClose={onClose}
       footer={(
-        <button type="button" className="view-btn view-btn--primary notification-details-close" onClick={onClose}>
-          Close
-        </button>
+        <>
+          {!notification.isRead && onMarkAsRead && (
+            <button
+              type="button"
+              className="view-btn view-btn--primary notification-details-mark-read"
+              onClick={() => onMarkAsRead(notification)}
+              disabled={markingRead}
+            >
+              {markingRead ? 'Marking...' : 'Mark as read'}
+            </button>
+          )}
+          <button type="button" className="view-btn view-btn--primary notification-details-close" onClick={onClose}>
+            Close
+          </button>
+        </>
       )}
     >
       {error && <div role="alert" className="error-message">{error}</div>}
@@ -73,6 +91,8 @@ export default function NotificationDetailsModal({ notification, onClose, error 
         .notification-details-modal .view-modal__footer { flex: 0 0 auto; min-height: 64px; padding: 0.75rem 1.1rem; }
         .notification-details-modal .notification-details-close { min-width: 80px; height: 38px; background: #15803d !important; border: 1px solid #15803d !important; color: #fff !important; opacity: 1 !important; font-weight: 600; }
         .notification-details-modal .notification-details-close:hover { background: #166534 !important; border-color: #166534 !important; }
+        .notification-details-modal .notification-details-mark-read { min-width: 120px; height: 38px; background: #fff !important; border: 1px solid #15803d !important; color: #15803d !important; opacity: 1 !important; font-weight: 600; }
+        .notification-details-modal .notification-details-mark-read:hover { background: #f0fdf4 !important; }
         .notification-details__message { margin: 0 0 1.25rem; color: #334155; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
         .notification-details__metadata { display: grid; gap: 0; margin: 0; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; }
         .notification-details__metadata > div { display: grid; grid-template-columns: minmax(110px, 0.7fr) minmax(0, 1.3fr); gap: 0.75rem; padding: 0.75rem 0.9rem; border-bottom: 1px solid #e2e8f0; }

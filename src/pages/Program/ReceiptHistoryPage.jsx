@@ -1,12 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useAuth } from '../../auth/AuthProvider';
 import PageHeader from '../../components/ui/PageHeader';
 import DateInput from '../../components/ui/DateInput';
+import AuditSignatures from '../../components/ui/AuditSignatures';
 import { notifyAction } from '../../components/ActionFeedback';
 import { apiGetBeneficiaryMonitoringReport, apiGetClusterMonitoringReport, apiGetPrograms, apiSetBeneficiaryMonitoring } from '../../api/programs';
 import { apiGetChildren } from '../../api/children';
 import { apiGetMothers } from '../../api/mothers';
 import { formatDateForDisplay } from '../../utils/dateFormat';
+import { canViewAuditSignatures } from '../../utils/permissions';
 
 const localDate = () => {
   const date = new Date();
@@ -32,10 +35,12 @@ const calendarDays = (date) => {
 };
 
 export default function ReceiptHistoryPage() {
+  const { currentUser } = useAuth();
   const { programId, beneficiaryType, beneficiaryId, clusterType, clusterName } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
   const isClusterHistory = Boolean(clusterType && clusterName);
+  const showAuditSignatures = canViewAuditSignatures(currentUser?.role);
   const showGroupColumn = isClusterHistory && clusterType !== 'batch';
   const beneficiaryName = location.state?.beneficiaryName || location.state?.clusterName || clusterName || 'Beneficiary';
   const [reportRows, setReportRows] = useState([]);
@@ -226,8 +231,15 @@ export default function ReceiptHistoryPage() {
           <div className="program-receipt-controls-actions"><button type="button" className="view-btn view-btn--primary" onClick={() => openReceiptModal()} disabled={isClusterHistory && recipientsLoading}>Record receipt</button><div className="program-view-toggle" role="tablist" aria-label="Receipt history view"><button type="button" className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>List View</button><button type="button" className={view === 'calendar' ? 'active' : ''} onClick={() => setView('calendar')}>Calendar View</button></div></div>
         </div>}
         {loading ? <p>Loading receipt history...</p> : view === 'list' ? <div className="program-receipt-table-scroll"><table className={`data-table ${isClusterHistory ? 'program-receipt-cluster-table' : 'program-receipt-beneficiary-table'}`}>
-          <thead><tr><th>Date</th>{isClusterHistory ? <><th>Beneficiary</th>{showGroupColumn && <th>Group</th>}<th>Batch</th></> : null}<th>Recorded by</th><th>Action</th></tr></thead>
-          <tbody>{filteredRows.length ? filteredRows.map((row) => <tr key={`${row.date}-${row.program_name}-${row.beneficiary_name || row.beneficiary_id || 'entry'}`}><td>{formatDateForDisplay(toDateKey(row.date))}</td>{isClusterHistory ? <><td>{row.beneficiary_name || row.beneficiary_id || 'Unknown beneficiary'}</td>{showGroupColumn && <td>{row.group_name || 'Unknown group'}</td>}<td>{row.batch_name || 'Unknown batch'}</td></> : null}<td>{row.monitored_by_name || 'Unknown'}</td><td><button type="button" className="view-btn view-btn--secondary" onClick={() => openReceiptModal(toDateKey(row.date))}>Edit</button></td></tr>) : <tr><td colSpan={isClusterHistory ? (showGroupColumn ? 6 : 5) : 3} className="no-data">No receipt history found.</td></tr>}</tbody>
+          <thead><tr><th>Date</th>{isClusterHistory ? <><th>Beneficiary</th>{showGroupColumn && <th>Group</th>}<th>Batch</th></> : null}{showAuditSignatures && <th>Signatures</th>}<th>Action</th></tr></thead>
+          <tbody>{filteredRows.length ? filteredRows.map((row) => <tr key={`${row.date}-${row.program_name}-${row.beneficiary_name || row.beneficiary_id || 'entry'}`}><td>{formatDateForDisplay(toDateKey(row.date))}</td>{isClusterHistory ? <><td>{row.beneficiary_name || row.beneficiary_id || 'Unknown beneficiary'}</td>{showGroupColumn && <td>{row.group_name || 'Unknown group'}</td>}<td>{row.batch_name || 'Unknown batch'}</td></> : null}{showAuditSignatures && <td><AuditSignatures
+            createdByName={row.created_by_name || row.monitored_by_name}
+            createdByRole={row.created_by_role || row.monitored_by_role}
+            createdAt={row.recorded_at}
+            updatedByName={row.updated_by_name || row.monitored_by_name}
+            updatedByRole={row.updated_by_role || row.monitored_by_role}
+            updatedAt={row.updated_at}
+          /></td>}<td><button type="button" className="view-btn view-btn--secondary" onClick={() => openReceiptModal(toDateKey(row.date))}>Edit</button></td></tr>) : <tr><td colSpan={(isClusterHistory ? (showGroupColumn ? 4 : 3) : 1) + (showAuditSignatures ? 1 : 0) + 1} className="no-data">No receipt history found.</td></tr>}</tbody>
         </table></div> : <div className="program-calendar-wrap">
           <div className="program-calendar-header"><button type="button" className="view-btn view-btn--secondary" onClick={() => setCalendarMonth((date) => new Date(date.getFullYear(), date.getMonth() - 1, 1))}>Previous</button><h3>{monthLabel(calendarMonth)}</h3><button type="button" className="view-btn view-btn--secondary" onClick={() => setCalendarMonth((date) => new Date(date.getFullYear(), date.getMonth() + 1, 1))}>Next</button></div>
           <div className="program-calendar-weekdays">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => <span key={day}>{day}</span>)}</div>

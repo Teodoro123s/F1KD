@@ -5,6 +5,7 @@ import { calculateWhoGrowthScores } from '../../utils/whoGrowthStandards';
 import { getAgeInDecimalMonths, getAgeInMonths } from '../../utils/childAge.mjs';
 import ConfirmModal from '../UserManagement/ConfirmModal';
 import { notifyAction } from '../../components/ActionFeedback';
+import AuditSignatures from '../../components/ui/AuditSignatures';
 
 const TOTAL_MONTHS = 24;
 
@@ -53,7 +54,7 @@ function calculateBmi(weight, height) {
 }
 
 
-export default function ChildMonitor({ child, onSave, onCancel, completedWeeks = [], initialWeek = 1, forceEdit = false }) {
+export default function ChildMonitor({ child, onSave, onCancel, completedWeeks = [], initialWeek = 1, forceEdit = false, showAuditSignatures = false }) {
   const [week, setWeek] = useState(() => Math.max(1, Math.min(TOTAL_MONTHS, Math.floor(Number(initialWeek) || 1))));
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -253,6 +254,7 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
             <span className="checkup-week-badge">M{week} / {TOTAL_MONTHS}</span>
           </div>
           <p className="child-monitor-subtitle">M{week} of {TOTAL_MONTHS} · {childName}</p>
+          {showAuditSignatures && <AuditSignatures {...savedCheckup} />}
           <div className="checkup-grid">
             {renderDateField({ id: 'child-checkup-date', label: 'Check-up Date', name: 'checkupDate', required: true })}
             {renderDateField({ id: 'child-next-checkup-date', label: 'Next Check-up Date (Tentative)', name: 'nextCheckupDate' })}

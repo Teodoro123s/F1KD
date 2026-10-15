@@ -789,10 +789,28 @@
 .program-table-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.1rem 1.25rem; border-bottom: 1px solid #e2e8f0; background: #fff; }
 .program-table-heading h2 { margin: 0.2rem 0 0; color: #0f172a; font-size: 1.1rem; }
 .program-table-heading > div:first-child { min-width: 0; }
-.program-list-purpose { margin: 0.3rem 0 0; color: #64748b; font-size: 0.84rem; }
 .program-table-heading > span { color: #64748b; font-size: 0.85rem; text-align: right; }
-.program-table-heading > .community-table-search { flex: 0 1 540px; width: 100%; padding: 0; border: 0; }
+.program-table-heading > .community-table-search { flex: 0 1 320px; width: 100%; padding: 0; border: 0; }
 .program-table-heading > .community-table-search .search-container { width: 100%; }
+.program-list-table { table-layout: fixed; min-width: 760px; }
+.program-list-column-name { width: 27%; }
+.program-list-column-coverage { width: 37%; }
+.program-list-column-recipients { width: 14%; }
+.program-list-column-status { width: 12%; }
+.program-list-column-actions { width: 10%; }
+.program-list-table th:nth-child(4),
+.program-list-table td:nth-child(4) { white-space: nowrap; }
+.program-list-table .program-row-link > strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.program-table-meta.program-list-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 @media (max-width: 640px) {
   .program-table-heading { align-items: stretch; flex-direction: column; }
   .program-table-heading > .community-table-search { flex: 1 1 auto; min-width: 0; }
@@ -946,7 +964,7 @@
   color: #94a3b8;
 }
 .program-table-meta { display: block; margin-top: 0.25rem; color: #64748b; font-size: 0.8rem; }
-.program-status { display: inline-flex; padding: 0.35rem 0.6rem; border-radius: 999px; font-size: 0.75rem; font-weight: 800; }
+.program-status { display: inline-flex; padding: 0.35rem 0.6rem; border-radius: 999px; font-size: 0.75rem; font-weight: 800; white-space: nowrap; }
 .program-status.active { background: #ecfdf3; color: #067647; }
 .program-status.low { background: #fffaeb; color: #b54708; }
 .program-action-button { white-space: nowrap; }

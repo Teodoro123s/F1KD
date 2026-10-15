@@ -208,6 +208,9 @@ CREATE TABLE IF NOT EXISTS mother_checkups (
   laboratory_requests TEXT,
   treatment_services TEXT,
   remarks TEXT,
+  recorded_by_user_id INT NULL,
+  created_by_user_id INT NULL,
+  updated_by_user_id INT NULL,
   UNIQUE KEY uq_mother_checkup (mother_id, trimester, checkup_number),
   CONSTRAINT fk_mother_checkup_mother FOREIGN KEY (mother_id) REFERENCES mothers(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -290,6 +293,10 @@ CREATE TABLE IF NOT EXISTS child_checkups (
   developmental_status VARCHAR(40),
   service_provider VARCHAR(150),
   notes TEXT,
+  recorded_by_user_id INT NULL,
+  created_by_user_id INT NULL,
+  updated_by_user_id INT NULL,
+  updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE KEY uq_child_checkup (child_id, week_number),
   CONSTRAINT fk_child_checkup_child FOREIGN KEY (child_id) REFERENCES children(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

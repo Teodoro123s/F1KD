@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../db');
 const { createSuperadminNotification } = require('../services/notifications');
+const { canViewAuditSignatures } = require('../middleware/authorize');
 
 router.use((req, res, next) => {
   const isMonitoringUpdate = req.method === 'PATCH' && /\/monitoring$/.test(req.path);
@@ -491,10 +492,13 @@ router.patch('/:programId/monitoring', async (req, res) => {
     );
     const [result] = await pool.query(
       `INSERT INTO monitoring_logs
-        (beneficiary_id, beneficiary_type, program_id, monitored, monitored_date, monitored_by)
-       VALUES (?, ?, ?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE monitored = VALUES(monitored), monitored_by = VALUES(monitored_by), updated_at = CURRENT_TIMESTAMP`,
-      [beneficiaryId, beneficiaryType, req.params.programId, monitored, date, req.user?.id || null],
+        (beneficiary_id, beneficiary_type, program_id, monitored, monitored_date, monitored_by,
+         created_by_user_id, updated_by_user_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE monitored = VALUES(monitored), monitored_by = VALUES(monitored_by),
+         updated_by_user_id = VALUES(updated_by_user_id), updated_at = CURRENT_TIMESTAMP`,
+      [beneficiaryId, beneficiaryType, req.params.programId, monitored, date, req.user?.id || null,
+        req.user?.id || null, req.user?.id || null],
     );
     const beneficiary = beneficiaryRows[0];
     const program = await getProgram(req.params.programId);
@@ -526,6 +530,20 @@ router.get('/:programId/monitoring/cluster-report/:clusterType/:clusterName', as
   const clusterFilter = clusterFilters[clusterType];
   if (!clusterFilter || !clusterName) return res.status(400).json({ error: 'Invalid monitoring cluster' });
   try {
+    const includeAuditDetails = canViewAuditSignatures(req.user?.role);
+    const auditSelect = includeAuditDetails
+      ? `,
+        NULLIF(TRIM(CONCAT_WS(' ', creator.first_name, creator.middle_initial, creator.last_name)), '') AS created_by_name,
+        creator.role AS created_by_role,
+        ml.created_at AS recorded_at,
+        NULLIF(TRIM(CONCAT_WS(' ', updater.first_name, updater.middle_initial, updater.last_name)), '') AS updated_by_name,
+        updater.role AS updated_by_role,
+        ml.updated_at AS updated_at`
+      : '';
+    const auditJoins = includeAuditDetails
+      ? `LEFT JOIN users creator ON creator.id = COALESCE(ml.created_by_user_id, ml.monitored_by)
+         LEFT JOIN users updater ON updater.id = COALESCE(ml.updated_by_user_id, ml.monitored_by)`
+      : '';
     const [logs] = await pool.query(
       `SELECT DATE_FORMAT(ml.monitored_date, '%Y-%m-%d') AS date, ml.monitored, ml.notes, p.name AS program_name,
         ml.beneficiary_type, ml.beneficiary_id,
@@ -537,8 +555,7 @@ router.get('/:programId/monitoring/cluster-report/:clusterType/:clusterName', as
         COALESCE(NULLIF(TRIM(co.name), ''), NULLIF(TRIM(parent_co.name), ''), 'Unknown school') AS school_name,
         COALESCE(NULLIF(TRIM(g.name), ''), NULLIF(TRIM(parent_g.name), ''), 'Unknown group') AS group_name,
         COALESCE(NULLIF(TRIM(b.name), ''), NULLIF(TRIM(parent_b.name), ''), 'Unknown batch') AS batch_name,
-        COALESCE(NULLIF(TRIM(CONCAT_WS(' ', m.first_name, m.last_name)), ''), NULLIF(TRIM(CONCAT_WS(' ', c.first_name, c.last_name)), ''), ml.beneficiary_id) AS beneficiary_name,
-        NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.last_name)), '') AS monitored_by_name
+        COALESCE(NULLIF(TRIM(CONCAT_WS(' ', m.first_name, m.last_name)), ''), NULLIF(TRIM(CONCAT_WS(' ', c.first_name, c.last_name)), ''), ml.beneficiary_id) AS beneficiary_name${auditSelect}
        FROM monitoring_logs ml
        INNER JOIN programs p ON p.id = ml.program_id
        LEFT JOIN mothers m ON LOWER(CAST(ml.beneficiary_type AS CHAR)) = 'mother' AND (CAST(ml.beneficiary_id AS CHAR) = CAST(m.id AS CHAR) OR LOWER(TRIM(CAST(m.mother_code AS CHAR))) = LOWER(TRIM(CAST(ml.beneficiary_id AS CHAR))))
@@ -550,7 +567,7 @@ router.get('/:programId/monitoring/cluster-report/:clusterType/:clusterName', as
                LEFT JOIN communities parent_co ON parent_co.id = parent_m.community_id
                LEFT JOIN \`groups\` parent_g ON parent_g.id = parent_m.group_id
                LEFT JOIN batches parent_b ON parent_b.id = parent_m.batch_id
-       LEFT JOIN users u ON u.id = ml.monitored_by
+       ${auditJoins}
        WHERE ml.program_id = ?
          AND (
            LOWER(TRIM(p.beneficiary_type)) IN ('mother and child', 'mother & child')
@@ -572,12 +589,25 @@ router.get('/:programId/monitoring/report/:beneficiaryType/:beneficiaryId', asyn
   const beneficiaryType = String(req.params.beneficiaryType || '').toLowerCase();
   if (!['mother', 'child'].includes(beneficiaryType)) return res.status(400).json({ error: 'Invalid beneficiary type' });
   try {
+    const includeAuditDetails = canViewAuditSignatures(req.user?.role);
+    const auditSelect = includeAuditDetails
+      ? `,
+        NULLIF(TRIM(CONCAT_WS(' ', creator.first_name, creator.middle_initial, creator.last_name)), '') AS created_by_name,
+        creator.role AS created_by_role,
+        ml.created_at AS recorded_at,
+        NULLIF(TRIM(CONCAT_WS(' ', updater.first_name, updater.middle_initial, updater.last_name)), '') AS updated_by_name,
+        updater.role AS updated_by_role,
+        ml.updated_at AS updated_at`
+      : '';
+    const auditJoins = includeAuditDetails
+      ? `LEFT JOIN users creator ON creator.id = COALESCE(ml.created_by_user_id, ml.monitored_by)
+         LEFT JOIN users updater ON updater.id = COALESCE(ml.updated_by_user_id, ml.monitored_by)`
+      : '';
     const [logs] = await pool.query(
             `SELECT DATE_FORMAT(ml.monitored_date, '%Y-%m-%d') AS date, ml.monitored, ml.notes, p.name AS program_name,
               COALESCE(NULLIF(TRIM(co.name), ''), 'Unknown school') AS school_name,
               COALESCE(NULLIF(TRIM(g.name), ''), 'Unknown group') AS group_name,
-              COALESCE(NULLIF(TRIM(b.name), ''), 'Unknown batch') AS batch_name,
-              NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.last_name)), '') AS monitored_by_name
+              COALESCE(NULLIF(TRIM(b.name), ''), 'Unknown batch') AS batch_name${auditSelect}
        FROM monitoring_logs ml
        INNER JOIN programs p ON p.id = ml.program_id
        LEFT JOIN mothers m ON LOWER(CAST(ml.beneficiary_type AS CHAR)) = 'mother' AND (CAST(ml.beneficiary_id AS CHAR) = CAST(m.id AS CHAR) OR LOWER(TRIM(CAST(m.mother_code AS CHAR))) = LOWER(TRIM(CAST(ml.beneficiary_id AS CHAR))))
@@ -586,7 +616,7 @@ router.get('/:programId/monitoring/report/:beneficiaryType/:beneficiaryId', asyn
        LEFT JOIN communities co ON co.id = COALESCE(m.community_id, c.community_id)
        LEFT JOIN \`groups\` g ON g.id = COALESCE(m.group_id, c.group_id)
        LEFT JOIN batches b ON b.id = COALESCE(m.batch_id, c.batch_id)
-       LEFT JOIN users u ON u.id = ml.monitored_by
+       ${auditJoins}
        WHERE ml.program_id = ? AND ml.beneficiary_id = ? AND ml.beneficiary_type = ?
          ${req.isHealthWorker ? 'AND (m.group_id = ? OR COALESCE(c.group_id, parent_m.group_id) = ?)' : ''}
        ORDER BY ml.monitored_date DESC`,

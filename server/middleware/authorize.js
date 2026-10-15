@@ -24,6 +24,7 @@ const normalizeRole = (role) => {
 
 const isHealthWorkerRole = (role) => normalizeRole(role) === 'health_worker';
 const isCommunityCoordinatorRole = (role) => normalizeRole(role) === 'community_coordinator';
+const canViewAuditSignatures = (role) => ['admin', 'community_coordinator', 'partner'].includes(normalizeRole(role));
 
 const permissionResponse = (res, message = 'Forbidden') => {
   const payload = {
@@ -168,6 +169,7 @@ module.exports = {
   authorize,
   authorizeOperational,
   authorizeProgressReport,
+  canViewAuditSignatures,
   normalizeRole,
   isHealthWorkerRole,
   isCommunityCoordinatorRole,

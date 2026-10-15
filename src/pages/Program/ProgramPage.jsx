@@ -468,9 +468,8 @@ export default function ProgramPage() {
     || String(selectedRouteBatch.groupIds || '').split(',').map((value) => value.trim()).includes(String(group.id || ''))
     || String(selectedRouteBatch.group || selectedRouteBatch.group_name || '').trim().toLowerCase() === String(group.name || group.group_name || '').trim().toLowerCase()
   )) : null;
-  const programBreadcrumbs = [{ label: 'Program', to: '/program' }];
+  const programBreadcrumbs = viewMode ? [{ label: 'Program', to: '/program' }] : [];
   if (viewMode && selectedProgram) {
-    programBreadcrumbs.push({ label: selectedProgram.name, to: `/program/${programId}` });
     if (selectedRouteSchool) programBreadcrumbs.push({ label: selectedRouteSchool.name });
     if (selectedRouteGroup) programBreadcrumbs.push({ label: selectedRouteGroup.name || selectedRouteGroup.group_name });
     if (selectedRouteBatchGroup) programBreadcrumbs.push({
@@ -1162,9 +1161,9 @@ export default function ProgramPage() {
           selected={activeTab}
           onSelect={setActiveTab}
           cards={[
-            { key: 'All', label: 'Total Programs', value: programs.length, description: 'Show all' },
-            { key: 'Active', label: 'Active Programs', value: filterPrograms(programs, '', 'Active').length, description: 'Show active' },
-            { key: 'Ended', label: 'Ended Programs', value: filterPrograms(programs, '', 'Ended').length, description: 'Show ended' },
+            { key: 'All', label: 'Total Programs', value: programs.length },
+            { key: 'Active', label: 'Active Programs', value: filterPrograms(programs, '', 'Active').length },
+            { key: 'Ended', label: 'Ended Programs', value: filterPrograms(programs, '', 'Ended').length },
           ]}
         />
       )}
@@ -1173,7 +1172,6 @@ export default function ProgramPage() {
         <div className="program-table-heading">
           <div>
             <h2>{viewMode ? 'Program coverage' : 'Programs'}</h2>
-            {!viewMode && <p className="program-list-purpose">Manage beneficiary coverage and review program receipt history.</p>}
           </div>
           {!viewMode && (
             <TableSearch
@@ -1357,7 +1355,16 @@ export default function ProgramPage() {
                 </tbody>
               </table>
             );
-          })() : <table className="data-table">
+          })(                    ) : <table className={`data-table ${!clusterView && !viewMode ? 'program-list-table' : ''}`}>
+            {!clusterView && !viewMode && (
+              <colgroup>
+                <col className="program-list-column-name" />
+                <col className="program-list-column-coverage" />
+                <col className="program-list-column-recipients" />
+                <col className="program-list-column-status" />
+                <col className="program-list-column-actions" />
+              </colgroup>
+            )}
             {clusterView && selectedCluster ? (
               <>
                 <thead>
@@ -1399,8 +1406,8 @@ export default function ProgramPage() {
                 <thead>
                   <tr>
                     <th>Program</th>
-                    <th>Coverage</th>
-                    <th>Eligible recipients</th>
+                    <th>Scopes</th>
+                    <th>Recipients</th>
                     <th>Status</th>
                     <th>Action</th>
                   </tr>
@@ -1412,23 +1419,30 @@ export default function ProgramPage() {
                         <td>
                           <a className="program-row-link" href={`/program/${program.id}`} onClick={(event) => event.stopPropagation()}>
                             <strong>{program.name}</strong>
-                            <span className="program-table-meta">{[program.type, program.provider].filter(Boolean).join(' · ')}</span>
+                            <span
+                              className="program-table-meta program-list-meta"
+                              title={[program.type, program.provider].filter(Boolean).join(' · ')}
+                            >
+                              {[program.type, program.provider].filter(Boolean).join(' · ')}
+                            </span>
                           </a>
                         </td>
                         <td>
                           {(program.clusters || []).length ? (
                             <>
-                              <strong>{(program.clusters || []).length} assigned scope{program.clusters.length === 1 ? '' : 's'}</strong>
-                              <span className="program-table-meta">
+                              <strong>{(program.clusters || []).length} scope{program.clusters.length === 1 ? '' : 's'}</strong>
+                              <span
+                                className="program-table-meta program-list-meta"
+                                title={[...new Set((program.clusters || []).map((cluster) => cluster.name).filter(Boolean))].join(', ')}
+                              >
                                 {[...new Set((program.clusters || []).map((cluster) => cluster.name).filter(Boolean))].slice(0, 2).join(', ')}
-                                {program.clusters.length > 2 ? ` +${program.clusters.length - 2} more` : ''}
+                                {program.clusters.length > 2 ? ` +${program.clusters.length - 2}` : ''}
                               </span>
                             </>
-                          ) : <span className="program-table-meta">No recipient scope assigned</span>}
+                          ) : <span className="program-table-meta">No scopes</span>}
                         </td>
                         <td>
                           <strong>{getProgramBeneficiaryCount(program).toLocaleString()}</strong>
-                          <span className="program-table-meta">eligible beneficiaries</span>
                         </td>
                         <td>
                           <span className={`program-status ${String(program.status || '').toLowerCase() === 'ended' ? 'ended' : 'active'}`}>
