@@ -1,5 +1,5 @@
 ﻿/* Layout */
-.layout { display: flex; min-height: 100vh; background: var(--bg); }
+.layout { display: flex; height: 100vh; min-height: 100vh; background: var(--bg); }
 
 /* Sidebar */
 .sidebar {
@@ -124,9 +124,12 @@
 .main {
   flex: 1;
   min-width: 0;
+  min-height: 0;
   overflow: auto;
+  scrollbar-width: none;
   background: var(--bg);
   display: flex;
   flex-direction: column;
   padding: 0;
 }
+.main::-webkit-scrollbar { display: none; }
