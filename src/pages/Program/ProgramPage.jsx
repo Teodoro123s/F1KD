@@ -24,9 +24,9 @@ import {
   beneficiaryNames,
   emptyProgram,
   filterPrograms,
+  filterProgramBeneficiaryRecords,
   getCluster,
   normalizeBeneficiaryType,
-  recordMatchesProgramScope,
 } from "./programData";
 
 const localDate = () => {
@@ -46,7 +46,6 @@ export default function ProgramPage() {
   const canEndPrograms = isCommunityOrganizer;
   const canMonitorPrograms = canCreatePrograms || isHealthWorkerRole(currentUser?.role);
   const [activeTab, setActiveTab] = useState("Active");
-  const [selectedProgramCard, setSelectedProgramCard] = useState(null);
   const [query, setQuery] = useState("");
   const [programs, setPrograms] = useState([]);
   const [isLiveDataLoaded, setIsLiveDataLoaded] = useState(false);
@@ -71,6 +70,7 @@ export default function ProgramPage() {
   const [scopeError, setScopeError] = useState('');
   const [actionProgram, setActionProgram] = useState(null);
   const [pendingDeleteProgram, setPendingDeleteProgram] = useState(null);
+  const [receiptHistoryProgram, setReceiptHistoryProgram] = useState(null);
   const [programError, setProgramError] = useState('');
   const [beneficiaryRecords, setBeneficiaryRecords] = useState([]);
   const [activeActionMenu, setActiveActionMenu] = useState(null);
@@ -142,9 +142,16 @@ export default function ProgramPage() {
   };
 
   const getProgramBeneficiaryRecords = (program, records = beneficiaryRecords) => {
-    if (!program) return [];
-
-    return (records || []).filter((record) => recordMatchesProgramScope(record, program));
+    const scopedRecords = filterProgramBeneficiaryRecords(program, records || []);
+    if (!isHealthWorkerRole(currentUser?.role)) return scopedRecords;
+    if (!currentUser?.group_id && !currentUser?.groupId) return [];
+    const assignedGroupId = String(currentUser.group_id || currentUser.groupId);
+    const assignedGroup = hierarchy.groups.find((group) => String(group.id) === assignedGroupId);
+    const assignedGroupName = String(assignedGroup?.name || assignedGroup?.group_name || '').trim().toLowerCase();
+    return scopedRecords.filter((record) => (
+      String(record.groupId || '') === assignedGroupId
+      || (assignedGroupName && String(record.group || '').trim().toLowerCase() === assignedGroupName)
+    ));
   };
 
   const getRouteBeneficiaryRecords = (program, { schoolName = '', groupName = '', batchName = '' } = {}) => {
@@ -208,6 +215,7 @@ export default function ProgramPage() {
           monitorKey: `mother:${mother.id}`,
           school: mother.community || '',
           group: mother.groupName || mother.group || '',
+          groupId: mother.groupId || mother.group_id || '',
           batch: batchesById.get(String(mother.batchId))?.name || mother.batch || '',
           name: mother.name,
           type: 'Mother',
@@ -220,6 +228,7 @@ export default function ProgramPage() {
           monitorKey: `child:${child.id}`,
           school: child.community_name || '',
           group: child.group_name || '',
+          groupId: child.group_id || child.groupId || '',
           batch: child.batch_name || '',
           name: [child.first_name, child.middle_name, child.last_name].filter(Boolean).join(' '),
           type: 'Child',
@@ -311,11 +320,11 @@ export default function ProgramPage() {
     });
   };
 
-  const collectClusterBeneficiaries = (cluster, level) => {
+  const collectClusterBeneficiaries = (cluster, level, program = selectedProgram) => {
     const normalizedLevel = String(level || '').toLowerCase();
     const name = String(cluster?.name || cluster?.group_name || cluster?.batch_name || '').trim();
-    if (!name) return [];
-    const scopedRecords = getProgramBeneficiaryRecords(selectedProgram);
+    if (!name || !program) return [];
+    const scopedRecords = getProgramBeneficiaryRecords(program);
     return scopedRecords.filter((record) => {
       if (normalizedLevel === 'group') {
         return String(record.group || '').trim().toLowerCase() === name.toLowerCase();
@@ -324,15 +333,15 @@ export default function ProgramPage() {
         return String(record.batch || '').trim().toLowerCase() === name.toLowerCase();
       }
       if (normalizedLevel === 'school') {
-        const hasExplicitGroupScope = (selectedProgram?.clusters || []).some((item) => item?.type === 'Group' && String(item?.name || '').trim());
-        const hasExplicitBatchScope = (selectedProgram?.clusters || []).some((item) => item?.type === 'Batch' && String(item?.name || '').trim());
+        const hasExplicitGroupScope = (program?.clusters || []).some((item) => item?.type === 'Group' && String(item?.name || '').trim());
+        const hasExplicitBatchScope = (program?.clusters || []).some((item) => item?.type === 'Batch' && String(item?.name || '').trim());
         if (hasExplicitGroupScope && String(record.group || '').trim()) {
           return String(record.school || '').trim().toLowerCase() === name.toLowerCase()
-            && (selectedProgram?.clusters || []).some((item) => item.type === 'Group' && String(item.name || '').trim().toLowerCase() === String(record.group || '').trim().toLowerCase());
+            && (program?.clusters || []).some((item) => item.type === 'Group' && String(item.name || '').trim().toLowerCase() === String(record.group || '').trim().toLowerCase());
         }
         if (hasExplicitBatchScope && String(record.batch || '').trim()) {
           return String(record.school || '').trim().toLowerCase() === name.toLowerCase()
-            && (selectedProgram?.clusters || []).some((item) => item.type === 'Batch' && String(item.name || '').trim().toLowerCase() === String(record.batch || '').trim().toLowerCase());
+            && (program?.clusters || []).some((item) => item.type === 'Batch' && String(item.name || '').trim().toLowerCase() === String(record.batch || '').trim().toLowerCase());
         }
         return String(record.school || '').trim().toLowerCase() === name.toLowerCase();
       }
@@ -348,6 +357,61 @@ export default function ProgramPage() {
     navigate(`/program/${programId}/cluster/${encodeURIComponent(clusterType)}/${encodeURIComponent(clusterName)}/receipt-history`, {
       state: { clusterName, clusterType, beneficiaries },
     });
+  };
+
+  const openProgramClusterHistory = (program, cluster) => {
+    if (!program || !cluster?.name) return;
+    const clusterType = String(cluster.type || '').toLowerCase();
+    const clusterName = String(cluster.name).trim();
+    const beneficiaries = collectClusterBeneficiaries(cluster, clusterType, program)
+      .map((record) => ({ id: record.sourceId, type: record.sourceType, name: record.name }));
+    setReceiptHistoryProgram(null);
+    navigate(`/program/${program.id}/cluster/${encodeURIComponent(clusterType)}/${encodeURIComponent(clusterName)}/receipt-history`, {
+      state: { clusterName, clusterType, beneficiaries },
+    });
+  };
+
+  const getProgramReceiptClusters = (program) => {
+    const clusters = [...(program?.clusters || [])];
+    const scopedRecords = getProgramBeneficiaryRecords(program);
+    const addDerivedCluster = (type, name, records) => {
+      if (!name || !records.length || clusters.some((cluster) => (
+        cluster.type === type && String(cluster.name).trim().toLowerCase() === String(name).trim().toLowerCase()
+      ))) return;
+      clusters.push({ type, name, beneficiaries: records.length, derived: true });
+    };
+
+    clusters.filter((cluster) => cluster.type === 'School').forEach((schoolCluster) => {
+      const schoolName = String(schoolCluster.name || '').trim().toLowerCase();
+      const normalizedSchoolName = schoolName.replace(/ School$/i, '').trim();
+      const schoolRecords = scopedRecords.filter((record) => {
+        const recordSchool = String(record.school || '').trim().toLowerCase();
+        return recordSchool === schoolName || recordSchool === normalizedSchoolName;
+      });
+      const groupNames = new Set(schoolRecords.map((record) => String(record.group || '').trim()).filter(Boolean));
+      const batchNames = new Set(schoolRecords.map((record) => String(record.batch || '').trim()).filter(Boolean));
+      groupNames.forEach((groupName) => {
+        const records = schoolRecords.filter((record) => String(record.group || '').trim().toLowerCase() === groupName.toLowerCase());
+        addDerivedCluster('Group', groupName, records);
+      });
+      batchNames.forEach((batchName) => {
+        const records = schoolRecords.filter((record) => String(record.batch || '').trim().toLowerCase() === batchName.toLowerCase());
+        addDerivedCluster('Batch', batchName, records);
+      });
+    });
+    if (isHealthWorkerRole(currentUser?.role)) {
+      const assignedGroupId = String(currentUser.group_id || currentUser.groupId || '');
+      const assignedGroup = hierarchy.groups.find((group) => String(group.id) === assignedGroupId);
+      const assignedGroupName = String(assignedGroup?.name || assignedGroup?.group_name || '').trim().toLowerCase();
+      const eligibleBatchNames = new Set(scopedRecords.map((record) => String(record.batch || '').trim().toLowerCase()).filter(Boolean));
+      const eligibleSchoolNames = new Set(scopedRecords.map((record) => String(record.school || '').trim().toLowerCase()).filter(Boolean));
+      return clusters.filter((cluster) => (
+        (cluster.type === 'School' && eligibleSchoolNames.has(String(cluster.name || '').trim().toLowerCase().replace(/ school$/i, '')))
+        || (cluster.type === 'Group' && String(cluster.name || '').trim().toLowerCase() === assignedGroupName)
+        || (cluster.type === 'Batch' && eligibleBatchNames.has(String(cluster.name || '').trim().toLowerCase()))
+      ));
+    }
+    return clusters;
   };
 
   const filteredPrograms = useMemo(() => {
@@ -595,6 +659,18 @@ export default function ProgramPage() {
   const selectedSchools = hierarchy.schools.filter((school) => scopeSchoolIds.includes(String(school.id || school.school_id || school.community_id)));
   const selectedGroups = hierarchy.groups.filter((group) => scopeGroupIds.includes(String(group.id)));
   const selectedBatches = hierarchy.batches.filter((batch) => scopeBatchIds.includes(String(batch.id)));
+  const selectedScopeRows = beneficiaryScope === 'School' ? selectedSchools : beneficiaryScope === 'Group' ? selectedGroups : selectedBatches;
+  const selectedScopeNames = selectedScopeRows.map((scope) => String(scope.name || scope.group_name || scope.batch_code || scope.code || '').trim().toLowerCase()).filter(Boolean);
+  const previewProgram = selectedProgram && selectedScopeRows.length
+    ? {
+      ...selectedProgram,
+      clusters: selectedScopeRows.map((scope) => ({
+        type: beneficiaryScope,
+        name: scope.name || scope.group_name || scope.batch_code || scope.code,
+      })),
+    }
+    : null;
+  const previewRecipients = previewProgram ? getProgramBeneficiaryRecords(previewProgram) : [];
   const communityHierarchyGroups = useMemo(() => hierarchy.schools.map((school) => {
     const schoolName = String(school.name || '').trim().toLowerCase();
     const schoolId = String(school.id || school.school_id || school.community_id || '').trim();
@@ -672,7 +748,7 @@ export default function ProgramPage() {
       notifyAction(message, 'error');
     }
   };
-  const saveBeneficiaryScope = (event) => {
+  const saveBeneficiaryScope = async (event) => {
     event.preventDefault();
     const selectedScopes = beneficiaryScope === 'School' ? selectedSchools : beneficiaryScope === 'Group' ? selectedGroups : selectedBatches;
     if (!selectedProgram || !selectedScopes.length) {
@@ -681,7 +757,7 @@ export default function ProgramPage() {
     }
     setScopeError('');
     const scopes = selectedScopes.flatMap((scope) => {
-      const name = scope.name || scope.group_name || scope.batch_code;
+      const name = scope.name || scope.group_name || scope.batch_code || scope.code;
       const coverage = [{ type: beneficiaryScope, name, beneficiaries: Number(scope.records || scope.members_count || 0) }];
       if (beneficiaryScope !== 'School') return coverage;
       const groups = hierarchy.groups.filter((group) => String(group.community || group.community_name || '').toLowerCase() === String(name || '').toLowerCase());
@@ -691,20 +767,19 @@ export default function ProgramPage() {
         batches.map((batch) => ({ type: 'Batch', name: batch.name || batch.batch_code, beneficiaries: Number(batch.records || 0) })),
       );
     });
-    apiCreateProgramClusters(selectedProgram.id, scopes)
-      .then((response) => {
-        setPrograms((current) => current.map((program) => program.id === selectedProgram.id ? mapApiProgram(response.program) : program));
-        setShowBeneficiaryModal(false);
-        setScopeSchoolIds([]);
-        setScopeGroupIds([]);
-        setScopeBatchIds([]);
-        setScopeError('');
-        notifyAction('Beneficiary scope saved successfully.');
-      })
-      .catch((error) => {
-        const message = error.message || 'Unable to save beneficiary cluster.';
-        notifyAction(message, 'error');
-      });
+    try {
+      const response = await apiCreateProgramClusters(selectedProgram.id, scopes);
+      setPrograms((current) => current.map((program) => program.id === selectedProgram.id ? mapApiProgram(response.program) : program));
+      setShowBeneficiaryModal(false);
+      setScopeSchoolIds([]);
+      setScopeGroupIds([]);
+      setScopeBatchIds([]);
+      setScopeError('');
+      notifyAction('Beneficiary scope saved successfully.');
+    } catch (error) {
+      const message = error.message || 'Unable to save beneficiary scope.';
+      notifyAction(message, 'error');
+    }
   };
   const completeCluster = (cluster) => {
     const completeRequest = cluster.id
@@ -795,7 +870,16 @@ export default function ProgramPage() {
       </button>
       {activeActionMenu === menuId && (
         <div className="actions-dropdown" role="menu">
-          <button type="button" className="actions-dropdown-item" onClick={() => { setActiveActionMenu(null); navigate(`/program/${menuProgram.id}`); }} role="menuitem">Open</button>
+          {(isSuperAdmin || isCommunityOrganizer || isHealthWorkerRole(currentUser?.role)) && (menuProgram.clusters || []).length > 0 && (
+            <button
+              type="button"
+              className="actions-dropdown-item"
+              onClick={() => { setReceiptHistoryProgram(menuProgram); setActiveActionMenu(null); }}
+              role="menuitem"
+            >
+              {isHealthWorkerRole(currentUser?.role) ? 'Receipt history' : 'View'}
+            </button>
+          )}
           {(isSuperAdmin || isCommunityOrganizer) && String(menuProgram?.status || '').trim().toLowerCase() !== 'ended' && (
             <button type="button" className="actions-dropdown-item" onClick={() => { setActionProgram(menuProgram); setActiveActionMenu(null); editProgram(); }} role="menuitem">Edit</button>
           )}
@@ -1000,6 +1084,8 @@ export default function ProgramPage() {
 
     return [];
   }, [selectedRouteBatch, selectedRouteGroup, selectedRouteSchool, selectedRouteTreeData]);
+  const receiptHistoryClusters = receiptHistoryProgram ? getProgramReceiptClusters(receiptHistoryProgram) : [];
+  const selectedProgramReceiptClusters = selectedProgram ? getProgramReceiptClusters(selectedProgram) : [];
 
   return (
     <div className="community-page program-page">
@@ -1020,6 +1106,49 @@ export default function ProgramPage() {
         }
       />
 
+      {viewMode && selectedProgram && (
+        <section className="program-detail-panel" aria-labelledby="program-overview-title">
+          <div className="program-detail-header">
+            <div>
+              <span className="program-kicker">Program overview</span>
+              <h2 id="program-overview-title">Coverage and receipt tracking</h2>
+              <p>{selectedProgram.description || 'Manage eligible beneficiaries and track receipts across assigned communities.'}</p>
+            </div>
+            <span className={`program-status ${String(selectedProgram.status || '').toLowerCase() === 'ended' ? 'ended' : 'active'}`}>
+              {selectedProgram.status || 'Active'}
+            </span>
+          </div>
+          <div className="program-detail-stats">
+            <div>
+              <strong>{getProgramBeneficiaryCount(selectedProgram).toLocaleString()}</strong>
+              <span>Eligible recipients</span>
+            </div>
+            {['School', 'Group', 'Batch'].map((type) => (
+              <div key={type}>
+                <strong>{selectedProgramReceiptClusters.filter((cluster) => cluster.type === type).length.toLocaleString()}</strong>
+                <span>{({ School: 'Schools', Group: 'Groups', Batch: 'Batches' })[type]} covered</span>
+              </div>
+            ))}
+          </div>
+          <div className="program-detail-meta">
+            <strong>Provider</strong>
+            <span>{selectedProgram.provider || 'Not specified'}</span>
+            <strong>Beneficiaries</strong>
+            <span>{selectedProgram.beneficiaryType || 'Mother and Child'}</span>
+          </div>
+          <div className="program-detail-actions">
+            <button
+              type="button"
+              className="view-btn view-btn--secondary"
+              disabled={!(selectedProgram.clusters || []).length}
+              onClick={() => setReceiptHistoryProgram(selectedProgram)}
+            >
+              View receipt history
+            </button>
+          </div>
+        </section>
+      )}
+
       {clusterView && selectedProgram && (
         <section className="program-cluster-subheader" aria-label="Program beneficiary clusters">
           <div className="program-cluster-tabs" role="tablist" aria-label="Program cluster levels">
@@ -1030,29 +1159,27 @@ export default function ProgramPage() {
 
       {!viewMode && (
         <ModuleSummaryCards
-          selected={selectedProgramCard}
-          toggleOnSelect
-          onSelect={(selection) => {
-            setSelectedProgramCard(selection);
-            if (selection) setActiveTab(selection);
-          }}
+          selected={activeTab}
+          onSelect={setActiveTab}
           cards={[
-            { key: 'All', label: 'Total Programs', value: programs.length, description: 'View list' },
-            { key: 'Active', label: 'Active Programs', value: filterPrograms(programs, '', 'Active').length, description: 'View list' },
-            { key: 'Ended', label: 'Ended Programs', value: filterPrograms(programs, '', 'Ended').length, description: 'View list' },
+            { key: 'All', label: 'Total Programs', value: programs.length, description: 'Show all' },
+            { key: 'Active', label: 'Active Programs', value: filterPrograms(programs, '', 'Active').length, description: 'Show active' },
+            { key: 'Ended', label: 'Ended Programs', value: filterPrograms(programs, '', 'Ended').length, description: 'Show ended' },
           ]}
         />
       )}
 
-      {(viewMode || selectedProgramCard) && (
       <section className="table-card program-table-card">
         <div className="program-table-heading">
-          <h2>{viewMode ? 'Program beneficiaries' : 'Programs'}</h2>
+          <div>
+            <h2>{viewMode ? 'Program coverage' : 'Programs'}</h2>
+            {!viewMode && <p className="program-list-purpose">Manage beneficiary coverage and review program receipt history.</p>}
+          </div>
           {!viewMode && (
             <TableSearch
               value={query}
               onChange={setQuery}
-              placeholder="Search programs, partners, or communities (case-sensitive)"
+              placeholder="Search programs, partners, or communities"
             />
           )}
         </div>
@@ -1272,8 +1399,9 @@ export default function ProgramPage() {
                 <thead>
                   <tr>
                     <th>Program</th>
-                    <th>Type</th>
-                    <th>Provider</th>
+                    <th>Coverage</th>
+                    <th>Eligible recipients</th>
+                    <th>Status</th>
                     <th>Action</th>
                   </tr>
                 </thead>
@@ -1284,19 +1412,35 @@ export default function ProgramPage() {
                         <td>
                           <a className="program-row-link" href={`/program/${program.id}`} onClick={(event) => event.stopPropagation()}>
                             <strong>{program.name}</strong>
-                          <span className="program-table-meta">
-                            {program.community} · {program.batch}
-                          </span>
+                            <span className="program-table-meta">{[program.type, program.provider].filter(Boolean).join(' · ')}</span>
                           </a>
                         </td>
-                        <td>{program.type}</td>
-                        <td>{program.provider}</td>
+                        <td>
+                          {(program.clusters || []).length ? (
+                            <>
+                              <strong>{(program.clusters || []).length} assigned scope{program.clusters.length === 1 ? '' : 's'}</strong>
+                              <span className="program-table-meta">
+                                {[...new Set((program.clusters || []).map((cluster) => cluster.name).filter(Boolean))].slice(0, 2).join(', ')}
+                                {program.clusters.length > 2 ? ` +${program.clusters.length - 2} more` : ''}
+                              </span>
+                            </>
+                          ) : <span className="program-table-meta">No recipient scope assigned</span>}
+                        </td>
+                        <td>
+                          <strong>{getProgramBeneficiaryCount(program).toLocaleString()}</strong>
+                          <span className="program-table-meta">eligible beneficiaries</span>
+                        </td>
+                        <td>
+                          <span className={`program-status ${String(program.status || '').toLowerCase() === 'ended' ? 'ended' : 'active'}`}>
+                            {program.status || 'Active'}
+                          </span>
+                        </td>
                         <td>{renderActionMenu(`main-${program.id}`, program)}</td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="4" className="no-data">
+                      <td colSpan="5" className="no-data">
                         No programs match your search.
                       </td>
                     </tr>
@@ -1307,7 +1451,6 @@ export default function ProgramPage() {
           </table>}
         </div>
       </section>
-      )}
 
       <ConfirmActionModal
         show={Boolean(pendingDeleteProgram)}
@@ -1317,6 +1460,48 @@ export default function ProgramPage() {
         onConfirm={confirmDeleteProgram}
         onCancel={() => setPendingDeleteProgram(null)}
       />
+      {receiptHistoryProgram && createPortal((
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => setReceiptHistoryProgram(null)}>
+          <section
+            className="modal program-product-modal program-receipt-scope-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="receipt-scope-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h2 id="receipt-scope-title">View receipt history</h2>
+              <button type="button" className="modal-close" onClick={() => setReceiptHistoryProgram(null)} aria-label="Close">×</button>
+            </div>
+            <div className="modal-body">
+              <p className="program-modal-context">{receiptHistoryProgram.name} · Choose a school, group, or batch.</p>
+              {['School', 'Group', 'Batch'].map((type) => {
+                const clusters = receiptHistoryClusters.filter((cluster) => cluster.type === type);
+                if (!clusters.length) return null;
+                return (
+                  <section className="program-receipt-scope-section" key={type} aria-label={`${type} receipt history`}>
+                    <h3>{({ School: 'Schools', Group: 'Groups', Batch: 'Batches' })[type]}</h3>
+                    {clusters.map((cluster) => (
+                      <button
+                        type="button"
+                        className="program-receipt-scope-option"
+                        key={`${type}-${cluster.name}`}
+                        onClick={() => openProgramClusterHistory(receiptHistoryProgram, cluster)}
+                      >
+                        <span>{cluster.name}</span>
+                        <small>{Number(cluster.beneficiaries || 0)} beneficiaries</small>
+                      </button>
+                    ))}
+                  </section>
+                );
+              })}
+              {!receiptHistoryClusters.some((cluster) => ['School', 'Group', 'Batch'].includes(cluster.type)) && (
+                <p className="program-recipient-preview-empty">No school, group, or batch scopes have been assigned yet.</p>
+              )}
+            </div>
+          </section>
+        </div>
+      ), document.body)}
 
       {showBeneficiaryModal && selectedProgram && createPortal((
         <div
@@ -1474,6 +1659,28 @@ export default function ProgramPage() {
                   }) : <small>No communities available yet.</small>}
                 </div>
               </div>
+              <section className="program-recipient-preview" aria-label="Recipient preview">
+                <div className="program-recipient-preview-header">
+                  <div>
+                    <strong>Automatically included beneficiaries</strong>
+                    <span>{previewRecipients.length} eligible beneficiaries will be included in this scope.</span>
+                  </div>
+                </div>
+                {!selectedScopeNames.length ? (
+                  <p className="program-recipient-preview-empty">Choose a school, group, or batch. All eligible beneficiaries in the selected scope will be included automatically.</p>
+                ) : previewRecipients.length ? (
+                  <div className="program-recipient-preview-list">
+                    {previewRecipients.map((record) => (
+                        <div key={`${record.sourceType}:${record.sourceId}`} className="program-recipient">
+                          <span>{record.name}</span>
+                          <small>{record.type}</small>
+                        </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="program-recipient-preview-empty">No eligible beneficiaries were found in the selected scope.</p>
+                )}
+              </section>
             </div>
             <div className="modal-footer">
               <button
@@ -1487,7 +1694,7 @@ export default function ProgramPage() {
                 Cancel
               </button>
               <button type="submit" className="btn-primary">
-                Add beneficiary cluster
+                Add scope with {previewRecipients.length} beneficiaries
               </button>
             </div>
           </form>

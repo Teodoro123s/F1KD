@@ -1,15 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { recordMatchesProgramScope } from './programData.js';
+import { filterProgramBeneficiaryRecords, filterPrograms, recordMatchesProgramScope } from './programData.js';
 
-test('beneficiaries only match the program scope they belong to', () => {
+test('group coverage includes all beneficiaries in the selected group', () => {
   const program = {
     beneficiaryType: 'Mother and Child',
     community: 'UC',
-    clusters: [
-      { type: 'School', name: 'UC' },
-      { type: 'Group', name: 'Group A' },
-    ],
+    clusters: [{ type: 'Group', name: 'Group A' }],
   };
 
   const groupARecord = { type: 'mother', school: 'UC', group: 'Group A', batch: 'Batch 1' };
@@ -29,7 +26,7 @@ test('type filtering still works when a program targets one beneficiary type', (
   assert.equal(recordMatchesProgramScope({ type: 'child', school: 'UC', group: 'Group A' }, program), false);
 });
 
-test('school scope does not pull records from another explicit group in the same school', () => {
+test('school scope automatically includes all beneficiaries in that school', () => {
   const program = {
     beneficiaryType: 'Mother and Child',
     clusters: [
@@ -39,19 +36,47 @@ test('school scope does not pull records from another explicit group in the same
   };
 
   assert.equal(recordMatchesProgramScope({ type: 'mother', school: 'UC', group: 'Sanciangko' }, program), true);
-  assert.equal(recordMatchesProgramScope({ type: 'mother', school: 'UC', group: 'Osmena' }, program), false);
+  assert.equal(recordMatchesProgramScope({ type: 'mother', school: 'UC', group: 'Osmena' }, program), true);
+  assert.equal(recordMatchesProgramScope({ type: 'mother', school: 'Another school', group: 'Osmena' }, program), false);
 });
 
-test('batch matches should still work when the beneficiary record has the correct batch but no group value', () => {
+test('group and batch scopes include matching beneficiaries', () => {
   const program = {
     beneficiaryType: 'Mother and Child',
-    clusters: [
-      { type: 'School', name: 'UC' },
-      { type: 'Group', name: 'Sanciangko' },
-      { type: 'Batch', name: 'Batch-1' },
-    ],
+    clusters: [{ type: 'Group', name: 'Sanciangko' }, { type: 'Batch', name: 'Batch-1' }],
   };
 
   assert.equal(recordMatchesProgramScope({ type: 'mother', school: 'UC', batch: 'Batch-1' }, program), true);
-  assert.equal(recordMatchesProgramScope({ type: 'mother', school: 'UC', group: 'Osmena', batch: 'Batch-1' }, program), false);
+  assert.equal(recordMatchesProgramScope({ type: 'mother', school: 'Another school', group: 'Sanciangko' }, program), true);
+  assert.equal(recordMatchesProgramScope({ type: 'mother', school: 'UC', group: 'Osmena', batch: 'Batch-2' }, program), false);
+});
+
+test('programs without assigned scopes do not include beneficiaries', () => {
+  assert.equal(recordMatchesProgramScope({ type: 'mother', school: 'UC' }, { clusters: [] }), false);
+});
+
+test('legacy recipient exclusions do not remove beneficiaries from a selected scope', () => {
+  const program = {
+    beneficiaryType: 'Mother and Child',
+    clusters: [{ type: 'School', name: 'UC' }],
+    recipientExclusions: [{ type: 'mother', id: 12 }],
+  };
+  const records = [
+    { sourceType: 'mother', sourceId: 12, type: 'Mother', school: 'UC' },
+    { sourceType: 'mother', sourceId: 13, type: 'Mother', school: 'UC' },
+    { sourceType: 'child', sourceId: 12, type: 'Child', school: 'UC' },
+    { sourceType: 'mother', sourceId: 14, type: 'Mother', school: 'Another school' },
+  ];
+
+  assert.deepEqual(filterProgramBeneficiaryRecords(program, records), records.slice(0, 3));
+});
+
+test('program search is case-insensitive while preserving status filters', () => {
+  const programs = [
+    { name: 'Mabini Nutrition Support', status: 'Active' },
+    { name: 'Mabini Wellness', status: 'Ended' },
+  ];
+
+  assert.deepEqual(filterPrograms(programs, 'mAbInI nUtRiTiOn', 'Active'), [programs[0]]);
+  assert.deepEqual(filterPrograms(programs, 'MABINI', 'Ended'), [programs[1]]);
 });

@@ -126,23 +126,27 @@ function programHasScopeMatch(clusters = [], { schoolId, groupId } = {}) {
 }
 
 router.get('/', async (req, res) => {
+  if (req.isHealthWorker && !req.groupId) {
+    return res.status(403).json({ error: 'Health workers must be assigned to a group to view programs' });
+  }
   try {
     const scopeClause = req.groupId
       ? `WHERE (
-          NOT EXISTS (SELECT 1 FROM program_clusters scoped_cluster WHERE scoped_cluster.program_id = p.id)
-          OR EXISTS (
+          EXISTS (
             SELECT 1
             FROM program_clusters scoped_cluster
+            INNER JOIN \`groups\` assigned_group ON assigned_group.id = ?
             WHERE scoped_cluster.program_id = p.id
               AND (
-                (scoped_cluster.scope_type = 'Group' AND EXISTS (
-                  SELECT 1 FROM groups scoped_group
-                  WHERE scoped_group.id = ? AND scoped_group.name = scoped_cluster.scope_name
+                (scoped_cluster.scope_type = 'Group' AND scoped_cluster.scope_name = assigned_group.name)
+                OR (scoped_cluster.scope_type = 'School' AND EXISTS (
+                  SELECT 1 FROM communities scoped_school
+                  WHERE scoped_school.id = assigned_group.community_id AND scoped_school.name = scoped_cluster.scope_name
                 ))
                 OR (scoped_cluster.scope_type = 'Batch' AND EXISTS (
                   SELECT 1 FROM group_batch scoped_group_batch
                   INNER JOIN batches scoped_batch ON scoped_batch.id = scoped_group_batch.batch_id
-                  WHERE scoped_group_batch.group_id = ? AND scoped_batch.name = scoped_cluster.scope_name
+                  WHERE scoped_group_batch.group_id = assigned_group.id AND scoped_batch.name = scoped_cluster.scope_name
                 ))
               )
           )
@@ -171,7 +175,7 @@ router.get('/', async (req, res) => {
           )
         )`
       : '';
-    const [rows] = await pool.query(`SELECT p.* FROM programs p ${scopeClause} ORDER BY p.id DESC`, req.groupId ? [req.groupId, req.groupId] : req.schoolId ? [req.schoolId, req.schoolId, req.schoolId] : []);
+    const [rows] = await pool.query(`SELECT p.* FROM programs p ${scopeClause} ORDER BY p.id DESC`, req.groupId ? [req.groupId] : req.schoolId ? [req.schoolId, req.schoolId, req.schoolId] : []);
     const programs = await Promise.all(rows.map((row) => getProgram(row.id)));
     res.json({ programs });
   } catch (error) {
@@ -381,12 +385,30 @@ router.patch('/:programId/clusters/complete', async (req, res) => {
 router.get('/:programId/monitoring', async (req, res) => {
   const date = validDate(req.query.date) || new Date().toISOString().slice(0, 10);
   try {
+    const groupPredicate = req.isHealthWorker
+      ? `AND (
+           (LOWER(ml.beneficiary_type) = 'mother' AND EXISTS (
+             SELECT 1 FROM mothers scoped_mother
+             WHERE (CAST(ml.beneficiary_id AS CHAR) = CAST(scoped_mother.id AS CHAR)
+               OR LOWER(TRIM(CAST(ml.beneficiary_id AS CHAR))) = LOWER(TRIM(CAST(scoped_mother.mother_code AS CHAR))))
+               AND scoped_mother.group_id = ?
+           ))
+           OR (LOWER(ml.beneficiary_type) = 'child' AND EXISTS (
+             SELECT 1 FROM children scoped_child
+             LEFT JOIN mothers scoped_parent ON scoped_parent.id = scoped_child.mother_id
+             WHERE (CAST(ml.beneficiary_id AS CHAR) = CAST(scoped_child.id AS CHAR)
+               OR LOWER(TRIM(CAST(ml.beneficiary_id AS CHAR))) = LOWER(TRIM(CAST(scoped_child.child_code AS CHAR))))
+               AND COALESCE(scoped_child.group_id, scoped_parent.group_id) = ?
+           ))
+         )`
+      : '';
     const [logs] = await pool.query(
       `SELECT beneficiary_id, beneficiary_type, monitored, DATE_FORMAT(monitored_date, '%Y-%m-%d') AS monitored_date, notes
        FROM monitoring_logs
        WHERE program_id = ? AND monitored_date = ?
+       ${groupPredicate}
        ORDER BY id`,
-      [req.params.programId, date],
+      req.isHealthWorker ? [req.params.programId, date, req.groupId, req.groupId] : [req.params.programId, date],
     );
     res.json({ date, logs });
   } catch (error) {
@@ -413,17 +435,55 @@ router.patch('/:programId/monitoring', async (req, res) => {
 
     const beneficiaryRows = beneficiaryType === 'mother'
       ? await pool.query(
-        'SELECT id, mother_code AS code, first_name, last_name, community_id, group_id FROM mothers WHERE id = ? OR mother_code = ? LIMIT 1',
+        'SELECT id, mother_code AS code, first_name, last_name, community_id, group_id, batch_id FROM mothers WHERE id = ? OR mother_code = ? LIMIT 1',
         [Number(beneficiaryId) || null, beneficiaryId],
       ).then(([rows]) => rows)
       : await pool.query(
         `SELECT c.id, c.child_code AS code, c.first_name, c.last_name,
             COALESCE(c.community_id, m.community_id) AS community_id,
-            COALESCE(c.group_id, m.group_id) AS group_id
+            COALESCE(c.group_id, m.group_id) AS group_id,
+            COALESCE(c.batch_id, m.batch_id) AS batch_id
          FROM children c LEFT JOIN mothers m ON m.id = c.mother_id
          WHERE c.id = ? OR c.child_code = ? LIMIT 1`,
         [Number(beneficiaryId) || null, beneficiaryId],
       ).then(([rows]) => rows);
+
+    if (req.isHealthWorker) {
+      if (!req.groupId || !beneficiaryRows.length || Number(beneficiaryRows[0].group_id) !== Number(req.groupId)) {
+        return res.status(403).json({ error: 'Health workers may only record receipts for beneficiaries in their assigned group' });
+      }
+
+      const [matchingPrograms] = await pool.query(
+        `SELECT p.id
+         FROM programs p
+         INNER JOIN \`groups\` assigned_group ON assigned_group.id = ?
+         WHERE p.id = ?
+           AND EXISTS (
+             SELECT 1 FROM program_clusters scoped_cluster
+             WHERE scoped_cluster.program_id = p.id
+               AND (
+                 (scoped_cluster.scope_type = 'Group' AND scoped_cluster.scope_name = assigned_group.name)
+                 OR (scoped_cluster.scope_type = 'School' AND EXISTS (
+                   SELECT 1 FROM communities assigned_school
+                   WHERE assigned_school.id = assigned_group.community_id
+                     AND assigned_school.name = scoped_cluster.scope_name
+                 ))
+                 OR (scoped_cluster.scope_type = 'Batch' AND EXISTS (
+                   SELECT 1 FROM batches assigned_batch
+                   INNER JOIN group_batch assigned_batch_link ON assigned_batch_link.batch_id = assigned_batch.id
+                   WHERE assigned_batch.id = ?
+                     AND assigned_batch_link.group_id = assigned_group.id
+                     AND assigned_batch.name = scoped_cluster.scope_name
+                 ))
+               )
+           )
+         LIMIT 1`,
+        [req.groupId, req.params.programId, beneficiaryRows[0].batch_id],
+      );
+      if (!matchingPrograms.length) {
+        return res.status(403).json({ error: 'Health workers may only record receipts for programs assigned to their group' });
+      }
+    }
 
     const [existingReceiptRows] = await pool.query(
       'SELECT id FROM monitoring_logs WHERE beneficiary_id = ? AND beneficiary_type = ? AND program_id = ? AND monitored_date = ? LIMIT 1',
@@ -459,7 +519,7 @@ router.get('/:programId/monitoring/cluster-report/:clusterType/:clusterName', as
   const clusterType = String(req.params.clusterType || '').toLowerCase();
   const clusterName = decodeURIComponent(String(req.params.clusterName || '')).trim();
   const clusterFilters = {
-    school: 'LOWER(TRIM(COALESCE(co.name, ""))) = LOWER(TRIM(?))',
+    school: 'LOWER(TRIM(COALESCE(co.name, parent_co.name, ""))) = LOWER(TRIM(?))',
     group: 'LOWER(TRIM(COALESCE(g.name, ""))) = LOWER(TRIM(?))',
     batch: 'LOWER(TRIM(COALESCE(b.name, ""))) = LOWER(TRIM(?))',
   };
@@ -497,8 +557,9 @@ router.get('/:programId/monitoring/cluster-report/:clusterType/:clusterName', as
            OR LOWER(TRIM(ml.beneficiary_type)) = LOWER(TRIM(p.beneficiary_type))
          )
          AND ${clusterFilter}
+         ${req.isHealthWorker ? 'AND COALESCE(g.id, parent_g.id) = ?' : ''}
        ORDER BY ml.monitored_date DESC, beneficiary_name`,
-      [req.params.programId, clusterName],
+      req.isHealthWorker ? [req.params.programId, clusterName, req.groupId] : [req.params.programId, clusterName],
     );
     res.json({ report: logs });
   } catch (error) {
@@ -521,13 +582,17 @@ router.get('/:programId/monitoring/report/:beneficiaryType/:beneficiaryId', asyn
        INNER JOIN programs p ON p.id = ml.program_id
        LEFT JOIN mothers m ON LOWER(CAST(ml.beneficiary_type AS CHAR)) = 'mother' AND (CAST(ml.beneficiary_id AS CHAR) = CAST(m.id AS CHAR) OR LOWER(TRIM(CAST(m.mother_code AS CHAR))) = LOWER(TRIM(CAST(ml.beneficiary_id AS CHAR))))
        LEFT JOIN children c ON LOWER(CAST(ml.beneficiary_type AS CHAR)) = 'child' AND (CAST(ml.beneficiary_id AS CHAR) = CAST(c.id AS CHAR) OR LOWER(TRIM(CAST(c.child_code AS CHAR))) = LOWER(TRIM(CAST(ml.beneficiary_id AS CHAR))))
+       LEFT JOIN mothers parent_m ON LOWER(CAST(ml.beneficiary_type AS CHAR)) = 'child' AND parent_m.id = c.mother_id
        LEFT JOIN communities co ON co.id = COALESCE(m.community_id, c.community_id)
        LEFT JOIN \`groups\` g ON g.id = COALESCE(m.group_id, c.group_id)
        LEFT JOIN batches b ON b.id = COALESCE(m.batch_id, c.batch_id)
        LEFT JOIN users u ON u.id = ml.monitored_by
        WHERE ml.program_id = ? AND ml.beneficiary_id = ? AND ml.beneficiary_type = ?
+         ${req.isHealthWorker ? 'AND (m.group_id = ? OR COALESCE(c.group_id, parent_m.group_id) = ?)' : ''}
        ORDER BY ml.monitored_date DESC`,
-      [req.params.programId, req.params.beneficiaryId, beneficiaryType],
+      req.isHealthWorker
+        ? [req.params.programId, req.params.beneficiaryId, beneficiaryType, req.groupId, req.groupId]
+        : [req.params.programId, req.params.beneficiaryId, beneficiaryType],
     );
     res.json({ report: logs });
   } catch (error) {

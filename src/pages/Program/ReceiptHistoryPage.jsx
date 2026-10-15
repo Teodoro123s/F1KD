@@ -3,7 +3,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import PageHeader from '../../components/ui/PageHeader';
 import DateInput from '../../components/ui/DateInput';
 import { notifyAction } from '../../components/ActionFeedback';
-import { apiGetBeneficiaryMonitoringReport, apiGetClusterMonitoringReport, apiSetBeneficiaryMonitoring } from '../../api/programs';
+import { apiGetBeneficiaryMonitoringReport, apiGetClusterMonitoringReport, apiGetPrograms, apiSetBeneficiaryMonitoring } from '../../api/programs';
 import { apiGetChildren } from '../../api/children';
 import { apiGetMothers } from '../../api/mothers';
 import { formatDateForDisplay } from '../../utils/dateFormat';
@@ -37,7 +37,7 @@ export default function ReceiptHistoryPage() {
   const navigate = useNavigate();
   const isClusterHistory = Boolean(clusterType && clusterName);
   const showGroupColumn = isClusterHistory && clusterType !== 'batch';
-  const beneficiaryName = location.state?.beneficiaryName || location.state?.clusterName || 'Beneficiary';
+  const beneficiaryName = location.state?.beneficiaryName || location.state?.clusterName || clusterName || 'Beneficiary';
   const [reportRows, setReportRows] = useState([]);
   const [clusterRecipients, setClusterRecipients] = useState([]);
   const [selectedRecipientKeys, setSelectedRecipientKeys] = useState([]);
@@ -90,23 +90,39 @@ export default function ReceiptHistoryPage() {
       let recipients = passedRecipients;
 
       if (!recipients.length) {
-        const [mothersResult, childrenResult] = await Promise.allSettled([apiGetMothers(), apiGetChildren()]);
-        const mothers = mothersResult.status === 'fulfilled' ? mothersResult.value?.mothers || [] : [];
-        const children = childrenResult.status === 'fulfilled' ? childrenResult.value?.children || [] : [];
+        const programsResponse = await apiGetPrograms();
+        const program = (programsResponse?.programs || []).find((item) => String(item.id) === String(programId));
+        if (!program) throw new Error("Unable to determine this program's eligible beneficiary type.");
+        const programType = String(program.beneficiaryType || program.beneficiary_type || 'Mother')
+          .trim()
+          .toLowerCase()
+          .replace(/&/g, 'and')
+          .replace(/\s+/g, ' ');
+        const includeMothers = programType === 'mother' || programType === 'mother and child';
+        const includeChildren = programType === 'child' || programType === 'mother and child';
+        if (!includeMothers && !includeChildren) {
+          throw new Error('This program has an unsupported beneficiary type.');
+        }
+        const [mothersResponse, childrenResponse] = await Promise.all([
+          includeMothers ? apiGetMothers() : Promise.resolve({ mothers: [] }),
+          includeChildren ? apiGetChildren() : Promise.resolve({ children: [] }),
+        ]);
+        const mothers = mothersResponse?.mothers || [];
+        const children = childrenResponse?.children || [];
         const scope = normalizeScopeValue(clusterName);
         const matchesScope = (entity, type) => {
-          if (type === 'group') return normalizeScopeValue(entity.group || entity.group_name) === scope;
-          if (type === 'batch') return normalizeScopeValue(entity.batch || entity.batch_name) === scope;
-          return normalizeScopeValue(entity.community || entity.community_name) === scope;
+          if (type === 'group') return normalizeScopeValue(entity.group || entity.group_name || entity.groupName) === scope;
+          if (type === 'batch') return normalizeScopeValue(entity.batch || entity.batch_name || entity.batchName) === scope;
+          return normalizeScopeValue(entity.community || entity.community_name || entity.school) === scope;
         };
 
         recipients = [
-          ...mothers.filter((mother) => matchesScope(mother, clusterType)).map((mother) => ({
+          ...(includeMothers ? mothers : []).filter((mother) => matchesScope(mother, clusterType)).map((mother) => ({
             id: mother.raw?.id || mother.id || mother.motherId,
             type: 'mother',
             name: mother.name || [mother.firstName, mother.lastName].filter(Boolean).join(' '),
           })),
-          ...children.filter((child) => matchesScope(child, clusterType)).map((child) => ({
+          ...(includeChildren ? children : []).filter((child) => matchesScope(child, clusterType)).map((child) => ({
             id: child.id || child.child_id,
             type: 'child',
             name: child.name || [child.first_name, child.last_name].filter(Boolean).join(' '),

@@ -14,7 +14,7 @@ export default function TableSearch({ value, onChange, placeholder = 'Search thi
           onChange={(event) => onChange(event.target.value)}
           placeholder={placeholder}
           className="search-input-field"
-          aria-label="Search table records (case-sensitive)"
+          aria-label={placeholder}
         />
       </div>
     </div>
