@@ -166,7 +166,7 @@ async function requestModel(messages, { env = process.env, fetchImpl = globalThi
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 20000);
+  const timeout = setTimeout(() => controller.abort(), 120000);
   const headers = { 'Content-Type': 'application/json' };
   if (configuration.apiKey) headers.Authorization = `Bearer ${configuration.apiKey}`;
   try {
