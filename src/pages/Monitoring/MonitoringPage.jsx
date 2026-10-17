@@ -13,6 +13,7 @@ import { useAuth } from '../../auth/AuthProvider';
 import { canViewAuditSignatures, isHealthWorkerRole } from '../../utils/permissions';
 import { getChildMonitoringProgress } from '../../utils/childProgress';
 import { getMotherMonitoringProgress } from '../../utils/motherProgress';
+import { hasCheckupThisMonth } from '../../utils/monthlyCheckups';
 import { notifyAction } from '../../components/ActionFeedback';
 import TableSearch from '../../components/ui/TableSearch';
 import ModuleSummaryCards from '../../components/ui/ModuleSummaryCards';
@@ -87,6 +88,7 @@ export default function MonitoringPage() {
   const [childCompletedWeeks, setChildCompletedWeeks] = useState(() => location.state?.child?.completedWeeks || []);
   const [editingCheckup, setEditingCheckup] = useState(false);
   const [statusFilter, setStatusFilter] = useState('All');
+  const [monthlyCheckupFilter, setMonthlyCheckupFilter] = useState('All');
   const [selectedMonitoringCard, setSelectedMonitoringCard] = useState(null);
   const [perPage, setPerPage] = useState(10);
   const [page, setPage] = useState(1);
@@ -247,18 +249,20 @@ export default function MonitoringPage() {
       total,
       progress,
       status,
+      hasCheckupThisMonth: hasCheckupThisMonth(beneficiary),
     };
   }), [visibleBeneficiaries, beneficiaryType]);
   const monitoringRows = useMemo(() => {
     const term = query.trim();
-    return allMonitoringRows.filter(({ beneficiary, status }) => {
+    return allMonitoringRows.filter(({ beneficiary, status, hasCheckupThisMonth: hasMonthlyRecord }) => {
       const searchableText = beneficiaryType === 'Mother'
         ? `${getMotherName(beneficiary)} ${beneficiary.motherCode || beneficiary.mother_code || beneficiary.id || ''} ${beneficiary.community || beneficiary.community_name || beneficiary.area || ''}`
         : `${getChildName(beneficiary)} ${beneficiary.child_code || beneficiary.id || ''} ${beneficiary.community || beneficiary.community_name || beneficiary.area || ''}`;
       return (!term || searchableText.includes(term))
-        && (statusFilter === 'All' || status === statusFilter);
+        && (statusFilter === 'All' || status === statusFilter)
+        && (monthlyCheckupFilter !== 'NoCheckupThisMonth' || !hasMonthlyRecord);
     });
-  }, [allMonitoringRows, beneficiaryType, query, statusFilter]);
+  }, [allMonitoringRows, beneficiaryType, monthlyCheckupFilter, query, statusFilter]);
 
   const pageCount = Math.max(1, Math.ceil(monitoringRows.length / perPage));
   const currentPage = Math.min(page, pageCount);
@@ -355,6 +359,16 @@ export default function MonitoringPage() {
                   setPage(1);
                 }}
               />
+              <div className="monitoring-monthly-filter">
+                <select
+                  aria-label="Monthly check-up filter"
+                  value={monthlyCheckupFilter}
+                  onChange={(event) => { setMonthlyCheckupFilter(event.target.value); setPage(1); }}
+                >
+                  <option value="All">All records</option>
+                  <option value="NoCheckupThisMonth">No check-up this month</option>
+                </select>
+              </div>
               <TableSearch
                 value={query}
                 onChange={(value) => { setQuery(value); setPage(1); }}
