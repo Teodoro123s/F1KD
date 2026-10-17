@@ -4,6 +4,7 @@ const pool = require('../db');
 const { documentUpload, uploadFileToStorage } = require('../middleware/documentUpload');
 const { createSuperadminNotification, getBeneficiaryUpdateRecipients } = require('../services/notifications');
 const { canViewAuditSignatures } = require('../middleware/authorize');
+const { getChildRecordValidationError } = require('../utils/childRecordValidation');
 
 // Helper to normalize incoming body keys (accept camelCase or snake_case)
 function getField(body, ...keys) {
@@ -341,6 +342,8 @@ router.post('/', async (req, res) => {
     const nutritionNotes = getField(b, 'nutritionNotes', 'nutrition_notes');
 
     if (!motherId || !firstName || !lastName) return res.status(400).json({ error: 'motherId, firstName and lastName are required' });
+    const childRecordError = getChildRecordValidationError(b);
+    if (childRecordError) return res.status(400).json({ error: childRecordError });
 
     const motherScope = req.groupId
       ? ' AND group_id = ?'
