@@ -73,6 +73,12 @@ const isHealthWorkerChildUpdate = (req) => (
   && /^\/[^/]+\/?$/.test(req.path)
 );
 
+const isReadOnlyReportAssistantRequest = (req) => (
+  req.baseUrl === '/api/progress-report'
+  && req.method === 'POST'
+  && /^\/ai\/(proposal|summary)\/?$/.test(req.path)
+);
+
 function authorize(...allowedRoles) {
   return (req, res, next) => {
     if (!req.user) {
@@ -113,7 +119,7 @@ function authorizeOperational(req, res, next) {
   req.isHealthWorker = isHealthWorkerRole(req.user.role);
   req.isCommunityOrganizer = isCommunityOrganizer;
 
-  if (!isReadMethod(req.method)) {
+  if (!isReadMethod(req.method) && !isReadOnlyReportAssistantRequest(req)) {
     if (userRole !== 'super_admin' && isUsersRequest(req)) {
       return permissionResponse(res, 'User management is restricted to Superadmin');
     }

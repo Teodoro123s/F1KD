@@ -1,6 +1,12 @@
 const express = require('express');
 const pool = require('../db');
 const { getWhoGrowthStandards } = require('../services/whoGrowthStandards');
+const {
+  ProgressReportAIError,
+  createReportProposal,
+  createReportSummary,
+  getAIConfiguration,
+} = require('../utils/progressReportAI');
 
 const router = express.Router();
 
@@ -87,6 +93,41 @@ const hierarchyWhere = (params, aliases = { mother: 'm', child: 'c' }) => {
   }
   return { sql: conditions.length ? `WHERE ${conditions.join(' AND ')}` : '', values };
 };
+
+router.get('/ai/status', (req, res) => {
+  try {
+    res.json({ available: Boolean(getAIConfiguration()) });
+  } catch (error) {
+    console.error('[Progress Report AI] configuration error:', error.message);
+    res.json({ available: false });
+  }
+});
+
+router.post('/ai/proposal', async (req, res) => {
+  try {
+    const proposal = await createReportProposal(req.body?.prompt);
+    res.json(proposal);
+  } catch (error) {
+    const status = error instanceof ProgressReportAIError ? error.status : 502;
+    console.error('[Progress Report AI] proposal error:', error.message);
+    res.status(status).json({ error: error.message || 'Unable to prepare an AI report proposal.' });
+  }
+});
+
+router.post('/ai/summary', async (req, res) => {
+  try {
+    const summary = await createReportSummary(
+      req.body?.summary,
+      req.body?.reportCategory,
+      req.body?.beneficiaryType,
+    );
+    res.json({ summary });
+  } catch (error) {
+    const status = error instanceof ProgressReportAIError ? error.status : 502;
+    console.error('[Progress Report AI] summary error:', error.message);
+    res.status(status).json({ error: error.message || 'Unable to summarize this report.' });
+  }
+});
 
 router.get('/options', async (req, res) => {
   try {

@@ -41,6 +41,19 @@ const apiLimiter = rateLimit({
   },
 });
 
+const progressReportAiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    status: 429,
+    code: 'AI_RATE_LIMITED',
+    message: 'Too many AI report requests. Please wait before trying again.',
+    timestamp: new Date().toISOString(),
+  },
+});
+
 const loginLimiter = rateLimit({
   windowMs: Number(process.env.LOGIN_RATE_LIMIT_WINDOW_MS || 60 * 1000),
   max: Number(process.env.LOGIN_RATE_LIMIT_MAX || 5),
@@ -67,6 +80,10 @@ app.use('/api/community', verifyToken, authorizeOperational, communityRouter);
 app.use('/api/mothers', verifyToken, authorizeOperational, mothersRouter);
 app.use('/api/children', verifyToken, authorizeOperational, childrenRouter);
 app.use('/api/programs', verifyToken, authorizeOperational, programsRouter);
+app.use('/api/progress-report/ai', (req, res, next) => {
+  if (req.method !== 'POST') return next();
+  return progressReportAiLimiter(req, res, next);
+});
 app.use('/api/progress-report', verifyToken, authorizeOperational, authorizeProgressReport, progressReportRouter);
 app.use('/api/documents', verifyToken, authorizeOperational, documentsRouter);
 app.use(errorHandler);

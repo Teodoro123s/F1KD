@@ -1,5 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { apiGetProgressReport, apiGetProgressReportOptions } from '../../api/progressReport';
+import {
+  apiCreateProgressReportAiSummary,
+  apiGetProgressReport,
+  apiGetProgressReportOptions,
+} from '../../api/progressReport';
 import { apiRecordReportDownload } from '../../api/notifications';
 import { apiGetPrograms } from '../../api/programs';
 import PageHeader from '../../components/ui/PageHeader';
@@ -91,6 +95,9 @@ export default function ProgressReport() {
   const [programName, setProgramName] = useState('');
   const [benefitPeriod, setBenefitPeriod] = useState('overall');
   const [benefitMonth, setBenefitMonth] = useState(() => new Date().toISOString().slice(0, 7));
+  const [aiSummary, setAiSummary] = useState('');
+  const [aiSummaryError, setAiSummaryError] = useState('');
+  const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
 
   useEffect(() => {
     apiGetProgressReportOptions()
@@ -245,6 +252,10 @@ export default function ProgressReport() {
     setSelection(safeSelection);
     setLoadingReport(true);
     if (nextPage === 1) setGraphReportRows(null);
+    if (nextPage === 1) {
+      setAiSummary('');
+      setAiSummaryError('');
+    }
     try {
       const selectedProgram = programs.find((program) => normalizeProgramName(program.name) === normalizeProgramName(programName));
       if (reportCategory === 'program') {
@@ -383,6 +394,28 @@ export default function ProgressReport() {
   };
 
   const selectedSchool = options.schools.find((item) => String(item.id) === String(displaySelection.schoolId));
+  const aiScopeLabel = [
+    selectedSchool?.name,
+    displaySelection.groupId ? groups.find((item) => String(item.id) === String(displaySelection.groupId))?.name : 'All groups',
+    displaySelection.batchId ? batches.find((item) => String(item.id) === String(displaySelection.batchId))?.name : 'All batches',
+  ].filter(Boolean).join(' > ');
+  const createAiSummary = async () => {
+    if (!activeReport?.summary) return;
+    setAiSummaryLoading(true);
+    setAiSummaryError('');
+    try {
+      const result = await apiCreateProgressReportAiSummary({
+        reportCategory: displayReportCategory,
+        beneficiaryType: displayBeneficiaryType,
+        summary: activeReport.summary,
+      });
+      setAiSummary(result.summary);
+    } catch (summaryError) {
+      setAiSummaryError(summaryError.message || 'Unable to summarize this report.');
+    } finally {
+      setAiSummaryLoading(false);
+    }
+  };
   const resultsRows = sortedRows;
   const monitoringTableRows = useMemo(() => {
     if (displayReportCategory !== 'monitor') return resultsRows;
@@ -500,6 +533,8 @@ export default function ProgressReport() {
     setProgramName('');
     setBenefitPeriod('overall');
     setBenefitMonth(new Date().toISOString().slice(0, 7));
+    setAiSummary('');
+    setAiSummaryError('');
     setActiveTab(1);
     setPage(1);
     setError('');
@@ -535,6 +570,38 @@ export default function ProgressReport() {
       setResultsView('table');
     }
     if (category === 'profile') setResultsView('table');
+  };
+  const applyAiProposal = (proposal) => {
+    setReportCategory(proposal.reportCategory);
+    setBeneficiaryType(proposal.beneficiaryType);
+    setReport(null);
+    setFinalizedSnapshot(null);
+    setAiSummary('');
+    setAiSummaryError('');
+    setPage(1);
+    setError('');
+
+    if (proposal.reportCategory === 'profile') {
+      setProfileMetrics(proposal.metricIds);
+      const profileSections = proposal.beneficiaryType === 'mother' ? MOTHER_PROFILE_FIELD_SECTIONS : CHILD_PROFILE_FIELD_SECTIONS;
+      setProfileSection(profileSections[proposal.metricIds[0]] || 'general');
+      setProfileGraphColumn(proposal.beneficiaryType === 'mother' ? 'bmiInterpretation' : 'gender');
+      setResultsView('table');
+    } else if (proposal.reportCategory === 'program') {
+      setProgramMetrics(proposal.metricIds);
+      setGrowthMetrics([proposal.metricIds[0]]);
+      setDisplayWeeks(proposal.metricIds[0]);
+      setProgramName('');
+      setResultsView('table');
+    } else {
+      const metric = proposal.metricIds[0];
+      setGrowthMetrics([metric]);
+      setGraphMetricType(INTERPRETATION_METRICS.has(metric) || metric === 'hospitalReferral' ? 'interpretation' : 'numeric');
+      syncVisibleFieldsForGrowthMetric([metric]);
+      setResultsView('graph');
+    }
+
+    setActiveTab(proposal.reportCategory === 'program' ? 2 : 3);
   };
 
   useEffect(() => {
@@ -616,6 +683,8 @@ export default function ProgressReport() {
               beneficiaryType={beneficiaryType}
               setBeneficiaryType={selectBeneficiaryType}
               setActiveTab={setActiveTab}
+              aiScopeLabel={aiScopeLabel}
+              applyAiProposal={applyAiProposal}
             />
           )}
 
@@ -696,6 +765,10 @@ export default function ProgressReport() {
                 profileGraphFields={PROFILE_GRAPH_FIELDS}
                 interpretationMetrics={INTERPRETATION_METRICS}
                 programMetrics={PROGRAM_METRICS}
+                aiSummary={aiSummary}
+                aiSummaryError={aiSummaryError}
+                aiSummaryLoading={aiSummaryLoading}
+                createAiSummary={createAiSummary}
               />
             )
           )}

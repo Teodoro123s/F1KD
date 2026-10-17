@@ -51,6 +51,10 @@ export function ResultsPanel({
   profileGraphFields,
   interpretationMetrics,
   programMetrics,
+  aiSummary,
+  aiSummaryError,
+  aiSummaryLoading,
+  createAiSummary,
 }) {
   const viewToggle = [
     { key: 'table', label: 'Table View' },
@@ -90,8 +94,25 @@ export function ResultsPanel({
               Export CSV
             </button>
           )}
+          <button
+            type="button"
+            className="secondary-btn"
+            onClick={createAiSummary}
+            disabled={aiSummaryLoading}
+          >
+            {aiSummaryLoading ? 'Summarizing…' : aiSummary ? 'Refresh AI summary' : 'Summarize with AI'}
+          </button>
         </div>
       </div>
+
+      {aiSummaryError && <p className="progress-report-ai-message" role="alert">{aiSummaryError}</p>}
+      {aiSummary && (
+        <aside className="progress-report-ai-summary" aria-live="polite">
+          <h2>AI report summary</h2>
+          <p>{aiSummary}</p>
+          <small>Generated from aggregate report totals. Review the report data; this is not clinical advice.</small>
+        </aside>
+      )}
 
       {!graphAllowed && (
         <p className="progress-report-note" role="status">
