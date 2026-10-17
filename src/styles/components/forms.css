@@ -281,6 +281,20 @@
 .create-mother-stepper .stepper-step-index { flex: 0 0 26px; }
 .create-mother-progress-track { height: 3px; margin: 0.55rem 0.25rem 0; overflow: hidden; border-radius: 99px; background: #f1f5f9; }
 .create-mother-progress-track > span { display: block; height: 100%; border-radius: inherit; background: var(--burgundy); transition: width 180ms ease; }
+.create-mother-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.65rem; margin: 0.1rem 0 0.25rem; padding: 0.85rem; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; }
+.create-mother-summary > div { display: flex; min-width: 0; flex-direction: column; gap: 0.2rem; padding: 0.2rem 0.65rem; border-right: 1px solid #e2e8f0; }
+.create-mother-summary > div:last-child { border-right: 0; }
+.create-mother-summary span { color: #64748b; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
+.create-mother-summary strong { overflow-wrap: anywhere; color: #1e293b; font-size: 0.92rem; }
+.create-child-mother-panel { display: flex; justify-content: center; padding: 0.9rem 1.1rem; border: 1px solid #e2e8f0; border-radius: 14px; background: #fff; }
+.create-child-mother-panel > .form-group { width: min(100%, 420px); }
+.create-child-mother-panel .form-select { min-height: 48px; }
+.create-child-selected-mother { display: flex; min-width: min(100%, 420px); flex-direction: column; gap: 0.25rem; }
+.create-child-selected-mother strong { color: #1e293b; font-size: 1.05rem; }
+.create-child-selected-mother > span:last-child { color: #64748b; font-size: 0.85rem; }
+.create-child-summary > div:last-child { border-right: 0; }
+.create-mother-summary .create-child-growth-status strong { color: #334155; }
+.vaccine-form-table .form-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; clip-path: inset(50%); }
 .create-mother-edd-override { align-self: flex-start; font-size: 0.82rem; }
 .create-mother-form { overflow: visible; border: none; border-radius: 0; background: transparent; box-shadow: none; }
 .create-mother-form-note { display: flex; align-items: center; gap: 0.7rem; margin: 1.25rem 1.5rem 0; padding: 0.75rem 0.9rem; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; }
@@ -454,6 +468,9 @@ input[type="date"].form-input {
 }
 
 @media (max-width: 760px) {
+  .create-mother-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .create-mother-summary > div { border-right: 0; }
+  .create-mother-summary > div:nth-child(odd) { border-right: 1px solid #e2e8f0; }
   .vaccine-form-table,
   .vaccine-form-table tbody { display: block; }
   .vaccine-form-table thead { display: none; }

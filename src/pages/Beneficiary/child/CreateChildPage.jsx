@@ -211,6 +211,12 @@ export default function CreateChildPage({
     e.preventDefault();
     if (createActiveTab !== 'vaccine') {
       const currentIndex = CREATE_STEPS.indexOf(createActiveTab);
+      const errors = childErrorsByStep(createActiveTab);
+      if (Object.keys(errors).length > 0) {
+        setShowRequiredValidation(true);
+        notifyAction(Object.values(errors)[0], 'error');
+        return;
+      }
       setCreateActiveTab(CREATE_STEPS[Math.min(currentIndex + 1, CREATE_STEPS.length - 1)]);
       return;
     }
