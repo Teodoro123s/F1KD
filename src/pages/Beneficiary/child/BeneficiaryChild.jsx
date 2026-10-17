@@ -55,7 +55,25 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
     }));
   };
 
-  const renderField = ({ id, label, name, type = 'text', placeholder = '', required = false, min, maxValue, step, nativeDate = false, maxDate, disabled = false, onChange }) => {
+  const updateVaccineDate = (field, value) => {
+    const sequence = CHILD_VACCINE_SEQUENCES.find((fields) => fields.includes(field));
+    const doseIndex = sequence?.indexOf(field) ?? -1;
+    const dependentFields = doseIndex >= 0 ? sequence.slice(doseIndex + 1) : [];
+    setForm((prev) => {
+      const next = { ...prev, [field]: value };
+      if (!value) dependentFields.forEach((dependentField) => { next[dependentField] = ''; });
+      return next;
+    });
+    if (!value && dependentFields.length) {
+      setDateDrafts((prev) => {
+        const next = { ...prev };
+        dependentFields.forEach((dependentField) => { delete next[dependentField]; });
+        return next;
+      });
+    }
+  };
+
+  const renderField = ({ id, label, name, type = 'text', placeholder = '', required = false, min, minDate, maxValue, step, nativeDate = false, maxDate, disabled = false, onChange }) => {
     const value = form[name] ?? '';
     const isDate = type === 'date';
     const validationError = validationErrors[name];
@@ -468,9 +486,10 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
                               label: `${label} Dose ${index + 1}`,
                               name: doseField,
                               type: 'date',
-                              min: form.birthDate || undefined,
+                              minDate: form.birthDate || undefined,
                               maxDate: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`,
                               disabled: index > 0 && !form[doseFields[index - 1]],
+                              onChange: (value) => updateVaccineDate(doseField, value),
                             })}
                           </td>
                         ))}
@@ -488,6 +507,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
                 </table>
               </div>
             </div>
+          </div>
         </section>
       </div>
     );
