@@ -51,7 +51,8 @@ export function getChildRecordErrors(form = {}, today = new Date()) {
     const value = String(form[field] ?? '').trim();
     if (!value) return;
     const number = Number(value);
-    if (!Number.isFinite(number) || number <= min || number > max
+    const belowMinimum = field === 'noOfChildDelivered' ? number < min : number <= min;
+    if (!Number.isFinite(number) || belowMinimum || number > max
       || (field === 'noOfChildDelivered' && !Number.isInteger(number))) {
       const range = unit ? `${min}–${max} ${unit}` : `${min}–${max}`;
       errors[field] = `${label} must be a valid number between ${range}.`;

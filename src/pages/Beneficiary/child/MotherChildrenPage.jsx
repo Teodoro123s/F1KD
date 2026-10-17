@@ -7,6 +7,7 @@ import PageHeader from '../../../components/ui/PageHeader';
 import { useAuth } from '../../../auth/AuthProvider';
 import { can, isHealthWorkerRole } from '../../../utils/permissions';
 import { notifyAction } from '../../../components/ActionFeedback';
+import { navigateBack } from '../../../utils/navigation';
 
 export default function MotherChildrenPage() {
   const { id } = useParams();
@@ -108,7 +109,7 @@ export default function MotherChildrenPage() {
         actions={(
           <>
             {canManage && <button type="button" className="view-btn view-btn--primary module-create-button" onClick={() => navigate(`/beneficiary/create/child`, { state: { mother, returnTo } })}>Create Child</button>}
-            <button type="button" className="btn-secondary mother-children-back-button back-action" onClick={() => navigate(-1)}>Back</button>
+            <button type="button" className="btn-secondary mother-children-back-button back-action" onClick={() => navigateBack(navigate, location, `/beneficiary/mother/${id}`)}>Back</button>
           </>
         )}
       />

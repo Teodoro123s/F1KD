@@ -31,6 +31,24 @@ function parseIsoDate(value) {
     : null;
 }
 
+function getField(body, field) {
+  const snakeField = field.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
+  if (body[field] !== undefined) return body[field];
+  if (body[snakeField] !== undefined) return body[snakeField];
+  const doseField = field.match(/^([a-z]+)Dose([1-3])$/);
+  if (doseField) {
+    const snakeDoseField = `${doseField[1]}_dose_${doseField[2]}`;
+    if (body[snakeDoseField] !== undefined) return body[snakeDoseField];
+    if (doseField[2] === '1') {
+      const legacyDateField = `${doseField[1]}Date`;
+      if (body[legacyDateField] !== undefined) return body[legacyDateField];
+      const legacySnakeDateField = `${doseField[1]}_date`;
+      if (body[legacySnakeDateField] !== undefined) return body[legacySnakeDateField];
+    }
+  }
+  return '';
+}
+
 function getChildRecordValidationError(body = {}, today = new Date()) {
   const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   const birthDateValue = String(body.birthDate ?? body.birth_date ?? '').trim();
@@ -41,7 +59,7 @@ function getChildRecordValidationError(body = {}, today = new Date()) {
   if (birthDateValue > todayIso) return 'Birth date cannot be in the future.';
 
   for (const [field, { max, label, unit, wholeNumber }] of Object.entries(NUMERIC_LIMITS)) {
-    const value = String(body[field] ?? '').trim();
+    const value = String(getField(body, field) ?? '').trim();
     if (!value) continue;
     const number = Number(value);
     if (!Number.isFinite(number) || number <= 0 || number > max || (wholeNumber && !Number.isInteger(number))) {
@@ -58,7 +76,7 @@ function getChildRecordValidationError(body = {}, today = new Date()) {
   for (const fields of CHILD_VACCINE_SEQUENCES) {
     let previousDate = '';
     for (const [index, field] of fields.entries()) {
-      const value = String(body[field] ?? '').trim();
+      const value = String(getField(body, field) ?? '').trim();
       if (!value) {
         previousDate = '';
         continue;

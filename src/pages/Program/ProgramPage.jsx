@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../../auth/AuthProvider";
 import { hasRole, isCommunityCoordinatorRole, isHealthWorkerRole, ROLES } from "../../utils/permissions";
 import PageHeader from '../../components/ui/PageHeader';
@@ -36,6 +36,7 @@ const localDate = () => {
 
 export default function ProgramPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { programId, clusterType, clusterName, schoolId, groupId, batchId } = useParams();
   const { currentUser } = useAuth();
   const isCommunityOrganizer = isCommunityCoordinatorRole(currentUser?.role);
@@ -316,7 +317,7 @@ export default function ProgramPage() {
 
   const openBeneficiaryReport = (beneficiary) => {
     navigate(`/program/${programId}/beneficiaries/${beneficiary.sourceType}/${beneficiary.sourceId}/receipt-history`, {
-      state: { beneficiaryName: beneficiary.name },
+      state: { beneficiaryName: beneficiary.name, returnTo: `${location.pathname}${location.search}` },
     });
   };
 
@@ -355,7 +356,7 @@ export default function ProgramPage() {
     if (!clusterName) return;
     const beneficiaries = collectClusterBeneficiaries(cluster, clusterType);
     navigate(`/program/${programId}/cluster/${encodeURIComponent(clusterType)}/${encodeURIComponent(clusterName)}/receipt-history`, {
-      state: { clusterName, clusterType, beneficiaries },
+      state: { clusterName, clusterType, beneficiaries, returnTo: `${location.pathname}${location.search}` },
     });
   };
 
@@ -367,7 +368,7 @@ export default function ProgramPage() {
       .map((record) => ({ id: record.sourceId, type: record.sourceType, name: record.name }));
     setReceiptHistoryProgram(null);
     navigate(`/program/${program.id}/cluster/${encodeURIComponent(clusterType)}/${encodeURIComponent(clusterName)}/receipt-history`, {
-      state: { clusterName, clusterType, beneficiaries },
+      state: { clusterName, clusterType, beneficiaries, returnTo: `${location.pathname}${location.search}` },
     });
   };
 

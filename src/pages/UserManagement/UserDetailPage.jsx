@@ -11,6 +11,7 @@ import { useAuth } from '../../auth/AuthProvider';
 import CommunityTable from '../Community/CommunityTable';
 import CommunityPagination from '../Community/components/CommunityPagination';
 import { ActivityChart } from '../Reports/ReportsPage';
+import { navigateBack } from '../../utils/navigation';
 
 function formatActivityDate(value) {
   if (!value) return '—';
@@ -233,7 +234,7 @@ export default function UserDetailPage() {
         actions={(
           <>
             {!isCoordinator && <button type="button" className="view-btn view-btn--primary" onClick={handleEdit}>Edit</button>}
-            <button type="button" className="view-btn view-btn--secondary back-action" onClick={() => navigate(-1)}>Back</button>
+            <button type="button" className="view-btn view-btn--secondary back-action" onClick={() => navigateBack(navigate, location, '/user-management')}>Back</button>
           </>
         )}
       />

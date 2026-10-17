@@ -44,7 +44,7 @@ export const useBeneficiaryUI = () => {
   };
 
   const goToMotherDetail = (mother) => {
-    navigate(`/beneficiary/mother/${mother.id}`, { state: { mother } });
+    navigate(`/beneficiary/mother/${mother.id}`, { state: { mother, returnTo: location.pathname } });
   };
 
   const goToList = () => {

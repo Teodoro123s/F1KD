@@ -5,28 +5,13 @@ import { useMothers } from '../../../context/MothersContext';
 import { capitalizeNameValue } from '../../../utils/nameFormat';
 import { notifyAction } from '../../../components/ActionFeedback';
 import { apiCreateChild, apiUploadChildBirthDocument } from '../../../api/children';
-import { formatDateForDisplay } from '../../../utils/dateFormat';
-import { getAgeInDays, getAgeInMonths } from '../../../utils/childAge.mjs';
-import { calculateWhoGrowthScores } from '../../../utils/whoGrowthStandards';
 import { CHILD_VACCINE_SEQUENCES, getChildRecordErrors } from '../../../utils/childRecordValidation';
+import { joinChildBirthPlace, splitChildBirthPlace } from '../../../utils/childBirthPlace';
+import { navigateBack } from '../../../utils/navigation';
 
 const CHILD_DRAFT_KEY = 'f1kd.create-child.draft';
 const CREATE_STEPS = ['general', 'prenatal', 'medical_dental', 'vaccine'];
 const STEP_LABELS = ['General information', 'Birth / Newborn', 'Medical', 'Immunizations'];
-
-const getLocalToday = () => {
-  const today = new Date();
-  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-};
-
-const getChildAgeLabel = (birthDate) => {
-  if (!birthDate) return '—';
-  const today = getLocalToday();
-  const months = getAgeInMonths(birthDate, today);
-  if (months === null) return '—';
-  if (months === 0) return `${getAgeInDays(birthDate, today)} days`;
-  return `${months} ${months === 1 ? 'month' : 'months'}`;
-};
 
 const getErrorsForStep = (step, form, childErrors, motherSelected) => {
   if (step === 'general') {
@@ -34,12 +19,12 @@ const getErrorsForStep = (step, form, childErrors, motherSelected) => {
     if (!motherSelected) errors.motherId = 'Select a mother before creating the child.';
     if (!String(form.firstName ?? '').trim()) errors.firstName = 'First name is required.';
     if (!String(form.lastName ?? '').trim()) errors.lastName = 'Last name is required.';
-    if (childErrors.birthDate) errors.birthDate = childErrors.birthDate;
     return errors;
   }
   if (step === 'prenatal') {
     return Object.fromEntries(
       Object.entries(childErrors).filter(([field]) => [
+        'birthDate',
         'birthWeight',
         'birthLength',
         'headCircumference',
@@ -60,7 +45,14 @@ const getErrorsForStep = (step, form, childErrors, motherSelected) => {
 const loadChildDraft = (fallback) => {
   try {
     const savedDraft = JSON.parse(localStorage.getItem(CHILD_DRAFT_KEY) || 'null');
-    return savedDraft?.form ? { ...fallback, ...savedDraft.form } : fallback;
+    if (!savedDraft?.form) return fallback;
+
+    const form = { ...savedDraft.form };
+    if (!form.birthPlaceCity && !form.birthPlaceProvince && form.birthPlace) {
+      Object.assign(form, splitChildBirthPlace(form.birthPlace));
+      delete form.birthPlace;
+    }
+    return { ...fallback, ...form };
   } catch (error) {
     return fallback;
   }
@@ -88,7 +80,8 @@ const emptyGroupForm = () => ({
   leader: '',
   members: 1,
   status: 'Active',
-  birthPlace: '',
+  birthPlaceCity: '',
+  birthPlaceProvince: '',
   birthAttendant: '',
   apgarScore: '',
   nutritionNotes: '',
@@ -152,20 +145,12 @@ export default function CreateChildPage({
   });
   const [createActiveTab, setCreateActiveTab] = useState('general');
   const createActiveIndex = CREATE_STEPS.indexOf(createActiveTab) >= 0 ? CREATE_STEPS.indexOf(createActiveTab) : 0;
-  const selectedMotherIdValue = selectedMother?.id || selectedMother?.motherId || selectedMotherId;
-  const childRecordErrors = getChildRecordErrors(groupForm);
-  const childErrorsByStep = (step) => getErrorsForStep(step, groupForm, childRecordErrors, Boolean(selectedMotherIdValue));
-  const growthScores = calculateWhoGrowthScores({
-    weight: groupForm.birthWeight,
-    lengthHeight: groupForm.birthLength,
-    sex: groupForm.gender,
-    birthDate: groupForm.birthDate,
-    measurementDate: groupForm.birthDate,
-  });
-
   const selectedMother = motherFromState || availableMothers.find((mother) => (
     String(mother.id || mother.motherId || '') === String(selectedMotherId)
   ));
+  const selectedMotherIdValue = selectedMother?.id || selectedMother?.motherId || selectedMotherId;
+  const childRecordErrors = getChildRecordErrors(groupForm);
+  const childErrorsByStep = (step) => getErrorsForStep(step, groupForm, childRecordErrors, Boolean(selectedMotherIdValue));
 
   useEffect(() => {
     if (!selectedMother) return;
@@ -192,7 +177,7 @@ export default function CreateChildPage({
     if (!invalidField) return;
     invalidField.scrollIntoView({ behavior: 'smooth', block: 'center' });
     invalidField.focus({ preventScroll: true });
-  }, [createActiveTab, selectedMotherId, showRequiredValidation, groupForm.firstName, groupForm.lastName]);
+  }, [createActiveTab, selectedMotherId, showRequiredValidation, groupForm.firstName, groupForm.lastName, groupForm.birthDate]);
 
   // If navigated from a mother, prefill mother-related fields and show mother info
   useEffect(() => {
@@ -260,7 +245,7 @@ export default function CreateChildPage({
       deliveryType: groupForm.deliveryType || null,
       community: selectedMother?.community || selectedMother?.raw?.community_name || selectedMother?.raw?.community || null,
       batch: selectedMother?.batch || selectedMother?.raw?.batch_name || selectedMother?.raw?.batch || null,
-      birthPlace: groupForm.birthPlace || null,
+      birthPlace: joinChildBirthPlace(groupForm.birthPlaceCity, groupForm.birthPlaceProvince) || null,
       birthAttendant: groupForm.birthAttendant || null,
       apgarScore: groupForm.apgarScore || null,
       nutritionNotes: groupForm.nutritionNotes || null,
@@ -349,7 +334,7 @@ export default function CreateChildPage({
         leader: groupForm.leader,
         members: groupForm.members,
         status: groupForm.status,
-        birthPlace: child.birth_place || groupForm.birthPlace,
+        ...splitChildBirthPlace(child.birth_place || joinChildBirthPlace(groupForm.birthPlaceCity, groupForm.birthPlaceProvince)),
         birthAttendant: child.birth_attendant || groupForm.birthAttendant,
         apgarScore: child.apgar_score || groupForm.apgarScore,
         nutritionNotes: child.nutrition_notes || groupForm.nutritionNotes,
@@ -405,7 +390,14 @@ export default function CreateChildPage({
           (m.id === motherFromState.id || m.motherId === motherFromState.motherId) ? { ...m, children: [newGroup, ...(m.children || [])] } : m
         )));
         // navigate to the new child's detail page and include the updated mother in state so the child shows immediately
-        navigate(`/beneficiary/child/${newGroup.id}`, { state: { mother: updatedMother, child: newGroup, mothers: undefined } });
+        navigate(`/beneficiary/child/${newGroup.id}`, {
+          state: {
+            mother: updatedMother,
+            child: newGroup,
+            mothers: undefined,
+            returnTo: location.state?.returnTo || `/beneficiary/mother/${motherFromState.id || motherFromState.motherId}`,
+          },
+        });
         return;
       }
 
@@ -434,7 +426,7 @@ export default function CreateChildPage({
   };
 
   return (
-    <section className="tabs-row create-view">
+    <section className="tabs-row create-view create-child-page">
       <header className="create-mother-page-header">
         <div>
           <span className="create-mother-eyebrow">Beneficiary registration</span>
@@ -511,20 +503,11 @@ export default function CreateChildPage({
         </div>
       </nav>
 
-      <aside className="create-mother-summary create-child-summary" aria-label="Auto-calculated child summary">
-        <div><span>Birth Date</span><strong>{groupForm.birthDate ? formatDateForDisplay(groupForm.birthDate) : '—'}</strong></div>
-        <div><span>Age</span><strong>{getChildAgeLabel(groupForm.birthDate)}</strong></div>
-        <div><span>Birth Weight</span><strong>{groupForm.birthWeight ? `${groupForm.birthWeight} kg` : '—'}</strong></div>
-        <div className="create-child-growth-status">
-          <span>WHO Weight-for-Length</span><strong>{growthScores.weightForLengthInterpretation || 'Not calculated'}</strong>
-        </div>
-      </aside>
-
       <div className="create-form-body">
         <form className="create-mother-form" onSubmit={handleCreateGroup}>
           <div className="create-mother-form-note">
             <span className="create-mother-form-note-mark" aria-hidden="true">*</span>
-            <p>Child name, birth date, and mother are required. Measurements and immunization entries are optional when unavailable.</p>
+            <p>Fields marked * are required. Measurements and immunization entries are optional when unavailable.</p>
           </div>
           <div
             className="create-mother-fields"
@@ -547,8 +530,14 @@ export default function CreateChildPage({
           <div className="create-mother-footer">
             <button type="button" className="btn-secondary create-mother-cancel" onClick={() => {
               localStorage.removeItem(CHILD_DRAFT_KEY);
-              if (motherFromState) navigate(`/beneficiary/mother/${motherFromState.id || motherFromState.motherId}`, { state: { mother: motherFromState } });
-              else navigate('/beneficiary');
+              navigateBack(
+                navigate,
+                location,
+                motherFromState
+                  ? `/beneficiary/mother/${motherFromState.id || motherFromState.motherId}`
+                  : '/beneficiary',
+                motherFromState ? { mother: motherFromState } : undefined,
+              );
             }}>Cancel</button>
             <div className="create-mother-footer-actions">
               {createActiveTab !== 'general' && (

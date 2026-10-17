@@ -16,6 +16,7 @@ import { getMotherMonitoringProgress } from '../../utils/motherProgress';
 import { notifyAction } from '../../components/ActionFeedback';
 import TableSearch from '../../components/ui/TableSearch';
 import ModuleSummaryCards from '../../components/ui/ModuleSummaryCards';
+import { navigateBack } from '../../utils/navigation';
 
 function getMotherName(mother) {
   return mother?.name || [mother?.firstName || mother?.first_name, mother?.middleName || mother?.middle_name, mother?.lastName || mother?.last_name]
@@ -207,7 +208,23 @@ export default function MonitoringPage() {
   };
 
   const handleBack = () => {
-    navigate('/monitoring');
+    if (location.state?.returnTo) {
+      navigateBack(navigate, location, '/monitoring');
+      return;
+    }
+
+    setSelectedMother(null);
+    setSelectedChild(null);
+    setEditingCheckup(false);
+    setSavedMessage('');
+
+    if (location.pathname === '/monitoring' || location.pathname === '/checkup') {
+      navigate('/monitoring', { replace: true });
+      return;
+    }
+
+    const motherId = location.pathname.match(/^\/beneficiary\/mother\/([^/]+)\/monitoring$/)?.[1];
+    navigateBack(navigate, location, motherId ? `/beneficiary/mother/${motherId}` : '/monitoring');
   };
 
   const clearSearch = () => { setQuery(''); setPage(1); };
@@ -365,7 +382,13 @@ export default function MonitoringPage() {
         selectedRecordLoading ? <section className="checkup-entry-view" aria-live="polite"><p>Loading child monitoring record...</p></section> : <section className="checkup-entry-view" aria-labelledby="selected-child-title">
           <div className="selected-mother-bar">
             <div className="selected-record-actions">
-              <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/child/${selectedChild.id}`, { state: { child: selectedChild } })}>
+              <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/child/${selectedChild.id}`, {
+                state: {
+                  child: selectedChild,
+                  returnTo: location.pathname,
+                  returnToState: { child: selectedChild, returnTo: location.state?.returnTo, week: location.state?.week },
+                },
+              })}>
                 Beneficiary Profile
               </button>
               <button type="button" className="btn-primary" onClick={() => setEditingCheckup((current) => !current)}>
@@ -410,7 +433,13 @@ export default function MonitoringPage() {
         <section className="checkup-entry-view" aria-labelledby="selected-mother-title">
           <div className="selected-mother-bar">
             <div className="selected-record-actions">
-              <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/mother/${selectedMother.id || selectedMother.motherId}`, { state: { mother: selectedMother } })}>
+              <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/mother/${selectedMother.id || selectedMother.motherId}`, {
+                state: {
+                  mother: selectedMother,
+                  returnTo: location.pathname,
+                  returnToState: { mother: selectedMother, returnTo: location.state?.returnTo },
+                },
+              })}>
                 Beneficiary Profile
               </button>
               <button type="button" className="btn-primary" onClick={() => setEditingCheckup((current) => !current)}>

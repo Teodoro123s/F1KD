@@ -41,3 +41,11 @@ test('validates child vaccine dose order, chronology, and date bounds', () => {
     opvDose1: '2025-12-31',
   }, today), /before the child's birth date/);
 });
+
+test('accepts snake_case dates and legacy first-dose fields', () => {
+  assert.equal(getChildRecordValidationError({
+    birth_date: '2026-01-01',
+    hepb_date: '2026-02-01',
+    hepb_dose_2: '2026-03-01',
+  }, today), '');
+});

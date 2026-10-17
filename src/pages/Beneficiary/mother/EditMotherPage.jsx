@@ -11,6 +11,7 @@ import { notifyAction } from '../../../components/ActionFeedback';
 import { CONTACT_NUMBER_POLICY, isValidContactNumber } from '../../../utils/contactNumber';
 import { formatPhilHealthNumber, getPhilHealthNumberError } from '../../../utils/philHealthNumber';
 import { getMaternalBirthCountErrors, hasMiscarriageHighRiskCount } from '../../../utils/maternalBirthCounts';
+import { navigateBack } from '../../../utils/navigation';
 
 const parseAddressParts = (address = '') => {
   const parts = String(address || '').split(',').map((part) => part.trim()).filter(Boolean);
@@ -125,7 +126,7 @@ export default function EditMotherPage() {
     return (
       <div className="edit-mother-page">
         <p>Unable to load mother data for editing. Try opening the mother profile and clicking Edit.</p>
-        <button type="button" onClick={() => navigate(-1)} className="btn-secondary back-action">Back</button>
+        <button type="button" onClick={() => navigateBack(navigate, location, `/beneficiary/mother/${id}`)} className="btn-secondary back-action">Back</button>
       </div>
     );
   }
@@ -191,7 +192,10 @@ export default function EditMotherPage() {
       notifyAction('Mother profile updated successfully.', 'success');
 
       // navigate back to the detail view and pass updated mother
-      navigate(-1, { state: { updatedMother: updated } });
+      navigateBack(navigate, location, `/beneficiary/mother/${motherId}`, {
+        mother: updated,
+        updatedMother: updated,
+      });
     } catch (err) {
       console.error('Failed to update mother', err);
       const message = err.message || 'Failed to save changes';
@@ -209,7 +213,7 @@ export default function EditMotherPage() {
         breadcrumbs={[{ label: 'Beneficiaries', href: '/beneficiary' }, { label: 'Mother Profile' }, { label: 'Edit' }]}
         actions={(
           <>
-            <button type="button" className="btn-secondary edit-mother-action" onClick={() => navigate(-1)}>Cancel</button>
+            <button type="button" className="btn-secondary edit-mother-action" onClick={() => navigateBack(navigate, location, `/beneficiary/mother/${id}`)}>Cancel</button>
             <button type="button" className="btn-primary edit-mother-action" disabled={saving} onClick={() => formRef.current?.requestSubmit()}>{saving ? 'Saving...' : 'Save'}</button>
           </>
         )}

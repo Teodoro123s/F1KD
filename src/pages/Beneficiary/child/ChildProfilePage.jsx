@@ -7,11 +7,13 @@ import { DocumentPreview, DocumentPreviewModal } from '../../../components/Docum
 import { useAuth } from '../../../auth/AuthProvider';
 import { can } from '../../../utils/permissions';
 import { capitalizeNameValue } from '../../../utils/nameFormat';
+import { splitChildBirthPlace } from '../../../utils/childBirthPlace';
 import { ChildFormFields } from './BeneficiaryChild';
 import PageHeader from '../../../components/ui/PageHeader';
 import ConfirmModal from '../../UserManagement/ConfirmModal';
 import { notifyAction } from '../../../components/ActionFeedback';
 import MonitorReportCard from '../MonitorReportCard';
+import { navigateBack } from '../../../utils/navigation';
 
 const formatValue = (value) => (value === null || value === undefined || value === '' ? '—' : String(value));
 
@@ -81,7 +83,7 @@ const normalizeChild = (child = {}) => ({
   expandedNewbornScreeningResult: child.expandedNewbornScreeningResult || child.expanded_newborn_screening_result || '',
     deliveryType: child.deliveryType || child.delivery_type || 'Vaginal',
     healthStatus: child.healthStatus || child.health_status || 'Healthy',
-    birthPlace: child.birthPlace || child.birth_place || '',
+    ...splitChildBirthPlace(child.birthPlace || child.birth_place || ''),
     birthAttendant: child.birthAttendant || child.birth_attendant || '',
     apgarScore: child.apgarScore ?? child.apgar_score ?? '',
     feedingType: child.feedingType || child.feeding_type || '',
@@ -255,7 +257,7 @@ export default function ChildProfilePage() {
 
   // Helper to render vaccination info
   const renderVaccine = (date, remarks) => (date ? `${date}${remarks ? ' — ' + remarks : ''}` : '—');
-  const returnTo = location.state?.returnTo || (resolvedMother ? `/beneficiary/mother/${resolvedMother.motherId || resolvedMother.id}` : null);
+  const returnTo = location.state?.returnTo || (resolvedMother ? `/beneficiary/mother/${resolvedMother.motherId || resolvedMother.id}` : '/beneficiary');
   const childIdentifier = selectedChild?.id || childId || id;
 
   const childName = selectedChild?.name || `${selectedChild?.firstName || ''} ${selectedChild?.middleName || ''} ${selectedChild?.lastName || ''} ${selectedChild?.suffix || ''}`.replace(/\s+/g, ' ').trim();
@@ -322,14 +324,21 @@ export default function ChildProfilePage() {
         actions={(
           <div className="mother-detail-actions">
             {isChildProfile && canEdit && (
-              <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/child/${childIdentifier}/edit`, { state: { child: selectedChild, mother: resolvedMother, returnTo } })}>Edit</button>
+              <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/child/${childIdentifier}/edit`, {
+                state: {
+                  child: selectedChild,
+                  mother: resolvedMother,
+                  returnTo: `${location.pathname}${location.search}`,
+                  returnToState: location.state,
+                },
+              })}>Edit</button>
             )}
             {canDelete && (
               <button type="button" className="btn-secondary" onClick={requestDeleteChild} disabled={isDeleting}>
                 {isDeleting ? 'Deleting...' : 'Delete'}
               </button>
             )}
-            <button type="button" className="btn-secondary back-action" onClick={() => navigate(-1)}>Back</button>
+            <button type="button" className="btn-secondary back-action" onClick={() => navigateBack(navigate, location, '/beneficiary')}>Back</button>
           </div>
         )}
       />
@@ -348,14 +357,23 @@ export default function ChildProfilePage() {
             Child Profile
           </button>
           {resolvedMother && (
-            <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/mother/${resolvedMother.id || resolvedMother.motherId}`, { state: { mother: resolvedMother } })}>
+            <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/mother/${resolvedMother.id || resolvedMother.motherId}`, {
+              state: { mother: resolvedMother, returnTo: `${location.pathname}${location.search}` },
+            })}>
               View Mother
             </button>
           )}
           <button type="button" className="btn-primary" onClick={() => {
             const mid = resolvedMother?.motherId || resolvedMother?.id || selectedChild.mother_id || selectedChild.motherId || '';
             const stateMother = resolvedMother || (mid ? { id: mid, name: selectedChild.mother_first_name ? `${selectedChild.mother_first_name} ${selectedChild.mother_last_name || ''}`.trim() : undefined } : null);
-            navigate('/monitoring', { state: { child: selectedChild, mother: stateMother, returnTo } });
+            navigate('/monitoring', {
+              state: {
+                child: selectedChild,
+                mother: stateMother,
+                returnTo: `${location.pathname}${location.search}`,
+                returnToState: { child: selectedChild, mother: stateMother, returnTo },
+              },
+            });
           }}>
             Monitor
           </button>

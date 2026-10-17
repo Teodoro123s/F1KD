@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { MoreVerticalIcon } from './UserManagementIcons';
 import TableSearch from '../../components/ui/TableSearch';
 
@@ -22,6 +22,8 @@ export default function UserManagementTable({
   const emptyColSpan = showGroup ? 4 : 3;
   const groupNames = new Map(groups.map((group) => [String(group.id), group.name]));
   const navigate = useNavigate();
+  const location = useLocation();
+  const returnTo = `${location.pathname}${location.search}`;
 
   useEffect(() => {
     const handleDocumentClick = (event) => {
@@ -123,11 +125,11 @@ export default function UserManagementTable({
               currentRows.map((row) => (
                 <tr
                   key={row.id}
-                  onClick={allowProfileNavigation ? () => navigate(`/user-management/user/${row.id}`, { state: { user: row } }) : undefined}
+                  onClick={allowProfileNavigation ? () => navigate(`/user-management/user/${row.id}`, { state: { user: row, returnTo } }) : undefined}
                   onKeyDown={allowProfileNavigation ? (event) => {
                     if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
                       event.preventDefault();
-                      navigate(`/user-management/user/${row.id}`, { state: { user: row } });
+                      navigate(`/user-management/user/${row.id}`, { state: { user: row, returnTo } });
                     }
                   } : undefined}
                   tabIndex={allowProfileNavigation ? 0 : undefined}

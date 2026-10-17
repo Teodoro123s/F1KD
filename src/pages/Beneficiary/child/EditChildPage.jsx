@@ -4,9 +4,11 @@ import { ChildFormFields } from './BeneficiaryChild';
 import { apiGetChild, apiUpdateChild, apiUploadChildBirthDocument } from '../../../api/children';
 import { getSummary } from '../../Community/communityService';
 import { formatDateForInput } from '../../../utils/dateFormat';
+import { joinChildBirthPlace, splitChildBirthPlace } from '../../../utils/childBirthPlace';
 import { useMothers } from '../../../context/MothersContext';
 import PageHeader from '../../../components/ui/PageHeader';
 import { notifyAction } from '../../../components/ActionFeedback';
+import { navigateBack } from '../../../utils/navigation';
 
 const normalizeChild = (child) => ({
   ...child,
@@ -29,7 +31,7 @@ const normalizeChild = (child) => ({
   expandedNewbornScreeningResult: child.expandedNewbornScreeningResult || child.expanded_newborn_screening_result || '',
   deliveryType: child.deliveryType || child.delivery_type || 'Vaginal',
   healthStatus: child.healthStatus || child.health_status || 'Healthy',
-  birthPlace: child.birthPlace || child.birth_place || '',
+  ...splitChildBirthPlace(child.birthPlace || child.birth_place || ''),
   birthAttendant: child.birthAttendant || child.birth_attendant || '',
   apgarScore: child.apgarScore || child.apgar_score || '',
   feedingType: child.feedingType || child.feeding_type || '',
@@ -120,6 +122,7 @@ export default function EditChildPage() {
       const payload = {
         ...form,
         multipleBirthType: form.multipleBirthType || null,
+        birthPlace: joinChildBirthPlace(form.birthPlaceCity, form.birthPlaceProvince) || null,
         birthDate: normalizeDatePayload(form.birthDate),
         bcgDate: normalizeDatePayload(form.bcgDose1),
         bcgDose1: normalizeDatePayload(form.bcgDose1),
@@ -180,7 +183,17 @@ export default function EditChildPage() {
       })));
 
       if (documentUploadFailed) notifyAction('Child details saved, but the birth document upload failed. Edit the child to try again.', 'error');
-      navigate(-1, { state: { updatedChild } });
+      const childProfileState = location.state?.returnToState || {};
+      navigateBack(navigate, location, `/beneficiary/child/${childId}`, {
+        ...childProfileState,
+        child: updatedChild,
+        updatedChild,
+        mother: location.state?.mother || childProfileState.mother,
+        returnTo: childProfileState.returnTo
+          || (location.state?.mother
+            ? `/beneficiary/mother/${location.state.mother.id || location.state.mother.motherId}`
+            : '/beneficiary'),
+      });
     } catch (saveError) {
       notifyAction(saveError.message || 'Unable to save child', 'error');
     } finally {
@@ -250,7 +263,7 @@ export default function EditChildPage() {
           </div>
 
           <div className="modal-footer">
-            <button type="button" className="btn-secondary" onClick={() => navigate(-1)} disabled={saving}>Cancel</button>
+            <button type="button" className="btn-secondary" onClick={() => navigateBack(navigate, location, `/beneficiary/child/${childId}`)} disabled={saving}>Cancel</button>
             {activeTab !== 'general' && (
               <button type="button" className="btn-secondary btn-back back-action" onClick={handleBackStep} disabled={saving}>Back</button>
             )}

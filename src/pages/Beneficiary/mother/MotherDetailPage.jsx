@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { formatDateForDisplay } from '../../../utils/dateFormat';
 import { apiDeleteMother, apiGetMother } from '../../../api/mothers';
 import { DocumentPreview, DocumentPreviewModal } from '../../../components/DocumentPreview';
@@ -9,6 +9,7 @@ import PageHeader from '../../../components/ui/PageHeader';
 import { notifyAction } from '../../../components/ActionFeedback';
 import { MotherFormFields, OTHER_MATERNAL_VACCINES } from './BeneficiaryMother';
 import MonitorReportCard from '../MonitorReportCard';
+import { navigateBack } from '../../../utils/navigation';
 
 const calculateAge = (dobString) => {
   if (!dobString) return null;
@@ -65,6 +66,7 @@ const ChipList = ({ items, emptyLabel = 'None' }) => {
 
 export default function MotherDetailPage({ selectedMother, onClose, onMotherUpdated, overviewOnly = false }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { currentUser } = useAuth();
   const canManage = can(currentUser?.role, 'beneficiary-resources', 'delete');
   const canEdit = can(currentUser?.role, 'beneficiary-resources', 'update');
@@ -114,11 +116,7 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
   const age = calculateAge(mother.dob);
 
   const handleBack = () => {
-    if (window.history.length > 1) {
-      navigate(-1);
-      return;
-    }
-    navigate('/beneficiary');
+    navigateBack(navigate, location, '/beneficiary');
   };
 
   const firstName = mother.firstName || '—';
@@ -249,7 +247,7 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
         actions={(
           <div className="mother-detail-actions">
             {canManage && <button type="button" className="btn-danger" onClick={() => setShowDeleteModal(true)}>Delete</button>}
-            {canEdit && <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/mother/${motherId}/edit`, { state: { mother: selectedMother } })}>Edit</button>}
+            {canEdit && <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/mother/${motherId}/edit`, { state: { mother: selectedMother, returnTo: `${location.pathname}${location.search}` } })}>Edit</button>}
             <button type="button" className="btn-secondary back-action" onClick={handleBack}>Back</button>
           </div>
         )}
@@ -260,11 +258,11 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
           <section className="mother-detail-section">
             <h3 className="mother-detail-section-title">Mother Actions</h3>
             <div className="mother-detail-actions mother-overview-actions">
-              <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/mother/${motherId}/profile`, { state: { mother: selectedMother } })}>Mother Profile</button>
+              <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/mother/${motherId}/profile`, { state: { mother: selectedMother, returnTo: `${location.pathname}${location.search}` } })}>Mother Profile</button>
               <button type="button" className="btn-secondary" onClick={() => {
                 navigate(`/beneficiary/mother/${motherId}/child`, { state: { mother: selectedMother, children, returnTo: `/beneficiary/mother/${motherId}` } });
               }}>View Child</button>
-              <button type="button" className="btn-primary" onClick={() => navigate('/monitoring', { state: { mother, returnTo: `/beneficiary/mother/${motherId}` } })}>Monitor</button>
+              <button type="button" className="btn-primary" onClick={() => navigate('/monitoring', { state: { mother, returnTo: `${location.pathname}${location.search}` } })}>Monitor</button>
             </div>
           </section>
           <MonitorReportCard beneficiaryType="mother" beneficiary={mother} />
@@ -309,7 +307,7 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
                   <td><strong>{childNameValue}</strong>{badge && <span className="mother-detail-chip" style={{ marginLeft: 8 }}>{badge}</span>}</td>
                   <td>{formatDateForDisplay(child.birthDate || child.birth_date) || 'Birth date not recorded'}</td>
                   <td>
-                    <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/child/${child.id}`, { state: { mother: selectedMother, child, returnTo: `/beneficiary/mother/${motherId}` } })}>View Child</button>
+                    <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/child/${child.id}`, { state: { mother: selectedMother, child, returnTo: `${location.pathname}${location.search}` } })}>View Child</button>
                   </td>
                 </tr>
               );

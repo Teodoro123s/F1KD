@@ -3,6 +3,7 @@ import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../auth/AuthProvider';
 import { canViewAuditSignatures } from '../../../utils/permissions';
 import MotherCheckup from './MotherCheckup';
+import { navigateBack } from '../../../utils/navigation';
 
 export default function MotherMonitoringPage() {
   const { id } = useParams();
@@ -20,7 +21,7 @@ export default function MotherMonitoringPage() {
           <p style={{ margin: 0 }}>{mother ? mother.name || mother.motherName : 'Mother'}</p>
         </div>
         <div>
-          <button className="btn-secondary back-action" onClick={() => navigate(-1)}>Back</button>
+          <button className="btn-secondary back-action" onClick={() => navigateBack(navigate, location, `/beneficiary/mother/${id}`)}>Back</button>
         </div>
       </header>
 
@@ -28,8 +29,8 @@ export default function MotherMonitoringPage() {
         <MotherCheckup
           mother={mother || { id, name: 'Mother' }}
           showAuditSignatures={showAuditSignatures}
-          onSave={() => navigate(-1)}
-          onCancel={() => navigate(-1)}
+          onSave={() => navigateBack(navigate, location, `/beneficiary/mother/${id}`)}
+          onCancel={() => navigateBack(navigate, location, `/beneficiary/mother/${id}`)}
         />
       </main>
     </div>

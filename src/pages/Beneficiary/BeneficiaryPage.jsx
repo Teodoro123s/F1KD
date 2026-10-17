@@ -140,6 +140,7 @@ export default function BeneficiaryPage() {
               ...(motherResponse?.mother || {}),
               children: childrenResponse?.children || [],
             },
+            returnTo: '/beneficiary',
           },
         });
     } catch (error) {
@@ -160,6 +161,7 @@ export default function BeneficiaryPage() {
       state: {
         child: childRecord,
         mother: childRecord.mother || child.mother || null,
+        returnTo: '/beneficiary',
       },
     });
   };

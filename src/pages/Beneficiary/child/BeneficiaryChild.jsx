@@ -1,7 +1,6 @@
 import React from 'react';
 import { formatDateForDisplay, formatDateForInput, maskDateInput, normalizeDateValue } from '../../../utils/dateFormat';
 import { capitalizeNameValue } from '../../../utils/nameFormat';
-import { calculateWhoGrowthScores } from '../../../utils/whoGrowthStandards';
 import { CHILD_VACCINE_SEQUENCES } from '../../../utils/childRecordValidation';
 
 export function ChildFormFields({ activeTab, form, setForm, communities = [], batches = [], readOnly = false, slashDateInput = true, birthDocumentFile, setBirthDocumentFile, existingBirthDocumentName = '', showRequiredValidation = false, validationErrors = {} }) {
@@ -9,6 +8,21 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
   const uniqueBatches = Array.from(new Set((batches || []).map((batch) => batch.name))).filter(Boolean);
   const [dateDrafts, setDateDrafts] = React.useState({});
   const datePickerRefs = React.useRef({});
+  const [locationOptions, setLocationOptions] = React.useState(null);
+  const [locationLoadError, setLocationLoadError] = React.useState('');
+
+  React.useEffect(() => {
+    let active = true;
+    import('../../../utils/philippineLocations')
+      .then((locations) => {
+        if (active) setLocationOptions(locations);
+      })
+      .catch((error) => {
+        console.error('Failed to load child birth place options:', error);
+        if (active) setLocationLoadError('Unable to load province and city options. Please refresh and try again.');
+      });
+    return () => { active = false; };
+  }, []);
 
   const getDateDisplayValue = (name, value) => dateDrafts[name] ?? (slashDateInput ? maskDateInput(value) : formatDateForInput(value));
 
@@ -73,7 +87,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
     }
   };
 
-  const renderField = ({ id, label, name, type = 'text', placeholder = '', required = false, min, minDate, maxValue, step, nativeDate = false, maxDate, disabled = false, onChange }) => {
+  const renderField = ({ id, label, name, type = 'text', placeholder = '', required = false, min, minDate, maxValue, step, nativeDate = false, maxDate, disabled = false, onChange, className = '' }) => {
     const value = form[name] ?? '';
     const isDate = type === 'date';
     const validationError = validationErrors[name];
@@ -82,7 +96,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
 
     if (readOnly) {
       return (
-        <div className="form-group">
+        <div className={`form-group ${className}`}>
           <label className="form-label">{label}</label>
           <div className="form-readonly-value">{isDate ? formatDateForDisplay(value) : value === '' || value === null || value === undefined ? '-' : value}</div>
         </div>
@@ -92,7 +106,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
     const isNativeDate = nativeDate || (isDate && !slashDateInput);
 
     return (
-      <div className="form-group">
+      <div className={`form-group ${className}`}>
         <label className="form-label" htmlFor={id}>{label}{required && <span className="form-required-indicator" aria-hidden="true">*</span>}</label>
         <div className={isNativeDate ? 'date-input-container' : undefined}>
           <input
@@ -188,11 +202,12 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
             />
           </>
         )}
+        {validationError && showRequiredValidation && <small className="field-validation-error" role="alert">{validationError}</small>}
       </div>
     );
   };
 
-  const renderSelect = ({ id, label, name, options = [], placeholder = '' }) => {
+  const renderSelect = ({ id, label, name, options = [], placeholder = '', disabled = false, onChange, className = '' }) => {
     const value = form[name] ?? '';
 
     if (readOnly) {
@@ -202,22 +217,25 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
         : value || '-';
 
       return (
-        <div className="form-group">
+        <div className={`form-group ${className}`}>
           <label className="form-label">{label}</label>
           <div className="form-readonly-value">{displayValue}          </div>
-          {validationError && showRequiredValidation && <small className="field-validation-error" role="alert">{validationError}</small>}
         </div>
       );
     };
 
     return (
-      <div className="form-group">
+      <div className={`form-group ${className}`}>
         <label className="form-label" htmlFor={id}>{label}</label>
         <select
           id={id}
           className="form-select"
           value={value}
-          onChange={(e) => setForm((prev) => ({ ...prev, [name]: e.target.value }))}
+          disabled={disabled}
+          onChange={(e) => {
+            if (onChange) onChange(e.target.value);
+            else setForm((prev) => ({ ...prev, [name]: e.target.value }));
+          }}
         >
           {placeholder && <option value="">{placeholder}</option>}
           {options.map((option) => {
@@ -274,22 +292,13 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
           {renderField({ id: 'child-suffix', label: 'Suffix', name: 'suffix', placeholder: 'Suffix' })}
         </div>
 
-        <div className="form-row-4 full-width">
-          {renderField({
-            id: 'child-birth-date',
-            label: 'Birth Date',
-            name: 'birthDate',
-            type: 'date',
-            required: true,
-            maxDate: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`,
-          })}
-          {renderSelect({
-            id: 'child-gender',
-            label: 'Sex',
-            name: 'gender',
-            options: [{ value: 'Male', label: 'Male' }, { value: 'Female', label: 'Female' }, { value: 'Other', label: 'Other' }],
-          })}
-        </div>
+        {renderSelect({
+          id: 'child-gender',
+          label: 'Sex',
+          name: 'gender',
+          options: [{ value: 'Male', label: 'Male' }, { value: 'Female', label: 'Female' }, { value: 'Other', label: 'Other' }],
+          className: 'narrow-field',
+        })}
         {readOnly && (
           <div className="form-group full-width">
             <label className="form-label">Mother</label>
@@ -329,77 +338,115 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
   }
 
   if (activeTab === 'prenatal') {
-    const weightForHeightStatus = calculateWhoGrowthScores({
-      weight: form.birthWeight,
-      lengthHeight: form.birthLength,
-      sex: form.gender,
-      birthDate: form.birthDate,
-      measurementDate: form.birthDate,
-    }).weightForLengthInterpretation || 'Enter birth date, sex, weight, and length';
-
     return (
       <div className="create-mother-general child-form-layout">
         <section className="create-mother-category">
-        <h4 className="form-section-title">Prenatal / OB</h4>
-
-        <div className="form-row-4 full-width">
-          {renderField({ id: 'child-birth-weight', label: 'Birth Weight (kg)', name: 'birthWeight', type: 'number', min: 0.3, maxValue: 10, step: 0.01, placeholder: 'e.g. 3.2' })}
-          {renderField({ id: 'child-birth-length', label: 'Birth Length (cm)', name: 'birthLength', type: 'number', min: 20, maxValue: 80, step: 0.1, placeholder: 'e.g. 49' })}
-          {renderField({ id: 'child-head-circumference', label: 'Head Circumference (cm)', name: 'headCircumference', type: 'number', min: 15, maxValue: 60, step: 0.1, placeholder: 'e.g. 34' })}
-          {renderField({ id: 'child-chest-circumference', label: 'Chest Circumference (cm)', name: 'chestCircumference', type: 'number', min: 15, maxValue: 60, step: 0.1, placeholder: 'e.g. 32' })}
-        </div>
-        <div className="form-row-4 full-width">
-          {renderField({ id: 'child-birth-place', label: 'Place of Birth', name: 'birthPlace', placeholder: 'City / Municipality' })}
-          {renderSelect({
-            id: 'child-blood-type',
-            label: 'Blood Type',
-            name: 'bloodType',
-            options: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'],
-            placeholder: 'Select blood type',
-          })}
-          {renderField({ id: 'child-children-delivered', label: 'No. of Child Delivered', name: 'noOfChildDelivered', type: 'number', min: 1, maxValue: 20, step: 1, placeholder: 'e.g. 1' })}
-        </div>
-
-        <div className="form-row-4 full-width">
-          {renderSelect({
-            id: 'child-multiple-birth-type',
-            label: 'Multiple Birth Type',
-            name: 'multipleBirthType',
-            options: [{ value: '', label: 'None' }, { value: 'Twin', label: 'Twin' }, { value: 'Triplet', label: 'Triplet' }],
-          })}
-          {renderSelect({
-            id: 'child-delivery-type',
-            label: 'Delivery Type',
-            name: 'deliveryType',
-            options: [{ value: 'Vaginal', label: 'Vaginal' }, { value: 'Cesarean', label: 'Cesarean' }],
-          })}
-          {renderSelect({
-            id: 'child-expanded-newborn-screening',
-            label: 'Expanded Newborn Screening',
-            name: 'expandedNewbornScreening',
-            options: ['Negative', 'Potentially Positive', 'Inconclusive', 'Not Screened'],
-            placeholder: 'Select result',
-          })}
-          {renderSelect({
-            id: 'child-exclusive-breastfeeding',
-            label: 'Exclusive Breastfeeding',
-            name: 'exclusiveBreastfeeding',
-            options: ['Yes', 'No'],
-            placeholder: 'Select answer',
-          })}
-        </div>
-
-        <div className="form-row-4 full-width">
-          {renderField({ id: 'child-birth-attendant', label: 'Birth Attendant', name: 'birthAttendant', placeholder: 'Midwife / Doctor' })}
-          {renderField({ id: 'child-apgar', label: 'Apgar Score', name: 'apgarScore', placeholder: 'e.g. 8/10' })}
-          {renderField({ id: 'child-newborn-screening-result', label: 'Newborn Screening Notes / Result', name: 'expandedNewbornScreeningResult', placeholder: 'Enter result details' })}
-          <div className="form-group">
-            <label className="form-label" htmlFor="child-weight-for-height-status">Weight-for-Height Status (WHO)</label>
-            <div id="child-weight-for-height-status" className="form-readonly-value">{weightForHeightStatus}</div>
+          <h4 className="form-section-title">Birth &amp; Newborn Details</h4>
+          <div className="child-form-subsection">
+            <h5 className="child-form-subsection-title">Birth Date &amp; Location</h5>
+            <div className="form-row-3 full-width">
+              {renderField({
+                id: 'child-birth-date',
+                label: 'Birth Date',
+                name: 'birthDate',
+                type: 'date',
+                required: true,
+                maxDate: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`,
+              })}
+              {renderSelect({
+                id: 'child-birth-province',
+                label: 'Birth Province',
+                name: 'birthPlaceProvince',
+                options: locationOptions?.PHILIPPINE_PROVINCES || [],
+                placeholder: locationLoadError ? 'Province options unavailable' : locationOptions ? 'Select province' : 'Loading provinces…',
+                disabled: !locationOptions || Boolean(locationLoadError),
+                onChange: (province) => setForm((prev) => ({
+                  ...prev,
+                  birthPlaceProvince: province,
+                  birthPlaceCity: '',
+                })),
+              })}
+              {renderSelect({
+                id: 'child-birth-city',
+                label: 'Birth City / Municipality',
+                name: 'birthPlaceCity',
+                options: (() => {
+                  const province = form.birthPlaceProvince;
+                  const cities = province ? locationOptions?.getPhilippineCities(province) || [] : [];
+                  return form.birthPlaceCity && !cities.includes(form.birthPlaceCity)
+                    ? [form.birthPlaceCity, ...cities]
+                    : cities;
+                })(),
+                placeholder: form.birthPlaceProvince
+                  ? 'Select city / municipality'
+                  : 'Select province first',
+                disabled: !form.birthPlaceProvince || !locationOptions || Boolean(locationLoadError),
+              })}
+            </div>
+            {locationLoadError && !readOnly && <small className="field-validation-error" role="alert">{locationLoadError}</small>}
           </div>
-        </div>
+          <div className="child-form-subsection">
+            <h5 className="child-form-subsection-title">Birth Measurements</h5>
+            <div className="form-row-4 full-width">
+              {renderField({ id: 'child-birth-weight', label: 'Birth Weight (kg)', name: 'birthWeight', type: 'number', min: 0.3, maxValue: 10, step: 0.01, placeholder: 'e.g. 3.2' })}
+              {renderField({ id: 'child-birth-length', label: 'Birth Length (cm)', name: 'birthLength', type: 'number', min: 20, maxValue: 80, step: 0.1, placeholder: 'e.g. 49' })}
+              {renderField({ id: 'child-head-circumference', label: 'Head Circumference (cm)', name: 'headCircumference', type: 'number', min: 15, maxValue: 60, step: 0.1, placeholder: 'e.g. 34' })}
+              {renderField({ id: 'child-chest-circumference', label: 'Chest Circumference (cm)', name: 'chestCircumference', type: 'number', min: 15, maxValue: 60, step: 0.1, placeholder: 'e.g. 32' })}
+            </div>
+          </div>
 
-        {renderTextarea({ id: 'child-nutrition-notes', label: 'Nutritional Notes', name: 'nutritionNotes', rows: 3, placeholder: 'Nutrition or feeding notes...' })}
+          <div className="child-form-subsection">
+            <h5 className="child-form-subsection-title">Delivery Details</h5>
+            <div className="form-row-4 full-width child-birth-place-row">
+              {renderField({ id: 'child-birth-attendant', label: 'Birth Attendant', name: 'birthAttendant', placeholder: 'Midwife / Doctor' })}
+              {renderSelect({
+                id: 'child-delivery-type',
+                label: 'Delivery Type',
+                name: 'deliveryType',
+                options: [{ value: 'Vaginal', label: 'Vaginal' }, { value: 'Cesarean', label: 'Cesarean' }],
+              })}
+            </div>
+            <div className="form-row-2 full-width">
+              {renderField({ id: 'child-children-delivered', label: 'No. of Child Delivered', name: 'noOfChildDelivered', type: 'number', min: 1, maxValue: 20, step: 1, placeholder: 'e.g. 1' })}
+              {renderSelect({
+                id: 'child-multiple-birth-type',
+                label: 'Multiple Birth Type',
+                name: 'multipleBirthType',
+                options: [{ value: '', label: 'None' }, { value: 'Twin', label: 'Twin' }, { value: 'Triplet', label: 'Triplet' }],
+              })}
+            </div>
+          </div>
+
+          <div className="child-form-subsection">
+            <h5 className="child-form-subsection-title">Newborn Health &amp; Screening</h5>
+            <div className="form-row-3 full-width">
+              {renderSelect({
+                id: 'child-blood-type',
+                label: 'Blood Type',
+                name: 'bloodType',
+                options: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'],
+                placeholder: 'Select blood type',
+              })}
+              {renderField({ id: 'child-apgar', label: 'Apgar Score', name: 'apgarScore', placeholder: 'e.g. 8/10' })}
+              {renderSelect({
+                id: 'child-exclusive-breastfeeding',
+                label: 'Exclusive Breastfeeding',
+                name: 'exclusiveBreastfeeding',
+                options: ['Yes', 'No'],
+                placeholder: 'Select answer',
+              })}
+            </div>
+            <div className="form-row-2 full-width">
+              {renderSelect({
+                id: 'child-expanded-newborn-screening',
+                label: 'Expanded Newborn Screening',
+                name: 'expandedNewbornScreening',
+                options: ['Negative', 'Potentially Positive', 'Inconclusive', 'Not Screened'],
+                placeholder: 'Select result',
+              })}
+              {renderField({ id: 'child-newborn-screening-result', label: 'Newborn Screening Notes / Result', name: 'expandedNewbornScreeningResult', placeholder: 'Enter result details', className: 'full-width newborn-screening-notes-field' })}
+            </div>
+          </div>
         </section>
       </div>
     );

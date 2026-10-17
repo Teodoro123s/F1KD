@@ -10,6 +10,7 @@ import { apiGetChildren } from '../../api/children';
 import { apiGetMothers } from '../../api/mothers';
 import { formatDateForDisplay } from '../../utils/dateFormat';
 import { canViewAuditSignatures } from '../../utils/permissions';
+import { navigateBack } from '../../utils/navigation';
 
 const localDate = () => {
   const date = new Date();
@@ -43,6 +44,9 @@ export default function ReceiptHistoryPage() {
   const showAuditSignatures = canViewAuditSignatures(currentUser?.role);
   const showGroupColumn = isClusterHistory && clusterType !== 'batch';
   const beneficiaryName = location.state?.beneficiaryName || location.state?.clusterName || clusterName || 'Beneficiary';
+  const fallbackReturnTo = isClusterHistory
+    ? `/program/${programId}/cluster/${encodeURIComponent(clusterType)}/${encodeURIComponent(clusterName)}`
+    : `/program/${programId}`;
   const [reportRows, setReportRows] = useState([]);
   const [clusterRecipients, setClusterRecipients] = useState([]);
   const [selectedRecipientKeys, setSelectedRecipientKeys] = useState([]);
@@ -225,7 +229,7 @@ export default function ReceiptHistoryPage() {
             <p className="program-section-eyebrow">Receipt history</p>
             <h2 id="receipt-history-title">{beneficiaryName}</h2>
           </div>
-          <button type="button" className="view-btn view-btn--secondary back-action" onClick={() => navigate(-1)}>Back to program</button>
+          <button type="button" className="view-btn view-btn--secondary back-action" onClick={() => navigateBack(navigate, location, fallbackReturnTo)}>Back to program</button>
         </div>
         {!loading && <div className="program-receipt-controls">
           <div className="program-receipt-controls-actions"><button type="button" className="view-btn view-btn--primary" onClick={() => openReceiptModal()} disabled={isClusterHistory && recipientsLoading}>Record receipt</button><div className="program-view-toggle" role="tablist" aria-label="Receipt history view"><button type="button" className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>List View</button><button type="button" className={view === 'calendar' ? 'active' : ''} onClick={() => setView('calendar')}>Calendar View</button></div></div>

@@ -13,6 +13,11 @@ test('requires a valid non-future birth date', () => {
 
 test('validates optional measurements and Apgar score without requiring them', () => {
   assert.deepEqual(getChildRecordErrors({ birthDate: '2026-10-17' }, today), {});
+  assert.deepEqual(getChildRecordErrors({
+    birthDate: '2026-10-17',
+    noOfChildDelivered: '1',
+  }, today), {});
+
   const errors = getChildRecordErrors({
     birthDate: '2026-10-17',
     birthWeight: '-2',
@@ -24,6 +29,10 @@ test('validates optional measurements and Apgar score without requiring them', (
   assert.match(errors.birthLength, /Birth length/);
   assert.match(errors.noOfChildDelivered, /Number of children/);
   assert.match(errors.apgarScore, /Apgar score/);
+  assert.match(getChildRecordErrors({
+    birthDate: '2026-10-17',
+    noOfChildDelivered: '0',
+  }, today).noOfChildDelivered, /Number of children/);
 });
 
 test('validates vaccine sequence, chronology, birth date, and future dates', () => {

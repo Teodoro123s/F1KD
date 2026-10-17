@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import CommunityTable from './CommunityTable';
 import CommunityModalManager from './CommunityModalManager';
 import CommunityToolbar from './components/CommunityToolbar';
@@ -28,6 +28,7 @@ const truncateLabel = (label, maxLength = 26) => {
 export default function CommunityPage() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { schoolId, groupId, batchId } = useParams();
   const isSuperAdmin = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]);
   const isCommunityOrganizer = isCommunityCoordinatorRole(currentUser?.role);
@@ -679,7 +680,9 @@ export default function CommunityPage() {
   };
 
   const handleMotherRowClick = (mother) => {
-    navigate(`/beneficiary/mother/${mother.id}`, { state: { mother } });
+    navigate(`/beneficiary/mother/${mother.id}`, {
+      state: { mother, returnTo: `${location.pathname}${location.search}` },
+    });
   };
 
   const handleChildRowClick = (child) => {
@@ -687,6 +690,7 @@ export default function CommunityPage() {
       state: {
         child: child.raw || child,
         mother: child.raw?.mother || child.mother || null,
+        returnTo: `${location.pathname}${location.search}`,
       },
     });
   };
