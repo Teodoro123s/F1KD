@@ -27,13 +27,17 @@ const { authorizeOperational, authorizeProgressReport } = require('../middleware
 const progressReportRouter = require('../routes/progressReport');
 const {
   ProgressReportAIError,
+  createAdminAssistantIntent,
+  createDashboardInsight,
   createEntryAssistance,
   createMonitoringReportIntent,
   createReportProposal,
   createReportSummary,
   getAIConfiguration,
   normalizeReportSummary,
+  normalizeDashboardMetrics,
   validateMonitoringReportIntent,
+  validateAdminAssistantIntent,
   validateReportProposal,
 } = require('../utils/progressReportAI');
 
@@ -42,12 +46,94 @@ const modelEnvironment = {
   PROGRESS_REPORT_AI_MODEL: 'test-model',
 };
 
+test('read-only admin assistant validates intent and sends no loaded records to the model', async () => {
+  const prompt = 'Summarize active Community Organizers by status';
+  let modelRequest;
+  const intent = await createAdminAssistantIntent(prompt, 'users', {
+    env: modelEnvironment,
+    fetchImpl: async (url, options) => {
+      modelRequest = JSON.parse(options.body);
+      return new Response(JSON.stringify({
+        choices: [{
+          message: {
+            content: JSON.stringify({
+              mode: 'summary',
+              searchText: '',
+              role: 'Community Organizer',
+              status: 'Active',
+              entityType: 'All',
+              groupBy: 'status',
+              guidance: '',
+            }),
+          },
+        }],
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    },
+  });
+  assert.deepEqual(intent, {
+    audience: 'users',
+    mode: 'summary',
+    searchText: '',
+    role: 'Community Organizer',
+    status: 'Active',
+    entityType: 'All',
+    groupBy: 'status',
+    guidance: '',
+  });
+  assert.equal(modelRequest.messages[1].content, prompt);
+  assert.doesNotMatch(JSON.stringify(modelRequest.messages), /private account|record id|loaded community/);
+  assert.throws(() => validateAdminAssistantIntent({
+    mode: 'lookup',
+    searchText: '',
+    role: 'Super Admin',
+    status: 'All',
+    entityType: 'All',
+    groupBy: 'none',
+  }, 'users'), /unsupported admin assistant request/);
+  assert.throws(() => validateAdminAssistantIntent({
+    mode: 'setup',
+    searchText: '',
+    role: 'All',
+    status: 'All',
+    entityType: 'All',
+    groupBy: 'none',
+  }, 'users'), /unsupported admin assistant request/);
+  await assert.rejects(createAdminAssistantIntent('x'.repeat(501), 'community', { env: modelEnvironment }), /between 3 and 500 characters/);
+});
+
 test('AI configuration is unavailable until a private model endpoint and model are configured', () => {
   assert.equal(getAIConfiguration({}), null);
   assert.throws(
     () => getAIConfiguration({ ...modelEnvironment, PROGRESS_REPORT_AI_BASE_URL: 'https://user:pass@example.com/v1' }),
     ProgressReportAIError,
   );
+});
+
+test('dashboard AI receives only validated aggregate metrics and returns a concise insight', async () => {
+  let request;
+  const insight = await createDashboardInsight({
+    motherCount: 12,
+    childCount: 8,
+    followUpCount: 3,
+  }, 'What should I review?', {
+    env: modelEnvironment,
+    fetchImpl: async (url, options) => {
+      request = JSON.parse(options.body);
+      return new Response(JSON.stringify({
+        choices: [{ message: { content: 'There are 20 beneficiaries and 3 follow-ups to review.' } }],
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    },
+  });
+
+  assert.equal(insight, 'There are 20 beneficiaries and 3 follow-ups to review.');
+  assert.deepEqual(JSON.parse(request.messages[1].content), {
+    question: 'What should I review?',
+    metrics: { motherCount: 12, childCount: 8, followUpCount: 3 },
+  });
+  assert.doesNotMatch(JSON.stringify(request.messages), /Jane Doe|beneficiary ID|birth date/i);
+  assert.throws(() => normalizeDashboardMetrics({ mothers: 3 }), /supported non-negative aggregate counts/);
+  assert.throws(() => normalizeDashboardMetrics({ motherCount: -1 }), /supported non-negative aggregate counts/);
+  await assert.rejects(createDashboardInsight({ motherCount: 1 }, 'x'.repeat(501), { env: modelEnvironment }), /no longer than 500 characters/);
 });
 
 test('report proposals accept only known report types and fields for the selected beneficiary type', async () => {
@@ -383,6 +469,16 @@ test('progress report AI endpoints require auth and do not pass user scope to th
           latestCheckupOnly: false,
           explanation: 'Shows recorded check-up details.',
         })
+        : firstMessage.includes('Turn the request into a read-only intent')
+          ? JSON.stringify({
+            mode: firstMessage.includes('Audience: users') ? 'lookup' : 'setup',
+            searchText: firstMessage.includes('Audience: users') ? 'Community Organizer' : '',
+            role: firstMessage.includes('Audience: users') ? 'Community Organizer' : 'All',
+            status: 'All',
+            entityType: firstMessage.includes('Audience: users') ? 'All' : 'Group',
+            groupBy: 'none',
+            guidance: firstMessage.includes('Audience: users') ? '' : 'Set a clear name, assign the correct community, and review access.',
+          })
         : firstMessage.includes('Translate the user request into a report configuration')
           ? JSON.stringify({ reportCategory: 'monitor', beneficiaryType: 'child', metricIds: ['weightForAgeInterpretation'] })
           : firstMessage.includes('Help edit a draft for the')
@@ -433,6 +529,20 @@ test('progress report AI endpoints require auth and do not pass user scope to th
     body: JSON.stringify({ fieldId: 'nutritionNotes', draft: 'Draft.' }),
   });
   assert.equal(unauthenticatedEntryAssist.status, 401);
+  assert.equal(requests.length, 0);
+  const unauthenticatedAdminAssistant = await requestToApp(`${baseUrl}/admin-assistant`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ audience: 'users', prompt: 'Find active organizers.' }),
+  });
+  assert.equal(unauthenticatedAdminAssistant.status, 401);
+  assert.equal(requests.length, 0);
+  const unauthenticatedDashboardInsight = await requestToApp(`${baseUrl}/dashboard-insight`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ metrics: { motherCount: 12 } }),
+  });
+  assert.equal(unauthenticatedDashboardInsight.status, 401);
   assert.equal(requests.length, 0);
 
   const proposalResponse = await requestToApp(`${baseUrl}/proposal`, {
@@ -489,4 +599,54 @@ test('progress report AI endpoints require auth and do not pass user scope to th
     explanation: 'Shows recorded check-up details.',
   });
   assert.doesNotMatch(JSON.stringify(requests[3].body), /Jane Doe|checkups|123|456/);
+
+  const userAdminToken = jwt.sign({ id: 18, role: 'Super Admin' }, process.env.JWT_SECRET);
+  const userAssistantResponse = await requestToApp(`${baseUrl}/admin-assistant`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${userAdminToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ audience: 'users', prompt: 'Find Community Organizers.' }),
+  });
+  assert.equal(userAssistantResponse.status, 200);
+  assert.equal((await userAssistantResponse.json()).role, 'Community Organizer');
+  assert.equal(requests[4].body.messages[1].content, 'Find Community Organizers.');
+  assert.doesNotMatch(JSON.stringify(requests[4].body), /account record id|loaded community data|Private Name/);
+
+  const organizerToken = jwt.sign({ id: 19, role: 'Community Organizer', school_id: 123 }, process.env.JWT_SECRET);
+  const communityAssistantResponse = await requestToApp(`${baseUrl}/admin-assistant`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${organizerToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ audience: 'community', prompt: 'How should I set up a new group?' }),
+  });
+  assert.equal(communityAssistantResponse.status, 200);
+  assert.equal((await communityAssistantResponse.json()).mode, 'setup');
+
+  const dashboardInsightResponse = await requestToApp(`${baseUrl}/dashboard-insight`, {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      metrics: { motherCount: 12, childCount: 8, followUpCount: 3 },
+      question: 'What should I review?',
+      records: [{ name: 'Jane Doe', id: 12 }],
+    }),
+  });
+  const dashboardInsightBody = await dashboardInsightResponse.json();
+  assert.equal(dashboardInsightResponse.status, 200, JSON.stringify(dashboardInsightBody));
+  assert.deepEqual(dashboardInsightBody, { insight: 'Summary of aggregate figures.' });
+  assert.doesNotMatch(JSON.stringify(requests[6].body), /Jane Doe|records|123|456/);
+
+  const blockedAudienceResponse = await requestToApp(`${baseUrl}/admin-assistant`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${organizerToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ audience: 'users', prompt: 'Find Community Organizers.' }),
+  });
+  assert.equal(blockedAudienceResponse.status, 403);
+  assert.equal(requests.length, 7);
+
+  const blockedRoleResponse = await requestToApp(`${baseUrl}/admin-assistant`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ audience: 'users', prompt: 'Find Community Organizers.' }),
+  });
+  assert.equal(blockedRoleResponse.status, 403);
+  assert.equal(requests.length, 7);
 });

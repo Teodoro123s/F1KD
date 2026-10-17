@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import UserManagementTable from './UserManagementTable';
 import { PlusIcon } from './UserManagementIcons';
@@ -12,12 +12,14 @@ import ConfirmModal from './ConfirmModal';
 import NotificationBanner from './NotificationBanner';
 import PageHeader from '../../components/ui/PageHeader';
 import ModuleSummaryCards from '../../components/ui/ModuleSummaryCards';
+import ReadOnlyAdminAssistant from '../../components/ReadOnlyAdminAssistant';
 
 export default function UserManagementPage() {
   const { schoolId, batchId } = useParams();
   const location = useLocation();
   const auth = useAuth();
   const organizerHealthWorkerScope = hasRole(auth?.currentUser?.role, [ROLES.COMMUNITY_COORDINATOR]);
+  const isSuperAdmin = hasRole(auth?.currentUser?.role, [ROLES.SUPER_ADMIN]);
   const organizerSchoolId = auth?.currentUser?.school_id ?? auth?.currentUser?.schoolId ?? '';
   const {
     form,
@@ -98,6 +100,19 @@ export default function UserManagementPage() {
     active: countedUsers.filter((user) => user.status === 'Active').length,
     suspended: countedUsers.filter((user) => user.status === 'Suspended').length,
   };
+  const assistantRecords = useMemo(() => countedUsers.map((user) => {
+    const community = communities.find((item) => String(item.id) === String(user.schoolId))?.name || '';
+    const group = groups.find((item) => String(item.id) === String(user.groupId))?.name || '';
+    return {
+      id: user.id,
+      name: user.name,
+      role: user.role,
+      status: user.status,
+      community,
+      group,
+      entityType: 'Account',
+    };
+  }), [countedUsers, communities, groups]);
 
   useEffect(() => {
     if (!copyNotice) return undefined;
@@ -142,6 +157,10 @@ export default function UserManagementPage() {
           { key: 'suspended', label: 'Suspended Accounts', value: userStatusCounts.suspended, description: 'View list' },
         ]}
       />
+
+      {isSuperAdmin && !organizerHealthWorkerScope && !schoolId && !batchId && (
+        <ReadOnlyAdminAssistant audience="users" records={assistantRecords} />
+      )}
 
       <AddUserModal
         showModal={showAddModal}

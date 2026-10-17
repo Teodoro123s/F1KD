@@ -1,8 +1,11 @@
 const express = require('express');
 const pool = require('../db');
 const { getWhoGrowthStandards } = require('../services/whoGrowthStandards');
+const { normalizeRole } = require('../middleware/authorize');
 const {
   ProgressReportAIError,
+  createAdminAssistantIntent,
+  createDashboardInsight,
   createEntryAssistance,
   createMonitoringReportIntent,
   createReportProposal,
@@ -127,6 +130,22 @@ router.post('/ai/monitoring-report', async (req, res) => {
   }
 });
 
+router.post('/ai/admin-assistant', async (req, res) => {
+  const audience = req.body?.audience;
+  const userRole = normalizeRole(req.user?.role);
+  if ((audience === 'users' && userRole !== 'super_admin') || (audience === 'community' && userRole !== 'community_coordinator')) {
+    return res.status(403).json({ error: 'You do not have permission to use this assistant.' });
+  }
+  try {
+    const intent = await createAdminAssistantIntent(req.body?.prompt, audience);
+    res.json(intent);
+  } catch (error) {
+    const status = error instanceof ProgressReportAIError ? error.status : 502;
+    console.error('[Progress Report AI] admin assistant error:', error.message);
+    res.status(status).json({ error: error.message || 'Unable to prepare an admin assistant request.' });
+  }
+});
+
 router.post('/ai/entry-assist', async (req, res) => {
   try {
     const draft = await createEntryAssistance(req.body?.fieldId, req.body?.draft);
@@ -151,6 +170,17 @@ router.post('/ai/summary', async (req, res) => {
     const status = error instanceof ProgressReportAIError ? error.status : 502;
     console.error('[Progress Report AI] summary error:', error.message);
     res.status(status).json({ error: error.message || 'Unable to summarize this report.' });
+  }
+});
+
+router.post('/ai/dashboard-insight', async (req, res) => {
+  try {
+    const insight = await createDashboardInsight(req.body?.metrics, req.body?.question);
+    res.json({ insight });
+  } catch (error) {
+    const status = error instanceof ProgressReportAIError ? error.status : 502;
+    console.error('[Dashboard AI] insight error:', error.message);
+    res.status(status).json({ error: error.message || 'Unable to prepare a dashboard insight.' });
   }
 });
 

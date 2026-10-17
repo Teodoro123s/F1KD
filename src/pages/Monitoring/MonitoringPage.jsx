@@ -144,13 +144,14 @@ export default function MonitoringPage() {
   const [editingCheckup, setEditingCheckup] = useState(false);
   const [statusFilter, setStatusFilter] = useState('All');
   const [monthlyCheckupFilter, setMonthlyCheckupFilter] = useState('All');
-  const [reportBeneficiaryType, setReportBeneficiaryType] = useState('Current');
+  const [reportBeneficiaryType, setReportBeneficiaryType] = useState(() => (location.state?.child ? 'Child' : 'Mother'));
   const [reportBeneficiaryId, setReportBeneficiaryId] = useState('');
   const [monitoringReportPrompt, setMonitoringReportPrompt] = useState('');
   const [monitoringReportLoading, setMonitoringReportLoading] = useState(false);
   const [monitoringReportError, setMonitoringReportError] = useState('');
   const [monitoringReportResult, setMonitoringReportResult] = useState(null);
   const [selectedMonitoringCard, setSelectedMonitoringCard] = useState(null);
+  const [isMonitoringReportExpanded, setIsMonitoringReportExpanded] = useState(true);
   const [perPage, setPerPage] = useState(10);
   const [page, setPage] = useState(1);
   const assignedGroupId = currentUser?.group_id ?? currentUser?.groupId;
@@ -295,7 +296,7 @@ export default function MonitoringPage() {
 
   const clearSearch = () => { setQuery(''); setPage(1); };
 
-  const effectiveReportBeneficiaryType = reportBeneficiaryType === 'Current' ? beneficiaryType : reportBeneficiaryType;
+  const effectiveReportBeneficiaryType = reportBeneficiaryType;
   const reportBeneficiaries = effectiveReportBeneficiaryType === 'Mother' ? scopedMothers : scopedChildren;
   const reportRecordsUnavailable = effectiveReportBeneficiaryType === 'Child' && Boolean(childrenLoadError);
   const previousReportBeneficiaryType = React.useRef(effectiveReportBeneficiaryType);
@@ -457,6 +458,7 @@ export default function MonitoringPage() {
             toggleOnSelect
             onSelect={(key) => {
               setSelectedMonitoringCard(key);
+              setIsMonitoringReportExpanded(!key);
               if (key) setStatusFilter(key);
               setPage(1);
             }}
@@ -468,8 +470,22 @@ export default function MonitoringPage() {
             ]}
           />
           <div className="monitoring-ai-report-panel">
-            <form className="monitoring-ai-report-card" onSubmit={handleMonitoringReport}>
-              <h2>Build a check-up report with AI</h2>
+            <form className={`monitoring-ai-report-card${isMonitoringReportExpanded ? '' : ' is-collapsed'}`} onSubmit={handleMonitoringReport}>
+              <div className="monitoring-ai-report-card-heading">
+                <h2>Build a check-up report with AI</h2>
+                {selectedMonitoringCard && (
+                  <button
+                    type="button"
+                    className="monitoring-ai-report-toggle"
+                    aria-expanded={isMonitoringReportExpanded}
+                    aria-controls="monitoring-ai-report-options"
+                    onClick={() => setIsMonitoringReportExpanded((expanded) => !expanded)}
+                  >
+                    {isMonitoringReportExpanded ? 'Hide report options' : 'Show report options'}
+                  </button>
+                )}
+              </div>
+              <div id="monitoring-ai-report-options" className="monitoring-ai-report-options" hidden={!isMonitoringReportExpanded}>
               <label htmlFor="monitoring-report-type">Beneficiary type</label>
               <select
                 id="monitoring-report-type"
@@ -480,7 +496,6 @@ export default function MonitoringPage() {
                   setMonitoringReportResult(null);
                 }}
               >
-                <option value="Current">Use active filter ({beneficiaryType})</option>
                 <option value="Mother">Mother</option>
                 <option value="Child">Child</option>
               </select>
@@ -504,7 +519,7 @@ export default function MonitoringPage() {
                 })}
               </select>
               <label htmlFor="monitoring-report-prompt">Which check-up details should the report show?</label>
-              <div className="monitoring-filter-row">
+              <div className="monitoring-ai-report-prompt-row">
                 <input
                   id="monitoring-report-prompt"
                   type="text"
@@ -564,6 +579,7 @@ export default function MonitoringPage() {
                   <p className="monitoring-ai-report-note">This report shows recorded data only. It is not a diagnosis or clinical recommendation.</p>
                 </section>
               )}
+              </div>
             </form>
           </div>
           {selectedMonitoringCard && (

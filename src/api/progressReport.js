@@ -31,6 +31,10 @@ export const apiCreateMonitoringReportIntent = (prompt, beneficiaryType) => requ
   method: 'POST',
   body: JSON.stringify({ prompt, beneficiaryType }),
 });
+export const apiCreateAdminAssistantIntent = (audience, prompt) => requestJson(`${API_BASE}/api/progress-report/ai/admin-assistant`, {
+  method: 'POST',
+  body: JSON.stringify({ audience, prompt }),
+});
 export const apiCreateProgressReportAiEntryAssist = (fieldId, draft) => requestJson(`${API_BASE}/api/progress-report/ai/entry-assist`, {
   method: 'POST',
   body: JSON.stringify({ fieldId, draft }),
@@ -38,6 +42,10 @@ export const apiCreateProgressReportAiEntryAssist = (fieldId, draft) => requestJ
 export const apiCreateProgressReportAiSummary = (payload) => requestJson(`${API_BASE}/api/progress-report/ai/summary`, {
   method: 'POST',
   body: JSON.stringify(payload),
+});
+export const apiCreateDashboardInsight = (metrics, question = '') => requestJson(`${API_BASE}/api/progress-report/ai/dashboard-insight`, {
+  method: 'POST',
+  body: JSON.stringify({ metrics, question }),
 });
 export const apiGetProgressReport = (params) => {
   const query = new URLSearchParams(Object.entries(params).filter(([, value]) => value !== '' && value !== null && value !== undefined));

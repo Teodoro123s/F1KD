@@ -75,6 +75,91 @@ test('authorizeProgressReport permits super admins to use the read-only monitori
   assert.equal(res.code, 403);
 });
 
+test('authorizeProgressReport permits Super Admin and Community Organizer only on the admin assistant endpoint', () => {
+  for (const role of ['Super Admin', 'Community Organizer']) {
+    let called = false;
+    authorizeProgressReport({
+      method: 'POST',
+      path: '/ai/admin-assistant',
+      user: { role },
+    }, {}, () => { called = true; });
+    assert.equal(called, true);
+  }
+
+  let called = false;
+  const res = {
+    status(code) { this.code = code; return this; },
+    json(payload) { this.payload = payload; return this; },
+  };
+  authorizeProgressReport({
+    method: 'POST',
+    path: '/ai/admin-assistant',
+    user: { role: 'Health worker' },
+  }, res, () => { called = true; });
+  assert.equal(called, false);
+  assert.equal(res.code, 403);
+});
+
+test('authorizeProgressReport permits dashboard insights and AI availability for operational roles', () => {
+  for (const role of ['Super Admin', 'Admin', 'Partner', 'Community Organizer', 'Health worker']) {
+    let called = false;
+    authorizeProgressReport({
+      method: 'POST',
+      path: '/ai/dashboard-insight',
+      user: { role },
+    }, {}, () => { called = true; });
+    assert.equal(called, true, `${role} should access aggregate dashboard insights`);
+  }
+
+  let statusCalled = false;
+  authorizeProgressReport({
+    method: 'GET',
+    path: '/ai/status',
+    user: { role: 'Super Admin' },
+  }, {}, () => { statusCalled = true; });
+  assert.equal(statusCalled, true);
+
+  let viewerCalled = false;
+  const res = {
+    status(code) { this.code = code; return this; },
+    json(payload) { this.payload = payload; return this; },
+  };
+  authorizeProgressReport({
+    method: 'POST',
+    path: '/ai/dashboard-insight',
+    user: { role: 'viewer' },
+  }, res, () => { viewerCalled = true; });
+  assert.equal(viewerCalled, false);
+  assert.equal(res.code, 403);
+});
+
+test('authorizeOperational permits read-only dashboard AI requests without granting other writes', () => {
+  for (const role of ['Admin', 'Partner']) {
+    let called = false;
+    authorizeOperational({
+      baseUrl: '/api/progress-report',
+      method: 'POST',
+      path: '/ai/dashboard-insight',
+      user: { role },
+    }, {}, () => { called = true; });
+    assert.equal(called, true, `${role} should be able to request an aggregate AI insight`);
+
+    let writeCalled = false;
+    const res = {
+      status(code) { this.code = code; return this; },
+      json(payload) { this.payload = payload; return this; },
+    };
+    authorizeOperational({
+      baseUrl: '/api/programs',
+      method: 'POST',
+      path: '/',
+      user: { role },
+    }, res, () => { writeCalled = true; });
+    assert.equal(writeCalled, false);
+    assert.equal(res.code, 403);
+  }
+});
+
 test('authorizeOperational gives Admin and Partner global read scope without assignments', () => {
   for (const role of ['Admin', 'Partner']) {
     const req = { method: 'GET', user: { role } };

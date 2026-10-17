@@ -488,6 +488,102 @@ async function createMonitoringReportIntent(prompt, beneficiaryType, options = {
   return validateMonitoringReportIntent(parseModelJson(content), beneficiaryType);
 }
 
+const ADMIN_ASSISTANT_OPTIONS = {
+  users: {
+    mode: ['lookup', 'summary'],
+    role: ['All', 'Admin', 'Partner', 'Community Organizer', 'Health worker'],
+    status: ['All', 'Active', 'Suspended'],
+    entityType: ['All'],
+    groupBy: ['none', 'role', 'status', 'community'],
+  },
+  community: {
+    mode: ['lookup', 'summary', 'setup'],
+    role: ['All'],
+    status: ['All', 'Active', 'Inactive'],
+    entityType: ['All', 'Community', 'Group', 'Batch'],
+    groupBy: ['none', 'entityType', 'status'],
+  },
+};
+
+function validateAdminAssistantIntent(intent, audience) {
+  const catalog = ADMIN_ASSISTANT_OPTIONS[audience];
+  if (
+    !catalog
+    || !catalog.mode.includes(intent?.mode)
+    || !catalog.role.includes(intent?.role)
+    || !catalog.status.includes(intent?.status)
+    || !catalog.entityType.includes(intent?.entityType)
+    || !catalog.groupBy.includes(intent?.groupBy)
+    || typeof intent?.searchText !== 'string'
+    || typeof intent?.guidance !== 'string'
+  ) {
+    throw new ProgressReportAIError('The private AI service returned an unsupported admin assistant request.', 502);
+  }
+  if (audience === 'users' && intent.mode === 'setup') {
+    throw new ProgressReportAIError('User account setup is not available through this read-only assistant.', 502);
+  }
+  return {
+    audience,
+    mode: intent.mode,
+    searchText: String(intent.searchText || '').trim().slice(0, 120),
+    role: intent.role,
+    status: intent.status,
+    entityType: intent.entityType,
+    groupBy: intent.groupBy,
+    guidance: audience === 'community' && intent.mode === 'setup'
+      ? String(intent.guidance || '').trim().slice(0, 1200)
+      : '',
+  };
+}
+
+async function createAdminAssistantIntent(prompt, audience, options = {}) {
+  const normalizedPrompt = String(prompt || '').trim();
+  const catalog = ADMIN_ASSISTANT_OPTIONS[audience];
+  if (!catalog) {
+    throw new ProgressReportAIError('Choose users or community for the admin assistant.', 400);
+  }
+  if (normalizedPrompt.length < 3 || normalizedPrompt.length > 500) {
+    throw new ProgressReportAIError('Enter a request between 3 and 500 characters.', 400);
+  }
+  const content = await requestModel([
+    {
+      role: 'system',
+      content: [
+        'Turn the request into a read-only intent for the application. Return only the required JSON object.',
+        `Audience: ${audience}. Allowed modes: ${catalog.mode.join(', ')}. Allowed roles: ${catalog.role.join(', ')}. Allowed statuses: ${catalog.status.join(', ')}. Allowed entity types: ${catalog.entityType.join(', ')}. Allowed groupings: ${catalog.groupBy.join(', ')}.`,
+        'Use lookup for find, list, or filter requests; summary for counts or overview requests. For community only, use setup for questions asking how to configure a community, group, or batch, and provide a concise generic checklist in guidance.',
+        'Never create, update, suspend, delete, assign, or otherwise change accounts or community records. Never claim to have accessed or searched records. searchText may contain only a user-requested name or non-sensitive community/group/batch label; do not infer identifiers.',
+        'Do not ask for or return passwords, credentials, contact details, birth dates, tokens, record contents, or any personal data. The application applies the intent only to records already loaded within the signed-in user scope.',
+      ].join(' '),
+    },
+    { role: 'user', content: normalizedPrompt },
+  ], {
+    ...options,
+    responseFormat: {
+      type: 'json_schema',
+      json_schema: {
+        name: 'read_only_admin_assistant_intent',
+        strict: true,
+        schema: {
+          type: 'object',
+          properties: {
+            mode: { type: 'string', enum: catalog.mode },
+            searchText: { type: 'string' },
+            role: { type: 'string', enum: catalog.role },
+            status: { type: 'string', enum: catalog.status },
+            entityType: { type: 'string', enum: catalog.entityType },
+            groupBy: { type: 'string', enum: catalog.groupBy },
+            guidance: { type: 'string' },
+          },
+          required: ['mode', 'searchText', 'role', 'status', 'entityType', 'groupBy', 'guidance'],
+          additionalProperties: false,
+        },
+      },
+    },
+  });
+  return validateAdminAssistantIntent(parseModelJson(content), audience);
+}
+
 async function createEntryAssistance(fieldId, draft, options = {}) {
   const normalizedField = String(fieldId || '').trim();
   const normalizedDraft = String(draft || '').trim();
@@ -513,6 +609,68 @@ async function createEntryAssistance(fieldId, draft, options = {}) {
     throw new ProgressReportAIError('The private AI service returned an empty or oversized note draft.');
   }
   return revisedDraft;
+}
+
+const DASHBOARD_METRIC_KEYS = new Set([
+  'motherCount',
+  'childCount',
+  'beneficiaryCount',
+  'followUpCount',
+  'communityCount',
+  'groupCount',
+  'batchCount',
+  'programCount',
+  'activeStaff',
+  'unassignedStaff',
+  'suspendedStaff',
+]);
+
+function normalizeDashboardMetrics(metrics) {
+  if (!metrics || typeof metrics !== 'object' || Array.isArray(metrics)) {
+    throw new ProgressReportAIError('Dashboard metrics must be an object of aggregate counts.', 400);
+  }
+  const entries = Object.entries(metrics);
+  if (!entries.length || entries.some(([key, value]) => (
+    !DASHBOARD_METRIC_KEYS.has(key)
+    || typeof value !== 'number'
+    || !Number.isInteger(value)
+    || value < 0
+    || value > 1000000
+  ))) {
+    throw new ProgressReportAIError('Dashboard metrics may contain only supported non-negative aggregate counts.', 400);
+  }
+  return Object.fromEntries(entries);
+}
+
+async function createDashboardInsight(metrics, question = '', options = {}) {
+  const normalizedMetrics = normalizeDashboardMetrics(metrics);
+  const normalizedQuestion = String(question || '').trim();
+  if (normalizedQuestion.length > 500) {
+    throw new ProgressReportAIError('Dashboard questions must be no longer than 500 characters.', 400);
+  }
+  const content = await requestModel([
+    {
+      role: 'system',
+      content: [
+        'You are an informational dashboard assistant.',
+        'Use only the supplied aggregate dashboard counts. Do not infer causes, make diagnoses, recommend treatment, identify people, or claim facts not represented in the counts.',
+        'Answer a supplied question directly; if no question is supplied, provide a concise snapshot summary and one practical non-clinical area to review based only on the counts.',
+        'Use at most 3 sentences. The figures are operational summaries, not clinical advice.',
+      ].join(' '),
+    },
+    {
+      role: 'user',
+      content: JSON.stringify({
+        question: normalizedQuestion || 'Summarize this dashboard snapshot.',
+        metrics: normalizedMetrics,
+      }),
+    },
+  ], options);
+  const text = content.trim();
+  if (!text || text.length > 700) {
+    throw new ProgressReportAIError('The private AI service returned an empty or oversized dashboard insight.');
+  }
+  return text;
 }
 
 async function createReportSummary(summary, reportCategory, beneficiaryType, options = {}) {
@@ -541,13 +699,17 @@ module.exports = {
   ProgressReportAIError,
   ENTRY_ASSIST_FIELDS,
   createEntryAssistance,
+  createAdminAssistantIntent,
   createMonitoringReportIntent,
   REPORT_METRICS,
   MONITORING_REPORT_FIELDS,
   createReportProposal,
   createReportSummary,
+  createDashboardInsight,
+  normalizeDashboardMetrics,
   getAIConfiguration,
   normalizeReportSummary,
   validateMonitoringReportIntent,
+  validateAdminAssistantIntent,
   validateReportProposal,
 };
