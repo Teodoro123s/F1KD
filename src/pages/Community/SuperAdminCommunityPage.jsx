@@ -263,6 +263,8 @@ export default function SuperAdminCommunityPage() {
   };
 
   const openCreateModal = (type = activeTab === 'communities' ? 'community' : activeTab === 'groups' ? 'group' : 'batch') => {
+    if (type === 'batch') return;
+
     if (type === 'community') {
       setCommunityForm(defaultCommunityForm);
       setShowModal('createCommunity');
@@ -469,6 +471,8 @@ export default function SuperAdminCommunityPage() {
         breadcrumbItems={breadcrumbItems}
         navigate={navigate}
         canManage
+        canCreateCommunity={false}
+        canCreateBatch={false}
       />
       <CommunityOverviewCards
         selected={selectedOverviewCard}

@@ -41,11 +41,10 @@ function getDateRange(preset) {
   return { from: toLocalDateInputValue(today), to: end };
 }
 
-function exportCsv(rows) {
-  const fields = ['createdAt', 'actorName', 'actorEmail', 'actorRole', 'action', 'entityType', 'entityId', 'description'];
+function exportCsv(rows, fields, filename) {
   const csv = [
-    fields,
-    ...rows.map((row) => fields.map((field) => row[field] ?? '')),
+    fields.map((field) => field.label),
+    ...rows.map((row) => fields.map(({ key }) => row[key] ?? '')),
   ].map((line) => line.map((value) => {
     const text = String(value);
     const safeText = /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
@@ -55,7 +54,7 @@ function exportCsv(rows) {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;
-  anchor.download = 'f1kd-login-report.csv';
+  anchor.download = filename;
   anchor.click();
   URL.revokeObjectURL(url);
 }
@@ -323,14 +322,28 @@ export default function ReportsPage() {
       <PageHeader
         title="Reports"
         breadcrumbs={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Reports' }]}
-        actions={selectedCard && viewMode === 'table' ? (
+        actions={selectedCard ? (
           <button
             type="button"
             className="btn-secondary"
-            onClick={() => exportCsv(report.activities)}
-            disabled={!report.activities.length}
+            onClick={() => viewMode === 'graph'
+              ? exportCsv(report.dailyActivity || [], [
+                { key: 'date', label: 'Date' },
+                { key: 'count', label: 'Login Count' },
+              ], 'f1kd-login-graph-data.csv')
+              : exportCsv(report.activities, [
+                { key: 'createdAt', label: 'Date & Time' },
+                { key: 'actorName', label: 'User' },
+                { key: 'actorEmail', label: 'Email' },
+                { key: 'actorRole', label: 'Role' },
+                { key: 'action', label: 'Activity' },
+                { key: 'entityType', label: 'Entity Type' },
+                { key: 'entityId', label: 'Entity ID' },
+                { key: 'description', label: 'Details' },
+              ], 'f1kd-login-table-data.csv')}
+            disabled={loading || (viewMode === 'graph' ? !(report.dailyActivity || []).length : !report.activities.length)}
           >
-            Export table page
+            Download {viewMode === 'graph' ? 'graph data' : 'table page'} CSV
           </button>
         ) : null}
       />

@@ -1,63 +1,26 @@
 // Helpers for User Management (validation, normalization, formatters)
+import { formatDateForInput } from '../../utils/dateFormat.js';
+import { isValidContactNumber, sanitizeContactNumber } from '../../utils/contactNumber.js';
 export const isValidName = (value) => /^[A-Za-z ]+$/.test((value || '').toString().trim());
 export const isValidMiddleInitial = (value) => value === '' || /^[A-Za-z]$/.test((value || '').toString().trim());
 export const sanitizeDigits = (v) => (v || '').toString().replace(/\D/g, '');
 
-export const normalizeContact = (v) => {
-  const s = sanitizeDigits(v);
-  if (!s) return s;
-  if (s.length === 11 && s.startsWith('09')) return s; // already normalized
-  if (s.length === 10 && s.startsWith('9')) return '0' + s; // 917... -> 0917...
-  if (s.length === 9) return '09' + s; // 9-digit local -> 09 + s
-  if (s.length === 12 && s.startsWith('63')) return '0' + s.slice(2); // 639... -> 09...
-  if (s.length === 11 && s.startsWith('63')) return '0' + s.slice(2); // defensive
-  return s;
-};
-
-export const isValidContact = (value) => /^09\d{9}$/.test(normalizeContact(value));
+export const normalizeContact = sanitizeContactNumber;
+export const isValidContact = isValidContactNumber;
 export const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((value || '').toString().trim());
 
 export const formatDobForInput = (v) => {
-  if (!v) return '';
-  const s = String(v).trim();
-  const match = s.match(/^(\d{4})[-/](\d{2})[-/](\d{2})/);
-  if (match) {
-    return `${match[1]}-${match[2]}-${match[3]}`;
-  }
-  try {
-    const d = new Date(v);
-    if (Number.isNaN(d.getTime())) return '';
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${d.getFullYear()}-${month}-${day}`;
-  } catch (e) { return ''; }
+  return formatDateForInput(v);
 };
 
 // DOB validation: only ensure a valid date and not in the future. No minimum age enforced.
 export const getDobValidationMessage = (value) => {
   if (!value) return 'Date of Birth is required.';
-  const s = String(value).trim();
-  const match = s.match(/^(\d{4})[-/](\d{2})[-/](\d{2})/);
-  if (match) {
-    const year = Number(match[1]);
-    const month = Number(match[2]);
-    const day = Number(match[3]);
-    if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1900) {
-      return 'Please enter a valid date.';
-    }
-    const today = new Date();
-    const curYear = today.getFullYear();
-    const curMonth = today.getMonth() + 1;
-    const curDay = today.getDate();
-    if (year > curYear || (year === curYear && (month > curMonth || (month === curMonth && day > curDay)))) {
-      return 'Date of birth cannot be in the future.';
-    }
-    return null;
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'Please enter a valid date.';
+  const normalized = formatDateForInput(value);
+  if (!normalized || Number(normalized.slice(0, 4)) < 1900) return 'Please enter a valid date.';
   const now = new Date();
-  if (date > now) return 'Date of birth cannot be in the future.';
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  if (normalized > today) return 'Date of birth cannot be in the future.';
   return null;
 };
 

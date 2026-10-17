@@ -59,6 +59,7 @@ test('Community Organizers cannot read or mutate records outside their assigned 
   const baseUrl = `http://127.0.0.1:${server.address().port}/api`;
   const organizer = { id: 1, role: 'Community Organizer', school_id: 12 };
   const token = jwt.sign(organizer, process.env.JWT_SECRET);
+  const superAdminToken = jwt.sign({ id: 2, role: 'Super Admin' }, process.env.JWT_SECRET);
   const request = (path, options = {}) => fetch(`${baseUrl}${path}`, {
     ...options,
     headers: {
@@ -67,6 +68,17 @@ test('Community Organizers cannot read or mutate records outside their assigned 
       ...(options.headers || {}),
     },
   });
+
+  const superAdminBatchCreate = await fetch(`${baseUrl}/community/batches`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${superAdminToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ name: 'Not allowed', community: '12' }),
+  });
+  assert.equal(superAdminBatchCreate.status, 403);
+  assert.deepEqual(await superAdminBatchCreate.json(), { error: 'Super Admin accounts cannot create batches' });
 
   const groupWorkers = await request('/community/groups/91/health-workers');
   assert.equal(groupWorkers.status, 200);

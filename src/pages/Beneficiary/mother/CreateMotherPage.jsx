@@ -7,14 +7,78 @@ import { useAuth } from '../../../auth/AuthProvider';
 import { isCommunityCoordinatorRole } from '../../../utils/permissions';
 import { capitalizeNameValue } from '../../../utils/nameFormat';
 import { notifyAction } from '../../../components/ActionFeedback';
+import { CONTACT_NUMBER_POLICY, isValidContactNumber } from '../../../utils/contactNumber';
+import { getPhilHealthNumberError } from '../../../utils/philHealthNumber';
+import { calculateTotalChildren, getMaternalBirthCountErrors } from '../../../utils/maternalBirthCounts';
+import { getMotherIdentityErrors } from '../../../utils/motherIdentity';
+import { hasMaternalHighRiskTriggers } from '../../../utils/maternalRisk';
+import { getMaternalVaccineDateErrors } from '../../../utils/maternalVaccineDates';
 
 const MOTHER_DRAFT_KEY = 'f1kd.create-mother.draft';
+const MATERNAL_BIRTH_COUNT_INPUT_IDS = {
+  childrenBornAlive: 'ob-born-alive',
+  childrenDiedAfterBirth: 'ob-died-after-birth',
+  miscarriages: 'ob-miscarriages',
+  totalChildren: 'ob-total-children',
+};
+const MOTHER_IDENTITY_INPUT_IDS = {
+  firstName: 'mother-first-name',
+  middleName: 'mother-middle-name',
+  lastName: 'mother-last-name',
+  maidenSurname: 'mother-maiden-surname',
+  suffix: 'mother-suffix',
+  dob: 'mother-dob',
+  contactNumber: 'mother-contact',
+};
+const REQUIRED_FIELDS_BY_STEP = [
+  {
+    tab: 'general',
+    label: 'General',
+    fields: [
+      'firstName',
+      'lastName',
+      'dob',
+      'contactNumber',
+      'civilStatus',
+      'employmentStatus',
+      'educationalAttainment',
+      'province',
+      'city',
+      'barangay',
+      'community',
+      'groupId',
+      'emergencyName',
+      'emergencyContact',
+      'emergencyRelationship',
+    ],
+  },
+  {
+    tab: 'prenatal',
+    label: 'Prenatal/OB',
+    fields: [
+      'lmpDate',
+      'prenatalRegDate',
+      'prenatalWeight',
+      'prenatalBp',
+      'prenatalHeight',
+      'childrenBornAlive',
+      'childrenDiedAfterBirth',
+      'miscarriages',
+    ],
+  },
+  {
+    tab: 'medical_dental',
+    label: 'Medical & dental',
+    fields: [],
+  },
+];
 
 const loadMotherDraft = (fallback) => {
   try {
     const savedDraft = JSON.parse(localStorage.getItem(MOTHER_DRAFT_KEY) || 'null');
     if (!savedDraft?.form) return fallback;
     const form = { ...fallback, ...savedDraft.form };
+    form.totalChildren = calculateTotalChildren(form.childrenBornAlive, form.childrenDiedAfterBirth);
     if (savedDraft.form.ttRemarks === undefined) {
       form.ttRemarks = [1, 2, 3, 4, 5].map((num) => form[`tt${num}Remarks`]).filter(Boolean).join('; ');
     }
@@ -35,15 +99,13 @@ const emptyCommunityForm = (communities = []) => ({
   height: '',
   dob: '',
   birthPlace: '',
-  allergies: '',
   bloodType: '',
   civilStatus: '',
   employmentStatus: '',
   educationalAttainment: '',
-  dataPrivacySigned: false,
-  mediaReleaseSigned: false,
   lmpDate: '',
   eddDate: '',
+  eddDateOverridden: false,
   contactNumber: '',
   province: '',
   city: '',
@@ -105,6 +167,7 @@ const emptyCommunityForm = (communities = []) => ({
     std: false,
     multiplePregnancy: false,
     prevCesarean: false,
+    eclampsia: false,
   },
   otherMedicalHistory: '',
   dentalCheckupDate: '',
@@ -157,8 +220,23 @@ export default function CreateMotherPage({
   const [documentFiles, setDocumentFiles] = useState({ birthCertificate: null, consent: null });
   const [showRequiredValidation, setShowRequiredValidation] = useState(false);
   const [createActiveTab, setCreateActiveTab] = useState('general');
+  const maternalBirthCountErrors = getMaternalBirthCountErrors(communityForm);
+  const vaccineDateErrors = getMaternalVaccineDateErrors(communityForm);
+  const motherIdentityErrors = showRequiredValidation ? getMotherIdentityErrors(communityForm) : {};
+  const dentistLicenseValue = String(communityForm.dentistLicense ?? '').trim();
+  const dentistLicenseError = dentistLicenseValue && !/^\d+$/.test(dentistLicenseValue)
+    ? 'Dentist license number must contain digits only.'
+    : String(communityForm.dentalCheckupDate ?? '').trim() && showRequiredValidation && !dentistLicenseValue
+      ? 'Dentist license number is required.'
+      : '';
+  const isHighRisk = hasMaternalHighRiskTriggers(communityForm);
   const CREATE_STEPS = ['general', 'prenatal', 'medical_dental', 'vaccine'];
   const createActiveIndex = CREATE_STEPS.indexOf(createActiveTab) >= 0 ? CREATE_STEPS.indexOf(createActiveTab) : 0;
+  const createStepLabels = ['General information', 'Prenatal / OB', 'Medical & dental', 'Vaccines'];
+  const focusMotherIdentityField = (field) => {
+    const inputId = MOTHER_IDENTITY_INPUT_IDS[field];
+    if (inputId) window.setTimeout(() => document.getElementById(inputId)?.focus(), 0);
+  };
 
   useEffect(() => {
     const assignedCommunity = communities[0]?.name || '';
@@ -183,33 +261,73 @@ export default function CreateMotherPage({
     }
   }, [communityForm]);
 
+  const handleNextStep = () => {
+    const currentStep = REQUIRED_FIELDS_BY_STEP.find((step) => step.tab === createActiveTab);
+    const requiredFields = currentStep
+      ? currentStep.fields.filter((field) => field !== 'community' || !isCommunityOrganizer)
+      : [];
+    if (createActiveTab === 'general' && communityForm.philhealthMember) {
+      requiredFields.push('philhealthNumber');
+    }
+    if (createActiveTab === 'prenatal' && communityForm.eddDateOverridden) {
+      requiredFields.push('eddDate');
+    }
+    if (createActiveTab === 'medical_dental' && communityForm.dentalCheckupDate) {
+      requiredFields.push('dentistLicense');
+    }
+    const hasMissingRequiredField = requiredFields.some((field) =>
+      !String(communityForm[field] ?? '').trim()
+    );
+    if (hasMissingRequiredField) {
+      setShowRequiredValidation(true);
+      notifyAction(`Complete the required fields in ${currentStep.label} before continuing.`, 'error');
+      return;
+    }
+    if (createActiveTab === 'general') {
+      const identityErrors = getMotherIdentityErrors(communityForm);
+      const invalidField = Object.keys(identityErrors)[0];
+      if (invalidField) {
+        setShowRequiredValidation(true);
+        focusMotherIdentityField(invalidField);
+        notifyAction(identityErrors[invalidField], 'error');
+        return;
+      }
+    }
+    if (createActiveTab === 'general' && communityForm.philhealthMember) {
+      const philHealthNumberError = getPhilHealthNumberError(communityForm.philhealthNumber, true);
+      if (philHealthNumberError) {
+        notifyAction(philHealthNumberError, 'error');
+        return;
+      }
+    }
+    if (createActiveTab === 'prenatal' && Object.keys(maternalBirthCountErrors).length > 0) {
+      const [field, message] = Object.entries(maternalBirthCountErrors)[0];
+      document.getElementById(MATERNAL_BIRTH_COUNT_INPUT_IDS[field])?.focus();
+      notifyAction(message, 'error');
+      return;
+    }
+    if (createActiveTab === 'medical_dental' && dentistLicenseError) {
+      setShowRequiredValidation(true);
+      notifyAction(dentistLicenseError, 'error');
+      document.getElementById('dentist-license')?.focus();
+      return;
+    }
+    if (createActiveTab === 'general') setCreateActiveTab('prenatal');
+    else if (createActiveTab === 'prenatal') setCreateActiveTab('medical_dental');
+    else if (createActiveTab === 'medical_dental') setCreateActiveTab('vaccine');
+  };
+
   const handleCreateCommunity = async (e) => {
     e.preventDefault();
-    const requiredFieldsByStep = [
-      {
-        tab: 'general',
-        label: 'General',
-        fields: [
-          'firstName', 'middleName', 'lastName', 'maidenSurname', 'dob', 'contactNumber',
-          'province', 'city', 'barangay', 'community', 'groupId', 'batchId',
-          'emergencyName', 'emergencyContact', 'emergencyRelationship',
-          ...(communityForm.philhealthMember ? ['philhealthNumber'] : []),
-        ],
-      },
-      {
-        tab: 'prenatal',
-        label: 'Prenatal/OB',
-        fields: [
-          'lmpDate', 'eddDate', 'trimester', 'gestationalAge',
-          'prenatalWeight', 'prenatalBp', 'prenatalHeight', 'gravida', 'abortion', 'stillbirth',
-        ],
-      },
-      {
-        tab: 'medical_dental',
-        label: 'Medical & Dental',
-        fields: [],
-      },
-    ];
+    const requiredFieldsByStep = REQUIRED_FIELDS_BY_STEP.map((step) => ({
+      ...step,
+      fields: [
+        ...step.fields.filter((field) => field !== 'community' || !isCommunityOrganizer),
+        ...(step.tab === 'general' && communityForm.philhealthMember ? ['philhealthNumber'] : []),
+        ...(step.tab === 'prenatal' && communityForm.eddDateOverridden ? ['eddDate'] : []),
+        ...(step.tab === 'medical_dental' && communityForm.dentalCheckupDate ? ['dentistLicense'] : []),
+      ],
+    }));
     const incompleteStep = requiredFieldsByStep.find(({ fields }) =>
       fields.some((field) => !String(communityForm[field] ?? '').trim())
     );
@@ -220,11 +338,50 @@ export default function CreateMotherPage({
       notifyAction(`Complete the required fields in ${incompleteStep.label} before creating.`, 'error');
       return;
     }
-    const hasNegativePregnancyCount = ['gravida', 'abortion', 'stillbirth']
-      .some((field) => Number(communityForm[field]) < 0);
-    if (hasNegativePregnancyCount) {
+    const identityErrors = getMotherIdentityErrors(communityForm);
+    const invalidIdentityField = Object.keys(identityErrors)[0];
+    if (invalidIdentityField) {
+      setShowRequiredValidation(true);
+      setCreateActiveTab('general');
+      focusMotherIdentityField(invalidIdentityField);
+      notifyAction(identityErrors[invalidIdentityField], 'error');
+      return;
+    }
+    const philHealthNumberError = getPhilHealthNumberError(
+      communityForm.philhealthNumber,
+      Boolean(communityForm.philhealthMember),
+    );
+    if (philHealthNumberError) {
+      setCreateActiveTab('general');
+      notifyAction(philHealthNumberError, 'error');
+      return;
+    }
+    const invalidContact = [
+      { field: 'contactNumber', label: 'Contact number', tab: 'general' },
+      { field: 'emergencyContact', label: 'Emergency contact number', tab: 'general' },
+      { field: 'dentistContact', label: 'Dentist contact number', tab: 'medical_dental' },
+    ].find(({ field }) => String(communityForm[field] ?? '').trim() && !isValidContactNumber(communityForm[field]));
+    if (invalidContact) {
+      setCreateActiveTab(invalidContact.tab);
+      notifyAction(`${invalidContact.label}: ${CONTACT_NUMBER_POLICY}`, 'error');
+      return;
+    }
+    if (Object.keys(maternalBirthCountErrors).length > 0) {
       setCreateActiveTab('prenatal');
-      notifyAction('Gravida, abortion, and stillbirth cannot be negative.', 'error');
+      const message = Object.values(maternalBirthCountErrors)[0];
+      notifyAction(message, 'error');
+      return;
+    }
+    if (dentistLicenseError) {
+      setShowRequiredValidation(true);
+      setCreateActiveTab('medical_dental');
+      notifyAction(dentistLicenseError, 'error');
+      document.getElementById('dentist-license')?.focus();
+      return;
+    }
+    if (Object.keys(vaccineDateErrors).length > 0) {
+      setCreateActiveTab('vaccine');
+      notifyAction(Object.values(vaccineDateErrors)[0], 'error');
       return;
     }
     const initialCheckups = getInitialCheckups(
@@ -257,13 +414,10 @@ export default function CreateMotherPage({
       motherId: communityForm.motherId,
       dob: communityForm.dob || null,
       birthPlace: communityForm.birthPlace,
-      allergies: communityForm.allergies,
       bloodType: communityForm.bloodType,
       civilStatus: communityForm.civilStatus,
       employmentStatus: communityForm.employmentStatus,
       educationalAttainment: communityForm.educationalAttainment,
-      dataPrivacySigned: communityForm.dataPrivacySigned,
-      mediaReleaseSigned: communityForm.mediaReleaseSigned,
       contactNumber: communityForm.contactNumber,
       community: communityForm.community,
       area: communityForm.area,
@@ -294,7 +448,7 @@ export default function CreateMotherPage({
       childrenDiedAfterBirth: communityForm.childrenDiedAfterBirth,
       weight: communityForm.weight,
       height: communityForm.height,
-      isHighRisk: communityForm.isHighRisk,
+      isHighRisk: isHighRisk || communityForm.isHighRisk === 'Yes' ? 'Yes' : 'No',
       programType: communityForm.programType,
       emergencyName: communityForm.emergencyName,
       emergencyContact: communityForm.emergencyContact,
@@ -360,17 +514,14 @@ export default function CreateMotherPage({
       height: communityForm.height,
       dob: communityForm.dob,
       birthPlace: communityForm.birthPlace,
-      allergies: communityForm.allergies,
       bloodType: communityForm.bloodType,
       civilStatus: communityForm.civilStatus,
       employmentStatus: communityForm.employmentStatus,
       educationalAttainment: communityForm.educationalAttainment,
-      dataPrivacySigned: communityForm.dataPrivacySigned,
-      mediaReleaseSigned: communityForm.mediaReleaseSigned,
       lmpDate: communityForm.lmpDate,
       eddDate: communityForm.eddDate,
       contactNumber: communityForm.contactNumber,
-      isHighRisk: communityForm.isHighRisk,
+      isHighRisk: isHighRisk || communityForm.isHighRisk === 'Yes' ? 'Yes' : 'No',
       programType: communityForm.programType,
       emergencyName: communityForm.emergencyName,
       emergencyContact: communityForm.emergencyContact,
@@ -452,10 +603,19 @@ export default function CreateMotherPage({
 
   return (
     <section className="tabs-row create-view">
-      <div className="stepper-progress">
-        <div className="stepper-steps" role="tablist">
+      <header className="create-mother-page-header">
+        <div>
+          <span className="create-mother-eyebrow">Beneficiary registration</span>
+          <h1 className="create-mother-page-title">Create Mother Profile</h1>
+          <p className="create-mother-page-subtitle">Enter the available details, then move through each section to complete the profile.</p>
+        </div>
+        <span className="create-mother-step-count">Step {createActiveIndex + 1} of {CREATE_STEPS.length}</span>
+      </header>
+
+      <nav className="stepper-progress create-mother-stepper" aria-label="Mother profile sections">
+        <div className="stepper-steps" role="tablist" aria-label="Form sections">
           {CREATE_STEPS.map((s, i) => {
-            const label = s === 'general' ? 'General' : s === 'prenatal' ? 'Prenatal/OB' : s === 'medical_dental' ? 'Medical & Dental' : 'Vaccine';
+            const label = createStepLabels[i];
             const isActive = createActiveTab === s;
             const isCompleted = i < createActiveIndex;
             return (
@@ -464,6 +624,8 @@ export default function CreateMotherPage({
                 type="button"
                 role="tab"
                 aria-selected={isActive}
+                aria-controls="create-mother-step-content"
+                id={`create-mother-step-${s}`}
                 className={`stepper-step ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}`}
                 onClick={() => setCreateActiveTab(s)}
               >
@@ -481,15 +643,28 @@ export default function CreateMotherPage({
             );
           })}
         </div>
-      </div>
+        <div className="create-mother-progress-track" aria-hidden="true">
+          <span style={{ width: `${((createActiveIndex + 1) / CREATE_STEPS.length) * 100}%` }} />
+        </div>
+      </nav>
 
       <div className="create-form-body">
-        <form onSubmit={handleCreateCommunity}>
-          <div className="modal-body-scrollable">
+        <form className="create-mother-form" onSubmit={handleCreateCommunity}>
+          <div className="create-mother-form-note">
+            <span className="create-mother-form-note-mark" aria-hidden="true">*</span>
+            <p>Fields marked <strong>required</strong> must be completed. Other details are optional.</p>
+          </div>
+          <div
+            className="create-mother-fields"
+            id="create-mother-step-content"
+            role="tabpanel"
+            aria-labelledby={`create-mother-step-${createActiveTab}`}
+          >
             <MotherFormFields
               activeTab={createActiveTab}
               form={communityForm}
               setForm={setCommunityForm}
+              calculateBirthCountTotal
               communities={communities}
               groups={groups}
               batches={batches}
@@ -498,27 +673,32 @@ export default function CreateMotherPage({
               hideSchoolField={isCommunityOrganizer}
               slashDateInput
               showRequiredValidation={showRequiredValidation}
+              enforceRequiredFields
+              validationErrors={{
+                ...maternalBirthCountErrors,
+                ...motherIdentityErrors,
+                ...vaccineDateErrors,
+                ...(dentistLicenseError ? { dentistLicense: dentistLicenseError } : {}),
+              }}
             />
           </div>
 
-          <div className="modal-footer">
-            <button type="button" className="btn-secondary" onClick={() => { localStorage.removeItem(MOTHER_DRAFT_KEY); navigate('/beneficiary'); }}>Cancel</button>
-            {createActiveTab !== 'general' && (
-              <button type="button" className="btn-secondary btn-back back-action" onClick={() => {
+          <div className="create-mother-footer">
+            <button type="button" className="btn-secondary create-mother-cancel" onClick={() => { localStorage.removeItem(MOTHER_DRAFT_KEY); navigate('/beneficiary'); }}>Cancel</button>
+            <div className="create-mother-footer-actions">
+              {createActiveTab !== 'general' && (
+                <button type="button" className="btn-secondary btn-back back-action" onClick={() => {
                 if (createActiveTab === 'vaccine') setCreateActiveTab('medical_dental');
                 else if (createActiveTab === 'medical_dental') setCreateActiveTab('prenatal');
                 else setCreateActiveTab('general');
-              }}>Back</button>
-            )}
-            {createActiveTab !== 'vaccine' ? (
-              <button type="button" className="btn-primary btn-next" onClick={() => {
-                if (createActiveTab === 'general') setCreateActiveTab('prenatal');
-                else if (createActiveTab === 'prenatal') setCreateActiveTab('medical_dental');
-                else if (createActiveTab === 'medical_dental') setCreateActiveTab('vaccine');
-              }}>Next</button>
-            ) : (
-              <button type="submit" className="btn-create-action">Create</button>
-            )}
+                }}>Back</button>
+              )}
+              {createActiveTab !== 'vaccine' ? (
+                <button type="button" className="btn-primary btn-next" onClick={handleNextStep}>Continue</button>
+              ) : (
+                <button type="submit" className="btn-create-action">Create Mother</button>
+              )}
+            </div>
           </div>
         </form>
       </div>

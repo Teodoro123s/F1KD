@@ -25,6 +25,24 @@ function formatActivityAction(action) {
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+function exportActivityCsv(rows, fields, filename) {
+  const csv = [
+    fields.map((field) => field.label),
+    ...rows.map((row) => fields.map(({ key }) => row[key] ?? '')),
+  ].map((line) => line.map((value) => {
+    const text = String(value);
+    const safeText = /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
+    return `"${safeText.replace(/"/g, '""')}"`;
+  }).join(',')).join('\r\n');
+  const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
 function ProfileField({ label, value }) {
   return (
     <div className="detail-form-field">
@@ -282,6 +300,28 @@ export default function UserDetailPage() {
           <div className="user-activity-view-switch" role="group" aria-label="User activity view">
             <button type="button" aria-pressed={activityView === 'graph'} className={activityView === 'graph' ? 'is-active' : ''} onClick={() => setActivityView('graph')}>Graph view</button>
             <button type="button" aria-pressed={activityView === 'table'} className={activityView === 'table' ? 'is-active' : ''} onClick={() => setActivityView('table')}>Table view</button>
+            <button
+              type="button"
+              className="btn-secondary"
+              disabled={activityLoading || (activityView === 'graph' ? !activityReport.dailyActivity.length : !activityReport.activities.length)}
+              onClick={() => activityView === 'graph'
+                ? exportActivityCsv(activityReport.dailyActivity, [
+                  { key: 'date', label: 'Date' },
+                  { key: 'count', label: 'Activity Count' },
+                ], `user-activity-graph-${activityUserId}.csv`)
+                : exportActivityCsv(activityReport.activities.map((row) => ({
+                  ...row,
+                  activity: row.description
+                    ? `${formatActivityAction(row.action)} — ${row.description}`
+                    : formatActivityAction(row.action),
+                })), [
+                  { key: 'createdAt', label: 'Date & Time' },
+                  { key: 'activity', label: 'Activity' },
+                  { key: 'entityType', label: 'Record Type' },
+                ], `user-activity-table-${activityUserId}.csv`)}
+            >
+              Download {activityView === 'graph' ? 'graph data' : 'table page'} CSV
+            </button>
           </div>
           {activityLoading ? <p role="status">Loading user activity…</p> : activityView === 'graph' ? (
             <ActivityChart

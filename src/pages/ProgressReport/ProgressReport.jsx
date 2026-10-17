@@ -33,7 +33,6 @@ import {
   PROGRAM_METRICS,
   REPORT_TABS,
   REPORT_FOCUS_OPTIONS,
-  csvValue,
   formatCellValue,
   getPointValue,
   getPointInterpretation,
@@ -358,31 +357,21 @@ export default function ProgressReport() {
   const changeSort = (key) => setSort((current) => ({ key, direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc' }));
   const sortLabel = (label, key) => <button type="button" className="progress-report-sort-button" onClick={() => changeSort(key)}>{label} {displaySort.key === key ? (displaySort.direction === 'asc' ? '↑' : '↓') : ''}</button>;
 
-  const exportReport = async () => {
-    if (!selection.schoolId) return;
-    const selectedProgram = programs.find((program) => normalizeProgramName(program.name) === normalizeProgramName(programName));
-    const requestParams = buildProgressReportParams({
-      selection,
-      reportCategory,
-      beneficiaryType,
-      selectedProgram,
-      programName,
-      benefitPeriod,
-      benefitMonth,
-      perPage: 100,
-      exportAll: true,
-    });
-    const result = await apiGetProgressReport(requestParams);
+  const exportReport = ({ rows = [], fields = [], view = 'table' } = {}) => {
+    if (!selection.schoolId || !fields.length) return;
+    const csvValue = (value) => {
+      const text = String(value ?? '');
+      const safeText = /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
+      return `"${safeText.replaceAll('"', '""')}"`;
+    };
     const lines = [
-      `# ${breadcrumb.join(' > ')}`,
-      `# Generated ${new Date().toISOString()}`,
-      REPORT_FIELDS.filter(([id]) => displayVisibleFields.includes(id)).map(([, label]) => label).map(csvValue).join(','),
-      ...aggregateReportRows(result.rows, displayReportFocus).map((row) => REPORT_FIELDS.filter(([id]) => displayVisibleFields.includes(id)).map(([id]) => formatCellValue(id, row[id])).map(csvValue).join(',')),
+      fields.map(([, label]) => csvValue(label)).join(','),
+      ...rows.map((row) => fields.map(([id]) => csvValue(formatCellValue(id, row[id]))).join(',')),
     ];
-    const url = URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' }));
+    const url = URL.createObjectURL(new Blob([`\uFEFF${lines.join('\r\n')}`], { type: 'text/csv;charset=utf-8' }));
     const link = document.createElement('a');
     link.href = url;
-    link.download = `progress-report-${beneficiaryType}.csv`;
+    link.download = `progress-report-${beneficiaryType}-${view}.csv`;
     link.click();
     URL.revokeObjectURL(url);
     notifyAction('Progress report CSV download started.');
@@ -439,18 +428,40 @@ export default function ProgressReport() {
       }))
       .filter((row) => row.growthSeries?.length || (row[displayBeneficiaryType === 'mother' ? 'bmiForAge' : 'weightForAge'] !== undefined && row[displayBeneficiaryType === 'mother' ? 'bmiForAge' : 'weightForAge'] !== null));
   };
+  const filteredGraphSourceRows = filterGraphRowsByRange(
+    graphSourceRows.filter((row) => growthMetrics.some((metric) => {
+      if (INTERPRETATION_METRICS.has(metric)) {
+        return row.growthSeries?.some((point) => getPointInterpretation(point, metric));
+      }
+      return row.growthSeries?.some((point) => Number.isFinite(getPointValue(point, metric))) || Number.isFinite(Number(row[metric]));
+    }))
+  );
   const graphRows = aggregateGrowthRows(
-    filterGraphRowsByRange(
-      graphSourceRows.filter((row) => growthMetrics.some((metric) => {
-        if (INTERPRETATION_METRICS.has(metric)) {
-          return row.growthSeries?.some((point) => getPointInterpretation(point, metric));
-        }
-        return row.growthSeries?.some((point) => Number.isFinite(getPointValue(point, metric))) || Number.isFinite(Number(row[metric]));
-      }))
-    ),
+    filteredGraphSourceRows,
     graphAggregationFocus,
     displayBeneficiaryType,
   );
+  const graphExportFields = REPORT_FIELDS.filter(([id]) => (
+    displayVisibleFields.includes(id)
+    || (displayReportCategory === 'monitor' && ['measurementDate', ...selectedTableGrowthFields].includes(id))
+  ));
+  const graphExportRows = displayReportCategory === 'monitor'
+    ? filteredGraphSourceRows.flatMap((row) => {
+      const series = (row.growthSeries || []).filter((point) => growthMetrics.some((metric) => (
+        INTERPRETATION_METRICS.has(metric)
+          ? Boolean(getPointInterpretation(point, metric))
+          : Number.isFinite(getPointValue(point, metric))
+      )));
+      return series.length
+        ? series.map((point) => ({
+          ...row,
+          ...point,
+          measurementDate: point.date || point.measurementDate || '',
+          ...Object.fromEntries(selectedTableGrowthFields.map((field) => [field, pointValueForTableField(point, field)])),
+        }))
+        : [row];
+    })
+    : resultsRows;
   const averageMetric = (field, rows = resultsRows) => {
     if (INTERPRETATION_METRICS.has(field)) return rows.map((row) => row[field]).find(Boolean) || '—';
     const values = rows.map((row) => Number(row[field])).filter((value) => Number.isFinite(value));
@@ -543,15 +554,9 @@ export default function ProgressReport() {
   }, [availableGrowthMetrics, availableNumericGrowthMetrics, graphMetricType, growthMetrics, reportCategory]);
 
   useEffect(() => {
-    if (activeTab !== 4) return undefined;
+    if (activeTab !== 4 || resultsView !== 'graph') return undefined;
     const heading = document.querySelector('.growth-report-single-card h3');
     const subtitle = document.querySelector('.growth-report-single-card > p');
-    const exportButton = document.querySelector('.progress-report-results-header > .secondary-btn')
-      || [...document.querySelectorAll('.results-tab-panel button.secondary-btn')].find((button) => button.textContent.trim() === 'Export CSV');
-    const resultsHeader = document.querySelector('.progress-report-results-header');
-    const chartActions = document.querySelector('.program-average-chart-actions');
-    if (exportButton && displayReportCategory === 'program' && chartActions) chartActions.appendChild(exportButton);
-    if (exportButton && displayReportCategory !== 'program' && resultsHeader) resultsHeader.appendChild(exportButton);
     if (heading && displayReportCategory === 'monitor' && beneficiaryType === 'mother') heading.textContent = '📈 BMI';
     if (subtitle && displayReportCategory === 'monitor' && beneficiaryType === 'mother') subtitle.textContent = 'Latest mother BMI measurements · values are plotted by month';
     if (subtitle && displayReportCategory === 'monitor' && beneficiaryType === 'child') subtitle.textContent = 'Weight and length plotted against age in months';
@@ -574,7 +579,7 @@ export default function ProgressReport() {
       if (value) value.style.display = '';
     }
     return undefined;
-  }, [activeTab, beneficiaryType, displayReportCategory, displayWeeks, graphRows]);
+  }, [activeTab, beneficiaryType, displayReportCategory, displayWeeks, graphRows, resultsView]);
 
   return (
     <div className="community-page progress-report-shell">
@@ -648,6 +653,8 @@ export default function ProgressReport() {
                 groups={groups}
                 batches={batches}
                 exportReport={exportReport}
+                graphExportRows={graphExportRows}
+                graphExportFields={graphExportFields}
                 resultsView={resultsView}
                 setResultsView={setResultsView}
                 graphAllowed={graphAllowed}

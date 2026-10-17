@@ -2,6 +2,12 @@ import React from 'react';
 import { formatDateForDisplay, formatDateForInput, maskDateInput, normalizeDateValue } from '../../../utils/dateFormat';
 import { calculateGestationalDetails } from '../../../utils/beneficiaryHelpers';
 import { capitalizeNameValue } from '../../../utils/nameFormat';
+import { CONTACT_NUMBER_POLICY, sanitizeContactNumber } from '../../../utils/contactNumber';
+import { formatPhilHealthNumber, PHILHEALTH_NUMBER_POLICY } from '../../../utils/philHealthNumber';
+import { getLatestEligibleMotherDob } from '../../../utils/motherIdentity';
+import { calculateTotalChildren } from '../../../utils/maternalBirthCounts';
+import { calculateNaegeleEdd } from '../../../utils/maternalPregnancy';
+import { MATERNAL_VACCINE_SEQUENCES } from '../../../utils/maternalVaccineDates';
 
 export const OTHER_MATERNAL_VACCINES = [
   { label: 'Influenza (flu)', key: 'influenza' },
@@ -10,19 +16,16 @@ export const OTHER_MATERNAL_VACCINES = [
   { label: 'COVID-19', key: 'covid19' },
 ];
 
-const calculateEddDate = (value) => {
-  const normalized = formatDateForInput(value);
-  if (!normalized) return '';
-  const [year, month, day] = normalized.split('-').map(Number);
-  const edd = new Date(year, month - 1, day);
-  edd.setDate(edd.getDate() + 280);
-  return `${edd.getFullYear()}-${String(edd.getMonth() + 1).padStart(2, '0')}-${String(edd.getDate()).padStart(2, '0')}`;
+const getLocalToday = () => {
+  const today = new Date();
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 };
 
 export function MotherFormFields({
   activeTab,
   form,
   setForm,
+  calculateBirthCountTotal = false,
   communities = [],
   groups = [],
   batches = [],
@@ -33,6 +36,8 @@ export function MotherFormFields({
   documentContent = null,
   hideSchoolField = false,
   showRequiredValidation = false,
+  enforceRequiredFields = false,
+  validationErrors = {},
 }) {
   const [dateDrafts, setDateDrafts] = React.useState({});
   const datePickerRefs = React.useRef({});
@@ -44,18 +49,17 @@ export function MotherFormFields({
   const uniqueCommunities = Array.from(new Set(communities.map((comm) => comm.name))).filter(Boolean);
   const selectedGroups = groups.filter((group) => !form.community || group.community === form.community);
   const selectedGroupId = String(form.groupId ?? '').trim();
-  const selectedBatches = batches.filter((batch) => {
+  const selectedBatches = selectedGroupId ? batches.filter((batch) => {
     const sameCommunity = !form.community || !batch.community || batch.community === form.community;
     if (!sameCommunity) return false;
-    if (!selectedGroupId) return true;
 
     const batchGroupIds = String(batch.groupIds || batch.group_id || batch.groupId || '')
       .split(',')
       .map((value) => value.trim())
       .filter(Boolean);
 
-    return batchGroupIds.length === 0 || batchGroupIds.includes(selectedGroupId) || String(batch.group_id || batch.groupId || '') === selectedGroupId;
-  });
+    return batchGroupIds.includes(selectedGroupId);
+  }) : [];
   const selectedProvince = locationOptions?.PHILIPPINE_PROVINCES.find((province) => province.toLowerCase() === String(form.province || '').toLowerCase()) || '';
   const cityOptions = selectedProvince ? locationOptions?.getPhilippineCities(selectedProvince) || [] : [];
   const selectedCity = cityOptions.find((city) => city.toLowerCase() === String(form.city || '').toLowerCase()) || '';
@@ -127,17 +131,30 @@ export function MotherFormFields({
     setForm((prev) => ({ ...prev, lmpDate: val }));
   };
 
+  const handleBirthCountChange = (field, value) => {
+    setForm((prev) => {
+      const next = { ...prev, [field]: value };
+      if (calculateBirthCountTotal) {
+        next.totalChildren = calculateTotalChildren(
+          next.childrenBornAlive,
+          next.childrenDiedAfterBirth,
+        );
+      }
+      return next;
+    });
+  };
+
   React.useEffect(() => {
     if (readOnly || typeof setForm !== 'function') return;
-    const referenceDate = form.prenatalRegDate || new Date().toISOString().slice(0, 10);
-    const eddDate = calculateEddDate(form.lmpDate);
-    if (!eddDate) return;
-    const pregnancyDetails = calculateGestationalDetails(form.lmpDate, referenceDate);
+    const eddDate = form.eddDateOverridden ? form.eddDate : calculateNaegeleEdd(form.lmpDate);
+    const pregnancyDetails = form.lmpDate && form.prenatalRegDate
+      ? calculateGestationalDetails(form.lmpDate, form.prenatalRegDate)
+      : { gestationalAge: '', trimester: '' };
     if (form.eddDate === eddDate
       && form.gestationalAge === pregnancyDetails.gestationalAge
       && form.trimester === pregnancyDetails.trimester) return;
     setForm((prev) => ({ ...prev, eddDate, ...pregnancyDetails }));
-  }, [form.lmpDate, form.prenatalRegDate, readOnly, setForm]);
+  }, [form.lmpDate, form.prenatalRegDate, form.eddDateOverridden, form.eddDate, readOnly, setForm]);
 
   const handleObHistoryChange = (index, field, value) => {
     setForm((prev) => {
@@ -157,24 +174,24 @@ export function MotherFormFields({
     }));
   };
 
-  const getDateDisplayValue = (name, value) => dateDrafts[name] ?? (slashDateInput ? maskDateInput(value) : formatDateForInput(value));
+  const getDateDisplayValue = (name, value, order = 'dmy') => dateDrafts[name] ?? (slashDateInput ? maskDateInput(value, order) : formatDateForInput(value));
 
-  const updateDateValue = (name, value, onChange) => {
-    const masked = slashDateInput ? maskDateInput(value) : value;
+  const updateDateValue = (name, value, onChange, order = 'dmy') => {
+    const masked = slashDateInput ? maskDateInput(value, order) : value;
     setDateDrafts((prev) => ({ ...prev, [name]: masked }));
 
     if (!slashDateInput) return;
 
-    const normalized = normalizeDateValue(masked);
+    const normalized = normalizeDateValue(masked, order);
     if (masked.replace(/\D/g, '').length === 8 && normalized) {
       if (onChange) onChange(normalized);
       else setForm((prev) => ({ ...prev, [name]: normalized }));
     }
   };
 
-  const commitDateValue = (name, value, onChange) => {
-    const masked = slashDateInput ? maskDateInput(value) : value;
-    const normalized = slashDateInput ? normalizeDateValue(masked) : value;
+  const commitDateValue = (name, value, onChange, order = 'dmy') => {
+    const masked = slashDateInput ? maskDateInput(value, order) : value;
+    const normalized = slashDateInput ? normalizeDateValue(masked, order) : value;
     setDateDrafts((prev) => ({ ...prev, [name]: masked }));
 
     if (!slashDateInput || !normalized) {
@@ -187,6 +204,24 @@ export function MotherFormFields({
     else setForm((prev) => ({ ...prev, [name]: normalized }));
   };
 
+  const updateVaccineDate = (field, value) => {
+    const sequence = MATERNAL_VACCINE_SEQUENCES.find(({ fields }) => fields.includes(field));
+    const doseIndex = sequence?.fields.indexOf(field) ?? -1;
+    const dependentFields = doseIndex >= 0 ? sequence.fields.slice(doseIndex + 1) : [];
+    setForm((prev) => {
+      const next = { ...prev, [field]: value };
+      if (!value) dependentFields.forEach((dependentField) => { next[dependentField] = ''; });
+      return next;
+    });
+    if (!value && dependentFields.length) {
+      setDateDrafts((prev) => {
+        const next = { ...prev };
+        dependentFields.forEach((dependentField) => { delete next[dependentField]; });
+        return next;
+      });
+    }
+  };
+
   const openDatePicker = (name) => {
     const picker = datePickerRefs.current[name];
     if (!picker) return;
@@ -194,12 +229,28 @@ export function MotherFormFields({
     else picker.click();
   };
 
+  const FieldInfoTooltip = ({ content }) => (
+    <span className="field-help-tooltip" tabIndex={0} aria-label={content}>
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="9" />
+        <line x1="12" y1="10.5" x2="12" y2="16.5" />
+        <circle cx="12" cy="7.25" r="0.9" fill="currentColor" stroke="none" />
+      </svg>
+      <span className="field-help-tooltip-bubble">{content}</span>
+    </span>
+  );
+
   // Helpers to reduce repetitive form markup and support read-only display
-  const renderField = ({ id, label, name, type = 'text', placeholder = '', required = false, valueOverride, onChange, nativeDate = false, maxDate, minValue, disabled = false }) => {
+  const renderField = ({ id, label, name, type = 'text', placeholder = '', required = false, valueOverride, onChange, nativeDate = false, maxDate, minValue, disabled = false, readOnlyInput = false, autoCalculated = false, helpText = '', dateOrder = 'dmy' }) => {
     const value = valueOverride ?? form[name] ?? '';
     const isDate = type === 'date';
+    const isAutoComputedDate = name === 'eddDate' && !form.eddDateOverridden;
     const isNumeric = type === 'tel';
-    const hasMissingValue = required && !String(value ?? '').trim() && showRequiredValidation;
+    const isNumericString = name === 'dentistLicense';
+    const isPhilHealthNumber = name === 'philhealthNumber';
+    const isRequired = required && (enforceRequiredFields || ['firstName', 'lastName'].includes(name));
+    const validationError = validationErrors[name];
+    const hasMissingValue = (isRequired && !String(value ?? '').trim() && showRequiredValidation) || Boolean(validationError);
     if (readOnly) {
       return (
         <div className="form-group">
@@ -214,16 +265,24 @@ export function MotherFormFields({
     return (
       <div className="form-group">
         <label className="form-label" htmlFor={id}>
-          {label}{required && <span className="form-required-indicator" aria-hidden="true"> *</span>}
+          <span>{label}{isRequired && <span className="form-required-indicator" aria-hidden="true">*</span>}</span>
+          {autoCalculated && calculateBirthCountTotal && <span className="form-auto-badge" aria-label="Automatically calculated">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="7" width="9" height="7" rx="1.5" /><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" /></svg>
+            Auto
+          </span>}
+          {(helpText || isNumeric || isPhilHealthNumber) && (
+            <FieldInfoTooltip content={helpText || (isNumeric ? CONTACT_NUMBER_POLICY : PHILHEALTH_NUMBER_POLICY)} />
+          )}
         </label>
         <div className={isNativeDate ? 'date-input-container' : undefined}>
           <input
             id={id}
             type={isNativeDate ? 'date' : isDate ? 'text' : type}
-            className={`form-input${hasMissingValue ? ' invalid' : ''}`}
-            placeholder={isDate && !isNativeDate ? 'DD/MM/YYYY' : placeholder}
-            value={isNativeDate ? formatDateForInput(value) : isDate ? getDateDisplayValue(name, value) : value}
+            className={`form-input${readOnlyInput ? ' form-input-readonly' : ''}${hasMissingValue ? ' invalid' : ''}`}
+            placeholder={isDate && !isNativeDate ? `${dateOrder === 'mdy' ? 'MM' : 'DD'}/${dateOrder === 'mdy' ? 'DD' : 'MM'}/YYYY` : placeholder}
+            value={isNativeDate ? formatDateForInput(value) : isDate ? getDateDisplayValue(name, value, dateOrder) : isPhilHealthNumber ? formatPhilHealthNumber(value) : value}
             onChange={(e) => {
+              if (readOnlyInput) return;
               if (isNativeDate) {
                 const nextVal = e.target.value;
                 if (onChange) onChange(nextVal);
@@ -231,10 +290,20 @@ export function MotherFormFields({
                 return;
               }
               if (isDate) {
-                updateDateValue(name, e.target.value, onChange);
+                updateDateValue(name, e.target.value, onChange, dateOrder);
                 return;
               }
-              const rawValue = isNumeric ? e.target.value.replace(/\D/g, '') : e.target.value;
+              if (isPhilHealthNumber) {
+                const nextValue = formatPhilHealthNumber(e.target.value);
+                if (onChange) onChange(nextValue);
+                else setForm((prev) => ({ ...prev, [name]: nextValue }));
+                return;
+              }
+              const rawValue = isNumeric
+                ? sanitizeContactNumber(e.target.value)
+                : isNumericString
+                  ? e.target.value.replace(/\D/g, '')
+                  : e.target.value;
               const nextValue = /^(firstName|middleName|lastName|maidenSurname|suffix|emergencyName|spouseFirstName|spouseSurname)$/.test(name)
                 ? capitalizeNameValue(rawValue)
                 : rawValue;
@@ -245,17 +314,22 @@ export function MotherFormFields({
               setForm((prev) => ({ ...prev, [name]: nextValue }));
             }}
             onClick={isNativeDate ? (e) => { try { if (typeof e.target.showPicker === 'function') e.target.showPicker(); } catch (_) {} } : undefined}
-            onBlur={isDate && !isNativeDate ? () => commitDateValue(name, getDateDisplayValue(name, value), onChange) : undefined}
-            inputMode={isNumeric ? 'numeric' : undefined}
-            pattern={isNumeric ? '[0-9]*' : undefined}
+            onBlur={isDate && !isNativeDate ? () => commitDateValue(name, getDateDisplayValue(name, value, dateOrder), onChange, dateOrder) : undefined}
+            inputMode={isPhilHealthNumber || isNumeric || isNumericString ? 'numeric' : undefined}
+            pattern={isPhilHealthNumber ? '(?:[0-9]{12}|[0-9]{2}-[0-9]{9}-[0-9])' : isNumeric ? '09[0-9]{9}' : isNumericString ? '[0-9]+' : undefined}
+            maxLength={isPhilHealthNumber ? 14 : isNumeric ? 11 : undefined}
             max={maxDate}
             min={minValue}
+            step={type === 'number' ? 1 : undefined}
             autoComplete={nativeDate ? 'off' : undefined}
-            required={required}
+            required={isRequired && !readOnlyInput}
+            readOnly={readOnlyInput}
+            aria-readonly={readOnlyInput}
             aria-invalid={hasMissingValue}
             disabled={disabled}
           />
-          {isNativeDate && (
+          {validationError && <small className="field-validation-error" role="alert">{validationError}</small>}
+          {isNativeDate && !isAutoComputedDate && (
             <button
               type="button"
               className="calendar-toggle-btn"
@@ -283,10 +357,15 @@ export function MotherFormFields({
             </button>
           )}
         </div>
-        {!isNativeDate && isDate && slashDateInput && !readOnly && (
+        {!isNativeDate && isDate && slashDateInput && !readOnly && !isAutoComputedDate && (
           <>
             <button type="button" className="date-picker-button" onClick={() => openDatePicker(name)} aria-label={`Open calendar for ${label}`}>
-              <span aria-hidden="true">▣</span>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="3" y="4" width="18" height="18" rx="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
             </button>
             <input
               ref={(element) => { datePickerRefs.current[name] = element; }}
@@ -295,7 +374,7 @@ export function MotherFormFields({
               value={formatDateForInput(value)}
               onChange={(event) => {
                 const nextValue = event.target.value;
-                setDateDrafts((prev) => ({ ...prev, [name]: maskDateInput(nextValue) }));
+                setDateDrafts((prev) => ({ ...prev, [name]: maskDateInput(nextValue, dateOrder) }));
                 if (onChange) onChange(nextValue);
                 else setForm((prev) => ({ ...prev, [name]: nextValue }));
               }}
@@ -310,7 +389,12 @@ export function MotherFormFields({
 
   const renderSelect = ({ id, label, name, options = [], placeholder = '', required = false, onChange, disabled = false }) => {
     const value = form[name] ?? '';
-    const hasMissingValue = required && !String(value ?? '').trim() && showRequiredValidation;
+    const selectedOption = options.find((option) =>
+      String(option.value ?? option) === String(value)
+    );
+    const selectedLabel = selectedOption ? selectedOption.label ?? selectedOption : '';
+    const isRequired = required && (enforceRequiredFields || name === 'community');
+    const hasMissingValue = isRequired && !String(value ?? '').trim() && showRequiredValidation;
     if (readOnly) {
       return (
         <div className="form-group">
@@ -323,12 +407,13 @@ export function MotherFormFields({
     return (
       <div className="form-group">
         <label className="form-label" htmlFor={id}>
-          {label}{required && <span className="form-required-indicator" aria-hidden="true"> *</span>}
+          {label}{isRequired && <span className="form-required-indicator" aria-hidden="true">*</span>}
         </label>
         <select
           id={id}
-          className={`form-select${hasMissingValue ? ' invalid' : ''}`}
+          className={`form-select${id === 'mother-group' || id === 'mother-batch' ? ' create-mother-community-select' : ''}${hasMissingValue ? ' invalid' : ''}`}
           value={value}
+          title={String(selectedLabel || placeholder)}
           onChange={(e) => {
             if (onChange) {
               onChange(e.target.value);
@@ -338,7 +423,7 @@ export function MotherFormFields({
               ? { ...prev, community: e.target.value, groupId: '', batchId: '', group: '', batch: '' }
               : { ...prev, [name]: e.target.value });
           }}
-          required={required}
+          required={isRequired}
           aria-invalid={hasMissingValue}
           disabled={disabled}
         >
@@ -353,6 +438,7 @@ export function MotherFormFields({
 
   const renderTextarea = ({ id, label, name, rows = 2, placeholder = '', required = false }) => {
     const value = form[name] ?? '';
+    const isRequired = required && enforceRequiredFields;
     if (readOnly) {
       return (
         <div className="form-group full-width">
@@ -365,7 +451,7 @@ export function MotherFormFields({
     return (
       <div className="form-group full-width">
         <label className="form-label" htmlFor={id}>
-          {label}{required && <span className="form-required-indicator" aria-hidden="true"> *</span>}
+          {label}{isRequired && <span className="form-required-indicator" aria-hidden="true">*</span>}
         </label>
         <textarea
           id={id}
@@ -374,8 +460,78 @@ export function MotherFormFields({
           placeholder={placeholder}
           value={value}
           onChange={(e) => setForm((prev) => ({ ...prev, [name]: e.target.value }))}
-          required={required}
+          required={isRequired}
         />
+      </div>
+    );
+  };
+
+  const renderVaccineDateInput = ({ field, label, previousField }) => {
+    const value = form[field] || '';
+    const error = validationErrors[field];
+    const disabled = !readOnly && Boolean(previousField) && !form[previousField] && !value;
+    if (readOnly) {
+      return <div className="form-readonly-value">{value ? formatDateForDisplay(value) : '—'}</div>;
+    }
+
+    const nativeDate = !slashDateInput;
+    return (
+      <div className="vaccine-date-field">
+        <input
+          type={nativeDate ? 'date' : 'text'}
+          className={`form-input table-input${error ? ' invalid' : ''}`}
+          placeholder={slashDateInput ? 'DD/MM/YYYY' : undefined}
+          aria-label={`${label} date`}
+          aria-invalid={Boolean(error)}
+          value={nativeDate ? formatDateForInput(value) : getDateDisplayValue(field, value)}
+          onChange={(event) => {
+            if (nativeDate) {
+              updateVaccineDate(field, event.target.value);
+              return;
+            }
+            updateDateValue(field, event.target.value, (nextValue) => updateVaccineDate(field, nextValue));
+          }}
+          onBlur={!nativeDate
+            ? () => commitDateValue(field, getDateDisplayValue(field, value), (nextValue) => updateVaccineDate(field, nextValue))
+            : undefined}
+          max={getLocalToday()}
+          disabled={disabled}
+          autoComplete="off"
+        />
+        {error && <small className="field-validation-error" role="alert">{error}</small>}
+        {slashDateInput && (
+          <>
+            <button
+              type="button"
+              className="date-picker-button"
+              onClick={() => openDatePicker(field)}
+              aria-label={`Open calendar for ${label} date`}
+              disabled={disabled}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="3" y="4" width="18" height="18" rx="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+            </button>
+            <input
+              ref={(element) => { datePickerRefs.current[field] = element; }}
+              className="native-date-picker-input"
+              type="date"
+              value={formatDateForInput(value)}
+              max={getLocalToday()}
+              onChange={(event) => {
+                const nextValue = event.target.value;
+                setDateDrafts((prev) => ({ ...prev, [field]: maskDateInput(nextValue) }));
+                updateVaccineDate(field, nextValue);
+              }}
+              tabIndex={-1}
+              aria-hidden="true"
+              disabled={disabled}
+            />
+          </>
+        )}
       </div>
     );
   };
@@ -385,52 +541,53 @@ export function MotherFormFields({
       <div className="create-mother-general">
         <section className="create-mother-category">
           <h4 className="form-section-title">I.A Mother's Information</h4>
-          <div className="form-row-5 full-width name-row">
-          {renderField({ id: 'mother-first-name', label: "First Name", name: 'firstName', placeholder: 'First name', required: true })}
-          {renderField({ id: 'mother-middle-name', label: "Middle Name", name: 'middleName', placeholder: 'Middle name', required: true })}
-          {renderField({ id: 'mother-last-name', label: "Last Name", name: 'lastName', placeholder: 'Last name', required: true })}
-          {renderField({ id: 'mother-maiden-surname', label: "Maiden Surname", name: 'maidenSurname', placeholder: 'Maiden surname', required: true })}
-          {renderField({ id: 'mother-suffix', label: "Suffix", name: 'suffix', placeholder: 'Suffix' })}
+          <div className="form-row-3 full-width name-row">
+            {renderField({ id: 'mother-first-name', label: "First Name", name: 'firstName', placeholder: 'First name', required: true })}
+            {renderField({ id: 'mother-middle-name', label: "Middle Name", name: 'middleName', placeholder: 'Middle name' })}
+            {renderField({ id: 'mother-last-name', label: "Last Name", name: 'lastName', placeholder: 'Last name', required: true })}
           </div>
 
           <div className="form-row-2 full-width">
-          {renderField({ id: 'mother-dob', label: "Date of Birth", name: 'dob', type: 'date', required: true, maxDate: new Date().toISOString().split('T')[0] })}
-          {renderField({ id: 'mother-contact', label: "Contact Number", name: 'contactNumber', type: 'tel', placeholder: '0917******', required: true })}
+            {renderField({ id: 'mother-maiden-surname', label: "Maiden Surname", name: 'maidenSurname', placeholder: 'Maiden surname' })}
+            {renderField({ id: 'mother-suffix', label: "Suffix", name: 'suffix', placeholder: 'e.g. Jr., III' })}
+          </div>
+          <div className="form-row-2 full-width">
+            {renderField({ id: 'mother-dob', label: "Date of Birth", name: 'dob', type: 'date', required: true, dateOrder: 'mdy', maxDate: getLatestEligibleMotherDob() })}
+            {renderField({ id: 'mother-contact', label: "Contact Number", name: 'contactNumber', type: 'tel', placeholder: '09171234567', required: true })}
           </div>
 
-          <div className="form-row-2 full-width">
-          {renderField({ id: 'mother-place-of-birth', label: 'Place of Birth', name: 'birthPlace', placeholder: 'City / Municipality' })}
-          {renderField({ id: 'mother-allergies', label: 'Allergies', name: 'allergies', placeholder: 'List known allergies, if any' })}
-          </div>
-          <div className="form-row-3 full-width">
-          {renderSelect({
-            id: 'mother-blood-type',
-            label: 'Blood Type',
-            name: 'bloodType',
-            options: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'],
-            placeholder: 'Select blood type',
-          })}
-          {renderSelect({
-            id: 'mother-civil-status',
-            label: 'Civil Status',
-            name: 'civilStatus',
-            options: ['Single', 'Married', 'Widowed', 'Separated', 'Divorced'],
-            placeholder: 'Select civil status',
-          })}
-          {renderSelect({
-            id: 'mother-employment-status',
-            label: 'Employment Status',
-            name: 'employmentStatus',
-            options: ['Part-Time', 'Full-Time', 'Housewife', 'Looking for Employment', 'Other'],
-            placeholder: 'Select employment status',
-          })}
-          {renderSelect({
-            id: 'mother-education',
-            label: 'Educational Attainment',
-            name: 'educationalAttainment',
-            options: ['Elementary', 'High School', 'College', 'Post-Graduate', 'Other'],
-            placeholder: 'Select educational attainment',
-          })}
+          <div className="form-row-4 full-width">
+            {renderSelect({
+              id: 'mother-blood-type',
+              label: 'Blood Type',
+              name: 'bloodType',
+              options: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'],
+              placeholder: 'Select blood type',
+            })}
+            {renderSelect({
+              id: 'mother-civil-status',
+              label: 'Civil Status',
+              name: 'civilStatus',
+              options: ['Single', 'Married', 'Widowed', 'Separated', 'Divorced'],
+              placeholder: 'Select civil status',
+              required: true,
+            })}
+            {renderSelect({
+              id: 'mother-employment-status',
+              label: 'Employment Status',
+              name: 'employmentStatus',
+              options: ['Part-Time', 'Full-Time', 'Housewife', 'Looking for Employment', 'Other'],
+              placeholder: 'Select employment status',
+              required: true,
+            })}
+            {renderSelect({
+              id: 'mother-education',
+              label: 'Educational Attainment',
+              name: 'educationalAttainment',
+              options: ['Elementary', 'High School', 'College', 'Post-Graduate', 'Other'],
+              placeholder: 'Select educational attainment',
+              required: true,
+            })}
           </div>
 
         </section>
@@ -478,14 +635,14 @@ export function MotherFormFields({
 
         <section className="create-mother-category">
           <h4 className="form-section-title">I.C COMMUNITY DETAILS</h4>
-          <div className="form-row-3 full-width">
+          <div className={`form-row-3 full-width create-mother-community-fields${hideSchoolField ? ' is-school-hidden' : ''}`}>
           {!hideSchoolField && renderSelect({
             id: 'mother-community',
             label: 'School',
             name: 'community',
             options: uniqueCommunities,
             placeholder: 'Select school',
-            required: true,
+            required: !hideSchoolField,
           })}
           {renderSelect({
             id: 'mother-group',
@@ -510,8 +667,12 @@ export function MotherFormFields({
             label: 'Batch',
             name: 'batchId',
             options: selectedBatches.map((batch) => ({ value: batch.databaseId ?? batch.id, label: batch.name })),
-            placeholder: 'Select batch',
-            required: true,
+            placeholder: !selectedGroupId
+              ? 'Select group first'
+              : selectedBatches.length
+                ? 'Select batch'
+                : 'No batches for this group',
+            disabled: !selectedGroupId || selectedBatches.length === 0,
             onChange: (value) => {
               const selectedBatch = batches.find((batch) => String(batch.databaseId ?? batch.id) === String(value));
               setForm((prev) => ({
@@ -546,22 +707,6 @@ export function MotherFormFields({
                   onChange={(event) => setDocumentFiles?.((current) => ({ ...current, consent: event.target.files?.[0] || null }))}
                 />
               </div>
-              <div className="form-checkboxes-grid full-width">
-                {[
-                  ['dataPrivacySigned', 'Data privacy consent signed'],
-                  ['mediaReleaseSigned', 'Media release signed'],
-                ].map(([field, label]) => (
-                  <label key={field} className="form-checkbox-label">
-                    <input
-                      type="checkbox"
-                      className="form-checkbox"
-                      checked={!!form[field]}
-                      onChange={(event) => setForm((current) => ({ ...current, [field]: event.target.checked }))}
-                    />
-                    <span>{label}</span>
-                  </label>
-                ))}
-              </div>
             </div>
           </section>
         )}
@@ -595,9 +740,9 @@ export function MotherFormFields({
           </label>
           {form.philhealthMember && renderField({
             id: 'philhealth-number',
-            label: 'PhilHealth Number',
+            label: 'PhilHealth Identification Number (PIN)',
             name: 'philhealthNumber',
-            placeholder: 'Enter PhilHealth number',
+            placeholder: '12-345678901-2',
             required: true,
           })}
         </section>
@@ -611,49 +756,40 @@ export function MotherFormFields({
         <section className="create-mother-category">
           <h4 className="form-section-title">II. INITIAL PRENATAL ASSESSMENT & MATERNAL HEALTH PROFILE</h4>
           <div className="form-row-2 full-width">
-          {readOnly ? (
-            renderField({ id: 'mother-lmp', label: 'Date of LMP', name: 'lmpDate', type: 'date', required: true })
-          ) : (
-            <div className="form-group">
-              <label className="form-label" htmlFor="mother-lmp">Date of LMP</label>
-              <input
-                id="mother-lmp"
-                type={slashDateInput ? 'text' : 'date'}
-                className="form-input"
-                placeholder="DD/MM/YYYY"
-                value={getDateDisplayValue('lmpDate', form.lmpDate)}
-                onChange={(e) => updateDateValue('lmpDate', e.target.value, handleLmpChange)}
-                onBlur={() => commitDateValue('lmpDate', getDateDisplayValue('lmpDate', form.lmpDate), handleLmpChange)}
-                max={new Date().toISOString().split('T')[0]}
-                autoComplete="off"
-                pattern="\\d{2}/\\d{2}/\\d{4}"
-                required
-              />
-              {slashDateInput && <>
-                <button type="button" className="date-picker-button" onClick={() => openDatePicker('lmpDate')} aria-label="Open calendar for Date of LMP"><span aria-hidden="true">▣</span></button>
-                <input
-                  ref={(element) => { datePickerRefs.current.lmpDate = element; }}
-                  className="native-date-picker-input"
-                  type="date"
-                  value={formatDateForInput(form.lmpDate)}
-                  onChange={(e) => {
-                    setDateDrafts((prev) => ({ ...prev, lmpDate: maskDateInput(e.target.value) }));
-                    handleLmpChange(e.target.value);
-                  }}
-                  tabIndex={-1}
-                  aria-hidden="true"
-                />
-              </>}
-            </div>
-          )}
+          {renderField({
+            id: 'mother-lmp',
+            label: 'Date of LMP',
+            name: 'lmpDate',
+            type: 'date',
+            required: true,
+            maxDate: new Date().toISOString().split('T')[0],
+            onChange: handleLmpChange,
+          })}
 
-          {renderField({ id: 'mother-edd', label: "Expected Delivery Date (EDD)", name: 'eddDate', type: 'date', required: true, disabled: true })}
+          {renderField({
+            id: 'mother-edd',
+            label: 'Expected Delivery Date (EDD)',
+            name: 'eddDate',
+            type: 'date',
+            required: !!form.eddDateOverridden,
+            disabled: !form.eddDateOverridden,
+          })}
           </div>
+          <label className="form-toggle-label create-mother-edd-override" htmlFor="mother-edd-override">
+            <input
+              id="mother-edd-override"
+              type="checkbox"
+              className="form-checkbox"
+              checked={!!form.eddDateOverridden}
+              onChange={(event) => setForm((prev) => ({ ...prev, eddDateOverridden: event.target.checked }))}
+            />
+            <span>Override the calculated EDD manually</span>
+          </label>
 
           <div className="form-row-3 full-width">
-          {renderField({ id: 'prenatal-reg-date', label: 'Date of First Prenatal Check-up', name: 'prenatalRegDate', type: 'date' })}
-          {renderField({ id: 'prenatal-gest-age', label: 'Gestational Age at Reg (weeks)', name: 'gestationalAge', required: true, disabled: true })}
-          {renderField({ id: 'mother-trimester', label: 'Trimester', name: 'trimester', required: true, disabled: true })}
+          {renderField({ id: 'prenatal-reg-date', label: 'Date of First Prenatal Check-up', name: 'prenatalRegDate', type: 'date', required: true })}
+          {renderField({ id: 'prenatal-gest-age', label: 'Gestational Age at Reg (weeks)', name: 'gestationalAge', disabled: true })}
+          {renderField({ id: 'mother-trimester', label: 'Trimester', name: 'trimester', disabled: true })}
           </div>
 
           <div className="form-row-3 full-width">
@@ -675,16 +811,49 @@ export function MotherFormFields({
 
         <section className="create-mother-category">
           <h4 className="form-section-title">III. NUMBER OF PREGNANCIES & BIRTHS (OB)</h4>
-          <div className="form-row-3 full-width">
-          {renderField({ id: 'ob-gravida', label: 'Gravida (Pregnancies)', name: 'gravida', type: 'number', placeholder: 'Total pregnancies', required: true, minValue: 0 })}
-          {renderField({ id: 'ob-abortion', label: 'Abortion', name: 'abortion', type: 'number', placeholder: 'Spontaneous/induced', required: true, minValue: 0 })}
-          {renderField({ id: 'ob-stillbirth', label: 'Stillbirth', name: 'stillbirth', type: 'number', placeholder: 'Fetal death >20wks', required: true, minValue: 0 })}
-          </div>
-          <div className="form-row-4 full-width">
-          {renderField({ id: 'ob-total-children', label: 'Total Children', name: 'totalChildren', type: 'number', minValue: 0, placeholder: '0' })}
-          {renderField({ id: 'ob-born-alive', label: 'Children Born Alive', name: 'childrenBornAlive', type: 'number', minValue: 0, placeholder: '0' })}
-          {renderField({ id: 'ob-miscarriages', label: 'Miscarriages', name: 'miscarriages', type: 'number', minValue: 0, placeholder: '0' })}
-          {renderField({ id: 'ob-died-after-birth', label: 'Children Born Alive but Now Deceased', name: 'childrenDiedAfterBirth', type: 'number', minValue: 0, placeholder: '0' })}
+          <div className="form-row-2 full-width create-mother-birth-count-grid">
+            {renderField({
+              id: 'ob-born-alive',
+              label: 'Children Born Alive (Living)',
+              name: 'childrenBornAlive',
+              type: 'number',
+              minValue: 0,
+              placeholder: '0',
+              required: true,
+              helpText: 'Number of children currently living.',
+              onChange: (value) => handleBirthCountChange('childrenBornAlive', value),
+            })}
+            {renderField({
+              id: 'ob-died-after-birth',
+              label: 'Children Born Alive (Now Deceased)',
+              name: 'childrenDiedAfterBirth',
+              type: 'number',
+              minValue: 0,
+              placeholder: '0',
+              required: true,
+              helpText: 'Number of children who have died after birth.',
+              onChange: (value) => handleBirthCountChange('childrenDiedAfterBirth', value),
+            })}
+            {renderField({
+              id: 'ob-total-children',
+              label: 'Total Children',
+              name: 'totalChildren',
+              type: 'number',
+              minValue: 0,
+              placeholder: calculateBirthCountTotal ? 'Enter both counts above' : '0',
+              readOnlyInput: calculateBirthCountTotal,
+              autoCalculated: true,
+              helpText: calculateBirthCountTotal ? 'Calculated from living and deceased children.' : '',
+            })}
+            {renderField({
+              id: 'ob-miscarriages',
+              label: 'Miscarriages',
+              name: 'miscarriages',
+              type: 'number',
+              minValue: 0,
+              placeholder: '0',
+              required: true,
+            })}
           </div>
         </section>
 
@@ -696,6 +865,7 @@ export function MotherFormFields({
     const conditionsKeys = [
       { key: 'hypertension', label: 'Hypertension' },
       { key: 'diabetes', label: 'Diabetes' },
+      { key: 'eclampsia', label: 'Eclampsia' },
       { key: 'asthma', label: 'Asthma' },
       { key: 'heartDisease', label: 'Heart Disease' },
       { key: 'kidneyDisease', label: 'Kidney Disease' },
@@ -767,7 +937,13 @@ export function MotherFormFields({
 
           <div className="form-row-3 full-width">
           {renderField({ id: 'dentist-comm', label: 'Community Dentist Name', name: 'communityDentist', placeholder: 'Community dentist' })}
-          {renderField({ id: 'dentist-license', label: 'Dentist License No', name: 'dentistLicense', placeholder: 'License number' })}
+          {renderField({
+            id: 'dentist-license',
+            label: 'Dentist License No.',
+            name: 'dentistLicense',
+            placeholder: 'License number',
+            required: Boolean(form.dentalCheckupDate),
+          })}
           {renderField({ id: 'dentist-contact', label: 'Dentist Contact No', name: 'dentistContact', type: 'tel', placeholder: 'Contact number' })}
           </div>
 
@@ -815,56 +991,33 @@ export function MotherFormFields({
       <div className="create-mother-general create-mother-vaccine">
         <section className="create-mother-category">
           <h4 className="form-section-title">IV.C VACCINE RECORD</h4>
-          <p className="form-optional-note">Optional</p>
+          <p className="form-optional-note">Optional. Enter any doses you have; other doses and remarks can be left blank.</p>
           <div className="form-group full-width">
           <div className="form-panel vaccine-form-panel">
             <div className="vaccine-form-table-wrapper">
               <table className="vaccine-form-table">
                 <thead>
                   <tr>
-                    <th style={{ width: '20%' }}>Vaccine</th>
+                    <th style={{ width: '25%' }}>Vaccine</th>
                     {[1, 2, 3].map((num) => (
-                      <th key={num} style={{ width: '14%' }}>Dose {num}</th>
+                      <th key={num} style={{ width: '18%' }}>Dose {num}</th>
                     ))}
-                    <th style={{ width: '38%' }}>Remarks</th>
+                    <th style={{ width: '21%' }}>Remarks / Facility</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td><strong>Tetanus Toxoid (TT)</strong></td>
+                    <td data-label="Vaccine"><strong>Tetanus Toxoid (TT)</strong></td>
                     {[1, 2, 3].map((num) => (
-                      <td key={num}>
-                        {readOnly ? (
-                          <div className="form-readonly-value">{form[`tt${num}Date`] || '-'}</div>
-                        ) : (
-                          <>
-                            <input
-                              type={slashDateInput ? 'text' : 'date'}
-                              className="form-input table-input"
-                              placeholder={slashDateInput ? 'DD/MM/YYYY' : undefined}
-                              aria-label={`TT dose ${num} date`}
-                              value={getDateDisplayValue(`tt${num}Date`, form[`tt${num}Date`] || '')}
-                              onChange={(e) => updateDateValue(`tt${num}Date`, e.target.value)}
-                              onBlur={() => commitDateValue(`tt${num}Date`, getDateDisplayValue(`tt${num}Date`, form[`tt${num}Date`] || ''))}
-                              autoComplete="off"
-                            />
-                            {slashDateInput && <>
-                              <button type="button" className="date-picker-button" onClick={() => openDatePicker(`tt${num}Date`)} aria-label={`Open calendar for TT dose ${num}`}><span aria-hidden="true">▣</span></button>
-                              <input
-                                ref={(element) => { datePickerRefs.current[`tt${num}Date`] = element; }}
-                                className="native-date-picker-input"
-                                type="date"
-                                value={formatDateForInput(form[`tt${num}Date`] || '')}
-                                onChange={(e) => setForm((prev) => ({ ...prev, [`tt${num}Date`]: e.target.value }))}
-                                tabIndex={-1}
-                                aria-hidden="true"
-                              />
-                            </>}
-                          </>
-                        )}
+                      <td key={num} data-label={`Dose ${num}`}>
+                        {renderVaccineDateInput({
+                          field: `tt${num}Date`,
+                          label: `Tetanus Toxoid dose ${num}`,
+                          previousField: num > 1 ? `tt${num - 1}Date` : null,
+                        })}
                       </td>
                     ))}
-                    <td>
+                    <td data-label="Remarks / Facility">
                       {readOnly ? (
                         <div className="form-readonly-value">{form.ttRemarks || [1, 2, 3, 4, 5].map((num) => form[`tt${num}Remarks`]).filter(Boolean).join('; ') || '-'}</div>
                       ) : (
@@ -872,7 +1025,7 @@ export function MotherFormFields({
                           type="text"
                           className="form-input table-input"
                           aria-label="Tetanus Toxoid remarks"
-                          placeholder="Remarks..."
+                          placeholder="Remarks / facility"
                           value={form.ttRemarks ?? ''}
                           onChange={(e) => setForm((prev) => ({ ...prev, ttRemarks: e.target.value }))}
                         />
@@ -881,29 +1034,19 @@ export function MotherFormFields({
                   </tr>
                   {OTHER_MATERNAL_VACCINES.map(({ label, key }) => (
                     <tr key={key}>
-                      <td><strong>{label}</strong></td>
+                      <td data-label="Vaccine"><strong>{label}</strong></td>
                       {[1, 2, 3].map((num) => {
                         const dateField = `${key}${num === 1 ? 'Date' : `Dose${num}Date`}`;
+                        const previousField = num === 1
+                          ? null
+                          : `${key}${num === 2 ? 'Date' : 'Dose2Date'}`;
                         return (
-                          <td key={dateField}>
-                            {readOnly ? (
-                              <div className="form-readonly-value">{getDateDisplayValue(dateField, form[dateField] || '') || '—'}</div>
-                            ) : (
-                              <input
-                                type={slashDateInput ? 'text' : 'date'}
-                                className="form-input table-input"
-                                placeholder={slashDateInput ? 'DD/MM/YYYY' : undefined}
-                                aria-label={`${label} dose ${num} date`}
-                                value={getDateDisplayValue(dateField, form[dateField] || '')}
-                                onChange={(event) => updateDateValue(dateField, event.target.value)}
-                                onBlur={() => commitDateValue(dateField, getDateDisplayValue(dateField, form[dateField] || ''))}
-                                autoComplete="off"
-                              />
-                            )}
+                          <td key={dateField} data-label={`Dose ${num}`}>
+                            {renderVaccineDateInput({ field: dateField, label: `${label} dose ${num}`, previousField })}
                           </td>
                         );
                       })}
-                      <td>
+                      <td data-label="Remarks / Facility">
                         {readOnly ? (
                           <div className="form-readonly-value">{form[`${key}Remarks`] || '—'}</div>
                         ) : (
@@ -911,7 +1054,7 @@ export function MotherFormFields({
                             type="text"
                             className="form-input table-input"
                             aria-label={`${label} source or facility`}
-                            placeholder="Source / facility"
+                            placeholder="Remarks / facility"
                             value={form[`${key}Remarks`] || ''}
                             onChange={(event) => setForm((current) => ({ ...current, [`${key}Remarks`]: event.target.value }))}
                           />

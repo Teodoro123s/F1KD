@@ -8,6 +8,8 @@ export function ResultsPanel({
   groups,
   batches,
   exportReport,
+  graphExportRows,
+  graphExportFields,
   resultsView,
   setResultsView,
   graphAllowed,
@@ -79,7 +81,15 @@ export function ResultsPanel({
               {view.label}
             </button>
           ))}
-          <button type="button" className="secondary-btn" onClick={exportReport}>Export CSV</button>
+          {resultsView === 'graph' && graphAllowed && (
+            <button
+              type="button"
+              className="secondary-btn"
+              onClick={() => exportReport({ rows: graphExportRows, fields: graphExportFields, view: 'graph' })}
+            >
+              Export CSV
+            </button>
+          )}
         </div>
       </div>
 
@@ -127,6 +137,7 @@ export function ResultsPanel({
           profileSectionLabels={profileSectionLabels}
           profileSection={profileSection}
           setProfileSection={setProfileSection}
+          onExport={exportReport}
           displaySort={displaySort}
           sortLabel={(label, key) => (
             <button type="button" className="progress-report-sort-button" onClick={() => changeSort(key)}>

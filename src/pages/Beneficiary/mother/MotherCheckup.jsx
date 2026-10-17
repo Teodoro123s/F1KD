@@ -4,6 +4,7 @@ import DateInput from '../../../components/ui/DateInput';
 import AuditSignatures from '../../../components/ui/AuditSignatures';
 import { formatDateForDisplay, normalizeDateValue } from '../../../utils/dateFormat';
 import { getMotherMonitoringStartIndex } from '../../../utils/motherProgress';
+import { formatCurrencyAmount, normalizeCurrencyAmount, sanitizeCurrencyAmount } from '../../../utils/currencyAmount';
 
 const TRIMESTERS = [
   { label: '1st Trimester', code: 'T1' },
@@ -145,7 +146,7 @@ const createInitialFormState = (mother, checkup = null, blank = false, previousC
   labAssistance: checkup?.labAssistance ?? false,
   labAssistanceTests: checkup?.labAssistanceTests ?? [],
   laboratoryRequests: checkup?.laboratoryRequests ?? [],
-  amount: checkup?.amount ?? '',
+  amount: sanitizeCurrencyAmount(checkup?.amount ?? ''),
   sourceOfFunds: blank ? '' : checkup?.sourceOfFunds ?? 'Municipal Fund',
   facilityType: checkup?.facilityType ?? 'Govt',
   milkDate: formatDate(checkup?.milkDate),
@@ -164,6 +165,7 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
   const [activeStep, setActiveStep] = useState(initialStep);
   const previousMotherId = useRef(mother.id || mother.motherId);
   const [formState, setFormState] = useState(() => createInitialFormState(mother, getCheckupForStep(mother, initialStep), false, getPreviousCheckupForStep(mother, initialStep)));
+  const [amountFocused, setAmountFocused] = useState(false);
   const [pendingSave, setPendingSave] = useState(null);
   const [saving, setSaving] = useState(false);
 
@@ -180,6 +182,7 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
     const firstIncomplete = getFirstIncompleteStep(mother.checkups, getMotherMonitoringStartIndex(mother));
     const isFutureStep = firstIncomplete !== -1 && activeStep > firstIncomplete;
     setFormState(createInitialFormState(mother, getCheckupForStep(mother, activeStep), isFutureStep, getPreviousCheckupForStep(mother, activeStep)));
+    setAmountFocused(false);
   }, [mother, activeStep]);
 
   const updateField = (field) => (value) => {
@@ -211,7 +214,7 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
   } = formState;
 
   const bmi = calculateBmi(weight, height);
-  const showReferralFields = referral === true || labAssistance === true;
+  const showReferralFields = referral === true;
 
   const nutritionalStatus = useMemo(() => {
     const value = parseFloat(bmi);
@@ -234,8 +237,6 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
   }, [bp]);
 
   const hasWarnings = Boolean(bpWarning);
-  const name = mother.motherName || mother.communityName || mother.name;
-
   const activeTrimester = Math.floor(activeStep / 3) + 1;
   const activeStepIndex = (activeStep % 3) + 1;
   const activeCheckup = getCheckupForStep(mother, activeStep);
@@ -268,9 +269,9 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
       serviceProvider,
       nextCheckupDate: formatDateForPayload(nextCheckupDate),
       referral,
-      labAssistance,
-      labAssistanceTests,
-      laboratoryRequests,
+      labAssistance: referral && labAssistance,
+      labAssistanceTests: referral && labAssistance ? labAssistanceTests : [],
+      laboratoryRequests: referral ? laboratoryRequests : [],
       amount,
       sourceOfFunds,
       facilityType,
@@ -453,89 +454,62 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
                   </button>
                 </div>
               </div>
-              <div className="horizontal-toggle-row full-width">
-                <span className="horizontal-toggle-label">Laboratory Assistance Provided</span>
-                <label className="ios-switch">
-                  <input
-                    type="checkbox"
-                    checked={labAssistance}
-                    onChange={(e) => updateField('labAssistance')(e.target.checked)}
-                  />
-                  <span className="ios-slider"></span>
-                </label>
-              </div>
-              {labAssistance && (
-                <div className="form-group full-width">
-                  <details className="lab-assistance-dropdown" open>
-                    <summary>Choose assisted laboratory tests</summary>
-                    <div className="lab-assistance-options">
-                      {LAB_ASSISTANCE_OPTIONS.map((option) => (
-                        <label key={option} className="lab-assistance-option">
+              {referral && (
+                <>
+                  <div className="horizontal-toggle-row full-width">
+                    <span className="horizontal-toggle-label">Laboratory Assistance Provided</span>
+                    <label className="ios-switch">
+                      <input
+                        type="checkbox"
+                        checked={labAssistance}
+                        onChange={(e) => updateField('labAssistance')(e.target.checked)}
+                      />
+                      <span className="ios-slider"></span>
+                    </label>
+                  </div>
+                  {labAssistance && (
+                    <div className="form-group full-width">
+                      <details className="lab-assistance-dropdown" open>
+                        <summary>Choose assisted laboratory tests</summary>
+                        <div className="lab-assistance-options">
+                          {LAB_ASSISTANCE_OPTIONS.map((option) => (
+                            <label key={option} className="lab-assistance-option">
+                              <input
+                                type="checkbox"
+                                checked={labAssistanceTests.includes(option)}
+                                onChange={(event) => updateField('labAssistanceTests')(
+                                  event.target.checked
+                                    ? [...labAssistanceTests, option]
+                                    : labAssistanceTests.filter((test) => test !== option),
+                                )}
+                              />
+                              <span>{option}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </details>
+                    </div>
+                  )}
+                  <fieldset className="form-group full-width">
+                    <legend className="checkup-field-label">Laboratory Request(s)</legend>
+                    <div className="lab-request-checkbox-list" role="group" aria-label="Laboratory request(s)">
+                      {LAB_REQUEST_OPTIONS.map((option) => (
+                        <label key={option} className={`lab-request-option ${laboratoryRequests.includes(option) ? 'selected' : ''}`}>
                           <input
                             type="checkbox"
-                            checked={labAssistanceTests.includes(option)}
-                            onChange={(event) => updateField('labAssistanceTests')(
+                            checked={laboratoryRequests.includes(option)}
+                            onChange={(event) => updateField('laboratoryRequests')(
                               event.target.checked
-                                ? [...labAssistanceTests, option]
-                                : labAssistanceTests.filter((test) => test !== option),
+                                ? [...laboratoryRequests, option]
+                                : laboratoryRequests.filter((test) => test !== option),
                             )}
                           />
                           <span>{option}</span>
                         </label>
                       ))}
                     </div>
-                  </details>
-                </div>
-              )}
-              <div className="form-group full-width">
-                <label className="checkup-field-label" htmlFor="mother-laboratory-requests">Laboratory Request(s)</label>
-                <select
-                  id="mother-laboratory-requests"
-                  className="checkup-field-input"
-                  multiple
-                  value={Array.isArray(laboratoryRequests) ? laboratoryRequests : []}
-                  onChange={(event) => updateField('laboratoryRequests')([...event.target.selectedOptions].map((option) => option.value))}
-                  size={Math.min(5, LAB_REQUEST_OPTIONS.length)}
-                >
-                  {LAB_REQUEST_OPTIONS.map((option) => <option key={option}>{option}</option>)}
-                </select>
-                <span className="checkup-field-help">Use Ctrl or Command to select multiple tests.</span>
-              </div>
-              <div className="horizontal-toggle-row full-width">
-                <span className="horizontal-toggle-label">Milk Subsidy Provided</span>
-                <label className="ios-switch">
-                  <input
-                    type="checkbox"
-                    checked={milkSubsidy}
-                    onChange={(e) => updateField('milkSubsidy')(e.target.checked)}
-                  />
-                  <span className="ios-slider"></span>
-                </label>
-              </div>
-              {milkSubsidy && (
-                <>
-                  <div className="form-group">
-                    <label className="checkup-field-label" htmlFor="mother-milk-date">Milk Subsidy Date</label>
-                    <DateInput
-                      id="mother-milk-date"
-                      className="checkup-field-input"
-                      value={milkDate}
-                      onChange={updateField('milkDate')}
-                      ariaLabel="Milk subsidy date"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="checkup-field-label" htmlFor="mother-milk-quantity">Milk Quantity (pcs.)</label>
-                    <input
-                      id="mother-milk-quantity"
-                      type="number"
-                      min="0"
-                      step="1"
-                      className="checkup-field-input"
-                      value={milkQuantity}
-                      onChange={(e) => updateField('milkQuantity')(e.target.value)}
-                    />
-                  </div>
+                    <span className="checkup-field-help">Select one or more laboratory tests.</span>
+                  </fieldset>
                 </>
               )}
             </div>
@@ -548,13 +522,17 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
                     <label className="checkup-field-label" htmlFor="amount">Assistance Amount (PHP)</label>
                     <input
                       id="amount"
-                      type="number"
-                      min="0"
-                      step="0.01"
+                      type="text"
+                      inputMode="decimal"
                       className="checkup-field-input"
-                      placeholder="e.g. 500.00"
-                      value={amount}
-                      onChange={(e) => updateField('amount')(e.target.value)}
+                      placeholder="0.00"
+                      value={amountFocused ? amount : formatCurrencyAmount(amount)}
+                      onFocus={() => setAmountFocused(true)}
+                      onChange={(e) => updateField('amount')(sanitizeCurrencyAmount(e.target.value))}
+                      onBlur={() => {
+                        updateField('amount')(normalizeCurrencyAmount(amount));
+                        setAmountFocused(false);
+                      }}
                     />
                   </div>
 
@@ -656,15 +634,72 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
       </form>
       {pendingSave && (
         <div className="modal-backdrop" role="presentation" onMouseDown={() => !saving && setPendingSave(null)}>
-          <div className="modal program-product-modal" role="dialog" aria-modal="true" aria-labelledby="save-checkup-title" onMouseDown={(event) => event.stopPropagation()}>
+          <div className="modal program-product-modal checkup-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="save-checkup-title" onMouseDown={(event) => event.stopPropagation()}>
             <div className="modal-header">
               <h2 id="save-checkup-title">Confirm check-up</h2>
               <button type="button" className="modal-close" onClick={() => setPendingSave(null)} disabled={saving} aria-label="Close">×</button>
             </div>
             <div className="modal-body">
-              <p>Save this check-up record?</p>
-              <p><strong>{pendingSave.checkup.trimesterLabel} · Check-up {pendingSave.checkup.checkupNumber}</strong></p>
-              <p>Check-up date: {pendingSave.payload.checkupDate || 'Not selected'}</p>
+              <p className="checkup-confirm-intro">Review the check-up details before saving.</p>
+              <div className="checkup-confirm-heading">
+                <strong>{pendingSave.checkup.trimesterLabel} · Check-up {pendingSave.checkup.checkupNumber}</strong>
+                <span>{formatDateForDisplay(pendingSave.payload.checkupDate)}</span>
+              </div>
+              <dl className="checkup-confirm-summary">
+                <div>
+                  <dt>Gestation period</dt>
+                  <dd>{pendingSave.payload.gestationalAge ? `${pendingSave.payload.gestationalAge} weeks` : '—'}</dd>
+                </div>
+                <div>
+                  <dt>Weight</dt>
+                  <dd>{pendingSave.payload.weight ? `${pendingSave.payload.weight} kg` : '—'}</dd>
+                </div>
+                <div>
+                  <dt>Blood pressure</dt>
+                  <dd>{pendingSave.payload.bp || '—'}</dd>
+                </div>
+                <div>
+                  <dt>BMI</dt>
+                  <dd>{pendingSave.payload.bmi || '—'}{pendingSave.payload.nutritionalStatus ? ` · ${pendingSave.payload.nutritionalStatus}` : ''}</dd>
+                </div>
+                <div>
+                  <dt>Hospital referral</dt>
+                  <dd>{pendingSave.payload.referral ? 'Yes' : 'No'}</dd>
+                </div>
+                {pendingSave.payload.referral && (
+                  <>
+                    <div>
+                      <dt>Laboratory assistance</dt>
+                      <dd>{pendingSave.payload.labAssistance ? 'Provided' : 'Not provided'}</dd>
+                    </div>
+                    <div className="checkup-confirm-summary-wide">
+                      <dt>Laboratory requests</dt>
+                      <dd>
+                        {pendingSave.payload.laboratoryRequests.length
+                          ? pendingSave.payload.laboratoryRequests.join(', ')
+                          : 'None selected'}
+                      </dd>
+                    </div>
+                    {pendingSave.payload.labAssistance && pendingSave.payload.labAssistanceTests.length > 0 && (
+                      <div className="checkup-confirm-summary-wide">
+                        <dt>Assisted tests</dt>
+                        <dd>{pendingSave.payload.labAssistanceTests.join(', ')}</dd>
+                      </div>
+                    )}
+                    {(pendingSave.payload.amount || pendingSave.payload.sourceOfFunds || pendingSave.payload.facilityType) && (
+                      <div className="checkup-confirm-summary-wide">
+                        <dt>Assistance and funding</dt>
+                        <dd>
+                          {pendingSave.payload.amount ? `${formatCurrencyAmount(pendingSave.payload.amount)} PHP` : 'No amount entered'}
+                          {pendingSave.payload.sourceOfFunds ? ` · ${pendingSave.payload.sourceOfFunds}` : ''}
+                          {pendingSave.payload.facilityType ? ` · ${pendingSave.payload.facilityType}` : ''}
+                        </dd>
+                      </div>
+                    )}
+                  </>
+                )}
+              </dl>
+              <p className="checkup-confirm-note">Confirming will save these details to the maternal monitoring record.</p>
             </div>
             <div className="modal-footer">
               <button type="button" className="btn-secondary" onClick={() => setPendingSave(null)} disabled={saving}>Cancel</button>

@@ -9,6 +9,7 @@ router.use((req, res, next) => {
 });
 const pool = require('../db');
 const { createSuperadminNotification } = require('../services/notifications');
+const { normalizeRole } = require('../middleware/authorize');
 
 function parseAssignedBatchIds(raw) {
   if (!raw) return [];
@@ -391,7 +392,12 @@ router.post('/communities', async (req, res) => {
   }
 });
 
-router.post('/batches', async (req, res) => {
+router.post('/batches', (req, res, next) => {
+  if (normalizeRole(req.user?.role) === 'super_admin') {
+    return res.status(403).json({ error: 'Super Admin accounts cannot create batches' });
+  }
+  return next();
+}, async (req, res) => {
   try {
     const { name, community, groupId, records, progress, status } = req.body || {};
     const cleanName = String(name || '').trim();

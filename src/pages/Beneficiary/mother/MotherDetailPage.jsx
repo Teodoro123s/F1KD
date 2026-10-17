@@ -147,10 +147,6 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
   const prenatalBp = mother.prenatalBp || '—';
   const fundalHeight = mother.fundalHeight || '—';
   const fhr = mother.fhr || '—';
-  const gravida = mother.gravida ?? '—';
-  const para = mother.para ?? '—';
-  const abortion = mother.abortion ?? '—';
-  const stillbirth = mother.stillbirth ?? '—';
   const lmp = formatDateForDisplay(mother.lmpDate || mother.lmp);
   const edd = formatDateForDisplay(mother.eddDate || mother.edd);
   const prenatalRegDate = formatDateForDisplay(mother.prenatalRegDate);
@@ -241,18 +237,6 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
             </div>
           );
         })}
-        <div className="document-upload-field">
-          <span className="detail-form-label">Data privacy consent signed</span>
-          <div className="detail-form-value">
-            {(motherRecord.dataPrivacySigned ?? motherRecord.data_privacy_signed) ? 'Signed' : 'Not signed'}
-          </div>
-        </div>
-        <div className="document-upload-field">
-          <span className="detail-form-label">Media release signed</span>
-          <div className="detail-form-value">
-            {(motherRecord.mediaReleaseSigned ?? motherRecord.media_release_signed) ? 'Signed' : 'Not signed'}
-          </div>
-        </div>
       </div>
     </section>
   );
@@ -420,13 +404,6 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
 
           <section className="mother-detail-section">
             <h3 className="mother-detail-section-title">III. NUMBER OF PREGNANCIES &amp; BIRTHS (GPA)</h3>
-            <div className="mother-detail-grid">
-              <Field label="Gravida (Pregnancies)" value={gravida} />
-              <Field label="Para (Completed >20wks)" value={para} />
-              <Field label="Abortion" value={abortion} />
-              <Field label="Stillbirth" value={stillbirth} />
-            </div>
-
             <div className="detail-form-field full-width" style={{ marginTop: '0.9rem' }}>
               <div className="detail-form-label">OB History</div>
               <div className="mother-detail-table-wrap">

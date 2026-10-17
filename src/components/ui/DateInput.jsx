@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { formatDateForDisplay, maskDateInput, normalizeDateValue } from '../../utils/dateFormat';
+import { formatDateForDisplay, getDateInputError, maskDateInput, normalizeDateValue } from '../../utils/dateFormat';
 
 const displayDate = (value) => {
   const formatted = formatDateForDisplay(value);
@@ -21,6 +21,10 @@ export default function DateInput({
 }) {
   const pickerRef = useRef(null);
   const [draft, setDraft] = useState(() => displayDate(value));
+  const [touched, setTouched] = useState(false);
+  const error = (touched || /^\d{2}\/\d{2}\/\d{4}$/.test(draft))
+    ? getDateInputError(draft, { min, max, required })
+    : '';
   const isWithinBounds = (normalized) => {
     const minimum = min ? normalizeDateValue(min) : '';
     const maximum = max ? normalizeDateValue(max) : '';
@@ -28,6 +32,7 @@ export default function DateInput({
   };
 
   useEffect(() => {
+    if (!value && draft && !normalizeDateValue(draft)) return;
     setDraft(displayDate(value));
   }, [value]);
 
@@ -40,12 +45,12 @@ export default function DateInput({
   };
 
   const commitDraft = () => {
+    setTouched(true);
     const normalized = normalizeDateValue(draft);
     if (normalized && isWithinBounds(normalized)) {
       setDraft(displayDate(normalized));
       onChange(normalized);
     } else if (draft) {
-      setDraft('');
       onChange('');
     }
   };
@@ -80,6 +85,8 @@ export default function DateInput({
         disabled={disabled}
         readOnly={readOnly}
         aria-label={ariaLabel}
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? `${id}-error` : undefined}
         autoComplete={autoComplete}
       />
       <input
@@ -113,6 +120,7 @@ export default function DateInput({
           <line x1="3" y1="10" x2="21" y2="10" />
         </svg>
       </button>}
+      {error && <span className="date-input-error" id={`${id}-error`} role="alert">{error}</span>}
     </div>
   );
 }

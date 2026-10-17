@@ -4,16 +4,12 @@ const pool = require('../db');
 const { documentUpload, uploadFileToStorage, deleteFileFromStorage } = require('../middleware/documentUpload');
 const { createSuperadminNotification, getBeneficiaryUpdateRecipients } = require('../services/notifications');
 const { canViewAuditSignatures } = require('../middleware/authorize');
-const MOTHER_ADDITIONAL_VACCINES = [
-  { name: 'Influenza', key: 'influenza', remarksField: 'influenzaRemarks' },
-  { name: 'Hepatitis A', key: 'hepatitisA', remarksField: 'hepatitisARemarks' },
-  { name: 'Hepatitis B', key: 'hepatitisB', remarksField: 'hepatitisBRemarks' },
-  { name: 'COVID-19', key: 'covid19', remarksField: 'covid19Remarks' },
-].flatMap(({ name, key, remarksField }) => [1, 2, 3].map((dose) => ({
-  name: dose === 1 ? name : `${name} Dose ${dose}`,
-  dateField: `${key}${dose === 1 ? 'Date' : `Dose${dose}Date`}`,
-  remarksField: dose === 1 ? remarksField : null,
-})));
+const { validateContactNumber } = require('../utils/contactNumber');
+const { formatPhilHealthNumber, validatePhilHealthNumber } = require('../utils/philHealthNumber');
+const { MOTHER_ADDITIONAL_VACCINES, getMotherVaccineRecords } = require('../utils/motherVaccines');
+const MOTHER_STANDARD_NAME_PATTERN = /^[\p{L}]+(?:[ '-][\p{L}]+)*$/u;
+const MOTHER_MIDDLE_NAME_PATTERN = /^(?:[\p{L}]\.?|[\p{L}]+(?:['-][\p{L}]+)*)$/u;
+const MOTHER_SUFFIX_PATTERN = /^[\p{L}\d]+(?:[ .'-][\p{L}\d]+)*\.?$/u;
 
 function getAdditionalVaccineFormFields(vaccines) {
   return Object.fromEntries(MOTHER_ADDITIONAL_VACCINES.flatMap((vaccine) => {
@@ -31,6 +27,51 @@ function firstNonEmpty(...values) {
     }
   }
   return '';
+}
+
+function nullableNonEmpty(...values) {
+  const value = firstNonEmpty(...values);
+  return value === '' ? null : value;
+}
+
+function optionalDate(...values) {
+  return firstNonEmpty(...values) || null;
+}
+
+function normalizeMotherDob(value) {
+  const raw = String(value ?? '').trim();
+  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/) || raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!match) return '';
+  const isIso = /^\d{4}-/.test(raw);
+  const year = Number(isIso ? match[1] : match[3]);
+  const month = Number(isIso ? match[2] : match[1]);
+  const day = Number(isIso ? match[3] : match[2]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return '';
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function getMotherDobError(value) {
+  if (!String(value ?? '').trim()) return 'Date of birth is required.';
+  const normalized = normalizeMotherDob(value);
+  if (!normalized) return 'Enter a valid date of birth as MM/DD/YYYY.';
+  const today = new Date();
+  const todayIso = `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, '0')}-${String(today.getUTCDate()).padStart(2, '0')}`;
+  const [year, month, day] = normalized.split('-').map(Number);
+  const age = today.getUTCFullYear() - year - (
+    today.getUTCMonth() + 1 < month
+    || (today.getUTCMonth() + 1 === month && today.getUTCDate() < day) ? 1 : 0
+  );
+  return normalized >= todayIso || age < 10
+    ? 'Date of birth must be in the past and indicate an age of at least 10.'
+    : '';
+}
+
+function getMotherNameError(value, pattern, label, example) {
+  const normalized = String(value ?? '').trim().replace(/\s+/g, ' ');
+  return !normalized || pattern.test(normalized)
+    ? ''
+    : `${label} ${example}`;
 }
 
 function parseJsonObject(value) {
@@ -504,11 +545,44 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const b = req.body || {};
+    const philhealthMember = b.philhealthMember === true || b.philhealth_member === true
+      || b.philhealth_member === 1 || b.philhealth_member === '1';
+    const philhealthNumber = firstNonEmpty(b.philhealthNumber, b.philhealth_number, '');
+    const philhealthNumberError = validatePhilHealthNumber(philhealthNumber, philhealthMember);
+    if (philhealthNumberError) return res.status(400).json({ error: philhealthNumberError });
+    const contactNumber = firstNonEmpty(b.contactNumber, b.contact_number, '');
+    if (!contactNumber) return res.status(400).json({ error: 'Contact number is required.' });
+    const contactNumberError = validateContactNumber(contactNumber, 'Contact number');
+    if (contactNumberError) return res.status(400).json({ error: contactNumberError });
+    const emergencyContactError = validateContactNumber(firstNonEmpty(b.emergencyContact, b.emergency_contact, ''), 'Emergency contact number');
+    if (emergencyContactError) return res.status(400).json({ error: emergencyContactError });
+    const dentistContactError = validateContactNumber(firstNonEmpty(b.dentistContact, b.dentist_contact, ''), 'Dentist contact number');
+    if (dentistContactError) return res.status(400).json({ error: dentistContactError });
+    const dentistLicense = firstNonEmpty(b.dentistLicense, b.dentist_license, '');
+    const dentalCheckupDate = firstNonEmpty(b.dentalCheckupDate, b.dental_checkup_date, '');
+    if (dentalCheckupDate && !dentistLicense) {
+      return res.status(400).json({ error: 'Dentist license number is required when a dental check-up is recorded.' });
+    }
+    if (dentistLicense && !/^\d+$/.test(String(dentistLicense))) {
+      return res.status(400).json({ error: 'Dentist license number must contain digits only.' });
+    }
     const firstName = firstNonEmpty(b.firstName, b.first_name);
     const middleName = firstNonEmpty(b.middleName, b.middle_name);
     const lastName = firstNonEmpty(b.lastName, b.last_name);
     const maidenSurname = firstNonEmpty(b.maidenSurname, b.maiden_surname, '');
     const suffix = firstNonEmpty(b.suffix, '');
+    const dobValue = firstNonEmpty(b.dob, b.birthDate, '');
+    const dobError = getMotherDobError(dobValue);
+    if (dobError) return res.status(400).json({ error: dobError });
+    const nameErrors = [
+      getMotherNameError(firstName, MOTHER_STANDARD_NAME_PATTERN, 'First name', 'may contain letters, spaces, hyphens, and apostrophes only.'),
+      getMotherNameError(middleName, MOTHER_MIDDLE_NAME_PATTERN, 'Middle name', 'may be blank or a single initial/full middle name.'),
+      getMotherNameError(lastName, MOTHER_STANDARD_NAME_PATTERN, 'Last name', 'may contain letters, spaces, hyphens, and apostrophes only.'),
+      getMotherNameError(maidenSurname, MOTHER_STANDARD_NAME_PATTERN, 'Maiden surname', 'may contain letters, spaces, hyphens, and apostrophes only.'),
+      getMotherNameError(suffix, MOTHER_SUFFIX_PATTERN, 'Suffix', 'contains unsupported characters.'),
+    ];
+    const nameError = nameErrors.find(Boolean);
+    if (nameError) return res.status(400).json({ error: nameError });
     const motherCode = firstNonEmpty(b.motherCode, b.mother_code, `MTH-${Date.now()}`);
     const motherExternalId = firstNonEmpty(b.motherId, b.mother_id, b.motherExternalId, b.mother_external_id, motherCode);
     const requestedCommunityId = b.communityId ?? b.community_id ?? null;
@@ -529,6 +603,7 @@ router.post('/', async (req, res) => {
     }
     if (!communityId) return res.status(400).json({ error: 'community is required' });
     const groupId = req.groupId || b.groupId || b.group_id || null;
+    if (!groupId) return res.status(400).json({ error: 'group is required' });
     if (req.groupId) communityId = req.schoolId;
     if (req.isCommunityOrganizer && groupId) {
       const [groupRows] = await pool.query(
@@ -611,7 +686,7 @@ router.post('/', async (req, res) => {
         lastName,
         maidenSurname || null,
         suffix || null,
-        firstNonEmpty(b.dob, b.birthDate, null),
+        normalizeMotherDob(dobValue),
         firstNonEmpty(b.contactNumber, b.contact_number, null),
         communityId,
         motherExternalId,
@@ -626,12 +701,12 @@ router.post('/', async (req, res) => {
         firstNonEmpty(b.educationalAttainment, b.educational_attainment, null),
         b.dataPrivacySigned === true || b.data_privacy_signed === true || b.data_privacy_signed === 1 ? 1 : 0,
         b.mediaReleaseSigned === true || b.media_release_signed === true || b.media_release_signed === 1 ? 1 : 0,
-        firstNonEmpty(b.lmpDate, b.lmp_date, null),
-        firstNonEmpty(b.eddDate, b.edd_date, null),
-        firstNonEmpty(b.prenatalRegDate, b.prenatal_reg_date, null),
+        optionalDate(b.lmpDate, b.lmp_date),
+        optionalDate(b.eddDate, b.edd_date),
+        optionalDate(b.prenatalRegDate, b.prenatal_reg_date),
         firstNonEmpty(b.trimester, null),
         firstNonEmpty(b.gestationalAge, b.gestational_age, null),
-        firstNonEmpty(b.prenatalWeight, b.prenatal_weight, null),
+        nullableNonEmpty(b.prenatalWeight, b.prenatal_weight),
         firstNonEmpty(b.prenatalBp, b.prenatal_bp, null),
         firstNonEmpty(b.prenatalHeight, b.prenatal_height, null),
         firstNonEmpty(b.fundalHeight, b.fundal_height, null),
@@ -644,17 +719,17 @@ router.post('/', async (req, res) => {
         b.childrenBornAlive ?? null,
         b.miscarriages ?? null,
         b.childrenDiedAfterBirth ?? null,
-        firstNonEmpty(b.weight, null),
-        firstNonEmpty(b.height, null),
+        nullableNonEmpty(b.weight),
+        nullableNonEmpty(b.height),
         b.isHighRisk === 'Yes' || b.is_high_risk === true || b.is_high_risk === 1 ? 1 : 0,
         firstNonEmpty(b.programType, b.program_type, null),
         firstNonEmpty(b.emergencyName, b.emergency_name, null),
         firstNonEmpty(b.emergencyContact, b.emergency_contact, null),
         firstNonEmpty(b.emergencyRelationship, b.emergency_relationship, null),
         firstNonEmpty(b.spouseName, b.spouse_name, null),
-        b.philhealthMember === true || b.philhealth_member === true || b.philhealth_member === 1 ? 1 : 0,
-        b.philhealthMember === true || b.philhealth_member === true || b.philhealth_member === 1
-          ? firstNonEmpty(b.philhealthNumber, b.philhealth_number, null)
+        philhealthMember ? 1 : 0,
+        philhealthMember
+          ? formatPhilHealthNumber(philhealthNumber)
           : null,
         b.medicalConditions ? JSON.stringify(b.medicalConditions) : null,
         firstNonEmpty(b.otherMedicalHistory, b.other_medical_history, null),
@@ -683,27 +758,11 @@ router.post('/', async (req, res) => {
         }
       }
     }
-    for (let index = 1; index <= 5; index += 1) {
-      const date = b[`tt${index}Date`];
-      const remarks = b.ttRemarks !== undefined
-        ? (index === 1 ? b.ttRemarks : null)
-        : b[`tt${index}Remarks`];
-      if (date || remarks) {
-        await pool.query(
-          'INSERT INTO mother_vaccinations (mother_id, vaccine_name, vaccine_date, remarks) VALUES (?, ?, ?, ?)',
-          [result.insertId, `TT${index}`, date || null, remarks || null]
-        );
-      }
-    }
-    for (const vaccine of MOTHER_ADDITIONAL_VACCINES) {
-      const date = b[vaccine.dateField];
-      const remarks = vaccine.remarksField ? b[vaccine.remarksField] : null;
-      if (date || remarks) {
-        await pool.query(
-          'INSERT INTO mother_vaccinations (mother_id, vaccine_name, vaccine_date, remarks) VALUES (?, ?, ?, ?)',
-          [result.insertId, vaccine.name, date || null, remarks || null],
-        );
-      }
+    for (const vaccine of getMotherVaccineRecords(b)) {
+      await pool.query(
+        'INSERT INTO mother_vaccinations (mother_id, vaccine_name, vaccine_date, remarks) VALUES (?, ?, ?, ?)',
+        [result.insertId, vaccine.name, vaccine.date, vaccine.remarks],
+      );
     }
     if (b.dentalCheckupDate || b.dentalFacility || b.dentalFindings || b.dentalRemarks || Object.values(b.dentalWork || {}).some(Boolean)) {
       await pool.query(
@@ -746,8 +805,12 @@ router.post('/', async (req, res) => {
     });
     res.status(201).json({ mother: await attachClinicalData(mapMother(mother), canViewAuditSignatures(req.user?.role)) });
   } catch (error) {
-    console.error('[Mothers API] POST / error:', error.message);
-    res.status(500).json({ error: 'db error' });
+    console.error('[Mothers API] POST / error:', error.code || 'UNKNOWN', error.message);
+    res.status(500).json({
+      error: process.env.NODE_ENV === 'production'
+        ? 'Unable to create mother profile. Please try again or contact your administrator.'
+        : error.message,
+    });
   }
 });
 
@@ -788,12 +851,25 @@ router.put('/:id', async (req, res) => {
     }
     const { id } = req.params;
     const b = req.body || {};
+    const contactNumberError = validateContactNumber(b.contactNumber ?? b.contact_number, 'Contact number');
+    if (contactNumberError) return res.status(400).json({ error: contactNumberError });
+    const emergencyContactError = validateContactNumber(b.emergencyContact ?? b.emergency_contact, 'Emergency contact number');
+    if (emergencyContactError) return res.status(400).json({ error: emergencyContactError });
+    const dentistContactError = validateContactNumber(b.dentistContact ?? b.dentist_contact, 'Dentist contact number');
+    if (dentistContactError) return res.status(400).json({ error: dentistContactError });
     const [existing] = await pool.query(`SELECT * FROM mothers WHERE (id = ? OR mother_code = ?)${req.groupId ? ' AND group_id = ?' : req.schoolId ? ' AND community_id = ?' : ''} LIMIT 1`, req.groupId ? [Number(id) || null, id, req.groupId] : req.schoolId ? [Number(id) || null, id, req.schoolId] : [Number(id) || null, id]);
     if (!existing.length) {
       return res.status(404).json({ error: 'Mother not found' });
     }
 
     const current = existing[0];
+    const philhealthMember = b.philhealthMember ?? b.philhealth_member ?? current.philhealth_member;
+    const nextPhilhealthNumber = b.philhealthNumber ?? b.philhealth_number ?? current.philhealth_number ?? '';
+    const philhealthNumberError = validatePhilHealthNumber(
+      nextPhilhealthNumber,
+      philhealthMember === true || philhealthMember === 1 || philhealthMember === '1',
+    );
+    if (philhealthNumberError) return res.status(400).json({ error: philhealthNumberError });
     const motherDbId = current.id;
     if (req.schoolId) {
       const nextGroupId = req.groupId || b.groupId || b.group_id || current.group_id;
@@ -866,8 +942,8 @@ router.put('/:id', async (req, res) => {
       emergency_contact: b.emergencyContact || b.emergency_contact || current.emergency_contact || null,
       emergency_relationship: b.emergencyRelationship || b.emergency_relationship || current.emergency_relationship || null,
       spouse_name: b.spouseName || b.spouse_name || current.spouse_name || null,
-      philhealth_member: b.philhealthMember ?? b.philhealth_member ?? current.philhealth_member ?? 0,
-      philhealth_number: b.philhealthNumber || b.philhealth_number || current.philhealth_number || null,
+      philhealth_member: philhealthMember ?? 0,
+      philhealth_number: nextPhilhealthNumber ? formatPhilHealthNumber(nextPhilhealthNumber) : null,
       medical_conditions: b.medicalConditions ? JSON.stringify(b.medicalConditions) : current.medical_conditions || null,
       other_medical_history: b.otherMedicalHistory || b.other_medical_history || current.other_medical_history || null,
     };
@@ -894,27 +970,11 @@ router.put('/:id', async (req, res) => {
     }
 
     await pool.query('DELETE FROM mother_vaccinations WHERE mother_id = ?', [motherDbId]);
-    for (let index = 1; index <= 5; index += 1) {
-      const date = b[`tt${index}Date`];
-      const remarks = b.ttRemarks !== undefined
-        ? (index === 1 ? b.ttRemarks : null)
-        : b[`tt${index}Remarks`];
-      if (date || remarks) {
-        await pool.query(
-          'INSERT INTO mother_vaccinations (mother_id, vaccine_name, vaccine_date, remarks) VALUES (?, ?, ?, ?)',
-          [motherDbId, `TT${index}`, date || null, remarks || null]
-        );
-      }
-    }
-    for (const vaccine of MOTHER_ADDITIONAL_VACCINES) {
-      const date = b[vaccine.dateField];
-      const remarks = vaccine.remarksField ? b[vaccine.remarksField] : null;
-      if (date || remarks) {
-        await pool.query(
-          'INSERT INTO mother_vaccinations (mother_id, vaccine_name, vaccine_date, remarks) VALUES (?, ?, ?, ?)',
-          [motherDbId, vaccine.name, date || null, remarks || null],
-        );
-      }
+    for (const vaccine of getMotherVaccineRecords(b)) {
+      await pool.query(
+        'INSERT INTO mother_vaccinations (mother_id, vaccine_name, vaccine_date, remarks) VALUES (?, ?, ?, ?)',
+        [motherDbId, vaccine.name, vaccine.date, vaccine.remarks],
+      );
     }
 
     await pool.query('DELETE FROM mother_dental_records WHERE mother_id = ?', [motherDbId]);

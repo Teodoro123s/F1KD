@@ -51,8 +51,8 @@ export const calculateGestationalDetails = (lmpDate, registrationDate) => {
   const ageValue = String(gestationalAge);
 
   let trimester = '1st Trimester';
-  if (gestationalAge > 26) trimester = '3rd Trimester';
-  else if (gestationalAge > 12) trimester = '2nd Trimester';
+  if (gestationalAge >= 28) trimester = '3rd Trimester';
+  else if (gestationalAge >= 13) trimester = '2nd Trimester';
 
   return {
     gestationalAge: ageValue,

@@ -10,7 +10,7 @@ import {
   apiPatchManagedHealthWorkerStatus,
   apiDeleteUser,
 } from '../../api/users';
-import { isValidName, isValidMiddleInitial, sanitizeDigits, normalizeContact, isValidContact, isValidEmail, formatDobForInput, isValidDob, getDobValidationMessage, generatePassword } from './lib';
+import { isValidName, isValidMiddleInitial, normalizeContact, isValidContact, isValidEmail, formatDobForInput, isValidDob, getDobValidationMessage, generatePassword } from './lib';
 import { getSummary } from '../Community/communityService';
 import { isCommunityCoordinatorRole, isHealthWorkerRole, normalizeRole as normalizeRoleKey } from '../../utils/permissions';
 import { getApiBaseUrl } from '../../api/authHeader';
@@ -380,7 +380,7 @@ export function useUserManagement({ schoolId = '', batchId = '', healthWorkerMan
     if (!isValidMiddleInitial(mi)) { setNotification('Middle Initial must be a single letter.'); try { console.log('Validation failed: invalid middleInitial', { middleInitial: mi }); } catch(e){}; return; }
     const contactNumberSan = normalizeContact(contactNumber);
     if (!isValidContact(contactNumberSan)) {
-      const msg = 'Contact number must be a Philippine mobile number. Accepted formats: 09171234567, 9171234567, +639171234567, or 639171234567.';
+      const msg = 'Contact number must contain exactly 11 digits and start with 09.';
       setNotification(msg);
       try { console.log('Validation failed: invalid contactNumber', { contactNumber, contactNumberSan }); } catch(e){}
       // Try to focus the contact input so the user can correct it quickly

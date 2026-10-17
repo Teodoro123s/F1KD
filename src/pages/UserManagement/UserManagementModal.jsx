@@ -2,7 +2,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import DateInput from '../../components/ui/DateInput';
 import { capitalizeNameValue } from '../../utils/nameFormat';
+import { formatDateForInput } from '../../utils/dateFormat';
 import { generatePassword } from './lib';
+import { sanitizeContactNumber } from '../../utils/contactNumber';
 import { isCommunityCoordinatorRole, isHealthWorkerRole } from '../../utils/permissions';
 
 function FormDropdown({ id, label, name, options, value, onChange, required = false, disabled = false, emptyMessage = '' }) {
@@ -194,7 +196,11 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
   const submitLabel = mode === 'edit' ? 'Save Changes' : 'Create';
 
   const handleChange = (field, value) => {
-    const nextValue = ['firstName', 'lastName', 'middleInitial'].includes(field) ? capitalizeNameValue(value) : value;
+    const nextValue = field === 'contactNumber'
+      ? sanitizeContactNumber(value)
+      : ['firstName', 'lastName', 'middleInitial'].includes(field)
+        ? capitalizeNameValue(value)
+        : value;
     setForm((prev) => ({ ...prev, [field]: nextValue }));
   };
   const requiresSchool = isCommunityCoordinatorRole(form.role) || isHealthWorkerRole(form.role);
@@ -262,10 +268,14 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
                       type="tel"
                       className="form-input"
                       placeholder="09171234567"
+                      inputMode="numeric"
+                      maxLength={11}
+                      pattern="09[0-9]{9}"
                       value={form.contactNumber}
                       onChange={(e) => handleChange('contactNumber', e.target.value)}
                       required
                     />
+          <small>Enter exactly 11 digits starting with 09.</small>
         </div>
         <div className="form-group">
           <label className="form-label" htmlFor="email">Email *</label>
@@ -292,7 +302,7 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
             value={form.dob}
             onChange={(value) => handleChange('dob', value)}
             required
-            max={new Date().toISOString().split('T')[0]}
+            max={formatDateForInput(new Date())}
             autoComplete="bday"
             ariaLabel="Date of birth"
           />

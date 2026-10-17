@@ -13,6 +13,18 @@ test('calculateGestationalDetails keeps first-trimester monitoring aligned with 
   assert.equal(afterFirstTrimester.monthInTrimester, 1);
 });
 
+test('calculateGestationalDetails uses the requested week boundaries for trimesters', () => {
+  const registrationDate = (weeks) => {
+    const date = new Date(2026, 0, 1 + weeks * 7);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  };
+
+  assert.equal(calculateGestationalDetails('2026-01-01', registrationDate(12)).trimester, '1st Trimester');
+  assert.equal(calculateGestationalDetails('2026-01-01', registrationDate(13)).trimester, '2nd Trimester');
+  assert.equal(calculateGestationalDetails('2026-01-01', registrationDate(27)).trimester, '2nd Trimester');
+  assert.equal(calculateGestationalDetails('2026-01-01', registrationDate(28)).trimester, '3rd Trimester');
+});
+
 test('getMotherMonitoringProgress starts in September when the LMP was in July and August is skipped', () => {
   const mother = {
     lmpDate: '2026-07-01',

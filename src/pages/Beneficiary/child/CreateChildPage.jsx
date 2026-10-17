@@ -5,8 +5,57 @@ import { useMothers } from '../../../context/MothersContext';
 import { capitalizeNameValue } from '../../../utils/nameFormat';
 import { notifyAction } from '../../../components/ActionFeedback';
 import { apiCreateChild, apiUploadChildBirthDocument } from '../../../api/children';
+import { formatDateForDisplay } from '../../../utils/dateFormat';
+import { getAgeInDays, getAgeInMonths } from '../../../utils/childAge.mjs';
+import { calculateWhoGrowthScores } from '../../../utils/whoGrowthStandards';
+import { CHILD_VACCINE_SEQUENCES, getChildRecordErrors } from '../../../utils/childRecordValidation';
 
 const CHILD_DRAFT_KEY = 'f1kd.create-child.draft';
+const CREATE_STEPS = ['general', 'prenatal', 'medical_dental', 'vaccine'];
+const STEP_LABELS = ['General information', 'Birth / Newborn', 'Medical', 'Immunizations'];
+
+const getLocalToday = () => {
+  const today = new Date();
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+};
+
+const getChildAgeLabel = (birthDate) => {
+  if (!birthDate) return '—';
+  const today = getLocalToday();
+  const months = getAgeInMonths(birthDate, today);
+  if (months === null) return '—';
+  if (months === 0) return `${getAgeInDays(birthDate, today)} days`;
+  return `${months} ${months === 1 ? 'month' : 'months'}`;
+};
+
+const getErrorsForStep = (step, form, childErrors, motherSelected) => {
+  if (step === 'general') {
+    const errors = {};
+    if (!motherSelected) errors.motherId = 'Select a mother before creating the child.';
+    if (!String(form.firstName ?? '').trim()) errors.firstName = 'First name is required.';
+    if (!String(form.lastName ?? '').trim()) errors.lastName = 'Last name is required.';
+    if (childErrors.birthDate) errors.birthDate = childErrors.birthDate;
+    return errors;
+  }
+  if (step === 'prenatal') {
+    return Object.fromEntries(
+      Object.entries(childErrors).filter(([field]) => [
+        'birthWeight',
+        'birthLength',
+        'headCircumference',
+        'chestCircumference',
+        'noOfChildDelivered',
+        'apgarScore',
+      ].includes(field)),
+    );
+  }
+  if (step === 'vaccine') {
+    return Object.fromEntries(
+      Object.entries(childErrors).filter(([field]) => CHILD_VACCINE_SEQUENCES.flat().includes(field)),
+    );
+  }
+  return {};
+};
 
 const loadChildDraft = (fallback) => {
   try {
@@ -102,8 +151,17 @@ export default function CreateChildPage({
     try { return motherFromState?.id || motherFromState?.motherId || JSON.parse(localStorage.getItem(CHILD_DRAFT_KEY) || 'null')?.selectedMotherId || ''; } catch (error) { return motherFromState?.id || motherFromState?.motherId || ''; }
   });
   const [createActiveTab, setCreateActiveTab] = useState('general');
-  const CREATE_STEPS = ['general', 'prenatal', 'medical_dental', 'vaccine'];
   const createActiveIndex = CREATE_STEPS.indexOf(createActiveTab) >= 0 ? CREATE_STEPS.indexOf(createActiveTab) : 0;
+  const selectedMotherIdValue = selectedMother?.id || selectedMother?.motherId || selectedMotherId;
+  const childRecordErrors = getChildRecordErrors(groupForm);
+  const childErrorsByStep = (step) => getErrorsForStep(step, groupForm, childRecordErrors, Boolean(selectedMotherIdValue));
+  const growthScores = calculateWhoGrowthScores({
+    weight: groupForm.birthWeight,
+    lengthHeight: groupForm.birthLength,
+    sex: groupForm.gender,
+    birthDate: groupForm.birthDate,
+    measurementDate: groupForm.birthDate,
+  });
 
   const selectedMother = motherFromState || availableMothers.find((mother) => (
     String(mother.id || mother.motherId || '') === String(selectedMotherId)
@@ -156,16 +214,12 @@ export default function CreateChildPage({
       setCreateActiveTab(CREATE_STEPS[Math.min(currentIndex + 1, CREATE_STEPS.length - 1)]);
       return;
     }
-    if (!motherFromState && !selectedMotherId) {
+    const invalidStep = CREATE_STEPS.find((step) => Object.keys(childErrorsByStep(step)).length > 0);
+    if (invalidStep) {
+      const message = Object.values(childErrorsByStep(invalidStep))[0];
       setShowRequiredValidation(true);
-      setCreateActiveTab('general');
-      notifyAction('Please select a mother before creating the child.', 'error');
-      return;
-    }
-    if (!groupForm.firstName.trim() || !groupForm.lastName.trim()) {
-      setShowRequiredValidation(true);
-      notifyAction('Please complete the required child details before saving.', 'error');
-      setCreateActiveTab('general');
+      setCreateActiveTab(invalidStep);
+      notifyAction(message, 'error');
       return;
     }
 
@@ -362,6 +416,12 @@ export default function CreateChildPage({
     event.preventDefault();
     event.stopPropagation();
     const currentIndex = CREATE_STEPS.indexOf(createActiveTab);
+    const errors = childErrorsByStep(createActiveTab);
+    if (Object.keys(errors).length > 0) {
+      setShowRequiredValidation(true);
+      notifyAction(Object.values(errors)[0], 'error');
+      return;
+    }
     if (currentIndex < CREATE_STEPS.length - 1) {
       setCreateActiveTab(CREATE_STEPS[currentIndex + 1]);
     }
@@ -369,29 +429,19 @@ export default function CreateChildPage({
 
   return (
     <section className="tabs-row create-view">
-      {/* Header showing mother info when available */}
-      {motherFromState && (
-        <div className="create-child-header" style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <h2 style={{ margin: 0 }}>Create Child for {motherFromState.name || `${motherFromState.firstName || ''} ${motherFromState.lastName || ''}`.trim()}</h2>
-            {motherFromState.program && <div style={{ fontSize: '0.9rem', color: '#64748b' }}>{motherFromState.program}</div>}
-          </div>
-          <div>
-            <button className="btn-secondary" onClick={() => {
-              const mid = motherFromState.id || motherFromState.motherId || null;
-              if (mid) {
-                navigate(`/beneficiary/mother/${mid}`, { state: { mother: motherFromState } });
-              } else {
-                navigate('/beneficiary');
-              }
-            }}>Cancel</button>
-          </div>
+      <header className="create-mother-page-header">
+        <div>
+          <span className="create-mother-eyebrow">Beneficiary registration</span>
+          <h1 className="create-mother-page-title">Create Child Profile</h1>
+          <p className="create-mother-page-subtitle">Enter the child's birth and health details, then record any available immunizations.</p>
         </div>
-      )}
+        <span className="create-mother-step-count">Step {createActiveIndex + 1} of {CREATE_STEPS.length}</span>
+      </header>
 
-      {!motherFromState && (
-        <div className="form-group" style={{ maxWidth: 520, marginBottom: 16 }}>
-          <label className="form-label" htmlFor="child-mother-select">Mother</label>
+      <section className="create-child-mother-panel" aria-label="Mother association">
+        {!motherFromState ? (
+          <div className="form-group">
+            <label className="form-label" htmlFor="child-mother-select">Mother <span className="form-required-indicator" aria-hidden="true">*</span></label>
           <select
             id="child-mother-select"
             className={`form-select${showRequiredValidation && !selectedMotherId ? ' invalid' : ''}`}
@@ -408,14 +458,21 @@ export default function CreateChildPage({
               </option>
             ))}
           </select>
-          {showRequiredValidation && !selectedMotherId && <p id="child-mother-error" className="form-error" role="alert">Select a mother before creating the child.</p>}
-        </div>
-      )}
+          {showRequiredValidation && !selectedMotherIdValue && <small id="child-mother-error" className="field-validation-error" role="alert">Select a mother before creating the child.</small>}
+          </div>
+        ) : (
+          <div className="create-child-selected-mother">
+            <span className="form-label">Mother</span>
+            <strong>{selectedMother?.name || `${selectedMother?.firstName || ''} ${selectedMother?.lastName || ''}`.trim() || 'Selected mother'}</strong>
+            <span>{selectedMother?.community || selectedMother?.area || ''}</span>
+          </div>
+        )}
+      </section>
 
-      <div className="stepper-progress">
-        <div className="stepper-steps" role="tablist">
+      <nav className="stepper-progress create-mother-stepper" aria-label="Child profile sections">
+        <div className="stepper-steps" role="tablist" aria-label="Form sections">
           {CREATE_STEPS.map((s, i) => {
-            const label = s === 'general' ? 'General' : s === 'prenatal' ? 'Prenatal/OB' : s === 'medical_dental' ? 'Medical & Dental' : 'Vaccine';
+            const label = STEP_LABELS[i];
             const isActive = createActiveTab === s;
             const isCompleted = i < createActiveIndex;
             return (
@@ -424,6 +481,8 @@ export default function CreateChildPage({
                 type="button"
                 role="tab"
                 aria-selected={isActive}
+                aria-controls="create-child-step-content"
+                id={`create-child-step-${s}`}
                 className={`stepper-step ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}`}
                 onClick={() => setCreateActiveTab(s)}
               >
@@ -441,11 +500,32 @@ export default function CreateChildPage({
             );
           })}
         </div>
-      </div>
+        <div className="create-mother-progress-track" aria-hidden="true">
+          <span style={{ width: `${((createActiveIndex + 1) / CREATE_STEPS.length) * 100}%` }} />
+        </div>
+      </nav>
+
+      <aside className="create-mother-summary create-child-summary" aria-label="Auto-calculated child summary">
+        <div><span>Birth Date</span><strong>{groupForm.birthDate ? formatDateForDisplay(groupForm.birthDate) : '—'}</strong></div>
+        <div><span>Age</span><strong>{getChildAgeLabel(groupForm.birthDate)}</strong></div>
+        <div><span>Birth Weight</span><strong>{groupForm.birthWeight ? `${groupForm.birthWeight} kg` : '—'}</strong></div>
+        <div className="create-child-growth-status">
+          <span>WHO Weight-for-Length</span><strong>{growthScores.weightForLengthInterpretation || 'Not calculated'}</strong>
+        </div>
+      </aside>
 
       <div className="create-form-body">
-        <form onSubmit={handleCreateGroup}>
-          <div className="modal-body-scrollable">
+        <form className="create-mother-form" onSubmit={handleCreateGroup}>
+          <div className="create-mother-form-note">
+            <span className="create-mother-form-note-mark" aria-hidden="true">*</span>
+            <p>Child name, birth date, and mother are required. Measurements and immunization entries are optional when unavailable.</p>
+          </div>
+          <div
+            className="create-mother-fields"
+            id="create-child-step-content"
+            role="tabpanel"
+            aria-labelledby={`create-child-step-${createActiveTab}`}
+          >
             <ChildFormFields
               activeTab={createActiveTab}
               form={groupForm}
@@ -455,26 +535,29 @@ export default function CreateChildPage({
               birthDocumentFile={birthDocumentFile}
               setBirthDocumentFile={setBirthDocumentFile}
               showRequiredValidation={showRequiredValidation}
+              validationErrors={childRecordErrors}
             />
           </div>
-          <div className="modal-footer">
-          <button type="button" className="btn-secondary" onClick={() => {
-            localStorage.removeItem(CHILD_DRAFT_KEY);
-            if (motherFromState) navigate(`/beneficiary/mother/${motherFromState.id || motherFromState.motherId}`, { state: { mother: motherFromState } });
-            else navigate('/beneficiary');
-          }}>Cancel</button>
-          {createActiveTab !== 'general' && (
+          <div className="create-mother-footer">
+            <button type="button" className="btn-secondary create-mother-cancel" onClick={() => {
+              localStorage.removeItem(CHILD_DRAFT_KEY);
+              if (motherFromState) navigate(`/beneficiary/mother/${motherFromState.id || motherFromState.motherId}`, { state: { mother: motherFromState } });
+              else navigate('/beneficiary');
+            }}>Cancel</button>
+            <div className="create-mother-footer-actions">
+              {createActiveTab !== 'general' && (
               <button type="button" className="btn-secondary btn-back back-action" onClick={() => {
                 if (createActiveTab === 'vaccine') setCreateActiveTab('medical_dental');
                 else if (createActiveTab === 'medical_dental') setCreateActiveTab('prenatal');
                 else setCreateActiveTab('general');
               }}>Back</button>
-            )}
-            {createActiveTab !== 'vaccine' ? (
-              <button type="button" className="btn-primary btn-next" onClick={handleNextStep}>Next</button>
-            ) : (
-              <button type="submit" className="btn-create-action">Create</button>
-            )}
+              )}
+              {createActiveTab !== 'vaccine' ? (
+                <button type="button" className="btn-primary btn-next" onClick={handleNextStep}>Continue</button>
+              ) : (
+                <button type="submit" className="btn-create-action">Create Child</button>
+              )}
+            </div>
           </div>
         </form>
       </div>

@@ -2,8 +2,9 @@ import React from 'react';
 import { formatDateForDisplay, formatDateForInput, maskDateInput, normalizeDateValue } from '../../../utils/dateFormat';
 import { capitalizeNameValue } from '../../../utils/nameFormat';
 import { calculateWhoGrowthScores } from '../../../utils/whoGrowthStandards';
+import { CHILD_VACCINE_SEQUENCES } from '../../../utils/childRecordValidation';
 
-export function ChildFormFields({ activeTab, form, setForm, communities = [], batches = [], readOnly = false, slashDateInput = true, birthDocumentFile, setBirthDocumentFile, existingBirthDocumentName = '', showRequiredValidation = false }) {
+export function ChildFormFields({ activeTab, form, setForm, communities = [], batches = [], readOnly = false, slashDateInput = true, birthDocumentFile, setBirthDocumentFile, existingBirthDocumentName = '', showRequiredValidation = false, validationErrors = {} }) {
   const uniqueCommunities = Array.from(new Set(communities.map((comm) => comm.name))).filter(Boolean);
   const uniqueBatches = Array.from(new Set((batches || []).map((batch) => batch.name))).filter(Boolean);
   const [dateDrafts, setDateDrafts] = React.useState({});
@@ -54,10 +55,12 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
     }));
   };
 
-  const renderField = ({ id, label, name, type = 'text', placeholder = '', required = false, min, step, nativeDate = false, maxDate, onChange }) => {
+  const renderField = ({ id, label, name, type = 'text', placeholder = '', required = false, min, maxValue, step, nativeDate = false, maxDate, disabled = false, onChange }) => {
     const value = form[name] ?? '';
     const isDate = type === 'date';
-    const hasMissingValue = required && !String(value ?? '').trim() && showRequiredValidation;
+    const validationError = validationErrors[name];
+    const hasMissingValue = showRequiredValidation
+      && ((required && !String(value ?? '').trim()) || Boolean(validationError));
 
     if (readOnly) {
       return (
@@ -72,7 +75,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
 
     return (
       <div className="form-group">
-        <label className="form-label" htmlFor={id}>{label}</label>
+        <label className="form-label" htmlFor={id}>{label}{required && <span className="form-required-indicator" aria-hidden="true">*</span>}</label>
         <div className={isNativeDate ? 'date-input-container' : undefined}>
           <input
             id={id}
@@ -82,9 +85,9 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
             className={`form-input${hasMissingValue ? ' invalid' : ''}`}
             placeholder={isDate && !isNativeDate ? 'DD/MM/YYYY' : placeholder}
             value={isNativeDate ? formatDateForInput(value) : isDate ? getDateDisplayValue(name, value) : value}
-            min={min}
+            min={isDate ? minDate : min}
             step={step}
-            max={maxDate}
+            max={isDate ? maxDate : maxValue}
             autoComplete={nativeDate ? 'off' : undefined}
             onChange={(e) => {
               if (isNativeDate) {
@@ -110,6 +113,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
             onBlur={isDate && !isNativeDate ? () => commitDateValue(name, getDateDisplayValue(name, value), onChange) : undefined}
             required={required}
             aria-invalid={hasMissingValue}
+            disabled={disabled}
           />
           {isNativeDate && (
             <button
@@ -128,6 +132,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
               }}
               aria-label={`Open calendar for ${label}`}
               tabIndex={-1}
+              disabled={disabled}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
@@ -140,8 +145,13 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
         </div>
         {!isNativeDate && isDate && slashDateInput && (
           <>
-            <button type="button" className="date-picker-button" onClick={() => openDatePicker(name)} aria-label={`Open calendar for ${label}`}>
-              <span aria-hidden="true">▣</span>
+            <button type="button" className="date-picker-button" onClick={() => openDatePicker(name)} aria-label={`Open calendar for ${label}`} disabled={disabled}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="3" y="4" width="18" height="18" rx="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
             </button>
             <input
               ref={(element) => { datePickerRefs.current[name] = element; }}
@@ -156,6 +166,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
               }}
               tabIndex={-1}
               aria-hidden="true"
+              disabled={disabled}
             />
           </>
         )}
@@ -175,10 +186,11 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
       return (
         <div className="form-group">
           <label className="form-label">{label}</label>
-          <div className="form-readonly-value">{displayValue}</div>
+          <div className="form-readonly-value">{displayValue}          </div>
+          {validationError && showRequiredValidation && <small className="field-validation-error" role="alert">{validationError}</small>}
         </div>
       );
-    }
+    };
 
     return (
       <div className="form-group">
@@ -221,12 +233,13 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
         <label className="form-label" htmlFor={id}>{label}</label>
         <textarea
           id={id}
-          className="form-input"
+          className={`form-input${validationErrors[name] && showRequiredValidation ? ' invalid' : ''}`}
           rows={rows}
           placeholder={placeholder}
           value={value}
           onChange={(e) => setForm((prev) => ({ ...prev, [name]: e.target.value }))}
         />
+        {validationErrors[name] && showRequiredValidation && <small className="field-validation-error" role="alert">{validationErrors[name]}</small>}
       </div>
     );
   };
@@ -244,7 +257,14 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
         </div>
 
         <div className="form-row-4 full-width">
-          {renderField({ id: 'child-birth-date', label: 'Birth Date', name: 'birthDate', type: 'date', maxDate: new Date().toISOString().split('T')[0] })}
+          {renderField({
+            id: 'child-birth-date',
+            label: 'Birth Date',
+            name: 'birthDate',
+            type: 'date',
+            required: true,
+            maxDate: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`,
+          })}
           {renderSelect({
             id: 'child-gender',
             label: 'Sex',
@@ -272,7 +292,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
         </section>
         {!readOnly && (
           <section className="create-mother-category">
-            <h4 className="form-section-title">Required Documents</h4>
+            <h4 className="form-section-title">Birth Certificate (Optional)</h4>
             <div className="document-upload-field full-width">
               <label className="form-label" htmlFor="child-birth-document">Live Birth Certificate / Birth Certificate</label>
               <input
@@ -305,10 +325,10 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
         <h4 className="form-section-title">Prenatal / OB</h4>
 
         <div className="form-row-4 full-width">
-          {renderField({ id: 'child-birth-weight', label: 'Birth Weight (kg)', name: 'birthWeight', placeholder: 'e.g. 3.2' })}
-          {renderField({ id: 'child-birth-length', label: 'Birth Length (cm)', name: 'birthLength', placeholder: 'e.g. 49' })}
-          {renderField({ id: 'child-head-circumference', label: 'Head Circumference (cm)', name: 'headCircumference', placeholder: 'e.g. 34' })}
-          {renderField({ id: 'child-chest-circumference', label: 'Chest Circumference (cm)', name: 'chestCircumference', placeholder: 'e.g. 32' })}
+          {renderField({ id: 'child-birth-weight', label: 'Birth Weight (kg)', name: 'birthWeight', type: 'number', min: 0.3, maxValue: 10, step: 0.01, placeholder: 'e.g. 3.2' })}
+          {renderField({ id: 'child-birth-length', label: 'Birth Length (cm)', name: 'birthLength', type: 'number', min: 20, maxValue: 80, step: 0.1, placeholder: 'e.g. 49' })}
+          {renderField({ id: 'child-head-circumference', label: 'Head Circumference (cm)', name: 'headCircumference', type: 'number', min: 15, maxValue: 60, step: 0.1, placeholder: 'e.g. 34' })}
+          {renderField({ id: 'child-chest-circumference', label: 'Chest Circumference (cm)', name: 'chestCircumference', type: 'number', min: 15, maxValue: 60, step: 0.1, placeholder: 'e.g. 32' })}
         </div>
         <div className="form-row-4 full-width">
           {renderField({ id: 'child-birth-place', label: 'Place of Birth', name: 'birthPlace', placeholder: 'City / Municipality' })}
@@ -319,7 +339,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
             options: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'],
             placeholder: 'Select blood type',
           })}
-          {renderField({ id: 'child-children-delivered', label: 'No. of Child Delivered', name: 'noOfChildDelivered', type: 'number', min: 0, step: 1, placeholder: 'e.g. 1' })}
+          {renderField({ id: 'child-children-delivered', label: 'No. of Child Delivered', name: 'noOfChildDelivered', type: 'number', min: 1, maxValue: 20, step: 1, placeholder: 'e.g. 1' })}
         </div>
 
         <div className="form-row-4 full-width">
@@ -425,42 +445,49 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
           <h4 className="form-section-title">Vaccination Record</h4>
           <p className="form-optional-note">Optional</p>
           <div className="form-group full-width">
-            <div className="form-panel">
-              <div className="vaccine-dose-grid" style={{ display: 'grid', gridTemplateColumns: '1.4fr repeat(3, minmax(140px, 1fr)) 1.3fr', gap: '0.75rem', alignItems: 'start' }}>
-                <div style={{ fontWeight: 800, color: '#0f172a', paddingTop: '0.5rem' }}>Vaccine</div>
-                <div style={{ fontWeight: 800, color: '#0f172a', paddingTop: '0.5rem' }}>Dose 1</div>
-                <div style={{ fontWeight: 800, color: '#0f172a', paddingTop: '0.5rem' }}>Dose 2</div>
-                <div style={{ fontWeight: 800, color: '#0f172a', paddingTop: '0.5rem' }}>Dose 3</div>
-                <div style={{ fontWeight: 800, color: '#0f172a', paddingTop: '0.5rem' }}>Remarks</div>
-
-                {vaccineRows.map(({ key, label, doseFields, remarksField }) => (
-                  <React.Fragment key={key}>
-                    <div style={{ display: 'flex', alignItems: 'center', minHeight: '62px', fontSize: '1.05rem', fontWeight: 700, color: '#1e293b' }}>{label}</div>
-                    {doseFields.map((doseField, index) => (
-                      <div key={`${key}-${doseField}`}>
-                        {renderField({
-                          id: `child-${key.toLowerCase()}-${index + 1}`,
-                          label: `${label} Dose ${index + 1}`,
-                          name: doseField,
-                          type: 'date',
-                          required: false,
-                        })}
-                      </div>
+            <div className="form-panel vaccine-form-panel">
+              <div className="vaccine-form-table-wrapper">
+                <table className="vaccine-form-table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: '25%' }}>Vaccine</th>
+                      <th style={{ width: '18%' }}>Dose 1</th>
+                      <th style={{ width: '18%' }}>Dose 2</th>
+                      <th style={{ width: '18%' }}>Dose 3</th>
+                      <th style={{ width: '21%' }}>Remarks / Facility</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {vaccineRows.map(({ key, label, doseFields, remarksField }) => (
+                      <tr key={key}>
+                        <td data-label="Vaccine"><strong>{label}</strong></td>
+                        {doseFields.map((doseField, index) => (
+                          <td key={`${key}-${doseField}`} data-label={`Dose ${index + 1}`}>
+                            {renderField({
+                              id: `child-${key.toLowerCase()}-${index + 1}`,
+                              label: `${label} Dose ${index + 1}`,
+                              name: doseField,
+                              type: 'date',
+                              min: form.birthDate || undefined,
+                              maxDate: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`,
+                              disabled: index > 0 && !form[doseFields[index - 1]],
+                            })}
+                          </td>
+                        ))}
+                        <td data-label="Remarks / Facility">
+                          {renderField({
+                            id: `child-${key.toLowerCase()}-remarks`,
+                            label: `${label} Remarks / Facility`,
+                            name: remarksField,
+                            placeholder: 'Remarks / facility',
+                          })}
+                        </td>
+                      </tr>
                     ))}
-                    <div>
-                      {renderField({
-                        id: `child-${key.toLowerCase()}-remarks`,
-                        label: `${label} Remarks`,
-                        name: remarksField,
-                        placeholder: 'Remarks',
-                        required: false,
-                      })}
-                    </div>
-                  </React.Fragment>
-                ))}
+                  </tbody>
+                </table>
               </div>
             </div>
-          </div>
         </section>
       </div>
     );

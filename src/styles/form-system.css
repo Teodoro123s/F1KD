@@ -188,6 +188,164 @@ textarea.form-input:disabled,
   font-size: 0.95rem;
 }
 
+.view-content .mother-checkup-form .checkup-section-title {
+  margin: 0.8rem 0 0.55rem;
+  font-size: 1.05rem;
+  line-height: 1.25;
+}
+
+.view-content .mother-checkup-form .horizontal-toggle-row {
+  min-height: 44px;
+  padding: 0.5rem 0;
+}
+
+.view-content .mother-checkup-form .horizontal-toggle-label,
+.view-content .mother-checkup-form .checkup-field-label {
+  font-size: 0.82rem;
+}
+
+.view-content .mother-checkup-form .checkup-field-input {
+  font-size: 0.88rem;
+}
+
+.view-content .mother-checkup-form .lab-request-checkbox-list,
+.view-content .mother-checkup-form .lab-assistance-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.25rem 0.75rem;
+  max-height: 220px;
+  padding: 0.55rem 0.7rem;
+  overflow-y: auto;
+  border: 1px solid #d7e2eb;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.view-content .mother-checkup-form .lab-request-option,
+.view-content .mother-checkup-form .lab-assistance-option {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+  min-height: 28px;
+  padding: 0.15rem 0.3rem;
+  border-radius: 6px;
+  color: #334155;
+  font-size: 0.78rem;
+  line-height: 1.3;
+  cursor: pointer;
+}
+
+.view-content .mother-checkup-form .lab-request-option.selected {
+  background: #eaf5ef;
+  color: #176344;
+}
+
+.view-content .mother-checkup-form .lab-request-option input[type='checkbox'],
+.view-content .mother-checkup-form .lab-assistance-option input[type='checkbox'] {
+  flex: 0 0 auto;
+  width: 0.9rem;
+  height: 0.9rem;
+  margin: 0;
+  accent-color: #1f8f69;
+}
+
+.view-content .mother-checkup-form .lab-assistance-dropdown > summary {
+  margin-bottom: 0.35rem;
+  color: #334155;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.view-content .mother-checkup-form .lab-request-checkbox-list + .checkup-field-help {
+  margin-top: 0.3rem;
+  font-size: 0.72rem;
+}
+
+.modal.checkup-confirm-modal {
+  width: min(620px, calc(100vw - 2rem));
+  max-width: 620px;
+}
+
+.checkup-confirm-modal > .modal-body {
+  padding: 1.25rem 1.5rem;
+}
+
+.checkup-confirm-intro {
+  margin: 0 0 1rem;
+  color: #475569;
+}
+
+.checkup-confirm-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.9rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid #dbe5ee;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #243448;
+}
+
+.checkup-confirm-heading span {
+  flex: 0 0 auto;
+  color: #526579;
+  font-size: 0.88rem;
+}
+
+.checkup-confirm-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  margin: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.checkup-confirm-summary > div {
+  min-width: 0;
+  padding: 0.65rem 0.8rem;
+  border-bottom: 1px solid #edf1f5;
+}
+
+.checkup-confirm-summary > div:nth-child(odd):not(.checkup-confirm-summary-wide) {
+  border-right: 1px solid #edf1f5;
+}
+
+.checkup-confirm-summary > div:nth-last-child(-n + 2) {
+  border-bottom: 0;
+}
+
+.checkup-confirm-summary > .checkup-confirm-summary-wide {
+  grid-column: 1 / -1;
+  border-right: 0;
+}
+
+.checkup-confirm-summary dt {
+  margin-bottom: 0.15rem;
+  color: #64748b;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.checkup-confirm-summary dd {
+  margin: 0;
+  color: #1e293b;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.checkup-confirm-note {
+  margin: 0.9rem 0 0;
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
 .view-content .checkup-field-input[readonly],
 .view-content .checkup-field-input:disabled {
   border-color: var(--field-border);
@@ -199,6 +357,22 @@ textarea.form-input:disabled,
   .view-content .checkup-card-body,
   .checkup-card-body {
     padding: 1rem;
+  }
+
+  .view-content .mother-checkup-form .lab-request-checkbox-list,
+  .view-content .mother-checkup-form .lab-assistance-options {
+    grid-template-columns: 1fr;
+    max-height: 190px;
+  }
+
+  .checkup-confirm-summary {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .checkup-confirm-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.25rem;
   }
 
   .view-content .checkup-grid {

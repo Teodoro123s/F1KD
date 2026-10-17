@@ -269,6 +269,34 @@ test('authorizeOperational does not allow community organizers to create schools
   assert.equal(res.code, 403);
 });
 
+test('authorizeOperational does not allow super admins to create schools', () => {
+  let called = false;
+  const req = {
+    method: 'POST',
+    baseUrl: '/api/community',
+    path: '/communities',
+    user: { role: 'Super Admin' },
+  };
+  const res = {
+    status(code) {
+      this.code = code;
+      return this;
+    },
+    json(payload) {
+      this.payload = payload;
+      return this;
+    },
+  };
+
+  authorizeOperational(req, res, () => {
+    called = true;
+  });
+
+  assert.equal(called, false);
+  assert.equal(res.code, 403);
+  assert.equal(res.payload.message, 'Superadmin accounts cannot create schools');
+});
+
 test('authorizeOperational keeps Admin and Partner read-only while allowing coordinator and health-worker beneficiary writes', () => {
   const requests = [
     { method: 'PUT', path: '/MTH-1', role: 'Admin', allowed: false },

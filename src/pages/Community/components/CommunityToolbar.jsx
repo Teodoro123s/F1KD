@@ -11,12 +11,16 @@ export default function CommunityToolbar({
   breadcrumbItems,
   navigate,
   canManage = false,
+  canCreateCommunity = true,
+  canCreateBatch = true,
 }) {
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
   const createMenuRef = useRef(null);
-  const createOptions = activeTab === 'communities'
+  const createOptions = (activeTab === 'communities'
     ? [{ key: 'community', label: 'Create School' }, { key: 'group', label: 'Create Group' }, { key: 'batch', label: 'Create Batch' }]
-    : [{ key: 'group', label: 'Create Group' }, { key: 'batch', label: 'Create Batch' }];
+    : [{ key: 'group', label: 'Create Group' }, { key: 'batch', label: 'Create Batch' }])
+    .filter((option) => canCreateCommunity || option.key !== 'community')
+    .filter((option) => canCreateBatch || option.key !== 'batch');
 
   useEffect(() => {
     if (!createMenuOpen) return undefined;

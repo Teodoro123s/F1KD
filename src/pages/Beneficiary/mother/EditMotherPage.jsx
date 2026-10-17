@@ -8,6 +8,9 @@ import { capitalizeNameValue } from '../../../utils/nameFormat';
 import { getSummary } from '../../Community/communityService';
 import PageHeader from '../../../components/ui/PageHeader';
 import { notifyAction } from '../../../components/ActionFeedback';
+import { CONTACT_NUMBER_POLICY, isValidContactNumber } from '../../../utils/contactNumber';
+import { formatPhilHealthNumber, getPhilHealthNumberError } from '../../../utils/philHealthNumber';
+import { getMaternalBirthCountErrors, hasMiscarriageHighRiskCount } from '../../../utils/maternalBirthCounts';
 
 const parseAddressParts = (address = '') => {
   const parts = String(address || '').split(',').map((part) => part.trim()).filter(Boolean);
@@ -43,6 +46,7 @@ const normalizeMotherForm = (mother = {}) => {
     .join('; ');
   return {
     ...normalized,
+    philhealthNumber: formatPhilHealthNumber(normalized.philhealthNumber || ''),
     ttRemarks: normalized.ttRemarks ?? legacyVaccineRemarks,
     firstName: capitalizeNameValue(normalized.firstName || ''),
     middleName: capitalizeNameValue(normalized.middleName || ''),
@@ -74,6 +78,7 @@ export default function EditMotherPage() {
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [communityOptions, setCommunityOptions] = useState({ communities: [], groups: [], batches: [] });
   const [activeTab, setActiveTab] = useState('general');
+  const maternalBirthCountErrors = getMaternalBirthCountErrors(form);
 
   const profileSteps = [
     ['general', 'General'],
@@ -131,11 +136,28 @@ export default function EditMotherPage() {
 
   const handleSaveRequest = (e) => {
     e.preventDefault();
-    const hasNegativePregnancyCount = ['gravida', 'abortion', 'stillbirth', 'totalChildren', 'childrenBornAlive', 'miscarriages', 'childrenDiedAfterBirth']
-      .some((field) => Number(form[field]) < 0);
-    if (hasNegativePregnancyCount) {
+    if (Object.keys(maternalBirthCountErrors).length > 0) {
       setActiveTab('prenatal');
-      notifyAction('Pregnancy and birth counts cannot be negative.', 'error');
+      notifyAction(Object.values(maternalBirthCountErrors)[0], 'error');
+      return;
+    }
+    const philHealthNumberError = getPhilHealthNumberError(
+      form.philhealthNumber,
+      Boolean(form.philhealthMember),
+    );
+    if (philHealthNumberError) {
+      setActiveTab('general');
+      notifyAction(philHealthNumberError, 'error');
+      return;
+    }
+    const invalidContact = [
+      { field: 'contactNumber', label: 'Contact number', tab: 'general' },
+      { field: 'emergencyContact', label: 'Emergency contact number', tab: 'general' },
+      { field: 'dentistContact', label: 'Dentist contact number', tab: 'medical_dental' },
+    ].find(({ field }) => String(form[field] ?? '').trim() && !isValidContactNumber(form[field]));
+    if (invalidContact) {
+      setActiveTab(invalidContact.tab);
+      notifyAction(`${invalidContact.label}: ${CONTACT_NUMBER_POLICY}`, 'error');
       return;
     }
     setShowSaveConfirm(true);
@@ -147,7 +169,11 @@ export default function EditMotherPage() {
     setError(null);
     try {
       const motherId = id || form.id || form.motherId;
-      const res = await apiUpdateMother(motherId, form);
+      const updatedForm = {
+        ...form,
+        isHighRisk: hasMiscarriageHighRiskCount(form) ? 'Yes' : form.isHighRisk,
+      };
+      const res = await apiUpdateMother(motherId, updatedForm);
       let updated = res && res.mother ? res.mother : (res || form);
       if (documentFiles.birthCertificate || documentFiles.consent) {
         const documentResponse = await apiUploadMotherDocuments(motherId, documentFiles);
@@ -242,6 +268,7 @@ export default function EditMotherPage() {
                 setDocumentFiles={setDocumentFiles}
                 autoCalculate={false}
                 readOnly={false}
+                validationErrors={maternalBirthCountErrors}
               />
             </div>
           </div>

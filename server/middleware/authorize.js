@@ -117,6 +117,10 @@ function authorizeOperational(req, res, next) {
       return permissionResponse(res, 'User management is restricted to Superadmin');
     }
 
+    if (userRole === 'super_admin' && isSchoolCreate(req)) {
+      return permissionResponse(res, 'Superadmin accounts cannot create schools');
+    }
+
     if (userRole === 'community_coordinator' && (isSchoolCreate(req) || isSchoolDelete(req))) {
       return permissionResponse(res, 'Community Coordinators cannot create or delete schools');
     }

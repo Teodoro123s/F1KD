@@ -8,6 +8,7 @@ const { authorize } = require('../middleware/authorize');
 const { createSuperadminNotification } = require('../services/notifications');
 const { sendAccountCredentialsEmail } = require('../services/emailjs');
 const { recordActivity } = require('../services/activityLog');
+const { validateContactNumber } = require('../utils/contactNumber');
 
 function normalizeDbStatus(value) {
   const normalized = String(value || '').trim().toLowerCase();
@@ -96,6 +97,8 @@ router.post('/health-workers', verifyToken, authorize('community_coordinator'), 
     if (!normalizedEmail || !normalizedFirstName || !normalizedLastName) {
       return res.status(400).json({ error: 'First name, last name, and email are required' });
     }
+    const contactNumberError = validateContactNumber(contactNumber);
+    if (contactNumberError) return res.status(400).json({ error: contactNumberError });
     if (!Number.isInteger(assignedGroupId) || assignedGroupId <= 0) {
       return res.status(400).json({ error: 'A valid group assignment is required' });
     }
@@ -199,6 +202,8 @@ router.put('/health-workers/:id', verifyToken, authorize('community_coordinator'
     if (!String(email || '').trim() || !String(firstName || '').trim() || !String(lastName || '').trim()) {
       return res.status(400).json({ error: 'First name, last name, and email are required' });
     }
+    const contactNumberError = validateContactNumber(contactNumber);
+    if (contactNumberError) return res.status(400).json({ error: contactNumberError });
 
     const updates = [
       'email = ?',
@@ -403,6 +408,8 @@ router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
     const requiresSchool = ['health worker', 'community organizer', 'community_coordinator', 'communitycoordinator', 'coordinator'].includes(roleName);
     const requiresGroup = roleName === 'health worker';
 
+    const contactNumberError = validateContactNumber(contactNumber);
+    if (contactNumberError) return res.status(400).json({ error: contactNumberError });
     if (!userName || !email) return res.status(400).json({ error: 'username and email are required' });
     if (requiresSchool && !schoolId) return res.status(400).json({ error: 'schoolId is required for this role' });
     if (requiresGroup && !groupId) return res.status(400).json({ error: 'groupId is required for this role' });
@@ -533,6 +540,9 @@ router.put('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
     );
     if (!existingRows.length) return res.status(404).json({ error: 'Not found' });
     const existingUser = existingRows[0];
+
+    const contactNumberError = validateContactNumber(contactNumber);
+    if (contactNumberError) return res.status(400).json({ error: contactNumberError });
 
     const updates = [];
     const params = [];
