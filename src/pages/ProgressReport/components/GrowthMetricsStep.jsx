@@ -18,6 +18,8 @@ export function GrowthMetricsStep({
   profileSectionLabels = {},
   profileSection = 'general',
   setProfileSection,
+  selectedMonitorFields = [],
+  selectedProfileFields = [],
 }) {
   const hasProfilePages = reportCategory === 'profile' && Object.keys(profileFieldSections).length > 0;
   const profilePageFields = availableProfileMetrics.filter(([id]) => !hasProfilePages || profileFieldSections[id] === profileSection);
@@ -74,6 +76,16 @@ export function GrowthMetricsStep({
           {beneficiaryType === 'child' && (
             <p className="progress-report-note">
               WHO growth scores are calculated through 24 months using the age- and sex-specific LMS references. Weight-for-length uses recumbent length before 24 months; weight-for-height uses standing height from 24 months.
+            </p>
+          )}
+          {selectedMonitorFields.length > 0 && (
+            <p className="progress-report-note">
+              AI-selected history columns: {selectedMonitorFields.map(([, label]) => label).join(', ')}. Beneficiary name is included automatically.
+            </p>
+          )}
+          {selectedProfileFields.length > 0 && (
+            <p className="progress-report-note">
+              AI-selected profile fields shown alongside the monitoring history: {selectedProfileFields.map(([, label]) => label).join(', ')}.
             </p>
           )}
         </>

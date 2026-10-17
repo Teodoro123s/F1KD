@@ -1,5 +1,4 @@
 import React from 'react';
-import { ReportAiAssistant } from './ReportAiAssistant';
 
 export function ReportFocusStep({
   reportCategory,
@@ -14,8 +13,6 @@ export function ReportFocusStep({
   beneficiaryType,
   setBeneficiaryType,
   setActiveTab,
-  aiScopeLabel,
-  applyAiProposal,
 }) {
   const eligiblePrograms = programs.filter((program) => {
     const programType = String(program?.beneficiaryType || program?.beneficiary_type || 'Mother and Child').trim().toLowerCase();
@@ -78,7 +75,6 @@ export function ReportFocusStep({
           </div>
         </fieldset>
       )}
-      <ReportAiAssistant scopeLabel={aiScopeLabel} onApply={applyAiProposal} />
       <div className="progress-report-tab-actions">
         <button type="button" className="primary-btn" onClick={() => setActiveTab(3)}>
           Next: Growth Metrics →

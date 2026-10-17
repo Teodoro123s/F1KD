@@ -105,15 +105,6 @@ export function ResultsPanel({
         </div>
       </div>
 
-      {aiSummaryError && <p className="progress-report-ai-message" role="alert">{aiSummaryError}</p>}
-      {aiSummary && (
-        <aside className="progress-report-ai-summary" aria-live="polite">
-          <h2>AI report summary</h2>
-          <p>{aiSummary}</p>
-          <small>Generated from aggregate report totals. Review the report data; this is not clinical advice.</small>
-        </aside>
-      )}
-
       {!graphAllowed && (
         <p className="progress-report-note" role="status">
           Graphs are limited to a single beneficiary or a selected batch to keep charts readable. Use Table View for school- or group-wide reports.
@@ -167,6 +158,17 @@ export function ResultsPanel({
           )}
           formatCellValue={formatCellValue}
         />
+      )}
+      {aiSummaryLoading && (
+        <p className="progress-report-ai-message" role="status">Preparing an AI summary from the report totals…</p>
+      )}
+      {aiSummaryError && <p className="progress-report-ai-message" role="alert">{aiSummaryError}</p>}
+      {aiSummary && (
+        <aside className="progress-report-ai-summary" aria-live="polite">
+          <h2>AI report summary</h2>
+          <p>{aiSummary}</p>
+          <small>Generated from aggregate report totals and, for monitoring reports with repeated measurements, aggregate changes in weight (children) or BMI (mothers). No beneficiary-level measurement history is sent to the AI. Review the report data; this is not clinical advice.</small>
+        </aside>
       )}
       {reportPagination && reportPagination.totalPages > 1 && (
         <div className="progress-report-pagination" aria-label="Report pagination">

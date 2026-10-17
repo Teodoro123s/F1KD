@@ -52,6 +52,29 @@ test('authorizeProgressReport allows operational roles and denies super admins',
   }
 });
 
+test('authorizeProgressReport permits super admins to use the read-only monitoring report assistant', () => {
+  let monitoringReportCalled = false;
+  authorizeProgressReport({
+    method: 'POST',
+    path: '/ai/monitoring-report',
+    user: { role: 'Super Admin' },
+  }, {}, () => { monitoringReportCalled = true; });
+  assert.equal(monitoringReportCalled, true);
+
+  let reportCalled = false;
+  const res = {
+    status(code) { this.code = code; return this; },
+    json(payload) { this.payload = payload; return this; },
+  };
+  authorizeProgressReport({
+    method: 'POST',
+    path: '/ai/proposal',
+    user: { role: 'Super Admin' },
+  }, res, () => { reportCalled = true; });
+  assert.equal(reportCalled, false);
+  assert.equal(res.code, 403);
+});
+
 test('authorizeOperational gives Admin and Partner global read scope without assignments', () => {
   for (const role of ['Admin', 'Partner']) {
     const req = { method: 'GET', user: { role } };

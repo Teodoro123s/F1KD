@@ -27,6 +27,14 @@ export const apiCreateProgressReportAiProposal = (prompt) => requestJson(`${API_
   method: 'POST',
   body: JSON.stringify({ prompt }),
 });
+export const apiCreateMonitoringReportIntent = (prompt, beneficiaryType) => requestJson(`${API_BASE}/api/progress-report/ai/monitoring-report`, {
+  method: 'POST',
+  body: JSON.stringify({ prompt, beneficiaryType }),
+});
+export const apiCreateProgressReportAiEntryAssist = (fieldId, draft) => requestJson(`${API_BASE}/api/progress-report/ai/entry-assist`, {
+  method: 'POST',
+  body: JSON.stringify({ fieldId, draft }),
+});
 export const apiCreateProgressReportAiSummary = (payload) => requestJson(`${API_BASE}/api/progress-report/ai/summary`, {
   method: 'POST',
   body: JSON.stringify(payload),

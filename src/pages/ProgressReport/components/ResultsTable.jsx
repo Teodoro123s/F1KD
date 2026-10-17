@@ -29,14 +29,20 @@ function HistoryCell({ field, value, formatCellValue }) {
   );
 }
 
-function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleFields, formatCellValue, communitySelection, onExport }) {
+function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleFields, formatCellValue, communitySelection, beneficiaryType, onExport }) {
   const [viewMode, setViewMode] = useState('individual');
   const [selectedBeneficiary, setSelectedBeneficiary] = useState('');
   const [selectedMonth, setSelectedMonth] = useState('');
   const [selectedSchool, setSelectedSchool] = useState('');
   const [selectedGroup, setSelectedGroup] = useState('');
   const visibleHistoryFields = reportFields.filter(([id]) => displayVisibleFields.includes(id) && historyFieldIds.has(id));
-  const identityFields = reportFields.filter(([id]) => ['mother', 'child'].includes(id));
+  const identityField = beneficiaryType === 'mother' ? 'mother' : 'child';
+  const identityFields = reportFields.filter(([id]) => id === identityField);
+  const profileFields = reportFields.filter(([id]) => (
+    displayVisibleFields.includes(id)
+    && !historyFieldIds.has(id)
+    && !['school', 'group', 'batch', 'mother', 'child'].includes(id)
+  ));
   const beneficiaries = useMemo(() => [...new Map(resultsRows.map((row) => [String(row.childId || row.motherId || row.child || row.mother), row])).values()], [resultsRows]);
   const months = useMemo(() => [...new Set(resultsRows.map((row) => String(row.measurementDate || '').slice(0, 7)).filter(Boolean))].sort(), [resultsRows]);
   const schools = useMemo(() => [...new Set(resultsRows.map((row) => row.school).filter(Boolean))].sort(), [resultsRows]);
@@ -88,8 +94,8 @@ function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleField
           onClick={() => onExport({
             rows: filteredRows,
             fields: viewMode === 'individual'
-              ? [['measurementDate', 'Measurement Date'], ...historyMetricFields]
-              : [...identityFields, ...historyMetricFields],
+              ? [['measurementDate', 'Check-up Date'], ...profileFields, ...historyMetricFields]
+              : [...identityFields, ...profileFields, ...historyMetricFields],
             view: 'table',
           })}
         >
@@ -99,23 +105,26 @@ function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleField
       {viewMode === 'individual' ? (
         <>
           <div className="monitoring-history-profile">
-            <strong>Child: {selectedProfile.child || '—'}</strong>
-            <span>Mother: {selectedProfile.mother || '—'}</span>
+            <strong>{beneficiaryType === 'mother' ? 'Mother' : 'Child'}: {selectedProfile[identityField] || '—'}</strong>
+            {beneficiaryType === 'child' && <span>Mother: {selectedProfile.mother || '—'}</span>}
             <span>School: {selectedProfile.school || '—'}</span>
             <span>Group: {selectedProfile.group || '—'}</span>
+            {profileFields.map(([id, label]) => (
+              <span key={id}>{label}: {formatCellValue(id, selectedProfile[id]) || '—'}</span>
+            ))}
           </div>
           <div className="progress-report-table-shell">
             <table className="progress-report-table monitoring-history-table">
-              <thead><tr><th>Measurement Date</th>{historyMetricFields.map(([id, label]) => <th key={id}>{label}</th>)}</tr></thead>
-              <tbody>{filteredRows.map((row, index) => <tr key={row.historyRowKey || index}><td>{formatCellValue('measurementDate', row.measurementDate)}</td>{historyMetricFields.map(([id]) => <td key={id}><HistoryCell field={id} value={row[id]} formatCellValue={formatCellValue} /></td>)}</tr>)}</tbody>
+              <thead><tr><th>Check-up Date</th>{profileFields.map(([id, label]) => <th key={id}>{label}</th>)}{historyMetricFields.map(([id, label]) => <th key={id}>{label}</th>)}</tr></thead>
+              <tbody>{filteredRows.map((row, index) => <tr key={row.historyRowKey || index}><td>{formatCellValue('measurementDate', row.measurementDate)}</td>{profileFields.map(([id]) => <td key={id}>{formatCellValue(id, row[id]) || '—'}</td>)}{historyMetricFields.map(([id]) => <td key={id}><HistoryCell field={id} value={row[id]} formatCellValue={formatCellValue} /></td>)}</tr>)}</tbody>
             </table>
           </div>
         </>
       ) : (
         <div className="progress-report-table-shell">
           <table className="progress-report-table monitoring-snapshot-table">
-            <thead><tr>{identityFields.map(([id, label]) => <th key={id}>{label}</th>)}{historyMetricFields.map(([id, label]) => <th key={id}>{label}</th>)}</tr></thead>
-            <tbody>{filteredRows.map((row, index) => <tr key={row.historyRowKey || index}>{identityFields.map(([id]) => <td key={id}>{formatCellValue(id, row[id])}</td>)}{historyMetricFields.map(([id]) => <td key={id}><HistoryCell field={id} value={row[id]} formatCellValue={formatCellValue} /></td>)}</tr>)}</tbody>
+            <thead><tr>{identityFields.map(([id, label]) => <th key={id}>{label}</th>)}{profileFields.map(([id, label]) => <th key={id}>{label}</th>)}{historyMetricFields.map(([id, label]) => <th key={id}>{label}</th>)}</tr></thead>
+            <tbody>{filteredRows.map((row, index) => <tr key={row.historyRowKey || index}>{identityFields.map(([id]) => <td key={id}>{formatCellValue(id, row[id])}</td>)}{profileFields.map(([id]) => <td key={id}>{formatCellValue(id, row[id]) || '—'}</td>)}{historyMetricFields.map(([id]) => <td key={id}><HistoryCell field={id} value={row[id]} formatCellValue={formatCellValue} /></td>)}</tr>)}</tbody>
           </table>
         </div>
       )}
@@ -158,7 +167,7 @@ function getLatestResultsTableData(resultsRows, beneficiaryType, resultPeriod) {
     return {
       ...row,
       bmiForAge: bmi,
-      bmiInterpretation: hasBmi ? getBmiInterpretation(bmi) : '',
+      bmiInterpretation: beneficiaryType === 'mother' && hasBmi ? getBmiInterpretation(bmi) : '',
     };
   });
 
@@ -334,7 +343,7 @@ export function ResultsTable({
         </div>
       )}
       {showMonitoringFilter && tableDisplayMode === 'monitoring-dates' ? (
-        <MonitoringHistoryTable resultsRows={resultsRows} reportFields={reportFields} displayVisibleFields={displayVisibleFields} formatCellValue={formatCellValue} communitySelection={communitySelection} onExport={onExport} />
+        <MonitoringHistoryTable resultsRows={resultsRows} reportFields={reportFields} displayVisibleFields={displayVisibleFields} formatCellValue={formatCellValue} communitySelection={communitySelection} beneficiaryType={beneficiaryType} onExport={onExport} />
       ) : showMonitoringFilter && tableDisplayMode === 'general' ? (
         <LatestResultsTable resultsRows={periodRows} formatCellValue={formatCellValue} beneficiaryType={beneficiaryType} resultPeriod={resultPeriod} />
       ) : (

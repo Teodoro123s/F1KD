@@ -18,11 +18,65 @@ import { notifyAction } from '../../components/ActionFeedback';
 import TableSearch from '../../components/ui/TableSearch';
 import ModuleSummaryCards from '../../components/ui/ModuleSummaryCards';
 import { navigateBack } from '../../utils/navigation';
+import { apiCreateMonitoringReportIntent } from '../../api/progressReport';
+import { downloadContent, generateCsvContent } from '../ProgressReport/utils/exportUtils';
+import {
+  filterMonitoringReportCheckups,
+  getLatestMonitoringReportCheckup,
+  getMonitoringReportCheckups,
+  getMonitoringReportValue,
+  MONITORING_REPORT_FIELD_LABELS,
+} from './monitoringReportUtils.mjs';
 
 function getMotherName(mother) {
   return mother?.name || [mother?.firstName || mother?.first_name, mother?.middleName || mother?.middle_name, mother?.lastName || mother?.last_name]
     .filter(Boolean)
     .join(' ') || 'Unnamed mother';
+}
+
+function getMonitoringReportBeneficiaryId(beneficiary, type) {
+  return String(type === 'Mother'
+    ? beneficiary?.id ?? beneficiary?.motherId ?? beneficiary?.mother_id ?? beneficiary?.motherCode ?? beneficiary?.mother_code ?? ''
+    : beneficiary?.id ?? beneficiary?.childId ?? beneficiary?.child_id ?? beneficiary?.childCode ?? beneficiary?.child_code ?? '');
+}
+
+function getMonitoringReportBeneficiaryName(beneficiary, type) {
+  return type === 'Mother' ? getMotherName(beneficiary) : getChildName(beneficiary);
+}
+
+function removeKnownBeneficiaryNames(prompt, names) {
+  const uniqueNames = [...new Set(names
+    .filter((name) => name && name !== 'Unnamed mother')
+    .sort((left, right) => right.length - left.length))];
+  return uniqueNames.reduce((safePrompt, name) => safePrompt.replace(
+    new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'),
+    'the selected beneficiary',
+  ), prompt);
+}
+
+function downloadMonitoringReportCsv(report, rows) {
+  const columns = [
+    { id: 'beneficiaryName', label: 'Beneficiary' },
+    ...report.metricIds.map((metricId) => ({
+      id: metricId,
+      label: MONITORING_REPORT_FIELD_LABELS[metricId],
+    })),
+  ];
+  const csvRows = rows.map((row) => Object.fromEntries([
+    ['beneficiaryName', row.beneficiaryName],
+    ...report.metricIds.map((metricId) => [
+      metricId,
+      row.checkup ? getMonitoringReportValue(row.checkup, metricId) : 'No saved check-up records.',
+    ]),
+  ].map(([key, value]) => {
+    const safeValue = String(value ?? '');
+    return [key, /^[=+\-@]/.test(safeValue) ? `'${safeValue}` : safeValue];
+  })));
+  const csv = generateCsvContent(csvRows, columns);
+  const now = new Date();
+  const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const beneficiary = report.beneficiaryType.toLowerCase();
+  downloadContent(`\uFEFF${csv}`, `monitoring-report-${beneficiary}-${date}.csv`, 'text/csv;charset=utf-8');
 }
 
 const parseDateOnly = (value) => {
@@ -80,6 +134,7 @@ export default function MonitoringPage() {
   const [selectedMother, setSelectedMother] = useState(() => location.state?.mother || null);
   const [children, setChildren] = useState([]);
   const [childrenLoading, setChildrenLoading] = useState(true);
+  const [childrenLoadError, setChildrenLoadError] = useState('');
   const [selectedChild, setSelectedChild] = useState(() => location.state?.child || null);
   const [selectedRecordLoading, setSelectedRecordLoading] = useState(() => Boolean(location.state?.child || location.state?.mother));
   const [beneficiaryType, setBeneficiaryType] = useState(() => (location.state?.child ? 'Child' : 'Mother'));
@@ -89,6 +144,12 @@ export default function MonitoringPage() {
   const [editingCheckup, setEditingCheckup] = useState(false);
   const [statusFilter, setStatusFilter] = useState('All');
   const [monthlyCheckupFilter, setMonthlyCheckupFilter] = useState('All');
+  const [reportBeneficiaryType, setReportBeneficiaryType] = useState('Current');
+  const [reportBeneficiaryId, setReportBeneficiaryId] = useState('');
+  const [monitoringReportPrompt, setMonitoringReportPrompt] = useState('');
+  const [monitoringReportLoading, setMonitoringReportLoading] = useState(false);
+  const [monitoringReportError, setMonitoringReportError] = useState('');
+  const [monitoringReportResult, setMonitoringReportResult] = useState(null);
   const [selectedMonitoringCard, setSelectedMonitoringCard] = useState(null);
   const [perPage, setPerPage] = useState(10);
   const [page, setPage] = useState(1);
@@ -99,8 +160,11 @@ export default function MonitoringPage() {
     let active = true;
     apiGetChildren().then((response) => {
       if (active) setChildren(response.children || []);
-    }).catch(() => {
-      if (active) setChildren([]);
+    }).catch((error) => {
+      if (active) {
+        setChildren([]);
+        setChildrenLoadError(error.message || 'Unable to load child check-up records.');
+      }
     }).finally(() => {
       if (active) setChildrenLoading(false);
     });
@@ -231,6 +295,67 @@ export default function MonitoringPage() {
 
   const clearSearch = () => { setQuery(''); setPage(1); };
 
+  const effectiveReportBeneficiaryType = reportBeneficiaryType === 'Current' ? beneficiaryType : reportBeneficiaryType;
+  const reportBeneficiaries = effectiveReportBeneficiaryType === 'Mother' ? scopedMothers : scopedChildren;
+  const reportRecordsUnavailable = effectiveReportBeneficiaryType === 'Child' && Boolean(childrenLoadError);
+  const previousReportBeneficiaryType = React.useRef(effectiveReportBeneficiaryType);
+
+  React.useEffect(() => {
+    if (previousReportBeneficiaryType.current !== effectiveReportBeneficiaryType) {
+      previousReportBeneficiaryType.current = effectiveReportBeneficiaryType;
+      setReportBeneficiaryId('');
+      setMonitoringReportResult(null);
+    }
+  }, [effectiveReportBeneficiaryType]);
+
+  const handleMonitoringReport = async (event) => {
+    event.preventDefault();
+    setMonitoringReportLoading(true);
+    setMonitoringReportError('');
+    setMonitoringReportResult(null);
+    try {
+      const privacySafePrompt = removeKnownBeneficiaryNames(monitoringReportPrompt, [
+        ...scopedMothers.map(getMotherName),
+        ...scopedChildren.map(getChildName),
+      ]);
+      const intent = await apiCreateMonitoringReportIntent(privacySafePrompt, effectiveReportBeneficiaryType);
+      setMonitoringReportResult({
+        ...intent,
+        beneficiaryId: reportBeneficiaryId,
+      });
+    } catch (error) {
+      setMonitoringReportError(error.message || 'Unable to prepare the monitoring report.');
+    } finally {
+      setMonitoringReportLoading(false);
+    }
+  };
+
+  const monitoringReportRows = useMemo(() => {
+    if (!monitoringReportResult) return [];
+    const type = monitoringReportResult.beneficiaryType;
+    const beneficiaries = type === 'Mother' ? scopedMothers : scopedChildren;
+    const selected = beneficiaries.filter((beneficiary) => (
+      !monitoringReportResult.beneficiaryId
+      || getMonitoringReportBeneficiaryId(beneficiary, type) === monitoringReportResult.beneficiaryId
+    ));
+    return selected.flatMap((beneficiary) => {
+      const allCheckups = getMonitoringReportCheckups(beneficiary, type);
+      const matchingCheckups = filterMonitoringReportCheckups(allCheckups, monitoringReportResult.onlyReferredToHospital);
+      const latestCheckup = monitoringReportResult.latestCheckupOnly
+        ? getLatestMonitoringReportCheckup(matchingCheckups)
+        : null;
+      const checkups = monitoringReportResult.latestCheckupOnly
+        ? latestCheckup ? [latestCheckup] : []
+        : matchingCheckups;
+      const records = checkups.length ? checkups : allCheckups.length ? [] : [null];
+      return records.map((checkup, index) => ({
+        key: `${getMonitoringReportBeneficiaryId(beneficiary, type)}-${index}`,
+        beneficiaryName: getMonitoringReportBeneficiaryName(beneficiary, type),
+        checkup,
+      }));
+    });
+  }, [monitoringReportResult, scopedChildren, scopedMothers]);
+
   const visibleBeneficiaries = beneficiaryType === 'Mother' ? scopedMothers : scopedChildren;
 
   const allMonitoringRows = useMemo(() => visibleBeneficiaries.map((beneficiary) => {
@@ -258,7 +383,7 @@ export default function MonitoringPage() {
       const searchableText = beneficiaryType === 'Mother'
         ? `${getMotherName(beneficiary)} ${beneficiary.motherCode || beneficiary.mother_code || beneficiary.id || ''} ${beneficiary.community || beneficiary.community_name || beneficiary.area || ''}`
         : `${getChildName(beneficiary)} ${beneficiary.child_code || beneficiary.id || ''} ${beneficiary.community || beneficiary.community_name || beneficiary.area || ''}`;
-      return (!term || searchableText.includes(term))
+      return (!term || searchableText.toLowerCase().includes(term.toLowerCase()))
         && (statusFilter === 'All' || status === statusFilter)
         && (monthlyCheckupFilter !== 'NoCheckupThisMonth' || !hasMonthlyRecord);
     });
@@ -342,6 +467,105 @@ export default function MonitoringPage() {
               { key: 'Done', label: 'Done', value: allMonitoringRows.filter((row) => row.status === 'Done').length, description: 'View list' },
             ]}
           />
+          <div className="monitoring-ai-report-panel">
+            <form className="monitoring-ai-report-card" onSubmit={handleMonitoringReport}>
+              <h2>Build a check-up report with AI</h2>
+              <label htmlFor="monitoring-report-type">Beneficiary type</label>
+              <select
+                id="monitoring-report-type"
+                value={reportBeneficiaryType}
+                onChange={(event) => {
+                  setReportBeneficiaryType(event.target.value);
+                  setReportBeneficiaryId('');
+                  setMonitoringReportResult(null);
+                }}
+              >
+                <option value="Current">Use active filter ({beneficiaryType})</option>
+                <option value="Mother">Mother</option>
+                <option value="Child">Child</option>
+              </select>
+              <label htmlFor="monitoring-report-beneficiary">Beneficiary</label>
+              <select
+                id="monitoring-report-beneficiary"
+                value={reportBeneficiaryId}
+                onChange={(event) => {
+                  setReportBeneficiaryId(event.target.value);
+                  setMonitoringReportResult(null);
+                }}
+              >
+                <option value="">All available {effectiveReportBeneficiaryType.toLowerCase()} records</option>
+                {reportBeneficiaries.map((beneficiary) => {
+                  const id = getMonitoringReportBeneficiaryId(beneficiary, effectiveReportBeneficiaryType);
+                  return id ? (
+                    <option key={id} value={id}>
+                      {getMonitoringReportBeneficiaryName(beneficiary, effectiveReportBeneficiaryType)}
+                    </option>
+                  ) : null;
+                })}
+              </select>
+              <label htmlFor="monitoring-report-prompt">Which check-up details should the report show?</label>
+              <div className="monitoring-filter-row">
+                <input
+                  id="monitoring-report-prompt"
+                  type="text"
+                  value={monitoringReportPrompt}
+                  onChange={(event) => setMonitoringReportPrompt(event.target.value)}
+                  maxLength={500}
+                  placeholder="Example: hospital referral with assistance amount and facility type"
+                  required
+                />
+                <button type="submit" className="btn-primary" disabled={monitoringReportLoading || monitoringReportPrompt.trim().length < 3 || childrenLoading || reportRecordsUnavailable}>
+                  {monitoringReportLoading ? 'Preparing…' : 'Build report'}
+                </button>
+              </div>
+              <p className="progress-report-ai-message">Choose a beneficiary here; names and saved check-ups stay in the app. The report only displays records your account can access.</p>
+              {reportRecordsUnavailable && <p className="progress-report-ai-message" role="alert">{childrenLoadError}</p>}
+              {monitoringReportError && <p className="progress-report-ai-message" role="alert">{monitoringReportError}</p>}
+              {monitoringReportResult && (
+                <section className="monitoring-ai-report-results" aria-live="polite">
+                  <div className="monitoring-ai-report-heading">
+                    <h3>Check-up report</h3>
+                    <button
+                      type="button"
+                      className="secondary-btn"
+                      onClick={() => downloadMonitoringReportCsv(monitoringReportResult, monitoringReportRows)}
+                      disabled={!monitoringReportRows.length}
+                    >
+                      Download CSV
+                    </button>
+                  </div>
+                  <p>{monitoringReportResult.explanation}</p>
+                  {monitoringReportRows.length ? (
+                    <div className="monitoring-ai-report-table-wrap">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th scope="col">Beneficiary</th>
+                            {monitoringReportResult.metricIds.map((metricId) => (
+                              <th scope="col" key={metricId}>{MONITORING_REPORT_FIELD_LABELS[metricId]}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {monitoringReportRows.map((row) => (
+                            <tr key={row.key}>
+                              <th scope="row">{row.beneficiaryName}</th>
+                              {row.checkup ? monitoringReportResult.metricIds.map((metricId) => (
+                                <td key={metricId}>{getMonitoringReportValue(row.checkup, metricId)}</td>
+                              )) : (
+                                <td colSpan={monitoringReportResult.metricIds.length}>No saved check-up records.</td>
+                              )}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : <p role="status">No saved check-up records match the selected report criteria.</p>}
+                  <p className="monitoring-ai-report-note">This report shows recorded data only. It is not a diagnosis or clinical recommendation.</p>
+                </section>
+              )}
+            </form>
+          </div>
           {selectedMonitoringCard && (
             <>
           <div className="table-card monitoring-table-card">

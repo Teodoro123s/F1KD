@@ -12,6 +12,7 @@ import { CONTACT_NUMBER_POLICY, isValidContactNumber } from '../../../utils/cont
 import { formatPhilHealthNumber, getPhilHealthNumberError } from '../../../utils/philHealthNumber';
 import { getMaternalBirthCountErrors, hasMiscarriageHighRiskCount } from '../../../utils/maternalBirthCounts';
 import { navigateBack } from '../../../utils/navigation';
+import { NoteWritingAssistant } from '../../ProgressReport/components/NoteWritingAssistant';
 
 const parseAddressParts = (address = '') => {
   const parts = String(address || '').split(',').map((part) => part.trim()).filter(Boolean);
@@ -261,6 +262,14 @@ export default function EditMotherPage() {
 
           <div className="create-form-body mother-detail-shared-form">
             <div className="modal-body-scrollable">
+              <NoteWritingAssistant
+                fields={[
+                  { id: 'otherMedicalHistory', label: 'Other medical history', value: form.otherMedicalHistory },
+                  { id: 'dentalFindings', label: 'Dental findings', value: form.dentalFindings },
+                  { id: 'dentalRemarks', label: 'Dental remarks', value: form.dentalRemarks },
+                ]}
+                onApply={(fieldId, value) => setForm((current) => ({ ...current, [fieldId]: value }))}
+              />
               <MotherFormFields
                 activeTab={activeTab}
                 form={form}

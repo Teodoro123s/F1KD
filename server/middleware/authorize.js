@@ -76,7 +76,7 @@ const isHealthWorkerChildUpdate = (req) => (
 const isReadOnlyReportAssistantRequest = (req) => (
   req.baseUrl === '/api/progress-report'
   && req.method === 'POST'
-  && /^\/ai\/(proposal|summary)\/?$/.test(req.path)
+  && /^\/ai\/(proposal|summary|monitoring-report|entry-assist)\/?$/.test(req.path)
 );
 
 function authorize(...allowedRoles) {
@@ -170,6 +170,8 @@ function authorizeOperational(req, res, next) {
 
 function authorizeProgressReport(req, res, next) {
   const userRole = normalizeRole(req.user?.role);
+  const isMonitoringAssistant = req.method === 'POST' && /^\/ai\/monitoring-report\/?$/.test(req.path);
+  if (userRole === 'super_admin' && isMonitoringAssistant) return next();
   if (!['admin', 'partner', 'community_coordinator', 'health_worker'].includes(userRole)) {
     return permissionResponse(res, 'You do not have permission to access progress reports');
   }

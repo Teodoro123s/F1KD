@@ -3,6 +3,8 @@ const pool = require('../db');
 const { getWhoGrowthStandards } = require('../services/whoGrowthStandards');
 const {
   ProgressReportAIError,
+  createEntryAssistance,
+  createMonitoringReportIntent,
   createReportProposal,
   createReportSummary,
   getAIConfiguration,
@@ -114,12 +116,35 @@ router.post('/ai/proposal', async (req, res) => {
   }
 });
 
+router.post('/ai/monitoring-report', async (req, res) => {
+  try {
+    const reportIntent = await createMonitoringReportIntent(req.body?.prompt, req.body?.beneficiaryType);
+    res.json(reportIntent);
+  } catch (error) {
+    const status = error instanceof ProgressReportAIError ? error.status : 502;
+    console.error('[Progress Report AI] monitoring report error:', error.message);
+    res.status(status).json({ error: error.message || 'Unable to prepare a monitoring report.' });
+  }
+});
+
+router.post('/ai/entry-assist', async (req, res) => {
+  try {
+    const draft = await createEntryAssistance(req.body?.fieldId, req.body?.draft);
+    res.json({ draft });
+  } catch (error) {
+    const status = error instanceof ProgressReportAIError ? error.status : 502;
+    console.error('[Progress Report AI] entry assistance error:', error.message);
+    res.status(status).json({ error: error.message || 'Unable to prepare note assistance.' });
+  }
+});
+
 router.post('/ai/summary', async (req, res) => {
   try {
     const summary = await createReportSummary(
       req.body?.summary,
       req.body?.reportCategory,
       req.body?.beneficiaryType,
+      { trendStats: req.body?.trendStats },
     );
     res.json({ summary });
   } catch (error) {
@@ -205,7 +230,7 @@ router.get('/', async (req, res) => {
     const statusExpression = params.granularity === 'mother' ? 'm.status' : 'c.health_status';
     const dobExpression = params.granularity === 'mother' ? 'm.dob' : 'c.birth_date';
     const groupDetails = params.granularity === 'mother'
-      ? 'm.dob, m.prenatal_weight, m.prenatal_height, m.philhealth_member, m.status, m.contact_number, m.address, m.birth_certificate_document_name, m.consent_document_name, m.gravida, m.para, m.abortion, m.stillbirth, m.lmp_date, m.edd_date, m.prenatal_reg_date, m.trimester, m.gestational_age, m.prenatal_bp, m.fundal_height, m.fhr, m.emergency_name, m.emergency_contact, m.emergency_relationship, m.spouse_name, m.philhealth_number, m.other_medical_history, m.is_high_risk, m.program_type'
+      ? 'm.dob, m.birth_place, m.prenatal_weight, m.prenatal_height, m.philhealth_member, m.status, m.contact_number, m.address, m.birth_certificate_document_name, m.consent_document_name, m.gravida, m.para, m.abortion, m.stillbirth, m.lmp_date, m.edd_date, m.prenatal_reg_date, m.trimester, m.gestational_age, m.prenatal_bp, m.fundal_height, m.fhr, m.emergency_name, m.emergency_contact, m.emergency_relationship, m.spouse_name, m.philhealth_number, m.other_medical_history, m.is_high_risk, m.program_type'
       : 'c.birth_date, c.birth_weight, c.birth_length, c.birth_document_name, m.philhealth_member, c.gender, c.blood_type, c.multiple_birth_type, c.delivery_type, c.health_status, c.no_of_child_delivered, c.expanded_newborn_screening, c.expanded_newborn_screening_result, c.birth_place, c.birth_attendant, c.apgar_score, c.feeding_type, c.exclusive_breastfeeding, c.nutrition_notes, c.father_name, c.relationship, c.address, m.contact_number, m.is_high_risk, m.program_type';
     const query = `
       SELECT
@@ -272,7 +297,7 @@ router.get('/', async (req, res) => {
         ${params.granularity === 'mother' ? 'NULL' : 'c.no_of_child_delivered'} AS no_of_child_delivered,
         ${params.granularity === 'mother' ? 'NULL' : 'c.expanded_newborn_screening'} AS expanded_newborn_screening,
         ${params.granularity === 'mother' ? 'NULL' : 'c.expanded_newborn_screening_result'} AS expanded_newborn_screening_result,
-        ${params.granularity === 'mother' ? 'NULL' : 'c.birth_place'} AS birth_place,
+        ${params.granularity === 'mother' ? 'm.birth_place' : 'c.birth_place'} AS birth_place,
         ${params.granularity === 'mother' ? 'NULL' : 'c.birth_attendant'} AS birth_attendant,
         ${params.granularity === 'mother' ? 'NULL' : 'c.apgar_score'} AS apgar_score,
         ${params.granularity === 'mother' ? 'NULL' : 'c.feeding_type'} AS feeding_type,
@@ -533,7 +558,7 @@ router.get('/', async (req, res) => {
     const motherIds = normalizedRows.map((row) => row.motherId).filter(Boolean);
     if (params.granularity === 'mother' && motherIds.length) {
       const [checkupRows] = await pool.query(
-        `SELECT mother_id, checkup_date, gestational_age_weeks, bmi,
+        `SELECT mother_id, checkup_date, gestational_age_weeks, weight_kg, height_cm, bmi,
           referred_to_hospital, lab_assistance_provided, assistance_amount,
           source_of_funds, facility_type
          FROM mother_checkups
@@ -551,8 +576,8 @@ router.get('/', async (req, res) => {
         series.push({
           date: checkup.checkup_date,
           ageWeeks: Number.isFinite(ageWeeks) ? ageWeeks : null,
-          weight: null,
-          height: null,
+          weight: Number.isFinite(Number(checkup.weight_kg)) && Number(checkup.weight_kg) > 0 ? Number(checkup.weight_kg) : null,
+          height: Number.isFinite(Number(checkup.height_cm)) && Number(checkup.height_cm) > 0 ? Number(checkup.height_cm) : null,
           bmi: Number.isFinite(bmi) && bmi > 0 ? bmi : null,
           hospitalReferral: Boolean(checkup.referred_to_hospital),
           labAssistanceProvided: Boolean(checkup.lab_assistance_provided),

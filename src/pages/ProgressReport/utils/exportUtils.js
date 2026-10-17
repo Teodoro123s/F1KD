@@ -89,10 +89,14 @@ export const generateJsonContent = (rows, columns) => {
  */
 export const downloadContent = (content, filename, mimeType) => {
   const link = document.createElement('a');
-  link.href = URL.createObjectURL(new Blob([content], { type: mimeType }));
+  const url = URL.createObjectURL(new Blob([content], { type: mimeType }));
+  link.href = url;
   link.download = filename;
+  link.style.display = 'none';
+  document.body.appendChild(link);
   link.click();
-  URL.revokeObjectURL(link.href);
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
 
 /**

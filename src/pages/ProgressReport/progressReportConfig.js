@@ -83,13 +83,13 @@ export const REPORT_FIELDS = [
   ['tt4Date', 'TT4 Date', 'Profile'], ['tt4Remarks', 'TT4 Remarks', 'Profile'],
   ['tt5Date', 'TT5 Date', 'Profile'], ['tt5Remarks', 'TT5 Remarks', 'Profile'],
   ['ttVaccineRecord', 'Tetanus Toxoid Vaccine Record', 'Profile'],
-  ['weightForAge', 'Weight-for-Age (kg)', 'Growth & Monitoring'],
-  ['heightForAge', 'Length-for-Age (cm)', 'Growth & Monitoring'],
+  ['weightForAge', 'Weight (kg)', 'Growth & Monitoring'],
+  ['heightForAge', 'Height (cm)', 'Growth & Monitoring'],
   ['weightForLengthZScore', 'Weight-for-Length/Height Z-Score', 'Growth & Monitoring'],
   ['weightForLengthInterpretation', 'Weight-for-Length Interpretation', 'Growth & Monitoring'],
   ['weightForAgeZScore', 'Weight-for-Age Z-Score', 'Growth & Monitoring'],
   ['weightForAgeInterpretation', 'Weight-for-Age Interpretation', 'Growth & Monitoring'],
-  ['bmiForAge', 'BMI-for-Age', 'Growth & Monitoring'],
+  ['bmiForAge', 'BMI', 'Growth & Monitoring'],
   ['bmiInterpretation', 'BMI Interpretation', 'Growth & Monitoring'],
   ['lengthForAgeZScore', 'Length/Height-for-Age Z-Score', 'Growth & Monitoring'],
   ['lengthForAgeInterpretation', 'Length-for-Age Interpretation', 'Growth & Monitoring'],
@@ -102,9 +102,10 @@ export const REPORT_FIELDS = [
   ['receivedBenefitTotal', 'Total Received Benefits', 'Program Report'],
   ['receivedBenefitFrequency', 'Benefit Receipt Frequency', 'Program Report'],
   ['receivedBenefitAveragePerMonth', 'Average Received per Month', 'Program Report'],
+  ['hospitalReferral', 'Referral to Hospital', 'Monitoring'],
   ['lastActivityDate', 'Last Activity', 'Monitoring'],
   ['nextCheckupDate', 'Next Check-up', 'Monitoring'],
-  ['measurementDate', 'Measurement Date', 'Monitoring'],
+  ['measurementDate', 'Check-up Date', 'Monitoring'],
 ];
 
 export const DEFAULT_VISIBLE_FIELDS = [
@@ -209,7 +210,7 @@ export const PROFILE_SECTION_LABELS = {
 };
 
 export const MOTHER_PROFILE_FIELD_SECTIONS = {
-  contactNumber: 'general', addressDetails: 'general', motherBirthCertificate: 'general', programConsentDocument: 'general', philhealthMember: 'general', philhealthNumber: 'general', spouseName: 'general', emergencyName: 'general', emergencyContact: 'general', emergencyRelationship: 'general',
+  age: 'general', birthPlace: 'general', contactNumber: 'general', addressDetails: 'general', motherBirthCertificate: 'general', programConsentDocument: 'general', philhealthMember: 'general', philhealthNumber: 'general', spouseName: 'general', emergencyName: 'general', emergencyContact: 'general', emergencyRelationship: 'general',
   initialWeight: 'prenatal-ob', initialHeight: 'prenatal-ob', lmpDate: 'prenatal-ob', eddDate: 'prenatal-ob', prenatalRegDate: 'prenatal-ob', trimester: 'prenatal-ob', gestationalAge: 'prenatal-ob', prenatalWeight: 'prenatal-ob', prenatalBp: 'prenatal-ob', prenatalHeight: 'prenatal-ob', fundalHeight: 'prenatal-ob', fhr: 'prenatal-ob', gravida: 'prenatal-ob', para: 'prenatal-ob', abortion: 'prenatal-ob', stillbirth: 'prenatal-ob',
   medicalConditions: 'medical-dental', otherMedicalHistory: 'medical-dental', dentalCheckupDate: 'medical-dental', dentalFacility: 'medical-dental', dentistInCharge: 'medical-dental', communityDentist: 'medical-dental', dentistLicense: 'medical-dental', dentistContact: 'medical-dental', teethCount: 'medical-dental', dentalFindings: 'medical-dental', dentalWork: 'medical-dental', dentalRemarks: 'medical-dental',
   ttVaccineRecord: 'vaccine',
@@ -223,6 +224,8 @@ export const MOTHER_PROFILE_SECTION_LABELS = {
 };
 
 export const MOTHER_PROFILE_METRICS = [
+  ['age', 'Age', 'Age calculated from the mother profile date of birth.'],
+  ['birthPlace', 'Birth Place / City', 'Birth place recorded in the mother profile.'],
   ['contactNumber', 'Contact Number', 'Contact number recorded in the mother profile.'],
   ['addressDetails', 'Address Details', 'Whether address details are recorded in the mother profile.'],
   ['motherBirthCertificate', "Mother's Birth Certificate", 'Whether the mother birth certificate is uploaded.'],
@@ -405,7 +408,9 @@ export const getPointValue = (point, metric) => {
   return aliasValue !== null && aliasValue !== undefined && aliasValue !== '' && Number.isFinite(Number(aliasValue)) ? Number(aliasValue) : null;
 };
 
-export const getPointInterpretation = (point, metric) => normalizeNutritionLabel(String(point?.[metric] || '').trim());
+export const getPointInterpretation = (point, metric) => metric === 'bmiInterpretation'
+  ? getBmiInterpretation(point?.bmi)
+  : normalizeNutritionLabel(String(point?.[metric] || '').trim());
 
 export const averageNumeric = (values) => {
   const numbers = values.map(Number).filter((value) => Number.isFinite(value));
