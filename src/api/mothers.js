@@ -52,6 +52,35 @@ export async function apiGetMother(motherId) {
   return handleResponse(res, 'Failed to fetch mother');
 }
 
+export async function apiGetMotherClaims(motherId) {
+  const id = encodeURIComponent(motherId);
+  const res = await fetchWithAuth(`${API_BASE}/api/mothers/${id}/claims`, {
+    headers: { 'Content-Type': 'application/json' },
+  });
+  return handleResponse(res, 'Failed to fetch PhilHealth claims');
+}
+
+export async function apiCreateMotherClaim(motherId, payload) {
+  const id = encodeURIComponent(motherId);
+  const res = await fetchWithAuth(`${API_BASE}/api/mothers/${id}/claims`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(res, 'Unable to create PhilHealth claim record');
+}
+
+export async function apiUpdateMotherClaim(motherId, claimId, payload) {
+  const id = encodeURIComponent(motherId);
+  const claim = encodeURIComponent(claimId);
+  const res = await fetchWithAuth(`${API_BASE}/api/mothers/${id}/claims/${claim}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(res, 'Unable to update PhilHealth claim record');
+}
+
 export async function apiDeleteMother(motherId) {
   const id = encodeURIComponent(motherId);
   const res = await fetchWithAuth(`${API_BASE}/api/mothers/${id}`, {

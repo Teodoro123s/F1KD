@@ -114,6 +114,8 @@ test('Community Organizers cannot read or mutate records outside their assigned 
     body: JSON.stringify({
       firstName: 'Example',
       lastName: 'Mother',
+      dob: '1990-01-01',
+      contactNumber: '09171234567',
       communityId: 13,
     }),
   });
@@ -124,6 +126,8 @@ test('Community Organizers cannot read or mutate records outside their assigned 
     body: JSON.stringify({
       firstName: 'Example',
       lastName: 'Mother',
+      dob: '1990-01-01',
+      contactNumber: '09171234567',
       communityId: 12,
       groupId: 92,
     }),

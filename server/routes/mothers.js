@@ -6,6 +6,7 @@ const { createSuperadminNotification, getBeneficiaryUpdateRecipients } = require
 const { canViewAuditSignatures } = require('../middleware/authorize');
 const { validateContactNumber } = require('../utils/contactNumber');
 const { formatPhilHealthNumber, validatePhilHealthNumber } = require('../utils/philHealthNumber');
+const { normalizePhilHealthClaim } = require('../utils/philHealthClaim');
 const { MOTHER_ADDITIONAL_VACCINES, getMotherVaccineRecords } = require('../utils/motherVaccines');
 const MOTHER_STANDARD_NAME_PATTERN = /^[\p{L}]+(?:[ '-][\p{L}]+)*$/u;
 const MOTHER_MIDDLE_NAME_PATTERN = /^(?:[\p{L}]\.?|[\p{L}]+(?:['-][\p{L}]+)*)$/u;
@@ -811,6 +812,137 @@ router.post('/', async (req, res) => {
         ? 'Unable to create mother profile. Please try again or contact your administrator.'
         : error.message,
     });
+  }
+});
+
+async function findScopedMotherForClaims(req, identifier) {
+  const scopeClause = req.groupId
+    ? ' AND group_id = ?'
+    : req.schoolId
+      ? ' AND community_id = ?'
+      : '';
+  const scopeValues = req.groupId
+    ? [req.groupId]
+    : req.schoolId
+      ? [req.schoolId]
+      : [];
+  const [rows] = await pool.query(
+    `SELECT id FROM mothers WHERE (id = ? OR mother_code = ?)${scopeClause} LIMIT 1`,
+    [Number(identifier) || null, identifier, ...scopeValues],
+  );
+  return rows[0] || null;
+}
+
+function canManagePhilHealthClaims(req) {
+  return Boolean(req.isHealthWorker || req.isCommunityOrganizer);
+}
+
+router.get('/:id/claims', async (req, res) => {
+  try {
+    const mother = await findScopedMotherForClaims(req, req.params.id);
+    if (!mother) return res.status(404).json({ error: 'Mother not found' });
+    const [claims] = await pool.query(
+      `SELECT id, mother_id AS motherId, claim_reference AS claimReference,
+              claim_date AS claimDate, status, amount, notes,
+              created_at AS createdAt, updated_at AS updatedAt
+       FROM philhealth_claims
+       WHERE mother_id = ?
+       ORDER BY claim_date DESC, id DESC`,
+      [mother.id],
+    );
+    res.json({ claims });
+  } catch (error) {
+    console.error('[Mothers API] GET /:id/claims error:', error.code || 'UNKNOWN', error.message);
+    res.status(500).json({ error: 'Unable to load PhilHealth claim records.' });
+  }
+});
+
+router.post('/:id/claims', async (req, res) => {
+  try {
+    if (!canManagePhilHealthClaims(req)) {
+      return res.status(403).json({ error: 'Only Health Workers and Community Coordinators can manage claim records.' });
+    }
+    const mother = await findScopedMotherForClaims(req, req.params.id);
+    if (!mother) return res.status(404).json({ error: 'Mother not found' });
+    const { claim, error } = normalizePhilHealthClaim(req.body);
+    if (error) return res.status(400).json({ error });
+
+    const [result] = await pool.query(
+      `INSERT INTO philhealth_claims
+         (mother_id, claim_reference, claim_date, status, amount, notes, created_by_user_id, updated_by_user_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        mother.id,
+        claim.claimReference,
+        claim.claimDate,
+        claim.status,
+        claim.amount,
+        claim.notes,
+        req.user?.id || null,
+        req.user?.id || null,
+      ],
+    );
+    const [rows] = await pool.query(
+      `SELECT id, mother_id AS motherId, claim_reference AS claimReference,
+              claim_date AS claimDate, status, amount, notes,
+              created_at AS createdAt, updated_at AS updatedAt
+       FROM philhealth_claims WHERE id = ? AND mother_id = ?`,
+      [result.insertId, mother.id],
+    );
+    if (!rows.length) throw new Error('Inserted PhilHealth claim could not be read back.');
+    res.status(201).json({ claim: rows[0] });
+  } catch (error) {
+    console.error('[Mothers API] POST /:id/claims error:', error.code || 'UNKNOWN', error.message);
+    res.status(500).json({ error: 'Unable to save PhilHealth claim record.' });
+  }
+});
+
+router.put('/:id/claims/:claimId', async (req, res) => {
+  try {
+    if (!canManagePhilHealthClaims(req)) {
+      return res.status(403).json({ error: 'Only Health Workers and Community Coordinators can manage claim records.' });
+    }
+    const mother = await findScopedMotherForClaims(req, req.params.id);
+    if (!mother) return res.status(404).json({ error: 'Mother not found' });
+    const claimId = Number(req.params.claimId);
+    if (!Number.isSafeInteger(claimId) || claimId <= 0) {
+      return res.status(400).json({ error: 'A valid claim ID is required.' });
+    }
+    const { claim, error } = normalizePhilHealthClaim(req.body);
+    if (error) return res.status(400).json({ error });
+    const [existing] = await pool.query(
+      'SELECT id FROM philhealth_claims WHERE id = ? AND mother_id = ? LIMIT 1',
+      [claimId, mother.id],
+    );
+    if (!existing.length) return res.status(404).json({ error: 'PhilHealth claim not found' });
+
+    await pool.query(
+      `UPDATE philhealth_claims
+       SET claim_reference = ?, claim_date = ?, status = ?, amount = ?, notes = ?, updated_by_user_id = ?
+       WHERE id = ? AND mother_id = ?`,
+      [
+        claim.claimReference,
+        claim.claimDate,
+        claim.status,
+        claim.amount,
+        claim.notes,
+        req.user?.id || null,
+        claimId,
+        mother.id,
+      ],
+    );
+    const [rows] = await pool.query(
+      `SELECT id, mother_id AS motherId, claim_reference AS claimReference,
+              claim_date AS claimDate, status, amount, notes,
+              created_at AS createdAt, updated_at AS updatedAt
+       FROM philhealth_claims WHERE id = ? AND mother_id = ?`,
+      [claimId, mother.id],
+    );
+    if (!rows.length) return res.status(404).json({ error: 'PhilHealth claim not found' });
+    res.json({ claim: rows[0] });
+  } catch (error) {
+    console.error('[Mothers API] PUT /:id/claims/:claimId error:', error.code || 'UNKNOWN', error.message);
+    res.status(500).json({ error: 'Unable to update PhilHealth claim record.' });
   }
 });
 

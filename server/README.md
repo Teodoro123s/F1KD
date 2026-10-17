@@ -14,5 +14,10 @@ Available endpoints:
 - `GET /api/health` — health check
 - `GET /api/users` — list users
 - `POST /api/users` — create user `{ "name": "...", "email": "..." }`
+- `GET /api/mothers/:id/claims` — list internally tracked PhilHealth claim records
+- `POST /api/mothers/:id/claims` — create a claim record (Community Coordinator or Health Worker)
+- `PUT /api/mothers/:id/claims/:claimId` — update a claim record (Community Coordinator or Health Worker)
+
+Claim records track a reference, date, status, amount, and notes; they do not submit claims to PhilHealth.
 
 The server will create a simple `users` table on first run if it doesn't exist.

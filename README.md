@@ -23,6 +23,20 @@ Open `http://localhost:8080` on the Docker host. Other devices on the same netwo
 
 Data persists in the `mariadb-data` and `minio-data` Docker volumes. Local-upload fallback files persist under `server/data/uploads`. `docker compose down` keeps this data; `docker compose down -v` deletes the database and MinIO volumes and should not be used unless you intend to erase them. Back up the SQL database and MinIO objects before moving to a different Docker host; volumes are local to the host and are not automatically synchronized to client devices.
 
+### HTTPS deployment
+
+The default Compose setup is for local development and serves HTTP only. For network or production use, provide a certificate chain and private key issued for the deployment hostname, then start with the TLS override. On Windows, set certificate paths in `.env` using absolute paths with forward slashes, for example `C:/f1kd-certs/fullchain.pem` and `C:/f1kd-certs/privkey.pem`; do not put certificates or private keys in the repository. Set `WEB_PORT=80` and `HTTPS_PORT=443` in `.env`, then run:
+
+```sh
+docker compose -f docker-compose.minio.yml -f docker-compose.tls.yml up --build -d
+```
+
+HTTP requests on port 80 redirect to HTTPS; the browser and API are served through TLS on port 443. Install a publicly trusted certificate for public deployments, restrict inbound firewall access to the needed ports, disable `ENABLE_TEST_ROLE_SHORTCUTS`, and renew the certificate before expiry. This secures browser-to-web traffic; container-to-container traffic on the Docker network remains private but is not separately encrypted.
+
+### Encryption at rest and backups
+
+The Docker configuration does not enable MariaDB or MinIO application-level encryption at rest. Protect the host storage that contains Docker's named volumes and `server/data/uploads` with full-disk encryption (for example, BitLocker on Windows or LUKS on Linux), and encrypt backup files and their storage separately. Confirm that Docker Desktop's data disk/WSL virtual disk and every backup destination are on encrypted storage. If these stores move to managed infrastructure, enable that provider's database, object-store, disk, and backup encryption. This repo cannot safely activate portable database/object encryption without the deployment's key-management service and key-rotation/recovery plan.
+
 An existing local MySQL/MariaDB database is not copied automatically. Export it with `mysqldump`, start the stack, then import the dump into the `mariadb` service before using the app. Copy existing local document files into MinIO or `server/data/uploads` as appropriate; changing the database host alone does not migrate documents.
 
 For local testing only, role shortcuts can be explicitly enabled while keeping the web port bound to loopback:

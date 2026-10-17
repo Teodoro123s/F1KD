@@ -311,6 +311,11 @@
   overflow: visible;
 }
 
+.view-content .community-page .user-management-list-card > .table-overflow {
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
 .view-content .table-overflow {
   border: 1px solid var(--view-border-color);
   border-radius: var(--view-radius);

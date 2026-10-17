@@ -8,6 +8,7 @@ import { can } from '../../../utils/permissions';
 import PageHeader from '../../../components/ui/PageHeader';
 import { notifyAction } from '../../../components/ActionFeedback';
 import { MotherFormFields, OTHER_MATERNAL_VACCINES } from './BeneficiaryMother';
+import PhilHealthClaims from './PhilHealthClaims';
 import MonitorReportCard from '../MonitorReportCard';
 import { navigateBack } from '../../../utils/navigation';
 
@@ -494,6 +495,7 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
               </div>
             </div>
           </section>
+          <PhilHealthClaims motherId={mother.raw?.id || mother.id || mother.motherId} canManage={canEdit} />
         </div>
       ))}
     </section>

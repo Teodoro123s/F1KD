@@ -281,7 +281,7 @@ export default function Topbar() {
               <button type="button" className="btn-secondary" onClick={() => setShowSignOutModal(false)} disabled={signingOut}>
                 Cancel
               </button>
-              <button type="button" className="btn-primary" onClick={handleSignOut} disabled={signingOut}>
+              <button type="button" className="btn-danger" onClick={handleSignOut} disabled={signingOut}>
                 {signingOut ? 'Signing out...' : 'Sign out'}
               </button>
             </div>

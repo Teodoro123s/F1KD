@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .env
+certs/
 server/data/uploads/
 .DS_Store
 .vscode/

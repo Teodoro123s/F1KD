@@ -616,6 +616,21 @@ async function ensure() {
       expires_at DATETIME NOT NULL,
       attempts TINYINT UNSIGNED NOT NULL DEFAULT 0,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+    `CREATE TABLE IF NOT EXISTS philhealth_claims (
+      id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      mother_id INT NOT NULL,
+      claim_reference VARCHAR(80) DEFAULT NULL,
+      claim_date DATE NOT NULL,
+      status VARCHAR(20) NOT NULL DEFAULT 'Draft',
+      amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+      notes TEXT DEFAULT NULL,
+      created_by_user_id INT DEFAULT NULL,
+      updated_by_user_id INT DEFAULT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      KEY idx_philhealth_claims_mother_date (mother_id, claim_date),
+      CONSTRAINT fk_philhealth_claims_mother FOREIGN KEY (mother_id) REFERENCES mothers(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`
   ];
 

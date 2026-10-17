@@ -1,7 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateGestationalDetails } from './beneficiaryHelpers.js';
+import { calculateBmi, calculateGestationalDetails } from './beneficiaryHelpers.js';
 import { getMotherMonitoringProgress, getMotherMonitoringStartIndex } from './motherProgress.js';
+
+test('calculateBmi uses kilograms and centimeters and returns one decimal place', () => {
+  assert.equal(calculateBmi('70', '175'), '22.9');
+  assert.equal(calculateBmi('0', '175'), '0.0');
+  assert.equal(calculateBmi('70', '0'), '');
+  assert.equal(calculateBmi('unknown', '175'), '');
+});
 
 test('calculateGestationalDetails keeps first-trimester monitoring aligned with the LMP-based month progression', () => {
   const julyToSeptember = calculateGestationalDetails('2026-07-01', '2026-09-15');

@@ -55,6 +55,7 @@ const isSchoolDelete = (req) => (
 const isLimitedWrite = (req) => {
   if (req.baseUrl === '/api/mothers') {
     return (req.method === 'PUT' && /^\/[^/]+\/?$/.test(req.path))
+      || (['POST', 'PUT'].includes(req.method) && /^\/[^/]+\/claims(?:\/[^/]+)?\/?$/.test(req.path))
       || (req.method === 'POST' && /^\/[^/]+\/(documents|checkups)\/?$/.test(req.path));
   }
   if (req.baseUrl === '/api/children') {

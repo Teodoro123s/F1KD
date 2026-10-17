@@ -3,6 +3,7 @@ const router = express.Router();
 const pool = require('../db');
 const { createSuperadminNotification } = require('../services/notifications');
 const { canViewAuditSignatures } = require('../middleware/authorize');
+const { programScopesBelongToSchool } = require('../utils/programScope');
 
 router.use((req, res, next) => {
   const isMonitoringUpdate = req.method === 'PATCH' && /\/monitoring$/.test(req.path);
@@ -57,6 +58,55 @@ async function getProgram(id) {
     batch: batchCluster?.name || '',
     clusters,
   };
+}
+
+async function authorizeCoordinatorProgramScope(req, res, programId, { allowUnscoped = false } = {}) {
+  if (!req.isCommunityOrganizer) return true;
+
+  const [rows] = await pool.query(
+    `SELECT pc.scope_type, pc.scope_name,
+       CASE
+         WHEN pc.scope_type = 'School' THEN EXISTS (
+           SELECT 1 FROM communities scoped_school
+           WHERE scoped_school.id = ? AND scoped_school.name = pc.scope_name
+         )
+         WHEN pc.scope_type = 'Group' THEN EXISTS (
+           SELECT 1 FROM \`groups\` scoped_group
+           WHERE scoped_group.community_id = ? AND scoped_group.name = pc.scope_name
+         )
+         WHEN pc.scope_type = 'Batch' THEN EXISTS (
+           SELECT 1 FROM batches scoped_batch
+           WHERE scoped_batch.community_id = ? AND scoped_batch.name = pc.scope_name
+         )
+         ELSE 0
+       END AS owned_by_school
+     FROM programs p
+     LEFT JOIN program_clusters pc ON pc.program_id = p.id
+     WHERE p.id = ?`,
+    [req.schoolId, req.schoolId, req.schoolId, programId],
+  );
+
+  if (!rows.length) {
+    res.status(404).json({ error: 'Program not found' });
+    return false;
+  }
+  if (!programScopesBelongToSchool(rows.filter((row) => row.scope_type), { allowUnscoped })) {
+    res.status(403).json({ error: 'Community Organizers may only manage programs scoped to their assigned school' });
+    return false;
+  }
+  return true;
+}
+
+async function coordinatorScopeExistsInSchool(type, name, schoolId) {
+  const scopeQueries = {
+    School: ['SELECT id FROM communities WHERE id = ? AND name = ? LIMIT 1', [schoolId, name]],
+    Group: ['SELECT id FROM groups WHERE community_id = ? AND name = ? LIMIT 1', [schoolId, name]],
+    Batch: ['SELECT id FROM batches WHERE community_id = ? AND name = ? LIMIT 1', [schoolId, name]],
+  };
+  const query = scopeQueries[type];
+  if (!query) return false;
+  const [rows] = await pool.query(...query);
+  return rows.length > 0;
 }
 
 async function getProgramNotificationScope(programId, req) {
@@ -210,6 +260,7 @@ router.put('/:id', async (req, res) => {
   const program = cleanProgram(req.body);
   if (!program) return res.status(400).json({ error: 'Program name and provider are required' });
   try {
+    if (!(await authorizeCoordinatorProgramScope(req, res, req.params.id))) return;
     const [result] = await pool.query('UPDATE programs SET name = ?, type = ?, provider = ?, description = ?, beneficiary_type = ? WHERE id = ?', [...Object.values(program), req.params.id]);
     if (!result.affectedRows) return res.status(404).json({ error: 'Program not found' });
     const updatedProgram = await getProgram(req.params.id);
@@ -227,6 +278,7 @@ router.put('/:id', async (req, res) => {
 
 router.patch('/:id/end', async (req, res) => {
   try {
+    if (!(await authorizeCoordinatorProgramScope(req, res, req.params.id))) return;
     const scope = await getProgramNotificationScope(req.params.id, req);
     const [result] = await pool.query(
       "UPDATE programs SET status = 'Ended', ended = CURRENT_DATE WHERE id = ?",
@@ -248,6 +300,7 @@ router.patch('/:id/end', async (req, res) => {
 
 router.patch('/:id/restore', async (req, res) => {
   try {
+    if (!(await authorizeCoordinatorProgramScope(req, res, req.params.id))) return;
     const scope = await getProgramNotificationScope(req.params.id, req);
     const [result] = await pool.query(
       "UPDATE programs SET status = 'Active', ended = NULL WHERE id = ?",
@@ -269,6 +322,7 @@ router.patch('/:id/restore', async (req, res) => {
 
 router.delete('/:id', async (req, res) => {
   try {
+    if (!(await authorizeCoordinatorProgramScope(req, res, req.params.id))) return;
     const [programRows] = await pool.query('SELECT name FROM programs WHERE id = ? LIMIT 1', [req.params.id]);
     if (!programRows.length) return res.status(404).json({ error: 'Program not found' });
     const scope = await getProgramNotificationScope(req.params.id, req);
@@ -290,21 +344,16 @@ router.post('/:id/clusters', async (req, res) => {
   const scopes = Array.isArray(req.body?.scopes) ? req.body.scopes : [];
   if (!scopes.length) return res.status(400).json({ error: 'At least one scope is required' });
   try {
+    if (!(await authorizeCoordinatorProgramScope(req, res, req.params.id, { allowUnscoped: true }))) return;
     const addedScopes = [];
     for (const scope of scopes) {
       const type = String(scope.type || '').trim();
       const name = String(scope.name || '').trim();
       if (!type || !name) continue;
       if (req.isCommunityOrganizer) {
-        const scopeQueries = {
-          School: ['SELECT id FROM communities WHERE id = ? AND name = ? LIMIT 1', [req.schoolId, name]],
-          Group: ['SELECT id FROM groups WHERE community_id = ? AND name = ? LIMIT 1', [req.schoolId, name]],
-          Batch: ['SELECT id FROM batches WHERE community_id = ? AND name = ? LIMIT 1', [req.schoolId, name]],
-        };
-        const query = scopeQueries[type];
-        if (!query) return res.status(403).json({ error: 'Community Organizers may only add scopes from their assigned school' });
-        const [matchingScopes] = await pool.query(...query);
-        if (!matchingScopes.length) return res.status(403).json({ error: 'Community Organizers may only add scopes from their assigned school' });
+        if (!(await coordinatorScopeExistsInSchool(type, name, req.schoolId))) {
+          return res.status(403).json({ error: 'Community Organizers may only add scopes from their assigned school' });
+        }
       }
       const [result] = await pool.query('INSERT IGNORE INTO program_clusters (program_id, scope_type, scope_name, beneficiaries) VALUES (?, ?, ?, ?)', [req.params.id, type, name, Number(scope.beneficiaries) || 0]);
       if (result.affectedRows) addedScopes.push({ type, name });
@@ -329,6 +378,7 @@ router.post('/:id/clusters', async (req, res) => {
 
 router.patch('/:programId/clusters/:clusterId/complete', async (req, res) => {
   try {
+    if (!(await authorizeCoordinatorProgramScope(req, res, req.params.programId))) return;
     const [clusterRows] = await pool.query(
       'SELECT scope_type, scope_name FROM program_clusters WHERE id = ? AND program_id = ? LIMIT 1',
       [req.params.clusterId, req.params.programId],
@@ -359,6 +409,10 @@ router.patch('/:programId/clusters/complete', async (req, res) => {
   const beneficiaries = Number(req.body?.beneficiaries || 0);
   if (!type || !name) return res.status(400).json({ error: 'Cluster type and name are required' });
   try {
+    if (!(await authorizeCoordinatorProgramScope(req, res, req.params.programId))) return;
+    if (req.isCommunityOrganizer && !(await coordinatorScopeExistsInSchool(type, name, req.schoolId))) {
+      return res.status(403).json({ error: 'Community Organizers may only complete scopes from their assigned school' });
+    }
     const scope = await getProgramNotificationScope(req.params.programId, req);
     const [result] = await pool.query(
       'UPDATE program_clusters SET received = beneficiaries WHERE program_id = ? AND scope_type = ? AND scope_name = ?',
@@ -427,6 +481,7 @@ router.patch('/:programId/monitoring', async (req, res) => {
     return res.status(400).json({ error: 'Beneficiary ID and type are required' });
   }
   try {
+    if (!(await authorizeCoordinatorProgramScope(req, res, req.params.programId))) return;
     const [programRows] = await pool.query('SELECT beneficiary_type FROM programs WHERE id = ?', [req.params.programId]);
     if (!programRows.length) return res.status(404).json({ error: 'Program not found' });
     const configuredType = String(programRows[0].beneficiary_type || '').trim().toLowerCase();
@@ -448,6 +503,11 @@ router.patch('/:programId/monitoring', async (req, res) => {
          WHERE c.id = ? OR c.child_code = ? LIMIT 1`,
         [Number(beneficiaryId) || null, beneficiaryId],
       ).then(([rows]) => rows);
+
+    if (req.isCommunityOrganizer
+      && (!beneficiaryRows.length || Number(beneficiaryRows[0].community_id) !== Number(req.schoolId))) {
+      return res.status(403).json({ error: 'Community Organizers may only record receipts for beneficiaries in their assigned school' });
+    }
 
     if (req.isHealthWorker) {
       if (!req.groupId || !beneficiaryRows.length || Number(beneficiaryRows[0].group_id) !== Number(req.groupId)) {

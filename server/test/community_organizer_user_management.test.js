@@ -85,7 +85,7 @@ test('Community Organizer can manage only Health workers in their assigned schoo
       return [{ affectedRows: 1 }];
     }
     if (sql.includes('FROM users') && sql.includes('WHERE school_id = ?')) {
-      assert.match(sql, /LOWER\(TRIM\(role\)\) IN \('health worker', 'health_worker', 'healthworker'\)/);
+      assert.match(sql, /LOWER\(REPLACE\(REPLACE\(TRIM\(u?\.?role\), '_', ''\), ' ', ''\)\) = 'healthworker'/);
       return [allUsers.filter((user) => user.school_id === Number(params[0]) && user.role === 'Health worker')];
     }
     if (sql.includes('FROM users') && sql.includes('WHERE id = ? AND school_id = ?')) {
@@ -188,6 +188,7 @@ test('Community Organizer can manage only Health workers in their assigned schoo
   assert.deepEqual(credentialEmail.template_params, {
     email: 'new-worker@example.com',
     to_email: 'new-worker@example.com',
+    username: 'new-worker@example.com',
     to_name: 'New Worker',
     role: 'Health worker',
     password: 'long-enough-password',

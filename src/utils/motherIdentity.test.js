@@ -34,6 +34,17 @@ test('mother identity rejects missing required values and malformed names or con
   assert.equal(errors.lastName, undefined);
 });
 
+test('mother identity rejects SQL and HTML injection strings in name fields', () => {
+  const errors = getMotherIdentityErrors({
+    ...validForm,
+    firstName: "'; DROP TABLE mothers; --",
+    lastName: '<script>alert(1)</script>',
+  }, today);
+
+  assert.match(errors.firstName, /letters/);
+  assert.match(errors.lastName, /letters/);
+});
+
 test('mother identity rejects invalid, future, and under-ten birth dates', () => {
   for (const dob of ['10/18/2026', '10/18/2016']) {
     assert.match(getMotherIdentityErrors({ ...validForm, dob }, today).dob, /past and indicate an age/);

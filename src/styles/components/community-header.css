@@ -212,6 +212,61 @@
   width: 100%;
 }
 
+.user-management-list-card {
+  min-width: 0;
+}
+
+.user-management-list-card > .table-overflow {
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.user-management-list-card .user-management-data-table {
+  width: 100%;
+  min-width: 480px;
+  table-layout: fixed;
+}
+
+.user-management-list-card .user-management-data-table.has-group-column {
+  min-width: 620px;
+}
+
+.user-management-list-card .user-management-data-table th {
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+
+.user-management-list-card .user-management-data-table th:first-child,
+.user-management-list-card .user-management-data-table td:first-child {
+  width: 42%;
+}
+
+.user-management-list-card .user-management-data-table th:nth-child(2),
+.user-management-list-card .user-management-data-table td:nth-child(2) {
+  width: 32%;
+}
+
+.user-management-list-card .user-management-data-table.has-group-column th:nth-child(3),
+.user-management-list-card .user-management-data-table.has-group-column td:nth-child(3) {
+  width: 27%;
+}
+
+.user-management-list-card .user-management-data-table.has-group-column th:first-child,
+.user-management-list-card .user-management-data-table.has-group-column td:first-child {
+  width: 36%;
+}
+
+.user-management-list-card .user-management-data-table.has-group-column th:nth-child(2),
+.user-management-list-card .user-management-data-table.has-group-column td:nth-child(2) {
+  width: 22%;
+}
+
+.user-management-list-card .user-management-data-table th:last-child,
+.user-management-list-card .user-management-data-table td:last-child {
+  width: 110px;
+}
+
 .module-summary-card {
   display: grid;
   justify-items: start;

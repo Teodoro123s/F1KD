@@ -103,7 +103,7 @@ export default function UserManagementTable({
   );
 
   return (
-    <section className="table-card">
+    <section className="table-card user-management-list-card">
       {(toolbarActions || onSearchChange) && (
         <div className="user-management-table-toolbar">
           {toolbarActions}
@@ -111,12 +111,12 @@ export default function UserManagementTable({
         </div>
       )}
       <div className="table-overflow">
-        <table className="data-table">
+        <table className={`data-table user-management-data-table${showGroup ? ' has-group-column' : ''}`}>
           <thead>
             <tr>
-              <th scope="col" style={{ width: '45%' }}>Account Name</th>
+              <th scope="col">Account Name</th>
               <th scope="col">Role</th>
-              {showGroup && <th scope="col">Assigned Group</th>}
+              {showGroup && <th scope="col" title="Group assigned to this user">Assigned Group</th>}
               <th scope="col" className="actions-cell">Actions</th>
             </tr>
           </thead>
@@ -136,9 +136,13 @@ export default function UserManagementTable({
                   aria-label={allowProfileNavigation ? `View profile for ${row.name}` : undefined}
                   style={{ cursor: allowProfileNavigation ? 'pointer' : 'default' }}
                 >
-                  <td>{row.name}</td>
-                  <td>{row.role}</td>
-                  {showGroup && <td>{groupNames.get(String(row.groupId || '')) || '—'}</td>}
+                  <td title={row.name}>{row.name}</td>
+                  <td title={row.role}>{row.role}</td>
+                  {showGroup && (
+                    <td title={groupNames.get(String(row.groupId || '')) || '—'}>
+                      {groupNames.get(String(row.groupId || '')) || '—'}
+                    </td>
+                  )}
                   {renderActionMenu(row)}
                 </tr>
               ))
