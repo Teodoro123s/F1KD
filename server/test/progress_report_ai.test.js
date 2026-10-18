@@ -27,6 +27,7 @@ const { authorizeOperational, authorizeProgressReport } = require('../middleware
 const progressReportRouter = require('../routes/progressReport');
 const {
   ProgressReportAIError,
+  createBeneficiaryAssistantIntent,
   createAdminAssistantIntent,
   createDashboardInsight,
   createEntryAssistance,
@@ -37,6 +38,7 @@ const {
   normalizeReportSummary,
   normalizeDashboardMetrics,
   validateMonitoringReportIntent,
+  validateBeneficiaryAssistantIntent,
   validateAdminAssistantIntent,
   validateReportProposal,
 } = require('../utils/progressReportAI');
@@ -99,6 +101,113 @@ test('read-only admin assistant validates intent and sends no loaded records to 
     groupBy: 'none',
   }, 'users'), /unsupported admin assistant request/);
   await assert.rejects(createAdminAssistantIntent('x'.repeat(501), 'community', { env: modelEnvironment }), /between 3 and 500 characters/);
+});
+
+test('beneficiary assistant returns only safe local lookup, screening, or module-routing intents', async () => {
+  const prompt = 'Find children with a non-normal developmental screening';
+  let modelRequest;
+  const intent = await createBeneficiaryAssistantIntent(prompt, {
+    env: modelEnvironment,
+    fetchImpl: async (url, options) => {
+      modelRequest = JSON.parse(options.body);
+      return new Response(JSON.stringify({
+        choices: [{
+          message: {
+            content: JSON.stringify({
+              mode: 'screening',
+              entityType: 'Child',
+              searchText: '',
+              screeningStatus: 'Non-normal',
+              targetModule: 'none',
+              clinicalTopic: 'none',
+            }),
+          },
+        }],
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    },
+  });
+  assert.deepEqual(intent, {
+    mode: 'screening',
+    entityType: 'Child',
+    searchText: '',
+    screeningStatus: 'Non-normal',
+    targetModule: 'none',
+    clinicalTopic: 'none',
+  });
+  assert.equal(modelRequest.messages[1].content, prompt);
+  assert.doesNotMatch(JSON.stringify(modelRequest.messages), /Jane Doe|CHILD-TEST-123|sensitive profile data/i);
+  assert.throws(() => validateBeneficiaryAssistantIntent({
+    mode: 'lookup',
+    entityType: 'All',
+    searchText: '',
+    screeningStatus: 'All',
+    targetModule: 'monitor',
+    clinicalTopic: 'none',
+  }), /invalid beneficiary assistant destination/);
+  assert.throws(() => validateBeneficiaryAssistantIntent({
+    mode: 'redirect',
+    entityType: 'Mother',
+    searchText: 'Mary',
+    screeningStatus: 'All',
+    targetModule: 'monitor',
+    clinicalTopic: 'none',
+  }), /invalid beneficiary assistant destination/);
+  await assert.rejects(createBeneficiaryAssistantIntent('x'.repeat(501), { env: modelEnvironment }), /between 3 and 500 characters/);
+});
+
+test('beneficiary assistant exposes maternal BP reference only for an explicit question about it', async () => {
+  let modelRequest;
+  await createBeneficiaryAssistantIntent('What does the maternal BP 140/90 warning mean?', {
+    env: modelEnvironment,
+    fetchImpl: async (url, options) => {
+      modelRequest = JSON.parse(options.body);
+      return new Response(JSON.stringify({
+        choices: [{
+          message: {
+            content: JSON.stringify({
+              mode: 'clinical-info',
+              entityType: 'All',
+              searchText: '',
+              screeningStatus: 'All',
+              targetModule: 'none',
+              clinicalTopic: 'maternal-bp-warning',
+            }),
+          },
+        }],
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    },
+  });
+  assert.match(modelRequest.messages[0].content, /systolic blood pressure at least 140 mmHg OR diastolic blood pressure at least 90 mmHg/);
+  assert.throws(() => validateBeneficiaryAssistantIntent({
+    mode: 'clinical-info',
+    entityType: 'All',
+    searchText: '',
+    screeningStatus: 'All',
+    targetModule: 'none',
+    clinicalTopic: 'none',
+  }), /invalid beneficiary assistant destination/);
+
+  await createBeneficiaryAssistantIntent('Find Mary Princess in the beneficiary list.', {
+    env: modelEnvironment,
+    fetchImpl: async (url, options) => {
+      modelRequest = JSON.parse(options.body);
+      return new Response(JSON.stringify({
+        choices: [{
+          message: {
+            content: JSON.stringify({
+              mode: 'lookup',
+              entityType: 'Mother',
+              searchText: 'Mary Princess',
+              screeningStatus: 'All',
+              targetModule: 'none',
+              clinicalTopic: 'none',
+            }),
+          },
+        }],
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    },
+  });
+  assert.doesNotMatch(modelRequest.messages[0].content, /systolic blood pressure at least 140/);
 });
 
 test('AI configuration is unavailable until a private model endpoint and model are configured', () => {
@@ -233,7 +342,7 @@ test('AI proposal can ask whether height, weight, or BMI means profile data or m
   ));
 });
 
-test('monitoring AI reports can filter to yes referrals and include assistance details', async () => {
+test('maternal monitoring AI reports can filter yes referrals and include assistance details', async () => {
   let request;
   const intent = await createMonitoringReportIntent(
     'Show mother referral to hospital, only the yes, only the latest check-up, then facility type, source of funds, assistance amount, and laboratory requests.',
@@ -248,6 +357,7 @@ test('monitoring AI reports can filter to yes referrals and include assistance d
               content: JSON.stringify({
                 metricIds: ['hospitalReferral', 'facilityType', 'sourceOfFunds', 'assistanceAmount', 'laboratoryRequests'],
                 onlyReferredToHospital: true,
+                onlyNonNormalScreenings: false,
                 latestCheckupOnly: true,
                 explanation: 'Shows yes referrals with saved facility and assistance details.',
               }),
@@ -261,6 +371,7 @@ test('monitoring AI reports can filter to yes referrals and include assistance d
     beneficiaryType: 'Mother',
     metricIds: ['hospitalReferral', 'facilityType', 'sourceOfFunds', 'assistanceAmount', 'laboratoryRequests'],
     onlyReferredToHospital: true,
+    onlyNonNormalScreenings: false,
     latestCheckupOnly: true,
     explanation: 'Shows yes referrals with saved facility and assistance details.',
   });
@@ -270,10 +381,11 @@ test('monitoring AI reports can filter to yes referrals and include assistance d
   });
   assert.doesNotMatch(JSON.stringify(request.messages), /Jane Doe|checkups|motherId/i);
   assert.deepEqual(request.response_format.json_schema.schema.properties.metricIds.items.enum, [
-    'measurementDate', 'weight', 'height', 'bmi', 'bmiInterpretation', 'hospitalReferral',
+    'measurementDate', 'weight', 'height', 'bmi', 'bmiInterpretation', 'developmentalStatus', 'hospitalReferral',
     'laboratoryRequests', 'assistanceAmount', 'sourceOfFunds', 'facilityType', 'bloodPressure', 'remarks',
   ]);
   assert.equal(request.response_format.json_schema.schema.required.includes('onlyReferredToHospital'), true);
+  assert.equal(request.response_format.json_schema.schema.required.includes('onlyNonNormalScreenings'), true);
   assert.equal(request.response_format.json_schema.schema.required.includes('latestCheckupOnly'), true);
   assert.match(request.messages[0].content, /budget, funds, or assistance given.*assistanceAmount/i);
   assert.match(request.messages[0].content, /facility type.*facilityType/i);
@@ -289,14 +401,101 @@ test('monitoring AI reports can filter to yes referrals and include assistance d
   assert.throws(() => validateMonitoringReportIntent({
     metricIds: ['facilityType'],
     onlyReferredToHospital: true,
+    onlyNonNormalScreenings: false,
     latestCheckupOnly: false,
   }, 'Mother'), /unsupported monitoring report fields/);
-  assert.deepEqual(validateMonitoringReportIntent({
-    metricIds: ['hospitalReferral', 'assistanceAmount', 'facilityType'],
-    onlyReferredToHospital: false,
-    latestCheckupOnly: false,
-  }, 'Child').metricIds, ['hospitalReferral', 'assistanceAmount', 'facilityType']);
   await assert.rejects(createMonitoringReportIntent('BMI', 'Both', { env: modelEnvironment }), /Choose Mother or Child/);
+});
+
+test('child monitoring AI reports exclude removed referral and assistance fields', async () => {
+  let request;
+  const intent = await createMonitoringReportIntent(
+    'Show child check-up details.',
+    'Child',
+    {
+      env: modelEnvironment,
+      fetchImpl: async (url, options) => {
+        request = JSON.parse(options.body);
+        return new Response(JSON.stringify({
+          choices: [{
+            message: {
+              content: JSON.stringify({
+                metricIds: ['measurementDate'],
+                onlyReferredToHospital: false,
+                onlyNonNormalScreenings: false,
+                latestCheckupOnly: false,
+                explanation: 'Shows child check-up dates.',
+              }),
+            },
+          }],
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      },
+    },
+  );
+
+  assert.deepEqual(intent.metricIds, ['measurementDate']);
+  assert.deepEqual(request.response_format.json_schema.schema.properties.metricIds.items.enum, [
+    'measurementDate', 'weight', 'height', 'bmi', 'developmentalStatus', 'remarks',
+  ]);
+  assert.match(request.messages[0].content, /unavailable for Child reports/i);
+  assert.match(request.messages[0].content, /removed check-up fields/i);
+  for (const metricId of ['hospitalReferral', 'laboratoryRequests', 'assistanceAmount', 'sourceOfFunds', 'facilityType', 'labAssistanceProvided']) {
+    assert.throws(() => validateMonitoringReportIntent({
+      metricIds: [metricId],
+      onlyReferredToHospital: false,
+      onlyNonNormalScreenings: false,
+      latestCheckupOnly: false,
+    }, 'Child'), /unsupported monitoring report fields/);
+  }
+  assert.throws(() => validateMonitoringReportIntent({
+    metricIds: ['measurementDate'],
+    onlyReferredToHospital: true,
+    onlyNonNormalScreenings: false,
+    latestCheckupOnly: false,
+  }, 'Child'), /unsupported monitoring report fields/);
+});
+
+test('monitoring AI reports can find beneficiaries with non-normal developmental screenings', async () => {
+  let request;
+  const intent = await createMonitoringReportIntent(
+    'Find mothers with non-normal developmental screenings.',
+    'Mother',
+    {
+      env: modelEnvironment,
+      fetchImpl: async (url, options) => {
+        request = JSON.parse(options.body);
+        return new Response(JSON.stringify({
+          choices: [{
+            message: {
+              content: JSON.stringify({
+                metricIds: ['developmentalStatus'],
+                onlyReferredToHospital: false,
+                onlyNonNormalScreenings: true,
+                latestCheckupOnly: false,
+                explanation: 'Shows recorded Needs Follow-up and At Risk screening results.',
+              }),
+            },
+          }],
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      },
+    },
+  );
+
+  assert.equal(intent.onlyNonNormalScreenings, true);
+  assert.deepEqual(intent.metricIds, ['developmentalStatus']);
+  assert.match(request.messages[0].content, /Needs Follow-up or At Risk check-ups only/i);
+  assert.deepEqual(validateMonitoringReportIntent({
+    metricIds: ['developmentalStatus'],
+    onlyReferredToHospital: false,
+    onlyNonNormalScreenings: true,
+    latestCheckupOnly: false,
+  }, 'Child').metricIds, ['developmentalStatus']);
+  assert.throws(() => validateMonitoringReportIntent({
+    metricIds: ['measurementDate'],
+    onlyReferredToHospital: false,
+    onlyNonNormalScreenings: true,
+    latestCheckupOnly: false,
+  }, 'Mother'), /unsupported monitoring report fields/);
 });
 
 test('AI note assistance only rewrites allowlisted note fields and returns an unsaved preview', async () => {
@@ -469,6 +668,15 @@ test('progress report AI endpoints require auth and do not pass user scope to th
           latestCheckupOnly: false,
           explanation: 'Shows recorded check-up details.',
         })
+        : firstMessage.includes('Classify the user request for a read-only Beneficiary module assistant')
+          ? JSON.stringify({
+            mode: 'screening',
+            entityType: 'Child',
+            searchText: '',
+            screeningStatus: 'Non-normal',
+            targetModule: 'none',
+            clinicalTopic: 'none',
+          })
         : firstMessage.includes('Turn the request into a read-only intent')
           ? JSON.stringify({
             mode: firstMessage.includes('Audience: users') ? 'lookup' : 'setup',
@@ -522,6 +730,13 @@ test('progress report AI endpoints require auth and do not pass user scope to th
     body: JSON.stringify({ beneficiaryType: 'Mother', prompt: 'Show BMI.' }),
   });
   assert.equal(unauthenticatedReport.status, 401);
+  assert.equal(requests.length, 0);
+  const unauthenticatedBeneficiaryAssistant = await requestToApp(`${baseUrl}/beneficiary-assistant`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt: 'Find mothers with screening results.' }),
+  });
+  assert.equal(unauthenticatedBeneficiaryAssistant.status, 401);
   assert.equal(requests.length, 0);
   const unauthenticatedEntryAssist = await requestToApp(`${baseUrl}/entry-assist`, {
     method: 'POST',
@@ -595,6 +810,7 @@ test('progress report AI endpoints require auth and do not pass user scope to th
     beneficiaryType: 'Mother',
     metricIds: ['measurementDate', 'bmi', 'hospitalReferral'],
     onlyReferredToHospital: false,
+    onlyNonNormalScreenings: false,
     latestCheckupOnly: false,
     explanation: 'Shows recorded check-up details.',
   });
@@ -634,13 +850,26 @@ test('progress report AI endpoints require auth and do not pass user scope to th
   assert.deepEqual(dashboardInsightBody, { insight: 'Summary of aggregate figures.' });
   assert.doesNotMatch(JSON.stringify(requests[6].body), /Jane Doe|records|123|456/);
 
+  const beneficiaryAssistantResponse = await requestToApp(`${baseUrl}/beneficiary-assistant`, {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      prompt: 'Find children with a non-normal developmental screening.',
+      records: [{ id: 12, name: 'Jane Doe' }],
+      schoolId: 999,
+    }),
+  });
+  assert.equal(beneficiaryAssistantResponse.status, 200);
+  assert.equal((await beneficiaryAssistantResponse.json()).screeningStatus, 'Non-normal');
+  assert.doesNotMatch(JSON.stringify(requests[7].body), /Jane Doe|123|456|999|"records"|"schoolId"/);
+
   const blockedAudienceResponse = await requestToApp(`${baseUrl}/admin-assistant`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${organizerToken}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ audience: 'users', prompt: 'Find Community Organizers.' }),
   });
   assert.equal(blockedAudienceResponse.status, 403);
-  assert.equal(requests.length, 7);
+  assert.equal(requests.length, 8);
 
   const blockedRoleResponse = await requestToApp(`${baseUrl}/admin-assistant`, {
     method: 'POST',
@@ -648,5 +877,5 @@ test('progress report AI endpoints require auth and do not pass user scope to th
     body: JSON.stringify({ audience: 'users', prompt: 'Find Community Organizers.' }),
   });
   assert.equal(blockedRoleResponse.status, 403);
-  assert.equal(requests.length, 7);
+  assert.equal(requests.length, 8);
 });

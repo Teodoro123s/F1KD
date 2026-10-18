@@ -175,6 +175,7 @@ async function ensure() {
       weight_kg DECIMAL(5,2) NULL,
       height_cm DECIMAL(5,2) NULL,
       bmi DECIMAL(5,2) NULL,
+      developmental_status VARCHAR(40) NULL,
       nutritional_status VARCHAR(30) NULL,
       fundal_height_cm DECIMAL(5,2) NULL,
       fetal_heart_rate_bpm SMALLINT UNSIGNED NULL,
@@ -406,6 +407,7 @@ async function ensure() {
 
     `ALTER TABLE mother_checkups
       ADD COLUMN IF NOT EXISTS recorded_by_user_id INT NULL,
+      ADD COLUMN IF NOT EXISTS developmental_status VARCHAR(40) NULL,
       ADD COLUMN IF NOT EXISTS milk_subsidy_provided BOOLEAN NOT NULL DEFAULT FALSE,
       ADD COLUMN IF NOT EXISTS lab_assistance_tests TEXT NULL,
       ADD COLUMN IF NOT EXISTS laboratory_requests TEXT NULL,
@@ -414,6 +416,44 @@ async function ensure() {
       ADD COLUMN IF NOT EXISTS updated_by_user_id INT NULL,
       ADD COLUMN IF NOT EXISTS created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
       ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;`,
+
+    `INSERT INTO mother_checkups (
+       mother_id, trimester, checkup_number, checkup_date, gestational_age_weeks,
+       blood_pressure, weight_kg, height_cm, fundal_height_cm, fetal_heart_rate_bpm
+     )
+     SELECT m.id,
+       CASE
+         WHEN m.trimester IN ('1st Trimester', '2nd Trimester', '3rd Trimester') THEN m.trimester
+         WHEN m.gestational_age >= 28 THEN '3rd Trimester'
+         WHEN m.gestational_age >= 13 THEN '2nd Trimester'
+         ELSE '1st Trimester'
+       END,
+       1, m.prenatal_reg_date, m.gestational_age, m.prenatal_bp,
+       m.prenatal_weight,
+       CASE WHEN m.prenatal_height REGEXP '^[0-9]+([.][0-9]+)?$' THEN CAST(m.prenatal_height AS DECIMAL(5,2)) ELSE NULL END,
+       CASE WHEN m.fundal_height REGEXP '^[0-9]+([.][0-9]+)?$' THEN CAST(m.fundal_height AS DECIMAL(5,2)) ELSE NULL END,
+       CASE WHEN m.fhr REGEXP '^[0-9]+$' THEN CAST(m.fhr AS UNSIGNED) ELSE NULL END
+     FROM mothers m
+     WHERE m.prenatal_reg_date IS NOT NULL
+       AND (m.prenatal_weight IS NOT NULL OR m.prenatal_bp IS NOT NULL
+         OR m.prenatal_height IS NOT NULL OR m.fundal_height IS NOT NULL OR m.fhr IS NOT NULL)
+       AND NOT EXISTS (
+         SELECT 1 FROM mother_checkups mc
+         WHERE mc.mother_id = m.id
+           AND mc.trimester = CASE
+             WHEN m.trimester IN ('1st Trimester', '2nd Trimester', '3rd Trimester') THEN m.trimester
+             WHEN m.gestational_age >= 28 THEN '3rd Trimester'
+             WHEN m.gestational_age >= 13 THEN '2nd Trimester'
+             ELSE '1st Trimester'
+           END
+           AND mc.checkup_number = 1
+       );`,
+
+    `UPDATE mothers m
+     SET progress = LEAST(100, ROUND(
+       (SELECT COUNT(*) FROM mother_checkups mc WHERE mc.mother_id = m.id) * 100 / 9
+     ))
+     WHERE EXISTS (SELECT 1 FROM mother_checkups mc WHERE mc.mother_id = m.id);`,
 
     `UPDATE mother_checkups
      SET created_by_user_id = COALESCE(created_by_user_id, recorded_by_user_id),

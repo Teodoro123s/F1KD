@@ -8,6 +8,7 @@ import { apiGetChildren } from '../../api/children';
 import { apiGetPrograms } from '../../api/programs';
 import { apiGetManagedHealthWorkers, apiGetUsers } from '../../api/users';
 import { can, isCommunityCoordinatorRole, isHealthWorkerRole, normalizeRole, ROLES } from '../../utils/permissions';
+import { DashboardInsights } from './DashboardInsights';
 
 function getGreeting(name) {
   const hour = new Date().getHours();
@@ -22,6 +23,47 @@ function getGreeting(name) {
 function getList(result, key) {
   if (Array.isArray(result?.[key])) return result[key];
   return Array.isArray(result) ? result : [];
+}
+
+function getRecordName(record) {
+  return record.name
+    || [record.firstName || record.first_name, record.middleName || record.middle_name, record.lastName || record.last_name, record.suffix]
+      .filter(Boolean)
+      .join(' ')
+    || 'Unnamed record';
+}
+
+function getRecordDate(record) {
+  const value = record.createdAt || record.created_at || record.raw?.created_at || record.updatedAt || record.updated_at;
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function buildRegistrationTrend(records) {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const dayOffset = (start.getDay() + 6) % 7;
+  start.setDate(start.getDate() - dayOffset - (5 * 7));
+  const weeks = Array.from({ length: 6 }, (_, index) => {
+    const weekStart = new Date(start);
+    weekStart.setDate(start.getDate() + index * 7);
+    const key = `${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, '0')}-${String(weekStart.getDate()).padStart(2, '0')}`;
+    return {
+      key,
+      label: weekStart.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+      count: 0,
+    };
+  });
+  const weekStarts = weeks.map((week) => new Date(`${week.key}T00:00:00`));
+  records.forEach((record) => {
+    const date = getRecordDate(record);
+    if (!date) return;
+    date.setHours(0, 0, 0, 0);
+    const index = Math.floor((date.getTime() - start.getTime()) / (7 * 24 * 60 * 60 * 1000));
+    if (index >= 0 && index < weeks.length && date >= weekStarts[index]) weeks[index].count += 1;
+  });
+  return weeks;
 }
 
 export default function DashboardPage() {
@@ -42,11 +84,16 @@ export default function DashboardPage() {
   const [programs, setPrograms] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshVersion, setRefreshVersion] = useState(0);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [loadErrors, setLoadErrors] = useState([]);
 
   useEffect(() => {
     let active = true;
 
     async function fetchDashboardData() {
+      setRefreshing(true);
       const results = await Promise.allSettled([
         isSuperAdmin ? Promise.resolve(null) : getSummary(),
         isSuperAdmin ? Promise.resolve(null) : apiGetChildren(),
@@ -62,11 +109,14 @@ export default function DashboardPage() {
 
       const [summaryResult, childrenResult, programsResult, usersResult] = results;
       const resultNames = ['community summary', 'children', 'programs', 'users'];
+      const errors = [];
       results.forEach((result, index) => {
         if (result.status === 'rejected') {
           console.error(`[DashboardPage] Failed to load ${resultNames[index]}:`, result.reason);
+          errors.push(resultNames[index]);
         }
       });
+      setLoadErrors(errors);
 
       if (summaryResult.status === 'fulfilled' && summaryResult.value) {
         setCommunitySummary(summaryResult.value);
@@ -80,14 +130,21 @@ export default function DashboardPage() {
       if (usersResult.status === 'fulfilled' && usersResult.value) {
         setUsers(getList(usersResult.value, 'users'));
       }
+      setLastUpdated(new Date());
       setLoading(false);
+      setRefreshing(false);
     }
 
     fetchDashboardData();
     return () => {
       active = false;
     };
-  }, [isCommunityOrganizer, isSuperAdmin]);
+  }, [isCommunityOrganizer, isSuperAdmin, refreshVersion]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setRefreshVersion((version) => version + 1), 5 * 60 * 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const mothers = useMemo(() => {
     if (Array.isArray(contextMothers) && contextMothers.length > 0) return contextMothers;
@@ -132,6 +189,46 @@ export default function DashboardPage() {
       suspended: operationalUsers.filter((user) => String(user.status || '').trim().toLowerCase() === 'suspended').length,
     };
   }, [users]);
+
+  const registrationTrend = useMemo(
+    () => buildRegistrationTrend([...mothers, ...children]),
+    [children, mothers],
+  );
+
+  const recentRecords = useMemo(() => [...mothers, ...children]
+    .map((record, index) => ({
+      name: getRecordName(record),
+      type: record.birthDate || record.birth_date ? 'Child' : 'Mother',
+      date: getRecordDate(record),
+      id: record.id || record.child_code || `${record.name || 'record'}-${index}`,
+    }))
+    .filter((record) => record.date)
+    .sort((left, right) => right.date - left.date)
+    .slice(0, 8), [children, mothers]);
+
+  const breakdown = isSuperAdmin
+    ? [
+      { label: 'Active staff', value: staffMetrics.active, tone: 'teal' },
+      { label: 'Suspended staff', value: staffMetrics.suspended, tone: 'rose' },
+    ]
+    : [
+      { label: 'Mothers', value: stats.motherCount, tone: 'rose' },
+      { label: 'Children', value: stats.childCount, tone: 'teal' },
+    ];
+
+  const dashboardMetrics = useMemo(() => ({
+    motherCount: isSuperAdmin ? 0 : stats.motherCount,
+    childCount: isSuperAdmin ? 0 : stats.childCount,
+    beneficiaryCount: isSuperAdmin ? 0 : stats.motherCount + stats.childCount,
+    followUpCount: isSuperAdmin ? 0 : stats.followUpCount,
+    communityCount: isSuperAdmin ? 0 : stats.communityCount,
+    groupCount: isSuperAdmin ? 0 : stats.groupCount,
+    batchCount: isSuperAdmin ? 0 : stats.batchCount,
+    programCount: isSuperAdmin ? 0 : stats.programCount,
+    activeStaff: staffMetrics.active,
+    unassignedStaff: staffMetrics.unassigned,
+    suspendedStaff: staffMetrics.suspended,
+  }), [isSuperAdmin, staffMetrics, stats]);
 
   const assignedSchoolName = useMemo(() => {
     const schoolId = currentUser?.school_id ?? currentUser?.schoolId;
@@ -260,7 +357,19 @@ export default function DashboardPage() {
             <p>{description}</p>
           </div>
         </div>
+        <div className="dashboard-refresh-controls">
+          {lastUpdated && <span>Updated {lastUpdated.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} · refreshes every 5 min</span>}
+          <button type="button" className="dashboard-refresh-button" onClick={() => setRefreshVersion((version) => version + 1)} disabled={refreshing}>
+            {refreshing ? 'Refreshing…' : 'Refresh dashboard'}
+          </button>
+        </div>
       </header>
+
+      {loadErrors.length > 0 && (
+        <p className="dashboard-load-warning" role="alert">
+          Some dashboard data could not be refreshed ({loadErrors.join(', ')}). Displayed figures may be incomplete.
+        </p>
+      )}
 
       <section className="dashboard-kpi-grid" aria-label="Key role metrics">
         {cards.map((card) => (
@@ -273,6 +382,82 @@ export default function DashboardPage() {
             <div className="kpi-subtitle"><span>{card.subtitle}</span></div>
           </Link>
         ))}
+      </section>
+
+      <section className="dashboard-visual-grid" aria-label="Live dashboard reports">
+        <div className="dashboard-panel dashboard-chart-panel">
+          <div className="dashboard-panel-heading">
+            <div><span className="dashboard-panel-eyebrow">Last 6 weeks</span><h3>New beneficiary registrations</h3></div>
+            <Link to="/beneficiary" className="panel-link">View records</Link>
+          </div>
+          {registrationTrend.some((week) => week.count > 0) ? (
+            <div className="dashboard-trend-chart" role="img" aria-label={`Weekly new registrations: ${registrationTrend.map((week) => `${week.label}: ${week.count}`).join(', ')}`}>
+              {registrationTrend.map((week) => {
+                const maximum = Math.max(1, ...registrationTrend.map((item) => item.count));
+                return (
+                  <div className="dashboard-trend-column" key={week.key}>
+                    <strong>{week.count}</strong>
+                    <span className="dashboard-trend-track"><span style={{ height: `${Math.max(week.count ? 8 : 0, (week.count / maximum) * 100)}%` }} /></span>
+                    <small>{week.label}</small>
+                  </div>
+                );
+              })}
+            </div>
+          ) : <p className="dashboard-empty-state">No dated registrations are available for the last 6 weeks.</p>}
+        </div>
+
+        <div className="dashboard-panel dashboard-chart-panel">
+          <div className="dashboard-panel-heading">
+            <div><span className="dashboard-panel-eyebrow">Current snapshot</span><h3>{isSuperAdmin ? 'Staff by account status' : 'Beneficiaries by type'}</h3></div>
+          </div>
+          <div className="dashboard-breakdown-list">
+            {breakdown.map((item) => {
+              const maximum = Math.max(1, ...breakdown.map((entry) => entry.value));
+              return (
+                <div className="dashboard-breakdown-row" key={item.label}>
+                  <div><span>{item.label}</span><strong>{item.value.toLocaleString()}</strong></div>
+                  <span className="dashboard-breakdown-track"><span className={item.tone} style={{ width: `${(item.value / maximum) * 100}%` }} /></span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      <section className="dashboard-follow-up-panel" aria-label="Actionable indicators">
+        <div>
+          <span className="dashboard-panel-eyebrow">Needs attention</span>
+          <strong>{isSuperAdmin ? staffMetrics.unassigned : stats.followUpCount}</strong>
+          <span>{isSuperAdmin ? 'active staff without a school assignment' : 'beneficiaries currently flagged for follow-up'}</span>
+        </div>
+        <Link to={isSuperAdmin ? '/user-management' : '/monitoring'} className="panel-link">
+          {isSuperAdmin ? 'Review assignments' : 'Review monitoring'}
+        </Link>
+      </section>
+
+      <DashboardInsights metrics={dashboardMetrics} ready={!loading} refreshVersion={refreshVersion} />
+
+      <section className="dashboard-panel dashboard-recent-panel" aria-labelledby="dashboard-recent-title">
+        <div className="dashboard-panel-heading">
+          <div><span className="dashboard-panel-eyebrow">Latest records</span><h3 id="dashboard-recent-title">Recent registrations</h3></div>
+          <Link to="/beneficiary" className="panel-link">Open beneficiaries</Link>
+        </div>
+        {recentRecords.length ? (
+          <div className="dashboard-recent-table-wrap">
+            <table className="dashboard-recent-table">
+              <thead><tr><th scope="col">Record</th><th scope="col">Type</th><th scope="col">Registered</th></tr></thead>
+              <tbody>
+                {recentRecords.map((record) => (
+                  <tr key={record.id}>
+                    <td>{record.name}</td>
+                    <td>{record.type}</td>
+                    <td>{record.date.toLocaleDateString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : <p className="dashboard-empty-state">No recent registration dates are available.</p>}
       </section>
 
       <section className="dashboard-panel" aria-labelledby="dashboard-actions-title">

@@ -18,6 +18,7 @@ const motherCheckup = {
   height: 160,
   bmi: 25.4,
   nutritionalStatus: 'Normal',
+  developmentalStatus: 'Needs Follow-up',
   referral: true,
   laboratoryRequests: ['CBC', 'Urinalysis'],
   amount: 1500,
@@ -78,6 +79,22 @@ test('yes-only referral filtering keeps only visits with an explicitly positive 
 
   assert.deepEqual(filterMonitoringReportCheckups(visits, true), [visits[0], visits[2]]);
   assert.deepEqual(filterMonitoringReportCheckups(visits, false), visits);
+});
+
+test('non-normal screening filter returns only recorded Needs Follow-up or At Risk check-ups', () => {
+  const visits = [
+    { developmentalStatus: 'Normal' },
+    { developmentalStatus: 'Needs Follow-up' },
+    { developmental_status: 'At Risk' },
+    {},
+  ];
+
+  assert.deepEqual(filterMonitoringReportCheckups(visits, false, true), [visits[1], visits[2]]);
+  assert.deepEqual(filterMonitoringReportCheckups(visits, false, false), visits);
+  assert.deepEqual(
+    filterMonitoringReportCheckups([{ referral: true, developmentalStatus: 'At Risk' }, { referral: false, developmentalStatus: 'At Risk' }], true, true),
+    [{ referral: true, developmentalStatus: 'At Risk' }],
+  );
 });
 
 test('latest check-up selection uses visit dates and keeps the last recorded visit if dates are absent', () => {

@@ -8,6 +8,7 @@ export default function ReadOnlyAdminAssistant({ audience, records }) {
   const [intent, setIntent] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [expanded, setExpanded] = useState(true);
 
   const filteredRecords = useMemo(() => {
     return filterAdminAssistantRecords(records, intent);
@@ -46,8 +47,19 @@ export default function ReadOnlyAdminAssistant({ audience, records }) {
           <h2 id={`assistant-heading-${audience}`}>{heading}</h2>
           <p>{help}</p>
         </div>
-        <span className="read-only-admin-assistant__badge">Read only</span>
+        <div className="read-only-admin-assistant__header-actions">
+          <button
+            type="button"
+            className="read-only-admin-assistant__toggle"
+            aria-expanded={expanded}
+            aria-controls={`assistant-content-${audience}`}
+            onClick={() => setExpanded((value) => !value)}
+          >
+            {expanded ? 'Collapse' : 'Expand'}
+          </button>
+        </div>
       </div>
+      <div id={`assistant-content-${audience}`} hidden={!expanded}>
       <form className="read-only-admin-assistant__form" onSubmit={handleSubmit}>
         <label className="sr-only" htmlFor={`assistant-prompt-${audience}`}>Ask the assistant</label>
         <input
@@ -96,6 +108,7 @@ export default function ReadOnlyAdminAssistant({ audience, records }) {
           )}
         </div>
       )}
+      </div>
     </section>
   );
 }

@@ -584,11 +584,21 @@
 .view-content .checkup-field-label.is-required::after { content: '*'; margin-left: 0.2rem; color: #b42318; }
 .view-content .child-monitor-form .checkup-interpretation.is-normal { color: #167344; font-weight: 700; }
 .view-content .child-monitor-form .checkup-interpretation.is-abnormal { color: #b42318; font-weight: 700; }
+.view-content .child-monitor-form .checkup-field-label {
+  font-size: var(--view-text-body);
+  line-height: 1.35;
+}
+.view-content .child-monitor-form .checkup-field-input {
+  font-size: var(--view-text-body);
+  line-height: 1.35;
+}
+.view-content .child-monitor-form .checkup-interpretation.is-normal,
+.view-content .child-monitor-form .checkup-interpretation.is-abnormal { font-weight: 600; }
 
 @media (max-width: 720px) {
   .view-content .checkup-card-body { padding: 16px 12px; }
   .view-content .checkup-grid { gap: 12px; }
-  .view-content .checkup-field-input { min-height: 44px; font-size: 0.95rem; }
+  .view-content .checkup-field-input { min-height: 44px; }
 }
 
 .view-content .selected-mother-bar {

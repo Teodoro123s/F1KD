@@ -62,12 +62,6 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
     checkupDate: getTodayDate(),
     nextCheckupDate: '',
     breastfeedingStatus: '',
-    laboratoryRequests: '',
-    laboratoryAssistanceProvided: false,
-    referredToHospital: false,
-    assistanceAmount: '',
-    sourceOfFunds: '',
-    facilityType: '',
     weight: '',
     height: '',
     developmentalStatus: 'Normal',
@@ -110,12 +104,6 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
         checkupDate: scheduledDate,
         nextCheckupDate: addMonthsPreservingDay(scheduledDate, 1, scheduleAnchorDay),
         breastfeedingStatus: child?.exclusiveBreastfeeding || child?.exclusive_breastfeeding || '',
-        laboratoryRequests: '',
-        laboratoryAssistanceProvided: false,
-        referredToHospital: false,
-        assistanceAmount: '',
-        sourceOfFunds: '',
-        facilityType: '',
         weight: '',
         height: '',
         developmentalStatus: 'Normal',
@@ -129,12 +117,6 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
       checkupDate: savedDate,
       nextCheckupDate: addMonthsPreservingDay(savedDate, 1, scheduleAnchorDay),
       breastfeedingStatus: savedCheckup.breastfeedingStatus ?? savedCheckup.exclusive_breastfeeding ?? '',
-      laboratoryRequests: savedCheckup.laboratoryRequests ?? savedCheckup.laboratory_requests ?? '',
-      laboratoryAssistanceProvided: Boolean(savedCheckup.laboratoryAssistanceProvided ?? savedCheckup.laboratory_assistance_provided),
-      referredToHospital: Boolean(savedCheckup.referredToHospital ?? savedCheckup.referred_to_hospital),
-      assistanceAmount: savedCheckup.assistanceAmount ?? savedCheckup.assistance_amount ?? '',
-      sourceOfFunds: savedCheckup.sourceOfFunds ?? savedCheckup.source_of_funds ?? '',
-      facilityType: savedCheckup.facilityType ?? savedCheckup.facility_type ?? '',
       weight: savedCheckup.weight ?? '',
       height: savedCheckup.height ?? '',
       developmentalStatus: savedCheckup.developmental_status ?? savedCheckup.developmentalStatus ?? 'Normal',
@@ -309,56 +291,6 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
                 <option>At Risk</option>
               </select>
             </div>
-            <div className="form-group">
-              <label className="checkup-field-label" htmlFor="child-laboratory-requests">Laboratory Request(s)</label>
-              <input id="child-laboratory-requests" type="text" className="checkup-field-input" value={form.laboratoryRequests} onChange={update('laboratoryRequests')} placeholder="Tests requested" readOnly={isReadOnly} />
-            </div>
-            <div className="form-group">
-              <label className="checkup-field-label" htmlFor="child-laboratory-assistance">Laboratory Assistance Provided</label>
-              <select id="child-laboratory-assistance" className="checkup-field-input" value={form.laboratoryAssistanceProvided ? 'Yes' : 'No'} onChange={(event) => setForm((current) => ({ ...current, laboratoryAssistanceProvided: event.target.value === 'Yes' }))} disabled={isReadOnly}>
-                <option value="No">No</option>
-                <option value="Yes">Yes</option>
-              </select>
-            </div>
-            <div className="form-group">
-              <label className="checkup-field-label" htmlFor="child-hospital-referral">Referred to Hospital</label>
-              <select id="child-hospital-referral" className="checkup-field-input" value={form.referredToHospital ? 'Yes' : 'No'} onChange={(event) => setForm((current) => ({ ...current, referredToHospital: event.target.value === 'Yes' }))} disabled={isReadOnly}>
-                <option value="No">No</option>
-                <option value="Yes">Yes</option>
-              </select>
-            </div>
-            {(form.laboratoryAssistanceProvided || form.referredToHospital) && (
-              <>
-                <div className="form-group">
-                  <label className="checkup-field-label" htmlFor="child-assistance-amount">Assistance Amount (PHP)</label>
-                  <input id="child-assistance-amount" type="number" min="0" step="0.01" className="checkup-field-input" value={form.assistanceAmount} onChange={update('assistanceAmount')} readOnly={isReadOnly} />
-                </div>
-                <div className="form-group">
-                  <label className="checkup-field-label" htmlFor="child-source-of-funds">Source of Funds</label>
-                  <select id="child-source-of-funds" className="checkup-field-input" value={form.sourceOfFunds} onChange={update('sourceOfFunds')} disabled={isReadOnly}>
-                    <option value="">Select source</option>
-                    <option>Program Funds</option>
-                    <option>Donation</option>
-                    <option>Government Facility</option>
-                    <option>Private Sector</option>
-                    <option>Partner Organization</option>
-                    <option>Other</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label className="checkup-field-label" htmlFor="child-facility-type">Facility / Referral Source</label>
-                  <select id="child-facility-type" className="checkup-field-input" value={form.facilityType} onChange={update('facilityType')} disabled={isReadOnly}>
-                    <option value="">Select facility</option>
-                    <option>Hospital</option>
-                    <option>Clinic</option>
-                    <option>Barangay Health Center</option>
-                    <option>Private Sector</option>
-                    <option>Partner Organization</option>
-                    <option>Others</option>
-                  </select>
-                </div>
-              </>
-            )}
             <div className="form-group full-width">
               <label className="checkup-field-label" htmlFor="child-service-provider">Health Worker / Provider</label>
               <input id="child-service-provider" type="text" className="checkup-field-input" value={form.serviceProvider} onChange={update('serviceProvider')} placeholder="e.g. Nurse or midwife" readOnly={isReadOnly} />

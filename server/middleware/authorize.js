@@ -76,7 +76,7 @@ const isHealthWorkerChildUpdate = (req) => (
 const isReadOnlyReportAssistantRequest = (req) => (
   req.baseUrl === '/api/progress-report'
   && req.method === 'POST'
-  && /^\/ai\/(proposal|summary|monitoring-report|entry-assist|admin-assistant|dashboard-insight)\/?$/.test(req.path)
+  && /^\/ai\/(proposal|summary|monitoring-report|beneficiary-assistant|entry-assist|admin-assistant|dashboard-insight)\/?$/.test(req.path)
 );
 
 function authorize(...allowedRoles) {
@@ -124,10 +124,6 @@ function authorizeOperational(req, res, next) {
       return permissionResponse(res, 'User management is restricted to Superadmin');
     }
 
-    if (userRole === 'super_admin' && isSchoolCreate(req)) {
-      return permissionResponse(res, 'Superadmin accounts cannot create schools');
-    }
-
     if (userRole === 'community_coordinator' && (isSchoolCreate(req) || isSchoolDelete(req))) {
       return permissionResponse(res, 'Community Coordinators cannot create or delete schools');
     }
@@ -171,11 +167,13 @@ function authorizeOperational(req, res, next) {
 function authorizeProgressReport(req, res, next) {
   const userRole = normalizeRole(req.user?.role);
   const isMonitoringAssistant = req.method === 'POST' && /^\/ai\/monitoring-report\/?$/.test(req.path);
+  const isBeneficiaryAssistant = req.method === 'POST' && /^\/ai\/beneficiary-assistant\/?$/.test(req.path);
   const isAdminAssistant = req.method === 'POST' && /^\/ai\/admin-assistant\/?$/.test(req.path);
   const isDashboardInsight = req.method === 'POST' && /^\/ai\/dashboard-insight\/?$/.test(req.path);
   const isAiStatus = req.method === 'GET' && /^\/ai\/status\/?$/.test(req.path);
   if ((isDashboardInsight || isAiStatus) && ['super_admin', 'admin', 'partner', 'community_coordinator', 'health_worker'].includes(userRole)) return next();
-  if (userRole === 'super_admin' && (isMonitoringAssistant || isAdminAssistant)) return next();
+  if (userRole === 'super_admin' && (isMonitoringAssistant || isBeneficiaryAssistant || isAdminAssistant)) return next();
+  if (isBeneficiaryAssistant && ['admin', 'partner', 'community_coordinator', 'health_worker'].includes(userRole)) return next();
   if (isAdminAssistant && userRole === 'community_coordinator') return next();
   if (isAdminAssistant) return permissionResponse(res, 'You do not have permission to use this assistant');
   if (!['admin', 'partner', 'community_coordinator', 'health_worker'].includes(userRole)) {

@@ -17,6 +17,7 @@ import { hasCheckupThisMonth } from '../../utils/monthlyCheckups';
 import { notifyAction } from '../../components/ActionFeedback';
 import TableSearch from '../../components/ui/TableSearch';
 import ModuleSummaryCards from '../../components/ui/ModuleSummaryCards';
+import ConfirmModal from '../UserManagement/ConfirmModal';
 import { navigateBack } from '../../utils/navigation';
 import { apiCreateMonitoringReportIntent } from '../../api/progressReport';
 import { downloadContent, generateCsvContent } from '../ProgressReport/utils/exportUtils';
@@ -142,6 +143,7 @@ export default function MonitoringPage() {
   const [motherCheckups, setMotherCheckups] = useState(() => location.state?.mother?.checkups || []);
   const [childCompletedWeeks, setChildCompletedWeeks] = useState(() => location.state?.child?.completedWeeks || []);
   const [editingCheckup, setEditingCheckup] = useState(false);
+  const [showEditCheckupConfirm, setShowEditCheckupConfirm] = useState(false);
   const [statusFilter, setStatusFilter] = useState('All');
   const [monthlyCheckupFilter, setMonthlyCheckupFilter] = useState('All');
   const [reportBeneficiaryType, setReportBeneficiaryType] = useState(() => (location.state?.child ? 'Child' : 'Mother'));
@@ -253,6 +255,7 @@ export default function MonitoringPage() {
   const handleSelectMother = (mother) => {
     setSelectedMother(mother);
     setEditingCheckup(false);
+    setShowEditCheckupConfirm(false);
     setMotherCheckups(mother.checkups || []);
     setSelectedChild(null);
     setSavedMessage('');
@@ -260,6 +263,7 @@ export default function MonitoringPage() {
 
   const handleSelectChild = async (child) => {
     setSavedMessage('');
+    setShowEditCheckupConfirm(false);
     try {
       const response = await apiGetChild(child.id || child.child_code);
       const detailedChild = response?.child || child;
@@ -272,6 +276,19 @@ export default function MonitoringPage() {
     }
     setSelectedMother(null);
     setEditingCheckup(false);
+  };
+
+  const requestEditCheckup = () => {
+    if (editingCheckup) {
+      setEditingCheckup(false);
+      return;
+    }
+    setShowEditCheckupConfirm(true);
+  };
+
+  const confirmEditCheckup = () => {
+    setShowEditCheckupConfirm(false);
+    setEditingCheckup(true);
   };
 
   const handleBack = () => {
@@ -341,13 +358,19 @@ export default function MonitoringPage() {
     ));
     return selected.flatMap((beneficiary) => {
       const allCheckups = getMonitoringReportCheckups(beneficiary, type);
-      const matchingCheckups = filterMonitoringReportCheckups(allCheckups, monitoringReportResult.onlyReferredToHospital);
+      const hasReportFilters = monitoringReportResult.onlyReferredToHospital || monitoringReportResult.onlyNonNormalScreenings;
+      const matchingCheckups = filterMonitoringReportCheckups(
+        allCheckups,
+        monitoringReportResult.onlyReferredToHospital,
+        monitoringReportResult.onlyNonNormalScreenings,
+      );
       const latestCheckup = monitoringReportResult.latestCheckupOnly
         ? getLatestMonitoringReportCheckup(matchingCheckups)
         : null;
       const checkups = monitoringReportResult.latestCheckupOnly
         ? latestCheckup ? [latestCheckup] : []
         : matchingCheckups;
+      if (hasReportFilters && !checkups.length) return [];
       const records = checkups.length ? checkups : allCheckups.length ? [] : [null];
       return records.map((checkup, index) => ({
         key: `${getMonitoringReportBeneficiaryId(beneficiary, type)}-${index}`,
@@ -463,7 +486,7 @@ export default function MonitoringPage() {
               setPage(1);
             }}
             cards={[
-              { key: 'All', label: 'Total Records', value: allMonitoringRows.length, description: 'View list' },
+              { key: 'All', label: `Total ${beneficiaryType} Records`, value: allMonitoringRows.length, description: 'View list' },
               { key: 'Missing', label: 'Missing', value: allMonitoringRows.filter((row) => row.status === 'Missing').length, description: 'View list' },
               { key: 'Pending', label: 'Pending', value: allMonitoringRows.filter((row) => row.status === 'Pending').length, description: 'View list' },
               { key: 'Done', label: 'Done', value: allMonitoringRows.filter((row) => row.status === 'Done').length, description: 'View list' },
@@ -473,17 +496,15 @@ export default function MonitoringPage() {
             <form className={`monitoring-ai-report-card${isMonitoringReportExpanded ? '' : ' is-collapsed'}`} onSubmit={handleMonitoringReport}>
               <div className="monitoring-ai-report-card-heading">
                 <h2>Build a check-up report with AI</h2>
-                {selectedMonitoringCard && (
-                  <button
-                    type="button"
-                    className="monitoring-ai-report-toggle"
-                    aria-expanded={isMonitoringReportExpanded}
-                    aria-controls="monitoring-ai-report-options"
-                    onClick={() => setIsMonitoringReportExpanded((expanded) => !expanded)}
-                  >
-                    {isMonitoringReportExpanded ? 'Hide report options' : 'Show report options'}
-                  </button>
-                )}
+                <button
+                  type="button"
+                  className="monitoring-ai-report-toggle"
+                  aria-expanded={isMonitoringReportExpanded}
+                  aria-controls="monitoring-ai-report-options"
+                  onClick={() => setIsMonitoringReportExpanded((expanded) => !expanded)}
+                >
+                  {isMonitoringReportExpanded ? 'Collapse' : 'Expand'}
+                </button>
               </div>
               <div id="monitoring-ai-report-options" className="monitoring-ai-report-options" hidden={!isMonitoringReportExpanded}>
               <label htmlFor="monitoring-report-type">Beneficiary type</label>
@@ -526,7 +547,7 @@ export default function MonitoringPage() {
                   value={monitoringReportPrompt}
                   onChange={(event) => setMonitoringReportPrompt(event.target.value)}
                   maxLength={500}
-                  placeholder="Example: hospital referral with assistance amount and facility type"
+                  placeholder="Example: find beneficiaries with Needs Follow-up or At Risk screening"
                   required
                 />
                 <button type="submit" className="btn-primary" disabled={monitoringReportLoading || monitoringReportPrompt.trim().length < 3 || childrenLoading || reportRecordsUnavailable}>
@@ -645,7 +666,7 @@ export default function MonitoringPage() {
               })}>
                 Beneficiary Profile
               </button>
-              <button type="button" className="btn-primary" onClick={() => setEditingCheckup((current) => !current)}>
+              <button type="button" className="btn-primary" onClick={requestEditCheckup}>
                 {editingCheckup ? 'Cancel edit' : 'Edit checkup'}
               </button>
             </div>
@@ -696,7 +717,7 @@ export default function MonitoringPage() {
               })}>
                 Beneficiary Profile
               </button>
-              <button type="button" className="btn-primary" onClick={() => setEditingCheckup((current) => !current)}>
+              <button type="button" className="btn-primary" onClick={requestEditCheckup}>
                 {editingCheckup ? 'Cancel edit' : 'Edit checkup'}
               </button>
             </div>
@@ -713,6 +734,14 @@ export default function MonitoringPage() {
           />
         </section>
       )}
+      <ConfirmModal
+        show={showEditCheckupConfirm}
+        className="checkup-confirm-modal"
+        message="Are you sure you want to edit this saved check-up? You will be able to change the record before saving."
+        confirmLabel="Edit checkup"
+        onConfirm={confirmEditCheckup}
+        onCancel={() => setShowEditCheckupConfirm(false)}
+      />
     </div>
   );
 }

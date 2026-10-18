@@ -8,6 +8,8 @@ const { validateContactNumber } = require('../utils/contactNumber');
 const { formatPhilHealthNumber, validatePhilHealthNumber } = require('../utils/philHealthNumber');
 const { normalizePhilHealthClaim } = require('../utils/philHealthClaim');
 const { MOTHER_ADDITIONAL_VACCINES, getMotherVaccineRecords } = require('../utils/motherVaccines');
+const { INVALID_ASSISTANCE_AMOUNT_MESSAGE, parseAssistanceAmount } = require('../utils/assistanceAmount');
+const { getBloodPressureError } = require('../utils/bloodPressure');
 const MOTHER_STANDARD_NAME_PATTERN = /^[\p{L}]+(?:[ '-][\p{L}]+)*$/u;
 const MOTHER_MIDDLE_NAME_PATTERN = /^(?:[\p{L}]\.?|[\p{L}]+(?:['-][\p{L}]+)*)$/u;
 const MOTHER_SUFFIX_PATTERN = /^[\p{L}\d]+(?:[ .'-][\p{L}\d]+)*\.?$/u;
@@ -234,6 +236,7 @@ async function attachClinicalData(mother, includeAuditDetails = false) {
       weight: row.weight_kg,
       height: row.height_cm,
       bmi: row.bmi,
+      developmentalStatus: row.developmental_status || '',
       nutritionalStatus: row.nutritional_status,
       fundalHeight: row.fundal_height_cm,
       fhr: row.fetal_heart_rate_bpm,
@@ -584,6 +587,7 @@ router.post('/', async (req, res) => {
     ];
     const nameError = nameErrors.find(Boolean);
     if (nameError) return res.status(400).json({ error: nameError });
+    const prenatalBp = firstNonEmpty(b.prenatalBp, b.prenatal_bp, b.bloodPressure, '');
     const motherCode = firstNonEmpty(b.motherCode, b.mother_code, `MTH-${Date.now()}`);
     const motherExternalId = firstNonEmpty(b.motherId, b.mother_id, b.motherExternalId, b.mother_external_id, motherCode);
     const requestedCommunityId = b.communityId ?? b.community_id ?? null;
@@ -615,6 +619,33 @@ router.post('/', async (req, res) => {
         return res.status(403).json({ error: 'Community organizers can only assign groups from their assigned school' });
       }
     }
+    const prenatalBpError = getBloodPressureError(prenatalBp);
+    if (prenatalBpError) return res.status(400).json({ error: prenatalBpError });
+    const initialCheckupDate = optionalDate(b.prenatalRegDate, b.prenatal_reg_date);
+    const initialCheckup = {
+      weight: firstNonEmpty(b.prenatalWeight, b.prenatal_weight, b.weight, null),
+      bloodPressure: prenatalBp,
+      height: firstNonEmpty(b.prenatalHeight, b.prenatal_height, b.height, null),
+      fundalHeight: firstNonEmpty(b.fundalHeight, b.fundal_height, null),
+      fetalHeartRate: firstNonEmpty(b.fhr, null),
+    };
+    const hasInitialMeasurements = Object.values(initialCheckup).some((value) => value !== null && value !== '');
+    if (hasInitialMeasurements && !initialCheckupDate) {
+      return res.status(400).json({ error: 'Prenatal registration date is required to save initial monitoring data.' });
+    }
+    const registeredTrimester = firstNonEmpty(b.trimester, b.trimester_at_registration, '');
+    const gestationalAge = firstNonEmpty(b.gestationalAge, b.gestational_age, null);
+    const initialCheckupTrimester = ['1st Trimester', '2nd Trimester', '3rd Trimester'].includes(registeredTrimester)
+      ? registeredTrimester
+      : Number(gestationalAge) >= 28 ? '3rd Trimester' : Number(gestationalAge) >= 13 ? '2nd Trimester' : '1st Trimester';
+    const initialWeight = Number(initialCheckup.weight);
+    const initialHeight = Number(initialCheckup.height);
+    const initialBmi = initialWeight > 0 && initialHeight > 0
+      ? Number((initialWeight / ((initialHeight / 100) ** 2)).toFixed(1))
+      : null;
+    const initialNutritionalStatus = initialBmi === null
+      ? null
+      : initialBmi < 18.5 ? 'Underweight' : initialBmi < 25 ? 'Normal' : 'Overweight';
     const batchId = b.batchId ?? b.batch_id ?? null;
     if (req.isCommunityOrganizer && batchId) {
       const [batchRows] = await pool.query(
@@ -708,7 +739,7 @@ router.post('/', async (req, res) => {
         firstNonEmpty(b.trimester, null),
         firstNonEmpty(b.gestationalAge, b.gestational_age, null),
         nullableNonEmpty(b.prenatalWeight, b.prenatal_weight),
-        firstNonEmpty(b.prenatalBp, b.prenatal_bp, null),
+        prenatalBp,
         firstNonEmpty(b.prenatalHeight, b.prenatal_height, null),
         firstNonEmpty(b.fundalHeight, b.fundal_height, null),
         firstNonEmpty(b.fhr, null),
@@ -736,6 +767,39 @@ router.post('/', async (req, res) => {
         firstNonEmpty(b.otherMedicalHistory, b.other_medical_history, null),
       ]
     );
+
+    if (hasInitialMeasurements) {
+      await pool.query(
+        `INSERT INTO mother_checkups (
+          mother_id, trimester, checkup_number, checkup_date, gestational_age_weeks,
+          blood_pressure, weight_kg, height_cm, bmi, nutritional_status,
+          fundal_height_cm, fetal_heart_rate_bpm, recorded_by_user_id,
+          created_by_user_id, updated_by_user_id
+        ) VALUES (?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          result.insertId,
+          initialCheckupTrimester,
+          initialCheckupDate,
+          gestationalAge,
+          initialCheckup.bloodPressure,
+          initialCheckup.weight,
+          initialCheckup.height,
+          initialBmi,
+          initialNutritionalStatus,
+          initialCheckup.fundalHeight,
+          initialCheckup.fetalHeartRate,
+          req.user?.id || null,
+          req.user?.id || null,
+          req.user?.id || null,
+        ],
+      );
+      await pool.query(
+        `UPDATE mothers SET progress = LEAST(100, ROUND(
+          (SELECT COUNT(*) FROM mother_checkups WHERE mother_id = ?) * 100 / 9
+        )) WHERE id = ?`,
+        [result.insertId, result.insertId],
+      );
+    }
 
     const [rows] = await pool.query('SELECT * FROM mothers WHERE id = ?', [result.insertId]);
     const mother = rows[0];
@@ -1258,10 +1322,17 @@ router.post('/:id/checkups', async (req, res) => {
 
     const checkupDate = b.checkupDate || null;
     const gestationalAgeWeeks = b.gestationalAge || null;
-    const bloodPressure = b.bp || null;
+    const bloodPressure = String(b.bp ?? '').trim();
+    const bloodPressureError = getBloodPressureError(bloodPressure);
+    if (bloodPressureError) return res.status(400).json({ error: bloodPressureError });
     const weightKg = b.weight || null;
     const heightCm = b.height || null;
     const bmi = b.bmi || null;
+    const screeningStatuses = ['Normal', 'Needs Follow-up', 'At Risk'];
+    if (b.developmentalStatus && !screeningStatuses.includes(b.developmentalStatus)) {
+      return res.status(400).json({ error: 'Developmental screening must be Normal, Needs Follow-up, or At Risk.' });
+    }
+    const developmentalStatus = b.developmentalStatus || null;
     const nutritionalStatus = b.nutritionalStatus || null;
     const fundalHeightCm = b.fundalHeight || null;
     const fetalHeartRateBpm = b.fhr || null;
@@ -1269,7 +1340,11 @@ router.post('/:id/checkups', async (req, res) => {
     const nextCheckupDate = b.nextCheckupDate || null;
     const referredToHospital = b.referral === true || b.referral === 1 || b.referral === 'true' ? 1 : 0;
     const labAssistanceProvided = b.labAssistance === true || b.labAssistance === 1 || b.labAssistance === 'true' ? 1 : 0;
-    const assistanceAmount = b.amount || null;
+    const parsedAssistanceAmount = parseAssistanceAmount(b.amount);
+    if (!parsedAssistanceAmount.valid) {
+      return res.status(400).json({ error: INVALID_ASSISTANCE_AMOUNT_MESSAGE });
+    }
+    const assistanceAmount = parsedAssistanceAmount.value;
     const sourceOfFunds = b.sourceOfFunds || null;
     const facilityType = b.facilityType || null;
     const milkSubsidyDate = b.milkDate || null;
@@ -1288,13 +1363,13 @@ router.post('/:id/checkups', async (req, res) => {
       `INSERT INTO mother_checkups (
         mother_id, trimester, checkup_number, checkup_date,
         gestational_age_weeks, blood_pressure, weight_kg, height_cm,
-        bmi, nutritional_status, fundal_height_cm, fetal_heart_rate_bpm,
+        bmi, developmental_status, nutritional_status, fundal_height_cm, fetal_heart_rate_bpm,
         service_provider, next_checkup_date, referred_to_hospital,
         lab_assistance_provided, assistance_amount, source_of_funds,
         facility_type, milk_subsidy_date, milk_quantity_pcs,
         milk_subsidy_provided, lab_assistance_tests, laboratory_requests,
         treatment_services, remarks, recorded_by_user_id, created_by_user_id, updated_by_user_id, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
       ON DUPLICATE KEY UPDATE
         checkup_date = VALUES(checkup_date),
         gestational_age_weeks = VALUES(gestational_age_weeks),
@@ -1302,6 +1377,7 @@ router.post('/:id/checkups', async (req, res) => {
         weight_kg = VALUES(weight_kg),
         height_cm = VALUES(height_cm),
         bmi = VALUES(bmi),
+        developmental_status = VALUES(developmental_status),
         nutritional_status = VALUES(nutritional_status),
         fundal_height_cm = VALUES(fundal_height_cm),
         fetal_heart_rate_bpm = VALUES(fetal_heart_rate_bpm),
@@ -1325,7 +1401,7 @@ router.post('/:id/checkups', async (req, res) => {
       [
         motherDbId, trimester, checkupNumber, checkupDate,
         gestationalAgeWeeks, bloodPressure, weightKg, heightCm,
-        bmi, nutritionalStatus, fundalHeightCm, fetalHeartRateBpm,
+        bmi, developmentalStatus, nutritionalStatus, fundalHeightCm, fetalHeartRateBpm,
         serviceProvider, nextCheckupDate, referredToHospital,
         labAssistanceProvided, assistanceAmount, sourceOfFunds,
         facilityType, milkSubsidyDate, milkQuantityPcs,

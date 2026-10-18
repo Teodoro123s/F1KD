@@ -4,7 +4,8 @@ const pool = require('../db');
 const { documentUpload, uploadFileToStorage } = require('../middleware/documentUpload');
 const { createSuperadminNotification, getBeneficiaryUpdateRecipients } = require('../services/notifications');
 const { canViewAuditSignatures } = require('../middleware/authorize');
-const { getChildRecordValidationError } = require('../utils/childRecordValidation');
+const { getChildNameValidationError, getChildRecordValidationError } = require('../utils/childRecordValidation');
+const { INVALID_ASSISTANCE_AMOUNT_MESSAGE, parseAssistanceAmount } = require('../utils/assistanceAmount');
 
 // Helper to normalize incoming body keys (accept camelCase or snake_case)
 function getField(body, ...keys) {
@@ -341,7 +342,10 @@ router.post('/', async (req, res) => {
     const feedingType = getField(b, 'feedingType', 'feeding_type');
     const nutritionNotes = getField(b, 'nutritionNotes', 'nutrition_notes');
 
-    if (!motherId || !firstName || !lastName) return res.status(400).json({ error: 'motherId, firstName and lastName are required' });
+    if (!motherId) return res.status(400).json({ error: 'motherId is required' });
+    const childNameError = getChildNameValidationError(b);
+    if (childNameError) return res.status(400).json({ error: childNameError });
+    if (!firstName || !lastName) return res.status(400).json({ error: 'firstName and lastName are required' });
     const childRecordError = getChildRecordValidationError(b);
     if (childRecordError) return res.status(400).json({ error: childRecordError });
 
@@ -421,7 +425,7 @@ router.post('/', async (req, res) => {
     const [result] = await pool.query(
       `INSERT INTO children (child_code, mother_id, community_id, group_id, batch_id, first_name, middle_name, last_name, suffix, birth_date, birth_weight, birth_length, head_circumference, chest_circumference, gender, blood_type, no_of_child_delivered, multiple_birth_type, exclusive_breastfeeding, expanded_newborn_screening, expanded_newborn_screening_result, delivery_type, health_status, birth_place, birth_attendant, apgar_score, feeding_type, nutrition_notes, father_name, relationship, address)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
-      [childCode, motherId || null, communityId || null, groupId || null, batchId || null, firstName, middleName || null, lastName, suffix || null, birthDate || null, birthWeight || null, birthLength || null, headCircumference || null, chestCircumference || null, gender || null, bloodType || null, noOfChildDelivered || null, multipleBirthType || null, exclusiveBreastfeeding || null, expandedNewbornScreening || null, expandedNewbornScreeningResult || null, deliveryType || null, healthStatus || null, birthPlace || null, birthAttendant || null, apgarScore || null, feedingType || null, nutritionNotes || null, fatherName || null, relationship || null, address || null]
+      [childCode, motherId || null, communityId || null, groupId || null, batchId || null, String(firstName).trim().replace(/\s+/g, ' '), String(middleName || '').trim().replace(/\s+/g, ' ') || null, String(lastName).trim().replace(/\s+/g, ' '), suffix || null, birthDate || null, birthWeight || null, birthLength || null, headCircumference || null, chestCircumference || null, gender || null, bloodType || null, noOfChildDelivered || null, multipleBirthType || null, exclusiveBreastfeeding || null, expandedNewbornScreening || null, expandedNewbornScreeningResult || null, deliveryType || null, healthStatus || null, birthPlace || null, birthAttendant || null, apgarScore || null, feedingType || null, nutritionNotes || null, fatherName || null, relationship || null, address || null]
     );
 
     const [rows] = await pool.query('SELECT * FROM children WHERE id = ?', [result.insertId]);
@@ -501,6 +505,11 @@ router.post('/:id/checkups', async (req, res) => {
       return res.status(400).json({ error: 'Valid week (1-48) is required' });
     }
 
+    const parsedAssistanceAmount = parseAssistanceAmount(body.assistanceAmount);
+    if (!parsedAssistanceAmount.valid) {
+      return res.status(400).json({ error: INVALID_ASSISTANCE_AMOUNT_MESSAGE });
+    }
+
     if (body.exclusiveBreastfeeding !== undefined || body.exclusive_breastfeeding !== undefined || body.feedingType !== undefined || body.feeding_type !== undefined) {
       await pool.query(
         'UPDATE children SET exclusive_breastfeeding = ?, feeding_type = ? WHERE id = ?',
@@ -517,7 +526,7 @@ router.post('/:id/checkups', async (req, res) => {
       body.laboratoryRequests || null,
       body.laboratoryAssistanceProvided === true || body.laboratoryAssistanceProvided === 1 ? 1 : 0,
       body.referredToHospital === true || body.referredToHospital === 1 ? 1 : 0,
-      body.assistanceAmount || null,
+      parsedAssistanceAmount.value,
       body.sourceOfFunds || null,
       body.facilityType || null,
       body.developmentalStatus || null,
@@ -593,6 +602,11 @@ router.put('/:id', async (req, res) => {
     const [existingRows] = await pool.query(`SELECT c.*, m.community_id AS current_mother_community_id, m.group_id AS current_mother_group_id, m.batch_id AS current_mother_batch_id FROM children c LEFT JOIN mothers m ON m.id = c.mother_id WHERE (c.id = ? OR c.child_code = ?)${req.groupId ? ' AND (c.group_id = ? OR (c.group_id IS NULL AND m.group_id = ?))' : req.schoolId ? ' AND (c.community_id = ? OR (c.community_id IS NULL AND m.community_id = ?))' : ''} LIMIT 1`, req.groupId ? [Number(id) || null, id, req.groupId, req.groupId] : req.schoolId ? [Number(id) || null, id, req.schoolId, req.schoolId] : [Number(id) || null, id]);
     if (!existingRows.length) return res.status(404).json({ error: 'Child not found' });
     const current = existingRows[0];
+    const childNameError = getChildNameValidationError(body, current);
+    if (childNameError) return res.status(400).json({ error: childNameError });
+    const firstName = getField(body, 'firstName', 'first_name') ?? current.first_name;
+    const middleName = getField(body, 'middleName', 'middle_name') ?? current.middle_name;
+    const lastName = getField(body, 'lastName', 'last_name') ?? current.last_name;
     let motherId = req.isHealthWorker ? current.mother_id : (getField(body, 'motherId', 'mother_id') || current.mother_id);
     const [motherRows] = await pool.query(
       'SELECT id FROM mothers WHERE id = ? OR mother_code = ? LIMIT 1',
@@ -629,9 +643,9 @@ router.put('/:id', async (req, res) => {
       community_id: communityId,
       group_id: groupId,
       batch_id: batchId,
-      first_name: getField(body, 'firstName', 'first_name') ?? current.first_name,
-      middle_name: getField(body, 'middleName', 'middle_name') ?? current.middle_name,
-      last_name: getField(body, 'lastName', 'last_name') ?? current.last_name,
+      first_name: String(firstName).trim().replace(/\s+/g, ' '),
+      middle_name: String(middleName ?? '').trim().replace(/\s+/g, ' ') || null,
+      last_name: String(lastName).trim().replace(/\s+/g, ' '),
       suffix: getField(body, 'suffix') ?? current.suffix,
       birth_date: getField(body, 'birthDate', 'birth_date') || current.birth_date || null,
       birth_weight: getField(body, 'birthWeight', 'birth_weight') || current.birth_weight || null,

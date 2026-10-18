@@ -377,7 +377,7 @@ test('authorizeOperational does not allow community organizers to create schools
   assert.equal(res.code, 403);
 });
 
-test('authorizeOperational does not allow super admins to create schools', () => {
+test('authorizeOperational allows super admins to create schools', () => {
   let called = false;
   const req = {
     method: 'POST',
@@ -395,14 +395,12 @@ test('authorizeOperational does not allow super admins to create schools', () =>
       return this;
     },
   };
-
   authorizeOperational(req, res, () => {
     called = true;
   });
 
-  assert.equal(called, false);
-  assert.equal(res.code, 403);
-  assert.equal(res.payload.message, 'Superadmin accounts cannot create schools');
+  assert.equal(called, true);
+  assert.equal(res.code, undefined);
 });
 
 test('authorizeOperational keeps Admin and Partner read-only while allowing coordinator and health-worker beneficiary writes', () => {

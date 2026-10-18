@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function ConfirmModal({ show, message, onConfirm, onCancel, className = '' }) {
+export default function ConfirmModal({ show, message, onConfirm, onCancel, className = '', confirmLabel = 'Confirm' }) {
   if (!show) return null;
 
   return (
@@ -20,7 +20,7 @@ export default function ConfirmModal({ show, message, onConfirm, onCancel, class
             Cancel
           </button>
           <button type="button" className="btn-primary" onClick={onConfirm}>
-            Confirm
+            {confirmLabel}
           </button>
         </div>
       </div>

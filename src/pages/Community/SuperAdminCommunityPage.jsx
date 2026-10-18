@@ -471,7 +471,6 @@ export default function SuperAdminCommunityPage() {
         breadcrumbItems={breadcrumbItems}
         navigate={navigate}
         canManage
-        canCreateCommunity={false}
         canCreateBatch={false}
       />
       <CommunityOverviewCards

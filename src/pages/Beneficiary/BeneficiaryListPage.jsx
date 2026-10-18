@@ -3,6 +3,7 @@ import BeneficiaryTable from './BeneficiaryTable';
 import StatusFilterBar from './components/StatusFilterBar';
 import EntitySearchControls from './components/EntitySearchControls';
 import ModuleSummaryCards from '../../components/ui/ModuleSummaryCards';
+import BeneficiaryAssistant from './BeneficiaryAssistant';
 import { apiGetChildren } from '../../api/children';
 import { getMotherProfileProgress, getMotherMonitoringProgress } from '../../utils/motherProgress';
 import { getChildProfileProgress, getChildMonitoringProgress } from '../../utils/childProgress';
@@ -232,8 +233,94 @@ export default function BeneficiaryListPage({ communities = [], groups = [], bat
     });
   }, [currentRows, batches]);
 
+  const assistantRecords = useMemo(() => {
+    const inRequestedBatch = (source) => {
+      if (!batchId) return true;
+      const batchCandidates = [
+        source.batchId,
+        source.batch_id,
+        source.effective_batch_id,
+        source.batchCode,
+        source.batch_code,
+        source.batch,
+        source.batch_name,
+        source.assignedBatchIds,
+      ].flatMap((value) => Array.isArray(value) ? value : [value]).filter((value) => value !== undefined && value !== null && value !== '');
+      return batchCandidates.some((value) => String(value) === String(batchId));
+    };
+    const motherRecords = mothers
+      .filter(inRequestedBatch)
+      .map((mother) => {
+        const name = [
+          mother.firstName || mother.first_name,
+          mother.middleName || mother.middle_name,
+          mother.lastName || mother.last_name,
+          mother.maidenSurname || mother.maiden_surname,
+          mother.suffix,
+        ].filter(Boolean).join(' ') || mother.name || '';
+        return {
+          id: mother.id || mother.motherId,
+          entityType: 'Mother',
+          name,
+          code: mother.motherId || mother.id,
+          age: mother.age,
+          community: mother.community || mother.community_name || mother.area,
+          group: mother.group || mother.group_name,
+          batch: mother.batch || mother.batch_name,
+          address: mother.address || [mother.barangay, mother.city, mother.province].filter(Boolean).join(', '),
+          profileSearchText: [
+            mother.contactNumber,
+            mother.phone,
+            mother.civilStatus,
+            mother.employmentStatus,
+            mother.educationalAttainment,
+            mother.status,
+          ].filter(Boolean).join(' '),
+          checkups: mother.checkups,
+          source: mother,
+        };
+      });
+    const childRecords = childRows
+      .map((row) => row.original || row)
+      .filter(inRequestedBatch)
+      .map((child) => {
+        const name = child.name || [child.first_name, child.middle_name, child.last_name, child.suffix].filter(Boolean).join(' ');
+        return {
+          id: child.id,
+          entityType: 'Child',
+          name,
+          code: child.child_code || child.childCode || child.id,
+          age: child.age,
+          gender: child.gender,
+          community: child.community_name || child.community,
+          group: child.group_name || child.group,
+          batch: child.batch_name || child.batch,
+          address: child.address,
+          profileSearchText: [
+            child.mother_name,
+            child.mother_first_name,
+            child.mother_last_name,
+            child.health_status,
+            child.healthStatus,
+          ].filter(Boolean).join(' '),
+          checkups: child.checkups,
+          source: child,
+        };
+      });
+    return [...motherRecords, ...childRecords];
+  }, [batchId, childRows, mothers]);
+
   return (
     <>
+      <BeneficiaryAssistant
+        records={assistantRecords}
+        recordsLoading={loading || childrenLoading}
+        recordsError={mothersError}
+        onOpenRecord={(record) => {
+          if (record.entityType === 'Mother') onSelectMother?.(record.source);
+          else onSelectChild?.(record.source);
+        }}
+      />
       <ModuleSummaryCards
         selected={selectedSummaryCard}
         toggleOnSelect

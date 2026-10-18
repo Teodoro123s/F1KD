@@ -10,6 +10,7 @@ import PageHeader from '../../../components/ui/PageHeader';
 import { notifyAction } from '../../../components/ActionFeedback';
 import { navigateBack } from '../../../utils/navigation';
 import { NoteWritingAssistant } from '../../ProgressReport/components/NoteWritingAssistant';
+import { getChildNameErrors } from '../../../utils/childRecordValidation';
 
 const normalizeChild = (child) => ({
   ...child,
@@ -85,7 +86,9 @@ export default function EditChildPage() {
   const [options, setOptions] = useState({ communities: [], batches: [] });
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('general');
+  const [showNameValidation, setShowNameValidation] = useState(false);
   const EDIT_STEPS = ['general', 'prenatal', 'medical_dental', 'vaccine'];
+  const nameErrors = getChildNameErrors(form);
 
   useEffect(() => {
     getSummary().then((summary) => setOptions({
@@ -116,6 +119,17 @@ export default function EditChildPage() {
     if (activeTab !== 'vaccine') {
       const currentIndex = EDIT_STEPS.indexOf(activeTab);
       setActiveTab(EDIT_STEPS[Math.min(currentIndex + 1, EDIT_STEPS.length - 1)]);
+      return;
+    }
+    const firstMissing = !String(form.firstName ?? '').trim();
+    const lastMissing = !String(form.lastName ?? '').trim();
+    if (firstMissing || lastMissing || Object.keys(nameErrors).length) {
+      setShowNameValidation(true);
+      setActiveTab('general');
+      notifyAction(
+        firstMissing ? 'First name is required.' : lastMissing ? 'Last name is required.' : Object.values(nameErrors)[0],
+        'error',
+      );
       return;
     }
     setSaving(true);
@@ -267,6 +281,8 @@ export default function EditChildPage() {
               birthDocumentFile={birthDocumentFile}
               setBirthDocumentFile={setBirthDocumentFile}
               existingBirthDocumentName={form.birthDocumentName}
+              showRequiredValidation={showNameValidation}
+              validationErrors={nameErrors}
             />
           </div>
 

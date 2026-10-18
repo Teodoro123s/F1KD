@@ -19,6 +19,9 @@ const getErrorsForStep = (step, form, childErrors, motherSelected) => {
     if (!motherSelected) errors.motherId = 'Select a mother before creating the child.';
     if (!String(form.firstName ?? '').trim()) errors.firstName = 'First name is required.';
     if (!String(form.lastName ?? '').trim()) errors.lastName = 'Last name is required.';
+    ['firstName', 'middleName', 'lastName'].forEach((field) => {
+      if (childErrors[field]) errors[field] = childErrors[field];
+    });
     return errors;
   }
   if (step === 'prenatal') {
@@ -177,7 +180,7 @@ export default function CreateChildPage({
     if (!invalidField) return;
     invalidField.scrollIntoView({ behavior: 'smooth', block: 'center' });
     invalidField.focus({ preventScroll: true });
-  }, [createActiveTab, selectedMotherId, showRequiredValidation, groupForm.firstName, groupForm.lastName, groupForm.birthDate]);
+  }, [createActiveTab, selectedMotherId, showRequiredValidation]);
 
   // If navigated from a mother, prefill mother-related fields and show mother info
   useEffect(() => {

@@ -2,9 +2,11 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import StepWizard from '../../../components/StepWizard';
 import DateInput from '../../../components/ui/DateInput';
 import AuditSignatures from '../../../components/ui/AuditSignatures';
+import FieldInfoTooltip from '../../../components/ui/FieldInfoTooltip';
 import { formatDateForDisplay, normalizeDateValue } from '../../../utils/dateFormat';
 import { getMotherMonitoringStartIndex } from '../../../utils/motherProgress';
 import { formatCurrencyAmount, normalizeCurrencyAmount, sanitizeCurrencyAmount } from '../../../utils/currencyAmount';
+import { getBloodPressureError, isBloodPressureInput } from '../../../utils/bloodPressure';
 
 const TRIMESTERS = [
   { label: '1st Trimester', code: 'T1' },
@@ -22,14 +24,6 @@ const CHECKUPS = TRIMESTERS.flatMap((trimester, trimesterIndex) =>
   }))
 );
 
-const LAB_ASSISTANCE_OPTIONS = [
-  'Complete Blood Count (CBC)',
-  'Urinalysis',
-  'Blood Typing and Rh Factor',
-  'Hepatitis B, HIV, and Syphilis Screening',
-  'Glucose Screening (OGTT)',
-  'Genetic and Chromosomal Screening',
-];
 const LAB_REQUEST_OPTIONS = [
   'Complete Blood Count',
   'Hemoglobin Count',
@@ -132,19 +126,18 @@ const getPreviousCheckupForStep = (mother, step) => step > 0 ? getCheckupForStep
 
 const getFirstIncompleteStep = (checkups = [], startIndex = 0) => CHECKUPS.findIndex((_, index) => index >= startIndex && !checkups?.[Math.floor(index / 3)]?.[index % 3]?.completed);
 
-const createInitialFormState = (mother, checkup = null, blank = false, previousCheckup = null) => ({
-  checkupDate: checkup?.checkupDate ? formatDate(checkup.checkupDate) : formatDate(previousCheckup?.nextCheckupDate || mother.prenatalRegDate || mother.prenatal_reg_date),
+const createInitialFormState = (mother, checkup = null, blank = false, previousCheckup = null, useProfileDefaults = false) => ({
+  checkupDate: checkup?.checkupDate ? formatDate(checkup.checkupDate) : formatDate(previousCheckup?.nextCheckupDate || (useProfileDefaults ? mother.prenatalRegDate || mother.prenatal_reg_date : '')),
   gestationalAge: blank ? '' : ((checkup?.gestationalAge ?? getMonitoringStartDetails(mother).gestationalAge) || calculateGestationalAge(mother.lmpDate, mother.gestationalAge)),
-  bp: blank ? '' : checkup?.bp ?? mother.prenatalBp ?? mother.bloodPressure ?? '',
-  weight: blank ? '' : checkup?.weight ?? mother.prenatalWeight ?? mother.weight ?? '',
-  height: blank ? '' : checkup?.height ?? mother.prenatalHeight ?? mother.height ?? '',
-  fundalHeight: blank ? '' : checkup?.fundalHeight ?? mother.fundalHeight ?? '',
-  fhr: blank ? '' : checkup?.fhr ?? mother.fhr ?? '',
+  bp: blank ? '' : checkup?.bp ?? (useProfileDefaults ? mother.prenatalBp ?? mother.bloodPressure ?? '' : ''),
+  weight: blank ? '' : checkup?.weight ?? (useProfileDefaults ? mother.prenatalWeight ?? mother.weight ?? '' : ''),
+  height: blank ? '' : checkup?.height ?? (useProfileDefaults ? mother.prenatalHeight ?? mother.height ?? '' : ''),
+  fundalHeight: blank ? '' : checkup?.fundalHeight ?? (useProfileDefaults ? mother.fundalHeight ?? '' : ''),
+  fhr: blank ? '' : checkup?.fhr ?? (useProfileDefaults ? mother.fhr ?? '' : ''),
+  developmentalStatus: checkup?.developmentalStatus ?? checkup?.developmental_status ?? 'Normal',
   serviceProvider: checkup?.serviceProvider ?? '',
   nextCheckupDate: blank ? '' : formatDate(checkup?.nextCheckupDate),
   referral: checkup?.referral ?? false,
-  labAssistance: checkup?.labAssistance ?? false,
-  labAssistanceTests: checkup?.labAssistanceTests ?? [],
   laboratoryRequests: checkup?.laboratoryRequests ?? [],
   amount: sanitizeCurrencyAmount(checkup?.amount ?? ''),
   sourceOfFunds: blank ? '' : checkup?.sourceOfFunds ?? 'Municipal Fund',
@@ -166,6 +159,7 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
   const previousMotherId = useRef(mother.id || mother.motherId);
   const [formState, setFormState] = useState(() => createInitialFormState(mother, getCheckupForStep(mother, initialStep), false, getPreviousCheckupForStep(mother, initialStep)));
   const [amountFocused, setAmountFocused] = useState(false);
+  const [bloodPressureTouched, setBloodPressureTouched] = useState(false);
   const [pendingSave, setPendingSave] = useState(null);
   const [saving, setSaving] = useState(false);
 
@@ -181,8 +175,17 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
   useEffect(() => {
     const firstIncomplete = getFirstIncompleteStep(mother.checkups, getMotherMonitoringStartIndex(mother));
     const isFutureStep = firstIncomplete !== -1 && activeStep > firstIncomplete;
-    setFormState(createInitialFormState(mother, getCheckupForStep(mother, activeStep), isFutureStep, getPreviousCheckupForStep(mother, activeStep)));
+    const hasSavedCheckups = Array.isArray(mother.checkups) && mother.checkups.flat().some(Boolean);
+    const isRegistrationStep = activeStep === getMotherMonitoringStartIndex(mother);
+    setFormState(createInitialFormState(
+      mother,
+      getCheckupForStep(mother, activeStep),
+      isFutureStep,
+      getPreviousCheckupForStep(mother, activeStep),
+      !hasSavedCheckups && isRegistrationStep,
+    ));
     setAmountFocused(false);
+    setBloodPressureTouched(false);
   }, [mother, activeStep]);
 
   const updateField = (field) => (value) => {
@@ -197,11 +200,10 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
     height,
     fundalHeight,
     fhr,
+    developmentalStatus,
     serviceProvider,
     nextCheckupDate,
     referral,
-    labAssistance,
-    labAssistanceTests,
     laboratoryRequests,
     amount,
     sourceOfFunds,
@@ -215,6 +217,7 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
 
   const bmi = calculateBmi(weight, height);
   const showReferralFields = referral === true;
+  const bloodPressureError = bloodPressureTouched ? getBloodPressureError(bp) : '';
 
   const nutritionalStatus = useMemo(() => {
     const value = parseFloat(bmi);
@@ -224,19 +227,6 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
     return 'Overweight';
   }, [bmi]);
 
-  const bpWarning = useMemo(() => {
-    if (!bp) return null;
-    const parts = bp.split('/');
-    if (parts.length !== 2) return null;
-    const sys = parseInt(parts[0], 10);
-    const dia = parseInt(parts[1], 10);
-    if (!Number.isNaN(sys) && !Number.isNaN(dia) && (sys >= 140 || dia >= 90)) {
-      return 'High Blood Pressure Alert: BP is ≥ 140/90 mmHg. Please monitor for gestational hypertension or preeclampsia.';
-    }
-    return null;
-  }, [bp]);
-
-  const hasWarnings = Boolean(bpWarning);
   const activeTrimester = Math.floor(activeStep / 3) + 1;
   const activeStepIndex = (activeStep % 3) + 1;
   const activeCheckup = getCheckupForStep(mother, activeStep);
@@ -254,6 +244,12 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    setBloodPressureTouched(true);
+    const bloodPressureError = getBloodPressureError(bp);
+    if (bloodPressureError) {
+      document.getElementById('bp')?.focus();
+      return;
+    }
 
     const currentCheckup = CHECKUPS[activeStep] || CHECKUPS[0];
     const payload = {
@@ -266,13 +262,14 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
       nutritionalStatus,
       fundalHeight,
       fhr,
+      developmentalStatus,
       serviceProvider,
       nextCheckupDate: formatDateForPayload(nextCheckupDate),
       referral,
-      labAssistance: referral && labAssistance,
-      labAssistanceTests: referral && labAssistance ? labAssistanceTests : [],
+      labAssistance: referral,
+      labAssistanceTests: [],
       laboratoryRequests: referral ? laboratoryRequests : [],
-      amount,
+      amount: referral ? normalizeCurrencyAmount(amount) : '',
       sourceOfFunds,
       facilityType,
       milkDate: formatDateForPayload(milkDate),
@@ -302,6 +299,7 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
 
   const resetForm = () => {
     setFormState(createInitialFormState(mother, getCheckupForStep(mother, activeStep)));
+    setBloodPressureTouched(false);
     onCancel();
   };
 
@@ -339,7 +337,10 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
               </div>
 
               <div className="form-group">
-                <label className="checkup-field-label" htmlFor="gestational-age">Gestation Period</label>
+                <label className="checkup-field-label" htmlFor="gestational-age">
+                  Gestation Period
+                  {mother.lmpDate && <FieldInfoTooltip content="Gestational age is calculated from the last menstrual period (LMP) date." />}
+                </label>
                 <input
                   id="gestational-age"
                   type="number"
@@ -351,7 +352,6 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
                   onChange={(e) => updateField('gestationalAge')(e.target.value)}
                   readOnly={Boolean(mother.lmpDate)}
                 />
-                {mother.lmpDate && <span className="checkup-field-help">Calculated from the LMP date</span>}
               </div>
 
               <div className="form-group">
@@ -381,16 +381,28 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
               </div>
 
               <div className="form-group">
-                <label className="checkup-field-label is-required" htmlFor="bp">Blood Pressure</label>
+                <label className="checkup-field-label is-required" htmlFor="bp">
+                  Blood Pressure
+                  <FieldInfoTooltip content="Enter systolic/diastolic using numbers and one slash only (for example, 120/80)." />
+                </label>
                 <input
                   id="bp"
                   type="text"
                   className="checkup-field-input"
                   value={bp}
                   placeholder="120/80"
-                  onChange={(e) => updateField('bp')(e.target.value)}
-                  required
+                  inputMode="text"
+                  maxLength={7}
+                  autoComplete="off"
+                  spellCheck={false}
+                  aria-invalid={Boolean(bloodPressureError)}
+                  aria-describedby={bloodPressureError ? 'bp-error' : undefined}
+                  aria-required="true"
+                  onChange={(e) => {
+                    if (isBloodPressureInput(e.target.value)) updateField('bp')(e.target.value);
+                  }}
                 />
+                {bloodPressureError && <small id="bp-error" className="field-validation-error" role="alert">{bloodPressureError}</small>}
               </div>
 
               <div className="form-group">
@@ -403,6 +415,20 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
                   readOnly
                   placeholder="Auto-calculated"
                 />
+              </div>
+
+              <div className="form-group">
+                <label className="checkup-field-label" htmlFor="mother-developmental-status">Developmental Screening</label>
+                <select
+                  id="mother-developmental-status"
+                  className="checkup-field-input"
+                  value={developmentalStatus}
+                  onChange={(event) => updateField('developmentalStatus')(event.target.value)}
+                >
+                  <option>Normal</option>
+                  <option>Needs Follow-up</option>
+                  <option>At Risk</option>
+                </select>
               </div>
 
               <div className="form-group">
@@ -455,62 +481,26 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
                 </div>
               </div>
               {referral && (
-                <>
-                  <div className="horizontal-toggle-row full-width">
-                    <span className="horizontal-toggle-label">Laboratory Assistance Provided</span>
-                    <label className="ios-switch">
-                      <input
-                        type="checkbox"
-                        checked={labAssistance}
-                        onChange={(e) => updateField('labAssistance')(e.target.checked)}
-                      />
-                      <span className="ios-slider"></span>
-                    </label>
+                <fieldset className="form-group full-width">
+                  <legend className="checkup-field-label">Laboratory Request(s)</legend>
+                  <div className="lab-request-checkbox-list" role="group" aria-label="Laboratory request(s)">
+                    {LAB_REQUEST_OPTIONS.map((option) => (
+                      <label key={option} className={`lab-request-option ${laboratoryRequests.includes(option) ? 'selected' : ''}`}>
+                        <input
+                          type="checkbox"
+                          checked={laboratoryRequests.includes(option)}
+                          onChange={(event) => updateField('laboratoryRequests')(
+                            event.target.checked
+                              ? [...laboratoryRequests, option]
+                              : laboratoryRequests.filter((test) => test !== option),
+                          )}
+                        />
+                        <span>{option}</span>
+                      </label>
+                    ))}
                   </div>
-                  {labAssistance && (
-                    <div className="form-group full-width">
-                      <details className="lab-assistance-dropdown" open>
-                        <summary>Choose assisted laboratory tests</summary>
-                        <div className="lab-assistance-options">
-                          {LAB_ASSISTANCE_OPTIONS.map((option) => (
-                            <label key={option} className="lab-assistance-option">
-                              <input
-                                type="checkbox"
-                                checked={labAssistanceTests.includes(option)}
-                                onChange={(event) => updateField('labAssistanceTests')(
-                                  event.target.checked
-                                    ? [...labAssistanceTests, option]
-                                    : labAssistanceTests.filter((test) => test !== option),
-                                )}
-                              />
-                              <span>{option}</span>
-                            </label>
-                          ))}
-                        </div>
-                      </details>
-                    </div>
-                  )}
-                  <fieldset className="form-group full-width">
-                    <legend className="checkup-field-label">Laboratory Request(s)</legend>
-                    <div className="lab-request-checkbox-list" role="group" aria-label="Laboratory request(s)">
-                      {LAB_REQUEST_OPTIONS.map((option) => (
-                        <label key={option} className={`lab-request-option ${laboratoryRequests.includes(option) ? 'selected' : ''}`}>
-                          <input
-                            type="checkbox"
-                            checked={laboratoryRequests.includes(option)}
-                            onChange={(event) => updateField('laboratoryRequests')(
-                              event.target.checked
-                                ? [...laboratoryRequests, option]
-                                : laboratoryRequests.filter((test) => test !== option),
-                            )}
-                          />
-                          <span>{option}</span>
-                        </label>
-                      ))}
-                    </div>
-                    <span className="checkup-field-help">Select one or more laboratory tests.</span>
-                  </fieldset>
-                </>
+                  <span className="checkup-field-help">Select one or more laboratory tests requested for referral.</span>
+                </fieldset>
               )}
             </div>
 
@@ -582,22 +572,6 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
             )}
 
             <div className="checkup-grid">
-              <div className="form-group full-width">
-                <details className="lab-assistance-dropdown">
-                  <summary>Treatment and other services</summary>
-                  <label className="checkup-field-label" htmlFor="mother-treatment-services">
-                    Micronutrients, medication, screening, referral, and financial assistance
-                  </label>
-                  <textarea
-                    id="mother-treatment-services"
-                    className="checkup-field-input"
-                    rows="4"
-                    value={treatmentServices}
-                    onChange={(event) => updateField('treatmentServices')(event.target.value)}
-                    placeholder="Record services or micronutrients provided, including source, date, and quantity."
-                  />
-                </details>
-              </div>
               <div className="form-group full-width" style={{ marginTop: '12px' }}>
                 <label className="checkup-field-label" htmlFor="remarks">Remarks / Notes</label>
                 <textarea
@@ -611,14 +585,6 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
               </div>
             </div>
 
-            {hasWarnings && (
-              <div className="clinical-warnings" style={{ marginTop: '24px' }}>
-                <div className="warning-title">⚠️ Clinical Warnings</div>
-                <ul>
-                  {bpWarning && <li>{bpWarning}</li>}
-                </ul>
-              </div>
-            )}
           </div>
         </div>
         </fieldset>
@@ -668,10 +634,6 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
                 </div>
                 {pendingSave.payload.referral && (
                   <>
-                    <div>
-                      <dt>Laboratory assistance</dt>
-                      <dd>{pendingSave.payload.labAssistance ? 'Provided' : 'Not provided'}</dd>
-                    </div>
                     <div className="checkup-confirm-summary-wide">
                       <dt>Laboratory requests</dt>
                       <dd>
@@ -680,12 +642,6 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
                           : 'None selected'}
                       </dd>
                     </div>
-                    {pendingSave.payload.labAssistance && pendingSave.payload.labAssistanceTests.length > 0 && (
-                      <div className="checkup-confirm-summary-wide">
-                        <dt>Assisted tests</dt>
-                        <dd>{pendingSave.payload.labAssistanceTests.join(', ')}</dd>
-                      </div>
-                    )}
                     {(pendingSave.payload.amount || pendingSave.payload.sourceOfFunds || pendingSave.payload.facilityType) && (
                       <div className="checkup-confirm-summary-wide">
                         <dt>Assistance and funding</dt>

@@ -36,9 +36,27 @@ const NUMERIC_LIMITS = {
   chestCircumference: { min: 0, max: 60, label: 'Chest circumference', unit: 'cm' },
   noOfChildDelivered: { min: 1, max: 20, label: 'Number of children delivered', unit: '' },
 };
+const CHILD_NAME_PATTERN = /^\p{L}+(?:[ '-]\p{L}+)*$/u;
+const CHILD_MIDDLE_NAME_PATTERN = /^(?:\p{L}\.?|\p{L}+(?:[ '-]\p{L}+)*)$/u;
+const CHILD_NAME_FIELDS = [
+  ['firstName', 'First name', CHILD_NAME_PATTERN],
+  ['middleName', 'Middle name', CHILD_MIDDLE_NAME_PATTERN],
+  ['lastName', 'Last name', CHILD_NAME_PATTERN],
+];
+
+export function getChildNameErrors(form = {}) {
+  const errors = {};
+  CHILD_NAME_FIELDS.forEach(([field, label, pattern]) => {
+    const value = String(form[field] ?? '').trim().replace(/\s+/g, ' ');
+    if (value.length > 100 || (value && !pattern.test(value))) {
+      errors[field] = `${label} may contain letters, spaces, hyphens, and apostrophes only (maximum 100 characters).`;
+    }
+  });
+  return errors;
+}
 
 export function getChildRecordErrors(form = {}, today = new Date()) {
-  const errors = {};
+  const errors = getChildNameErrors(form);
   const todayIso = formatLocalDate(today);
   const birthDateValue = String(form.birthDate ?? '').trim();
   const birthDate = birthDateValue ? parseIsoDate(birthDateValue) : null;

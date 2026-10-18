@@ -38,6 +38,46 @@
   font-weight: 700;
 }
 
+.read-only-admin-assistant__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.read-only-admin-assistant__toggle {
+  padding: 0.3rem 0.55rem;
+  border: 1px solid var(--border-color, #dbe3ee);
+  border-radius: 0.45rem;
+  background: var(--surface, #fff);
+  color: var(--text-primary, #172033);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.read-only-admin-assistant__toggle:hover {
+  border-color: #1d4ed8;
+  color: #1d4ed8;
+}
+
+.read-only-admin-assistant__module-link {
+  display: inline-flex;
+  margin-top: 0.65rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.45rem;
+  background: #1d4ed8;
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.read-only-admin-assistant__module-link:hover {
+  background: #1e40af;
+  color: #fff;
+}
+
 .read-only-admin-assistant__form {
   display: flex;
   gap: 0.6rem;

@@ -46,14 +46,19 @@ const StepWizard = ({
               const isActive = !isPhaseComplete && activeTrimester === groupIdx + 1 && activeStep === stepIdx + 1;
               const stepIndex = groupIdx * 3 + stepIdx;
               const lineActive = status === 'completed';
+              const checkup = checkups?.[groupIdx]?.[stepIdx];
+              const screeningStatus = String(checkup?.developmentalStatus ?? checkup?.developmental_status ?? '').trim();
+              const screeningClass = !checkup?.completed ? '' : screeningStatus === 'At Risk'
+                ? 'at-risk'
+                : screeningStatus === 'Needs Follow-up' ? 'needs-follow-up' : screeningStatus === 'Normal' ? 'normal-screening' : '';
 
               return (
                 <div key={`${group.id}-${stepIdx}`} className="step-wizard-step-wrapper">
                   <button
                     type="button"
-                    className={`step-wizard-step ${status} ${isActive ? 'active' : ''}`}
+                    className={`step-wizard-step ${status} ${screeningClass} ${isActive ? 'active' : ''}`}
                     onClick={() => onStepClick(group.id, stepIdx + 1)}
-                    aria-label={`Trimester ${group.id} ${stepIdx + 1} ${status}`}
+                    aria-label={`Trimester ${group.id} ${stepIdx + 1} ${status}${screeningStatus ? `, developmental screening ${screeningStatus}` : ''}`}
                     aria-current={isActive ? 'step' : undefined}
                     disabled={stepIndex < startStep && status !== 'completed'}
                   >

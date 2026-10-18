@@ -31,6 +31,7 @@ export function ReportAiAssistant({ scopeLabel, onApply }) {
   const [proposal, setProposal] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [expanded, setExpanded] = useState(true);
 
   useEffect(() => {
     let active = true;
@@ -87,9 +88,20 @@ export function ReportAiAssistant({ scopeLabel, onApply }) {
           <h2 id="progress-report-ai-title">AI report builder</h2>
           <p>Describe the report you need. AI will choose matching report settings for your review; beneficiary data stays in the app.</p>
         </div>
-        <span className="progress-report-ai-badge">Private model</span>
+        <div className="progress-report-ai-heading-actions">
+          <button
+            type="button"
+            className="progress-report-ai-toggle"
+            aria-expanded={expanded}
+            aria-controls="progress-report-ai-content"
+            onClick={() => setExpanded((value) => !value)}
+          >
+            {expanded ? 'Collapse' : 'Expand'}
+          </button>
+        </div>
       </div>
 
+      <div id="progress-report-ai-content" className="progress-report-ai-content" hidden={!expanded}>
       <p className="progress-report-ai-scope">
         <strong>Scope stays fixed:</strong> {scopeLabel || 'your current report selection'}
       </p>
@@ -213,6 +225,7 @@ export function ReportAiAssistant({ scopeLabel, onApply }) {
           </div>
         </div>
       )}
+      </div>
     </section>
   );
 }

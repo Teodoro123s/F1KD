@@ -4,10 +4,13 @@ import { calculateGestationalDetails } from '../../../utils/beneficiaryHelpers';
 import { capitalizeNameValue } from '../../../utils/nameFormat';
 import { CONTACT_NUMBER_POLICY, sanitizeContactNumber } from '../../../utils/contactNumber';
 import { formatPhilHealthNumber, PHILHEALTH_NUMBER_POLICY } from '../../../utils/philHealthNumber';
+import { isBloodPressureInput } from '../../../utils/bloodPressure';
 import { getLatestEligibleMotherDob } from '../../../utils/motherIdentity';
 import { calculateTotalChildren } from '../../../utils/maternalBirthCounts';
 import { calculateNaegeleEdd } from '../../../utils/maternalPregnancy';
 import { MATERNAL_VACCINE_SEQUENCES } from '../../../utils/maternalVaccineDates';
+import FieldInfoTooltip from '../../../components/ui/FieldInfoTooltip';
+import { getBatchesForGroup } from '../utils/beneficiaryUtils';
 
 export const OTHER_MATERNAL_VACCINES = [
   { label: 'Influenza (flu)', key: 'influenza' },
@@ -49,17 +52,9 @@ export function MotherFormFields({
   const uniqueCommunities = Array.from(new Set(communities.map((comm) => comm.name))).filter(Boolean);
   const selectedGroups = groups.filter((group) => !form.community || group.community === form.community);
   const selectedGroupId = String(form.groupId ?? '').trim();
-  const selectedBatches = selectedGroupId ? batches.filter((batch) => {
-    const sameCommunity = !form.community || !batch.community || batch.community === form.community;
-    if (!sameCommunity) return false;
-
-    const batchGroupIds = String(batch.groupIds || batch.group_id || batch.groupId || '')
-      .split(',')
-      .map((value) => value.trim())
-      .filter(Boolean);
-
-    return batchGroupIds.includes(selectedGroupId);
-  }) : [];
+  const selectedGroup = groups.find((group) => String(group.id) === selectedGroupId);
+  const selectedCommunity = form.community || selectedGroup?.community || '';
+  const selectedBatches = getBatchesForGroup(batches, selectedGroupId, selectedCommunity);
   const selectedProvince = locationOptions?.PHILIPPINE_PROVINCES.find((province) => province.toLowerCase() === String(form.province || '').toLowerCase()) || '';
   const cityOptions = selectedProvince ? locationOptions?.getPhilippineCities(selectedProvince) || [] : [];
   const selectedCity = cityOptions.find((city) => city.toLowerCase() === String(form.city || '').toLowerCase()) || '';
@@ -229,25 +224,15 @@ export function MotherFormFields({
     else picker.click();
   };
 
-  const FieldInfoTooltip = ({ content }) => (
-    <span className="field-help-tooltip" tabIndex={0} aria-label={content}>
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="12" cy="12" r="9" />
-        <line x1="12" y1="10.5" x2="12" y2="16.5" />
-        <circle cx="12" cy="7.25" r="0.9" fill="currentColor" stroke="none" />
-      </svg>
-      <span className="field-help-tooltip-bubble">{content}</span>
-    </span>
-  );
-
   // Helpers to reduce repetitive form markup and support read-only display
-  const renderField = ({ id, label, name, type = 'text', placeholder = '', required = false, valueOverride, onChange, nativeDate = false, maxDate, minValue, disabled = false, readOnlyInput = false, autoCalculated = false, helpText = '', dateOrder = 'dmy' }) => {
+  const renderField = ({ id, label, name, type = 'text', placeholder = '', required = false, customRequired = false, valueOverride, onChange, nativeDate = false, maxDate, minValue, disabled = false, readOnlyInput = false, autoCalculated = false, helpText = '', dateOrder = 'dmy', pattern }) => {
     const value = valueOverride ?? form[name] ?? '';
     const isDate = type === 'date';
     const isAutoComputedDate = name === 'eddDate' && !form.eddDateOverridden;
     const isNumeric = type === 'tel';
     const isNumericString = name === 'dentistLicense';
     const isPhilHealthNumber = name === 'philhealthNumber';
+    const isBloodPressure = name === 'prenatalBp';
     const isRequired = required && (enforceRequiredFields || ['firstName', 'lastName'].includes(name));
     const validationError = validationErrors[name];
     const hasMissingValue = (isRequired && !String(value ?? '').trim() && showRequiredValidation) || Boolean(validationError);
@@ -299,6 +284,7 @@ export function MotherFormFields({
                 else setForm((prev) => ({ ...prev, [name]: nextValue }));
                 return;
               }
+              if (isBloodPressure && !isBloodPressureInput(e.target.value)) return;
               const rawValue = isNumeric
                 ? sanitizeContactNumber(e.target.value)
                 : isNumericString
@@ -315,14 +301,15 @@ export function MotherFormFields({
             }}
             onClick={isNativeDate ? (e) => { try { if (typeof e.target.showPicker === 'function') e.target.showPicker(); } catch (_) {} } : undefined}
             onBlur={isDate && !isNativeDate ? () => commitDateValue(name, getDateDisplayValue(name, value, dateOrder), onChange, dateOrder) : undefined}
-            inputMode={isPhilHealthNumber || isNumeric || isNumericString ? 'numeric' : undefined}
-            pattern={isPhilHealthNumber ? '(?:[0-9]{12}|[0-9]{2}-[0-9]{9}-[0-9])' : isNumeric ? '09[0-9]{9}' : isNumericString ? '[0-9]+' : undefined}
-            maxLength={isPhilHealthNumber ? 14 : isNumeric ? 11 : undefined}
+            inputMode={isPhilHealthNumber || isNumeric || isNumericString ? 'numeric' : isBloodPressure ? 'text' : undefined}
+            pattern={pattern || (isPhilHealthNumber ? '(?:[0-9]{12}|[0-9]{2}-[0-9]{9}-[0-9])' : isNumeric ? '09[0-9]{9}' : isNumericString ? '[0-9]+' : undefined)}
+            maxLength={isPhilHealthNumber ? 14 : isNumeric ? 11 : isBloodPressure ? 7 : undefined}
             max={maxDate}
             min={minValue}
             step={type === 'number' ? 1 : undefined}
-            autoComplete={nativeDate ? 'off' : undefined}
-            required={isRequired && !readOnlyInput}
+            autoComplete={isBloodPressure || nativeDate ? 'off' : undefined}
+            spellCheck={isBloodPressure ? false : undefined}
+            required={isRequired && !readOnlyInput && !customRequired}
             readOnly={readOnlyInput}
             aria-readonly={readOnlyInput}
             aria-invalid={hasMissingValue}
@@ -794,7 +781,7 @@ export function MotherFormFields({
 
           <div className="form-row-3 full-width">
           {renderField({ id: 'prenatal-weight', label: 'Weight (kg) at Reg', name: 'prenatalWeight', placeholder: 'e.g. 52', required: true })}
-          {renderField({ id: 'prenatal-bp', label: 'Blood Pressure (BP) at Reg', name: 'prenatalBp', placeholder: 'e.g. 120/80', required: true })}
+          {renderField({ id: 'prenatal-bp', label: 'Blood Pressure (BP) at Reg', name: 'prenatalBp', placeholder: 'e.g. 120/80', required: true, customRequired: true, helpText: 'Numbers and one slash only; up to 3 digits on each side.' })}
           {renderField({ id: 'prenatal-height', label: 'Height (cm) at Reg', name: 'prenatalHeight', placeholder: 'e.g. 150', required: true })}
           </div>
           <div className="form-row-2 full-width">

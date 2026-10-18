@@ -1,8 +1,27 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { getChildRecordErrors } from './childRecordValidation.js';
+import { capitalizeNameValue } from './nameFormat.js';
 
 const today = new Date(2026, 9, 17);
+
+test('accepts compound and hyphenated child names and rejects invalid characters or excessive length', () => {
+  assert.deepEqual(getChildRecordErrors({
+    firstName: 'Mary Princess',
+    middleName: 'Anne-Marie',
+    lastName: "Al-quera O'Neil",
+  }, today), { birthDate: 'Birth date is required.' });
+
+  const errors = getChildRecordErrors({
+    firstName: '<script>',
+    lastName: 'A'.repeat(101),
+    birthDate: '2026-10-17',
+  }, today);
+  assert.match(errors.firstName, /letters, spaces, hyphens/);
+  assert.match(errors.lastName, /maximum 100 characters/);
+  assert.equal(capitalizeNameValue('mary princess'), 'Mary Princess');
+  assert.equal(capitalizeNameValue('al-quera'), 'Al-Quera');
+});
 
 test('requires a valid non-future birth date', () => {
   assert.equal(getChildRecordErrors({}, today).birthDate, 'Birth date is required.');

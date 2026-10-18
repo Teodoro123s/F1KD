@@ -43,3 +43,18 @@ export const mergeMotherDetailsWithChildren = (baseMother, detailMother, childre
 export const getMotherChildren = (allChildren, motherId) => {
   return allChildren.filter((child) => String(child.motherId) === String(motherId));
 };
+
+export const getBatchesForGroup = (batches, groupId, community) => {
+  if (!groupId) return [];
+
+  return batches.filter((batch) => {
+    if (community && batch.community && batch.community !== community) return false;
+
+    const assignedGroupIds = String(batch.groupIds || batch.group_id || batch.groupId || '')
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
+
+    return assignedGroupIds.length === 0 || assignedGroupIds.includes(String(groupId));
+  });
+};

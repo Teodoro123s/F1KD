@@ -90,6 +90,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
   const renderField = ({ id, label, name, type = 'text', placeholder = '', required = false, min, minDate, maxValue, step, nativeDate = false, maxDate, disabled = false, onChange, className = '' }) => {
     const value = form[name] ?? '';
     const isDate = type === 'date';
+    const isName = /^(firstName|middleName|lastName)$/.test(name);
     const validationError = validationErrors[name];
     const hasMissingValue = showRequiredValidation
       && ((required && !String(value ?? '').trim()) || Boolean(validationError));
@@ -120,7 +121,11 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
             min={isDate ? minDate : min}
             step={step}
             max={isDate ? maxDate : maxValue}
-            autoComplete={nativeDate ? 'off' : undefined}
+            maxLength={isName ? 100 : undefined}
+            autoComplete={isName
+              ? name === 'firstName' ? 'given-name' : name === 'middleName' ? 'additional-name' : 'family-name'
+              : nativeDate ? 'off' : undefined}
+            spellCheck={isName ? false : undefined}
             onChange={(e) => {
               if (isNativeDate) {
                 const nextVal = e.target.value;
@@ -132,19 +137,30 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
                 updateDateValue(name, e.target.value, onChange);
                 return;
               }
-              const nextValue = /^(firstName|middleName|lastName|suffix|birthAttendant|birthPlace|leader)$/.test(name)
-                ? capitalizeNameValue(e.target.value)
-                : e.target.value;
+              const nextValue = isName
+                ? e.target.value
+                : /^(suffix|birthAttendant|birthPlace|leader)$/.test(name)
+                  ? capitalizeNameValue(e.target.value)
+                  : e.target.value;
               if (onChange) {
                 onChange(nextValue);
                 return;
               }
               setForm((prev) => ({ ...prev, [name]: nextValue }));
             }}
+            onBlur={isName ? () => {
+              const formattedValue = capitalizeNameValue(value);
+              if (formattedValue !== value) {
+                if (onChange) onChange(formattedValue);
+                else setForm((prev) => ({ ...prev, [name]: formattedValue }));
+              }
+            } : isDate && !isNativeDate
+              ? () => commitDateValue(name, getDateDisplayValue(name, value), onChange)
+              : undefined}
             onClick={isNativeDate ? (e) => { try { if (typeof e.target.showPicker === 'function') e.target.showPicker(); } catch (_) {} } : undefined}
-            onBlur={isDate && !isNativeDate ? () => commitDateValue(name, getDateDisplayValue(name, value), onChange) : undefined}
             required={required}
             aria-invalid={hasMissingValue}
+            aria-describedby={validationError && showRequiredValidation ? `${id}-error` : undefined}
             disabled={disabled}
           />
           {isNativeDate && (
@@ -202,7 +218,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
             />
           </>
         )}
-        {validationError && showRequiredValidation && <small className="field-validation-error" role="alert">{validationError}</small>}
+        {validationError && showRequiredValidation && <small id={`${id}-error`} className="field-validation-error" role="alert">{validationError}</small>}
       </div>
     );
   };
@@ -286,7 +302,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
         <section className="create-mother-category">
         <h4 className="form-section-title">Child Information</h4>
         <div className="form-row-4 full-width name-row">
-          {renderField({ id: 'child-first-name', label: 'First Name', name: 'firstName', placeholder: 'First name', required: true })}
+          {renderField({ id: 'child-first-name', label: 'First Name', name: 'firstName', placeholder: 'e.g. Mary Princess', required: true })}
           {renderField({ id: 'child-middle-name', label: 'Middle Name', name: 'middleName', placeholder: 'Middle name' })}
           {renderField({ id: 'child-last-name', label: 'Last Name', name: 'lastName', placeholder: 'Last name', required: true })}
           {renderField({ id: 'child-suffix', label: 'Suffix', name: 'suffix', placeholder: 'Suffix' })}

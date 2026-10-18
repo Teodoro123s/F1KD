@@ -1,8 +1,20 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { getChildRecordValidationError } = require('../utils/childRecordValidation');
+const { getChildNameValidationError, getChildRecordValidationError } = require('../utils/childRecordValidation');
 
 const today = new Date(2026, 9, 17);
+
+test('accepts compound and hyphenated child names and rejects unsupported name input', () => {
+  assert.equal(getChildNameValidationError({
+    firstName: 'Mary Princess',
+    middleName: 'Anne-Marie',
+    lastName: "Al-quera O'Neil",
+  }), '');
+  assert.match(getChildNameValidationError({ firstName: '<script>', lastName: 'Mother' }), /First name may contain letters/);
+  assert.match(getChildNameValidationError({ first_name: 'Valid', last_name: 'Name2' }), /Last name may contain letters/);
+  assert.match(getChildNameValidationError({ firstName: 'A'.repeat(101), lastName: 'Mother' }), /maximum 100 characters/);
+  assert.equal(getChildNameValidationError({}, { first_name: 'Existing Name', last_name: 'Child' }), '');
+});
 
 test('requires valid non-future child birth dates', () => {
   assert.match(getChildRecordValidationError({}, today), /Birth date is required/);

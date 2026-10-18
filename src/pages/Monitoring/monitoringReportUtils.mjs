@@ -21,10 +21,15 @@ export function getMonitoringReportCheckups(beneficiary, type) {
   return type === 'Mother' ? checkups.flat().filter(Boolean) : checkups.filter(Boolean);
 }
 
-export function filterMonitoringReportCheckups(checkups, onlyReferredToHospital) {
-  return onlyReferredToHospital
-    ? checkups.filter((checkup) => getMonitoringReportValue(checkup, 'hospitalReferral') === 'Yes')
-    : checkups;
+export function filterMonitoringReportCheckups(checkups, onlyReferredToHospital, onlyNonNormalScreenings = false) {
+  return checkups.filter((checkup) => {
+    if (onlyReferredToHospital && getMonitoringReportValue(checkup, 'hospitalReferral') !== 'Yes') return false;
+    if (onlyNonNormalScreenings) {
+      const status = getMonitoringReportValue(checkup, 'developmentalStatus');
+      if (status === '—' || String(status).trim().toLowerCase() === 'normal') return false;
+    }
+    return true;
+  });
 }
 
 function getCheckupDate(checkup) {

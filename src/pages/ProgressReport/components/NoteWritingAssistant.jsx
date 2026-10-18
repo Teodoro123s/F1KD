@@ -12,6 +12,7 @@ export function NoteWritingAssistant({ fields, onApply }) {
   const [suggestion, setSuggestion] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [expanded, setExpanded] = useState(true);
 
   useEffect(() => {
     let active = true;
@@ -52,8 +53,19 @@ export function NoteWritingAssistant({ fields, onApply }) {
           <h2 id="note-writing-assistant-title">AI note-writing help</h2>
           <p>Improve clarity and grammar while preserving your meaning. Nothing is saved until you review and save the form.</p>
         </div>
-        <span className="progress-report-ai-badge">Private model</span>
+        <div className="progress-report-ai-heading-actions">
+          <button
+            type="button"
+            className="progress-report-ai-toggle"
+            aria-expanded={expanded}
+            aria-controls="note-writing-assistant-content"
+            onClick={() => setExpanded((value) => !value)}
+          >
+            {expanded ? 'Collapse' : 'Expand'}
+          </button>
+        </div>
       </div>
+      <div id="note-writing-assistant-content" className="progress-report-ai-content" hidden={!expanded}>
       {checking ? (
         <p className="progress-report-ai-message" role="status">Checking private AI availability…</p>
       ) : !available ? (
@@ -112,6 +124,7 @@ export function NoteWritingAssistant({ fields, onApply }) {
           </div>
         </div>
       )}
+      </div>
     </section>
   );
 }

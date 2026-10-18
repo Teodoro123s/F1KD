@@ -15,6 +15,27 @@ const NUMERIC_LIMITS = {
   chestCircumference: { max: 60, label: 'Chest circumference', unit: 'cm' },
   noOfChildDelivered: { max: 20, label: 'Number of children delivered', wholeNumber: true },
 };
+const CHILD_NAME_PATTERN = /^\p{L}+(?:[ '-]\p{L}+)*$/u;
+const CHILD_MIDDLE_NAME_PATTERN = /^(?:\p{L}\.?|\p{L}+(?:[ '-]\p{L}+)*)$/u;
+
+function getChildNameValidationError(body = {}, fallback = {}) {
+  for (const [field, label, pattern] of [
+    ['firstName', 'First name', CHILD_NAME_PATTERN],
+    ['middleName', 'Middle name', CHILD_MIDDLE_NAME_PATTERN],
+    ['lastName', 'Last name', CHILD_NAME_PATTERN],
+  ]) {
+    const snakeField = field.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
+    const rawValue = body[field] !== undefined ? body[field]
+      : body[snakeField] !== undefined ? body[snakeField]
+        : fallback[snakeField];
+    const value = String(rawValue ?? '').trim().replace(/\s+/g, ' ');
+    if ((field !== 'middleName' && !value)) return `${label} is required.`;
+    if (value.length > 100 || (value && !pattern.test(value))) {
+      return `${label} may contain letters, spaces, hyphens, and apostrophes only (maximum 100 characters).`;
+    }
+  }
+  return '';
+}
 
 function parseIsoDate(value) {
   const match = String(value ?? '').trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -93,4 +114,4 @@ function getChildRecordValidationError(body = {}, today = new Date()) {
   return '';
 }
 
-module.exports = { getChildRecordValidationError };
+module.exports = { getChildNameValidationError, getChildRecordValidationError };

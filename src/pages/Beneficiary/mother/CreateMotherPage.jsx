@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { MotherFormFields, OTHER_MATERNAL_VACCINES } from './BeneficiaryMother';
-import { calculateGestationalDetails, getInitialCheckups } from '../../../utils/beneficiaryHelpers';
+import { calculateGestationalDetails } from '../../../utils/beneficiaryHelpers';
 import { useMothers } from '../../../context/MothersContext';
 import { apiCreateMother, apiUploadMotherDocuments } from '../../../api/mothers';
 import { useAuth } from '../../../auth/AuthProvider';
@@ -13,6 +13,7 @@ import { calculateTotalChildren, getMaternalBirthCountErrors } from '../../../ut
 import { getMotherIdentityErrors } from '../../../utils/motherIdentity';
 import { hasMaternalHighRiskTriggers } from '../../../utils/maternalRisk';
 import { getMaternalVaccineDateErrors } from '../../../utils/maternalVaccineDates';
+import { getBloodPressureError } from '../../../utils/bloodPressure';
 
 const MOTHER_DRAFT_KEY = 'f1kd.create-mother.draft';
 const MATERNAL_BIRTH_COUNT_INPUT_IDS = {
@@ -222,6 +223,7 @@ export default function CreateMotherPage({
   const [createActiveTab, setCreateActiveTab] = useState('general');
   const maternalBirthCountErrors = getMaternalBirthCountErrors(communityForm);
   const vaccineDateErrors = getMaternalVaccineDateErrors(communityForm);
+  const prenatalBpError = showRequiredValidation ? getBloodPressureError(communityForm.prenatalBp) : '';
   const motherIdentityErrors = showRequiredValidation ? getMotherIdentityErrors(communityForm) : {};
   const dentistLicenseValue = String(communityForm.dentistLicense ?? '').trim();
   const dentistLicenseError = dentistLicenseValue && !/^\d+$/.test(dentistLicenseValue)
@@ -283,6 +285,15 @@ export default function CreateMotherPage({
       notifyAction(`Complete the required fields in ${currentStep.label} before continuing.`, 'error');
       return;
     }
+    if (createActiveTab === 'prenatal') {
+      const bloodPressureError = getBloodPressureError(communityForm.prenatalBp);
+      if (bloodPressureError) {
+        setShowRequiredValidation(true);
+        document.getElementById('prenatal-bp')?.focus();
+        notifyAction(bloodPressureError, 'error');
+        return;
+      }
+    }
     if (createActiveTab === 'general') {
       const identityErrors = getMotherIdentityErrors(communityForm);
       const invalidField = Object.keys(identityErrors)[0];
@@ -338,6 +349,14 @@ export default function CreateMotherPage({
       notifyAction(`Complete the required fields in ${incompleteStep.label} before creating.`, 'error');
       return;
     }
+    const bloodPressureError = getBloodPressureError(communityForm.prenatalBp);
+    if (bloodPressureError) {
+      setShowRequiredValidation(true);
+      setCreateActiveTab('prenatal');
+      document.getElementById('prenatal-bp')?.focus();
+      notifyAction(bloodPressureError, 'error');
+      return;
+    }
     const identityErrors = getMotherIdentityErrors(communityForm);
     const invalidIdentityField = Object.keys(identityErrors)[0];
     if (invalidIdentityField) {
@@ -384,15 +403,6 @@ export default function CreateMotherPage({
       notifyAction(Object.values(vaccineDateErrors)[0], 'error');
       return;
     }
-    const initialCheckups = getInitialCheckups(
-      communityForm.trimester,
-      communityForm.prenatalBp,
-      communityForm.prenatalWeight || communityForm.weight,
-      communityForm.fundalHeight,
-      communityForm.fhr,
-      communityForm.prenatalRegDate,
-      communityForm.lmpDate
-    );
     const { gestationalAge, trimester } = calculateGestationalDetails(communityForm.lmpDate, communityForm.prenatalRegDate);
     const resolvedTrimester = trimester || communityForm.trimester;
     const resolvedGestationalAge = gestationalAge || communityForm.gestationalAge;
@@ -586,7 +596,6 @@ export default function CreateMotherPage({
       batch: communityForm.batch,
       records: 0,
       progress: 0,
-      checkups: initialCheckups,
       };
 
       if (typeof setMothers === 'function') {
@@ -678,6 +687,7 @@ export default function CreateMotherPage({
                 ...maternalBirthCountErrors,
                 ...motherIdentityErrors,
                 ...vaccineDateErrors,
+                ...(prenatalBpError ? { prenatalBp: prenatalBpError } : {}),
                 ...(dentistLicenseError ? { dentistLicense: dentistLicenseError } : {}),
               }}
             />

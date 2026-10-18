@@ -4,6 +4,7 @@ const { getWhoGrowthStandards } = require('../services/whoGrowthStandards');
 const { normalizeRole } = require('../middleware/authorize');
 const {
   ProgressReportAIError,
+  createBeneficiaryAssistantIntent,
   createAdminAssistantIntent,
   createDashboardInsight,
   createEntryAssistance,
@@ -127,6 +128,17 @@ router.post('/ai/monitoring-report', async (req, res) => {
     const status = error instanceof ProgressReportAIError ? error.status : 502;
     console.error('[Progress Report AI] monitoring report error:', error.message);
     res.status(status).json({ error: error.message || 'Unable to prepare a monitoring report.' });
+  }
+});
+
+router.post('/ai/beneficiary-assistant', async (req, res) => {
+  try {
+    const intent = await createBeneficiaryAssistantIntent(req.body?.prompt);
+    res.json(intent);
+  } catch (error) {
+    const status = error instanceof ProgressReportAIError ? error.status : 502;
+    console.error('[Progress Report AI] beneficiary assistant error:', error.message);
+    res.status(status).json({ error: error.message || 'Unable to prepare a beneficiary assistant request.' });
   }
 });
 
