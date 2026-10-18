@@ -954,6 +954,17 @@ router.post('/:id/claims', async (req, res) => {
       [result.insertId, mother.id],
     );
     if (!rows.length) throw new Error('Inserted PhilHealth claim could not be read back.');
+    await createSuperadminNotification({
+      eventType: 'beneficiary.claim.created',
+      category: 'Beneficiaries',
+      title: 'PhilHealth claim created',
+      message: `PhilHealth claim record for ${[mother.first_name, mother.last_name].filter(Boolean).join(' ')} was created.`,
+      entityType: 'philhealth_claim',
+      entityId: result.insertId,
+      schoolId: mother.community_id,
+      groupId: mother.group_id,
+      actorUserId: req.user?.id,
+    });
     res.status(201).json({ claim: rows[0] });
   } catch (error) {
     console.error('[Mothers API] POST /:id/claims error:', error.code || 'UNKNOWN', error.message);
@@ -1003,6 +1014,17 @@ router.put('/:id/claims/:claimId', async (req, res) => {
       [claimId, mother.id],
     );
     if (!rows.length) return res.status(404).json({ error: 'PhilHealth claim not found' });
+    await createSuperadminNotification({
+      eventType: 'beneficiary.claim.updated',
+      category: 'Beneficiaries',
+      title: 'PhilHealth claim updated',
+      message: `PhilHealth claim record #${claimId} for ${[mother.first_name, mother.last_name].filter(Boolean).join(' ')} was updated.`,
+      entityType: 'philhealth_claim',
+      entityId: claimId,
+      schoolId: mother.community_id,
+      groupId: mother.group_id,
+      actorUserId: req.user?.id,
+    });
     res.json({ claim: rows[0] });
   } catch (error) {
     console.error('[Mothers API] PUT /:id/claims/:claimId error:', error.code || 'UNKNOWN', error.message);

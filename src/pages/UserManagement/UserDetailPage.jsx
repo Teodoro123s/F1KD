@@ -6,7 +6,7 @@ import { generatePassword, formatDobForInput } from './lib';
 import { apiGetManagedHealthWorker, apiGetUser, apiUpdateUser } from '../../api/users';
 import { apiGetActivityReport } from '../../api/reports';
 import { getSummary } from '../Community/communityService';
-import { isCommunityCoordinatorRole, isHealthWorkerRole } from '../../utils/permissions';
+import { hasRole, isCommunityCoordinatorRole, isHealthWorkerRole, ROLES } from '../../utils/permissions';
 import { useAuth } from '../../auth/AuthProvider';
 import CommunityTable from '../Community/CommunityTable';
 import CommunityPagination from '../Community/components/CommunityPagination';
@@ -20,7 +20,15 @@ function formatActivityDate(value) {
 }
 
 function formatActivityAction(action) {
-  if (action === 'sign_in') return 'Signed in';
+  const labels = {
+    create: 'Created',
+    update: 'Edited',
+    delete: 'Deleted',
+    sign_in: 'Signed in',
+    suspend: 'Suspended',
+    reactivate: 'Reactivated',
+  };
+  if (labels[action]) return labels[action];
   return String(action || '')
     .replace(/[._-]+/g, ' ')
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
@@ -59,6 +67,8 @@ export default function UserDetailPage() {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const isCoordinator = isCommunityCoordinatorRole(currentUser?.role);
+  const isSuperAdmin = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]);
+  const canViewUserActivity = isCoordinator || isSuperAdmin;
   const [communities, setCommunities] = useState([]);
   const [groups, setGroups] = useState([]);
   const [selectedCard, setSelectedCard] = useState('profile');
@@ -141,7 +151,7 @@ export default function UserDetailPage() {
   const activityUserId = String(user.id || id).replace(/^USR-/, '');
 
   useEffect(() => {
-    if (isCoordinator || selectedCard !== 'activity' || !/^\d+$/.test(activityUserId)) return undefined;
+    if (!canViewUserActivity || selectedCard !== 'activity' || !/^\d+$/.test(activityUserId)) return undefined;
     let active = true;
     setActivityLoading(true);
     setActivityError('');
@@ -163,7 +173,7 @@ export default function UserDetailPage() {
         if (active) setActivityLoading(false);
       });
     return () => { active = false; };
-  }, [isCoordinator, selectedCard, activityUserId, activityPage, activityPerPage]);
+  }, [canViewUserActivity, selectedCard, activityUserId, activityPage, activityPerPage]);
 
   const displayName = user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || id;
   const isCommunityOrganizer = isCommunityCoordinatorRole(user.role);
@@ -217,11 +227,26 @@ export default function UserDetailPage() {
       renderCell: (row) => (
         <div>
           <strong>{formatActivityAction(row.action)}</strong>
+          {row.category && <div className="user-activity-muted">{row.category}</div>}
           {row.description && <div className="user-activity-muted">{row.description}</div>}
         </div>
       ),
     },
-    { key: 'entityType', header: 'Record type' },
+    {
+      key: 'signature',
+      header: 'Signed by',
+      renderCell: (row) => (
+        <div>
+          <strong>{row.actorName || 'Unknown user'}</strong>
+          {row.actorRole && <div className="user-activity-muted">{row.actorRole}</div>}
+        </div>
+      ),
+    },
+    {
+      key: 'record',
+      header: 'Record',
+      renderCell: (row) => [row.entityType, row.entityId ? `#${row.entityId}` : ''].filter(Boolean).join(' ') || '—',
+    },
   ];
   const activityRangeStart = activityReport.total ? (activityPage - 1) * activityPerPage + 1 : 0;
   const activityRangeEnd = Math.min(activityPage * activityPerPage, activityReport.total || 0);
@@ -243,7 +268,7 @@ export default function UserDetailPage() {
         <h3 className="mother-detail-section-title">{isHealthWorker ? 'Health Worker Actions' : 'User Actions'}</h3>
         <div className="mother-detail-actions mother-overview-actions">
           <button type="button" className={selectedCard === 'profile' ? 'btn-primary' : 'btn-secondary'} onClick={() => setSelectedCard('profile')}>User Profile</button>
-          {!isCoordinator && (
+          {canViewUserActivity && (
             <button
               type="button"
               className={selectedCard === 'activity' ? 'btn-primary' : 'btn-secondary'}
@@ -253,7 +278,7 @@ export default function UserDetailPage() {
                 if (isHealthWorker) setActivityView('table');
               }}
             >
-              {isHealthWorker ? 'Reports' : 'Actions Performed'}
+              Activity Logs
             </button>
           )}
         </div>
@@ -296,7 +321,8 @@ export default function UserDetailPage() {
 
       {selectedCard === 'activity' && (
         <section className="user-activity-panel" aria-label={`${displayName} activity report`}>
-          <h2>{isHealthWorker ? `Reports: ${displayName}` : `Actions performed by ${displayName}`}</h2>
+          <h2>Activity logs for {displayName}</h2>
+          <p>Recorded changes show who created, edited, or deleted a record. Older actions are available only when the system stored an audit event or signature.</p>
           {activityError && <div role="alert" className="error-message">{activityError}</div>}
           <div className="user-activity-view-switch" role="group" aria-label="User activity view">
             <button type="button" aria-pressed={activityView === 'graph'} className={activityView === 'graph' ? 'is-active' : ''} onClick={() => setActivityView('graph')}>Graph view</button>
@@ -312,14 +338,15 @@ export default function UserDetailPage() {
                 ], `user-activity-graph-${activityUserId}.csv`)
                 : exportActivityCsv(activityReport.activities.map((row) => ({
                   ...row,
-                  activity: row.description
-                    ? `${formatActivityAction(row.action)} — ${row.description}`
-                    : formatActivityAction(row.action),
-                })), [
-                  { key: 'createdAt', label: 'Date & Time' },
-                  { key: 'activity', label: 'Activity' },
-                  { key: 'entityType', label: 'Record Type' },
-                ], `user-activity-table-${activityUserId}.csv`)}
+                  signature: [row.actorName, row.actorRole].filter(Boolean).join(' · '),
+                  record: [row.entityType, row.entityId ? `#${row.entityId}` : ''].filter(Boolean).join(' ') || '—',
+                  activity: [formatActivityAction(row.action), row.category, row.description].filter(Boolean).join(' — '),
+                  })), [
+                    { key: 'createdAt', label: 'Date & Time' },
+                    { key: 'activity', label: 'Activity' },
+                    { key: 'signature', label: 'Signature' },
+                    { key: 'record', label: 'Record' },
+                  ], `user-activity-table-${activityUserId}.csv`)}
             >
               Download {activityView === 'graph' ? 'graph data' : 'table page'} CSV
             </button>

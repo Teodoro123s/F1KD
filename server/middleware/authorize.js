@@ -24,7 +24,7 @@ const normalizeRole = (role) => {
 
 const isHealthWorkerRole = (role) => normalizeRole(role) === 'health_worker';
 const isCommunityCoordinatorRole = (role) => normalizeRole(role) === 'community_coordinator';
-const canViewAuditSignatures = (role) => ['admin', 'community_coordinator', 'partner'].includes(normalizeRole(role));
+const canViewAuditSignatures = (role) => ['super_admin', 'admin', 'community_coordinator', 'partner'].includes(normalizeRole(role));
 
 const permissionResponse = (res, message = 'Forbidden') => {
   const payload = {
@@ -76,7 +76,7 @@ const isHealthWorkerChildUpdate = (req) => (
 const isReadOnlyReportAssistantRequest = (req) => (
   req.baseUrl === '/api/progress-report'
   && req.method === 'POST'
-  && /^\/ai\/(proposal|summary|monitoring-report|beneficiary-assistant|entry-assist|admin-assistant|dashboard-insight)\/?$/.test(req.path)
+  && /^\/ai\/(proposal|summary|monitoring-report|program-assistant|beneficiary-assistant|entry-assist|admin-assistant|dashboard-insight)\/?$/.test(req.path)
 );
 
 function authorize(...allowedRoles) {
@@ -170,8 +170,9 @@ function authorizeProgressReport(req, res, next) {
   const isBeneficiaryAssistant = req.method === 'POST' && /^\/ai\/beneficiary-assistant\/?$/.test(req.path);
   const isAdminAssistant = req.method === 'POST' && /^\/ai\/admin-assistant\/?$/.test(req.path);
   const isDashboardInsight = req.method === 'POST' && /^\/ai\/dashboard-insight\/?$/.test(req.path);
+  const isProgramAssistant = req.method === 'POST' && /^\/ai\/program-assistant\/?$/.test(req.path);
   const isAiStatus = req.method === 'GET' && /^\/ai\/status\/?$/.test(req.path);
-  if ((isDashboardInsight || isAiStatus) && ['super_admin', 'admin', 'partner', 'community_coordinator', 'health_worker'].includes(userRole)) return next();
+  if ((isDashboardInsight || isProgramAssistant || isAiStatus) && ['super_admin', 'admin', 'partner', 'community_coordinator', 'health_worker'].includes(userRole)) return next();
   if (userRole === 'super_admin' && (isMonitoringAssistant || isBeneficiaryAssistant || isAdminAssistant)) return next();
   if (isBeneficiaryAssistant && ['admin', 'partner', 'community_coordinator', 'health_worker'].includes(userRole)) return next();
   if (isAdminAssistant && userRole === 'community_coordinator') return next();

@@ -4,10 +4,12 @@ const pool = require('../db');
 const { createSuperadminNotification } = require('../services/notifications');
 const { canViewAuditSignatures } = require('../middleware/authorize');
 const { programScopesBelongToSchool } = require('../utils/programScope');
+const { getProgramVisibilityFilter } = require('../utils/programAccess');
 
 router.use((req, res, next) => {
   const isMonitoringUpdate = req.method === 'PATCH' && /\/monitoring$/.test(req.path);
-  if (req.isHealthWorker && req.method !== 'GET' && !isMonitoringUpdate) {
+  const isProgramAssistant = req.method === 'POST' && /^\/ai\/assistant\/?$/.test(req.path);
+  if (req.isHealthWorker && req.method !== 'GET' && !isMonitoringUpdate && !isProgramAssistant) {
     return res.status(403).json({ error: 'Health workers have read-only access to programs' });
   }
   return next();
@@ -181,52 +183,8 @@ router.get('/', async (req, res) => {
     return res.status(403).json({ error: 'Health workers must be assigned to a group to view programs' });
   }
   try {
-    const scopeClause = req.groupId
-      ? `WHERE (
-          EXISTS (
-            SELECT 1
-            FROM program_clusters scoped_cluster
-            INNER JOIN \`groups\` assigned_group ON assigned_group.id = ?
-            WHERE scoped_cluster.program_id = p.id
-              AND (
-                (scoped_cluster.scope_type = 'Group' AND scoped_cluster.scope_name = assigned_group.name)
-                OR (scoped_cluster.scope_type = 'School' AND EXISTS (
-                  SELECT 1 FROM communities scoped_school
-                  WHERE scoped_school.id = assigned_group.community_id AND scoped_school.name = scoped_cluster.scope_name
-                ))
-                OR (scoped_cluster.scope_type = 'Batch' AND EXISTS (
-                  SELECT 1 FROM group_batch scoped_group_batch
-                  INNER JOIN batches scoped_batch ON scoped_batch.id = scoped_group_batch.batch_id
-                  WHERE scoped_group_batch.group_id = assigned_group.id AND scoped_batch.name = scoped_cluster.scope_name
-                ))
-              )
-          )
-        )`
-      : req.schoolId
-      ? `WHERE (
-          NOT EXISTS (SELECT 1 FROM program_clusters scoped_cluster WHERE scoped_cluster.program_id = p.id)
-          OR EXISTS (
-            SELECT 1
-            FROM program_clusters scoped_cluster
-            WHERE scoped_cluster.program_id = p.id
-              AND (
-                (scoped_cluster.scope_type = 'School' AND EXISTS (
-                  SELECT 1 FROM communities scoped_school
-                  WHERE scoped_school.id = ? AND scoped_school.name = scoped_cluster.scope_name
-                ))
-                OR (scoped_cluster.scope_type = 'Group' AND EXISTS (
-                  SELECT 1 FROM groups scoped_group
-                  WHERE scoped_group.community_id = ? AND scoped_group.name = scoped_cluster.scope_name
-                ))
-                OR (scoped_cluster.scope_type = 'Batch' AND EXISTS (
-                  SELECT 1 FROM batches scoped_batch
-                  WHERE scoped_batch.community_id = ? AND scoped_batch.name = scoped_cluster.scope_name
-                ))
-              )
-          )
-        )`
-      : '';
-    const [rows] = await pool.query(`SELECT p.* FROM programs p ${scopeClause} ORDER BY p.id DESC`, req.groupId ? [req.groupId] : req.schoolId ? [req.schoolId, req.schoolId, req.schoolId] : []);
+    const visibility = getProgramVisibilityFilter(req);
+    const [rows] = await pool.query(`SELECT p.* FROM programs p ${visibility.sql} ORDER BY p.id DESC`, visibility.values);
     const programs = await Promise.all(rows.map((row) => getProgram(row.id)));
     res.json({ programs });
   } catch (error) {

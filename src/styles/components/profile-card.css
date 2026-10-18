@@ -793,6 +793,7 @@
 .program-table-heading > .community-table-search { flex: 0 1 320px; width: 100%; padding: 0; border: 0; }
 .program-table-heading > .community-table-search .search-container { width: 100%; }
 .program-list-table { table-layout: fixed; min-width: 760px; }
+.program-ai-results-table { min-width: 760px; }
 .program-list-column-name { width: 27%; }
 .program-list-column-coverage { width: 37%; }
 .program-list-column-recipients { width: 14%; }

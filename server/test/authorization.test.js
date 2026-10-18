@@ -15,12 +15,12 @@ test('normalizeRole maps common role labels to canonical values', () => {
   assert.equal(normalizeRole('Health worker'), 'health_worker');
 });
 
-test('audit signatures are visible only to community coordinators, admins, and partners', () => {
-  for (const role of ['Community Organizer', 'Community Coordinator', 'Admin', 'Partner']) {
+test('audit signatures are visible only to authorized operational and administrative roles', () => {
+  for (const role of ['Super Admin', 'Community Organizer', 'Community Coordinator', 'Admin', 'Partner']) {
     assert.equal(canViewAuditSignatures(role), true);
   }
 
-  for (const role of ['Super Admin', 'Health worker', 'viewer']) {
+  for (const role of ['Health worker', 'viewer']) {
     assert.equal(canViewAuditSignatures(role), false);
   }
 });
@@ -127,6 +127,31 @@ test('authorizeProgressReport permits dashboard insights and AI availability for
   authorizeProgressReport({
     method: 'POST',
     path: '/ai/dashboard-insight',
+    user: { role: 'viewer' },
+  }, res, () => { viewerCalled = true; });
+  assert.equal(viewerCalled, false);
+  assert.equal(res.code, 403);
+});
+
+test('authorizeProgressReport permits the read-only Program assistant for operational roles only', () => {
+  for (const role of ['Super Admin', 'Admin', 'Partner', 'Community Organizer', 'Health worker']) {
+    let called = false;
+    authorizeProgressReport({
+      method: 'POST',
+      path: '/ai/program-assistant',
+      user: { role },
+    }, {}, () => { called = true; });
+    assert.equal(called, true, `${role} should be able to request a Program filter`);
+  }
+
+  let viewerCalled = false;
+  const res = {
+    status(code) { this.code = code; return this; },
+    json(payload) { this.payload = payload; return this; },
+  };
+  authorizeProgressReport({
+    method: 'POST',
+    path: '/ai/program-assistant',
     user: { role: 'viewer' },
   }, res, () => { viewerCalled = true; });
   assert.equal(viewerCalled, false);
@@ -477,6 +502,16 @@ test('authorizeOperational keeps child profile updates restricted to health work
         return this;
       },
     };
+
+    let programAssistantCalled = false;
+    authorizeOperational({
+      baseUrl: '/api/progress-report',
+      method: 'POST',
+      path: '/ai/program-assistant',
+      user: { role: 'Health worker', school_id: 123, group_id: 456 },
+    }, {}, () => { programAssistantCalled = true; });
+    assert.equal(programAssistantCalled, true, 'Program AI assistant should be treated as a read-only assistant request');
+
     let called = false;
     authorizeOperational(req, res, () => { called = true; });
     assert.equal(called, false);

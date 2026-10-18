@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filterProgramBeneficiaryRecords, filterPrograms, recordMatchesProgramScope } from './programData.js';
+import {
+  filterProgramBeneficiaryRecords,
+  filterPrograms,
+  recordMatchesProgramScope,
+} from './programData.js';
 
 test('group coverage includes all beneficiaries in the selected group', () => {
   const program = {
@@ -73,10 +77,11 @@ test('legacy recipient exclusions do not remove beneficiaries from a selected sc
 
 test('program search is case-insensitive while preserving status filters', () => {
   const programs = [
-    { name: 'Mabini Nutrition Support', status: 'Active' },
+    { name: 'Mabini Nutrition Support', status: 'Active', community: 'Cebu' },
     { name: 'Mabini Wellness', status: 'Ended' },
   ];
 
   assert.deepEqual(filterPrograms(programs, 'mAbInI nUtRiTiOn', 'Active'), [programs[0]]);
+  assert.deepEqual(filterPrograms(programs, 'nutrition cebu', 'Active'), [programs[0]]);
   assert.deepEqual(filterPrograms(programs, 'MABINI', 'Ended'), [programs[1]]);
 });

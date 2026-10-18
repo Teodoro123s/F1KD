@@ -13,6 +13,7 @@ import {
 } from "../Community/CommunityIcons";
 import ModuleSummaryCards from '../../components/ui/ModuleSummaryCards';
 import TableSearch from '../../components/ui/TableSearch';
+import ProgramAiAssistant from './ProgramAiAssistant';
 import { getSummary } from "../Community/communityService";
 import { apiGetChildren } from "../../api/children";
 import { apiCompleteNamedProgramCluster, apiCompleteProgramCluster, apiCreateProgram, apiCreateProgramClusters, apiDeleteProgram, apiEndProgram, apiGetProgramMonitoring, apiGetPrograms, apiRestoreProgram, apiSetProgramMonitoring, apiUpdateProgram } from "../../api/programs";
@@ -46,8 +47,9 @@ export default function ProgramPage() {
   const canDeletePrograms = isCommunityOrganizer;
   const canEndPrograms = isCommunityOrganizer;
   const canMonitorPrograms = canCreatePrograms || isHealthWorkerRole(currentUser?.role);
-  const [activeTab, setActiveTab] = useState("Active");
+  const [activeTab, setActiveTab] = useState(null);
   const [query, setQuery] = useState("");
+  const [programAssistantResult, setProgramAssistantResult] = useState(null);
   const [programs, setPrograms] = useState([]);
   const [isLiveDataLoaded, setIsLiveDataLoaded] = useState(false);
   const viewMode = Boolean(programId);
@@ -416,8 +418,9 @@ export default function ProgramPage() {
   };
 
   const filteredPrograms = useMemo(() => {
-    return filterPrograms(programs, query, activeTab);
+    return filterPrograms(programs, query, activeTab || 'All');
   }, [programs, query, activeTab]);
+  const showingProgramAssistantResults = !viewMode && Boolean(programAssistantResult);
 
   const saveProgram = async (event) => {
     event.preventDefault();
@@ -1106,6 +1109,12 @@ export default function ProgramPage() {
         }
       />
 
+      <ProgramAiAssistant
+        currentProgramId={viewMode ? selectedProgram?.id || null : null}
+        result={programAssistantResult}
+        onResult={setProgramAssistantResult}
+      />
+
       {viewMode && selectedProgram && (
         <section className="program-detail-panel" aria-labelledby="program-overview-title">
           <div className="program-detail-header">
@@ -1160,7 +1169,11 @@ export default function ProgramPage() {
       {!viewMode && (
         <ModuleSummaryCards
           selected={activeTab}
-          onSelect={setActiveTab}
+          toggleOnSelect
+          onSelect={(tab) => {
+            setActiveTab(tab);
+            setProgramAssistantResult(null);
+          }}
           cards={[
             { key: 'All', label: 'Total Programs', value: programs.length },
             { key: 'Active', label: 'Active Programs', value: filterPrograms(programs, '', 'Active').length },
@@ -1169,15 +1182,18 @@ export default function ProgramPage() {
         />
       )}
 
-      <section className="table-card program-table-card">
+      <section className="table-card program-table-card" hidden={!viewMode && !activeTab && !showingProgramAssistantResults}>
         <div className="program-table-heading">
           <div>
-            <h2>{viewMode ? 'Program coverage' : 'Programs'}</h2>
+            <h2>{viewMode ? 'Program coverage' : showingProgramAssistantResults ? 'AI Program results' : 'Programs'}</h2>
           </div>
-          {!viewMode && (
+          {!viewMode && !showingProgramAssistantResults && (
             <TableSearch
               value={query}
-              onChange={setQuery}
+              onChange={(value) => {
+                setQuery(value);
+                setProgramAssistantResult(null);
+              }}
               placeholder="Search programs, partners, or communities"
             />
           )}
@@ -1356,8 +1372,8 @@ export default function ProgramPage() {
                 </tbody>
               </table>
             );
-          })(                    ) : <table className={`data-table ${!clusterView && !viewMode ? 'program-list-table' : ''}`}>
-            {!clusterView && !viewMode && (
+          })(                    ) : <table className={`data-table ${showingProgramAssistantResults ? 'program-ai-results-table' : !clusterView && !viewMode ? 'program-list-table' : ''}`}>
+            {!clusterView && !viewMode && !showingProgramAssistantResults && (
               <colgroup>
                 <col className="program-list-column-name" />
                 <col className="program-list-column-coverage" />
@@ -1366,7 +1382,61 @@ export default function ProgramPage() {
                 <col className="program-list-column-actions" />
               </colgroup>
             )}
-            {clusterView && selectedCluster ? (
+            {showingProgramAssistantResults ? (
+              <>
+                <thead>
+                  <tr>
+                    <th>Program</th>
+                    <th>Status</th>
+                    <th>Eligible beneficiaries</th>
+                    <th>{programAssistantResult.intent?.yearBasis === 'checkin' && programAssistantResult.intent?.year ? `Check-ins (${programAssistantResult.intent.year})` : 'All-time check-ins'}</th>
+                    <th>Beneficiaries checked in</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {programAssistantResult.programs?.length ? (
+                    programAssistantResult.programs.map((program) => (
+                      <tr
+                        key={program.id}
+                        className="program-clickable-row"
+                        onClick={() => navigate(`/program/${program.id}`)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            navigate(`/program/${program.id}`);
+                          }
+                        }}
+                        tabIndex={0}
+                        role="button"
+                      >
+                        <td>
+                          <a className="program-row-link" href={`/program/${program.id}`} onClick={(event) => event.stopPropagation()}>
+                            <strong>{program.name}</strong>
+                            <span className="program-table-meta program-list-meta">
+                              {[program.type, program.provider].filter(Boolean).join(' · ')}
+                            </span>
+                          </a>
+                        </td>
+                        <td>
+                          <span className={`program-status ${String(program.status || '').toLowerCase() === 'ended' ? 'ended' : 'active'}`}>
+                            {program.status || 'Unknown'}
+                          </span>
+                        </td>
+                        <td>{Number(program.eligibleBeneficiaries || 0).toLocaleString()}</td>
+                        <td>{Number(program.checkIns || 0).toLocaleString()}</td>
+                        <td>{Number(program.checkedInBeneficiaries || 0).toLocaleString()}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="5" className="no-data">
+                        No saved programs matched your question in the Program data available to your account.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </>
+            ) : clusterView && selectedCluster ? (
               <>
                 <thead>
                   <tr>

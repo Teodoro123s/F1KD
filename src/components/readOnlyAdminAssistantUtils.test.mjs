@@ -43,3 +43,30 @@ test('setup intents do not filter or summarize any records', () => {
   assert.deepEqual(filterAdminAssistantRecords(records, { mode: 'setup' }), []);
   assert.deepEqual(summarizeAdminAssistantRecords([], 'status'), []);
 });
+
+test('community batch lookups can include close name matches when requested', () => {
+  const batches = [
+    { id: 5, name: 'BATCHBAYOT', status: 'Active', entityType: 'Batch' },
+    { id: 6, name: 'BATCHBAYANI', status: 'Active', entityType: 'Batch' },
+    { id: 7, name: 'BATCHBABYOT2', status: 'Active', entityType: 'Batch' },
+    { id: 8, name: 'BATCHBAYOT', status: 'Inactive', entityType: 'Batch' },
+    { id: 9, name: 'BATCHBAYOT', status: 'Active', entityType: 'Group' },
+  ];
+  const similarMatches = filterAdminAssistantRecords(batches, {
+    mode: 'lookup',
+    searchText: 'batchbabyot2',
+    role: 'All',
+    status: 'Active',
+    entityType: 'Batch',
+    similarMatch: true,
+  });
+  assert.deepEqual(similarMatches.map((record) => record.id), [5, 7]);
+  assert.deepEqual(filterAdminAssistantRecords(batches, {
+    mode: 'lookup',
+    searchText: 'batchbabyot2',
+    role: 'All',
+    status: 'Active',
+    entityType: 'Batch',
+    similarMatch: false,
+  }), [batches[2]]);
+});

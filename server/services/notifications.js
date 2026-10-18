@@ -31,10 +31,39 @@ async function createSuperadminNotification(event, database) {
     if (hasCreatedAt) {
       params.push(new Date(event.createdAt));
     }
-    await store.query(sql, params);
+    const [result] = await store.query(sql, params);
+    if (String(event.category || 'System').trim().toLowerCase() !== 'user management' && result?.insertId) {
+      const action = getActivityAction(event.eventType);
+      try {
+        await store.query(
+          `INSERT IGNORE INTO activity_logs
+            (source_notification_id, actor_user_id, actor_name, actor_email, actor_role,
+             category, action, entity_type, entity_id, description, created_at)
+           SELECT n.id, n.actor_user_id,
+             COALESCE(NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.middle_initial, u.last_name)), ''), 'Unknown user'),
+             u.email, u.role, n.category, ?, n.entity_type, n.entity_id, n.message, n.created_at
+           FROM notifications n
+           LEFT JOIN users u ON u.id = n.actor_user_id
+           WHERE n.id = ?`,
+          [action, result.insertId],
+        );
+      } catch (error) {
+        console.error('[Activity Log] Unable to record notification activity:', error.message);
+      }
+    }
   } catch (error) {
     console.error('[Notifications] Unable to record event:', error.message);
   }
+}
+
+function getActivityAction(eventType) {
+  const type = String(eventType || '').trim().toLowerCase();
+  if (type.endsWith('.created') || type.endsWith('_created')) return 'create';
+  if (type.endsWith('.updated') || type.endsWith('_updated')) return 'update';
+  if (type.endsWith('.deleted') || type.endsWith('_deleted')) return 'delete';
+  if (type.endsWith('.suspended')) return 'suspend';
+  if (type.endsWith('.reactivated')) return 'reactivate';
+  return (type.split('.').pop() || 'change').slice(0, 60);
 }
 
 async function getBeneficiaryUpdateRecipients(database, schoolId, actorUserId) {
@@ -63,4 +92,4 @@ async function getBeneficiaryUpdateRecipients(database, schoolId, actorUserId) {
   return [...recipientIds];
 }
 
-module.exports = { createSuperadminNotification, getBeneficiaryUpdateRecipients };
+module.exports = { createSuperadminNotification, getActivityAction, getBeneficiaryUpdateRecipients };

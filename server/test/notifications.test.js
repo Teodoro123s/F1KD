@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createSuperadminNotification, getBeneficiaryUpdateRecipients } = require('../services/notifications');
+const { createSuperadminNotification, getActivityAction, getBeneficiaryUpdateRecipients } = require('../services/notifications');
 
 test('records notification event details in the notifications table', async () => {
   const calls = [];
@@ -61,6 +61,38 @@ test('records recipient user ids and resolves the editing worker with school coo
 
   await createSuperadminNotification({ message: 'Mother updated', recipientUserIds: recipients }, database);
   assert.equal(calls[1].params[10], '7,12,13');
+});
+
+test('logs non-user-management notification events as auditable record activity', async () => {
+  const calls = [];
+  const database = {
+    async query(sql, params) {
+      calls.push({ sql, params });
+      return [{ insertId: 71 }];
+    },
+  };
+
+  await createSuperadminNotification({
+    eventType: 'monitoring.child.checkup_updated',
+    category: 'Monitoring',
+    message: 'A check-up was updated.',
+    entityType: 'child',
+    entityId: 24,
+    actorUserId: 9,
+  }, database);
+
+  assert.equal(calls.length, 2);
+  assert.match(calls[0].sql, /INSERT INTO notifications/);
+  assert.match(calls[1].sql, /INSERT IGNORE INTO activity_logs/);
+  assert.deepEqual(calls[1].params, ['update', 71]);
+});
+
+test('maps notification event suffixes to audit actions', () => {
+  assert.equal(getActivityAction('beneficiary.mother.created'), 'create');
+  assert.equal(getActivityAction('monitoring.child.checkup_updated'), 'update');
+  assert.equal(getActivityAction('beneficiary.mother.document_deleted'), 'delete');
+  assert.equal(getActivityAction('user.suspended'), 'suspend');
+  assert.equal(getActivityAction('program.ended'), 'ended');
 });
 
 test('skips empty events and does not throw if notification storage fails', async () => {

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../db');
-const { verifyToken } = require('../middleware/auth');
+const { verifyToken, normalizeRole } = require('../middleware/auth');
 const { authorize } = require('../middleware/authorize');
 
 const normalizedRoleSql = (column) => (
@@ -14,6 +14,21 @@ const superAdminActivityExclusion = `(
     FROM users report_superadmin
     WHERE report_superadmin.id = activity_logs.actor_user_id
       AND ${normalizedRoleSql('report_superadmin.role')} = 'superadmin'
+  )
+)`;
+const duplicateNotificationActivityExclusion = `(
+  activity_logs.source_notification_id IS NULL
+  OR NOT EXISTS (
+    SELECT 1
+    FROM activity_logs direct_activity
+    WHERE direct_activity.source_notification_id IS NULL
+      AND direct_activity.actor_user_id = activity_logs.actor_user_id
+      AND direct_activity.category = activity_logs.category
+      AND direct_activity.action = activity_logs.action
+      AND direct_activity.entity_type <=> activity_logs.entity_type
+      AND direct_activity.entity_id <=> activity_logs.entity_id
+      AND direct_activity.created_at BETWEEN DATE_SUB(activity_logs.created_at, INTERVAL 5 SECOND)
+        AND DATE_ADD(activity_logs.created_at, INTERVAL 5 SECOND)
   )
 )`;
 
@@ -56,43 +71,66 @@ router.get('/users', verifyToken, authorize('super_admin'), async (req, res) => 
   }
 });
 
-router.get('/activity', verifyToken, authorize('super_admin'), async (req, res) => {
+router.get('/activity', verifyToken, authorize('super_admin', 'community_coordinator'), async (req, res) => {
   try {
     const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
     const perPage = Math.min(100, Math.max(1, Number.parseInt(req.query.perPage, 10) || 20));
     const search = String(req.query.search || '').trim();
-    const filters = [
-      "activity_logs.category = 'User Management'",
-      "activity_logs.action = 'sign_in'",
-      superAdminActivityExclusion,
-    ];
     const params = [];
     const actorUserId = req.query.actorUserId === undefined ? '' : String(req.query.actorUserId);
     const schoolId = req.query.schoolId === undefined ? '' : String(req.query.schoolId);
     const groupId = req.query.groupId === undefined ? '' : String(req.query.groupId);
 
+    if (normalizeRole(req.user?.role) === 'community_coordinator' && !actorUserId) {
+      return res.status(403).json({ error: 'Community organizers can only view activity for a managed health worker' });
+    }
     if (actorUserId) {
-      if (!/^\d+$/.test(actorUserId)) {
+      if (!/^[1-9]\d*$/.test(actorUserId)) {
         return res.status(400).json({ error: 'actorUserId must be a positive integer' });
       }
-      filters.push('actor_user_id = ?');
+      if (normalizeRole(req.user?.role) === 'community_coordinator') {
+        const schoolIdForOrganizer = Number(req.user?.school_id);
+        if (!Number.isSafeInteger(schoolIdForOrganizer) || schoolIdForOrganizer < 1) {
+          return res.status(403).json({ error: 'Assign this Community Organizer to a school before viewing activity' });
+        }
+        const [managedUsers] = await pool.query(
+          `SELECT id FROM users
+           WHERE id = ? AND school_id = ?
+             AND ${normalizedRoleSql('role')} = 'healthworker'
+           LIMIT 1`,
+          [Number(actorUserId), schoolIdForOrganizer],
+        );
+        if (!managedUsers.length) {
+          return res.status(404).json({ error: 'Managed health worker not found' });
+        }
+      }
+    }
+
+    const filters = actorUserId
+      ? ['activity_logs.actor_user_id = ?', superAdminActivityExclusion, duplicateNotificationActivityExclusion]
+      : [
+        "activity_logs.category = 'User Management'",
+        "activity_logs.action = 'sign_in'",
+        superAdminActivityExclusion,
+      ];
+    if (actorUserId) {
       params.push(Number(actorUserId));
     }
     if (schoolId) {
-      if (!/^\d+$/.test(schoolId)) {
+      if (!/^[1-9]\d*$/.test(schoolId)) {
         return res.status(400).json({ error: 'schoolId must be a positive integer' });
       }
       filters.push('EXISTS (SELECT 1 FROM users report_actor WHERE report_actor.id = activity_logs.actor_user_id AND report_actor.school_id = ?)');
       params.push(Number(schoolId));
     }
     if (groupId) {
-      if (!/^\d+$/.test(groupId)) {
+      if (!/^[1-9]\d*$/.test(groupId)) {
         return res.status(400).json({ error: 'groupId must be a positive integer' });
       }
       filters.push('EXISTS (SELECT 1 FROM users report_actor WHERE report_actor.id = activity_logs.actor_user_id AND report_actor.group_id = ?)');
       params.push(Number(groupId));
     }
-    const scopeWhere = `WHERE ${filters.join(' AND ')}`;
+    const scopeFilters = [...filters];
     const scopeParams = [...params];
     if (search) {
       filters.push('(actor_name LIKE ? OR actor_email LIKE ? OR action LIKE ? OR description LIKE ? OR entity_type LIKE ?)');
@@ -109,6 +147,10 @@ router.get('/activity', verifyToken, authorize('super_admin'), async (req, res) 
     }
 
     const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
+    const summaryFilters = actorUserId
+      ? [...scopeFilters, "activity_logs.category = 'User Management'", "activity_logs.action = 'sign_in'"]
+      : scopeFilters;
+    const summaryWhere = `WHERE ${summaryFilters.join(' AND ')}`;
     const [countRows] = await pool.query(
       `SELECT COUNT(*) AS total
        FROM activity_logs ${where}`,
@@ -117,7 +159,7 @@ router.get('/activity', verifyToken, authorize('super_admin'), async (req, res) 
     const [summaryRows] = await pool.query(
       `SELECT
         COUNT(*) AS sign_ins
-       FROM activity_logs ${scopeWhere}`,
+       FROM activity_logs ${summaryWhere}`,
       scopeParams,
     );
     const total = Number(countRows[0]?.total) || 0;

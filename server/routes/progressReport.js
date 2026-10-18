@@ -9,10 +9,13 @@ const {
   createDashboardInsight,
   createEntryAssistance,
   createMonitoringReportIntent,
+  createProgramAssistantIntent,
   createReportProposal,
   createReportSummary,
   getAIConfiguration,
 } = require('../utils/progressReportAI');
+const { createProgramAssistantResult } = require('../services/programAssistant');
+const { getProgramVisibilityFilter } = require('../utils/programAccess');
 
 const router = express.Router();
 
@@ -128,6 +131,41 @@ router.post('/ai/monitoring-report', async (req, res) => {
     const status = error instanceof ProgressReportAIError ? error.status : 502;
     console.error('[Progress Report AI] monitoring report error:', error.message);
     res.status(status).json({ error: error.message || 'Unable to prepare a monitoring report.' });
+  }
+});
+
+router.post('/ai/program-assistant', async (req, res) => {
+  const currentProgramId = req.body?.currentProgramId;
+  if (currentProgramId !== undefined && currentProgramId !== null && (!Number.isSafeInteger(Number(currentProgramId)) || Number(currentProgramId) < 1)) {
+    return res.status(400).json({ error: 'Invalid current Program selection.' });
+  }
+  if (req.isHealthWorker && !req.groupId) {
+    return res.status(403).json({ error: 'Health workers must be assigned to a group to use the Program assistant' });
+  }
+  try {
+    if (currentProgramId !== undefined && currentProgramId !== null) {
+      const visibility = getProgramVisibilityFilter(req);
+      const [visiblePrograms] = await pool.query(
+        `SELECT p.id FROM programs p ${visibility.sql} ${visibility.sql ? 'AND' : 'WHERE'} p.id = ?`,
+        [...visibility.values, Number(currentProgramId)],
+      );
+      if (!visiblePrograms.length) return res.status(403).json({ error: 'This program is not available to your account.' });
+    }
+    const intent = await createProgramAssistantIntent(req.body?.prompt, {
+      hasCurrentProgram: currentProgramId !== undefined && currentProgramId !== null,
+      currentYear: new Date().getFullYear(),
+    });
+    const result = await createProgramAssistantResult({
+      req,
+      intent,
+      currentProgramId,
+      pool,
+    });
+    res.json(result);
+  } catch (error) {
+    const status = error instanceof ProgressReportAIError ? error.status : error.status || 500;
+    console.error('[Program AI] assistant error:', error.message);
+    res.status(status).json({ error: error.message || 'Unable to answer the Program question.' });
   }
 });
 

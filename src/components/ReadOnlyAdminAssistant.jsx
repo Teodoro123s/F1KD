@@ -69,7 +69,7 @@ export default function ReadOnlyAdminAssistant({ audience, records }) {
           maxLength={500}
           minLength={3}
           required
-          placeholder={isCommunity ? 'e.g. Summarize active groups by community' : 'e.g. Find active Community Organizers'}
+          placeholder={isCommunity ? 'e.g. Find BatchBayot2 or a similar batch name' : 'e.g. Find active Community Organizers'}
         />
         <button type="submit" disabled={loading || prompt.trim().length < 3}>
           {loading ? 'Working…' : 'Ask'}
@@ -88,6 +88,7 @@ export default function ReadOnlyAdminAssistant({ audience, records }) {
       {intent && intent.mode !== 'setup' && (
         <div className="read-only-admin-assistant__result" aria-live="polite">
           <h3>{intent.mode === 'summary' ? 'Summary' : 'Matching records'} <span>({filteredRecords.length})</span></h3>
+          {intent.similarMatch && <p>Including close batch-name matches.</p>}
           {intent.mode === 'summary' ? (
             summary.length ? (
               <ul className="read-only-admin-assistant__summary-list">

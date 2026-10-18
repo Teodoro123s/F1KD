@@ -150,7 +150,8 @@ export function filterPrograms(programs, query, status) {
       .filter(Boolean)
       .join(' ');
 
-    return searchableText.toLowerCase().includes(term);
+    const normalizedSearchableText = searchableText.toLowerCase();
+    return term.split(/\s+/).every((word) => normalizedSearchableText.includes(word));
   });
 }
 

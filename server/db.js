@@ -625,9 +625,9 @@ async function ensure() {
        COALESCE(NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.middle_initial, u.last_name)), ''), 'Unknown user'),
        u.email, u.role, n.category,
        CASE
-         WHEN n.event_type LIKE '%.created' THEN 'create'
-         WHEN n.event_type LIKE '%.updated' OR n.event_type = 'user.access_updated' THEN 'update'
-         WHEN n.event_type LIKE '%.deleted' THEN 'delete'
+         WHEN n.event_type LIKE '%.created' OR RIGHT(n.event_type, 8) = '_created' THEN 'create'
+         WHEN n.event_type LIKE '%.updated' OR RIGHT(n.event_type, 8) = '_updated' OR n.event_type = 'user.access_updated' THEN 'update'
+         WHEN n.event_type LIKE '%.deleted' OR RIGHT(n.event_type, 8) = '_deleted' THEN 'delete'
          WHEN n.event_type LIKE '%.suspended' THEN 'suspend'
          WHEN n.event_type LIKE '%.reactivated' THEN 'reactivate'
          ELSE n.event_type
@@ -637,19 +637,36 @@ async function ensure() {
      FROM notifications n
      LEFT JOIN users u ON u.id = n.actor_user_id
      WHERE n.category = 'User Management';`,
+    `INSERT IGNORE INTO activity_logs
+      (source_notification_id, actor_user_id, actor_name, actor_email, actor_role,
+       category, action, entity_type, entity_id, description, created_at)
+     SELECT n.id, n.actor_user_id,
+       COALESCE(NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.middle_initial, u.last_name)), ''), 'Unknown user'),
+       u.email, u.role, n.category,
+       CASE
+         WHEN n.event_type LIKE '%.created' OR RIGHT(n.event_type, 8) = '_created' THEN 'create'
+         WHEN n.event_type LIKE '%.updated' OR RIGHT(n.event_type, 8) = '_updated' THEN 'update'
+         WHEN n.event_type LIKE '%.deleted' OR RIGHT(n.event_type, 8) = '_deleted' THEN 'delete'
+         WHEN n.event_type LIKE '%.suspended' THEN 'suspend'
+         WHEN n.event_type LIKE '%.reactivated' THEN 'reactivate'
+         ELSE n.event_type
+       END,
+       n.entity_type, CAST(n.entity_id AS CHAR), n.message, n.created_at
+     FROM notifications n
+     LEFT JOIN users u ON u.id = n.actor_user_id
+     WHERE n.category <> 'User Management';`,
     `UPDATE activity_logs a
      JOIN notifications n ON n.id = a.source_notification_id
      SET a.description = n.message,
        a.action = CASE
-         WHEN n.event_type LIKE '%.created' THEN 'create'
-         WHEN n.event_type LIKE '%.updated' OR n.event_type = 'user.access_updated' THEN 'update'
-         WHEN n.event_type LIKE '%.deleted' THEN 'delete'
+         WHEN n.event_type LIKE '%.created' OR RIGHT(n.event_type, 8) = '_created' THEN 'create'
+         WHEN n.event_type LIKE '%.updated' OR RIGHT(n.event_type, 8) = '_updated' OR n.event_type = 'user.access_updated' THEN 'update'
+         WHEN n.event_type LIKE '%.deleted' OR RIGHT(n.event_type, 8) = '_deleted' THEN 'delete'
          WHEN n.event_type LIKE '%.suspended' THEN 'suspend'
          WHEN n.event_type LIKE '%.reactivated' THEN 'reactivate'
          ELSE n.event_type
        END
-     WHERE a.source_notification_id IS NOT NULL
-       AND n.category = 'User Management';`,
+     WHERE a.source_notification_id IS NOT NULL;`,
     `CREATE TABLE IF NOT EXISTS password_reset_codes (
       email VARCHAR(255) PRIMARY KEY,
       code_hash CHAR(64) NOT NULL,

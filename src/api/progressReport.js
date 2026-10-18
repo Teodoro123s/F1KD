@@ -31,6 +31,10 @@ export const apiCreateMonitoringReportIntent = (prompt, beneficiaryType) => requ
   method: 'POST',
   body: JSON.stringify({ prompt, beneficiaryType }),
 });
+export const apiCreateProgramAssistantResponse = (prompt, currentProgramId) => requestJson(`${API_BASE}/api/progress-report/ai/program-assistant`, {
+  method: 'POST',
+  body: JSON.stringify({ prompt, currentProgramId }),
+});
 export const apiCreateBeneficiaryAssistantIntent = (prompt) => requestJson(`${API_BASE}/api/progress-report/ai/beneficiary-assistant`, {
   method: 'POST',
   body: JSON.stringify({ prompt }),

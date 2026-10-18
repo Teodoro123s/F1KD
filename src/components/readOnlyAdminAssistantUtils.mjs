@@ -7,6 +7,36 @@ const matchesSearch = (record, searchText) => {
   return terms.every((term) => searchable.includes(term));
 };
 
+const normalizeName = (value) => String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+const editDistance = (left, right) => {
+  const previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+  for (let leftIndex = 1; leftIndex <= left.length; leftIndex += 1) {
+    let diagonal = previous[0];
+    previous[0] = leftIndex;
+    for (let rightIndex = 1; rightIndex <= right.length; rightIndex += 1) {
+      const above = previous[rightIndex];
+      previous[rightIndex] = Math.min(
+        previous[rightIndex] + 1,
+        previous[rightIndex - 1] + 1,
+        diagonal + (left[leftIndex - 1] === right[rightIndex - 1] ? 0 : 1),
+      );
+      diagonal = above;
+    }
+  }
+  return previous[right.length];
+};
+
+const isSimilarBatchName = (record, searchText) => {
+  if (record.entityType !== 'Batch') return false;
+  const query = normalizeName(searchText);
+  const name = normalizeName(record.name);
+  if (!query || !name) return false;
+  const maxLength = Math.max(query.length, name.length);
+  const allowedDistance = maxLength <= 5 ? 1 : Math.min(3, Math.floor(maxLength * 0.2));
+  return editDistance(query, name) <= allowedDistance;
+};
+
 const groupLabel = (record, groupBy) => {
   if (groupBy === 'role') return record.role || 'Unspecified role';
   if (groupBy === 'status') return record.status || 'Unspecified status';
@@ -21,7 +51,10 @@ export const filterAdminAssistantRecords = (records, intent) => {
     (intent.role === 'All' || record.role === intent.role)
     && (intent.status === 'All' || String(record.status || '').toLowerCase() === intent.status.toLowerCase())
     && (intent.entityType === 'All' || record.entityType === intent.entityType)
-    && matchesSearch(record, intent.searchText)
+    && (
+      matchesSearch(record, intent.searchText)
+      || (intent.similarMatch && intent.entityType === 'Batch' && isSimilarBatchName(record, intent.searchText))
+    )
   ));
 };
 
