@@ -2,6 +2,12 @@
 
 F1KD beneficiary monitoring and reporting app.
 
+## Philippine location data
+
+The beneficiary address pickers use [`@aivangogh/ph-address`](https://www.npmjs.com/package/@aivangogh/ph-address), based on the Philippine Statistics Authority (PSA) PSGC snapshot as of June 30, 2026. It supplies 82 provinces and 42,010 barangays; NCR, the BARMM Special Geographic Area, and Isabela City are also available in the existing province-and-city fields so their localities are not omitted. Barangay lists include every entry for the selected city or municipality.
+
+The PSGC data is sourced from the [PSA](https://psa.gov.ph/classification/psgc/) and is licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The package code is separately licensed under MIT.
+
 ## Project documentation
 
 - [Superadmin user guide](./docs/SUPERADMIN.md) — role purpose, permissions, modules, recovery flow, and operational boundaries.

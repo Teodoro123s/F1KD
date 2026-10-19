@@ -373,7 +373,12 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
                 id: 'child-birth-province',
                 label: 'Birth Province',
                 name: 'birthPlaceProvince',
-                options: locationOptions?.PHILIPPINE_PROVINCES || [],
+                options: (() => {
+                  const provinces = locationOptions?.PHILIPPINE_PROVINCES || [];
+                  return form.birthPlaceProvince && !provinces.includes(form.birthPlaceProvince)
+                    ? [form.birthPlaceProvince, ...provinces]
+                    : provinces;
+                })(),
                 placeholder: locationLoadError ? 'Province options unavailable' : locationOptions ? 'Select province' : 'Loading provinces…',
                 disabled: !locationOptions || Boolean(locationLoadError),
                 onChange: (province) => setForm((prev) => ({

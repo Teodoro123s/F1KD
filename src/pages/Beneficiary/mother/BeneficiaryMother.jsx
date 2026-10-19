@@ -55,7 +55,7 @@ export function MotherFormFields({
   const selectedGroup = groups.find((group) => String(group.id) === selectedGroupId);
   const selectedCommunity = form.community || selectedGroup?.community || '';
   const selectedBatches = getBatchesForGroup(batches, selectedGroupId, selectedCommunity);
-  const selectedProvince = locationOptions?.PHILIPPINE_PROVINCES.find((province) => province.toLowerCase() === String(form.province || '').toLowerCase()) || '';
+  const selectedProvince = locationOptions?.getPhilippineProvinceName(form.province) || '';
   const cityOptions = selectedProvince ? locationOptions?.getPhilippineCities(selectedProvince) || [] : [];
   const selectedCity = cityOptions.find((city) => city.toLowerCase() === String(form.city || '').toLowerCase()) || '';
   const selectedBarangay = barangayOptions.find((barangay) => barangay.toLowerCase() === String(form.barangay || '').toLowerCase()) || '';

@@ -1,25 +1,83 @@
-import provinces from 'psgc/dist/provinces';
+import {
+  getAllProvinces,
+  getAllMunicipalities,
+  getBarangaysByMunicipality,
+  getMunicipalitiesByProvince,
+} from '@aivangogh/ph-address';
 
-const provinceRecords = provinces.all();
+const provinces = getAllProvinces();
+const municipalities = getAllMunicipalities();
 
-export const PHILIPPINE_PROVINCES = provinceRecords
-  .map((province) => province.name)
-  .sort((a, b) => a.localeCompare(b));
+const standaloneAreas = [
+  {
+    name: 'National Capital Region (NCR)',
+    code: '1300000000',
+    aliases: ['ncr', 'metro manila', 'metro manila (ncr)', 'national capital region'],
+  },
+  {
+    name: 'Bangsamoro Special Geographic Area',
+    code: '1999900000',
+    aliases: ['barmm special geographic area', 'special geographic area (barmm)'],
+  },
+  {
+    name: 'Isabela City (Independent City)',
+    code: '0990100000',
+    aliases: ['isabela city', 'independent city'],
+  },
+];
+
+const normalizeName = (name) => String(name || '').trim().toLocaleLowerCase();
+const displayCityName = (name) => (name === 'Isabela City'
+  ? name
+  : name.replace(/^City of\s+/i, '').replace(/\s+City$/i, ''));
+const normalizeCityName = (name) => normalizeName(name)
+  .replace(/^city of\s+/, '')
+  .replace(/\s+city$/, '');
+
+const getProvinceOrArea = (name) => {
+  const normalizedName = normalizeName(name);
+  const province = provinces.find((item) => normalizeName(item.name) === normalizedName);
+  if (province) return { code: province.psgcCode, name: province.name };
+
+  return standaloneAreas.find((area) =>
+    normalizeName(area.name) === normalizedName
+      || area.aliases.includes(normalizedName)
+  ) || null;
+};
+
+export const getPhilippineProvinceName = (provinceName) =>
+  getProvinceOrArea(provinceName)?.name || '';
+
+export const PHILIPPINE_PROVINCES = [
+  ...provinces.map((province) => province.name),
+  ...standaloneAreas.map((area) => area.name),
+].sort((a, b) => a.localeCompare(b));
 
 export const getPhilippineCities = (provinceName) => {
-  const province = provinceRecords.find((item) => item.name === provinceName);
-  return (province?.municipalities || []).map((municipality) => municipality.name);
+  const area = getProvinceOrArea(provinceName);
+  if (!area) return [];
+
+  return getMunicipalitiesByProvince(area.code)
+    .map((municipality) => displayCityName(municipality.name))
+    .sort((a, b) => a.localeCompare(b));
 };
 
 export const getPhilippineBarangays = async (provinceName, cityName) => {
-  const province = provinceRecords.find((item) => item.name === provinceName);
-  const municipality = province?.municipalities?.find((item) => item.name === cityName);
-  if (municipality?.barangays?.length) return municipality.barangays.slice(0, 5).map((barangay) => barangay.name);
+  const area = getProvinceOrArea(provinceName);
+  if (!area || !normalizeName(cityName)) return [];
 
-  const cityAliases = new Set([cityName, `${cityName} City`, `${cityName} City Capital`]);
-  const { getBarangays } = await import('./philippineBarangays');
-  return getBarangays()
-    .filter((barangay) => cityAliases.has(barangay.citymun))
-    .slice(0, 5)
-    .map((barangay) => barangay.name);
+  const municipality = getMunicipalitiesByProvince(area.code)
+    .find((item) => normalizeCityName(item.name) === normalizeCityName(cityName));
+  if (!municipality) return [];
+
+  const barangays = getBarangaysByMunicipality(municipality.psgcCode);
+  if (barangays.length) return barangays.map((barangay) => barangay.name);
+
+  const subMunicipalities = municipalities.filter(
+    (item) => item.provinceCode === municipality.psgcCode
+  );
+  return subMunicipalities
+    .flatMap((item) => getBarangaysByMunicipality(item.psgcCode))
+    .map((barangay) => barangay.name)
+    .sort((a, b) => a.localeCompare(b));
 };
