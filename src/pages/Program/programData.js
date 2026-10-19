@@ -159,6 +159,19 @@ export function normalizeBeneficiaryType(value) {
   return String(value || '').trim().toLowerCase().replace(/\s+/g, '');
 }
 
+export function getReceiptRecipientKey(recipient = {}) {
+  return `${String(recipient.type || '').toLowerCase()}:${String(recipient.id || '')}`;
+}
+
+export function getReceiptRecipientKeysForRows(rows = [], recipients = []) {
+  const rowKeys = new Set(rows.map((row) => String(
+    row?.beneficiary_key || `${row?.beneficiary_type || ''}:${row?.beneficiary_id || ''}`,
+  ).toLowerCase()));
+  return recipients
+    .filter((recipient) => rowKeys.has(getReceiptRecipientKey(recipient).toLowerCase()))
+    .map(getReceiptRecipientKey);
+}
+
 export function recordMatchesProgramScope(record = {}, program = {}) {
   if (!record || !program) return false;
 

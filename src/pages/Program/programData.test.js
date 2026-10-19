@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   filterProgramBeneficiaryRecords,
   filterPrograms,
+  getReceiptRecipientKeysForRows,
   recordMatchesProgramScope,
 } from './programData.js';
 
@@ -57,6 +58,20 @@ test('group and batch scopes include matching beneficiaries', () => {
 
 test('programs without assigned scopes do not include beneficiaries', () => {
   assert.equal(recordMatchesProgramScope({ type: 'mother', school: 'UC' }, { clusters: [] }), false);
+});
+
+test('receipt edits select only beneficiaries already recorded for that date', () => {
+  const recipients = [
+    { type: 'mother', id: 11 },
+    { type: 'mother', id: 12 },
+    { type: 'mother', id: 13 },
+  ];
+  const rows = [
+    { beneficiary_key: 'mother:11', monitored: true },
+    { beneficiary_key: 'mother:12', monitored: true },
+  ];
+
+  assert.deepEqual(getReceiptRecipientKeysForRows(rows, recipients), ['mother:11', 'mother:12']);
 });
 
 test('legacy recipient exclusions do not remove beneficiaries from a selected scope', () => {

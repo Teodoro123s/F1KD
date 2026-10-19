@@ -11,6 +11,7 @@ import { apiGetMothers } from '../../api/mothers';
 import { formatDateForDisplay } from '../../utils/dateFormat';
 import { canViewAuditSignatures } from '../../utils/permissions';
 import { navigateBack } from '../../utils/navigation';
+import { getReceiptRecipientKey, getReceiptRecipientKeysForRows } from './programData';
 
 const localDate = () => {
   const date = new Date();
@@ -19,7 +20,7 @@ const localDate = () => {
 
 const toDateKey = (value) => String(value || '').slice(0, 10);
 const normalizeScopeValue = (value) => String(value || '').trim().toLowerCase();
-const getRecipientKey = (recipient) => `${String(recipient.type || '').toLowerCase()}:${String(recipient.id || '')}`;
+const getRecipientKey = getReceiptRecipientKey;
 const isValidRecipient = (recipient) => String(recipient?.id || '').trim() !== ''
   && ['mother', 'child'].includes(String(recipient?.type || '').toLowerCase());
 const monthLabel = (date) => date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
@@ -171,12 +172,19 @@ export default function ReceiptHistoryPage() {
   });
   const days = calendarDays(calendarMonth);
 
-  const openReceiptModal = (date = monitorDate, defaultMonitored = false) => {
-    const existingReceipt = filteredRows.find((row) => toDateKey(row.date) === date);
-    setSelectedRecipientKeys(clusterRecipients.map(getRecipientKey));
+  const openReceiptModal = (date = monitorDate, defaultMonitored = false, targetRows = null) => {
+    const dateRows = filteredRows.filter((row) => toDateKey(row.date) === date);
+    const existingReceipt = dateRows[0];
+    const receivedRows = dateRows.filter((row) => row.monitored);
+    const rowsToSelect = targetRows || (defaultMonitored && receivedRows.length ? receivedRows : null);
+    setSelectedRecipientKeys(rowsToSelect
+      ? getReceiptRecipientKeysForRows(rowsToSelect, clusterRecipients)
+      : clusterRecipients.map(getRecipientKey));
     setReceiptModal({
       date,
-      monitored: existingReceipt ? Boolean(existingReceipt.monitored) : defaultMonitored,
+      monitored: targetRows
+        ? Boolean(targetRows[0]?.monitored)
+        : (defaultMonitored || (existingReceipt ? Boolean(existingReceipt.monitored) : false)),
     });
   };
 
@@ -243,7 +251,7 @@ export default function ReceiptHistoryPage() {
             updatedByName={row.updated_by_name || row.monitored_by_name}
             updatedByRole={row.updated_by_role || row.monitored_by_role}
             updatedAt={row.updated_at}
-          /></td>}<td><button type="button" className="view-btn view-btn--secondary" onClick={() => openReceiptModal(toDateKey(row.date))}>Edit</button></td></tr>) : <tr><td colSpan={(isClusterHistory ? (showGroupColumn ? 4 : 3) : 1) + (showAuditSignatures ? 1 : 0) + 1} className="no-data">No receipt history found.</td></tr>}</tbody>
+          /></td>}<td><button type="button" className="view-btn view-btn--secondary" onClick={() => openReceiptModal(toDateKey(row.date), Boolean(row.monitored), [row])}>Edit</button></td></tr>) : <tr><td colSpan={(isClusterHistory ? (showGroupColumn ? 4 : 3) : 1) + (showAuditSignatures ? 1 : 0) + 1} className="no-data">No receipt history found.</td></tr>}</tbody>
         </table></div> : <div className="program-calendar-wrap">
           <div className="program-calendar-header"><button type="button" className="view-btn view-btn--secondary" onClick={() => setCalendarMonth((date) => new Date(date.getFullYear(), date.getMonth() - 1, 1))}>Previous</button><h3>{monthLabel(calendarMonth)}</h3><button type="button" className="view-btn view-btn--secondary" onClick={() => setCalendarMonth((date) => new Date(date.getFullYear(), date.getMonth() + 1, 1))}>Next</button></div>
           <div className="program-calendar-weekdays">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => <span key={day}>{day}</span>)}</div>
