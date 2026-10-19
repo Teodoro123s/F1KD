@@ -776,7 +776,7 @@ export default function CommunityPage() {
     if (activeTab === 'groups') {
       return appendActions([
         { key: 'name', header: 'Group Name', style: { width: '60%' }, renderCell: (row) => <span className="community-title-text">{row.name}</span> },
-        { key: 'assignedBatchIds', header: 'Total Batches', cellClassName: 'small-column', renderCell: (row) => row.assignedBatchIds?.length ?? row.batches ?? 0 },
+        { key: 'assignedBatchIds', header: 'Total Batches', cellClassName: 'small-column', renderCell: (row) => row.batches ?? row.assignedBatchIds?.length ?? 0 },
       ]);
     }
 
@@ -809,7 +809,7 @@ export default function CommunityPage() {
       return [
         { key: 'name', header: 'Group Name', renderCell: (row) => <span className="community-title-text">{row.name}</span> },
         ...(activeTab === 'communities' ? [{ key: 'schoolName', header: 'School' }] : []),
-        { key: 'assignedBatchIds', header: 'Total Batches', cellClassName: 'small-column', renderCell: (row) => row.assignedBatchIds?.length ?? row.batches ?? 0 },
+        { key: 'assignedBatchIds', header: 'Total Batches', cellClassName: 'small-column', renderCell: (row) => row.batches ?? row.assignedBatchIds?.length ?? 0 },
         ...(activeTab === 'groups' ? columns.filter((column) => column.key === 'actions') : []),
       ];
     }

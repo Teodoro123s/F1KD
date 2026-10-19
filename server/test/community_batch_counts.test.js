@@ -33,7 +33,12 @@ test('community summary counts batches linked through mothers in their group', a
       }]];
     }
     if (sql.includes('FROM groups g')) {
-      return [[{ id: 2, community_id: 1, name: 'Group 2', batches: 1 }]];
+      return [
+        [
+          { id: 2, community_id: 1, name: 'Group 2', batches: 0 },
+          { id: 4, community_id: 1, name: 'Group 4', batches: 1 },
+        ],
+      ];
     }
     if (sql.includes('FROM users')) return [[{ total: 0 }]];
     if (sql.includes('FROM mothers m') && sql.includes('LEFT JOIN children c')) return [[]];
@@ -55,6 +60,7 @@ test('community summary counts batches linked through mothers in their group', a
   const summary = await response.json();
 
   assert.equal(summary.groups[0].batches, 1);
+  assert.equal(summary.groups[1].batches, 0);
   assert.equal(summary.batches[0].groupIds, '2');
   assert.ok(queryLog.filter((sql) => sql.includes('FROM groups g') || sql.includes('FROM batches b'))
     .every((sql) => sql.includes('UNION') && sql.includes('JOIN mothers m')));

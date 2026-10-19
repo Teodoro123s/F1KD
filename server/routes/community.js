@@ -291,6 +291,17 @@ router.get('/summary', async (req, res) => {
       };
     });
 
+    const batchCountsByGroup = new Map();
+    batchesData.forEach((batch) => {
+      String(batch.groupIds || '')
+        .split(',')
+        .map((groupId) => groupId.trim())
+        .filter(Boolean)
+        .forEach((groupId) => {
+          batchCountsByGroup.set(groupId, (batchCountsByGroup.get(groupId) || 0) + 1);
+        });
+    });
+
     const groupsData = groupRows.map((item) => ({
       id: item.id,
       name: item.name,
@@ -299,7 +310,7 @@ router.get('/summary', async (req, res) => {
       community: item.community || '',
       leader: item.leader || '',
       members: Number(item.members || 0),
-      batches: Number(item.batches || 0),
+      batches: batchCountsByGroup.get(String(item.id)) || 0,
       healthWorkers: Number(item.health_workers || 0),
       status: item.status || 'Active',
     }));
