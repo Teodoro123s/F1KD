@@ -9,7 +9,6 @@ import { useMothers } from '../../../context/MothersContext';
 import PageHeader from '../../../components/ui/PageHeader';
 import { notifyAction } from '../../../components/ActionFeedback';
 import { navigateBack } from '../../../utils/navigation';
-import { NoteWritingAssistant } from '../../ProgressReport/components/NoteWritingAssistant';
 import { getChildNameErrors } from '../../../utils/childRecordValidation';
 
 const normalizeChild = (child) => ({
@@ -265,13 +264,6 @@ export default function EditChildPage() {
       <div className="create-form-body">
         <form onSubmit={handleSave}>
           <div className="modal-body-scrollable">
-            <NoteWritingAssistant
-              fields={[
-                { id: 'nutritionNotes', label: 'Nutrition notes', value: form.nutritionNotes },
-                { id: 'medicalRemarks', label: 'Medical remarks', value: form.medicalRemarks },
-              ]}
-              onApply={(fieldId, value) => setForm((current) => ({ ...current, [fieldId]: value }))}
-            />
             <ChildFormFields
               activeTab={activeTab}
               form={form}

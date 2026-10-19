@@ -1,28 +1,13 @@
 import { authHeader, fetchWithAuth, getApiBaseUrl, resolveAssetUrl } from './authHeader';
+import { readApiResponse } from './readApiResponse.mjs';
 
 const API_BASE = getApiBaseUrl();
-
-async function handleResponse(res, defaultMsg) {
-  const contentType = res.headers.get('content-type') || '';
-  let body = null;
-  if (contentType.includes('application/json')) {
-    try { body = await res.json(); } catch (e) { body = null; }
-  } else {
-    try { body = await res.text(); } catch (e) { body = null; }
-  }
-  if (res.ok) return body;
-  const msg = (body && (body.error || body.message)) ? (body.error || body.message) : res.statusText || defaultMsg;
-  const err = new Error(msg);
-  err.status = res.status;
-  err.body = body;
-  throw err;
-}
 
 export async function apiGetMothers() {
   const res = await fetchWithAuth(`${API_BASE}/api/mothers`, {
     headers: { 'Content-Type': 'application/json' },
   });
-  return handleResponse(res, 'Failed to fetch mothers');
+  return readApiResponse(res, 'Unable to load mothers');
 }
 
 export async function apiUpdateMother(motherId, payload) {
@@ -32,7 +17,7 @@ export async function apiUpdateMother(motherId, payload) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  return handleResponse(res, 'Server error when updating mother');
+  return readApiResponse(res, 'Unable to update mother');
 }
 
 export async function apiCreateMother(payload) {
@@ -41,7 +26,7 @@ export async function apiCreateMother(payload) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  return handleResponse(res, 'Server error when creating mother');
+  return readApiResponse(res, 'Unable to create mother');
 }
 
 export async function apiGetMother(motherId) {
@@ -49,7 +34,7 @@ export async function apiGetMother(motherId) {
   const res = await fetchWithAuth(`${API_BASE}/api/mothers/${id}`, {
     headers: { 'Content-Type': 'application/json' },
   });
-  return handleResponse(res, 'Failed to fetch mother');
+  return readApiResponse(res, 'Unable to load mother');
 }
 
 export async function apiGetMotherClaims(motherId) {
@@ -57,7 +42,7 @@ export async function apiGetMotherClaims(motherId) {
   const res = await fetchWithAuth(`${API_BASE}/api/mothers/${id}/claims`, {
     headers: { 'Content-Type': 'application/json' },
   });
-  return handleResponse(res, 'Failed to fetch PhilHealth claims');
+  return readApiResponse(res, 'Unable to load PhilHealth claims');
 }
 
 export async function apiCreateMotherClaim(motherId, payload) {
@@ -67,7 +52,7 @@ export async function apiCreateMotherClaim(motherId, payload) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  return handleResponse(res, 'Unable to create PhilHealth claim record');
+  return readApiResponse(res, 'Unable to create PhilHealth claim record');
 }
 
 export async function apiUpdateMotherClaim(motherId, claimId, payload) {
@@ -78,7 +63,7 @@ export async function apiUpdateMotherClaim(motherId, claimId, payload) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  return handleResponse(res, 'Unable to update PhilHealth claim record');
+  return readApiResponse(res, 'Unable to update PhilHealth claim record');
 }
 
 export async function apiDeleteMother(motherId) {
@@ -87,7 +72,7 @@ export async function apiDeleteMother(motherId) {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
   });
-  return handleResponse(res, 'Unable to delete mother');
+  return readApiResponse(res, 'Unable to delete mother');
 }
 
 export async function apiDeleteMotherDocument(motherId, fieldName) {
@@ -97,7 +82,7 @@ export async function apiDeleteMotherDocument(motherId, fieldName) {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
   });
-  return handleResponse(res, 'Unable to remove document');
+  return readApiResponse(res, 'Unable to remove document');
 }
 
 export async function apiSaveMotherCheckup(motherId, payload) {
@@ -107,7 +92,7 @@ export async function apiSaveMotherCheckup(motherId, payload) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  return handleResponse(res, 'Server error when saving mother check-up');
+  return readApiResponse(res, 'Unable to save mother check-up');
 }
 
 export async function apiUploadMotherDocuments(motherId, documents) {
@@ -119,5 +104,5 @@ export async function apiUploadMotherDocuments(motherId, documents) {
     headers: {},
     body: formData,
   });
-  return handleResponse(res, 'Unable to upload mother documents');
+  return readApiResponse(res, 'Unable to upload mother documents');
 }

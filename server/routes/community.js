@@ -118,6 +118,16 @@ function getMotherWeightedProgress(rows = []) {
   return Math.round(motherProgressTotal / progressByMother.size);
 }
 
+const effectiveGroupBatchRelation = `(
+  SELECT group_id, batch_id FROM group_batch
+  UNION
+  SELECT m.group_id, m.batch_id
+  FROM mothers m
+  JOIN groups mg ON mg.id = m.group_id
+  JOIN batches mb ON mb.id = m.batch_id AND mb.community_id = mg.community_id
+  WHERE m.group_id IS NOT NULL AND m.batch_id IS NOT NULL
+)`;
+
 router.get('/summary', async (req, res) => {
   try {
     console.info('[Community API] Fetching community summary from database (compatible mode)...');
@@ -128,7 +138,7 @@ router.get('/summary', async (req, res) => {
     const healthWorkerScope = req.groupId ? 'AND group_id = ?' : req.schoolId ? 'AND school_id = ?' : '';
     const healthWorkerScopeValues = req.groupId ? [req.groupId] : req.schoolId ? [req.schoolId] : [];
     const communityBatchJoin = req.groupId
-      ? 'LEFT JOIN batches b ON b.community_id = c.id AND EXISTS (SELECT 1 FROM group_batch scoped_batch_group WHERE scoped_batch_group.batch_id = b.id AND scoped_batch_group.group_id = ?)'
+      ? `LEFT JOIN batches b ON b.community_id = c.id AND EXISTS (SELECT 1 FROM ${effectiveGroupBatchRelation} scoped_batch_group WHERE scoped_batch_group.batch_id = b.id AND scoped_batch_group.group_id = ?)`
       : 'LEFT JOIN batches b ON b.community_id = c.id';
     const communityMotherJoin = req.groupId
       ? 'LEFT JOIN mothers m ON m.community_id = c.id AND m.group_id = ?'
@@ -168,9 +178,9 @@ router.get('/summary', async (req, res) => {
       FROM batches b
       LEFT JOIN mothers m ON m.batch_id = b.id
       LEFT JOIN communities c ON c.id = b.community_id
-      LEFT JOIN group_batch gb ON gb.batch_id = b.id
+      LEFT JOIN ${effectiveGroupBatchRelation} gb ON gb.batch_id = b.id
       LEFT JOIN groups bg ON bg.id = gb.group_id
-      ${req.groupId ? 'WHERE EXISTS (SELECT 1 FROM group_batch scoped_gb WHERE scoped_gb.batch_id = b.id AND scoped_gb.group_id = ?)' : namedSchoolScope}
+      ${req.groupId ? `WHERE EXISTS (SELECT 1 FROM ${effectiveGroupBatchRelation} scoped_gb WHERE scoped_gb.batch_id = b.id AND scoped_gb.group_id = ?)` : namedSchoolScope}
       GROUP BY b.id, b.batch_code, b.name, c.name, b.records, b.progress, b.status
       ORDER BY b.id
     `, req.groupId ? [req.groupId] : req.schoolId ? [req.schoolId] : []);
@@ -183,7 +193,7 @@ router.get('/summary', async (req, res) => {
         g.community_id AS community_id,
         '' AS description,
         c.name AS community,
-        COALESCE(g.members_count, COUNT(m.id)) AS members,
+        COALESCE(g.members_count, COUNT(DISTINCT m.id)) AS members,
         COUNT(DISTINCT gb.batch_id) AS batches,
         (SELECT COUNT(*)
          FROM users hu
@@ -193,7 +203,7 @@ router.get('/summary', async (req, res) => {
         COALESCE(g.status, 'Active') AS status
       FROM groups g
       LEFT JOIN mothers m ON m.group_id = g.id
-      LEFT JOIN group_batch gb ON gb.group_id = g.id
+      LEFT JOIN ${effectiveGroupBatchRelation} gb ON gb.group_id = g.id
       LEFT JOIN communities c ON c.id = g.community_id
       ${groupScope}
       GROUP BY g.id, g.community_id, g.name, c.name, g.members_count, g.leader, g.status

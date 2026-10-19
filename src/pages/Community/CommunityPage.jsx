@@ -15,7 +15,6 @@ import { getChildProfileProgress } from '../../utils/childProgress';
 import { apiDeleteMother } from '../../api/mothers';
 import { apiGetChildren } from '../../api/children';
 import { notifyAction } from '../../components/ActionFeedback';
-import ReadOnlyAdminAssistant from '../../components/ReadOnlyAdminAssistant';
 
 const defaultCommunityForm = { name: '', area: 'Poblacion', coordinator: '' };
 const defaultGroupForm = { name: '', community: '', assignedBatchIds: [], leader: '', members: 1, status: 'Active' };
@@ -40,6 +39,8 @@ export default function CommunityPage() {
   const isHealthWorker = isHealthWorkerRole(currentUser?.role);
   const isAssignedCommunityOrganizer = isCommunityOrganizer && Boolean(assignedSchoolId);
   const isSchoolScopedUser = isSchoolScopedRole(currentUser?.role);
+  const [childrenRows, setChildrenRows] = useState([]);
+  const [childrenOverviewError, setChildrenOverviewError] = useState('');
 
   const { communities, batches, groups, mothers, coordinators, loading, error, refreshData } = useCommunityData();
   const scopedCommunities = useMemo(() => {
@@ -53,33 +54,6 @@ export default function CommunityPage() {
     if (!isHealthWorker || !assignedGroupId) return groups;
     return groups.filter((group) => String(group.id) === String(assignedGroupId));
   }, [assignedGroupId, groups, isHealthWorker]);
-  const assistantRecords = useMemo(() => {
-    const communityNames = new Set(scopedCommunities.map((community) => community.name));
-    const inCommunityScope = (record) => !isSchoolScopedUser || communityNames.has(record.community);
-    return [
-      ...scopedCommunities.map((community) => ({
-        id: community.id,
-        name: community.name,
-        area: community.area,
-        status: community.status || 'Active',
-        entityType: 'Community',
-      })),
-      ...scopedGroups.filter(inCommunityScope).map((group) => ({
-        id: group.id,
-        name: group.name,
-        community: group.community,
-        status: group.status,
-        entityType: 'Group',
-      })),
-      ...batches.filter(inCommunityScope).map((batch) => ({
-        id: batch.id,
-        name: batch.name || batch.batch_code,
-        community: batch.community,
-        status: batch.status,
-        entityType: 'Batch',
-      })),
-    ];
-  }, [batches, isSchoolScopedUser, scopedCommunities, scopedGroups]);
   const mutations = useCommunityMutations({ refreshData });
 
   const [query, setQuery] = useState('');
@@ -92,8 +66,6 @@ export default function CommunityPage() {
   const [communityForm, setCommunityForm] = useState(defaultCommunityForm);
   const [groupForm, setGroupForm] = useState(defaultGroupForm);
   const [batchForm, setBatchForm] = useState(defaultBatchForm);
-  const [childrenRows, setChildrenRows] = useState([]);
-  const [childrenOverviewError, setChildrenOverviewError] = useState('');
   const [showChildMotherColumn, setShowChildMotherColumn] = useState(true);
   const [showChildBatchColumn, setShowChildBatchColumn] = useState(true);
   const [schoolOverviewSelection, setSchoolOverviewSelection] = useState(null);
@@ -904,8 +876,6 @@ export default function CommunityPage() {
         navigate={navigate}
         canManage={canManage && (activeTab !== 'communities' || canManageSchools)}
       />
-
-      {isCommunityOrganizer && <ReadOnlyAdminAssistant audience="community" records={assistantRecords} />}
 
       {(activeTab === 'communities' || (activeTab === 'groups' && selectedSchool) || (activeTab === 'batches' && selectedGroup)) && (
         <>

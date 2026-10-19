@@ -1,42 +1,27 @@
 ﻿// API helpers for user management (improved error handling and consistent responses)
 import { fetchWithAuth, getApiBaseUrl } from './authHeader';
+import { readApiResponse } from './readApiResponse.mjs';
 
 const API_BASE = getApiBaseUrl();
-
-async function handleResponse(res, defaultMsg) {
-  const contentType = res.headers.get('content-type') || '';
-  let body = null;
-  if (contentType.includes('application/json')) {
-    try { body = await res.json(); } catch (e) { body = null; }
-  } else {
-    try { body = await res.text(); } catch (e) { body = null; }
-  }
-  if (res.ok) return body;
-  const msg = (body && (body.error || body.message)) ? (body.error || body.message) : res.statusText || defaultMsg;
-  const err = new Error(msg);
-  err.status = res.status;
-  err.body = body;
-  throw err;
-}
 
 export async function apiGetUsers(page = 1, perPage = 100) {
   const url = `${API_BASE}/api/users?page=${page}&perPage=${perPage}`;
   const res = await fetchWithAuth(url, { headers: { 'Content-Type': 'application/json' } });
-  return handleResponse(res, 'Failed to fetch users');
+  return readApiResponse(res, 'Unable to load users');
 }
 
 export async function apiGetManagedHealthWorkers() {
   const res = await fetchWithAuth(`${API_BASE}/api/users/health-workers`, {
     headers: { 'Content-Type': 'application/json' },
   });
-  return handleResponse(res, 'Failed to fetch assigned health workers');
+  return readApiResponse(res, 'Unable to load assigned health workers');
 }
 
 export async function apiGetManagedHealthWorker(id) {
   const res = await fetchWithAuth(`${API_BASE}/api/users/health-workers/${encodeURIComponent(id)}`, {
     headers: { 'Content-Type': 'application/json' },
   });
-  return handleResponse(res, 'Failed to fetch assigned health worker');
+  return readApiResponse(res, 'Unable to load the assigned health worker');
 }
 
 export async function apiCreateManagedHealthWorker(payload) {
@@ -45,7 +30,7 @@ export async function apiCreateManagedHealthWorker(payload) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  return handleResponse(res, 'Unable to create health worker');
+  return readApiResponse(res, 'Unable to create health worker');
 }
 
 export async function apiUpdateManagedHealthWorker(id, payload) {
@@ -54,7 +39,7 @@ export async function apiUpdateManagedHealthWorker(id, payload) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  return handleResponse(res, 'Unable to update health worker');
+  return readApiResponse(res, 'Unable to update health worker');
 }
 
 export async function apiPatchManagedHealthWorkerStatus(id, status) {
@@ -63,14 +48,14 @@ export async function apiPatchManagedHealthWorkerStatus(id, status) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ status }),
   });
-  return handleResponse(res, 'Unable to update health worker status');
+  return readApiResponse(res, 'Unable to update health worker status');
 }
 
 export async function apiGetCoordinators() {
   const res = await fetchWithAuth(`${API_BASE}/api/users/coordinators`, {
     headers: { 'Content-Type': 'application/json' },
   });
-  return handleResponse(res, 'Failed to fetch coordinators');
+  return readApiResponse(res, 'Unable to load coordinators');
 }
 
 export async function apiCreateUser(payload) {
@@ -79,7 +64,7 @@ export async function apiCreateUser(payload) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  return handleResponse(res, 'Server error when creating user');
+  return readApiResponse(res, 'Unable to create user');
 }
 
 export async function apiUpdateUser(id, payload) {
@@ -88,7 +73,7 @@ export async function apiUpdateUser(id, payload) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  return handleResponse(res, 'Server error when updating user');
+  return readApiResponse(res, 'Unable to update user');
 }
 
 export async function apiPatchUserStatus(id, status) {
@@ -97,17 +82,17 @@ export async function apiPatchUserStatus(id, status) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ status }),
   });
-  return handleResponse(res, 'Failed to update user status');
+  return readApiResponse(res, 'Unable to update user status');
 }
  
 export async function apiDeleteUser(id) {
   const res = await fetchWithAuth(`${API_BASE}/api/users/${id}`, { method: 'DELETE' });
-  return handleResponse(res, 'Failed to delete user');
+  return readApiResponse(res, 'Unable to delete user');
 }
 
 export async function apiGetUser(id) {
  const res = await fetchWithAuth(`${API_BASE}/api/users/${id}`, {
    headers: { 'Content-Type': 'application/json' },
  });
- return handleResponse(res, 'Failed to fetch user');
+ return readApiResponse(res, 'Unable to load user');
 }

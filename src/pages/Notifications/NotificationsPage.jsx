@@ -102,7 +102,7 @@ export default function NotificationsPage() {
     {
       key: 'title',
       header: 'Subject',
-      style: { width: '20%' },
+      className: 'notifications-timeline-subject',
       renderCell: (notification) => (
         <span style={{ fontWeight: notification.isRead ? 400 : 700 }}>{notification.title}</span>
       ),
@@ -110,7 +110,7 @@ export default function NotificationsPage() {
     {
       key: 'message',
       header: 'Message',
-      style: { width: '42%' },
+      className: 'notifications-timeline-message',
       renderCell: (notification) => (
         <>
           <span>{notification.message}</span>
@@ -125,9 +125,9 @@ export default function NotificationsPage() {
     {
       key: 'category',
       header: 'Category',
-      style: { width: '15%' },
+      className: 'notifications-timeline-category',
       renderCell: (notification) => (
-        <span className="badge" style={{ background: '#F1F5F9', color: '#334155' }}>
+        <span className="badge notifications-timeline-badge" style={{ background: '#F1F5F9', color: '#334155' }}>
           {notification.category}
         </span>
       ),
@@ -135,7 +135,7 @@ export default function NotificationsPage() {
     {
       key: 'createdAt',
       header: 'Received',
-      style: { width: '12%' },
+      className: 'notifications-timeline-received',
       renderCell: (notification) => new Date(notification.createdAt).toLocaleString(undefined, {
         month: 'short',
         day: 'numeric',
@@ -146,10 +146,10 @@ export default function NotificationsPage() {
     {
       key: 'readStatus',
       header: 'Status',
-      style: { width: '8%' },
+      className: 'notifications-timeline-status',
       renderCell: (notification) => (
         <span
-          className="badge"
+          className="badge notifications-timeline-badge"
           style={notification.isRead
             ? { background: '#F1F5F9', color: '#475569' }
             : { background: '#DBEAFE', color: '#1D4ED8' }}
@@ -161,22 +161,23 @@ export default function NotificationsPage() {
     {
       key: 'actions',
       header: 'Action',
-      style: { width: '12%' },
-      renderCell: (notification) => notification.isRead ? (
-        <span style={{ color: '#64748B', fontSize: '0.85rem' }}>—</span>
-      ) : (
+      className: 'notifications-timeline-action',
+      renderCell: (notification) => (
         <button
           type="button"
-          className="notification-mark-read-button"
+          className="notification-view-button"
           onClick={(event) => {
             event.stopPropagation();
-            markNotificationRead(notification);
+            openNotification(notification);
           }}
           onKeyDown={(event) => event.stopPropagation()}
-          disabled={markingNotificationId === notification.id}
-          aria-label={`Mark "${notification.title}" as read`}
+          aria-label={`View "${notification.title}"`}
         >
-          {markingNotificationId === notification.id ? 'Marking...' : 'Mark as read'}
+          <svg aria-hidden="true" viewBox="0 0 20 20" focusable="false">
+            <path d="M1.75 10s2.9-5 8.25-5 8.25 5 8.25 5-2.9 5-8.25 5-8.25-5-8.25-5Z" />
+            <circle cx="10" cy="10" r="2.25" />
+          </svg>
+          <span>View</span>
         </button>
       ),
     },
@@ -245,6 +246,7 @@ export default function NotificationsPage() {
           <CommunityTable
             columns={columns}
             data={notifications}
+            tableClassName="notifications-timeline-table"
             tableTitle="Notifications timeline"
             onRowClick={openNotification}
             emptyMessage={loading ? 'Loading notifications...' : 'No notifications match your search or category filter.'}

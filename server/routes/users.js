@@ -9,13 +9,16 @@ const { createSuperadminNotification } = require('../services/notifications');
 const { sendAccountCredentialsEmail } = require('../services/emailjs');
 const { recordActivity } = require('../services/activityLog');
 const { validateContactNumber } = require('../utils/contactNumber');
+const {
+  isValidEmail,
+  normalizeEmail,
+  parsePositiveIntegerId,
+  parseUserStatus,
+  validateAccountPassword,
+} = require('../utils/userInputValidation');
 
 function normalizeDbStatus(value) {
-  const normalized = String(value || '').trim().toLowerCase();
-  if (!normalized) return 'Active';
-  if (['active', 'enabled'].includes(normalized)) return 'Active';
-  if (['suspended', 'inactive', 'disabled'].includes(normalized)) return 'Suspended';
-  return 'Active';
+  return parseUserStatus(value) || 'Active';
 }
 
 const HEALTH_WORKER_ROLE_SQL = `LOWER(REPLACE(REPLACE(TRIM(role), '_', ''), ' ', '')) = 'healthworker'`;
@@ -70,9 +73,11 @@ router.get('/health-workers/:id', verifyToken, authorize('community_coordinator'
   const schoolId = getOrganizerSchoolId(req, res);
   if (!schoolId) return;
   try {
+    const id = parsePositiveIntegerId(req.params.id);
+    if (id === null) return res.status(400).json({ error: 'Health worker ID must be a positive integer' });
     const [users] = await pool.query(
       `${healthWorkerSelectSql(`WHERE id = ? AND school_id = ? AND ${HEALTH_WORKER_ROLE_SQL}`)} LIMIT 1`,
-      [req.params.id, schoolId],
+      [id, schoolId],
     );
     if (!users.length) return res.status(404).json({ error: 'Health worker not found' });
     res.json(users[0]);
@@ -86,16 +91,22 @@ router.post('/health-workers', verifyToken, authorize('community_coordinator'), 
   const schoolId = getOrganizerSchoolId(req, res);
   if (!schoolId) return;
   try {
+    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+      return res.status(400).json({ error: 'Request body must be a JSON object' });
+    }
     const {
       email, password, firstName, lastName, middleInitial, contactNumber,
       gender, dob, location, groupId,
     } = req.body || {};
-    const normalizedEmail = String(email || '').trim();
+    const normalizedEmail = normalizeEmail(email);
     const normalizedFirstName = String(firstName || '').trim();
     const normalizedLastName = String(lastName || '').trim();
-    const assignedGroupId = Number(groupId);
+    const assignedGroupId = parsePositiveIntegerId(groupId);
     if (!normalizedEmail || !normalizedFirstName || !normalizedLastName) {
       return res.status(400).json({ error: 'First name, last name, and email are required' });
+    }
+    if (!isValidEmail(normalizedEmail)) {
+      return res.status(400).json({ error: 'Enter a valid email address' });
     }
     const contactNumberError = validateContactNumber(contactNumber);
     if (contactNumberError) return res.status(400).json({ error: contactNumberError });
@@ -107,10 +118,11 @@ router.post('/health-workers', verifyToken, authorize('community_coordinator'), 
     }
 
     const userName = String(req.body.username || normalizedEmail.split('@')[0]).trim();
-    const plainPassword = String(password || `${userName}.${require('crypto').randomBytes(4).toString('hex')}`);
-    if (plainPassword.length < 8) {
-      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    if (password !== undefined && password !== null && password !== '') {
+      const passwordError = validateAccountPassword(password);
+      if (passwordError) return res.status(400).json({ error: passwordError });
     }
+    const plainPassword = password || `${userName}.${require('crypto').randomBytes(4).toString('hex')}`;
     const passwordHash = await bcrypt.hash(plainPassword, 10);
     const [result] = await pool.query(
       `INSERT INTO users
@@ -183,7 +195,11 @@ router.put('/health-workers/:id', verifyToken, authorize('community_coordinator'
   const schoolId = getOrganizerSchoolId(req, res);
   if (!schoolId) return;
   try {
-    const { id } = req.params;
+    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+      return res.status(400).json({ error: 'Request body must be a JSON object' });
+    }
+    const id = parsePositiveIntegerId(req.params.id);
+    if (id === null) return res.status(400).json({ error: 'Health worker ID must be a positive integer' });
     const [existingRows] = await pool.query(
       `SELECT id FROM users WHERE id = ? AND school_id = ? AND ${HEALTH_WORKER_ROLE_SQL} LIMIT 1`,
       [id, schoolId],
@@ -194,13 +210,17 @@ router.put('/health-workers/:id', verifyToken, authorize('community_coordinator'
       email, firstName, lastName, middleInitial, contactNumber,
       gender, dob, location, groupId,
     } = req.body || {};
-    const assignedGroupId = Number(groupId);
+    const assignedGroupId = parsePositiveIntegerId(groupId);
     if (!Number.isInteger(assignedGroupId) || assignedGroupId <= 0
       || !(await isGroupInSchool(assignedGroupId, schoolId))) {
       return res.status(400).json({ error: 'Select a group within your assigned school' });
     }
-    if (!String(email || '').trim() || !String(firstName || '').trim() || !String(lastName || '').trim()) {
+    const normalizedEmail = normalizeEmail(email);
+    if (!normalizedEmail || !String(firstName || '').trim() || !String(lastName || '').trim()) {
       return res.status(400).json({ error: 'First name, last name, and email are required' });
+    }
+    if (!isValidEmail(normalizedEmail)) {
+      return res.status(400).json({ error: 'Enter a valid email address' });
     }
     const contactNumberError = validateContactNumber(contactNumber);
     if (contactNumberError) return res.status(400).json({ error: contactNumberError });
@@ -215,7 +235,7 @@ router.put('/health-workers/:id', verifyToken, authorize('community_coordinator'
       'group_id = ?',
     ];
     const updateValues = [
-      String(email).trim(),
+      normalizedEmail,
       String(firstName).trim(),
       String(lastName).trim(),
       middleInitial || null,
@@ -262,19 +282,24 @@ router.patch('/health-workers/:id/status', verifyToken, authorize('community_coo
   const schoolId = getOrganizerSchoolId(req, res);
   if (!schoolId) return;
   try {
-    const status = String(req.body?.status || '').trim();
-    if (!['Active', 'Suspended'].includes(status)) {
+    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+      return res.status(400).json({ error: 'Request body must be a JSON object' });
+    }
+    const id = parsePositiveIntegerId(req.params.id);
+    if (id === null) return res.status(400).json({ error: 'Health worker ID must be a positive integer' });
+    const status = parseUserStatus(req.body?.status);
+    if (!status) {
       return res.status(400).json({ error: 'Status must be Active or Suspended' });
     }
     const [rows] = await pool.query(
       `SELECT id, first_name, middle_initial, last_name, status, group_id
        FROM users WHERE id = ? AND school_id = ? AND ${HEALTH_WORKER_ROLE_SQL} LIMIT 1`,
-      [req.params.id, schoolId],
+      [id, schoolId],
     );
     if (!rows.length) return res.status(404).json({ error: 'Health worker not found' });
     await pool.query(
       `UPDATE users SET status = ? WHERE id = ? AND school_id = ? AND ${HEALTH_WORKER_ROLE_SQL}`,
-      [status, req.params.id, schoolId],
+      [status, id, schoolId],
     );
     if (normalizeDbStatus(rows[0].status) !== status) {
       const fullName = [rows[0].first_name, rows[0].middle_initial, rows[0].last_name].filter(Boolean).join(' ');
@@ -283,7 +308,7 @@ router.patch('/health-workers/:id/status', verifyToken, authorize('community_coo
         category: 'User Management',
         action: status === 'Suspended' ? 'suspend' : 'reactivate',
         entityType: 'user',
-        entityId: req.params.id,
+        entityId: id,
         description: `${status === 'Suspended' ? 'Suspended' : 'Reactivated'} health worker account: ${fullName}`,
       });
       const suspended = status === 'Suspended';
@@ -293,14 +318,14 @@ router.patch('/health-workers/:id/status', verifyToken, authorize('community_coo
         title: suspended ? 'Health worker suspended' : 'Health worker reactivated',
         message: `Health worker account ${suspended ? 'suspended' : 'reactivated'}: ${fullName}.`,
         entityType: 'user',
-        entityId: req.params.id,
+        entityId: id,
         linkTo: '/user-management',
         schoolId,
         groupId: rows[0].group_id,
         actorUserId: req.user.id,
       });
     }
-    res.json({ id: Number(req.params.id), status });
+    res.json({ id, status });
   } catch (error) {
     console.error('[Users API] PATCH /health-workers/:id/status error:', error.message);
     res.status(500).json({ error: 'Unable to update health worker status' });
@@ -343,8 +368,21 @@ router.get('/all-health-workers', verifyToken, authorize('super_admin'), async (
 // GET /api/users?search=&role=&status=&page=1&perPage=10
 router.get('/', verifyToken, authorize('super_admin'), async (req, res) => {
   try {
-    const { search = '', role, status, page = 1, perPage = 10 } = req.query;
-    const offset = (Number(page) - 1) * Number(perPage);
+    const { search = '', role } = req.query;
+    const status = req.query.status === undefined ? undefined : parseUserStatus(req.query.status);
+    const page = req.query.page === undefined ? 1 : parsePositiveIntegerId(req.query.page);
+    const perPage = req.query.perPage === undefined ? 10 : parsePositiveIntegerId(req.query.perPage);
+    if (page === null || perPage === null) {
+      return res.status(400).json({ error: 'page and perPage must be positive integers' });
+    }
+    if (req.query.status !== undefined && !status) {
+      return res.status(400).json({ error: 'Status must be Active or Suspended' });
+    }
+    const pageSize = Math.min(perPage, 100);
+    const offset = (page - 1) * pageSize;
+    if (!Number.isSafeInteger(offset)) {
+      return res.status(400).json({ error: 'page is too large' });
+    }
 
     const filters = [];
     const params = [];
@@ -369,7 +407,7 @@ router.get('/', verifyToken, authorize('super_admin'), async (req, res) => {
 
     const [rows] = await pool.query(
       `SELECT id, CONCAT_WS(' ', first_name, last_name) AS username, CONCAT_WS(' ', first_name, last_name) AS full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, group_id, created_at, updated_at FROM users ${where} ORDER BY id DESC LIMIT ? OFFSET ?`,
-      [...params, Number(perPage), Number(offset)]
+      [...params, pageSize, offset]
     );
 
     res.json({ total, users: rows });
@@ -383,6 +421,9 @@ router.get('/', verifyToken, authorize('super_admin'), async (req, res) => {
 // Require authentication to create users (only Admin/Superadmin allowed in this example)
 router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
   try {
+    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+      return res.status(400).json({ error: 'Request body must be a JSON object' });
+    }
     const {
       username,
       email,
@@ -402,7 +443,8 @@ router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
     } = req.body;
 
     // build username and full_name from provided fields if necessary
-    const userName = username || (email ? email.split('@')[0] : null);
+    const normalizedEmail = normalizeEmail(email);
+    const userName = username || (normalizedEmail ? normalizedEmail.split('@')[0] : null);
     const full_name = fullName || (firstName || lastName ? `${(firstName||'').trim()} ${(lastName||'').trim()}`.trim() : null);
     const roleName = String(role || '').trim().toLowerCase();
     const requiresSchool = ['health worker', 'community organizer', 'community_coordinator', 'communitycoordinator', 'coordinator'].includes(roleName);
@@ -410,13 +452,17 @@ router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
 
     const contactNumberError = validateContactNumber(contactNumber);
     if (contactNumberError) return res.status(400).json({ error: contactNumberError });
-    if (!userName || !email) return res.status(400).json({ error: 'username and email are required' });
+    if (!userName || !normalizedEmail) return res.status(400).json({ error: 'Username and email are required' });
+    if (!isValidEmail(normalizedEmail)) return res.status(400).json({ error: 'Enter a valid email address' });
     if (requiresSchool && !schoolId) return res.status(400).json({ error: 'schoolId is required for this role' });
     if (requiresGroup && !groupId) return res.status(400).json({ error: 'groupId is required for this role' });
 
     // generate password if none provided
     let plainPassword = password;
-    if (!plainPassword || plainPassword.length < 8) {
+    if (password !== undefined && password !== null && password !== '') {
+      const passwordError = validateAccountPassword(password);
+      if (passwordError) return res.status(400).json({ error: passwordError });
+    } else {
       const rand3 = Math.floor(100 + Math.random() * 900);
       plainPassword = `${userName}.${rand3}`;
       while (plainPassword.length < 8) {
@@ -425,12 +471,13 @@ router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
     }
     const hash = await bcrypt.hash(plainPassword, 10);
 
-    const dbStatus = normalizeDbStatus(status || 'active');
+    const dbStatus = status === undefined ? 'Active' : parseUserStatus(status);
+    if (!dbStatus) return res.status(400).json({ error: 'Status must be Active or Suspended' });
     const [result] = await pool.query(
       `INSERT INTO users (email, role, status, password_hash, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, group_id)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
       [
-        email,
+        normalizedEmail,
         role || 'user',
         dbStatus,
         hash,
@@ -497,7 +544,8 @@ router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
 // GET /api/users/:id
 router.get('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = parsePositiveIntegerId(req.params.id);
+    if (id === null) return res.status(400).json({ error: 'User ID must be a positive integer' });
     const [rows] = await pool.query(
       `SELECT id, CONCAT_WS(' ', first_name, last_name) AS username, CONCAT_WS(' ', first_name, last_name) AS full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, group_id, created_at
        FROM users WHERE id = ?`,
@@ -515,7 +563,11 @@ router.get('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
 // Require authentication to update users
 router.put('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
   try {
-    const { id } = req.params;
+    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+      return res.status(400).json({ error: 'Request body must be a JSON object' });
+    }
+    const id = parsePositiveIntegerId(req.params.id);
+    if (id === null) return res.status(400).json({ error: 'User ID must be a positive integer' });
     const {
       username,
       email,
@@ -546,7 +598,12 @@ router.put('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
 
     const updates = [];
     const params = [];
-    if (email) { updates.push('email = ?'); params.push(email); }
+    if (email !== undefined) {
+      const normalizedEmail = normalizeEmail(email);
+      if (!isValidEmail(normalizedEmail)) return res.status(400).json({ error: 'Enter a valid email address' });
+      updates.push('email = ?');
+      params.push(normalizedEmail);
+    }
       if (fullName !== undefined && firstName === undefined && lastName === undefined) {
         const nameParts = String(fullName || '').trim().split(/\s+/);
         updates.push('first_name = ?', 'last_name = ?');
@@ -560,7 +617,12 @@ router.put('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
     if (dob !== undefined) { updates.push('dob = ?'); params.push(dob || null); }
     if (location !== undefined) { updates.push('location = ?'); params.push(location || null); }
     if (role !== undefined) { updates.push('role = ?'); params.push(role); }
-    if (status !== undefined) { updates.push('status = ?'); params.push(normalizeDbStatus(status)); }
+    if (status !== undefined) {
+      const normalizedStatus = parseUserStatus(status);
+      if (!normalizedStatus) return res.status(400).json({ error: 'Status must be Active or Suspended' });
+      updates.push('status = ?');
+      params.push(normalizedStatus);
+    }
     if (schoolId !== undefined) { updates.push('school_id = ?'); params.push(schoolId || null); }
     if (groupId !== undefined) { updates.push('group_id = ?'); params.push(groupId || null); }
     if (role !== undefined && ['health worker', 'community organizer', 'community_coordinator', 'communitycoordinator', 'coordinator'].includes(String(role).trim().toLowerCase()) && !schoolId) {
@@ -570,7 +632,9 @@ router.put('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
       return res.status(400).json({ error: 'groupId is required for this role' });
     }
 
-    if (password) {
+    if (password !== undefined && password !== null && password !== '') {
+      const passwordError = validateAccountPassword(password);
+      if (passwordError) return res.status(400).json({ error: passwordError });
       const hash = await bcrypt.hash(password, 10);
       updates.push('password_hash = ?');
       params.push(hash);
@@ -643,7 +707,8 @@ router.put('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
 // Require authentication to delete users (only Superadmin/Admin)
 router.delete('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = parsePositiveIntegerId(req.params.id);
+    if (id === null) return res.status(400).json({ error: 'User ID must be a positive integer' });
     const [userRows] = await pool.query(
       'SELECT id, first_name, middle_initial, last_name, school_id, group_id FROM users WHERE id = ? LIMIT 1',
       [id],
@@ -684,7 +749,11 @@ router.delete('/:id', verifyToken, authorize('super_admin'), async (req, res) =>
 // Require authentication to change status
 router.patch('/:id/status', verifyToken, authorize('super_admin'), async (req, res) => {
   try {
-    const { id } = req.params;
+    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+      return res.status(400).json({ error: 'Request body must be a JSON object' });
+    }
+    const id = parsePositiveIntegerId(req.params.id);
+    if (id === null) return res.status(400).json({ error: 'User ID must be a positive integer' });
     const { status } = req.body;
     if (!status) return res.status(400).json({ error: 'status required' });
     const [userRows] = await pool.query(
@@ -693,7 +762,8 @@ router.patch('/:id/status', verifyToken, authorize('super_admin'), async (req, r
     );
     if (!userRows.length) return res.status(404).json({ error: 'Not found' });
     const existingUser = userRows[0];
-    const dbStatus = normalizeDbStatus(status);
+    const dbStatus = parseUserStatus(status);
+    if (!dbStatus) return res.status(400).json({ error: 'Status must be Active or Suspended' });
     await pool.query('UPDATE users SET status = ? WHERE id = ?', [dbStatus, id]);
     if (normalizeDbStatus(existingUser.status) !== dbStatus) {
       const isSuspended = dbStatus === 'Suspended';

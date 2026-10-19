@@ -1,4 +1,5 @@
 import { fetchWithAuth, getApiBaseUrl } from './authHeader';
+import { readApiResponse } from './readApiResponse.mjs';
 
 const API_BASE = getApiBaseUrl();
 
@@ -7,15 +8,7 @@ async function requestJson(url, options = {}) {
     ...options,
     headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
   });
-  const text = await response.text();
-  let body = null;
-  try {
-    body = text ? JSON.parse(text) : null;
-  } catch {
-    body = text;
-  }
-  if (!response.ok) throw new Error(body?.error || body?.message || `Request failed (${response.status})`);
-  return body;
+  return readApiResponse(response, 'Unable to complete program request');
 }
 
 export const apiGetPrograms = () => requestJson(`${API_BASE}/api/programs`);

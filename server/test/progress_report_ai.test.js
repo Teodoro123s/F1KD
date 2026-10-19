@@ -22,28 +22,17 @@ mysql.createConnection = async () => ({
 });
 
 const pool = require('../db');
-const { createProgramAssistantResult } = require('../services/programAssistant');
-const { getProgramVisibilityFilter } = require('../utils/programAccess');
 const { verifyToken } = require('../middleware/auth');
 const { authorizeOperational, authorizeProgressReport } = require('../middleware/authorize');
 const progressReportRouter = require('../routes/progressReport');
 const {
   ProgressReportAIError,
-  createBeneficiaryAssistantIntent,
-  createAdminAssistantIntent,
   createDashboardInsight,
-  createEntryAssistance,
   createMonitoringReportIntent,
-  createProgramAssistantIntent,
   createReportProposal,
-  createReportSummary,
   getAIConfiguration,
-  normalizeReportSummary,
   normalizeDashboardMetrics,
   validateMonitoringReportIntent,
-  validateProgramAssistantIntent,
-  validateBeneficiaryAssistantIntent,
-  validateAdminAssistantIntent,
   validateReportProposal,
 } = require('../utils/progressReportAI');
 
@@ -51,211 +40,6 @@ const modelEnvironment = {
   PROGRESS_REPORT_AI_BASE_URL: 'http://127.0.0.1:11434/v1',
   PROGRESS_REPORT_AI_MODEL: 'test-model',
 };
-
-test('read-only admin assistant validates intent and sends no loaded records to the model', async () => {
-  const prompt = 'Summarize active Community Organizers by status';
-  let modelRequest;
-  const intent = await createAdminAssistantIntent(prompt, 'users', {
-    env: modelEnvironment,
-    fetchImpl: async (url, options) => {
-      modelRequest = JSON.parse(options.body);
-      return new Response(JSON.stringify({
-        choices: [{
-          message: {
-            content: JSON.stringify({
-              mode: 'summary',
-              searchText: '',
-              role: 'Community Organizer',
-              status: 'Active',
-              entityType: 'All',
-              groupBy: 'status',
-              similarMatch: false,
-              guidance: '',
-            }),
-          },
-        }],
-      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-    },
-  });
-  assert.deepEqual(intent, {
-    audience: 'users',
-    mode: 'summary',
-    searchText: '',
-    role: 'Community Organizer',
-    status: 'Active',
-    entityType: 'All',
-    groupBy: 'status',
-    similarMatch: false,
-    guidance: '',
-  });
-  assert.equal(modelRequest.messages[1].content, prompt);
-  assert.doesNotMatch(JSON.stringify(modelRequest.messages), /private account|record id|loaded community/);
-  assert.throws(() => validateAdminAssistantIntent({
-    mode: 'lookup',
-    searchText: '',
-    role: 'Super Admin',
-    status: 'All',
-    entityType: 'All',
-    groupBy: 'none',
-    similarMatch: false,
-  }, 'users'), /unsupported admin assistant request/);
-  assert.throws(() => validateAdminAssistantIntent({
-    mode: 'setup',
-    searchText: '',
-    role: 'All',
-    status: 'All',
-    entityType: 'All',
-    groupBy: 'none',
-    similarMatch: false,
-  }, 'users'), /unsupported admin assistant request/);
-  assert.throws(() => validateAdminAssistantIntent({
-    mode: 'lookup',
-    searchText: 'batchbabyot2',
-    role: 'All',
-    status: 'All',
-    entityType: 'Batch',
-    groupBy: 'none',
-    similarMatch: true,
-  }, 'users'), /unsupported admin assistant request/);
-  await assert.rejects(createAdminAssistantIntent('x'.repeat(501), 'community', { env: modelEnvironment }), /between 3 and 500 characters/);
-});
-
-test('community assistant recognizes explicit similar batch-name searches', async () => {
-  const prompt = 'Show me the batch with the name batchbabyot2 or similar';
-  const intent = await createAdminAssistantIntent(prompt, 'community', {
-    env: modelEnvironment,
-    fetchImpl: async (url, options) => {
-      const request = JSON.parse(options.body);
-      assert.match(request.messages[0].content, /searchText must contain only the batch name/);
-      return new Response(JSON.stringify({
-        choices: [{
-          message: {
-            content: JSON.stringify({
-              mode: 'lookup',
-              searchText: 'batchbabyot2',
-              role: 'All',
-              status: 'All',
-              entityType: 'Batch',
-              groupBy: 'none',
-              similarMatch: true,
-              guidance: '',
-            }),
-          },
-        }],
-      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-    },
-  });
-  assert.equal(intent.searchText, 'batchbabyot2');
-  assert.equal(intent.entityType, 'Batch');
-  assert.equal(intent.similarMatch, true);
-});
-
-test('beneficiary assistant returns only safe local lookup, screening, or module-routing intents', async () => {
-  const prompt = 'Find children with a non-normal developmental screening';
-  let modelRequest;
-  const intent = await createBeneficiaryAssistantIntent(prompt, {
-    env: modelEnvironment,
-    fetchImpl: async (url, options) => {
-      modelRequest = JSON.parse(options.body);
-      return new Response(JSON.stringify({
-        choices: [{
-          message: {
-            content: JSON.stringify({
-              mode: 'screening',
-              entityType: 'Child',
-              searchText: '',
-              screeningStatus: 'Non-normal',
-              targetModule: 'none',
-              clinicalTopic: 'none',
-            }),
-          },
-        }],
-      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-    },
-  });
-  assert.deepEqual(intent, {
-    mode: 'screening',
-    entityType: 'Child',
-    searchText: '',
-    screeningStatus: 'Non-normal',
-    targetModule: 'none',
-    clinicalTopic: 'none',
-  });
-  assert.equal(modelRequest.messages[1].content, prompt);
-  assert.doesNotMatch(JSON.stringify(modelRequest.messages), /Jane Doe|CHILD-TEST-123|sensitive profile data/i);
-  assert.throws(() => validateBeneficiaryAssistantIntent({
-    mode: 'lookup',
-    entityType: 'All',
-    searchText: '',
-    screeningStatus: 'All',
-    targetModule: 'monitor',
-    clinicalTopic: 'none',
-  }), /invalid beneficiary assistant destination/);
-  assert.throws(() => validateBeneficiaryAssistantIntent({
-    mode: 'redirect',
-    entityType: 'Mother',
-    searchText: 'Mary',
-    screeningStatus: 'All',
-    targetModule: 'monitor',
-    clinicalTopic: 'none',
-  }), /invalid beneficiary assistant destination/);
-  await assert.rejects(createBeneficiaryAssistantIntent('x'.repeat(501), { env: modelEnvironment }), /between 3 and 500 characters/);
-});
-
-test('beneficiary assistant exposes maternal BP reference only for an explicit question about it', async () => {
-  let modelRequest;
-  await createBeneficiaryAssistantIntent('What does the maternal BP 140/90 warning mean?', {
-    env: modelEnvironment,
-    fetchImpl: async (url, options) => {
-      modelRequest = JSON.parse(options.body);
-      return new Response(JSON.stringify({
-        choices: [{
-          message: {
-            content: JSON.stringify({
-              mode: 'clinical-info',
-              entityType: 'All',
-              searchText: '',
-              screeningStatus: 'All',
-              targetModule: 'none',
-              clinicalTopic: 'maternal-bp-warning',
-            }),
-          },
-        }],
-      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-    },
-  });
-  assert.match(modelRequest.messages[0].content, /systolic blood pressure at least 140 mmHg OR diastolic blood pressure at least 90 mmHg/);
-  assert.throws(() => validateBeneficiaryAssistantIntent({
-    mode: 'clinical-info',
-    entityType: 'All',
-    searchText: '',
-    screeningStatus: 'All',
-    targetModule: 'none',
-    clinicalTopic: 'none',
-  }), /invalid beneficiary assistant destination/);
-
-  await createBeneficiaryAssistantIntent('Find Mary Princess in the beneficiary list.', {
-    env: modelEnvironment,
-    fetchImpl: async (url, options) => {
-      modelRequest = JSON.parse(options.body);
-      return new Response(JSON.stringify({
-        choices: [{
-          message: {
-            content: JSON.stringify({
-              mode: 'lookup',
-              entityType: 'Mother',
-              searchText: 'Mary Princess',
-              screeningStatus: 'All',
-              targetModule: 'none',
-              clinicalTopic: 'none',
-            }),
-          },
-        }],
-      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-    },
-  });
-  assert.doesNotMatch(modelRequest.messages[0].content, /systolic blood pressure at least 140/);
-});
 
 test('AI configuration is unavailable until a private model endpoint and model are configured', () => {
   assert.equal(getAIConfiguration({}), null);
@@ -545,24 +329,6 @@ test('monitoring AI reports can find beneficiaries with non-normal developmental
   }, 'Mother'), /unsupported monitoring report fields/);
 });
 
-test('AI note assistance only rewrites allowlisted note fields and returns an unsaved preview', async () => {
-  let request;
-  const revisedDraft = await createEntryAssistance('nutritionNotes', 'Child eats vegetables. No concerns reported.', {
-    env: modelEnvironment,
-    fetchImpl: async (url, options) => {
-      request = JSON.parse(options.body);
-      return new Response(JSON.stringify({
-        choices: [{ message: { content: 'The child eats vegetables. No concerns were reported.' } }],
-      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-    },
-  });
-  assert.equal(revisedDraft, 'The child eats vegetables. No concerns were reported.');
-  assert.match(request.messages[0].content, /do not invent/i);
-  assert.equal(request.messages[1].content, 'Child eats vegetables. No concerns reported.');
-  await assert.rejects(createEntryAssistance('birthDate', '2026-01-01', { env: modelEnvironment }), /supported notes field/);
-  await assert.rejects(createEntryAssistance('nutritionNotes', 'x'.repeat(2001), { env: modelEnvironment }), /between 1 and 2,000/);
-});
-
 test('AI proposal sends the prompt and fixed metric catalog, never authenticated scope or beneficiary records', async () => {
   let request;
   const result = await createReportProposal('Compare child weight-for-age progress.', {
@@ -620,238 +386,6 @@ test('AI proposal sends the prompt and fixed metric catalog, never authenticated
   assert.doesNotMatch(serializedRequest, /Jane A\. Doe|Mila Demo Coordinator/i);
 });
 
-test('Program AI assistant creates a constrained Program-only query without record data', async () => {
-  let request;
-  const result = await createProgramAssistantIntent('How many check-ins this year for this program?', {
-    hasCurrentProgram: true,
-    currentYear: 2026,
-  }, {
-    env: modelEnvironment,
-    fetchImpl: async (url, options) => {
-      request = JSON.parse(options.body);
-      return new Response(JSON.stringify({
-        choices: [{
-          message: {
-            content: JSON.stringify({
-              task: 'summary',
-              metric: 'checkins',
-              status: 'All',
-              searchText: '',
-              year: 2026,
-              yearBasis: 'checkin',
-              useCurrentProgram: true,
-              explanation: 'Counts check-ins recorded this year.',
-            }),
-          },
-        }],
-      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-    },
-  });
-
-  assert.deepEqual(result, {
-    task: 'summary',
-    metric: 'checkins',
-    status: 'All',
-    searchText: '',
-    year: 2026,
-    yearBasis: 'checkin',
-    useCurrentProgram: true,
-    explanation: 'Counts check-ins recorded this year.',
-  });
-  assert.equal(request.messages[1].content, 'How many check-ins this year for this program?');
-  assert.equal(request.response_format.json_schema.schema.additionalProperties, false);
-  assert.match(request.messages[0].content, /Program module only/);
-  assert.match(request.messages[0].content, /current Program is selected/);
-  assert.throws(() => validateProgramAssistantIntent({
-    task: 'delete',
-    metric: 'checkins',
-    status: 'All',
-    searchText: '',
-    year: 0,
-    yearBasis: 'none',
-    useCurrentProgram: false,
-    explanation: '',
-  }), /unsupported Program question/);
-  await assert.rejects(
-    createProgramAssistantIntent('x'.repeat(501), {}, { env: modelEnvironment }),
-    /between 3 and 500 characters/,
-  );
-  await assert.rejects(
-    createProgramAssistantIntent('How many check-ins for this program?', { hasCurrentProgram: false }, {
-      env: modelEnvironment,
-      fetchImpl: async () => new Response(JSON.stringify({
-        choices: [{ message: { content: JSON.stringify({
-          task: 'summary',
-          metric: 'checkins',
-          status: 'All',
-          searchText: '',
-          year: 0,
-          yearBasis: 'none',
-          useCurrentProgram: true,
-          explanation: '',
-        }) } }],
-      }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
-    }),
-    /Choose a program/,
-  );
-});
-
-test('Program assistant uses accessible saved records to calculate beneficiary and check-in totals', async () => {
-  const queries = [];
-  const assistantPool = {
-    query: async (sql, values) => {
-      queries.push({ sql, values });
-      if (sql.includes('SELECT p.id, p.name, p.type')) {
-        return [[
-          { id: 7, name: 'School Feeding', type: 'Feeding', provider: 'Partner', beneficiary_type: 'Child', status: 'Active', created_at: '2025-06-01' },
-          { id: 8, name: 'Other Program', type: 'Health', provider: 'Clinic', beneficiary_type: 'Mother', status: 'Active', created_at: '2025-06-01' },
-        ]];
-      }
-      if (sql.includes('SELECT program_id, scope_type, scope_name')) {
-        return [[{ program_id: 7, scope_type: 'Group', scope_name: 'Group A' }]];
-      }
-      if (sql.includes('COUNT(DISTINCT CONCAT(eligible.beneficiary_type')) {
-        return [[{ program_id: 7, eligible_beneficiaries: 5 }]];
-      }
-      if (sql.includes('FROM monitoring_logs')) {
-        return [[{ program_id: 7, check_ins: 4, checked_in_beneficiaries: 3 }]];
-      }
-      throw new Error(`Unexpected Program assistant query: ${sql}`);
-    },
-  };
-  const intent = {
-    task: 'summary',
-    metric: 'checkins',
-    status: 'All',
-    searchText: '',
-    year: 2026,
-    yearBasis: 'checkin',
-    useCurrentProgram: true,
-    explanation: 'Counts check-ins recorded this year.',
-  };
-
-  const result = await createProgramAssistantResult({
-    req: { groupId: 44, schoolId: null, isHealthWorker: true },
-    intent,
-    currentProgramId: 7,
-    pool: assistantPool,
-  });
-
-  assert.deepEqual(result.aggregates, {
-    programCount: 1,
-    eligibleBeneficiaries: 5,
-    checkIns: 4,
-    checkedInBeneficiaries: 3,
-  });
-  assert.match(result.answer, /4 recorded check-ins/);
-  assert.match(result.answer, /3 distinct beneficiary records/);
-  assert.deepEqual(result.programs.map(({ id, name }) => ({ id, name })), [{ id: 7, name: 'School Feeding' }]);
-  assert.match(queries[0].sql, /assigned_group\.id = \?/);
-  assert.deepEqual(queries[0].values, [44]);
-  const eligibleQuery = queries.find(({ sql }) => sql.includes('COUNT(DISTINCT CONCAT(eligible.beneficiary_type'));
-  assert.match(eligibleQuery.sql, /m\.group_id = \?/);
-  assert.match(eligibleQuery.sql, /COALESCE\(c\.group_id, parent_m\.group_id\) = \?/);
-  assert.deepEqual(eligibleQuery.values, [7, 44, 7, 44]);
-  const checkInQuery = queries.find(({ sql }) => sql.includes('FROM monitoring_logs'));
-  assert.match(checkInQuery.sql, /YEAR\(monitored_date\) = \?/);
-  assert.match(checkInQuery.sql, /m\.group_id = \?/);
-  assert.deepEqual(checkInQuery.values, [7, 2026, 44, 44]);
-
-  await assert.rejects(
-    createProgramAssistantResult({
-      req: { groupId: 44, schoolId: null, isHealthWorker: true },
-      intent,
-      currentProgramId: 999,
-      pool: assistantPool,
-    }),
-    (error) => error.status === 403,
-  );
-
-  await assert.rejects(
-    createProgramAssistantResult({
-      req: { groupId: null, schoolId: 123, isHealthWorker: true },
-      intent,
-      currentProgramId: null,
-      pool: { query: async () => { throw new Error('Unassigned health worker must not query Program data.'); } },
-    }),
-    (error) => error.status === 403,
-  );
-});
-
-test('AI summary forwards only approved aggregate values', async () => {
-  let sentContent = '';
-  const summary = await createReportSummary(
-    { total: 8, averageProgress: 75, groupCount: 2, batchCount: 3, beneficiaryName: 'Sensitive name' },
-    'monitor',
-    'child',
-    {
-      env: modelEnvironment,
-      fetchImpl: async (url, options) => {
-        sentContent = JSON.parse(options.body).messages[1].content;
-        return new Response(JSON.stringify({ choices: [{ message: { content: 'Eight records average 75% progress.' } }] }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        });
-      },
-    },
-  );
-  assert.equal(summary, 'Eight records average 75% progress.');
-  assert.deepEqual(JSON.parse(sentContent), {
-    reportCategory: 'monitor',
-    beneficiaryType: 'child',
-    total: 8,
-    averageProgress: 75,
-    groupCount: 2,
-    batchCount: 3,
-  });
-  assert.deepEqual(
-    normalizeReportSummary({ total: 8, averageProgress: 75, groupCount: 2, batchCount: 3 }, 'profile'),
-    { total: 8, groupCount: 2, batchCount: 3 },
-  );
-  assert.throws(() => normalizeReportSummary({ total: -1, averageProgress: 0, groupCount: 0, batchCount: 0 }), /Invalid aggregate/);
-});
-
-test('AI trend summaries forward validated aggregate measurement changes, never individual series', async () => {
-  let sentContent = '';
-  const summary = await createReportSummary(
-    { total: 4, averageProgress: 60, groupCount: 1, batchCount: 1, names: ['Private beneficiary'] },
-    'monitor',
-    'mother',
-    {
-      trendStats: {
-        metricId: 'bmiForAge',
-        recordsWithMultipleMeasurements: 3,
-        averageFirstValue: 24.2,
-        averageLatestValue: 25.1,
-        averageChange: 0.9,
-        series: [{ beneficiary: 'Private beneficiary' }],
-      },
-      env: modelEnvironment,
-      fetchImpl: async (url, options) => {
-        sentContent = JSON.parse(options.body).messages[1].content;
-        return new Response(JSON.stringify({ choices: [{ message: { content: 'Across three records, average BMI increased by 0.9.' } }] }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        });
-      },
-    },
-  );
-  assert.match(summary, /average BMI increased/);
-  assert.deepEqual(JSON.parse(sentContent).trend, {
-    metric: 'BMI',
-    recordsWithMultipleMeasurements: 3,
-    averageFirstValue: 24.2,
-    averageLatestValue: 25.1,
-    averageChange: 0.9,
-  });
-  assert.doesNotMatch(sentContent, /Private beneficiary|series|beneficiaryName|beneficiaryId/i);
-  assert.throws(() => normalizeReportSummary(
-    { total: 4, averageProgress: 60, groupCount: 1, batchCount: 1 },
-    'monitor',
-    { metricId: 'philhealthNumber', recordsWithMultipleMeasurements: 1, averageFirstValue: 1, averageLatestValue: 2, averageChange: 1 },
-  ), /Invalid aggregate monitoring trend/);
-});
-
 test('progress report AI endpoints require auth and do not pass user scope to the model', async (t) => {
   await pool.ready;
   const originalFetch = globalThis.fetch;
@@ -873,42 +407,9 @@ test('progress report AI endpoints require auth and do not pass user scope to th
           latestCheckupOnly: false,
           explanation: 'Shows recorded check-up details.',
         })
-        : firstMessage.includes('Interpret the request for the Program module only')
-          ? JSON.stringify({
-            task: 'list',
-            metric: 'programs',
-            status: 'Active',
-            searchText: 'feeding',
-            year: 2026,
-            yearBasis: 'created',
-            useCurrentProgram: false,
-            explanation: 'Shows active feeding programs created this year.',
-          })
-        : firstMessage.includes('Classify the user request for a read-only Beneficiary module assistant')
-          ? JSON.stringify({
-            mode: 'screening',
-            entityType: 'Child',
-            searchText: '',
-            screeningStatus: 'Non-normal',
-            targetModule: 'none',
-            clinicalTopic: 'none',
-          })
-        : firstMessage.includes('Turn the request into a read-only intent')
-          ? JSON.stringify({
-            mode: firstMessage.includes('Audience: users') ? 'lookup' : 'setup',
-            searchText: firstMessage.includes('Audience: users') ? 'Community Organizer' : '',
-            role: firstMessage.includes('Audience: users') ? 'Community Organizer' : 'All',
-            status: 'All',
-            entityType: firstMessage.includes('Audience: users') ? 'All' : 'Group',
-            groupBy: 'none',
-            similarMatch: false,
-            guidance: firstMessage.includes('Audience: users') ? '' : 'Set a clear name, assign the correct community, and review access.',
-          })
         : firstMessage.includes('Translate the user request into a report configuration')
           ? JSON.stringify({ reportCategory: 'monitor', beneficiaryType: 'child', metricIds: ['weightForAgeInterpretation'] })
-          : firstMessage.includes('Help edit a draft for the')
-            ? 'The child eats vegetables. No concerns were reported.'
-            : 'Summary of aggregate figures.'
+          : 'Summary of aggregate figures.'
       : '';
     return new Response(JSON.stringify({ choices: [{ message: { content } }] }), {
       status: 200,
@@ -948,27 +449,6 @@ test('progress report AI endpoints require auth and do not pass user scope to th
   });
   assert.equal(unauthenticatedReport.status, 401);
   assert.equal(requests.length, 0);
-  const unauthenticatedBeneficiaryAssistant = await requestToApp(`${baseUrl}/beneficiary-assistant`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt: 'Find mothers with screening results.' }),
-  });
-  assert.equal(unauthenticatedBeneficiaryAssistant.status, 401);
-  assert.equal(requests.length, 0);
-  const unauthenticatedEntryAssist = await requestToApp(`${baseUrl}/entry-assist`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fieldId: 'nutritionNotes', draft: 'Draft.' }),
-  });
-  assert.equal(unauthenticatedEntryAssist.status, 401);
-  assert.equal(requests.length, 0);
-  const unauthenticatedAdminAssistant = await requestToApp(`${baseUrl}/admin-assistant`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ audience: 'users', prompt: 'Find active organizers.' }),
-  });
-  assert.equal(unauthenticatedAdminAssistant.status, 401);
-  assert.equal(requests.length, 0);
   const unauthenticatedDashboardInsight = await requestToApp(`${baseUrl}/dashboard-insight`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -976,14 +456,6 @@ test('progress report AI endpoints require auth and do not pass user scope to th
   });
   assert.equal(unauthenticatedDashboardInsight.status, 401);
   assert.equal(requests.length, 0);
-  const unauthenticatedProgramAssistant = await requestToApp(`${baseUrl}/program-assistant`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt: 'List active feeding programs.' }),
-  });
-  assert.equal(unauthenticatedProgramAssistant.status, 401);
-  assert.equal(requests.length, 0);
-
   const proposalResponse = await requestToApp(`${baseUrl}/proposal`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -993,31 +465,6 @@ test('progress report AI endpoints require auth and do not pass user scope to th
   assert.equal((await proposalResponse.json()).metricIds[0], 'weightForAgeInterpretation');
   const modelRequestText = JSON.stringify(requests[0].body);
   assert.doesNotMatch(modelRequestText, /123|456|999/);
-
-  const entryAssistResponse = await requestToApp(`${baseUrl}/entry-assist`, {
-    method: 'POST',
-    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fieldId: 'nutritionNotes', draft: 'Child eats vegetables. No concerns reported.' }),
-  });
-  assert.equal(entryAssistResponse.status, 200);
-  assert.deepEqual(await entryAssistResponse.json(), {
-    draft: 'The child eats vegetables. No concerns were reported.',
-  });
-  assert.equal(requests[1].body.messages[1].content, 'Child eats vegetables. No concerns reported.');
-
-  const summaryResponse = await requestToApp(`${baseUrl}/summary`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      reportCategory: 'monitor',
-      beneficiaryType: 'child',
-      summary: { total: 2, averageProgress: 50, groupCount: 1, batchCount: 1 },
-      records: [{ name: 'Sensitive name', id: 12 }],
-    }),
-  });
-  assert.equal(summaryResponse.status, 200);
-  assert.equal((await summaryResponse.json()).summary, 'Summary of aggregate figures.');
-  assert.doesNotMatch(JSON.stringify(requests[2].body), /Sensitive name|123|456|999/);
 
   const monitoringReportResponse = await requestToApp(`${baseUrl}/monitoring-report`, {
     method: 'POST',
@@ -1038,27 +485,7 @@ test('progress report AI endpoints require auth and do not pass user scope to th
     latestCheckupOnly: false,
     explanation: 'Shows recorded check-up details.',
   });
-  assert.doesNotMatch(JSON.stringify(requests[3].body), /Jane Doe|checkups|123|456/);
-
-  const userAdminToken = jwt.sign({ id: 18, role: 'Super Admin' }, process.env.JWT_SECRET);
-  const userAssistantResponse = await requestToApp(`${baseUrl}/admin-assistant`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${userAdminToken}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ audience: 'users', prompt: 'Find Community Organizers.' }),
-  });
-  assert.equal(userAssistantResponse.status, 200);
-  assert.equal((await userAssistantResponse.json()).role, 'Community Organizer');
-  assert.equal(requests[4].body.messages[1].content, 'Find Community Organizers.');
-  assert.doesNotMatch(JSON.stringify(requests[4].body), /account record id|loaded community data|Private Name/);
-
-  const organizerToken = jwt.sign({ id: 19, role: 'Community Organizer', school_id: 123 }, process.env.JWT_SECRET);
-  const communityAssistantResponse = await requestToApp(`${baseUrl}/admin-assistant`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${organizerToken}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ audience: 'community', prompt: 'How should I set up a new group?' }),
-  });
-  assert.equal(communityAssistantResponse.status, 200);
-  assert.equal((await communityAssistantResponse.json()).mode, 'setup');
+  assert.doesNotMatch(JSON.stringify(requests[1].body), /Jane Doe|checkups|123|456/);
 
   const dashboardInsightResponse = await requestToApp(`${baseUrl}/dashboard-insight`, {
     method: 'POST',
@@ -1072,58 +499,15 @@ test('progress report AI endpoints require auth and do not pass user scope to th
   const dashboardInsightBody = await dashboardInsightResponse.json();
   assert.equal(dashboardInsightResponse.status, 200, JSON.stringify(dashboardInsightBody));
   assert.deepEqual(dashboardInsightBody, { insight: 'Summary of aggregate figures.' });
-  assert.doesNotMatch(JSON.stringify(requests[6].body), /Jane Doe|records|123|456/);
+  assert.doesNotMatch(JSON.stringify(requests[2].body), /Jane Doe|records|123|456/);
 
-  const beneficiaryAssistantResponse = await requestToApp(`${baseUrl}/beneficiary-assistant`, {
-    method: 'POST',
-    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      prompt: 'Find children with a non-normal developmental screening.',
-      records: [{ id: 12, name: 'Jane Doe' }],
-      schoolId: 999,
-    }),
-  });
-  assert.equal(beneficiaryAssistantResponse.status, 200);
-  assert.equal((await beneficiaryAssistantResponse.json()).screeningStatus, 'Non-normal');
-  assert.doesNotMatch(JSON.stringify(requests[7].body), /Jane Doe|123|456|999|"records"|"schoolId"/);
-
-  const inaccessibleProgramResponse = await requestToApp(`${baseUrl}/program-assistant`, {
-    method: 'POST',
-    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt: 'How many beneficiaries are in this program?', currentProgramId: 999 }),
-  });
-  assert.equal(inaccessibleProgramResponse.status, 403);
-  assert.equal(requests.length, 8);
-
-  const programAssistantResponse = await requestToApp(`${baseUrl}/program-assistant`, {
-    method: 'POST',
-    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      prompt: 'List active feeding programs created this year.',
-      programs: [{ name: 'Private Program', community: 'Sensitive School' }],
-      schoolId: 999,
-    }),
-  });
-  assert.equal(programAssistantResponse.status, 200);
-  const programAssistantBody = await programAssistantResponse.json();
-  assert.match(programAssistantBody.answer, /0 matching programs/);
-  assert.deepEqual(programAssistantBody.programs, []);
-  assert.equal(requests[8].body.messages[1].content, 'List active feeding programs created this year.');
-  assert.doesNotMatch(JSON.stringify(requests[8].body), /Private Program|Sensitive School|123|456|999|"schoolId"/);
-
-  const blockedAudienceResponse = await requestToApp(`${baseUrl}/admin-assistant`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${organizerToken}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ audience: 'users', prompt: 'Find Community Organizers.' }),
-  });
-  assert.equal(blockedAudienceResponse.status, 403);
-  assert.equal(requests.length, 9);
-
-  const blockedRoleResponse = await requestToApp(`${baseUrl}/admin-assistant`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ audience: 'users', prompt: 'Find Community Organizers.' }),
-  });
-  assert.equal(blockedRoleResponse.status, 403);
-  assert.equal(requests.length, 9);
+  for (const endpoint of ['admin-assistant', 'beneficiary-assistant', 'program-assistant', 'entry-assist']) {
+    const removedAssistantResponse = await requestToApp(`${baseUrl}/${endpoint}`, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: 'test' }),
+    });
+    assert.equal(removedAssistantResponse.status, 403, `${endpoint} should no longer be available`);
+  }
+  assert.equal(requests.length, 3);
 });

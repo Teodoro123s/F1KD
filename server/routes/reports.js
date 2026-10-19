@@ -3,6 +3,8 @@ const router = express.Router();
 const pool = require('../db');
 const { verifyToken, normalizeRole } = require('../middleware/auth');
 const { authorize } = require('../middleware/authorize');
+const { isValidIsoDate } = require('../utils/dateValidation');
+const { parsePositiveIntegerId } = require('../utils/userInputValidation');
 
 const normalizedRoleSql = (column) => (
   `LOWER(REPLACE(REPLACE(REPLACE(TRIM(COALESCE(${column}, '')), '_', ''), ' ', ''), '-', ''))`
@@ -73,21 +75,41 @@ router.get('/users', verifyToken, authorize('super_admin'), async (req, res) => 
 
 router.get('/activity', verifyToken, authorize('super_admin', 'community_coordinator'), async (req, res) => {
   try {
-    const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
-    const perPage = Math.min(100, Math.max(1, Number.parseInt(req.query.perPage, 10) || 20));
+    const page = req.query.page === undefined ? 1 : parsePositiveIntegerId(req.query.page);
+    const requestedPerPage = req.query.perPage === undefined ? 20 : parsePositiveIntegerId(req.query.perPage);
+    if (page === null || requestedPerPage === null) {
+      return res.status(400).json({ error: 'page and perPage must be positive integers' });
+    }
+    const perPage = Math.min(100, requestedPerPage);
+    const offset = (page - 1) * perPage;
+    if (!Number.isSafeInteger(offset)) {
+      return res.status(400).json({ error: 'page is too large' });
+    }
     const search = String(req.query.search || '').trim();
     const params = [];
-    const actorUserId = req.query.actorUserId === undefined ? '' : String(req.query.actorUserId);
-    const schoolId = req.query.schoolId === undefined ? '' : String(req.query.schoolId);
-    const groupId = req.query.groupId === undefined ? '' : String(req.query.groupId);
+    const actorUserId = req.query.actorUserId === undefined ? null : parsePositiveIntegerId(req.query.actorUserId);
+    const schoolId = req.query.schoolId === undefined ? null : parsePositiveIntegerId(req.query.schoolId);
+    const groupId = req.query.groupId === undefined ? null : parsePositiveIntegerId(req.query.groupId);
+    const from = req.query.from === undefined ? '' : String(req.query.from);
+    const to = req.query.to === undefined ? '' : String(req.query.to);
 
-    if (normalizeRole(req.user?.role) === 'community_coordinator' && !actorUserId) {
+    if (from && !isValidIsoDate(from)) {
+      return res.status(400).json({ error: 'from must be a valid date in YYYY-MM-DD format' });
+    }
+    if (to && !isValidIsoDate(to)) {
+      return res.status(400).json({ error: 'to must be a valid date in YYYY-MM-DD format' });
+    }
+    if (from && to && from > to) {
+      return res.status(400).json({ error: 'from must be on or before to' });
+    }
+
+    if (req.query.actorUserId !== undefined && actorUserId === null) {
+      return res.status(400).json({ error: 'actorUserId must be a positive integer' });
+    }
+    if (normalizeRole(req.user?.role) === 'community_coordinator' && actorUserId === null) {
       return res.status(403).json({ error: 'Community organizers can only view activity for a managed health worker' });
     }
-    if (actorUserId) {
-      if (!/^[1-9]\d*$/.test(actorUserId)) {
-        return res.status(400).json({ error: 'actorUserId must be a positive integer' });
-      }
+    if (actorUserId !== null) {
       if (normalizeRole(req.user?.role) === 'community_coordinator') {
         const schoolIdForOrganizer = Number(req.user?.school_id);
         if (!Number.isSafeInteger(schoolIdForOrganizer) || schoolIdForOrganizer < 1) {
@@ -98,7 +120,7 @@ router.get('/activity', verifyToken, authorize('super_admin', 'community_coordin
            WHERE id = ? AND school_id = ?
              AND ${normalizedRoleSql('role')} = 'healthworker'
            LIMIT 1`,
-          [Number(actorUserId), schoolIdForOrganizer],
+          [actorUserId, schoolIdForOrganizer],
         );
         if (!managedUsers.length) {
           return res.status(404).json({ error: 'Managed health worker not found' });
@@ -106,29 +128,29 @@ router.get('/activity', verifyToken, authorize('super_admin', 'community_coordin
       }
     }
 
-    const filters = actorUserId
+    const filters = actorUserId !== null
       ? ['activity_logs.actor_user_id = ?', superAdminActivityExclusion, duplicateNotificationActivityExclusion]
       : [
         "activity_logs.category = 'User Management'",
         "activity_logs.action = 'sign_in'",
         superAdminActivityExclusion,
       ];
-    if (actorUserId) {
-      params.push(Number(actorUserId));
+    if (actorUserId !== null) {
+      params.push(actorUserId);
     }
-    if (schoolId) {
-      if (!/^[1-9]\d*$/.test(schoolId)) {
-        return res.status(400).json({ error: 'schoolId must be a positive integer' });
-      }
+    if (req.query.schoolId !== undefined && schoolId === null) {
+      return res.status(400).json({ error: 'schoolId must be a positive integer' });
+    }
+    if (schoolId !== null) {
       filters.push('EXISTS (SELECT 1 FROM users report_actor WHERE report_actor.id = activity_logs.actor_user_id AND report_actor.school_id = ?)');
-      params.push(Number(schoolId));
+      params.push(schoolId);
     }
-    if (groupId) {
-      if (!/^[1-9]\d*$/.test(groupId)) {
-        return res.status(400).json({ error: 'groupId must be a positive integer' });
-      }
+    if (req.query.groupId !== undefined && groupId === null) {
+      return res.status(400).json({ error: 'groupId must be a positive integer' });
+    }
+    if (groupId !== null) {
       filters.push('EXISTS (SELECT 1 FROM users report_actor WHERE report_actor.id = activity_logs.actor_user_id AND report_actor.group_id = ?)');
-      params.push(Number(groupId));
+      params.push(groupId);
     }
     const scopeFilters = [...filters];
     const scopeParams = [...params];
@@ -137,17 +159,17 @@ router.get('/activity', verifyToken, authorize('super_admin', 'community_coordin
       const term = `%${search}%`;
       params.push(term, term, term, term, term);
     }
-    if (req.query.from) {
+    if (from) {
       filters.push('created_at >= ?');
-      params.push(`${req.query.from} 00:00:00`);
+      params.push(`${from} 00:00:00`);
     }
-    if (req.query.to) {
+    if (to) {
       filters.push('created_at < DATE_ADD(?, INTERVAL 1 DAY)');
-      params.push(req.query.to);
+      params.push(to);
     }
 
     const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
-    const summaryFilters = actorUserId
+    const summaryFilters = actorUserId !== null
       ? [...scopeFilters, "activity_logs.category = 'User Management'", "activity_logs.action = 'sign_in'"]
       : scopeFilters;
     const summaryWhere = `WHERE ${summaryFilters.join(' AND ')}`;
@@ -183,7 +205,7 @@ router.get('/activity', verifyToken, authorize('super_admin', 'community_coordin
        FROM activity_logs ${where}
        ORDER BY created_at DESC, id DESC
        LIMIT ? OFFSET ?`,
-      [...params, perPage, (page - 1) * perPage],
+      [...params, perPage, offset],
     );
 
     res.json({

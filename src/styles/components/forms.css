@@ -86,10 +86,14 @@
 .settings-password-form {
   display: grid;
   gap: 12px;
-  max-width: 520px;
-  margin-top: 28px;
-  padding-top: 24px;
+  width: 100%;
+  margin-top: 1.25rem;
+  padding-top: 1.5rem;
   border-top: 1px solid var(--border, #e2e8f0);
+}
+
+.settings-password-form > .user-profile-grid {
+  width: 100%;
 }
 
 .settings-password-form label {
@@ -101,21 +105,34 @@
 .password-input-wrap {
   position: relative;
   display: flex;
+  width: 100%;
+  min-width: 0;
   align-items: center;
 }
 
-.password-input-wrap .form-input {
-  padding-right: 72px;
+.password-input-wrap .checkup-field-input {
+  flex: 1 1 auto;
+  width: 100%;
+  padding-right: 4.5rem;
 }
 
 .password-visibility-button {
   position: absolute;
-  right: 10px;
+  right: 0.45rem;
+  min-height: auto;
+  padding: 0.4rem 0.6rem;
   border: 0;
   background: transparent;
   color: var(--burgundy, #15803D);
   cursor: pointer;
+  font: inherit;
   font-weight: 700;
+}
+
+.password-visibility-button:focus-visible {
+  outline: 2px solid var(--burgundy, #15803D);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 .settings-password-actions {

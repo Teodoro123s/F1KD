@@ -5,6 +5,7 @@ F1KD beneficiary monitoring and reporting app.
 ## Project documentation
 
 - [Superadmin user guide](./docs/SUPERADMIN.md) — role purpose, permissions, modules, recovery flow, and operational boundaries.
+- [Integrated AI guide](./docs/INTEGRATED_AI.md) — AI features by module, their purpose, scope, access, data handling, and limitations.
 
 ## Docker: Full Stack
 

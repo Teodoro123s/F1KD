@@ -17,6 +17,11 @@ const {
   sendPasswordResetCodeEmail,
 } = require('../services/emailjs');
 const { recordActivity } = require('../services/activityLog');
+const {
+  isValidEmail,
+  normalizeEmail,
+  validateAccountPassword,
+} = require('../utils/userInputValidation');
 
 const passwordResetRequestLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -284,9 +289,13 @@ router.post('/test-role', async (req, res) => {
 
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body || {};
-    if (!email || !password) {
+    const email = normalizeEmail(req.body?.email);
+    const password = req.body?.password;
+    if (!email || typeof password !== 'string' || !password) {
       return res.status(400).json({ status: 400, code: 'VALIDATION_ERROR', message: 'email and password required', timestamp: new Date().toISOString() });
+    }
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ status: 400, code: 'VALIDATION_ERROR', message: 'Enter a valid email address', timestamp: new Date().toISOString() });
     }
 
     await ensureSuperadminAccount(pool);
@@ -294,7 +303,7 @@ router.post('/login', async (req, res) => {
     const [rows] = await pool.query(
         `SELECT id, first_name, last_name, middle_initial, email, role, status, school_id, group_id, contact_number, password_hash
        FROM users
-         WHERE email = ?
+         WHERE LOWER(TRIM(email)) = ?
        LIMIT 1`,
       [email]
     );
@@ -326,8 +335,8 @@ router.post('/login', async (req, res) => {
 });
 
 router.post('/forgot-password', passwordResetRequestLimiter, async (req, res) => {
-  const email = String(req.body?.email || '').trim().toLowerCase();
-  if (!email || email.length > 255 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+  const email = normalizeEmail(req.body?.email);
+  if (!isValidEmail(email)) {
     return res.status(400).json({ error: 'Enter a valid email address' });
   }
 
@@ -387,18 +396,20 @@ router.post('/forgot-password', passwordResetRequestLimiter, async (req, res) =>
 });
 
 router.post('/reset-password', passwordResetSubmitLimiter, async (req, res) => {
-  const email = String(req.body?.email || '').trim().toLowerCase();
+  const email = normalizeEmail(req.body?.email);
   const code = String(req.body?.passcode || '').trim();
-  const newPassword = String(req.body?.newPassword || '');
-  const confirmPassword = String(req.body?.confirmPassword || '');
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+  const newPassword = req.body?.newPassword;
+  const confirmPassword = req.body?.confirmPassword;
+  if (!isValidEmail(email)) {
     return res.status(400).json({ error: 'Enter a valid email address' });
   }
   if (!/^\d{6}$/.test(code)) {
     return res.status(400).json({ error: 'Enter the six-digit verification code' });
   }
-  if (newPassword.length < 8) {
-    return res.status(400).json({ error: 'New password must be at least 8 characters' });
+  const passwordError = validateAccountPassword(newPassword, 'New password');
+  if (passwordError) return res.status(400).json({ error: passwordError });
+  if (typeof confirmPassword !== 'string') {
+    return res.status(400).json({ error: 'Confirm your new password' });
   }
   if (newPassword !== confirmPassword) {
     return res.status(400).json({ error: 'The new passwords do not match' });
@@ -460,12 +471,13 @@ router.post('/reset-password', passwordResetSubmitLimiter, async (req, res) => {
 router.post('/change-password', verifyToken, async (req, res) => {
   try {
     const { currentPassword, newPassword, confirmPassword } = req.body || {};
-    if (!currentPassword || !newPassword || newPassword !== confirmPassword) {
+    if (typeof currentPassword !== 'string' || !currentPassword
+      || typeof newPassword !== 'string' || !newPassword
+      || typeof confirmPassword !== 'string' || newPassword !== confirmPassword) {
       return res.status(400).json({ error: 'Current password and matching new passwords are required' });
     }
-    if (String(newPassword).length < 8) {
-      return res.status(400).json({ error: 'New password must be at least 8 characters' });
-    }
+    const passwordError = validateAccountPassword(newPassword, 'New password');
+    if (passwordError) return res.status(400).json({ error: passwordError });
     if (currentPassword === newPassword) {
       return res.status(400).json({ error: 'New password must be different from the current password' });
     }

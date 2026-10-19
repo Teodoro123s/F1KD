@@ -39,7 +39,7 @@ export default function BeneficiaryTable({
 
   return (
     <section className="table-card beneficiary-table-card">
-      {onSearchChange && <TableSearch value={searchValue} onChange={onSearchChange} placeholder="Search beneficiaries (case-sensitive)" />}
+      {onSearchChange && <TableSearch value={searchValue} onChange={onSearchChange} placeholder="Search names or school/group/batch" />}
       <div className="table-overflow">
         <table className="data-table">
           <tbody>

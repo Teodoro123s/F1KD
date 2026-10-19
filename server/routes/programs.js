@@ -5,11 +5,23 @@ const { createSuperadminNotification } = require('../services/notifications');
 const { canViewAuditSignatures } = require('../middleware/authorize');
 const { programScopesBelongToSchool } = require('../utils/programScope');
 const { getProgramVisibilityFilter } = require('../utils/programAccess');
+const { isValidIsoDate } = require('../utils/dateValidation');
+const { parsePositiveIntegerId } = require('../utils/userInputValidation');
+
+for (const parameterName of ['id', 'programId', 'clusterId']) {
+  router.param(parameterName, (req, res, next, value) => {
+    const parsedId = parsePositiveIntegerId(value);
+    if (parsedId === null) {
+      return res.status(400).json({ error: `${parameterName} must be a positive integer` });
+    }
+    req.params[parameterName] = String(parsedId);
+    return next();
+  });
+}
 
 router.use((req, res, next) => {
   const isMonitoringUpdate = req.method === 'PATCH' && /\/monitoring$/.test(req.path);
-  const isProgramAssistant = req.method === 'POST' && /^\/ai\/assistant\/?$/.test(req.path);
-  if (req.isHealthWorker && req.method !== 'GET' && !isMonitoringUpdate && !isProgramAssistant) {
+  if (req.isHealthWorker && req.method !== 'GET' && !isMonitoringUpdate) {
     return res.status(403).json({ error: 'Health workers have read-only access to programs' });
   }
   return next();
@@ -28,7 +40,8 @@ function cleanProgram(body = {}) {
 }
 
 function validDate(value) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || '')) ? String(value) : null;
+  const date = String(value || '');
+  return isValidIsoDate(date) ? date : null;
 }
 
 async function getProgram(id) {
@@ -396,7 +409,8 @@ router.patch('/:programId/clusters/complete', async (req, res) => {
 });
 
 router.get('/:programId/monitoring', async (req, res) => {
-  const date = validDate(req.query.date) || new Date().toISOString().slice(0, 10);
+  const date = req.query.date === undefined ? new Date().toISOString().slice(0, 10) : validDate(req.query.date);
+  if (!date) return res.status(400).json({ error: 'Date must be a valid date in YYYY-MM-DD format' });
   try {
     const groupPredicate = req.isHealthWorker
       ? `AND (
@@ -433,10 +447,14 @@ router.get('/:programId/monitoring', async (req, res) => {
 router.patch('/:programId/monitoring', async (req, res) => {
   const beneficiaryId = String(req.body?.beneficiaryId || '').trim();
   const beneficiaryType = String(req.body?.beneficiaryType || '').trim().toLowerCase();
-  const date = validDate(req.body?.date) || new Date().toISOString().slice(0, 10);
-  const monitored = Boolean(req.body?.monitored);
+  const date = req.body?.date === undefined ? new Date().toISOString().slice(0, 10) : validDate(req.body.date);
+  const monitored = req.body?.monitored;
   if (!beneficiaryId || !['mother', 'child'].includes(beneficiaryType)) {
     return res.status(400).json({ error: 'Beneficiary ID and type are required' });
+  }
+  if (!date) return res.status(400).json({ error: 'Date must be a valid date in YYYY-MM-DD format' });
+  if (typeof monitored !== 'boolean') {
+    return res.status(400).json({ error: 'Monitored must be true or false' });
   }
   try {
     if (!(await authorizeCoordinatorProgramScope(req, res, req.params.programId))) return;

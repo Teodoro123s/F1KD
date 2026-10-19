@@ -71,7 +71,7 @@ export default function ChangePasswordForm() {
                     />
                     <button
                       type="button"
-                      className="btn-secondary"
+                      className="password-visibility-button"
                       aria-label={`${visiblePasswords[key] ? 'Hide' : 'Show'} ${label.toLowerCase()}`}
                       onClick={() => togglePasswordVisibility(key)}
                     >

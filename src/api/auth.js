@@ -1,23 +1,8 @@
 // Simple auth client using JWT in Authorization header
 import { fetchWithAuth, getApiBaseUrl } from './authHeader';
+import { readApiResponse } from './readApiResponse.mjs';
 
 const API_BASE = getApiBaseUrl();
-
-async function handleResponse(res, defaultMsg) {
-  const contentType = res.headers.get('content-type') || '';
-  let body = null;
-  if (contentType.includes('application/json')) {
-    try { body = await res.json(); } catch (e) { body = null; }
-  } else {
-    try { body = await res.text(); } catch (e) { body = null; }
-  }
-  if (res.ok) return body;
-  const msg = (body && (body.error || body.message)) ? (body.error || body.message) : res.statusText || defaultMsg;
-  const err = new Error(msg);
-  err.status = res.status;
-  err.body = body;
-  throw err;
-}
 
 export async function login(email, password) {
   const res = await fetch(`${API_BASE}/api/auth/login`, {
@@ -26,7 +11,7 @@ export async function login(email, password) {
     body: JSON.stringify({ email, password }),
     credentials: 'include',
   });
-  return handleResponse(res, 'Login failed');
+  return readApiResponse(res, 'Unable to sign in');
 }
 
 export async function requestPasswordReset(email) {
@@ -35,7 +20,7 @@ export async function requestPasswordReset(email) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email }),
   });
-  return handleResponse(res, 'Unable to request a password reset');
+  return readApiResponse(res, 'Unable to request a password reset');
 }
 
 export async function resetPassword(email, passcode, newPassword, confirmPassword) {
@@ -44,7 +29,7 @@ export async function resetPassword(email, passcode, newPassword, confirmPasswor
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, passcode, newPassword, confirmPassword }),
   });
-  return handleResponse(res, 'Unable to reset password');
+  return readApiResponse(res, 'Unable to reset your password');
 }
 
 export async function loginAsTestRole(role) {
@@ -54,7 +39,7 @@ export async function loginAsTestRole(role) {
     body: JSON.stringify({ role }),
     credentials: 'include',
   });
-  return handleResponse(res, 'Test role sign-in failed');
+  return readApiResponse(res, 'Unable to sign in to the selected test role');
 }
 
 export async function changePassword(currentPassword, newPassword, confirmPassword) {
@@ -63,7 +48,7 @@ export async function changePassword(currentPassword, newPassword, confirmPasswo
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ currentPassword, newPassword, confirmPassword }),
   });
-  return handleResponse(res, 'Password change failed');
+  return readApiResponse(res, 'Unable to change your password');
 }
 
 export async function refreshSession() {
@@ -72,7 +57,7 @@ export async function refreshSession() {
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
   });
-  const result = await handleResponse(res, 'Session refresh failed');
+  const result = await readApiResponse(res, 'Unable to refresh your session');
   if (result && result.token) {
     saveToken(result.token);
   }
@@ -84,7 +69,7 @@ export async function me(token) {
     headers: { Authorization: token ? `Bearer ${token}` : '' },
     credentials: 'include',
   });
-  return handleResponse(res, 'Failed to fetch current user');
+  return readApiResponse(res, 'Unable to load your account');
 }
 
 export function saveToken(token) {

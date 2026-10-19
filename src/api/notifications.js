@@ -1,15 +1,12 @@
 import { fetchWithAuth } from './authHeader';
+import { readApiResponse } from './readApiResponse.mjs';
 
 async function requestNotifications(url, options = {}) {
   const response = await fetchWithAuth(url, {
     ...options,
     headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
   });
-  const body = await response.json().catch(() => null);
-  if (!response.ok) {
-    throw new Error(body?.error || `Unable to load notifications (${response.status})`);
-  }
-  return body;
+  return readApiResponse(response, 'Unable to complete notification request');
 }
 
 export function apiGetNotifications({ page = 1, perPage = 10, search = '', category = '', readStatus = 'all' } = {}) {

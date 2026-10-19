@@ -1,21 +1,14 @@
 const express = require('express');
 const pool = require('../db');
 const { getWhoGrowthStandards } = require('../services/whoGrowthStandards');
-const { normalizeRole } = require('../middleware/authorize');
 const {
   ProgressReportAIError,
-  createBeneficiaryAssistantIntent,
-  createAdminAssistantIntent,
   createDashboardInsight,
-  createEntryAssistance,
   createMonitoringReportIntent,
-  createProgramAssistantIntent,
   createReportProposal,
-  createReportSummary,
   getAIConfiguration,
 } = require('../utils/progressReportAI');
-const { createProgramAssistantResult } = require('../services/programAssistant');
-const { getProgramVisibilityFilter } = require('../utils/programAccess');
+const { validateProgressReportQuery } = require('../utils/progressReportQueryValidation');
 
 const router = express.Router();
 
@@ -64,9 +57,9 @@ const parseParams = (query, scope = {}) => ({
   motherId: numberOrNull(query.motherId),
   programName: String(query.programName || '').trim(),
   programBeneficiaryType: String(query.programBeneficiaryType || '').trim(),
-  benefitPeriod: query.benefitPeriod === 'month' ? 'month' : 'overall',
+  benefitPeriod: String(query.benefitPeriod || 'overall').trim().toLowerCase() === 'month' ? 'month' : 'overall',
   benefitMonth: /^\d{4}-\d{2}$/.test(String(query.benefitMonth || '')) ? String(query.benefitMonth) : '',
-  granularity: query.granularity === 'mother' ? 'mother' : 'child',
+  granularity: String(query.granularity || 'child').trim().toLowerCase() === 'mother' ? 'mother' : 'child',
   search: String(query.search || '').trim(),
   page: Math.max(1, Number(query.page) || 1),
   perPage: Math.min(100, Math.max(1, Number(query.perPage) || 50)),
@@ -134,95 +127,6 @@ router.post('/ai/monitoring-report', async (req, res) => {
   }
 });
 
-router.post('/ai/program-assistant', async (req, res) => {
-  const currentProgramId = req.body?.currentProgramId;
-  if (currentProgramId !== undefined && currentProgramId !== null && (!Number.isSafeInteger(Number(currentProgramId)) || Number(currentProgramId) < 1)) {
-    return res.status(400).json({ error: 'Invalid current Program selection.' });
-  }
-  if (req.isHealthWorker && !req.groupId) {
-    return res.status(403).json({ error: 'Health workers must be assigned to a group to use the Program assistant' });
-  }
-  try {
-    if (currentProgramId !== undefined && currentProgramId !== null) {
-      const visibility = getProgramVisibilityFilter(req);
-      const [visiblePrograms] = await pool.query(
-        `SELECT p.id FROM programs p ${visibility.sql} ${visibility.sql ? 'AND' : 'WHERE'} p.id = ?`,
-        [...visibility.values, Number(currentProgramId)],
-      );
-      if (!visiblePrograms.length) return res.status(403).json({ error: 'This program is not available to your account.' });
-    }
-    const intent = await createProgramAssistantIntent(req.body?.prompt, {
-      hasCurrentProgram: currentProgramId !== undefined && currentProgramId !== null,
-      currentYear: new Date().getFullYear(),
-    });
-    const result = await createProgramAssistantResult({
-      req,
-      intent,
-      currentProgramId,
-      pool,
-    });
-    res.json(result);
-  } catch (error) {
-    const status = error instanceof ProgressReportAIError ? error.status : error.status || 500;
-    console.error('[Program AI] assistant error:', error.message);
-    res.status(status).json({ error: error.message || 'Unable to answer the Program question.' });
-  }
-});
-
-router.post('/ai/beneficiary-assistant', async (req, res) => {
-  try {
-    const intent = await createBeneficiaryAssistantIntent(req.body?.prompt);
-    res.json(intent);
-  } catch (error) {
-    const status = error instanceof ProgressReportAIError ? error.status : 502;
-    console.error('[Progress Report AI] beneficiary assistant error:', error.message);
-    res.status(status).json({ error: error.message || 'Unable to prepare a beneficiary assistant request.' });
-  }
-});
-
-router.post('/ai/admin-assistant', async (req, res) => {
-  const audience = req.body?.audience;
-  const userRole = normalizeRole(req.user?.role);
-  if ((audience === 'users' && userRole !== 'super_admin') || (audience === 'community' && userRole !== 'community_coordinator')) {
-    return res.status(403).json({ error: 'You do not have permission to use this assistant.' });
-  }
-  try {
-    const intent = await createAdminAssistantIntent(req.body?.prompt, audience);
-    res.json(intent);
-  } catch (error) {
-    const status = error instanceof ProgressReportAIError ? error.status : 502;
-    console.error('[Progress Report AI] admin assistant error:', error.message);
-    res.status(status).json({ error: error.message || 'Unable to prepare an admin assistant request.' });
-  }
-});
-
-router.post('/ai/entry-assist', async (req, res) => {
-  try {
-    const draft = await createEntryAssistance(req.body?.fieldId, req.body?.draft);
-    res.json({ draft });
-  } catch (error) {
-    const status = error instanceof ProgressReportAIError ? error.status : 502;
-    console.error('[Progress Report AI] entry assistance error:', error.message);
-    res.status(status).json({ error: error.message || 'Unable to prepare note assistance.' });
-  }
-});
-
-router.post('/ai/summary', async (req, res) => {
-  try {
-    const summary = await createReportSummary(
-      req.body?.summary,
-      req.body?.reportCategory,
-      req.body?.beneficiaryType,
-      { trendStats: req.body?.trendStats },
-    );
-    res.json({ summary });
-  } catch (error) {
-    const status = error instanceof ProgressReportAIError ? error.status : 502;
-    console.error('[Progress Report AI] summary error:', error.message);
-    res.status(status).json({ error: error.message || 'Unable to summarize this report.' });
-  }
-});
-
 router.post('/ai/dashboard-insight', async (req, res) => {
   try {
     const insight = await createDashboardInsight(req.body?.metrics, req.body?.question);
@@ -266,6 +170,8 @@ router.get('/options', async (req, res) => {
 
 router.get('/', async (req, res) => {
   try {
+    const queryError = validateProgressReportQuery(req.query);
+    if (queryError) return res.status(400).json({ error: queryError });
     const params = parseParams(req.query, req);
     const isMotherReport = params.granularity === 'mother';
     const filters = hierarchyWhere(params, isMotherReport ? { mother: 'm' } : undefined);

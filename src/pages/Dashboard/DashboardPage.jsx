@@ -9,6 +9,7 @@ import { apiGetPrograms } from '../../api/programs';
 import { apiGetManagedHealthWorkers, apiGetUsers } from '../../api/users';
 import { can, isCommunityCoordinatorRole, isHealthWorkerRole, normalizeRole, ROLES } from '../../utils/permissions';
 import { DashboardInsights } from './DashboardInsights';
+import { buildDashboardModuleSummaries } from './dashboardModuleMetrics.mjs';
 
 function getGreeting(name) {
   const hour = new Date().getHours();
@@ -23,6 +24,18 @@ function getGreeting(name) {
 function getList(result, key) {
   if (Array.isArray(result?.[key])) return result[key];
   return Array.isArray(result) ? result : [];
+}
+
+async function fetchAllDashboardUsers() {
+  const firstPage = await apiGetUsers(1, 100);
+  const users = getList(firstPage, 'users');
+  const total = Number(firstPage?.total) || users.length;
+  const pageCount = Math.ceil(total / 100);
+  const remainingPages = await Promise.all(
+    Array.from({ length: Math.max(0, pageCount - 1) }, (_, index) => apiGetUsers(index + 2, 100)),
+  );
+
+  return { users: [...users, ...remainingPages.flatMap((page) => getList(page, 'users'))] };
 }
 
 function getRecordName(record) {
@@ -68,7 +81,7 @@ function buildRegistrationTrend(records) {
 
 export default function DashboardPage() {
   const { currentUser } = useAuth();
-  const { mothers: contextMothers } = useMothers();
+  const { mothers: contextMothers, refreshMothers, error: mothersError } = useMothers();
   const normalizedRole = normalizeRole(currentUser?.role);
   const isSuperAdmin = normalizedRole === ROLES.SUPER_ADMIN;
   const isAdmin = normalizedRole === ROLES.ADMIN;
@@ -96,10 +109,11 @@ export default function DashboardPage() {
       setRefreshing(true);
       const results = await Promise.allSettled([
         isSuperAdmin ? Promise.resolve(null) : getSummary(),
+        isSuperAdmin ? Promise.resolve(null) : refreshMothers(),
         isSuperAdmin ? Promise.resolve(null) : apiGetChildren(),
         isSuperAdmin ? Promise.resolve(null) : apiGetPrograms(),
         isSuperAdmin
-          ? apiGetUsers(1, 100)
+          ? fetchAllDashboardUsers()
           : isCommunityOrganizer
             ? apiGetManagedHealthWorkers()
             : Promise.resolve(null),
@@ -107,8 +121,8 @@ export default function DashboardPage() {
 
       if (!active) return;
 
-      const [summaryResult, childrenResult, programsResult, usersResult] = results;
-      const resultNames = ['community summary', 'children', 'programs', 'users'];
+      const [summaryResult, , childrenResult, programsResult, usersResult] = results;
+      const resultNames = ['community summary', 'beneficiary records', 'children', 'programs', 'users'];
       const errors = [];
       results.forEach((result, index) => {
         if (result.status === 'rejected') {
@@ -139,7 +153,7 @@ export default function DashboardPage() {
     return () => {
       active = false;
     };
-  }, [isCommunityOrganizer, isSuperAdmin, refreshVersion]);
+  }, [isCommunityOrganizer, isSuperAdmin, refreshMothers, refreshVersion]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setRefreshVersion((version) => version + 1), 5 * 60 * 1000);
@@ -229,6 +243,15 @@ export default function DashboardPage() {
     unassignedStaff: staffMetrics.unassigned,
     suspendedStaff: staffMetrics.suspended,
   }), [isSuperAdmin, staffMetrics, stats]);
+
+  const moduleSummaries = useMemo(() => buildDashboardModuleSummaries({
+    mothers,
+    children,
+    programs,
+    staffMetrics,
+    isSuperAdmin,
+    isCommunityOrganizer,
+  }), [children, isCommunityOrganizer, isSuperAdmin, mothers, programs, staffMetrics]);
 
   const assignedSchoolName = useMemo(() => {
     const schoolId = currentUser?.school_id ?? currentUser?.schoolId;
@@ -365,9 +388,9 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {loadErrors.length > 0 && (
+      {(loadErrors.length > 0 || mothersError) && (
         <p className="dashboard-load-warning" role="alert">
-          Some dashboard data could not be refreshed ({loadErrors.join(', ')}). Displayed figures may be incomplete.
+          Some dashboard data could not be refreshed ({[...new Set([...loadErrors, ...(mothersError ? ['beneficiary records'] : [])])].join(', ')}). Displayed figures may be incomplete.
         </p>
       )}
 
@@ -422,6 +445,26 @@ export default function DashboardPage() {
             })}
           </div>
         </div>
+      </section>
+
+      <section className="dashboard-module-summary-grid" aria-label="Live module summaries">
+        {moduleSummaries.map((module) => (
+          <article className="dashboard-panel dashboard-module-summary" key={module.key}>
+            <div className="dashboard-panel-heading">
+              <div><span className="dashboard-panel-eyebrow">Live data</span><h3>{module.title}</h3></div>
+              <Link to={module.to} className="panel-link">Open module</Link>
+            </div>
+            <dl className="dashboard-module-metrics">
+              {module.metrics.map((metric) => (
+                <div className="dashboard-module-metric" key={metric.label}>
+                  <dt>{metric.label}</dt>
+                  <dd>{typeof metric.value === 'number' ? metric.value.toLocaleString() : metric.value}</dd>
+                </div>
+              ))}
+            </dl>
+            <p className="dashboard-module-note">{module.note}</p>
+          </article>
+        ))}
       </section>
 
       <section className="dashboard-follow-up-panel" aria-label="Actionable indicators">

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { ResultsTable } from './ResultsTable';
 import { ResultsGraph } from './ResultsGraph';
 
@@ -51,12 +51,7 @@ export function ResultsPanel({
   profileGraphFields,
   interpretationMetrics,
   programMetrics,
-  aiSummary,
-  aiSummaryError,
-  aiSummaryLoading,
-  createAiSummary,
 }) {
-  const [aiSummaryExpanded, setAiSummaryExpanded] = useState(true);
   const viewToggle = [
     { key: 'table', label: 'Table View' },
     { key: 'graph', label: 'Graph View', disabled: !graphAllowed },
@@ -95,14 +90,6 @@ export function ResultsPanel({
               Export CSV
             </button>
           )}
-          <button
-            type="button"
-            className="secondary-btn"
-            onClick={createAiSummary}
-            disabled={aiSummaryLoading}
-          >
-            {aiSummaryLoading ? 'Summarizing…' : aiSummary ? 'Refresh AI summary' : 'Summarize with AI'}
-          </button>
         </div>
       </div>
 
@@ -159,30 +146,6 @@ export function ResultsPanel({
           )}
           formatCellValue={formatCellValue}
         />
-      )}
-      {aiSummaryLoading && (
-        <p className="progress-report-ai-message" role="status">Preparing an AI summary from the report totals…</p>
-      )}
-      {aiSummaryError && <p className="progress-report-ai-message" role="alert">{aiSummaryError}</p>}
-      {aiSummary && (
-        <aside className="progress-report-ai-summary" aria-live="polite">
-          <div className="progress-report-ai-summary-heading">
-            <h2>AI report summary</h2>
-            <button
-              type="button"
-              className="progress-report-ai-toggle"
-              aria-expanded={aiSummaryExpanded}
-              aria-controls="progress-report-ai-summary-content"
-              onClick={() => setAiSummaryExpanded((value) => !value)}
-            >
-              {aiSummaryExpanded ? 'Collapse' : 'Expand'}
-            </button>
-          </div>
-          <div id="progress-report-ai-summary-content" hidden={!aiSummaryExpanded}>
-            <p>{aiSummary}</p>
-            <small>Generated from aggregate report totals and, for monitoring reports with repeated measurements, aggregate changes in weight (children) or BMI (mothers). No beneficiary-level measurement history is sent to the AI. Review the report data; this is not clinical advice.</small>
-          </div>
-        </aside>
       )}
       {reportPagination && reportPagination.totalPages > 1 && (
         <div className="progress-report-pagination" aria-label="Report pagination">

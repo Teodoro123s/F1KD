@@ -1,9 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import {
-  apiCreateProgressReportAiSummary,
-  apiGetProgressReport,
-  apiGetProgressReportOptions,
-} from '../../api/progressReport';
+import { apiGetProgressReport, apiGetProgressReportOptions } from '../../api/progressReport';
 import { apiRecordReportDownload } from '../../api/notifications';
 import { apiGetPrograms } from '../../api/programs';
 import PageHeader from '../../components/ui/PageHeader';
@@ -58,32 +54,6 @@ const batchAvailableForGroup = (batch, groupId, mothers) => {
   return linkedGroupIds.length === 0;
 };
 
-function buildAggregateTrendStats(rows, beneficiaryType) {
-  const metricId = beneficiaryType === 'mother' ? 'bmiForAge' : 'weightForAge';
-  const changes = (rows || []).flatMap((row) => {
-    const points = (Array.isArray(row.growthSeries) ? row.growthSeries : [])
-      .map((point) => ({
-        date: String(point.date || point.measurementDate || ''),
-        value: getPointValue(point, metricId),
-      }))
-      .filter((point) => point.value !== null)
-      .sort((left, right) => left.date.localeCompare(right.date));
-    if (points.length < 2) return [];
-    return [{ first: points[0].value, latest: points.at(-1).value }];
-  });
-  if (!changes.length) return null;
-  const average = (values) => Number((values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(2));
-  const averageFirstValue = average(changes.map(({ first }) => first));
-  const averageLatestValue = average(changes.map(({ latest }) => latest));
-  return {
-    metricId,
-    recordsWithMultipleMeasurements: changes.length,
-    averageFirstValue,
-    averageLatestValue,
-    averageChange: Number((averageLatestValue - averageFirstValue).toFixed(2)),
-  };
-}
-
 export default function ProgressReport() {
   const { currentUser } = useAuth();
   const isHealthWorker = isHealthWorkerRole(currentUser?.role);
@@ -122,9 +92,6 @@ export default function ProgressReport() {
   const [programName, setProgramName] = useState('');
   const [benefitPeriod, setBenefitPeriod] = useState('overall');
   const [benefitMonth, setBenefitMonth] = useState(() => new Date().toISOString().slice(0, 7));
-  const [aiSummary, setAiSummary] = useState('');
-  const [aiSummaryError, setAiSummaryError] = useState('');
-  const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
 
   useEffect(() => {
     apiGetProgressReportOptions()
@@ -262,8 +229,6 @@ export default function ProgressReport() {
     setReport(null);
     setGraphReportRows(null);
     setFinalizedSnapshot(null);
-    setAiSummary('');
-    setAiSummaryError('');
     setActiveTab(1);
     if (key === 'schoolId') setReportFocus('beneficiary-school');
     else if (key === 'groupId') setReportFocus(normalized.groupId ? 'beneficiary-group' : 'beneficiary-school');
@@ -285,10 +250,6 @@ export default function ProgressReport() {
     setSelection(safeSelection);
     setLoadingReport(true);
     if (nextPage === 1) setGraphReportRows(null);
-    if (nextPage === 1) {
-      setAiSummary('');
-      setAiSummaryError('');
-    }
     try {
       const selectedProgram = programs.find((program) => normalizeProgramName(program.name) === normalizeProgramName(programName));
       if (reportCategory === 'program') {
@@ -432,28 +393,6 @@ export default function ProgressReport() {
     displaySelection.groupId ? groups.find((item) => String(item.id) === String(displaySelection.groupId))?.name : 'All groups',
     displaySelection.batchId ? batches.find((item) => String(item.id) === String(displaySelection.batchId))?.name : 'All batches',
   ].filter(Boolean).join(' > ');
-  const createAiSummary = async () => {
-    if (!activeReport?.summary) return;
-    setAiSummaryLoading(true);
-    setAiSummaryError('');
-    try {
-      const trendRows = graphReportRows || activeReport.rows || [];
-      const trendStats = displayReportCategory === 'monitor'
-        ? buildAggregateTrendStats(trendRows, displayBeneficiaryType)
-        : null;
-      const result = await apiCreateProgressReportAiSummary({
-        reportCategory: displayReportCategory,
-        beneficiaryType: displayBeneficiaryType,
-        summary: activeReport.summary,
-        ...(trendStats ? { trendStats } : {}),
-      });
-      setAiSummary(result.summary);
-    } catch (summaryError) {
-      setAiSummaryError(summaryError.message || 'Unable to summarize this report.');
-    } finally {
-      setAiSummaryLoading(false);
-    }
-  };
   const resultsRows = sortedRows;
   const monitoringTableRows = useMemo(() => {
     if (displayReportCategory !== 'monitor') return resultsRows;
@@ -572,8 +511,6 @@ export default function ProgressReport() {
     setProgramName('');
     setBenefitPeriod('overall');
     setBenefitMonth(new Date().toISOString().slice(0, 7));
-    setAiSummary('');
-    setAiSummaryError('');
     setActiveTab(1);
     setPage(1);
     setError('');
@@ -619,8 +556,6 @@ export default function ProgressReport() {
     setBeneficiaryType(proposal.beneficiaryType);
     setReport(null);
     setFinalizedSnapshot(null);
-    setAiSummary('');
-    setAiSummaryError('');
     setPage(1);
     setError('');
 
@@ -829,10 +764,6 @@ export default function ProgressReport() {
                 profileGraphFields={PROFILE_GRAPH_FIELDS}
                 interpretationMetrics={INTERPRETATION_METRICS}
                 programMetrics={PROGRAM_METRICS}
-                aiSummary={aiSummary}
-                aiSummaryError={aiSummaryError}
-                aiSummaryLoading={aiSummaryLoading}
-                createAiSummary={createAiSummary}
               />
             )
           )}

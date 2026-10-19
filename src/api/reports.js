@@ -1,4 +1,5 @@
 import { fetchWithAuth, getApiBaseUrl } from './authHeader';
+import { readApiResponse } from './readApiResponse.mjs';
 
 const API_BASE = getApiBaseUrl();
 
@@ -6,22 +7,14 @@ export async function apiGetReportScopes() {
   const response = await fetchWithAuth(`${API_BASE}/api/reports/scopes`, {
     headers: { 'Content-Type': 'application/json' },
   });
-  const body = await response.json().catch(() => null);
-  if (!response.ok) {
-    throw new Error(body?.error || `Unable to load report scopes (${response.status})`);
-  }
-  return body;
+  return readApiResponse(response, 'Unable to load report scopes');
 }
 
 export async function apiGetActivityUsers() {
   const response = await fetchWithAuth(`${API_BASE}/api/reports/users`, {
     headers: { 'Content-Type': 'application/json' },
   });
-  const body = await response.json().catch(() => null);
-  if (!response.ok) {
-    throw new Error(body?.error || `Unable to load users (${response.status})`);
-  }
-  return body;
+  return readApiResponse(response, 'Unable to load users');
 }
 
 export async function apiGetActivityReport({
@@ -50,9 +43,5 @@ export async function apiGetActivityReport({
   const response = await fetchWithAuth(`${API_BASE}/api/reports/activity?${params.toString()}`, {
     headers: { 'Content-Type': 'application/json' },
   });
-  const body = await response.json().catch(() => null);
-  if (!response.ok) {
-    throw new Error(body?.error || `Unable to load reports (${response.status})`);
-  }
-  return body;
+  return readApiResponse(response, 'Unable to load reports');
 }

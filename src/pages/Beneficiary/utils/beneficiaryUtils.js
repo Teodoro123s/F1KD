@@ -26,6 +26,51 @@ export const filterChildrenByQuery = (children, query, fields = ['name', 'id', '
   );
 };
 
+export const matchesBeneficiarySearch = (record, query) => {
+  const original = record.original || record.raw || record;
+  const mother = original.mother || {};
+  const searchableText = [
+    record.name,
+    record.community,
+    record.id,
+    original.firstName,
+    original.first_name,
+    original.middleName,
+    original.middle_name,
+    original.lastName,
+    original.last_name,
+    original.childName,
+    original.motherName,
+    original.mother_name,
+    original.mother_code,
+    mother.name,
+    mother.firstName,
+    mother.first_name,
+    mother.middleName,
+    mother.middle_name,
+    mother.lastName,
+    mother.last_name,
+    original.group,
+    original.group_name,
+    original.groupName,
+    original.batch,
+    original.batch_name,
+    original.batchName,
+    original.batchCode,
+    original.batch_code,
+  ]
+    .filter((value) => value !== undefined && value !== null && value !== '')
+    .join(' ')
+    .toLowerCase();
+
+  return String(query || '')
+    .toLowerCase()
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .every((term) => searchableText.includes(term));
+};
+
 /**
  * Merge mother data with fetched details and children
  */

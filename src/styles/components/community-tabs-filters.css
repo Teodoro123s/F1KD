@@ -177,7 +177,55 @@
 .notification-category-filter { display: inline-flex; align-items: center; gap: 0.55rem; color: var(--text-muted); font-size: 0.9rem; font-weight: 600; }
 .notification-category-filter select { min-width: 190px; min-height: 42px; padding: 0.5rem 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: #fff; color: var(--text); font: inherit; }
 
-.notification-mark-read-button { padding: 0.4rem 0.6rem; border: 1px solid #15803d; border-radius: 6px; background: #fff; color: #15803d; font: inherit; font-size: 0.8rem; font-weight: 700; cursor: pointer; white-space: nowrap; }
-.notification-mark-read-button:hover:not(:disabled) { background: #f0fdf4; }
-.notification-mark-read-button:focus-visible { outline: 2px solid #15803d; outline-offset: 2px; }
-.notification-mark-read-button:disabled { color: #64748b; border-color: #cbd5e1; cursor: wait; }
+.notification-view-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 34px;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid #15803d;
+  border-radius: 6px;
+  background: #fff;
+  color: #15803d;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.notification-view-button:hover { background: #f0fdf4; }
+.notification-view-button:focus-visible { outline: 2px solid #15803d; outline-offset: 2px; }
+.notification-view-button svg { width: 1rem; height: 1rem; fill: none; stroke: currentColor; stroke-width: 1.7; }
+
+.notifications-timeline-table {
+  width: 100%;
+  min-width: 1120px;
+  table-layout: fixed;
+}
+.notifications-timeline-table .notifications-timeline-subject { width: 18%; }
+.notifications-timeline-table .notifications-timeline-message { width: 34%; }
+.notifications-timeline-table .notifications-timeline-category { width: 16%; }
+.notifications-timeline-table .notifications-timeline-received { width: 13%; }
+.notifications-timeline-table .notifications-timeline-status { width: 9%; }
+.notifications-timeline-table .notifications-timeline-action { width: 10%; }
+.notifications-timeline-table th.notifications-timeline-status,
+.notifications-timeline-table td.notifications-timeline-category,
+.notifications-timeline-table td.notifications-timeline-status,
+.notifications-timeline-table th.notifications-timeline-action,
+.notifications-timeline-table td.notifications-timeline-action {
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+.notifications-timeline-table .notifications-timeline-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+.notifications-timeline-table .notification-actor {
+  display: block;
+  margin-top: 0.25rem;
+}

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../db');
+const { parsePositiveIntegerId } = require('../utils/userInputValidation');
 const { verifyToken } = require('../middleware/auth');
 const { authorize } = require('../middleware/authorize');
 const { getNotificationScope } = require('../services/notificationAccess');
@@ -50,9 +51,16 @@ function buildNotificationFilters(user, scope, category = '', search = '') {
 
 router.get('/', authorize('super_admin', 'admin', 'community_coordinator', 'partner', 'health_worker'), async (req, res) => {
   try {
-    const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
-    const perPage = Math.min(100, Math.max(1, Number.parseInt(req.query.perPage, 10) || 50));
+    const page = req.query.page === undefined ? 1 : parsePositiveIntegerId(req.query.page);
+    const requestedPerPage = req.query.perPage === undefined ? 50 : parsePositiveIntegerId(req.query.perPage);
+    if (page === null || requestedPerPage === null) {
+      return res.status(400).json({ error: 'page and perPage must be positive integers' });
+    }
+    const perPage = Math.min(100, requestedPerPage);
     const offset = (page - 1) * perPage;
+    if (!Number.isSafeInteger(offset)) {
+      return res.status(400).json({ error: 'page is too large' });
+    }
     const search = String(req.query.search || '').trim();
     const category = String(req.query.category || '').trim();
     const readStatus = String(req.query.readStatus || 'all').trim();
@@ -140,9 +148,8 @@ router.get('/', authorize('super_admin', 'admin', 'community_coordinator', 'part
 
 router.post('/:id/read', authorize('super_admin', 'admin', 'community_coordinator', 'partner', 'health_worker'), async (req, res) => {
   try {
-    if (!/^\d+$/.test(req.params.id)) {
-      return res.status(400).json({ error: 'Invalid notification ID' });
-    }
+    const notificationId = parsePositiveIntegerId(req.params.id);
+    if (notificationId === null) return res.status(400).json({ error: 'Notification ID must be a positive integer' });
     const scope = getNotificationScope(req.user);
     if (!scope) return res.status(403).json({ error: 'Forbidden' });
     if (!scope.global && !scope.schoolId) {
@@ -150,7 +157,7 @@ router.post('/:id/read', authorize('super_admin', 'admin', 'community_coordinato
     }
     const { filters, params } = buildNotificationFilters(req.user, scope);
     filters.push('n.id = ?');
-    params.push(req.params.id);
+    params.push(notificationId);
     const [[visibleNotification]] = await pool.query(
       `SELECT n.id
        FROM notifications n

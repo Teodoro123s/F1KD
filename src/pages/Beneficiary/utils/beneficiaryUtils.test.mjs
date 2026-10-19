@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { getBatchesForGroup } from './beneficiaryUtils.js';
+import { getBatchesForGroup, matchesBeneficiarySearch } from './beneficiaryUtils.js';
 
 test('getBatchesForGroup includes unassigned batches from the selected school', () => {
   const batches = [
@@ -18,4 +18,21 @@ test('getBatchesForGroup includes unassigned batches from the selected school', 
 
 test('getBatchesForGroup does not return batches without a selected group', () => {
   assert.deepEqual(getBatchesForGroup([{ id: 'batch', community: 'School A' }], '', 'School A'), []);
+});
+
+test('matches beneficiary searches case-insensitively across name and assignment fields', () => {
+  const child = {
+    name: 'Ana Cruz',
+    community: 'North School',
+    original: {
+      group_name: 'Health Group',
+      batch_name: 'Batch Blue',
+      mother: { name: 'Maria Cruz' },
+    },
+  };
+
+  assert.equal(matchesBeneficiarySearch(child, 'ANA'), true);
+  assert.equal(matchesBeneficiarySearch(child, 'north health'), true);
+  assert.equal(matchesBeneficiarySearch(child, 'maria blue'), true);
+  assert.equal(matchesBeneficiarySearch(child, 'unrelated'), false);
 });
