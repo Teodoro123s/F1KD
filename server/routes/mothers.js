@@ -10,7 +10,8 @@ const { normalizePhilHealthClaim } = require('../utils/philHealthClaim');
 const { MOTHER_ADDITIONAL_VACCINES, getMotherVaccineRecords } = require('../utils/motherVaccines');
 const { INVALID_ASSISTANCE_AMOUNT_MESSAGE, parseAssistanceAmount } = require('../utils/assistanceAmount');
 const { getBloodPressureError } = require('../utils/bloodPressure');
-const MOTHER_STANDARD_NAME_PATTERN = /^[\p{L}]+(?:[ '-][\p{L}]+)*$/u;
+const { getFirstNameValidationError, normalizeFirstName } = require('../utils/firstNameValidation');
+const MOTHER_STANDARD_NAME_PATTERN = /^[\p{L}][\p{L}\p{M}]*(?:[ '-][\p{L}][\p{L}\p{M}]*)*$/u;
 const MOTHER_MIDDLE_NAME_PATTERN = /^(?:[\p{L}]\.?|[\p{L}]+(?:['-][\p{L}]+)*)$/u;
 const MOTHER_SUFFIX_PATTERN = /^[\p{L}\d]+(?:[ .'-][\p{L}\d]+)*\.?$/u;
 
@@ -570,7 +571,7 @@ router.post('/', async (req, res) => {
     if (dentistLicense && !/^\d+$/.test(String(dentistLicense))) {
       return res.status(400).json({ error: 'Dentist license number must contain digits only.' });
     }
-    const firstName = firstNonEmpty(b.firstName, b.first_name);
+    const firstName = normalizeFirstName(firstNonEmpty(b.firstName, b.first_name));
     const middleName = firstNonEmpty(b.middleName, b.middle_name);
     const lastName = firstNonEmpty(b.lastName, b.last_name);
     const maidenSurname = firstNonEmpty(b.maidenSurname, b.maiden_surname, '');
@@ -579,7 +580,7 @@ router.post('/', async (req, res) => {
     const dobError = getMotherDobError(dobValue);
     if (dobError) return res.status(400).json({ error: dobError });
     const nameErrors = [
-      getMotherNameError(firstName, MOTHER_STANDARD_NAME_PATTERN, 'First name', 'may contain letters, spaces, hyphens, and apostrophes only.'),
+      getFirstNameValidationError(firstName),
       getMotherNameError(middleName, MOTHER_MIDDLE_NAME_PATTERN, 'Middle name', 'may be blank or a single initial/full middle name.'),
       getMotherNameError(lastName, MOTHER_STANDARD_NAME_PATTERN, 'Last name', 'may contain letters, spaces, hyphens, and apostrophes only.'),
       getMotherNameError(maidenSurname, MOTHER_STANDARD_NAME_PATTERN, 'Maiden surname', 'may contain letters, spaces, hyphens, and apostrophes only.'),
@@ -597,9 +598,7 @@ router.post('/', async (req, res) => {
       communityId = communityRows[0]?.id || null;
     }
 
-    if (!firstName || !lastName) {
-      return res.status(400).json({ error: 'firstName and lastName are required' });
-    }
+    if (!lastName) return res.status(400).json({ error: 'Last name is required.' });
     if (req.isCommunityOrganizer) {
       if (communityId && Number(communityId) !== Number(req.schoolId)) {
         return res.status(403).json({ error: 'Community organizers can only create beneficiaries in their assigned school' });
@@ -609,6 +608,8 @@ router.post('/', async (req, res) => {
     if (!communityId) return res.status(400).json({ error: 'community is required' });
     const groupId = req.groupId || b.groupId || b.group_id || null;
     if (!groupId) return res.status(400).json({ error: 'group is required' });
+    const batchId = b.batchId ?? b.batch_id ?? null;
+    if (!String(batchId ?? '').trim()) return res.status(400).json({ error: 'batch is required' });
     if (req.groupId) communityId = req.schoolId;
     if (req.isCommunityOrganizer && groupId) {
       const [groupRows] = await pool.query(
@@ -623,11 +624,11 @@ router.post('/', async (req, res) => {
     if (prenatalBpError) return res.status(400).json({ error: prenatalBpError });
     const initialCheckupDate = optionalDate(b.prenatalRegDate, b.prenatal_reg_date);
     const initialCheckup = {
-      weight: firstNonEmpty(b.prenatalWeight, b.prenatal_weight, b.weight, null),
+      weight: nullableNonEmpty(b.prenatalWeight, b.prenatal_weight, b.weight),
       bloodPressure: prenatalBp,
-      height: firstNonEmpty(b.prenatalHeight, b.prenatal_height, b.height, null),
-      fundalHeight: firstNonEmpty(b.fundalHeight, b.fundal_height, null),
-      fetalHeartRate: firstNonEmpty(b.fhr, null),
+      height: nullableNonEmpty(b.prenatalHeight, b.prenatal_height, b.height),
+      fundalHeight: nullableNonEmpty(b.fundalHeight, b.fundal_height),
+      fetalHeartRate: nullableNonEmpty(b.fhr),
     };
     const hasInitialMeasurements = Object.values(initialCheckup).some((value) => value !== null && value !== '');
     if (hasInitialMeasurements && !initialCheckupDate) {
@@ -646,7 +647,6 @@ router.post('/', async (req, res) => {
     const initialNutritionalStatus = initialBmi === null
       ? null
       : initialBmi < 18.5 ? 'Underweight' : initialBmi < 25 ? 'Normal' : 'Overweight';
-    const batchId = b.batchId ?? b.batch_id ?? null;
     if (req.isCommunityOrganizer && batchId) {
       const [batchRows] = await pool.query(
         'SELECT id FROM batches WHERE id = ? AND community_id = ? LIMIT 1',
@@ -806,9 +806,10 @@ router.post('/', async (req, res) => {
     if (Array.isArray(b.obHistory)) {
       for (const [index, item] of b.obHistory.entries()) {
         if (item.gestationalAge || item.outcome) {
+          const eventCode = item.event || `G${index + 1}`;
           await pool.query(
-            'INSERT INTO mother_ob_history (mother_id, event_label, gestational_age, outcome, seq) VALUES (?, ?, ?, ?, ?)',
-            [result.insertId, item.event || `G${index + 1}`, item.gestationalAge || null, item.outcome || null, index + 1]
+            'INSERT INTO mother_ob_history (mother_id, event_code, event_label, gestational_age, outcome, seq) VALUES (?, ?, ?, ?, ?, ?)',
+            [result.insertId, eventCode, eventCode, item.gestationalAge || null, item.outcome || null, index + 1]
           );
         }
       }
@@ -1081,6 +1082,14 @@ router.put('/:id', async (req, res) => {
     }
 
     const current = existing[0];
+    const firstNameProvided = b.firstName !== undefined || b.first_name !== undefined;
+    const requestedFirstName = firstNameProvided
+      ? normalizeFirstName(b.firstName ?? b.first_name)
+      : current.first_name;
+    if (firstNameProvided) {
+      const firstNameError = getFirstNameValidationError(requestedFirstName);
+      if (firstNameError) return res.status(400).json({ error: firstNameError });
+    }
     const philhealthMember = b.philhealthMember ?? b.philhealth_member ?? current.philhealth_member;
     const nextPhilhealthNumber = b.philhealthNumber ?? b.philhealth_number ?? current.philhealth_number ?? '';
     const philhealthNumberError = validatePhilHealthNumber(
@@ -1111,7 +1120,7 @@ router.put('/:id', async (req, res) => {
     }
     const optionalValue = (value, fallback) => (value === undefined ? fallback : value ?? '');
     const update = {
-      first_name: firstNonEmpty(b.firstName, b.first_name, current.first_name),
+      first_name: requestedFirstName,
       middle_name: firstNonEmpty(b.middleName, b.middle_name, current.middle_name),
       last_name: firstNonEmpty(b.lastName, b.last_name, current.last_name),
       maiden_surname: optionalValue(b.maidenSurname, current.maiden_surname),

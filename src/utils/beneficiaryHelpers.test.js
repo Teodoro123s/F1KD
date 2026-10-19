@@ -1,7 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { calculateBmi, calculateGestationalDetails } from './beneficiaryHelpers.js';
-import { getMotherMonitoringProgress, getMotherMonitoringStartIndex } from './motherProgress.js';
+import {
+  getMotherMonitoringProgress,
+  getMotherMonitoringStartIndex,
+  getMotherCheckupDate,
+  getMotherNextCheckupDate,
+  hasCompletedMotherPregnancy,
+} from './motherProgress.js';
 
 test('calculateBmi uses kilograms and centimeters and returns one decimal place', () => {
   assert.equal(calculateBmi('70', '175'), '22.9');
@@ -101,4 +107,90 @@ test('getMotherMonitoringProgress still counts only visits from late registratio
   assert.equal(progress.total, 3);
   assert.equal(progress.completed, 3);
   assert.equal(progress.percentage, 100);
+});
+
+test('allows child registration after all checkups expected from the registration trimester', () => {
+  const firstTrimesterMother = {
+    trimester: '1st Trimester',
+    checkups: [
+      [{ completed: true }, { completed: true }, { completed: true }],
+      [{ completed: true }, { completed: true }, { completed: true }],
+      [{ completed: true }, { completed: true }, { completed: true }],
+    ],
+  };
+  const secondTrimesterMother = {
+    trimester: '2nd Trimester',
+    checkups: [
+      [null, null, null],
+      [{ completed: true }, { completed: true }, { completed: true }],
+      [{ completed: true }, { completed: true }, { completed: true }],
+    ],
+  };
+  const thirdTrimesterMother = {
+    trimester: '3rd Trimester',
+    checkups: [
+      [null, null, null],
+      [null, null, null],
+      [{ completed: true }, { completed: true }, { completed: true }],
+    ],
+  };
+
+  assert.equal(hasCompletedMotherPregnancy(firstTrimesterMother), true);
+  assert.equal(hasCompletedMotherPregnancy(secondTrimesterMother), true);
+  assert.equal(hasCompletedMotherPregnancy(thirdTrimesterMother), true);
+  assert.equal(hasCompletedMotherPregnancy({
+    ...secondTrimesterMother,
+    checkups: [
+      [null, null, null],
+      [{ completed: true }, { completed: true }, null],
+      [{ completed: true }, { completed: true }, { completed: true }],
+    ],
+  }), false);
+});
+
+test('uses the previous check-up next date as the following visit date', () => {
+  assert.equal(getMotherCheckupDate(
+    null,
+    { nextCheckupDate: '2026-11-19' },
+  ), '2026-11-19');
+  assert.equal(getMotherCheckupDate(
+    { checkupDate: '2026-11-22' },
+    { nextCheckupDate: '2026-11-19' },
+  ), '2026-11-22');
+  assert.equal(getMotherCheckupDate(
+    null,
+    { nextCheckupDate: '2026-11-19' },
+    '2026-10-01',
+  ), '2026-11-19');
+});
+
+test('defaults the next check-up date one month after the current visit and preserves a saved date', () => {
+  assert.equal(getMotherNextCheckupDate('2026-12-12'), '2027-01-12');
+  assert.equal(getMotherNextCheckupDate('2026-12-12', '2027-01-20'), '2027-01-20');
+});
+
+test('does not treat an incomplete or unmarked check-up list as a completed pregnancy', () => {
+  const oneOfNine = {
+    trimester: '1st Trimester',
+    checkups: [
+      [{ completed: true }, null, null],
+      [null, null, null],
+      [null, null, null],
+    ],
+  };
+  const incompleteSecondTrimester = {
+    trimester: '2nd Trimester',
+    checkups: [
+      [null, null, null],
+      [{ completed: true }, { completed: true }, { completed: true }],
+      [{ completed: true }, { completed: true }, null],
+    ],
+  };
+
+  assert.equal(hasCompletedMotherPregnancy(oneOfNine), false);
+  assert.equal(hasCompletedMotherPregnancy(incompleteSecondTrimester), false);
+  assert.equal(hasCompletedMotherPregnancy({
+    trimester: '1st Trimester',
+    checkups: Array.from({ length: 9 }, () => ({})),
+  }), false);
 });

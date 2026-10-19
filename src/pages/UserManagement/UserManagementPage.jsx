@@ -221,16 +221,18 @@ export default function UserManagementPage() {
               selected={selectedRoleFilter}
               onSelect={selectRoleFilter}
             />
-            <RoleFilter
-              options={[
-                ...communities.map((school) => ({ value: String(school.id), label: school.name })),
-                { value: '__unassigned__', label: 'Unassigned' },
-              ]}
-              selected={selectedSchoolFilter}
-              onSelect={selectSchoolFilter}
-              filterLabel="School"
-              allLabel="All schools"
-            />
+            {!schoolId && !batchId && (
+              <RoleFilter
+                options={[
+                  ...communities.map((school) => ({ value: String(school.id), label: school.name })),
+                  { value: '__unassigned__', label: 'Unassigned' },
+                ]}
+                selected={selectedSchoolFilter}
+                onSelect={selectSchoolFilter}
+                filterLabel="School"
+                allLabel="All schools"
+              />
+            )}
           </div>
         )}
       />

@@ -16,6 +16,8 @@ export default function NotificationDetailsModal({
   notification,
   onClose,
   onMarkAsRead,
+  onToggleRead,
+  onOpenRelated,
   markingRead = false,
   error = '',
 }) {
@@ -31,14 +33,25 @@ export default function NotificationDetailsModal({
       onClose={onClose}
       footer={(
         <>
-          {!notification.isRead && onMarkAsRead && (
+          {(onToggleRead || (!notification.isRead && onMarkAsRead)) && (
             <button
               type="button"
               className="view-btn view-btn--primary notification-details-mark-read"
-              onClick={() => onMarkAsRead(notification)}
+              onClick={() => (onToggleRead
+                ? onToggleRead(notification, !notification.isRead)
+                : onMarkAsRead(notification))}
               disabled={markingRead}
             >
-              {markingRead ? 'Marking...' : 'Mark as read'}
+              {markingRead ? 'Saving...' : notification.isRead ? 'Mark as unread' : 'Mark as read'}
+            </button>
+          )}
+          {getNotificationDestination(notification) && onOpenRelated && (
+            <button
+              type="button"
+              className="view-btn view-btn--primary notification-details-related"
+              onClick={() => onOpenRelated(notification)}
+            >
+              Open related record
             </button>
           )}
           <button type="button" className="view-btn view-btn--primary notification-details-close" onClick={onClose}>
@@ -103,4 +116,9 @@ export default function NotificationDetailsModal({
       `}</style>
     </UnifiedModal>
   ), document.body);
+}
+
+function getNotificationDestination(notification) {
+  const destination = String(notification?.linkTo || '').trim();
+  return destination.startsWith('/') && !destination.startsWith('//') && !destination.includes('\\') && destination !== '/notifications';
 }

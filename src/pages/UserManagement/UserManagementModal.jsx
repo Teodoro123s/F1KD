@@ -1,66 +1,21 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import DateInput from '../../components/ui/DateInput';
+import FloatingLayer from '../../components/ui/FloatingLayer';
 import { capitalizeNameValue } from '../../utils/nameFormat';
 import { formatDateForInput } from '../../utils/dateFormat';
 import { generatePassword } from './lib';
 import { sanitizeContactNumber } from '../../utils/contactNumber';
 import { isCommunityCoordinatorRole, isHealthWorkerRole } from '../../utils/permissions';
+import { getFirstNameValidationError, normalizeFirstName } from '../../utils/firstNameValidation';
 
 function FormDropdown({ id, label, name, options, value, onChange, required = false, disabled = false, emptyMessage = '' }) {
   const [isOpen, setIsOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
-  const [menuStyle, setMenuStyle] = useState(null);
-  const selectRef = useRef(null);
   const triggerRef = useRef(null);
-  const optionsRef = useRef(null);
   const selectedIndex = options.findIndex((option) => String(option.value) === String(value || ''));
   const selectedOption = selectedIndex >= 0 ? options[selectedIndex] : null;
   const listboxId = `${id}-options`;
-
-  useEffect(() => {
-    if (!isOpen) {
-      setMenuStyle(null);
-      return undefined;
-    }
-
-    const closeOnOutsideClick = (event) => {
-      if (!selectRef.current?.contains(event.target) && !optionsRef.current?.contains(event.target)) {
-        setIsOpen(false);
-      }
-    };
-    const closeOnEscape = (event) => {
-      if (event.key === 'Escape') setIsOpen(false);
-    };
-    const positionMenu = () => {
-      const trigger = triggerRef.current;
-      if (!trigger) return;
-      const bounds = trigger.getBoundingClientRect();
-      const belowSpace = window.innerHeight - bounds.bottom - 8;
-      const estimatedHeight = Math.min(220, options.length * 40 + 8);
-      const openAbove = belowSpace < estimatedHeight && bounds.top > belowSpace;
-      const availableSpace = openAbove ? bounds.top - 8 : belowSpace;
-      const height = Math.min(220, availableSpace);
-      setMenuStyle({
-        position: 'fixed',
-        top: openAbove ? Math.max(8, bounds.top - height - 6) : bounds.bottom + 6,
-        left: bounds.left,
-        width: bounds.width,
-        maxHeight: height,
-      });
-    };
-    positionMenu();
-    window.addEventListener('resize', positionMenu);
-    window.addEventListener('scroll', positionMenu, true);
-    document.addEventListener('mousedown', closeOnOutsideClick);
-    document.addEventListener('keydown', closeOnEscape);
-    return () => {
-      window.removeEventListener('resize', positionMenu);
-      window.removeEventListener('scroll', positionMenu, true);
-      document.removeEventListener('mousedown', closeOnOutsideClick);
-      document.removeEventListener('keydown', closeOnEscape);
-    };
-  }, [isOpen, options.length]);
 
   useEffect(() => {
     if (!isOpen || activeIndex < 0) return;
@@ -100,7 +55,7 @@ function FormDropdown({ id, label, name, options, value, onChange, required = fa
   };
 
   return (
-    <div className="form-dropdown" ref={selectRef}>
+    <div className="form-dropdown">
       <input type="hidden" name={name} value={value || ''} />
       <button
         id={id}
@@ -126,32 +81,33 @@ function FormDropdown({ id, label, name, options, value, onChange, required = fa
           <path d="m5 7.5 5 5 5-5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
-      {isOpen && options.length > 0 && menuStyle && createPortal(
-        <div
-          id={listboxId}
-          ref={optionsRef}
-          className="form-dropdown-options"
-          style={menuStyle}
-          role="listbox"
-          aria-label={`${label} options`}
-        >
-          {options.map((option, index) => (
-            <div
-              id={`${listboxId}-${index}`}
-              key={option.value}
-              className={`form-dropdown-option${String(option.value) === String(value) ? ' is-selected' : ''}${index === activeIndex ? ' is-active' : ''}`}
-              role="option"
-              aria-selected={String(option.value) === String(value)}
-              onMouseEnter={() => setActiveIndex(index)}
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => chooseOption(option)}
-            >
-              {option.label}
-            </div>
-          ))}
-        </div>,
-        document.body,
-      )}
+      <FloatingLayer
+        open={isOpen && options.length > 0}
+        anchorRef={triggerRef}
+        onDismiss={() => setIsOpen(false)}
+        layer="modal"
+        align="start"
+        matchAnchorWidth
+        id={listboxId}
+        className="form-dropdown-options"
+        role="listbox"
+        aria-label={`${label} options`}
+      >
+        {options.map((option, index) => (
+          <div
+            id={`${listboxId}-${index}`}
+            key={option.value}
+            className={`form-dropdown-option${String(option.value) === String(value) ? ' is-selected' : ''}${index === activeIndex ? ' is-active' : ''}`}
+            role="option"
+            aria-selected={String(option.value) === String(value)}
+            onMouseEnter={() => setActiveIndex(index)}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => chooseOption(option)}
+          >
+            {option.label}
+          </div>
+        ))}
+      </FloatingLayer>
       {!options.length && emptyMessage && <span className="form-dropdown-empty">{emptyMessage}</span>}
     </div>
   );
@@ -190,14 +146,21 @@ function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitt
 }
 
 export default function AddUserModal({ showModal, onClose, form, setForm, onSubmit, roleOptions, communities = [], groups = [], mode = 'add', isSubmitting = false, notification = '', managedHealthWorker = false }) {
+  const [firstNameTouched, setFirstNameTouched] = useState(false);
+  useEffect(() => {
+    if (showModal) setFirstNameTouched(false);
+  }, [showModal, mode]);
   if (!showModal) return null;
 
   const title = mode === 'edit' ? 'Edit User' : 'Add User';
   const submitLabel = mode === 'edit' ? 'Save Changes' : 'Create';
+  const firstNameError = firstNameTouched ? getFirstNameValidationError(form.firstName) : '';
 
   const handleChange = (field, value) => {
     const nextValue = field === 'contactNumber'
       ? sanitizeContactNumber(value)
+      : field === 'firstName'
+        ? value
       : ['firstName', 'lastName', 'middleInitial'].includes(field)
         ? capitalizeNameValue(value)
         : value;
@@ -215,10 +178,13 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
   });
 
   return (
-    <ModalShell title={title} onClose={onClose} onSubmit={onSubmit} submitLabel={submitLabel} isSubmitting={isSubmitting} notification={notification}>
+    <ModalShell title={title} onClose={onClose} onSubmit={(event) => {
+      setFirstNameTouched(true);
+      onSubmit(event);
+    }} submitLabel={submitLabel} isSubmitting={isSubmitting} notification={notification}>
       <div className="form-row-3 full-width">
         <div className="form-group">
-          <label className="form-label" htmlFor="first-name">First Name *</label>
+          <label className="form-label" htmlFor="first-name">First Name <span className="form-required-indicator" aria-hidden="true">*</span></label>
           <input
             id="first-name"
                       name="firstName"
@@ -226,13 +192,22 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
                       className="form-input"
                       placeholder="Enter first name"
                       value={form.firstName}
+                      maxLength={50}
                       onChange={(e) => handleChange('firstName', e.target.value)}
+                      onBlur={() => {
+                        setFirstNameTouched(true);
+                        const normalized = normalizeFirstName(form.firstName);
+                        if (normalized !== form.firstName) handleChange('firstName', normalized);
+                      }}
                       required
+                      aria-invalid={Boolean(firstNameError)}
+                      aria-describedby={firstNameError ? 'first-name-error' : undefined}
                       autoFocus
                     />
+          {firstNameError && <small id="first-name-error" className="field-validation-error" role="alert">{firstNameError}</small>}
         </div>
         <div className="form-group">
-          <label className="form-label" htmlFor="last-name">Last Name *</label>
+          <label className="form-label" htmlFor="last-name">Last Name <span className="form-required-indicator" aria-hidden="true">*</span></label>
           <input
             id="last-name"
                       name="lastName"
@@ -261,7 +236,7 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
 
       <div className="form-row-3 full-width">
         <div className="form-group">
-          <label className="form-label" htmlFor="contact-number">Contact Number *</label>
+          <label className="form-label" htmlFor="contact-number">Contact Number <span className="form-required-indicator" aria-hidden="true">*</span></label>
           <input
             id="contact-number"
                       name="contactNumber"
@@ -278,7 +253,7 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
           <small>Enter exactly 11 digits starting with 09.</small>
         </div>
         <div className="form-group">
-          <label className="form-label" htmlFor="email">Email *</label>
+          <label className="form-label" htmlFor="email">Email <span className="form-required-indicator" aria-hidden="true">*</span></label>
           <input
             id="email"
                       name="email"
@@ -295,7 +270,7 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
 
       <div className="form-row-3 full-width">
         <div className="form-group date-input-group">
-          <label className="form-label" htmlFor="dob">Date of Birth *</label>
+          <label className="form-label" htmlFor="dob">Date of Birth <span className="form-required-indicator" aria-hidden="true">*</span></label>
           <DateInput
             id="dob"
             className="form-input"
@@ -312,7 +287,7 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
 
       <div className="form-row-3 full-width">
         <div className="form-group">
-          <label className="form-label" htmlFor="role">Role *</label>
+          <label className="form-label" htmlFor="role">Role <span className="form-required-indicator" aria-hidden="true">*</span></label>
           {managedHealthWorker ? (
             <>
               <input id="role" className="form-input" value="Health worker" readOnly />
@@ -335,7 +310,7 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
       {requiresSchool && (
         <>
           <div className="form-group full-width">
-            <label className="form-label" htmlFor="school-id">Assigned School{schoolIsRequired ? ' *' : ''}</label>
+            <label className="form-label" htmlFor="school-id">Assigned School{schoolIsRequired && <span className="form-required-indicator" aria-hidden="true">*</span>}</label>
             {managedHealthWorker ? (
               <>
                 <input id="school-id" className="form-input" value={selectedSchoolName || 'Assigned school'} readOnly />
@@ -357,7 +332,7 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
 
           {requiresGroup && (
             <div className="form-group full-width">
-              <label className="form-label" htmlFor="group-id">Assigned Group *</label>
+              <label className="form-label" htmlFor="group-id">Assigned Group <span className="form-required-indicator" aria-hidden="true">*</span></label>
               <FormDropdown
                 id="group-id"
                 label="Assigned Group"
@@ -376,7 +351,7 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
 
       {!managedHealthWorker && (
         <div className="form-group full-width">
-          <label className="form-label" htmlFor="status">Status *</label>
+          <label className="form-label" htmlFor="status">Status <span className="form-required-indicator" aria-hidden="true">*</span></label>
           <FormDropdown
             id="status"
             label="Status"

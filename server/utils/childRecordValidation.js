@@ -1,3 +1,5 @@
+const { getFirstNameValidationError } = require('./firstNameValidation');
+
 const CHILD_VACCINE_SEQUENCES = [
   ['bcgDose1', 'bcgDose2', 'bcgDose3'],
   ['hepbDose1', 'hepbDose2', 'hepbDose3'],
@@ -28,6 +30,11 @@ function getChildNameValidationError(body = {}, fallback = {}) {
     const rawValue = body[field] !== undefined ? body[field]
       : body[snakeField] !== undefined ? body[snakeField]
         : fallback[snakeField];
+    if (field === 'firstName') {
+      const firstNameError = getFirstNameValidationError(rawValue);
+      if (firstNameError) return firstNameError;
+      continue;
+    }
     const value = String(rawValue ?? '').trim().replace(/\s+/g, ' ');
     if ((field !== 'middleName' && !value)) return `${label} is required.`;
     if (value.length > 100 || (value && !pattern.test(value))) {

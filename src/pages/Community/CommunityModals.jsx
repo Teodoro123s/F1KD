@@ -26,7 +26,7 @@ export function ConfirmActionModal({ show, title, message, confirmLabel = 'OK', 
   ), document.body);
 }
 
-function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitting = false }) {
+function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitting = false, notification = '' }) {
   return createPortal((
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-content community-modal-content" onClick={(e) => e.stopPropagation()}>
@@ -35,7 +35,10 @@ function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitt
           <button className="btn-close-modal" onClick={onClose} aria-label="Close modal">✕</button>
         </div>
         <form onSubmit={onSubmit}>
-          <div className="modal-body">{children}</div>
+          <div className="modal-body">
+            {notification && <div className="notification-banner" role="alert">{notification}</div>}
+            {children}
+          </div>
           <div className="modal-footer">
             <button type="button" className="btn-secondary" onClick={onClose} disabled={isSubmitting}>Cancel</button>
             <button type="submit" className={submitLabel === 'Create' ? 'btn-create-action' : 'btn-primary'} disabled={isSubmitting}>
@@ -48,10 +51,14 @@ function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitt
   ), document.body);
 }
 
-export function CreateCommunityModal({ showModal, onClose, communityForm, setCommunityForm, handleCreateCommunity, coordinators, isSubmitting }) {
+export function CreateCommunityModal({ showModal, onClose, communityForm, setCommunityForm, handleCreateCommunity, coordinators, communities = [], isSubmitting, notification }) {
   if (!showModal) return null;
+  const availableCoordinators = (coordinators || []).filter((coordinator) => {
+    const linkedSchool = communities.find((community) => String(community.coordinatorId || '') === String(coordinator.id))?.id;
+    return !coordinator.schoolId && !linkedSchool;
+  });
   return (
-    <ModalShell title="Create School" onClose={onClose} onSubmit={handleCreateCommunity} submitLabel="Create" isSubmitting={isSubmitting}>
+    <ModalShell title="Create School" onClose={onClose} onSubmit={handleCreateCommunity} submitLabel="Create" isSubmitting={isSubmitting} notification={notification}>
       <div className="form-group">
         <label className="form-label" htmlFor="comm-name">School Name</label>
         <input
@@ -74,7 +81,7 @@ export function CreateCommunityModal({ showModal, onClose, communityForm, setCom
           onChange={(e) => setCommunityForm({ ...communityForm, coordinator: e.target.value })}
         >
           <option value="">Select a community coordinator</option>
-          {coordinators.map((coordinator) => (
+          {availableCoordinators.map((coordinator) => (
             <option key={coordinator.id} value={coordinator.id}>{coordinator.name}</option>
           ))}
         </select>
@@ -83,10 +90,16 @@ export function CreateCommunityModal({ showModal, onClose, communityForm, setCom
   );
 }
 
-export function EditCommunityModal({ showModal, onClose, communityForm, setCommunityForm, handleEditCommunity, coordinators, isSubmitting }) {
+export function EditCommunityModal({ showModal, onClose, communityForm, setCommunityForm, handleEditCommunity, coordinators, communities = [], selectedCommunityId, isSubmitting, notification }) {
   if (!showModal) return null;
+  const availableCoordinators = (coordinators || []).filter((coordinator) => {
+    if (String(coordinator.id) === String(communityForm.coordinator || '')) return true;
+    const linkedSchool = communities.find((community) => String(community.coordinatorId || '') === String(coordinator.id))?.id;
+    const assignedSchool = coordinator.schoolId || linkedSchool || '';
+    return !assignedSchool || String(assignedSchool) === String(selectedCommunityId || '');
+  });
   return (
-    <ModalShell title="Edit School" onClose={onClose} onSubmit={handleEditCommunity} submitLabel="Save Changes" isSubmitting={isSubmitting}>
+    <ModalShell title="Edit School" onClose={onClose} onSubmit={handleEditCommunity} submitLabel="Save Changes" isSubmitting={isSubmitting} notification={notification}>
       <div className="form-group">
         <label className="form-label" htmlFor="edit-comm-name">School Name</label>
         <input
@@ -108,10 +121,11 @@ export function EditCommunityModal({ showModal, onClose, communityForm, setCommu
           onChange={(e) => setCommunityForm({ ...communityForm, coordinator: e.target.value })}
         >
           <option value="">No coordinator assigned</option>
-          {(coordinators || []).map((coordinator) => (
+          {availableCoordinators.map((coordinator) => (
             <option key={coordinator.id} value={coordinator.id}>{coordinator.name}</option>
           ))}
         </select>
+        <small className="field-help-note">Transfers and replacements require two saves: unassign the coordinator from their current school, then assign an unassigned coordinator to the destination school.</small>
       </div>
     </ModalShell>
   );
@@ -194,26 +208,13 @@ export function EditBatchModal({ showModal, onClose, batchForm, setBatchForm, ha
             value={batchForm.groupId || ''}
             onChange={(e) => setBatchForm({ ...batchForm, groupId: e.target.value })}
           >
-            <option value="">No group assigned</option>
+            <option value="">Unassigned</option>
             {availableGroups.map((group) => (
               <option key={group.id} value={group.id}>{group.name}</option>
             ))}
           </select>
         </div>
       )}
-      {!showGroupField && <div className="form-group">
-        <label className="form-label" htmlFor="edit-batch-comm">School</label>
-        <select
-          id="edit-batch-comm"
-          className="form-select"
-          value={batchForm.community}
-          onChange={(e) => setBatchForm({ ...batchForm, community: e.target.value })}
-        >
-          {communities.map((comm) => (
-            <option key={comm.id} value={comm.name}>{comm.name}</option>
-          ))}
-        </select>
-      </div>}
     </ModalShell>
   );
 }

@@ -19,6 +19,13 @@ function formatActivityDate(value) {
   return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString();
 }
 
+function toApiUserId(value) {
+  const match = String(value ?? '').trim().match(/^(?:USR-)?(\d+)$/i);
+  if (!match) return null;
+  const id = Number(match[1]);
+  return Number.isSafeInteger(id) && id > 0 ? String(id) : null;
+}
+
 function formatActivityAction(action) {
   const labels = {
     create: 'Created',
@@ -108,7 +115,8 @@ export default function UserDetailPage() {
       // If navigated with full user details in state, keep it. Otherwise fetch by id.
       if (location?.state?.user && location.state.user.firstName) return; 
       try {
-        const serverId = String(id).replace(/^USR-/, '');
+        const serverId = toApiUserId(id);
+        if (!serverId) throw new Error('Invalid user ID');
         const data = isCoordinator
           ? await apiGetManagedHealthWorker(serverId)
           : await apiGetUser(serverId);
@@ -148,7 +156,7 @@ export default function UserDetailPage() {
     return () => { mounted = false; };
   }, [id, location, isCoordinator]);
 
-  const activityUserId = String(user.id || id).replace(/^USR-/, '');
+  const activityUserId = toApiUserId(user.id || id) || '';
 
   useEffect(() => {
     if (!canViewUserActivity || selectedCard !== 'activity' || !/^\d+$/.test(activityUserId)) return undefined;
@@ -206,7 +214,11 @@ export default function UserDetailPage() {
 
   const applyGenerated = async () => {
     if (!generatedPwd) return;
-    const serverId = String(user.id || id).replace(/^USR-/, '');
+    const serverId = toApiUserId(user.id || id);
+    if (!serverId) {
+      notifyAction('Unable to update the password: invalid user ID.', 'error');
+      return;
+    }
     setIsApplyingPassword(true);
     try {
       await apiUpdateUser(serverId, { password: generatedPwd });

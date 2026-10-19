@@ -4,8 +4,9 @@ import { useNavigate } from 'react-router-dom';
 import { getInitials } from '../utils/nameFormat';
 import { useAuth } from '../auth/AuthProvider';
 import { ROLES, hasRole } from '../utils/permissions';
-import { apiGetNotifications, apiMarkNotificationRead } from '../api/notifications';
+import { apiGetNotifications, apiSetNotificationRead } from '../api/notifications';
 import NotificationDetailsModal from './ui/NotificationDetailsModal';
+import FloatingLayer from './ui/FloatingLayer';
 
 export default function Topbar() {
   const navigate = useNavigate();
@@ -26,15 +27,7 @@ export default function Topbar() {
   const [signingOut, setSigningOut] = useState(false);
   const notifRef = useRef(null);
   const userRef = useRef(null);
-
-  useEffect(() => {
-    function onDocClick(e) {
-      if (notifRef.current && !notifRef.current.contains(e.target)) setOpenNotif(false);
-      if (userRef.current && !userRef.current.contains(e.target)) setOpenUser(false);
-    }
-    document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
-  }, []);
+  const markingNotificationIdsRef = useRef(new Set());
 
   useEffect(() => {
     if (!canReadNotifications) {
@@ -114,25 +107,31 @@ export default function Topbar() {
     setSelectedNotification(notification);
     setNotificationDetailsError('');
     setOpenNotif(false);
+    if (!notification.isRead) void markNotificationRead(notification, true);
   };
 
-  const markNotificationRead = async (notification) => {
-    if (notification.isRead || markingNotificationId === notification.id) return;
+  const markNotificationRead = async (notification, isRead = true) => {
+    if (notification.isRead === isRead || markingNotificationIdsRef.current.has(notification.id)) return;
+    markingNotificationIdsRef.current.add(notification.id);
     setMarkingNotificationId(notification.id);
     try {
-      await apiMarkNotificationRead(notification.id);
+      const response = await apiSetNotificationRead(notification.id, isRead);
+      const changed = Number(response.changed) || 0;
       setSelectedNotification((current) => current?.id === notification.id
-        ? { ...current, isRead: true }
+        ? { ...current, isRead }
         : current);
-      setNotificationCount((count) => Math.max(0, count - 1));
+      if (changed > 0) {
+        setNotificationCount((count) => Math.max(0, count + (isRead ? -changed : changed)));
+      }
       setNotifications((items) => items.map((item) => (
-        item.id === notification.id ? { ...item, isRead: true } : item
+        item.id === notification.id ? { ...item, isRead } : item
       )));
       setNotificationDetailsError('');
     } catch (error) {
       setNotificationDetailsError(error.message || 'Unable to mark notification as read.');
       setNotificationsError(error.message || 'Unable to mark notification as read.');
     } finally {
+      markingNotificationIdsRef.current.delete(notification.id);
       setMarkingNotificationId(null);
     }
   };
@@ -140,10 +139,12 @@ export default function Topbar() {
   return (
     <header className="topbar">
       <div className="topbar-actions">
-        <span className="action-wrapper" ref={notifRef}>
+        <span className="action-wrapper">
           <button
+            ref={notifRef}
             className="icon-button notification-button"
             aria-label={`Notifications${notificationCount ? `, ${notificationCount} available` : ''}`}
+            aria-haspopup="menu"
             aria-expanded={openNotif}
             onClick={() => { if (!signingOut) { setOpenUser(false); setOpenNotif((open) => !open); } }}
             disabled={signingOut}
@@ -158,8 +159,14 @@ export default function Topbar() {
               </span>
             )}
           </button>
-          {openNotif && (
-            <div className="dropdown notifications-dropdown" role="menu" aria-label="Recent notifications">
+          <FloatingLayer
+            open={openNotif}
+            anchorRef={notifRef}
+            onDismiss={() => setOpenNotif(false)}
+            className="dropdown notifications-dropdown"
+            role="menu"
+            aria-label="Recent notifications"
+          >
               <div className="dropdown-header">Recent</div>
               <div className="notifications-list">
                 {canReadNotifications && notificationsLoading && <div className="dropdown-item muted">Loading notifications...</div>}
@@ -204,22 +211,31 @@ export default function Topbar() {
                   View all
                 </button>
               )}
-            </div>
-          )}
+          </FloatingLayer>
         </span>
 
-        <span className="action-wrapper user-profile" ref={userRef}>
+        <span className="action-wrapper user-profile">
           <button
+            ref={userRef}
             className="user-button"
             aria-label={`Account menu for ${user ? user.name : 'Account'}`}
+            aria-haspopup="menu"
+            aria-expanded={openUser}
             onClick={() => { if (signingOut) return; setOpenUser((s) => !s); setOpenNotif(false); }}
             title={user ? user.name : 'Account'}
             disabled={signingOut}
           >
             <span className="avatar">{getInitials(user ? user.name : 'Account')}</span>
           </button>
-          {openUser && (
-            <div className="dropdown user-dropdown" role="menu" aria-label="User menu" aria-busy={signingOut}>
+          <FloatingLayer
+            open={openUser}
+            anchorRef={userRef}
+            onDismiss={() => setOpenUser(false)}
+            className="dropdown user-dropdown"
+            role="menu"
+            aria-label="User menu"
+            aria-busy={signingOut}
+          >
               {user ? (
                 <>
                   <div className="dropdown-item">{user.name}</div>
@@ -242,8 +258,7 @@ export default function Topbar() {
                   <div className="dropdown-item" onClick={() => navigate('/login')}>Sign in</div>
                 </>
               )}
-            </div>
-          )}
+          </FloatingLayer>
         </span>
       </div>
 
@@ -292,6 +307,14 @@ export default function Topbar() {
         notification={selectedNotification}
         onClose={() => setSelectedNotification(null)}
         onMarkAsRead={markNotificationRead}
+        onToggleRead={markNotificationRead}
+        onOpenRelated={(notification) => {
+          const destination = String(notification.linkTo || '').trim();
+          if (destination.startsWith('/') && !destination.startsWith('//') && !destination.includes('\\') && destination !== '/notifications') {
+            setSelectedNotification(null);
+            navigate(destination);
+          }
+        }}
         markingRead={markingNotificationId === selectedNotification?.id}
         error={notificationDetailsError}
       />

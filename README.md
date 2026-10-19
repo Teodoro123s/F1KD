@@ -38,7 +38,7 @@ The default Compose setup is for local development and serves HTTP only. For net
 docker compose -f docker-compose.minio.yml -f docker-compose.tls.yml up --build -d
 ```
 
-HTTP requests on port 80 redirect to HTTPS; the browser and API are served through TLS on port 443. Install a publicly trusted certificate for public deployments, restrict inbound firewall access to the needed ports, disable `ENABLE_TEST_ROLE_SHORTCUTS`, and renew the certificate before expiry. This secures browser-to-web traffic; container-to-container traffic on the Docker network remains private but is not separately encrypted.
+HTTP requests on port 80 redirect to HTTPS; the browser and API are served through TLS on port 443. Install a publicly trusted certificate for public deployments, restrict inbound firewall access to the needed ports, and renew the certificate before expiry. This secures browser-to-web traffic; container-to-container traffic on the Docker network remains private but is not separately encrypted.
 
 ### Encryption at rest and backups
 
@@ -46,19 +46,7 @@ The Docker configuration does not enable MariaDB or MinIO application-level encr
 
 An existing local MySQL/MariaDB database is not copied automatically. Export it with `mysqldump`, start the stack, then import the dump into the `mariadb` service before using the app. Copy existing local document files into MinIO or `server/data/uploads` as appropriate; changing the database host alone does not migrate documents.
 
-For local testing only, role shortcuts can be explicitly enabled while keeping the web port bound to loopback:
-
-```powershell
-$env:ENABLE_TEST_ROLE_SHORTCUTS = "true"
-$env:WEB_PORT = "127.0.0.1:8080"
-docker compose -f docker-compose.minio.yml up --build -d
-Remove-Item Env:ENABLE_TEST_ROLE_SHORTCUTS
-Remove-Item Env:WEB_PORT
-```
-
 For the local Express API, copy `server/.env.example` to `server/.env` and set the same five EmailJS variables there.
-
-The shortcuts sign in to the first existing active account for the selected role. Do not enable them in a publicly accessible deployment.
 
 To stop without deleting stored data:
 

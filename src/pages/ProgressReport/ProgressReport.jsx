@@ -6,6 +6,8 @@ import PageHeader from '../../components/ui/PageHeader';
 import { useAuth } from '../../auth/AuthProvider';
 import { hasRole, isCommunityCoordinatorRole, isHealthWorkerRole, ROLES } from '../../utils/permissions';
 import { notifyAction } from '../../components/ActionFeedback';
+import { useStepNavigation } from '../../utils/useStepNavigation';
+import { StepNavigationStatus } from '../../components/ui/StepNavigationButton';
 import { ReportTabBar } from './components/ReportTabBar';
 import { CommunitySelectionStep } from './components/CommunitySelectionStep';
 import { ReportFocusStep } from './components/ReportFocusStep';
@@ -76,6 +78,7 @@ export default function ProgressReport() {
   const [loadingReport, setLoadingReport] = useState(false);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState(1);
+  const { navigationDirection, navigationError, isNavigating, runStepNavigation } = useStepNavigation();
   const [reportFocus, setReportFocus] = useState('beneficiary-batch');
   const [reportCategory, setReportCategory] = useState('monitor');
   const [beneficiaryType, setBeneficiaryType] = useState('child');
@@ -481,8 +484,12 @@ export default function ProgressReport() {
     ? Math.round(resultsRows.reduce((sum, row) => sum + Number(row.progress || 0), 0) / resultsRows.length)
     : 0;
   const canOpenTab = (tab) => tab === 1 || (tab === 2 && Boolean(selection.schoolId)) || (tab === 3 && Boolean(selection.schoolId)) || (tab === 4 && Boolean(activeReport));
-  const goToTab = (tab) => {
-    if (canOpenTab(tab)) setActiveTab(tab);
+  const goToTab = (tab, direction) => {
+    return runStepNavigation(() => {
+      if (!canOpenTab(tab)) return false;
+      setActiveTab(tab);
+      return true;
+    }, direction || (tab >= activeTab ? 'next' : 'previous'));
   };
   const resetSetup = () => {
     setSelection(isSchoolAssignedUser
@@ -642,8 +649,9 @@ export default function ProgressReport() {
   return (
     <div className="community-page progress-report-shell">
       <div className="progress-report-panel hierarchical-progress-report">
-        <PageHeader title="Progress Report" breadcrumbs={[{ label: 'Reports' }, { label: 'Progress Report' }]} actions={<button type="button" className="secondary-btn" onClick={resetSetup}>Reset Setup</button>} />
-        <ReportTabBar tabs={REPORT_TABS} activeTab={activeTab} canOpenTab={canOpenTab} goToTab={goToTab} />
+        <PageHeader title="Progress Report" breadcrumbs={[{ label: 'Reports' }, { label: 'Progress Report' }]} actions={<button type="button" className="secondary-btn" onClick={resetSetup} disabled={isNavigating || loadingReport}>Reset Setup</button>} />
+        <ReportTabBar tabs={REPORT_TABS} activeTab={activeTab} canOpenTab={canOpenTab} goToTab={goToTab} isNavigating={isNavigating} />
+        <StepNavigationStatus direction={navigationDirection} error={navigationError} />
 
         <section className="progress-report-config" aria-label="Report parameters">
           {activeTab === 1 && (
@@ -656,7 +664,9 @@ export default function ProgressReport() {
               isHealthWorker={isHealthWorker}
               options={options}
               updateSelection={updateSelection}
-              setActiveTab={setActiveTab}
+              setActiveTab={goToTab}
+              isNavigating={isNavigating}
+              navigationDirection={navigationDirection}
               aiScopeLabel={aiScopeLabel}
               applyAiProposal={applyAiProposal}
             />
@@ -675,7 +685,9 @@ export default function ProgressReport() {
               setBenefitMonth={setBenefitMonth}
               beneficiaryType={beneficiaryType}
               setBeneficiaryType={selectBeneficiaryType}
-              setActiveTab={setActiveTab}
+              setActiveTab={goToTab}
+              isNavigating={isNavigating}
+              navigationDirection={navigationDirection}
             />
           )}
 
@@ -692,8 +704,11 @@ export default function ProgressReport() {
               availableGrowthMetrics={availableGrowthMetrics}
               growthMetrics={growthMetrics}
               selectGrowthMetric={selectGrowthMetric}
-              setActiveTab={setActiveTab}
+              setActiveTab={goToTab}
               generateReport={generateReport}
+              runStepNavigation={runStepNavigation}
+              isNavigating={isNavigating}
+              navigationDirection={navigationDirection}
               profileFieldSections={activeProfileFieldSections}
               profileSectionLabels={activeProfileSectionLabels}
               profileSection={profileSection}

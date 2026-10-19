@@ -1,3 +1,10 @@
+function sanitizeNotificationLink(value) {
+  const link = String(value || '').trim();
+  return link.startsWith('/') && !link.startsWith('//') && !link.includes('\\')
+    ? link.slice(0, 255)
+    : null;
+}
+
 async function createSuperadminNotification(event, database) {
   const title = String(event?.title || 'Notification').trim().slice(0, 120);
   const message = String(event?.message || '').trim().slice(0, 500);
@@ -19,7 +26,7 @@ async function createSuperadminNotification(event, database) {
       message,
       event.entityType ? String(event.entityType).slice(0, 32) : null,
       event.entityId === undefined || event.entityId === null ? null : String(event.entityId).slice(0, 80),
-      event.linkTo && String(event.linkTo).startsWith('/') ? String(event.linkTo).slice(0, 255) : null,
+      sanitizeNotificationLink(event.linkTo),
       event.schoolId || null,
       event.groupId || null,
       Array.isArray(event.schoolIds)
@@ -92,4 +99,4 @@ async function getBeneficiaryUpdateRecipients(database, schoolId, actorUserId) {
   return [...recipientIds];
 }
 
-module.exports = { createSuperadminNotification, getActivityAction, getBeneficiaryUpdateRecipients };
+module.exports = { createSuperadminNotification, getActivityAction, getBeneficiaryUpdateRecipients, sanitizeNotificationLink };

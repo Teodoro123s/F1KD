@@ -33,6 +33,14 @@
   box-shadow: var(--modal-shadow);
 }
 
+.modal-backdrop > .modal,
+.modal-backdrop > .modal-content,
+.view-modal-backdrop > .view-modal,
+.report-modal-backdrop > .report-modal,
+.document-preview-modal-backdrop > .document-preview-modal {
+  z-index: var(--z-modal);
+}
+
 .modal-content,
 .modal,
 .view-modal,
@@ -144,7 +152,7 @@
   top: max(76px, env(safe-area-inset-top));
   right: max(1rem, env(safe-area-inset-right));
   left: auto;
-  z-index: 1100;
+  z-index: var(--z-toast);
   width: min(420px, calc(100vw - 2rem));
   min-width: 0;
   max-width: calc(100vw - 2rem);

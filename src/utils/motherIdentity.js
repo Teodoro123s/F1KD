@@ -1,5 +1,6 @@
 import { normalizeDateValue } from './dateFormat.js';
 import { isValidContactNumber } from './contactNumber.js';
+import { getFirstNameValidationError } from './firstNameValidation.js';
 
 const STANDARD_NAME_PATTERN = /^[\p{L}]+(?:[ '-][\p{L}]+)*$/u;
 const MIDDLE_NAME_PATTERN = /^(?:[\p{L}]\.?|[\p{L}]+(?:['-][\p{L}]+)*)$/u;
@@ -19,8 +20,9 @@ export function getLatestEligibleMotherDob(now = new Date()) {
 
 export function getMotherIdentityErrors(form, now = new Date()) {
   const errors = {};
+  const firstNameError = getFirstNameValidationError(form.firstName);
+  if (firstNameError) errors.firstName = firstNameError;
   const nameFields = [
-    ['firstName', 'First name', STANDARD_NAME_PATTERN],
     ['middleName', 'Middle name', MIDDLE_NAME_PATTERN],
     ['lastName', 'Last name', STANDARD_NAME_PATTERN],
     ['maidenSurname', 'Maiden surname', STANDARD_NAME_PATTERN],

@@ -1,7 +1,9 @@
 // Helpers for User Management (validation, normalization, formatters)
 import { formatDateForInput } from '../../utils/dateFormat.js';
 import { isValidContactNumber, sanitizeContactNumber } from '../../utils/contactNumber.js';
+import { getFirstNameValidationError, isValidFirstName, normalizeFirstName } from '../../utils/firstNameValidation.js';
 export const isValidName = (value) => /^[A-Za-z ]+$/.test((value || '').toString().trim());
+export { getFirstNameValidationError, isValidFirstName, normalizeFirstName };
 export const isValidMiddleInitial = (value) => value === '' || /^[A-Za-z]$/.test((value || '').toString().trim());
 export const sanitizeDigits = (v) => (v || '').toString().replace(/\D/g, '');
 

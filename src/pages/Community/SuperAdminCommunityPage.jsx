@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import CommunityTable from './CommunityTable';
 import CommunityModalManager from './CommunityModalManager';
@@ -10,6 +10,7 @@ import { useCommunityData } from './hooks/useCommunityData';
 import { useCommunityMutations } from './hooks/useCommunityMutations';
 import CommunityOverviewCards from './components/CommunityOverviewCards';
 import { getAllHealthWorkers, getGroupHealthWorkers } from './communityService';
+import FloatingLayer from '../../components/ui/FloatingLayer';
 
 const defaultCommunityForm = { name: '', area: 'Poblacion', coordinator: '' };
 const defaultGroupForm = { name: '', community: '', assignedBatchIds: [], leader: '', members: 1, status: 'Active' };
@@ -24,6 +25,7 @@ export default function SuperAdminCommunityPage() {
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(50);
   const [activeDropdownId, setActiveDropdownId] = useState(null);
+  const activeDropdownAnchorRef = useRef(null);
   const [showModal, setShowModal] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
   const [pendingDeleteItem, setPendingDeleteItem] = useState(null);
@@ -43,20 +45,6 @@ export default function SuperAdminCommunityPage() {
   const activeSchoolId = selectedSchoolId;
   const activeGroupId = selectedGroupId;
   const activeTab = activeGroupId ? 'healthWorkers' : activeSchoolId ? 'groups' : rootListType;
-
-  useEffect(() => {
-    const handleDocumentClick = (event) => {
-      const clickedInsideDropdown = event.target.closest('.actions-dropdown');
-      const clickedToggleButton = event.target.closest('.btn-actions');
-
-      if (!clickedInsideDropdown && !clickedToggleButton) {
-        setActiveDropdownId(null);
-      }
-    };
-
-    document.addEventListener('mousedown', handleDocumentClick);
-    return () => document.removeEventListener('mousedown', handleDocumentClick);
-  }, []);
 
   useEffect(() => {
     if (rootListType !== 'healthWorkers') return undefined;
@@ -332,11 +320,34 @@ export default function SuperAdminCommunityPage() {
       cellClassName: 'actions-cell',
       renderCell: (row) => (
         <>
-          <button type="button" className="btn-actions" onClick={(event) => { event.stopPropagation(); setActiveDropdownId((current) => current === row.id ? null : row.id); }} aria-label="Actions menu" aria-haspopup="true" aria-expanded={activeDropdownId === row.id}>
+          <button
+            type="button"
+            className="btn-actions"
+            ref={activeDropdownId === row.id ? activeDropdownAnchorRef : undefined}
+            onClick={(event) => {
+              event.stopPropagation();
+              if (activeDropdownId === row.id) {
+                setActiveDropdownId(null);
+                return;
+              }
+
+              activeDropdownAnchorRef.current = event.currentTarget;
+              setActiveDropdownId(row.id);
+            }}
+            aria-label="Actions menu"
+            aria-haspopup="true"
+            aria-expanded={activeDropdownId === row.id}
+          >
             <MoreVerticalIcon />
           </button>
           {activeDropdownId === row.id && (
-            <div className="actions-dropdown" role="menu">
+            <FloatingLayer
+              open
+              anchorRef={activeDropdownAnchorRef}
+              onDismiss={() => setActiveDropdownId(null)}
+              className="actions-dropdown actions-dropdown-portal community-actions-dropdown"
+              role="menu"
+            >
               {activeTab === 'communities' && (
                 <button type="button" className="actions-dropdown-item" onClick={(event) => { event.stopPropagation(); navigate(`/user-management/school/${row.id}`, { state: { schoolName: row.name } }); setActiveDropdownId(null); }} role="menuitem">View Users</button>
               )}
@@ -351,7 +362,7 @@ export default function SuperAdminCommunityPage() {
                   <button type="button" className="actions-dropdown-item delete" onClick={(event) => { event.stopPropagation(); setActiveDropdownId(null); deleteItem(row); }} role="menuitem">Delete</button>
                 </>
               )}
-            </div>
+            </FloatingLayer>
           )}
         </>
       ),
@@ -510,7 +521,10 @@ export default function SuperAdminCommunityPage() {
       )}
       <CommunityModalManager
         showModal={showModal}
-        onClose={() => setShowModal(null)}
+        onClose={() => {
+          setShowModal(null);
+          mutations.clearError();
+        }}
         communityForm={communityForm}
         setCommunityForm={setCommunityForm}
         groupForm={groupForm}
@@ -523,13 +537,38 @@ export default function SuperAdminCommunityPage() {
         showBatchGroupField={showModal === 'createBatch'}
         hideBatchSchoolField={showModal === 'createBatch' && Boolean(selectedSchool || selectedGroup)}
         coordinators={coordinators}
-        onCreateCommunity={async (event) => { event.preventDefault(); await mutations.createCommunity(communityForm); setShowModal(null); }}
-        onEditCommunity={async (event) => { event.preventDefault(); await mutations.updateCommunity(selectedItem.id, communityForm); setShowModal(null); setSelectedItem(null); }}
+        onCreateCommunity={async (event) => {
+          event.preventDefault();
+          try {
+            await mutations.createCommunity(communityForm);
+          } catch {
+            return;
+          }
+          setShowModal(null);
+        }}
+        onEditCommunity={async (event) => {
+          event.preventDefault();
+          try {
+            await mutations.updateCommunity(selectedItem.id, communityForm);
+          } catch (error) {
+            if (error?.status === 409) {
+              setCommunityForm((current) => ({
+                ...current,
+                coordinator: selectedItem.coordinatorId || getSchoolCoordinator(selectedItem)?.id || '',
+              }));
+            }
+            return;
+          }
+          setShowModal(null);
+          setSelectedItem(null);
+        }}
         onCreateGroup={async (event) => { event.preventDefault(); await mutations.createGroup(groupForm); setShowModal(null); }}
         onEditGroup={async (event) => { event.preventDefault(); await mutations.updateGroup(selectedItem.id, groupForm); setShowModal(null); setSelectedItem(null); }}
         onCreateBatch={async (event) => { event.preventDefault(); await mutations.createBatch(batchForm); setShowModal(null); }}
         onEditBatch={async (event) => { event.preventDefault(); await mutations.updateBatch(selectedItem.id, batchForm); setShowModal(null); setSelectedItem(null); }}
         isSubmitting={mutations.loading}
+        notification={mutations.error}
+        selectedCommunityId={showModal === 'editCommunity' ? selectedItem?.id : null}
       />
       <ConfirmActionModal
         show={Boolean(pendingDeleteItem)}

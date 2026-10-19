@@ -1,5 +1,6 @@
 import React from 'react';
 import { ReportAiAssistant } from './ReportAiAssistant';
+import { StepNavigationButton } from '../../../components/ui/StepNavigationButton';
 
 export function CommunitySelectionStep({
   isCommunityOrganizer,
@@ -11,6 +12,8 @@ export function CommunitySelectionStep({
   options,
   updateSelection,
   setActiveTab,
+  isNavigating = false,
+  navigationDirection = '',
   aiScopeLabel,
   applyAiProposal,
 }) {
@@ -66,9 +69,14 @@ export function CommunitySelectionStep({
               : 'Select a School to begin. Group and Batch are optional filters.'}
         </p>
         <div className="progress-report-tab-actions">
-          <button type="button" className="primary-btn" disabled={!selection.schoolId} onClick={() => setActiveTab(2)}>
+          <StepNavigationButton
+            className="primary-btn"
+            disabled={!selection.schoolId || isNavigating}
+            loading={navigationDirection === 'next'}
+            onClick={() => setActiveTab(2)}
+          >
             Next: Report Focus →
-          </button>
+          </StepNavigationButton>
         </div>
       </div>
       <ReportAiAssistant scopeLabel={aiScopeLabel} onApply={applyAiProposal} />

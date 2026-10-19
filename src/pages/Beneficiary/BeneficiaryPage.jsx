@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import PageHeader from '../../components/ui/PageHeader';
 import { PlusIcon } from './BeneficiaryIcons';
@@ -12,6 +12,7 @@ import { apiGetMother } from '../../api/mothers';
 import { apiGetChildrenByMother } from '../../api/children';
 import { can, isHealthWorkerRole, isSchoolScopedRole } from '../../utils/permissions';
 import { useAuth } from '../../auth/AuthProvider';
+import FloatingLayer from '../../components/ui/FloatingLayer';
 
 export default function BeneficiaryPage() {
   // Mothers are loaded from the DB via MothersContext
@@ -21,6 +22,7 @@ export default function BeneficiaryPage() {
   const [communities, setCommunities] = useState([]);
   const [batches, setBatches] = useState([]);
   const [createDropdownOpen, setCreateDropdownOpen] = useState(false);
+  const createDropdownTriggerRef = useRef(null);
   const [selectedMother, setSelectedMother] = useState(null);
 
   useEffect(() => {
@@ -37,14 +39,6 @@ export default function BeneficiaryPage() {
   const location = useLocation();
   const { id: motherRouteId } = useParams();
   const batchId = new URLSearchParams(location.search).get('batchId') || '';
-
-  useEffect(() => {
-    function closeDropdowns() {
-      setCreateDropdownOpen(false);
-    }
-    document.addEventListener('click', closeDropdowns);
-    return () => document.removeEventListener('click', closeDropdowns);
-  }, []);
 
   const openCreateModal = (e) => {
     e.stopPropagation();
@@ -174,20 +168,24 @@ export default function BeneficiaryPage() {
         actions={
           !isMotherDetail && !isCreateMother && !isCreateChild && canCreate ? (
             <div className="create-menu-wrapper">
-              <button className="view-btn view-btn--primary module-create-button" onClick={openCreateModal} type="button">
+              <button ref={createDropdownTriggerRef} className="view-btn view-btn--primary module-create-button" onClick={openCreateModal} type="button" aria-haspopup="menu" aria-expanded={createDropdownOpen}>
                 <PlusIcon />
                 <span>Create</span>
               </button>
-              {createDropdownOpen && (
-                <div className="create-dropdown" role="menu">
+              <FloatingLayer
+                open={createDropdownOpen}
+                anchorRef={createDropdownTriggerRef}
+                onDismiss={() => setCreateDropdownOpen(false)}
+                className="create-dropdown"
+                role="menu"
+              >
                   <button type="button" className="actions-dropdown-item" onClick={openCreateMother} role="menuitem">
                     Create Mother
                   </button>
                   <button type="button" className="actions-dropdown-item" onClick={openCreateChild} role="menuitem">
                     Create Child
                   </button>
-                </div>
-              )}
+              </FloatingLayer>
             </div>
           ) : null
         }

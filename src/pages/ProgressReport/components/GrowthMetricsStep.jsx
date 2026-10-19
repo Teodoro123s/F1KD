@@ -1,4 +1,5 @@
 import React from 'react';
+import { StepNavigationButton } from '../../../components/ui/StepNavigationButton';
 
 export function GrowthMetricsStep({
   reportCategory,
@@ -14,6 +15,9 @@ export function GrowthMetricsStep({
   selectGrowthMetric,
   setActiveTab,
   generateReport,
+  runStepNavigation,
+  isNavigating = false,
+  navigationDirection = '',
   profileFieldSections = {},
   profileSectionLabels = {},
   profileSection = 'general',
@@ -91,11 +95,15 @@ export function GrowthMetricsStep({
         </>
       )}
       <div className="progress-report-tab-actions">
-        <button type="button" className="primary-btn" onClick={async () => {
-          if (generateReport) await generateReport();
-        }}>
+        <StepNavigationButton
+          className="primary-btn"
+          onClick={() => runStepNavigation(() => generateReport?.(), 'next')}
+          disabled={isNavigating}
+          loading={navigationDirection === 'next'}
+          loadingLabel="Generating..."
+        >
           Next: Results →
-        </button>
+        </StepNavigationButton>
       </div>
     </div>
   );

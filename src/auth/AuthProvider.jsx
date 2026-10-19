@@ -56,17 +56,6 @@ export function AuthProvider({ children }) {
     throw new Error('Login failed');
   };
 
-  const loginAsTestRole = async (role) => {
-    const data = await apiAuth.loginAsTestRole(role);
-    if (data && data.token) {
-      apiAuth.saveToken(data.token);
-      setToken(data.token);
-      setCurrentUser(data.user || null);
-      return data.user;
-    }
-    throw new Error('Test role sign-in failed');
-  };
-
   const logout = () => {
     apiAuth.clearToken();
     setToken(null);
@@ -78,7 +67,6 @@ export function AuthProvider({ children }) {
     currentUser,
     loading,
     login,
-    loginAsTestRole,
     logout,
     isAuthenticated: Boolean(currentUser),
   };

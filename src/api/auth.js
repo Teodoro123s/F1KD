@@ -32,16 +32,6 @@ export async function resetPassword(email, passcode, newPassword, confirmPasswor
   return readApiResponse(res, 'Unable to reset your password');
 }
 
-export async function loginAsTestRole(role) {
-  const res = await fetch(`${API_BASE}/api/auth/test-role`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ role }),
-    credentials: 'include',
-  });
-  return readApiResponse(res, 'Unable to sign in to the selected test role');
-}
-
 export async function changePassword(currentPassword, newPassword, confirmPassword) {
   const res = await fetchWithAuth(`${API_BASE}/api/auth/change-password`, {
     method: 'POST',

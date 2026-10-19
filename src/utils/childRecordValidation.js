@@ -1,3 +1,5 @@
+import { getFirstNameValidationError, normalizeFirstName } from './firstNameValidation.js';
+
 export const CHILD_VACCINE_SEQUENCES = [
   ['bcgDose1', 'bcgDose2', 'bcgDose3'],
   ['hepbDose1', 'hepbDose2', 'hepbDose3'],
@@ -46,7 +48,10 @@ const CHILD_NAME_FIELDS = [
 
 export function getChildNameErrors(form = {}) {
   const errors = {};
+  const firstNameError = getFirstNameValidationError(form.firstName);
+  if (firstNameError) errors.firstName = firstNameError;
   CHILD_NAME_FIELDS.forEach(([field, label, pattern]) => {
+    if (field === 'firstName') return;
     const value = String(form[field] ?? '').trim().replace(/\s+/g, ' ');
     if (value.length > 100 || (value && !pattern.test(value))) {
       errors[field] = `${label} may contain letters, spaces, hyphens, and apostrophes only (maximum 100 characters).`;
@@ -54,6 +59,8 @@ export function getChildNameErrors(form = {}) {
   });
   return errors;
 }
+
+export { normalizeFirstName };
 
 export function getChildRecordErrors(form = {}, today = new Date()) {
   const errors = getChildNameErrors(form);

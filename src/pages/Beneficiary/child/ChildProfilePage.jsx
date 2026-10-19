@@ -7,6 +7,7 @@ import { DocumentPreview, DocumentPreviewModal } from '../../../components/Docum
 import { useAuth } from '../../../auth/AuthProvider';
 import { can } from '../../../utils/permissions';
 import { capitalizeNameValue } from '../../../utils/nameFormat';
+import { normalizeFirstName } from '../../../utils/firstNameValidation';
 import { splitChildBirthPlace } from '../../../utils/childBirthPlace';
 import { ChildFormFields } from './BeneficiaryChild';
 import PageHeader from '../../../components/ui/PageHeader';
@@ -63,7 +64,7 @@ const getBmiStatus = (weight, heightCm) => {
 
 const normalizeChild = (child = {}) => ({
   ...child,
-  firstName: capitalizeNameValue(child.firstName || child.first_name || ''),
+  firstName: normalizeFirstName(child.firstName || child.first_name || ''),
   middleName: capitalizeNameValue(child.middleName || child.middle_name || ''),
   lastName: capitalizeNameValue(child.lastName || child.last_name || ''),
   suffix: capitalizeNameValue(child.suffix || ''),

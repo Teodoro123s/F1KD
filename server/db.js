@@ -75,6 +75,21 @@ async function ensure() {
     `ALTER TABLE communities
       ADD COLUMN IF NOT EXISTS coordinator_id INT NULL;`,
 
+    `ALTER TABLE communities
+      ADD UNIQUE INDEX IF NOT EXISTS uq_communities_coordinator_id (coordinator_id);`,
+
+    `ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS coordinator_school_id INT
+        GENERATED ALWAYS AS (
+          CASE
+            WHEN LOWER(REPLACE(REPLACE(TRIM(role), '_', ''), ' ', ''))
+              IN ('communitycoordinator', 'communityorganizer', 'coordinator', 'co', 'partner')
+            THEN school_id
+            ELSE NULL
+          END
+        ) STORED,
+      ADD UNIQUE INDEX IF NOT EXISTS uq_users_coordinator_school_id (coordinator_school_id);`,
+
     `CREATE TABLE IF NOT EXISTS batches (
       id INT AUTO_INCREMENT PRIMARY KEY,
       batch_code VARCHAR(20) NOT NULL UNIQUE,
@@ -595,6 +610,15 @@ async function ensure() {
       PRIMARY KEY (notification_id, user_id),
       KEY idx_notification_reads_user (user_id),
       CONSTRAINT fk_notification_reads_notification FOREIGN KEY (notification_id) REFERENCES notifications(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+
+    `CREATE TABLE IF NOT EXISTS notification_preferences (
+      user_id INT NOT NULL,
+      category VARCHAR(40) NOT NULL,
+      enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (user_id, category),
+      KEY idx_notification_preferences_user (user_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
     `CREATE TABLE IF NOT EXISTS activity_logs (
       id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

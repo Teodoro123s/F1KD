@@ -71,10 +71,7 @@
 }
 
 .data-table .actions-dropdown {
-  position: absolute;
-  top: calc(100% - 0.35rem);
-  right: 0.75rem;
-  z-index: 100;
+  z-index: var(--z-dropdown);
   min-width: 120px;
   padding: 0.25rem 0;
   overflow: hidden;
@@ -83,17 +80,6 @@
   background: #fff;
   box-shadow: 0 8px 20px rgba(12, 20, 36, 0.12);
   text-align: left;
-}
-
-/* Prevent dropdown from being cut off at the bottom of the table */
-.data-table tbody tr:last-child:not(:first-child) .actions-dropdown {
-  top: auto;
-  bottom: calc(100% - 0.35rem);
-}
-
-.data-table tbody tr:nth-last-child(2) .actions-dropdown {
-  top: auto;
-  bottom: calc(100% - 0.35rem);
 }
 
 .data-table .actions-dropdown-item {
@@ -111,6 +97,70 @@
 
 .data-table .actions-dropdown-item:hover { background: #F8FAFC; }
 .data-table .actions-dropdown-item.delete { color: #B42318; }
+
+.user-management-actions-dropdown {
+  min-width: 136px;
+  max-width: calc(100vw - 1rem);
+  padding: 0.25rem 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
+  text-align: left;
+}
+
+.user-management-actions-dropdown .actions-dropdown-item {
+  display: block;
+  width: 100%;
+  padding: 0.65rem 0.85rem;
+  border: 0;
+  background: transparent;
+  color: var(--slate-dark);
+  font: inherit;
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.user-management-actions-dropdown .actions-dropdown-item:hover { background: #F8FAFC; }
+.user-management-actions-dropdown .actions-dropdown-item.delete { color: #B42318; }
+
+.community-actions-dropdown {
+  min-width: 160px;
+  max-width: calc(100vw - 1rem);
+  padding: 0.25rem 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
+  text-align: left;
+}
+
+.community-actions-dropdown .actions-dropdown-item {
+  display: block;
+  width: 100%;
+  padding: 0.65rem 0.85rem;
+  border: 0;
+  background: transparent;
+  color: var(--slate-dark);
+  font: inherit;
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.community-actions-dropdown .actions-dropdown-item:hover { background: #F8FAFC; }
+.community-actions-dropdown .actions-dropdown-item.delete { color: #B42318; }
+
+.actions-dropdown-portal {
+  max-height: calc(100vh - 1rem);
+  overflow-x: hidden;
+  overflow-y: auto;
+}
 
 /* Row-specific styling */
 .community-name-cell { display: flex; align-items: center; gap: 1rem; }

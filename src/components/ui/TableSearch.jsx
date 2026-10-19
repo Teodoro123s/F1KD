@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function TableSearch({ value, onChange, placeholder = 'Search this table (case-sensitive)' }) {
+export default function TableSearch({ value, onChange, placeholder = 'Search this table' }) {
   return (
     <div className="community-table-search">
       <div className="search-container">

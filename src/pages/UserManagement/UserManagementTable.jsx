@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { MoreVerticalIcon } from './UserManagementIcons';
 import TableSearch from '../../components/ui/TableSearch';
+import FloatingLayer from '../../components/ui/FloatingLayer';
 
 export default function UserManagementTable({
   currentRows,
@@ -18,30 +19,18 @@ export default function UserManagementTable({
   onSearchChange,
   toolbarActions,
 }) {
-  const [activeDropdownId, setActiveDropdownId] = useState(null);
+  const [activeDropdown, setActiveDropdown] = useState(null);
+  const activeDropdownTriggerRef = useRef(null);
   const emptyColSpan = showGroup ? 4 : 3;
   const groupNames = new Map(groups.map((group) => [String(group.id), group.name]));
   const navigate = useNavigate();
   const location = useLocation();
   const returnTo = `${location.pathname}${location.search}`;
 
-  useEffect(() => {
-    const handleDocumentClick = (event) => {
-      const clickedInsideDropdown = event.target.closest('.actions-dropdown');
-      const clickedToggleButton = event.target.closest('.btn-actions');
-
-      if (!clickedInsideDropdown && !clickedToggleButton) {
-        setActiveDropdownId(null);
-      }
-    };
-
-    document.addEventListener('mousedown', handleDocumentClick);
-    return () => document.removeEventListener('mousedown', handleDocumentClick);
-  }, []);
-
-  const toggleDropdown = (event, id) => {
+  const toggleDropdown = (event, row) => {
     event.stopPropagation();
-    setActiveDropdownId((current) => (current === id ? null : id));
+    activeDropdownTriggerRef.current = event.currentTarget;
+    setActiveDropdown((current) => (current?.id === row.id ? null : row));
   };
 
   const renderActionMenu = (row) => (
@@ -49,20 +38,28 @@ export default function UserManagementTable({
       <button
         type="button"
         className="btn-actions"
-        onClick={(event) => toggleDropdown(event, row.id)}
+        ref={activeDropdown?.id === row.id ? activeDropdownTriggerRef : undefined}
+        onClick={(event) => toggleDropdown(event, row)}
         aria-label="Actions menu"
         aria-haspopup="true"
-        aria-expanded={activeDropdownId === row.id}
+        aria-expanded={activeDropdown?.id === row.id}
       >
         <MoreVerticalIcon />
       </button>
-      {activeDropdownId === row.id && (
-        <div className="actions-dropdown" role="menu">
+      {activeDropdown?.id === row.id && (
+        <FloatingLayer
+          open
+          anchorRef={activeDropdownTriggerRef}
+          onDismiss={() => setActiveDropdown(null)}
+          className="actions-dropdown actions-dropdown-portal user-management-actions-dropdown"
+          role="menu"
+        >
           <button
             type="button"
             className="actions-dropdown-item"
             onClick={(event) => {
               event.stopPropagation();
+              setActiveDropdown(null);
               openEditUser(row);
             }}
             role="menuitem"
@@ -74,6 +71,7 @@ export default function UserManagementTable({
             className="actions-dropdown-item"
             onClick={(event) => {
               event.stopPropagation();
+              setActiveDropdown(null);
               handleSuspendUser(row.id);
             }}
             role="menuitem"
@@ -89,6 +87,7 @@ export default function UserManagementTable({
               className="actions-dropdown-item delete"
               onClick={(event) => {
                 event.stopPropagation();
+                setActiveDropdown(null);
                 handleDeleteUser(row.id);
               }}
               role="menuitem"
@@ -97,7 +96,7 @@ export default function UserManagementTable({
               {deletingId === row.id ? 'Deleting...' : 'Delete'}
             </button>
           )}
-        </div>
+        </FloatingLayer>
       )}
     </td>
   );
@@ -107,7 +106,7 @@ export default function UserManagementTable({
       {(toolbarActions || onSearchChange) && (
         <div className="user-management-table-toolbar">
           {toolbarActions}
-          {onSearchChange && <TableSearch value={searchValue} onChange={onSearchChange} placeholder="Search users (case-sensitive)" />}
+          {onSearchChange && <TableSearch value={searchValue} onChange={onSearchChange} placeholder="Search users" />}
         </div>
       )}
       <div className="table-overflow">

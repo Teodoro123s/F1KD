@@ -18,6 +18,16 @@ test('accepts birth counts whose living and deceased children equal total childr
   }), {});
 });
 
+test('accepts zero born children for a mother who is currently pregnant', () => {
+  assert.equal(calculateTotalChildren('0', '0'), '0');
+  assert.deepEqual(getMaternalBirthCountErrors({
+    totalChildren: '0',
+    childrenBornAlive: '0',
+    childrenDiedAfterBirth: '0',
+    miscarriages: '0',
+  }, { requireAll: true }), {});
+});
+
 test('rejects child totals that do not equal living plus deceased children', () => {
   const errors = getMaternalBirthCountErrors({
     totalChildren: '4',

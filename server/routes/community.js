@@ -10,6 +10,14 @@ router.use((req, res, next) => {
 const pool = require('../db');
 const { createSuperadminNotification } = require('../services/notifications');
 const { normalizeRole } = require('../middleware/authorize');
+const {
+  assertCoordinatorAvailable,
+  assertSchoolCoordinatorAvailable,
+  isAssignmentConflict,
+  lockSchools,
+  withTransaction,
+} = require('../services/coordinatorAssignments');
+const { parsePositiveIntegerId } = require('../utils/userInputValidation');
 
 function parseAssignedBatchIds(raw) {
   if (!raw) return [];
@@ -43,40 +51,6 @@ async function resolveCommunityId(pool, communityIdentifier) {
   const [rows] = await pool.query('SELECT id FROM communities WHERE name = ? LIMIT 1', [normalized]);
   if (!rows.length) return null;
   return rows[0].id;
-}
-
-async function resolveCoordinatorId(pool, coordinatorIdentifier) {
-  if (!coordinatorIdentifier) return null;
-
-  const coordinatorId = Number(coordinatorIdentifier);
-  if (Number.isNaN(coordinatorId)) return null;
-
-  const [rows] = await pool.query(
-    `SELECT id FROM users
-    WHERE id = ? AND LOWER(TRIM(role)) IN ('community organizer', 'community_coordinator', 'communitycoordinator', 'communityorganizer', 'co', 'partner')
-     LIMIT 1`,
-    [coordinatorId],
-  );
-
-  return rows.length ? coordinatorId : null;
-}
-
-// Keep the school coordinator link and the organizer's operational school scope in sync.
-async function syncCoordinatorAssignment(communityId, coordinatorId, previousCoordinatorId = null) {
-  if (coordinatorId) {
-    await pool.query(
-      'UPDATE communities SET coordinator_id = NULL WHERE coordinator_id = ? AND id <> ?',
-      [coordinatorId, communityId],
-    );
-    await pool.query('UPDATE users SET school_id = ? WHERE id = ?', [communityId, coordinatorId]);
-  }
-
-  if (previousCoordinatorId && String(previousCoordinatorId) !== String(coordinatorId || '')) {
-    await pool.query(
-      'UPDATE users SET school_id = NULL WHERE id = ? AND school_id = ?',
-      [previousCoordinatorId, communityId],
-    );
-  }
 }
 
 async function nextCode(pool, table, codeColumn, prefix) {
@@ -365,26 +339,30 @@ router.post('/communities', async (req, res) => {
       return res.status(400).json({ error: 'Community name is required' });
     }
 
-    const coordinatorId = await resolveCoordinatorId(pool, coordinator);
-    if (coordinator && !coordinatorId) {
-      return res.status(400).json({ error: 'Selected coordinator must be a Community Organizer' });
-    }
+    const created = await withTransaction(pool, async (connection) => {
+      const coordinatorId = coordinator ? Number(coordinator) : null;
+      if (coordinator && (!Number.isInteger(coordinatorId) || coordinatorId <= 0)) {
+        const error = new Error('Select a valid Community Coordinator.');
+        error.status = 400;
+        throw error;
+      }
+      if (coordinatorId) await assertCoordinatorAvailable(connection, coordinatorId, null);
 
-    const communityCode = await nextCode(pool, 'communities', 'community_code', 'COM');
+      const communityCode = await nextCode(connection, 'communities', 'community_code', 'COM');
+      const [result] = await connection.query(
+        'INSERT INTO communities (community_code, name, area, coordinator_id) VALUES (?, ?, ?, ?)',
+        [communityCode, cleanName, cleanArea, coordinatorId],
+      );
+      if (coordinatorId) {
+        await connection.query('UPDATE users SET school_id = ? WHERE id = ?', [result.insertId, coordinatorId]);
+      }
+      const [rows] = await connection.query(
+        'SELECT id, community_code AS code, name, area FROM communities WHERE id = ?',
+        [result.insertId],
+      );
+      return rows[0];
+    });
 
-    const [result] = await pool.query(
-      'INSERT INTO communities (community_code, name, area, coordinator_id) VALUES (?, ?, ?, ?)',
-      [communityCode, cleanName, cleanArea, coordinatorId]
-    );
-
-    await syncCoordinatorAssignment(result.insertId, coordinatorId);
-
-    const [rows] = await pool.query(
-      'SELECT id, community_code AS code, name, area FROM communities WHERE id = ?',
-      [result.insertId]
-    );
-
-    const created = rows[0];
     await createSuperadminNotification({
       eventType: 'school.created',
       category: 'Community',
@@ -409,6 +387,14 @@ router.post('/communities', async (req, res) => {
     });
   } catch (error) {
     console.error('[Community API] create community error:', error.message);
+    if (isAssignmentConflict(error)) {
+      return res.status(409).json({
+        error: error.code === 'ER_DUP_ENTRY'
+          ? 'This coordinator or school already has an assignment. Refresh the page and try again.'
+          : error.message,
+      });
+    }
+    if (error.status === 400) return res.status(400).json({ error: error.message });
     res.status(500).json({ error: 'db error' });
   }
 });
@@ -445,24 +431,26 @@ router.post('/batches', (req, res, next) => {
       if (!groupRows.length) return res.status(400).json({ error: 'Selected group does not belong to this community' });
     }
 
-    const batchCode = await nextCode(pool, 'batches', 'batch_code', 'BAT');
-    const [result] = await pool.query(
-      'INSERT INTO batches (batch_code, community_id, name, records, progress, status) VALUES (?, ?, ?, ?, ?, ?)',
-      [batchCode, communityId, cleanName, Number(records) || 0, Number(progress) || 0, status || 'Active']
-    );
-
-    const [rows] = await pool.query(
-      'SELECT id, batch_code AS code, name, records, progress, status, community_id FROM batches WHERE id = ?',
-      [result.insertId]
-    );
-
-    const created = rows[0];
-    if (resolvedGroupId) {
-      await pool.query(
-        'INSERT INTO group_batch (group_id, batch_id) VALUES (?, ?)',
-        [resolvedGroupId, result.insertId],
+    const created = await withTransaction(pool, async (connection) => {
+      const batchCode = await nextCode(connection, 'batches', 'batch_code', 'BAT');
+      const [result] = await connection.query(
+        'INSERT INTO batches (batch_code, community_id, name, records, progress, status) VALUES (?, ?, ?, ?, ?, ?)',
+        [batchCode, communityId, cleanName, Number(records) || 0, Number(progress) || 0, status || 'Active']
       );
-    }
+
+      const [rows] = await connection.query(
+        'SELECT id, batch_code AS code, name, records, progress, status, community_id FROM batches WHERE id = ?',
+        [result.insertId]
+      );
+
+      if (resolvedGroupId) {
+        await connection.query(
+          'INSERT INTO group_batch (group_id, batch_id) VALUES (?, ?)',
+          [resolvedGroupId, result.insertId],
+        );
+      }
+      return rows[0];
+    });
     await createSuperadminNotification({
       eventType: 'batch.created',
       category: 'Community',
@@ -574,6 +562,57 @@ router.get('/groups', async (req, res) => {
   }
 });
 
+router.get('/groups/:id/delete-impact', async (req, res) => {
+  try {
+    const groupId = parsePositiveIntegerId(req.params.id);
+    if (groupId === null) return res.status(400).json({ error: 'Group ID must be a positive integer' });
+
+    const scopeClause = req.isCommunityOrganizer ? ' AND g.community_id = ?' : '';
+    const scopeValues = req.isCommunityOrganizer ? [req.schoolId] : [];
+    const [rows] = await pool.query(`
+      SELECT
+        g.id,
+        g.name,
+        c.name AS community,
+        (SELECT COUNT(*) FROM group_batch gb WHERE gb.group_id = g.id) AS batches,
+        (SELECT COUNT(*) FROM mothers m
+         WHERE m.group_id = g.id
+            OR m.batch_id IN (SELECT gb.batch_id FROM group_batch gb WHERE gb.group_id = g.id)) AS mothers,
+        (SELECT COUNT(*) FROM children ch
+         WHERE ch.group_id = g.id
+            OR ch.batch_id IN (SELECT gb.batch_id FROM group_batch gb WHERE gb.group_id = g.id)
+            OR ch.mother_id IN (
+              SELECT m.id FROM mothers m
+              WHERE m.group_id = g.id
+                 OR m.batch_id IN (SELECT gb.batch_id FROM group_batch gb WHERE gb.group_id = g.id)
+            )) AS children,
+        (SELECT COUNT(*) FROM users u
+         WHERE u.group_id = g.id
+           AND LOWER(REPLACE(REPLACE(TRIM(u.role), '_', ''), ' ', '')) = 'healthworker') AS health_workers
+      FROM groups g
+      LEFT JOIN communities c ON c.id = g.community_id
+      WHERE g.id = ?${scopeClause}
+      LIMIT 1
+    `, [groupId, ...scopeValues]);
+    if (!rows.length) return res.status(404).json({ error: 'Group not found' });
+    const impact = rows[0];
+    res.json({
+      group: {
+        id: impact.id,
+        name: impact.name,
+        community: impact.community || '',
+        batches: Number(impact.batches) || 0,
+        mothers: Number(impact.mothers) || 0,
+        children: Number(impact.children) || 0,
+        healthWorkers: Number(impact.health_workers) || 0,
+      },
+    });
+  } catch (error) {
+    console.error('[Community API] group delete impact error:', error.message);
+    res.status(500).json({ error: 'Unable to load the records affected by deleting this group.' });
+  }
+});
+
 // GET /api/community/groups/:id/health-workers - workers assigned to one group
 router.get('/groups/:id/health-workers', async (req, res) => {
   try {
@@ -636,36 +675,56 @@ router.put('/communities/:id', async (req, res) => {
       return res.status(404).json({ error: 'Community not found' });
     }
 
-    const [existingRows] = await pool.query(
-      'SELECT coordinator_id FROM communities WHERE id = ? LIMIT 1',
-      [communityId],
-    );
-    if (!existingRows.length) {
-      return res.status(404).json({ error: 'Community not found' });
-    }
+    const updated = await withTransaction(pool, async (connection) => {
+      const schoolRows = await lockSchools(connection, [communityId]);
+      if (!schoolRows.length) {
+        const error = new Error('Community not found');
+        error.status = 404;
+        throw error;
+      }
+      const currentCoordinatorId = schoolRows[0].coordinator_id;
+      const coordinatorId = coordinator ? Number(coordinator) : null;
+      if (coordinator && (!Number.isInteger(coordinatorId) || coordinatorId <= 0)) {
+        const error = new Error('Select a valid Community Coordinator.');
+        error.status = 400;
+        throw error;
+      }
 
-    const coordinatorId = await resolveCoordinatorId(pool, coordinator);
-    if (coordinator && !coordinatorId) {
-      return res.status(400).json({ error: 'Selected coordinator must be a Community Organizer' });
-    }
+      if (coordinatorId) {
+        assertSchoolCoordinatorAvailable(schoolRows[0], coordinatorId);
+        await assertCoordinatorAvailable(connection, coordinatorId, communityId);
+      }
+      if (currentCoordinatorId && String(currentCoordinatorId) !== String(coordinatorId || '')) {
+        await connection.query(
+          'SELECT id FROM users WHERE id = ? LIMIT 1 FOR UPDATE',
+          [currentCoordinatorId],
+        );
+      }
 
-    await pool.query(
-      'UPDATE communities SET name = ?, area = ?, coordinator_id = ? WHERE id = ?',
-      [cleanName, cleanArea, coordinatorId, communityId]
-    );
+      await connection.query(
+        'UPDATE communities SET name = ?, area = ?, coordinator_id = ? WHERE id = ?',
+        [cleanName, cleanArea, coordinatorId, communityId],
+      );
+      if (coordinatorId) {
+        await connection.query('UPDATE users SET school_id = ? WHERE id = ?', [communityId, coordinatorId]);
+      }
+      if (currentCoordinatorId && String(currentCoordinatorId) !== String(coordinatorId || '')) {
+        await connection.query(
+          'UPDATE users SET school_id = NULL WHERE id = ? AND school_id = ?',
+          [currentCoordinatorId, communityId],
+        );
+      }
 
-    await syncCoordinatorAssignment(communityId, coordinatorId, existingRows[0].coordinator_id);
-
-    const [rows] = await pool.query(
-      `SELECT c.id, c.community_code AS code, c.name, c.area, c.coordinator_id,
-          CONCAT_WS(' ', u.first_name, u.last_name) AS coordinator_name
-       FROM communities c
-       LEFT JOIN users u ON u.id = c.coordinator_id
-       WHERE c.id = ?`,
-      [communityId]
-    );
-
-    const updated = rows[0];
+      const [rows] = await connection.query(
+        `SELECT c.id, c.community_code AS code, c.name, c.area, c.coordinator_id,
+            CONCAT_WS(' ', u.first_name, u.last_name) AS coordinator_name
+         FROM communities c
+         LEFT JOIN users u ON u.id = c.coordinator_id
+         WHERE c.id = ?`,
+        [communityId],
+      );
+      return rows[0];
+    });
     await createSuperadminNotification({
       eventType: 'school.updated',
       category: 'Community',
@@ -691,6 +750,15 @@ router.put('/communities/:id', async (req, res) => {
     });
   } catch (error) {
     console.error('[Community API] update community error:', error.message);
+    if (error.status === 404) return res.status(404).json({ error: error.message });
+    if (error.status === 400) return res.status(400).json({ error: error.message });
+    if (isAssignmentConflict(error)) {
+      return res.status(409).json({
+        error: error.code === 'ER_DUP_ENTRY'
+          ? 'This coordinator or school already has an assignment. Refresh the page and try again.'
+          : error.message,
+      });
+    }
     res.status(500).json({ error: 'db error' });
   }
 });
@@ -786,30 +854,81 @@ router.put('/groups/:id', async (req, res) => {
 });
 
 router.delete('/groups/:id', async (req, res) => {
+  let connection;
+  let transactionStarted = false;
   try {
-    const { id } = req.params;
-    const groupId = Number(id);
-    if (Number.isNaN(groupId)) {
-      return res.status(400).json({ error: 'Invalid group id' });
-    }
+    const groupId = parsePositiveIntegerId(req.params.id);
+    if (groupId === null) return res.status(400).json({ error: 'Group ID must be a positive integer' });
 
     const scopeClause = req.isCommunityOrganizer ? ' AND community_id = ?' : '';
     const scopeValues = req.isCommunityOrganizer ? [req.schoolId] : [];
-    const [existingRows] = await pool.query(
-      `SELECT id, name, community_id FROM groups WHERE id = ?${scopeClause} LIMIT 1`,
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+    transactionStarted = true;
+
+    const [existingRows] = await connection.query(
+      `SELECT id, name, community_id FROM groups WHERE id = ?${scopeClause} LIMIT 1 FOR UPDATE`,
       [groupId, ...scopeValues],
     );
-    if (!existingRows.length) return res.status(404).json({ error: 'Group not found' });
-    const [result] = await pool.query(
+    if (!existingRows.length) {
+      await connection.rollback();
+      transactionStarted = false;
+      return res.status(404).json({ error: 'Group not found' });
+    }
+
+    const [batchRows] = await connection.query(
+      'SELECT batch_id FROM group_batch WHERE group_id = ? FOR UPDATE',
+      [groupId],
+    );
+    const batchIds = batchRows.map((batch) => Number(batch.batch_id));
+    const batchFilter = batchIds.length
+      ? ` OR batch_id IN (${batchIds.map(() => '?').join(', ')})`
+      : '';
+    const batchParams = [groupId, ...batchIds];
+    const [motherRows] = await connection.query(
+      `SELECT id FROM mothers WHERE group_id = ?${batchFilter} FOR UPDATE`,
+      batchParams,
+    );
+    const motherIds = motherRows.map((mother) => Number(mother.id));
+    const motherFilter = motherIds.length
+      ? ` OR mother_id IN (${motherIds.map(() => '?').join(', ')})`
+      : '';
+    await connection.query(
+      `UPDATE mothers
+       SET group_id = NULL,
+           batch_id = CASE WHEN batch_id IN (${batchIds.length ? batchIds.map(() => '?').join(', ') : 'NULL'})
+             THEN NULL ELSE batch_id END
+       WHERE group_id = ?${batchFilter}`,
+      [...batchIds, groupId, ...batchIds],
+    );
+    await connection.query(
+      `UPDATE children
+       SET group_id = NULL,
+           batch_id = CASE WHEN batch_id IN (${batchIds.length ? batchIds.map(() => '?').join(', ') : 'NULL'})
+             THEN NULL ELSE batch_id END
+       WHERE group_id = ?${batchFilter}${motherFilter}`,
+      [...batchIds, groupId, ...batchIds, ...motherIds],
+    );
+    await connection.query('UPDATE users SET group_id = NULL WHERE group_id = ?', [groupId]);
+    await connection.query('DELETE FROM group_batch WHERE group_id = ?', [groupId]);
+    const [result] = await connection.query(
       `DELETE FROM groups WHERE id = ?${scopeClause}`,
       [groupId, ...scopeValues],
     );
-    if (result.affectedRows > 0) {
+    if (!result.affectedRows) {
+      await connection.rollback();
+      transactionStarted = false;
+      return res.status(404).json({ error: 'Group not found' });
+    }
+    await connection.commit();
+    transactionStarted = false;
+
+    try {
       await createSuperadminNotification({
         eventType: 'group.deleted',
         category: 'Community',
         title: 'Group deleted',
-        message: `Group deleted: ${existingRows[0]?.name || 'Group'}.`,
+        message: `Group deleted: ${existingRows[0].name}.`,
         entityType: 'group',
         entityId: groupId,
         linkTo: existingRows[0]?.community_id ? `/community/school/${existingRows[0].community_id}` : '/community',
@@ -817,11 +936,22 @@ router.delete('/groups/:id', async (req, res) => {
         groupId,
         actorUserId: req.user.id,
       });
+    } catch (notificationError) {
+      console.error('[Community API] group deletion notification failed:', notificationError.message);
     }
-    res.json({ success: true, deleted: result.affectedRows > 0 });
+    res.json({ success: true, deleted: true });
   } catch (error) {
+    if (transactionStarted && connection) {
+      try {
+        await connection.rollback();
+      } catch (rollbackError) {
+        console.error('[Community API] group deletion rollback failed:', rollbackError.message);
+      }
+    }
     console.error('[Community API] delete group error:', error.message);
-    res.status(500).json({ error: 'db error' });
+    res.status(error.status || 500).json({ error: error.status ? error.message : 'Unable to delete group.' });
+  } finally {
+    connection?.release();
   }
 });
 
@@ -863,26 +993,27 @@ router.put('/batches/:id', async (req, res) => {
 
     const updateScopeClause = req.isCommunityOrganizer ? ' AND community_id = ?' : '';
     const updateScopeValues = req.isCommunityOrganizer ? [req.schoolId] : [];
-    await pool.query(
-      `UPDATE batches SET name = ?, community_id = ?, records = ?, progress = ?, status = ? WHERE id = ?${updateScopeClause}`,
-      [cleanName, communityId || null, Number(records) || 0, Number(progress) || 0, status || 'Active', batchId, ...updateScopeValues]
-    );
+    const updated = await withTransaction(pool, async (connection) => {
+      await connection.query(
+        `UPDATE batches SET name = ?, community_id = ?, records = ?, progress = ?, status = ? WHERE id = ?${updateScopeClause}`,
+        [cleanName, communityId || null, Number(records) || 0, Number(progress) || 0, status || 'Active', batchId, ...updateScopeValues]
+      );
 
-    if (groupId !== undefined) {
-      await pool.query('DELETE FROM group_batch WHERE batch_id = ?', [batchId]);
-      if (groupId) {
-        await pool.query('INSERT INTO group_batch (group_id, batch_id) VALUES (?, ?)', [Number(groupId), batchId]);
+      if (groupId !== undefined) {
+        await connection.query('DELETE FROM group_batch WHERE batch_id = ?', [batchId]);
+        if (groupId) {
+          await connection.query('INSERT INTO group_batch (group_id, batch_id) VALUES (?, ?)', [Number(groupId), batchId]);
+        }
       }
-    }
 
-    const [rows] = await pool.query(
-      `SELECT b.id, b.batch_code AS code, b.name, b.records, b.progress, b.status, b.community_id,
-          (SELECT group_id FROM group_batch WHERE batch_id = b.id ORDER BY group_id LIMIT 1) AS group_id
-       FROM batches b WHERE b.id = ?${req.isCommunityOrganizer ? ' AND b.community_id = ?' : ''}`,
-      [batchId, ...scopeValues]
-    );
-
-    const updated = rows[0];
+      const [rows] = await connection.query(
+        `SELECT b.id, b.batch_code AS code, b.name, b.records, b.progress, b.status, b.community_id,
+            (SELECT group_id FROM group_batch WHERE batch_id = b.id ORDER BY group_id LIMIT 1) AS group_id
+         FROM batches b WHERE b.id = ?${req.isCommunityOrganizer ? ' AND b.community_id = ?' : ''}`,
+        [batchId, ...updateScopeValues]
+      );
+      return rows[0];
+    });
     if (!updated) return res.status(404).json({ error: 'Batch not found' });
     await createSuperadminNotification({
       eventType: 'batch.updated',
@@ -912,35 +1043,79 @@ router.delete('/batches/:id', async (req, res) => {
     }
 
     const scopeClause = req.isCommunityOrganizer ? ' AND b.community_id = ?' : '';
+    const deleteScopeClause = req.isCommunityOrganizer ? ' AND community_id = ?' : '';
     const scopeValues = req.isCommunityOrganizer ? [req.schoolId] : [];
-    const [existingRows] = await pool.query(
-      `SELECT b.id, b.name, b.community_id, gb.group_id
-       FROM batches b LEFT JOIN group_batch gb ON gb.batch_id = b.id
-       WHERE b.id = ?${scopeClause} ORDER BY gb.group_id LIMIT 1`,
-      [batchId, ...scopeValues],
-    );
-    if (!existingRows.length) return res.status(404).json({ error: 'Batch not found' });
-    const [result] = await pool.query(
-      `DELETE FROM batches WHERE id = ?${scopeClause}`,
-      [batchId, ...scopeValues],
-    );
-    if (result.affectedRows > 0) {
-      await createSuperadminNotification({
-        eventType: 'batch.deleted',
-        category: 'Community',
-        title: 'Batch deleted',
-        message: `Batch deleted: ${existingRows[0]?.name || 'Batch'}.`,
-        entityType: 'batch',
-        entityId: batchId,
-        linkTo: existingRows[0]?.group_id
-          ? `/community/group/${existingRows[0].group_id}`
-          : existingRows[0]?.community_id ? `/community/school/${existingRows[0].community_id}` : '/community',
-        schoolId: existingRows[0]?.community_id,
-        groupId: existingRows[0]?.group_id,
-        actorUserId: req.user.id,
-      });
-    }
-    res.json({ success: true, deleted: result.affectedRows > 0 });
+    const deletedBatch = await withTransaction(pool, async (connection) => {
+      const [existingRows] = await connection.query(
+        `SELECT b.id, b.name, b.community_id,
+           (SELECT gb.group_id FROM group_batch gb WHERE gb.batch_id = b.id ORDER BY gb.group_id LIMIT 1) AS group_id
+         FROM batches b
+         WHERE b.id = ?${scopeClause}
+         LIMIT 1 FOR UPDATE`,
+        [batchId, ...scopeValues],
+      );
+      if (!existingRows.length) return null;
+
+      const batch = existingRows[0];
+      const [motherRows] = await connection.query(
+        'SELECT id FROM mothers WHERE batch_id = ? FOR UPDATE',
+        [batchId],
+      );
+      const motherIds = motherRows.map((mother) => Number(mother.id));
+      const motherIdClause = motherIds.length
+        ? ` OR c.mother_id IN (${motherIds.map(() => '?').join(', ')})`
+        : '';
+      const [childRows] = await connection.query(
+        `SELECT c.id FROM children c
+         WHERE c.batch_id = ?${motherIdClause}
+         FOR UPDATE`,
+        [batchId, ...motherIds],
+      );
+
+      if (motherIds.length) {
+        await connection.query(
+          `DELETE FROM mothers WHERE batch_id = ? AND id IN (${motherIds.map(() => '?').join(', ')})`,
+          [batchId, ...motherIds],
+        );
+      }
+      await connection.query('DELETE FROM children WHERE batch_id = ?', [batchId]);
+
+      const [result] = await connection.query(
+        `DELETE FROM batches WHERE id = ?${deleteScopeClause}`,
+        [batchId, ...scopeValues],
+      );
+      if (Number(result?.affectedRows) !== 1) {
+        throw new Error('Batch was not deleted after its beneficiaries were removed');
+      }
+      return {
+        ...batch,
+        deletedMothers: motherIds.length,
+        deletedChildren: childRows.length,
+      };
+    });
+
+    if (!deletedBatch) return res.status(404).json({ error: 'Batch not found' });
+
+    await createSuperadminNotification({
+      eventType: 'batch.deleted',
+      category: 'Community',
+      title: 'Batch deleted',
+      message: `Batch deleted: ${deletedBatch.name}. ${deletedBatch.deletedMothers} mothers and ${deletedBatch.deletedChildren} children with their health records were permanently deleted.`,
+      entityType: 'batch',
+      entityId: batchId,
+      linkTo: deletedBatch.group_id
+        ? `/community/group/${deletedBatch.group_id}`
+        : deletedBatch.community_id ? `/community/school/${deletedBatch.community_id}` : '/community',
+      schoolId: deletedBatch.community_id,
+      groupId: deletedBatch.group_id,
+      actorUserId: req.user.id,
+    });
+    res.json({
+      success: true,
+      deleted: true,
+      deletedMothers: deletedBatch.deletedMothers,
+      deletedChildren: deletedBatch.deletedChildren,
+    });
   } catch (error) {
     console.error('[Community API] delete batch error:', error.message);
     res.status(500).json({ error: 'db error' });

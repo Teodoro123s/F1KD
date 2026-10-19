@@ -212,6 +212,12 @@
   width: 100%;
 }
 
+.user-management-table-toolbar .search-input-field {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: left;
+}
+
 .user-management-list-card {
   min-width: 0;
 }
@@ -421,17 +427,34 @@ button.module-summary-card.is-selected {
 
 .create-menu-wrapper { position: relative; }
 .create-dropdown {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 0.75rem);
   background: #fff;
   border-radius: 8px;
   box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.05);
   border: 1px solid var(--border-color);
-  z-index: 90;
+  z-index: var(--z-dropdown);
   width: 180px;
   overflow: hidden;
   padding: 0.25rem 0;
+  transform-origin: top right;
+  animation: create-dropdown-enter 160ms ease-out both;
+}
+
+@keyframes create-dropdown-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-0.4rem) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .create-dropdown {
+    animation-duration: 1ms;
+  }
 }
 
 .create-dropdown .actions-dropdown-item {

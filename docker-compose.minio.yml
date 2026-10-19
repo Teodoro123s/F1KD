@@ -42,7 +42,6 @@ services:
     environment:
       NODE_ENV: production
       PORT: 4000
-      ENABLE_TEST_ROLE_SHORTCUTS: ${ENABLE_TEST_ROLE_SHORTCUTS:-false}
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in the root .env file}
       DEFAULT_ADMIN_EMAIL: ${DEFAULT_ADMIN_EMAIL:-Superadmin@gmail.com}
       DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD:?Set DEFAULT_ADMIN_PASSWORD in the root .env file}
@@ -84,8 +83,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        VITE_ENABLE_TEST_ROLE_SHORTCUTS: ${ENABLE_TEST_ROLE_SHORTCUTS:-false}
     restart: unless-stopped
     depends_on:
       backend:

@@ -25,13 +25,22 @@ CREATE TABLE IF NOT EXISTS users (
   role VARCHAR(120) NOT NULL DEFAULT 'Superadmin',
   status VARCHAR(20) NOT NULL DEFAULT 'Active',
   school_id INT DEFAULT NULL,
+  coordinator_school_id INT GENERATED ALWAYS AS (
+    CASE
+      WHEN LOWER(REPLACE(REPLACE(TRIM(role), '_', ''), ' ', ''))
+        IN ('communitycoordinator', 'communityorganizer', 'coordinator', 'co', 'partner')
+      THEN school_id
+      ELSE NULL
+    END
+  ) STORED,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   KEY idx_users_role (role),
   KEY idx_users_status (status),
   KEY idx_users_school_id (school_id),
   KEY idx_users_school_created_at (school_id, created_at),
-  KEY idx_users_school_status (school_id, status)
+  KEY idx_users_school_status (school_id, status),
+  UNIQUE KEY uq_users_coordinator_school_id (coordinator_school_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 CREATE TABLE IF NOT EXISTS communities (
   id INT AUTO_INCREMENT PRIMARY KEY,
@@ -39,7 +48,9 @@ CREATE TABLE IF NOT EXISTS communities (
   municipality VARCHAR(150),
   province VARCHAR(150),
   address VARCHAR(255),
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  coordinator_id INT DEFAULT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_communities_coordinator_id (coordinator_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE IF NOT EXISTS batches (
   id INT AUTO_INCREMENT PRIMARY KEY,
@@ -352,4 +363,13 @@ CREATE TABLE IF NOT EXISTS notification_reads (
   PRIMARY KEY (notification_id, user_id),
   KEY idx_notification_reads_user (user_id),
   CONSTRAINT fk_notification_reads_notification FOREIGN KEY (notification_id) REFERENCES notifications(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS notification_preferences (
+  user_id INT NOT NULL,
+  category VARCHAR(40) NOT NULL,
+  enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id, category),
+  KEY idx_notification_preferences_user (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

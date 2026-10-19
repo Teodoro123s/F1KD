@@ -29,6 +29,7 @@ const childrenRouter = require('../routes/children');
 test('Community Organizers cannot read or mutate records outside their assigned school', async (t) => {
   await pool.ready;
   const originalQuery = pool.query;
+  const originalGetConnection = pool.getConnection;
   const queries = [];
   pool.query = async (sql, params = []) => {
     queries.push({ sql, params });
@@ -43,6 +44,18 @@ test('Community Organizers cannot read or mutate records outside their assigned 
     if (sql.includes('FROM mothers WHERE (id = ? OR mother_code = ?) AND community_id = ?')) return [[]];
     throw new Error(`Unexpected test SQL: ${sql}`);
   };
+  pool.getConnection = async () => ({
+    beginTransaction: async () => {},
+    commit: async () => {},
+    rollback: async () => {},
+    release() {},
+    query: async (sql, params = []) => {
+      queries.push({ sql, params });
+      if (sql.includes('FROM groups WHERE id = ? AND community_id = ?')) return [[]];
+      if (sql.includes('FROM batches b') && sql.includes('WHERE b.id = ? AND b.community_id = ?')) return [[]];
+      throw new Error(`Unexpected scoped transaction SQL: ${sql}`);
+    },
+  });
 
   const app = express();
   app.use(express.json());
@@ -52,6 +65,7 @@ test('Community Organizers cannot read or mutate records outside their assigned 
   const server = app.listen(0);
   t.after(async () => {
     pool.query = originalQuery;
+    pool.getConnection = originalGetConnection;
     await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   });
   await new Promise((resolve) => server.once('listening', resolve));
@@ -130,6 +144,7 @@ test('Community Organizers cannot read or mutate records outside their assigned 
       contactNumber: '09171234567',
       communityId: 12,
       groupId: 92,
+      batchId: 93,
     }),
   });
   assert.equal(foreignGroupMother.status, 403);

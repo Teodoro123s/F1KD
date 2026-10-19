@@ -431,7 +431,7 @@
   align-items: center;
   justify-content: center;
   background: rgba(15, 23, 42, 0.5);
-  z-index: 1000;
+  z-index: var(--z-modal-backdrop);
 }
 
 .view-content .modal,
@@ -1014,7 +1014,7 @@
   align-items: center;
   justify-content: center;
   background: rgba(15, 23, 42, 0.5);
-  z-index: 1000;
+  z-index: var(--z-modal-backdrop);
 }
 
 .view-modal {

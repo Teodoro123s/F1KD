@@ -291,27 +291,27 @@ export default function ReportsPage() {
           </time>
         );
       },
-      style: { width: '150px' },
+      style: { width: '16%' },
     },
     {
       key: 'actor',
       header: 'User',
-      style: { width: '210px' },
+      style: { width: '28%' },
       renderCell: (row) => (
-        <div>
+        <div className="reports-login-user">
           <strong>{row.actorName || 'Unknown user'}</strong>
-          {row.actorEmail && <div className="report-muted">{row.actorEmail}</div>}
+          {row.actorEmail && <div className="report-muted reports-login-user-email">{row.actorEmail}</div>}
         </div>
       ),
     },
-    { key: 'actorRole', header: 'Role', style: { width: '130px' } },
+    { key: 'actorRole', header: 'Role', style: { width: '17%' } },
     {
       key: 'action',
       header: 'Activity',
-      style: { width: '130px' },
+      style: { width: '16%' },
       renderCell: (row) => formatAction(row.action),
     },
-    { key: 'description', header: 'Details' },
+    { key: 'description', header: 'Details', style: { width: '23%' } },
   ], []);
 
   const start = report.total ? (page - 1) * perPage + 1 : 0;
@@ -495,6 +495,7 @@ export default function ReportsPage() {
                   columns={columns}
                   data={report.activities}
                   rowKey="id"
+                  tableClassName="reports-login-table"
                   tableTitle={loading ? 'Loading login logs…' : 'User login report'}
                   emptyMessage={loading ? 'Loading login logs…' : 'No login records found for these filters.'}
                 />
@@ -534,9 +535,11 @@ export default function ReportsPage() {
         .reports-table-wrap .table-card { background: #fff; border: 0; border-radius: 0; }
         .reports-table-wrap .community-table-title { padding: 1rem 1.1rem 0.65rem; color: #334155; letter-spacing: 0.04em; }
         .reports-table-wrap .table-overflow { min-height: 0; }
-        .reports-table-wrap .data-table { min-width: 880px; table-layout: fixed; }
+        .reports-table-wrap .reports-login-table { width: 100%; min-width: 0; table-layout: fixed; }
         .reports-table-wrap .data-table th { padding: 0.8rem 0.9rem; background: #f8fafc; color: #475569; }
         .reports-table-wrap .data-table td { padding: 0.8rem 0.9rem; overflow-wrap: anywhere; vertical-align: top; }
+        .reports-login-user { min-width: 0; }
+        .reports-login-user-email { overflow-wrap: anywhere; word-break: normal; }
         .reports-table-wrap .data-table th:last-child,
         .reports-table-wrap .data-table td:last-child { width: auto; min-width: 0; text-align: left; white-space: normal; }
         .reports-table-wrap .data-table tbody tr:nth-child(even) { background: #fbfdff; }
@@ -549,6 +552,9 @@ export default function ReportsPage() {
         .reports-view-switch button.is-active { border-color: #2563eb; background: #eff6ff; color: #1d4ed8; font-weight: 600; }
         .reports-day-filter { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 0.5rem 0; padding: 0.75rem 1rem; border: 1px solid #bfdbfe; border-radius: 8px; background: #eff6ff; color: #1e3a8a; }
         .reports-day-filter button { border: 0; background: transparent; color: #1d4ed8; font: inherit; font-weight: 600; cursor: pointer; }
+        @media (max-width: 720px) {
+          .reports-table-wrap .reports-login-table { min-width: 680px; }
+        }
         @media (max-width: 900px) {
           .reports-filter-grid--school, .reports-filter-grid--group, .reports-filter-grid--individual { grid-template-columns: repeat(2, minmax(0, 1fr)); }
           .reports-search { grid-column: 1 / -1; }

@@ -10,7 +10,7 @@ import {
   apiPatchManagedHealthWorkerStatus,
   apiDeleteUser,
 } from '../../api/users';
-import { isValidName, isValidMiddleInitial, normalizeContact, isValidContact, isValidEmail, formatDobForInput, isValidDob, getDobValidationMessage, generatePassword } from './lib';
+import { isValidName, getFirstNameValidationError, isValidFirstName, normalizeFirstName, isValidMiddleInitial, normalizeContact, isValidContact, isValidEmail, formatDobForInput, isValidDob, getDobValidationMessage, generatePassword } from './lib';
 import { getSummary } from '../Community/communityService';
 import { isCommunityCoordinatorRole, isHealthWorkerRole, normalizeRole as normalizeRoleKey } from '../../utils/permissions';
 import { getApiBaseUrl } from '../../api/authHeader';
@@ -355,7 +355,7 @@ export function useUserManagement({ schoolId = '', batchId = '', healthWorkerMan
       // Read values from the submitted form to avoid relying on possibly stale React state
       const formEl = event.currentTarget;
       const fd = new FormData(formEl);
-      const firstName = (fd.get('firstName') || '').toString().trim();
+      const firstName = normalizeFirstName((fd.get('firstName') || '').toString());
       const lastName = (fd.get('lastName') || '').toString().trim();
       const email = (fd.get('email') || '').toString().trim();
       const contactNumber = (fd.get('contactNumber') || '').toString().trim();
@@ -373,8 +373,7 @@ export function useUserManagement({ schoolId = '', batchId = '', healthWorkerMan
       try { console.log('handleSubmitUser called (from form)', { firstName, lastName, email }); } catch (e) {}
 
       // Basic validation
-    if (!firstName) { setNotification('First Name is required.'); try { console.log('Validation failed: missing firstName', { firstName, lastName, email, contactNumber, dobVal }); } catch(e){}; return; }
-    if (!isValidName(firstName)) { setNotification('First Name may contain letters and spaces only.'); try { console.log('Validation failed: invalid firstName', { firstName }); } catch(e){}; return; }
+    if (!isValidFirstName(firstName)) { setNotification(getFirstNameValidationError(firstName)); document.getElementById('first-name')?.focus(); return; }
     if (!lastName) { setNotification('Last Name is required.'); try { console.log('Validation failed: missing lastName', { firstName, lastName }); } catch(e){}; return; }
     if (!isValidName(lastName)) { setNotification('Last Name may contain letters and spaces only.'); try { console.log('Validation failed: invalid lastName', { lastName }); } catch(e){}; return; }
     if (!isValidMiddleInitial(mi)) { setNotification('Middle Initial must be a single letter.'); try { console.log('Validation failed: invalid middleInitial', { middleInitial: mi }); } catch(e){}; return; }

@@ -1,3 +1,5 @@
+import { addMonthsPreservingDay, formatDateForInput } from './dateFormat.js';
+
 const hasMeaningfulValue = (value) => {
   if (value === undefined || value === null) return false;
   if (typeof value === 'string') return value.trim() !== '';
@@ -56,6 +58,30 @@ export function getMotherMonitoringProgress(mother = {}) {
     total,
     percentage: Math.min(100, Math.round((completed / total) * 100)),
   };
+}
+
+export function getMotherCheckupDate(checkup, previousCheckup, fallbackDate = '') {
+  return formatDateForInput(checkup?.checkupDate)
+    || formatDateForInput(previousCheckup?.nextCheckupDate)
+    || formatDateForInput(fallbackDate);
+}
+
+export function getMotherNextCheckupDate(checkupDate, savedNextCheckupDate = '') {
+  return formatDateForInput(savedNextCheckupDate)
+    || addMonthsPreservingDay(checkupDate, 1);
+}
+
+export function hasCompletedMotherPregnancy(mother = {}) {
+  const registeredTrimester = String(mother.trimester || mother.trimester_at_registration || '').toLowerCase();
+  const startIndex = registeredTrimester.includes('third') || registeredTrimester.includes('3rd')
+    ? 6
+    : registeredTrimester.includes('second') || registeredTrimester.includes('2nd')
+      ? 3
+      : 0;
+  const checkups = Array.isArray(mother.checkups) ? mother.checkups.flat(2) : [];
+
+  return checkups.length >= 9
+    && checkups.slice(startIndex, 9).every((checkup) => checkup?.completed === true);
 }
 
 export function getMotherProfileProgress(mother = {}) {

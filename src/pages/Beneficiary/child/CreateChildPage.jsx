@@ -1,13 +1,17 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { useNavigationLock } from '../../../utils/useNavigationLock';
+import { useStepNavigation } from '../../../utils/useStepNavigation';
+import { StepNavigationButton, StepNavigationStatus } from '../../../components/ui/StepNavigationButton';
 import { useLocation } from 'react-router-dom';
 import { ChildFormFields } from './BeneficiaryChild';
 import { useMothers } from '../../../context/MothersContext';
 import { capitalizeNameValue } from '../../../utils/nameFormat';
 import { notifyAction } from '../../../components/ActionFeedback';
 import { apiCreateChild, apiUploadChildBirthDocument } from '../../../api/children';
-import { CHILD_VACCINE_SEQUENCES, getChildRecordErrors } from '../../../utils/childRecordValidation';
+import { CHILD_VACCINE_SEQUENCES, getChildRecordErrors, normalizeFirstName } from '../../../utils/childRecordValidation';
 import { joinChildBirthPlace, splitChildBirthPlace } from '../../../utils/childBirthPlace';
 import { navigateBack } from '../../../utils/navigation';
+import { hasCompletedMotherPregnancy } from '../../../utils/motherProgress';
 
 const CHILD_DRAFT_KEY = 'f1kd.create-child.draft';
 const CREATE_STEPS = ['general', 'prenatal', 'medical_dental', 'vaccine'];
@@ -132,6 +136,7 @@ export default function CreateChildPage({
   communities,
   batches,
   mothers: availableMothers = [],
+  loading: loadingMothers = false,
   setGroups,
   navigate,
 }) {
@@ -139,21 +144,53 @@ export default function CreateChildPage({
   const motherFromState = location.state?.mother || null;
   const { mothers, setMothers } = useMothers();
   const [groupForm, setGroupForm] = useState(() => loadChildDraft(emptyGroupForm()));
+  // snapshot of initial form to detect unsaved changes
+  const initialFormRef = useRef(groupForm);
   const [birthDocumentFile, setBirthDocumentFile] = useState(null);
   const [pendingChild, setPendingChild] = useState(null);
   const [creating, setCreating] = useState(false);
   const [showRequiredValidation, setShowRequiredValidation] = useState(false);
+
+  const isDirty = typeof initialFormRef.current !== 'undefined' && JSON.stringify(initialFormRef.current) !== JSON.stringify(groupForm);
+  const { confirmNavigate, NavigationConfirm } = useNavigationLock(isDirty, creating);
+  const { navigationDirection, navigationError, isNavigating, runStepNavigation } = useStepNavigation();
+  const isNavLocked = isNavigating || creating;
   const [selectedMotherId, setSelectedMotherId] = useState(() => {
     try { return motherFromState?.id || motherFromState?.motherId || JSON.parse(localStorage.getItem(CHILD_DRAFT_KEY) || 'null')?.selectedMotherId || ''; } catch (error) { return motherFromState?.id || motherFromState?.motherId || ''; }
   });
   const [createActiveTab, setCreateActiveTab] = useState('general');
   const createActiveIndex = CREATE_STEPS.indexOf(createActiveTab) >= 0 ? CREATE_STEPS.indexOf(createActiveTab) : 0;
-  const selectedMother = motherFromState || availableMothers.find((mother) => (
-    String(mother.id || mother.motherId || '') === String(selectedMotherId)
+  const eligibleMothers = availableMothers.filter(hasCompletedMotherPregnancy);
+  useEffect(() => {
+    if (motherFromState || loadingMothers || !selectedMotherId) return;
+    const selectedMotherIsEligible = eligibleMothers.some((mother) => (
+      String(mother.id || mother.motherId || '') === String(selectedMotherId)
+    ));
+    if (!selectedMotherIsEligible) setSelectedMotherId('');
+  }, [eligibleMothers, loadingMothers, motherFromState, selectedMotherId]);
+
+  const routedMotherId = motherFromState?.id || motherFromState?.motherId;
+  const routedMotherData = motherFromState && availableMothers.find((mother) => (
+    String(mother.id || mother.motherId || '') === String(routedMotherId || '')
   ));
+  const selectedMother = motherFromState
+    ? {
+      ...(routedMotherData || {}),
+      ...motherFromState,
+      checkups: routedMotherData?.checkups || motherFromState.checkups || [],
+    }
+    : eligibleMothers.find((mother) => (
+    String(mother.id || mother.motherId || '') === String(selectedMotherId)
+    ));
   const selectedMotherIdValue = selectedMother?.id || selectedMother?.motherId || selectedMotherId;
+  const selectedMotherEligible = Boolean(selectedMother && hasCompletedMotherPregnancy(selectedMother));
   const childRecordErrors = getChildRecordErrors(groupForm);
-  const childErrorsByStep = (step) => getErrorsForStep(step, groupForm, childRecordErrors, Boolean(selectedMotherIdValue));
+  const childErrorsByStep = (step) => getErrorsForStep(
+    step,
+    groupForm,
+    childRecordErrors,
+    Boolean(selectedMotherIdValue && selectedMotherEligible),
+  );
 
   useEffect(() => {
     if (!selectedMother) return;
@@ -198,15 +235,7 @@ export default function CreateChildPage({
   const handleCreateGroup = async (e) => {
     e.preventDefault();
     if (createActiveTab !== 'vaccine') {
-      const currentIndex = CREATE_STEPS.indexOf(createActiveTab);
-      const errors = childErrorsByStep(createActiveTab);
-      if (Object.keys(errors).length > 0) {
-        setShowRequiredValidation(true);
-        notifyAction(Object.values(errors)[0], 'error');
-        return;
-      }
-      setCreateActiveTab(CREATE_STEPS[Math.min(currentIndex + 1, CREATE_STEPS.length - 1)]);
-      return;
+      return runStepNavigation(handleNextStep, 'next');
     }
     const invalidStep = CREATE_STEPS.find((step) => Object.keys(childErrorsByStep(step)).length > 0);
     if (invalidStep) {
@@ -214,10 +243,10 @@ export default function CreateChildPage({
       setShowRequiredValidation(true);
       setCreateActiveTab(invalidStep);
       notifyAction(message, 'error');
-      return;
+      return false;
     }
 
-    const normalizedFirstName = capitalizeNameValue(groupForm.firstName.trim());
+    const normalizedFirstName = normalizeFirstName(groupForm.firstName);
     const normalizedMiddleName = capitalizeNameValue(groupForm.middleName.trim());
     const normalizedLastName = capitalizeNameValue(groupForm.lastName.trim());
     const normalizedSuffix = capitalizeNameValue(groupForm.suffix.trim());
@@ -413,19 +442,25 @@ export default function CreateChildPage({
     }
   };
 
-  const handleNextStep = (event) => {
-    event.preventDefault();
-    event.stopPropagation();
+  const handleNextStep = () => {
     const currentIndex = CREATE_STEPS.indexOf(createActiveTab);
     const errors = childErrorsByStep(createActiveTab);
     if (Object.keys(errors).length > 0) {
       setShowRequiredValidation(true);
       notifyAction(Object.values(errors)[0], 'error');
-      return;
+      return false;
     }
     if (currentIndex < CREATE_STEPS.length - 1) {
       setCreateActiveTab(CREATE_STEPS[currentIndex + 1]);
     }
+    return true;
+  };
+
+  const handlePreviousStep = () => {
+    if (createActiveTab === 'vaccine') setCreateActiveTab('medical_dental');
+    else if (createActiveTab === 'medical_dental') setCreateActiveTab('prenatal');
+    else if (createActiveTab === 'prenatal') setCreateActiveTab('general');
+    return true;
   };
 
   return (
@@ -453,12 +488,17 @@ export default function CreateChildPage({
             aria-describedby={showRequiredValidation && !selectedMotherId ? 'child-mother-error' : undefined}
           >
             <option value="">Select mother</option>
-            {availableMothers.map((mother) => (
+            {eligibleMothers.map((mother) => (
               <option key={mother.id || mother.motherId} value={mother.id || mother.motherId}>
                 {mother.name || `${mother.firstName || ''} ${mother.lastName || ''}`.trim()}
               </option>
             ))}
           </select>
+          {!loadingMothers && eligibleMothers.length === 0 && (
+            <small className="form-field-help">
+              No eligible mothers yet. Complete all check-ups expected from the registration trimester (9/9 for first, 6/6 for second, or 3/3 for third trimester).
+            </small>
+          )}
           {showRequiredValidation && !selectedMotherIdValue && <small id="child-mother-error" className="field-validation-error" role="alert">Select a mother before creating the child.</small>}
           </div>
         ) : (
@@ -466,6 +506,11 @@ export default function CreateChildPage({
             <span className="form-label">Mother</span>
             <strong>{selectedMother?.name || `${selectedMother?.firstName || ''} ${selectedMother?.lastName || ''}`.trim() || 'Selected mother'}</strong>
             <span>{selectedMother?.community || selectedMother?.area || ''}</span>
+            {!selectedMotherEligible && (
+              <small className="field-validation-error" role="alert">
+                This mother is not eligible for child registration yet. Complete all check-ups expected from the registration trimester (9/9 for first, 6/6 for second, or 3/3 for third trimester).
+              </small>
+            )}
           </div>
         )}
       </section>
@@ -485,7 +530,8 @@ export default function CreateChildPage({
                 aria-controls="create-child-step-content"
                 id={`create-child-step-${s}`}
                 className={`stepper-step ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}`}
-                onClick={() => setCreateActiveTab(s)}
+                onClick={() => runStepNavigation(() => setCreateActiveTab(s), 'step')}
+                disabled={isNavLocked}
               >
                 <span className="stepper-step-index">
                   {isCompleted ? (
@@ -531,7 +577,7 @@ export default function CreateChildPage({
             />
           </div>
           <div className="create-mother-footer">
-            <button type="button" className="btn-secondary create-mother-cancel" onClick={() => {
+            <button type="button" className="btn-secondary create-mother-cancel" onClick={() => confirmNavigate(() => {
               localStorage.removeItem(CHILD_DRAFT_KEY);
               navigateBack(
                 navigate,
@@ -541,21 +587,33 @@ export default function CreateChildPage({
                   : '/beneficiary',
                 motherFromState ? { mother: motherFromState } : undefined,
               );
-            }}>Cancel</button>
+            })}>Cancel</button>
             <div className="create-mother-footer-actions">
               {createActiveTab !== 'general' && (
-              <button type="button" className="btn-secondary btn-back back-action" onClick={() => {
-                if (createActiveTab === 'vaccine') setCreateActiveTab('medical_dental');
-                else if (createActiveTab === 'medical_dental') setCreateActiveTab('prenatal');
-                else setCreateActiveTab('general');
-              }}>Back</button>
+                <StepNavigationButton
+                  className="btn-secondary btn-back back-action"
+                  onClick={() => runStepNavigation(handlePreviousStep, 'previous')}
+                  disabled={isNavLocked}
+                  loading={navigationDirection === 'previous'}
+                  loadingLabel="Please wait..."
+                >
+                  Back
+                </StepNavigationButton>
               )}
               {createActiveTab !== 'vaccine' ? (
-                <button type="button" className="btn-primary btn-next" onClick={handleNextStep}>Continue</button>
+                <StepNavigationButton
+                  className="btn-primary btn-next"
+                  onClick={() => runStepNavigation(handleNextStep, 'next')}
+                  disabled={isNavLocked}
+                  loading={navigationDirection === 'next'}
+                >
+                  Continue
+                </StepNavigationButton>
               ) : (
                 <button type="submit" className="btn-create-action">Create Child</button>
               )}
             </div>
+            <StepNavigationStatus direction={navigationDirection} error={navigationError} />
           </div>
         </form>
       </div>
@@ -578,6 +636,7 @@ export default function CreateChildPage({
           </div>
         </div>
       )}
+      {NavigationConfirm}
     </section>
   );
 }

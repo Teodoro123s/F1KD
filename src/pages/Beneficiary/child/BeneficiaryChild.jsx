@@ -2,6 +2,7 @@ import React from 'react';
 import { formatDateForDisplay, formatDateForInput, maskDateInput, normalizeDateValue } from '../../../utils/dateFormat';
 import { capitalizeNameValue } from '../../../utils/nameFormat';
 import { CHILD_VACCINE_SEQUENCES } from '../../../utils/childRecordValidation';
+import { normalizeFirstName } from '../../../utils/firstNameValidation';
 
 export function ChildFormFields({ activeTab, form, setForm, communities = [], batches = [], readOnly = false, slashDateInput = true, birthDocumentFile, setBirthDocumentFile, existingBirthDocumentName = '', showRequiredValidation = false, validationErrors = {} }) {
   const uniqueCommunities = Array.from(new Set(communities.map((comm) => comm.name))).filter(Boolean);
@@ -121,7 +122,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
             min={isDate ? minDate : min}
             step={step}
             max={isDate ? maxDate : maxValue}
-            maxLength={isName ? 100 : undefined}
+            maxLength={name === 'firstName' ? 50 : isName ? 100 : undefined}
             autoComplete={isName
               ? name === 'firstName' ? 'given-name' : name === 'middleName' ? 'additional-name' : 'family-name'
               : nativeDate ? 'off' : undefined}
@@ -137,8 +138,10 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
                 updateDateValue(name, e.target.value, onChange);
                 return;
               }
-              const nextValue = isName
+              const nextValue = name === 'firstName'
                 ? e.target.value
+                : isName
+                  ? e.target.value
                 : /^(suffix|birthAttendant|birthPlace|leader)$/.test(name)
                   ? capitalizeNameValue(e.target.value)
                   : e.target.value;
@@ -149,7 +152,9 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
               setForm((prev) => ({ ...prev, [name]: nextValue }));
             }}
             onBlur={isName ? () => {
-              const formattedValue = capitalizeNameValue(value);
+              const formattedValue = name === 'firstName'
+                ? normalizeFirstName(value)
+                : capitalizeNameValue(value);
               if (formattedValue !== value) {
                 if (onChange) onChange(formattedValue);
                 else setForm((prev) => ({ ...prev, [name]: formattedValue }));

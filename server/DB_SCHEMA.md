@@ -29,6 +29,10 @@ The live database was also checked directly with MySQL, and the current `users` 
 - `updated_at`
 - `school_id`
 - `group_id`
+- `coordinator_school_id` (generated; populated only for Community Coordinator roles)
+
+Coordinator assignments are kept in sync with `communities.coordinator_id`. A coordinator can be linked to only one school, and a school can have only one coordinator. `uq_users_coordinator_school_id` and `uq_communities_coordinator_id` enforce those limits.
+Transfers and replacements are not implicit: first explicitly unassign the coordinator in the school editor and save, then assign an available coordinator. Conflicting attempts return HTTP 409 without changing either assignment.
 
 This means the active app is aligned with the leaner user model and not with older legacy field names like `username`, `full_name`, or `middle_name` as stored table columns.
 
@@ -74,6 +78,7 @@ Columns:
 - `community_code`
 - `name`
 - `area`
+- `coordinator_id`
 - `created_at`
 
 Purpose:
@@ -561,3 +566,9 @@ This is the cleanest single review summary of the database schema as it exists i
 `notification_reads` stores a per-user receipt for each notification opened from the Notifications page. Its composite primary key (`notification_id`, `user_id`) ensures each user has an independent read state, and deleting a notification cascades to its receipts. The Notifications API uses this table to provide accurate All, Read, and Unread counts and filters.
 
 The table is created during database initialization in `db.js` and is also defined in `migrations/20261016_create_notification_reads.sql`.
+
+## 6. Notification category preferences
+
+`notification_preferences` stores each user's enabled/hidden state for supported notification categories. Disabled categories are excluded from that user's timeline, unread counts, and read-state actions, while the original notification rows remain available if the category is enabled again. The category and user form the composite primary key.
+
+The table is created during database initialization in `db.js` and is also defined in `migrations/20261019_notification_preferences.sql`.

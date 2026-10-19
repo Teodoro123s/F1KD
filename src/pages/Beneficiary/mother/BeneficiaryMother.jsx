@@ -11,6 +11,7 @@ import { calculateNaegeleEdd } from '../../../utils/maternalPregnancy';
 import { MATERNAL_VACCINE_SEQUENCES } from '../../../utils/maternalVaccineDates';
 import FieldInfoTooltip from '../../../components/ui/FieldInfoTooltip';
 import { getBatchesForGroup } from '../utils/beneficiaryUtils';
+import { normalizeFirstName } from '../../../utils/firstNameValidation';
 
 export const OTHER_MATERNAL_VACCINES = [
   { label: 'Influenza (flu)', key: 'influenza' },
@@ -290,7 +291,9 @@ export function MotherFormFields({
                 : isNumericString
                   ? e.target.value.replace(/\D/g, '')
                   : e.target.value;
-              const nextValue = /^(firstName|middleName|lastName|maidenSurname|suffix|emergencyName|spouseFirstName|spouseSurname)$/.test(name)
+              const nextValue = name === 'firstName'
+                ? rawValue
+                : /^(middleName|lastName|maidenSurname|suffix|emergencyName|spouseFirstName|spouseSurname)$/.test(name)
                 ? capitalizeNameValue(rawValue)
                 : rawValue;
               if (onChange) {
@@ -300,10 +303,20 @@ export function MotherFormFields({
               setForm((prev) => ({ ...prev, [name]: nextValue }));
             }}
             onClick={isNativeDate ? (e) => { try { if (typeof e.target.showPicker === 'function') e.target.showPicker(); } catch (_) {} } : undefined}
-            onBlur={isDate && !isNativeDate ? () => commitDateValue(name, getDateDisplayValue(name, value, dateOrder), onChange, dateOrder) : undefined}
+            onBlur={name === 'firstName'
+              ? () => {
+                const normalized = normalizeFirstName(value);
+                if (normalized !== value) {
+                  if (onChange) onChange(normalized);
+                  else setForm((prev) => ({ ...prev, [name]: normalized }));
+                }
+              }
+              : isDate && !isNativeDate
+                ? () => commitDateValue(name, getDateDisplayValue(name, value, dateOrder), onChange, dateOrder)
+                : undefined}
             inputMode={isPhilHealthNumber || isNumeric || isNumericString ? 'numeric' : isBloodPressure ? 'text' : undefined}
             pattern={pattern || (isPhilHealthNumber ? '(?:[0-9]{12}|[0-9]{2}-[0-9]{9}-[0-9])' : isNumeric ? '09[0-9]{9}' : isNumericString ? '[0-9]+' : undefined)}
-            maxLength={isPhilHealthNumber ? 14 : isNumeric ? 11 : isBloodPressure ? 7 : undefined}
+            maxLength={name === 'firstName' ? 50 : isPhilHealthNumber ? 14 : isNumeric ? 11 : isBloodPressure ? 7 : undefined}
             max={maxDate}
             min={minValue}
             step={type === 'number' ? 1 : undefined}
@@ -313,9 +326,10 @@ export function MotherFormFields({
             readOnly={readOnlyInput}
             aria-readonly={readOnlyInput}
             aria-invalid={hasMissingValue}
+            aria-describedby={validationError ? `${id}-error` : undefined}
             disabled={disabled}
           />
-          {validationError && <small className="field-validation-error" role="alert">{validationError}</small>}
+          {validationError && <small id={`${id}-error`} className="field-validation-error" role="alert">{validationError}</small>}
           {isNativeDate && !isAutoComputedDate && (
             <button
               type="button"
@@ -654,6 +668,7 @@ export function MotherFormFields({
             label: 'Batch',
             name: 'batchId',
             options: selectedBatches.map((batch) => ({ value: batch.databaseId ?? batch.id, label: batch.name })),
+            required: true,
             placeholder: !selectedGroupId
               ? 'Select group first'
               : selectedBatches.length
@@ -805,9 +820,9 @@ export function MotherFormFields({
               name: 'childrenBornAlive',
               type: 'number',
               minValue: 0,
-              placeholder: '0',
+              placeholder: 'Enter 0 if none',
               required: true,
-              helpText: 'Number of children currently living.',
+              helpText: 'Number of children already born who are currently living. Do not include the current pregnancy; enter 0 if none.',
               onChange: (value) => handleBirthCountChange('childrenBornAlive', value),
             })}
             {renderField({
@@ -816,9 +831,9 @@ export function MotherFormFields({
               name: 'childrenDiedAfterBirth',
               type: 'number',
               minValue: 0,
-              placeholder: '0',
+              placeholder: 'Enter 0 if none',
               required: true,
-              helpText: 'Number of children who have died after birth.',
+              helpText: 'Number of children already born who later died. Do not include the current pregnancy; enter 0 if none.',
               onChange: (value) => handleBirthCountChange('childrenDiedAfterBirth', value),
             })}
             {renderField({

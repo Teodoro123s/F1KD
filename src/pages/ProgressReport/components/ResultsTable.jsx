@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { getBmiInterpretation } from '../progressReportConfig';
+import FloatingLayer from '../../../components/ui/FloatingLayer';
 
 const historyFieldIds = new Set(['measurementDate', 'weightForAge', 'heightForAge', 'bmiForAge', 'weightForLengthZScore', 'weightForLengthInterpretation', 'weightForAgeZScore', 'weightForAgeInterpretation', 'lengthForAgeZScore', 'lengthForAgeInterpretation', 'bmiInterpretation']);
 
@@ -245,6 +246,8 @@ export function ResultsTable({
 }) {
   const visibleFields = reportFields.filter(([id]) => displayVisibleFields.includes(id));
   const [hiddenFields, setHiddenFields] = useState(() => new Set());
+  const [customizerOpen, setCustomizerOpen] = useState(false);
+  const customizerTriggerRef = useRef(null);
   const hasColumnValues = (fieldId) => (resultsRows || []).some((row) => {
     const value = row[fieldId];
     return value !== undefined && value !== null && String(value).trim() !== '';
@@ -297,9 +300,29 @@ export function ResultsTable({
       {(showCustomize || showResultPeriod || showProfileFilter) && (
         <div className="results-table-tools">
           {showCustomize && (
-            <details className="results-table-customizer">
-              <summary>Customize table</summary>
-              <div className="results-table-customizer-menu">
+            <details
+              className="results-table-customizer"
+              open={customizerOpen}
+            >
+              <summary
+                ref={customizerTriggerRef}
+                aria-haspopup="menu"
+                aria-expanded={customizerOpen}
+                onClick={(event) => {
+                  event.preventDefault();
+                  setCustomizerOpen((open) => !open);
+                }}
+              >
+                Customize table
+              </summary>
+              <FloatingLayer
+                open={customizerOpen}
+                anchorRef={customizerTriggerRef}
+                onDismiss={() => setCustomizerOpen(false)}
+                className="results-table-customizer-menu"
+                role="menu"
+                aria-label="Visible columns"
+              >
                 <div className="results-table-customizer-heading">
                   <strong>Visible columns</strong>
                   <button type="button" onClick={() => setHiddenFields(new Set())}>Reset</button>
@@ -314,7 +337,7 @@ export function ResultsTable({
                     {label}
                   </label>
                 ))}
-              </div>
+              </FloatingLayer>
             </details>
           )}
           {showResultPeriod && (

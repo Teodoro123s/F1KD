@@ -8,7 +8,18 @@ const { authorize } = require('../middleware/authorize');
 const { createSuperadminNotification } = require('../services/notifications');
 const { sendAccountCredentialsEmail } = require('../services/emailjs');
 const { recordActivity } = require('../services/activityLog');
+const {
+  assertCoordinatorAvailable,
+  assertSchoolCoordinatorAvailable,
+  isAssignmentConflict,
+  isAssignmentConstraintViolation,
+  isCoordinatorRole,
+  lockCoordinator,
+  lockSchools,
+  withTransaction,
+} = require('../services/coordinatorAssignments');
 const { validateContactNumber } = require('../utils/contactNumber');
+const { getFirstNameValidationError, normalizeFirstName } = require('../utils/firstNameValidation');
 const {
   isValidEmail,
   normalizeEmail,
@@ -99,10 +110,12 @@ router.post('/health-workers', verifyToken, authorize('community_coordinator'), 
       gender, dob, location, groupId,
     } = req.body || {};
     const normalizedEmail = normalizeEmail(email);
-    const normalizedFirstName = String(firstName || '').trim();
+    const normalizedFirstName = normalizeFirstName(firstName);
     const normalizedLastName = String(lastName || '').trim();
     const assignedGroupId = parsePositiveIntegerId(groupId);
-    if (!normalizedEmail || !normalizedFirstName || !normalizedLastName) {
+    const firstNameError = getFirstNameValidationError(normalizedFirstName);
+    if (firstNameError) return res.status(400).json({ error: firstNameError });
+    if (!normalizedEmail || !normalizedLastName) {
       return res.status(400).json({ error: 'First name, last name, and email are required' });
     }
     if (!isValidEmail(normalizedEmail)) {
@@ -216,7 +229,10 @@ router.put('/health-workers/:id', verifyToken, authorize('community_coordinator'
       return res.status(400).json({ error: 'Select a group within your assigned school' });
     }
     const normalizedEmail = normalizeEmail(email);
-    if (!normalizedEmail || !String(firstName || '').trim() || !String(lastName || '').trim()) {
+    const normalizedFirstName = normalizeFirstName(firstName);
+    const firstNameError = getFirstNameValidationError(normalizedFirstName);
+    if (firstNameError) return res.status(400).json({ error: firstNameError });
+    if (!normalizedEmail || !String(lastName || '').trim()) {
       return res.status(400).json({ error: 'First name, last name, and email are required' });
     }
     if (!isValidEmail(normalizedEmail)) {
@@ -236,7 +252,7 @@ router.put('/health-workers/:id', verifyToken, authorize('community_coordinator'
     ];
     const updateValues = [
       normalizedEmail,
-      String(firstName).trim(),
+      normalizedFirstName,
       String(lastName).trim(),
       middleInitial || null,
       contactNumber || null,
@@ -450,6 +466,9 @@ router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
     const requiresSchool = ['health worker', 'community organizer', 'community_coordinator', 'communitycoordinator', 'coordinator'].includes(roleName);
     const requiresGroup = roleName === 'health worker';
 
+    const normalizedFirstName = normalizeFirstName(firstName);
+    const firstNameError = getFirstNameValidationError(normalizedFirstName);
+    if (firstNameError) return res.status(400).json({ error: firstNameError });
     const contactNumberError = validateContactNumber(contactNumber);
     if (contactNumberError) return res.status(400).json({ error: contactNumberError });
     if (!userName || !normalizedEmail) return res.status(400).json({ error: 'Username and email are required' });
@@ -473,25 +492,71 @@ router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
 
     const dbStatus = status === undefined ? 'Active' : parseUserStatus(status);
     if (!dbStatus) return res.status(400).json({ error: 'Status must be Active or Suspended' });
-    const [result] = await pool.query(
-      `INSERT INTO users (email, role, status, password_hash, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, group_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
-      [
-        normalizedEmail,
-        role || 'user',
-        dbStatus,
-        hash,
-        firstName || '',
-        lastName || '',
-        middleInitial || null,
-        contactNumber || null,
-        gender || 'Male',
-        dob || null,
-        location || null,
-        schoolId || null,
-        groupId || null
-      ]
-    );
+    const insertUser = async (connection) => {
+      const [result] = await connection.query(
+        `INSERT INTO users (email, role, status, password_hash, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, group_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
+        [
+          normalizedEmail,
+          role || 'user',
+          dbStatus,
+          hash,
+          normalizedFirstName,
+          lastName || '',
+          middleInitial || null,
+          contactNumber || null,
+          gender || 'Male',
+          dob || null,
+          location || null,
+          schoolId || null,
+          groupId || null
+        ]
+      );
+      return result;
+    };
+
+    let result;
+    if (isCoordinatorRole(role) && schoolId) {
+      const assignedSchoolId = parsePositiveIntegerId(schoolId);
+      if (assignedSchoolId === null) {
+        return res.status(400).json({ error: 'Select a valid school for this Community Coordinator.' });
+      }
+      result = await withTransaction(pool, async (connection) => {
+        const [schools] = await lockSchools(connection, [assignedSchoolId]);
+        if (!schools.length) {
+          const error = new Error('The selected school could not be found.');
+          error.status = 400;
+          throw error;
+        }
+        assertSchoolCoordinatorAvailable(schools[0], null);
+        const created = await insertUser(connection);
+        await connection.query(
+          'UPDATE communities SET coordinator_id = ? WHERE id = ? AND coordinator_id IS NULL',
+          [created.insertId, assignedSchoolId],
+        );
+        return created;
+      });
+    } else {
+      [result] = await pool.query(
+        `INSERT INTO users (email, role, status, password_hash, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, group_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
+        [
+          normalizedEmail,
+          role || 'user',
+          dbStatus,
+          hash,
+          normalizedFirstName,
+          lastName || '',
+          middleInitial || null,
+          contactNumber || null,
+          gender || 'Male',
+          dob || null,
+          location || null,
+          schoolId || null,
+          groupId || null
+        ]
+      );
+    }
 
     const [rows] = await pool.query(
       `SELECT id, CONCAT_WS(' ', first_name, last_name) AS username, CONCAT_WS(' ', first_name, last_name) AS full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, group_id, created_at
@@ -536,6 +601,14 @@ router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
     res.status(201).json({ user, emailSent });
   } catch (err) {
     console.error('[Users API] POST / error:', err.message);
+    if (isAssignmentConflict(err)) {
+      return res.status(409).json({
+        error: err.code === 'COORDINATOR_ASSIGNMENT_CONFLICT'
+          ? err.message
+          : 'This coordinator or school already has an assignment. Refresh the page and try again.',
+      });
+    }
+    if (err.status === 400) return res.status(400).json({ error: err.message });
     if (err && err.code === 'ER_DUP_ENTRY') return res.status(400).json({ error: 'Email or username already exists' });
     res.status(500).json({ error: 'db error' });
   }
@@ -592,6 +665,15 @@ router.put('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
     );
     if (!existingRows.length) return res.status(404).json({ error: 'Not found' });
     const existingUser = existingRows[0];
+    const targetRole = role === undefined ? existingUser.role : role;
+    const existingIsCoordinator = isCoordinatorRole(existingUser.role);
+    const targetIsCoordinator = isCoordinatorRole(targetRole);
+    if (existingIsCoordinator && !targetIsCoordinator
+      && (role !== undefined || (schoolId !== undefined && String(schoolId || '') !== String(existingUser.school_id || '')))) {
+      return res.status(409).json({
+        error: 'Unassign this Community Coordinator from the school before changing their role or school assignment.',
+      });
+    }
 
     const contactNumberError = validateContactNumber(contactNumber);
     if (contactNumberError) return res.status(400).json({ error: contactNumberError });
@@ -604,12 +686,22 @@ router.put('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
       updates.push('email = ?');
       params.push(normalizedEmail);
     }
+      let fullNameFirstName;
       if (fullName !== undefined && firstName === undefined && lastName === undefined) {
         const nameParts = String(fullName || '').trim().split(/\s+/);
+        fullNameFirstName = normalizeFirstName(nameParts.shift() || '');
+        const fullNameError = getFirstNameValidationError(fullNameFirstName);
+        if (fullNameError) return res.status(400).json({ error: fullNameError });
         updates.push('first_name = ?', 'last_name = ?');
-        params.push(nameParts.shift() || '', nameParts.join(' '));
+        params.push(fullNameFirstName, nameParts.join(' '));
       }
-      if (firstName !== undefined) { updates.push('first_name = ?'); params.push(firstName); }
+      if (firstName !== undefined) {
+        const normalizedFirstName = normalizeFirstName(firstName);
+        const firstNameError = getFirstNameValidationError(normalizedFirstName);
+        if (firstNameError) return res.status(400).json({ error: firstNameError });
+        updates.push('first_name = ?');
+        params.push(normalizedFirstName);
+      }
     if (lastName !== undefined) { updates.push('last_name = ?'); params.push(lastName); }
     if (middleInitial !== undefined) { updates.push('middle_initial = ?'); params.push(middleInitial || null); }
     if (contactNumber !== undefined) { updates.push('contact_number = ?'); params.push(contactNumber || null); }
@@ -628,6 +720,15 @@ router.put('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
     if (role !== undefined && ['health worker', 'community organizer', 'community_coordinator', 'communitycoordinator', 'coordinator'].includes(String(role).trim().toLowerCase()) && !schoolId) {
       return res.status(400).json({ error: 'schoolId is required for this role' });
     }
+    const targetSchoolId = schoolId === undefined
+      ? Number(existingUser.school_id) || null
+      : schoolId ? parsePositiveIntegerId(schoolId) : null;
+    if (targetIsCoordinator && schoolId && parsePositiveIntegerId(schoolId) === null) {
+      return res.status(400).json({ error: 'Select a valid school for this Community Coordinator.' });
+    }
+    if (targetIsCoordinator && existingUser.school_id && !targetSchoolId) {
+      return res.status(409).json({ error: 'A Community Coordinator cannot be moved directly to a different school. Unassign them from their current school first.' });
+    }
     if (role !== undefined && String(role).trim().toLowerCase() === 'health worker' && !groupId && req.body.groupId !== undefined) {
       return res.status(400).json({ error: 'groupId is required for this role' });
     }
@@ -644,7 +745,38 @@ router.put('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
 
     params.push(id);
     const sql = `UPDATE users SET ${updates.join(', ')} WHERE id = ?`;
-    await pool.query(sql, params);
+    if (targetIsCoordinator && targetSchoolId) {
+      await withTransaction(pool, async (connection) => {
+        const lockedSchools = await lockSchools(connection, [existingUser.school_id, targetSchoolId]);
+        const targetSchool = lockedSchools.find((school) => String(school.id) === String(targetSchoolId));
+        if (!targetSchool) {
+          const error = new Error('The selected school could not be found.');
+          error.status = 400;
+          throw error;
+        }
+        const coordinator = await lockCoordinator(connection, id);
+        if (!coordinator) {
+          const error = new Error('Not found');
+          error.status = 404;
+          throw error;
+        }
+        if (String(coordinator.school_id || '') !== String(existingUser.school_id || '')) {
+          const error = new Error('This account assignment changed while you were editing. Refresh the page and try again.');
+          error.status = 409;
+          throw error;
+        }
+        assertSchoolCoordinatorAvailable(targetSchool, id);
+        await assertCoordinatorAvailable(connection, id, targetSchoolId, true);
+
+        await connection.query(sql, params);
+        await connection.query(
+          'UPDATE communities SET coordinator_id = ? WHERE id = ? AND (coordinator_id IS NULL OR coordinator_id = ?)',
+          [id, targetSchoolId, id],
+        );
+      });
+    } else {
+      await pool.query(sql, params);
+    }
 
     const [rows] = await pool.query(
       `SELECT id, CONCAT_WS(' ', first_name, last_name) AS username, CONCAT_WS(' ', first_name, last_name) AS full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, group_id, updated_at
@@ -699,6 +831,16 @@ router.put('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
     res.json(updatedUser);
   } catch (err) {
     console.error('[Users API] PUT /:id error:', err.message);
+    if (err.status === 400 || err.status === 404 || err.status === 409) {
+      return res.status(err.status).json({ error: err.message });
+    }
+    if (isAssignmentConflict(err)) {
+      return res.status(409).json({
+        error: err.code === 'COORDINATOR_ASSIGNMENT_CONFLICT'
+          ? err.message
+          : 'This coordinator or school already has an assignment. Refresh the page and try again.',
+      });
+    }
     res.status(500).json({ error: 'db error' });
   }
 });
@@ -710,12 +852,25 @@ router.delete('/:id', verifyToken, authorize('super_admin'), async (req, res) =>
     const id = parsePositiveIntegerId(req.params.id);
     if (id === null) return res.status(400).json({ error: 'User ID must be a positive integer' });
     const [userRows] = await pool.query(
-      'SELECT id, first_name, middle_initial, last_name, school_id, group_id FROM users WHERE id = ? LIMIT 1',
+      'SELECT id, first_name, middle_initial, last_name, role, school_id, group_id FROM users WHERE id = ? LIMIT 1',
       [id],
     );
     if (!userRows.length) return res.status(404).json({ error: 'Not found' });
     const deletedUser = userRows[0];
-    await pool.query('DELETE FROM users WHERE id = ?', [id]);
+    if (isCoordinatorRole(deletedUser.role)) {
+      await withTransaction(pool, async (connection) => {
+        await lockSchools(connection, [deletedUser.school_id]);
+        if (!await lockCoordinator(connection, id)) {
+          const error = new Error('Not found');
+          error.status = 404;
+          throw error;
+        }
+        await connection.query('UPDATE communities SET coordinator_id = NULL WHERE coordinator_id = ?', [id]);
+        await connection.query('DELETE FROM users WHERE id = ?', [id]);
+      });
+    } else {
+      await pool.query('DELETE FROM users WHERE id = ?', [id]);
+    }
     const deletedName = [deletedUser.first_name, deletedUser.middle_initial, deletedUser.last_name].filter(Boolean).join(' ');
     await recordActivity({
       actor: req.user,
@@ -741,6 +896,7 @@ router.delete('/:id', verifyToken, authorize('super_admin'), async (req, res) =>
     res.status(204).end();
   } catch (err) {
     console.error('[Users API] DELETE /:id error:', err.message);
+    if (err.status === 404) return res.status(404).json({ error: err.message });
     res.status(500).json({ error: 'db error' });
   }
 });

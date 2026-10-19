@@ -6,6 +6,7 @@ const StepWizard = ({
   activeStep = 1,
   startStep = 0,
   onStepClick = () => {},
+  navigationDisabled = false,
   checkups = [],
 }) => {
   const groups = [
@@ -60,7 +61,7 @@ const StepWizard = ({
                     onClick={() => onStepClick(group.id, stepIdx + 1)}
                     aria-label={`Trimester ${group.id} ${stepIdx + 1} ${status}${screeningStatus ? `, developmental screening ${screeningStatus}` : ''}`}
                     aria-current={isActive ? 'step' : undefined}
-                    disabled={stepIndex < startStep && status !== 'completed'}
+                    disabled={navigationDisabled || (stepIndex < startStep && status !== 'completed')}
                   >
                     <div className="step-wizard-step-circle">
                       {status === 'completed' ? '✓' : `T${group.id}-C${stepIdx + 1}`}

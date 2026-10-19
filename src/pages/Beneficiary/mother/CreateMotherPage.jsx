@@ -1,4 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
+import { useNavigationLock } from '../../../utils/useNavigationLock';
+import { useStepNavigation } from '../../../utils/useStepNavigation';
+import { StepNavigationButton, StepNavigationStatus } from '../../../components/ui/StepNavigationButton';
 import { MotherFormFields, OTHER_MATERNAL_VACCINES } from './BeneficiaryMother';
 import { calculateGestationalDetails } from '../../../utils/beneficiaryHelpers';
 import { useMothers } from '../../../context/MothersContext';
@@ -6,6 +9,7 @@ import { apiCreateMother, apiUploadMotherDocuments } from '../../../api/mothers'
 import { useAuth } from '../../../auth/AuthProvider';
 import { isCommunityCoordinatorRole } from '../../../utils/permissions';
 import { capitalizeNameValue } from '../../../utils/nameFormat';
+import { normalizeFirstName } from '../../../utils/firstNameValidation';
 import { notifyAction } from '../../../components/ActionFeedback';
 import { CONTACT_NUMBER_POLICY, isValidContactNumber } from '../../../utils/contactNumber';
 import { getPhilHealthNumberError } from '../../../utils/philHealthNumber';
@@ -48,6 +52,7 @@ const REQUIRED_FIELDS_BY_STEP = [
       'barangay',
       'community',
       'groupId',
+      'batchId',
       'emergencyName',
       'emergencyContact',
       'emergencyRelationship',
@@ -218,9 +223,20 @@ export default function CreateMotherPage({
   const { mothers, setMothers } = useMothers();
   const effectiveCommunities = communities && communities.length ? communities : mothers;
   const [communityForm, setCommunityForm] = useState(() => loadMotherDraft(emptyCommunityForm(effectiveCommunities)));
+  // snapshot of the initial form to detect unsaved changes
+  const initialFormRef = useRef(communityForm);
   const [documentFiles, setDocumentFiles] = useState({ birthCertificate: null, consent: null });
+  const createRequestRef = useRef(false);
   const [showRequiredValidation, setShowRequiredValidation] = useState(false);
   const [createActiveTab, setCreateActiveTab] = useState('general');
+  const [creating, setCreating] = useState(false);
+
+  // determine dirty state by shallow-serializing form (acceptable for this use-case)
+  const isDirty = typeof initialFormRef.current !== 'undefined' && JSON.stringify(initialFormRef.current) !== JSON.stringify(communityForm);
+
+  const { confirmNavigate, NavigationConfirm } = useNavigationLock(isDirty, creating);
+  const { navigationDirection, navigationError, runStepNavigation } = useStepNavigation();
+  const isNavLocked = Boolean(navigationDirection) || creating;
   const maternalBirthCountErrors = getMaternalBirthCountErrors(communityForm);
   const vaccineDateErrors = getMaternalVaccineDateErrors(communityForm);
   const prenatalBpError = showRequiredValidation ? getBloodPressureError(communityForm.prenatalBp) : '';
@@ -283,7 +299,7 @@ export default function CreateMotherPage({
     if (hasMissingRequiredField) {
       setShowRequiredValidation(true);
       notifyAction(`Complete the required fields in ${currentStep.label} before continuing.`, 'error');
-      return;
+      return false;
     }
     if (createActiveTab === 'prenatal') {
       const bloodPressureError = getBloodPressureError(communityForm.prenatalBp);
@@ -291,7 +307,7 @@ export default function CreateMotherPage({
         setShowRequiredValidation(true);
         document.getElementById('prenatal-bp')?.focus();
         notifyAction(bloodPressureError, 'error');
-        return;
+        return false;
       }
     }
     if (createActiveTab === 'general') {
@@ -301,31 +317,39 @@ export default function CreateMotherPage({
         setShowRequiredValidation(true);
         focusMotherIdentityField(invalidField);
         notifyAction(identityErrors[invalidField], 'error');
-        return;
+        return false;
       }
     }
     if (createActiveTab === 'general' && communityForm.philhealthMember) {
       const philHealthNumberError = getPhilHealthNumberError(communityForm.philhealthNumber, true);
       if (philHealthNumberError) {
         notifyAction(philHealthNumberError, 'error');
-        return;
+        return false;
       }
     }
     if (createActiveTab === 'prenatal' && Object.keys(maternalBirthCountErrors).length > 0) {
       const [field, message] = Object.entries(maternalBirthCountErrors)[0];
       document.getElementById(MATERNAL_BIRTH_COUNT_INPUT_IDS[field])?.focus();
       notifyAction(message, 'error');
-      return;
+      return false;
     }
     if (createActiveTab === 'medical_dental' && dentistLicenseError) {
       setShowRequiredValidation(true);
       notifyAction(dentistLicenseError, 'error');
       document.getElementById('dentist-license')?.focus();
-      return;
+      return false;
     }
     if (createActiveTab === 'general') setCreateActiveTab('prenatal');
     else if (createActiveTab === 'prenatal') setCreateActiveTab('medical_dental');
     else if (createActiveTab === 'medical_dental') setCreateActiveTab('vaccine');
+    return true;
+  };
+
+  const handlePreviousStep = () => {
+    if (createActiveTab === 'vaccine') setCreateActiveTab('medical_dental');
+    else if (createActiveTab === 'medical_dental') setCreateActiveTab('prenatal');
+    else if (createActiveTab === 'prenatal') setCreateActiveTab('general');
+    return true;
   };
 
   const handleCreateCommunity = async (e) => {
@@ -406,7 +430,7 @@ export default function CreateMotherPage({
     const { gestationalAge, trimester } = calculateGestationalDetails(communityForm.lmpDate, communityForm.prenatalRegDate);
     const resolvedTrimester = trimester || communityForm.trimester;
     const resolvedGestationalAge = gestationalAge || communityForm.gestationalAge;
-    const normalizedFirstName = capitalizeNameValue(communityForm.firstName.trim());
+    const normalizedFirstName = normalizeFirstName(communityForm.firstName);
     const normalizedMiddleName = capitalizeNameValue(communityForm.middleName.trim());
     const normalizedLastName = capitalizeNameValue(communityForm.lastName.trim());
     const normalizedMaidenSurname = capitalizeNameValue(communityForm.maidenSurname.trim());
@@ -505,6 +529,9 @@ export default function CreateMotherPage({
       status: 'Active',
     };
 
+    if (createRequestRef.current) return;
+    createRequestRef.current = true;
+    setCreating(true);
     try {
       const { mother } = await apiCreateMother(payload);
       const createdMotherId = mother?.id || mother?.motherId || mother?.mother_id;
@@ -607,6 +634,9 @@ export default function CreateMotherPage({
     } catch (error) {
       console.error('[CreateMotherPage] Failed to create mother:', error);
       notifyAction(error?.message || 'Unable to create mother. Please try again.', 'error');
+    } finally {
+      createRequestRef.current = false;
+      setCreating(false);
     }
   };
 
@@ -636,7 +666,8 @@ export default function CreateMotherPage({
                 aria-controls="create-mother-step-content"
                 id={`create-mother-step-${s}`}
                 className={`stepper-step ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}`}
-                onClick={() => setCreateActiveTab(s)}
+                onClick={() => runStepNavigation(() => setCreateActiveTab(s), 'step')}
+                disabled={isNavLocked}
               >
                 <span className="stepper-step-index">
                   {isCompleted ? (
@@ -694,24 +725,37 @@ export default function CreateMotherPage({
           </div>
 
           <div className="create-mother-footer">
-            <button type="button" className="btn-secondary create-mother-cancel" onClick={() => { localStorage.removeItem(MOTHER_DRAFT_KEY); navigate('/beneficiary'); }}>Cancel</button>
+            <button type="button" className="btn-secondary create-mother-cancel" onClick={() => confirmNavigate(() => { localStorage.removeItem(MOTHER_DRAFT_KEY); navigate('/beneficiary'); })}>Cancel</button>
             <div className="create-mother-footer-actions">
               {createActiveTab !== 'general' && (
-                <button type="button" className="btn-secondary btn-back back-action" onClick={() => {
-                if (createActiveTab === 'vaccine') setCreateActiveTab('medical_dental');
-                else if (createActiveTab === 'medical_dental') setCreateActiveTab('prenatal');
-                else setCreateActiveTab('general');
-                }}>Back</button>
+                <StepNavigationButton
+                  className="btn-secondary btn-back back-action"
+                  onClick={() => runStepNavigation(handlePreviousStep, 'previous')}
+                  disabled={isNavLocked}
+                  loading={navigationDirection === 'previous'}
+                  loadingLabel="Please wait..."
+                >
+                  Back
+                </StepNavigationButton>
               )}
               {createActiveTab !== 'vaccine' ? (
-                <button type="button" className="btn-primary btn-next" onClick={handleNextStep}>Continue</button>
+                <StepNavigationButton
+                  className="btn-primary btn-next"
+                  onClick={() => runStepNavigation(handleNextStep, 'next')}
+                  disabled={isNavLocked}
+                  loading={navigationDirection === 'next'}
+                >
+                  Continue
+                </StepNavigationButton>
               ) : (
-                <button type="submit" className="btn-create-action">Create Mother</button>
+                <button type="submit" className="btn-create-action" disabled={creating}>{creating ? 'Creating...' : 'Create Mother'}</button>
               )}
             </div>
+            <StepNavigationStatus direction={navigationDirection} error={navigationError} />
           </div>
         </form>
       </div>
+      {NavigationConfirm}
     </section>
   );
 }

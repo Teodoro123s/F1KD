@@ -14,11 +14,13 @@ import {
 
 export const useCommunityMutations = ({ refreshData }) => {
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   // All Community CRUD operations share refresh, loading, and user feedback behavior.
   const runMutation = useCallback(
     async ({ label, request, successMessage }) => {
       setLoading(true);
+      setError('');
 
       try {
         const result = await request();
@@ -31,6 +33,10 @@ export const useCommunityMutations = ({ refreshData }) => {
         notifyAction(successMessage);
         return result;
       } catch (error) {
+        if (error?.status === 409 && typeof refreshData === 'function') {
+          await refreshData();
+        }
+        setError(error?.message || `Unable to ${label}.`);
         console.error(`[CommunityMutations] Failed to ${label}:`, error);
         notifyAction(error?.message || `Unable to ${label}.`, 'error');
         throw error;
@@ -188,6 +194,8 @@ export const useCommunityMutations = ({ refreshData }) => {
 
   return {
     loading,
+    error,
+    clearError: () => setError(''),
     createCommunity,
     updateCommunity,
     deleteCommunity,

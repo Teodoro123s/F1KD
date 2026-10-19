@@ -15,6 +15,14 @@ CREATE TABLE IF NOT EXISTS users (
   status ENUM('Active','Suspended') NOT NULL DEFAULT 'Active',
   password_hash VARCHAR(255) DEFAULT NULL,
   school_id INT DEFAULT NULL,
+  coordinator_school_id INT GENERATED ALWAYS AS (
+    CASE
+      WHEN LOWER(REPLACE(REPLACE(TRIM(role), '_', ''), ' ', ''))
+        IN ('communitycoordinator', 'communityorganizer', 'coordinator', 'co', 'partner')
+      THEN school_id
+      ELSE NULL
+    END
+  ) STORED,
   name VARCHAR(255) GENERATED ALWAYS AS (
     CONCAT(
       first_name,
@@ -27,7 +35,8 @@ CREATE TABLE IF NOT EXISTS users (
   UNIQUE KEY uq_users_email (email),
   KEY idx_users_role (role),
   KEY idx_users_status (status),
-  KEY idx_users_contact (contact_number)
+  KEY idx_users_contact (contact_number),
+  UNIQUE KEY uq_users_coordinator_school_id (coordinator_school_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE TABLE IF NOT EXISTS communities (
@@ -35,7 +44,9 @@ CREATE TABLE IF NOT EXISTS communities (
   community_code VARCHAR(20) NOT NULL UNIQUE,
   name VARCHAR(150) NOT NULL,
   area VARCHAR(80) NOT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  coordinator_id INT DEFAULT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_communities_coordinator_id (coordinator_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS groups (

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../../auth/AuthProvider";
@@ -13,6 +13,7 @@ import {
 } from "../Community/CommunityIcons";
 import ModuleSummaryCards from '../../components/ui/ModuleSummaryCards';
 import TableSearch from '../../components/ui/TableSearch';
+import FloatingLayer from '../../components/ui/FloatingLayer';
 import { getSummary } from "../Community/communityService";
 import { apiGetChildren } from "../../api/children";
 import { apiCompleteNamedProgramCluster, apiCompleteProgramCluster, apiCreateProgram, apiCreateProgramClusters, apiDeleteProgram, apiEndProgram, apiGetProgramMonitoring, apiGetPrograms, apiRestoreProgram, apiSetProgramMonitoring, apiUpdateProgram } from "../../api/programs";
@@ -75,6 +76,7 @@ export default function ProgramPage() {
   const [programError, setProgramError] = useState('');
   const [beneficiaryRecords, setBeneficiaryRecords] = useState([]);
   const [activeActionMenu, setActiveActionMenu] = useState(null);
+  const activeActionMenuAnchorRef = useRef(null);
   const [drillLevel, setDrillLevel] = useState('school');
   const [drillSchool, setDrillSchool] = useState(null);
   const [drillGroup, setDrillGroup] = useState(null);
@@ -83,20 +85,6 @@ export default function ProgramPage() {
   const [monitoringStatus, setMonitoringStatus] = useState({});
   const [monitoringPending, setMonitoringPending] = useState({});
   const [monitorConfirmation, setMonitorConfirmation] = useState(null);
-
-  useEffect(() => {
-    const handleDocumentClick = (event) => {
-      const clickedInsideDropdown = event.target.closest('.actions-dropdown');
-      const clickedToggleButton = event.target.closest('.program-more-button');
-
-      if (!clickedInsideDropdown && !clickedToggleButton) {
-        setActiveActionMenu(null);
-      }
-    };
-
-    document.addEventListener('mousedown', handleDocumentClick);
-    return () => document.removeEventListener('mousedown', handleDocumentClick);
-  }, []);
 
   const mapApiProgram = (program) => ({
     ...program,
@@ -857,11 +845,18 @@ export default function ProgramPage() {
     <div className="actions-cell" onClick={(event) => event.stopPropagation()}>
       <button
         type="button"
-        className="btn-actions"
+        className="btn-actions program-more-button"
         onClick={(event) => {
           event.stopPropagation();
-          setActiveActionMenu((currentMenuId) => currentMenuId === menuId ? null : menuId);
+          if (activeActionMenu === menuId) {
+            setActiveActionMenu(null);
+            return;
+          }
+
+          activeActionMenuAnchorRef.current = event.currentTarget;
+          setActiveActionMenu(menuId);
         }}
+        ref={activeActionMenu === menuId ? activeActionMenuAnchorRef : undefined}
         aria-label="Program actions menu"
         aria-haspopup="true"
         aria-expanded={activeActionMenu === menuId}
@@ -869,7 +864,13 @@ export default function ProgramPage() {
         <MoreVerticalIcon />
       </button>
       {activeActionMenu === menuId && (
-        <div className="actions-dropdown" role="menu">
+        <FloatingLayer
+          open
+          anchorRef={activeActionMenuAnchorRef}
+          onDismiss={() => setActiveActionMenu(null)}
+          className="actions-dropdown actions-dropdown-portal community-actions-dropdown"
+          role="menu"
+        >
           {(isSuperAdmin || isCommunityOrganizer || isHealthWorkerRole(currentUser?.role)) && (menuProgram.clusters || []).length > 0 && (
             <button
               type="button"
@@ -891,7 +892,7 @@ export default function ProgramPage() {
           {canDeletePrograms && (
             <button type="button" className="actions-dropdown-item delete" onClick={() => { setActionProgram(menuProgram); setActiveActionMenu(null); deleteProgram(); }} role="menuitem">Delete</button>
           )}
-        </div>
+        </FloatingLayer>
       )}
     </div>
   );

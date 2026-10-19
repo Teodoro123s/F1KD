@@ -24,6 +24,10 @@ export async function getGroupHealthWorkers(groupId) {
   return requestJson(`/api/community/groups/${encodeURIComponent(groupId)}/health-workers`);
 }
 
+export async function getGroupDeleteImpact(groupId) {
+  return requestJson(`/api/community/groups/${encodeURIComponent(groupId)}/delete-impact`);
+}
+
 export async function getAllHealthWorkers() {
   return requestJson('/api/users/all-health-workers');
 }

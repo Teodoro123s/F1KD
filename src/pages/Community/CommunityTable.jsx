@@ -12,6 +12,7 @@ export default function CommunityTable({
   tableTitle,
   searchValue = '',
   onSearchChange,
+  getGroupLabel,
 }) {
   const colSpan = Math.max(columns.length, 1);
   const hasTableToolbar = tableTitle && onSearchChange;
@@ -47,42 +48,55 @@ export default function CommunityTable({
           </thead>
           <tbody>
             {data.length > 0 ? (
-              data.map((row) => (
-                <tr
-                  key={row[rowKey]}
-                  className={[
-                    onRowClick ? 'clickable-row' : '',
-                    activeRowKey != null && String(row[rowKey]) === String(activeRowKey) ? 'actions-row-open' : '',
-                  ].filter(Boolean).join(' ') || undefined}
-                  onClick={onRowClick ? () => onRowClick(row) : undefined}
-                  role={onRowClick ? 'button' : undefined}
-                  tabIndex={onRowClick ? 0 : undefined}
-                  onKeyDown={
-                    onRowClick
-                      ? (event) => {
-                          if (event.key === 'Enter' || event.key === ' ') {
-                            event.preventDefault();
-                            onRowClick(row);
+              data.flatMap((row, index) => {
+                const groupLabel = getGroupLabel?.(row);
+                const previousGroupLabel = index > 0 ? getGroupLabel?.(data[index - 1]) : null;
+                const rows = [];
+                if (groupLabel && groupLabel !== previousGroupLabel) {
+                  rows.push(
+                    <tr key={`group-${row[rowKey]}`} className="community-table-group-row">
+                      <th scope="rowgroup" colSpan={colSpan}>{groupLabel}</th>
+                    </tr>,
+                  );
+                }
+                rows.push(
+                  <tr
+                    key={row[rowKey]}
+                    className={[
+                      onRowClick ? 'clickable-row' : '',
+                      activeRowKey != null && String(row[rowKey]) === String(activeRowKey) ? 'actions-row-open' : '',
+                    ].filter(Boolean).join(' ') || undefined}
+                    onClick={onRowClick ? () => onRowClick(row) : undefined}
+                    role={onRowClick ? 'button' : undefined}
+                    tabIndex={onRowClick ? 0 : undefined}
+                    onKeyDown={
+                      onRowClick
+                        ? (event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault();
+                              onRowClick(row);
+                            }
                           }
-                        }
-                      : undefined
-                  }
-                >
-                  {columns.map((column) => {
-                    const value = column.accessor ? row[column.accessor] : row[column.key];
+                        : undefined
+                    }
+                  >
+                    {columns.map((column) => {
+                      const value = column.accessor ? row[column.accessor] : row[column.key];
 
-                    return (
-                      <td
-                        key={`${row[rowKey]}-${column.key || column.header}`}
-                        className={column.cellClassName || column.className}
-                        style={column.cellStyle}
-                      >
-                        {column.renderCell ? column.renderCell(row, value) : value ?? '—'}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))
+                      return (
+                        <td
+                          key={`${row[rowKey]}-${column.key || column.header}`}
+                          className={column.cellClassName || column.className}
+                          style={column.cellStyle}
+                        >
+                          {column.renderCell ? column.renderCell(row, value) : value ?? '—'}
+                        </td>
+                      );
+                    })}
+                  </tr>,
+                );
+                return rows;
+              })
             ) : (
               <tr>
                 <td colSpan={colSpan} className="no-data">

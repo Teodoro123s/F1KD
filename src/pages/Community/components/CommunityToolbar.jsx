@@ -1,6 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { PlusIcon } from '../CommunityIcons';
 import PageHeader from '../../../components/ui/PageHeader';
+import FloatingLayer from '../../../components/ui/FloatingLayer';
 
 export default function CommunityToolbar({
   activeTab,
@@ -15,28 +16,12 @@ export default function CommunityToolbar({
   canCreateBatch = true,
 }) {
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
-  const createMenuRef = useRef(null);
+  const createMenuTriggerRef = useRef(null);
   const createOptions = (activeTab === 'communities'
     ? [{ key: 'community', label: 'Create School' }, { key: 'group', label: 'Create Group' }, { key: 'batch', label: 'Create Batch' }]
     : [{ key: 'group', label: 'Create Group' }, { key: 'batch', label: 'Create Batch' }])
     .filter((option) => canCreateCommunity || option.key !== 'community')
     .filter((option) => canCreateBatch || option.key !== 'batch');
-
-  useEffect(() => {
-    if (!createMenuOpen) return undefined;
-    const closeOnOutsideClick = (event) => {
-      if (!createMenuRef.current?.contains(event.target)) setCreateMenuOpen(false);
-    };
-    const closeOnEscape = (event) => {
-      if (event.key === 'Escape') setCreateMenuOpen(false);
-    };
-    document.addEventListener('mousedown', closeOnOutsideClick);
-    document.addEventListener('keydown', closeOnEscape);
-    return () => {
-      document.removeEventListener('mousedown', closeOnOutsideClick);
-      document.removeEventListener('keydown', closeOnEscape);
-    };
-  }, [createMenuOpen]);
 
   const handleCreate = (type) => {
     setCreateMenuOpen(false);
@@ -72,8 +57,9 @@ export default function CommunityToolbar({
             )}
 
             {activeTab !== 'mothers' && activeTab !== 'healthWorkers' && canManage && (
-              <div className="create-menu-wrapper community-create-menu" ref={createMenuRef}>
+              <div className="create-menu-wrapper community-create-menu">
                 <button
+                  ref={createMenuTriggerRef}
                   type="button"
                   className="btn-create-action module-create-button"
                   aria-haspopup="menu"
@@ -86,8 +72,14 @@ export default function CommunityToolbar({
                     <path d="m5 7.5 5 5 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </button>
-                {createMenuOpen && (
-                  <div className="create-dropdown" role="menu" aria-label="Create">
+                <FloatingLayer
+                  open={createMenuOpen}
+                  anchorRef={createMenuTriggerRef}
+                  onDismiss={() => setCreateMenuOpen(false)}
+                  className="create-dropdown"
+                  role="menu"
+                  aria-label="Create"
+                >
                     {createOptions.map((option) => (
                       <button
                         key={option.key}
@@ -99,8 +91,7 @@ export default function CommunityToolbar({
                         {option.label}
                       </button>
                     ))}
-                  </div>
-                )}
+                </FloatingLayer>
               </div>
             )}
           </>

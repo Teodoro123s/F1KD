@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createSuperadminNotification, getActivityAction, getBeneficiaryUpdateRecipients } = require('../services/notifications');
+const { createSuperadminNotification, getActivityAction, getBeneficiaryUpdateRecipients, sanitizeNotificationLink } = require('../services/notifications');
 
 test('records notification event details in the notifications table', async () => {
   const calls = [];
@@ -93,6 +93,26 @@ test('maps notification event suffixes to audit actions', () => {
   assert.equal(getActivityAction('beneficiary.mother.document_deleted'), 'delete');
   assert.equal(getActivityAction('user.suspended'), 'suspend');
   assert.equal(getActivityAction('program.ended'), 'ended');
+});
+
+test('notification destinations must be safe local absolute paths', async () => {
+  assert.equal(sanitizeNotificationLink('/community/school/5'), '/community/school/5');
+  assert.equal(sanitizeNotificationLink('https://example.com'), null);
+  assert.equal(sanitizeNotificationLink('//example.com'), null);
+  assert.equal(sanitizeNotificationLink('/\\example.com'), null);
+
+  let parameters;
+  await createSuperadminNotification({
+    category: 'User Management',
+    message: 'A user account changed.',
+    linkTo: '//example.com',
+  }, {
+    async query(sql, params) {
+      parameters = params;
+      return [{ insertId: 1 }];
+    },
+  });
+  assert.equal(parameters[6], null);
 });
 
 test('skips empty events and does not throw if notification storage fails', async () => {

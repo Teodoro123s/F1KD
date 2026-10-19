@@ -10,6 +10,9 @@ import PageHeader from '../../../components/ui/PageHeader';
 import { notifyAction } from '../../../components/ActionFeedback';
 import { navigateBack } from '../../../utils/navigation';
 import { getChildNameErrors } from '../../../utils/childRecordValidation';
+import { normalizeFirstName } from '../../../utils/firstNameValidation';
+import { useStepNavigation } from '../../../utils/useStepNavigation';
+import { StepNavigationButton, StepNavigationStatus } from '../../../components/ui/StepNavigationButton';
 
 const normalizeChild = (child) => ({
   ...child,
@@ -86,6 +89,7 @@ export default function EditChildPage() {
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('general');
   const [showNameValidation, setShowNameValidation] = useState(false);
+  const { navigationDirection, navigationError, isNavigating, runStepNavigation } = useStepNavigation();
   const EDIT_STEPS = ['general', 'prenatal', 'medical_dental', 'vaccine'];
   const nameErrors = getChildNameErrors(form);
 
@@ -135,6 +139,7 @@ export default function EditChildPage() {
     try {
       const payload = {
         ...form,
+        firstName: normalizeFirstName(form.firstName),
         multipleBirthType: form.multipleBirthType || null,
         birthPlace: joinChildBirthPlace(form.birthPlaceCity, form.birthPlaceProvince) || null,
         birthDate: normalizeDatePayload(form.birthDate),
@@ -215,22 +220,32 @@ export default function EditChildPage() {
     }
   };
 
-  const handleNextStep = (event) => {
-    event.preventDefault();
-    event.stopPropagation();
+  const handleNextStep = () => {
+    if (activeTab === 'general' && (Object.keys(nameErrors).length || !String(form.firstName ?? '').trim() || !String(form.lastName ?? '').trim())) {
+      setShowNameValidation(true);
+      notifyAction(
+        !String(form.firstName ?? '').trim()
+          ? 'First name is required.'
+          : !String(form.lastName ?? '').trim()
+            ? 'Last name is required.'
+            : Object.values(nameErrors)[0],
+        'error',
+      );
+      return false;
+    }
     const currentIndex = EDIT_STEPS.indexOf(activeTab);
     if (currentIndex < EDIT_STEPS.length - 1) {
       setActiveTab(EDIT_STEPS[currentIndex + 1]);
     }
+    return true;
   };
 
-  const handleBackStep = (event) => {
-    event.preventDefault();
-    event.stopPropagation();
+  const handleBackStep = () => {
     const currentIndex = EDIT_STEPS.indexOf(activeTab);
     if (currentIndex > 0) {
       setActiveTab(EDIT_STEPS[currentIndex - 1]);
     }
+    return true;
   };
 
   return (
@@ -251,7 +266,8 @@ export default function EditChildPage() {
                 role="tab"
                 aria-selected={activeTab === step}
                 className={`stepper-step ${activeTab === step ? 'active' : ''}`}
-                onClick={() => setActiveTab(step)}
+                onClick={() => runStepNavigation(() => setActiveTab(step), 'step')}
+                disabled={isNavigating || saving}
               >
                 <span className="stepper-step-index">{index + 1}</span>
                 <span className="stepper-step-label">{label}</span>
@@ -279,15 +295,31 @@ export default function EditChildPage() {
           </div>
 
           <div className="modal-footer">
-            <button type="button" className="btn-secondary" onClick={() => navigateBack(navigate, location, `/beneficiary/child/${childId}`)} disabled={saving}>Cancel</button>
+            <button type="button" className="btn-secondary" onClick={() => navigateBack(navigate, location, `/beneficiary/child/${childId}`)} disabled={saving || isNavigating}>Cancel</button>
             {activeTab !== 'general' && (
-              <button type="button" className="btn-secondary btn-back back-action" onClick={handleBackStep} disabled={saving}>Back</button>
+              <StepNavigationButton
+                className="btn-secondary btn-back back-action"
+                onClick={() => runStepNavigation(handleBackStep, 'previous')}
+                disabled={saving || isNavigating}
+                loading={navigationDirection === 'previous'}
+                loadingLabel="Please wait..."
+              >
+                Back
+              </StepNavigationButton>
             )}
             {activeTab !== 'vaccine' ? (
-              <button type="button" className="btn-primary btn-next" onClick={handleNextStep} disabled={saving}>Next</button>
+              <StepNavigationButton
+                className="btn-primary btn-next"
+                onClick={() => runStepNavigation(handleNextStep, 'next')}
+                disabled={saving || isNavigating}
+                loading={navigationDirection === 'next'}
+              >
+                Next
+              </StepNavigationButton>
             ) : (
               <button type="submit" className="btn-create-action" disabled={saving}>{saving ? 'Saving...' : 'Save Changes'}</button>
             )}
+            <StepNavigationStatus direction={navigationDirection} error={navigationError} />
           </div>
         </form>
       </div>

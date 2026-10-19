@@ -10,9 +10,10 @@ test('accepts compound and hyphenated child names and rejects unsupported name i
     middleName: 'Anne-Marie',
     lastName: "Al-quera O'Neil",
   }), '');
-  assert.match(getChildNameValidationError({ firstName: '<script>', lastName: 'Mother' }), /First name may contain letters/);
+  assert.match(getChildNameValidationError({ firstName: '<script>', lastName: 'Mother' }), /letters, spaces, internal hyphens or apostrophes/);
   assert.match(getChildNameValidationError({ first_name: 'Valid', last_name: 'Name2' }), /Last name may contain letters/);
-  assert.match(getChildNameValidationError({ firstName: 'A'.repeat(101), lastName: 'Mother' }), /maximum 100 characters/);
+  assert.match(getChildNameValidationError({ firstName: 'A'.repeat(51), lastName: 'Mother' }), /no more than 50 characters/);
+  assert.match(getChildNameValidationError({ firstName: 'A', lastName: 'Mother' }), /at least 2 characters/);
   assert.equal(getChildNameValidationError({}, { first_name: 'Existing Name', last_name: 'Child' }), '');
 });
 

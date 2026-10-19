@@ -28,6 +28,7 @@ test('mother registration saves initial monitoring measurements as a completed c
   let savedCheckupValues = null;
   let savedCheckupSql = '';
   let updateValues = null;
+  let obHistoryInsertValues = null;
   pool.query = async (sql, params = []) => {
     if (sql.startsWith('INSERT INTO mothers')) {
       insertValues = params;
@@ -62,6 +63,10 @@ test('mother registration saves initial monitoring measurements as a completed c
       updateValues = params[0];
       mother = { ...mother, ...updateValues };
       return [{ affectedRows: 1 }];
+    }
+    if (sql.startsWith('INSERT INTO mother_ob_history')) {
+      obHistoryInsertValues = params;
+      return [{ insertId: 789 }];
     }
     if (sql.includes('FROM mothers WHERE (id = ? OR mother_code = ?)')) return [[mother]];
     if (sql.includes('FROM mothers m') && sql.includes('LEFT JOIN groups')) return [[mother]];
@@ -123,11 +128,27 @@ test('mother registration saves initial monitoring measurements as a completed c
       contactNumber: '09171234567',
       communityId: 12,
       groupId: 20,
+      batchId: 30,
       prenatalBp: '120',
     }),
   });
   assert.equal(invalidBloodPressureCreateResponse.status, 400);
   assert.match((await invalidBloodPressureCreateResponse.json()).error, /systolic\/diastolic/i);
+
+  const missingBatchResponse = await fetch(baseUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      firstName: 'Test',
+      lastName: 'Mother',
+      dob: '1990-01-01',
+      contactNumber: '09171234567',
+      communityId: 12,
+      groupId: 20,
+    }),
+  });
+  assert.equal(missingBatchResponse.status, 400);
+  assert.match((await missingBatchResponse.json()).error, /batch is required/i);
 
   const createResponse = await fetch(baseUrl, {
     method: 'POST',
@@ -139,26 +160,30 @@ test('mother registration saves initial monitoring measurements as a completed c
       contactNumber: '09171234567',
       communityId: 12,
       groupId: 20,
+      batchId: 30,
       prenatalRegDate: '2026-10-18',
       trimester: '2nd Trimester',
       gestationalAge: 20,
       prenatalWeight: '58',
       prenatalBp: '120/80',
       prenatalHeight: '155',
-      fundalHeight: '20',
-      fhr: '140',
+      fundalHeight: '',
+      fhr: '',
+      obHistory: [{ event: 'G1', gestationalAge: '12', outcome: 'Normal' }],
       philhealthMember: true,
       philhealthNumber: '123456789012',
     }),
   });
   assert.equal(createResponse.status, 201);
+  assert.deepEqual(obHistoryInsertValues, [123, 'G1', 'G1', '12', 'Normal', 1]);
   assert.equal(insertValues[1], 'Test');
   assert.equal(insertValues[3], 'Mother');
   assert.equal(insertValues[6], '1990-01-01');
   assert.equal(insertValues[7], '09171234567');
+  assert.equal(insertValues[12], 30);
   assert.equal(insertValues[47], 1);
   assert.equal(insertValues[48], '12-345678901-2');
-  assert.deepEqual(initialCheckupValues, [123, '2nd Trimester', '2026-10-18', 20, '120/80', '58', '155', 24.1, 'Normal', '20', '140', null, null, null]);
+  assert.deepEqual(initialCheckupValues, [123, '2nd Trimester', '2026-10-18', 20, '120/80', '58', '155', 24.1, 'Normal', null, null, null, null, null]);
   const createdProfile = (await createResponse.json()).mother;
   assert.equal(createdProfile.name, 'Test Mother');
   assert.equal(createdProfile.philhealthMember, true);

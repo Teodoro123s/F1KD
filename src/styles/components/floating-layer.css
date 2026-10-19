@@ -1,0 +1,11 @@
+.floating-layer {
+  position: fixed;
+  z-index: var(--z-dropdown);
+  box-sizing: border-box;
+  max-width: calc(100vw - 1rem);
+  overscroll-behavior: contain;
+}
+
+.floating-layer--modal {
+  z-index: var(--z-dropdown-modal);
+}

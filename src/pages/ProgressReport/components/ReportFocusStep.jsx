@@ -1,4 +1,5 @@
 import React from 'react';
+import { StepNavigationButton } from '../../../components/ui/StepNavigationButton';
 
 export function ReportFocusStep({
   reportCategory,
@@ -13,6 +14,8 @@ export function ReportFocusStep({
   beneficiaryType,
   setBeneficiaryType,
   setActiveTab,
+  isNavigating = false,
+  navigationDirection = '',
 }) {
   const eligiblePrograms = programs.filter((program) => {
     const programType = String(program?.beneficiaryType || program?.beneficiary_type || 'Mother and Child').trim().toLowerCase();
@@ -76,9 +79,14 @@ export function ReportFocusStep({
         </fieldset>
       )}
       <div className="progress-report-tab-actions">
-        <button type="button" className="primary-btn" onClick={() => setActiveTab(3)}>
+        <StepNavigationButton
+          className="primary-btn"
+          onClick={() => setActiveTab(3)}
+          disabled={isNavigating}
+          loading={navigationDirection === 'next'}
+        >
           Next: Growth Metrics →
-        </button>
+        </StepNavigationButton>
       </div>
     </div>
   );

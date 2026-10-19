@@ -5,6 +5,8 @@ import { useMothers } from '../../../context/MothersContext';
 import { apiGetMother, apiUpdateMother, apiUploadMotherDocuments } from '../../../api/mothers';
 import { formatDateForInput } from '../../../utils/dateFormat';
 import { capitalizeNameValue } from '../../../utils/nameFormat';
+import { normalizeFirstName } from '../../../utils/firstNameValidation';
+import { getMotherIdentityErrors } from '../../../utils/motherIdentity';
 import { getSummary } from '../../Community/communityService';
 import PageHeader from '../../../components/ui/PageHeader';
 import { notifyAction } from '../../../components/ActionFeedback';
@@ -12,6 +14,8 @@ import { CONTACT_NUMBER_POLICY, isValidContactNumber } from '../../../utils/cont
 import { formatPhilHealthNumber, getPhilHealthNumberError } from '../../../utils/philHealthNumber';
 import { getMaternalBirthCountErrors, hasMiscarriageHighRiskCount } from '../../../utils/maternalBirthCounts';
 import { navigateBack } from '../../../utils/navigation';
+import { useStepNavigation } from '../../../utils/useStepNavigation';
+import { StepNavigationStatus } from '../../../components/ui/StepNavigationButton';
 
 const parseAddressParts = (address = '') => {
   const parts = String(address || '').split(',').map((part) => part.trim()).filter(Boolean);
@@ -49,7 +53,7 @@ const normalizeMotherForm = (mother = {}) => {
     ...normalized,
     philhealthNumber: formatPhilHealthNumber(normalized.philhealthNumber || ''),
     ttRemarks: normalized.ttRemarks ?? legacyVaccineRemarks,
-    firstName: capitalizeNameValue(normalized.firstName || ''),
+    firstName: normalizeFirstName(normalized.firstName || ''),
     middleName: capitalizeNameValue(normalized.middleName || ''),
     lastName: capitalizeNameValue(normalized.lastName || ''),
     maidenSurname: capitalizeNameValue(normalized.maidenSurname || ''),
@@ -79,7 +83,9 @@ export default function EditMotherPage() {
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [communityOptions, setCommunityOptions] = useState({ communities: [], groups: [], batches: [] });
   const [activeTab, setActiveTab] = useState('general');
+  const { navigationDirection, navigationError, isNavigating, runStepNavigation } = useStepNavigation();
   const maternalBirthCountErrors = getMaternalBirthCountErrors(form);
+  const motherIdentityErrors = getMotherIdentityErrors(form);
 
   const profileSteps = [
     ['general', 'General'],
@@ -137,6 +143,13 @@ export default function EditMotherPage() {
 
   const handleSaveRequest = (e) => {
     e.preventDefault();
+    const firstNameError = motherIdentityErrors.firstName;
+    if (firstNameError) {
+      setActiveTab('general');
+      notifyAction(firstNameError, 'error');
+      document.getElementById('mother-first-name')?.focus();
+      return;
+    }
     if (Object.keys(maternalBirthCountErrors).length > 0) {
       setActiveTab('prenatal');
       notifyAction(Object.values(maternalBirthCountErrors)[0], 'error');
@@ -164,6 +177,40 @@ export default function EditMotherPage() {
     setShowSaveConfirm(true);
   };
 
+  const handleProfileStepChange = (nextTab) => {
+    const currentIndex = profileSteps.findIndex(([tab]) => tab === activeTab);
+    const nextIndex = profileSteps.findIndex(([tab]) => tab === nextTab);
+    return runStepNavigation(() => {
+      if (nextIndex > currentIndex) {
+        if (activeTab === 'prenatal' && Object.keys(maternalBirthCountErrors).length) {
+          notifyAction(Object.values(maternalBirthCountErrors)[0], 'error');
+          return false;
+        }
+        if (activeTab === 'general') {
+          const philHealthError = getPhilHealthNumberError(form.philhealthNumber, Boolean(form.philhealthMember));
+          if (philHealthError) {
+            notifyAction(philHealthError, 'error');
+            return false;
+          }
+          const invalidContact = [
+            { field: 'contactNumber', label: 'Contact number' },
+            { field: 'emergencyContact', label: 'Emergency contact number' },
+          ].find(({ field }) => String(form[field] ?? '').trim() && !isValidContactNumber(form[field]));
+          if (invalidContact) {
+            notifyAction(`${invalidContact.label}: ${CONTACT_NUMBER_POLICY}`, 'error');
+            return false;
+          }
+        }
+        if (activeTab === 'medical_dental' && String(form.dentistContact ?? '').trim() && !isValidContactNumber(form.dentistContact)) {
+          notifyAction(`Dentist contact number: ${CONTACT_NUMBER_POLICY}`, 'error');
+          return false;
+        }
+      }
+      setActiveTab(nextTab);
+      return true;
+    }, nextIndex >= currentIndex ? 'next' : 'previous');
+  };
+
   const handleSave = async () => {
     setShowSaveConfirm(false);
     setSaving(true);
@@ -172,6 +219,7 @@ export default function EditMotherPage() {
       const motherId = id || form.id || form.motherId;
       const updatedForm = {
         ...form,
+        firstName: normalizeFirstName(form.firstName),
         isHighRisk: hasMiscarriageHighRiskCount(form) ? 'Yes' : form.isHighRisk,
       };
       const res = await apiUpdateMother(motherId, updatedForm);
@@ -250,13 +298,15 @@ export default function EditMotherPage() {
                   role="tab"
                   aria-selected={activeTab === tab}
                   className={`stepper-step ${activeTab === tab ? 'active' : ''}`}
-                  onClick={() => setActiveTab(tab)}
+                  onClick={() => handleProfileStepChange(tab)}
+                  disabled={isNavigating || saving}
                 >
                   <span className="stepper-step-index">{index + 1}</span>
                   <span className="stepper-step-label">{label}</span>
                 </button>
               ))}
             </div>
+            <StepNavigationStatus direction={navigationDirection} error={navigationError} />
           </div>
 
           <div className="create-form-body mother-detail-shared-form">
@@ -272,7 +322,10 @@ export default function EditMotherPage() {
                 setDocumentFiles={setDocumentFiles}
                 autoCalculate={false}
                 readOnly={false}
-                validationErrors={maternalBirthCountErrors}
+                validationErrors={{
+                  ...maternalBirthCountErrors,
+                  ...(motherIdentityErrors.firstName ? { firstName: motherIdentityErrors.firstName } : {}),
+                }}
               />
             </div>
           </div>

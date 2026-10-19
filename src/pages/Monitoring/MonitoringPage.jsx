@@ -221,13 +221,14 @@ export default function MonitoringPage() {
     : children, [assignedGroupId, children, currentUser?.role]);
 
   const handleSave = async (payload) => {
+    let savedCheckups;
     try {
       await apiSaveMotherCheckup(payload.motherId, payload);
       const response = await apiGetMother(payload.motherId);
       const savedMother = response?.mother || null;
       if (savedMother) {
         setSelectedMother(savedMother);
-        setMotherCheckups(savedMother.checkups || []);
+        savedCheckups = savedMother.checkups || [];
         setMothers((current) => current.map((mother) => (
           String(mother.id) === String(savedMother.id) || String(mother.motherId) === String(savedMother.motherId)
             ? { ...mother, ...savedMother }
@@ -238,10 +239,12 @@ export default function MonitoringPage() {
       setSavedMessage(`Unable to save check-up: ${error.message}`);
       return false;
     }
-    const nextCheckups = motherCheckups.map((trimester) => [...trimester]);
-    const trimesterIndex = payload.trimester === '2nd Trimester' ? 1 : payload.trimester === '3rd Trimester' ? 2 : 0;
-    if (!nextCheckups[trimesterIndex]) nextCheckups[trimesterIndex] = [null, null, null];
-    nextCheckups[trimesterIndex][payload.checkupNumber - 1] = { ...payload, completed: true };
+    const nextCheckups = savedCheckups || motherCheckups.map((trimester) => [...trimester]);
+    if (!savedCheckups) {
+      const trimesterIndex = payload.trimester === '2nd Trimester' ? 1 : payload.trimester === '3rd Trimester' ? 2 : 0;
+      if (!nextCheckups[trimesterIndex]) nextCheckups[trimesterIndex] = [null, null, null];
+      nextCheckups[trimesterIndex][payload.checkupNumber - 1] = { ...payload, completed: true };
+    }
     setMotherCheckups(nextCheckups);
     const completedCount = nextCheckups.flat().filter(Boolean).length;
     const message = completedCount >= 9
@@ -633,7 +636,7 @@ export default function MonitoringPage() {
               <TableSearch
                 value={query}
                 onChange={(value) => { setQuery(value); setPage(1); }}
-                placeholder={`Search ${beneficiaryType.toLowerCase()} records (case-sensitive)`}
+                placeholder={`Search ${beneficiaryType.toLowerCase()} records`}
               />
             </div>
             <div className="table-overflow">
@@ -727,7 +730,9 @@ export default function MonitoringPage() {
             mother={{ ...selectedMother, checkups: motherCheckups }}
             showAuditSignatures={showAuditSignatures}
             onSave={async (payload) => {
-              if (await handleSave(payload)) setEditingCheckup(false);
+              const saved = await handleSave(payload);
+              if (saved) setEditingCheckup(false);
+              return saved;
             }}
             onCancel={() => { setEditingCheckup(false); setSelectedMother(null); }}
             forceEdit={editingCheckup}
