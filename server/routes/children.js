@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../db');
-const { documentUpload, uploadFileToStorage } = require('../middleware/documentUpload');
+const { documentUpload, uploadFileToStorage, deleteFileFromStorage } = require('../middleware/documentUpload');
 const { createSuperadminNotification, getBeneficiaryUpdateRecipients } = require('../services/notifications');
 const { canViewAuditSignatures } = require('../middleware/authorize');
 const { getChildNameValidationError, getChildRecordValidationError } = require('../utils/childRecordValidation');
@@ -182,13 +182,19 @@ async function attachMonitoringData(child, includeAuditDetails = false) {
 router.post('/:id/documents', documentUpload.single('birthDocument'), async (req, res) => {
   try {
     const { id } = req.params;
+    const scopeSql = req.groupId
+      ? ' AND COALESCE(c.group_id, m.group_id) = ?'
+      : req.schoolId
+        ? ' AND COALESCE(c.community_id, m.community_id) = ?'
+        : '';
+    const scopeParams = req.groupId ? [req.groupId] : req.schoolId ? [req.schoolId] : [];
     const [childRows] = await pool.query(
       `SELECT c.id, c.child_code, c.first_name, c.last_name,
           COALESCE(c.community_id, m.community_id) AS community_id,
           COALESCE(c.group_id, m.group_id) AS group_id
        FROM children c LEFT JOIN mothers m ON m.id = c.mother_id
-       WHERE c.id = ? OR c.child_code = ? LIMIT 1`,
-      [Number(id) || null, id],
+       WHERE (c.id = ? OR c.child_code = ?)${scopeSql} LIMIT 1`,
+      [Number(id) || null, id, ...scopeParams],
     );
     if (!childRows.length) return res.status(404).json({ error: 'Child not found' });
     if (!req.file) return res.status(400).json({ error: 'Birth document is required' });
@@ -216,6 +222,42 @@ router.post('/:id/documents', documentUpload.single('birthDocument'), async (req
   } catch (error) {
     console.error('Child document upload error:', error.message);
     res.status(400).json({ error: error.message || 'Unable to upload document' });
+  }
+});
+
+router.delete('/:id/documents', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const scopeSql = req.groupId
+      ? ' AND COALESCE(c.group_id, m.group_id) = ?'
+      : req.schoolId
+        ? ' AND COALESCE(c.community_id, m.community_id) = ?'
+        : '';
+    const scopeParams = req.groupId ? [req.groupId] : req.schoolId ? [req.schoolId] : [];
+    const [childRows] = await pool.query(
+      `SELECT c.id, c.child_code, c.birth_document_name, c.birth_document_path,
+          COALESCE(c.community_id, m.community_id) AS community_id,
+          COALESCE(c.group_id, m.group_id) AS group_id
+       FROM children c LEFT JOIN mothers m ON m.id = c.mother_id
+       WHERE (c.id = ? OR c.child_code = ?)${scopeSql} LIMIT 1`,
+      [Number(id) || null, id, ...scopeParams],
+    );
+    if (!childRows.length) return res.status(404).json({ error: 'Child not found' });
+    const child = childRows[0];
+    if (!child.birth_document_path) return res.status(404).json({ error: 'Birth document not found' });
+
+    await pool.query(
+      'UPDATE children SET birth_document_name = NULL, birth_document_path = NULL WHERE id = ?',
+      [child.id],
+    );
+    await deleteFileFromStorage(child.birth_document_path);
+
+    const [rows] = await pool.query('SELECT * FROM children WHERE id = ?', [child.id]);
+    const updatedChild = await attachClinicalData(rows[0]);
+    res.json({ child: await attachMonitoringData(updatedChild, canViewAuditSignatures(req.user?.role)) });
+  } catch (error) {
+    console.error('Child document removal error:', error.message);
+    res.status(500).json({ error: 'Unable to remove birth document' });
   }
 });
 

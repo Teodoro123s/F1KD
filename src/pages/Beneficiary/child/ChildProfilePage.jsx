@@ -1,8 +1,8 @@
-﻿import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useMothers } from '../../../context/MothersContext';
 import { formatDateForDisplay } from '../../../utils/dateFormat';
-import { apiDeleteChild, apiGetChild } from '../../../api/children';
+import { apiDeleteChild, apiDeleteChildBirthDocument, apiGetChild, apiUploadChildBirthDocument } from '../../../api/children';
 import { DocumentPreview, DocumentPreviewModal } from '../../../components/DocumentPreview';
 import { useAuth } from '../../../auth/AuthProvider';
 import { can } from '../../../utils/permissions';
@@ -11,7 +11,7 @@ import { normalizeFirstName } from '../../../utils/firstNameValidation';
 import { splitChildBirthPlace } from '../../../utils/childBirthPlace';
 import { ChildFormFields } from './BeneficiaryChild';
 import PageHeader from '../../../components/ui/PageHeader';
-import ConfirmModal from '../../UserManagement/ConfirmModal';
+import ConfirmDialog from '../../../components/ui/ConfirmDialog';
 import { notifyAction } from '../../../components/ActionFeedback';
 import MonitorReportCard from '../MonitorReportCard';
 import { navigateBack } from '../../../utils/navigation';
@@ -168,25 +168,33 @@ export default function ChildProfilePage() {
   const [profileTab, setProfileTab] = useState('general');
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
   const isChildProfile = location.pathname.endsWith('/profile');
 
   const requestDeleteChild = () => {
     if (!canDelete || !selectedChild?.id || isDeleting) return;
+    setDeleteError('');
     setShowDeleteConfirm(true);
   };
 
+  const cancelDelete = useCallback(() => {
+    if (isDeleting) return;
+    setShowDeleteConfirm(false);
+    setDeleteError('');
+  }, [isDeleting]);
+
   const deleteChild = async () => {
     if (!canDelete || !selectedChild?.id || isDeleting) return;
-    setShowDeleteConfirm(false);
     setIsDeleting(true);
     try {
       await apiDeleteChild(selectedChild.id);
+      setShowDeleteConfirm(false);
       notifyAction(`${childName || 'Child'} deleted successfully.`);
       navigate('/beneficiary');
     } catch (error) {
-      notifyAction(error.message || 'Unable to delete child.', 'error');
-      setIsDeleting(false);
+      setDeleteError(error.message || 'Unable to delete child.');
     }
+    setIsDeleting(false);
   };
 
   React.useEffect(() => {
@@ -323,32 +331,56 @@ export default function ChildProfilePage() {
         title={childName || 'Child Profile'}
         breadcrumbs={[{ label: 'Beneficiaries', href: '/beneficiary' }, { label: 'Child Profile' }]}
         actions={(
-          <div className="mother-detail-actions">
+          <div className="mother-detail-actions child-profile-header-actions">
             {isChildProfile && canEdit && (
-              <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/child/${childIdentifier}/edit`, {
-                state: {
-                  child: selectedChild,
-                  mother: resolvedMother,
-                  returnTo: `${location.pathname}${location.search}`,
-                  returnToState: location.state,
-                },
-              })}>Edit</button>
+              <button
+                type="button"
+                className="btn-primary child-profile-action-button child-profile-action-button--edit"
+                onClick={() => navigate(`/beneficiary/child/${childIdentifier}/edit`, {
+                  state: {
+                    child: selectedChild,
+                    mother: resolvedMother,
+                    returnTo: `${location.pathname}${location.search}`,
+                    returnToState: location.state,
+                  },
+                })}
+                aria-label={`Edit ${childName || 'child'} profile`}
+              >
+                Edit
+              </button>
             )}
             {canDelete && (
-              <button type="button" className="btn-secondary" onClick={requestDeleteChild} disabled={isDeleting}>
+              <button
+                type="button"
+                className="btn-danger child-profile-action-button child-profile-action-button--delete"
+                onClick={requestDeleteChild}
+                disabled={isDeleting || !selectedChild?.id}
+                aria-label={`Delete ${childName || 'child'} profile`}
+              >
                 {isDeleting ? 'Deleting...' : 'Delete'}
               </button>
             )}
-            <button type="button" className="btn-secondary back-action" onClick={() => navigateBack(navigate, location, '/beneficiary')}>Back</button>
+            <button
+              type="button"
+              className="btn-secondary back-action child-profile-action-button child-profile-action-button--back"
+              onClick={() => navigateBack(navigate, location, '/beneficiary')}
+            >
+              Back
+            </button>
           </div>
         )}
       />
 
-      <ConfirmModal
-        show={showDeleteConfirm}
-        message={`Delete ${childName || 'this child'} and all of their beneficiary data? This cannot be undone.`}
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        title="Delete child profile?"
+        description={`Delete ${childName || 'this child'} and all of their beneficiary data? This cannot be undone.`}
+        confirmLabel="Delete child"
+        loadingLabel="Deleting child…"
+        loading={isDeleting}
+        error={deleteError}
         onConfirm={deleteChild}
-        onCancel={() => setShowDeleteConfirm(false)}
+        onCancel={cancelDelete}
       />
 
       {!isChildProfile && <section className="mother-detail-section">
@@ -407,12 +439,27 @@ export default function ChildProfilePage() {
       </div>
 
       {profileTab === 'general' && (
-        <ChildSection title="I.B REQUIRED DOCUMENTS">
-          <div className="document-upload-field full-width">
-            <div className="detail-form-label">Live Birth Certificate / Birth Certificate</div>
-            <DocumentPreview fileName={selectedChild.birthDocumentName} filePath={selectedChild.birthDocumentPath} label="Live Birth Certificate" onPreviewOpen={(url, name, type) => setPreviewDocument({ url, name, type })} />
+        <section className="child-detail-section child-detail-documents">
+          <h3 className="child-detail-section-title">I.B REQUIRED DOCUMENTS</h3>
+          <div className="profile-document-grid">
+            <DocumentPreview
+              fileName={selectedChild.birthDocumentName}
+              filePath={selectedChild.birthDocumentPath}
+              label="Live Birth Certificate / Birth Certificate"
+              canReplace={canEdit}
+              canRemove={canDelete}
+              onPreviewOpen={(url, name, type) => setPreviewDocument({ url, name, type })}
+              onReplace={async (file) => {
+                const response = await apiUploadChildBirthDocument(childIdentifier, file);
+                if (response?.child) setSelectedChild(normalizeChild(response.child));
+              }}
+              onRemove={async () => {
+                const response = await apiDeleteChildBirthDocument(childIdentifier);
+                if (response?.child) setSelectedChild(normalizeChild(response.child));
+              }}
+            />
           </div>
-        </ChildSection>
+        </section>
       )}
 
       <DocumentPreviewModal document={previewDocument} onClose={() => setPreviewDocument(null)} />

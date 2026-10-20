@@ -15,7 +15,6 @@ const documentsRouter = require('./routes/documents');
 const reportsRouter = require('./routes/reports');
 const { verifyToken } = require('./middleware/auth');
 const { authorizeOperational, authorizeProgressReport } = require('./middleware/authorize');
-const { uploadDirectory } = require('./middleware/documentUpload');
 const { errorHandler } = require('./middleware/errorHandler');
 const db = require('./db');
 
@@ -69,7 +68,6 @@ const loginLimiter = rateLimit({
 
 app.use('/api', apiLimiter);
 app.use('/api/auth/login', loginLimiter);
-app.use('/uploads', express.static(uploadDirectory));
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 app.use('/api/auth', authRouter);
@@ -86,6 +84,7 @@ app.use('/api/progress-report/ai', (req, res, next) => {
 });
 app.use('/api/progress-report', verifyToken, authorizeOperational, authorizeProgressReport, progressReportRouter);
 app.use('/api/documents', verifyToken, authorizeOperational, documentsRouter);
+app.use('/uploads', verifyToken, authorizeOperational, documentsRouter);
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 4000;

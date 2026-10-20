@@ -253,6 +253,7 @@ export default function UserManagementPage() {
       <ConfirmModal
         show={!organizerHealthWorkerScope && Boolean(confirmDeleteId)}
         message="Are you sure you want to delete this user?"
+        variant="destructive"
         onConfirm={confirmDelete}
         onCancel={cancelDelete}
       />

@@ -59,7 +59,7 @@ const isLimitedWrite = (req) => {
       || (req.method === 'POST' && /^\/[^/]+\/(documents|checkups)\/?$/.test(req.path));
   }
   if (req.baseUrl === '/api/children') {
-    return req.method === 'POST' && /^\/[^/]+\/checkups\/?$/.test(req.path);
+    return req.method === 'POST' && /^\/[^/]+\/(checkups|documents)\/?$/.test(req.path);
   }
   if (req.baseUrl === '/api/programs') {
     return req.method === 'PATCH' && /\/monitoring\/?$/.test(req.path);

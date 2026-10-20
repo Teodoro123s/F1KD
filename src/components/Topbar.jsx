@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { getInitials } from '../utils/nameFormat';
 import { useAuth } from '../auth/AuthProvider';
@@ -7,6 +6,7 @@ import { ROLES, hasRole } from '../utils/permissions';
 import { apiGetNotifications, apiSetNotificationRead } from '../api/notifications';
 import NotificationDetailsModal from './ui/NotificationDetailsModal';
 import FloatingLayer from './ui/FloatingLayer';
+import ConfirmDialog from './ui/ConfirmDialog';
 
 export default function Topbar() {
   const navigate = useNavigate();
@@ -24,6 +24,7 @@ export default function Topbar() {
   const [markingNotificationId, setMarkingNotificationId] = useState(null);
   const [openUser, setOpenUser] = useState(false);
   const [showSignOutModal, setShowSignOutModal] = useState(false);
+  const [signOutError, setSignOutError] = useState('');
   const [signingOut, setSigningOut] = useState(false);
   const notifRef = useRef(null);
   const userRef = useRef(null);
@@ -78,19 +79,9 @@ export default function Topbar() {
     return () => { active = false; };
   }, [canReadNotifications, openNotif]);
 
-  useEffect(() => {
-    if (!showSignOutModal) return undefined;
-    const onKeyDown = (event) => {
-      if (event.key === 'Escape' && !signingOut) setShowSignOutModal(false);
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [showSignOutModal, signingOut]);
-
   const handleSignOut = async () => {
     if (signingOut) return;
     try {
-      setShowSignOutModal(false);
       setOpenUser(false);
       setSigningOut(true);
       await Promise.resolve();
@@ -98,6 +89,7 @@ export default function Topbar() {
       navigate('/login');
     } catch (error) {
       console.error('Sign out failed', error);
+      setSignOutError(error.message || 'Unable to sign out. Please try again.');
     } finally {
       setSigningOut(false);
     }
@@ -192,6 +184,7 @@ export default function Topbar() {
                         onClick={() => markNotificationRead(notification)}
                         disabled={markingNotificationId === notification.id}
                         aria-label={`Mark "${notification.title || notification.category}" as read`}
+                        role="menuitem"
                       >
                         {markingNotificationId === notification.id ? 'Marking...' : 'Mark as read'}
                       </button>
@@ -207,6 +200,7 @@ export default function Topbar() {
                   type="button"
                   className="notification-dropdown-all"
                   onClick={() => { setOpenNotif(false); navigate('/notifications'); }}
+                  role="menuitem"
                 >
                   View all
                 </button>
@@ -240,69 +234,51 @@ export default function Topbar() {
                 <>
                   <div className="dropdown-item">{user.name}</div>
                   <div className="dropdown-separator" />
-                  <div className="dropdown-item" role="button" onClick={() => { setOpenUser(false); navigate('/profile'); }}>Profile</div>
-                  <div className="dropdown-item" role="button" onClick={() => { setOpenUser(false); navigate('/settings'); }}>Settings</div>
-                  <div
+                  <button type="button" className="dropdown-item" role="menuitem" onClick={() => { setOpenUser(false); navigate('/profile'); }}>
+                    Profile
+                  </button>
+                  <button type="button" className="dropdown-item" role="menuitem" onClick={() => { setOpenUser(false); navigate('/settings'); }}>
+                    Settings
+                  </button>
+                  <button
+                    type="button"
                     className="dropdown-item"
-                    onClick={() => { if (!signingOut) setShowSignOutModal(true); }}
+                    onClick={() => {
+                      setSignOutError('');
+                      setOpenUser(false);
+                      setShowSignOutModal(true);
+                    }}
                     aria-busy={signingOut}
-                    role="button"
-                    style={{ opacity: signingOut ? 0.6 : 1, pointerEvents: signingOut ? 'none' : 'auto' }}
+                    role="menuitem"
+                    disabled={signingOut}
                   >
-                    {signingOut ? '⏳ Signing out...' : 'Sign out'}
-                  </div>
+                    Sign out
+                  </button>
                 </>
               ) : (
                 <>
                   <div className="dropdown-item">Not signed in</div>
-                  <div className="dropdown-item" onClick={() => navigate('/login')}>Sign in</div>
+                  <button type="button" className="dropdown-item" role="menuitem" onClick={() => navigate('/login')}>
+                    Sign in
+                  </button>
                 </>
               )}
           </FloatingLayer>
         </span>
       </div>
 
-      {showSignOutModal && createPortal((
-        <div
-          className="modal-backdrop"
-          role="presentation"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget && !signingOut) setShowSignOutModal(false);
-          }}
-        >
-          <div
-            className="modal-content signout-confirm-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="signout-confirm-title"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <div className="modal-header-section">
-              <h3 id="signout-confirm-title">Sign out?</h3>
-              <button
-                type="button"
-                className="btn-close-modal"
-                onClick={() => setShowSignOutModal(false)}
-                aria-label="Close sign-out confirmation"
-                disabled={signingOut}
-              >
-                ✕
-              </button>
-            </div>
-            <div className="modal-body">
-              <p>Are you sure you want to sign out of your account?</p>
-            </div>
-            <div className="modal-footer">
-              <button type="button" className="btn-secondary" onClick={() => setShowSignOutModal(false)} disabled={signingOut}>
-                Cancel
-              </button>
-              <button type="button" className="btn-danger" onClick={handleSignOut} disabled={signingOut}>
-                {signingOut ? 'Signing out...' : 'Sign out'}
-              </button>
-            </div>
-          </div>
-        </div>
-      ), document.body)}
+      <ConfirmDialog
+        open={showSignOutModal}
+        title="Sign out?"
+        description="Are you sure you want to sign out of your account?"
+        variant="destructive"
+        confirmLabel="Sign out"
+        loadingLabel="Signing out..."
+        loading={signingOut}
+        error={signOutError}
+        onConfirm={handleSignOut}
+        onCancel={() => setShowSignOutModal(false)}
+      />
       <NotificationDetailsModal
         notification={selectedNotification}
         onClose={() => setSelectedNotification(null)}

@@ -1,7 +1,7 @@
 ﻿import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { formatDateForDisplay } from '../../../utils/dateFormat';
-import { apiDeleteMother, apiGetMother } from '../../../api/mothers';
+import { apiDeleteMother, apiDeleteMotherDocument, apiGetMother, apiUploadMotherDocuments } from '../../../api/mothers';
 import { DocumentPreview, DocumentPreviewModal } from '../../../components/DocumentPreview';
 import { useAuth } from '../../../auth/AuthProvider';
 import { can } from '../../../utils/permissions';
@@ -71,6 +71,7 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
   const { currentUser } = useAuth();
   const canManage = can(currentUser?.role, 'beneficiary-resources', 'delete');
   const canEdit = can(currentUser?.role, 'beneficiary-resources', 'update');
+  const canRemoveDocuments = can(currentUser?.role, 'beneficiary-resources', 'delete');
   const [motherRecord, setMotherRecord] = useState(selectedMother);
   const [activeTab, setActiveTab] = useState('overview');
   const [profileTab, setProfileTab] = useState('general');
@@ -222,18 +223,35 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
   const documentContent = (
     <section className="create-mother-category mother-detail-inline-documents">
       <h4 className="form-section-title">I.C DOCUMENTS</h4>
-      <div className="document-upload-grid">
+      <div className="profile-document-grid">
         {[
           ['birthCertificate', "Mother's Birth Certificate", motherRecord.birthCertificateDocumentName, motherRecord.birthCertificateDocumentPath],
           ['consent', 'Program Consent Form', motherRecord.consentDocumentName, motherRecord.consentDocumentPath],
         ].map(([field, label, fileName, filePath]) => {
           return (
-            <div className="document-upload-field" key={field}>
-              <div className="document-upload-header-row">
-                <span className="detail-form-label">{label}</span>
-              </div>
-              <DocumentPreview fileName={fileName} filePath={filePath} label={label} onPreviewOpen={(url, name, type) => setPreviewDocument({ url, name, type })} />
-            </div>
+            <DocumentPreview
+              key={field}
+              fileName={fileName}
+              filePath={filePath}
+              label={label}
+              canReplace={canEdit}
+              canRemove={canRemoveDocuments}
+              onPreviewOpen={(url, name, type) => setPreviewDocument({ url, name, type })}
+              onReplace={async (file) => {
+                const response = await apiUploadMotherDocuments(motherId, { [field]: file });
+                if (response?.mother) {
+                  setMotherRecord((current) => ({ ...current, ...response.mother }));
+                  onMotherUpdated?.(response.mother);
+                }
+              }}
+              onRemove={async () => {
+                const response = await apiDeleteMotherDocument(motherId, field);
+                if (response?.mother) {
+                  setMotherRecord((current) => ({ ...current, ...response.mother }));
+                  onMotherUpdated?.(response.mother);
+                }
+              }}
+            />
           );
         })}
       </div>

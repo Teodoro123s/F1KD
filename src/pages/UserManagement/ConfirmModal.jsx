@@ -1,29 +1,26 @@
 import React from 'react';
+import ConfirmDialog from '../../components/ui/ConfirmDialog';
 
-export default function ConfirmModal({ show, message, onConfirm, onCancel, className = '', confirmLabel = 'Confirm' }) {
-  if (!show) return null;
-
+export default function ConfirmModal({
+  show,
+  message,
+  onConfirm,
+  onCancel,
+  className = '',
+  confirmLabel = 'Confirm',
+  title = 'Confirm action',
+  variant = 'primary',
+}) {
   return (
-    <div className="modal-backdrop" onClick={onCancel}>
-      <div className={`modal-content ${className}`.trim()} onClick={(event) => event.stopPropagation()}>
-        <div className="modal-header-section">
-          <h3>Confirm action</h3>
-          <button className="btn-close-modal" onClick={onCancel} aria-label="Close confirmation">
-            ✕
-          </button>
-        </div>
-        <div className="modal-body">
-          <p>{message}</p>
-        </div>
-        <div className="modal-footer">
-          <button type="button" className="btn-secondary" onClick={onCancel}>
-            Cancel
-          </button>
-          <button type="button" className="btn-primary" onClick={onConfirm}>
-            {confirmLabel}
-          </button>
-        </div>
-      </div>
-    </div>
+    <ConfirmDialog
+      open={show}
+      title={title}
+      description={message}
+      confirmLabel={confirmLabel}
+      variant={variant}
+      className={className}
+      onConfirm={onConfirm}
+      onCancel={onCancel}
+    />
   );
 }

@@ -377,11 +377,13 @@ router.delete('/:id/documents/:field', async (req, res) => {
       return res.status(400).json({ error: 'Unsupported document field.' });
     }
 
+    const scopeSql = req.groupId ? ' AND group_id = ?' : req.schoolId ? ' AND community_id = ?' : '';
+    const scopeParams = req.groupId ? [req.groupId] : req.schoolId ? [req.schoolId] : [];
     const [motherRows] = await pool.query(
         `SELECT id, first_name, last_name, mother_code, community_id, group_id,
           ${selectedField.pathColumn} AS document_path, ${selectedField.nameColumn} AS document_name
-         FROM mothers WHERE id = ? OR mother_code = ? OR mother_external_id = ? LIMIT 1`,
-      [Number(id) || null, id, id]
+         FROM mothers WHERE (id = ? OR mother_code = ? OR mother_external_id = ?)${scopeSql} LIMIT 1`,
+      [Number(id) || null, id, id, ...scopeParams]
     );
 
     if (!motherRows.length) {

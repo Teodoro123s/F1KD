@@ -68,14 +68,40 @@ export default function FloatingLayer({
       });
     };
 
+    if (menuProps.role === 'menu') {
+      internalMenuRef.current
+        ?.querySelector('[role="menuitem"]:not([aria-disabled="true"]):not([disabled])')
+        ?.focus({ preventScroll: true });
+    }
+
     const handleOutsideClick = (event) => {
       if (anchorRef?.current?.contains(event.target) || internalMenuRef.current?.contains(event.target)) return;
       dismissRef.current?.();
     };
     const handleKeyDown = (event) => {
-      if (event.key !== 'Escape') return;
-      dismissRef.current?.();
-      anchorRef?.current?.focus({ preventScroll: true });
+      if (event.key === 'Escape') {
+        dismissRef.current?.();
+        anchorRef?.current?.focus({ preventScroll: true });
+        return;
+      }
+      if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+
+      const menu = internalMenuRef.current;
+      if (menu?.getAttribute('role') !== 'menu' || !menu.contains(event.target)) return;
+      const items = Array.from(menu.querySelectorAll(
+        '[role="menuitem"]:not([aria-disabled="true"]):not([disabled])',
+      ));
+      if (items.length === 0) return;
+
+      const currentIndex = items.indexOf(document.activeElement);
+      let nextIndex = currentIndex;
+      if (event.key === 'Home') nextIndex = 0;
+      else if (event.key === 'End') nextIndex = items.length - 1;
+      else if (event.key === 'ArrowDown') nextIndex = (currentIndex + 1 + items.length) % items.length;
+      else nextIndex = (currentIndex - 1 + items.length) % items.length;
+
+      event.preventDefault();
+      items[nextIndex]?.focus({ preventScroll: true });
     };
 
     updatePosition();
@@ -94,7 +120,7 @@ export default function FloatingLayer({
       document.removeEventListener('keydown', handleKeyDown);
       resizeObserver?.disconnect();
     };
-  }, [align, anchorRef, matchAnchorWidth, offset, open]);
+  }, [align, anchorRef, matchAnchorWidth, menuProps.role, offset, open]);
 
   if (!open) return null;
 

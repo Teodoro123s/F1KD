@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useId, useRef } from 'react';
+import Button from './Button';
+import useModalAccessibility from './useModalAccessibility';
 
 const sizeMap = {
   sm: 'view-modal--sm',
@@ -18,22 +20,36 @@ export default function UnifiedModal({
   className = '',
   backdropClassName = '',
 }) {
+  const titleId = useId();
+  const dialogRef = useRef(null);
+  useModalAccessibility({ open: isOpen, onClose, dialogRef });
+
   if (!isOpen) return null;
 
+  const closeFromBackdrop = (event) => {
+    if (event.target === event.currentTarget) onClose?.();
+  };
+
   return (
-    <div className={`view-modal-backdrop ${backdropClassName}`.trim()} onClick={onClose}>
+    <div
+      className={`view-modal-backdrop ${backdropClassName}`.trim()}
+      role="presentation"
+      onMouseDown={closeFromBackdrop}
+    >
       <div
+        ref={dialogRef}
         className={`view-modal ${sizeMap[size] || sizeMap.md} ${className}`.trim()}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="view-modal-title"
-        onClick={(event) => event.stopPropagation()}
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="view-modal__header">
-          <h2 id="view-modal-title" className="view-modal__title">{title}</h2>
-          <button type="button" className="view-modal__close" onClick={onClose} aria-label="Close dialog">
+          <h2 id={titleId} className="view-modal__title">{title}</h2>
+          <Button type="button" variant="icon" className="view-modal__close" onClick={onClose} aria-label="Close dialog">
             ×
-          </button>
+          </Button>
         </div>
 
         <div className="view-modal__body">{children}</div>
@@ -42,12 +58,12 @@ export default function UnifiedModal({
           <div className="view-modal__footer">{footer}</div>
         ) : (
           <div className="view-modal__footer">
-            <button type="button" className="view-btn view-btn--secondary" onClick={onClose}>
+            <Button type="button" variant="secondary" onClick={onClose}>
               Cancel
-            </button>
-            <button type="button" className="view-btn view-btn--primary" onClick={onSave}>
+            </Button>
+            <Button type="button" variant="primary" onClick={onSave}>
               Save
-            </button>
+            </Button>
           </div>
         )}
       </div>

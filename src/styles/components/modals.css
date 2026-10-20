@@ -248,8 +248,13 @@
   width: 42px;
   height: 42px;
   border-radius: 50%;
-  background: #fef2f2;
-  color: #b91c1c;
+  background: var(--color-error-bg);
+  color: var(--color-error);
+}
+
+.confirm-dialog--primary .confirm-dialog__icon {
+  background: var(--color-brand-soft);
+  color: var(--color-brand);
 }
 
 .confirm-dialog__icon svg {
@@ -342,17 +347,9 @@
   min-width: 116px;
 }
 
-.confirm-dialog__spinner {
-  width: 0.9rem;
-  height: 0.9rem;
-  border: 2px solid currentColor;
-  border-right-color: transparent;
-  border-radius: 50%;
-  animation: confirm-dialog-spin 700ms linear infinite;
-}
-
-@keyframes confirm-dialog-spin {
-  to { transform: rotate(360deg); }
+.modal-content.confirm-dialog.checkup-confirm-modal {
+  width: min(560px, calc(100vw - 2rem));
+  max-width: 560px;
 }
 
 @media (max-width: 420px) {

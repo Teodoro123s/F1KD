@@ -1,21 +1,21 @@
 ﻿/* Action wrapper anchors dropdowns */
-.action-wrapper { position: relative; display: inline-block; }
+.action-wrapper { position: relative; display: inline-block; z-index: auto; }
 
 /* Dropdown */
 .dropdown {
-  min-width: 200px;
-  background: #fff;
-  border-radius: 10px;
-  border: 1px solid var(--border-color, #dfe6ee);
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+  min-width: 12rem;
+  background: var(--color-surface, #fff);
+  border-radius: var(--radius-lg, 0.875rem);
+  border: 1px solid var(--color-border, #e2e8f0);
+  box-shadow: var(--shadow-md, 0 8px 24px rgba(15, 23, 42, 0.12));
   overflow: hidden;
   z-index: var(--z-dropdown);
   color: #111;
   max-width: min(300px, calc(100vw - 2rem));
 }
 .dropdown-header { padding: 0.6rem 0.8rem; font-weight: 700; font-size: 0.8rem; color: #475569; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid rgba(0,0,0,0.04); }
-.dropdown-item { padding: 0.7rem 0.8rem; cursor: pointer; color: #334155; font-size: 0.9rem; }
-.dropdown-item:hover { background: #f4f6f9; color: #0f172a; }
+.dropdown-item { display: flex; min-height: var(--control-height-md, 2.5rem); align-items: center; padding: 0.55rem 0.75rem; cursor: pointer; color: var(--color-text-secondary, #334155); font-size: var(--font-size-sm, 0.8125rem); }
+.dropdown-item:hover { background: var(--color-surface-soft, #f8fafc); color: var(--color-text, #0f172a); }
 .dropdown-item.muted { color: #666; }
 
 .notifications-list { max-height: 220px; overflow: auto; }
@@ -47,4 +47,16 @@
 .action-wrapper .dropdown { right: 0; left: auto; }
 .user-dropdown { width: min(300px, calc(100vw - 2rem)); }
 .dropdown-item[role='button'], .dropdown-item[role='menuitem'] { outline: none; }
-.dropdown-item[role='button']:focus-visible, .dropdown-item[role='menuitem']:focus-visible { background: #f8fafc; }
+.dropdown-item[role='menuitem'] {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+}
+.dropdown-item[role='button']:focus-visible,
+.dropdown-item[role='menuitem']:focus-visible {
+  background: var(--color-surface-soft, #f8fafc);
+  outline: 3px solid var(--field-focus-ring, rgba(21, 128, 61, 0.2));
+  outline-offset: -3px;
+}

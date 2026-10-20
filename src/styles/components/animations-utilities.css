@@ -5,7 +5,7 @@
 
 /* Keep route changes calm and consistent across the application. */
 .view-content > * {
-	animation: viewEnter 260ms ease-out both;
+	animation: viewEnter var(--transition-slow) both;
 }
 
 button,
@@ -14,8 +14,8 @@ input,
 select,
 textarea,
 [role='button'] {
-	transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease,
-		box-shadow 160ms ease, opacity 160ms ease, transform 160ms ease;
+	transition: color var(--transition-base), background-color var(--transition-base), border-color var(--transition-base),
+		box-shadow var(--transition-base), opacity var(--transition-base), transform var(--transition-base);
 }
 
 @keyframes viewEnter {

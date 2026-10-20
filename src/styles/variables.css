@@ -1,20 +1,91 @@
-/* Design tokens and global resets */
+/* F1KD design tokens. Legacy names below remain aliases during migration. */
 :root {
-  --bg: #f4f6f9;
-  --surface: #ffffff;
-  --surface-soft: #f8fafc;
-  --surface-muted: #eef3f8;
-  --muted: #666;
-  --burgundy: #15803D;
-  --burgundy-hover: #166534;
-  --burgundy-light: #ECFDF3;
-  --burgundy-border: #BBF7D0;
-  --slate-dark: #0C1A30;
-  --text: #0f172a;
-  --text-soft: #334155;
-  --text-muted: #64748B;
-  --border-color: #E2E8F0;
+  --color-brand: #15803d;
+  --color-brand-hover: #166534;
+  --color-brand-soft: #ecfdf3;
+  --color-brand-border: #bbf7d0;
+  --color-text: #0f172a;
+  --color-text-strong: #0c1a30;
+  --color-text-secondary: #334155;
+  --color-text-muted: #64748b;
+  --color-text-inverse: #fff;
+  --color-page: #f4f6f9;
+  --color-surface: #fff;
+  --color-surface-soft: #f8fafc;
+  --color-surface-muted: #eef3f8;
+  --color-border: #e2e8f0;
+  --color-border-strong: #cbd5e1;
+  --color-success: #166534;
+  --color-success-bg: #f0fdf4;
+  --color-success-border: #bbf7d0;
+  --color-warning: #92400e;
+  --color-warning-bg: #fffbeb;
+  --color-warning-border: #fde68a;
+  --color-error: #b42318;
+  --color-error-hover: #991b1b;
+  --color-error-bg: #fef2f2;
+  --color-error-border: #fecaca;
+  --color-info: #1d4ed8;
+  --color-info-bg: #eff6ff;
+  --color-info-border: #bfdbfe;
+
+  --font-family-base: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans";
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.8125rem;
+  --font-size-md: 0.9375rem;
+  --font-size-lg: 1.125rem;
+  --font-size-h1: 1.5rem;
+  --font-size-h2: 1.25rem;
+  --font-size-h3: 1.125rem;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --radius-sm: 0.375rem;
+  --radius-md: 0.625rem;
+  --radius-lg: 0.875rem;
+  --radius-xl: 1rem;
+  --radius-pill: 999px;
+  --border-width: 1px;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 8px 24px rgba(15, 23, 42, 0.12);
+  --shadow-lg: 0 24px 70px rgba(15, 23, 42, 0.2);
+  --transition-fast: 120ms ease;
+  --transition-base: 160ms ease;
+  --transition-slow: 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  --control-height-sm: 2rem;
+  --control-height-md: 2.5rem;
+  --control-height-lg: 2.75rem;
+  --content-max-width: 80rem;
+  --breakpoint-sm: 40rem;
+  --breakpoint-md: 48rem;
+  --breakpoint-lg: 64rem;
+  --breakpoint-xl: 80rem;
+
+  --bg: var(--color-page);
+  --surface: var(--color-surface);
+  --surface-soft: var(--color-surface-soft);
+  --surface-muted: var(--color-surface-muted);
+  --muted: var(--color-text-muted);
+  --burgundy: var(--color-brand);
+  --burgundy-hover: var(--color-brand-hover);
+  --burgundy-light: var(--color-brand-soft);
+  --burgundy-border: var(--color-brand-border);
+  --slate-dark: var(--color-text-strong);
+  --text: var(--color-text);
+  --text-soft: var(--color-text-secondary);
+  --text-muted: var(--color-text-muted);
+  --border-color: var(--color-border);
   --shadow-soft: 0 20px 45px -28px rgba(15, 23, 42, 0.45);
+
   --z-sticky: 10;
   --z-navigation: 20;
   --z-dropdown: 30;
@@ -22,7 +93,12 @@
   --z-modal: 1001;
   --z-dropdown-modal: 1010;
   --z-tooltip: 1020;
+  --z-drawer-backdrop: 1030;
+  --z-drawer: 1040;
   --z-toast: 1100;
+
+  --z-dropdown-page: var(--z-dropdown);
+  --z-dropdown-in-modal: var(--z-dropdown-modal);
 }
 
 /* Global reset & universal font */
@@ -30,7 +106,7 @@
 html, body, #root { height: 100%; }
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans";
+  font-family: var(--font-family-base);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background: var(--bg);

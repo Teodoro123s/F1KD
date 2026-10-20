@@ -74,3 +74,11 @@ export async function apiUploadChildBirthDocument(childId, file) {
   });
   return readApiResponse(res, 'Unable to upload child birth document');
 }
+
+export async function apiDeleteChildBirthDocument(childId) {
+  const res = await fetchWithAuth(`${API_BASE}/api/children/${encodeURIComponent(childId)}/documents`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  return readApiResponse(res, 'Unable to remove child birth document');
+}
