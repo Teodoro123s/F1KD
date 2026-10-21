@@ -188,6 +188,7 @@ test('mother registration saves initial monitoring measurements as a completed c
   assert.equal(createdProfile.name, 'Test Mother');
   assert.equal(createdProfile.philhealthMember, true);
   assert.equal(createdProfile.philhealthNumber, '12-345678901-2');
+  assert.deepEqual(createdProfile.checkups[0], [null, null, null]);
   assert.equal(createdProfile.checkups[1][0].completed, true);
   assert.equal(createdProfile.checkups[1][0].weight, '58');
   assert.equal(createdProfile.checkups[1][0].bp, '120/80');

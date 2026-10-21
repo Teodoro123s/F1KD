@@ -492,7 +492,7 @@ router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
 
     const dbStatus = status === undefined ? 'Active' : parseUserStatus(status);
     if (!dbStatus) return res.status(400).json({ error: 'Status must be Active or Suspended' });
-    const insertUser = async (connection) => {
+    const insertUser = async (connection, assignedSchoolId = schoolId) => {
       const [result] = await connection.query(
         `INSERT INTO users (email, role, status, password_hash, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, group_id)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
@@ -508,7 +508,7 @@ router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
           gender || 'Male',
           dob || null,
           location || null,
-          schoolId || null,
+          assignedSchoolId || null,
           groupId || null
         ]
       );
@@ -522,17 +522,19 @@ router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
         return res.status(400).json({ error: 'Select a valid school for this Community Coordinator.' });
       }
       result = await withTransaction(pool, async (connection) => {
-        const [schools] = await lockSchools(connection, [assignedSchoolId]);
-        if (!schools.length) {
+        const schools = await lockSchools(connection, [assignedSchoolId]);
+        const selectedSchool = schools.find((school) => String(school.id) === String(assignedSchoolId));
+        if (!selectedSchool) {
           const error = new Error('The selected school could not be found.');
           error.status = 400;
           throw error;
         }
-        assertSchoolCoordinatorAvailable(schools[0], null);
-        const created = await insertUser(connection);
+        const resolvedSchoolId = selectedSchool.id;
+        await assertSchoolCoordinatorAvailable(selectedSchool, null);
+        const created = await insertUser(connection, resolvedSchoolId);
         await connection.query(
           'UPDATE communities SET coordinator_id = ? WHERE id = ? AND coordinator_id IS NULL',
-          [created.insertId, assignedSchoolId],
+          [created.insertId, resolvedSchoolId],
         );
         return created;
       });

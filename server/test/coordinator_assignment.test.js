@@ -31,6 +31,16 @@ async function queryState(sql, params = []) {
       .sort((a, b) => a.id - b.id)
       .map(({ id, coordinator_id }) => ({ id, coordinator_id }))];
   }
+  if (sql.startsWith('INSERT INTO users')) {
+    const [email, role, status, password_hash, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, group_id] = params;
+    const id = Math.max(0, ...users.keys()) + 1;
+    users.set(id, {
+      id, email, role, status, password_hash, first_name, last_name, middle_initial,
+      contact_number, gender, dob, location, school_id, group_id,
+      name: [first_name, middle_initial, last_name].filter(Boolean).join(' '),
+    });
+    return [{ insertId: id }];
+  }
   if (sql.startsWith('SELECT id, role, school_id FROM users WHERE id = ?')) {
     const user = users.get(Number(params[0]));
     return [[user ? { id: user.id, role: user.role, school_id: user.school_id } : null].filter(Boolean)];
@@ -224,6 +234,28 @@ test('coordinator assignments are validated and changed atomically', async (t) =
   assert.equal(communities.get(2).coordinator_id, 12);
   assert.equal(users.get(12).school_id, 2);
   assert.equal(users.get(11).school_id, null);
+
+  setState();
+  const createUserResponse = await fetch(`http://127.0.0.1:${server.address().port}/api/users`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${jwt.sign({ id: 1, role: 'super_admin' }, process.env.JWT_SECRET)}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      firstName: 'New',
+      lastName: 'Organizer',
+      email: 'new-organizer@example.com',
+      password: 'long-enough-password',
+      contactNumber: '09171234567',
+      role: 'Community Organizer',
+      status: 'Active',
+      schoolId: '2',
+    }),
+  });
+  assert.equal(createUserResponse.status, 201, JSON.stringify(await createUserResponse.json()));
+  assert.equal(users.get(13).school_id, 2);
+  assert.equal(communities.get(2).coordinator_id, 13);
 
   const userUpdateUrl = `http://127.0.0.1:${server.address().port}/api/users`;
   const adminToken = jwt.sign({ id: 1, role: 'super_admin' }, process.env.JWT_SECRET);

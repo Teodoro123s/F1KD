@@ -179,8 +179,7 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
     if (previousMotherId.current !== motherId) {
       previousMotherId.current = motherId;
       stepFormDraftsRef.current.clear();
-      const start = getMonitoringStartDetails(mother);
-      setActiveStep(getInitialStep(start.trimester, mother.checkups, start.gestationalAge));
+      setActiveStep(getInitialStep(mother.checkups, getMotherMonitoringStartIndex(mother)));
     }
   }, [mother]);
 
