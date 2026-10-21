@@ -26,6 +26,7 @@ import {
   getLatestMonitoringReportCheckup,
   getMonitoringReportCheckups,
   getMonitoringReportValue,
+  escapeMonitoringReportCsvValue,
   MONITORING_REPORT_FIELD_LABELS,
 } from './monitoringReportUtils.mjs';
 
@@ -69,10 +70,7 @@ function downloadMonitoringReportCsv(report, rows) {
       metricId,
       row.checkup ? getMonitoringReportValue(row.checkup, metricId) : 'No saved check-up records.',
     ]),
-  ].map(([key, value]) => {
-    const safeValue = String(value ?? '');
-    return [key, /^[=+\-@]/.test(safeValue) ? `'${safeValue}` : safeValue];
-  })));
+  ].map(([key, value]) => [key, escapeMonitoringReportCsvValue(value)])));
   const csv = generateCsvContent(csvRows, columns);
   const now = new Date();
   const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;

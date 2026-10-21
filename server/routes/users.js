@@ -348,11 +348,11 @@ router.patch('/health-workers/:id/status', verifyToken, authorize('community_coo
   }
 });
 
-// GET /api/users/coordinators - limited data for operational assignment fields
-router.get('/coordinators', verifyToken, async (req, res) => {
+// GET /api/users/coordinators - Superadmin options for assigning school coordinators
+router.get('/coordinators', verifyToken, authorize('super_admin'), async (req, res) => {
   try {
     const [users] = await pool.query(
-      `SELECT id, CONCAT_WS(' ', first_name, last_name) AS username, CONCAT_WS(' ', first_name, last_name) AS full_name, role, school_id FROM users WHERE LOWER(TRIM(role)) IN ('community organizer', 'community_coordinator', 'communitycoordinator', 'communityorganizer', 'coordinator', 'co', 'partner') ORDER BY id DESC`
+      `SELECT id, CONCAT_WS(' ', first_name, last_name) AS username, CONCAT_WS(' ', first_name, last_name) AS full_name, role, school_id FROM users WHERE LOWER(TRIM(role)) IN ('community organizer', 'community coordinator', 'community_coordinator', 'communitycoordinator', 'communityorganizer', 'coordinator', 'co') ORDER BY id DESC`
     );
     res.json({ users });
   } catch (err) {

@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { fetchWithAuth, getApiBaseUrl } from '../api/authHeader';
 import { useAuth } from '../auth/AuthProvider';
+import { normalizeRole, ROLES } from '../utils/permissions';
 
 const MothersContext = createContext(null);
 const API_BASE = getApiBaseUrl();
@@ -49,6 +50,13 @@ export function MothersProvider({ children }) {
 
   useEffect(() => {
     if (auth.loading || !auth.currentUser) return undefined;
+    if (normalizeRole(auth.currentUser.role) === ROLES.SUPER_ADMIN) {
+      requestVersion.current += 1;
+      setMothers([]);
+      setError('');
+      setLoading(false);
+      return undefined;
+    }
     loadMothers();
     return () => {
       requestVersion.current += 1;

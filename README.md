@@ -12,6 +12,10 @@ The PSGC data is sourced from the [PSA](https://psa.gov.ph/classification/psgc/)
 
 - [Users, roles, permissions, and data scope](./docs/ROLES_AND_ACCESS.md) — module access, account-management limits, school/group scope, and practical verification.
 - [Superadmin user guide](./docs/SUPERADMIN.md) — role purpose, permissions, modules, recovery flow, and operational boundaries.
+- [Community Organizer user guide](./docs/COMMUNITY_ORGANIZER.md) — assigned-school scope, operational modules, Health Worker account limits, and safe operating practices.
+- [Admin user guide](./docs/ADMIN.md) — global operational oversight, read-only limits, modules, and reporting boundaries.
+- [Partner user guide](./docs/PARTNER.md) — global operational review, read-only limits, and available reporting.
+- [Health Worker user guide](./docs/HEALTH_WORKER.md) — assigned-school/group scope, permitted check-ups and receipts, and account boundaries.
 - [Integrated AI guide](./docs/INTEGRATED_AI.md) — AI features by module, their purpose, scope, access, data handling, and limitations.
 
 ## Docker: Full Stack

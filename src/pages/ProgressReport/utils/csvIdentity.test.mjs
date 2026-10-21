@@ -55,7 +55,7 @@ test('aggregate CSV rows identify the group and omit individual beneficiary demo
 
 test('CSV data stays aligned with its headers and escapes spreadsheet-dangerous values', () => {
   const csv = buildProgressReportCsv(
-    [{ child: 'Araw, "Sample"', mother: '=HYPERLINK("x")', age: 12, gender: 'Female', dateOfBirth: '2020-07-11' }],
+    [{ child: 'Araw, "Sample"', mother: '\t=HYPERLINK("x")', age: 12, gender: 'Female', dateOfBirth: '2020-07-11' }],
     [['measurementDate', 'Check-up Date']],
     'child',
     'beneficiary-batch',
@@ -66,5 +66,5 @@ test('CSV data stays aligned with its headers and escapes spreadsheet-dangerous 
   const values = parseCsvRow(lines[1]);
   assert.equal(headers.length, values.length);
   assert.equal(values[0], 'Araw, "Sample"');
-  assert.equal(values[1], "'=HYPERLINK(\"x\")");
+  assert.equal(values[1], "'\t=HYPERLINK(\"x\")");
 });

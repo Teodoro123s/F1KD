@@ -1,4 +1,27 @@
 import { hasCheckupThisMonth } from '../../utils/monthlyCheckups.js';
+import { normalizeRole, ROLES } from '../../utils/permissions.js';
+
+export function buildOperationalStaffMetrics(users = []) {
+  const operationalRoles = new Set([
+    ROLES.ADMIN,
+    ROLES.PARTNER,
+    ROLES.HEALTH_WORKER,
+    ROLES.COMMUNITY_COORDINATOR,
+  ]);
+  const operationalUsers = users.filter((user) => operationalRoles.has(normalizeRole(user.role)));
+  const activeUsers = operationalUsers.filter((user) => String(user.status || 'Active').trim().toLowerCase() === 'active');
+  const rolesRequiringAssignment = new Set([ROLES.HEALTH_WORKER, ROLES.COMMUNITY_COORDINATOR]);
+  return {
+    total: operationalUsers.length,
+    active: activeUsers.length,
+    suspended: operationalUsers.filter((user) => String(user.status || '').trim().toLowerCase() === 'suspended').length,
+    unassigned: activeUsers.filter((user) => {
+      const role = normalizeRole(user.role);
+      return rolesRequiringAssignment.has(role)
+        && (!(user.school_id ?? user.schoolId) || (role === ROLES.HEALTH_WORKER && !(user.group_id ?? user.groupId)));
+    }).length,
+  };
+}
 
 function hasMonitoringRecord(record) {
   return Array.isArray(record.checkups) && record.checkups.flat(Infinity).some(Boolean);
@@ -9,6 +32,9 @@ export function buildDashboardModuleSummaries({
   children = [],
   programs = [],
   staffMetrics = { active: 0, suspended: 0, unassigned: 0 },
+  communityMetrics = { schools: 0, groups: 0 },
+  reportMetrics = { signIns: 0, signInsLast30Days: 0 },
+  notificationMetrics = { all: 0, unread: 0 },
   isSuperAdmin = false,
   isCommunityOrganizer = false,
   now = new Date(),
@@ -21,17 +47,50 @@ export function buildDashboardModuleSummaries({
   ));
 
   const modules = isSuperAdmin
-    ? [{
-      key: 'users',
-      title: 'User Management',
-      to: '/user-management',
-      metrics: [
-        { label: 'Active staff', value: staffMetrics.active },
-        { label: 'Suspended', value: staffMetrics.suspended },
-        { label: 'Unassigned', value: staffMetrics.unassigned },
-      ],
-      note: 'Operational accounts',
-    }]
+    ? [
+      {
+        key: 'users',
+        title: 'User Management',
+        to: '/user-management',
+        metrics: [
+          { label: 'Operational accounts', value: staffMetrics.total },
+          { label: 'Active accounts', value: staffMetrics.active },
+          { label: 'Suspended accounts', value: staffMetrics.suspended },
+          { label: 'Active and unassigned', value: staffMetrics.unassigned },
+        ],
+        note: 'Superadmin account excluded; operational accounts only',
+      },
+      {
+        key: 'community',
+        title: 'Community',
+        to: '/community',
+        metrics: [
+          { label: 'Schools', value: communityMetrics.schools },
+          { label: 'Groups', value: communityMetrics.groups },
+        ],
+        note: 'Global school and group directory',
+      },
+      {
+        key: 'reports',
+        title: 'Reports',
+        to: '/reports',
+        metrics: [
+          { label: 'Operational sign-ins', value: reportMetrics.signIns },
+          { label: 'Sign-ins in the last 30 days', value: reportMetrics.signInsLast30Days },
+        ],
+        note: 'Superadmin activity is excluded from operational sign-in totals',
+      },
+      {
+        key: 'notifications',
+        title: 'Notifications',
+        to: '/notifications',
+        metrics: [
+          { label: 'Unread', value: notificationMetrics.unread },
+          { label: 'Available', value: notificationMetrics.all },
+        ],
+        note: 'Community and User Management categories only',
+      },
+    ]
     : [
       {
         key: 'beneficiaries',
