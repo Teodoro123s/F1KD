@@ -54,7 +54,7 @@ test('mother registration saves initial monitoring measurements as a completed c
       return [{ insertId: 456 }];
     }
     if (sql.startsWith('SELECT id FROM mother_checkups')) return [[]];
-    if (sql.startsWith('UPDATE mothers SET progress =')) {
+    if (sql.startsWith('UPDATE mothers m SET progress =')) {
       mother.progress = 11;
       return [{ affectedRows: 1 }];
     }
@@ -84,17 +84,17 @@ test('mother registration saves initial monitoring measurements as a completed c
         id: 456,
         mother_id: values[0],
         trimester: values[1],
-        checkup_number: savedCheckupValues ? values[2] : 1,
-        checkup_date: savedCheckupValues ? values[3] : values[2],
-        gestational_age_weeks: savedCheckupValues ? values[4] : values[3],
-        blood_pressure: savedCheckupValues ? values[5] : values[4],
-        weight_kg: savedCheckupValues ? values[6] : values[5],
-        height_cm: savedCheckupValues ? values[7] : values[6],
-        bmi: savedCheckupValues ? values[8] : values[7],
+        checkup_number: values[2],
+        checkup_date: values[3],
+        gestational_age_weeks: values[4],
+        blood_pressure: values[5],
+        weight_kg: values[6],
+        height_cm: values[7],
+        bmi: values[8],
         developmental_status: savedCheckupValues ? values[9] : null,
-        nutritional_status: savedCheckupValues ? values[10] : values[8],
-        fundal_height_cm: savedCheckupValues ? values[11] : values[9],
-        fetal_heart_rate_bpm: savedCheckupValues ? values[12] : values[10],
+        nutritional_status: values[savedCheckupValues ? 10 : 9],
+        fundal_height_cm: values[savedCheckupValues ? 11 : 10],
+        fetal_heart_rate_bpm: values[savedCheckupValues ? 12 : 11],
       }] : []];
     }
     throw new Error(`Unexpected test SQL: ${sql}`);
@@ -183,15 +183,15 @@ test('mother registration saves initial monitoring measurements as a completed c
   assert.equal(insertValues[12], 30);
   assert.equal(insertValues[47], 1);
   assert.equal(insertValues[48], '12-345678901-2');
-  assert.deepEqual(initialCheckupValues, [123, '2nd Trimester', '2026-10-18', 20, '120/80', '58', '155', 24.1, 'Normal', null, null, null, null, null]);
+  assert.deepEqual(initialCheckupValues, [123, '2nd Trimester', 2, '2026-10-18', 20, '120/80', '58', '155', 24.1, 'Normal', null, null, null, null, null]);
   const createdProfile = (await createResponse.json()).mother;
   assert.equal(createdProfile.name, 'Test Mother');
   assert.equal(createdProfile.philhealthMember, true);
   assert.equal(createdProfile.philhealthNumber, '12-345678901-2');
   assert.deepEqual(createdProfile.checkups[0], [null, null, null]);
-  assert.equal(createdProfile.checkups[1][0].completed, true);
-  assert.equal(createdProfile.checkups[1][0].weight, '58');
-  assert.equal(createdProfile.checkups[1][0].bp, '120/80');
+  assert.equal(createdProfile.checkups[1][1].completed, true);
+  assert.equal(createdProfile.checkups[1][1].weight, '58');
+  assert.equal(createdProfile.checkups[1][1].bp, '120/80');
   assert.equal(createdProfile.progress, 11);
 
   const invalidCheckupAmountResponse = await fetch(`${baseUrl}/123/checkups`, {

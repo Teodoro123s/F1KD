@@ -396,6 +396,11 @@ export default function ChildProfilePage() {
               View Mother
             </button>
           )}
+          <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/child/${childIdentifier}/program-report`, {
+            state: { returnTo: `${location.pathname}${location.search}` },
+          })}>
+            Program Report
+          </button>
           <button type="button" className="btn-primary" onClick={() => {
             const mid = resolvedMother?.motherId || resolvedMother?.id || selectedChild.mother_id || selectedChild.motherId || '';
             const stateMother = resolvedMother || (mid ? { id: mid, name: selectedChild.mother_first_name ? `${selectedChild.mother_first_name} ${selectedChild.mother_last_name || ''}`.trim() : undefined } : null);

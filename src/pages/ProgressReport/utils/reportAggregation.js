@@ -101,7 +101,7 @@ export const aggregateGrowthRows = (rows, focus, beneficiaryType = 'child') => {
   });
 };
 
-export const aggregateReportRows = (rows, focus) => {
+export const aggregateReportRows = (rows, focus, beneficiaryType = 'child') => {
   const groupField = focus === 'batch-group' || focus === 'batch-school'
     ? 'batch'
     : focus === 'group-school' ? 'group' : null;
@@ -117,13 +117,17 @@ export const aggregateReportRows = (rows, focus) => {
 
   return [...groupedRows.entries()].map(([groupName, groupRows]) => {
     const firstRow = groupRows[0] || {};
+    const growthAggregate = aggregateGrowthRows(groupRows, focus, beneficiaryType)[0] || {};
     const totalActivities = groupRows.reduce((sum, row) => sum + Number(row.totalActivities || 0), 0);
+    const receivedBenefitTotal = groupRows.reduce((sum, row) => sum + Number(row.receivedBenefitTotal || 0), 0);
+    const receivedBenefitActiveMonths = groupRows.reduce((sum, row) => sum + Number(row.receivedBenefitActiveMonths || 0), 0);
     const progress = totalActivities
       ? Math.round(groupRows.reduce((sum, row) => sum + Number(row.progress || 0) * Number(row.totalActivities || 0), 0) / totalActivities)
       : Math.round(groupRows.reduce((sum, row) => sum + Number(row.progress || 0), 0) / Math.max(groupRows.length, 1));
 
     return {
       ...firstRow,
+      ...growthAggregate,
       mother: groupField === 'group' ? groupName : '',
       child: groupField === 'group' ? groupName : '',
       group: groupField === 'group' ? groupName : firstRow.group,
@@ -131,9 +135,12 @@ export const aggregateReportRows = (rows, focus) => {
       activitiesCompleted: groupRows.reduce((sum, row) => sum + Number(row.activitiesCompleted || 0), 0),
       totalActivities,
       progress,
-      receivedBenefitTotal: groupRows.reduce((sum, row) => sum + Number(row.receivedBenefitTotal || 0), 0),
+      receivedBenefitTotal,
       receivedBenefitFrequency: groupRows.reduce((sum, row) => sum + Number(row.receivedBenefitFrequency || 0), 0),
-      receivedBenefitAveragePerMonth: Number(groupRows.reduce((sum, row) => sum + Number(row.receivedBenefitAveragePerMonth || 0), 0).toFixed(1)),
+      receivedBenefitActiveMonths,
+      receivedBenefitAveragePerMonth: receivedBenefitActiveMonths
+        ? Number((receivedBenefitTotal / receivedBenefitActiveMonths).toFixed(1))
+        : 0,
     };
   });
 };

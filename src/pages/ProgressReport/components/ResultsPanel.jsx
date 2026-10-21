@@ -8,6 +8,9 @@ export function ResultsPanel({
   groups,
   batches,
   exportReport,
+  exportingReport,
+  resultPeriod,
+  setResultPeriod,
   graphExportRows,
   graphExportFields,
   resultsView,
@@ -17,7 +20,6 @@ export function ResultsPanel({
   setTableDisplayMode,
   tableRows,
   tableVisibleFields,
-  monitoringRows,
   showProfileFilter,
   profileFieldSections,
   profileSectionLabels,
@@ -85,9 +87,10 @@ export function ResultsPanel({
             <button
               type="button"
               className="secondary-btn"
+              disabled={exportingReport}
               onClick={() => exportReport({ rows: graphExportRows, fields: graphExportFields, view: 'graph' })}
             >
-              Export CSV
+              {exportingReport ? 'Preparing CSV…' : 'Export CSV'}
             </button>
           )}
         </div>
@@ -131,13 +134,15 @@ export function ResultsPanel({
           showMonitoringFilter={displayReportCategory === 'monitor'}
           communitySelection={selection}
           beneficiaryType={displayBeneficiaryType}
-          monitoringRows={monitoringRows}
           showProfileFilter={showProfileFilter}
           profileFieldSections={profileFieldSections}
           profileSectionLabels={profileSectionLabels}
           profileSection={profileSection}
           setProfileSection={setProfileSection}
           onExport={exportReport}
+          exportingReport={exportingReport}
+          resultPeriod={resultPeriod}
+          setResultPeriod={setResultPeriod}
           displaySort={displaySort}
           sortLabel={(label, key) => (
             <button type="button" className="progress-report-sort-button" onClick={() => changeSort(key)}>

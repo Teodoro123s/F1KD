@@ -281,6 +281,9 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
               <button type="button" className="btn-secondary" onClick={() => {
                 navigate(`/beneficiary/mother/${motherId}/child`, { state: { mother: selectedMother, children, returnTo: `/beneficiary/mother/${motherId}` } });
               }}>View Child</button>
+              <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/mother/${motherId}/program-report`, {
+                state: { returnTo: `${location.pathname}${location.search}` },
+              })}>Program Report</button>
               <button type="button" className="btn-primary" onClick={() => navigate('/monitoring', { state: { mother, returnTo: `${location.pathname}${location.search}` } })}>Monitor</button>
             </div>
           </section>

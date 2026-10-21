@@ -8,17 +8,19 @@ test('program reports only include monitoring data when a program is explicitly 
   assert.equal(shouldApplyProgramMonitoringData({ programName: 'Nutrition Program' }), true);
 });
 
-test('mixed-type programs include both mother and child beneficiaries in program totals', () => {
-  const targets = resolveProgramReportTargets({
+test('mixed-type program reports use the selected beneficiary type without duplicating maternal receipts', () => {
+  const childTargets = resolveProgramReportTargets({
     row: { motherId: 12, childId: 55 },
     granularity: 'child',
     programBeneficiaryType: 'Mother and Child',
   });
 
-  assert.deepEqual(targets, [
-    { type: 'mother', id: 12 },
-    { type: 'child', id: 55 },
-  ]);
+  assert.deepEqual(childTargets, [{ type: 'child', id: 55 }]);
+  assert.deepEqual(resolveProgramReportTargets({
+    row: { motherId: 12, childId: 55 },
+    granularity: 'mother',
+    programBeneficiaryType: 'Mother and Child',
+  }), [{ type: 'mother', id: 12 }]);
 });
 
 test('single-type programs only use the configured beneficiary type', () => {

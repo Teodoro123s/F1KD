@@ -10,6 +10,20 @@ cp .env.example .env
 npm run dev
 ```
 
+## Synthetic sample data
+
+With the backend database configured and available, run this from the repository root:
+
+```bash
+DB_PORT=3307 SAMPLE_USER_PASSWORD='choose-a-local-test-password' npm --prefix server run seed:sample
+```
+
+This repeatable seed creates or refreshes two clearly labeled demo schools, each with two groups and two batches per group. Each of the eight batches gets 10 mothers and 10 children, for 80 mothers and 80 children total. Each school has its own Community Organizer, and each group has a dedicated Health Worker. It creates one school-scoped maternal program and one school-scoped child program per school, with sample program check-in entries for all 80 mothers and 80 children; seven beneficiaries per batch are marked received. Maternal monitoring uses the standard prenatal checkpoints at gestational weeks 8, 10, 12, 16, 20, 24, 28, 32, and 36. The expected total is the number of those checkpoints still due at registration, using gestational age from LMP and prenatal registration date (or the recorded gestational age). Each child receives a consecutive Month 1–24 growth-checkup history, for 1,920 child monitoring records total. Program check-ins are separate from maternal and child health check-up histories. Checkup records are synthetic demo data, not clinical records.
+
+It also creates a shared Admin and Partner, two school-specific Community Organizers, and four Health Workers (one per group). All eight accounts use `SAMPLE_USER_PASSWORD`; set it to a private local test password at least 8 characters long. Set `DB_PORT` to the host port for your local database (3307 in the Docker setup used here; use 3306 if that is your configured port). In PowerShell, set `$env:DB_PORT = '3307'` and `$env:SAMPLE_USER_PASSWORD = 'choose-a-local-test-password'` before running the seed command. The seed does not create another Superadmin account.
+
+The seed only updates records with its `DEMO-*` codes, its named sample program, and its `@f1kd.test` accounts. It rebuilds maternal checkups for those demo mothers to keep their generated totals exact; it does not delete other application data. Run the focused seed-plan test with `npm --prefix server run test:sample-seed`.
+
 Available endpoints:
 - `GET /api/health` — health check
 - `GET /api/users` — list users

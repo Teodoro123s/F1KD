@@ -331,7 +331,7 @@ test('monitoring AI reports can find beneficiaries with non-normal developmental
 
 test('AI proposal sends the prompt and fixed metric catalog, never authenticated scope or beneficiary records', async () => {
   let request;
-  const result = await createReportProposal('Compare child weight-for-age progress.', {
+  const result = await createReportProposal('Compare child weight-for-age interpretation progress.', {
     env: modelEnvironment,
     fetchImpl: async (url, options) => {
       request = { url, options, body: JSON.parse(options.body) };
@@ -353,37 +353,74 @@ test('AI proposal sends the prompt and fixed metric catalog, never authenticated
   assert.equal(result.metricIds[0], 'weightForAgeInterpretation');
   assert.equal(request.url, 'http://127.0.0.1:11434/v1/chat/completions');
   assert.equal(request.body.response_format.type, 'json_schema');
-  const childMonitorSchema = request.body.response_format.json_schema.schema.anyOf.find(
+  assert.equal(request.body.max_tokens, 384);
+  const schemaVariants = request.body.response_format.json_schema.schema.anyOf;
+  assert.equal(schemaVariants.length, 7);
+  const childMonitorSchema = schemaVariants.find(
     (variant) => variant.properties.reportCategory.const === 'monitor'
       && variant.properties.beneficiaryType.const === 'child',
   );
   assert.equal(childMonitorSchema.properties.metricIds.maxItems, 12);
-  assert.deepEqual(
-    childMonitorSchema.properties.metricIds.items.enum,
-    [
-      'measurementDate',
-      'weightForAge',
-      'heightForAge',
-      'bmiForAge',
-      'weightForLengthInterpretation',
-      'weightForAgeInterpretation',
-      'lengthForAgeInterpretation',
-      'weightForLengthZScore',
-      'weightForAgeZScore',
-      'lengthForAgeZScore',
-    ],
-  );
-  const motherMonitorSchema = request.body.response_format.json_schema.schema.anyOf.find(
+  assert.deepEqual(childMonitorSchema.properties.metricIds.items.enum, [
+    'measurementDate',
+    'weightForAge',
+    'heightForAge',
+    'bmiForAge',
+    'weightForLengthInterpretation',
+    'weightForAgeInterpretation',
+    'lengthForAgeInterpretation',
+    'weightForLengthZScore',
+    'weightForAgeZScore',
+    'lengthForAgeZScore',
+  ]);
+  const motherMonitorSchema = schemaVariants.find(
     (variant) => variant.properties.reportCategory.const === 'monitor'
       && variant.properties.beneficiaryType.const === 'mother',
   );
   assert.ok(['measurementDate', 'weightForAge', 'heightForAge', 'bmiForAge', 'bmiInterpretation']
     .every((field) => motherMonitorSchema.properties.metricIds.items.enum.includes(field)));
   const serializedRequest = JSON.stringify(request.body);
-  assert.match(serializedRequest, /Compare child weight-for-age progress/);
+  assert.match(serializedRequest, /Compare child weight-for-age interpretation progress/);
   assert.match(serializedRequest, /weightForAgeInterpretation/);
   assert.doesNotMatch(serializedRequest, /schoolId|groupId|batchId|beneficiaryId|patientName/i);
   assert.doesNotMatch(serializedRequest, /Jane A\. Doe|Mila Demo Coordinator/i);
+});
+
+test('AI proposals retain only explicitly requested fields when the model adds related metrics', async () => {
+  const result = await createReportProposal(
+    "Show each child's check-up date, weight-for-age interpretation, and height-for-age interpretation.",
+    {
+      env: modelEnvironment,
+      fetchImpl: async () => new Response(JSON.stringify({
+        choices: [{
+          message: {
+            content: JSON.stringify({
+              reportCategory: 'monitor',
+              beneficiaryType: 'child',
+              profileMetricIds: [],
+              metricIds: [
+                'measurementDate',
+                'weightForAge',
+                'heightForAge',
+                'bmiForAge',
+                'weightForLengthInterpretation',
+                'weightForAgeInterpretation',
+                'lengthForAgeInterpretation',
+                'weightForLengthZScore',
+              ],
+              explanation: 'Shows requested growth interpretations.',
+            }),
+          },
+        }],
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    },
+  );
+
+  assert.deepEqual(result.metricIds, [
+    'measurementDate',
+    'weightForAgeInterpretation',
+    'lengthForAgeInterpretation',
+  ]);
 });
 
 test('progress report AI endpoints require auth and do not pass user scope to the model', async (t) => {
@@ -459,7 +496,7 @@ test('progress report AI endpoints require auth and do not pass user scope to th
   const proposalResponse = await requestToApp(`${baseUrl}/proposal`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt: 'Show child weight-for-age progress.', schoolId: 999, groupId: 999 }),
+    body: JSON.stringify({ prompt: 'Show child weight-for-age interpretation progress.', schoolId: 999, groupId: 999 }),
   });
   assert.equal(proposalResponse.status, 200);
   assert.equal((await proposalResponse.json()).metricIds[0], 'weightForAgeInterpretation');

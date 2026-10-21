@@ -10,6 +10,7 @@ const hasMeaningfulValue = (value) => {
   return true;
 };
 const firstMeaningfulValue = (...values) => values.find(hasMeaningfulValue);
+const MATERNAL_CHECKUP_WEEKS = [8, 10, 12, 16, 20, 24, 28, 32, 36];
 const hasDocumentReference = (mother, nameKeys, pathKeys) => (
   hasMeaningfulValue(firstMeaningfulValue(...nameKeys.map((key) => mother?.[key])))
   && hasMeaningfulValue(firstMeaningfulValue(...pathKeys.map((key) => mother?.[key])))
@@ -30,27 +31,37 @@ export function getMotherDocumentProgress(mother = {}) {
 }
 
 export function getMotherMonitoringStartIndex(mother = {}) {
-  const registeredTrimester = String(mother.trimester || mother.trimester_at_registration || '').toLowerCase();
-  let startIndex = 0;
-  if (registeredTrimester.includes('3rd') || registeredTrimester.includes('third')) startIndex = 6;
-  else if (registeredTrimester.includes('2nd') || registeredTrimester.includes('second')) startIndex = 3;
-  else {
-    const gestationalAge = Number.parseInt(mother.gestationalAge ?? mother.gestational_age, 10);
-    if (Number.isFinite(gestationalAge)) {
-      if (gestationalAge > 26) startIndex = 6;
-      else if (gestationalAge > 12) startIndex = 3;
-      else if (gestationalAge > 4) startIndex = 1;
+  let gestationalAge = NaN;
+  const lmpDate = formatDateForInput(mother.lmpDate ?? mother.lmp_date ?? mother.lmp);
+  const registrationDate = formatDateForInput(mother.prenatalRegDate ?? mother.prenatal_reg_date);
+  if (lmpDate && registrationDate) {
+    const lmp = new Date(`${lmpDate}T00:00:00Z`);
+    const registered = new Date(`${registrationDate}T00:00:00Z`);
+    if (!Number.isNaN(lmp.getTime()) && !Number.isNaN(registered.getTime()) && registered >= lmp) {
+      gestationalAge = Math.floor((registered - lmp) / (7 * 24 * 60 * 60 * 1000));
     }
   }
+  if (!Number.isFinite(gestationalAge)) {
+    gestationalAge = Number.parseInt(mother.gestationalAge ?? mother.gestational_age, 10);
+  }
 
-  return startIndex;
+  if (Number.isFinite(gestationalAge)) {
+    const index = MATERNAL_CHECKUP_WEEKS.findIndex((week) => week >= gestationalAge);
+    return index === -1 ? MATERNAL_CHECKUP_WEEKS.length - 1 : index;
+  }
+
+  const registeredTrimester = String(mother.trimester || mother.trimester_at_registration || '').toLowerCase();
+  if (registeredTrimester.includes('3rd') || registeredTrimester.includes('third')) return 6;
+  if (registeredTrimester.includes('2nd') || registeredTrimester.includes('second')) return 3;
+  return 0;
 }
 
 export function getMotherMonitoringProgress(mother = {}) {
   const startIndex = getMotherMonitoringStartIndex(mother);
   const checkups = Array.isArray(mother.checkups) ? mother.checkups.flat().slice(0, 9) : [];
-  const completed = checkups.filter(Boolean).length;
   const completedBeforeStart = checkups.slice(0, startIndex).filter(Boolean).length;
+  const completedAfterStart = checkups.slice(startIndex).filter(Boolean).length;
+  const completed = completedBeforeStart + completedAfterStart;
   const total = Math.max(1, 9 - startIndex + completedBeforeStart);
 
   return {
@@ -72,16 +83,12 @@ export function getMotherNextCheckupDate(checkupDate, savedNextCheckupDate = '')
 }
 
 export function hasCompletedMotherPregnancy(mother = {}) {
-  const registeredTrimester = String(mother.trimester || mother.trimester_at_registration || '').toLowerCase();
-  const startIndex = registeredTrimester.includes('third') || registeredTrimester.includes('3rd')
-    ? 6
-    : registeredTrimester.includes('second') || registeredTrimester.includes('2nd')
-      ? 3
-      : 0;
+  const startIndex = getMotherMonitoringStartIndex(mother);
   const checkups = Array.isArray(mother.checkups) ? mother.checkups.flat(2) : [];
 
-  return checkups.length >= 9
-    && checkups.slice(startIndex, 9).every((checkup) => checkup?.completed === true);
+  return checkups.length >= MATERNAL_CHECKUP_WEEKS.length
+    && checkups.slice(startIndex, MATERNAL_CHECKUP_WEEKS.length)
+      .every((checkup) => checkup?.completed === true);
 }
 
 export function getMotherProfileProgress(mother = {}) {

@@ -1,6 +1,5 @@
 import React from 'react';
 import { ReportAiAssistant } from './ReportAiAssistant';
-import { StepNavigationButton } from '../../../components/ui/StepNavigationButton';
 
 export function CommunitySelectionStep({
   isCommunityOrganizer,
@@ -10,12 +9,16 @@ export function CommunitySelectionStep({
   batches,
   isHealthWorker,
   options,
+  loadingOptions = false,
   updateSelection,
-  setActiveTab,
-  isNavigating = false,
-  navigationDirection = '',
+  focusOptions,
+  reportFocus,
+  setReportFocus,
   aiScopeLabel,
-  applyAiProposal,
+  hasSchoolSelection,
+  buildAiReportPreview,
+  exportAiReportCsv,
+  reportFocusStep,
 }) {
   return (
     <div className="community-selection-step">
@@ -30,7 +33,7 @@ export function CommunitySelectionStep({
           {!isCommunityOrganizer && (
             <label>
               School
-              <select value={selection.schoolId} onChange={(event) => updateSelection('schoolId', event.target.value)} disabled={isHealthWorker}>
+              <select value={selection.schoolId} onChange={(event) => updateSelection('schoolId', event.target.value)} disabled={isHealthWorker || loadingOptions}>
                 <option value="">Select school</option>
                 {options.schools.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
               </select>
@@ -42,7 +45,7 @@ export function CommunitySelectionStep({
               title="Filter the report by group"
               value={selection.groupId}
               onChange={(event) => updateSelection('groupId', event.target.value)}
-              disabled={!selection.schoolId || isHealthWorker}
+              disabled={!selection.schoolId || isHealthWorker || loadingOptions}
             >
               <option value="">All groups</option>
               {groups.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
@@ -54,7 +57,7 @@ export function CommunitySelectionStep({
               title="Optionally filter the report by batch"
               value={selection.batchId}
               onChange={(event) => updateSelection('batchId', event.target.value)}
-              disabled={!selection.groupId}
+              disabled={!selection.groupId || loadingOptions}
             >
               <option value="">All batches</option>
               {batches.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
@@ -68,18 +71,32 @@ export function CommunitySelectionStep({
               ? 'Your school is assigned to your account. Group and Batch are optional filters.'
               : 'Select a School to begin. Group and Batch are optional filters.'}
         </p>
-        <div className="progress-report-tab-actions">
-          <StepNavigationButton
-            className="primary-btn"
-            disabled={!selection.schoolId || isNavigating}
-            loading={navigationDirection === 'next'}
-            onClick={() => setActiveTab(2)}
-          >
-            Next: Report Focus →
-          </StepNavigationButton>
-        </div>
+        {selection.schoolId && focusOptions.length > 1 && (
+          <fieldset className="progress-report-beneficiary-type">
+            <legend>Report mode</legend>
+            {focusOptions.map(([value, label]) => (
+              <label key={value} className={reportFocus === value ? 'selected' : ''}>
+                <input
+                  type="radio"
+                  name="progress-report-mode"
+                  value={value}
+                  checked={reportFocus === value}
+                  onChange={() => setReportFocus(value)}
+                />
+                {label}
+              </label>
+            ))}
+            <p className="progress-report-note">Summary modes combine beneficiary data by group or batch. Profile reports always list individual beneficiaries.</p>
+          </fieldset>
+        )}
       </div>
-      <ReportAiAssistant scopeLabel={aiScopeLabel} onApply={applyAiProposal} />
+      {selection.schoolId && reportFocusStep}
+      <ReportAiAssistant
+        scopeLabel={aiScopeLabel}
+        hasSchoolSelection={hasSchoolSelection}
+        onBuildPreview={buildAiReportPreview}
+        onExport={exportAiReportCsv}
+      />
     </div>
   );
 }

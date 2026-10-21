@@ -1,5 +1,9 @@
 const mysql = require('mysql2/promise');
 require('dotenv').config();
+const {
+  motherInitialCheckupDueSql,
+  motherMonitoringTotalSql,
+} = require('./utils/motherMonitoring');
 
 const databaseName = process.env.DB_NAME || 'f1kd';
 if (!/^[A-Za-z0-9_$]+$/.test(databaseName)) {
@@ -452,6 +456,7 @@ async function ensure() {
      WHERE m.prenatal_reg_date IS NOT NULL
        AND (m.prenatal_weight IS NOT NULL OR m.prenatal_bp IS NOT NULL
          OR m.prenatal_height IS NOT NULL OR m.fundal_height IS NOT NULL OR m.fhr IS NOT NULL)
+       AND ${motherInitialCheckupDueSql('m')}
        AND NOT EXISTS (
          SELECT 1 FROM mother_checkups mc
          WHERE mc.mother_id = m.id
@@ -466,7 +471,7 @@ async function ensure() {
 
     `UPDATE mothers m
      SET progress = LEAST(100, ROUND(
-       (SELECT COUNT(*) FROM mother_checkups mc WHERE mc.mother_id = m.id) * 100 / 9
+       (SELECT COUNT(*) FROM mother_checkups mc WHERE mc.mother_id = m.id) * 100 / ${motherMonitoringTotalSql('m')}
      ))
      WHERE EXISTS (SELECT 1 FROM mother_checkups mc WHERE mc.mother_id = m.id);`,
 

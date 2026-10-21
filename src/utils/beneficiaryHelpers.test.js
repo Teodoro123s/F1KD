@@ -57,8 +57,28 @@ test('getMotherMonitoringProgress starts in September when the LMP was in July a
   assert.equal(progress.percentage, 0);
 });
 
-test('getMotherMonitoringStartIndex skips T1-C1 at five weeks', () => {
-  assert.equal(getMotherMonitoringStartIndex({ trimester: '1st Trimester', gestationalAge: '5' }), 1);
+test('getMotherMonitoringStartIndex uses the next scheduled checkup at five weeks', () => {
+  assert.equal(getMotherMonitoringStartIndex({ trimester: '1st Trimester', gestationalAge: '5' }), 0);
+});
+
+test('getMotherMonitoringProgress derives variable targets from gestational age at registration', () => {
+  const makeMother = (gestationalAge) => ({
+    gestationalAge: String(gestationalAge),
+    checkups: Array.from({ length: 3 }, () => [null, null, null]),
+  });
+
+  assert.equal(getMotherMonitoringProgress(makeMother(10)).total, 8);
+  assert.equal(getMotherMonitoringProgress(makeMother(12)).total, 7);
+  assert.equal(getMotherMonitoringProgress(makeMother(20)).total, 5);
+});
+
+test('getMotherMonitoringStartIndex derives registration age from LMP and registration date', () => {
+  const mother = {
+    lmpDate: '2026-01-01',
+    prenatalRegDate: '2026-05-21',
+  };
+  assert.equal(getMotherMonitoringStartIndex(mother), 4);
+  assert.equal(getMotherMonitoringProgress(mother).total, 5);
 });
 
 test('getMotherMonitoringProgress counts remaining checkups from the second trimester correctly', () => {
@@ -107,6 +127,23 @@ test('getMotherMonitoringProgress still counts only visits from late registratio
   assert.equal(progress.total, 3);
   assert.equal(progress.completed, 3);
   assert.equal(progress.percentage, 100);
+});
+
+test('allows child registration after every checkup required from the computed registration week', () => {
+  const checkups = [
+    [null, null, null],
+    [null, null, { completed: true }],
+    [{ completed: true }, { completed: true }, { completed: true }],
+  ];
+  assert.equal(hasCompletedMotherPregnancy({
+    gestationalAge: '20',
+    checkups,
+  }), false);
+  checkups[1][1] = { completed: true };
+  assert.equal(hasCompletedMotherPregnancy({
+    gestationalAge: '20',
+    checkups,
+  }), true);
 });
 
 test('allows child registration after all checkups expected from the registration trimester', () => {

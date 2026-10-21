@@ -11,6 +11,11 @@ const { MOTHER_ADDITIONAL_VACCINES, getMotherVaccineRecords } = require('../util
 const { INVALID_ASSISTANCE_AMOUNT_MESSAGE, parseAssistanceAmount } = require('../utils/assistanceAmount');
 const { getBloodPressureError } = require('../utils/bloodPressure');
 const { getFirstNameValidationError, normalizeFirstName } = require('../utils/firstNameValidation');
+const {
+  getMotherInitialCheckupSlot,
+  getMotherRegistrationGestationalAge,
+  motherMonitoringTotalSql,
+} = require('../utils/motherMonitoring');
 const MOTHER_STANDARD_NAME_PATTERN = /^[\p{L}][\p{L}\p{M}]*(?:[ '-][\p{L}][\p{L}\p{M}]*)*$/u;
 const MOTHER_MIDDLE_NAME_PATTERN = /^(?:[\p{L}]\.?|[\p{L}]+(?:['-][\p{L}]+)*)$/u;
 const MOTHER_SUFFIX_PATTERN = /^[\p{L}\d]+(?:[ .'-][\p{L}\d]+)*\.?$/u;
@@ -638,9 +643,13 @@ router.post('/', async (req, res) => {
     }
     const registeredTrimester = firstNonEmpty(b.trimester, b.trimester_at_registration, '');
     const gestationalAge = firstNonEmpty(b.gestationalAge, b.gestational_age, null);
-    const initialCheckupTrimester = ['1st Trimester', '2nd Trimester', '3rd Trimester'].includes(registeredTrimester)
-      ? registeredTrimester
-      : Number(gestationalAge) >= 28 ? '3rd Trimester' : Number(gestationalAge) >= 13 ? '2nd Trimester' : '1st Trimester';
+    const initialCheckupGestationalAge = getMotherRegistrationGestationalAge({
+      lmpDate: optionalDate(b.lmpDate, b.lmp_date),
+      prenatalRegDate: initialCheckupDate,
+      gestationalAge,
+      trimester: registeredTrimester,
+    });
+    const initialCheckupSlot = getMotherInitialCheckupSlot(initialCheckupGestationalAge);
     const initialWeight = Number(initialCheckup.weight);
     const initialHeight = Number(initialCheckup.height);
     const initialBmi = initialWeight > 0 && initialHeight > 0
@@ -777,12 +786,13 @@ router.post('/', async (req, res) => {
           blood_pressure, weight_kg, height_cm, bmi, nutritional_status,
           fundal_height_cm, fetal_heart_rate_bpm, recorded_by_user_id,
           created_by_user_id, updated_by_user_id
-        ) VALUES (?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           result.insertId,
-          initialCheckupTrimester,
+          initialCheckupSlot.trimester,
+          initialCheckupSlot.number,
           initialCheckupDate,
-          gestationalAge,
+          initialCheckupGestationalAge,
           initialCheckup.bloodPressure,
           initialCheckup.weight,
           initialCheckup.height,
@@ -796,9 +806,9 @@ router.post('/', async (req, res) => {
         ],
       );
       await pool.query(
-        `UPDATE mothers SET progress = LEAST(100, ROUND(
-          (SELECT COUNT(*) FROM mother_checkups WHERE mother_id = ?) * 100 / 9
-        )) WHERE id = ?`,
+        `UPDATE mothers m SET progress = LEAST(100, ROUND(
+          (SELECT COUNT(*) FROM mother_checkups WHERE mother_id = ?) * 100 / ${motherMonitoringTotalSql('m')}
+        )) WHERE m.id = ?`,
         [result.insertId, result.insertId],
       );
     }
@@ -1444,9 +1454,9 @@ router.post('/:id/checkups', async (req, res) => {
     );
 
     await pool.query(
-      `UPDATE mothers SET progress = LEAST(100, ROUND(
-        (SELECT COUNT(*) FROM mother_checkups WHERE mother_id = ?) * 100 / 9
-      )) WHERE id = ?`,
+      `UPDATE mothers m SET progress = LEAST(100, ROUND(
+        (SELECT COUNT(*) FROM mother_checkups WHERE mother_id = ?) * 100 / ${motherMonitoringTotalSql('m')}
+      )) WHERE m.id = ?`,
       [motherDbId, motherDbId]
     );
 
