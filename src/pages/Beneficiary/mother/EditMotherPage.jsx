@@ -320,6 +320,10 @@ export default function EditMotherPage() {
                 batches={communityOptions.batches}
                 documentFiles={documentFiles}
                 setDocumentFiles={setDocumentFiles}
+                existingDocumentNames={{
+                  birthCertificate: form.birthCertificateDocumentName,
+                  consent: form.consentDocumentName,
+                }}
                 autoCalculate={false}
                 readOnly={false}
                 validationErrors={{

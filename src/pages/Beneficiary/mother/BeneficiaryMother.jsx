@@ -10,6 +10,7 @@ import { calculateTotalChildren } from '../../../utils/maternalBirthCounts';
 import { calculateNaegeleEdd } from '../../../utils/maternalPregnancy';
 import { MATERNAL_VACCINE_SEQUENCES } from '../../../utils/maternalVaccineDates';
 import FieldInfoTooltip from '../../../components/ui/FieldInfoTooltip';
+import FileUploadField from '../../../components/ui/FileUploadField';
 import { getBatchesForGroup } from '../utils/beneficiaryUtils';
 import { normalizeFirstName } from '../../../utils/firstNameValidation';
 
@@ -37,6 +38,7 @@ export function MotherFormFields({
   slashDateInput = true,
   documentFiles = {},
   setDocumentFiles,
+  existingDocumentNames = {},
   documentContent = null,
   hideSchoolField = false,
   showRequiredValidation = false,
@@ -691,24 +693,22 @@ export function MotherFormFields({
           <section className="create-mother-category">
             <h4 className="form-section-title">I.C DOCUMENTS</h4>
             <div className="document-upload-grid create-mother-document-grid">
-              <div className="document-upload-field">
-                <label className="form-label" htmlFor="mother-birth-certificate">Mother's Birth Certificate</label>
-                <input
-                  id="mother-birth-certificate"
-                  type="file"
-                  accept=".pdf,.jpg,.jpeg,.png,.webp"
-                  onChange={(event) => setDocumentFiles?.((current) => ({ ...current, birthCertificate: event.target.files?.[0] || null }))}
-                />
-              </div>
-              <div className="document-upload-field">
-                <label className="form-label" htmlFor="mother-consent">Program Consent Form</label>
-                <input
-                  id="mother-consent"
-                  type="file"
-                  accept=".pdf,.jpg,.jpeg,.png,.webp"
-                  onChange={(event) => setDocumentFiles?.((current) => ({ ...current, consent: event.target.files?.[0] || null }))}
-                />
-              </div>
+              <FileUploadField
+                id="mother-birth-certificate"
+                label="Mother's Birth Certificate"
+                accept=".pdf,.jpg,.jpeg,.png,.webp"
+                file={documentFiles.birthCertificate}
+                existingName={existingDocumentNames.birthCertificate}
+                onChange={(file) => setDocumentFiles?.((current) => ({ ...current, birthCertificate: file }))}
+              />
+              <FileUploadField
+                id="mother-consent"
+                label="Program Consent Form"
+                accept=".pdf,.jpg,.jpeg,.png,.webp"
+                file={documentFiles.consent}
+                existingName={existingDocumentNames.consent}
+                onChange={(file) => setDocumentFiles?.((current) => ({ ...current, consent: file }))}
+              />
             </div>
           </section>
         )}
@@ -766,6 +766,7 @@ export function MotherFormFields({
             required: true,
             maxDate: new Date().toISOString().split('T')[0],
             onChange: handleLmpChange,
+            helpText: 'LMP means the first day of the last menstrual period; it is used to calculate EDD and gestational age.',
           })}
 
           {renderField({
@@ -775,6 +776,7 @@ export function MotherFormFields({
             type: 'date',
             required: !!form.eddDateOverridden,
             disabled: !form.eddDateOverridden,
+            helpText: 'EDD is calculated from the LMP date. Enable the override option only when a provider confirms a different date.',
           })}
           </div>
           <label className="form-toggle-label create-mother-edd-override" htmlFor="mother-edd-override">
@@ -795,9 +797,9 @@ export function MotherFormFields({
           </div>
 
           <div className="form-row-3 full-width">
-          {renderField({ id: 'prenatal-weight', label: 'Weight (kg) at Reg', name: 'prenatalWeight', placeholder: 'e.g. 52', required: true })}
+          {renderField({ id: 'prenatal-weight', label: 'Weight (kg) at Reg', name: 'prenatalWeight', placeholder: 'e.g. 52', required: true, helpText: 'Enter the mother’s measured weight at the first prenatal check-up, in kilograms.' })}
           {renderField({ id: 'prenatal-bp', label: 'Blood Pressure (BP) at Reg', name: 'prenatalBp', placeholder: 'e.g. 120/80', required: true, customRequired: true, helpText: 'Numbers and one slash only; up to 3 digits on each side.' })}
-          {renderField({ id: 'prenatal-height', label: 'Height (cm) at Reg', name: 'prenatalHeight', placeholder: 'e.g. 150', required: true })}
+          {renderField({ id: 'prenatal-height', label: 'Height (cm) at Reg', name: 'prenatalHeight', placeholder: 'e.g. 150', required: true, helpText: 'Enter height in centimeters; this value is used to calculate the initial BMI.' })}
           </div>
           <div className="form-row-2 full-width">
             <div className="form-group">
