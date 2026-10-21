@@ -7,9 +7,11 @@ import { getSummary } from '../Community/communityService';
 import { apiGetChildren } from '../../api/children';
 import { apiGetPrograms } from '../../api/programs';
 import { apiGetManagedHealthWorkers, apiGetUsers } from '../../api/users';
+import { apiGetActivityReport, apiGetReportScopes } from '../../api/reports';
+import { apiGetNotifications } from '../../api/notifications';
 import { can, isCommunityCoordinatorRole, isHealthWorkerRole, normalizeRole, ROLES } from '../../utils/permissions';
 import { DashboardInsights } from './DashboardInsights';
-import { buildDashboardModuleSummaries } from './dashboardModuleMetrics.mjs';
+import { buildDashboardModuleSummaries, buildOperationalStaffMetrics } from './dashboardModuleMetrics.mjs';
 
 function getGreeting(name) {
   const hour = new Date().getHours();
@@ -96,6 +98,9 @@ export default function DashboardPage() {
   const [children, setChildren] = useState([]);
   const [programs, setPrograms] = useState([]);
   const [users, setUsers] = useState([]);
+  const [reportScopes, setReportScopes] = useState({ schools: [], groups: [] });
+  const [activityReport, setActivityReport] = useState({ activities: [], counts: { signIns: 0 }, dailyActivity: [] });
+  const [notificationCounts, setNotificationCounts] = useState({ all: 0, unread: 0 });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshVersion, setRefreshVersion] = useState(0);
@@ -117,12 +122,33 @@ export default function DashboardPage() {
           : isCommunityOrganizer
             ? apiGetManagedHealthWorkers()
             : Promise.resolve(null),
+        isSuperAdmin ? apiGetReportScopes() : Promise.resolve(null),
+        isSuperAdmin ? apiGetActivityReport({ page: 1, perPage: 8 }) : Promise.resolve(null),
+        isSuperAdmin ? apiGetNotifications({ page: 1, perPage: 1 }) : Promise.resolve(null),
       ]);
 
       if (!active) return;
 
-      const [summaryResult, , childrenResult, programsResult, usersResult] = results;
-      const resultNames = ['community summary', 'beneficiary records', 'children', 'programs', 'users'];
+      const [
+        summaryResult,
+        ,
+        childrenResult,
+        programsResult,
+        usersResult,
+        reportScopesResult,
+        activityReportResult,
+        notificationsResult,
+      ] = results;
+      const resultNames = [
+        'community summary',
+        'beneficiary records',
+        'children',
+        'programs',
+        'users',
+        'community scopes',
+        'activity report',
+        'notifications',
+      ];
       const errors = [];
       results.forEach((result, index) => {
         if (result.status === 'rejected') {
@@ -143,6 +169,15 @@ export default function DashboardPage() {
       }
       if (usersResult.status === 'fulfilled' && usersResult.value) {
         setUsers(getList(usersResult.value, 'users'));
+      }
+      if (reportScopesResult.status === 'fulfilled' && reportScopesResult.value) {
+        setReportScopes(reportScopesResult.value);
+      }
+      if (activityReportResult.status === 'fulfilled' && activityReportResult.value) {
+        setActivityReport(activityReportResult.value);
+      }
+      if (notificationsResult.status === 'fulfilled' && notificationsResult.value) {
+        setNotificationCounts(notificationsResult.value.counts || { all: 0, unread: 0 });
       }
       setLastUpdated(new Date());
       setLoading(false);
@@ -186,23 +221,7 @@ export default function DashboardPage() {
     };
   }, [children, communitySummary, mothers, programs]);
 
-  const staffMetrics = useMemo(() => {
-    const operationalRoles = new Set([
-      ROLES.ADMIN,
-      ROLES.PARTNER,
-      ROLES.HEALTH_WORKER,
-      ROLES.COMMUNITY_COORDINATOR,
-    ]);
-    const operationalUsers = users.filter((user) => operationalRoles.has(normalizeRole(user.role)));
-    return {
-      active: operationalUsers.filter((user) => String(user.status || 'Active').trim().toLowerCase() === 'active').length,
-      unassigned: operationalUsers.filter((user) => (
-        String(user.status || 'Active').trim().toLowerCase() === 'active' &&
-        !(user.school_id ?? user.schoolId)
-      )).length,
-      suspended: operationalUsers.filter((user) => String(user.status || '').trim().toLowerCase() === 'suspended').length,
-    };
-  }, [users]);
+  const staffMetrics = useMemo(() => buildOperationalStaffMetrics(users), [users]);
 
   const registrationTrend = useMemo(
     () => buildRegistrationTrend([...mothers, ...children]),
@@ -242,16 +261,54 @@ export default function DashboardPage() {
     activeStaff: staffMetrics.active,
     unassignedStaff: staffMetrics.unassigned,
     suspendedStaff: staffMetrics.suspended,
-  }), [isSuperAdmin, staffMetrics, stats]);
+    operationalAccounts: isSuperAdmin ? staffMetrics.total : 0,
+    communitySchools: isSuperAdmin ? reportScopes.schools?.length || 0 : 0,
+    communityGroups: isSuperAdmin ? reportScopes.groups?.length || 0 : 0,
+    operationalSignInsLast30Days: isSuperAdmin
+      ? (activityReport.dailyActivity || []).reduce((total, item) => total + (Number(item.count) || 0), 0)
+      : 0,
+    unreadNotifications: isSuperAdmin ? Number(notificationCounts.unread) || 0 : 0,
+  }), [activityReport, isSuperAdmin, notificationCounts, reportScopes, staffMetrics, stats]);
 
   const moduleSummaries = useMemo(() => buildDashboardModuleSummaries({
     mothers,
     children,
     programs,
     staffMetrics,
+    communityMetrics: {
+      schools: reportScopes.schools?.length || 0,
+      groups: reportScopes.groups?.length || 0,
+    },
+    reportMetrics: {
+      signIns: Number(activityReport.counts?.signIns) || 0,
+      signInsLast30Days: (activityReport.dailyActivity || []).reduce(
+        (total, item) => total + (Number(item.count) || 0),
+        0,
+      ),
+    },
+    notificationMetrics: notificationCounts,
     isSuperAdmin,
     isCommunityOrganizer,
-  }), [children, isCommunityOrganizer, isSuperAdmin, mothers, programs, staffMetrics]);
+  }), [
+    activityReport,
+    children,
+    isCommunityOrganizer,
+    isSuperAdmin,
+    mothers,
+    notificationCounts,
+    programs,
+    reportScopes,
+    staffMetrics,
+  ]);
+
+  const signInTrend = useMemo(
+    () => (activityReport.dailyActivity || []).map((item) => ({
+      key: item.date,
+      label: new Date(`${item.date}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+      count: Number(item.count) || 0,
+    })),
+    [activityReport.dailyActivity],
+  );
 
   const assignedSchoolName = useMemo(() => {
     const schoolId = currentUser?.school_id ?? currentUser?.schoolId;
@@ -290,7 +347,7 @@ export default function DashboardPage() {
     if (isHealthWorker) {
       return [
         { key: 'follow-ups', title: 'Follow-Ups', value: stats.followUpCount, subtitle: 'Beneficiaries needing follow-up', to: '/monitoring', icon: '🩺', cardClass: 'amber' },
-        { key: 'receipts', title: 'Receipt Check-ins', value: stats.programCount, subtitle: 'Programs assigned to your group', to: '/program', icon: '🍱', cardClass: 'rose' },
+        { key: 'receipts', title: 'Assigned Programs', value: stats.programCount, subtitle: 'Available to your group', to: '/program', icon: '🍱', cardClass: 'rose' },
       ];
     }
 
@@ -354,7 +411,7 @@ export default function DashboardPage() {
   if (loading) return <PageSkeleton variant="dashboard" />;
 
   const description = isSuperAdmin
-    ? 'Manage operational accounts and review system access'
+    ? 'Live overview of Community, User Management, Reports, and Notifications'
     : isHealthWorker
       ? 'Your assigned-group check-ins and follow-up tasks'
       : isCommunityOrganizer
@@ -410,23 +467,35 @@ export default function DashboardPage() {
       <section className="dashboard-visual-grid" aria-label="Live dashboard reports">
         <div className="dashboard-panel dashboard-chart-panel">
           <div className="dashboard-panel-heading">
-            <div><span className="dashboard-panel-eyebrow">Last 6 weeks</span><h3>New beneficiary registrations</h3></div>
-            <Link to="/beneficiary" className="panel-link">View records</Link>
+            <div>
+              <span className="dashboard-panel-eyebrow">{isSuperAdmin ? 'Last 30 days' : 'Last 6 weeks'}</span>
+              <h3>{isSuperAdmin ? 'Operational sign-ins' : 'New beneficiary registrations'}</h3>
+            </div>
+            {!isSuperAdmin && <Link to="/beneficiary" className="panel-link">View records</Link>}
           </div>
-          {registrationTrend.some((week) => week.count > 0) ? (
-            <div className="dashboard-trend-chart" role="img" aria-label={`Weekly new registrations: ${registrationTrend.map((week) => `${week.label}: ${week.count}`).join(', ')}`}>
-              {registrationTrend.map((week) => {
-                const maximum = Math.max(1, ...registrationTrend.map((item) => item.count));
+          {(isSuperAdmin ? signInTrend : registrationTrend).some((period) => period.count > 0) ? (
+            <div
+              className="dashboard-trend-chart"
+              role="img"
+              aria-label={`${isSuperAdmin ? 'Daily operational sign-ins' : 'Weekly new registrations'}: ${(isSuperAdmin ? signInTrend : registrationTrend).map((period) => `${period.label}: ${period.count}`).join(', ')}`}
+            >
+              {(isSuperAdmin ? signInTrend : registrationTrend).map((period) => {
+                const periods = isSuperAdmin ? signInTrend : registrationTrend;
+                const maximum = Math.max(1, ...periods.map((item) => item.count));
                 return (
-                  <div className="dashboard-trend-column" key={week.key}>
-                    <strong>{week.count}</strong>
-                    <span className="dashboard-trend-track"><span style={{ height: `${Math.max(week.count ? 8 : 0, (week.count / maximum) * 100)}%` }} /></span>
-                    <small>{week.label}</small>
+                  <div className="dashboard-trend-column" key={period.key}>
+                    <strong>{period.count}</strong>
+                    <span className="dashboard-trend-track"><span style={{ height: `${Math.max(period.count ? 8 : 0, (period.count / maximum) * 100)}%` }} /></span>
+                    <small>{period.label}</small>
                   </div>
                 );
               })}
             </div>
-          ) : <p className="dashboard-empty-state">No dated registrations are available for the last 6 weeks.</p>}
+          ) : <p className="dashboard-empty-state">
+            {isSuperAdmin
+              ? 'No operational sign-ins are available for the last 30 days.'
+              : 'No dated registrations are available for the last 6 weeks.'}
+          </p>}
         </div>
 
         <div className="dashboard-panel dashboard-chart-panel">
@@ -471,7 +540,7 @@ export default function DashboardPage() {
         <div>
           <span className="dashboard-panel-eyebrow">Needs attention</span>
           <strong>{isSuperAdmin ? staffMetrics.unassigned : stats.followUpCount}</strong>
-          <span>{isSuperAdmin ? 'active staff without a school assignment' : 'beneficiaries currently flagged for follow-up'}</span>
+          <span>          {isSuperAdmin ? 'active staff missing a required school or group assignment' : 'beneficiaries currently flagged for follow-up'}</span>
         </div>
         <Link to={isSuperAdmin ? '/user-management' : '/monitoring'} className="panel-link">
           {isSuperAdmin ? 'Review assignments' : 'Review monitoring'}
@@ -480,28 +549,56 @@ export default function DashboardPage() {
 
       <DashboardInsights metrics={dashboardMetrics} ready={!loading} refreshVersion={refreshVersion} />
 
-      <section className="dashboard-panel dashboard-recent-panel" aria-labelledby="dashboard-recent-title">
-        <div className="dashboard-panel-heading">
-          <div><span className="dashboard-panel-eyebrow">Latest records</span><h3 id="dashboard-recent-title">Recent registrations</h3></div>
-          <Link to="/beneficiary" className="panel-link">Open beneficiaries</Link>
-        </div>
-        {recentRecords.length ? (
-          <div className="dashboard-recent-table-wrap">
-            <table className="dashboard-recent-table">
-              <thead><tr><th scope="col">Record</th><th scope="col">Type</th><th scope="col">Registered</th></tr></thead>
-              <tbody>
-                {recentRecords.map((record) => (
-                  <tr key={record.id}>
-                    <td>{record.name}</td>
-                    <td>{record.type}</td>
-                    <td>{record.date.toLocaleDateString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {isSuperAdmin ? (
+        <section className="dashboard-panel dashboard-recent-panel" aria-labelledby="dashboard-recent-title">
+          <div className="dashboard-panel-heading">
+            <div><span className="dashboard-panel-eyebrow">Latest report entries</span><h3 id="dashboard-recent-title">Recent operational sign-ins</h3></div>
+            <Link to="/reports" className="panel-link">Open reports</Link>
           </div>
-        ) : <p className="dashboard-empty-state">No recent registration dates are available.</p>}
-      </section>
+          {activityReport.activities?.length ? (
+            <div className="dashboard-recent-table-wrap">
+              <table className="dashboard-recent-table">
+                <thead><tr><th scope="col">User</th><th scope="col">Action</th><th scope="col">Recorded</th></tr></thead>
+                <tbody>
+                  {activityReport.activities.map((activity) => {
+                    const date = new Date(activity.createdAt);
+                    return (
+                      <tr key={activity.id}>
+                        <td>{activity.actorName || 'Unknown user'}</td>
+                        <td>Signed in</td>
+                        <td>{Number.isNaN(date.getTime()) ? '—' : date.toLocaleString()}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : <p className="dashboard-empty-state">No operational activity is available in the report.</p>}
+        </section>
+      ) : (
+        <section className="dashboard-panel dashboard-recent-panel" aria-labelledby="dashboard-recent-title">
+          <div className="dashboard-panel-heading">
+            <div><span className="dashboard-panel-eyebrow">Latest records</span><h3 id="dashboard-recent-title">Recent registrations</h3></div>
+            <Link to="/beneficiary" className="panel-link">Open beneficiaries</Link>
+          </div>
+          {recentRecords.length ? (
+            <div className="dashboard-recent-table-wrap">
+              <table className="dashboard-recent-table">
+                <thead><tr><th scope="col">Record</th><th scope="col">Type</th><th scope="col">Registered</th></tr></thead>
+                <tbody>
+                  {recentRecords.map((record) => (
+                    <tr key={record.id}>
+                      <td>{record.name}</td>
+                      <td>{record.type}</td>
+                      <td>{record.date.toLocaleDateString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : <p className="dashboard-empty-state">No recent registration dates are available.</p>}
+        </section>
+      )}
 
       <section className="dashboard-panel" aria-labelledby="dashboard-actions-title">
         <div className="panel-title-row">

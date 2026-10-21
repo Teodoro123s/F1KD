@@ -68,7 +68,7 @@ export default function CommunityToolbar({
                 >
                   <PlusIcon />
                   <span>Create</span>
-                  <svg viewBox="0 0 20 20" width="16" height="16" fill="none" aria-hidden="true">
+                  <svg className="module-create-button__chevron" viewBox="0 0 20 20" width="16" height="16" fill="none" aria-hidden="true">
                     <path d="m5 7.5 5 5 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </button>

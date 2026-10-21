@@ -64,6 +64,10 @@ test('Community Organizer can manage only Health workers in their assigned schoo
   const activityEvents = [];
 
   pool.query = async (sql, params = []) => {
+    if (sql.includes('FROM users') && sql.includes("LOWER(TRIM(role)) IN ('community organizer'")) {
+      assert.doesNotMatch(sql, /'partner'/);
+      return [[]];
+    }
     if (sql.startsWith('INSERT INTO activity_logs')) {
       activityEvents.push(params);
       return [{ insertId: activityEvents.length }];
@@ -96,6 +100,7 @@ test('Community Organizer can manage only Health workers in their assigned schoo
       return [found ? [found] : []];
     }
     if (sql.startsWith('INSERT INTO notifications')) return [{ insertId: 1 }];
+    if (sql.startsWith('INSERT IGNORE INTO activity_logs')) return [{ affectedRows: 1 }];
     throw new Error(`Unexpected test SQL: ${sql}`);
   };
   global.fetch = async (url, options) => {
@@ -131,6 +136,13 @@ test('Community Organizer can manage only Health workers in their assigned schoo
     },
   });
   const organizer = { id: 1, role: 'Community Organizer', school_id: 12 };
+
+  const coordinatorOptionsResponse = await request('/coordinators', organizer);
+  assert.equal(coordinatorOptionsResponse.status, 403);
+
+  const superAdminCoordinatorOptions = await request('/coordinators', { id: 3, role: 'Super Admin' });
+  assert.equal(superAdminCoordinatorOptions.status, 200);
+  assert.deepEqual((await superAdminCoordinatorOptions.json()).users, []);
 
   const listResponse = await request('/health-workers', organizer);
   assert.equal(listResponse.status, 200);

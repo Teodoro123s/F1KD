@@ -6,6 +6,7 @@ import {
   getLatestMonitoringReportCheckup,
   getMonitoringReportCheckups,
   getMonitoringReportValue,
+  escapeMonitoringReportCsvValue,
   MONITORING_REPORT_FIELD_LABELS,
 } from './monitoringReportUtils.mjs';
 
@@ -86,15 +87,25 @@ test('non-normal screening filter returns only recorded Needs Follow-up or At Ri
     { developmentalStatus: 'Normal' },
     { developmentalStatus: 'Needs Follow-up' },
     { developmental_status: 'At Risk' },
+    { developmentalStatus: 'Needs_Follow_Up' },
+    { developmentalStatus: 'Pending review' },
+    { developmentalStatus: 'Unknown' },
     {},
   ];
 
-  assert.deepEqual(filterMonitoringReportCheckups(visits, false, true), [visits[1], visits[2]]);
+  assert.deepEqual(filterMonitoringReportCheckups(visits, false, true), [visits[1], visits[2], visits[3]]);
   assert.deepEqual(filterMonitoringReportCheckups(visits, false, false), visits);
   assert.deepEqual(
     filterMonitoringReportCheckups([{ referral: true, developmentalStatus: 'At Risk' }, { referral: false, developmentalStatus: 'At Risk' }], true, true),
     [{ referral: true, developmentalStatus: 'At Risk' }],
   );
+});
+
+test('monitoring CSV values neutralize formulas preceded by whitespace or control characters', () => {
+  assert.equal(escapeMonitoringReportCsvValue('=1+1'), "'=1+1");
+  assert.equal(escapeMonitoringReportCsvValue('\t=1+1'), "'\t=1+1");
+  assert.equal(escapeMonitoringReportCsvValue(' \r@SUM(A1)'), "' \r@SUM(A1)");
+  assert.equal(escapeMonitoringReportCsvValue('Needs follow-up'), 'Needs follow-up');
 });
 
 test('latest check-up selection uses visit dates and keeps the last recorded visit if dates are absent', () => {

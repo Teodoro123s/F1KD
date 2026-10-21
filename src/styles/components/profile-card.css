@@ -529,6 +529,7 @@
 .ranked-by-select { display: inline-flex; align-items: center; gap: 0.45rem; color: #475569; font-size: 0.78rem; font-weight: 700; }
 .ranked-by-select select { min-width: 140px; padding: 0.45rem 0.65rem; border: 1px solid #cbd5e1; border-radius: 7px; background: #fff; color: #334155; font: inherit; }
 .progress-report-graph { display: grid; gap: 1.25rem; padding: 1.5rem 1.25rem; }
+.progress-report-graph { container: progress-report-layout / inline-size; }
 .progress-overview-cards { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.75rem; }
 .progress-overview-cards > div { display: grid; gap: 0.25rem; padding: 0.9rem; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; }
 .progress-overview-cards span { color: #64748b; font-size: 0.75rem; font-weight: 700; }
@@ -783,12 +784,10 @@
   .progress-report-context-selectors select { flex: 1 1 140px; }
   .progress-report-table-wrap { overflow-x: auto; }
   .progress-report-table { min-width: 760px; }
-  .progress-overview-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .comparison-cohorts { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 520px) {
-  .progress-overview-cards { grid-template-columns: 1fr; }
   .graph-bar-row { grid-template-columns: 72px 1fr 42px; gap: 0.5rem; }
 }
 
@@ -965,7 +964,6 @@
 .receipt-beneficiary-empty { margin: 0; color: #64748b; font-size: 0.85rem; }
 .program-receipt-modal-actions { display: flex; justify-content: flex-end; gap: 0.75rem; }
 @media (max-width: 640px) {
-  .program-receipt-history-page > .module-summary-cards { grid-template-columns: 1fr; }
   .program-beneficiary-report-controls { align-items: stretch; flex-direction: column; }
   .program-beneficiary-report-controls select,
   .program-beneficiary-report-controls input { width: 100%; min-width: 0; }
@@ -1496,7 +1494,6 @@
 	.program-intro { align-items: flex-start; flex-direction: column; }
 	.program-level-subheader, .program-level-heading { align-items: flex-start; flex-direction: column; }
 	.program-summary { width: 100%; padding: 0.75rem 0 0; border-top: 1px solid #e2e8f0; border-left: 0; text-align: left; }
-	.program-page > .module-summary-cards { grid-template-columns: 1fr; }
 	.program-detail-stats { grid-template-columns: repeat(2, 1fr); }
 	.program-detail-header { flex-direction: column; }
 	.program-form-columns { grid-template-columns: 1fr; }
@@ -2015,4 +2012,29 @@
 .view-content .progress-report-config-grid select {
   width: 100%;
   min-width: 0;
+}
+
+@container view-content-layout (max-width: 720px) {
+  .module-summary-cards,
+  .program-page > .module-summary-cards,
+  .program-receipt-history-page > .module-summary-cards {
+    grid-auto-flow: row;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container view-content-layout (max-width: 420px) {
+  .module-summary-cards,
+  .program-page > .module-summary-cards,
+  .program-receipt-history-page > .module-summary-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+@container progress-report-layout (max-width: 840px) {
+  .progress-overview-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@container progress-report-layout (max-width: 520px) {
+  .progress-overview-cards { grid-template-columns: 1fr; }
 }

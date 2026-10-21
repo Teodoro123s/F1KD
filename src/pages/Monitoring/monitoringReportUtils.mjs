@@ -25,11 +25,19 @@ export function filterMonitoringReportCheckups(checkups, onlyReferredToHospital,
   return checkups.filter((checkup) => {
     if (onlyReferredToHospital && getMonitoringReportValue(checkup, 'hospitalReferral') !== 'Yes') return false;
     if (onlyNonNormalScreenings) {
-      const status = getMonitoringReportValue(checkup, 'developmentalStatus');
-      if (status === '—' || String(status).trim().toLowerCase() === 'normal') return false;
+      const status = String(getMonitoringReportValue(checkup, 'developmentalStatus'))
+        .trim()
+        .toLowerCase()
+        .replace(/[\s_-]+/g, ' ');
+      if (!['needs follow up', 'at risk'].includes(status)) return false;
     }
     return true;
   });
+}
+
+export function escapeMonitoringReportCsvValue(value) {
+  const text = String(value ?? '');
+  return /^[\u0000-\u0020\uFEFF]*[=+\-@]/.test(text) ? `'${text}` : text;
 }
 
 function getCheckupDate(checkup) {

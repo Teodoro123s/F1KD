@@ -263,3 +263,50 @@ test('notification bulk read endpoint rejects invalid input and unauthorized rec
   });
   assert.equal(inaccessible.status, 404);
 });
+
+test('progress report downloads are recorded for every role allowed to export', async (t) => {
+  await pool.ready;
+  const originalQuery = pool.query;
+  const insertedNotifications = [];
+  pool.query = async (sql, params = []) => {
+    if (sql.startsWith('INSERT INTO notifications')) {
+      insertedNotifications.push(params);
+      return [{ insertId: insertedNotifications.length }];
+    }
+    if (sql.startsWith('INSERT IGNORE INTO activity_logs')) return [{ affectedRows: 1 }];
+    throw new Error(`Unexpected notification test SQL: ${sql}`);
+  };
+
+  const app = express();
+  app.use(express.json());
+  app.use('/api/notifications', notificationsRouter);
+  const server = app.listen(0);
+  t.after(async () => {
+    pool.query = originalQuery;
+    await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  });
+  await new Promise((resolve) => server.once('listening', resolve));
+
+  for (const [id, role] of [
+    [21, 'Admin'],
+    [22, 'Community Coordinator'],
+    [23, 'Partner'],
+    [24, 'Health worker'],
+  ]) {
+    const token = jwt.sign({ id, role, school_id: 91, group_id: 92 }, process.env.JWT_SECRET);
+    const response = await fetch(`http://127.0.0.1:${server.address().port}/api/notifications/download-success`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    assert.equal(response.status, 201, `${role} should be able to record a report export`);
+    assert.deepEqual(await response.json(), { success: true });
+  }
+
+  assert.equal(insertedNotifications.length, 4);
+  assert.ok(insertedNotifications.every((params) => params[0] === 'download.progress_report.csv'));
+  assert.ok(insertedNotifications.every((params) => params[2] === 'Progress report download started'));
+  assert.equal(insertedNotifications[1][7], 91);
+  assert.equal(insertedNotifications[1][11], 22);
+  assert.equal(insertedNotifications[3][7], 91);
+  assert.equal(insertedNotifications[3][11], 24);
+});

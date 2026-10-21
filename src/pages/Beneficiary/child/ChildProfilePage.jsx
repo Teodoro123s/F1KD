@@ -383,25 +383,27 @@ export default function ChildProfilePage() {
         onCancel={cancelDelete}
       />
 
-      {!isChildProfile && <section className="mother-detail-section">
-        <h3 className="mother-detail-section-title">Child Actions</h3>
-        <div className="mother-detail-actions mother-overview-actions">
-          <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/child/${childIdentifier}/profile`, { state: { child: selectedChild, mother: resolvedMother, returnTo } })}>
-            Child Profile
+      {!isChildProfile && <section className="mother-overview-actions-section">
+        <div className="community-overview-cards mother-overview-actions">
+          <button type="button" className="community-overview-card" onClick={() => navigate(`/beneficiary/child/${childIdentifier}/profile`, { state: { child: selectedChild, mother: resolvedMother, returnTo } })}>
+            <span className="community-overview-card__label">Child Profile</span>
+            <span className="community-overview-card__action">View child details</span>
           </button>
           {resolvedMother && (
-            <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/mother/${resolvedMother.id || resolvedMother.motherId}`, {
+            <button type="button" className="community-overview-card" onClick={() => navigate(`/beneficiary/mother/${resolvedMother.id || resolvedMother.motherId}`, {
               state: { mother: resolvedMother, returnTo: `${location.pathname}${location.search}` },
             })}>
-              View Mother
+              <span className="community-overview-card__label">View Mother</span>
+              <span className="community-overview-card__action">Open linked profile</span>
             </button>
           )}
-          <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/child/${childIdentifier}/program-report`, {
+          <button type="button" className="community-overview-card" onClick={() => navigate(`/beneficiary/child/${childIdentifier}/program-report`, {
             state: { returnTo: `${location.pathname}${location.search}` },
           })}>
-            Program Report
+            <span className="community-overview-card__label">Program Report</span>
+            <span className="community-overview-card__action">View benefits and participation</span>
           </button>
-          <button type="button" className="btn-primary" onClick={() => {
+          <button type="button" className="community-overview-card" onClick={() => {
             const mid = resolvedMother?.motherId || resolvedMother?.id || selectedChild.mother_id || selectedChild.motherId || '';
             const stateMother = resolvedMother || (mid ? { id: mid, name: selectedChild.mother_first_name ? `${selectedChild.mother_first_name} ${selectedChild.mother_last_name || ''}`.trim() : undefined } : null);
             navigate('/monitoring', {
@@ -413,7 +415,8 @@ export default function ChildProfilePage() {
               },
             });
           }}>
-            Monitor
+            <span className="community-overview-card__label">Monitor</span>
+            <span className="community-overview-card__action">Record or review visits</span>
           </button>
         </div>
       </section>}

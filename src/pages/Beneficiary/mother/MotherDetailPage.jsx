@@ -274,17 +274,28 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
 
       {overviewOnly && (
         <>
-          <section className="mother-detail-section">
-            <h3 className="mother-detail-section-title">Mother Actions</h3>
-            <div className="mother-detail-actions mother-overview-actions">
-              <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/mother/${motherId}/profile`, { state: { mother: selectedMother, returnTo: `${location.pathname}${location.search}` } })}>Mother Profile</button>
-              <button type="button" className="btn-secondary" onClick={() => {
+          <section className="mother-overview-actions-section">
+            <div className="community-overview-cards mother-overview-actions">
+              <button type="button" className="community-overview-card" onClick={() => navigate(`/beneficiary/mother/${motherId}/profile`, { state: { mother: selectedMother, returnTo: `${location.pathname}${location.search}` } })}>
+                <span className="community-overview-card__label">Mother Profile</span>
+                <span className="community-overview-card__action">View maternal details</span>
+              </button>
+              <button type="button" className="community-overview-card" onClick={() => {
                 navigate(`/beneficiary/mother/${motherId}/child`, { state: { mother: selectedMother, children, returnTo: `/beneficiary/mother/${motherId}` } });
-              }}>View Child</button>
-              <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/mother/${motherId}/program-report`, {
+              }}>
+                <span className="community-overview-card__label">View Child</span>
+                <span className="community-overview-card__action">Browse linked children</span>
+              </button>
+              <button type="button" className="community-overview-card" onClick={() => navigate(`/beneficiary/mother/${motherId}/program-report`, {
                 state: { returnTo: `${location.pathname}${location.search}` },
-              })}>Program Report</button>
-              <button type="button" className="btn-primary" onClick={() => navigate('/monitoring', { state: { mother, returnTo: `${location.pathname}${location.search}` } })}>Monitor</button>
+              })}>
+                <span className="community-overview-card__label">Program Report</span>
+                <span className="community-overview-card__action">View benefits and participation</span>
+              </button>
+              <button type="button" className="community-overview-card" onClick={() => navigate('/monitoring', { state: { mother, returnTo: `${location.pathname}${location.search}` } })}>
+                <span className="community-overview-card__label">Monitor</span>
+                <span className="community-overview-card__action">Record or review visits</span>
+              </button>
             </div>
           </section>
           <MonitorReportCard beneficiaryType="mother" beneficiary={mother} />

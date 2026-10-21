@@ -51,13 +51,13 @@ test('custom monitor CSV includes scope columns, beneficiary identity, requested
 
 test('custom CSV escapes spreadsheet formulas and quotes', () => {
   const { csv } = buildAiReportCsv({
-    rows: [{ mother: '=SUM(1,1)', age: 30, dateOfBirth: '', contactNumber: 'She said "hello"' }],
+    rows: [{ mother: ' \t=SUM(1,1)', age: 30, dateOfBirth: '', contactNumber: 'She said "hello"' }],
     proposal: { reportCategory: 'profile', beneficiaryType: 'mother', metricIds: ['contactNumber'] },
     selection: { schoolId: '1', groupId: '', batchId: '' },
     fieldLabels: new Map([...labels, ['contactNumber', 'Contact Number']]),
   });
 
-  assert.match(csv, /"'\=SUM\(1,1\)"/);
+  assert.match(csv, /"'\s+=SUM\(1,1\)"/);
   assert.match(csv, /"She said ""hello"""/);
 });
 

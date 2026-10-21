@@ -3,6 +3,8 @@ import { formatDateForDisplay, formatDateForInput, maskDateInput, normalizeDateV
 import { capitalizeNameValue } from '../../../utils/nameFormat';
 import { CHILD_VACCINE_SEQUENCES } from '../../../utils/childRecordValidation';
 import { normalizeFirstName } from '../../../utils/firstNameValidation';
+import FieldInfoTooltip from '../../../components/ui/FieldInfoTooltip';
+import FileUploadField from '../../../components/ui/FileUploadField';
 
 export function ChildFormFields({ activeTab, form, setForm, communities = [], batches = [], readOnly = false, slashDateInput = true, birthDocumentFile, setBirthDocumentFile, existingBirthDocumentName = '', showRequiredValidation = false, validationErrors = {} }) {
   const uniqueCommunities = Array.from(new Set(communities.map((comm) => comm.name))).filter(Boolean);
@@ -88,7 +90,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
     }
   };
 
-  const renderField = ({ id, label, name, type = 'text', placeholder = '', required = false, min, minDate, maxValue, step, nativeDate = false, maxDate, disabled = false, onChange, className = '' }) => {
+  const renderField = ({ id, label, name, type = 'text', placeholder = '', required = false, min, minDate, maxValue, step, nativeDate = false, maxDate, disabled = false, onChange, className = '', helpText = '' }) => {
     const value = form[name] ?? '';
     const isDate = type === 'date';
     const isName = /^(firstName|middleName|lastName)$/.test(name);
@@ -109,7 +111,10 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
 
     return (
       <div className={`form-group ${className}`}>
-        <label className="form-label" htmlFor={id}>{label}{required && <span className="form-required-indicator" aria-hidden="true">*</span>}</label>
+        <label className="form-label" htmlFor={id}>
+          {label}{required && <span className="form-required-indicator" aria-hidden="true">*</span>}
+          {helpText && <FieldInfoTooltip content={helpText} />}
+        </label>
         <div className={isNativeDate ? 'date-input-container' : undefined}>
           <input
             id={id}
@@ -341,17 +346,14 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
         {!readOnly && (
           <section className="create-mother-category">
             <h4 className="form-section-title">Birth Certificate (Optional)</h4>
-            <div className="document-upload-field full-width">
-              <label className="form-label" htmlFor="child-birth-document">Live Birth Certificate / Birth Certificate</label>
-              <input
-                id="child-birth-document"
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png,.webp"
-                onChange={(event) => setBirthDocumentFile?.(event.target.files?.[0] || null)}
-              />
-              {existingBirthDocumentName && <span className="document-upload-message">Current file: {existingBirthDocumentName}</span>}
-              {birthDocumentFile && <span className="document-upload-message">Selected file: {birthDocumentFile.name}</span>}
-            </div>
+            <FileUploadField
+              id="child-birth-document"
+              label="Live Birth Certificate / Birth Certificate"
+              accept=".pdf,.jpg,.jpeg,.png,.webp"
+              file={birthDocumentFile}
+              onChange={setBirthDocumentFile}
+              existingName={existingBirthDocumentName}
+            />
           </section>
         )}
       </div>
@@ -373,6 +375,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
                 type: 'date',
                 required: true,
                 maxDate: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`,
+                helpText: 'Use the birth date shown on the child’s official record.',
               })}
               {renderSelect({
                 id: 'child-birth-province',
@@ -414,10 +417,10 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
           <div className="child-form-subsection">
             <h5 className="child-form-subsection-title">Birth Measurements</h5>
             <div className="form-row-4 full-width">
-              {renderField({ id: 'child-birth-weight', label: 'Birth Weight (kg)', name: 'birthWeight', type: 'number', min: 0.3, maxValue: 10, step: 0.01, placeholder: 'e.g. 3.2' })}
-              {renderField({ id: 'child-birth-length', label: 'Birth Length (cm)', name: 'birthLength', type: 'number', min: 20, maxValue: 80, step: 0.1, placeholder: 'e.g. 49' })}
-              {renderField({ id: 'child-head-circumference', label: 'Head Circumference (cm)', name: 'headCircumference', type: 'number', min: 15, maxValue: 60, step: 0.1, placeholder: 'e.g. 34' })}
-              {renderField({ id: 'child-chest-circumference', label: 'Chest Circumference (cm)', name: 'chestCircumference', type: 'number', min: 15, maxValue: 60, step: 0.1, placeholder: 'e.g. 32' })}
+              {renderField({ id: 'child-birth-weight', label: 'Birth Weight (kg)', name: 'birthWeight', type: 'number', min: 0.3, maxValue: 10, step: 0.01, placeholder: 'e.g. 3.2', helpText: 'Enter the recorded weight at birth in kilograms.' })}
+              {renderField({ id: 'child-birth-length', label: 'Birth Length (cm)', name: 'birthLength', type: 'number', min: 20, maxValue: 80, step: 0.1, placeholder: 'e.g. 49', helpText: 'Enter the recorded length at birth in centimeters.' })}
+              {renderField({ id: 'child-head-circumference', label: 'Head Circumference (cm)', name: 'headCircumference', type: 'number', min: 15, maxValue: 60, step: 0.1, placeholder: 'e.g. 34', helpText: 'Enter the measurement recorded at birth, in centimeters.' })}
+              {renderField({ id: 'child-chest-circumference', label: 'Chest Circumference (cm)', name: 'chestCircumference', type: 'number', min: 15, maxValue: 60, step: 0.1, placeholder: 'e.g. 32', helpText: 'Enter the measurement recorded at birth, in centimeters.' })}
             </div>
           </div>
 
@@ -453,7 +456,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
                 options: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'],
                 placeholder: 'Select blood type',
               })}
-              {renderField({ id: 'child-apgar', label: 'Apgar Score', name: 'apgarScore', placeholder: 'e.g. 8/10' })}
+              {renderField({ id: 'child-apgar', label: 'Apgar Score', name: 'apgarScore', placeholder: 'e.g. 8/10', helpText: 'Record the documented Apgar score. Leave blank if it is not available.' })}
               {renderSelect({
                 id: 'child-exclusive-breastfeeding',
                 label: 'Exclusive Breastfeeding',

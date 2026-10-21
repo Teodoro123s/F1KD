@@ -17,9 +17,9 @@ const OPERATIONAL_READ = [
 
 export const PERMISSIONS = {
   'user-management': {
-    read: SUPER_ADMIN,
-    create: SUPER_ADMIN,
-    update: SUPER_ADMIN,
+    read: [ROLES.SUPER_ADMIN, ROLES.COMMUNITY_COORDINATOR],
+    create: [ROLES.SUPER_ADMIN, ROLES.COMMUNITY_COORDINATOR],
+    update: [ROLES.SUPER_ADMIN, ROLES.COMMUNITY_COORDINATOR],
     delete: SUPER_ADMIN,
   },
   'community-resources': {

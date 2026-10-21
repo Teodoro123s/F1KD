@@ -52,15 +52,7 @@ test('authorizeProgressReport allows operational roles and denies super admins',
   }
 });
 
-test('authorizeProgressReport permits super admins to use the read-only monitoring report assistant', () => {
-  let monitoringReportCalled = false;
-  authorizeProgressReport({
-    method: 'POST',
-    path: '/ai/monitoring-report',
-    user: { role: 'Super Admin' },
-  }, {}, () => { monitoringReportCalled = true; });
-  assert.equal(monitoringReportCalled, true);
-
+test('authorizeProgressReport denies Superadmin access to the Monitoring AI intent endpoint', () => {
   let reportCalled = false;
   const res = {
     status(code) { this.code = code; return this; },
@@ -73,6 +65,19 @@ test('authorizeProgressReport permits super admins to use the read-only monitori
   }, res, () => { reportCalled = true; });
   assert.equal(reportCalled, false);
   assert.equal(res.code, 403);
+
+  let monitoringReportCalled = false;
+  const monitoringRes = {
+    status(code) { this.code = code; return this; },
+    json(payload) { this.payload = payload; return this; },
+  };
+  authorizeProgressReport({
+    method: 'POST',
+    path: '/ai/monitoring-report',
+    user: { role: 'Super Admin' },
+  }, monitoringRes, () => { monitoringReportCalled = true; });
+  assert.equal(monitoringReportCalled, false);
+  assert.equal(monitoringRes.code, 403);
 });
 
 test('authorizeProgressReport permits dashboard insights and AI availability for operational roles', () => {

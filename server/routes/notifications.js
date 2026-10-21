@@ -332,7 +332,7 @@ router.patch('/:id/read', authorize('super_admin', 'admin', 'community_coordinat
   return updateNotificationReadState(req, res, req.body.isRead);
 });
 
-router.post('/download-success', authorize('admin', 'partner'), async (req, res) => {
+router.post('/download-success', authorize('admin', 'community_coordinator', 'partner', 'health_worker'), async (req, res) => {
   const scope = getNotificationScope(req.user);
   if (!scope || (!scope.global && !scope.schoolId)) {
     return res.status(403).json({ error: 'Assign this account to a school before recording downloads' });

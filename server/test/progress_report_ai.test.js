@@ -55,6 +55,11 @@ test('dashboard AI receives only validated aggregate metrics and returns a conci
     motherCount: 12,
     childCount: 8,
     followUpCount: 3,
+    operationalAccounts: 8,
+    communitySchools: 4,
+    communityGroups: 9,
+    operationalSignInsLast30Days: 36,
+    unreadNotifications: 2,
   }, 'What should I review?', {
     env: modelEnvironment,
     fetchImpl: async (url, options) => {
@@ -68,7 +73,16 @@ test('dashboard AI receives only validated aggregate metrics and returns a conci
   assert.equal(insight, 'There are 20 beneficiaries and 3 follow-ups to review.');
   assert.deepEqual(JSON.parse(request.messages[1].content), {
     question: 'What should I review?',
-    metrics: { motherCount: 12, childCount: 8, followUpCount: 3 },
+    metrics: {
+      motherCount: 12,
+      childCount: 8,
+      followUpCount: 3,
+      operationalAccounts: 8,
+      communitySchools: 4,
+      communityGroups: 9,
+      operationalSignInsLast30Days: 36,
+      unreadNotifications: 2,
+    },
   });
   assert.doesNotMatch(JSON.stringify(request.messages), /Jane Doe|beneficiary ID|birth date/i);
   assert.throws(() => normalizeDashboardMetrics({ mothers: 3 }), /supported non-negative aggregate counts/);
@@ -523,6 +537,15 @@ test('progress report AI endpoints require auth and do not pass user scope to th
     explanation: 'Shows recorded check-up details.',
   });
   assert.doesNotMatch(JSON.stringify(requests[1].body), /Jane Doe|checkups|123|456/);
+
+  const superAdminToken = jwt.sign({ id: 18, role: 'Super Admin' }, process.env.JWT_SECRET);
+  const superAdminMonitoringReportResponse = await requestToApp(`${baseUrl}/monitoring-report`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${superAdminToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ beneficiaryType: 'Mother', prompt: 'Show saved BMI.' }),
+  });
+  assert.equal(superAdminMonitoringReportResponse.status, 403);
+  assert.equal(requests.length, 2);
 
   const dashboardInsightResponse = await requestToApp(`${baseUrl}/dashboard-insight`, {
     method: 'POST',

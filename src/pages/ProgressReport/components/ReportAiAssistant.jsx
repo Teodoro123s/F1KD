@@ -116,6 +116,9 @@ export function ReportAiAssistant({ scopeLabel, hasSchoolSelection, onBuildPrevi
       <p className="progress-report-ai-scope">
         <strong>Scope stays fixed:</strong> {scopeLabel || 'your current report selection'}
       </p>
+      <p className="progress-report-ai-message">
+        AI receives only your request and the available field list; authorized report rows are fetched inside F1KD. Do not include names, IDs, contact details, or health information in your request.
+      </p>
 
       {availability === 'unavailable' ? (
         <p className="progress-report-ai-message" role="status">

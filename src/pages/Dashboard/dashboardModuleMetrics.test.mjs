@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildDashboardModuleSummaries } from './dashboardModuleMetrics.mjs';
+import { buildDashboardModuleSummaries, buildOperationalStaffMetrics } from './dashboardModuleMetrics.mjs';
 
 test('builds scoped beneficiary, monitoring, program, and progress summaries', () => {
   const modules = buildDashboardModuleSummaries({
@@ -30,10 +30,31 @@ test('builds scoped beneficiary, monitoring, program, and progress summaries', (
   assert.deepEqual(modules[3].metrics.map(({ value }) => value), [2, 3, '67%']);
 });
 
-test('limits User Management summaries to roles with user-management data', () => {
+test('limits Superadmin summaries to its available modules', () => {
   const superAdminModules = buildDashboardModuleSummaries({
     isSuperAdmin: true,
-    staffMetrics: { active: 5, suspended: 2, unassigned: 1 },
+    staffMetrics: { total: 8, active: 5, suspended: 2, unassigned: 1 },
+    communityMetrics: { schools: 4, groups: 9 },
+    reportMetrics: { signIns: 120, signInsLast30Days: 36 },
+    notificationMetrics: { all: 7, unread: 2 },
+  });
+
+  test('counts only operational roles that require school or group assignments as unassigned', () => {
+    const metrics = buildOperationalStaffMetrics([
+      { role: 'Admin', status: 'Active' },
+      { role: 'Partner', status: 'Active' },
+      { role: 'Community Organizer', status: 'Active' },
+      { role: 'Health worker', status: 'Active', school_id: 4 },
+      { role: 'Health worker', status: 'Active', school_id: 4, group_id: 8 },
+      { role: 'Community Organizer', status: 'Suspended' },
+    ]);
+
+    assert.deepEqual(metrics, {
+      total: 6,
+      active: 5,
+      suspended: 1,
+      unassigned: 2,
+    });
   });
   const organizerModules = buildDashboardModuleSummaries({
     isCommunityOrganizer: true,
@@ -41,8 +62,25 @@ test('limits User Management summaries to roles with user-management data', () =
   });
   const otherRoleModules = buildDashboardModuleSummaries();
 
-  assert.deepEqual(superAdminModules.map((module) => module.key), ['users']);
-  assert.deepEqual(superAdminModules[0].metrics.map(({ value }) => value), [5, 2, 1]);
+  assert.deepEqual(superAdminModules.map((module) => module.key), [
+    'users',
+    'community',
+    'reports',
+    'notifications',
+  ]);
+  assert.deepEqual(superAdminModules.map((module) => module.to), [
+    '/user-management',
+    '/community',
+    '/reports',
+    '/notifications',
+  ]);
+  assert.deepEqual(superAdminModules.map((module) => module.metrics.flatMap(({ value }) => value)), [
+    [8, 5, 2, 1],
+    [4, 9],
+    [120, 36],
+    [2, 7],
+  ]);
+  assert.equal(superAdminModules.some((module) => /beneficiar|program|monitor|progress/i.test(module.key)), false);
   assert.equal(organizerModules.at(-1).key, 'users');
   assert.deepEqual(organizerModules.at(-1).metrics.map(({ value }) => value), [3]);
   assert.equal(otherRoleModules.some((module) => module.key === 'users'), false);

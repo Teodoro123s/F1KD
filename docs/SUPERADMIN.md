@@ -1,211 +1,113 @@
-# Superadmin User Guide
+# Superadmin Guide
 
-## Overview
+This guide describes the Superadmin role as currently implemented in F1KD: its responsibilities, access boundaries, available modules, account lifecycle, recovery behavior, and related backend components.
 
-The Superadmin is the highest-privilege account in the F1KD application. It is designed to serve as the system-level administrator for user management, emergency recovery, cross-school oversight, and overall operational control.
+## Role summary
 
-Across the codebase, the role is normalized to the canonical value `super_admin`, while the app also accepts common aliases such as `superadmin` and `super admin`.
+The canonical role value is `super_admin`. The frontend and backend accept common Superadmin spellings, including `Superadmin`, `Super Admin`, and `super_admin`.
 
-Relevant implementation points:
-- `server/middleware/auth.js` — normalizes role aliases and enforces role checks
-- `server/middleware/authorize.js` — grants or denies access based on the user role
-- `server/services/superadminRecovery.js` — self-heals the default Superadmin account
-- `src/utils/permissions.js` — frontend permission map for the role hierarchy
+Superadmin is a global administrative role, not a school or group operational role. It is intended for platform administration, account governance, school/community oversight, recovery, and system activity review.
 
-## Purpose
+Global scope applies only to authorized modules. Superadmin is explicitly excluded from operational modules such as Programs, Beneficiaries, Monitoring, and Progress Report. A global role does not override those module-specific denials.
 
-The Superadmin exists to:
-- manage the platform at a global level rather than a single school or group
-- create and control high-level administrator and operational user accounts
-- maintain emergency recovery access if the normal admin flow is unavailable
-- review system-wide activity and user status across the entire deployment
-- act as the final authority for user lifecycle management and role assignment
+## Modules and components available
 
-Unlike scoped roles such as Community Coordinator or Health Worker, the Superadmin is not limited to a single school or group. It has unrestricted access throughout the application in the server-side authorization flow.
+The Superadmin sidebar contains Dashboard, Community, User Management, Reports, and Notifications. Profile and Settings are also available from the account menu.
 
-## Default account behavior
+| Module or component | Availability | Purpose and limits |
+|---|---|---|
+| **Dashboard** (`/dashboard`) | Available | Live overview of User Management, Community, Reports, and Notifications. It shows operational account status, staff missing required school/group assignments, school/group totals, operational sign-in activity, recent sign-ins, and unread notification counts. It refreshes on demand and every five minutes. It does not load beneficiary, child, or Program data. |
+| **Community** (`/community`) | Available | Global view and management of schools, groups, and batches. Superadmin can administer the community hierarchy without a school assignment. |
+| **User Management** (`/user-management`) | Available | Global account administration: create, view, edit, suspend/reactivate, and permanently delete users; inspect accounts by school/batch and open user details. Permanent deletion is restricted to Superadmin. |
+| **Reports** (`/reports`) | Available | Review account sign-in and activity records and filter by school/group or user where supported. Ordinary operational login totals exclude Superadmin activity so system administrator sign-ins do not distort those reports. |
+| **Notifications** (`/notifications`) | Available | View global `Community` and `User Management` notifications, manage notification read state, and set available preferences. This does not include `Programs` notifications. |
+| **Profile** (`/profile`) | Available | View the signed-in Superadmin's own account details. |
+| **Settings** (`/settings`) | Available | Change the signed-in account's password and adjust local appearance preferences. |
+| **Programs** (`/program`) | **Not available** | No sidebar entry or permitted frontend route. The Programs API explicitly returns 403 for Superadmin requests. |
+| **Beneficiary and Monitoring** | **Not available** | No permitted frontend routes for beneficiary records, check-ups, or monitoring workflows. These tasks belong to operational roles. |
+| **Progress Report** (`/progress-report`) | **Not available** | The reporting UI and ordinary report data/options routes are restricted to operational roles. Superadmin may use aggregate Dashboard AI insights and AI availability checks, but cannot use report-building endpoints or access Progress Report data. |
 
-The app can automatically recreate a default Superadmin user if the account is missing from the database.
+## Scope and permissions
 
-Current defaults defined in the server code:
-- Email: `Superadmin@gmail.com`
-- Password: `Welcome123!`
+### Global administrative scope
 
-This is enforced by `ensureSuperadminAccount()` in `server/services/superadminRecovery.js`, which:
-1. checks whether the Superadmin row exists
-2. creates one if it is missing
-3. restores the role to a Superadmin value when the stored role is malformed
-4. reactivates the account if it has no status
-5. regenerates credentials only if the project is configured to allow self-healing credentials
+- Superadmin requests are not assigned a `school_id` or `group_id` scope by the general operational middleware.
+- Community and user-administration endpoints apply their own role checks. Superadmin can oversee records across schools and manage school structure.
+- Reports access is system-wide where the report endpoint permits it. Standard sign-in totals and activity reporting exclude Superadmin-authored activity.
+- Superadmin access does not imply access to every API. The Program router has an explicit Superadmin denial, and beneficiary, monitoring, and Progress Report page/data routes are not granted to the role.
 
-This behavior makes the account resilient during initial setup and recovery scenarios, while still preserving the expectation that a real administrator should replace it with a properly managed account in production.
+### User lifecycle
 
-## Role model and permission boundary
+Superadmin is the only role allowed to use the full `/api/users` account-administration endpoints. The API and UI support:
 
-The role hierarchy in the application is:
-- `super_admin` — platform-level administrator
-- `admin`
-- `community_coordinator`
-- `partner`
-- `health_worker`
+- creating accounts and assigning a role
+- updating user profile fields and school/group assignments where valid
+- suspending and reactivating accounts
+- permanently deleting accounts
+- reviewing users across schools
 
-The canonical Superadmin role is defined in:
-- `src/utils/permissions.js`
-- `server/middleware/auth.js`
-- `server/middleware/authorize.js`
+Community Coordinators have a separate, limited workflow to manage Health Worker accounts in their own school; it does not grant them Superadmin's global user-administration rights.
 
-The authorization rules show that:
-- Superadmin is accepted for all privileged operations
-- user-management writes are restricted to Superadmin in operational middleware
-- Superadmin is treated as a global operator with no school scoping
-- some operational routes are intentionally read-only for other roles and only writable for designated staff
+Accounts marked Suspended (or recognized inactive/pending statuses) cannot complete normal sign-in. Suspension is reversible; permanent deletion is destructive and should be reserved for cases where retention requirements permit removal.
 
-In practical terms, the Superadmin is the only role that can operate above the school/group boundary and manage user access across the system.
+### Boundaries from operational roles
 
-## Modules and responsibilities
+| Role | Relationship to Superadmin |
+|---|---|
+| **Admin** | Global read-oriented operational access; not a system user administrator. |
+| **Community Coordinator** | Runs operations within one assigned school and can manage that school's Health Workers. |
+| **Partner** | Global read-oriented operational access; not a system user administrator. |
+| **Health Worker** | Performs assigned-group work and has the narrowest operational scope. |
 
-### 1. Dashboard
+Superadmin should be used for platform administration, not day-to-day beneficiary, check-up, receipt, or progress-report work.
 
-The dashboard exposes a system-level summary view. For the Superadmin, this includes operational oversight across users, staff, assignments, and recent activity.
+## Account bootstrap and recovery
 
-The frontend dashboard logic checks whether the current user is a Superadmin and adjusts the display to show cross-organization metrics and the special Superadmin card/grid layout.
+`ensureSuperadminAccount()` in `server/services/superadminRecovery.js` is called during database initialization, login, and the Superadmin recovery/status flow. It:
 
-Key files:
-- `src/pages/Dashboard/DashboardPage.jsx`
-- `src/styles/components/dashboard.css`
+1. Looks up the configured Superadmin email.
+2. Creates an account if no matching email exists.
+3. Corrects the role if it is not recognized as a Superadmin role.
+4. Sets status to Active only when the existing status is empty.
+5. Fills a missing password hash only when `SELF_HEAL_ADMIN_CREDENTIALS=true`.
 
-Responsibilities:
-- review global user counts and staffing metrics
-- monitor the activity of staff and assigned records
-- see the global status of schools, staff, and unassigned users
+The account email/password are configurable through `DEFAULT_ADMIN_EMAIL` and `DEFAULT_ADMIN_PASSWORD`. The source contains fallback values if those variables are omitted. **Before any shared or production deployment, set unique secrets, replace any fallback credentials, and verify that no default account password remains in use.** Do not put credentials in documentation, source control, logs, or support messages.
 
-### 2. User management
+Recovery does not silently reactivate an account explicitly marked Suspended, and it does not replace a non-empty password hash. Password reset and normal password-change behavior remain separate authentication flows.
 
-This is the Superadmin’s most important administrative surface.
+The repeatable sample-data seed creates Admin, Partner, Community Coordinator, and Health Worker accounts but intentionally does not create an additional Superadmin account. See [server sample-data instructions](../server/README.md#synthetic-sample-data).
 
-The user management pages are restricted to Superadmin and, in limited cases, Community Coordinators. Superadmin can:
-- create users
-- edit user details
-- update user status
-- suspend or reactivate accounts
-- manage permanent deletions
-- assign or review global user records
+## Notifications and activity reporting
 
-The frontend code explicitly protects destructive actions:
-- `Permanent deletion is reserved for Super Admins.`
+- Superadmin notification scope is global but category-limited to `Community` and `User Management`.
+- User creation, changes, suspension/reactivation, and other administrative activity can be recorded in activity logs and notifications.
+- The Reports module focuses on non-Superadmin user sign-ins and permitted activity. Superadmin sign-ins are excluded from standard operational login totals.
+- Program notifications are not delivered as a Superadmin category because Superadmin has no Program module access.
 
-Key files:
-- `src/pages/UserManagement/UserManagementPage.jsx`
-- `src/pages/UserManagement/useUserManagement.js`
-- `server/routes/users.js`
+The Superadmin dashboard uses only these module-scoped sources: operational account records from User Management, school/group directory options from the Superadmin report-scope endpoint, non-Superadmin sign-in totals/activity from Reports, and category-filtered counts from Notifications. The unassigned count applies only to active Community Organizer/Health Worker accounts missing a required school or group; Admin and Partner accounts are not expected to have school assignments. The sign-in chart covers the most recent 30 days. Dashboard figures may be incomplete when a module request fails; the dashboard reports the failed source rather than treating the failure as a zero count.
 
-### 3. Community and school management
+## Safe operating practices
 
-The Superadmin can access community-wide structures without the school-scoped restrictions that apply to other roles.
+1. Use a named, personal Superadmin account; avoid sharing accounts.
+2. Replace bootstrap fallback credentials before exposing the application beyond a private development environment.
+3. Protect the account with a strong unique password and secure the email/password reset channel.
+4. Grant operational roles to staff who need beneficiary, monitoring, Program, or Progress Report work instead of using Superadmin for those tasks.
+5. Confirm school and group assignments when creating or changing operational accounts.
+6. Review the target user carefully before suspension or permanent deletion; deletion may be irreversible.
+7. Test both the interface and API after access-policy changes. Hiding a navigation link is not a substitute for server-side authorization.
 
-This includes:
-- system-wide schools and community resources
-- group-level organization across the deployment
-- cross-school oversight where school assignments are required elsewhere
+## Implementation references
 
-Key files:
-- `src/App.jsx`
-- `src/pages/Community/CommunityModulePage.jsx`
-
-### 4. Program and beneficiary operations
-
-Although Superadmin is not the core role for daily operational data entry, the role still has access to core program and beneficiary resources as part of the broad administrative model.
-
-This allows the Superadmin to:
-- inspect program data across the system
-- review beneficiary records and monitoring data
-- support operational troubleshooting when higher-level oversight is required
-
-### 5. Reports and activity tracking
-
-The reporting module is intentionally designed to exclude Superadmin activity from standard user login totals and activity summaries.
-
-The report route checks this explicitly in `server/routes/reports.js` by filtering out activity where:
-- the actor role is a Superadmin
-- or the actor record resolves to a Superadmin account
-
-This prevents the Superadmin’s own authentication events from distorting the operational analytics used by school-focused reporting.
-
-Responsibilities:
-- review login activity across non-Superadmin users
-- inspect school and group-level performance from the reporting layer
-- assess account activity without polluting ordinary user reports
-
-### 6. Recovery and integrity safeguards
-
-The Superadmin role also acts as the platform recovery path.
-
-The service layer checks whether the default Superadmin should be restored and ensures the account is active. This is essential in environments where:
-- the database was reset
-- the primary admin account is missing
-- a deployment was freshly initialized
-- a maintenance or migration issue removed the original system admin record
-
-This is a security-sensitive capability: it is intentionally automated but should be controlled and monitored in production deployments.
-
-## Core functions and capabilities
-
-The Superadmin is responsible for the following functions:
-
-- Account provisioning and lifecycle management
-  - create user accounts
-  - assign role-based access
-  - suspend or reactivate users
-  - manage system-wide access permissions
-
-- Role governance
-  - maintain platform-wide admin and operational role assignments
-  - ensure role aliases are correctly normalized to `super_admin`
-
-- Global record oversight
-  - access community, beneficiary, and program data across the organization
-  - review reports without being limited to a single school/group scope
-
-- Recovery and resilience
-  - restore the default Superadmin account if it disappears
-  - keep account recovery operations available when the system is incomplete or newly established
-
-- Activity monitoring
-  - review user sign-in logs and operational reports
-  - filter out Superadmin records so operational metrics remain meaningful
-
-## Operational boundaries
-
-The code makes a clear distinction between the Superadmin and other roles:
-
-- Superadmin is not treated as a school-scoped or group-scoped user
-- Community Coordinators and Health Workers are filtered by assignment
-- Admins and Partners are operational roles but not system-wide administrators
-- User-management writes are not allowed for non-Superadmin roles in the main operational middleware
-
-In short:
-- Superadmin = global authority
-- Admin = operational authority within the app’s broader role set
-- Community Coordinator / Health Worker / Partner = scoped operational roles with narrower permissions
-
-## Practical guidance
-
-If you are maintaining or extending the application:
-- treat `super_admin` as the platform owner role
-- keep account recovery logic protected and auditable
-- avoid exposing Superadmin-only operations to non-admin users
-- ensure reports and dashboard metrics remain separated from Superadmin internal activity
-- use the default Superadmin account only for bootstrap and emergency access, not as a regular production account
-
-## Related files
-
-- `server/middleware/auth.js`
-- `server/middleware/authorize.js`
-- `server/services/superadminRecovery.js`
-- `server/routes/auth.js`
-- `server/routes/users.js`
-- `server/routes/reports.js`
-- `src/utils/permissions.js`
-- `src/App.jsx`
-- `src/pages/Dashboard/DashboardPage.jsx`
-- `src/pages/UserManagement/useUserManagement.js`
+- [Frontend route access](../src/App.jsx)
+- [Role normalization and permission metadata](../src/utils/permissions.js)
+- [Role-specific sidebar](../src/components/Sidebar.jsx)
+- [Backend authorization and global scope](../server/middleware/authorize.js)
+- [Authentication and account recovery calls](../server/routes/auth.js)
+- [Superadmin account recovery implementation](../server/services/superadminRecovery.js)
+- [User administration API](../server/routes/users.js)
+- [Community/school management UI](../src/pages/Community/CommunityPage.jsx)
+- [Activity reporting API](../server/routes/reports.js)
+- [Superadmin notification categories](../server/services/notificationAccess.js)
+- [Program API denial](../server/routes/programs.js)
+- [Dashboard behavior](../src/pages/Dashboard/DashboardPage.jsx)
+- [Role access matrix](./ROLES_AND_ACCESS.md)

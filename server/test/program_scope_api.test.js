@@ -77,3 +77,39 @@ test('coordinators cannot mutate programs owned by another school through the AP
   assert.equal(queries.length, attempts.length);
   assert.ok(queries.every(({ sql }) => /^\s*SELECT\b/i.test(sql)), 'denied requests must not mutate program data');
 });
+
+test('Superadmins are denied all Program API access', async (t) => {
+  await pool.ready;
+  const originalQuery = pool.query;
+  let queryCount = 0;
+  pool.query = async (sql, params = []) => {
+    queryCount += 1;
+    throw new Error(`Superadmin Program requests must not query the database: ${sql}`);
+  };
+
+  const app = express();
+  app.use(express.json());
+  app.use('/api/programs', verifyToken, authorizeOperational, programsRouter);
+  const server = app.listen(0);
+  t.after(async () => {
+    pool.query = originalQuery;
+    await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  });
+  await new Promise((resolve) => server.once('listening', resolve));
+
+  const token = jwt.sign({ id: 2, role: 'Super Admin' }, process.env.JWT_SECRET);
+  const baseUrl = `http://127.0.0.1:${server.address().port}/api/programs`;
+  for (const [url, method] of [[baseUrl, 'GET'], [baseUrl, 'POST'], [`${baseUrl}/123`, 'GET']]) {
+    const response = await fetch(url, {
+      method,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        ...(method === 'POST' ? { 'Content-Type': 'application/json' } : {}),
+      },
+      ...(method === 'POST' ? { body: JSON.stringify({ name: 'Blocked', provider: 'F1KD' }) } : {}),
+    });
+    assert.equal(response.status, 403);
+    assert.match((await response.json()).error, /Superadmins do not have access/);
+  }
+  assert.equal(queryCount, 0);
+});

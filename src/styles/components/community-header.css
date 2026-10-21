@@ -7,6 +7,10 @@
   padding: 0.5rem;
 }
 
+.community-page {
+  container: community-layout / inline-size;
+}
+
 .beneficiary-page .view-page-header {
   min-height: 104px;
   padding: 1.05rem 1.2rem 0.95rem;
@@ -29,14 +33,6 @@
   font-size: clamp(2.1rem, 3vw, 3.4rem);
   line-height: 1.05;
   letter-spacing: -0.04em;
-}
-
-.beneficiary-page .view-btn--primary {
-  height: 52px;
-  padding: 0 1.8rem;
-  border-radius: 12px;
-  font-size: 1.05rem;
-  font-weight: 700;
 }
 
 .beneficiary-page .tabs-row {
@@ -114,7 +110,7 @@
 
 .community-overview-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, max(170px, calc((100% - 2.55rem) / 4))), 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   grid-auto-rows: 1fr;
   gap: 0.65rem;
 }
@@ -180,7 +176,8 @@
 
 .module-summary-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, max(170px, calc((100% - 2.55rem) / 4))), 1fr));
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
   grid-auto-rows: 1fr;
   gap: 0.85rem;
   margin: 0 0 1rem;
@@ -503,13 +500,13 @@ button.module-summary-card.is-selected {
   min-width: 120px;
 }
 
-@media (max-width: 720px) {
+@container community-layout (max-width: 720px) {
   .community-overview-cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-@media (max-width: 420px) {
+@container community-layout (max-width: 420px) {
   .community-overview-cards {
     grid-template-columns: 1fr;
   }

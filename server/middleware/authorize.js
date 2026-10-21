@@ -166,11 +166,9 @@ function authorizeOperational(req, res, next) {
 
 function authorizeProgressReport(req, res, next) {
   const userRole = normalizeRole(req.user?.role);
-  const isMonitoringAssistant = req.method === 'POST' && /^\/ai\/monitoring-report\/?$/.test(req.path);
   const isDashboardInsight = req.method === 'POST' && /^\/ai\/dashboard-insight\/?$/.test(req.path);
   const isAiStatus = req.method === 'GET' && /^\/ai\/status\/?$/.test(req.path);
   if ((isDashboardInsight || isAiStatus) && ['super_admin', 'admin', 'partner', 'community_coordinator', 'health_worker'].includes(userRole)) return next();
-  if (userRole === 'super_admin' && isMonitoringAssistant) return next();
   if (!['admin', 'partner', 'community_coordinator', 'health_worker'].includes(userRole)) {
     return permissionResponse(res, 'You do not have permission to access progress reports');
   }

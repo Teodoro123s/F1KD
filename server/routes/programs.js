@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../db');
 const { createSuperadminNotification } = require('../services/notifications');
-const { canViewAuditSignatures } = require('../middleware/authorize');
+const { canViewAuditSignatures, normalizeRole } = require('../middleware/authorize');
 const { programScopesBelongToSchool } = require('../utils/programScope');
 const { getProgramVisibilityFilter } = require('../utils/programAccess');
 const { isValidIsoDate } = require('../utils/dateValidation');
@@ -20,6 +20,9 @@ for (const parameterName of ['id', 'programId', 'clusterId']) {
 }
 
 router.use((req, res, next) => {
+  if (normalizeRole(req.user?.role) === 'super_admin') {
+    return res.status(403).json({ error: 'Superadmins do not have access to the Program module' });
+  }
   const isMonitoringUpdate = req.method === 'PATCH' && /\/monitoring$/.test(req.path);
   if (req.isHealthWorker && req.method !== 'GET' && !isMonitoringUpdate) {
     return res.status(403).json({ error: 'Health workers have read-only access to programs' });

@@ -1,8 +1,12 @@
 ﻿import { useCallback, useEffect, useState } from 'react';
 import { getSummary } from '../communityService';
 import { apiGetCoordinators } from '../../../api/users';
+import { useAuth } from '../../../auth/AuthProvider';
+import { hasRole, ROLES } from '../../../utils/permissions';
 
 export const useCommunityData = () => {
+  const { currentUser } = useAuth();
+  const canAssignCoordinators = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]);
   const [communities, setCommunities] = useState([]);
   const [batches, setBatches] = useState([]);
   const [groups, setGroups] = useState([]);
@@ -44,21 +48,23 @@ export const useCommunityData = () => {
         console.warn('[CommunityData] No community records were returned from the database.');
       }
 
-      try {
-        const coordinatorData = await apiGetCoordinators();
-        const users = Array.isArray(coordinatorData?.users) ? coordinatorData.users : [];
+      if (canAssignCoordinators) {
+        try {
+          const coordinatorData = await apiGetCoordinators();
+          const users = Array.isArray(coordinatorData?.users) ? coordinatorData.users : [];
 
-        setCoordinators(
-          users
-            .filter((user) => ['community organizer', 'community_coordinator', 'communitycoordinator', 'communityorganizer', 'coordinator', 'co', 'partner'].includes(String(user.role || '').trim().toLowerCase()))
-            .map((user) => ({
+          setCoordinators(
+            users.map((user) => ({
               id: user.id,
               name: user.full_name || user.username || `User ${user.id}`,
               schoolId: user.school_id ?? user.schoolId ?? '',
             }))
-        );
-      } catch (coordinatorError) {
-        console.error('[CommunityData] Unable to load community coordinators:', coordinatorError);
+          );
+        } catch (coordinatorError) {
+          console.error('[CommunityData] Unable to load community coordinators:', coordinatorError);
+        }
+      } else {
+        setCoordinators([]);
       }
     } catch (dataError) {
       console.error('[CommunityData] Unable to load community data from database:', dataError);
@@ -66,7 +72,7 @@ export const useCommunityData = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [canAssignCoordinators]);
 
   useEffect(() => {
     refreshData();

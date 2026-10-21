@@ -507,6 +507,11 @@ const DASHBOARD_METRIC_KEYS = new Set([
   'activeStaff',
   'unassignedStaff',
   'suspendedStaff',
+  'operationalAccounts',
+  'communitySchools',
+  'communityGroups',
+  'operationalSignInsLast30Days',
+  'unreadNotifications',
 ]);
 
 function normalizeDashboardMetrics(metrics) {
