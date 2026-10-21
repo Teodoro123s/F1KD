@@ -2,17 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { apiCreateProgressReportAiProposal, apiGetProgressReportAiStatus } from '../../../api/progressReport';
 import { REPORT_FIELDS } from '../progressReportConfig';
 
-const REPORT_CATEGORY_LABELS = {
-  profile: 'Profile report',
-  monitor: 'Monitor report',
-  program: 'Program report',
-};
-
-const BENEFICIARY_TYPE_LABELS = {
-  child: 'Children',
-  mother: 'Mothers',
-};
-
 const SUGGESTED_PROMPTS = [
   "Show each child's check-up date, weight, height, and BMI.",
   "Show each mother's check-up date, weight, height, BMI, and BMI interpretation.",
@@ -22,16 +11,22 @@ const SUGGESTED_PROMPTS = [
 
 const FIELD_LABELS = new Map(REPORT_FIELDS.map(([id, label]) => [id, label]));
 FIELD_LABELS.set('hospitalReferral', 'Referral to Hospital');
+const RETRYABLE_PROPOSAL_ERRORS = new Set([
+  'The private AI service returned an invalid report proposal.',
+  'The private AI service returned an unsupported report configuration.',
+  'The private AI service returned unsupported report fields.',
+]);
 
-export function ReportAiAssistant({ scopeLabel, onApply }) {
+export function ReportAiAssistant({ scopeLabel, hasSchoolSelection, onBuildPreview, onExport }) {
   const [availability, setAvailability] = useState('checking');
   const [prompt, setPrompt] = useState('');
   const [originalPrompt, setOriginalPrompt] = useState('');
   const [clarificationAnswer, setClarificationAnswer] = useState('');
   const [proposal, setProposal] = useState(null);
+  const [reportPreview, setReportPreview] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -51,8 +46,23 @@ export function ReportAiAssistant({ scopeLabel, onApply }) {
   const requestProposal = async (request) => {
     setLoading(true);
     setError('');
+    setReportPreview(null);
     try {
-      setProposal(await apiCreateProgressReportAiProposal(request));
+      let nextProposal;
+      try {
+        nextProposal = await apiCreateProgressReportAiProposal(request);
+      } catch (proposalError) {
+        if (!RETRYABLE_PROPOSAL_ERRORS.has(proposalError.message)) throw proposalError;
+        setError('The AI response was incomplete. Retrying once…');
+        nextProposal = await apiCreateProgressReportAiProposal(request);
+      }
+      setError('');
+      if (nextProposal.needsClarification) {
+        setProposal(nextProposal);
+      } else {
+        setProposal(null);
+        setReportPreview(await onBuildPreview(nextProposal));
+      }
       setClarificationAnswer('');
     } catch (proposalError) {
       setError(proposalError.message || 'Unable to prepare a report proposal.');
@@ -66,6 +76,7 @@ export function ReportAiAssistant({ scopeLabel, onApply }) {
     const request = prompt.trim();
     setOriginalPrompt(request);
     setProposal(null);
+    setReportPreview(null);
     await requestProposal(request);
   };
 
@@ -86,7 +97,7 @@ export function ReportAiAssistant({ scopeLabel, onApply }) {
       <div className="progress-report-ai-heading">
         <div>
           <h2 id="progress-report-ai-title">AI report builder</h2>
-          <p>Describe the report you need. AI will choose matching report settings for your review; beneficiary data stays in the app.</p>
+          <p>Describe the report you need. AI selects the fields, then review the matching data before exporting it.</p>
         </div>
         <div className="progress-report-ai-heading-actions">
           <button
@@ -144,6 +155,7 @@ export function ReportAiAssistant({ scopeLabel, onApply }) {
                   setProposal(null);
                   setOriginalPrompt('');
                   setClarificationAnswer('');
+                  setReportPreview(null);
                   setError('');
                 }}
               >
@@ -177,50 +189,75 @@ export function ReportAiAssistant({ scopeLabel, onApply }) {
             </div>
             <div className="progress-report-ai-actions">
               <span>{prompt.length}/1000</span>
-              <button type="submit" className="primary-btn" disabled={loading || prompt.trim().length < 3}>
-                {loading ? 'Preparing…' : 'Suggest report settings'}
+              <button
+                type="submit"
+                className="primary-btn"
+                disabled={loading || !hasSchoolSelection || prompt.trim().length < 3}
+              >
+                {loading ? 'Building preview…' : 'Create report preview'}
               </button>
             </div>
+            {!hasSchoolSelection && (
+              <p className="progress-report-ai-message" role="status">Select a school to generate a CSV within your authorized scope.</p>
+            )}
           </form>
         )
       )}
 
       {error && availability === 'ready' && <p className="progress-report-ai-message" role="alert">{error}</p>}
 
-      {proposal && !proposal.needsClarification && (
-        <div className="progress-report-ai-proposal" aria-live="polite">
-          <h3>Review suggested settings</h3>
-          <dl>
-            <div><dt>Report</dt><dd>{proposal.reportCategory === 'monitor' && proposal.profileMetricIds?.length ? 'Combined profile + monitoring report' : REPORT_CATEGORY_LABELS[proposal.reportCategory]}</dd></div>
-            <div><dt>Beneficiaries</dt><dd>{BENEFICIARY_TYPE_LABELS[proposal.beneficiaryType]}</dd></div>
-            {proposal.profileMetricIds?.length > 0 && (
-              <div>
-                <dt>Profile fields</dt>
-                <dd>{proposal.profileMetricIds.map((id) => FIELD_LABELS.get(id) || id).join(', ')}</dd>
-              </div>
-            )}
+      {loading && <p className="progress-report-ai-message" role="status">Building your report preview…</p>}
+
+      {reportPreview && (
+        <div className="progress-report-ai-proposal">
+          <div className="progress-report-ai-preview-header">
             <div>
-              <dt>Fields / metrics</dt>
-              <dd>{proposal.metricIds.map((id) => FIELD_LABELS.get(id) || id).join(', ')}</dd>
+              <h3>Report preview</h3>
+              <p>
+                Showing {reportPreview.previewRows.length} of {reportPreview.rowCount} rows.
+                {' '}Export downloads the complete CSV.
+              </p>
+              <p>Fields: {reportPreview.fields.map((id) => FIELD_LABELS.get(id) || id).join(', ')}.</p>
             </div>
-            {proposal.explanation && <div><dt>Why</dt><dd>{proposal.explanation}</dd></div>}
-          </dl>
-          <p className="progress-report-ai-message">
-            The AI does not receive beneficiary records or choose a school, group, or batch. The app loads records within your current selection and permissions.
-            {proposal.reportCategory === 'monitor' ? ' Beneficiary name and check-up date are shown in the monitoring history.' : ''}
-            {proposal.reportCategory === 'program' ? ' Select the program manually after applying.' : ''}
-          </p>
-          <div className="progress-report-ai-actions">
-            <button type="button" className="secondary-btn" onClick={() => setProposal(null)}>Discard</button>
             <button
               type="button"
               className="primary-btn"
               onClick={() => {
-                onApply(proposal);
-                setProposal(null);
+                onExport(reportPreview);
               }}
             >
-              Apply settings
+              Export CSV
+            </button>
+          </div>
+          <div className="progress-report-ai-preview-table progress-report-table-shell">
+            <table className="progress-report-table standard-results-table">
+              <thead>
+                <tr>
+                  {reportPreview.fields.map((field) => (
+                    <th key={field} scope="col">{FIELD_LABELS.get(field) || field}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {reportPreview.previewRows.map((row, rowIndex) => (
+                  <tr key={`preview-${rowIndex}`}>
+                    {row.map((value, fieldIndex) => (
+                      <td key={`${reportPreview.fields[fieldIndex]}-${rowIndex}`}>{value}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="progress-report-ai-actions">
+            <button
+              type="button"
+              className="secondary-btn"
+              onClick={() => {
+                setReportPreview(null);
+              }}
+            >
+              Create another report
             </button>
           </div>
         </div>

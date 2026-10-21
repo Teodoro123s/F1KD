@@ -42,6 +42,7 @@ import {
   getPointInterpretation,
 } from './progressReportConfig';
 import { buildProgressReportCsv } from './utils/csvIdentity.mjs';
+import { buildAiReportCsv, downloadAiReportCsv } from './utils/aiReportCsv.mjs';
 import { aggregateGrowthRows, aggregateReportRows } from './utils/reportAggregation';
 import { buildProgressReportParams } from './utils/apiUtils';
 import { matchesProgramBeneficiaryType } from './utils/programEligibility';
@@ -66,6 +67,7 @@ const focusOptionsForSelection = (selection, reportCategory) => {
 };
 
 const isAggregateFocus = (focus) => ['batch-group', 'batch-school', 'group-school'].includes(focus);
+const REPORT_FIELD_LABELS = new Map(REPORT_FIELDS.map(([id, label]) => [id, label]));
 
 export default function ProgressReport() {
   const { currentUser } = useAuth();
@@ -229,6 +231,74 @@ export default function ProgressReport() {
       normalized.batchId = '';
     }
     return normalized;
+  };
+  const buildAiReportPreview = async (proposal) => {
+    const safeSelection = normalizeSelectionHierarchy(selection);
+    if (!safeSelection.schoolId) {
+      throw new Error('Select a school before creating a custom CSV.');
+    }
+
+    const requestParams = buildProgressReportParams({
+      selection: safeSelection,
+      reportCategory: proposal.reportCategory,
+      beneficiaryType: proposal.beneficiaryType,
+      selectedProgram: proposal.reportCategory === 'program'
+        ? { beneficiaryType: proposal.beneficiaryType }
+        : undefined,
+      programName: '',
+      benefitPeriod: 'overall',
+      benefitMonth: '',
+      page: 1,
+      perPage: 100,
+      exportAll: true,
+    });
+    const reportResult = await apiGetProgressReport(requestParams);
+    const rows = reportResult.rows;
+    const expectedRows = Number(reportResult.pagination?.total ?? rows?.length ?? 0);
+    if (!Array.isArray(rows) || rows.length !== expectedRows) {
+      throw new Error('The custom CSV could not include every matching record. Please try again.');
+    }
+    if (!rows.length) {
+      throw new Error('No records match your current school, group, and batch selection.');
+    }
+
+    const csvReport = buildAiReportCsv({
+      rows,
+      proposal,
+      selection: safeSelection,
+      fieldLabels: REPORT_FIELD_LABELS,
+      formatValue: formatCellValue,
+      getValue: (row, point, field) => {
+        if (!point) return row[field];
+        if (field === 'measurementDate') return point.date || point.measurementDate || '';
+        if (field === 'bmiInterpretation' || field.endsWith('Interpretation')) {
+          return getPointInterpretation(point, field);
+        }
+        if (
+          field.endsWith('ZScore')
+          || ['weightForAge', 'heightForAge', 'bmiForAge'].includes(field)
+        ) {
+          return pointValueForTableField(point, field);
+        }
+        return point[field] ?? row[field];
+      },
+    });
+    return {
+      csv: csvReport.csv,
+      filename: csvReport.filename,
+      fields: csvReport.fields,
+      previewRows: csvReport.previewRows,
+      rowCount: csvReport.rowCount,
+    };
+  };
+  const exportAiReportCsv = (csvReport) => {
+    downloadAiReportCsv(csvReport.csv, csvReport.filename);
+    notifyAction(`Custom CSV downloaded with ${csvReport.rowCount} row${csvReport.rowCount === 1 ? '' : 's'}.`);
+    if (canRecordReportDownload) {
+      apiRecordReportDownload().catch((downloadError) => {
+        console.error('Unable to record report download notification:', downloadError);
+      });
+    }
   };
   const updateSelection = (key, value) => {
     setPage(1);
@@ -785,51 +855,6 @@ export default function ProgressReport() {
     }
     if (category === 'profile') setResultsView('table');
   };
-  const applyAiProposal = (proposal) => {
-    setMonitorTableMetrics([]);
-    setReportCategory(proposal.reportCategory);
-    setBeneficiaryType(proposal.beneficiaryType);
-    setReport(null);
-    setFinalizedSnapshot(null);
-    setPage(1);
-    setError('');
-
-    if (proposal.reportCategory === 'profile') {
-      setProfileMetrics(proposal.metricIds);
-      const profileSections = proposal.beneficiaryType === 'mother' ? MOTHER_PROFILE_FIELD_SECTIONS : CHILD_PROFILE_FIELD_SECTIONS;
-      setProfileSection(profileSections[proposal.metricIds[0]] || 'general');
-      setProfileGraphColumn(proposal.beneficiaryType === 'mother' ? 'bmiInterpretation' : 'gender');
-      setResultsView('table');
-    } else if (proposal.reportCategory === 'program') {
-      setProgramMetrics(proposal.metricIds);
-      setGrowthMetrics([proposal.metricIds[0]]);
-      setDisplayWeeks(proposal.metricIds[0]);
-      setProgramName('');
-      setResultsView('table');
-    } else {
-      const monitorOptions = proposal.beneficiaryType === 'mother'
-        ? [...MOTHER_GROWTH_METRICS, ...NUMERIC_GROWTH_METRICS('mother')]
-        : [...GROWTH_METRICS, ...NUMERIC_GROWTH_METRICS('child')];
-      const metric = proposal.metricIds.find((id) => monitorOptions.some(([optionId]) => optionId === id))
-        || (proposal.beneficiaryType === 'mother' ? 'bmiForAge' : 'weightForLengthInterpretation');
-      const requestedProfileMetrics = proposal.profileMetricIds || [];
-      setProfileMetrics(requestedProfileMetrics);
-      setVisibleFields([...new Set([
-        'school', 'group', 'batch', 'mother', 'child',
-        ...requestedProfileMetrics,
-        ...proposal.metricIds,
-      ])]);
-      setMonitorTableMetrics(proposal.metricIds);
-      setGrowthMetrics([metric]);
-      setGraphMetricType(INTERPRETATION_METRICS.has(metric) || metric === 'hospitalReferral' ? 'interpretation' : 'numeric');
-      syncVisibleFieldsForGrowthMetric([metric]);
-      setResultsView('table');
-      setTableDisplayMode('monitoring-dates');
-    }
-
-    setActiveTab(1);
-  };
-
   useEffect(() => {
     if (reportCategory === 'program' && PROGRAM_METRICS.some(([id]) => id === displayWeeks) && growthMetrics[0] !== displayWeeks) {
       setGrowthMetrics([displayWeeks]);
@@ -897,7 +922,9 @@ export default function ProgressReport() {
               reportFocus={reportFocus}
               setReportFocus={selectReportFocus}
               aiScopeLabel={aiScopeLabel}
-              applyAiProposal={applyAiProposal}
+              hasSchoolSelection={Boolean(selection.schoolId)}
+              buildAiReportPreview={buildAiReportPreview}
+              exportAiReportCsv={exportAiReportCsv}
               reportFocusStep={(
                 <ReportFocusStep
                   reportCategory={reportCategory}

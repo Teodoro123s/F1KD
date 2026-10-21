@@ -15,7 +15,9 @@ export function CommunitySelectionStep({
   reportFocus,
   setReportFocus,
   aiScopeLabel,
-  applyAiProposal,
+  hasSchoolSelection,
+  buildAiReportPreview,
+  exportAiReportCsv,
   reportFocusStep,
 }) {
   return (
@@ -89,7 +91,12 @@ export function CommunitySelectionStep({
         )}
       </div>
       {selection.schoolId && reportFocusStep}
-      <ReportAiAssistant scopeLabel={aiScopeLabel} onApply={applyAiProposal} />
+      <ReportAiAssistant
+        scopeLabel={aiScopeLabel}
+        hasSchoolSelection={hasSchoolSelection}
+        onBuildPreview={buildAiReportPreview}
+        onExport={exportAiReportCsv}
+      />
     </div>
   );
 }
