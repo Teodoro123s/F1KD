@@ -4,6 +4,13 @@ import FloatingLayer from '../../../components/ui/FloatingLayer';
 
 const historyFieldIds = new Set(['measurementDate', 'weightForAge', 'heightForAge', 'bmiForAge', 'weightForLengthZScore', 'weightForLengthInterpretation', 'weightForAgeZScore', 'weightForAgeInterpretation', 'lengthForAgeZScore', 'lengthForAgeInterpretation', 'bmiInterpretation']);
 
+const communityFieldsForSelection = (selection = {}) => {
+  if (!selection.schoolId) return [];
+  if (!selection.groupId) return [['group', 'Group'], ['batch', 'Batch']];
+  if (!selection.batchId) return [['batch', 'Batch']];
+  return [];
+};
+
 const isZScoreField = (field) => /ZScore$/i.test(field);
 const isImplausibleZScore = (value) => {
   const score = Number(value);
@@ -13,17 +20,32 @@ const isImplausibleZScore = (value) => {
 const interpretationClass = (value) => {
   const normalized = String(value || '').toLowerCase();
   if (!normalized) return '';
-  if (normalized.includes('normal')) return 'interpretation-normal';
-  if (normalized.includes('severe') || normalized.includes('obese')) return 'interpretation-severe';
-  if (normalized.includes('underweight') || normalized.includes('stunted') || normalized.includes('wasted') || normalized.includes('overweight') || normalized.includes('tall')) return 'interpretation-moderate';
-  return '';
+  const isNotNormal = /\bnot\s+(normal|within expected)\b/.test(normalized);
+  return !isNotNormal && (/\bnormal\b/.test(normalized) || /\bwithin expected\b/.test(normalized))
+    ? 'interpretation-normal'
+    : 'interpretation-abnormal';
 };
 
-function HistoryCell({ field, value, formatCellValue }) {
+const interpretationForMetric = (row, field) => {
+  if (field.endsWith('Interpretation')) return row[field];
+  if (/^\d{4}-\d{2}$/.test(field)) return row[`${field}Interpretation`];
+  const interpretationFields = {
+    weightForLengthZScore: 'weightForLengthInterpretation',
+    weightForAge: 'weightForAgeInterpretation',
+    weightForAgeZScore: 'weightForAgeInterpretation',
+    heightForAge: 'lengthForAgeInterpretation',
+    lengthForAgeZScore: 'lengthForAgeInterpretation',
+    bmiForAge: 'bmiInterpretation',
+  };
+  return row[interpretationFields[field]];
+};
+
+function HistoryCell({ field, value, formatCellValue, row }) {
   const formattedValue = formatCellValue(field, value);
   const warning = isZScoreField(field) && isImplausibleZScore(value);
+  const interpretationStyle = interpretationClass(interpretationForMetric(row, field));
   return (
-    <span className={`${warning ? 'history-warning' : ''} ${field.endsWith('Interpretation') ? interpretationClass(value) : ''}`.trim()}>
+    <span className={`${warning ? 'history-warning' : ''} ${interpretationStyle}`.trim()}>
       {warning ? '⚠️ ' : ''}{formattedValue}
       {warning && <small title="Implausible value. Please verify data entry.">Verify entry</small>}
     </span>
@@ -39,6 +61,7 @@ function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleField
   const visibleHistoryFields = reportFields.filter(([id]) => displayVisibleFields.includes(id) && historyFieldIds.has(id));
   const identityField = beneficiaryType === 'mother' ? 'mother' : 'child';
   const identityFields = reportFields.filter(([id]) => id === identityField);
+  const communityFields = communityFieldsForSelection(communitySelection);
   const profileFields = reportFields.filter(([id]) => (
     displayVisibleFields.includes(id)
     && !historyFieldIds.has(id)
@@ -96,7 +119,7 @@ function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleField
             rows: filteredRows,
             fields: viewMode === 'individual'
               ? [['measurementDate', 'Check-up Date'], ...profileFields, ...historyMetricFields]
-              : [...identityFields, ...profileFields, ...historyMetricFields],
+              : [...communityFields, ...identityFields, ...profileFields, ...historyMetricFields],
             view: 'table',
           })}
         >
@@ -117,15 +140,15 @@ function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleField
           <div className="progress-report-table-shell">
             <table className="progress-report-table monitoring-history-table">
               <thead><tr><th>Check-up Date</th>{profileFields.map(([id, label]) => <th key={id}>{label}</th>)}{historyMetricFields.map(([id, label]) => <th key={id}>{label}</th>)}</tr></thead>
-              <tbody>{filteredRows.map((row, index) => <tr key={row.historyRowKey || index}><td>{formatCellValue('measurementDate', row.measurementDate)}</td>{profileFields.map(([id]) => <td key={id}>{formatCellValue(id, row[id]) || '—'}</td>)}{historyMetricFields.map(([id]) => <td key={id}><HistoryCell field={id} value={row[id]} formatCellValue={formatCellValue} /></td>)}</tr>)}</tbody>
+              <tbody>{filteredRows.map((row, index) => <tr key={row.historyRowKey || index}><td>{formatCellValue('measurementDate', row.measurementDate)}</td>{profileFields.map(([id]) => <td key={id}>{formatCellValue(id, row[id]) || '—'}</td>)}{historyMetricFields.map(([id]) => <td key={id}><HistoryCell field={id} value={row[id]} formatCellValue={formatCellValue} row={row} /></td>)}</tr>)}</tbody>
             </table>
           </div>
         </>
       ) : (
         <div className="progress-report-table-shell">
           <table className="progress-report-table monitoring-snapshot-table">
-            <thead><tr>{identityFields.map(([id, label]) => <th key={id}>{label}</th>)}{profileFields.map(([id, label]) => <th key={id}>{label}</th>)}{historyMetricFields.map(([id, label]) => <th key={id}>{label}</th>)}</tr></thead>
-            <tbody>{filteredRows.map((row, index) => <tr key={row.historyRowKey || index}>{identityFields.map(([id]) => <td key={id}>{formatCellValue(id, row[id])}</td>)}{profileFields.map(([id]) => <td key={id}>{formatCellValue(id, row[id]) || '—'}</td>)}{historyMetricFields.map(([id]) => <td key={id}><HistoryCell field={id} value={row[id]} formatCellValue={formatCellValue} /></td>)}</tr>)}</tbody>
+            <thead><tr>{communityFields.map(([id, label]) => <th key={id}>{label}</th>)}{identityFields.map(([id, label]) => <th key={id}>{label}</th>)}{profileFields.map(([id, label]) => <th key={id}>{label}</th>)}{historyMetricFields.map(([id, label]) => <th key={id}>{label}</th>)}</tr></thead>
+            <tbody>{filteredRows.map((row, index) => <tr key={row.historyRowKey || index}>{communityFields.map(([id]) => <td key={id}>{formatCellValue(id, row[id]) || '—'}</td>)}{identityFields.map(([id]) => <td key={id}>{formatCellValue(id, row[id])}</td>)}{profileFields.map(([id]) => <td key={id}>{formatCellValue(id, row[id]) || '—'}</td>)}{historyMetricFields.map(([id]) => <td key={id}><HistoryCell field={id} value={row[id]} formatCellValue={formatCellValue} row={row} /></td>)}</tr>)}</tbody>
           </table>
         </div>
       )}
@@ -144,7 +167,11 @@ function StandardResultsTable({ resultsRows, fields, formatCellValue, emptyMessa
         </thead>
         <tbody>
           {resultsRows.length ? (
-            resultsRows.map((row, index) => <tr key={row.historyRowKey || index}>{safeFields.map(([id]) => <td key={id}>{formatCellValue(id, row[id])}</td>)}</tr>)
+            resultsRows.map((row, index) => <tr key={row.historyRowKey || index}>{safeFields.map(([id]) => {
+              const value = row[id];
+              const className = interpretationClass(interpretationForMetric(row, id));
+              return <td key={id}><span className={className}>{formatCellValue(id, value)}</span></td>;
+            })}</tr>)
           ) : (
             <tr>
               <td colSpan={Math.max(safeFields.length, 1)} className="growth-report-empty">{emptyMessage}</td>
@@ -156,9 +183,10 @@ function StandardResultsTable({ resultsRows, fields, formatCellValue, emptyMessa
   );
 }
 
-function getLatestResultsTableData(resultsRows, beneficiaryType, resultPeriod) {
+function getLatestResultsTableData(resultsRows, beneficiaryType, resultPeriod, communitySelection) {
   const beneficiaryField = beneficiaryType === 'mother' ? 'mother' : 'child';
   const beneficiaryLabel = beneficiaryType === 'mother' ? 'Mother Name' : 'Child Name';
+  const communityFields = communityFieldsForSelection(communitySelection);
   const rowsWithBmi = resultsRows.map((row) => {
     const visitDate = String(row.measurementDate || '').slice(0, 10);
     const visit = row.growthSeries?.find((point) => String(point.date || point.measurementDate || '').slice(0, 10) === visitDate);
@@ -174,6 +202,7 @@ function getLatestResultsTableData(resultsRows, beneficiaryType, resultPeriod) {
 
   if (resultPeriod === 'latest') {
     const latestFields = [
+      ...communityFields,
       [beneficiaryField, beneficiaryLabel],
       ['measurementDate', 'Latest Report Date'],
       ['bmiForAge', 'BMI'],
@@ -186,8 +215,16 @@ function getLatestResultsTableData(resultsRows, beneficiaryType, resultPeriod) {
     .map((row) => String(row.measurementDate || '').slice(0, 7))
     .filter(Boolean))].sort((left, right) => right.localeCompare(left));
   const fields = [
+    ...communityFields,
     ['beneficiaryName', beneficiaryLabel],
-    ...monthColumns.map((month) => [month, new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric' }).format(new Date(`${month}-01T00:00:00`))]),
+    ...monthColumns.map((month) => {
+      const date = new Date(`${month}-01T00:00:00`);
+      const monthLabel = new Intl.DateTimeFormat('en-US', { month: 'short' }).format(date);
+      const yearLabel = new Intl.DateTimeFormat('en-US', { year: '2-digit' }).format(date);
+      return [month, `${monthLabel}-${yearLabel}`];
+    }).flatMap(([month, label]) => beneficiaryType === 'mother'
+      ? [[month, label], [`${month}Interpretation`, `${label} Interpretation`]]
+      : [[month, label]]),
   ];
   const rowsByBeneficiary = new Map();
   rowsWithBmi.forEach((row) => {
@@ -196,26 +233,40 @@ function getLatestResultsTableData(resultsRows, beneficiaryType, resultPeriod) {
     const beneficiaryRow = rowsByBeneficiary.get(beneficiaryKey) || {
       beneficiaryName: row[beneficiaryField] || 'Unnamed beneficiary',
       historyRowKey: beneficiaryKey,
+      group: row.group || '',
+      batch: row.batch || '',
+      communityDate: visitDate,
     };
+    if (visitDate > beneficiaryRow.communityDate) {
+      communityFields.forEach(([id]) => { beneficiaryRow[id] = row[id] || ''; });
+      beneficiaryRow.communityDate = visitDate;
+    }
     const visitMonth = visitDate.slice(0, 7);
     if (visitMonth && row.bmiForAge !== '') {
       const currentMonthBmi = beneficiaryRow[visitMonth];
       if (!currentMonthBmi || visitDate > currentMonthBmi.date) {
-        beneficiaryRow[visitMonth] = { date: visitDate, bmi: row.bmiForAge };
+        beneficiaryRow[visitMonth] = {
+          date: visitDate,
+          bmi: row.bmiForAge,
+          interpretation: row.bmiInterpretation,
+        };
       }
     }
     rowsByBeneficiary.set(beneficiaryKey, beneficiaryRow);
   });
-  const matrixRows = [...rowsByBeneficiary.values()].map((row) => ({
+  const matrixRows = [...rowsByBeneficiary.values()].map(({ communityDate, ...row }) => ({
     ...row,
-    ...Object.fromEntries(monthColumns.map((month) => [month, row[month]?.bmi ?? ''])),
+    ...Object.fromEntries(monthColumns.flatMap((month) => [
+      [month, row[month]?.bmi ?? ''],
+      ...(beneficiaryType === 'mother' ? [[`${month}Interpretation`, row[month]?.interpretation ?? '']] : []),
+    ])),
   }));
 
   return { rows: matrixRows, fields, hasUndatedRows: monthColumns.length === 0 && rowsByBeneficiary.size > 0 };
 }
 
-function LatestResultsTable({ resultsRows, formatCellValue, beneficiaryType, resultPeriod }) {
-  const tableData = getLatestResultsTableData(resultsRows, beneficiaryType, resultPeriod);
+function LatestResultsTable({ resultsRows, formatCellValue, beneficiaryType, resultPeriod, communitySelection }) {
+  const tableData = getLatestResultsTableData(resultsRows, beneficiaryType, resultPeriod, communitySelection);
   return (
     <>
       <StandardResultsTable resultsRows={tableData.rows} fields={tableData.fields} formatCellValue={formatCellValue} emptyMessage="No results found for this period." />
@@ -284,7 +335,7 @@ export function ResultsTable({
     ? [...latestDatedRows, ...beneficiariesWithoutDatedMeasurements]
     : [...validMonitoringRows, ...beneficiariesWithoutDatedMeasurements];
   const currentTableData = showMonitoringFilter && tableDisplayMode === 'general'
-    ? getLatestResultsTableData(periodRows, beneficiaryType, resultPeriod)
+    ? getLatestResultsTableData(periodRows, beneficiaryType, resultPeriod, communitySelection)
     : { rows: resultsRows, fields: customizedFields };
   return (
     <div className="results-table-wrap">
@@ -368,7 +419,7 @@ export function ResultsTable({
       {showMonitoringFilter && tableDisplayMode === 'monitoring-dates' ? (
         <MonitoringHistoryTable resultsRows={resultsRows} reportFields={reportFields} displayVisibleFields={displayVisibleFields} formatCellValue={formatCellValue} communitySelection={communitySelection} beneficiaryType={beneficiaryType} onExport={onExport} />
       ) : showMonitoringFilter && tableDisplayMode === 'general' ? (
-        <LatestResultsTable resultsRows={periodRows} formatCellValue={formatCellValue} beneficiaryType={beneficiaryType} resultPeriod={resultPeriod} />
+        <LatestResultsTable resultsRows={periodRows} formatCellValue={formatCellValue} beneficiaryType={beneficiaryType} resultPeriod={resultPeriod} communitySelection={communitySelection} />
       ) : (
       <StandardResultsTable resultsRows={resultsRows} fields={customizedFields} formatCellValue={formatCellValue} />
       )}

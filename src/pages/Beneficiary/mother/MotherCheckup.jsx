@@ -51,16 +51,21 @@ const getTrimesterFromGestationalAge = (weeks) => {
 const getMonitoringStartDetails = (mother = {}) => {
   const registrationDate = mother.prenatalRegDate || mother.prenatal_reg_date || '';
   const registeredTrimester = mother.trimester || mother.trimester_at_registration || '';
-  const lmpDate = mother.lmpDate || mother.lmp || '';
+  const lmpDate = mother.lmpDate || mother.lmp_date || mother.lmp || '';
 
-  let currentWeeks = Number.parseInt(mother.gestationalAge ?? mother.gestational_age, 10);
-  if (lmpDate) {
-    const lmp = new Date(lmpDate);
+  let currentWeeks = NaN;
+  if (lmpDate && registrationDate) {
+    const lmp = new Date(`${formatDate(lmpDate)}T00:00:00Z`);
     if (!Number.isNaN(lmp.getTime())) {
-      const today = new Date();
-      const diffDays = Math.max(0, Math.floor((today - lmp) / (1000 * 60 * 60 * 24)));
-      currentWeeks = Math.floor(diffDays / 7);
+      const registration = new Date(`${formatDate(registrationDate)}T00:00:00Z`);
+      if (!Number.isNaN(registration.getTime()) && registration >= lmp) {
+        const diffDays = Math.floor((registration - lmp) / (7 * 24 * 60 * 60 * 1000));
+        currentWeeks = diffDays;
+      }
     }
+  }
+  if (!Number.isFinite(currentWeeks)) {
+    currentWeeks = Number.parseInt(mother.gestationalAge ?? mother.gestational_age, 10);
   }
 
   const trimester = registeredTrimester || (Number.isFinite(currentWeeks)

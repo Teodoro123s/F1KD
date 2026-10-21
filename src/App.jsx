@@ -18,6 +18,7 @@ const EditMotherPage = lazy(() => import('./pages/Beneficiary/mother/EditMotherP
 const Program = lazy(() => import('./pages/Program/ProgramPage'));
 const ProgressReport = lazy(() => import('./pages/ProgressReport/ProgressReport'));
 const ReceiptHistoryPage = lazy(() => import('./pages/Program/ReceiptHistoryPage'));
+const BeneficiaryProgramReportPage = lazy(() => import('./pages/Program/BeneficiaryProgramReportPage'));
 const UserManagementPage = lazy(() => import('./pages/UserManagement/UserManagementPage'));
 const UserDetailPage = lazy(() => import('./pages/UserManagement/UserDetailPage'));
 const ProfilePage = lazy(() => import('./pages/Profile/ProfilePage'));
@@ -75,6 +76,8 @@ export default function App() {
         <Route path="community/group/:groupId/health-workers" element={<RoleBasedRoute allowedRoles={COMMUNITY_ROLES}><CommunityModulePage /></RoleBasedRoute>} />
         <Route path="community/batch/:batchId" element={<RoleBasedRoute allowedRoles={COMMUNITY_ROLES}><CommunityModulePage /></RoleBasedRoute>} />
         <Route path="beneficiary" element={<RoleBasedRoute allowedRoles={OPERATIONAL_ROLES}><Beneficiary /></RoleBasedRoute>} />
+        <Route path="beneficiary/mother/:id/program-report" element={<RoleBasedRoute allowedRoles={OPERATIONAL_ROLES}><BeneficiaryProgramReportPage beneficiaryType="mother" /></RoleBasedRoute>} />
+        <Route path="beneficiary/child/:childId/program-report" element={<RoleBasedRoute allowedRoles={OPERATIONAL_ROLES}><BeneficiaryProgramReportPage beneficiaryType="child" /></RoleBasedRoute>} />
         <Route path="beneficiary/mother/:id" element={<RoleBasedRoute allowedRoles={OPERATIONAL_ROLES}><Beneficiary /></RoleBasedRoute>} />
         <Route path="beneficiary/mother/:id/profile" element={<RoleBasedRoute allowedRoles={OPERATIONAL_ROLES}><Beneficiary /></RoleBasedRoute>} />
         <Route path="beneficiary/create/mother" element={<RoleBasedRoute allowedRoles={BENEFICIARY_CREATE_ROLES}><Beneficiary /></RoleBasedRoute>} />

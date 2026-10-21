@@ -9,6 +9,7 @@ const {
   getAIConfiguration,
 } = require('../utils/progressReportAI');
 const { validateProgressReportQuery } = require('../utils/progressReportQueryValidation');
+const { motherMonitoringTotalSql } = require('../utils/motherMonitoring');
 
 const router = express.Router();
 
@@ -179,7 +180,8 @@ router.get('/', async (req, res) => {
     const motherCheckupDateFilter = (alias) => `${alias}.checkup_date IS NOT NULL`;
     const childActivitiesExpression = `(SELECT COUNT(*) FROM child_checkups completed_cc WHERE completed_cc.child_id = c.id AND completed_cc.week_number IS NOT NULL)`;
     const progressExpression = `ROUND(${childActivitiesExpression} * 100 / 24, 0)`;
-    const motherProgressExpression = `ROUND(COUNT(DISTINCT mc.id) * 100 / 9, 0)`;
+    const expectedMotherCheckups = motherMonitoringTotalSql('m');
+    const motherProgressExpression = `ROUND(COUNT(DISTINCT mc.id) * 100 / ${expectedMotherCheckups}, 0)`;
     const baseFrom = isMotherReport ? `
       FROM mothers m
       LEFT JOIN communities school ON school.id = m.community_id
@@ -201,7 +203,7 @@ router.get('/', async (req, res) => {
       : 'c.id, c.child_code, c.first_name, c.middle_name, c.last_name, m.id, m.mother_code, m.first_name, m.last_name, school.name, g.name, b.name';
     const motherNameExpression = `TRIM(CONCAT_WS(' ', m.first_name, m.middle_name, m.last_name, m.suffix))`;
     const childNameExpression = params.granularity === 'mother' ? 'NULL' : `TRIM(CONCAT_WS(' ', c.first_name, c.middle_name, c.last_name, c.suffix))`;
-    const totalExpression = isMotherReport ? '9' : '24';
+    const totalExpression = isMotherReport ? expectedMotherCheckups : '24';
     const monthAgeExpression = `CASE
       WHEN c.birth_date IS NULL OR c.birth_date < '1900-01-01' OR c.birth_date > CURDATE() THEN NULL
       ELSE TIMESTAMPDIFF(MONTH, c.birth_date, CURDATE()) - CASE WHEN DAY(CURDATE()) < DAY(c.birth_date) THEN 1 ELSE 0 END

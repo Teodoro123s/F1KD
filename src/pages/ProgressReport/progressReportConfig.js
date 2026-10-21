@@ -290,7 +290,7 @@ export const PROGRAM_METRICS = [
   ['receivedBenefitAveragePerMonth', 'Average Received per Month', 'Average true receipt events per active month.'],
 ];
 
-export const REPORT_TABS = ['Community', 'Report Focus', 'Growth Metrics', 'Results'];
+export const REPORT_TABS = ['Community & Report Focus', 'Growth Metrics', 'Results'];
 export const REPORT_FOCUS_OPTIONS = [
   ['beneficiary-batch', 'Individual Report', 'batch'],
   ['beneficiary-group', 'Individual Report', 'group'],

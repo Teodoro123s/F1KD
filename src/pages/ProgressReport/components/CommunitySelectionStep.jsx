@@ -1,6 +1,5 @@
 import React from 'react';
 import { ReportAiAssistant } from './ReportAiAssistant';
-import { StepNavigationButton } from '../../../components/ui/StepNavigationButton';
 
 export function CommunitySelectionStep({
   isCommunityOrganizer,
@@ -11,11 +10,9 @@ export function CommunitySelectionStep({
   isHealthWorker,
   options,
   updateSelection,
-  setActiveTab,
-  isNavigating = false,
-  navigationDirection = '',
   aiScopeLabel,
   applyAiProposal,
+  reportFocusStep,
 }) {
   return (
     <div className="community-selection-step">
@@ -68,17 +65,8 @@ export function CommunitySelectionStep({
               ? 'Your school is assigned to your account. Group and Batch are optional filters.'
               : 'Select a School to begin. Group and Batch are optional filters.'}
         </p>
-        <div className="progress-report-tab-actions">
-          <StepNavigationButton
-            className="primary-btn"
-            disabled={!selection.schoolId || isNavigating}
-            loading={navigationDirection === 'next'}
-            onClick={() => setActiveTab(2)}
-          >
-            Next: Report Focus →
-          </StepNavigationButton>
-        </div>
       </div>
+      {selection.schoolId && reportFocusStep}
       <ReportAiAssistant scopeLabel={aiScopeLabel} onApply={applyAiProposal} />
     </div>
   );

@@ -81,7 +81,7 @@ export function ReportFocusStep({
       <div className="progress-report-tab-actions">
         <StepNavigationButton
           className="primary-btn"
-          onClick={() => setActiveTab(3)}
+          onClick={() => setActiveTab(2)}
           disabled={isNavigating}
           loading={navigationDirection === 'next'}
         >

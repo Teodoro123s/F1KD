@@ -155,7 +155,7 @@ export default function ProgressReport() {
   const graphMetricOptions = graphMetricType === 'interpretation' ? availableGrowthMetrics : availableNumericGrowthMetrics;
   const selectedGraphMetric = growthMetrics[0] || graphMetricOptions[0]?.[0] || '';
   const selectedTableGrowthFields = [...new Set(monitorTableMetrics.length
-    ? monitorTableMetrics.filter((field) => GROWTH_TABLE_FIELDS.has(field))
+    ? monitorTableMetrics.flatMap(growthTableFieldsForMetric).filter((field) => GROWTH_TABLE_FIELDS.has(field))
     : growthTableFieldsForMetric(selectedGraphMetric))];
   const tableBaseFields = baseDisplayVisibleFields.filter((field) => !GROWTH_TABLE_FIELDS.has(field));
   const monitoringHierarchyFields = new Set([
@@ -316,7 +316,7 @@ export default function ProgressReport() {
         programName,
       });
       setPage(nextPage);
-      setActiveTab(4);
+      setActiveTab(3);
     } catch (reportError) {
       notifyAction(reportError.message || 'Unable to generate report.', 'error');
       setReport(null);
@@ -379,7 +379,10 @@ export default function ProgressReport() {
     const url = URL.createObjectURL(new Blob([`\uFEFF${lines.join('\r\n')}`], { type: 'text/csv;charset=utf-8' }));
     const link = document.createElement('a');
     link.href = url;
-    link.download = `progress-report-${beneficiaryType}-${view}.csv`;
+    const reportView = view === 'table' && displayReportCategory === 'monitor'
+      ? tableDisplayMode
+      : view;
+    link.download = `progress-report-${displayReportCategory}-${displayBeneficiaryType}-${reportView}.csv`;
     link.click();
     URL.revokeObjectURL(url);
     notifyAction('Progress report CSV download started.');
@@ -483,7 +486,7 @@ export default function ProgressReport() {
   const completedPercent = resultsRows.length
     ? Math.round(resultsRows.reduce((sum, row) => sum + Number(row.progress || 0), 0) / resultsRows.length)
     : 0;
-  const canOpenTab = (tab) => tab === 1 || (tab === 2 && Boolean(selection.schoolId)) || (tab === 3 && Boolean(selection.schoolId)) || (tab === 4 && Boolean(activeReport));
+  const canOpenTab = (tab) => tab === 1 || (tab === 2 && Boolean(selection.schoolId)) || (tab === 3 && Boolean(activeReport));
   const goToTab = (tab, direction) => {
     return runStepNavigation(() => {
       if (!canOpenTab(tab)) return false;
@@ -543,7 +546,6 @@ export default function ProgressReport() {
     syncVisibleFieldsForGrowthMetric([initialMetric]);
     setFinalizedSnapshot(null);
     setReport(null);
-    setActiveTab(2);
   };
   const selectReportCategory = (category) => {
     setMonitorTableMetrics([]);
@@ -599,7 +601,7 @@ export default function ProgressReport() {
       setTableDisplayMode('monitoring-dates');
     }
 
-    setActiveTab(2);
+    setActiveTab(1);
   };
 
   useEffect(() => {
@@ -619,7 +621,7 @@ export default function ProgressReport() {
   }, [availableGrowthMetrics, availableNumericGrowthMetrics, graphMetricType, growthMetrics, reportCategory]);
 
   useEffect(() => {
-    if (activeTab !== 4 || resultsView !== 'graph') return undefined;
+    if (activeTab !== 3 || resultsView !== 'graph') return undefined;
     const heading = document.querySelector('.growth-report-single-card h3');
     const subtitle = document.querySelector('.growth-report-single-card > p');
     if (heading && displayReportCategory === 'monitor' && beneficiaryType === 'mother') heading.textContent = '📈 BMI';
@@ -664,34 +666,30 @@ export default function ProgressReport() {
               isHealthWorker={isHealthWorker}
               options={options}
               updateSelection={updateSelection}
-              setActiveTab={goToTab}
-              isNavigating={isNavigating}
-              navigationDirection={navigationDirection}
               aiScopeLabel={aiScopeLabel}
               applyAiProposal={applyAiProposal}
+              reportFocusStep={(
+                <ReportFocusStep
+                  reportCategory={reportCategory}
+                  selectReportCategory={selectReportCategory}
+                  programName={programName}
+                  setProgramName={setProgramName}
+                  programs={programs}
+                  benefitPeriod={benefitPeriod}
+                  setBenefitPeriod={setBenefitPeriod}
+                  benefitMonth={benefitMonth}
+                  setBenefitMonth={setBenefitMonth}
+                  beneficiaryType={beneficiaryType}
+                  setBeneficiaryType={selectBeneficiaryType}
+                  setActiveTab={goToTab}
+                  isNavigating={isNavigating}
+                  navigationDirection={navigationDirection}
+                />
+              )}
             />
           )}
 
           {activeTab === 2 && (
-            <ReportFocusStep
-              reportCategory={reportCategory}
-              selectReportCategory={selectReportCategory}
-              programName={programName}
-              setProgramName={setProgramName}
-              programs={programs}
-              benefitPeriod={benefitPeriod}
-              setBenefitPeriod={setBenefitPeriod}
-              benefitMonth={benefitMonth}
-              setBenefitMonth={setBenefitMonth}
-              beneficiaryType={beneficiaryType}
-              setBeneficiaryType={selectBeneficiaryType}
-              setActiveTab={goToTab}
-              isNavigating={isNavigating}
-              navigationDirection={navigationDirection}
-            />
-          )}
-
-          {activeTab === 3 && (
             <GrowthMetricsStep
               reportCategory={reportCategory}
               availableProfileMetrics={availableProfileMetrics}
@@ -724,7 +722,7 @@ export default function ProgressReport() {
             />
           )}
 
-          {activeTab === 4 && (loadingReport || activeReport) && (
+          {activeTab === 3 && (loadingReport || activeReport) && (
             loadingReport ? (
               <div className="progress-report-tab-panel results-tab-panel">
                 <div className="progress-report-empty">Generating report…</div>
