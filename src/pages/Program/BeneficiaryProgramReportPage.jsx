@@ -23,6 +23,8 @@ const supportsBeneficiaryType = (programType, beneficiaryType) => {
   return normalizedType === beneficiaryType || normalizedType === 'mother and child';
 };
 
+const isReceiptReceived = (value) => value === true || value === 1 || value === '1' || value === 'true';
+
 const getBeneficiaryName = (beneficiary, beneficiaryType) => {
   const firstName = beneficiary?.firstName || beneficiary?.first_name || '';
   const middleName = beneficiary?.middleName || beneficiary?.middle_name || '';
@@ -42,6 +44,9 @@ export default function BeneficiaryProgramReportPage({ beneficiaryType }) {
   const [reportRows, setReportRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [selectedSummary, setSelectedSummary] = useState('entries');
+  const [programFilter, setProgramFilter] = useState('');
+  const [tableSearch, setTableSearch] = useState('');
   const showAuditSignatures = canViewAuditSignatures(currentUser?.role);
 
   useEffect(() => {
@@ -102,9 +107,38 @@ export default function BeneficiaryProgramReportPage({ beneficiaryType }) {
 
   const summary = useMemo(() => ({
     total: reportRows.length,
-    received: reportRows.filter((row) => Boolean(row.monitored)).length,
+    received: reportRows.filter((row) => isReceiptReceived(row.monitored)).length,
     programs: new Set(reportRows.map((row) => String(row.programId))).size,
   }), [reportRows]);
+  const programOptions = useMemo(() => (
+    [...new Set(reportRows.map((row) => row.programName).filter(Boolean))]
+      .sort((left, right) => left.localeCompare(right))
+  ), [reportRows]);
+  const visibleRows = useMemo(() => {
+    const rows = reportRows.filter((row) => {
+      if (selectedSummary === 'received') return isReceiptReceived(row.monitored);
+      if (selectedSummary === 'programs' && programFilter) return row.programName === programFilter;
+      return true;
+    });
+    const query = tableSearch.trim();
+    if (!query) return rows;
+    return rows.filter((row) => {
+      const searchableValues = [
+        formatDateForDisplay(String(row.date || '').slice(0, 10)),
+        row.programName,
+        isReceiptReceived(row.monitored) ? 'Received' : 'Not received',
+        row.notes,
+        row.school_name,
+        row.group_name,
+        row.batch_name,
+        row.created_by_name,
+        row.created_by_role,
+        row.updated_by_name,
+        row.updated_by_role,
+      ];
+      return searchableValues.some((value) => String(value || '').includes(query));
+    });
+  }, [programFilter, reportRows, selectedSummary, tableSearch]);
   const fallbackReturnTo = beneficiaryType === 'mother'
     ? `/beneficiary/mother/${routeId}`
     : `/beneficiary/child/${routeId}`;
@@ -138,17 +172,41 @@ export default function BeneficiaryProgramReportPage({ beneficiaryType }) {
 
         {!loading && !error && (
           <ModuleSummaryCards cards={[
-            { key: 'programs', label: 'Programs with activity', value: summary.programs },
-            { key: 'entries', label: 'Receipt entries', value: summary.total },
-            { key: 'received', label: 'Marked received', value: summary.received },
-          ]} />
+            { key: 'programs', label: 'Programs with activity', value: summary.programs, description: 'Choose a program to view its entries.' },
+            { key: 'entries', label: 'Receipt entries', value: summary.total, description: 'Show all receipt entries.' },
+            { key: 'received', label: 'Marked received', value: summary.received, description: 'Show entries marked received.' },
+          ]} onSelect={setSelectedSummary} selected={selectedSummary} />
         )}
 
         {loading ? <p>Loading individual program report...</p> : error ? (
           <p role="alert">{error}</p>
         ) : (
+          <>
+          <div className="program-beneficiary-report-controls">
+            {selectedSummary === 'programs' && (
+              <label>
+                Filter by program
+                <select value={programFilter} onChange={(event) => setProgramFilter(event.target.value)}>
+                  <option value="">All programs with activity</option>
+                  {programOptions.map((programName) => (
+                    <option key={programName} value={programName}>{programName}</option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <span aria-live="polite">Showing {visibleRows.length} of {reportRows.length} entries</span>
+            <label className="program-beneficiary-report-search">
+              Search table (case-sensitive)
+              <input
+                type="search"
+                value={tableSearch}
+                onChange={(event) => setTableSearch(event.target.value)}
+                placeholder="Enter exact letter casing"
+              />
+            </label>
+          </div>
           <div className="program-receipt-table-scroll">
-            <table className="data-table program-beneficiary-report-table">
+            <table className={`data-table program-beneficiary-report-table${showAuditSignatures ? ' has-audit-signatures' : ''}`}>
               <thead>
                 <tr>
                   <th>Date</th>
@@ -162,11 +220,24 @@ export default function BeneficiaryProgramReportPage({ beneficiaryType }) {
                 </tr>
               </thead>
               <tbody>
-                {reportRows.length ? reportRows.map((row, index) => (
-                  <tr key={`${row.programId}-${row.date}-${index}`}>
+                {visibleRows.length ? visibleRows.map((row, index) => (
+                  <tr
+                    key={`${row.programId}-${row.date}-${index}`}
+                    className="program-clickable-row"
+                    role="link"
+                    tabIndex={0}
+                    aria-label={`Open ${row.programName}`}
+                    onClick={() => navigate(`/program/${row.programId}`)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        navigate(`/program/${row.programId}`);
+                      }
+                    }}
+                  >
                     <td>{formatDateForDisplay(String(row.date || '').slice(0, 10)) || '—'}</td>
                     <td>{row.programName}</td>
-                    <td>{row.monitored ? 'Received' : 'Not received'}</td>
+                    <td>{isReceiptReceived(row.monitored) ? 'Received' : 'Not received'}</td>
                     <td>{row.notes || '—'}</td>
                     <td>{row.school_name || '—'}</td>
                     <td>{row.group_name || '—'}</td>
@@ -187,13 +258,16 @@ export default function BeneficiaryProgramReportPage({ beneficiaryType }) {
                 )) : (
                   <tr>
                     <td colSpan={showAuditSignatures ? 8 : 7} className="no-data">
-                      No program receipt history found for this beneficiary.
+                      {reportRows.length
+                        ? 'No receipt entries match the selected filters.'
+                        : 'No program receipt history found for this beneficiary.'}
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
+          </>
         )}
       </section>
     </div>

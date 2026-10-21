@@ -28,23 +28,39 @@ test('maternal registration measurements map to the next scheduled checkup', () 
   });
 });
 
-test('sample seed plan creates the requested school, group, batch, and beneficiary counts', () => {
+test('sample seed plan creates two separately staffed schools with substantial demo data', () => {
   const plan = buildSeedPlan();
 
-  assert.equal(plan.school.name, 'F1KD Demo School');
-  assert.equal(plan.groups.length, 2);
-  assert.equal(plan.batches.length, 4);
-  assert.equal(plan.mothers.length, 40);
-  assert.equal(plan.children.length, 32);
-  assert.equal(plan.completedChildCodes.length, 28);
-  assert.equal(plan.maternalCheckups.length, 265);
-  assert.equal(plan.childCheckups.length, 768);
-  assert.equal(plan.users.length, 5);
+  assert.equal(plan.schools.length, 2);
+  assert.equal(plan.groups.length, 4);
+  assert.equal(plan.batches.length, 8);
+  assert.equal(plan.mothers.length, 80);
+  assert.equal(plan.children.length, 80);
+  assert.equal(plan.completedChildCodes.length, 56);
+  assert.equal(plan.completedMotherCodes.length, 56);
+  assert.equal(plan.programs.length, 4);
+  assert.equal(plan.maternalCheckups.length, 533);
+  assert.equal(plan.childCheckups.length, 1920);
+  assert.equal(plan.users.length, 8);
   assert.deepEqual(
     plan.users.map((user) => user.role).sort(),
-    ['Admin', 'Community Organizer', 'Health Worker', 'Health Worker', 'Partner'].sort(),
+    ['Admin', 'Community Organizer', 'Community Organizer', 'Health Worker', 'Health Worker', 'Health Worker', 'Health Worker', 'Partner'].sort(),
   );
-  assert.equal(plan.users.find((user) => user.role === 'Community Organizer').schoolCode, plan.school.code);
+  for (const school of plan.schools) {
+    const schoolGroups = plan.groups.filter((group) => group.schoolCode === school.code);
+    const schoolBatches = plan.batches.filter((batch) => batch.schoolCode === school.code);
+    assert.equal(schoolGroups.length, 2);
+    assert.equal(schoolBatches.length, 4);
+    assert.equal(plan.users.filter((user) => user.role === 'Community Organizer' && user.schoolCode === school.code).length, 1);
+    assert.equal(plan.mothers.filter((mother) => mother.schoolCode === school.code).length, 40);
+    assert.equal(plan.children.filter((child) => child.schoolCode === school.code).length, 40);
+    assert.equal(plan.users.filter((user) => user.role === 'Health Worker' && user.schoolCode === school.code).length, 2);
+    assert.equal(plan.programs.filter((program) => program.schoolCode === school.code).length, 2);
+    assert.deepEqual(
+      plan.programs.filter((program) => program.schoolCode === school.code).map((program) => program.beneficiaryType).sort(),
+      ['Child', 'Mother'],
+    );
+  }
   assert.deepEqual(
     plan.users.filter((user) => user.role === 'Health Worker').map((user) => user.groupCode).sort(),
     plan.groups.map((group) => group.code).sort(),
@@ -52,7 +68,7 @@ test('sample seed plan creates the requested school, group, batch, and beneficia
 
   for (const batch of plan.batches) {
     assert.equal(plan.mothers.filter((mother) => mother.batchCode === batch.code).length, 10);
-    assert.equal(plan.children.filter((child) => child.batchCode === batch.code).length, 8);
+    assert.equal(plan.children.filter((child) => child.batchCode === batch.code).length, 10);
     assert.equal(
       plan.maternalCheckups.filter((checkup) => (
         plan.mothers.find((mother) => mother.code === checkup.motherCode)?.batchCode === batch.code
@@ -65,7 +81,7 @@ test('sample seed plan creates the requested school, group, batch, and beneficia
       plan.childCheckups.filter((checkup) => (
         plan.children.find((child) => child.code === checkup.childCode)?.batchCode === batch.code
       )).length,
-      192,
+      240,
     );
     assert.equal(
       plan.completedChildCodes.filter((code) => (
@@ -86,11 +102,11 @@ test('sample seed plan creates the requested school, group, batch, and beneficia
     assert.equal(checkups[0].gestationalAge, mother.startingGestationalWeek);
   }
 
-  assert.equal(plan.mothers.filter((mother) => mother.startingTrimester === '1st Trimester').length, 26);
-  assert.equal(plan.mothers.filter((mother) => mother.startingTrimester === '2nd Trimester').length, 14);
-  assert.equal(plan.mothers.filter((mother) => mother.startingGestationalWeek === 10).length, 13);
-  assert.equal(plan.mothers.filter((mother) => mother.startingGestationalWeek === 12).length, 13);
-  assert.equal(plan.mothers.filter((mother) => mother.startingGestationalWeek === 20).length, 14);
+  assert.equal(plan.mothers.filter((mother) => mother.startingTrimester === '1st Trimester').length, 53);
+  assert.equal(plan.mothers.filter((mother) => mother.startingTrimester === '2nd Trimester').length, 27);
+  assert.equal(plan.mothers.filter((mother) => mother.startingGestationalWeek === 10).length, 27);
+  assert.equal(plan.mothers.filter((mother) => mother.startingGestationalWeek === 12).length, 26);
+  assert.equal(plan.mothers.filter((mother) => mother.startingGestationalWeek === 20).length, 27);
 
   for (const child of plan.children) {
     const monthlyCheckups = plan.childCheckups.filter((checkup) => checkup.childCode === child.code);
