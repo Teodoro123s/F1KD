@@ -71,6 +71,7 @@ test('mother registration saves initial monitoring measurements as a completed c
     if (sql.includes('FROM mothers WHERE (id = ? OR mother_code = ?)')) return [[mother]];
     if (sql.includes('FROM mothers m') && sql.includes('LEFT JOIN groups')) return [[mother]];
     if (sql.startsWith('INSERT INTO notifications')) return [{ insertId: 1 }];
+    if (sql.startsWith('INSERT IGNORE INTO activity_logs')) return [{ affectedRows: 1 }];
     if (sql.startsWith('DELETE FROM mother_')) return [{ affectedRows: 0 }];
     if (
       sql.startsWith('SELECT * FROM mother_ob_history')

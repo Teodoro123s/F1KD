@@ -96,6 +96,7 @@ test('Community Organizer can manage only Health workers in their assigned schoo
       return [found ? [found] : []];
     }
     if (sql.startsWith('INSERT INTO notifications')) return [{ insertId: 1 }];
+    if (sql.startsWith('INSERT IGNORE INTO activity_logs')) return [{ affectedRows: 1 }];
     throw new Error(`Unexpected test SQL: ${sql}`);
   };
   global.fetch = async (url, options) => {

@@ -10,6 +10,7 @@ The PSGC data is sourced from the [PSA](https://psa.gov.ph/classification/psgc/)
 
 ## Project documentation
 
+- [Users, roles, permissions, and data scope](./docs/ROLES_AND_ACCESS.md) — module access, account-management limits, school/group scope, and practical verification.
 - [Superadmin user guide](./docs/SUPERADMIN.md) — role purpose, permissions, modules, recovery flow, and operational boundaries.
 - [Integrated AI guide](./docs/INTEGRATED_AI.md) — AI features by module, their purpose, scope, access, data handling, and limitations.
 

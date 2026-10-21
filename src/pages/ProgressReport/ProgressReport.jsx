@@ -73,7 +73,12 @@ export default function ProgressReport() {
   const { currentUser } = useAuth();
   const isHealthWorker = isHealthWorkerRole(currentUser?.role);
   const isCommunityOrganizer = isCommunityCoordinatorRole(currentUser?.role);
-  const canRecordReportDownload = hasRole(currentUser?.role, [ROLES.ADMIN, ROLES.PARTNER]);
+  const canRecordReportDownload = hasRole(currentUser?.role, [
+    ROLES.ADMIN,
+    ROLES.COMMUNITY_COORDINATOR,
+    ROLES.PARTNER,
+    ROLES.HEALTH_WORKER,
+  ]);
   const isSchoolAssignedUser = isHealthWorker || isCommunityOrganizer;
   const [options, setOptions] = useState({ schools: [], groups: [], batches: [], mothers: [] });
   const assignedSchoolId = currentUser?.school_id ?? currentUser?.schoolId ?? '';

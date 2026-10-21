@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../../auth/AuthProvider";
-import { hasRole, isCommunityCoordinatorRole, isHealthWorkerRole, ROLES } from "../../utils/permissions";
+import { isCommunityCoordinatorRole, isHealthWorkerRole } from "../../utils/permissions";
 import PageHeader from '../../components/ui/PageHeader';
 import {
   BatchesIcon,
@@ -41,11 +41,10 @@ export default function ProgramPage() {
   const { programId, clusterType, clusterName, schoolId, groupId, batchId } = useParams();
   const { currentUser } = useAuth();
   const isCommunityOrganizer = isCommunityCoordinatorRole(currentUser?.role);
-  const isSuperAdmin = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]);
   const canManagePrograms = isCommunityOrganizer;
-  const canCreatePrograms = isCommunityOrganizer;
-  const canDeletePrograms = isCommunityOrganizer;
-  const canEndPrograms = isCommunityOrganizer;
+  const canCreatePrograms = canManagePrograms;
+  const canDeletePrograms = canManagePrograms;
+  const canEndPrograms = canManagePrograms;
   const canMonitorPrograms = canCreatePrograms || isHealthWorkerRole(currentUser?.role);
   const [activeTab, setActiveTab] = useState(null);
   const [query, setQuery] = useState("");
@@ -871,7 +870,7 @@ export default function ProgramPage() {
           className="actions-dropdown actions-dropdown-portal community-actions-dropdown"
           role="menu"
         >
-          {(isSuperAdmin || isCommunityOrganizer || isHealthWorkerRole(currentUser?.role)) && (menuProgram.clusters || []).length > 0 && (
+          {(isCommunityOrganizer || isHealthWorkerRole(currentUser?.role)) && (menuProgram.clusters || []).length > 0 && (
             <button
               type="button"
               className="actions-dropdown-item"
@@ -881,7 +880,7 @@ export default function ProgramPage() {
               {isHealthWorkerRole(currentUser?.role) ? 'Receipt history' : 'View'}
             </button>
           )}
-          {(isSuperAdmin || isCommunityOrganizer) && String(menuProgram?.status || '').trim().toLowerCase() !== 'ended' && (
+          {isCommunityOrganizer && String(menuProgram?.status || '').trim().toLowerCase() !== 'ended' && (
             <button type="button" className="actions-dropdown-item" onClick={() => { setActionProgram(menuProgram); setActiveActionMenu(null); editProgram(); }} role="menuitem">Edit</button>
           )}
           {canEndPrograms && (

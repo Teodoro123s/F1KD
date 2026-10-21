@@ -114,12 +114,9 @@ Key files:
 
 ### 4. Program and beneficiary operations
 
-Although Superadmin is not the core role for daily operational data entry, the role still has access to core program and beneficiary resources as part of the broad administrative model.
+Superadmin does not have access to the Program module. Program creation, assignment, receipt history, and check-ins belong to operational roles; Superadmin responsibilities remain focused on global account administration, community oversight, and activity reports.
 
-This allows the Superadmin to:
-- inspect program data across the system
-- review beneficiary records and monitoring data
-- support operational troubleshooting when higher-level oversight is required
+The application hides Program navigation and denies Superadmin access to Program pages and APIs.
 
 ### 5. Reports and activity tracking
 
@@ -163,7 +160,7 @@ The Superadmin is responsible for the following functions:
   - ensure role aliases are correctly normalized to `super_admin`
 
 - Global record oversight
-  - access community, beneficiary, and program data across the organization
+  - access community and program data across the organization
   - review reports without being limited to a single school/group scope
 
 - Recovery and resilience
