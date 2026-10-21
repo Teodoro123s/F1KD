@@ -171,6 +171,9 @@ export default function BeneficiaryPage() {
               <button ref={createDropdownTriggerRef} className="view-btn view-btn--primary module-create-button" onClick={openCreateModal} type="button" aria-haspopup="menu" aria-expanded={createDropdownOpen}>
                 <PlusIcon />
                 <span>Create</span>
+              <svg className="module-create-button__chevron" viewBox="0 0 20 20" width="16" height="16" fill="none" aria-hidden="true">
+                <path d="m5 7.5 5 5 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
               </button>
               <FloatingLayer
                 open={createDropdownOpen}
