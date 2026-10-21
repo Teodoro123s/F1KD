@@ -32,6 +32,7 @@ test('rejects malformed identifiers and pagination rather than dropping the filt
 test('rejects unknown filter values, invalid months, and oversized search text', () => {
   for (const query of [
     { benefitPeriod: 'year' },
+    { benefitPeriod: 'month' },
     { granularity: 'both' },
     { benefitMonth: '2024-13' },
     { export: 'yes' },

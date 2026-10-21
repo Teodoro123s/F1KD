@@ -34,6 +34,9 @@ function validateProgressReportQuery(query = {}) {
   }
 
   const benefitMonth = query.benefitMonth === undefined ? '' : String(query.benefitMonth);
+  if (benefitPeriod === 'month' && !benefitMonth) {
+    return 'benefitMonth is required when benefitPeriod is month';
+  }
   if (benefitMonth && !/^(?:1\d{3}|[2-9]\d{3})-(?:0[1-9]|1[0-2])$/.test(benefitMonth)) {
     return 'benefitMonth must be a valid month in YYYY-MM format';
   }

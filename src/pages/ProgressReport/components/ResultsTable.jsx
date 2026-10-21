@@ -52,7 +52,7 @@ function HistoryCell({ field, value, formatCellValue, row }) {
   );
 }
 
-function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleFields, formatCellValue, communitySelection, beneficiaryType, onExport }) {
+function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleFields, formatCellValue, communitySelection, beneficiaryType, onExport, exportingReport }) {
   const [viewMode, setViewMode] = useState('individual');
   const [selectedBeneficiary, setSelectedBeneficiary] = useState('');
   const [selectedMonth, setSelectedMonth] = useState('');
@@ -121,9 +121,16 @@ function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleField
               ? [['measurementDate', 'Check-up Date'], ...profileFields, ...historyMetricFields]
               : [...communityFields, ...identityFields, ...profileFields, ...historyMetricFields],
             view: 'table',
+            tableMode: 'monitoring-dates',
+            historyView: viewMode,
+            selectedBeneficiary: activeBeneficiary,
+            selectedMonth: activeMonth,
+            selectedSchool: activeSchool,
+            selectedGroup: activeGroup,
           })}
+          disabled={exportingReport}
         >
-          Export CSV
+          {exportingReport ? 'Preparing CSV…' : 'Export CSV'}
         </button>
       </div>
       {viewMode === 'individual' ? (
@@ -183,7 +190,7 @@ function StandardResultsTable({ resultsRows, fields, formatCellValue, emptyMessa
   );
 }
 
-function getLatestResultsTableData(resultsRows, beneficiaryType, resultPeriod, communitySelection) {
+export function getLatestResultsTableData(resultsRows, beneficiaryType, resultPeriod, communitySelection) {
   const beneficiaryField = beneficiaryType === 'mother' ? 'mother' : 'child';
   const beneficiaryLabel = beneficiaryType === 'mother' ? 'Mother Name' : 'Child Name';
   const communityFields = communityFieldsForSelection(communitySelection);
@@ -233,6 +240,11 @@ function getLatestResultsTableData(resultsRows, beneficiaryType, resultPeriod, c
     const beneficiaryRow = rowsByBeneficiary.get(beneficiaryKey) || {
       beneficiaryName: row[beneficiaryField] || 'Unnamed beneficiary',
       historyRowKey: beneficiaryKey,
+      [beneficiaryField]: row[beneficiaryField] || '',
+      mother: row.mother || '',
+      age: row.age ?? '',
+      gender: row.gender || '',
+      dateOfBirth: row.dateOfBirth || '',
       group: row.group || '',
       batch: row.batch || '',
       communityDate: visitDate,
@@ -284,8 +296,10 @@ export function ResultsTable({
   showMonitoringFilter,
   communitySelection,
   beneficiaryType,
-  monitoringRows,
   showProfileFilter,
+  resultPeriod,
+  setResultPeriod,
+  exportingReport = false,
   profileFieldSections = {},
   profileSectionLabels = {},
   profileSection = 'general',
@@ -299,26 +313,27 @@ export function ResultsTable({
   const [hiddenFields, setHiddenFields] = useState(() => new Set());
   const [customizerOpen, setCustomizerOpen] = useState(false);
   const customizerTriggerRef = useRef(null);
-  const hasColumnValues = (fieldId) => (resultsRows || []).some((row) => {
-    const value = row[fieldId];
-    return value !== undefined && value !== null && String(value).trim() !== '';
-  });
   const sectionFields = visibleFields.filter(([id]) => {
     if (showProfileFilter && profileFieldSections[id] && profileFieldSections[id] !== profileSection) {
       return false;
     }
-    if ((resultsRows || []).length === 0) return true;
-    return hasColumnValues(id);
+    return true;
   });
   const customizedFields = sectionFields.filter(([id]) => !hiddenFields.has(id));
   const showCustomize = !showMonitoringFilter;
   const showResultPeriod = showMonitoringFilter && tableDisplayMode === 'general';
-  const [resultPeriod, setResultPeriod] = useState('all');
   const today = new Date();
-  const validMonitoringRows = (monitoringRows || []).filter((row) => {
-    const date = new Date(row.measurementDate);
-    return row.measurementDate && !Number.isNaN(date.getTime());
-  });
+  const validMonitoringRows = resultsRows.flatMap((row) => (row.growthSeries || [])
+    .filter((point) => {
+      const dateValue = point.date || point.measurementDate;
+      return dateValue && !Number.isNaN(new Date(dateValue).getTime());
+    })
+    .map((point) => ({
+      ...row,
+      measurementDate: point.date || point.measurementDate,
+      bmiForAge: point.bmi ?? '',
+      growthSeries: [point],
+    })));
   const resultPeriodOptions = [
     { value: 'all', label: 'All' },
     { value: 'latest', label: 'Latest' },
@@ -410,14 +425,15 @@ export function ResultsTable({
               type="button"
               className="secondary-btn"
               onClick={() => onExport({ ...currentTableData, view: 'table' })}
+              disabled={exportingReport}
             >
-              Export CSV
+              {exportingReport ? 'Preparing CSV…' : 'Export CSV'}
             </button>
           )}
         </div>
       )}
       {showMonitoringFilter && tableDisplayMode === 'monitoring-dates' ? (
-        <MonitoringHistoryTable resultsRows={resultsRows} reportFields={reportFields} displayVisibleFields={displayVisibleFields} formatCellValue={formatCellValue} communitySelection={communitySelection} beneficiaryType={beneficiaryType} onExport={onExport} />
+        <MonitoringHistoryTable resultsRows={resultsRows} reportFields={reportFields} displayVisibleFields={displayVisibleFields} formatCellValue={formatCellValue} communitySelection={communitySelection} beneficiaryType={beneficiaryType} onExport={onExport} exportingReport={exportingReport} />
       ) : showMonitoringFilter && tableDisplayMode === 'general' ? (
         <LatestResultsTable resultsRows={periodRows} formatCellValue={formatCellValue} beneficiaryType={beneficiaryType} resultPeriod={resultPeriod} communitySelection={communitySelection} />
       ) : (

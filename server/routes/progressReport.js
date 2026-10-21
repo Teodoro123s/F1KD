@@ -43,8 +43,10 @@ function shouldApplyProgramMonitoringData({ programName } = {}) {
 
 function resolveProgramReportTargets({ row, granularity, programBeneficiaryType }) {
   const normalizedType = normalizeProgramBeneficiaryType(programBeneficiaryType);
-  const includeMother = normalizedType === 'mother' || normalizedType === 'mother and child' || normalizedType === 'mother & child' || granularity === 'mother';
-  const includeChild = normalizedType === 'child' || normalizedType === 'mother and child' || normalizedType === 'mother & child' || granularity !== 'mother';
+  const supportsMother = normalizedType === 'mother' || normalizedType === 'mother and child';
+  const supportsChild = normalizedType === 'child' || normalizedType === 'mother and child';
+  const includeMother = granularity === 'mother' && supportsMother;
+  const includeChild = granularity === 'child' && supportsChild;
   const targets = [];
   if (includeMother && row?.motherId) targets.push({ type: 'mother', id: row.motherId });
   if (includeChild && row?.childId) targets.push({ type: 'child', id: row.childId });
@@ -143,7 +145,19 @@ router.get('/options', async (req, res) => {
   try {
     const schoolClause = req.groupId ? 'WHERE id = (SELECT community_id FROM groups WHERE id = ?)' : req.schoolId ? 'WHERE id = ?' : '';
     const groupClause = req.groupId ? 'WHERE id = ?' : req.schoolId ? 'WHERE community_id = ?' : '';
-    const batchClause = req.groupId ? 'WHERE EXISTS (SELECT 1 FROM group_batch WHERE group_batch.batch_id = batches.id AND group_batch.group_id = ?)' : req.schoolId ? 'WHERE community_id = ?' : '';
+    const batchClause = req.groupId
+      ? `WHERE (
+          EXISTS (SELECT 1 FROM group_batch WHERE group_batch.batch_id = batches.id AND group_batch.group_id = ?)
+          OR EXISTS (SELECT 1 FROM mothers scoped_mother WHERE scoped_mother.batch_id = batches.id AND scoped_mother.group_id = ?)
+          OR EXISTS (
+            SELECT 1
+            FROM children scoped_child
+            INNER JOIN mothers scoped_child_mother ON scoped_child_mother.id = scoped_child.mother_id
+            WHERE scoped_child.batch_id = batches.id
+              AND COALESCE(scoped_child.group_id, scoped_child_mother.group_id) = ?
+          )
+        )`
+      : req.schoolId ? 'WHERE community_id = ?' : '';
     const [schools] = await pool.query(`SELECT id, name FROM communities ${schoolClause} ORDER BY name`, req.groupId ? [req.groupId] : req.schoolId ? [req.schoolId] : []);
     const [groups] = await pool.query(`SELECT id, name, community_id AS schoolId FROM groups ${groupClause} ORDER BY name`, req.groupId ? [req.groupId] : req.schoolId ? [req.schoolId] : []);
     const [batches] = await pool.query(`
@@ -155,7 +169,7 @@ router.get('/options', async (req, res) => {
       ${batchClause}
       GROUP BY batches.id, batches.name, batches.batch_code, batches.community_id
       ORDER BY batches.name
-    `, req.groupId ? [req.groupId] : req.schoolId ? [req.schoolId] : []);
+    `, req.groupId ? [req.groupId, req.groupId, req.groupId] : req.schoolId ? [req.schoolId] : []);
     const [mothers] = await pool.query(`
       SELECT m.id, m.mother_code AS code,
         TRIM(CONCAT_WS(' ', m.first_name, m.middle_name, m.last_name, m.suffix)) AS name,
@@ -446,6 +460,7 @@ router.get('/', async (req, res) => {
       receivedBenefitTotal: 0,
       receivedBenefitFrequency: 0,
       receivedBenefitAveragePerMonth: 0,
+      receivedBenefitActiveMonths: 0,
     }));
     if (params.granularity !== 'mother' || normalizedRows.length) {
       const applyMonitoringData = shouldApplyProgramMonitoringData(params);
@@ -460,11 +475,14 @@ router.get('/', async (req, res) => {
           benefitConditions.push("DATE_FORMAT(ml.monitored_date, '%Y-%m') = ?");
           benefitValues.push(params.benefitMonth);
         }
-        if (params.schoolId) { benefitConditions.push('COALESCE(m.community_id, c.community_id) = ?'); benefitValues.push(params.schoolId); }
-        if (params.groupId) { benefitConditions.push('COALESCE(m.group_id, c.group_id) = ?'); benefitValues.push(params.groupId); }
-        if (params.batchId) { benefitConditions.push('COALESCE(m.batch_id, c.batch_id) = ?'); benefitValues.push(params.batchId); }
+        const benefitScope = hierarchyWhere(params);
+        if (benefitScope.sql) {
+          benefitConditions.push(benefitScope.sql.replace(/^WHERE\s+/, ''));
+          benefitValues.push(...benefitScope.values);
+        }
         const [benefitRows] = await pool.query(
-          `SELECT ml.beneficiary_id, LOWER(ml.beneficiary_type) AS beneficiary_type,
+          `SELECT COALESCE(m.id, c.id, ml.beneficiary_id) AS beneficiary_id,
+                  LOWER(ml.beneficiary_type) AS beneficiary_type,
                   COUNT(*) AS total_received,
                   COUNT(DISTINCT DATE_FORMAT(ml.monitored_date, '%Y-%m')) AS active_months
            FROM monitoring_logs ml
@@ -472,7 +490,7 @@ router.get('/', async (req, res) => {
            LEFT JOIN mothers m ON LOWER(ml.beneficiary_type) = 'mother' AND (CAST(ml.beneficiary_id AS CHAR) = CAST(m.id AS CHAR) OR LOWER(TRIM(CAST(ml.beneficiary_id AS CHAR))) = LOWER(TRIM(CAST(m.mother_code AS CHAR))))
            LEFT JOIN children c ON LOWER(ml.beneficiary_type) = 'child' AND (CAST(ml.beneficiary_id AS CHAR) = CAST(c.id AS CHAR) OR LOWER(TRIM(CAST(ml.beneficiary_id AS CHAR))) = LOWER(TRIM(CAST(c.child_code AS CHAR))))
            WHERE ${benefitConditions.join(' AND ')}
-           GROUP BY ml.beneficiary_id, LOWER(ml.beneficiary_type)`,
+           GROUP BY COALESCE(m.id, c.id, ml.beneficiary_id), LOWER(ml.beneficiary_type)`,
           benefitValues,
         );
         const benefitMap = new Map(benefitRows.map((row) => [`${row.beneficiary_type}:${String(row.beneficiary_id)}`, row]));
@@ -488,6 +506,7 @@ router.get('/', async (req, res) => {
           const activeMonths = benefitDetails.reduce((sum, benefit) => sum + Number(benefit.active_months || 0), 0);
           row.receivedBenefitTotal = totalReceived;
           row.receivedBenefitFrequency = totalReceived;
+          row.receivedBenefitActiveMonths = activeMonths;
           row.receivedBenefitAveragePerMonth = activeMonths ? Number((totalReceived / activeMonths).toFixed(1)) : 0;
         });
         normalizedRows = normalizedRows.filter((row) => row.receivedBenefitTotal > 0);

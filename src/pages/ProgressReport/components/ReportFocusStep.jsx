@@ -76,6 +76,7 @@ export function ReportFocusStep({
               </label>
             )}
           </div>
+          <p className="progress-report-note">Program results include beneficiaries with confirmed benefit receipts in the selected program and period. Mixed programs can be reviewed separately by beneficiary type.</p>
         </fieldset>
       )}
       <div className="progress-report-tab-actions">

@@ -292,12 +292,12 @@ export const PROGRAM_METRICS = [
 
 export const REPORT_TABS = ['Community & Report Focus', 'Growth Metrics', 'Results'];
 export const REPORT_FOCUS_OPTIONS = [
-  ['beneficiary-batch', 'Individual Report', 'batch'],
-  ['beneficiary-group', 'Individual Report', 'group'],
-  ['beneficiary-school', 'Individual Report', 'school'],
-  ['batch-group', 'Batch Report', 'group'],
-  ['batch-school', 'Batch Report', 'school'],
-  ['group-school', 'Group Report', 'school'],
+  ['beneficiary-batch', 'Beneficiary detail', 'batch'],
+  ['beneficiary-group', 'Beneficiary detail', 'group'],
+  ['beneficiary-school', 'Beneficiary detail', 'school'],
+  ['batch-group', 'Batch summary', 'group'],
+  ['batch-school', 'Batch summary', 'school'],
+  ['group-school', 'Group summary', 'school'],
 ];
 
 export const csvValue = (value) => `"${String(value ?? '').replaceAll('"', '""')}"`;
