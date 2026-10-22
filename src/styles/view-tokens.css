@@ -214,6 +214,10 @@
 
 .view-content .search-container {
   display: flex;
+  flex: 0 1 300px;
+  width: min(300px, 100%);
+  min-width: 0;
+  max-width: 100%;
   align-items: center;
   gap: 0.75rem;
   height: 36px;
@@ -603,6 +607,11 @@
 .view-content .child-monitor-form .checkup-interpretation.is-abnormal { font-weight: 600; }
 
 @media (max-width: 720px) {
+  .view-content .search-container {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
   .view-content .checkup-card-body { padding: 16px 12px; }
   .view-content .checkup-grid { gap: 12px; }
   .view-content .checkup-field-input { min-height: var(--field-height); }
