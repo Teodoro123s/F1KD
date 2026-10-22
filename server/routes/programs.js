@@ -433,11 +433,11 @@ router.get('/:programId/monitoring', async (req, res) => {
          )`
       : '';
     const [logs] = await pool.query(
-      `SELECT beneficiary_id, beneficiary_type, monitored, DATE_FORMAT(monitored_date, '%Y-%m-%d') AS monitored_date, notes
-       FROM monitoring_logs
-       WHERE program_id = ? AND monitored_date = ?
+      `SELECT ml.beneficiary_id, ml.beneficiary_type, ml.monitored, DATE_FORMAT(ml.monitored_date, '%Y-%m-%d') AS monitored_date, ml.notes
+       FROM monitoring_logs ml
+       WHERE ml.program_id = ? AND ml.monitored_date = ?
        ${groupPredicate}
-       ORDER BY id`,
+       ORDER BY ml.id`,
       req.isHealthWorker ? [req.params.programId, date, req.groupId, req.groupId] : [req.params.programId, date],
     );
     res.json({ date, logs });

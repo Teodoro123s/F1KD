@@ -390,10 +390,8 @@ export default function ProgramPage() {
       const assignedGroup = hierarchy.groups.find((group) => String(group.id) === assignedGroupId);
       const assignedGroupName = String(assignedGroup?.name || assignedGroup?.group_name || '').trim().toLowerCase();
       const eligibleBatchNames = new Set(scopedRecords.map((record) => String(record.batch || '').trim().toLowerCase()).filter(Boolean));
-      const eligibleSchoolNames = new Set(scopedRecords.map((record) => String(record.school || '').trim().toLowerCase()).filter(Boolean));
       return clusters.filter((cluster) => (
-        (cluster.type === 'School' && eligibleSchoolNames.has(String(cluster.name || '').trim().toLowerCase().replace(/ school$/i, '')))
-        || (cluster.type === 'Group' && String(cluster.name || '').trim().toLowerCase() === assignedGroupName)
+        (cluster.type === 'Group' && String(cluster.name || '').trim().toLowerCase() === assignedGroupName)
         || (cluster.type === 'Batch' && eligibleBatchNames.has(String(cluster.name || '').trim().toLowerCase()))
       ));
     }
@@ -543,6 +541,10 @@ export default function ProgramPage() {
       };
     });
   }, [hierarchy, selectedProgramView]);
+  const assignedGroupId = String(currentUser?.group_id ?? currentUser?.groupId ?? '');
+  const assignedGroupCoverageRows = isHealthWorkerRole(currentUser?.role)
+    ? directScopeGroups.filter((group) => String(group.id) === assignedGroupId)
+    : [];
   const matchesSchoolGroupBatch = (record, schoolName, groupName, batchName) => {
     const recordSchool = String(record?.school || '').trim().toLowerCase();
     const recordGroup = String(record?.group || '').trim().toLowerCase();
@@ -1155,12 +1157,14 @@ export default function ProgramPage() {
                 <strong>{getProgramBeneficiaryCount(selectedProgram).toLocaleString()}</strong>
                 <span>Eligible recipients</span>
               </div>
-              {['School', 'Group', 'Batch'].map((type) => (
+              {['School', 'Group', 'Batch']
+                .filter((type) => type !== 'School' || !isHealthWorkerRole(currentUser?.role))
+                .map((type) => (
                 <div key={type}>
                   <strong>{selectedProgramReceiptClusters.filter((cluster) => cluster.type === type).length.toLocaleString()}</strong>
                   <span>{({ School: 'Schools', Group: 'Groups', Batch: 'Batches' })[type]} covered</span>
                 </div>
-              ))}
+                ))}
             </div>
           </section>
         </>
@@ -1306,8 +1310,17 @@ export default function ProgramPage() {
 
             return (
               <table className="data-table">
-                {programHierarchy.length ? (
+                        {isHealthWorkerRole(currentUser?.role) ? (
                   <thead>
+                            <tr>
+                              <th>Group</th>
+                              <th>Batches</th>
+                              <th>Beneficiaries</th>
+                              <th>Action</th>
+                            </tr>
+                          </thead>
+                        ) : programHierarchy.length ? (
+                          <thead>
                     <tr>
                       <th>School</th>
                       <th>Groups</th>
@@ -1342,7 +1355,18 @@ export default function ProgramPage() {
                   </thead>
                 )}
                 <tbody>
-                  {programHierarchy.length ? programHierarchy.map((school) => (
+                  {isHealthWorkerRole(currentUser?.role) ? assignedGroupCoverageRows.length ? assignedGroupCoverageRows.map((group) => (
+                    <tr key={group.id} className="program-clickable-row" onClick={() => navigate(`/program/${programId}/group/${group.id}`)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); navigate(`/program/${programId}/group/${group.id}`); } }} tabIndex={0} role="button">
+                      <td><strong>{group.name || group.group_name}</strong></td>
+                      <td>{group.batchCount}</td>
+                      <td>{group.beneficiaryCount}</td>
+                      <td><button type="button" className="view-btn view-btn--secondary" onClick={(event) => { event.stopPropagation(); openClusterHistory({ name: group.name || group.group_name }, 'group'); }}>Check-in</button></td>
+                    </tr>
+                  )) : (
+                    <tr>
+                      <td colSpan="4" className="no-data">No assigned group found for this program.</td>
+                    </tr>
+                  ) : programHierarchy.length ? programHierarchy.map((school) => (
                     <tr key={school.id} className="program-clickable-row" onClick={() => navigate(`/program/${programId}/school/${school.id}`)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); navigate(`/program/${programId}/school/${school.id}`); } }} tabIndex={0} role="button">
                       <td><strong>{school.name}</strong></td>
                       <td>{(school.groups || []).length}</td>

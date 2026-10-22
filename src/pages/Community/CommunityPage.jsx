@@ -1025,7 +1025,7 @@ export default function CommunityPage() {
               { key: 'batches', label: 'Total Batches', value: activeTab === 'communities' ? batches.length : schoolOverviewBatches.length },
               { key: 'mothers', label: 'Total Mothers', value: activeTab === 'communities' ? mothers.length : schoolOverviewMothers.length },
               { key: 'children', label: 'Total Children', value: childrenOverviewError ? 'Unavailable' : activeTab === 'communities' ? childrenRows.length : schoolOverviewChildren.length },
-            ]}
+            ].filter((card) => !isHealthWorker || !['schools', 'groups'].includes(card.key))}
           />
           {childrenOverviewError && <p className="error-message" role="alert">{childrenOverviewError}</p>}
           {schoolOverviewSelection ? (
