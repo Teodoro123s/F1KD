@@ -38,55 +38,6 @@
   font-size: 0.94rem;
 }
 
-.dashboard-user-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 0.2rem 0.55rem;
-  border-radius: 6px;
-  background: #edf2f8;
-  color: #3b506a;
-  margin-left: 0.5rem;
-  vertical-align: middle;
-}
-
-.dashboard-user-badge.superadmin {
-  background: #fdf2f4;
-  color: #891b31;
-}
-
-.dashboard-school-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  background: #f0f7ff;
-  color: #1e60aa;
-  font-size: 0.78rem;
-  font-weight: 600;
-  padding: 0.2rem 0.6rem;
-  border-radius: 8px;
-  border: 1px solid #d0e4ff;
-  margin-left: 0.4rem;
-}
-
-.dashboard-group-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  background: #f4f1ff;
-  color: #5b4b9a;
-  font-size: 0.78rem;
-  font-weight: 600;
-  padding: 0.2rem 0.6rem;
-  border-radius: 8px;
-  border: 1px solid #e0d9ff;
-  margin-left: 0.4rem;
-}
-
 .dashboard-module-strip {
   display: flex;
   align-items: center;
@@ -267,17 +218,6 @@
   line-height: 1.3;
 }
 
-.dashboard-refresh-controls {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 0.75rem;
-  color: #64748b;
-  font-size: 0.8rem;
-}
-
-.dashboard-refresh-button,
 .dashboard-ai-question-form button {
   min-height: 38px;
   padding: 0.5rem 0.8rem;
@@ -290,7 +230,6 @@
   cursor: pointer;
 }
 
-.dashboard-refresh-button:disabled,
 .dashboard-ai-question-form button:disabled {
   cursor: wait;
   opacity: 0.65;
@@ -1310,11 +1249,6 @@
     align-items: flex-start;
   }
 
-  .dashboard-refresh-controls {
-    width: 100%;
-    justify-content: space-between;
-  }
-
   .dashboard-welcome h2 {
     line-height: 1.3;
     font-size: clamp(1.2rem, 5vw, 1.6rem);
@@ -1360,7 +1294,6 @@
     align-items: stretch;
   }
 
-  .dashboard-refresh-controls,
   .dashboard-follow-up-panel,
   .dashboard-ai-question-form > div {
     align-items: stretch;

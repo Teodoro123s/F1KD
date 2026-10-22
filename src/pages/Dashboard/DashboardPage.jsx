@@ -102,16 +102,13 @@ export default function DashboardPage() {
   const [activityReport, setActivityReport] = useState({ activities: [], counts: { signIns: 0 }, dailyActivity: [] });
   const [notificationCounts, setNotificationCounts] = useState({ all: 0, unread: 0 });
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [refreshVersion, setRefreshVersion] = useState(0);
-  const [lastUpdated, setLastUpdated] = useState(null);
   const [loadErrors, setLoadErrors] = useState([]);
 
   useEffect(() => {
     let active = true;
 
     async function fetchDashboardData() {
-      setRefreshing(true);
       const results = await Promise.allSettled([
         isSuperAdmin ? Promise.resolve(null) : getSummary(),
         isSuperAdmin ? Promise.resolve(null) : refreshMothers(),
@@ -179,9 +176,7 @@ export default function DashboardPage() {
       if (notificationsResult.status === 'fulfilled' && notificationsResult.value) {
         setNotificationCounts(notificationsResult.value.counts || { all: 0, unread: 0 });
       }
-      setLastUpdated(new Date());
       setLoading(false);
-      setRefreshing(false);
     }
 
     fetchDashboardData();
@@ -310,19 +305,6 @@ export default function DashboardPage() {
     [activityReport.dailyActivity],
   );
 
-  const assignedSchoolName = useMemo(() => {
-    const schoolId = currentUser?.school_id ?? currentUser?.schoolId;
-    if (!schoolId) return null;
-    const match = communitySummary.communities?.find((community) => String(community.id) === String(schoolId));
-    return match?.name || `School #${schoolId}`;
-  }, [communitySummary.communities, currentUser]);
-
-  const assignedGroupName = useMemo(() => {
-    const groupId = currentUser?.group_id ?? currentUser?.groupId;
-    if (!groupId) return null;
-    return communitySummary.groups?.find((group) => String(group.id) === String(groupId))?.name || `Group #${groupId}`;
-  }, [communitySummary.groups, currentUser]);
-
   const roleLabel = isSuperAdmin
     ? 'Superadmin'
     : isAdmin
@@ -429,18 +411,9 @@ export default function DashboardPage() {
           <div>
             <h2>
               {getGreeting(currentUser?.name)}
-              <span className={`dashboard-user-badge${isSuperAdmin ? ' superadmin' : ''}`}>{roleLabel}</span>
-              {assignedSchoolName && <span className="dashboard-school-pill">📍 {assignedSchoolName}</span>}
-              {isHealthWorker && assignedGroupName && <span className="dashboard-group-pill">👥 {assignedGroupName}</span>}
             </h2>
             <p>{description}</p>
           </div>
-        </div>
-        <div className="dashboard-refresh-controls">
-          {lastUpdated && <span>Updated {lastUpdated.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} · refreshes every 5 min</span>}
-          <button type="button" className="dashboard-refresh-button" onClick={() => setRefreshVersion((version) => version + 1)} disabled={refreshing}>
-            {refreshing ? 'Refreshing…' : 'Refresh dashboard'}
-          </button>
         </div>
       </header>
 

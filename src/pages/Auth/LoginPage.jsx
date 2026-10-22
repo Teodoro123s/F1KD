@@ -102,11 +102,12 @@ export default function Login() {
 
   return (
     <div className="login-page">
-      <div className="login-card">
+      <div className="login-shell">
         <div className="login-kicker">
           <img src={logo} alt="F1KD logo" className="login-logo" />
         </div>
-        <form className="login-form" onSubmit={forgotPassword ? handlePasswordReset : handleLogin} noValidate>
+        <div className="login-card">
+          <form className="login-form" onSubmit={forgotPassword ? handlePasswordReset : handleLogin} noValidate>
           {(!forgotPassword || !resetCodeSent) && (
             <div className="login-field">
               <label htmlFor="login-email">Email address</label>
@@ -240,8 +241,9 @@ export default function Login() {
               Send a new code
             </button>
           )}
-        </form>
+          </form>
 
+        </div>
       </div>
     </div>
   );

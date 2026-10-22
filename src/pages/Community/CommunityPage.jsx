@@ -36,6 +36,7 @@ export default function CommunityPage() {
   const location = useLocation();
   const { schoolId, groupId, batchId } = useParams();
   const isSuperAdmin = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]);
+  const canViewSchoolsFromOverview = hasRole(currentUser?.role, [ROLES.ADMIN, ROLES.PARTNER]);
   const isCommunityOrganizer = isCommunityCoordinatorRole(currentUser?.role);
   const canManageSchools = isSuperAdmin;
   const canManage = can(currentUser?.role, 'community-resources', 'update') && !isHealthWorkerRole(currentUser?.role);
@@ -363,7 +364,9 @@ export default function CommunityPage() {
   }, [activeTab, childrenRows, communities, entityFilter, query, scopedCommunities, selectedBatch, selectedBatchMothers, selectedGroup, selectedGroupBatches, selectedSchool, selectedSchoolGroups]);
 
   const overviewRows = useMemo(() => {
-    const source = schoolOverviewSelection === 'mothers'
+    const source = schoolOverviewSelection === 'schools'
+      ? scopedCommunities
+      : schoolOverviewSelection === 'mothers'
       ? (activeTab === 'batches' && selectedGroup ? selectedGroupMothers : schoolOverviewMothers)
       : schoolOverviewSelection === 'children'
         ? childOverviewRows
@@ -381,10 +384,10 @@ export default function CommunityPage() {
     const term = query.trim();
     return rows.filter((row) => {
       if (!term) return true;
-      return [row.name, row.motherName, row.batch, row.group, row.community, row.schoolName, String(row.id)]
+      return [row.name, row.area, row.coordinator, row.motherName, row.batch, row.group, row.community, row.schoolName, String(row.id)]
         .some((value) => String(value || '').includes(term));
     });
-  }, [activeTab, childOverviewRows, query, schoolOverviewBatches, schoolOverviewGroups, schoolOverviewMothers, schoolOverviewSelection, scopedGroups, selectedGroup, selectedGroupBatches, selectedGroupMothers]);
+  }, [activeTab, childOverviewRows, query, schoolOverviewBatches, schoolOverviewGroups, schoolOverviewMothers, schoolOverviewSelection, scopedCommunities, scopedGroups, selectedGroup, selectedGroupBatches, selectedGroupMothers]);
   const tableData = schoolOverviewSelection ? overviewRows : filteredData;
   const pageCount = Math.max(1, Math.ceil(tableData.length / perPage));
   const currentPage = Math.min(page, pageCount);
@@ -1017,7 +1020,7 @@ export default function CommunityPage() {
             selected={schoolOverviewSelection}
             onSelect={handleOverviewSelection}
             cards={[
-              { key: 'schools', label: 'Total Schools', value: communities.length, interactive: false },
+              { key: 'schools', label: 'Total Schools', value: communities.length, interactive: canViewSchoolsFromOverview },
               { key: 'groups', label: 'Total Groups', value: activeTab === 'communities' ? groups.length : schoolOverviewGroups.length },
               { key: 'batches', label: 'Total Batches', value: activeTab === 'communities' ? batches.length : schoolOverviewBatches.length },
               { key: 'mothers', label: 'Total Mothers', value: activeTab === 'communities' ? mothers.length : schoolOverviewMothers.length },
@@ -1054,7 +1057,9 @@ export default function CommunityPage() {
                 data={currentRows}
                 onRowClick={currentRowClickHandler}
                 tableTitle={tableTitle}
-                emptyMessage={`No ${schoolOverviewSelection} found for this school.`}
+                emptyMessage={schoolOverviewSelection === 'schools'
+                  ? 'No schools found.'
+                  : `No ${schoolOverviewSelection} found for this school.`}
                 searchValue={query}
                 onSearchChange={handleSearch}
               />
