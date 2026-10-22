@@ -16,6 +16,7 @@ import { getMaternalBirthCountErrors, hasMiscarriageHighRiskCount } from '../../
 import { navigateBack } from '../../../utils/navigation';
 import { useStepNavigation } from '../../../utils/useStepNavigation';
 import { StepNavigationStatus } from '../../../components/ui/StepNavigationButton';
+import { formatFirstAndSurname, splitFirstAndSurname } from '../../../utils/personName.mjs';
 
 const parseAddressParts = (address = '') => {
   const parts = String(address || '').split(',').map((part) => part.trim()).filter(Boolean);
@@ -45,6 +46,8 @@ const normalizeMotherDates = (mother) => {
 const normalizeMotherForm = (mother = {}) => {
   const normalized = normalizeMotherDates(mother);
   const addressParts = parseAddressParts(normalized.address || '');
+  const spouseName = splitFirstAndSurname(normalized.spouseName || '');
+  const emergencyName = splitFirstAndSurname(normalized.emergencyName || '');
   const legacyVaccineRemarks = [1, 2, 3, 4, 5]
     .map((num) => normalized[`tt${num}Remarks`])
     .filter(Boolean)
@@ -58,9 +61,10 @@ const normalizeMotherForm = (mother = {}) => {
     lastName: capitalizeNameValue(normalized.lastName || ''),
     maidenSurname: capitalizeNameValue(normalized.maidenSurname || ''),
     suffix: capitalizeNameValue(normalized.suffix || ''),
-    emergencyName: capitalizeNameValue(normalized.emergencyName || ''),
-    spouseFirstName: capitalizeNameValue(normalized.spouseFirstName || ''),
-    spouseSurname: capitalizeNameValue(normalized.spouseSurname || ''),
+    emergencyFirstName: capitalizeNameValue(normalized.emergencyFirstName || emergencyName.firstName),
+    emergencySurname: capitalizeNameValue(normalized.emergencySurname || emergencyName.surname),
+    spouseFirstName: capitalizeNameValue(normalized.spouseFirstName || spouseName.firstName),
+    spouseSurname: capitalizeNameValue(normalized.spouseSurname || spouseName.surname),
     province: normalized.province || addressParts.province,
     city: normalized.city || addressParts.city,
     barangay: normalized.barangay || addressParts.barangay,
@@ -220,6 +224,8 @@ export default function EditMotherPage() {
       const updatedForm = {
         ...form,
         firstName: normalizeFirstName(form.firstName),
+        emergencyName: formatFirstAndSurname(form.emergencyFirstName, form.emergencySurname),
+        spouseName: formatFirstAndSurname(form.spouseFirstName, form.spouseSurname),
         isHighRisk: hasMiscarriageHighRiskCount(form) ? 'Yes' : form.isHighRisk,
       };
       const res = await apiUpdateMother(motherId, updatedForm);

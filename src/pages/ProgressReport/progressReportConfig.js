@@ -1,4 +1,11 @@
 import { formatDateForDisplay } from '../../utils/dateFormat';
+import {
+  formatPhilHealthNumberForReport,
+  formatPresenceProfileValue,
+  PRESENCE_PROFILE_FIELDS,
+} from './utils/profileFieldFormatting.mjs';
+
+export { PRESENCE_PROFILE_FIELDS };
 
 export const EMPTY_SELECTIONS = { schoolId: '', groupId: '', batchId: '' };
 
@@ -282,8 +289,6 @@ export const PROFILE_GRAPH_FIELDS = [
 ];
 
 export const PROFILE_GRAPH_FIELD_MAP = new Map(PROFILE_GRAPH_FIELDS.map(([id, label, type]) => [id, { label, type }]));
-export const PRESENCE_PROFILE_FIELDS = new Set(['contactNumber', 'liveBirthDocument', 'philhealthMember']);
-
 export const PROGRAM_METRICS = [
   ['receivedBenefitTotal', 'Total Received Benefits', 'Total true benefit-receipt events in the selected period.'],
   ['receivedBenefitFrequency', 'Receipt Frequency', 'Number of true receipt events in the selected period.'],
@@ -291,14 +296,6 @@ export const PROGRAM_METRICS = [
 ];
 
 export const REPORT_TABS = ['Community & Report Focus', 'Growth Metrics', 'Results'];
-export const REPORT_FOCUS_OPTIONS = [
-  ['beneficiary-batch', 'Beneficiary detail', 'batch'],
-  ['beneficiary-group', 'Beneficiary detail', 'group'],
-  ['beneficiary-school', 'Beneficiary detail', 'school'],
-  ['batch-group', 'Batch summary', 'group'],
-  ['batch-school', 'Batch summary', 'school'],
-  ['group-school', 'Group summary', 'school'],
-];
 
 export const csvValue = (value) => `"${String(value ?? '').replaceAll('"', '""')}"`;
 
@@ -369,7 +366,9 @@ export const getBmiInterpretation = (value) => {
 };
 
 export const formatCellValue = (field, value) => {
-  if (PRESENCE_PROFILE_FIELDS.has(field)) return value === null || value === undefined || String(value).trim() === '' ? 'No' : 'Yes';
+  if (field === 'philhealthNumber') return formatPhilHealthNumberForReport(value);
+  const presenceValue = formatPresenceProfileValue(field, value);
+  if (presenceValue !== null) return presenceValue;
   if (value === null || value === undefined || value === '') return '—';
   if (['bcgDate', 'hepbDate', 'opvDate', 'dptDate', 'mmrDate', 'ttVaccineRecord'].includes(field)) {
     if (Array.isArray(value)) {
@@ -411,17 +410,6 @@ export const getPointValue = (point, metric) => {
 export const getPointInterpretation = (point, metric) => metric === 'bmiInterpretation'
   ? getBmiInterpretation(point?.bmi)
   : normalizeNutritionLabel(String(point?.[metric] || '').trim());
-
-export const averageNumeric = (values) => {
-  const numbers = values.map(Number).filter((value) => Number.isFinite(value));
-  return numbers.length ? Number((numbers.reduce((sum, value) => sum + value, 0) / numbers.length).toFixed(1)) : null;
-};
-
-export const getMode = (values) => {
-  const counts = new Map();
-  values.filter(Boolean).forEach((value) => counts.set(value, (counts.get(value) || 0) + 1));
-  return [...counts.entries()].sort((left, right) => right[1] - left[1])[0]?.[0] || '';
-};
 
 export const getProfileGraphValue = (row, field) => {
   if (field === 'liveBirthDocument') return row?.liveBirthDocument ? 'Yes' : 'No';

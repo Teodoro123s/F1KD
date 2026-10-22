@@ -1208,15 +1208,11 @@
 .progress-report-note { margin: 1rem 0 0; padding: 0.75rem 0.9rem; border-radius: 8px; background: #f8fafc; color: #475569; }
 .progress-report-note.warning { border-left: 3px solid #b7791f; background: #fffbeb; color: #854d0e; }
 .progress-report-tab-actions { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #e2e8f0; }
-.progress-report-focus-options { display: grid; gap: 0.75rem; margin: 1.25rem 0; padding: 0; border: 0; }
-.progress-report-focus-options label { display: flex; align-items: center; gap: 0.6rem; padding: 0.8rem 0.9rem; border: 1px solid #dbe3ee; border-radius: 8px; color: #334155; cursor: pointer; }
-.progress-report-focus-options input, .growth-metric-cards input { accent-color: #7d1e2e; }
+.growth-metric-cards input { accent-color: #7d1e2e; }
 .progress-report-beneficiary-type { display: flex; gap: 0.75rem; margin: 1.25rem 0 1.5rem; padding: 0; border: 0; }
 .progress-report-beneficiary-type legend { width: 100%; margin-bottom: 0.55rem; color: #334155; font-weight: 800; }
 .progress-report-beneficiary-type label { display: flex; align-items: center; gap: 0.5rem; padding: 0.7rem 1rem; border: 1px solid #dbe3ee; border-radius: 8px; color: #334155; cursor: pointer; }
 .progress-report-beneficiary-type label.selected { border-color: #7d1e2e; color: #7d1e2e; font-weight: 700; }
-.progress-report-beneficiary-type label.static-option { color: #94a3b8; cursor: not-allowed; }
-.progress-report-beneficiary-type label.static-option span { font-size: 0.75rem; font-weight: 400; }
 .progress-report-report-category { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 1.25rem 0 1.5rem; padding: 0; border: 0; }
 .progress-report-report-category legend { width: 100%; margin-bottom: 0.55rem; color: #334155; font-weight: 800; }
 .progress-report-report-category label { display: flex; align-items: center; gap: 0.5rem; padding: 0.7rem 1rem; border: 1px solid #dbe3ee; border-radius: 8px; color: #334155; cursor: pointer; }
@@ -1244,11 +1240,18 @@
 .results-table-tools { display: flex; flex-wrap: wrap; align-items: end; gap: 0.75rem; margin-bottom: 0.75rem; }
 .results-table-tools .results-table-customizer { margin-bottom: 0; }
 .results-table-period-filter { display: grid; gap: 0.35rem; color: var(--text-soft, #334155); font-size: 0.78rem; font-weight: 800; }
+.results-table-interpretation-filter { display: inline-flex; align-items: center; gap: 0.45rem; min-height: 36px; color: var(--text-soft, #334155); font-size: 0.82rem; font-weight: 700; cursor: pointer; }
+.results-table-interpretation-filter input { width: 16px; height: 16px; margin: 0; accent-color: var(--burgundy, #15803d); }
 .results-table-period-filter select { min-height: 36px; min-width: 210px; padding: 0.45rem 0.65rem; border: 1px solid var(--border-color, #e2e8f0); border-radius: 8px; background: #fff; color: var(--text-soft, #334155); font: inherit; font-weight: 600; }
 .results-table-period-filter select:focus { border-color: var(--burgundy, #15803d); box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.12); outline: none; }
-.profile-report-page-tabs { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1.25rem 0 0.5rem; border-bottom: 1px solid var(--border-color, #e2e8f0); }
-.profile-report-page-tabs button { padding: 0.65rem 0.85rem; border: 0; border-bottom: 3px solid transparent; background: transparent; color: var(--text-muted, #64748b); font: inherit; font-weight: 700; cursor: pointer; }
-.profile-report-page-tabs button.active { border-bottom-color: var(--burgundy, #15803d); color: var(--burgundy, #15803d); }
+.profile-report-section-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.75rem; margin: 1.25rem 0 0.5rem; }
+.profile-report-section-cards button { display: grid; gap: 0.45rem; min-height: 84px; padding: 0.85rem 1rem; border: 1px solid #dbe3ee; border-radius: 10px; background: #fff; color: #475569; font: inherit; text-align: left; cursor: pointer; transition: border-color 120ms ease, background-color 120ms ease, color 120ms ease, box-shadow 120ms ease; }
+.profile-report-section-cards button strong { color: inherit; font-size: 0.95rem; }
+.profile-report-section-cards button span { color: #64748b; font-size: 0.8rem; }
+.profile-report-section-cards button:hover { border-color: #86c99d; background: #f8fcf9; }
+.profile-report-section-cards button.selected { border-color: #39a866; background: #f3fbf5; color: #116b3a; box-shadow: 0 0 0 2px rgba(21, 128, 61, 0.08); }
+.profile-report-section-cards button.partially-selected { border-color: #eab308; background: #fffbeb; color: #854d0e; }
+.profile-report-section-cards button:focus-visible { outline: 3px solid rgba(21, 128, 61, 0.3); outline-offset: 2px; }
 .results-table-customizer summary { display: inline-flex; align-items: center; min-height: 36px; padding: 0.45rem 0.7rem; border: 1px solid var(--border-color, #e2e8f0); border-radius: 8px; background: #fff; font-size: 0.78rem; font-weight: 800; cursor: pointer; list-style: none; }
 .results-table-customizer summary::-webkit-details-marker { display: none; }
 .results-table-customizer summary::after { content: '▾'; margin-left: 0.5rem; color: var(--text-muted, #64748b); }
@@ -1477,6 +1480,7 @@
   .progress-report-config-row fieldset { flex-wrap: wrap; }
   .progress-report-config-header .primary-btn, .progress-report-config-row .secondary-btn { width: 100%; }
   .growth-metric-cards, .growth-report-graphs { grid-template-columns: 1fr; }
+  .profile-report-section-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .report-chart-select { margin-left: 0; padding-left: 0.75rem; }
   .growth-report-pie-wrap { align-items: flex-start; flex-direction: column; gap: 1rem; }
   .profile-pie-layout { align-items: flex-start; flex-direction: column; gap: 1rem; }
@@ -1484,6 +1488,10 @@
   .profile-measurement-controls label { flex: 1 1 8rem; }
   .profile-measurement-controls input, .profile-measurement-controls select { width: 100%; }
   .profile-pie-legend { width: 100%; min-width: 0; }
+}
+
+@media (max-width: 420px) {
+  .profile-report-section-cards { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 720px) {
@@ -1872,7 +1880,6 @@
   box-shadow: 0 8px 16px -12px rgba(21, 128, 61, 0.8);
 }
 .progress-report-fields-grid input,
-.progress-report-focus-options input,
 .growth-metric-cards input { accent-color: #15803d; }
 .progress-report-report-category label.selected,
 .progress-report-beneficiary-type label.selected,
