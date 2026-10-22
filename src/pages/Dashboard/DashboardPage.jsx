@@ -426,7 +426,6 @@ export default function DashboardPage() {
     <div className="dashboard-shell">
       <header className="dashboard-top-row">
         <div className="dashboard-welcome">
-          <div className="welcome-icon" aria-hidden="true">🌱</div>
           <div>
             <h2>
               {getGreeting(currentUser?.name)}
