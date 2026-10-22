@@ -66,6 +66,8 @@ async function ensure() {
       ADD COLUMN IF NOT EXISTS school_id INT NULL,
       ADD COLUMN IF NOT EXISTS group_id INT NULL;`,
 
+    `ALTER TABLE users ALTER COLUMN role SET DEFAULT 'User';`,
+
 
 
     `CREATE TABLE IF NOT EXISTS communities (
@@ -561,28 +563,6 @@ async function ensure() {
       CONSTRAINT fk_role_permissions_permission FOREIGN KEY (permission_id) REFERENCES permissions(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
 
-    `INSERT INTO roles (role_key, role_name) VALUES
-      ('super_admin', 'Super Admin'), ('admin', 'Admin'), ('partner', 'Partner')
-    ON DUPLICATE KEY UPDATE role_name = VALUES(role_name);`,
-
-    `INSERT INTO permissions (resource_key, action_key) VALUES
-      ('user-management', 'read'), ('user-management', 'create'), ('user-management', 'update'), ('user-management', 'delete'),
-      ('admin-resources', 'read'), ('admin-resources', 'create'), ('admin-resources', 'update'), ('admin-resources', 'delete'),
-      ('partner-resources', 'read'), ('partner-resources', 'create'), ('partner-resources', 'update'), ('partner-resources', 'delete')
-    ON DUPLICATE KEY UPDATE action_key = VALUES(action_key);`,
-
-    `INSERT IGNORE INTO role_permissions (role_id, permission_id)
-      SELECT r.id, p.id FROM roles r CROSS JOIN permissions p WHERE r.role_key = 'super_admin';`,
-
-    `INSERT IGNORE INTO role_permissions (role_id, permission_id)
-      SELECT r.id, p.id FROM roles r JOIN permissions p
-      ON p.resource_key = 'admin-resources' AND p.action_key = 'read'
-      WHERE r.role_key = 'admin';`,
-
-    `INSERT IGNORE INTO role_permissions (role_id, permission_id)
-      SELECT r.id, p.id FROM roles r JOIN permissions p
-      ON p.resource_key = 'partner-resources' AND p.action_key = 'read'
-      WHERE r.role_key = 'partner';`,
     `CREATE TABLE IF NOT EXISTS notifications (
       id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
       event_type VARCHAR(80) NOT NULL,
@@ -730,9 +710,7 @@ async function ensure() {
   }
 }
 
-const { ensureSuperadminAccount } = require('./services/superadminRecovery');
-
-async function ensureDefaultAdmin() {
+async function ensureRequiredUserColumns() {
   try {
     const [cols] = await pool.query("SHOW COLUMNS FROM users");
     const columns = new Set((cols || []).map((column) => column.Field));
@@ -744,7 +722,7 @@ async function ensureDefaultAdmin() {
       gender: "ENUM('Male','Female','Other') NOT NULL DEFAULT 'Male'",
       dob: 'DATE DEFAULT NULL',
       location: 'VARCHAR(120) DEFAULT NULL',
-      role: "VARCHAR(120) NOT NULL DEFAULT 'user'",
+      role: "VARCHAR(120) NOT NULL DEFAULT 'User'",
       status: "VARCHAR(20) NOT NULL DEFAULT 'Active'",
       password_hash: 'VARCHAR(255) DEFAULT NULL',
       school_id: 'INT DEFAULT NULL',
@@ -756,12 +734,11 @@ async function ensureDefaultAdmin() {
 
     if (additions.length > 0) {
       await pool.query(`ALTER TABLE users ${additions.join(', ')}`);
-      console.info('Self-healed users table columns:', additions.length);
+      console.info('Ensured required users table columns:', additions.length);
     }
 
-    await ensureSuperadminAccount(pool);
   } catch (err) {
-    console.error('Failed to ensure default admin', err);
+    console.error('Failed to ensure required users table columns', err);
     throw err;
   }
 }
@@ -865,7 +842,7 @@ const ready = (async () => {
   await ensure();
   await migrateUsersTable();
   await migrateMothersTable();
-  await ensureDefaultAdmin();
+  await ensureRequiredUserColumns();
 })().catch((err) => {
   console.error('DB init error', err);
   throw err;
@@ -873,4 +850,3 @@ const ready = (async () => {
 
 module.exports = pool;
 module.exports.ready = ready;
-module.exports.ensureDefaultAdmin = ensureDefaultAdmin;

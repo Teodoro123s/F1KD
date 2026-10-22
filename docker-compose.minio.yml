@@ -43,9 +43,6 @@ services:
       NODE_ENV: production
       PORT: 4000
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in the root .env file}
-      DEFAULT_ADMIN_EMAIL: ${DEFAULT_ADMIN_EMAIL:-Superadmin@gmail.com}
-      DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD:?Set DEFAULT_ADMIN_PASSWORD in the root .env file}
-      SELF_HEAL_ADMIN_CREDENTIALS: ${SELF_HEAL_ADMIN_CREDENTIALS:-false}
       DB_HOST: mariadb
       DB_PORT: "3306"
       DB_NAME: ${DB_NAME:-f1kd}

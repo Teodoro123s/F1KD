@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS users (
   gender ENUM('Male','Female','Other') NOT NULL DEFAULT 'Male',
   dob DATE DEFAULT NULL,
   location VARCHAR(120) DEFAULT NULL,
-  role VARCHAR(120) NOT NULL DEFAULT 'Superadmin',
+  role VARCHAR(120) NOT NULL DEFAULT 'User',
   status VARCHAR(20) NOT NULL DEFAULT 'Active',
   school_id INT DEFAULT NULL,
   coordinator_school_id INT GENERATED ALWAYS AS (
@@ -292,16 +292,6 @@ CREATE TABLE IF NOT EXISTS role_permissions (
   CONSTRAINT fk_role_permissions_role FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE,
   CONSTRAINT fk_role_permissions_permission FOREIGN KEY (permission_id) REFERENCES permissions(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
--- Seed canonical roles and permissions after the tables are created.
-INSERT INTO roles (role_key, role_name) VALUES
-  ('super_admin', 'Super Admin'), ('admin', 'Admin'), ('partner', 'Partner')
-ON DUPLICATE KEY UPDATE role_name = VALUES(role_name);
-INSERT INTO permissions (resource_key, action_key) VALUES
-  ('user-management', 'read'), ('user-management', 'create'),
-  ('user-management', 'update'), ('user-management', 'delete'),
-  ('admin-resources', 'read'), ('partner-resources', 'read')
-ON DUPLICATE KEY UPDATE action_key = VALUES(action_key);
-
 -- ---------------------------------------------------------------------------
 -- Program management tables
 -- ---------------------------------------------------------------------------

@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS users (
   gender ENUM('Male','Female','Other') NOT NULL DEFAULT 'Male',
   dob DATE DEFAULT NULL,
   location VARCHAR(120) DEFAULT NULL,
-  role VARCHAR(120) NOT NULL DEFAULT 'Superadmin',
+  role VARCHAR(120) NOT NULL DEFAULT 'User',
   status ENUM('Active','Suspended') NOT NULL DEFAULT 'Active',
   password_hash VARCHAR(255) DEFAULT NULL,
   school_id INT DEFAULT NULL,

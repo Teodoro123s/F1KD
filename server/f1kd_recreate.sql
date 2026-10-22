@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS users (
   gender ENUM('Male','Female','Other') NOT NULL DEFAULT 'Male',
   dob DATE DEFAULT NULL,
   location VARCHAR(120) DEFAULT NULL,
-  role VARCHAR(120) NOT NULL DEFAULT 'Superadmin',
+  role VARCHAR(120) NOT NULL DEFAULT 'User',
   status ENUM('Active','Suspended') NOT NULL DEFAULT 'Active',
   password_hash VARCHAR(255) DEFAULT NULL,
   school_id INT DEFAULT NULL,
@@ -392,27 +392,4 @@ CREATE TABLE IF NOT EXISTS monitoring_logs (
   CONSTRAINT fk_monitoring_program FOREIGN KEY (program_id) REFERENCES programs(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-INSERT INTO roles (role_key, role_name)
-VALUES
-  ('superadmin', 'Superadmin'),
-  ('admin', 'Administrator'),
-  ('manager', 'Manager'),
-  ('staff', 'Staff')
-ON DUPLICATE KEY UPDATE role_name = VALUES(role_name);
-
-INSERT INTO permissions (resource_key, action_key)
-VALUES
-  ('users', 'read'),
-  ('users', 'write'),
-  ('mothers', 'read'),
-  ('mothers', 'write'),
-  ('children', 'read'),
-  ('children', 'write'),
-  ('programs', 'read'),
-  ('programs', 'write'),
-  ('monitoring', 'read'),
-  ('monitoring', 'write')
-ON DUPLICATE KEY UPDATE action_key = VALUES(action_key);
-
--- The application adds the default admin at runtime if the table is empty.
--- Keep this structure ready for a clean recovery and then start the app normally.
+-- Provision the first application user separately through a trusted process.

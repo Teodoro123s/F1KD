@@ -11,7 +11,6 @@ const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
 const JWT_EXPIRES = process.env.JWT_EXPIRES || '8h';
 const REFRESH_TOKEN_TTL = process.env.REFRESH_TOKEN_TTL || '7d';
 const { verifyToken } = require('../middleware/auth');
-const { ensureSuperadminAccount } = require('../services/superadminRecovery');
 const {
   getEmailJsConfig,
   sendPasswordResetCodeEmail,
@@ -92,8 +91,6 @@ router.post('/login', async (req, res) => {
     if (!isValidEmail(email)) {
       return res.status(400).json({ status: 400, code: 'VALIDATION_ERROR', message: 'Enter a valid email address', timestamp: new Date().toISOString() });
     }
-
-    await ensureSuperadminAccount(pool);
 
     const [rows] = await pool.query(
         `SELECT id, first_name, last_name, middle_initial, email, role, status, school_id, group_id, contact_number, password_hash

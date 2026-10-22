@@ -57,12 +57,7 @@ export default function ProgramPage() {
   const [showBeneficiaryModal, setShowBeneficiaryModal] = useState(false);
   const [form, setForm] = useState(emptyProgram);
   const [activityStatus, setActivityStatus] = useState("Open");
-  const [checkedRecipients, setCheckedRecipients] = useState([
-    "Maria Santos",
-    "Juan Dela Cruz",
-    "Ana Garcia",
-    "Carlo Ramos",
-  ]);
+  const [checkedRecipients, setCheckedRecipients] = useState([]);
   const [beneficiaryScope, setBeneficiaryScope] = useState("School");
   const [scopeSchoolIds, setScopeSchoolIds] = useState([]);
   const [scopeGroupIds, setScopeGroupIds] = useState([]);
@@ -698,7 +693,7 @@ export default function ProgramPage() {
                 Math.max(program.received, checkedRecipients.length),
               ),
               activities: program.activities + 1,
-              latest: formatDateForDisplay('2026-08-26'),
+              latest: formatDateForDisplay(localDate()),
             }
           : program,
       ),
@@ -1885,7 +1880,7 @@ export default function ProgramPage() {
                   pattern="\d{2}/\d{2}/\d{4}"
                   className="form-input"
                   placeholder="DD/MM/YYYY"
-                  defaultValue={formatDateForDisplay('2026-08-26')}
+                  defaultValue={formatDateForDisplay(localDate())}
                   onChange={(event) => {
                     const iso = normalizeDateValue(event.target.value);
                     if (iso) event.target.value = formatDateForDisplay(iso);
