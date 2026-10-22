@@ -853,15 +853,14 @@
 .program-monitoring-report__header p:last-child { margin: 0.35rem 0 0; color: #64748b; font-size: 0.85rem; }
 .program-beneficiary-report-controls { display: flex; align-items: flex-end; justify-content: flex-end; flex-wrap: wrap; gap: 0.75rem; margin: 1rem 0; }
 .program-beneficiary-report-controls label { display: grid; gap: 0.35rem; color: #334155; font-size: 0.8rem; font-weight: 700; }
-.program-beneficiary-report-controls select,
 .program-beneficiary-report-controls input { min-width: 230px; min-height: 40px; padding: 0.5rem 0.7rem; border: 1px solid #dbe3ee; border-radius: 8px; background: #fff; color: #0f172a; font: inherit; }
 .program-beneficiary-report-search { flex: 0 1 320px; }
 .program-beneficiary-report-search input { width: 100%; }
-.program-beneficiary-report-controls > span { padding-bottom: 0.65rem; color: #64748b; font-size: 0.82rem; }
-.program-beneficiary-report-controls select:focus,
 .program-beneficiary-report-controls input:focus { border-color: #15803d; box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.12); outline: none; }
-.program-receipt-history-page > .module-summary-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 1rem; }
-.program-receipt-history-page > .module-summary-cards .module-summary-card { min-height: 118px; }
+.program-report-summary-panel,
+.program-report-data-panel { margin-bottom: 0; }
+.program-report-summary-panel > .module-summary-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 0; }
+.program-report-summary-panel > .module-summary-cards .module-summary-card { min-height: 118px; }
 .program-receipt-table-scroll { width: 100%; overflow-x: auto; overflow-y: hidden; }
 .program-receipt-history-page .data-table { min-width: 760px; table-layout: fixed; }
 .program-receipt-history-page .data-table th,
@@ -964,10 +963,10 @@
 .receipt-beneficiary-empty { margin: 0; color: #64748b; font-size: 0.85rem; }
 .program-receipt-modal-actions { display: flex; justify-content: flex-end; gap: 0.75rem; }
 @media (max-width: 640px) {
+  .program-page-header-actions { width: 100%; align-items: stretch; flex-direction: column; }
+  .program-page-header-actions > button { width: 100%; }
   .program-beneficiary-report-controls { align-items: stretch; flex-direction: column; }
-  .program-beneficiary-report-controls select,
   .program-beneficiary-report-controls input { width: 100%; min-width: 0; }
-  .program-beneficiary-report-controls > span { margin-left: 0; padding-bottom: 0; }
   .program-receipt-controls { align-items: stretch; flex-direction: column; }
   .program-receipt-controls select, .program-view-toggle, .program-receipt-controls-actions { width: 100%; }
   .program-receipt-controls-actions { align-items: stretch; flex-direction: column; }
@@ -975,13 +974,13 @@
   .program-calendar-day { min-height: 62px; padding: 0.35rem; font-size: 0.85rem; }
   .program-calendar-day strong { font-size: 0.62rem; }
 }
-.program-detail-panel { margin-top: 1rem; padding: 1.25rem 1.5rem; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; }
+.program-detail-panel { margin-top: 0.5rem; padding: 0.75rem 1rem; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; }
 .program-detail-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
 .program-detail-header h2 { margin: 0.25rem 0 0; color: #0f172a; font-size: 1.2rem; }
 .program-detail-header p { margin: 0.35rem 0 0; color: #64748b; }
 .program-detail-header > .program-status { flex: 0 0 auto; }
-.program-detail-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; margin: 1.25rem 0; }
-.program-detail-stats div { padding: 0.85rem; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; }
+.program-detail-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; margin: 0; }
+.program-detail-stats div { padding: 0.65rem 0.85rem; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; }
 .program-detail-stats strong, .program-detail-stats span { display: block; }
 .program-detail-stats strong { color: #0f172a; font-size: 1.35rem; }
 .program-detail-stats span, .program-detail-meta span, .program-ended-note { color: #64748b; font-size: 0.8rem; }
@@ -991,6 +990,12 @@
 .program-detail-actions .btn-primary { display: inline-flex; align-items: center; gap: 0.45rem; }
 .program-detail-actions svg { width: 16px; height: 16px; }
 .program-detail-actions .view-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.program-detail-titlebar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 76px; padding: 0.75rem 1.35rem; border-bottom: 1px solid #dfe6ee; border-radius: 0 0 14px 14px; }
+.program-detail-titlebar h2 { margin: 0; color: #0f172a; font-size: clamp(1.5rem, 2vw, 2rem); font-weight: 700; }
+.program-page-header-actions { display: flex; align-items: center; gap: 0.75rem; }
+.program-page-header-actions .module-create-button { min-height: var(--control-height-lg); padding: 0.65rem 1.25rem; gap: 0.5rem; }
+.program-page-header-actions .module-create-button svg { width: 20px; height: 20px; }
+.program-page-header-actions .program-receipt-history-header-button { min-height: var(--control-height-lg); padding: 0.65rem 1.25rem; white-space: nowrap; }
 .program-status.ended { background: #f1f5f9; color: #475569; }
 .program-modal-context { margin: 0 0 1rem; color: #64748b; font-size: 0.85rem; }
 .program-scope-options { display: grid; gap: 0.65rem; margin: 0 0 1rem; padding: 0; border: 0; }
@@ -1002,6 +1007,11 @@
 .program-scope-options small, .program-scope-note { color: #64748b; font-size: 0.78rem; }
 .program-scope-note { margin: 0.75rem 0 0; }
 .program-recipient-list { margin: 1rem 0; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
+@media (max-width: 640px) {
+  .program-detail-titlebar { align-items: stretch; flex-direction: column; padding: 0.75rem 1rem; }
+  .program-page-header-actions { width: 100%; align-items: stretch; flex-direction: column; }
+  .program-page-header-actions > button { width: 100%; }
+}
 .program-hierarchy-options { max-height: 180px; margin-top: 0.45rem; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; }
 .program-hierarchy-options .program-recipient:first-child { border-top: 0; }
 .program-recipient-heading { display: flex; justify-content: space-between; padding: 0.75rem 0.85rem; background: #f8fafc; color: #334155; }
@@ -1074,6 +1084,21 @@
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
+}
+.program-edit-drawer-backdrop { z-index: calc(var(--z-modal-backdrop) - 1); justify-content: flex-end; align-items: stretch; padding: 0; }
+.modal.program-edit-drawer {
+  width: min(520px, 100vw);
+  max-width: 520px;
+  height: 100vh;
+  max-height: 100vh;
+  margin: 0;
+  border: 0;
+  border-radius: 16px 0 0 16px;
+  animation: program-edit-drawer-in 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes program-edit-drawer-in {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
 }
 .program-product-modal .form-label { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.85rem; }
 .modal.program-beneficiary-modal { width: min(780px, calc(100vw - 2rem)); max-width: 780px; max-height: min(860px, calc(100vh - 2rem)); overflow: hidden; border-radius: 14px; }
@@ -2024,6 +2049,7 @@
 @container view-content-layout (max-width: 720px) {
   .module-summary-cards,
   .program-page > .module-summary-cards,
+  .program-report-summary-panel > .module-summary-cards,
   .program-receipt-history-page > .module-summary-cards {
     grid-auto-flow: row;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2033,6 +2059,7 @@
 @container view-content-layout (max-width: 420px) {
   .module-summary-cards,
   .program-page > .module-summary-cards,
+  .program-report-summary-panel > .module-summary-cards,
   .program-receipt-history-page > .module-summary-cards {
     grid-template-columns: 1fr;
   }

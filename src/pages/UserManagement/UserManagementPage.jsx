@@ -209,7 +209,6 @@ export default function UserManagementPage() {
         suspendLoadingIds={suspendLoadingIds}
         deletingId={deletingId}
         allowDelete={!organizerHealthWorkerScope}
-        allowProfileNavigation
         showGroup={organizerHealthWorkerScope}
         groups={groups}
         searchValue={query}

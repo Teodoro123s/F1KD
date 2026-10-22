@@ -38,7 +38,7 @@ Claim records track a reference, date, status, amount, and notes; they do not su
 
 Notification read state is stored per user in `notification_reads`, so it persists across refreshes and sessions. Per-user category preferences are stored in `notification_preferences`; disabling a category hides its notifications from the timeline and unread counts without deleting them. All notification routes require authentication and apply role, recipient, school, and group scope before returning or changing data.
 
-- `GET /api/notifications` — paginated notification list; supports `page`, `perPage`, `search`, `category`, and `readStatus` (`all`, `read`, or `unread`). Summary counts cover the user's entire authorized notification scope, independent of list filters.
+- `GET /api/notifications` — paginated notification list; supports `page`, `perPage`, `search`, `category`, and `readStatus` (`all`, `read`, or `unread`). Unread notifications are listed before read notifications, with newest first within each group. Summary counts cover the user's entire authorized notification scope, independent of list filters.
 - `POST /api/notifications/:id/read` — mark one authorized notification as read (kept for compatibility).
 - `PATCH /api/notifications/:id/read` — set `{ "isRead": true|false }` for one authorized notification.
 - `POST /api/notifications/read-all` — mark all unread notifications in the caller's authorized scope as read.

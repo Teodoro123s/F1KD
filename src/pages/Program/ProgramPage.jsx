@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../../auth/AuthProvider";
-import { isCommunityCoordinatorRole, isHealthWorkerRole } from "../../utils/permissions";
+import { hasRole, isCommunityCoordinatorRole, isHealthWorkerRole, ROLES } from "../../utils/permissions";
 import PageHeader from '../../components/ui/PageHeader';
 import {
   BatchesIcon,
@@ -18,6 +18,7 @@ import { getSummary } from "../Community/communityService";
 import { apiGetChildren } from "../../api/children";
 import { apiCompleteNamedProgramCluster, apiCompleteProgramCluster, apiCreateProgram, apiCreateProgramClusters, apiDeleteProgram, apiEndProgram, apiGetProgramMonitoring, apiGetPrograms, apiRestoreProgram, apiSetProgramMonitoring, apiUpdateProgram } from "../../api/programs";
 import { notifyAction } from '../../components/ActionFeedback';
+import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import ExpandableTreeTable from "../Monitoring/ExpandableTreeTable";
 import { ConfirmActionModal } from "../Community/CommunityModals";
 import { formatDateForDisplay, normalizeDateValue } from '../../utils/dateFormat';
@@ -43,6 +44,7 @@ export default function ProgramPage() {
   const isCommunityOrganizer = isCommunityCoordinatorRole(currentUser?.role);
   const canManagePrograms = isCommunityOrganizer;
   const canCreatePrograms = canManagePrograms;
+  const canAssignProgramBeneficiaries = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN, ROLES.COMMUNITY_COORDINATOR]);
   const canDeletePrograms = canManagePrograms;
   const canEndPrograms = canManagePrograms;
   const canMonitorPrograms = canCreatePrograms || isHealthWorkerRole(currentUser?.role);
@@ -53,6 +55,7 @@ export default function ProgramPage() {
   const viewMode = Boolean(programId);
   const clusterView = Boolean(clusterType && clusterName);
   const [showModal, setShowModal] = useState(false);
+  const [showSaveConfirmation, setShowSaveConfirmation] = useState(false);
   const [showActivityModal, setShowActivityModal] = useState(false);
   const [showBeneficiaryModal, setShowBeneficiaryModal] = useState(false);
   const [form, setForm] = useState(emptyProgram);
@@ -401,8 +404,7 @@ export default function ProgramPage() {
     return filterPrograms(programs, query, activeTab || 'All');
   }, [programs, query, activeTab]);
 
-  const saveProgram = async (event) => {
-    event.preventDefault();
+  const persistProgram = async () => {
     if (form.id && String(form.status || '').trim().toLowerCase() === 'ended') return;
     if (!form.name.trim() || !form.provider.trim()) return;
     try {
@@ -414,11 +416,20 @@ export default function ProgramPage() {
         : [...current, mapApiProgram(response.program)]);
       setForm(emptyProgram);
       setShowModal(false);
+      setShowSaveConfirmation(false);
       notifyAction(`${form.id ? 'Updated' : 'Created'} program successfully.`);
     } catch (error) {
       const message = error.message || 'Unable to save program.';
       notifyAction(message, 'error');
     }
+  };
+  const saveProgram = (event) => {
+    event.preventDefault();
+    if (form.id) {
+      setShowSaveConfirmation(true);
+      return;
+    }
+    persistProgram();
   };
 
   const selectedProgram = programId
@@ -811,8 +822,9 @@ export default function ProgramPage() {
     setDrillBatch(batch);
     setDrillLevel('beneficiary');
   };
-  const editProgram = () => {
-    setForm(actionProgram || selectedProgram);
+  const editProgram = (program = actionProgram || selectedProgram) => {
+    if (!program) return;
+    setForm({ ...emptyProgram, ...program });
     setShowModal(true);
   };
   const deleteProgram = () => {
@@ -876,7 +888,7 @@ export default function ProgramPage() {
             </button>
           )}
           {isCommunityOrganizer && String(menuProgram?.status || '').trim().toLowerCase() !== 'ended' && (
-            <button type="button" className="actions-dropdown-item" onClick={() => { setActionProgram(menuProgram); setActiveActionMenu(null); editProgram(); }} role="menuitem">Edit</button>
+            <button type="button" className="actions-dropdown-item" onClick={() => { setActionProgram(menuProgram); setActiveActionMenu(null); editProgram(menuProgram); }} role="menuitem">Edit</button>
           )}
           {canEndPrograms && (
             <button type="button" className="actions-dropdown-item" onClick={() => { setActionProgram(menuProgram); setActiveActionMenu(null); activeTab === 'Ended' ? backToActivePrograms() : endProgram(); }} role="menuitem">
@@ -1085,63 +1097,73 @@ export default function ProgramPage() {
   return (
     <div className="community-page program-page">
       <PageHeader
-        title={viewMode && selectedProgram ? selectedProgram.name : 'Program'}
+        title="Program"
         breadcrumbs={programBreadcrumbs}
-        actions={
-          canCreatePrograms && (!viewMode || !isEndedProgram) && <button
-              className="view-btn view-btn--primary module-create-button"
-              type="button"
-              onClick={() =>
-                viewMode ? openBeneficiaryModal() : setShowModal(true)
-              }
-            >
-              <PlusIcon />
-              <span>{viewMode ? 'Add beneficiary' : 'Create Program'}</span>
-            </button>
-        }
+        actions={!viewMode && (
+          <div className="program-page-header-actions">
+            {canCreatePrograms && (
+              <button
+                className="view-btn view-btn--primary module-create-button"
+                type="button"
+                onClick={() => {
+                  setForm(emptyProgram);
+                  setShowModal(true);
+                }}
+              >
+                <PlusIcon />
+                <span>Create Program</span>
+              </button>
+            )}
+          </div>
+        )}
       />
 
       {viewMode && selectedProgram && (
-        <section className="program-detail-panel" aria-labelledby="program-overview-title">
-          <div className="program-detail-header">
-            <div>
-              <span className="program-kicker">Program overview</span>
-              <h2 id="program-overview-title">Coverage and receipt tracking</h2>
-              <p>{selectedProgram.description || 'Manage eligible beneficiaries and track receipts across assigned communities.'}</p>
+        <>
+          <section className="program-detail-titlebar" aria-labelledby="program-name-title">
+            <h2 id="program-name-title">{selectedProgram.name}</h2>
+            <div className="program-page-header-actions">
+              {canAssignProgramBeneficiaries && !isEndedProgram && (
+                <button
+                  className="view-btn view-btn--primary module-create-button"
+                  type="button"
+                  onClick={openBeneficiaryModal}
+                >
+                  <PlusIcon />
+                  <span>Add beneficiary</span>
+                </button>
+              )}
+              <button
+                type="button"
+                className="view-btn view-btn--secondary program-receipt-history-header-button"
+                onClick={() => setReceiptHistoryProgram(selectedProgram)}
+              >
+                View receipt history
+              </button>
+              <button
+                type="button"
+                className="view-btn view-btn--secondary"
+                onClick={() => navigate('/program')}
+              >
+                Back
+              </button>
             </div>
-            <span className={`program-status ${String(selectedProgram.status || '').toLowerCase() === 'ended' ? 'ended' : 'active'}`}>
-              {selectedProgram.status || 'Active'}
-            </span>
-          </div>
-          <div className="program-detail-stats">
-            <div>
-              <strong>{getProgramBeneficiaryCount(selectedProgram).toLocaleString()}</strong>
-              <span>Eligible recipients</span>
-            </div>
-            {['School', 'Group', 'Batch'].map((type) => (
-              <div key={type}>
-                <strong>{selectedProgramReceiptClusters.filter((cluster) => cluster.type === type).length.toLocaleString()}</strong>
-                <span>{({ School: 'Schools', Group: 'Groups', Batch: 'Batches' })[type]} covered</span>
+          </section>
+          <section className="program-detail-panel" aria-label="Program coverage summary">
+            <div className="program-detail-stats">
+              <div>
+                <strong>{getProgramBeneficiaryCount(selectedProgram).toLocaleString()}</strong>
+                <span>Eligible recipients</span>
               </div>
-            ))}
-          </div>
-          <div className="program-detail-meta">
-            <strong>Provider</strong>
-            <span>{selectedProgram.provider || 'Not specified'}</span>
-            <strong>Beneficiaries</strong>
-            <span>{selectedProgram.beneficiaryType || 'Mother and Child'}</span>
-          </div>
-          <div className="program-detail-actions">
-            <button
-              type="button"
-              className="view-btn view-btn--secondary"
-              disabled={!(selectedProgram.clusters || []).length}
-              onClick={() => setReceiptHistoryProgram(selectedProgram)}
-            >
-              View receipt history
-            </button>
-          </div>
-        </section>
+              {['School', 'Group', 'Batch'].map((type) => (
+                <div key={type}>
+                  <strong>{selectedProgramReceiptClusters.filter((cluster) => cluster.type === type).length.toLocaleString()}</strong>
+                  <span>{({ School: 'Schools', Group: 'Groups', Batch: 'Batches' })[type]} covered</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        </>
       )}
 
       {clusterView && selectedProgram && (
@@ -1234,7 +1256,7 @@ export default function ProgramPage() {
                       <tr key={batch.id} className="program-clickable-row" onClick={() => navigate(`/program/${programId}/batch/${batch.id}`)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); navigate(`/program/${programId}/batch/${batch.id}`); } }} tabIndex={0} role="button">
                         <td><strong>{batch.name}</strong></td>
                         <td>{(batch.beneficiaries || []).length || Number(batch.scopeBeneficiaries || 0)}</td>
-                        <td><button type="button" className="view-btn view-btn--secondary" onClick={(event) => { event.stopPropagation(); openClusterHistory({ name: batch.name }, 'batch'); }}>View</button></td>
+                        <td><button type="button" className="view-btn view-btn--secondary" onClick={(event) => { event.stopPropagation(); openClusterHistory({ name: batch.name }, 'batch'); }}>Check-in</button></td>
                       </tr>
                     )) : (
                       <tr>
@@ -1269,7 +1291,7 @@ export default function ProgramPage() {
                           <td><strong>{group.name}</strong></td>
                           <td>{batchCount}</td>
                           <td>{beneficiaryCount}</td>
-                          <td><button type="button" className="view-btn view-btn--secondary" onClick={(event) => { event.stopPropagation(); navigate(`/program/${programId}/group/${group.id}`); }}>View</button></td>
+                          <td><button type="button" className="view-btn view-btn--secondary" onClick={(event) => { event.stopPropagation(); openClusterHistory({ name: group.name || group.group_name }, 'group'); }}>Check-in</button></td>
                         </tr>
                       );
                     }) : (
@@ -1324,28 +1346,22 @@ export default function ProgramPage() {
                     <tr key={school.id} className="program-clickable-row" onClick={() => navigate(`/program/${programId}/school/${school.id}`)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); navigate(`/program/${programId}/school/${school.id}`); } }} tabIndex={0} role="button">
                       <td><strong>{school.name}</strong></td>
                       <td>{(school.groups || []).length}</td>
-                      <td><button type="button" className="view-btn view-btn--secondary" onClick={(event) => { event.stopPropagation(); navigate(`/program/${programId}/school/${school.id}`); }}>View</button></td>
+                      <td><button type="button" className="view-btn view-btn--secondary" onClick={(event) => { event.stopPropagation(); openClusterHistory({ name: school.name }, 'school'); }}>Check-in</button></td>
                     </tr>
                   )) : directScopeGroups.length ? directScopeGroups.map((group) => (
                     <tr key={group.id} className="program-clickable-row" onClick={() => navigate(`/program/${programId}/group/${group.id}`)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); navigate(`/program/${programId}/group/${group.id}`); } }} tabIndex={0} role="button">
                       <td><strong>{group.name || group.group_name}</strong></td>
                       <td>{group.batchCount}</td>
                       <td>{group.beneficiaryCount}</td>
-                      <td><button type="button" className="view-btn view-btn--secondary" onClick={(event) => { event.stopPropagation(); openClusterHistory({ name: group.name || group.group_name }, 'group'); }}>View</button></td>
+                      <td><button type="button" className="view-btn view-btn--secondary" onClick={(event) => { event.stopPropagation(); openClusterHistory({ name: group.name || group.group_name }, 'group'); }}>Check-in</button></td>
                     </tr>
                   )) : directScopeClusters.length ? directScopeClusters.map((cluster) => {
-                    const entity = cluster.type === 'Group'
-                      ? hierarchy.groups.find((group) => String(group.name || group.group_name).toLowerCase() === String(cluster.name).toLowerCase())
-                      : hierarchy.batches.find((batch) => String(batch.name || batch.batch_code || batch.code).toLowerCase() === String(cluster.name).toLowerCase());
-                    const scopeRoute = entity?.id
-                      ? `/program/${programId}/${cluster.type.toLowerCase()}/${entity.id}`
-                      : '';
                     return (
                       <tr key={`${cluster.type}-${cluster.name}`}>
                         <td><strong>{cluster.name}</strong></td>
                         <td>{cluster.type}</td>
                         <td>{Number(cluster.beneficiaries || 0)}</td>
-                        <td>{scopeRoute ? <button type="button" className="view-btn view-btn--secondary" onClick={() => navigate(scopeRoute)}>View</button> : '—'}</td>
+                        <td><button type="button" className="view-btn view-btn--secondary" onClick={() => openClusterHistory({ name: cluster.name }, cluster.type)}>Check-in</button></td>
                       </tr>
                     );
                   }) : (
@@ -1474,6 +1490,16 @@ export default function ProgramPage() {
         confirmLabel="Delete"
         onConfirm={confirmDeleteProgram}
         onCancel={() => setPendingDeleteProgram(null)}
+      />
+      <ConfirmDialog
+        open={showSaveConfirmation}
+        title="Save program changes?"
+        description={`Save the updates to ${form.name || 'this program'}?`}
+        variant="primary"
+        confirmLabel="Save changes"
+        cancelLabel="Continue editing"
+        onConfirm={persistProgram}
+        onCancel={() => setShowSaveConfirmation(false)}
       />
       {receiptHistoryProgram && createPortal((
         <div className="modal-backdrop" role="presentation" onMouseDown={() => setReceiptHistoryProgram(null)}>
@@ -1737,21 +1763,27 @@ export default function ProgramPage() {
       ), document.body)}
       {showModal && createPortal((
         <div
-          className="modal-backdrop"
+          className={`modal-backdrop${form.id ? ' program-edit-drawer-backdrop' : ''}`}
           role="presentation"
-          onMouseDown={() => setShowModal(false)}
+          onMouseDown={() => {
+            setShowModal(false);
+            setForm(emptyProgram);
+          }}
         >
           <form
-            className="modal program-product-modal"
+            className={`modal program-product-modal${form.id ? ' program-edit-drawer' : ''}`}
             onSubmit={saveProgram}
             onMouseDown={(event) => event.stopPropagation()}
           >
             <div className="modal-header">
-              <h2>Create program</h2>
+              <h2>{form.id ? 'Edit program' : 'Create program'}</h2>
               <button
                 type="button"
                 className="modal-close"
-                onClick={() => setShowModal(false)}
+                onClick={() => {
+                  setShowModal(false);
+                  setForm(emptyProgram);
+                }}
                 aria-label="Close"
               >
                 ×
@@ -1830,12 +1862,15 @@ export default function ProgramPage() {
               <button
                 type="button"
                 className="btn-secondary"
-                onClick={() => setShowModal(false)}
+                onClick={() => {
+                  setShowModal(false);
+                  setForm(emptyProgram);
+                }}
               >
                 Cancel
               </button>
               <button type="submit" className="btn-primary">
-                Create active program
+                {form.id ? 'Review changes' : 'Create active program'}
               </button>
             </div>
           </form>
