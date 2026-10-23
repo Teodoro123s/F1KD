@@ -46,7 +46,9 @@ Community Organizers can create and manage groups and batches that belong to the
 
 The Community overview omits the **Total Schools** card for Community Organizers. Their account is already scoped to its assigned school, so displaying a school-total card suggests a cross-school list or selector that this role does not have. Keep this card available only to roles with the appropriate broader school view; do not restore it for Community Organizers when changing overview cards.
 
-Community Organizers can optionally attach dated photo evidence to a batch. Each entry requires 3-10 JPG, PNG, or WEBP photos; each photo is limited to 5 MB and the combined upload to 25 MB. The interface previews selected images and enforces these limits before upload, and the API enforces them independently.
+Community Organizers can optionally attach dated photo evidence to a batch. Each entry requires 3-10 JPG, PNG, or WEBP photos; each photo is limited to 5 MB and the combined upload to 25 MB. Organizers can remove individual photos. Admin, Partner, and Health Worker accounts can view and download the evidence but cannot upload or remove it. Superadmins do not have access to this batch documentation feature. The interface previews selected images and enforces upload limits before submission, and the API enforces them independently.
+
+For Program receipt check-ins, Community Organizers can optionally attach the same dated photo set to each beneficiary selected in one bulk submission. Other operational roles can view, preview, and download the photos but cannot upload or remove them. The same 3-10 photo, 5 MB per-photo, and 25 MB per-submission limits apply; Superadmins remain excluded from Program.
 
 ### Beneficiary, monitoring, and program work
 

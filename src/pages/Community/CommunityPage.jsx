@@ -1128,7 +1128,9 @@ export default function CommunityPage() {
                     key: 'Documentation',
                     label: 'Documentation',
                     value: batchDocumentationLoading ? '...' : batchDocumentationCount ?? 'Error',
-                    description: 'View or add dated photo evidence',
+                    description: isCommunityOrganizer
+                      ? 'View or add dated photo evidence'
+                      : 'View and download dated photo evidence',
                   },
                 ]}
               />

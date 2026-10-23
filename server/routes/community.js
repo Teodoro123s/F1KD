@@ -1107,6 +1107,9 @@ router.put('/batches/:id', async (req, res) => {
 
 router.get('/batches/:id/documentations', async (req, res) => {
   try {
+    if (normalizeRole(req.user?.role) === 'super_admin') {
+      return res.status(403).json({ error: 'Superadmins do not have access to batch documentation' });
+    }
     const batchId = await getAccessibleBatchId(req, req.params.id);
     if (!batchId) return res.status(404).json({ error: 'Batch not found' });
 

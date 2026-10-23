@@ -545,6 +545,18 @@ Purpose:
 - monitoring and follow-up log for program participation
 - preserves the creator and latest updater for each receipt
 
+### program_receipt_documentation_sets
+
+Stores one dated photo evidence set uploaded for a program check-in submission. A set can be linked to multiple monitoring logs when one submission covers several beneficiaries.
+
+### program_receipt_documentations
+
+Stores the individual photo files attached to a program receipt documentation set.
+
+### program_receipt_documentation_logs
+
+Links a shared program receipt documentation set to each beneficiary receipt/check-in covered by that submission.
+
 ---
 
 ## 3. Database review findings

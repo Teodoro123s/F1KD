@@ -867,6 +867,7 @@
 .program-receipt-history-page .data-table td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .program-receipt-history-page .data-table th:first-child,
 .program-receipt-history-page .data-table td:first-child { width: 108px; min-width: 108px; overflow: visible; text-overflow: clip; white-space: normal; overflow-wrap: anywhere; line-height: 1.35; }
+.program-receipt-history-page .program-receipt-cluster-table { min-width: 1120px; }
 .program-receipt-history-page .program-receipt-cluster-table th:nth-child(1),
 .program-receipt-history-page .program-receipt-cluster-table td:nth-child(1) { width: 11%; }
 .program-receipt-history-page .program-receipt-cluster-table th:nth-child(2),
@@ -881,6 +882,8 @@
 .program-receipt-history-page .program-receipt-cluster-table td:nth-child(6),
 .program-receipt-history-page .program-receipt-cluster-table th:last-child,
 .program-receipt-history-page .program-receipt-cluster-table td:last-child { width: 11%; }
+.program-receipt-history-page .program-receipt-cluster-table .audit-signatures { margin: 0; font-size: 0.72rem; line-height: 1.35; }
+.program-receipt-history-page .program-receipt-cluster-table .audit-signatures span { display: -webkit-box; overflow: hidden; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .program-receipt-history-page .program-receipt-beneficiary-table th:nth-child(1),
 .program-receipt-history-page .program-receipt-beneficiary-table td:nth-child(1) { width: 25%; }
 .program-receipt-history-page .program-receipt-beneficiary-table th:nth-child(2),
@@ -947,7 +950,7 @@
 .program-calendar-day span, .program-calendar-day strong { display: block; }
 .program-calendar-day strong { margin-top: 0.45rem; font-size: 0.72rem; }
 .program-calendar-day:not(.received) { cursor: pointer; }
-.program-receipt-modal { width: min(420px, calc(100vw - 2rem)); padding: 1.25rem; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; box-shadow: 0 20px 50px rgba(15, 23, 42, 0.2); }
+.program-receipt-modal { width: min(560px, calc(100vw - 2rem)); max-height: min(90vh, 820px); overflow-y: auto; padding: 1.25rem; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; box-shadow: 0 20px 50px rgba(15, 23, 42, 0.2); }
 .program-receipt-modal-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
 .program-receipt-modal-header h3 { margin: 0; color: #0f172a; }
 .program-receipt-modal form { display: grid; gap: 1rem; }
@@ -962,6 +965,22 @@
 .receipt-beneficiary-option span { overflow-wrap: anywhere; }
 .receipt-beneficiary-empty { margin: 0; color: #64748b; font-size: 0.85rem; }
 .program-receipt-modal-actions { display: flex; justify-content: flex-end; gap: 0.75rem; }
+.program-receipt-evidence-upload { display: grid; gap: 0.45rem; padding: 0.8rem; border: 1px solid #dbe3ee; border-radius: 8px; background: #f8fafc; }
+.program-receipt-evidence-upload p,
+.program-receipt-evidence-readonly { margin: 0; color: #64748b; font-size: 0.8rem; line-height: 1.45; }
+.program-receipt-evidence-upload .batch-documentation-selected-files { max-height: 190px; overflow-y: auto; }
+.program-receipt-evidence { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 0.5rem; min-width: 0; white-space: normal; }
+.program-receipt-evidence .batch-documentation-photo { width: 100%; }
+.program-receipt-evidence .batch-documentation-evidence-preview-trigger { box-sizing: border-box; height: 56px; padding: 0; overflow: hidden; }
+.program-receipt-evidence .batch-documentation-evidence-preview-trigger .batch-documentation-image,
+.program-receipt-evidence .batch-documentation-evidence-preview-trigger .batch-documentation-image-loading,
+.program-receipt-evidence .batch-documentation-evidence-preview-trigger .batch-documentation-image-error { width: 100%; height: 100%; object-fit: cover; }
+.program-receipt-evidence .batch-documentation-photo-caption { align-items: center; flex-direction: column; gap: 0.15rem; }
+.program-receipt-evidence .batch-documentation-photo-caption > span { max-width: 100%; font-size: 0.68rem; line-height: 1.25; }
+.program-receipt-evidence .batch-documentation-photo-actions { width: 100%; max-width: 100%; justify-content: space-between; }
+.program-receipt-evidence .batch-documentation-download { padding: 0.12rem 0.25rem; font-size: 0.68rem; }
+.program-receipt-evidence .batch-documentation-remove-photo { width: 1.35rem; height: 1.35rem; padding: 0.12rem; }
+.program-receipt-no-evidence { color: #94a3b8; font-size: 0.78rem; }
 @media (max-width: 640px) {
   .program-page-header-actions { width: 100%; align-items: stretch; flex-direction: column; }
   .program-page-header-actions > button { width: 100%; }

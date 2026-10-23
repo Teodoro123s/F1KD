@@ -132,6 +132,11 @@ test('batch evidence has bounded uploads and organizers can remove individual ph
     assert.equal(response.status, 200, `${role} should be able to view evidence`);
   }
 
+  const superadminDocumentationResponse = await fetch(baseUrl, {
+    headers: headersFor('Superadmin'),
+  });
+  assert.equal(superadminDocumentationResponse.status, 403);
+
   batchAccessible = false;
   const inaccessibleResponse = await fetch(baseUrl, { headers: headersFor('Community Organizer') });
   assert.equal(inaccessibleResponse.status, 404);
@@ -144,6 +149,11 @@ test('batch evidence has bounded uploads and organizers can remove individual ph
       body: new FormData(),
     });
     assert.equal(response.status, 403, `${role} must not create evidence`);
+    const deleteResponse = await fetch(`${baseUrl}/41/images/1`, {
+      method: 'DELETE',
+      headers: headersFor(role),
+    });
+    assert.equal(deleteResponse.status, 403, `${role} must not remove evidence`);
   }
 
   const organizerHeaders = headersFor('Community Organizer');

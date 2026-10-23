@@ -41,6 +41,8 @@ The sidebar includes operational module links, while the Admin dashboard offers 
 
 Admin can review the modules listed above, including beneficiary and monitoring information, program configuration and check-ins, and Progress Reports. Operational writes are denied by the API. Password changes, notification read-state/preferences, and permitted report-download audit events are account-level/report-support actions, not permission to edit operational records.
 
+Program check-in photo documentation is view- and download-only for Admin accounts; Community Organizers manage photo uploads and removals.
+
 ### Account administration
 
 Admin cannot create, update, suspend, reactivate, or permanently delete user accounts through User Management. The full user-management API is Superadmin-only. Community Coordinators have a separate Health Worker-only workflow restricted to their own school; it does not apply to Admin.

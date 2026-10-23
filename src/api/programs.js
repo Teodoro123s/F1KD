@@ -25,3 +25,23 @@ export const apiSetProgramMonitoring = (programId, payload) => requestJson(`${AP
 export const apiGetBeneficiaryMonitoringReport = (programId, beneficiaryType, beneficiaryId) => requestJson(`${API_BASE}/api/programs/${encodeURIComponent(programId)}/monitoring/report/${encodeURIComponent(beneficiaryType)}/${encodeURIComponent(beneficiaryId)}`);
 export const apiGetClusterMonitoringReport = (programId, clusterType, clusterName) => requestJson(`${API_BASE}/api/programs/${encodeURIComponent(programId)}/monitoring/cluster-report/${encodeURIComponent(clusterType)}/${encodeURIComponent(clusterName)}`);
 export const apiSetBeneficiaryMonitoring = (programId, payload) => apiSetProgramMonitoring(programId, payload);
+
+export async function apiUploadProgramReceiptEvidence(programId, date, checkins, images) {
+  const formData = new FormData();
+  formData.append('date', date);
+  formData.append('checkins', JSON.stringify(checkins));
+  images.forEach((image) => formData.append('images', image));
+  const response = await fetchWithAuth(
+    `${API_BASE}/api/programs/${encodeURIComponent(programId)}/monitoring/evidence`,
+    { method: 'POST', headers: {}, body: formData },
+  );
+  return readApiResponse(response, 'Unable to upload program check-in photos');
+}
+
+export async function apiDeleteProgramReceiptEvidenceImage(programId, setId, imageId) {
+  const response = await fetchWithAuth(
+    `${API_BASE}/api/programs/${encodeURIComponent(programId)}/monitoring/evidence/${encodeURIComponent(setId)}/images/${encodeURIComponent(imageId)}`,
+    { method: 'DELETE', headers: { 'Content-Type': 'application/json' } },
+  );
+  return readApiResponse(response, 'Unable to remove program check-in photo');
+}

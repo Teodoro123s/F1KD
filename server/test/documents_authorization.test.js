@@ -30,10 +30,11 @@ test('beneficiary documents require authentication and match the user school sco
   const localFileName = `document-auth-test-${process.pid}.txt`;
   const localFilePath = path.join(uploadDirectory, localFileName);
   await fs.promises.writeFile(localFilePath, 'authorized local document');
+  let documentType = 'mother';
   pool.query = async (sql, params) => {
     assert.match(sql, /birth_certificate_document_path = \?/);
-    assert.deepEqual(params, [params[0], params[0], params[0], params[0]]);
-    return [[{ community_id: 12, group_id: 5 }]];
+    assert.deepEqual(params, [params[0], params[0], params[0], params[0], params[0]]);
+    return [[{ community_id: 12, group_id: 5, document_type: documentType }]];
   };
 
   const app = express();
@@ -60,6 +61,30 @@ test('beneficiary documents require authentication and match the user school sco
   });
   assert.equal(authorized.status, 404);
   assert.deepEqual(await authorized.json(), { error: 'Document storage is not configured' });
+
+  const superadminToken = jwt.sign({ id: 4, role: 'Superadmin' }, process.env.JWT_SECRET);
+  const tokenHeaders = (token) => ({ Authorization: ['Bearer', token].join(' ') });
+  const superadminCanReadBeneficiaryDocument = await fetch(`${baseUrl}${documentUrlPath}`, {
+    headers: tokenHeaders(superadminToken),
+  });
+  assert.equal(superadminCanReadBeneficiaryDocument.status, 404);
+  assert.deepEqual(await superadminCanReadBeneficiaryDocument.json(), {
+    error: 'Document storage is not configured',
+  });
+
+  documentType = 'batch_evidence';
+  const superadminBatchEvidence = await fetch(`${baseUrl}/api/documents/batch-evidence/private.png`, {
+    headers: tokenHeaders(superadminToken),
+  });
+  assert.equal(superadminBatchEvidence.status, 404);
+  assert.deepEqual(await superadminBatchEvidence.json(), { error: 'Document not found' });
+
+  documentType = 'program_receipt_evidence';
+  const superadminProgramEvidence = await fetch(`${baseUrl}/api/documents/program-receipt-evidence/private.png`, {
+    headers: tokenHeaders(superadminToken),
+  });
+  assert.equal(superadminProgramEvidence.status, 404);
+  assert.deepEqual(await superadminProgramEvidence.json(), { error: 'Document not found' });
 
   const authorizedLocalFile = await fetch(`${baseUrl}/uploads/${localFileName}`, {
     headers: { Authorization: `Bearer ${schoolToken}` },

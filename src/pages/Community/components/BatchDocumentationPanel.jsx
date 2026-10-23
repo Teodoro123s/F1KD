@@ -24,7 +24,7 @@ function formatImageSize(size) {
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function EvidenceImage({ filePath, fileName, canManage, onPreview, onRemove }) {
+export function EvidenceImage({ filePath, fileName, canManage, onPreview, onRemove }) {
   const [imageUrl, setImageUrl] = useState('');
   const [error, setError] = useState('');
 
@@ -109,7 +109,7 @@ function EvidenceImage({ filePath, fileName, canManage, onPreview, onRemove }) {
   );
 }
 
-function SelectedImagePreview({ image, onPreview }) {
+export function SelectedImagePreview({ image, onPreview }) {
   const [imageUrl, setImageUrl] = useState('');
 
   useEffect(() => {
