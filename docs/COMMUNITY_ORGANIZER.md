@@ -17,7 +17,7 @@ The Community Organizer sidebar contains Dashboard, Community, Beneficiary, Moni
 | Module or component | Availability | Purpose and limits |
 |---|---|---|
 | **Dashboard** (`/dashboard`) | Available | School-scoped operational overview, with beneficiary, check-up, community, program, and Health Worker indicators. It can show follow-ups and shortcuts to school workflows. It refreshes on demand and periodically. |
-| **Community** (`/community`) | Available | View the assigned school, its groups and batches, and scoped community records. Manage groups and batches within the assigned school. Community Organizers cannot create or delete schools. |
+| **Community** (`/community`) | Available | View the assigned school, its groups and batches, and scoped community records. The overview does not show a Total Schools card because the school is assigned to the account and is not selectable. Manage groups and batches within the assigned school. Community Organizers cannot create or delete schools. |
 | **Beneficiary** (`/beneficiary`) | Available | Register and manage mothers and children in the assigned school; review beneficiary profiles and related records. API scope prevents access to records outside the assigned school. |
 | **Monitor** (`/monitoring`) | Available | Review and record permitted maternal and child check-ups for the assigned school. Individual records remain subject to school scope and endpoint validation. |
 | **Program** (`/program`) | Available | Create and manage programs within the assigned school, configure program scopes, and review receipt/check-in activity. Mutations validate that program scopes belong to the organizer's school. |
@@ -43,6 +43,10 @@ The Community Organizer sidebar contains Dashboard, Community, Beneficiary, Moni
 ### Community structure
 
 Community Organizers can create and manage groups and batches that belong to their assigned school, but cannot create or delete school records. The API applies the school constraint to group/batch assignments and mutations.
+
+The Community overview omits the **Total Schools** card for Community Organizers. Their account is already scoped to its assigned school, so displaying a school-total card suggests a cross-school list or selector that this role does not have. Keep this card available only to roles with the appropriate broader school view; do not restore it for Community Organizers when changing overview cards.
+
+Community Organizers can optionally attach dated photo evidence to a batch. Each entry requires 3-10 JPG, PNG, or WEBP photos; each photo is limited to 5 MB and the combined upload to 25 MB. The interface previews selected images and enforces these limits before upload, and the API enforces them independently.
 
 ### Beneficiary, monitoring, and program work
 

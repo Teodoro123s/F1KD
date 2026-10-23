@@ -387,7 +387,6 @@ export default function MonitoringPage() {
   const handleSelectMother = (mother) => {
     setSelectedMother(mother);
     setEditingCheckup(false);
-    setShowEditCheckupConfirm(false);
     setMotherCheckups(mother.checkups || []);
     setSelectedChild(null);
     setSavedMessage('');
@@ -395,7 +394,6 @@ export default function MonitoringPage() {
 
   const handleSelectChild = async (child) => {
     setSavedMessage('');
-    setShowEditCheckupConfirm(false);
     try {
       const response = await apiGetChild(child.id || child.child_code);
       const detailedChild = response?.child || child;

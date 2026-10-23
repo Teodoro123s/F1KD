@@ -15,8 +15,18 @@ async function findDocumentRecords(documentPath) {
             COALESCE(c.group_id, m.group_id) AS group_id
      FROM children c
      LEFT JOIN mothers m ON m.id = c.mother_id
-     WHERE c.birth_document_path = ?`,
-    [documentPath, documentPath, documentPath],
+     WHERE c.birth_document_path = ?
+     UNION ALL
+     SELECT b.community_id, batch_groups.group_id
+     FROM batch_documentations d
+     JOIN batches b ON b.id = d.batch_id
+     LEFT JOIN (
+       SELECT group_id, batch_id FROM group_batch
+       UNION
+       SELECT group_id, batch_id FROM mothers WHERE group_id IS NOT NULL AND batch_id IS NOT NULL
+     ) batch_groups ON batch_groups.batch_id = b.id
+     WHERE d.file_path = ?`,
+    [documentPath, documentPath, documentPath, documentPath],
   );
   return rows;
 }

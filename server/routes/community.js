@@ -11,6 +11,12 @@ const pool = require('../db');
 const { createSuperadminNotification } = require('../services/notifications');
 const { normalizeRole } = require('../middleware/authorize');
 const {
+  batchEvidenceUpload,
+  documentUpload,
+  uploadFileToStorage,
+  deleteFileFromStorage,
+} = require('../middleware/documentUpload');
+const {
   assertCoordinatorAvailable,
   assertSchoolCoordinatorAvailable,
   isAssignmentConflict,
@@ -53,6 +59,80 @@ async function resolveCommunityId(pool, communityIdentifier) {
   return rows[0].id;
 }
 
+async function getAccessibleBatchId(req, batchIdentifier) {
+  const batchId = await resolveBatchId(pool, batchIdentifier);
+  if (!batchId) return null;
+
+  const conditions = ['b.id = ?'];
+  const values = [batchId];
+  if (req.schoolId) {
+    conditions.push('b.community_id = ?');
+    values.push(req.schoolId);
+  }
+  if (req.groupId) {
+    conditions.push(`EXISTS (
+      SELECT 1 FROM ${effectiveGroupBatchRelation} scoped_batch
+      WHERE scoped_batch.batch_id = b.id AND scoped_batch.group_id = ?
+    )`);
+    values.push(req.groupId);
+  }
+  const [rows] = await pool.query(
+    `SELECT b.id FROM batches b WHERE ${conditions.join(' AND ')} LIMIT 1`,
+    values,
+  );
+  return rows[0]?.id ?? null;
+}
+
+async function requireAccessibleBatch(req, res, next) {
+  try {
+    const batchId = await getAccessibleBatchId(req, req.params.id);
+    if (!batchId) return res.status(404).json({ error: 'Batch not found' });
+    req.accessibleBatchId = batchId;
+    return next();
+  } catch (error) {
+    return next(error);
+  }
+}
+
+function requireCommunityOrganizer(req, res, next) {
+  if (!req.isCommunityOrganizer) {
+    return res.status(403).json({ error: 'Only Community Organizers can create or remove batch documentation' });
+  }
+  return next();
+}
+
+function parseBatchEvidenceUpload(req, res, next) {
+  batchEvidenceUpload.array('images', 10)(req, res, async (error) => {
+    if (error) {
+      try {
+        await discardBatchEvidenceUploads(req.files);
+      } catch (cleanupError) {
+        console.error('[Community API] unable to clean up rejected batch image files:', cleanupError.message);
+      }
+      const message = error.code === 'LIMIT_FILE_SIZE'
+        ? 'Each photo must be 5 MB or smaller'
+        : error.code === 'LIMIT_FILE_COUNT' || error.code === 'LIMIT_UNEXPECTED_FILE'
+          ? 'Attach no more than 10 photos'
+          : error.message || 'Unable to upload images';
+      return res.status(400).json({ error: message });
+    }
+    return next();
+  });
+}
+
+async function discardBatchEvidenceUploads(files = []) {
+  await Promise.all(files.map(async (file) => {
+    const filePath = file.filename ? `/uploads/${file.filename}` : file.path;
+    if (filePath) await deleteFileFromStorage(filePath);
+  }));
+}
+
+function isValidEvidenceDate(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
 async function nextCode(pool, table, codeColumn, prefix) {
   // Generates the next numeric suffix for codes like SCH-0001, BAT-0001, GRP-0001
   // Use SUBSTRING_INDEX to obtain the numeric portion after the last '-' to be robust.
@@ -71,25 +151,22 @@ function getEffectiveRecordCount(item = {}) {
   return Number.isFinite(storedCount) ? storedCount : 0;
 }
 
-function getMotherWeightedProgress(rows = []) {
+function getBatchProgress(rows = []) {
   const progressByMother = new Map();
 
   rows.forEach((row) => {
     const motherId = String(row.motherId ?? row.mother_id ?? '');
     if (!motherId) return;
 
-    const motherChildren = progressByMother.get(motherId) || [];
-    motherChildren.push(Math.min(100, (Number(row.childCheckups ?? row.child_checkups ?? 0) / 24) * 100));
-    progressByMother.set(motherId, motherChildren);
+    const rawProgress = Number(row.motherProgress ?? row.mother_progress ?? row.progress ?? 0);
+    const progress = Number.isFinite(rawProgress) ? Math.min(100, Math.max(0, rawProgress)) : 0;
+    progressByMother.set(motherId, progress);
   });
 
   if (!progressByMother.size) return 0;
 
-  const motherProgressTotal = [...progressByMother.values()].reduce((total, childProgress) => (
-    total + childProgress.reduce((sum, progress) => sum + progress, 0) / childProgress.length
-  ), 0);
-
-  return Math.round(motherProgressTotal / progressByMother.size);
+  const totalProgress = [...progressByMother.values()].reduce((total, progress) => total + progress, 0);
+  return Math.round(totalProgress / progressByMother.size);
 }
 
 const effectiveGroupBatchRelation = `(
@@ -145,7 +222,6 @@ router.get('/summary', async (req, res) => {
         c.name AS community,
         COUNT(DISTINCT m.id) AS actual_records,
         b.records AS stored_records,
-        COALESCE(b.progress, 0) AS progress,
         COALESCE(b.status, 'Active') AS status,
         GROUP_CONCAT(DISTINCT gb.group_id ORDER BY gb.group_id) AS group_ids,
         GROUP_CONCAT(DISTINCT bg.name ORDER BY bg.name) AS group_names
@@ -155,7 +231,7 @@ router.get('/summary', async (req, res) => {
       LEFT JOIN ${effectiveGroupBatchRelation} gb ON gb.batch_id = b.id
       LEFT JOIN groups bg ON bg.id = gb.group_id
       ${req.groupId ? `WHERE EXISTS (SELECT 1 FROM ${effectiveGroupBatchRelation} scoped_gb WHERE scoped_gb.batch_id = b.id AND scoped_gb.group_id = ?)` : namedSchoolScope}
-      GROUP BY b.id, b.batch_code, b.name, c.name, b.records, b.progress, b.status
+      GROUP BY b.id, b.batch_code, b.name, c.name, b.records, b.status
       ORDER BY b.id
     `, req.groupId ? [req.groupId] : req.schoolId ? [req.schoolId] : []);
 
@@ -218,14 +294,9 @@ router.get('/summary', async (req, res) => {
       SELECT
         m.batch_id AS batchId,
         m.id AS motherId,
-        c.id AS childId,
-        COUNT(DISTINCT cc.id) AS childCheckups
+        COALESCE(m.progress, 0) AS motherProgress
       FROM mothers m
-      LEFT JOIN children c ON c.mother_id = m.id
-        AND (c.batch_id = m.batch_id OR c.batch_id IS NULL)
-      LEFT JOIN child_checkups cc ON cc.child_id = c.id
       WHERE m.batch_id IS NOT NULL
-      GROUP BY m.batch_id, c.id
     `);
 
     const monitoringByBatch = monitoringRows.reduce((byBatch, row) => {
@@ -248,7 +319,7 @@ router.get('/summary', async (req, res) => {
     const batchesData = batches.map((item) => {
       const batchId = String(item.id || '');
       const childMonitoring = monitoringByBatch.get(batchId) || [];
-      const progress = getMotherWeightedProgress(childMonitoring);
+      const progress = getBatchProgress(childMonitoring);
 
       return {
         id: item.batch_code || String(item.id),
@@ -1034,6 +1105,222 @@ router.put('/batches/:id', async (req, res) => {
   }
 });
 
+router.get('/batches/:id/documentations', async (req, res) => {
+  try {
+    const batchId = await getAccessibleBatchId(req, req.params.id);
+    if (!batchId) return res.status(404).json({ error: 'Batch not found' });
+
+    const [sets] = await pool.query(
+      `SELECT s.id, s.batch_id, DATE_FORMAT(s.evidence_date, '%Y-%m-%d') AS evidence_date,
+          s.created_at, NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.last_name)), '') AS uploaded_by
+       FROM batch_documentation_sets s
+      LEFT JOIN users u ON u.id = s.uploaded_by_user_id
+       WHERE s.batch_id = ?
+       ORDER BY s.evidence_date DESC, s.id DESC`,
+      [batchId],
+    );
+    const [images] = await pool.query(
+      `SELECT id, documentation_set_id, file_name, file_path
+       FROM batch_documentations
+       WHERE batch_id = ? AND documentation_set_id IS NOT NULL
+       ORDER BY id`,
+      [batchId],
+    );
+    const [legacyImages] = await pool.query(
+      `SELECT id, DATE_FORMAT(evidence_date, '%Y-%m-%d') AS evidence_date,
+          file_name, file_path, created_at
+       FROM batch_documentations
+       WHERE batch_id = ? AND documentation_set_id IS NULL
+       ORDER BY evidence_date DESC, id DESC`,
+      [batchId],
+    );
+    const imagesBySet = new Map();
+    images.forEach((image) => {
+      const setId = String(image.documentation_set_id);
+      const setImages = imagesBySet.get(setId) || [];
+      setImages.push({ id: image.id, file_name: image.file_name, file_path: image.file_path });
+      imagesBySet.set(setId, setImages);
+    });
+    const documentations = sets.map((set) => ({
+      ...set,
+      images: imagesBySet.get(String(set.id)) || [],
+    }));
+    legacyImages.forEach((image) => {
+      documentations.push({
+        id: `legacy-${image.id}`,
+        batch_id: batchId,
+        evidence_date: image.evidence_date,
+        created_at: image.created_at,
+        uploaded_by: null,
+        images: [{ id: image.id, file_name: image.file_name, file_path: image.file_path }],
+      });
+    });
+    documentations.sort((left, right) => (
+      right.evidence_date.localeCompare(left.evidence_date)
+      || String(right.created_at || '').localeCompare(String(left.created_at || ''))
+      || Number(String(right.id).replace('legacy-', '')) - Number(String(left.id).replace('legacy-', ''))
+    ));
+    res.json({ documentations });
+  } catch (error) {
+    console.error('[Community API] load batch documentation error:', error.message);
+    res.status(500).json({ error: 'Unable to load batch documentation' });
+  }
+});
+
+router.post('/batches/:id/documentations', requireAccessibleBatch, requireCommunityOrganizer, parseBatchEvidenceUpload, async (req, res) => {
+  let storedFiles = [];
+  try {
+    const batchId = req.accessibleBatchId;
+    const evidenceDate = req.body?.evidenceDate;
+    if (!isValidEvidenceDate(evidenceDate)) {
+      await discardBatchEvidenceUploads(req.files);
+      return res.status(400).json({ error: 'Enter a valid evidence date' });
+    }
+    const files = req.files || [];
+    if (files.length < 3) {
+      await discardBatchEvidenceUploads(files);
+      return res.status(400).json({ error: 'Attach at least 3 photos for batch documentation' });
+    }
+    if (files.reduce((total, file) => total + file.size, 0) > 25 * 1024 * 1024) {
+      await discardBatchEvidenceUploads(files);
+      return res.status(400).json({ error: 'The combined photo size must not exceed 25 MB' });
+    }
+    if (files.some((file) => !['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype))) {
+      await discardBatchEvidenceUploads(files);
+      return res.status(400).json({ error: 'Only JPG, PNG, and WEBP images are allowed' });
+    }
+
+    for (const file of files) {
+      storedFiles.push(await uploadFileToStorage(file, 'batch-evidence'));
+    }
+    const connection = await pool.getConnection();
+    let documentationSetId;
+    const imageIds = [];
+    try {
+      await connection.beginTransaction();
+      const [setResult] = await connection.query(
+        'INSERT INTO batch_documentation_sets (batch_id, evidence_date, uploaded_by_user_id) VALUES (?, ?, ?)',
+        [batchId, evidenceDate, req.user?.id || null],
+      );
+      documentationSetId = setResult.insertId;
+      for (const storedFile of storedFiles) {
+        const [imageResult] = await connection.query(
+          `INSERT INTO batch_documentations
+            (batch_id, evidence_date, file_name, file_path, uploaded_by_user_id, documentation_set_id)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [batchId, evidenceDate, storedFile.name, storedFile.path, req.user?.id || null, documentationSetId],
+        );
+        imageIds.push(imageResult.insertId);
+      }
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+    res.status(201).json({
+      documentation: {
+        id: documentationSetId,
+        batch_id: batchId,
+        evidence_date: evidenceDate,
+        created_at: new Date().toISOString(),
+        images: storedFiles.map((file, index) => ({
+          id: imageIds[index],
+          file_name: file.name,
+          file_path: file.path,
+        })),
+      },
+    });
+  } catch (error) {
+    await Promise.all(storedFiles.map(async (file) => {
+      try {
+        await deleteFileFromStorage(file.path);
+      } catch (cleanupError) {
+        console.error('[Community API] unable to clean up batch evidence after upload failure:', cleanupError.message);
+      }
+    }));
+    if (req.files?.length) {
+      await discardBatchEvidenceUploads(req.files).catch((cleanupError) => {
+        console.error('[Community API] unable to clean up temporary batch image files:', cleanupError.message);
+      });
+    }
+    console.error('[Community API] upload batch documentation error:', error.message);
+    res.status(500).json({ error: 'Unable to save batch documentation' });
+  }
+});
+
+router.delete('/batches/:id/documentations/:documentationId/images/:imageId', requireCommunityOrganizer, async (req, res) => {
+  try {
+    const batchId = await getAccessibleBatchId(req, req.params.id);
+    if (!batchId) return res.status(404).json({ error: 'Batch not found' });
+    const documentationId = String(req.params.documentationId);
+    const imageId = String(req.params.imageId);
+    if (documentationId.startsWith('legacy-')) {
+      const legacyId = documentationId.slice('legacy-'.length);
+      if (legacyId !== imageId) return res.status(404).json({ error: 'Batch documentation image not found' });
+      const [rows] = await pool.query(
+        'SELECT id, file_path FROM batch_documentations WHERE id = ? AND batch_id = ? AND documentation_set_id IS NULL LIMIT 1',
+        [legacyId, batchId],
+      );
+      if (!rows.length) return res.status(404).json({ error: 'Batch documentation image not found' });
+      await pool.query('DELETE FROM batch_documentations WHERE id = ? AND batch_id = ?', [rows[0].id, batchId]);
+      await deleteFileFromStorage(rows[0].file_path);
+      return res.json({ success: true, deleted: true, documentationDeleted: true });
+    }
+
+    const connection = await pool.getConnection();
+    let filePath;
+    let documentationDeleted = false;
+    try {
+      await connection.beginTransaction();
+      const [sets] = await connection.query(
+        'SELECT id FROM batch_documentation_sets WHERE id = ? AND batch_id = ? LIMIT 1 FOR UPDATE',
+        [documentationId, batchId],
+      );
+      if (!sets.length) {
+        await connection.rollback();
+        return res.status(404).json({ error: 'Batch documentation image not found' });
+      }
+      const [images] = await connection.query(
+        'SELECT id, file_path FROM batch_documentations WHERE id = ? AND documentation_set_id = ? AND batch_id = ? LIMIT 1 FOR UPDATE',
+        [imageId, documentationId, batchId],
+      );
+      if (!images.length) {
+        await connection.rollback();
+        return res.status(404).json({ error: 'Batch documentation image not found' });
+      }
+      filePath = images[0].file_path;
+      await connection.query(
+        'DELETE FROM batch_documentations WHERE id = ? AND documentation_set_id = ? AND batch_id = ?',
+        [imageId, documentationId, batchId],
+      );
+      const [remaining] = await connection.query(
+        'SELECT COUNT(*) AS image_count FROM batch_documentations WHERE documentation_set_id = ? AND batch_id = ?',
+        [documentationId, batchId],
+      );
+      if (Number(remaining[0]?.image_count) === 0) {
+        await connection.query(
+          'DELETE FROM batch_documentation_sets WHERE id = ? AND batch_id = ?',
+          [documentationId, batchId],
+        );
+        documentationDeleted = true;
+      }
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+    await deleteFileFromStorage(filePath);
+    res.json({ success: true, deleted: true, documentationDeleted });
+  } catch (error) {
+    console.error('[Community API] delete batch documentation image error:', error.message);
+    res.status(500).json({ error: 'Unable to delete batch documentation image' });
+  }
+});
+
 router.delete('/batches/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -1071,6 +1358,10 @@ router.delete('/batches/:id', async (req, res) => {
          FOR UPDATE`,
         [batchId, ...motherIds],
       );
+      const [documentationRows] = await connection.query(
+        'SELECT file_path FROM batch_documentations WHERE batch_id = ?',
+        [batchId],
+      );
 
       if (motherIds.length) {
         await connection.query(
@@ -1091,10 +1382,19 @@ router.delete('/batches/:id', async (req, res) => {
         ...batch,
         deletedMothers: motherIds.length,
         deletedChildren: childRows.length,
+        documentationFilePaths: documentationRows.map((row) => row.file_path),
       };
     });
 
     if (!deletedBatch) return res.status(404).json({ error: 'Batch not found' });
+    const cleanupResults = await Promise.allSettled(
+      deletedBatch.documentationFilePaths.map((filePath) => deleteFileFromStorage(filePath)),
+    );
+    cleanupResults.forEach((result) => {
+      if (result.status === 'rejected') {
+        console.error('[Community API] unable to clean up batch evidence after batch deletion:', result.reason?.message || result.reason);
+      }
+    });
 
     await createSuperadminNotification({
       eventType: 'batch.deleted',
@@ -1134,7 +1434,7 @@ router.get('/batches', async (req, res) => {
         '' AS description,
         c.name AS community,
         COALESCE(b.records, COUNT(m.id)) AS records,
-        COALESCE(b.progress, 0) AS progress,
+        COALESCE(ROUND(AVG(COALESCE(m.progress, 0))), 0) AS progress,
         COALESCE(b.status, 'Active') AS status
       FROM batches b
       LEFT JOIN mothers m ON m.batch_id = b.id
@@ -1150,7 +1450,7 @@ router.get('/batches', async (req, res) => {
       description: r.description,
       community: r.community || '',
       records: getEffectiveRecordCount(r),
-      progress: 0,
+      progress: Number(r.progress || 0),
       status: r.status || 'Active',
     }));
     res.json({ batches });
@@ -1162,4 +1462,4 @@ router.get('/batches', async (req, res) => {
 
 module.exports = router;
 module.exports.getEffectiveRecordCount = getEffectiveRecordCount;
-module.exports.getMotherWeightedProgress = getMotherWeightedProgress;
+module.exports.getBatchProgress = getBatchProgress;

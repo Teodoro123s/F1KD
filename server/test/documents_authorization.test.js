@@ -32,7 +32,7 @@ test('beneficiary documents require authentication and match the user school sco
   await fs.promises.writeFile(localFilePath, 'authorized local document');
   pool.query = async (sql, params) => {
     assert.match(sql, /birth_certificate_document_path = \?/);
-    assert.deepEqual(params, [params[0], params[0], params[0]]);
+    assert.deepEqual(params, [params[0], params[0], params[0], params[0]]);
     return [[{ community_id: 12, group_id: 5 }]];
   };
 
@@ -66,6 +66,18 @@ test('beneficiary documents require authentication and match the user school sco
   });
   assert.equal(authorizedLocalFile.status, 200);
   assert.equal(await authorizedLocalFile.text(), 'authorized local document');
+
+  for (const role of ['Partner', 'Admin', 'Health Worker']) {
+    const scopedToken = jwt.sign({
+      id: 3,
+      role,
+      ...(role === 'Health Worker' ? { school_id: 12 } : {}),
+    }, process.env.JWT_SECRET);
+    const roleCanRead = await fetch(`${baseUrl}/uploads/${localFileName}`, {
+      headers: { Authorization: `Bearer ${scopedToken}` },
+    });
+    assert.equal(roleCanRead.status, 200, `${role} should be able to view batch evidence images`);
+  }
 
   const otherSchoolToken = jwt.sign({ id: 2, role: 'Community Coordinator', school_id: 13 }, process.env.JWT_SECRET);
   const forbidden = await fetch(`${baseUrl}${documentUrlPath}`, {

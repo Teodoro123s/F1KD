@@ -5,6 +5,7 @@ import FloatingLayer from '../../components/ui/FloatingLayer';
 
 export default function UserManagementTable({
   currentRows,
+  onRowClick,
   openEditUser,
   handleSuspendUser,
   handleDeleteUser,
@@ -117,7 +118,21 @@ export default function UserManagementTable({
           <tbody>
             {currentRows.length > 0 ? (
               currentRows.map((row) => (
-                <tr key={row.id}>
+                <tr
+                  key={row.id}
+                  className={onRowClick ? 'user-management-clickable-row' : undefined}
+                  onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  onKeyDown={onRowClick ? (event) => {
+                    if (event.target !== event.currentTarget) return;
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      onRowClick(row);
+                    }
+                  } : undefined}
+                  tabIndex={onRowClick ? 0 : undefined}
+                  role={onRowClick ? 'link' : undefined}
+                  aria-label={onRowClick ? `View details for ${row.name}` : undefined}
+                >
                   <td title={row.name}>{row.name}</td>
                   <td title={row.role}>{row.role}</td>
                   {showGroup && (
