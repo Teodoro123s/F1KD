@@ -61,3 +61,20 @@ test('CSV data stays aligned with its headers and escapes spreadsheet-dangerous 
   assert.equal(values[0], 'Araw, "Sample"');
   assert.equal(values[1], "'\t=HYPERLINK(\"x\")");
 });
+
+test('monthly BMI CSV headers are unambiguous when opened in spreadsheet apps', () => {
+  const csv = buildProgressReportCsv(
+    [{ mother: 'Araw Sample', '2027-01': 23.4, '2027-01Interpretation': 'Normal' }],
+    [['2027-01', 'Jan-27'], ['2027-01Interpretation', 'Jan-27 Interpretation']],
+    'mother',
+  );
+  const headers = parseCsvRow(csv.split('\r\n')[0]);
+
+  assert.deepEqual(headers, [
+    'Beneficiary Name',
+    'Age (years)',
+    'Date of Birth',
+    'BMI Jan 2027',
+    'BMI Jan 2027 Interpretation',
+  ]);
+});

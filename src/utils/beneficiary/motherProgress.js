@@ -1,4 +1,4 @@
-import { addMonthsPreservingDay, formatDateForInput } from './dateFormat.js';
+import { addMonthsPreservingDay, formatDateForInput } from '../formatting/dateFormat.js';
 
 const hasMeaningfulValue = (value) => {
   if (value === undefined || value === null) return false;

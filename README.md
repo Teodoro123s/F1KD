@@ -10,6 +10,8 @@ The PSGC data is sourced from the [PSA](https://psa.gov.ph/classification/psgc/)
 
 ## Project documentation
 
+- [Project structure](./docs/PROJECT_STRUCTURE.md) — frontend and backend folder ownership, Beneficiary canonical paths, and file placement rules.
+
 - [Users, roles, permissions, and data scope](./docs/ROLES_AND_ACCESS.md) — module access, account-management limits, school/group scope, and practical verification.
 - [Superadmin user guide](./docs/SUPERADMIN.md) — role purpose, permissions, modules, recovery flow, and operational boundaries.
 - [Community Organizer user guide](./docs/COMMUNITY_ORGANIZER.md) — assigned-school scope, operational modules, Health Worker account limits, and safe operating practices.

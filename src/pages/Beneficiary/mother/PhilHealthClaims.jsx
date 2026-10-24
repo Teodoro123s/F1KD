@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { formatDateForDisplay } from '../../../utils/dateFormat';
+import { formatDateForDisplay } from '../../../utils/formatting/dateFormat';
 import {
   apiCreateMotherClaim,
   apiGetMotherClaims,

@@ -21,7 +21,7 @@ import { notifyAction } from '../../components/ActionFeedback';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import ExpandableTreeTable from "../Monitoring/ExpandableTreeTable";
 import { ConfirmActionModal } from "../Community/CommunityModals";
-import { formatDateForDisplay, normalizeDateValue } from '../../utils/dateFormat';
+import { formatDateForDisplay, normalizeDateValue } from '../../utils/formatting/dateFormat';
 import {
   beneficiaryNames,
   emptyProgram,

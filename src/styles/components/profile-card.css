@@ -861,27 +861,32 @@
 .program-report-data-panel { margin-bottom: 0; }
 .program-report-summary-panel > .module-summary-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 0; }
 .program-report-summary-panel > .module-summary-cards .module-summary-card { min-height: 118px; }
-.program-receipt-table-scroll { width: 100%; overflow-x: auto; overflow-y: hidden; }
-.program-receipt-history-page .data-table { min-width: 760px; table-layout: fixed; }
+.program-receipt-history-page .program-receipt-table-scroll { width: 100%; overflow-x: hidden; overflow-y: hidden; }
+.program-receipt-history-page .data-table { width: 100%; min-width: 0; table-layout: fixed; }
 .program-receipt-history-page .data-table th,
-.program-receipt-history-page .data-table td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.program-receipt-history-page .data-table td { overflow: hidden; padding: 0.5rem 0.35rem; text-overflow: ellipsis; white-space: nowrap; }
+.program-receipt-history-page .data-table th { padding: 0.45rem 0.3rem; font-size: 0.66rem; letter-spacing: 0.025em; }
+.view-content .program-receipt-history-page .data-table td:first-child { padding-right: 0.2rem; padding-left: 0.2rem; font-size: 0.75rem; }
 .program-receipt-history-page .data-table th:first-child,
-.program-receipt-history-page .data-table td:first-child { width: 108px; min-width: 108px; overflow: visible; text-overflow: clip; white-space: normal; overflow-wrap: anywhere; line-height: 1.35; }
-.program-receipt-history-page .program-receipt-cluster-table { min-width: 1120px; }
-.program-receipt-history-page .program-receipt-cluster-table th:nth-child(1),
-.program-receipt-history-page .program-receipt-cluster-table td:nth-child(1) { width: 11%; }
-.program-receipt-history-page .program-receipt-cluster-table th:nth-child(2),
-.program-receipt-history-page .program-receipt-cluster-table td:nth-child(2) { width: 19%; }
-.program-receipt-history-page .program-receipt-cluster-table th:nth-child(3),
-.program-receipt-history-page .program-receipt-cluster-table td:nth-child(3) { width: 16%; }
-.program-receipt-history-page .program-receipt-cluster-table th:nth-child(4),
-.program-receipt-history-page .program-receipt-cluster-table td:nth-child(4) { width: 25%; }
-.program-receipt-history-page .program-receipt-cluster-table th:nth-child(5),
-.program-receipt-history-page .program-receipt-cluster-table td:nth-child(5) { width: 18%; }
-.program-receipt-history-page .program-receipt-cluster-table th:nth-child(6),
-.program-receipt-history-page .program-receipt-cluster-table td:nth-child(6),
-.program-receipt-history-page .program-receipt-cluster-table th:last-child,
-.program-receipt-history-page .program-receipt-cluster-table td:last-child { width: 11%; }
+.program-receipt-history-page .data-table td:first-child { width: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.program-receipt-history-page .program-receipt-cluster-table.has-audit-signatures th:nth-child(1),
+.program-receipt-history-page .program-receipt-cluster-table.has-audit-signatures td:nth-child(1) { width: 15%; }
+.program-receipt-history-page .program-receipt-cluster-table.has-audit-signatures th:nth-child(2),
+.program-receipt-history-page .program-receipt-cluster-table.has-audit-signatures td:nth-child(2) { width: 25%; }
+.program-receipt-history-page .program-receipt-cluster-table.has-audit-signatures th:nth-child(3),
+.program-receipt-history-page .program-receipt-cluster-table.has-audit-signatures td:nth-child(3) { width: 22%; }
+.program-receipt-history-page .program-receipt-cluster-table.has-audit-signatures th:nth-child(4),
+.program-receipt-history-page .program-receipt-cluster-table.has-audit-signatures td:nth-child(4) { width: 23%; }
+.program-receipt-history-page .program-receipt-cluster-table.has-audit-signatures th:nth-child(5),
+.program-receipt-history-page .program-receipt-cluster-table.has-audit-signatures td:nth-child(5) { width: 15%; }
+.program-receipt-history-page .program-receipt-cluster-table:not(.has-audit-signatures) th:nth-child(1),
+.program-receipt-history-page .program-receipt-cluster-table:not(.has-audit-signatures) td:nth-child(1) { width: 20%; }
+.program-receipt-history-page .program-receipt-cluster-table:not(.has-audit-signatures) th:nth-child(2),
+.program-receipt-history-page .program-receipt-cluster-table:not(.has-audit-signatures) td:nth-child(2) { width: 35%; }
+.program-receipt-history-page .program-receipt-cluster-table:not(.has-audit-signatures) th:nth-child(3),
+.program-receipt-history-page .program-receipt-cluster-table:not(.has-audit-signatures) td:nth-child(3) { width: 27%; }
+.program-receipt-history-page .program-receipt-cluster-table:not(.has-audit-signatures) th:nth-child(4),
+.program-receipt-history-page .program-receipt-cluster-table:not(.has-audit-signatures) td:nth-child(4) { width: 18%; }
 .program-receipt-history-page .program-receipt-cluster-table .audit-signatures { margin: 0; font-size: 0.72rem; line-height: 1.35; }
 .program-receipt-history-page .program-receipt-cluster-table .audit-signatures span { display: -webkit-box; overflow: hidden; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .program-receipt-history-page .program-receipt-beneficiary-table th:nth-child(1),
@@ -890,10 +895,10 @@
 .program-receipt-history-page .program-receipt-beneficiary-table td:nth-child(2) { width: 45%; }
 .program-receipt-history-page .program-receipt-beneficiary-table th:nth-child(3),
 .program-receipt-history-page .program-receipt-beneficiary-table td:nth-child(3) { width: 30%; }
-.program-receipt-history-page .data-table th:last-child,
-.program-receipt-history-page .data-table td:last-child { width: 128px; min-width: 128px; overflow: visible; text-overflow: clip; }
-.program-receipt-history-page .data-table td:last-child .view-btn { display: inline-flex; min-width: 64px; white-space: nowrap; }
-.program-receipt-history-page .program-beneficiary-report-table { min-width: 760px; table-layout: fixed; }
+.view-content .program-receipt-history-page .data-table th:last-child,
+.view-content .program-receipt-history-page .data-table td:last-child { width: 10%; min-width: 0; padding: 0.4rem 0.2rem; overflow: hidden; text-overflow: ellipsis; }
+.view-content .program-receipt-history-page .data-table td:last-child .view-btn { display: inline-flex; min-width: 0; min-height: 30px; padding: 0.3rem 0.4rem; white-space: nowrap; }
+.program-receipt-history-page .program-beneficiary-report-table { min-width: 0; table-layout: fixed; }
 .program-receipt-history-page .program-beneficiary-report-table th,
 .program-receipt-history-page .program-beneficiary-report-table td { overflow: visible; overflow-wrap: normal; text-overflow: clip; white-space: normal; word-break: normal; }
 .program-receipt-history-page .program-beneficiary-report-table td:first-child { min-width: 108px; white-space: nowrap; }
@@ -969,17 +974,25 @@
 .program-receipt-evidence-upload p,
 .program-receipt-evidence-readonly { margin: 0; color: #64748b; font-size: 0.8rem; line-height: 1.45; }
 .program-receipt-evidence-upload .batch-documentation-selected-files { max-height: 190px; overflow-y: auto; }
-.program-receipt-evidence { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 0.5rem; min-width: 0; white-space: normal; }
-.program-receipt-evidence .batch-documentation-photo { width: 100%; }
-.program-receipt-evidence .batch-documentation-evidence-preview-trigger { box-sizing: border-box; height: 56px; padding: 0; overflow: hidden; }
-.program-receipt-evidence .batch-documentation-evidence-preview-trigger .batch-documentation-image,
-.program-receipt-evidence .batch-documentation-evidence-preview-trigger .batch-documentation-image-loading,
-.program-receipt-evidence .batch-documentation-evidence-preview-trigger .batch-documentation-image-error { width: 100%; height: 100%; object-fit: cover; }
-.program-receipt-evidence .batch-documentation-photo-caption { align-items: center; flex-direction: column; gap: 0.15rem; }
-.program-receipt-evidence .batch-documentation-photo-caption > span { max-width: 100%; font-size: 0.68rem; line-height: 1.25; }
-.program-receipt-evidence .batch-documentation-photo-actions { width: 100%; max-width: 100%; justify-content: space-between; }
-.program-receipt-evidence .batch-documentation-download { padding: 0.12rem 0.25rem; font-size: 0.68rem; }
-.program-receipt-evidence .batch-documentation-remove-photo { width: 1.35rem; height: 1.35rem; padding: 0.12rem; }
+.program-receipt-documentation-cell { position: relative; overflow: visible !important; white-space: normal !important; }
+.program-receipt-documentation-cell > .program-receipt-documentation-toggle { position: relative; z-index: 1; }
+.program-receipt-documentation-toggle { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.35rem 0.55rem; border: 1px solid #dbe3ee; border-radius: 999px; background: #f8fafc; color: #166534; font: inherit; font-size: 0.75rem; font-weight: 700; cursor: pointer; }
+.program-receipt-documentation-toggle:hover:not(:disabled),
+.program-receipt-documentation-toggle[aria-expanded="true"] { border-color: #86efac; background: #f0fdf4; }
+.program-receipt-documentation-toggle:disabled { color: #94a3b8; cursor: default; }
+.program-receipt-documentation-list { position: absolute; top: calc(100% + 0.25rem); left: 0; z-index: 1100; display: grid; width: min(260px, calc(100vw - 2rem)); max-height: 210px; gap: 0.35rem; padding: 0.4rem; overflow-x: hidden; overflow-y: auto; border: 1px solid #dbe3ee; border-radius: 8px; background: #fff; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.18); }
+.program-receipt-documentation-list .batch-documentation-photo { display: grid; grid-template-columns: 52px minmax(0, 1fr); align-items: center; gap: 0.45rem; width: 100%; padding-bottom: 0.35rem; border-bottom: 1px solid #edf2f7; }
+.program-receipt-documentation-list .batch-documentation-photo:last-child { padding-bottom: 0; border-bottom: 0; }
+.program-receipt-documentation-list .batch-documentation-evidence-preview-trigger,
+.program-receipt-documentation-list .batch-documentation-image-loading,
+.program-receipt-documentation-list .batch-documentation-image-error { box-sizing: border-box; width: 52px; height: 42px; padding: 0; overflow: hidden; border-radius: 5px; }
+.program-receipt-documentation-list .batch-documentation-image { width: 100%; height: 100%; object-fit: cover; }
+.program-receipt-documentation-list .batch-documentation-photo-caption { display: grid; justify-items: start; gap: 0.2rem; }
+.program-receipt-documentation-list .batch-documentation-photo-caption > span { max-width: 100%; font-size: 0.68rem; line-height: 1.25; }
+.program-receipt-documentation-list .batch-documentation-photo-actions { width: 100%; max-width: 100%; justify-content: flex-start; gap: 0.45rem; }
+.program-receipt-documentation-list .batch-documentation-download { display: inline-flex; width: auto; height: auto; overflow: visible; padding: 0.1rem 0.2rem; font-size: 0.68rem; }
+.program-receipt-documentation-list .batch-documentation-download::before { content: none; }
+.program-receipt-documentation-list .batch-documentation-remove-photo { width: 1.35rem; height: 1.35rem; padding: 0.12rem; }
 .program-receipt-no-evidence { color: #94a3b8; font-size: 0.78rem; }
 @media (max-width: 640px) {
   .program-page-header-actions { width: 100%; align-items: stretch; flex-direction: column; }

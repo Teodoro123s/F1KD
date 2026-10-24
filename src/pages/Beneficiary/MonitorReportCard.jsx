@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { formatDateForDisplay } from '../../utils/dateFormat';
-import { calculateWhoGrowthScores } from '../../utils/whoGrowthStandards';
+import { formatDateForDisplay } from '../../utils/formatting/dateFormat';
+import { calculateWhoGrowthScores } from '../../utils/beneficiary/whoGrowthStandards';
 
 const CHILD_METRICS = [
   { key: 'weightForAge', label: 'Weight-for-Age', score: 'weightForAgeZScore', interpretation: 'weightForAgeInterpretation' },

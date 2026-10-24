@@ -1,22 +1,29 @@
-import React from 'react';
+import React, { useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { capitalizeNameValue } from '../../utils/nameFormat';
+import { capitalizeNameValue } from '../../utils/formatting/nameFormat';
+import useModalAccessibility from '../../components/ui/useModalAccessibility';
 
 export function ConfirmActionModal({ show, title, message, confirmLabel = 'OK', onConfirm, onCancel, isSubmitting = false }) {
+  const titleId = useId();
+  const messageId = useId();
+  const dialogRef = useRef(null);
+  const cancelRef = useRef(null);
+  const close = () => { if (!isSubmitting) onCancel?.(); };
+  useModalAccessibility({ open: show, onClose: close, dialogRef, initialFocusRef: cancelRef, closeDisabled: isSubmitting });
   if (!show) return null;
 
   return createPortal((
-    <div className="modal-backdrop" role="presentation" onClick={onCancel}>
-      <div className="modal-content signout-confirm-modal confirmation-modal-content" role="dialog" aria-modal="true" aria-labelledby="confirm-action-title" onClick={(event) => event.stopPropagation()}>
+    <div className="modal-backdrop" role="presentation" onClick={(event) => { if (event.target === event.currentTarget) close(); }}>
+      <div ref={dialogRef} className="modal-content signout-confirm-modal confirmation-modal-content" role="alertdialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={messageId} tabIndex={-1} onClick={(event) => event.stopPropagation()}>
         <div className="modal-header-section confirmation-modal-header">
-          <h3 id="confirm-action-title">{title}</h3>
+          <h3 id={titleId}>{title}</h3>
           <button type="button" className="btn-close-modal" onClick={onCancel} aria-label="Close confirmation" disabled={isSubmitting}>✕</button>
         </div>
         <div className="modal-body confirmation-modal-body">
-          <p>{message}</p>
+          <p id={messageId}>{message}</p>
         </div>
         <div className="modal-footer confirmation-modal-footer">
-          <button type="button" className="btn-secondary confirmation-cancel-btn" onClick={onCancel} disabled={isSubmitting}>Cancel</button>
+          <button ref={cancelRef} type="button" className="btn-secondary confirmation-cancel-btn" onClick={close} disabled={isSubmitting}>Cancel</button>
           <button type="button" className="btn-primary confirmation-confirm-btn" onClick={onConfirm} disabled={isSubmitting}>
             {isSubmitting ? 'Working...' : confirmLabel}
           </button>
@@ -27,12 +34,17 @@ export function ConfirmActionModal({ show, title, message, confirmLabel = 'OK', 
 }
 
 function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitting = false, notification = '' }) {
+  const titleId = useId();
+  const dialogRef = useRef(null);
+  const closeButtonRef = useRef(null);
+  const close = () => { if (!isSubmitting) onClose?.(); };
+  useModalAccessibility({ open: true, onClose: close, dialogRef, initialFocusRef: closeButtonRef, closeDisabled: isSubmitting });
   return createPortal((
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-content community-modal-content" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-backdrop" role="presentation" onClick={(event) => { if (event.target === event.currentTarget) close(); }}>
+      <div ref={dialogRef} className="modal-content community-modal-content" role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header-section community-modal-header-section">
-          <h3>{title}</h3>
-          <button className="btn-close-modal" onClick={onClose} aria-label="Close modal">✕</button>
+          <h3 id={titleId}>{title}</h3>
+          <button ref={closeButtonRef} type="button" className="btn-close-modal" onClick={close} aria-label="Close modal" disabled={isSubmitting}>✕</button>
         </div>
         <form onSubmit={onSubmit}>
           <div className="modal-body">
@@ -40,7 +52,7 @@ function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitt
             {children}
           </div>
           <div className="modal-footer">
-            <button type="button" className="btn-secondary" onClick={onClose} disabled={isSubmitting}>Cancel</button>
+            <button type="button" className="btn-secondary" onClick={close} disabled={isSubmitting}>Cancel</button>
             <button type="submit" className={submitLabel === 'Create' ? 'btn-create-action' : 'btn-primary'} disabled={isSubmitting}>
               {isSubmitting ? `${submitLabel}...` : submitLabel}
             </button>

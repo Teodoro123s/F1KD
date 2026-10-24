@@ -28,6 +28,12 @@ export function buildAiReportCsv({
     ]
     : proposal.metricIds;
   const fields = uniqueFields([...communityFields, ...identityFields, ...requestedFields]);
+  if (
+    proposal.reportCategory === 'monitor'
+    && !rows.some((row) => row.measurementDate || row.growthSeries?.length)
+  ) {
+    throw new Error('No monitoring check-ups were found for this scope. Try a Profile Report or record monitoring visits first.');
+  }
   const csvRows = proposal.reportCategory === 'monitor'
     ? rows.flatMap((row) => (row.growthSeries?.length ? row.growthSeries : [null])
       .map((point) => ({ row, point })))

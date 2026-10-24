@@ -3,11 +3,11 @@ import StepWizard from '../../../components/StepWizard';
 import DateInput from '../../../components/ui/DateInput';
 import AuditSignatures from '../../../components/ui/AuditSignatures';
 import FieldInfoTooltip from '../../../components/ui/FieldInfoTooltip';
-import { formatDateForDisplay, normalizeDateValue } from '../../../utils/dateFormat';
-import { getMotherCheckupDate, getMotherMonitoringStartIndex, getMotherNextCheckupDate } from '../../../utils/motherProgress';
-import { formatCurrencyAmount, normalizeCurrencyAmount, sanitizeCurrencyAmount } from '../../../utils/currencyAmount';
-import { getBloodPressureError, isBloodPressureInput } from '../../../utils/bloodPressure';
-import { useStepNavigation } from '../../../utils/useStepNavigation';
+import { formatDateForDisplay, normalizeDateValue } from '../../../utils/formatting/dateFormat';
+import { getMotherCheckupDate, getMotherMonitoringStartIndex, getMotherNextCheckupDate } from '../../../utils/beneficiary/motherProgress';
+import { formatCurrencyAmount, normalizeCurrencyAmount, sanitizeCurrencyAmount } from '../../../utils/validation/currencyAmount';
+import { getBloodPressureError, isBloodPressureInput } from '../../../utils/validation/bloodPressure';
+import { useStepNavigation } from '../../../utils/navigation/useStepNavigation';
 import { StepNavigationStatus } from '../../../components/ui/StepNavigationButton';
 
 const TRIMESTERS = [

@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import DateInput from '../../components/ui/DateInput';
-import { addMonthsPreservingDay, formatDateForInput } from '../../utils/dateFormat';
-import { calculateWhoGrowthScores } from '../../utils/whoGrowthStandards';
-import { getAgeInDecimalMonths, getAgeInMonths } from '../../utils/childAge.mjs';
+import { addMonthsPreservingDay, formatDateForInput } from '../../utils/formatting/dateFormat';
+import { calculateWhoGrowthScores } from '../../utils/beneficiary/whoGrowthStandards';
+import { getAgeInDecimalMonths, getAgeInMonths } from '../../utils/beneficiary/childAge.mjs';
 import ConfirmModal from '../UserManagement/ConfirmModal';
 import { notifyAction } from '../../components/ActionFeedback';
 import AuditSignatures from '../../components/ui/AuditSignatures';

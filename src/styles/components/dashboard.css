@@ -353,6 +353,23 @@
   text-transform: uppercase;
 }
 
+.dashboard-trend-summary {
+  margin: 0.35rem 0 0;
+  color: #64748b;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.dashboard-trend-scroll {
+  width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+.dashboard-trend-scroll.is-daily {
+  overflow: visible;
+}
+
 .dashboard-trend-chart {
   display: flex;
   min-height: 165px;
@@ -361,6 +378,12 @@
   gap: 0.4rem;
   padding: 0.5rem 0 0;
   border-bottom: 1px solid #e2eaf2;
+}
+
+.dashboard-trend-chart.is-daily {
+  min-width: 0;
+  justify-content: flex-start;
+  gap: 0.12rem;
 }
 
 .dashboard-trend-column {
@@ -374,6 +397,15 @@
   gap: 0.4rem;
   color: #475569;
   font-size: 0.75rem;
+}
+
+.dashboard-trend-column.is-daily {
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
+  height: 150px;
+  gap: 0.3rem;
+  font-size: 0.65rem;
 }
 
 .dashboard-trend-column strong {
@@ -404,6 +436,11 @@
   text-align: center;
 }
 
+.dashboard-trend-column.is-daily small {
+  min-height: 2.2em;
+  white-space: nowrap;
+}
+
 .dashboard-breakdown-list {
   display: flex;
   flex-direction: column;
@@ -422,6 +459,12 @@
 
 .dashboard-breakdown-row strong {
   color: #1e293b;
+}
+
+.dashboard-breakdown-row strong small {
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 600;
 }
 
 .dashboard-breakdown-track {

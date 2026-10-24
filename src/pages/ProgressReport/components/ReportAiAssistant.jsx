@@ -119,6 +119,9 @@ export function ReportAiAssistant({ scopeLabel, hasSchoolSelection, onBuildPrevi
       <p className="progress-report-ai-message">
         AI receives only your request and the available field list; authorized report rows are fetched inside F1KD. Do not include names, IDs, contact details, or health information in your request.
       </p>
+      <p className="progress-report-ai-message">
+        For program reports, select the program, beneficiary type, and benefit period in Report Focus first. The builder uses those filters.
+      </p>
 
       {availability === 'unavailable' ? (
         <p className="progress-report-ai-message" role="status">

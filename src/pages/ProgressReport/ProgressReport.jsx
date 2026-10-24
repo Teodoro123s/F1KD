@@ -7,7 +7,7 @@ import { useAuth } from '../../auth/AuthProvider';
 import { hasRole, isCommunityCoordinatorRole, isHealthWorkerRole, ROLES } from '../../utils/permissions';
 import { notifyAction } from '../../components/ActionFeedback';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
-import { useStepNavigation } from '../../utils/useStepNavigation';
+import { useStepNavigation } from '../../utils/navigation/useStepNavigation';
 import { StepNavigationStatus } from '../../components/ui/StepNavigationButton';
 import { ReportTabBar } from './components/ReportTabBar';
 import { CommunitySelectionStep } from './components/CommunitySelectionStep';
@@ -225,17 +225,32 @@ export default function ProgressReport() {
     if (!safeSelection.schoolId) {
       throw new Error('Select a school before creating a custom CSV.');
     }
+    const isProgramReport = proposal.reportCategory === 'program';
+    const selectedProgram = isProgramReport
+      ? programs.find((program) => normalizeProgramName(program.name) === normalizeProgramName(programName))
+      : undefined;
+    if (isProgramReport && !selectedProgram) {
+      throw new Error('Select a program in Report Focus before creating a program CSV.');
+    }
+    if (isProgramReport && !matchesProgramBeneficiaryType(selectedProgram, beneficiaryType)) {
+      throw new Error('Select a beneficiary type supported by the chosen program in Report Focus.');
+    }
+    if (
+      isProgramReport
+      && benefitPeriod === 'month'
+      && !/^(?:1\d{3}|[2-9]\d{3})-(?:0[1-9]|1[0-2])$/.test(benefitMonth)
+    ) {
+      throw new Error('Select a valid month for the program report.');
+    }
 
     const requestParams = buildProgressReportParams({
       selection: safeSelection,
       reportCategory: proposal.reportCategory,
-      beneficiaryType: proposal.beneficiaryType,
-      selectedProgram: proposal.reportCategory === 'program'
-        ? { beneficiaryType: proposal.beneficiaryType }
-        : undefined,
-      programName: '',
-      benefitPeriod: 'overall',
-      benefitMonth: '',
+      beneficiaryType: isProgramReport ? beneficiaryType : proposal.beneficiaryType,
+      selectedProgram,
+      programName: isProgramReport ? selectedProgram.name : '',
+      benefitPeriod: isProgramReport ? benefitPeriod : 'overall',
+      benefitMonth: isProgramReport && benefitPeriod === 'month' ? benefitMonth : '',
       page: 1,
       perPage: 100,
       exportAll: true,
@@ -252,7 +267,7 @@ export default function ProgressReport() {
 
     const csvReport = buildAiReportCsv({
       rows,
-      proposal,
+      proposal: isProgramReport ? { ...proposal, beneficiaryType } : proposal,
       selection: safeSelection,
       fieldLabels: REPORT_FIELD_LABELS,
       formatValue: formatCellValue,

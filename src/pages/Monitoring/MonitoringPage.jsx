@@ -12,14 +12,14 @@ import { apiGetChild, apiGetChildren, apiSaveChildCheckup } from '../../api/chil
 import { apiGetMother, apiSaveMotherCheckup } from '../../api/mothers';
 import { useAuth } from '../../auth/AuthProvider';
 import { canViewAuditSignatures, isHealthWorkerRole } from '../../utils/permissions';
-import { getChildMonitoringProgress } from '../../utils/childProgress';
-import { getMotherMonitoringProgress } from '../../utils/motherProgress';
-import { hasCheckupThisMonth } from '../../utils/monthlyCheckups';
+import { getChildMonitoringProgress } from '../../utils/beneficiary/childProgress';
+import { getMotherMonitoringProgress } from '../../utils/beneficiary/motherProgress';
+import { hasCheckupThisMonth } from '../../utils/beneficiary/monthlyCheckups';
 import { notifyAction } from '../../components/ActionFeedback';
 import TableSearch from '../../components/ui/TableSearch';
 import ModuleSummaryCards from '../../components/ui/ModuleSummaryCards';
 import useModalAccessibility from '../../components/ui/useModalAccessibility';
-import { navigateBack } from '../../utils/navigation';
+import { navigateBack } from '../../utils/navigation/navigation';
 import MotherNavigationCards from '../Beneficiary/mother/MotherNavigationCards';
 import BeneficiarySuperHeader from '../Beneficiary/mother/BeneficiarySuperHeader';
 import { apiCreateMonitoringReportIntent } from '../../api/progressReport';

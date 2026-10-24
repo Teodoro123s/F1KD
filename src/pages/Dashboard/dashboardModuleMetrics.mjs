@@ -1,4 +1,4 @@
-import { hasCheckupThisMonth } from '../../utils/monthlyCheckups.js';
+import { hasCheckupThisMonth } from '../../utils/beneficiary/monthlyCheckups.js';
 import { normalizeRole, ROLES } from '../../utils/permissions.js';
 
 export function buildOperationalStaffMetrics(users = []) {

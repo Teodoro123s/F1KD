@@ -1,4 +1,4 @@
-import { formatDateForDisplay } from '../../utils/dateFormat';
+import { formatDateForDisplay } from '../../utils/formatting/dateFormat';
 import {
   formatPhilHealthNumberForReport,
   formatPresenceProfileValue,

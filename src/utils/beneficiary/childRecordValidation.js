@@ -1,4 +1,4 @@
-import { getFirstNameValidationError, normalizeFirstName } from './firstNameValidation.js';
+import { getFirstNameValidationError, normalizeFirstName } from '../validation/firstNameValidation.js';
 
 export const CHILD_VACCINE_SEQUENCES = [
   ['bcgDose1', 'bcgDose2', 'bcgDose3'],

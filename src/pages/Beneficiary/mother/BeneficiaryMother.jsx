@@ -1,19 +1,19 @@
 import React from 'react';
-import { formatDateForDisplay, formatDateForInput, maskDateInput, normalizeDateValue } from '../../../utils/dateFormat';
-import { calculateGestationalDetails } from '../../../utils/beneficiaryHelpers';
-import { capitalizeNameValue } from '../../../utils/nameFormat';
-import { CONTACT_NUMBER_POLICY, sanitizeContactNumber } from '../../../utils/contactNumber';
-import { formatPhilHealthNumber, PHILHEALTH_NUMBER_POLICY } from '../../../utils/philHealthNumber';
-import { isBloodPressureInput } from '../../../utils/bloodPressure';
-import { getLatestEligibleMotherDob } from '../../../utils/motherIdentity';
-import { calculateTotalChildren } from '../../../utils/maternalBirthCounts';
-import { calculateNaegeleEdd } from '../../../utils/maternalPregnancy';
-import { MATERNAL_VACCINE_SEQUENCES } from '../../../utils/maternalVaccineDates';
+import { formatDateForDisplay, formatDateForInput, maskDateInput, normalizeDateValue } from '../../../utils/formatting/dateFormat';
+import { calculateGestationalDetails } from '../../../utils/beneficiary/beneficiaryHelpers';
+import { capitalizeNameValue } from '../../../utils/formatting/nameFormat';
+import { CONTACT_NUMBER_POLICY, sanitizeContactNumber } from '../../../utils/validation/contactNumber';
+import { formatPhilHealthNumber, PHILHEALTH_NUMBER_POLICY } from '../../../utils/beneficiary/philHealthNumber';
+import { isBloodPressureInput } from '../../../utils/validation/bloodPressure';
+import { getLatestEligibleMotherDob } from '../../../utils/beneficiary/motherIdentity';
+import { calculateTotalChildren } from '../../../utils/beneficiary/maternalBirthCounts';
+import { calculateNaegeleEdd } from '../../../utils/beneficiary/maternalPregnancy';
+import { MATERNAL_VACCINE_SEQUENCES } from '../../../utils/beneficiary/maternalVaccineDates';
 import FieldInfoTooltip from '../../../components/ui/FieldInfoTooltip';
 import FileUploadField from '../../../components/ui/FileUploadField';
 import { getBatchesForGroup } from '../utils/beneficiaryUtils';
-import { normalizeFirstName } from '../../../utils/firstNameValidation';
-import { splitFirstAndSurname } from '../../../utils/personName.mjs';
+import { normalizeFirstName } from '../../../utils/validation/firstNameValidation';
+import { splitFirstAndSurname } from '../../../utils/formatting/personName.mjs';
 
 export const OTHER_MATERNAL_VACCINES = [
   { label: 'Influenza (flu)', key: 'influenza' },
@@ -76,7 +76,7 @@ export function MotherFormFields({
 
   React.useEffect(() => {
     let active = true;
-    import('../../../utils/philippineLocations')
+    import('../../../utils/beneficiary/philippineLocations')
       .then((locations) => {
         if (active) setLocationOptions(locations);
       })

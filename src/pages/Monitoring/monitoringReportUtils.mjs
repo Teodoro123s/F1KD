@@ -1,4 +1,4 @@
-import { calculateBmi } from '../../utils/beneficiaryHelpers.js';
+import { calculateBmi } from '../../utils/beneficiary/beneficiaryHelpers.js';
 
 export const MONITORING_REPORT_FIELD_LABELS = {
   measurementDate: 'Check-up date',

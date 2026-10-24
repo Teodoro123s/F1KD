@@ -49,6 +49,24 @@ test('custom monitor CSV includes scope columns, beneficiary identity, requested
   assert.match(result.csv, /"2025-03-01","Underweight"/);
 });
 
+test('custom monitor CSV rejects a scope with no recorded monitoring visits', () => {
+  assert.throws(() => buildAiReportCsv({
+    rows: [{
+      child: 'Sample Child',
+      mother: 'Sample Mother',
+      measurementDate: '',
+      growthSeries: [],
+    }],
+    proposal: {
+      reportCategory: 'monitor',
+      beneficiaryType: 'child',
+      metricIds: ['measurementDate', 'weightForAge'],
+    },
+    selection: { schoolId: '1', groupId: '', batchId: '' },
+    fieldLabels: labels,
+  }), /No monitoring check-ups were found for this scope/);
+});
+
 test('custom CSV escapes spreadsheet formulas and quotes', () => {
   const { csv } = buildAiReportCsv({
     rows: [{ mother: ' \t=SUM(1,1)', age: 30, dateOfBirth: '', contactNumber: 'She said "hello"' }],

@@ -1,20 +1,20 @@
 import React, { useCallback, useState } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useMothers } from '../../../context/MothersContext';
-import { formatDateForDisplay } from '../../../utils/dateFormat';
+import { formatDateForDisplay } from '../../../utils/formatting/dateFormat';
 import { apiDeleteChild, apiDeleteChildBirthDocument, apiGetChild, apiUploadChildBirthDocument } from '../../../api/children';
 import { DocumentPreview, DocumentPreviewModal } from '../../../components/DocumentPreview';
 import { useAuth } from '../../../auth/AuthProvider';
 import { can } from '../../../utils/permissions';
-import { capitalizeNameValue } from '../../../utils/nameFormat';
-import { normalizeFirstName } from '../../../utils/firstNameValidation';
-import { splitChildBirthPlace } from '../../../utils/childBirthPlace';
+import { capitalizeNameValue } from '../../../utils/formatting/nameFormat';
+import { normalizeFirstName } from '../../../utils/validation/firstNameValidation';
+import { splitChildBirthPlace } from '../../../utils/beneficiary/childBirthPlace';
 import { ChildFormFields } from './BeneficiaryChild';
 import PageHeader from '../../../components/ui/PageHeader';
 import ConfirmDialog from '../../../components/ui/ConfirmDialog';
 import { notifyAction } from '../../../components/ActionFeedback';
 import MonitorReportCard from '../MonitorReportCard';
-import { navigateBack } from '../../../utils/navigation';
+import { navigateBack } from '../../../utils/navigation/navigation';
 
 const formatValue = (value) => (value === null || value === undefined || value === '' ? '—' : String(value));
 

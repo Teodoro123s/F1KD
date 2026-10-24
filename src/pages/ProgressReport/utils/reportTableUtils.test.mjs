@@ -5,7 +5,7 @@ import {
   formatPhilHealthNumberForReport,
   formatPresenceProfileValue,
 } from './profileFieldFormatting.mjs';
-import { formatFirstAndSurname, splitFirstAndSurname } from '../../../utils/personName.mjs';
+import { formatFirstAndSurname, splitFirstAndSurname } from '../../../utils/formatting/personName.mjs';
 
 test('contact numbers are not classified as presence fields', () => {
   assert.equal(formatPresenceProfileValue('contactNumber', '09171234567'), null);

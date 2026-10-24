@@ -3,15 +3,15 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ChildFormFields } from './BeneficiaryChild';
 import { apiGetChild, apiUpdateChild, apiUploadChildBirthDocument } from '../../../api/children';
 import { getSummary } from '../../Community/communityService';
-import { formatDateForInput } from '../../../utils/dateFormat';
-import { joinChildBirthPlace, splitChildBirthPlace } from '../../../utils/childBirthPlace';
+import { formatDateForInput } from '../../../utils/formatting/dateFormat';
+import { joinChildBirthPlace, splitChildBirthPlace } from '../../../utils/beneficiary/childBirthPlace';
 import { useMothers } from '../../../context/MothersContext';
 import PageHeader from '../../../components/ui/PageHeader';
 import { notifyAction } from '../../../components/ActionFeedback';
-import { navigateBack } from '../../../utils/navigation';
-import { getChildNameErrors } from '../../../utils/childRecordValidation';
-import { normalizeFirstName } from '../../../utils/firstNameValidation';
-import { useStepNavigation } from '../../../utils/useStepNavigation';
+import { navigateBack } from '../../../utils/navigation/navigation';
+import { getChildNameErrors } from '../../../utils/beneficiary/childRecordValidation';
+import { normalizeFirstName } from '../../../utils/validation/firstNameValidation';
+import { useStepNavigation } from '../../../utils/navigation/useStepNavigation';
 import { StepNavigationButton, StepNavigationStatus } from '../../../components/ui/StepNavigationButton';
 
 const normalizeChild = (child) => ({

@@ -1,6 +1,6 @@
-import { normalizeDateValue } from './dateFormat.js';
-import { isValidContactNumber } from './contactNumber.js';
-import { getFirstNameValidationError } from './firstNameValidation.js';
+import { normalizeDateValue } from '../formatting/dateFormat.js';
+import { isValidContactNumber } from '../validation/contactNumber.js';
+import { getFirstNameValidationError } from '../validation/firstNameValidation.js';
 
 const STANDARD_NAME_PATTERN = /^[\p{L}]+(?:[ '-][\p{L}]+)*$/u;
 const MIDDLE_NAME_PATTERN = /^(?:[\p{L}]\.?|[\p{L}]+(?:['-][\p{L}]+)*)$/u;

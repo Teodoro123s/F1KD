@@ -27,6 +27,8 @@ export async function apiGetActivityReport({
   search = '',
   from = '',
   to = '',
+  chartFrom = '',
+  chartTo = '',
 } = {}) {
   const params = new URLSearchParams({
     page: String(page),
@@ -39,6 +41,8 @@ export async function apiGetActivityReport({
   if (groupId) params.set('groupId', String(groupId));
   if (from) params.set('from', from);
   if (to) params.set('to', to);
+  if (chartFrom) params.set('chartFrom', chartFrom);
+  if (chartTo) params.set('chartTo', chartTo);
 
   const response = await fetchWithAuth(`${API_BASE}/api/reports/activity?${params.toString()}`, {
     headers: { 'Content-Type': 'application/json' },
