@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useLocation, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import UserManagementTable from './UserManagementTable';
 import { PlusIcon } from './UserManagementIcons';
 import AddUserModal from './UserManagementModal';
@@ -16,6 +16,7 @@ import ModuleSummaryCards from '../../components/ui/ModuleSummaryCards';
 export default function UserManagementPage() {
   const { schoolId, batchId } = useParams();
   const location = useLocation();
+  const navigate = useNavigate();
   const auth = useAuth();
   const organizerHealthWorkerScope = hasRole(auth?.currentUser?.role, [ROLES.COMMUNITY_COORDINATOR]);
   const organizerSchoolId = auth?.currentUser?.school_id ?? auth?.currentUser?.schoolId ?? '';
@@ -195,6 +196,7 @@ export default function UserManagementPage() {
         <>
       <UserManagementTable
         currentRows={currentRows}
+        onRowClick={(row) => navigate(`/user-management/user/${encodeURIComponent(row.id)}`, { state: { user: row } })}
         filteredDataLength={filteredData.length}
         rangeStart={rangeStart}
         rangeEnd={rangeEnd}
@@ -209,7 +211,6 @@ export default function UserManagementPage() {
         suspendLoadingIds={suspendLoadingIds}
         deletingId={deletingId}
         allowDelete={!organizerHealthWorkerScope}
-        allowProfileNavigation
         showGroup={organizerHealthWorkerScope}
         groups={groups}
         searchValue={query}

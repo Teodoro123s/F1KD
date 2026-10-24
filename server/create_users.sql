@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS users (
   gender ENUM('Male','Female','Other') NOT NULL DEFAULT 'Male',
   dob DATE DEFAULT NULL,
   location VARCHAR(120) DEFAULT NULL,
-  role VARCHAR(120) NOT NULL DEFAULT 'Superadmin',
+  role VARCHAR(120) NOT NULL DEFAULT 'User',
   status ENUM('Active','Suspended') NOT NULL DEFAULT 'Active',
   password_hash VARCHAR(255) DEFAULT NULL,
   school_id INT DEFAULT NULL,
@@ -87,6 +87,30 @@ CREATE TABLE IF NOT EXISTS group_batch (
   PRIMARY KEY (group_id, batch_id),
   CONSTRAINT fk_group_batch_group FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE,
   CONSTRAINT fk_group_batch_batch FOREIGN KEY (batch_id) REFERENCES batches(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS batch_documentation_sets (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  batch_id INT NOT NULL,
+  evidence_date DATE NOT NULL,
+  uploaded_by_user_id INT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_batch_documentations_batch_date (batch_id, evidence_date),
+  CONSTRAINT fk_batch_documentation_sets_batch FOREIGN KEY (batch_id) REFERENCES batches(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS batch_documentations (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  batch_id INT NOT NULL,
+  evidence_date DATE NOT NULL,
+  file_name VARCHAR(255) NOT NULL,
+  file_path VARCHAR(500) NOT NULL,
+  uploaded_by_user_id INT NULL,
+  documentation_set_id BIGINT UNSIGNED NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_batch_documentations_batch_date (batch_id, evidence_date),
+  KEY idx_batch_documentations_set (documentation_set_id),
+  CONSTRAINT fk_batch_documentations_batch FOREIGN KEY (batch_id) REFERENCES batches(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Mothers and maternal clinical records

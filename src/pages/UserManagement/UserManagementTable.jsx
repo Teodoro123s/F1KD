@@ -1,18 +1,17 @@
 import React, { useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
 import { MoreVerticalIcon } from './UserManagementIcons';
 import TableSearch from '../../components/ui/TableSearch';
 import FloatingLayer from '../../components/ui/FloatingLayer';
 
 export default function UserManagementTable({
   currentRows,
+  onRowClick,
   openEditUser,
   handleSuspendUser,
   handleDeleteUser,
   suspendLoadingIds = [],
   deletingId = null,
   allowDelete = true,
-  allowProfileNavigation = true,
   showGroup = false,
   groups = [],
   searchValue = '',
@@ -23,9 +22,6 @@ export default function UserManagementTable({
   const activeDropdownTriggerRef = useRef(null);
   const emptyColSpan = showGroup ? 4 : 3;
   const groupNames = new Map(groups.map((group) => [String(group.id), group.name]));
-  const navigate = useNavigate();
-  const location = useLocation();
-  const returnTo = `${location.pathname}${location.search}`;
 
   const toggleDropdown = (event, row) => {
     event.stopPropagation();
@@ -124,16 +120,18 @@ export default function UserManagementTable({
               currentRows.map((row) => (
                 <tr
                   key={row.id}
-                  onClick={allowProfileNavigation ? () => navigate(`/user-management/user/${row.id}`, { state: { user: row, returnTo } }) : undefined}
-                  onKeyDown={allowProfileNavigation ? (event) => {
-                    if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
+                  className={onRowClick ? 'user-management-clickable-row' : undefined}
+                  onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  onKeyDown={onRowClick ? (event) => {
+                    if (event.target !== event.currentTarget) return;
+                    if (event.key === 'Enter' || event.key === ' ') {
                       event.preventDefault();
-                      navigate(`/user-management/user/${row.id}`, { state: { user: row, returnTo } });
+                      onRowClick(row);
                     }
                   } : undefined}
-                  tabIndex={allowProfileNavigation ? 0 : undefined}
-                  aria-label={allowProfileNavigation ? `View profile for ${row.name}` : undefined}
-                  style={{ cursor: allowProfileNavigation ? 'pointer' : 'default' }}
+                  tabIndex={onRowClick ? 0 : undefined}
+                  role={onRowClick ? 'link' : undefined}
+                  aria-label={onRowClick ? `View details for ${row.name}` : undefined}
                 >
                   <td title={row.name}>{row.name}</td>
                   <td title={row.role}>{row.role}</td>

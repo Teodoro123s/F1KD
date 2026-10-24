@@ -163,7 +163,16 @@ const createInitialFormState = (mother, checkup = null, blank = false, previousC
   };
 };
 
-export default function MotherCheckup({ mother, onSave = () => {}, onCancel = () => {}, forceEdit = false, showAuditSignatures = false }) {
+export default function MotherCheckup({
+  mother,
+  onSave = () => {},
+  onCancel = () => {},
+  onRequestEdit,
+  editing = false,
+  readOnly = false,
+  forceEdit = false,
+  showAuditSignatures = false,
+}) {
   if (!mother) return null;
 
   const monitoringStart = getMonitoringStartDetails(mother);
@@ -271,7 +280,7 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
   const isMaternalPhaseComplete = firstIncompleteStep === -1;
   const isFuture = firstIncompleteStep !== -1 && activeStep > firstIncompleteStep;
   const isSkipped = activeStep < monitoringStartStep && !isCompleted;
-  const isReadOnly = !forceEdit && (isCompleted || isFuture || isSkipped);
+  const isReadOnly = readOnly || (!forceEdit && (isCompleted || isFuture || isSkipped));
 
   const handleStepClick = (trimester, step) => {
     const nextStep = (trimester - 1) * 3 + (step - 1);
@@ -360,10 +369,17 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
       <StepNavigationStatus direction={navigationDirection} error={navigationError} />
 
       <form className="mother-checkup-form" onSubmit={handleSubmit}>
-        <fieldset disabled={isReadOnly || isNavigating}>
         <div className={`checkup-card${isCompleted ? ' checkup-card-completed' : ''}${isFuture || isSkipped ? ' checkup-card-locked' : ''}`}>
           <div className="checkup-card-body">
-            <div className="checkup-section-title">Pregnancy Record</div>
+            <div className="checkup-section-heading">
+              <div className="checkup-section-title">Pregnancy Record</div>
+              {onRequestEdit && (
+                <button type="button" className="btn-primary" onClick={onRequestEdit}>
+                  {editing ? 'Cancel edit' : 'Edit checkup'}
+                </button>
+              )}
+            </div>
+            <fieldset disabled={isReadOnly || isNavigating}>
             {isMaternalPhaseComplete ? <p className="checkup-state-message">Maternal monitoring phase complete · all 9 check-ups recorded</p> : isCompleted && <p className="checkup-state-message">Completed check-up · view only</p>}
             {showAuditSignatures && <AuditSignatures {...activeCheckup} />}
             {isFuture && <p className="checkup-state-message">This check-up will be available after the previous visit is completed.</p>}
@@ -631,10 +647,9 @@ export default function MotherCheckup({ mother, onSave = () => {}, onCancel = ()
                 />
               </div>
             </div>
-
+            </fieldset>
           </div>
         </div>
-        </fieldset>
 
         <div className="form-actions" style={{ justifyContent: 'flex-start', marginTop: '24px' }}>
           <button type="submit" className="btn-primary" disabled={isReadOnly || isNavigating}>

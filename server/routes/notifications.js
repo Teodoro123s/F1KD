@@ -183,7 +183,7 @@ router.get('/', authorize('super_admin', 'admin', 'community_coordinator', 'part
        LEFT JOIN users actor ON actor.id = n.actor_user_id
        LEFT JOIN notification_reads nr ON nr.notification_id = n.id AND nr.user_id = ?
        ${where}${statusFilter}
-       ORDER BY n.created_at DESC, n.id DESC
+       ORDER BY (nr.notification_id IS NULL) DESC, n.created_at DESC, n.id DESC
        LIMIT ? OFFSET ?`,
       [req.user.id, ...params, perPage, offset],
     );

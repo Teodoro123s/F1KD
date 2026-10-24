@@ -11,14 +11,11 @@ export function CommunitySelectionStep({
   options,
   loadingOptions = false,
   updateSelection,
-  focusOptions,
-  reportFocus,
-  setReportFocus,
   aiScopeLabel,
   hasSchoolSelection,
   buildAiReportPreview,
   exportAiReportCsv,
-  reportFocusStep,
+  reportCategoryStep,
 }) {
   return (
     <div className="community-selection-step">
@@ -71,26 +68,8 @@ export function CommunitySelectionStep({
               ? 'Your school is assigned to your account. Group and Batch are optional filters.'
               : 'Select a School to begin. Group and Batch are optional filters.'}
         </p>
-        {selection.schoolId && focusOptions.length > 1 && (
-          <fieldset className="progress-report-beneficiary-type">
-            <legend>Report mode</legend>
-            {focusOptions.map(([value, label]) => (
-              <label key={value} className={reportFocus === value ? 'selected' : ''}>
-                <input
-                  type="radio"
-                  name="progress-report-mode"
-                  value={value}
-                  checked={reportFocus === value}
-                  onChange={() => setReportFocus(value)}
-                />
-                {label}
-              </label>
-            ))}
-            <p className="progress-report-note">Summary modes combine beneficiary data by group or batch. Profile reports always list individual beneficiaries.</p>
-          </fieldset>
-        )}
       </div>
-      {selection.schoolId && reportFocusStep}
+      {selection.schoolId && reportCategoryStep}
       <ReportAiAssistant
         scopeLabel={aiScopeLabel}
         hasSchoolSelection={hasSchoolSelection}

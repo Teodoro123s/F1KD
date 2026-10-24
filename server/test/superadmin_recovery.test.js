@@ -1,30 +1,44 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { ensureSuperadminAccount } = require('../services/superadminRecovery');
+const mysql = require('mysql2/promise');
 
-test('recreates the default superadmin when its row is missing', async () => {
-  const queries = [];
+test('database startup creates schema without seeding accounts or RBAC rows', async () => {
+  const statements = [];
   const pool = {
-    async query(sql, params) {
-      queries.push({ sql, params });
-      if (sql.startsWith('SELECT id, role')) return [[]];
-      return [{}];
+    async query(sql) {
+      statements.push(sql);
+      return [[]];
+    },
+    async getConnection() {
+      return {
+        async query(sql) {
+          statements.push(sql);
+          return [[]];
+        },
+        release() {},
+      };
     },
   };
-
-  await ensureSuperadminAccount(pool, {
-    email: 'recovery@example.test',
-    password: 'Recovery123!',
+  mysql.createPool = () => pool;
+  mysql.createConnection = async () => ({
+    async query(sql) {
+      statements.push(sql);
+      return [[]];
+    },
+    async end() {},
   });
 
-  assert.equal(queries.length, 2);
-  assert.match(queries[1].sql, /INSERT INTO users/);
-  assert.deepEqual(queries[1].params.slice(0, 5), [
-    'Super',
-    'Admin',
-    'recovery@example.test',
-    'Superadmin',
-    'Active',
-  ]);
-  assert.ok(queries[1].params[5].startsWith('$2'), 'password should be bcrypt-hashed');
+  const db = require('../db');
+  await db.ready;
+
+  const inserts = statements.filter((sql) => /^\s*INSERT\b/i.test(sql));
+  assert.equal(
+    inserts.some((sql) => /^\s*INSERT\b(?:\s+IGNORE)?\s+INTO\s+users\b/i.test(sql)),
+    false,
+  );
+  assert.equal(
+    inserts.some((sql) => /^\s*INSERT\b(?:\s+IGNORE)?\s+INTO\s+(?:roles|permissions|role_permissions)\b/i.test(sql)),
+    false,
+  );
+  assert.ok(statements.some((sql) => /ALTER TABLE users ALTER COLUMN role SET DEFAULT 'User'/i.test(sql)));
 });

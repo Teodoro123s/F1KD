@@ -62,12 +62,17 @@ export function AuthProvider({ children }) {
     setCurrentUser(null);
   };
 
+  const updateCurrentUser = (updates) => {
+    setCurrentUser((current) => (current ? { ...current, ...updates } : current));
+  };
+
   const value = {
     token,
     currentUser,
     loading,
     login,
     logout,
+    updateCurrentUser,
     isAuthenticated: Boolean(currentUser),
   };
 

@@ -4,14 +4,29 @@ import { useAuth } from '../../auth/AuthProvider';
 import PageHeader from '../../components/ui/PageHeader';
 import DateInput from '../../components/ui/DateInput';
 import AuditSignatures from '../../components/ui/AuditSignatures';
+import ConfirmDialog from '../../components/ui/ConfirmDialog';
+import UnifiedModal from '../../components/ui/UnifiedModal';
 import { notifyAction } from '../../components/ActionFeedback';
-import { apiGetBeneficiaryMonitoringReport, apiGetClusterMonitoringReport, apiGetPrograms, apiSetBeneficiaryMonitoring } from '../../api/programs';
+import {
+  apiDeleteProgramReceiptEvidenceImage,
+  apiGetBeneficiaryMonitoringReport,
+  apiGetClusterMonitoringReport,
+  apiGetPrograms,
+  apiSetBeneficiaryMonitoring,
+  apiUploadProgramReceiptEvidence,
+} from '../../api/programs';
 import { apiGetChildren } from '../../api/children';
 import { apiGetMothers } from '../../api/mothers';
 import { formatDateForDisplay } from '../../utils/dateFormat';
-import { canViewAuditSignatures } from '../../utils/permissions';
+import { canViewAuditSignatures, isCommunityCoordinatorRole } from '../../utils/permissions';
 import { navigateBack } from '../../utils/navigation';
 import { getReceiptRecipientKey, getReceiptRecipientKeysForRows } from './programData';
+import { EvidenceImage, SelectedImagePreview } from '../Community/components/BatchDocumentationPanel';
+
+const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+const MAX_TOTAL_IMAGE_SIZE_BYTES = 25 * 1024 * 1024;
+const MAX_IMAGE_COUNT = 10;
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 const localDate = () => {
   const date = new Date();
@@ -24,6 +39,9 @@ const getRecipientKey = getReceiptRecipientKey;
 const isValidRecipient = (recipient) => String(recipient?.id || '').trim() !== ''
   && ['mother', 'child'].includes(String(recipient?.type || '').toLowerCase());
 const monthLabel = (date) => date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+const formatImageSize = (size) => size < 1024 * 1024
+  ? `${Math.max(1, Math.round(size / 1024))} KB`
+  : `${(size / (1024 * 1024)).toFixed(1)} MB`;
 const startOfMonth = (date) => new Date(date.getFullYear(), date.getMonth(), 1);
 const calendarDays = (date) => {
   const first = startOfMonth(date);
@@ -42,6 +60,7 @@ export default function ReceiptHistoryPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const isClusterHistory = Boolean(clusterType && clusterName);
+  const canManageEvidence = isCommunityCoordinatorRole(currentUser?.role);
   const showAuditSignatures = canViewAuditSignatures(currentUser?.role);
   const showGroupColumn = isClusterHistory && clusterType !== 'batch';
   const beneficiaryName = location.state?.beneficiaryName || location.state?.clusterName || clusterName || 'Beneficiary';
@@ -60,6 +79,9 @@ export default function ReceiptHistoryPage() {
   const [selectedDate, setSelectedDate] = useState(null);
   const [receiptModal, setReceiptModal] = useState(null);
   const [savingReceipt, setSavingReceipt] = useState(false);
+  const [evidenceImages, setEvidenceImages] = useState([]);
+  const [pendingEvidenceDelete, setPendingEvidenceDelete] = useState(null);
+  const [previewImage, setPreviewImage] = useState(null);
 
   const loadHistory = async () => {
     setLoading(true);
@@ -173,6 +195,7 @@ export default function ReceiptHistoryPage() {
   const days = calendarDays(calendarMonth);
 
   const openReceiptModal = (date = monitorDate, defaultMonitored = false, targetRows = null) => {
+    setError('');
     const dateRows = filteredRows.filter((row) => toDateKey(row.date) === date);
     const existingReceipt = dateRows[0];
     const receivedRows = dateRows.filter((row) => row.monitored);
@@ -186,11 +209,43 @@ export default function ReceiptHistoryPage() {
         ? Boolean(targetRows[0]?.monitored)
         : (defaultMonitored || (existingReceipt ? Boolean(existingReceipt.monitored) : false)),
     });
+    setEvidenceImages([]);
+  };
+
+  const handleEvidenceSelection = (event) => {
+    const selectedFiles = Array.from(event.target.files || []);
+    event.target.value = '';
+    if (!selectedFiles.length) return;
+    const oversizedImage = selectedFiles.find((image) => image.size > MAX_IMAGE_SIZE_BYTES);
+    if (oversizedImage) {
+      setError(`${oversizedImage.name} exceeds the 5 MB per-photo limit.`);
+      return;
+    }
+    const unsupportedImage = selectedFiles.find((image) => !ALLOWED_IMAGE_TYPES.includes(image.type));
+    if (unsupportedImage) {
+      setError(`${unsupportedImage.name} is not a supported image. Choose JPG, PNG, or WEBP.`);
+      return;
+    }
+    if (evidenceImages.length + selectedFiles.length > MAX_IMAGE_COUNT) {
+      setError('Choose no more than 10 photos for one check-in.');
+      return;
+    }
+    const totalSize = [...evidenceImages, ...selectedFiles].reduce((total, image) => total + image.size, 0);
+    if (totalSize > MAX_TOTAL_IMAGE_SIZE_BYTES) {
+      setError('The combined photo size must not exceed 25 MB.');
+      return;
+    }
+    setError('');
+    setEvidenceImages((current) => [...current, ...selectedFiles]);
   };
 
   const saveReceipt = async (event) => {
     event.preventDefault();
     if (!receiptModal?.date) return;
+    if (evidenceImages.length > 0 && evidenceImages.length < 3) {
+      setError('Select at least 3 photos or remove the selected photos to save without documentation.');
+      return;
+    }
     setSavingReceipt(true);
     setError('');
     try {
@@ -205,10 +260,18 @@ export default function ReceiptHistoryPage() {
         date: receiptModal.date,
         monitored: receiptModal.monitored,
       })));
+      if (evidenceImages.length) {
+        try {
+          await apiUploadProgramReceiptEvidence(programId, receiptModal.date, targets, evidenceImages);
+        } catch (evidenceError) {
+          throw new Error(`Receipt status was saved, but photo documentation could not be saved: ${evidenceError.message}`);
+        }
+      }
 
       setMonitorDate(receiptModal.date);
       setSelectedDate(receiptModal.monitored ? receiptModal.date : null);
       setReceiptModal(null);
+      setEvidenceImages([]);
       const targetNames = targets.map((target) => isClusterHistory
         ? clusterRecipients.find((recipient) => getRecipientKey(recipient) === getRecipientKey(target))?.name
         : beneficiaryName).filter(Boolean);
@@ -220,6 +283,31 @@ export default function ReceiptHistoryPage() {
       const message = saveError.message || 'Unable to save receipt status.';
       setError(message);
       notifyAction(message, 'error');
+    } finally {
+      setSavingReceipt(false);
+    }
+  };
+
+  const removeEvidenceImage = async () => {
+    if (!pendingEvidenceDelete || savingReceipt) return;
+    setSavingReceipt(true);
+    setError('');
+    try {
+      await apiDeleteProgramReceiptEvidenceImage(
+        programId,
+        pendingEvidenceDelete.image.set_id,
+        pendingEvidenceDelete.image.id,
+      );
+      setReportRows((current) => current.map((row) => ({
+        ...row,
+        evidence_images: (row.evidence_images || []).filter(
+          (image) => String(image.id) !== String(pendingEvidenceDelete.image.id),
+        ),
+      })));
+      setPendingEvidenceDelete(null);
+    } catch (deleteError) {
+      console.error('[ReceiptHistoryPage] Unable to remove program check-in photo:', deleteError);
+      setError(deleteError.message || 'Unable to remove program check-in photo.');
     } finally {
       setSavingReceipt(false);
     }
@@ -242,22 +330,176 @@ export default function ReceiptHistoryPage() {
         {!loading && <div className="program-receipt-controls">
           <div className="program-receipt-controls-actions"><button type="button" className="view-btn view-btn--primary" onClick={() => openReceiptModal()} disabled={isClusterHistory && recipientsLoading}>Record receipt</button><div className="program-view-toggle" role="tablist" aria-label="Receipt history view"><button type="button" className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>List View</button><button type="button" className={view === 'calendar' ? 'active' : ''} onClick={() => setView('calendar')}>Calendar View</button></div></div>
         </div>}
+        {error && <p className="error-message" role="alert">{error}</p>}
         {loading ? <p>Loading receipt history...</p> : view === 'list' ? <div className="program-receipt-table-scroll"><table className={`data-table ${isClusterHistory ? 'program-receipt-cluster-table' : 'program-receipt-beneficiary-table'}`}>
-          <thead><tr><th>Date</th>{isClusterHistory ? <><th>Beneficiary</th>{showGroupColumn && <th>Group</th>}<th>Batch</th></> : null}{showAuditSignatures && <th>Signatures</th>}<th>Action</th></tr></thead>
-          <tbody>{filteredRows.length ? filteredRows.map((row) => <tr key={`${row.date}-${row.program_name}-${row.beneficiary_name || row.beneficiary_id || 'entry'}`}><td>{formatDateForDisplay(toDateKey(row.date))}</td>{isClusterHistory ? <><td>{row.beneficiary_name || row.beneficiary_id || 'Unknown beneficiary'}</td>{showGroupColumn && <td>{row.group_name || 'Unknown group'}</td>}<td>{row.batch_name || 'Unknown batch'}</td></> : null}{showAuditSignatures && <td><AuditSignatures
+          <thead><tr><th>Date</th>{isClusterHistory ? <><th>Beneficiary</th>{showGroupColumn && <th>Group</th>}<th>Batch</th></> : null}<th>Documentation</th>{showAuditSignatures && <th>Signatures</th>}<th>Action</th></tr></thead>
+          <tbody>{filteredRows.length ? filteredRows.map((row) => <tr key={`${row.date}-${row.program_name}-${row.beneficiary_name || row.beneficiary_id || 'entry'}`}><td>{formatDateForDisplay(toDateKey(row.date))}</td>{isClusterHistory ? <><td>{row.beneficiary_name || row.beneficiary_id || 'Unknown beneficiary'}</td>{showGroupColumn && <td>{row.group_name || 'Unknown group'}</td>}<td>{row.batch_name || 'Unknown batch'}</td></> : null}<td><div className="program-receipt-evidence">
+            {(row.evidence_images || []).length ? row.evidence_images.map((image) => (
+              <EvidenceImage
+                key={image.id}
+                filePath={image.file_path}
+                fileName={image.file_name}
+                canManage={canManageEvidence}
+                onPreview={setPreviewImage}
+                onRemove={() => setPendingEvidenceDelete({ row, image })}
+              />
+            )) : <span className="program-receipt-no-evidence">No photos</span>}
+          </div></td>{showAuditSignatures && <td><AuditSignatures
             createdByName={row.created_by_name || row.monitored_by_name}
             createdByRole={row.created_by_role || row.monitored_by_role}
             createdAt={row.recorded_at}
             updatedByName={row.updated_by_name || row.monitored_by_name}
             updatedByRole={row.updated_by_role || row.monitored_by_role}
             updatedAt={row.updated_at}
-          /></td>}<td><button type="button" className="view-btn view-btn--secondary" onClick={() => openReceiptModal(toDateKey(row.date), Boolean(row.monitored), [row])}>Edit</button></td></tr>) : <tr><td colSpan={(isClusterHistory ? (showGroupColumn ? 4 : 3) : 1) + (showAuditSignatures ? 1 : 0) + 1} className="no-data">No receipt history found.</td></tr>}</tbody>
+          /></td>}<td><button type="button" className="view-btn view-btn--secondary" onClick={() => openReceiptModal(toDateKey(row.date), Boolean(row.monitored), [row])}>Edit</button></td></tr>) : <tr><td colSpan={(isClusterHistory ? (showGroupColumn ? 4 : 3) : 1) + 1 + (showAuditSignatures ? 1 : 0) + 1} className="no-data">No receipt history found.</td></tr>}</tbody>
         </table></div> : <div className="program-calendar-wrap">
           <div className="program-calendar-header"><button type="button" className="view-btn view-btn--secondary" onClick={() => setCalendarMonth((date) => new Date(date.getFullYear(), date.getMonth() - 1, 1))}>Previous</button><h3>{monthLabel(calendarMonth)}</h3><button type="button" className="view-btn view-btn--secondary" onClick={() => setCalendarMonth((date) => new Date(date.getFullYear(), date.getMonth() + 1, 1))}>Next</button></div>
           <div className="program-calendar-weekdays">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => <span key={day}>{day}</span>)}</div>
           <div className="program-calendar-grid">{days.map((day) => { const key = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`; const receipt = receivedByDate.get(key) || []; return <button type="button" key={key} className={`program-calendar-day${day.getMonth() !== calendarMonth.getMonth() ? ' muted' : ''}${receipt.length ? ' received' : ''}${selectedDate === key ? ' selected' : ''}`} onClick={() => openReceiptModal(key, true)}><span>{day.getDate()}</span>{receipt.length > 0 && <strong>{receipt.length > 1 ? `${receipt.length} Yes` : 'Yes'}</strong>}</button>; })}</div>
         </div>}
-        {receiptModal && <div className="modal-backdrop" role="presentation" onClick={() => !savingReceipt && setReceiptModal(null)}><div className="program-receipt-modal" role="dialog" aria-modal="true" aria-labelledby="receipt-modal-title" onClick={(event) => event.stopPropagation()}><div className="program-receipt-modal-header"><h3 id="receipt-modal-title">Record program receipt</h3><button type="button" className="document-preview-close" onClick={() => setReceiptModal(null)} disabled={savingReceipt}>Close</button></div><form onSubmit={saveReceipt}><label htmlFor="receipt-date">Date<DateInput id="receipt-date" className="form-input" value={receiptModal.date} onChange={(value) => setReceiptModal((current) => ({ ...current, date: value }))} required disabled={savingReceipt} ariaLabel="Receipt date" /></label>{isClusterHistory && <fieldset className="receipt-beneficiary-selection" disabled={savingReceipt || recipientsLoading}><legend>Beneficiaries ({selectedRecipientKeys.length}/{clusterRecipients.length})</legend><label className="receipt-beneficiary-select-all"><input type="checkbox" checked={clusterRecipients.length > 0 && selectedRecipientKeys.length === clusterRecipients.length} onChange={(event) => setSelectedRecipientKeys(event.target.checked ? clusterRecipients.map(getRecipientKey) : [])} /><span>Select all in this {clusterType}</span></label><div className="receipt-beneficiary-list">{clusterRecipients.length ? clusterRecipients.map((recipient) => { const key = getRecipientKey(recipient); return <label key={key} className="receipt-beneficiary-option"><input type="checkbox" checked={selectedRecipientKeys.includes(key)} onChange={(event) => setSelectedRecipientKeys((current) => event.target.checked ? [...current, key] : current.filter((value) => value !== key))} /><span>{recipient.name || `${recipient.type} ${recipient.id}`}</span></label>; }) : <p className="receipt-beneficiary-empty">No beneficiaries found in this {clusterType}.</p>}</div></fieldset>}<label>Received this program item?<select value={receiptModal.monitored ? 'yes' : 'no'} onChange={(event) => setReceiptModal((current) => ({ ...current, monitored: event.target.value === 'yes' }))}><option value="yes">Yes</option><option value="no">No</option></select></label><div className="program-receipt-modal-actions"><button type="button" className="view-btn view-btn--secondary" onClick={() => setReceiptModal(null)} disabled={savingReceipt}>Cancel</button><button type="submit" className="view-btn view-btn--primary" disabled={savingReceipt || (isClusterHistory && recipientsLoading)}>{savingReceipt ? 'Saving...' : 'Save status'}</button></div></form></div></div>}
+        {receiptModal && (
+          <div className="modal-backdrop" role="presentation" onClick={() => !savingReceipt && setReceiptModal(null)}>
+            <div
+              className="program-receipt-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="receipt-modal-title"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="program-receipt-modal-header">
+                <h3 id="receipt-modal-title">Record program receipt</h3>
+                <button type="button" className="document-preview-close" onClick={() => setReceiptModal(null)} disabled={savingReceipt}>Close</button>
+              </div>
+              <form onSubmit={saveReceipt}>
+                <label htmlFor="receipt-date">
+                  Date
+                  <DateInput
+                    id="receipt-date"
+                    className="form-input"
+                    value={receiptModal.date}
+                    onChange={(value) => setReceiptModal((current) => ({ ...current, date: value }))}
+                    required
+                    disabled={savingReceipt}
+                    ariaLabel="Receipt date"
+                  />
+                </label>
+                {isClusterHistory && (
+                  <fieldset className="receipt-beneficiary-selection" disabled={savingReceipt || recipientsLoading}>
+                    <legend>Beneficiaries ({selectedRecipientKeys.length}/{clusterRecipients.length})</legend>
+                    <label className="receipt-beneficiary-select-all">
+                      <input
+                        type="checkbox"
+                        checked={clusterRecipients.length > 0 && selectedRecipientKeys.length === clusterRecipients.length}
+                        onChange={(event) => setSelectedRecipientKeys(event.target.checked ? clusterRecipients.map(getRecipientKey) : [])}
+                      />
+                      <span>Select all in this {clusterType}</span>
+                    </label>
+                    <div className="receipt-beneficiary-list">
+                      {clusterRecipients.length ? clusterRecipients.map((recipient) => {
+                        const key = getRecipientKey(recipient);
+                        return (
+                          <label key={key} className="receipt-beneficiary-option">
+                            <input
+                              type="checkbox"
+                              checked={selectedRecipientKeys.includes(key)}
+                              onChange={(event) => setSelectedRecipientKeys((current) => (
+                                event.target.checked ? [...current, key] : current.filter((value) => value !== key)
+                              ))}
+                            />
+                            <span>{recipient.name || `${recipient.type} ${recipient.id}`}</span>
+                          </label>
+                        );
+                      }) : <p className="receipt-beneficiary-empty">No beneficiaries found in this {clusterType}.</p>}
+                    </div>
+                  </fieldset>
+                )}
+                <label>
+                  Received this program item?
+                  <select
+                    value={receiptModal.monitored ? 'yes' : 'no'}
+                    onChange={(event) => setReceiptModal((current) => ({ ...current, monitored: event.target.value === 'yes' }))}
+                  >
+                    <option value="yes">Yes</option>
+                    <option value="no">No</option>
+                  </select>
+                </label>
+                {canManageEvidence ? (
+                  <section className="program-receipt-evidence-upload" aria-label="Program check-in photo documentation">
+                    <label>
+                      Optional photos for this check-in
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        multiple
+                        onChange={handleEvidenceSelection}
+                        disabled={savingReceipt}
+                      />
+                    </label>
+                    <p>
+                      {evidenceImages.length
+                        ? `${evidenceImages.length} selected · ${formatImageSize(evidenceImages.reduce((total, image) => total + image.size, 0))} of 25 MB · shared across ${isClusterHistory ? selectedRecipientKeys.length : 1} check-in${(isClusterHistory ? selectedRecipientKeys.length : 1) === 1 ? '' : 's'}`
+                        : 'Optional · select 3–10 JPG, PNG, or WEBP photos (5 MB each, 25 MB total). One set is shared across selected beneficiaries.'}
+                    </p>
+                    {evidenceImages.length > 0 && (
+                      <ul className="batch-documentation-selected-files" aria-label="Selected check-in photos">
+                        {evidenceImages.map((image, index) => (
+                          <li key={`${image.name}-${image.size}-${image.lastModified}-${index}`}>
+                            <SelectedImagePreview image={image} onPreview={setPreviewImage} />
+                            <span className="batch-documentation-selected-file-info">
+                              <span className="batch-documentation-selected-file-name" title={image.name}>{image.name}</span>
+                              <small>{formatImageSize(image.size)}</small>
+                            </span>
+                            <button
+                              type="button"
+                              className="batch-documentation-remove-file"
+                              onClick={() => setEvidenceImages((current) => current.filter((_, itemIndex) => itemIndex !== index))}
+                              disabled={savingReceipt}
+                              aria-label={`Remove ${image.name}`}
+                            >
+                              Remove
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </section>
+                ) : (
+                  <p className="program-receipt-evidence-readonly">Photo evidence can be viewed and downloaded. Community Organizers manage photo uploads and removals.</p>
+                )}
+                {error && <p className="error-message" role="alert">{error}</p>}
+                <div className="program-receipt-modal-actions">
+                  <button type="button" className="view-btn view-btn--secondary" onClick={() => setReceiptModal(null)} disabled={savingReceipt}>Cancel</button>
+                  <button type="submit" className="view-btn view-btn--primary" disabled={savingReceipt || (isClusterHistory && recipientsLoading)}>
+                    {savingReceipt ? 'Saving...' : 'Save status'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+        <ConfirmDialog
+          open={Boolean(pendingEvidenceDelete)}
+          title="Remove this check-in photo?"
+          description={`Permanently remove ${pendingEvidenceDelete?.image?.file_name || 'this photo'} from the program check-in documentation?`}
+          confirmLabel="Remove photo"
+          loadingLabel="Removing..."
+          loading={savingReceipt}
+          onConfirm={removeEvidenceImage}
+          onCancel={() => setPendingEvidenceDelete(null)}
+        />
+        <UnifiedModal
+          isOpen={Boolean(previewImage)}
+          title={previewImage?.name || 'Image preview'}
+          size="xl"
+          className="batch-documentation-image-viewer"
+          backdropClassName="batch-documentation-image-viewer-backdrop"
+          onClose={() => setPreviewImage(null)}
+          footer={null}
+        >
+          {previewImage && (
+            <img className="batch-documentation-image-viewer-image" src={previewImage.src} alt={previewImage.name} />
+          )}
+        </UnifiedModal>
       </section>
     </div>
   );

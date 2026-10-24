@@ -13,6 +13,7 @@ import FieldInfoTooltip from '../../../components/ui/FieldInfoTooltip';
 import FileUploadField from '../../../components/ui/FileUploadField';
 import { getBatchesForGroup } from '../utils/beneficiaryUtils';
 import { normalizeFirstName } from '../../../utils/firstNameValidation';
+import { splitFirstAndSurname } from '../../../utils/personName.mjs';
 
 export const OTHER_MATERNAL_VACCINES = [
   { label: 'Influenza (flu)', key: 'influenza' },
@@ -141,6 +142,8 @@ export function MotherFormFields({
       return next;
     });
   };
+  const emergencyNameParts = splitFirstAndSurname(form.emergencyName);
+  const spouseNameParts = splitFirstAndSurname(form.spouseName);
 
   React.useEffect(() => {
     if (readOnly || typeof setForm !== 'function') return;
@@ -295,7 +298,7 @@ export function MotherFormFields({
                   : e.target.value;
               const nextValue = name === 'firstName'
                 ? rawValue
-                : /^(middleName|lastName|maidenSurname|suffix|emergencyName|spouseFirstName|spouseSurname)$/.test(name)
+                : /^(middleName|lastName|maidenSurname|suffix|emergencyFirstName|emergencySurname|spouseFirstName|spouseSurname)$/.test(name)
                 ? capitalizeNameValue(rawValue)
                 : rawValue;
               if (onChange) {
@@ -716,16 +719,25 @@ export function MotherFormFields({
         {readOnly && documentContent}
 
         <section className="create-mother-category">
-          <h4 className="form-section-title">I.D EMERGENCY CONTACT</h4>
-          <div className="form-row-3 full-width">
-          {renderField({ id: 'emergency-name', label: 'Name', name: 'emergencyName', placeholder: 'Enter contact name', required: true })}
-          {renderField({ id: 'emergency-contact', label: 'Contact Number', name: 'emergencyContact', type: 'tel', placeholder: 'Enter contact number', required: true })}
-          {renderField({ id: 'emergency-relationship', label: 'Relationship', name: 'emergencyRelationship', placeholder: 'e.g. husband', required: true })}
+          <h4 className="form-section-title">I.D SPOUSE DETAILS</h4>
+          <div className="form-row-2 full-width">
+            {renderField({ id: 'spouse-first-name', label: 'First Name', name: 'spouseFirstName', valueOverride: form.spouseFirstName ?? spouseNameParts.firstName, placeholder: 'Enter spouse first name' })}
+            {renderField({ id: 'spouse-surname', label: 'Surname', name: 'spouseSurname', valueOverride: form.spouseSurname ?? spouseNameParts.surname, placeholder: 'Enter spouse surname' })}
           </div>
         </section>
 
         <section className="create-mother-category">
-          <h4 className="form-section-title">I.E OTHER DETAILS</h4>
+          <h4 className="form-section-title">I.E EMERGENCY CONTACT</h4>
+          <div className="form-row-2 full-width">
+            {renderField({ id: 'emergency-first-name', label: 'First Name', name: 'emergencyFirstName', valueOverride: form.emergencyFirstName ?? emergencyNameParts.firstName, placeholder: 'Enter contact first name', required: true })}
+            {renderField({ id: 'emergency-surname', label: 'Surname', name: 'emergencySurname', valueOverride: form.emergencySurname ?? emergencyNameParts.surname, placeholder: 'Enter contact surname', required: true })}
+            {renderField({ id: 'emergency-contact', label: 'Contact Number', name: 'emergencyContact', type: 'tel', placeholder: 'Enter contact number', required: true })}
+            {renderField({ id: 'emergency-relationship', label: 'Relationship', name: 'emergencyRelationship', placeholder: 'e.g. husband', required: true })}
+          </div>
+        </section>
+
+        <section className="create-mother-category">
+          <h4 className="form-section-title">I.F OTHER DETAILS</h4>
           <label className="form-toggle-label" htmlFor="philhealth-member">
             <input
               id="philhealth-member"

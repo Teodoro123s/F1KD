@@ -118,8 +118,7 @@
   font-weight: 600;
 }
 
-.view-content .community-breadcrumb,
-.view-content .view-breadcrumb {
+.view-content .community-breadcrumb {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -129,15 +128,13 @@
   color: var(--view-text-muted);
 }
 
-.view-content .breadcrumb-item,
-.view-content .view-breadcrumb__item {
+.view-content .breadcrumb-item {
   display: inline-flex;
   align-items: center;
   gap: 4px;
 }
 
-.view-content .breadcrumb-current,
-.view-content .view-breadcrumb__current {
+.view-content .breadcrumb-current {
   color: var(--view-text);
   font-weight: 600;
 }
@@ -151,8 +148,7 @@
   font: inherit;
 }
 
-.view-content .breadcrumb-separator,
-.view-content .view-breadcrumb__separator {
+.view-content .breadcrumb-separator {
   color: var(--view-text-soft);
 }
 
@@ -218,6 +214,10 @@
 
 .view-content .search-container {
   display: flex;
+  flex: 0 1 300px;
+  width: min(300px, 100%);
+  min-width: 0;
+  max-width: 100%;
   align-items: center;
   gap: 0.75rem;
   height: 36px;
@@ -607,6 +607,11 @@
 .view-content .child-monitor-form .checkup-interpretation.is-abnormal { font-weight: 600; }
 
 @media (max-width: 720px) {
+  .view-content .search-container {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
   .view-content .checkup-card-body { padding: 16px 12px; }
   .view-content .checkup-grid { gap: 12px; }
   .view-content .checkup-field-input { min-height: var(--field-height); }
@@ -738,31 +743,6 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-}
-
-.view-breadcrumb {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--view-gap-sm);
-  font-size: var(--view-text-small);
-  line-height: 16px;
-  color: var(--view-text-muted);
-}
-
-.view-breadcrumb__separator {
-  color: var(--view-text-soft);
-}
-
-.view-breadcrumb__link {
-  color: var(--view-text-muted);
-  text-decoration: none;
-}
-
-.view-breadcrumb__link:hover,
-.view-breadcrumb__link:focus-visible {
-  color: var(--view-text);
-  text-decoration: underline;
 }
 
 .view-page-title {

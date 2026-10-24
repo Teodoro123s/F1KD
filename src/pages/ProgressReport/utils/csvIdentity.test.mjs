@@ -47,18 +47,11 @@ test('CSV beneficiary name falls back to the name in monthly summary rows', () =
   assert.equal(getCsvIdentityValue({ beneficiaryName: 'Araw Sample' }, 'child', 'child'), 'Araw Sample');
 });
 
-test('aggregate CSV rows identify the group and omit individual beneficiary demographics', () => {
-  const fields = getCsvIdentityFields([['group', 'Group'], ['age', 'Age'], ['progress', 'Progress']], 'child', 'group-school');
-  assert.deepEqual(fields, [['group', 'Group'], ['progress', 'Progress']]);
-  assert.equal(getCsvIdentityValue({ group: 'Demo Group' }, 'group', 'child', 'group-school'), 'Demo Group');
-});
-
 test('CSV data stays aligned with its headers and escapes spreadsheet-dangerous values', () => {
   const csv = buildProgressReportCsv(
     [{ child: 'Araw, "Sample"', mother: '\t=HYPERLINK("x")', age: 12, gender: 'Female', dateOfBirth: '2020-07-11' }],
     [['measurementDate', 'Check-up Date']],
     'child',
-    'beneficiary-batch',
   );
   const lines = csv.split('\r\n');
   assert.equal(lines.length, 2);

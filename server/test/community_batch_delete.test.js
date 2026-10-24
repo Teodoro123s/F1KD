@@ -56,6 +56,7 @@ test('batch deletion removes assigned beneficiaries and health records in one tr
       if (sql.includes('SELECT c.id FROM children c')) {
         return [[{ id: 41 }, { id: 42 }, { id: 43 }]];
       }
+      if (sql === 'SELECT file_path FROM batch_documentations WHERE batch_id = ?') return [[]];
       if (sql.startsWith('DELETE FROM mothers')) return [{ affectedRows: 2 }];
       if (sql === 'DELETE FROM children WHERE batch_id = ?') {
         if (transactionMode === 'failure') throw new Error('health record constraint failure');

@@ -54,7 +54,16 @@ function calculateBmi(weight, height) {
 }
 
 
-export default function ChildMonitor({ child, onSave, onCancel, completedWeeks = [], initialWeek = 1, forceEdit = false, showAuditSignatures = false }) {
+export default function ChildMonitor({
+  child,
+  onSave,
+  onCancel,
+  completedWeeks = [],
+  initialWeek = 1,
+  forceEdit = false,
+  readOnly = false,
+  showAuditSignatures = false,
+}) {
   const [week, setWeek] = useState(() => Math.max(1, Math.min(TOTAL_MONTHS, Math.floor(Number(initialWeek) || 1))));
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -95,7 +104,7 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
     return nextForm;
   });
   const isWeekCompleted = Boolean(savedCheckup) || completedWeeks.some((weekNumber) => Number(weekNumber) === week);
-  const isReadOnly = isWeekCompleted && !forceEdit;
+  const isReadOnly = readOnly || (isWeekCompleted && !forceEdit);
 
   useEffect(() => {
     const scheduledDate = addMonthsPreservingDay(scheduleAnchorDate, week - scheduleAnchorWeek, scheduleAnchorDay) || getTodayDate();

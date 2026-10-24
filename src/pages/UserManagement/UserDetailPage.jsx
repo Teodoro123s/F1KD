@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import PageHeader from '../../components/ui/PageHeader';
+import ModuleSummaryCards from '../../components/ui/ModuleSummaryCards';
 import { notifyAction } from '../../components/ActionFeedback';
 import { generatePassword, formatDobForInput } from './lib';
 import { apiGetManagedHealthWorker, apiGetUser, apiUpdateUser } from '../../api/users';
@@ -276,25 +277,30 @@ export default function UserDetailPage() {
         )}
       />
 
-      <section className="mother-detail-section">
-        <h3 className="mother-detail-section-title">{isHealthWorker ? 'Health Worker Actions' : 'User Actions'}</h3>
-        <div className="mother-detail-actions mother-overview-actions">
-          <button type="button" className={selectedCard === 'profile' ? 'btn-primary' : 'btn-secondary'} onClick={() => setSelectedCard('profile')}>User Profile</button>
-          {canViewUserActivity && (
-            <button
-              type="button"
-              className={selectedCard === 'activity' ? 'btn-primary' : 'btn-secondary'}
-              onClick={() => {
-                setSelectedCard('activity');
-                setActivityPage(1);
-                if (isHealthWorker) setActivityView('table');
-              }}
-            >
-              Activity Logs
-            </button>
-          )}
-        </div>
-      </section>
+      <ModuleSummaryCards
+        selected={selectedCard}
+        onSelect={(key) => {
+          setSelectedCard(key);
+          if (key === 'activity') {
+            setActivityPage(1);
+            if (isHealthWorker) setActivityView('table');
+          }
+        }}
+        cards={[
+          {
+            key: 'profile',
+            label: 'User Profile',
+            value: 'Profile',
+            description: 'View account details',
+          },
+          ...(canViewUserActivity ? [{
+            key: 'activity',
+            label: 'Activity Logs',
+            value: 'Activity',
+            description: 'Review account activity',
+          }] : []),
+        ]}
+      />
 
       {selectedCard === 'profile' && (
         <section className="mother-detail-section">

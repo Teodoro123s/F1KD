@@ -62,3 +62,16 @@ test('does not navigate to an external or same-page return target', () => {
     ]);
   });
 });
+
+test('falls back safely when browser history is unavailable', () => {
+  const previousWindow = globalThis.window;
+  delete globalThis.window;
+  try {
+    const calls = [];
+    navigateBack((...args) => calls.push(args), { pathname: '/detail', state: null }, '/list');
+    assert.deepEqual(calls, [['/list', { replace: true }]]);
+  } finally {
+    if (previousWindow === undefined) delete globalThis.window;
+    else globalThis.window = previousWindow;
+  }
+});

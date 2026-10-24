@@ -40,6 +40,15 @@ const documentUpload = multer({
   },
 });
 
+const batchEvidenceUpload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024, files: 10 },
+  fileFilter: (req, file, callback) => {
+    if (['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype)) return callback(null, true);
+    return callback(new Error('Only JPG, PNG, and WEBP images are allowed.'));
+  },
+});
+
 const minioClient = useMinio && Minio
   ? new Minio.Client({
       endPoint: minioEndpoint,
@@ -159,6 +168,7 @@ async function deleteFileFromStorage(filePath) {
 
 module.exports = {
   documentUpload,
+  batchEvidenceUpload,
   uploadDirectory,
   uploadFileToStorage,
   deleteFileFromStorage,

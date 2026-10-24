@@ -115,8 +115,14 @@ function FormDropdown({ id, label, name, options, value, onChange, required = fa
 
 function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitting = false, notification = '' }) {
   return createPortal((
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-content user-management-modal" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-backdrop user-management-drawer-backdrop" onClick={onClose}>
+      <div
+        className="modal-content user-management-modal user-management-drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="modal-header-section">
           <h3>{title}</h3>
           <button className="btn-close-modal" onClick={onClose} aria-label="Close modal">

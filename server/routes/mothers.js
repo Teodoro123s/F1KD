@@ -1092,8 +1092,11 @@ router.put('/:id', async (req, res) => {
     if (!existing.length) {
       return res.status(404).json({ error: 'Mother not found' });
     }
-
     const current = existing[0];
+    const integerOrFallback = (value, fallback = null) => {
+      const candidate = value === undefined || value === null || value === '' ? fallback : value;
+      return candidate === undefined || candidate === null || candidate === '' ? null : Number(candidate);
+    };
     const firstNameProvided = b.firstName !== undefined || b.first_name !== undefined;
     const requestedFirstName = firstNameProvided
       ? normalizeFirstName(b.firstName ?? b.first_name)
@@ -1165,22 +1168,22 @@ router.put('/:id', async (req, res) => {
       prenatal_height: b.prenatalHeight || b.prenatal_height || current.prenatal_height || null,
       fundal_height: b.fundalHeight || b.fundal_height || current.fundal_height || null,
       fhr: b.fhr || current.fhr || null,
-      gravida: b.gravida ?? current.gravida ?? null,
-      para: b.para ?? current.para ?? null,
-      abortion: b.abortion ?? current.abortion ?? 0,
-      stillbirth: b.stillbirth ?? current.stillbirth ?? 0,
-      total_children: b.totalChildren ?? b.total_children ?? current.total_children ?? null,
-      children_born_alive: b.childrenBornAlive ?? b.children_born_alive ?? current.children_born_alive ?? null,
-      miscarriages: b.miscarriages ?? current.miscarriages ?? null,
-      children_died_after_birth: b.childrenDiedAfterBirth ?? b.children_died_after_birth ?? current.children_died_after_birth ?? null,
+      gravida: integerOrFallback(b.gravida, current.gravida),
+      para: integerOrFallback(b.para, current.para),
+      abortion: integerOrFallback(b.abortion, current.abortion ?? 0),
+      stillbirth: integerOrFallback(b.stillbirth, current.stillbirth ?? 0),
+      total_children: integerOrFallback(b.totalChildren ?? b.total_children, current.total_children),
+      children_born_alive: integerOrFallback(b.childrenBornAlive ?? b.children_born_alive, current.children_born_alive),
+      miscarriages: integerOrFallback(b.miscarriages, current.miscarriages),
+      children_died_after_birth: integerOrFallback(b.childrenDiedAfterBirth ?? b.children_died_after_birth, current.children_died_after_birth),
       weight: b.weight || current.weight || null,
       height: b.height || current.height || null,
       is_high_risk: b.isHighRisk === 'Yes' || b.is_high_risk === true || b.is_high_risk === 1 ? 1 : 0,
       program_type: b.programType || b.program_type || current.program_type || null,
-      emergency_name: b.emergencyName || b.emergency_name || current.emergency_name || null,
+      emergency_name: optionalValue(b.emergencyName ?? b.emergency_name, current.emergency_name),
       emergency_contact: b.emergencyContact || b.emergency_contact || current.emergency_contact || null,
       emergency_relationship: b.emergencyRelationship || b.emergency_relationship || current.emergency_relationship || null,
-      spouse_name: b.spouseName || b.spouse_name || current.spouse_name || null,
+      spouse_name: optionalValue(b.spouseName ?? b.spouse_name, current.spouse_name),
       philhealth_member: philhealthMember ?? 0,
       philhealth_number: nextPhilhealthNumber ? formatPhilHealthNumber(nextPhilhealthNumber) : null,
       medical_conditions: b.medicalConditions ? JSON.stringify(b.medicalConditions) : current.medical_conditions || null,

@@ -71,15 +71,26 @@ export default function Sidebar() {
   return (
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
       <div className="sidebar-top">
+        {!collapsed && <img src={logo} alt="F1KD logo" className="logo" />}
+        {!collapsed && <div className="brand">F1KD</div>}
         <button
           type="button"
-          className="logo-button"
+          className="sidebar-toggle"
           onClick={() => setCollapsed(!collapsed)}
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
-          <img src={logo} alt="F1KD logo" className="logo" />
+          {collapsed ? (
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+              <path d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <rect x="3" y="4" width="18" height="16" rx="2" />
+              <path d="M9 4v16m4-8h4m-2-2 2 2-2 2" />
+            </svg>
+          )}
         </button>
-        {!collapsed && <div className="brand">F1KD</div>}
       </div>
 
       <nav className="sidebar-nav">

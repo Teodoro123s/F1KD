@@ -1,17 +1,6 @@
 const getBeneficiaryField = (beneficiaryType) => (beneficiaryType === 'mother' ? 'mother' : 'child');
 
-export function getCsvIdentityFields(fields, beneficiaryType, reportFocus = '') {
-  const aggregateField = reportFocus === 'group-school'
-    ? 'group'
-    : ['batch-group', 'batch-school'].includes(reportFocus) ? 'batch' : '';
-  if (aggregateField) {
-    const requiredFields = [[aggregateField, aggregateField === 'group' ? 'Group' : 'Batch']];
-    const requiredIds = new Set([...requiredFields.map(([id]) => id), 'mother', 'child', 'age', 'gender', 'dateOfBirth']);
-    return [
-      ...requiredFields,
-      ...(fields || []).filter(([id]) => !requiredIds.has(id)),
-    ];
-  }
+export function getCsvIdentityFields(fields, beneficiaryType) {
   const beneficiaryField = getBeneficiaryField(beneficiaryType);
   const requiredFields = [
     [beneficiaryField, 'Beneficiary Name'],
@@ -27,9 +16,7 @@ export function getCsvIdentityFields(fields, beneficiaryType, reportFocus = '') 
   ];
 }
 
-export function getCsvIdentityValue(row, field, beneficiaryType, reportFocus = '') {
-  if (reportFocus === 'group-school' && field === 'group') return row.group || '';
-  if (['batch-group', 'batch-school'].includes(reportFocus) && field === 'batch') return row.batch || '';
+export function getCsvIdentityValue(row, field, beneficiaryType) {
   const beneficiaryField = getBeneficiaryField(beneficiaryType);
   if (field === beneficiaryField) {
     return row[beneficiaryField] || row.beneficiaryName || '';
@@ -37,8 +24,8 @@ export function getCsvIdentityValue(row, field, beneficiaryType, reportFocus = '
   return row[field];
 }
 
-export function buildProgressReportCsv(rows, fields, beneficiaryType, reportFocus, formatValue = (_field, value) => value) {
-  const identityFields = getCsvIdentityFields(fields, beneficiaryType, reportFocus);
+export function buildProgressReportCsv(rows, fields, beneficiaryType, formatValue = (_field, value) => value) {
+  const identityFields = getCsvIdentityFields(fields, beneficiaryType);
   const csvValue = (value) => {
     const text = String(value ?? '');
     const safeText = /^[\u0000-\u0020\uFEFF]*[=+\-@]/.test(text) ? `'${text}` : text;
@@ -47,7 +34,7 @@ export function buildProgressReportCsv(rows, fields, beneficiaryType, reportFocu
   return [
     identityFields.map(([, label]) => csvValue(label)).join(','),
     ...rows.map((row) => identityFields.map(([id]) => (
-      csvValue(formatValue(id, getCsvIdentityValue(row, id, beneficiaryType, reportFocus)))
+      csvValue(formatValue(id, getCsvIdentityValue(row, id, beneficiaryType)))
     )).join(',')),
   ].join('\r\n');
 }

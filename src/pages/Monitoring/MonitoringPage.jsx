@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import PageHeader from '../../components/ui/PageHeader';
 import { useMothers } from '../../context/MothersContext';
@@ -17,8 +18,10 @@ import { hasCheckupThisMonth } from '../../utils/monthlyCheckups';
 import { notifyAction } from '../../components/ActionFeedback';
 import TableSearch from '../../components/ui/TableSearch';
 import ModuleSummaryCards from '../../components/ui/ModuleSummaryCards';
-import ConfirmModal from '../UserManagement/ConfirmModal';
+import useModalAccessibility from '../../components/ui/useModalAccessibility';
 import { navigateBack } from '../../utils/navigation';
+import MotherNavigationCards from '../Beneficiary/mother/MotherNavigationCards';
+import BeneficiarySuperHeader from '../Beneficiary/mother/BeneficiarySuperHeader';
 import { apiCreateMonitoringReportIntent } from '../../api/progressReport';
 import { downloadContent, generateCsvContent } from '../ProgressReport/utils/exportUtils';
 import {
@@ -34,6 +37,133 @@ function getMotherName(mother) {
   return mother?.name || [mother?.firstName || mother?.first_name, mother?.middleName || mother?.middle_name, mother?.lastName || mother?.last_name]
     .filter(Boolean)
     .join(' ') || 'Unnamed mother';
+}
+
+function MotherCheckupEditDrawer({ mother, showAuditSignatures, onSave, onClose }) {
+  const dialogRef = useRef(null);
+  const closeButtonRef = useRef(null);
+  const closeDrawer = () => {
+    if (document.querySelector('.checkup-confirm-modal')) return;
+    onClose();
+  };
+  useModalAccessibility({
+    open: true,
+    onClose: closeDrawer,
+    dialogRef,
+    initialFocusRef: closeButtonRef,
+  });
+
+  return createPortal((
+    <div
+      className="checkup-edit-drawer-backdrop"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) closeDrawer();
+      }}
+    >
+      <aside
+        ref={dialogRef}
+        className="checkup-edit-drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="checkup-edit-drawer-title"
+        tabIndex={-1}
+      >
+        <header className="checkup-edit-drawer__header">
+          <div>
+            <h2 id="checkup-edit-drawer-title">Edit pregnancy record</h2>
+            <p>{getMotherName(mother)}</p>
+          </div>
+          <button
+            ref={closeButtonRef}
+            type="button"
+            className="checkup-edit-drawer__close"
+            onClick={closeDrawer}
+            aria-label="Close edit pregnancy record"
+          >
+            ×
+          </button>
+        </header>
+        <div className="checkup-edit-drawer__content">
+          <MotherCheckup
+            mother={mother}
+            showAuditSignatures={showAuditSignatures}
+            onSave={onSave}
+            onCancel={closeDrawer}
+            forceEdit
+          />
+        </div>
+      </aside>
+    </div>
+  ), document.body);
+}
+
+function ChildCheckupEditDrawer({
+  child,
+  completedWeeks,
+  initialWeek,
+  showAuditSignatures,
+  onSave,
+  onClose,
+}) {
+  const dialogRef = useRef(null);
+  const closeButtonRef = useRef(null);
+  const closeDrawer = () => {
+    if (document.querySelector('.checkup-confirm-modal')) return;
+    onClose();
+  };
+  useModalAccessibility({
+    open: true,
+    onClose: closeDrawer,
+    dialogRef,
+    initialFocusRef: closeButtonRef,
+  });
+
+  return createPortal((
+    <div
+      className="checkup-edit-drawer-backdrop"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) closeDrawer();
+      }}
+    >
+      <aside
+        ref={dialogRef}
+        className="checkup-edit-drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="checkup-edit-drawer-title"
+        tabIndex={-1}
+      >
+        <header className="checkup-edit-drawer__header">
+          <div>
+            <h2 id="checkup-edit-drawer-title">Edit child check-up</h2>
+            <p>{getChildName(child)}</p>
+          </div>
+          <button
+            ref={closeButtonRef}
+            type="button"
+            className="checkup-edit-drawer__close"
+            onClick={closeDrawer}
+            aria-label="Close edit child check-up"
+          >
+            ×
+          </button>
+        </header>
+        <div className="checkup-edit-drawer__content">
+          <ChildMonitor
+            child={child}
+            completedWeeks={completedWeeks}
+            initialWeek={initialWeek}
+            showAuditSignatures={showAuditSignatures}
+            onSave={onSave}
+            onCancel={closeDrawer}
+            forceEdit
+          />
+        </div>
+      </aside>
+    </div>
+  ), document.body);
 }
 
 function getMonitoringReportBeneficiaryId(beneficiary, type) {
@@ -141,7 +271,7 @@ export default function MonitoringPage() {
   const [motherCheckups, setMotherCheckups] = useState(() => location.state?.mother?.checkups || []);
   const [childCompletedWeeks, setChildCompletedWeeks] = useState(() => location.state?.child?.completedWeeks || []);
   const [editingCheckup, setEditingCheckup] = useState(false);
-  const [showEditCheckupConfirm, setShowEditCheckupConfirm] = useState(false);
+  const [editingChildCheckup, setEditingChildCheckup] = useState(false);
   const [statusFilter, setStatusFilter] = useState('All');
   const [monthlyCheckupFilter, setMonthlyCheckupFilter] = useState('All');
   const [reportBeneficiaryType, setReportBeneficiaryType] = useState(() => (location.state?.child ? 'Child' : 'Mother'));
@@ -156,6 +286,7 @@ export default function MonitoringPage() {
   const [page, setPage] = useState(1);
   const assignedGroupId = currentUser?.group_id ?? currentUser?.groupId;
   const showAuditSignatures = canViewAuditSignatures(currentUser?.role);
+  const selectedMotherId = getMonitoringReportBeneficiaryId(selectedMother, 'Mother');
 
   React.useEffect(() => {
     let active = true;
@@ -256,7 +387,6 @@ export default function MonitoringPage() {
   const handleSelectMother = (mother) => {
     setSelectedMother(mother);
     setEditingCheckup(false);
-    setShowEditCheckupConfirm(false);
     setMotherCheckups(mother.checkups || []);
     setSelectedChild(null);
     setSavedMessage('');
@@ -264,7 +394,6 @@ export default function MonitoringPage() {
 
   const handleSelectChild = async (child) => {
     setSavedMessage('');
-    setShowEditCheckupConfirm(false);
     try {
       const response = await apiGetChild(child.id || child.child_code);
       const detailedChild = response?.child || child;
@@ -277,19 +406,6 @@ export default function MonitoringPage() {
     }
     setSelectedMother(null);
     setEditingCheckup(false);
-  };
-
-  const requestEditCheckup = () => {
-    if (editingCheckup) {
-      setEditingCheckup(false);
-      return;
-    }
-    setShowEditCheckupConfirm(true);
-  };
-
-  const confirmEditCheckup = () => {
-    setShowEditCheckupConfirm(false);
-    setEditingCheckup(true);
   };
 
   const handleBack = () => {
@@ -466,7 +582,8 @@ export default function MonitoringPage() {
   };
 
   return (
-    <div className="community-page checkup-module page">
+    <div className={`community-page checkup-module page${selectedMother ? ' beneficiary-page' : ''}`}>
+      {selectedMother && <BeneficiarySuperHeader />}
       <PageHeader
         title={selectedMother || selectedChild ? (selectedMother ? getMotherName(selectedMother) : getChildName(selectedChild)) : 'Monitor'}
         breadcrumbs={selectedMother || selectedChild ? [{ label: 'Monitor', href: '/monitoring' }, { label: selectedMother ? getMotherName(selectedMother) : getChildName(selectedChild) }] : [{ label: 'Monitor' }]}
@@ -656,95 +773,80 @@ export default function MonitoringPage() {
         </section>
       ) : selectedChild ? (
         selectedRecordLoading ? <section className="checkup-entry-view" aria-live="polite"><p>Loading child monitoring record...</p></section> : <section className="checkup-entry-view" aria-labelledby="selected-child-title">
-          <div className="selected-mother-bar">
-            <div className="selected-record-actions">
-              <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/child/${selectedChild.id}`, {
-                state: {
-                  child: selectedChild,
-                  returnTo: location.pathname,
-                  returnToState: { child: selectedChild, returnTo: location.state?.returnTo, week: location.state?.week },
-                },
-              })}>
-                Beneficiary Profile
-              </button>
-              <button type="button" className="btn-primary" onClick={requestEditCheckup}>
-                {editingCheckup ? 'Cancel edit' : 'Edit checkup'}
-              </button>
-            </div>
+          <div className="selected-record-actions">
+            <button type="button" className="btn-primary" onClick={() => setEditingChildCheckup(true)}>
+              Edit checkup
+            </button>
           </div>
           {savedMessage.startsWith('Unable to save check-up:') && <p className="checkup-save-message checkup-save-message-error" role="alert">{savedMessage}</p>}
-          <ChildMonitor
-            child={selectedChild}
-            showAuditSignatures={showAuditSignatures}
-            completedWeeks={childCompletedWeeks}
-            initialWeek={location.state?.week}
-            onSave={async (payload) => {
-              setSavedMessage('');
-              let completedWeeks = [];
-              try {
-                const response = await apiSaveChildCheckup(payload.childId, payload);
-                const savedChild = response?.child || null;
-                completedWeeks = savedChild?.completedWeeks || [payload.week];
-                setSelectedChild(savedChild || selectedChild);
-                setChildCompletedWeeks(completedWeeks);
-                setChildren((current) => current.map((child) => String(child.id) === String(payload.childId) ? { ...child, ...savedChild } : child));
-                setEditingCheckup(false);
-              } catch (error) {
-                setSavedMessage(`Unable to save check-up: ${error.message}`);
-                return false;
-              }
-              const message = completedWeeks.length >= 24
-                ? `Monitoring completed successfully for ${getChildName(selectedChild)}.`
-                : `M${payload.week} progress captured successfully for ${getChildName(selectedChild)}.`;
-              setSavedMessage(message);
-              return true;
-            }}
-            onCancel={() => setEditingCheckup(false)}
-            forceEdit={editingCheckup}
-          />
+          {!editingChildCheckup && (
+            <ChildMonitor
+              child={selectedChild}
+              showAuditSignatures={showAuditSignatures}
+              completedWeeks={childCompletedWeeks}
+              initialWeek={location.state?.week}
+              readOnly
+            />
+          )}
         </section>
       ) : selectedRecordLoading ? (
         <section className="checkup-entry-view" aria-live="polite"><p>Loading mother monitoring record...</p></section>
       ) : (
         <section className="checkup-entry-view" aria-labelledby="selected-mother-title">
-          <div className="selected-mother-bar">
-            <div className="selected-record-actions">
-              <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/mother/${selectedMother.id || selectedMother.motherId}`, {
-                state: {
-                  mother: selectedMother,
-                  returnTo: location.pathname,
-                  returnToState: { mother: selectedMother, returnTo: location.state?.returnTo },
-                },
-              })}>
-                Beneficiary Profile
-              </button>
-              <button type="button" className="btn-primary" onClick={requestEditCheckup}>
-                {editingCheckup ? 'Cancel edit' : 'Edit checkup'}
-              </button>
-            </div>
-          </div>
+          <MotherNavigationCards mother={selectedMother} motherId={selectedMotherId} activeCard="monitor" />
           {savedMessage.startsWith('Unable to save check-up:') && <p className="checkup-save-message checkup-save-message-error" role="alert">{savedMessage}</p>}
-          <MotherCheckup
-            mother={{ ...selectedMother, checkups: motherCheckups }}
-            showAuditSignatures={showAuditSignatures}
-            onSave={async (payload) => {
-              const saved = await handleSave(payload);
-              if (saved) setEditingCheckup(false);
-              return saved;
-            }}
-            onCancel={() => { setEditingCheckup(false); setSelectedMother(null); }}
-            forceEdit={editingCheckup}
-          />
+          {!editingCheckup && (
+            <MotherCheckup
+              mother={{ ...selectedMother, checkups: motherCheckups }}
+              showAuditSignatures={showAuditSignatures}
+              onRequestEdit={() => setEditingCheckup(true)}
+              readOnly
+            />
+          )}
         </section>
       )}
-      <ConfirmModal
-        show={showEditCheckupConfirm}
-        className="checkup-confirm-modal"
-        message="Are you sure you want to edit this saved check-up? You will be able to change the record before saving."
-        confirmLabel="Edit checkup"
-        onConfirm={confirmEditCheckup}
-        onCancel={() => setShowEditCheckupConfirm(false)}
-      />
+      {selectedMother && editingCheckup && (
+        <MotherCheckupEditDrawer
+          mother={{ ...selectedMother, checkups: motherCheckups }}
+          showAuditSignatures={showAuditSignatures}
+          onSave={async (payload) => {
+            const saved = await handleSave(payload);
+            if (saved) setEditingCheckup(false);
+            return saved;
+          }}
+          onClose={() => setEditingCheckup(false)}
+        />
+      )}
+      {selectedChild && editingChildCheckup && (
+        <ChildCheckupEditDrawer
+          child={selectedChild}
+          completedWeeks={childCompletedWeeks}
+          initialWeek={location.state?.week}
+          showAuditSignatures={showAuditSignatures}
+          onSave={async (payload) => {
+            setSavedMessage('');
+            let completedWeeks = [];
+            try {
+              const response = await apiSaveChildCheckup(payload.childId, payload);
+              const savedChild = response?.child || null;
+              completedWeeks = savedChild?.completedWeeks || [payload.week];
+              setSelectedChild(savedChild || selectedChild);
+              setChildCompletedWeeks(completedWeeks);
+              setChildren((current) => current.map((child) => String(child.id) === String(payload.childId) ? { ...child, ...savedChild } : child));
+              setEditingChildCheckup(false);
+            } catch (error) {
+              setSavedMessage(`Unable to save check-up: ${error.message}`);
+              return false;
+            }
+            const message = completedWeeks.length >= 24
+              ? `Monitoring completed successfully for ${getChildName(selectedChild)}.`
+              : `M${payload.week} progress captured successfully for ${getChildName(selectedChild)}.`;
+            setSavedMessage(message);
+            return true;
+          }}
+          onClose={() => setEditingChildCheckup(false)}
+        />
+      )}
     </div>
   );
 }

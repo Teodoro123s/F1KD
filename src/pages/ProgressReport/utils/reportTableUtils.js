@@ -1,4 +1,7 @@
 import { getPointInterpretation, getPointValue } from '../progressReportConfig';
+import { filterInterpretationFields } from './interpretationFields.mjs';
+
+export { filterInterpretationFields };
 
 export const GROWTH_TABLE_FIELDS = new Set([
   'weightForAge',

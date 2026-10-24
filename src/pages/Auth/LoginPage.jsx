@@ -102,27 +102,27 @@ export default function Login() {
 
   return (
     <div className="login-page">
-      <div className="login-card">
+      <div className="login-shell">
         <div className="login-kicker">
           <img src={logo} alt="F1KD logo" className="login-logo" />
         </div>
-        <h1 className="login-title">{forgotPassword ? 'Reset password' : 'Welcome back'}</h1>
-
-        <form className="login-form" onSubmit={forgotPassword ? handlePasswordReset : handleLogin} noValidate>
-          <div className="login-field">
-            <label htmlFor="login-email">Email address</label>
-            <input
-              id="login-email"
-              name="email"
-              type="email"
-              value={email}
-              readOnly={forgotPassword && resetCodeSent}
-              onChange={(event) => { setEmail(event.target.value); setErrorMessage(''); setStatusMessage(''); }}
-              placeholder="Enter email"
-              autoComplete="username"
-              required
-            />
-          </div>
+        <div className="login-card">
+          <form className="login-form" onSubmit={forgotPassword ? handlePasswordReset : handleLogin} noValidate>
+          {(!forgotPassword || !resetCodeSent) && (
+            <div className="login-field">
+              <label htmlFor="login-email">Email address</label>
+              <input
+                id="login-email"
+                name="email"
+                type="email"
+                value={email}
+                onChange={(event) => { setEmail(event.target.value); setErrorMessage(''); setStatusMessage(''); }}
+                placeholder="Enter email"
+                autoComplete="username"
+                required
+              />
+            </div>
+          )}
 
           {!forgotPassword && <div className="login-field">
             <label htmlFor="login-password">Password</label>
@@ -140,10 +140,25 @@ export default function Login() {
               <button
                 type="button"
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
+                aria-pressed={showPassword}
                 onClick={() => setShowPassword((s) => !s)}
-                className="btn-icon"
+                className="login-password-toggle"
               >
-                {showPassword ? 'Hide' : 'Show'}
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  {showPassword ? (
+                    <>
+                      <path d="M3 3l18 18" />
+                      <path d="M10.6 10.6a2 2 0 0 0 2.8 2.8" />
+                      <path d="M9.9 5.2A11.4 11.4 0 0 1 12 5c5 0 8.5 4.2 9.5 6-.4.8-1.2 1.8-2.3 2.7" />
+                      <path d="M6.2 6.2C3.8 7.7 2.7 10 2.5 11c.4.8 1.3 2.1 2.8 3.4 1.7 1.4 4 2.6 6.7 2.6 1 0 2-.2 2.9-.5" />
+                    </>
+                  ) : (
+                    <>
+                      <path d="M2.5 12s3.5-7 9.5-7 9.5 7 9.5 7-3.5 7-9.5 7-9.5-7-9.5-7Z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </>
+                  )}
+                </svg>
               </button>
             </div>
           </div>}
@@ -226,8 +241,9 @@ export default function Login() {
               Send a new code
             </button>
           )}
-        </form>
+          </form>
 
+        </div>
       </div>
     </div>
   );

@@ -26,7 +26,7 @@ ALTER TABLE users
 
 -- Ensure role and status have NOT NULL and defaults
 ALTER TABLE users
-  MODIFY COLUMN role VARCHAR(120) NOT NULL DEFAULT 'Superadmin',
+  MODIFY COLUMN role VARCHAR(120) NOT NULL DEFAULT 'User',
   MODIFY COLUMN status ENUM('Active','Suspended') NOT NULL DEFAULT 'Active';
 
 -- (Removed dev-only temp plaintext password storage)

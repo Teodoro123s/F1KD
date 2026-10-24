@@ -31,7 +31,7 @@ Docker Compose runs a MySQL-compatible MariaDB database, MinIO document storage,
 docker compose -f docker-compose.minio.yml up --build -d
 ```
 
-Open `http://localhost:8080` on the Docker host. Other devices on the same network can open `http://<docker-host-LAN-IP>:8080`; allow that port through the host firewall. The database and API are not published directly to the network. The MinIO console is bound to the host only at `http://localhost:9001`.
+Open `http://localhost:5173` on the Docker host (the default web port). To use a different host port, set `WEB_PORT` in `.env`; other devices on the same network can open `http://<docker-host-LAN-IP>:<WEB_PORT>`, and the selected port must be allowed through the host firewall. The database and API are not published directly to the network. The MinIO console is bound to the host only at `http://localhost:9001`.
 
 Data persists in the `mariadb-data` and `minio-data` Docker volumes. Local-upload fallback files persist under `server/data/uploads`. `docker compose down` keeps this data; `docker compose down -v` deletes the database and MinIO volumes and should not be used unless you intend to erase them. Back up the SQL database and MinIO objects before moving to a different Docker host; volumes are local to the host and are not automatically synchronized to client devices.
 

@@ -15,7 +15,8 @@ export const navigateBack = (navigate, location, fallback, state) => {
     return;
   }
 
-  const historyIndex = window.history.state?.idx;
+  const historyState = typeof window !== 'undefined' ? window.history?.state : undefined;
+  const historyIndex = historyState?.idx;
   if (Number.isInteger(historyIndex) && historyIndex > 0) {
     navigate(-1, returnState === undefined ? undefined : { state: returnState });
     return;

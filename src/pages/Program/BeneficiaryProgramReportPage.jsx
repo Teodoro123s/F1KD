@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { apiGetChild } from '../../api/children';
 import { apiGetMother } from '../../api/mothers';
 import { apiGetBeneficiaryMonitoringReport, apiGetPrograms } from '../../api/programs';
@@ -10,7 +10,8 @@ import { notifyAction } from '../../components/ActionFeedback';
 import { formatDateForDisplay } from '../../utils/dateFormat';
 import { canViewAuditSignatures } from '../../utils/permissions';
 import { useAuth } from '../../auth/AuthProvider';
-import { navigateBack } from '../../utils/navigation';
+import MotherNavigationCards from '../Beneficiary/mother/MotherNavigationCards';
+import BeneficiarySuperHeader from '../Beneficiary/mother/BeneficiarySuperHeader';
 
 const normalizeProgramBeneficiaryType = (value) => String(value || 'Mother')
   .trim()
@@ -36,16 +37,14 @@ const getBeneficiaryName = (beneficiary, beneficiaryType) => {
 
 export default function BeneficiaryProgramReportPage({ beneficiaryType }) {
   const { id, childId } = useParams();
-  const location = useLocation();
-  const navigate = useNavigate();
   const { currentUser } = useAuth();
   const routeId = beneficiaryType === 'mother' ? id : childId;
   const [beneficiaryName, setBeneficiaryName] = useState('');
+  const [beneficiaryRecord, setBeneficiaryRecord] = useState(location.state?.mother || null);
   const [reportRows, setReportRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedSummary, setSelectedSummary] = useState('entries');
-  const [programFilter, setProgramFilter] = useState('');
   const [tableSearch, setTableSearch] = useState('');
   const showAuditSignatures = canViewAuditSignatures(currentUser?.role);
 
@@ -86,6 +85,7 @@ export default function BeneficiaryProgramReportPage({ beneficiaryType }) {
 
         if (active) {
           setBeneficiaryName(name);
+          setBeneficiaryRecord(beneficiary);
           setReportRows(reportGroups.flat().sort((left, right) => (
             String(right.date || '').localeCompare(String(left.date || ''))
           )));
@@ -110,14 +110,9 @@ export default function BeneficiaryProgramReportPage({ beneficiaryType }) {
     received: reportRows.filter((row) => isReceiptReceived(row.monitored)).length,
     programs: new Set(reportRows.map((row) => String(row.programId))).size,
   }), [reportRows]);
-  const programOptions = useMemo(() => (
-    [...new Set(reportRows.map((row) => row.programName).filter(Boolean))]
-      .sort((left, right) => left.localeCompare(right))
-  ), [reportRows]);
   const visibleRows = useMemo(() => {
     const rows = reportRows.filter((row) => {
       if (selectedSummary === 'received') return isReceiptReceived(row.monitored);
-      if (selectedSummary === 'programs' && programFilter) return row.programName === programFilter;
       return true;
     });
     const query = tableSearch.trim();
@@ -138,70 +133,50 @@ export default function BeneficiaryProgramReportPage({ beneficiaryType }) {
       ];
       return searchableValues.some((value) => String(value || '').includes(query));
     });
-  }, [programFilter, reportRows, selectedSummary, tableSearch]);
-  const fallbackReturnTo = beneficiaryType === 'mother'
-    ? `/beneficiary/mother/${routeId}`
-    : `/beneficiary/child/${routeId}`;
+  }, [reportRows, selectedSummary, tableSearch]);
   const title = beneficiaryName || (beneficiaryType === 'mother' ? 'Mother' : 'Child');
 
   return (
-    <div className="community-page program-page">
+    <div className={`community-page program-page${beneficiaryType === 'mother' ? ' beneficiary-page' : ''}`}>
+      {beneficiaryType === 'mother' && <BeneficiarySuperHeader />}
       <PageHeader
-        title="Individual Program Report"
+        title={title}
         breadcrumbs={[
           { label: 'Beneficiaries', href: '/beneficiary' },
           { label: title },
           { label: 'Program Report' },
         ]}
       />
-      <section className="program-monitoring-report program-receipt-history-page" aria-labelledby="beneficiary-program-report-title">
-        <div className="program-monitoring-report__header">
-          <div>
-            <p className="program-section-eyebrow">Program participation</p>
-            <h2 id="beneficiary-program-report-title">{title}</h2>
-            <p>Receipt history across programs available to your account.</p>
-          </div>
-          <button
-            type="button"
-            className="view-btn view-btn--secondary back-action"
-            onClick={() => navigateBack(navigate, location, fallbackReturnTo)}
-          >
-            Back to beneficiary
-          </button>
-        </div>
-
-        {!loading && !error && (
+      {beneficiaryType === 'mother' && (
+        <MotherNavigationCards
+          mother={beneficiaryRecord}
+          motherId={routeId}
+          activeCard="program-report"
+        />
+      )}
+      {!loading && !error && (
+        <section className="program-monitoring-report program-receipt-history-page program-report-summary-panel">
           <ModuleSummaryCards cards={[
-            { key: 'programs', label: 'Programs with activity', value: summary.programs, description: 'Choose a program to view its entries.' },
+            { key: 'programs', label: 'Programs with activity', value: summary.programs, description: 'Distinct programs with receipt history.', interactive: false },
             { key: 'entries', label: 'Receipt entries', value: summary.total, description: 'Show all receipt entries.' },
             { key: 'received', label: 'Marked received', value: summary.received, description: 'Show entries marked received.' },
           ]} onSelect={setSelectedSummary} selected={selectedSummary} />
-        )}
+        </section>
+      )}
 
+      <section className="program-monitoring-report program-receipt-history-page program-report-data-panel">
         {loading ? <p>Loading individual program report...</p> : error ? (
           <p role="alert">{error}</p>
         ) : (
           <>
           <div className="program-beneficiary-report-controls">
-            {selectedSummary === 'programs' && (
-              <label>
-                Filter by program
-                <select value={programFilter} onChange={(event) => setProgramFilter(event.target.value)}>
-                  <option value="">All programs with activity</option>
-                  {programOptions.map((programName) => (
-                    <option key={programName} value={programName}>{programName}</option>
-                  ))}
-                </select>
-              </label>
-            )}
-            <span aria-live="polite">Showing {visibleRows.length} of {reportRows.length} entries</span>
             <label className="program-beneficiary-report-search">
-              Search table (case-sensitive)
               <input
                 type="search"
                 value={tableSearch}
                 onChange={(event) => setTableSearch(event.target.value)}
                 placeholder="Enter exact letter casing"
+                aria-label="Search program receipt history"
               />
             </label>
           </div>

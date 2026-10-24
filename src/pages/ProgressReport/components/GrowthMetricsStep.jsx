@@ -5,7 +5,6 @@ export function GrowthMetricsStep({
   reportCategory,
   availableProfileMetrics,
   profileMetrics,
-  toggleProfileMetric,
   programMetrics,
   selectedProgramMetrics,
   toggleProgramMetric,
@@ -20,35 +19,46 @@ export function GrowthMetricsStep({
   navigationDirection = '',
   profileFieldSections = {},
   profileSectionLabels = {},
-  profileSection = 'general',
   setProfileSection,
+  toggleProfileSection,
   selectedMonitorFields = [],
   selectedProfileFields = [],
 }) {
   const hasProfilePages = reportCategory === 'profile' && Object.keys(profileFieldSections).length > 0;
-  const profilePageFields = availableProfileMetrics.filter(([id]) => !hasProfilePages || profileFieldSections[id] === profileSection);
+  const profileSections = Object.entries(profileSectionLabels).filter(([value]) => value !== 'all');
   return (
     <div className="progress-report-tab-panel">
       <h1>III. Growth Metrics</h1>
       {reportCategory === 'profile' ? (
         <>
-          <p>Choose the beneficiary profile fields to include in the report:</p>
+          <p>Choose which profile sections to include in the report:</p>
           {hasProfilePages && (
-            <div className="profile-report-page-tabs" role="tablist" aria-label="Profile report pages">
-              {Object.entries(profileSectionLabels).filter(([value]) => value !== 'all').map(([value, label]) => (
-                <button key={value} type="button" className={profileSection === value ? 'active' : ''} onClick={() => setProfileSection(value)}>{label}</button>
-              ))}
+            <div className="profile-report-section-cards" aria-label="Profile report sections">
+              {profileSections.map(([value, label]) => {
+                const sectionFieldIds = availableProfileMetrics
+                  .filter(([id]) => profileFieldSections[id] === value)
+                  .map(([id]) => id);
+                const selectedCount = sectionFieldIds.filter((id) => profileMetrics.includes(id)).length;
+                const isSelected = selectedCount === sectionFieldIds.length;
+                const isPartiallySelected = selectedCount > 0 && !isSelected;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-pressed={isSelected}
+                    className={`${isSelected ? 'selected' : ''} ${isPartiallySelected ? 'partially-selected' : ''}`.trim()}
+                    onClick={() => {
+                      setProfileSection?.(value);
+                      toggleProfileSection?.(value);
+                    }}
+                  >
+                    <strong>{label}</strong>
+                    <span>{isSelected ? 'Included' : isPartiallySelected ? 'Partially included' : 'Not included'}</span>
+                  </button>
+                );
+              })}
             </div>
           )}
-          <div className="growth-metric-cards profile-metric-cards">
-            {profilePageFields.map(([id, label, description]) => (
-              <label key={id} className={profileMetrics.includes(id) ? 'selected' : ''}>
-                <input type="checkbox" name="profile-metric" checked={profileMetrics.includes(id)} onChange={() => toggleProfileMetric(id)} />
-                <strong>{label}</strong>
-                <span>{description}</span>
-              </label>
-            ))}
-          </div>
           <p className="progress-report-note">Profile values come from the Beneficiary module. Child baselines use birth weight and birth length; mother baselines use prenatal weight and height.</p>
         </>
       ) : reportCategory === 'program' ? (

@@ -11,6 +11,8 @@ export function ResultsPanel({
   exportingReport,
   resultPeriod,
   setResultPeriod,
+  includeInterpretationColumns,
+  setIncludeInterpretationColumns,
   graphExportRows,
   graphExportFields,
   resultsView,
@@ -49,7 +51,6 @@ export function ResultsPanel({
   changeSort,
   formatCellValue,
   displayBeneficiaryType,
-  displayReportFocus,
   profileGraphFields,
   interpretationMetrics,
   programMetrics,
@@ -143,6 +144,8 @@ export function ResultsPanel({
           exportingReport={exportingReport}
           resultPeriod={resultPeriod}
           setResultPeriod={setResultPeriod}
+          includeInterpretationColumns={includeInterpretationColumns}
+          setIncludeInterpretationColumns={setIncludeInterpretationColumns}
           displaySort={displaySort}
           sortLabel={(label, key) => (
             <button type="button" className="progress-report-sort-button" onClick={() => changeSort(key)}>
