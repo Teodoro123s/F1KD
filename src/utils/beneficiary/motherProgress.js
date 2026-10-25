@@ -28,6 +28,21 @@ export function getMotherTrimesterMonth(gestationalAge, trimester = '') {
   return `Month ${month}`;
 }
 
+export function getMotherGestationalAgeAtDate(mother = {}, visitDate, fallbackWeeks = '') {
+  const lmpDate = formatDateForInput(mother.lmpDate ?? mother.lmp_date ?? mother.lmp);
+  const checkupDate = formatDateForInput(visitDate);
+  if (lmpDate && checkupDate) {
+    const lmp = new Date(`${lmpDate}T00:00:00Z`);
+    const visit = new Date(`${checkupDate}T00:00:00Z`);
+    if (!Number.isNaN(lmp.getTime()) && !Number.isNaN(visit.getTime()) && visit >= lmp) {
+      return String(Math.floor((visit - lmp) / (7 * 24 * 60 * 60 * 1000)));
+    }
+  }
+
+  const fallback = Number.parseInt(fallbackWeeks, 10);
+  return Number.isFinite(fallback) ? String(fallback) : '';
+}
+
 const hasDocumentReference = (mother, nameKeys, pathKeys) => (
   hasMeaningfulValue(firstMeaningfulValue(...nameKeys.map((key) => mother?.[key])))
   && hasMeaningfulValue(firstMeaningfulValue(...pathKeys.map((key) => mother?.[key])))

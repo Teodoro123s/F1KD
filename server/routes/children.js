@@ -542,6 +542,15 @@ router.post('/:id/checkups', async (req, res) => {
     if (!childRows.length) return res.status(404).json({ error: 'Child not found' });
 
     const childId = childRows[0].id;
+    for (const [field, label] of [['weight', 'Weight'], ['height', 'Height']]) {
+      const rawValue = body[field];
+      if (rawValue !== undefined && rawValue !== null && String(rawValue).trim() !== '') {
+        const value = Number(rawValue);
+        if (!Number.isFinite(value) || value < 0) {
+          return res.status(400).json({ error: `${label} cannot be a negative value.` });
+        }
+      }
+    }
     const week = Number(body.week);
     if (!Number.isInteger(week) || week < 1 || week > 48) {
       return res.status(400).json({ error: 'Valid week (1-48) is required' });

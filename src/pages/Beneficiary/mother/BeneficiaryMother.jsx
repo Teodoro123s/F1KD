@@ -811,9 +811,9 @@ export function MotherFormFields({
           </div>
 
           <div className="form-row-3 full-width">
-          {renderField({ id: 'prenatal-weight', label: 'Weight (kg) at Reg', name: 'prenatalWeight', placeholder: 'e.g. 52', required: true, helpText: 'Enter the mother’s measured weight at the first prenatal check-up, in kilograms.' })}
+          {renderField({ id: 'prenatal-weight', label: 'Weight (kg) at Reg', name: 'prenatalWeight', type: 'number', minValue: 0, placeholder: 'e.g. 52', required: true, helpText: 'Enter the mother’s measured weight at the first prenatal check-up, in kilograms.' })}
           {renderField({ id: 'prenatal-bp', label: 'Blood Pressure (BP) at Reg', name: 'prenatalBp', placeholder: 'e.g. 120/80', required: true, customRequired: true, helpText: 'Numbers and one slash only; up to 3 digits on each side.' })}
-          {renderField({ id: 'prenatal-height', label: 'Height (cm) at Reg', name: 'prenatalHeight', placeholder: 'e.g. 150', required: true, helpText: 'Enter height in centimeters; this value is used to calculate the initial BMI.' })}
+          {renderField({ id: 'prenatal-height', label: 'Height (cm) at Reg', name: 'prenatalHeight', type: 'number', minValue: 0, placeholder: 'e.g. 150', required: true, helpText: 'Enter height in centimeters; this value is used to calculate the initial BMI.' })}
           </div>
           <div className="form-row-2 full-width">
             <div className="form-group">

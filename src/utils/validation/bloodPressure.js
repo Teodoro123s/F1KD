@@ -16,3 +16,12 @@ export const getBloodPressureError = (value, { required = true } = {}) => {
   if (systolic <= diastolic) return 'Systolic pressure must be higher than diastolic pressure.';
   return '';
 };
+
+export const getMaternalBloodPressureStatusSuggestion = (value) => {
+  if (getBloodPressureError(value)) return '';
+
+  const [systolic, diastolic] = String(value).trim().split('/').map(Number);
+  if (systolic >= 140 || diastolic >= 90) return 'At Risk';
+  if (systolic < 90 || diastolic < 60 || systolic >= 120 || diastolic >= 80) return 'Needs Follow-up';
+  return 'Normal';
+};

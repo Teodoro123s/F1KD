@@ -607,6 +607,18 @@
 .step-wizard-step.available .step-wizard-step-circle { border-color: #cbd5e1; color: var(--slate-dark); }
 .step-wizard-step:focus-visible { outline: 3px solid rgba(21, 128, 61, 0.18); outline-offset: 4px; border-radius: 50%; }
 
+.view-content .mother-checkup-form select.checkup-field-input.developmental-screening-select.needs-follow-up {
+  border-color: #d97706;
+  background-color: #fffbeb;
+  color: #92400e;
+}
+
+.view-content .mother-checkup-form select.checkup-field-input.developmental-screening-select.at-risk {
+  border-color: #b42318;
+  background-color: #fef2f2;
+  color: #b42318;
+}
+
 /* Monitor fields share the same sizing, borders, and placeholders as the app forms. */
 .mother-checkup-form,
 .child-monitor-form { width: 100%; }

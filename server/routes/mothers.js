@@ -47,6 +47,37 @@ function optionalDate(...values) {
   return firstNonEmpty(...values) || null;
 }
 
+function getNegativeMeasurementError(body, fields) {
+  for (const [label, ...keys] of fields) {
+    const value = firstNonEmpty(...keys.map((key) => body[key]));
+    if (value === '') continue;
+    const number = Number(value);
+    if (!Number.isFinite(number) || number < 0) return `${label} cannot be a negative value.`;
+  }
+  return '';
+}
+
+function getGestationalAgeAtDate(lmpValue, checkupValue, fallbackWeeks) {
+  const dateOnly = (value) => {
+    if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(0, 10);
+    const raw = String(value ?? '').trim();
+    const isoMatch = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (isoMatch) return isoMatch[1];
+    const dmyMatch = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    return dmyMatch ? `${dmyMatch[3]}-${dmyMatch[2]}-${dmyMatch[1]}` : '';
+  };
+  const lmp = dateOnly(lmpValue);
+  const checkupDate = dateOnly(checkupValue);
+  if (lmp && checkupDate) {
+    const lmpTime = Date.parse(`${lmp}T00:00:00Z`);
+    const visitTime = Date.parse(`${checkupDate}T00:00:00Z`);
+    if (Number.isFinite(lmpTime) && Number.isFinite(visitTime) && visitTime >= lmpTime) {
+      return Math.floor((visitTime - lmpTime) / (7 * 24 * 60 * 60 * 1000));
+    }
+  }
+  return fallbackWeeks ?? '';
+}
+
 function normalizeMotherDob(value) {
   const raw = String(value ?? '').trim();
   const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/) || raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
@@ -237,7 +268,7 @@ async function attachClinicalData(mother, includeAuditDetails = false) {
       trimester: row.trimester,
       checkupNumber: row.checkup_number,
       checkupDate: row.checkup_date,
-      gestationalAge: row.gestational_age_weeks,
+      gestationalAge: getGestationalAgeAtDate(mother.lmpDate, row.checkup_date, row.gestational_age_weeks),
       bp: row.blood_pressure,
       weight: row.weight_kg,
       height: row.height_cm,
@@ -482,6 +513,7 @@ router.get('/', async (req, res) => {
       scopeValues,
     );
     const checkupsByMotherId = {};
+    const lmpByMotherId = new Map(rows.map((motherRow) => [Number(motherRow.id), motherRow.lmp_date]));
     for (const row of checkupRows) {
       if (!checkupsByMotherId[row.mother_id]) {
         checkupsByMotherId[row.mother_id] = [
@@ -506,7 +538,11 @@ router.get('/', async (req, res) => {
         trimester: row.trimester,
         checkupNumber: row.checkup_number,
         checkupDate: row.checkup_date,
-        gestationalAge: row.gestational_age_weeks,
+        gestationalAge: getGestationalAgeAtDate(
+          lmpByMotherId.get(Number(row.mother_id)),
+          row.checkup_date,
+          row.gestational_age_weeks,
+        ),
         bp: row.blood_pressure,
         weight: row.weight_kg,
         height: row.height_cm,
@@ -557,6 +593,12 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const b = req.body || {};
+    const measurementError = getNegativeMeasurementError(b, [
+      ['Weight', 'prenatalWeight', 'prenatal_weight', 'weight'],
+      ['Height', 'prenatalHeight', 'prenatal_height', 'height'],
+      ['Fundal height', 'fundalHeight', 'fundal_height'],
+    ]);
+    if (measurementError) return res.status(400).json({ error: measurementError });
     const philhealthMember = b.philhealthMember === true || b.philhealth_member === true
       || b.philhealth_member === 1 || b.philhealth_member === '1';
     const philhealthNumber = firstNonEmpty(b.philhealthNumber, b.philhealth_number, '');
@@ -1082,6 +1124,12 @@ router.put('/:id', async (req, res) => {
     }
     const { id } = req.params;
     const b = req.body || {};
+    const measurementError = getNegativeMeasurementError(b, [
+      ['Weight', 'prenatalWeight', 'prenatal_weight', 'weight'],
+      ['Height', 'prenatalHeight', 'prenatal_height', 'height'],
+      ['Fundal height', 'fundalHeight', 'fundal_height'],
+    ]);
+    if (measurementError) return res.status(400).json({ error: measurementError });
     const contactNumberError = validateContactNumber(b.contactNumber ?? b.contact_number, 'Contact number');
     if (contactNumberError) return res.status(400).json({ error: contactNumberError });
     const emergencyContactError = validateContactNumber(b.emergencyContact ?? b.emergency_contact, 'Emergency contact number');
@@ -1351,6 +1399,10 @@ router.post('/:id/checkups', async (req, res) => {
   try {
     const { id } = req.params;
     const b = req.body || {};
+    const measurementError = getNegativeMeasurementError(b, [
+      ['Weight', 'weight'], ['Height', 'height'], ['Fundal height', 'fundalHeight', 'fundal_height'],
+    ]);
+    if (measurementError) return res.status(400).json({ error: measurementError });
     const [motherRows] = await pool.query(
       `SELECT id, first_name, last_name, mother_code, community_id, group_id FROM mothers WHERE (id = ? OR mother_code = ?)${req.groupId ? ' AND group_id = ?' : req.schoolId ? ' AND community_id = ?' : ''} LIMIT 1`,
       req.groupId ? [Number(id) || null, id, req.groupId] : req.schoolId ? [Number(id) || null, id, req.schoolId] : [Number(id) || null, id]
