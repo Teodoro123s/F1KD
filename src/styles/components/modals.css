@@ -88,7 +88,10 @@
   background: linear-gradient(180deg, #fff 0%, #fffaf9 100%);
 }
 .community-modal-content .modal-body {
-  padding: 1.25rem 1.5rem 1rem;
+  padding: 1.25rem 1.5rem 1.25rem;
+}
+.community-modal-content .form-group + .form-group {
+  margin-top: 0.75rem;
 }
 .community-modal-content .modal-footer {
   padding: 0 1.5rem 1.5rem;

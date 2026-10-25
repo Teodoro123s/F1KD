@@ -13,7 +13,7 @@ import { apiGetMother, apiSaveMotherCheckup } from '../../api/mothers';
 import { useAuth } from '../../auth/AuthProvider';
 import { canViewAuditSignatures, isHealthWorkerRole } from '../../utils/permissions';
 import { getChildMonitoringProgress } from '../../utils/beneficiary/childProgress';
-import { getMotherMonitoringProgress } from '../../utils/beneficiary/motherProgress';
+import { getMotherMonitoringProgress, getMotherNextCheckupDate } from '../../utils/beneficiary/motherProgress';
 import { hasCheckupThisMonth } from '../../utils/beneficiary/monthlyCheckups';
 import { notifyAction } from '../../components/ActionFeedback';
 import TableSearch from '../../components/ui/TableSearch';
@@ -39,7 +39,7 @@ function getMotherName(mother) {
     .join(' ') || 'Unnamed mother';
 }
 
-function MotherCheckupEditDrawer({ mother, showAuditSignatures, onSave, onClose }) {
+function MotherCheckupEditDrawer({ mother, initialStep, showAuditSignatures, onSave, onClose }) {
   const dialogRef = useRef(null);
   const closeButtonRef = useRef(null);
   const closeDrawer = () => {
@@ -87,6 +87,7 @@ function MotherCheckupEditDrawer({ mother, showAuditSignatures, onSave, onClose 
         <div className="checkup-edit-drawer__content">
           <MotherCheckup
             mother={mother}
+            initialStepOverride={initialStep}
             showAuditSignatures={showAuditSignatures}
             onSave={onSave}
             onCancel={closeDrawer}
@@ -237,9 +238,10 @@ const getDateStatus = (date) => {
 const getMotherMonitoringStatus = (mother, completed, total) => {
   if (completed >= total) return 'Done';
   const checkups = (mother.checkups || []).flat().filter(Boolean);
-  const nextDate = checkups
-    .filter((checkup) => checkup.nextCheckupDate)
-    .sort((a, b) => String(b.nextCheckupDate).localeCompare(String(a.nextCheckupDate)))[0]?.nextCheckupDate;
+  const latestCheckup = checkups[checkups.length - 1];
+  const nextDate = latestCheckup
+    ? latestCheckup.nextCheckupDate || getMotherNextCheckupDate(latestCheckup.checkupDate)
+    : '';
   const dateStatus = getDateStatus(parseDateOnly(nextDate));
   if (dateStatus === 'Missing') return 'Missing';
   if (completed > 0) return 'Pending';
@@ -271,6 +273,7 @@ export default function MonitoringPage() {
   const [motherCheckups, setMotherCheckups] = useState(() => location.state?.mother?.checkups || []);
   const [childCompletedWeeks, setChildCompletedWeeks] = useState(() => location.state?.child?.completedWeeks || []);
   const [editingCheckup, setEditingCheckup] = useState(false);
+  const [editingCheckupStep, setEditingCheckupStep] = useState(null);
   const [editingChildCheckup, setEditingChildCheckup] = useState(false);
   const [statusFilter, setStatusFilter] = useState('All');
   const [monthlyCheckupFilter, setMonthlyCheckupFilter] = useState('All');
@@ -799,8 +802,8 @@ export default function MonitoringPage() {
             <MotherCheckup
               mother={{ ...selectedMother, checkups: motherCheckups }}
               showAuditSignatures={showAuditSignatures}
-              onRequestEdit={() => setEditingCheckup(true)}
-              readOnly
+              onSave={handleSave}
+              onRequestEdit={(step) => { setEditingCheckupStep(step); setEditingCheckup(true); }}
             />
           )}
         </section>
@@ -808,6 +811,7 @@ export default function MonitoringPage() {
       {selectedMother && editingCheckup && (
         <MotherCheckupEditDrawer
           mother={{ ...selectedMother, checkups: motherCheckups }}
+          initialStep={editingCheckupStep}
           showAuditSignatures={showAuditSignatures}
           onSave={async (payload) => {
             const saved = await handleSave(payload);

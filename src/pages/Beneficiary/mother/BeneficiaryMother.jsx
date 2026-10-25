@@ -8,6 +8,7 @@ import { isBloodPressureInput } from '../../../utils/validation/bloodPressure';
 import { getLatestEligibleMotherDob } from '../../../utils/beneficiary/motherIdentity';
 import { calculateTotalChildren } from '../../../utils/beneficiary/maternalBirthCounts';
 import { calculateNaegeleEdd } from '../../../utils/beneficiary/maternalPregnancy';
+import { getMotherTrimesterMonth } from '../../../utils/beneficiary/motherProgress';
 import { MATERNAL_VACCINE_SEQUENCES } from '../../../utils/beneficiary/maternalVaccineDates';
 import FieldInfoTooltip from '../../../components/ui/FieldInfoTooltip';
 import FileUploadField from '../../../components/ui/FileUploadField';
@@ -802,10 +803,11 @@ export function MotherFormFields({
             <span>Override the calculated EDD manually</span>
           </label>
 
-          <div className="form-row-3 full-width">
+          <div className="form-row-4 full-width">
           {renderField({ id: 'prenatal-reg-date', label: 'Date of First Prenatal Check-up', name: 'prenatalRegDate', type: 'date', required: true })}
           {renderField({ id: 'prenatal-gest-age', label: 'Gestational Age at Reg (weeks)', name: 'gestationalAge', disabled: true })}
           {renderField({ id: 'mother-trimester', label: 'Trimester', name: 'trimester', disabled: true })}
+          {renderField({ id: 'prenatal-trimester-month', label: 'Month of Trimester', name: 'trimesterMonth', valueOverride: getMotherTrimesterMonth(form.gestationalAge, form.trimester), disabled: true, placeholder: 'Calculated from weeks' })}
           </div>
 
           <div className="form-row-3 full-width">

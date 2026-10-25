@@ -4,7 +4,7 @@ import DateInput from '../../../components/ui/DateInput';
 import AuditSignatures from '../../../components/ui/AuditSignatures';
 import FieldInfoTooltip from '../../../components/ui/FieldInfoTooltip';
 import { formatDateForDisplay, normalizeDateValue } from '../../../utils/formatting/dateFormat';
-import { getMotherCheckupDate, getMotherMonitoringStartIndex, getMotherNextCheckupDate } from '../../../utils/beneficiary/motherProgress';
+import { getMotherCheckupDate, getMotherMonitoringStartIndex, getMotherNextCheckupDate, getMotherTrimesterMonth } from '../../../utils/beneficiary/motherProgress';
 import { formatCurrencyAmount, normalizeCurrencyAmount, sanitizeCurrencyAmount } from '../../../utils/validation/currencyAmount';
 import { getBloodPressureError, isBloodPressureInput } from '../../../utils/validation/bloodPressure';
 import { useStepNavigation } from '../../../utils/navigation/useStepNavigation';
@@ -168,6 +168,7 @@ export default function MotherCheckup({
   onSave = () => {},
   onCancel = () => {},
   onRequestEdit,
+  initialStepOverride,
   editing = false,
   readOnly = false,
   forceEdit = false,
@@ -178,7 +179,7 @@ export default function MotherCheckup({
   const monitoringStart = getMonitoringStartDetails(mother);
   const monitoringStartStep = getMotherMonitoringStartIndex(mother);
   const initialStep = getInitialStep(mother.checkups, monitoringStartStep);
-  const [activeStep, setActiveStep] = useState(initialStep);
+  const [activeStep, setActiveStep] = useState(() => Number.isInteger(initialStepOverride) ? initialStepOverride : initialStep);
   const previousMotherId = useRef(mother.id || mother.motherId);
   const stepFormDraftsRef = useRef(new Map());
   const [formState, setFormState] = useState(() => createInitialFormState(mother, getCheckupForStep(mother, initialStep), false, getPreviousCheckupForStep(mother, initialStep)));
@@ -193,9 +194,11 @@ export default function MotherCheckup({
     if (previousMotherId.current !== motherId) {
       previousMotherId.current = motherId;
       stepFormDraftsRef.current.clear();
-      setActiveStep(getInitialStep(mother.checkups, getMotherMonitoringStartIndex(mother)));
+      setActiveStep(Number.isInteger(initialStepOverride)
+        ? initialStepOverride
+        : getInitialStep(mother.checkups, getMotherMonitoringStartIndex(mother)));
     }
-  }, [mother]);
+  }, [mother, initialStepOverride]);
 
   useEffect(() => {
     const firstIncomplete = getFirstIncompleteStep(mother.checkups, getMotherMonitoringStartIndex(mother));
@@ -350,7 +353,15 @@ export default function MotherCheckup({
 
   const resetForm = () => {
     stepFormDraftsRef.current.delete(activeStep);
-    setFormState(createInitialFormState(mother, getCheckupForStep(mother, activeStep)));
+    const hasSavedCheckups = Array.isArray(mother.checkups) && mother.checkups.flat().some(Boolean);
+    const isRegistrationStep = activeStep === getMotherMonitoringStartIndex(mother);
+    setFormState(createInitialFormState(
+      mother,
+      getCheckupForStep(mother, activeStep),
+      false,
+      getPreviousCheckupForStep(mother, activeStep),
+      !hasSavedCheckups && isRegistrationStep,
+    ));
     setBloodPressureTouched(false);
     onCancel();
   };
@@ -373,8 +384,12 @@ export default function MotherCheckup({
           <div className="checkup-card-body">
             <div className="checkup-section-heading">
               <div className="checkup-section-title">Pregnancy Record</div>
-              {onRequestEdit && (
-                <button type="button" className="btn-primary" onClick={onRequestEdit}>
+              {onRequestEdit && isCompleted && (
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => onRequestEdit(activeStep)}
+                >
                   {editing ? 'Cancel edit' : 'Edit checkup'}
                 </button>
               )}
@@ -412,6 +427,21 @@ export default function MotherCheckup({
                   placeholder="Enter weeks"
                   onChange={(e) => updateField('gestationalAge')(e.target.value)}
                   readOnly={Boolean(mother.lmpDate)}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="checkup-field-label" htmlFor="trimester-month">
+                  Month of Trimester
+                  <FieldInfoTooltip content="Calculated from gestational age in four-week periods within the trimester." />
+                </label>
+                <input
+                  id="trimester-month"
+                  type="text"
+                  className="checkup-field-input"
+                  value={getMotherTrimesterMonth(gestationalAge)}
+                  placeholder="Calculated from weeks"
+                  readOnly
                 />
               </div>
 

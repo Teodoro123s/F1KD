@@ -1,7 +1,13 @@
 import React, { useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { capitalizeNameValue } from '../../utils/formatting/nameFormat';
 import useModalAccessibility from '../../components/ui/useModalAccessibility';
+
+// Keep a trailing space while the user is typing so they can enter multiword names.
+function formatCommunityNameInput(value) {
+  return String(value ?? '')
+    .replace(/\s+/g, ' ')
+    .replace(/(^|\s|[-'])([a-z])/g, (match, prefix, character) => `${prefix}${character.toUpperCase()}`);
+}
 
 export function ConfirmActionModal({ show, title, message, confirmLabel = 'OK', onConfirm, onCancel, isSubmitting = false }) {
   const titleId = useId();
@@ -72,20 +78,24 @@ export function CreateCommunityModal({ showModal, onClose, communityForm, setCom
   return (
     <ModalShell title="Create School" onClose={onClose} onSubmit={handleCreateCommunity} submitLabel="Create" isSubmitting={isSubmitting} notification={notification}>
       <div className="form-group">
-        <label className="form-label" htmlFor="comm-name">School Name</label>
+        <label className="form-label" htmlFor="comm-name">School Name <span className="form-required-indicator" aria-hidden="true">*</span></label>
         <input
           id="comm-name"
           type="text"
           className="form-input"
           placeholder="e.g. San Isidro High School"
           value={communityForm.name}
-          onChange={(e) => setCommunityForm({ ...communityForm, name: capitalizeNameValue(e.target.value) })}
+          onChange={(e) => setCommunityForm({ ...communityForm, name: formatCommunityNameInput(e.target.value) })}
+          maxLength={150}
+          pattern=".*\S.*"
+          title="Enter a school name with at least one non-space character."
+          aria-required="true"
           required
           autoFocus
         />
       </div>
       <div className="form-group">
-        <label className="form-label" htmlFor="comm-coordinator">Assigned Community Coordinator</label>
+        <label className="form-label" htmlFor="comm-coordinator">Assigned Community Coordinator (optional)</label>
         <select
           id="comm-coordinator"
           className="form-select"
@@ -113,19 +123,23 @@ export function EditCommunityModal({ showModal, onClose, communityForm, setCommu
   return (
     <ModalShell title="Edit School" onClose={onClose} onSubmit={handleEditCommunity} submitLabel="Save Changes" isSubmitting={isSubmitting} notification={notification}>
       <div className="form-group">
-        <label className="form-label" htmlFor="edit-comm-name">School Name</label>
+        <label className="form-label" htmlFor="edit-comm-name">School Name <span className="form-required-indicator" aria-hidden="true">*</span></label>
         <input
           id="edit-comm-name"
           type="text"
           className="form-input"
           value={communityForm.name}
-          onChange={(e) => setCommunityForm({ ...communityForm, name: capitalizeNameValue(e.target.value) })}
+          onChange={(e) => setCommunityForm({ ...communityForm, name: formatCommunityNameInput(e.target.value) })}
+          maxLength={150}
+          pattern=".*\S.*"
+          title="Enter a school name with at least one non-space character."
+          aria-required="true"
           required
           autoFocus
         />
       </div>
       <div className="form-group">
-        <label className="form-label" htmlFor="edit-comm-coordinator">Assigned Community Coordinator</label>
+        <label className="form-label" htmlFor="edit-comm-coordinator">Assigned Community Coordinator (optional)</label>
         <select
           id="edit-comm-coordinator"
           className="form-select"
@@ -156,7 +170,7 @@ export function CreateBatchModal({ showModal, onClose, batchForm, setBatchForm, 
           className="form-input"
           placeholder="e.g. Batch 1"
           value={batchForm.name}
-          onChange={(e) => setBatchForm({ ...batchForm, name: capitalizeNameValue(e.target.value) })}
+          onChange={(e) => setBatchForm({ ...batchForm, name: formatCommunityNameInput(e.target.value) })}
           required
           autoFocus
         />
@@ -206,7 +220,7 @@ export function EditBatchModal({ showModal, onClose, batchForm, setBatchForm, ha
           type="text"
           className="form-input"
           value={batchForm.name}
-          onChange={(e) => setBatchForm({ ...batchForm, name: capitalizeNameValue(e.target.value) })}
+          onChange={(e) => setBatchForm({ ...batchForm, name: formatCommunityNameInput(e.target.value) })}
           required
           autoFocus
         />
@@ -245,7 +259,7 @@ export function CreateGroupModal({ showModal, onClose, groupForm, setGroupForm, 
           className="form-input"
           placeholder="e.g. Group Alpha"
           value={groupForm.name}
-          onChange={(e) => setGroupForm({ ...groupForm, name: capitalizeNameValue(e.target.value) })}
+          onChange={(e) => setGroupForm({ ...groupForm, name: formatCommunityNameInput(e.target.value) })}
           required
           autoFocus
         />
@@ -283,7 +297,7 @@ export function EditGroupModal({ showModal, onClose, groupForm, setGroupForm, ha
           type="text"
           className="form-input"
           value={groupForm.name}
-          onChange={(e) => setGroupForm({ ...groupForm, name: capitalizeNameValue(e.target.value) })}
+          onChange={(e) => setGroupForm({ ...groupForm, name: formatCommunityNameInput(e.target.value) })}
           required
           autoFocus
         />
