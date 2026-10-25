@@ -547,6 +547,7 @@ router.get('/', async (req, res) => {
         weight: row.weight_kg,
         height: row.height_cm,
         bmi: row.bmi,
+        developmentalStatus: row.developmental_status || '',
         nutritionalStatus: row.nutritional_status,
         fundalHeight: row.fundal_height_cm,
         fhr: row.fetal_heart_rate_bpm,
