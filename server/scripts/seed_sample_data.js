@@ -176,6 +176,10 @@ function buildSeedPlan() {
             groupCode: group.code,
             schoolCode: group.schoolCode,
             birthDate,
+            birthWeight: (3 + (childNumber % 5) * 0.1).toFixed(2),
+            birthLength: (48 + (childNumber % 4) * 0.5).toFixed(1),
+            headCircumference: (33.5 + (childNumber % 4) * 0.4).toFixed(1),
+            chestCircumference: (31.5 + (childNumber % 4) * 0.4).toFixed(1),
           };
           children.push(child);
           CHILD_MONITORING_MONTHS.forEach((month) => {
@@ -439,11 +443,14 @@ async function seedSampleData() {
       const childId = await insertOrGetId(
         connection,
         `INSERT INTO children (child_code, mother_id, community_id, group_id, batch_id,
-           first_name, last_name, birth_date, gender, health_status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           first_name, last_name, birth_date, birth_weight, birth_length,
+           head_circumference, chest_circumference, gender, health_status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id), mother_id = VALUES(mother_id),
            community_id = VALUES(community_id), group_id = VALUES(group_id), batch_id = VALUES(batch_id),
            first_name = VALUES(first_name), last_name = VALUES(last_name), birth_date = VALUES(birth_date),
+           birth_weight = VALUES(birth_weight), birth_length = VALUES(birth_length),
+           head_circumference = VALUES(head_circumference), chest_circumference = VALUES(chest_circumference),
            gender = VALUES(gender), health_status = VALUES(health_status)`,
         [
           child.code,
@@ -454,6 +461,10 @@ async function seedSampleData() {
           child.firstName,
           child.lastName,
           child.birthDate,
+          child.birthWeight,
+          child.birthLength,
+          child.headCircumference,
+          child.chestCircumference,
           Number(child.code.slice(-2)) % 2 === 0 ? 'Male' : 'Female',
           'Healthy',
         ],

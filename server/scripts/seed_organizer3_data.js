@@ -1,8 +1,10 @@
 require('dotenv').config();
+const { readFileSync } = require('node:fs');
+const path = require('node:path');
 
-const SCHOOL_CODE = 'DEMO-SCH-03';
+const SCHOOL_CODE = 'COM-0001';
 const GROUPS = [
-  { code: 'O3-GRP-01', name: 'Organizer 3 Demo Group 1' },
+  { code: 'GRP-0001', name: 'Organizer 3 Demo Group 1' },
   { code: 'O3-GRP-02', name: 'Organizer 3 Demo Group 2' },
 ];
 const BATCHES = [
@@ -14,13 +16,67 @@ const BENEFICIARIES = [
   { code: 'O3-M-002', firstName: 'Bituin', lastName: 'Sample', groupIndex: 0 },
   { code: 'O3-M-003', firstName: 'Dalisay', lastName: 'Sample', groupIndex: 1 },
   { code: 'O3-M-004', firstName: 'Hiraya', lastName: 'Sample', groupIndex: 1 },
+  { code: 'O3-M-005', firstName: 'Ligaya', lastName: 'Sample', groupIndex: 0 },
+  { code: 'O3-M-006', firstName: 'Mayumi', lastName: 'Sample', groupIndex: 0 },
+  { code: 'O3-M-007', firstName: 'Tala', lastName: 'Sample', groupIndex: 0 },
+  { code: 'O3-M-008', firstName: 'Banaag', lastName: 'Sample', groupIndex: 1 },
+  { code: 'O3-M-009', firstName: 'Diwa', lastName: 'Sample', groupIndex: 1 },
 ];
 const CHILDREN = [
-  { code: 'O3-C-001', firstName: 'Araw', gender: 'Female', motherCode: 'O3-M-001', ageMonths: 6 },
-  { code: 'O3-C-002', firstName: 'Banaag', gender: 'Male', motherCode: 'O3-M-002', ageMonths: 12 },
-  { code: 'O3-C-003', firstName: 'Diwa', gender: 'Female', motherCode: 'O3-M-003', ageMonths: 18 },
-  { code: 'O3-C-004', firstName: 'Giliw', gender: 'Male', motherCode: 'O3-M-004', ageMonths: 24 },
+  { code: 'O3-C-001', firstName: 'Araw', gender: 'Female', motherCode: 'O3-M-001', ageMonths: 24, birthWeight: '3.10', birthLength: '49.0', headCircumference: '34.0', chestCircumference: '32.0' },
+  { code: 'O3-C-002', firstName: 'Banaag', gender: 'Male', motherCode: 'O3-M-002', ageMonths: 24, birthWeight: '3.20', birthLength: '49.5', headCircumference: '34.4', chestCircumference: '32.4' },
+  { code: 'O3-C-003', firstName: 'Diwa', gender: 'Female', motherCode: 'O3-M-003', ageMonths: 24, birthWeight: '3.00', birthLength: '48.5', headCircumference: '33.8', chestCircumference: '31.8' },
+  { code: 'O3-C-004', firstName: 'Giliw', gender: 'Male', motherCode: 'O3-M-004', ageMonths: 24, birthWeight: '3.30', birthLength: '50.0', headCircumference: '34.8', chestCircumference: '32.8' },
+  { code: 'O3-C-005', firstName: 'Luntian', gender: 'Female', motherCode: 'O3-M-001', ageMonths: 24, birthWeight: '3.20', birthLength: '49.5', headCircumference: '34.4', chestCircumference: '32.4' },
+  { code: 'O3-C-006', firstName: 'Sinag', gender: 'Male', motherCode: 'O3-M-005', ageMonths: 24, birthWeight: '3.10', birthLength: '49.0', headCircumference: '34.0', chestCircumference: '32.0' },
+  { code: 'O3-C-007', firstName: 'Sinta', gender: 'Female', motherCode: 'O3-M-006', ageMonths: 24, birthWeight: '3.30', birthLength: '50.0', headCircumference: '34.8', chestCircumference: '32.8' },
+  { code: 'O3-C-008', firstName: 'Ulila', gender: 'Male', motherCode: 'O3-M-003', ageMonths: 24, birthWeight: '3.00', birthLength: '48.5', headCircumference: '33.8', chestCircumference: '31.8' },
+  { code: 'O3-C-009', firstName: 'Hiraya', gender: 'Female', motherCode: 'O3-M-008', ageMonths: 24, birthWeight: '3.20', birthLength: '49.5', headCircumference: '34.4', chestCircumference: '32.4' },
+  { code: 'O3-C-010', firstName: 'Kidlat', gender: 'Male', motherCode: 'O3-M-009', ageMonths: 24, birthWeight: '3.10', birthLength: '49.0', headCircumference: '34.0', chestCircumference: '32.0' },
 ];
+const CHILD_MONITORING_AGES = Array.from({ length: 24 }, (_, index) => index + 1);
+const GROWTH_SCENARIOS = [
+  { weightZ: 0, lengthZ: 0 },
+  { weightZ: -2.5, lengthZ: -0.5 },
+  { weightZ: 0.5, lengthZ: -2.5 },
+  { weightZ: -2.5, lengthZ: -2.5 },
+  { weightZ: 1, lengthZ: 0.5 },
+  { weightZ: -3.2, lengthZ: -0.5 },
+  { weightZ: 2.5, lengthZ: 2.5 },
+  { weightZ: 0, lengthZ: 0 },
+  { weightZ: -1.5, lengthZ: 1 },
+  { weightZ: 1.5, lengthZ: -1.5 },
+];
+
+function getMonitoringMonths(child) {
+  return CHILD_MONITORING_AGES.filter((month) => month <= child.ageMonths);
+}
+
+function loadLmsReference(filename) {
+  const [headerLine, ...lines] = readFileSync(path.join(__dirname, '..', 'data', filename), 'utf8').trim().split(/\r?\n/);
+  const columns = Object.fromEntries(headerLine.trim().split(/\s+/).map((name, index) => [name, index]));
+  return new Map(lines.map((line) => {
+    const values = line.trim().split(/\s+/);
+    const key = `${values[columns.sex]}:${values[columns.age]}`;
+    return [key, {
+      l: Number(values[columns.l]),
+      m: Number(values[columns.m]),
+      s: Number(values[columns.s]),
+    }];
+  }));
+}
+
+const WEIGHT_FOR_AGE = loadLmsReference('who-weianthro.txt');
+const LENGTH_FOR_AGE = loadLmsReference('who-lenanthro.txt');
+
+function measurementAtZScore(reference, sex, ageInDays, zScore) {
+  const lms = reference.get(`${sex === 'Male' ? 1 : 2}:${ageInDays}`);
+  if (!lms) throw new Error(`Missing WHO reference for ${sex}, age ${ageInDays} days.`);
+  const { l, m, s } = lms;
+  return Math.abs(l) < 1e-8
+    ? m * Math.exp(s * zScore)
+    : m * (1 + l * s * zScore) ** (1 / l);
+}
 
 function dateOffset(days) {
   const date = new Date();
@@ -38,6 +94,10 @@ function dateMonthsAgo(months) {
   return date.toISOString().slice(0, 10);
 }
 
+function daysBetween(startDate, endDate) {
+  return Math.round((Date.parse(`${endDate}T00:00:00Z`) - Date.parse(`${startDate}T00:00:00Z`)) / 86400000);
+}
+
 async function upsertId(connection, sql, values) {
   const [result] = await connection.query(sql, values);
   return result.insertId;
@@ -51,14 +111,21 @@ async function seedOrganizer3Data() {
   try {
     await connection.beginTransaction();
 
-    const [schools] = await connection.query(
+    let [schools] = await connection.query(
       `SELECT c.id, c.name, c.coordinator_id
        FROM communities c
        WHERE c.community_code = ?`,
       [SCHOOL_CODE],
     );
-    if (schools.length !== 1) {
-      throw new Error(`Expected exactly one community with code ${SCHOOL_CODE}.`);
+    if (!schools.length) {
+      const schoolId = await upsertId(
+        connection,
+        `INSERT INTO communities (community_code, name, area)
+         VALUES (?, 'Organizer 3 Demo School', 'Demo Area')
+         ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id), name = VALUES(name), area = VALUES(area)`,
+        [SCHOOL_CODE],
+      );
+      schools = [{ id: schoolId, name: 'Organizer 3 Demo School', coordinator_id: null }];
     }
     const school = schools[0];
     const [organizers] = await connection.query(
@@ -66,33 +133,38 @@ async function seedOrganizer3Data() {
        WHERE id = ? AND school_id = ? AND role = 'Community Organizer' AND status = 'Active'`,
       [school.coordinator_id, school.id],
     );
-    if (organizers.length !== 1) {
-      throw new Error(`${SCHOOL_CODE} does not have an active assigned Community Organizer.`);
-    }
-    const organizerId = organizers[0].id;
+    const organizerId = organizers[0]?.id ?? null;
 
     const groupIds = new Map();
     for (const group of GROUPS) {
       const groupId = await upsertId(
         connection,
         `INSERT INTO \`groups\` (group_code, community_id, name, leader, members_count, status)
-         VALUES (?, ?, ?, ?, 2, 'Active')
+         VALUES (?, ?, ?, ?, ?, 'Active')
          ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id), community_id = VALUES(community_id),
            name = VALUES(name), members_count = VALUES(members_count), status = VALUES(status)`,
-        [group.code, school.id, group.name, 'Demo Group Leader'],
+        [
+          group.code,
+          school.id,
+          group.name,
+          'Demo Group Leader',
+          BENEFICIARIES.filter((mother) => mother.groupIndex === GROUPS.indexOf(group)).length,
+        ],
       );
       groupIds.set(group.code, groupId);
     }
 
     const batchIds = new Map();
     for (const batch of BATCHES) {
+      const groupIndex = GROUPS.findIndex((group) => group.code === batch.groupCode);
+      const mothersInBatch = BENEFICIARIES.filter((mother) => mother.groupIndex === groupIndex).length;
       const batchId = await upsertId(
         connection,
         `INSERT INTO batches (batch_code, community_id, name, records, progress, status)
-         VALUES (?, ?, ?, 2, 0, 'Active')
+         VALUES (?, ?, ?, ?, 0, 'Active')
          ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id), community_id = VALUES(community_id),
            name = VALUES(name), records = VALUES(records), progress = VALUES(progress), status = VALUES(status)`,
-        [batch.code, school.id, batch.name],
+        [batch.code, school.id, batch.name, mothersInBatch],
       );
       batchIds.set(batch.code, batchId);
       await connection.query('DELETE FROM group_batch WHERE batch_id = ?', [batchId]);
@@ -192,11 +264,14 @@ async function seedOrganizer3Data() {
         connection,
         `INSERT INTO children (
            child_code, mother_id, community_id, group_id, batch_id, first_name, last_name,
-           birth_date, gender, health_status, progress
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Healthy', 0)
+           birth_date, birth_weight, birth_length, head_circumference, chest_circumference,
+           gender, health_status, progress
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Healthy', 0)
          ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id), mother_id = VALUES(mother_id),
            community_id = VALUES(community_id), group_id = VALUES(group_id), batch_id = VALUES(batch_id),
            first_name = VALUES(first_name), last_name = VALUES(last_name), birth_date = VALUES(birth_date),
+           birth_weight = VALUES(birth_weight), birth_length = VALUES(birth_length),
+           head_circumference = VALUES(head_circumference), chest_circumference = VALUES(chest_circumference),
            gender = VALUES(gender), health_status = VALUES(health_status)`,
         [
           child.code,
@@ -207,48 +282,66 @@ async function seedOrganizer3Data() {
           child.firstName,
           mother.lastName,
           dateMonthsAgo(child.ageMonths),
+          child.birthWeight,
+          child.birthLength,
+          child.headCircumference,
+          child.chestCircumference,
           child.gender,
         ],
       );
       childIds.set(child.code, childId);
 
-      const visitDate = dateMonthsAgo(child.ageMonths);
-      const weight = (3.2 + child.ageMonths * 0.45 + (index % 3) * 0.1).toFixed(2);
-      const height = (50 + child.ageMonths * 1.1 + (index % 3) * 0.2).toFixed(1);
-      const [existingCheckups] = await connection.query(
-        'SELECT id FROM child_checkups WHERE child_id = ? AND week_number = ? ORDER BY id LIMIT 1',
-        [childId, child.ageMonths],
-      );
-      const checkupValues = [
-        dateOffset(30),
-        visitDate,
-        weight,
-        height,
-        (34 + child.ageMonths * 0.4).toFixed(1),
-        'Normal',
-        'F1KD Demo Health Center',
-        'Synthetic demonstration record; not a clinical record.',
-        organizerId,
-        organizerId,
-        organizerId,
-      ];
-      if (existingCheckups.length) {
-        await connection.query(
-          `UPDATE child_checkups SET next_checkup_date = ?, visit_date = ?, weight = ?, height = ?,
-             head_circumference = ?, developmental_status = ?, service_provider = ?, notes = ?,
-             recorded_by_user_id = ?, created_by_user_id = ?, updated_by_user_id = ?
-           WHERE id = ?`,
-          [...checkupValues, existingCheckups[0].id],
+      const birthDate = dateMonthsAgo(child.ageMonths);
+      const scenario = GROWTH_SCENARIOS[index];
+      const childCheckupMonths = getMonitoringMonths(child);
+      for (const checkupMonth of childCheckupMonths) {
+        const visitDate = dateMonthsAgo(child.ageMonths - checkupMonth);
+        const ageInDays = daysBetween(birthDate, visitDate);
+        const weight = measurementAtZScore(WEIGHT_FOR_AGE, child.gender, ageInDays, scenario.weightZ).toFixed(2);
+        const height = measurementAtZScore(LENGTH_FOR_AGE, child.gender, ageInDays, scenario.lengthZ).toFixed(1);
+        const nextCheckupDate = checkupMonth === child.ageMonths
+          ? dateOffset(30)
+          : dateMonthsAgo(child.ageMonths - checkupMonth - 1);
+        const [existingCheckups] = await connection.query(
+          'SELECT id FROM child_checkups WHERE child_id = ? AND week_number = ? ORDER BY id LIMIT 1',
+          [childId, checkupMonth],
         );
-      } else {
-        await connection.query(
-          `INSERT INTO child_checkups (
-             child_id, week_number, next_checkup_date, visit_date, weight, height,
-             head_circumference, developmental_status, service_provider, notes,
-             recorded_by_user_id, created_by_user_id, updated_by_user_id
-           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [childId, child.ageMonths, ...checkupValues],
-        );
+        const checkupValues = [
+          nextCheckupDate,
+          visitDate,
+          weight,
+          height,
+          (34 + checkupMonth * 0.4).toFixed(1),
+          checkupMonth <= 6 ? 'Yes' : 'No',
+          'Normal',
+          'F1KD Demo Health Center',
+          'Health Center',
+          `Synthetic WHO-LMS example: target weight-for-age z ${scenario.weightZ.toFixed(1)}, length-for-age z ${scenario.lengthZ.toFixed(1)}; not a clinical record.`,
+          organizerId,
+          organizerId,
+          organizerId,
+        ];
+        if (existingCheckups.length) {
+          await connection.query(
+            `UPDATE child_checkups SET next_checkup_date = ?, visit_date = ?, weight = ?, height = ?,
+               head_circumference = ?, exclusive_breastfeeding = ?, developmental_status = ?,
+               service_provider = ?, facility_type = ?, laboratory_assistance_provided = FALSE,
+               referred_to_hospital = FALSE, notes = ?,
+               recorded_by_user_id = ?, created_by_user_id = ?, updated_by_user_id = ?
+             WHERE id = ?`,
+            [...checkupValues, existingCheckups[0].id],
+          );
+        } else {
+          await connection.query(
+            `INSERT INTO child_checkups (
+               child_id, week_number, next_checkup_date, visit_date, weight, height,
+               head_circumference, exclusive_breastfeeding, developmental_status, service_provider,
+               facility_type, laboratory_assistance_provided, referred_to_hospital, notes,
+               recorded_by_user_id, created_by_user_id, updated_by_user_id
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, FALSE, FALSE, ?, ?, ?, ?)`,
+            [childId, checkupMonth, ...checkupValues],
+          );
+        }
       }
       await connection.query('UPDATE children SET progress = 100 WHERE id = ?', [childId]);
     }
@@ -293,16 +386,23 @@ async function seedOrganizer3Data() {
            WHERE program_id = ? AND scope_type = 'Batch' AND scope_name = ? ORDER BY id LIMIT 1`,
           [programId, batch.name],
         );
+        const batchBeneficiaries = program.beneficiaryType === 'Mother'
+          ? BENEFICIARIES.filter((mother) => mother.groupIndex === GROUPS.findIndex((group) => group.code === batch.groupCode))
+          : CHILDREN.filter((child) => {
+            const mother = BENEFICIARIES.find((row) => row.code === child.motherCode);
+            return mother && GROUPS[mother.groupIndex].code === batch.groupCode;
+          });
+        const receivedCount = Math.ceil(batchBeneficiaries.length / 2);
         if (clusters.length) {
           await connection.query(
-            'UPDATE program_clusters SET beneficiaries = 2, received = 1 WHERE id = ?',
-            [clusters[0].id],
+            'UPDATE program_clusters SET beneficiaries = ?, received = ? WHERE id = ?',
+            [batchBeneficiaries.length, receivedCount, clusters[0].id],
           );
         } else {
           await connection.query(
             `INSERT INTO program_clusters (program_id, scope_type, scope_name, beneficiaries, received)
-             VALUES (?, 'Batch', ?, 2, 1)`,
-            [programId, batch.name],
+             VALUES (?, 'Batch', ?, ?, ?)`,
+            [programId, batch.name, batchBeneficiaries.length, receivedCount],
           );
         }
       }
@@ -336,7 +436,8 @@ async function seedOrganizer3Data() {
     console.log(
       `Seeded ${SCHOOL_CODE}: ${GROUPS.length} groups, ${BATCHES.length} batches, `
       + `${BENEFICIARIES.length} mothers, ${CHILDREN.length} children, `
-      + `${BENEFICIARIES.length * 2} maternal checkups, ${CHILDREN.length} child checkups, and `
+      + `${BENEFICIARIES.length * 2} maternal checkups, `
+      + `${CHILDREN.reduce((total, child) => total + getMonitoringMonths(child).length, 0)} child checkups, and `
       + `${programs.length} scoped demo programs.`,
     );
   } catch (error) {

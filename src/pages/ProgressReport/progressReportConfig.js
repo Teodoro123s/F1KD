@@ -204,15 +204,15 @@ export const addGrowthScoresBeforeInterpretations = (fields) => [
 }, fields);
 
 export const GROWTH_METRICS = [
-  ['weightForLengthInterpretation', 'Weight-for-Length/Height', 'WHO uses Weight-for-Length below 24 months and Weight-for-Height from 24 months.'],
   ['weightForAgeInterpretation', 'Weight-for-Age', 'WHO indicator for low weight relative to exact age; it does not classify overweight.'],
-  ['lengthForAgeInterpretation', 'Length/Height-for-Age', 'WHO indicator using exact age in days and sex-specific LMS references.'],
+  ['lengthForAgeInterpretation', 'Length-for-Age', 'Matches the Child Check-up field; WHO uses length before 24 months and standing height from 24 months.'],
+  ['weightForLengthInterpretation', 'Weight-for-Length', 'Matches the Child Check-up field; WHO switches to weight-for-height from 24 months.'],
 ];
 
 export const WHO_NUMERIC_GROWTH_METRICS = [
-  ['weightForLengthZScore', 'Weight-for-Length/Height Z-Score', 'WHO LMS z-score for weight relative to length/height.'],
   ['weightForAgeZScore', 'Weight-for-Age Z-Score', 'WHO LMS z-score for weight relative to age.'],
-  ['lengthForAgeZScore', 'Length/Height-for-Age Z-Score', 'WHO LMS z-score for length/height relative to age.'],
+  ['lengthForAgeZScore', 'Length-for-Age Z-Score', 'WHO LMS z-score for length relative to age; height is used from 24 months.'],
+  ['weightForLengthZScore', 'Weight-for-Length Z-Score', 'WHO LMS z-score for weight relative to length; height is used from 24 months.'],
 ];
 
 export const INTERPRETATION_METRICS = new Set(GROWTH_METRICS.map(([id]) => id));

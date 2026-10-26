@@ -24,6 +24,8 @@ It also creates a shared Admin and Partner, two school-specific Community Organi
 
 The seed only updates records with its `DEMO-*` codes, its named sample program, and its `@f1kd.test` accounts. It rebuilds maternal checkups for those demo mothers to keep their generated totals exact; it does not delete other application data. Run the focused seed-plan test with `npm --prefix server run test:sample-seed`.
 
+For a smaller dataset visible to the sample Community Organizer, run `npm --prefix server run seed:organizer3`. It seeds the existing `COM-0001` school, reuses its `GRP-0001` group, and creates or refreshes only the `O3-*` sample records plus a second group and two batches (one per group). The dataset contains 9 mothers, 10 children, and 240 child check-ups: one complete Month 1–24 history per child. Each visit includes a date, next date, weight, length, head circumference, breastfeeding status, developmental status, provider, facility, and synthetic WHO-LMS target z-scores in its notes. The samples exercise normal, low, and high growth-screening results; they are demo data, not service or clinical records. The seed does not delete unrelated application data. An assigned Community Organizer is optional; without one, synthetic activity records have no staff attribution.
+
 Available endpoints:
 - `GET /api/health` — health check
 - `GET /api/users` — list users

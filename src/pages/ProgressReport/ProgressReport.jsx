@@ -873,7 +873,7 @@ export default function ProgressReport() {
     if (subtitle && displayReportCategory === 'monitor' && beneficiaryType === 'mother') subtitle.textContent = 'Latest mother BMI measurements · values are plotted by month';
     if (subtitle && displayReportCategory === 'monitor' && beneficiaryType === 'child') subtitle.textContent = 'Weight and length plotted against age in months';
     if (heading && displayReportCategory === 'monitor' && beneficiaryType === 'child') {
-      const metricText = (availableGrowthMetrics.find(([id]) => id === growthMetrics[0])?.[1] || 'Weight-for-Length/Height')
+      const metricText = (availableGrowthMetrics.find(([id]) => id === growthMetrics[0])?.[1] || 'Weight-for-Age')
         .replace(/\s+Z-Score$/i, '')
         .replace(/\s+Interpretation$/i, '');
       heading.textContent = metricText;

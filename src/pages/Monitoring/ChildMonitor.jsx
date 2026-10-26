@@ -30,21 +30,6 @@ function getChildBirthDate(child) {
     || '';
 }
 
-function getChildBirthMeasurement(child, field) {
-  const snakeField = field.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
-  return [
-    child?.[field], child?.[snakeField],
-    child?.raw?.[field], child?.raw?.[snakeField],
-    child?.source?.[field], child?.source?.[snakeField],
-    child?.data?.[field], child?.data?.[snakeField],
-  ].find((value) => value !== undefined && value !== null && String(value).trim() !== '') ?? '';
-}
-
-function getSavedOrBirthMeasurement(savedValue, child, field, week) {
-  if (savedValue !== undefined && savedValue !== null && String(savedValue).trim() !== '') return savedValue;
-  return week === 1 ? getChildBirthMeasurement(child, field) : '';
-}
-
 function isCheckupMonthComplete(child, completedWeeks, month) {
   const hasSavedCheckup = (child?.checkups || []).some(
     (checkup) => Number(checkup.week_number ?? checkup.weekNumber) === month,
@@ -78,15 +63,6 @@ function getTodayDate() {
   const day = String(today.getDate()).padStart(2, '0');
   return `${today.getFullYear()}-${month}-${day}`;
 }
-
-function calculateBmi(weight, height) {
-  const numericWeight = Number(weight);
-  const numericLength = Number(height);
-  if (!Number.isFinite(numericWeight) || !Number.isFinite(numericLength)
-    || numericWeight <= 0 || numericLength <= 0) return '';
-  return (numericWeight / ((numericLength / 100) ** 2)).toFixed(1);
-}
-
 
 export default function ChildMonitor({
   child,
@@ -161,8 +137,8 @@ export default function ChildMonitor({
         checkupDate: scheduledDate,
         nextCheckupDate: addMonthsPreservingDay(scheduledDate, 1),
         breastfeedingStatus: getBreastfeedingStatus(child?.exclusiveBreastfeeding ?? child?.exclusive_breastfeeding),
-        weight: week === 1 ? getChildBirthMeasurement(child, 'birthWeight') : '',
-        height: week === 1 ? getChildBirthMeasurement(child, 'birthLength') : '',
+        weight: '',
+        height: '',
         developmentalStatus: 'Normal',
         serviceProvider: '',
         remarks: '',
@@ -174,8 +150,8 @@ export default function ChildMonitor({
       checkupDate: savedDate || scheduledDate,
       nextCheckupDate: formatDate(savedCheckup.nextCheckupDate ?? savedCheckup.next_checkup_date),
       breastfeedingStatus: getBreastfeedingStatus(savedCheckup.breastfeedingStatus ?? savedCheckup.exclusive_breastfeeding),
-      weight: getSavedOrBirthMeasurement(savedCheckup.weight, child, 'birthWeight', week),
-      height: getSavedOrBirthMeasurement(savedCheckup.height, child, 'birthLength', week),
+      weight: savedCheckup.weight ?? '',
+      height: savedCheckup.height ?? '',
       developmentalStatus: savedCheckup.developmental_status ?? savedCheckup.developmentalStatus ?? 'Normal',
       serviceProvider: savedCheckup.service_provider ?? savedCheckup.serviceProvider ?? '',
       remarks: savedCheckup.notes ?? savedCheckup.remarks ?? '',
@@ -195,7 +171,6 @@ export default function ChildMonitor({
     setWeek(next);
     if (!readOnly || next === 1) setEditingWeek(next);
   };
-  const bmi = calculateBmi(form.weight, form.height);
   const ageInMonths = getAgeInMonths(childBirthDate, form.checkupDate);
   const currentAgeInMonths = getAgeInDecimalMonths(childBirthDate, form.checkupDate);
   const gender = child?.gender || child?.sex || '';
@@ -313,6 +288,7 @@ export default function ChildMonitor({
           <p className="child-monitor-subtitle">M{week} of {TOTAL_MONTHS} · {childName}</p>
           <div className="checkup-grid">
             {renderDateField({ id: 'child-checkup-date', label: 'Check-up Date', name: 'checkupDate', required: true })}
+            <span className="checkup-field-help full-width">Enter measurements taken on this check-up date. Birth measurements are stored separately and are not copied into this visit.</span>
             {renderDateField({ id: 'child-next-checkup-date', label: 'Next Check-up Date (leave blank to cancel)', name: 'nextCheckupDate' })}
             <div className="form-group">
               <label className="checkup-field-label" htmlFor="child-current-age-months">Current Age (months)</label>
@@ -341,14 +317,6 @@ export default function ChildMonitor({
               <input id="child-monitor-height" type="number" min="45" max="100" step="0.1" className="checkup-field-input" value={form.height} onChange={update('height')} required readOnly={isReadOnly} />
             </div>
             <div className="form-group">
-              <label className="checkup-field-label" htmlFor="child-monitor-bmi">BMI (Secondary Reference)</label>
-              <input id="child-monitor-bmi" type="text" className="checkup-field-input" value={bmi} readOnly placeholder="Auto-calculated" />
-            </div>
-            <div className="form-group">
-              <label className="checkup-field-label" htmlFor="child-monitor-weight-length">Weight-for-Length (Primary Standard)</label>
-              <input id="child-monitor-weight-length" type="text" className={interpretationClass(weightLengthInterpretation)} value={weightLengthInterpretation} readOnly />
-            </div>
-            <div className="form-group">
               <label className="checkup-field-label" htmlFor="child-monitor-weight-age">Weight-for-Age</label>
               <input id="child-monitor-weight-age" type="text" className={interpretationClass(weightAgeInterpretation)} value={weightAgeInterpretation} readOnly />
             </div>
@@ -356,6 +324,11 @@ export default function ChildMonitor({
               <label className="checkup-field-label" htmlFor="child-monitor-length-age">Length-for-Age</label>
               <input id="child-monitor-length-age" type="text" className={interpretationClass(lengthAgeInterpretation)} value={lengthAgeInterpretation} readOnly />
             </div>
+            <div className="form-group">
+              <label className="checkup-field-label" htmlFor="child-monitor-weight-length">Weight-for-Length</label>
+              <input id="child-monitor-weight-length" type="text" className={interpretationClass(weightLengthInterpretation)} value={weightLengthInterpretation} readOnly />
+            </div>
+            <span className="checkup-field-help full-width">WHO growth indicators are screening results, not a diagnosis. Interpret them with the child's measurement history and a qualified health worker.</span>
             <div className="form-group">
               <label className="checkup-field-label" htmlFor="child-developmental-status">Developmental Screening</label>
               <select id="child-developmental-status" className="checkup-field-input" value={form.developmentalStatus} onChange={update('developmentalStatus')} disabled={isReadOnly}>

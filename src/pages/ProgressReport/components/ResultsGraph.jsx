@@ -439,7 +439,8 @@ export function ResultsGraph({
       ? ''
       : ['boolean', 'pie'].includes(selectedProfileField?.[2]) ? 'Pie chart' : 'Bar chart';
 
-  const isWeightLengthFocus = chartTitle === 'Weight-for-Length/Height';
+  const isWeightLengthFocus = ['weightForLengthInterpretation', 'weightForLengthZScore'].includes(selectedGraphMetric)
+    || chartTitle === 'Weight-for-Length/Height';
   const graphCardClass = `${displayReportCategory}-report-graph-card`;
 
   return (

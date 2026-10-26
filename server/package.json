@@ -8,6 +8,7 @@
     "start": "node index.js",
     "dev": "node --watch index.js",
     "seed:sample": "node scripts/seed_sample_data.js",
+    "seed:organizer3": "node scripts/seed_organizer3_data.js",
     "test:sample-seed": "node --test test/sample_seed_data.test.js",
     "test:superadmin-bootstrap": "node --test test/superadmin_bootstrap.test.js",
     "test:checkup-reminders": "node --test test/checkup_reminders.test.js"

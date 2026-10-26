@@ -807,6 +807,10 @@
   line-height: 1.4;
 }
 
+.child-monitor-form .checkup-field-help.full-width {
+  grid-column: 1 / -1;
+}
+
 .checkup-field-input {
   width: 100%;
   min-height: 3rem;
