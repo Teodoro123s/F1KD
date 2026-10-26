@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { apiCreateProgressReportAiProposal, apiGetProgressReportAiStatus } from '../../../api/progressReport';
 import { REPORT_FIELDS } from '../progressReportConfig';
 
@@ -17,7 +17,7 @@ const RETRYABLE_PROPOSAL_ERRORS = new Set([
   'The private AI service returned unsupported report fields.',
 ]);
 
-export function ReportAiAssistant({ scopeLabel, hasSchoolSelection, onBuildPreview, onExport }) {
+export function ReportAiAssistant({ scopeLabel, contextKey, onBuildPreview, onExport }) {
   const [availability, setAvailability] = useState('checking');
   const [prompt, setPrompt] = useState('');
   const [originalPrompt, setOriginalPrompt] = useState('');
@@ -27,6 +27,7 @@ export function ReportAiAssistant({ scopeLabel, hasSchoolSelection, onBuildPrevi
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const requestVersion = useRef(0);
 
   useEffect(() => {
     let active = true;
@@ -43,7 +44,17 @@ export function ReportAiAssistant({ scopeLabel, hasSchoolSelection, onBuildPrevi
     return () => { active = false; };
   }, []);
 
+  useEffect(() => {
+    requestVersion.current += 1;
+    setLoading(false);
+    setProposal(null);
+    setReportPreview(null);
+    setError('');
+  }, [contextKey]);
+
   const requestProposal = async (request) => {
+    const requestId = requestVersion.current + 1;
+    requestVersion.current = requestId;
     setLoading(true);
     setError('');
     setReportPreview(null);
@@ -53,21 +64,27 @@ export function ReportAiAssistant({ scopeLabel, hasSchoolSelection, onBuildPrevi
         nextProposal = await apiCreateProgressReportAiProposal(request);
       } catch (proposalError) {
         if (!RETRYABLE_PROPOSAL_ERRORS.has(proposalError.message)) throw proposalError;
+        if (requestId !== requestVersion.current) return;
         setError('The AI response was incomplete. Retrying once…');
         nextProposal = await apiCreateProgressReportAiProposal(request);
       }
+      if (requestId !== requestVersion.current) return;
       setError('');
       if (nextProposal.needsClarification) {
         setProposal(nextProposal);
       } else {
         setProposal(null);
-        setReportPreview(await onBuildPreview(nextProposal));
+        const nextPreview = await onBuildPreview(nextProposal);
+        if (requestId !== requestVersion.current) return;
+        setReportPreview(nextPreview);
       }
       setClarificationAnswer('');
     } catch (proposalError) {
-      setError(proposalError.message || 'Unable to prepare a report proposal.');
+      if (requestId === requestVersion.current) {
+        setError(proposalError.message || 'Unable to prepare a report proposal.');
+      }
     } finally {
-      setLoading(false);
+      if (requestId === requestVersion.current) setLoading(false);
     }
   };
 
@@ -180,7 +197,14 @@ export function ReportAiAssistant({ scopeLabel, hasSchoolSelection, onBuildPrevi
             <textarea
               id="progress-report-ai-prompt"
               value={prompt}
-              onChange={(event) => setPrompt(event.target.value)}
+              onChange={(event) => {
+                requestVersion.current += 1;
+                setPrompt(event.target.value);
+                setLoading(false);
+                setProposal(null);
+                setReportPreview(null);
+                setError('');
+              }}
               maxLength={1000}
               rows={3}
               placeholder="Example: Show each mother's check-up date, height, weight, and BMI."
@@ -198,14 +222,14 @@ export function ReportAiAssistant({ scopeLabel, hasSchoolSelection, onBuildPrevi
               <button
                 type="submit"
                 className="primary-btn"
-                disabled={loading || !hasSchoolSelection || prompt.trim().length < 3}
+                disabled={loading || prompt.trim().length < 3}
               >
                 {loading ? 'Building preview…' : 'Create report preview'}
               </button>
             </div>
-            {!hasSchoolSelection && (
-              <p className="progress-report-ai-message" role="status">Select a school to generate a CSV within your authorized scope.</p>
-            )}
+            <p className="progress-report-ai-message" role="status">
+              Leave School, Group, and Batch unselected to include all records your account is authorized to access.
+            </p>
           </form>
         )
       )}

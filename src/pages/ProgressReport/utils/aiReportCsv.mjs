@@ -17,9 +17,10 @@ export function buildAiReportCsv({
   const identityFields = proposal.beneficiaryType === 'mother'
     ? ['mother', 'age', 'dateOfBirth']
     : ['child', 'mother', 'age', 'gender', 'dateOfBirth'];
-  const communityFields = selection.groupId
-    ? selection.batchId ? [] : ['batch']
-    : ['group', 'batch'];
+  const communityFields = [
+    ...(!selection.schoolId ? ['school'] : []),
+    ...(selection.groupId ? selection.batchId ? [] : ['batch'] : ['group', 'batch']),
+  ];
   const requestedFields = proposal.reportCategory === 'monitor'
     ? [
       ...(proposal.profileMetricIds || []),

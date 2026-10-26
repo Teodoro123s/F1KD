@@ -188,55 +188,22 @@ test('AI proposal can ask whether height, weight, or BMI means profile data or m
 });
 
 test('maternal monitoring AI reports can filter yes referrals and include assistance details', async () => {
-  let request;
   const intent = await createMonitoringReportIntent(
     'Show mother referral to hospital, only the yes, only the latest check-up, then facility type, source of funds, assistance amount, and laboratory requests.',
     'Mother',
-    {
-      env: modelEnvironment,
-      fetchImpl: async (url, options) => {
-        request = JSON.parse(options.body);
-        return new Response(JSON.stringify({
-          choices: [{
-            message: {
-              content: JSON.stringify({
-                metricIds: ['hospitalReferral', 'facilityType', 'sourceOfFunds', 'assistanceAmount', 'laboratoryRequests'],
-                onlyReferredToHospital: true,
-                onlyNonNormalScreenings: false,
-                latestCheckupOnly: true,
-                explanation: 'Shows yes referrals with saved facility and assistance details.',
-              }),
-            },
-          }],
-        }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-      },
-    });
+  );
 
   assert.deepEqual(intent, {
     beneficiaryType: 'Mother',
-    metricIds: ['hospitalReferral', 'facilityType', 'sourceOfFunds', 'assistanceAmount', 'laboratoryRequests'],
+    metricIds: ['measurementDate', 'hospitalReferral', 'laboratoryRequests', 'assistanceAmount', 'sourceOfFunds', 'facilityType'],
     onlyReferredToHospital: true,
     onlyNonNormalScreenings: false,
+    developmentalStatusFilter: [],
     latestCheckupOnly: true,
-    explanation: 'Shows yes referrals with saved facility and assistance details.',
+    firstCheckupOnly: false,
+    currentMonthOnly: false,
+    explanation: 'Showing check-up date, hospital referral, laboratory requests, assistance amount (php), source of funds, facility / referral source for mothers with a recorded hospital referral and the latest saved check-up per beneficiary.',
   });
-  assert.deepEqual(request.messages[1], {
-    role: 'user',
-    content: 'Show mother referral to hospital, only the yes, only the latest check-up, then facility type, source of funds, assistance amount, and laboratory requests.',
-  });
-  assert.doesNotMatch(JSON.stringify(request.messages), /Jane Doe|checkups|motherId/i);
-  assert.deepEqual(request.response_format.json_schema.schema.properties.metricIds.items.enum, [
-    'measurementDate', 'weight', 'height', 'bmi', 'bmiInterpretation', 'developmentalStatus', 'hospitalReferral',
-    'laboratoryRequests', 'assistanceAmount', 'sourceOfFunds', 'facilityType', 'bloodPressure', 'remarks',
-  ]);
-  assert.equal(request.response_format.json_schema.schema.required.includes('onlyReferredToHospital'), true);
-  assert.equal(request.response_format.json_schema.schema.required.includes('onlyNonNormalScreenings'), true);
-  assert.equal(request.response_format.json_schema.schema.required.includes('latestCheckupOnly'), true);
-  assert.match(request.messages[0].content, /budget, funds, or assistance given.*assistanceAmount/i);
-  assert.match(request.messages[0].content, /facility type.*facilityType/i);
-  assert.match(request.messages[0].content, /laboratory requests.*laboratoryRequests/i);
-  assert.match(request.messages[0].content, /onlyReferredToHospital=true.*referral value is Yes/i);
-  assert.match(request.messages[0].content, /latestCheckupOnly=true.*latest saved check-up per beneficiary/i);
   assert.throws(() => validateMonitoringReportIntent({ metricIds: ['bmiInterpretation'] }, 'Child'), /unsupported monitoring report fields/);
   assert.deepEqual(validateMonitoringReportIntent({
     metricIds: ['hospitalReferral', 'assistanceAmount', 'facilityType'],
@@ -249,13 +216,16 @@ test('maternal monitoring AI reports can filter yes referrals and include assist
     onlyNonNormalScreenings: false,
     latestCheckupOnly: false,
   }, 'Mother'), /unsupported monitoring report fields/);
-  await assert.rejects(createMonitoringReportIntent('BMI', 'Both', { env: modelEnvironment }), /Choose Mother or Child/);
+  await assert.rejects(
+    createMonitoringReportIntent('BMI', 'Both', { env: modelEnvironment }),
+    /Start the request with Mother\/Mothers or Child\/Children/,
+  );
 });
 
-test('child monitoring AI reports exclude removed referral and assistance fields', async () => {
+test('child monitoring AI reports include child form fields and exclude fields not in that form', async () => {
   let request;
   const intent = await createMonitoringReportIntent(
-    'Show child check-up details.',
+    'Show only details.',
     'Child',
     {
       env: modelEnvironment,
@@ -280,10 +250,11 @@ test('child monitoring AI reports exclude removed referral and assistance fields
 
   assert.deepEqual(intent.metricIds, ['measurementDate']);
   assert.deepEqual(request.response_format.json_schema.schema.properties.metricIds.items.enum, [
-    'measurementDate', 'weight', 'height', 'bmi', 'developmentalStatus', 'remarks',
+    'measurementDate', 'nextCheckupDate', 'currentAgeMonths', 'breastfeedingStatus', 'weight', 'height', 'bmi',
+    'weightForAgeInterpretation', 'lengthForAgeInterpretation', 'weightForLengthInterpretation',
+    'developmentalStatus', 'serviceProvider', 'remarks',
   ]);
-  assert.match(request.messages[0].content, /unavailable for Child reports/i);
-  assert.match(request.messages[0].content, /removed check-up fields/i);
+  assert.match(request.messages[0].content, /fields not recorded by the child check-up form/i);
   for (const metricId of ['hospitalReferral', 'laboratoryRequests', 'assistanceAmount', 'sourceOfFunds', 'facilityType', 'labAssistanceProvided']) {
     assert.throws(() => validateMonitoringReportIntent({
       metricIds: [metricId],
@@ -291,6 +262,22 @@ test('child monitoring AI reports exclude removed referral and assistance fields
       onlyNonNormalScreenings: false,
       latestCheckupOnly: false,
     }, 'Child'), /unsupported monitoring report fields/);
+  }
+  for (const metricId of [
+    'bmi',
+    'weightForAgeInterpretation',
+    'lengthForAgeInterpretation',
+    'weightForLengthInterpretation',
+    'serviceProvider',
+    'currentAgeMonths',
+    'breastfeedingStatus',
+  ]) {
+    assert.doesNotThrow(() => validateMonitoringReportIntent({
+      metricIds: [metricId],
+      onlyReferredToHospital: false,
+      onlyNonNormalScreenings: false,
+      latestCheckupOnly: false,
+    }, 'Child'));
   }
   assert.throws(() => validateMonitoringReportIntent({
     metricIds: ['measurementDate'],
@@ -300,35 +287,43 @@ test('child monitoring AI reports exclude removed referral and assistance fields
   }, 'Child'), /unsupported monitoring report fields/);
 });
 
+test('monitoring AI field matching selects requested mother and child check-up form fields', async () => {
+  const motherIntent = await createMonitoringReportIntent(
+    'Show mothers with BMI value and BMI status, service provider, blood pressure, developmental screening, lab requests, assistance amount, gestational age, fundal height, fetal heart rate, next check-up date, and remarks.',
+    'Mother',
+  );
+
+  assert.deepEqual(new Set(motherIntent.metricIds), new Set([
+    'bmiInterpretation', 'bmi', 'serviceProvider', 'bloodPressure', 'developmentalStatus',
+    'laboratoryRequests', 'assistanceAmount', 'gestationalAge', 'fundalHeight',
+    'fetalHeartRate', 'nextCheckupDate', 'remarks',
+  ]));
+
+  const childIntent = await createMonitoringReportIntent(
+    'Show children BMI value, weight-for-age, length-for-age, and weight-for-length interpretations, plus provider, breastfeeding status, current age, and notes.',
+    'Child',
+    { env: modelEnvironment },
+  );
+  assert.deepEqual(childIntent.metricIds, [
+    'currentAgeMonths',
+    'breastfeedingStatus',
+    'bmi',
+    'weightForAgeInterpretation',
+    'lengthForAgeInterpretation',
+    'weightForLengthInterpretation',
+    'serviceProvider',
+    'remarks',
+  ]);
+});
+
 test('monitoring AI reports can find beneficiaries with non-normal developmental screenings', async () => {
-  let request;
   const intent = await createMonitoringReportIntent(
     'Find mothers with non-normal developmental screenings.',
     'Mother',
-    {
-      env: modelEnvironment,
-      fetchImpl: async (url, options) => {
-        request = JSON.parse(options.body);
-        return new Response(JSON.stringify({
-          choices: [{
-            message: {
-              content: JSON.stringify({
-                metricIds: ['developmentalStatus'],
-                onlyReferredToHospital: false,
-                onlyNonNormalScreenings: true,
-                latestCheckupOnly: false,
-                explanation: 'Shows recorded Needs Follow-up and At Risk screening results.',
-              }),
-            },
-          }],
-        }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-      },
-    },
   );
 
   assert.equal(intent.onlyNonNormalScreenings, true);
   assert.deepEqual(intent.metricIds, ['developmentalStatus']);
-  assert.match(request.messages[0].content, /Needs Follow-up or At Risk check-ups only/i);
   assert.deepEqual(validateMonitoringReportIntent({
     metricIds: ['developmentalStatus'],
     onlyReferredToHospital: false,

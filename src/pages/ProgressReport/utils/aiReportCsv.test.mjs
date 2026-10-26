@@ -4,6 +4,7 @@ import { buildAiReportCsv } from './aiReportCsv.mjs';
 
 const labels = new Map([
   ['batch', 'Batch'],
+  ['school', 'School'],
   ['child', 'Child Name'],
   ['mother', 'Mother Name'],
   ['age', 'Age'],
@@ -88,4 +89,15 @@ test('school-wide custom CSV places group and batch before identity columns', ()
   });
 
   assert.deepEqual(fields.slice(0, 2), ['group', 'batch']);
+});
+
+test('all-accessible custom CSV includes school, group, and batch context before identity columns', () => {
+  const { fields } = buildAiReportCsv({
+    rows: [],
+    proposal: { reportCategory: 'profile', beneficiaryType: 'child', metricIds: ['gender'] },
+    selection: { schoolId: '', groupId: '', batchId: '' },
+    fieldLabels: labels,
+  });
+
+  assert.deepEqual(fields.slice(0, 3), ['school', 'group', 'batch']);
 });

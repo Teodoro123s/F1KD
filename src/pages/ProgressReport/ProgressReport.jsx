@@ -222,9 +222,6 @@ export default function ProgressReport() {
   };
   const buildAiReportPreview = async (proposal) => {
     const safeSelection = normalizeSelectionHierarchy(selection);
-    if (!safeSelection.schoolId) {
-      throw new Error('Select a school before creating a custom CSV.');
-    }
     const isProgramReport = proposal.reportCategory === 'program';
     const selectedProgram = isProgramReport
       ? programs.find((program) => normalizeProgramName(program.name) === normalizeProgramName(programName))
@@ -326,10 +323,6 @@ export default function ProgressReport() {
 
   const generateReport = async (nextPage = 1) => {
     const safeSelection = normalizeSelectionHierarchy(selection);
-    if (!safeSelection.schoolId) {
-      notifyAction('Please select at least a School to view the report.', 'error');
-      return;
-    }
     if (reportCategory === 'program' && !eligiblePrograms.some((program) => normalizeProgramName(program.name) === normalizeProgramName(programName))) {
       notifyAction('Select a program before generating a program report.', 'error');
       return;
@@ -628,10 +621,10 @@ export default function ProgressReport() {
 
   const selectedSchool = options.schools.find((item) => String(item.id) === String(displaySelection.schoolId));
   const aiScopeLabel = [
-    selectedSchool?.name,
+    selectedSchool?.name || (!displaySelection.schoolId ? 'All accessible schools' : ''),
     displaySelection.groupId ? groups.find((item) => String(item.id) === String(displaySelection.groupId))?.name : 'All groups',
     displaySelection.batchId ? batches.find((item) => String(item.id) === String(displaySelection.batchId))?.name : 'All batches',
-  ].filter(Boolean).join(' > ');
+  ].filter(Boolean).join(' > ') || 'All accessible records';
   const resultsRows = sortedRows;
   const monitoringTableRows = useMemo(() => {
     if (displayReportCategory !== 'monitor') return resultsRows;
@@ -893,7 +886,17 @@ export default function ProgressReport() {
               loadingOptions={loadingOptions}
               updateSelection={updateSelection}
               aiScopeLabel={aiScopeLabel}
-              hasSchoolSelection={Boolean(selection.schoolId)}
+              aiContextKey={[
+                selection.schoolId,
+                selection.groupId,
+                selection.batchId,
+                aiScopeLabel,
+                reportCategory,
+                beneficiaryType,
+                programName,
+                benefitPeriod,
+                benefitMonth,
+              ].join(':')}
               buildAiReportPreview={buildAiReportPreview}
               exportAiReportCsv={exportAiReportCsv}
               reportCategoryStep={(

@@ -12,7 +12,7 @@ export function CommunitySelectionStep({
   loadingOptions = false,
   updateSelection,
   aiScopeLabel,
-  hasSchoolSelection,
+  aiContextKey,
   buildAiReportPreview,
   exportAiReportCsv,
   reportCategoryStep,
@@ -31,7 +31,7 @@ export function CommunitySelectionStep({
             <label>
               School
               <select value={selection.schoolId} onChange={(event) => updateSelection('schoolId', event.target.value)} disabled={isHealthWorker || loadingOptions}>
-                <option value="">Select school</option>
+                <option value="">All accessible schools</option>
                 {options.schools.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
               </select>
             </label>
@@ -66,13 +66,13 @@ export function CommunitySelectionStep({
             ? 'School and group are assigned to your account. Batch is an optional filter.'
             : isCommunityOrganizer
               ? 'Your school is assigned to your account. Group and Batch are optional filters.'
-              : 'Select a School to begin. Group and Batch are optional filters.'}
+              : 'Choose a school to narrow the report, or keep All accessible schools for your authorized records. Group and Batch are optional filters.'}
         </p>
       </div>
-      {selection.schoolId && reportCategoryStep}
+      {reportCategoryStep}
       <ReportAiAssistant
         scopeLabel={aiScopeLabel}
-        hasSchoolSelection={hasSchoolSelection}
+        contextKey={aiContextKey}
         onBuildPreview={buildAiReportPreview}
         onExport={exportAiReportCsv}
       />

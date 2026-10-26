@@ -1,8 +1,15 @@
 import { calculateBmi } from '../../utils/beneficiary/beneficiaryHelpers.js';
+import { getMotherTrimesterMonth } from '../../utils/beneficiary/motherProgress.js';
 import { calculateWhoGrowthScores } from '../../utils/beneficiary/whoGrowthStandards.js';
+import { getAgeInDecimalMonths } from '../../utils/beneficiary/childAge.mjs';
 
 export const MONITORING_REPORT_FIELD_LABELS = {
   measurementDate: 'Check-up date',
+  gestationalAge: 'Gestational age (weeks)',
+  trimesterMonth: 'Month of trimester',
+  nextCheckupDate: 'Next check-up date',
+  currentAgeMonths: 'Current age (months)',
+  breastfeedingStatus: 'Exclusive breastfeeding',
   weight: 'Weight',
   height: 'Height',
   bmi: 'BMI',
@@ -17,6 +24,9 @@ export const MONITORING_REPORT_FIELD_LABELS = {
   facilityType: 'Facility / referral source',
   bloodPressure: 'Blood pressure',
   developmentalStatus: 'Developmental status',
+  serviceProvider: 'Service provider',
+  fundalHeight: 'Fundal height',
+  fetalHeartRate: 'Fetal heart rate',
   remarks: 'Check-up remarks',
 };
 
@@ -125,13 +135,32 @@ export function getMonitoringReportValue(checkup, metricId, beneficiary = null) 
       const date = value('checkupDate', 'visit_date', 'checkup_date');
       return date ? String(date).slice(0, 10) : '—';
     }
+    case 'gestationalAge': return value('gestationalAge', 'gestational_age', 'gestational_age_weeks') ?? '—';
+    case 'trimesterMonth': {
+      const gestationalAge = value('gestationalAge', 'gestational_age', 'gestational_age_weeks');
+      return gestationalAge === undefined ? '—' : getMotherTrimesterMonth(gestationalAge, value('trimester') || '');
+    }
+    case 'nextCheckupDate': {
+      const date = value('nextCheckupDate', 'next_checkup_date');
+      return date ? String(date).slice(0, 10) : '—';
+    }
+    case 'currentAgeMonths': {
+      const savedAge = value('currentAgeMonths', 'current_age_months', 'ageInMonths', 'age_in_months');
+      if (savedAge !== undefined) return savedAge;
+      const measurementDate = value('checkupDate', 'visit_date', 'checkup_date');
+      const age = getAgeInDecimalMonths(getChildBirthDate(beneficiary), measurementDate);
+      return age ?? '—';
+    }
+    case 'breastfeedingStatus': return value('breastfeedingStatus', 'exclusive_breastfeeding', 'exclusiveBreastfeeding') ?? '—';
     case 'weight': return value('weight') ?? '—';
     case 'height': return value('height') ?? '—';
     case 'bmi': return value('bmi') ?? (calculateBmi(checkup?.weight, checkup?.height) || '—');
-    case 'bmiInterpretation': return value('nutritionalStatus', 'nutritional_status', 'bmiInterpretation') ?? '—';
+    case 'bmiInterpretation': return value('nutritionalStatus', 'nutritional_status', 'bmiInterpretation', 'bmi_interpretation') ?? '—';
     case 'weightForAgeInterpretation': return getChildGrowthScores(checkup, beneficiary).weightForAgeInterpretation || 'Not available';
     case 'lengthForAgeInterpretation': return getChildGrowthScores(checkup, beneficiary).lengthForAgeInterpretation || 'Not available';
     case 'weightForLengthInterpretation': return getChildGrowthScores(checkup, beneficiary).weightForLengthInterpretation || 'Not available';
+    case 'fundalHeight': return value('fundalHeight', 'fundal_height', 'fundal_height_cm') ?? '—';
+    case 'fetalHeartRate': return value('fhr', 'fetalHeartRate', 'fetal_heart_rate_bpm') ?? '—';
     case 'assistanceAmount': return value('amount', 'assistanceAmount', 'assistance_amount') ?? '—';
     case 'sourceOfFunds': return value('sourceOfFunds', 'source_of_funds') ?? '—';
     case 'facilityType': return value('facilityType', 'facility_type') ?? '—';
@@ -147,6 +176,7 @@ export function getMonitoringReportValue(checkup, metricId, beneficiary = null) 
     }
     case 'bloodPressure': return value('bp', 'bloodPressure', 'blood_pressure') ?? '—';
     case 'developmentalStatus': return value('developmentalStatus', 'developmental_status') ?? '—';
+    case 'serviceProvider': return value('serviceProvider', 'service_provider') ?? '—';
     case 'remarks': return value('remarks', 'notes') ?? '—';
     default: return '—';
   }
