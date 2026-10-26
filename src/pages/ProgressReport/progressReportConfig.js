@@ -169,6 +169,7 @@ export const REPORT_FIELDS = [
   ['weightForLengthInterpretation', 'Weight-for-Length Interpretation', 'Growth & Monitoring'],
   ['bmiForAge', 'BMI', 'Growth & Monitoring'],
   ['bmiInterpretation', 'BMI Interpretation', 'Growth & Monitoring'],
+  ['bloodPressure', 'Blood Pressure', 'Monitoring'],
   ['initialWeight', 'Initial Weight (kg)', 'Profile'],
   ['initialHeight', 'Initial Height (cm)', 'Profile'],
   ['initialBmi', 'Initial BMI', 'Profile'],
@@ -524,6 +525,12 @@ export const formatCellValue = (field, value) => {
   if (field === 'philhealthNumber') return formatPhilHealthNumberForReport(value);
   const presenceValue = formatPresenceProfileValue(field, value);
   if (presenceValue !== null) return presenceValue;
+  if (field === 'hospitalReferral') {
+    return value === true || value === 1 || value === '1'
+      || ['true', 'yes'].includes(String(value ?? '').trim().toLowerCase())
+      ? 'Yes'
+      : 'No';
+  }
   if (value === null || value === undefined || value === '') return '—';
   if (['bcgDate', 'hepbDate', 'ipvDate', 'opvDate', 'pcvDate', 'dptDate', 'mmrDate', 'ttVaccineRecord'].includes(field)) {
     if (Array.isArray(value)) {

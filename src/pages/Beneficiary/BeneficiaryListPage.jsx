@@ -6,6 +6,7 @@ import ModuleSummaryCards from '../../components/ui/ModuleSummaryCards';
 import { apiGetChildren } from '../../api/children';
 import { getMotherProfileProgress, getMotherMonitoringProgress } from '../../utils/beneficiary/motherProgress';
 import { getChildProfileProgress, getChildMonitoringProgress } from '../../utils/beneficiary/childProgress';
+import { getCheckupScheduleStatus } from '../../utils/beneficiary/checkupStatus.mjs';
 import { matchesBeneficiarySearch } from './utils/beneficiaryUtils';
 
 const getGroupStatusByProgress = (g) => {
@@ -54,6 +55,7 @@ export default function BeneficiaryListPage({ communities = [], groups = [], bat
               name: childName || 'Unnamed child',
               community: child.community_name || mother?.community || mother?.area || 'Unknown',
               progress: getChildProfileProgress(child),
+              monitoringProgress: getChildMonitoringProgress(child),
               original: {
                 ...child,
                 mother,
@@ -148,8 +150,14 @@ export default function BeneficiaryListPage({ communities = [], groups = [], bat
       };
     });
 
-    if (selectedStatusFilter !== 'All') {
+    if (selectedStatusFilter === 'Complete' || selectedStatusFilter === 'Incomplete') {
       data = data.filter((g) => getGroupStatusByProgress(g) === selectedStatusFilter);
+    } else if (selectedStatusFilter === 'Pending' || selectedStatusFilter === 'Missing') {
+      data = data.filter((g) => {
+        const isIncomplete = getGroupStatusByProgress(g) === 'Incomplete';
+        const beneficiary = g.original || g;
+        return isIncomplete && getCheckupScheduleStatus(beneficiary) === selectedStatusFilter;
+      });
     }
 
     if (selectedCommunityFilter) {

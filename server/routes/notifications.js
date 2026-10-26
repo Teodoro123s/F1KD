@@ -3,7 +3,7 @@ const router = express.Router();
 const pool = require('../db');
 const { parsePositiveIntegerId } = require('../utils/userInputValidation');
 const { verifyToken } = require('../middleware/auth');
-const { authorize } = require('../middleware/authorize');
+const { authorize, normalizeRole } = require('../middleware/authorize');
 const { getNotificationScope } = require('../services/notificationAccess');
 const { createSuperadminNotification, sanitizeNotificationLink } = require('../services/notifications');
 
@@ -339,18 +339,49 @@ router.post('/download-success', authorize('admin', 'community_coordinator', 'pa
     return res.status(403).json({ error: 'Assign this account to a school before recording downloads' });
   }
 
+  const fileName = String(req.body?.fileName || '').trim();
+  if (
+    fileName.length > 180
+    || !/^[A-Za-z0-9][A-Za-z0-9._ -]*\.csv$/i.test(fileName)
+    || fileName.includes('..')
+  ) {
+    return res.status(400).json({ error: 'Provide a valid CSV filename' });
+  }
+
+  let recipientUserIds;
+  if (normalizeRole(req.user?.role) === 'health_worker') {
+    const [coordinators] = await pool.query(
+      `SELECT id FROM users
+       WHERE school_id = ?
+         AND LOWER(TRIM(status)) = 'active'
+         AND LOWER(TRIM(role)) IN (
+           'community organizer', 'community coordinator', 'community_organizer',
+           'community_coordinator', 'communitycoordinator', 'communityorganizer',
+           'coordinator', 'co'
+         )`,
+      [scope.schoolId],
+    );
+    recipientUserIds = coordinators.map(({ id }) => Number(id));
+    if (!recipientUserIds.length) {
+      return res.status(201).json({ success: true, notified: false });
+    }
+  }
+
+  const actorRole = normalizeRole(req.user?.role) === 'health_worker' ? 'Health Worker' : 'User';
+  const actorName = req.user?.name || req.user?.email || `user ${req.user?.id}`;
   await createSuperadminNotification({
     eventType: 'download.progress_report.csv',
     category: 'Downloads',
-    title: 'Progress report download started',
-    message: 'A CSV progress report was generated and its download was started.',
+    title: 'Progress report CSV downloaded',
+    message: `${actorRole} ${actorName} downloaded ${fileName}.`,
     entityType: 'download',
     linkTo: '/progress-report',
     schoolId: scope.global ? null : scope.schoolId,
     schoolIds: scope.global ? undefined : [scope.schoolId],
     actorUserId: req.user?.id,
+    recipientUserIds,
   });
-  res.status(201).json({ success: true });
+  res.status(201).json({ success: true, notified: true });
 });
 
 module.exports = router;

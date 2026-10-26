@@ -300,6 +300,10 @@ test('progress report downloads are recorded for every role allowed to export', 
   const insertedNotifications = [];
   pool.query = async (sql, params = []) => {
     if (sql.includes('FROM auth_sessions s')) return getTestSessionRows(params);
+    if (sql.includes('FROM users') && sql.includes("'community organizer'")) {
+      assert.deepEqual(params, [91]);
+      return [[{ id: 25 }, { id: 26 }]];
+    }
     if (sql.startsWith('INSERT INTO notifications')) {
       insertedNotifications.push(params);
       return [{ insertId: insertedNotifications.length }];
@@ -327,17 +331,20 @@ test('progress report downloads are recorded for every role allowed to export', 
     const token = signInTestUser({ id, role, school_id: 91, group_id: 92 });
     const response = await fetch(`http://127.0.0.1:${server.address().port}/api/notifications/download-success`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ format: 'CSV', fileName: 'progress-report-monitor-child-table.csv' }),
     });
     assert.equal(response.status, 201, `${role} should be able to record a report export`);
-    assert.deepEqual(await response.json(), { success: true });
+    assert.deepEqual(await response.json(), { success: true, notified: true });
   }
 
   assert.equal(insertedNotifications.length, 4);
   assert.ok(insertedNotifications.every((params) => params[0] === 'download.progress_report.csv'));
-  assert.ok(insertedNotifications.every((params) => params[2] === 'Progress report download started'));
+  assert.ok(insertedNotifications.every((params) => params[2] === 'Progress report CSV downloaded'));
   assert.equal(insertedNotifications[1][7], 91);
   assert.equal(insertedNotifications[1][11], 22);
   assert.equal(insertedNotifications[3][7], 91);
   assert.equal(insertedNotifications[3][11], 24);
+  assert.equal(insertedNotifications[3][10], '25,26');
+  assert.match(insertedNotifications[3][3], /progress-report-monitor-child-table\.csv/);
 });

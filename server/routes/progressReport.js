@@ -488,6 +488,7 @@ router.get('/', async (req, res) => {
         ${params.granularity === 'mother' ? 'NULL' : `(SELECT latest_cc.weight FROM child_checkups latest_cc WHERE latest_cc.child_id = c.id AND ${childCheckupDateFilter('latest_cc')} ORDER BY latest_cc.visit_date DESC, latest_cc.id DESC LIMIT 1)`} AS weight_for_age,
         ${params.granularity === 'mother' ? 'NULL' : `(SELECT latest_cc.height FROM child_checkups latest_cc WHERE latest_cc.child_id = c.id AND ${childCheckupDateFilter('latest_cc')} ORDER BY latest_cc.visit_date DESC, latest_cc.id DESC LIMIT 1)`} AS height_for_age,
         ${params.granularity === 'mother' ? `(SELECT latest_mc.bmi FROM mother_checkups latest_mc WHERE latest_mc.mother_id = m.id AND ${motherCheckupDateFilter('latest_mc')} ORDER BY latest_mc.checkup_date DESC, latest_mc.id DESC LIMIT 1)` : `(SELECT ROUND(latest_cc.weight / POW(NULLIF(latest_cc.height, 0) / 100, 2), 1) FROM child_checkups latest_cc WHERE latest_cc.child_id = c.id AND ${childCheckupDateFilter('latest_cc')} ORDER BY latest_cc.visit_date DESC, latest_cc.id DESC LIMIT 1)`} AS bmi_for_age,
+        ${params.granularity === 'mother' ? `(SELECT latest_mc.blood_pressure FROM mother_checkups latest_mc WHERE latest_mc.mother_id = m.id AND ${motherCheckupDateFilter('latest_mc')} ORDER BY latest_mc.checkup_date DESC, latest_mc.id DESC LIMIT 1)` : 'NULL'} AS blood_pressure,
         ${params.granularity === 'mother' ? `(SELECT latest_mc.checkup_date FROM mother_checkups latest_mc WHERE latest_mc.mother_id = m.id AND ${motherCheckupDateFilter('latest_mc')} ORDER BY latest_mc.checkup_date DESC, latest_mc.id DESC LIMIT 1)` : `(SELECT latest_cc.visit_date FROM child_checkups latest_cc WHERE latest_cc.child_id = c.id AND ${childCheckupDateFilter('latest_cc')} ORDER BY latest_cc.visit_date DESC, latest_cc.id DESC LIMIT 1)`} AS measurement_date,
         ${isMotherReport ? 'COUNT(DISTINCT mc.id)' : childActivitiesExpression} AS activities_completed,
         ${totalExpression} AS total_activities,
@@ -623,6 +624,7 @@ router.get('/', async (req, res) => {
       birthLength: row.initial_height === null || row.initial_height === undefined ? '' : Number(row.initial_height),
       weightForAge: row.weight_for_age === null || row.weight_for_age === undefined ? '' : Number(row.weight_for_age),
       heightForAge: row.height_for_age === null || row.height_for_age === undefined ? '' : Number(row.height_for_age),
+      bloodPressure: row.blood_pressure || '',
       bmiForAge: row.bmi_for_age === null || row.bmi_for_age === undefined ? '' : Number(row.bmi_for_age),
       bmiInterpretation: getBmiInterpretation(row.bmi_for_age),
       measurementDate: row.measurement_date || '',
@@ -747,7 +749,7 @@ router.get('/', async (req, res) => {
     const motherIds = normalizedRows.map((row) => row.motherId).filter(Boolean);
     if (params.granularity === 'mother' && motherIds.length) {
       const [checkupRows] = await pool.query(
-        `SELECT mother_id, trimester, checkup_number, checkup_date, gestational_age_weeks, weight_kg, height_cm, bmi,
+        `SELECT mother_id, trimester, checkup_number, checkup_date, gestational_age_weeks, weight_kg, height_cm, blood_pressure, bmi,
           referred_to_hospital, lab_assistance_provided, assistance_amount,
           source_of_funds, facility_type
          FROM mother_checkups
@@ -769,6 +771,7 @@ router.get('/', async (req, res) => {
           ageWeeks: Number.isFinite(ageWeeks) ? ageWeeks : null,
           weight: Number.isFinite(Number(checkup.weight_kg)) && Number(checkup.weight_kg) > 0 ? Number(checkup.weight_kg) : null,
           height: Number.isFinite(Number(checkup.height_cm)) && Number(checkup.height_cm) > 0 ? Number(checkup.height_cm) : null,
+          bloodPressure: checkup.blood_pressure || '',
           bmi: Number.isFinite(bmi) && bmi > 0 ? bmi : null,
           hospitalReferral: Boolean(checkup.referred_to_hospital),
           labAssistanceProvided: Boolean(checkup.lab_assistance_provided),
@@ -780,7 +783,10 @@ router.get('/', async (req, res) => {
         });
         seriesByMother.set(checkup.mother_id, series);
       });
-      normalizedRows.forEach((row) => { row.growthSeries = seriesByMother.get(row.motherId) || []; });
+      normalizedRows.forEach((row) => {
+        row.growthSeries = seriesByMother.get(row.motherId) || [];
+        row.hospitalReferral = Boolean(row.growthSeries.at(-1)?.hospitalReferral);
+      });
     }
     const total = normalizedRows.length;
     const page = params.exportAll ? 1 : params.page;

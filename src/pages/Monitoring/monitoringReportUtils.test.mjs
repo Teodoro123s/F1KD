@@ -150,8 +150,11 @@ test('report field aliases and empty or calculated values are handled safely', (
   assert.equal(getMonitoringReportValue({ gestational_age_weeks: 24 }, 'gestationalAge'), 24);
   assert.equal(getMonitoringReportValue({ next_checkup_date: '2026-11-05T00:00:00.000Z' }, 'nextCheckupDate'), '2026-11-05');
   assert.equal(getMonitoringReportValue({ exclusive_breastfeeding: 'Yes' }, 'breastfeedingStatus'), 'Yes');
+  assert.equal(getMonitoringReportValue({ referral: false }, 'hospitalReferral'), 'No');
+  assert.equal(getMonitoringReportValue({ referral: '' }, 'hospitalReferral'), 'No');
+  assert.equal(getMonitoringReportValue({ referral: null }, 'hospitalReferral'), 'No');
   assert.equal(getMonitoringReportValue({ fundal_height_cm: 25 }, 'fundalHeight'), 25);
   assert.equal(getMonitoringReportValue({ fetal_heart_rate_bpm: 138 }, 'fetalHeartRate'), 138);
   assert.equal(getMonitoringReportValue({}, 'laboratoryRequests'), '—');
-  assert.equal(getMonitoringReportValue({}, 'hospitalReferral'), '—');
+  assert.equal(getMonitoringReportValue({}, 'hospitalReferral'), 'No');
 });

@@ -171,8 +171,7 @@ export function getMonitoringReportValue(checkup, metricId, beneficiary = null) 
     }
     case 'hospitalReferral': {
       const referred = value('referral', 'referredToHospital', 'referred_to_hospital');
-      if (referred === undefined) return '—';
-      return referred === true || referred === 1 || referred === '1' || ['true', 'yes'].includes(String(referred).toLowerCase()) ? 'Yes' : 'No';
+      return referred === true || referred === 1 || referred === '1' || ['true', 'yes'].includes(String(referred ?? '').trim().toLowerCase()) ? 'Yes' : 'No';
     }
     case 'bloodPressure': return value('bp', 'bloodPressure', 'blood_pressure') ?? '—';
     case 'developmentalStatus': return value('developmentalStatus', 'developmental_status') ?? '—';

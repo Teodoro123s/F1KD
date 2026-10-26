@@ -47,6 +47,7 @@ Notification read state is stored per user in `notification_reads`, so it persis
 - `POST /api/notifications/bulk-read` — set `{ "ids": [1, 2], "isRead": true|false }` for up to 100 authorized notification IDs; inaccessible IDs are not modified.
 - `GET /api/notifications/preferences` — get category visibility preferences supported by the caller's role.
 - `PUT /api/notifications/preferences` — save `{ "preferences": [{ "category": "Community", "enabled": false }] }`; categories outside the caller's role are rejected.
+- `POST /api/notifications/download-success` — record a progress-report CSV download, including its filename. When a Health Worker downloads a report, active Community Organizers/Coordinators assigned to the same school receive the Downloads notification; the Health Worker does not receive their own notice. If no active CO is assigned, no notification is created.
 
 ### Check-up reminders
 
@@ -73,6 +74,8 @@ PROGRESS_REPORT_AI_API_KEY=your_groq_api_key
 ```
 
 F1KD uses Groq as its cloud AI provider. The server appends `/chat/completions` to the base URL and sends the API key as a bearer token. Keep the key only in the backend environment file. Leave the URL and model unset to keep AI unavailable. Restart the backend after changing these settings.
+
+Report-proposal requests cap generated output at 768 tokens to reduce provider token-per-minute usage. If the provider still returns HTTP 429, wait before retrying; repeated failures may require the administrator to increase the provider's rate limit.
 
 For module-by-module capabilities, role access, inputs sent to the model, and limitations—including endpoints that are not wired to a screen—see [Integrated AI: Modules, Purpose, Scope, and Limits](../docs/INTEGRATED_AI.md).
 

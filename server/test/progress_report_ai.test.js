@@ -197,6 +197,43 @@ test('report proposals accept only known report types and fields for the selecte
   }), /invalid clarification request/);
 });
 
+test('report proposals limit completion token reservations and explain provider rate limits', async () => {
+  let request;
+  await createReportProposal('Mother: saved measurements', {
+    env: modelEnvironment,
+    fetchImpl: async (_url, options) => {
+      request = JSON.parse(options.body);
+      return new Response(JSON.stringify({
+        choices: [{
+          message: {
+            content: JSON.stringify({
+              needsClarification: false,
+              question: '',
+              options: [],
+              reportCategory: 'monitor',
+              beneficiaryType: 'mother',
+              profileMetricIds: [],
+              metricIds: ['measurementDate', 'bmiForAge'],
+              explanation: 'Shows saved maternal measurements by check-up date.',
+            }),
+          },
+        }],
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    },
+  });
+  assert.equal(request.max_completion_tokens, 768);
+
+  await assert.rejects(
+    createReportProposal('Child: head circumference', {
+      env: modelEnvironment,
+      fetchImpl: async () => new Response(JSON.stringify({
+        error: { type: 'tokens', code: 'rate_limit_exceeded', message: 'Token rate limit exceeded.' },
+      }), { status: 429, headers: { 'Content-Type': 'application/json' } }),
+    }),
+    /token-per-minute limit/,
+  );
+});
+
 test('profile vaccine details expose individual child doses and maternal vaccine subfields', async () => {
   const originalQuery = pool.query;
   try {
@@ -302,6 +339,72 @@ test('clear latest maternal BMI requests and their answers do not trigger anothe
       explanation: 'Latest BMI from the mother’s check-up history.',
     });
   }
+});
+
+test('maternal blood-pressure requests resolve source and latest check-up without repeated clarifications', async () => {
+  const cases = [
+    {
+      prompt: 'Mother blood pressure latest',
+      expected: {
+        reportCategory: 'monitor',
+        beneficiaryType: 'mother',
+        metricIds: ['measurementDate', 'bloodPressure'],
+        explanation: 'Showing the latest blood pressure saved in the mother check-up records.',
+      },
+    },
+    {
+      prompt: 'Mother blood pressure\nClarification: bloodPressure (General blood pressure)',
+      expected: {
+        reportCategory: 'monitor',
+        beneficiaryType: 'mother',
+        metricIds: ['measurementDate', 'bloodPressure'],
+        explanation: 'Showing the latest blood pressure saved in the mother check-up records.',
+      },
+    },
+    {
+      prompt: 'Mother blood pressure\nClarification: prenatalBp (Prenatal blood pressure)',
+      expected: {
+        reportCategory: 'profile',
+        beneficiaryType: 'mother',
+        metricIds: ['prenatalBp'],
+        explanation: 'Showing the blood pressure saved at prenatal registration.',
+      },
+    },
+    {
+      prompt: 'Mother prenatal or check-up blood pressure\nClarification: General blood pressure',
+      expected: {
+        reportCategory: 'monitor',
+        beneficiaryType: 'mother',
+        metricIds: ['measurementDate', 'bloodPressure'],
+        explanation: 'Showing the latest blood pressure saved in the mother check-up records.',
+      },
+    },
+  ];
+
+  for (const { prompt, expected } of cases) {
+    const proposal = await createReportProposal(prompt, {
+      env: modelEnvironment,
+      fetchImpl: async () => {
+        throw new Error('Clear blood-pressure requests should not call the AI service.');
+      },
+    });
+    assert.deepEqual(proposal, expected);
+  }
+
+  const clarification = await createReportProposal('Mother blood pressure', {
+    env: modelEnvironment,
+    fetchImpl: async () => {
+      throw new Error('An unqualified blood-pressure request should use the single built-in clarification.');
+    },
+  });
+  assert.deepEqual(clarification, {
+    needsClarification: true,
+    question: 'Which saved blood pressure should the report show?',
+    options: [
+      'Prenatal registration blood pressure',
+      'Latest blood pressure from check-up records',
+    ],
+  });
 });
 
 test('maternal BMI requests for a specific trimester check-up resolve without AI clarification', async () => {

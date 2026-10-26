@@ -78,9 +78,9 @@ export function apiBulkSetNotificationsRead(ids, isRead) {
   });
 }
 
-export function apiRecordReportDownload() {
+export function apiRecordReportDownload(fileName) {
   return requestNotifications('/api/notifications/download-success', {
     method: 'POST',
-    body: JSON.stringify({ format: 'CSV' }),
+    body: JSON.stringify({ format: 'CSV', fileName }),
   });
 }

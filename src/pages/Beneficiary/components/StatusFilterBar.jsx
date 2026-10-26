@@ -9,8 +9,10 @@ const MONITOR_STATUS_OPTIONS = [
 
 const BENEFICIARY_STATUS_OPTIONS = [
   { key: 'All', label: 'All' },
-  { key: 'Incomplete', label: 'Incomplete' },
-  { key: 'Complete', label: 'Complete' },
+  { key: 'Incomplete', label: 'Incomplete monitoring' },
+  { key: 'Complete', label: 'Complete monitoring' },
+  { key: 'Pending', label: 'Pending check-up' },
+  { key: 'Missing', label: 'Missing check-up' },
 ];
 
 export default function StatusFilterBar({ selectedStatusFilter, onChange, mode = 'monitor' }) {

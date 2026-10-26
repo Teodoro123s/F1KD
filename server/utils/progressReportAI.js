@@ -160,6 +160,7 @@ const REPORT_METRICS = {
       ['measurementDate', 'Check-up date'],
       ['weightForAge', 'Weight'],
       ['heightForAge', 'Height'],
+      ['bloodPressure', 'Blood pressure'],
       ['bmiForAge', 'Latest recorded BMI'],
       ['bmiInterpretation', 'BMI screening interpretation'],
       ['hospitalReferral', 'Hospital referral'],
@@ -481,6 +482,48 @@ function inferDirectMotherBmiProposal(prompt) {
     beneficiaryType: 'mother',
     metricIds,
     explanation: isLatestRequest ? 'Latest BMI from the mother’s check-up history.' : 'Mother BMI from check-up history.',
+  };
+}
+
+function inferDirectMotherBloodPressureProposal(prompt) {
+  const normalizedPrompt = normalizeMetricPhrase(prompt);
+  if (!/\bmother\b/.test(normalizedPrompt) || !/\b(blood pressure|bp)\b/.test(normalizedPrompt)) return null;
+
+  const clarification = normalizedPrompt.split(' clarification ').slice(1).join(' ');
+  const originalRequest = normalizedPrompt.split(' clarification ')[0];
+  const clarificationSelectsPrenatal = /\b(prenatal|registration|baseline)\b/.test(clarification);
+  const clarificationSelectsCheckup = /\b(general|check up|checkup|visit|monitor|monitoring|latest|most recent|last)\b/.test(clarification);
+  const prenatalRequest = clarification
+    ? clarificationSelectsPrenatal
+    : /\b(prenatal|registration|baseline)\b/.test(originalRequest);
+  if (prenatalRequest) {
+    return {
+      reportCategory: 'profile',
+      beneficiaryType: 'mother',
+      metricIds: ['prenatalBp'],
+      explanation: 'Showing the blood pressure saved at prenatal registration.',
+    };
+  }
+
+  const checkupRequest = clarification
+    ? clarificationSelectsCheckup || !clarificationSelectsPrenatal
+    : /\b(check up|checkup|visit|monitor|monitoring|general|latest|most recent|last)\b/.test(originalRequest);
+  if (checkupRequest) {
+    return {
+      reportCategory: 'monitor',
+      beneficiaryType: 'mother',
+      metricIds: ['measurementDate', 'bloodPressure'],
+      explanation: 'Showing the latest blood pressure saved in the mother check-up records.',
+    };
+  }
+
+  return {
+    needsClarification: true,
+    question: 'Which saved blood pressure should the report show?',
+    options: [
+      'Prenatal registration blood pressure',
+      'Latest blood pressure from check-up records',
+    ],
   };
 }
 
@@ -876,6 +919,12 @@ async function requestModel(messages, {
     if (!response.ok) {
       const detail = await getProviderErrorDetail(response);
       console.error(`[Progress Report AI] provider returned status ${response.status}: ${detail}`);
+      if (response.status === 429) {
+        throw new ProgressReportAIError(
+          'The AI service is temporarily at its token-per-minute limit. Wait a little before trying again. If this keeps happening, ask your administrator to increase the provider limit.',
+          503,
+        );
+      }
       throw new ProgressReportAIError(`The private AI service returned status ${response.status}.`, 503);
     }
     const payload = await response.json();
@@ -897,6 +946,8 @@ async function createReportProposal(prompt, options = {}) {
 
   const directProposal = inferDirectMotherBmiProposal(normalizedPrompt);
   if (directProposal) return validateReportProposal(directProposal);
+  const maternalBloodPressureProposal = inferDirectMotherBloodPressureProposal(normalizedPrompt);
+  if (maternalBloodPressureProposal) return validateReportProposal(maternalBloodPressureProposal);
   const childBmiProposal = inferDirectChildBmiProposal(normalizedPrompt);
   if (childBmiProposal) return validateReportProposal(childBmiProposal);
 
@@ -928,7 +979,7 @@ async function createReportProposal(prompt, options = {}) {
     { role: 'user', content: normalizedPrompt },
   ], {
     ...options,
-    maxCompletionTokens: 2048,
+    maxCompletionTokens: 768,
     reasoningEffort: 'low',
     responseFormat: { type: 'json_object' },
   });

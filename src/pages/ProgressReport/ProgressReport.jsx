@@ -310,7 +310,7 @@ export default function ProgressReport() {
     downloadAiReportCsv(csvReport.csv, csvReport.filename);
     notifyAction(`Custom CSV downloaded with ${csvReport.rowCount} row${csvReport.rowCount === 1 ? '' : 's'}.`);
     if (canRecordReportDownload) {
-      apiRecordReportDownload().catch((downloadError) => {
+      apiRecordReportDownload(csvReport.filename).catch((downloadError) => {
         console.error('Unable to record report download notification:', downloadError);
       });
     }
@@ -619,12 +619,13 @@ export default function ProgressReport() {
       const reportView = view === 'table' && displayReportCategory === 'monitor'
         ? tableMode
         : view;
-      link.download = `progress-report-${displayReportCategory}-${identityType}-${reportView}.csv`;
+      const fileName = `progress-report-${displayReportCategory}-${identityType}-${reportView}.csv`;
+      link.download = fileName;
       link.click();
       window.setTimeout(() => URL.revokeObjectURL(url), 0);
       notifyAction(`CSV downloaded with ${exportRows.length} row${exportRows.length === 1 ? '' : 's'}.`);
       if (canRecordReportDownload) {
-        apiRecordReportDownload().catch((downloadError) => {
+        apiRecordReportDownload(fileName).catch((downloadError) => {
           console.error('Unable to record report download notification:', downloadError);
         });
       }
