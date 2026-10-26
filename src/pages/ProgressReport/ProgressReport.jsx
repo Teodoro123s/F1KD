@@ -97,14 +97,14 @@ export default function ProgressReport() {
   const { navigationDirection, navigationError, isNavigating, runStepNavigation } = useStepNavigation();
   const [reportCategory, setReportCategory] = useState('monitor');
   const [beneficiaryType, setBeneficiaryType] = useState('child');
-  const [growthMetrics, setGrowthMetrics] = useState(['weightForAge']);
+  const [growthMetrics, setGrowthMetrics] = useState(['weightForAgeInterpretation']);
   const [monitorTableMetrics, setMonitorTableMetrics] = useState([]);
   const [graphMetricType, setGraphMetricType] = useState('interpretation');
   const [profileMetrics, setProfileMetrics] = useState(CHILD_PROFILE_METRICS.map(([id]) => id));
   const [profileSection, setProfileSection] = useState('general');
   const [programMetrics, setProgramMetrics] = useState(['receivedBenefitTotal', 'receivedBenefitFrequency', 'receivedBenefitAveragePerMonth', 'programDocumentation']);
   const [resultsView, setResultsView] = useState('graph');
-  const [tableDisplayMode, setTableDisplayMode] = useState('general');
+  const [selectedGraphBeneficiary, setSelectedGraphBeneficiary] = useState('');
   const [includeInterpretationColumns, setIncludeInterpretationColumns] = useState(true);
   const [resultPeriod, setResultPeriod] = useState('all');
   const [displayWeeks, setDisplayWeeks] = useState('all');
@@ -143,10 +143,11 @@ export default function ProgressReport() {
   const displayPage = finalizedSnapshot?.page ?? page;
   const activeReport = finalizedSnapshot?.report ?? report;
   const activeReportRowCount = Number(activeReport?.pagination?.total ?? activeReport?.rows?.length ?? 0);
-  const graphAllowed = (finalizedSnapshot?.reportCategory ?? reportCategory) !== 'program'
-    && (Boolean(displaySelection.batchId) || activeReportRowCount <= 1);
-  const baseDisplayVisibleFields = addGrowthScoresBeforeInterpretations(finalizedSnapshot?.visibleFields ?? visibleFields);
   const displayReportCategory = finalizedSnapshot?.reportCategory ?? reportCategory;
+  const graphAllowed = displayReportCategory === 'monitor'
+    ? activeReportRowCount > 0
+    : displayReportCategory !== 'program' && (Boolean(displaySelection.batchId) || activeReportRowCount <= 1);
+  const baseDisplayVisibleFields = addGrowthScoresBeforeInterpretations(finalizedSnapshot?.visibleFields ?? visibleFields);
   const displayBeneficiaryType = finalizedSnapshot?.beneficiaryType ?? beneficiaryType;
   const normalizeProgramName = (value) => String(value ?? '').trim().toLowerCase();
   const eligiblePrograms = useMemo(
@@ -166,9 +167,11 @@ export default function ProgressReport() {
   const activeProfileSectionLabels = displayBeneficiaryType === 'mother' ? MOTHER_PROFILE_SECTION_LABELS : PROFILE_SECTION_LABELS;
   const graphMetricOptions = graphMetricType === 'interpretation' ? availableGrowthMetrics : availableNumericGrowthMetrics;
   const selectedGraphMetric = growthMetrics[0] || graphMetricOptions[0]?.[0] || '';
-  const selectedTableGrowthFields = [...new Set(monitorTableMetrics.length
-    ? monitorTableMetrics.flatMap(growthTableFieldsForMetric).filter((field) => GROWTH_TABLE_FIELDS.has(field))
-    : growthTableFieldsForMetric(selectedGraphMetric))];
+  const selectedTableGrowthMetric = availableGrowthMetrics.some(([id]) => id === growthMetrics[0])
+    ? growthMetrics[0]
+    : availableGrowthMetrics[0]?.[0] || '';
+  const selectedTableGrowthFields = growthTableFieldsForMetric(selectedTableGrowthMetric)
+    .filter((field) => GROWTH_TABLE_FIELDS.has(field));
   const tableBaseFields = baseDisplayVisibleFields.filter((field) => !GROWTH_TABLE_FIELDS.has(field));
   const monitoringHierarchyFields = new Set([
     ...(displaySelection.schoolId ? ['school'] : []),
@@ -373,7 +376,8 @@ export default function ProgressReport() {
       });
       const result = await apiGetProgressReport(requestParams);
       const reportRowCount = Number(result.pagination?.total ?? result.rows?.length ?? 0);
-      const graphAllowed = Boolean(safeSelection.batchId) || reportRowCount <= 1;
+      const defaultToGraph = reportCategory !== 'program'
+        && (Boolean(safeSelection.batchId) || reportRowCount <= 1);
       let completeGraphRows = result.rows || [];
       const requiresCompleteRows = reportCategory === 'monitor';
       if (nextPage > 1 && finalizedSnapshot?.requestParams) {
@@ -394,7 +398,7 @@ export default function ProgressReport() {
       setResultsView(
         reportCategory !== 'monitor' || monitorTableMetrics.length
           ? 'table'
-          : graphAllowed ? 'graph' : 'table',
+          : defaultToGraph ? 'graph' : 'table',
       );
       setFinalizedSnapshot({
         report: result,
@@ -654,23 +658,10 @@ export default function ProgressReport() {
         historyRowKey: `${row.childId || row.motherId || row.child || row.mother || index}-${point.date || point.measurementDate || pointIndex}`,
       })));
   }, [activeReport, activeRange, displayReportCategory, resultsRows, selectedTableGrowthFields]);
-  const monitoringRowsInRange = displayReportCategory === 'monitor' && activeRange
-    ? resultsRows.map((row) => ({
-      ...row,
-      growthSeries: (row.growthSeries || []).filter((point) => {
-        const monthKey = String(point.date || point.measurementDate || '').slice(0, 7);
-        return monthKey >= activeRange[0] && monthKey <= activeRange[1];
-      }),
-    }))
-    : resultsRows;
-  const tableRows = tableDisplayMode === 'monitoring-dates'
-    ? monitoringTableRows
-    : displayReportCategory === 'monitor' ? monitoringRowsInRange : resultsRows;
-  const tableVisibleFields = tableDisplayMode === 'general'
-    ? displayVisibleFields
-    : tableDisplayMode === 'monitoring-dates'
-      ? addGrowthScoresBeforeInterpretations([...monitoringTableBaseFields, 'measurementDate', ...selectedTableGrowthFields])
-      : displayVisibleFields;
+  const tableRows = displayReportCategory === 'monitor' ? monitoringTableRows : resultsRows;
+  const tableVisibleFields = displayReportCategory === 'monitor'
+    ? addGrowthScoresBeforeInterpretations([...monitoringTableBaseFields, 'measurementDate', ...selectedTableGrowthFields])
+    : displayVisibleFields;
   const reportTableVisibleFields = displayReportCategory === 'monitor' && !includeInterpretationColumns
     ? filterInterpretationFields(tableVisibleFields)
     : tableVisibleFields;
@@ -700,13 +691,27 @@ export default function ProgressReport() {
       return row.growthSeries?.some((point) => Number.isFinite(getPointValue(point, metric))) || Number.isFinite(Number(row[metric]));
     }))
   );
-  const graphRows = filteredGraphSourceRows;
+  const graphBeneficiaryKey = (row) => String(row.childId || row.motherId || row.child || row.mother || '');
+  const graphBeneficiaries = displayReportCategory === 'monitor'
+    ? [...new Map(graphSourceRows.map((row) => [graphBeneficiaryKey(row), row])).entries()]
+      .filter(([id]) => id)
+      .map(([id, row]) => ({ id, name: row.child || row.mother || 'Beneficiary' }))
+    : [];
+  const selectedGraphBeneficiaryId = graphBeneficiaries.some(({ id }) => id === selectedGraphBeneficiary)
+    ? selectedGraphBeneficiary
+    : graphBeneficiaries[0]?.id || '';
+  const graphRows = displayReportCategory === 'monitor' && selectedGraphBeneficiaryId
+    ? filteredGraphSourceRows.filter((row) => graphBeneficiaryKey(row) === selectedGraphBeneficiaryId)
+    : filteredGraphSourceRows;
+  const selectedGraphRangeRows = displayReportCategory === 'monitor' && selectedGraphBeneficiaryId
+    ? graphSourceRows.filter((row) => graphBeneficiaryKey(row) === selectedGraphBeneficiaryId)
+    : graphSourceRows;
   const graphExportFields = REPORT_FIELDS.filter(([id]) => (
     displayVisibleFields.includes(id)
     || (displayReportCategory === 'monitor' && ['measurementDate', ...selectedTableGrowthFields].includes(id))
   ));
   const graphExportRows = displayReportCategory === 'monitor'
-    ? filteredGraphSourceRows.flatMap((row) => {
+    ? graphRows.flatMap((row) => {
       const series = (row.growthSeries || []).filter((point) => growthMetrics.some((metric) => (
         INTERPRETATION_METRICS.has(metric)
           ? Boolean(getPointInterpretation(point, metric))
@@ -759,7 +764,6 @@ export default function ProgressReport() {
     setBeneficiaryType('child');
     setGraphMetricType('interpretation');
     setResultsView('graph');
-    setTableDisplayMode('general');
     setIncludeInterpretationColumns(true);
     setResultPeriod('all');
     setDisplayWeeks('all');
@@ -775,15 +779,12 @@ export default function ProgressReport() {
   };
   const selectGrowthMetric = (id) => {
     if (beneficiaryType === 'child') {
-      const nextGrowthMetrics = growthMetrics.includes(id)
-        ? growthMetrics.filter((metric) => metric !== id)
-        : [...growthMetrics, id];
-      if (!nextGrowthMetrics.length) return;
+      const nextGrowthMetrics = [id];
       setGraphMetricType('interpretation');
       setGrowthMetrics(nextGrowthMetrics);
-      setMonitorTableMetrics(nextGrowthMetrics.length > 1 ? nextGrowthMetrics : []);
+      setMonitorTableMetrics([]);
       syncVisibleFieldsForGrowthMetric(nextGrowthMetrics);
-      setResultsView(nextGrowthMetrics.length > 1 ? 'table' : 'graph');
+      setResultsView('table');
       setReport(null);
       setFinalizedSnapshot(null);
       return;
@@ -966,10 +967,6 @@ export default function ProgressReport() {
                 id,
                 REPORT_FIELDS.find(([fieldId]) => fieldId === id)?.[1] || id,
               ])}
-              selectedProfileFields={reportCategory === 'monitor' ? profileMetrics.map((id) => [
-                id,
-                REPORT_FIELDS.find(([fieldId]) => fieldId === id)?.[1] || id,
-              ]) : []}
             />
           )}
 
@@ -982,12 +979,12 @@ export default function ProgressReport() {
               <ResultsPanel
                 selectedSchool={selectedSchool}
                 selection={displaySelection}
+                isHealthWorker={isHealthWorker}
+                isCommunityOrganizer={isCommunityOrganizer}
                 groups={groups}
                 batches={batches}
                 exportReport={exportReport}
                 exportingReport={exportingReport}
-                resultPeriod={resultPeriod}
-                setResultPeriod={setResultPeriod}
                 includeInterpretationColumns={includeInterpretationColumns}
                 setIncludeInterpretationColumns={setIncludeInterpretationColumns}
                 graphExportRows={graphExportRows}
@@ -995,8 +992,9 @@ export default function ProgressReport() {
                 resultsView={resultsView}
                 setResultsView={setResultsView}
                 graphAllowed={graphAllowed}
-                tableDisplayMode={tableDisplayMode}
-                setTableDisplayMode={setTableDisplayMode}
+                graphBeneficiaries={graphBeneficiaries}
+                selectedGraphBeneficiary={selectedGraphBeneficiaryId}
+                setSelectedGraphBeneficiary={setSelectedGraphBeneficiary}
                 tableRows={tableRows}
                 tableVisibleFields={reportTableVisibleFields}
                 showProfileFilter={displayReportCategory === 'profile'}
@@ -1015,10 +1013,11 @@ export default function ProgressReport() {
                 availableGrowthMetrics={availableGrowthMetrics}
                 availableNumericGrowthMetrics={availableNumericGrowthMetrics}
                 selectedGraphMetric={selectedGraphMetric}
-                setGrowthMetrics={setGrowthMetrics}
+                selectedTableGrowthMetric={selectedTableGrowthMetric}
+                setGrowthMetrics={(metrics) => { setGrowthMetrics(metrics); setMonitorTableMetrics([]); }}
                 displayWeeks={displayWeeks}
                 setDisplayWeeks={setDisplayWeeks}
-                rangeRows={displayReportCategory === 'monitor' ? graphReportRows ?? activeReport?.rows ?? [] : resultsRows}
+                rangeRows={displayReportCategory === 'monitor' ? selectedGraphRangeRows : resultsRows}
                 averageMetric={averageMetric}
                 graphRows={graphRows}
                 resultsRows={resultsRows}

@@ -53,7 +53,7 @@ function HistoryCell({ field, value, formatCellValue, row }) {
   );
 }
 
-function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleFields, formatCellValue, communitySelection, beneficiaryType, onExport, exportingReport }) {
+function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleFields, formatCellValue, communitySelection, beneficiaryType, showSchoolFilter, showGroupFilter, growthMetricOptions, selectedGrowthMetric, onGrowthMetricChange, onRegisterExport, includeInterpretationColumns, setIncludeInterpretationColumns, onExport, exportingReport }) {
   const [viewMode, setViewMode] = useState('individual');
   const [selectedBeneficiary, setSelectedBeneficiary] = useState('');
   const [selectedMonth, setSelectedMonth] = useState('');
@@ -86,6 +86,20 @@ function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleField
     .sort((left, right) => String(left.measurementDate || '').localeCompare(String(right.measurementDate || '')));
   const selectedProfile = filteredRows[0] || beneficiaries.find((row) => String(row.childId || row.motherId || row.child || row.mother) === activeBeneficiary) || {};
   const historyMetricFields = visibleHistoryFields.filter(([id]) => id !== 'measurementDate');
+  const exportFilteredRows = () => onExport({
+    rows: filteredRows,
+    fields: viewMode === 'individual'
+      ? [['measurementDate', 'Check-up Date'], ...profileFields, ...historyMetricFields]
+      : [...communityFields, ...identityFields, ...profileFields, ...historyMetricFields],
+    view: 'table',
+    tableMode: 'monitoring-dates',
+    historyView: viewMode,
+    selectedBeneficiary: activeBeneficiary,
+    selectedMonth: activeMonth,
+    selectedSchool: activeSchool,
+    selectedGroup: activeGroup,
+  });
+  onRegisterExport?.(exportFilteredRows);
 
   return (
     <div className="monitoring-history-view">
@@ -94,6 +108,12 @@ function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleField
         <button type="button" className={viewMode === 'monthly' ? 'active' : ''} onClick={() => setViewMode('monthly')}>📅 Monthly Snapshot</button>
       </div>
       <div className="monitoring-history-filters">
+        {beneficiaryType === 'mother' && (
+          <label className="results-table-interpretation-filter">
+            <input type="checkbox" checked={includeInterpretationColumns} onChange={(event) => setIncludeInterpretationColumns(event.target.checked)} />
+            Include interpretation columns
+          </label>
+        )}
         {viewMode === 'individual' ? (
           <label>Search Beneficiary
             <select value={activeBeneficiary} onChange={(event) => setSelectedBeneficiary(event.target.value)}>
@@ -107,32 +127,23 @@ function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleField
             </select>
           </label>
         )}
-        <label>School
-          <select value={activeSchool} onChange={(event) => setSelectedSchool(event.target.value)} disabled={Boolean(communitySchool)}><option value="">All Schools</option>{schools.map((school) => <option key={school} value={school}>{school}</option>)}</select>
-        </label>
-        <label>Group
-          <select value={activeGroup} onChange={(event) => setSelectedGroup(event.target.value)} disabled={Boolean(communityGroup)}><option value="">All Groups</option>{groups.map((group) => <option key={group} value={group}>{group}</option>)}</select>
-        </label>
-        <button
-          type="button"
-          className="secondary-btn"
-          onClick={() => onExport({
-            rows: filteredRows,
-            fields: viewMode === 'individual'
-              ? [['measurementDate', 'Check-up Date'], ...profileFields, ...historyMetricFields]
-              : [...communityFields, ...identityFields, ...profileFields, ...historyMetricFields],
-            view: 'table',
-            tableMode: 'monitoring-dates',
-            historyView: viewMode,
-            selectedBeneficiary: activeBeneficiary,
-            selectedMonth: activeMonth,
-            selectedSchool: activeSchool,
-            selectedGroup: activeGroup,
-          })}
-          disabled={exportingReport}
-        >
-          {exportingReport ? 'Preparing CSV…' : 'Export CSV'}
-        </button>
+        {showSchoolFilter && (
+          <label>School
+            <select value={activeSchool} onChange={(event) => setSelectedSchool(event.target.value)} disabled={Boolean(communitySchool)}><option value="">All Schools</option>{schools.map((school) => <option key={school} value={school}>{school}</option>)}</select>
+          </label>
+        )}
+        {showGroupFilter && (
+          <label>Group
+            <select value={activeGroup} onChange={(event) => setSelectedGroup(event.target.value)} disabled={Boolean(communityGroup)}><option value="">All Groups</option>{groups.map((group) => <option key={group} value={group}>{group}</option>)}</select>
+          </label>
+        )}
+        {growthMetricOptions?.length > 0 && (
+          <label>Growth metric
+            <select value={selectedGrowthMetric} onChange={(event) => onGrowthMetricChange?.(event.target.value)}>
+              {growthMetricOptions.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+            </select>
+          </label>
+        )}
       </div>
       {viewMode === 'individual' ? (
         <>
@@ -311,14 +322,16 @@ export function ResultsTable({
   resultsRows,
   reportFields,
   displayVisibleFields,
-  tableDisplayMode,
-  setTableDisplayMode,
   showMonitoringFilter,
+  showSchoolFilter = true,
+  showGroupFilter = true,
+  growthMetricOptions = [],
+  selectedGrowthMetric = '',
+  onGrowthMetricChange,
+  onRegisterMonitoringExport,
   communitySelection,
   beneficiaryType,
   showProfileFilter,
-  resultPeriod,
-  setResultPeriod,
   includeInterpretationColumns,
   setIncludeInterpretationColumns,
   exportingReport = false,
@@ -343,137 +356,77 @@ export function ResultsTable({
   });
   const customizedFields = sectionFields.filter(([id]) => !hiddenFields.has(id));
   const showCustomize = !showMonitoringFilter;
-  const showResultPeriod = showMonitoringFilter && tableDisplayMode === 'general';
-  const today = new Date();
-  const validMonitoringRows = resultsRows.flatMap((row) => (row.growthSeries || [])
-    .filter((point) => {
-      const dateValue = point.date || point.measurementDate;
-      return dateValue && !Number.isNaN(new Date(dateValue).getTime());
-    })
-    .map((point) => ({
-      ...row,
-      measurementDate: point.date || point.measurementDate,
-      bmiForAge: point.bmi ?? '',
-      growthSeries: [point],
-    })));
-  const resultPeriodOptions = [
-    { value: 'all', label: 'All' },
-    { value: 'latest', label: 'Latest' },
-  ];
-  const getBeneficiaryKey = (row) => String(row.childId || row.motherId || row.child || row.mother);
-  const rowsByBeneficiary = (rows) => [...new Map([...rows]
-    .sort((left, right) => String(right.measurementDate).localeCompare(String(left.measurementDate)))
-    .map((row) => [getBeneficiaryKey(row), row])).values()];
-  const datedBeneficiaries = new Set(validMonitoringRows.map(getBeneficiaryKey));
-  const beneficiariesWithoutDatedMeasurements = rowsByBeneficiary(resultsRows)
-    .filter((row) => !datedBeneficiaries.has(getBeneficiaryKey(row)));
-  const latestDatedRows = rowsByBeneficiary(validMonitoringRows);
-  const periodRows = resultPeriod === 'latest'
-    ? [...latestDatedRows, ...beneficiariesWithoutDatedMeasurements]
-    : [...validMonitoringRows, ...beneficiariesWithoutDatedMeasurements];
-  const currentTableData = showMonitoringFilter && tableDisplayMode === 'general'
-    ? getLatestResultsTableData(
-      periodRows,
-      beneficiaryType,
-      resultPeriod,
-      communitySelection,
-      includeInterpretationColumns,
-    )
-    : { rows: resultsRows, fields: customizedFields };
+  const currentTableData = { rows: resultsRows, fields: customizedFields };
   return (
     <div className="results-table-wrap">
-      {showMonitoringFilter && (
-        <div className="results-table-subheader">
-          <label htmlFor="table-display-mode">Table display</label>
-          <select id="table-display-mode" value={tableDisplayMode} onChange={(event) => setTableDisplayMode(event.target.value)}>
-            <option value="general">General table</option>
-            <option value="monitoring-dates">Monitoring dates + growth value</option>
-          </select>
-        </div>
-      )}
-      {(showCustomize || showResultPeriod || showProfileFilter || showMonitoringFilter) && (
+      {(showCustomize || showProfileFilter) && (
         <div className="results-table-tools">
-          {showCustomize && (
-            <details
-              className="results-table-customizer"
-              open={customizerOpen}
-            >
-              <summary
-                ref={customizerTriggerRef}
-                aria-haspopup="menu"
-                aria-expanded={customizerOpen}
-                onClick={(event) => {
-                  event.preventDefault();
-                  setCustomizerOpen((open) => !open);
-                }}
-              >
-                Customize table
-              </summary>
-              <FloatingLayer
-                open={customizerOpen}
-                anchorRef={customizerTriggerRef}
-                onDismiss={() => setCustomizerOpen(false)}
-                className="results-table-customizer-menu"
-                role="menu"
-                aria-label="Visible columns"
-              >
-                <div className="results-table-customizer-heading">
-                  <strong>Visible columns</strong>
-                  <button type="button" onClick={() => setHiddenFields(new Set())}>Reset</button>
-                </div>
-                {sectionFields.map(([id, label]) => (
-                  <label key={id}>
-                    <input type="checkbox" checked={!hiddenFields.has(id)} onChange={() => setHiddenFields((current) => {
-                      const next = new Set(current);
-                      if (next.has(id)) next.delete(id); else next.add(id);
-                      return next;
-                    })} />
-                    {label}
-                  </label>
-                ))}
-              </FloatingLayer>
-            </details>
-          )}
-          {showResultPeriod && (
-            <label className="results-table-period-filter">Result period
-              <select value={resultPeriod} onChange={(event) => setResultPeriod(event.target.value)}>
-                {resultPeriodOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-              </select>
-            </label>
-          )}
-          {showMonitoringFilter && (tableDisplayMode === 'monitoring-dates' || beneficiaryType === 'mother') && (
-            <label className="results-table-interpretation-filter">
-              <input
-                type="checkbox"
-                checked={includeInterpretationColumns}
-                onChange={(event) => setIncludeInterpretationColumns(event.target.checked)}
-              />
-              Include interpretation columns
-            </label>
-          )}
-          {showProfileFilter && (
-            <label className="results-table-period-filter">Profile section
+          <div className="results-table-filters" role="group" aria-label="Report filters">
+            {showProfileFilter && (
+              <label className="results-table-period-filter">Profile section
                 <select value={profileSection} onChange={(event) => setProfileSection(event.target.value)}>
-                {Object.entries(profileSectionLabels).filter(([value]) => value !== 'all').map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-              </select>
-            </label>
-          )}
-          {!(showMonitoringFilter && tableDisplayMode === 'monitoring-dates') && (
-            <button
-              type="button"
-              className="secondary-btn"
-              onClick={() => onExport({ ...currentTableData, view: 'table' })}
-              disabled={exportingReport}
-            >
-              {exportingReport ? 'Preparing CSV…' : 'Export CSV'}
-            </button>
-          )}
+                  {Object.entries(profileSectionLabels).filter(([value]) => value !== 'all').map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                </select>
+              </label>
+            )}
+          </div>
+          <div className="results-table-actions">
+            {showCustomize && (
+              <details
+                className="results-table-customizer"
+                open={customizerOpen}
+              >
+                <summary
+                  ref={customizerTriggerRef}
+                  aria-haspopup="menu"
+                  aria-expanded={customizerOpen}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    setCustomizerOpen((open) => !open);
+                  }}
+                >
+                  Customize table
+                </summary>
+                <FloatingLayer
+                  open={customizerOpen}
+                  anchorRef={customizerTriggerRef}
+                  onDismiss={() => setCustomizerOpen(false)}
+                  className="results-table-customizer-menu"
+                  role="menu"
+                  aria-label="Visible columns"
+                >
+                  <div className="results-table-customizer-heading">
+                    <strong>Visible columns</strong>
+                    <button type="button" onClick={() => setHiddenFields(new Set())}>Reset</button>
+                  </div>
+                  {sectionFields.map(([id, label]) => (
+                    <label key={id}>
+                      <input type="checkbox" checked={!hiddenFields.has(id)} onChange={() => setHiddenFields((current) => {
+                        const next = new Set(current);
+                        if (next.has(id)) next.delete(id); else next.add(id);
+                        return next;
+                      })} />
+                      {label}
+                    </label>
+                  ))}
+                </FloatingLayer>
+              </details>
+            )}
+            {!showMonitoringFilter && (
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={() => onExport({ ...currentTableData, view: 'table' })}
+                disabled={exportingReport}
+              >
+                {exportingReport ? 'Preparing CSV…' : 'Export CSV'}
+              </button>
+            )}
+          </div>
         </div>
       )}
-      {showMonitoringFilter && tableDisplayMode === 'monitoring-dates' ? (
-        <MonitoringHistoryTable resultsRows={resultsRows} reportFields={reportFields} displayVisibleFields={displayVisibleFields} formatCellValue={formatCellValue} communitySelection={communitySelection} beneficiaryType={beneficiaryType} onExport={onExport} exportingReport={exportingReport} />
-      ) : showMonitoringFilter && tableDisplayMode === 'general' ? (
-        <LatestResultsTable resultsRows={periodRows} formatCellValue={formatCellValue} beneficiaryType={beneficiaryType} resultPeriod={resultPeriod} communitySelection={communitySelection} includeInterpretationColumns={includeInterpretationColumns} />
+      {showMonitoringFilter ? (
+        <MonitoringHistoryTable resultsRows={resultsRows} reportFields={reportFields} displayVisibleFields={displayVisibleFields} formatCellValue={formatCellValue} communitySelection={communitySelection} beneficiaryType={beneficiaryType} showSchoolFilter={showSchoolFilter} showGroupFilter={showGroupFilter} growthMetricOptions={growthMetricOptions} selectedGrowthMetric={selectedGrowthMetric} onGrowthMetricChange={onGrowthMetricChange} onRegisterExport={onRegisterMonitoringExport} includeInterpretationColumns={includeInterpretationColumns} setIncludeInterpretationColumns={setIncludeInterpretationColumns} onExport={onExport} exportingReport={exportingReport} />
       ) : (
       <StandardResultsTable resultsRows={resultsRows} fields={customizedFields} formatCellValue={formatCellValue} />
       )}

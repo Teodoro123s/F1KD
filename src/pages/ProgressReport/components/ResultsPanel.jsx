@@ -1,16 +1,16 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { ResultsTable } from './ResultsTable';
 import { ResultsGraph } from './ResultsGraph';
 
 export function ResultsPanel({
   selectedSchool,
   selection,
+  isHealthWorker = false,
+  isCommunityOrganizer = false,
   groups,
   batches,
   exportReport,
   exportingReport,
-  resultPeriod,
-  setResultPeriod,
   includeInterpretationColumns,
   setIncludeInterpretationColumns,
   graphExportRows,
@@ -18,8 +18,9 @@ export function ResultsPanel({
   resultsView,
   setResultsView,
   graphAllowed,
-  tableDisplayMode,
-  setTableDisplayMode,
+  graphBeneficiaries = [],
+  selectedGraphBeneficiary = '',
+  setSelectedGraphBeneficiary,
   tableRows,
   tableVisibleFields,
   showProfileFilter,
@@ -38,6 +39,7 @@ export function ResultsPanel({
   availableGrowthMetrics,
   availableNumericGrowthMetrics,
   selectedGraphMetric,
+  selectedTableGrowthMetric,
   setGrowthMetrics,
   displayWeeks,
   setDisplayWeeks,
@@ -55,6 +57,7 @@ export function ResultsPanel({
   interpretationMetrics,
   programMetrics,
 }) {
+  const monitoringExportHandler = useRef(null);
   const viewToggle = [
     { key: 'table', label: 'Table View' },
     { key: 'graph', label: 'Graph View', disabled: !graphAllowed },
@@ -71,6 +74,18 @@ export function ResultsPanel({
         </div>
 
         <div className="results-view-toggle" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          {resultsView === 'graph' && displayReportCategory === 'monitor' && graphBeneficiaries.length > 1 && (
+            <label className="results-table-period-filter">
+              Beneficiary
+              <select
+                aria-label="Graph beneficiary"
+                value={selectedGraphBeneficiary}
+                onChange={(event) => setSelectedGraphBeneficiary(event.target.value)}
+              >
+                {graphBeneficiaries.map(({ id, name }) => <option key={id} value={id}>{name}</option>)}
+              </select>
+            </label>
+          )}
           {viewToggle.map((view) => (
             <button
               key={view.key}
@@ -79,7 +94,7 @@ export function ResultsPanel({
               onClick={() => { if (!view.disabled) setResultsView(view.key); }}
               disabled={view.disabled}
               aria-pressed={resultsView === view.key}
-              title={view.disabled ? 'Graphs are available for a single beneficiary or a selected batch.' : undefined}
+              title={view.disabled ? (displayReportCategory === 'program' ? 'Graphs are unavailable for program reports.' : 'Graphs are available for individual or batch profile reports.') : undefined}
             >
               {view.label}
             </button>
@@ -94,12 +109,24 @@ export function ResultsPanel({
               {exportingReport ? 'Preparing CSV…' : 'Export CSV'}
             </button>
           )}
+          {resultsView === 'table' && displayReportCategory === 'monitor' && (
+            <button
+              type="button"
+              className="secondary-btn"
+              disabled={exportingReport}
+              onClick={() => monitoringExportHandler.current?.()}
+            >
+              {exportingReport ? 'Preparing CSV…' : 'Export CSV'}
+            </button>
+          )}
         </div>
       </div>
 
       {!graphAllowed && (
         <p className="progress-report-note" role="status">
-          Graphs are limited to a single beneficiary or a selected batch to keep charts readable. Use Table View for school- or group-wide reports.
+          {displayReportCategory === 'program'
+            ? 'Graphs are not available for program reports.'
+            : 'Graphs are available for individual or batch profile reports.'}
         </p>
       )}
 
@@ -130,9 +157,16 @@ export function ResultsPanel({
           resultsRows={tableRows}
           reportFields={reportFields}
           displayVisibleFields={tableVisibleFields}
-          tableDisplayMode={tableDisplayMode}
-          setTableDisplayMode={setTableDisplayMode}
           showMonitoringFilter={displayReportCategory === 'monitor'}
+          showSchoolFilter={!isHealthWorker && !isCommunityOrganizer}
+          showGroupFilter={!isHealthWorker}
+          growthMetricOptions={availableGrowthMetrics}
+          selectedGrowthMetric={selectedTableGrowthMetric}
+          onGrowthMetricChange={(metric) => {
+            setGraphMetricType('interpretation');
+            setGrowthMetrics([metric]);
+          }}
+          onRegisterMonitoringExport={(handler) => { monitoringExportHandler.current = handler; }}
           communitySelection={selection}
           beneficiaryType={displayBeneficiaryType}
           showProfileFilter={showProfileFilter}
@@ -142,8 +176,6 @@ export function ResultsPanel({
           setProfileSection={setProfileSection}
           onExport={exportReport}
           exportingReport={exportingReport}
-          resultPeriod={resultPeriod}
-          setResultPeriod={setResultPeriod}
           includeInterpretationColumns={includeInterpretationColumns}
           setIncludeInterpretationColumns={setIncludeInterpretationColumns}
           displaySort={displaySort}

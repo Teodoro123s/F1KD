@@ -22,7 +22,6 @@ export function GrowthMetricsStep({
   setProfileSection,
   toggleProfileSection,
   selectedMonitorFields = [],
-  selectedProfileFields = [],
 }) {
   const hasProfilePages = reportCategory === 'profile' && Object.keys(profileFieldSections).length > 0;
   const profileSections = Object.entries(profileSectionLabels).filter(([value]) => value !== 'all');
@@ -77,13 +76,13 @@ export function GrowthMetricsStep({
         </>
       ) : (
         <>
-          <p>{beneficiaryType === 'mother' ? 'Choose a mother monitoring metric to review.' : 'Choose one or more child growth indicators to display and export:'}</p>
+          <p>{beneficiaryType === 'mother' ? 'Choose one monitoring metric to review.' : 'Choose one child growth indicator to display and export:'}</p>
           <div className="growth-metric-cards">
             {availableGrowthMetrics.map(([id, label, description]) => (
               <label key={id} className={growthMetrics.includes(id) ? 'selected' : ''}>
                 <input
-                  type={beneficiaryType === 'mother' ? 'radio' : 'checkbox'}
-                  name={beneficiaryType === 'mother' ? 'growth-metric' : undefined}
+                  type="radio"
+                  name="growth-metric"
                   checked={growthMetrics.includes(id)}
                   onChange={() => selectGrowthMetric(id)}
                 />
@@ -100,11 +99,6 @@ export function GrowthMetricsStep({
           {selectedMonitorFields.length > 0 && (
             <p className="progress-report-note">
               AI-selected history columns: {selectedMonitorFields.map(([, label]) => label).join(', ')}. Beneficiary name is included automatically.
-            </p>
-          )}
-          {selectedProfileFields.length > 0 && (
-            <p className="progress-report-note">
-              AI-selected profile fields shown alongside the monitoring history: {selectedProfileFields.map(([, label]) => label).join(', ')}.
             </p>
           )}
         </>

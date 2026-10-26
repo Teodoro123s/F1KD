@@ -1348,20 +1348,23 @@
 .results-view-toggle button:last-child { border-radius: 0 8px 8px 0; }
 .results-view-toggle button.active,
 .results-view-toggle button.is-active { background: #15803d; border-color: #15803d; color: #fff; box-shadow: 0 4px 10px rgba(21, 128, 61, 0.18); }
-.results-table-subheader { display: flex; align-items: center; justify-content: flex-end; gap: 0.65rem; margin-bottom: 0.75rem; color: var(--text-soft, #334155); font-size: 0.8rem; font-weight: 800; }
-.results-table-subheader select { min-height: 38px; padding: 0.45rem 0.65rem; border: 1px solid var(--border-color, #e2e8f0); border-radius: 8px; background: #fff; color: var(--text-soft, #334155); font: inherit; font-weight: 600; }
-.results-table-subheader select:focus,
 .monitoring-history-filters select:focus { border-color: var(--burgundy, #15803d); box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.12); outline: none; }
 .progress-report-pagination { display: flex; align-items: center; justify-content: center; gap: 0.9rem; margin-top: 1rem; color: var(--text-muted, #64748b); font-size: 0.8rem; font-weight: 700; }
 .progress-report-pagination .secondary-btn { min-height: 36px; padding: 0.45rem 0.75rem; }
 .results-table-customizer { position: relative; margin-bottom: 0.75rem; color: var(--text-soft, #334155); }
-.results-table-tools { display: flex; flex-wrap: wrap; align-items: end; gap: 0.75rem; margin-bottom: 0.75rem; }
-.results-table-tools .results-table-customizer { margin-bottom: 0; }
+.results-table-tools { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 0.75rem 1rem; margin-bottom: 0.75rem; }
+.results-table-filters, .results-table-actions { display: flex; flex-wrap: wrap; align-items: end; gap: 0.75rem; }
+.results-table-customizer { margin-bottom: 0; }
 .results-table-period-filter { display: grid; gap: 0.35rem; color: var(--text-soft, #334155); font-size: 0.78rem; font-weight: 800; }
 .results-table-interpretation-filter { display: inline-flex; align-items: center; gap: 0.45rem; min-height: 36px; color: var(--text-soft, #334155); font-size: 0.82rem; font-weight: 700; cursor: pointer; }
 .results-table-interpretation-filter input { width: 16px; height: 16px; margin: 0; accent-color: var(--burgundy, #15803d); }
 .results-table-period-filter select { min-height: 36px; min-width: 210px; padding: 0.45rem 0.65rem; border: 1px solid var(--border-color, #e2e8f0); border-radius: 8px; background: #fff; color: var(--text-soft, #334155); font: inherit; font-weight: 600; }
 .results-table-period-filter select:focus { border-color: var(--burgundy, #15803d); box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.12); outline: none; }
+@media (max-width: 640px) {
+  .results-table-tools, .results-table-filters, .results-table-actions { align-items: stretch; width: 100%; }
+  .results-table-filters > *, .results-table-actions > * { flex: 1 1 100%; }
+  .results-table-period-filter select { width: 100%; min-width: 0; }
+}
 .profile-report-section-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.75rem; margin: 1.25rem 0 0.5rem; }
 .profile-report-section-cards button { display: grid; gap: 0.45rem; min-height: 84px; padding: 0.85rem 1rem; border: 1px solid #dbe3ee; border-radius: 10px; background: #fff; color: #475569; font: inherit; text-align: left; cursor: pointer; transition: border-color 120ms ease, background-color 120ms ease, color 120ms ease, box-shadow 120ms ease; }
 .profile-report-section-cards button strong { color: inherit; font-size: 0.95rem; }
