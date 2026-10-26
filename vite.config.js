@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react';
 const apiProxyTarget = process.env.VITE_API_PROXY_TARGET || 'http://localhost:8080';
 
 export default defineConfig({
+  base: process.env.GITHUB_PAGES === 'true' ? './' : '/',
   plugins: [react()],
   server: {
     proxy: {

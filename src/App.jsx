@@ -6,6 +6,7 @@ import { useAuth } from './auth/AuthProvider';
 import RoleBasedRoute from './components/RoleBasedRoute';
 import { LoadingScreen } from './components/LoadingSkeleton';
 import { ROLES } from './utils/permissions';
+import DemoApp from './demo/DemoApp';
 
 const Layout = lazy(() => import('./components/Layout'));
 const CommunityModulePage = lazy(() => import('./pages/Community/CommunityModulePage'));
@@ -55,6 +56,8 @@ function RequireAuth({ children }) {
 }
 
 export default function App() {
+  if (import.meta.env.VITE_DEMO_MODE === 'true') return <DemoApp />;
+
   return (
     <Routes>
       <Route path="/login" element={<Login />} />

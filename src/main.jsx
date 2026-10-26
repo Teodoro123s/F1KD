@@ -1,6 +1,6 @@
 import { StrictMode, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
+import { BrowserRouter, HashRouter } from 'react-router-dom';
 import App from './App';
 import './index.css';
 import { AuthProvider } from './auth/AuthProvider';
@@ -16,15 +16,18 @@ window.addEventListener('vite:preloadError', (event) => {
 });
 
 const root = createRoot(document.getElementById('root'));
+const isDemoBuild = import.meta.env.VITE_DEMO_MODE === 'true';
+const Router = isDemoBuild ? HashRouter : BrowserRouter;
+const app = (
+  <Suspense fallback={<LoadingScreen message="Loading page..." />}>
+    {isDemoBuild ? <App /> : <AuthProvider><App /></AuthProvider>}
+  </Suspense>
+);
 
 root.render(
   <StrictMode>
-    <BrowserRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
-      <Suspense fallback={<LoadingScreen message="Loading page..." />}>
-        <AuthProvider>
-          <App />
-        </AuthProvider>
-      </Suspense>
-    </BrowserRouter>
+    <Router future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
+      {app}
+    </Router>
   </StrictMode>
 );

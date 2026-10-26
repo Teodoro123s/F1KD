@@ -45,6 +45,12 @@ docker compose -f docker-compose.minio.yml -f docker-compose.tls.yml up --build 
 
 HTTP requests on port 80 redirect to HTTPS; the browser and API are served through TLS on port 443. Install a publicly trusted certificate for public deployments, restrict inbound firewall access to the needed ports, and renew the certificate before expiry. This secures browser-to-web traffic; container-to-container traffic on the Docker network remains private but is not separately encrypted.
 
+### Public mock demo on GitHub Pages
+
+The GitHub Pages workflow publishes a read-only F1KD walkthrough with synthetic data. It does not connect to the API, database, or MinIO, and it must not contain real beneficiary information. The demo build is enabled only by the workflow's `VITE_DEMO_MODE=true` setting; regular local and Docker builds continue to use the backend.
+
+The workflow currently deploys pushes to `pre-backend-separation-v2`. In the repository's **Settings → Pages**, set the build/deployment source to **GitHub Actions**. Push the branch to GitHub or run **Deploy mock demo to GitHub Pages** from the Actions tab. For this repository, the expected project-site URL is `https://teodoro123s.github.io/F1KD/`; GitHub displays the actual published URL in the Pages settings and deployment. GitHub Pages hosting is public, so keep this demo free of personal, health, account, and other private data.
+
 ### Encryption at rest and backups
 
 The Docker configuration does not enable MariaDB or MinIO application-level encryption at rest. Protect the host storage that contains Docker's named volumes and `server/data/uploads` with full-disk encryption (for example, BitLocker on Windows or LUKS on Linux), and encrypt backup files and their storage separately. Confirm that Docker Desktop's data disk/WSL virtual disk and every backup destination are on encrypted storage. If these stores move to managed infrastructure, enable that provider's database, object-store, disk, and backup encryption. This repo cannot safely activate portable database/object encryption without the deployment's key-management service and key-rotation/recovery plan.
