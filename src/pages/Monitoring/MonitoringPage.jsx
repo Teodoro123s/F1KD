@@ -24,6 +24,7 @@ import { apiCreateMonitoringReportIntent } from '../../api/progressReport';
 import { downloadContent, generateCsvContent } from '../ProgressReport/utils/exportUtils';
 import {
   filterMonitoringReportCheckups,
+  getFirstMonitoringReportCheckup,
   getLatestMonitoringReportCheckup,
   getMonitoringReportCheckups,
   getMonitoringReportValue,
@@ -117,6 +118,60 @@ function removeKnownBeneficiaryNames(prompt, names) {
   ), prompt);
 }
 
+const MONITORING_SCOPE_FIELDS = [
+  { id: 'school', label: 'School', terms: ['school', 'schools'], keys: ['school', 'schoolName', 'school_name', 'community', 'communityName', 'community_name'] },
+  { id: 'community', label: 'Community', terms: ['community', 'communities'], keys: ['community', 'communityName', 'community_name', 'area'] },
+  { id: 'group', label: 'Group', terms: ['group', 'groups'], keys: ['group', 'groupName', 'group_name'] },
+  { id: 'batch', label: 'Batch', terms: ['batch', 'batches'], keys: ['batch', 'batchName', 'batch_name', 'batchCode', 'batch_code'] },
+];
+
+function getMonitoringScopeValue(beneficiary, scope) {
+  return scope.keys
+    .map((key) => beneficiary?.[key])
+    .find((value) => value !== undefined && value !== null && String(value).trim()) || '';
+}
+
+function normalizeMonitoringScopeValue(value) {
+  return String(value || '').trim().toLocaleLowerCase().replace(/\s+/g, ' ');
+}
+
+function compactMonitoringScopeValue(value) {
+  return normalizeMonitoringScopeValue(value).replace(/[^a-z0-9]/g, '');
+}
+
+function resolveMonitoringScopeFilters(prompt, beneficiaries) {
+  const normalizedPrompt = normalizeMonitoringScopeValue(prompt);
+  return MONITORING_SCOPE_FIELDS.flatMap((scope) => {
+    if (!scope.terms.some((term) => new RegExp(`\\b${term}\\b`).test(normalizedPrompt))) return [];
+    const values = [...new Set(beneficiaries
+      .map((beneficiary) => getMonitoringScopeValue(beneficiary, scope))
+      .filter(Boolean))];
+    const matches = values.filter((value) => {
+      const normalizedValue = normalizeMonitoringScopeValue(value);
+      const compactValue = compactMonitoringScopeValue(value);
+      const compactPrompt = compactMonitoringScopeValue(prompt);
+      return normalizedValue.length > 1 && (
+        normalizedPrompt.includes(normalizedValue)
+        || (compactValue.length > 2 && compactPrompt.includes(compactValue))
+      );
+    });
+    return matches.length ? [{ ...scope, values: matches }] : [];
+  });
+}
+
+function removeKnownScopeValues(prompt, scopeFilters) {
+  return scopeFilters.flatMap((scope) => scope.values).reduce((safePrompt, value) => safePrompt.replace(
+    new RegExp(String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'),
+    'the selected scope',
+  ), prompt);
+}
+
+function matchesMonitoringScopeFilters(beneficiary, scopeFilters) {
+  return scopeFilters.every((scope) => scope.values.some((value) => (
+    normalizeMonitoringScopeValue(getMonitoringScopeValue(beneficiary, scope)) === normalizeMonitoringScopeValue(value)
+  )));
+}
+
 function downloadMonitoringReportCsv(report, rows) {
   const columns = [
     { id: 'beneficiaryName', label: 'Beneficiary' },
@@ -129,7 +184,7 @@ function downloadMonitoringReportCsv(report, rows) {
     ['beneficiaryName', row.beneficiaryName],
     ...report.metricIds.map((metricId) => [
       metricId,
-      row.checkup ? getMonitoringReportValue(row.checkup, metricId) : 'No saved check-up records.',
+      row.checkup ? getMonitoringReportValue(row.checkup, metricId, row.beneficiary) : 'No saved check-up records.',
     ]),
   ].map(([key, value]) => [key, escapeMonitoringReportCsvValue(value)])));
   const csv = generateCsvContent(csvRows, columns);
@@ -221,8 +276,6 @@ export default function MonitoringPage() {
   const [editingCheckupStep, setEditingCheckupStep] = useState(null);
   const [statusFilter, setStatusFilter] = useState('All');
   const [developmentalScreeningFilter, setDevelopmentalScreeningFilter] = useState('All');
-  const [reportBeneficiaryType, setReportBeneficiaryType] = useState(() => (location.state?.child ? 'Child' : 'Mother'));
-  const [reportBeneficiaryId, setReportBeneficiaryId] = useState('');
   const [monitoringReportPrompt, setMonitoringReportPrompt] = useState('');
   const [monitoringReportLoading, setMonitoringReportLoading] = useState(false);
   const [monitoringReportError, setMonitoringReportError] = useState('');
@@ -402,33 +455,35 @@ export default function MonitoringPage() {
 
   const clearSearch = () => { setQuery(''); setPage(1); };
 
-  const effectiveReportBeneficiaryType = reportBeneficiaryType;
-  const reportBeneficiaries = effectiveReportBeneficiaryType === 'Mother' ? scopedMothers : scopedChildren;
-  const reportRecordsUnavailable = effectiveReportBeneficiaryType === 'Child' && Boolean(childrenLoadError);
-  const previousReportBeneficiaryType = React.useRef(effectiveReportBeneficiaryType);
-
-  React.useEffect(() => {
-    if (previousReportBeneficiaryType.current !== effectiveReportBeneficiaryType) {
-      previousReportBeneficiaryType.current = effectiveReportBeneficiaryType;
-      setReportBeneficiaryId('');
-      setMonitoringReportResult(null);
-    }
-  }, [effectiveReportBeneficiaryType]);
-
+  const reportScreeningStatuses = monitoringReportResult?.developmentalStatusFilter?.length
+    ? monitoringReportResult.developmentalStatusFilter
+    : monitoringReportResult?.onlyNonNormalScreenings ? ['Needs Follow-up', 'At Risk'] : [];
+  const reportInterpretationFilters = [
+    ...(monitoringReportResult?.latestCheckupOnly ? ['Latest saved check-up per beneficiary'] : []),
+    ...(monitoringReportResult?.firstCheckupOnly ? ['First saved check-up per beneficiary'] : []),
+    ...(monitoringReportResult?.currentMonthOnly ? ['Current calendar month'] : []),
+    ...(reportScreeningStatuses.length ? [`Developmental screening: ${reportScreeningStatuses.join(' or ')}`] : []),
+    ...(monitoringReportResult?.onlyReferredToHospital ? ['Hospital referral: Yes'] : []),
+    ...((monitoringReportResult?.scopeFilters || []).map((scope) => `${scope.label}: ${scope.values.join(', ')}`)),
+  ];
   const handleMonitoringReport = async (event) => {
     event.preventDefault();
     setMonitoringReportLoading(true);
     setMonitoringReportError('');
     setMonitoringReportResult(null);
     try {
+      const scopeFilters = resolveMonitoringScopeFilters(monitoringReportPrompt, [
+        ...scopedMothers,
+        ...scopedChildren,
+      ]);
       const privacySafePrompt = removeKnownBeneficiaryNames(monitoringReportPrompt, [
         ...scopedMothers.map(getMotherName),
         ...scopedChildren.map(getChildName),
       ]);
-      const intent = await apiCreateMonitoringReportIntent(privacySafePrompt, effectiveReportBeneficiaryType);
+      const intent = await apiCreateMonitoringReportIntent(removeKnownScopeValues(privacySafePrompt, scopeFilters));
       setMonitoringReportResult({
         ...intent,
-        beneficiaryId: reportBeneficiaryId,
+        scopeFilters,
       });
     } catch (error) {
       setMonitoringReportError(error.message || 'Unable to prepare the monitoring report.');
@@ -441,29 +496,43 @@ export default function MonitoringPage() {
     if (!monitoringReportResult) return [];
     const type = monitoringReportResult.beneficiaryType;
     const beneficiaries = type === 'Mother' ? scopedMothers : scopedChildren;
-    const selected = beneficiaries.filter((beneficiary) => (
-      !monitoringReportResult.beneficiaryId
-      || getMonitoringReportBeneficiaryId(beneficiary, type) === monitoringReportResult.beneficiaryId
-    ));
-    return selected.flatMap((beneficiary) => {
+    return beneficiaries.filter((beneficiary) => (
+      matchesMonitoringScopeFilters(beneficiary, monitoringReportResult.scopeFilters || [])
+    )).flatMap((beneficiary) => {
       const allCheckups = getMonitoringReportCheckups(beneficiary, type);
-      const hasReportFilters = monitoringReportResult.onlyReferredToHospital || monitoringReportResult.onlyNonNormalScreenings;
+      const hasReportFilters = monitoringReportResult.onlyReferredToHospital
+        || monitoringReportResult.onlyNonNormalScreenings
+        || monitoringReportResult.firstCheckupOnly
+        || monitoringReportResult.latestCheckupOnly
+        || monitoringReportResult.currentMonthOnly
+        || (monitoringReportResult.developmentalStatusFilter || []).length > 0;
       const matchingCheckups = filterMonitoringReportCheckups(
         allCheckups,
         monitoringReportResult.onlyReferredToHospital,
         monitoringReportResult.onlyNonNormalScreenings,
+        monitoringReportResult.developmentalStatusFilter,
+        monitoringReportResult.currentMonthOnly,
       );
-      const latestCheckup = monitoringReportResult.latestCheckupOnly
-        ? getLatestMonitoringReportCheckup(matchingCheckups)
-        : null;
-      const checkups = monitoringReportResult.latestCheckupOnly
-        ? latestCheckup ? [latestCheckup] : []
+      const checkups = monitoringReportResult.latestCheckupOnly || monitoringReportResult.firstCheckupOnly
+        ? (() => {
+          const selectedCheckup = monitoringReportResult.latestCheckupOnly
+            ? getLatestMonitoringReportCheckup(allCheckups)
+            : getFirstMonitoringReportCheckup(allCheckups);
+          return selectedCheckup && filterMonitoringReportCheckups(
+            [selectedCheckup],
+            monitoringReportResult.onlyReferredToHospital,
+            monitoringReportResult.onlyNonNormalScreenings,
+            monitoringReportResult.developmentalStatusFilter,
+            monitoringReportResult.currentMonthOnly,
+          ).length ? [selectedCheckup] : [];
+        })()
         : matchingCheckups;
       if (hasReportFilters && !checkups.length) return [];
       const records = checkups.length ? checkups : allCheckups.length ? [] : [null];
       return records.map((checkup, index) => ({
         key: `${getMonitoringReportBeneficiaryId(beneficiary, type)}-${index}`,
         beneficiaryName: getMonitoringReportBeneficiaryName(beneficiary, type),
+        beneficiary,
         checkup,
       }));
     });
@@ -601,55 +670,27 @@ export default function MonitoringPage() {
                 </button>
               </div>
               <div id="monitoring-ai-report-options" className="monitoring-ai-report-options" hidden={!isMonitoringReportExpanded}>
-              <label htmlFor="monitoring-report-type">Beneficiary type</label>
-              <select
-                id="monitoring-report-type"
-                value={reportBeneficiaryType}
-                onChange={(event) => {
-                  setReportBeneficiaryType(event.target.value);
-                  setReportBeneficiaryId('');
-                  setMonitoringReportResult(null);
-                }}
-              >
-                <option value="Mother">Mother</option>
-                <option value="Child">Child</option>
-              </select>
-              <label htmlFor="monitoring-report-beneficiary">Beneficiary</label>
-              <select
-                id="monitoring-report-beneficiary"
-                value={reportBeneficiaryId}
-                onChange={(event) => {
-                  setReportBeneficiaryId(event.target.value);
-                  setMonitoringReportResult(null);
-                }}
-              >
-                <option value="">All available {effectiveReportBeneficiaryType.toLowerCase()} records</option>
-                {reportBeneficiaries.map((beneficiary) => {
-                  const id = getMonitoringReportBeneficiaryId(beneficiary, effectiveReportBeneficiaryType);
-                  return id ? (
-                    <option key={id} value={id}>
-                      {getMonitoringReportBeneficiaryName(beneficiary, effectiveReportBeneficiaryType)}
-                    </option>
-                  ) : null;
-                })}
-              </select>
               <label htmlFor="monitoring-report-prompt">Which check-up details should the report show?</label>
               <div className="monitoring-ai-report-prompt-row">
                 <input
                   id="monitoring-report-prompt"
                   type="text"
                   value={monitoringReportPrompt}
-                  onChange={(event) => setMonitoringReportPrompt(event.target.value)}
+                  onChange={(event) => {
+                    setMonitoringReportPrompt(event.target.value);
+                    setMonitoringReportResult(null);
+                    setMonitoringReportError('');
+                  }}
                   maxLength={500}
-                  placeholder="Example: find beneficiaries with Needs Follow-up or At Risk screening"
+                  placeholder="Describe the check-up report you need"
                   required
                 />
-                <button type="submit" className="btn-primary" disabled={monitoringReportLoading || monitoringReportPrompt.trim().length < 3 || childrenLoading || reportRecordsUnavailable}>
+                <button type="submit" className="btn-primary" disabled={monitoringReportLoading || monitoringReportPrompt.trim().length < 3 || childrenLoading}>
                   {monitoringReportLoading ? 'Preparing…' : 'Build report'}
                 </button>
               </div>
-              <p className="progress-report-ai-message">Choose a beneficiary here; names and saved check-ups stay in the app. The report only displays records your account can access.</p>
-              {reportRecordsUnavailable && <p className="progress-report-ai-message" role="alert">{childrenLoadError}</p>}
+              <p className="progress-report-ai-message">Start with mother, mothers, child, or children so AI can choose the report records. Add a community, school, group, or batch name to limit the report locally. Hospital-referral requests use Mother records. Names and saved check-ups stay in the app; the report only displays records your account can access.</p>
+              {childrenLoadError && <p className="progress-report-ai-message" role="alert">Child records are unavailable: {childrenLoadError}</p>}
               {monitoringReportError && <p className="progress-report-ai-message" role="alert">{monitoringReportError}</p>}
               {monitoringReportResult && (
                 <section className="monitoring-ai-report-results" aria-live="polite">
@@ -665,6 +706,20 @@ export default function MonitoringPage() {
                     </button>
                   </div>
                   <p>{monitoringReportResult.explanation}</p>
+                  <details className="monitoring-ai-report-understanding">
+                    <summary>What I understood from your request</summary>
+                    <dl>
+                      <dt>Beneficiary type</dt>
+                      <dd>{monitoringReportResult.beneficiaryType}</dd>
+                      <dt>Beneficiaries</dt>
+                      <dd>All accessible {monitoringReportResult.beneficiaryType.toLowerCase()} records</dd>
+                      <dt>Table columns</dt>
+                      <dd>{monitoringReportResult.metricIds.map((metricId) => MONITORING_REPORT_FIELD_LABELS[metricId]).filter(Boolean).join(', ')}</dd>
+                      <dt>Filters</dt>
+                      <dd>{reportInterpretationFilters.length ? reportInterpretationFilters.join('; ') : 'All saved check-ups'}</dd>
+                    </dl>
+                    <p>Edit the request above and build the report again if you meant different fields or filters.</p>
+                  </details>
                   {monitoringReportRows.length ? (
                     <div className="monitoring-ai-report-table-wrap">
                       <table>
@@ -681,7 +736,7 @@ export default function MonitoringPage() {
                             <tr key={row.key}>
                               <th scope="row">{row.beneficiaryName}</th>
                               {row.checkup ? monitoringReportResult.metricIds.map((metricId) => (
-                                <td key={metricId}>{getMonitoringReportValue(row.checkup, metricId)}</td>
+                                <td key={metricId}>{getMonitoringReportValue(row.checkup, metricId, row.beneficiary)}</td>
                               )) : (
                                 <td colSpan={monitoringReportResult.metricIds.length}>No saved check-up records.</td>
                               )}

@@ -1130,7 +1130,7 @@
   width: 100%;
   min-height: 100vh;
   min-height: 100dvh;
-  background: linear-gradient(180deg, #f8fafc 0%, #eef4f8 100%);
+  background: linear-gradient(180deg, #f7fbf8 0%, #edf5ef 100%);
 }
 
 .loading-screen__content {
@@ -1143,8 +1143,8 @@
 .loading-screen__spinner {
   width: 56px;
   height: 56px;
-  border: 5px solid rgba(125, 30, 46, 0.14);
-  border-top-color: #7d1e2e;
+  border: 5px solid rgba(21, 128, 61, 0.16);
+  border-top-color: #15803d;
   border-radius: 999px;
   animation: skeleton-pulse 0.9s linear infinite;
 }
@@ -1172,7 +1172,7 @@
   position: relative;
   overflow: hidden;
   border-radius: 12px;
-  background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+  background: linear-gradient(90deg, #dce9df 25%, #f0f7f1 50%, #dce9df 75%);
   background-size: 200% 100%;
   animation: sweep 1.2s linear infinite;
 }

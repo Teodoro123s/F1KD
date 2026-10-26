@@ -214,8 +214,9 @@ router.get('/', authorize('super_admin', 'admin', 'community_coordinator', 'part
       notifications: scopedNotifications,
     });
   } catch (error) {
-    console.error('[Notifications API] GET / error:', error.message);
-    res.status(500).json({ error: 'Unable to load notifications' });
+    console.error('[Notifications API] GET / error:', error.stack || error.message);
+    if (res.headersSent) return;
+    return res.status(500).json({ error: 'Unable to load notifications' });
   }
 });
 

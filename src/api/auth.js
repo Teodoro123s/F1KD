@@ -1,5 +1,5 @@
 // Simple auth client using JWT in Authorization header
-import { fetchWithAuth, getApiBaseUrl } from './authHeader';
+import { fetchWithAuth, getApiBaseUrl, refreshSessionRequest } from './authHeader';
 import { readApiResponse } from './readApiResponse.mjs';
 import { clearAccessToken, getAccessToken, setAccessToken } from './tokenStore';
 
@@ -43,15 +43,8 @@ export async function changePassword(currentPassword, newPassword, confirmPasswo
 }
 
 export async function refreshSession() {
-  const res = await fetch(`${API_BASE}/api/auth/refresh`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-  });
-  const result = await readApiResponse(res, 'Unable to refresh your session');
-  if (result && result.token) {
-    setAccessToken(result.token);
-  }
+  const result = await refreshSessionRequest();
+  if (!result?.token) throw new Error('Unable to refresh your session');
   return result;
 }
 

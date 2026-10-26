@@ -395,8 +395,9 @@ router.get('/summary', async (req, res) => {
 
     res.json(summary);
   } catch (error) {
-    console.error('[Community API] community summary error:', error.message);
-    res.status(500).json({ error: 'db error' });
+    console.error('[Community API] community summary error:', error.stack || error.message);
+    if (res.headersSent) return;
+    return res.status(500).json({ error: 'db error' });
   }
 });
 

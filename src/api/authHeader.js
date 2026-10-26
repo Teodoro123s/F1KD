@@ -1,5 +1,7 @@
 import { getAccessToken, setAccessToken } from './tokenStore';
 
+let refreshRequest = null;
+
 const configuredApiBase = (typeof process !== 'undefined' && process.env && process.env.REACT_APP_API_URL)
   ? process.env.REACT_APP_API_URL
   : (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL)
@@ -16,6 +18,24 @@ export function authHeader() {
 
 export function getApiBaseUrl() {
   return API_BASE;
+}
+
+export function refreshSessionRequest() {
+  if (!refreshRequest) {
+    refreshRequest = fetch(`${API_BASE}/api/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+    }).then(async (response) => {
+      if (!response.ok) return null;
+      const data = await response.json();
+      if (data?.token) setAccessToken(data.token);
+      return data;
+    }).finally(() => {
+      refreshRequest = null;
+    });
+  }
+  return refreshRequest;
 }
 
 export function resolveAssetUrl(pathname) {
@@ -43,27 +63,18 @@ export async function fetchWithAuth(url, options = {}) {
   if (response.status !== 401 || requestOptions.__retry) return response;
 
   try {
-    const refreshResponse = await fetch(`${API_BASE}/api/auth/refresh`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-    });
-
-    if (refreshResponse.ok) {
-      const refreshData = await refreshResponse.json();
-      const nextToken = refreshData && refreshData.token;
-      if (nextToken) {
-        setAccessToken(nextToken);
-        const retryOptions = {
-          ...requestOptions,
-          __retry: true,
-          headers: {
-            ...authHeader(),
-            ...(options.headers || {}),
-          },
-        };
-        response = await fetch(url, retryOptions);
-      }
+    const refreshData = await refreshSessionRequest();
+    const nextToken = refreshData?.token;
+    if (nextToken) {
+      const retryOptions = {
+        ...requestOptions,
+        __retry: true,
+        headers: {
+          ...authHeader(),
+          ...(options.headers || {}),
+        },
+      };
+      response = await fetch(url, retryOptions);
     }
   } catch (error) {
     console.warn('Auth refresh failed', error);

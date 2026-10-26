@@ -270,7 +270,11 @@ export default function DashboardPage() {
       ? (activityReport.dailyActivity || []).reduce((total, item) => total + (Number(item.count) || 0), 0)
       : 0,
     unreadNotifications: isSuperAdmin ? Number(notificationCounts.unread) || 0 : 0,
-  }), [activityReport, isSuperAdmin, notificationCounts, reportScopes, staffMetrics, stats]);
+    dataQuality: {
+      incompleteSources: [...new Set([...loadErrors, ...(mothersError ? ['beneficiary records'] : [])])],
+      complete: loadErrors.length === 0 && !mothersError,
+    },
+  }), [activityReport, isSuperAdmin, loadErrors, mothersError, notificationCounts, reportScopes, staffMetrics, stats]);
 
   const moduleSummaries = useMemo(() => buildDashboardModuleSummaries({
     mothers,
@@ -361,41 +365,20 @@ export default function DashboardPage() {
     return allRoleCards.filter((card) => ['communities', 'programs'].includes(card.key));
   }, [isAdmin, isCommunityOrganizer, isHealthWorker, isSuperAdmin, staffMetrics, stats]);
 
-  const actions = useMemo(() => {
-    if (isSuperAdmin) {
-      return [
-        { label: 'Manage Users', to: '/user-management', icon: '👥' },
-        { label: 'Login Reports', to: '/reports', icon: '📊' },
-      ];
-    }
-    if (isHealthWorker) {
-      return [
-        { label: 'Record Receipt Check-ins', to: '/program', icon: '🍱' },
-        ...(canRecordMonitoring ? [{ label: 'Record Checkup', to: '/monitoring', icon: '🩺' }] : []),
-        { label: 'View Assigned Group', to: '/community', icon: '🏫' },
-      ];
-    }
-    if (isCommunityOrganizer) {
-      return [
-        ...(canCreateBeneficiary ? [{ label: 'Register Beneficiary', to: '/beneficiary', icon: '👥' }] : []),
-        ...(canRecordMonitoring ? [{ label: 'Record Checkup', to: '/monitoring', icon: '🩺' }] : []),
-        ...(canManagePrograms ? [{ label: 'Manage Programs', to: '/program', icon: '🍱' }] : []),
-        { label: 'Manage Health Workers', to: '/user-management', icon: '⚙️' },
-      ];
-    }
-    if (isAdmin) {
-      return [
-        { label: 'Review Monitoring', to: '/monitoring', icon: '🩺' },
-        { label: 'Review Programs', to: '/program', icon: '🍱' },
-        { label: 'Progress Reports', to: '/progress-report', icon: '📊' },
-      ];
-    }
-    return [
-      { label: 'Review Programs', to: '/program', icon: '🍱' },
-      { label: 'View Community', to: '/community', icon: '🏫' },
-      { label: 'Progress Reports', to: '/progress-report', icon: '📊' },
-    ];
-  }, [canCreateBeneficiary, canManagePrograms, canRecordMonitoring, isAdmin, isCommunityOrganizer, isHealthWorker, isSuperAdmin]);
+  const displayCards = cards.map((card) => {
+    const sourceByCard = isSuperAdmin
+      ? { 'active-staff': 'users', 'unassigned-staff': 'users', 'suspended-staff': 'users' }
+      : {
+        beneficiaries: mothersError || loadErrors.includes('children') ? true : false,
+        'follow-ups': mothersError || loadErrors.includes('children') ? true : false,
+        communities: loadErrors.includes('community summary'),
+        programs: loadErrors.includes('programs'),
+        'health-workers': loadErrors.includes('users'),
+      };
+    const unavailable = sourceByCard[card.key];
+    const failed = unavailable === true || (typeof unavailable === 'string' && loadErrors.includes(unavailable));
+    return failed ? { ...card, value: '—', subtitle: 'Could not refresh; figure unavailable' } : card;
+  });
 
   if (loading) return <PageSkeleton variant="dashboard" />;
 
@@ -438,13 +421,13 @@ export default function DashboardPage() {
       )}
 
       <section className="dashboard-kpi-grid" aria-label="Key role metrics">
-        {cards.map((card) => (
+        {displayCards.map((card) => (
           <Link key={card.key} to={card.to} className="kpi-card" aria-label={`${card.title}: ${card.value}. ${card.subtitle}`}>
             <div className="kpi-card-top">
               <span className="kpi-title">{card.title}</span>
               <span className={`kpi-icon ${card.cardClass}`} aria-hidden="true">{card.icon}</span>
             </div>
-            <div className="kpi-value">{Number(card.value).toLocaleString()}</div>
+            <div className="kpi-value">{typeof card.value === 'number' && Number.isFinite(card.value) ? card.value.toLocaleString() : card.value}</div>
             <div className="kpi-subtitle"><span>{card.subtitle}</span></div>
           </Link>
         ))}
@@ -593,22 +576,6 @@ export default function DashboardPage() {
         </section>
       )}
 
-      <section className="dashboard-panel" aria-labelledby="dashboard-actions-title">
-        <div className="panel-title-row">
-          <div className="panel-title-wrap">
-            <span className="panel-icon" aria-hidden="true">⚡</span>
-            <h3 id="dashboard-actions-title">Your shortcuts</h3>
-          </div>
-        </div>
-        <div className="quick-action-grid">
-          {actions.map((action) => (
-            <Link key={action.label} to={action.to} className="quick-action-tile">
-              <div className="quick-action-tile-icon" aria-hidden="true">{action.icon}</div>
-              <span>{action.label}</span>
-            </Link>
-          ))}
-        </div>
-      </section>
     </div>
   );
 }

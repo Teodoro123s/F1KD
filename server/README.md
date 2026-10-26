@@ -57,12 +57,12 @@ Deleting a group preserves the batches, mothers, children, and health records. I
 Optional AI features use a backend-configured OpenAI-compatible chat-completions API. Configure:
 
 ```env
-PROGRESS_REPORT_AI_BASE_URL=http://127.0.0.1:11434/v1
-PROGRESS_REPORT_AI_MODEL=your-local-model
-PROGRESS_REPORT_AI_API_KEY=
+PROGRESS_REPORT_AI_BASE_URL=https://api.groq.com/openai/v1
+PROGRESS_REPORT_AI_MODEL=openai/gpt-oss-20b
+PROGRESS_REPORT_AI_API_KEY=your_groq_api_key
 ```
 
-For Docker Compose, set `PROGRESS_REPORT_AI_BASE_URL` to an endpoint reachable from the backend container (for example, an Ollama service on the same private Docker network or `http://host.docker.internal:11434/v1` when the model runs on the Docker host). The model name must match the server's installed model. The server appends `/chat/completions` to the base URL. Leave the URL and model unset to keep AI unavailable. Restart the backend after changing these settings.
+F1KD uses Groq as its cloud AI provider. The server appends `/chat/completions` to the base URL and sends the API key as a bearer token. Keep the key only in the backend environment file. Leave the URL and model unset to keep AI unavailable. Restart the backend after changing these settings.
 
 For module-by-module capabilities, role access, inputs sent to the model, and limitations—including endpoints that are not wired to a screen—see [Integrated AI: Modules, Purpose, Scope, and Limits](../docs/INTEGRATED_AI.md).
 
