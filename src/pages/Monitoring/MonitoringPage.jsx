@@ -673,7 +673,7 @@ export default function MonitoringPage() {
               <div id="monitoring-ai-report-options" className="monitoring-ai-report-options" hidden={!isMonitoringReportExpanded}>
               <label htmlFor="monitoring-report-prompt">
                 <span>Which check-up details should the report show?</span>
-                <FieldInfoTooltip content="Start with mother, mothers, child, or children so AI can choose the report records. Add a community, school, group, or batch name to limit the report locally. Hospital-referral requests use Mother records." />
+                <FieldInfoTooltip content="Start with mother, mothers, child, or children. For child growth, use the Child Check-up names: Weight-for-Age, Length-for-Age, and Weight-for-Length. Child BMI is not available. You may also request the saved weight or length. Add a community, school, group, or batch name to limit the report locally. Hospital-referral requests use Mother records." />
               </label>
               <div className="monitoring-ai-report-prompt-row">
                 <input

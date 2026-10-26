@@ -160,15 +160,15 @@ export const REPORT_FIELDS = [
     [`${vaccine}Remarks`, `${vaccine} Remarks / Facility`, 'Profile'],
   ]),
   ['weightForAge', 'Weight (kg)', 'Growth & Monitoring'],
-  ['heightForAge', 'Height (cm)', 'Growth & Monitoring'],
-  ['weightForLengthZScore', 'Weight-for-Length/Height Z-Score', 'Growth & Monitoring'],
-  ['weightForLengthInterpretation', 'Weight-for-Length Interpretation', 'Growth & Monitoring'],
+  ['heightForAge', 'Length (cm)', 'Growth & Monitoring'],
   ['weightForAgeZScore', 'Weight-for-Age Z-Score', 'Growth & Monitoring'],
   ['weightForAgeInterpretation', 'Weight-for-Age Interpretation', 'Growth & Monitoring'],
+  ['lengthForAgeZScore', 'Length-for-Age Z-Score', 'Growth & Monitoring'],
+  ['lengthForAgeInterpretation', 'Length-for-Age Interpretation', 'Growth & Monitoring'],
+  ['weightForLengthZScore', 'Weight-for-Length Z-Score', 'Growth & Monitoring'],
+  ['weightForLengthInterpretation', 'Weight-for-Length Interpretation', 'Growth & Monitoring'],
   ['bmiForAge', 'BMI', 'Growth & Monitoring'],
   ['bmiInterpretation', 'BMI Interpretation', 'Growth & Monitoring'],
-  ['lengthForAgeZScore', 'Length/Height-for-Age Z-Score', 'Growth & Monitoring'],
-  ['lengthForAgeInterpretation', 'Length-for-Age Interpretation', 'Growth & Monitoring'],
   ['initialWeight', 'Initial Weight (kg)', 'Profile'],
   ['initialHeight', 'Initial Height (cm)', 'Profile'],
   ['initialBmi', 'Initial BMI', 'Profile'],
@@ -187,15 +187,15 @@ export const REPORT_FIELDS = [
 
 export const DEFAULT_VISIBLE_FIELDS = [
   'school', 'group', 'batch', 'mother', 'child',
-  'weightForLengthInterpretation', 'weightForAgeInterpretation', 'heightForAge',
-  'lengthForAgeZScore', 'lengthForAgeInterpretation', 'activitiesCompleted',
+  'weightForAgeInterpretation', 'lengthForAgeZScore', 'lengthForAgeInterpretation',
+  'heightForAge', 'weightForLengthInterpretation', 'activitiesCompleted',
   'totalActivities', 'progress',
 ];
 
 export const addGrowthScoresBeforeInterpretations = (fields) => [
-  ['weightForLengthZScore', 'weightForLengthInterpretation'],
   ['weightForAgeZScore', 'weightForAgeInterpretation'],
   ['lengthForAgeZScore', 'lengthForAgeInterpretation'],
+  ['weightForLengthZScore', 'weightForLengthInterpretation'],
 ].reduce((orderedFields, [scoreField, interpretationField]) => {
   if (!orderedFields.includes(interpretationField)) return orderedFields;
   const nextFields = orderedFields.filter((field) => field !== scoreField);

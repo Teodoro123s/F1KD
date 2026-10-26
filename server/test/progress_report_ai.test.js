@@ -326,21 +326,21 @@ test('child BMI clarification offers the three growth indicators and maps the ch
       prompt: 'SWU child latest BMI',
       expectedClarification: {
         needsClarification: true,
-        question: 'Which child growth indicator do you mean by BMI?',
-        options: ['Weight-for-Length/Height', 'Weight-for-Age', 'Length/Height-for-Age'],
+        question: 'BMI is not a child check-up field. Which WHO growth indicator should the report show?',
+        options: ['Weight-for-Age', 'Length-for-Age', 'Weight-for-Length'],
       },
     },
     {
-      prompt: 'child latest BMI\nClarification: Weight-for-Length/Height',
-      expectedMetric: 'weightForLengthInterpretation',
+      prompt: 'child latest BMI\nClarification: Weight-for-Length',
+      expectedMetric: ['measurementDate', 'weightForLengthInterpretation'],
     },
     {
       prompt: 'child latest BMI\nClarification: Weight-for-Age',
-      expectedMetric: 'weightForAgeInterpretation',
+      expectedMetric: ['measurementDate', 'weightForAgeInterpretation'],
     },
     {
-      prompt: 'child latest BMI\nClarification: Length/Height-for-Age',
-      expectedMetric: 'lengthForAgeInterpretation',
+      prompt: 'child latest BMI\nClarification: Length-for-Age',
+      expectedMetric: ['measurementDate', 'lengthForAgeInterpretation'],
     },
     {
       prompt: 'child BMI height-for-age',
@@ -362,8 +362,8 @@ test('child BMI clarification offers the three growth indicators and maps the ch
       assert.deepEqual(proposal, {
         reportCategory: 'monitor',
         beneficiaryType: 'child',
-        metricIds: [expectedMetric],
-        explanation: 'Showing the requested child growth indicator from check-up history.',
+        metricIds: Array.isArray(expectedMetric) ? expectedMetric : [expectedMetric],
+        explanation: 'Showing the requested child growth indicator from check-up history. BMI is not a child check-up field and was omitted.',
       });
     }
   }
@@ -446,7 +446,6 @@ test('child monitoring AI reports include child form fields and exclude fields n
     }, 'Child'), /unsupported monitoring report fields/);
   }
   for (const metricId of [
-    'bmi',
     'weightForAgeInterpretation',
     'lengthForAgeInterpretation',
     'weightForLengthInterpretation',
@@ -489,7 +488,6 @@ test('monitoring AI field matching selects requested mother and child check-up f
   assert.deepEqual(childIntent.metricIds, [
     'currentAgeMonths',
     'breastfeedingStatus',
-    'bmi',
     'weightForAgeInterpretation',
     'lengthForAgeInterpretation',
     'weightForLengthInterpretation',
@@ -667,9 +665,10 @@ test('child monitor proposals include all three growth indicators when requested
   );
 
   assert.deepEqual(result.metricIds, [
-    'weightForLengthInterpretation',
+    'measurementDate',
     'weightForAgeInterpretation',
     'lengthForAgeInterpretation',
+    'weightForLengthInterpretation',
   ]);
 });
 
@@ -686,9 +685,10 @@ test('child monitor requests for latest three growth metrics include all indicat
 
   assert.equal(result.reportCategory, 'monitor');
   assert.deepEqual(result.metricIds, [
-    'weightForLengthInterpretation',
+    'measurementDate',
     'weightForAgeInterpretation',
     'lengthForAgeInterpretation',
+    'weightForLengthInterpretation',
   ]);
 });
 

@@ -258,7 +258,7 @@ export function ReportAiAssistant({
           <form onSubmit={createProposal}>
             <label className="progress-report-ai-prompt-label" htmlFor="progress-report-ai-prompt">
               <span>What should this report show?</span>
-              <FieldInfoTooltip content="Format: [type]: [fields]. Examples: Child: check-up date; weight and height; growth interpretations and Z-scores. Child profile: general details; medical/dental history; vaccine doses and dates. Mother profile: general details; prenatal/OB history; medical/dental history; vaccine doses and dates. Program: benefits received; average per month; documentation. School, Group, and Batch scope stays fixed. Choose a program and period after the preview." />
+              <FieldInfoTooltip content="Format: [type]: [fields]. Examples: Child check-up: date; Weight-for-Age, Length-for-Age, or Weight-for-Length interpretation or Z-score. Child BMI is not a check-up field. Child profile: general details; medical/dental history; vaccine doses and dates. Mother profile: general details; prenatal/OB history; medical/dental history; vaccine doses and dates. Program: benefits received; average per month; documentation. School, Group, and Batch scope stays fixed. Choose a program and period after the preview." />
             </label>
             <textarea
               id="progress-report-ai-prompt"

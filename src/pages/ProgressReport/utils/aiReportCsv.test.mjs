@@ -17,9 +17,9 @@ const labels = new Map([
   ['gender', 'Sex'],
   ['dateOfBirth', 'Date of Birth'],
   ['measurementDate', 'Check-up Date'],
-  ['weightForLengthInterpretation', 'Weight-for-Length/Height Interpretation'],
+  ['weightForLengthInterpretation', 'Weight-for-Length Interpretation'],
   ['weightForAgeInterpretation', 'Weight-for-Age Interpretation'],
-  ['lengthForAgeInterpretation', 'Length/Height-for-Age Interpretation'],
+  ['lengthForAgeInterpretation', 'Length-for-Age Interpretation'],
   ['bmiForAge', 'BMI'],
 ]);
 
@@ -76,31 +76,31 @@ test('latest-checkup requests keep only the newest monitoring visit per benefici
       {
         child: 'Sample Child',
         growthSeries: [
-          { date: '2025-02-01', bmi: 15.2 },
-          { date: '2025-03-01', bmi: 16.1 },
+          { date: '2025-02-01', weightForAgeInterpretation: 'Normal' },
+          { date: '2025-03-01', weightForAgeInterpretation: 'Underweight' },
         ],
       },
       {
         child: 'Another Child',
         growthSeries: [
-          { date: '2025-01-15', bmi: 14.8 },
-          { date: '2025-04-01', bmi: 15.7 },
+          { date: '2025-01-15', weightForAgeInterpretation: 'Normal' },
+          { date: '2025-04-01', weightForAgeInterpretation: 'Normal' },
         ],
       },
     ],
-    proposal: { reportCategory: 'monitor', beneficiaryType: 'child', metricIds: ['bmiForAge'] },
+    proposal: { reportCategory: 'monitor', beneficiaryType: 'child', metricIds: ['weightForAgeInterpretation'] },
     selection: { schoolId: '1', groupId: '', batchId: '' },
     fieldLabels: labels,
     latestCheckupOnly: true,
     getValue: (_row, point, field) => field === 'measurementDate'
       ? point?.date
-      : field === 'bmiForAge' ? point?.bmi : '',
+      : point?.[field] ?? '',
   });
 
   assert.equal(result.rowCount, 2);
   assert.deepEqual(result.previewRows.map((row) => row.slice(-2)), [
-    ['2025-03-01', 16.1],
-    ['2025-04-01', 15.7],
+    ['2025-03-01', 'Underweight'],
+    ['2025-04-01', 'Normal'],
   ]);
 });
 
@@ -110,7 +110,6 @@ test('latest child monitor CSV includes all three requested growth indicators', 
       child: 'Sample Child',
       growthSeries: [{
         date: '2025-03-01',
-        bmi: 16.1,
         weightForLengthInterpretation: 'Normal',
         weightForAgeInterpretation: 'Underweight',
         lengthForAgeInterpretation: 'Normal',
@@ -120,10 +119,9 @@ test('latest child monitor CSV includes all three requested growth indicators', 
       reportCategory: 'monitor',
       beneficiaryType: 'child',
       metricIds: [
-        'bmiForAge',
-        'weightForLengthInterpretation',
         'weightForAgeInterpretation',
         'lengthForAgeInterpretation',
+        'weightForLengthInterpretation',
       ],
     },
     selection: { schoolId: '1', groupId: '', batchId: '' },
@@ -131,21 +129,19 @@ test('latest child monitor CSV includes all three requested growth indicators', 
     latestCheckupOnly: true,
     getValue: (_row, point, field) => field === 'measurementDate'
       ? point?.date
-      : field === 'bmiForAge' ? point?.bmi : point?.[field],
+      : point?.[field],
   });
 
-  assert.deepEqual(result.fields.slice(-5), [
+  assert.deepEqual(result.fields.slice(-4), [
     'measurementDate',
-    'bmiForAge',
-    'weightForLengthInterpretation',
     'weightForAgeInterpretation',
     'lengthForAgeInterpretation',
+    'weightForLengthInterpretation',
   ]);
-  assert.deepEqual(result.previewRows[0].slice(-5), [
+  assert.deepEqual(result.previewRows[0].slice(-4), [
     '2025-03-01',
-    16.1,
-    'Normal',
     'Underweight',
+    'Normal',
     'Normal',
   ]);
 });

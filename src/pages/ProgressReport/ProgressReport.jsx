@@ -750,7 +750,7 @@ export default function ProgressReport() {
     setGraphReportRows(null);
     setFinalizedSnapshot(null);
     setVisibleFields(DEFAULT_VISIBLE_FIELDS);
-    setGrowthMetrics(['weightForLengthInterpretation']);
+    setGrowthMetrics(['weightForAgeInterpretation']);
     setMonitorTableMetrics([]);
     setProfileMetrics(CHILD_PROFILE_METRICS.map(([id]) => id));
     setProfileSection('general');
@@ -827,7 +827,7 @@ export default function ProgressReport() {
     setProfileSection('general');
     setProfileMetrics((type === 'mother' ? MOTHER_PROFILE_METRICS : CHILD_PROFILE_METRICS).map(([id]) => id));
     setProfileGraphColumn(type === 'mother' ? 'bmiInterpretation' : 'gender');
-    const initialMetric = type === 'mother' ? 'bmiForAge' : 'weightForLengthInterpretation';
+    const initialMetric = type === 'mother' ? 'bmiForAge' : 'weightForAgeInterpretation';
     setGraphMetricType(type === 'mother' ? 'numeric' : 'interpretation');
     setGrowthMetrics([initialMetric]);
     setMonitorTableMetrics([]);

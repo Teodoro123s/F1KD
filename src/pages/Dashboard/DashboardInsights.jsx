@@ -70,7 +70,7 @@ export function DashboardInsights({ metrics, ready, refreshVersion }) {
         <div>
           <span className="dashboard-panel-eyebrow">Aggregate metrics only</span>
           <h3 id="dashboard-ai-title">AI dashboard insights</h3>
-          <p>AI summarizes current totals and answers questions about these figures. It does not provide clinical advice.</p>
+          <p>AI summarizes operational totals only. It cannot assess individual child growth or provide clinical advice.</p>
         </div>
         <div className="dashboard-ai-heading-actions">
           <button
