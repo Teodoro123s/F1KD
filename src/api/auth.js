@@ -1,6 +1,7 @@
 // Simple auth client using JWT in Authorization header
 import { fetchWithAuth, getApiBaseUrl } from './authHeader';
 import { readApiResponse } from './readApiResponse.mjs';
+import { clearAccessToken, getAccessToken, setAccessToken } from './tokenStore';
 
 const API_BASE = getApiBaseUrl();
 
@@ -49,9 +50,18 @@ export async function refreshSession() {
   });
   const result = await readApiResponse(res, 'Unable to refresh your session');
   if (result && result.token) {
-    saveToken(result.token);
+    setAccessToken(result.token);
   }
   return result;
+}
+
+export async function logoutSession() {
+  const res = await fetch(`${API_BASE}/api/auth/logout`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+  });
+  return readApiResponse(res, 'Unable to end your server session');
 }
 
 export async function me(token) {
@@ -63,11 +73,11 @@ export async function me(token) {
 }
 
 export function saveToken(token) {
-  try { localStorage.setItem('auth_token', token); } catch (e) {}
+  setAccessToken(token);
 }
 export function loadToken() {
-  try { return localStorage.getItem('auth_token'); } catch (e) { return null; }
+  return getAccessToken();
 }
 export function clearToken() {
-  try { localStorage.removeItem('auth_token'); } catch (e) {}
+  clearAccessToken();
 }

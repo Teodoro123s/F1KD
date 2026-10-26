@@ -20,12 +20,25 @@ const db = require('./db');
 
 const app = express();
 app.set('trust proxy', 1);
+const allowedOrigins = new Set(
+  String(process.env.CORS_ORIGIN || 'http://localhost:5173')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean),
+);
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || true,
+  origin: (origin, callback) => callback(null, !origin || allowedOrigins.has(origin) ? origin || false : false),
   credentials: true,
 }));
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  next();
+});
 app.use(cookieParser());
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 
 const apiLimiter = rateLimit({
   windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS || 60 * 1000),

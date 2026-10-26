@@ -7,7 +7,7 @@ const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
+const JWT_SECRET = require('../utils/jwtSecret');
 const JWT_EXPIRES = process.env.JWT_EXPIRES || '8h';
 const REFRESH_TOKEN_TTL = process.env.REFRESH_TOKEN_TTL || '7d';
 const { verifyToken } = require('../middleware/auth');
@@ -65,20 +65,65 @@ const buildUserPayload = (user) => {
   };
 };
 
-const issueTokens = (res, user) => {
-  const payload = buildUserPayload(user);
-  const accessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES });
-  const refreshToken = jwt.sign({ id: payload.id, type: 'refresh' }, JWT_SECRET, { expiresIn: REFRESH_TOKEN_TTL });
+const hashRefreshToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
 
+const createRefreshToken = (userId, sessionId) => {
+  const tokenId = crypto.randomUUID();
+  const token = jwt.sign({ id: userId, type: 'refresh', sid: sessionId, jti: tokenId }, JWT_SECRET, { expiresIn: REFRESH_TOKEN_TTL });
+  const { exp } = jwt.decode(token);
+  return { token, tokenId, expiresAt: new Date(exp * 1000) };
+};
+
+const setRefreshCookie = (res, token, expiresAt) => {
   const isProduction = process.env.NODE_ENV === 'production';
-  res.cookie('refreshToken', refreshToken, {
+  res.cookie('refreshToken', token, {
     httpOnly: true,
     secure: isProduction,
     sameSite: 'strict',
-    maxAge: 7 * 24 * 60 * 60 * 1000,
+    path: '/',
+    expires: expiresAt,
   });
+};
 
-  return { token: accessToken, refreshToken, user: payload };
+const clearRefreshCookie = (res) => res.clearCookie('refreshToken', {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'strict',
+  path: '/',
+});
+
+const issueTokens = async (res, user) => {
+  const payload = buildUserPayload(user);
+  const sessionId = crypto.randomUUID();
+  const refresh = createRefreshToken(payload.id, sessionId);
+  const accessToken = jwt.sign({ ...payload, sid: sessionId }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    await connection.query(
+      `DELETE FROM auth_sessions
+       WHERE expires_at <= UTC_TIMESTAMP()
+          OR revoked_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 30 DAY)`,
+    );
+    await connection.query(
+      'INSERT INTO auth_sessions (id, user_id, expires_at) VALUES (?, ?, ?)',
+      [sessionId, payload.id, refresh.expiresAt],
+    );
+    await connection.query(
+      'INSERT INTO auth_refresh_tokens (id, session_id, token_hash, expires_at) VALUES (?, ?, ?, ?)',
+      [refresh.tokenId, sessionId, hashRefreshToken(refresh.token), refresh.expiresAt],
+    );
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+  setRefreshCookie(res, refresh.token, refresh.expiresAt);
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('Pragma', 'no-cache');
+  return { token: accessToken, user: payload };
 };
 
 router.post('/login', async (req, res) => {
@@ -103,7 +148,7 @@ router.post('/login', async (req, res) => {
     if (!user) return res.status(401).json({ status: 401, code: 'INVALID_CREDENTIALS', message: 'Invalid credentials', timestamp: new Date().toISOString() });
 
     const normalizedStatus = String(user.status || '').trim().toLowerCase();
-    if (normalizedStatus === 'inactive' || normalizedStatus === 'pending' || normalizedStatus === 'suspended') {
+    if (['inactive', 'pending', 'suspended', 'disabled'].includes(normalizedStatus)) {
       return res.status(403).json({ status: 403, code: 'ACCOUNT_SUSPENDED', message: 'Account suspended', timestamp: new Date().toISOString() });
     }
 
@@ -118,7 +163,7 @@ router.post('/login', async (req, res) => {
       entityId: user.id,
       description: 'Signed in',
     });
-    const tokens = issueTokens(res, user);
+    const tokens = await issueTokens(res, user);
     res.json(tokens);
   } catch (err) {
     console.error('Auth login error:', err.message);
@@ -245,6 +290,13 @@ router.post('/reset-password', passwordResetSubmitLimiter, async (req, res) => {
       'UPDATE users SET password_hash = ? WHERE LOWER(TRIM(email)) = ?',
       [passwordHash, email],
     );
+    await connection.query(
+      `UPDATE auth_sessions s
+       INNER JOIN users u ON u.id = s.user_id
+       SET s.revoked_at = UTC_TIMESTAMP()
+       WHERE LOWER(TRIM(u.email)) = ? AND s.revoked_at IS NULL`,
+      [email],
+    );
     await connection.query('DELETE FROM password_reset_codes WHERE email = ?', [email]);
     await connection.commit();
     if (!updated.affectedRows) {
@@ -288,6 +340,10 @@ router.post('/change-password', verifyToken, async (req, res) => {
 
     const passwordHash = await bcrypt.hash(newPassword, 10);
     await pool.query('UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, user.id]);
+    await pool.query(
+      'UPDATE auth_sessions SET revoked_at = UTC_TIMESTAMP() WHERE user_id = ? AND id <> ? AND revoked_at IS NULL',
+      [user.id, req.user.sid],
+    );
     return res.json({ message: 'Password changed successfully' });
   } catch (error) {
     console.error('Change password error:', error.message);
@@ -301,27 +357,99 @@ router.post('/refresh', async (req, res) => {
     return res.status(401).json({ status: 401, code: 'REFRESH_TOKEN_MISSING', message: 'Refresh token is missing', timestamp: new Date().toISOString() });
   }
 
+  let connection;
   try {
-    const payload = jwt.verify(refreshToken, JWT_SECRET);
-    if (payload.type !== 'refresh') {
-      return res.status(401).json({ status: 401, code: 'INVALID_REFRESH_TOKEN', message: 'Invalid refresh token', timestamp: new Date().toISOString() });
+    const payload = jwt.verify(refreshToken, JWT_SECRET, { algorithms: ['HS256'] });
+    if (payload.type !== 'refresh' || !payload.sid || !payload.jti) {
+      clearRefreshCookie(res);
+      return res.status(401).json({ status: 401, code: 'INVALID_REFRESH_TOKEN', message: 'Invalid or expired session. Please sign in again.', timestamp: new Date().toISOString() });
     }
 
-    const [rows] = await pool.query(
-      `SELECT id, first_name, last_name, middle_initial, email, role, status, school_id, group_id, contact_number FROM users WHERE id = ? LIMIT 1`,
-      [payload.id]
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+    const [rows] = await connection.query(
+      `SELECT rt.token_hash, rt.revoked_at AS token_revoked_at, rt.expires_at AS token_expires_at,
+              s.revoked_at AS session_revoked_at, s.expires_at AS session_expires_at,
+              u.id, u.first_name, u.last_name, u.middle_initial, u.email, u.role, u.status,
+              u.school_id, u.group_id, u.contact_number, u.location
+       FROM auth_refresh_tokens rt
+       INNER JOIN auth_sessions s ON s.id = rt.session_id
+       INNER JOIN users u ON u.id = s.user_id
+       WHERE rt.id = ? AND rt.session_id = ? AND s.user_id = ?
+       FOR UPDATE`,
+      [payload.jti, payload.sid, payload.id],
     );
+    const row = rows[0];
+    const presentedHash = hashRefreshToken(refreshToken);
+    const storedHash = Buffer.from(row?.token_hash || '', 'hex');
+    const submittedHash = Buffer.from(presentedHash, 'hex');
+    const tokenMatches = storedHash.length === submittedHash.length
+      && storedHash.length > 0
+      && crypto.timingSafeEqual(storedHash, submittedHash);
+    const accountStatus = String(row?.status || '').trim().toLowerCase();
+    const active = row && tokenMatches
+      && !row.token_revoked_at && !row.session_revoked_at
+      && new Date(row.token_expires_at).getTime() > Date.now()
+      && new Date(row.session_expires_at).getTime() > Date.now()
+      && !['inactive', 'pending', 'suspended', 'disabled'].includes(accountStatus);
 
-    const user = rows && rows[0];
-    if (!user) {
-      return res.status(401).json({ status: 401, code: 'INVALID_REFRESH_TOKEN', message: 'Refresh token is invalid', timestamp: new Date().toISOString() });
+    if (!active) {
+      const accountDisabled = row && !row.session_revoked_at
+        && ['inactive', 'pending', 'suspended', 'disabled'].includes(accountStatus);
+      if (accountDisabled) {
+        await connection.query('UPDATE auth_sessions SET revoked_at = UTC_TIMESTAMP() WHERE id = ?', [payload.sid]);
+        await connection.commit();
+      } else {
+        await connection.rollback();
+      }
+      clearRefreshCookie(res);
+      return res.status(401).json({ status: 401, code: 'INVALID_REFRESH_TOKEN', message: 'Invalid or expired session. Please sign in again.', timestamp: new Date().toISOString() });
     }
 
-    const tokens = issueTokens(res, user);
-    return res.json(tokens);
+    const payloadUser = buildUserPayload(row);
+    const refresh = createRefreshToken(payloadUser.id, payload.sid);
+    const accessToken = jwt.sign({ ...payloadUser, sid: payload.sid }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
+    await connection.query(
+      'UPDATE auth_refresh_tokens SET revoked_at = UTC_TIMESTAMP() WHERE id = ? AND revoked_at IS NULL',
+      [payload.jti],
+    );
+    await connection.query('UPDATE auth_sessions SET expires_at = ? WHERE id = ?', [refresh.expiresAt, payload.sid]);
+    await connection.query(
+      'INSERT INTO auth_refresh_tokens (id, session_id, token_hash, expires_at) VALUES (?, ?, ?, ?)',
+      [refresh.tokenId, payload.sid, hashRefreshToken(refresh.token), refresh.expiresAt],
+    );
+    await connection.commit();
+    setRefreshCookie(res, refresh.token, refresh.expiresAt);
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Pragma', 'no-cache');
+    return res.json({ token: accessToken, user: payloadUser });
   } catch (error) {
-    return res.status(401).json({ status: 401, code: 'INVALID_REFRESH_TOKEN', message: 'Refresh token is invalid or expired', timestamp: new Date().toISOString() });
+    if (connection) await connection.rollback();
+    clearRefreshCookie(res);
+    return res.status(401).json({ status: 401, code: 'INVALID_REFRESH_TOKEN', message: 'Invalid or expired session. Please sign in again.', timestamp: new Date().toISOString() });
+  } finally {
+    if (connection) connection.release();
   }
+});
+
+router.post('/logout', async (req, res) => {
+  const refreshToken = req.cookies && req.cookies.refreshToken;
+  if (refreshToken) {
+    try {
+      const payload = jwt.verify(refreshToken, JWT_SECRET, { algorithms: ['HS256'] });
+      if (payload.type === 'refresh' && payload.sid) {
+        await pool.query(
+          'UPDATE auth_sessions SET revoked_at = UTC_TIMESTAMP() WHERE id = ? AND user_id = ? AND revoked_at IS NULL',
+          [payload.sid, payload.id],
+        );
+      }
+    } catch (error) {
+      // Clear invalid or expired cookies as part of logout too.
+    }
+  }
+  clearRefreshCookie(res);
+  res.setHeader('Cache-Control', 'no-store');
+  return res.json({ message: 'Signed out successfully' });
 });
 
 router.get('/me', verifyToken, async (req, res) => {

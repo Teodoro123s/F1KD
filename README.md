@@ -25,7 +25,7 @@ The PSGC data is sourced from the [PSA](https://psa.gov.ph/classification/psgc/)
 Docker Compose runs a MySQL-compatible MariaDB database, MinIO document storage, the Express API, and the built React app. This does not require a MySQL installation on the Docker host.
 
 1. Install Docker Desktop (Windows/macOS) or Docker Engine with the Compose plugin (Linux).
-2. Copy `.env.docker.example` to `.env` and replace every password/secret placeholder with unique values.
+2. Create `.env` and set unique database, MinIO, and JWT secrets. Set `CORS_ORIGIN` to the exact frontend origin (for example `http://localhost:5173` locally or `https://your-domain.example` with TLS). Multiple trusted origins can be comma-separated. Never use the development JWT fallback in production.
 3. Add the EmailJS service ID, public key, private key, credentials template ID (named `EMAILJS_CREDENTIALS_TEMPLATE_ID` or `EMAILJS_USER_TEMPLATE_ID`), and OTP template ID to `.env` to enable account emails and password resets. Rotate any private key exposed in screenshots before configuring it. Keep the private key server-side; never use a `VITE_*` variable for it. The credentials template needs an email recipient field (`email` or `to_email`), `to_name`, `username` (the login email), `login_url`, `role`, and `password`; the OTP template needs an email recipient field (`email` or `to_email`), `to_name`, `passcode`, and `time`. Update the credentials template body to this content:
 
    ```html
@@ -58,7 +58,9 @@ The default Compose setup is for local development and serves HTTP only. For net
 docker compose -f docker-compose.minio.yml -f docker-compose.tls.yml up --build -d
 ```
 
-HTTP requests on port 80 redirect to HTTPS; the browser and API are served through TLS on port 443. Install a publicly trusted certificate for public deployments, restrict inbound firewall access to the needed ports, and renew the certificate before expiry. This secures browser-to-web traffic; container-to-container traffic on the Docker network remains private but is not separately encrypted.
+HTTP requests on port 80 redirect to HTTPS; the browser and API are served through TLS on port 443. Set `CORS_ORIGIN` to the HTTPS site origin. Install a publicly trusted certificate for public deployments, restrict inbound firewall access to the needed ports, and renew the certificate before expiry. This secures browser-to-web traffic; container-to-container traffic on the Docker network remains private but is not separately encrypted.
+
+After the session security update, existing browser sessions must sign in again once. Refresh tokens are now rotated and stored server-side; signing out or changing a password revokes refresh sessions.
 
 ### Encryption at rest and backups
 

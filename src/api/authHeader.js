@@ -1,3 +1,5 @@
+import { getAccessToken, setAccessToken } from './tokenStore';
+
 const configuredApiBase = (typeof process !== 'undefined' && process.env && process.env.REACT_APP_API_URL)
   ? process.env.REACT_APP_API_URL
   : (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL)
@@ -8,12 +10,8 @@ const API_BASE = configuredApiBase || (import.meta.env?.DEV
   : (typeof window !== 'undefined' ? window.location.origin : ''));
 
 export function authHeader() {
-  try {
-    const token = localStorage.getItem('auth_token');
-    return token ? { Authorization: `Bearer ${token}` } : {};
-  } catch (error) {
-    return {};
-  }
+  const token = getAccessToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
 export function getApiBaseUrl() {
@@ -55,7 +53,7 @@ export async function fetchWithAuth(url, options = {}) {
       const refreshData = await refreshResponse.json();
       const nextToken = refreshData && refreshData.token;
       if (nextToken) {
-        localStorage.setItem('auth_token', nextToken);
+        setAccessToken(nextToken);
         const retryOptions = {
           ...requestOptions,
           __retry: true,
