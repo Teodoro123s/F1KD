@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   buildAiReportCsv,
   getAgeAtCheckupMonths,
+  getMotherCheckupSlot,
   isLatestCheckupRequest,
 } from './aiReportCsv.mjs';
 
@@ -178,6 +179,34 @@ test('latest-checkup detection recognizes latest, most recent, and last wording'
   assert.equal(isLatestCheckupRequest('mother last recorded BMI'), true);
   assert.equal(isLatestCheckupRequest('mother BMI from last 3 months'), false);
   assert.equal(isLatestCheckupRequest('mother BMI history'), false);
+});
+
+test('maternal trimester/check-up requests include only the matching monitor visit', () => {
+  const result = buildAiReportCsv({
+    rows: [{
+      mother: 'Sample Mother',
+      growthSeries: [
+        { date: '2026-03-14', trimester: '3rd Trimester', checkupNumber: 1, bmi: 22.1 },
+        { date: '2026-04-14', trimester: '3rd Trimester', checkupNumber: 2, bmi: 22.5 },
+        { date: '2026-05-14', trimester: '3rd Trimester', checkupNumber: 3, bmi: 22.9 },
+      ],
+    }],
+    proposal: { reportCategory: 'monitor', beneficiaryType: 'mother', metricIds: ['bmiForAge'] },
+    selection: { schoolId: '1', groupId: '', batchId: '' },
+    fieldLabels: labels,
+    motherCheckupSlot: getMotherCheckupSlot('Mother: BMI T3-c3 if available'),
+    getValue: (_row, point, field) => field === 'measurementDate'
+      ? point?.date
+      : field === 'bmiForAge' ? point?.bmi : '',
+  });
+
+  assert.deepEqual(getMotherCheckupSlot('Mother: BMI T3-c3 if available'), {
+    trimester: 3,
+    checkupNumber: 3,
+  });
+  assert.equal(result.rowCount, 1);
+  assert.deepEqual(result.previewRows[0].slice(-2), ['2026-05-14', 22.9]);
+  assert.equal(getMotherCheckupSlot('mother latest BMI'), null);
 });
 
 test('custom monitor CSV rejects a scope with no recorded monitoring visits', () => {
