@@ -209,6 +209,19 @@ test('maternal trimester/check-up requests include only the matching monitor vis
   assert.equal(getMotherCheckupSlot('mother latest BMI'), null);
 });
 
+test('maternal trimester/check-up requests report when the requested visit is unavailable', () => {
+  assert.throws(() => buildAiReportCsv({
+    rows: [{
+      mother: 'Sample Mother',
+      growthSeries: [{ date: '2026-05-14', trimester: 3, checkupNumber: 2, bmi: 22.9 }],
+    }],
+    proposal: { reportCategory: 'monitor', beneficiaryType: 'mother', metricIds: ['bmiForAge'] },
+    selection: { schoolId: '1', groupId: '', batchId: '' },
+    fieldLabels: labels,
+    motherCheckupSlot: { trimester: 3, checkupNumber: 3 },
+  }), /No maternal check-up was recorded for trimester 3, check-up 3/);
+});
+
 test('custom monitor CSV rejects a scope with no recorded monitoring visits', () => {
   assert.throws(() => buildAiReportCsv({
     rows: [{ child: 'Sample Child', mother: 'Sample Mother', measurementDate: '', growthSeries: [] }],

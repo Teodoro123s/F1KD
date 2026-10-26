@@ -93,6 +93,11 @@ export function buildAiReportCsv({
       return [{ row, point: latestPoint }];
     })
     : rows.map((row) => ({ row, point: null }));
+  if (motherCheckupSlot && csvRows.length === 0) {
+    throw new Error(
+      `No maternal check-up was recorded for trimester ${motherCheckupSlot.trimester}, check-up ${motherCheckupSlot.checkupNumber} in this scope.`,
+    );
+  }
   const formattedRows = csvRows.map(({ row, point }) => fields.map((field) => {
     const value = formatValue(field, getValue(row, point, field));
     return field.endsWith('Interpretation') && typeof value === 'string'
