@@ -129,6 +129,10 @@ export default function ChildMonitor({
     }))
     .filter((checkup) => Number.isInteger(checkup.week) && checkup.date)
     .sort((left, right) => left.week - right.week)[0];
+  const previousMonthCheckup = (child?.checkups || []).find(
+    (checkup) => Number(checkup.week_number ?? checkup.weekNumber) === week - 1,
+  );
+  const previousMonthDate = formatDate(previousMonthCheckup?.visit_date ?? previousMonthCheckup?.checkupDate);
   const childBirthDate = formatDate(getChildBirthDate(child));
   const scheduleAnchorDate = childBirthDate
     ? childBirthDate
@@ -139,7 +143,7 @@ export default function ChildMonitor({
     const nextValue = event.target.value;
     const nextForm = { ...current, [field]: nextValue };
     if (field === 'checkupDate') {
-      nextForm.nextCheckupDate = addMonthsPreservingDay(nextValue, 1, scheduleAnchorDay);
+      nextForm.nextCheckupDate = addMonthsPreservingDay(nextValue, 1);
     }
     return nextForm;
   });
@@ -147,13 +151,15 @@ export default function ChildMonitor({
   const isReadOnly = (readOnly && editingWeek !== week) || isWeekCompleted;
 
   useEffect(() => {
-    const scheduledDate = (childBirthDate
-      ? addMonthsPreservingDay(childBirthDate, week, scheduleAnchorDay)
-      : addMonthsPreservingDay(scheduleAnchorDate, week - scheduleAnchorWeek, scheduleAnchorDay)) || getTodayDate();
+    const scheduledDate = (previousMonthDate
+      ? addMonthsPreservingDay(previousMonthDate, 1)
+      : childBirthDate
+        ? addMonthsPreservingDay(childBirthDate, week, scheduleAnchorDay)
+        : addMonthsPreservingDay(scheduleAnchorDate, week - scheduleAnchorWeek, scheduleAnchorDay)) || getTodayDate();
     if (!savedCheckup) {
       setForm({
         checkupDate: scheduledDate,
-        nextCheckupDate: addMonthsPreservingDay(scheduledDate, 1, scheduleAnchorDay),
+        nextCheckupDate: addMonthsPreservingDay(scheduledDate, 1),
         breastfeedingStatus: getBreastfeedingStatus(child?.exclusiveBreastfeeding ?? child?.exclusive_breastfeeding),
         weight: week === 1 ? getChildBirthMeasurement(child, 'birthWeight') : '',
         height: week === 1 ? getChildBirthMeasurement(child, 'birthLength') : '',
@@ -166,7 +172,7 @@ export default function ChildMonitor({
     const savedDate = formatDate(savedCheckup.visit_date ?? savedCheckup.checkupDate);
     setForm({
       checkupDate: savedDate || scheduledDate,
-      nextCheckupDate: addMonthsPreservingDay(savedDate || scheduledDate, 1, scheduleAnchorDay),
+      nextCheckupDate: addMonthsPreservingDay(savedDate || scheduledDate, 1),
       breastfeedingStatus: getBreastfeedingStatus(savedCheckup.breastfeedingStatus ?? savedCheckup.exclusive_breastfeeding),
       weight: getSavedOrBirthMeasurement(savedCheckup.weight, child, 'birthWeight', week),
       height: getSavedOrBirthMeasurement(savedCheckup.height, child, 'birthLength', week),
@@ -174,7 +180,7 @@ export default function ChildMonitor({
       serviceProvider: savedCheckup.service_provider ?? savedCheckup.serviceProvider ?? '',
       remarks: savedCheckup.notes ?? savedCheckup.remarks ?? '',
     });
-  }, [child, savedCheckup, scheduleAnchorDate, scheduleAnchorDay, scheduleAnchorWeek, week]);
+  }, [child, previousMonthDate, savedCheckup, scheduleAnchorDate, scheduleAnchorDay, scheduleAnchorWeek, week]);
 
   useEffect(() => {
     if (week > firstIncompleteMonth) {
@@ -215,8 +221,8 @@ export default function ChildMonitor({
     || (Number(form.height) > 0 ? 'Outside WHO reference range' : 'Enter valid length');
   const interpretationClass = (value) => `checkup-field-input checkup-interpretation ${String(value).trim().toLowerCase() === 'normal' ? 'is-normal' : 'is-abnormal'}`;
 
-  const renderDateField = ({ id, label, name, required = false }) => (
-    <div className="form-group full-width">
+  const renderDateField = ({ id, label, name, required = false, readOnly: fieldReadOnly = isReadOnly }) => (
+    <div className="form-group full-width checkup-date-field">
       <label className={`checkup-field-label${required ? ' is-required' : ''}`} htmlFor={id}>{label}</label>
       <DateInput
         id={id}
@@ -225,10 +231,10 @@ export default function ChildMonitor({
         onChange={(value) => setForm((current) => ({
           ...current,
           [name]: value,
-          ...(name === 'checkupDate' ? { nextCheckupDate: addMonthsPreservingDay(value, 1, scheduleAnchorDay) } : {}),
+          ...(name === 'checkupDate' ? { nextCheckupDate: addMonthsPreservingDay(value, 1) } : {}),
         }))}
         required={required}
-        readOnly={isReadOnly}
+        readOnly={fieldReadOnly}
         ariaLabel={label}
       />
     </div>
@@ -307,7 +313,7 @@ export default function ChildMonitor({
           <p className="child-monitor-subtitle">M{week} of {TOTAL_MONTHS} · {childName}</p>
           <div className="checkup-grid">
             {renderDateField({ id: 'child-checkup-date', label: 'Check-up Date', name: 'checkupDate', required: true })}
-            {renderDateField({ id: 'child-next-checkup-date', label: 'Next Check-up Date (Tentative)', name: 'nextCheckupDate' })}
+            {renderDateField({ id: 'child-next-checkup-date', label: 'Next Check-up Date (Tentative)', name: 'nextCheckupDate', readOnly: true })}
             <div className="form-group">
               <label className="checkup-field-label" htmlFor="child-current-age-months">Current Age (months)</label>
               <input

@@ -15,6 +15,27 @@ function getField(body, ...keys) {
   return null;
 }
 
+function getTentativeNextCheckupDate(checkupDate) {
+  const raw = String(checkupDate ?? '').trim();
+  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  const dayFirst = raw.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  const parts = iso
+    ? [Number(iso[1]), Number(iso[2]), Number(iso[3])]
+    : dayFirst ? [Number(dayFirst[3]), Number(dayFirst[2]), Number(dayFirst[1])] : null;
+  if (!parts) return null;
+
+  const [year, month, day] = parts;
+  const sourceDate = new Date(Date.UTC(year, month - 1, day));
+  if (sourceDate.getUTCFullYear() !== year || sourceDate.getUTCMonth() !== month - 1 || sourceDate.getUTCDate() !== day) return null;
+
+  const nextMonthIndex = year * 12 + month;
+  const nextYear = Math.floor(nextMonthIndex / 12);
+  const nextMonth = nextMonthIndex % 12;
+  const lastDay = new Date(Date.UTC(nextYear, nextMonth + 1, 0)).getUTCDate();
+  const nextDay = Math.min(day, lastDay);
+  return `${nextYear}-${String(nextMonth + 1).padStart(2, '0')}-${String(nextDay).padStart(2, '0')}`;
+}
+
 async function attachClinicalData(child) {
   const [[medicalRows], [vaccineRows]] = await Promise.all([
     pool.query('SELECT * FROM child_medical_conditions WHERE child_id = ? ORDER BY id', [child.id]),
@@ -569,7 +590,7 @@ router.post('/:id/checkups', async (req, res) => {
     }
 
     const values = [
-      body.nextCheckupDate || null,
+      getTentativeNextCheckupDate(body.checkupDate),
       body.checkupDate || null,
       body.weight || null,
       body.height || null,

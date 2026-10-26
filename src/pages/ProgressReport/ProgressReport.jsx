@@ -98,7 +98,7 @@ export default function ProgressReport() {
   const [graphMetricType, setGraphMetricType] = useState('interpretation');
   const [profileMetrics, setProfileMetrics] = useState(CHILD_PROFILE_METRICS.map(([id]) => id));
   const [profileSection, setProfileSection] = useState('general');
-  const [programMetrics, setProgramMetrics] = useState(['receivedBenefitTotal', 'receivedBenefitFrequency', 'receivedBenefitAveragePerMonth']);
+  const [programMetrics, setProgramMetrics] = useState(['receivedBenefitTotal', 'receivedBenefitFrequency', 'receivedBenefitAveragePerMonth', 'programDocumentation']);
   const [resultsView, setResultsView] = useState('graph');
   const [tableDisplayMode, setTableDisplayMode] = useState('general');
   const [includeInterpretationColumns, setIncludeInterpretationColumns] = useState(true);
@@ -749,7 +749,7 @@ export default function ProgressReport() {
     setMonitorTableMetrics([]);
     setProfileMetrics(CHILD_PROFILE_METRICS.map(([id]) => id));
     setProfileSection('general');
-    setProgramMetrics(['receivedBenefitTotal', 'receivedBenefitFrequency', 'receivedBenefitAveragePerMonth']);
+    setProgramMetrics(['receivedBenefitTotal', 'receivedBenefitFrequency', 'receivedBenefitAveragePerMonth', 'programDocumentation']);
     setReportCategory('monitor');
     setBeneficiaryType('child');
     setGraphMetricType('interpretation');
@@ -821,7 +821,7 @@ export default function ProgressReport() {
     setReport(null);
     setFinalizedSnapshot(null);
     if (category === 'program') {
-      setProgramMetrics(['receivedBenefitAveragePerMonth']);
+      setProgramMetrics(['receivedBenefitAveragePerMonth', 'programDocumentation']);
       setGrowthMetrics(['receivedBenefitAveragePerMonth']);
       syncVisibleFieldsForGrowthMetric(['receivedBenefitAveragePerMonth']);
       setDisplayWeeks('receivedBenefitAveragePerMonth');

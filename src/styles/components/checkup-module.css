@@ -749,6 +749,11 @@
   gap: 1.1rem 1.3rem;
 }
 
+.checkup-grid > .form-group.checkup-date-field {
+  grid-column: auto;
+  width: min(100%, 420px);
+}
+
 .user-profile-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: start;

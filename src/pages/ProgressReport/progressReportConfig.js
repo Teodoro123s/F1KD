@@ -109,6 +109,7 @@ export const REPORT_FIELDS = [
   ['receivedBenefitTotal', 'Total Received Benefits', 'Program Report'],
   ['receivedBenefitFrequency', 'Benefit Receipt Frequency', 'Program Report'],
   ['receivedBenefitAveragePerMonth', 'Average Received per Month', 'Program Report'],
+  ['programDocumentation', 'Documentation Attached', 'Program Report'],
   ['hospitalReferral', 'Referral to Hospital', 'Monitoring'],
   ['lastActivityDate', 'Last Activity', 'Monitoring'],
   ['nextCheckupDate', 'Next Check-up', 'Monitoring'],
@@ -293,6 +294,7 @@ export const PROGRAM_METRICS = [
   ['receivedBenefitTotal', 'Total Received Benefits', 'Total true benefit-receipt events in the selected period.'],
   ['receivedBenefitFrequency', 'Receipt Frequency', 'Number of true receipt events in the selected period.'],
   ['receivedBenefitAveragePerMonth', 'Average Received per Month', 'Average true receipt events per active month.'],
+  ['programDocumentation', 'Documentation Attached', 'Yes when at least one selected program receipt has attached photo documentation; otherwise No.'],
 ];
 
 export const REPORT_TABS = ['Community & Report Focus', 'Growth Metrics', 'Results'];

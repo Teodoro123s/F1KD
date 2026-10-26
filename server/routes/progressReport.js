@@ -461,6 +461,7 @@ router.get('/', async (req, res) => {
       receivedBenefitFrequency: 0,
       receivedBenefitAveragePerMonth: 0,
       receivedBenefitActiveMonths: 0,
+      programDocumentation: 'No',
     }));
     if (params.granularity !== 'mother' || normalizedRows.length) {
       const applyMonitoringData = shouldApplyProgramMonitoringData(params);
@@ -484,7 +485,12 @@ router.get('/', async (req, res) => {
           `SELECT COALESCE(m.id, c.id, ml.beneficiary_id) AS beneficiary_id,
                   LOWER(ml.beneficiary_type) AS beneficiary_type,
                   COUNT(*) AS total_received,
-                  COUNT(DISTINCT DATE_FORMAT(ml.monitored_date, '%Y-%m')) AS active_months
+                  COUNT(DISTINCT DATE_FORMAT(ml.monitored_date, '%Y-%m')) AS active_months,
+                  SUM(EXISTS (
+                    SELECT 1
+                    FROM program_receipt_documentation_logs documentation_link
+                    WHERE documentation_link.monitoring_log_id = ml.id
+                  )) AS documented_receipts
            FROM monitoring_logs ml
            INNER JOIN programs p ON p.id = ml.program_id
            LEFT JOIN mothers m ON LOWER(ml.beneficiary_type) = 'mother' AND (CAST(ml.beneficiary_id AS CHAR) = CAST(m.id AS CHAR) OR LOWER(TRIM(CAST(ml.beneficiary_id AS CHAR))) = LOWER(TRIM(CAST(m.mother_code AS CHAR))))
@@ -504,10 +510,12 @@ router.get('/', async (req, res) => {
           const benefitDetails = targets.map(({ type, id }) => benefitMap.get(`${type}:${String(id)}`)).filter(Boolean);
           const totalReceived = benefitDetails.reduce((sum, benefit) => sum + Number(benefit.total_received || 0), 0);
           const activeMonths = benefitDetails.reduce((sum, benefit) => sum + Number(benefit.active_months || 0), 0);
+          const documentedReceipts = benefitDetails.reduce((sum, benefit) => sum + Number(benefit.documented_receipts || 0), 0);
           row.receivedBenefitTotal = totalReceived;
           row.receivedBenefitFrequency = totalReceived;
           row.receivedBenefitActiveMonths = activeMonths;
           row.receivedBenefitAveragePerMonth = activeMonths ? Number((totalReceived / activeMonths).toFixed(1)) : 0;
+          row.programDocumentation = documentedReceipts > 0 ? 'Yes' : 'No';
         });
         normalizedRows = normalizedRows.filter((row) => row.receivedBenefitTotal > 0);
       }
