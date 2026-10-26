@@ -5,8 +5,6 @@ import FloatingLayer from '../../../components/ui/FloatingLayer';
 
 export default function CommunityToolbar({
   activeTab,
-  entityFilter = 'Mother',
-  onEntityFilterChange,
   onTabChange,
   onCreate,
   breadcrumbItems,
@@ -35,27 +33,6 @@ export default function CommunityToolbar({
         breadcrumbs={breadcrumbItems.map((item) => ({ label: item.label, to: item.clickable ? item.to : undefined }))}
         actions={(
           <>
-            {activeTab === 'mothers' && (
-          <div className="entity-toggle" role="tablist" aria-label="Entity filter">
-            <button
-              type="button"
-              className={`entity-toggle-btn${entityFilter === 'Mother' ? ' active' : ''}`}
-              onClick={() => onEntityFilterChange('Mother')}
-              aria-pressed={entityFilter === 'Mother'}
-            >
-              Mother
-            </button>
-            <button
-              type="button"
-              className={`entity-toggle-btn${entityFilter === 'Child' ? ' active' : ''}`}
-              onClick={() => onEntityFilterChange('Child')}
-              aria-pressed={entityFilter === 'Child'}
-            >
-              Child
-            </button>
-          </div>
-            )}
-
             {activeTab !== 'mothers' && activeTab !== 'healthWorkers' && canManage && (
               <div className="create-menu-wrapper community-create-menu">
                 <button

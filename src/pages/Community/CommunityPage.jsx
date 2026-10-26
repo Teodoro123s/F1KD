@@ -5,13 +5,15 @@ import CommunityModalManager from './CommunityModalManager';
 import CommunityToolbar from './components/CommunityToolbar';
 import CommunityPagination from './components/CommunityPagination';
 import CommunityOverviewCards from './components/CommunityOverviewCards';
+import ModuleSummaryCards from '../../components/ui/ModuleSummaryCards';
+import BatchDocumentationPanel from './components/BatchDocumentationPanel';
 import { MoreVerticalIcon } from './CommunityIcons';
 import { useCommunityData } from './hooks/useCommunityData';
 import { useCommunityMutations } from './hooks/useCommunityMutations';
 import { useAuth } from '../../auth/AuthProvider';
 import { can, hasRole, isCommunityCoordinatorRole, isHealthWorkerRole, isSchoolScopedRole, ROLES } from '../../utils/permissions';
-import { getMotherProfileProgress } from '../../utils/motherProgress';
-import { getChildProfileProgress } from '../../utils/childProgress';
+import { getMotherProfileProgress } from '../../utils/beneficiary/motherProgress';
+import { getChildProfileProgress } from '../../utils/beneficiary/childProgress';
 import { apiDeleteMother } from '../../api/mothers';
 import { apiDeleteChild } from '../../api/children';
 import { apiGetChildren } from '../../api/children';
@@ -36,6 +38,7 @@ export default function CommunityPage() {
   const location = useLocation();
   const { schoolId, groupId, batchId } = useParams();
   const isSuperAdmin = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]);
+  const canViewSchoolsFromOverview = hasRole(currentUser?.role, [ROLES.ADMIN, ROLES.PARTNER]);
   const isCommunityOrganizer = isCommunityCoordinatorRole(currentUser?.role);
   const canManageSchools = isSuperAdmin;
   const canManage = can(currentUser?.role, 'community-resources', 'update') && !isHealthWorkerRole(currentUser?.role);
@@ -80,6 +83,9 @@ export default function CommunityPage() {
   const [batchForm, setBatchForm] = useState(defaultBatchForm);
   const [showChildMotherColumn, setShowChildMotherColumn] = useState(true);
   const [showChildBatchColumn, setShowChildBatchColumn] = useState(true);
+  const [selectedBatchCard, setSelectedBatchCard] = useState('Mother');
+  const [batchDocumentationCount, setBatchDocumentationCount] = useState(0);
+  const [batchDocumentationLoading, setBatchDocumentationLoading] = useState(false);
   const [schoolOverviewSelection, setSchoolOverviewSelection] = useState(null);
   const [drilldownSchoolId, setDrilldownSchoolId] = useState(null);
   const [drilldownGroupId, setDrilldownGroupId] = useState(null);
@@ -104,6 +110,8 @@ export default function CommunityPage() {
     setDrilldownSchoolId(null);
     setDrilldownGroupId(null);
     setDrilldownBatchId(null);
+    setSelectedBatchCard('Mother');
+    setBatchDocumentationCount(0);
     setPage(1);
   }, [schoolId, groupId, batchId]);
 
@@ -221,19 +229,34 @@ export default function CommunityPage() {
     [childrenRows, selectedGroup, selectedGroupBatchKeys],
   );
 
-  const selectedBatchMothers = useMemo(() => {
+  const selectedBatchKeys = useMemo(
+    () => new Set(selectedBatch
+      ? [selectedBatch.id, selectedBatch.databaseId, selectedBatch.batchCode, selectedBatch.code]
+        .filter((value) => value !== undefined && value !== null && value !== '')
+        .map(String)
+      : []),
+    [selectedBatch],
+  );
+  const selectedBatchAllMothers = useMemo(() => {
     if (!selectedBatch) return [];
 
-    return mothers
-      .filter((mother) => mother.batchId === selectedBatch.id)
-      .filter((mother) => {
-        if (!query.trim()) return true;
-        const term = query.trim();
-        return [mother.name, String(mother.id), mother.group, mother.status].some((value) =>
+    return mothers.filter((mother) => selectedBatchKeys.has(String(mother.batchId ?? ''))
+      || selectedBatchKeys.has(String(mother.batchCode ?? '')));
+  }, [mothers, selectedBatch, selectedBatchKeys]);
+  const selectedBatchMothers = useMemo(() => {
+    const term = query.trim();
+    return selectedBatchAllMothers
+      .filter((mother) => !term
+        || [mother.name, String(mother.id), mother.group, mother.status].some((value) =>
           String(value || '').includes(term)
-        );
-      });
-  }, [mothers, query, selectedBatch]);
+        ));
+  }, [query, selectedBatchAllMothers]);
+  const selectedBatchChildren = useMemo(() => {
+    if (!selectedBatch) return [];
+
+    return childrenRows.filter((child) => selectedBatchKeys.has(String(child.batchId ?? ''))
+      || child.batch === selectedBatch.name);
+  }, [childrenRows, selectedBatch, selectedBatchKeys]);
 
   const schoolOverviewGroups = useMemo(
     () => selectedSchool
@@ -265,11 +288,12 @@ export default function CommunityPage() {
     [batches, selectedSchool],
   );
 
+  const shouldLoadChildren = (activeTab === 'mothers' && (entityFilter === 'Child' || Boolean(selectedBatch)))
+    || activeTab === 'communities'
+    || (activeTab === 'groups' && Boolean(selectedSchool))
+    || (activeTab === 'batches' && Boolean(selectedGroup));
+
   useEffect(() => {
-    const shouldLoadChildren = (activeTab === 'mothers' && entityFilter === 'Child')
-      || activeTab === 'communities'
-      || (activeTab === 'groups' && Boolean(selectedSchool))
-      || (activeTab === 'batches' && Boolean(selectedGroup));
     if (!shouldLoadChildren) {
       setChildrenRows([]);
       setChildrenOverviewError('');
@@ -317,7 +341,7 @@ export default function CommunityPage() {
       });
 
     return () => { active = false; };
-  }, [activeTab, entityFilter, selectedGroup, selectedSchool]);
+  }, [selectedGroup, selectedSchool, shouldLoadChildren]);
 
   const filteredData = useMemo(() => {
     const term = query.trim();
@@ -363,7 +387,9 @@ export default function CommunityPage() {
   }, [activeTab, childrenRows, communities, entityFilter, query, scopedCommunities, selectedBatch, selectedBatchMothers, selectedGroup, selectedGroupBatches, selectedSchool, selectedSchoolGroups]);
 
   const overviewRows = useMemo(() => {
-    const source = schoolOverviewSelection === 'mothers'
+    const source = schoolOverviewSelection === 'schools'
+      ? scopedCommunities
+      : schoolOverviewSelection === 'mothers'
       ? (activeTab === 'batches' && selectedGroup ? selectedGroupMothers : schoolOverviewMothers)
       : schoolOverviewSelection === 'children'
         ? childOverviewRows
@@ -381,10 +407,10 @@ export default function CommunityPage() {
     const term = query.trim();
     return rows.filter((row) => {
       if (!term) return true;
-      return [row.name, row.motherName, row.batch, row.group, row.community, row.schoolName, String(row.id)]
+      return [row.name, row.area, row.coordinator, row.motherName, row.batch, row.group, row.community, row.schoolName, String(row.id)]
         .some((value) => String(value || '').includes(term));
     });
-  }, [activeTab, childOverviewRows, query, schoolOverviewBatches, schoolOverviewGroups, schoolOverviewMothers, schoolOverviewSelection, scopedGroups, selectedGroup, selectedGroupBatches, selectedGroupMothers]);
+  }, [activeTab, childOverviewRows, query, schoolOverviewBatches, schoolOverviewGroups, schoolOverviewMothers, schoolOverviewSelection, scopedCommunities, scopedGroups, selectedGroup, selectedGroupBatches, selectedGroupMothers]);
   const tableData = schoolOverviewSelection ? overviewRows : filteredData;
   const pageCount = Math.max(1, Math.ceil(tableData.length / perPage));
   const currentPage = Math.min(page, pageCount);
@@ -531,6 +557,7 @@ export default function CommunityPage() {
   const handleBatchRowClick = (batch) => {
     setDrilldownBatchId(batch.id);
     setSchoolOverviewSelection(null);
+    setSelectedBatchCard('Mother');
     setQuery('');
     setPage(1);
   };
@@ -1002,8 +1029,6 @@ export default function CommunityPage() {
     <div className="community-page">
       <CommunityToolbar
         activeTab={activeTab}
-        entityFilter={entityFilter}
-        onEntityFilterChange={handleEntityFilterChange}
         onTabChange={handleTabChange}
         onCreate={openCreateModal}
         breadcrumbItems={breadcrumbItems}
@@ -1017,11 +1042,15 @@ export default function CommunityPage() {
             selected={schoolOverviewSelection}
             onSelect={handleOverviewSelection}
             cards={[
+              { key: 'schools', label: 'Total Schools', value: communities.length, interactive: canViewSchoolsFromOverview },
               { key: 'groups', label: 'Total Groups', value: activeTab === 'communities' ? groups.length : schoolOverviewGroups.length },
               { key: 'batches', label: 'Total Batches', value: activeTab === 'communities' ? batches.length : schoolOverviewBatches.length },
               { key: 'mothers', label: 'Total Mothers', value: activeTab === 'communities' ? mothers.length : schoolOverviewMothers.length },
               { key: 'children', label: 'Total Children', value: childrenOverviewError ? 'Unavailable' : activeTab === 'communities' ? childrenRows.length : schoolOverviewChildren.length },
-            ]}
+            ].filter((card) => (
+              (!isCommunityOrganizer || card.key !== 'schools')
+              && (!isHealthWorker || !['schools', 'groups'].includes(card.key))
+            ))}
           />
           {childrenOverviewError && <p className="error-message" role="alert">{childrenOverviewError}</p>}
           {schoolOverviewSelection ? (
@@ -1053,7 +1082,9 @@ export default function CommunityPage() {
                 data={currentRows}
                 onRowClick={currentRowClickHandler}
                 tableTitle={tableTitle}
-                emptyMessage={`No ${schoolOverviewSelection} found for this school.`}
+                emptyMessage={schoolOverviewSelection === 'schools'
+                  ? 'No schools found.'
+                  : `No ${schoolOverviewSelection} found for this school.`}
                 searchValue={query}
                 onSearchChange={handleSearch}
               />
@@ -1075,25 +1106,68 @@ export default function CommunityPage() {
       )}
       {!(activeTab === 'communities' || (activeTab === 'groups' && selectedSchool) || (activeTab === 'batches' && selectedGroup)) && (
         <>
-          <CommunityTable
-            columns={columns}
-            data={currentRows}
-            onRowClick={currentRowClickHandler}
-            tableTitle={tableTitle}
-            searchValue={query}
-            onSearchChange={handleSearch}
-          />
+          {activeTab === 'mothers' && selectedBatch && (
+            <>
+              <ModuleSummaryCards
+                selected={selectedBatchCard}
+                onSelect={(selection) => {
+                  setSelectedBatchCard(selection);
+                  if (selection === 'Mother' || selection === 'Child') handleEntityFilterChange(selection);
+                  else setQuery('');
+                  setPage(1);
+                }}
+                cards={[
+                  { key: 'Mother', label: 'Mothers', value: selectedBatchAllMothers.length, description: 'View list' },
+                  {
+                    key: 'Child',
+                    label: 'Children',
+                    value: childrenOverviewError ? 'Unavailable' : selectedBatchChildren.length,
+                    description: 'View list',
+                  },
+                  {
+                    key: 'Documentation',
+                    label: 'Documentation',
+                    value: batchDocumentationLoading ? '...' : batchDocumentationCount ?? 'Error',
+                    description: isCommunityOrganizer
+                      ? 'View or add dated photo evidence'
+                      : 'View and download dated photo evidence',
+                  },
+                ]}
+              />
+              {childrenOverviewError && <p className="error-message" role="alert">{childrenOverviewError}</p>}
+              <BatchDocumentationPanel
+                key={String(selectedBatch.id)}
+                batchId={selectedBatch.id}
+                visible={selectedBatchCard === 'Documentation'}
+                canManage={isCommunityOrganizer}
+                onCountChange={setBatchDocumentationCount}
+                onLoadingChange={setBatchDocumentationLoading}
+              />
+            </>
+          )}
+          {(activeTab !== 'mothers' || !selectedBatch || selectedBatchCard !== 'Documentation') && (
+            <CommunityTable
+              columns={columns}
+              data={currentRows}
+              onRowClick={currentRowClickHandler}
+              tableTitle={tableTitle}
+              searchValue={query}
+              onSearchChange={handleSearch}
+            />
+          )}
 
-          <CommunityPagination
-            currentPage={currentPage}
-            pageCount={pageCount}
-            onPageChange={setPage}
-            perPage={perPage}
-            onPerPageChange={handlePerPageChange}
-            rangeStart={tableData.length === 0 ? 0 : startIndex + 1}
-            rangeEnd={Math.min(startIndex + perPage, tableData.length)}
-            totalItems={tableData.length}
-          />
+          {(activeTab !== 'mothers' || !selectedBatch || selectedBatchCard !== 'Documentation') && (
+            <CommunityPagination
+              currentPage={currentPage}
+              pageCount={pageCount}
+              onPageChange={setPage}
+              perPage={perPage}
+              onPerPageChange={handlePerPageChange}
+              rangeStart={tableData.length === 0 ? 0 : startIndex + 1}
+              rangeEnd={Math.min(startIndex + perPage, tableData.length)}
+              totalItems={tableData.length}
+            />
+          )}
         </>
       )}
 

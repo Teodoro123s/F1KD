@@ -7,7 +7,7 @@ import { useAuth } from '../../auth/AuthProvider';
 import { hasRole, isCommunityCoordinatorRole, isHealthWorkerRole, ROLES } from '../../utils/permissions';
 import { notifyAction } from '../../components/ActionFeedback';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
-import { useStepNavigation } from '../../utils/useStepNavigation';
+import { useStepNavigation } from '../../utils/navigation/useStepNavigation';
 import { StepNavigationStatus } from '../../components/ui/StepNavigationButton';
 import { ReportTabBar } from './components/ReportTabBar';
 import { CommunitySelectionStep } from './components/CommunitySelectionStep';
@@ -36,14 +36,16 @@ import {
   PRESENCE_PROFILE_FIELDS,
   PROGRAM_METRICS,
   REPORT_TABS,
-  REPORT_FOCUS_OPTIONS,
   formatCellValue,
   getPointValue,
   getPointInterpretation,
 } from './progressReportConfig';
 import { buildProgressReportCsv } from './utils/csvIdentity.mjs';
-import { buildAiReportCsv, downloadAiReportCsv } from './utils/aiReportCsv.mjs';
-import { aggregateGrowthRows, aggregateReportRows } from './utils/reportAggregation';
+import {
+  buildAiReportCsv,
+  downloadAiReportCsv,
+  getAgeAtCheckupMonths,
+} from './utils/aiReportCsv.mjs';
 import { buildProgressReportParams } from './utils/apiUtils';
 import { matchesProgramBeneficiaryType } from './utils/programEligibility';
 import {
@@ -51,6 +53,7 @@ import {
   MONITORING_HISTORY_EXCLUDED_FIELDS,
   growthTableFieldsForMetric,
   pointValueForTableField,
+  filterInterpretationFields,
 } from './utils/reportTableUtils';
 
 const batchAvailableForGroup = (batch, groupId, mothers) => {
@@ -60,13 +63,6 @@ const batchAvailableForGroup = (batch, groupId, mothers) => {
   return false;
 };
 
-const focusOptionsForSelection = (selection, reportCategory) => {
-  const scope = selection.batchId ? 'batch' : selection.groupId ? 'group' : selection.schoolId ? 'school' : '';
-  return REPORT_FOCUS_OPTIONS.filter(([, , optionScope]) => optionScope === scope)
-    .filter(([value]) => reportCategory !== 'profile' || value.startsWith('beneficiary-'));
-};
-
-const isAggregateFocus = (focus) => ['batch-group', 'batch-school', 'group-school'].includes(focus);
 const REPORT_FIELD_LABELS = new Map(REPORT_FIELDS.map(([id, label]) => [id, label]));
 
 export default function ProgressReport() {
@@ -99,7 +95,6 @@ export default function ProgressReport() {
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState(1);
   const { navigationDirection, navigationError, isNavigating, runStepNavigation } = useStepNavigation();
-  const [reportFocus, setReportFocus] = useState('beneficiary-batch');
   const [reportCategory, setReportCategory] = useState('monitor');
   const [beneficiaryType, setBeneficiaryType] = useState('child');
   const [growthMetrics, setGrowthMetrics] = useState(['weightForAge']);
@@ -107,9 +102,10 @@ export default function ProgressReport() {
   const [graphMetricType, setGraphMetricType] = useState('interpretation');
   const [profileMetrics, setProfileMetrics] = useState(CHILD_PROFILE_METRICS.map(([id]) => id));
   const [profileSection, setProfileSection] = useState('general');
-  const [programMetrics, setProgramMetrics] = useState(['receivedBenefitTotal', 'receivedBenefitFrequency', 'receivedBenefitAveragePerMonth']);
+  const [programMetrics, setProgramMetrics] = useState(['receivedBenefitTotal', 'receivedBenefitFrequency', 'receivedBenefitAveragePerMonth', 'programDocumentation']);
   const [resultsView, setResultsView] = useState('graph');
   const [tableDisplayMode, setTableDisplayMode] = useState('general');
+  const [includeInterpretationColumns, setIncludeInterpretationColumns] = useState(true);
   const [resultPeriod, setResultPeriod] = useState('all');
   const [displayWeeks, setDisplayWeeks] = useState('all');
   const [profileGraphColumn, setProfileGraphColumn] = useState('gender');
@@ -139,7 +135,6 @@ export default function ProgressReport() {
       if (String(current.schoolId) === String(school.id) && String(current.groupId) === groupId) return current;
       return { ...current, schoolId: String(school.id), groupId, batchId: '' };
     });
-    setReportFocus(isHealthWorker ? 'beneficiary-group' : 'beneficiary-batch');
   }, [currentUser, isHealthWorker, isSchoolAssignedUser, options.groups, options.schools]);
 
   const displaySelection = finalizedSnapshot?.selection ?? selection;
@@ -150,13 +145,7 @@ export default function ProgressReport() {
   const activeReportRowCount = Number(activeReport?.pagination?.total ?? activeReport?.rows?.length ?? 0);
   const graphAllowed = (finalizedSnapshot?.reportCategory ?? reportCategory) !== 'program'
     && (Boolean(displaySelection.batchId) || activeReportRowCount <= 1);
-  const displayReportFocus = finalizedSnapshot?.reportFocus ?? reportFocus;
-  const baseDisplayVisibleFields = addGrowthScoresBeforeInterpretations((finalizedSnapshot?.visibleFields ?? visibleFields).filter((field) => (
-    isAggregateFocus(displayReportFocus)
-      ? !['mother', 'child', 'age', 'gender', 'dateOfBirth', 'contact', 'contactNumber', 'address', 'addressDetails'].includes(field)
-        && !['Identity', 'Profile'].includes(REPORT_FIELDS.find(([id]) => id === field)?.[2])
-      : true
-  )));
+  const baseDisplayVisibleFields = addGrowthScoresBeforeInterpretations(finalizedSnapshot?.visibleFields ?? visibleFields);
   const displayReportCategory = finalizedSnapshot?.reportCategory ?? reportCategory;
   const displayBeneficiaryType = finalizedSnapshot?.beneficiaryType ?? beneficiaryType;
   const normalizeProgramName = (value) => String(value ?? '').trim().toLowerCase();
@@ -192,8 +181,6 @@ export default function ProgressReport() {
   const displayVisibleFields = displayReportCategory === 'monitor'
     ? addGrowthScoresBeforeInterpretations([...tableBaseFields, ...selectedTableGrowthFields])
     : baseDisplayVisibleFields;
-  const focusOptions = focusOptionsForSelection(selection, reportCategory);
-
   const syncVisibleFieldsForGrowthMetric = (nextGrowthMetrics = growthMetrics) => {
     setVisibleFields((current) => addGrowthScoresBeforeInterpretations([
       ...new Set([
@@ -237,22 +224,37 @@ export default function ProgressReport() {
     }
     return normalized;
   };
-  const buildAiReportPreview = async (proposal) => {
+  const buildAiReportPreview = async (proposal, aiFilters = {}) => {
     const safeSelection = normalizeSelectionHierarchy(selection);
-    if (!safeSelection.schoolId) {
-      throw new Error('Select a school before creating a custom CSV.');
+    const isProgramReport = proposal.reportCategory === 'program';
+    const selectedProgramName = aiFilters.programName ?? programName;
+    const selectedBenefitPeriod = aiFilters.benefitPeriod ?? benefitPeriod;
+    const selectedBenefitMonth = aiFilters.benefitMonth ?? benefitMonth;
+    const selectedProgram = isProgramReport
+      ? programs.find((program) => normalizeProgramName(program.name) === normalizeProgramName(selectedProgramName))
+      : undefined;
+    if (isProgramReport && !selectedProgram) {
+      throw new Error('Choose a program before building the program report.');
+    }
+    if (isProgramReport && !matchesProgramBeneficiaryType(selectedProgram, proposal.beneficiaryType)) {
+      throw new Error(`The selected program does not support the ${proposal.beneficiaryType} report requested by AI.`);
+    }
+    if (
+      isProgramReport
+      && selectedBenefitPeriod === 'month'
+      && !/^(?:1\d{3}|[2-9]\d{3})-(?:0[1-9]|1[0-2])$/.test(selectedBenefitMonth)
+    ) {
+      throw new Error('Select a valid month for the program report.');
     }
 
     const requestParams = buildProgressReportParams({
       selection: safeSelection,
       reportCategory: proposal.reportCategory,
       beneficiaryType: proposal.beneficiaryType,
-      selectedProgram: proposal.reportCategory === 'program'
-        ? { beneficiaryType: proposal.beneficiaryType }
-        : undefined,
-      programName: '',
-      benefitPeriod: 'overall',
-      benefitMonth: '',
+      selectedProgram,
+      programName: isProgramReport ? selectedProgram.name : '',
+      benefitPeriod: isProgramReport ? selectedBenefitPeriod : 'overall',
+      benefitMonth: isProgramReport && selectedBenefitPeriod === 'month' ? selectedBenefitMonth : '',
       page: 1,
       perPage: 100,
       exportAll: true,
@@ -272,10 +274,15 @@ export default function ProgressReport() {
       proposal,
       selection: safeSelection,
       fieldLabels: REPORT_FIELD_LABELS,
+      latestCheckupOnly: Boolean(aiFilters.latestCheckupOnly),
+      motherCheckupSlot: aiFilters.motherCheckupSlot || null,
       formatValue: formatCellValue,
       getValue: (row, point, field) => {
         if (!point) return row[field];
         if (field === 'measurementDate') return point.date || point.measurementDate || '';
+        if (field === 'ageAtCheckupMonths') {
+          return getAgeAtCheckupMonths(row.dateOfBirth, point.date || point.measurementDate);
+        }
         if (field === 'bmiInterpretation' || field.endsWith('Interpretation')) {
           return getPointInterpretation(point, field);
         }
@@ -319,30 +326,15 @@ export default function ProgressReport() {
     })();
     const normalized = normalizeSelectionHierarchy(nextSelection);
     setSelection(normalized);
-    const nextFocusOptions = focusOptionsForSelection(normalized, reportCategory);
-    setReportFocus((current) => nextFocusOptions.some(([value]) => value === current) ? current : nextFocusOptions[0]?.[0] || '');
     setReport(null);
     setGraphReportRows(null);
     setFinalizedSnapshot(null);
     setActiveTab(1);
     setError('');
-    if (key === 'schoolId') setReportFocus('beneficiary-school');
-    else if (key === 'groupId') setReportFocus(normalized.groupId ? 'beneficiary-group' : 'beneficiary-school');
-    else setReportFocus(normalized.batchId ? 'beneficiary-batch' : normalized.groupId ? 'beneficiary-group' : 'beneficiary-school');
   };
-
-  useEffect(() => {
-    if (focusOptions.length && !focusOptions.some(([value]) => value === reportFocus)) {
-      setReportFocus(focusOptions[0][0]);
-    }
-  }, [focusOptions, reportFocus]);
 
   const generateReport = async (nextPage = 1) => {
     const safeSelection = normalizeSelectionHierarchy(selection);
-    if (!safeSelection.schoolId) {
-      notifyAction('Please select at least a School to view the report.', 'error');
-      return;
-    }
     if (reportCategory === 'program' && !eligiblePrograms.some((program) => normalizeProgramName(program.name) === normalizeProgramName(programName))) {
       notifyAction('Select a program before generating a program report.', 'error');
       return;
@@ -383,7 +375,7 @@ export default function ProgressReport() {
       const reportRowCount = Number(result.pagination?.total ?? result.rows?.length ?? 0);
       const graphAllowed = Boolean(safeSelection.batchId) || reportRowCount <= 1;
       let completeGraphRows = result.rows || [];
-      const requiresCompleteRows = reportCategory === 'monitor' || (reportCategory === 'program' && isAggregateFocus(reportFocus));
+      const requiresCompleteRows = reportCategory === 'monitor';
       if (nextPage > 1 && finalizedSnapshot?.requestParams) {
         completeGraphRows = finalizedSnapshot.allRows || completeGraphRows;
       } else if (requiresCompleteRows && reportRowCount > completeGraphRows.length) {
@@ -415,7 +407,6 @@ export default function ProgressReport() {
         granularity: requestParams.granularity,
         sort: { ...sort },
         page: nextPage,
-        reportFocus,
         reportCategory,
         beneficiaryType: requestParams.granularity,
         requestParams,
@@ -459,20 +450,16 @@ export default function ProgressReport() {
     });
   };
 
-  const resultsSourceRows = isAggregateFocus(displayReportFocus) && finalizedSnapshot?.allRows?.length
-    ? finalizedSnapshot.allRows
-    : activeReport?.rows || [];
+  const resultsSourceRows = activeReport?.rows || [];
   const sortedRows = useMemo(() => {
     const sourceRows = filterRowsBySelectedRange(resultsSourceRows);
-    const aggregatedRows = aggregateReportRows(sourceRows, displayReportFocus, displayBeneficiaryType);
-    const rows = aggregatedRows.length ? aggregatedRows : sourceRows;
-    return [...rows].sort((left, right) => {
+    return [...sourceRows].sort((left, right) => {
       const a = left[displaySort.key] ?? '';
       const b = right[displaySort.key] ?? '';
       const result = typeof a === 'number' && typeof b === 'number' ? a - b : String(a).localeCompare(String(b));
       return displaySort.direction === 'asc' ? result : -result;
     });
-  }, [resultsSourceRows, displayReportFocus, displaySort]);
+  }, [resultsSourceRows, displaySort]);
 
   const breadcrumb = [
     'Home',
@@ -483,14 +470,6 @@ export default function ProgressReport() {
 
   const changeSort = (key) => setSort((current) => ({ key, direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc' }));
   const sortLabel = (label, key) => <button type="button" className="progress-report-sort-button" onClick={() => changeSort(key)}>{label} {displaySort.key === key ? (displaySort.direction === 'asc' ? '↑' : '↓') : ''}</button>;
-  const selectReportFocus = (value) => {
-    setReportFocus(value);
-    setReport(null);
-    setGraphReportRows(null);
-    setFinalizedSnapshot(null);
-    setPage(1);
-    setActiveTab(1);
-  };
   const updateProgramParameter = (setter) => (value) => {
     setter(value);
     setReport(null);
@@ -526,11 +505,6 @@ export default function ProgressReport() {
       }
 
       const identityType = finalizedSnapshot.beneficiaryType;
-      const exportFocus = view === 'table' && tableMode === 'monitoring-dates'
-        ? `beneficiary-${identityType === 'mother' ? 'group' : 'batch'}`
-        : finalizedSnapshot.reportFocus;
-      const isAggregate = isAggregateFocus(finalizedSnapshot.reportFocus)
-        && !(view === 'table' && tableMode === 'monitoring-dates');
       let exportRows = allRows;
       let exportFields = fields;
 
@@ -543,10 +517,7 @@ export default function ProgressReport() {
             return monthKey >= activeRange[0] && monthKey <= activeRange[1];
           }),
         }));
-        const graphReportRows = isAggregate
-          ? aggregateGrowthRows(graphSource, finalizedSnapshot.reportFocus, identityType)
-          : graphSource;
-        exportRows = graphReportRows.flatMap((row) => {
+        exportRows = graphSource.flatMap((row) => {
           const series = (row.growthSeries || []).filter((point) => {
             return growthMetrics.some((metric) => (
               INTERPRETATION_METRICS.has(metric)
@@ -601,10 +572,7 @@ export default function ProgressReport() {
             }),
           }))
           : allRows;
-        const reportRows = isAggregate
-          ? aggregateReportRows(rowsInRange, finalizedSnapshot.reportFocus, identityType)
-          : rowsInRange;
-        const measuredRows = reportRows.flatMap((row) => (row.growthSeries || []).map((point) => ({
+        const measuredRows = rowsInRange.flatMap((row) => (row.growthSeries || []).map((point) => ({
           ...row,
           measurementDate: point.date || point.measurementDate || '',
           bmiForAge: point.bmi ?? row.bmiForAge,
@@ -614,7 +582,7 @@ export default function ProgressReport() {
         const latestRows = [...new Map([...measuredRows]
           .sort((left, right) => String(right.measurementDate).localeCompare(String(left.measurementDate)))
           .map((row) => [String(row.childId || row.motherId || row.child || row.mother || ''), row])).values()];
-        const undatedRows = reportRows.filter((row) => !datedIds.has(String(row.childId || row.motherId || row.child || row.mother || '')));
+        const undatedRows = rowsInRange.filter((row) => !datedIds.has(String(row.childId || row.motherId || row.child || row.mother || '')));
         const periodRows = resultPeriod === 'latest'
           ? [...latestRows, ...undatedRows]
           : [...measuredRows, ...undatedRows];
@@ -623,25 +591,22 @@ export default function ProgressReport() {
           finalizedSnapshot.beneficiaryType,
           resultPeriod,
           finalizedSnapshot.selection,
+          includeInterpretationColumns,
         );
         exportRows = summaryData.rows;
         exportFields = summaryData.fields;
       } else {
-        exportRows = isAggregate
-          ? aggregateReportRows(allRows, finalizedSnapshot.reportFocus, identityType)
-          : allRows;
+        exportRows = allRows;
       }
 
       if (!exportRows.length) {
         notifyAction('No records match the current report view; no CSV was downloaded.', 'error');
         return;
       }
-      const exportIdentityFocus = isAggregate ? finalizedSnapshot.reportFocus : exportFocus;
       const csv = buildProgressReportCsv(
         exportRows,
         exportFields,
         identityType,
-        exportIdentityFocus,
         formatCellValue,
       );
       const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }));
@@ -668,10 +633,10 @@ export default function ProgressReport() {
 
   const selectedSchool = options.schools.find((item) => String(item.id) === String(displaySelection.schoolId));
   const aiScopeLabel = [
-    selectedSchool?.name,
+    selectedSchool?.name || (!displaySelection.schoolId ? 'All accessible schools' : ''),
     displaySelection.groupId ? groups.find((item) => String(item.id) === String(displaySelection.groupId))?.name : 'All groups',
     displaySelection.batchId ? batches.find((item) => String(item.id) === String(displaySelection.batchId))?.name : 'All batches',
-  ].filter(Boolean).join(' > ');
+  ].filter(Boolean).join(' > ') || 'All accessible records';
   const resultsRows = sortedRows;
   const monitoringTableRows = useMemo(() => {
     if (displayReportCategory !== 'monitor') return resultsRows;
@@ -706,12 +671,12 @@ export default function ProgressReport() {
     : tableDisplayMode === 'monitoring-dates'
       ? addGrowthScoresBeforeInterpretations([...monitoringTableBaseFields, 'measurementDate', ...selectedTableGrowthFields])
       : displayVisibleFields;
+  const reportTableVisibleFields = displayReportCategory === 'monitor' && !includeInterpretationColumns
+    ? filterInterpretationFields(tableVisibleFields)
+    : tableVisibleFields;
   const graphSourceRows = displayReportCategory === 'monitor'
     ? filterRowsBySelectedRange(finalizedSnapshot?.allRows ?? graphReportRows ?? activeReport?.rows ?? [])
     : resultsRows;
-  const graphAggregationFocus = displayReportCategory === 'monitor' && isAggregateFocus(displayReportFocus)
-    ? displayReportFocus
-    : null;
   const filterGraphRowsByRange = (rows) => {
     if (!activeRange || !activeRange[0] || !activeRange[1]) return rows;
     const [startMonth, endMonth] = activeRange;
@@ -735,11 +700,7 @@ export default function ProgressReport() {
       return row.growthSeries?.some((point) => Number.isFinite(getPointValue(point, metric))) || Number.isFinite(Number(row[metric]));
     }))
   );
-  const graphRows = aggregateGrowthRows(
-    filteredGraphSourceRows,
-    graphAggregationFocus,
-    displayBeneficiaryType,
-  );
+  const graphRows = filteredGraphSourceRows;
   const graphExportFields = REPORT_FIELDS.filter(([id]) => (
     displayVisibleFields.includes(id)
     || (displayReportCategory === 'monitor' && ['measurementDate', ...selectedTableGrowthFields].includes(id))
@@ -793,13 +754,13 @@ export default function ProgressReport() {
     setMonitorTableMetrics([]);
     setProfileMetrics(CHILD_PROFILE_METRICS.map(([id]) => id));
     setProfileSection('general');
-    setProgramMetrics(['receivedBenefitTotal', 'receivedBenefitFrequency', 'receivedBenefitAveragePerMonth']);
-    setReportFocus(isHealthWorker ? 'beneficiary-group' : 'beneficiary-batch');
+    setProgramMetrics(['receivedBenefitTotal', 'receivedBenefitFrequency', 'receivedBenefitAveragePerMonth', 'programDocumentation']);
     setReportCategory('monitor');
     setBeneficiaryType('child');
     setGraphMetricType('interpretation');
     setResultsView('graph');
     setTableDisplayMode('general');
+    setIncludeInterpretationColumns(true);
     setResultPeriod('all');
     setDisplayWeeks('all');
     setProfileGraphColumn('gender');
@@ -813,6 +774,21 @@ export default function ProgressReport() {
     notifyAction('Progress report setup reset.');
   };
   const selectGrowthMetric = (id) => {
+    if (beneficiaryType === 'child') {
+      const nextGrowthMetrics = growthMetrics.includes(id)
+        ? growthMetrics.filter((metric) => metric !== id)
+        : [...growthMetrics, id];
+      if (!nextGrowthMetrics.length) return;
+      setGraphMetricType('interpretation');
+      setGrowthMetrics(nextGrowthMetrics);
+      setMonitorTableMetrics(nextGrowthMetrics.length > 1 ? nextGrowthMetrics : []);
+      syncVisibleFieldsForGrowthMetric(nextGrowthMetrics);
+      setResultsView(nextGrowthMetrics.length > 1 ? 'table' : 'graph');
+      setReport(null);
+      setFinalizedSnapshot(null);
+      return;
+    }
+
     setMonitorTableMetrics([]);
     const nextType = INTERPRETATION_METRICS.has(id) || id === 'hospitalReferral' ? 'interpretation' : 'numeric';
     setGraphMetricType(nextType);
@@ -821,8 +797,23 @@ export default function ProgressReport() {
     setReport(null);
     setFinalizedSnapshot(null);
   };
-  const toggleProfileMetric = (id) => {
-    setProfileMetrics((current) => current.includes(id) ? current.filter((field) => field !== id) : [...current, id]);
+  const toggleProfileSection = (section) => {
+    const sectionFields = availableProfileMetrics
+      .filter(([id]) => activeProfileFieldSections[id] === section)
+      .map(([id]) => id);
+    if (!sectionFields.length) return;
+
+    const isFullySelected = sectionFields.every((field) => profileMetrics.includes(field));
+    const nextProfileMetrics = isFullySelected
+      ? profileMetrics.filter((field) => !sectionFields.includes(field))
+      : [...new Set([...profileMetrics, ...sectionFields])];
+    setProfileMetrics(nextProfileMetrics);
+    const nextDisplaySection = isFullySelected && section === profileSection
+      ? Object.keys(activeProfileSectionLabels).find((candidate) => candidate !== 'all' && availableProfileMetrics.some(
+        ([id]) => activeProfileFieldSections[id] === candidate && nextProfileMetrics.includes(id),
+      )) || section
+      : section;
+    setProfileSection(nextDisplaySection);
     setReport(null);
     setFinalizedSnapshot(null);
   };
@@ -847,12 +838,10 @@ export default function ProgressReport() {
   const selectReportCategory = (category) => {
     setMonitorTableMetrics([]);
     setReportCategory(category);
-    const nextFocusOptions = focusOptionsForSelection(selection, category);
-    setReportFocus((current) => nextFocusOptions.some(([value]) => value === current) ? current : nextFocusOptions[0]?.[0] || '');
     setReport(null);
     setFinalizedSnapshot(null);
     if (category === 'program') {
-      setProgramMetrics(['receivedBenefitAveragePerMonth']);
+      setProgramMetrics(['receivedBenefitAveragePerMonth', 'programDocumentation']);
       setGrowthMetrics(['receivedBenefitAveragePerMonth']);
       syncVisibleFieldsForGrowthMetric(['receivedBenefitAveragePerMonth']);
       setDisplayWeeks('receivedBenefitAveragePerMonth');
@@ -923,14 +912,15 @@ export default function ProgressReport() {
               options={options}
               loadingOptions={loadingOptions}
               updateSelection={updateSelection}
-              focusOptions={focusOptions}
-              reportFocus={reportFocus}
-              setReportFocus={selectReportFocus}
               aiScopeLabel={aiScopeLabel}
-              hasSchoolSelection={Boolean(selection.schoolId)}
+              aiContextKey={[selection.schoolId, selection.groupId, selection.batchId].join(':')}
+              aiPrograms={programs}
+              aiInitialProgramName={programName}
+              aiInitialBenefitPeriod={benefitPeriod}
+              aiInitialBenefitMonth={benefitMonth}
               buildAiReportPreview={buildAiReportPreview}
               exportAiReportCsv={exportAiReportCsv}
-              reportFocusStep={(
+              reportCategoryStep={(
                 <ReportFocusStep
                   reportCategory={reportCategory}
                   selectReportCategory={selectReportCategory}
@@ -956,7 +946,6 @@ export default function ProgressReport() {
               reportCategory={reportCategory}
               availableProfileMetrics={availableProfileMetrics}
               profileMetrics={profileMetrics}
-              toggleProfileMetric={toggleProfileMetric}
               programMetrics={PROGRAM_METRICS}
               selectedProgramMetrics={programMetrics}
               toggleProgramMetric={toggleProgramMetric}
@@ -971,8 +960,8 @@ export default function ProgressReport() {
               navigationDirection={navigationDirection}
               profileFieldSections={activeProfileFieldSections}
               profileSectionLabels={activeProfileSectionLabels}
-              profileSection={profileSection}
               setProfileSection={setProfileSection}
+              toggleProfileSection={toggleProfileSection}
               selectedMonitorFields={monitorTableMetrics.map((id) => [
                 id,
                 REPORT_FIELDS.find(([fieldId]) => fieldId === id)?.[1] || id,
@@ -999,6 +988,8 @@ export default function ProgressReport() {
                 exportingReport={exportingReport}
                 resultPeriod={resultPeriod}
                 setResultPeriod={setResultPeriod}
+                includeInterpretationColumns={includeInterpretationColumns}
+                setIncludeInterpretationColumns={setIncludeInterpretationColumns}
                 graphExportRows={graphExportRows}
                 graphExportFields={graphExportFields}
                 resultsView={resultsView}
@@ -1007,7 +998,7 @@ export default function ProgressReport() {
                 tableDisplayMode={tableDisplayMode}
                 setTableDisplayMode={setTableDisplayMode}
                 tableRows={tableRows}
-                tableVisibleFields={tableVisibleFields}
+                tableVisibleFields={reportTableVisibleFields}
                 showProfileFilter={displayReportCategory === 'profile'}
                 profileFieldSections={activeProfileFieldSections}
                 profileSectionLabels={activeProfileSectionLabels}
@@ -1037,7 +1028,6 @@ export default function ProgressReport() {
                 changeSort={changeSort}
                 formatCellValue={formatCellValue}
                 displayBeneficiaryType={displayBeneficiaryType}
-                displayReportFocus={displayReportFocus}
                 profileGraphFields={PROFILE_GRAPH_FIELDS}
                 interpretationMetrics={INTERPRETATION_METRICS}
                 programMetrics={PROGRAM_METRICS}

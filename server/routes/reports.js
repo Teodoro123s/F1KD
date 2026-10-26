@@ -92,6 +92,8 @@ router.get('/activity', verifyToken, authorize('super_admin', 'community_coordin
     const groupId = req.query.groupId === undefined ? null : parsePositiveIntegerId(req.query.groupId);
     const from = req.query.from === undefined ? '' : String(req.query.from);
     const to = req.query.to === undefined ? '' : String(req.query.to);
+    const chartFrom = req.query.chartFrom === undefined ? '' : String(req.query.chartFrom);
+    const chartTo = req.query.chartTo === undefined ? '' : String(req.query.chartTo);
 
     if (from && !isValidIsoDate(from)) {
       return res.status(400).json({ error: 'from must be a valid date in YYYY-MM-DD format' });
@@ -99,8 +101,17 @@ router.get('/activity', verifyToken, authorize('super_admin', 'community_coordin
     if (to && !isValidIsoDate(to)) {
       return res.status(400).json({ error: 'to must be a valid date in YYYY-MM-DD format' });
     }
+    if (chartFrom && !isValidIsoDate(chartFrom)) {
+      return res.status(400).json({ error: 'chartFrom must be a valid date in YYYY-MM-DD format' });
+    }
+    if (chartTo && !isValidIsoDate(chartTo)) {
+      return res.status(400).json({ error: 'chartTo must be a valid date in YYYY-MM-DD format' });
+    }
     if (from && to && from > to) {
       return res.status(400).json({ error: 'from must be on or before to' });
+    }
+    if (chartFrom && chartTo && chartFrom > chartTo) {
+      return res.status(400).json({ error: 'chartFrom must be on or before chartTo' });
     }
 
     if (req.query.actorUserId !== undefined && actorUserId === null) {
@@ -168,7 +179,19 @@ router.get('/activity', verifyToken, authorize('super_admin', 'community_coordin
       params.push(to);
     }
 
+    const dailyFilters = [...filters];
+    const dailyParams = [...params];
+    if (chartFrom) {
+      dailyFilters.push('created_at >= ?');
+      dailyParams.push(`${chartFrom} 00:00:00`);
+    }
+    if (chartTo) {
+      dailyFilters.push('created_at < DATE_ADD(?, INTERVAL 1 DAY)');
+      dailyParams.push(chartTo);
+    }
+
     const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
+    const dailyWhere = dailyFilters.length ? `WHERE ${dailyFilters.join(' AND ')}` : '';
     const summaryFilters = actorUserId !== null
       ? [...scopeFilters, "activity_logs.category = 'User Management'", "activity_logs.action = 'sign_in'"]
       : scopeFilters;
@@ -189,13 +212,13 @@ router.get('/activity', verifyToken, authorize('super_admin', 'community_coordin
       `SELECT DATE_FORMAT(activity_date, '%Y-%m-%d') AS date, activity_count AS count
        FROM (
          SELECT DATE(created_at) AS activity_date, COUNT(*) AS activity_count
-         FROM activity_logs ${where}
+         FROM activity_logs ${dailyWhere}
          GROUP BY DATE(created_at)
          ORDER BY activity_date DESC
          LIMIT 30
        ) recent_activity
        ORDER BY activity_date ASC`,
-      params,
+      dailyParams,
     );
     const [rows] = await pool.query(
       `SELECT id, actor_user_id AS actorUserId, actor_name AS actorName,

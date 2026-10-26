@@ -1,16 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PageHeader from '../../components/ui/PageHeader';
-import ModuleSummaryCards from '../../components/ui/ModuleSummaryCards';
 import CommunityTable from '../Community/CommunityTable';
 import CommunityPagination from '../Community/components/CommunityPagination';
 import { SearchIcon } from '../Community/CommunityIcons';
 import {
   apiBulkSetNotificationsRead,
   apiGetNotifications,
-  apiGetNotificationPreferences,
   apiMarkAllNotificationsRead,
-  apiSaveNotificationPreferences,
   apiSetNotificationRead,
 } from '../../api/notifications';
 import NotificationDetailsModal from '../../components/ui/NotificationDetailsModal';
@@ -65,8 +62,6 @@ export default function NotificationsPage() {
     : isSuperAdmin
       ? ['All', 'Community', 'User Management']
       : CATEGORIES.filter((item) => item !== 'User Management');
-  const preferenceCategories = categories.filter((item) => item !== 'All');
-  const preferenceCategoryKey = preferenceCategories.join('|');
   const [category, setCategory] = useState('All');
   const selectedCategory = categories.includes(category) ? category : categories[0];
   const [query, setQuery] = useState('');
@@ -83,33 +78,7 @@ export default function NotificationsPage() {
   const [selectedNotification, setSelectedNotification] = useState(null);
   const [markingNotificationIds, setMarkingNotificationIds] = useState([]);
   const [bulkActionLoading, setBulkActionLoading] = useState('');
-  const [notificationPreferences, setNotificationPreferences] = useState({});
-  const [preferencesLoading, setPreferencesLoading] = useState(true);
-  const [preferencesSaving, setPreferencesSaving] = useState(false);
-  const [preferencesLoadKey, setPreferencesLoadKey] = useState(0);
-  const [preferencesError, setPreferencesError] = useState('');
-  const [preferencesMessage, setPreferencesMessage] = useState('');
   const actionLocks = useRef(new Set());
-
-  useEffect(() => {
-    let active = true;
-    setPreferencesLoading(true);
-    setPreferencesError('');
-    apiGetNotificationPreferences()
-      .then((response) => {
-        if (!active) return;
-        setNotificationPreferences(Object.fromEntries(
-          (response.preferences || []).map(({ category: item, enabled }) => [item, enabled]),
-        ));
-      })
-      .catch((requestError) => {
-        if (active) setPreferencesError(requestError.message || 'Unable to load notification preferences.');
-      })
-      .finally(() => {
-        if (active) setPreferencesLoading(false);
-      });
-    return () => { active = false; };
-  }, [currentUser?.id, preferenceCategoryKey, preferencesLoadKey]);
 
   useEffect(() => {
     let active = true;
@@ -248,26 +217,6 @@ export default function NotificationsPage() {
     }
   };
 
-  const savePreferences = async () => {
-    if (preferencesLoading || preferencesSaving || preferencesError) return;
-    setPreferencesSaving(true);
-    setPreferencesError('');
-    setPreferencesMessage('');
-    try {
-      const preferences = preferenceCategories.map((item) => ({
-        category: item,
-        enabled: notificationPreferences[item] !== false,
-      }));
-      await apiSaveNotificationPreferences(preferences);
-      setPreferencesMessage('Notification preferences saved.');
-      setRefreshKey((key) => key + 1);
-    } catch (requestError) {
-      setPreferencesError(requestError.message || 'Unable to save notification preferences.');
-    } finally {
-      setPreferencesSaving(false);
-    }
-  };
-
   const toggleNotificationSelection = (id) => {
     setSelectedIds((current) => current.includes(id)
       ? current.filter((selectedId) => selectedId !== id)
@@ -324,23 +273,15 @@ export default function NotificationsPage() {
       className: 'notifications-timeline-message',
       renderCell: (notification) => (
         <>
-          <span>{notification.message}</span>
+          <span className={notification.isRead ? '' : 'notification-message-unread'}>
+            {notification.message}
+          </span>
           {notification.actorName && (
             <small className="notification-actor">
               By {notification.actorName}{notification.actorRole ? ` · ${notification.actorRole}` : ''}
             </small>
           )}
         </>
-      ),
-    },
-    {
-      key: 'category',
-      header: 'Category',
-      className: 'notifications-timeline-category',
-      renderCell: (notification) => (
-        <span className="badge notifications-timeline-badge" style={{ background: '#F1F5F9', color: '#334155' }}>
-          {notification.category}
-        </span>
       ),
     },
     {
@@ -353,61 +294,6 @@ export default function NotificationsPage() {
         </time>
       ),
     },
-    {
-      key: 'readStatus',
-      header: 'Status',
-      className: 'notifications-timeline-status',
-      renderCell: (notification) => (
-        <span
-          className="badge notifications-timeline-badge"
-          style={notification.isRead
-            ? { background: '#F1F5F9', color: '#475569' }
-            : { background: '#DBEAFE', color: '#1D4ED8' }}
-        >
-          {notification.isRead ? 'Read' : 'Unread'}
-        </span>
-      ),
-    },
-    {
-      key: 'actions',
-      header: 'Action',
-      className: 'notifications-timeline-action',
-      renderCell: (notification) => (
-        <div className="notification-row-actions">
-          <button
-            type="button"
-            className="notification-mark-read-button"
-            onClick={(event) => {
-              event.stopPropagation();
-              setNotificationReadState(notification, !notification.isRead);
-            }}
-            onKeyDown={(event) => event.stopPropagation()}
-            disabled={markingNotificationIds.includes(notification.id) || Boolean(bulkActionLoading)}
-            aria-label={`Mark "${notification.title}" as ${notification.isRead ? 'unread' : 'read'}`}
-          >
-            {markingNotificationIds.includes(notification.id)
-              ? 'Saving...'
-              : notification.isRead ? 'Mark unread' : 'Mark as read'}
-          </button>
-          <button
-            type="button"
-            className="notification-view-button"
-            onClick={(event) => {
-              event.stopPropagation();
-              openNotification(notification);
-            }}
-            onKeyDown={(event) => event.stopPropagation()}
-            aria-label={`View "${notification.title}"`}
-          >
-            <svg aria-hidden="true" viewBox="0 0 20 20" focusable="false">
-              <path d="M1.75 10s2.9-5 8.25-5 8.25 5 8.25 5-2.9 5-8.25 5-8.25-5-8.25-5Z" />
-              <circle cx="10" cy="10" r="2.25" />
-            </svg>
-            <span>View</span>
-          </button>
-        </div>
-      ),
-    },
   ];
 
   return (
@@ -417,173 +303,113 @@ export default function NotificationsPage() {
         breadcrumbs={[{ label: 'Community', href: '/community' }, { label: 'Notifications' }]}
       />
 
-      <ModuleSummaryCards
-        selected={selectedReadStatus}
-        onSelect={(key) => {
-          setSelectedReadStatus(key || 'all');
-          setPage(1);
-        }}
-        cards={[
-          { key: 'all', label: 'All Notifications', value: counts.all, description: 'View all notifications' },
-          { key: 'unread', label: 'Unread', value: counts.unread, description: 'View unread notifications' },
-          { key: 'read', label: 'Read', value: counts.read, description: 'View read notifications' },
-        ]}
-      />
-
-      {selectedReadStatus && (
-        <>
-          {error && <div role="alert" className="error-message">{error}</div>}
-          <details className="notification-preferences">
-            <summary>Notification preferences</summary>
-            <p>Turn categories off to hide them from your timeline and unread count. Notifications remain stored and can be shown again later.</p>
-            {preferencesError && (
-              <div role="alert" className="error-message">
-                {preferencesError}
+      {error && <div role="alert" className="error-message">{error}</div>}
+      <CommunityTable
+        columns={columns}
+        data={notifications}
+        tableClassName="notifications-timeline-table"
+        tableTitle={(
+          <div className="notifications-table-title">
+            <div className="notifications-timeline-heading">
+              <h2>Notifications timeline</h2>
+              {counts.unread > 0 && (
                 <button
                   type="button"
-                  onClick={() => setPreferencesLoadKey((key) => key + 1)}
-                  disabled={preferencesLoading}
+                  className="notification-bulk-button notification-bulk-button--primary"
+                  onClick={markAllNotificationsRead}
+                  disabled={Boolean(bulkActionLoading) || markingNotificationIds.length > 0}
                 >
-                  Retry
+                  {bulkActionLoading === 'all' ? 'Marking all...' : 'Mark all as read'}
+                </button>
+              )}
+            </div>
+            <section className="subheader-row notifications-filter-row">
+              <div className="subheader-left">
+                <label className="notification-status-filter">
+                  <span>Status</span>
+                  <select
+                    value={selectedReadStatus}
+                    onChange={(event) => { setSelectedReadStatus(event.target.value); setPage(1); }}
+                    aria-label="Filter notifications by read status"
+                  >
+                    <option value="all">All ({counts.all})</option>
+                    <option value="unread">Unread ({counts.unread})</option>
+                    <option value="read">Read ({counts.read})</option>
+                  </select>
+                </label>
+                <label className="notification-category-filter">
+                  <span>Category</span>
+                  <select
+                    value={selectedCategory}
+                    onChange={(event) => {
+                      setCategory(event.target.value);
+                      setPage(1);
+                    }}
+                    aria-label="Filter notifications by category"
+                  >
+                    {categories.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
+                  </select>
+                </label>
+              </div>
+              <div className="subheader-right">
+                <div className="search-container">
+                  <SearchIcon />
+                  <div className="search-field-container">
+                    <input
+                      type="search"
+                      value={query}
+                      onChange={(event) => { setQuery(event.target.value); setPage(1); }}
+                      placeholder="Search notifications..."
+                      className="search-input-field"
+                      aria-label="Search notifications"
+                    />
+                  </div>
+                </div>
+              </div>
+            </section>
+            {selectedIds.length > 0 && (
+              <div className="notification-bulk-toolbar" role="group" aria-label="Bulk notification actions">
+                <span>{selectedIds.length} selected</span>
+                <button
+                  type="button"
+                  className="notification-bulk-button notification-bulk-button--primary"
+                  onClick={() => setSelectedNotificationsReadState(true)}
+                  disabled={Boolean(bulkActionLoading) || markingNotificationIds.length > 0}
+                >
+                  {bulkActionLoading === 'selection' ? 'Saving...' : 'Mark selected as read'}
+                </button>
+                <button
+                  type="button"
+                  className="notification-bulk-button"
+                  onClick={() => setSelectedNotificationsReadState(false)}
+                  disabled={Boolean(bulkActionLoading) || markingNotificationIds.length > 0}
+                >
+                  {bulkActionLoading === 'selection' ? 'Saving...' : 'Mark selected as unread'}
+                </button>
+                <button
+                  type="button"
+                  className="notification-bulk-button"
+                  onClick={() => setSelectedIds([])}
+                  disabled={Boolean(bulkActionLoading)}
+                >
+                  Clear selection
                 </button>
               </div>
             )}
-            <div className="notification-preferences-options">
-              {preferenceCategories.map((item) => (
-                <label key={item}>
-                  <input
-                    type="checkbox"
-                    checked={notificationPreferences[item] !== false}
-                    onChange={(event) => {
-                      setNotificationPreferences((current) => ({ ...current, [item]: event.target.checked }));
-                      setPreferencesMessage('');
-                    }}
-                    disabled={preferencesLoading || preferencesSaving || Boolean(preferencesError)}
-                  />
-                  <span>{item}</span>
-                </label>
-              ))}
-            </div>
-            <div className="notification-preferences-actions">
-              <button
-                type="button"
-                className="notification-bulk-button notification-bulk-button--primary"
-                onClick={savePreferences}
-                disabled={preferencesLoading || preferencesSaving || Boolean(preferencesError)}
-              >
-                {preferencesLoading ? 'Loading...' : preferencesSaving ? 'Saving...' : 'Save preferences'}
-              </button>
-              {preferencesMessage && <span role="status">{preferencesMessage}</span>}
-            </div>
-          </details>
-          <section className="subheader-row" style={{ alignItems: 'center', gap: '1rem' }}>
-            <div className="subheader-left" style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-              <div className="status-toggle-group" role="group" aria-label="Filter notifications by read status">
-                {['all', 'unread', 'read'].map((status) => (
-                  <button
-                    key={status}
-                    type="button"
-                    className={`status-toggle-btn${selectedReadStatus === status ? ' active' : ''}`}
-                    aria-pressed={selectedReadStatus === status}
-                    onClick={() => { setSelectedReadStatus(status); setPage(1); }}
-                  >
-                    {status === 'all' ? 'All' : status === 'unread' ? 'Unread' : 'Read'}
-                  </button>
-                ))}
-              </div>
-              <label className="notification-category-filter">
-                <span>Category</span>
-                <select
-                  value={selectedCategory}
-                  onChange={(event) => {
-                    setCategory(event.target.value);
-                    setPage(1);
-                  }}
-                  aria-label="Filter notifications by category"
-                >
-                  {categories.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
-                </select>
-              </label>
-              <span role="status" aria-live="polite" style={{ fontSize: '0.9rem', color: '#64748B' }}>
-                {total} {total === 1 ? 'notification' : 'notifications'}
-              </span>
-            </div>
-            <div className="subheader-right">
-              <div className="search-container">
-                <SearchIcon />
-                <div className="search-field-container">
-                  <input
-                    type="search"
-                    value={query}
-                    onChange={(event) => { setQuery(event.target.value); setPage(1); }}
-                    placeholder="Search notifications..."
-                    className="search-input-field"
-                    aria-label="Search notifications"
-                  />
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {selectedIds.length > 0 && (
-            <div className="notification-bulk-toolbar" role="group" aria-label="Bulk notification actions">
-              <span>{selectedIds.length} selected</span>
-              <button
-                type="button"
-                className="notification-bulk-button notification-bulk-button--primary"
-                onClick={() => setSelectedNotificationsReadState(true)}
-                disabled={Boolean(bulkActionLoading) || markingNotificationIds.length > 0}
-              >
-                {bulkActionLoading === 'selection' ? 'Saving...' : 'Mark selected as read'}
-              </button>
-              <button
-                type="button"
-                className="notification-bulk-button"
-                onClick={() => setSelectedNotificationsReadState(false)}
-                disabled={Boolean(bulkActionLoading) || markingNotificationIds.length > 0}
-              >
-                {bulkActionLoading === 'selection' ? 'Saving...' : 'Mark selected as unread'}
-              </button>
-              <button type="button" className="notification-bulk-button" onClick={() => setSelectedIds([])} disabled={Boolean(bulkActionLoading)}>
-                Clear selection
-              </button>
-            </div>
-          )}
-
-          <CommunityTable
-            columns={columns}
-            data={notifications}
-            tableClassName="notifications-timeline-table"
-            tableTitle={(
-              <div className="notifications-timeline-heading">
-                <div>
-                  <h2>Notifications timeline</h2>
-                  <span>{total} {total === 1 ? 'notification' : 'notifications'} · {counts.unread} unread</span>
-                </div>
-                {counts.unread > 0 && (
-                  <button
-                    type="button"
-                    className="notification-bulk-button notification-bulk-button--primary"
-                    onClick={markAllNotificationsRead}
-                    disabled={Boolean(bulkActionLoading) || markingNotificationIds.length > 0}
-                  >
-                    {bulkActionLoading === 'all' ? 'Marking all...' : 'Mark all as read'}
-                  </button>
-                )}
-              </div>
-            )}
-            onRowClick={openNotification}
-            getGroupLabel={(notification) => notificationDateGroup(notification.createdAt)}
-            emptyMessage={loading
-              ? 'Loading notifications...'
-              : query
-                ? 'No notifications match your search.'
-                : selectedReadStatus === 'unread' && counts.unread === 0
-                  ? "You're all caught up."
-                  : total === 0 && counts.all === 0
-                    ? 'No notifications yet.'
-                    : 'No notifications match the selected filters.'}
-          />
+          </div>
+        )}
+        onRowClick={openNotification}
+        getGroupLabel={(notification) => notificationDateGroup(notification.createdAt)}
+        emptyMessage={loading
+          ? 'Loading notifications...'
+          : query
+            ? 'No notifications match your search.'
+            : selectedReadStatus === 'unread' && counts.unread === 0
+              ? "You're all caught up."
+              : total === 0 && counts.all === 0
+                ? 'No notifications yet.'
+                : 'No notifications match the selected filters.'}
+      />
           <CommunityPagination
             currentPage={currentPage}
             pageCount={pageCount}
@@ -594,8 +420,6 @@ export default function NotificationsPage() {
             rangeEnd={Math.min(startIndex + perPage, total)}
             totalItems={total}
           />
-        </>
-      )}
       <NotificationDetailsModal
         notification={selectedNotification}
         onClose={() => setSelectedNotification(null)}

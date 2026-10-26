@@ -5,6 +5,7 @@ import App from './App';
 import './index.css';
 import { AuthProvider } from './auth/AuthProvider';
 import { LoadingScreen } from './components/LoadingSkeleton';
+import DemoApp from './demo/DemoApp';
 
 const PRELOAD_RELOAD_KEY = 'f1kd:preload-error-reload-at';
 window.addEventListener('vite:preloadError', (event) => {
@@ -20,7 +21,7 @@ const isDemoBuild = import.meta.env.VITE_DEMO_MODE === 'true';
 const Router = isDemoBuild ? HashRouter : BrowserRouter;
 const app = (
   <Suspense fallback={<LoadingScreen message="Loading page..." />}>
-    {isDemoBuild ? <App /> : <AuthProvider><App /></AuthProvider>}
+    {isDemoBuild ? <DemoApp /> : <AuthProvider><App /></AuthProvider>}
   </Suspense>
 );
 

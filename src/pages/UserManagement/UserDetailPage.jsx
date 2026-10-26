@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import PageHeader from '../../components/ui/PageHeader';
+import ModuleSummaryCards from '../../components/ui/ModuleSummaryCards';
 import { notifyAction } from '../../components/ActionFeedback';
 import { generatePassword, formatDobForInput } from './lib';
 import { apiGetManagedHealthWorker, apiGetUser, apiUpdateUser } from '../../api/users';
@@ -11,7 +12,10 @@ import { useAuth } from '../../auth/AuthProvider';
 import CommunityTable from '../Community/CommunityTable';
 import CommunityPagination from '../Community/components/CommunityPagination';
 import { ActivityChart } from '../Reports/ReportsPage';
-import { navigateBack } from '../../utils/navigation';
+import { navigateBack } from '../../utils/navigation/navigation';
+import AddUserModal from './UserManagementModal';
+
+const USER_ROLE_OPTIONS = ['Admin', 'Partner', 'Community Organizer', 'Health worker'];
 
 function formatActivityDate(value) {
   if (!value) return '—';
@@ -85,6 +89,9 @@ export default function UserDetailPage() {
   const [activityReport, setActivityReport] = useState({ activities: [], dailyActivity: [], total: null });
   const [activityLoading, setActivityLoading] = useState(false);
   const [activityError, setActivityError] = useState('');
+  const [editOpen, setEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState(null);
+  const [savingEdit, setSavingEdit] = useState(false);
   const getInitialUser = () => {
     const initial = location?.state?.user || { id };
     if (initial.name && !initial.firstName) {
@@ -200,8 +207,67 @@ export default function UserDetailPage() {
     return match?.name || `Group ID ${user.groupId}`;
   })();
   const handleEdit = () => {
-    // Navigate back to list and signal the list to open edit modal
-    navigate('/user-management', { state: { editUser: user } });
+    setEditForm({
+      firstName: user.firstName || '',
+      lastName: user.lastName || '',
+      middleInitial: user.middleInitial || '',
+      contactNumber: user.contactNumber || '',
+      email: user.email || '',
+      gender: user.gender || 'Male',
+      dob: user.dob || '',
+      location: user.location || 'Poblacion',
+      role: user.role || 'Admin',
+      status: user.status || 'Active',
+      password: '',
+      schoolId: user.schoolId || '',
+      groupId: user.groupId || '',
+    });
+    setEditOpen(true);
+  };
+
+  const saveEdit = async () => {
+    const serverId = toApiUserId(user.id || id);
+    if (!serverId) {
+      notifyAction('Unable to update this user: invalid user ID.', 'error');
+      return;
+    }
+    setSavingEdit(true);
+    try {
+      const updated = await apiUpdateUser(serverId, {
+        firstName: editForm.firstName.trim(),
+        lastName: editForm.lastName.trim(),
+        middleInitial: editForm.middleInitial.trim() || null,
+        contactNumber: editForm.contactNumber.trim(),
+        email: editForm.email.trim(),
+        dob: editForm.dob || null,
+        schoolId: editForm.schoolId || null,
+        groupId: editForm.groupId || null,
+        role: editForm.role,
+        status: editForm.status,
+      });
+      const first = updated.first_name ?? editForm.firstName.trim();
+      const last = updated.last_name ?? editForm.lastName.trim();
+      const middle = updated.middle_initial ?? editForm.middleInitial.trim();
+      setUser((current) => ({
+        ...current,
+        firstName: first,
+        lastName: last,
+        middleInitial: middle,
+        name: `${first} ${middle ? `${middle} ` : ''}${last}`.trim(),
+        contactNumber: updated.contact_number ?? editForm.contactNumber.trim(),
+        email: updated.email ?? editForm.email.trim(),
+        role: updated.role ?? editForm.role,
+        status: updated.status ?? editForm.status,
+        schoolId: updated.school_id ?? editForm.schoolId,
+        groupId: updated.group_id ?? editForm.groupId,
+      }));
+      setEditOpen(false);
+      notifyAction('User profile updated successfully.');
+    } catch (error) {
+      notifyAction(error.message || 'Unable to update this user.', 'error');
+    } finally {
+      setSavingEdit(false);
+    }
   };
 
   const [generatedPwd, setGeneratedPwd] = useState('');
@@ -276,25 +342,30 @@ export default function UserDetailPage() {
         )}
       />
 
-      <section className="mother-detail-section">
-        <h3 className="mother-detail-section-title">{isHealthWorker ? 'Health Worker Actions' : 'User Actions'}</h3>
-        <div className="mother-detail-actions mother-overview-actions">
-          <button type="button" className={selectedCard === 'profile' ? 'btn-primary' : 'btn-secondary'} onClick={() => setSelectedCard('profile')}>User Profile</button>
-          {canViewUserActivity && (
-            <button
-              type="button"
-              className={selectedCard === 'activity' ? 'btn-primary' : 'btn-secondary'}
-              onClick={() => {
-                setSelectedCard('activity');
-                setActivityPage(1);
-                if (isHealthWorker) setActivityView('table');
-              }}
-            >
-              Activity Logs
-            </button>
-          )}
-        </div>
-      </section>
+      <ModuleSummaryCards
+        selected={selectedCard}
+        onSelect={(key) => {
+          setSelectedCard(key);
+          if (key === 'activity') {
+            setActivityPage(1);
+            if (isHealthWorker) setActivityView('table');
+          }
+        }}
+        cards={[
+          {
+            key: 'profile',
+            label: 'User Profile',
+            value: 'Profile',
+            description: 'View account details',
+          },
+          ...(canViewUserActivity ? [{
+            key: 'activity',
+            label: 'Activity Logs',
+            value: 'Activity',
+            description: 'Review account activity',
+          }] : []),
+        ]}
+      />
 
       {selectedCard === 'profile' && (
         <section className="mother-detail-section">
@@ -392,6 +463,21 @@ export default function UserDetailPage() {
             </>
           )}
         </section>
+      )}
+
+      {editForm && (
+        <AddUserModal
+          showModal={editOpen}
+          onClose={() => { if (!savingEdit) setEditOpen(false); }}
+          form={editForm}
+          setForm={setEditForm}
+          onSubmit={saveEdit}
+          roleOptions={USER_ROLE_OPTIONS}
+          communities={communities}
+          groups={groups}
+          mode="edit"
+          isSubmitting={savingEdit}
+        />
       )}
 
       <style>{`

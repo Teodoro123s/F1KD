@@ -47,6 +47,37 @@ function optionalDate(...values) {
   return firstNonEmpty(...values) || null;
 }
 
+function getNegativeMeasurementError(body, fields) {
+  for (const [label, ...keys] of fields) {
+    const value = firstNonEmpty(...keys.map((key) => body[key]));
+    if (value === '') continue;
+    const number = Number(value);
+    if (!Number.isFinite(number) || number < 0) return `${label} cannot be a negative value.`;
+  }
+  return '';
+}
+
+function getGestationalAgeAtDate(lmpValue, checkupValue, fallbackWeeks) {
+  const dateOnly = (value) => {
+    if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(0, 10);
+    const raw = String(value ?? '').trim();
+    const isoMatch = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (isoMatch) return isoMatch[1];
+    const dmyMatch = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    return dmyMatch ? `${dmyMatch[3]}-${dmyMatch[2]}-${dmyMatch[1]}` : '';
+  };
+  const lmp = dateOnly(lmpValue);
+  const checkupDate = dateOnly(checkupValue);
+  if (lmp && checkupDate) {
+    const lmpTime = Date.parse(`${lmp}T00:00:00Z`);
+    const visitTime = Date.parse(`${checkupDate}T00:00:00Z`);
+    if (Number.isFinite(lmpTime) && Number.isFinite(visitTime) && visitTime >= lmpTime) {
+      return Math.floor((visitTime - lmpTime) / (7 * 24 * 60 * 60 * 1000));
+    }
+  }
+  return fallbackWeeks ?? '';
+}
+
 function normalizeMotherDob(value) {
   const raw = String(value ?? '').trim();
   const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/) || raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
@@ -237,7 +268,7 @@ async function attachClinicalData(mother, includeAuditDetails = false) {
       trimester: row.trimester,
       checkupNumber: row.checkup_number,
       checkupDate: row.checkup_date,
-      gestationalAge: row.gestational_age_weeks,
+      gestationalAge: getGestationalAgeAtDate(mother.lmpDate, row.checkup_date, row.gestational_age_weeks),
       bp: row.blood_pressure,
       weight: row.weight_kg,
       height: row.height_cm,
@@ -482,6 +513,7 @@ router.get('/', async (req, res) => {
       scopeValues,
     );
     const checkupsByMotherId = {};
+    const lmpByMotherId = new Map(rows.map((motherRow) => [Number(motherRow.id), motherRow.lmp_date]));
     for (const row of checkupRows) {
       if (!checkupsByMotherId[row.mother_id]) {
         checkupsByMotherId[row.mother_id] = [
@@ -506,11 +538,16 @@ router.get('/', async (req, res) => {
         trimester: row.trimester,
         checkupNumber: row.checkup_number,
         checkupDate: row.checkup_date,
-        gestationalAge: row.gestational_age_weeks,
+        gestationalAge: getGestationalAgeAtDate(
+          lmpByMotherId.get(Number(row.mother_id)),
+          row.checkup_date,
+          row.gestational_age_weeks,
+        ),
         bp: row.blood_pressure,
         weight: row.weight_kg,
         height: row.height_cm,
         bmi: row.bmi,
+        developmentalStatus: row.developmental_status || '',
         nutritionalStatus: row.nutritional_status,
         fundalHeight: row.fundal_height_cm,
         fhr: row.fetal_heart_rate_bpm,
@@ -557,6 +594,12 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const b = req.body || {};
+    const measurementError = getNegativeMeasurementError(b, [
+      ['Weight', 'prenatalWeight', 'prenatal_weight', 'weight'],
+      ['Height', 'prenatalHeight', 'prenatal_height', 'height'],
+      ['Fundal height', 'fundalHeight', 'fundal_height'],
+    ]);
+    if (measurementError) return res.status(400).json({ error: measurementError });
     const philhealthMember = b.philhealthMember === true || b.philhealth_member === true
       || b.philhealth_member === 1 || b.philhealth_member === '1';
     const philhealthNumber = firstNonEmpty(b.philhealthNumber, b.philhealth_number, '');
@@ -1082,6 +1125,12 @@ router.put('/:id', async (req, res) => {
     }
     const { id } = req.params;
     const b = req.body || {};
+    const measurementError = getNegativeMeasurementError(b, [
+      ['Weight', 'prenatalWeight', 'prenatal_weight', 'weight'],
+      ['Height', 'prenatalHeight', 'prenatal_height', 'height'],
+      ['Fundal height', 'fundalHeight', 'fundal_height'],
+    ]);
+    if (measurementError) return res.status(400).json({ error: measurementError });
     const contactNumberError = validateContactNumber(b.contactNumber ?? b.contact_number, 'Contact number');
     if (contactNumberError) return res.status(400).json({ error: contactNumberError });
     const emergencyContactError = validateContactNumber(b.emergencyContact ?? b.emergency_contact, 'Emergency contact number');
@@ -1092,8 +1141,11 @@ router.put('/:id', async (req, res) => {
     if (!existing.length) {
       return res.status(404).json({ error: 'Mother not found' });
     }
-
     const current = existing[0];
+    const integerOrFallback = (value, fallback = null) => {
+      const candidate = value === undefined || value === null || value === '' ? fallback : value;
+      return candidate === undefined || candidate === null || candidate === '' ? null : Number(candidate);
+    };
     const firstNameProvided = b.firstName !== undefined || b.first_name !== undefined;
     const requestedFirstName = firstNameProvided
       ? normalizeFirstName(b.firstName ?? b.first_name)
@@ -1165,22 +1217,22 @@ router.put('/:id', async (req, res) => {
       prenatal_height: b.prenatalHeight || b.prenatal_height || current.prenatal_height || null,
       fundal_height: b.fundalHeight || b.fundal_height || current.fundal_height || null,
       fhr: b.fhr || current.fhr || null,
-      gravida: b.gravida ?? current.gravida ?? null,
-      para: b.para ?? current.para ?? null,
-      abortion: b.abortion ?? current.abortion ?? 0,
-      stillbirth: b.stillbirth ?? current.stillbirth ?? 0,
-      total_children: b.totalChildren ?? b.total_children ?? current.total_children ?? null,
-      children_born_alive: b.childrenBornAlive ?? b.children_born_alive ?? current.children_born_alive ?? null,
-      miscarriages: b.miscarriages ?? current.miscarriages ?? null,
-      children_died_after_birth: b.childrenDiedAfterBirth ?? b.children_died_after_birth ?? current.children_died_after_birth ?? null,
+      gravida: integerOrFallback(b.gravida, current.gravida),
+      para: integerOrFallback(b.para, current.para),
+      abortion: integerOrFallback(b.abortion, current.abortion ?? 0),
+      stillbirth: integerOrFallback(b.stillbirth, current.stillbirth ?? 0),
+      total_children: integerOrFallback(b.totalChildren ?? b.total_children, current.total_children),
+      children_born_alive: integerOrFallback(b.childrenBornAlive ?? b.children_born_alive, current.children_born_alive),
+      miscarriages: integerOrFallback(b.miscarriages, current.miscarriages),
+      children_died_after_birth: integerOrFallback(b.childrenDiedAfterBirth ?? b.children_died_after_birth, current.children_died_after_birth),
       weight: b.weight || current.weight || null,
       height: b.height || current.height || null,
       is_high_risk: b.isHighRisk === 'Yes' || b.is_high_risk === true || b.is_high_risk === 1 ? 1 : 0,
       program_type: b.programType || b.program_type || current.program_type || null,
-      emergency_name: b.emergencyName || b.emergency_name || current.emergency_name || null,
+      emergency_name: optionalValue(b.emergencyName ?? b.emergency_name, current.emergency_name),
       emergency_contact: b.emergencyContact || b.emergency_contact || current.emergency_contact || null,
       emergency_relationship: b.emergencyRelationship || b.emergency_relationship || current.emergency_relationship || null,
-      spouse_name: b.spouseName || b.spouse_name || current.spouse_name || null,
+      spouse_name: optionalValue(b.spouseName ?? b.spouse_name, current.spouse_name),
       philhealth_member: philhealthMember ?? 0,
       philhealth_number: nextPhilhealthNumber ? formatPhilHealthNumber(nextPhilhealthNumber) : null,
       medical_conditions: b.medicalConditions ? JSON.stringify(b.medicalConditions) : current.medical_conditions || null,
@@ -1348,6 +1400,10 @@ router.post('/:id/checkups', async (req, res) => {
   try {
     const { id } = req.params;
     const b = req.body || {};
+    const measurementError = getNegativeMeasurementError(b, [
+      ['Weight', 'weight'], ['Height', 'height'], ['Fundal height', 'fundalHeight', 'fundal_height'],
+    ]);
+    if (measurementError) return res.status(400).json({ error: measurementError });
     const [motherRows] = await pool.query(
       `SELECT id, first_name, last_name, mother_code, community_id, group_id FROM mothers WHERE (id = ? OR mother_code = ?)${req.groupId ? ' AND group_id = ?' : req.schoolId ? ' AND community_id = ?' : ''} LIMIT 1`,
       req.groupId ? [Number(id) || null, id, req.groupId] : req.schoolId ? [Number(id) || null, id, req.schoolId] : [Number(id) || null, id]

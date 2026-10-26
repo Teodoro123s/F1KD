@@ -1,0 +1,2 @@
+ALTER TABLE users
+  ADD COLUMN IF NOT EXISTS consent_accepted_at DATETIME DEFAULT NULL;

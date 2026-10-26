@@ -674,6 +674,18 @@ input[type="date"].form-input {
 .edit-mother-section .form-row-5 { gap: 0.9rem; }
 .mother-detail-profile-content > .mother-detail-section:not(.mother-detail-documents):not(.mother-philhealth-claims-section) { display: none; }
 .mother-detail-shared-form { width: 100%; }
+.mother-detail-profile-content .mother-detail-shared-form .modal-body-scrollable {
+  max-height: none;
+  overflow: visible;
+}
+.mother-detail-profile-navigation {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e2e8f0;
+}
+.mother-detail-profile-navigation .btn-next { min-height: 42px; padding: 0 1.1rem; }
 .mother-detail-stepper { margin-bottom: 1rem; }
 .edit-mother-action { min-height: 42px; padding: 0 1rem; border-radius: 10px; }
 .edit-mother-footer {
@@ -682,6 +694,124 @@ input[type="date"].form-input {
   gap: 0.75rem;
   padding-top: 0.25rem;
 }
+.edit-mother-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-modal-backdrop, 1000) - 1);
+  display: flex;
+  justify-content: flex-end;
+  background: rgba(15, 23, 42, 0.48);
+}
+.edit-mother-drawer {
+  display: flex;
+  width: min(680px, 100vw);
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  background: #fff;
+  box-shadow: -16px 0 40px rgba(15, 23, 42, 0.2);
+}
+.edit-mother-drawer__header {
+  display: flex;
+  min-height: 68px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+.edit-mother-drawer__header h2 {
+  min-width: 0;
+  margin: 0;
+  color: #0f172a;
+  font-size: 1.2rem;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+.edit-mother-drawer__close {
+  display: inline-flex;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #dbe2ea;
+  border-radius: 10px;
+  background: #fff;
+  color: #475569;
+  font-size: 1.4rem;
+  cursor: pointer;
+}
+.edit-mother-drawer__close:hover { background: #f8fafc; color: #0f172a; }
+.edit-mother-drawer__form {
+  min-height: 0;
+  flex: 1;
+  gap: 0;
+}
+.edit-mother-drawer__tabs {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+.edit-mother-drawer__tabs .stepper-steps {
+  display: grid;
+  width: 100%;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.3rem;
+  overflow: visible;
+  padding: 0;
+}
+.edit-mother-drawer__tabs .stepper-step {
+  min-width: 0;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.3rem;
+  font-size: 0.78rem;
+}
+.edit-mother-drawer__tabs .stepper-step-index { width: 23px; height: 23px; flex: 0 0 23px; }
+.edit-mother-drawer__tabs .stepper-step-label { overflow: hidden; text-overflow: ellipsis; }
+.edit-mother-drawer__scroll {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem 1.25rem;
+}
+.edit-mother-drawer__scroll:focus { outline: none; }
+.edit-mother-drawer__scroll .create-form-body { padding: 0; }
+.edit-mother-drawer__scroll .modal-body-scrollable { overflow: visible; }
+.edit-mother-drawer__error {
+  margin: 0 0 0.75rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #fef2f2;
+  color: #991b1b;
+  font-size: 0.9rem;
+}
+.edit-mother-drawer__actions {
+  display: flex;
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 0.9rem 1.25rem;
+  border-top: 1px solid #e2e8f0;
+  background: #fff;
+}
+.edit-mother-drawer__actions button { min-height: 42px; min-width: 100px; border-radius: 10px; }
+.edit-mother-drawer__message {
+  display: flex;
+  min-height: 180px;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 2rem;
+  color: #475569;
+  text-align: center;
+}
+.edit-mother-drawer__message p { margin: 0; }
 .mother-detail-header { display: flex; align-items: center; justify-content: flex-end; gap: 1rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.75rem; }
 .mother-detail-identity { display: flex; flex-direction: column; gap: 0.2rem; }
 .mother-detail-name { margin: 0; font-size: 1.5rem; font-weight: 800; color: #0f172a; }
@@ -757,6 +887,10 @@ input[type="date"].form-input {
 .monitor-report-graph__normal-range { fill: #dcfce7; opacity: 0.75; }
 .monitor-report-graph__grid line { stroke: #e2e8f0; stroke-dasharray: 3 4; }
 .monitor-report-graph__grid text, .monitor-report-graph__x-label { fill: #64748b; font-size: 11px; }
+.monitor-report-graph__point.is-routeable { cursor: pointer; outline: none; }
+.monitor-report-graph__point.is-routeable:hover > circle:not(.monitor-report-graph__point-target),
+.monitor-report-graph__point.is-routeable:focus-visible > circle:not(.monitor-report-graph__point-target) { stroke: #0f172a; stroke-width: 3; }
+.monitor-report-graph__point-target { pointer-events: all; }
 .monitor-report-card .monitor-report-graph--who { position: relative; margin-top: 0.8rem; padding: 0.9rem 0.9rem 0.65rem; overflow-x: auto; border: 1px solid #dfece2; border-radius: 12px; background: linear-gradient(180deg, #fff 0%, #f8fcf9 100%); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8); }
 .monitor-report-card .monitor-report-graph--who svg { display: block; width: 100%; min-width: 520px; max-width: 100%; height: 250px; margin-left: 0.5rem; }
 .monitor-report-card .monitor-report-graph--who .monitor-report-graph__grid line { stroke: #e4eee7; stroke-width: 1.5; stroke-dasharray: none; }
@@ -783,6 +917,14 @@ input[type="date"].form-input {
   .edit-mother-section { padding: 0.9rem; }
   .edit-mother-footer { justify-content: stretch; }
   .edit-mother-footer button { flex: 1 1 0; }
+  .edit-mother-drawer { width: 100vw; }
+  .edit-mother-drawer__header { padding: 0.85rem 1rem; }
+  .edit-mother-drawer__tabs { padding: 0.55rem 0.6rem; }
+  .edit-mother-drawer__tabs .stepper-step { flex-direction: column; gap: 0.2rem; padding: 0.35rem 0.15rem; font-size: 0.68rem; line-height: 1.2; text-align: center; }
+  .edit-mother-drawer__tabs .stepper-step-label { white-space: normal; }
+  .edit-mother-drawer__scroll { padding: 0.8rem; }
+  .edit-mother-drawer__actions { padding: 0.75rem 0.8rem; }
+  .edit-mother-drawer__actions button { flex: 1 1 0; }
 }
 
 @media (max-width: 900px) {

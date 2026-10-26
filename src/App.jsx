@@ -6,7 +6,7 @@ import { useAuth } from './auth/AuthProvider';
 import RoleBasedRoute from './components/RoleBasedRoute';
 import { LoadingScreen } from './components/LoadingSkeleton';
 import { ROLES } from './utils/permissions';
-import DemoApp from './demo/DemoApp';
+import UserConsentModal from './components/UserConsentModal';
 
 const Layout = lazy(() => import('./components/Layout'));
 const CommunityModulePage = lazy(() => import('./pages/Community/CommunityModulePage'));
@@ -52,13 +52,16 @@ function RequireAuth({ children }) {
   if (!auth.isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
+  if (!auth.currentUser?.has_accepted_terms) {
+    return null;
+  }
   return children;
 }
 
 export default function App() {
-  if (import.meta.env.VITE_DEMO_MODE === 'true') return <DemoApp />;
-
+  const auth = useAuth();
   return (
+    <>
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/" element={<Login />} />
@@ -114,5 +117,7 @@ export default function App() {
         <Route path="*" element={<Navigate to="/community" replace />} />
       </Route>
     </Routes>
+    {auth.isAuthenticated && !auth.currentUser?.has_accepted_terms && <UserConsentModal />}
+    </>
   );
 }

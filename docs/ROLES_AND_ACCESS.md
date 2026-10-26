@@ -39,6 +39,8 @@ This guide describes the access model currently implemented in F1KD. It is inten
 
 The application may provide more detailed restrictions than this summary. For example, Community Coordinators cannot create or delete schools, Health Workers cannot create programs or change community structures, and Admin/Partner operational writes are denied by the API. Download-audit events for Progress Report exports are recorded for all roles allowed to export.
 
+For Program receipt/check-in photo documentation, Community Coordinators can upload and remove photos; Admin, Partner, and Health Worker accounts can view and download them only. Superadmins have no Program access.
+
 ## Data scope rules
 
 ### Global roles

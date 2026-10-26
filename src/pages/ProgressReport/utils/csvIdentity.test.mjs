@@ -47,18 +47,11 @@ test('CSV beneficiary name falls back to the name in monthly summary rows', () =
   assert.equal(getCsvIdentityValue({ beneficiaryName: 'Araw Sample' }, 'child', 'child'), 'Araw Sample');
 });
 
-test('aggregate CSV rows identify the group and omit individual beneficiary demographics', () => {
-  const fields = getCsvIdentityFields([['group', 'Group'], ['age', 'Age'], ['progress', 'Progress']], 'child', 'group-school');
-  assert.deepEqual(fields, [['group', 'Group'], ['progress', 'Progress']]);
-  assert.equal(getCsvIdentityValue({ group: 'Demo Group' }, 'group', 'child', 'group-school'), 'Demo Group');
-});
-
 test('CSV data stays aligned with its headers and escapes spreadsheet-dangerous values', () => {
   const csv = buildProgressReportCsv(
     [{ child: 'Araw, "Sample"', mother: '\t=HYPERLINK("x")', age: 12, gender: 'Female', dateOfBirth: '2020-07-11' }],
     [['measurementDate', 'Check-up Date']],
     'child',
-    'beneficiary-batch',
   );
   const lines = csv.split('\r\n');
   assert.equal(lines.length, 2);
@@ -67,4 +60,21 @@ test('CSV data stays aligned with its headers and escapes spreadsheet-dangerous 
   assert.equal(headers.length, values.length);
   assert.equal(values[0], 'Araw, "Sample"');
   assert.equal(values[1], "'\t=HYPERLINK(\"x\")");
+});
+
+test('monthly BMI CSV headers are unambiguous when opened in spreadsheet apps', () => {
+  const csv = buildProgressReportCsv(
+    [{ mother: 'Araw Sample', '2027-01': 23.4, '2027-01Interpretation': 'Normal' }],
+    [['2027-01', 'Jan-27'], ['2027-01Interpretation', 'Jan-27 Interpretation']],
+    'mother',
+  );
+  const headers = parseCsvRow(csv.split('\r\n')[0]);
+
+  assert.deepEqual(headers, [
+    'Beneficiary Name',
+    'Age (years)',
+    'Date of Birth',
+    'BMI Jan 2027',
+    'BMI Jan 2027 Interpretation',
+  ]);
 });

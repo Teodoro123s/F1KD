@@ -1,18 +1,20 @@
 import React from 'react';
-import { formatDateForDisplay, formatDateForInput, maskDateInput, normalizeDateValue } from '../../../utils/dateFormat';
-import { calculateGestationalDetails } from '../../../utils/beneficiaryHelpers';
-import { capitalizeNameValue } from '../../../utils/nameFormat';
-import { CONTACT_NUMBER_POLICY, sanitizeContactNumber } from '../../../utils/contactNumber';
-import { formatPhilHealthNumber, PHILHEALTH_NUMBER_POLICY } from '../../../utils/philHealthNumber';
-import { isBloodPressureInput } from '../../../utils/bloodPressure';
-import { getLatestEligibleMotherDob } from '../../../utils/motherIdentity';
-import { calculateTotalChildren } from '../../../utils/maternalBirthCounts';
-import { calculateNaegeleEdd } from '../../../utils/maternalPregnancy';
-import { MATERNAL_VACCINE_SEQUENCES } from '../../../utils/maternalVaccineDates';
+import { formatDateForDisplay, formatDateForInput, maskDateInput, normalizeDateValue } from '../../../utils/formatting/dateFormat';
+import { calculateGestationalDetails } from '../../../utils/beneficiary/beneficiaryHelpers';
+import { capitalizeNameValue } from '../../../utils/formatting/nameFormat';
+import { CONTACT_NUMBER_POLICY, sanitizeContactNumber } from '../../../utils/validation/contactNumber';
+import { formatPhilHealthNumber, PHILHEALTH_NUMBER_POLICY } from '../../../utils/beneficiary/philHealthNumber';
+import { isBloodPressureInput } from '../../../utils/validation/bloodPressure';
+import { getLatestEligibleMotherDob } from '../../../utils/beneficiary/motherIdentity';
+import { calculateTotalChildren } from '../../../utils/beneficiary/maternalBirthCounts';
+import { calculateNaegeleEdd } from '../../../utils/beneficiary/maternalPregnancy';
+import { getMotherTrimesterMonth } from '../../../utils/beneficiary/motherProgress';
+import { MATERNAL_VACCINE_SEQUENCES } from '../../../utils/beneficiary/maternalVaccineDates';
 import FieldInfoTooltip from '../../../components/ui/FieldInfoTooltip';
 import FileUploadField from '../../../components/ui/FileUploadField';
 import { getBatchesForGroup } from '../utils/beneficiaryUtils';
-import { normalizeFirstName } from '../../../utils/firstNameValidation';
+import { normalizeFirstName } from '../../../utils/validation/firstNameValidation';
+import { splitFirstAndSurname } from '../../../utils/formatting/personName.mjs';
 
 export const OTHER_MATERNAL_VACCINES = [
   { label: 'Influenza (flu)', key: 'influenza' },
@@ -75,7 +77,7 @@ export function MotherFormFields({
 
   React.useEffect(() => {
     let active = true;
-    import('../../../utils/philippineLocations')
+    import('../../../utils/beneficiary/philippineLocations')
       .then((locations) => {
         if (active) setLocationOptions(locations);
       })
@@ -141,6 +143,8 @@ export function MotherFormFields({
       return next;
     });
   };
+  const emergencyNameParts = splitFirstAndSurname(form.emergencyName);
+  const spouseNameParts = splitFirstAndSurname(form.spouseName);
 
   React.useEffect(() => {
     if (readOnly || typeof setForm !== 'function') return;
@@ -295,7 +299,7 @@ export function MotherFormFields({
                   : e.target.value;
               const nextValue = name === 'firstName'
                 ? rawValue
-                : /^(middleName|lastName|maidenSurname|suffix|emergencyName|spouseFirstName|spouseSurname)$/.test(name)
+                : /^(middleName|lastName|maidenSurname|suffix|emergencyFirstName|emergencySurname|spouseFirstName|spouseSurname)$/.test(name)
                 ? capitalizeNameValue(rawValue)
                 : rawValue;
               if (onChange) {
@@ -716,16 +720,25 @@ export function MotherFormFields({
         {readOnly && documentContent}
 
         <section className="create-mother-category">
-          <h4 className="form-section-title">I.D EMERGENCY CONTACT</h4>
-          <div className="form-row-3 full-width">
-          {renderField({ id: 'emergency-name', label: 'Name', name: 'emergencyName', placeholder: 'Enter contact name', required: true })}
-          {renderField({ id: 'emergency-contact', label: 'Contact Number', name: 'emergencyContact', type: 'tel', placeholder: 'Enter contact number', required: true })}
-          {renderField({ id: 'emergency-relationship', label: 'Relationship', name: 'emergencyRelationship', placeholder: 'e.g. husband', required: true })}
+          <h4 className="form-section-title">I.D SPOUSE DETAILS</h4>
+          <div className="form-row-2 full-width">
+            {renderField({ id: 'spouse-first-name', label: 'First Name', name: 'spouseFirstName', valueOverride: form.spouseFirstName ?? spouseNameParts.firstName, placeholder: 'Enter spouse first name' })}
+            {renderField({ id: 'spouse-surname', label: 'Surname', name: 'spouseSurname', valueOverride: form.spouseSurname ?? spouseNameParts.surname, placeholder: 'Enter spouse surname' })}
           </div>
         </section>
 
         <section className="create-mother-category">
-          <h4 className="form-section-title">I.E OTHER DETAILS</h4>
+          <h4 className="form-section-title">I.E EMERGENCY CONTACT</h4>
+          <div className="form-row-2 full-width">
+            {renderField({ id: 'emergency-first-name', label: 'First Name', name: 'emergencyFirstName', valueOverride: form.emergencyFirstName ?? emergencyNameParts.firstName, placeholder: 'Enter contact first name', required: true })}
+            {renderField({ id: 'emergency-surname', label: 'Surname', name: 'emergencySurname', valueOverride: form.emergencySurname ?? emergencyNameParts.surname, placeholder: 'Enter contact surname', required: true })}
+            {renderField({ id: 'emergency-contact', label: 'Contact Number', name: 'emergencyContact', type: 'tel', placeholder: 'Enter contact number', required: true })}
+            {renderField({ id: 'emergency-relationship', label: 'Relationship', name: 'emergencyRelationship', placeholder: 'e.g. husband', required: true })}
+          </div>
+        </section>
+
+        <section className="create-mother-category">
+          <h4 className="form-section-title">I.F OTHER DETAILS</h4>
           <label className="form-toggle-label" htmlFor="philhealth-member">
             <input
               id="philhealth-member"
@@ -790,16 +803,17 @@ export function MotherFormFields({
             <span>Override the calculated EDD manually</span>
           </label>
 
-          <div className="form-row-3 full-width">
+          <div className="form-row-4 full-width">
           {renderField({ id: 'prenatal-reg-date', label: 'Date of First Prenatal Check-up', name: 'prenatalRegDate', type: 'date', required: true })}
           {renderField({ id: 'prenatal-gest-age', label: 'Gestational Age at Reg (weeks)', name: 'gestationalAge', disabled: true })}
           {renderField({ id: 'mother-trimester', label: 'Trimester', name: 'trimester', disabled: true })}
+          {renderField({ id: 'prenatal-trimester-month', label: 'Month of Trimester', name: 'trimesterMonth', valueOverride: getMotherTrimesterMonth(form.gestationalAge, form.trimester), disabled: true, placeholder: 'Calculated from weeks' })}
           </div>
 
           <div className="form-row-3 full-width">
-          {renderField({ id: 'prenatal-weight', label: 'Weight (kg) at Reg', name: 'prenatalWeight', placeholder: 'e.g. 52', required: true, helpText: 'Enter the mother’s measured weight at the first prenatal check-up, in kilograms.' })}
+          {renderField({ id: 'prenatal-weight', label: 'Weight (kg) at Reg', name: 'prenatalWeight', type: 'number', minValue: 0, placeholder: 'e.g. 52', required: true, helpText: 'Enter the mother’s measured weight at the first prenatal check-up, in kilograms.' })}
           {renderField({ id: 'prenatal-bp', label: 'Blood Pressure (BP) at Reg', name: 'prenatalBp', placeholder: 'e.g. 120/80', required: true, customRequired: true, helpText: 'Numbers and one slash only; up to 3 digits on each side.' })}
-          {renderField({ id: 'prenatal-height', label: 'Height (cm) at Reg', name: 'prenatalHeight', placeholder: 'e.g. 150', required: true, helpText: 'Enter height in centimeters; this value is used to calculate the initial BMI.' })}
+          {renderField({ id: 'prenatal-height', label: 'Height (cm) at Reg', name: 'prenatalHeight', type: 'number', minValue: 0, placeholder: 'e.g. 150', required: true, helpText: 'Enter height in centimeters; this value is used to calculate the initial BMI.' })}
           </div>
           <div className="form-row-2 full-width">
             <div className="form-group">

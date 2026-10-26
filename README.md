@@ -10,6 +10,8 @@ The PSGC data is sourced from the [PSA](https://psa.gov.ph/classification/psgc/)
 
 ## Project documentation
 
+- [Project structure](./docs/PROJECT_STRUCTURE.md) — frontend and backend folder ownership, Beneficiary canonical paths, and file placement rules.
+
 - [Users, roles, permissions, and data scope](./docs/ROLES_AND_ACCESS.md) — module access, account-management limits, school/group scope, and practical verification.
 - [Superadmin user guide](./docs/SUPERADMIN.md) — role purpose, permissions, modules, recovery flow, and operational boundaries.
 - [Community Organizer user guide](./docs/COMMUNITY_ORGANIZER.md) — assigned-school scope, operational modules, Health Worker account limits, and safe operating practices.
@@ -23,15 +25,28 @@ The PSGC data is sourced from the [PSA](https://psa.gov.ph/classification/psgc/)
 Docker Compose runs a MySQL-compatible MariaDB database, MinIO document storage, the Express API, and the built React app. This does not require a MySQL installation on the Docker host.
 
 1. Install Docker Desktop (Windows/macOS) or Docker Engine with the Compose plugin (Linux).
-2. Copy `.env.docker.example` to `.env` and replace every password/secret placeholder with unique values.
-3. Add the EmailJS service ID, public key, private key, credentials template ID (named `EMAILJS_CREDENTIALS_TEMPLATE_ID` or `EMAILJS_USER_TEMPLATE_ID`), and OTP template ID to `.env` to enable account emails and password resets. Rotate any private key exposed in screenshots before configuring it. Keep the private key server-side; never use a `VITE_*` variable for it. The credentials template needs an email recipient field (`email` or `to_email`), `to_name`, `username` (the login email), `role`, and `password`; the OTP template needs an email recipient field (`email` or `to_email`), `to_name`, `passcode`, and `time`. Add `Username / login email: {{username}}` to the credentials template body to show the account’s sign-in email.
+2. Create `.env` and set unique database, MinIO, and JWT secrets. Set `CORS_ORIGIN` to the exact frontend origin (for example `http://localhost:5173` locally or `https://your-domain.example` with TLS). Multiple trusted origins can be comma-separated. Never use the development JWT fallback in production.
+3. Add the EmailJS service ID, public key, private key, credentials template ID (named `EMAILJS_CREDENTIALS_TEMPLATE_ID` or `EMAILJS_USER_TEMPLATE_ID`), and OTP template ID to `.env` to enable account emails and password resets. Rotate any private key exposed in screenshots before configuring it. Keep the private key server-side; never use a `VITE_*` variable for it. The credentials template needs an email recipient field (`email` or `to_email`), `to_name`, `username` (the login email), `login_url`, `role`, and `password`; the OTP template needs an email recipient field (`email` or `to_email`), `to_name`, `passcode`, and `time`. Update the credentials template body to this content:
+
+   ```html
+   <p>Hello {{to_name}},</p>
+   <p>An F1KD account has been created for you.</p>
+   <p><strong>Username / login email:</strong> {{username}}<br>
+   <strong>Role:</strong> {{role}}<br>
+   <strong>Temporary password:</strong> {{password}}</p>
+   <p><a href="{{login_url}}">Sign in to F1KD</a></p>
+   <p>Keep your temporary password private.</p>
+   <p>F1KD Support</p>
+   ```
+
+   Set `APP_URL` in `.env` to the URL recipients should open; local Docker defaults to `http://localhost:5173`.
 4. Start the services from the repository root:
 
 ```sh
 docker compose -f docker-compose.minio.yml up --build -d
 ```
 
-Open `http://localhost:8080` on the Docker host. Other devices on the same network can open `http://<docker-host-LAN-IP>:8080`; allow that port through the host firewall. The database and API are not published directly to the network. The MinIO console is bound to the host only at `http://localhost:9001`.
+Open `http://localhost:5173` on the Docker host (the default web port). To use a different host port, set `WEB_PORT` in `.env`; other devices on the same network can open `http://<docker-host-LAN-IP>:<WEB_PORT>`, and the selected port must be allowed through the host firewall. The database and API are not published directly to the network. The MinIO console is bound to the host only at `http://localhost:9001`.
 
 Data persists in the `mariadb-data` and `minio-data` Docker volumes. Local-upload fallback files persist under `server/data/uploads`. `docker compose down` keeps this data; `docker compose down -v` deletes the database and MinIO volumes and should not be used unless you intend to erase them. Back up the SQL database and MinIO objects before moving to a different Docker host; volumes are local to the host and are not automatically synchronized to client devices.
 
@@ -43,7 +58,9 @@ The default Compose setup is for local development and serves HTTP only. For net
 docker compose -f docker-compose.minio.yml -f docker-compose.tls.yml up --build -d
 ```
 
-HTTP requests on port 80 redirect to HTTPS; the browser and API are served through TLS on port 443. Install a publicly trusted certificate for public deployments, restrict inbound firewall access to the needed ports, and renew the certificate before expiry. This secures browser-to-web traffic; container-to-container traffic on the Docker network remains private but is not separately encrypted.
+HTTP requests on port 80 redirect to HTTPS; the browser and API are served through TLS on port 443. Set `CORS_ORIGIN` to the HTTPS site origin. Install a publicly trusted certificate for public deployments, restrict inbound firewall access to the needed ports, and renew the certificate before expiry. This secures browser-to-web traffic; container-to-container traffic on the Docker network remains private but is not separately encrypted.
+
+After the session security update, existing browser sessions must sign in again once. Refresh tokens are now rotated and stored server-side; signing out or changing a password revokes refresh sessions.
 
 ### Public mock demo on GitHub Pages
 

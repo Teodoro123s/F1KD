@@ -15,11 +15,17 @@ const { MONITORING_REPORT_FIELDS } = require('../../../server/utils/progressRepo
 
 const motherCheckup = {
   checkupDate: '2026-10-18T00:00:00.000Z',
+  nextCheckupDate: '2026-11-18',
+  gestationalAge: 28,
   weight: 65,
   height: 160,
   bmi: 25.4,
   nutritionalStatus: 'Normal',
+  bp: '120/80',
+  fundalHeight: 28,
+  fhr: 140,
   developmentalStatus: 'Needs Follow-up',
+  serviceProvider: 'Midwife',
   referral: true,
   laboratoryRequests: ['CBC', 'Urinalysis'],
   amount: 1500,
@@ -31,6 +37,9 @@ const motherCheckup = {
 
 const childCheckup = {
   visit_date: '2026-10-17T00:00:00.000Z',
+  nextCheckupDate: '2026-11-17',
+  currentAgeMonths: 6,
+  breastfeedingStatus: 'Yes',
   weight: 12.5,
   height: 90,
   bmi: 15.4,
@@ -40,6 +49,7 @@ const childCheckup = {
   source_of_funds: 'Program Funds',
   facility_type: 'Clinic',
   developmental_status: 'Normal',
+  service_provider: 'Health Worker',
   notes: 'Review next month',
 };
 
@@ -59,6 +69,8 @@ test('every mother and child AI report field has a table label and renders its s
   assert.equal(getMonitoringReportValue(motherCheckup, 'hospitalReferral'), 'Yes');
   assert.equal(getMonitoringReportValue(childCheckup, 'hospitalReferral'), 'Yes');
   assert.equal(getMonitoringReportValue(childCheckup, 'facilityType'), 'Clinic');
+  assert.equal(getMonitoringReportValue(childCheckup, 'bmi'), 15.4);
+  assert.equal(getMonitoringReportValue(childCheckup, 'currentAgeMonths'), 6);
 });
 
 test('maternal and child check-ups flatten into rows, preserving each saved visit', () => {
@@ -134,6 +146,12 @@ test('report field aliases and empty or calculated values are handled safely', (
   }, 'hospitalReferral'), 'Yes');
   assert.equal(getMonitoringReportValue({ assistance_amount: 0 }, 'assistanceAmount'), 0);
   assert.equal(getMonitoringReportValue({ weight: 70, height: 175 }, 'bmi'), '22.9');
+  assert.equal(getMonitoringReportValue({ service_provider: 'Nurse' }, 'serviceProvider'), 'Nurse');
+  assert.equal(getMonitoringReportValue({ gestational_age_weeks: 24 }, 'gestationalAge'), 24);
+  assert.equal(getMonitoringReportValue({ next_checkup_date: '2026-11-05T00:00:00.000Z' }, 'nextCheckupDate'), '2026-11-05');
+  assert.equal(getMonitoringReportValue({ exclusive_breastfeeding: 'Yes' }, 'breastfeedingStatus'), 'Yes');
+  assert.equal(getMonitoringReportValue({ fundal_height_cm: 25 }, 'fundalHeight'), 25);
+  assert.equal(getMonitoringReportValue({ fetal_heart_rate_bpm: 138 }, 'fetalHeartRate'), 138);
   assert.equal(getMonitoringReportValue({}, 'laboratoryRequests'), '—');
   assert.equal(getMonitoringReportValue({}, 'hospitalReferral'), '—');
 });

@@ -41,6 +41,8 @@ Although Beneficiary and Monitor routes are available to operational roles, Part
 
 Partner can review the Community, Beneficiary, Monitoring, Program, and Progress Report modules. The API denies operational writes, including attempts to change community structure, beneficiaries, check-ups, program configuration, and receipt records.
 
+Program check-in photo documentation is view- and download-only for Partner accounts; Community Organizers manage photo uploads and removals.
+
 Notification read state/preferences and permitted report-download audit events are account-level/report-support operations, not permission to edit operational records.
 
 ### Account and activity reporting boundaries

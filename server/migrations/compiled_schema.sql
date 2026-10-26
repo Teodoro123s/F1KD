@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS users (
   username VARCHAR(100) UNIQUE,
   email VARCHAR(255) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
+  consent_accepted_at DATETIME DEFAULT NULL,
   full_name VARCHAR(150),
   first_name VARCHAR(120) NOT NULL DEFAULT '',
   last_name VARCHAR(120) NOT NULL DEFAULT '',
@@ -22,7 +23,7 @@ CREATE TABLE IF NOT EXISTS users (
   gender ENUM('Male','Female','Other') NOT NULL DEFAULT 'Male',
   dob DATE DEFAULT NULL,
   location VARCHAR(120) DEFAULT NULL,
-  role VARCHAR(120) NOT NULL DEFAULT 'Superadmin',
+  role VARCHAR(120) NOT NULL DEFAULT 'User',
   status VARCHAR(20) NOT NULL DEFAULT 'Active',
   school_id INT DEFAULT NULL,
   coordinator_school_id INT GENERATED ALWAYS AS (
@@ -81,6 +82,31 @@ CREATE TABLE IF NOT EXISTS group_batch (
   KEY idx_group_batch_group (group_id),
   KEY idx_group_batch_batch (batch_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS batch_documentation_sets (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  batch_id INT NOT NULL,
+  evidence_date DATE NOT NULL,
+  uploaded_by_user_id INT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_batch_documentations_batch_date (batch_id, evidence_date),
+  CONSTRAINT fk_batch_documentation_sets_batch FOREIGN KEY (batch_id) REFERENCES batches(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS batch_documentations (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  batch_id INT NOT NULL,
+  evidence_date DATE NOT NULL,
+  file_name VARCHAR(255) NOT NULL,
+  file_path VARCHAR(500) NOT NULL,
+  uploaded_by_user_id INT NULL,
+  documentation_set_id BIGINT UNSIGNED NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_batch_documentations_batch_date (batch_id, evidence_date),
+  KEY idx_batch_documentations_set (documentation_set_id),
+  CONSTRAINT fk_batch_documentations_batch FOREIGN KEY (batch_id) REFERENCES batches(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- ---------------------------------------------------------------------------
 -- Beneficiary tables
 -- ---------------------------------------------------------------------------
@@ -257,6 +283,7 @@ CREATE TABLE IF NOT EXISTS child_checkups (
   id INT AUTO_INCREMENT PRIMARY KEY,
   child_id INT NOT NULL,
   visit_date DATE,
+  next_checkup_date DATE NULL,
   weight DECIMAL(5,2),
   height DECIMAL(5,2),
   head_circumference DECIMAL(5,2),
@@ -269,7 +296,8 @@ CREATE TABLE IF NOT EXISTS child_checkups (
   created_by_user_id INT NULL,
   updated_by_user_id INT NULL,
   updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  KEY idx_child_checkups_week (child_id, week_number)
+  KEY idx_child_checkups_week (child_id, week_number),
+  KEY idx_child_checkups_next_date (next_checkup_date, child_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 -- ---------------------------------------------------------------------------
 -- RBAC tables from the authorization migration
@@ -292,16 +320,6 @@ CREATE TABLE IF NOT EXISTS role_permissions (
   CONSTRAINT fk_role_permissions_role FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE,
   CONSTRAINT fk_role_permissions_permission FOREIGN KEY (permission_id) REFERENCES permissions(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
--- Seed canonical roles and permissions after the tables are created.
-INSERT INTO roles (role_key, role_name) VALUES
-  ('super_admin', 'Super Admin'), ('admin', 'Admin'), ('partner', 'Partner')
-ON DUPLICATE KEY UPDATE role_name = VALUES(role_name);
-INSERT INTO permissions (resource_key, action_key) VALUES
-  ('user-management', 'read'), ('user-management', 'create'),
-  ('user-management', 'update'), ('user-management', 'delete'),
-  ('admin-resources', 'read'), ('partner-resources', 'read')
-ON DUPLICATE KEY UPDATE action_key = VALUES(action_key);
-
 -- ---------------------------------------------------------------------------
 -- Program management tables
 -- ---------------------------------------------------------------------------
@@ -334,6 +352,58 @@ CREATE TABLE IF NOT EXISTS program_clusters (
   CONSTRAINT fk_program_clusters_program FOREIGN KEY (program_id) REFERENCES programs(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS monitoring_logs (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  beneficiary_id VARCHAR(50) NOT NULL,
+  beneficiary_type VARCHAR(20) NOT NULL,
+  program_id INT NOT NULL,
+  monitored BOOLEAN NOT NULL DEFAULT FALSE,
+  monitored_date DATE NOT NULL,
+  monitored_by INT NULL,
+  created_by_user_id INT NULL,
+  updated_by_user_id INT NULL,
+  notes TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_monitoring_log_day (beneficiary_id, beneficiary_type, program_id, monitored_date),
+  KEY idx_monitoring_beneficiary (beneficiary_id, beneficiary_type),
+  KEY idx_monitoring_program_date (program_id, monitored_date),
+  CONSTRAINT fk_monitoring_program FOREIGN KEY (program_id) REFERENCES programs(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS program_receipt_documentation_sets (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  program_id INT NOT NULL,
+  monitored_date DATE NOT NULL,
+  uploaded_by_user_id INT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_program_receipt_documentation_program_date (program_id, monitored_date),
+  CONSTRAINT fk_program_receipt_documentation_sets_program
+    FOREIGN KEY (program_id) REFERENCES programs(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS program_receipt_documentations (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  documentation_set_id BIGINT UNSIGNED NOT NULL,
+  file_name VARCHAR(255) NOT NULL,
+  file_path VARCHAR(500) NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_program_receipt_documentations_set (documentation_set_id),
+  CONSTRAINT fk_program_receipt_documentations_set
+    FOREIGN KEY (documentation_set_id) REFERENCES program_receipt_documentation_sets(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS program_receipt_documentation_logs (
+  documentation_set_id BIGINT UNSIGNED NOT NULL,
+  monitoring_log_id INT NOT NULL,
+  PRIMARY KEY (documentation_set_id, monitoring_log_id),
+  KEY idx_program_receipt_documentation_logs_log (monitoring_log_id),
+  CONSTRAINT fk_program_receipt_documentation_logs_set
+    FOREIGN KEY (documentation_set_id) REFERENCES program_receipt_documentation_sets(id) ON DELETE CASCADE,
+  CONSTRAINT fk_program_receipt_documentation_logs_log
+    FOREIGN KEY (monitoring_log_id) REFERENCES monitoring_logs(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- ---------------------------------------------------------------------------
 -- Superadmin notifications
 -- ---------------------------------------------------------------------------
@@ -350,10 +420,12 @@ CREATE TABLE IF NOT EXISTS notifications (
   group_id INT DEFAULT NULL,
   school_scope_ids VARCHAR(1000) DEFAULT NULL,
   recipient_user_ids VARCHAR(1000) DEFAULT NULL,
+  idempotency_key VARCHAR(191) DEFAULT NULL,
   actor_user_id INT DEFAULT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   KEY idx_notifications_created_at (created_at),
-  KEY idx_notifications_category (category)
+  KEY idx_notifications_category (category),
+  UNIQUE KEY uq_notifications_idempotency_key (idempotency_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS notification_reads (

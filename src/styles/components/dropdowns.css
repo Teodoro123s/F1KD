@@ -34,7 +34,7 @@
 .notification-dropdown-title { color: #1e293b; font-size: 0.8rem; font-weight: 700; }
 .notification-dropdown-message { display: -webkit-box; overflow: hidden; color: #475569; font-size: 0.76rem; line-height: 1.3; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .notification-dropdown-category { overflow: hidden; color: #64748b; font-size: 0.68rem; text-overflow: ellipsis; white-space: nowrap; }
-.notification-dropdown-all { width: 100%; padding: 0.55rem 0.75rem; border: 0; background: #fff; color: #146b3a; font-size: 0.76rem; font-weight: 700; text-align: left; cursor: pointer; }
+.notification-dropdown-all { display: block; width: 100%; padding: 0.55rem 0.75rem; border: 0; background: #fff; color: #146b3a; font-size: 0.76rem; font-weight: 700; text-align: center; cursor: pointer; }
 .notification-dropdown-all:hover, .notification-dropdown-all:focus-visible { background: #f4f6f9; outline: none; }
 
 .content-body {

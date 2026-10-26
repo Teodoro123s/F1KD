@@ -46,6 +46,7 @@ Within the assigned scope, the API permits specific writes, including:
 - uploading permitted documents
 - making limited child profile updates and permitted mother-record updates
 - recording program receipt/check-in activity for eligible assigned-group beneficiaries
+- viewing and downloading Program receipt/check-in photo documentation; only Community Organizers can upload or remove those photos
 
 The exact fields and actions vary by endpoint and are validated server-side. Health Workers cannot create or delete beneficiary records, create/edit/end/delete programs, change community structures, administer accounts, or perform unrestricted writes.
 

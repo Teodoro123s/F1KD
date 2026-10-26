@@ -1,16 +1,24 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { formatDateForDisplay } from '../../../utils/dateFormat';
+import { formatDateForDisplay } from '../../../utils/formatting/dateFormat';
 import { apiDeleteMother, apiDeleteMotherDocument, apiGetMother, apiUploadMotherDocuments } from '../../../api/mothers';
 import { DocumentPreview, DocumentPreviewModal } from '../../../components/DocumentPreview';
 import { useAuth } from '../../../auth/AuthProvider';
 import { can } from '../../../utils/permissions';
 import PageHeader from '../../../components/ui/PageHeader';
+import ConfirmDialog from '../../../components/ui/ConfirmDialog';
 import { notifyAction } from '../../../components/ActionFeedback';
 import { MotherFormFields, OTHER_MATERNAL_VACCINES } from './BeneficiaryMother';
-import PhilHealthClaims from './PhilHealthClaims';
 import MonitorReportCard from '../MonitorReportCard';
-import { navigateBack } from '../../../utils/navigation';
+import MotherNavigationCards from './MotherNavigationCards';
+import { StepNavigationButton } from '../../../components/ui/StepNavigationButton';
+
+const profileSections = [
+  ['general', 'General'],
+  ['prenatal', 'Prenatal/OB'],
+  ['medical_dental', 'Medical & Dental'],
+  ['vaccine', 'Vaccine'],
+];
 
 const calculateAge = (dobString) => {
   if (!dobString) return null;
@@ -77,6 +85,7 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
   const [profileTab, setProfileTab] = useState('general');
   const [previewDocument, setPreviewDocument] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showEditConfirm, setShowEditConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
@@ -100,6 +109,8 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
   if (!selectedMother) return null;
 
   const mother = motherRecord || selectedMother;
+  const profileTabIndex = profileSections.findIndex(([tab]) => tab === profileTab);
+  const nextProfileTab = profileSections[profileTabIndex + 1];
 
   const children = Array.isArray(mother.children) ? mother.children : [];
   const hasMultipleChildren = children.length > 1;
@@ -118,7 +129,18 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
   const age = calculateAge(mother.dob);
 
   const handleBack = () => {
-    navigateBack(navigate, location, '/beneficiary');
+    navigate('/beneficiary', { replace: true });
+  };
+
+  const confirmEditMother = () => {
+    setShowEditConfirm(false);
+    navigate(`/beneficiary/mother/${motherId}/edit`, {
+      state: {
+        mother: selectedMother,
+        returnTo: `${location.pathname}${location.search}`,
+        returnToState: { mother: selectedMother },
+      },
+    });
   };
 
   const firstName = mother.firstName || '—';
@@ -266,41 +288,19 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
         actions={(
           <div className="mother-detail-actions">
             {canManage && <button type="button" className="btn-danger" onClick={() => setShowDeleteModal(true)}>Delete</button>}
-            {canEdit && <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/mother/${motherId}/edit`, { state: { mother: selectedMother, returnTo: `${location.pathname}${location.search}` } })}>Edit</button>}
-            <button type="button" className="btn-secondary back-action" onClick={handleBack}>Back</button>
+            {canEdit && <button type="button" className="btn-secondary" onClick={() => setShowEditConfirm(true)}>Edit</button>}
+            <button type="button" className="btn-secondary" onClick={handleBack}>Back</button>
           </div>
         )}
       />
 
       {overviewOnly && (
         <>
-          <section className="mother-overview-actions-section">
-            <div className="community-overview-cards mother-overview-actions">
-              <button type="button" className="community-overview-card" onClick={() => navigate(`/beneficiary/mother/${motherId}/profile`, { state: { mother: selectedMother, returnTo: `${location.pathname}${location.search}` } })}>
-                <span className="community-overview-card__label">Mother Profile</span>
-                <span className="community-overview-card__action">View maternal details</span>
-              </button>
-              <button type="button" className="community-overview-card" onClick={() => {
-                navigate(`/beneficiary/mother/${motherId}/child`, { state: { mother: selectedMother, children, returnTo: `/beneficiary/mother/${motherId}` } });
-              }}>
-                <span className="community-overview-card__label">View Child</span>
-                <span className="community-overview-card__action">Browse linked children</span>
-              </button>
-              <button type="button" className="community-overview-card" onClick={() => navigate(`/beneficiary/mother/${motherId}/program-report`, {
-                state: { returnTo: `${location.pathname}${location.search}` },
-              })}>
-                <span className="community-overview-card__label">Program Report</span>
-                <span className="community-overview-card__action">View benefits and participation</span>
-              </button>
-              <button type="button" className="community-overview-card" onClick={() => navigate('/monitoring', { state: { mother, returnTo: `${location.pathname}${location.search}` } })}>
-                <span className="community-overview-card__label">Monitor</span>
-                <span className="community-overview-card__action">Record or review visits</span>
-              </button>
-            </div>
-          </section>
+          <MotherNavigationCards mother={{ ...mother, children }} motherId={motherId} />
           <MonitorReportCard beneficiaryType="mother" beneficiary={mother} />
         </>
       )}
+      {!overviewOnly && <MotherNavigationCards mother={mother} motherId={motherId} activeCard="profile" />}
 
       {showDeleteModal && (
         <div className="modal-backdrop" role="presentation" onMouseDown={() => !deleting && setShowDeleteModal(false)}>
@@ -317,6 +317,15 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
           </div>
         </div>
       )}
+      <ConfirmDialog
+        open={showEditConfirm}
+        title="Edit mother profile?"
+        description={`Open the profile for ${fullName} to make changes?`}
+        variant="primary"
+        confirmLabel="Continue to edit"
+        onConfirm={confirmEditMother}
+        onCancel={() => setShowEditConfirm(false)}
+      />
 
       {!overviewOnly && (activeTab === 'children' ? (
         <section className="mother-detail-section">
@@ -354,12 +363,7 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
         <div className="mother-detail-profile-content">
           <div className="stepper-progress mother-detail-stepper">
             <div className="stepper-steps" role="tablist" aria-label="Mother profile sections">
-              {[
-                ['general', 'General'],
-                ['prenatal', 'Prenatal/OB'],
-                ['medical_dental', 'Medical & Dental'],
-                ['vaccine', 'Vaccine'],
-              ].map(([tab, label], index) => (
+              {profileSections.map(([tab, label], index) => (
                 <button
                   key={tab}
                   type="button"
@@ -378,6 +382,17 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
           <div className="create-form-body mother-detail-shared-form">
             <div className="modal-body-scrollable">
               <MotherFormFields activeTab={profileTab} form={detailForm} readOnly documentContent={documentContent} />
+              {nextProfileTab && (
+                <div className="mother-detail-profile-navigation">
+                  <StepNavigationButton
+                    className="btn-primary btn-next"
+                    onClick={() => setProfileTab(nextProfileTab[0])}
+                    aria-label={`Go to ${nextProfileTab[1]} tab`}
+                  >
+                    Next
+                  </StepNavigationButton>
+                </div>
+              )}
             </div>
           </div>
 
@@ -527,7 +542,6 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
               </div>
             </div>
           </section>
-          <PhilHealthClaims motherId={mother.raw?.id || mother.id || mother.motherId} canManage={canEdit} />
         </div>
       ))}
     </section>

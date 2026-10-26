@@ -38,13 +38,21 @@ Claim records track a reference, date, status, amount, and notes; they do not su
 
 Notification read state is stored per user in `notification_reads`, so it persists across refreshes and sessions. Per-user category preferences are stored in `notification_preferences`; disabling a category hides its notifications from the timeline and unread counts without deleting them. All notification routes require authentication and apply role, recipient, school, and group scope before returning or changing data.
 
-- `GET /api/notifications` — paginated notification list; supports `page`, `perPage`, `search`, `category`, and `readStatus` (`all`, `read`, or `unread`). Summary counts cover the user's entire authorized notification scope, independent of list filters.
+- `GET /api/notifications` — paginated notification list; supports `page`, `perPage`, `search`, `category`, and `readStatus` (`all`, `read`, or `unread`). Unread notifications are listed before read notifications, with newest first within each group. Summary counts cover the user's entire authorized notification scope, independent of list filters.
 - `POST /api/notifications/:id/read` — mark one authorized notification as read (kept for compatibility).
 - `PATCH /api/notifications/:id/read` — set `{ "isRead": true|false }` for one authorized notification.
 - `POST /api/notifications/read-all` — mark all unread notifications in the caller's authorized scope as read.
 - `POST /api/notifications/bulk-read` — set `{ "ids": [1, 2], "isRead": true|false }` for up to 100 authorized notification IDs; inaccessible IDs are not modified.
 - `GET /api/notifications/preferences` — get category visibility preferences supported by the caller's role.
 - `PUT /api/notifications/preferences` — save `{ "preferences": [{ "category": "Community", "enabled": false }] }`; categories outside the caller's role are rejected.
+
+### Check-up reminders
+
+The backend reminder scheduler runs once per local calendar day at `CHECKUP_REMINDER_TIME` (default `08:00`) in `CHECKUP_REMINDER_TIMEZONE` (default `Asia/Manila`). It reads the `next_checkup_date` on maternal and child check-up records and creates `Monitoring` notifications for the community's assigned Community Organizer and active Health Workers assigned to that community and beneficiary group. Disabled Monitoring preferences are respected. Notifications use the existing recipient, read-state, unread-count, and retention behavior and link to the relevant beneficiary monitoring/profile page.
+
+The scheduler creates reminders 3 days before, 1 day before, and on the scheduled date, plus one missed-check-up alert the day after if still incomplete. A recorded check-up on or after the scheduled date suppresses further reminders for that appointment. Updating or clearing `next_checkup_date` reschedules or cancels pending reminders; dates older than yesterday are not backfilled.
+
+Apply [`migrations/20261026_checkup_reminders.sql`](./migrations/20261026_checkup_reminders.sql) when upgrading an existing database. It adds the child next-checkup date field and the unique notification idempotency key used to prevent duplicate delivery after retries or restarts. The backend also ensures these schema elements at startup. Configure the run time and timezone in the backend environment; Docker Compose forwards `CHECKUP_REMINDER_TIME` and `CHECKUP_REMINDER_TIMEZONE`.
 
 ## Community batch deletion
 
@@ -57,18 +65,26 @@ Deleting a group preserves the batches, mothers, children, and health records. I
 Optional AI features use a backend-configured OpenAI-compatible chat-completions API. Configure:
 
 ```env
-PROGRESS_REPORT_AI_BASE_URL=http://127.0.0.1:11434/v1
-PROGRESS_REPORT_AI_MODEL=your-local-model
-PROGRESS_REPORT_AI_API_KEY=
+PROGRESS_REPORT_AI_BASE_URL=https://api.groq.com/openai/v1
+PROGRESS_REPORT_AI_MODEL=openai/gpt-oss-20b
+PROGRESS_REPORT_AI_API_KEY=your_groq_api_key
 ```
 
-For Docker Compose, set `PROGRESS_REPORT_AI_BASE_URL` to an endpoint reachable from the backend container (for example, an Ollama service on the same private Docker network or `http://host.docker.internal:11434/v1` when the model runs on the Docker host). The model name must match the server's installed model. The server appends `/chat/completions` to the base URL. Leave the URL and model unset to keep AI unavailable. Restart the backend after changing these settings.
+F1KD uses Groq as its cloud AI provider. The server appends `/chat/completions` to the base URL and sends the API key as a bearer token. Keep the key only in the backend environment file. Leave the URL and model unset to keep AI unavailable. Restart the backend after changing these settings.
 
 For module-by-module capabilities, role access, inputs sent to the model, and limitations—including endpoints that are not wired to a screen—see [Integrated AI: Modules, Purpose, Scope, and Limits](../docs/INTEGRATED_AI.md).
 
 Keep the model endpoint on a trusted private network, configure a key if supported, and review its data retention practices. AI output is advisory only and is not clinical advice.
 
-The server will create a simple `users` table on first run if it doesn't exist.
+The server creates and migrates the application schema on first run. It has no
+built-in default user credentials. To create or recover a named Superadmin, set
+`BOOTSTRAP_SUPERADMIN_EMAIL` and `BOOTSTRAP_SUPERADMIN_PASSWORD` in the backend
+environment before startup. Startup creates the account only when that email
+does not already exist. Existing passwords and suspended status are not changed.
+Set `SELF_HEAL_ADMIN_CREDENTIALS=true` only when the configured account exists
+without a password hash and you explicitly want startup to restore its password.
+Remove both bootstrap variables to disable automatic recovery. See the
+[Superadmin guide](../docs/SUPERADMIN.md) for security details.
 
 To remove accounts previously generated by the local test-role sign-in shortcut, apply
 [`migrations/20261019_remove_test_role_accounts.sql`](./migrations/20261019_remove_test_role_accounts.sql)

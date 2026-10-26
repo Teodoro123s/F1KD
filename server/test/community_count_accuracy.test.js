@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { getEffectiveRecordCount, getMotherWeightedProgress } = require('../routes/community');
+const { getEffectiveRecordCount, getBatchProgress } = require('../routes/community');
 
 test('prefers the live mother count over stale stored batch record totals', () => {
   assert.equal(getEffectiveRecordCount({ records: 1, actual_records: 2 }), 2);
@@ -12,32 +12,33 @@ test('falls back to the stored record total when live counts are unavailable', (
   assert.equal(getEffectiveRecordCount({ records: 7 }), 7);
 });
 
-test('weights batch progress by mothers instead of the number of children', () => {
+test('averages maternal monitoring progress without weighting mothers by child count', () => {
   const rows = [
-    { motherId: 1, childId: 11, childCheckups: 24 },
-    { motherId: 1, childId: 12, childCheckups: 24 },
-    { motherId: 1, childId: 13, childCheckups: 24 },
-    { motherId: 2, childId: 21, childCheckups: 0 },
+    { motherId: 1, motherProgress: 11 },
+    { motherId: 2, motherProgress: 100 },
+    { motherId: 3, motherProgress: 100 },
+    { motherId: 4, motherProgress: 11 },
+    { motherId: 5, motherProgress: 11 },
   ];
 
-  assert.equal(getMotherWeightedProgress(rows), 50);
+  assert.equal(getBatchProgress(rows), 47);
 });
 
-test('averages child progress within each mother before averaging mothers', () => {
+test('counts mothers with no monitoring progress as zero', () => {
   const rows = [
-    { motherId: 1, childId: 11, childCheckups: 24 },
-    { motherId: 1, childId: 12, childCheckups: 0 },
-    { motherId: 2, childId: 21, childCheckups: 0 },
+    { motherId: 1, motherProgress: 100 },
+    { motherId: 2, motherProgress: null },
   ];
 
-  assert.equal(getMotherWeightedProgress(rows), 25);
+  assert.equal(getBatchProgress(rows), 50);
 });
 
-test('includes mothers without children as zero progress', () => {
+test('ignores missing mother IDs and bounds invalid progress values', () => {
   const rows = [
-    { motherId: 1, childId: 11, childCheckups: 24 },
-    { motherId: 2, childId: null, childCheckups: 0 },
+    { motherId: 1, progress: 120 },
+    { motherId: 2, progress: -10 },
+    { motherId: null, progress: 100 },
   ];
 
-  assert.equal(getMotherWeightedProgress(rows), 50);
+  assert.equal(getBatchProgress(rows), 50);
 });

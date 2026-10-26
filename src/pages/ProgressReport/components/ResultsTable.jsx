@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { getBmiInterpretation } from '../progressReportConfig';
 import FloatingLayer from '../../../components/ui/FloatingLayer';
+import { filterInterpretationFields } from '../utils/reportTableUtils';
 
 const historyFieldIds = new Set(['measurementDate', 'weightForAge', 'heightForAge', 'bmiForAge', 'weightForLengthZScore', 'weightForLengthInterpretation', 'weightForAgeZScore', 'weightForAgeInterpretation', 'lengthForAgeZScore', 'lengthForAgeInterpretation', 'bmiInterpretation']);
 
@@ -190,7 +191,13 @@ function StandardResultsTable({ resultsRows, fields, formatCellValue, emptyMessa
   );
 }
 
-export function getLatestResultsTableData(resultsRows, beneficiaryType, resultPeriod, communitySelection) {
+export function getLatestResultsTableData(
+  resultsRows,
+  beneficiaryType,
+  resultPeriod,
+  communitySelection,
+  includeInterpretationColumns = true,
+) {
   const beneficiaryField = beneficiaryType === 'mother' ? 'mother' : 'child';
   const beneficiaryLabel = beneficiaryType === 'mother' ? 'Mother Name' : 'Child Name';
   const communityFields = communityFieldsForSelection(communitySelection);
@@ -208,20 +215,20 @@ export function getLatestResultsTableData(resultsRows, beneficiaryType, resultPe
   });
 
   if (resultPeriod === 'latest') {
-    const latestFields = [
+    const latestFields = filterInterpretationFields([
       ...communityFields,
       [beneficiaryField, beneficiaryLabel],
       ['measurementDate', 'Latest Report Date'],
       ['bmiForAge', 'BMI'],
       ['bmiInterpretation', 'BMI Interpretation'],
-    ];
+    ], includeInterpretationColumns);
     return { rows: rowsWithBmi, fields: latestFields };
   }
 
   const monthColumns = [...new Set(rowsWithBmi
     .map((row) => String(row.measurementDate || '').slice(0, 7))
     .filter(Boolean))].sort((left, right) => right.localeCompare(left));
-  const fields = [
+  const fields = filterInterpretationFields([
     ...communityFields,
     ['beneficiaryName', beneficiaryLabel],
     ...monthColumns.map((month) => {
@@ -232,7 +239,7 @@ export function getLatestResultsTableData(resultsRows, beneficiaryType, resultPe
     }).flatMap(([month, label]) => beneficiaryType === 'mother'
       ? [[month, label], [`${month}Interpretation`, `${label} Interpretation`]]
       : [[month, label]]),
-  ];
+  ], includeInterpretationColumns);
   const rowsByBeneficiary = new Map();
   rowsWithBmi.forEach((row) => {
     const visitDate = String(row.measurementDate || '').slice(0, 10);
@@ -277,8 +284,21 @@ export function getLatestResultsTableData(resultsRows, beneficiaryType, resultPe
   return { rows: matrixRows, fields, hasUndatedRows: monthColumns.length === 0 && rowsByBeneficiary.size > 0 };
 }
 
-function LatestResultsTable({ resultsRows, formatCellValue, beneficiaryType, resultPeriod, communitySelection }) {
-  const tableData = getLatestResultsTableData(resultsRows, beneficiaryType, resultPeriod, communitySelection);
+function LatestResultsTable({
+  resultsRows,
+  formatCellValue,
+  beneficiaryType,
+  resultPeriod,
+  communitySelection,
+  includeInterpretationColumns,
+}) {
+  const tableData = getLatestResultsTableData(
+    resultsRows,
+    beneficiaryType,
+    resultPeriod,
+    communitySelection,
+    includeInterpretationColumns,
+  );
   return (
     <>
       <StandardResultsTable resultsRows={tableData.rows} fields={tableData.fields} formatCellValue={formatCellValue} emptyMessage="No results found for this period." />
@@ -299,6 +319,8 @@ export function ResultsTable({
   showProfileFilter,
   resultPeriod,
   setResultPeriod,
+  includeInterpretationColumns,
+  setIncludeInterpretationColumns,
   exportingReport = false,
   profileFieldSections = {},
   profileSectionLabels = {},
@@ -350,7 +372,13 @@ export function ResultsTable({
     ? [...latestDatedRows, ...beneficiariesWithoutDatedMeasurements]
     : [...validMonitoringRows, ...beneficiariesWithoutDatedMeasurements];
   const currentTableData = showMonitoringFilter && tableDisplayMode === 'general'
-    ? getLatestResultsTableData(periodRows, beneficiaryType, resultPeriod, communitySelection)
+    ? getLatestResultsTableData(
+      periodRows,
+      beneficiaryType,
+      resultPeriod,
+      communitySelection,
+      includeInterpretationColumns,
+    )
     : { rows: resultsRows, fields: customizedFields };
   return (
     <div className="results-table-wrap">
@@ -363,7 +391,7 @@ export function ResultsTable({
           </select>
         </div>
       )}
-      {(showCustomize || showResultPeriod || showProfileFilter) && (
+      {(showCustomize || showResultPeriod || showProfileFilter || showMonitoringFilter) && (
         <div className="results-table-tools">
           {showCustomize && (
             <details
@@ -413,6 +441,16 @@ export function ResultsTable({
               </select>
             </label>
           )}
+          {showMonitoringFilter && (tableDisplayMode === 'monitoring-dates' || beneficiaryType === 'mother') && (
+            <label className="results-table-interpretation-filter">
+              <input
+                type="checkbox"
+                checked={includeInterpretationColumns}
+                onChange={(event) => setIncludeInterpretationColumns(event.target.checked)}
+              />
+              Include interpretation columns
+            </label>
+          )}
           {showProfileFilter && (
             <label className="results-table-period-filter">Profile section
                 <select value={profileSection} onChange={(event) => setProfileSection(event.target.value)}>
@@ -435,7 +473,7 @@ export function ResultsTable({
       {showMonitoringFilter && tableDisplayMode === 'monitoring-dates' ? (
         <MonitoringHistoryTable resultsRows={resultsRows} reportFields={reportFields} displayVisibleFields={displayVisibleFields} formatCellValue={formatCellValue} communitySelection={communitySelection} beneficiaryType={beneficiaryType} onExport={onExport} exportingReport={exportingReport} />
       ) : showMonitoringFilter && tableDisplayMode === 'general' ? (
-        <LatestResultsTable resultsRows={periodRows} formatCellValue={formatCellValue} beneficiaryType={beneficiaryType} resultPeriod={resultPeriod} communitySelection={communitySelection} />
+        <LatestResultsTable resultsRows={periodRows} formatCellValue={formatCellValue} beneficiaryType={beneficiaryType} resultPeriod={resultPeriod} communitySelection={communitySelection} includeInterpretationColumns={includeInterpretationColumns} />
       ) : (
       <StandardResultsTable resultsRows={resultsRows} fields={customizedFields} formatCellValue={formatCellValue} />
       )}

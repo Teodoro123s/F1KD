@@ -13,6 +13,7 @@ test('EmailJS sends credential and OTP templates using server-side credentials',
     'EMAILJS_CREDENTIALS_TEMPLATE_ID',
     'EMAILJS_USER_TEMPLATE_ID',
     'EMAILJS_OTP_TEMPLATE_ID',
+    'APP_URL',
   ];
   const originalEnv = Object.fromEntries(envNames.map((name) => [name, process.env[name]]));
   const originalFetch = global.fetch;
@@ -23,6 +24,7 @@ test('EmailJS sends credential and OTP templates using server-side credentials',
     EMAILJS_PRIVATE_KEY: 'private-test',
     EMAILJS_USER_TEMPLATE_ID: 'template-credentials',
     EMAILJS_OTP_TEMPLATE_ID: 'template-otp',
+    APP_URL: 'https://f1kd.example.test',
   });
   global.fetch = async (url, options) => {
     requests.push({ url, body: JSON.parse(options.body) });
@@ -58,6 +60,7 @@ test('EmailJS sends credential and OTP templates using server-side credentials',
     email: 'worker@example.test',
     to_email: 'worker@example.test',
     username: 'worker@example.test',
+    login_url: 'https://f1kd.example.test/login',
     to_name: 'Test Worker',
     role: 'Health Worker',
     password: 'temporary-password',

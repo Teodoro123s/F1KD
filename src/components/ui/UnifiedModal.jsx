@@ -19,10 +19,12 @@ export default function UnifiedModal({
   footer,
   className = '',
   backdropClassName = '',
+  closeDisabled = false,
+  showCloseButton = true,
 }) {
   const titleId = useId();
   const dialogRef = useRef(null);
-  useModalAccessibility({ open: isOpen, onClose, dialogRef });
+  useModalAccessibility({ open: isOpen, onClose, dialogRef, closeDisabled });
 
   if (!isOpen) return null;
 
@@ -47,9 +49,11 @@ export default function UnifiedModal({
       >
         <div className="view-modal__header">
           <h2 id={titleId} className="view-modal__title">{title}</h2>
-          <Button type="button" variant="icon" className="view-modal__close" onClick={onClose} aria-label="Close dialog">
-            ×
-          </Button>
+          {showCloseButton && (
+            <Button type="button" variant="icon" className="view-modal__close" onClick={onClose} aria-label="Close dialog">
+              ×
+            </Button>
+          )}
         </div>
 
         <div className="view-modal__body">{children}</div>

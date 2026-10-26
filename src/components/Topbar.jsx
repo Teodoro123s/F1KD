@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getInitials } from '../utils/nameFormat';
+import { getInitials } from '../utils/formatting/nameFormat';
 import { useAuth } from '../auth/AuthProvider';
 import { ROLES, hasRole } from '../utils/permissions';
 import { apiGetNotifications, apiSetNotificationRead } from '../api/notifications';

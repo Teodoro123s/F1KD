@@ -13,36 +13,16 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const t = apiAuth.loadToken();
-    if (t) {
-      setToken(t);
-
-      // Decode first for a fast render, then refresh from the database so assignments changed by an admin are current.
-      try {
-        const parts = t.split('.');
-        if (parts.length >= 2) {
-          const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-          const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4);
-          const payload = JSON.parse(atob(padded));
-          setCurrentUser(payload || null);
-          setLoading(false);
-        }
-      } catch (err) {
-        console.warn('Failed to decode token payload', err);
-      }
-
-      apiAuth.refreshSession().then((data) => {
+    apiAuth.refreshSession().then((data) => {
+      if (data?.token) {
         setToken(data.token);
         setCurrentUser(data.user || null);
-      }).catch((err) => {
-        // A valid access token can continue working when no refresh cookie is available.
-        console.warn('Failed to validate saved token', err);
-      }).finally(() => {
-        setLoading(false);
-      });
-    } else {
+      }
+    }).catch(() => {
+      apiAuth.clearToken();
+    }).finally(() => {
       setLoading(false);
-    }
+    });
   }, []);
 
   const login = async (email, password) => {
@@ -56,10 +36,20 @@ export function AuthProvider({ children }) {
     throw new Error('Login failed');
   };
 
+  const acceptConsent = async () => {
+    await apiAuth.acceptConsent();
+    setCurrentUser((user) => user ? { ...user, has_accepted_terms: true } : user);
+  };
+
   const logout = () => {
+    apiAuth.logoutSession().catch(() => {});
     apiAuth.clearToken();
     setToken(null);
     setCurrentUser(null);
+  };
+
+  const updateCurrentUser = (updates) => {
+    setCurrentUser((current) => (current ? { ...current, ...updates } : current));
   };
 
   const value = {
@@ -67,7 +57,9 @@ export function AuthProvider({ children }) {
     currentUser,
     loading,
     login,
+    acceptConsent,
     logout,
+    updateCurrentUser,
     isAuthenticated: Boolean(currentUser),
   };
 

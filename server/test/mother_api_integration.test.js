@@ -251,4 +251,28 @@ test('mother registration saves initial monitoring measurements as a completed c
   const updatedProfile = (await updateResponse.json()).mother;
   assert.equal(updatedProfile.name, 'Updated Mother');
   assert.equal(updatedProfile.philhealthNumber, '98-765432109-8');
+
+  const blankObValuesUpdateResponse = await fetch(`${baseUrl}/123`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      gravida: '',
+      para: '',
+      abortion: '',
+      stillbirth: '',
+      totalChildren: '4',
+      childrenBornAlive: '4',
+      miscarriages: '',
+      childrenDiedAfterBirth: '0',
+    }),
+  });
+  assert.equal(blankObValuesUpdateResponse.status, 200);
+  assert.equal(updateValues.gravida, null);
+  assert.equal(updateValues.para, null);
+  assert.equal(updateValues.abortion, 0);
+  assert.equal(updateValues.stillbirth, 0);
+  assert.equal(updateValues.total_children, 4);
+  assert.equal(updateValues.children_born_alive, 4);
+  assert.equal(updateValues.miscarriages, null);
+  assert.equal(updateValues.children_died_after_birth, 0);
 });

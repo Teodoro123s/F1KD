@@ -1,17 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useNavigationLock } from '../../../utils/useNavigationLock';
-import { useStepNavigation } from '../../../utils/useStepNavigation';
+import { useNavigationLock } from '../../../utils/navigation/useNavigationLock';
+import { useStepNavigation } from '../../../utils/navigation/useStepNavigation';
 import { StepNavigationButton, StepNavigationStatus } from '../../../components/ui/StepNavigationButton';
 import { useLocation } from 'react-router-dom';
 import { ChildFormFields } from './BeneficiaryChild';
 import { useMothers } from '../../../context/MothersContext';
-import { capitalizeNameValue } from '../../../utils/nameFormat';
+import { capitalizeNameValue } from '../../../utils/formatting/nameFormat';
 import { notifyAction } from '../../../components/ActionFeedback';
 import { apiCreateChild, apiUploadChildBirthDocument } from '../../../api/children';
-import { CHILD_VACCINE_SEQUENCES, getChildRecordErrors, normalizeFirstName } from '../../../utils/childRecordValidation';
-import { joinChildBirthPlace, splitChildBirthPlace } from '../../../utils/childBirthPlace';
-import { navigateBack } from '../../../utils/navigation';
-import { hasCompletedMotherPregnancy } from '../../../utils/motherProgress';
+import { CHILD_VACCINE_SEQUENCES, getChildRecordErrors, normalizeFirstName } from '../../../utils/beneficiary/childRecordValidation';
+import { joinChildBirthPlace, splitChildBirthPlace } from '../../../utils/beneficiary/childBirthPlace';
+import { navigateBack } from '../../../utils/navigation/navigation';
+import { hasCompletedMotherPregnancy } from '../../../utils/beneficiary/motherProgress';
 
 const CHILD_DRAFT_KEY = 'f1kd.create-child.draft';
 const CREATE_STEPS = ['general', 'prenatal', 'medical_dental', 'vaccine'];

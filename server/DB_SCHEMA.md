@@ -24,6 +24,7 @@ The live database was also checked directly with MySQL, and the current `users` 
 - `role`
 - `status`
 - `password_hash`
+- `consent_accepted_at`
 - `name`
 - `created_at`
 - `updated_at`
@@ -57,6 +58,7 @@ Columns:
 - `role`
 - `status`
 - `password_hash`
+- `consent_accepted_at`
 - `name` (generated column)
 - `created_at`
 - `updated_at`
@@ -65,6 +67,7 @@ Columns:
 
 Purpose:
 - authentication
+- recording required user consent before allowing access to protected modules
 - authorization
 - assignment-based scoping
 - admin and partner user management
@@ -129,6 +132,35 @@ Columns:
 
 Purpose:
 - many-to-many relationship between groups and batches
+
+### batch_documentation_sets
+
+Columns:
+- `id`
+- `batch_id`
+- `evidence_date`
+- `uploaded_by_user_id`
+- `created_at`
+
+Purpose:
+- groups all photos uploaded together for one dated batch documentation entry
+
+### batch_documentations
+
+Columns:
+- `id`
+- `batch_id`
+- `evidence_date`
+- `file_name`
+- `file_path`
+- `uploaded_by_user_id`
+- `documentation_set_id` (nullable for legacy single-photo entries)
+- `created_at`
+
+Purpose:
+- stores photos attached to a dated batch documentation entry
+- new entries contain at least three photos linked to a documentation set
+- evidence files are stored using the configured document storage, and rows are removed with their batch
 
 ---
 
@@ -515,6 +547,18 @@ Columns:
 Purpose:
 - monitoring and follow-up log for program participation
 - preserves the creator and latest updater for each receipt
+
+### program_receipt_documentation_sets
+
+Stores one dated photo evidence set uploaded for a program check-in submission. A set can be linked to multiple monitoring logs when one submission covers several beneficiaries.
+
+### program_receipt_documentations
+
+Stores the individual photo files attached to a program receipt documentation set.
+
+### program_receipt_documentation_logs
+
+Links a shared program receipt documentation set to each beneficiary receipt/check-in covered by that submission.
 
 ---
 

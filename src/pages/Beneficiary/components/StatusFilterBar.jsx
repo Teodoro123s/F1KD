@@ -19,7 +19,7 @@ export default function StatusFilterBar({ selectedStatusFilter, onChange, mode =
   return (
     <div className={isBeneficiary ? 'beneficiary-status-filter' : 'monitoring-status-filter'}>
       <select
-        aria-label={`${isBeneficiary ? 'Beneficiary' : 'Monitoring'} status filter`}
+        aria-label={isBeneficiary ? 'Beneficiary status filter' : 'Completeness filter'}
         value={selectedStatusFilter}
         onChange={(event) => onChange(event.target.value)}
       >

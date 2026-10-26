@@ -7,7 +7,9 @@ import PageHeader from '../../../components/ui/PageHeader';
 import { useAuth } from '../../../auth/AuthProvider';
 import { can, isHealthWorkerRole } from '../../../utils/permissions';
 import { notifyAction } from '../../../components/ActionFeedback';
-import { navigateBack } from '../../../utils/navigation';
+import { navigateBack } from '../../../utils/navigation/navigation';
+import MotherNavigationCards from '../mother/MotherNavigationCards';
+import BeneficiarySuperHeader from '../mother/BeneficiarySuperHeader';
 
 export default function MotherChildrenPage() {
   const { id } = useParams();
@@ -103,6 +105,7 @@ export default function MotherChildrenPage() {
 
   return (
     <section className="community-page beneficiary-page mother-children-page">
+      <BeneficiarySuperHeader />
       <PageHeader
         title={`Children of ${motherName}`}
         breadcrumbs={[{ label: 'Beneficiaries', to: '/beneficiary' }, { label: 'Children' }]}
@@ -113,6 +116,8 @@ export default function MotherChildrenPage() {
           </>
         )}
       />
+
+      <MotherNavigationCards mother={{ ...mother, children }} motherId={id} activeCard="children" />
 
       {!error && <BeneficiaryTable
         currentRows={currentRows}

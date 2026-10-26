@@ -11,14 +11,15 @@ export function CommunitySelectionStep({
   options,
   loadingOptions = false,
   updateSelection,
-  focusOptions,
-  reportFocus,
-  setReportFocus,
   aiScopeLabel,
-  hasSchoolSelection,
+  aiContextKey,
+  aiPrograms,
+  aiInitialProgramName,
+  aiInitialBenefitPeriod,
+  aiInitialBenefitMonth,
   buildAiReportPreview,
   exportAiReportCsv,
-  reportFocusStep,
+  reportCategoryStep,
 }) {
   return (
     <div className="community-selection-step">
@@ -34,7 +35,7 @@ export function CommunitySelectionStep({
             <label>
               School
               <select value={selection.schoolId} onChange={(event) => updateSelection('schoolId', event.target.value)} disabled={isHealthWorker || loadingOptions}>
-                <option value="">Select school</option>
+                <option value="">All accessible schools</option>
                 {options.schools.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
               </select>
             </label>
@@ -69,31 +70,17 @@ export function CommunitySelectionStep({
             ? 'School and group are assigned to your account. Batch is an optional filter.'
             : isCommunityOrganizer
               ? 'Your school is assigned to your account. Group and Batch are optional filters.'
-              : 'Select a School to begin. Group and Batch are optional filters.'}
+              : 'Choose a school to narrow the report, or keep All accessible schools for your authorized records. Group and Batch are optional filters.'}
         </p>
-        {selection.schoolId && focusOptions.length > 1 && (
-          <fieldset className="progress-report-beneficiary-type">
-            <legend>Report mode</legend>
-            {focusOptions.map(([value, label]) => (
-              <label key={value} className={reportFocus === value ? 'selected' : ''}>
-                <input
-                  type="radio"
-                  name="progress-report-mode"
-                  value={value}
-                  checked={reportFocus === value}
-                  onChange={() => setReportFocus(value)}
-                />
-                {label}
-              </label>
-            ))}
-            <p className="progress-report-note">Summary modes combine beneficiary data by group or batch. Profile reports always list individual beneficiaries.</p>
-          </fieldset>
-        )}
       </div>
-      {selection.schoolId && reportFocusStep}
+      {reportCategoryStep}
       <ReportAiAssistant
         scopeLabel={aiScopeLabel}
-        hasSchoolSelection={hasSchoolSelection}
+        contextKey={aiContextKey}
+        programs={aiPrograms}
+        initialProgramName={aiInitialProgramName}
+        initialBenefitPeriod={aiInitialBenefitPeriod}
+        initialBenefitMonth={aiInitialBenefitMonth}
         onBuildPreview={buildAiReportPreview}
         onExport={exportAiReportCsv}
       />

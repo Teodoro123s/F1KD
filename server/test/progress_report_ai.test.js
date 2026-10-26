@@ -25,6 +25,7 @@ const pool = require('../db');
 const { verifyToken } = require('../middleware/auth');
 const { authorizeOperational, authorizeProgressReport } = require('../middleware/authorize');
 const progressReportRouter = require('../routes/progressReport');
+const { attachVaccineProfileFields } = progressReportRouter;
 const {
   ProgressReportAIError,
   createDashboardInsight,
@@ -143,6 +144,43 @@ test('report proposals accept only known report types and fields for the selecte
     beneficiaryType: 'mother',
     metricIds: ['philhealthNumber', 'medicalConditions', 'dentalCheckupDate', 'ttVaccineRecord'],
   }).metricIds, ['philhealthNumber', 'medicalConditions', 'dentalCheckupDate', 'ttVaccineRecord']);
+  const detailedProfileMetrics = [
+    'civilStatus',
+    'employmentStatus',
+    'educationalAttainment',
+    'totalChildren',
+    'childrenBornAlive',
+    'obHistory',
+    'allergies',
+    'maternalCondition_hypertension',
+    'dentalWork_tartarRemoval',
+    'influenzaDose2Date',
+    'covid19Remarks',
+  ];
+  assert.deepEqual(validateReportProposal({
+    reportCategory: 'profile',
+    beneficiaryType: 'mother',
+    metricIds: detailedProfileMetrics,
+  }).metricIds, detailedProfileMetrics);
+  assert.deepEqual(validateReportProposal({
+    reportCategory: 'profile',
+    beneficiaryType: 'child',
+    metricIds: [
+      'headCircumference',
+      'chestCircumference',
+      'childCongenitalHeartDisease',
+      'ipvDose1Date',
+      'pcvDose3Date',
+      'mmrRemarks',
+    ],
+  }).metricIds, [
+    'headCircumference',
+    'chestCircumference',
+    'childCongenitalHeartDisease',
+    'ipvDose1Date',
+    'pcvDose3Date',
+    'mmrRemarks',
+  ]);
   assert.deepEqual(validateReportProposal({
     needsClarification: true,
     question: 'Do you mean profile values or check-up measurements?',
@@ -159,6 +197,47 @@ test('report proposals accept only known report types and fields for the selecte
   }), /invalid clarification request/);
 });
 
+test('profile vaccine details expose individual child doses and maternal vaccine subfields', async () => {
+  const originalQuery = pool.query;
+  try {
+    pool.query = async (sql) => [sql.includes('child_vaccinations')
+      ? [
+        { beneficiary_id: 22, vaccine_name: 'BCG', dose_number: 1, vaccine_date: '2026-01-02', remarks: 'Clinic A' },
+        { beneficiary_id: 22, vaccine_name: 'IPV', dose_number: 2, vaccine_date: '2026-02-03', remarks: null },
+        { beneficiary_id: 22, vaccine_name: 'PCV', dose_number: 3, vaccine_date: '2026-03-04', remarks: null },
+      ]
+      : [
+        { beneficiary_id: 11, vaccine_name: 'TT1', vaccine_date: '2025-11-01', remarks: 'Dose one' },
+        { beneficiary_id: 11, vaccine_name: 'Hepatitis A Dose 2', vaccine_date: '2025-12-02', remarks: null },
+        { beneficiary_id: 11, vaccine_name: 'COVID-19 Dose 3', vaccine_date: '2026-01-03', remarks: null },
+      ]];
+
+    const childRows = [{ childId: 22 }];
+    await attachVaccineProfileFields(childRows, 'child');
+    assert.equal(childRows[0].bcgDose1Date, '2026-01-02');
+    assert.equal(childRows[0].ipvDose2Date, '2026-02-03');
+    assert.equal(childRows[0].pcvDose3Date, '2026-03-04');
+    assert.equal(childRows[0].bcgRemarks, 'Dose 1: Clinic A');
+    assert.deepEqual(childRows[0].bcgDate, {
+      doses: [{ dose: 1, date: '2026-01-02' }],
+      remarks: 'Dose 1: Clinic A',
+    });
+
+    const motherRows = [{ motherId: 11 }];
+    await attachVaccineProfileFields(motherRows, 'mother');
+    assert.equal(motherRows[0].tt1Date, '2025-11-01');
+    assert.equal(motherRows[0].tt1Remarks, 'Dose one');
+    assert.equal(motherRows[0].hepatitisADose2Date, '2025-12-02');
+    assert.equal(motherRows[0].covid19Dose3Date, '2026-01-03');
+    assert.deepEqual(motherRows[0].ttVaccineRecord, {
+      doses: [{ dose: 1, date: '2025-11-01' }],
+      remarks: 'Dose one',
+    });
+  } finally {
+    pool.query = originalQuery;
+  }
+});
+
 test('AI proposal can ask whether height, weight, or BMI means profile data or monitoring visits', async () => {
   let request;
   const result = await createReportProposal('Show weight and height.', {
@@ -172,6 +251,11 @@ test('AI proposal can ask whether height, weight, or BMI means profile data or m
               needsClarification: true,
               question: 'Do you mean profile values or check-up measurements?',
               options: ['Profile/baseline values', 'Measurements from each check-up'],
+              reportCategory: 'profile',
+              beneficiaryType: 'child',
+              profileMetricIds: [],
+              metricIds: [],
+              explanation: '',
             }),
           },
         }],
@@ -182,61 +266,126 @@ test('AI proposal can ask whether height, weight, or BMI means profile data or m
   assert.equal(result.needsClarification, true);
   assert.equal(result.options.length, 2);
   assert.match(request.messages[0].content, /ask which one instead of guessing/);
-  assert.ok(request.response_format.json_schema.schema.anyOf.some(
-    (variant) => variant.properties.needsClarification?.const === true,
-  ));
+  assert.match(request.messages[0].content, /Beneficiary\/profile details/);
+  assert.match(request.messages[0].content, /program benefits or receipts/);
+  assert.deepEqual(request.response_format, { type: 'json_object' });
 });
 
-test('maternal monitoring AI reports can filter yes referrals and include assistance details', async () => {
-  let request;
-  const intent = await createMonitoringReportIntent(
-    'Show mother referral to hospital, only the yes, only the latest check-up, then facility type, source of funds, assistance amount, and laboratory requests.',
-    'Mother',
+test('clear latest maternal BMI requests and their answers do not trigger another AI clarification', async () => {
+  const requests = [
     {
+      prompt: 'SWU mother latest BMI',
+      expected: ['measurementDate', 'bmiForAge'],
+    },
+    {
+      prompt: 'mother latest BMI\nClarification: BMI screening interpretation',
+      expected: ['measurementDate', 'bmiInterpretation'],
+    },
+    {
+      prompt: 'mother latest BMI\nClarification: Both value and interpretation',
+      expected: ['measurementDate', 'bmiForAge', 'bmiInterpretation'],
+    },
+  ];
+
+  for (const { prompt, expected } of requests) {
+    const proposal = await createReportProposal(prompt, {
       env: modelEnvironment,
-      fetchImpl: async (url, options) => {
-        request = JSON.parse(options.body);
-        return new Response(JSON.stringify({
-          choices: [{
-            message: {
-              content: JSON.stringify({
-                metricIds: ['hospitalReferral', 'facilityType', 'sourceOfFunds', 'assistanceAmount', 'laboratoryRequests'],
-                onlyReferredToHospital: true,
-                onlyNonNormalScreenings: false,
-                latestCheckupOnly: true,
-                explanation: 'Shows yes referrals with saved facility and assistance details.',
-              }),
-            },
-          }],
-        }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      fetchImpl: async () => {
+        throw new Error('A clear maternal BMI request should not call the AI service.');
       },
     });
 
+    assert.deepEqual(proposal, {
+      reportCategory: 'monitor',
+      beneficiaryType: 'mother',
+      metricIds: expected,
+      explanation: 'Latest BMI from the mother’s check-up history.',
+    });
+  }
+});
+
+test('maternal BMI requests for a specific trimester check-up resolve without AI clarification', async () => {
+  const proposal = await createReportProposal('Mother: BMI T3-c3 if available', {
+    env: modelEnvironment,
+    fetchImpl: async () => {
+      throw new Error('Specific maternal check-up slots should not call the AI service.');
+    },
+  });
+
+  assert.deepEqual(proposal, {
+    reportCategory: 'monitor',
+    beneficiaryType: 'mother',
+    metricIds: ['bmiForAge'],
+    explanation: 'Mother BMI from check-up history.',
+  });
+});
+
+test('child BMI clarification offers the three growth indicators and maps the chosen indicator', async () => {
+  const proposals = [
+    {
+      prompt: 'SWU child latest BMI',
+      expectedClarification: {
+        needsClarification: true,
+        question: 'Which child growth indicator do you mean by BMI?',
+        options: ['Weight-for-Length/Height', 'Weight-for-Age', 'Length/Height-for-Age'],
+      },
+    },
+    {
+      prompt: 'child latest BMI\nClarification: Weight-for-Length/Height',
+      expectedMetric: 'weightForLengthInterpretation',
+    },
+    {
+      prompt: 'child latest BMI\nClarification: Weight-for-Age',
+      expectedMetric: 'weightForAgeInterpretation',
+    },
+    {
+      prompt: 'child latest BMI\nClarification: Length/Height-for-Age',
+      expectedMetric: 'lengthForAgeInterpretation',
+    },
+    {
+      prompt: 'child BMI height-for-age',
+      expectedMetric: 'lengthForAgeInterpretation',
+    },
+  ];
+
+  for (const { prompt, expectedClarification, expectedMetric } of proposals) {
+    const proposal = await createReportProposal(prompt, {
+      env: modelEnvironment,
+      fetchImpl: async () => {
+        throw new Error('Child BMI requests should resolve without another AI call.');
+      },
+    });
+
+    if (expectedClarification) {
+      assert.deepEqual(proposal, expectedClarification);
+    } else {
+      assert.deepEqual(proposal, {
+        reportCategory: 'monitor',
+        beneficiaryType: 'child',
+        metricIds: [expectedMetric],
+        explanation: 'Showing the requested child growth indicator from check-up history.',
+      });
+    }
+  }
+});
+
+test('maternal monitoring AI reports can filter yes referrals and include assistance details', async () => {
+  const intent = await createMonitoringReportIntent(
+    'Show mother referral to hospital, only the yes, only the latest check-up, then facility type, source of funds, assistance amount, and laboratory requests.',
+    'Mother',
+  );
+
   assert.deepEqual(intent, {
     beneficiaryType: 'Mother',
-    metricIds: ['hospitalReferral', 'facilityType', 'sourceOfFunds', 'assistanceAmount', 'laboratoryRequests'],
+    metricIds: ['measurementDate', 'hospitalReferral', 'laboratoryRequests', 'assistanceAmount', 'sourceOfFunds', 'facilityType'],
     onlyReferredToHospital: true,
     onlyNonNormalScreenings: false,
+    developmentalStatusFilter: [],
     latestCheckupOnly: true,
-    explanation: 'Shows yes referrals with saved facility and assistance details.',
+    firstCheckupOnly: false,
+    currentMonthOnly: false,
+    explanation: 'Showing check-up date, hospital referral, laboratory requests, assistance amount (php), source of funds, facility / referral source for mothers with a recorded hospital referral and the latest saved check-up per beneficiary.',
   });
-  assert.deepEqual(request.messages[1], {
-    role: 'user',
-    content: 'Show mother referral to hospital, only the yes, only the latest check-up, then facility type, source of funds, assistance amount, and laboratory requests.',
-  });
-  assert.doesNotMatch(JSON.stringify(request.messages), /Jane Doe|checkups|motherId/i);
-  assert.deepEqual(request.response_format.json_schema.schema.properties.metricIds.items.enum, [
-    'measurementDate', 'weight', 'height', 'bmi', 'bmiInterpretation', 'developmentalStatus', 'hospitalReferral',
-    'laboratoryRequests', 'assistanceAmount', 'sourceOfFunds', 'facilityType', 'bloodPressure', 'remarks',
-  ]);
-  assert.equal(request.response_format.json_schema.schema.required.includes('onlyReferredToHospital'), true);
-  assert.equal(request.response_format.json_schema.schema.required.includes('onlyNonNormalScreenings'), true);
-  assert.equal(request.response_format.json_schema.schema.required.includes('latestCheckupOnly'), true);
-  assert.match(request.messages[0].content, /budget, funds, or assistance given.*assistanceAmount/i);
-  assert.match(request.messages[0].content, /facility type.*facilityType/i);
-  assert.match(request.messages[0].content, /laboratory requests.*laboratoryRequests/i);
-  assert.match(request.messages[0].content, /onlyReferredToHospital=true.*referral value is Yes/i);
-  assert.match(request.messages[0].content, /latestCheckupOnly=true.*latest saved check-up per beneficiary/i);
   assert.throws(() => validateMonitoringReportIntent({ metricIds: ['bmiInterpretation'] }, 'Child'), /unsupported monitoring report fields/);
   assert.deepEqual(validateMonitoringReportIntent({
     metricIds: ['hospitalReferral', 'assistanceAmount', 'facilityType'],
@@ -249,13 +398,16 @@ test('maternal monitoring AI reports can filter yes referrals and include assist
     onlyNonNormalScreenings: false,
     latestCheckupOnly: false,
   }, 'Mother'), /unsupported monitoring report fields/);
-  await assert.rejects(createMonitoringReportIntent('BMI', 'Both', { env: modelEnvironment }), /Choose Mother or Child/);
+  await assert.rejects(
+    createMonitoringReportIntent('BMI', 'Both', { env: modelEnvironment }),
+    /Start the request with Mother\/Mothers or Child\/Children/,
+  );
 });
 
-test('child monitoring AI reports exclude removed referral and assistance fields', async () => {
+test('child monitoring AI reports include child form fields and exclude fields not in that form', async () => {
   let request;
   const intent = await createMonitoringReportIntent(
-    'Show child check-up details.',
+    'Show only details.',
     'Child',
     {
       env: modelEnvironment,
@@ -280,10 +432,11 @@ test('child monitoring AI reports exclude removed referral and assistance fields
 
   assert.deepEqual(intent.metricIds, ['measurementDate']);
   assert.deepEqual(request.response_format.json_schema.schema.properties.metricIds.items.enum, [
-    'measurementDate', 'weight', 'height', 'bmi', 'developmentalStatus', 'remarks',
+    'measurementDate', 'nextCheckupDate', 'currentAgeMonths', 'breastfeedingStatus', 'weight', 'height', 'bmi',
+    'weightForAgeInterpretation', 'lengthForAgeInterpretation', 'weightForLengthInterpretation',
+    'developmentalStatus', 'serviceProvider', 'remarks',
   ]);
-  assert.match(request.messages[0].content, /unavailable for Child reports/i);
-  assert.match(request.messages[0].content, /removed check-up fields/i);
+  assert.match(request.messages[0].content, /fields not recorded by the child check-up form/i);
   for (const metricId of ['hospitalReferral', 'laboratoryRequests', 'assistanceAmount', 'sourceOfFunds', 'facilityType', 'labAssistanceProvided']) {
     assert.throws(() => validateMonitoringReportIntent({
       metricIds: [metricId],
@@ -291,6 +444,22 @@ test('child monitoring AI reports exclude removed referral and assistance fields
       onlyNonNormalScreenings: false,
       latestCheckupOnly: false,
     }, 'Child'), /unsupported monitoring report fields/);
+  }
+  for (const metricId of [
+    'bmi',
+    'weightForAgeInterpretation',
+    'lengthForAgeInterpretation',
+    'weightForLengthInterpretation',
+    'serviceProvider',
+    'currentAgeMonths',
+    'breastfeedingStatus',
+  ]) {
+    assert.doesNotThrow(() => validateMonitoringReportIntent({
+      metricIds: [metricId],
+      onlyReferredToHospital: false,
+      onlyNonNormalScreenings: false,
+      latestCheckupOnly: false,
+    }, 'Child'));
   }
   assert.throws(() => validateMonitoringReportIntent({
     metricIds: ['measurementDate'],
@@ -300,35 +469,43 @@ test('child monitoring AI reports exclude removed referral and assistance fields
   }, 'Child'), /unsupported monitoring report fields/);
 });
 
+test('monitoring AI field matching selects requested mother and child check-up form fields', async () => {
+  const motherIntent = await createMonitoringReportIntent(
+    'Show mothers with BMI value and BMI status, service provider, blood pressure, developmental screening, lab requests, assistance amount, gestational age, fundal height, fetal heart rate, next check-up date, and remarks.',
+    'Mother',
+  );
+
+  assert.deepEqual(new Set(motherIntent.metricIds), new Set([
+    'bmiInterpretation', 'bmi', 'serviceProvider', 'bloodPressure', 'developmentalStatus',
+    'laboratoryRequests', 'assistanceAmount', 'gestationalAge', 'fundalHeight',
+    'fetalHeartRate', 'nextCheckupDate', 'remarks',
+  ]));
+
+  const childIntent = await createMonitoringReportIntent(
+    'Show children BMI value, weight-for-age, length-for-age, and weight-for-length interpretations, plus provider, breastfeeding status, current age, and notes.',
+    'Child',
+    { env: modelEnvironment },
+  );
+  assert.deepEqual(childIntent.metricIds, [
+    'currentAgeMonths',
+    'breastfeedingStatus',
+    'bmi',
+    'weightForAgeInterpretation',
+    'lengthForAgeInterpretation',
+    'weightForLengthInterpretation',
+    'serviceProvider',
+    'remarks',
+  ]);
+});
+
 test('monitoring AI reports can find beneficiaries with non-normal developmental screenings', async () => {
-  let request;
   const intent = await createMonitoringReportIntent(
     'Find mothers with non-normal developmental screenings.',
     'Mother',
-    {
-      env: modelEnvironment,
-      fetchImpl: async (url, options) => {
-        request = JSON.parse(options.body);
-        return new Response(JSON.stringify({
-          choices: [{
-            message: {
-              content: JSON.stringify({
-                metricIds: ['developmentalStatus'],
-                onlyReferredToHospital: false,
-                onlyNonNormalScreenings: true,
-                latestCheckupOnly: false,
-                explanation: 'Shows recorded Needs Follow-up and At Risk screening results.',
-              }),
-            },
-          }],
-        }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-      },
-    },
   );
 
   assert.equal(intent.onlyNonNormalScreenings, true);
   assert.deepEqual(intent.metricIds, ['developmentalStatus']);
-  assert.match(request.messages[0].content, /Needs Follow-up or At Risk check-ups only/i);
   assert.deepEqual(validateMonitoringReportIntent({
     metricIds: ['developmentalStatus'],
     onlyReferredToHospital: false,
@@ -353,8 +530,12 @@ test('AI proposal sends the prompt and fixed metric catalog, never authenticated
         choices: [{
           message: {
             content: JSON.stringify({
+              needsClarification: false,
+              question: '',
+              options: [],
               reportCategory: 'monitor',
               beneficiaryType: 'child',
+              profileMetricIds: [],
               metricIds: ['weightForAgeInterpretation'],
               explanation: 'Review the selected growth measure.',
             }),
@@ -366,38 +547,42 @@ test('AI proposal sends the prompt and fixed metric catalog, never authenticated
 
   assert.equal(result.metricIds[0], 'weightForAgeInterpretation');
   assert.equal(request.url, 'http://127.0.0.1:11434/v1/chat/completions');
-  assert.equal(request.body.response_format.type, 'json_schema');
-  assert.equal(request.body.max_tokens, 384);
-  const schemaVariants = request.body.response_format.json_schema.schema.anyOf;
-  assert.equal(schemaVariants.length, 7);
-  const childMonitorSchema = schemaVariants.find(
-    (variant) => variant.properties.reportCategory.const === 'monitor'
-      && variant.properties.beneficiaryType.const === 'child',
-  );
-  assert.equal(childMonitorSchema.properties.metricIds.maxItems, 12);
-  assert.deepEqual(childMonitorSchema.properties.metricIds.items.enum, [
-    'measurementDate',
-    'weightForAge',
-    'heightForAge',
-    'bmiForAge',
-    'weightForLengthInterpretation',
-    'weightForAgeInterpretation',
-    'lengthForAgeInterpretation',
-    'weightForLengthZScore',
-    'weightForAgeZScore',
-    'lengthForAgeZScore',
-  ]);
-  const motherMonitorSchema = schemaVariants.find(
-    (variant) => variant.properties.reportCategory.const === 'monitor'
-      && variant.properties.beneficiaryType.const === 'mother',
-  );
-  assert.ok(['measurementDate', 'weightForAge', 'heightForAge', 'bmiForAge', 'bmiInterpretation']
-    .every((field) => motherMonitorSchema.properties.metricIds.items.enum.includes(field)));
+  assert.deepEqual(request.body.response_format, { type: 'json_object' });
+  assert.equal(request.body.max_completion_tokens, 2048);
+  assert.equal(request.body.reasoning_effort, 'low');
   const serializedRequest = JSON.stringify(request.body);
   assert.match(serializedRequest, /Compare child weight-for-age interpretation progress/);
   assert.match(serializedRequest, /weightForAgeInterpretation/);
   assert.doesNotMatch(serializedRequest, /schoolId|groupId|batchId|beneficiaryId|patientName/i);
   assert.doesNotMatch(serializedRequest, /Jane A\. Doe|Mila Demo Coordinator/i);
+});
+
+test('AI proposal logs a bounded provider error detail without exposing credentials to the client', async () => {
+  const originalConsoleError = console.error;
+  const loggedErrors = [];
+  console.error = (...args) => loggedErrors.push(args.join(' '));
+
+  try {
+    await assert.rejects(createReportProposal('mother bmi', {
+      env: modelEnvironment,
+      fetchImpl: async () => new Response(JSON.stringify({
+        error: {
+          type: 'invalid_request_error',
+          code: 'invalid_json_schema',
+          param: 'response_format',
+          message: 'Unsupported schema keyword maxItems; token sk-testsecret',
+        },
+      }), { status: 400, headers: { 'Content-Type': 'application/json' } }),
+    }), /The private AI service returned status 400\./);
+  } finally {
+    console.error = originalConsoleError;
+  }
+
+  assert.equal(loggedErrors.length, 1);
+  assert.match(loggedErrors[0], /invalid_json_schema response_format/);
+  assert.match(loggedErrors[0], /Unsupported schema keyword maxItems/);
+  assert.doesNotMatch(loggedErrors[0], /sk-testsecret/);
+  assert.ok(loggedErrors[0].length < 600);
 });
 
 test('AI proposals retain only explicitly requested fields when the model adds related metrics', async () => {
@@ -409,6 +594,9 @@ test('AI proposals retain only explicitly requested fields when the model adds r
         choices: [{
           message: {
             content: JSON.stringify({
+              needsClarification: false,
+              question: '',
+              options: [],
               reportCategory: 'monitor',
               beneficiaryType: 'child',
               profileMetricIds: [],
@@ -432,6 +620,73 @@ test('AI proposals retain only explicitly requested fields when the model adds r
 
   assert.deepEqual(result.metricIds, [
     'measurementDate',
+    'weightForAgeInterpretation',
+    'lengthForAgeInterpretation',
+  ]);
+});
+
+test('AI profile-section requests expand into the tab subfields', async () => {
+  const result = await createReportProposal(
+    'Create a mother profile report with General, Prenatal/OB, Medical/Dental, and Vaccine sections.',
+    {
+      env: modelEnvironment,
+      fetchImpl: async () => new Response(JSON.stringify({
+        choices: [{
+          message: {
+            content: JSON.stringify({
+              reportCategory: 'profile',
+              beneficiaryType: 'mother',
+              metricIds: ['medicalConditions'],
+              profileMetricIds: [],
+              explanation: '',
+            }),
+          },
+        }],
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    },
+  );
+
+  assert.ok(result.metricIds.length > 8);
+  assert.ok(result.metricIds.includes('civilStatus'));
+  assert.ok(result.metricIds.includes('totalChildren'));
+  assert.ok(result.metricIds.includes('maternalCondition_hypertension'));
+  assert.ok(result.metricIds.includes('dentalWork_tartarRemoval'));
+  assert.ok(result.metricIds.includes('tt2Date'));
+  assert.ok(result.metricIds.includes('covid19Dose3Date'));
+});
+
+test('child monitor proposals include all three growth indicators when requested', async () => {
+  const result = await createReportProposal(
+    'Show the latest BMI and all 3 measurements for child growth.',
+    {
+      env: modelEnvironment,
+      fetchImpl: async () => {
+        throw new Error('All three child BMI indicators should resolve without another AI call.');
+      },
+    },
+  );
+
+  assert.deepEqual(result.metricIds, [
+    'weightForLengthInterpretation',
+    'weightForAgeInterpretation',
+    'lengthForAgeInterpretation',
+  ]);
+});
+
+test('child monitor requests for latest three growth metrics include all indicators', async () => {
+  const result = await createReportProposal(
+    'SWU child latest 3 metric growth measurement each child',
+    {
+      env: modelEnvironment,
+      fetchImpl: async () => {
+        throw new Error('The explicit three-metric request should resolve without an AI call.');
+      },
+    },
+  );
+
+  assert.equal(result.reportCategory, 'monitor');
+  assert.deepEqual(result.metricIds, [
+    'weightForLengthInterpretation',
     'weightForAgeInterpretation',
     'lengthForAgeInterpretation',
   ]);

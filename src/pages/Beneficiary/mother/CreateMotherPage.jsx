@@ -1,23 +1,24 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useNavigationLock } from '../../../utils/useNavigationLock';
-import { useStepNavigation } from '../../../utils/useStepNavigation';
+import { useNavigationLock } from '../../../utils/navigation/useNavigationLock';
+import { useStepNavigation } from '../../../utils/navigation/useStepNavigation';
 import { StepNavigationButton, StepNavigationStatus } from '../../../components/ui/StepNavigationButton';
 import { MotherFormFields, OTHER_MATERNAL_VACCINES } from './BeneficiaryMother';
-import { calculateGestationalDetails } from '../../../utils/beneficiaryHelpers';
+import { calculateGestationalDetails } from '../../../utils/beneficiary/beneficiaryHelpers';
 import { useMothers } from '../../../context/MothersContext';
 import { apiCreateMother, apiUploadMotherDocuments } from '../../../api/mothers';
 import { useAuth } from '../../../auth/AuthProvider';
 import { isCommunityCoordinatorRole } from '../../../utils/permissions';
-import { capitalizeNameValue } from '../../../utils/nameFormat';
-import { normalizeFirstName } from '../../../utils/firstNameValidation';
+import { capitalizeNameValue } from '../../../utils/formatting/nameFormat';
+import { normalizeFirstName } from '../../../utils/validation/firstNameValidation';
 import { notifyAction } from '../../../components/ActionFeedback';
-import { CONTACT_NUMBER_POLICY, isValidContactNumber } from '../../../utils/contactNumber';
-import { getPhilHealthNumberError } from '../../../utils/philHealthNumber';
-import { calculateTotalChildren, getMaternalBirthCountErrors } from '../../../utils/maternalBirthCounts';
-import { getMotherIdentityErrors } from '../../../utils/motherIdentity';
-import { hasMaternalHighRiskTriggers } from '../../../utils/maternalRisk';
-import { getMaternalVaccineDateErrors } from '../../../utils/maternalVaccineDates';
-import { getBloodPressureError } from '../../../utils/bloodPressure';
+import { CONTACT_NUMBER_POLICY, isValidContactNumber } from '../../../utils/validation/contactNumber';
+import { getPhilHealthNumberError } from '../../../utils/beneficiary/philHealthNumber';
+import { calculateTotalChildren, getMaternalBirthCountErrors } from '../../../utils/beneficiary/maternalBirthCounts';
+import { getMotherIdentityErrors } from '../../../utils/beneficiary/motherIdentity';
+import { hasMaternalHighRiskTriggers } from '../../../utils/beneficiary/maternalRisk';
+import { getMaternalVaccineDateErrors } from '../../../utils/beneficiary/maternalVaccineDates';
+import { getBloodPressureError } from '../../../utils/validation/bloodPressure';
+import { formatFirstAndSurname, splitFirstAndSurname } from '../../../utils/formatting/personName.mjs';
 
 const MOTHER_DRAFT_KEY = 'f1kd.create-mother.draft';
 const MATERNAL_BIRTH_COUNT_INPUT_IDS = {
@@ -53,7 +54,8 @@ const REQUIRED_FIELDS_BY_STEP = [
       'community',
       'groupId',
       'batchId',
-      'emergencyName',
+      'emergencyFirstName',
+      'emergencySurname',
       'emergencyContact',
       'emergencyRelationship',
     ],
@@ -84,6 +86,16 @@ const loadMotherDraft = (fallback) => {
     const savedDraft = JSON.parse(localStorage.getItem(MOTHER_DRAFT_KEY) || 'null');
     if (!savedDraft?.form) return fallback;
     const form = { ...fallback, ...savedDraft.form };
+    if (savedDraft.form.emergencyFirstName === undefined && savedDraft.form.emergencySurname === undefined) {
+      const emergencyName = splitFirstAndSurname(savedDraft.form.emergencyName);
+      form.emergencyFirstName = emergencyName.firstName;
+      form.emergencySurname = emergencyName.surname;
+    }
+    if (savedDraft.form.spouseFirstName === undefined && savedDraft.form.spouseSurname === undefined) {
+      const spouseName = splitFirstAndSurname(savedDraft.form.spouseName);
+      form.spouseFirstName = spouseName.firstName;
+      form.spouseSurname = spouseName.surname;
+    }
     form.totalChildren = calculateTotalChildren(form.childrenBornAlive, form.childrenDiedAfterBirth);
     if (savedDraft.form.ttRemarks === undefined) {
       form.ttRemarks = [1, 2, 3, 4, 5].map((num) => form[`tt${num}Remarks`]).filter(Boolean).join('; ');
@@ -119,6 +131,8 @@ const emptyCommunityForm = (communities = []) => ({
   isHighRisk: 'No',
   programType: 'Maternal Health Program',
   emergencyName: '',
+  emergencyFirstName: '',
+  emergencySurname: '',
   emergencyContact: '',
   emergencyRelationship: '',
   philhealthMember: false,
@@ -484,12 +498,12 @@ export default function CreateMotherPage({
       height: communityForm.height,
       isHighRisk: isHighRisk || communityForm.isHighRisk === 'Yes' ? 'Yes' : 'No',
       programType: communityForm.programType,
-      emergencyName: communityForm.emergencyName,
+      emergencyName: formatFirstAndSurname(communityForm.emergencyFirstName, communityForm.emergencySurname),
       emergencyContact: communityForm.emergencyContact,
       emergencyRelationship: communityForm.emergencyRelationship,
       philhealthMember: communityForm.philhealthMember,
       philhealthNumber: communityForm.philhealthNumber,
-      spouseName: `${communityForm.spouseFirstName} ${communityForm.spouseSurname}`.trim(),
+      spouseName: formatFirstAndSurname(communityForm.spouseFirstName, communityForm.spouseSurname),
       medicalConditions: communityForm.medicalConditions,
       otherMedicalHistory: communityForm.otherMedicalHistory,
       obHistory: communityForm.obHistory,
@@ -560,10 +574,10 @@ export default function CreateMotherPage({
       contactNumber: communityForm.contactNumber,
       isHighRisk: isHighRisk || communityForm.isHighRisk === 'Yes' ? 'Yes' : 'No',
       programType: communityForm.programType,
-      emergencyName: communityForm.emergencyName,
+      emergencyName: formatFirstAndSurname(communityForm.emergencyFirstName, communityForm.emergencySurname),
       emergencyContact: communityForm.emergencyContact,
       emergencyRelationship: communityForm.emergencyRelationship,
-      spouseName: `${communityForm.spouseFirstName} ${communityForm.spouseSurname}`.trim(),
+      spouseName: formatFirstAndSurname(communityForm.spouseFirstName, communityForm.spouseSurname),
       address: communityForm.address,
       prenatalRegDate: communityForm.prenatalRegDate,
       trimester: resolvedTrimester,

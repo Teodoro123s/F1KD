@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import DateInput from '../../components/ui/DateInput';
-import { addMonthsPreservingDay, formatDateForInput } from '../../utils/dateFormat';
-import { calculateWhoGrowthScores } from '../../utils/whoGrowthStandards';
-import { getAgeInDecimalMonths, getAgeInMonths } from '../../utils/childAge.mjs';
+import { addMonthsPreservingDay, formatDateForInput } from '../../utils/formatting/dateFormat';
+import { calculateWhoGrowthScores } from '../../utils/beneficiary/whoGrowthStandards';
+import { getAgeInDecimalMonths, getAgeInMonths } from '../../utils/beneficiary/childAge.mjs';
 import ConfirmModal from '../UserManagement/ConfirmModal';
 import { notifyAction } from '../../components/ActionFeedback';
 import AuditSignatures from '../../components/ui/AuditSignatures';
@@ -30,6 +30,40 @@ function getChildBirthDate(child) {
     || '';
 }
 
+function getChildBirthMeasurement(child, field) {
+  const snakeField = field.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
+  return [
+    child?.[field], child?.[snakeField],
+    child?.raw?.[field], child?.raw?.[snakeField],
+    child?.source?.[field], child?.source?.[snakeField],
+    child?.data?.[field], child?.data?.[snakeField],
+  ].find((value) => value !== undefined && value !== null && String(value).trim() !== '') ?? '';
+}
+
+function getSavedOrBirthMeasurement(savedValue, child, field, week) {
+  if (savedValue !== undefined && savedValue !== null && String(savedValue).trim() !== '') return savedValue;
+  return week === 1 ? getChildBirthMeasurement(child, field) : '';
+}
+
+function isCheckupMonthComplete(child, completedWeeks, month) {
+  const hasSavedCheckup = (child?.checkups || []).some(
+    (checkup) => Number(checkup.week_number ?? checkup.weekNumber) === month,
+  );
+  return hasSavedCheckup || completedWeeks.some((completedMonth) => Number(completedMonth) === month);
+}
+
+function getFirstIncompleteMonth(child, completedWeeks) {
+  for (let month = 1; month <= TOTAL_MONTHS; month += 1) {
+    if (!isCheckupMonthComplete(child, completedWeeks, month)) return month;
+  }
+  return TOTAL_MONTHS;
+}
+
+function getBreastfeedingStatus(value) {
+  const normalized = String(value ?? '').trim().toLowerCase();
+  return normalized === 'yes' || normalized === 'true' || normalized === '1' ? 'Yes' : 'No';
+}
+
 function formatDate(value) {
   return formatDateForInput(value);
 }
@@ -54,14 +88,26 @@ function calculateBmi(weight, height) {
 }
 
 
-export default function ChildMonitor({ child, onSave, onCancel, completedWeeks = [], initialWeek = 1, forceEdit = false, showAuditSignatures = false }) {
-  const [week, setWeek] = useState(() => Math.max(1, Math.min(TOTAL_MONTHS, Math.floor(Number(initialWeek) || 1))));
+export default function ChildMonitor({
+  child,
+  onSave,
+  onCancel,
+  completedWeeks = [],
+  initialWeek = 1,
+  readOnly = false,
+  showAuditSignatures = false,
+}) {
+  const requestedMonth = Math.max(1, Math.min(TOTAL_MONTHS, Math.floor(Number(initialWeek) || 1)));
+  const firstIncompleteMonth = getFirstIncompleteMonth(child, completedWeeks);
+  const initialMonth = Math.min(requestedMonth, firstIncompleteMonth);
+  const [week, setWeek] = useState(initialMonth);
+  const [editingWeek, setEditingWeek] = useState(() => (!readOnly || initialMonth === 1 ? initialMonth : null));
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [form, setForm] = useState(() => ({
     checkupDate: getTodayDate(),
     nextCheckupDate: '',
-    breastfeedingStatus: '',
+    breastfeedingStatus: 'No',
     weight: '',
     height: '',
     developmentalStatus: 'Normal',
@@ -83,29 +129,40 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
     }))
     .filter((checkup) => Number.isInteger(checkup.week) && checkup.date)
     .sort((left, right) => left.week - right.week)[0];
-  const scheduleAnchorDate = firstRecordedCheckup?.date || form.checkupDate || getTodayDate();
-  const scheduleAnchorWeek = firstRecordedCheckup?.week || 1;
+  const previousMonthCheckup = (child?.checkups || []).find(
+    (checkup) => Number(checkup.week_number ?? checkup.weekNumber) === week - 1,
+  );
+  const previousMonthDate = formatDate(previousMonthCheckup?.visit_date ?? previousMonthCheckup?.checkupDate);
+  const childBirthDate = formatDate(getChildBirthDate(child));
+  const scheduleAnchorDate = childBirthDate
+    ? childBirthDate
+    : firstRecordedCheckup?.date || form.checkupDate || getTodayDate();
+  const scheduleAnchorWeek = childBirthDate ? 0 : firstRecordedCheckup?.week || 1;
   const scheduleAnchorDay = Number(scheduleAnchorDate.slice(-2));
   const update = (field) => (event) => setForm((current) => {
     const nextValue = event.target.value;
     const nextForm = { ...current, [field]: nextValue };
     if (field === 'checkupDate') {
-      nextForm.nextCheckupDate = addMonthsPreservingDay(nextValue, 1, scheduleAnchorDay);
+      nextForm.nextCheckupDate = addMonthsPreservingDay(nextValue, 1);
     }
     return nextForm;
   });
-  const isWeekCompleted = Boolean(savedCheckup) || completedWeeks.some((weekNumber) => Number(weekNumber) === week);
-  const isReadOnly = isWeekCompleted && !forceEdit;
+  const isWeekCompleted = isCheckupMonthComplete(child, completedWeeks, week);
+  const isReadOnly = (readOnly && editingWeek !== week) || isWeekCompleted;
 
   useEffect(() => {
-    const scheduledDate = addMonthsPreservingDay(scheduleAnchorDate, week - scheduleAnchorWeek, scheduleAnchorDay) || getTodayDate();
+    const scheduledDate = (previousMonthDate
+      ? addMonthsPreservingDay(previousMonthDate, 1)
+      : childBirthDate
+        ? addMonthsPreservingDay(childBirthDate, week, scheduleAnchorDay)
+        : addMonthsPreservingDay(scheduleAnchorDate, week - scheduleAnchorWeek, scheduleAnchorDay)) || getTodayDate();
     if (!savedCheckup) {
       setForm({
         checkupDate: scheduledDate,
-        nextCheckupDate: addMonthsPreservingDay(scheduledDate, 1, scheduleAnchorDay),
-        breastfeedingStatus: child?.exclusiveBreastfeeding || child?.exclusive_breastfeeding || '',
-        weight: '',
-        height: '',
+        nextCheckupDate: addMonthsPreservingDay(scheduledDate, 1),
+        breastfeedingStatus: getBreastfeedingStatus(child?.exclusiveBreastfeeding ?? child?.exclusive_breastfeeding),
+        weight: week === 1 ? getChildBirthMeasurement(child, 'birthWeight') : '',
+        height: week === 1 ? getChildBirthMeasurement(child, 'birthLength') : '',
         developmentalStatus: 'Normal',
         serviceProvider: '',
         remarks: '',
@@ -114,20 +171,31 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
     }
     const savedDate = formatDate(savedCheckup.visit_date ?? savedCheckup.checkupDate);
     setForm({
-      checkupDate: savedDate,
-      nextCheckupDate: addMonthsPreservingDay(savedDate, 1, scheduleAnchorDay),
-      breastfeedingStatus: savedCheckup.breastfeedingStatus ?? savedCheckup.exclusive_breastfeeding ?? '',
-      weight: savedCheckup.weight ?? '',
-      height: savedCheckup.height ?? '',
+      checkupDate: savedDate || scheduledDate,
+      nextCheckupDate: formatDate(savedCheckup.nextCheckupDate ?? savedCheckup.next_checkup_date),
+      breastfeedingStatus: getBreastfeedingStatus(savedCheckup.breastfeedingStatus ?? savedCheckup.exclusive_breastfeeding),
+      weight: getSavedOrBirthMeasurement(savedCheckup.weight, child, 'birthWeight', week),
+      height: getSavedOrBirthMeasurement(savedCheckup.height, child, 'birthLength', week),
       developmentalStatus: savedCheckup.developmental_status ?? savedCheckup.developmentalStatus ?? 'Normal',
       serviceProvider: savedCheckup.service_provider ?? savedCheckup.serviceProvider ?? '',
       remarks: savedCheckup.notes ?? savedCheckup.remarks ?? '',
     });
-  }, [child, forceEdit, savedCheckup, scheduleAnchorDate, scheduleAnchorDay, scheduleAnchorWeek, week]);
+  }, [child, previousMonthDate, savedCheckup, scheduleAnchorDate, scheduleAnchorDay, scheduleAnchorWeek, week]);
 
-  const goToWeek = (nextWeek) => setWeek(Math.max(1, Math.min(TOTAL_MONTHS, nextWeek)));
+  useEffect(() => {
+    if (week > firstIncompleteMonth) {
+      setWeek(firstIncompleteMonth);
+      setEditingWeek(readOnly ? null : firstIncompleteMonth);
+    }
+  }, [firstIncompleteMonth, readOnly, week]);
+
+  const goToWeek = (nextWeek, justSavedCurrentMonth = false) => {
+    const next = Math.max(1, Math.min(TOTAL_MONTHS, nextWeek));
+    if (next > firstIncompleteMonth && !(justSavedCurrentMonth && next === week + 1)) return;
+    setWeek(next);
+    if (!readOnly || next === 1) setEditingWeek(next);
+  };
   const bmi = calculateBmi(form.weight, form.height);
-  const childBirthDate = getChildBirthDate(child);
   const ageInMonths = getAgeInMonths(childBirthDate, form.checkupDate);
   const currentAgeInMonths = getAgeInDecimalMonths(childBirthDate, form.checkupDate);
   const gender = child?.gender || child?.sex || '';
@@ -153,8 +221,8 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
     || (Number(form.height) > 0 ? 'Outside WHO reference range' : 'Enter valid length');
   const interpretationClass = (value) => `checkup-field-input checkup-interpretation ${String(value).trim().toLowerCase() === 'normal' ? 'is-normal' : 'is-abnormal'}`;
 
-  const renderDateField = ({ id, label, name, required = false }) => (
-    <div className="form-group full-width">
+  const renderDateField = ({ id, label, name, required = false, readOnly: fieldReadOnly = isReadOnly }) => (
+    <div className="form-group full-width checkup-date-field">
       <label className={`checkup-field-label${required ? ' is-required' : ''}`} htmlFor={id}>{label}</label>
       <DateInput
         id={id}
@@ -163,10 +231,10 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
         onChange={(value) => setForm((current) => ({
           ...current,
           [name]: value,
-          ...(name === 'checkupDate' ? { nextCheckupDate: addMonthsPreservingDay(value, 1, scheduleAnchorDay) } : {}),
+          ...(name === 'checkupDate' ? { nextCheckupDate: addMonthsPreservingDay(value, 1) } : {}),
         }))}
         required={required}
-        readOnly={isReadOnly}
+        readOnly={fieldReadOnly}
         ariaLabel={label}
       />
     </div>
@@ -184,8 +252,12 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
     try {
       const saved = await onSave({ ...form, checkupDate: formatDateForPayload(form.checkupDate), week, childId: child.id || child.child_id });
       if (saved === false) return;
-      notifyAction(`Month ${week} monitoring saved successfully.`);
-      if (!forceEdit || !isWeekCompleted) goToWeek(week + 1);
+      if (week === TOTAL_MONTHS && !isWeekCompleted) {
+        notifyAction(`Congratulations! ${childName} has completed all 24 months of child monitoring.`);
+      } else {
+        notifyAction(`Month ${week} monitoring saved successfully.`);
+      }
+      if (!isWeekCompleted) goToWeek(week + 1, true);
     } finally {
       setIsSaving(false);
     }
@@ -204,7 +276,8 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
               key={weekNumber}
               className={`child-monitor-week${weekNumber === week ? ' active' : ''}${completedWeeks.includes(weekNumber) ? ' complete' : ''}${statusClass}`}
               aria-current={weekNumber === week ? 'step' : undefined}
-              onClick={() => setWeek(weekNumber)}
+              onClick={() => goToWeek(weekNumber)}
+              disabled={isSaving || weekNumber > firstIncompleteMonth}
               aria-label={`Month ${weekNumber}${statusLabel}`}
             >
               M{weekNumber}
@@ -218,12 +291,12 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
         <label htmlFor="child-monitor-week-select">
           Current month
           <select id="child-monitor-week-select" value={week} onChange={(event) => goToWeek(Number(event.target.value))}>
-            {Array.from({ length: TOTAL_MONTHS }, (_, index) => index + 1).map((monthNumber) => (
+            {Array.from({ length: firstIncompleteMonth }, (_, index) => index + 1).map((monthNumber) => (
               <option key={monthNumber} value={monthNumber}>Month {monthNumber}</option>
             ))}
           </select>
         </label>
-        <button type="button" className="btn-secondary" onClick={() => goToWeek(week + 1)} disabled={week === TOTAL_MONTHS}>Next month</button>
+        <button type="button" className="btn-secondary" onClick={() => goToWeek(week + 1)} disabled={week >= firstIncompleteMonth || week === TOTAL_MONTHS}>Next month</button>
       </div>
 
       <form className="child-monitor-form" onSubmit={handleSubmit} aria-readonly={isReadOnly}>
@@ -233,13 +306,14 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
               <span className="checkup-module-kicker">Growth record</span>
               <div className="checkup-section-title">Child Check-up Record</div>
             </div>
-            <span className="checkup-week-badge">M{week} / {TOTAL_MONTHS}</span>
+            <div className="checkup-form-heading-actions">
+              <span className="checkup-week-badge">M{week} / {TOTAL_MONTHS}</span>
+            </div>
           </div>
           <p className="child-monitor-subtitle">M{week} of {TOTAL_MONTHS} · {childName}</p>
-          {showAuditSignatures && <AuditSignatures {...savedCheckup} />}
           <div className="checkup-grid">
             {renderDateField({ id: 'child-checkup-date', label: 'Check-up Date', name: 'checkupDate', required: true })}
-            {renderDateField({ id: 'child-next-checkup-date', label: 'Next Check-up Date (Tentative)', name: 'nextCheckupDate' })}
+            {renderDateField({ id: 'child-next-checkup-date', label: 'Next Check-up Date (leave blank to cancel)', name: 'nextCheckupDate' })}
             <div className="form-group">
               <label className="checkup-field-label" htmlFor="child-current-age-months">Current Age (months)</label>
               <input
@@ -253,8 +327,7 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
             </div>
             <div className="form-group">
               <label className="checkup-field-label" htmlFor="child-exclusive-breastfeeding">Exclusive Breastfeeding</label>
-              <select id="child-exclusive-breastfeeding" className="checkup-field-input" value={form.breastfeedingStatus} onChange={update('breastfeedingStatus')} disabled={isReadOnly}>
-                <option value="">Not recorded</option>
+              <select id="child-exclusive-breastfeeding" className="checkup-field-input" value={form.breastfeedingStatus} onChange={update('breastfeedingStatus')} required disabled={isReadOnly}>
                 <option value="Yes">Yes</option>
                 <option value="No">No</option>
               </select>
@@ -300,7 +373,22 @@ export default function ChildMonitor({ child, onSave, onCancel, completedWeeks =
               <textarea id="child-monitor-remarks" className="checkup-field-input" rows="3" value={form.remarks} onChange={update('remarks')} placeholder="Growth, feeding, or health observations" readOnly={isReadOnly} />
             </div>
           </div>
+          {showAuditSignatures && (
+            <div className="child-monitor-audit-footer">
+              <AuditSignatures {...savedCheckup} />
+            </div>
+          )}
           <div className="checkup-actions">
+            {readOnly && (
+              <button
+                type="button"
+                className={isReadOnly ? 'btn-primary' : 'btn-secondary'}
+                onClick={() => setEditingWeek(isReadOnly ? week : null)}
+                disabled={isSaving}
+              >
+                {isReadOnly ? 'Edit checkup' : 'Cancel edit'}
+              </button>
+            )}
             <button type="submit" className="btn-primary" disabled={isReadOnly || isSaving}>{isSaving ? 'Saving...' : 'Save Checkup'}</button>
             <button type="button" className="btn-secondary" onClick={() => onCancel?.()} disabled={isReadOnly || isSaving}>Cancel</button>
             {isReadOnly && <span className="checkup-week-badge" role="status">Saved · Read-only</span>}

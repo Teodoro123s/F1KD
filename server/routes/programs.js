@@ -3,6 +3,11 @@ const router = express.Router();
 const pool = require('../db');
 const { createSuperadminNotification } = require('../services/notifications');
 const { canViewAuditSignatures, normalizeRole } = require('../middleware/authorize');
+const {
+  batchEvidenceUpload,
+  deleteFileFromStorage,
+  uploadFileToStorage,
+} = require('../middleware/documentUpload');
 const { programScopesBelongToSchool } = require('../utils/programScope');
 const { getProgramVisibilityFilter } = require('../utils/programAccess');
 const { isValidIsoDate } = require('../utils/dateValidation');
@@ -45,6 +50,64 @@ function cleanProgram(body = {}) {
 function validDate(value) {
   const date = String(value || '');
   return isValidIsoDate(date) ? date : null;
+}
+
+function parseProgramReceiptEvidenceUpload(req, res, next) {
+  batchEvidenceUpload.array('images', 10)(req, res, async (error) => {
+    if (error) {
+      try {
+        await discardProgramReceiptUploads(req.files);
+      } catch (cleanupError) {
+        console.error('[Programs API] unable to clean up rejected check-in photos:', cleanupError.message);
+      }
+      const message = error.code === 'LIMIT_FILE_SIZE'
+        ? 'Each photo must be 5 MB or smaller'
+        : error.code === 'LIMIT_FILE_COUNT' || error.code === 'LIMIT_UNEXPECTED_FILE'
+          ? 'Attach no more than 10 photos'
+          : error.message || 'Unable to upload images';
+      return res.status(400).json({ error: message });
+    }
+    return next();
+  });
+}
+
+async function discardProgramReceiptUploads(files = []) {
+  await Promise.all(files.map(async (file) => {
+    const filePath = file.filename ? `/uploads/${file.filename}` : file.path;
+    if (filePath) await deleteFileFromStorage(filePath);
+  }));
+}
+
+async function attachReceiptEvidence(logs) {
+  if (!logs.length) return logs;
+  const receiptIds = logs.map((row) => row.receipt_id).filter(Boolean);
+  if (!receiptIds.length) return logs;
+  const placeholders = receiptIds.map(() => '?').join(', ');
+  const [images] = await pool.query(
+    `SELECT link.monitoring_log_id AS receipt_id, image.id, image.file_name, image.file_path,
+        image.documentation_set_id AS set_id
+     FROM program_receipt_documentation_logs link
+     INNER JOIN program_receipt_documentations image ON image.documentation_set_id = link.documentation_set_id
+     WHERE link.monitoring_log_id IN (${placeholders})
+     ORDER BY image.id`,
+    receiptIds,
+  );
+  const imagesByReceipt = new Map();
+  images.forEach((image) => {
+    const receiptId = String(image.receipt_id);
+    const receiptImages = imagesByReceipt.get(receiptId) || [];
+    receiptImages.push({
+      id: image.id,
+      set_id: image.set_id,
+      file_name: image.file_name,
+      file_path: image.file_path,
+    });
+    imagesByReceipt.set(receiptId, receiptImages);
+  });
+  return logs.map((row) => ({
+    ...row,
+    evidence_images: imagesByReceipt.get(String(row.receipt_id)) || [],
+  }));
 }
 
 async function getProgram(id) {
@@ -433,11 +496,11 @@ router.get('/:programId/monitoring', async (req, res) => {
          )`
       : '';
     const [logs] = await pool.query(
-      `SELECT beneficiary_id, beneficiary_type, monitored, DATE_FORMAT(monitored_date, '%Y-%m-%d') AS monitored_date, notes
-       FROM monitoring_logs
-       WHERE program_id = ? AND monitored_date = ?
+      `SELECT ml.beneficiary_id, ml.beneficiary_type, ml.monitored, DATE_FORMAT(ml.monitored_date, '%Y-%m-%d') AS monitored_date, ml.notes
+       FROM monitoring_logs ml
+       WHERE ml.program_id = ? AND ml.monitored_date = ?
        ${groupPredicate}
-       ORDER BY id`,
+       ORDER BY ml.id`,
       req.isHealthWorker ? [req.params.programId, date, req.groupId, req.groupId] : [req.params.programId, date],
     );
     res.json({ date, logs });
@@ -558,6 +621,198 @@ router.patch('/:programId/monitoring', async (req, res) => {
   }
 });
 
+router.post('/:programId/monitoring/evidence', parseProgramReceiptEvidenceUpload, async (req, res) => {
+  let storedFiles = [];
+  try {
+    if (!req.isCommunityOrganizer) {
+      await discardProgramReceiptUploads(req.files);
+      return res.status(403).json({ error: 'Only Community Organizers can add program check-in photos' });
+    }
+    const date = validDate(req.body?.date);
+    if (!date) {
+      await discardProgramReceiptUploads(req.files);
+      return res.status(400).json({ error: 'Date must be a valid date in YYYY-MM-DD format' });
+    }
+    let checkins;
+    try {
+      checkins = JSON.parse(req.body?.checkins || '[]');
+    } catch {
+      await discardProgramReceiptUploads(req.files);
+      return res.status(400).json({ error: 'Check-in beneficiaries must be valid JSON' });
+    }
+    if (!Array.isArray(checkins) || checkins.length === 0 || checkins.length > 200) {
+      await discardProgramReceiptUploads(req.files);
+      return res.status(400).json({ error: 'Select between 1 and 200 beneficiaries for this check-in evidence' });
+    }
+    const targets = checkins.map((checkin) => ({
+      id: String(checkin?.id || '').trim(),
+      type: String(checkin?.type || '').trim().toLowerCase(),
+    }));
+    if (targets.some((target) => !target.id || !['mother', 'child'].includes(target.type))) {
+      await discardProgramReceiptUploads(req.files);
+      return res.status(400).json({ error: 'Each check-in beneficiary needs a valid ID and type' });
+    }
+    const targetKeys = targets.map((target) => `${target.type}:${target.id.toLowerCase()}`);
+    if (new Set(targetKeys).size !== targetKeys.length) {
+      await discardProgramReceiptUploads(req.files);
+      return res.status(400).json({ error: 'Each beneficiary can only be included once' });
+    }
+
+    const files = req.files || [];
+    if (files.length < 3) {
+      await discardProgramReceiptUploads(files);
+      return res.status(400).json({ error: 'Attach at least 3 photos for program check-in documentation' });
+    }
+    if (files.reduce((total, file) => total + file.size, 0) > 25 * 1024 * 1024) {
+      await discardProgramReceiptUploads(files);
+      return res.status(400).json({ error: 'The combined photo size must not exceed 25 MB' });
+    }
+    if (!(await authorizeCoordinatorProgramScope(req, res, req.params.programId))) {
+      await discardProgramReceiptUploads(files);
+      return;
+    }
+
+    const predicates = targets.map(() => '(ml.beneficiary_id = ? AND LOWER(TRIM(ml.beneficiary_type)) = ?)').join(' OR ');
+    const targetParams = targets.flatMap((target) => [target.id, target.type]);
+    const [receiptRows] = await pool.query(
+      `SELECT ml.id, ml.beneficiary_id, LOWER(TRIM(ml.beneficiary_type)) AS beneficiary_type
+       FROM monitoring_logs ml
+       LEFT JOIN mothers m
+         ON LOWER(TRIM(ml.beneficiary_type)) = 'mother'
+        AND (CAST(ml.beneficiary_id AS CHAR) = CAST(m.id AS CHAR)
+          OR LOWER(TRIM(CAST(ml.beneficiary_id AS CHAR))) = LOWER(TRIM(CAST(m.mother_code AS CHAR))))
+       LEFT JOIN children c
+         ON LOWER(TRIM(ml.beneficiary_type)) = 'child'
+        AND (CAST(ml.beneficiary_id AS CHAR) = CAST(c.id AS CHAR)
+          OR LOWER(TRIM(CAST(ml.beneficiary_id AS CHAR))) = LOWER(TRIM(CAST(c.child_code AS CHAR))))
+       LEFT JOIN mothers parent_m ON parent_m.id = c.mother_id
+       WHERE ml.program_id = ? AND ml.monitored_date = ?
+         AND (${predicates})
+         AND COALESCE(m.community_id, c.community_id, parent_m.community_id) = ?`,
+      [req.params.programId, date, ...targetParams, req.schoolId],
+    );
+    if (receiptRows.length !== targets.length) {
+      await discardProgramReceiptUploads(files);
+      return res.status(400).json({ error: 'Check-ins must be saved for beneficiaries in your assigned school before adding photos' });
+    }
+
+    for (const file of files) {
+      storedFiles.push(await uploadFileToStorage(file, 'program-receipt-evidence'));
+    }
+    const connection = await pool.getConnection();
+    let documentationSetId;
+    try {
+      await connection.beginTransaction();
+      const [setResult] = await connection.query(
+        'INSERT INTO program_receipt_documentation_sets (program_id, monitored_date, uploaded_by_user_id) VALUES (?, ?, ?)',
+        [req.params.programId, date, req.user?.id || null],
+      );
+      documentationSetId = setResult.insertId;
+      const imageIds = [];
+      for (const file of storedFiles) {
+        const [imageResult] = await connection.query(
+          'INSERT INTO program_receipt_documentations (documentation_set_id, file_name, file_path) VALUES (?, ?, ?)',
+          [documentationSetId, file.name, file.path],
+        );
+        imageIds.push(imageResult.insertId);
+      }
+      for (const receipt of receiptRows) {
+        await connection.query(
+          'INSERT INTO program_receipt_documentation_logs (documentation_set_id, monitoring_log_id) VALUES (?, ?)',
+          [documentationSetId, receipt.id],
+        );
+      }
+      await connection.commit();
+      res.status(201).json({
+        documentation: {
+          id: documentationSetId,
+          date,
+          receipt_ids: receiptRows.map((receipt) => receipt.id),
+          images: storedFiles.map((file, index) => ({
+            id: imageIds[index],
+            set_id: documentationSetId,
+            file_name: file.name,
+            file_path: file.path,
+          })),
+        },
+      });
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    await Promise.all(storedFiles.map(async (file) => {
+      try {
+        await deleteFileFromStorage(file.path);
+      } catch (cleanupError) {
+        console.error('[Programs API] unable to clean up program check-in evidence:', cleanupError.message);
+      }
+    }));
+    console.error('[Programs API] add program check-in evidence error:', error.message);
+    if (!res.headersSent) res.status(500).json({ error: 'Unable to save program check-in evidence' });
+  }
+});
+
+router.delete('/:programId/monitoring/evidence/:setId/images/:imageId', async (req, res) => {
+  try {
+    if (!req.isCommunityOrganizer) {
+      return res.status(403).json({ error: 'Only Community Organizers can remove program check-in photos' });
+    }
+    if (!(await authorizeCoordinatorProgramScope(req, res, req.params.programId))) return;
+    const connection = await pool.getConnection();
+    let filePath;
+    let documentationDeleted = false;
+    try {
+      await connection.beginTransaction();
+      const [sets] = await connection.query(
+        'SELECT id FROM program_receipt_documentation_sets WHERE id = ? AND program_id = ? LIMIT 1 FOR UPDATE',
+        [req.params.setId, req.params.programId],
+      );
+      if (!sets.length) {
+        await connection.rollback();
+        return res.status(404).json({ error: 'Program check-in photo not found' });
+      }
+      const [images] = await connection.query(
+        'SELECT id, file_path FROM program_receipt_documentations WHERE id = ? AND documentation_set_id = ? LIMIT 1 FOR UPDATE',
+        [req.params.imageId, req.params.setId],
+      );
+      if (!images.length) {
+        await connection.rollback();
+        return res.status(404).json({ error: 'Program check-in photo not found' });
+      }
+      filePath = images[0].file_path;
+      await connection.query(
+        'DELETE FROM program_receipt_documentations WHERE id = ? AND documentation_set_id = ?',
+        [req.params.imageId, req.params.setId],
+      );
+      const [remaining] = await connection.query(
+        'SELECT COUNT(*) AS image_count FROM program_receipt_documentations WHERE documentation_set_id = ?',
+        [req.params.setId],
+      );
+      if (Number(remaining[0]?.image_count) === 0) {
+        await connection.query(
+          'DELETE FROM program_receipt_documentation_sets WHERE id = ? AND program_id = ?',
+          [req.params.setId, req.params.programId],
+        );
+        documentationDeleted = true;
+      }
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+    await deleteFileFromStorage(filePath);
+    res.json({ success: true, deleted: true, documentationDeleted });
+  } catch (error) {
+    console.error('[Programs API] delete program check-in evidence error:', error.message);
+    res.status(500).json({ error: 'Unable to remove program check-in photo' });
+  }
+});
+
 router.get('/:programId/monitoring/cluster-report/:clusterType/:clusterName', async (req, res) => {
   const clusterType = String(req.params.clusterType || '').toLowerCase();
   const clusterName = decodeURIComponent(String(req.params.clusterName || '')).trim();
@@ -584,7 +839,7 @@ router.get('/:programId/monitoring/cluster-report/:clusterType/:clusterName', as
          LEFT JOIN users updater ON updater.id = COALESCE(ml.updated_by_user_id, ml.monitored_by)`
       : '';
     const [logs] = await pool.query(
-      `SELECT DATE_FORMAT(ml.monitored_date, '%Y-%m-%d') AS date, ml.monitored, ml.notes, p.name AS program_name,
+      `SELECT ml.id AS receipt_id, DATE_FORMAT(ml.monitored_date, '%Y-%m-%d') AS date, ml.monitored, ml.notes, p.name AS program_name,
         ml.beneficiary_type, ml.beneficiary_id,
         CASE
           WHEN LOWER(TRIM(ml.beneficiary_type)) = 'mother' AND m.id IS NOT NULL THEN CONCAT('mother:', m.id)
@@ -617,7 +872,7 @@ router.get('/:programId/monitoring/cluster-report/:clusterType/:clusterName', as
        ORDER BY ml.monitored_date DESC, beneficiary_name`,
       req.isHealthWorker ? [req.params.programId, clusterName, req.groupId] : [req.params.programId, clusterName],
     );
-    res.json({ report: logs });
+    res.json({ report: await attachReceiptEvidence(logs) });
   } catch (error) {
     console.error('[Programs API] cluster monitoring report error:', error.message);
     res.status(500).json({ error: 'db error' });
@@ -643,7 +898,7 @@ router.get('/:programId/monitoring/report/:beneficiaryType/:beneficiaryId', asyn
          LEFT JOIN users updater ON updater.id = COALESCE(ml.updated_by_user_id, ml.monitored_by)`
       : '';
     const [logs] = await pool.query(
-            `SELECT DATE_FORMAT(ml.monitored_date, '%Y-%m-%d') AS date, ml.monitored, ml.notes, p.name AS program_name,
+            `SELECT ml.id AS receipt_id, DATE_FORMAT(ml.monitored_date, '%Y-%m-%d') AS date, ml.monitored, ml.notes, p.name AS program_name,
               COALESCE(NULLIF(TRIM(co.name), ''), 'Unknown school') AS school_name,
               COALESCE(NULLIF(TRIM(g.name), ''), 'Unknown group') AS group_name,
               COALESCE(NULLIF(TRIM(b.name), ''), 'Unknown batch') AS batch_name${auditSelect}
@@ -663,7 +918,7 @@ router.get('/:programId/monitoring/report/:beneficiaryType/:beneficiaryId', asyn
         ? [req.params.programId, req.params.beneficiaryId, beneficiaryType, req.groupId, req.groupId]
         : [req.params.programId, req.params.beneficiaryId, beneficiaryType],
     );
-    res.json({ report: logs });
+    res.json({ report: await attachReceiptEvidence(logs) });
   } catch (error) {
     console.error('[Programs API] monitoring report error:', error.message);
     res.status(500).json({ error: 'db error' });

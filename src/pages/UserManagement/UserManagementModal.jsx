@@ -2,12 +2,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import DateInput from '../../components/ui/DateInput';
 import FloatingLayer from '../../components/ui/FloatingLayer';
-import { capitalizeNameValue } from '../../utils/nameFormat';
-import { formatDateForInput } from '../../utils/dateFormat';
+import { capitalizeNameValue } from '../../utils/formatting/nameFormat';
+import { formatDateForInput } from '../../utils/formatting/dateFormat';
 import { generatePassword } from './lib';
-import { sanitizeContactNumber } from '../../utils/contactNumber';
+import { sanitizeContactNumber } from '../../utils/validation/contactNumber';
 import { isCommunityCoordinatorRole, isHealthWorkerRole } from '../../utils/permissions';
-import { getFirstNameValidationError, normalizeFirstName } from '../../utils/firstNameValidation';
+import { getFirstNameValidationError, normalizeFirstName } from '../../utils/validation/firstNameValidation';
+import useModalAccessibility from '../../components/ui/useModalAccessibility';
 
 function FormDropdown({ id, label, name, options, value, onChange, required = false, disabled = false, emptyMessage = '' }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -114,12 +115,25 @@ function FormDropdown({ id, label, name, options, value, onChange, required = fa
 }
 
 function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitting = false, notification = '' }) {
+  const titleId = React.useId();
+  const dialogRef = useRef(null);
+  const closeButtonRef = useRef(null);
+  const close = () => { if (!isSubmitting) onClose?.(); };
+  useModalAccessibility({ open: true, onClose: close, dialogRef, initialFocusRef: closeButtonRef, closeDisabled: isSubmitting });
   return createPortal((
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-content user-management-modal" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-backdrop user-management-drawer-backdrop" role="presentation" onClick={(event) => { if (event.target === event.currentTarget) close(); }}>
+      <div
+        ref={dialogRef}
+        className="modal-content user-management-modal user-management-drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="modal-header-section">
-          <h3>{title}</h3>
-          <button className="btn-close-modal" onClick={onClose} aria-label="Close modal">
+          <h3 id={titleId}>{title}</h3>
+          <button ref={closeButtonRef} type="button" className="btn-close-modal" onClick={close} aria-label="Close modal" disabled={isSubmitting}>
             ✕
           </button>
         </div>
@@ -132,7 +146,7 @@ function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitt
             {children}
           </div>
           <div className="modal-footer">
-            <button type="button" className="btn-secondary back-action" onClick={onClose}>Back</button>
+            <button type="button" className="btn-secondary back-action" onClick={close} disabled={isSubmitting}>Back</button>
             <button
               type="submit"
               className="btn-primary"

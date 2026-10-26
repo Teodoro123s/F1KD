@@ -1,21 +1,23 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { MotherFormFields } from './BeneficiaryMother';
 import { useMothers } from '../../../context/MothersContext';
 import { apiGetMother, apiUpdateMother, apiUploadMotherDocuments } from '../../../api/mothers';
-import { formatDateForInput } from '../../../utils/dateFormat';
-import { capitalizeNameValue } from '../../../utils/nameFormat';
-import { normalizeFirstName } from '../../../utils/firstNameValidation';
-import { getMotherIdentityErrors } from '../../../utils/motherIdentity';
+import { formatDateForInput } from '../../../utils/formatting/dateFormat';
+import { capitalizeNameValue } from '../../../utils/formatting/nameFormat';
+import { normalizeFirstName } from '../../../utils/validation/firstNameValidation';
+import { getMotherIdentityErrors } from '../../../utils/beneficiary/motherIdentity';
 import { getSummary } from '../../Community/communityService';
-import PageHeader from '../../../components/ui/PageHeader';
+import useModalAccessibility from '../../../components/ui/useModalAccessibility';
 import { notifyAction } from '../../../components/ActionFeedback';
-import { CONTACT_NUMBER_POLICY, isValidContactNumber } from '../../../utils/contactNumber';
-import { formatPhilHealthNumber, getPhilHealthNumberError } from '../../../utils/philHealthNumber';
-import { getMaternalBirthCountErrors, hasMiscarriageHighRiskCount } from '../../../utils/maternalBirthCounts';
-import { navigateBack } from '../../../utils/navigation';
-import { useStepNavigation } from '../../../utils/useStepNavigation';
+import { CONTACT_NUMBER_POLICY, isValidContactNumber } from '../../../utils/validation/contactNumber';
+import { formatPhilHealthNumber, getPhilHealthNumberError } from '../../../utils/beneficiary/philHealthNumber';
+import { getMaternalBirthCountErrors, hasMiscarriageHighRiskCount } from '../../../utils/beneficiary/maternalBirthCounts';
+import { navigateBack } from '../../../utils/navigation/navigation';
+import { useStepNavigation } from '../../../utils/navigation/useStepNavigation';
 import { StepNavigationStatus } from '../../../components/ui/StepNavigationButton';
+import { formatFirstAndSurname, splitFirstAndSurname } from '../../../utils/formatting/personName.mjs';
 
 const parseAddressParts = (address = '') => {
   const parts = String(address || '').split(',').map((part) => part.trim()).filter(Boolean);
@@ -45,6 +47,8 @@ const normalizeMotherDates = (mother) => {
 const normalizeMotherForm = (mother = {}) => {
   const normalized = normalizeMotherDates(mother);
   const addressParts = parseAddressParts(normalized.address || '');
+  const spouseName = splitFirstAndSurname(normalized.spouseName || '');
+  const emergencyName = splitFirstAndSurname(normalized.emergencyName || '');
   const legacyVaccineRemarks = [1, 2, 3, 4, 5]
     .map((num) => normalized[`tt${num}Remarks`])
     .filter(Boolean)
@@ -58,9 +62,10 @@ const normalizeMotherForm = (mother = {}) => {
     lastName: capitalizeNameValue(normalized.lastName || ''),
     maidenSurname: capitalizeNameValue(normalized.maidenSurname || ''),
     suffix: capitalizeNameValue(normalized.suffix || ''),
-    emergencyName: capitalizeNameValue(normalized.emergencyName || ''),
-    spouseFirstName: capitalizeNameValue(normalized.spouseFirstName || ''),
-    spouseSurname: capitalizeNameValue(normalized.spouseSurname || ''),
+    emergencyFirstName: capitalizeNameValue(normalized.emergencyFirstName || emergencyName.firstName),
+    emergencySurname: capitalizeNameValue(normalized.emergencySurname || emergencyName.surname),
+    spouseFirstName: capitalizeNameValue(normalized.spouseFirstName || spouseName.firstName),
+    spouseSurname: capitalizeNameValue(normalized.spouseSurname || spouseName.surname),
     province: normalized.province || addressParts.province,
     city: normalized.city || addressParts.city,
     barangay: normalized.barangay || addressParts.barangay,
@@ -80,12 +85,15 @@ export default function EditMotherPage() {
   const [documentFiles, setDocumentFiles] = useState({ birthCertificate: null, consent: null });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  const [loadError, setLoadError] = useState(null);
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [communityOptions, setCommunityOptions] = useState({ communities: [], groups: [], batches: [] });
   const [activeTab, setActiveTab] = useState('general');
   const { navigationDirection, navigationError, isNavigating, runStepNavigation } = useStepNavigation();
   const maternalBirthCountErrors = getMaternalBirthCountErrors(form);
   const motherIdentityErrors = getMotherIdentityErrors(form);
+  const drawerRef = useRef(null);
+  const closeButtonRef = useRef(null);
 
   const profileSteps = [
     ['general', 'General'],
@@ -93,6 +101,18 @@ export default function EditMotherPage() {
     ['medical_dental', 'Medical & Dental'],
     ['vaccine', 'Vaccine'],
   ];
+  const closeEditDrawer = () => {
+    if (showSaveConfirm) return;
+    navigateBack(navigate, location, `/beneficiary/mother/${id}`);
+  };
+
+  useModalAccessibility({
+    open: true,
+    onClose: closeEditDrawer,
+    dialogRef: drawerRef,
+    initialFocusRef: closeButtonRef,
+    closeDisabled: saving,
+  });
 
   useEffect(() => {
     getSummary()
@@ -118,24 +138,11 @@ export default function EditMotherPage() {
       .catch((loadError) => {
         if (active && !initialMother) {
           notifyAction(loadError.message || 'Unable to load mother', 'error');
-          setError(loadError.message || 'Unable to load mother');
+          setLoadError(loadError.message || 'Unable to load mother');
         }
       });
     return () => { active = false; };
   }, [id, initialMother]);
-
-  if (!initialMother && !form.id && !form.motherId && !error) {
-    return <div className="edit-mother-page"><p>Loading mother data...</p></div>;
-  }
-
-  if (!initialMother && error) {
-    return (
-      <div className="edit-mother-page">
-        <p>Unable to load mother data for editing. Try opening the mother profile and clicking Edit.</p>
-        <button type="button" onClick={() => navigateBack(navigate, location, `/beneficiary/mother/${id}`)} className="btn-secondary back-action">Back</button>
-      </div>
-    );
-  }
 
   const fullName = `${form.firstName || ''} ${form.middleName || ''} ${form.lastName || ''} ${form.suffix || ''}`
     .replace(/\s+/g, ' ')
@@ -211,6 +218,21 @@ export default function EditMotherPage() {
     }, nextIndex >= currentIndex ? 'next' : 'previous');
   };
 
+  const handleProfileTabKeyDown = (event, currentIndex) => {
+    let nextIndex = currentIndex;
+    if (event.key === 'ArrowRight') nextIndex = (currentIndex + 1) % profileSteps.length;
+    if (event.key === 'ArrowLeft') nextIndex = (currentIndex - 1 + profileSteps.length) % profileSteps.length;
+    if (event.key === 'Home') nextIndex = 0;
+    if (event.key === 'End') nextIndex = profileSteps.length - 1;
+    if (nextIndex === currentIndex) return;
+
+    event.preventDefault();
+    const [nextTab] = profileSteps[nextIndex];
+    handleProfileStepChange(nextTab).then((changed) => {
+      if (changed) document.getElementById(`mother-edit-tab-${nextTab}`)?.focus();
+    });
+  };
+
   const handleSave = async () => {
     setShowSaveConfirm(false);
     setSaving(true);
@@ -220,6 +242,8 @@ export default function EditMotherPage() {
       const updatedForm = {
         ...form,
         firstName: normalizeFirstName(form.firstName),
+        emergencyName: formatFirstAndSurname(form.emergencyFirstName, form.emergencySurname),
+        spouseName: formatFirstAndSurname(form.spouseFirstName, form.spouseSurname),
         isHighRisk: hasMiscarriageHighRiskCount(form) ? 'Yes' : form.isHighRisk,
       };
       const res = await apiUpdateMother(motherId, updatedForm);
@@ -254,87 +278,132 @@ export default function EditMotherPage() {
     }
   };
 
-  return (
-    <section className="community-page beneficiary-page edit-mother-page">
-      <PageHeader
-        title={fullName}
-        breadcrumbs={[{ label: 'Beneficiaries', href: '/beneficiary' }, { label: 'Mother Profile' }, { label: 'Edit' }]}
-        actions={(
-          <>
-            <button type="button" className="btn-secondary edit-mother-action" onClick={() => navigateBack(navigate, location, `/beneficiary/mother/${id}`)}>Cancel</button>
-            <button type="button" className="btn-primary edit-mother-action" disabled={saving} onClick={() => formRef.current?.requestSubmit()}>{saving ? 'Saving...' : 'Save'}</button>
-          </>
+  const isLoading = !initialMother && !form.id && !form.motherId && !loadError;
+
+  return createPortal((
+    <div
+      className="edit-mother-drawer-backdrop"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) closeEditDrawer();
+      }}
+    >
+      <aside
+        ref={drawerRef}
+        className="edit-mother-drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="edit-mother-drawer-title"
+        tabIndex={-1}
+      >
+        <header className="edit-mother-drawer__header">
+          <h2 id="edit-mother-drawer-title">{fullName}</h2>
+          <button
+            ref={closeButtonRef}
+            type="button"
+            className="edit-mother-drawer__close"
+            onClick={closeEditDrawer}
+            disabled={saving}
+            aria-label="Close edit mother profile"
+          >
+            ×
+          </button>
+        </header>
+
+        {isLoading ? (
+          <div className="edit-mother-drawer__message" role="status">Loading mother data...</div>
+        ) : loadError && !initialMother ? (
+          <div className="edit-mother-drawer__message" role="alert">
+            <p>Unable to load mother data for editing. Try opening the mother profile and clicking Edit.</p>
+            <button type="button" className="btn-secondary" onClick={closeEditDrawer}>Back to profile</button>
+          </div>
+        ) : (
+          <form ref={formRef} id="mother-edit-form" onSubmit={handleSaveRequest} className="mother-edit-form edit-mother-drawer__form">
+            <div className="stepper-progress mother-detail-stepper edit-mother-drawer__tabs">
+              <div className="stepper-steps" role="tablist" aria-label="Mother profile sections">
+                {profileSteps.map(([tab, label], index) => (
+                  <button
+                    key={tab}
+                    id={`mother-edit-tab-${tab}`}
+                    type="button"
+                    role="tab"
+                    aria-selected={activeTab === tab}
+                    aria-controls="mother-edit-tabpanel"
+                    tabIndex={activeTab === tab ? 0 : -1}
+                    className={`stepper-step ${activeTab === tab ? 'active' : ''}`}
+                    onClick={() => handleProfileStepChange(tab)}
+                    onKeyDown={(event) => handleProfileTabKeyDown(event, index)}
+                    disabled={isNavigating || saving}
+                  >
+                    <span className="stepper-step-index">{index + 1}</span>
+                    <span className="stepper-step-label">{label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div
+              id="mother-edit-tabpanel"
+              className="edit-mother-drawer__scroll"
+              role="tabpanel"
+              aria-labelledby={`mother-edit-tab-${activeTab}`}
+              tabIndex={0}
+            >
+              <StepNavigationStatus direction={navigationDirection} error={navigationError} />
+              {error && <p className="edit-mother-drawer__error" role="alert">{error}</p>}
+              <div className="create-form-body mother-detail-shared-form">
+                <div className="modal-body-scrollable">
+                  <MotherFormFields
+                    activeTab={activeTab}
+                    form={form}
+                    setForm={setForm}
+                    communities={communityOptions.communities}
+                    groups={communityOptions.groups}
+                    batches={communityOptions.batches}
+                    documentFiles={documentFiles}
+                    setDocumentFiles={setDocumentFiles}
+                    existingDocumentNames={{
+                      birthCertificate: form.birthCertificateDocumentName,
+                      consent: form.consentDocumentName,
+                    }}
+                    autoCalculate={false}
+                    readOnly={false}
+                    validationErrors={{
+                      ...maternalBirthCountErrors,
+                      ...(motherIdentityErrors.firstName ? { firstName: motherIdentityErrors.firstName } : {}),
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <footer className="edit-mother-drawer__actions">
+              <button type="button" className="btn-secondary" onClick={closeEditDrawer} disabled={saving}>Cancel</button>
+              <button type="submit" className="btn-primary" disabled={saving || isNavigating}>{saving ? 'Saving...' : 'Save'}</button>
+            </footer>
+
+            {showSaveConfirm && (
+              <div className="modal-backdrop" role="presentation" onMouseDown={(event) => {
+                if (event.target === event.currentTarget && !saving) setShowSaveConfirm(false);
+              }}>
+                <div className="modal-content signout-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="save-confirm-title" onMouseDown={(event) => event.stopPropagation()}>
+                  <div className="modal-header-section">
+                    <h3 id="save-confirm-title">Save changes?</h3>
+                    <button type="button" className="btn-close-modal" onClick={() => setShowSaveConfirm(false)} aria-label="Close save confirmation" disabled={saving}>✕</button>
+                  </div>
+                  <div className="modal-body">
+                    <p>Are you sure you want to save the updated mother profile?</p>
+                  </div>
+                  <div className="modal-footer">
+                    <button type="button" className="btn-secondary" onClick={() => setShowSaveConfirm(false)} disabled={saving}>Cancel</button>
+                    <button type="button" className="btn-primary" onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </form>
         )}
-      />
-
-      {showSaveConfirm && (
-        <div className="modal-backdrop" role="presentation" onMouseDown={(event) => {
-          if (event.target === event.currentTarget && !saving) setShowSaveConfirm(false);
-        }}>
-          <div className="modal-content signout-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="save-confirm-title" onMouseDown={(event) => event.stopPropagation()}>
-            <div className="modal-header-section">
-              <h3 id="save-confirm-title">Save changes?</h3>
-              <button type="button" className="btn-close-modal" onClick={() => setShowSaveConfirm(false)} aria-label="Close save confirmation" disabled={saving}>✕</button>
-            </div>
-            <div className="modal-body">
-              <p>Are you sure you want to save the updated mother profile?</p>
-            </div>
-            <div className="modal-footer">
-              <button type="button" className="btn-secondary" onClick={() => setShowSaveConfirm(false)} disabled={saving}>Cancel</button>
-              <button type="button" className="btn-primary" onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <form ref={formRef} id="mother-edit-form" onSubmit={handleSaveRequest} className="mother-edit-form">
-        <div className="mother-detail-profile-content edit-mother-profile-content">
-          <div className="stepper-progress mother-detail-stepper">
-            <div className="stepper-steps" role="tablist" aria-label="Mother profile sections">
-              {profileSteps.map(([tab, label], index) => (
-                <button
-                  key={tab}
-                  type="button"
-                  role="tab"
-                  aria-selected={activeTab === tab}
-                  className={`stepper-step ${activeTab === tab ? 'active' : ''}`}
-                  onClick={() => handleProfileStepChange(tab)}
-                  disabled={isNavigating || saving}
-                >
-                  <span className="stepper-step-index">{index + 1}</span>
-                  <span className="stepper-step-label">{label}</span>
-                </button>
-              ))}
-            </div>
-            <StepNavigationStatus direction={navigationDirection} error={navigationError} />
-          </div>
-
-          <div className="create-form-body mother-detail-shared-form">
-            <div className="modal-body-scrollable">
-              <MotherFormFields
-                activeTab={activeTab}
-                form={form}
-                setForm={setForm}
-                communities={communityOptions.communities}
-                groups={communityOptions.groups}
-                batches={communityOptions.batches}
-                documentFiles={documentFiles}
-                setDocumentFiles={setDocumentFiles}
-                existingDocumentNames={{
-                  birthCertificate: form.birthCertificateDocumentName,
-                  consent: form.consentDocumentName,
-                }}
-                autoCalculate={false}
-                readOnly={false}
-                validationErrors={{
-                  ...maternalBirthCountErrors,
-                  ...(motherIdentityErrors.firstName ? { firstName: motherIdentityErrors.firstName } : {}),
-                }}
-              />
-            </div>
-          </div>
-        </div>
-      </form>
-    </section>
-  );
+      </aside>
+    </div>
+  ), document.body);
 }
