@@ -304,6 +304,22 @@ test('clear latest maternal BMI requests and their answers do not trigger anothe
   }
 });
 
+test('maternal BMI requests for a specific trimester check-up resolve without AI clarification', async () => {
+  const proposal = await createReportProposal('Mother: BMI T3-c3 if available', {
+    env: modelEnvironment,
+    fetchImpl: async () => {
+      throw new Error('Specific maternal check-up slots should not call the AI service.');
+    },
+  });
+
+  assert.deepEqual(proposal, {
+    reportCategory: 'monitor',
+    beneficiaryType: 'mother',
+    metricIds: ['bmiForAge'],
+    explanation: 'Mother BMI from check-up history.',
+  });
+});
+
 test('child BMI clarification offers the three growth indicators and maps the chosen indicator', async () => {
   const proposals = [
     {
