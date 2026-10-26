@@ -13,6 +13,10 @@ export function CommunitySelectionStep({
   updateSelection,
   aiScopeLabel,
   aiContextKey,
+  aiPrograms,
+  aiInitialProgramName,
+  aiInitialBenefitPeriod,
+  aiInitialBenefitMonth,
   buildAiReportPreview,
   exportAiReportCsv,
   reportCategoryStep,
@@ -73,6 +77,10 @@ export function CommunitySelectionStep({
       <ReportAiAssistant
         scopeLabel={aiScopeLabel}
         contextKey={aiContextKey}
+        programs={aiPrograms}
+        initialProgramName={aiInitialProgramName}
+        initialBenefitPeriod={aiInitialBenefitPeriod}
+        initialBenefitMonth={aiInitialBenefitMonth}
         onBuildPreview={buildAiReportPreview}
         onExport={exportAiReportCsv}
       />

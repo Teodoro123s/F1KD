@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
+import FieldInfoTooltip from '../../components/ui/FieldInfoTooltip';
 import PageHeader from '../../components/ui/PageHeader';
 import { useMothers } from '../../context/MothersContext';
 import MotherCheckup from '../Beneficiary/mother/MotherCheckup';
@@ -670,7 +671,10 @@ export default function MonitoringPage() {
                 </button>
               </div>
               <div id="monitoring-ai-report-options" className="monitoring-ai-report-options" hidden={!isMonitoringReportExpanded}>
-              <label htmlFor="monitoring-report-prompt">Which check-up details should the report show?</label>
+              <label htmlFor="monitoring-report-prompt">
+                <span>Which check-up details should the report show?</span>
+                <FieldInfoTooltip content="Start with mother, mothers, child, or children so AI can choose the report records. Add a community, school, group, or batch name to limit the report locally. Hospital-referral requests use Mother records." />
+              </label>
               <div className="monitoring-ai-report-prompt-row">
                 <input
                   id="monitoring-report-prompt"
@@ -682,14 +686,13 @@ export default function MonitoringPage() {
                     setMonitoringReportError('');
                   }}
                   maxLength={500}
-                  placeholder="Describe the check-up report you need"
+                  placeholder="Describe the report"
                   required
                 />
                 <button type="submit" className="btn-primary" disabled={monitoringReportLoading || monitoringReportPrompt.trim().length < 3 || childrenLoading}>
                   {monitoringReportLoading ? 'Preparing…' : 'Build report'}
                 </button>
               </div>
-              <p className="progress-report-ai-message">Start with mother, mothers, child, or children so AI can choose the report records. Add a community, school, group, or batch name to limit the report locally. Hospital-referral requests use Mother records. Names and saved check-ups stay in the app; the report only displays records your account can access.</p>
               {childrenLoadError && <p className="progress-report-ai-message" role="alert">Child records are unavailable: {childrenLoadError}</p>}
               {monitoringReportError && <p className="progress-report-ai-message" role="alert">{monitoringReportError}</p>}
               {monitoringReportResult && (

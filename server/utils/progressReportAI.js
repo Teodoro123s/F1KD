@@ -7,6 +7,8 @@ const REPORT_METRICS = {
       ['healthStatus', 'Health status'],
       ['birthWeight', 'Birth weight'],
       ['birthLength', 'Birth length'],
+      ['headCircumference', 'Head circumference'],
+      ['chestCircumference', 'Chest circumference'],
       ['bloodType', 'Blood type'],
       ['multipleBirth', 'Multiple birth'],
       ['deliveryType', 'Delivery type'],
@@ -22,11 +24,25 @@ const REPORT_METRICS = {
       ['fatherName', 'Father name'],
       ['relationship', 'Relationship'],
       ['medicalConditions', 'Medical conditions'],
+      ['childCongenitalHeartDisease', 'Congenital heart disease'],
+      ['childRespiratoryIssues', 'Respiratory issues'],
+      ['childPrematurity', 'Prematurity'],
+      ['childJaundice', 'Jaundice'],
+      ['childAnemia', 'Anemia'],
+      ['childGrowthDelay', 'Growth delay'],
       ['bcgDate', 'BCG vaccine record'],
       ['hepbDate', 'Hepatitis B vaccine record'],
+      ['ipvDate', 'IPV vaccine record'],
       ['opvDate', 'OPV vaccine record'],
+      ['pcvDate', 'PCV vaccine record'],
       ['dptDate', 'DPT vaccine record'],
       ['mmrDate', 'MMR vaccine record'],
+      ...['bcg', 'hepb', 'ipv', 'opv', 'pcv', 'dpt', 'mmr'].flatMap((vaccine) => [
+        [`${vaccine}Dose1Date`, `${vaccine.toUpperCase()} dose 1 date`],
+        [`${vaccine}Dose2Date`, `${vaccine.toUpperCase()} dose 2 date`],
+        [`${vaccine}Dose3Date`, `${vaccine.toUpperCase()} dose 3 date`],
+        [`${vaccine}Remarks`, `${vaccine.toUpperCase()} remarks or facility`],
+      ]),
       ['address', 'Address'],
     ],
     mother: [
@@ -36,6 +52,14 @@ const REPORT_METRICS = {
       ['addressDetails', 'Address details'],
       ['motherBirthCertificate', "Mother's birth certificate"],
       ['programConsentDocument', 'Program consent form'],
+      ['maidenSurname', 'Maiden surname'],
+      ['allergies', 'Allergies'],
+      ['bloodType', 'Blood type'],
+      ['civilStatus', 'Civil status'],
+      ['employmentStatus', 'Employment status'],
+      ['educationalAttainment', 'Educational attainment'],
+      ['dataPrivacySigned', 'Data privacy consent'],
+      ['mediaReleaseSigned', 'Media release consent'],
       ['philhealthMember', 'PhilHealth membership'],
       ['philhealthNumber', 'PhilHealth number'],
       ['spouseName', 'Spouse name'],
@@ -44,10 +68,16 @@ const REPORT_METRICS = {
       ['emergencyRelationship', 'Emergency contact relationship'],
       ['initialWeight', 'Initial prenatal weight'],
       ['initialHeight', 'Initial prenatal height'],
+      ['initialBmi', 'Initial prenatal BMI'],
       ['gravida', 'Pregnancy count'],
       ['para', 'Birth count'],
       ['abortion', 'Recorded abortion count'],
       ['stillbirth', 'Recorded stillbirth count'],
+      ['totalChildren', 'Total children'],
+      ['childrenBornAlive', 'Children born alive'],
+      ['miscarriages', 'Miscarriages'],
+      ['childrenDiedAfterBirth', 'Children died after birth'],
+      ['obHistory', 'Previous obstetric history'],
       ['lmpDate', 'Last menstrual period'],
       ['eddDate', 'Expected delivery date'],
       ['prenatalRegDate', 'Prenatal registration date'],
@@ -59,6 +89,29 @@ const REPORT_METRICS = {
       ['fundalHeight', 'Fundal height'],
       ['fhr', 'Fetal heart rate'],
       ['medicalConditions', 'Medical conditions'],
+      ...[
+        ['hypertension', 'Hypertension'],
+        ['diabetes', 'Diabetes'],
+        ['eclampsia', 'Eclampsia'],
+        ['asthma', 'Asthma'],
+        ['heartDisease', 'Heart disease'],
+        ['kidneyDisease', 'Kidney disease'],
+        ['epilepsy', 'Epilepsy'],
+        ['goiter', 'Goiter'],
+        ['tuberculosis', 'Tuberculosis'],
+        ['parasitism', 'Parasitism'],
+        ['anemia', 'Anemia'],
+        ['urinaryTractInfection', 'Urinary tract infection'],
+        ['genitalTractInfection', 'Genital tract infection'],
+        ['smoking', 'Smoking'],
+        ['alcoholIntake', 'Alcohol intake'],
+        ['illegalDrugUse', 'Illegal drug use'],
+        ['otherInfectiousDisease', 'Other infectious disease'],
+        ['cancer', 'Cancer'],
+        ['std', 'Sexually transmitted diseases'],
+        ['multiplePregnancy', 'Multiple pregnancy'],
+        ['prevCesarean', 'Previous Caesarean section'],
+      ].map(([id, label]) => [`maternalCondition_${id}`, `Medical condition: ${label}`]),
       ['otherMedicalHistory', 'Other medical history'],
       ['dentalCheckupDate', 'Dental check-up date'],
       ['dentalFacility', 'Dental facility'],
@@ -69,8 +122,26 @@ const REPORT_METRICS = {
       ['teethCount', 'Number of teeth'],
       ['dentalFindings', 'Dental findings'],
       ['dentalWork', 'Dental work done'],
+      ...[
+        ['tartarRemoval', 'Tartar removal'],
+        ['filling', 'Filling'],
+        ['cleaning', 'Cleaning'],
+        ['extraction', 'Extraction'],
+        ['rootCanal', 'Root canal'],
+        ['other', 'Other dental work'],
+      ].map(([id, label]) => [`dentalWork_${id}`, label]),
       ['dentalRemarks', 'Dental remarks'],
       ['ttVaccineRecord', 'Tetanus vaccine record'],
+      ...['tt1', 'tt2', 'tt3', 'tt4', 'tt5'].flatMap((dose) => [
+        [`${dose}Date`, `Tetanus toxoid ${dose.slice(2)} date`],
+        [`${dose}Remarks`, `Tetanus toxoid ${dose.slice(2)} remarks`],
+      ]),
+      ...['influenza', 'hepatitisA', 'hepatitisB', 'covid19'].flatMap((vaccine) => [
+        [`${vaccine}Date`, `${vaccine} dose 1 date`],
+        [`${vaccine}Dose2Date`, `${vaccine} dose 2 date`],
+        [`${vaccine}Dose3Date`, `${vaccine} dose 3 date`],
+        [`${vaccine}Remarks`, `${vaccine} remarks or facility`],
+      ]),
     ],
   },
   monitor: {
@@ -112,57 +183,6 @@ const REPORT_METRICS = {
 const REPORT_CATEGORIES = Object.keys(REPORT_METRICS);
 const BENEFICIARY_TYPES = ['child', 'mother'];
 
-function getReportProposalSchema() {
-  const proposalVariants = Object.entries(REPORT_METRICS).flatMap(([reportCategory, beneficiaryMetrics]) =>
-    Object.entries(beneficiaryMetrics).map(([beneficiaryType, metrics]) => ({
-      type: 'object',
-      properties: {
-        reportCategory: { type: 'string', const: reportCategory },
-        beneficiaryType: { type: 'string', const: beneficiaryType },
-        profileMetricIds: {
-          type: 'array',
-          items: { type: 'string', enum: REPORT_METRICS.profile[beneficiaryType].map(([id]) => id) },
-          minItems: 0,
-          maxItems: reportCategory === 'monitor' ? 8 : 0,
-        },
-        metricIds: {
-          type: 'array',
-          items: { type: 'string', enum: metrics.map(([id]) => id) },
-          minItems: 1,
-          maxItems: reportCategory === 'profile' ? 8 : reportCategory === 'monitor' ? 12 : 3,
-        },
-        explanation: { type: 'string' },
-      },
-      required: ['reportCategory', 'beneficiaryType', 'profileMetricIds', 'metricIds', 'explanation'],
-      additionalProperties: false,
-    })),
-  );
-  const clarificationVariant = {
-    type: 'object',
-    properties: {
-      needsClarification: { type: 'boolean', const: true },
-      question: { type: 'string' },
-      options: {
-        type: 'array',
-        items: { type: 'string' },
-        minItems: 2,
-        maxItems: 4,
-      },
-    },
-    required: ['needsClarification', 'question', 'options'],
-    additionalProperties: false,
-  };
-
-  return {
-    type: 'json_schema',
-    json_schema: {
-      name: 'progress_report_proposal',
-      strict: true,
-      schema: { type: 'object', anyOf: [...proposalVariants, clarificationVariant] },
-    },
-  };
-}
-
 class ProgressReportAIError extends Error {
   constructor(message, status = 502) {
     super(message);
@@ -191,6 +211,32 @@ function getAIConfiguration(env = process.env) {
     model,
     apiKey: String(env.PROGRESS_REPORT_AI_API_KEY || '').trim(),
   };
+}
+
+async function getProviderErrorDetail(response) {
+  let body;
+  try {
+    body = await response.text();
+  } catch {
+    return 'Provider error details unavailable.';
+  }
+
+  let detail = body;
+  try {
+    const payload = JSON.parse(body);
+    const error = payload?.error;
+    detail = [error?.type, error?.code, error?.param, error?.message]
+      .filter((value) => typeof value === 'string' && value.trim())
+      .join(' ');
+  } catch {
+    // Some OpenAI-compatible providers return plain-text errors.
+  }
+
+  return String(detail || 'Provider returned no error details.')
+    .replace(/[\r\n\t]+/g, ' ')
+    .replace(/\bBearer\s+\S+/gi, 'Bearer [redacted]')
+    .replace(/\b(sk|api[_-]?key)[-_:= ]+[A-Za-z0-9._-]+/gi, '[redacted credential]')
+    .slice(0, 500);
 }
 
 function parseModelJson(content) {
@@ -245,6 +291,90 @@ function promptExplicitMetrics(prompt, metrics) {
   return metrics.filter(([id]) => explicitIds.has(id)).map(([id]) => id);
 }
 
+function explicitlyRequestedProfileMetrics(prompt, beneficiaryType) {
+  const metrics = REPORT_METRICS.profile[beneficiaryType];
+  const normalizedPrompt = normalizeMetricPhrase(prompt);
+  if (/\b(?:full|complete|entire|all)\s+(?:(?:child|mother|beneficiary)\s+)?profile\b|\bbeneficiary profile\b/.test(normalizedPrompt)) {
+    return metrics.map(([id]) => id);
+  }
+
+  const childVaccines = ['bcg', 'hepb', 'ipv', 'opv', 'pcv', 'dpt', 'mmr'];
+  const motherVaccines = ['influenza', 'hepatitisA', 'hepatitisB', 'covid19'];
+  const maternalConditions = [
+    'hypertension', 'diabetes', 'eclampsia', 'asthma', 'heartDisease', 'kidneyDisease', 'epilepsy',
+    'goiter', 'tuberculosis', 'parasitism', 'anemia', 'urinaryTractInfection', 'genitalTractInfection',
+    'smoking', 'alcoholIntake', 'illegalDrugUse', 'otherInfectiousDisease', 'cancer', 'std',
+    'multiplePregnancy', 'prevCesarean',
+  ];
+  const childConditions = ['congenitalHeartDisease', 'respiratoryIssues', 'prematurity', 'jaundice', 'anemia', 'growthDelay'];
+  const sections = [];
+  if (/\b(?:general|demographic|personal|contact)\b/.test(normalizedPrompt)) sections.push('general');
+  if (/\b(?:prenatal|obstetric|ob history|pregnancy|newborn|birth details)\b/.test(normalizedPrompt)) sections.push('prenatal');
+  if (/\b(?:medical|dental|health history)\b/.test(normalizedPrompt)) sections.push('medical');
+  if (/\b(?:vaccine|vaccination|immunization)\b/.test(normalizedPrompt)) sections.push('vaccine');
+
+  const sectionMetrics = {
+    child: {
+      general: ['age', 'gender', 'liveBirthDocument', 'address', 'fatherName', 'relationship'],
+      prenatal: [
+        'birthWeight', 'birthLength', 'headCircumference', 'chestCircumference', 'bloodType', 'multipleBirth',
+        'deliveryType', 'noOfChildDelivered', 'expandedNewbornScreening', 'expandedNewbornScreeningResult',
+        'birthPlace', 'birthAttendant', 'apgarScore',
+      ],
+      medical: [
+        'healthStatus', 'feedingType', 'exclusiveBreastfeeding', 'nutritionNotes', 'medicalConditions',
+        ...childConditions.map((id) => `child${id[0].toUpperCase()}${id.slice(1)}`),
+      ],
+      vaccine: [
+        'bcgDate', 'hepbDate', 'ipvDate', 'opvDate', 'pcvDate', 'dptDate', 'mmrDate',
+        ...childVaccines.flatMap((vaccine) => [
+          `${vaccine}Dose1Date`, `${vaccine}Dose2Date`, `${vaccine}Dose3Date`, `${vaccine}Remarks`,
+        ]),
+      ],
+    },
+    mother: {
+      general: [
+        'age', 'birthPlace', 'maidenSurname', 'contactNumber', 'addressDetails', 'motherBirthCertificate',
+        'programConsentDocument', 'civilStatus', 'employmentStatus', 'educationalAttainment',
+        'dataPrivacySigned', 'mediaReleaseSigned', 'philhealthMember', 'philhealthNumber', 'spouseName',
+        'emergencyName', 'emergencyContact', 'emergencyRelationship',
+      ],
+      prenatal: [
+        'initialWeight', 'initialHeight', 'initialBmi', 'gravida', 'para', 'abortion', 'stillbirth',
+        'totalChildren', 'childrenBornAlive', 'miscarriages', 'childrenDiedAfterBirth', 'obHistory',
+        'lmpDate', 'eddDate', 'prenatalRegDate', 'trimester', 'gestationalAge', 'prenatalWeight',
+        'prenatalBp', 'prenatalHeight', 'fundalHeight', 'fhr',
+      ],
+      medical: [
+        'medicalConditions', 'allergies', 'bloodType', 'otherMedicalHistory', 'dentalCheckupDate',
+        'dentalFacility', 'dentistInCharge', 'communityDentist', 'dentistLicense', 'dentistContact',
+        'teethCount', 'dentalFindings', 'dentalWork', 'dentalRemarks',
+        ...maternalConditions.map((id) => `maternalCondition_${id}`),
+        ...['tartarRemoval', 'filling', 'cleaning', 'extraction', 'rootCanal', 'other']
+          .map((id) => `dentalWork_${id}`),
+      ],
+      vaccine: [
+        'ttVaccineRecord',
+        ...['tt1', 'tt2', 'tt3', 'tt4', 'tt5'].flatMap((dose) => [`${dose}Date`, `${dose}Remarks`]),
+        ...motherVaccines.flatMap((vaccine) => [
+          `${vaccine}Date`, `${vaccine}Dose2Date`, `${vaccine}Dose3Date`, `${vaccine}Remarks`,
+        ]),
+      ],
+    },
+  };
+  const requestedIds = new Set(sections.flatMap((section) => sectionMetrics[beneficiaryType][section]));
+  return metrics.filter(([id]) => requestedIds.has(id)).map(([id]) => id);
+}
+
+function asksForAllChildGrowthMetrics(prompt) {
+  const words = normalizeMetricPhrase(prompt).split(/\s+/).filter(Boolean);
+  return words.some((word, index) => {
+    if (!['3', 'three'].includes(word)) return false;
+    const nearbyWords = words.slice(index + 1, index + 8);
+    return nearbyWords.some((nearbyWord) => /^(?:metric|metrics|measurement|measurements|indicator|indicators)$/.test(nearbyWord));
+  });
+}
+
 function refineProposalToExplicitFields(proposal, prompt) {
   if (proposal?.needsClarification === true || !REPORT_CATEGORIES.includes(proposal?.reportCategory)
       || !BENEFICIARY_TYPES.includes(proposal?.beneficiaryType)) {
@@ -252,14 +382,40 @@ function refineProposalToExplicitFields(proposal, prompt) {
   }
 
   const selectedMetrics = REPORT_METRICS[proposal.reportCategory][proposal.beneficiaryType];
-  const explicitMetricIds = promptExplicitMetrics(prompt, selectedMetrics);
   const selectedProfileMetrics = REPORT_METRICS.profile[proposal.beneficiaryType];
-  const explicitProfileMetricIds = proposal.reportCategory === 'monitor'
-    ? promptExplicitMetrics(prompt, selectedProfileMetrics)
+  const sectionMetricIds = proposal.reportCategory === 'profile' || /\bprofile\b/.test(normalizeMetricPhrase(prompt))
+    ? explicitlyRequestedProfileMetrics(prompt, proposal.beneficiaryType)
     : [];
+  const explicitMetricIds = [
+    ...new Set([
+      ...promptExplicitMetrics(prompt, selectedMetrics),
+      ...(proposal.reportCategory === 'profile' ? sectionMetricIds : []),
+    ]),
+  ];
+  const explicitProfileMetricIds = proposal.reportCategory === 'monitor'
+    ? [...new Set([
+      ...promptExplicitMetrics(prompt, selectedProfileMetrics),
+      ...sectionMetricIds,
+    ])]
+    : [];
+  const includeAllChildGrowthMetrics = proposal.reportCategory === 'monitor'
+    && proposal.beneficiaryType === 'child'
+    && asksForAllChildGrowthMetrics(prompt);
+  const childGrowthMetricIds = [
+    'weightForLengthInterpretation',
+    'weightForAgeInterpretation',
+    'lengthForAgeInterpretation',
+  ];
   return {
     ...proposal,
-    ...(explicitMetricIds.length ? { metricIds: explicitMetricIds } : {}),
+    ...(explicitMetricIds.length || includeAllChildGrowthMetrics
+      ? {
+        metricIds: [...new Set([
+          ...(explicitMetricIds.length ? explicitMetricIds : proposal.metricIds),
+          ...(includeAllChildGrowthMetrics ? childGrowthMetricIds : []),
+        ])],
+      }
+      : {}),
     ...(explicitProfileMetricIds.length ? { profileMetricIds: explicitProfileMetricIds } : {}),
   };
 }
@@ -284,12 +440,12 @@ function validateReportProposal(proposal) {
   const allowedProfileMetrics = REPORT_METRICS.profile[proposal.beneficiaryType];
   const requestedProfileMetrics = Array.isArray(proposal.profileMetricIds) ? proposal.profileMetricIds : [];
   const uniqueProfileMetrics = [...new Set(requestedProfileMetrics)];
-  const maxMetrics = proposal.reportCategory === 'profile' ? 8 : proposal.reportCategory === 'monitor' ? 12 : 3;
+  const maxMetrics = allowedMetrics.length;
   if (
     uniqueMetrics.length < 1
     || uniqueMetrics.length > maxMetrics
     || uniqueMetrics.some((metricId) => !allowedMetrics.some(([id]) => id === metricId))
-    || uniqueProfileMetrics.length > (proposal.reportCategory === 'monitor' ? 8 : 0)
+    || uniqueProfileMetrics.length > (proposal.reportCategory === 'monitor' ? allowedProfileMetrics.length : 0)
     || uniqueProfileMetrics.some((metricId) => !allowedProfileMetrics.some(([id]) => id === metricId))
   ) {
     throw new ProgressReportAIError('The private AI service returned unsupported report fields.');
@@ -301,6 +457,81 @@ function validateReportProposal(proposal) {
     metricIds: uniqueMetrics,
     ...(uniqueProfileMetrics.length ? { profileMetricIds: uniqueProfileMetrics } : {}),
     explanation: String(proposal.explanation || '').trim().slice(0, 300),
+  };
+}
+
+function inferDirectMotherBmiProposal(prompt) {
+  const normalizedPrompt = normalizeMetricPhrase(prompt);
+  if (!/\bmother\b/.test(normalizedPrompt) || !/\bbmi\b/.test(normalizedPrompt)) return null;
+
+  const isLatestRequest = /\b(latest|most recent|last check up|last checkup|last visit)\b/.test(normalizedPrompt);
+  const requestsSpecificCheckup = /\bt[1-3]\s*[- ]?\s*c[1-3]\b/.test(normalizedPrompt);
+  const clarification = normalizedPrompt.split(' clarification ').slice(1).join(' ');
+  const requestsInterpretation = /\b(interpretation|screening|category|status)\b/.test(clarification)
+    || /\bbmi interpretation\b/.test(normalizedPrompt);
+  const requestsBoth = /\bboth\b|value and interpretation/.test(clarification);
+  if (!isLatestRequest && !requestsSpecificCheckup && !clarification) return null;
+
+  const metricIds = [
+    ...(isLatestRequest ? ['measurementDate'] : []),
+    ...((requestsBoth || !requestsInterpretation) ? ['bmiForAge'] : []),
+    ...(requestsBoth || requestsInterpretation ? ['bmiInterpretation'] : []),
+  ];
+  return {
+    reportCategory: 'monitor',
+    beneficiaryType: 'mother',
+    metricIds,
+    explanation: isLatestRequest ? 'Latest BMI from the mother’s check-up history.' : 'Mother BMI from check-up history.',
+  };
+}
+
+function inferDirectChildBmiProposal(prompt) {
+  const normalizedPrompt = normalizeMetricPhrase(prompt);
+  if (!/\bchild\b/.test(normalizedPrompt)) return null;
+
+  const clarification = normalizedPrompt.split(' clarification ').slice(1).join(' ');
+  if (asksForAllChildGrowthMetrics(normalizedPrompt)) {
+    return {
+      reportCategory: 'monitor',
+      beneficiaryType: 'child',
+      metricIds: [
+        'weightForLengthInterpretation',
+        'weightForAgeInterpretation',
+        'lengthForAgeInterpretation',
+      ],
+      explanation: 'Showing all three child growth indicators from check-up history.',
+    };
+  }
+  if (!/\bbmi\b/.test(normalizedPrompt)) return null;
+
+  const requestedMetrics = [];
+  if (/\bweight for (length|height)( height)?\b/.test(normalizedPrompt)) {
+    requestedMetrics.push('weightForLengthInterpretation');
+  }
+  if (/\bweight for age\b/.test(normalizedPrompt)) {
+    requestedMetrics.push('weightForAgeInterpretation');
+  }
+  if (/\b(length|height) for age\b/.test(normalizedPrompt)) {
+    requestedMetrics.push('lengthForAgeInterpretation');
+  }
+  if (requestedMetrics.length) {
+    return {
+      reportCategory: 'monitor',
+      beneficiaryType: 'child',
+      metricIds: requestedMetrics,
+      explanation: 'Showing the requested child growth indicator from check-up history.',
+    };
+  }
+
+  if (clarification) return null;
+  return {
+    needsClarification: true,
+    question: 'Which child growth indicator do you mean by BMI?',
+    options: [
+      'Weight-for-Length/Height',
+      'Weight-for-Age',
+      'Length/Height-for-Age',
+    ],
   };
 }
 
@@ -605,6 +836,8 @@ async function requestModel(messages, {
   fetchImpl = globalThis.fetch,
   responseFormat,
   maxTokens,
+  maxCompletionTokens,
+  reasoningEffort,
 } = {}) {
   const configuration = getAIConfiguration(env);
   if (!configuration) {
@@ -627,11 +860,16 @@ async function requestModel(messages, {
         model: configuration.model,
         temperature: 0.1,
         messages,
-        ...(maxTokens ? { max_tokens: maxTokens } : {}),
+        ...(maxCompletionTokens
+          ? { max_completion_tokens: maxCompletionTokens }
+          : maxTokens ? { max_tokens: maxTokens } : {}),
+        ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
         ...(responseFormat ? { response_format: responseFormat } : {}),
       }),
     });
     if (!response.ok) {
+      const detail = await getProviderErrorDetail(response);
+      console.error(`[Progress Report AI] provider returned status ${response.status}: ${detail}`);
       throw new ProgressReportAIError(`The private AI service returned status ${response.status}.`, 503);
     }
     const payload = await response.json();
@@ -651,6 +889,11 @@ async function createReportProposal(prompt, options = {}) {
     throw new ProgressReportAIError('Enter a report request between 3 and 1,000 characters.', 400);
   }
 
+  const directProposal = inferDirectMotherBmiProposal(normalizedPrompt);
+  if (directProposal) return validateReportProposal(directProposal);
+  const childBmiProposal = inferDirectChildBmiProposal(normalizedPrompt);
+  if (childBmiProposal) return validateReportProposal(childBmiProposal);
+
   const metricCatalog = Object.entries(REPORT_METRICS)
     .map(([category, types]) => `${category}: ${Object.entries(types)
       .map(([type, metrics]) => `${type}=${metrics.map(([id, label]) => `${id} (${label})`).join('; ')}`)
@@ -661,9 +904,10 @@ async function createReportProposal(prompt, options = {}) {
       role: 'system',
       content: [
         'Translate the user request into a report configuration.',
-        'Category priority: requests for monitoring, check-ups, or measurements across visits/dates always use monitor, even when profile details are also requested. Use profile for demographic, birth, prenatal, or baseline-only details; program for benefits. Choose beneficiaryType=child or mother.',
-        'Return either a proposal with reportCategory, beneficiaryType, profileMetricIds, metricIds, explanation, or a clarification with needsClarification=true, question, options. Include profileMetricIds=[] for proposals that do not combine profile details with monitor history.',
-        'Select only explicitly requested, exact, case-sensitive catalog IDs; do not add related fields merely because they are available. Include measurementDate for requested visit history. Use up to 8 profile fields (only for combined monitor reports), 8 profile metricIds, 12 monitor metricIds, or 3 program metricIds. Never mix categories.',
+        'Return only a valid JSON object with no markdown.',
+        'Category priority: requests for monitoring, check-ups, or measurements across visits/dates always use monitor, even when profile details are also requested. Use profile for Beneficiary/profile details such as demographics, birth, prenatal, or baseline-only information; use program for program benefits or receipts. Choose beneficiaryType=child or mother.',
+        'Always return every schema property. For a report proposal, set needsClarification=false, question="", options=[], and provide reportCategory, beneficiaryType, profileMetricIds, metricIds, and explanation. For a clarification, set needsClarification=true, provide question and 2-4 options, use reportCategory="profile" and beneficiaryType="child", set both metric arrays to [], and explanation="". Include profileMetricIds=[] when the proposal does not combine profile details with monitor history.',
+        'Select only explicitly requested, exact, case-sensitive catalog IDs; do not add related fields merely because they are available. Include measurementDate for requested visit history. Profile reports may contain multiple fields from General, Prenatal/OB, Medical/Dental, and Vaccine sections; include every explicitly requested subfield. Never mix categories.',
         'For requests combining profile details and check-up history, use monitor, profileMetricIds for the profile fields, and metricIds for check-up fields. Include all requested check-up fields together.',
         'For child monitor reports, weight-for-age interpretation is weightForAgeInterpretation and height-for-age interpretation is lengthForAgeInterpretation; do not substitute raw weight or height.',
         'Example: a child request for check-up dates plus weight-for-age and height-for-age interpretations selects only measurementDate, weightForAgeInterpretation, and lengthForAgeInterpretation.',
@@ -675,7 +919,12 @@ async function createReportProposal(prompt, options = {}) {
       ].join(' '),
     },
     { role: 'user', content: normalizedPrompt },
-  ], { ...options, maxTokens: 384, responseFormat: getReportProposalSchema() });
+  ], {
+    ...options,
+    maxCompletionTokens: 2048,
+    reasoningEffort: 'low',
+    responseFormat: { type: 'json_object' },
+  });
   return validateReportProposal(refineProposalToExplicitFields(parseModelJson(content), normalizedPrompt));
 }
 

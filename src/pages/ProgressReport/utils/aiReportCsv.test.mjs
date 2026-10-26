@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildAiReportCsv } from './aiReportCsv.mjs';
+import {
+  buildAiReportCsv,
+  getAgeAtCheckupMonths,
+  isLatestCheckupRequest,
+} from './aiReportCsv.mjs';
 
 const labels = new Map([
   ['batch', 'Batch'],
@@ -8,10 +12,14 @@ const labels = new Map([
   ['child', 'Child Name'],
   ['mother', 'Mother Name'],
   ['age', 'Age'],
+  ['ageAtCheckupMonths', 'Age at Check-up (months)'],
   ['gender', 'Sex'],
   ['dateOfBirth', 'Date of Birth'],
   ['measurementDate', 'Check-up Date'],
+  ['weightForLengthInterpretation', 'Weight-for-Length/Height Interpretation'],
   ['weightForAgeInterpretation', 'Weight-for-Age Interpretation'],
+  ['lengthForAgeInterpretation', 'Length/Height-for-Age Interpretation'],
+  ['bmiForAge', 'BMI'],
 ]);
 
 test('custom monitor CSV includes scope columns, beneficiary identity, requested fields, and one row per visit', () => {
@@ -35,34 +43,147 @@ test('custom monitor CSV includes scope columns, beneficiary identity, requested
     },
     selection: { schoolId: '1', groupId: '2', batchId: '' },
     fieldLabels: labels,
-    getValue: (row, point, field) => field === 'measurementDate' ? point?.date || '' : point?.[field] ?? row[field],
+    getValue: (row, point, field) => field === 'measurementDate'
+      ? point?.date || ''
+      : field === 'ageAtCheckupMonths'
+        ? getAgeAtCheckupMonths(row.dateOfBirth, point?.date)
+        : point?.[field] ?? row[field],
   });
 
   assert.equal(result.rowCount, 2);
-  assert.deepEqual(result.fields, ['batch', 'child', 'mother', 'age', 'gender', 'dateOfBirth', 'measurementDate', 'weightForAgeInterpretation']);
+  assert.deepEqual(result.fields, ['batch', 'child', 'mother', 'ageAtCheckupMonths', 'gender', 'dateOfBirth', 'measurementDate', 'weightForAgeInterpretation']);
   assert.equal(result.filename, 'progress-report-ai-monitor-child.csv');
   assert.deepEqual(result.previewRows, [
-    ['Batch A', 'Sample Child', 'Sample Mother', 20, 'Female', '2025-01-01', '2025-02-01', 'Normal'],
-    ['Batch A', 'Sample Child', 'Sample Mother', 20, 'Female', '2025-01-01', '2025-03-01', 'Underweight'],
+    ['Batch A', 'Sample Child', 'Sample Mother', 1, 'Female', '2025-01-01', '2025-02-01', 'Normal'],
+    ['Batch A', 'Sample Child', 'Sample Mother', 2, 'Female', '2025-01-01', '2025-03-01', 'Underweight'],
   ]);
   assert.match(result.csv, /"Batch","Child Name","Mother Name"/);
   assert.match(result.csv, /"2025-02-01","Normal"/);
   assert.match(result.csv, /"2025-03-01","Underweight"/);
 });
 
-test('custom monitor CSV rejects a scope with no recorded monitoring visits', () => {
-  assert.throws(() => buildAiReportCsv({
+test('age at check-up is derived in completed months from birth and visit dates', () => {
+  assert.equal(getAgeAtCheckupMonths('2025-10-25', '2025-11-25'), 1);
+  assert.equal(getAgeAtCheckupMonths('2025-10-25', '2025-11-24'), 0);
+  assert.equal(getAgeAtCheckupMonths('2025-10-25', '2025-10-24'), '');
+  assert.equal(getAgeAtCheckupMonths('', '2025-11-25'), '');
+});
+
+test('latest-checkup requests keep only the newest monitoring visit per beneficiary', () => {
+  const result = buildAiReportCsv({
+    rows: [
+      {
+        child: 'Sample Child',
+        growthSeries: [
+          { date: '2025-02-01', bmi: 15.2 },
+          { date: '2025-03-01', bmi: 16.1 },
+        ],
+      },
+      {
+        child: 'Another Child',
+        growthSeries: [
+          { date: '2025-01-15', bmi: 14.8 },
+          { date: '2025-04-01', bmi: 15.7 },
+        ],
+      },
+    ],
+    proposal: { reportCategory: 'monitor', beneficiaryType: 'child', metricIds: ['bmiForAge'] },
+    selection: { schoolId: '1', groupId: '', batchId: '' },
+    fieldLabels: labels,
+    latestCheckupOnly: true,
+    getValue: (_row, point, field) => field === 'measurementDate'
+      ? point?.date
+      : field === 'bmiForAge' ? point?.bmi : '',
+  });
+
+  assert.equal(result.rowCount, 2);
+  assert.deepEqual(result.previewRows.map((row) => row.slice(-2)), [
+    ['2025-03-01', 16.1],
+    ['2025-04-01', 15.7],
+  ]);
+});
+
+test('latest child monitor CSV includes all three requested growth indicators', () => {
+  const result = buildAiReportCsv({
     rows: [{
       child: 'Sample Child',
-      mother: 'Sample Mother',
-      measurementDate: '',
-      growthSeries: [],
+      growthSeries: [{
+        date: '2025-03-01',
+        bmi: 16.1,
+        weightForLengthInterpretation: 'Normal',
+        weightForAgeInterpretation: 'Underweight',
+        lengthForAgeInterpretation: 'Normal',
+      }],
     }],
     proposal: {
       reportCategory: 'monitor',
       beneficiaryType: 'child',
-      metricIds: ['measurementDate', 'weightForAge'],
+      metricIds: [
+        'bmiForAge',
+        'weightForLengthInterpretation',
+        'weightForAgeInterpretation',
+        'lengthForAgeInterpretation',
+      ],
     },
+    selection: { schoolId: '1', groupId: '', batchId: '' },
+    fieldLabels: labels,
+    latestCheckupOnly: true,
+    getValue: (_row, point, field) => field === 'measurementDate'
+      ? point?.date
+      : field === 'bmiForAge' ? point?.bmi : point?.[field],
+  });
+
+  assert.deepEqual(result.fields.slice(-5), [
+    'measurementDate',
+    'bmiForAge',
+    'weightForLengthInterpretation',
+    'weightForAgeInterpretation',
+    'lengthForAgeInterpretation',
+  ]);
+  assert.deepEqual(result.previewRows[0].slice(-5), [
+    '2025-03-01',
+    16.1,
+    'Normal',
+    'Underweight',
+    'Normal',
+  ]);
+});
+
+test('monitor CSV trims extra whitespace in interpretation labels', () => {
+  const result = buildAiReportCsv({
+    rows: [{
+      child: 'Sample Child',
+      dateOfBirth: '2025-01-01',
+      growthSeries: [{
+        date: '2025-02-01',
+        weightForAgeInterpretation: '  Custom   interpretation  ',
+      }],
+    }],
+    proposal: {
+      reportCategory: 'monitor',
+      beneficiaryType: 'child',
+      metricIds: ['weightForAgeInterpretation'],
+    },
+    selection: { schoolId: '1', groupId: '', batchId: '' },
+    fieldLabels: labels,
+    getValue: (_row, point, field) => point?.[field],
+  });
+
+  assert.equal(result.previewRows[0].at(-1), 'Custom interpretation');
+});
+
+test('latest-checkup detection recognizes latest, most recent, and last wording', () => {
+  assert.equal(isLatestCheckupRequest('mother latest BMI'), true);
+  assert.equal(isLatestCheckupRequest('most recent mother check-up'), true);
+  assert.equal(isLatestCheckupRequest('mother last recorded BMI'), true);
+  assert.equal(isLatestCheckupRequest('mother BMI from last 3 months'), false);
+  assert.equal(isLatestCheckupRequest('mother BMI history'), false);
+});
+
+test('custom monitor CSV rejects a scope with no recorded monitoring visits', () => {
+  assert.throws(() => buildAiReportCsv({
+    rows: [{ child: 'Sample Child', mother: 'Sample Mother', measurementDate: '', growthSeries: [] }],
+    proposal: { reportCategory: 'monitor', beneficiaryType: 'child', metricIds: ['measurementDate', 'weightForAge'] },
     selection: { schoolId: '1', groupId: '', batchId: '' },
     fieldLabels: labels,
   }), /No monitoring check-ups were found for this scope/);

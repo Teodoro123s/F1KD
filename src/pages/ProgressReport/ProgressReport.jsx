@@ -41,7 +41,11 @@ import {
   getPointInterpretation,
 } from './progressReportConfig';
 import { buildProgressReportCsv } from './utils/csvIdentity.mjs';
-import { buildAiReportCsv, downloadAiReportCsv } from './utils/aiReportCsv.mjs';
+import {
+  buildAiReportCsv,
+  downloadAiReportCsv,
+  getAgeAtCheckupMonths,
+} from './utils/aiReportCsv.mjs';
 import { buildProgressReportParams } from './utils/apiUtils';
 import { matchesProgramBeneficiaryType } from './utils/programEligibility';
 import {
@@ -220,22 +224,25 @@ export default function ProgressReport() {
     }
     return normalized;
   };
-  const buildAiReportPreview = async (proposal) => {
+  const buildAiReportPreview = async (proposal, aiFilters = {}) => {
     const safeSelection = normalizeSelectionHierarchy(selection);
     const isProgramReport = proposal.reportCategory === 'program';
+    const selectedProgramName = aiFilters.programName ?? programName;
+    const selectedBenefitPeriod = aiFilters.benefitPeriod ?? benefitPeriod;
+    const selectedBenefitMonth = aiFilters.benefitMonth ?? benefitMonth;
     const selectedProgram = isProgramReport
-      ? programs.find((program) => normalizeProgramName(program.name) === normalizeProgramName(programName))
+      ? programs.find((program) => normalizeProgramName(program.name) === normalizeProgramName(selectedProgramName))
       : undefined;
     if (isProgramReport && !selectedProgram) {
-      throw new Error('Select a program in Report Focus before creating a program CSV.');
+      throw new Error('Choose a program before building the program report.');
     }
-    if (isProgramReport && !matchesProgramBeneficiaryType(selectedProgram, beneficiaryType)) {
-      throw new Error('Select a beneficiary type supported by the chosen program in Report Focus.');
+    if (isProgramReport && !matchesProgramBeneficiaryType(selectedProgram, proposal.beneficiaryType)) {
+      throw new Error(`The selected program does not support the ${proposal.beneficiaryType} report requested by AI.`);
     }
     if (
       isProgramReport
-      && benefitPeriod === 'month'
-      && !/^(?:1\d{3}|[2-9]\d{3})-(?:0[1-9]|1[0-2])$/.test(benefitMonth)
+      && selectedBenefitPeriod === 'month'
+      && !/^(?:1\d{3}|[2-9]\d{3})-(?:0[1-9]|1[0-2])$/.test(selectedBenefitMonth)
     ) {
       throw new Error('Select a valid month for the program report.');
     }
@@ -243,11 +250,11 @@ export default function ProgressReport() {
     const requestParams = buildProgressReportParams({
       selection: safeSelection,
       reportCategory: proposal.reportCategory,
-      beneficiaryType: isProgramReport ? beneficiaryType : proposal.beneficiaryType,
+      beneficiaryType: proposal.beneficiaryType,
       selectedProgram,
       programName: isProgramReport ? selectedProgram.name : '',
-      benefitPeriod: isProgramReport ? benefitPeriod : 'overall',
-      benefitMonth: isProgramReport && benefitPeriod === 'month' ? benefitMonth : '',
+      benefitPeriod: isProgramReport ? selectedBenefitPeriod : 'overall',
+      benefitMonth: isProgramReport && selectedBenefitPeriod === 'month' ? selectedBenefitMonth : '',
       page: 1,
       perPage: 100,
       exportAll: true,
@@ -264,13 +271,18 @@ export default function ProgressReport() {
 
     const csvReport = buildAiReportCsv({
       rows,
-      proposal: isProgramReport ? { ...proposal, beneficiaryType } : proposal,
+      proposal,
       selection: safeSelection,
       fieldLabels: REPORT_FIELD_LABELS,
+      latestCheckupOnly: Boolean(aiFilters.latestCheckupOnly),
+      motherCheckupSlot: aiFilters.motherCheckupSlot || null,
       formatValue: formatCellValue,
       getValue: (row, point, field) => {
         if (!point) return row[field];
         if (field === 'measurementDate') return point.date || point.measurementDate || '';
+        if (field === 'ageAtCheckupMonths') {
+          return getAgeAtCheckupMonths(row.dateOfBirth, point.date || point.measurementDate);
+        }
         if (field === 'bmiInterpretation' || field.endsWith('Interpretation')) {
           return getPointInterpretation(point, field);
         }
@@ -762,6 +774,21 @@ export default function ProgressReport() {
     notifyAction('Progress report setup reset.');
   };
   const selectGrowthMetric = (id) => {
+    if (beneficiaryType === 'child') {
+      const nextGrowthMetrics = growthMetrics.includes(id)
+        ? growthMetrics.filter((metric) => metric !== id)
+        : [...growthMetrics, id];
+      if (!nextGrowthMetrics.length) return;
+      setGraphMetricType('interpretation');
+      setGrowthMetrics(nextGrowthMetrics);
+      setMonitorTableMetrics(nextGrowthMetrics.length > 1 ? nextGrowthMetrics : []);
+      syncVisibleFieldsForGrowthMetric(nextGrowthMetrics);
+      setResultsView(nextGrowthMetrics.length > 1 ? 'table' : 'graph');
+      setReport(null);
+      setFinalizedSnapshot(null);
+      return;
+    }
+
     setMonitorTableMetrics([]);
     const nextType = INTERPRETATION_METRICS.has(id) || id === 'hospitalReferral' ? 'interpretation' : 'numeric';
     setGraphMetricType(nextType);
@@ -886,17 +913,11 @@ export default function ProgressReport() {
               loadingOptions={loadingOptions}
               updateSelection={updateSelection}
               aiScopeLabel={aiScopeLabel}
-              aiContextKey={[
-                selection.schoolId,
-                selection.groupId,
-                selection.batchId,
-                aiScopeLabel,
-                reportCategory,
-                beneficiaryType,
-                programName,
-                benefitPeriod,
-                benefitMonth,
-              ].join(':')}
+              aiContextKey={[selection.schoolId, selection.groupId, selection.batchId].join(':')}
+              aiPrograms={programs}
+              aiInitialProgramName={programName}
+              aiInitialBenefitPeriod={benefitPeriod}
+              aiInitialBenefitMonth={benefitMonth}
               buildAiReportPreview={buildAiReportPreview}
               exportAiReportCsv={exportAiReportCsv}
               reportCategoryStep={(

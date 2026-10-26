@@ -1206,11 +1206,23 @@
 .progress-report-ai-toggle { flex: 0 0 auto; padding: 0.35rem 0.55rem; border: 1px solid #dce7e1; border-radius: 7px; background: #fff; color: #355446; font: inherit; font-size: 0.75rem; font-weight: 700; cursor: pointer; }
 .progress-report-ai-toggle:hover { border-color: #15803d; color: #166534; }
 .progress-report-ai-heading h2, .progress-report-ai-proposal h3 { margin: 0; color: #173b2c; font-size: 1rem; }
-.progress-report-ai-heading p { margin: 0.3rem 0 0; color: #64748b; font-size: 0.84rem; }
+.progress-report-ai-title { display: flex; align-items: center; gap: 0.4rem; }
 .progress-report-ai-badge { flex: 0 0 auto; padding: 0.25rem 0.55rem; border: 1px solid #bbdfca; border-radius: 999px; background: #effaf3; color: #166534; font-size: 0.72rem; font-weight: 700; }
-.progress-report-ai-scope, .progress-report-ai-message { margin: 0; color: #475569; font-size: 0.82rem; line-height: 1.5; }
-.progress-report-ai-prompt-label { color: #334155; font-size: 0.84rem; font-weight: 700; }
+.progress-report-ai-message { margin: 0; color: #475569; font-size: 0.82rem; line-height: 1.5; }
+.progress-report-ai-prompt-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  color: #334155;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+.progress-report-ai-card .field-help-tooltip { width: 0.9rem; height: 0.9rem; margin-left: 0; }
 .progress-report-ai-card form { display: grid; gap: 0.6rem; min-width: 0; }
+.progress-report-ai-program-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); align-items: end; gap: 0.7rem; min-width: 0; }
+.progress-report-ai-program-filters label { display: grid; gap: 0.35rem; min-width: 0; color: #334155; font-size: 0.82rem; font-weight: 700; }
+.progress-report-ai-program-filters select, .progress-report-ai-program-filters input { width: 100%; min-width: 0; min-height: 40px; padding: 0.5rem 0.65rem; border: 1px solid #cedae8; border-radius: 9px; background: #fff; color: #0f172a; font: inherit; font-weight: 400; }
 .progress-report-ai-card textarea { width: 100%; min-width: 0; box-sizing: border-box; resize: vertical; padding: 0.7rem 0.8rem; border: 1px solid #cbd5e1; border-radius: 9px; background: #fff; color: #0f172a; font: inherit; font-size: 0.88rem; }
 .progress-report-ai-card textarea:focus { border-color: #15803d; outline: 2px solid rgba(21, 128, 61, 0.15); }
 .progress-report-ai-suggestions { display: flex; flex-wrap: wrap; gap: 0.4rem; }
@@ -1221,6 +1233,12 @@
 .progress-report-ai-proposal { display: grid; gap: 0.7rem; min-width: 0; padding: 0.9rem; border: 1px solid #dce7e1; border-radius: 10px; background: #fff; }
 .progress-report-ai-preview-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
 .progress-report-ai-preview-header p { margin: 0.35rem 0 0; color: #64748b; font-size: 0.82rem; line-height: 1.5; }
+.progress-report-ai-understanding { padding: 0.7rem 0.8rem; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; color: #475569; font-size: 0.82rem; }
+.progress-report-ai-understanding summary { color: #334155; font-weight: 700; cursor: pointer; }
+.progress-report-ai-understanding[open] summary { margin-bottom: 0.6rem; }
+.progress-report-ai-understanding dl { display: grid; grid-template-columns: minmax(100px, 0.35fr) minmax(0, 1fr); gap: 0.4rem 0.6rem; margin: 0; }
+.progress-report-ai-understanding dt { color: #64748b; font-weight: 700; }
+.progress-report-ai-understanding dd { min-width: 0; margin: 0; overflow-wrap: anywhere; }
 .progress-report-ai-preview-table { max-height: 28rem; overflow: auto; }
 .progress-report-ai-preview-table .progress-report-table { min-width: max-content; }
 .progress-report-ai-preview-table .progress-report-table thead { position: sticky; top: 0; z-index: 1; }
@@ -1228,6 +1246,49 @@
 .progress-report-ai-proposal dl > div { display: grid; grid-template-columns: minmax(100px, 0.35fr) minmax(0, 1fr); gap: 0.6rem; }
 .progress-report-ai-proposal dt { color: #64748b; font-size: 0.8rem; font-weight: 700; }
 .progress-report-ai-proposal dd { min-width: 0; margin: 0; color: #334155; font-size: 0.84rem; overflow-wrap: anywhere; }
+.progress-report-ai-message { margin: 0; color: #475569; font-size: 0.82rem; line-height: 1.5; }
+.progress-report-ai-card {
+  gap: 1rem;
+  margin-top: 1rem;
+  padding: clamp(1rem, 2vw, 1.35rem);
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.035);
+}
+.progress-report-ai-heading { align-items: center; }
+.progress-report-ai-heading h2 { font-size: 1.1rem; line-height: 1.3; }
+.progress-report-ai-title { min-width: 0; }
+.progress-report-ai-content { gap: 1rem; }
+.progress-report-ai-card form { gap: 0.75rem; }
+.progress-report-ai-prompt-label { font-size: 0.9rem; }
+.progress-report-ai-card textarea { min-height: 6.5rem; padding: 0.8rem 0.9rem; line-height: 1.5; }
+.progress-report-ai-actions { gap: 0.75rem; }
+.progress-report-ai-actions > span { margin-right: auto; }
+.progress-report-ai-actions .primary-btn,
+.progress-report-ai-actions .secondary-btn,
+.progress-report-ai-program-filters > .primary-btn {
+  min-height: 44px;
+  padding-inline: 1rem;
+}
+.progress-report-ai-proposal {
+  gap: 1rem;
+  padding: clamp(0.9rem, 2vw, 1.2rem);
+  border-radius: 12px;
+}
+.progress-report-ai-preview-header { align-items: center; }
+.progress-report-ai-preview-header h3 { font-size: 1.15rem; }
+.progress-report-ai-preview-header p { line-height: 1.5; }
+.progress-report-ai-preview-table {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  scrollbar-gutter: stable;
+}
+.progress-report-ai-preview-table .progress-report-table { min-width: 100%; width: max-content; }
+.progress-report-ai-preview-table th,
+.progress-report-ai-preview-table td { white-space: nowrap; }
+.progress-report-ai-preview-table th { background: #f8fafc; }
+.progress-report-ai-preview-table .progress-report-table thead { top: 0; }
+.progress-report-ai-understanding { line-height: 1.5; }
 .progress-report-config-row { display: flex; align-items: flex-end; gap: 1rem; margin-top: 1rem; }
 .progress-report-search-field { flex: 1; }
 .progress-report-config-row fieldset { display: flex; align-items: center; gap: 0.8rem; min-height: 42px; margin: 0; padding: 0.35rem 0.7rem; border: 1px solid #cedae8; border-radius: 10px; background: #f8fafc; color: #475569; font-size: 0.82rem; }
@@ -1527,10 +1588,16 @@
 
 @media (max-width: 720px) {
   .progress-report-config-header, .progress-report-results-header, .progress-report-config-row { align-items: stretch; flex-direction: column; }
-  .progress-report-ai-heading { flex-direction: column; }
+  .progress-report-ai-heading { align-items: center; flex-direction: row; }
   .progress-report-ai-preview-header { align-items: stretch; flex-direction: column; }
+  .progress-report-ai-actions .primary-btn,
+  .progress-report-ai-actions .secondary-btn,
+  .progress-report-ai-preview-header .primary-btn { width: 100%; }
+  .progress-report-ai-actions > span { width: 100%; }
   .progress-report-ai-badge { align-self: flex-start; }
   .progress-report-ai-proposal dl > div { grid-template-columns: 1fr; gap: 0.1rem; }
+  .progress-report-ai-understanding dl { grid-template-columns: 1fr; gap: 0.15rem; }
+  .progress-report-ai-understanding dd + dt { margin-top: 0.35rem; }
   .progress-report-config-grid, .progress-report-kpis, .progress-report-fields-grid { grid-template-columns: 1fr; }
   .progress-report-config-grid.organizer-report-config-grid { grid-template-columns: 1fr; }
   .progress-report-step-title-row { align-items: stretch; flex-direction: column; }

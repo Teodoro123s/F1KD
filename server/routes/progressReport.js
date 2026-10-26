@@ -19,6 +19,96 @@ function collectVaccineRecord(dates, remarks) {
   return { doses: availableDoses, remarks: remarks || '' };
 }
 
+function hasRecordedValue(value, key, label) {
+  const normalize = (text) => String(text || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const recordedValues = String(value || '').split(',').map(normalize);
+  return recordedValues.includes(normalize(key)) || recordedValues.includes(normalize(label)) ? 'Yes' : 'No';
+}
+
+async function attachVaccineProfileFields(rows, beneficiaryType) {
+  const idField = beneficiaryType === 'mother' ? 'motherId' : 'childId';
+  const ids = rows.map((row) => row[idField]).filter(Boolean);
+  if (!ids.length) return;
+
+  const table = beneficiaryType === 'mother' ? 'mother_vaccinations' : 'child_vaccinations';
+  const keyField = beneficiaryType === 'mother' ? 'mother_id' : 'child_id';
+  const [vaccineRows] = await pool.query(
+    `SELECT ${keyField} AS beneficiary_id, vaccine_name, vaccine_date, remarks${beneficiaryType === 'child' ? ', dose_number' : ''}
+     FROM ${table}
+     WHERE ${keyField} IN (${ids.map(() => '?').join(',')})
+     ORDER BY ${keyField}, ${beneficiaryType === 'child' ? 'vaccine_name, dose_number, id' : 'id'}`,
+    ids,
+  );
+  const rowsById = new Map(rows.map((row) => [String(row[idField]), row]));
+  const childVaccineKeys = {
+    BCG: 'bcg',
+    HepB: 'hepb',
+    IPV: 'ipv',
+    OPV: 'opv',
+    PCV: 'pcv',
+    DPT: 'dpt',
+    MMR: 'mmr',
+  };
+  const motherVaccineFields = {
+    TT1: ['tt1Date', 'tt1Remarks'],
+    TT2: ['tt2Date', 'tt2Remarks'],
+    TT3: ['tt3Date', 'tt3Remarks'],
+    TT4: ['tt4Date', 'tt4Remarks'],
+    TT5: ['tt5Date', 'tt5Remarks'],
+    Influenza: ['influenzaDate', 'influenzaRemarks'],
+    'Influenza Dose 2': ['influenzaDose2Date'],
+    'Influenza Dose 3': ['influenzaDose3Date'],
+    'Hepatitis A': ['hepatitisADate', 'hepatitisARemarks'],
+    'Hepatitis A Dose 2': ['hepatitisADose2Date'],
+    'Hepatitis A Dose 3': ['hepatitisADose3Date'],
+    'Hepatitis B': ['hepatitisBDate', 'hepatitisBRemarks'],
+    'Hepatitis B Dose 2': ['hepatitisBDose2Date'],
+    'Hepatitis B Dose 3': ['hepatitisBDose3Date'],
+    'COVID-19': ['covid19Date', 'covid19Remarks'],
+    'COVID-19 Dose 2': ['covid19Dose2Date'],
+    'COVID-19 Dose 3': ['covid19Dose3Date'],
+  };
+
+  vaccineRows.forEach((vaccine) => {
+    const row = rowsById.get(String(vaccine.beneficiary_id));
+    if (!row) return;
+    if (beneficiaryType === 'mother') {
+      const [dateField, remarksField] = motherVaccineFields[vaccine.vaccine_name] || [];
+      if (dateField) row[dateField] = vaccine.vaccine_date || '';
+      if (remarksField && vaccine.remarks) row[remarksField] = vaccine.remarks;
+      return;
+    }
+
+    const vaccineKey = childVaccineKeys[vaccine.vaccine_name];
+    if (!vaccineKey) return;
+    const doseNumber = Number(vaccine.dose_number) || 1;
+    if (doseNumber >= 1 && doseNumber <= 3) {
+      row[`${vaccineKey}Dose${doseNumber}Date`] = vaccine.vaccine_date || '';
+    }
+    if (vaccine.remarks) {
+      const currentRemarks = row[`${vaccineKey}Remarks`] || [];
+      currentRemarks.push(`Dose ${doseNumber}: ${vaccine.remarks}`);
+      row[`${vaccineKey}Remarks`] = currentRemarks;
+    }
+  });
+
+  rows.forEach((row) => {
+    if (beneficiaryType === 'mother') {
+      row.ttVaccineRecord = collectVaccineRecord(
+        [1, 2, 3, 4, 5].map((dose) => row[`tt${dose}Date`]),
+        [1, 2, 3, 4, 5].map((dose) => row[`tt${dose}Remarks`]).filter(Boolean).join('; '),
+      );
+      return;
+    }
+    Object.entries(childVaccineKeys).forEach(([vaccineName, vaccineKey]) => {
+      const dates = [1, 2, 3].map((dose) => row[`${vaccineKey}Dose${dose}Date`] || '');
+      const remarks = Array.isArray(row[`${vaccineKey}Remarks`]) ? row[`${vaccineKey}Remarks`].join('; ') : '';
+      row[`${vaccineKey}Date`] = collectVaccineRecord(dates, remarks);
+      row[`${vaccineKey}Remarks`] = remarks;
+    });
+  });
+}
+
 const numberOrNull = (value) => {
   if (value === undefined || value === null || value === '' || value === 'all') return null;
   const number = Number(value);
@@ -34,6 +124,48 @@ const getBmiInterpretation = (value) => {
   if (bmi < 30) return 'Overweight screening range';
   return 'Obese screening range';
 };
+
+const MATERNAL_PROFILE_CONDITIONS = [
+  ['hypertension', 'Hypertension'],
+  ['diabetes', 'Diabetes'],
+  ['eclampsia', 'Eclampsia'],
+  ['asthma', 'Asthma'],
+  ['heartDisease', 'Heart Disease'],
+  ['kidneyDisease', 'Kidney Disease'],
+  ['epilepsy', 'Epilepsy'],
+  ['goiter', 'Goiter'],
+  ['tuberculosis', 'Tuberculosis'],
+  ['parasitism', 'Parasitism'],
+  ['anemia', 'Anemia'],
+  ['urinaryTractInfection', 'Urinary Tract Infection'],
+  ['genitalTractInfection', 'Genital Tract Infection'],
+  ['smoking', 'Smoking'],
+  ['alcoholIntake', 'Alcohol Intake'],
+  ['illegalDrugUse', 'Illegal Drug Use'],
+  ['otherInfectiousDisease', 'Other Infectious Disease'],
+  ['cancer', 'Cancer'],
+  ['std', 'Sexually Transmitted Diseases'],
+  ['multiplePregnancy', 'Multiple Pregnancy'],
+  ['prevCesarean', 'Previous Caesarean Section'],
+];
+
+const CHILD_PROFILE_CONDITIONS = [
+  ['congenitalHeartDisease', 'Congenital Heart Disease'],
+  ['respiratoryIssues', 'Respiratory Issues'],
+  ['prematurity', 'Prematurity'],
+  ['jaundice', 'Jaundice'],
+  ['anemia', 'Anemia'],
+  ['growthDelay', 'Growth Delay'],
+];
+
+const DENTAL_WORK_OPTIONS = [
+  ['tartarRemoval', 'Tartar Removal'],
+  ['filling', 'Filling'],
+  ['cleaning', 'Cleaning'],
+  ['extraction', 'Extraction'],
+  ['rootCanal', 'Root Canal'],
+  ['other', 'Other'],
+];
 
 const normalizeProgramBeneficiaryType = (value) => String(value || '').trim().toLowerCase().replace(/\s*&\s*/g, ' and ');
 
@@ -232,8 +364,8 @@ router.get('/', async (req, res) => {
     const statusExpression = params.granularity === 'mother' ? 'm.status' : 'c.health_status';
     const dobExpression = params.granularity === 'mother' ? 'm.dob' : 'c.birth_date';
     const groupDetails = params.granularity === 'mother'
-      ? 'm.dob, m.birth_place, m.prenatal_weight, m.prenatal_height, m.philhealth_member, m.status, m.contact_number, m.address, m.birth_certificate_document_name, m.consent_document_name, m.gravida, m.para, m.abortion, m.stillbirth, m.lmp_date, m.edd_date, m.prenatal_reg_date, m.trimester, m.gestational_age, m.prenatal_bp, m.fundal_height, m.fhr, m.emergency_name, m.emergency_contact, m.emergency_relationship, m.spouse_name, m.philhealth_number, m.other_medical_history, m.is_high_risk, m.program_type'
-      : 'c.birth_date, c.birth_weight, c.birth_length, c.birth_document_name, m.philhealth_member, c.gender, c.blood_type, c.multiple_birth_type, c.delivery_type, c.health_status, c.no_of_child_delivered, c.expanded_newborn_screening, c.expanded_newborn_screening_result, c.birth_place, c.birth_attendant, c.apgar_score, c.feeding_type, c.exclusive_breastfeeding, c.nutrition_notes, c.father_name, c.relationship, c.address, m.contact_number, m.is_high_risk, m.program_type';
+      ? 'm.dob, m.birth_place, m.maiden_surname, m.allergies, m.blood_type, m.civil_status, m.employment_status, m.educational_attainment, m.data_privacy_signed, m.media_release_signed, m.prenatal_weight, m.prenatal_height, m.philhealth_member, m.status, m.contact_number, m.address, m.birth_certificate_document_name, m.consent_document_name, m.gravida, m.para, m.abortion, m.stillbirth, m.total_children, m.children_born_alive, m.miscarriages, m.children_died_after_birth, m.lmp_date, m.edd_date, m.prenatal_reg_date, m.trimester, m.gestational_age, m.prenatal_bp, m.fundal_height, m.fhr, m.emergency_name, m.emergency_contact, m.emergency_relationship, m.spouse_name, m.philhealth_number, m.other_medical_history, m.is_high_risk, m.program_type'
+      : 'c.birth_date, c.birth_weight, c.birth_length, c.head_circumference, c.chest_circumference, c.birth_document_name, m.philhealth_member, c.gender, c.blood_type, c.multiple_birth_type, c.delivery_type, c.health_status, c.no_of_child_delivered, c.expanded_newborn_screening, c.expanded_newborn_screening_result, c.birth_place, c.birth_attendant, c.apgar_score, c.feeding_type, c.exclusive_breastfeeding, c.nutrition_notes, c.father_name, c.relationship, c.address, m.contact_number, m.is_high_risk, m.program_type';
     const query = `
       SELECT
         school.id AS school_id, school.name AS school_name,
@@ -258,6 +390,14 @@ router.get('/', async (req, res) => {
         ${params.granularity === 'mother' ? 'MIN(mc.next_checkup_date)' : 'MIN(cc.next_checkup_date)'} AS next_checkup_date,
         ${params.granularity === 'mother' ? 'NULL' : 'c.delivery_type'} AS delivery_type,
         ${params.granularity === 'mother' ? 'NULL' : 'c.health_status'} AS health_status,
+        ${params.granularity === 'mother' ? 'm.maiden_surname' : 'NULL'} AS maiden_surname,
+        ${params.granularity === 'mother' ? 'm.allergies' : 'NULL'} AS allergies,
+        ${params.granularity === 'mother' ? 'm.blood_type' : 'c.blood_type'} AS profile_blood_type,
+        ${params.granularity === 'mother' ? 'm.civil_status' : 'NULL'} AS civil_status,
+        ${params.granularity === 'mother' ? 'm.employment_status' : 'NULL'} AS employment_status,
+        ${params.granularity === 'mother' ? 'm.educational_attainment' : 'NULL'} AS educational_attainment,
+        ${params.granularity === 'mother' ? 'm.data_privacy_signed' : 'NULL'} AS data_privacy_signed,
+        ${params.granularity === 'mother' ? 'm.media_release_signed' : 'NULL'} AS media_release_signed,
         ${params.granularity === 'mother' ? 'm.lmp_date' : 'NULL'} AS lmp_date,
         ${params.granularity === 'mother' ? 'm.edd_date' : 'NULL'} AS edd_date,
         ${params.granularity === 'mother' ? 'm.prenatal_reg_date' : 'NULL'} AS prenatal_reg_date,
@@ -269,6 +409,11 @@ router.get('/', async (req, res) => {
         ${params.granularity === 'mother' ? 'm.fundal_height' : 'NULL'} AS fundal_height,
         ${params.granularity === 'mother' ? 'm.fhr' : 'NULL'} AS fhr,
         ${params.granularity === 'mother' ? 'm.para' : 'NULL'} AS para,
+        ${params.granularity === 'mother' ? 'm.total_children' : 'NULL'} AS total_children,
+        ${params.granularity === 'mother' ? 'm.children_born_alive' : 'NULL'} AS children_born_alive,
+        ${params.granularity === 'mother' ? 'm.miscarriages' : 'NULL'} AS miscarriages,
+        ${params.granularity === 'mother' ? 'm.children_died_after_birth' : 'NULL'} AS children_died_after_birth,
+        ${params.granularity === 'mother' ? "(SELECT GROUP_CONCAT(CONCAT_WS(': ', event_code, gestational_age, outcome) ORDER BY id SEPARATOR '; ') FROM mother_ob_history moh WHERE moh.mother_id = m.id)" : 'NULL'} AS ob_history,
         ${params.granularity === 'mother' ? 'm.emergency_name' : 'NULL'} AS emergency_name,
         ${params.granularity === 'mother' ? 'm.emergency_contact' : 'NULL'} AS emergency_contact,
         ${params.granularity === 'mother' ? 'm.emergency_relationship' : 'NULL'} AS emergency_relationship,
@@ -297,6 +442,8 @@ router.get('/', async (req, res) => {
         ${params.granularity === 'mother' ? "(SELECT vaccine_date FROM mother_vaccinations mv WHERE mv.mother_id = m.id AND vaccine_name = 'TT5' ORDER BY id DESC LIMIT 1)" : 'NULL'} AS tt5_date,
         ${params.granularity === 'mother' ? "(SELECT remarks FROM mother_vaccinations mv WHERE mv.mother_id = m.id AND vaccine_name = 'TT5' ORDER BY id DESC LIMIT 1)" : 'NULL'} AS tt5_remarks,
         ${params.granularity === 'mother' ? 'NULL' : 'c.no_of_child_delivered'} AS no_of_child_delivered,
+        ${params.granularity === 'mother' ? 'NULL' : 'c.head_circumference'} AS head_circumference,
+        ${params.granularity === 'mother' ? 'NULL' : 'c.chest_circumference'} AS chest_circumference,
         ${params.granularity === 'mother' ? 'NULL' : 'c.expanded_newborn_screening'} AS expanded_newborn_screening,
         ${params.granularity === 'mother' ? 'NULL' : 'c.expanded_newborn_screening_result'} AS expanded_newborn_screening_result,
         ${params.granularity === 'mother' ? 'm.birth_place' : 'c.birth_place'} AS birth_place,
@@ -389,6 +536,11 @@ router.get('/', async (req, res) => {
       fundalHeight: row.fundal_height || '',
       fhr: row.fhr || '',
       para: row.para === null || row.para === undefined ? '' : Number(row.para),
+      totalChildren: row.total_children === null || row.total_children === undefined ? '' : Number(row.total_children),
+      childrenBornAlive: row.children_born_alive === null || row.children_born_alive === undefined ? '' : Number(row.children_born_alive),
+      miscarriages: row.miscarriages === null || row.miscarriages === undefined ? '' : Number(row.miscarriages),
+      childrenDiedAfterBirth: row.children_died_after_birth === null || row.children_died_after_birth === undefined ? '' : Number(row.children_died_after_birth),
+      obHistory: row.ob_history || '',
       emergencyName: row.emergency_name || '',
       emergencyContact: row.emergency_contact || '',
       emergencyRelationship: row.emergency_relationship || '',
@@ -406,6 +558,14 @@ router.get('/', async (req, res) => {
       dentalFindings: row.dental_findings || '',
       dentalWork: row.dental_work || '',
       dentalRemarks: row.dental_remarks || '',
+      ...Object.fromEntries(DENTAL_WORK_OPTIONS.map(([key, label]) => [
+        `dentalWork_${key}`,
+        hasRecordedValue(row.dental_work, key, label),
+      ])),
+      ...Object.fromEntries(MATERNAL_PROFILE_CONDITIONS.map(([key, label]) => [
+        `maternalCondition_${key}`,
+        hasRecordedValue(row.medical_conditions, key, label),
+      ])),
       tt1Date: row.tt1_date || '', tt1Remarks: row.tt1_remarks || '',
       tt2Date: row.tt2_date || '', tt2Remarks: row.tt2_remarks || '',
       tt3Date: row.tt3_date || '', tt3Remarks: row.tt3_remarks || '',
@@ -427,17 +587,30 @@ router.get('/', async (req, res) => {
       feedingType: row.feeding_type || '',
       exclusiveBreastfeeding: row.exclusive_breastfeeding || '',
       nutritionNotes: row.nutrition_notes || '',
+      headCircumference: row.head_circumference === null || row.head_circumference === undefined ? '' : Number(row.head_circumference),
+      chestCircumference: row.chest_circumference === null || row.chest_circumference === undefined ? '' : Number(row.chest_circumference),
       fatherName: row.father_name || '',
       relationship: row.relationship || '',
       address: row.address || '',
       medicalConditions: row.medical_conditions || '',
+      ...Object.fromEntries(CHILD_PROFILE_CONDITIONS.map(([key, label]) => [
+        `child${key[0].toUpperCase()}${key.slice(1)}`,
+        hasRecordedValue(row.medical_conditions, key, label),
+      ])),
       bcgDate: collectVaccineRecord([row.bcg_date, row.bcg_dose2_date, row.bcg_dose3_date], row.bcg_remarks),
       hepbDate: collectVaccineRecord([row.hepb_date, row.hepb_dose2_date, row.hepb_dose3_date], row.hepb_remarks),
       opvDate: collectVaccineRecord([row.opv_date, row.opv_dose2_date, row.opv_dose3_date], row.opv_remarks),
       dptDate: collectVaccineRecord([row.dpt_date, row.dpt_dose2_date, row.dpt_dose3_date], row.dpt_remarks),
       mmrDate: collectVaccineRecord([row.mmr_date, row.mmr_dose2_date, row.mmr_dose3_date], row.mmr_remarks),
       liveBirthDocument: row.live_birth_document || '',
-      bloodType: row.blood_type || '',
+      bloodType: row.profile_blood_type || '',
+      maidenSurname: row.maiden_surname || '',
+      allergies: row.allergies || '',
+      civilStatus: row.civil_status || '',
+      employmentStatus: row.employment_status || '',
+      educationalAttainment: row.educational_attainment || '',
+      dataPrivacySigned: Number(row.data_privacy_signed) ? 'Yes' : 'No',
+      mediaReleaseSigned: Number(row.media_release_signed) ? 'Yes' : 'No',
       multipleBirth: row.multiple_birth_type || '',
       addressDetails: row.address_details || '',
       motherBirthCertificate: row.mother_birth_certificate || '',
@@ -463,6 +636,7 @@ router.get('/', async (req, res) => {
       receivedBenefitActiveMonths: 0,
       programDocumentation: 'No',
     }));
+    await attachVaccineProfileFields(normalizedRows, params.granularity);
     if (params.granularity !== 'mother' || normalizedRows.length) {
       const applyMonitoringData = shouldApplyProgramMonitoringData(params);
       if (applyMonitoringData) {
@@ -573,7 +747,7 @@ router.get('/', async (req, res) => {
     const motherIds = normalizedRows.map((row) => row.motherId).filter(Boolean);
     if (params.granularity === 'mother' && motherIds.length) {
       const [checkupRows] = await pool.query(
-        `SELECT mother_id, checkup_date, gestational_age_weeks, weight_kg, height_cm, bmi,
+        `SELECT mother_id, trimester, checkup_number, checkup_date, gestational_age_weeks, weight_kg, height_cm, bmi,
           referred_to_hospital, lab_assistance_provided, assistance_amount,
           source_of_funds, facility_type
          FROM mother_checkups
@@ -590,6 +764,8 @@ router.get('/', async (req, res) => {
         const ageWeeks = Number(checkup.gestational_age_weeks);
         series.push({
           date: checkup.checkup_date,
+          trimester: checkup.trimester || '',
+          checkupNumber: Number(checkup.checkup_number) || null,
           ageWeeks: Number.isFinite(ageWeeks) ? ageWeeks : null,
           weight: Number.isFinite(Number(checkup.weight_kg)) && Number(checkup.weight_kg) > 0 ? Number(checkup.weight_kg) : null,
           height: Number.isFinite(Number(checkup.height_cm)) && Number(checkup.height_cm) > 0 ? Number(checkup.height_cm) : null,
@@ -628,3 +804,4 @@ router.get('/', async (req, res) => {
 module.exports = router;
 module.exports.resolveProgramReportTargets = resolveProgramReportTargets;
 module.exports.shouldApplyProgramMonitoringData = shouldApplyProgramMonitoringData;
+module.exports.attachVaccineProfileFields = attachVaccineProfileFields;
