@@ -7,7 +7,7 @@ import PageHeader from '../../../components/ui/PageHeader';
 import { useAuth } from '../../../auth/AuthProvider';
 import { can, isHealthWorkerRole } from '../../../utils/permissions';
 import { notifyAction } from '../../../components/ActionFeedback';
-import { navigateBack } from '../../../utils/navigation';
+import { navigateBack } from '../../../utils/navigation/navigation';
 import MotherNavigationCards from '../mother/MotherNavigationCards';
 import BeneficiarySuperHeader from '../mother/BeneficiarySuperHeader';
 

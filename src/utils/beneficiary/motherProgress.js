@@ -1,4 +1,4 @@
-import { addMonthsPreservingDay, formatDateForInput } from './dateFormat.js';
+import { addMonthsPreservingDay, formatDateForInput } from '../formatting/dateFormat.js';
 
 const hasMeaningfulValue = (value) => {
   if (value === undefined || value === null) return false;
@@ -11,6 +11,38 @@ const hasMeaningfulValue = (value) => {
 };
 const firstMeaningfulValue = (...values) => values.find(hasMeaningfulValue);
 const MATERNAL_CHECKUP_WEEKS = [8, 10, 12, 16, 20, 24, 28, 32, 36];
+
+export function getMotherTrimesterMonth(gestationalAge, trimester = '') {
+  const weeks = Number.parseInt(gestationalAge, 10);
+  if (!Number.isFinite(weeks) || weeks < 0) return '';
+
+  const normalizedTrimester = String(trimester || '').toLowerCase();
+  const trimesterStartWeek = normalizedTrimester.includes('3rd') || normalizedTrimester.includes('third')
+    ? 27
+    : normalizedTrimester.includes('2nd') || normalizedTrimester.includes('second')
+      ? 13
+      : normalizedTrimester.includes('1st') || normalizedTrimester.includes('first')
+        ? 1
+        : weeks > 26 ? 27 : weeks > 12 ? 13 : 1;
+  const month = Math.min(3, Math.floor(Math.max(0, weeks - trimesterStartWeek) / 4) + 1);
+  return `Month ${month}`;
+}
+
+export function getMotherGestationalAgeAtDate(mother = {}, visitDate, fallbackWeeks = '') {
+  const lmpDate = formatDateForInput(mother.lmpDate ?? mother.lmp_date ?? mother.lmp);
+  const checkupDate = formatDateForInput(visitDate);
+  if (lmpDate && checkupDate) {
+    const lmp = new Date(`${lmpDate}T00:00:00Z`);
+    const visit = new Date(`${checkupDate}T00:00:00Z`);
+    if (!Number.isNaN(lmp.getTime()) && !Number.isNaN(visit.getTime()) && visit >= lmp) {
+      return String(Math.floor((visit - lmp) / (7 * 24 * 60 * 60 * 1000)));
+    }
+  }
+
+  const fallback = Number.parseInt(fallbackWeeks, 10);
+  return Number.isFinite(fallback) ? String(fallback) : '';
+}
+
 const hasDocumentReference = (mother, nameKeys, pathKeys) => (
   hasMeaningfulValue(firstMeaningfulValue(...nameKeys.map((key) => mother?.[key])))
   && hasMeaningfulValue(firstMeaningfulValue(...pathKeys.map((key) => mother?.[key])))
@@ -72,8 +104,11 @@ export function getMotherMonitoringProgress(mother = {}) {
 }
 
 export function getMotherCheckupDate(checkup, previousCheckup, fallbackDate = '') {
-  return formatDateForInput(checkup?.checkupDate)
-    || formatDateForInput(previousCheckup?.nextCheckupDate)
+  const previousNextCheckupDate = previousCheckup?.nextCheckupDate ?? previousCheckup?.next_checkup_date;
+  const previousCheckupDate = formatDateForInput(previousCheckup?.checkupDate ?? previousCheckup?.checkup_date);
+  return formatDateForInput(checkup?.checkupDate ?? checkup?.checkup_date)
+    || formatDateForInput(previousNextCheckupDate)
+    || getMotherNextCheckupDate(previousCheckupDate)
     || formatDateForInput(fallbackDate);
 }
 

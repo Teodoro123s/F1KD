@@ -15,6 +15,32 @@ function getField(body, ...keys) {
   return null;
 }
 
+function getTentativeNextCheckupDate(checkupDate) {
+  const normalized = normalizeCheckupDate(checkupDate);
+  if (!normalized) return null;
+  const [year, month, day] = normalized.split('-').map(Number);
+  const nextMonthIndex = year * 12 + month;
+  const nextYear = Math.floor(nextMonthIndex / 12);
+  const nextMonth = nextMonthIndex % 12;
+  const lastDay = new Date(Date.UTC(nextYear, nextMonth + 1, 0)).getUTCDate();
+  const nextDay = Math.min(day, lastDay);
+  return `${nextYear}-${String(nextMonth + 1).padStart(2, '0')}-${String(nextDay).padStart(2, '0')}`;
+}
+
+function normalizeCheckupDate(value) {
+  const raw = String(value ?? '').trim();
+  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  const dayFirst = raw.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  const parts = iso
+    ? [Number(iso[1]), Number(iso[2]), Number(iso[3])]
+    : dayFirst ? [Number(dayFirst[3]), Number(dayFirst[2]), Number(dayFirst[1])] : null;
+  if (!parts) return null;
+  const [year, month, day] = parts;
+  const sourceDate = new Date(Date.UTC(year, month - 1, day));
+  if (sourceDate.getUTCFullYear() !== year || sourceDate.getUTCMonth() !== month - 1 || sourceDate.getUTCDate() !== day) return null;
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
 async function attachClinicalData(child) {
   const [[medicalRows], [vaccineRows]] = await Promise.all([
     pool.query('SELECT * FROM child_medical_conditions WHERE child_id = ? ORDER BY id', [child.id]),
@@ -542,6 +568,15 @@ router.post('/:id/checkups', async (req, res) => {
     if (!childRows.length) return res.status(404).json({ error: 'Child not found' });
 
     const childId = childRows[0].id;
+    for (const [field, label] of [['weight', 'Weight'], ['height', 'Height']]) {
+      const rawValue = body[field];
+      if (rawValue !== undefined && rawValue !== null && String(rawValue).trim() !== '') {
+        const value = Number(rawValue);
+        if (!Number.isFinite(value) || value < 0) {
+          return res.status(400).json({ error: `${label} cannot be a negative value.` });
+        }
+      }
+    }
     const week = Number(body.week);
     if (!Number.isInteger(week) || week < 1 || week > 48) {
       return res.status(400).json({ error: 'Valid week (1-48) is required' });
@@ -559,8 +594,17 @@ router.post('/:id/checkups', async (req, res) => {
       );
     }
 
+    const hasNextCheckupDate = Object.prototype.hasOwnProperty.call(body, 'nextCheckupDate')
+      || Object.prototype.hasOwnProperty.call(body, 'next_checkup_date');
+    const suppliedNextCheckupDate = body.nextCheckupDate ?? body.next_checkup_date;
+    const normalizedNextCheckupDate = hasNextCheckupDate
+      ? (String(suppliedNextCheckupDate ?? '').trim() ? normalizeCheckupDate(suppliedNextCheckupDate) : null)
+      : getTentativeNextCheckupDate(body.checkupDate);
+    if (hasNextCheckupDate && String(suppliedNextCheckupDate ?? '').trim() && !normalizedNextCheckupDate) {
+      return res.status(400).json({ error: 'Enter a valid next check-up date or leave it blank to cancel the reminder.' });
+    }
     const values = [
-      body.nextCheckupDate || null,
+      normalizedNextCheckupDate,
       body.checkupDate || null,
       body.weight || null,
       body.height || null,

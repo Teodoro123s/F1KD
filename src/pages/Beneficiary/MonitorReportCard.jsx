@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { formatDateForDisplay } from '../../utils/dateFormat';
-import { calculateWhoGrowthScores } from '../../utils/whoGrowthStandards';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { formatDateForDisplay } from '../../utils/formatting/dateFormat';
+import { calculateWhoGrowthScores } from '../../utils/beneficiary/whoGrowthStandards';
 
 const CHILD_METRICS = [
   { key: 'weightForAge', label: 'Weight-for-Age', score: 'weightForAgeZScore', interpretation: 'weightForAgeInterpretation' },
@@ -33,7 +34,7 @@ const toFiniteNumber = (value) => {
   return Number.isFinite(number) ? number : null;
 };
 
-const ReportTrendGraph = ({ rows, valueKey, valueGetter, label, unit, precision = 1, normalRange, axisRange, styleVariant }) => {
+const ReportTrendGraph = ({ rows, valueKey, valueGetter, label, unit, precision = 1, normalRange, axisRange, styleVariant, onPointSelect }) => {
   const points = rows
     .map((row) => ({ ...row, value: toFiniteNumber(valueGetter ? valueGetter(row) : row[valueKey]) }))
     .filter((row) => row.value !== null)
@@ -62,8 +63,8 @@ const ReportTrendGraph = ({ rows, valueKey, valueGetter, label, unit, precision 
   const labelInterval = Math.max(1, Math.ceil(points.length / 6));
 
   return (
-    <div className={`monitor-report-graph${styleVariant === 'who' ? ' monitor-report-graph--who growth-report-line-chart' : ''}`} role="img" aria-label={`${label} trend graph with ${points.length} monitoring ${points.length === 1 ? 'visit' : 'visits'}${normalRange ? `. Shaded area shows the normal range from ${normalRange.min} to ${normalRange.max} Z-score` : ''}.`}>
-      <svg viewBox={`0 0 ${width} ${height}`} aria-hidden="true">
+    <div className={`monitor-report-graph${styleVariant === 'who' ? ' monitor-report-graph--who growth-report-line-chart' : ''}`} role={onPointSelect ? 'group' : 'img'} aria-label={`${label} trend graph with ${points.length} monitoring ${points.length === 1 ? 'visit' : 'visits'}${normalRange ? `. Shaded area shows the normal range from ${normalRange.min} to ${normalRange.max} Z-score` : ''}.${onPointSelect ? ' Select a data point to open its check-up record.' : ''}`}>
+      <svg viewBox={`0 0 ${width} ${height}`} aria-hidden={onPointSelect ? undefined : true}>
         {normalRange && (
           <rect
             className="monitor-report-graph__normal-range"
@@ -87,7 +88,21 @@ const ReportTrendGraph = ({ rows, valueKey, valueGetter, label, unit, precision 
           <polyline points={linePoints} fill="none" stroke="#168447" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
         )}
         {points.map((point, index) => (
-          <g key={point.key}>
+          <g
+            key={point.key}
+            className={onPointSelect ? 'monitor-report-graph__point is-routeable' : 'monitor-report-graph__point'}
+            role={onPointSelect ? 'button' : undefined}
+            tabIndex={onPointSelect ? 0 : undefined}
+            aria-label={onPointSelect ? `Open ${formatDateForDisplay(point.date)} check-up form, ${label.toLowerCase()} ${point.value.toFixed(precision)} ${unit}` : undefined}
+            onClick={onPointSelect ? () => onPointSelect(point) : undefined}
+            onKeyDown={onPointSelect ? (event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                onPointSelect(point);
+              }
+            } : undefined}
+          >
+            {onPointSelect && <circle className="monitor-report-graph__point-target" cx={getX(index)} cy={getY(point.value)} r="12" fill="transparent" />}
             <circle cx={getX(index)} cy={getY(point.value)} r="5" fill="#168447" stroke="white" strokeWidth="2">
               <title>{`${formatDateForDisplay(point.date)}: ${point.value.toFixed(precision)} ${unit}`}</title>
             </circle>
@@ -99,28 +114,45 @@ const ReportTrendGraph = ({ rows, valueKey, valueGetter, label, unit, precision 
           </g>
         ))}
       </svg>
-      <p>{label} ({unit}) by visit date</p>
+      <p>{label} ({unit}) by visit date{onPointSelect ? '. Select a point to open its check-up form.' : ''}</p>
     </div>
   );
 };
 
 export default function MonitorReportCard({ beneficiaryType, beneficiary }) {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [metricKey, setMetricKey] = useState(CHILD_METRICS[0].key);
   const [displayMode, setDisplayMode] = useState('value');
   const [reportView, setReportView] = useState('table');
 
   const motherRows = useMemo(() => {
     if (beneficiaryType !== 'mother') return [];
-    const checkups = Array.isArray(beneficiary?.checkups) ? beneficiary.checkups.flat().filter(Boolean) : [];
+    const checkups = Array.isArray(beneficiary?.checkups)
+      ? beneficiary.checkups.flatMap((trimester, trimesterIndex) => (
+        Array.isArray(trimester)
+          ? trimester.map((checkup, checkupIndex) => ({ checkup, slotStep: trimesterIndex * 3 + checkupIndex }))
+          : [{ checkup: trimester, slotStep: trimesterIndex }]
+      )).filter(({ checkup }) => checkup)
+      : [];
     return checkups
-      .map((checkup, index) => {
+      .map(({ checkup, slotStep }, index) => {
         const bmi = getBmi(checkup);
+        const trimester = String(checkup.trimester ?? '').toLowerCase();
+        const trimesterIndex = trimester.includes('3rd') || trimester.includes('third')
+          ? 2
+          : trimester.includes('2nd') || trimester.includes('second') ? 1 : Math.floor(slotStep / 3);
+        const checkupNumber = Number(checkup.checkupNumber ?? checkup.checkup_number);
+        const checkupIndex = Number.isInteger(checkupNumber) && checkupNumber >= 1 && checkupNumber <= 3
+          ? checkupNumber - 1
+          : slotStep % 3;
         return {
           key: checkup.id || `${checkup.checkupDate || checkup.checkup_date || 'checkup'}-${index}`,
           date: checkup.checkupDate || checkup.checkup_date,
           trimester: checkup.trimester || '—',
           bmi,
           interpretation: getBmiInterpretation(bmi),
+          stepIndex: trimesterIndex * 3 + checkupIndex,
         };
       })
       .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
@@ -191,7 +223,19 @@ export default function MonitorReportCard({ beneficiaryType, beneficiary }) {
             </table>
           </div>
         ) : (
-          <ReportTrendGraph rows={motherRows} valueKey="bmi" label="BMI" unit="kg/m²" />
+          <ReportTrendGraph
+            rows={motherRows}
+            valueKey="bmi"
+            label="BMI"
+            unit="kg/m²"
+            onPointSelect={(point) => navigate('/monitoring', {
+              state: {
+                mother: beneficiary,
+                checkupStep: point.stepIndex,
+                returnTo: `${location.pathname}${location.search}`,
+              },
+            })}
+          />
         )}
         <p className="monitor-report-note">BMI categories are informational adult ranges and are not a pregnancy-specific assessment. Interpret with the care provider.</p>
       </section>

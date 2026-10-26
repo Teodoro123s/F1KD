@@ -24,6 +24,16 @@ export function getCsvIdentityValue(row, field, beneficiaryType) {
   return row[field];
 }
 
+const getCsvHeaderLabel = (field, label) => {
+  const monthField = String(field).match(/^(\d{4})-(\d{2})(Interpretation)?$/);
+  if (!monthField) return label;
+
+  const [, year, month, interpretation] = monthField;
+  const monthName = new Intl.DateTimeFormat('en-US', { month: 'short', timeZone: 'UTC' })
+    .format(new Date(Date.UTC(Number(year), Number(month) - 1, 1)));
+  return `BMI ${monthName} ${year}${interpretation ? ' Interpretation' : ''}`;
+};
+
 export function buildProgressReportCsv(rows, fields, beneficiaryType, formatValue = (_field, value) => value) {
   const identityFields = getCsvIdentityFields(fields, beneficiaryType);
   const csvValue = (value) => {
@@ -32,7 +42,7 @@ export function buildProgressReportCsv(rows, fields, beneficiaryType, formatValu
     return `"${safeText.replaceAll('"', '""')}"`;
   };
   return [
-    identityFields.map(([, label]) => csvValue(label)).join(','),
+    identityFields.map(([id, label]) => csvValue(getCsvHeaderLabel(id, label))).join(','),
     ...rows.map((row) => identityFields.map(([id]) => (
       csvValue(formatValue(id, getCsvIdentityValue(row, id, beneficiaryType)))
     )).join(',')),

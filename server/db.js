@@ -56,6 +56,7 @@ async function ensure() {
       role VARCHAR(120),
       status ENUM('Active','Suspended') DEFAULT 'Active',
       password_hash VARCHAR(255),
+      consent_accepted_at DATETIME NULL,
       school_id INT NULL,
       group_id INT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -64,7 +65,8 @@ async function ensure() {
 
     `ALTER TABLE users
       ADD COLUMN IF NOT EXISTS school_id INT NULL,
-      ADD COLUMN IF NOT EXISTS group_id INT NULL;`,
+      ADD COLUMN IF NOT EXISTS group_id INT NULL,
+      ADD COLUMN IF NOT EXISTS consent_accepted_at DATETIME NULL;`,
 
     `ALTER TABLE users ALTER COLUMN role SET DEFAULT 'User';`,
 
@@ -447,6 +449,7 @@ async function ensure() {
       ADD COLUMN IF NOT EXISTS assistance_amount DECIMAL(10,2),
       ADD COLUMN IF NOT EXISTS source_of_funds VARCHAR(80),
       ADD COLUMN IF NOT EXISTS facility_type VARCHAR(40),
+      ADD INDEX IF NOT EXISTS idx_child_checkups_next_date (next_checkup_date, child_id),
       ADD COLUMN IF NOT EXISTS recorded_by_user_id INT NULL,
       ADD COLUMN IF NOT EXISTS created_by_user_id INT NULL,
       ADD COLUMN IF NOT EXISTS updated_by_user_id INT NULL,
@@ -632,10 +635,12 @@ async function ensure() {
       group_id INT DEFAULT NULL,
       school_scope_ids VARCHAR(1000) DEFAULT NULL,
       recipient_user_ids VARCHAR(1000) DEFAULT NULL,
+      idempotency_key VARCHAR(191) DEFAULT NULL,
       actor_user_id INT DEFAULT NULL,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       KEY idx_notifications_created_at (created_at),
-      KEY idx_notifications_category (category)
+      KEY idx_notifications_category (category),
+      UNIQUE KEY uq_notifications_idempotency_key (idempotency_key)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
     `ALTER TABLE notifications
       ADD COLUMN IF NOT EXISTS title VARCHAR(120) NOT NULL DEFAULT 'Notification',
@@ -643,7 +648,9 @@ async function ensure() {
       ADD COLUMN IF NOT EXISTS school_id INT DEFAULT NULL,
       ADD COLUMN IF NOT EXISTS group_id INT DEFAULT NULL,
       ADD COLUMN IF NOT EXISTS school_scope_ids VARCHAR(1000) DEFAULT NULL,
-      ADD COLUMN IF NOT EXISTS recipient_user_ids VARCHAR(1000) DEFAULT NULL;`,
+      ADD COLUMN IF NOT EXISTS recipient_user_ids VARCHAR(1000) DEFAULT NULL,
+      ADD COLUMN IF NOT EXISTS idempotency_key VARCHAR(191) DEFAULT NULL,
+      ADD UNIQUE INDEX IF NOT EXISTS uq_notifications_idempotency_key (idempotency_key);`,
     `CREATE TABLE IF NOT EXISTS notification_reads (
       notification_id BIGINT UNSIGNED NOT NULL,
       user_id INT NOT NULL,
@@ -739,6 +746,27 @@ async function ensure() {
       attempts TINYINT UNSIGNED NOT NULL DEFAULT 0,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+    `CREATE TABLE IF NOT EXISTS auth_sessions (
+      id CHAR(36) PRIMARY KEY,
+      user_id INT NOT NULL,
+      expires_at DATETIME NOT NULL,
+      revoked_at DATETIME NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_auth_sessions_user (user_id, revoked_at),
+      KEY idx_auth_sessions_expiry (expires_at),
+      CONSTRAINT fk_auth_sessions_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+    `CREATE TABLE IF NOT EXISTS auth_refresh_tokens (
+      id CHAR(36) PRIMARY KEY,
+      session_id CHAR(36) NOT NULL,
+      token_hash CHAR(64) NOT NULL,
+      expires_at DATETIME NOT NULL,
+      revoked_at DATETIME NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_auth_refresh_session (session_id, revoked_at),
+      KEY idx_auth_refresh_expiry (expires_at),
+      CONSTRAINT fk_auth_refresh_session FOREIGN KEY (session_id) REFERENCES auth_sessions(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
     `CREATE TABLE IF NOT EXISTS philhealth_claims (
       id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
       mother_id INT NOT NULL,
@@ -781,6 +809,7 @@ async function ensureRequiredUserColumns() {
       role: "VARCHAR(120) NOT NULL DEFAULT 'User'",
       status: "VARCHAR(20) NOT NULL DEFAULT 'Active'",
       password_hash: 'VARCHAR(255) DEFAULT NULL',
+      consent_accepted_at: 'DATETIME DEFAULT NULL',
       school_id: 'INT DEFAULT NULL',
       group_id: 'INT DEFAULT NULL',
     };

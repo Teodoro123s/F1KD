@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS users (
   role VARCHAR(120) NOT NULL DEFAULT 'User',
   status ENUM('Active','Suspended') NOT NULL DEFAULT 'Active',
   password_hash VARCHAR(255) DEFAULT NULL,
+  consent_accepted_at DATETIME DEFAULT NULL,
   school_id INT DEFAULT NULL,
   coordinator_school_id INT GENERATED ALWAYS AS (
     CASE
@@ -343,6 +344,7 @@ CREATE TABLE IF NOT EXISTS child_checkups (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE KEY uq_child_checkup (child_id, week_number),
+  KEY idx_child_checkups_next_date (next_checkup_date, child_id),
   CONSTRAINT fk_child_checkup_child FOREIGN KEY (child_id) REFERENCES children(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

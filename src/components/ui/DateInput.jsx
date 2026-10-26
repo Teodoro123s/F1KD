@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { formatDateForDisplay, getDateInputError, maskDateInput, normalizeDateValue } from '../../utils/dateFormat';
+import { formatDateForDisplay, getDateInputError, maskDateInput, normalizeDateValue } from '../../utils/formatting/dateFormat';
 
 const displayDate = (value) => {
   const formatted = formatDateForDisplay(value);

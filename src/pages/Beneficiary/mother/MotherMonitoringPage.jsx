@@ -3,7 +3,7 @@ import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../auth/AuthProvider';
 import { canViewAuditSignatures } from '../../../utils/permissions';
 import MotherCheckup from './MotherCheckup';
-import { navigateBack } from '../../../utils/navigation';
+import { navigateBack } from '../../../utils/navigation/navigation';
 
 export default function MotherMonitoringPage() {
   const { id } = useParams();

@@ -1,22 +1,35 @@
-import React from 'react';
+import React, { useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { capitalizeNameValue } from '../../utils/nameFormat';
+import useModalAccessibility from '../../components/ui/useModalAccessibility';
+
+// Keep a trailing space while the user is typing so they can enter multiword names.
+function formatCommunityNameInput(value) {
+  return String(value ?? '')
+    .replace(/\s+/g, ' ')
+    .replace(/(^|\s|[-'])([a-z])/g, (match, prefix, character) => `${prefix}${character.toUpperCase()}`);
+}
 
 export function ConfirmActionModal({ show, title, message, confirmLabel = 'OK', onConfirm, onCancel, isSubmitting = false }) {
+  const titleId = useId();
+  const messageId = useId();
+  const dialogRef = useRef(null);
+  const cancelRef = useRef(null);
+  const close = () => { if (!isSubmitting) onCancel?.(); };
+  useModalAccessibility({ open: show, onClose: close, dialogRef, initialFocusRef: cancelRef, closeDisabled: isSubmitting });
   if (!show) return null;
 
   return createPortal((
-    <div className="modal-backdrop" role="presentation" onClick={onCancel}>
-      <div className="modal-content signout-confirm-modal confirmation-modal-content" role="dialog" aria-modal="true" aria-labelledby="confirm-action-title" onClick={(event) => event.stopPropagation()}>
+    <div className="modal-backdrop" role="presentation" onClick={(event) => { if (event.target === event.currentTarget) close(); }}>
+      <div ref={dialogRef} className="modal-content signout-confirm-modal confirmation-modal-content" role="alertdialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={messageId} tabIndex={-1} onClick={(event) => event.stopPropagation()}>
         <div className="modal-header-section confirmation-modal-header">
-          <h3 id="confirm-action-title">{title}</h3>
+          <h3 id={titleId}>{title}</h3>
           <button type="button" className="btn-close-modal" onClick={onCancel} aria-label="Close confirmation" disabled={isSubmitting}>✕</button>
         </div>
         <div className="modal-body confirmation-modal-body">
-          <p>{message}</p>
+          <p id={messageId}>{message}</p>
         </div>
         <div className="modal-footer confirmation-modal-footer">
-          <button type="button" className="btn-secondary confirmation-cancel-btn" onClick={onCancel} disabled={isSubmitting}>Cancel</button>
+          <button ref={cancelRef} type="button" className="btn-secondary confirmation-cancel-btn" onClick={close} disabled={isSubmitting}>Cancel</button>
           <button type="button" className="btn-primary confirmation-confirm-btn" onClick={onConfirm} disabled={isSubmitting}>
             {isSubmitting ? 'Working...' : confirmLabel}
           </button>
@@ -27,12 +40,17 @@ export function ConfirmActionModal({ show, title, message, confirmLabel = 'OK', 
 }
 
 function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitting = false, notification = '' }) {
+  const titleId = useId();
+  const dialogRef = useRef(null);
+  const closeButtonRef = useRef(null);
+  const close = () => { if (!isSubmitting) onClose?.(); };
+  useModalAccessibility({ open: true, onClose: close, dialogRef, initialFocusRef: closeButtonRef, closeDisabled: isSubmitting });
   return createPortal((
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-content community-modal-content" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-backdrop" role="presentation" onClick={(event) => { if (event.target === event.currentTarget) close(); }}>
+      <div ref={dialogRef} className="modal-content community-modal-content" role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header-section community-modal-header-section">
-          <h3>{title}</h3>
-          <button className="btn-close-modal" onClick={onClose} aria-label="Close modal">✕</button>
+          <h3 id={titleId}>{title}</h3>
+          <button ref={closeButtonRef} type="button" className="btn-close-modal" onClick={close} aria-label="Close modal" disabled={isSubmitting}>✕</button>
         </div>
         <form onSubmit={onSubmit}>
           <div className="modal-body">
@@ -40,7 +58,7 @@ function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitt
             {children}
           </div>
           <div className="modal-footer">
-            <button type="button" className="btn-secondary" onClick={onClose} disabled={isSubmitting}>Cancel</button>
+            <button type="button" className="btn-secondary" onClick={close} disabled={isSubmitting}>Cancel</button>
             <button type="submit" className={submitLabel === 'Create' ? 'btn-create-action' : 'btn-primary'} disabled={isSubmitting}>
               {isSubmitting ? `${submitLabel}...` : submitLabel}
             </button>
@@ -60,20 +78,24 @@ export function CreateCommunityModal({ showModal, onClose, communityForm, setCom
   return (
     <ModalShell title="Create School" onClose={onClose} onSubmit={handleCreateCommunity} submitLabel="Create" isSubmitting={isSubmitting} notification={notification}>
       <div className="form-group">
-        <label className="form-label" htmlFor="comm-name">School Name</label>
+        <label className="form-label" htmlFor="comm-name">School Name <span className="form-required-indicator" aria-hidden="true">*</span></label>
         <input
           id="comm-name"
           type="text"
           className="form-input"
           placeholder="e.g. San Isidro High School"
           value={communityForm.name}
-          onChange={(e) => setCommunityForm({ ...communityForm, name: capitalizeNameValue(e.target.value) })}
+          onChange={(e) => setCommunityForm({ ...communityForm, name: formatCommunityNameInput(e.target.value) })}
+          maxLength={150}
+          pattern=".*\S.*"
+          title="Enter a school name with at least one non-space character."
+          aria-required="true"
           required
           autoFocus
         />
       </div>
       <div className="form-group">
-        <label className="form-label" htmlFor="comm-coordinator">Assigned Community Coordinator</label>
+        <label className="form-label" htmlFor="comm-coordinator">Assigned Community Coordinator (optional)</label>
         <select
           id="comm-coordinator"
           className="form-select"
@@ -101,19 +123,23 @@ export function EditCommunityModal({ showModal, onClose, communityForm, setCommu
   return (
     <ModalShell title="Edit School" onClose={onClose} onSubmit={handleEditCommunity} submitLabel="Save Changes" isSubmitting={isSubmitting} notification={notification}>
       <div className="form-group">
-        <label className="form-label" htmlFor="edit-comm-name">School Name</label>
+        <label className="form-label" htmlFor="edit-comm-name">School Name <span className="form-required-indicator" aria-hidden="true">*</span></label>
         <input
           id="edit-comm-name"
           type="text"
           className="form-input"
           value={communityForm.name}
-          onChange={(e) => setCommunityForm({ ...communityForm, name: capitalizeNameValue(e.target.value) })}
+          onChange={(e) => setCommunityForm({ ...communityForm, name: formatCommunityNameInput(e.target.value) })}
+          maxLength={150}
+          pattern=".*\S.*"
+          title="Enter a school name with at least one non-space character."
+          aria-required="true"
           required
           autoFocus
         />
       </div>
       <div className="form-group">
-        <label className="form-label" htmlFor="edit-comm-coordinator">Assigned Community Coordinator</label>
+        <label className="form-label" htmlFor="edit-comm-coordinator">Assigned Community Coordinator (optional)</label>
         <select
           id="edit-comm-coordinator"
           className="form-select"
@@ -144,7 +170,7 @@ export function CreateBatchModal({ showModal, onClose, batchForm, setBatchForm, 
           className="form-input"
           placeholder="e.g. Batch 1"
           value={batchForm.name}
-          onChange={(e) => setBatchForm({ ...batchForm, name: capitalizeNameValue(e.target.value) })}
+          onChange={(e) => setBatchForm({ ...batchForm, name: formatCommunityNameInput(e.target.value) })}
           required
           autoFocus
         />
@@ -194,7 +220,7 @@ export function EditBatchModal({ showModal, onClose, batchForm, setBatchForm, ha
           type="text"
           className="form-input"
           value={batchForm.name}
-          onChange={(e) => setBatchForm({ ...batchForm, name: capitalizeNameValue(e.target.value) })}
+          onChange={(e) => setBatchForm({ ...batchForm, name: formatCommunityNameInput(e.target.value) })}
           required
           autoFocus
         />
@@ -233,7 +259,7 @@ export function CreateGroupModal({ showModal, onClose, groupForm, setGroupForm, 
           className="form-input"
           placeholder="e.g. Group Alpha"
           value={groupForm.name}
-          onChange={(e) => setGroupForm({ ...groupForm, name: capitalizeNameValue(e.target.value) })}
+          onChange={(e) => setGroupForm({ ...groupForm, name: formatCommunityNameInput(e.target.value) })}
           required
           autoFocus
         />
@@ -271,7 +297,7 @@ export function EditGroupModal({ showModal, onClose, groupForm, setGroupForm, ha
           type="text"
           className="form-input"
           value={groupForm.name}
-          onChange={(e) => setGroupForm({ ...groupForm, name: capitalizeNameValue(e.target.value) })}
+          onChange={(e) => setGroupForm({ ...groupForm, name: formatCommunityNameInput(e.target.value) })}
           required
           autoFocus
         />

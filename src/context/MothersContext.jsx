@@ -12,6 +12,7 @@ export function MothersProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const requestVersion = useRef(0);
+  const mothersRef = useRef(mothers);
 
   const loadMothers = useCallback(async (fields = []) => {
     const requestId = ++requestVersion.current;
@@ -31,16 +32,17 @@ export function MothersProvider({ children }) {
       const payload = await response.json();
       const nextMothers = Array.isArray(payload) ? payload : (payload.mothers || []);
       if (requestId === requestVersion.current) {
+        mothersRef.current = nextMothers;
         setMothers(nextMothers);
       }
       return nextMothers;
     } catch (error) {
       console.error('[MothersContext] Unable to load mothers from database:', error);
       if (requestId === requestVersion.current) {
-        setMothers([]);
+        // Keep the last successful snapshot visible while the refresh is failing.
         setError('Unable to load mothers. Please try again.');
       }
-      return [];
+      return mothersRef.current;
     } finally {
       if (requestId === requestVersion.current) {
         setLoading(false);

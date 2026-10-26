@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { getChildRecordErrors } from './childRecordValidation.js';
-import { capitalizeNameValue } from './nameFormat.js';
+import { capitalizeNameValue } from '../formatting/nameFormat.js';
 
 const today = new Date(2026, 9, 17);
 

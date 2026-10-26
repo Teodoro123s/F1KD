@@ -1,24 +1,24 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useNavigationLock } from '../../../utils/useNavigationLock';
-import { useStepNavigation } from '../../../utils/useStepNavigation';
+import { useNavigationLock } from '../../../utils/navigation/useNavigationLock';
+import { useStepNavigation } from '../../../utils/navigation/useStepNavigation';
 import { StepNavigationButton, StepNavigationStatus } from '../../../components/ui/StepNavigationButton';
 import { MotherFormFields, OTHER_MATERNAL_VACCINES } from './BeneficiaryMother';
-import { calculateGestationalDetails } from '../../../utils/beneficiaryHelpers';
+import { calculateGestationalDetails } from '../../../utils/beneficiary/beneficiaryHelpers';
 import { useMothers } from '../../../context/MothersContext';
 import { apiCreateMother, apiUploadMotherDocuments } from '../../../api/mothers';
 import { useAuth } from '../../../auth/AuthProvider';
 import { isCommunityCoordinatorRole } from '../../../utils/permissions';
-import { capitalizeNameValue } from '../../../utils/nameFormat';
-import { normalizeFirstName } from '../../../utils/firstNameValidation';
+import { capitalizeNameValue } from '../../../utils/formatting/nameFormat';
+import { normalizeFirstName } from '../../../utils/validation/firstNameValidation';
 import { notifyAction } from '../../../components/ActionFeedback';
-import { CONTACT_NUMBER_POLICY, isValidContactNumber } from '../../../utils/contactNumber';
-import { getPhilHealthNumberError } from '../../../utils/philHealthNumber';
-import { calculateTotalChildren, getMaternalBirthCountErrors } from '../../../utils/maternalBirthCounts';
-import { getMotherIdentityErrors } from '../../../utils/motherIdentity';
-import { hasMaternalHighRiskTriggers } from '../../../utils/maternalRisk';
-import { getMaternalVaccineDateErrors } from '../../../utils/maternalVaccineDates';
-import { getBloodPressureError } from '../../../utils/bloodPressure';
-import { formatFirstAndSurname, splitFirstAndSurname } from '../../../utils/personName.mjs';
+import { CONTACT_NUMBER_POLICY, isValidContactNumber } from '../../../utils/validation/contactNumber';
+import { getPhilHealthNumberError } from '../../../utils/beneficiary/philHealthNumber';
+import { calculateTotalChildren, getMaternalBirthCountErrors } from '../../../utils/beneficiary/maternalBirthCounts';
+import { getMotherIdentityErrors } from '../../../utils/beneficiary/motherIdentity';
+import { hasMaternalHighRiskTriggers } from '../../../utils/beneficiary/maternalRisk';
+import { getMaternalVaccineDateErrors } from '../../../utils/beneficiary/maternalVaccineDates';
+import { getBloodPressureError } from '../../../utils/validation/bloodPressure';
+import { formatFirstAndSurname, splitFirstAndSurname } from '../../../utils/formatting/personName.mjs';
 
 const MOTHER_DRAFT_KEY = 'f1kd.create-mother.draft';
 const MATERNAL_BIRTH_COUNT_INPUT_IDS = {

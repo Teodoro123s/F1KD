@@ -30,6 +30,22 @@ test('health worker child check-up saves monitoring data and rejects a different
   const savedCheckupQueries = [];
   const notifications = [];
   pool.query = async (sql, params = []) => {
+    if (sql.includes('FROM auth_sessions s')) {
+      return [[{
+        user_id: 8,
+        email: 'worker@example.test',
+        role: 'Health worker',
+        status: 'Active',
+        school_id: 12,
+        group_id: params[0] === 'session-99' ? 99 : 20,
+        first_name: 'Health',
+        middle_initial: null,
+        last_name: 'Worker',
+        contact_number: null,
+        location: null,
+        consent_accepted_at: '2026-01-01 00:00:00',
+      }]];
+    }
     if (sql.includes('FROM children c LEFT JOIN mothers m') && sql.includes('COALESCE(c.group_id, m.group_id)')) {
       return [Number(params[2]) === 20
         ? [{
@@ -92,7 +108,7 @@ test('health worker child check-up saves monitoring data and rejects a different
   await new Promise((resolve) => server.once('listening', resolve));
 
   const request = (groupId, body) => {
-    const token = jwt.sign({ id: 8, role: 'Health worker', school_id: 12, group_id: groupId }, process.env.JWT_SECRET);
+    const token = jwt.sign({ id: 8, sid: `session-${groupId}`, role: 'Health worker', school_id: 12, group_id: groupId }, process.env.JWT_SECRET);
     return fetch(`http://127.0.0.1:${server.address().port}/api/children/CHD-31/checkups`, {
       method: 'POST',
       headers: {
@@ -118,6 +134,7 @@ test('health worker child check-up saves monitoring data and rejects a different
   assert.equal(result.child.checkups[0].weight, '8.4');
   assert.equal(savedCheckupQueries.length, 1);
   assert.equal(savedCheckupQueries[0].params[0], 31);
+  assert.equal(savedCheckupQueries[0].params[1], '2026-10-28');
   assert.equal(savedCheckupQueries[0].params[15], 12);
   assert.deepEqual(savedCheckupQueries[0].params.slice(16), [8, 8, 8]);
   assert.equal(notifications.length, 1);
@@ -126,7 +143,23 @@ test('health worker child check-up saves monitoring data and rejects a different
   assert.equal(notifications[0][8], 20);
   assert.equal(notifications[0][11], 8);
 
+  const cancelledReminderResponse = await request(20, {
+    week: 13,
+    checkupDate: '2026-10-28',
+    nextCheckupDate: '',
+  });
+  assert.equal(cancelledReminderResponse.status, 200);
+  assert.equal(savedCheckupQueries[1].params[1], null, 'a blank next date cancels reminder scheduling');
+
+  const invalidReminderDateResponse = await request(20, {
+    week: 14,
+    checkupDate: '2026-10-28',
+    nextCheckupDate: '2026-02-30',
+  });
+  assert.equal(invalidReminderDateResponse.status, 400);
+  assert.equal(savedCheckupQueries.length, 2);
+
   const wrongGroupResponse = await request(99, { week: 13 });
   assert.equal(wrongGroupResponse.status, 404);
-  assert.equal(savedCheckupQueries.length, 1, 'a child outside the worker group must not be persisted');
+  assert.equal(savedCheckupQueries.length, 2, 'a child outside the worker group must not be persisted');
 });

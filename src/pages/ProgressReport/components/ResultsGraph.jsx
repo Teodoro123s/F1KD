@@ -1,6 +1,6 @@
 import React from 'react';
 import { GrowthChart } from './GrowthChart';
-import { formatDateForDisplay } from '../../../utils/dateFormat';
+import { formatDateForDisplay } from '../../../utils/formatting/dateFormat';
 
 function ReferralAssistanceTable({ rows }) {
   const visits = rows.flatMap((row) => (row.growthSeries || [])

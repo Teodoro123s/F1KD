@@ -1,4 +1,4 @@
-import { formatDateForDisplay } from '../../utils/dateFormat';
+import { formatDateForDisplay } from '../../utils/formatting/dateFormat';
 
 export const MATERNAL_PROGRESS_REPORT_FIELD_LIBRARY = [
   { id: 'name', label: 'Beneficiary Name', category: 'Demographics' },

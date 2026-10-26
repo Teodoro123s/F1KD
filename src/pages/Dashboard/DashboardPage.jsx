@@ -12,6 +12,7 @@ import { apiGetNotifications } from '../../api/notifications';
 import { can, isCommunityCoordinatorRole, isHealthWorkerRole, normalizeRole, ROLES } from '../../utils/permissions';
 import { DashboardInsights } from './DashboardInsights';
 import { buildDashboardModuleSummaries, buildOperationalStaffMetrics } from './dashboardModuleMetrics.mjs';
+import { fillDailyTimeSeries, getRollingDateRange } from '../../utils/analytics/dailyTimeSeries';
 
 function getGreeting(name) {
   const hour = new Date().getHours();
@@ -104,6 +105,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [refreshVersion, setRefreshVersion] = useState(0);
   const [loadErrors, setLoadErrors] = useState([]);
+  const activityDateRange = useMemo(() => getRollingDateRange(30), [refreshVersion]);
 
   useEffect(() => {
     let active = true;
@@ -120,7 +122,12 @@ export default function DashboardPage() {
             ? apiGetManagedHealthWorkers()
             : Promise.resolve(null),
         isSuperAdmin ? apiGetReportScopes() : Promise.resolve(null),
-        isSuperAdmin ? apiGetActivityReport({ page: 1, perPage: 8 }) : Promise.resolve(null),
+        isSuperAdmin ? apiGetActivityReport({
+          page: 1,
+          perPage: 8,
+          chartFrom: activityDateRange.from,
+          chartTo: activityDateRange.to,
+        }) : Promise.resolve(null),
         isSuperAdmin ? apiGetNotifications({ page: 1, perPage: 1 }) : Promise.resolve(null),
       ]);
 
@@ -183,7 +190,7 @@ export default function DashboardPage() {
     return () => {
       active = false;
     };
-  }, [isCommunityOrganizer, isSuperAdmin, refreshMothers, refreshVersion]);
+  }, [activityDateRange.from, activityDateRange.to, isCommunityOrganizer, isSuperAdmin, refreshMothers, refreshVersion]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setRefreshVersion((version) => version + 1), 5 * 60 * 1000);
@@ -263,7 +270,11 @@ export default function DashboardPage() {
       ? (activityReport.dailyActivity || []).reduce((total, item) => total + (Number(item.count) || 0), 0)
       : 0,
     unreadNotifications: isSuperAdmin ? Number(notificationCounts.unread) || 0 : 0,
-  }), [activityReport, isSuperAdmin, notificationCounts, reportScopes, staffMetrics, stats]);
+    dataQuality: {
+      incompleteSources: [...new Set([...loadErrors, ...(mothersError ? ['beneficiary records'] : [])])],
+      complete: loadErrors.length === 0 && !mothersError,
+    },
+  }), [activityReport, isSuperAdmin, loadErrors, mothersError, notificationCounts, reportScopes, staffMetrics, stats]);
 
   const moduleSummaries = useMemo(() => buildDashboardModuleSummaries({
     mothers,
@@ -297,12 +308,12 @@ export default function DashboardPage() {
   ]);
 
   const signInTrend = useMemo(
-    () => (activityReport.dailyActivity || []).map((item) => ({
+    () => fillDailyTimeSeries(activityReport.dailyActivity || [], activityDateRange.from, activityDateRange.to).map((item) => ({
+      ...item,
       key: item.date,
-      label: new Date(`${item.date}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-      count: Number(item.count) || 0,
+      label: new Date(`${item.date}T12:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
     })),
-    [activityReport.dailyActivity],
+    [activityDateRange.from, activityDateRange.to, activityReport.dailyActivity],
   );
 
   const roleLabel = isSuperAdmin
@@ -354,41 +365,20 @@ export default function DashboardPage() {
     return allRoleCards.filter((card) => ['communities', 'programs'].includes(card.key));
   }, [isAdmin, isCommunityOrganizer, isHealthWorker, isSuperAdmin, staffMetrics, stats]);
 
-  const actions = useMemo(() => {
-    if (isSuperAdmin) {
-      return [
-        { label: 'Manage Users', to: '/user-management', icon: '👥' },
-        { label: 'Login Reports', to: '/reports', icon: '📊' },
-      ];
-    }
-    if (isHealthWorker) {
-      return [
-        { label: 'Record Receipt Check-ins', to: '/program', icon: '🍱' },
-        ...(canRecordMonitoring ? [{ label: 'Record Checkup', to: '/monitoring', icon: '🩺' }] : []),
-        { label: 'View Assigned Group', to: '/community', icon: '🏫' },
-      ];
-    }
-    if (isCommunityOrganizer) {
-      return [
-        ...(canCreateBeneficiary ? [{ label: 'Register Beneficiary', to: '/beneficiary', icon: '👥' }] : []),
-        ...(canRecordMonitoring ? [{ label: 'Record Checkup', to: '/monitoring', icon: '🩺' }] : []),
-        ...(canManagePrograms ? [{ label: 'Manage Programs', to: '/program', icon: '🍱' }] : []),
-        { label: 'Manage Health Workers', to: '/user-management', icon: '⚙️' },
-      ];
-    }
-    if (isAdmin) {
-      return [
-        { label: 'Review Monitoring', to: '/monitoring', icon: '🩺' },
-        { label: 'Review Programs', to: '/program', icon: '🍱' },
-        { label: 'Progress Reports', to: '/progress-report', icon: '📊' },
-      ];
-    }
-    return [
-      { label: 'Review Programs', to: '/program', icon: '🍱' },
-      { label: 'View Community', to: '/community', icon: '🏫' },
-      { label: 'Progress Reports', to: '/progress-report', icon: '📊' },
-    ];
-  }, [canCreateBeneficiary, canManagePrograms, canRecordMonitoring, isAdmin, isCommunityOrganizer, isHealthWorker, isSuperAdmin]);
+  const displayCards = cards.map((card) => {
+    const sourceByCard = isSuperAdmin
+      ? { 'active-staff': 'users', 'unassigned-staff': 'users', 'suspended-staff': 'users' }
+      : {
+        beneficiaries: mothersError || loadErrors.includes('children') ? true : false,
+        'follow-ups': mothersError || loadErrors.includes('children') ? true : false,
+        communities: loadErrors.includes('community summary'),
+        programs: loadErrors.includes('programs'),
+        'health-workers': loadErrors.includes('users'),
+      };
+    const unavailable = sourceByCard[card.key];
+    const failed = unavailable === true || (typeof unavailable === 'string' && loadErrors.includes(unavailable));
+    return failed ? { ...card, value: '—', subtitle: 'Could not refresh; figure unavailable' } : card;
+  });
 
   if (loading) return <PageSkeleton variant="dashboard" />;
 
@@ -403,6 +393,13 @@ export default function DashboardPage() {
           : isPartner
             ? 'Review program and community activity'
             : `${roleLabel} workspace`;
+
+  const trendPeriods = isSuperAdmin ? signInTrend : registrationTrend;
+  const trendMaximum = Math.max(1, ...trendPeriods.map((period) => period.count));
+  const breakdownMaximum = Math.max(1, ...breakdown.map((item) => item.value));
+  const breakdownTotal = breakdown.reduce((total, item) => total + item.value, 0);
+  const signInTotal = signInTrend.reduce((total, period) => total + period.count, 0);
+  const peakSignInDay = signInTrend.reduce((peak, period) => period.count > peak.count ? period : peak, { count: 0, label: '' });
 
   return (
     <div className="dashboard-shell">
@@ -424,13 +421,13 @@ export default function DashboardPage() {
       )}
 
       <section className="dashboard-kpi-grid" aria-label="Key role metrics">
-        {cards.map((card) => (
+        {displayCards.map((card) => (
           <Link key={card.key} to={card.to} className="kpi-card" aria-label={`${card.title}: ${card.value}. ${card.subtitle}`}>
             <div className="kpi-card-top">
               <span className="kpi-title">{card.title}</span>
               <span className={`kpi-icon ${card.cardClass}`} aria-hidden="true">{card.icon}</span>
             </div>
-            <div className="kpi-value">{Number(card.value).toLocaleString()}</div>
+            <div className="kpi-value">{typeof card.value === 'number' && Number.isFinite(card.value) ? card.value.toLocaleString() : card.value}</div>
             <div className="kpi-subtitle"><span>{card.subtitle}</span></div>
           </Link>
         ))}
@@ -442,26 +439,28 @@ export default function DashboardPage() {
             <div>
               <span className="dashboard-panel-eyebrow">{isSuperAdmin ? 'Last 30 days' : 'Last 6 weeks'}</span>
               <h3>{isSuperAdmin ? 'Operational sign-ins' : 'New beneficiary registrations'}</h3>
+              {isSuperAdmin && <p className="dashboard-trend-summary">{signInTotal.toLocaleString()} sign-ins · Peak {peakSignInDay.count.toLocaleString()} on {peakSignInDay.label || '—'}</p>}
             </div>
             {!isSuperAdmin && <Link to="/beneficiary" className="panel-link">View records</Link>}
           </div>
           {(isSuperAdmin ? signInTrend : registrationTrend).some((period) => period.count > 0) ? (
-            <div
-              className="dashboard-trend-chart"
-              role="img"
-              aria-label={`${isSuperAdmin ? 'Daily operational sign-ins' : 'Weekly new registrations'}: ${(isSuperAdmin ? signInTrend : registrationTrend).map((period) => `${period.label}: ${period.count}`).join(', ')}`}
-            >
-              {(isSuperAdmin ? signInTrend : registrationTrend).map((period) => {
-                const periods = isSuperAdmin ? signInTrend : registrationTrend;
-                const maximum = Math.max(1, ...periods.map((item) => item.count));
+            <div className={`dashboard-trend-scroll${isSuperAdmin ? ' is-daily' : ''}`}>
+              <div
+                className={`dashboard-trend-chart${isSuperAdmin ? ' is-daily' : ''}`}
+                role="img"
+                aria-label={`${isSuperAdmin ? 'Daily operational sign-ins' : 'Weekly new registrations'}: ${trendPeriods.map((period) => `${period.label}: ${period.count}`).join(', ')}`}
+              >
+              {trendPeriods.map((period, index) => {
+                const showLabel = !isSuperAdmin || index === 0 || index === trendPeriods.length - 1 || index % 5 === 4;
                 return (
-                  <div className="dashboard-trend-column" key={period.key}>
-                    <strong>{period.count}</strong>
-                    <span className="dashboard-trend-track"><span style={{ height: `${Math.max(period.count ? 8 : 0, (period.count / maximum) * 100)}%` }} /></span>
-                    <small>{period.label}</small>
+                  <div className={`dashboard-trend-column${isSuperAdmin ? ' is-daily' : ''}`} key={period.key} title={`${period.label}: ${period.count} ${isSuperAdmin ? 'sign-ins' : 'registrations'}`}>
+                    {!isSuperAdmin && <strong>{period.count}</strong>}
+                    <span className="dashboard-trend-track"><span style={{ height: `${Math.max(period.count ? 8 : 0, (period.count / trendMaximum) * 100)}%` }} /></span>
+                    <small>{showLabel ? period.label : ''}</small>
                   </div>
                 );
               })}
+              </div>
             </div>
           ) : <p className="dashboard-empty-state">
             {isSuperAdmin
@@ -476,11 +475,16 @@ export default function DashboardPage() {
           </div>
           <div className="dashboard-breakdown-list">
             {breakdown.map((item) => {
-              const maximum = Math.max(1, ...breakdown.map((entry) => entry.value));
+              const percent = isSuperAdmin
+                ? (item.value / Math.max(1, breakdownTotal)) * 100
+                : (item.value / breakdownMaximum) * 100;
               return (
                 <div className="dashboard-breakdown-row" key={item.label}>
-                  <div><span>{item.label}</span><strong>{item.value.toLocaleString()}</strong></div>
-                  <span className="dashboard-breakdown-track"><span className={item.tone} style={{ width: `${(item.value / maximum) * 100}%` }} /></span>
+                  <div>
+                    <span>{item.label}</span>
+                    <strong>{item.value.toLocaleString()}{isSuperAdmin && <small> · {Math.round(percent)}%</small>}</strong>
+                  </div>
+                  <span className="dashboard-breakdown-track"><span className={item.tone} style={{ width: `${percent}%` }} /></span>
                 </div>
               );
             })}
@@ -572,22 +576,6 @@ export default function DashboardPage() {
         </section>
       )}
 
-      <section className="dashboard-panel" aria-labelledby="dashboard-actions-title">
-        <div className="panel-title-row">
-          <div className="panel-title-wrap">
-            <span className="panel-icon" aria-hidden="true">⚡</span>
-            <h3 id="dashboard-actions-title">Your shortcuts</h3>
-          </div>
-        </div>
-        <div className="quick-action-grid">
-          {actions.map((action) => (
-            <Link key={action.label} to={action.to} className="quick-action-tile">
-              <div className="quick-action-tile-icon" aria-hidden="true">{action.icon}</div>
-              <span>{action.label}</span>
-            </Link>
-          ))}
-        </div>
-      </section>
     </div>
   );
 }

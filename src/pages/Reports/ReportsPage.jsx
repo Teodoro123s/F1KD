@@ -4,6 +4,7 @@ import ModuleSummaryCards from '../../components/ui/ModuleSummaryCards';
 import CommunityTable from '../Community/CommunityTable';
 import CommunityPagination from '../Community/components/CommunityPagination';
 import { apiGetActivityReport, apiGetActivityUsers, apiGetReportScopes } from '../../api/reports';
+import { fillDailyTimeSeries, getRollingDateRange } from '../../utils/analytics/dailyTimeSeries';
 
 const EMPTY_COUNTS = { signIns: 0 };
 
@@ -65,46 +66,55 @@ export function ActivityChart({
   title = 'Activity over time',
   ariaLabel = 'Daily user login activity',
   emptyMessage = 'No login recorded for the selected scope and period.',
+  itemLabel = 'activity',
+  description = '',
 }) {
   const [hoveredPoint, setHoveredPoint] = useState(null);
   const width = 760;
-  const height = 260;
-  const padding = { top: 20, right: 18, bottom: 48, left: 42 };
+  const height = 280;
+  const padding = { top: 26, right: 18, bottom: 54, left: 52 };
   const plotWidth = width - padding.left - padding.right;
   const plotHeight = height - padding.top - padding.bottom;
   const maxCount = Math.max(1, ...dailyActivity.map((item) => Number(item.count) || 0));
   const slotWidth = dailyActivity.length ? plotWidth / dailyActivity.length : plotWidth;
-  const yTicks = [0, Math.ceil(maxCount / 2), maxCount].filter((value, index, list) => list.indexOf(value) === index);
+  const tickStep = Math.max(1, Math.ceil(maxCount / 4));
+  const niceMaximum = Math.ceil(maxCount / tickStep) * tickStep;
+  const yTicks = Array.from({ length: niceMaximum / tickStep + 1 }, (_, index) => index * tickStep);
   const points = dailyActivity.map((item, index) => ({
     ...item,
     count: Number(item.count) || 0,
     x: padding.left + index * slotWidth + slotWidth / 2,
-    y: padding.top + plotHeight - ((Number(item.count) || 0) / maxCount) * plotHeight,
+    y: padding.top + plotHeight - ((Number(item.count) || 0) / niceMaximum) * plotHeight,
   }));
-  const linePoints = points.map(({ x, y }) => `${x},${y}`).join(' ');
-  const areaPath = points.length
-    ? `M ${points[0].x} ${padding.top + plotHeight} ${points.map(({ x, y }) => `L ${x} ${y}`).join(' ')} L ${points[points.length - 1].x} ${padding.top + plotHeight} Z`
+  const total = points.reduce((sum, item) => sum + item.count, 0);
+  const peak = points.reduce((current, item) => item.count > current.count ? item : current, { count: 0 });
+  const itemLabelPlural = itemLabel === 'activity' ? 'activities' : `${itemLabel}s`;
+  const peakDate = peak.date
+    ? new Date(`${peak.date}T12:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
     : '';
+  const hasActivity = total > 0;
 
   return (
     <section className="report-chart-card" aria-label={title}>
       <h2>{title}</h2>
-      {dailyActivity.length ? (
+      {description && <p className="report-chart-description">{description}</p>}
+      {hasActivity ? (
+        <p className="report-chart-summary">
+          <strong>{total.toLocaleString()} {itemLabelPlural}</strong>
+          <span>Peak: {peak.count.toLocaleString()} on {peakDate}</span>
+        </p>
+      ) : null}
+      {hasActivity ? (
         <div className="report-chart-scroll">
           <svg
             className="report-activity-chart"
             viewBox={`0 0 ${width} ${height}`}
+            preserveAspectRatio="none"
             role="group"
             aria-label={ariaLabel}
           >
-            <defs>
-              <linearGradient id="report-activity-fill" x1="0" x2="0" y1="0" y2="1">
-                <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.28" />
-                <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.02" />
-              </linearGradient>
-            </defs>
             {yTicks.map((tick) => {
-              const y = padding.top + plotHeight - (tick / maxCount) * plotHeight;
+              const y = padding.top + plotHeight - (tick / niceMaximum) * plotHeight;
               return (
                 <g key={tick}>
                   <line x1={padding.left} x2={width - padding.right} y1={y} y2={y} stroke="#e2e8f0" strokeDasharray="4 6" />
@@ -112,22 +122,18 @@ export function ActivityChart({
                 </g>
               );
             })}
-            <path d={areaPath} fill="url(#report-activity-fill)" />
-            <polyline
-              points={linePoints}
-              fill="none"
-              stroke="#2563eb"
-              strokeWidth="3"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
             {points.map((item, index) => {
+              const barWidth = Math.min(22, Math.max(4, slotWidth * 0.62));
+              const barHeight = item.count ? Math.max(2, padding.top + plotHeight - item.y) : 0;
+              const showValue = item.count > 0 && (points.length <= 12 || item.count === peak.count);
+              const dateLabelStep = Math.max(1, Math.ceil(points.length / 6));
               return (
                 <g
                   key={item.date}
+                  className="report-chart-bar"
                   tabIndex="0"
                   role="button"
-                  aria-label={`${item.date}: ${item.count} ${item.count === 1 ? 'activity' : 'activities'}. View activity for this day.`}
+                  aria-label={`${item.date}: ${item.count} ${item.count === 1 ? itemLabel : itemLabelPlural}. View ${itemLabelPlural} for this day.`}
                   onClick={() => onPointSelect?.(item.date)}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter' || event.key === ' ') {
@@ -140,25 +146,45 @@ export function ActivityChart({
                   onFocus={() => setHoveredPoint(item)}
                   onBlur={() => setHoveredPoint(null)}
                 >
-                  <title>{`${item.date}: ${item.count} ${item.count === 1 ? 'activity' : 'activities'}`}</title>
-                  <circle cx={item.x} cy={item.y} r="12" fill="transparent" />
-                  <circle cx={item.x} cy={item.y} r="4.5" fill="#2563eb" stroke="#fff" strokeWidth="2" />
-                  {(index === 0 || index === dailyActivity.length - 1 || index % Math.ceil(dailyActivity.length / 6) === 0) && (
+                  <title>{`${item.date}: ${item.count} ${item.count === 1 ? itemLabel : itemLabelPlural}`}</title>
+                  <rect
+                    className="report-chart-bar__hit-area"
+                    x={item.x - Math.max(barWidth / 2, 7)}
+                    y={padding.top}
+                    width={Math.max(barWidth, 14)}
+                    height={plotHeight + 2}
+                    fill="transparent"
+                  />
+                  <rect
+                    className="report-chart-bar__value"
+                    x={item.x - barWidth / 2}
+                    y={item.y}
+                    width={barWidth}
+                    height={barHeight}
+                    rx={Math.min(5, barWidth / 3)}
+                    fill="#2563eb"
+                  />
+                  {showValue && (
+                    <text x={item.x} y={Math.max(padding.top - 7, item.y - 8)} textAnchor="middle" fill="#1d4ed8" fontSize="11" fontWeight="700">
+                      {item.count}
+                    </text>
+                  )}
+                  {(index === 0 || index === points.length - 1 || index % dateLabelStep === 0) && (
                     <text
                       x={item.x}
                       y={height - padding.bottom + 20}
                       textAnchor="middle"
                       fill="#64748b"
-                      fontSize="10"
+                      fontSize="11"
                     >
-                      {new Date(`${item.date}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                      {new Date(`${item.date}T12:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                     </text>
                   )}
                 </g>
               );
             })}
             {hoveredPoint && (() => {
-              const tooltipWidth = 142;
+              const tooltipWidth = 150;
               const tooltipHeight = 40;
               const tooltipX = Math.max(4, Math.min(width - tooltipWidth - 4, hoveredPoint.x - tooltipWidth / 2));
               const tooltipY = Math.max(4, hoveredPoint.y - tooltipHeight - 12);
@@ -166,10 +192,10 @@ export function ActivityChart({
                 <g className="report-chart-tooltip" pointerEvents="none">
                   <rect x={tooltipX} y={tooltipY} width={tooltipWidth} height={tooltipHeight} rx="6" fill="#0f172a" />
                   <text x={tooltipX + 9} y={tooltipY + 15} fill="#cbd5e1" fontSize="10">
-                    {new Date(`${hoveredPoint.date}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                    {new Date(`${hoveredPoint.date}T12:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                   </text>
                   <text x={tooltipX + 9} y={tooltipY + 31} fill="#fff" fontSize="12" fontWeight="600">
-                    {hoveredPoint.count} {hoveredPoint.count === 1 ? 'activity' : 'activities'}
+                    {hoveredPoint.count} {hoveredPoint.count === 1 ? itemLabel : itemLabelPlural}
                   </text>
                 </g>
               );
@@ -181,6 +207,10 @@ export function ActivityChart({
               y2={padding.top + plotHeight}
               stroke="#94a3b8"
             />
+            <text x={padding.left + plotWidth / 2} y={height - 2} textAnchor="middle" fill="#64748b" fontSize="10">Date</text>
+            <text x="12" y={padding.top + plotHeight / 2} textAnchor="middle" fill="#64748b" fontSize="10" transform={`rotate(-90 12 ${padding.top + plotHeight / 2})`}>
+              {itemLabelPlural === 'activities' ? 'Activities' : 'Logins'}
+            </text>
           </svg>
         </div>
       ) : (
@@ -215,6 +245,9 @@ export default function ReportsPage() {
   const presetDateRange = getDateRange(dateRangePreset);
   const from = selectedGraphDate || presetDateRange.from;
   const to = selectedGraphDate || presetDateRange.to;
+  const recentChartRange = useMemo(() => getRollingDateRange(30), []);
+  const chartFrom = from || recentChartRange.from;
+  const chartTo = to || recentChartRange.to;
   const visibleGroups = selectedSchoolId
     ? groups.filter((group) => String(group.schoolId) === String(selectedSchoolId))
     : groups;
@@ -254,12 +287,14 @@ export default function ReportsPage() {
       search,
       from,
       to,
+      chartFrom,
+      chartTo,
     })
       .then((response) => {
         if (!active) return;
         setReport({
           activities: response.activities || [],
-          dailyActivity: response.dailyActivity || [],
+          dailyActivity: fillDailyTimeSeries(response.dailyActivity || [], chartFrom, chartTo),
           total: Number(response.total) || 0,
           counts: { ...EMPTY_COUNTS, ...(response.counts || {}) },
         });
@@ -273,7 +308,7 @@ export default function ReportsPage() {
         if (active) setLoading(false);
       });
     return () => { active = false; };
-  }, [page, perPage, action, reportActorUserId, reportSchoolId, reportGroupId, search, from, to]);
+  }, [page, perPage, action, reportActorUserId, reportSchoolId, reportGroupId, search, from, to, chartFrom, chartTo]);
 
   const pageCount = Math.max(1, Math.ceil(report.total / perPage));
   const columns = useMemo(() => [
@@ -341,7 +376,7 @@ export default function ReportsPage() {
                 { key: 'entityId', label: 'Entity ID' },
                 { key: 'description', label: 'Details' },
               ], 'f1kd-login-table-data.csv')}
-            disabled={loading || (viewMode === 'graph' ? !(report.dailyActivity || []).length : !report.activities.length)}
+            disabled={loading || (viewMode === 'graph' ? !(report.dailyActivity || []).some((item) => Number(item.count) > 0) : !report.activities.length)}
           >
             Download {viewMode === 'graph' ? 'graph data' : 'table page'} CSV
           </button>
@@ -477,6 +512,10 @@ export default function ReportsPage() {
                 ? 'Individual user logins over time'
                 : `${scopeLevel === 'individual' ? 'Individual' : scopeLevel === 'group' ? 'Group' : 'School'} logins over time`}
               ariaLabel={`Daily ${scopeLevel} user login activity`}
+              itemLabel="login"
+              description={dateRangePreset === 'all' && !selectedGraphDate
+                ? 'Daily totals for the past 30 calendar days. Table view retains all matching records.'
+                : 'Select a day to view its matching login records.'}
             />
           ) : (
             <>
@@ -575,12 +614,15 @@ export default function ReportsPage() {
           box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
         }
         .report-chart-card h2 {
-          margin: 0 0 1rem;
-          font-size: clamp(1.8rem, 2vw, 2.5rem);
+          margin: 0 0 0.45rem;
+          font-size: clamp(1.35rem, 1.8vw, 1.75rem);
           line-height: 1.1;
           letter-spacing: -0.04em;
           color: #0f172a;
         }
+        .report-chart-description { margin: 0 0 0.75rem; color: #64748b; font-size: 0.88rem; line-height: 1.45; }
+        .report-chart-summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.35rem 1rem; margin: 0 0 0.85rem; color: #64748b; font-size: 0.84rem; }
+        .report-chart-summary strong { color: #1e293b; font-size: 1rem; }
         .report-chart-scroll {
           overflow-x: auto;
           padding: 0.25rem 0.25rem 0;
@@ -588,9 +630,11 @@ export default function ReportsPage() {
           border-radius: 14px;
           background: linear-gradient(180deg, rgba(248,250,252,0.8), rgba(255,255,255,0.8));
         }
-        .report-activity-chart { display: block; width: 100%; min-width: 540px; height: auto; }
-        .report-activity-chart g[tabindex="0"] { outline: none; cursor: pointer; }
-        .report-activity-chart g[tabindex="0"]:focus circle:nth-of-type(2) { stroke: #0f172a; stroke-width: 2.5; }
+        .report-activity-chart { display: block; width: 100%; min-width: 540px; height: clamp(280px, 28vw, 380px); }
+        .report-activity-chart .report-chart-bar { outline: none; cursor: pointer; }
+        .report-chart-bar__value { transition: fill 120ms ease; }
+        .report-chart-bar:hover .report-chart-bar__value { fill: #1d4ed8; }
+        .report-chart-bar:focus .report-chart-bar__value { fill: #1d4ed8; stroke: #0f172a; stroke-width: 2; }
       `}</style>
     </div>
   );

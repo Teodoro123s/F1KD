@@ -1,6 +1,6 @@
 import React from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
-import MotherDetailPage from '../Beneficiary/MotherDetailPage';
+import MotherDetailPage from '../Beneficiary/mother/MotherDetailPage';
 
 export default function UserDetail() {
   const { id } = useParams();

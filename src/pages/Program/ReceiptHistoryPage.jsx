@@ -17,9 +17,9 @@ import {
 } from '../../api/programs';
 import { apiGetChildren } from '../../api/children';
 import { apiGetMothers } from '../../api/mothers';
-import { formatDateForDisplay } from '../../utils/dateFormat';
+import { formatDateForDisplay } from '../../utils/formatting/dateFormat';
 import { canViewAuditSignatures, isCommunityCoordinatorRole } from '../../utils/permissions';
-import { navigateBack } from '../../utils/navigation';
+import { navigateBack } from '../../utils/navigation/navigation';
 import { getReceiptRecipientKey, getReceiptRecipientKeysForRows } from './programData';
 import { EvidenceImage, SelectedImagePreview } from '../Community/components/BatchDocumentationPanel';
 
@@ -62,8 +62,18 @@ export default function ReceiptHistoryPage() {
   const isClusterHistory = Boolean(clusterType && clusterName);
   const canManageEvidence = isCommunityCoordinatorRole(currentUser?.role);
   const showAuditSignatures = canViewAuditSignatures(currentUser?.role);
-  const showGroupColumn = isClusterHistory && clusterType !== 'batch';
-  const beneficiaryName = location.state?.beneficiaryName || location.state?.clusterName || clusterName || 'Beneficiary';
+  const rawBeneficiaryName = location.state?.beneficiaryName || location.state?.clusterName || clusterName || 'Beneficiary';
+  const organizerName = String(currentUser?.name || [
+    currentUser?.first_name,
+    currentUser?.middle_initial,
+    currentUser?.last_name,
+  ].filter(Boolean).join(' ') || '').trim();
+  const organizerSuffix = ` - ${organizerName}`;
+  const beneficiaryName = isCommunityCoordinatorRole(currentUser?.role)
+    && organizerName
+    && rawBeneficiaryName.trim().toLowerCase().endsWith(organizerSuffix.toLowerCase())
+    ? rawBeneficiaryName.trim().slice(0, -organizerSuffix.length).trim()
+    : rawBeneficiaryName;
   const fallbackReturnTo = isClusterHistory
     ? `/program/${programId}/cluster/${encodeURIComponent(clusterType)}/${encodeURIComponent(clusterName)}`
     : `/program/${programId}`;
@@ -82,6 +92,7 @@ export default function ReceiptHistoryPage() {
   const [evidenceImages, setEvidenceImages] = useState([]);
   const [pendingEvidenceDelete, setPendingEvidenceDelete] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
+  const [expandedEvidenceRow, setExpandedEvidenceRow] = useState(null);
 
   const loadHistory = async () => {
     setLoading(true);
@@ -331,27 +342,56 @@ export default function ReceiptHistoryPage() {
           <div className="program-receipt-controls-actions"><button type="button" className="view-btn view-btn--primary" onClick={() => openReceiptModal()} disabled={isClusterHistory && recipientsLoading}>Record receipt</button><div className="program-view-toggle" role="tablist" aria-label="Receipt history view"><button type="button" className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>List View</button><button type="button" className={view === 'calendar' ? 'active' : ''} onClick={() => setView('calendar')}>Calendar View</button></div></div>
         </div>}
         {error && <p className="error-message" role="alert">{error}</p>}
-        {loading ? <p>Loading receipt history...</p> : view === 'list' ? <div className="program-receipt-table-scroll"><table className={`data-table ${isClusterHistory ? 'program-receipt-cluster-table' : 'program-receipt-beneficiary-table'}`}>
-          <thead><tr><th>Date</th>{isClusterHistory ? <><th>Beneficiary</th>{showGroupColumn && <th>Group</th>}<th>Batch</th></> : null}<th>Documentation</th>{showAuditSignatures && <th>Signatures</th>}<th>Action</th></tr></thead>
-          <tbody>{filteredRows.length ? filteredRows.map((row) => <tr key={`${row.date}-${row.program_name}-${row.beneficiary_name || row.beneficiary_id || 'entry'}`}><td>{formatDateForDisplay(toDateKey(row.date))}</td>{isClusterHistory ? <><td>{row.beneficiary_name || row.beneficiary_id || 'Unknown beneficiary'}</td>{showGroupColumn && <td>{row.group_name || 'Unknown group'}</td>}<td>{row.batch_name || 'Unknown batch'}</td></> : null}<td><div className="program-receipt-evidence">
-            {(row.evidence_images || []).length ? row.evidence_images.map((image) => (
-              <EvidenceImage
-                key={image.id}
-                filePath={image.file_path}
-                fileName={image.file_name}
-                canManage={canManageEvidence}
-                onPreview={setPreviewImage}
-                onRemove={() => setPendingEvidenceDelete({ row, image })}
-              />
-            )) : <span className="program-receipt-no-evidence">No photos</span>}
-          </div></td>{showAuditSignatures && <td><AuditSignatures
-            createdByName={row.created_by_name || row.monitored_by_name}
+        {loading ? <p>Loading receipt history...</p> : view === 'list' ? <div className="program-receipt-table-scroll"><table className={`data-table ${isClusterHistory ? `program-receipt-cluster-table${showAuditSignatures ? ' has-audit-signatures' : ''}` : 'program-receipt-beneficiary-table'}`}>
+          <thead><tr><th>Date</th>{isClusterHistory && <th>Beneficiary</th>}<th>Documentation</th>{showAuditSignatures && <th>Signatures</th>}<th>Action</th></tr></thead>
+          <tbody>{filteredRows.length ? filteredRows.map((row) => {
+            const rowKey = `${row.date}-${row.program_name}-${row.beneficiary_name || row.beneficiary_id || 'entry'}`;
+            const images = row.evidence_images || [];
+            const isEvidenceExpanded = expandedEvidenceRow === rowKey;
+            return (
+              <tr key={rowKey}>
+                <td title={formatDateForDisplay(toDateKey(row.date))}>{formatDateForDisplay(toDateKey(row.date))}</td>
+                {isClusterHistory ? <>
+                  <td title={row.beneficiary_name || row.beneficiary_id || 'Unknown beneficiary'}>{row.beneficiary_name || row.beneficiary_id || 'Unknown beneficiary'}</td>
+                </> : null}
+                <td className="program-receipt-documentation-cell">
+                  <button
+                    type="button"
+                    className="program-receipt-documentation-toggle"
+                    aria-expanded={isEvidenceExpanded}
+                    aria-controls={`receipt-documentation-${rowKey}`}
+                    disabled={!images.length}
+                    onClick={() => setExpandedEvidenceRow(isEvidenceExpanded ? null : rowKey)}
+                  >
+                    {images.length} {images.length === 1 ? 'image' : 'images'}
+                  </button>
+                  {isEvidenceExpanded && (
+                    <div className="program-receipt-documentation-list" id={`receipt-documentation-${rowKey}`} aria-label="Check-in documentation images">
+                      {images.map((image) => (
+                        <EvidenceImage
+                          key={image.id}
+                          filePath={image.file_path}
+                          fileName={image.file_name}
+                          canManage={canManageEvidence}
+                          onPreview={setPreviewImage}
+                          onRemove={() => setPendingEvidenceDelete({ row, image })}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </td>
+                {showAuditSignatures && <td><AuditSignatures
+            createdByName=""
             createdByRole={row.created_by_role || row.monitored_by_role}
             createdAt={row.recorded_at}
-            updatedByName={row.updated_by_name || row.monitored_by_name}
+            updatedByName=""
             updatedByRole={row.updated_by_role || row.monitored_by_role}
             updatedAt={row.updated_at}
-          /></td>}<td><button type="button" className="view-btn view-btn--secondary" onClick={() => openReceiptModal(toDateKey(row.date), Boolean(row.monitored), [row])}>Edit</button></td></tr>) : <tr><td colSpan={(isClusterHistory ? (showGroupColumn ? 4 : 3) : 1) + 1 + (showAuditSignatures ? 1 : 0) + 1} className="no-data">No receipt history found.</td></tr>}</tbody>
+                /></td>}
+                <td><button type="button" className="view-btn view-btn--secondary" onClick={() => openReceiptModal(toDateKey(row.date), Boolean(row.monitored), [row])}>Edit</button></td>
+              </tr>
+            );
+          }) : <tr><td colSpan={(isClusterHistory ? 2 : 1) + 1 + (showAuditSignatures ? 1 : 0) + 1} className="no-data">No receipt history found.</td></tr>}</tbody>
         </table></div> : <div className="program-calendar-wrap">
           <div className="program-calendar-header"><button type="button" className="view-btn view-btn--secondary" onClick={() => setCalendarMonth((date) => new Date(date.getFullYear(), date.getMonth() - 1, 1))}>Previous</button><h3>{monthLabel(calendarMonth)}</h3><button type="button" className="view-btn view-btn--secondary" onClick={() => setCalendarMonth((date) => new Date(date.getFullYear(), date.getMonth() + 1, 1))}>Next</button></div>
           <div className="program-calendar-weekdays">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => <span key={day}>{day}</span>)}</div>

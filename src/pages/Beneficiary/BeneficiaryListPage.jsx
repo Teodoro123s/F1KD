@@ -4,8 +4,8 @@ import StatusFilterBar from './components/StatusFilterBar';
 import EntitySearchControls from './components/EntitySearchControls';
 import ModuleSummaryCards from '../../components/ui/ModuleSummaryCards';
 import { apiGetChildren } from '../../api/children';
-import { getMotherProfileProgress, getMotherMonitoringProgress } from '../../utils/motherProgress';
-import { getChildProfileProgress, getChildMonitoringProgress } from '../../utils/childProgress';
+import { getMotherProfileProgress, getMotherMonitoringProgress } from '../../utils/beneficiary/motherProgress';
+import { getChildProfileProgress, getChildMonitoringProgress } from '../../utils/beneficiary/childProgress';
 import { matchesBeneficiarySearch } from './utils/beneficiaryUtils';
 
 const getGroupStatusByProgress = (g) => {

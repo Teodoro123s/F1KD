@@ -539,6 +539,7 @@ export default function SuperAdminCommunityPage() {
         coordinators={coordinators}
         onCreateCommunity={async (event) => {
           event.preventDefault();
+          if (!String(communityForm.name || '').trim()) return;
           try {
             await mutations.createCommunity(communityForm);
           } catch {
@@ -548,6 +549,7 @@ export default function SuperAdminCommunityPage() {
         }}
         onEditCommunity={async (event) => {
           event.preventDefault();
+          if (!String(communityForm.name || '').trim()) return;
           try {
             await mutations.updateCommunity(selectedItem.id, communityForm);
           } catch (error) {

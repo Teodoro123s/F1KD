@@ -1,4 +1,28 @@
 ﻿/* Modals styling */
+.user-consent-modal .view-modal__body {
+  line-height: 1.6;
+}
+.user-consent-copy p:first-child {
+  margin-top: 0;
+}
+.user-consent-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  margin-top: 1.25rem;
+  font-weight: 600;
+}
+.user-consent-checkbox input {
+  margin-top: 0.25rem;
+}
+.user-consent-note {
+  color: #64748B;
+  font-size: 0.9rem;
+}
+.user-consent-error {
+  color: #B42318;
+  font-weight: 600;
+}
 .modal-backdrop {
   position: fixed;
   top: 0;
@@ -88,7 +112,10 @@
   background: linear-gradient(180deg, #fff 0%, #fffaf9 100%);
 }
 .community-modal-content .modal-body {
-  padding: 1.25rem 1.5rem 1rem;
+  padding: 1.25rem 1.5rem 1.25rem;
+}
+.community-modal-content .form-group + .form-group {
+  margin-top: 0.75rem;
 }
 .community-modal-content .modal-footer {
   padding: 0 1.5rem 1.5rem;

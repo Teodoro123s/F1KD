@@ -596,11 +596,11 @@
 .view-content .child-monitor-form .checkup-interpretation.is-normal { color: #167344; font-weight: 700; }
 .view-content .child-monitor-form .checkup-interpretation.is-abnormal { color: #b42318; font-weight: 700; }
 .view-content .child-monitor-form .checkup-field-label {
-  font-size: var(--view-text-body);
+  font-size: var(--font-size-sm);
   line-height: 1.35;
 }
 .view-content .child-monitor-form .checkup-field-input {
-  font-size: var(--view-text-body);
+  font-size: var(--font-size-md);
   line-height: 1.35;
 }
 .view-content .child-monitor-form .checkup-interpretation.is-normal,

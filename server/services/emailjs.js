@@ -1,5 +1,12 @@
 const EMAILJS_ENDPOINT = 'https://api.emailjs.com/api/v1.0/email/send';
 
+function getLoginUrl() {
+  const appUrl = String(process.env.APP_URL || `http://localhost:${process.env.WEB_PORT || '5173'}`)
+    .trim()
+    .replace(/\/+$/, '');
+  return `${appUrl}/login`;
+}
+
 function getEmailJsConfig(templateKey) {
   const config = {
     serviceId: process.env.EMAILJS_SERVICE_ID,
@@ -44,6 +51,7 @@ async function sendAccountCredentialsEmail({ email, name, role, password }) {
     email,
     to_email: email,
     username: email,
+    login_url: getLoginUrl(),
     to_name: name,
     role,
     password,

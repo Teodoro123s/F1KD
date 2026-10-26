@@ -1,4 +1,4 @@
-import { formatDateForDisplay } from '../../../utils/dateFormat';
+import { formatDateForDisplay } from '../../../utils/formatting/dateFormat';
 
 const MULTI_DOSE_DATE_FIELDS = new Set(['bcgDate', 'hepbDate', 'opvDate', 'dptDate', 'mmrDate', 'ttVaccineRecord']);
 

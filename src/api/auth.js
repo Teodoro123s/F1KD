@@ -1,6 +1,7 @@
 // Simple auth client using JWT in Authorization header
-import { fetchWithAuth, getApiBaseUrl } from './authHeader';
+import { fetchWithAuth, getApiBaseUrl, refreshSessionRequest } from './authHeader';
 import { readApiResponse } from './readApiResponse.mjs';
+import { clearAccessToken, getAccessToken, setAccessToken } from './tokenStore';
 
 const API_BASE = getApiBaseUrl();
 
@@ -41,17 +42,28 @@ export async function changePassword(currentPassword, newPassword, confirmPasswo
   return readApiResponse(res, 'Unable to change your password');
 }
 
+export async function acceptConsent() {
+  const res = await fetchWithAuth(`${API_BASE}/api/auth/consent`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ accepted: true }),
+  });
+  return readApiResponse(res, 'Unable to record your consent');
+}
+
 export async function refreshSession() {
-  const res = await fetch(`${API_BASE}/api/auth/refresh`, {
+  const result = await refreshSessionRequest();
+  if (!result?.token) throw new Error('Unable to refresh your session');
+  return result;
+}
+
+export async function logoutSession() {
+  const res = await fetch(`${API_BASE}/api/auth/logout`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
   });
-  const result = await readApiResponse(res, 'Unable to refresh your session');
-  if (result && result.token) {
-    saveToken(result.token);
-  }
-  return result;
+  return readApiResponse(res, 'Unable to end your server session');
 }
 
 export async function me(token) {
@@ -63,11 +75,11 @@ export async function me(token) {
 }
 
 export function saveToken(token) {
-  try { localStorage.setItem('auth_token', token); } catch (e) {}
+  setAccessToken(token);
 }
 export function loadToken() {
-  try { return localStorage.getItem('auth_token'); } catch (e) { return null; }
+  return getAccessToken();
 }
 export function clearToken() {
-  try { localStorage.removeItem('auth_token'); } catch (e) {}
+  clearAccessToken();
 }

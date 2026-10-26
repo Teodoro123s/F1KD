@@ -1,19 +1,20 @@
 import React from 'react';
-import { formatDateForDisplay, formatDateForInput, maskDateInput, normalizeDateValue } from '../../../utils/dateFormat';
-import { calculateGestationalDetails } from '../../../utils/beneficiaryHelpers';
-import { capitalizeNameValue } from '../../../utils/nameFormat';
-import { CONTACT_NUMBER_POLICY, sanitizeContactNumber } from '../../../utils/contactNumber';
-import { formatPhilHealthNumber, PHILHEALTH_NUMBER_POLICY } from '../../../utils/philHealthNumber';
-import { isBloodPressureInput } from '../../../utils/bloodPressure';
-import { getLatestEligibleMotherDob } from '../../../utils/motherIdentity';
-import { calculateTotalChildren } from '../../../utils/maternalBirthCounts';
-import { calculateNaegeleEdd } from '../../../utils/maternalPregnancy';
-import { MATERNAL_VACCINE_SEQUENCES } from '../../../utils/maternalVaccineDates';
+import { formatDateForDisplay, formatDateForInput, maskDateInput, normalizeDateValue } from '../../../utils/formatting/dateFormat';
+import { calculateGestationalDetails } from '../../../utils/beneficiary/beneficiaryHelpers';
+import { capitalizeNameValue } from '../../../utils/formatting/nameFormat';
+import { CONTACT_NUMBER_POLICY, sanitizeContactNumber } from '../../../utils/validation/contactNumber';
+import { formatPhilHealthNumber, PHILHEALTH_NUMBER_POLICY } from '../../../utils/beneficiary/philHealthNumber';
+import { isBloodPressureInput } from '../../../utils/validation/bloodPressure';
+import { getLatestEligibleMotherDob } from '../../../utils/beneficiary/motherIdentity';
+import { calculateTotalChildren } from '../../../utils/beneficiary/maternalBirthCounts';
+import { calculateNaegeleEdd } from '../../../utils/beneficiary/maternalPregnancy';
+import { getMotherTrimesterMonth } from '../../../utils/beneficiary/motherProgress';
+import { MATERNAL_VACCINE_SEQUENCES } from '../../../utils/beneficiary/maternalVaccineDates';
 import FieldInfoTooltip from '../../../components/ui/FieldInfoTooltip';
 import FileUploadField from '../../../components/ui/FileUploadField';
 import { getBatchesForGroup } from '../utils/beneficiaryUtils';
-import { normalizeFirstName } from '../../../utils/firstNameValidation';
-import { splitFirstAndSurname } from '../../../utils/personName.mjs';
+import { normalizeFirstName } from '../../../utils/validation/firstNameValidation';
+import { splitFirstAndSurname } from '../../../utils/formatting/personName.mjs';
 
 export const OTHER_MATERNAL_VACCINES = [
   { label: 'Influenza (flu)', key: 'influenza' },
@@ -76,7 +77,7 @@ export function MotherFormFields({
 
   React.useEffect(() => {
     let active = true;
-    import('../../../utils/philippineLocations')
+    import('../../../utils/beneficiary/philippineLocations')
       .then((locations) => {
         if (active) setLocationOptions(locations);
       })
@@ -802,16 +803,17 @@ export function MotherFormFields({
             <span>Override the calculated EDD manually</span>
           </label>
 
-          <div className="form-row-3 full-width">
+          <div className="form-row-4 full-width">
           {renderField({ id: 'prenatal-reg-date', label: 'Date of First Prenatal Check-up', name: 'prenatalRegDate', type: 'date', required: true })}
           {renderField({ id: 'prenatal-gest-age', label: 'Gestational Age at Reg (weeks)', name: 'gestationalAge', disabled: true })}
           {renderField({ id: 'mother-trimester', label: 'Trimester', name: 'trimester', disabled: true })}
+          {renderField({ id: 'prenatal-trimester-month', label: 'Month of Trimester', name: 'trimesterMonth', valueOverride: getMotherTrimesterMonth(form.gestationalAge, form.trimester), disabled: true, placeholder: 'Calculated from weeks' })}
           </div>
 
           <div className="form-row-3 full-width">
-          {renderField({ id: 'prenatal-weight', label: 'Weight (kg) at Reg', name: 'prenatalWeight', placeholder: 'e.g. 52', required: true, helpText: 'Enter the mother’s measured weight at the first prenatal check-up, in kilograms.' })}
+          {renderField({ id: 'prenatal-weight', label: 'Weight (kg) at Reg', name: 'prenatalWeight', type: 'number', minValue: 0, placeholder: 'e.g. 52', required: true, helpText: 'Enter the mother’s measured weight at the first prenatal check-up, in kilograms.' })}
           {renderField({ id: 'prenatal-bp', label: 'Blood Pressure (BP) at Reg', name: 'prenatalBp', placeholder: 'e.g. 120/80', required: true, customRequired: true, helpText: 'Numbers and one slash only; up to 3 digits on each side.' })}
-          {renderField({ id: 'prenatal-height', label: 'Height (cm) at Reg', name: 'prenatalHeight', placeholder: 'e.g. 150', required: true, helpText: 'Enter height in centimeters; this value is used to calculate the initial BMI.' })}
+          {renderField({ id: 'prenatal-height', label: 'Height (cm) at Reg', name: 'prenatalHeight', type: 'number', minValue: 0, placeholder: 'e.g. 150', required: true, helpText: 'Enter height in centimeters; this value is used to calculate the initial BMI.' })}
           </div>
           <div className="form-row-2 full-width">
             <div className="form-group">

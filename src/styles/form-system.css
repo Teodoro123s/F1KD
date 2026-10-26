@@ -241,6 +241,26 @@ textarea.form-input[readonly],
   color: var(--toast-error-text);
 }
 
+/* Keep legacy and newer field markup visually aligned across all pages. */
+.form-group,
+.view-content .form-group {
+  gap: 0.5rem;
+}
+
+.view-content .mother-checkup-form .checkup-field-input {
+  font-size: var(--font-size-md);
+}
+
+.view-content .mother-checkup-form .checkup-field-label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.25;
+}
+
+.view-content .mother-checkup-form .checkup-field-input {
+  line-height: 1.35;
+}
+
 /* Keep the view-layer check-up and profile forms compact on desktop and mobile. */
 .view-content .checkup-card-body {
   padding: 1.25rem 1.5rem;
@@ -474,4 +494,35 @@ textarea.form-input[readonly],
   .checkup-actions .btn-secondary {
     flex: 1 1 140px;
   }
+}
+
+/* Final shared field layer: legacy and current page classes resolve to one scale. */
+.form-group,
+.view-content .form-group {
+  gap: 0.5rem;
+}
+
+.view-content .form-input,
+.view-content .form-select,
+.view-content .checkup-field-input,
+.view-content .mother-checkup-form .checkup-field-input,
+.view-content .child-monitor-form .checkup-field-input {
+  min-height: var(--field-height);
+  border-radius: var(--field-radius);
+  font-size: var(--font-size-md);
+}
+
+.view-content .form-label,
+.view-content .checkup-field-label,
+.view-content .mother-checkup-form .checkup-field-label,
+.view-content .child-monitor-form .checkup-field-label,
+.view-content .mother-checkup-form .horizontal-toggle-label {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.25;
+}
+
+.view-content .mother-checkup-form .checkup-field-label {
+  font-size: var(--font-size-sm);
 }

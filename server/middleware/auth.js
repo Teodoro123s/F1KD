@@ -1,23 +1,69 @@
 const jwt = require('jsonwebtoken');
-require('dotenv').config();
+const pool = require('../db');
+const JWT_SECRET = require('../utils/jwtSecret');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
+function createVerifyToken({ allowUnconsented = false } = {}) {
+  return async (req, res, next) => {
+    const auth = req.headers.authorization || req.headers.Authorization || '';
+    const parts = auth.split(' ');
+    if (parts.length !== 2 || parts[0] !== 'Bearer') {
+      return res.status(401).json({ error: 'Authorization header missing or invalid' });
+    }
 
-function verifyToken(req, res, next) {
-  const auth = req.headers.authorization || req.headers.Authorization || '';
-  const parts = auth.split(' ');
-  if (parts.length === 2 && parts[0] === 'Bearer') {
-    const token = parts[1];
+    let payload;
     try {
-      const payload = jwt.verify(token, JWT_SECRET);
-      req.user = payload;
-      return next();
+      payload = jwt.verify(parts[1], JWT_SECRET, { algorithms: ['HS256'] });
     } catch (err) {
       return res.status(401).json({ error: 'Invalid or expired token' });
     }
-  }
-  return res.status(401).json({ error: 'Authorization header missing or invalid' });
+    if (!payload.sid) return res.status(401).json({ error: 'Session is invalid or expired' });
+
+    let rows;
+    try {
+      [rows] = await pool.query(
+        `SELECT s.user_id, u.email, u.role, u.status, u.school_id, u.group_id, u.first_name,
+                u.middle_initial, u.last_name, u.contact_number, u.location, u.consent_accepted_at
+         FROM auth_sessions s
+         INNER JOIN users u ON u.id = s.user_id
+         WHERE s.id = ? AND s.user_id = ? AND s.revoked_at IS NULL
+           AND s.expires_at > UTC_TIMESTAMP()
+           AND LOWER(TRIM(u.status)) NOT IN ('inactive', 'pending', 'suspended', 'disabled')
+         LIMIT 1`,
+        [payload.sid, payload.id],
+      );
+    } catch (err) {
+      return next(err);
+    }
+
+    const user = rows[0];
+    if (!user) return res.status(401).json({ error: 'Session is invalid or expired' });
+    const hasAcceptedTerms = Boolean(user.consent_accepted_at);
+    if (!hasAcceptedTerms && !allowUnconsented) {
+      return res.status(403).json({ error: 'Please accept the user consent form before continuing.' });
+    }
+    const name = [user.first_name, user.middle_initial, user.last_name].filter(Boolean).join(' ').trim();
+    req.user = {
+      ...payload,
+      id: user.user_id,
+      email: user.email,
+      role: user.role,
+      status: user.status,
+      school_id: user.school_id,
+      group_id: user.group_id,
+      first_name: user.first_name,
+      middle_initial: user.middle_initial,
+      last_name: user.last_name,
+      contact_number: user.contact_number,
+      location: user.location,
+      name: name || payload.name,
+      has_accepted_terms: hasAcceptedTerms,
+    };
+    return next();
+  };
 }
+
+const verifyToken = createVerifyToken();
+const verifyTokenAllowUnconsented = createVerifyToken({ allowUnconsented: true });
 
 function normalizeRole(role) {
   const value = String(role || '').trim().toLowerCase();
@@ -53,4 +99,4 @@ function requireRole(...roles) {
   };
 }
 
-module.exports = { verifyToken, requireRole, normalizeRole };
+module.exports = { verifyToken, verifyTokenAllowUnconsented, requireRole, normalizeRole };

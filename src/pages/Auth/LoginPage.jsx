@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import logo from '../../assets/f1kd-logo.png';
 import { useAuth } from '../../auth/AuthProvider';
-import { notifyAction } from '../../components/ActionFeedback';
+import ActionFeedback, { notifyAction } from '../../components/ActionFeedback';
 import { requestPasswordReset, resetPassword } from '../../api/auth';
 
 export default function Login() {
@@ -30,8 +30,11 @@ export default function Login() {
     } catch (err) {
       console.error('Login failed', err);
       const message = err.message || 'Login failed. Please check your credentials and try again.';
-      setErrorMessage(message);
-      notifyAction(message, 'error');
+      const displayMessage = /invalid credentials/i.test(message)
+        ? 'The email address or password is incorrect. Check both and try again.'
+        : message;
+      setErrorMessage('');
+      notifyAction(displayMessage, 'error');
     } finally {
       setLoading(false);
     }
@@ -102,6 +105,7 @@ export default function Login() {
 
   return (
     <div className="login-page">
+      <ActionFeedback />
       <div className="login-shell">
         <div className="login-kicker">
           <img src={logo} alt="F1KD logo" className="login-logo" />
@@ -116,6 +120,8 @@ export default function Login() {
                 name="email"
                 type="email"
                 value={email}
+                aria-invalid={Boolean(errorMessage)}
+                aria-describedby={errorMessage ? 'login-error-message' : undefined}
                 onChange={(event) => { setEmail(event.target.value); setErrorMessage(''); setStatusMessage(''); }}
                 placeholder="Enter email"
                 autoComplete="username"
@@ -132,6 +138,8 @@ export default function Login() {
                 name="password"
                 type={showPassword ? 'text' : 'password'}
                 value={password}
+                aria-invalid={Boolean(errorMessage)}
+                aria-describedby={errorMessage ? 'login-error-message' : undefined}
                 onChange={(event) => { setPassword(event.target.value); setErrorMessage(''); }}
                 placeholder="Enter password"
                 autoComplete="current-password"
@@ -211,7 +219,18 @@ export default function Login() {
             </>
           )}
 
-          {errorMessage && <p className="form-error" role="alert">{errorMessage}</p>}
+          {forgotPassword && errorMessage && (
+            <div className="login-error" role="alert" aria-live="assertive">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 7.5v5m0 3.5h.01" />
+              </svg>
+              <div>
+                <strong>{forgotPassword ? 'We couldn’t complete that request' : 'We couldn’t sign you in'}</strong>
+                <p id="login-error-message">{errorMessage}</p>
+              </div>
+            </div>
+          )}
           {statusMessage && <p className="login-status" role="status">{statusMessage}</p>}
 
           <div className="login-actions">

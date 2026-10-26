@@ -7,7 +7,7 @@ import AuditSignatures from '../../components/ui/AuditSignatures';
 import ModuleSummaryCards from '../../components/ui/ModuleSummaryCards';
 import PageHeader from '../../components/ui/PageHeader';
 import { notifyAction } from '../../components/ActionFeedback';
-import { formatDateForDisplay } from '../../utils/dateFormat';
+import { formatDateForDisplay } from '../../utils/formatting/dateFormat';
 import { canViewAuditSignatures } from '../../utils/permissions';
 import { useAuth } from '../../auth/AuthProvider';
 import MotherNavigationCards from '../Beneficiary/mother/MotherNavigationCards';

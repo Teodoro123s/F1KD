@@ -1,6 +1,6 @@
 import React from 'react';
-import { getMotherDocumentProgress, getMotherMonitoringProgress } from '../../utils/motherProgress';
-import { getChildMonitoringProgress, getChildProfileProgress } from '../../utils/childProgress';
+import { getMotherDocumentProgress, getMotherMonitoringProgress } from '../../utils/beneficiary/motherProgress';
+import { getChildMonitoringProgress, getChildProfileProgress } from '../../utils/beneficiary/childProgress';
 import TableSearch from '../../components/ui/TableSearch';
 
 export default function BeneficiaryTable({

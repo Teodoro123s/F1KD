@@ -1,8 +1,8 @@
 import React from 'react';
-import { formatDateForDisplay, formatDateForInput, maskDateInput, normalizeDateValue } from '../../../utils/dateFormat';
-import { capitalizeNameValue } from '../../../utils/nameFormat';
-import { CHILD_VACCINE_SEQUENCES } from '../../../utils/childRecordValidation';
-import { normalizeFirstName } from '../../../utils/firstNameValidation';
+import { formatDateForDisplay, formatDateForInput, maskDateInput, normalizeDateValue } from '../../../utils/formatting/dateFormat';
+import { capitalizeNameValue } from '../../../utils/formatting/nameFormat';
+import { CHILD_VACCINE_SEQUENCES } from '../../../utils/beneficiary/childRecordValidation';
+import { normalizeFirstName } from '../../../utils/validation/firstNameValidation';
 import FieldInfoTooltip from '../../../components/ui/FieldInfoTooltip';
 import FileUploadField from '../../../components/ui/FileUploadField';
 
@@ -16,7 +16,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
 
   React.useEffect(() => {
     let active = true;
-    import('../../../utils/philippineLocations')
+    import('../../../utils/beneficiary/philippineLocations')
       .then((locations) => {
         if (active) setLocationOptions(locations);
       })

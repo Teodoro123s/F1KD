@@ -7,6 +7,7 @@ const envNames = [
   'EMAILJS_PUBLIC_KEY',
   'EMAILJS_PRIVATE_KEY',
   'EMAILJS_CREDENTIALS_TEMPLATE_ID',
+  'APP_URL',
 ];
 const originalEnv = Object.fromEntries(envNames.map((name) => [name, process.env[name]]));
 Object.assign(process.env, {
@@ -15,6 +16,7 @@ Object.assign(process.env, {
   EMAILJS_PUBLIC_KEY: 'public-test',
   EMAILJS_PRIVATE_KEY: 'private-test',
   EMAILJS_CREDENTIALS_TEMPLATE_ID: 'template-credentials',
+  APP_URL: 'https://f1kd.example.test',
 });
 
 const express = require('express');
@@ -110,6 +112,7 @@ test('Super Admin user creation sends the account credential template', async (t
     email: 'new-account@example.test',
     to_email: 'new-account@example.test',
     username: 'new-account@example.test',
+    login_url: 'https://f1kd.example.test/login',
     to_name: 'New Account',
     role: 'Partner',
     password: 'temporary-password',

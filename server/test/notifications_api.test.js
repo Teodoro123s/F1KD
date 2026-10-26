@@ -21,12 +21,39 @@ mysql.createConnection = async () => ({
 
 const pool = require('../db');
 const notificationsRouter = require('../routes/notifications');
+const sessionUsers = new Map();
+
+function signInTestUser(user) {
+  const sid = `test-session-${sessionUsers.size + 1}`;
+  sessionUsers.set(sid, user);
+  return jwt.sign({ ...user, sid }, process.env.JWT_SECRET);
+}
+
+function getTestSessionRows(params) {
+  const session = sessionUsers.get(params[0]);
+  if (!session) return [[]];
+  return [[{
+    user_id: session.id,
+    email: `user-${session.id}@example.test`,
+    role: session.role,
+    status: 'Active',
+    school_id: session.school_id ?? null,
+    group_id: session.group_id ?? null,
+    first_name: 'Test',
+    middle_initial: null,
+    last_name: 'User',
+    contact_number: null,
+    location: null,
+    consent_accepted_at: '2026-01-01 00:00:00',
+  }]];
+}
 
 test('notification read-state endpoints persist scoped individual and bulk changes', async (t) => {
   await pool.ready;
   const originalQuery = pool.query;
   const calls = [];
   pool.query = async (sql, params = []) => {
+    if (sql.includes('FROM auth_sessions s')) return getTestSessionRows(params);
     calls.push({ sql, params });
     if (sql.trimStart().startsWith('SELECT n.id')) {
       return [[{ id: 12 }]];
@@ -53,7 +80,7 @@ test('notification read-state endpoints persist scoped individual and bulk chang
   });
   await new Promise((resolve) => server.once('listening', resolve));
 
-  const token = jwt.sign({ id: 7, role: 'Community Organizer', school_id: 91 }, process.env.JWT_SECRET);
+  const token = signInTestUser({ id: 7, role: 'Community Organizer', school_id: 91 });
   const request = (path, options = {}) => fetch(`http://127.0.0.1:${server.address().port}/api/notifications${path}`, {
     ...options,
     headers: {
@@ -115,6 +142,7 @@ test('notification summary counts remain scoped but independent of list filters'
   const originalQuery = pool.query;
   const calls = [];
   pool.query = async (sql, params = []) => {
+    if (sql.includes('FROM auth_sessions s')) return getTestSessionRows(params);
     calls.push({ sql, params });
     if (sql.includes('SUM(nr.notification_id IS NOT NULL)')) {
       return [[{ total: 7, readCount: 2, unreadCount: 5 }]];
@@ -142,7 +170,7 @@ test('notification summary counts remain scoped but independent of list filters'
   });
   await new Promise((resolve) => server.once('listening', resolve));
 
-  const token = jwt.sign({ id: 7, role: 'Community Organizer', school_id: 91 }, process.env.JWT_SECRET);
+  const token = signInTestUser({ id: 7, role: 'Community Organizer', school_id: 91 });
   const response = await fetch(
     `http://127.0.0.1:${server.address().port}/api/notifications?category=Community&search=school&readStatus=unread`,
     { headers: { Authorization: `Bearer ${token}` } },
@@ -163,6 +191,7 @@ test('notification preferences are role-scoped and persist category visibility',
   const originalQuery = pool.query;
   const calls = [];
   pool.query = async (sql, params = []) => {
+    if (sql.includes('FROM auth_sessions s')) return getTestSessionRows(params);
     calls.push({ sql, params });
     if (sql.startsWith('SELECT category, enabled FROM notification_preferences')) {
       return [[{ category: 'Community', enabled: 0 }]];
@@ -181,7 +210,7 @@ test('notification preferences are role-scoped and persist category visibility',
   });
   await new Promise((resolve) => server.once('listening', resolve));
 
-  const token = jwt.sign({ id: 7, role: 'Community Organizer', school_id: 91 }, process.env.JWT_SECRET);
+  const token = signInTestUser({ id: 7, role: 'Community Organizer', school_id: 91 });
   const request = (path, options = {}) => fetch(`http://127.0.0.1:${server.address().port}/api/notifications${path}`, {
     ...options,
     headers: {
@@ -221,7 +250,8 @@ test('notification preferences are role-scoped and persist category visibility',
 test('notification bulk read endpoint rejects invalid input and unauthorized records stay hidden', async (t) => {
   await pool.ready;
   const originalQuery = pool.query;
-  pool.query = async (sql) => {
+  pool.query = async (sql, params = []) => {
+    if (sql.includes('FROM auth_sessions s')) return getTestSessionRows(params);
     if (sql.includes('SELECT n.id') && sql.includes('FROM notifications n')) return [[]];
     throw new Error(`Unexpected notification test SQL: ${sql}`);
   };
@@ -236,7 +266,7 @@ test('notification bulk read endpoint rejects invalid input and unauthorized rec
   });
   await new Promise((resolve) => server.once('listening', resolve));
 
-  const token = jwt.sign({ id: 7, role: 'Community Organizer', school_id: 91 }, process.env.JWT_SECRET);
+  const token = signInTestUser({ id: 7, role: 'Community Organizer', school_id: 91 });
   const request = (path, options = {}) => fetch(`http://127.0.0.1:${server.address().port}/api/notifications${path}`, {
     ...options,
     headers: {
@@ -269,6 +299,7 @@ test('progress report downloads are recorded for every role allowed to export', 
   const originalQuery = pool.query;
   const insertedNotifications = [];
   pool.query = async (sql, params = []) => {
+    if (sql.includes('FROM auth_sessions s')) return getTestSessionRows(params);
     if (sql.startsWith('INSERT INTO notifications')) {
       insertedNotifications.push(params);
       return [{ insertId: insertedNotifications.length }];
@@ -293,7 +324,7 @@ test('progress report downloads are recorded for every role allowed to export', 
     [23, 'Partner'],
     [24, 'Health worker'],
   ]) {
-    const token = jwt.sign({ id, role, school_id: 91, group_id: 92 }, process.env.JWT_SECRET);
+    const token = signInTestUser({ id, role, school_id: 91, group_id: 92 });
     const response = await fetch(`http://127.0.0.1:${server.address().port}/api/notifications/download-success`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },

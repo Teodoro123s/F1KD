@@ -77,11 +77,16 @@ export function GrowthMetricsStep({
         </>
       ) : (
         <>
-          <p>{beneficiaryType === 'mother' ? 'Choose a mother monitoring metric to review.' : 'Choose one child growth indicator to display and export:'}</p>
+          <p>{beneficiaryType === 'mother' ? 'Choose a mother monitoring metric to review.' : 'Choose one or more child growth indicators to display and export:'}</p>
           <div className="growth-metric-cards">
             {availableGrowthMetrics.map(([id, label, description]) => (
               <label key={id} className={growthMetrics.includes(id) ? 'selected' : ''}>
-                <input type="radio" name="growth-metric" checked={growthMetrics.includes(id)} onChange={() => selectGrowthMetric(id)} />
+                <input
+                  type={beneficiaryType === 'mother' ? 'radio' : 'checkbox'}
+                  name={beneficiaryType === 'mother' ? 'growth-metric' : undefined}
+                  checked={growthMetrics.includes(id)}
+                  onChange={() => selectGrowthMetric(id)}
+                />
                 <strong>{label}</strong>
                 <span>{description}</span>
               </label>
