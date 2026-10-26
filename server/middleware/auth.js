@@ -2,14 +2,17 @@ const jwt = require('jsonwebtoken');
 const pool = require('../db');
 const JWT_SECRET = require('../utils/jwtSecret');
 
-async function verifyToken(req, res, next) {
-  const auth = req.headers.authorization || req.headers.Authorization || '';
-  const parts = auth.split(' ');
-  if (parts.length === 2 && parts[0] === 'Bearer') {
-    const token = parts[1];
+function createVerifyToken({ allowUnconsented = false } = {}) {
+  return async (req, res, next) => {
+    const auth = req.headers.authorization || req.headers.Authorization || '';
+    const parts = auth.split(' ');
+    if (parts.length !== 2 || parts[0] !== 'Bearer') {
+      return res.status(401).json({ error: 'Authorization header missing or invalid' });
+    }
+
     let payload;
     try {
-      payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
+      payload = jwt.verify(parts[1], JWT_SECRET, { algorithms: ['HS256'] });
     } catch (err) {
       return res.status(401).json({ error: 'Invalid or expired token' });
     }
@@ -19,7 +22,7 @@ async function verifyToken(req, res, next) {
     try {
       [rows] = await pool.query(
         `SELECT s.user_id, u.email, u.role, u.status, u.school_id, u.group_id, u.first_name,
-                u.middle_initial, u.last_name, u.contact_number, u.location
+                u.middle_initial, u.last_name, u.contact_number, u.location, u.consent_accepted_at
          FROM auth_sessions s
          INNER JOIN users u ON u.id = s.user_id
          WHERE s.id = ? AND s.user_id = ? AND s.revoked_at IS NULL
@@ -34,6 +37,10 @@ async function verifyToken(req, res, next) {
 
     const user = rows[0];
     if (!user) return res.status(401).json({ error: 'Session is invalid or expired' });
+    const hasAcceptedTerms = Boolean(user.consent_accepted_at);
+    if (!hasAcceptedTerms && !allowUnconsented) {
+      return res.status(403).json({ error: 'Please accept the user consent form before continuing.' });
+    }
     const name = [user.first_name, user.middle_initial, user.last_name].filter(Boolean).join(' ').trim();
     req.user = {
       ...payload,
@@ -49,11 +56,14 @@ async function verifyToken(req, res, next) {
       contact_number: user.contact_number,
       location: user.location,
       name: name || payload.name,
+      has_accepted_terms: hasAcceptedTerms,
     };
     return next();
-  }
-  return res.status(401).json({ error: 'Authorization header missing or invalid' });
+  };
 }
+
+const verifyToken = createVerifyToken();
+const verifyTokenAllowUnconsented = createVerifyToken({ allowUnconsented: true });
 
 function normalizeRole(role) {
   const value = String(role || '').trim().toLowerCase();
@@ -89,4 +99,4 @@ function requireRole(...roles) {
   };
 }
 
-module.exports = { verifyToken, requireRole, normalizeRole };
+module.exports = { verifyToken, verifyTokenAllowUnconsented, requireRole, normalizeRole };

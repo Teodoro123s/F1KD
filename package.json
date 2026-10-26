@@ -5,6 +5,7 @@
   "scripts": {
     "test:coordinator": "node --test server/test/coordinator_assignment.test.js",
     "test:progress-report-csv": "node --test src/pages/ProgressReport/utils/csvIdentity.test.mjs src/pages/ProgressReport/utils/aiReportCsv.test.mjs src/pages/ProgressReport/utils/reportTableUtils.test.mjs",
+    "test:user-consent": "node --test server/test/user_consent.test.js",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",

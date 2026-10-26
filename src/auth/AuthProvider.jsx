@@ -14,8 +14,10 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     apiAuth.refreshSession().then((data) => {
-      setToken(data.token);
-      setCurrentUser(data.user || null);
+      if (data?.token) {
+        setToken(data.token);
+        setCurrentUser(data.user || null);
+      }
     }).catch(() => {
       apiAuth.clearToken();
     }).finally(() => {
@@ -34,6 +36,11 @@ export function AuthProvider({ children }) {
     throw new Error('Login failed');
   };
 
+  const acceptConsent = async () => {
+    await apiAuth.acceptConsent();
+    setCurrentUser((user) => user ? { ...user, has_accepted_terms: true } : user);
+  };
+
   const logout = () => {
     apiAuth.logoutSession().catch(() => {});
     apiAuth.clearToken();
@@ -50,6 +57,7 @@ export function AuthProvider({ children }) {
     currentUser,
     loading,
     login,
+    acceptConsent,
     logout,
     updateCurrentUser,
     isAuthenticated: Boolean(currentUser),

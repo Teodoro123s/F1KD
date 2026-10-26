@@ -17,6 +17,8 @@ const { verifyToken } = require('./middleware/auth');
 const { authorizeOperational, authorizeProgressReport } = require('./middleware/authorize');
 const { errorHandler } = require('./middleware/errorHandler');
 const db = require('./db');
+const { ensureSuperadminAccount } = require('./services/superadminRecovery');
+const { startCheckupReminderScheduler } = require('./services/checkupReminders');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -102,5 +104,12 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 4000;
 db.ready
-  .then(() => app.listen(PORT, () => console.log(`Server listening on ${PORT}`)))
-  .catch(() => process.exitCode = 1);
+  .then(async () => {
+    await ensureSuperadminAccount(db);
+    startCheckupReminderScheduler(db);
+    app.listen(PORT, () => console.log(`Server listening on ${PORT}`));
+  })
+  .catch((error) => {
+    console.error('Backend startup failed:', error.message);
+    process.exitCode = 1;
+  });

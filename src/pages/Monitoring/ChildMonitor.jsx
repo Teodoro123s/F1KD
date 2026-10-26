@@ -172,7 +172,7 @@ export default function ChildMonitor({
     const savedDate = formatDate(savedCheckup.visit_date ?? savedCheckup.checkupDate);
     setForm({
       checkupDate: savedDate || scheduledDate,
-      nextCheckupDate: addMonthsPreservingDay(savedDate || scheduledDate, 1),
+      nextCheckupDate: formatDate(savedCheckup.nextCheckupDate ?? savedCheckup.next_checkup_date),
       breastfeedingStatus: getBreastfeedingStatus(savedCheckup.breastfeedingStatus ?? savedCheckup.exclusive_breastfeeding),
       weight: getSavedOrBirthMeasurement(savedCheckup.weight, child, 'birthWeight', week),
       height: getSavedOrBirthMeasurement(savedCheckup.height, child, 'birthLength', week),
@@ -313,7 +313,7 @@ export default function ChildMonitor({
           <p className="child-monitor-subtitle">M{week} of {TOTAL_MONTHS} · {childName}</p>
           <div className="checkup-grid">
             {renderDateField({ id: 'child-checkup-date', label: 'Check-up Date', name: 'checkupDate', required: true })}
-            {renderDateField({ id: 'child-next-checkup-date', label: 'Next Check-up Date (Tentative)', name: 'nextCheckupDate', readOnly: true })}
+            {renderDateField({ id: 'child-next-checkup-date', label: 'Next Check-up Date (leave blank to cancel)', name: 'nextCheckupDate' })}
             <div className="form-group">
               <label className="checkup-field-label" htmlFor="child-current-age-months">Current Age (months)</label>
               <input

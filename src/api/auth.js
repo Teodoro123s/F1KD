@@ -42,6 +42,15 @@ export async function changePassword(currentPassword, newPassword, confirmPasswo
   return readApiResponse(res, 'Unable to change your password');
 }
 
+export async function acceptConsent() {
+  const res = await fetchWithAuth(`${API_BASE}/api/auth/consent`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ accepted: true }),
+  });
+  return readApiResponse(res, 'Unable to record your consent');
+}
+
 export async function refreshSession() {
   const result = await refreshSessionRequest();
   if (!result?.token) throw new Error('Unable to refresh your session');

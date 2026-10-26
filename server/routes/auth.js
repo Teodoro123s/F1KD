@@ -10,7 +10,7 @@ require('dotenv').config();
 const JWT_SECRET = require('../utils/jwtSecret');
 const JWT_EXPIRES = process.env.JWT_EXPIRES || '8h';
 const REFRESH_TOKEN_TTL = process.env.REFRESH_TOKEN_TTL || '7d';
-const { verifyToken } = require('../middleware/auth');
+const { verifyToken, verifyTokenAllowUnconsented } = require('../middleware/auth');
 const {
   getEmailJsConfig,
   sendPasswordResetCodeEmail,
@@ -51,6 +51,7 @@ const buildUserPayload = (user) => {
 
   return {
     id: user.id,
+    has_accepted_terms: Boolean(user.consent_accepted_at),
     role,
     name,
     first_name: firstName,
@@ -138,7 +139,7 @@ router.post('/login', async (req, res) => {
     }
 
     const [rows] = await pool.query(
-        `SELECT id, first_name, last_name, middle_initial, email, role, status, school_id, group_id, contact_number, password_hash
+        `SELECT id, first_name, last_name, middle_initial, email, role, status, school_id, group_id, contact_number, password_hash, consent_accepted_at
        FROM users
          WHERE LOWER(TRIM(email)) = ?
        LIMIT 1`,
@@ -351,10 +352,27 @@ router.post('/change-password', verifyToken, async (req, res) => {
   }
 });
 
+router.post('/consent', verifyTokenAllowUnconsented, async (req, res) => {
+  if (req.body?.accepted !== true) {
+    return res.status(400).json({ error: 'Consent must be accepted to continue.' });
+  }
+
+  try {
+    await pool.query(
+      'UPDATE users SET consent_accepted_at = COALESCE(consent_accepted_at, CURRENT_TIMESTAMP) WHERE id = ?',
+      [req.user.id],
+    );
+    return res.json({ has_accepted_terms: true });
+  } catch (error) {
+    console.error('[Auth API] Consent recording failed:', error.message);
+    return res.status(500).json({ error: 'Unable to record consent. Please try again.' });
+  }
+});
+
 router.post('/refresh', async (req, res) => {
   const refreshToken = req.cookies && req.cookies.refreshToken;
   if (!refreshToken) {
-    return res.status(401).json({ status: 401, code: 'REFRESH_TOKEN_MISSING', message: 'Refresh token is missing', timestamp: new Date().toISOString() });
+    return res.status(204).end();
   }
 
   let connection;
@@ -371,7 +389,7 @@ router.post('/refresh', async (req, res) => {
       `SELECT rt.token_hash, rt.revoked_at AS token_revoked_at, rt.expires_at AS token_expires_at,
               s.revoked_at AS session_revoked_at, s.expires_at AS session_expires_at,
               u.id, u.first_name, u.last_name, u.middle_initial, u.email, u.role, u.status,
-              u.school_id, u.group_id, u.contact_number, u.location
+              u.school_id, u.group_id, u.contact_number, u.location, u.consent_accepted_at
        FROM auth_refresh_tokens rt
        INNER JOIN auth_sessions s ON s.id = rt.session_id
        INNER JOIN users u ON u.id = s.user_id
@@ -452,7 +470,7 @@ router.post('/logout', async (req, res) => {
   return res.json({ message: 'Signed out successfully' });
 });
 
-router.get('/me', verifyToken, async (req, res) => {
+router.get('/me', verifyTokenAllowUnconsented, async (req, res) => {
   res.json({ user: req.user });
 });
 

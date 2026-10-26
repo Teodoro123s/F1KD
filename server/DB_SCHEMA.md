@@ -24,6 +24,7 @@ The live database was also checked directly with MySQL, and the current `users` 
 - `role`
 - `status`
 - `password_hash`
+- `consent_accepted_at`
 - `name`
 - `created_at`
 - `updated_at`
@@ -57,6 +58,7 @@ Columns:
 - `role`
 - `status`
 - `password_hash`
+- `consent_accepted_at`
 - `name` (generated column)
 - `created_at`
 - `updated_at`
@@ -65,6 +67,7 @@ Columns:
 
 Purpose:
 - authentication
+- recording required user consent before allowing access to protected modules
 - authorization
 - assignment-based scoping
 - admin and partner user management

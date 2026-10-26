@@ -32,7 +32,9 @@ Superadmin is the only role allowed to use the full `/api/users` account-adminis
 
 ## Account provisioning and recovery
 
-The application does not seed, create, or restore a default Superadmin account. Provision the initial Superadmin through a trusted database-administration process before signing in. There are no built-in default credentials. Keep account provisioning and recovery protected and auditable.
+The application does not use built-in Superadmin credentials. To bootstrap or recover a named Superadmin, set both `BOOTSTRAP_SUPERADMIN_EMAIL` and `BOOTSTRAP_SUPERADMIN_PASSWORD` in the backend environment, then restart the backend. On startup, F1KD creates that account only if the configured email is not already present. The password must meet the normal account policy; no default password is supplied.
+
+If the account already exists, startup never replaces its password or reactivates a suspended account. To restore credentials only when the configured account has no password hash, explicitly set `SELF_HEAL_ADMIN_CREDENTIALS=true`; the configured password is hashed before storage. The configured email must already belong to a Superadmin—F1KD refuses to promote an account with a different role. Keep these values private. Remove both bootstrap variables to disable automatic recovery, or keep them configured if you want startup to recreate the account if it is missing.
 
 ## Notifications and activity reporting
 
@@ -46,7 +48,7 @@ Dashboard figures use module-scoped sources. If a source fails, the dashboard re
 ## Safe operating practices
 
 1. Use a named, personal Superadmin account; avoid sharing accounts.
-2. Provision the initial account through a trusted administration process and protect its credentials.
+2. Protect bootstrap credentials and disable credential self-healing when it is no longer needed.
 3. Use operational roles for beneficiary, monitoring, Program, and Progress Report work.
 4. Confirm school and group assignments when creating or changing operational accounts.
 5. Review the target user carefully before suspension or permanent deletion.

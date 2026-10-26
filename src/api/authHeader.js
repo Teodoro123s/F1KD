@@ -27,6 +27,7 @@ export function refreshSessionRequest() {
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
     }).then(async (response) => {
+      if (response.status === 204) return null;
       if (!response.ok) return null;
       const data = await response.json();
       if (data?.token) setAccessToken(data.token);

@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS users (
   username VARCHAR(100) UNIQUE,
   email VARCHAR(255) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
+  consent_accepted_at DATETIME DEFAULT NULL,
   full_name VARCHAR(150),
   first_name VARCHAR(120) NOT NULL DEFAULT '',
   last_name VARCHAR(120) NOT NULL DEFAULT '',
@@ -282,6 +283,7 @@ CREATE TABLE IF NOT EXISTS child_checkups (
   id INT AUTO_INCREMENT PRIMARY KEY,
   child_id INT NOT NULL,
   visit_date DATE,
+  next_checkup_date DATE NULL,
   weight DECIMAL(5,2),
   height DECIMAL(5,2),
   head_circumference DECIMAL(5,2),
@@ -294,7 +296,8 @@ CREATE TABLE IF NOT EXISTS child_checkups (
   created_by_user_id INT NULL,
   updated_by_user_id INT NULL,
   updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  KEY idx_child_checkups_week (child_id, week_number)
+  KEY idx_child_checkups_week (child_id, week_number),
+  KEY idx_child_checkups_next_date (next_checkup_date, child_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 -- ---------------------------------------------------------------------------
 -- RBAC tables from the authorization migration
@@ -417,10 +420,12 @@ CREATE TABLE IF NOT EXISTS notifications (
   group_id INT DEFAULT NULL,
   school_scope_ids VARCHAR(1000) DEFAULT NULL,
   recipient_user_ids VARCHAR(1000) DEFAULT NULL,
+  idempotency_key VARCHAR(191) DEFAULT NULL,
   actor_user_id INT DEFAULT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   KEY idx_notifications_created_at (created_at),
-  KEY idx_notifications_category (category)
+  KEY idx_notifications_category (category),
+  UNIQUE KEY uq_notifications_idempotency_key (idempotency_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS notification_reads (
