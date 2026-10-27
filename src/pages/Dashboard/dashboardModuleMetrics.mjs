@@ -1,5 +1,63 @@
 import { hasCheckupThisMonth } from '../../utils/beneficiary/monthlyCheckups.js';
 import { normalizeRole, ROLES } from '../../utils/permissions.js';
+import { getMonthlyDevelopmentalStatus, getMonitoringScreeningRoute } from '../Monitoring/monitoringScreeningUtils.mjs';
+
+function getCompletedChildMonitoringMonths(child) {
+  const months = new Set();
+  const completedWeeks = Array.isArray(child.completedWeeks) ? child.completedWeeks : [];
+  const checkups = Array.isArray(child.checkups) ? child.checkups.flat(Infinity) : [];
+
+  [...completedWeeks, ...checkups.map((checkup) => checkup?.weekNumber ?? checkup?.week_number)]
+    .forEach((value) => {
+      const month = Number(value);
+      if (Number.isInteger(month) && month >= 1 && month <= 24) months.add(month);
+    });
+
+  return months;
+}
+
+export function getBatchChildMonitoringProgress(children = []) {
+  const batchChildren = children.filter((child) => (
+    (child.batchId ?? child.batch_id) !== undefined
+      && (child.batchId ?? child.batch_id) !== null
+      && String(child.batchId ?? child.batch_id).trim() !== ''
+  ));
+  const completed = batchChildren.filter((child) => getCompletedChildMonitoringMonths(child).size === 24).length;
+
+  return {
+    completed,
+    total: batchChildren.length,
+    percentage: batchChildren.length ? Math.round((completed / batchChildren.length) * 100) : null,
+  };
+}
+
+export function getIncompleteBatchProgressOptions(children = [], batches = []) {
+  const batchNames = new Map(batches
+    .filter((batch) => batch?.id !== undefined && batch?.id !== null)
+    .map((batch) => [String(batch.id), String(batch.name || batch.batchName || batch.batch_name || '').trim()]));
+  const childrenByBatch = new Map();
+
+  children.forEach((child) => {
+    const batchId = child.batchId ?? child.batch_id;
+    if (batchId === undefined || batchId === null || String(batchId).trim() === '') return;
+    const key = String(batchId);
+    if (!childrenByBatch.has(key)) childrenByBatch.set(key, []);
+    childrenByBatch.get(key).push(child);
+  });
+
+  return [...childrenByBatch.entries()]
+    .map(([id, batchChildren]) => {
+      const progress = getBatchChildMonitoringProgress(batchChildren);
+      return {
+        id,
+        name: batchNames.get(id)
+          || String(batchChildren[0]?.batchName || batchChildren[0]?.batch_name || batchChildren[0]?.batch || `Batch ${id}`),
+        ...progress,
+      };
+    })
+    .filter((batch) => batch.percentage !== null && batch.percentage < 100)
+    .sort((left, right) => left.name.localeCompare(right.name));
+}
 
 export function buildOperationalStaffMetrics(users = []) {
   const operationalRoles = new Set([
@@ -23,14 +81,13 @@ export function buildOperationalStaffMetrics(users = []) {
   };
 }
 
-function hasMonitoringRecord(record) {
-  return Array.isArray(record.checkups) && record.checkups.flat(Infinity).some(Boolean);
-}
-
 export function buildDashboardModuleSummaries({
   mothers = [],
   children = [],
+  batches = [],
+  selectedBatchId = '',
   programs = [],
+  programsAvailable = true,
   staffMetrics = { active: 0, suspended: 0, unassigned: 0 },
   communityMetrics = { schools: 0, groups: 0 },
   reportMetrics = { signIns: 0, signInsLast30Days: 0 },
@@ -41,11 +98,28 @@ export function buildDashboardModuleSummaries({
 } = {}) {
   const beneficiaries = [...mothers, ...children];
   const checkedThisMonth = beneficiaries.filter((record) => hasCheckupThisMonth(record, now)).length;
-  const recordsWithMonitoring = beneficiaries.filter(hasMonitoringRecord).length;
+  const incompleteBatchOptions = getIncompleteBatchProgressOptions(children, batches);
+  const selectedBatchProgress = incompleteBatchOptions.find((batch) => batch.id === String(selectedBatchId))
+    || incompleteBatchOptions[0]
+    || null;
+  const screeningMetrics = [
+    { type: 'Mother', records: mothers },
+    { type: 'Child', records: children },
+  ].flatMap(({ type, records }) => [
+    {
+      label: `${type === 'Mother' ? 'Mothers' : 'Children'} needing follow-up`,
+      value: records.filter((record) => getMonthlyDevelopmentalStatus(record) === 'needs follow up').length,
+      to: getMonitoringScreeningRoute(type, 'Needs Follow-up'),
+    },
+    {
+      label: `${type === 'Mother' ? 'Mothers' : 'Children'} at risk`,
+      value: records.filter((record) => getMonthlyDevelopmentalStatus(record) === 'at risk').length,
+      to: getMonitoringScreeningRoute(type, 'At Risk'),
+    },
+  ]);
   const activePrograms = programs.filter((program) => (
     String(program.status || 'Active').trim().toLowerCase() !== 'ended'
   ));
-
   const modules = isSuperAdmin
     ? [
       {
@@ -93,58 +167,50 @@ export function buildDashboardModuleSummaries({
     ]
     : [
       {
-        key: 'beneficiaries',
-        title: 'Beneficiaries',
-        to: '/beneficiary',
-        metrics: [
-          { label: 'Total profiles', value: beneficiaries.length },
-          { label: 'Mothers', value: mothers.length },
-          { label: 'Children', value: children.length },
-        ],
-        note: 'Current scoped records',
-      },
-      {
         key: 'monitoring',
         title: 'Monitoring',
         to: '/monitoring',
         metrics: [
           { label: 'Beneficiaries checked this month', value: checkedThisMonth },
           { label: 'No check-up recorded this month', value: beneficiaries.length - checkedThisMonth },
+          ...screeningMetrics,
         ],
-        note: 'Based on saved beneficiary check-ups',
+        note: 'Screening counts use the latest recorded result for each beneficiary. Select a count to view matching records.',
       },
       {
-        key: 'programs',
-        title: 'Programs',
+        key: 'batch-progress',
+        title: 'Batch Progress',
+        to: '/monitoring',
+        batchOptions: incompleteBatchOptions,
+        selectedBatchId: selectedBatchProgress?.id || '',
+        metrics: [
+          {
+            label: selectedBatchProgress ? `${selectedBatchProgress.name} progress` : 'Incomplete batch progress',
+            value: selectedBatchProgress ? `${selectedBatchProgress.percentage}%` : '—',
+          },
+        ],
+        note: selectedBatchProgress
+          ? `${selectedBatchProgress.completed} of ${selectedBatchProgress.total} children completed all 24 monitoring months`
+          : 'All batches with child records have reached 100% progress',
+      },
+      {
+        key: 'projects',
+        title: 'Projects',
         to: '/program',
         metrics: [
-          { label: 'Active programs', value: activePrograms.length },
-          {
-            label: 'Recorded reach / target',
-            value: `${activePrograms.reduce((total, program) => total + (Number(program.received) || 0), 0).toLocaleString()} / ${activePrograms.reduce((total, program) => total + (Number(program.target) || 0), 0).toLocaleString()}`,
-          },
+          { label: 'Active projects', value: programsAvailable ? activePrograms.length : '—' },
+          { label: 'Total projects', value: programsAvailable ? programs.length : '—' },
         ],
-        note: 'Reach uses saved program check-ins',
-      },
-      {
-        key: 'progress',
-        title: 'Progress Report',
-        to: '/progress-report',
-        metrics: [
-          { label: 'Profiles with check-up history', value: recordsWithMonitoring },
-          { label: 'Reportable profiles', value: beneficiaries.length },
-          {
-            label: 'Monitoring data coverage',
-            value: `${beneficiaries.length ? Math.round((recordsWithMonitoring / beneficiaries.length) * 100) : 0}%`,
-          },
-        ],
-        note: 'Reports are generated from current records',
+        note: 'Active projects exclude projects that have ended',
       },
       ...(isCommunityOrganizer ? [{
         key: 'users',
         title: 'User Management',
         to: '/user-management',
-        metrics: [{ label: 'Active health workers', value: staffMetrics.active }],
+        metrics: [
+          { label: 'Active health workers', value: staffMetrics.active },
+          { label: 'Suspended health workers', value: staffMetrics.suspended },
+        ],
         note: 'Health workers in your assigned school',
       }] : []),
     ];

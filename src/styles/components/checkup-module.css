@@ -211,10 +211,27 @@
 .monitoring-calendar-table-wrap { max-width: 100%; overflow-x: auto; border: 1px solid var(--border-color); border-radius: 9px; }
 .monitoring-calendar-selected,
 .monitoring-calendar-table-wrap { min-width: 0; width: 100%; }
+.monitoring-calendar-selected-heading { align-items: center; margin-bottom: 1rem; }
+.monitoring-calendar-back-button { align-self: flex-start; justify-self: start; flex: 0 0 auto; width: auto; min-width: 10rem; white-space: nowrap; }
+.monitoring-calendar-empty-date {
+  display: grid;
+  justify-items: center;
+  gap: 0.4rem;
+  min-height: 168px;
+  padding: 1.5rem;
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: var(--text-muted);
+  text-align: center;
+}
+.monitoring-calendar-empty-date strong { color: var(--slate-dark); font-size: 0.95rem; }
+.monitoring-calendar-empty-icon { width: 2.25rem; height: 2.25rem; margin-bottom: 0.2rem; color: #94a3b8; }
 .monitoring-calendar-table { width: 100%; min-width: 720px; border-collapse: collapse; font-size: 0.82rem; }
 .monitoring-calendar-table th,
 .monitoring-calendar-table td { padding: 0.7rem; border-bottom: 1px solid var(--border-color); text-align: left; vertical-align: middle; }
 .monitoring-calendar-table thead th { background: #f8fafc; color: var(--slate-dark); font-weight: 800; }
+.monitoring-calendar-table tbody tr:nth-child(even) { background: #fbfdff; }
 .monitoring-calendar-table tbody tr:last-child th,
 .monitoring-calendar-table tbody tr:last-child td { border-bottom: 0; }
 .monitoring-calendar-activity-row { cursor: pointer; transition: background-color 140ms ease; }

@@ -7,10 +7,6 @@ export function ReportFocusStep({
   programName,
   setProgramName,
   programs,
-  benefitPeriod,
-  setBenefitPeriod,
-  benefitMonth,
-  setBenefitMonth,
   beneficiaryType,
   setBeneficiaryType,
   setActiveTab,
@@ -42,15 +38,6 @@ export function ReportFocusStep({
       {reportCategory === 'monitor' && (
         <p className="progress-report-note">Monitor Report is selected by default and uses details from the Monitor module.</p>
       )}
-      <fieldset className="progress-report-beneficiary-type">
-        <legend>Beneficiary type</legend>
-        <label className={beneficiaryType === 'child' ? 'selected' : ''}>
-          <input type="radio" name="beneficiary-type" value="child" checked={beneficiaryType === 'child'} onChange={() => setBeneficiaryType('child')} />Child
-        </label>
-        <label className={beneficiaryType === 'mother' ? 'selected' : ''}>
-          <input type="radio" name="beneficiary-type" value="mother" checked={beneficiaryType === 'mother'} onChange={() => setBeneficiaryType('mother')} />Mother
-        </label>
-      </fieldset>
       {reportCategory === 'program' && (
         <fieldset className="progress-report-beneficiary-type">
           <legend>Project Name</legend>
@@ -62,23 +49,19 @@ export function ReportFocusStep({
                 {eligiblePrograms.map((program) => <option key={program.id} value={program.name}>{program.name}</option>)}
               </select>
             </label>
-            <label>
-              <span>Benefit period</span>
-              <select value={benefitPeriod} onChange={(event) => setBenefitPeriod(event.target.value)}>
-                <option value="overall">Overall</option>
-                <option value="month">Monthly</option>
-              </select>
-            </label>
-            {benefitPeriod === 'month' && (
-              <label>
-                <span>Month</span>
-                <input type="month" value={benefitMonth} onChange={(event) => setBenefitMonth(event.target.value)} />
-              </label>
-            )}
           </div>
           <p className="progress-report-note">Project results include beneficiaries with confirmed benefit receipts in the selected project and period. Mixed projects can be reviewed separately by beneficiary type.</p>
         </fieldset>
       )}
+      <fieldset className="progress-report-beneficiary-type">
+        <legend>Beneficiary type</legend>
+        <label className={beneficiaryType === 'child' ? 'selected' : ''}>
+          <input type="radio" name="beneficiary-type" value="child" checked={beneficiaryType === 'child'} onChange={() => setBeneficiaryType('child')} />Child
+        </label>
+        <label className={beneficiaryType === 'mother' ? 'selected' : ''}>
+          <input type="radio" name="beneficiary-type" value="mother" checked={beneficiaryType === 'mother'} onChange={() => setBeneficiaryType('mother')} />Mother
+        </label>
+      </fieldset>
       <div className="progress-report-tab-actions">
         <StepNavigationButton
           className="primary-btn"

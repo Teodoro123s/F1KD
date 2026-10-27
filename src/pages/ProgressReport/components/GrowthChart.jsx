@@ -10,6 +10,7 @@ import {
   getPointInterpretation,
   mapInterpretationToBand,
 } from '../progressReportConfig';
+import { formatGraphBeneficiaryName } from '../utils/graphBeneficiaryName.mjs';
 
 const downloadChartImage = (svgElement, metricLabel) => {
   if (!svgElement) return;
@@ -140,7 +141,7 @@ function GrowthInterpretationChart({ rows, progressRows, metric, displayWeeks = 
     return <circle key={`${beneficiaryName}-${timeline}-${index}`} className={`${monitoringTarget ? 'growth-report-data-point ' : ''}growth-report-series-point${isLatestPoint ? ' is-latest' : ''}${seriesState}`} cx={xForTimeline(timeline)} cy={yForCategory(band)} r={isLatestPoint ? '9' : '6'} fill={colors[categories.indexOf(band) % colors.length]} stroke="#fff" strokeWidth={isLatestPoint ? '3' : '2'} role={monitoringTarget ? 'link' : undefined} aria-label={monitoringTarget ? `Open ${beneficiaryName} monitoring form, ${band}, ${timelineLabel(timeline)}${isLatestPoint ? ', latest measurement' : ''}` : undefined} tabIndex={monitoringTarget ? 0 : undefined} onClick={monitoringTarget ? openMonitoringForm : undefined} onKeyDown={monitoringTarget ? (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openMonitoringForm(); } } : undefined}><title>{beneficiaryName}: {band} · {timelineLabel(timeline)}{isLatestPoint ? ' · Latest measurement' : ''}{monitoringTarget ? ' · Click to open monitoring form' : ''}</title></circle>;
   })} </svg><div className="growth-report-legend growth-report-series-legend">{[...entriesByRow.entries()].map(([key, points], index) => {
     const name = points[0]?.row.child || points[0]?.row.mother || 'Beneficiary';
-    return <span key={key} className={hoveredSeries ? (hoveredSeries === key ? 'is-active' : 'is-muted') : ''} tabIndex={0} onMouseEnter={() => setHoveredSeries(key)} onMouseLeave={() => setHoveredSeries('')} onFocus={() => setHoveredSeries(key)} onBlur={() => setHoveredSeries('')}><i style={{ '--series-color': seriesColors[index % seriesColors.length] }} />{name}</span>;
+    return <span key={key} title={name} aria-label={name} className={hoveredSeries ? (hoveredSeries === key ? 'is-active' : 'is-muted') : ''} tabIndex={0} onMouseEnter={() => setHoveredSeries(key)} onMouseLeave={() => setHoveredSeries('')} onFocus={() => setHoveredSeries(key)} onBlur={() => setHoveredSeries('')}><i style={{ '--series-color': seriesColors[index % seriesColors.length] }} />{formatGraphBeneficiaryName(name)}</span>;
   })}</div><div className="growth-report-legend">{categories.map((category, index) => <span key={category}><i style={{ background: colors[index % colors.length] }} />{category}</span>)}</div></div>;
 }
 
@@ -363,11 +364,11 @@ export function GrowthChart({ rows, progressRows = [], metric, chartType, displa
       });
       return <g key={`${seriesKey}-numeric-series`}>{polyline}{markers}</g>;
     });
-    const yAxisLabel = isZScoreMetric ? metricLabel.replace(/\s+Z-Score$/i, '') : metric === 'bmiForAge' ? 'BMI' : metric === 'weightForAge' ? 'Weight (kg)' : metric === 'heightForAge' ? 'Length (cm)' : metricLabel;
+    const yAxisLabel = isZScoreMetric ? metricLabel.replace(/\s+Z-Score$/i, '') : metric === 'bmiForAge' ? 'BMI' : metric === 'weightForAge' ? 'Weight (kg)' : metric === 'heightForAge' ? 'Height (cm)' : metricLabel;
     return <div className="growth-report-line-chart"><svg ref={chartRef} viewBox={`0 0 ${width} ${height}`} style={{ minWidth: `${width}px` }} role="img" aria-label={`${subjectLabel} ${metricLabel} over time${isZScoreMetric ? ', with WHO normal range shaded from -2 to +2 Z-score' : ''}`} preserveAspectRatio="none"><text className="growth-report-y-axis-label" x="18" y={height / 2} textAnchor="middle" transform={`rotate(-90 18 ${height / 2})`}>{yAxisLabel}</text>{timelineGridLines}{isZScoreMetric && <rect className="growth-report-normal-band" x={chartPaddingX} y={yForValue(2)} width={width - chartPaddingX} height={yForValue(-2) - yForValue(2)} />}{yAxisTicks.map(({ value, y }) => <g key={value}><line className={`growth-report-gridline${Math.abs(value) < 1e-9 ? ' zero-line' : ''}`} x1={chartPaddingX} x2={width} y1={y} y2={y} /><text className="growth-report-y-axis-tick" x={chartPaddingX - 8} y={y + 3} textAnchor="end" style={{ fontSize: '10px' }}>{value.toFixed(1)}</text></g>)}{chartSeries}</svg><div className="growth-report-line-labels" style={{ position: 'relative', minHeight: '1.2rem', minWidth: `${width}px`, paddingLeft: '1.3rem', paddingRight: '0.5rem', fontSize: '10px' }}>{monthLabels.map(({ timelineValue, xPosition, label }) => <span key={`label-${timelineValue}`} style={{ position: 'absolute', left: `${Math.max(4, Math.min(96, (xPosition / width) * 100))}%`, transform: 'translateX(-50%)', whiteSpace: 'nowrap', maxWidth: '72px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>)}</div><div className="growth-report-legend growth-report-series-legend">{visibleSeriesRows.map((row, index) => {
       const seriesKey = beneficiaryKey(row, index);
       const name = row.child || row.mother || 'Beneficiary';
-      return <span key={`${seriesKey}-line-legend`} className={hoveredSeries ? (hoveredSeries === seriesKey ? 'is-active' : 'is-muted') : ''} tabIndex={0} onMouseEnter={() => setHoveredSeries(seriesKey)} onMouseLeave={() => setHoveredSeries('')} onFocus={() => setHoveredSeries(seriesKey)} onBlur={() => setHoveredSeries('')}><i style={{ '--series-color': seriesColors[index % seriesColors.length] }} />{name}</span>;
+      return <span key={`${seriesKey}-line-legend`} title={name} aria-label={name} className={hoveredSeries ? (hoveredSeries === seriesKey ? 'is-active' : 'is-muted') : ''} tabIndex={0} onMouseEnter={() => setHoveredSeries(seriesKey)} onMouseLeave={() => setHoveredSeries('')} onFocus={() => setHoveredSeries(seriesKey)} onBlur={() => setHoveredSeries('')}><i style={{ '--series-color': seriesColors[index % seriesColors.length] }} />{formatGraphBeneficiaryName(name)}</span>;
     })}</div></div>;
   }
 

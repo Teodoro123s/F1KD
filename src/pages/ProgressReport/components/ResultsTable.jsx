@@ -53,7 +53,7 @@ function HistoryCell({ field, value, formatCellValue, row }) {
   );
 }
 
-function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleFields, formatCellValue, communitySelection, beneficiaryType, showSchoolFilter, showGroupFilter, growthMetricOptions, selectedGrowthMetric, onGrowthMetricChange, onRegisterExport, includeInterpretationColumns, setIncludeInterpretationColumns, onExport, exportingReport }) {
+function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleFields, formatCellValue, communitySelection, beneficiaryType, showSchoolFilter, showGroupFilter, growthMetricOptions, selectedGrowthMetric, onGrowthMetricChange, onRegisterExport, includeInterpretationColumns, setIncludeInterpretationColumns, onExport, exportingReport, selectedBatch, onSelectedBatchChange }) {
   const [viewMode, setViewMode] = useState('individual');
   const [selectedBeneficiary, setSelectedBeneficiary] = useState('');
   const [selectedMonth, setSelectedMonth] = useState('');
@@ -68,23 +68,38 @@ function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleField
     && !historyFieldIds.has(id)
     && !['school', 'group', 'batch', 'mother', 'child'].includes(id)
   ));
-  const beneficiaries = useMemo(() => [...new Map(resultsRows.map((row) => [String(row.childId || row.motherId || row.child || row.mother), row])).values()], [resultsRows]);
   const months = useMemo(() => [...new Set(resultsRows.map((row) => String(row.measurementDate || '').slice(0, 7)).filter(Boolean))].sort(), [resultsRows]);
   const schools = useMemo(() => [...new Set(resultsRows.map((row) => row.school).filter(Boolean))].sort(), [resultsRows]);
   const groups = useMemo(() => [...new Set(resultsRows.map((row) => row.group).filter(Boolean))].sort(), [resultsRows]);
+  const communityBatchKey = resultsRows.find((row) => String(row.batchId) === String(communitySelection?.batchId));
   const communitySchool = resultsRows.find((row) => String(row.schoolId) === String(communitySelection?.schoolId))?.school || '';
   const communityGroup = resultsRows.find((row) => String(row.groupId) === String(communitySelection?.groupId))?.group || '';
   const activeSchool = communitySchool || selectedSchool;
   const activeGroup = communityGroup || selectedGroup;
-  const activeBeneficiary = selectedBeneficiary || String(beneficiaries[0]?.childId || beneficiaries[0]?.motherId || beneficiaries[0]?.child || beneficiaries[0]?.mother || '');
-  const activeMonth = selectedMonth || months.at(-1) || '';
-  const filteredRows = resultsRows
+  const scopedRows = resultsRows
     .filter((row) => !activeSchool || row.school === activeSchool)
-    .filter((row) => !activeGroup || row.group === activeGroup)
+    .filter((row) => !activeGroup || row.group === activeGroup);
+  const batches = [...new Map(scopedRows
+    .filter((row) => row.batch)
+    .map((row) => [String(row.batchId || row.batch), { id: String(row.batchId || row.batch), name: row.batch }])).values()];
+  const activeBatch = communityBatchKey
+    ? String(communityBatchKey.batchId || communityBatchKey.batch)
+    : (batches.some(({ id }) => id === selectedBatch) ? selectedBatch : '');
+  const beneficiaries = [...new Map(scopedRows.map((row) => [
+    String(row.childId || row.motherId || row.child || row.mother || ''),
+    row,
+  ])).values()];
+  const beneficiaryKey = (row) => String(row.childId || row.motherId || row.child || row.mother || '');
+  const activeBeneficiary = beneficiaries.some((row) => beneficiaryKey(row) === selectedBeneficiary)
+    ? selectedBeneficiary
+    : beneficiaryKey(beneficiaries[0] || {});
+  const activeMonth = selectedMonth || months.at(-1) || '';
+  const filteredRows = scopedRows
+    .filter((row) => viewMode !== 'monthly' || !activeBatch || String(row.batchId || row.batch || '') === activeBatch)
     .filter((row) => viewMode !== 'individual' || String(row.childId || row.motherId || row.child || row.mother) === activeBeneficiary)
     .filter((row) => viewMode !== 'monthly' || !activeMonth || String(row.measurementDate).startsWith(activeMonth))
     .sort((left, right) => String(left.measurementDate || '').localeCompare(String(right.measurementDate || '')));
-  const selectedProfile = filteredRows[0] || beneficiaries.find((row) => String(row.childId || row.motherId || row.child || row.mother) === activeBeneficiary) || {};
+  const selectedProfile = filteredRows[0] || {};
   const historyMetricFields = visibleHistoryFields.filter(([id]) => id !== 'measurementDate');
   const exportFilteredRows = () => onExport({
     rows: filteredRows,
@@ -98,6 +113,7 @@ function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleField
     selectedMonth: activeMonth,
     selectedSchool: activeSchool,
     selectedGroup: activeGroup,
+    selectedBatch: activeBatch,
   });
   onRegisterExport?.(exportFilteredRows);
 
@@ -117,7 +133,9 @@ function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleField
         {viewMode === 'individual' ? (
           <label>Search Beneficiary
             <select value={activeBeneficiary} onChange={(event) => setSelectedBeneficiary(event.target.value)}>
-              {beneficiaries.map((row) => { const key = String(row.childId || row.motherId || row.child || row.mother); return <option key={key} value={key}>{row.child || row.mother}</option>; })}
+              {beneficiaries.length
+                ? beneficiaries.map((row) => { const key = beneficiaryKey(row); return <option key={key} value={key}>{row.child || row.mother}</option>; })
+                : <option value="">No beneficiaries in this group</option>}
             </select>
           </label>
         ) : (
@@ -135,6 +153,14 @@ function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleField
         {showGroupFilter && (
           <label>Group
             <select value={activeGroup} onChange={(event) => setSelectedGroup(event.target.value)} disabled={Boolean(communityGroup)}><option value="">All Groups</option>{groups.map((group) => <option key={group} value={group}>{group}</option>)}</select>
+          </label>
+        )}
+        {viewMode === 'monthly' && batches.length > 0 && (
+          <label>Batch
+            <select value={activeBatch} onChange={(event) => onSelectedBatchChange(event.target.value)} disabled={Boolean(communityBatchKey)}>
+              <option value="">All Batches</option>
+              {batches.map(({ id, name }) => <option key={id} value={id}>{name}</option>)}
+            </select>
           </label>
         )}
         {growthMetricOptions?.length > 0 && (
@@ -159,7 +185,7 @@ function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleField
           <div className="progress-report-table-shell">
             <table className="progress-report-table monitoring-history-table">
               <thead><tr><th>Check-up Date</th>{profileFields.map(([id, label]) => <th key={id}>{label}</th>)}{historyMetricFields.map(([id, label]) => <th key={id}>{label}</th>)}</tr></thead>
-              <tbody>{filteredRows.map((row, index) => <tr key={row.historyRowKey || index}><td>{formatCellValue('measurementDate', row.measurementDate)}</td>{profileFields.map(([id]) => <td key={id}>{formatCellValue(id, row[id]) || '—'}</td>)}{historyMetricFields.map(([id]) => <td key={id}><HistoryCell field={id} value={row[id]} formatCellValue={formatCellValue} row={row} /></td>)}</tr>)}</tbody>
+              <tbody>{filteredRows.length ? filteredRows.map((row, index) => <tr key={row.historyRowKey || index}><td>{formatCellValue('measurementDate', row.measurementDate)}</td>{profileFields.map(([id]) => <td key={id}>{formatCellValue(id, row[id]) || '—'}</td>)}{historyMetricFields.map(([id]) => <td key={id}><HistoryCell field={id} value={row[id]} formatCellValue={formatCellValue} row={row} /></td>)}</tr>) : <tr><td colSpan={Math.max(1, profileFields.length + historyMetricFields.length + 1)} className="growth-report-empty">No check-up history for this beneficiary in the selected group.</td></tr>}</tbody>
             </table>
           </div>
         </>
@@ -343,6 +369,8 @@ export function ResultsTable({
   displaySort,
   sortLabel,
   formatCellValue,
+  selectedBatch = '',
+  onSelectedBatchChange,
 }) {
   const visibleFields = reportFields.filter(([id]) => displayVisibleFields.includes(id));
   const [hiddenFields, setHiddenFields] = useState(() => new Set());
@@ -426,7 +454,7 @@ export function ResultsTable({
         </div>
       )}
       {showMonitoringFilter ? (
-        <MonitoringHistoryTable resultsRows={resultsRows} reportFields={reportFields} displayVisibleFields={displayVisibleFields} formatCellValue={formatCellValue} communitySelection={communitySelection} beneficiaryType={beneficiaryType} showSchoolFilter={showSchoolFilter} showGroupFilter={showGroupFilter} growthMetricOptions={growthMetricOptions} selectedGrowthMetric={selectedGrowthMetric} onGrowthMetricChange={onGrowthMetricChange} onRegisterExport={onRegisterMonitoringExport} includeInterpretationColumns={includeInterpretationColumns} setIncludeInterpretationColumns={setIncludeInterpretationColumns} onExport={onExport} exportingReport={exportingReport} />
+        <MonitoringHistoryTable resultsRows={resultsRows} reportFields={reportFields} displayVisibleFields={displayVisibleFields} formatCellValue={formatCellValue} communitySelection={communitySelection} beneficiaryType={beneficiaryType} showSchoolFilter={showSchoolFilter} showGroupFilter={showGroupFilter} growthMetricOptions={growthMetricOptions} selectedGrowthMetric={selectedGrowthMetric} onGrowthMetricChange={onGrowthMetricChange} onRegisterExport={onRegisterMonitoringExport} includeInterpretationColumns={includeInterpretationColumns} setIncludeInterpretationColumns={setIncludeInterpretationColumns} onExport={onExport} exportingReport={exportingReport} selectedBatch={selectedBatch} onSelectedBatchChange={onSelectedBatchChange} />
       ) : (
       <StandardResultsTable resultsRows={resultsRows} fields={customizedFields} formatCellValue={formatCellValue} />
       )}

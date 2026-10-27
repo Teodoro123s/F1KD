@@ -23,6 +23,7 @@ import ChildNavigationCards from '../Beneficiary/child/ChildNavigationCards';
 import BeneficiarySuperHeader from '../Beneficiary/mother/BeneficiarySuperHeader';
 import MonitoringActivityCalendar from './MonitoringActivityCalendar';
 import { getMaternalMonitoringActivities } from './monitoringActivityCalendarUtils.mjs';
+import { getMonitoringScreeningRouteFilters, getMonthlyDevelopmentalStatus, normalizeDevelopmentalStatus } from './monitoringScreeningUtils.mjs';
 
 function getMotherName(mother) {
   return mother?.name || [mother?.firstName || mother?.first_name, mother?.middleName || mother?.middle_name, mother?.lastName || mother?.last_name]
@@ -198,21 +199,6 @@ const getChildMonitoringStatus = (child, completed, total) => {
   return dateStatus;
 };
 
-const normalizeDevelopmentalStatus = (value) => {
-  const status = String(value ?? '').trim().toLowerCase().replace(/[\s_-]+/g, ' ');
-  if (status === 'normal' || status === 'at risk' || status === 'needs follow up') return status;
-  return '';
-};
-
-const getMonthlyDevelopmentalStatus = (beneficiary) => {
-  const checkups = (Array.isArray(beneficiary?.checkups) ? beneficiary.checkups.flat(3) : [])
-    .filter((checkup) => checkup && typeof checkup === 'object')
-    .map((checkup) => normalizeDevelopmentalStatus(checkup.developmentalStatus ?? checkup.developmental_status));
-  // Check-ups are ordered by month/visit. Use the latest one, then the
-  // immediately preceding check-up if the latest has no screening result.
-  return checkups.slice(-2).reverse().find(Boolean) ?? '';
-};
-
 export default function MonitoringPage() {
   const { currentUser } = useAuth();
   const { mothers, setMothers } = useMothers();
@@ -233,7 +219,9 @@ export default function MonitoringPage() {
   const monitoringCalendarRequestVersion = useRef(0);
   const [selectedChild, setSelectedChild] = useState(() => location.state?.child || null);
   const [selectedRecordLoading, setSelectedRecordLoading] = useState(() => Boolean(location.state?.child || location.state?.mother));
-  const [beneficiaryType, setBeneficiaryType] = useState(() => (location.state?.child ? 'Child' : 'Mother'));
+  const [beneficiaryType, setBeneficiaryType] = useState(() => (
+    getMonitoringScreeningRouteFilters(location.search)?.beneficiaryType || (location.state?.child ? 'Child' : 'Mother')
+  ));
   const [savedMessage, setSavedMessage] = useState('');
   const [motherCheckups, setMotherCheckups] = useState(() => location.state?.mother?.checkups || []);
   const [childCompletedWeeks, setChildCompletedWeeks] = useState(() => location.state?.child?.completedWeeks || []);
@@ -242,13 +230,27 @@ export default function MonitoringPage() {
   const [editingChildCheckup, setEditingChildCheckup] = useState(false);
   const [editingChildCheckupWeek, setEditingChildCheckupWeek] = useState(null);
   const [statusFilter, setStatusFilter] = useState('All');
-  const [developmentalScreeningFilter, setDevelopmentalScreeningFilter] = useState('All');
-  const [selectedMonitoringCard, setSelectedMonitoringCard] = useState(null);
+  const [developmentalScreeningFilter, setDevelopmentalScreeningFilter] = useState(() => (
+    getMonitoringScreeningRouteFilters(location.search)?.screeningStatus || 'All'
+  ));
+  const [selectedMonitoringCard, setSelectedMonitoringCard] = useState(() => (
+    getMonitoringScreeningRouteFilters(location.search) ? 'All' : null
+  ));
   const [perPage, setPerPage] = useState(10);
   const [page, setPage] = useState(1);
   const assignedGroupId = currentUser?.group_id ?? currentUser?.groupId;
   const showAuditSignatures = canViewAuditSignatures(currentUser?.role);
   const canEditMonitoring = can(currentUser?.role, 'monitor-resources', 'update');
+
+  React.useEffect(() => {
+    const routeFilters = getMonitoringScreeningRouteFilters(location.search);
+    if (!routeFilters || selectedMother || selectedChild) return;
+    setBeneficiaryType(routeFilters.beneficiaryType);
+    setStatusFilter('All');
+    setDevelopmentalScreeningFilter(routeFilters.screeningStatus);
+    setSelectedMonitoringCard('All');
+    setPage(1);
+  }, [location.search, selectedChild, selectedMother]);
 
   React.useEffect(() => {
     let active = true;
@@ -591,7 +593,6 @@ export default function MonitoringPage() {
             toggleOnSelect
             onSelect={(key) => {
               setSelectedMonitoringCard(key);
-              setIsMonitoringReportExpanded(!key);
               if (key) {
                 setStatusFilter(key);
                 setDevelopmentalScreeningFilter('All');

@@ -70,6 +70,9 @@ function mapApiUser(user) {
     groupId: user.group_id,
     role: normalizeRole(user.role),
     status: normalizeStatus(user.status),
+    username: user.username || user.email || '',
+    communityName: user.community_name || '',
+    lastLoginAt: user.last_login_at || null,
     password: '',
     name: buildDisplayName(user),
   };
@@ -90,6 +93,8 @@ async function fetchAllUsers(healthWorkerManagement = false) {
 
 export function useUserManagement({ schoolId = '', batchId = '', healthWorkerManagement = false } = {}) {
   const [users, setUsers] = useState([]);
+  const [usersLoading, setUsersLoading] = useState(true);
+  const [usersLoadError, setUsersLoadError] = useState('');
   const [apiOnline, setApiOnline] = useState(true);
   const [communities, setCommunities] = useState([]);
   const [groups, setGroups] = useState([]);
@@ -116,6 +121,10 @@ export function useUserManagement({ schoolId = '', batchId = '', healthWorkerMan
   useEffect(() => {
     let mounted = true;
     async function load(attempts = 0) {
+      if (mounted) {
+        setUsersLoading(true);
+        setUsersLoadError('');
+      }
       try {
         // record the attempted fetch for debugging
         try { window.__last_user_fetch__ = { url: healthWorkerManagement ? `${API_BASE}/api/users/health-workers` : `${API_BASE}/api/users?page=1&perPage=100`, time: Date.now() }; } catch (e) {}
@@ -125,6 +134,8 @@ export function useUserManagement({ schoolId = '', batchId = '', healthWorkerMan
         setUsers(healthWorkerManagement
           ? mapped
           : schoolId ? mapped.filter((user) => String(user.schoolId || '') === String(schoolId)) : mapped);
+        setUsersLoadError('');
+        setUsersLoading(false);
         try { console.log('Fetched users from server', mapped); } catch (e) { /* ignore console errors */ }
       } catch (e) {
         try { console.error('Failed to fetch users from server', e?.message || e); } catch (c) {}
@@ -136,7 +147,10 @@ export function useUserManagement({ schoolId = '', batchId = '', healthWorkerMan
         }
         setApiOnline(Boolean(e?.status && e.status < 500));
         setUsers([]);
-        setNotification(e?.message || 'User list is unavailable. Click Retry to try again.');
+        const errorMessage = e?.message || 'User list is unavailable. Click Retry to try again.';
+        setUsersLoadError(errorMessage);
+        setNotification(errorMessage);
+        setUsersLoading(false);
       }
     }
     load();
@@ -211,11 +225,12 @@ export function useUserManagement({ schoolId = '', batchId = '', healthWorkerMan
         : String(user.schoolId || '') === String(selectedSchoolFilter));
       const matchesSearch =
         !term ||
-        user.name.includes(term) ||
-        user.role.includes(term);
+        user.name.toLowerCase().includes(term.toLowerCase()) ||
+        String(user.username || user.email || '').toLowerCase().includes(term.toLowerCase()) ||
+        (!healthWorkerManagement && user.role.toLowerCase().includes(term.toLowerCase()));
       return matchesSchoolScope && matchesBatch && matchesStatus && matchesRole && matchesSelectedSchool && matchesSearch;
     });
-  }, [batchId, batches, query, schoolId, selectedRoleFilter, selectedSchoolFilter, selectedStatusFilter, users]);
+  }, [batchId, batches, healthWorkerManagement, query, schoolId, selectedRoleFilter, selectedSchoolFilter, selectedStatusFilter, users]);
 
   const pageCount = useMemo(
     () => Math.max(1, Math.ceil(filteredData.length / perPage)),
@@ -328,6 +343,8 @@ export function useUserManagement({ schoolId = '', batchId = '', healthWorkerMan
   const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 
   const retryLoad = async () => {
+    setUsersLoading(true);
+    setUsersLoadError('');
     setNotification('Retrying connection to server...');
     try {
       const mapped = await fetchAllUsers(healthWorkerManagement);
@@ -335,10 +352,15 @@ export function useUserManagement({ schoolId = '', batchId = '', healthWorkerMan
         ? mapped
         : schoolId ? mapped.filter((user) => String(user.schoolId || '') === String(schoolId)) : mapped);
       setApiOnline(true);
+      setUsersLoadError('');
       setNotification('Reconnected to server. User list refreshed.');
     } catch (err) {
       setApiOnline(Boolean(err?.status && err.status < 500));
-      setNotification(err?.message || 'Unable to reload user list.');
+      const errorMessage = err?.message || 'Unable to reload user list.';
+      setUsersLoadError(errorMessage);
+      setNotification(errorMessage);
+    } finally {
+      setUsersLoading(false);
     }
   };
 
@@ -555,6 +577,9 @@ export function useUserManagement({ schoolId = '', batchId = '', healthWorkerMan
           status: created.status,
           schoolId: created.school_id ?? null,
           groupId: created.group_id ?? null,
+          username: created.username || created.email || emailToUse,
+          communityName: created.community_name || communities.find((community) => String(community.id) === String(created.school_id))?.name || '',
+          lastLoginAt: created.last_login_at || null,
           // Do not persist plaintext password in UI list. Store one-time credentials separately to display to the user once.
           name: `${created.first_name} ${created.middle_initial ? created.middle_initial + ' ' : ''}${created.last_name}`,
         };
@@ -701,6 +726,8 @@ export function useUserManagement({ schoolId = '', batchId = '', healthWorkerMan
 
   return {
     users,
+    usersLoading,
+    usersLoadError,
     form,
     query,
     selectedStatusFilter,

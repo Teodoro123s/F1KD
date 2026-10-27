@@ -51,11 +51,15 @@ async function isGroupInSchool(groupId, schoolId) {
 }
 
 function healthWorkerSelectSql(whereClause) {
-  return `SELECT id, CONCAT_WS(' ', first_name, last_name) AS username,
-      CONCAT_WS(' ', first_name, last_name) AS full_name, email, role, status,
-      first_name, last_name, middle_initial, contact_number, gender, dob, location,
-      school_id, group_id, created_at, updated_at
-    FROM users ${whereClause}`;
+  return `SELECT u.id, u.email AS username,
+      CONCAT_WS(' ', u.first_name, u.middle_initial, u.last_name) AS full_name, u.email, u.role, u.status,
+      u.first_name, u.last_name, u.middle_initial, u.contact_number, u.gender, u.dob, u.location,
+      u.school_id, u.group_id, c.name AS community_name, u.created_at, u.updated_at,
+      (SELECT MAX(al.created_at) FROM activity_logs al
+       WHERE al.actor_user_id = u.id AND al.category = 'User Management' AND al.action = 'sign_in') AS last_login_at
+    FROM users u
+    LEFT JOIN communities c ON c.id = u.school_id
+    ${whereClause}`;
 }
 
 // Helper: normalize searchable name/value
@@ -69,7 +73,7 @@ router.get('/health-workers', verifyToken, authorize('community_coordinator'), a
   if (!schoolId) return;
   try {
     const [users] = await pool.query(
-      `${healthWorkerSelectSql(`WHERE school_id = ? AND ${HEALTH_WORKER_ROLE_SQL}`)} ORDER BY id DESC`,
+      `${healthWorkerSelectSql(`WHERE u.school_id = ? AND ${HEALTH_WORKER_ROLE_SQL}`)} ORDER BY u.id DESC`,
       [schoolId],
     );
     res.json({ total: users.length, users });
@@ -86,7 +90,7 @@ router.get('/health-workers/:id', verifyToken, authorize('community_coordinator'
     const id = parsePositiveIntegerId(req.params.id);
     if (id === null) return res.status(400).json({ error: 'Health worker ID must be a positive integer' });
     const [users] = await pool.query(
-      `${healthWorkerSelectSql(`WHERE id = ? AND school_id = ? AND ${HEALTH_WORKER_ROLE_SQL}`)} LIMIT 1`,
+      `${healthWorkerSelectSql(`WHERE u.id = ? AND u.school_id = ? AND ${HEALTH_WORKER_ROLE_SQL}`)} LIMIT 1`,
       [id, schoolId],
     );
     if (!users.length) return res.status(404).json({ error: 'Health worker not found' });
@@ -156,7 +160,7 @@ router.post('/health-workers', verifyToken, authorize('community_coordinator'), 
       ],
     );
     const [rows] = await pool.query(
-      `${healthWorkerSelectSql('WHERE id = ? AND school_id = ? AND ' + HEALTH_WORKER_ROLE_SQL)} LIMIT 1`,
+      `${healthWorkerSelectSql('WHERE u.id = ? AND u.school_id = ? AND ' + HEALTH_WORKER_ROLE_SQL)} LIMIT 1`,
       [result.insertId, schoolId],
     );
     const user = rows[0];
@@ -272,7 +276,7 @@ router.put('/health-workers/:id', verifyToken, authorize('community_coordinator'
       [...updateValues, id, schoolId],
     );
     const [rows] = await pool.query(
-      `${healthWorkerSelectSql('WHERE id = ? AND school_id = ? AND ' + HEALTH_WORKER_ROLE_SQL)} LIMIT 1`,
+      `${healthWorkerSelectSql('WHERE u.id = ? AND u.school_id = ? AND ' + HEALTH_WORKER_ROLE_SQL)} LIMIT 1`,
       [id, schoolId],
     );
     await recordActivity({

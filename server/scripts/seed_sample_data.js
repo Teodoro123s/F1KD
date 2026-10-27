@@ -28,8 +28,12 @@ const MATERNAL_STARTS = [
   { trimester: '1st Trimester', week: 12, checkups: 7 },
   { trimester: '2nd Trimester', week: 20, checkups: 5 },
   { trimester: '1st Trimester', week: 10, checkups: 8 },
+  { trimester: '3rd Trimester', week: 28, checkups: 3 },
 ];
 const CHILD_MONITORING_MONTHS = Array.from({ length: 24 }, (_, index) => index + 1);
+const CHILD_COMPLETION_LEVELS = [24, 24, 18, 18, 12, 12, 6, 6, 0, 0];
+const BATCH_CHECKIN_RATES = [3, 5, 7, 9];
+const SCREENING_STATUSES = ['Normal', 'Needs Follow-up', 'At Risk'];
 const SAMPLE_USERS = [
   {
     email: 'demo.admin@f1kd.test',
@@ -91,7 +95,8 @@ SCHOOLS.slice(1).forEach((school, index) => {
   }
 });
 
-function buildSeedPlan() {
+function buildSeedPlan({ now = new Date() } = {}) {
+  const today = now.toISOString().slice(0, 10);
   const groups = SCHOOLS.flatMap((school, schoolIndex) => (
     Array.from({ length: GROUPS_PER_SCHOOL }, (_, index) => {
       const groupNumber = index + 1;
@@ -121,6 +126,7 @@ function buildSeedPlan() {
         name: `Demo School ${SCHOOLS.findIndex((school) => school.code === group.schoolCode) + 1} Batch ${batchNumber}`,
         groupCode: group.code,
         schoolCode: group.schoolCode,
+        received: BATCH_CHECKIN_RATES[(batchNumber - 1) % BATCH_CHECKIN_RATES.length],
       };
       batches.push(batch);
 
@@ -134,16 +140,20 @@ function buildSeedPlan() {
           groupCode: group.code,
           schoolCode: group.schoolCode,
         };
-        const startIndex = recordNumber % MATERNAL_STARTS.length;
+        const startIndex = (recordNumber - 1) % MATERNAL_STARTS.length;
         const maternalStart = MATERNAL_STARTS[startIndex];
         mother.startingTrimester = maternalStart.trimester;
         mother.startingGestationalWeek = maternalStart.week;
         mother.expectedCheckups = maternalStart.checkups;
-        const lmpDate = addDays('2020-01-01', (recordNumber - 1) * 5);
+        const screeningStatus = recordNumber % 10 === 0
+          ? SCREENING_STATUSES[2]
+          : recordNumber % 5 === 0 ? SCREENING_STATUSES[1] : SCREENING_STATUSES[0];
+        const childAgeMonths = CHILD_COMPLETION_LEVELS[(motherIndex - 1) % CHILD_COMPLETION_LEVELS.length];
+        const birthDate = addDays(addMonths(today, -childAgeMonths), -(recordNumber % 25));
+        const lmpDate = addDays(birthDate, -280);
         mother.lmpDate = lmpDate;
-        mother.eddDate = addDays(lmpDate, 280);
+        mother.eddDate = birthDate;
         mothers.push(mother);
-        if (motherIndex <= 7) completedMotherCodes.push(mother.code);
 
         MATERNAL_CHECKUP_STEPS
           .filter((step) => step.week >= maternalStart.week)
@@ -158,6 +168,8 @@ function buildSeedPlan() {
               weight: (54 + (recordNumber % 9) + index * 1.2).toFixed(1),
               height: (150 + (recordNumber % 16)).toFixed(1),
               bloodPressure: index % 4 === 0 ? '110/70' : '112/72',
+              developmentalStatus: screeningStatus,
+              referredToHospital: screeningStatus === 'At Risk',
               fundalHeight: Math.round(gestationalAge * 0.9),
               fetalHeartRate: 140 + (recordNumber % 16),
               nextDate: addDays(checkupDate, 28),
@@ -166,7 +178,6 @@ function buildSeedPlan() {
 
         if (motherIndex <= CHILDREN_PER_BATCH) {
           const childNumber = (batchNumber - 1) * CHILDREN_PER_BATCH + motherIndex;
-          const birthDate = mother.eddDate;
           const child = {
             code: `DEMO-C-${String(childNumber).padStart(2, '0')}`,
             firstName: CHILD_NAMES[(childNumber - 1) % CHILD_NAMES.length],
@@ -176,13 +187,17 @@ function buildSeedPlan() {
             groupCode: group.code,
             schoolCode: group.schoolCode,
             birthDate,
+            completedMonths: CHILD_COMPLETION_LEVELS[(motherIndex - 1) % CHILD_COMPLETION_LEVELS.length],
+            developmentalStatus: childNumber % 7 === 0
+              ? SCREENING_STATUSES[2]
+              : childNumber % 5 === 0 ? SCREENING_STATUSES[1] : SCREENING_STATUSES[0],
             birthWeight: (3 + (childNumber % 5) * 0.1).toFixed(2),
             birthLength: (48 + (childNumber % 4) * 0.5).toFixed(1),
             headCircumference: (33.5 + (childNumber % 4) * 0.4).toFixed(1),
             chestCircumference: (31.5 + (childNumber % 4) * 0.4).toFixed(1),
           };
           children.push(child);
-          CHILD_MONITORING_MONTHS.forEach((month) => {
+          CHILD_MONITORING_MONTHS.filter((month) => month <= child.completedMonths).forEach((month) => {
             const visitDate = addMonths(birthDate, month);
             childCheckups.push({
               childCode: child.code,
@@ -192,10 +207,12 @@ function buildSeedPlan() {
               weight: (3.1 + month * 0.42 + (childNumber % 5) * 0.12).toFixed(2),
               height: (50 + month * 1.15 + (childNumber % 4) * 0.3).toFixed(1),
               headCircumference: (34 + month * 0.42).toFixed(1),
+              developmentalStatus: child.developmentalStatus,
             });
           });
-          if (motherIndex <= 7) completedChildCodes.push(child.code);
+          if (motherIndex <= batch.received) completedChildCodes.push(child.code);
         }
+        if (motherIndex <= batch.received) completedMotherCodes.push(mother.code);
       }
     }
   }
@@ -214,12 +231,14 @@ function buildSeedPlan() {
         type: 'Maternal Health',
         beneficiaryType: 'Mother',
         schoolCode: school.code,
+        status: schoolIndex === 1 ? 'Ended' : 'Active',
       },
       {
         name: `DEMO: Child Growth Support Program - School ${schoolIndex + 1}`,
         type: 'Child Health',
         beneficiaryType: 'Child',
         schoolCode: school.code,
+        status: 'Active',
       },
     ]),
     maternalCheckups,
@@ -391,10 +410,10 @@ async function seedSampleData() {
       await connection.query(
         `INSERT INTO mother_checkups (
            mother_id, trimester, checkup_number, checkup_date, gestational_age_weeks,
-           blood_pressure, weight_kg, height_cm, bmi, nutritional_status,
+           blood_pressure, weight_kg, height_cm, bmi, developmental_status, nutritional_status,
            fundal_height_cm, fetal_heart_rate_bpm, service_provider, next_checkup_date,
-           facility_type, remarks
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Normal', ?, ?, 'F1KD Demo Health Center', ?,
+           referred_to_hospital, facility_type, remarks
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Normal', ?, ?, 'F1KD Demo Health Center', ?, ?,
                    'Health Center', 'Synthetic demo checkup; not a clinical record.')
          ON DUPLICATE KEY UPDATE
            checkup_date = VALUES(checkup_date),
@@ -403,11 +422,13 @@ async function seedSampleData() {
            weight_kg = VALUES(weight_kg),
            height_cm = VALUES(height_cm),
            bmi = VALUES(bmi),
+           developmental_status = VALUES(developmental_status),
            nutritional_status = VALUES(nutritional_status),
            fundal_height_cm = VALUES(fundal_height_cm),
            fetal_heart_rate_bpm = VALUES(fetal_heart_rate_bpm),
            service_provider = VALUES(service_provider),
            next_checkup_date = VALUES(next_checkup_date),
+           referred_to_hospital = VALUES(referred_to_hospital),
            facility_type = VALUES(facility_type),
            remarks = VALUES(remarks)`,
         [
@@ -420,9 +441,11 @@ async function seedSampleData() {
           checkup.weight,
           checkup.height,
           (Number(checkup.weight) / ((Number(checkup.height) / 100) ** 2)).toFixed(1),
+          checkup.developmentalStatus,
           checkup.fundalHeight,
           checkup.fetalHeartRate,
           checkup.nextDate,
+          checkup.referredToHospital,
         ],
       );
       maternalCheckupCountByMother.set(
@@ -485,7 +508,7 @@ async function seedSampleData() {
         checkup.height,
         checkup.headCircumference,
         'Yes',
-        'Normal',
+        checkup.developmentalStatus,
         'F1KD Demo Health Center',
         'Synthetic demo checkup; not a clinical record.',
       ];
@@ -532,15 +555,29 @@ async function seedSampleData() {
         ? existingPrograms[0].id
         : await insertOrGetId(
           connection,
-          `INSERT INTO programs (name, type, provider, description, beneficiary_type, status)
-           VALUES (?, ?, 'F1KD Sample Data', ?, ?, 'Active')`,
-          [program.name, program.type, 'Synthetic demo data for development and testing.', program.beneficiaryType],
+          `INSERT INTO programs (name, type, provider, description, beneficiary_type, status, ended)
+           VALUES (?, ?, 'F1KD Sample Data', ?, ?, ?, ?)`,
+          [
+            program.name,
+            program.type,
+            'Synthetic demo data for development and testing.',
+            program.beneficiaryType,
+            program.status,
+            program.status === 'Ended' ? addDays(new Date().toISOString().slice(0, 10), -30) : null,
+          ],
         );
       if (existingPrograms.length) {
         await connection.query(
           `UPDATE programs SET type = ?, description = ?, beneficiary_type = ?,
-             status = 'Active', ended = NULL WHERE id = ?`,
-          [program.type, 'Synthetic demo data for development and testing.', program.beneficiaryType, programId],
+             status = ?, ended = ? WHERE id = ?`,
+          [
+            program.type,
+            'Synthetic demo data for development and testing.',
+            program.beneficiaryType,
+            program.status,
+            program.status === 'Ended' ? addDays(new Date().toISOString().slice(0, 10), -30) : null,
+            programId,
+          ],
         );
       }
 
@@ -575,8 +612,8 @@ async function seedSampleData() {
           : CHILDREN_PER_BATCH;
         await connection.query(
           `INSERT INTO program_clusters (program_id, scope_type, scope_name, beneficiaries, received)
-           VALUES (?, 'Batch', ?, ?, 7)`,
-          [programId, batch.name, beneficiariesPerBatch],
+           VALUES (?, 'Batch', ?, ?, ?)`,
+          [programId, batch.name, beneficiariesPerBatch, batch.received],
         );
       }
 
@@ -622,7 +659,7 @@ async function seedSampleData() {
     console.log(
       `Seeded ${plan.schools.length} schools, ${plan.groups.length} groups, ${plan.batches.length} batches, `
       + `${plan.mothers.length} mothers, ${plan.children.length} children, and `
-      + `${plan.childCheckups.length} monthly child checkups through Month 24, `
+      + `${plan.childCheckups.length} child checkups across varied monitoring completion levels, `
       + `${plan.programs.length} scoped demo programs with program check-ins for mothers and children, `
       + `plus ${plan.users.length} demo login accounts.`,
     );

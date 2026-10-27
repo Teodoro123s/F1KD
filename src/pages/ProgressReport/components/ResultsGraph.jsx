@@ -464,14 +464,14 @@ export function ResultsGraph({
             </>
           ) : selectedGraphMetric !== 'hospitalReferral' ? (
             <label className="report-chart-select">
-              Y-axis
+              Height progression
               <select value={graphMetricType} onChange={(event) => {
                 const nextType = event.target.value;
                 setGraphMetricType(nextType);
               }}>
                 <option value="interpretation">Interpretation</option>
                 <option value="numeric">
-                  {displayBeneficiaryType === 'mother' ? 'Numeric values' : 'Measurements / Weight-for-Length Z-Score'}
+                  {displayBeneficiaryType === 'mother' ? 'Numeric values' : 'Measurements'}
                 </option>
               </select>
             </label>

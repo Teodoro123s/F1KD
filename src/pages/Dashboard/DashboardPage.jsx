@@ -12,7 +12,7 @@ import { apiGetNotifications } from '../../api/notifications';
 import { can, isCommunityCoordinatorRole, isHealthWorkerRole, normalizeRole, ROLES } from '../../utils/permissions';
 import { DashboardInsights } from './DashboardInsights';
 import { buildDashboardModuleSummaries, buildOperationalStaffMetrics } from './dashboardModuleMetrics.mjs';
-import { fillDailyTimeSeries, getRollingDateRange } from '../../utils/analytics/dailyTimeSeries';
+import { getRollingDateRange } from '../../utils/analytics/dailyTimeSeries';
 
 function getGreeting(name) {
   const hour = new Date().getHours();
@@ -56,32 +56,6 @@ function getRecordDate(record) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function buildRegistrationTrend(records) {
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-  const dayOffset = (start.getDay() + 6) % 7;
-  start.setDate(start.getDate() - dayOffset - (5 * 7));
-  const weeks = Array.from({ length: 6 }, (_, index) => {
-    const weekStart = new Date(start);
-    weekStart.setDate(start.getDate() + index * 7);
-    const key = `${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, '0')}-${String(weekStart.getDate()).padStart(2, '0')}`;
-    return {
-      key,
-      label: weekStart.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-      count: 0,
-    };
-  });
-  const weekStarts = weeks.map((week) => new Date(`${week.key}T00:00:00`));
-  records.forEach((record) => {
-    const date = getRecordDate(record);
-    if (!date) return;
-    date.setHours(0, 0, 0, 0);
-    const index = Math.floor((date.getTime() - start.getTime()) / (7 * 24 * 60 * 60 * 1000));
-    if (index >= 0 && index < weeks.length && date >= weekStarts[index]) weeks[index].count += 1;
-  });
-  return weeks;
-}
-
 export default function DashboardPage() {
   const { currentUser } = useAuth();
   const { mothers: contextMothers, refreshMothers, error: mothersError } = useMothers();
@@ -105,6 +79,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [refreshVersion, setRefreshVersion] = useState(0);
   const [loadErrors, setLoadErrors] = useState([]);
+  const [selectedBatchId, setSelectedBatchId] = useState('');
   const activityDateRange = useMemo(() => getRollingDateRange(30), [refreshVersion]);
 
   useEffect(() => {
@@ -113,8 +88,8 @@ export default function DashboardPage() {
     async function fetchDashboardData() {
       const results = await Promise.allSettled([
         isSuperAdmin ? Promise.resolve(null) : getSummary(),
-        isSuperAdmin ? Promise.resolve(null) : refreshMothers(),
-        isSuperAdmin ? Promise.resolve(null) : apiGetChildren(),
+        isSuperAdmin ? Promise.resolve(null) : refreshMothers(['checkups']),
+        isSuperAdmin ? Promise.resolve(null) : apiGetChildren(['checkups']),
         isSuperAdmin ? Promise.resolve(null) : apiGetPrograms(),
         isSuperAdmin
           ? fetchAllDashboardUsers()
@@ -225,11 +200,6 @@ export default function DashboardPage() {
 
   const staffMetrics = useMemo(() => buildOperationalStaffMetrics(users), [users]);
 
-  const registrationTrend = useMemo(
-    () => buildRegistrationTrend([...mothers, ...children]),
-    [children, mothers],
-  );
-
   const recentRecords = useMemo(() => [...mothers, ...children]
     .map((record, index) => ({
       name: getRecordName(record),
@@ -240,16 +210,6 @@ export default function DashboardPage() {
     .filter((record) => record.date)
     .sort((left, right) => right.date - left.date)
     .slice(0, 8), [children, mothers]);
-
-  const breakdown = isSuperAdmin
-    ? [
-      { label: 'Active staff', value: staffMetrics.active, tone: 'teal' },
-      { label: 'Suspended staff', value: staffMetrics.suspended, tone: 'rose' },
-    ]
-    : [
-      { label: 'Mothers', value: stats.motherCount, tone: 'rose' },
-      { label: 'Children', value: stats.childCount, tone: 'teal' },
-    ];
 
   const dashboardMetrics = useMemo(() => ({
     motherCount: isSuperAdmin ? 0 : stats.motherCount,
@@ -279,7 +239,10 @@ export default function DashboardPage() {
   const moduleSummaries = useMemo(() => buildDashboardModuleSummaries({
     mothers,
     children,
+    batches: communitySummary.batches || [],
+    selectedBatchId,
     programs,
+    programsAvailable: !loadErrors.includes('programs'),
     staffMetrics,
     communityMetrics: {
       schools: reportScopes.schools?.length || 0,
@@ -298,23 +261,17 @@ export default function DashboardPage() {
   }), [
     activityReport,
     children,
+    communitySummary.batches,
     isCommunityOrganizer,
     isSuperAdmin,
+    loadErrors,
     mothers,
     notificationCounts,
     programs,
     reportScopes,
+    selectedBatchId,
     staffMetrics,
   ]);
-
-  const signInTrend = useMemo(
-    () => fillDailyTimeSeries(activityReport.dailyActivity || [], activityDateRange.from, activityDateRange.to).map((item) => ({
-      ...item,
-      key: item.date,
-      label: new Date(`${item.date}T12:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-    })),
-    [activityDateRange.from, activityDateRange.to, activityReport.dailyActivity],
-  );
 
   const roleLabel = isSuperAdmin
     ? 'Superadmin'
@@ -331,47 +288,33 @@ export default function DashboardPage() {
   const cards = useMemo(() => {
     if (isSuperAdmin) {
       return [
-        { key: 'active-staff', title: 'Active Staff', value: staffMetrics.active, subtitle: 'Operational accounts', to: '/user-management', icon: '👥', cardClass: 'teal' },
-        { key: 'unassigned-staff', title: 'Unassigned Staff', value: staffMetrics.unassigned, subtitle: 'Need a school assignment', to: '/user-management', icon: '📍', cardClass: 'amber' },
-        { key: 'suspended-staff', title: 'Suspended Staff', value: staffMetrics.suspended, subtitle: 'Accounts requiring review', to: '/user-management', icon: '⚠️', cardClass: 'slate' },
+        { key: 'active-staff', title: 'Active Staff', value: staffMetrics.active, subtitle: 'Operational accounts', to: '/user-management' },
+        { key: 'unassigned-staff', title: 'Unassigned Staff', value: staffMetrics.unassigned, subtitle: 'Need a school assignment', to: '/user-management' },
+        { key: 'suspended-staff', title: 'Suspended Staff', value: staffMetrics.suspended, subtitle: 'Accounts requiring review', to: '/user-management' },
       ];
     }
 
+    if (isCommunityOrganizer) return [];
+
     if (isHealthWorker) {
       return [
-        { key: 'follow-ups', title: 'Follow-Ups', value: stats.followUpCount, subtitle: 'Beneficiaries needing follow-up', to: '/monitoring', icon: '🩺', cardClass: 'amber' },
-        { key: 'receipts', title: 'Assigned Projects', value: stats.programCount, subtitle: 'Available to your group', to: '/program', icon: '🍱', cardClass: 'rose' },
+        { key: 'follow-ups', title: 'Follow-Ups', value: stats.followUpCount, subtitle: 'Beneficiaries needing follow-up', to: '/monitoring' },
       ];
     }
 
     const allRoleCards = [
-      { key: 'beneficiaries', title: 'Beneficiaries', value: stats.motherCount + stats.childCount, subtitle: `${stats.motherCount} mothers · ${stats.childCount} children`, to: '/beneficiary', icon: '👥', cardClass: 'teal' },
-      { key: 'follow-ups', title: 'Follow-Ups', value: stats.followUpCount, subtitle: 'Beneficiaries needing follow-up', to: '/monitoring', icon: '🩺', cardClass: 'amber' },
-      { key: 'communities', title: 'Communities', value: stats.communityCount, subtitle: `${stats.batchCount} batches · ${stats.groupCount} groups`, to: '/community', icon: '🏫', cardClass: 'indigo' },
-      { key: 'programs', title: 'Projects', value: stats.programCount, subtitle: 'Intervention projects', to: '/program', icon: '🍱', cardClass: 'rose' },
-      ...(isCommunityOrganizer ? [{
-        key: 'health-workers',
-        title: 'Health Workers',
-        value: staffMetrics.active,
-        subtitle: 'Active in your assigned school',
-        to: '/user-management',
-        icon: '⚙️',
-        cardClass: 'slate',
-      }] : []),
+      { key: 'follow-ups', title: 'Follow-Ups', value: stats.followUpCount, subtitle: 'Beneficiaries needing follow-up', to: '/monitoring' },
     ];
 
-    if (isCommunityOrganizer) return allRoleCards;
-    if (isAdmin) return allRoleCards.filter((card) => card.key !== 'health-workers');
-    return allRoleCards.filter((card) => ['communities', 'programs'].includes(card.key));
+    if (isAdmin) return allRoleCards;
+    return [];
   }, [isAdmin, isCommunityOrganizer, isHealthWorker, isSuperAdmin, staffMetrics, stats]);
 
   const displayCards = cards.map((card) => {
     const sourceByCard = isSuperAdmin
       ? { 'active-staff': 'users', 'unassigned-staff': 'users', 'suspended-staff': 'users' }
       : {
-        beneficiaries: mothersError || loadErrors.includes('children') ? true : false,
         'follow-ups': mothersError || loadErrors.includes('children') ? true : false,
-        communities: loadErrors.includes('community summary'),
         programs: loadErrors.includes('programs'),
         'health-workers': loadErrors.includes('users'),
       };
@@ -394,13 +337,6 @@ export default function DashboardPage() {
             ? 'Review project and community activity'
             : `${roleLabel} workspace`;
 
-  const trendPeriods = isSuperAdmin ? signInTrend : registrationTrend;
-  const trendMaximum = Math.max(1, ...trendPeriods.map((period) => period.count));
-  const breakdownMaximum = Math.max(1, ...breakdown.map((item) => item.value));
-  const breakdownTotal = breakdown.reduce((total, item) => total + item.value, 0);
-  const signInTotal = signInTrend.reduce((total, period) => total + period.count, 0);
-  const peakSignInDay = signInTrend.reduce((peak, period) => period.count > peak.count ? period : peak, { count: 0, label: '' });
-
   return (
     <div className="dashboard-shell">
       <header className="dashboard-top-row">
@@ -420,107 +356,63 @@ export default function DashboardPage() {
         </p>
       )}
 
-      <section className="dashboard-kpi-grid" aria-label="Key role metrics">
-        {displayCards.map((card) => (
-          <Link key={card.key} to={card.to} className="kpi-card" aria-label={`${card.title}: ${card.value}. ${card.subtitle}`}>
-            <div className="kpi-card-top">
-              <span className="kpi-title">{card.title}</span>
-              <span className={`kpi-icon ${card.cardClass}`} aria-hidden="true">{card.icon}</span>
-            </div>
-            <div className="kpi-value">{typeof card.value === 'number' && Number.isFinite(card.value) ? card.value.toLocaleString() : card.value}</div>
-            <div className="kpi-subtitle"><span>{card.subtitle}</span></div>
-          </Link>
-        ))}
-      </section>
-
-      <section className="dashboard-visual-grid" aria-label="Live dashboard reports">
-        <div className="dashboard-panel dashboard-chart-panel">
-          <div className="dashboard-panel-heading">
-            <div>
-              <span className="dashboard-panel-eyebrow">{isSuperAdmin ? 'Last 30 days' : 'Last 6 weeks'}</span>
-              <h3>{isSuperAdmin ? 'Operational sign-ins' : 'New beneficiary registrations'}</h3>
-              {isSuperAdmin && <p className="dashboard-trend-summary">{signInTotal.toLocaleString()} sign-ins · Peak {peakSignInDay.count.toLocaleString()} on {peakSignInDay.label || '—'}</p>}
-            </div>
-            {!isSuperAdmin && <Link to="/beneficiary" className="panel-link">View records</Link>}
-          </div>
-          {(isSuperAdmin ? signInTrend : registrationTrend).some((period) => period.count > 0) ? (
-            <div className={`dashboard-trend-scroll${isSuperAdmin ? ' is-daily' : ''}`}>
-              <div
-                className={`dashboard-trend-chart${isSuperAdmin ? ' is-daily' : ''}`}
-                role="img"
-                aria-label={`${isSuperAdmin ? 'Daily operational sign-ins' : 'Weekly new registrations'}: ${trendPeriods.map((period) => `${period.label}: ${period.count}`).join(', ')}`}
-              >
-              {trendPeriods.map((period, index) => {
-                const showLabel = !isSuperAdmin || index === 0 || index === trendPeriods.length - 1 || index % 5 === 4;
-                return (
-                  <div className={`dashboard-trend-column${isSuperAdmin ? ' is-daily' : ''}`} key={period.key} title={`${period.label}: ${period.count} ${isSuperAdmin ? 'sign-ins' : 'registrations'}`}>
-                    {!isSuperAdmin && <strong>{period.count}</strong>}
-                    <span className="dashboard-trend-track"><span style={{ height: `${Math.max(period.count ? 8 : 0, (period.count / trendMaximum) * 100)}%` }} /></span>
-                    <small>{showLabel ? period.label : ''}</small>
-                  </div>
-                );
-              })}
+      {displayCards.length > 0 && (
+        <section className="dashboard-kpi-grid" aria-label="Key role metrics">
+          {displayCards.map((card) => (
+            <Link key={card.key} to={card.to} className="kpi-card" aria-label={`${card.title}: ${card.value}. ${card.subtitle}`}>
+              <div className="kpi-card-top">
+                <span className="kpi-title">{card.title}</span>
               </div>
-            </div>
-          ) : <p className="dashboard-empty-state">
-            {isSuperAdmin
-              ? 'No operational sign-ins are available for the last 30 days.'
-              : 'No dated registrations are available for the last 6 weeks.'}
-          </p>}
-        </div>
-
-        <div className="dashboard-panel dashboard-chart-panel">
-          <div className="dashboard-panel-heading">
-            <div><span className="dashboard-panel-eyebrow">Current snapshot</span><h3>{isSuperAdmin ? 'Staff by account status' : 'Beneficiaries by type'}</h3></div>
-          </div>
-          <div className="dashboard-breakdown-list">
-            {breakdown.map((item) => {
-              const percent = isSuperAdmin
-                ? (item.value / Math.max(1, breakdownTotal)) * 100
-                : (item.value / breakdownMaximum) * 100;
-              return (
-                <div className="dashboard-breakdown-row" key={item.label}>
-                  <div>
-                    <span>{item.label}</span>
-                    <strong>{item.value.toLocaleString()}{isSuperAdmin && <small> · {Math.round(percent)}%</small>}</strong>
-                  </div>
-                  <span className="dashboard-breakdown-track"><span className={item.tone} style={{ width: `${percent}%` }} /></span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
+              <div className="kpi-value">{typeof card.value === 'number' && Number.isFinite(card.value) ? card.value.toLocaleString() : card.value}</div>
+              <div className="kpi-subtitle"><span>{card.subtitle}</span></div>
+            </Link>
+          ))}
+        </section>
+      )}
 
       <section className="dashboard-module-summary-grid" aria-label="Live module summaries">
         {moduleSummaries.map((module) => (
-          <article className="dashboard-panel dashboard-module-summary" key={module.key}>
+          <article
+            className={`dashboard-panel dashboard-module-summary${module.key === 'monitoring' ? ' dashboard-module-summary-monitoring' : ''}`}
+            key={module.key}
+          >
             <div className="dashboard-panel-heading">
               <div><span className="dashboard-panel-eyebrow">Live data</span><h3>{module.title}</h3></div>
               <Link to={module.to} className="panel-link">Open module</Link>
             </div>
+            {module.key === 'batch-progress' && module.batchOptions.length > 1 && (
+              <label className="dashboard-batch-filter">
+                <span>Batch</span>
+                <select
+                  aria-label="Filter batch progress"
+                  value={module.selectedBatchId}
+                  onChange={(event) => setSelectedBatchId(event.target.value)}
+                >
+                  {module.batchOptions.map((batch) => (
+                    <option key={batch.id} value={batch.id}>{batch.name}</option>
+                  ))}
+                </select>
+              </label>
+            )}
             <dl className="dashboard-module-metrics">
               {module.metrics.map((metric) => (
                 <div className="dashboard-module-metric" key={metric.label}>
-                  <dt>{metric.label}</dt>
-                  <dd>{typeof metric.value === 'number' ? metric.value.toLocaleString() : metric.value}</dd>
+                  <dt>
+                    {metric.to
+                      ? <Link to={metric.to} className="dashboard-module-metric-link">{metric.label}</Link>
+                      : metric.label}
+                  </dt>
+                  <dd>
+                    {metric.to
+                      ? <Link to={metric.to} className="dashboard-module-metric-link dashboard-module-metric-value">{typeof metric.value === 'number' ? metric.value.toLocaleString() : metric.value}</Link>
+                      : typeof metric.value === 'number' ? metric.value.toLocaleString() : metric.value}
+                  </dd>
                 </div>
               ))}
             </dl>
             <p className="dashboard-module-note">{module.note}</p>
           </article>
         ))}
-      </section>
-
-      <section className="dashboard-follow-up-panel" aria-label="Actionable indicators">
-        <div>
-          <span className="dashboard-panel-eyebrow">Needs attention</span>
-          <strong>{isSuperAdmin ? staffMetrics.unassigned : stats.followUpCount}</strong>
-          <span>          {isSuperAdmin ? 'active staff missing a required school or group assignment' : 'beneficiaries currently flagged for follow-up'}</span>
-        </div>
-        <Link to={isSuperAdmin ? '/user-management' : '/monitoring'} className="panel-link">
-          {isSuperAdmin ? 'Review assignments' : 'Review monitoring'}
-        </Link>
       </section>
 
       <DashboardInsights metrics={dashboardMetrics} ready={!loading} refreshVersion={refreshVersion} />

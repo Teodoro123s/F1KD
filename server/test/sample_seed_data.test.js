@@ -29,18 +29,43 @@ test('maternal registration measurements map to the next scheduled checkup', () 
 });
 
 test('sample seed plan creates two separately staffed schools with substantial demo data', () => {
-  const plan = buildSeedPlan();
+  const plan = buildSeedPlan({ now: new Date('2026-10-27T12:00:00.000Z') });
 
   assert.equal(plan.schools.length, 2);
   assert.equal(plan.groups.length, 4);
   assert.equal(plan.batches.length, 8);
   assert.equal(plan.mothers.length, 80);
   assert.equal(plan.children.length, 80);
-  assert.equal(plan.completedChildCodes.length, 56);
-  assert.equal(plan.completedMotherCodes.length, 56);
+  assert.equal(plan.completedChildCodes.length, 48);
+  assert.equal(plan.completedMotherCodes.length, 48);
   assert.equal(plan.programs.length, 4);
-  assert.equal(plan.maternalCheckups.length, 533);
-  assert.equal(plan.childCheckups.length, 1920);
+  assert.equal(plan.maternalCheckups.length, 460);
+  assert.equal(plan.childCheckups.length, 960);
+  assert.deepEqual([...new Set(plan.mothers.map((mother) => mother.startingTrimester))].sort(), [
+    '1st Trimester',
+    '2nd Trimester',
+    '3rd Trimester',
+  ]);
+  assert.deepEqual([...new Set(plan.mothers.map((mother) => mother.startingGestationalWeek))].sort((a, b) => a - b), [
+    10,
+    12,
+    20,
+    28,
+  ]);
+  assert.deepEqual([...new Set(plan.maternalCheckups.map((checkup) => checkup.developmentalStatus))].sort(), [
+    'At Risk',
+    'Needs Follow-up',
+    'Normal',
+  ]);
+  assert.deepEqual([...new Set(plan.childCheckups.map((checkup) => checkup.developmentalStatus))].sort(), [
+    'At Risk',
+    'Needs Follow-up',
+    'Normal',
+  ]);
+  assert.deepEqual([...new Set(plan.programs.map((program) => program.status))].sort(), ['Active', 'Ended']);
+  assert.ok(new Set(plan.mothers.map((mother) => mother.eddDate)).size > 1);
+  assert.ok(new Set(plan.maternalCheckups.map((checkup) => checkup.date)).size > 20);
+  assert.ok(new Set(plan.batches.map((batch) => batch.received)).size > 1);
   assert.equal(plan.users.length, 8);
   assert.deepEqual(
     plan.users.map((user) => user.role).sort(),
@@ -81,14 +106,15 @@ test('sample seed plan creates two separately staffed schools with substantial d
       plan.childCheckups.filter((checkup) => (
         plan.children.find((child) => child.code === checkup.childCode)?.batchCode === batch.code
       )).length,
-      240,
+      120,
     );
     assert.equal(
       plan.completedChildCodes.filter((code) => (
         plan.children.find((child) => child.code === code)?.batchCode === batch.code
       )).length,
-      7,
+      batch.received,
     );
+    assert.equal(batch.received >= 0 && batch.received <= 10, true);
   }
 
   for (const group of plan.groups) {
@@ -102,17 +128,20 @@ test('sample seed plan creates two separately staffed schools with substantial d
     assert.equal(checkups[0].gestationalAge, mother.startingGestationalWeek);
   }
 
-  assert.equal(plan.mothers.filter((mother) => mother.startingTrimester === '1st Trimester').length, 53);
-  assert.equal(plan.mothers.filter((mother) => mother.startingTrimester === '2nd Trimester').length, 27);
-  assert.equal(plan.mothers.filter((mother) => mother.startingGestationalWeek === 10).length, 27);
-  assert.equal(plan.mothers.filter((mother) => mother.startingGestationalWeek === 12).length, 26);
-  assert.equal(plan.mothers.filter((mother) => mother.startingGestationalWeek === 20).length, 27);
+  assert.equal(plan.mothers.filter((mother) => mother.startingTrimester === '1st Trimester').length, 40);
+  assert.equal(plan.mothers.filter((mother) => mother.startingTrimester === '2nd Trimester').length, 20);
+  assert.equal(plan.mothers.filter((mother) => mother.startingTrimester === '3rd Trimester').length, 20);
+  assert.equal(plan.mothers.filter((mother) => mother.startingGestationalWeek === 10).length, 20);
+  assert.equal(plan.mothers.filter((mother) => mother.startingGestationalWeek === 12).length, 20);
+  assert.equal(plan.mothers.filter((mother) => mother.startingGestationalWeek === 20).length, 20);
+  assert.equal(plan.mothers.filter((mother) => mother.startingGestationalWeek === 28).length, 20);
 
   for (const child of plan.children) {
     const monthlyCheckups = plan.childCheckups.filter((checkup) => checkup.childCode === child.code);
-    assert.equal(monthlyCheckups.length, 24);
-    assert.equal(monthlyCheckups[0].month, 1);
-    assert.equal(monthlyCheckups.at(-1).month, 24);
-    assert.deepEqual(monthlyCheckups.map((checkup) => checkup.month), Array.from({ length: 24 }, (_, index) => index + 1));
+    assert.equal(monthlyCheckups.length, child.completedMonths);
+    assert.deepEqual(
+      monthlyCheckups.map((checkup) => checkup.month),
+      Array.from({ length: child.completedMonths }, (_, index) => index + 1),
+    );
   }
 });

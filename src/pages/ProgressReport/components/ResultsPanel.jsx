@@ -1,14 +1,11 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { ResultsTable } from './ResultsTable';
 import { ResultsGraph } from './ResultsGraph';
 
 export function ResultsPanel({
-  selectedSchool,
   selection,
   isHealthWorker = false,
   isCommunityOrganizer = false,
-  groups,
-  batches,
   exportReport,
   exportingReport,
   includeInterpretationColumns,
@@ -57,25 +54,45 @@ export function ResultsPanel({
   profileGraphFields,
   interpretationMetrics,
   programMetrics,
+  benefitPeriod = 'overall',
+  benefitMonth = '',
+  onBenefitPeriodChange,
+  onBenefitMonthChange,
+  loadingReport = false,
 }) {
   const monitoringExportHandler = useRef(null);
+  const [selectedBatch, setSelectedBatch] = useState('');
   const viewToggle = [
     { key: 'table', label: 'Table View' },
     { key: 'graph', label: 'Graph View', disabled: !graphAllowed },
   ];
+  const availableBatches = [...new Map(resultsRows
+    .filter((row) => row.batch)
+    .map((row) => [String(row.batchId || row.batch), { id: String(row.batchId || row.batch), name: row.batch }])).values()];
+  const activeBatch = availableBatches.some(({ id }) => id === selectedBatch) ? selectedBatch : '';
+  const graphRowsForView = activeBatch
+    ? graphRows.filter((row) => String(row.batchId || row.batch || '') === activeBatch)
+    : graphRows;
+  const graphRangeRowsForView = activeBatch
+    ? rangeRows.filter((row) => String(row.batchId || row.batch || '') === activeBatch)
+    : rangeRows;
+  const graphBeneficiariesForView = activeBatch
+    ? graphBeneficiaries.filter(({ id }) => graphRowsForView.some((row) => String(row.childId || row.motherId || row.child || row.mother || '') === id))
+    : graphBeneficiaries;
+  const handleBatchChange = (batchId) => {
+    setSelectedBatch(batchId);
+    setSelectedGraphBeneficiary('all');
+  };
 
   return (
     <div className="progress-report-tab-panel results-tab-panel">
       <div className="progress-report-results-header">
         <div>
           <h1>IV. Report Results</h1>
-          <p>
-            {selectedSchool?.name || 'School'} &gt; {selection.groupId ? groups.find((item) => String(item.id) === String(selection.groupId))?.name : 'All Groups'} &gt; {selection.batchId ? batches.find((item) => String(item.id) === String(selection.batchId))?.name : 'All Batches'}
-          </p>
         </div>
 
         <div className="results-view-toggle" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          {resultsView === 'graph' && displayReportCategory === 'monitor' && graphBeneficiaries.length > 1 && (
+          {resultsView === 'graph' && displayReportCategory === 'monitor' && graphBeneficiariesForView.length > 1 && (
             <label className="results-table-period-filter">
               Beneficiary
               <select
@@ -83,7 +100,8 @@ export function ResultsPanel({
                 value={selectedGraphBeneficiary}
                 onChange={(event) => setSelectedGraphBeneficiary(event.target.value)}
               >
-                {graphBeneficiaries.map(({ id, name }) => <option key={id} value={id}>{name}</option>)}
+                <option value="all">{selection.batchId || activeBatch ? 'All beneficiaries in this batch' : 'All beneficiaries'}</option>
+                {graphBeneficiariesForView.map(({ id, name }) => <option key={id} value={id}>{name}</option>)}
               </select>
             </label>
           )}
@@ -105,7 +123,7 @@ export function ResultsPanel({
               type="button"
               className="secondary-btn"
               disabled={exportingReport}
-              onClick={() => exportReport({ rows: graphExportRows, fields: graphExportFields, view: 'graph' })}
+              onClick={() => exportReport({ rows: graphExportRows, fields: graphExportFields, view: 'graph', selectedBatch: activeBatch })}
             >
               {exportingReport ? 'Preparing CSV…' : 'Export CSV'}
             </button>
@@ -122,6 +140,35 @@ export function ResultsPanel({
           )}
         </div>
       </div>
+
+      {displayReportCategory === 'program' && (
+        <div className="program-report-controls program-report-period-controls" aria-label="Project report filters">
+          <label>
+            <span>Benefit period</span>
+            <select
+              aria-label="Benefit period"
+              value={benefitPeriod}
+              onChange={(event) => onBenefitPeriodChange(event.target.value)}
+              disabled={loadingReport}
+            >
+              <option value="overall">Overall</option>
+              <option value="month">Monthly</option>
+            </select>
+          </label>
+          {benefitPeriod === 'month' && (
+            <label>
+              <span>Month</span>
+              <input
+                aria-label="Month"
+                type="month"
+                value={benefitMonth}
+                onChange={(event) => onBenefitMonthChange(event.target.value)}
+                disabled={loadingReport}
+              />
+            </label>
+          )}
+        </div>
+      )}
 
       {!graphAllowed && (
         <p className="progress-report-note" role="status">
@@ -141,11 +188,11 @@ export function ResultsPanel({
           availableGrowthMetrics={availableGrowthMetrics}
           availableNumericGrowthMetrics={availableNumericGrowthMetrics}
           selectedGraphMetric={selectedGraphMetric}
-          graphRows={graphRows}
+          graphRows={graphRowsForView}
           resultsRows={resultsRows}
           displayWeeks={displayWeeks}
           setDisplayWeeks={setDisplayWeeks}
-          rangeRows={rangeRows}
+          rangeRows={graphRangeRowsForView}
           displayBeneficiaryType={displayBeneficiaryType}
           averageMetric={averageMetric}
           profileGraphFields={profileGraphFields}
@@ -190,6 +237,8 @@ export function ResultsPanel({
             </button>
           )}
           formatCellValue={formatCellValue}
+          selectedBatch={activeBatch}
+          onSelectedBatchChange={handleBatchChange}
         />
       )}
       {reportPagination && reportPagination.totalPages > 1 && (

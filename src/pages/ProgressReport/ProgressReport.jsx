@@ -349,9 +349,12 @@ export default function ProgressReport() {
     setError('');
   };
 
-  const generateReport = async (nextPage = 1) => {
+  const generateReport = async (nextPage = 1, programFilterOverrides = {}) => {
     const safeSelection = normalizeSelectionHierarchy(selection);
-    if (reportCategory === 'program' && !eligiblePrograms.some((program) => normalizeProgramName(program.name) === normalizeProgramName(programName))) {
+    const nextProgramName = programName;
+    const nextBenefitPeriod = programFilterOverrides.benefitPeriod ?? benefitPeriod;
+    const nextBenefitMonth = programFilterOverrides.benefitMonth ?? benefitMonth;
+    if (reportCategory === 'program' && !eligiblePrograms.some((program) => normalizeProgramName(program.name) === normalizeProgramName(nextProgramName))) {
       notifyAction('Select a project before generating a project report.', 'error');
       return;
     }
@@ -359,7 +362,7 @@ export default function ProgressReport() {
       notifyAction('Select at least one project metric.', 'error');
       return;
     }
-    if (reportCategory === 'program' && benefitPeriod === 'month' && !/^(?:1\d{3}|[2-9]\d{3})-(?:0[1-9]|1[0-2])$/.test(benefitMonth)) {
+    if (reportCategory === 'program' && nextBenefitPeriod === 'month' && !/^(?:1\d{3}|[2-9]\d{3})-(?:0[1-9]|1[0-2])$/.test(nextBenefitMonth)) {
       notifyAction('Select a valid month for the project report.', 'error');
       return;
     }
@@ -371,7 +374,7 @@ export default function ProgressReport() {
     setLoadingReport(true);
     if (nextPage === 1) setGraphReportRows(null);
     try {
-      const selectedProgram = programs.find((program) => normalizeProgramName(program.name) === normalizeProgramName(programName));
+      const selectedProgram = programs.find((program) => normalizeProgramName(program.name) === normalizeProgramName(nextProgramName));
       if (reportCategory === 'program') {
         setGrowthMetrics(['receivedBenefitAveragePerMonth']);
         setDisplayWeeks('receivedBenefitAveragePerMonth');
@@ -381,9 +384,9 @@ export default function ProgressReport() {
         reportCategory,
         beneficiaryType,
         selectedProgram,
-        programName,
-        benefitPeriod,
-        benefitMonth,
+        programName: nextProgramName,
+        benefitPeriod: nextBenefitPeriod,
+        benefitMonth: nextBenefitMonth,
         page: nextPage,
         perPage: 50,
       });
@@ -391,6 +394,7 @@ export default function ProgressReport() {
       const reportRowCount = Number(result.pagination?.total ?? result.rows?.length ?? 0);
       const defaultToGraph = reportCategory !== 'program'
         && (Boolean(safeSelection.batchId) || reportRowCount <= 1);
+      if (nextPage === 1) setSelectedGraphBeneficiary(safeSelection.batchId ? 'all' : '');
       let completeGraphRows = result.rows || [];
       const requiresCompleteRows = reportCategory === 'monitor';
       if (nextPage > 1 && finalizedSnapshot?.requestParams) {
@@ -431,7 +435,9 @@ export default function ProgressReport() {
         growthMetrics: [...growthMetrics],
         profileMetrics: [...profileMetrics],
         profileGraphColumn,
-        programName,
+        programName: nextProgramName,
+        benefitPeriod: nextBenefitPeriod,
+        benefitMonth: nextBenefitMonth,
       });
       setPage(nextPage);
       setActiveTab(3);
@@ -503,6 +509,7 @@ export default function ProgressReport() {
     selectedMonth = '',
     selectedSchool = '',
     selectedGroup = '',
+    selectedBatch = '',
   } = {}) => {
     if (!finalizedSnapshot?.requestParams || !fields.length) {
       notifyAction('Generate a report before exporting data.', 'error');
@@ -526,7 +533,9 @@ export default function ProgressReport() {
       let exportFields = fields;
 
       if (displayReportCategory === 'monitor' && view === 'graph') {
-        const graphSource = allRows.map((row) => ({
+        const graphSource = allRows
+          .filter((row) => !selectedBatch || String(row.batchId || row.batch || '') === String(selectedBatch))
+          .map((row) => ({
           ...row,
           growthSeries: (row.growthSeries || []).filter((point) => {
             if (!activeRange) return true;
@@ -564,6 +573,7 @@ export default function ProgressReport() {
             }
             if (selectedSchool && row.school !== selectedSchool) return false;
             if (selectedGroup && row.group !== selectedGroup) return false;
+            if (selectedBatch && String(row.batchId || row.batch || '') !== String(selectedBatch)) return false;
             if (historyView === 'individual') {
               const beneficiaryId = String(row.childId || row.motherId || row.child || row.mother || '');
               if (beneficiaryId !== String(selectedBeneficiary)) return false;
@@ -706,13 +716,15 @@ export default function ProgressReport() {
       .filter(([id]) => id)
       .map(([id, row]) => ({ id, name: row.child || row.mother || 'Beneficiary' }))
     : [];
-  const selectedGraphBeneficiaryId = graphBeneficiaries.some(({ id }) => id === selectedGraphBeneficiary)
+  const selectedGraphBeneficiaryId = selectedGraphBeneficiary === 'all' || graphBeneficiaries.some(({ id }) => id === selectedGraphBeneficiary)
     ? selectedGraphBeneficiary
-    : graphBeneficiaries[0]?.id || '';
-  const graphRows = displayReportCategory === 'monitor' && selectedGraphBeneficiaryId
+    : displaySelection.batchId
+      ? 'all'
+      : graphBeneficiaries[0]?.id || '';
+  const graphRows = displayReportCategory === 'monitor' && selectedGraphBeneficiaryId && selectedGraphBeneficiaryId !== 'all'
     ? filteredGraphSourceRows.filter((row) => graphBeneficiaryKey(row) === selectedGraphBeneficiaryId)
     : filteredGraphSourceRows;
-  const selectedGraphRangeRows = displayReportCategory === 'monitor' && selectedGraphBeneficiaryId
+  const selectedGraphRangeRows = displayReportCategory === 'monitor' && selectedGraphBeneficiaryId && selectedGraphBeneficiaryId !== 'all'
     ? graphSourceRows.filter((row) => graphBeneficiaryKey(row) === selectedGraphBeneficiaryId)
     : graphSourceRows;
   const graphExportFields = REPORT_FIELDS.filter(([id]) => (
@@ -959,14 +971,10 @@ export default function ProgressReport() {
                 <ReportFocusStep
                   reportCategory={reportCategory}
                   selectReportCategory={selectReportCategory}
-                  programName={programName}
-                  setProgramName={updateProgramParameter(setProgramName)}
-                  programs={programs}
-                  benefitPeriod={benefitPeriod}
-                  setBenefitPeriod={updateProgramParameter(setBenefitPeriod)}
-                  benefitMonth={benefitMonth}
-                  setBenefitMonth={updateProgramParameter(setBenefitMonth)}
-                  beneficiaryType={beneficiaryType}
+                    programName={programName}
+                    setProgramName={updateProgramParameter(setProgramName)}
+                    programs={programs}
+                    beneficiaryType={beneficiaryType}
                   setBeneficiaryType={selectBeneficiaryType}
                   setActiveTab={goToTab}
                   isNavigating={isNavigating}
@@ -1011,12 +1019,9 @@ export default function ProgressReport() {
               </div>
             ) : (
               <ResultsPanel
-                selectedSchool={selectedSchool}
                 selection={displaySelection}
                 isHealthWorker={isHealthWorker}
                 isCommunityOrganizer={isCommunityOrganizer}
-                groups={groups}
-                batches={batches}
                 exportReport={exportReport}
                 exportingReport={exportingReport}
                 includeInterpretationColumns={includeInterpretationColumns}
@@ -1065,6 +1070,17 @@ export default function ProgressReport() {
                 profileGraphFields={PROFILE_GRAPH_FIELDS}
                 interpretationMetrics={INTERPRETATION_METRICS}
                 programMetrics={PROGRAM_METRICS}
+                benefitPeriod={benefitPeriod}
+                benefitMonth={benefitMonth}
+                onBenefitPeriodChange={(value) => {
+                  setBenefitPeriod(value);
+                  void generateReport(1, { benefitPeriod: value });
+                }}
+                onBenefitMonthChange={(value) => {
+                  setBenefitMonth(value);
+                  void generateReport(1, { benefitMonth: value });
+                }}
+                loadingReport={loadingReport}
               />
             )
           )}

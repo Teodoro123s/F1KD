@@ -140,18 +140,19 @@ export default function MonitoringActivityCalendar({
         </>
       ) : (
         <section className="monitoring-calendar-selected" aria-labelledby="monitoring-calendar-selected-title">
-          <div className="monitoring-activity-calendar-heading">
+          <div className="monitoring-activity-calendar-heading monitoring-calendar-selected-heading">
             <div>
               <h2 id="monitoring-calendar-selected-title">Monitoring Activities on {formatMonitoringDate(selectedDate)}</h2>
               <p>Maternal check-ups recorded or scheduled for the selected date.</p>
             </div>
-            <button type="button" className="secondary-btn" onClick={() => setView('calendar')}>
+            <button type="button" className="secondary-btn monitoring-calendar-back-button" onClick={() => setView('calendar')}>
               Back to Calendar
             </button>
           </div>
           {selectedActivities.length ? (
             <div className="monitoring-calendar-table-wrap">
               <table className="monitoring-calendar-table">
+                <caption className="sr-only">Maternal monitoring activities for {formatMonitoringDate(selectedDate)}</caption>
                 <thead>
                   <tr>
                     <th scope="col">Mother Name</th>
@@ -192,7 +193,16 @@ export default function MonitoringActivityCalendar({
               </table>
             </div>
           ) : (
-            <p className="monitoring-calendar-empty-date" role="status">No monitoring activities recorded for this date.</p>
+            <div className="monitoring-calendar-empty-date" role="status">
+              <svg className="monitoring-calendar-empty-icon" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+                <rect x="5.5" y="8.5" width="29" height="26" rx="4" stroke="currentColor" strokeWidth="1.8" />
+                <path d="M13 5.5v6M27 5.5v6M6 16h28" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                <path d="M15 23h10M15 28h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              </svg>
+              <strong>No activities for this date</strong>
+              <span>No maternal check-ups are recorded or scheduled for {formatMonitoringDate(selectedDate)}.</span>
+              <span>Choose another date or return to the calendar.</span>
+            </div>
           )}
         </section>
       )}

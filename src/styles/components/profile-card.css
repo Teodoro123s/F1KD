@@ -1645,7 +1645,7 @@
 .results-tab-panel .monitor-report-graph-card .growth-report-legend { display: flex; flex-wrap: wrap; gap: 0.45rem 0.9rem; margin: 0.8rem 0 0; padding-top: 0.7rem; border-top: 1px solid #e8f1ea; color: #557262; font-size: 0.76rem; justify-content: flex-start; }
 .results-tab-panel .monitor-report-graph-card .growth-report-legend span { align-items: center; }
 .results-tab-panel .monitor-report-graph-card .growth-report-legend span { display: inline-flex; align-items: center; gap: 0.3rem; max-width: 100%; }
-.results-tab-panel .monitor-report-graph-card .growth-report-series-legend { margin-top: 0.5rem; padding-top: 0; border-top: 0; }
+.results-tab-panel .monitor-report-graph-card .growth-report-series-legend { position: sticky; left: 0; z-index: 2; width: max-content; max-width: 100%; box-sizing: border-box; margin-top: 0.5rem; padding: 0.35rem 0.4rem; border-top: 0; border-radius: 6px; background: rgba(248, 252, 249, 0.96); }
 .results-tab-panel .monitor-report-graph-card .growth-report-series-legend i { width: 18px; height: 0; margin: 0; border-top: 3px solid var(--series-color); border-radius: 0; }
 .results-tab-panel .monitor-report-graph-card .growth-report-series-legend span { padding: 0.15rem 0.3rem; border-radius: 5px; cursor: pointer; transition: background-color 120ms ease, opacity 120ms ease; }
 .results-tab-panel .monitor-report-graph-card .growth-report-series-legend span.is-active { background: #e8f3ec; color: #173b2a; font-weight: 800; }
@@ -2209,6 +2209,7 @@
 .program-report-controls label { display: grid; gap: 0.35rem; color: #475569; font-size: 0.78rem; font-weight: 700; }
 .program-report-controls select, .program-report-controls input { width: 100%; min-height: 42px; padding: 0.55rem 0.7rem; border: 1px solid #cedae8; border-radius: 10px; background: #fff; color: #0f172a; font: inherit; }
 .program-report-controls select:focus, .program-report-controls input:focus { border-color: #15803d; box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.12); outline: none; }
+.program-report-period-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); width: min(560px, 100%); margin: 0.75rem 0 1rem; }
 @media (max-width: 640px) { .program-report-controls { grid-template-columns: 1fr; } }
 .progress-report-config-actions,
 .progress-report-tab-actions {

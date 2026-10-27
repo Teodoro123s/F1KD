@@ -652,6 +652,58 @@
   min-width: 0;
 }
 
+.health-worker-table-heading {
+  padding: 1rem 1.25rem 0.25rem;
+}
+
+.health-worker-table-heading h2 {
+  margin: 0;
+  color: #1a2636;
+  font-size: 1rem;
+  font-weight: 750;
+}
+
+.health-worker-table-heading p {
+  margin: 0.25rem 0 0;
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.health-worker-status-filter {
+  display: grid;
+  gap: 0.2rem;
+  color: #64748b;
+  font-size: 0.74rem;
+  font-weight: 650;
+}
+
+.health-worker-status-filter select {
+  min-width: 138px;
+  min-height: 36px;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid #d5deea;
+  border-radius: 8px;
+  background: #fff;
+  color: #334155;
+  font: inherit;
+}
+
+.health-worker-clear-filters {
+  min-height: 36px;
+  padding: 0.35rem 0.6rem;
+  border: 0;
+  background: transparent;
+  color: #2563a8;
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.health-worker-clear-filters:hover,
+.health-worker-clear-filters:focus-visible {
+  text-decoration: underline;
+}
+
 .user-management-list-card > .table-overflow {
   width: 100%;
   min-width: 0;
@@ -666,6 +718,49 @@
 
 .user-management-list-card .user-management-data-table.has-group-column {
   min-width: 620px;
+}
+
+.user-management-list-card .user-management-data-table.health-worker-accounts-table {
+  min-width: 900px;
+}
+
+.health-worker-accounts-table th,
+.health-worker-accounts-table td {
+  overflow-wrap: anywhere;
+}
+
+.health-worker-accounts-table th:nth-child(1),
+.health-worker-accounts-table td:nth-child(1) { width: 19%; }
+.health-worker-accounts-table th:nth-child(2),
+.health-worker-accounts-table td:nth-child(2) { width: 22%; }
+.health-worker-accounts-table th:nth-child(3),
+.health-worker-accounts-table td:nth-child(3) { width: 19%; }
+.health-worker-accounts-table th:nth-child(4),
+.health-worker-accounts-table td:nth-child(4) { width: 13%; }
+.health-worker-accounts-table th:nth-child(5),
+.health-worker-accounts-table td:nth-child(5) { width: 19%; }
+.health-worker-accounts-table th:nth-child(6),
+.health-worker-accounts-table td:nth-child(6) { width: 8%; }
+
+.health-worker-status-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.health-worker-status-badge.is-active {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.health-worker-status-badge.is-suspended {
+  background: #fee2e2;
+  color: #991b1b;
 }
 
 .user-management-list-card .user-management-data-table th {

@@ -5,7 +5,7 @@ import { PlusIcon } from './UserManagementIcons';
 import AddUserModal from './UserManagementModal';
 import { useUserManagement } from './useUserManagement';
 import { useAuth } from '../../auth/AuthProvider';
-import { ROLES, hasRole, normalizeRole } from '../../utils/permissions';
+import { ROLES, hasRole, isHealthWorkerRole, normalizeRole } from '../../utils/permissions';
 import RoleFilter from './RoleFilter';
 import Pagination from './Pagination';
 import ConfirmModal from './ConfirmModal';
@@ -24,6 +24,7 @@ export default function UserManagementPage() {
     form,
     query,
     users,
+    selectedStatusFilter,
     selectedRoleFilter,
     selectedSchoolFilter,
     showAddModal,
@@ -38,6 +39,8 @@ export default function UserManagementPage() {
     rangeEnd,
     pageCount,
     filteredData,
+    usersLoading,
+    usersLoadError,
     breadcrumbItems,
     ROLE_OPTIONS,
     handleSearch,
@@ -74,7 +77,8 @@ export default function UserManagementPage() {
   const canCreate = hasRole(auth?.currentUser?.role, [ROLES.SUPER_ADMIN])
     || (organizerHealthWorkerScope && Boolean(organizerSchoolId));
   const [copyNotice, setCopyNotice] = useState('');
-  const [selectedSummaryCard, setSelectedSummaryCard] = useState(null);
+  const [selectedSummaryCard, setSelectedSummaryCard] = useState(organizerHealthWorkerScope ? 'all' : null);
+  const [pendingStatusChange, setPendingStatusChange] = useState(null);
   const selectedBatch = batches.find((batch) => String(batch.id || batch.code) === String(batchId)) || null;
   const batchSchool = selectedBatch
     ? communities.find((community) => community.name === selectedBatch.community) || null
@@ -93,7 +97,9 @@ export default function UserManagementPage() {
     : schoolId
     ? [{ label: 'Schools', href: '/community' }, { label: schoolName, href: `/community/school/${schoolId}` }, { label: 'Users' }]
     : breadcrumbItems;
-  const countedUsers = users.filter((user) => normalizeRole(user.role) !== ROLES.SUPER_ADMIN);
+  const countedUsers = organizerHealthWorkerScope
+    ? users.filter((user) => isHealthWorkerRole(user.role))
+    : users.filter((user) => normalizeRole(user.role) !== ROLES.SUPER_ADMIN);
   const userStatusCounts = {
     all: countedUsers.length,
     active: countedUsers.filter((user) => user.status === 'Active').length,
@@ -116,7 +122,11 @@ export default function UserManagementPage() {
 
   return (
     <div className="community-page">
-      <NotificationBanner message={notification} actionLabel={!apiOnline ? 'Retry' : null} onAction={!apiOnline ? retryLoad : null} />
+      <NotificationBanner
+        message={notification}
+        actionLabel={!apiOnline || usersLoadError ? 'Retry' : null}
+        onAction={!apiOnline || usersLoadError ? retryLoad : null}
+      />
 
       <PageHeader
         title={pageTitle}
@@ -131,15 +141,30 @@ export default function UserManagementPage() {
 
       <ModuleSummaryCards
         selected={selectedSummaryCard}
-        toggleOnSelect
+        toggleOnSelect={!organizerHealthWorkerScope}
         onSelect={(key) => {
           setSelectedSummaryCard(key);
           setStatusFilter(key ? key === 'all' ? 'All' : key === 'active' ? 'Active' : 'Suspended' : 'All');
         }}
         cards={[
-          { key: 'all', label: 'Total Accounts', value: userStatusCounts.all, description: 'View list' },
-          { key: 'active', label: 'Active Accounts', value: userStatusCounts.active, description: 'View list' },
-          { key: 'suspended', label: 'Suspended Accounts', value: userStatusCounts.suspended, description: 'View list' },
+          {
+            key: 'all',
+            label: 'Total Accounts',
+            value: organizerHealthWorkerScope && (usersLoading || usersLoadError) ? '—' : userStatusCounts.all,
+            description: 'View list',
+          },
+          {
+            key: 'active',
+            label: 'Active Accounts',
+            value: organizerHealthWorkerScope && (usersLoading || usersLoadError) ? '—' : userStatusCounts.active,
+            description: 'View list',
+          },
+          {
+            key: 'suspended',
+            label: 'Suspended Accounts',
+            value: organizerHealthWorkerScope && (usersLoading || usersLoadError) ? '—' : userStatusCounts.suspended,
+            description: 'View list',
+          },
         ]}
       />
 
@@ -192,7 +217,7 @@ export default function UserManagementPage() {
         <div className="inline-toast" role="status" aria-live="polite">{copyNotice}</div>
       )}
 
-      {selectedSummaryCard && (
+      {(organizerHealthWorkerScope || selectedSummaryCard) && (
         <>
       <UserManagementTable
         currentRows={currentRows}
@@ -212,6 +237,20 @@ export default function UserManagementPage() {
         deletingId={deletingId}
         allowDelete={!organizerHealthWorkerScope}
         showGroup={organizerHealthWorkerScope}
+        healthWorkerManagement={organizerHealthWorkerScope}
+        statusFilter={selectedStatusFilter}
+        onStatusFilterChange={(status) => {
+          setStatusFilter(status);
+          setSelectedSummaryCard(status.toLowerCase());
+        }}
+        onClearFilters={() => {
+          handleSearch('');
+          setStatusFilter('All');
+          setSelectedSummaryCard('all');
+        }}
+        onRequestStatusChange={organizerHealthWorkerScope ? setPendingStatusChange : undefined}
+        loading={organizerHealthWorkerScope && usersLoading}
+        loadError={organizerHealthWorkerScope ? usersLoadError : ''}
         groups={groups}
         searchValue={query}
         onSearchChange={handleSearch}
@@ -257,6 +296,21 @@ export default function UserManagementPage() {
         variant="destructive"
         onConfirm={confirmDelete}
         onCancel={cancelDelete}
+      />
+      <ConfirmModal
+        show={organizerHealthWorkerScope && Boolean(pendingStatusChange)}
+        title={pendingStatusChange?.status === 'Suspended' ? 'Reactivate Health Worker' : 'Suspend Health Worker'}
+        message={pendingStatusChange?.status === 'Suspended'
+          ? `Reactivate ${pendingStatusChange?.name || 'this Health Worker'}? They will be able to sign in again.`
+          : `Suspend ${pendingStatusChange?.name || 'this Health Worker'}? They will no longer be able to sign in.`}
+        confirmLabel={pendingStatusChange?.status === 'Suspended' ? 'Reactivate' : 'Suspend'}
+        variant={pendingStatusChange?.status === 'Suspended' ? 'primary' : 'destructive'}
+        onConfirm={async () => {
+          if (!pendingStatusChange) return;
+          await handleSuspendUser(pendingStatusChange.id);
+          setPendingStatusChange(null);
+        }}
+        onCancel={() => setPendingStatusChange(null)}
       />
     </div>
   );

@@ -23,17 +23,46 @@ const BENEFICIARIES = [
   { code: 'O3-M-009', firstName: 'Diwa', lastName: 'Sample', groupIndex: 1 },
 ];
 const CHILDREN = [
-  { code: 'O3-C-001', firstName: 'Araw', gender: 'Female', motherCode: 'O3-M-001', ageMonths: 24, birthWeight: '3.10', birthLength: '49.0', headCircumference: '34.0', chestCircumference: '32.0' },
-  { code: 'O3-C-002', firstName: 'Banaag', gender: 'Male', motherCode: 'O3-M-002', ageMonths: 24, birthWeight: '3.20', birthLength: '49.5', headCircumference: '34.4', chestCircumference: '32.4' },
-  { code: 'O3-C-003', firstName: 'Diwa', gender: 'Female', motherCode: 'O3-M-003', ageMonths: 24, birthWeight: '3.00', birthLength: '48.5', headCircumference: '33.8', chestCircumference: '31.8' },
-  { code: 'O3-C-004', firstName: 'Giliw', gender: 'Male', motherCode: 'O3-M-004', ageMonths: 24, birthWeight: '3.30', birthLength: '50.0', headCircumference: '34.8', chestCircumference: '32.8' },
-  { code: 'O3-C-005', firstName: 'Luntian', gender: 'Female', motherCode: 'O3-M-001', ageMonths: 24, birthWeight: '3.20', birthLength: '49.5', headCircumference: '34.4', chestCircumference: '32.4' },
-  { code: 'O3-C-006', firstName: 'Sinag', gender: 'Male', motherCode: 'O3-M-005', ageMonths: 24, birthWeight: '3.10', birthLength: '49.0', headCircumference: '34.0', chestCircumference: '32.0' },
-  { code: 'O3-C-007', firstName: 'Sinta', gender: 'Female', motherCode: 'O3-M-006', ageMonths: 24, birthWeight: '3.30', birthLength: '50.0', headCircumference: '34.8', chestCircumference: '32.8' },
-  { code: 'O3-C-008', firstName: 'Ulila', gender: 'Male', motherCode: 'O3-M-003', ageMonths: 24, birthWeight: '3.00', birthLength: '48.5', headCircumference: '33.8', chestCircumference: '31.8' },
-  { code: 'O3-C-009', firstName: 'Hiraya', gender: 'Female', motherCode: 'O3-M-008', ageMonths: 24, birthWeight: '3.20', birthLength: '49.5', headCircumference: '34.4', chestCircumference: '32.4' },
-  { code: 'O3-C-010', firstName: 'Kidlat', gender: 'Male', motherCode: 'O3-M-009', ageMonths: 24, birthWeight: '3.10', birthLength: '49.0', headCircumference: '34.0', chestCircumference: '32.0' },
+  { code: 'O3-C-001', firstName: 'Araw', gender: 'Female', motherCode: 'O3-M-001', ageMonths: 24, developmentalStatus: 'Normal', birthWeight: '3.10', birthLength: '49.0', headCircumference: '34.0', chestCircumference: '32.0' },
+  { code: 'O3-C-002', firstName: 'Banaag', gender: 'Male', motherCode: 'O3-M-002', ageMonths: 24, developmentalStatus: 'Needs Follow-up', birthWeight: '3.20', birthLength: '49.5', headCircumference: '34.4', chestCircumference: '32.4' },
+  { code: 'O3-C-003', firstName: 'Diwa', gender: 'Female', motherCode: 'O3-M-003', ageMonths: 24, developmentalStatus: 'At Risk', birthWeight: '3.00', birthLength: '48.5', headCircumference: '33.8', chestCircumference: '31.8' },
+  { code: 'O3-C-004', firstName: 'Giliw', gender: 'Male', motherCode: 'O3-M-004', ageMonths: 24, developmentalStatus: 'Normal', birthWeight: '3.30', birthLength: '50.0', headCircumference: '34.8', chestCircumference: '32.8' },
+  { code: 'O3-C-005', firstName: 'Luntian', gender: 'Female', motherCode: 'O3-M-001', ageMonths: 18, developmentalStatus: 'Needs Follow-up', birthWeight: '3.20', birthLength: '49.5', headCircumference: '34.4', chestCircumference: '32.4' },
+  { code: 'O3-C-006', firstName: 'Sinag', gender: 'Male', motherCode: 'O3-M-005', ageMonths: 12, developmentalStatus: 'At Risk', birthWeight: '3.10', birthLength: '49.0', headCircumference: '34.0', chestCircumference: '32.0' },
+  { code: 'O3-C-007', firstName: 'Sinta', gender: 'Female', motherCode: 'O3-M-006', ageMonths: 6, developmentalStatus: 'Normal', birthWeight: '3.30', birthLength: '50.0', headCircumference: '34.8', chestCircumference: '32.8' },
+  { code: 'O3-C-008', firstName: 'Ulila', gender: 'Male', motherCode: 'O3-M-003', ageMonths: 18, developmentalStatus: 'Needs Follow-up', birthWeight: '3.00', birthLength: '48.5', headCircumference: '33.8', chestCircumference: '31.8' },
+  { code: 'O3-C-009', firstName: 'Hiraya', gender: 'Female', motherCode: 'O3-M-008', ageMonths: 12, developmentalStatus: 'At Risk', birthWeight: '3.20', birthLength: '49.5', headCircumference: '34.4', chestCircumference: '32.4' },
+  { code: 'O3-C-010', firstName: 'Kidlat', gender: 'Male', motherCode: 'O3-M-009', ageMonths: 6, developmentalStatus: 'Normal', birthWeight: '3.10', birthLength: '49.0', headCircumference: '34.0', chestCircumference: '32.0' },
 ];
+BENEFICIARIES.push(
+  { code: 'O3-M-010', firstName: 'Mayari', lastName: 'Sample', groupIndex: 0 },
+  { code: 'O3-M-011', firstName: 'Sampaguita', lastName: 'Sample', groupIndex: 1 },
+  { code: 'O3-M-012', firstName: 'Tala', lastName: 'Sample', groupIndex: 0 },
+  { code: 'O3-M-013', firstName: 'Luningning', lastName: 'Sample', groupIndex: 1 },
+  { code: 'O3-M-014', firstName: 'Liwayway', lastName: 'Sample', groupIndex: 0 },
+  { code: 'O3-M-015', firstName: 'Hiyas', lastName: 'Sample', groupIndex: 1 },
+  { code: 'O3-M-016', firstName: 'Marikit', lastName: 'Sample', groupIndex: 0 },
+  { code: 'O3-M-017', firstName: 'Alon', lastName: 'Sample', groupIndex: 1 },
+  { code: 'O3-M-018', firstName: 'Dew', lastName: 'Sample', groupIndex: 0 },
+);
+CHILDREN.push(
+  { code: 'O3-C-011', firstName: 'Amihan', gender: 'Female', motherCode: 'O3-M-010', ageMonths: 3, developmentalStatus: 'Normal', birthWeight: '3.20', birthLength: '49.5', headCircumference: '34.4', chestCircumference: '32.4' },
+  { code: 'O3-C-012', firstName: 'Bituin', gender: 'Male', motherCode: 'O3-M-011', ageMonths: 9, developmentalStatus: 'Needs Follow-up', birthWeight: '3.00', birthLength: '48.5', headCircumference: '33.8', chestCircumference: '31.8' },
+  { code: 'O3-C-013', firstName: 'Dalisay', gender: 'Female', motherCode: 'O3-M-012', ageMonths: 15, developmentalStatus: 'At Risk', birthWeight: '3.30', birthLength: '50.0', headCircumference: '34.8', chestCircumference: '32.8' },
+  { code: 'O3-C-014', firstName: 'Hiraya', gender: 'Male', motherCode: 'O3-M-013', ageMonths: 21, developmentalStatus: 'Normal', birthWeight: '3.10', birthLength: '49.0', headCircumference: '34.0', chestCircumference: '32.0' },
+  { code: 'O3-C-015', firstName: 'Kidlat', gender: 'Female', motherCode: 'O3-M-014', ageMonths: 3, developmentalStatus: 'Needs Follow-up', birthWeight: '3.20', birthLength: '49.5', headCircumference: '34.4', chestCircumference: '32.4' },
+  { code: 'O3-C-016', firstName: 'Ligaya', gender: 'Male', motherCode: 'O3-M-015', ageMonths: 9, developmentalStatus: 'At Risk', birthWeight: '3.00', birthLength: '48.5', headCircumference: '33.8', chestCircumference: '31.8' },
+  { code: 'O3-C-017', firstName: 'Makisig', gender: 'Female', motherCode: 'O3-M-016', ageMonths: 15, developmentalStatus: 'Normal', birthWeight: '3.30', birthLength: '50.0', headCircumference: '34.8', chestCircumference: '32.8' },
+  { code: 'O3-C-018', firstName: 'Mayumi', gender: 'Male', motherCode: 'O3-M-017', ageMonths: 21, developmentalStatus: 'Needs Follow-up', birthWeight: '3.10', birthLength: '49.0', headCircumference: '34.0', chestCircumference: '32.0' },
+  { code: 'O3-C-019', firstName: 'Sinag', gender: 'Female', motherCode: 'O3-M-018', ageMonths: 12, developmentalStatus: 'At Risk', birthWeight: '3.20', birthLength: '49.5', headCircumference: '34.4', chestCircumference: '32.4' },
+  { code: 'O3-C-020', firstName: 'Sinta', gender: 'Male', motherCode: 'O3-M-010', ageMonths: 24, developmentalStatus: 'Normal', birthWeight: '3.00', birthLength: '48.5', headCircumference: '33.8', chestCircumference: '31.8' },
+);
+const MATERNAL_SCENARIOS = [
+  { trimester: '1st Trimester', gestationalAge: 10, checkups: [{ number: 1, week: 8, daysAgo: 21 }, { number: 2, week: 10, daysAgo: 7 }] },
+  { trimester: '2nd Trimester', gestationalAge: 21, checkups: [{ number: 1, week: 16, daysAgo: 35 }, { number: 2, week: 20, daysAgo: 7 }] },
+  { trimester: '3rd Trimester', gestationalAge: 30, checkups: [{ number: 1, week: 28, daysAgo: 35 }, { number: 2, week: 30, daysAgo: 7 }] },
+];
+const MATERNAL_SCREENING_STATUSES = ['At Risk', 'Needs Follow-up', 'Normal'];
 const CHILD_MONITORING_AGES = Array.from({ length: 24 }, (_, index) => index + 1);
 const GROWTH_SCENARIOS = [
   { weightZ: 0, lengthZ: 0 },
@@ -175,17 +204,18 @@ async function seedOrganizer3Data() {
     }
 
     const motherIds = new Map();
-    for (const mother of BENEFICIARIES) {
+    for (const [index, mother] of BENEFICIARIES.entries()) {
       const group = GROUPS[mother.groupIndex];
       const batch = BATCHES[mother.groupIndex];
-      const lmpDate = dateOffset(-147);
+      const scenario = MATERNAL_SCENARIOS[index % MATERNAL_SCENARIOS.length];
+      const lmpDate = dateOffset(-scenario.gestationalAge * 7);
       const motherId = await upsertId(
         connection,
         `INSERT INTO mothers (
            mother_code, community_id, group_id, batch_id, first_name, last_name, dob,
            lmp_date, edd_date, prenatal_reg_date, trimester, gestational_age, prenatal_weight,
            prenatal_bp, prenatal_height, status, progress, data_privacy_signed, media_release_signed
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '2nd Trimester', 21, 60.0, '112/72', 158.0,
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 60.0, '112/72', 158.0,
                    'Active', 0, FALSE, FALSE)
          ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id), community_id = VALUES(community_id),
            group_id = VALUES(group_id), batch_id = VALUES(batch_id), first_name = VALUES(first_name),
@@ -204,48 +234,55 @@ async function seedOrganizer3Data() {
           mother.lastName,
           dateOffset(-30 * 25 * 12),
           lmpDate,
-          dateOffset(133),
-          dateOffset(-35),
+          dateOffset(280 - scenario.gestationalAge * 7),
+          dateOffset(-3),
+          scenario.trimester,
+          scenario.gestationalAge,
         ],
       );
       motherIds.set(mother.code, motherId);
     }
 
+    await connection.query('DELETE FROM mother_checkups WHERE mother_id IN (?)', [[...motherIds.values()]]);
     for (const [index, mother] of BENEFICIARIES.entries()) {
       const motherId = motherIds.get(mother.code);
-      for (const checkup of [
-        { number: 1, week: 16, daysAgo: 35 },
-        { number: 2, week: 20, daysAgo: 7 },
-      ]) {
+      const scenario = MATERNAL_SCENARIOS[index % MATERNAL_SCENARIOS.length];
+      const screeningStatus = MATERNAL_SCREENING_STATUSES[(index * 2 + Math.floor(index / 3)) % 3];
+      for (const checkup of scenario.checkups) {
         const weight = 59 + index;
         const height = 158 + (index % 3);
         await connection.query(
           `INSERT INTO mother_checkups (
-             mother_id, trimester, checkup_number, checkup_date, gestational_age_weeks,
+             mother_id, trimester, checkup_number, checkup_date, gestational_age_weeks, developmental_status,
              blood_pressure, weight_kg, height_cm, bmi, nutritional_status, fundal_height_cm,
              fetal_heart_rate_bpm, service_provider, next_checkup_date, facility_type, remarks,
-             recorded_by_user_id, created_by_user_id, updated_by_user_id
-           ) VALUES (?, '2nd Trimester', ?, ?, ?, '112/72', ?, ?, ?, 'Normal', ?, 140,
+             referred_to_hospital, recorded_by_user_id, created_by_user_id, updated_by_user_id
+           ) VALUES (?, ?, ?, ?, ?, ?, '112/72', ?, ?, ?, 'Normal', ?, 140,
                      'F1KD Demo Health Center', ?, 'Health Center',
-                     'Synthetic demonstration record; not a clinical record.', ?, ?, ?)
+                     'Synthetic demonstration record; not a clinical record.', ?, ?, ?, ?)
            ON DUPLICATE KEY UPDATE checkup_date = VALUES(checkup_date),
              gestational_age_weeks = VALUES(gestational_age_weeks), blood_pressure = VALUES(blood_pressure),
              weight_kg = VALUES(weight_kg), height_cm = VALUES(height_cm), bmi = VALUES(bmi),
+             developmental_status = VALUES(developmental_status),
              nutritional_status = VALUES(nutritional_status), fundal_height_cm = VALUES(fundal_height_cm),
              fetal_heart_rate_bpm = VALUES(fetal_heart_rate_bpm), service_provider = VALUES(service_provider),
              next_checkup_date = VALUES(next_checkup_date), facility_type = VALUES(facility_type),
-             remarks = VALUES(remarks), recorded_by_user_id = VALUES(recorded_by_user_id),
+             remarks = VALUES(remarks), referred_to_hospital = VALUES(referred_to_hospital),
+             recorded_by_user_id = VALUES(recorded_by_user_id),
              created_by_user_id = VALUES(created_by_user_id), updated_by_user_id = VALUES(updated_by_user_id)`,
           [
             motherId,
+            scenario.trimester,
             checkup.number,
             dateOffset(-checkup.daysAgo),
             checkup.week,
+            screeningStatus,
             weight,
             height,
             (weight / ((height / 100) ** 2)).toFixed(1),
             checkup.week,
             dateOffset(21),
+            screeningStatus === 'At Risk',
             organizerId,
             organizerId,
             organizerId,
@@ -291,8 +328,9 @@ async function seedOrganizer3Data() {
       );
       childIds.set(child.code, childId);
 
+      await connection.query('DELETE FROM child_checkups WHERE child_id = ?', [childId]);
       const birthDate = dateMonthsAgo(child.ageMonths);
-      const scenario = GROWTH_SCENARIOS[index];
+      const scenario = GROWTH_SCENARIOS[index % GROWTH_SCENARIOS.length];
       const childCheckupMonths = getMonitoringMonths(child);
       for (const checkupMonth of childCheckupMonths) {
         const visitDate = dateMonthsAgo(child.ageMonths - checkupMonth);
@@ -313,10 +351,10 @@ async function seedOrganizer3Data() {
           height,
           (34 + checkupMonth * 0.4).toFixed(1),
           checkupMonth <= 6 ? 'Yes' : 'No',
-          'Normal',
+          child.developmentalStatus,
           'F1KD Demo Health Center',
           'Health Center',
-          `Synthetic WHO-LMS example: target weight-for-age z ${scenario.weightZ.toFixed(1)}, length-for-age z ${scenario.lengthZ.toFixed(1)}; not a clinical record.`,
+          `Synthetic WHO-LMS example: target weight-for-age z ${scenario.weightZ.toFixed(1)}, length-for-age z ${scenario.lengthZ.toFixed(1)}; screening ${child.developmentalStatus}; not a clinical record.`,
           organizerId,
           organizerId,
           organizerId,
@@ -326,10 +364,15 @@ async function seedOrganizer3Data() {
             `UPDATE child_checkups SET next_checkup_date = ?, visit_date = ?, weight = ?, height = ?,
                head_circumference = ?, exclusive_breastfeeding = ?, developmental_status = ?,
                service_provider = ?, facility_type = ?, laboratory_assistance_provided = FALSE,
-               referred_to_hospital = FALSE, notes = ?,
+               referred_to_hospital = ?, notes = ?,
                recorded_by_user_id = ?, created_by_user_id = ?, updated_by_user_id = ?
              WHERE id = ?`,
-            [...checkupValues, existingCheckups[0].id],
+            [
+              ...checkupValues.slice(0, 9),
+              child.developmentalStatus === 'At Risk',
+              ...checkupValues.slice(9),
+              existingCheckups[0].id,
+            ],
           );
         } else {
           await connection.query(
@@ -338,12 +381,18 @@ async function seedOrganizer3Data() {
                head_circumference, exclusive_breastfeeding, developmental_status, service_provider,
                facility_type, laboratory_assistance_provided, referred_to_hospital, notes,
                recorded_by_user_id, created_by_user_id, updated_by_user_id
-             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, FALSE, FALSE, ?, ?, ?, ?)`,
-            [childId, checkupMonth, ...checkupValues],
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, FALSE, ?, ?, ?, ?, ?)`,
+              [
+                childId,
+                checkupMonth,
+                ...checkupValues.slice(0, 9),
+                child.developmentalStatus === 'At Risk',
+                ...checkupValues.slice(9),
+              ],
           );
         }
       }
-      await connection.query('UPDATE children SET progress = 100 WHERE id = ?', [childId]);
+      await connection.query('UPDATE children SET progress = ? WHERE id = ?', [Math.round((child.ageMonths / 24) * 100), childId]);
     }
 
     const programs = [
@@ -436,7 +485,7 @@ async function seedOrganizer3Data() {
     console.log(
       `Seeded ${SCHOOL_CODE}: ${GROUPS.length} groups, ${BATCHES.length} batches, `
       + `${BENEFICIARIES.length} mothers, ${CHILDREN.length} children, `
-      + `${BENEFICIARIES.length * 2} maternal checkups, `
+      + `${BENEFICIARIES.reduce((total, _, index) => total + MATERNAL_SCENARIOS[index % MATERNAL_SCENARIOS.length].checkups.length, 0)} maternal checkups, `
       + `${CHILDREN.reduce((total, child) => total + getMonitoringMonths(child).length, 0)} child checkups, and `
       + `${programs.length} scoped demo programs.`,
     );

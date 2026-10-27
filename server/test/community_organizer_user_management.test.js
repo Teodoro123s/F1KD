@@ -43,6 +43,9 @@ const userForSchool = (id, schoolId, role = 'Health worker') => ({
   gender: 'Female',
   dob: '1990-01-01',
   location: 'Poblacion',
+  username: `worker${id}@example.com`,
+  community_name: `Community ${schoolId}`,
+  last_login_at: id === 5 ? '2026-10-27 08:15:00' : null,
   role,
   status: 'Active',
   school_id: schoolId,
@@ -62,8 +65,27 @@ test('Community Organizer can manage only Health workers in their assigned schoo
   let credentialEmail = null;
   const updateQueries = [];
   const activityEvents = [];
+  const sessionUsers = new Map();
+  let sessionSequence = 0;
 
   pool.query = async (sql, params = []) => {
+    if (sql.includes('FROM auth_sessions s')) {
+      const sessionUser = sessionUsers.get(params[0]);
+      return [sessionUser ? [{
+        user_id: sessionUser.id,
+        email: `${sessionUser.id}@example.com`,
+        role: sessionUser.role,
+        status: 'Active',
+        school_id: sessionUser.school_id,
+        group_id: null,
+        first_name: 'Test',
+        middle_initial: null,
+        last_name: 'User',
+        contact_number: null,
+        location: null,
+        consent_accepted_at: '2026-01-01 00:00:00',
+      }] : []];
+    }
     if (sql.includes('FROM users') && sql.includes("LOWER(TRIM(role)) IN ('community organizer'")) {
       assert.doesNotMatch(sql, /'partner'/);
       return [[]];
@@ -88,15 +110,23 @@ test('Community Organizer can manage only Health workers in their assigned schoo
       updateQueries.push({ sql, params });
       return [{ affectedRows: 1 }];
     }
-    if (sql.includes('FROM users') && sql.includes('WHERE school_id = ?')) {
+    if (sql.includes('FROM users u') && sql.includes('WHERE u.school_id = ?')) {
       assert.match(sql, /LOWER\(REPLACE\(REPLACE\(TRIM\(u?\.?role\), '_', ''\), ' ', ''\)\) = 'healthworker'/);
+      assert.match(sql, /MAX\(al\.created_at\)/);
+      assert.match(sql, /c\.name AS community_name/);
+      assert.doesNotMatch(sql, /password_hash|token/i);
       return [allUsers.filter((user) => user.school_id === Number(params[0]) && user.role === 'Health worker')];
+    }
+    if (sql.includes('FROM users u') && sql.includes('WHERE u.id = ? AND u.school_id = ?')) {
+      const found = [...allUsers, ...(createdUser ? [createdUser] : [])]
+        .find((user) => user.id === Number(params[0]) && user.school_id === Number(params[1]));
+      if (found && sql.includes('SELECT id, first_name, middle_initial, last_name, status, group_id')) return [[found]];
+      if (found && sql.includes('SELECT u.id, u.email AS username')) return [[found]];
+      return [found ? [found] : []];
     }
     if (sql.includes('FROM users') && sql.includes('WHERE id = ? AND school_id = ?')) {
       const found = [...allUsers, ...(createdUser ? [createdUser] : [])]
         .find((user) => user.id === Number(params[0]) && user.school_id === Number(params[1]));
-      if (found && sql.includes('SELECT id, first_name, middle_initial, last_name, status, group_id')) return [[found]];
-      if (found && sql.includes('SELECT id, CONCAT_WS')) return [[found]];
       return [found ? [found] : []];
     }
     if (sql.startsWith('INSERT INTO notifications')) return [{ insertId: 1 }];
@@ -126,7 +156,11 @@ test('Community Organizer can manage only Health workers in their assigned schoo
   });
   await new Promise((resolve) => server.once('listening', resolve));
   const baseUrl = `http://127.0.0.1:${server.address().port}/api/users`;
-  const tokenFor = (user) => jwt.sign(user, process.env.JWT_SECRET);
+  const tokenFor = (user) => {
+    const sid = `test-session-${++sessionSequence}`;
+    sessionUsers.set(sid, user);
+    return jwt.sign({ ...user, sid }, process.env.JWT_SECRET);
+  };
   const request = (path, user, options = {}) => fetch(`${baseUrl}${path}`, {
     ...options,
     headers: {
@@ -149,6 +183,10 @@ test('Community Organizer can manage only Health workers in their assigned schoo
   const list = await listResponse.json();
   assert.equal(list.total, 1);
   assert.deepEqual(list.users.map((user) => user.id), [5]);
+  assert.equal(list.users[0].username, 'worker5@example.com');
+  assert.equal(list.users[0].community_name, 'Community 12');
+  assert.equal(list.users[0].last_login_at, '2026-10-27 08:15:00');
+  assert.equal(Object.hasOwn(list.users[0], 'password_hash'), false);
 
   const managedWorkerResponse = await request('/health-workers/5', organizer);
   assert.equal(managedWorkerResponse.status, 200);
@@ -201,6 +239,7 @@ test('Community Organizer can manage only Health workers in their assigned schoo
     email: 'new-worker@example.com',
     to_email: 'new-worker@example.com',
     username: 'new-worker@example.com',
+    login_url: 'http://localhost:5173/login',
     to_name: 'New Worker',
     role: 'Health worker',
     password: 'long-enough-password',
