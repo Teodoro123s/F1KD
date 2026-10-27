@@ -221,7 +221,9 @@ export default function UserManagementPage() {
         <>
       <UserManagementTable
         currentRows={currentRows}
-        onRowClick={(row) => navigate(`/user-management/user/${encodeURIComponent(row.id)}`, { state: { user: row } })}
+        onRowClick={(row) => navigate(`/user-management/user/${encodeURIComponent(row.id)}`, {
+          state: { user: row, returnTo: `${location.pathname}${location.search}` },
+        })}
         filteredDataLength={filteredData.length}
         rangeStart={rangeStart}
         rangeEnd={rangeEnd}

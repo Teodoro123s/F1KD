@@ -13,6 +13,7 @@ import { apiGetChildrenByMother } from '../../api/children';
 import { can, isHealthWorkerRole, isSchoolScopedRole } from '../../utils/permissions';
 import { useAuth } from '../../auth/AuthProvider';
 import FloatingLayer from '../../components/ui/FloatingLayer';
+import { navigateBack } from '../../utils/navigation/navigation';
 
 export default function BeneficiaryPage() {
   // Mothers are loaded from the DB via MothersContext
@@ -47,12 +48,12 @@ export default function BeneficiaryPage() {
 
   const openCreateMother = () => {
     setCreateDropdownOpen(false);
-    navigate('/beneficiary/create/mother');
+    navigate('/beneficiary/create/mother', { state: { returnTo: `${location.pathname}${location.search}` } });
   };
 
   const openCreateChild = () => {
     setCreateDropdownOpen(false);
-    navigate('/beneficiary/create/child');
+    navigate('/beneficiary/create/child', { state: { returnTo: `${location.pathname}${location.search}` } });
   };
 
   const isCreateMother = location.pathname.includes('/beneficiary/create/mother');
@@ -134,7 +135,7 @@ export default function BeneficiaryPage() {
               ...(motherResponse?.mother || {}),
               children: childrenResponse?.children || [],
             },
-            returnTo: '/beneficiary',
+            returnTo: `${location.pathname}${location.search}`,
           },
         });
     } catch (error) {
@@ -145,7 +146,7 @@ export default function BeneficiaryPage() {
 
   const handleCloseMotherDetail = () => {
     setSelectedMother(null);
-    navigate('/beneficiary');
+    navigateBack(navigate, location, '/beneficiary');
   };
 
   const handleSelectChild = (child) => {
@@ -155,7 +156,7 @@ export default function BeneficiaryPage() {
       state: {
         child: childRecord,
         mother: childRecord.mother || child.mother || null,
-        returnTo: '/beneficiary',
+        returnTo: `${location.pathname}${location.search}`,
       },
     });
   };
@@ -202,6 +203,7 @@ export default function BeneficiaryPage() {
             groups={scopedGroups}
             batches={scopedBatches}
             navigate={navigate}
+            returnTo={location.state?.returnTo || '/beneficiary'}
           />
         ) : isCreateChild ? (
           <CreateChildPage

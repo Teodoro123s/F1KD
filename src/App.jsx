@@ -42,7 +42,7 @@ const OPERATIONAL_ROLES = [
   ROLES.HEALTH_WORKER,
 ];
 const DASHBOARD_ROLES = [ROLES.SUPER_ADMIN, ...OPERATIONAL_ROLES];
-const PROGRESS_REPORT_ROLES = [ROLES.ADMIN, ROLES.COMMUNITY_COORDINATOR, ROLES.PARTNER, ROLES.HEALTH_WORKER];
+const PROGRESS_REPORT_ROLES = [ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.COMMUNITY_COORDINATOR, ROLES.PARTNER, ROLES.HEALTH_WORKER];
 const BENEFICIARY_CREATE_ROLES = [ROLES.COMMUNITY_COORDINATOR];
 const BENEFICIARY_EDIT_ROLES = [ROLES.COMMUNITY_COORDINATOR, ROLES.HEALTH_WORKER];
 
@@ -64,7 +64,7 @@ export default function App() {
     <>
     <Routes>
       <Route path="/login" element={<Login />} />
-      <Route path="/" element={<Login />} />
+      <Route path="/" element={auth.loading ? <LoadingScreen message="Checking your session..." /> : <Navigate to={auth.isAuthenticated ? '/dashboard' : '/login'} replace />} />
       <Route
         path="/*"
         element={

@@ -580,7 +580,9 @@ export default function MonitoringPage() {
       {selectedMother && <BeneficiarySuperHeader />}
       <PageHeader
         title={selectedMother || selectedChild ? (selectedMother ? getMotherName(selectedMother) : getChildName(selectedChild)) : 'Monitor'}
-        breadcrumbs={selectedMother || selectedChild ? [{ label: 'Monitor', href: '/monitoring' }, { label: selectedMother ? getMotherName(selectedMother) : getChildName(selectedChild) }] : [{ label: 'Monitor' }]}
+        breadcrumbs={selectedMother || selectedChild
+          ? [{ label: 'Monitor', onClick: handleBack }, { label: selectedMother ? getMotherName(selectedMother) : getChildName(selectedChild) }]
+          : [{ label: 'Monitor' }]}
         actions={selectedMother || selectedChild ? (
           <button type="button" className="view-btn view-btn--secondary back-action" onClick={handleBack}>Back</button>
         ) : null}

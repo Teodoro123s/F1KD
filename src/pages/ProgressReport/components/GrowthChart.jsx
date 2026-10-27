@@ -148,10 +148,14 @@ function GrowthInterpretationChart({ rows, progressRows, metric, displayWeeks = 
 function ProgramAverageChart({ rows, metric = 'receivedBenefitAveragePerMonth' }) {
   const metricLabel = PROGRAM_METRICS.find(([id]) => id === metric)?.[1] || 'Project Benefits';
   const points = rows
-    .map((row) => ({ label: row.group || row.child || row.mother || 'Unassigned group', value: Number(row[metric]) }))
+    .map((row, index) => ({
+      key: row.childId || row.motherId || `${row.child || row.mother || row.group || 'beneficiary'}-${index}`,
+      label: row.child || row.mother || row.group || 'Unknown beneficiary',
+      value: Number(row[metric]),
+    }))
     .filter(({ value }) => Number.isFinite(value));
 
-  if (!points.length) return <p className="growth-report-empty">No project receipt data available for the selected groups.</p>;
+  if (!points.length) return <p className="growth-report-empty">No project receipt data available for the selected beneficiaries.</p>;
 
   const maximum = Math.max(...points.map(({ value }) => value), 1);
   const downloadChart = (format) => {
@@ -166,7 +170,7 @@ function ProgramAverageChart({ rows, metric = 'receivedBenefitAveragePerMonth' }
       const y = 330 - barHeight;
       return `<rect x="${x}" y="${y}" width="${barWidth}" height="${barHeight}" rx="6" fill="#15803d"/><text x="${x + barWidth / 2}" y="${y - 10}" text-anchor="middle" fill="#166534" font-size="16" font-weight="700">${value.toFixed(1)}</text><text x="${x + barWidth / 2}" y="360" text-anchor="middle" fill="#475569" font-size="14">${String(label).slice(0, 20)}</text>`;
     }).join('');
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="100%" height="100%" fill="#ffffff"/><text x="24" y="32" fill="#173b2a" font-size="20" font-weight="700">${metricLabel} by Group</text><line x1="24" y1="330" x2="${width - 24}" y2="330" stroke="#cbd5e1"/>${bars}</svg>`;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="100%" height="100%" fill="#ffffff"/><text x="24" y="32" fill="#173b2a" font-size="20" font-weight="700">${metricLabel} by Beneficiary</text><line x1="24" y1="330" x2="${width - 24}" y2="330" stroke="#cbd5e1"/>${bars}</svg>`;
     const svgUrl = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
     if (format === 'svg') {
       const link = document.createElement('a');
@@ -194,18 +198,18 @@ function ProgramAverageChart({ rows, metric = 'receivedBenefitAveragePerMonth' }
     };
     image.src = svgUrl;
   };
-  return <div className="program-average-chart" role="img" aria-label={`${metricLabel} by group`}>
+  return <div className="program-average-chart" role="img" aria-label={`${metricLabel} by beneficiary`}>
     <div className="program-average-chart-y-axis"><span>{maximum.toFixed(1)}</span><span>{(maximum / 2).toFixed(1)}</span><span>0</span></div>
     <div className="program-average-chart-plot">
       <div className="program-average-chart-grid"><span /><span /><span /></div>
       <div className="program-average-chart-bars">
-        {points.map(({ label, value }) => <div className="program-average-chart-bar" key={label}>
+        {points.map(({ key, label, value }) => <div className="program-average-chart-bar" key={key}>
           <strong>{value.toFixed(1)}</strong>
           <span style={{ '--bar-height': `${Math.max(value > 0 ? 8 : 2, (value / maximum) * 100)}%` }} title={`${label}: ${value.toFixed(1)} ${metricLabel}`} />
           <small title={label}>{label}</small>
         </div>)}
       </div>
-      <p className="program-average-chart-axis-label">Group</p>
+      <p className="program-average-chart-axis-label">Beneficiary</p>
     </div>
   </div>;
 }
@@ -215,7 +219,7 @@ export function GrowthChart({ rows, progressRows = [], metric, chartType, displa
   const navigate = useNavigate();
   const [hoveredSeries, setHoveredSeries] = useState('');
   if (INTERPRETATION_METRICS.has(metric)) return <GrowthInterpretationChart rows={rows} progressRows={progressRows} metric={metric} displayWeeks={displayWeeks} beneficiaryType={beneficiaryType} />;
-  if (PROGRAM_METRICS.some(([id]) => id === metric)) return <ProgramAverageChart rows={rows} />;
+  if (PROGRAM_METRICS.some(([id]) => id === metric)) return <ProgramAverageChart rows={rows} metric={metric} />;
   const values = rows
     .map((row) => ({ row, value: Number(row[metric]) }))
     .filter(({ value }) => Number.isFinite(value));

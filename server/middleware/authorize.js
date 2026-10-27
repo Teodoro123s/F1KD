@@ -154,6 +154,9 @@ function authorizeOperational(req, res, next) {
       }
       return permissionResponse(res, 'This account is not assigned to a school');
     }
+    if (req.isHealthWorker && !hasGroupAssignment) {
+      return permissionResponse(res, 'This Health Worker account is not assigned to a group');
+    }
     req.schoolId = Number(req.user.school_id);
     req.groupId = req.isHealthWorker && hasGroupAssignment ? Number(req.user.group_id) : null;
   } else {

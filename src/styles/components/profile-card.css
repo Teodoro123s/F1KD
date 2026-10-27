@@ -716,6 +716,18 @@
   background: #f8fafc;
 }
 .standard-results-table thead th:first-child { position: static; left: auto; z-index: auto; }
+.progress-report-table-shell.has-sticky-identity .standard-results-table .standard-results-table__identity {
+  position: sticky;
+  left: 0;
+  min-width: 190px;
+  background: #fff;
+  box-shadow: 1px 0 0 #e8edf3;
+  z-index: 2;
+}
+.progress-report-table-shell.has-sticky-identity .standard-results-table thead .standard-results-table__identity {
+  background: #f8fafc;
+  z-index: 3;
+}
 .latest-results-table tbody td:first-child {
   position: sticky;
   left: 0;
@@ -1606,15 +1618,15 @@
 .growth-report-bar-item span { width: 100%; height: var(--bar-height); flex: 0 0 var(--bar-height); }
 .growth-report-bar-item small { width: 100%; overflow: hidden; color: #64748b; font-size: 0.68rem; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
 .growth-report-line-chart { position: relative; margin-top: 1rem; margin-left: 0; padding: 0.9rem 0.9rem 0.65rem; overflow-x: auto; border: 1px solid #dfece2; border-radius: 12px; background: linear-gradient(180deg, #ffffff 0%, #f8fcf9 100%); }
-.program-average-chart { position: relative; display: flex; min-height: 260px; margin-top: 1.5rem; padding: 0.75rem 0.5rem 0; color: #64748b; }
+.program-average-chart { position: relative; display: flex; width: 100%; max-width: 100%; min-width: 0; min-height: 220px; margin-top: 0.75rem; padding: 0.5rem 0.25rem 0; overflow: hidden; color: #64748b; }
 .program-average-chart-actions { position: absolute; top: -4.25rem; right: 0; display: flex; gap: 0.5rem; z-index: 2; }
 .program-average-chart-actions .secondary-btn { padding: 0.4rem 0.65rem; font-size: 0.75rem; }
 .program-average-chart-y-axis { display: flex; flex-direction: column; justify-content: space-between; width: 2.5rem; padding: 0 0 2rem; font-size: 0.7rem; text-align: right; }
-.program-average-chart-plot { position: relative; min-width: 0; flex: 1; padding-left: 0.75rem; }
+.program-average-chart-plot { position: relative; width: 0; min-width: 0; flex: 1; padding-left: 0.5rem; }
 .program-average-chart-grid { position: absolute; inset: 0.25rem 0 2rem 0.75rem; display: flex; flex-direction: column; justify-content: space-between; pointer-events: none; }
 .program-average-chart-grid span { border-top: 1px dashed #dbe3ee; }
-.program-average-chart-bars { position: relative; z-index: 1; display: flex; align-items: flex-end; gap: clamp(0.75rem, 3vw, 2rem); width: max-content; min-width: 100%; height: 220px; overflow-x: auto; padding: 0 0.75rem; border-bottom: 1px solid #cbd5e1; }
-.program-average-chart-bar { position: relative; display: flex; align-items: center; flex: 0 0 clamp(86px, 12vw, 140px); min-width: 86px; height: 100%; flex-direction: column; justify-content: flex-end; gap: 0.35rem; }
+.program-average-chart-bars { position: relative; z-index: 1; box-sizing: border-box; display: flex; align-items: flex-end; gap: clamp(0.3rem, 1vw, 0.65rem); width: 100%; min-width: 0; max-width: 100%; height: 190px; overflow-x: auto; padding: 0.25rem 0.35rem 1.35rem; border-bottom: 1px solid #cbd5e1; }
+.program-average-chart-bar { position: relative; display: flex; align-items: center; flex: 1 1 0; min-width: 44px; height: 100%; flex-direction: column; justify-content: flex-end; gap: 0.25rem; }
 .program-average-chart-bar strong { color: #166534; font-size: 0.8rem; }
 .program-average-chart-bar > span { width: min(72px, 100%); height: var(--bar-height); min-height: 3px; border-radius: 6px 6px 0 0; background: linear-gradient(180deg, #15803d, #166534); box-shadow: 0 4px 10px rgba(22, 101, 52, 0.16); }
 .program-average-chart-bar small { position: absolute; bottom: -1.45rem; width: 100%; overflow: hidden; color: #475569; font-size: 0.72rem; text-align: center; text-overflow: ellipsis; white-space: nowrap; }

@@ -149,9 +149,11 @@ export default function ProgressReport() {
   const activeReport = finalizedSnapshot?.report ?? report;
   const activeReportRowCount = Number(activeReport?.pagination?.total ?? activeReport?.rows?.length ?? 0);
   const displayReportCategory = finalizedSnapshot?.reportCategory ?? reportCategory;
-  const graphAllowed = displayReportCategory === 'monitor'
+  const graphAllowed = displayReportCategory === 'program'
     ? activeReportRowCount > 0
-    : displayReportCategory !== 'program' && (Boolean(displaySelection.batchId) || activeReportRowCount <= 1);
+    : displayReportCategory === 'monitor'
+      ? activeReportRowCount > 0
+      : Boolean(displaySelection.batchId) || activeReportRowCount <= 1;
   const baseDisplayVisibleFields = addGrowthScoresBeforeInterpretations(finalizedSnapshot?.visibleFields ?? visibleFields);
   const displayBeneficiaryType = finalizedSnapshot?.beneficiaryType ?? beneficiaryType;
   const normalizeProgramName = (value) => String(value ?? '').trim().toLowerCase();
@@ -394,9 +396,14 @@ export default function ProgressReport() {
       const reportRowCount = Number(result.pagination?.total ?? result.rows?.length ?? 0);
       const defaultToGraph = reportCategory !== 'program'
         && (Boolean(safeSelection.batchId) || reportRowCount <= 1);
+      const nextResultsView = programFilterOverrides.resultsView || (
+        reportCategory !== 'monitor' || monitorTableMetrics.length
+          ? 'table'
+          : defaultToGraph ? 'graph' : 'table'
+      );
       if (nextPage === 1) setSelectedGraphBeneficiary(safeSelection.batchId ? 'all' : '');
       let completeGraphRows = result.rows || [];
-      const requiresCompleteRows = reportCategory === 'monitor';
+      const requiresCompleteRows = reportCategory === 'monitor' || reportCategory === 'program';
       if (nextPage > 1 && finalizedSnapshot?.requestParams) {
         completeGraphRows = finalizedSnapshot.allRows || completeGraphRows;
       } else if (requiresCompleteRows && reportRowCount > completeGraphRows.length) {
@@ -410,13 +417,9 @@ export default function ProgressReport() {
         }
         completeGraphRows = completeResult.rows;
       }
-      if (nextPage === 1) setGraphReportRows(reportCategory === 'monitor' ? completeGraphRows : null);
+      if (nextPage === 1) setGraphReportRows(requiresCompleteRows ? completeGraphRows : null);
       setReport(result);
-      setResultsView(
-        reportCategory !== 'monitor' || monitorTableMetrics.length
-          ? 'table'
-          : defaultToGraph ? 'graph' : 'table',
-      );
+      setResultsView(nextResultsView);
       setFinalizedSnapshot({
         report: result,
         selection: { ...safeSelection },
@@ -510,6 +513,7 @@ export default function ProgressReport() {
     selectedSchool = '',
     selectedGroup = '',
     selectedBatch = '',
+    selectedGraphBeneficiary = '',
   } = {}) => {
     if (!finalizedSnapshot?.requestParams || !fields.length) {
       notifyAction('Generate a report before exporting data.', 'error');
@@ -535,6 +539,9 @@ export default function ProgressReport() {
       if (displayReportCategory === 'monitor' && view === 'graph') {
         const graphSource = allRows
           .filter((row) => !selectedBatch || String(row.batchId || row.batch || '') === String(selectedBatch))
+          .filter((row) => !selectedGraphBeneficiary
+            || selectedGraphBeneficiary === 'all'
+            || graphBeneficiaryKey(row) === String(selectedGraphBeneficiary))
           .map((row) => ({
           ...row,
           growthSeries: (row.growthSeries || []).filter((point) => {
@@ -573,6 +580,7 @@ export default function ProgressReport() {
             }
             if (selectedSchool && row.school !== selectedSchool) return false;
             if (selectedGroup && row.group !== selectedGroup) return false;
+            if (selectedBatch && String(row.batchId || row.batch || '') !== String(selectedBatch)) return false;
             if (selectedBatch && String(row.batchId || row.batch || '') !== String(selectedBatch)) return false;
             if (historyView === 'individual') {
               const beneficiaryId = String(row.childId || row.motherId || row.child || row.mother || '');
@@ -689,7 +697,7 @@ export default function ProgressReport() {
   const reportTableVisibleFields = displayReportCategory === 'monitor' && !includeInterpretationColumns
     ? filterInterpretationFields(tableVisibleFields)
     : tableVisibleFields;
-  const graphSourceRows = displayReportCategory === 'monitor'
+  const graphSourceRows = displayReportCategory === 'monitor' || displayReportCategory === 'program'
     ? filterRowsBySelectedRange(finalizedSnapshot?.allRows ?? graphReportRows ?? activeReport?.rows ?? [])
     : resultsRows;
   const filterGraphRowsByRange = (rows) => {
@@ -707,9 +715,9 @@ export default function ProgressReport() {
       }))
       .filter((row) => row.growthSeries?.length || (row[displayBeneficiaryType === 'mother' ? 'bmiForAge' : 'weightForAge'] !== undefined && row[displayBeneficiaryType === 'mother' ? 'bmiForAge' : 'weightForAge'] !== null));
   };
-  const filteredGraphSourceRows = filterGraphRowsByRange(
-    graphSourceRows.filter((row) => graphMetricHasData(row))
-  );
+  const filteredGraphSourceRows = displayReportCategory === 'program'
+    ? graphSourceRows
+    : filterGraphRowsByRange(graphSourceRows.filter((row) => graphMetricHasData(row)));
   const graphBeneficiaryKey = (row) => String(row.childId || row.motherId || row.child || row.mother || '');
   const graphBeneficiaries = displayReportCategory === 'monitor'
     ? [...new Map(graphSourceRows.map((row) => [graphBeneficiaryKey(row), row])).entries()]
@@ -729,6 +737,7 @@ export default function ProgressReport() {
     : graphSourceRows;
   const graphExportFields = REPORT_FIELDS.filter(([id]) => (
     displayVisibleFields.includes(id)
+    || (displayReportCategory === 'program' && id === displayWeeks)
     || (displayReportCategory === 'monitor' && ['measurementDate', ...selectedTableGrowthFields].includes(id))
   ));
   const graphExportRows = displayReportCategory === 'monitor'
@@ -917,7 +926,7 @@ export default function ProgressReport() {
       const selectedMetric = PROGRAM_METRICS.find(([id]) => id === displayWeeks);
       const selectedMetricLabel = selectedMetric?.[1] || 'Project Benefits';
       if (heading) heading.textContent = selectedMetricLabel;
-      if (subtitle) subtitle.textContent = `${selectedMetricLabel} by group`;
+      if (subtitle) subtitle.textContent = `${selectedMetricLabel} by beneficiary`;
       const value = document.querySelector('.growth-report-single-card .growth-report-value');
       if (value) value.textContent = averageMetric(displayWeeks, graphRows);
       if (value) value.style.display = 'none';
@@ -1074,11 +1083,11 @@ export default function ProgressReport() {
                 benefitMonth={benefitMonth}
                 onBenefitPeriodChange={(value) => {
                   setBenefitPeriod(value);
-                  void generateReport(1, { benefitPeriod: value });
+                  void generateReport(1, { benefitPeriod: value, resultsView });
                 }}
                 onBenefitMonthChange={(value) => {
                   setBenefitMonth(value);
-                  void generateReport(1, { benefitMonth: value });
+                  void generateReport(1, { benefitMonth: value, resultsView });
                 }}
                 loadingReport={loadingReport}
               />

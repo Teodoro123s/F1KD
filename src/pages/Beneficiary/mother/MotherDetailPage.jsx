@@ -12,6 +12,7 @@ import { MotherFormFields, OTHER_MATERNAL_VACCINES } from './BeneficiaryMother';
 import MonitorReportCard from '../MonitorReportCard';
 import MotherNavigationCards from './MotherNavigationCards';
 import { StepNavigationButton } from '../../../components/ui/StepNavigationButton';
+import { navigateBack } from '../../../utils/navigation/navigation';
 
 const profileSections = [
   ['general', 'General'],
@@ -129,7 +130,7 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
   const age = calculateAge(mother.dob);
 
   const handleBack = () => {
-    navigate('/beneficiary', { replace: true });
+    navigateBack(navigate, location, '/beneficiary');
   };
 
   const confirmEditMother = () => {

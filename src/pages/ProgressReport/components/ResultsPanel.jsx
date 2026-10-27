@@ -91,6 +91,7 @@ export function ResultsPanel({
           <h1>IV. Report Results</h1>
         </div>
 
+        {(displayReportCategory !== 'profile' || graphAllowed) && (
         <div className="results-view-toggle" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           {resultsView === 'graph' && displayReportCategory === 'monitor' && graphBeneficiariesForView.length > 1 && (
             <label className="results-table-period-filter">
@@ -123,7 +124,13 @@ export function ResultsPanel({
               type="button"
               className="secondary-btn"
               disabled={exportingReport}
-              onClick={() => exportReport({ rows: graphExportRows, fields: graphExportFields, view: 'graph', selectedBatch: activeBatch })}
+              onClick={() => exportReport({
+                rows: graphExportRows,
+                fields: graphExportFields,
+                view: 'graph',
+                selectedBatch: activeBatch,
+                selectedGraphBeneficiary,
+              })}
             >
               {exportingReport ? 'Preparing CSV…' : 'Export CSV'}
             </button>
@@ -139,6 +146,7 @@ export function ResultsPanel({
             </button>
           )}
         </div>
+        )}
       </div>
 
       {displayReportCategory === 'program' && (
@@ -170,7 +178,7 @@ export function ResultsPanel({
         </div>
       )}
 
-      {!graphAllowed && (
+      {!graphAllowed && displayReportCategory !== 'profile' && (
         <p className="progress-report-note" role="status">
           {displayReportCategory === 'program'
             ? 'Graphs are not available for project reports.'

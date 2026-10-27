@@ -10,6 +10,7 @@ const {
 } = require('../utils/progressReportAI');
 const { validateProgressReportQuery } = require('../utils/progressReportQueryValidation');
 const { motherMonitoringTotalSql } = require('../utils/motherMonitoring');
+const { splitBirthPlace } = require('../utils/birthPlace');
 
 const router = express.Router();
 
@@ -583,10 +584,11 @@ router.get('/', async (req, res) => {
       expandedNewbornScreening: row.expanded_newborn_screening || '',
       expandedNewbornScreeningResult: row.expanded_newborn_screening_result || '',
       birthPlace: row.birth_place || '',
+      ...splitBirthPlace(row.birth_place),
       birthAttendant: row.birth_attendant || '',
-      apgarScore: row.apgar_score || '',
+      apgarScore: row.apgar_score ?? '',
       feedingType: row.feeding_type || '',
-      exclusiveBreastfeeding: row.exclusive_breastfeeding || '',
+      exclusiveBreastfeeding: row.exclusive_breastfeeding ?? '',
       nutritionNotes: row.nutrition_notes || '',
       headCircumference: row.head_circumference === null || row.head_circumference === undefined ? '' : Number(row.head_circumference),
       chestCircumference: row.chest_circumference === null || row.chest_circumference === undefined ? '' : Number(row.chest_circumference),

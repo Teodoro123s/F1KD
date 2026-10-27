@@ -9,13 +9,14 @@ import {
   mapInterpretationToBand,
   normalizeNutritionLabel,
 } from './utils/interpretationBands.mjs';
+import { uniqueReportFields } from './utils/uniqueReportFields.mjs';
 
 export { PRESENCE_PROFILE_FIELDS };
 export { getInterpretationLevels, mapInterpretationToBand, normalizeNutritionLabel };
 
 export const EMPTY_SELECTIONS = { schoolId: '', groupId: '', batchId: '' };
 
-export const REPORT_FIELDS = [
+export const REPORT_FIELDS = uniqueReportFields([
   ['school', 'School', 'Hierarchy'],
   ['group', 'Group', 'Hierarchy'],
   ['batch', 'Batch', 'Hierarchy'],
@@ -42,7 +43,8 @@ export const REPORT_FIELDS = [
   ['noOfChildDelivered', 'No. of Children Delivered', 'Profile'],
   ['expandedNewbornScreening', 'Expanded Newborn Screening', 'Profile'],
   ['expandedNewbornScreeningResult', 'Newborn Screening Result', 'Profile'],
-  ['birthPlace', 'Birth Place', 'Profile'],
+  ['birthPlaceCity', 'Birth City / Municipality', 'Profile'],
+  ['birthPlaceProvince', 'Birth Province', 'Profile'],
   ['birthAttendant', 'Birth Attendant', 'Profile'],
   ['apgarScore', 'APGAR Score', 'Profile'],
   ['feedingType', 'Feeding Type', 'Profile'],
@@ -77,7 +79,6 @@ export const REPORT_FIELDS = [
   ['programConsentDocument', 'Project Consent Form', 'Profile'],
   ['maidenSurname', 'Maiden Surname', 'Profile'],
   ['allergies', 'Allergies', 'Profile'],
-  ['bloodType', 'Blood Type', 'Profile'],
   ['civilStatus', 'Civil Status', 'Profile'],
   ['employmentStatus', 'Employment Status', 'Profile'],
   ['educationalAttainment', 'Educational Attainment', 'Profile'],
@@ -108,7 +109,6 @@ export const REPORT_FIELDS = [
   ['fundalHeight', 'Fundal Height', 'Profile'],
   ['fhr', 'Fetal Heart Rate', 'Profile'],
   ['para', 'Para', 'Profile'],
-  ['medicalConditions', 'Medical Conditions', 'Profile'],
   ...[
     ['hypertension', 'Hypertension'],
     ['diabetes', 'Diabetes'],
@@ -190,7 +190,7 @@ export const REPORT_FIELDS = [
   ['lastActivityDate', 'Last Activity', 'Monitoring'],
   ['nextCheckupDate', 'Next Check-up', 'Monitoring'],
   ['measurementDate', 'Check-up Date', 'Monitoring'],
-];
+]);
 
 export const DEFAULT_VISIBLE_FIELDS = [
   'school', 'group', 'batch', 'mother', 'child',
@@ -262,7 +262,8 @@ export const CHILD_PROFILE_METRICS = [
   ['noOfChildDelivered', 'No. of Children Delivered', 'Number of children delivered in the birth event.'],
   ['expandedNewbornScreening', 'Expanded Newborn Screening', 'Expanded newborn screening status.'],
   ['expandedNewbornScreeningResult', 'Newborn Screening Result', 'Expanded newborn screening result.'],
-  ['birthPlace', 'Birth Place', 'Birth place recorded in the child profile.'],
+  ['birthPlaceCity', 'Birth City / Municipality', 'City or municipality where the child was born.'],
+  ['birthPlaceProvince', 'Birth Province', 'Province where the child was born.'],
   ['birthAttendant', 'Birth Attendant', 'Birth attendant recorded in the child profile.'],
   ['apgarScore', 'APGAR Score', 'APGAR score recorded in the child profile.'],
   ['feedingType', 'Feeding Type', 'Feeding type recorded in the child profile.'],
@@ -294,7 +295,7 @@ export const CHILD_PROFILE_METRICS = [
 export const CHILD_PROFILE_FIELD_SECTIONS = {
   gender: 'general', liveBirthDocument: 'general', address: 'general', fatherName: 'general', relationship: 'general',
   birthWeight: 'prenatal-ob', birthLength: 'prenatal-ob', headCircumference: 'prenatal-ob', chestCircumference: 'prenatal-ob', bloodType: 'prenatal-ob', multipleBirth: 'prenatal-ob', deliveryType: 'prenatal-ob',
-  noOfChildDelivered: 'prenatal-ob', expandedNewbornScreening: 'prenatal-ob', expandedNewbornScreeningResult: 'prenatal-ob', birthPlace: 'prenatal-ob', birthAttendant: 'prenatal-ob', apgarScore: 'prenatal-ob',
+  noOfChildDelivered: 'prenatal-ob', expandedNewbornScreening: 'prenatal-ob', expandedNewbornScreeningResult: 'prenatal-ob', birthPlaceCity: 'prenatal-ob', birthPlaceProvince: 'prenatal-ob', birthAttendant: 'prenatal-ob', apgarScore: 'prenatal-ob',
   healthStatus: 'medical-dental', feedingType: 'medical-dental', exclusiveBreastfeeding: 'medical-dental', nutritionNotes: 'medical-dental', medicalConditions: 'medical-dental',
   childCongenitalHeartDisease: 'medical-dental', childRespiratoryIssues: 'medical-dental', childPrematurity: 'medical-dental', childJaundice: 'medical-dental', childAnemia: 'medical-dental', childGrowthDelay: 'medical-dental',
   bcgDate: 'vaccine', hepbDate: 'vaccine', ipvDate: 'vaccine', opvDate: 'vaccine', pcvDate: 'vaccine', dptDate: 'vaccine', mmrDate: 'vaccine',
@@ -312,7 +313,7 @@ export const PROFILE_SECTION_LABELS = {
 };
 
 export const MOTHER_PROFILE_FIELD_SECTIONS = {
-  age: 'general', birthPlace: 'general', contactNumber: 'general', addressDetails: 'general', motherBirthCertificate: 'general', programConsentDocument: 'general', philhealthMember: 'general', philhealthNumber: 'general', spouseName: 'general', emergencyName: 'general', emergencyContact: 'general', emergencyRelationship: 'general', maidenSurname: 'general',
+  age: 'general', birthPlaceCity: 'general', birthPlaceProvince: 'general', contactNumber: 'general', addressDetails: 'general', motherBirthCertificate: 'general', programConsentDocument: 'general', philhealthMember: 'general', philhealthNumber: 'general', spouseName: 'general', emergencyName: 'general', emergencyContact: 'general', emergencyRelationship: 'general', maidenSurname: 'general',
   civilStatus: 'general', employmentStatus: 'general', educationalAttainment: 'general', dataPrivacySigned: 'general', mediaReleaseSigned: 'general',
   initialWeight: 'prenatal-ob', initialHeight: 'prenatal-ob', initialBmi: 'prenatal-ob', lmpDate: 'prenatal-ob', eddDate: 'prenatal-ob', prenatalRegDate: 'prenatal-ob', trimester: 'prenatal-ob', gestationalAge: 'prenatal-ob', prenatalWeight: 'prenatal-ob', prenatalBp: 'prenatal-ob', prenatalHeight: 'prenatal-ob', fundalHeight: 'prenatal-ob', fhr: 'prenatal-ob', gravida: 'prenatal-ob', para: 'prenatal-ob', abortion: 'prenatal-ob', stillbirth: 'prenatal-ob', totalChildren: 'prenatal-ob', childrenBornAlive: 'prenatal-ob', miscarriages: 'prenatal-ob', childrenDiedAfterBirth: 'prenatal-ob', obHistory: 'prenatal-ob',
   medicalConditions: 'medical-dental', allergies: 'medical-dental', bloodType: 'medical-dental', otherMedicalHistory: 'medical-dental', dentalCheckupDate: 'medical-dental', dentalFacility: 'medical-dental', dentistInCharge: 'medical-dental', communityDentist: 'medical-dental', dentistLicense: 'medical-dental', dentistContact: 'medical-dental', teethCount: 'medical-dental', dentalFindings: 'medical-dental', dentalWork: 'medical-dental', dentalRemarks: 'medical-dental',
@@ -338,7 +339,8 @@ export const MOTHER_PROFILE_SECTION_LABELS = {
 
 export const MOTHER_PROFILE_METRICS = [
   ['age', 'Age', 'Age calculated from the mother profile date of birth.'],
-  ['birthPlace', 'Birth Place / City', 'Birth place recorded in the mother profile.'],
+  ['birthPlaceCity', 'Birth City / Municipality', 'City or municipality where the mother was born.'],
+  ['birthPlaceProvince', 'Birth Province', 'Province where the mother was born.'],
   ['maidenSurname', 'Maiden Surname', 'Maiden surname recorded in the mother profile.'],
   ['contactNumber', 'Contact Number', 'Contact number recorded in the mother profile.'],
   ['addressDetails', 'Address Details', 'Whether address details are recorded in the mother profile.'],

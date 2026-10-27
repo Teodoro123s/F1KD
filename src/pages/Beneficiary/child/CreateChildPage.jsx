@@ -433,7 +433,7 @@ export default function CreateChildPage({
         return;
       }
 
-      navigate('/beneficiary');
+      navigate(location.state?.returnTo || '/beneficiary', { replace: true });
     } catch (err) {
       console.error('Failed to create child', err);
       notifyAction(err?.message || 'Unable to create child. Please try again.', 'error');

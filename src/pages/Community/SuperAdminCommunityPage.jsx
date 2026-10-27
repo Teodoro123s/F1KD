@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import CommunityTable from './CommunityTable';
 import CommunityModalManager from './CommunityModalManager';
 import { ConfirmActionModal } from './CommunityModals';
@@ -18,7 +18,9 @@ const defaultBatchForm = { name: '', community: '', records: 1, progress: 0, sta
 
 export default function SuperAdminCommunityPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { schoolId, groupId, batchId } = useParams();
+  const returnTo = `${location.pathname}${location.search}`;
   const { communities, batches, groups, coordinators, totalHealthWorkers, loading, error, refreshData } = useCommunityData();
   const mutations = useCommunityMutations({ refreshData });
   const [query, setQuery] = useState('');
@@ -349,13 +351,13 @@ export default function SuperAdminCommunityPage() {
               role="menu"
             >
               {activeTab === 'communities' && (
-                <button type="button" className="actions-dropdown-item" onClick={(event) => { event.stopPropagation(); navigate(`/user-management/school/${row.id}`, { state: { schoolName: row.name } }); setActiveDropdownId(null); }} role="menuitem">View Users</button>
+                <button type="button" className="actions-dropdown-item" onClick={(event) => { event.stopPropagation(); navigate(`/user-management/school/${row.id}`, { state: { schoolName: row.name, returnTo } }); setActiveDropdownId(null); }} role="menuitem">View Users</button>
               )}
               {activeTab === 'groups' && (
                 <button type="button" className="actions-dropdown-item" onClick={(event) => { event.stopPropagation(); selectGroup(row); setActiveDropdownId(null); }} role="menuitem">View Health Workers</button>
               )}
               {activeTab === 'healthWorkers' ? (
-                <button type="button" className="actions-dropdown-item" onClick={(event) => { event.stopPropagation(); navigate(`/user-management/user/${row.id}`); setActiveDropdownId(null); }} role="menuitem">View User</button>
+                <button type="button" className="actions-dropdown-item" onClick={(event) => { event.stopPropagation(); navigate(`/user-management/user/${row.id}`, { state: { returnTo } }); setActiveDropdownId(null); }} role="menuitem">View User</button>
               ) : (
                 <>
                   <button type="button" className="actions-dropdown-item" onClick={(event) => { event.stopPropagation(); openEditModal(row); setActiveDropdownId(null); }} role="menuitem">Edit</button>
@@ -431,6 +433,7 @@ export default function SuperAdminCommunityPage() {
                       schoolId: row.school_id || '',
                       groupId: row.group_id || '',
                     },
+                    returnTo,
                   },
                 });
               }}

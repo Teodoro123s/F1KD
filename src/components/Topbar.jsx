@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { getInitials } from '../utils/formatting/nameFormat';
 import { useAuth } from '../auth/AuthProvider';
 import { ROLES, hasRole } from '../utils/permissions';
+import { getRouteBreadcrumbs } from '../utils/navigation/routeBreadcrumbs.mjs';
 import { apiGetNotifications, apiSetNotificationRead } from '../api/notifications';
 import NotificationDetailsModal from './ui/NotificationDetailsModal';
 import FloatingLayer from './ui/FloatingLayer';
@@ -10,9 +11,11 @@ import ConfirmDialog from './ui/ConfirmDialog';
 
 export default function Topbar() {
   const navigate = useNavigate();
+  const location = useLocation();
   const auth = useAuth();
   const current = auth?.currentUser;
   const user = current ? { name: current.name, email: current.email, role: current.role } : null;
+  const breadcrumbs = getRouteBreadcrumbs(location.pathname, location.state);
   const canReadNotifications = hasRole(current?.role, [ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.COMMUNITY_COORDINATOR, ROLES.PARTNER, ROLES.HEALTH_WORKER]);
   const [openNotif, setOpenNotif] = useState(false);
   const [notifications, setNotifications] = useState([]);
@@ -130,6 +133,19 @@ export default function Topbar() {
 
   return (
     <header className="topbar">
+      <nav className="topbar-breadcrumbs" aria-label="Breadcrumb">
+        {breadcrumbs.map((item, index) => {
+          const isCurrent = index === breadcrumbs.length - 1;
+          return (
+            <React.Fragment key={`${item.label}-${index}`}>
+              {index > 0 && <span className="topbar-breadcrumb-separator" aria-hidden="true">/</span>}
+              {item.to && !isCurrent
+                ? <Link to={item.to} className="topbar-breadcrumb-link">{item.label}</Link>
+                : <span className="topbar-breadcrumb-current" aria-current={isCurrent ? 'page' : undefined}>{item.label}</span>}
+            </React.Fragment>
+          );
+        })}
+      </nav>
       <div className="topbar-actions">
         <span className="action-wrapper">
           <button

@@ -62,7 +62,7 @@ For project receipt/check-in photo documentation, Community Coordinators can upl
 ### Assigned-group role: Health Worker
 
 - The token's `school_id` and `group_id` determine the Health Worker's scope.
-- A Health Worker without a school assignment is denied operational access. Project receipt/check-in actions also require a group assignment.
+- A Health Worker without either a school or group assignment is denied operational access. The group must belong to the assigned school.
 - Community structures and project definitions are read-only. The Health Worker can write permitted check-ups/documents and child-profile updates, and can record project receipts only for beneficiaries in the assigned group and projects that cover that group.
 - Report filter options and records are constrained by the assigned school/group.
 

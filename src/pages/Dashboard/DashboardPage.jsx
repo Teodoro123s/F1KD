@@ -299,16 +299,27 @@ export default function DashboardPage() {
     if (isHealthWorker) {
       return [
         { key: 'follow-ups', title: 'Follow-Ups', value: stats.followUpCount, subtitle: 'Beneficiaries needing follow-up', to: '/monitoring' },
+        { key: 'receipts', title: 'Assigned Projects', value: stats.programCount, subtitle: 'Available to your group', to: '/program' },
       ];
     }
 
     const allRoleCards = [
+      { key: 'beneficiaries', title: 'Beneficiaries', value: stats.motherCount + stats.childCount, subtitle: `${stats.motherCount} mothers · ${stats.childCount} children`, to: '/beneficiary' },
       { key: 'follow-ups', title: 'Follow-Ups', value: stats.followUpCount, subtitle: 'Beneficiaries needing follow-up', to: '/monitoring' },
+      { key: 'communities', title: 'Communities', value: stats.communityCount, subtitle: `${stats.batchCount} batches · ${stats.groupCount} groups`, to: '/community' },
+      { key: 'programs', title: 'Projects', value: stats.programCount, subtitle: 'Intervention projects', to: '/program' },
     ];
 
+    if (isCommunityOrganizer) {
+      return [
+        ...allRoleCards,
+        { key: 'health-workers', title: 'Health Workers', value: staffMetrics.active, subtitle: 'Active in your assigned school', to: '/user-management' },
+      ];
+    }
     if (isAdmin) return allRoleCards;
+    if (isPartner) return allRoleCards.filter((card) => ['communities', 'programs'].includes(card.key));
     return [];
-  }, [isAdmin, isCommunityOrganizer, isHealthWorker, isSuperAdmin, staffMetrics, stats]);
+  }, [isAdmin, isCommunityOrganizer, isHealthWorker, isPartner, isSuperAdmin, staffMetrics, stats]);
 
   const displayCards = cards.map((card) => {
     const sourceByCard = isSuperAdmin

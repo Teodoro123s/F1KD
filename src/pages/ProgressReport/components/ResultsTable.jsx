@@ -1,7 +1,9 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { getBmiInterpretation } from '../progressReportConfig';
 import FloatingLayer from '../../../components/ui/FloatingLayer';
 import { filterInterpretationFields } from '../utils/reportTableUtils';
+import { formatProfileReportCellValue } from '../utils/profileFieldFormatting.mjs';
+import { filterProfileReportRows, getProfileReportScopeOptions } from '../utils/profileReportFilters.mjs';
 
 const historyFieldIds = new Set(['measurementDate', 'weightForAge', 'heightForAge', 'bmiForAge', 'weightForLengthZScore', 'weightForLengthInterpretation', 'weightForAgeZScore', 'weightForAgeInterpretation', 'lengthForAgeZScore', 'lengthForAgeInterpretation', 'bmiInterpretation']);
 
@@ -201,21 +203,47 @@ function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleField
   );
 }
 
-function StandardResultsTable({ resultsRows, fields, formatCellValue, emptyMessage = 'No results found.' }) {
+function StandardResultsTable({ resultsRows, fields, formatCellValue, beneficiaryType, blankEmptyValues = false, emptyMessage = 'No results found.' }) {
   const safeFields = Array.isArray(fields) && fields.length ? fields : [];
+  const preferredIdentity = beneficiaryType === 'mother' ? 'mother' : 'child';
+  const identityField = safeFields.some(([id]) => id === preferredIdentity)
+    ? preferredIdentity
+    : safeFields.some(([id]) => id === 'child') ? 'child' : safeFields.some(([id]) => id === 'mother') ? 'mother' : '';
+  const fieldSignature = safeFields.map(([id]) => id).join('|');
+  const identityOffsetRef = useRef(null);
+  const [stickyIdentityVisible, setStickyIdentityVisible] = useState(false);
+
+  useEffect(() => {
+    identityOffsetRef.current = null;
+    setStickyIdentityVisible(false);
+  }, [fieldSignature, identityField]);
+
+  const handleTableScroll = (event) => {
+    if (!identityField) return;
+    const shell = event.currentTarget;
+    const table = shell.querySelector('.standard-results-table');
+    const identityHeader = table?.querySelector(`th[data-field="${identityField}"]`);
+    if (!table || !identityHeader) return;
+    if (identityOffsetRef.current === null) {
+      identityOffsetRef.current = identityHeader.getBoundingClientRect().left - table.getBoundingClientRect().left;
+    }
+    setStickyIdentityVisible(shell.scrollLeft > identityOffsetRef.current);
+  };
 
   return (
-    <div className="progress-report-table-shell">
+    <div className={`progress-report-table-shell${stickyIdentityVisible ? ' has-sticky-identity' : ''}`} onScroll={handleTableScroll}>
       <table className="progress-report-table standard-results-table">
         <thead>
-          <tr>{safeFields.map(([id, label]) => <th key={id}>{label}</th>)}</tr>
+          <tr>{safeFields.map(([id, label]) => <th key={id} data-field={id} className={id === identityField ? 'standard-results-table__identity' : undefined}>{label}</th>)}</tr>
         </thead>
         <tbody>
           {resultsRows.length ? (
             resultsRows.map((row, index) => <tr key={row.historyRowKey || index}>{safeFields.map(([id]) => {
               const value = row[id];
               const className = interpretationClass(interpretationForMetric(row, id));
-              return <td key={id}><span className={className}>{formatCellValue(id, value)}</span></td>;
+              const formattedValue = formatCellValue(id, value);
+              const displayValue = blankEmptyValues ? formatProfileReportCellValue(formattedValue) : formattedValue;
+              return <td key={id} className={id === identityField ? 'standard-results-table__identity' : undefined}><span className={className}>{displayValue}</span></td>;
             })}</tr>)
           ) : (
             <tr>
@@ -375,7 +403,17 @@ export function ResultsTable({
   const visibleFields = reportFields.filter(([id]) => displayVisibleFields.includes(id));
   const [hiddenFields, setHiddenFields] = useState(() => new Set());
   const [customizerOpen, setCustomizerOpen] = useState(false);
+  const [selectedProfileGroup, setSelectedProfileGroup] = useState('');
+  const [selectedProfileBatch, setSelectedProfileBatch] = useState('');
   const customizerTriggerRef = useRef(null);
+  const profileGroupOptions = showProfileFilter ? getProfileReportScopeOptions(resultsRows, 'group') : [];
+  const activeProfileGroup = profileGroupOptions.some(({ id }) => id === selectedProfileGroup) ? selectedProfileGroup : '';
+  const groupScopedRows = showProfileFilter ? filterProfileReportRows(resultsRows, activeProfileGroup) : resultsRows;
+  const profileBatchOptions = showProfileFilter ? getProfileReportScopeOptions(groupScopedRows, 'batch') : [];
+  const activeProfileBatch = profileBatchOptions.some(({ id }) => id === selectedProfileBatch) ? selectedProfileBatch : '';
+  const filteredProfileRows = showProfileFilter
+    ? filterProfileReportRows(resultsRows, activeProfileGroup, activeProfileBatch)
+    : resultsRows;
   const sectionFields = visibleFields.filter(([id]) => {
     if (showProfileFilter && profileFieldSections[id] && profileFieldSections[id] !== profileSection) {
       return false;
@@ -384,7 +422,7 @@ export function ResultsTable({
   });
   const customizedFields = sectionFields.filter(([id]) => !hiddenFields.has(id));
   const showCustomize = !showMonitoringFilter;
-  const currentTableData = { rows: resultsRows, fields: customizedFields };
+  const currentTableData = { rows: filteredProfileRows, fields: customizedFields };
   return (
     <div className="results-table-wrap">
       {(showCustomize || showProfileFilter) && (
@@ -394,6 +432,33 @@ export function ResultsTable({
               <label className="results-table-period-filter">Profile section
                 <select value={profileSection} onChange={(event) => setProfileSection(event.target.value)}>
                   {Object.entries(profileSectionLabels).filter(([value]) => value !== 'all').map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                </select>
+              </label>
+            )}
+            {showProfileFilter && profileGroupOptions.length > 1 && (
+              <label className="results-table-period-filter">Group
+                <select
+                  aria-label="Profile report group"
+                  value={activeProfileGroup}
+                  onChange={(event) => {
+                    setSelectedProfileGroup(event.target.value);
+                    setSelectedProfileBatch('');
+                  }}
+                >
+                  <option value="">All groups</option>
+                  {profileGroupOptions.map(({ id, name }) => <option key={id} value={id}>{name}</option>)}
+                </select>
+              </label>
+            )}
+            {showProfileFilter && profileBatchOptions.length > 1 && (
+              <label className="results-table-period-filter">Batch
+                <select
+                  aria-label="Profile report batch"
+                  value={activeProfileBatch}
+                  onChange={(event) => setSelectedProfileBatch(event.target.value)}
+                >
+                  <option value="">All batches</option>
+                  {profileBatchOptions.map(({ id, name }) => <option key={id} value={id}>{name}</option>)}
                 </select>
               </label>
             )}
@@ -456,7 +521,7 @@ export function ResultsTable({
       {showMonitoringFilter ? (
         <MonitoringHistoryTable resultsRows={resultsRows} reportFields={reportFields} displayVisibleFields={displayVisibleFields} formatCellValue={formatCellValue} communitySelection={communitySelection} beneficiaryType={beneficiaryType} showSchoolFilter={showSchoolFilter} showGroupFilter={showGroupFilter} growthMetricOptions={growthMetricOptions} selectedGrowthMetric={selectedGrowthMetric} onGrowthMetricChange={onGrowthMetricChange} onRegisterExport={onRegisterMonitoringExport} includeInterpretationColumns={includeInterpretationColumns} setIncludeInterpretationColumns={setIncludeInterpretationColumns} onExport={onExport} exportingReport={exportingReport} selectedBatch={selectedBatch} onSelectedBatchChange={onSelectedBatchChange} />
       ) : (
-      <StandardResultsTable resultsRows={resultsRows} fields={customizedFields} formatCellValue={formatCellValue} />
+      <StandardResultsTable resultsRows={filteredProfileRows} fields={customizedFields} formatCellValue={formatCellValue} beneficiaryType={beneficiaryType} blankEmptyValues={showProfileFilter} />
       )}
     </div>
   );

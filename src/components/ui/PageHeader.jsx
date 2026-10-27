@@ -1,5 +1,3 @@
-import React from 'react';
-
 export default function PageHeader({ title, actions = null, className = '' }) {
   return (
     <header className={`view-page-header${className ? ` ${className}` : ''}`}>

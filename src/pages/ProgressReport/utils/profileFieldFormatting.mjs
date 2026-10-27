@@ -14,3 +14,7 @@ export const formatPresenceProfileValue = (field, value) => {
 export const formatPhilHealthNumberForReport = (value) => (
   String(value ?? '').trim() || 'None'
 );
+
+export const formatProfileReportCellValue = (formattedValue) => (
+  formattedValue === '—' ? '' : formattedValue
+);

@@ -426,7 +426,7 @@ export function ResultsGraph({
         ? selectedGraphMetric === 'hospitalReferral' ? 'Referral to Hospital' : 'BMI'
         : metricLabel.replace(/\s+Z-Score$/i, '').replace(/\s+Interpretation$/i, '');
   const chartSubtitle = displayReportCategory === 'program'
-    ? 'Project benefits by group'
+    ? `${programMetrics.find(([id]) => id === displayWeeks)?.[1] || 'Project benefits'} by beneficiary`
     : displayReportCategory === 'profile'
       ? `Profile values for ${selectedProfileField?.[1] || 'selected field'}`
       : displayBeneficiaryType === 'mother'
@@ -452,7 +452,14 @@ export function ResultsGraph({
         <h3>{chartTitle}</h3>
         <p>{chartSubtitle}</p>
         <div className="graph-controls">
-          {displayReportCategory === 'profile' ? (
+          {displayReportCategory === 'program' ? (
+            <label className="report-chart-select">
+              Program metric
+              <select aria-label="Program graph metric" value={displayWeeks} onChange={(event) => setDisplayWeeks(event.target.value)}>
+                {programMetrics.filter(([id]) => id !== 'programDocumentation').map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+              </select>
+            </label>
+          ) : displayReportCategory === 'profile' ? (
             <>
               <label className="report-chart-select">
                 Customize column
@@ -502,6 +509,8 @@ export function ResultsGraph({
             profileGraphFields={availableProfileGraphFields}
             beneficiaryType={displayBeneficiaryType}
           />
+        ) : displayReportCategory === 'program' ? (
+          <GrowthChart rows={graphRows} metric={displayWeeks} chartType="bar" displayWeeks={displayWeeks} beneficiaryType={displayBeneficiaryType} />
         ) : displayReportCategory === 'monitor' && displayBeneficiaryType === 'mother' && selectedGraphMetric === 'hospitalReferral' ? (
           <ReferralAssistanceTable rows={graphRows} />
         ) : (

@@ -192,7 +192,7 @@ export default function ChildProfilePage() {
       await apiDeleteChild(selectedChild.id);
       setShowDeleteConfirm(false);
       notifyAction(`${childName || 'Child'} deleted successfully.`);
-      navigate('/beneficiary');
+      navigateBack(navigate, location, '/beneficiary');
     } catch (error) {
       setDeleteError(error.message || 'Unable to delete child.');
     }

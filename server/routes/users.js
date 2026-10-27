@@ -3,7 +3,7 @@ const router = express.Router();
 const pool = require('../db');
 const bcrypt = require('bcrypt');
 const { verifyToken } = require('../middleware/auth');
-const { authorize } = require('../middleware/authorize');
+const { authorize, normalizeRole } = require('../middleware/authorize');
 const { createSuperadminNotification } = require('../services/notifications');
 const { sendAccountCredentialsEmail } = require('../services/emailjs');
 const { recordActivity } = require('../services/activityLog');
@@ -465,9 +465,9 @@ router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
     const normalizedEmail = normalizeEmail(email);
     const userName = username || (normalizedEmail ? normalizedEmail.split('@')[0] : null);
     const full_name = fullName || (firstName || lastName ? `${(firstName||'').trim()} ${(lastName||'').trim()}`.trim() : null);
-    const roleName = String(role || '').trim().toLowerCase();
-    const requiresSchool = ['health worker', 'community organizer', 'community_coordinator', 'communitycoordinator', 'coordinator'].includes(roleName);
-    const requiresGroup = roleName === 'health worker';
+    const roleName = normalizeRole(role);
+    const requiresSchool = ['health_worker', 'community_coordinator'].includes(roleName);
+    const requiresGroup = roleName === 'health_worker';
 
     const normalizedFirstName = normalizeFirstName(firstName);
     const firstNameError = getFirstNameValidationError(normalizedFirstName);
@@ -476,8 +476,13 @@ router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
     if (contactNumberError) return res.status(400).json({ error: contactNumberError });
     if (!userName || !normalizedEmail) return res.status(400).json({ error: 'Username and email are required' });
     if (!isValidEmail(normalizedEmail)) return res.status(400).json({ error: 'Enter a valid email address' });
-    if (requiresSchool && !schoolId) return res.status(400).json({ error: 'schoolId is required for this role' });
-    if (requiresGroup && !groupId) return res.status(400).json({ error: 'groupId is required for this role' });
+    const assignedSchoolId = requiresSchool ? parsePositiveIntegerId(schoolId) : null;
+    if (requiresSchool && assignedSchoolId === null) return res.status(400).json({ error: 'A valid schoolId is required for this role' });
+    const assignedGroupId = requiresGroup ? parsePositiveIntegerId(groupId) : null;
+    if (requiresGroup && assignedGroupId === null) return res.status(400).json({ error: 'A valid groupId is required for this role' });
+    if (requiresGroup && !(await isGroupInSchool(assignedGroupId, assignedSchoolId))) {
+      return res.status(400).json({ error: 'The selected group must belong to the assigned school' });
+    }
 
     // generate password if none provided
     let plainPassword = password;
@@ -722,20 +727,25 @@ router.put('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
     }
     if (schoolId !== undefined) { updates.push('school_id = ?'); params.push(schoolId || null); }
     if (groupId !== undefined) { updates.push('group_id = ?'); params.push(groupId || null); }
-    if (role !== undefined && ['health worker', 'community organizer', 'community_coordinator', 'communitycoordinator', 'coordinator'].includes(String(role).trim().toLowerCase()) && !schoolId) {
-      return res.status(400).json({ error: 'schoolId is required for this role' });
-    }
     const targetSchoolId = schoolId === undefined
       ? Number(existingUser.school_id) || null
       : schoolId ? parsePositiveIntegerId(schoolId) : null;
+    const targetGroupId = groupId === undefined
+      ? Number(existingUser.group_id) || null
+      : groupId ? parsePositiveIntegerId(groupId) : null;
+    const targetIsHealthWorker = normalizeRole(targetRole) === 'health_worker';
+    if (targetIsHealthWorker) {
+      if (!targetSchoolId) return res.status(400).json({ error: 'A valid schoolId is required for this role' });
+      if (!targetGroupId) return res.status(400).json({ error: 'A valid groupId is required for this role' });
+      if (!(await isGroupInSchool(targetGroupId, targetSchoolId))) {
+        return res.status(400).json({ error: 'The selected group must belong to the assigned school' });
+      }
+    }
     if (targetIsCoordinator && schoolId && parsePositiveIntegerId(schoolId) === null) {
       return res.status(400).json({ error: 'Select a valid school for this Community Coordinator.' });
     }
     if (targetIsCoordinator && existingUser.school_id && !targetSchoolId) {
       return res.status(409).json({ error: 'A Community Coordinator cannot be moved directly to a different school. Unassign them from their current school first.' });
-    }
-    if (role !== undefined && String(role).trim().toLowerCase() === 'health worker' && !groupId && req.body.groupId !== undefined) {
-      return res.status(400).json({ error: 'groupId is required for this role' });
     }
 
     if (password !== undefined && password !== null && password !== '') {

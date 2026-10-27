@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { filterInterpretationFields } from './interpretationFields.mjs';
 import {
+  formatProfileReportCellValue,
   formatPhilHealthNumberForReport,
   formatPresenceProfileValue,
 } from './profileFieldFormatting.mjs';
@@ -22,6 +23,14 @@ test('profile table identifies uploaded documents without leaving missing upload
 
 test('profile table keeps unrecorded birth place distinguishable from presence fields', () => {
   assert.equal(formatPresenceProfileValue('birthPlace', ''), null);
+});
+
+test('profile report leaves empty values blank while preserving explicit values', () => {
+  assert.equal(formatProfileReportCellValue('—'), '');
+  assert.equal(formatProfileReportCellValue('No'), 'No');
+  assert.equal(formatProfileReportCellValue('None'), 'None');
+  assert.equal(formatProfileReportCellValue('0'), '0');
+  assert.equal(formatProfileReportCellValue('Cebu City'), 'Cebu City');
 });
 
 test('PhilHealth number report shows None when no number is recorded', () => {

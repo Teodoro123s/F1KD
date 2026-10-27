@@ -16,6 +16,8 @@ const REPORT_METRICS = {
       ['expandedNewbornScreening', 'Expanded newborn screening'],
       ['expandedNewbornScreeningResult', 'Newborn screening result'],
       ['birthPlace', 'Birth place'],
+      ['birthPlaceCity', 'Birth city or municipality'],
+      ['birthPlaceProvince', 'Birth province'],
       ['birthAttendant', 'Birth attendant'],
       ['apgarScore', 'APGAR score'],
       ['feedingType', 'Feeding type'],
@@ -48,6 +50,8 @@ const REPORT_METRICS = {
     mother: [
       ['age', 'Age'],
       ['birthPlace', 'Birth place / city'],
+      ['birthPlaceCity', 'Birth city or municipality'],
+      ['birthPlaceProvince', 'Birth province'],
       ['contactNumber', 'Contact number'],
       ['addressDetails', 'Address details'],
       ['motherBirthCertificate', "Mother's birth certificate"],
@@ -319,7 +323,7 @@ function explicitlyRequestedProfileMetrics(prompt, beneficiaryType) {
       prenatal: [
         'birthWeight', 'birthLength', 'headCircumference', 'chestCircumference', 'bloodType', 'multipleBirth',
         'deliveryType', 'noOfChildDelivered', 'expandedNewbornScreening', 'expandedNewbornScreeningResult',
-        'birthPlace', 'birthAttendant', 'apgarScore',
+        'birthPlace', 'birthPlaceCity', 'birthPlaceProvince', 'birthAttendant', 'apgarScore',
       ],
       medical: [
         'healthStatus', 'feedingType', 'exclusiveBreastfeeding', 'nutritionNotes', 'medicalConditions',
@@ -334,7 +338,7 @@ function explicitlyRequestedProfileMetrics(prompt, beneficiaryType) {
     },
     mother: {
       general: [
-        'age', 'birthPlace', 'maidenSurname', 'contactNumber', 'addressDetails', 'motherBirthCertificate',
+        'age', 'birthPlace', 'birthPlaceCity', 'birthPlaceProvince', 'maidenSurname', 'contactNumber', 'addressDetails', 'motherBirthCertificate',
         'programConsentDocument', 'civilStatus', 'employmentStatus', 'educationalAttainment',
         'dataPrivacySigned', 'mediaReleaseSigned', 'philhealthMember', 'philhealthNumber', 'spouseName',
         'emergencyName', 'emergencyContact', 'emergencyRelationship',

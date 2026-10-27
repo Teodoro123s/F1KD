@@ -6,9 +6,9 @@ This guide describes the Health Worker role as currently implemented in F1KD: it
 
 The canonical role value is `health_worker`. The interface commonly labels this role **Health Worker**; `Health worker`, `healthworker`, and `health_worker` are normalized to the same role.
 
-A Health Worker performs assigned-group beneficiary and project tasks, especially recording check-ups and project receipts. The role has the narrowest operational scope: an account must be assigned to a school, and group-level work is limited to its assigned group.
+A Health Worker performs assigned-group beneficiary and project tasks, especially recording check-ups and project receipts. The role has the narrowest operational scope: an account must be assigned to both a school and a group, and group-level work is limited to that group.
 
-The token's `school_id` and `group_id` form the role's perimeter. A route parameter or submitted school/group ID cannot expand that perimeter. Operational access is denied when the required school assignment is missing; project receipt/check-in tasks also require a valid group assignment.
+The token's `school_id` and `group_id` form the role's perimeter. A route parameter or submitted school/group ID cannot expand that perimeter. Operational access is denied when either assignment is missing; project receipt/check-in tasks also require a valid project that covers the assigned group.
 
 ## Modules and components available
 
@@ -32,8 +32,8 @@ The Health Worker sidebar contains Dashboard, Community, Beneficiary, Monitor, P
 
 ### Assigned-school and group perimeter
 
-- `school_id` is required for operational access; the general middleware denies a Health Worker without a school assignment.
-- `group_id` further restricts group-level beneficiary, community, and project workflows.
+- `school_id` and `group_id` are both required for operational access; the general middleware denies a Health Worker missing either assignment.
+- The assigned group must belong to the assigned school and restricts beneficiary, community, and project workflows.
 - Read/list/detail APIs must apply the school and group scope; write endpoints check that the target record and related entities are in scope.
 - Project receipt/check-in operations require a group assignment and a project that covers the assigned group.
 - A Community Organizer manages all applicable groups within one school. A Health Worker operates only within the assigned group.

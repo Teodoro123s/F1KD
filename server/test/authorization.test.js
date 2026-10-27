@@ -207,6 +207,21 @@ test('authorizeOperational denies scoped users without a school assignment to pr
   assert.equal(res.payload.message, 'This account is not assigned to a school');
 });
 
+test('authorizeOperational denies Health Workers without a group assignment', () => {
+  let called = false;
+  const req = { method: 'GET', user: { role: 'Health Worker', school_id: 7, group_id: null } };
+  const res = {
+    status(code) { this.code = code; return this; },
+    json(payload) { this.payload = payload; return this; },
+  };
+
+  authorizeOperational(req, res, () => { called = true; });
+
+  assert.equal(called, false);
+  assert.equal(res.code, 403);
+  assert.equal(res.payload.message, 'This Health Worker account is not assigned to a group');
+});
+
 test('authorizeOperational gives unassigned community organizers an empty school scope', () => {
   let called = false;
   const req = {
@@ -234,7 +249,7 @@ test('authorizeOperational gives unassigned community organizers an empty school
   assert.equal(res.code, undefined);
 });
 
-test('authorizeOperational attaches both school and group scope for assigned partner users', () => {
+test('authorizeOperational attaches both school and group scope for assigned Health Workers', () => {
   let called = false;
   const req = {
     method: 'GET',
