@@ -43,6 +43,8 @@ The application may provide more detailed restrictions than this summary. For ex
 
 For project receipt/check-in photo documentation, Community Coordinators can upload and remove photos; Admin, Partner, and Health Worker accounts can view and download them only. Superadmins have no Projects access.
 
+For report setup, Results table/graph behavior, and export details, see the [Progress Report guide](./PROGRESS_REPORT.md).
+
 ## Data scope rules
 
 ### Global roles

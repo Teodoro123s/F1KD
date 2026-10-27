@@ -1,4 +1,4 @@
-# React App Framework
+# F1KD
 
 F1KD beneficiary monitoring and reporting app.
 
@@ -13,12 +13,14 @@ The PSGC data is sourced from the [PSA](https://psa.gov.ph/classification/psgc/)
 - [Project structure](./docs/PROJECT_STRUCTURE.md) — frontend and backend folder ownership, Beneficiary canonical paths, and file placement rules.
 
 - [Users, roles, permissions, and data scope](./docs/ROLES_AND_ACCESS.md) — module access, account-management limits, school/group scope, and practical verification.
+- [Progress Report guide](./docs/PROGRESS_REPORT.md) — report setup, Results table/graph views, filters, exports, and role scope.
 - [Superadmin user guide](./docs/SUPERADMIN.md) — role purpose, permissions, modules, recovery flow, and operational boundaries.
 - [Community Organizer user guide](./docs/COMMUNITY_ORGANIZER.md) — assigned-school scope, operational modules, Health Worker account limits, and safe operating practices.
 - [Admin user guide](./docs/ADMIN.md) — global operational oversight, read-only limits, modules, and reporting boundaries.
 - [Partner user guide](./docs/PARTNER.md) — global operational review, read-only limits, and available reporting.
 - [Health Worker user guide](./docs/HEALTH_WORKER.md) — assigned-school/group scope, permitted check-ups and receipts, and account boundaries.
 - [Integrated AI guide](./docs/INTEGRATED_AI.md) — AI features by module, their purpose, scope, access, data handling, and limitations.
+- [Server guide](./server/README.md) — backend setup, sample data, API behavior, and operational notes.
 
 ## Docker: Full Stack
 
@@ -66,7 +68,7 @@ After the session security update, existing browser sessions must sign in again 
 
 The GitHub Pages workflow publishes a read-only F1KD walkthrough with synthetic data. It does not connect to the API, database, or MinIO, and it must not contain real beneficiary information. The demo build is enabled only by the workflow's `VITE_DEMO_MODE=true` setting; regular local and Docker builds continue to use the backend.
 
-The workflow currently deploys pushes to `pre-backend-separation-v2`. In the repository's **Settings → Pages**, set the build/deployment source to **GitHub Actions**. Push the branch to GitHub or run **Deploy mock demo to GitHub Pages** from the Actions tab. For this repository, the expected project-site URL is `https://teodoro123s.github.io/F1KD/`; GitHub displays the actual published URL in the Pages settings and deployment. GitHub Pages hosting is public, so keep this demo free of personal, health, account, and other private data.
+The workflow's trigger and deployment branch are defined in the repository's GitHub Actions workflow. In **Settings → Pages**, set the build/deployment source to **GitHub Actions**. Run the deployment workflow from the Actions tab. GitHub displays the published URL in the Pages settings and deployment. GitHub Pages hosting is public, so keep this demo free of personal, health, account, and other private data.
 
 ### Encryption at rest and backups
 
@@ -84,46 +86,20 @@ docker compose -f docker-compose.minio.yml down
 
 ## Local Development
 
-## Quick start
+For the complete application, including the API, database, and document storage, use the Docker Compose setup above. For frontend-only work, install the root dependencies and run Vite:
 
-Install dependencies:
-
-```bash
+```sh
 npm install
-```
-
-Run dev server:
-
-```bash
 npm run dev
 ```
 
-For local role testing, start the backend with `NODE_ENV=development` to enable the login shortcuts for loopback requests. In Docker, use the explicit opt-in above; normal email/password login remains available.
+The Vite development server expects the backend to be available for authenticated data workflows. See the [server guide](./server/README.md) for backend environment, database, and development setup. Local role-testing shortcuts are only enabled in development and must not be enabled in production.
 
-Build for production:
+Run the frontend production build and preview with:
 
-```bash
+```sh
 npm run build
 npm run preview
 ```
 
-## Backend (Express + MySQL/MariaDB)
-
-A minimal Node/Express backend lives in the `server` folder and provides a small users API.
-
-Quick setup:
-
-```bash
-cd server
-npm install
-cp .env.example .env
-# edit .env to set DB_HOST, DB_USER, DB_PASSWORD, DB_NAME
-npm run dev
-```
-
-Endpoints:
-- `GET /api/health` — health check
-- `GET /api/users` — list users
-- `POST /api/users` — create user `{ "name": "...", "email": "..." }`
-
-The backend uses `mysql2` and will ensure a simple `users` table exists on startup.
+Use the scripts in `package.json` for focused tests. `npm test` runs the configured test suite.
