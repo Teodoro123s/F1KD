@@ -21,10 +21,21 @@ test('builds community and project hierarchy breadcrumbs', () => {
     { label: 'Project', to: '/program/9' },
     { label: 'Batch' },
   ]);
+  assert.deepEqual(getRouteBreadcrumbs('/program/9'), [
+    { label: 'Projects', to: '/program' },
+    { label: 'Project' },
+  ]);
   assert.deepEqual(getRouteBreadcrumbs('/program/9/beneficiaries/child/123/receipt-history'), [
     { label: 'Projects', to: '/program' },
     { label: 'Project', to: '/program/9' },
     { label: 'Receipt History' },
+  ]);
+});
+
+test('builds a navigable Dashboard parent for Progress Report', () => {
+  assert.deepEqual(getRouteBreadcrumbs('/progress-report'), [
+    { label: 'Dashboard', to: '/dashboard' },
+    { label: 'Progress Report' },
   ]);
 });
 

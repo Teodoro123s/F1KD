@@ -58,11 +58,11 @@ export const getRouteBreadcrumbs = (pathname = '/', locationState = {}) => {
       else if (third === 'group') items.push(['Group']);
       else if (third === 'batch') items.push(['Batch']);
       else if (third === 'beneficiaries') items.push(['Beneficiary Project Report']);
-      else if (parts.length === 2) items.pop();
+      else if (parts.length === 2) items[1] = ['Project'];
     }
     return asBreadcrumbs(items);
   }
-  if (section === 'progress-report') return asBreadcrumbs([['Progress Report']]);
+  if (section === 'progress-report') return asBreadcrumbs([['Dashboard', '/dashboard'], ['Progress Report']]);
   if (section === 'reports') return asBreadcrumbs([['Reports']]);
   if (section === 'notifications') return asBreadcrumbs([['Notifications']]);
   if (section === 'user-management') {

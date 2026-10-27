@@ -93,7 +93,7 @@ export function GrowthMetricsStep({
           </div>
           {beneficiaryType === 'child' && (
             <p className="progress-report-note">
-              Graphs show raw weight and length/height over time. Weight-for-Length uses its WHO z-score and interpretation categories, including Overweight and Obese.
+              Graphs show measured weight or length/height over time with labeled units. WHO scores are used to calculate interpretations but are not displayed.
             </p>
           )}
           {selectedMonitorFields.length > 0 && (

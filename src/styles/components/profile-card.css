@@ -1341,6 +1341,11 @@
 .project-activity-table-wrap { overflow-x: auto; border: 1px solid #dfe6ee; border-radius: 8px; }
 .project-activity-table { width: 100%; min-width: 420px; }
 .project-activity-table th { background: #f8fafc; color: #475569; }
+.project-activity-table th:last-child, .project-activity-table td:last-child { width: 1%; text-align: center; white-space: nowrap; }
+.project-activity-table .actions-cell { display: flex; justify-content: center; }
+.project-activity-clickable-row { cursor: pointer; }
+.project-activity-clickable-row:hover td, .project-activity-clickable-row:focus td { background: #f8fafc; }
+.project-activity-clickable-row:focus { outline: 2px solid var(--burgundy); outline-offset: -2px; }
 .project-activity-empty {
   display: flex;
   min-height: 180px;
@@ -1591,6 +1596,8 @@
 .monitoring-history-profile { display: flex; flex-wrap: wrap; gap: 0.75rem 1.25rem; padding: 0.85rem 1rem; border: 1px solid var(--burgundy-border, #bbf7d0); border-radius: 10px; background: var(--burgundy-light, #ecfdf3); color: var(--text-soft, #334155); }
 .monitoring-history-profile strong { color: var(--burgundy, #15803d); }
 .monitoring-history-table thead th, .monitoring-snapshot-table thead th { position: sticky; top: 0; z-index: 2; white-space: nowrap; }
+.monitoring-history-table .monitoring-average-row, .monitoring-snapshot-table .monitoring-average-row { background: #f0fdf4; font-weight: 800; }
+.monitoring-history-table .monitoring-average-row td, .monitoring-snapshot-table .monitoring-average-row td { border-top: 2px solid #86efac; color: #166534; }
 .history-warning { display: inline-flex; align-items: center; gap: 0.3rem; color: #b42318; font-weight: 800; }
 .history-warning small { color: #b42318; font-size: 0.68rem; font-weight: 700; }
 .interpretation-normal { color: #167344; font-weight: 800; }

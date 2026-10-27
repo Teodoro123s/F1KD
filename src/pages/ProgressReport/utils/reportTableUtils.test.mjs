@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { filterInterpretationFields } from './interpretationFields.mjs';
+import { growthTableFieldsForMetric, withoutGrowthScores } from './growthTableUtils.mjs';
 import {
   formatProfileReportCellValue,
   formatPhilHealthNumberForReport,
@@ -69,4 +70,30 @@ test('interpretation columns are included by default', () => {
   const fields = [['2025-04Interpretation', 'Apr-25 Interpretation']];
 
   assert.deepEqual(filterInterpretationFields(fields), fields);
+});
+
+test('monitoring tables show measurements and interpretations without WHO z-score columns', () => {
+  assert.deepEqual(growthTableFieldsForMetric('weightForAgeInterpretation'), [
+    'weightForAge',
+    'weightForAgeInterpretation',
+  ]);
+  assert.deepEqual(growthTableFieldsForMetric('lengthForAgeInterpretation'), [
+    'heightForAge',
+    'lengthForAgeInterpretation',
+  ]);
+  assert.deepEqual(growthTableFieldsForMetric('weightForLengthInterpretation'), [
+    'weightForLengthInterpretation',
+  ]);
+  assert.deepEqual(withoutGrowthScores([
+    'measurementDate',
+    'weightForAgeZScore',
+    'weightForAgeInterpretation',
+    'lengthForAgeZScore',
+    'lengthForAgeInterpretation',
+    'weightForLengthZScore',
+  ]), [
+    'measurementDate',
+    'weightForAgeInterpretation',
+    'lengthForAgeInterpretation',
+  ]);
 });

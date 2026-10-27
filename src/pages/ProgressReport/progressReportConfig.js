@@ -194,21 +194,10 @@ export const REPORT_FIELDS = uniqueReportFields([
 
 export const DEFAULT_VISIBLE_FIELDS = [
   'school', 'group', 'batch', 'mother', 'child',
-  'weightForAgeInterpretation', 'lengthForAgeZScore', 'lengthForAgeInterpretation',
+  'weightForAgeInterpretation', 'lengthForAgeInterpretation',
   'heightForAge', 'weightForLengthInterpretation', 'activitiesCompleted',
   'totalActivities', 'progress',
 ];
-
-export const addGrowthScoresBeforeInterpretations = (fields) => [
-  ['weightForAgeZScore', 'weightForAgeInterpretation'],
-  ['lengthForAgeZScore', 'lengthForAgeInterpretation'],
-  ['weightForLengthZScore', 'weightForLengthInterpretation'],
-].reduce((orderedFields, [scoreField, interpretationField]) => {
-  if (!orderedFields.includes(interpretationField)) return orderedFields;
-  const nextFields = orderedFields.filter((field) => field !== scoreField);
-  nextFields.splice(nextFields.indexOf(interpretationField), 0, scoreField);
-  return nextFields;
-}, fields);
 
 export const GROWTH_METRICS = [
   ['weightForAgeInterpretation', 'Weight-for-Age', 'WHO indicator for low weight relative to exact age; it does not classify overweight.'],

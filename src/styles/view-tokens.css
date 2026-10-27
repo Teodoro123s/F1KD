@@ -848,6 +848,161 @@
   }
 }
 
+@container view-content-layout (max-width: 900px) {
+  .view-content .view-page-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .view-content .view-page-header__actions {
+    flex-wrap: wrap;
+    max-width: 100%;
+  }
+
+  .view-content .view-filter-bar__search,
+  .view-content .view-filter-bar__select,
+  .view-content .view-filter-field {
+    flex: 1 1 180px;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .view-content .view-filter-bar__actions {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    margin-left: 0;
+  }
+
+  .view-content .progress-report-context-selectors {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  }
+
+  .view-content .progress-report-header-row {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .view-content .progress-report-toolbar {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .view-content .progress-report-tabs {
+    flex-wrap: wrap;
+  }
+
+  .view-content .program-tabs-row {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .view-content .program-toolbar-controls {
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 0;
+    margin-left: 0;
+  }
+
+  .view-content .program-search {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .view-content .program-report-period-controls {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  }
+
+  .view-content .progress-report-config-grid,
+  .view-content .progress-report-fields-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  }
+
+  .view-content .profile-report-section-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .view-content .monitoring-filter-row,
+  .view-content .beneficiary-page .beneficiary-filter-row,
+  .view-content .notifications-filter-row {
+    align-items: stretch;
+    justify-content: flex-start;
+  }
+
+  .view-content .monitoring-filter-row > .tabs-list,
+  .view-content .beneficiary-page .beneficiary-filter-row > .tabs-list {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .view-content .monitoring-filter-row > .beneficiary-search-controls,
+  .view-content .monitoring-filter-row > .monitoring-screening-filter,
+  .view-content .monitoring-filter-row > .monitoring-status-filter,
+  .view-content .monitoring-filter-row > .monitoring-filter-menu,
+  .view-content .monitoring-filter-row > .community-table-search,
+  .view-content .beneficiary-page .beneficiary-filter-row > .beneficiary-status-filter,
+  .view-content .beneficiary-page .beneficiary-filter-row > .beneficiary-search-controls,
+  .view-content .notifications-filter-row .subheader-left,
+  .view-content .notifications-filter-row .subheader-right {
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 0;
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  .view-content .monitoring-filter-row > .beneficiary-search-controls {
+    align-items: stretch;
+  }
+
+  .view-content .monitoring-filter-row > .beneficiary-search-controls select,
+  .view-content .monitoring-filter-row > .monitoring-status-filter select,
+  .view-content .notifications-filter-row .notification-category-filter select,
+  .view-content .notifications-filter-row .notification-status-filter select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .view-content .monitoring-filter-row > .monitoring-filter-menu > summary {
+    width: 100%;
+  }
+
+  .view-content .monitoring-filter-row .search-container,
+  .view-content .beneficiary-page .beneficiary-filter-row .search-container,
+  .view-content .notifications-filter-row .search-container {
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
+@container view-content-layout (max-width: 520px) {
+  .view-content .progress-report-context-selectors,
+  .view-content .program-report-period-controls,
+  .view-content .progress-report-config-grid,
+  .view-content .progress-report-fields-grid,
+  .view-content .profile-report-section-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .view-content .results-table-tools,
+  .view-content .results-table-filters,
+  .view-content .results-table-actions {
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .view-content .results-table-filters > *,
+  .view-content .results-table-actions > * {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .view-content .results-table-period-filter select {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
 .view-page-header__actions .module-create-button svg {
   width: 20px;
   height: 20px;

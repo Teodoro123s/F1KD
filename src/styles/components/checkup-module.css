@@ -195,7 +195,17 @@
 .monitoring-calendar-day.is-today .monitoring-calendar-day-number { display: grid; width: 1.55rem; height: 1.55rem; place-items: center; border-radius: 50%; background: #15803d; color: #fff; font-weight: 900; }
 .monitoring-calendar-day.is-selected { background: #effaf3; box-shadow: inset 0 0 0 2px #15803d; }
 .monitoring-calendar-day-number { align-self: flex-start; font-size: 0.83rem; font-weight: 700; }
-.monitoring-calendar-count { align-self: flex-start; display: grid; min-width: 1.5rem; height: 1.5rem; place-items: center; padding: 0 0.35rem; border-radius: 999px; background: #dcfce7; color: #166534; font-size: 0.75rem; font-weight: 800; line-height: 1; }
+.monitoring-calendar-legend { display: flex; flex-wrap: wrap; gap: 0.85rem; margin-top: -0.5rem; color: var(--text-muted); font-size: 0.72rem; font-weight: 750; }
+.monitoring-calendar-legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
+.monitoring-calendar-legend i { width: 0.65rem; height: 0.65rem; border-radius: 50%; background: #94a3b8; }
+.monitoring-calendar-legend i.is-done { background: #15803d; }
+.monitoring-calendar-legend i.is-pending { background: #d97706; }
+.monitoring-calendar-legend i.is-missing { background: #dc2626; }
+.monitoring-calendar-counts { display: flex; flex-wrap: wrap; align-items: center; align-self: flex-start; gap: 0.2rem; }
+.monitoring-calendar-count { display: grid; min-width: 1.3rem; height: 1.3rem; place-items: center; padding: 0 0.3rem; border-radius: 999px; background: #e2e8f0; color: #334155; font-size: 0.68rem; font-weight: 850; line-height: 1; }
+.monitoring-calendar-count.is-done { background: #dcfce7; color: #166534; }
+.monitoring-calendar-count.is-pending { background: #fef3c7; color: #92400e; }
+.monitoring-calendar-count.is-missing { background: #fee2e2; color: #991b1b; }
 .monitoring-calendar-empty-month,
 .monitoring-calendar-empty-date,
 .monitoring-calendar-message { margin: 0; color: var(--text-muted); font-size: 0.85rem; }

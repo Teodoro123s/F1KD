@@ -316,8 +316,7 @@ export default function DashboardPage() {
         { key: 'health-workers', title: 'Health Workers', value: staffMetrics.active, subtitle: 'Active in your assigned school', to: '/user-management' },
       ];
     }
-    if (isAdmin) return allRoleCards;
-    if (isPartner) return allRoleCards.filter((card) => ['communities', 'programs'].includes(card.key));
+    if (isAdmin || isPartner) return allRoleCards;
     return [];
   }, [isAdmin, isCommunityOrganizer, isHealthWorker, isPartner, isSuperAdmin, staffMetrics, stats]);
 
@@ -342,10 +341,8 @@ export default function DashboardPage() {
       ? 'Your assigned-group check-ins and follow-up tasks'
       : isCommunityOrganizer
         ? 'Manage beneficiaries, projects, and health workers for your school'
-        : isAdmin
-          ? 'Review operational progress across communities'
-          : isPartner
-            ? 'Review project and community activity'
+        : isAdmin || isPartner
+            ? 'Organization-wide overview across all accessible schools, groups, beneficiaries, and projects'
             : `${roleLabel} workspace`;
 
   return (
@@ -357,6 +354,9 @@ export default function DashboardPage() {
               {getGreeting(currentUser?.name)}
             </h2>
             <p>{description}</p>
+            {(isAdmin || isPartner) && (
+              <span className="dashboard-scope-badge">Whole-level view · All accessible communities</span>
+            )}
           </div>
         </div>
       </header>

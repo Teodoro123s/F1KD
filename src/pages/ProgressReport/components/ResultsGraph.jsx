@@ -433,9 +433,7 @@ export function ResultsGraph({
         ? selectedGraphMetric === 'hospitalReferral' ? 'Referral and assistance recorded at maternal check-ups' : 'Latest mother BMI measurements · values are plotted by month'
         : graphMetricType === 'interpretation'
           ? 'WHO growth interpretations over time'
-          : selectedGraphMetric === 'weightForLengthZScore'
-            ? 'Weight-for-Length/Height WHO z-score over time'
-            : 'Raw weight and length/height measurements over time';
+          : 'Raw weight and length/height measurements over time';
   const profileGraphType = selectedProfileField?.[2] === 'measurement'
     ? 'Scatterplot'
     : selectedProfileField?.[2] === 'histogram'

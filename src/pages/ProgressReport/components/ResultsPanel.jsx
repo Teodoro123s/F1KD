@@ -56,8 +56,10 @@ export function ResultsPanel({
   programMetrics,
   benefitPeriod = 'overall',
   benefitMonth = '',
+  schools = [],
   onBenefitPeriodChange,
   onBenefitMonthChange,
+  onReportSchoolChange,
   loadingReport = false,
 }) {
   const monitoringExportHandler = useRef(null);
@@ -66,7 +68,7 @@ export function ResultsPanel({
     { key: 'table', label: 'Table View' },
     { key: 'graph', label: 'Graph View', disabled: !graphAllowed },
   ];
-  const availableBatches = [...new Map(resultsRows
+  const availableBatches = [...new Map(graphBeneficiaries
     .filter((row) => row.batch)
     .map((row) => [String(row.batchId || row.batch), { id: String(row.batchId || row.batch), name: row.batch }])).values()];
   const activeBatch = availableBatches.some(({ id }) => id === selectedBatch) ? selectedBatch : '';
@@ -79,9 +81,16 @@ export function ResultsPanel({
   const graphBeneficiariesForView = activeBatch
     ? graphBeneficiaries.filter(({ id }) => graphRowsForView.some((row) => String(row.childId || row.motherId || row.child || row.mother || '') === id))
     : graphBeneficiaries;
+  const graphExportRowsForView = activeBatch
+    ? graphExportRows.filter((row) => String(row.batchId || row.batch || '') === activeBatch)
+    : graphExportRows;
   const handleBatchChange = (batchId) => {
     setSelectedBatch(batchId);
     setSelectedGraphBeneficiary('all');
+  };
+  const handleSchoolChange = (schoolId) => {
+    setSelectedBatch('');
+    onReportSchoolChange?.(schoolId);
   };
 
   return (
@@ -91,8 +100,16 @@ export function ResultsPanel({
           <h1>IV. Report Results</h1>
         </div>
 
-        {(displayReportCategory !== 'profile' || graphAllowed) && (
         <div className="results-view-toggle" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          {resultsView === 'graph' && displayReportCategory === 'monitor' && availableBatches.length > 1 && (
+            <label className="results-table-period-filter">
+              Batch
+              <select aria-label="Graph batch" value={activeBatch} onChange={(event) => handleBatchChange(event.target.value)}>
+                <option value="">All batches</option>
+                {availableBatches.map(({ id, name }) => <option key={id} value={id}>{name}</option>)}
+              </select>
+            </label>
+          )}
           {resultsView === 'graph' && displayReportCategory === 'monitor' && graphBeneficiariesForView.length > 1 && (
             <label className="results-table-period-filter">
               Beneficiary
@@ -125,7 +142,7 @@ export function ResultsPanel({
               className="secondary-btn"
               disabled={exportingReport}
               onClick={() => exportReport({
-                rows: graphExportRows,
+                rows: graphExportRowsForView,
                 fields: graphExportFields,
                 view: 'graph',
                 selectedBatch: activeBatch,
@@ -146,7 +163,6 @@ export function ResultsPanel({
             </button>
           )}
         </div>
-        )}
       </div>
 
       {displayReportCategory === 'program' && (
@@ -183,6 +199,11 @@ export function ResultsPanel({
           {displayReportCategory === 'program'
             ? 'Graphs are not available for project reports.'
             : 'Graphs are available for individual or batch profile reports.'}
+        </p>
+      )}
+      {!graphAllowed && displayReportCategory === 'profile' && (
+        <p className="progress-report-note" role="status">
+          School and group profile reports are shown in table view. Select a batch or generate an individual report to enable graphs.
         </p>
       )}
 
@@ -228,6 +249,8 @@ export function ResultsPanel({
           }}
           onRegisterMonitoringExport={(handler) => { monitoringExportHandler.current = handler; }}
           communitySelection={selection}
+          schoolOptions={schools}
+          onSchoolChange={handleSchoolChange}
           beneficiaryType={displayBeneficiaryType}
           showProfileFilter={showProfileFilter}
           profileFieldSections={profileFieldSections}
@@ -247,6 +270,7 @@ export function ResultsPanel({
           formatCellValue={formatCellValue}
           selectedBatch={activeBatch}
           onSelectedBatchChange={handleBatchChange}
+          loadingReport={loadingReport}
         />
       )}
       {reportPagination && reportPagination.totalPages > 1 && (

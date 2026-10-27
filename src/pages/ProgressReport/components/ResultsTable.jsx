@@ -4,6 +4,7 @@ import FloatingLayer from '../../../components/ui/FloatingLayer';
 import { filterInterpretationFields } from '../utils/reportTableUtils';
 import { formatProfileReportCellValue } from '../utils/profileFieldFormatting.mjs';
 import { filterProfileReportRows, getProfileReportScopeOptions } from '../utils/profileReportFilters.mjs';
+import { buildMonitoringAverageRow } from '../utils/monitoringAverages.mjs';
 
 const historyFieldIds = new Set(['measurementDate', 'weightForAge', 'heightForAge', 'bmiForAge', 'weightForLengthZScore', 'weightForLengthInterpretation', 'weightForAgeZScore', 'weightForAgeInterpretation', 'lengthForAgeZScore', 'lengthForAgeInterpretation', 'bmiInterpretation']);
 
@@ -55,7 +56,7 @@ function HistoryCell({ field, value, formatCellValue, row }) {
   );
 }
 
-function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleFields, formatCellValue, communitySelection, beneficiaryType, showSchoolFilter, showGroupFilter, growthMetricOptions, selectedGrowthMetric, onGrowthMetricChange, onRegisterExport, includeInterpretationColumns, setIncludeInterpretationColumns, onExport, exportingReport, selectedBatch, onSelectedBatchChange }) {
+function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleFields, formatCellValue, communitySelection, beneficiaryType, showSchoolFilter, showGroupFilter, schoolOptions = [], onSchoolChange, loadingReport = false, growthMetricOptions, selectedGrowthMetric, onGrowthMetricChange, onRegisterExport, includeInterpretationColumns, setIncludeInterpretationColumns, onExport, exportingReport, selectedBatch, onSelectedBatchChange }) {
   const [viewMode, setViewMode] = useState('individual');
   const [selectedBeneficiary, setSelectedBeneficiary] = useState('');
   const [selectedMonth, setSelectedMonth] = useState('');
@@ -76,10 +77,16 @@ function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleField
   const communityBatchKey = resultsRows.find((row) => String(row.batchId) === String(communitySelection?.batchId));
   const communitySchool = resultsRows.find((row) => String(row.schoolId) === String(communitySelection?.schoolId))?.school || '';
   const communityGroup = resultsRows.find((row) => String(row.groupId) === String(communitySelection?.groupId))?.group || '';
-  const activeSchool = communitySchool || selectedSchool;
-  const activeGroup = communityGroup || selectedGroup;
+  const selectedSchoolOption = schoolOptions.find(({ id }) => String(id) === String(communitySelection?.schoolId));
+  const activeSchoolId = communitySelection?.schoolId
+    ? String(communitySelection.schoolId)
+    : schoolOptions.length ? selectedSchool : '';
+  const activeSchool = communitySchool || selectedSchoolOption?.name || (schoolOptions.length ? '' : selectedSchool);
+  const activeGroup = communityGroup || (groups.includes(selectedGroup) ? selectedGroup : '');
   const scopedRows = resultsRows
-    .filter((row) => !activeSchool || row.school === activeSchool)
+    .filter((row) => !activeSchoolId || (row.schoolId !== undefined && row.schoolId !== null
+      ? String(row.schoolId) === activeSchoolId
+      : row.school === activeSchool))
     .filter((row) => !activeGroup || row.group === activeGroup);
   const batches = [...new Map(scopedRows
     .filter((row) => row.batch)
@@ -95,7 +102,7 @@ function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleField
   const activeBeneficiary = beneficiaries.some((row) => beneficiaryKey(row) === selectedBeneficiary)
     ? selectedBeneficiary
     : beneficiaryKey(beneficiaries[0] || {});
-  const activeMonth = selectedMonth || months.at(-1) || '';
+  const activeMonth = months.includes(selectedMonth) ? selectedMonth : months.at(-1) || '';
   const filteredRows = scopedRows
     .filter((row) => viewMode !== 'monthly' || !activeBatch || String(row.batchId || row.batch || '') === activeBatch)
     .filter((row) => viewMode !== 'individual' || String(row.childId || row.motherId || row.child || row.mother) === activeBeneficiary)
@@ -103,11 +110,18 @@ function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleField
     .sort((left, right) => String(left.measurementDate || '').localeCompare(String(right.measurementDate || '')));
   const selectedProfile = filteredRows[0] || {};
   const historyMetricFields = visibleHistoryFields.filter(([id]) => id !== 'measurementDate');
+  const individualHistoryFields = [['measurementDate', 'Check-up Date'], ...profileFields, ...historyMetricFields];
+  const monthlyHistoryFields = [...communityFields, ...identityFields, ...profileFields, ...historyMetricFields];
+  const averageFields = historyMetricFields.map(([id]) => id);
+  const averageLabelField = (viewMode === 'individual' ? individualHistoryFields : monthlyHistoryFields)[0]?.[0];
+  const averageRow = buildMonitoringAverageRow(filteredRows, averageFields, averageLabelField);
   const exportFilteredRows = () => onExport({
     rows: filteredRows,
     fields: viewMode === 'individual'
-      ? [['measurementDate', 'Check-up Date'], ...profileFields, ...historyMetricFields]
-      : [...communityFields, ...identityFields, ...profileFields, ...historyMetricFields],
+      ? individualHistoryFields
+      : monthlyHistoryFields,
+    averageFields,
+    averageLabelField,
     view: 'table',
     tableMode: 'monitoring-dates',
     historyView: viewMode,
@@ -149,7 +163,22 @@ function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleField
         )}
         {showSchoolFilter && (
           <label>School
-            <select value={activeSchool} onChange={(event) => setSelectedSchool(event.target.value)} disabled={Boolean(communitySchool)}><option value="">All Schools</option>{schools.map((school) => <option key={school} value={school}>{school}</option>)}</select>
+            <select
+              aria-label="Report school"
+              value={communitySelection?.schoolId ? String(communitySelection.schoolId) : selectedSchool}
+              onChange={(event) => {
+                setSelectedSchool('');
+                setSelectedGroup('');
+                if (onSchoolChange) onSchoolChange(event.target.value);
+                else setSelectedSchool(event.target.value);
+              }}
+              disabled={loadingReport}
+            >
+              <option value="">All Schools</option>
+              {schoolOptions.length
+                ? schoolOptions.map(({ id, name }) => <option key={id} value={String(id)}>{name}</option>)
+                : schools.map((school) => <option key={school} value={school}>{school}</option>)}
+            </select>
           </label>
         )}
         {showGroupFilter && (
@@ -187,7 +216,7 @@ function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleField
           <div className="progress-report-table-shell">
             <table className="progress-report-table monitoring-history-table">
               <thead><tr><th>Check-up Date</th>{profileFields.map(([id, label]) => <th key={id}>{label}</th>)}{historyMetricFields.map(([id, label]) => <th key={id}>{label}</th>)}</tr></thead>
-              <tbody>{filteredRows.length ? filteredRows.map((row, index) => <tr key={row.historyRowKey || index}><td>{formatCellValue('measurementDate', row.measurementDate)}</td>{profileFields.map(([id]) => <td key={id}>{formatCellValue(id, row[id]) || '—'}</td>)}{historyMetricFields.map(([id]) => <td key={id}><HistoryCell field={id} value={row[id]} formatCellValue={formatCellValue} row={row} /></td>)}</tr>) : <tr><td colSpan={Math.max(1, profileFields.length + historyMetricFields.length + 1)} className="growth-report-empty">No check-up history for this beneficiary in the selected group.</td></tr>}</tbody>
+              <tbody>{filteredRows.length ? <>{filteredRows.map((row, index) => <tr key={row.historyRowKey || index}><td>{formatCellValue('measurementDate', row.measurementDate)}</td>{profileFields.map(([id]) => <td key={id}>{formatCellValue(id, row[id]) || '—'}</td>)}{historyMetricFields.map(([id]) => <td key={id}><HistoryCell field={id} value={row[id]} formatCellValue={formatCellValue} row={row} /></td>)}</tr>)}{averageRow && <tr className="monitoring-average-row"><td>Average</td>{profileFields.map(([id]) => <td key={id} />)}{historyMetricFields.map(([id]) => <td key={id}>{formatCellValue(id, averageRow[id])}</td>)}</tr>}</> : <tr><td colSpan={Math.max(1, profileFields.length + historyMetricFields.length + 1)} className="growth-report-empty">No check-up history for this beneficiary in the selected group.</td></tr>}</tbody>
             </table>
           </div>
         </>
@@ -195,7 +224,7 @@ function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleField
         <div className="progress-report-table-shell">
           <table className="progress-report-table monitoring-snapshot-table">
             <thead><tr>{communityFields.map(([id, label]) => <th key={id}>{label}</th>)}{identityFields.map(([id, label]) => <th key={id}>{label}</th>)}{profileFields.map(([id, label]) => <th key={id}>{label}</th>)}{historyMetricFields.map(([id, label]) => <th key={id}>{label}</th>)}</tr></thead>
-            <tbody>{filteredRows.map((row, index) => <tr key={row.historyRowKey || index}>{communityFields.map(([id]) => <td key={id}>{formatCellValue(id, row[id]) || '—'}</td>)}{identityFields.map(([id]) => <td key={id}>{formatCellValue(id, row[id])}</td>)}{profileFields.map(([id]) => <td key={id}>{formatCellValue(id, row[id]) || '—'}</td>)}{historyMetricFields.map(([id]) => <td key={id}><HistoryCell field={id} value={row[id]} formatCellValue={formatCellValue} row={row} /></td>)}</tr>)}</tbody>
+            <tbody>{filteredRows.map((row, index) => <tr key={row.historyRowKey || index}>{communityFields.map(([id]) => <td key={id}>{formatCellValue(id, row[id]) || '—'}</td>)}{identityFields.map(([id]) => <td key={id}>{formatCellValue(id, row[id])}</td>)}{profileFields.map(([id]) => <td key={id}>{formatCellValue(id, row[id]) || '—'}</td>)}{historyMetricFields.map(([id]) => <td key={id}><HistoryCell field={id} value={row[id]} formatCellValue={formatCellValue} row={row} /></td>)}</tr>)}{averageRow && <tr className="monitoring-average-row">{monthlyHistoryFields.map(([id]) => <td key={id}>{id === averageLabelField ? 'Average' : averageRow[id] !== undefined ? formatCellValue(id, averageRow[id]) : ''}</td>)}</tr>}</tbody>
           </table>
         </div>
       )}
@@ -399,6 +428,9 @@ export function ResultsTable({
   formatCellValue,
   selectedBatch = '',
   onSelectedBatchChange,
+  schoolOptions = [],
+  onSchoolChange,
+  loadingReport = false,
 }) {
   const visibleFields = reportFields.filter(([id]) => displayVisibleFields.includes(id));
   const [hiddenFields, setHiddenFields] = useState(() => new Set());
@@ -519,7 +551,7 @@ export function ResultsTable({
         </div>
       )}
       {showMonitoringFilter ? (
-        <MonitoringHistoryTable resultsRows={resultsRows} reportFields={reportFields} displayVisibleFields={displayVisibleFields} formatCellValue={formatCellValue} communitySelection={communitySelection} beneficiaryType={beneficiaryType} showSchoolFilter={showSchoolFilter} showGroupFilter={showGroupFilter} growthMetricOptions={growthMetricOptions} selectedGrowthMetric={selectedGrowthMetric} onGrowthMetricChange={onGrowthMetricChange} onRegisterExport={onRegisterMonitoringExport} includeInterpretationColumns={includeInterpretationColumns} setIncludeInterpretationColumns={setIncludeInterpretationColumns} onExport={onExport} exportingReport={exportingReport} selectedBatch={selectedBatch} onSelectedBatchChange={onSelectedBatchChange} />
+        <MonitoringHistoryTable resultsRows={resultsRows} reportFields={reportFields} displayVisibleFields={displayVisibleFields} formatCellValue={formatCellValue} communitySelection={communitySelection} beneficiaryType={beneficiaryType} showSchoolFilter={showSchoolFilter} showGroupFilter={showGroupFilter} schoolOptions={schoolOptions} onSchoolChange={onSchoolChange} loadingReport={loadingReport} growthMetricOptions={growthMetricOptions} selectedGrowthMetric={selectedGrowthMetric} onGrowthMetricChange={onGrowthMetricChange} onRegisterExport={onRegisterMonitoringExport} includeInterpretationColumns={includeInterpretationColumns} setIncludeInterpretationColumns={setIncludeInterpretationColumns} onExport={onExport} exportingReport={exportingReport} selectedBatch={selectedBatch} onSelectedBatchChange={onSelectedBatchChange} />
       ) : (
       <StandardResultsTable resultsRows={filteredProfileRows} fields={customizedFields} formatCellValue={formatCellValue} beneficiaryType={beneficiaryType} blankEmptyValues={showProfileFilter} />
       )}

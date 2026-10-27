@@ -1,7 +1,9 @@
 import { getPointInterpretation, getPointValue } from '../progressReportConfig';
 import { filterInterpretationFields } from './interpretationFields.mjs';
+import { growthTableFieldsForMetric, withoutGrowthScores } from './growthTableUtils.mjs';
 
 export { filterInterpretationFields };
+export { growthTableFieldsForMetric, withoutGrowthScores };
 
 export const GROWTH_TABLE_FIELDS = new Set([
   'weightForAge',
@@ -23,15 +25,6 @@ export const MONITORING_HISTORY_EXCLUDED_FIELDS = new Set([
   'weightForAgeInterpretation',
   'pediatricAgeWeeks',
 ]);
-
-export const growthTableFieldsForMetric = (metric) => {
-  if (metric?.startsWith('weightForLength')) return ['weightForLengthZScore', 'weightForLengthInterpretation'];
-  if (metric?.startsWith('weightForAge')) return ['weightForAge', 'weightForAgeZScore', 'weightForAgeInterpretation'];
-  if (metric?.startsWith('lengthForAge') || metric?.startsWith('heightForAge')) return ['heightForAge', 'lengthForAgeZScore', 'lengthForAgeInterpretation'];
-  if (metric === 'bmiForAge') return ['bmiForAge', 'bmiInterpretation'];
-  if (metric) return [metric];
-  return [];
-};
 
 export const pointValueForTableField = (point, field) => {
   if (field.endsWith('Interpretation')) return getPointInterpretation(point, field);

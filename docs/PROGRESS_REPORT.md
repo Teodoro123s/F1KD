@@ -15,17 +15,20 @@ Progress Report lets authorized operational roles review profile, monitoring, an
 
 - **Profile section** switches between General, Prenatal / OB, Medical / Dental, and Vaccine fields.
 - **Group** and **Batch** filters appear when the report contains multiple corresponding values. Selecting a group narrows the available batches.
+- School-wide and group-wide profile reports are available in **Table View**; use the setup scope to choose a school, group, or batch. The table's Group and Batch filters can further narrow the displayed rows.
 - **Customize table** controls visible columns. The beneficiary name stays visible during horizontal table scrolling.
 - Empty profile values are left blank. Explicit values such as `No`, `None`, and `0` remain visible.
 - City/municipality and province are presented as separate birth-place fields when those values are available.
-- Graph View is available when the report is for a selected batch or contains one beneficiary. It graphs the selected profile field.
+- Graph View is available when the report is for a selected batch or contains one beneficiary. It graphs the selected profile field. School/group reports explain when only Table View is available.
 
 The Results Group/Batch filters narrow the displayed table. CSV exports use the generated report scope and do not apply those local table-only filters; set the Community selection before generating the report when an export must be limited to a particular group or batch.
 
 ### Monitor Report
 
 - Table View presents the selected growth indicator and can show a latest summary or monitoring-date history.
+- Monitoring-date history ends with an **Average** row for the numeric measurement columns; the monitoring table CSV includes the same summary row.
 - Graph View displays growth progression over time. Depending on beneficiary type and selected indicator, it can show an individual beneficiary or all beneficiaries in a batch.
+- Admin and Partner users can change the School filter in the results table; changing it reloads the report for that school and clears narrower group/batch scope. In Graph View, the Batch filter narrows the plotted beneficiaries and the graph CSV export to that batch.
 - Use the graph's metric and date-range controls to adjust the visualization. CSV export is available from the active Results view.
 
 ### Project Report
@@ -39,7 +42,7 @@ The Results Group/Batch filters narrow the displayed table. CSV exports use the 
 
 - Export CSV from Results after confirming the report category and community scope.
 - Report downloads are audited. Treat report files as sensitive operational data and follow local retention and sharing rules.
-- Profile group and batch table filters are local display filters, not authorization controls. They do not expand access; the server remains authoritative for access and scope.
+- Profile group and batch table filters are local display filters, not authorization controls. School changes reload through the report API; filters do not expand access, and the server remains authoritative for access and scope.
 - AI-generated report suggestions are optional and should be checked before use. See the [Integrated AI guide](./INTEGRATED_AI.md).
 
 ## Implementation references

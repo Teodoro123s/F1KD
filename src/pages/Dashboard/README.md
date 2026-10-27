@@ -11,3 +11,4 @@ This folder contains the dedicated dashboard experience for analytics, summary v
 - Summary and analytics shortcuts
 - Quick navigation to reports and major modules
 - A clean entry point for future KPI widgets
+- Admin and Partner dashboards provide an organization-wide overview across all accessible schools and communities using the shared KPI and module-summary cards.

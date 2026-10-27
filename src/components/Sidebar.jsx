@@ -55,7 +55,7 @@ export default function Sidebar() {
   const isCommunityOrganizer = isCommunityCoordinatorRole(currentUser?.role);
   const notificationsItem = { to: '/notifications', label: 'Notifications', icon: NotificationIcon };
   const visibleItems = isSuperAdmin
-    ? [...items.filter((item) => ['/dashboard', '/community', '/progress-report', '/user-management'].includes(item.to)), {
+    ? [...items.filter((item) => ['/dashboard', '/community', '/user-management'].includes(item.to)), {
       to: '/reports',
       label: 'Reports',
       icon: ReportsIcon,

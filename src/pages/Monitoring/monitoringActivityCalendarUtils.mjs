@@ -37,6 +37,17 @@ export function getMonitoringMonthDays(month) {
   });
 }
 
+export function getMonitoringActivityStatusCounts(activities = []) {
+  const counts = { done: 0, pending: 0, missing: 0 };
+  activities.forEach(({ status }) => {
+    const normalizedStatus = String(status || '').toLowerCase();
+    if (normalizedStatus === 'completed') counts.done += 1;
+    else if (normalizedStatus === 'pending' || normalizedStatus === 'scheduled') counts.pending += 1;
+    else if (normalizedStatus === 'overdue' || normalizedStatus === 'missed') counts.missing += 1;
+  });
+  return counts;
+}
+
 function getTrimesterIndex(value, fallbackIndex) {
   const normalized = String(value || '').toLowerCase();
   if (normalized.includes('3') || normalized.includes('third')) return 2;

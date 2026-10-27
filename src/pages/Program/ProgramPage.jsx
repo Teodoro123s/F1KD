@@ -745,8 +745,8 @@ export default function ProgramPage() {
     );
     setShowActivityModal(false);
   };
-  const backToActivePrograms = async () => {
-    const programToRestore = actionProgram || selectedProgram;
+  const backToActivePrograms = async (program = actionProgram || selectedProgram) => {
+    const programToRestore = program;
     if (!programToRestore) return;
     setActiveActionMenu(null);
     try {
@@ -760,8 +760,8 @@ export default function ProgramPage() {
       notifyAction(message, 'error');
     }
   };
-  const endProgram = async () => {
-    const programToEnd = actionProgram || selectedProgram;
+  const endProgram = async (program = actionProgram || selectedProgram) => {
+    const programToEnd = program;
     if (!programToEnd) return;
     setActiveActionMenu(null);
     try {
@@ -861,8 +861,8 @@ export default function ProgramPage() {
     setForm({ ...emptyProgram, ...program });
     setShowModal(true);
   };
-  const deleteProgram = () => {
-    const programToDelete = actionProgram || selectedProgram;
+  const deleteProgram = (program = actionProgram || selectedProgram) => {
+    const programToDelete = program;
     if (!programToDelete) return;
     setPendingDeleteProgram(programToDelete);
   };
@@ -881,7 +881,7 @@ export default function ProgramPage() {
       notifyAction(message, 'error');
     }
   };
-  const renderActionMenu = (menuId, menuProgram = selectedProgram) => menuProgram && (
+  const renderActionMenu = (menuId, menuProgram = selectedProgram, { includeReceiptHistory = true, activityMenu = false } = {}) => menuProgram && (
     <div className="actions-cell" onClick={(event) => event.stopPropagation()}>
       <button
         type="button"
@@ -911,7 +911,7 @@ export default function ProgramPage() {
           className="actions-dropdown actions-dropdown-portal community-actions-dropdown"
           role="menu"
         >
-          {(isCommunityOrganizer || isHealthWorkerRole(currentUser?.role)) && (menuProgram.clusters || []).length > 0 && (
+          {includeReceiptHistory && (isCommunityOrganizer || isHealthWorkerRole(currentUser?.role)) && (menuProgram.clusters || []).length > 0 && (
             <button
               type="button"
               className="actions-dropdown-item"
@@ -925,12 +925,12 @@ export default function ProgramPage() {
             <button type="button" className="actions-dropdown-item" onClick={() => { setActionProgram(menuProgram); setActiveActionMenu(null); editProgram(menuProgram); }} role="menuitem">Edit</button>
           )}
           {canEndPrograms && (
-            <button type="button" className="actions-dropdown-item" onClick={() => { setActionProgram(menuProgram); setActiveActionMenu(null); activeTab === 'Ended' ? backToActivePrograms() : endProgram(); }} role="menuitem">
-              {activeTab === 'Ended' ? 'Reactivate' : 'End'}
+            <button type="button" className="actions-dropdown-item" onClick={() => { setActionProgram(menuProgram); setActiveActionMenu(null); (activityMenu ? String(menuProgram?.status || '').trim().toLowerCase() === 'ended' : activeTab === 'Ended') ? backToActivePrograms(menuProgram) : endProgram(menuProgram); }} role="menuitem">
+              {(activityMenu ? String(menuProgram?.status || '').trim().toLowerCase() === 'ended' : activeTab === 'Ended') ? 'Reactivate' : 'End'}
             </button>
           )}
           {canDeletePrograms && (
-            <button type="button" className="actions-dropdown-item delete" onClick={() => { setActionProgram(menuProgram); setActiveActionMenu(null); deleteProgram(); }} role="menuitem">Delete</button>
+            <button type="button" className="actions-dropdown-item delete" onClick={() => { setActionProgram(menuProgram); setActiveActionMenu(null); deleteProgram(menuProgram); }} role="menuitem">Delete</button>
           )}
         </FloatingLayer>
       )}
@@ -1233,6 +1233,14 @@ export default function ProgramPage() {
           error={activityError}
           onRetry={() => setActivityRetry((current) => current + 1)}
           onMonthChange={setActivityMonth}
+          canManageProjects={canManagePrograms}
+          onProjectOpen={(project) => navigate(`/program/${project.id}`)}
+          renderProjectActions={(project) => {
+            const program = programs.find((item) => String(item.id) === String(project.id));
+            return program
+              ? renderActionMenu(`activity-${project.id}`, program, { includeReceiptHistory: false, activityMenu: true })
+              : null;
+          }}
         />
       )}
 

@@ -2,10 +2,22 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   formatMonitoringDate,
+  getMonitoringActivityStatusCounts,
   getMaternalMonitoringActivities,
   getMonitoringMonthDays,
   parseMonitoringDateKey,
 } from './monitoringActivityCalendarUtils.mjs';
+
+test('calendar groups activity counts into done, pending, and missing statuses', () => {
+  assert.deepEqual(getMonitoringActivityStatusCounts([
+    { status: 'Completed' },
+    { status: 'Completed' },
+    { status: 'Scheduled' },
+    { status: 'Pending' },
+    { status: 'Overdue' },
+    { status: 'Missed' },
+  ]), { done: 2, pending: 2, missing: 2 });
+});
 
 test('calendar date keys validate and format as local dates', () => {
   assert.equal(parseMonitoringDateKey('2026-10-27T23:30:00Z'), '2026-10-27');

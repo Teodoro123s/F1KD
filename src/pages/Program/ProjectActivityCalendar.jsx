@@ -15,6 +15,9 @@ export default function ProjectActivityCalendar({
   error,
   onRetry,
   onMonthChange,
+  canManageProjects = false,
+  renderProjectActions,
+  onProjectOpen,
 }) {
   const [selectedDate, setSelectedDate] = React.useState('');
   const [showSelectedDate, setShowSelectedDate] = React.useState(false);
@@ -58,12 +61,27 @@ export default function ProjectActivityCalendar({
           ) : selectedProjects.length ? (
             <div className="project-activity-table-wrap">
               <table className="data-table project-activity-table">
-                <thead><tr><th>Project Name</th><th>Activity Date</th></tr></thead>
+                <thead><tr><th>Project Name</th><th>Activity Date</th>{canManageProjects && <th>Action</th>}</tr></thead>
                 <tbody>
                   {selectedProjects.map((project) => (
-                    <tr key={project.id}>
+                    <tr
+                      key={project.id}
+                      className="project-activity-clickable-row"
+                      onClick={() => onProjectOpen?.(project)}
+                      onKeyDown={(event) => {
+                        if (event.target !== event.currentTarget) return;
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          onProjectOpen?.(project);
+                        }
+                      }}
+                      tabIndex={0}
+                      role="link"
+                      aria-label={`Open project ${project.name}`}
+                    >
                       <td><strong>{project.name}</strong></td>
                       <td>{formatActivityDate(project.activityDate)}</td>
+                      {canManageProjects && <td>{renderProjectActions?.(project)}</td>}
                     </tr>
                   ))}
                 </tbody>

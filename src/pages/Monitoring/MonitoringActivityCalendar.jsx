@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import {
   formatMonitoringDate,
+  getMonitoringActivityStatusCounts,
   getMonitoringMonthDays,
   toMonitoringDateKey,
 } from './monitoringActivityCalendarUtils.mjs';
@@ -93,6 +94,11 @@ export default function MonitoringActivityCalendar({
               <h3 className="monitoring-activity-calendar-month" aria-live="polite">
                 {new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(month)}
               </h3>
+              <div className="monitoring-calendar-legend" aria-label="Activity status legend">
+                <span><i className="is-done" aria-hidden="true" />Done</span>
+                <span><i className="is-pending" aria-hidden="true" />Pending</span>
+                <span><i className="is-missing" aria-hidden="true" />Missing</span>
+              </div>
               <div className="monitoring-calendar-grid" role="group" aria-label="Monthly monitoring activity calendar">
                 {WEEKDAYS.map((day) => (
                   <div className="monitoring-calendar-weekday" key={day}>{day}</div>
@@ -102,6 +108,7 @@ export default function MonitoringActivityCalendar({
                     return <span className="monitoring-calendar-empty-day" key={`empty-${index}`} aria-hidden="true" />;
                   }
                   const dayActivities = activitiesByDate.get(day.key) || [];
+                  const statusCounts = getMonitoringActivityStatusCounts(dayActivities);
                   const labels = dayActivities.map(getActivityDescription);
                   return (
                     <button
@@ -119,11 +126,10 @@ export default function MonitoringActivityCalendar({
                     >
                       <span className="monitoring-calendar-day-number">{day.date.getDate()}</span>
                       {dayActivities.length > 0 && (
-                        <span
-                          className="monitoring-calendar-count"
-                          aria-label={`${dayActivities.length} monitoring ${dayActivities.length === 1 ? 'activity' : 'activities'}`}
-                        >
-                          {dayActivities.length}
+                        <span className="monitoring-calendar-counts" aria-label={labels.join('; ')}>
+                          {statusCounts.done > 0 && <span className="monitoring-calendar-count is-done" aria-label={`${statusCounts.done} done`}>{statusCounts.done}</span>}
+                          {statusCounts.pending > 0 && <span className="monitoring-calendar-count is-pending" aria-label={`${statusCounts.pending} pending`}>{statusCounts.pending}</span>}
+                          {statusCounts.missing > 0 && <span className="monitoring-calendar-count is-missing" aria-label={`${statusCounts.missing} missing`}>{statusCounts.missing}</span>}
                         </span>
                       )}
                     </button>
