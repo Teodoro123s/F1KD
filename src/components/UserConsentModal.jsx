@@ -49,7 +49,7 @@ export default function UserConsentModal() {
     >
       <div className="user-consent-copy">
         <p>
-          F1KD contains sensitive program and beneficiary information. Use it only for authorized work,
+          F1KD contains sensitive project and beneficiary information. Use it only for authorized work,
           protect your account credentials, and follow your organization&apos;s privacy and data-handling policies.
         </p>
         <label className="user-consent-checkbox">

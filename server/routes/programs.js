@@ -257,6 +257,59 @@ function programHasScopeMatch(clusters = [], { schoolId, groupId } = {}) {
   return true;
 }
 
+router.get('/activity-calendar', async (req, res) => {
+  const startDate = validDate(req.query.from);
+  const endDate = validDate(req.query.to);
+  if (!startDate || !endDate || startDate > endDate) {
+    return res.status(400).json({ error: 'A valid activity date range is required in YYYY-MM-DD format' });
+  }
+  if (req.isHealthWorker && !req.groupId) {
+    return res.status(403).json({ error: 'Health workers must be assigned to a group to view project activities' });
+  }
+
+  try {
+    const visibility = getProgramVisibilityFilter(req);
+    const healthWorkerScope = req.isHealthWorker
+      ? `AND (
+           (LOWER(ml.beneficiary_type) = 'mother' AND EXISTS (
+             SELECT 1 FROM mothers scoped_mother
+             WHERE (CAST(ml.beneficiary_id AS CHAR) = CAST(scoped_mother.id AS CHAR)
+               OR LOWER(TRIM(CAST(ml.beneficiary_id AS CHAR))) = LOWER(TRIM(CAST(scoped_mother.mother_code AS CHAR))))
+               AND scoped_mother.group_id = ?
+           ))
+           OR (LOWER(ml.beneficiary_type) = 'child' AND EXISTS (
+             SELECT 1 FROM children scoped_child
+             LEFT JOIN mothers scoped_parent ON scoped_parent.id = scoped_child.mother_id
+             WHERE (CAST(ml.beneficiary_id AS CHAR) = CAST(scoped_child.id AS CHAR)
+               OR LOWER(TRIM(CAST(ml.beneficiary_id AS CHAR))) = LOWER(TRIM(CAST(scoped_child.child_code AS CHAR))))
+               AND COALESCE(scoped_child.group_id, scoped_parent.group_id) = ?
+           ))
+         )`
+      : '';
+    const visibilityJoin = visibility.sql ? `${visibility.sql} AND` : 'WHERE';
+    const [activities] = await pool.query(
+      `SELECT ml.id AS activity_id, p.id AS program_id, p.name AS program_name,
+          DATE_FORMAT(ml.monitored_date, '%Y-%m-%d') AS activity_date
+       FROM monitoring_logs ml
+       INNER JOIN programs p ON p.id = ml.program_id
+       ${visibilityJoin} ml.monitored = 1
+         AND ml.monitored_date >= ? AND ml.monitored_date <= ?
+         ${healthWorkerScope}
+       ORDER BY ml.monitored_date, p.id, ml.id`,
+      [
+        ...visibility.values,
+        startDate,
+        endDate,
+        ...(req.isHealthWorker ? [req.groupId, req.groupId] : []),
+      ],
+    );
+    return res.json({ activities });
+  } catch (error) {
+    console.error('[Programs API] activity calendar error:', error.message);
+    return res.status(500).json({ error: 'Unable to load project activities' });
+  }
+});
+
 router.get('/', async (req, res) => {
   if (req.isHealthWorker && !req.groupId) {
     return res.status(403).json({ error: 'Health workers must be assigned to a group to view programs' });

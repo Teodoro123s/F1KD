@@ -17,6 +17,7 @@ export function CommunitySelectionStep({
   aiInitialProgramName,
   aiInitialBenefitPeriod,
   aiInitialBenefitMonth,
+  aiScopeSelection,
   buildAiReportPreview,
   exportAiReportCsv,
   reportCategoryStep,
@@ -81,6 +82,7 @@ export function CommunitySelectionStep({
         initialProgramName={aiInitialProgramName}
         initialBenefitPeriod={aiInitialBenefitPeriod}
         initialBenefitMonth={aiInitialBenefitMonth}
+        scopeSelection={aiScopeSelection}
         onBuildPreview={buildAiReportPreview}
         onExport={exportAiReportCsv}
       />

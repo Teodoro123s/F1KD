@@ -4,8 +4,14 @@ import {
   formatPresenceProfileValue,
   PRESENCE_PROFILE_FIELDS,
 } from './utils/profileFieldFormatting.mjs';
+import {
+  getInterpretationLevels,
+  mapInterpretationToBand,
+  normalizeNutritionLabel,
+} from './utils/interpretationBands.mjs';
 
 export { PRESENCE_PROFILE_FIELDS };
+export { getInterpretationLevels, mapInterpretationToBand, normalizeNutritionLabel };
 
 export const EMPTY_SELECTIONS = { schoolId: '', groupId: '', batchId: '' };
 
@@ -23,7 +29,7 @@ export const REPORT_FIELDS = [
   ['contact', 'Contact Number', 'Identity'],
   ['status', 'Status', 'Health & Status'],
   ['risk', 'Risk Level', 'Health & Status'],
-  ['program', 'Program', 'Health & Status'],
+  ['program', 'Project', 'Health & Status'],
   ['deliveryType', 'Delivery Type', 'Health & Status'],
   ['healthStatus', 'Health Status', 'Health & Status'],
   ['liveBirthDocument', 'Live Birth Document', 'Profile'],
@@ -68,7 +74,7 @@ export const REPORT_FIELDS = [
   ['contactNumber', 'Contact Number', 'Profile'],
   ['addressDetails', 'Address Details', 'Profile'],
   ['motherBirthCertificate', "Mother's Birth Certificate", 'Profile'],
-  ['programConsentDocument', 'Program Consent Form', 'Profile'],
+  ['programConsentDocument', 'Project Consent Form', 'Profile'],
   ['maidenSurname', 'Maiden Surname', 'Profile'],
   ['allergies', 'Allergies', 'Profile'],
   ['bloodType', 'Blood Type', 'Profile'],
@@ -176,10 +182,10 @@ export const REPORT_FIELDS = [
   ['activitiesCompleted', 'Activities Completed', 'Monitoring'],
   ['totalActivities', 'Total Activities', 'Monitoring'],
   ['progress', 'Progress %', 'Monitoring'],
-  ['receivedBenefitTotal', 'Total Received Benefits', 'Program Report'],
-  ['receivedBenefitFrequency', 'Benefit Receipt Frequency', 'Program Report'],
-  ['receivedBenefitAveragePerMonth', 'Average Received per Month', 'Program Report'],
-  ['programDocumentation', 'Documentation Attached', 'Program Report'],
+  ['receivedBenefitTotal', 'Total Received Benefits', 'Project Report'],
+  ['receivedBenefitFrequency', 'Benefit Receipt Frequency', 'Project Report'],
+  ['receivedBenefitAveragePerMonth', 'Average Received per Month', 'Project Report'],
+  ['programDocumentation', 'Documentation Attached', 'Project Report'],
   ['hospitalReferral', 'Referral to Hospital', 'Monitoring'],
   ['lastActivityDate', 'Last Activity', 'Monitoring'],
   ['nextCheckupDate', 'Next Check-up', 'Monitoring'],
@@ -211,8 +217,8 @@ export const GROWTH_METRICS = [
 ];
 
 export const WHO_NUMERIC_GROWTH_METRICS = [
-  ['weightForAgeZScore', 'Weight-for-Age Z-Score', 'WHO LMS z-score for weight relative to age.'],
-  ['lengthForAgeZScore', 'Length-for-Age Z-Score', 'WHO LMS z-score for length relative to age; height is used from 24 months.'],
+  ['weightForAge', 'Weight (kg)', 'Raw child weight recorded at each check-up.'],
+  ['heightForAge', 'Length/Height (cm)', 'Raw child length or height recorded at each check-up.'],
   ['weightForLengthZScore', 'Weight-for-Length Z-Score', 'WHO LMS z-score for weight relative to length; height is used from 24 months.'],
 ];
 
@@ -337,7 +343,7 @@ export const MOTHER_PROFILE_METRICS = [
   ['contactNumber', 'Contact Number', 'Contact number recorded in the mother profile.'],
   ['addressDetails', 'Address Details', 'Whether address details are recorded in the mother profile.'],
   ['motherBirthCertificate', "Mother's Birth Certificate", 'Whether the mother birth certificate is uploaded.'],
-  ['programConsentDocument', 'Program Consent Form', 'Whether the program consent form is uploaded.'],
+  ['programConsentDocument', 'Project Consent Form', 'Whether the project consent form is uploaded.'],
   ['civilStatus', 'Civil Status', 'Civil status recorded in the mother profile.'],
   ['employmentStatus', 'Employment Status', 'Employment status recorded in the mother profile.'],
   ['educationalAttainment', 'Educational Attainment', 'Educational attainment recorded in the mother profile.'],
@@ -448,68 +454,12 @@ export const PROGRAM_METRICS = [
   ['receivedBenefitTotal', 'Total Received Benefits', 'Total true benefit-receipt events in the selected period.'],
   ['receivedBenefitFrequency', 'Receipt Frequency', 'Number of true receipt events in the selected period.'],
   ['receivedBenefitAveragePerMonth', 'Average Received per Month', 'Average true receipt events per active month.'],
-  ['programDocumentation', 'Documentation Attached', 'Yes when at least one selected program receipt has attached photo documentation; otherwise No.'],
+  ['programDocumentation', 'Documentation Attached', 'Yes when at least one selected project receipt has attached photo documentation; otherwise No.'],
 ];
 
 export const REPORT_TABS = ['Community & Report Focus', 'Growth Metrics', 'Results'];
 
 export const csvValue = (value) => `"${String(value ?? '').replaceAll('"', '""')}"`;
-
-export const getInterpretationLevels = (metric = '') => {
-  const key = String(metric || '').toLowerCase();
-  if (key.includes('weight-for-age')) {
-    return ['Severely Underweight', 'Underweight', 'Normal', 'High weight-for-age'];
-  }
-  if (key.includes('length') || key.includes('height')) {
-    return ['Severely Stunted', 'Stunted', 'Normal', 'Tall', 'Very Tall'];
-  }
-  if (key.includes('weight')) {
-    return ['Severely Underweight', 'Underweight', 'Normal', 'Overweight', 'Obese'];
-  }
-  return ['Severely Wasted', 'Wasted', 'Normal', 'Overweight', 'Obese'];
-};
-
-export const normalizeNutritionLabel = (value) => {
-  const label = String(value ?? '').trim().replace(/\s+/g, ' ');
-  if (!label) return '';
-  const normalized = label.toLowerCase();
-  if (['severely wasted', 'severely_wasted', 'severely-wasted'].includes(normalized)) return 'Severely Wasted';
-  if (['wasted', 'malnourished'].includes(normalized)) return 'Wasted';
-  if (['severely underweight', 'severely_underweight', 'severely-underweight', 'severely below expected', 'severely-below-expected', 'severely_below_expected'].includes(normalized)) return 'Severely Underweight';
-  if (['underweight', 'below expected', 'below-expected', 'below_expected'].includes(normalized)) return 'Underweight';
-  if (normalized === 'high weight-for-age') return 'High weight-for-age';
-  if (['severely stunted', 'severely_stunted', 'severely-stunted'].includes(normalized)) return 'Severely Stunted';
-  if (['stunted'].includes(normalized)) return 'Stunted';
-  if (['tall', 'above expected', 'above-expected', 'above_expected'].includes(normalized)) return 'Tall';
-  if (['very tall', 'very_tall', 'very-tall'].includes(normalized)) return 'Very Tall';
-  if (['obese', 'severely obese', 'severely_obese', 'severely-obese'].includes(normalized)) return normalized.includes('severely') ? 'Severely Obese' : 'Obese';
-  if (['overweight'].includes(normalized)) return 'Overweight';
-  if (['normal', 'within expected range', 'within expected', 'within_expected', 'normal screening range'].includes(normalized)) return 'Normal';
-  return label;
-};
-
-export const mapInterpretationToBand = (value, metric) => {
-  const normalized = normalizeNutritionLabel(value);
-  const bands = getInterpretationLevels(metric);
-  if (!normalized) return bands[2];
-  const index = bands.indexOf(normalized);
-  return index >= 0 ? bands[index] : (
-    normalized === 'Severely Obese' ? bands[4]
-      : normalized === 'Obese' ? bands[4]
-        : normalized === 'Overweight' ? bands[3]
-          : normalized === 'Normal' ? bands[2]
-            : normalized === 'Underweight' ? bands[1]
-              : normalized === 'Severely Underweight' ? bands[0]
-                : normalized === 'Severely Stunted' ? bands[0]
-                  : normalized === 'Stunted' ? bands[1]
-                    : normalized === 'Tall' ? bands[3]
-                      : normalized === 'Very Tall' ? bands[4]
-                        : normalized === 'High weight-for-age' ? bands[bands.length - 1]
-                        : normalized === 'Severely Wasted' ? bands[0]
-                          : normalized === 'Wasted' ? bands[1]
-                            : bands[2]
-  );
-};
 
 export const getBmiInterpretation = (value) => {
   if (value === undefined || value === null || value === '') return '';

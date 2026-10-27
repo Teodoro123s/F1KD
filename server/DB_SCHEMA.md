@@ -2,6 +2,8 @@
 
 This is the unified review of the database structure defined by the current schema scripts and the live verification of the `users` table.
 
+The interface calls the operational module **Projects**. This schema intentionally retains the legacy `programs` table and related identifiers; no database rename is performed.
+
 ## 1. Source of truth
 
 The current schema is represented by:
@@ -447,7 +449,8 @@ Columns:
 
 Purpose:
 - pediatric growth monitoring with monthly follow-ups through 24 months
-- per-visit breastfeeding, laboratory, referral, and assistance records
+- per-visit feeding method, laboratory, referral, and assistance records
+- `exclusive_breastfeeding` stores the feeding-method choice (`VARCHAR(40)`): Exclusive breastfeeding, Bottle feeding, Formula feeding, Mixed feeding, or Complementary feeding
 - authenticated users who created and last updated the check-up, with timestamps
 - supplementary feeding is intentionally excluded here; it remains part of Program records
 

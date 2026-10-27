@@ -156,8 +156,8 @@ const weightForAgeInterpretation = (zScore) => {
 
 const weightForLengthInterpretation = (zScore) => {
   if (zScore === null) return '';
-  if (zScore < -3) return 'Severely Wasted';
-  if (zScore < -2) return 'Wasted';
+  if (zScore < -3) return 'Severe acute malnutrition';
+  if (zScore < -2) return 'Moderate acute malnutrition';
   if (zScore > 3) return 'Obese';
   if (zScore > 2) return 'Overweight';
   return 'Normal';
@@ -167,6 +167,7 @@ const lengthForAgeInterpretation = (zScore) => {
   if (zScore === null) return '';
   if (zScore < -3) return 'Severely Stunted';
   if (zScore < -2) return 'Stunted';
+  if (zScore > 3) return 'Very Tall';
   if (zScore > 2) return 'Tall';
   return 'Normal';
 };

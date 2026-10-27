@@ -419,7 +419,7 @@ async function ensure() {
       weight DECIMAL(5,2),
       height DECIMAL(5,2),
       head_circumference DECIMAL(5,2),
-      exclusive_breastfeeding VARCHAR(10),
+      exclusive_breastfeeding VARCHAR(40),
       laboratory_requests TEXT,
       laboratory_assistance_provided BOOLEAN NOT NULL DEFAULT FALSE,
       referred_to_hospital BOOLEAN NOT NULL DEFAULT FALSE,
@@ -442,7 +442,7 @@ async function ensure() {
       ADD COLUMN IF NOT EXISTS developmental_status VARCHAR(40),
       ADD COLUMN IF NOT EXISTS service_provider VARCHAR(150),
       ADD COLUMN IF NOT EXISTS next_checkup_date DATE,
-      ADD COLUMN IF NOT EXISTS exclusive_breastfeeding VARCHAR(10),
+      ADD COLUMN IF NOT EXISTS exclusive_breastfeeding VARCHAR(40),
       ADD COLUMN IF NOT EXISTS laboratory_requests TEXT,
       ADD COLUMN IF NOT EXISTS laboratory_assistance_provided BOOLEAN NOT NULL DEFAULT FALSE,
       ADD COLUMN IF NOT EXISTS referred_to_hospital BOOLEAN NOT NULL DEFAULT FALSE,
@@ -455,6 +455,9 @@ async function ensure() {
       ADD COLUMN IF NOT EXISTS updated_by_user_id INT NULL,
       ADD COLUMN IF NOT EXISTS created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
       ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;`,
+
+    `ALTER TABLE child_checkups
+      MODIFY COLUMN exclusive_breastfeeding VARCHAR(40) NULL;`,
 
     `ALTER TABLE mother_checkups
       ADD COLUMN IF NOT EXISTS recorded_by_user_id INT NULL,

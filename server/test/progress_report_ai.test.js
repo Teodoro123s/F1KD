@@ -584,7 +584,7 @@ test('monitoring AI field matching selects requested mother and child check-up f
   ]));
 
   const childIntent = await createMonitoringReportIntent(
-    'Show children BMI value, weight-for-age, length-for-age, and weight-for-length interpretations, plus provider, breastfeeding status, current age, and notes.',
+    'Show children BMI value, weight-for-age, length-for-age, and weight-for-length interpretations, plus provider, feeding method, current age, and notes.',
     'Child',
     { env: modelEnvironment },
   );

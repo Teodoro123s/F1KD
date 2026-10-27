@@ -340,7 +340,7 @@ export default function DashboardPage() {
     if (isHealthWorker) {
       return [
         { key: 'follow-ups', title: 'Follow-Ups', value: stats.followUpCount, subtitle: 'Beneficiaries needing follow-up', to: '/monitoring', icon: '🩺', cardClass: 'amber' },
-        { key: 'receipts', title: 'Assigned Programs', value: stats.programCount, subtitle: 'Available to your group', to: '/program', icon: '🍱', cardClass: 'rose' },
+        { key: 'receipts', title: 'Assigned Projects', value: stats.programCount, subtitle: 'Available to your group', to: '/program', icon: '🍱', cardClass: 'rose' },
       ];
     }
 
@@ -348,7 +348,7 @@ export default function DashboardPage() {
       { key: 'beneficiaries', title: 'Beneficiaries', value: stats.motherCount + stats.childCount, subtitle: `${stats.motherCount} mothers · ${stats.childCount} children`, to: '/beneficiary', icon: '👥', cardClass: 'teal' },
       { key: 'follow-ups', title: 'Follow-Ups', value: stats.followUpCount, subtitle: 'Beneficiaries needing follow-up', to: '/monitoring', icon: '🩺', cardClass: 'amber' },
       { key: 'communities', title: 'Communities', value: stats.communityCount, subtitle: `${stats.batchCount} batches · ${stats.groupCount} groups`, to: '/community', icon: '🏫', cardClass: 'indigo' },
-      { key: 'programs', title: 'Programs', value: stats.programCount, subtitle: 'Intervention programs', to: '/program', icon: '🍱', cardClass: 'rose' },
+      { key: 'programs', title: 'Projects', value: stats.programCount, subtitle: 'Intervention projects', to: '/program', icon: '🍱', cardClass: 'rose' },
       ...(isCommunityOrganizer ? [{
         key: 'health-workers',
         title: 'Health Workers',
@@ -387,11 +387,11 @@ export default function DashboardPage() {
     : isHealthWorker
       ? 'Your assigned-group check-ins and follow-up tasks'
       : isCommunityOrganizer
-        ? 'Manage beneficiaries, programs, and health workers for your school'
+        ? 'Manage beneficiaries, projects, and health workers for your school'
         : isAdmin
           ? 'Review operational progress across communities'
           : isPartner
-            ? 'Review program and community activity'
+            ? 'Review project and community activity'
             : `${roleLabel} workspace`;
 
   const trendPeriods = isSuperAdmin ? signInTrend : registrationTrend;

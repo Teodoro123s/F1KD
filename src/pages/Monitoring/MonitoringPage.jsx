@@ -1,7 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
-import FieldInfoTooltip from '../../components/ui/FieldInfoTooltip';
 import PageHeader from '../../components/ui/PageHeader';
 import { useMothers } from '../../context/MothersContext';
 import MotherCheckup from '../Beneficiary/mother/MotherCheckup';
@@ -9,9 +8,9 @@ import EntitySearchControls from '../Beneficiary/components/EntitySearchControls
 import ChildMonitor, { getChildName } from './ChildMonitor';
 import { createMonitorModel } from './monitorModel';
 import { apiGetChild, apiGetChildren, apiSaveChildCheckup } from '../../api/children';
-import { apiGetMother, apiSaveMotherCheckup } from '../../api/mothers';
+import { apiGetMother, apiGetMothers, apiSaveMotherCheckup } from '../../api/mothers';
 import { useAuth } from '../../auth/AuthProvider';
-import { canViewAuditSignatures, isHealthWorkerRole } from '../../utils/permissions';
+import { can, canViewAuditSignatures, isHealthWorkerRole } from '../../utils/permissions';
 import { getChildMonitoringProgress } from '../../utils/beneficiary/childProgress';
 import { getMotherMonitoringProgress, getMotherNextCheckupDate } from '../../utils/beneficiary/motherProgress';
 import { notifyAction } from '../../components/ActionFeedback';
@@ -20,18 +19,10 @@ import ModuleSummaryCards from '../../components/ui/ModuleSummaryCards';
 import useModalAccessibility from '../../components/ui/useModalAccessibility';
 import { navigateBack } from '../../utils/navigation/navigation';
 import MotherNavigationCards from '../Beneficiary/mother/MotherNavigationCards';
+import ChildNavigationCards from '../Beneficiary/child/ChildNavigationCards';
 import BeneficiarySuperHeader from '../Beneficiary/mother/BeneficiarySuperHeader';
-import { apiCreateMonitoringReportIntent } from '../../api/progressReport';
-import { downloadContent, generateCsvContent } from '../ProgressReport/utils/exportUtils';
-import {
-  filterMonitoringReportCheckups,
-  getFirstMonitoringReportCheckup,
-  getLatestMonitoringReportCheckup,
-  getMonitoringReportCheckups,
-  getMonitoringReportValue,
-  escapeMonitoringReportCsvValue,
-  MONITORING_REPORT_FIELD_LABELS,
-} from './monitoringReportUtils.mjs';
+import MonitoringActivityCalendar from './MonitoringActivityCalendar';
+import { getMaternalMonitoringActivities } from './monitoringActivityCalendarUtils.mjs';
 
 function getMotherName(mother) {
   return mother?.name || [mother?.firstName || mother?.first_name, mother?.middleName || mother?.middle_name, mother?.lastName || mother?.last_name]
@@ -99,100 +90,65 @@ function MotherCheckupEditDrawer({ mother, initialStep, showAuditSignatures, onS
   ), document.body);
 }
 
-function getMonitoringReportBeneficiaryId(beneficiary, type) {
-  return String(type === 'Mother'
-    ? beneficiary?.id ?? beneficiary?.motherId ?? beneficiary?.mother_id ?? beneficiary?.motherCode ?? beneficiary?.mother_code ?? ''
-    : beneficiary?.id ?? beneficiary?.childId ?? beneficiary?.child_id ?? beneficiary?.childCode ?? beneficiary?.child_code ?? '');
-}
-
-function getMonitoringReportBeneficiaryName(beneficiary, type) {
-  return type === 'Mother' ? getMotherName(beneficiary) : getChildName(beneficiary);
-}
-
-function removeKnownBeneficiaryNames(prompt, names) {
-  const uniqueNames = [...new Set(names
-    .filter((name) => name && name !== 'Unnamed mother')
-    .sort((left, right) => right.length - left.length))];
-  return uniqueNames.reduce((safePrompt, name) => safePrompt.replace(
-    new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'),
-    'the selected beneficiary',
-  ), prompt);
-}
-
-const MONITORING_SCOPE_FIELDS = [
-  { id: 'school', label: 'School', terms: ['school', 'schools'], keys: ['school', 'schoolName', 'school_name', 'community', 'communityName', 'community_name'] },
-  { id: 'community', label: 'Community', terms: ['community', 'communities'], keys: ['community', 'communityName', 'community_name', 'area'] },
-  { id: 'group', label: 'Group', terms: ['group', 'groups'], keys: ['group', 'groupName', 'group_name'] },
-  { id: 'batch', label: 'Batch', terms: ['batch', 'batches'], keys: ['batch', 'batchName', 'batch_name', 'batchCode', 'batch_code'] },
-];
-
-function getMonitoringScopeValue(beneficiary, scope) {
-  return scope.keys
-    .map((key) => beneficiary?.[key])
-    .find((value) => value !== undefined && value !== null && String(value).trim()) || '';
-}
-
-function normalizeMonitoringScopeValue(value) {
-  return String(value || '').trim().toLocaleLowerCase().replace(/\s+/g, ' ');
-}
-
-function compactMonitoringScopeValue(value) {
-  return normalizeMonitoringScopeValue(value).replace(/[^a-z0-9]/g, '');
-}
-
-function resolveMonitoringScopeFilters(prompt, beneficiaries) {
-  const normalizedPrompt = normalizeMonitoringScopeValue(prompt);
-  return MONITORING_SCOPE_FIELDS.flatMap((scope) => {
-    if (!scope.terms.some((term) => new RegExp(`\\b${term}\\b`).test(normalizedPrompt))) return [];
-    const values = [...new Set(beneficiaries
-      .map((beneficiary) => getMonitoringScopeValue(beneficiary, scope))
-      .filter(Boolean))];
-    const matches = values.filter((value) => {
-      const normalizedValue = normalizeMonitoringScopeValue(value);
-      const compactValue = compactMonitoringScopeValue(value);
-      const compactPrompt = compactMonitoringScopeValue(prompt);
-      return normalizedValue.length > 1 && (
-        normalizedPrompt.includes(normalizedValue)
-        || (compactValue.length > 2 && compactPrompt.includes(compactValue))
-      );
-    });
-    return matches.length ? [{ ...scope, values: matches }] : [];
+function ChildCheckupEditDrawer({ child, initialWeek, completedWeeks, showAuditSignatures, onSave, onClose }) {
+  const dialogRef = useRef(null);
+  const closeButtonRef = useRef(null);
+  const closeDrawer = () => {
+    if (document.querySelector('.checkup-confirm-modal')) return;
+    onClose();
+  };
+  useModalAccessibility({
+    open: true,
+    onClose: closeDrawer,
+    dialogRef,
+    initialFocusRef: closeButtonRef,
   });
-}
 
-function removeKnownScopeValues(prompt, scopeFilters) {
-  return scopeFilters.flatMap((scope) => scope.values).reduce((safePrompt, value) => safePrompt.replace(
-    new RegExp(String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'),
-    'the selected scope',
-  ), prompt);
-}
-
-function matchesMonitoringScopeFilters(beneficiary, scopeFilters) {
-  return scopeFilters.every((scope) => scope.values.some((value) => (
-    normalizeMonitoringScopeValue(getMonitoringScopeValue(beneficiary, scope)) === normalizeMonitoringScopeValue(value)
-  )));
-}
-
-function downloadMonitoringReportCsv(report, rows) {
-  const columns = [
-    { id: 'beneficiaryName', label: 'Beneficiary' },
-    ...report.metricIds.map((metricId) => ({
-      id: metricId,
-      label: MONITORING_REPORT_FIELD_LABELS[metricId],
-    })),
-  ];
-  const csvRows = rows.map((row) => Object.fromEntries([
-    ['beneficiaryName', row.beneficiaryName],
-    ...report.metricIds.map((metricId) => [
-      metricId,
-      row.checkup ? getMonitoringReportValue(row.checkup, metricId, row.beneficiary) : 'No saved check-up records.',
-    ]),
-  ].map(([key, value]) => [key, escapeMonitoringReportCsvValue(value)])));
-  const csv = generateCsvContent(csvRows, columns);
-  const now = new Date();
-  const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  const beneficiary = report.beneficiaryType.toLowerCase();
-  downloadContent(`\uFEFF${csv}`, `monitoring-report-${beneficiary}-${date}.csv`, 'text/csv;charset=utf-8');
+  return createPortal((
+    <div
+      className="checkup-edit-drawer-backdrop"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) closeDrawer();
+      }}
+    >
+      <aside
+        ref={dialogRef}
+        className="checkup-edit-drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="child-checkup-edit-drawer-title"
+        tabIndex={-1}
+      >
+        <header className="checkup-edit-drawer__header">
+          <div>
+            <h2 id="child-checkup-edit-drawer-title">Edit child check-up</h2>
+            <p>{getChildName(child)}</p>
+          </div>
+          <button
+            ref={closeButtonRef}
+            type="button"
+            className="checkup-edit-drawer__close"
+            onClick={closeDrawer}
+            aria-label="Close edit child check-up"
+          >
+            ×
+          </button>
+        </header>
+        <div className="checkup-edit-drawer__content">
+          <ChildMonitor
+            child={child}
+            initialWeek={initialWeek}
+            completedWeeks={completedWeeks}
+            showAuditSignatures={showAuditSignatures}
+            onSave={onSave}
+            onCancel={closeDrawer}
+            forceEdit
+          />
+        </div>
+      </aside>
+    </div>
+  ), document.body);
 }
 
 const parseDateOnly = (value) => {
@@ -264,9 +220,17 @@ export default function MonitoringPage() {
   const location = useLocation();
   const [query, setQuery] = useState('');
   const [selectedMother, setSelectedMother] = useState(() => location.state?.mother || null);
+  const [selectedMotherCheckupStep, setSelectedMotherCheckupStep] = useState(
+    () => Number.isInteger(location.state?.checkupStep) ? location.state.checkupStep : null,
+  );
   const [children, setChildren] = useState([]);
   const [childrenLoading, setChildrenLoading] = useState(true);
   const [childrenLoadError, setChildrenLoadError] = useState('');
+  const [monitoringCalendarMothers, setMonitoringCalendarMothers] = useState([]);
+  const [monitoringCalendarLoading, setMonitoringCalendarLoading] = useState(true);
+  const [monitoringCalendarError, setMonitoringCalendarError] = useState('');
+  const [monitoringCalendarRetry, setMonitoringCalendarRetry] = useState(0);
+  const monitoringCalendarRequestVersion = useRef(0);
   const [selectedChild, setSelectedChild] = useState(() => location.state?.child || null);
   const [selectedRecordLoading, setSelectedRecordLoading] = useState(() => Boolean(location.state?.child || location.state?.mother));
   const [beneficiaryType, setBeneficiaryType] = useState(() => (location.state?.child ? 'Child' : 'Mother'));
@@ -275,19 +239,16 @@ export default function MonitoringPage() {
   const [childCompletedWeeks, setChildCompletedWeeks] = useState(() => location.state?.child?.completedWeeks || []);
   const [editingCheckup, setEditingCheckup] = useState(false);
   const [editingCheckupStep, setEditingCheckupStep] = useState(null);
+  const [editingChildCheckup, setEditingChildCheckup] = useState(false);
+  const [editingChildCheckupWeek, setEditingChildCheckupWeek] = useState(null);
   const [statusFilter, setStatusFilter] = useState('All');
   const [developmentalScreeningFilter, setDevelopmentalScreeningFilter] = useState('All');
-  const [monitoringReportPrompt, setMonitoringReportPrompt] = useState('');
-  const [monitoringReportLoading, setMonitoringReportLoading] = useState(false);
-  const [monitoringReportError, setMonitoringReportError] = useState('');
-  const [monitoringReportResult, setMonitoringReportResult] = useState(null);
   const [selectedMonitoringCard, setSelectedMonitoringCard] = useState(null);
-  const [isMonitoringReportExpanded, setIsMonitoringReportExpanded] = useState(true);
   const [perPage, setPerPage] = useState(10);
   const [page, setPage] = useState(1);
   const assignedGroupId = currentUser?.group_id ?? currentUser?.groupId;
   const showAuditSignatures = canViewAuditSignatures(currentUser?.role);
-  const selectedMotherId = getMonitoringReportBeneficiaryId(selectedMother, 'Mother');
+  const canEditMonitoring = can(currentUser?.role, 'monitor-resources', 'update');
 
   React.useEffect(() => {
     let active = true;
@@ -305,6 +266,36 @@ export default function MonitoringPage() {
   }, []);
 
   React.useEffect(() => {
+    let active = true;
+    const requestId = ++monitoringCalendarRequestVersion.current;
+    setMonitoringCalendarLoading(true);
+    setMonitoringCalendarError('');
+    apiGetMothers(['checkups']).then((response) => {
+      if (!Array.isArray(response?.mothers)) {
+        throw new Error('Maternal monitoring data could not be loaded in the expected format.');
+      }
+      if (active && requestId === monitoringCalendarRequestVersion.current) {
+        const accessibleMothers = isHealthWorkerRole(currentUser?.role) && assignedGroupId
+          ? response.mothers.filter((mother) => String(mother.groupId ?? mother.group_id) === String(assignedGroupId))
+          : response.mothers;
+        setMonitoringCalendarMothers(accessibleMothers);
+      }
+    }).catch((error) => {
+      if (active && requestId === monitoringCalendarRequestVersion.current) {
+        setMonitoringCalendarError(error.message || 'Unable to load maternal monitoring activities.');
+      }
+    }).finally(() => {
+      if (active && requestId === monitoringCalendarRequestVersion.current) {
+        setMonitoringCalendarLoading(false);
+      }
+    });
+    return () => {
+      active = false;
+      monitoringCalendarRequestVersion.current += 1;
+    };
+  }, [assignedGroupId, currentUser?.role, monitoringCalendarRetry]);
+
+  React.useEffect(() => {
     const routeChild = location.state?.child;
     const routeMother = location.state?.mother;
     if (!routeChild && !routeMother) return undefined;
@@ -318,6 +309,8 @@ export default function MonitoringPage() {
           const response = await apiGetChild(childId);
           if (!active) return;
           const detailedChild = response?.child || routeChild;
+          setEditingChildCheckup(false);
+          setEditingChildCheckupWeek(null);
           setSelectedChild(detailedChild);
           setSelectedMother(null);
           setBeneficiaryType('Child');
@@ -327,7 +320,10 @@ export default function MonitoringPage() {
           const response = await apiGetMother(motherId);
           if (!active) return;
           const detailedMother = response?.mother || routeMother;
+          setEditingChildCheckup(false);
+          setEditingChildCheckupWeek(null);
           setSelectedMother(detailedMother);
+          setSelectedMotherCheckupStep(Number.isInteger(location.state?.checkupStep) ? location.state.checkupStep : null);
           setSelectedChild(null);
           setBeneficiaryType('Mother');
           setMotherCheckups(detailedMother.checkups || []);
@@ -349,6 +345,10 @@ export default function MonitoringPage() {
   const scopedChildren = useMemo(() => isHealthWorkerRole(currentUser?.role) && assignedGroupId
     ? children.filter((child) => String(child.groupId ?? child.group_id) === String(assignedGroupId))
     : children, [assignedGroupId, children, currentUser?.role]);
+  const maternalCalendarActivities = useMemo(
+    () => getMaternalMonitoringActivities(monitoringCalendarMothers),
+    [monitoringCalendarMothers],
+  );
 
   const handleSave = async (payload) => {
     let savedCheckups;
@@ -376,6 +376,7 @@ export default function MonitoringPage() {
       nextCheckups[trimesterIndex][payload.checkupNumber - 1] = { ...payload, completed: true };
     }
     setMotherCheckups(nextCheckups);
+    setMonitoringCalendarRetry((retry) => retry + 1);
     const completedCount = nextCheckups.flat().filter(Boolean).length;
     const finishedFinalCheckup = payload.trimester === '3rd Trimester'
       && Number(payload.checkupNumber) === 3
@@ -410,16 +411,44 @@ export default function MonitoringPage() {
     return true;
   };
 
-  const handleSelectMother = (mother) => {
+  const handleSelectMother = (mother, checkupStep = null) => {
     setSelectedMother(mother);
+    setSelectedMotherCheckupStep(checkupStep);
     setEditingCheckup(false);
+    setEditingChildCheckup(false);
+    setEditingChildCheckupWeek(null);
     setMotherCheckups(mother.checkups || []);
     setSelectedChild(null);
     setSavedMessage('');
   };
 
+  const handleOpenMonitoringActivity = (activity) => {
+    const mother = activity?.mother;
+    const motherId = mother?.id || mother?.motherId || mother?.mother_id || mother?.motherCode || mother?.mother_code;
+    if (!motherId) {
+      notifyAction('Unable to open this check-up because the mother record has no ID.', 'error');
+      return;
+    }
+
+    const trimesterIndex = ['1st Trimester', '2nd Trimester', '3rd Trimester'].indexOf(activity.trimester);
+    const checkupNumber = Number(activity.checkupNumber);
+    const checkupStep = trimesterIndex >= 0 && checkupNumber >= 1 && checkupNumber <= 3
+      ? trimesterIndex * 3 + checkupNumber - 1
+      : null;
+
+    navigate(`/beneficiary/mother/${encodeURIComponent(motherId)}/monitoring`, {
+      state: {
+        mother,
+        checkupStep,
+        returnTo: '/monitoring',
+      },
+    });
+  };
+
   const handleSelectChild = async (child) => {
     setSavedMessage('');
+    setEditingChildCheckup(false);
+    setEditingChildCheckupWeek(null);
     try {
       const response = await apiGetChild(child.id || child.child_code);
       const detailedChild = response?.child || child;
@@ -441,8 +470,11 @@ export default function MonitoringPage() {
     }
 
     setSelectedMother(null);
+    setSelectedMotherCheckupStep(null);
     setSelectedChild(null);
     setEditingCheckup(false);
+    setEditingChildCheckup(false);
+    setEditingChildCheckupWeek(null);
     setSavedMessage('');
 
     if (location.pathname === '/monitoring' || location.pathname === '/checkup') {
@@ -455,89 +487,6 @@ export default function MonitoringPage() {
   };
 
   const clearSearch = () => { setQuery(''); setPage(1); };
-
-  const reportScreeningStatuses = monitoringReportResult?.developmentalStatusFilter?.length
-    ? monitoringReportResult.developmentalStatusFilter
-    : monitoringReportResult?.onlyNonNormalScreenings ? ['Needs Follow-up', 'At Risk'] : [];
-  const reportInterpretationFilters = [
-    ...(monitoringReportResult?.latestCheckupOnly ? ['Latest saved check-up per beneficiary'] : []),
-    ...(monitoringReportResult?.firstCheckupOnly ? ['First saved check-up per beneficiary'] : []),
-    ...(monitoringReportResult?.currentMonthOnly ? ['Current calendar month'] : []),
-    ...(reportScreeningStatuses.length ? [`Developmental screening: ${reportScreeningStatuses.join(' or ')}`] : []),
-    ...(monitoringReportResult?.onlyReferredToHospital ? ['Hospital referral: Yes'] : []),
-    ...((monitoringReportResult?.scopeFilters || []).map((scope) => `${scope.label}: ${scope.values.join(', ')}`)),
-  ];
-  const handleMonitoringReport = async (event) => {
-    event.preventDefault();
-    setMonitoringReportLoading(true);
-    setMonitoringReportError('');
-    setMonitoringReportResult(null);
-    try {
-      const scopeFilters = resolveMonitoringScopeFilters(monitoringReportPrompt, [
-        ...scopedMothers,
-        ...scopedChildren,
-      ]);
-      const privacySafePrompt = removeKnownBeneficiaryNames(monitoringReportPrompt, [
-        ...scopedMothers.map(getMotherName),
-        ...scopedChildren.map(getChildName),
-      ]);
-      const intent = await apiCreateMonitoringReportIntent(removeKnownScopeValues(privacySafePrompt, scopeFilters));
-      setMonitoringReportResult({
-        ...intent,
-        scopeFilters,
-      });
-    } catch (error) {
-      setMonitoringReportError(error.message || 'Unable to prepare the monitoring report.');
-    } finally {
-      setMonitoringReportLoading(false);
-    }
-  };
-
-  const monitoringReportRows = useMemo(() => {
-    if (!monitoringReportResult) return [];
-    const type = monitoringReportResult.beneficiaryType;
-    const beneficiaries = type === 'Mother' ? scopedMothers : scopedChildren;
-    return beneficiaries.filter((beneficiary) => (
-      matchesMonitoringScopeFilters(beneficiary, monitoringReportResult.scopeFilters || [])
-    )).flatMap((beneficiary) => {
-      const allCheckups = getMonitoringReportCheckups(beneficiary, type);
-      const hasReportFilters = monitoringReportResult.onlyReferredToHospital
-        || monitoringReportResult.onlyNonNormalScreenings
-        || monitoringReportResult.firstCheckupOnly
-        || monitoringReportResult.latestCheckupOnly
-        || monitoringReportResult.currentMonthOnly
-        || (monitoringReportResult.developmentalStatusFilter || []).length > 0;
-      const matchingCheckups = filterMonitoringReportCheckups(
-        allCheckups,
-        monitoringReportResult.onlyReferredToHospital,
-        monitoringReportResult.onlyNonNormalScreenings,
-        monitoringReportResult.developmentalStatusFilter,
-        monitoringReportResult.currentMonthOnly,
-      );
-      const checkups = monitoringReportResult.latestCheckupOnly || monitoringReportResult.firstCheckupOnly
-        ? (() => {
-          const selectedCheckup = monitoringReportResult.latestCheckupOnly
-            ? getLatestMonitoringReportCheckup(allCheckups)
-            : getFirstMonitoringReportCheckup(allCheckups);
-          return selectedCheckup && filterMonitoringReportCheckups(
-            [selectedCheckup],
-            monitoringReportResult.onlyReferredToHospital,
-            monitoringReportResult.onlyNonNormalScreenings,
-            monitoringReportResult.developmentalStatusFilter,
-            monitoringReportResult.currentMonthOnly,
-          ).length ? [selectedCheckup] : [];
-        })()
-        : matchingCheckups;
-      if (hasReportFilters && !checkups.length) return [];
-      const records = checkups.length ? checkups : allCheckups.length ? [] : [null];
-      return records.map((checkup, index) => ({
-        key: `${getMonitoringReportBeneficiaryId(beneficiary, type)}-${index}`,
-        beneficiaryName: getMonitoringReportBeneficiaryName(beneficiary, type),
-        beneficiary,
-        checkup,
-      }));
-    });
-  }, [monitoringReportResult, scopedChildren, scopedMothers]);
 
   const visibleBeneficiaries = beneficiaryType === 'Mother' ? scopedMothers : scopedChildren;
 
@@ -656,105 +605,15 @@ export default function MonitoringPage() {
               { key: 'Done', label: 'Done', value: allMonitoringRows.filter((row) => row.status === 'Done').length, description: 'View list' },
             ]}
           />
-          <div className="monitoring-ai-report-panel">
-            <form className={`monitoring-ai-report-card${isMonitoringReportExpanded ? '' : ' is-collapsed'}`} onSubmit={handleMonitoringReport}>
-              <div className="monitoring-ai-report-card-heading">
-                <h2>Build a check-up report with AI</h2>
-                <button
-                  type="button"
-                  className="monitoring-ai-report-toggle"
-                  aria-expanded={isMonitoringReportExpanded}
-                  aria-controls="monitoring-ai-report-options"
-                  onClick={() => setIsMonitoringReportExpanded((expanded) => !expanded)}
-                >
-                  {isMonitoringReportExpanded ? 'Collapse' : 'Expand'}
-                </button>
-              </div>
-              <div id="monitoring-ai-report-options" className="monitoring-ai-report-options" hidden={!isMonitoringReportExpanded}>
-              <label htmlFor="monitoring-report-prompt">
-                <span>Which check-up details should the report show?</span>
-                <FieldInfoTooltip content="Start with mother, mothers, child, or children. For child growth, use the Child Check-up names: Weight-for-Age, Length-for-Age, and Weight-for-Length. Child BMI is not available. You may also request the saved weight or length. Add a community, school, group, or batch name to limit the report locally. Hospital-referral requests use Mother records." />
-              </label>
-              <div className="monitoring-ai-report-prompt-row">
-                <input
-                  id="monitoring-report-prompt"
-                  type="text"
-                  value={monitoringReportPrompt}
-                  onChange={(event) => {
-                    setMonitoringReportPrompt(event.target.value);
-                    setMonitoringReportResult(null);
-                    setMonitoringReportError('');
-                  }}
-                  maxLength={500}
-                  placeholder="Describe the report"
-                  required
-                />
-                <button type="submit" className="btn-primary" disabled={monitoringReportLoading || monitoringReportPrompt.trim().length < 3 || childrenLoading}>
-                  {monitoringReportLoading ? 'Preparing…' : 'Build report'}
-                </button>
-              </div>
-              {childrenLoadError && <p className="progress-report-ai-message" role="alert">Child records are unavailable: {childrenLoadError}</p>}
-              {monitoringReportError && <p className="progress-report-ai-message" role="alert">{monitoringReportError}</p>}
-              {monitoringReportResult && (
-                <section className="monitoring-ai-report-results" aria-live="polite">
-                  <div className="monitoring-ai-report-heading">
-                    <h3>Check-up report</h3>
-                    <button
-                      type="button"
-                      className="secondary-btn"
-                      onClick={() => downloadMonitoringReportCsv(monitoringReportResult, monitoringReportRows)}
-                      disabled={!monitoringReportRows.length}
-                    >
-                      Download CSV
-                    </button>
-                  </div>
-                  <p>{monitoringReportResult.explanation}</p>
-                  <details className="monitoring-ai-report-understanding">
-                    <summary>What I understood from your request</summary>
-                    <dl>
-                      <dt>Beneficiary type</dt>
-                      <dd>{monitoringReportResult.beneficiaryType}</dd>
-                      <dt>Beneficiaries</dt>
-                      <dd>All accessible {monitoringReportResult.beneficiaryType.toLowerCase()} records</dd>
-                      <dt>Table columns</dt>
-                      <dd>{monitoringReportResult.metricIds.map((metricId) => MONITORING_REPORT_FIELD_LABELS[metricId]).filter(Boolean).join(', ')}</dd>
-                      <dt>Filters</dt>
-                      <dd>{reportInterpretationFilters.length ? reportInterpretationFilters.join('; ') : 'All saved check-ups'}</dd>
-                    </dl>
-                    <p>Edit the request above and build the report again if you meant different fields or filters.</p>
-                  </details>
-                  {monitoringReportRows.length ? (
-                    <div className="monitoring-ai-report-table-wrap">
-                      <table>
-                        <thead>
-                          <tr>
-                            <th scope="col">Beneficiary</th>
-                            {monitoringReportResult.metricIds.map((metricId) => (
-                              <th scope="col" key={metricId}>{MONITORING_REPORT_FIELD_LABELS[metricId]}</th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {monitoringReportRows.map((row) => (
-                            <tr key={row.key}>
-                              <th scope="row">{row.beneficiaryName}</th>
-                              {row.checkup ? monitoringReportResult.metricIds.map((metricId) => (
-                                <td key={metricId}>{getMonitoringReportValue(row.checkup, metricId, row.beneficiary)}</td>
-                              )) : (
-                                <td colSpan={monitoringReportResult.metricIds.length}>No saved check-up records.</td>
-                              )}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : <p role="status">No saved check-up records match the selected report criteria.</p>}
-                  <p className="monitoring-ai-report-note">This report shows recorded data only. It is not a diagnosis or clinical recommendation.</p>
-                </section>
-              )}
-              </div>
-            </form>
-          </div>
+          {!selectedMonitoringCard && (
+            <MonitoringActivityCalendar
+              activities={maternalCalendarActivities}
+              loading={monitoringCalendarLoading}
+              error={monitoringCalendarError}
+              onRetry={() => setMonitoringCalendarRetry((retry) => retry + 1)}
+              onOpenActivity={handleOpenMonitoringActivity}
+            />
+          )}
           {selectedMonitoringCard && (
             <>
           <div className="table-card monitoring-table-card">
@@ -806,27 +665,35 @@ export default function MonitoringPage() {
         </section>
       ) : selectedChild ? (
         selectedRecordLoading ? <section className="checkup-entry-view" aria-live="polite"><p>Loading child monitoring record...</p></section> : <section className="checkup-entry-view" aria-labelledby="selected-child-title">
+          <ChildNavigationCards child={selectedChild} activeCard="monitor" />
           {savedMessage.startsWith('Unable to save check-up:') && <p className="checkup-save-message checkup-save-message-error" role="alert">{savedMessage}</p>}
-          <ChildMonitor
-            child={selectedChild}
-            showAuditSignatures={showAuditSignatures}
-            completedWeeks={childCompletedWeeks}
-            initialWeek={location.state?.week}
-            readOnly={false}
-            onSave={handleSaveChildCheckup}
-            onCancel={handleBack}
-          />
+          {!editingChildCheckup && (
+            <ChildMonitor
+              child={selectedChild}
+              showAuditSignatures={showAuditSignatures}
+              completedWeeks={childCompletedWeeks}
+              initialWeek={location.state?.week}
+              readOnly
+              canCreate={canEditMonitoring}
+              onRequestEdit={canEditMonitoring ? (week) => {
+                setEditingChildCheckupWeek(week);
+                setEditingChildCheckup(true);
+              } : undefined}
+              onSave={handleSaveChildCheckup}
+              onCancel={handleBack}
+            />
+          )}
         </section>
       ) : selectedRecordLoading ? (
         <section className="checkup-entry-view" aria-live="polite"><p>Loading mother monitoring record...</p></section>
       ) : (
         <section className="checkup-entry-view" aria-labelledby="selected-mother-title">
-          <MotherNavigationCards mother={selectedMother} motherId={selectedMotherId} activeCard="monitor" />
+          <MotherNavigationCards mother={selectedMother} activeCard="monitor" />
           {savedMessage.startsWith('Unable to save check-up:') && <p className="checkup-save-message checkup-save-message-error" role="alert">{savedMessage}</p>}
           {!editingCheckup && (
             <MotherCheckup
               mother={{ ...selectedMother, checkups: motherCheckups }}
-              initialStepOverride={Number.isInteger(location.state?.checkupStep) ? location.state.checkupStep : undefined}
+              initialStepOverride={selectedMotherCheckupStep ?? undefined}
               showAuditSignatures={showAuditSignatures}
               onSave={handleSave}
               onRequestEdit={(step) => { setEditingCheckupStep(step); setEditingCheckup(true); }}
@@ -845,6 +712,23 @@ export default function MonitoringPage() {
             return saved;
           }}
           onClose={() => setEditingCheckup(false)}
+        />
+      )}
+      {selectedChild && editingChildCheckup && (
+        <ChildCheckupEditDrawer
+          child={selectedChild}
+          initialWeek={editingChildCheckupWeek}
+          completedWeeks={childCompletedWeeks}
+          showAuditSignatures={showAuditSignatures}
+          onSave={async (payload) => {
+            const saved = await handleSaveChildCheckup(payload);
+            if (saved) setEditingChildCheckup(false);
+            return saved;
+          }}
+          onClose={() => {
+            setEditingChildCheckup(false);
+            setEditingChildCheckupWeek(null);
+          }}
         />
       )}
     </div>

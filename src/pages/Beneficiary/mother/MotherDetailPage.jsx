@@ -412,7 +412,7 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
               <Field label="Weight (kg)" value={weight} />
               <Field label="Height (cm)" value={height} />
               <Field label="Is High Risk?" value={highRisk} />
-              <Field label="Program Type" value={program} />
+              <Field label="Project Type" value={program} />
               <Field label="Area" value={area} />
               <Field label="Community" value={community} />
               <Field label="Group" value={group} />

@@ -39,7 +39,7 @@ const childCheckup = {
   visit_date: '2026-10-17T00:00:00.000Z',
   nextCheckupDate: '2026-11-17',
   currentAgeMonths: 6,
-  breastfeedingStatus: 'Yes',
+  breastfeedingStatus: 'Exclusive breastfeeding',
   weight: 12.5,
   height: 90,
   bmi: 15.4,
@@ -150,6 +150,7 @@ test('report field aliases and empty or calculated values are handled safely', (
   assert.equal(getMonitoringReportValue({ gestational_age_weeks: 24 }, 'gestationalAge'), 24);
   assert.equal(getMonitoringReportValue({ next_checkup_date: '2026-11-05T00:00:00.000Z' }, 'nextCheckupDate'), '2026-11-05');
   assert.equal(getMonitoringReportValue({ exclusive_breastfeeding: 'Yes' }, 'breastfeedingStatus'), 'Yes');
+  assert.equal(getMonitoringReportValue({ feedingMethod: 'Complementary feeding' }, 'breastfeedingStatus'), 'Complementary feeding');
   assert.equal(getMonitoringReportValue({ referral: false }, 'hospitalReferral'), 'No');
   assert.equal(getMonitoringReportValue({ referral: '' }, 'hospitalReferral'), 'No');
   assert.equal(getMonitoringReportValue({ referral: null }, 'hospitalReferral'), 'No');

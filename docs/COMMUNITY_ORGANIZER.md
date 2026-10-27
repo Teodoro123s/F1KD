@@ -6,21 +6,21 @@ This guide describes the Community Organizer role as currently implemented in F1
 
 The canonical role value is `community_coordinator`. The interface commonly calls this role **Community Organizer**. The frontend and backend normalize Community Organizer, Community Coordinator, `community_coordinator`, `coordinator`, and `co` to the same role.
 
-A Community Organizer coordinates operations for one assigned school. The role can manage school-level beneficiary and program workflows, community structures below the school level, and Health Worker accounts assigned to that school. It is not a global administrator role.
+A Community Organizer coordinates operations for one assigned school. The role can manage school-level beneficiary and project workflows, community structures below the school level, and Health Worker accounts assigned to that school. It is not a global administrator role.
 
 The assigned `school_id` is the role's perimeter. The API applies that scope to operational data; changing a route or URL does not grant access outside the assigned school. An account without a school assignment does not receive global access and is denied or given an empty school scope.
 
 ## Modules and components available
 
-The Community Organizer sidebar contains Dashboard, Community, Beneficiary, Monitor, Program, Progress Report, User Management, and Notifications. Profile and Settings are also available from the account menu.
+The Community Organizer sidebar contains Dashboard, Community, Beneficiary, Monitor, Projects, Progress Report, User Management, and Notifications. Profile and Settings are also available from the account menu. The Projects module retains the `/program` route and legacy `programs` API identifiers for compatibility.
 
 | Module or component | Availability | Purpose and limits |
 |---|---|---|
-| **Dashboard** (`/dashboard`) | Available | School-scoped operational overview, with beneficiary, check-up, community, program, and Health Worker indicators. It can show follow-ups and shortcuts to school workflows. It refreshes on demand and periodically. |
+| **Dashboard** (`/dashboard`) | Available | School-scoped operational overview, with beneficiary, check-up, community, project, and Health Worker indicators. It can show follow-ups and shortcuts to school workflows. It refreshes on demand and periodically. |
 | **Community** (`/community`) | Available | View the assigned school, its groups and batches, and scoped community records. The overview does not show a Total Schools card because the school is assigned to the account and is not selectable. Manage groups and batches within the assigned school. Community Organizers cannot create or delete schools. |
 | **Beneficiary** (`/beneficiary`) | Available | Register and manage mothers and children in the assigned school; review beneficiary profiles and related records. API scope prevents access to records outside the assigned school. |
 | **Monitor** (`/monitoring`) | Available | Review and record permitted maternal and child check-ups for the assigned school. Individual records remain subject to school scope and endpoint validation. |
-| **Program** (`/program`) | Available | Create and manage programs within the assigned school, configure program scopes, and review receipt/check-in activity. Mutations validate that program scopes belong to the organizer's school. |
+| **Projects** (`/program`) | Available | Create and manage projects within the assigned school, configure project scopes, and review receipt/check-in activity. Mutations validate that project scopes belong to the organizer's school. |
 | **Progress Report** (`/progress-report`) | Available | View and export progress reports using data/options scoped to the assigned school. Reports should not be treated as global data. |
 | **User Management** (`/user-management`) | Limited | Create, view, edit, suspend, and reactivate Health Worker accounts in the assigned school. The workflow requires an assigned school; a Health Worker must also be assigned to a group in that same school. No permanent deletion or management of other roles is granted. |
 | **Notifications** (`/notifications`) | Available | View notifications within the assigned school's scope, including applicable operational categories. User Management notifications are excluded from the coordinator's scope. |
@@ -35,7 +35,7 @@ The Community Organizer sidebar contains Dashboard, Community, Beneficiary, Moni
 ### Assigned-school perimeter
 
 - The authenticated account's `school_id` determines the Community Organizer's operational scope.
-- Community, beneficiary, child, monitoring, program, and report data are filtered or validated against that school.
+- Community, beneficiary, child, monitoring, project, and report data are filtered or validated against that school.
 - A coordinator without a valid school assignment is assigned an empty school scope for general operational routes; the Health Worker user-management and activity-report workflows explicitly require a valid school assignment.
 - A coordinator cannot expand scope by submitting another school's ID in a request. Detail and mutation endpoints must still verify that the target record belongs to the assigned school.
 - The role is school-scoped, not group-scoped: it can oversee groups and batches within its school. Health Workers are further limited to their assigned group.
@@ -48,17 +48,17 @@ The Community overview omits the **Total Schools** card for Community Organizers
 
 Community Organizers can optionally attach dated photo evidence to a batch. Each entry requires 3-10 JPG, PNG, or WEBP photos; each photo is limited to 5 MB and the combined upload to 25 MB. Organizers can remove individual photos. Admin, Partner, and Health Worker accounts can view and download the evidence but cannot upload or remove it. Superadmins do not have access to this batch documentation feature. The interface previews selected images and enforces upload limits before submission, and the API enforces them independently.
 
-For Program receipt check-ins, Community Organizers can optionally attach the same dated photo set to each beneficiary selected in one bulk submission. Other operational roles can view, preview, and download the photos but cannot upload or remove them. The same 3-10 photo, 5 MB per-photo, and 25 MB per-submission limits apply; Superadmins remain excluded from Program.
+For project receipt check-ins, Community Organizers can optionally attach the same dated photo set to each beneficiary selected in one bulk submission. Other operational roles can view, preview, and download the photos but cannot upload or remove them. The same 3-10 photo, 5 MB per-photo, and 25 MB per-submission limits apply; Superadmins remain excluded from Projects.
 
-### Beneficiary, monitoring, and program work
+### Beneficiary, monitoring, and project work
 
 Within the assigned school, the role can:
 
 - register and manage beneficiary profiles
 - review maternal and child records and associated check-up history
 - record and review permitted maternal/child check-ups
-- create and manage programs and the groups/batches they cover
-- review program receipt/check-in records
+- create and manage projects and the groups/batches they cover
+- review project receipt/check-in records
 - view and export Progress Reports using the permitted school-scoped options and data
 
 The role should use operational screens for these tasks; it does not gain global visibility over other schools.
@@ -80,14 +80,14 @@ Suspension is reversible; it prevents normal sign-in while in effect. It is dist
 
 | Role | Relationship to Community Organizer |
 |---|---|
-| **Superadmin** | Global administration of users and school/community structure, plus system activity reporting. No Program, Beneficiary, Monitoring, or Progress Report access. |
+| **Superadmin** | Global administration of users and school/community structure, plus system activity reporting. No Projects, Beneficiary, Monitoring, or Progress Report access. |
 | **Admin** | Global read-oriented operational oversight; operational writes and user administration are denied. |
 | **Partner** | Global read-oriented operational review; no operational writes or user administration. |
-| **Health Worker** | Executes assigned-group tasks, with a narrower school-and-group perimeter; may record permitted check-ups and program receipts but does not manage school operations or user accounts. |
+| **Health Worker** | Executes assigned-group tasks, with a narrower school-and-group perimeter; may record permitted check-ups and project receipts but does not manage school operations or user accounts. |
 
 ## Dashboard, notifications, and reporting
 
-- The dashboard reads operational data through school-scoped APIs and presents the assigned school's current totals, including beneficiaries, communities/groups/batches, programs, monitoring indicators, and managed Health Workers.
+- The dashboard reads operational data through school-scoped APIs and presents the assigned school's current totals, including beneficiaries, communities/groups/batches, projects, monitoring indicators, and managed Health Workers.
 - Dashboard data refreshes on demand and on its periodic refresh interval. Failed data sources are surfaced as incomplete dashboard data rather than being treated as verified zeroes.
 - Notifications are constrained to the coordinator's assigned school; User Management category notifications are excluded.
 - System activity reporting is not a general coordinator module. The activity API permits a coordinator to request records for a managed Health Worker only, and validates the worker's school assignment.
@@ -97,7 +97,7 @@ Suspension is reversible; it prevents normal sign-in while in effect. It is dist
 
 1. Confirm the organizer account is Active and assigned to the correct school.
 2. Assign each Health Worker to a group that belongs to that same school.
-3. Review school and group assignment before creating or changing beneficiaries, batches, or program scopes.
+3. Review school and group assignment before creating or changing beneficiaries, batches, or project scopes.
 4. Use the Health Worker management workflow only for workers in the assigned school; Superadmin handles other account roles and permanent deletion.
 5. Treat reports, dashboard totals, exports, and notifications as school-scoped operational information.
 6. When testing access, check both a record within the assigned school and a record from another school; the latter must be filtered or denied by the API.
@@ -116,7 +116,7 @@ The synthetic sample-data seed creates Community Organizer accounts for its demo
 - [Community data and school structure API](../server/routes/community.js)
 - [Beneficiary API and school scope](../server/routes/mothers.js)
 - [Child records and check-ups API](../server/routes/children.js)
-- [Program and scope validation API](../server/routes/programs.js)
+- [Projects and scope validation API (legacy `programs` identifiers)](../server/routes/programs.js)
 - [Coordinator Health Worker account endpoints](../server/routes/users.js)
 - [Coordinator activity-report restrictions](../server/routes/reports.js)
 - [School-scoped notification access](../server/services/notificationAccess.js)

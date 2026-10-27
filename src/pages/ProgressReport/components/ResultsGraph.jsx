@@ -357,7 +357,6 @@ export function ResultsGraph({
   availableGrowthMetrics,
   availableNumericGrowthMetrics,
   selectedGraphMetric,
-  setGrowthMetrics,
   graphRows,
   resultsRows,
   rangeRows = resultsRows,
@@ -420,19 +419,23 @@ export function ResultsGraph({
     setDisplayWeeks(`range:${safeStart}:${safeEnd}`);
   };
   const chartTitle = displayReportCategory === 'program'
-    ? programMetrics.find(([id]) => id === displayWeeks)?.[1] || 'Program Benefits'
+    ? programMetrics.find(([id]) => id === displayWeeks)?.[1] || 'Project Benefits'
     : displayReportCategory === 'profile'
       ? selectedProfileField?.[1] || 'Profile Summary'
       : displayBeneficiaryType === 'mother'
         ? selectedGraphMetric === 'hospitalReferral' ? 'Referral to Hospital' : 'BMI'
         : metricLabel.replace(/\s+Z-Score$/i, '').replace(/\s+Interpretation$/i, '');
   const chartSubtitle = displayReportCategory === 'program'
-    ? 'Program benefits by group'
+    ? 'Project benefits by group'
     : displayReportCategory === 'profile'
       ? `Profile values for ${selectedProfileField?.[1] || 'selected field'}`
       : displayBeneficiaryType === 'mother'
         ? selectedGraphMetric === 'hospitalReferral' ? 'Referral and assistance recorded at maternal check-ups' : 'Latest mother BMI measurements · values are plotted by month'
-        : 'Weight and length plotted against age in months';
+        : graphMetricType === 'interpretation'
+          ? 'WHO growth interpretations over time'
+          : selectedGraphMetric === 'weightForLengthZScore'
+            ? 'Weight-for-Length/Height WHO z-score over time'
+            : 'Raw weight and length/height measurements over time';
   const profileGraphType = selectedProfileField?.[2] === 'measurement'
     ? 'Scatterplot'
     : selectedProfileField?.[2] === 'histogram'
@@ -465,12 +468,11 @@ export function ResultsGraph({
               <select value={graphMetricType} onChange={(event) => {
                 const nextType = event.target.value;
                 setGraphMetricType(nextType);
-                const nextOptions = nextType === 'interpretation' ? availableGrowthMetrics : availableNumericGrowthMetrics;
-                const nextMetric = nextOptions.find(([id]) => id === selectedGraphMetric)?.[0] || nextOptions[0]?.[0] || '';
-                if (nextMetric) setGrowthMetrics([nextMetric]);
               }}>
                 <option value="interpretation">Interpretation</option>
-                <option value="numeric">WHO values</option>
+                <option value="numeric">
+                  {displayBeneficiaryType === 'mother' ? 'Numeric values' : 'Measurements / Weight-for-Length Z-Score'}
+                </option>
               </select>
             </label>
           ) : null}

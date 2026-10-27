@@ -62,7 +62,7 @@ export function GrowthMetricsStep({
         </>
       ) : reportCategory === 'program' ? (
         <>
-          <p>Choose the program progress fields to include in the report:</p>
+          <p>Choose the project progress fields to include in the report:</p>
           <div className="growth-metric-cards profile-metric-cards">
             {programMetrics.map(([id, label, description]) => (
               <label key={id} className={selectedProgramMetrics.includes(id) ? 'selected' : ''}>
@@ -72,7 +72,7 @@ export function GrowthMetricsStep({
               </label>
             ))}
           </div>
-          <p className="progress-report-note">Program values come from the Program and monitoring activity records for the selected community scope.</p>
+          <p className="progress-report-note">Project values come from Projects and monitoring activity records for the selected community scope.</p>
         </>
       ) : (
         <>
@@ -93,7 +93,7 @@ export function GrowthMetricsStep({
           </div>
           {beneficiaryType === 'child' && (
             <p className="progress-report-note">
-              WHO growth scores are calculated through 24 months using the age- and sex-specific LMS references. Weight-for-length uses recumbent length before 24 months; weight-for-height uses standing height from 24 months.
+              Graphs show raw weight and length/height over time. Weight-for-Length uses its WHO z-score and interpretation categories, including Overweight and Obese.
             </p>
           )}
           {selectedMonitorFields.length > 0 && (

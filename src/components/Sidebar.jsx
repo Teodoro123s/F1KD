@@ -10,7 +10,7 @@ const items = [
   { to: '/community', label: 'Community', icon: BuildingIcon },
   { to: '/beneficiary', label: 'Beneficiary', icon: UsersIcon },
   { to: '/monitoring', label: 'Monitor', icon: ActivityIcon },
-  { to: '/program', label: 'Program', icon: GroupsIcon },
+  { to: '/program', label: 'Projects', icon: GroupsIcon },
   { to: '/progress-report', label: 'Progress Report', icon: BatchesIcon },
   { to: '/user-management', label: 'User Management', icon: UsersIcon },
 ];

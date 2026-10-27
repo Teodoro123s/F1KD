@@ -29,7 +29,7 @@ export default function MotherNavigationCards({ mother, motherId, activeCard }) 
     },
     {
       key: 'program-report',
-      label: 'Program Report',
+      label: 'Project Report',
       action: 'View benefits and participation',
       onClick: () => navigateTo(`/beneficiary/mother/${id}/program-report`),
     },

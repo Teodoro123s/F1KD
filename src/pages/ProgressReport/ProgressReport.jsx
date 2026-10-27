@@ -21,7 +21,6 @@ import {
   DEFAULT_VISIBLE_FIELDS,
   addGrowthScoresBeforeInterpretations,
   GROWTH_METRICS,
-  WHO_NUMERIC_GROWTH_METRICS,
   INTERPRETATION_METRICS,
   MOTHER_GROWTH_METRICS,
   NUMERIC_GROWTH_METRICS,
@@ -64,6 +63,11 @@ const batchAvailableForGroup = (batch, groupId, mothers) => {
 };
 
 const REPORT_FIELD_LABELS = new Map(REPORT_FIELDS.map(([id, label]) => [id, label]));
+const CHILD_NUMERIC_METRIC_BY_INTERPRETATION = {
+  weightForAgeInterpretation: 'weightForAge',
+  lengthForAgeInterpretation: 'heightForAge',
+  weightForLengthInterpretation: 'weightForLengthZScore',
+};
 
 export default function ProgressReport() {
   const { currentUser } = useAuth();
@@ -99,7 +103,8 @@ export default function ProgressReport() {
   const [beneficiaryType, setBeneficiaryType] = useState('child');
   const [growthMetrics, setGrowthMetrics] = useState(['weightForAgeInterpretation']);
   const [monitorTableMetrics, setMonitorTableMetrics] = useState([]);
-  const [graphMetricType, setGraphMetricType] = useState('interpretation');
+  const [graphMetricType, setGraphMetricType] = useState('numeric');
+  const [numericGraphMetric, setNumericGraphMetric] = useState('weightForAge');
   const [profileMetrics, setProfileMetrics] = useState(CHILD_PROFILE_METRICS.map(([id]) => id));
   const [profileSection, setProfileSection] = useState('general');
   const [programMetrics, setProgramMetrics] = useState(['receivedBenefitTotal', 'receivedBenefitFrequency', 'receivedBenefitAveragePerMonth', 'programDocumentation']);
@@ -120,7 +125,7 @@ export default function ProgressReport() {
       .finally(() => setLoadingOptions(false));
     apiGetPrograms()
       .then((result) => setPrograms(result?.programs || []))
-      .catch((loadError) => notifyAction(loadError.message || 'Unable to load available programs.', 'error'));
+      .catch((loadError) => notifyAction(loadError.message || 'Unable to load available projects.', 'error'));
   }, []);
 
   useEffect(() => {
@@ -166,7 +171,15 @@ export default function ProgressReport() {
   const activeProfileFieldSections = displayBeneficiaryType === 'mother' ? MOTHER_PROFILE_FIELD_SECTIONS : CHILD_PROFILE_FIELD_SECTIONS;
   const activeProfileSectionLabels = displayBeneficiaryType === 'mother' ? MOTHER_PROFILE_SECTION_LABELS : PROFILE_SECTION_LABELS;
   const graphMetricOptions = graphMetricType === 'interpretation' ? availableGrowthMetrics : availableNumericGrowthMetrics;
-  const selectedGraphMetric = growthMetrics[0] || graphMetricOptions[0]?.[0] || '';
+  const selectedGraphMetric = graphMetricType === 'numeric'
+    ? numericGraphMetric || graphMetricOptions[0]?.[0] || ''
+    : growthMetrics[0] || graphMetricOptions[0]?.[0] || '';
+  const graphMetricHasData = (row, metric = selectedGraphMetric) => (
+    INTERPRETATION_METRICS.has(metric)
+      ? row.growthSeries?.some((point) => getPointInterpretation(point, metric))
+      : row.growthSeries?.some((point) => Number.isFinite(getPointValue(point, metric)))
+        || Number.isFinite(Number(row[metric]))
+  );
   const selectedTableGrowthMetric = availableGrowthMetrics.some(([id]) => id === growthMetrics[0])
     ? growthMetrics[0]
     : availableGrowthMetrics[0]?.[0] || '';
@@ -237,7 +250,7 @@ export default function ProgressReport() {
       ? programs.find((program) => normalizeProgramName(program.name) === normalizeProgramName(selectedProgramName))
       : undefined;
     if (isProgramReport && !selectedProgram) {
-      throw new Error('Choose a program before building the program report.');
+      throw new Error('Choose a project before building the project report.');
     }
     if (isProgramReport && !matchesProgramBeneficiaryType(selectedProgram, proposal.beneficiaryType)) {
       throw new Error(`The selected program does not support the ${proposal.beneficiaryType} report requested by AI.`);
@@ -247,7 +260,7 @@ export default function ProgressReport() {
       && selectedBenefitPeriod === 'month'
       && !/^(?:1\d{3}|[2-9]\d{3})-(?:0[1-9]|1[0-2])$/.test(selectedBenefitMonth)
     ) {
-      throw new Error('Select a valid month for the program report.');
+      throw new Error('Select a valid month for the project report.');
     }
 
     const requestParams = buildProgressReportParams({
@@ -339,15 +352,15 @@ export default function ProgressReport() {
   const generateReport = async (nextPage = 1) => {
     const safeSelection = normalizeSelectionHierarchy(selection);
     if (reportCategory === 'program' && !eligiblePrograms.some((program) => normalizeProgramName(program.name) === normalizeProgramName(programName))) {
-      notifyAction('Select a program before generating a program report.', 'error');
+      notifyAction('Select a project before generating a project report.', 'error');
       return;
     }
     if (reportCategory === 'program' && !programMetrics.length) {
-      notifyAction('Select at least one program metric.', 'error');
+      notifyAction('Select at least one project metric.', 'error');
       return;
     }
     if (reportCategory === 'program' && benefitPeriod === 'month' && !/^(?:1\d{3}|[2-9]\d{3})-(?:0[1-9]|1[0-2])$/.test(benefitMonth)) {
-      notifyAction('Select a valid month for the program report.', 'error');
+      notifyAction('Select a valid month for the project report.', 'error');
       return;
     }
     if (reportCategory === 'profile' && !profileMetrics.length) {
@@ -685,12 +698,7 @@ export default function ProgressReport() {
       .filter((row) => row.growthSeries?.length || (row[displayBeneficiaryType === 'mother' ? 'bmiForAge' : 'weightForAge'] !== undefined && row[displayBeneficiaryType === 'mother' ? 'bmiForAge' : 'weightForAge'] !== null));
   };
   const filteredGraphSourceRows = filterGraphRowsByRange(
-    graphSourceRows.filter((row) => growthMetrics.some((metric) => {
-      if (INTERPRETATION_METRICS.has(metric)) {
-        return row.growthSeries?.some((point) => getPointInterpretation(point, metric));
-      }
-      return row.growthSeries?.some((point) => Number.isFinite(getPointValue(point, metric))) || Number.isFinite(Number(row[metric]));
-    }))
+    graphSourceRows.filter((row) => graphMetricHasData(row))
   );
   const graphBeneficiaryKey = (row) => String(row.childId || row.motherId || row.child || row.mother || '');
   const graphBeneficiaries = displayReportCategory === 'monitor'
@@ -713,11 +721,10 @@ export default function ProgressReport() {
   ));
   const graphExportRows = displayReportCategory === 'monitor'
     ? graphRows.flatMap((row) => {
-      const series = (row.growthSeries || []).filter((point) => growthMetrics.some((metric) => (
-        INTERPRETATION_METRICS.has(metric)
-          ? Boolean(getPointInterpretation(point, metric))
-          : Number.isFinite(getPointValue(point, metric))
-      )));
+      const series = (row.growthSeries || []).filter((point) => graphMetricHasData({
+        ...row,
+        growthSeries: [point],
+      }));
       return series.length
         ? series.map((point) => ({
           ...row,
@@ -763,7 +770,8 @@ export default function ProgressReport() {
     setProgramMetrics(['receivedBenefitTotal', 'receivedBenefitFrequency', 'receivedBenefitAveragePerMonth', 'programDocumentation']);
     setReportCategory('monitor');
     setBeneficiaryType('child');
-    setGraphMetricType('interpretation');
+    setGraphMetricType('numeric');
+    setNumericGraphMetric('weightForAge');
     setResultsView('graph');
     setIncludeInterpretationColumns(true);
     setResultPeriod('all');
@@ -781,7 +789,8 @@ export default function ProgressReport() {
   const selectGrowthMetric = (id) => {
     if (beneficiaryType === 'child') {
       const nextGrowthMetrics = [id];
-      setGraphMetricType('interpretation');
+      setGraphMetricType('numeric');
+      setNumericGraphMetric(CHILD_NUMERIC_METRIC_BY_INTERPRETATION[id] || 'weightForAge');
       setGrowthMetrics(nextGrowthMetrics);
       setMonitorTableMetrics([]);
       syncVisibleFieldsForGrowthMetric(nextGrowthMetrics);
@@ -794,6 +803,7 @@ export default function ProgressReport() {
     setMonitorTableMetrics([]);
     const nextType = INTERPRETATION_METRICS.has(id) || id === 'hospitalReferral' ? 'interpretation' : 'numeric';
     setGraphMetricType(nextType);
+    if (nextType === 'numeric') setNumericGraphMetric(id);
     setGrowthMetrics([id]);
     syncVisibleFieldsForGrowthMetric([id]);
     setReport(null);
@@ -830,7 +840,8 @@ export default function ProgressReport() {
     setProfileMetrics((type === 'mother' ? MOTHER_PROFILE_METRICS : CHILD_PROFILE_METRICS).map(([id]) => id));
     setProfileGraphColumn(type === 'mother' ? 'bmiInterpretation' : 'gender');
     const initialMetric = type === 'mother' ? 'bmiForAge' : 'weightForAgeInterpretation';
-    setGraphMetricType(type === 'mother' ? 'numeric' : 'interpretation');
+    setGraphMetricType('numeric');
+    setNumericGraphMetric(type === 'mother' ? 'bmiForAge' : 'weightForAge');
     setGrowthMetrics([initialMetric]);
     setMonitorTableMetrics([]);
     syncVisibleFieldsForGrowthMetric([initialMetric]);
@@ -860,12 +871,15 @@ export default function ProgressReport() {
   useEffect(() => {
     if (reportCategory === 'program') return;
     const metricOptions = graphMetricType === 'interpretation' ? availableGrowthMetrics : availableNumericGrowthMetrics;
-    if (!metricOptions.some(([id]) => id === growthMetrics[0])) {
+    if (graphMetricType === 'interpretation' && !metricOptions.some(([id]) => id === growthMetrics[0])) {
       const nextMetric = metricOptions[0]?.[0] || '';
       setGrowthMetrics([nextMetric]);
       if (nextMetric) syncVisibleFieldsForGrowthMetric([nextMetric]);
     }
-  }, [availableGrowthMetrics, availableNumericGrowthMetrics, graphMetricType, growthMetrics, reportCategory]);
+    if (graphMetricType === 'numeric' && !metricOptions.some(([id]) => id === numericGraphMetric)) {
+      setNumericGraphMetric(metricOptions[0]?.[0] || '');
+    }
+  }, [availableGrowthMetrics, availableNumericGrowthMetrics, graphMetricType, growthMetrics, numericGraphMetric, reportCategory]);
 
   useEffect(() => {
     if (activeTab !== 3 || resultsView !== 'graph') return undefined;
@@ -873,16 +887,23 @@ export default function ProgressReport() {
     const subtitle = document.querySelector('.growth-report-single-card > p');
     if (heading && displayReportCategory === 'monitor' && beneficiaryType === 'mother') heading.textContent = '📈 BMI';
     if (subtitle && displayReportCategory === 'monitor' && beneficiaryType === 'mother') subtitle.textContent = 'Latest mother BMI measurements · values are plotted by month';
-    if (subtitle && displayReportCategory === 'monitor' && beneficiaryType === 'child') subtitle.textContent = 'Weight and length plotted against age in months';
+    if (subtitle && displayReportCategory === 'monitor' && beneficiaryType === 'child') {
+      subtitle.textContent = graphMetricType === 'numeric'
+        ? selectedGraphMetric === 'weightForLengthZScore'
+          ? 'Weight-for-Length/Height WHO z-score over time'
+          : 'Raw weight and length/height measurements over time'
+        : 'WHO growth interpretations over time';
+    }
     if (heading && displayReportCategory === 'monitor' && beneficiaryType === 'child') {
-      const metricText = (availableGrowthMetrics.find(([id]) => id === growthMetrics[0])?.[1] || 'Weight-for-Age')
+      const metricOptions = graphMetricType === 'numeric' ? availableNumericGrowthMetrics : availableGrowthMetrics;
+      const metricText = (metricOptions.find(([id]) => id === selectedGraphMetric)?.[1] || 'Weight-for-Age')
         .replace(/\s+Z-Score$/i, '')
         .replace(/\s+Interpretation$/i, '');
       heading.textContent = metricText;
     }
     if (displayReportCategory === 'program') {
       const selectedMetric = PROGRAM_METRICS.find(([id]) => id === displayWeeks);
-      const selectedMetricLabel = selectedMetric?.[1] || 'Program Benefits';
+      const selectedMetricLabel = selectedMetric?.[1] || 'Project Benefits';
       if (heading) heading.textContent = selectedMetricLabel;
       if (subtitle) subtitle.textContent = `${selectedMetricLabel} by group`;
       const value = document.querySelector('.growth-report-single-card .growth-report-value');
@@ -893,7 +914,18 @@ export default function ProgressReport() {
       if (value) value.style.display = '';
     }
     return undefined;
-  }, [activeTab, beneficiaryType, displayReportCategory, displayWeeks, graphRows, resultsView]);
+  }, [
+    activeTab,
+    availableGrowthMetrics,
+    availableNumericGrowthMetrics,
+    beneficiaryType,
+    displayReportCategory,
+    displayWeeks,
+    graphMetricType,
+    graphRows,
+    resultsView,
+    selectedGraphMetric,
+  ]);
 
   return (
     <div className="community-page progress-report-shell">
@@ -920,6 +952,7 @@ export default function ProgressReport() {
               aiInitialProgramName={programName}
               aiInitialBenefitPeriod={benefitPeriod}
               aiInitialBenefitMonth={benefitMonth}
+              aiScopeSelection={selection}
               buildAiReportPreview={buildAiReportPreview}
               exportAiReportCsv={exportAiReportCsv}
               reportCategoryStep={(
@@ -1011,6 +1044,7 @@ export default function ProgressReport() {
                 setProfileGraphColumn={setProfileGraphColumn}
                 graphMetricType={graphMetricType}
                 setGraphMetricType={setGraphMetricType}
+                setNumericGraphMetric={setNumericGraphMetric}
                 availableGrowthMetrics={availableGrowthMetrics}
                 availableNumericGrowthMetrics={availableNumericGrowthMetrics}
                 selectedGraphMetric={selectedGraphMetric}

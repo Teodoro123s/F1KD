@@ -15,6 +15,8 @@ import ConfirmDialog from '../../../components/ui/ConfirmDialog';
 import { notifyAction } from '../../../components/ActionFeedback';
 import MonitorReportCard from '../MonitorReportCard';
 import { navigateBack } from '../../../utils/navigation/navigation';
+import ChildNavigationCards from './ChildNavigationCards';
+import BeneficiarySuperHeader from '../mother/BeneficiarySuperHeader';
 
 const formatValue = (value) => (value === null || value === undefined || value === '' ? '—' : String(value));
 
@@ -383,43 +385,11 @@ export default function ChildProfilePage() {
         onCancel={cancelDelete}
       />
 
-      {!isChildProfile && <section className="mother-overview-actions-section">
-        <div className="community-overview-cards mother-overview-actions">
-          <button type="button" className="community-overview-card" onClick={() => navigate(`/beneficiary/child/${childIdentifier}/profile`, { state: { child: selectedChild, mother: resolvedMother, returnTo } })}>
-            <span className="community-overview-card__label">Child Profile</span>
-            <span className="community-overview-card__action">View child details</span>
-          </button>
-          {resolvedMother && (
-            <button type="button" className="community-overview-card" onClick={() => navigate(`/beneficiary/mother/${resolvedMother.id || resolvedMother.motherId}`, {
-              state: { mother: resolvedMother, returnTo: `${location.pathname}${location.search}` },
-            })}>
-              <span className="community-overview-card__label">View Mother</span>
-              <span className="community-overview-card__action">Open linked profile</span>
-            </button>
-          )}
-          <button type="button" className="community-overview-card" onClick={() => navigate(`/beneficiary/child/${childIdentifier}/program-report`, {
-            state: { returnTo: `${location.pathname}${location.search}` },
-          })}>
-            <span className="community-overview-card__label">Program Report</span>
-            <span className="community-overview-card__action">View benefits and participation</span>
-          </button>
-          <button type="button" className="community-overview-card" onClick={() => {
-            const mid = resolvedMother?.motherId || resolvedMother?.id || selectedChild.mother_id || selectedChild.motherId || '';
-            const stateMother = resolvedMother || (mid ? { id: mid, name: selectedChild.mother_first_name ? `${selectedChild.mother_first_name} ${selectedChild.mother_last_name || ''}`.trim() : undefined } : null);
-            navigate('/monitoring', {
-              state: {
-                child: selectedChild,
-                mother: stateMother,
-                returnTo: `${location.pathname}${location.search}`,
-                returnToState: { child: selectedChild, mother: stateMother, returnTo },
-              },
-            });
-          }}>
-            <span className="community-overview-card__label">Monitor</span>
-            <span className="community-overview-card__action">Record or review visits</span>
-          </button>
-        </div>
-      </section>}
+      <ChildNavigationCards
+        child={selectedChild}
+        mother={resolvedMother}
+        activeCard={isChildProfile ? 'profile' : undefined}
+      />
 
       {!isChildProfile && <MonitorReportCard beneficiaryType="child" beneficiary={selectedChild} />}
 
@@ -477,7 +447,7 @@ export default function ChildProfilePage() {
 
   return (
     <div className="community-page beneficiary-page">
-      <PageHeader title="Beneficiaries" breadcrumbs={[{ label: 'Beneficiaries' }]} />
+      <BeneficiarySuperHeader />
       <main className="beneficiary-main">
         {rightColumnContent}
       </main>

@@ -3,8 +3,13 @@ import { readApiResponse } from './readApiResponse.mjs';
 
 const API_BASE = getApiBaseUrl();
 
-export async function apiGetMothers() {
-  const res = await fetchWithAuth(`${API_BASE}/api/mothers`, {
+export async function apiGetMothers(fields = []) {
+  const params = new URLSearchParams();
+  if (Array.isArray(fields) && fields.length) {
+    params.set('fields', fields.join(','));
+  }
+  const queryString = params.toString() ? `?${params.toString()}` : '';
+  const res = await fetchWithAuth(`${API_BASE}/api/mothers${queryString}`, {
     headers: { 'Content-Type': 'application/json' },
   });
   return readApiResponse(res, 'Unable to load mothers');

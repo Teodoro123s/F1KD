@@ -1,5 +1,7 @@
 .view-content {
   container: view-content-layout / inline-size;
+  min-width: 0;
+  width: 100%;
   --view-padding-x: var(--space-4);
   --view-padding-y: var(--space-3);
   --view-gap-sm: var(--space-2);
@@ -24,6 +26,19 @@
   --view-surface: var(--bg);
   font-family: var(--view-font-family);
   color: var(--view-text);
+}
+
+.view-content > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.view-content .community-page,
+.view-content .checkup-module,
+.view-content .progress-report-shell,
+.view-content .dashboard-shell {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .view-content * {

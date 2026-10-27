@@ -6,6 +6,7 @@ import { getAgeInDecimalMonths, getAgeInMonths } from '../../utils/beneficiary/c
 import ConfirmModal from '../UserManagement/ConfirmModal';
 import { notifyAction } from '../../components/ActionFeedback';
 import AuditSignatures from '../../components/ui/AuditSignatures';
+import FieldInfoTooltip from '../../components/ui/FieldInfoTooltip';
 
 const TOTAL_MONTHS = 24;
 
@@ -44,9 +45,21 @@ function getFirstIncompleteMonth(child, completedWeeks) {
   return TOTAL_MONTHS;
 }
 
-function getBreastfeedingStatus(value) {
+const FEEDING_METHOD_OPTIONS = [
+  'Exclusive breastfeeding',
+  'Bottle feeding',
+  'Formula feeding',
+  'Mixed feeding',
+  'Complementary feeding',
+];
+
+function getFeedingMethod(value, { preserveLegacyNo = false } = {}) {
   const normalized = String(value ?? '').trim().toLowerCase();
-  return normalized === 'yes' || normalized === 'true' || normalized === '1' ? 'Yes' : 'No';
+  const match = FEEDING_METHOD_OPTIONS.find((option) => option.toLowerCase() === normalized);
+  if (match) return match;
+  if (normalized === 'yes' || normalized === 'true' || normalized === '1') return 'Exclusive breastfeeding';
+  if (normalized === 'no' && preserveLegacyNo) return 'No';
+  return '';
 }
 
 function formatDate(value) {
@@ -71,19 +84,22 @@ export default function ChildMonitor({
   completedWeeks = [],
   initialWeek = 1,
   readOnly = false,
+  canCreate = true,
+  forceEdit = false,
+  onRequestEdit,
   showAuditSignatures = false,
 }) {
   const requestedMonth = Math.max(1, Math.min(TOTAL_MONTHS, Math.floor(Number(initialWeek) || 1)));
   const firstIncompleteMonth = getFirstIncompleteMonth(child, completedWeeks);
   const initialMonth = Math.min(requestedMonth, firstIncompleteMonth);
   const [week, setWeek] = useState(initialMonth);
-  const [editingWeek, setEditingWeek] = useState(() => (!readOnly || initialMonth === 1 ? initialMonth : null));
+  const [editingWeek, setEditingWeek] = useState(() => (!readOnly || canCreate ? initialMonth : null));
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [form, setForm] = useState(() => ({
     checkupDate: getTodayDate(),
     nextCheckupDate: '',
-    breastfeedingStatus: 'No',
+    feedingMethod: '',
     weight: '',
     height: '',
     developmentalStatus: 'Normal',
@@ -124,7 +140,7 @@ export default function ChildMonitor({
     return nextForm;
   });
   const isWeekCompleted = isCheckupMonthComplete(child, completedWeeks, week);
-  const isReadOnly = (readOnly && editingWeek !== week) || isWeekCompleted;
+  const isReadOnly = !forceEdit && (!canCreate || (readOnly && editingWeek !== week) || isWeekCompleted);
 
   useEffect(() => {
     const scheduledDate = (previousMonthDate
@@ -136,7 +152,12 @@ export default function ChildMonitor({
       setForm({
         checkupDate: scheduledDate,
         nextCheckupDate: addMonthsPreservingDay(scheduledDate, 1),
-        breastfeedingStatus: getBreastfeedingStatus(child?.exclusiveBreastfeeding ?? child?.exclusive_breastfeeding),
+        feedingMethod: getFeedingMethod(
+          child?.feedingType
+            || child?.feeding_type
+            || child?.exclusiveBreastfeeding
+            || child?.exclusive_breastfeeding,
+        ),
         weight: '',
         height: '',
         developmentalStatus: 'Normal',
@@ -149,7 +170,12 @@ export default function ChildMonitor({
     setForm({
       checkupDate: savedDate || scheduledDate,
       nextCheckupDate: formatDate(savedCheckup.nextCheckupDate ?? savedCheckup.next_checkup_date),
-      breastfeedingStatus: getBreastfeedingStatus(savedCheckup.breastfeedingStatus ?? savedCheckup.exclusive_breastfeeding),
+      feedingMethod: getFeedingMethod(
+        savedCheckup.feedingMethod
+          ?? savedCheckup.breastfeedingStatus
+          ?? savedCheckup.exclusive_breastfeeding,
+        { preserveLegacyNo: true },
+      ),
       weight: savedCheckup.weight ?? '',
       height: savedCheckup.height ?? '',
       developmentalStatus: savedCheckup.developmental_status ?? savedCheckup.developmentalStatus ?? 'Normal',
@@ -169,7 +195,11 @@ export default function ChildMonitor({
     const next = Math.max(1, Math.min(TOTAL_MONTHS, nextWeek));
     if (next > firstIncompleteMonth && !(justSavedCurrentMonth && next === week + 1)) return;
     setWeek(next);
-    if (!readOnly || next === 1) setEditingWeek(next);
+    if (!readOnly || next === 1 || (canCreate && next === firstIncompleteMonth)) {
+      setEditingWeek(next);
+    } else {
+      setEditingWeek(null);
+    }
   };
   const ageInMonths = getAgeInMonths(childBirthDate, form.checkupDate);
   const currentAgeInMonths = getAgeInDecimalMonths(childBirthDate, form.checkupDate);
@@ -282,6 +312,15 @@ export default function ChildMonitor({
               <div className="checkup-section-title">Child Check-up Record</div>
             </div>
             <div className="checkup-form-heading-actions">
+              {readOnly && savedCheckup && onRequestEdit && (
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => onRequestEdit(week)}
+                >
+                  Edit checkup
+                </button>
+              )}
               <span className="checkup-week-badge">M{week} / {TOTAL_MONTHS}</span>
             </div>
           </div>
@@ -302,11 +341,22 @@ export default function ChildMonitor({
               />
             </div>
             <div className="form-group">
-              <label className="checkup-field-label" htmlFor="child-exclusive-breastfeeding">Exclusive Breastfeeding</label>
-              <select id="child-exclusive-breastfeeding" className="checkup-field-input" value={form.breastfeedingStatus} onChange={update('breastfeedingStatus')} required disabled={isReadOnly}>
-                <option value="Yes">Yes</option>
-                <option value="No">No</option>
+              <label className="checkup-field-label" htmlFor="child-feeding-method">Feeding Method</label>
+              <select id="child-feeding-method" className="checkup-field-input" value={form.feedingMethod} onChange={update('feedingMethod')} required disabled={isReadOnly}>
+                <option value="">Select feeding method</option>
+                {FEEDING_METHOD_OPTIONS.map((method) => <option key={method} value={method}>{method}</option>)}
+                {form.feedingMethod === 'No' && <option value="No">No (legacy value)</option>}
               </select>
+            </div>
+            <div className="form-group">
+              <label className="checkup-field-label" htmlFor="child-monitor-sex">Sex</label>
+              <input
+                id="child-monitor-sex"
+                type="text"
+                className="checkup-field-input"
+                value={gender ? `${gender.charAt(0).toUpperCase()}${gender.slice(1).toLowerCase()}` : 'Not recorded'}
+                readOnly
+              />
             </div>
             <div className="form-group">
               <label className="checkup-field-label is-required" htmlFor="child-monitor-weight">Weight (kg)</label>
@@ -325,10 +375,9 @@ export default function ChildMonitor({
               <input id="child-monitor-length-age" type="text" className={interpretationClass(lengthAgeInterpretation)} value={lengthAgeInterpretation} readOnly />
             </div>
             <div className="form-group">
-              <label className="checkup-field-label" htmlFor="child-monitor-weight-length">Weight-for-Length</label>
+              <label className="checkup-field-label" htmlFor="child-monitor-weight-length">Weight-for-Length<FieldInfoTooltip content="WHO growth indicators are screening results, not a diagnosis. Interpret them with the child's measurement history and a qualified health worker." /></label>
               <input id="child-monitor-weight-length" type="text" className={interpretationClass(weightLengthInterpretation)} value={weightLengthInterpretation} readOnly />
             </div>
-            <span className="checkup-field-help full-width">WHO growth indicators are screening results, not a diagnosis. Interpret them with the child's measurement history and a qualified health worker.</span>
             <div className="form-group">
               <label className="checkup-field-label" htmlFor="child-developmental-status">Developmental Screening</label>
               <select id="child-developmental-status" className="checkup-field-input" value={form.developmentalStatus} onChange={update('developmentalStatus')} disabled={isReadOnly}>
@@ -352,7 +401,7 @@ export default function ChildMonitor({
             </div>
           )}
           <div className="checkup-actions">
-            {readOnly && (
+            {readOnly && !onRequestEdit && (
               <button
                 type="button"
                 className={isReadOnly ? 'btn-primary' : 'btn-secondary'}

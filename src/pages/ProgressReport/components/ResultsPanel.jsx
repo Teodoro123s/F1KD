@@ -36,6 +36,7 @@ export function ResultsPanel({
   setProfileGraphColumn,
   graphMetricType,
   setGraphMetricType,
+  setNumericGraphMetric,
   availableGrowthMetrics,
   availableNumericGrowthMetrics,
   selectedGraphMetric,
@@ -94,7 +95,7 @@ export function ResultsPanel({
               onClick={() => { if (!view.disabled) setResultsView(view.key); }}
               disabled={view.disabled}
               aria-pressed={resultsView === view.key}
-              title={view.disabled ? (displayReportCategory === 'program' ? 'Graphs are unavailable for program reports.' : 'Graphs are available for individual or batch profile reports.') : undefined}
+              title={view.disabled ? (displayReportCategory === 'program' ? 'Graphs are unavailable for project reports.' : 'Graphs are available for individual or batch profile reports.') : undefined}
             >
               {view.label}
             </button>
@@ -125,7 +126,7 @@ export function ResultsPanel({
       {!graphAllowed && (
         <p className="progress-report-note" role="status">
           {displayReportCategory === 'program'
-            ? 'Graphs are not available for program reports.'
+            ? 'Graphs are not available for project reports.'
             : 'Graphs are available for individual or batch profile reports.'}
         </p>
       )}
@@ -140,7 +141,6 @@ export function ResultsPanel({
           availableGrowthMetrics={availableGrowthMetrics}
           availableNumericGrowthMetrics={availableNumericGrowthMetrics}
           selectedGraphMetric={selectedGraphMetric}
-          setGrowthMetrics={setGrowthMetrics}
           graphRows={graphRows}
           resultsRows={resultsRows}
           displayWeeks={displayWeeks}
@@ -165,6 +165,11 @@ export function ResultsPanel({
           onGrowthMetricChange={(metric) => {
             setGraphMetricType('interpretation');
             setGrowthMetrics([metric]);
+            setNumericGraphMetric({
+              weightForAgeInterpretation: 'weightForAge',
+              lengthForAgeInterpretation: 'heightForAge',
+              weightForLengthInterpretation: 'weightForLengthZScore',
+            }[metric] || metric);
           }}
           onRegisterMonitoringExport={(handler) => { monitoringExportHandler.current = handler; }}
           communitySelection={selection}

@@ -145,12 +145,12 @@ function GrowthInterpretationChart({ rows, progressRows, metric, displayWeeks = 
 }
 
 function ProgramAverageChart({ rows, metric = 'receivedBenefitAveragePerMonth' }) {
-  const metricLabel = PROGRAM_METRICS.find(([id]) => id === metric)?.[1] || 'Program Benefits';
+  const metricLabel = PROGRAM_METRICS.find(([id]) => id === metric)?.[1] || 'Project Benefits';
   const points = rows
     .map((row) => ({ label: row.group || row.child || row.mother || 'Unassigned group', value: Number(row[metric]) }))
     .filter(({ value }) => Number.isFinite(value));
 
-  if (!points.length) return <p className="growth-report-empty">No program receipt data available for the selected groups.</p>;
+  if (!points.length) return <p className="growth-report-empty">No project receipt data available for the selected groups.</p>;
 
   const maximum = Math.max(...points.map(({ value }) => value), 1);
   const downloadChart = (format) => {

@@ -47,7 +47,7 @@ test('matches documented WHO Anthro z-score examples', async () => {
   assert.equal(male.lengthForAgeZScore, 7.31);
   assert.equal(male.weightForLengthZScore, -2.39);
   assert.equal(male.weightForAgeInterpretation, 'High weight-for-age');
-  assert.equal(male.weightForLengthInterpretation, 'Wasted');
+  assert.equal(male.weightForLengthInterpretation, 'Moderate acute malnutrition');
   assert.equal(female.weightForAgeZScore, 0.95);
   assert.equal(female.lengthForAgeZScore, -3.5);
   assert.equal(female.weightForLengthZScore, 4.13);
@@ -143,6 +143,8 @@ test('uses WHO interpretation bands at their exact lower and upper cutoffs', asy
     [-2, 'Normal'],
     [2, 'Normal'],
     [2.01, 'Tall'],
+    [3, 'Tall'],
+    [3.01, 'Very Tall'],
   ];
   for (const [zScore, expected] of lengthForAgeCases) {
     const result = calculate({
@@ -153,9 +155,9 @@ test('uses WHO interpretation bands at their exact lower and upper cutoffs', asy
   }
 
   const weightForLengthCases = [
-    [-3.01, 'Severely Wasted'],
-    [-3, 'Wasted'],
-    [-2.01, 'Wasted'],
+    [-3.01, 'Severe acute malnutrition'],
+    [-3, 'Moderate acute malnutrition'],
+    [-2.01, 'Moderate acute malnutrition'],
     [-2, 'Normal'],
     [2, 'Normal'],
     [2.01, 'Overweight'],

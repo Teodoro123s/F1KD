@@ -87,6 +87,7 @@ test('health worker child check-up saves monitoring data and rejects a different
         next_checkup_date: '2026-10-28',
         weight: '8.4',
         height: '70',
+        exclusive_breastfeeding: 'Complementary feeding',
       }]];
     }
     if (sql.startsWith('INSERT INTO notifications')) {
@@ -123,6 +124,7 @@ test('health worker child check-up saves monitoring data and rejects a different
     week: 12,
     checkupDate: '2026-10-21',
     nextCheckupDate: '2026-10-28',
+    feedingMethod: 'Complementary feeding',
     weight: '8.4',
     height: '70',
     serviceProvider: 'Health Worker',
@@ -132,9 +134,11 @@ test('health worker child check-up saves monitoring data and rejects a different
   assert.deepEqual(result.child.completedWeeks, [12]);
   assert.equal(result.child.checkups[0].weekNumber, 12);
   assert.equal(result.child.checkups[0].weight, '8.4');
+  assert.equal(result.child.checkups[0].feedingMethod, 'Complementary feeding');
   assert.equal(savedCheckupQueries.length, 1);
   assert.equal(savedCheckupQueries[0].params[0], 31);
   assert.equal(savedCheckupQueries[0].params[1], '2026-10-28');
+  assert.equal(savedCheckupQueries[0].params[5], 'Complementary feeding');
   assert.equal(savedCheckupQueries[0].params[15], 12);
   assert.deepEqual(savedCheckupQueries[0].params.slice(16), [8, 8, 8]);
   assert.equal(notifications.length, 1);

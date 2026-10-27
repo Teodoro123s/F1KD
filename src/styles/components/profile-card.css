@@ -1172,10 +1172,186 @@
 .program-recipient-preview-empty { margin: 0; padding: 0.9rem; }
 .program-receipt-scope-modal { max-width: 620px; }
 .program-receipt-scope-section + .program-receipt-scope-section { margin-top: 1.1rem; }
-.program-receipt-scope-section h3 { margin: 0 0 0.45rem; color: #475569; font-size: 0.9rem; }
-.program-receipt-scope-option { display: flex; width: 100%; justify-content: space-between; align-items: center; gap: 1rem; padding: 0.7rem 0.85rem; border: 0; border-top: 1px solid #e2e8f0; background: #fff; color: #1e293b; text-align: left; cursor: pointer; }
-.program-receipt-scope-option:hover { background: #f8fafc; }
+.program-receipt-scope-section h3 { margin: 0 0 0.5rem; color: #475569; font-size: 0.9rem; }
+.program-receipt-scope-option {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 0.4rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid #dbe3ec;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #1e293b;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+.program-receipt-scope-option::after {
+  content: '→';
+  flex: 0 0 auto;
+  color: #15803d;
+  font-size: 1.15rem;
+  font-weight: 800;
+  transition: transform 140ms ease;
+}
+.program-receipt-scope-option:hover {
+  transform: translateY(-1px);
+  border-color: #15803d;
+  background: #f0fdf4;
+  box-shadow: 0 3px 10px rgba(21, 128, 61, 0.12);
+}
+.program-receipt-scope-option:hover::after { transform: translateX(3px); }
+.program-receipt-scope-option:focus-visible {
+  outline: 3px solid rgba(21, 128, 61, 0.25);
+  outline-offset: 2px;
+  border-color: #15803d;
+}
+.program-receipt-scope-option span { font-weight: 700; }
 .program-receipt-scope-option small { color: #64748b; white-space: nowrap; }
+.project-activity-calendar {
+  margin-top: 1rem;
+  padding: 1.15rem;
+  border: 1px solid #dfe6ee;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.035);
+}
+.project-activity-calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+}
+.project-activity-calendar-header h2 {
+  margin: 0.15rem 0 0;
+  color: #0f172a;
+  font-size: 1.2rem;
+  font-weight: 750;
+}
+.project-activity-calendar-header .program-section-eyebrow { margin: 0; }
+.project-activity-calendar-controls { display: flex; flex-wrap: wrap; gap: 0.45rem; }
+.project-activity-calendar-controls button { min-height: 38px; padding: 0.45rem 0.7rem; }
+.project-activity-month {
+  margin-bottom: 0.65rem;
+  color: #334155;
+  font-size: 1rem;
+  font-weight: 750;
+}
+.project-activity-state {
+  margin: 0.6rem 0;
+  color: #64748b;
+  font-size: 0.88rem;
+}
+.project-activity-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0.6rem 0;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #fef2f2;
+  color: #991b1b;
+}
+.project-activity-error p { margin: 0; }
+.project-activity-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid #dfe6ee;
+  border-radius: 10px;
+  background: #fff;
+}
+.project-activity-grid.is-unavailable { opacity: 0.55; }
+.project-activity-weekday {
+  padding: 0.55rem 0.35rem;
+  border-bottom: 1px solid #dfe6ee;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 0.76rem;
+  font-weight: 750;
+  text-align: center;
+}
+.project-activity-empty-day { min-height: 104px; border-right: 1px solid #edf1f5; border-bottom: 1px solid #edf1f5; background: #f8fafc; }
+.project-activity-day {
+  display: flex;
+  min-width: 0;
+  min-height: 104px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.35rem;
+  padding: 0.45rem;
+  border: 0;
+  border-right: 1px solid #edf1f5;
+  border-bottom: 1px solid #edf1f5;
+  background: #fff;
+  color: #334155;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 120ms ease, box-shadow 120ms ease;
+}
+.project-activity-day:hover { z-index: 1; background: #f0fdf4; box-shadow: inset 0 0 0 1px #15803d; }
+.project-activity-day:focus-visible { z-index: 2; outline: 3px solid rgba(21, 128, 61, 0.4); outline-offset: -3px; }
+.project-activity-day.is-today .project-activity-day-number {
+  display: inline-flex;
+  width: 1.7rem;
+  height: 1.7rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #15803d;
+  color: #fff;
+}
+.project-activity-day.is-selected { box-shadow: inset 0 0 0 2px #15803d; }
+.project-activity-day.has-activity { background-color: #fbfefc; }
+.project-activity-day-number { align-self: flex-start; font-size: 0.82rem; font-weight: 750; line-height: 1.7rem; }
+.project-activity-day-projects { display: flex; min-width: 0; flex-direction: column; gap: 0.2rem; }
+.project-activity-chip,
+.project-activity-more {
+  display: block;
+  overflow: hidden;
+  padding: 0.17rem 0.35rem;
+  border-radius: 4px;
+  font-size: 0.68rem;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.project-activity-chip { background: #eaf6ee; color: #166534; font-weight: 650; }
+.project-activity-more { color: #15803d; font-weight: 750; }
+.project-activity-date-view { min-height: 320px; }
+.project-activity-date-view .project-activity-calendar-header { align-items: flex-start; }
+.project-activity-table-wrap { overflow-x: auto; border: 1px solid #dfe6ee; border-radius: 8px; }
+.project-activity-table { width: 100%; min-width: 420px; }
+.project-activity-table th { background: #f8fafc; color: #475569; }
+.project-activity-empty {
+  display: flex;
+  min-height: 180px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  color: #64748b;
+  text-align: center;
+}
+.project-activity-empty p { margin: 0; }
+@media (max-width: 720px) {
+  .project-activity-calendar { padding: 0.8rem; }
+  .project-activity-calendar-header { align-items: flex-start; flex-direction: column; }
+  .project-activity-calendar-controls { width: 100%; }
+  .project-activity-calendar-controls button { flex: 1 1 auto; }
+  .project-activity-day { min-height: 82px; padding: 0.28rem; }
+  .project-activity-empty-day { min-height: 82px; }
+  .project-activity-chip,
+  .project-activity-more { padding: 0.14rem 0.22rem; font-size: 0.62rem; }
+}
 @media (max-width: 640px) {
   .program-scope-options { grid-template-columns: 1fr; }
   .program-scope-pill { min-height: 0; }
@@ -1203,6 +1379,16 @@
 .progress-report-ai-heading-actions { display: flex; align-items: center; gap: 0.5rem; }
 .progress-report-ai-content { display: grid; gap: 0.9rem; min-width: 0; }
 .progress-report-ai-content[hidden] { display: none; }
+.progress-report-ai-modes { display: flex; flex-wrap: wrap; gap: 0.45rem; padding-bottom: 0.65rem; border-bottom: 1px solid #dce7e1; }
+.progress-report-ai-modes button { min-height: 38px; padding: 0.45rem 0.7rem; border: 1px solid #dce7e1; border-radius: 8px; background: #fff; color: #355446; font: inherit; font-size: 0.8rem; font-weight: 700; cursor: pointer; }
+.progress-report-ai-modes button:hover, .progress-report-ai-modes button:focus-visible { border-color: #15803d; color: #166534; }
+.progress-report-ai-modes button.is-selected { border-color: #15803d; background: #effaf3; color: #166534; }
+.progress-report-ai-checkup { display: grid; gap: 0.8rem; min-width: 0; }
+.progress-report-ai-checkup form { display: grid; gap: 0.65rem; min-width: 0; }
+.progress-report-ai-checkup .progress-report-ai-prompt-label { display: grid; gap: 0.25rem; }
+.progress-report-ai-checkup-scope { color: #64748b; font-size: 0.78rem; font-weight: 500; }
+.progress-report-ai-checkup textarea { width: 100%; min-width: 0; box-sizing: border-box; resize: vertical; padding: 0.8rem 0.9rem; border: 1px solid #cbd5e1; border-radius: 9px; background: #fff; color: #0f172a; font: inherit; font-size: 0.88rem; }
+.progress-report-ai-checkup textarea:focus { border-color: #15803d; outline: 2px solid rgba(21, 128, 61, 0.15); }
 .progress-report-ai-toggle { flex: 0 0 auto; padding: 0.35rem 0.55rem; border: 1px solid #dce7e1; border-radius: 7px; background: #fff; color: #355446; font: inherit; font-size: 0.75rem; font-weight: 700; cursor: pointer; }
 .progress-report-ai-toggle:hover { border-color: #15803d; color: #166534; }
 .progress-report-ai-heading h2, .progress-report-ai-proposal h3 { margin: 0; color: #173b2c; font-size: 1rem; }

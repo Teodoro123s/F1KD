@@ -16,7 +16,7 @@ import TableSearch from '../../components/ui/TableSearch';
 import FloatingLayer from '../../components/ui/FloatingLayer';
 import { getSummary } from "../Community/communityService";
 import { apiGetChildren } from "../../api/children";
-import { apiCompleteNamedProgramCluster, apiCompleteProgramCluster, apiCreateProgram, apiCreateProgramClusters, apiDeleteProgram, apiEndProgram, apiGetProgramMonitoring, apiGetPrograms, apiRestoreProgram, apiSetProgramMonitoring, apiUpdateProgram } from "../../api/programs";
+import { apiCompleteNamedProgramCluster, apiCompleteProgramCluster, apiCreateProgram, apiCreateProgramClusters, apiDeleteProgram, apiEndProgram, apiGetProjectActivityCalendar, apiGetProgramMonitoring, apiGetPrograms, apiRestoreProgram, apiSetProgramMonitoring, apiUpdateProgram } from "../../api/programs";
 import { notifyAction } from '../../components/ActionFeedback';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import ExpandableTreeTable from "../Monitoring/ExpandableTreeTable";
@@ -30,6 +30,8 @@ import {
   getCluster,
   normalizeBeneficiaryType,
 } from "./programData";
+import ProjectActivityCalendar from './ProjectActivityCalendar';
+import { toLocalDateKey } from './projectActivityCalendarUtils.mjs';
 
 const localDate = () => {
   const date = new Date();
@@ -82,6 +84,14 @@ export default function ProgramPage() {
   const [monitoringStatus, setMonitoringStatus] = useState({});
   const [monitoringPending, setMonitoringPending] = useState({});
   const [monitorConfirmation, setMonitorConfirmation] = useState(null);
+  const [activityMonth, setActivityMonth] = useState(() => {
+    const today = new Date();
+    return new Date(today.getFullYear(), today.getMonth(), 1);
+  });
+  const [projectActivities, setProjectActivities] = useState([]);
+  const [activityLoading, setActivityLoading] = useState(true);
+  const [activityError, setActivityError] = useState('');
+  const [activityRetry, setActivityRetry] = useState(0);
 
   const mapApiProgram = (program) => ({
     ...program,
@@ -228,7 +238,7 @@ export default function ProgramPage() {
       })
       .catch((error) => {
         if (!mounted) return;
-        notifyAction(error?.message || 'Unable to load saved programs.', 'error');
+        notifyAction(error?.message || 'Unable to load saved projects.', 'error');
         setPrograms([]);
         setIsLiveDataLoaded(true);
       });
@@ -237,6 +247,28 @@ export default function ProgramPage() {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (viewMode) return undefined;
+    let active = true;
+    const from = toLocalDateKey(new Date(activityMonth.getFullYear(), activityMonth.getMonth(), 1));
+    const to = toLocalDateKey(new Date(activityMonth.getFullYear(), activityMonth.getMonth() + 1, 0));
+    setActivityLoading(true);
+    setActivityError('');
+    setProjectActivities([]);
+    apiGetProjectActivityCalendar(from, to)
+      .then((response) => {
+        if (active) setProjectActivities(response.activities || []);
+      })
+      .catch((error) => {
+        if (!active) return;
+        setActivityError(error.message || 'Unable to load project activities.');
+      })
+      .finally(() => {
+        if (active) setActivityLoading(false);
+      });
+    return () => { active = false; };
+  }, [activityMonth, activityRetry, viewMode]);
 
   const refreshMonitoring = async () => {
     if (!programId) return;
@@ -415,9 +447,9 @@ export default function ProgramPage() {
       setForm(emptyProgram);
       setShowModal(false);
       setShowSaveConfirmation(false);
-      notifyAction(`${form.id ? 'Updated' : 'Created'} program successfully.`);
+      notifyAction(`${form.id ? 'Updated' : 'Created'} project successfully.`);
     } catch (error) {
-      const message = error.message || 'Unable to save program.';
+      const message = error.message || 'Unable to save project.';
       notifyAction(message, 'error');
     }
   };
@@ -460,7 +492,7 @@ export default function ProgramPage() {
     || String(selectedRouteBatch.groupIds || '').split(',').map((value) => value.trim()).includes(String(group.id || ''))
     || String(selectedRouteBatch.group || selectedRouteBatch.group_name || '').trim().toLowerCase() === String(group.name || group.group_name || '').trim().toLowerCase()
   )) : null;
-  const programBreadcrumbs = viewMode ? [{ label: 'Program', to: '/program' }] : [];
+  const programBreadcrumbs = viewMode ? [{ label: 'Projects', to: '/program' }] : [];
   if (viewMode && selectedProgram) {
     if (selectedRouteSchool) programBreadcrumbs.push({ label: selectedRouteSchool.name });
     if (selectedRouteGroup) programBreadcrumbs.push({ label: selectedRouteGroup.name || selectedRouteGroup.group_name });
@@ -845,7 +877,7 @@ export default function ProgramPage() {
       notifyAction(`Deleted ${programToDelete.name}.`);
       navigate('/program');
     } catch (error) {
-      const message = error.message || 'Unable to delete program.';
+      const message = error.message || 'Unable to delete project.';
       notifyAction(message, 'error');
     }
   };
@@ -865,7 +897,7 @@ export default function ProgramPage() {
           setActiveActionMenu(menuId);
         }}
         ref={activeActionMenu === menuId ? activeActionMenuAnchorRef : undefined}
-        aria-label="Program actions menu"
+        aria-label="Project actions menu"
         aria-haspopup="true"
         aria-expanded={activeActionMenu === menuId}
       >
@@ -1099,7 +1131,7 @@ export default function ProgramPage() {
   return (
     <div className="community-page program-page">
       <PageHeader
-        title="Program"
+        title="Projects"
         breadcrumbs={programBreadcrumbs}
         actions={!viewMode && (
           <div className="program-page-header-actions">
@@ -1113,7 +1145,7 @@ export default function ProgramPage() {
                 }}
               >
                 <PlusIcon />
-                <span>Create Program</span>
+                <span>Create Project</span>
               </button>
             )}
           </div>
@@ -1151,7 +1183,7 @@ export default function ProgramPage() {
               </button>
             </div>
           </section>
-          <section className="program-detail-panel" aria-label="Program coverage summary">
+          <section className="program-detail-panel" aria-label="Project coverage summary">
             <div className="program-detail-stats">
               <div>
                 <strong>{getProgramBeneficiaryCount(selectedProgram).toLocaleString()}</strong>
@@ -1186,17 +1218,28 @@ export default function ProgramPage() {
             setActiveTab(tab);
           }}
           cards={[
-            { key: 'All', label: 'Total Programs', value: programs.length },
-            { key: 'Active', label: 'Active Programs', value: filterPrograms(programs, '', 'Active').length },
-            { key: 'Ended', label: 'Ended Programs', value: filterPrograms(programs, '', 'Ended').length },
+            { key: 'All', label: 'Total Projects', value: programs.length },
+            { key: 'Active', label: 'Active Projects', value: filterPrograms(programs, '', 'Active').length },
+            { key: 'Ended', label: 'Ended Projects', value: filterPrograms(programs, '', 'Ended').length },
           ]}
+        />
+      )}
+
+      {!viewMode && !activeTab && (
+        <ProjectActivityCalendar
+          month={activityMonth}
+          activities={projectActivities}
+          loading={activityLoading}
+          error={activityError}
+          onRetry={() => setActivityRetry((current) => current + 1)}
+          onMonthChange={setActivityMonth}
         />
       )}
 
       <section className="table-card program-table-card" hidden={!viewMode && !activeTab}>
         <div className="program-table-heading">
           <div>
-            <h2>{viewMode ? 'Program coverage' : 'Programs'}</h2>
+            <h2>{viewMode ? 'Project coverage' : 'Projects'}</h2>
           </div>
           {!viewMode && (
             <TableSearch
@@ -1204,7 +1247,7 @@ export default function ProgramPage() {
               onChange={(value) => {
                 setQuery(value);
               }}
-              placeholder="Search programs, partners, or communities"
+              placeholder="Search projects, partners, or communities"
             />
           )}
         </div>
@@ -1364,7 +1407,7 @@ export default function ProgramPage() {
                     </tr>
                   )) : (
                     <tr>
-                      <td colSpan="4" className="no-data">No assigned group found for this program.</td>
+                      <td colSpan="4" className="no-data">No assigned group found for this project.</td>
                     </tr>
                   ) : programHierarchy.length ? programHierarchy.map((school) => (
                     <tr key={school.id} className="program-clickable-row" onClick={() => navigate(`/program/${programId}/school/${school.id}`)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); navigate(`/program/${programId}/school/${school.id}`); } }} tabIndex={0} role="button">
@@ -1390,7 +1433,7 @@ export default function ProgramPage() {
                     );
                   }) : (
                     <tr>
-                      <td colSpan="3" className="no-data">No schools found for this program.</td>
+                      <td colSpan="3" className="no-data">No schools found for this project.</td>
                     </tr>
                   )}
                 </tbody>
@@ -1446,7 +1489,7 @@ export default function ProgramPage() {
               <>
                 <thead>
                   <tr>
-                    <th>Program</th>
+                    <th>Project</th>
                     <th>Scopes</th>
                     <th>Recipients</th>
                     <th>Status</th>
@@ -1496,7 +1539,7 @@ export default function ProgramPage() {
                   ) : (
                     <tr>
                       <td colSpan="5" className="no-data">
-                        No programs match your search.
+                        No projects match your search.
                       </td>
                     </tr>
                   )}
@@ -1509,16 +1552,16 @@ export default function ProgramPage() {
 
       <ConfirmActionModal
         show={Boolean(pendingDeleteProgram)}
-        title="Delete program?"
-        message={pendingDeleteProgram ? `Delete ${pendingDeleteProgram.name}?` : 'Delete this program?'}
+        title="Delete project?"
+        message={pendingDeleteProgram ? `Delete ${pendingDeleteProgram.name}?` : 'Delete this project?'}
         confirmLabel="Delete"
         onConfirm={confirmDeleteProgram}
         onCancel={() => setPendingDeleteProgram(null)}
       />
       <ConfirmDialog
         open={showSaveConfirmation}
-        title="Save program changes?"
-        description={`Save the updates to ${form.name || 'this program'}?`}
+        title="Save project changes?"
+        description={`Save the updates to ${form.name || 'this project'}?`}
         variant="primary"
         confirmLabel="Save changes"
         cancelLabel="Continue editing"
@@ -1535,7 +1578,7 @@ export default function ProgramPage() {
             onMouseDown={(event) => event.stopPropagation()}
           >
             <div className="modal-header">
-              <h2 id="receipt-scope-title">View receipt history</h2>
+              <h2 id="receipt-scope-title">View project receipt history</h2>
               <button type="button" className="modal-close" onClick={() => setReceiptHistoryProgram(null)} aria-label="Close">×</button>
             </div>
             <div className="modal-body">
@@ -1580,7 +1623,7 @@ export default function ProgramPage() {
             onMouseDown={(event) => event.stopPropagation()}
           >
             <div className="modal-header">
-              <h2>Add beneficiary cluster</h2>
+              <h2>Add project beneficiary cluster</h2>
               <button
                 type="button"
                 className="modal-close"
@@ -1593,7 +1636,7 @@ export default function ProgramPage() {
             <div className="modal-body">
               <p className="program-modal-context">
                 {selectedProgram.name} · Choose the coverage cluster for this
-                program.
+                project.
               </p>
               <div className="program-scope-options" aria-label="Beneficiary scope options">
                 {[
@@ -1622,7 +1665,7 @@ export default function ProgramPage() {
               </div>
 
               <div className="program-hierarchy-field">
-                <span className="program-hierarchy-label">Select {beneficiaryScope === 'School' ? 'schools or communities' : beneficiaryScope === 'Group' ? 'groups' : 'batches'} for this program</span>
+                <span className="program-hierarchy-label">Select {beneficiaryScope === 'School' ? 'schools or communities' : beneficiaryScope === 'Group' ? 'groups' : 'batches'} for this project</span>
                 {scopeError && <p className="program-scope-error" role="alert">{scopeError}</p>}
                 <div className="program-hierarchy-options program-community-hierarchy" role="group" aria-label="Community hierarchy selector">
                   {communityHierarchyGroups.length ? communityHierarchyGroups.map(({ school, groups, batches }) => {
@@ -1800,7 +1843,7 @@ export default function ProgramPage() {
             onMouseDown={(event) => event.stopPropagation()}
           >
             <div className="modal-header">
-              <h2>{form.id ? 'Edit program' : 'Create program'}</h2>
+              <h2>{form.id ? 'Edit project' : 'Create project'}</h2>
               <button
                 type="button"
                 className="modal-close"
@@ -1815,7 +1858,7 @@ export default function ProgramPage() {
             </div>
             <div className="modal-body">
               <label className="form-label" htmlFor="program-name">
-                Program name
+                Project name <span className="form-required-indicator" aria-hidden="true">*</span>
                 <input
                   id="program-name"
                   className="form-input"
@@ -1827,11 +1870,12 @@ export default function ProgramPage() {
                 />
               </label>
               <label className="form-label" htmlFor="program-type">
-                Program type
+                Project type <span className="form-required-indicator" aria-hidden="true">*</span>
                 <select
                   id="program-type"
                   className="form-select"
                   value={form.type}
+                  required
                   onChange={(event) =>
                     setForm({ ...form, type: event.target.value })
                   }
@@ -1839,12 +1883,12 @@ export default function ProgramPage() {
                   <option>Feeding</option>
                   <option>Milk Subsidy</option>
                   <option>Vitamin / Supplement</option>
-                  <option>Third-party Support</option>
-                  <option>Other</option>
+                  <option>Community Talk</option>
+                  <option value="Other">Others</option>
                 </select>
               </label>
               <label className="form-label" htmlFor="program-provider">
-                Provider / partner
+                Provider / partner <span className="form-required-indicator" aria-hidden="true">*</span>
                 <input
                   id="program-provider"
                   className="form-input"
@@ -1856,7 +1900,7 @@ export default function ProgramPage() {
                 />
               </label>
               <label className="form-label" htmlFor="program-description">
-                Description
+                Description <span className="form-optional-indicator">(Optional)</span>
                 <textarea
                   id="program-description"
                   className="form-input"
@@ -1868,11 +1912,12 @@ export default function ProgramPage() {
                 />
               </label>
               <label className="form-label" htmlFor="program-beneficiary-type">
-                Beneficiary type
+                Beneficiary type <span className="form-required-indicator" aria-hidden="true">*</span>
                 <select
                   id="program-beneficiary-type"
                   className="form-select"
                   value={form.beneficiaryType}
+                  required
                   onChange={(event) =>
                     setForm({ ...form, beneficiaryType: event.target.value })
                   }
@@ -1894,7 +1939,7 @@ export default function ProgramPage() {
                 Cancel
               </button>
               <button type="submit" className="btn-primary">
-                {form.id ? 'Review changes' : 'Create active program'}
+                {form.id ? 'Review changes' : 'Create active project'}
               </button>
             </div>
           </form>

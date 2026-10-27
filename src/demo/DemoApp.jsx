@@ -13,7 +13,7 @@ const NAV_ITEMS = [
   ['overview', 'Overview', '◫'],
   ['beneficiaries', 'Beneficiaries', '♙'],
   ['monitoring', 'Monitoring', '⌁'],
-  ['programs', 'Programs', '▣'],
+  ['programs', 'Projects', '▣'],
   ['reports', 'Reports', '▤'],
   ['notifications', 'Notifications', '♧'],
 ];
@@ -100,8 +100,8 @@ function Overview({ setSection, setSelectedRecord }) {
         </section>
         <section className="demo-panel">
           <div className="demo-panel-heading">
-            <div><h3>Program participation</h3><p>October 2026 sample period</p></div>
-            <button className="demo-link-button" onClick={() => setSection('programs')}>View programs</button>
+            <div><h3>Project participation</h3><p>October 2026 sample period</p></div>
+            <button className="demo-link-button" onClick={() => setSection('programs')}>View projects</button>
           </div>
           <div className="demo-program-list">
             {DEMO_PROGRAMS.map((program) => (
@@ -133,9 +133,9 @@ function SectionPage({ section, setSelectedRecord }) {
   const sectionMeta = {
     beneficiaries: ['Beneficiaries', 'Browse synthetic child and mother profile examples.'],
     monitoring: ['Monitoring', 'Review sample check-up dates, measurements, and growth summaries.'],
-    programs: ['Programs', 'Explore sample benefit participation and documentation status.'],
+    programs: ['Projects', 'Explore sample benefit participation and documentation status.'],
     reports: ['Reports', 'Preview example reports available in the F1KD system.'],
-    notifications: ['Notifications', 'Sample updates from community, monitoring, and program activity.'],
+    notifications: ['Notifications', 'Sample updates from community, monitoring, and project activity.'],
   };
   const [title, description] = sectionMeta[section] || sectionMeta.beneficiaries;
 
@@ -166,7 +166,7 @@ function SectionPage({ section, setSelectedRecord }) {
       )}
       {section === 'programs' && (
         <DemoTable columns={[
-          ['name', 'Program'], ['beneficiaryType', 'Beneficiary type'], ['period', 'Period'],
+          ['name', 'Project'], ['beneficiaryType', 'Beneficiary type'], ['period', 'Period'],
           ['eligible', 'Eligible'], ['received', 'Received'], ['documentation', 'Documentation'], ['status', 'Status'],
         ]} rows={DEMO_PROGRAMS.map((program) => ({ ...program, name: program.name }))} />
       )}

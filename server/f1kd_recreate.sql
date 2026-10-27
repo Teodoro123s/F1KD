@@ -328,7 +328,7 @@ CREATE TABLE IF NOT EXISTS child_checkups (
   weight DECIMAL(5,2),
   height DECIMAL(5,2),
   head_circumference DECIMAL(5,2),
-  exclusive_breastfeeding VARCHAR(10),
+  exclusive_breastfeeding VARCHAR(40),
   laboratory_requests TEXT,
   laboratory_assistance_provided BOOLEAN NOT NULL DEFAULT FALSE,
   referred_to_hospital BOOLEAN NOT NULL DEFAULT FALSE,

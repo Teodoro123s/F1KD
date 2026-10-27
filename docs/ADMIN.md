@@ -10,15 +10,15 @@ Admin provides broad operational oversight across the deployment. It is an opera
 
 ## Modules and components available
 
-The Admin sidebar contains Dashboard, Community, Beneficiary, Monitor, Program, Progress Report, and Notifications. Profile and Settings are also available from the account menu.
+The Admin sidebar contains Dashboard, Community, Beneficiary, Monitor, Projects, Progress Report, and Notifications. Profile and Settings are also available from the account menu. The Projects module retains the `/program` route and legacy `programs` API identifiers for compatibility.
 
 | Module or component | Availability | Purpose and limits |
 |---|---|---|
-| **Dashboard** (`/dashboard`) | Available | Global operational overview with beneficiary, community, program, and monitoring indicators. Provides review shortcuts; figures cover the accessible operational dataset rather than one assigned school. |
+| **Dashboard** (`/dashboard`) | Available | Global operational overview with beneficiary, community, project, and monitoring indicators. Provides review shortcuts; figures cover the accessible operational dataset rather than one assigned school. |
 | **Community** (`/community`) | Read-only | Review schools, groups, batches, and community records across the deployment. Community structure changes are not allowed. |
 | **Beneficiary** (`/beneficiary`) | Read-only | Review mother and child records and profiles across schools. Creating, editing, or deleting operational records is not an Admin capability. |
 | **Monitor** (`/monitoring`) | Read-only | Review saved maternal and child check-up information. Admin cannot record or change check-ups. |
-| **Program** (`/program`) | Read-only | Review programs and receipt/check-in information across schools. Program definitions, scopes, and receipt records cannot be changed by Admin. |
+| **Projects** (`/program`) | Read-only | Review projects and receipt/check-in information across schools. Project definitions, scopes, and receipt records cannot be changed by Admin. |
 | **Progress Report** (`/progress-report`) | Read and export | Review and export operational progress reports. Exports are audited; report information is global operational data. |
 | **Notifications** (`/notifications`) | Available | View global operational notifications, update read state, and manage the categories/preferences supported by the role. User Management notifications are excluded. |
 | **Profile** (`/profile`) | Available | View the signed-in Admin's own account details. |
@@ -26,7 +26,7 @@ The Admin sidebar contains Dashboard, Community, Beneficiary, Monitor, Program, 
 | **User Management** (`/user-management`) | **Not available** | Superadmin owns global user creation, updates, status changes, and deletion. Admin cannot administer accounts. |
 | **System activity Reports** (`/reports`) | **Not available** | The Reports page and its global activity endpoints are reserved for Superadmin. |
 
-The sidebar includes operational module links, while the Admin dashboard offers review-oriented shortcuts for Monitoring, Programs, and Progress Reports. Access to a route does not grant write permission.
+The sidebar includes operational module links, while the Admin dashboard offers review-oriented shortcuts for Monitoring, Projects, and Progress Reports. Access to a route does not grant write permission.
 
 ## Scope and permissions
 
@@ -39,9 +39,9 @@ The sidebar includes operational module links, while the Admin dashboard offers 
 
 ### Read-only operational access
 
-Admin can review the modules listed above, including beneficiary and monitoring information, program configuration and check-ins, and Progress Reports. Operational writes are denied by the API. Password changes, notification read-state/preferences, and permitted report-download audit events are account-level/report-support actions, not permission to edit operational records.
+Admin can review the modules listed above, including beneficiary and monitoring information, project configuration and check-ins, and Progress Reports. Operational writes are denied by the API. Password changes, notification read-state/preferences, and permitted report-download audit events are account-level/report-support actions, not permission to edit operational records.
 
-Program check-in photo documentation is view- and download-only for Admin accounts; Community Organizers manage photo uploads and removals.
+Project check-in photo documentation is view- and download-only for Admin accounts; Community Organizers manage photo uploads and removals.
 
 ### Account administration
 
@@ -51,7 +51,7 @@ Admin cannot create, update, suspend, reactivate, or permanently delete user acc
 
 | Role | Relationship to Admin |
 |---|---|
-| **Superadmin** | Platform administration, global user management, community administration, and system activity reports. Superadmin has no Program, Beneficiary, Monitoring, or Progress Report access. |
+| **Superadmin** | Platform administration, global user management, community administration, and system activity reports. Superadmin has no Projects, Beneficiary, Monitoring, or Progress Report access. |
 | **Community Organizer** | Manages operational workflows within one assigned school and manages Health Workers in that school. |
 | **Partner** | Global operational review with no operational writes or account administration. |
 | **Health Worker** | Performs limited tasks within an assigned school and group, including permitted check-ups and receipts. |
@@ -87,7 +87,7 @@ The synthetic seed creates a shared sample Admin account using the configured `S
 - [Community API](../server/routes/community.js)
 - [Beneficiary API](../server/routes/mothers.js)
 - [Child records and check-ups API](../server/routes/children.js)
-- [Program API](../server/routes/programs.js)
+- [Projects API (legacy `programs` identifiers)](../server/routes/programs.js)
 - [Progress Report API](../server/routes/progressReport.js)
 - [Notification access scope](../server/services/notificationAccess.js)
 - [Dashboard behavior](../src/pages/Dashboard/DashboardPage.jsx)

@@ -10,15 +10,15 @@ Partner provides global operational review across schools. It is not a platform 
 
 ## Modules and components available
 
-The Partner sidebar contains Dashboard, Community, Beneficiary, Monitor, Program, Progress Report, and Notifications. Profile and Settings are also available from the account menu.
+The Partner sidebar contains Dashboard, Community, Beneficiary, Monitor, Projects, Progress Report, and Notifications. Profile and Settings are also available from the account menu. The Projects module retains the `/program` route and legacy `programs` API identifiers for compatibility.
 
 | Module or component | Availability | Purpose and limits |
 |---|---|---|
-| **Dashboard** (`/dashboard`) | Available | Operational overview. Partner dashboard cards emphasize Community and Programs; shortcuts provide access to Programs, Community, and Progress Reports. |
+| **Dashboard** (`/dashboard`) | Available | Operational overview. Partner dashboard cards emphasize Community and Projects; shortcuts provide access to Projects, Community, and Progress Reports. |
 | **Community** (`/community`) | Read-only | Review schools, groups, batches, and community records across the deployment. No school or community structure changes are allowed. |
 | **Beneficiary** (`/beneficiary`) | Read-only | Review mother and child records and profiles across schools. No beneficiary creation, updates, or deletion. |
 | **Monitor** (`/monitoring`) | Read-only | Review saved maternal and child check-up information. No check-up creation or updates. |
-| **Program** (`/program`) | Read-only | Review programs and receipt/check-in information across schools. No program, scope, or receipt changes. |
+| **Projects** (`/program`) | Read-only | Review projects and receipt/check-in information across schools. No project, scope, or receipt changes. |
 | **Progress Report** (`/progress-report`) | Read and export | Review and export operational progress reports. Exports are audited; report information is global operational data. |
 | **Notifications** (`/notifications`) | Available | View global operational notifications, manage read state, and adjust supported preferences. User Management notifications are excluded. |
 | **Profile** (`/profile`) | Available | View the signed-in Partner's own account details. |
@@ -39,9 +39,9 @@ Although Beneficiary and Monitor routes are available to operational roles, Part
 
 ### Read-only access
 
-Partner can review the Community, Beneficiary, Monitoring, Program, and Progress Report modules. The API denies operational writes, including attempts to change community structure, beneficiaries, check-ups, program configuration, and receipt records.
+Partner can review the Community, Beneficiary, Monitoring, Projects, and Progress Report modules. The API denies operational writes, including attempts to change community structure, beneficiaries, check-ups, project configuration, and receipt records.
 
-Program check-in photo documentation is view- and download-only for Partner accounts; Community Organizers manage photo uploads and removals.
+Project check-in photo documentation is view- and download-only for Partner accounts; Community Organizers manage photo uploads and removals.
 
 Notification read state/preferences and permitted report-download audit events are account-level/report-support operations, not permission to edit operational records.
 
@@ -56,15 +56,15 @@ Notification read state/preferences and permitted report-download audit events a
 
 | Role | Relationship to Partner |
 |---|---|
-| **Superadmin** | Manages accounts and community structure globally and reviews system activity; has no Program, Beneficiary, Monitoring, or Progress Report access. |
+| **Superadmin** | Manages accounts and community structure globally and reviews system activity; has no Projects, Beneficiary, Monitoring, or Progress Report access. |
 | **Admin** | Global operational review, also read-only, with an Admin-focused oversight dashboard. |
 | **Community Organizer** | Manages operational records within one assigned school and manages that school's Health Workers. |
-| **Health Worker** | Performs permitted check-ups, limited profile updates, and program receipts in an assigned group. |
+| **Health Worker** | Performs permitted check-ups, limited profile updates, and project receipts in an assigned group. |
 
 ## Dashboard, notifications, and reporting
 
 - Dashboard summaries are built from operational data available to the Partner and refresh on demand and periodically.
-- The Partner dashboard emphasizes Community and Program totals and offers shortcuts for Community, Programs, and Progress Reports.
+- The Partner dashboard emphasizes Community and Project totals and offers shortcuts for Community, Projects, and Progress Reports.
 - Notifications are global operational notifications; User Management notifications are excluded.
 - Progress Report can be viewed/exported and is subject to report auditing. System activity Reports are not available to Partner.
 
@@ -90,7 +90,7 @@ The synthetic seed creates a shared sample Partner account using the configured 
 - [Community API](../server/routes/community.js)
 - [Beneficiary API](../server/routes/mothers.js)
 - [Child records and check-ups API](../server/routes/children.js)
-- [Program API](../server/routes/programs.js)
+- [Projects API (legacy `programs` identifiers)](../server/routes/programs.js)
 - [Progress Report API](../server/routes/progressReport.js)
 - [Notification access scope](../server/services/notificationAccess.js)
 - [Dashboard behavior](../src/pages/Dashboard/DashboardPage.jsx)

@@ -14,7 +14,7 @@ import NotificationDetailsModal from '../../components/ui/NotificationDetailsMod
 import { useAuth } from '../../auth/AuthProvider';
 import { hasRole, isHealthWorkerRole, ROLES } from '../../utils/permissions';
 
-const CATEGORIES = ['All', 'Beneficiaries', 'Monitoring', 'Programs', 'Downloads', 'Community', 'User Management'];
+const CATEGORIES = ['All', 'Beneficiaries', 'Monitoring', 'Projects', 'Downloads', 'Community', 'User Management'];
 
 function notificationDateGroup(value) {
   const date = new Date(value);
@@ -347,7 +347,7 @@ export default function NotificationsPage() {
                     }}
                     aria-label="Filter notifications by category"
                   >
-                    {categories.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
+                    {categories.map((cat) => <option key={cat} value={cat}>{cat === 'Programs' ? 'Projects' : cat}</option>)}
                   </select>
                 </label>
               </div>

@@ -4,6 +4,7 @@ import FieldInfoTooltip from '../../../components/ui/FieldInfoTooltip';
 import { REPORT_FIELDS } from '../progressReportConfig';
 import { getMotherCheckupSlot, isLatestCheckupRequest } from '../utils/aiReportCsv.mjs';
 import { matchesProgramBeneficiaryType } from '../utils/programEligibility';
+import CheckupReportBuilder from './CheckupReportBuilder';
 import {
   buildReportClarificationRequest,
   getReportClarificationMaxLength,
@@ -14,7 +15,7 @@ FIELD_LABELS.set('hospitalReferral', 'Referral to Hospital');
 const REPORT_CATEGORY_LABELS = {
   profile: 'Beneficiary',
   monitor: 'Monitor',
-  program: 'Program',
+  program: 'Project',
 };
 const RETRYABLE_PROPOSAL_ERRORS = new Set([
   'The private AI service returned an invalid report proposal.',
@@ -29,6 +30,7 @@ export function ReportAiAssistant({
   initialProgramName,
   initialBenefitPeriod,
   initialBenefitMonth,
+  scopeSelection,
   onBuildPreview,
   onExport,
 }) {
@@ -44,6 +46,7 @@ export function ReportAiAssistant({
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [builderMode, setBuilderMode] = useState('progress');
   const requestVersion = useRef(0);
 
   useEffect(() => {
@@ -196,6 +199,32 @@ export function ReportAiAssistant({
       </div>
 
       <div id="progress-report-ai-content" className="progress-report-ai-content" hidden={!expanded}>
+        <div className="progress-report-ai-modes" role="group" aria-label="AI report type">
+          <button
+            type="button"
+            aria-pressed={builderMode === 'progress'}
+            className={builderMode === 'progress' ? 'is-selected' : ''}
+            onClick={() => setBuilderMode('progress')}
+          >
+            Progress, profile, or project report
+          </button>
+          <button
+            type="button"
+            aria-pressed={builderMode === 'checkup'}
+            className={builderMode === 'checkup' ? 'is-selected' : ''}
+            onClick={() => setBuilderMode('checkup')}
+          >
+            Check-up report
+          </button>
+        </div>
+        {builderMode === 'checkup' ? (
+          <CheckupReportBuilder
+            selection={scopeSelection}
+            contextKey={contextKey}
+            scopeLabel={scopeLabel}
+          />
+        ) : (
+          <>
         {availability === 'unavailable' ? (
           <p className="progress-report-ai-message" role="status">
             The private AI service is not configured. Ask your administrator to connect an approved self-hosted model.
@@ -258,7 +287,7 @@ export function ReportAiAssistant({
           <form onSubmit={createProposal}>
             <label className="progress-report-ai-prompt-label" htmlFor="progress-report-ai-prompt">
               <span>What should this report show?</span>
-              <FieldInfoTooltip content="Format: [type]: [fields]. Examples: Child check-up: date; Weight-for-Age, Length-for-Age, or Weight-for-Length interpretation or Z-score. Child BMI is not a check-up field. Child profile: general details; medical/dental history; vaccine doses and dates. Mother profile: general details; prenatal/OB history; medical/dental history; vaccine doses and dates. Program: benefits received; average per month; documentation. School, Group, and Batch scope stays fixed. Choose a program and period after the preview." />
+              <FieldInfoTooltip content="Format: [type]: [fields]. Examples: Child check-up: date; Weight-for-Age, Length-for-Age, or Weight-for-Length interpretation or Z-score. Child BMI is not a check-up field. Child profile: general details; medical/dental history; vaccine doses and dates. Mother profile: general details; prenatal/OB history; medical/dental history; vaccine doses and dates. Project: benefits received; average per month; documentation. School, Group, and Batch scope stays fixed. Choose a project and period after the preview." />
             </label>
             <textarea
               id="progress-report-ai-prompt"
@@ -291,7 +320,7 @@ export function ReportAiAssistant({
         {reportProposal?.reportCategory === 'program' && !reportPreview && (
           <div className="progress-report-ai-program-filters">
             <label>
-              Program
+              Project
               <select
                 value={aiProgramIsEligible ? aiProgramName : ''}
                 onChange={(event) => {
@@ -300,7 +329,7 @@ export function ReportAiAssistant({
                   setError('');
                 }}
               >
-                <option value="">Select program</option>
+                <option value="">Select project</option>
                 {eligibleAiPrograms.map((program) => <option key={program.id} value={program.name}>{program.name}</option>)}
               </select>
             </label>
@@ -324,7 +353,7 @@ export function ReportAiAssistant({
               </label>
             )}
             {!eligibleAiPrograms.length && (
-              <p className="progress-report-ai-message" role="alert">No programs are available for this beneficiary type.</p>
+              <p className="progress-report-ai-message" role="alert">No projects are available for this beneficiary type.</p>
             )}
             <button
               type="button"
@@ -336,7 +365,7 @@ export function ReportAiAssistant({
                 benefitMonth: aiBenefitMonth,
               })}
             >
-              {loading ? 'Building preview…' : 'Build program report'}
+              {loading ? 'Building preview…' : 'Build project report'}
             </button>
           </div>
         )}
@@ -410,6 +439,8 @@ export function ReportAiAssistant({
               </button>
             </div>
           </div>
+        )}
+          </>
         )}
       </div>
     </section>

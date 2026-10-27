@@ -9,7 +9,7 @@ export const MONITORING_REPORT_FIELD_LABELS = {
   trimesterMonth: 'Month of trimester',
   nextCheckupDate: 'Next check-up date',
   currentAgeMonths: 'Current age (months)',
-  breastfeedingStatus: 'Exclusive breastfeeding',
+  breastfeedingStatus: 'Feeding method',
   weight: 'Weight',
   height: 'Height',
   bmi: 'BMI',
@@ -151,7 +151,7 @@ export function getMonitoringReportValue(checkup, metricId, beneficiary = null) 
       const age = getAgeInDecimalMonths(getChildBirthDate(beneficiary), measurementDate);
       return age ?? '—';
     }
-    case 'breastfeedingStatus': return value('breastfeedingStatus', 'exclusive_breastfeeding', 'exclusiveBreastfeeding') ?? '—';
+    case 'breastfeedingStatus': return value('feedingMethod', 'breastfeedingStatus', 'exclusive_breastfeeding', 'exclusiveBreastfeeding') ?? '—';
     case 'weight': return value('weight') ?? '—';
     case 'height': return value('height') ?? '—';
     case 'bmi': return value('bmi') ?? (calculateBmi(checkup?.weight, checkup?.height) || '—');

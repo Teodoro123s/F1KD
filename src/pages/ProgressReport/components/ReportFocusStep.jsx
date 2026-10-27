@@ -36,7 +36,7 @@ export function ReportFocusStep({
           <input type="radio" name="report-category" value="monitor" checked={reportCategory === 'monitor'} onChange={() => selectReportCategory('monitor')} />Monitor Report
         </label>
         <label className={reportCategory === 'program' ? 'selected' : ''}>
-          <input type="radio" name="report-category" value="program" checked={reportCategory === 'program'} onChange={() => selectReportCategory('program')} />Program Report
+          <input type="radio" name="report-category" value="program" checked={reportCategory === 'program'} onChange={() => selectReportCategory('program')} />Project Report
         </label>
       </fieldset>
       {reportCategory === 'monitor' && (
@@ -53,12 +53,12 @@ export function ReportFocusStep({
       </fieldset>
       {reportCategory === 'program' && (
         <fieldset className="progress-report-beneficiary-type">
-          <legend>Program Name</legend>
+          <legend>Project Name</legend>
           <div className="program-report-controls">
             <label>
-              <span>Program</span>
+              <span>Project</span>
               <select value={programName} onChange={(event) => setProgramName(event.target.value)} disabled={!eligiblePrograms.length}>
-                <option value="">{eligiblePrograms.length ? 'Select program' : 'No eligible programs'}</option>
+                <option value="">{eligiblePrograms.length ? 'Select project' : 'No eligible projects'}</option>
                 {eligiblePrograms.map((program) => <option key={program.id} value={program.name}>{program.name}</option>)}
               </select>
             </label>
@@ -76,7 +76,7 @@ export function ReportFocusStep({
               </label>
             )}
           </div>
-          <p className="progress-report-note">Program results include beneficiaries with confirmed benefit receipts in the selected program and period. Mixed programs can be reviewed separately by beneficiary type.</p>
+          <p className="progress-report-note">Project results include beneficiaries with confirmed benefit receipts in the selected project and period. Mixed projects can be reviewed separately by beneficiary type.</p>
         </fieldset>
       )}
       <div className="progress-report-tab-actions">

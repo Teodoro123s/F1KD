@@ -135,7 +135,7 @@ export default function ReceiptHistoryPage() {
       if (!recipients.length) {
         const programsResponse = await apiGetPrograms();
         const program = (programsResponse?.programs || []).find((item) => String(item.id) === String(programId));
-        if (!program) throw new Error("Unable to determine this program's eligible beneficiary type.");
+        if (!program) throw new Error("Unable to determine this project's eligible beneficiary type.");
         const programType = String(program.beneficiaryType || program.beneficiary_type || 'Mother')
           .trim()
           .toLowerCase()
@@ -318,7 +318,7 @@ export default function ReceiptHistoryPage() {
       setPendingEvidenceDelete(null);
     } catch (deleteError) {
       console.error('[ReceiptHistoryPage] Unable to remove program check-in photo:', deleteError);
-      setError(deleteError.message || 'Unable to remove program check-in photo.');
+      setError(deleteError.message || 'Unable to remove project check-in photo.');
     } finally {
       setSavingReceipt(false);
     }
@@ -328,7 +328,7 @@ export default function ReceiptHistoryPage() {
     <div className="community-page program-page">
       <PageHeader
         title="Receipt History"
-        breadcrumbs={[{ label: 'Program', href: `/program/${programId}` }, { label: beneficiaryName }]}
+        breadcrumbs={[{ label: 'Projects', href: `/program/${programId}` }, { label: beneficiaryName }]}
       />
       <section className="program-monitoring-report program-receipt-history-page" aria-labelledby="receipt-history-title">
         <div className="program-monitoring-report__header">
@@ -336,7 +336,7 @@ export default function ReceiptHistoryPage() {
             <p className="program-section-eyebrow">Receipt history</p>
             <h2 id="receipt-history-title">{beneficiaryName}</h2>
           </div>
-          <button type="button" className="view-btn view-btn--secondary back-action" onClick={() => navigateBack(navigate, location, fallbackReturnTo)}>Back to program</button>
+          <button type="button" className="view-btn view-btn--secondary back-action" onClick={() => navigateBack(navigate, location, fallbackReturnTo)}>Back to project</button>
         </div>
         {!loading && <div className="program-receipt-controls">
           <div className="program-receipt-controls-actions"><button type="button" className="view-btn view-btn--primary" onClick={() => openReceiptModal()} disabled={isClusterHistory && recipientsLoading}>Record receipt</button><div className="program-view-toggle" role="tablist" aria-label="Receipt history view"><button type="button" className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>List View</button><button type="button" className={view === 'calendar' ? 'active' : ''} onClick={() => setView('calendar')}>Calendar View</button></div></div>
@@ -407,7 +407,7 @@ export default function ReceiptHistoryPage() {
               onClick={(event) => event.stopPropagation()}
             >
               <div className="program-receipt-modal-header">
-                <h3 id="receipt-modal-title">Record program receipt</h3>
+                <h3 id="receipt-modal-title">Record project receipt</h3>
                 <button type="button" className="document-preview-close" onClick={() => setReceiptModal(null)} disabled={savingReceipt}>Close</button>
               </div>
               <form onSubmit={saveReceipt}>
@@ -454,7 +454,7 @@ export default function ReceiptHistoryPage() {
                   </fieldset>
                 )}
                 <label>
-                  Received this program item?
+                  Received this project item?
                   <select
                     value={receiptModal.monitored ? 'yes' : 'no'}
                     onChange={(event) => setReceiptModal((current) => ({ ...current, monitored: event.target.value === 'yes' }))}

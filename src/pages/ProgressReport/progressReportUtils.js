@@ -8,7 +8,7 @@ export const MATERNAL_PROGRESS_REPORT_FIELD_LIBRARY = [
   { id: 'community', label: 'Community', category: 'Demographics' },
   { id: 'group', label: 'Group', category: 'Demographics' },
   { id: 'batch', label: 'Batch', category: 'Demographics' },
-  { id: 'programType', label: 'Program Type', category: 'Programs' },
+  { id: 'programType', label: 'Project Type', category: 'Projects' },
   { id: 'trimester', label: 'Trimester', category: 'Pregnancy' },
   { id: 'gestationalAge', label: 'Gestational Age', category: 'Pregnancy' },
   { id: 'lmpDate', label: 'LMP Date', category: 'Pregnancy' },
@@ -54,7 +54,7 @@ export const MATERNAL_PROGRESS_REPORT_FIELD_LIBRARY = [
   { id: 'gpa', label: 'GPA', category: 'Obstetric History' },
   { id: 'vaccines', label: 'Vaccines', category: 'Immunizations' },
   { id: 'oralHealth', label: 'Oral Health', category: 'Documents' },
-  { id: 'programs', label: 'Programs', category: 'Programs' },
+  { id: 'programs', label: 'Projects', category: 'Projects' },
   { id: 'documents', label: 'Documents', category: 'Documents' },
 ];
 
@@ -65,12 +65,12 @@ export const CHILD_PROGRESS_REPORT_FIELD_LIBRARY = [
   { id: 'community', label: 'Community', category: 'Demographics' },
   { id: 'group', label: 'Group', category: 'Demographics' },
   { id: 'batch', label: 'Batch', category: 'Demographics' },
-  { id: 'programType', label: 'Program Type', category: 'Programs' },
+  { id: 'programType', label: 'Project Type', category: 'Projects' },
   { id: 'pediatricWeek', label: 'Pedia Week', category: 'Growth & Monitoring' },
   { id: 'zScore', label: 'Z-Score', category: 'Growth & Monitoring' },
   { id: 'nutritionalStatus', label: 'Nutritional Status', category: 'Growth & Monitoring' },
-  { id: 'feedingType', label: 'Feeding Program', category: 'Programs' },
-  { id: 'exclusiveBreastfeeding', label: 'Exclusive Breastfeeding', category: 'Programs' },
+  { id: 'feedingType', label: 'Feeding Method', category: 'Projects' },
+  { id: 'exclusiveBreastfeeding', label: 'Exclusive Breastfeeding', category: 'Projects' },
   { id: 'bcgDate', label: 'BCG', category: 'Immunizations' },
   { id: 'opvDate', label: 'OPV', category: 'Immunizations' },
   { id: 'dptDate', label: 'DPT', category: 'Immunizations' },
@@ -123,8 +123,8 @@ export function getReportColumnsForEntity(entityType = 'Mothers') {
 
 export function getFieldGroups(entityType = 'Mothers') {
   return entityType === 'Children'
-    ? ['Demographics', 'Growth & Monitoring', 'Immunizations', 'Programs', 'System']
-    : ['Demographics', 'Pregnancy', 'Vitals', 'Obstetric History', 'Immunizations', 'Documents', 'Programs', 'System'];
+    ? ['Demographics', 'Growth & Monitoring', 'Immunizations', 'Projects', 'System']
+    : ['Demographics', 'Pregnancy', 'Vitals', 'Obstetric History', 'Immunizations', 'Documents', 'Projects', 'System'];
 }
 
 export function getFieldById(fieldId) {

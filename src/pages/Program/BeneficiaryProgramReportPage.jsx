@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { apiGetChild } from '../../api/children';
 import { apiGetMother } from '../../api/mothers';
 import { apiGetBeneficiaryMonitoringReport, apiGetPrograms } from '../../api/programs';
@@ -12,6 +12,7 @@ import { canViewAuditSignatures } from '../../utils/permissions';
 import { useAuth } from '../../auth/AuthProvider';
 import MotherNavigationCards from '../Beneficiary/mother/MotherNavigationCards';
 import BeneficiarySuperHeader from '../Beneficiary/mother/BeneficiarySuperHeader';
+import ChildNavigationCards from '../Beneficiary/child/ChildNavigationCards';
 
 const normalizeProgramBeneficiaryType = (value) => String(value || 'Mother')
   .trim()
@@ -37,10 +38,14 @@ const getBeneficiaryName = (beneficiary, beneficiaryType) => {
 
 export default function BeneficiaryProgramReportPage({ beneficiaryType }) {
   const { id, childId } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
   const { currentUser } = useAuth();
   const routeId = beneficiaryType === 'mother' ? id : childId;
   const [beneficiaryName, setBeneficiaryName] = useState('');
-  const [beneficiaryRecord, setBeneficiaryRecord] = useState(location.state?.mother || null);
+  const [beneficiaryRecord, setBeneficiaryRecord] = useState(
+    beneficiaryType === 'mother' ? location.state?.mother || null : location.state?.child || null,
+  );
   const [reportRows, setReportRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -92,7 +97,7 @@ export default function BeneficiaryProgramReportPage({ beneficiaryType }) {
         }
       } catch (loadError) {
         if (!active) return;
-        const message = loadError.message || 'Unable to load this beneficiary program report.';
+        const message = loadError.message || 'Unable to load this beneficiary project report.';
         setError(message);
         setReportRows([]);
         notifyAction(message, 'error');
@@ -144,7 +149,7 @@ export default function BeneficiaryProgramReportPage({ beneficiaryType }) {
         breadcrumbs={[
           { label: 'Beneficiaries', href: '/beneficiary' },
           { label: title },
-          { label: 'Program Report' },
+          { label: 'Project Report' },
         ]}
       />
       {beneficiaryType === 'mother' && (
@@ -154,10 +159,13 @@ export default function BeneficiaryProgramReportPage({ beneficiaryType }) {
           activeCard="program-report"
         />
       )}
+      {beneficiaryType === 'child' && (
+        <ChildNavigationCards child={beneficiaryRecord} mother={location.state?.mother} activeCard="program-report" />
+      )}
       {!loading && !error && (
         <section className="program-monitoring-report program-receipt-history-page program-report-summary-panel">
           <ModuleSummaryCards cards={[
-            { key: 'programs', label: 'Programs with activity', value: summary.programs, description: 'Distinct programs with receipt history.', interactive: false },
+            { key: 'programs', label: 'Projects with activity', value: summary.programs, description: 'Distinct projects with receipt history.', interactive: false },
             { key: 'entries', label: 'Receipt entries', value: summary.total, description: 'Show all receipt entries.' },
             { key: 'received', label: 'Marked received', value: summary.received, description: 'Show entries marked received.' },
           ]} onSelect={setSelectedSummary} selected={selectedSummary} />
@@ -165,7 +173,7 @@ export default function BeneficiaryProgramReportPage({ beneficiaryType }) {
       )}
 
       <section className="program-monitoring-report program-receipt-history-page program-report-data-panel">
-        {loading ? <p>Loading individual program report...</p> : error ? (
+        {loading ? <p>Loading individual project report...</p> : error ? (
           <p role="alert">{error}</p>
         ) : (
           <>
@@ -176,7 +184,7 @@ export default function BeneficiaryProgramReportPage({ beneficiaryType }) {
                 value={tableSearch}
                 onChange={(event) => setTableSearch(event.target.value)}
                 placeholder="Enter exact letter casing"
-                aria-label="Search program receipt history"
+                aria-label="Search project receipt history"
               />
             </label>
           </div>
@@ -185,7 +193,7 @@ export default function BeneficiaryProgramReportPage({ beneficiaryType }) {
               <thead>
                 <tr>
                   <th>Date</th>
-                  <th>Program</th>
+                  <th>Project</th>
                   <th>Receipt status</th>
                   <th>Notes</th>
                   <th>School / Community</th>
@@ -235,7 +243,7 @@ export default function BeneficiaryProgramReportPage({ beneficiaryType }) {
                     <td colSpan={showAuditSignatures ? 8 : 7} className="no-data">
                       {reportRows.length
                         ? 'No receipt entries match the selected filters.'
-                        : 'No program receipt history found for this beneficiary.'}
+                        : 'No project receipt history found for this beneficiary.'}
                     </td>
                   </tr>
                 )}
