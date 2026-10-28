@@ -37,6 +37,7 @@ export function ResultsPanel({
   availableGrowthMetrics,
   availableNumericGrowthMetrics,
   selectedGraphMetric,
+  onGraphMetricChange,
   selectedTableGrowthMetric,
   setGrowthMetrics,
   displayWeeks,
@@ -217,6 +218,7 @@ export function ResultsPanel({
           availableGrowthMetrics={availableGrowthMetrics}
           availableNumericGrowthMetrics={availableNumericGrowthMetrics}
           selectedGraphMetric={selectedGraphMetric}
+          onGraphMetricChange={onGraphMetricChange}
           graphRows={graphRowsForView}
           resultsRows={resultsRows}
           displayWeeks={displayWeeks}

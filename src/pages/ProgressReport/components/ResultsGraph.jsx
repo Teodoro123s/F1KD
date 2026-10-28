@@ -357,6 +357,7 @@ export function ResultsGraph({
   availableGrowthMetrics,
   availableNumericGrowthMetrics,
   selectedGraphMetric,
+  onGraphMetricChange,
   graphRows,
   resultsRows,
   rangeRows = resultsRows,
@@ -383,6 +384,7 @@ export function ResultsGraph({
       ? 'bmiInterpretation'
       : availableProfileGraphFields[0]?.[0] || '';
   const graphMetricOptions = graphMetricType === 'interpretation' ? availableGrowthMetrics : availableNumericGrowthMetrics;
+  const isChildMonitorGraph = displayReportCategory === 'monitor' && displayBeneficiaryType === 'child';
   const metricLabel = (graphMetricOptions.find(([id]) => id === selectedGraphMetric)?.[1] || selectedGraphMetric || 'Metric')
     .replace(/([a-z])([A-Z])/g, '$1 $2');
   const selectedProfileField = availableProfileGraphFields.find(([id]) => id === effectiveProfileGraphColumn);
@@ -433,7 +435,9 @@ export function ResultsGraph({
         ? selectedGraphMetric === 'hospitalReferral' ? 'Referral and assistance recorded at maternal check-ups' : 'Latest mother BMI measurements · values are plotted by month'
         : graphMetricType === 'interpretation'
           ? 'WHO growth interpretations over time'
-          : 'Raw weight and length/height measurements over time';
+          : selectedGraphMetric.endsWith('ZScore')
+            ? `WHO ${metricLabel.replace(/\s+Z-Score$/i, '')} Z-scores over time`
+            : `Recorded ${metricLabel.replace(/\s+\([^)]*\)$/, '').toLowerCase()} measurements over time`;
   const profileGraphType = selectedProfileField?.[2] === 'measurement'
     ? 'Scatterplot'
     : selectedProfileField?.[2] === 'histogram'
@@ -467,9 +471,21 @@ export function ResultsGraph({
               </label>
               {profileGraphType && <span className="profile-graph-type">{profileGraphType}</span>}
             </>
+          ) : isChildMonitorGraph ? (
+            <label className="report-chart-select">
+              Growth metric
+              <select aria-label="Growth metric" value={selectedGraphMetric} onChange={(event) => onGraphMetricChange?.(event.target.value)}>
+                <optgroup label="WHO interpretation">
+                  {availableGrowthMetrics.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+                </optgroup>
+                <optgroup label="Measurements and WHO score">
+                  {availableNumericGrowthMetrics.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+                </optgroup>
+              </select>
+            </label>
           ) : selectedGraphMetric !== 'hospitalReferral' ? (
             <label className="report-chart-select">
-              Height progression
+              View as
               <select value={graphMetricType} onChange={(event) => {
                 const nextType = event.target.value;
                 setGraphMetricType(nextType);

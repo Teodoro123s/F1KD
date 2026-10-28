@@ -287,6 +287,21 @@ export default function CommunityPage() {
       : [],
     [batches, selectedSchool],
   );
+  const overviewBatchRows = activeTab === 'communities'
+    ? batches
+    : activeTab === 'batches' && selectedGroup
+      ? selectedGroupBatches
+      : schoolOverviewBatches;
+  const overviewMotherRows = activeTab === 'communities'
+    ? mothers
+    : activeTab === 'batches' && selectedGroup
+      ? selectedGroupMothers
+      : schoolOverviewMothers;
+  const overviewChildRows = activeTab === 'communities'
+    ? childrenRows
+    : activeTab === 'batches' && selectedGroup
+      ? selectedGroupChildren
+      : schoolOverviewChildren;
 
   const shouldLoadChildren = (activeTab === 'mothers' && (entityFilter === 'Child' || Boolean(selectedBatch)))
     || activeTab === 'communities'
@@ -390,11 +405,11 @@ export default function CommunityPage() {
     const source = schoolOverviewSelection === 'schools'
       ? scopedCommunities
       : schoolOverviewSelection === 'mothers'
-      ? (activeTab === 'batches' && selectedGroup ? selectedGroupMothers : schoolOverviewMothers)
+      ? overviewMotherRows
       : schoolOverviewSelection === 'children'
-        ? childOverviewRows
+        ? overviewChildRows
         : schoolOverviewSelection === 'batches'
-          ? (activeTab === 'batches' && selectedGroup ? selectedGroupBatches : schoolOverviewBatches)
+          ? overviewBatchRows
           : schoolOverviewSelection === 'groups'
             ? (activeTab === 'communities' ? scopedGroups : schoolOverviewGroups)
           : [];
@@ -410,7 +425,7 @@ export default function CommunityPage() {
       return [row.name, row.area, row.coordinator, row.motherName, row.batch, row.group, row.community, row.schoolName, String(row.id)]
         .some((value) => String(value || '').includes(term));
     });
-  }, [activeTab, childOverviewRows, query, schoolOverviewBatches, schoolOverviewGroups, schoolOverviewMothers, schoolOverviewSelection, scopedCommunities, scopedGroups, selectedGroup, selectedGroupBatches, selectedGroupMothers]);
+  }, [activeTab, overviewBatchRows, overviewChildRows, overviewMotherRows, query, schoolOverviewGroups, schoolOverviewSelection, scopedCommunities, scopedGroups]);
   const tableData = schoolOverviewSelection ? overviewRows : filteredData;
   const pageCount = Math.max(1, Math.ceil(tableData.length / perPage));
   const currentPage = Math.min(page, pageCount);
@@ -419,9 +434,9 @@ export default function CommunityPage() {
 
   const tableTitle = useMemo(() => {
     if (schoolOverviewSelection === 'groups') return `Groups: ${selectedSchool?.name || 'All schools'}`;
-    if (schoolOverviewSelection === 'mothers') return `Mothers: ${selectedSchool?.name || 'School'}`;
-    if (schoolOverviewSelection === 'children') return `Children: ${selectedSchool?.name || 'School'}`;
-    if (schoolOverviewSelection === 'batches') return `Batches: ${selectedGroup?.name || selectedSchool?.name || 'School'}`;
+    if (schoolOverviewSelection === 'mothers') return `Mothers: ${selectedSchool?.name || 'All schools'}`;
+    if (schoolOverviewSelection === 'children') return `Children: ${selectedSchool?.name || 'All schools'}`;
+    if (schoolOverviewSelection === 'batches') return `Batches: ${selectedGroup?.name || selectedSchool?.name || 'All schools'}`;
 
     if (activeTab === 'communities') {
       return 'Schools';
@@ -1044,9 +1059,9 @@ export default function CommunityPage() {
             cards={[
               { key: 'schools', label: 'Total Schools', value: communities.length, interactive: canViewSchoolsFromOverview },
               { key: 'groups', label: 'Total Groups', value: activeTab === 'communities' ? groups.length : schoolOverviewGroups.length },
-              { key: 'batches', label: 'Total Batches', value: activeTab === 'communities' ? batches.length : schoolOverviewBatches.length },
-              { key: 'mothers', label: 'Total Mothers', value: activeTab === 'communities' ? mothers.length : schoolOverviewMothers.length },
-              { key: 'children', label: 'Total Children', value: childrenOverviewError ? 'Unavailable' : activeTab === 'communities' ? childrenRows.length : schoolOverviewChildren.length },
+              { key: 'batches', label: 'Total Batches', value: overviewBatchRows.length },
+              { key: 'mothers', label: 'Total Mothers', value: overviewMotherRows.length },
+              { key: 'children', label: 'Total Children', value: childrenOverviewError ? 'Unavailable' : overviewChildRows.length },
             ].filter((card) => (
               (!isCommunityOrganizer || card.key !== 'schools')
               && (!isHealthWorker || !['schools', 'groups'].includes(card.key))
@@ -1084,7 +1099,7 @@ export default function CommunityPage() {
                 tableTitle={tableTitle}
                 emptyMessage={schoolOverviewSelection === 'schools'
                   ? 'No schools found.'
-                  : `No ${schoolOverviewSelection} found for this school.`}
+                  : `No ${schoolOverviewSelection} found ${selectedSchool ? `for ${selectedSchool.name}` : 'across the available schools'}.`}
                 searchValue={query}
                 onSearchChange={handleSearch}
               />

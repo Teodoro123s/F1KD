@@ -7,7 +7,7 @@ import { apiGetChildren } from '../../api/children';
 import { getMotherProfileProgress, getMotherMonitoringProgress } from '../../utils/beneficiary/motherProgress';
 import { getChildProfileProgress, getChildMonitoringProgress } from '../../utils/beneficiary/childProgress';
 import { getCheckupScheduleStatus } from '../../utils/beneficiary/checkupStatus.mjs';
-import { matchesBeneficiarySearch } from './utils/beneficiaryUtils';
+import { hasPendingBeneficiaryDocuments, matchesBeneficiarySearch } from './utils/beneficiaryUtils';
 
 const getGroupStatusByProgress = (g) => {
   if (!g) return 'Incomplete';
@@ -150,7 +150,12 @@ export default function BeneficiaryListPage({ communities = [], groups = [], bat
       };
     });
 
-    if (selectedStatusFilter === 'Complete' || selectedStatusFilter === 'Incomplete') {
+    if (selectedStatusFilter === 'Pending documents') {
+      data = data.filter((beneficiary) => hasPendingBeneficiaryDocuments(
+        beneficiary.original || beneficiary,
+        selectedEntityFilter,
+      ));
+    } else if (selectedStatusFilter === 'Complete' || selectedStatusFilter === 'Incomplete') {
       data = data.filter((g) => getGroupStatusByProgress(g) === selectedStatusFilter);
     } else if (selectedStatusFilter === 'Pending' || selectedStatusFilter === 'Missing') {
       data = data.filter((g) => {

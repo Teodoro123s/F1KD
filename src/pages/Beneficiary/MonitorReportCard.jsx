@@ -64,7 +64,7 @@ const ReportTrendGraph = ({ rows, valueKey, valueGetter, label, unit, precision 
 
   return (
     <div className={`monitor-report-graph${styleVariant === 'who' ? ' monitor-report-graph--who growth-report-line-chart' : ''}`} role={onPointSelect ? 'group' : 'img'} aria-label={`${label} trend graph with ${points.length} monitoring ${points.length === 1 ? 'visit' : 'visits'}${normalRange ? `. Shaded area shows the normal range from ${normalRange.min} to ${normalRange.max} Z-score` : ''}.${onPointSelect ? ' Select a data point to open its check-up record.' : ''}`}>
-      <svg viewBox={`0 0 ${width} ${height}`} aria-hidden={onPointSelect ? undefined : true}>
+      <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="xMinYMid meet" aria-hidden={onPointSelect ? undefined : true}>
         {normalRange && (
           <rect
             className="monitor-report-graph__normal-range"
@@ -178,6 +178,8 @@ export default function MonitorReportCard({ beneficiaryType, beneficiary }) {
           key: checkup.id || `${date || 'checkup'}-${index}`,
           date,
           week: checkup.weekNumber ?? checkup.week_number,
+          weight: checkup.weight ?? null,
+          height: checkup.height ?? checkup.lengthHeight ?? checkup.length_height ?? null,
           scores,
         };
       })
@@ -243,8 +245,10 @@ export default function MonitorReportCard({ beneficiaryType, beneficiary }) {
   }
 
   const selectedMetric = CHILD_METRICS.find((metric) => metric.key === metricKey) || CHILD_METRICS[0];
-  const rowsWithValues = childRows.filter((row) => toFiniteNumber(row.scores[selectedMetric.score]) !== null
-    || Boolean(row.scores[selectedMetric.interpretation]));
+  const isWeightForLength = selectedMetric.key === 'weightForLength';
+  const rowsWithValues = childRows.filter((row) => isWeightForLength
+    ? toFiniteNumber(row.weight) !== null || toFiniteNumber(row.height) !== null
+    : toFiniteNumber(row.scores[selectedMetric.score]) !== null || Boolean(row.scores[selectedMetric.interpretation]));
 
   return (
     <section className="mother-detail-section monitor-report-card" aria-labelledby="child-monitor-report-title">
@@ -260,7 +264,7 @@ export default function MonitorReportCard({ beneficiaryType, beneficiary }) {
               {CHILD_METRICS.map((metric) => <option key={metric.key} value={metric.key}>{metric.label}</option>)}
             </select>
           </label>
-          {reportView === 'table' && (
+          {reportView === 'table' && !isWeightForLength && (
             <label>
               <span>Display</span>
               <select value={displayMode} onChange={(event) => setDisplayMode(event.target.value)}>
@@ -282,7 +286,15 @@ export default function MonitorReportCard({ beneficiaryType, beneficiary }) {
               <tr>
                 <th>Visit date</th>
                 <th>Age at visit</th>
-                <th>{displayMode === 'value' ? 'WHO Z-score' : 'Interpretation'}</th>
+                {isWeightForLength ? (
+                  <>
+                    <th>Weight (kg)</th>
+                    <th>Length/Height (cm)</th>
+                    <th>Interpretation</th>
+                  </>
+                ) : (
+                  <th>{displayMode === 'value' ? 'WHO Z-score' : 'Interpretation'}</th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -296,19 +308,37 @@ export default function MonitorReportCard({ beneficiaryType, beneficiary }) {
                   <tr key={row.key}>
                     <td>{formatDateForDisplay(row.date)}</td>
                     <td>{ageMonths === null ? (row.week === null || row.week === undefined ? '—' : `${Math.round(Number(row.week) / 4.35)} mo`) : `${ageMonths} mo`}</td>
-                    <td>{displayMode === 'value' ? (score === null ? 'Not available' : score.toFixed(2)) : (interpretation || 'Not available')}</td>
+                    {isWeightForLength ? (
+                      <>
+                        <td>{toFiniteNumber(row.weight) === null ? '—' : row.weight}</td>
+                        <td>{toFiniteNumber(row.height) === null ? '—' : row.height}</td>
+                        <td>{interpretation || 'Not available'}</td>
+                      </>
+                    ) : (
+                      <td>{displayMode === 'value' ? (score === null ? 'Not available' : score.toFixed(2)) : (interpretation || 'Not available')}</td>
+                    )}
                   </tr>
                 );
               }) : (
-                <tr><td colSpan="3" className="mother-detail-empty-row">No eligible measurements are available for this WHO indicator.</td></tr>
+                <tr><td colSpan={isWeightForLength ? 5 : 3} className="mother-detail-empty-row">No eligible measurements are available for this WHO indicator.</td></tr>
               )}
             </tbody>
           </table>
         </div>
       ) : (
         <>
-          <p className="monitor-report-graph-caption">Graph view displays WHO Z-scores for the selected indicator.</p>
-          <ReportTrendGraph rows={rowsWithValues} valueGetter={(row) => row.scores[selectedMetric.score]} label={`${selectedMetric.label} WHO Z-score`} unit="Z" precision={2} normalRange={{ min: -2, max: 2 }} axisRange={{ min: -5, max: 5 }} styleVariant="who" />
+          {isWeightForLength ? (
+            <>
+              <p className="monitor-report-graph-caption">Graph view displays recorded weight and length/height. The Weight-for-Length/Height interpretation is available in the table.</p>
+              <ReportTrendGraph rows={childRows} valueGetter={(row) => row.weight} label="Weight" unit="kg" precision={2} />
+              <ReportTrendGraph rows={childRows} valueGetter={(row) => row.height} label="Length/Height" unit="cm" precision={1} />
+            </>
+          ) : (
+            <>
+              <p className="monitor-report-graph-caption">Graph view displays WHO Z-scores for the selected indicator.</p>
+              <ReportTrendGraph rows={rowsWithValues} valueGetter={(row) => row.scores[selectedMetric.score]} label={`${selectedMetric.label} WHO Z-score`} unit="Z" precision={2} normalRange={{ min: -2, max: 2 }} axisRange={{ min: -5, max: 5 }} styleVariant="who" />
+            </>
+          )}
         </>
       )}
       <p className="monitor-report-note">WHO growth references apply through 60 months of age. Values are screening indicators and are not a diagnosis.</p>

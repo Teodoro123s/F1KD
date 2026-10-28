@@ -78,11 +78,12 @@ function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleField
   const communitySchool = resultsRows.find((row) => String(row.schoolId) === String(communitySelection?.schoolId))?.school || '';
   const communityGroup = resultsRows.find((row) => String(row.groupId) === String(communitySelection?.groupId))?.group || '';
   const selectedSchoolOption = schoolOptions.find(({ id }) => String(id) === String(communitySelection?.schoolId));
+  const isAllSchoolsSelected = showSchoolFilter && !communitySelection?.schoolId && !selectedSchool;
   const activeSchoolId = communitySelection?.schoolId
     ? String(communitySelection.schoolId)
     : schoolOptions.length ? selectedSchool : '';
   const activeSchool = communitySchool || selectedSchoolOption?.name || (schoolOptions.length ? '' : selectedSchool);
-  const activeGroup = communityGroup || (groups.includes(selectedGroup) ? selectedGroup : '');
+  const activeGroup = isAllSchoolsSelected ? '' : communityGroup || (groups.includes(selectedGroup) ? selectedGroup : '');
   const scopedRows = resultsRows
     .filter((row) => !activeSchoolId || (row.schoolId !== undefined && row.schoolId !== null
       ? String(row.schoolId) === activeSchoolId
@@ -181,7 +182,7 @@ function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleField
             </select>
           </label>
         )}
-        {showGroupFilter && (
+        {showGroupFilter && !isAllSchoolsSelected && (
           <label>Group
             <select value={activeGroup} onChange={(event) => setSelectedGroup(event.target.value)} disabled={Boolean(communityGroup)}><option value="">All Groups</option>{groups.map((group) => <option key={group} value={group}>{group}</option>)}</select>
           </label>

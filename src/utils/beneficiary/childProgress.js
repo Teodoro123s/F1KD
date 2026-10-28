@@ -25,6 +25,18 @@ export function getChildProfileProgress(child = {}) {
   return Math.round((completedFields / 15) * 100);
 }
 
+export function getChildDocumentProgress(child = {}) {
+  const documentName = [child.birthDocumentName, child.birth_document_name].find(hasMeaningfulValue);
+  const documentPath = [child.birthDocumentPath, child.birth_document_path].find(hasMeaningfulValue);
+  const hasBirthDocument = hasMeaningfulValue(documentName) && hasMeaningfulValue(documentPath);
+
+  return {
+    completed: hasBirthDocument ? 1 : 0,
+    total: 1,
+    percentage: hasBirthDocument ? 100 : 0,
+  };
+}
+
 export function getChildMonitoringProgress(child = {}) {
   const completed = Array.isArray(child.completedWeeks) ? child.completedWeeks.length : 0;
   const total = 24;

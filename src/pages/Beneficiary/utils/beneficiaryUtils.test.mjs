@@ -1,6 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { getBatchesForGroup, matchesBeneficiarySearch } from './beneficiaryUtils.js';
+import {
+  getBatchesForGroup,
+  hasPendingBeneficiaryDocuments,
+  matchesBeneficiarySearch,
+} from './beneficiaryUtils.js';
 
 test('getBatchesForGroup includes unassigned batches from the selected school', () => {
   const batches = [
@@ -35,4 +39,27 @@ test('matches beneficiary searches case-insensitively across name and assignment
   assert.equal(matchesBeneficiarySearch(child, 'north health'), true);
   assert.equal(matchesBeneficiarySearch(child, 'maria blue'), true);
   assert.equal(matchesBeneficiarySearch(child, 'unrelated'), false);
+});
+
+test('pending documents filter identifies mothers missing either required document', () => {
+  assert.equal(hasPendingBeneficiaryDocuments({
+    birth_certificate_document_name: 'birth-certificate.pdf',
+    birth_certificate_document_path: '/documents/birth-certificate.pdf',
+    consent_document_name: 'consent.pdf',
+  }, 'Mother'), true);
+
+  assert.equal(hasPendingBeneficiaryDocuments({
+    birth_certificate_document_name: 'birth-certificate.pdf',
+    birth_certificate_document_path: '/documents/birth-certificate.pdf',
+    consent_document_name: 'consent.pdf',
+    consent_document_path: '/documents/consent.pdf',
+  }, 'Mother'), false);
+});
+
+test('pending documents filter checks the child birth document', () => {
+  assert.equal(hasPendingBeneficiaryDocuments({ birth_document_name: '', birth_document_path: '' }, 'Child'), true);
+  assert.equal(hasPendingBeneficiaryDocuments({
+    birth_document_name: 'birth-certificate.pdf',
+    birth_document_path: '/documents/birth-certificate.pdf',
+  }, 'Child'), false);
 });

@@ -288,7 +288,7 @@ router.get('/activity-calendar', async (req, res) => {
       : '';
     const visibilityJoin = visibility.sql ? `${visibility.sql} AND` : 'WHERE';
     const [activities] = await pool.query(
-      `SELECT ml.id AS activity_id, p.id AS program_id, p.name AS program_name,
+      `SELECT ml.id AS activity_id, ml.beneficiary_id, ml.beneficiary_type, p.id AS program_id, p.name AS program_name,
           DATE_FORMAT(ml.monitored_date, '%Y-%m-%d') AS activity_date,
           ml.monitored,
           CASE

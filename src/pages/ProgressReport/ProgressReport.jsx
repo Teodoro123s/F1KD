@@ -785,7 +785,7 @@ export default function ProgressReport() {
   const completedPercent = resultsRows.length
     ? Math.round(resultsRows.reduce((sum, row) => sum + Number(row.progress || 0), 0) / resultsRows.length)
     : 0;
-  const canOpenTab = (tab) => tab === 1 || (tab === 2 && Boolean(selection.schoolId)) || (tab === 3 && Boolean(activeReport));
+  const canOpenTab = (tab) => tab === 1 || tab === 2 || (tab === 3 && Boolean(activeReport));
   const goToTab = (tab, direction) => {
     return runStepNavigation(() => {
       if (!canOpenTab(tab)) return false;
@@ -1081,6 +1081,15 @@ export default function ProgressReport() {
                 availableGrowthMetrics={availableGrowthMetrics}
                 availableNumericGrowthMetrics={availableNumericGrowthMetrics}
                 selectedGraphMetric={selectedGraphMetric}
+                onGraphMetricChange={(metric) => {
+                  if (availableGrowthMetrics.some(([id]) => id === metric)) {
+                    setGraphMetricType('interpretation');
+                    setGrowthMetrics([metric]);
+                  } else if (availableNumericGrowthMetrics.some(([id]) => id === metric)) {
+                    setGraphMetricType('numeric');
+                    setNumericGraphMetric(metric);
+                  }
+                }}
                 selectedTableGrowthMetric={selectedTableGrowthMetric}
                 setGrowthMetrics={(metrics) => { setGrowthMetrics(metrics); setMonitorTableMetrics([]); }}
                 displayWeeks={displayWeeks}

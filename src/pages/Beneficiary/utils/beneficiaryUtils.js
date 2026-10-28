@@ -3,6 +3,8 @@
  * Pure functions for beneficiary operations
  * Responsibility: Filter, search, merge beneficiary data
  */
+import { getChildDocumentProgress } from '../../../utils/beneficiary/childProgress.js';
+import { getMotherDocumentProgress } from '../../../utils/beneficiary/motherProgress.js';
 
 /**
  * Filter mothers by search query
@@ -69,6 +71,13 @@ export const matchesBeneficiarySearch = (record, query) => {
     .split(/\s+/)
     .filter(Boolean)
     .every((term) => searchableText.includes(term));
+};
+
+export const hasPendingBeneficiaryDocuments = (beneficiary, entityType) => {
+  const documentProgress = String(entityType).toLowerCase() === 'child'
+    ? getChildDocumentProgress(beneficiary)
+    : getMotherDocumentProgress(beneficiary);
+  return documentProgress.completed < documentProgress.total;
 };
 
 /**

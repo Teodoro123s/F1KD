@@ -1,6 +1,6 @@
 import React from 'react';
 import { getMotherDocumentProgress, getMotherMonitoringProgress } from '../../utils/beneficiary/motherProgress';
-import { getChildMonitoringProgress, getChildProfileProgress } from '../../utils/beneficiary/childProgress';
+import { getChildDocumentProgress, getChildMonitoringProgress, getChildProfileProgress } from '../../utils/beneficiary/childProgress';
 import TableSearch from '../../components/ui/TableSearch';
 
 export default function BeneficiaryTable({
@@ -31,11 +31,11 @@ export default function BeneficiaryTable({
       : <span className="status-pending">Documents pending</span>;
   };
 
-  const getChildStatus = (progress) => {
-    return progress >= 100
+  const getChildStatus = (progress, documentProgress) => documentProgress.completed < documentProgress.total
+    ? <span className="status-pending">Documents pending</span>
+    : progress >= 100
       ? <span className="status-complete">Profile complete</span>
       : <span className="status-checkup">Profile incomplete</span>;
-  };
 
   return (
     <section className="table-card beneficiary-table-card">
@@ -56,6 +56,7 @@ export default function BeneficiaryTable({
                 const original = row.original || row;
                 const motherDocumentProgress = getMotherDocumentProgress(original);
                 const motherMonitoringProgress = getMotherMonitoringProgress(original);
+                const childDocumentProgress = getChildDocumentProgress(original);
                 const childProgress = getChildProfileProgress(original);
                 const childMonitoringProgress = getChildMonitoringProgress(original);
                 const motherObj = communities.find((community) => (
@@ -150,7 +151,7 @@ export default function BeneficiaryTable({
                               {assignmentDetails && <span className="muted" title={assignmentDetails}>{assignmentDetails}</span>}
                             </div>
                             <div className="beneficiary-cell-line-3">
-                              {getChildStatus(childProgress)}
+                              {getChildStatus(childProgress, childDocumentProgress)}
                             </div>
                           </div>
                         </button>
@@ -225,7 +226,7 @@ export default function BeneficiaryTable({
                             {assignmentDetails && <span className="muted">{assignmentDetails}</span>}
                           </div>
                           <div className="beneficiary-cell-line-3">
-                            {getChildStatus(childProgress)}
+                            {getChildStatus(childProgress, childDocumentProgress)}
                           </div>
                         </div>
                       </button>

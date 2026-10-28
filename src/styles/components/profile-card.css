@@ -1258,8 +1258,7 @@
 .project-activity-status-legend span { display: inline-flex; align-items: center; gap: 0.3rem; }
 .project-activity-status-legend i { width: 0.55rem; height: 0.55rem; border-radius: 50%; }
 .project-activity-status-legend .is-done { background: #16a34a; }
-.project-activity-status-legend .is-pending { background: #d97706; }
-.project-activity-status-legend .is-missing { background: #dc2626; }
+.project-activity-status-legend .is-absent { background: #dc2626; }
 .project-activity-state {
   margin: 0.6rem 0;
   color: #64748b;
@@ -1346,14 +1345,11 @@
 .project-activity-chip-statuses { display: flex; gap: 0.3rem; color: #475569; font-size: 0.62rem; font-weight: 800; }
 .project-activity-chip-statuses .is-done,
 .project-activity-status-count.is-done { color: #166534; }
-.project-activity-chip-statuses .is-pending,
-.project-activity-status-count.is-pending { color: #92400e; }
-.project-activity-chip-statuses .is-missing,
-.project-activity-status-count.is-missing { color: #991b1b; }
+.project-activity-chip-statuses .is-absent,
+.project-activity-status-count.is-absent { color: #991b1b; }
 .project-activity-status-count { display: inline-flex; min-width: 1.6rem; justify-content: center; padding: 0.15rem 0.35rem; border-radius: 999px; background: #f1f5f9; font-size: 0.75rem; font-weight: 800; }
 .project-activity-status-count.is-done { background: #dcfce7; }
-.project-activity-status-count.is-pending { background: #fef3c7; }
-.project-activity-status-count.is-missing { background: #fee2e2; }
+.project-activity-status-count.is-absent { background: #fee2e2; }
 .project-activity-more { color: #15803d; font-weight: 750; }
 .project-activity-date-view { min-height: 320px; }
 .project-activity-date-view .project-activity-calendar-header { align-items: flex-start; }

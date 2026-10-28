@@ -38,17 +38,15 @@ export const getDistinctProjectsForDate = (activities, dateKey) => {
     const status = String(activity.status || '').trim().toLowerCase();
     const countKey = ['done', 'completed'].includes(status)
       ? 'done'
-      : ['pending', 'scheduled'].includes(status)
-        ? 'pending'
-        : ['missing', 'missed', 'overdue'].includes(status)
-          ? 'missing'
+      : ['pending', 'scheduled', 'missing', 'missed', 'overdue', 'not done', 'not_done', 'no'].includes(status)
+        ? 'absent'
           : null;
     if (!projects.has(projectId)) {
       projects.set(projectId, {
         id: projectId,
         name: activity.program_name,
         activityDate: activity.activity_date,
-        activityCounts: { done: 0, pending: 0, missing: 0 },
+        activityCounts: { done: 0, absent: 0 },
       });
     }
     if (countKey) projects.get(projectId).activityCounts[countKey] += 1;
@@ -56,11 +54,46 @@ export const getDistinctProjectsForDate = (activities, dateKey) => {
   return [...projects.values()];
 };
 
+export const addUnrecordedProgramRecipients = (activities, programs, getRecipients) => {
+  const activityGroups = new Map();
+  activities.forEach((activity) => {
+    const key = `${activity.program_id}:${String(activity.activity_date || '').slice(0, 10)}`;
+    const group = activityGroups.get(key) || { programId: String(activity.program_id), date: String(activity.activity_date || '').slice(0, 10), logs: [] };
+    group.logs.push(activity);
+    activityGroups.set(key, group);
+  });
+
+  const unrecordedActivities = [];
+  activityGroups.forEach(({ programId, date, logs }) => {
+    const program = programs.find((item) => String(item.id) === programId);
+    if (!program) return;
+
+    const recordedRecipients = new Set(logs.map((activity) => (
+      `${String(activity.beneficiary_type || '').trim().toLowerCase()}:${String(activity.beneficiary_id || '').trim().toLowerCase()}`
+    )));
+    getRecipients(program).forEach((recipient) => {
+      const type = String(recipient.sourceType || '').trim().toLowerCase();
+      const id = String(recipient.sourceId ?? '').trim();
+      if (!type || !id || recordedRecipients.has(`${type}:${id.toLowerCase()}`)) return;
+      unrecordedActivities.push({
+        program_id: programId,
+        program_name: program.name,
+        activity_date: date,
+        beneficiary_type: type,
+        beneficiary_id: id,
+        monitored: 0,
+        status: 'Absent',
+      });
+    });
+  });
+
+  return [...activities, ...unrecordedActivities];
+};
+
 export const getProjectActivityStatusSummary = (activityCounts = {}) => (
   [
     activityCounts.done ? `Done ${activityCounts.done}` : '',
-    activityCounts.pending ? `Pending ${activityCounts.pending}` : '',
-    activityCounts.missing ? `Missing ${activityCounts.missing}` : '',
+    activityCounts.absent ? `Absent ${activityCounts.absent}` : '',
   ].filter(Boolean).join(' · ')
 );
 

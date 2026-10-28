@@ -9,6 +9,7 @@ const MONITOR_STATUS_OPTIONS = [
 
 const BENEFICIARY_STATUS_OPTIONS = [
   { key: 'All', label: 'All' },
+  { key: 'Pending documents', label: 'Pending documents' },
   { key: 'Incomplete', label: 'Incomplete monitoring' },
   { key: 'Complete', label: 'Complete monitoring' },
   { key: 'Pending', label: 'Pending check-up' },

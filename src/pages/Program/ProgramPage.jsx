@@ -31,7 +31,7 @@ import {
   normalizeBeneficiaryType,
 } from "./programData";
 import ProjectActivityCalendar from './ProjectActivityCalendar';
-import { toLocalDateKey } from './projectActivityCalendarUtils.mjs';
+import { addUnrecordedProgramRecipients, toLocalDateKey } from './projectActivityCalendarUtils.mjs';
 
 const localDate = () => {
   const date = new Date();
@@ -655,6 +655,15 @@ export default function ProgramPage() {
     ))
     : [];
   const scopedBeneficiaryRecords = useMemo(() => getProgramBeneficiaryRecords(selectedProgram), [selectedProgram, beneficiaryRecords]);
+  const projectCalendarActivities = useMemo(
+    () => addUnrecordedProgramRecipients(
+      projectActivities,
+      programs,
+      (program) => getProgramBeneficiaryRecords(program, beneficiaryRecords),
+      toLocalDateKey(new Date()),
+    ),
+    [beneficiaryRecords, currentUser?.group_id, currentUser?.groupId, currentUser?.role, hierarchy.groups, programs, projectActivities],
+  );
 
   const drilledBeneficiaries = scopedBeneficiaryRecords.filter((record) => {
     if (!drillBatch) return false;
@@ -1238,7 +1247,7 @@ export default function ProgramPage() {
       {!viewMode && !activeTab && (
         <ProjectActivityCalendar
           month={activityMonth}
-          activities={projectActivities}
+          activities={projectCalendarActivities}
           loading={activityLoading}
           error={activityError}
           onRetry={() => setActivityRetry((current) => current + 1)}
