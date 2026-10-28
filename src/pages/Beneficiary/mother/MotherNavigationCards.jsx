@@ -24,7 +24,6 @@ export default function MotherNavigationCards({ mother, motherId, activeCard }) 
       action: 'Browse linked children',
       onClick: () => navigateTo(`/beneficiary/mother/${id}/child`, {
         children: mother?.children || [],
-        returnTo: `/beneficiary/mother/${id}`,
       }),
     },
     {

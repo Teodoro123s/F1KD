@@ -71,11 +71,11 @@ export default function Sidebar() {
   return (
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
       <div className="sidebar-top">
-        {!collapsed && <img src={logo} alt="MCHMS logo" className="logo" />}
+        {!collapsed && <img src={logo} alt="MCHMS — Mother and Child Health Monitoring System" className="logo" />}
         {!collapsed && (
           <div className="brand" title="Mother and Child Health Monitoring System">
             <strong>MCHMS</strong>
-            <span>Mother and Child Health Monitoring System</span>
+            <span className="sr-only">Mother and Child Health Monitoring System</span>
           </div>
         )}
         <button

@@ -13,6 +13,7 @@ import { useAuth } from '../../auth/AuthProvider';
 import MotherNavigationCards from '../Beneficiary/mother/MotherNavigationCards';
 import BeneficiarySuperHeader from '../Beneficiary/mother/BeneficiarySuperHeader';
 import ChildNavigationCards from '../Beneficiary/child/ChildNavigationCards';
+import { navigateBack } from '../../utils/navigation/navigation';
 
 const normalizeProgramBeneficiaryType = (value) => String(value || 'Mother')
   .trim()
@@ -151,6 +152,21 @@ export default function BeneficiaryProgramReportPage({ beneficiaryType }) {
           { label: title },
           { label: 'Project Report' },
         ]}
+        actions={(
+          <button
+            type="button"
+            className="btn-secondary back-action"
+            onClick={() => navigateBack(
+              navigate,
+              location,
+              beneficiaryType === 'mother'
+                ? `/beneficiary/mother/${routeId}`
+                : `/beneficiary/child/${routeId}`,
+            )}
+          >
+            Back
+          </button>
+        )}
       />
       {beneficiaryType === 'mother' && (
         <MotherNavigationCards

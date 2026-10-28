@@ -48,7 +48,8 @@ export default function MotherChildrenPage() {
   }, [id, location.state]);
 
   const motherName = mother?.name || `${mother?.firstName || ''} ${mother?.lastName || ''}`.trim() || 'Mother';
-  const returnTo = location.state?.returnTo || (mother ? `/beneficiary/mother/${mother.motherId || mother.id || id}` : `/beneficiary/mother/${id}`);
+  const returnTo = location.state?.returnTo || `/beneficiary/mother/${mother?.motherId || mother?.id || id}`;
+  const currentPath = `${location.pathname}${location.search}`;
   const childRows = useMemo(() => children.map((child) => ({
     id: child.id,
     name: child.name || [child.first_name, child.middle_name, child.last_name, child.suffix].filter(Boolean).join(' ') || child.child_code || 'Unnamed child',
@@ -111,7 +112,7 @@ export default function MotherChildrenPage() {
         breadcrumbs={[{ label: 'Beneficiaries', to: '/beneficiary' }, { label: 'Children' }]}
         actions={(
           <>
-            {canManage && <button type="button" className="view-btn view-btn--primary module-create-button" onClick={() => navigate(`/beneficiary/create/child`, { state: { mother, returnTo } })}>Create Child</button>}
+            {canManage && <button type="button" className="view-btn view-btn--primary module-create-button" onClick={() => navigate(`/beneficiary/create/child`, { state: { mother, returnTo: currentPath } })}>Create Child</button>}
             <button type="button" className="btn-secondary mother-children-back-button back-action" onClick={() => navigateBack(navigate, location, `/beneficiary/mother/${id}`)}>Back</button>
           </>
         )}
@@ -129,7 +130,7 @@ export default function MotherChildrenPage() {
         handlePerPageChange={(value) => { setPerPage(Number(value)); setPage(1); }}
         renderPaginationButtons={renderPaginationButtons}
         motherProgressByName={{}}
-        onSelectChild={(row) => navigate(`/beneficiary/child/${row.original?.id || row.id}`, { state: { child: row.original || row, mother, returnTo } })}
+        onSelectChild={(row) => navigate(`/beneficiary/child/${row.original?.id || row.id}`, { state: { child: row.original || row, mother, returnTo: currentPath } })}
         entityFilter="Child"
       />}
     </section>
