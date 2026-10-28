@@ -5,6 +5,7 @@ import {
   getDistinctProjectsForDate,
   getMonthCalendarDays,
   parseLocalDateKey,
+  getProjectActivityStatusSummary,
   toLocalDateKey,
 } from './projectActivityCalendarUtils.mjs';
 
@@ -27,13 +28,19 @@ test('month grid has seven columns and includes each date in the displayed month
 
 test('selected-date activities deduplicate by project identity, not name', () => {
   const activities = [
-    { program_id: 1, program_name: 'Nutrition', activity_date: '2026-10-27' },
-    { program_id: 1, program_name: 'Nutrition', activity_date: '2026-10-27' },
-    { program_id: 2, program_name: 'Nutrition', activity_date: '2026-10-27' },
-    { program_id: 1, program_name: 'Nutrition', activity_date: '2026-10-28' },
+    { program_id: 1, program_name: 'Nutrition', activity_date: '2026-10-27', status: 'Done' },
+    { program_id: 1, program_name: 'Nutrition', activity_date: '2026-10-27', status: 'Pending' },
+    { program_id: 1, program_name: 'Nutrition', activity_date: '2026-10-27', status: 'Missing' },
+    { program_id: 2, program_name: 'Nutrition', activity_date: '2026-10-27', status: 'Done' },
+    { program_id: 1, program_name: 'Nutrition', activity_date: '2026-10-28', status: 'Done' },
   ];
-  assert.deepEqual(getDistinctProjectsForDate(activities, '2026-10-27').map(({ id, name }) => [id, name]), [
-    ['1', 'Nutrition'],
-    ['2', 'Nutrition'],
+  assert.deepEqual(getDistinctProjectsForDate(activities, '2026-10-27').map(({ id, name, activityCounts }) => [id, name, activityCounts]), [
+    ['1', 'Nutrition', { done: 1, pending: 1, missing: 1 }],
+    ['2', 'Nutrition', { done: 1, pending: 0, missing: 0 }],
   ]);
+});
+
+test('calendar status summary includes pending and missing check-ins', () => {
+  assert.equal(getProjectActivityStatusSummary({ done: 1, pending: 2, missing: 3 }), 'Done 1 · Pending 2 · Missing 3');
+  assert.equal(getProjectActivityStatusSummary({ done: 1, pending: 0, missing: 0 }), 'Done 1');
 });

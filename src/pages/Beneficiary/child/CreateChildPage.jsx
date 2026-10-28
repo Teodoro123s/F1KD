@@ -12,6 +12,7 @@ import { CHILD_VACCINE_SEQUENCES, getChildRecordErrors, normalizeFirstName } fro
 import { joinChildBirthPlace, splitChildBirthPlace } from '../../../utils/beneficiary/childBirthPlace';
 import { navigateBack } from '../../../utils/navigation/navigation';
 import { hasCompletedMotherPregnancy } from '../../../utils/beneficiary/motherProgress';
+import ConfirmDialog from '../../../components/ui/ConfirmDialog';
 
 const CHILD_DRAFT_KEY = 'f1kd.create-child.draft';
 const CREATE_STEPS = ['general', 'prenatal', 'medical_dental', 'vaccine'];
@@ -617,25 +618,17 @@ export default function CreateChildPage({
           </div>
         </form>
       </div>
-      {pendingChild && (
-        <div className="modal-backdrop" role="presentation" onMouseDown={(event) => {
-          if (event.target === event.currentTarget && !creating) setPendingChild(null);
-        }}>
-          <div className="modal-content signout-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="create-child-confirm-title" onMouseDown={(event) => event.stopPropagation()}>
-            <div className="modal-header-section">
-              <h3 id="create-child-confirm-title">Create child record?</h3>
-              <button type="button" className="btn-close-modal" onClick={() => setPendingChild(null)} aria-label="Close confirmation" disabled={creating}>✕</button>
-            </div>
-            <div className="modal-body">
-              <p>Create a child record for <strong>{pendingChild.fullName}</strong>?</p>
-            </div>
-            <div className="modal-footer">
-              <button type="button" className="btn-secondary" onClick={() => setPendingChild(null)} disabled={creating}>Cancel</button>
-              <button type="button" className="btn-primary" onClick={confirmCreateChild} disabled={creating}>{creating ? 'Creating...' : 'Confirm and create'}</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={Boolean(pendingChild)}
+        title="Create child record?"
+        description={pendingChild ? `Create a child record for ${pendingChild.fullName}?` : ''}
+        variant="primary"
+        confirmLabel="Confirm and create"
+        loading={creating}
+        loadingLabel="Creating..."
+        onConfirm={confirmCreateChild}
+        onCancel={() => setPendingChild(null)}
+      />
       {NavigationConfirm}
     </section>
   );

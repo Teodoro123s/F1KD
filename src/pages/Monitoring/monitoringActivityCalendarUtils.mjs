@@ -43,7 +43,7 @@ export function getMonitoringActivityStatusCounts(activities = []) {
     const normalizedStatus = String(status || '').toLowerCase();
     if (normalizedStatus === 'completed') counts.done += 1;
     else if (normalizedStatus === 'pending' || normalizedStatus === 'scheduled') counts.pending += 1;
-    else if (normalizedStatus === 'overdue' || normalizedStatus === 'missed') counts.missing += 1;
+    else if (normalizedStatus === 'missing' || normalizedStatus === 'overdue' || normalizedStatus === 'missed') counts.missing += 1;
   });
   return counts;
 }
@@ -97,9 +97,7 @@ function getMotherName(mother) {
 
 function getActivityStatus(dateKey, todayKey, completed = false) {
   if (completed) return 'Completed';
-  if (dateKey < todayKey) return 'Overdue';
-  if (dateKey === todayKey) return 'Pending';
-  return 'Scheduled';
+  return dateKey < todayKey ? 'Missing' : 'Pending';
 }
 
 function createActivity({ mother, date, scheduledDate = '', trimester, checkupNumber, status, kind }) {
@@ -144,7 +142,7 @@ export function getMaternalMonitoringActivities(mothers, referenceDate = new Dat
       const nextSlotHasCompletion = Boolean(nextSlot?.checkupDate);
       if (nextSlotHasCompletion && nextSlot.checkupDate <= slot.scheduledDate) return;
       const status = nextSlotHasCompletion
-        ? 'Missed'
+        ? 'Missing'
         : getActivityStatus(slot.scheduledDate, todayKey);
       const activity = createActivity({
         mother,

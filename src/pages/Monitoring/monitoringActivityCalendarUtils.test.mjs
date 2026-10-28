@@ -14,8 +14,8 @@ test('calendar groups activity counts into done, pending, and missing statuses',
     { status: 'Completed' },
     { status: 'Scheduled' },
     { status: 'Pending' },
-    { status: 'Overdue' },
-    { status: 'Missed' },
+    { status: 'Missing' },
+    { status: 'Missing' },
   ]), { done: 2, pending: 2, missing: 2 });
 });
 
@@ -34,7 +34,7 @@ test('month grid includes only dates in the month and starts on Sunday', () => {
   assert.equal(monthDays[0].key, '2026-10-01');
 });
 
-test('calendar uses actual completed dates and only explicitly saved scheduled dates', () => {
+test('calendar uses actual completed dates and labels future saved dates as pending', () => {
   const mothers = [{
     id: 8,
     firstName: 'Maria',
@@ -55,11 +55,11 @@ test('calendar uses actual completed dates and only explicitly saved scheduled d
     { activityDate, activity, checkupNumber, trimester, status }
   )), [
     { activityDate: '2026-10-10', activity: 'Check-up 1', checkupNumber: 1, trimester: '1st Trimester', status: 'Completed' },
-    { activityDate: '2026-11-10', activity: 'Check-up 2', checkupNumber: 2, trimester: '1st Trimester', status: 'Scheduled' },
+    { activityDate: '2026-11-10', activity: 'Check-up 2', checkupNumber: 2, trimester: '1st Trimester', status: 'Pending' },
   ]);
 });
 
-test('calendar marks a saved appointment overdue and a completed visit on its recorded date', () => {
+test('calendar marks a missed appointment and a completed visit on its recorded date', () => {
   const mother = {
     id: 9,
     name: 'Ana Reyes',
@@ -77,9 +77,23 @@ test('calendar marks a saved appointment overdue and a completed visit on its re
 
   assert.deepEqual(activities.map(({ activityDate, activity, status }) => ({ activityDate, activity, status })), [
     { activityDate: '2026-10-01', activity: 'Check-up 1', status: 'Completed' },
-    { activityDate: '2026-10-15', activity: 'Check-up 2', status: 'Missed' },
+    { activityDate: '2026-10-15', activity: 'Check-up 2', status: 'Missing' },
     { activityDate: '2026-10-20', activity: 'Check-up 2', status: 'Completed' },
   ]);
+});
+
+test('calendar labels an uncompleted appointment due today as pending', () => {
+  const mother = {
+    id: 12,
+    name: 'Pending Today',
+    checkups: [[
+      { checkupDate: '2026-10-01', trimester: '1st Trimester', checkupNumber: 1, nextCheckupDate: '2026-10-27' },
+      null,
+      null,
+    ], [null, null, null], [null, null, null]],
+  };
+  const activities = getMaternalMonitoringActivities([mother], new Date(2026, 9, 27));
+  assert.equal(activities.find(({ status }) => status === 'Pending')?.activityDate, '2026-10-27');
 });
 
 test('calendar does not duplicate a completed check-up on its scheduled date', () => {

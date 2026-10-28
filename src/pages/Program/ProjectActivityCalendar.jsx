@@ -3,6 +3,7 @@ import {
   formatActivityDate,
   getDistinctProjectsForDate,
   getMonthCalendarDays,
+  getProjectActivityStatusSummary,
   toLocalDateKey,
 } from './projectActivityCalendarUtils.mjs';
 
@@ -61,7 +62,16 @@ export default function ProjectActivityCalendar({
           ) : selectedProjects.length ? (
             <div className="project-activity-table-wrap">
               <table className="data-table project-activity-table">
-                <thead><tr><th>Project Name</th><th>Activity Date</th>{canManageProjects && <th>Action</th>}</tr></thead>
+                <thead>
+                  <tr>
+                    <th>Project Name</th>
+                    <th>Activity Date</th>
+                    <th>Done</th>
+                    <th>Pending</th>
+                    <th>Missing</th>
+                    {canManageProjects && <th>Action</th>}
+                  </tr>
+                </thead>
                 <tbody>
                   {selectedProjects.map((project) => (
                     <tr
@@ -81,6 +91,9 @@ export default function ProjectActivityCalendar({
                     >
                       <td><strong>{project.name}</strong></td>
                       <td>{formatActivityDate(project.activityDate)}</td>
+                      <td><span className="project-activity-status-count is-done">{project.activityCounts.done}</span></td>
+                      <td><span className="project-activity-status-count is-pending">{project.activityCounts.pending}</span></td>
+                      <td><span className="project-activity-status-count is-missing">{project.activityCounts.missing}</span></td>
                       {canManageProjects && <td>{renderProjectActions?.(project)}</td>}
                     </tr>
                   ))}
@@ -89,7 +102,7 @@ export default function ProjectActivityCalendar({
             </div>
           ) : (
             <div className="project-activity-empty">
-              <p>No project activities recorded on this date</p>
+              <p>No project check-ins recorded on this date</p>
               <button type="button" className="view-btn view-btn--secondary" onClick={() => setShowSelectedDate(false)}>
                 Back to Calendar
               </button>
@@ -102,6 +115,7 @@ export default function ProjectActivityCalendar({
             <div>
               <p className="program-section-eyebrow">Activity overview</p>
               <h2 id="project-activity-calendar-title">Project Activity Calendar</h2>
+              <p className="project-activity-calendar-description">A saved unreceived check-in is pending on or before its date and missing after the date passes.</p>
             </div>
             <div className="project-activity-calendar-controls" aria-label="Calendar navigation">
               <button type="button" className="view-btn view-btn--secondary" onClick={() => monthShift(-1)} aria-label="Previous month">Previous Month</button>
@@ -110,6 +124,11 @@ export default function ProjectActivityCalendar({
             </div>
           </div>
           <div className="project-activity-month" aria-live="polite">{monthLabel}</div>
+          <div className="project-activity-status-legend" aria-label="Project check-in status legend">
+            <span><i className="is-done" aria-hidden="true" />D · Done</span>
+            <span><i className="is-pending" aria-hidden="true" />P · Pending</span>
+            <span><i className="is-missing" aria-hidden="true" />M · Missing</span>
+          </div>
           {error && (
             <div className="project-activity-error" role="alert">
               <p>{error}</p>
@@ -129,7 +148,7 @@ export default function ProjectActivityCalendar({
               const visibleProjects = projects.slice(0, 2);
               const overflow = projects.length - visibleProjects.length;
               const accessibleProjects = projects.length
-                ? `Projects: ${projects.map((project) => project.name).join(', ')}`
+                ? `Projects: ${projects.map((project) => `${project.name}, ${getProjectActivityStatusSummary(project.activityCounts) || 'status not available'}`).join('; ')}`
                 : 'No project activity';
               return (
                 <button
@@ -149,7 +168,18 @@ export default function ProjectActivityCalendar({
                   <span className="project-activity-day-number">{date.getDate()}</span>
                   <span className="project-activity-day-projects" aria-hidden="true">
                     {visibleProjects.map((project) => (
-                      <span className="project-activity-chip" key={project.id} title={project.name}>{project.name}</span>
+                      <span
+                        className="project-activity-chip"
+                        key={project.id}
+                        title={`${project.name}: ${getProjectActivityStatusSummary(project.activityCounts) || 'status not available'}`}
+                      >
+                        <span className="project-activity-chip-name">{project.name}</span>
+                        <span className="project-activity-chip-statuses" aria-hidden="true">
+                          {project.activityCounts.done > 0 && <span className="is-done">D {project.activityCounts.done}</span>}
+                          {project.activityCounts.pending > 0 && <span className="is-pending">P {project.activityCounts.pending}</span>}
+                          {project.activityCounts.missing > 0 && <span className="is-missing">M {project.activityCounts.missing}</span>}
+                        </span>
+                      </span>
                     ))}
                     {overflow > 0 && <span className="project-activity-more">+{overflow} more · view day</span>}
                   </span>

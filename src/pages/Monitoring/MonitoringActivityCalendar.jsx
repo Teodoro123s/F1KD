@@ -149,7 +149,7 @@ export default function MonitoringActivityCalendar({
           <div className="monitoring-activity-calendar-heading monitoring-calendar-selected-heading">
             <div>
               <h2 id="monitoring-calendar-selected-title">Monitoring Activities on {formatMonitoringDate(selectedDate)}</h2>
-              <p>Maternal check-ups recorded or scheduled for the selected date.</p>
+              <p>Completed visits, pending appointments, and missed appointments for the selected date.</p>
             </div>
             <button type="button" className="secondary-btn monitoring-calendar-back-button" onClick={() => setView('calendar')}>
               Back to Calendar

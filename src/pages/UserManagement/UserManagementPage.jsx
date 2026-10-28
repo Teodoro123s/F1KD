@@ -250,7 +250,7 @@ export default function UserManagementPage() {
           setStatusFilter('All');
           setSelectedSummaryCard('all');
         }}
-        onRequestStatusChange={organizerHealthWorkerScope ? setPendingStatusChange : undefined}
+        onRequestStatusChange={setPendingStatusChange}
         loading={organizerHealthWorkerScope && usersLoading}
         loadError={organizerHealthWorkerScope ? usersLoadError : ''}
         groups={groups}
@@ -300,7 +300,7 @@ export default function UserManagementPage() {
         onCancel={cancelDelete}
       />
       <ConfirmModal
-        show={organizerHealthWorkerScope && Boolean(pendingStatusChange)}
+        show={Boolean(pendingStatusChange)}
         title={pendingStatusChange?.status === 'Suspended' ? 'Reactivate Health Worker' : 'Suspend Health Worker'}
         message={pendingStatusChange?.status === 'Suspended'
           ? `Reactivate ${pendingStatusChange?.name || 'this Health Worker'}? They will be able to sign in again.`

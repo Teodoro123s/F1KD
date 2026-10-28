@@ -6,6 +6,7 @@ import {
   getMotherMonitoringStartIndex,
   getMotherCheckupDate,
   getMotherNextCheckupDate,
+  hasNextMotherCheckup,
   hasCompletedMotherPregnancy,
 } from './motherProgress.js';
 
@@ -204,6 +205,12 @@ test('uses the previous check-up next date as the following visit date', () => {
 test('defaults the next check-up date one month after the current visit and preserves a saved date', () => {
   assert.equal(getMotherNextCheckupDate('2026-12-12'), '2027-01-12');
   assert.equal(getMotherNextCheckupDate('2026-12-12', '2027-01-20'), '2027-01-20');
+});
+
+test('only T3-C3 is excluded from next maternal check-up scheduling', () => {
+  assert.equal(hasNextMotherCheckup(7), true);
+  assert.equal(hasNextMotherCheckup(8), false);
+  assert.equal(hasNextMotherCheckup(-1), false);
 });
 
 test('does not treat an incomplete or unmarked check-up list as a completed pregnancy', () => {

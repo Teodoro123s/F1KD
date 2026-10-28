@@ -395,11 +395,6 @@ export default function ChildMonitor({
               <textarea id="child-monitor-remarks" className="checkup-field-input" rows="3" value={form.remarks} onChange={update('remarks')} placeholder="Growth, feeding, or health observations" readOnly={isReadOnly} />
             </div>
           </div>
-          {showAuditSignatures && (
-            <div className="child-monitor-audit-footer">
-              <AuditSignatures {...savedCheckup} />
-            </div>
-          )}
           <div className="checkup-actions">
             {readOnly && !onRequestEdit && (
               <button
@@ -416,6 +411,11 @@ export default function ChildMonitor({
             {isReadOnly && <span className="checkup-week-badge" role="status">Saved · Read-only</span>}
           </div>
         </div>
+        {showAuditSignatures && (
+          <div className="checkup-audit-footer">
+            <AuditSignatures {...savedCheckup} />
+          </div>
+        )}
       </form>
       <ConfirmModal
         show={showSaveConfirm}

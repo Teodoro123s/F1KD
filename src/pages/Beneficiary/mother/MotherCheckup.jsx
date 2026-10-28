@@ -4,7 +4,7 @@ import DateInput from '../../../components/ui/DateInput';
 import AuditSignatures from '../../../components/ui/AuditSignatures';
 import FieldInfoTooltip from '../../../components/ui/FieldInfoTooltip';
 import { formatDateForDisplay, normalizeDateValue } from '../../../utils/formatting/dateFormat';
-import { getMotherCheckupDate, getMotherGestationalAgeAtDate, getMotherMonitoringStartIndex, getMotherNextCheckupDate, getMotherTrimesterMonth } from '../../../utils/beneficiary/motherProgress';
+import { getMotherCheckupDate, getMotherGestationalAgeAtDate, getMotherMonitoringStartIndex, getMotherNextCheckupDate, getMotherTrimesterMonth, hasNextMotherCheckup } from '../../../utils/beneficiary/motherProgress';
 import { formatCurrencyAmount, normalizeCurrencyAmount, sanitizeCurrencyAmount } from '../../../utils/validation/currencyAmount';
 import { getBloodPressureError, getMaternalBloodPressureStatusSuggestion, isBloodPressureInput } from '../../../utils/validation/bloodPressure';
 import { useStepNavigation } from '../../../utils/navigation/useStepNavigation';
@@ -133,7 +133,7 @@ const getPreviousCheckupForStep = (mother, step) => step > 0 ? getCheckupForStep
 
 const getFirstIncompleteStep = (checkups = [], startIndex = 0) => CHECKUPS.findIndex((_, index) => index >= startIndex && !checkups?.[Math.floor(index / 3)]?.[index % 3]?.completed);
 
-const createInitialFormState = (mother, checkup = null, blank = false, previousCheckup = null, useProfileDefaults = false) => {
+const createInitialFormState = (mother, checkup = null, blank = false, previousCheckup = null, useProfileDefaults = false, hasNextCheckup = true) => {
   const checkupDate = getMotherCheckupDate(
     checkup,
     previousCheckup,
@@ -153,7 +153,7 @@ const createInitialFormState = (mother, checkup = null, blank = false, previousC
     fhr: blank ? '' : checkup?.fhr ?? (useProfileDefaults ? mother.fhr ?? '' : ''),
     developmentalStatus: checkup?.developmentalStatus ?? checkup?.developmental_status ?? 'Normal',
     serviceProvider: checkup?.serviceProvider ?? '',
-    nextCheckupDate: blank ? '' : getMotherNextCheckupDate(checkupDate, checkup?.nextCheckupDate),
+    nextCheckupDate: blank || !hasNextCheckup ? '' : getMotherNextCheckupDate(checkupDate, checkup?.nextCheckupDate),
     referral: checkup?.referral ?? false,
     laboratoryRequests: checkup?.laboratoryRequests ?? [],
     amount: sanitizeCurrencyAmount(checkup?.amount ?? ''),
@@ -186,7 +186,14 @@ export default function MotherCheckup({
   const [activeStep, setActiveStep] = useState(() => Number.isInteger(initialStepOverride) ? initialStepOverride : initialStep);
   const previousMotherId = useRef(mother.id || mother.motherId);
   const stepFormDraftsRef = useRef(new Map());
-  const [formState, setFormState] = useState(() => createInitialFormState(mother, getCheckupForStep(mother, initialStep), false, getPreviousCheckupForStep(mother, initialStep)));
+  const [formState, setFormState] = useState(() => createInitialFormState(
+    mother,
+    getCheckupForStep(mother, initialStep),
+    false,
+    getPreviousCheckupForStep(mother, initialStep),
+    false,
+    hasNextMotherCheckup(initialStep),
+  ));
   const [amountFocused, setAmountFocused] = useState(false);
   const [bloodPressureTouched, setBloodPressureTouched] = useState(false);
   const [pendingSave, setPendingSave] = useState(null);
@@ -218,13 +225,15 @@ export default function MotherCheckup({
       isFutureStep,
       previousCheckup,
       !hasSavedCheckups && isRegistrationStep,
+      hasNextMotherCheckup(activeStep),
     );
     if (!currentCheckup?.checkupDate && !nextFormState.checkupDate) {
       nextFormState.checkupDate = getMotherCheckupDate(null, previousCheckup);
     }
-    if (!nextFormState.nextCheckupDate && nextFormState.checkupDate) {
+    if (hasNextMotherCheckup(activeStep) && !nextFormState.nextCheckupDate && nextFormState.checkupDate) {
       nextFormState.nextCheckupDate = getMotherNextCheckupDate(nextFormState.checkupDate);
     }
+    if (!hasNextMotherCheckup(activeStep)) nextFormState.nextCheckupDate = '';
     setFormState(nextFormState);
     setAmountFocused(false);
     setBloodPressureTouched(false);
@@ -232,13 +241,16 @@ export default function MotherCheckup({
 
   const updateField = (field) => (value) => {
     setFormState((prev) => {
+      if (field === 'nextCheckupDate' && !hasNextMotherCheckup(activeStep)) return { ...prev, nextCheckupDate: '' };
       if (field !== 'checkupDate') return { ...prev, [field]: value };
       const automaticNextDate = getMotherNextCheckupDate(prev.checkupDate);
       return {
         ...prev,
         checkupDate: value,
         gestationalAge: getMotherGestationalAgeAtDate(mother, value, prev.gestationalAge),
-        ...(!prev.nextCheckupDate || prev.nextCheckupDate === automaticNextDate
+        ...(!hasNextMotherCheckup(activeStep)
+          ? { nextCheckupDate: '' }
+          : !prev.nextCheckupDate || prev.nextCheckupDate === automaticNextDate
           ? { nextCheckupDate: getMotherNextCheckupDate(value) }
           : {}),
       };
@@ -328,7 +340,7 @@ export default function MotherCheckup({
       fhr,
       developmentalStatus,
       serviceProvider,
-      nextCheckupDate: formatDateForPayload(nextCheckupDate),
+      nextCheckupDate: hasNextMotherCheckup(activeStep) ? formatDateForPayload(nextCheckupDate) : '',
       referral,
       labAssistance: referral,
       labAssistanceTests: [],
@@ -372,6 +384,7 @@ export default function MotherCheckup({
       false,
       getPreviousCheckupForStep(mother, activeStep),
       !hasSavedCheckups && isRegistrationStep,
+      hasNextMotherCheckup(activeStep),
     ));
     setBloodPressureTouched(false);
     onCancel();
@@ -407,7 +420,6 @@ export default function MotherCheckup({
             </div>
             <fieldset disabled={isReadOnly || isNavigating}>
             {isMaternalPhaseComplete ? <p className="checkup-state-message">Maternal monitoring phase complete · all 9 check-ups recorded</p> : isCompleted && <p className="checkup-state-message">Completed check-up · view only</p>}
-            {showAuditSignatures && <AuditSignatures {...activeCheckup} />}
             {isFuture && <p className="checkup-state-message">This check-up will be available after the previous visit is completed.</p>}
             {isSkipped && <p className="checkup-state-message">This visit was skipped based on gestational age at registration.</p>}
             <div className="checkup-grid">
@@ -555,8 +567,9 @@ export default function MotherCheckup({
                 />
               </div>
 
-              <div className="form-group full-width checkup-date-field">
-                <label className="checkup-field-label" htmlFor="next-checkup-date">Next Checkup Date</label>
+              {hasNextMotherCheckup(activeStep) ? (
+                <div className="form-group full-width checkup-date-field">
+                  <label className="checkup-field-label" htmlFor="next-checkup-date">Next Checkup Date</label>
                   <DateInput
                     id="next-checkup-date"
                     className="checkup-field-input"
@@ -564,7 +577,12 @@ export default function MotherCheckup({
                     onChange={updateField('nextCheckupDate')}
                     ariaLabel="Next checkup date"
                   />
-              </div>
+                </div>
+              ) : (
+                <p className="checkup-final-visit-note" role="status">
+                  This is the final maternal check-up. No next check-up date is needed.
+                </p>
+              )}
 
               <div className="horizontal-toggle-row full-width">
                 <span className="horizontal-toggle-label">Referral to Hospital</span>
@@ -701,6 +719,11 @@ export default function MotherCheckup({
             Cancel
           </button>
         </div>
+        {showAuditSignatures && (
+          <div className="checkup-audit-footer">
+            <AuditSignatures {...activeCheckup} />
+          </div>
+        )}
       </form>
       {pendingSave && (
         <div className="modal-backdrop" role="presentation" onMouseDown={() => !saving && setPendingSave(null)}>

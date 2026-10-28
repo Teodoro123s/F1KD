@@ -27,8 +27,9 @@ test('project activity calendar returns real check-ins in the requested date ran
   await pool.ready;
   const originalQuery = pool.query;
   const activities = [
-    { activity_id: 1, program_id: 12, program_name: 'Nutrition', activity_date: '2026-10-27' },
-    { activity_id: 2, program_id: 12, program_name: 'Nutrition', activity_date: '2026-10-27' },
+    { activity_id: 1, program_id: 12, program_name: 'Nutrition', activity_date: '2026-10-27', monitored: 1, status: 'Done' },
+    { activity_id: 2, program_id: 12, program_name: 'Nutrition', activity_date: '2026-10-27', monitored: 0, status: 'Missing' },
+    { activity_id: 3, program_id: 12, program_name: 'Nutrition', activity_date: '2026-10-28', monitored: 0, status: 'Pending' },
   ];
   let capturedQuery = null;
   pool.query = async (sql, params = []) => {
@@ -51,7 +52,9 @@ test('project activity calendar returns real check-ins in the requested date ran
   assert.equal(response.status, 200);
   assert.deepEqual((await response.json()).activities, activities);
   assert.match(capturedQuery.sql, /INNER JOIN programs p ON p\.id = ml\.program_id/);
-  assert.match(capturedQuery.sql, /ml\.monitored = 1/);
+  assert.match(capturedQuery.sql, /CASE\s+WHEN ml\.monitored = 1 THEN 'Done'\s+WHEN ml\.monitored_date < CURDATE\(\) THEN 'Missing'\s+ELSE 'Pending'/);
+  assert.match(capturedQuery.sql, /ml\.monitored,/);
+  assert.doesNotMatch(capturedQuery.sql, /WHERE\s+ml\.monitored = 1/);
   assert.match(capturedQuery.sql, /ml\.monitored_date >= \? AND ml\.monitored_date <= \?/);
   assert.deepEqual(capturedQuery.params, [12, 12, 12, '2026-10-01', '2026-10-31']);
 });

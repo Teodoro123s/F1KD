@@ -33,18 +33,36 @@ export const getMonthCalendarDays = (month) => {
 export const getDistinctProjectsForDate = (activities, dateKey) => {
   const projects = new Map();
   activities.forEach((activity) => {
-    if (activity.activity_date !== dateKey) return;
+    if (String(activity.activity_date || '').slice(0, 10) !== dateKey) return;
     const projectId = String(activity.program_id);
+    const status = String(activity.status || '').trim().toLowerCase();
+    const countKey = ['done', 'completed'].includes(status)
+      ? 'done'
+      : ['pending', 'scheduled'].includes(status)
+        ? 'pending'
+        : ['missing', 'missed', 'overdue'].includes(status)
+          ? 'missing'
+          : null;
     if (!projects.has(projectId)) {
       projects.set(projectId, {
         id: projectId,
         name: activity.program_name,
         activityDate: activity.activity_date,
+        activityCounts: { done: 0, pending: 0, missing: 0 },
       });
     }
+    if (countKey) projects.get(projectId).activityCounts[countKey] += 1;
   });
   return [...projects.values()];
 };
+
+export const getProjectActivityStatusSummary = (activityCounts = {}) => (
+  [
+    activityCounts.done ? `Done ${activityCounts.done}` : '',
+    activityCounts.pending ? `Pending ${activityCounts.pending}` : '',
+    activityCounts.missing ? `Missing ${activityCounts.missing}` : '',
+  ].filter(Boolean).join(' · ')
+);
 
 export const formatActivityDate = (dateKey, options = { year: 'numeric', month: 'long', day: 'numeric' }) => {
   const date = parseLocalDateKey(dateKey);

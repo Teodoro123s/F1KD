@@ -12,6 +12,12 @@ const hasMeaningfulValue = (value) => {
 const firstMeaningfulValue = (...values) => values.find(hasMeaningfulValue);
 const MATERNAL_CHECKUP_WEEKS = [8, 10, 12, 16, 20, 24, 28, 32, 36];
 
+export function hasNextMotherCheckup(stepIndex) {
+  return Number.isInteger(Number(stepIndex))
+    && Number(stepIndex) >= 0
+    && Number(stepIndex) < MATERNAL_CHECKUP_WEEKS.length - 1;
+}
+
 export function getMotherTrimesterMonth(gestationalAge, trimester = '') {
   const weeks = Number.parseInt(gestationalAge, 10);
   if (!Number.isFinite(weeks) || weeks < 0) return '';

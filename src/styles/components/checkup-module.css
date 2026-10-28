@@ -217,7 +217,8 @@
 .monitoring-calendar-status.is-scheduled { background: #dbeafe; color: #1e40af; }
 .monitoring-calendar-status.is-pending { background: #fef3c7; color: #92400e; }
 .monitoring-calendar-status.is-overdue,
-.monitoring-calendar-status.is-missed { background: #fee2e2; color: #991b1b; }
+.monitoring-calendar-status.is-missed,
+.monitoring-calendar-status.is-missing { background: #fee2e2; color: #991b1b; }
 .monitoring-calendar-table-wrap { max-width: 100%; overflow-x: auto; border: 1px solid var(--border-color); border-radius: 9px; }
 .monitoring-calendar-selected,
 .monitoring-calendar-table-wrap { min-width: 0; width: 100%; }
@@ -637,6 +638,16 @@
   background: #fef2f2;
   color: #b42318;
 }
+.checkup-final-visit-note {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #1e40af;
+  font-size: 0.875rem;
+}
 
 .checkup-entry-view .mother-checkup-page {
   padding: 0 1.5rem 1.5rem;
@@ -801,13 +812,13 @@
   color: var(--text);
 }
 
-.child-monitor-audit-footer {
+.checkup-audit-footer {
   margin-top: 0.85rem;
   padding-top: 0.65rem;
   border-top: 1px solid var(--border-color);
 }
 
-.child-monitor-audit-footer .audit-signatures {
+.checkup-audit-footer .audit-signatures {
   flex-direction: row;
   flex-wrap: wrap;
   gap: 0.25rem 1rem;

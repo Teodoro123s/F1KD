@@ -19,6 +19,7 @@ import { hasMaternalHighRiskTriggers } from '../../../utils/beneficiary/maternal
 import { getMaternalVaccineDateErrors } from '../../../utils/beneficiary/maternalVaccineDates';
 import { getBloodPressureError } from '../../../utils/validation/bloodPressure';
 import { formatFirstAndSurname, splitFirstAndSurname } from '../../../utils/formatting/personName.mjs';
+import ConfirmDialog from '../../../components/ui/ConfirmDialog';
 
 const MOTHER_DRAFT_KEY = 'f1kd.create-mother.draft';
 const MATERNAL_BIRTH_COUNT_INPUT_IDS = {
@@ -242,6 +243,7 @@ export default function CreateMotherPage({
   const initialFormRef = useRef(communityForm);
   const [documentFiles, setDocumentFiles] = useState({ birthCertificate: null, consent: null });
   const createRequestRef = useRef(false);
+  const [pendingMother, setPendingMother] = useState(null);
   const [showRequiredValidation, setShowRequiredValidation] = useState(false);
   const [createActiveTab, setCreateActiveTab] = useState('general');
   const [creating, setCreating] = useState(false);
@@ -544,7 +546,12 @@ export default function CreateMotherPage({
       status: 'Active',
     };
 
-    if (createRequestRef.current) return;
+    setPendingMother({ payload, fullName });
+  };
+
+  const confirmCreateMother = async () => {
+    if (!pendingMother || createRequestRef.current) return;
+    const { payload, fullName } = pendingMother;
     createRequestRef.current = true;
     setCreating(true);
     try {
@@ -645,6 +652,7 @@ export default function CreateMotherPage({
       }
       localStorage.removeItem(MOTHER_DRAFT_KEY);
       notifyAction('Mother created successfully.');
+      setPendingMother(null);
       navigate(returnTo, { replace: true });
     } catch (error) {
       console.error('[CreateMotherPage] Failed to create mother:', error);
@@ -770,6 +778,17 @@ export default function CreateMotherPage({
           </div>
         </form>
       </div>
+      <ConfirmDialog
+        open={Boolean(pendingMother)}
+        title="Create mother profile?"
+        description={pendingMother ? `Create a mother profile for ${pendingMother.fullName}?` : ''}
+        variant="primary"
+        confirmLabel="Confirm and create"
+        loading={creating}
+        loadingLabel="Creating..."
+        onConfirm={confirmCreateMother}
+        onCancel={() => setPendingMother(null)}
+      />
       {NavigationConfirm}
     </section>
   );

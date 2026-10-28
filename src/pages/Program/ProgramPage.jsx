@@ -70,6 +70,8 @@ export default function ProgramPage() {
   const [hierarchy, setHierarchy] = useState({ schools: [], groups: [], batches: [] });
   const [scopeError, setScopeError] = useState('');
   const [actionProgram, setActionProgram] = useState(null);
+  const [pendingEndProgram, setPendingEndProgram] = useState(null);
+  const [isEndingProgram, setIsEndingProgram] = useState(false);
   const [pendingDeleteProgram, setPendingDeleteProgram] = useState(null);
   const [receiptHistoryProgram, setReceiptHistoryProgram] = useState(null);
   const [programError, setProgramError] = useState('');
@@ -764,6 +766,7 @@ export default function ProgramPage() {
     const programToEnd = program;
     if (!programToEnd) return;
     setActiveActionMenu(null);
+    setIsEndingProgram(true);
     try {
       const response = await apiEndProgram(programToEnd.id);
       setPrograms((current) => current.map((program) => program.id === programToEnd.id ? mapApiProgram(response.program) : program));
@@ -773,7 +776,14 @@ export default function ProgramPage() {
     } catch (error) {
       const message = error.message || 'Unable to end program.';
       notifyAction(message, 'error');
+    } finally {
+      setIsEndingProgram(false);
     }
+  };
+  const confirmEndProgram = async () => {
+    if (!pendingEndProgram) return;
+    await endProgram(pendingEndProgram);
+    setPendingEndProgram(null);
   };
   const saveBeneficiaryScope = async (event) => {
     event.preventDefault();
@@ -925,7 +935,7 @@ export default function ProgramPage() {
             <button type="button" className="actions-dropdown-item" onClick={() => { setActionProgram(menuProgram); setActiveActionMenu(null); editProgram(menuProgram); }} role="menuitem">Edit</button>
           )}
           {canEndPrograms && (
-            <button type="button" className="actions-dropdown-item" onClick={() => { setActionProgram(menuProgram); setActiveActionMenu(null); (activityMenu ? String(menuProgram?.status || '').trim().toLowerCase() === 'ended' : activeTab === 'Ended') ? backToActivePrograms(menuProgram) : endProgram(menuProgram); }} role="menuitem">
+            <button type="button" className="actions-dropdown-item" onClick={() => { setActionProgram(menuProgram); setActiveActionMenu(null); (activityMenu ? String(menuProgram?.status || '').trim().toLowerCase() === 'ended' : activeTab === 'Ended') ? backToActivePrograms(menuProgram) : setPendingEndProgram(menuProgram); }} role="menuitem">
               {(activityMenu ? String(menuProgram?.status || '').trim().toLowerCase() === 'ended' : activeTab === 'Ended') ? 'Reactivate' : 'End'}
             </button>
           )}
@@ -1575,6 +1585,17 @@ export default function ProgramPage() {
         cancelLabel="Continue editing"
         onConfirm={persistProgram}
         onCancel={() => setShowSaveConfirmation(false)}
+      />
+      <ConfirmDialog
+        open={Boolean(pendingEndProgram)}
+        title="End this program?"
+        description={pendingEndProgram ? `End ${pendingEndProgram.name}? It will be moved to Ended programs and can be reactivated later.` : ''}
+        variant="destructive"
+        confirmLabel="End program"
+        loading={isEndingProgram}
+        loadingLabel="Ending..."
+        onConfirm={confirmEndProgram}
+        onCancel={() => setPendingEndProgram(null)}
       />
       {receiptHistoryProgram && createPortal((
         <div className="modal-backdrop" role="presentation" onMouseDown={() => setReceiptHistoryProgram(null)}>

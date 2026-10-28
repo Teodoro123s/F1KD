@@ -353,6 +353,7 @@ export default function MonitoringPage() {
   );
 
   const handleSave = async (payload) => {
+    setSavedMessage('');
     let savedCheckups;
     try {
       await apiSaveMotherCheckup(payload.motherId, payload);
@@ -388,9 +389,9 @@ export default function MonitoringPage() {
       ? `Monitoring completed successfully for ${getMotherName(selectedMother)}.`
       : `Check-up ${payload.trimester} ${payload.checkupNumber} captured successfully for ${getMotherName(selectedMother)}.`;
     setSavedMessage(message);
-    if (finishedFinalCheckup) {
-      notifyAction(`Congratulations! ${getMotherName(selectedMother)} has completed all maternal check-ups (T3-C3).`);
-    }
+    notifyAction(finishedFinalCheckup
+      ? `Congratulations! ${getMotherName(selectedMother)} has completed all maternal check-ups (T3-C3).`
+      : message);
     return true;
   };
 
@@ -410,6 +411,7 @@ export default function MonitoringPage() {
     }
     const message = `M${payload.week} progress captured successfully for ${getChildName(selectedChild)}.`;
     setSavedMessage(message);
+    notifyAction(message);
     return true;
   };
 
