@@ -12,7 +12,9 @@ The current schema is represented by:
 - [server/f1kd_recreate.sql](f1kd_recreate.sql)
 - [server/db.js](db.js)
 
-The live database was also checked directly with MySQL, and the current `users` table contains the following columns:
+The live database was checked directly with MySQL after applying
+[`migrations/20261028_remove_legacy_user_columns.sql`](migrations/20261028_remove_legacy_user_columns.sql).
+The current `users` table contains the following columns:
 
 - `id`
 - `first_name`
@@ -26,18 +28,18 @@ The live database was also checked directly with MySQL, and the current `users` 
 - `role`
 - `status`
 - `password_hash`
-- `consent_accepted_at`
-- `name`
-- `created_at`
-- `updated_at`
 - `school_id`
 - `group_id`
+- `created_at`
+- `updated_at`
+- `consent_accepted_at`
 - `coordinator_school_id` (generated; populated only for Community Coordinator roles)
 
 Coordinator assignments are kept in sync with `communities.coordinator_id`. A coordinator can be linked to only one school, and a school can have only one coordinator. `uq_users_coordinator_school_id` and `uq_communities_coordinator_id` enforce those limits.
 Transfers and replacements are not implicit: first explicitly unassign the coordinator in the school editor and save, then assign an available coordinator. Conflicting attempts return HTTP 409 without changing either assignment.
 
 This means the active app is aligned with the leaner user model and not with older legacy field names like `username`, `full_name`, or `middle_name` as stored table columns.
+Unused legacy columns `auth_version`, `pending_credential_email`, `last_notifications_read_at`, `last_notifications_read_id`, and `must_change_password` are removed by the migration above. Consent remains in `consent_accepted_at`, and notification read receipts are stored in `notification_reads`.
 
 ---
 

@@ -75,8 +75,7 @@ For report setup, Results table/graph behavior, and export details, see the [Pro
 - A Community Coordinator account requires a school assignment.
 - A Health Worker account requires both a school and a group assignment; the selected group must belong to the selected school.
 - Accounts have `Active` or `Suspended` status. Suspension/reactivation is distinct from permanent deletion.
-- Passwords are stored as hashes. The seed password is supplied through `SAMPLE_USER_PASSWORD`; the repeatable demo seed does not create a Superadmin account.
-- Demo seed accounts are test data only. See [Synthetic sample data](../server/README.md#synthetic-sample-data) for the account list and setup instructions. Do not use shared demo credentials in a production deployment.
+- Passwords are stored as hashes. Sample accounts and seed credentials are not included; provision users through the supported account-administration flow.
 
 ## Practical access checks
 
@@ -95,4 +94,3 @@ For report setup, Results table/graph behavior, and export details, see the [Pro
 - [User-management endpoints](../server/routes/users.js)
 - [Projects API and scope enforcement (legacy `programs` identifiers)](../server/routes/programs.js)
 - [Progress Report API](../server/routes/progressReport.js)
-- [Repeatable sample users and data](../server/scripts/seed_sample_data.js)

@@ -74,10 +74,6 @@ Admin should be used for oversight and review, not account governance or data en
 5. When verifying read-only behavior, test both the interface and a direct API write; the API should reject operational changes.
 6. Protect the account with a unique password and keep authentication credentials private.
 
-## Sample accounts
-
-The synthetic seed creates a shared sample Admin account using the configured `SAMPLE_USER_PASSWORD`. It is local/demo data, not a production credential. See [server sample-data instructions](../server/README.md#synthetic-sample-data). Do not use sample credentials in a production deployment.
-
 ## Implementation references
 
 - [Frontend route access](../src/App.jsx)

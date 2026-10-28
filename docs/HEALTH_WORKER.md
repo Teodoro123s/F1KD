@@ -87,7 +87,6 @@ The exact fields and actions vary by endpoint and are validated server-side. Hea
 
 ## Sample accounts
 
-The synthetic seed creates one sample Health Worker for each demo group. Accounts use the configured `SAMPLE_USER_PASSWORD`; they are local/demo accounts, not production credentials. See [server sample-data instructions](../server/README.md#synthetic-sample-data). Do not use sample credentials in a production deployment.
 
 ## Implementation references
 

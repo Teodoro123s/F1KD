@@ -10,22 +10,6 @@ cp .env.example .env
 npm run dev
 ```
 
-## Synthetic sample data
-
-With the backend database configured and available, run this from the repository root:
-
-```bash
-DB_PORT=3307 SAMPLE_USER_PASSWORD='choose-a-local-test-password' npm --prefix server run seed:sample
-```
-
-This repeatable seed creates or refreshes two clearly labeled demo schools, each with two groups and two batches per group. Each of the eight batches gets 10 mothers and 10 children, for 80 mothers and 80 children total. Each school has its own Community Organizer, and each group has a dedicated Health Worker. It creates one school-scoped maternal program and one school-scoped child program per school; sample batch check-in counts vary between 3, 5, 7, and 9 of 10 beneficiaries, and one maternal program is ended. Maternal monitoring includes registrations in all three trimesters and uses the standard prenatal checkpoints at gestational weeks 8, 10, 12, 16, 20, 24, 28, 32, and 36. Maternal and child checkups include Normal, Needs Follow-up, and At Risk screening examples. Child monitoring histories vary from 0 to 24 consecutive months (0, 6, 12, 18, or 24), for 960 child check-up records total. Synthetic birth and check-up dates are generated relative to the seed run date, allowing the data to exercise current calendar views. Program check-ins are separate from maternal and child health check-up histories. Checkup records are synthetic demo data, not clinical records.
-
-It also creates a shared Admin and Partner, two school-specific Community Organizers, and four Health Workers (one per group). All eight accounts use `SAMPLE_USER_PASSWORD`; set it to a private local test password at least 8 characters long. Set `DB_PORT` to the host port for your local database (3307 in the Docker setup used here; use 3306 if that is your configured port). In PowerShell, set `$env:DB_PORT = '3307'` and `$env:SAMPLE_USER_PASSWORD = 'choose-a-local-test-password'` before running the seed command. The seed does not create another Superadmin account.
-
-The seed only updates records with its `DEMO-*` codes, its named sample program, and its `@f1kd.test` accounts. It rebuilds maternal checkups for those demo mothers to keep their generated totals exact; it does not delete other application data. Run the focused seed-plan test with `npm --prefix server run test:sample-seed`.
-
-For a dataset visible to the sample Community Organizer, run `npm --prefix server run seed:organizer3`. It seeds the existing `COM-0001` school, reuses its `GRP-0001` group, and creates or refreshes only the `O3-*` sample records plus a second group and two batches (one per group). The dataset contains 18 mothers, 20 children, 36 maternal check-ups, and 300 child check-ups. Maternal examples cover all three trimesters and Normal, Needs Follow-up, and At Risk screening statuses. Children range from 3 to 24 months old, with different monitoring-history lengths and screening statuses. Each visit includes a date, next date, weight, length, head circumference, breastfeeding status, developmental status, provider, facility, and synthetic WHO-LMS target z-scores in its notes. The samples exercise normal, low, and high growth-screening results; they are demo data, not service or clinical records. Repeated runs rebuild check-ups only for these `O3-*` records and do not delete unrelated application data. An assigned Community Organizer is optional; without one, synthetic activity records have no staff attribution.
-
 Available endpoints:
 - `GET /api/health` — health check
 - `GET /api/users` — list users
@@ -56,6 +40,8 @@ The backend reminder scheduler runs once per local calendar day at `CHECKUP_REMI
 The scheduler creates reminders 3 days before, 1 day before, and on the scheduled date, plus one missed-check-up alert the day after if still incomplete. A recorded check-up on or after the scheduled date suppresses further reminders for that appointment. Updating or clearing `next_checkup_date` reschedules or cancels pending reminders; dates older than yesterday are not backfilled.
 
 Apply [`migrations/20261026_checkup_reminders.sql`](./migrations/20261026_checkup_reminders.sql) when upgrading an existing database. It adds the child next-checkup date field and the unique notification idempotency key used to prevent duplicate delivery after retries or restarts. The backend also ensures these schema elements at startup. Configure the run time and timezone in the backend environment; Docker Compose forwards `CHECKUP_REMINDER_TIME` and `CHECKUP_REMINDER_TIMEZONE`.
+
+Apply [`migrations/20261028_remove_legacy_user_columns.sql`](./migrations/20261028_remove_legacy_user_columns.sql) to an existing database to remove unused legacy columns from `users`. It preserves `consent_accepted_at`; notification read state is stored in `notification_reads`.
 
 ## Community batch deletion
 

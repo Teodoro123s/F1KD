@@ -77,10 +77,6 @@ Notification read state/preferences and permitted report-download audit events a
 5. Verify that API write requests are rejected when testing Partner access; hiding or disabling a UI action is not the security boundary.
 6. Protect the account with a unique password and follow local data-sharing and retention rules.
 
-## Sample accounts
-
-The synthetic seed creates a shared sample Partner account using the configured `SAMPLE_USER_PASSWORD`. It is local/demo data, not a production credential. See [server sample-data instructions](../server/README.md#synthetic-sample-data). Do not use sample credentials in a production deployment.
-
 ## Implementation references
 
 - [Frontend route access](../src/App.jsx)

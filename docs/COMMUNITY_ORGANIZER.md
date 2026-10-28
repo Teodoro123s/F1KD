@@ -105,7 +105,6 @@ Suspension is reversible; it prevents normal sign-in while in effect. It is dist
 
 ## Sample accounts
 
-The synthetic sample-data seed creates Community Organizer accounts for its demo schools. Their logins use the configured `SAMPLE_USER_PASSWORD`; the seed does not define a production account or production password. See [server sample-data instructions](../server/README.md#synthetic-sample-data) for setup and test-account details. Do not use sample credentials in a production deployment.
 
 ## Implementation references
 
