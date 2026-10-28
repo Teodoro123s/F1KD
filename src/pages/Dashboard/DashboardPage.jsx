@@ -13,6 +13,7 @@ import { can, isCommunityCoordinatorRole, isHealthWorkerRole, normalizeRole, ROL
 import { DashboardInsights } from './DashboardInsights';
 import { buildDashboardModuleSummaries, buildOperationalStaffMetrics } from './dashboardModuleMetrics.mjs';
 import { getRollingDateRange } from '../../utils/analytics/dailyTimeSeries';
+import InfoButton from '../../kinFlow/InfoButton';
 
 function getGreeting(name) {
   const hour = new Date().getHours();
@@ -370,13 +371,16 @@ export default function DashboardPage() {
       {displayCards.length > 0 && (
         <section className="dashboard-kpi-grid" aria-label="Key role metrics">
           {displayCards.map((card) => (
-            <Link key={card.key} to={card.to} className="kpi-card" aria-label={`${card.title}: ${card.value}. ${card.subtitle}`}>
-              <div className="kpi-card-top">
-                <span className="kpi-title">{card.title}</span>
-              </div>
-              <div className="kpi-value">{typeof card.value === 'number' && Number.isFinite(card.value) ? card.value.toLocaleString() : card.value}</div>
-              <div className="kpi-subtitle"><span>{card.subtitle}</span></div>
-            </Link>
+            <article className="dashboard-kpi-item" key={card.key}>
+              <Link to={card.to} className="kpi-card" aria-label={`${card.title}: ${card.value}. ${card.subtitle}`}>
+                <div className="kpi-card-top">
+                  <span className="kpi-title">{card.title}</span>
+                </div>
+                <div className="kpi-value">{typeof card.value === 'number' && Number.isFinite(card.value) ? card.value.toLocaleString() : card.value}</div>
+                <div className="kpi-subtitle"><span>{card.subtitle}</span></div>
+              </Link>
+              <InfoButton title={card.title} />
+            </article>
           ))}
         </section>
       )}
@@ -388,7 +392,7 @@ export default function DashboardPage() {
             key={module.key}
           >
             <div className="dashboard-panel-heading">
-              <div><span className="dashboard-panel-eyebrow">Live data</span><h3>{module.title}</h3></div>
+              <div className="kin-flow-heading"><span><span className="dashboard-panel-eyebrow">Live data</span><h3>{module.title}</h3></span><InfoButton title={module.title} /></div>
               <Link to={module.to} className="panel-link">Open module</Link>
             </div>
             {module.key === 'batch-progress' && module.batchOptions.length > 1 && (
@@ -409,9 +413,12 @@ export default function DashboardPage() {
               {module.metrics.map((metric) => (
                 <div className="dashboard-module-metric" key={metric.label}>
                   <dt>
-                    {metric.to
-                      ? <Link to={metric.to} className="dashboard-module-metric-link">{metric.label}</Link>
-                      : metric.label}
+                    <span className="kin-flow-metric-label">
+                      {metric.to
+                        ? <Link to={metric.to} className="dashboard-module-metric-link">{metric.label}</Link>
+                        : metric.label}
+                      <InfoButton title={metric.label} infoKey={module.key === 'batch-progress' ? 'Batch Progress' : metric.label} />
+                    </span>
                   </dt>
                   <dd>
                     {metric.to
@@ -431,7 +438,7 @@ export default function DashboardPage() {
       {isSuperAdmin ? (
         <section className="dashboard-panel dashboard-recent-panel" aria-labelledby="dashboard-recent-title">
           <div className="dashboard-panel-heading">
-            <div><span className="dashboard-panel-eyebrow">Latest report entries</span><h3 id="dashboard-recent-title">Recent operational sign-ins</h3></div>
+            <div className="kin-flow-heading"><span><span className="dashboard-panel-eyebrow">Latest report entries</span><h3 id="dashboard-recent-title">Recent operational sign-ins</h3></span><InfoButton title="Recent operational sign-ins" /></div>
             <Link to="/reports" className="panel-link">Open reports</Link>
           </div>
           {activityReport.activities?.length ? (
@@ -457,7 +464,7 @@ export default function DashboardPage() {
       ) : (
         <section className="dashboard-panel dashboard-recent-panel" aria-labelledby="dashboard-recent-title">
           <div className="dashboard-panel-heading">
-            <div><span className="dashboard-panel-eyebrow">Latest records</span><h3 id="dashboard-recent-title">Recent registrations</h3></div>
+            <div className="kin-flow-heading"><span><span className="dashboard-panel-eyebrow">Latest records</span><h3 id="dashboard-recent-title">Recent registrations</h3></span><InfoButton title="Recent registrations" /></div>
             <Link to="/beneficiary" className="panel-link">Open beneficiaries</Link>
           </div>
           {recentRecords.length ? (

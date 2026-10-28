@@ -105,6 +105,7 @@ export default function Sidebar() {
             to={it.to}
             end={it.to === '/dashboard'}
             className={({isActive}) => 'sidebar-link' + (isActive ? ' active' : '')}
+            data-kin-flow-nav={it.label}
             data-label={it.label}
             title={it.label}
           >

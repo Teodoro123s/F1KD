@@ -8,11 +8,13 @@ import { apiGetNotifications, apiSetNotificationRead } from '../api/notification
 import NotificationDetailsModal from './ui/NotificationDetailsModal';
 import FloatingLayer from './ui/FloatingLayer';
 import ConfirmDialog from './ui/ConfirmDialog';
+import { useKinFlow } from '../kinFlow/KinFlowProvider';
 
 export default function Topbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const auth = useAuth();
+  const kinFlow = useKinFlow();
   const current = auth?.currentUser;
   const user = current ? { name: current.name, email: current.email, role: current.role } : null;
   const breadcrumbs = getRouteBreadcrumbs(location.pathname, location.state);
@@ -26,11 +28,13 @@ export default function Topbar() {
   const [notificationDetailsError, setNotificationDetailsError] = useState('');
   const [markingNotificationId, setMarkingNotificationId] = useState(null);
   const [openUser, setOpenUser] = useState(false);
+  const [openHelp, setOpenHelp] = useState(false);
   const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [signOutError, setSignOutError] = useState('');
   const [signingOut, setSigningOut] = useState(false);
   const notifRef = useRef(null);
   const userRef = useRef(null);
+  const helpRef = useRef(null);
   const markingNotificationIdsRef = useRef(new Set());
 
   useEffect(() => {
@@ -147,6 +151,40 @@ export default function Topbar() {
         })}
       </nav>
       <div className="topbar-actions">
+        <span className="action-wrapper">
+          <button
+            ref={helpRef}
+            type="button"
+            className="icon-button kin-flow-help-button"
+            data-kin-flow-help="true"
+            aria-label="Help and guided tours"
+            aria-haspopup="menu"
+            aria-expanded={openHelp}
+            onClick={() => { setOpenHelp((open) => !open); setOpenUser(false); setOpenNotif(false); }}
+            disabled={!current?.has_accepted_terms || signingOut || kinFlow.mode === 'onboarding'}
+            title="Help and guided tours"
+          >
+            ?
+          </button>
+          <FloatingLayer
+            open={openHelp}
+            anchorRef={helpRef}
+            onDismiss={() => setOpenHelp(false)}
+            className="dropdown kin-flow-help-menu"
+            role="menu"
+            aria-label="Kin's Flow help"
+          >
+            <button type="button" className="kin-flow-menu-item" role="menuitem" onClick={() => { setOpenHelp(false); kinFlow.startTour(); }}>
+              <span>Show me around</span><small>A quick tour of your main pages</small>
+            </button>
+            <button type="button" className="kin-flow-menu-item" role="menuitem" onClick={() => { setOpenHelp(false); kinFlow.startExplain(); }}>
+              <span>Explain this page</span><small>What this page and its controls are for</small>
+            </button>
+            <button type="button" className="kin-flow-menu-item" role="menuitem" onClick={() => { setOpenHelp(false); kinFlow.startHowItWorks(); }}>
+              <span>How it works</span><small>What each role does, step by step</small>
+            </button>
+          </FloatingLayer>
+        </span>
         <span className="action-wrapper">
           <button
             ref={notifRef}

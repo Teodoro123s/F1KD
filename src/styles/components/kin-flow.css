@@ -1,0 +1,411 @@
+.kin-flow-help-button {
+  display: inline-flex;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #d6e0e9;
+  border-radius: 50%;
+  color: #25415f;
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.kin-flow-help-button:hover,
+.kin-flow-help-button:focus-visible {
+  border-color: #15803d;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.kin-flow-help-menu {
+  width: min(320px, calc(100vw - 1rem));
+  padding: 0.35rem;
+}
+
+.kin-flow-menu-item {
+  display: grid;
+  width: 100%;
+  min-height: 56px;
+  gap: 0.2rem;
+  padding: 0.65rem 0.75rem;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #1f2937;
+  cursor: pointer;
+  text-align: left;
+}
+
+.kin-flow-menu-item:hover,
+.kin-flow-menu-item:focus-visible {
+  outline: none;
+  background: #f0fdf4;
+}
+
+.kin-flow-menu-item span { font-weight: 750; }
+.kin-flow-menu-item small { color: #64748b; font-size: 0.75rem; }
+
+.kin-flow-tour-shade {
+  position: fixed;
+  z-index: 9997;
+  inset: 56px 0 0;
+  background: rgba(15, 23, 42, 0.2);
+  pointer-events: none;
+  touch-action: pan-y;
+}
+
+.kin-flow-highlight {
+  position: relative;
+  z-index: 9998 !important;
+  outline: 2px solid #16a34a !important;
+  outline-offset: 2px;
+  border-radius: 8px;
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.12);
+}
+
+.kin-flow-tour-card,
+.kin-flow-map {
+  position: fixed;
+  z-index: 10000;
+  box-sizing: border-box;
+  border: 1px solid #d5e0e8;
+  border-radius: 14px;
+  background: #fff;
+  color: #1f2937;
+  box-shadow: 0 18px 54px rgba(15, 23, 42, 0.22);
+}
+
+.kin-flow-tour-card {
+  right: 1.25rem;
+  bottom: 1.25rem;
+  width: min(370px, calc(100vw - 2rem));
+  max-height: min(48vh, 420px);
+  overflow: auto;
+  padding: 0.9rem 1rem;
+  border-color: #b7d8c1;
+  box-shadow: 0 10px 32px rgba(15, 23, 42, 0.16);
+}
+
+.kin-flow-tour-card.is-onboarding {
+  border-color: #a7d8b7;
+  box-shadow: 0 10px 32px rgba(15, 23, 42, 0.16);
+}
+
+.kin-flow-tour-count {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: #64748b;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.kin-flow-tour-card h2,
+.kin-flow-map h2 {
+  margin: 0.4rem 0;
+  color: #142a40;
+  font-size: 1.08rem;
+}
+
+.kin-flow-tour-card p {
+  margin: 0.35rem 0;
+  color: #475569;
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.kin-flow-tour-card .kin-flow-points {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.8rem 0;
+  padding-left: 1.25rem;
+  color: #334155;
+  font-size: 0.85rem;
+}
+
+.kin-flow-tour-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.kin-flow-tour-actions > div { display: flex; gap: 0.5rem; }
+.kin-flow-tour-actions button {
+  min-height: 40px;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid #d5e0e8;
+  border-radius: 8px;
+  background: #fff;
+  color: #334155;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+}
+.kin-flow-tour-actions .kin-flow-primary {
+  border-color: #166534;
+  background: #166534;
+  color: #fff;
+}
+.kin-flow-tour-actions button:focus-visible,
+.kin-flow-close:focus-visible,
+.kin-flow-role-picker button:focus-visible {
+  outline: 3px solid rgba(22, 163, 74, 0.35);
+  outline-offset: 2px;
+}
+
+.kin-flow-repeat-hint {
+  margin-top: 0.55rem !important;
+  color: #64748b !important;
+  font-size: 0.68rem !important;
+}
+
+.kin-flow-scrim {
+  position: fixed;
+  z-index: 9999;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.48);
+}
+
+.kin-flow-map {
+  position: relative;
+  width: min(860px, 100%);
+  max-height: min(90vh, 900px);
+  overflow: auto;
+  padding: 1.25rem;
+}
+
+.kin-flow-panel-heading,
+.kin-flow-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.kin-flow-eyebrow {
+  margin: 0;
+  color: #166534;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+}
+
+.kin-flow-close {
+  display: inline-grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: #f1f5f9;
+  color: #334155;
+  cursor: pointer;
+  font-size: 1.5rem;
+}
+
+.kin-flow-sequence {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.75rem;
+  border-radius: 10px;
+  background: #f0fdf4;
+  color: #14532d;
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+
+.kin-flow-map-note { color: #64748b; font-size: 0.84rem; }
+.kin-flow-role-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.9rem 0;
+}
+.kin-flow-role-picker button {
+  min-height: 42px;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #d5e0e8;
+  border-radius: 999px;
+  background: #fff;
+  color: #334155;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.kin-flow-role-picker button.is-selected {
+  border-color: #166534;
+  background: #f0fdf4;
+  color: #14532d;
+}
+
+.kin-flow-role-detail > h3 { margin: 0.65rem 0 0.2rem; }
+.kin-flow-role-detail > p { margin: 0 0 0.75rem; color: #64748b; font-size: 0.84rem; }
+.kin-flow-rhythm {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+.kin-flow-rhythm section {
+  min-width: 0;
+  padding: 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+.kin-flow-rhythm h4 { margin: 0 0 0.45rem; color: #166534; }
+.kin-flow-rhythm ul { display: grid; gap: 0.6rem; margin: 0; padding-left: 1rem; }
+.kin-flow-rhythm li { color: #334155; font-size: 0.77rem; line-height: 1.4; }
+.kin-flow-rhythm li small { display: block; margin-top: 0.15rem; color: #64748b; font-size: 0.7rem; }
+.kin-flow-storage-warning { color: #9a3412 !important; font-size: 0.78rem !important; }
+.kin-flow-storage-status {
+  position: fixed;
+  z-index: 9996;
+  top: 4.25rem;
+  right: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: min(440px, calc(100vw - 1.5rem));
+  box-sizing: border-box;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #fed7aa;
+  border-radius: 9px;
+  background: #fff7ed;
+  color: #9a3412;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  font-size: 0.78rem;
+}
+.kin-flow-storage-status button {
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid #fdba74;
+  border-radius: 7px;
+  background: #fff;
+  color: #9a3412;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+}
+
+.kin-info-wrap {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+  vertical-align: middle;
+}
+
+.kin-info-button {
+  display: inline-grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border: 1px solid #bfd0dd;
+  border-radius: 50%;
+  background: #fff;
+  color: #31536f;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-style: italic;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.kin-info-button:hover,
+.kin-info-button:focus-visible {
+  border-color: #15803d;
+  color: #166534;
+  outline: 2px solid rgba(22, 163, 74, 0.22);
+  outline-offset: 2px;
+}
+
+.kin-info-popover {
+  position: absolute;
+  z-index: 100;
+  top: calc(100% + 0.4rem);
+  right: 0;
+  display: grid;
+  width: min(280px, calc(100vw - 2rem));
+  gap: 0.45rem;
+  padding: 0.8rem;
+  border: 1px solid #d5e0e8;
+  border-radius: 10px;
+  background: #fff;
+  color: #334155;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.16);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+.kin-info-popover > strong { color: #142a40; font-size: 0.85rem; }
+
+.module-summary-card-item,
+.community-overview-card-item {
+  position: relative;
+  min-width: 0;
+}
+.module-summary-card-item > .module-summary-card,
+.community-overview-card-item > .community-overview-card {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 100%;
+  padding-right: 2.8rem;
+}
+.module-summary-card-item > .kin-info-wrap,
+.community-overview-card-item > .kin-info-wrap {
+  position: absolute;
+  z-index: 1;
+  top: 0.4rem;
+  right: 0.4rem;
+}
+
+.dashboard-kpi-item {
+  position: relative;
+  min-width: 0;
+}
+.dashboard-kpi-item > .kpi-card { width: 100%; }
+.dashboard-kpi-item > .kin-info-wrap {
+  position: absolute;
+  z-index: 1;
+  top: 0.45rem;
+  right: 0.45rem;
+}
+.dashboard-kpi-item .kpi-card { padding-right: 2.8rem; }
+
+.kin-flow-heading { align-items: center; }
+.kin-flow-heading > span { min-width: 0; }
+.kin-flow-heading h3 { margin: 0.15rem 0 0; }
+.kin-flow-metric-label { display: flex; align-items: center; justify-content: space-between; gap: 0.35rem; }
+
+@media (max-width: 720px) {
+  .kin-flow-tour-card {
+    right: 0.5rem;
+    bottom: max(0.5rem, env(safe-area-inset-bottom));
+    width: min(370px, calc(100vw - 1rem));
+    max-height: min(46vh, 360px);
+    padding: 0.8rem 0.85rem;
+  }
+  .kin-flow-scrim { padding: 0.5rem; }
+  .kin-flow-map {
+    max-height: calc(100dvh - 1rem);
+    padding: 0.9rem;
+  }
+  .kin-flow-rhythm { grid-template-columns: 1fr; }
+  .kin-flow-sequence { font-size: 0.75rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kin-flow-tour-card,
+  .kin-flow-map { scroll-behavior: auto; }
+}

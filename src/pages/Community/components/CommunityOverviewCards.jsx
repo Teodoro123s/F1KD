@@ -1,4 +1,5 @@
 import React from 'react';
+import InfoButton from '../../../kinFlow/InfoButton';
 
 export default function CommunityOverviewCards({ cards, selected, onSelect, toggleSelection = true }) {
   return (
@@ -22,19 +23,23 @@ export default function CommunityOverviewCards({ cards, selected, onSelect, togg
           </>
         );
 
-        return card.interactive === false
-          ? <div key={card.key} className={className}>{content}</div>
-          : (
-            <button
-              key={card.key}
-              type="button"
-              className={className}
-              onClick={() => onSelect(toggleSelection && isSelected ? null : card.key)}
-              aria-pressed={isSelected}
-            >
-              {content}
-            </button>
-          );
+        return (
+          <div key={card.key} className="community-overview-card-item">
+            {card.interactive === false
+              ? <div className={className}>{content}</div>
+              : (
+                <button
+                  type="button"
+                  className={className}
+                  onClick={() => onSelect(toggleSelection && isSelected ? null : card.key)}
+                  aria-pressed={isSelected}
+                >
+                  {content}
+                </button>
+              )}
+            <InfoButton title={card.label} infoKey={card.infoKey || card.label} />
+          </div>
+        );
       })}
     </section>
   );

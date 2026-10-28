@@ -3,6 +3,7 @@ import {
   apiCreateDashboardInsight,
   apiGetProgressReportAiStatus,
 } from '../../api/progressReport';
+import InfoButton from '../../kinFlow/InfoButton';
 
 export function DashboardInsights({ metrics, ready, refreshVersion }) {
   const [available, setAvailable] = useState(false);
@@ -69,7 +70,7 @@ export function DashboardInsights({ metrics, ready, refreshVersion }) {
       <div className="dashboard-panel-heading">
         <div>
           <span className="dashboard-panel-eyebrow">Aggregate metrics only</span>
-          <h3 id="dashboard-ai-title">AI dashboard insights</h3>
+          <div className="kin-flow-heading"><h3 id="dashboard-ai-title">AI dashboard insights</h3><InfoButton title="AI dashboard insights" /></div>
           <p>AI summarizes operational totals only. It cannot assess individual child growth or provide clinical advice.</p>
         </div>
         <div className="dashboard-ai-heading-actions">

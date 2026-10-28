@@ -1,4 +1,5 @@
 import React from 'react';
+import InfoButton from '../../kinFlow/InfoButton';
 
 export default function ModuleSummaryCards({ cards, onSelect, selected, toggleOnSelect = false }) {
   return (
@@ -19,18 +20,22 @@ export default function ModuleSummaryCards({ cards, onSelect, selected, toggleOn
             )}
           </>
         );
-        return onSelect && card.interactive !== false ? (
-          <button
-            key={card.key}
-            type="button"
-            className={`module-summary-card${selected === card.key ? ' is-selected' : ''}`}
-            onClick={() => onSelect(selected === card.key && toggleOnSelect ? null : card.key)}
-            aria-pressed={selected === card.key}
-          >
-            {content}
-          </button>
-        ) : (
-          <div key={card.key} className="module-summary-card">{content}</div>
+        return (
+          <div key={card.key} className="module-summary-card-item">
+            {onSelect && card.interactive !== false ? (
+              <button
+                type="button"
+                className={`module-summary-card${selected === card.key ? ' is-selected' : ''}`}
+                onClick={() => onSelect(selected === card.key && toggleOnSelect ? null : card.key)}
+                aria-pressed={selected === card.key}
+              >
+                {content}
+              </button>
+            ) : (
+              <div className="module-summary-card">{content}</div>
+            )}
+            <InfoButton title={card.label} infoKey={card.infoKey || card.label} />
+          </div>
         );
       })}
     </section>
