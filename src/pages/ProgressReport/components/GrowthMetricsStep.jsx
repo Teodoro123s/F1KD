@@ -22,6 +22,8 @@ export function GrowthMetricsStep({
   setProfileSection,
   toggleProfileSection,
   selectedMonitorFields = [],
+  availableMonitorFields = [],
+  toggleMonitorField,
 }) {
   const hasProfilePages = reportCategory === 'profile' && Object.keys(profileFieldSections).length > 0;
   const profileSections = Object.entries(profileSectionLabels).filter(([value]) => value !== 'all');
@@ -91,6 +93,22 @@ export function GrowthMetricsStep({
               </label>
             ))}
           </div>
+          <h2>Check-up details</h2>
+          <p>Select the recorded check-up fields to include in the monitoring history table and CSV export.</p>
+          <div className="growth-metric-cards profile-metric-cards checkup-detail-cards">
+            {availableMonitorFields.map(([id, label, description]) => (
+              <label key={id} className={selectedMonitorFields.some(([fieldId]) => fieldId === id) ? 'selected' : ''}>
+                <input
+                  type="checkbox"
+                  name="monitor-detail"
+                  checked={selectedMonitorFields.some(([fieldId]) => fieldId === id)}
+                  onChange={() => toggleMonitorField?.(id)}
+                />
+                <strong>{label}</strong>
+                <span>{description}</span>
+              </label>
+            ))}
+          </div>
           {beneficiaryType === 'child' && (
             <p className="progress-report-note">
               Graphs show measured weight or length/height over time with labeled units. WHO scores are used to calculate interpretations but are not displayed.
@@ -98,7 +116,7 @@ export function GrowthMetricsStep({
           )}
           {selectedMonitorFields.length > 0 && (
             <p className="progress-report-note">
-              AI-selected history columns: {selectedMonitorFields.map(([, label]) => label).join(', ')}. Beneficiary name is included automatically.
+              Selected check-up details are included in the monitoring history and CSV export. Beneficiary name is included automatically.
             </p>
           )}
         </>

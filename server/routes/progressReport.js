@@ -116,6 +116,15 @@ const numberOrNull = (value) => {
   return Number.isInteger(number) ? number : null;
 };
 
+const normalizeNullableBoolean = (value) => {
+  if (value === true || value === 1) return true;
+  if (value === false || value === 0) return false;
+  const normalized = String(value ?? '').trim().toLowerCase();
+  if (['true', 'yes', '1'].includes(normalized)) return true;
+  if (['false', 'no', '0'].includes(normalized)) return false;
+  return null;
+};
+
 const getBmiInterpretation = (value) => {
   if (value === undefined || value === null || value === '') return '';
   const bmi = Number(value);
@@ -296,7 +305,18 @@ router.get('/options', async (req, res) => {
     const [batches] = await pool.query(`
       SELECT batches.id, batches.name, batches.batch_code AS code,
         batches.community_id AS schoolId,
-        GROUP_CONCAT(DISTINCT group_batch.group_id ORDER BY group_batch.group_id) AS groupIds
+        CONCAT_WS(',',
+          GROUP_CONCAT(DISTINCT group_batch.group_id ORDER BY group_batch.group_id),
+          (SELECT GROUP_CONCAT(DISTINCT scoped_mother.group_id ORDER BY scoped_mother.group_id)
+           FROM mothers scoped_mother
+           WHERE scoped_mother.batch_id = batches.id AND scoped_mother.group_id IS NOT NULL),
+          (SELECT GROUP_CONCAT(DISTINCT COALESCE(scoped_child.group_id, scoped_child_mother.group_id)
+                               ORDER BY COALESCE(scoped_child.group_id, scoped_child_mother.group_id))
+           FROM children scoped_child
+           INNER JOIN mothers scoped_child_mother ON scoped_child_mother.id = scoped_child.mother_id
+           WHERE COALESCE(scoped_child.batch_id, scoped_child_mother.batch_id) = batches.id
+             AND COALESCE(scoped_child.group_id, scoped_child_mother.group_id) IS NOT NULL)
+        ) AS groupIds
       FROM batches
       LEFT JOIN group_batch ON group_batch.batch_id = batches.id
       ${batchClause}
@@ -701,7 +721,11 @@ router.get('/', async (req, res) => {
     const childIds = normalizedRows.map((row) => row.childId).filter(Boolean);
     if (childIds.length) {
       const [checkupRows] = await pool.query(
-        `SELECT cc.child_id, cc.week_number, cc.visit_date, cc.weight, cc.height, c.gender, c.birth_date,
+        `SELECT cc.child_id, cc.week_number, cc.visit_date, cc.weight, cc.height,
+                cc.head_circumference, cc.exclusive_breastfeeding, cc.laboratory_requests,
+                cc.laboratory_assistance_provided, cc.referred_to_hospital, cc.assistance_amount,
+                cc.source_of_funds, cc.facility_type, cc.developmental_status, cc.service_provider,
+                cc.next_checkup_date, cc.notes, c.gender, c.birth_date,
                 CASE WHEN c.birth_date IS NULL OR c.birth_date < '1900-01-01' OR c.birth_date > cc.visit_date
                   THEN NULL ELSE TIMESTAMPDIFF(WEEK, c.birth_date, cc.visit_date) END AS calculated_age_weeks
          FROM child_checkups cc
@@ -718,13 +742,34 @@ router.get('/', async (req, res) => {
         const series = seriesByChild.get(checkup.child_id) || [];
         const weight = Number(checkup.weight);
         const height = Number(checkup.height);
+        const recordedWeekNumber = checkup.week_number === null || checkup.week_number === undefined
+          ? null
+          : Number(checkup.week_number);
+        const calculatedAgeWeeks = checkup.calculated_age_weeks === null || checkup.calculated_age_weeks === undefined
+          ? null
+          : Number(checkup.calculated_age_weeks);
         series.push({
           date: checkup.visit_date,
-          ageWeeks: Number.isFinite(Number(checkup.week_number))
-            ? Number(checkup.week_number)
-            : Number.isFinite(Number(checkup.calculated_age_weeks)) ? Number(checkup.calculated_age_weeks) : null,
+          weekNumber: Number.isFinite(recordedWeekNumber) ? recordedWeekNumber : null,
+          ageWeeks: Number.isFinite(recordedWeekNumber)
+            ? recordedWeekNumber
+            : Number.isFinite(calculatedAgeWeeks) ? calculatedAgeWeeks : null,
           weight: Number.isFinite(weight) && weight > 0 ? weight : null,
           height: Number.isFinite(height) && height > 0 ? height : null,
+          weightForAge: Number.isFinite(weight) && weight > 0 ? weight : null,
+          heightForAge: Number.isFinite(height) && height > 0 ? height : null,
+          headCircumference: checkup.head_circumference,
+          exclusiveBreastfeeding: checkup.exclusive_breastfeeding,
+          developmentalStatus: checkup.developmental_status,
+          laboratoryRequests: checkup.laboratory_requests,
+          labAssistanceProvided: normalizeNullableBoolean(checkup.laboratory_assistance_provided),
+          hospitalReferral: normalizeNullableBoolean(checkup.referred_to_hospital),
+          assistanceAmount: checkup.assistance_amount,
+          sourceOfFunds: checkup.source_of_funds,
+          facilityType: checkup.facility_type,
+          serviceProvider: checkup.service_provider,
+          nextCheckupDate: checkup.next_checkup_date,
+          notes: checkup.notes,
           bmi: Number.isFinite(weight) && weight > 0 && Number.isFinite(height) && height > 0 ? Number((weight / ((height / 100) ** 2)).toFixed(1)) : null,
           ...calculateWhoGrowthScores({
             weight,
@@ -752,8 +797,10 @@ router.get('/', async (req, res) => {
     if (params.granularity === 'mother' && motherIds.length) {
       const [checkupRows] = await pool.query(
         `SELECT mother_id, trimester, checkup_number, checkup_date, gestational_age_weeks, weight_kg, height_cm, blood_pressure, bmi,
-          referred_to_hospital, lab_assistance_provided, assistance_amount,
-          source_of_funds, facility_type
+          developmental_status, nutritional_status, fundal_height_cm, fetal_heart_rate_bpm,
+          service_provider, next_checkup_date, referred_to_hospital, lab_assistance_provided,
+          assistance_amount, source_of_funds, facility_type, milk_subsidy_date, milk_quantity_pcs,
+          milk_subsidy_provided, lab_assistance_tests, laboratory_requests, treatment_services, remarks
          FROM mother_checkups
          WHERE mother_id IN (${motherIds.map(() => '?').join(',')})
            AND checkup_date IS NOT NULL
@@ -765,29 +812,48 @@ router.get('/', async (req, res) => {
       checkupRows.forEach((checkup) => {
         const series = seriesByMother.get(checkup.mother_id) || [];
         const bmi = Number(checkup.bmi);
-        const ageWeeks = Number(checkup.gestational_age_weeks);
+        const ageWeeks = checkup.gestational_age_weeks === null || checkup.gestational_age_weeks === undefined
+          ? null
+          : Number(checkup.gestational_age_weeks);
         series.push({
           date: checkup.checkup_date,
           trimester: checkup.trimester || '',
           checkupNumber: Number(checkup.checkup_number) || null,
           ageWeeks: Number.isFinite(ageWeeks) ? ageWeeks : null,
+          gestationalAgeWeeks: Number.isFinite(ageWeeks) ? ageWeeks : null,
           weight: Number.isFinite(Number(checkup.weight_kg)) && Number(checkup.weight_kg) > 0 ? Number(checkup.weight_kg) : null,
           height: Number.isFinite(Number(checkup.height_cm)) && Number(checkup.height_cm) > 0 ? Number(checkup.height_cm) : null,
+          weightForAge: Number.isFinite(Number(checkup.weight_kg)) && Number(checkup.weight_kg) > 0 ? Number(checkup.weight_kg) : null,
+          heightForAge: Number.isFinite(Number(checkup.height_cm)) && Number(checkup.height_cm) > 0 ? Number(checkup.height_cm) : null,
           bloodPressure: checkup.blood_pressure || '',
           bmi: Number.isFinite(bmi) && bmi > 0 ? bmi : null,
-          hospitalReferral: Boolean(checkup.referred_to_hospital),
-          labAssistanceProvided: Boolean(checkup.lab_assistance_provided),
+          bmiForAge: Number.isFinite(bmi) && bmi > 0 ? bmi : null,
+          developmentalStatus: checkup.developmental_status,
+          nutritionalStatus: checkup.nutritional_status,
+          fundalHeight: checkup.fundal_height_cm,
+          fetalHeartRate: checkup.fetal_heart_rate_bpm,
+          serviceProvider: checkup.service_provider,
+          nextCheckupDate: checkup.next_checkup_date,
+          hospitalReferral: normalizeNullableBoolean(checkup.referred_to_hospital),
+          labAssistanceProvided: normalizeNullableBoolean(checkup.lab_assistance_provided),
           assistanceAmount: checkup.assistance_amount === null || checkup.assistance_amount === undefined
             ? null
             : Number(checkup.assistance_amount),
           sourceOfFunds: checkup.source_of_funds || '',
           facilityType: checkup.facility_type || '',
+          milkSubsidyDate: checkup.milk_subsidy_date,
+          milkQuantity: checkup.milk_quantity_pcs,
+          milkSubsidyProvided: normalizeNullableBoolean(checkup.milk_subsidy_provided),
+          labAssistanceTests: checkup.lab_assistance_tests,
+          laboratoryRequests: checkup.laboratory_requests,
+          treatmentServices: checkup.treatment_services,
+          remarks: checkup.remarks,
         });
         seriesByMother.set(checkup.mother_id, series);
       });
       normalizedRows.forEach((row) => {
         row.growthSeries = seriesByMother.get(row.motherId) || [];
-        row.hospitalReferral = Boolean(row.growthSeries.at(-1)?.hospitalReferral);
+        row.hospitalReferral = row.growthSeries.at(-1)?.hospitalReferral ?? null;
       });
     }
     const total = normalizedRows.length;

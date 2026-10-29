@@ -13,7 +13,6 @@ export function ResultsPanel({
   graphExportRows,
   graphExportFields,
   resultsView,
-  setResultsView,
   graphAllowed,
   graphBeneficiaries = [],
   selectedGraphBeneficiary = '',
@@ -65,10 +64,6 @@ export function ResultsPanel({
 }) {
   const monitoringExportHandler = useRef(null);
   const [selectedBatch, setSelectedBatch] = useState('');
-  const viewToggle = [
-    { key: 'table', label: 'Table View' },
-    { key: 'graph', label: 'Graph View', disabled: !graphAllowed },
-  ];
   const availableBatches = [...new Map(graphBeneficiaries
     .filter((row) => row.batch)
     .map((row) => [String(row.batchId || row.batch), { id: String(row.batchId || row.batch), name: row.batch }])).values()];
@@ -87,7 +82,7 @@ export function ResultsPanel({
     : graphExportRows;
   const handleBatchChange = (batchId) => {
     setSelectedBatch(batchId);
-    setSelectedGraphBeneficiary('all');
+    setSelectedGraphBeneficiary('summary');
   };
   const handleSchoolChange = (schoolId) => {
     setSelectedBatch('');
@@ -101,7 +96,7 @@ export function ResultsPanel({
           <h1>IV. Report Results</h1>
         </div>
 
-        <div className="results-view-toggle" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div className="progress-report-results-actions">
           {resultsView === 'graph' && displayReportCategory === 'monitor' && availableBatches.length > 1 && (
             <label className="results-table-period-filter">
               Batch
@@ -111,32 +106,20 @@ export function ResultsPanel({
               </select>
             </label>
           )}
-          {resultsView === 'graph' && displayReportCategory === 'monitor' && graphBeneficiariesForView.length > 1 && (
+          {resultsView === 'graph' && displayReportCategory === 'monitor' && graphBeneficiariesForView.length > 0 && (
             <label className="results-table-period-filter">
-              Beneficiary
+              Graph scope
               <select
-                aria-label="Graph beneficiary"
+                aria-label="Graph scope"
                 value={selectedGraphBeneficiary}
                 onChange={(event) => setSelectedGraphBeneficiary(event.target.value)}
               >
-                <option value="all">{selection.batchId || activeBatch ? 'All beneficiaries in this batch' : 'All beneficiaries'}</option>
+                <option value="summary">Population summary for selected scope</option>
+                <option value="all">Individual series for all beneficiaries</option>
                 {graphBeneficiariesForView.map(({ id, name }) => <option key={id} value={id}>{name}</option>)}
               </select>
             </label>
           )}
-          {viewToggle.map((view) => (
-            <button
-              key={view.key}
-              type="button"
-              className={`secondary-btn ${resultsView === view.key ? 'is-active' : ''}`}
-              onClick={() => { if (!view.disabled) setResultsView(view.key); }}
-              disabled={view.disabled}
-              aria-pressed={resultsView === view.key}
-              title={view.disabled ? (displayReportCategory === 'program' ? 'Graphs are unavailable for project reports.' : 'Graphs are available for individual or batch profile reports.') : undefined}
-            >
-              {view.label}
-            </button>
-          ))}
           {resultsView === 'graph' && graphAllowed && (
             <button
               type="button"
@@ -229,6 +212,7 @@ export function ResultsPanel({
           profileGraphFields={profileGraphFields}
           interpretationMetrics={interpretationMetrics}
           programMetrics={programMetrics}
+          cohortSummary={selectedGraphBeneficiary === 'summary'}
         />
       ) : (
         <ResultsTable

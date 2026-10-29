@@ -1,9 +1,21 @@
+const AVERAGEABLE_MONITORING_FIELDS = new Set([
+  'weightForAge',
+  'heightForAge',
+  'bmiForAge',
+  'headCircumference',
+  'gestationalAgeWeeks',
+  'fundalHeight',
+  'fetalHeartRate',
+  'assistanceAmount',
+  'milkQuantity',
+]);
+
 export function buildMonitoringAverageRow(rows, fields, labelField) {
   const averageRow = { [labelField]: 'Average' };
   let hasAverage = false;
 
   fields
-    .filter((field) => field !== labelField && field !== 'measurementDate' && !field.endsWith('Interpretation'))
+    .filter((field) => field !== labelField && AVERAGEABLE_MONITORING_FIELDS.has(field))
     .forEach((field) => {
       const values = rows
         .map((row) => row[field])

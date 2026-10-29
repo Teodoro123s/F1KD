@@ -1621,12 +1621,7 @@
 .growth-metric-cards strong { color: #0f172a; }
 .growth-metric-cards span { grid-column: 2; color: #64748b; font-size: 0.85rem; }
 .results-tab-panel { padding-top: 0.75rem; }
-.results-view-toggle { display: flex; gap: 0; margin: 1rem 0; }
-.results-view-toggle button { padding: 0.6rem 1rem; border: 1px solid #dbe3ee; background: #fff; color: #64748b; font: inherit; cursor: pointer; }
-.results-view-toggle button:first-child { border-radius: 8px 0 0 8px; }
-.results-view-toggle button:last-child { border-radius: 0 8px 8px 0; }
-.results-view-toggle button.active,
-.results-view-toggle button.is-active { background: #15803d; border-color: #15803d; color: #fff; box-shadow: 0 4px 10px rgba(21, 128, 61, 0.18); }
+.progress-report-results-actions { display: flex; align-items: center; gap: 0.5rem; margin: 1rem 0; }
 .monitoring-history-filters select:focus { border-color: var(--burgundy, #15803d); box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.12); outline: none; }
 .progress-report-pagination { display: flex; align-items: center; justify-content: center; gap: 0.9rem; margin-top: 1rem; color: var(--text-muted, #64748b); font-size: 0.8rem; font-weight: 700; }
 .progress-report-pagination .secondary-btn { min-height: 36px; padding: 0.45rem 0.75rem; }
@@ -1855,6 +1850,16 @@
 .growth-report-legend { display: grid; gap: 0.35rem; min-width: 0; color: #475569; font-size: 0.78rem; }
 .growth-report-legend span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .growth-report-legend i { display: inline-block; width: 9px; height: 9px; margin-right: 0.4rem; border-radius: 50%; }
+.growth-report-cohort-bars { display: grid; gap: 0.7rem; margin: 1rem 0; }
+.growth-report-cohort-row { display: grid; grid-template-columns: minmax(100px, 150px) minmax(120px, 1fr) minmax(140px, auto); align-items: center; gap: 0.7rem; color: #475569; font-size: 0.78rem; }
+.growth-report-cohort-row strong { color: #334155; }
+.growth-report-cohort-row small { text-align: right; white-space: nowrap; }
+.growth-report-cohort-bar { display: flex; width: 100%; height: 22px; overflow: hidden; border-radius: 6px; background: #e2e8f0; }
+.growth-report-cohort-bar span { display: block; min-width: 0; height: 100%; }
+@media (max-width: 640px) {
+  .growth-report-cohort-row { grid-template-columns: minmax(78px, 100px) minmax(80px, 1fr); gap: 0.45rem; }
+  .growth-report-cohort-row small { grid-column: 2; text-align: left; white-space: normal; }
+}
 .progress-donut { width: 92px; height: 92px; margin: 1rem auto; border-radius: 50%; background: conic-gradient(#7d1e2e var(--progress), #e2e8f0 0); position: relative; }
 .progress-donut::after { content: ''; position: absolute; inset: 12px; border-radius: 50%; background: #fff; }
 .progress-report-table-scroll { margin-top: 1rem; overflow-x: auto; }
@@ -2302,6 +2307,8 @@
 .progress-report-beneficiary-type:has(select) select:focus { border-color: #15803d; box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.12); outline: none; }
 .program-report-controls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; width: 100%; }
 .program-report-controls label { display: grid; gap: 0.35rem; color: #475569; font-size: 0.78rem; font-weight: 700; }
+.growth-metric-cards.checkup-detail-cards { grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 0.65rem; }
+.growth-metric-cards.checkup-detail-cards label { min-height: 90px; padding: 0.75rem; }
 .program-report-controls select, .program-report-controls input { width: 100%; min-height: 42px; padding: 0.55rem 0.7rem; border: 1px solid #cedae8; border-radius: 10px; background: #fff; color: #0f172a; font: inherit; }
 .program-report-controls select:focus, .program-report-controls input:focus { border-color: #15803d; box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.12); outline: none; }
 .program-report-period-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); width: min(560px, 100%); margin: 0.75rem 0 1rem; }
@@ -2339,26 +2346,6 @@
   font-weight: 400;
   line-height: 16px;
   letter-spacing: 0;
-}
-.results-view-toggle {
-  align-items: center;
-  margin: 1rem 0;
-  padding: 0.25rem;
-  border: 1px solid #dce9e1;
-  border-radius: 10px;
-  background: #f4f8f6;
-}
-.results-view-toggle button,
-.results-view-toggle button:first-child,
-.results-view-toggle button:last-child {
-  border: 0;
-  border-radius: 7px;
-}
-.results-view-toggle button.active,
-.results-view-toggle button.is-active {
-  border-color: #15803d;
-  background: #15803d;
-  color: #fff;
 }
 .growth-report-card {
   border-color: #dce9e1;

@@ -27,6 +27,46 @@ function ReferralAssistanceTable({ rows }) {
   </table></div>;
 }
 
+function ReferralCohortSummary({ rows, displayWeeks }) {
+  const referrals = rows.flatMap((row) => (row.growthSeries || [])
+    .filter((point) => point.hospitalReferral && point.date)
+    .map((point) => ({ row, point, timeline: String(point.date).slice(0, 7) })));
+  const timelines = [...new Set(referrals.map(({ timeline }) => timeline))].sort();
+  const range = String(displayWeeks || '').startsWith('range:')
+    ? String(displayWeeks).slice(6).split(':')
+    : null;
+  const visibleTimelines = range?.[0] && range?.[1]
+    ? timelines.filter((timeline) => timeline >= range[0] && timeline <= range[1])
+    : timelines;
+  const monthlySummary = visibleTimelines.map((timeline) => {
+    const visits = referrals.filter((item) => item.timeline === timeline);
+    return {
+      timeline,
+      referrals: visits.length,
+      mothers: new Set(visits.map(({ row }) => String(row.motherId || row.mother))).size,
+      assistance: visits.reduce((total, { point }) => total + (Number.isFinite(Number(point.assistanceAmount)) ? Number(point.assistanceAmount) : 0), 0),
+    };
+  });
+  if (!monthlySummary.length) return <p className="growth-report-empty">No hospital referrals are recorded for this date range.</p>;
+  const maxReferrals = Math.max(...monthlySummary.map(({ referrals: count }) => count), 1);
+  const formatMonth = (timeline) => {
+    const [year, month] = timeline.split('-').map(Number);
+    return new Date(year, month - 1, 1).toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+  };
+
+  return <div className="growth-report-cohort-bars" role="list" aria-label="Monthly hospital referral summary">
+    {monthlySummary.map(({ timeline, referrals: count, mothers, assistance }) => (
+      <div className="growth-report-cohort-row" key={timeline} role="listitem">
+        <strong>{formatMonth(timeline)}</strong>
+        <div className="growth-report-cohort-bar" role="img" aria-label={`${count} referrals from ${mothers} mothers`}>
+          <span style={{ width: `${(count / maxReferrals) * 100}%`, background: '#2563eb' }} title={`${count} referrals`} />
+        </div>
+        <small>{count} referrals · {mothers} mothers · ₱{assistance.toFixed(2)}</small>
+      </div>
+    ))}
+  </div>;
+}
+
 function getHistogramRange(field, beneficiaryType, values) {
   if (beneficiaryType === 'mother' && field === 'initialWeight') return { min: 40, max: 100 };
   if (beneficiaryType === 'mother' && field === 'initialHeight') return { min: 140, max: 190 };
@@ -368,6 +408,7 @@ export function ResultsGraph({
   profileGraphFields,
   interpretationMetrics,
   programMetrics,
+  cohortSummary = false,
 }) {
   const availableProfileGraphFields = displayBeneficiaryType === 'mother'
     ? profileGraphFields
@@ -431,6 +472,12 @@ export function ResultsGraph({
     ? `${programMetrics.find(([id]) => id === displayWeeks)?.[1] || 'Project benefits'} by beneficiary`
     : displayReportCategory === 'profile'
       ? `Profile values for ${selectedProfileField?.[1] || 'selected field'}`
+      : cohortSummary && selectedGraphMetric === 'hospitalReferral'
+        ? 'Monthly referral events and assistance totals across the current school, group, and batch scope'
+        : cohortSummary && graphMetricType === 'interpretation'
+          ? 'Monthly interpretation distribution across the current scope; n is the number of check-ups with a recorded interpretation'
+          : cohortSummary
+            ? 'Monthly median and middle 50% range across the current scope; n is the number of recorded measurements'
       : displayBeneficiaryType === 'mother'
         ? selectedGraphMetric === 'hospitalReferral' ? 'Referral and assistance recorded at maternal check-ups' : 'Latest mother BMI measurements · values are plotted by month'
         : graphMetricType === 'interpretation'
@@ -526,9 +573,11 @@ export function ResultsGraph({
         ) : displayReportCategory === 'program' ? (
           <GrowthChart rows={graphRows} metric={displayWeeks} chartType="bar" displayWeeks={displayWeeks} beneficiaryType={displayBeneficiaryType} />
         ) : displayReportCategory === 'monitor' && displayBeneficiaryType === 'mother' && selectedGraphMetric === 'hospitalReferral' ? (
-          <ReferralAssistanceTable rows={graphRows} />
+          cohortSummary
+            ? <ReferralCohortSummary rows={graphRows} displayWeeks={displayWeeks} />
+            : <ReferralAssistanceTable rows={graphRows} />
         ) : (
-          <GrowthChart rows={graphRows} progressRows={resultsRows} metric={selectedGraphMetric} chartType="line" displayWeeks={displayWeeks} beneficiaryType={displayBeneficiaryType} />
+          <GrowthChart rows={graphRows} progressRows={resultsRows} metric={selectedGraphMetric} chartType="line" displayWeeks={displayWeeks} beneficiaryType={displayBeneficiaryType} cohortSummary={cohortSummary} />
         )}
       </div>
     </div>

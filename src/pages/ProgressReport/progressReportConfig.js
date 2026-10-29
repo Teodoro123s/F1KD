@@ -190,6 +190,28 @@ export const REPORT_FIELDS = uniqueReportFields([
   ['lastActivityDate', 'Last Activity', 'Monitoring'],
   ['nextCheckupDate', 'Next Check-up', 'Monitoring'],
   ['measurementDate', 'Check-up Date', 'Monitoring'],
+  ['weekNumber', 'Week Number', 'Monitoring'],
+  ['headCircumference', 'Head Circumference (cm)', 'Monitoring'],
+  ['exclusiveBreastfeeding', 'Exclusive Breastfeeding', 'Monitoring'],
+  ['laboratoryRequests', 'Laboratory Requests', 'Monitoring'],
+  ['labAssistanceProvided', 'Laboratory Assistance Provided', 'Monitoring'],
+  ['assistanceAmount', 'Assistance Amount', 'Monitoring'],
+  ['sourceOfFunds', 'Source of Funds', 'Monitoring'],
+  ['facilityType', 'Facility Type', 'Monitoring'],
+  ['developmentalStatus', 'Developmental Status', 'Monitoring'],
+  ['nutritionalStatus', 'Nutritional Status', 'Monitoring'],
+  ['serviceProvider', 'Service Provider', 'Monitoring'],
+  ['checkupNumber', 'Check-up Number', 'Monitoring'],
+  ['gestationalAgeWeeks', 'Gestational Age (weeks)', 'Monitoring'],
+  ['fundalHeight', 'Fundal Height (cm)', 'Monitoring'],
+  ['fetalHeartRate', 'Fetal Heart Rate (bpm)', 'Monitoring'],
+  ['milkSubsidyDate', 'Milk Subsidy Date', 'Monitoring'],
+  ['milkQuantity', 'Milk Quantity (pcs)', 'Monitoring'],
+  ['milkSubsidyProvided', 'Milk Subsidy Provided', 'Monitoring'],
+  ['labAssistanceTests', 'Laboratory Assistance Tests', 'Monitoring'],
+  ['treatmentServices', 'Treatment Services', 'Monitoring'],
+  ['remarks', 'Check-up Remarks', 'Monitoring'],
+  ['notes', 'Check-up Notes', 'Monitoring'],
 ]);
 
 export const DEFAULT_VISIBLE_FIELDS = [
@@ -209,6 +231,52 @@ export const WHO_NUMERIC_GROWTH_METRICS = [
   ['weightForAge', 'Weight (kg)', 'Raw child weight recorded at each check-up.'],
   ['heightForAge', 'Length/Height (cm)', 'Raw child length or height recorded at each check-up.'],
   ['weightForLengthZScore', 'Weight-for-Length Z-Score', 'WHO LMS z-score for weight relative to length; height is used from 24 months.'],
+];
+
+export const CHILD_CHECKUP_DETAIL_FIELDS = [
+  ['weekNumber', 'Week Number', 'Check-up week recorded for the child.'],
+  ['weightForAge', 'Weight (kg)', 'Raw child weight recorded at each check-up.'],
+  ['heightForAge', 'Length/Height (cm)', 'Raw child length or height recorded at each check-up.'],
+  ['headCircumference', 'Head Circumference (cm)', 'Head circumference recorded at each check-up.'],
+  ['exclusiveBreastfeeding', 'Exclusive Breastfeeding', 'Breastfeeding status recorded at each check-up.'],
+  ['developmentalStatus', 'Developmental Status', 'Developmental status recorded at each check-up.'],
+  ['laboratoryRequests', 'Laboratory Requests', 'Laboratory requests recorded at each check-up.'],
+  ['labAssistanceProvided', 'Laboratory Assistance Provided', 'Whether laboratory assistance was provided.'],
+  ['hospitalReferral', 'Referral to Hospital', 'Whether the child was referred to a hospital.'],
+  ['assistanceAmount', 'Assistance Amount', 'Financial assistance amount recorded at each check-up.'],
+  ['sourceOfFunds', 'Source of Funds', 'Funding source recorded for check-up assistance.'],
+  ['facilityType', 'Facility Type', 'Facility type recorded at each check-up.'],
+  ['serviceProvider', 'Service Provider', 'Service provider recorded at each check-up.'],
+  ['nextCheckupDate', 'Next Check-up', 'Next check-up date recorded at each visit.'],
+  ['notes', 'Check-up Notes', 'Notes recorded at each check-up.'],
+];
+
+export const MOTHER_CHECKUP_DETAIL_FIELDS = [
+  ['trimester', 'Trimester', 'Trimester recorded at each maternal check-up.'],
+  ['checkupNumber', 'Check-up Number', 'Check-up number within the trimester.'],
+  ['gestationalAgeWeeks', 'Gestational Age (weeks)', 'Gestational age recorded at each check-up.'],
+  ['weightForAge', 'Weight (kg)', 'Maternal weight recorded at each check-up.'],
+  ['heightForAge', 'Height (cm)', 'Maternal height recorded at each check-up.'],
+  ['bloodPressure', 'Blood Pressure', 'Blood pressure recorded at each check-up.'],
+  ['bmiForAge', 'BMI', 'Maternal BMI recorded at each check-up.'],
+  ['developmentalStatus', 'Developmental Status', 'Developmental status recorded at each check-up.'],
+  ['nutritionalStatus', 'Nutritional Status', 'Nutritional status recorded at each check-up.'],
+  ['fundalHeight', 'Fundal Height (cm)', 'Fundal height recorded at each check-up.'],
+  ['fetalHeartRate', 'Fetal Heart Rate (bpm)', 'Fetal heart rate recorded at each check-up.'],
+  ['serviceProvider', 'Service Provider', 'Service provider recorded at each check-up.'],
+  ['nextCheckupDate', 'Next Check-up', 'Next check-up date recorded at each visit.'],
+  ['hospitalReferral', 'Referral to Hospital', 'Whether the mother was referred to a hospital.'],
+  ['labAssistanceProvided', 'Laboratory Assistance Provided', 'Whether laboratory assistance was provided.'],
+  ['assistanceAmount', 'Assistance Amount', 'Financial assistance amount recorded at each check-up.'],
+  ['sourceOfFunds', 'Source of Funds', 'Funding source recorded for check-up assistance.'],
+  ['facilityType', 'Facility Type', 'Facility type recorded at each check-up.'],
+  ['milkSubsidyProvided', 'Milk Subsidy Provided', 'Whether a milk subsidy was provided.'],
+  ['milkSubsidyDate', 'Milk Subsidy Date', 'Milk subsidy date recorded at each check-up.'],
+  ['milkQuantity', 'Milk Quantity (pcs)', 'Milk quantity recorded at each check-up.'],
+  ['labAssistanceTests', 'Laboratory Assistance Tests', 'Tests covered through laboratory assistance.'],
+  ['laboratoryRequests', 'Laboratory Requests', 'Laboratory requests recorded at each check-up.'],
+  ['treatmentServices', 'Treatment Services', 'Treatment services recorded at each check-up.'],
+  ['remarks', 'Check-up Remarks', 'Remarks recorded at each check-up.'],
 ];
 
 export const INTERPRETATION_METRICS = new Set(GROWTH_METRICS.map(([id]) => id));
@@ -467,6 +535,14 @@ export const formatCellValue = (field, value) => {
   const presenceValue = formatPresenceProfileValue(field, value);
   if (presenceValue !== null) return presenceValue;
   if (field === 'hospitalReferral') {
+    if (value === null || value === undefined || value === '') return '—';
+    return value === true || value === 1 || value === '1'
+      || ['true', 'yes'].includes(String(value ?? '').trim().toLowerCase())
+      ? 'Yes'
+      : 'No';
+  }
+  if (['labAssistanceProvided', 'milkSubsidyProvided'].includes(field)) {
+    if (value === null || value === undefined || value === '') return '—';
     return value === true || value === 1 || value === '1'
       || ['true', 'yes'].includes(String(value ?? '').trim().toLowerCase())
       ? 'Yes'

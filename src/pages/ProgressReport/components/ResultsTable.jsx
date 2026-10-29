@@ -6,7 +6,45 @@ import { formatProfileReportCellValue } from '../utils/profileFieldFormatting.mj
 import { filterProfileReportRows, getProfileReportScopeOptions } from '../utils/profileReportFilters.mjs';
 import { buildMonitoringAverageRow } from '../utils/monitoringAverages.mjs';
 
-const historyFieldIds = new Set(['measurementDate', 'weightForAge', 'heightForAge', 'bmiForAge', 'weightForLengthZScore', 'weightForLengthInterpretation', 'weightForAgeZScore', 'weightForAgeInterpretation', 'lengthForAgeZScore', 'lengthForAgeInterpretation', 'bmiInterpretation']);
+const historyFieldIds = new Set([
+  'measurementDate',
+  'weightForAge',
+  'heightForAge',
+  'bmiForAge',
+  'weightForLengthZScore',
+  'weightForLengthInterpretation',
+  'weightForAgeZScore',
+  'weightForAgeInterpretation',
+  'lengthForAgeZScore',
+  'lengthForAgeInterpretation',
+  'bmiInterpretation',
+  'hospitalReferral',
+  'weekNumber',
+  'headCircumference',
+  'exclusiveBreastfeeding',
+  'laboratoryRequests',
+  'labAssistanceProvided',
+  'assistanceAmount',
+  'sourceOfFunds',
+  'facilityType',
+  'developmentalStatus',
+  'nutritionalStatus',
+  'serviceProvider',
+  'trimester',
+  'checkupNumber',
+  'gestationalAgeWeeks',
+  'bloodPressure',
+  'fundalHeight',
+  'fetalHeartRate',
+  'nextCheckupDate',
+  'milkSubsidyDate',
+  'milkQuantity',
+  'milkSubsidyProvided',
+  'labAssistanceTests',
+  'treatmentServices',
+  'remarks',
+  'notes',
+]);
 
 const communityFieldsForSelection = (selection = {}) => {
   if (!selection.schoolId) return [];

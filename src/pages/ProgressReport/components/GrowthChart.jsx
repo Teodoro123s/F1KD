@@ -11,6 +11,7 @@ import {
   mapInterpretationToBand,
 } from '../progressReportConfig';
 import { formatGraphBeneficiaryName } from '../utils/graphBeneficiaryName.mjs';
+import { CohortSummaryChart } from './CohortSummaryChart';
 
 const downloadChartImage = (svgElement, metricLabel) => {
   if (!svgElement) return;
@@ -214,10 +215,19 @@ function ProgramAverageChart({ rows, metric = 'receivedBenefitAveragePerMonth' }
   </div>;
 }
 
-export function GrowthChart({ rows, progressRows = [], metric, chartType, displayWeeks = 'all', beneficiaryType = 'child' }) {
+export function GrowthChart({ rows, progressRows = [], metric, chartType, displayWeeks = 'all', beneficiaryType = 'child', cohortSummary = false }) {
   const chartRef = useRef(null);
   const navigate = useNavigate();
   const [hoveredSeries, setHoveredSeries] = useState('');
+  if (cohortSummary && (INTERPRETATION_METRICS.has(metric) || WHO_NUMERIC_GROWTH_METRICS.some(([id]) => id === metric) || metric === 'bmiForAge')) {
+    return <CohortSummaryChart
+      rows={rows}
+      metric={metric}
+      displayWeeks={displayWeeks}
+      beneficiaryType={beneficiaryType}
+      interpretation={INTERPRETATION_METRICS.has(metric)}
+    />;
+  }
   if (INTERPRETATION_METRICS.has(metric)) return <GrowthInterpretationChart rows={rows} progressRows={progressRows} metric={metric} displayWeeks={displayWeeks} beneficiaryType={beneficiaryType} />;
   if (PROGRAM_METRICS.some(([id]) => id === metric)) return <ProgramAverageChart rows={rows} metric={metric} />;
   const values = rows

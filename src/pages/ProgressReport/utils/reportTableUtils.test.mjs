@@ -1,7 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { filterInterpretationFields } from './interpretationFields.mjs';
-import { growthTableFieldsForMetric, withoutGrowthScores } from './growthTableUtils.mjs';
+import {
+  growthTableFieldsForMetric,
+  withoutGrowthScores,
+  GROWTH_TABLE_FIELDS,
+  normalizeReferralValue,
+  monitoringDetailValue,
+} from './growthTableUtils.mjs';
 import {
   formatProfileReportCellValue,
   formatPhilHealthNumberForReport,
@@ -96,4 +102,32 @@ test('monitoring tables show measurements and interpretations without WHO z-scor
     'weightForAgeInterpretation',
     'lengthForAgeInterpretation',
   ]);
+});
+
+test('maternal referral metric appears in selected monitoring table fields', () => {
+  assert.equal(GROWTH_TABLE_FIELDS.has('hospitalReferral'), true);
+  assert.deepEqual(growthTableFieldsForMetric('hospitalReferral'), ['hospitalReferral']);
+});
+
+test('referral table values preserve yes, no, and not-recorded states', () => {
+  assert.equal(normalizeReferralValue(true), true);
+  assert.equal(normalizeReferralValue(0), false);
+  assert.equal(normalizeReferralValue('0'), false);
+  assert.equal(normalizeReferralValue(null), null);
+});
+
+test('check-up details preserve raw values and tri-state Boolean values', () => {
+  const point = {
+    weekNumber: 8,
+    laboratoryRequests: 'CBC, urinalysis',
+    hospitalReferral: false,
+    labAssistanceProvided: true,
+    milkSubsidyProvided: null,
+  };
+
+  assert.equal(monitoringDetailValue(point, 'weekNumber'), 8);
+  assert.equal(monitoringDetailValue(point, 'laboratoryRequests'), 'CBC, urinalysis');
+  assert.equal(monitoringDetailValue(point, 'hospitalReferral'), false);
+  assert.equal(monitoringDetailValue(point, 'labAssistanceProvided'), true);
+  assert.equal(monitoringDetailValue(point, 'milkSubsidyProvided'), null);
 });

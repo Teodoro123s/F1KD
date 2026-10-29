@@ -37,7 +37,7 @@ export function CommunitySelectionStep({
               title="Filter the report by group"
               value={selection.groupId}
               onChange={(event) => updateSelection('groupId', event.target.value)}
-              disabled={!selection.schoolId || isHealthWorker || loadingOptions}
+              disabled={isHealthWorker || loadingOptions}
             >
               <option value="">All groups</option>
               {groups.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}

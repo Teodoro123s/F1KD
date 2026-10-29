@@ -16,6 +16,18 @@ test('monitoring average rows average numeric measurements and skip blank or int
   });
 });
 
+test('monitoring averages exclude Boolean flags and sequence numbers', () => {
+  const averageRow = buildMonitoringAverageRow([
+    { weightForAge: 8, weekNumber: 10, checkupNumber: 1, hospitalReferral: true, labAssistanceProvided: false },
+    { weightForAge: 10, weekNumber: 20, checkupNumber: 2, hospitalReferral: false, labAssistanceProvided: true },
+  ], ['weightForAge', 'weekNumber', 'checkupNumber', 'hospitalReferral', 'labAssistanceProvided'], 'measurementDate');
+
+  assert.deepEqual(averageRow, {
+    measurementDate: 'Average',
+    weightForAge: 9,
+  });
+});
+
 test('monitoring average row is omitted when selected measurements have no numeric values', () => {
   const averageRow = buildMonitoringAverageRow([
     { lengthForAgeInterpretation: 'Normal' },
