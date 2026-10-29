@@ -12,6 +12,7 @@ import { apiGetNotifications } from '../../api/notifications';
 import { can, isCommunityCoordinatorRole, isHealthWorkerRole, normalizeRole, ROLES } from '../../utils/permissions';
 import { buildDashboardModuleSummaries, buildOperationalStaffMetrics } from './dashboardModuleMetrics.mjs';
 import { getRollingDateRange } from '../../utils/analytics/dailyTimeSeries';
+import AIReportingAssistantEntry from '../AISetting/AIReportingAssistantEntry';
 
 function getGreeting(name) {
   const hour = new Date().getHours();
@@ -332,6 +333,9 @@ export default function DashboardPage() {
               <span className="dashboard-scope-badge">Whole-level view · All accessible communities</span>
             )}
           </div>
+        </div>
+        <div className="dashboard-top-actions">
+          <AIReportingAssistantEntry buttonClassName="secondary-btn" />
         </div>
       </header>
 

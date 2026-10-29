@@ -11,7 +11,7 @@ const {
   testSavedConfiguration,
   userConfigurationEnvironment,
 } = require('../services/userAiConfiguration');
-const { createReportProposal } = require('../utils/progressReportAI');
+const { createDashboardInsight, createReportProposal } = require('../utils/progressReportAI');
 const { containsPotentialPii, isDisallowedAIRequest } = require('../utils/aiRequestPolicy');
 
 const router = express.Router();
@@ -102,6 +102,35 @@ router.post('/proposal', async (req, res) => {
     return res.json(proposal);
   } catch (error) {
     return sendAiSettingsError(res, error, 'report proposal');
+  }
+});
+
+router.post('/dashboard-insight', async (req, res) => {
+  try {
+    const question = String(req.body?.question || '').trim();
+    if (containsPotentialPii(question)) {
+      return res.status(400).json({
+        error: 'This question may contain a name, contact detail, or identifying number. Remove personal details and try again.',
+      });
+    }
+    if (isDisallowedAIRequest(question)) {
+      return res.status(400).json({
+        error: 'Dashboard insights can only answer read-only questions about the displayed aggregate totals.',
+      });
+    }
+    const configuration = await getUserAiConfiguration(req.user.id);
+    if (!configuration) {
+      return res.status(409).json({ error: 'Configure and test your AI provider before using dashboard insights.' });
+    }
+    const insight = await createDashboardInsight(
+      req.body?.metrics,
+      question,
+      { env: userConfigurationEnvironment(configuration) },
+    );
+    res.set('Cache-Control', 'no-store');
+    return res.json({ insight });
+  } catch (error) {
+    return sendAiSettingsError(res, error, 'dashboard insight');
   }
 });
 

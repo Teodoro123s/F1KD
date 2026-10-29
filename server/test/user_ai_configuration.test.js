@@ -31,8 +31,13 @@ const {
   saveUserConfiguration,
   testProviderConnection,
   testSavedConfiguration,
+  userConfigurationEnvironment,
 } = require('../services/userAiConfiguration');
 const { containsPotentialPii, isDisallowedAIRequest } = require('../utils/aiRequestPolicy');
+const {
+  createDashboardInsight,
+  normalizeDashboardMetrics,
+} = require('../utils/progressReportAI');
 
 const encryptionEnvironment = { AI_SETTINGS_ENCRYPTION_KEY: 'a'.repeat(64) };
 const providerEnvironment = {
@@ -108,6 +113,56 @@ test('AI request policy detects likely personal details but permits aggregate re
   ]) {
     assert.equal(containsPotentialPii(prompt), false, prompt);
   }
+});
+
+test('dashboard insights accept only aggregate metrics and use the signed-in user key', async () => {
+  const metrics = {
+    motherCount: 15,
+    childCount: 21,
+    beneficiaryCount: 36,
+    followUpCount: 4,
+    communityCount: 2,
+    dataQuality: { incompleteSources: [] },
+  };
+  assert.deepEqual(normalizeDashboardMetrics(metrics), metrics);
+  assert.throws(() => normalizeDashboardMetrics({
+    ...metrics,
+    beneficiaryNames: ['Private Name'],
+  }), /supported non-negative aggregate counts/);
+
+  const saved = encryptApiKey('signed-in-user-key', 42, encryptionEnvironment);
+  queryHandler = async (sql, params) => {
+    assert.match(sql, /SELECT provider, model, encrypted_api_key/);
+    assert.deepEqual(params, [42]);
+    return [[{
+      provider: 'openai-compatible',
+      model: 'gemini-3.1-flash-lite',
+      encrypted_api_key: saved.encrypted,
+      encryption_iv: saved.iv,
+      encryption_auth_tag: saved.authTag,
+      last_tested_at: new Date('2026-10-29T00:00:00Z'),
+    }]];
+  };
+  const configuration = await getUserAiConfiguration(42, providerEnvironment);
+  let request;
+  let usesUserKey = false;
+  const insight = await createDashboardInsight(metrics, 'Summarize these totals.', {
+    env: userConfigurationEnvironment(configuration, providerEnvironment),
+    fetchImpl: async (url, options) => {
+      usesUserKey = options.headers.Authorization === `Bearer ${configuration.apiKey}`;
+      request = { url, body: JSON.parse(options.body) };
+      return new Response(JSON.stringify({
+        choices: [{ message: { content: 'The dashboard shows 36 beneficiaries.' } }],
+      }), { status: 200 });
+    },
+  });
+
+  assert.equal(insight, 'The dashboard shows 36 beneficiaries.');
+  assert.equal(request.url, 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions');
+  assert.equal(usesUserKey, true);
+  assert.equal(request.body.model, 'gemini-3.1-flash-lite');
+  assert.match(request.body.messages[1].content, /"beneficiaryCount":36/);
+  assert.doesNotMatch(request.body.messages[1].content, /signed-in-user-key|Private Name/);
 });
 
 test('connection tests authenticate with the key but do not send it in the request body', async () => {

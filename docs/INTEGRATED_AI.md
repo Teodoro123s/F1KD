@@ -4,7 +4,9 @@
 
 F1KD's AI features are optional. The current provider configuration uses Google's Gemini API through its OpenAI-compatible Chat Completions endpoint. Provider endpoint and model are controlled by the server; users do not choose either in the UI.
 
-The AI Setting page is focused on provider configuration and connection status. A compact **AI Assistant** action in the page header opens the read-only reporting assistant in a right-side drawer without navigating away. The action is available before setup; the current saved-key status is checked when the drawer opens, and if no key has been saved, the drawer directs the user to configure one. The assistant presents a chat-style stream for user requests, assistant responses, clarification prompts, project controls, and report previews. It translates a natural-language request into an allowlisted report proposal; the user can choose authorized scope filters and, when needed, a project. The application—not the model—fetches records through the existing authenticated, role-scoped reporting APIs. The model does not receive beneficiary report rows.
+The AI Setting page is focused on provider configuration and connection status. Its **AI Assistant** action and the matching action on the Dashboard open the same read-only reporting assistant in a right-side drawer. Each opening checks the current user's saved-key status; without a key, the drawer directs the user to AI Setting. The assistant presents a chat-style stream for user requests, assistant responses, clarification prompts, project controls, and report previews. It translates a natural-language request into an allowlisted report proposal; the user can choose an authorized community when available and, when needed, a project. The application—not the model—fetches records through existing authenticated, role-scoped reporting APIs. The model does not receive beneficiary report rows.
+
+The Dashboard provides the **AI Assistant** action to open the same reporting drawer. It does not display a separate AI dashboard insights card.
 
 AI output is advisory. It is not a source of truth, a clinical assessment, or authorization to change data.
 
@@ -60,7 +62,7 @@ If `AI_SETTINGS_ENCRYPTION_KEY` is missing or malformed, the page reports that s
 
 ## Assistant capabilities and limitations
 
-The AI Setting page contains the provider configuration card and a brief privacy note; it does not show separate AI Usage and Limits or AI Reporting Assistant cards. The drawer remains available without a saved key and explains that setup is required before reports can be generated.
+The AI Setting page contains the provider configuration card and a brief privacy note; it does not show separate AI Usage and Limits or AI Reporting Assistant cards. Its drawer and Dashboard entry remain available without a saved key and explain that setup is required before AI features can be used.
 
 The AI Setting drawer currently supports this conversational flow:
 
@@ -69,6 +71,7 @@ The AI Setting drawer currently supports this conversational flow:
 - If the request is ambiguous, the assistant adds a clarification prompt and response control to the conversation; the clarified request is submitted for another proposal.
 - The signed-in user's school/group scope is applied by the backend, without group or batch selector controls. A community selector remains available for roles that can choose among accessible communities. A project selector and report action are rendered in the assistant's message when a project-benefit report requires a project.
 - The application retrieves authorized rows and displays the report type, total record count, and a preview of up to 20 rows in the conversation. CSV export includes all matching authorized rows.
+- The Dashboard AI entry point opens the reporting assistant drawer; dashboard insights are not displayed in a separate card.
 
 Only fixed, application-defined controls are rendered; model output cannot create arbitrary UI or executable actions. For project reports, the user selects an eligible project from the authorized project list before the application builds the report. The natural-language request determines report intent and supported report filters; the backend independently enforces the signed-in user's school/group scope, and request text cannot grant additional access. Health Workers remain assigned-group scoped, and Community Coordinators remain assigned-school scoped.
 
@@ -101,6 +104,7 @@ The current AI Setting and drawer workflow uses:
 | `PUT /api/ai-settings/configuration` | Validate and encrypt the signed-in user's key, then save it. |
 | `DELETE /api/ai-settings/configuration` | Remove the signed-in user's saved key. |
 | `POST /api/ai-settings/proposal` | Reject prompts matching the server's potential-PII patterns, then turn the request into a validated report proposal using that user's saved key. Called again when the user answers an assistant clarification. |
+| `POST /api/ai-settings/dashboard-insight` | Protected aggregate-insights endpoint; it is not called by the current Dashboard UI. |
 | Existing `/api/progress-report` read routes | Return report options and role-scoped operational rows to the application. |
 
-These routes require authentication and operational authorization. The model does not receive database credentials or execute SQL.
+These routes require authentication and operational authorization. The AI Settings POST endpoints use the existing AI rate limit. The older `/api/progress-report/ai/dashboard-insight` route remains for compatibility. Neither dashboard-insights endpoint is called by the current Dashboard UI. The model does not receive database credentials or execute SQL.

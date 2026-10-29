@@ -1,8 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import React, { useEffect, useState } from 'react';
 import PageHeader from '../../components/ui/PageHeader';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
-import useModalAccessibility from '../../components/ui/useModalAccessibility';
 import { notifyAction } from '../../components/ActionFeedback';
 import {
   apiGetAiConfiguration,
@@ -10,7 +8,7 @@ import {
   apiSaveAiConfiguration,
   apiTestAiConfiguration,
 } from '../../api/aiSettings';
-import AIReportingAssistant from './AIReportingAssistant';
+import AIReportingAssistantEntry from './AIReportingAssistantEntry';
 
 export default function AISettingPage() {
   const [configuration, setConfiguration] = useState(null);
@@ -23,19 +21,6 @@ export default function AISettingPage() {
   const [error, setError] = useState('');
   const [showRemoveDialog, setShowRemoveDialog] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
-  const [assistantOpen, setAssistantOpen] = useState(false);
-  const [assistantChecking, setAssistantChecking] = useState(false);
-  const [assistantCheckError, setAssistantCheckError] = useState('');
-  const assistantTriggerRef = useRef(null);
-  const assistantDrawerRef = useRef(null);
-  const assistantCloseRef = useRef(null);
-
-  useModalAccessibility({
-    open: assistantOpen,
-    onClose: () => setAssistantOpen(false),
-    dialogRef: assistantDrawerRef,
-    initialFocusRef: assistantCloseRef,
-  });
 
   useEffect(() => {
     let active = true;
@@ -102,29 +87,12 @@ export default function AISettingPage() {
       setConfiguration((current) => ({ ...current, configured: false, lastTestedAt: null }));
       setApiKey('');
       setConnectionStatus('not-configured');
-      setAssistantOpen(false);
       setShowRemoveDialog(false);
       notifyAction('Your saved AI configuration was removed.');
     } catch (removeError) {
       setError(removeError.message || 'Unable to remove the AI configuration.');
     } finally {
       setRemoving(false);
-    }
-  };
-
-  const openAssistantDrawer = async () => {
-    setAssistantOpen(true);
-    if (loading) return;
-    setAssistantChecking(true);
-    setAssistantCheckError('');
-    try {
-      const currentConfiguration = await apiGetAiConfiguration();
-      setConfiguration(currentConfiguration);
-      setError('');
-    } catch (configurationError) {
-      setAssistantCheckError(configurationError.message || 'Unable to verify your AI configuration.');
-    } finally {
-      setAssistantChecking(false);
     }
   };
 
@@ -141,14 +109,10 @@ export default function AISettingPage() {
       <PageHeader
         title="AI Setting"
         actions={(
-          <button
-            ref={assistantTriggerRef}
-            type="button"
-            className="secondary-btn ai-settings-assistant-trigger"
-            onClick={openAssistantDrawer}
-          >
-            AI Assistant
-          </button>
+          <AIReportingAssistantEntry
+            buttonClassName="secondary-btn ai-settings-assistant-trigger"
+            label="AI Assistant"
+          />
         )}
       />
       <main className="ai-settings-content">
@@ -232,58 +196,6 @@ export default function AISettingPage() {
           The assistant is read-only. Your request is sent to the configured provider, while report records are retrieved separately through authorized services. Do not include names, IDs, or contact details in prompts.
         </p>
 
-        {createPortal(
-          <div
-            className={`ai-assistant-drawer-backdrop${assistantOpen ? ' ai-assistant-drawer-backdrop--open' : ''}`}
-            onMouseDown={(event) => {
-              if (event.target === event.currentTarget) setAssistantOpen(false);
-            }}
-            aria-hidden={!assistantOpen}
-          >
-            <section
-              ref={assistantDrawerRef}
-              className="ai-assistant-drawer"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="ai-assistant-drawer-title"
-              tabIndex={-1}
-            >
-              <header className="ai-assistant-drawer-header">
-                <div>
-                  <h2 id="ai-assistant-drawer-title">AI Reporting Assistant</h2>
-                  <p>Read-only operational reporting for your authorized scope.</p>
-                </div>
-                <button
-                  ref={assistantCloseRef}
-                  type="button"
-                  className="ai-assistant-drawer-close"
-                  onClick={() => setAssistantOpen(false)}
-                  aria-label="Close AI assistant"
-                >
-                  ×
-                </button>
-              </header>
-              {loading || assistantChecking ? (
-                <p role="status">Checking your AI configuration…</p>
-              ) : assistantCheckError ? (
-                <p className="ai-settings-error" role="alert">{assistantCheckError}</p>
-              ) : !configuration ? (
-                <p className="ai-settings-error" role="alert">
-                  {error || 'Unable to verify your AI configuration. Close this drawer and check the settings message.'}
-                </p>
-              ) : !configuration.configured ? (
-                <p role="status">Configure and test an API key above before using the reporting assistant.</p>
-              ) : !configuration.secureStorageReady ? (
-                <p className="ai-settings-error" role="alert">
-                  Secure credential storage is unavailable. Ask the server administrator to configure AI_SETTINGS_ENCRYPTION_KEY.
-                </p>
-              ) : (
-                <AIReportingAssistant configured storageReady />
-              )}
-            </section>
-          </div>,
-          document.body,
-        )}
       </main>
       <ConfirmDialog
         open={showRemoveDialog}
