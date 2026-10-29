@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthProvider';
 import PageHeader from '../../components/ui/PageHeader';
@@ -11,7 +12,6 @@ import {
   apiDeleteProgramReceiptEvidenceImage,
   apiGetBeneficiaryMonitoringReport,
   apiGetClusterMonitoringReport,
-  apiGetPrograms,
   apiSetBeneficiaryMonitoring,
   apiUploadProgramReceiptEvidence,
 } from '../../api/programs';
@@ -60,7 +60,6 @@ export default function ReceiptHistoryPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const isClusterHistory = Boolean(clusterType && clusterName);
-  const canManageEvidence = isCommunityCoordinatorRole(currentUser?.role);
   const showAuditSignatures = canViewAuditSignatures(currentUser?.role);
   const rawBeneficiaryName = location.state?.beneficiaryName || location.state?.clusterName || clusterName || 'Beneficiary';
   const organizerName = String(currentUser?.name || [
@@ -93,6 +92,10 @@ export default function ReceiptHistoryPage() {
   const [pendingEvidenceDelete, setPendingEvidenceDelete] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
   const [expandedEvidenceRow, setExpandedEvidenceRow] = useState(null);
+  const [programEnded, setProgramEnded] = useState(
+    String(location.state?.programStatus || '').trim().toLowerCase() === 'ended',
+  );
+  const canManageEvidence = isCommunityCoordinatorRole(currentUser?.role) && !programEnded;
 
   const loadHistory = async () => {
     setLoading(true);
@@ -102,6 +105,10 @@ export default function ReceiptHistoryPage() {
         ? await apiGetClusterMonitoringReport(programId, clusterType, clusterName)
         : await apiGetBeneficiaryMonitoringReport(programId, beneficiaryType, beneficiaryId);
       setReportRows(response.report || []);
+      const reportedStatus = response.programStatus || response.report?.find((row) => row.program_status)?.program_status;
+      if (String(reportedStatus || '').trim().toLowerCase() === 'ended') {
+        setProgramEnded(true);
+      }
     } catch (loadError) {
       setReportRows([]);
       const message = loadError.message || 'Unable to load receipt history.';
@@ -206,6 +213,7 @@ export default function ReceiptHistoryPage() {
   const days = calendarDays(calendarMonth);
 
   const openReceiptModal = (date = monitorDate, defaultMonitored = false, targetRows = null) => {
+    if (programEnded) return;
     setError('');
     const dateRows = filteredRows.filter((row) => toDateKey(row.date) === date);
     const existingReceipt = dateRows[0];
@@ -252,6 +260,7 @@ export default function ReceiptHistoryPage() {
 
   const saveReceipt = async (event) => {
     event.preventDefault();
+    if (programEnded) return;
     if (!receiptModal?.date) return;
     if (evidenceImages.length > 0 && evidenceImages.length < 3) {
       setError('Select at least 3 photos or remove the selected photos to save without documentation.');
@@ -291,6 +300,7 @@ export default function ReceiptHistoryPage() {
       notifyAction(`${formatDateForDisplay(receiptModal.date)} · ${receiptCount} ${receiptLabel} marked ${receiptModal.monitored ? 'received' : 'not received'}${targetNames.length ? `: ${targetNames.join(', ')}` : ''}.`);
       await loadHistory();
     } catch (saveError) {
+      if (saveError.status === 409) setProgramEnded(true);
       const message = saveError.message || 'Unable to save receipt status.';
       setError(message);
       notifyAction(message, 'error');
@@ -301,6 +311,7 @@ export default function ReceiptHistoryPage() {
 
   const removeEvidenceImage = async () => {
     if (!pendingEvidenceDelete || savingReceipt) return;
+    if (programEnded) return;
     setSavingReceipt(true);
     setError('');
     try {
@@ -317,6 +328,7 @@ export default function ReceiptHistoryPage() {
       })));
       setPendingEvidenceDelete(null);
     } catch (deleteError) {
+      if (deleteError.status === 409) setProgramEnded(true);
       console.error('[ReceiptHistoryPage] Unable to remove program check-in photo:', deleteError);
       setError(deleteError.message || 'Unable to remove project check-in photo.');
     } finally {
@@ -339,11 +351,12 @@ export default function ReceiptHistoryPage() {
           <button type="button" className="view-btn view-btn--secondary back-action" onClick={() => navigateBack(navigate, location, fallbackReturnTo)}>Back to project</button>
         </div>
         {!loading && <div className="program-receipt-controls">
-          <div className="program-receipt-controls-actions"><button type="button" className="view-btn view-btn--primary" onClick={() => openReceiptModal()} disabled={isClusterHistory && recipientsLoading}>Record receipt</button><div className="program-view-toggle" role="tablist" aria-label="Receipt history view"><button type="button" className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>List View</button><button type="button" className={view === 'calendar' ? 'active' : ''} onClick={() => setView('calendar')}>Calendar View</button></div></div>
+          <div className="program-receipt-controls-actions">{!programEnded && <button type="button" className="view-btn view-btn--primary" onClick={() => openReceiptModal()} disabled={isClusterHistory && recipientsLoading}>Record receipt</button>}<div className="program-view-toggle" role="tablist" aria-label="Receipt history view"><button type="button" className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>List View</button><button type="button" className={view === 'calendar' ? 'active' : ''} onClick={() => setView('calendar')}>Calendar View</button></div></div>
+          {programEnded && <p className="program-receipt-readonly-notice" role="status">This project has ended. Receipt history is read-only.</p>}
         </div>}
         {error && <p className="error-message" role="alert">{error}</p>}
         {loading ? <p>Loading receipt history...</p> : view === 'list' ? <div className="program-receipt-table-scroll"><table className={`data-table ${isClusterHistory ? `program-receipt-cluster-table${showAuditSignatures ? ' has-audit-signatures' : ''}` : 'program-receipt-beneficiary-table'}`}>
-          <thead><tr><th>Date</th>{isClusterHistory && <th>Beneficiary</th>}<th>Documentation</th>{showAuditSignatures && <th>Signatures</th>}<th>Action</th></tr></thead>
+          <thead><tr><th>Date</th>{isClusterHistory && <th>Beneficiary</th>}<th>Documentation</th>{showAuditSignatures && <th>Signatures</th>}{!programEnded && <th>Action</th>}</tr></thead>
           <tbody>{filteredRows.length ? filteredRows.map((row) => {
             const rowKey = `${row.date}-${row.program_name}-${row.beneficiary_name || row.beneficiary_id || 'entry'}`;
             const images = row.evidence_images || [];
@@ -388,16 +401,16 @@ export default function ReceiptHistoryPage() {
             updatedByRole={row.updated_by_role || row.monitored_by_role}
             updatedAt={row.updated_at}
                 /></td>}
-                <td><button type="button" className="view-btn view-btn--secondary" onClick={() => openReceiptModal(toDateKey(row.date), Boolean(row.monitored), [row])}>Edit</button></td>
+                {!programEnded && <td><button type="button" className="view-btn view-btn--secondary" onClick={() => openReceiptModal(toDateKey(row.date), Boolean(row.monitored), [row])}>Edit</button></td>}
               </tr>
             );
-          }) : <tr><td colSpan={(isClusterHistory ? 2 : 1) + 1 + (showAuditSignatures ? 1 : 0) + 1} className="no-data">No receipt history found.</td></tr>}</tbody>
+          }) : <tr><td colSpan={(isClusterHistory ? 2 : 1) + 1 + (showAuditSignatures ? 1 : 0) + (programEnded ? 0 : 1)} className="no-data">No receipt history found.</td></tr>}</tbody>
         </table></div> : <div className="program-calendar-wrap">
           <div className="program-calendar-header"><button type="button" className="view-btn view-btn--secondary" onClick={() => setCalendarMonth((date) => new Date(date.getFullYear(), date.getMonth() - 1, 1))}>Previous</button><h3>{monthLabel(calendarMonth)}</h3><button type="button" className="view-btn view-btn--secondary" onClick={() => setCalendarMonth((date) => new Date(date.getFullYear(), date.getMonth() + 1, 1))}>Next</button></div>
           <div className="program-calendar-weekdays">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => <span key={day}>{day}</span>)}</div>
-          <div className="program-calendar-grid">{days.map((day) => { const key = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`; const receipt = receivedByDate.get(key) || []; return <button type="button" key={key} className={`program-calendar-day${day.getMonth() !== calendarMonth.getMonth() ? ' muted' : ''}${receipt.length ? ' received' : ''}${selectedDate === key ? ' selected' : ''}`} onClick={() => openReceiptModal(key, true)}><span>{day.getDate()}</span>{receipt.length > 0 && <strong>{receipt.length > 1 ? `${receipt.length} Yes` : 'Yes'}</strong>}</button>; })}</div>
+          <div className="program-calendar-grid">{days.map((day) => { const key = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`; const receipt = receivedByDate.get(key) || []; return <button type="button" key={key} className={`program-calendar-day${day.getMonth() !== calendarMonth.getMonth() ? ' muted' : ''}${receipt.length ? ' received' : ''}${selectedDate === key ? ' selected' : ''}`} onClick={() => openReceiptModal(key, true)} disabled={programEnded}><span>{day.getDate()}</span>{receipt.length > 0 && <strong>{receipt.length > 1 ? `${receipt.length} Yes` : 'Yes'}</strong>}</button>; })}</div>
         </div>}
-        {receiptModal && (
+        {receiptModal && createPortal(
           <div className="modal-backdrop" role="presentation" onClick={() => !savingReceipt && setReceiptModal(null)}>
             <div
               className="program-receipt-modal"
@@ -515,7 +528,8 @@ export default function ReceiptHistoryPage() {
                 </div>
               </form>
             </div>
-          </div>
+          </div>,
+          document.body,
         )}
         <ConfirmDialog
           open={Boolean(pendingEvidenceDelete)}

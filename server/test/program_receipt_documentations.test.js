@@ -35,12 +35,22 @@ test('program check-in evidence is shared across beneficiaries and manageable on
   const storedImages = [];
   const linkedReceipts = [];
   const imagePaths = [];
+  let programStatus = 'Active';
+  const testSessions = new Map();
   const reportRows = [
     { receipt_id: 501, date: '2026-10-23', beneficiary_id: '100', beneficiary_type: 'mother' },
     { receipt_id: 502, date: '2026-10-23', beneficiary_id: '101', beneficiary_type: 'mother' },
   ];
 
   pool.query = async (sql, params = []) => {
+    if (sql.includes('FROM auth_sessions s')) {
+      const role = testSessions.get(String(params[0]));
+      return [role ? [{ user_id: 7, role, status: 'Active', school_id: role === 'Community Organizer' ? 12 : null, group_id: null, consent_accepted_at: new Date() }] : []];
+    }
+    if (sql.includes('SELECT status FROM programs WHERE id = ?')) return [[{ status: programStatus }]];
+    if (sql.includes('SELECT beneficiary_type, status FROM programs WHERE id = ?')) {
+      return [[{ beneficiary_type: 'Mother', status: programStatus }]];
+    }
     if (sql.includes('SELECT pc.scope_type, pc.scope_name')) {
       return [[{ scope_type: 'School', scope_name: 'School 12', owned_by_school: 1 }]];
     }
@@ -121,6 +131,7 @@ test('program check-in evidence is shared across beneficiaries and manageable on
   });
 
   const app = express();
+  app.use(express.json());
   app.use('/api/programs', verifyToken, authorizeOperational, programsRouter);
   const server = app.listen(0);
   t.after(async () => {
@@ -132,13 +143,15 @@ test('program check-in evidence is shared across beneficiaries and manageable on
   await new Promise((resolve) => server.once('listening', resolve));
 
   const baseUrl = `http://127.0.0.1:${server.address().port}/api/programs/5/monitoring`;
-  const headersFor = (role) => ({
-    Authorization: `Bearer ${jwt.sign({
+  const headersFor = (role) => {
+    const sid = `test-session-${role}`;
+    testSessions.set(sid, role);
+    return { Authorization: `Bearer ${jwt.sign({
       id: 7,
-      role,
+      sid,
       ...(role === 'Community Organizer' ? { school_id: 12 } : {}),
-    }, process.env.JWT_SECRET)}`,
-  });
+    }, process.env.JWT_SECRET)}` };
+  };
 
   const deniedUpload = await fetch(`${baseUrl}/evidence`, {
     method: 'POST',
@@ -196,6 +209,49 @@ test('program check-in evidence is shared across beneficiaries and manageable on
   assert.equal(documentation.images.length, 3);
   assert.deepEqual(linkedReceipts, [501, 502]);
   assert.ok(imagePaths.every((filePath) => fs.existsSync(filePath)));
+
+  programStatus = 'Ended';
+  const endedFormData = new FormData();
+  endedFormData.append('date', '2026-10-24');
+  endedFormData.append('checkins', JSON.stringify([{ id: '100', type: 'mother' }]));
+  for (let index = 0; index < 3; index += 1) {
+    endedFormData.append('images', new Blob([`ended photo ${index}`], { type: 'image/png' }), `ended-${index}.png`);
+  }
+  const endedUploadResponse = await fetch(`${baseUrl}/evidence`, {
+    method: 'POST',
+    headers: headersFor('Community Organizer'),
+    body: endedFormData,
+  });
+  assert.equal(endedUploadResponse.status, 409);
+  assert.match((await endedUploadResponse.json()).error, /project has ended/i);
+  assert.equal(storedImages.length, 3);
+  const endedReceiptResponse = await fetch(`${baseUrl}`, {
+    method: 'PATCH',
+    headers: { ...headersFor('Community Organizer'), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ beneficiaryId: '100', beneficiaryType: 'mother', date: '2026-10-24', monitored: true }),
+  });
+  assert.equal(endedReceiptResponse.status, 409);
+  assert.match((await endedReceiptResponse.json()).error, /project has ended/i);
+  const endedScopeResponse = await fetch('http://127.0.0.1:' + server.address().port + '/api/programs/5/clusters', {
+    method: 'POST',
+    headers: { ...headersFor('Community Organizer'), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ scopes: [{ type: 'School', name: 'School 12', beneficiaries: 1 }] }),
+  });
+  assert.equal(endedScopeResponse.status, 409);
+  assert.match((await endedScopeResponse.json()).error, /project has ended/i);
+  const endedDeleteResponse = await fetch(`${baseUrl}/evidence/77/images/${documentation.images[0].id}`, {
+    method: 'DELETE',
+    headers: headersFor('Community Organizer'),
+  });
+  assert.equal(endedDeleteResponse.status, 409);
+  assert.match((await endedDeleteResponse.json()).error, /project has ended/i);
+  assert.equal(storedImages.length, 3);
+  const endedHistoryResponse = await fetch(`${baseUrl}/report/mother/100`, {
+    headers: headersFor('Partner'),
+  });
+  assert.equal(endedHistoryResponse.status, 200);
+  assert.equal((await endedHistoryResponse.json()).programStatus, 'Ended');
+  programStatus = 'Active';
 
   const reportResponse = await fetch(`${baseUrl}/report/mother/100`, {
     headers: headersFor('Partner'),

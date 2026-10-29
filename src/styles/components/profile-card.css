@@ -946,6 +946,7 @@
 .program-receipt-history-page .program-beneficiary-report-table.has-audit-signatures td:nth-child(8) { width: 14%; min-width: 100px; text-align: left; }
 .program-receipt-controls { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; margin: 1rem 0; }
 .program-receipt-controls-actions { display: flex; align-items: center; gap: 0.75rem; }
+.program-receipt-readonly-notice { margin: 0; color: #64748b; font-size: 0.92rem; }
 .program-receipt-controls > label { display: grid; gap: 0.35rem; color: #334155; font-size: 0.82rem; font-weight: 800; }
 .program-receipt-controls select { min-width: 240px; min-height: 40px; padding: 0.5rem 0.7rem; border: 1px solid #dbe3ee; border-radius: 8px; background: #fff; color: #0f172a; font: inherit; font-weight: 400; }
 .program-view-toggle { display: inline-flex; border: 1px solid #dbe3ee; border-radius: 8px; overflow: hidden; }
@@ -967,10 +968,11 @@
 .program-calendar-day span, .program-calendar-day strong { display: block; }
 .program-calendar-day strong { margin-top: 0.45rem; font-size: 0.72rem; }
 .program-calendar-day:not(.received) { cursor: pointer; }
-.program-receipt-modal { width: min(560px, calc(100vw - 2rem)); max-height: min(90vh, 820px); overflow-y: auto; padding: 1.25rem; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; box-shadow: 0 20px 50px rgba(15, 23, 42, 0.2); }
-.program-receipt-modal-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+.program-receipt-modal { display: flex; flex-direction: column; box-sizing: border-box; width: min(680px, calc(100vw - 2rem)); max-height: calc(100vh - 2rem); max-height: calc(100dvh - 2rem); overflow: hidden; padding: 0; border: 1px solid #e2e8f0; border-radius: 16px; background: #fff; box-shadow: 0 24px 64px rgba(15, 23, 42, 0.24); }
+.modal-backdrop:has(> .program-receipt-modal) { box-sizing: border-box; align-items: center; padding: 1rem; }
+.program-receipt-modal-header { display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between; gap: 1rem; margin: 0; padding: 1rem 1.25rem; }
 .program-receipt-modal-header h3 { margin: 0; color: #0f172a; }
-.program-receipt-modal form { display: grid; gap: 1rem; }
+.program-receipt-modal form { display: grid; min-height: 0; gap: 1rem; padding: 1.1rem 1.25rem 1.25rem; overflow-y: auto; overscroll-behavior: contain; }
 .program-receipt-modal label { display: grid; gap: 0.35rem; color: #334155; font-weight: 700; }
 .program-receipt-modal input, .program-receipt-modal select { min-height: 42px; padding: 0.55rem 0.7rem; border: 1px solid #dbe3ee; border-radius: 8px; background: #fff; color: #0f172a; font: inherit; }
 .program-receipt-modal .receipt-beneficiary-selection { min-width: 0; margin: 0; padding: 0.75rem; border: 1px solid #dbe3ee; border-radius: 8px; }
@@ -981,7 +983,15 @@
 .receipt-beneficiary-list { display: grid; gap: 0.4rem; max-height: 150px; margin-top: 0.55rem; overflow-y: auto; }
 .receipt-beneficiary-option span { overflow-wrap: anywhere; }
 .receipt-beneficiary-empty { margin: 0; color: #64748b; font-size: 0.85rem; }
-.program-receipt-modal-actions { display: flex; justify-content: flex-end; gap: 0.75rem; }
+.program-receipt-modal-actions { position: sticky; bottom: -1.25rem; display: flex; justify-content: flex-end; gap: 0.75rem; margin: 0 -1.25rem -1.25rem; padding: 0.85rem 1.25rem; border-top: 1px solid #e8edf3; background: rgba(255, 255, 255, 0.97); }
+.program-receipt-modal input[type="file"]::file-selector-button { min-height: 34px; margin-right: 0.65rem; padding: 0.35rem 0.7rem; border: 1px solid #cbd5e1; border-radius: 7px; background: #f8fafc; color: #334155; font: inherit; font-weight: 650; cursor: pointer; }
+@media (max-width: 640px) {
+  .program-receipt-modal { width: calc(100vw - 1rem); max-height: calc(100vh - 1rem); max-height: calc(100dvh - 1rem); border-radius: 12px; }
+  .modal-backdrop:has(> .program-receipt-modal) { padding: 0.5rem; }
+  .program-receipt-modal-header { padding: 0.85rem 1rem; }
+  .program-receipt-modal form { gap: 0.85rem; padding: 0.9rem 1rem 1rem; }
+  .program-receipt-modal-actions { margin: 0 -1rem -1rem; padding: 0.75rem 1rem; }
+}
 .program-receipt-evidence-upload { display: grid; gap: 0.45rem; padding: 0.8rem; border: 1px solid #dbe3ee; border-radius: 8px; background: #f8fafc; }
 .program-receipt-evidence-upload p,
 .program-receipt-evidence-readonly { margin: 0; color: #64748b; font-size: 0.8rem; line-height: 1.45; }

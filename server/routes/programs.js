@@ -178,6 +178,22 @@ async function authorizeCoordinatorProgramScope(req, res, programId, { allowUnsc
   return true;
 }
 
+async function requireActiveProgram(res, programId) {
+  const [rows] = await pool.query(
+    'SELECT status FROM programs WHERE id = ? LIMIT 1',
+    [programId],
+  );
+  if (!rows.length) {
+    res.status(404).json({ error: 'Program not found' });
+    return false;
+  }
+  if (String(rows[0].status || '').trim().toLowerCase() === 'ended') {
+    res.status(409).json({ error: 'This project has ended and is read-only.' });
+    return false;
+  }
+  return true;
+}
+
 async function coordinatorScopeExistsInSchool(type, name, schoolId) {
   const scopeQueries = {
     School: ['SELECT id FROM communities WHERE id = ? AND name = ? LIMIT 1', [schoolId, name]],
@@ -356,6 +372,7 @@ router.put('/:id', async (req, res) => {
   if (!program) return res.status(400).json({ error: 'Program name and provider are required' });
   try {
     if (!(await authorizeCoordinatorProgramScope(req, res, req.params.id))) return;
+    if (!(await requireActiveProgram(res, req.params.id))) return;
     const [result] = await pool.query('UPDATE programs SET name = ?, type = ?, provider = ?, description = ?, beneficiary_type = ? WHERE id = ?', [...Object.values(program), req.params.id]);
     if (!result.affectedRows) return res.status(404).json({ error: 'Program not found' });
     const updatedProgram = await getProgram(req.params.id);
@@ -440,6 +457,7 @@ router.post('/:id/clusters', async (req, res) => {
   if (!scopes.length) return res.status(400).json({ error: 'At least one scope is required' });
   try {
     if (!(await authorizeCoordinatorProgramScope(req, res, req.params.id, { allowUnscoped: true }))) return;
+    if (!(await requireActiveProgram(res, req.params.id))) return;
     const addedScopes = [];
     for (const scope of scopes) {
       const type = String(scope.type || '').trim();
@@ -474,6 +492,7 @@ router.post('/:id/clusters', async (req, res) => {
 router.patch('/:programId/clusters/:clusterId/complete', async (req, res) => {
   try {
     if (!(await authorizeCoordinatorProgramScope(req, res, req.params.programId))) return;
+    if (!(await requireActiveProgram(res, req.params.programId))) return;
     const [clusterRows] = await pool.query(
       'SELECT scope_type, scope_name FROM program_clusters WHERE id = ? AND program_id = ? LIMIT 1',
       [req.params.clusterId, req.params.programId],
@@ -505,6 +524,7 @@ router.patch('/:programId/clusters/complete', async (req, res) => {
   if (!type || !name) return res.status(400).json({ error: 'Cluster type and name are required' });
   try {
     if (!(await authorizeCoordinatorProgramScope(req, res, req.params.programId))) return;
+    if (!(await requireActiveProgram(res, req.params.programId))) return;
     if (req.isCommunityOrganizer && !(await coordinatorScopeExistsInSchool(type, name, req.schoolId))) {
       return res.status(403).json({ error: 'Community Organizers may only complete scopes from their assigned school' });
     }
@@ -582,8 +602,11 @@ router.patch('/:programId/monitoring', async (req, res) => {
   }
   try {
     if (!(await authorizeCoordinatorProgramScope(req, res, req.params.programId))) return;
-    const [programRows] = await pool.query('SELECT beneficiary_type FROM programs WHERE id = ?', [req.params.programId]);
+    const [programRows] = await pool.query('SELECT beneficiary_type, status FROM programs WHERE id = ?', [req.params.programId]);
     if (!programRows.length) return res.status(404).json({ error: 'Program not found' });
+    if (String(programRows[0].status || '').trim().toLowerCase() === 'ended') {
+      return res.status(409).json({ error: 'This project has ended. Receipt history is read-only.' });
+    }
     const configuredType = String(programRows[0].beneficiary_type || '').trim().toLowerCase();
     if (!['mother and child', 'mother & child'].includes(configuredType) && configuredType !== beneficiaryType) {
       return res.status(400).json({ error: `This program accepts ${programRows[0].beneficiary_type} beneficiaries only` });
@@ -730,6 +753,14 @@ router.post('/:programId/monitoring/evidence', parseProgramReceiptEvidenceUpload
       return;
     }
 
+    const [programRows] = await pool.query('SELECT status FROM programs WHERE id = ? LIMIT 1', [req.params.programId]);
+    if (!programRows.length || String(programRows[0].status || '').trim().toLowerCase() === 'ended') {
+      await discardProgramReceiptUploads(files);
+      return res.status(programRows.length ? 409 : 404).json({
+        error: programRows.length ? 'This project has ended. New receipt documentation cannot be added.' : 'Program not found',
+      });
+    }
+
     const predicates = targets.map(() => '(ml.beneficiary_id = ? AND LOWER(TRIM(ml.beneficiary_type)) = ?)').join(' OR ');
     const targetParams = targets.flatMap((target) => [target.id, target.type]);
     const [receiptRows] = await pool.query(
@@ -819,6 +850,7 @@ router.delete('/:programId/monitoring/evidence/:setId/images/:imageId', async (r
       return res.status(403).json({ error: 'Only Community Organizers can remove program check-in photos' });
     }
     if (!(await authorizeCoordinatorProgramScope(req, res, req.params.programId))) return;
+    if (!(await requireActiveProgram(res, req.params.programId))) return;
     const connection = await pool.getConnection();
     let filePath;
     let documentationDeleted = false;
@@ -882,6 +914,11 @@ router.get('/:programId/monitoring/cluster-report/:clusterType/:clusterName', as
   const clusterFilter = clusterFilters[clusterType];
   if (!clusterFilter || !clusterName) return res.status(400).json({ error: 'Invalid monitoring cluster' });
   try {
+    const [programRows] = await pool.query(
+      'SELECT status FROM programs WHERE id = ? LIMIT 1',
+      [req.params.programId],
+    );
+    if (!programRows.length) return res.status(404).json({ error: 'Program not found' });
     const includeAuditDetails = canViewAuditSignatures(req.user?.role);
     const auditSelect = includeAuditDetails
       ? `,
@@ -897,7 +934,7 @@ router.get('/:programId/monitoring/cluster-report/:clusterType/:clusterName', as
          LEFT JOIN users updater ON updater.id = COALESCE(ml.updated_by_user_id, ml.monitored_by)`
       : '';
     const [logs] = await pool.query(
-      `SELECT ml.id AS receipt_id, DATE_FORMAT(ml.monitored_date, '%Y-%m-%d') AS date, ml.monitored, ml.notes, p.name AS program_name,
+      `SELECT ml.id AS receipt_id, DATE_FORMAT(ml.monitored_date, '%Y-%m-%d') AS date, ml.monitored, ml.notes, p.name AS program_name, p.status AS program_status,
         ml.beneficiary_type, ml.beneficiary_id,
         CASE
           WHEN LOWER(TRIM(ml.beneficiary_type)) = 'mother' AND m.id IS NOT NULL THEN CONCAT('mother:', m.id)
@@ -930,7 +967,7 @@ router.get('/:programId/monitoring/cluster-report/:clusterType/:clusterName', as
        ORDER BY ml.monitored_date DESC, beneficiary_name`,
       req.isHealthWorker ? [req.params.programId, clusterName, req.groupId] : [req.params.programId, clusterName],
     );
-    res.json({ report: await attachReceiptEvidence(logs) });
+    res.json({ programStatus: programRows[0].status, report: await attachReceiptEvidence(logs) });
   } catch (error) {
     console.error('[Programs API] cluster monitoring report error:', error.message);
     res.status(500).json({ error: 'db error' });
@@ -941,6 +978,11 @@ router.get('/:programId/monitoring/report/:beneficiaryType/:beneficiaryId', asyn
   const beneficiaryType = String(req.params.beneficiaryType || '').toLowerCase();
   if (!['mother', 'child'].includes(beneficiaryType)) return res.status(400).json({ error: 'Invalid beneficiary type' });
   try {
+    const [programRows] = await pool.query(
+      'SELECT status FROM programs WHERE id = ? LIMIT 1',
+      [req.params.programId],
+    );
+    if (!programRows.length) return res.status(404).json({ error: 'Program not found' });
     const includeAuditDetails = canViewAuditSignatures(req.user?.role);
     const auditSelect = includeAuditDetails
       ? `,
@@ -956,7 +998,7 @@ router.get('/:programId/monitoring/report/:beneficiaryType/:beneficiaryId', asyn
          LEFT JOIN users updater ON updater.id = COALESCE(ml.updated_by_user_id, ml.monitored_by)`
       : '';
     const [logs] = await pool.query(
-            `SELECT ml.id AS receipt_id, DATE_FORMAT(ml.monitored_date, '%Y-%m-%d') AS date, ml.monitored, ml.notes, p.name AS program_name,
+            `SELECT ml.id AS receipt_id, DATE_FORMAT(ml.monitored_date, '%Y-%m-%d') AS date, ml.monitored, ml.notes, p.name AS program_name, p.status AS program_status,
               COALESCE(NULLIF(TRIM(co.name), ''), 'Unknown school') AS school_name,
               COALESCE(NULLIF(TRIM(g.name), ''), 'Unknown group') AS group_name,
               COALESCE(NULLIF(TRIM(b.name), ''), 'Unknown batch') AS batch_name${auditSelect}
@@ -976,7 +1018,7 @@ router.get('/:programId/monitoring/report/:beneficiaryType/:beneficiaryId', asyn
         ? [req.params.programId, req.params.beneficiaryId, beneficiaryType, req.groupId, req.groupId]
         : [req.params.programId, req.params.beneficiaryId, beneficiaryType],
     );
-    res.json({ report: await attachReceiptEvidence(logs) });
+    res.json({ programStatus: programRows[0].status, report: await attachReceiptEvidence(logs) });
   } catch (error) {
     console.error('[Programs API] monitoring report error:', error.message);
     res.status(500).json({ error: 'db error' });

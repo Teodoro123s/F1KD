@@ -287,6 +287,16 @@ export default function CommunityPage() {
       : [],
     [batches, selectedSchool],
   );
+  const unassignedSchoolBatches = useMemo(() => {
+    const groupIds = new Set(schoolOverviewGroups.map((group) => String(group.id)));
+    return schoolOverviewBatches.filter((batch) => {
+      const assignedGroupIds = String(batch.groupIds || '')
+        .split(',')
+        .map((id) => id.trim())
+        .filter(Boolean);
+      return !assignedGroupIds.some((id) => groupIds.has(id));
+    });
+  }, [schoolOverviewBatches, schoolOverviewGroups]);
   const overviewBatchRows = activeTab === 'communities'
     ? batches
     : activeTab === 'batches' && selectedGroup
@@ -1103,6 +1113,11 @@ export default function CommunityPage() {
                 searchValue={query}
                 onSearchChange={handleSearch}
               />
+              {schoolOverviewSelection === 'groups' && unassignedSchoolBatches.length > 0 && (
+                <p className="community-overview-hint" role="status">
+                  {unassignedSchoolBatches.length} {unassignedSchoolBatches.length === 1 ? 'batch is' : 'batches are'} not assigned to a group: {unassignedSchoolBatches.map((batch) => batch.name).join(', ')}.
+                </p>
+              )}
               <CommunityPagination
                 currentPage={currentPage}
                 pageCount={pageCount}

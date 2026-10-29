@@ -336,7 +336,7 @@ export default function ProgramPage() {
 
   const openBeneficiaryReport = (beneficiary) => {
     navigate(`/program/${programId}/beneficiaries/${beneficiary.sourceType}/${beneficiary.sourceId}/receipt-history`, {
-      state: { beneficiaryName: beneficiary.name, returnTo: `${location.pathname}${location.search}` },
+      state: { beneficiaryName: beneficiary.name, programStatus: selectedProgram?.status, returnTo: `${location.pathname}${location.search}` },
     });
   };
 
@@ -375,7 +375,7 @@ export default function ProgramPage() {
     if (!clusterName) return;
     const beneficiaries = collectClusterBeneficiaries(cluster, clusterType);
     navigate(`/program/${programId}/cluster/${encodeURIComponent(clusterType)}/${encodeURIComponent(clusterName)}/receipt-history`, {
-      state: { clusterName, clusterType, beneficiaries, returnTo: `${location.pathname}${location.search}` },
+      state: { clusterName, clusterType, beneficiaries, programStatus: selectedProgram?.status, returnTo: `${location.pathname}${location.search}` },
     });
   };
 
@@ -387,7 +387,7 @@ export default function ProgramPage() {
       .map((record) => ({ id: record.sourceId, type: record.sourceType, name: record.name }));
     setReceiptHistoryProgram(null);
     navigate(`/program/${program.id}/cluster/${encodeURIComponent(clusterType)}/${encodeURIComponent(clusterName)}/receipt-history`, {
-      state: { clusterName, clusterType, beneficiaries, returnTo: `${location.pathname}${location.search}` },
+      state: { clusterName, clusterType, beneficiaries, programStatus: program.status, returnTo: `${location.pathname}${location.search}` },
     });
   };
 
@@ -796,6 +796,11 @@ export default function ProgramPage() {
   };
   const saveBeneficiaryScope = async (event) => {
     event.preventDefault();
+    if (isEndedProgram) {
+      notifyAction('This project has ended and is read-only.', 'error');
+      setShowBeneficiaryModal(false);
+      return;
+    }
     const selectedScopes = beneficiaryScope === 'School' ? selectedSchools : beneficiaryScope === 'Group' ? selectedGroups : selectedBatches;
     if (!selectedProgram || !selectedScopes.length) {
       setScopeError(`Select at least one ${beneficiaryScope.toLowerCase()} before adding this cluster.`);
@@ -836,6 +841,7 @@ export default function ProgramPage() {
       .catch((error) => notifyAction(error.message || 'Unable to mark this cluster as done.', 'error'));
   };
   const openBeneficiaryModal = () => {
+    if (isEndedProgram) return;
     setScopeSchoolIds([]);
     setScopeGroupIds([]);
     setScopeBatchIds([]);
