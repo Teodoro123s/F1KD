@@ -43,7 +43,7 @@ const OPERATIONAL_ROLES = [
   ROLES.HEALTH_WORKER,
 ];
 const DASHBOARD_ROLES = [ROLES.SUPER_ADMIN, ...OPERATIONAL_ROLES];
-const PROGRESS_REPORT_ROLES = [ROLES.SUPER_ADMIN, ...OPERATIONAL_ROLES];
+const AI_SETTINGS_ROLES = [ROLES.SUPER_ADMIN, ...OPERATIONAL_ROLES];
 const BENEFICIARY_CREATE_ROLES = [ROLES.COMMUNITY_COORDINATOR];
 const BENEFICIARY_EDIT_ROLES = [ROLES.COMMUNITY_COORDINATOR, ROLES.HEALTH_WORKER];
 
@@ -105,8 +105,8 @@ export default function App() {
         <Route path="program/:programId/batch/:batchId" element={<RoleBasedRoute allowedRoles={OPERATIONAL_ROLES}><Program /></RoleBasedRoute>} />
         <Route path="program/:programId" element={<RoleBasedRoute allowedRoles={OPERATIONAL_ROLES}><Program /></RoleBasedRoute>} />
         <Route path="program/:programId/cluster/:clusterType/:clusterName" element={<RoleBasedRoute allowedRoles={OPERATIONAL_ROLES}><Program /></RoleBasedRoute>} />
-        <Route path="progress-report" element={<RoleBasedRoute allowedRoles={PROGRESS_REPORT_ROLES}><ProgressReport /></RoleBasedRoute>} />
-        <Route path="ai-setting" element={<RoleBasedRoute allowedRoles={PROGRESS_REPORT_ROLES}><AISettingPage /></RoleBasedRoute>} />
+        <Route path="progress-report" element={<RoleBasedRoute allowedRoles={OPERATIONAL_ROLES}><ProgressReport /></RoleBasedRoute>} />
+        <Route path="ai-setting" element={<RoleBasedRoute allowedRoles={AI_SETTINGS_ROLES}><AISettingPage /></RoleBasedRoute>} />
         <Route path="user-management/health-workers" element={<RoleBasedRoute allowedRoles={[ROLES.COMMUNITY_COORDINATOR]}><UserManagementPage /></RoleBasedRoute>} />
         <Route path="user-management" element={<RoleBasedRoute allowedRoles={[ROLES.SUPER_ADMIN, ROLES.COMMUNITY_COORDINATOR]}><UserManagementPage /></RoleBasedRoute>} />
         <Route path="user-management/school/:schoolId" element={<RoleBasedRoute allowedRoles={[ROLES.SUPER_ADMIN]}><UserManagementPage /></RoleBasedRoute>} />

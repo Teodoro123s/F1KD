@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const {
   isValidEmail,
   normalizeEmail,
+  normalizeEmailIdentity,
   parsePositiveIntegerId,
   parseUserStatus,
   validateAccountPassword,
@@ -11,6 +12,9 @@ const {
 test('email validation is case-insensitive and normalization trims and lowercases', () => {
   assert.equal(isValidEmail('  Alex.Example@Example.COM  '), true);
   assert.equal(normalizeEmail('  Alex.Example@Example.COM  '), 'alex.example@example.com');
+  assert.equal(normalizeEmailIdentity('Alex.Example+123@Example.COM'), 'alex.example@example.com');
+  assert.equal(normalizeEmailIdentity('Edmo.Teodoro+562871@PhinmaEd.com'), 'edmo.teodoro@phinmaed.com');
+  assert.equal(normalizeEmailIdentity('a.lice+tag@googlemail.com'), 'alice@gmail.com');
   assert.equal(isValidEmail('not-an-email'), false);
   assert.equal(isValidEmail(`${'a'.repeat(244)}@example.com`), false);
 });

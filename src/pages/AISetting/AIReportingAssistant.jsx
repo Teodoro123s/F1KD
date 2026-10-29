@@ -1,10 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../../auth/AuthProvider';
-import { apiGetProgressReport, apiGetProgressReportOptions } from '../../api/progressReport';
+import { apiGetProgressReport } from '../../api/progressReport';
 import { apiGetPrograms } from '../../api/programs';
-import { apiCreateAiReportProposal } from '../../api/aiSettings';
-import { apiRecordReportDownload } from '../../api/notifications';
+import { apiGetActivityReport, apiGetReportScopes } from '../../api/reports';
+import { apiGetNotifications, apiRecordReportDownload } from '../../api/notifications';
+import { apiGetUsers } from '../../api/users';
+import { apiCreateAiDashboardInsight, apiCreateAiReportProposal } from '../../api/aiSettings';
+import { getRollingDateRange } from '../../utils/analytics/dailyTimeSeries';
 import { notifyAction } from '../../components/ActionFeedback';
+import { buildOperationalStaffMetrics } from '../Dashboard/dashboardModuleMetrics.mjs';
 import { hasRole, isCommunityCoordinatorRole, isHealthWorkerRole, ROLES } from '../../utils/permissions';
 import { REPORT_FIELDS, formatCellValue, getPointInterpretation } from '../ProgressReport/progressReportConfig';
 import { buildProgressReportParams } from '../ProgressReport/utils/apiUtils';
@@ -21,8 +25,94 @@ const MODEL_REPORT_LABELS = {
 const FIELD_LABELS = new Map(REPORT_FIELDS.map(([id, label]) => [id, label]));
 const getList = (result, key) => Array.isArray(result?.[key]) ? result[key] : Array.isArray(result) ? result : [];
 
+async function fetchAllUsers() {
+  const firstPage = await apiGetUsers(1, 100);
+  const users = getList(firstPage, 'users');
+  const total = Number(firstPage?.total) || users.length;
+  const pageCount = Math.ceil(total / 100);
+  const remainingPages = await Promise.all(
+    Array.from({ length: Math.max(0, pageCount - 1) }, (_, index) => apiGetUsers(index + 2, 100)),
+  );
+  return [...users, ...remainingPages.flatMap((page) => getList(page, 'users'))];
+}
+
+function createSuperAdminSnapshot(results) {
+  const modules = [];
+  const metrics = {};
+  const incompleteSources = [];
+  const [usersResult, scopesResult, activityResult, notificationsResult] = results;
+
+  if (usersResult.status === 'fulfilled') {
+    const staff = buildOperationalStaffMetrics(usersResult.value);
+    Object.assign(metrics, {
+      operationalAccounts: staff.total,
+      activeStaff: staff.active,
+      suspendedStaff: staff.suspended,
+      unassignedStaff: staff.unassigned,
+    });
+    modules.push({
+      name: 'User Management',
+      metrics: [
+        ['Operational accounts', staff.total],
+        ['Active accounts', staff.active],
+        ['Suspended accounts', staff.suspended],
+        ['Active and unassigned', staff.unassigned],
+      ],
+    });
+  } else {
+    incompleteSources.push('User Management');
+  }
+
+  if (scopesResult.status === 'fulfilled') {
+    const schools = getList(scopesResult.value, 'schools');
+    const groups = getList(scopesResult.value, 'groups');
+    metrics.communitySchools = schools.length;
+    metrics.communityGroups = groups.length;
+    modules.push({
+      name: 'Community',
+      metrics: [['Schools', schools.length], ['Groups', groups.length]],
+    });
+  } else {
+    incompleteSources.push('Community');
+  }
+
+  if (activityResult.status === 'fulfilled') {
+    const signInsLast30Days = (activityResult.value?.dailyActivity || [])
+      .reduce((total, item) => total + (Number(item.count) || 0), 0);
+    metrics.operationalSignInsLast30Days = signInsLast30Days;
+    modules.push({
+      name: 'Reports',
+      metrics: [['Sign-ins in the last 30 days', signInsLast30Days]],
+    });
+  } else {
+    incompleteSources.push('Reports');
+  }
+
+  if (notificationsResult.status === 'fulfilled') {
+    const counts = notificationsResult.value?.counts || {};
+    metrics.unreadNotifications = Number(counts.unread) || 0;
+    modules.push({
+      name: 'Notifications',
+      metrics: [
+        ['Unread', metrics.unreadNotifications],
+        ['Available', Number(counts.all) || 0],
+      ],
+    });
+  } else {
+    incompleteSources.push('Notifications');
+  }
+
+  if (incompleteSources.length) metrics.dataQuality = { incompleteSources };
+  return {
+    modules,
+    metrics: Object.keys(metrics).some((key) => key !== 'dataQuality') ? metrics : null,
+    incompleteSources,
+  };
+}
+
 export default function AIReportingAssistant({ configured, storageReady }) {
   const { currentUser } = useAuth();
+  const isSuperAdmin = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]);
   const isHealthWorker = isHealthWorkerRole(currentUser?.role);
   const isOrganizer = isCommunityCoordinatorRole(currentUser?.role);
   const canRecordReportDownload = hasRole(currentUser?.role, [
@@ -33,20 +123,21 @@ export default function AIReportingAssistant({ configured, storageReady }) {
   ]);
   const assignedSchoolId = currentUser?.school_id ?? currentUser?.schoolId ?? '';
   const assignedGroupId = currentUser?.group_id ?? currentUser?.groupId ?? '';
-  const [options, setOptions] = useState({ schools: [] });
   const [programs, setPrograms] = useState([]);
+  const [superAdminSnapshot, setSuperAdminSnapshot] = useState({ modules: [], metrics: null });
   const [loadingOptions, setLoadingOptions] = useState(true);
-  const [selection, setSelection] = useState({ schoolId: '' });
   const [prompt, setPrompt] = useState('');
   const [draft, setDraft] = useState('');
   const [clarification, setClarification] = useState('');
   const [proposal, setProposal] = useState(null);
   const [report, setReport] = useState(null);
-  const [messages, setMessages] = useState([{
+  const [messages, setMessages] = useState(() => [{
     id: 'welcome',
     role: 'assistant',
     kind: 'text',
-    content: 'Tell me what operational report you need. I can help with authorized profile, monitoring, and project-benefit reports.',
+    content: isSuperAdmin
+      ? 'Ask for an insight about the modules and aggregate data available to your Superadmin account.'
+      : 'Tell me what operational report you need. I can help with authorized profile, monitoring, and project-benefit reports.',
   }]);
   const [clarificationMessageId, setClarificationMessageId] = useState(null);
   const [projectMessageId, setProjectMessageId] = useState(null);
@@ -63,23 +154,46 @@ export default function AIReportingAssistant({ configured, storageReady }) {
     }
     let active = true;
     setLoadingOptions(true);
-    Promise.all([apiGetProgressReportOptions(), apiGetPrograms()])
-      .then(([nextOptions, nextPrograms]) => {
-        if (!active) return;
-        setOptions({ schools: getList(nextOptions, 'schools') });
-        setPrograms(getList(nextPrograms, 'programs'));
-        setSelection({
-          schoolId: assignedSchoolId ? String(assignedSchoolId) : '',
+    setError('');
+
+    if (isSuperAdmin) {
+      const { from, to } = getRollingDateRange(30);
+      Promise.allSettled([
+        fetchAllUsers(),
+        apiGetReportScopes(),
+        apiGetActivityReport({ page: 1, perPage: 1, chartFrom: from, chartTo: to }),
+        apiGetNotifications({ page: 1, perPage: 1 }),
+      ])
+        .then((results) => {
+          if (!active) return;
+          const snapshot = createSuperAdminSnapshot(results);
+          setSuperAdminSnapshot(snapshot);
+          if (!snapshot.metrics) {
+            setError(`No Superadmin module data is currently available to summarize.${snapshot.incompleteSources.length ? ` Unavailable modules: ${snapshot.incompleteSources.join(', ')}.` : ''}`);
+          }
+        })
+        .catch((snapshotError) => {
+          if (active) setError(snapshotError.message || 'Unable to summarize available Superadmin modules.');
+        })
+        .finally(() => {
+          if (active) setLoadingOptions(false);
         });
+      return () => { active = false; };
+    }
+
+    apiGetPrograms()
+      .then((nextPrograms) => {
+        if (!active) return;
+        setPrograms(getList(nextPrograms, 'programs'));
       })
       .catch((optionsError) => {
-        if (active) setError(optionsError.message || 'Unable to load your authorized reporting scopes.');
+        if (active) setError(optionsError.message || 'Unable to load your available reporting modules.');
       })
       .finally(() => {
         if (active) setLoadingOptions(false);
       });
     return () => { active = false; };
-  }, [assignedGroupId, assignedSchoolId, configured, storageReady]);
+  }, [configured, isSuperAdmin, storageReady]);
 
   const eligiblePrograms = useMemo(() => proposal?.reportCategory === 'program'
     ? programs.filter((program) => matchesProgramBeneficiaryType(program, proposal.beneficiaryType))
@@ -106,7 +220,7 @@ export default function AIReportingAssistant({ configured, storageReady }) {
         return;
       }
       const safeSelection = {
-        schoolId: isHealthWorker || isOrganizer ? String(assignedSchoolId || '') : selection.schoolId,
+        schoolId: isHealthWorker || isOrganizer ? String(assignedSchoolId || '') : '',
         groupId: isHealthWorker ? String(assignedGroupId || '') : '',
         batchId: '',
       };
@@ -185,6 +299,15 @@ export default function AIReportingAssistant({ configured, storageReady }) {
     setReportMessageId(null);
     setPrompt(requestText);
     try {
+      if (isSuperAdmin) {
+        const result = await apiCreateAiDashboardInsight(superAdminSnapshot.metrics, requestText);
+        appendMessage({
+          role: 'assistant',
+          kind: 'text',
+          content: result?.insight || 'No insight was returned for the available module data.',
+        });
+        return;
+      }
       const nextProposal = await apiCreateAiReportProposal(requestText);
       if (nextProposal.needsClarification) {
         setProposal(nextProposal);
@@ -255,32 +378,49 @@ export default function AIReportingAssistant({ configured, storageReady }) {
     return null;
   }
 
+  const dashboardModuleView = isSuperAdmin ? (
+    <section className="ai-chat-message ai-chat-message--assistant ai-chat-scope" aria-label="Available Superadmin module data">
+      <p>Insights use aggregate data only from the modules available to your account. No beneficiary records or user details are sent to the AI.</p>
+      {superAdminSnapshot.modules.length ? (
+        <div className="ai-assistant-module-snapshot">
+          {superAdminSnapshot.modules.map((module) => (
+            <section key={module.name} aria-label={`${module.name} summary`}>
+              <strong>{module.name}</strong>
+              <dl>
+                {module.metrics.map(([label, value]) => (
+                  <div key={label}><dt>{label}</dt><dd>{Number(value).toLocaleString()}</dd></div>
+                ))}
+              </dl>
+            </section>
+          ))}
+        </div>
+      ) : (
+        <p>No module data is available yet.</p>
+      )}
+      {superAdminSnapshot.metrics?.dataQuality?.incompleteSources?.length > 0 && (
+        <p role="status">Some modules could not be loaded: {superAdminSnapshot.metrics.dataQuality.incompleteSources.join(', ')}. Insights will use the available module data only.</p>
+      )}
+    </section>
+  ) : (
+    <section className="ai-chat-message ai-chat-message--assistant ai-chat-scope" aria-label="Authorized report scope">
+      <p>Your authorized scope is applied automatically. Describe the report you need in your request.</p>
+    </section>
+  );
+
   return (
     <div className="ai-assistant-content">
-      <p className="ai-assistant-intro">The provider receives your request for interpretation only. Authorized records are loaded separately through F1KD reporting services. Do not include names, contact details, or identifying numbers.</p>
+      <p className="ai-assistant-intro">
+        {isSuperAdmin
+          ? 'The provider receives your question and aggregate counts from available Superadmin modules only. Do not include names, contact details, or identifying numbers.'
+          : 'The provider receives your request for interpretation only. Authorized records are loaded separately through F1KD reporting services. Do not include names, contact details, or identifying numbers.'}
+      </p>
       {loadingOptions ? (
-        <p role="status">Loading authorized reporting scopes…</p>
+        <p role="status">{isSuperAdmin ? 'Loading available module data…' : 'Loading available reporting modules…'}</p>
       ) : (
         <>
-          {error && <p className="ai-settings-error" role="alert">{error}</p>}
           <div className="ai-chat-transcript" role="log" aria-live="polite" aria-relevant="additions text">
-            <section className="ai-chat-message ai-chat-message--assistant ai-chat-scope" aria-label="Authorized report scope">
-              <p>Your authorized scope is applied automatically. Describe the report you need in your request.</p>
-              <div className="ai-assistant-filters">
-                {!isHealthWorker && !isOrganizer && (
-                  <label>
-                    Community
-                    <select
-                      value={selection.schoolId}
-                      onChange={(event) => setSelection({ schoolId: event.target.value })}
-                    >
-                      <option value="">All accessible communities</option>
-                      {options.schools.map((school) => <option key={school.id} value={school.id}>{school.name}</option>)}
-                    </select>
-                  </label>
-                )}
-              </div>
-            </section>
+            {error && <p className="ai-settings-error" role="alert">{error}</p>}
+            {dashboardModuleView}
             {messages.map((message) => (
               <article
                 key={message.id}
@@ -366,20 +506,22 @@ export default function AIReportingAssistant({ configured, storageReady }) {
             )}
           </div>
           <form className="ai-chat-composer" onSubmit={handleSubmit}>
-            <label htmlFor="ai-report-request">Message the AI Reporting Assistant</label>
+            <label htmlFor="ai-report-request">{isSuperAdmin ? 'Ask for insights about available modules' : 'Message the AI Reporting Assistant'}</label>
             <textarea
               id="ai-report-request"
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
               maxLength={1000}
               rows={2}
-              placeholder="For example: Show mothers by trimester or summarize recent child monitoring."
+              placeholder={isSuperAdmin
+                ? 'For example: Summarize account assignments and recent operational sign-ins.'
+                : 'For example: Show mothers by trimester or summarize recent child monitoring.'}
               required
             />
             <div className="ai-settings-actions">
               <span>{draft.length}/1000</span>
-              <button type="submit" className="primary-btn" disabled={loading || loadingOptions || draft.trim().length < 3}>
-                {loading ? 'Preparing…' : 'Send request'}
+              <button type="submit" className="primary-btn" disabled={loading || loadingOptions || (isSuperAdmin && !superAdminSnapshot.metrics) || draft.trim().length < 3}>
+                {loading ? (isSuperAdmin ? 'Generating insight…' : 'Preparing…') : (isSuperAdmin ? 'Generate insight' : 'Send request')}
               </button>
             </div>
           </form>

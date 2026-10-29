@@ -18,7 +18,7 @@ import {
 import { apiGetChildren } from '../../api/children';
 import { apiGetMothers } from '../../api/mothers';
 import { formatDateForDisplay } from '../../utils/formatting/dateFormat';
-import { canViewAuditSignatures, isCommunityCoordinatorRole } from '../../utils/permissions';
+import { can, canViewAuditSignatures, isCommunityCoordinatorRole } from '../../utils/permissions';
 import { navigateBack } from '../../utils/navigation/navigation';
 import { getReceiptRecipientKey, getReceiptRecipientKeysForRows } from './programData';
 import { EvidenceImage, SelectedImagePreview } from '../Community/components/BatchDocumentationPanel';
@@ -60,6 +60,7 @@ export default function ReceiptHistoryPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const isClusterHistory = Boolean(clusterType && clusterName);
+  const canEditReceipts = can(currentUser?.role, 'monitor-resources', 'update');
   const showAuditSignatures = canViewAuditSignatures(currentUser?.role);
   const rawBeneficiaryName = location.state?.beneficiaryName || location.state?.clusterName || clusterName || 'Beneficiary';
   const organizerName = String(currentUser?.name || [
@@ -95,7 +96,7 @@ export default function ReceiptHistoryPage() {
   const [programEnded, setProgramEnded] = useState(
     String(location.state?.programStatus || '').trim().toLowerCase() === 'ended',
   );
-  const canManageEvidence = isCommunityCoordinatorRole(currentUser?.role) && !programEnded;
+  const canManageEvidence = canEditReceipts && isCommunityCoordinatorRole(currentUser?.role) && !programEnded;
 
   const loadHistory = async () => {
     setLoading(true);
@@ -213,7 +214,7 @@ export default function ReceiptHistoryPage() {
   const days = calendarDays(calendarMonth);
 
   const openReceiptModal = (date = monitorDate, defaultMonitored = false, targetRows = null) => {
-    if (programEnded) return;
+    if (!canEditReceipts || programEnded) return;
     setError('');
     const dateRows = filteredRows.filter((row) => toDateKey(row.date) === date);
     const existingReceipt = dateRows[0];
@@ -260,7 +261,7 @@ export default function ReceiptHistoryPage() {
 
   const saveReceipt = async (event) => {
     event.preventDefault();
-    if (programEnded) return;
+    if (!canEditReceipts || programEnded) return;
     if (!receiptModal?.date) return;
     if (evidenceImages.length > 0 && evidenceImages.length < 3) {
       setError('Select at least 3 photos or remove the selected photos to save without documentation.');
@@ -351,12 +352,12 @@ export default function ReceiptHistoryPage() {
           <button type="button" className="view-btn view-btn--secondary back-action" onClick={() => navigateBack(navigate, location, fallbackReturnTo)}>Back to project</button>
         </div>
         {!loading && <div className="program-receipt-controls">
-          <div className="program-receipt-controls-actions">{!programEnded && <button type="button" className="view-btn view-btn--primary" onClick={() => openReceiptModal()} disabled={isClusterHistory && recipientsLoading}>Record receipt</button>}<div className="program-view-toggle" role="tablist" aria-label="Receipt history view"><button type="button" className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>List View</button><button type="button" className={view === 'calendar' ? 'active' : ''} onClick={() => setView('calendar')}>Calendar View</button></div></div>
+          <div className="program-receipt-controls-actions">{canEditReceipts && !programEnded && <button type="button" className="view-btn view-btn--primary" onClick={() => openReceiptModal()} disabled={isClusterHistory && recipientsLoading}>Record receipt</button>}<div className="program-view-toggle" role="tablist" aria-label="Receipt history view"><button type="button" className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>List View</button><button type="button" className={view === 'calendar' ? 'active' : ''} onClick={() => setView('calendar')}>Calendar View</button></div></div>
           {programEnded && <p className="program-receipt-readonly-notice" role="status">This project has ended. Receipt history is read-only.</p>}
         </div>}
         {error && <p className="error-message" role="alert">{error}</p>}
-        {loading ? <p>Loading receipt history...</p> : view === 'list' ? <div className="program-receipt-table-scroll"><table className={`data-table ${isClusterHistory ? `program-receipt-cluster-table${showAuditSignatures ? ' has-audit-signatures' : ''}` : 'program-receipt-beneficiary-table'}`}>
-          <thead><tr><th>Date</th>{isClusterHistory && <th>Beneficiary</th>}<th>Documentation</th>{showAuditSignatures && <th>Signatures</th>}{!programEnded && <th>Action</th>}</tr></thead>
+        {loading ? <p>Loading receipt history...</p> : view === 'list' ? <div className="program-receipt-table-scroll"><table className={`data-table ${isClusterHistory ? 'program-receipt-cluster-table' : 'program-receipt-beneficiary-table'}${showAuditSignatures ? ' has-audit-signatures' : ''}${canEditReceipts && !programEnded ? ' has-actions' : ''}`}>
+          <thead><tr><th>Date</th>{isClusterHistory && <th>Beneficiary</th>}<th>Documentation</th>{showAuditSignatures && <th>Signatures</th>}{canEditReceipts && !programEnded && <th>Action</th>}</tr></thead>
           <tbody>{filteredRows.length ? filteredRows.map((row) => {
             const rowKey = `${row.date}-${row.program_name}-${row.beneficiary_name || row.beneficiary_id || 'entry'}`;
             const images = row.evidence_images || [];
@@ -401,16 +402,16 @@ export default function ReceiptHistoryPage() {
             updatedByRole={row.updated_by_role || row.monitored_by_role}
             updatedAt={row.updated_at}
                 /></td>}
-                {!programEnded && <td><button type="button" className="view-btn view-btn--secondary" onClick={() => openReceiptModal(toDateKey(row.date), Boolean(row.monitored), [row])}>Edit</button></td>}
+                {canEditReceipts && !programEnded && <td><button type="button" className="view-btn view-btn--secondary" onClick={() => openReceiptModal(toDateKey(row.date), Boolean(row.monitored), [row])}>Edit</button></td>}
               </tr>
             );
-          }) : <tr><td colSpan={(isClusterHistory ? 2 : 1) + 1 + (showAuditSignatures ? 1 : 0) + (programEnded ? 0 : 1)} className="no-data">No receipt history found.</td></tr>}</tbody>
+          }) : <tr><td colSpan={(isClusterHistory ? 2 : 1) + 1 + (showAuditSignatures ? 1 : 0) + (canEditReceipts && !programEnded ? 1 : 0)} className="no-data">No receipt history found.</td></tr>}</tbody>
         </table></div> : <div className="program-calendar-wrap">
           <div className="program-calendar-header"><button type="button" className="view-btn view-btn--secondary" onClick={() => setCalendarMonth((date) => new Date(date.getFullYear(), date.getMonth() - 1, 1))}>Previous</button><h3>{monthLabel(calendarMonth)}</h3><button type="button" className="view-btn view-btn--secondary" onClick={() => setCalendarMonth((date) => new Date(date.getFullYear(), date.getMonth() + 1, 1))}>Next</button></div>
           <div className="program-calendar-weekdays">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => <span key={day}>{day}</span>)}</div>
-          <div className="program-calendar-grid">{days.map((day) => { const key = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`; const receipt = receivedByDate.get(key) || []; return <button type="button" key={key} className={`program-calendar-day${day.getMonth() !== calendarMonth.getMonth() ? ' muted' : ''}${receipt.length ? ' received' : ''}${selectedDate === key ? ' selected' : ''}`} onClick={() => openReceiptModal(key, true)} disabled={programEnded}><span>{day.getDate()}</span>{receipt.length > 0 && <strong>{receipt.length > 1 ? `${receipt.length} Yes` : 'Yes'}</strong>}</button>; })}</div>
+          <div className="program-calendar-grid">{days.map((day) => { const key = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`; const receipt = receivedByDate.get(key) || []; return <button type="button" key={key} className={`program-calendar-day${day.getMonth() !== calendarMonth.getMonth() ? ' muted' : ''}${receipt.length ? ' received' : ''}${selectedDate === key ? ' selected' : ''}`} onClick={() => openReceiptModal(key, true)} disabled={programEnded || !canEditReceipts}><span>{day.getDate()}</span>{receipt.length > 0 && <strong>{receipt.length > 1 ? `${receipt.length} Yes` : 'Yes'}</strong>}</button>; })}</div>
         </div>}
-        {receiptModal && createPortal(
+        {canEditReceipts && !programEnded && receiptModal && createPortal(
           <div className="modal-backdrop" role="presentation" onClick={() => !savingReceipt && setReceiptModal(null)}>
             <div
               className="program-receipt-modal"

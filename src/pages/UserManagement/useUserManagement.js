@@ -391,9 +391,6 @@ export function useUserManagement({ schoolId = '', batchId = '', healthWorkerMan
       // Prefer password provided by the submitted form (FormData). Falls back to state-derived password if missing.
       const fdPassword = (fd.get('password') || '').toString();
 
-      // Instrumentation: log that submit was triggered and the form-derived snapshot
-      try { console.log('handleSubmitUser called (from form)', { firstName, lastName, email }); } catch (e) {}
-
       // Basic validation
     if (!isValidFirstName(firstName)) { setNotification(getFirstNameValidationError(firstName)); document.getElementById('first-name')?.focus(); return; }
     if (!lastName) { setNotification('Last Name is required.'); try { console.log('Validation failed: missing lastName', { firstName, lastName }); } catch(e){}; return; }
@@ -424,8 +421,6 @@ export function useUserManagement({ schoolId = '', batchId = '', healthWorkerMan
       setNotification('Assigned group is required for Health worker accounts.');
       return;
     }
-    // Use the provided email; rely on the server to signal duplicates and the retry logic to handle them.
-    let emailToUse = email;
     const dobToSave = normalizedDob || dobVal;
     const dobMsg = getDobValidationMessage(dobToSave);
     if (dobMsg) {
@@ -500,7 +495,7 @@ export function useUserManagement({ schoolId = '', batchId = '', healthWorkerMan
               lastName,
               middleInitial: mi || null,
               contactNumber: contactNumberSan,
-              email: emailToUse,
+              email,
               username: usernameToUse,
               dob: dobToSave,
               role: roleVal,
@@ -518,23 +513,8 @@ export function useUserManagement({ schoolId = '', batchId = '', healthWorkerMan
             lastErr = err;
             const msg = (err && err.message) ? err.message.toString().toLowerCase() : '';
             if (healthWorkerManagement) break;
-            // If the server complains about email already existing, generate a new fallback email and retry
-            if (/email already exists|email.*already.*exists|duplicate email|email.*taken/.test(msg)) {
-              try {
-                const parts = (email || '').split('@');
-                const local = parts[0] || 'user';
-                const domain = parts[1] || 'example.com';
-                const suffix = Date.now().toString().slice(-5) + attempts;
-                emailToUse = `${local}+${suffix}@${domain}`;
-                setNotification(`Email already registered — using ${emailToUse} instead (attempt ${attempts}).`);
-                try { console.log('Email duplicate detected; using fallback', { original: email, fallback: emailToUse }); } catch (e) {}
-                // continue to retry with new email
-                continue;
-              } catch (e) {
-                // can't generate fallback, break and rethrow
-                try { console.log('Failed generating fallback email during retry', e); } catch (e2) {}
-                break;
-              }
+            if (/email address.*already associated|email.*already assigned|duplicate email/.test(msg)) {
+              break;
             }
             // If the server complains about username already existing, append a small suffix and retry
             if (/username already exists|username.*already.*exists|duplicate username|username.*taken/.test(msg) || /already exists/.test(msg)) {
@@ -577,7 +557,7 @@ export function useUserManagement({ schoolId = '', batchId = '', healthWorkerMan
           status: created.status,
           schoolId: created.school_id ?? null,
           groupId: created.group_id ?? null,
-          username: created.username || created.email || emailToUse,
+          username: created.username || created.email || email,
           communityName: created.community_name || communities.find((community) => String(community.id) === String(created.school_id))?.name || '',
           lastLoginAt: created.last_login_at || null,
           // Do not persist plaintext password in UI list. Store one-time credentials separately to display to the user once.
@@ -587,7 +567,7 @@ export function useUserManagement({ schoolId = '', batchId = '', healthWorkerMan
         // Expose the one-time credentials for the UI to show once (dev only). The frontend computed passwordToUse, so show that.
         const emailSent = data.emailSent === true;
         setOneTimeCredentials({
-          email: emailToUse,
+          email: created.email,
           password: emailSent ? null : passwordToUse,
           emailSent,
         });

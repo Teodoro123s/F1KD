@@ -957,7 +957,6 @@
 
   .view-content .monitoring-filter-row > .beneficiary-search-controls select,
   .view-content .monitoring-filter-row > .monitoring-status-filter select,
-  .view-content .notifications-filter-row .notification-category-filter select,
   .view-content .notifications-filter-row .notification-status-filter select {
     width: 100%;
     min-width: 0;

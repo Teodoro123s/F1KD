@@ -98,7 +98,7 @@ test('getMotherMonitoringProgress counts remaining checkups from the second trim
   assert.equal(progress.percentage, 33);
 });
 
-test('getMotherMonitoringProgress includes recorded checkups before the registration trimester', () => {
+test('getMotherMonitoringProgress excludes checkups before the registration trimester', () => {
   const progress = getMotherMonitoringProgress({
     gestationalAge: '36',
     trimester: '3rd Trimester',
@@ -109,12 +109,27 @@ test('getMotherMonitoringProgress includes recorded checkups before the registra
     ],
   });
 
-  assert.equal(progress.total, 9);
-  assert.equal(progress.completed, 9);
+  assert.equal(progress.total, 1);
+  assert.equal(progress.completed, 1);
   assert.equal(progress.percentage, 100);
 });
 
-test('getMotherMonitoringProgress still counts only visits from late registration when earlier slots are empty', () => {
+test('getMotherMonitoringProgress does not count earlier checkups in the scheduled total', () => {
+  const progress = getMotherMonitoringProgress({
+    gestationalAge: '12',
+    checkups: [
+      [{ completed: true }, { completed: true }, null],
+      [{ completed: true }, null, null],
+      [null, null, null],
+    ],
+  });
+
+  assert.equal(progress.total, 7);
+  assert.equal(progress.completed, 1);
+  assert.equal(progress.percentage, 14);
+});
+
+test('getMotherMonitoringProgress counts only the final visit for registration at 36 weeks', () => {
   const progress = getMotherMonitoringProgress({
     gestationalAge: '36',
     trimester: '3rd Trimester',
@@ -125,8 +140,8 @@ test('getMotherMonitoringProgress still counts only visits from late registratio
     ],
   });
 
-  assert.equal(progress.total, 3);
-  assert.equal(progress.completed, 3);
+  assert.equal(progress.total, 1);
+  assert.equal(progress.completed, 1);
   assert.equal(progress.percentage, 100);
 });
 

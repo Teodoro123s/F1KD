@@ -215,24 +215,21 @@ export default function ProgressReport() {
       groupId: nextSelection.groupId ? String(nextSelection.groupId) : '',
       batchId: nextSelection.batchId ? String(nextSelection.batchId) : '',
     };
-    if (!normalized.schoolId) {
-      normalized.groupId = '';
-      normalized.batchId = '';
-      return normalized;
+    if (normalized.schoolId) {
+      const validGroupIds = new Set(options.groups
+        .filter((item) => String(item.schoolId) === String(normalized.schoolId))
+        .map((item) => String(item.id)));
+      if (normalized.groupId && !validGroupIds.has(normalized.groupId)) {
+        normalized.groupId = '';
+        normalized.batchId = '';
+        return normalized;
+      }
     }
-    const validGroupIds = new Set(options.groups
-      .filter((item) => String(item.schoolId) === String(normalized.schoolId))
-      .map((item) => String(item.id)));
-    if (normalized.groupId && !validGroupIds.has(normalized.groupId)) {
-      normalized.groupId = '';
-      normalized.batchId = '';
-      return normalized;
-    }
-    if (normalized.batchId && (!normalized.groupId || !options.batches.some((item) =>
+    if (normalized.batchId && !options.batches.some((item) =>
       String(item.id) === String(normalized.batchId)
-      && String(item.schoolId) === String(normalized.schoolId)
-      && batchAvailableForGroup(item, normalized.groupId, options.mothers)
-    ))) {
+      && (!normalized.schoolId || String(item.schoolId) === String(normalized.schoolId))
+      && (!normalized.groupId || batchAvailableForGroup(item, normalized.groupId, options.mothers))
+    )) {
       normalized.batchId = '';
     }
     return normalized;
@@ -398,7 +395,9 @@ export default function ProgressReport() {
     'Home',
     displaySelection.schoolId ? options.schools.find((item) => String(item.id) === String(displaySelection.schoolId))?.name : 'Select School',
     displaySelection.schoolId ? (displaySelection.groupId ? groups.find((item) => String(item.id) === String(displaySelection.groupId))?.name : 'All Groups') : null,
-    displaySelection.groupId ? (displaySelection.batchId ? batches.find((item) => String(item.id) === String(displaySelection.batchId))?.name : 'All Batches') : null,
+    displaySelection.batchId
+      ? batches.find((item) => String(item.id) === String(displaySelection.batchId))?.name
+      : displaySelection.groupId ? 'All Batches' : null,
   ].filter(Boolean);
 
   const changeSort = (key) => setSort((current) => ({ key, direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc' }));

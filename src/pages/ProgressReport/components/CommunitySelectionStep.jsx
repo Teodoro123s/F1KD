@@ -49,7 +49,7 @@ export function CommunitySelectionStep({
               title="Optionally filter the report by batch"
               value={selection.batchId}
               onChange={(event) => updateSelection('batchId', event.target.value)}
-              disabled={!selection.groupId || loadingOptions}
+              disabled={loadingOptions}
             >
               <option value="">All batches</option>
               {batches.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}

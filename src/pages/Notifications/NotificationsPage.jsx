@@ -11,10 +11,6 @@ import {
   apiSetNotificationRead,
 } from '../../api/notifications';
 import NotificationDetailsModal from '../../components/ui/NotificationDetailsModal';
-import { useAuth } from '../../auth/AuthProvider';
-import { hasRole, isHealthWorkerRole, ROLES } from '../../utils/permissions';
-
-const CATEGORIES = ['All', 'Beneficiaries', 'Monitoring', 'Projects', 'Downloads', 'Community', 'User Management'];
 
 function notificationDateGroup(value) {
   const date = new Date(value);
@@ -53,17 +49,7 @@ function getNotificationDestination(notification) {
 }
 
 export default function NotificationsPage() {
-  const { currentUser } = useAuth();
   const navigate = useNavigate();
-  const isHealthWorker = isHealthWorkerRole(currentUser?.role);
-  const isSuperAdmin = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]);
-  const categories = isHealthWorker
-    ? ['All', 'Monitoring', 'Beneficiaries']
-    : isSuperAdmin
-      ? ['All', 'Community', 'User Management']
-      : CATEGORIES.filter((item) => item !== 'User Management');
-  const [category, setCategory] = useState('All');
-  const selectedCategory = categories.includes(category) ? category : categories[0];
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
@@ -88,7 +74,6 @@ export default function NotificationsPage() {
       page,
       perPage,
       search: query,
-      category: selectedCategory,
       readStatus: selectedReadStatus || 'all',
     })
       .then((response) => {
@@ -113,11 +98,15 @@ export default function NotificationsPage() {
         if (active) setLoading(false);
       });
     return () => { active = false; };
-  }, [page, perPage, query, selectedCategory, selectedReadStatus, refreshKey]);
+  }, [page, perPage, query, selectedReadStatus, refreshKey]);
 
   const pageCount = Math.max(1, Math.ceil(total / perPage));
   const currentPage = Math.min(page, pageCount);
   const startIndex = (currentPage - 1) * perPage;
+  const selectedIdKeys = new Set(selectedIds.map(String));
+  const selectedNotifications = notifications.filter((notification) => selectedIdKeys.has(String(notification.id)));
+  const selectedUnreadCount = selectedNotifications.filter((notification) => !notification.isRead).length;
+  const selectedReadCount = selectedNotifications.length - selectedUnreadCount;
 
   const openNotification = async (notification) => {
     setError('');
@@ -143,9 +132,9 @@ export default function NotificationsPage() {
       const response = await apiSetNotificationRead(notification.id, isRead);
       const changed = Number(response.changed) || 0;
       setNotifications((current) => current.map((item) => (
-        item.id === notification.id ? { ...item, isRead } : item
+        String(item.id) === String(notification.id) ? { ...item, isRead } : item
       )));
-      setSelectedNotification((current) => current?.id === notification.id
+      setSelectedNotification((current) => String(current?.id) === String(notification.id)
         ? { ...current, isRead }
         : current);
       if (changed > 0) {
@@ -197,9 +186,9 @@ export default function NotificationsPage() {
       const response = await apiBulkSetNotificationsRead(selectedIds, isRead);
       const changed = Number(response.changed) || 0;
       setNotifications((current) => current.map((item) => (
-        selectedIds.includes(item.id) ? { ...item, isRead } : item
+        selectedIdKeys.has(String(item.id)) ? { ...item, isRead } : item
       )));
-      setSelectedNotification((current) => current && selectedIds.includes(current.id)
+      setSelectedNotification((current) => current && selectedIdKeys.has(String(current.id))
         ? { ...current, isRead }
         : current);
       setCounts((current) => ({
@@ -218,16 +207,17 @@ export default function NotificationsPage() {
   };
 
   const toggleNotificationSelection = (id) => {
-    setSelectedIds((current) => current.includes(id)
-      ? current.filter((selectedId) => selectedId !== id)
-      : [...current, id]);
+    const idKey = String(id);
+    setSelectedIds((current) => current.some((selectedId) => String(selectedId) === idKey)
+      ? current.filter((selectedId) => String(selectedId) !== idKey)
+      : [...current, idKey]);
   };
 
   const toggleCurrentPageSelection = () => {
-    const pageIds = notifications.map((notification) => notification.id);
-    const allSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.includes(id));
+    const pageIds = notifications.map((notification) => String(notification.id));
+    const allSelected = pageIds.length > 0 && pageIds.every((id) => selectedIdKeys.has(id));
     setSelectedIds((current) => allSelected
-      ? current.filter((id) => !pageIds.includes(id))
+      ? current.filter((id) => !pageIds.includes(String(id)))
       : [...new Set([...current, ...pageIds])]);
   };
 
@@ -235,19 +225,23 @@ export default function NotificationsPage() {
     {
       key: 'selection',
       header: (
-        <input
-          type="checkbox"
-          checked={notifications.length > 0 && notifications.every((notification) => selectedIds.includes(notification.id))}
-          onChange={toggleCurrentPageSelection}
-          aria-label="Select all notifications on this page"
-          disabled={Boolean(bulkActionLoading) || loading || notifications.length === 0}
-        />
+        <label className="notifications-select-all">
+          <input
+            type="checkbox"
+            checked={notifications.length > 0 && notifications.every((notification) => selectedIdKeys.has(String(notification.id)))}
+            onChange={toggleCurrentPageSelection}
+            aria-label="Select all notifications on this page"
+            title="Select all notifications on this page"
+            disabled={Boolean(bulkActionLoading) || loading || notifications.length === 0}
+          />
+          <span>All</span>
+        </label>
       ),
       className: 'notifications-timeline-selection',
       renderCell: (notification) => (
         <input
           type="checkbox"
-          checked={selectedIds.includes(notification.id)}
+          checked={selectedIdKeys.has(String(notification.id))}
           onChange={() => toggleNotificationSelection(notification.id)}
           onClick={(event) => event.stopPropagation()}
           onKeyDown={(event) => event.stopPropagation()}
@@ -337,19 +331,6 @@ export default function NotificationsPage() {
                     <option value="read">Read ({counts.read})</option>
                   </select>
                 </label>
-                <label className="notification-category-filter">
-                  <span>Category</span>
-                  <select
-                    value={selectedCategory}
-                    onChange={(event) => {
-                      setCategory(event.target.value);
-                      setPage(1);
-                    }}
-                    aria-label="Filter notifications by category"
-                  >
-                    {categories.map((cat) => <option key={cat} value={cat}>{cat === 'Programs' ? 'Projects' : cat}</option>)}
-                  </select>
-                </label>
               </div>
               <div className="subheader-right">
                 <div className="search-container">
@@ -369,12 +350,17 @@ export default function NotificationsPage() {
             </section>
             {selectedIds.length > 0 && (
               <div className="notification-bulk-toolbar" role="group" aria-label="Bulk notification actions">
-                <span>{selectedIds.length} selected</span>
+                <span>
+                  {selectedIds.length} selected
+                  <small className="notification-selection-summary">
+                    {selectedUnreadCount} unread · {selectedReadCount} read on this page
+                  </small>
+                </span>
                 <button
                   type="button"
                   className="notification-bulk-button notification-bulk-button--primary"
                   onClick={() => setSelectedNotificationsReadState(true)}
-                  disabled={Boolean(bulkActionLoading) || markingNotificationIds.length > 0}
+                  disabled={Boolean(bulkActionLoading) || markingNotificationIds.length > 0 || selectedUnreadCount === 0}
                 >
                   {bulkActionLoading === 'selection' ? 'Saving...' : 'Mark selected as read'}
                 </button>
@@ -382,7 +368,7 @@ export default function NotificationsPage() {
                   type="button"
                   className="notification-bulk-button"
                   onClick={() => setSelectedNotificationsReadState(false)}
-                  disabled={Boolean(bulkActionLoading) || markingNotificationIds.length > 0}
+                  disabled={Boolean(bulkActionLoading) || markingNotificationIds.length > 0 || selectedReadCount === 0}
                 >
                   {bulkActionLoading === 'selection' ? 'Saving...' : 'Mark selected as unread'}
                 </button>
@@ -425,7 +411,7 @@ export default function NotificationsPage() {
         onClose={() => setSelectedNotification(null)}
         onMarkAsRead={markNotificationRead}
         onToggleRead={(notification, isRead) => setNotificationReadState(notification, isRead)}
-        markingRead={markingNotificationIds.includes(selectedNotification?.id)}
+        markingRead={markingNotificationIds.some((id) => String(id) === String(selectedNotification?.id))}
         onOpenRelated={(notification) => {
           const destination = getNotificationDestination(notification);
           if (destination) {

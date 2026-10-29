@@ -94,6 +94,12 @@ test('Community Organizer can manage only Health workers in their assigned schoo
       activityEvents.push(params);
       return [{ insertId: activityEvents.length }];
     }
+    if (sql.includes('SELECT id, email FROM users')) {
+      const domain = params[0];
+      return [[...allUsers, ...(createdUser ? [createdUser] : [])]
+        .filter((user) => user.email.split('@').at(-1).toLowerCase() === domain)
+        .map(({ id, email }) => ({ id, email }))];
+    }
     if (sql.includes('FROM groups WHERE id = ? AND community_id = ?')) {
       return [Number(params[0]) === 20 && Number(params[1]) === 12 ? [{ id: 20 }] : []];
     }
@@ -218,6 +224,22 @@ test('Community Organizer can manage only Health workers in their assigned schoo
     }),
   });
   assert.equal(invalidGroupResponse.status, 400);
+  assert.equal(insertedUserValues, null);
+
+  const duplicateAliasResponse = await request('/health-workers', organizer, {
+    method: 'POST',
+    body: JSON.stringify({
+      firstName: 'Duplicate',
+      lastName: 'Worker',
+      email: 'worker5+123@example.com',
+      password: 'long-enough-password',
+      role: 'Admin',
+      schoolId: 13,
+      groupId: 20,
+    }),
+  });
+  assert.equal(duplicateAliasResponse.status, 409);
+  assert.match((await duplicateAliasResponse.json()).error, /plus-tag variants/i);
   assert.equal(insertedUserValues, null);
 
   const createResponse = await request('/health-workers', organizer, {

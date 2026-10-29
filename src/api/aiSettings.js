@@ -25,3 +25,7 @@ export const apiCreateAiReportProposal = (prompt) => requestJson('/proposal', {
   method: 'POST',
   body: JSON.stringify({ prompt }),
 });
+export const apiCreateAiDashboardInsight = (metrics, question = '') => requestJson('/dashboard-insight', {
+  method: 'POST',
+  body: JSON.stringify({ metrics, question }),
+});

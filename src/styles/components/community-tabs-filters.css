@@ -168,9 +168,7 @@
 
 .subheader-controls { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
 
-.notification-category-filter,
 .notification-status-filter { display: inline-flex; align-items: center; gap: 0.55rem; color: var(--text-muted); font-size: 0.9rem; font-weight: 600; }
-.notification-category-filter select,
 .notification-status-filter select { min-width: 190px; min-height: 42px; padding: 0.5rem 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; background: #fff; color: var(--text); font: inherit; }
 
 .notifications-filter-row {
@@ -199,7 +197,6 @@
   min-width: 0;
 }
 
-.notifications-filter-row .notification-category-filter select,
 .notifications-filter-row .notification-status-filter select {
   min-width: 140px;
 }
@@ -213,7 +210,7 @@
 .notifications-timeline-table td {
   padding: 0.55rem 0.45rem;
 }
-.notifications-timeline-table .notifications-timeline-selection { width: 4%; text-align: center; }
+.notifications-timeline-table .notifications-timeline-selection { width: 7%; text-align: center; }
 .notifications-timeline-table .notifications-timeline-selection input { width: 16px; height: 16px; accent-color: #15803d; cursor: pointer; }
 .notifications-timeline-table .notifications-timeline-subject { width: 24%; }
 .notifications-timeline-table .notifications-timeline-message { width: 52%; }
@@ -222,6 +219,8 @@
   padding-left: 0.25rem;
   padding-right: 0.25rem;
 }
+.notifications-select-all { display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem; cursor: pointer; }
+.notifications-select-all span { color: #64748b; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em; }
 .notifications-timeline-table .notifications-timeline-received {
   white-space: nowrap;
 }
@@ -257,7 +256,8 @@
 }
 .notifications-timeline-heading h2 { margin: 0; color: #475569; font-size: 0.9rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
 .notification-bulk-toolbar { justify-content: flex-start; margin: 0; padding: 0.75rem 1.25rem; border: 0; border-bottom: 1px solid #dfe6ee; border-radius: 0; background: transparent; color: #475569; }
-.notification-bulk-toolbar > span { margin-right: auto; font-size: 0.85rem; font-weight: 700; }
+.notification-bulk-toolbar > span { display: grid; gap: 0.15rem; margin-right: auto; font-size: 0.85rem; font-weight: 700; }
+.notification-selection-summary { color: #64748b; font-size: 0.72rem; font-weight: 500; }
 .notification-bulk-button { min-height: 36px; padding: 0.45rem 0.7rem; border: 1px solid #cbd5e1; border-radius: 7px; background: #fff; color: #334155; font: inherit; font-size: 0.8rem; font-weight: 700; cursor: pointer; }
 .notification-bulk-button--primary { border-color: #15803d; background: #15803d; color: #fff; }
 .notification-bulk-button:hover:not(:disabled) { filter: brightness(0.96); }
@@ -275,9 +275,7 @@
     min-width: 0;
   }
   .notifications-filter-row .search-container { width: 100%; }
-  .notification-category-filter,
   .notification-status-filter { align-items: flex-start; flex-direction: column; }
-  .notification-category-filter select,
   .notification-status-filter select { min-width: min(190px, 100%); }
   .notifications-timeline-heading { align-items: flex-start; flex-direction: column; }
   .notification-bulk-toolbar > span { flex-basis: 100%; }

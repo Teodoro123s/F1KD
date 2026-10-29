@@ -22,16 +22,33 @@ const { getFirstNameValidationError, normalizeFirstName } = require('../utils/fi
 const {
   isValidEmail,
   normalizeEmail,
+  normalizeEmailIdentity,
   parsePositiveIntegerId,
   parseUserStatus,
   validateAccountPassword,
 } = require('../utils/userInputValidation');
+
+const DUPLICATE_EMAIL_MESSAGE = 'This email address is already associated with an account. Plus-tag variants such as +123 are treated as the same address.';
 
 function normalizeDbStatus(value) {
   return parseUserStatus(value) || 'Active';
 }
 
 const HEALTH_WORKER_ROLE_SQL = `LOWER(REPLACE(REPLACE(TRIM(role), '_', ''), ' ', '')) = 'healthworker'`;
+
+async function hasEmailIdentityConflict(email, excludeUserId = null) {
+  const normalizedEmail = normalizeEmail(email);
+  const domain = normalizedEmail.slice(normalizedEmail.lastIndexOf('@') + 1);
+  const excludeCurrent = excludeUserId !== null && excludeUserId !== undefined;
+  const params = excludeCurrent ? [domain, excludeUserId] : [domain];
+  const [rows] = await pool.query(
+    `SELECT id, email FROM users
+     WHERE LOWER(SUBSTRING_INDEX(email, '@', -1)) = ?${excludeCurrent ? ' AND id <> ?' : ''}`,
+    params,
+  );
+  const identity = normalizeEmailIdentity(normalizedEmail);
+  return rows.some((row) => normalizeEmailIdentity(row.email) === identity);
+}
 
 function getOrganizerSchoolId(req, res) {
   const schoolId = Number(req.user?.school_id);
@@ -124,6 +141,9 @@ router.post('/health-workers', verifyToken, authorize('community_coordinator'), 
     if (!isValidEmail(normalizedEmail)) {
       return res.status(400).json({ error: 'Enter a valid email address' });
     }
+    if (await hasEmailIdentityConflict(normalizedEmail)) {
+      return res.status(409).json({ error: DUPLICATE_EMAIL_MESSAGE });
+    }
     const contactNumberError = validateContactNumber(contactNumber);
     if (contactNumberError) return res.status(400).json({ error: contactNumberError });
     if (!Number.isInteger(assignedGroupId) || assignedGroupId <= 0) {
@@ -201,7 +221,7 @@ router.post('/health-workers', verifyToken, authorize('community_coordinator'), 
   } catch (error) {
     console.error('[Users API] POST /health-workers error:', error.message);
     if (error?.code === 'ER_DUP_ENTRY') {
-      return res.status(400).json({ error: 'Email is already assigned to an account' });
+      return res.status(409).json({ error: DUPLICATE_EMAIL_MESSAGE });
     }
     res.status(500).json({ error: 'Unable to create health worker account' });
   }
@@ -240,6 +260,9 @@ router.put('/health-workers/:id', verifyToken, authorize('community_coordinator'
     }
     if (!isValidEmail(normalizedEmail)) {
       return res.status(400).json({ error: 'Enter a valid email address' });
+    }
+    if (await hasEmailIdentityConflict(normalizedEmail, id)) {
+      return res.status(409).json({ error: DUPLICATE_EMAIL_MESSAGE });
     }
     const contactNumberError = validateContactNumber(contactNumber);
     if (contactNumberError) return res.status(400).json({ error: contactNumberError });
@@ -291,7 +314,7 @@ router.put('/health-workers/:id', verifyToken, authorize('community_coordinator'
   } catch (error) {
     console.error('[Users API] PUT /health-workers/:id error:', error.message);
     if (error?.code === 'ER_DUP_ENTRY') {
-      return res.status(400).json({ error: 'Email is already assigned to an account' });
+      return res.status(409).json({ error: DUPLICATE_EMAIL_MESSAGE });
     }
     res.status(500).json({ error: 'Unable to update health worker account' });
   }
@@ -476,6 +499,9 @@ router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
     if (contactNumberError) return res.status(400).json({ error: contactNumberError });
     if (!userName || !normalizedEmail) return res.status(400).json({ error: 'Username and email are required' });
     if (!isValidEmail(normalizedEmail)) return res.status(400).json({ error: 'Enter a valid email address' });
+    if (await hasEmailIdentityConflict(normalizedEmail)) {
+      return res.status(409).json({ error: DUPLICATE_EMAIL_MESSAGE });
+    }
     const assignedSchoolId = requiresSchool ? parsePositiveIntegerId(schoolId) : null;
     if (requiresSchool && assignedSchoolId === null) return res.status(400).json({ error: 'A valid schoolId is required for this role' });
     const assignedGroupId = requiresGroup ? parsePositiveIntegerId(groupId) : null;
@@ -619,7 +645,7 @@ router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
       });
     }
     if (err.status === 400) return res.status(400).json({ error: err.message });
-    if (err && err.code === 'ER_DUP_ENTRY') return res.status(400).json({ error: 'Email or username already exists' });
+    if (err && err.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: DUPLICATE_EMAIL_MESSAGE });
     res.status(500).json({ error: 'db error' });
   }
 });
@@ -693,6 +719,9 @@ router.put('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
     if (email !== undefined) {
       const normalizedEmail = normalizeEmail(email);
       if (!isValidEmail(normalizedEmail)) return res.status(400).json({ error: 'Enter a valid email address' });
+      if (await hasEmailIdentityConflict(normalizedEmail, id)) {
+        return res.status(409).json({ error: DUPLICATE_EMAIL_MESSAGE });
+      }
       updates.push('email = ?');
       params.push(normalizedEmail);
     }
@@ -856,6 +885,7 @@ router.put('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
           : 'This coordinator or school already has an assignment. Refresh the page and try again.',
       });
     }
+    if (err && err.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: DUPLICATE_EMAIL_MESSAGE });
     res.status(500).json({ error: 'db error' });
   }
 });

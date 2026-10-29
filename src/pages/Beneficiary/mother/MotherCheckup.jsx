@@ -134,7 +134,7 @@ const getPreviousCheckupForStep = (mother, step) => step > 0 ? getCheckupForStep
 const getFirstIncompleteStep = (checkups = [], startIndex = 0) => CHECKUPS.findIndex((_, index) => index >= startIndex && !checkups?.[Math.floor(index / 3)]?.[index % 3]?.completed);
 
 const createInitialFormState = (mother, checkup = null, blank = false, previousCheckup = null, useProfileDefaults = false, hasNextCheckup = true) => {
-  const checkupDate = getMotherCheckupDate(
+  const checkupDate = blank ? '' : getMotherCheckupDate(
     checkup,
     previousCheckup,
     useProfileDefaults ? mother.prenatalRegDate || mother.prenatal_reg_date : '',
@@ -151,19 +151,19 @@ const createInitialFormState = (mother, checkup = null, blank = false, previousC
     height: blank ? '' : checkup?.height ?? (useProfileDefaults ? mother.prenatalHeight ?? mother.height ?? '' : ''),
     fundalHeight: blank ? '' : checkup?.fundalHeight ?? (useProfileDefaults ? mother.fundalHeight ?? '' : ''),
     fhr: blank ? '' : checkup?.fhr ?? (useProfileDefaults ? mother.fhr ?? '' : ''),
-    developmentalStatus: checkup?.developmentalStatus ?? checkup?.developmental_status ?? 'Normal',
-    serviceProvider: checkup?.serviceProvider ?? '',
+    developmentalStatus: blank ? '' : checkup?.developmentalStatus ?? checkup?.developmental_status ?? 'Normal',
+    serviceProvider: blank ? '' : checkup?.serviceProvider ?? '',
     nextCheckupDate: blank || !hasNextCheckup ? '' : getMotherNextCheckupDate(checkupDate, checkup?.nextCheckupDate),
-    referral: checkup?.referral ?? false,
-    laboratoryRequests: checkup?.laboratoryRequests ?? [],
-    amount: sanitizeCurrencyAmount(checkup?.amount ?? ''),
+    referral: blank ? false : checkup?.referral ?? false,
+    laboratoryRequests: blank ? [] : checkup?.laboratoryRequests ?? [],
+    amount: blank ? '' : sanitizeCurrencyAmount(checkup?.amount ?? ''),
     sourceOfFunds: blank ? '' : checkup?.sourceOfFunds ?? 'Municipal Fund',
-    facilityType: checkup?.facilityType ?? 'Govt',
-    milkDate: formatDate(checkup?.milkDate),
-    milkQuantity: checkup?.milkQuantity ?? '',
-    milkSubsidy: checkup?.milkSubsidy ?? Boolean(checkup?.milkDate || checkup?.milkQuantity),
-    treatmentServices: checkup?.treatmentServices ?? '',
-    remarks: checkup?.remarks ?? '',
+    facilityType: blank ? '' : checkup?.facilityType ?? 'Govt',
+    milkDate: blank ? '' : formatDate(checkup?.milkDate),
+    milkQuantity: blank ? '' : checkup?.milkQuantity ?? '',
+    milkSubsidy: blank ? false : checkup?.milkSubsidy ?? Boolean(checkup?.milkDate || checkup?.milkQuantity),
+    treatmentServices: blank ? '' : checkup?.treatmentServices ?? '',
+    remarks: blank ? '' : checkup?.remarks ?? '',
   };
 };
 
@@ -217,20 +217,21 @@ export default function MotherCheckup({
     const hasSavedCheckups = Array.isArray(mother.checkups) && mother.checkups.flat().some(Boolean);
     const isRegistrationStep = activeStep === getMotherMonitoringStartIndex(mother);
     const currentCheckup = getCheckupForStep(mother, activeStep);
+    const isBlankExcludedStep = activeStep < getMotherMonitoringStartIndex(mother);
     const previousCheckup = getPreviousCheckupForStep(mother, activeStep);
     const savedDraft = stepFormDraftsRef.current.get(activeStep);
     const nextFormState = savedDraft ? { ...savedDraft } : createInitialFormState(
       mother,
-      currentCheckup,
-      isFutureStep,
+      isBlankExcludedStep ? null : currentCheckup,
+      isFutureStep || isBlankExcludedStep,
       previousCheckup,
       !hasSavedCheckups && isRegistrationStep,
       hasNextMotherCheckup(activeStep),
     );
-    if (!currentCheckup?.checkupDate && !nextFormState.checkupDate) {
+    if (!isBlankExcludedStep && !currentCheckup?.checkupDate && !nextFormState.checkupDate) {
       nextFormState.checkupDate = getMotherCheckupDate(null, previousCheckup);
     }
-    if (hasNextMotherCheckup(activeStep) && !nextFormState.nextCheckupDate && nextFormState.checkupDate) {
+    if (!isBlankExcludedStep && hasNextMotherCheckup(activeStep) && !nextFormState.nextCheckupDate && nextFormState.checkupDate) {
       nextFormState.nextCheckupDate = getMotherNextCheckupDate(nextFormState.checkupDate);
     }
     if (!hasNextMotherCheckup(activeStep)) nextFormState.nextCheckupDate = '';
@@ -292,7 +293,7 @@ export default function MotherCheckup({
 
   const nutritionalStatus = useMemo(() => {
     const value = parseFloat(bmi);
-    if (Number.isNaN(value)) return 'Normal';
+    if (!bmi || Number.isNaN(value)) return '';
     if (value < 18.5) return 'Underweight';
     if (value < 25) return 'Normal';
     return 'Overweight';
@@ -301,21 +302,37 @@ export default function MotherCheckup({
   const activeTrimester = Math.floor(activeStep / 3) + 1;
   const activeStepIndex = (activeStep % 3) + 1;
   const activeCheckup = getCheckupForStep(mother, activeStep);
-  const isCompleted = Boolean(activeCheckup?.completed);
+  const isExcluded = activeStep < monitoringStartStep;
+  const isCompleted = !isExcluded && Boolean(activeCheckup?.completed);
   const firstIncompleteStep = getFirstIncompleteStep(mother.checkups, monitoringStartStep);
   const isMaternalPhaseComplete = firstIncompleteStep === -1;
   const isFuture = firstIncompleteStep !== -1 && activeStep > firstIncompleteStep;
-  const isSkipped = activeStep < monitoringStartStep && !isCompleted;
-  const isReadOnly = readOnly || (!forceEdit && (isCompleted || isFuture || isSkipped));
+  const isBlankExcludedStep = isExcluded;
+  const isReadOnly = readOnly || (!forceEdit && !isExcluded && (isCompleted || isFuture));
 
   const handleStepClick = (trimester, step) => {
     const nextStep = (trimester - 1) * 3 + (step - 1);
     if (nextStep === activeStep || saving) return false;
-    return runStepNavigation(() => {
+    const navigateToStep = () => {
       stepFormDraftsRef.current.set(activeStep, formState);
       setActiveStep(nextStep);
       return true;
-    }, 'step');
+    };
+
+    if (nextStep < monitoringStartStep) {
+      const savedDraft = stepFormDraftsRef.current.get(nextStep);
+      setFormState(savedDraft || createInitialFormState(
+        mother,
+        null,
+        true,
+        getPreviousCheckupForStep(mother, nextStep),
+        false,
+        hasNextMotherCheckup(nextStep),
+      ));
+      return navigateToStep();
+    }
+
+    return runStepNavigation(navigateToStep, 'step');
   };
 
   const handleSubmit = async (event) => {
@@ -378,10 +395,12 @@ export default function MotherCheckup({
     stepFormDraftsRef.current.delete(activeStep);
     const hasSavedCheckups = Array.isArray(mother.checkups) && mother.checkups.flat().some(Boolean);
     const isRegistrationStep = activeStep === getMotherMonitoringStartIndex(mother);
+    const currentCheckup = getCheckupForStep(mother, activeStep);
+    const blankExcludedStep = activeStep < getMotherMonitoringStartIndex(mother) && !currentCheckup;
     setFormState(createInitialFormState(
       mother,
-      getCheckupForStep(mother, activeStep),
-      false,
+      blankExcludedStep ? null : currentCheckup,
+      blankExcludedStep,
       getPreviousCheckupForStep(mother, activeStep),
       !hasSavedCheckups && isRegistrationStep,
       hasNextMotherCheckup(activeStep),
@@ -404,7 +423,7 @@ export default function MotherCheckup({
       <StepNavigationStatus direction={navigationDirection} error={navigationError} />
 
       <form className="mother-checkup-form" onSubmit={handleSubmit}>
-        <div className={`checkup-card${isCompleted ? ' checkup-card-completed' : ''}${isFuture || isSkipped ? ' checkup-card-locked' : ''}`}>
+        <div className={`checkup-card${isCompleted ? ' checkup-card-completed' : ''}${isFuture ? ' checkup-card-locked' : ''}`}>
           <div className="checkup-card-body">
             <div className="checkup-section-heading">
               <div className="checkup-section-title">Pregnancy Record</div>
@@ -419,9 +438,9 @@ export default function MotherCheckup({
               )}
             </div>
             <fieldset disabled={isReadOnly || isNavigating}>
-            {isMaternalPhaseComplete ? <p className="checkup-state-message">Maternal monitoring phase complete · all 9 check-ups recorded</p> : isCompleted && <p className="checkup-state-message">Completed check-up · view only</p>}
+            {isMaternalPhaseComplete ? <p className="checkup-state-message">Maternal monitoring phase complete · all {9 - monitoringStartStep} scheduled check-ups recorded</p> : isCompleted && <p className="checkup-state-message">Completed check-up · view only</p>}
             {isFuture && <p className="checkup-state-message">This check-up will be available after the previous visit is completed.</p>}
-            {isSkipped && <p className="checkup-state-message">This visit was skipped based on gestational age at registration.</p>}
+            {isExcluded && <p className="checkup-state-message">{isBlankExcludedStep ? 'This visit is not counted toward monitoring progress. Record it here only if the check-up took place.' : 'This visit is not counted toward monitoring progress.'}</p>}
             <div className="checkup-grid">
               <div className="form-group full-width checkup-date-field">
                 <label className="checkup-field-label is-required" htmlFor="checkup-date">Check-up Date</label>
@@ -550,8 +569,8 @@ export default function MotherCheckup({
 
               <div className="form-group">
                 <label className="checkup-field-label" htmlFor="nutritional-status">BMI Status</label>
-                <div className={`bmi-status-badge ${nutritionalStatus.toLowerCase()}`}>
-                  {nutritionalStatus.toUpperCase()}
+                <div className={`bmi-status-badge ${nutritionalStatus ? nutritionalStatus.toLowerCase() : 'empty'}`}>
+                  {nutritionalStatus && nutritionalStatus.toUpperCase()}
                 </div>
               </div>
 

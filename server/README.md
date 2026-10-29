@@ -63,6 +63,8 @@ Generate the encryption key with `node -e "console.log(require('node:crypto').ra
 
 The server appends `/chat/completions` to the configured base URL. Users only enter and test their provider API key; the settings page displays the configured provider and model name but does not expose the endpoint or secrets. Keys are encrypted per account and never returned by configuration endpoints. The report assistant sends the natural-language request to the provider, then retrieves report rows separately through the existing authenticated and role-scoped progress-report endpoint. Operational rows are not sent to the model. Leave the endpoint or default model unset to keep AI unavailable. Restart the backend after changing environment settings.
 
+`PROGRESS_REPORT_AI_MODEL` can be set to another Gemini model ID supported by the configured endpoint and enabled for the Google AI project, such as `gemini-3.6-flash` or `gemini-3.1-pro-preview`. The setting applies server-wide; users cannot select a model in the UI. Check Google's [current model list](https://ai.google.dev/gemini-api/docs/models) before switching, and test the connection with a key that has access to the selected model.
+
 Report-proposal requests cap generated output at 768 tokens to reduce provider token-per-minute usage. If the provider still returns HTTP 429, wait before retrying; repeated failures may require the administrator to increase the provider's rate limit.
 
 AI reporting currently supports database-backed report previews and CSV export. It does not generate XLSX files, charts, or model-written analyses of beneficiary rows. Do not treat the model's field selection or explanation as calculated data; report values come from the existing reporting service.

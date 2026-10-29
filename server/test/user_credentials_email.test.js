@@ -1,4 +1,4 @@
-const test = require('node:test');
+﻿const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const envNames = [
@@ -44,10 +44,34 @@ test('Super Admin user creation sends the account credential template', async (t
   const originalFetch = global.fetch;
   let emailRequest = null;
   let storedPasswordHash = '';
+  const storedEmails = [];
 
   pool.query = async (sql, params = []) => {
+    if (sql.includes('FROM auth_sessions s')) {
+      return [[{
+        user_id: 1,
+        email: 'superadmin@example.test',
+        role: 'Super Admin',
+        status: 'Active',
+        school_id: null,
+        group_id: null,
+        first_name: 'Super',
+        middle_initial: null,
+        last_name: 'Admin',
+        contact_number: null,
+        location: null,
+        consent_accepted_at: new Date('2026-01-01T00:00:00Z'),
+      }]];
+    }
+    if (sql.includes('SELECT id, email FROM users')) {
+      const domain = params[0];
+      return [storedEmails
+        .map((email, index) => ({ id: index + 71, email }))
+        .filter((user) => user.email.split('@').at(-1) === domain)];
+    }
     if (sql.startsWith('INSERT INTO users')) {
       storedPasswordHash = params[3];
+      storedEmails.push(params[0]);
       return [{ insertId: 71 }];
     }
     if (sql.includes('FROM users WHERE id = ?')) {
@@ -88,11 +112,12 @@ test('Super Admin user creation sends the account credential template', async (t
     await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   });
   await new Promise((resolve) => server.once('listening', resolve));
+  const adminAuthorization = `Bearer ${jwt.sign({ id: 1, sid: 'user-credentials-test-session', role: 'Super Admin' }, process.env.JWT_SECRET)}`;
 
   const response = await fetch(`http://127.0.0.1:${server.address().port}/api/users`, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${jwt.sign({ id: 1, role: 'Super Admin' }, process.env.JWT_SECRET)}`,
+      Authorization: adminAuthorization,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
@@ -118,4 +143,24 @@ test('Super Admin user creation sends the account credential template', async (t
     password: 'temporary-password',
   });
   assert.notEqual(storedPasswordHash, 'temporary-password');
+
+  const aliasResponse = await fetch(`http://127.0.0.1:${server.address().port}/api/users`, {
+    method: 'POST',
+    headers: {
+      Authorization: adminAuthorization,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      email: 'new-account+562871@example.test',
+      username: 'different-username',
+      firstName: 'Another',
+      lastName: 'Account',
+      role: 'Partner',
+      password: 'temporary-password',
+    }),
+  });
+  const aliasBody = await aliasResponse.json();
+  assert.equal(aliasResponse.status, 409, JSON.stringify(aliasBody));
+  assert.match(aliasBody.error, /plus-tag variants/i);
+  assert.equal(storedEmails.length, 1);
 });

@@ -873,7 +873,7 @@
 .program-report-data-panel { margin-bottom: 0; }
 .program-report-summary-panel > .module-summary-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 0; }
 .program-report-summary-panel > .module-summary-cards .module-summary-card { min-height: 118px; }
-.program-receipt-history-page .program-receipt-table-scroll { width: 100%; overflow-x: hidden; overflow-y: hidden; }
+.program-receipt-history-page .program-receipt-table-scroll { width: 100%; overflow-x: auto; overflow-y: hidden; }
 .program-receipt-history-page .data-table { width: 100%; min-width: 0; table-layout: fixed; }
 .program-receipt-history-page .data-table th,
 .program-receipt-history-page .data-table td { overflow: hidden; padding: 0.5rem 0.35rem; text-overflow: ellipsis; white-space: nowrap; }
@@ -901,6 +901,24 @@
 .program-receipt-history-page .program-receipt-cluster-table:not(.has-audit-signatures) td:nth-child(4) { width: 18%; }
 .program-receipt-history-page .program-receipt-cluster-table .audit-signatures { margin: 0; font-size: 0.72rem; line-height: 1.35; }
 .program-receipt-history-page .program-receipt-cluster-table .audit-signatures span { display: -webkit-box; overflow: hidden; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.program-receipt-history-page .program-receipt-cluster-table.has-audit-signatures:not(.has-actions) th:nth-child(1),
+.program-receipt-history-page .program-receipt-cluster-table.has-audit-signatures:not(.has-actions) td:nth-child(1) { width: 15%; }
+.program-receipt-history-page .program-receipt-cluster-table.has-audit-signatures:not(.has-actions) th:nth-child(2),
+.program-receipt-history-page .program-receipt-cluster-table.has-audit-signatures:not(.has-actions) td:nth-child(2) { width: 27%; }
+.program-receipt-history-page .program-receipt-cluster-table.has-audit-signatures:not(.has-actions) th:nth-child(3),
+.program-receipt-history-page .program-receipt-cluster-table.has-audit-signatures:not(.has-actions) td:nth-child(3) { width: 25%; }
+.program-receipt-history-page .program-receipt-cluster-table.has-audit-signatures:not(.has-actions) th:nth-child(4),
+.program-receipt-history-page .program-receipt-cluster-table.has-audit-signatures:not(.has-actions) td:nth-child(4) { width: 33%; }
+.program-receipt-history-page .program-receipt-cluster-table.has-audit-signatures.has-actions th:nth-child(1),
+.program-receipt-history-page .program-receipt-cluster-table.has-audit-signatures.has-actions td:nth-child(1) { width: 12%; }
+.program-receipt-history-page .program-receipt-cluster-table.has-audit-signatures.has-actions th:nth-child(2),
+.program-receipt-history-page .program-receipt-cluster-table.has-audit-signatures.has-actions td:nth-child(2) { width: 22%; }
+.program-receipt-history-page .program-receipt-cluster-table.has-audit-signatures.has-actions th:nth-child(3),
+.program-receipt-history-page .program-receipt-cluster-table.has-audit-signatures.has-actions td:nth-child(3) { width: 24%; }
+.program-receipt-history-page .program-receipt-cluster-table.has-audit-signatures.has-actions th:nth-child(4),
+.program-receipt-history-page .program-receipt-cluster-table.has-audit-signatures.has-actions td:nth-child(4) { width: 27%; }
+.program-receipt-history-page .program-receipt-cluster-table.has-audit-signatures.has-actions th:nth-child(5),
+.program-receipt-history-page .program-receipt-cluster-table.has-audit-signatures.has-actions td:nth-child(5) { width: 15%; }
 .program-receipt-history-page .program-receipt-beneficiary-table th:nth-child(1),
 .program-receipt-history-page .program-receipt-beneficiary-table td:nth-child(1) { width: 25%; }
 .program-receipt-history-page .program-receipt-beneficiary-table th:nth-child(2),
@@ -909,6 +927,14 @@
 .program-receipt-history-page .program-receipt-beneficiary-table td:nth-child(3) { width: 30%; }
 .view-content .program-receipt-history-page .data-table th:last-child,
 .view-content .program-receipt-history-page .data-table td:last-child { width: 10%; min-width: 0; padding: 0.4rem 0.2rem; overflow: hidden; text-overflow: ellipsis; }
+.view-content .program-receipt-history-page .program-receipt-cluster-table.has-audit-signatures:not(.has-actions) th:last-child,
+.view-content .program-receipt-history-page .program-receipt-cluster-table.has-audit-signatures:not(.has-actions) td:last-child { width: 33%; padding: 0.5rem 0.55rem; overflow: visible; text-overflow: clip; white-space: normal; }
+.view-content .program-receipt-history-page .program-receipt-cluster-table.has-audit-signatures.has-actions th:last-child,
+.view-content .program-receipt-history-page .program-receipt-cluster-table.has-audit-signatures.has-actions td:last-child,
+.view-content .program-receipt-history-page .program-receipt-beneficiary-table.has-audit-signatures.has-actions th:last-child,
+.view-content .program-receipt-history-page .program-receipt-beneficiary-table.has-audit-signatures.has-actions td:last-child { width: 15%; }
+.view-content .program-receipt-history-page .program-receipt-beneficiary-table.has-audit-signatures:not(.has-actions) th:last-child,
+.view-content .program-receipt-history-page .program-receipt-beneficiary-table.has-audit-signatures:not(.has-actions) td:last-child { width: 46%; padding: 0.5rem 0.55rem; overflow: visible; text-overflow: clip; white-space: normal; }
 .view-content .program-receipt-history-page .data-table td:last-child .view-btn { display: inline-flex; min-width: 0; min-height: 30px; padding: 0.3rem 0.4rem; white-space: nowrap; }
 .program-receipt-history-page .program-beneficiary-report-table { min-width: 0; table-layout: fixed; }
 .program-receipt-history-page .program-beneficiary-report-table th,
@@ -944,6 +970,31 @@
 .program-receipt-history-page .program-beneficiary-report-table.has-audit-signatures td:nth-child(7) { width: 11%; }
 .program-receipt-history-page .program-beneficiary-report-table.has-audit-signatures th:nth-child(8),
 .program-receipt-history-page .program-beneficiary-report-table.has-audit-signatures td:nth-child(8) { width: 14%; min-width: 100px; text-align: left; }
+.program-receipt-history-page .program-beneficiary-report-table.has-audit-signatures:not(.has-actions) th:nth-child(1),
+.program-receipt-history-page .program-beneficiary-report-table.has-audit-signatures:not(.has-actions) td:nth-child(1) { width: 24%; min-width: 0; }
+.program-receipt-history-page .program-beneficiary-report-table.has-audit-signatures:not(.has-actions) th:nth-child(2),
+.program-receipt-history-page .program-beneficiary-report-table.has-audit-signatures:not(.has-actions) td:nth-child(2) { width: 30%; }
+.program-receipt-history-page .program-beneficiary-report-table.has-audit-signatures:not(.has-actions) th:nth-child(3),
+.program-receipt-history-page .program-beneficiary-report-table.has-audit-signatures:not(.has-actions) td:nth-child(3) { width: 46%; }
+.program-receipt-history-page .program-beneficiary-report-table.has-audit-signatures.has-actions th:nth-child(1),
+.program-receipt-history-page .program-beneficiary-report-table.has-audit-signatures.has-actions td:nth-child(1) { width: 20%; min-width: 0; }
+.program-receipt-history-page .program-beneficiary-report-table.has-audit-signatures.has-actions th:nth-child(2),
+.program-receipt-history-page .program-beneficiary-report-table.has-audit-signatures.has-actions td:nth-child(2) { width: 25%; }
+.program-receipt-history-page .program-beneficiary-report-table.has-audit-signatures.has-actions th:nth-child(3),
+.program-receipt-history-page .program-beneficiary-report-table.has-audit-signatures.has-actions td:nth-child(3) { width: 40%; }
+.program-receipt-history-page .program-beneficiary-report-table.has-audit-signatures.has-actions th:nth-child(4),
+.program-receipt-history-page .program-beneficiary-report-table.has-audit-signatures.has-actions td:nth-child(4) { width: 15%; }
+.program-receipt-history-page .data-table.has-audit-signatures th:last-child,
+.program-receipt-history-page .data-table.has-audit-signatures td:last-child {
+  min-width: 0;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+.program-receipt-history-page .data-table.has-audit-signatures td:last-child .audit-signatures span {
+  display: block;
+  overflow-wrap: anywhere;
+}
 .program-receipt-controls { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; margin: 1rem 0; }
 .program-receipt-controls-actions { display: flex; align-items: center; gap: 0.75rem; }
 .program-receipt-readonly-notice { margin: 0; color: #64748b; font-size: 0.92rem; }

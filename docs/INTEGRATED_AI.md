@@ -4,7 +4,7 @@
 
 F1KD's AI features are optional. The current provider configuration uses Google's Gemini API through its OpenAI-compatible Chat Completions endpoint. Provider endpoint and model are controlled by the server; users do not choose either in the UI.
 
-The AI Setting page is focused on provider configuration and connection status. Its **AI Assistant** action and the matching action on the Dashboard open the same read-only reporting assistant in a right-side drawer. Each opening checks the current user's saved-key status; without a key, the drawer directs the user to AI Setting. The assistant presents a chat-style stream for user requests, assistant responses, clarification prompts, project controls, and report previews. It translates a natural-language request into an allowlisted report proposal; the user can choose an authorized community when available and, when needed, a project. The application—not the model—fetches records through existing authenticated, role-scoped reporting APIs. The model does not receive beneficiary report rows.
+The AI Setting page is focused on provider configuration and connection status. Its **AI Assistant** action and the matching action on the Dashboard open the same read-only reporting assistant in a right-side drawer. Each opening checks the current user's saved-key status; without a key, the drawer directs the user to AI Setting. For operational roles, the assistant presents a chat-style stream for report proposals, clarifications, project controls, and report previews. It uses existing authenticated, role-scoped reporting APIs; the model does not receive beneficiary report rows. No community or school selector is shown; the backend applies the signed-in user's authorized scope.
 
 The Dashboard provides the **AI Assistant** action to open the same reporting drawer. It does not display a separate AI dashboard insights card.
 
@@ -28,7 +28,7 @@ node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
 
 For a direct backend deployment, set the same variables in `server/.env`. The base URL must be a trusted HTTPS endpoint that implements OpenAI-compatible chat completions. The server appends `/chat/completions` to the base URL. Gemini's OpenAI compatibility and available models are documented by [Google AI](https://ai.google.dev/gemini-api/docs/openai) and [Google's model list](https://ai.google.dev/gemini-api/docs/models).
 
-After changing Compose environment values, recreate the backend:
+`PROGRESS_REPORT_AI_MODEL` is not hardcoded to Flash Lite; it accepts the model ID supported by Gemini's OpenAI-compatible endpoint and enabled for your Google AI project. For example, change it to `gemini-3.6-flash` or `gemini-3.1-pro-preview` after confirming availability in Google's model list. This is a server-wide setting, not a per-user UI option. After changing it, recreate the backend:
 
 ```powershell
 docker compose -f docker-compose.minio.yml up -d --force-recreate backend
@@ -64,14 +64,15 @@ If `AI_SETTINGS_ENCRYPTION_KEY` is missing or malformed, the page reports that s
 
 The AI Setting page contains the provider configuration card and a brief privacy note; it does not show separate AI Usage and Limits or AI Reporting Assistant cards. Its drawer and Dashboard entry remain available without a saved key and explain that setup is required before AI features can be used.
 
-The AI Setting drawer currently supports this conversational flow:
+The AI Setting drawer currently supports these role-aware flows:
 
+- For Superadmins, the drawer discovers available data from the User Management, Community, Reports, and Notifications modules. It presents only aggregate counts from modules that loaded successfully and can generate concise insights using those counts. Failed modules are identified, and insights note incomplete snapshots. User records, names, and other personal data are not sent to Gemini.
 - The user submits a natural-language reporting request in the chat composer.
 - The model proposes an allowlisted beneficiary profile, monitoring/check-up, or project-benefit report for mothers or children.
 - If the request is ambiguous, the assistant adds a clarification prompt and response control to the conversation; the clarified request is submitted for another proposal.
-- The signed-in user's school/group scope is applied by the backend, without group or batch selector controls. A community selector remains available for roles that can choose among accessible communities. A project selector and report action are rendered in the assistant's message when a project-benefit report requires a project.
+- The signed-in user's school/group scope is applied by the backend, without community, school, group, or batch selector controls. A project selector and report action are rendered in the assistant's message when a project-benefit report requires a project.
 - The application retrieves authorized rows and displays the report type, total record count, and a preview of up to 20 rows in the conversation. CSV export includes all matching authorized rows.
-- The Dashboard AI entry point opens the reporting assistant drawer; dashboard insights are not displayed in a separate card.
+- The Dashboard AI entry point opens the reporting assistant drawer; dashboard insights are not displayed in a separate card. Superadmin insight requests use the same protected aggregate-insights endpoint with module counts collected from authorized Dashboard APIs.
 
 Only fixed, application-defined controls are rendered; model output cannot create arbitrary UI or executable actions. For project reports, the user selects an eligible project from the authorized project list before the application builds the report. The natural-language request determines report intent and supported report filters; the backend independently enforces the signed-in user's school/group scope, and request text cannot grant additional access. Health Workers remain assigned-group scoped, and Community Coordinators remain assigned-school scoped.
 
@@ -79,7 +80,7 @@ The drawer currently does **not** provide Excel/XLSX downloads, AI-generated cha
 
 The reporting assistant is read-only. Requests recognized as asking to create, update, delete, or run database/shell commands are rejected by the AI request policy. Data retrieval uses existing read-only report APIs; no AI endpoint writes operational records. The request policy is pattern-based and is not a general-purpose safeguard against every possible phrasing.
 
-The Dashboard Insights component and older Progress Report AI API helpers may exist in the source tree, but the AI Setting drawer is the current per-user-key workflow documented here. Do not assume unused legacy helpers use a user's saved key.
+The older Progress Report AI API helper remains for compatibility and does not use a user's saved key. The current assistant uses the AI Settings routes and the signed-in user's encrypted key.
 
 ## Authorization, limits, and troubleshooting
 
@@ -104,7 +105,7 @@ The current AI Setting and drawer workflow uses:
 | `PUT /api/ai-settings/configuration` | Validate and encrypt the signed-in user's key, then save it. |
 | `DELETE /api/ai-settings/configuration` | Remove the signed-in user's saved key. |
 | `POST /api/ai-settings/proposal` | Reject prompts matching the server's potential-PII patterns, then turn the request into a validated report proposal using that user's saved key. Called again when the user answers an assistant clarification. |
-| `POST /api/ai-settings/dashboard-insight` | Protected aggregate-insights endpoint; it is not called by the current Dashboard UI. |
+| `POST /api/ai-settings/dashboard-insight` | Protected aggregate-insights endpoint used by the Superadmin assistant with counts from available modules. |
 | Existing `/api/progress-report` read routes | Return report options and role-scoped operational rows to the application. |
 
-These routes require authentication and operational authorization. The AI Settings POST endpoints use the existing AI rate limit. The older `/api/progress-report/ai/dashboard-insight` route remains for compatibility. Neither dashboard-insights endpoint is called by the current Dashboard UI. The model does not receive database credentials or execute SQL.
+These routes require authentication and operational authorization. The AI Settings POST endpoints use the existing AI rate limit. The older `/api/progress-report/ai/dashboard-insight` route remains for compatibility and is not used by the current assistant. The model does not receive database credentials or execute SQL.

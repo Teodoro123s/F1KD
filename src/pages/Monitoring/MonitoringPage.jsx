@@ -353,6 +353,7 @@ export default function MonitoringPage() {
   );
 
   const handleSave = async (payload) => {
+    if (!canEditMonitoring) return false;
     setSavedMessage('');
     let savedCheckups;
     try {
@@ -396,6 +397,7 @@ export default function MonitoringPage() {
   };
 
   const handleSaveChildCheckup = async (payload) => {
+    if (!canEditMonitoring) return false;
     setSavedMessage('');
     try {
       const response = await apiSaveChildCheckup(payload.childId, payload);
@@ -695,18 +697,19 @@ export default function MonitoringPage() {
         <section className="checkup-entry-view" aria-labelledby="selected-mother-title">
           <MotherNavigationCards mother={selectedMother} activeCard="monitor" />
           {savedMessage.startsWith('Unable to save check-up:') && <p className="checkup-save-message checkup-save-message-error" role="alert">{savedMessage}</p>}
-          {!editingCheckup && (
+          {(!editingCheckup || !canEditMonitoring) && (
             <MotherCheckup
               mother={{ ...selectedMother, checkups: motherCheckups }}
               initialStepOverride={selectedMotherCheckupStep ?? undefined}
               showAuditSignatures={showAuditSignatures}
+              readOnly={!canEditMonitoring}
               onSave={handleSave}
-              onRequestEdit={(step) => { setEditingCheckupStep(step); setEditingCheckup(true); }}
+              onRequestEdit={canEditMonitoring ? (step) => { setEditingCheckupStep(step); setEditingCheckup(true); } : undefined}
             />
           )}
         </section>
       )}
-      {selectedMother && editingCheckup && (
+      {canEditMonitoring && selectedMother && editingCheckup && (
         <MotherCheckupEditDrawer
           mother={{ ...selectedMother, checkups: motherCheckups }}
           initialStep={editingCheckupStep}
@@ -719,7 +722,7 @@ export default function MonitoringPage() {
           onClose={() => setEditingCheckup(false)}
         />
       )}
-      {selectedChild && editingChildCheckup && (
+      {canEditMonitoring && selectedChild && editingChildCheckup && (
         <ChildCheckupEditDrawer
           child={selectedChild}
           initialWeek={editingChildCheckupWeek}
