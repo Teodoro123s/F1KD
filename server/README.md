@@ -51,17 +51,21 @@ Deleting a group preserves the batches, mothers, children, and health records. I
 
 ## Private AI assistants
 
-Optional AI features use a backend-configured OpenAI-compatible chat-completions API. Configure:
+AI reporting uses the backend-configured OpenAI-compatible chat-completions endpoint. The default configuration below uses Google Gemini; users enter a Google AI Studio API key, while the server controls the provider endpoint and model. A separate encryption key allows each signed-in operational user to save their own provider key:
 
 ```env
-PROGRESS_REPORT_AI_BASE_URL=https://api.groq.com/openai/v1
-PROGRESS_REPORT_AI_MODEL=openai/gpt-oss-20b
-PROGRESS_REPORT_AI_API_KEY=your_groq_api_key
+PROGRESS_REPORT_AI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
+PROGRESS_REPORT_AI_MODEL=gemini-3.1-flash-lite
+AI_SETTINGS_ENCRYPTION_KEY=generate-a-unique-64-character-hex-key
 ```
 
-F1KD uses Groq as its cloud AI provider. The server appends `/chat/completions` to the base URL and sends the API key as a bearer token. Keep the key only in the backend environment file. Leave the URL and model unset to keep AI unavailable. Restart the backend after changing these settings.
+Generate the encryption key with `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`. For Docker Compose, put it in the root `.env` file; Compose forwards it only to the backend. For a direct backend deployment, set it in `server/.env`. Keep this key stable and backed up: losing or rotating it makes previously stored user keys unreadable. Without it, the application refuses to save credentials.
+
+The server appends `/chat/completions` to the configured base URL. Users only enter and test their provider API key; the settings page displays the configured provider and model name but does not expose the endpoint or secrets. Keys are encrypted per account and never returned by configuration endpoints. The report assistant sends the natural-language request to the provider, then retrieves report rows separately through the existing authenticated and role-scoped progress-report endpoint. Operational rows are not sent to the model. Leave the endpoint or default model unset to keep AI unavailable. Restart the backend after changing environment settings.
 
 Report-proposal requests cap generated output at 768 tokens to reduce provider token-per-minute usage. If the provider still returns HTTP 429, wait before retrying; repeated failures may require the administrator to increase the provider's rate limit.
+
+AI reporting currently supports database-backed report previews and CSV export. It does not generate XLSX files, charts, or model-written analyses of beneficiary rows. Do not treat the model's field selection or explanation as calculated data; report values come from the existing reporting service.
 
 For module-by-module capabilities, role access, inputs sent to the model, and limitations—including endpoints that are not wired to a screen—see [Integrated AI: Modules, Purpose, Scope, and Limits](../docs/INTEGRATED_AI.md).
 

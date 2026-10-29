@@ -1,5 +1,4 @@
 import React from 'react';
-import { ReportAiAssistant } from './ReportAiAssistant';
 
 export function CommunitySelectionStep({
   isCommunityOrganizer,
@@ -11,15 +10,6 @@ export function CommunitySelectionStep({
   options,
   loadingOptions = false,
   updateSelection,
-  aiScopeLabel,
-  aiContextKey,
-  aiPrograms,
-  aiInitialProgramName,
-  aiInitialBenefitPeriod,
-  aiInitialBenefitMonth,
-  aiScopeSelection,
-  buildAiReportPreview,
-  exportAiReportCsv,
   reportCategoryStep,
 }) {
   return (
@@ -75,17 +65,6 @@ export function CommunitySelectionStep({
         </p>
       </div>
       {reportCategoryStep}
-      <ReportAiAssistant
-        scopeLabel={aiScopeLabel}
-        contextKey={aiContextKey}
-        programs={aiPrograms}
-        initialProgramName={aiInitialProgramName}
-        initialBenefitPeriod={aiInitialBenefitPeriod}
-        initialBenefitMonth={aiInitialBenefitMonth}
-        scopeSelection={aiScopeSelection}
-        onBuildPreview={buildAiReportPreview}
-        onExport={exportAiReportCsv}
-      />
     </div>
   );
 }

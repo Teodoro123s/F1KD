@@ -18,6 +18,7 @@ const MotherChildrenPage = lazy(() => import('./pages/Beneficiary/child/MotherCh
 const EditMotherPage = lazy(() => import('./pages/Beneficiary/mother/EditMotherPage'));
 const Program = lazy(() => import('./pages/Program/ProgramPage'));
 const ProgressReport = lazy(() => import('./pages/ProgressReport/ProgressReport'));
+const AISettingPage = lazy(() => import('./pages/AISetting/AISettingPage'));
 const ReceiptHistoryPage = lazy(() => import('./pages/Program/ReceiptHistoryPage'));
 const BeneficiaryProgramReportPage = lazy(() => import('./pages/Program/BeneficiaryProgramReportPage'));
 const UserManagementPage = lazy(() => import('./pages/UserManagement/UserManagementPage'));
@@ -42,7 +43,7 @@ const OPERATIONAL_ROLES = [
   ROLES.HEALTH_WORKER,
 ];
 const DASHBOARD_ROLES = [ROLES.SUPER_ADMIN, ...OPERATIONAL_ROLES];
-const PROGRESS_REPORT_ROLES = OPERATIONAL_ROLES;
+const PROGRESS_REPORT_ROLES = [ROLES.SUPER_ADMIN, ...OPERATIONAL_ROLES];
 const BENEFICIARY_CREATE_ROLES = [ROLES.COMMUNITY_COORDINATOR];
 const BENEFICIARY_EDIT_ROLES = [ROLES.COMMUNITY_COORDINATOR, ROLES.HEALTH_WORKER];
 
@@ -105,6 +106,7 @@ export default function App() {
         <Route path="program/:programId" element={<RoleBasedRoute allowedRoles={OPERATIONAL_ROLES}><Program /></RoleBasedRoute>} />
         <Route path="program/:programId/cluster/:clusterType/:clusterName" element={<RoleBasedRoute allowedRoles={OPERATIONAL_ROLES}><Program /></RoleBasedRoute>} />
         <Route path="progress-report" element={<RoleBasedRoute allowedRoles={PROGRESS_REPORT_ROLES}><ProgressReport /></RoleBasedRoute>} />
+        <Route path="ai-setting" element={<RoleBasedRoute allowedRoles={PROGRESS_REPORT_ROLES}><AISettingPage /></RoleBasedRoute>} />
         <Route path="user-management/health-workers" element={<RoleBasedRoute allowedRoles={[ROLES.COMMUNITY_COORDINATOR]}><UserManagementPage /></RoleBasedRoute>} />
         <Route path="user-management" element={<RoleBasedRoute allowedRoles={[ROLES.SUPER_ADMIN, ROLES.COMMUNITY_COORDINATOR]}><UserManagementPage /></RoleBasedRoute>} />
         <Route path="user-management/school/:schoolId" element={<RoleBasedRoute allowedRoles={[ROLES.SUPER_ADMIN]}><UserManagementPage /></RoleBasedRoute>} />

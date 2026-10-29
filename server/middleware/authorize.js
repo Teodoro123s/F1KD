@@ -79,6 +79,14 @@ const isReadOnlyReportAssistantRequest = (req) => (
   && /^\/ai\/(proposal|monitoring-report|dashboard-insight)\/?$/.test(req.path)
 );
 
+const isPersonalAiSettingsRequest = (req) => (
+  req.baseUrl === '/api/ai-settings'
+  && (
+    (req.method === 'POST' && /^\/(test|proposal)\/?$/.test(req.path))
+    || (['PUT', 'DELETE'].includes(req.method) && /^\/configuration\/?$/.test(req.path))
+  )
+);
+
 function authorize(...allowedRoles) {
   return (req, res, next) => {
     if (!req.user) {
@@ -119,7 +127,7 @@ function authorizeOperational(req, res, next) {
   req.isHealthWorker = isHealthWorkerRole(req.user.role);
   req.isCommunityOrganizer = isCommunityOrganizer;
 
-  if (!isReadMethod(req.method) && !isReadOnlyReportAssistantRequest(req)) {
+  if (!isReadMethod(req.method) && !isReadOnlyReportAssistantRequest(req) && !isPersonalAiSettingsRequest(req)) {
     if (userRole !== 'super_admin' && isUsersRequest(req)) {
       return permissionResponse(res, 'User management is restricted to Superadmin');
     }
@@ -172,7 +180,7 @@ function authorizeProgressReport(req, res, next) {
   const isDashboardInsight = req.method === 'POST' && /^\/ai\/dashboard-insight\/?$/.test(req.path);
   const isAiStatus = req.method === 'GET' && /^\/ai\/status\/?$/.test(req.path);
   if ((isDashboardInsight || isAiStatus) && ['super_admin', 'admin', 'partner', 'community_coordinator', 'health_worker'].includes(userRole)) return next();
-  if (!['admin', 'partner', 'community_coordinator', 'health_worker'].includes(userRole)) {
+  if (!['super_admin', 'admin', 'partner', 'community_coordinator', 'health_worker'].includes(userRole)) {
     return permissionResponse(res, 'You do not have permission to access progress reports');
   }
   return next();
@@ -186,4 +194,5 @@ module.exports = {
   normalizeRole,
   isHealthWorkerRole,
   isCommunityCoordinatorRole,
+  isPersonalAiSettingsRequest,
 };

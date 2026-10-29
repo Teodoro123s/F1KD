@@ -25,8 +25,8 @@ test('audit signatures are visible only to authorized operational and administra
   }
 });
 
-test('authorizeProgressReport allows operational roles and denies super admins', () => {
-  for (const role of ['Admin', 'Partner', 'Community Coordinator', 'Health worker']) {
+test('authorizeProgressReport allows authorized reporting roles, including Superadmin', () => {
+  for (const role of ['Super Admin', 'Admin', 'Partner', 'Community Coordinator', 'Health worker']) {
     let called = false;
     authorizeProgressReport({ user: { role } }, {}, () => {
       called = true;
@@ -34,7 +34,7 @@ test('authorizeProgressReport allows operational roles and denies super admins',
     assert.equal(called, true);
   }
 
-  for (const role of ['Super Admin', 'viewer']) {
+  for (const role of ['viewer']) {
     let called = false;
     const res = {
       status(code) {
@@ -52,32 +52,22 @@ test('authorizeProgressReport allows operational roles and denies super admins',
   }
 });
 
-test('authorizeProgressReport denies Superadmin access to the Monitoring AI intent endpoint', () => {
+test('authorizeProgressReport permits Superadmin read-only report interpretation', () => {
   let reportCalled = false;
-  const res = {
-    status(code) { this.code = code; return this; },
-    json(payload) { this.payload = payload; return this; },
-  };
   authorizeProgressReport({
     method: 'POST',
     path: '/ai/proposal',
     user: { role: 'Super Admin' },
-  }, res, () => { reportCalled = true; });
-  assert.equal(reportCalled, false);
-  assert.equal(res.code, 403);
+  }, {}, () => { reportCalled = true; });
+  assert.equal(reportCalled, true);
 
   let monitoringReportCalled = false;
-  const monitoringRes = {
-    status(code) { this.code = code; return this; },
-    json(payload) { this.payload = payload; return this; },
-  };
   authorizeProgressReport({
     method: 'POST',
     path: '/ai/monitoring-report',
     user: { role: 'Super Admin' },
-  }, monitoringRes, () => { monitoringReportCalled = true; });
-  assert.equal(monitoringReportCalled, false);
-  assert.equal(monitoringRes.code, 403);
+  }, {}, () => { monitoringReportCalled = true; });
+  assert.equal(monitoringReportCalled, true);
 });
 
 test('authorizeProgressReport permits dashboard insights and AI availability for operational roles', () => {
@@ -138,6 +128,40 @@ test('authorizeOperational permits read-only dashboard AI requests without grant
     assert.equal(writeCalled, false);
     assert.equal(res.code, 403);
   }
+});
+
+test('authorizeOperational permits only the whitelisted per-user AI settings actions', () => {
+  for (const [method, path] of [
+    ['POST', '/test'],
+    ['POST', '/proposal'],
+    ['PUT', '/configuration'],
+    ['DELETE', '/configuration'],
+  ]) {
+    for (const role of ['Super Admin', 'Admin', 'Partner', 'Community Coordinator', 'Health worker']) {
+      let called = false;
+      authorizeOperational({
+        baseUrl: '/api/ai-settings',
+        path,
+        method,
+        user: { id: 8, role, school_id: 3, group_id: 5 },
+      }, {}, () => { called = true; });
+      assert.equal(called, true, `${role} ${method} ${path} should be allowed`);
+    }
+  }
+
+  let unrelatedWriteCalled = false;
+  const res = {
+    status(code) { this.code = code; return this; },
+    json(payload) { this.payload = payload; return this; },
+  };
+  authorizeOperational({
+    baseUrl: '/api/ai-settings',
+    path: '/users',
+    method: 'DELETE',
+    user: { id: 8, role: 'Admin' },
+  }, res, () => { unrelatedWriteCalled = true; });
+  assert.equal(unrelatedWriteCalled, false);
+  assert.equal(res.code, 403);
 });
 
 test('authorizeOperational does not allow discontinued assistant endpoints as read-only requests', () => {

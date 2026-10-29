@@ -40,11 +40,6 @@ import {
 } from './progressReportConfig';
 import { buildProgressReportCsv } from './utils/csvIdentity.mjs';
 import { buildMonitoringAverageRow } from './utils/monitoringAverages.mjs';
-import {
-  buildAiReportCsv,
-  downloadAiReportCsv,
-  getAgeAtCheckupMonths,
-} from './utils/aiReportCsv.mjs';
 import { buildProgressReportParams } from './utils/apiUtils';
 import { matchesProgramBeneficiaryType } from './utils/programEligibility';
 import {
@@ -63,7 +58,6 @@ const batchAvailableForGroup = (batch, groupId, mothers) => {
   return false;
 };
 
-const REPORT_FIELD_LABELS = new Map(REPORT_FIELDS.map(([id, label]) => [id, label]));
 const CHILD_NUMERIC_METRIC_BY_INTERPRETATION = {
   weightForAgeInterpretation: 'weightForAge',
   lengthForAgeInterpretation: 'heightForAge',
@@ -242,94 +236,6 @@ export default function ProgressReport() {
       normalized.batchId = '';
     }
     return normalized;
-  };
-  const buildAiReportPreview = async (proposal, aiFilters = {}) => {
-    const safeSelection = normalizeSelectionHierarchy(selection);
-    const isProgramReport = proposal.reportCategory === 'program';
-    const selectedProgramName = aiFilters.programName ?? programName;
-    const selectedBenefitPeriod = aiFilters.benefitPeriod ?? benefitPeriod;
-    const selectedBenefitMonth = aiFilters.benefitMonth ?? benefitMonth;
-    const selectedProgram = isProgramReport
-      ? programs.find((program) => normalizeProgramName(program.name) === normalizeProgramName(selectedProgramName))
-      : undefined;
-    if (isProgramReport && !selectedProgram) {
-      throw new Error('Choose a project before building the project report.');
-    }
-    if (isProgramReport && !matchesProgramBeneficiaryType(selectedProgram, proposal.beneficiaryType)) {
-      throw new Error(`The selected program does not support the ${proposal.beneficiaryType} report requested by AI.`);
-    }
-    if (
-      isProgramReport
-      && selectedBenefitPeriod === 'month'
-      && !/^(?:1\d{3}|[2-9]\d{3})-(?:0[1-9]|1[0-2])$/.test(selectedBenefitMonth)
-    ) {
-      throw new Error('Select a valid month for the project report.');
-    }
-
-    const requestParams = buildProgressReportParams({
-      selection: safeSelection,
-      reportCategory: proposal.reportCategory,
-      beneficiaryType: proposal.beneficiaryType,
-      selectedProgram,
-      programName: isProgramReport ? selectedProgram.name : '',
-      benefitPeriod: isProgramReport ? selectedBenefitPeriod : 'overall',
-      benefitMonth: isProgramReport && selectedBenefitPeriod === 'month' ? selectedBenefitMonth : '',
-      page: 1,
-      perPage: 100,
-      exportAll: true,
-    });
-    const reportResult = await apiGetProgressReport(requestParams);
-    const rows = reportResult.rows;
-    const expectedRows = Number(reportResult.pagination?.total ?? rows?.length ?? 0);
-    if (!Array.isArray(rows) || rows.length !== expectedRows) {
-      throw new Error('The custom CSV could not include every matching record. Please try again.');
-    }
-    if (!rows.length) {
-      throw new Error('No records match your current school, group, and batch selection.');
-    }
-
-    const csvReport = buildAiReportCsv({
-      rows,
-      proposal,
-      selection: safeSelection,
-      fieldLabels: REPORT_FIELD_LABELS,
-      latestCheckupOnly: Boolean(aiFilters.latestCheckupOnly),
-      motherCheckupSlot: aiFilters.motherCheckupSlot || null,
-      formatValue: formatCellValue,
-      getValue: (row, point, field) => {
-        if (!point) return row[field];
-        if (field === 'measurementDate') return point.date || point.measurementDate || '';
-        if (field === 'ageAtCheckupMonths') {
-          return getAgeAtCheckupMonths(row.dateOfBirth, point.date || point.measurementDate);
-        }
-        if (field === 'bmiInterpretation' || field.endsWith('Interpretation')) {
-          return getPointInterpretation(point, field);
-        }
-        if (
-          field.endsWith('ZScore')
-          || ['weightForAge', 'heightForAge', 'bmiForAge'].includes(field)
-        ) {
-          return pointValueForTableField(point, field);
-        }
-        return point[field] ?? row[field];
-      },
-    });
-    return {
-      csv: csvReport.csv,
-      filename: csvReport.filename,
-      fields: csvReport.fields,
-      previewRows: csvReport.previewRows,
-      rowCount: csvReport.rowCount,
-    };
-  };
-  const exportAiReportCsv = (csvReport) => {
-    downloadAiReportCsv(csvReport.csv, csvReport.filename);
-    notifyAction(`Custom CSV downloaded with ${csvReport.rowCount} row${csvReport.rowCount === 1 ? '' : 's'}.`);
-    if (canRecordReportDownload) {
-      apiRecordReportDownload(csvReport.filename).catch((downloadError) => {
-        console.error('Unable to record report download notification:', downloadError);
-      });
-    }
   };
   const updateSelection = (key, value) => {
     setPage(1);
@@ -683,12 +589,6 @@ export default function ProgressReport() {
     }
   };
 
-  const selectedSchool = options.schools.find((item) => String(item.id) === String(displaySelection.schoolId));
-  const aiScopeLabel = [
-    selectedSchool?.name || (!displaySelection.schoolId ? 'All accessible schools' : ''),
-    displaySelection.groupId ? groups.find((item) => String(item.id) === String(displaySelection.groupId))?.name : 'All groups',
-    displaySelection.batchId ? batches.find((item) => String(item.id) === String(displaySelection.batchId))?.name : 'All batches',
-  ].filter(Boolean).join(' > ') || 'All accessible records';
   const resultsRows = sortedRows;
   const monitoringTableRows = useMemo(() => {
     if (displayReportCategory !== 'monitor') return resultsRows;
@@ -986,15 +886,6 @@ export default function ProgressReport() {
               options={options}
               loadingOptions={loadingOptions}
               updateSelection={updateSelection}
-              aiScopeLabel={aiScopeLabel}
-              aiContextKey={[selection.schoolId, selection.groupId, selection.batchId].join(':')}
-              aiPrograms={programs}
-              aiInitialProgramName={programName}
-              aiInitialBenefitPeriod={benefitPeriod}
-              aiInitialBenefitMonth={benefitMonth}
-              aiScopeSelection={selection}
-              buildAiReportPreview={buildAiReportPreview}
-              exportAiReportCsv={exportAiReportCsv}
               reportCategoryStep={(
                 <ReportFocusStep
                   reportCategory={reportCategory}

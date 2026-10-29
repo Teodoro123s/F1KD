@@ -12,6 +12,7 @@ const items = [
   { to: '/monitoring', label: 'Monitor', icon: ActivityIcon },
   { to: '/program', label: 'Projects', icon: GroupsIcon },
   { to: '/progress-report', label: 'Progress Report', icon: BatchesIcon },
+  { to: '/ai-setting', label: 'AI Setting', icon: ActivityIcon },
   { to: '/user-management', label: 'User Management', icon: UsersIcon },
 ];
 
@@ -55,7 +56,7 @@ export default function Sidebar() {
   const isCommunityOrganizer = isCommunityCoordinatorRole(currentUser?.role);
   const notificationsItem = { to: '/notifications', label: 'Notifications', icon: NotificationIcon };
   const visibleItems = isSuperAdmin
-    ? [...items.filter((item) => ['/dashboard', '/community', '/user-management'].includes(item.to)), {
+    ? [...items.filter((item) => ['/dashboard', '/community', '/progress-report', '/ai-setting', '/user-management'].includes(item.to)), {
       to: '/reports',
       label: 'Reports',
       icon: ReportsIcon,

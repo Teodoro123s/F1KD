@@ -13,6 +13,7 @@ const programsRouter = require('./routes/programs');
 const progressReportRouter = require('./routes/progressReport');
 const documentsRouter = require('./routes/documents');
 const reportsRouter = require('./routes/reports');
+const aiSettingsRouter = require('./routes/aiSettings');
 const { verifyToken } = require('./middleware/auth');
 const { authorizeOperational, authorizeProgressReport } = require('./middleware/authorize');
 const { errorHandler } = require('./middleware/errorHandler');
@@ -68,6 +69,19 @@ const progressReportAiLimiter = rateLimit({
   },
 });
 
+const userAiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    status: 429,
+    code: 'AI_RATE_LIMITED',
+    message: 'Too many AI requests. Please wait before trying again.',
+    timestamp: new Date().toISOString(),
+  },
+});
+
 const loginLimiter = rateLimit({
   windowMs: Number(process.env.LOGIN_RATE_LIMIT_WINDOW_MS || 60 * 1000),
   max: Number(process.env.LOGIN_RATE_LIMIT_MAX || 5),
@@ -98,6 +112,10 @@ app.use('/api/progress-report/ai', (req, res, next) => {
   return progressReportAiLimiter(req, res, next);
 });
 app.use('/api/progress-report', verifyToken, authorizeOperational, authorizeProgressReport, progressReportRouter);
+app.use('/api/ai-settings', verifyToken, authorizeOperational, (req, res, next) => {
+  if (['POST', 'PUT'].includes(req.method)) return userAiLimiter(req, res, next);
+  return next();
+}, aiSettingsRouter);
 app.use('/api/documents', verifyToken, authorizeOperational, documentsRouter);
 app.use('/uploads', verifyToken, authorizeOperational, documentsRouter);
 app.use(errorHandler);

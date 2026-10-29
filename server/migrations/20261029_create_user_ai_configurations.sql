@@ -1,0 +1,13 @@
+CREATE TABLE IF NOT EXISTS user_ai_configurations (
+  user_id INT NOT NULL PRIMARY KEY,
+  provider VARCHAR(40) NOT NULL,
+  model VARCHAR(120) NOT NULL,
+  encrypted_api_key VARBINARY(1024) NOT NULL,
+  encryption_iv BINARY(12) NOT NULL,
+  encryption_auth_tag BINARY(16) NOT NULL,
+  last_tested_at DATETIME NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_user_ai_configurations_user
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -10,7 +10,6 @@ import { apiGetManagedHealthWorkers, apiGetUsers } from '../../api/users';
 import { apiGetActivityReport, apiGetReportScopes } from '../../api/reports';
 import { apiGetNotifications } from '../../api/notifications';
 import { can, isCommunityCoordinatorRole, isHealthWorkerRole, normalizeRole, ROLES } from '../../utils/permissions';
-import { DashboardInsights } from './DashboardInsights';
 import { buildDashboardModuleSummaries, buildOperationalStaffMetrics } from './dashboardModuleMetrics.mjs';
 import { getRollingDateRange } from '../../utils/analytics/dailyTimeSeries';
 
@@ -211,31 +210,6 @@ export default function DashboardPage() {
     .sort((left, right) => right.date - left.date)
     .slice(0, 8), [children, mothers]);
 
-  const dashboardMetrics = useMemo(() => ({
-    motherCount: isSuperAdmin ? 0 : stats.motherCount,
-    childCount: isSuperAdmin ? 0 : stats.childCount,
-    beneficiaryCount: isSuperAdmin ? 0 : stats.motherCount + stats.childCount,
-    followUpCount: isSuperAdmin ? 0 : stats.followUpCount,
-    communityCount: isSuperAdmin ? 0 : stats.communityCount,
-    groupCount: isSuperAdmin ? 0 : stats.groupCount,
-    batchCount: isSuperAdmin ? 0 : stats.batchCount,
-    programCount: isSuperAdmin ? 0 : stats.programCount,
-    activeStaff: staffMetrics.active,
-    unassignedStaff: staffMetrics.unassigned,
-    suspendedStaff: staffMetrics.suspended,
-    operationalAccounts: isSuperAdmin ? staffMetrics.total : 0,
-    communitySchools: isSuperAdmin ? reportScopes.schools?.length || 0 : 0,
-    communityGroups: isSuperAdmin ? reportScopes.groups?.length || 0 : 0,
-    operationalSignInsLast30Days: isSuperAdmin
-      ? (activityReport.dailyActivity || []).reduce((total, item) => total + (Number(item.count) || 0), 0)
-      : 0,
-    unreadNotifications: isSuperAdmin ? Number(notificationCounts.unread) || 0 : 0,
-    dataQuality: {
-      incompleteSources: [...new Set([...loadErrors, ...(mothersError ? ['beneficiary records'] : [])])],
-      complete: loadErrors.length === 0 && !mothersError,
-    },
-  }), [activityReport, isSuperAdmin, loadErrors, mothersError, notificationCounts, reportScopes, staffMetrics, stats]);
-
   const moduleSummaries = useMemo(() => buildDashboardModuleSummaries({
     mothers,
     children,
@@ -425,8 +399,6 @@ export default function DashboardPage() {
           </article>
         ))}
       </section>
-
-      <DashboardInsights metrics={dashboardMetrics} ready={!loading} refreshVersion={refreshVersion} />
 
       {isSuperAdmin ? (
         <section className="dashboard-panel dashboard-recent-panel" aria-labelledby="dashboard-recent-title">

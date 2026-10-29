@@ -43,6 +43,19 @@ CREATE TABLE IF NOT EXISTS users (
   KEY idx_users_school_status (school_id, status),
   UNIQUE KEY uq_users_coordinator_school_id (coordinator_school_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+CREATE TABLE IF NOT EXISTS user_ai_configurations (
+  user_id INT NOT NULL PRIMARY KEY,
+  provider VARCHAR(40) NOT NULL,
+  model VARCHAR(120) NOT NULL,
+  encrypted_api_key VARBINARY(1024) NOT NULL,
+  encryption_iv BINARY(12) NOT NULL,
+  encryption_auth_tag BINARY(16) NOT NULL,
+  last_tested_at DATETIME NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_user_ai_configurations_user
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE IF NOT EXISTS communities (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(150) NOT NULL,

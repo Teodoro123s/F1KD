@@ -1,39 +1,106 @@
-# Integrated AI: Modules, Purpose, Scope, and Limits
-
-**Reviewed:** 2026-10-27
+# F1KD AI Integration
 
 ## Overview
 
-F1KD has optional AI features that use Groq's OpenAI-compatible cloud chat-completions endpoint. The AI helps interpret report requests and summarize aggregate dashboard figures; it is not the system of record. The application keeps applying its normal authentication, authorization, and data-selection rules, and users remain responsible for reviewing AI suggestions.
+F1KD's AI features are optional. The current provider configuration uses Google's Gemini API through its OpenAI-compatible Chat Completions endpoint. Provider endpoint and model are controlled by the server; users do not choose either in the UI.
 
-AI is disabled unless both `PROGRESS_REPORT_AI_BASE_URL` and `PROGRESS_REPORT_AI_MODEL` are configured for the backend. The Groq deployment uses `https://api.groq.com/openai/v1`, the `openai/gpt-oss-20b` model, and a `PROGRESS_REPORT_AI_API_KEY` bearer token. The server sends requests to `{PROGRESS_REPORT_AI_BASE_URL}/chat/completions`. Store the key only in the root `.env` file used by Docker Compose. See [server/README.md](../server/README.md).
+The AI Setting page is focused on provider configuration and connection status. A compact **AI Assistant** action in the page header opens the read-only reporting assistant in a right-side drawer without navigating away. The action is available before setup; the current saved-key status is checked when the drawer opens, and if no key has been saved, the drawer directs the user to configure one. The assistant presents a chat-style stream for user requests, assistant responses, clarification prompts, project controls, and report previews. It translates a natural-language request into an allowlisted report proposal; the user can choose authorized scope filters and, when needed, a project. The application—not the model—fetches records through the existing authenticated, role-scoped reporting APIs. The model does not receive beneficiary report rows.
 
-The status endpoint reports whether a URL and model are configured; it does not test whether the model endpoint is healthy. Requests time out after 120 seconds. AI calls can fail if the endpoint is unavailable, the model does not support the requested response format, or its response fails server validation. Leaving the URL or model unset keeps the AI unavailable without disabling non-AI workflows.
+AI output is advisory. It is not a source of truth, a clinical assessment, or authorization to change data.
 
-## Module-by-module guide
+## Configure the server
 
-| Module / feature | Access | Purpose and current availability | Scope and data flow | Limits |
-|---|---|---|---|---|
-| **Dashboard insights** | Super Admin, Admin, Partner, Community Coordinator, Health Worker | Visible on the Dashboard when AI is configured. Summarizes dashboard totals and answers questions about those totals. | Sends the user's optional question and validated aggregate counts only. Counts are limited to supported dashboard totals such as mother/child and beneficiary counts, follow-ups, community structures, projects, and staff status totals. | Does not receive individual records or child measurements, z-scores, or growth interpretations. It cannot assess a child's growth from totals, explain causes, identify people, or provide clinical guidance. Do not enter names, IDs, contact details, or individual health information in questions. |
-| **Progress Report AI report builder** | Admin, Partner, Community Coordinator, Health Worker | Visible in Progress Report as one builder with Progress/Profile/Project and Check-up report modes. Translates natural-language requests, can ask one clarification question in the standard report mode, previews results, and supports CSV downloads. | The prompt is sent without known beneficiary names or recognized scope names. The model receives generic report instructions and field catalogs, not beneficiary data, IDs, check-up rows, or the user's scope. The application loads records through authenticated APIs and applies the current school, group, and batch selection plus the user's authorization scope. | Supports profile, monitoring, and project report categories for mothers or children. Check-up reports can select maternal and child check-up fields, filter developmental screening statuses (Normal, Needs Follow-up, At Risk), mother hospital referrals, first/latest check-ups, current month, and recognized community/school/group/batch names. Mother fields include check-up date, gestational age/month, weight, height, blood pressure, BMI/status, developmental screening, provider, next check-up date, referral, lab requests, assistance amount, source of funds, facility, fundal height, fetal heart rate, and remarks. Child fields include check-up/next dates, age, feeding method, weight, height, Weight-for-Age, Length-for-Age, Weight-for-Length, developmental screening, provider, and remarks. Child growth interpretations are calculated locally from saved measurements; the model does not receive those measurements. Child BMI is not a check-up field and is neither calculated nor substituted for a growth indicator. The assistant cannot diagnose, infer missing values, recommend treatment, or choose beneficiaries. Check-up prompts are limited to 500 characters. |
+For Docker Compose, set these values in the repository-root `.env` file:
 
-## Access and safeguards
+```env
+PROGRESS_REPORT_AI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
+PROGRESS_REPORT_AI_MODEL=gemini-3.1-flash-lite
+AI_SETTINGS_ENCRYPTION_KEY=<64 hexadecimal characters>
+```
 
-- AI routes require authentication and are subject to the same operational role rules as their associated modules.
-- AI responses are constrained to known field, filter, and intent values and validated by the server before use. This constrains output shape; it does not make model output inherently correct.
-- The application's normal authorization and scope checks still control which records can be selected. AI cannot widen a user's school/group scope.
-- AI models do not calculate or diagnose child growth. The application derives WHO screening outputs locally from authorized saved check-up measurements; review the source records and consult a qualified health worker for clinical interpretation.
-- AI output is advisory and may be inaccurate, incomplete, or unsuitable. Verify proposed settings and results against the records and applicable policies.
-- Groq receives the prompt and other inputs listed above. Keep its API key server-side, review Groq's retention and processing practices, and do not send beneficiary identifiers or check-up data to the model.
-- None of these assistants should be used for clinical decisions, diagnoses, treatment decisions, or emergency guidance.
+Generate a new encryption key locally:
 
-## API route inventory
+```powershell
+node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
+```
 
-These routes are mounted under `/api/progress-report`:
+For a direct backend deployment, set the same variables in `server/.env`. The base URL must be a trusted HTTPS endpoint that implements OpenAI-compatible chat completions. The server appends `/chat/completions` to the base URL. Gemini's OpenAI compatibility and available models are documented by [Google AI](https://ai.google.dev/gemini-api/docs/openai) and [Google's model list](https://ai.google.dev/gemini-api/docs/models).
 
-| Route | Capability |
+After changing Compose environment values, recreate the backend:
+
+```powershell
+docker compose -f docker-compose.minio.yml up -d --force-recreate backend
+```
+
+The encryption key must remain stable and backed up. If it is lost or rotated, previously stored user keys cannot be decrypted. Do not put provider keys in frontend environment variables, source code, URLs, or logs.
+
+## User setup
+
+1. Sign in and open **AI Setting**.
+2. Check the read-only provider and model label.
+3. Enter a Google AI Studio API key.
+4. Select **Test Connection**. A successful provider response changes status to Connected.
+5. Select **Save API Key**. To replace a saved key, test the replacement and choose **Update API Key**.
+6. Select **AI Assistant** in the page header to open the drawer and submit reporting questions. Remove API Key deletes the saved credential for the signed-in user.
+
+The test uses the configured model and a minimal request. It has a 25-second timeout. The interface hides the key when testing starts. Do not share screenshots with the key shown; revoke and replace a key if it is exposed.
+
+If `AI_SETTINGS_ENCRYPTION_KEY` is missing or malformed, the page reports that secure storage is unavailable and prevents testing/saving. If the provider rejects the key, check that it is a Google Gemini API key, that the selected model is available to the Google AI project, and that provider access or quota is enabled.
+
+## Credential storage and privacy
+
+- Each API key is associated with the authenticated user's ID and encrypted in MariaDB using AES-256-GCM.
+- The user ID is included as authenticated encryption data to prevent a stored ciphertext from being moved between accounts.
+- Configuration responses contain only whether a key is configured, the public provider/model label, and the last test time. They never return the plaintext key, ciphertext, encryption IV, or authentication tag.
+- Keys are tested server-side before a new or replacement credential is stored. A failed test does not save that key.
+- The user key is sent to Google in the server-to-provider `Authorization` header. Keep the provider's key handling and data-retention policies in mind.
+- The natural-language report request and generic field/intent catalog are sent to Gemini to produce a report proposal. The application does not send the user's authorization scope or the report's beneficiary rows to the model.
+- The browser receives authorized report rows from F1KD's own API to render the preview and generate the CSV. Those rows remain in the application flow and are not included in the AI proposal request.
+- Users are instructed not to include names, beneficiary IDs, contact details, or other identifying information in prompts. Client and server checks block prompts matching heuristics for email addresses, Philippine mobile numbers, explicitly labeled names, and common labeled/structured record IDs before the prompt reaches the provider. These checks are best-effort: they can miss personal data or flag ordinary text, and they are not a substitute for avoiding sensitive details.
+
+## Assistant capabilities and limitations
+
+The AI Setting page contains the provider configuration card and a brief privacy note; it does not show separate AI Usage and Limits or AI Reporting Assistant cards. The drawer remains available without a saved key and explains that setup is required before reports can be generated.
+
+The AI Setting drawer currently supports this conversational flow:
+
+- The user submits a natural-language reporting request in the chat composer.
+- The model proposes an allowlisted beneficiary profile, monitoring/check-up, or project-benefit report for mothers or children.
+- If the request is ambiguous, the assistant adds a clarification prompt and response control to the conversation; the clarified request is submitted for another proposal.
+- The signed-in user's school/group scope is applied by the backend, without group or batch selector controls. A community selector remains available for roles that can choose among accessible communities. A project selector and report action are rendered in the assistant's message when a project-benefit report requires a project.
+- The application retrieves authorized rows and displays the report type, total record count, and a preview of up to 20 rows in the conversation. CSV export includes all matching authorized rows.
+
+Only fixed, application-defined controls are rendered; model output cannot create arbitrary UI or executable actions. For project reports, the user selects an eligible project from the authorized project list before the application builds the report. The natural-language request determines report intent and supported report filters; the backend independently enforces the signed-in user's school/group scope, and request text cannot grant additional access. Health Workers remain assigned-group scoped, and Community Coordinators remain assigned-school scoped.
+
+The drawer currently does **not** provide Excel/XLSX downloads, AI-generated charts, or model-written analyses of the underlying beneficiary rows. Do not interpret a model's explanation or proposed fields as calculated results. Report values come from the existing F1KD reporting services.
+
+The reporting assistant is read-only. Requests recognized as asking to create, update, delete, or run database/shell commands are rejected by the AI request policy. Data retrieval uses existing read-only report APIs; no AI endpoint writes operational records. The request policy is pattern-based and is not a general-purpose safeguard against every possible phrasing.
+
+The Dashboard Insights component and older Progress Report AI API helpers may exist in the source tree, but the AI Setting drawer is the current per-user-key workflow documented here. Do not assume unused legacy helpers use a user's saved key.
+
+## Authorization, limits, and troubleshooting
+
+- AI Setting endpoints use the existing authentication and operational-role middleware. Configuration is per signed-in user.
+- Report access uses existing Progress Report authorization and scope enforcement. AI intent output is validated against supported report types and fields before use.
+- AI configuration POST/PUT requests and report-proposal requests are rate-limited to 10 requests per minute per client IP, in addition to the general API limit. Read and delete configuration requests do not use that AI-specific limiter.
+- Key connection tests time out after 25 seconds. Report AI calls have their own longer request timeout. A slow provider can fail even when the application is healthy.
+- The report AI request timeout is 120 seconds, but the bundled Nginx configuration closes API requests after 60 seconds. A slow report proposal can therefore return a gateway timeout before the backend's provider request times out.
+- A 401 from the provider usually means it rejected the key. A 401 from F1KD indicates an authentication/session problem; an F1KD 403 indicates an authorization problem. Confirm the key is from the provider shown on the settings page and replace any exposed key.
+- HTTP 429 indicates the provider or application rate limit was reached; wait before retrying.
+- A timeout can indicate provider latency, an unavailable model, network filtering, or a proxy timeout. Check backend health and sanitized server logs; never log or share the key or full authorization headers.
+- `GET /api/health` checks application health, not AI-provider connectivity. Use **Test Connection** for a provider check.
+
+## Relevant API routes
+
+The current AI Setting and drawer workflow uses:
+
+| Method and route | Purpose |
 |---|---|
-| `GET /ai/status` | Reports whether AI URL/model configuration is present. |
-| `POST /ai/dashboard-insight` | Dashboard aggregate summary or question. |
-| `POST /ai/proposal` | Progress Report settings proposal. |
-| `POST /ai/monitoring-report` | Check-up report fields and filters used by the Progress Report builder. |
+| `GET /api/ai-settings/configuration` | Read configuration status and public provider/model label; no key is returned. |
+| `POST /api/ai-settings/test` | Test a newly entered key, or test a saved key when explicitly requested by an authorized client. |
+| `PUT /api/ai-settings/configuration` | Validate and encrypt the signed-in user's key, then save it. |
+| `DELETE /api/ai-settings/configuration` | Remove the signed-in user's saved key. |
+| `POST /api/ai-settings/proposal` | Reject prompts matching the server's potential-PII patterns, then turn the request into a validated report proposal using that user's saved key. Called again when the user answers an assistant clarification. |
+| Existing `/api/progress-report` read routes | Return report options and role-scoped operational rows to the application. |
+
+These routes require authentication and operational authorization. The model does not receive database credentials or execute SQL.
