@@ -84,6 +84,12 @@ table td {
   background: var(--color-surface-soft);
 }
 
+.data-table tbody tr,
+.view-table tbody tr,
+.progress-report-table tbody tr {
+  transition: background-color var(--transition-fast);
+}
+
 .data-table .actions-dropdown {
   border-color: var(--table-border);
   border-radius: 10px;

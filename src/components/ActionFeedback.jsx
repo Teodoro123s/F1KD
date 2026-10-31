@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import Button from './ui/Button';
 
 const EVENT_NAME = 'f1kd:action-feedback';
-const EXIT_DURATION = 240;
+const EXIT_DURATION = 220;
 const DISPLAY_DURATION = 3200;
 const FEEDBACK_TONES = new Set(['success', 'error', 'warning', 'info']);
 

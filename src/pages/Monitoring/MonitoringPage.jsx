@@ -17,6 +17,7 @@ import { notifyAction } from '../../components/ActionFeedback';
 import TableSearch from '../../components/ui/TableSearch';
 import ModuleSummaryCards from '../../components/ui/ModuleSummaryCards';
 import useModalAccessibility from '../../components/ui/useModalAccessibility';
+import usePresence from '../../components/ui/usePresence';
 import { navigateBack } from '../../utils/navigation/navigation';
 import MotherNavigationCards from '../Beneficiary/mother/MotherNavigationCards';
 import ChildNavigationCards from '../Beneficiary/child/ChildNavigationCards';
@@ -31,35 +32,42 @@ function getMotherName(mother) {
     .join(' ') || 'Unnamed mother';
 }
 
-function MotherCheckupEditDrawer({ mother, initialStep, showAuditSignatures, onSave, onClose }) {
+function MotherCheckupEditDrawer({ mother, initialStep, showAuditSignatures, onSave, onClose, open }) {
   const dialogRef = useRef(null);
   const closeButtonRef = useRef(null);
+  const isPresent = usePresence(open, '--motion-drawer-duration');
   const closeDrawer = () => {
+    if (!open) return;
     if (document.querySelector('.checkup-confirm-modal')) return;
     onClose();
   };
   useModalAccessibility({
-    open: true,
+    open: isPresent,
     onClose: closeDrawer,
     dialogRef,
     initialFocusRef: closeButtonRef,
+    closeDisabled: !open,
   });
+
+  if (!isPresent) return null;
 
   return createPortal((
     <div
-      className="checkup-edit-drawer-backdrop"
+      className={`checkup-edit-drawer-backdrop${!open ? ' motion-exiting' : ''}`}
       role="presentation"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) closeDrawer();
+        if (open && event.target === event.currentTarget) closeDrawer();
       }}
     >
       <aside
         ref={dialogRef}
-        className="checkup-edit-drawer"
+        className={`checkup-edit-drawer${!open ? ' motion-exiting' : ''}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="checkup-edit-drawer-title"
         tabIndex={-1}
+        aria-hidden={!open || undefined}
+        inert={!open}
       >
         <header className="checkup-edit-drawer__header">
           <div>
@@ -91,35 +99,42 @@ function MotherCheckupEditDrawer({ mother, initialStep, showAuditSignatures, onS
   ), document.body);
 }
 
-function ChildCheckupEditDrawer({ child, initialWeek, completedWeeks, showAuditSignatures, onSave, onClose }) {
+function ChildCheckupEditDrawer({ child, initialWeek, completedWeeks, showAuditSignatures, onSave, onClose, open }) {
   const dialogRef = useRef(null);
   const closeButtonRef = useRef(null);
+  const isPresent = usePresence(open, '--motion-drawer-duration');
   const closeDrawer = () => {
+    if (!open) return;
     if (document.querySelector('.checkup-confirm-modal')) return;
     onClose();
   };
   useModalAccessibility({
-    open: true,
+    open: isPresent,
     onClose: closeDrawer,
     dialogRef,
     initialFocusRef: closeButtonRef,
+    closeDisabled: !open,
   });
+
+  if (!isPresent) return null;
 
   return createPortal((
     <div
-      className="checkup-edit-drawer-backdrop"
+      className={`checkup-edit-drawer-backdrop${!open ? ' motion-exiting' : ''}`}
       role="presentation"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) closeDrawer();
+        if (open && event.target === event.currentTarget) closeDrawer();
       }}
     >
       <aside
         ref={dialogRef}
-        className="checkup-edit-drawer"
+        className={`checkup-edit-drawer${!open ? ' motion-exiting' : ''}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="child-checkup-edit-drawer-title"
         tabIndex={-1}
+        aria-hidden={!open || undefined}
+        inert={!open}
       >
         <header className="checkup-edit-drawer__header">
           <div>
@@ -709,9 +724,10 @@ export default function MonitoringPage() {
           )}
         </section>
       )}
-      {canEditMonitoring && selectedMother && editingCheckup && (
+      {canEditMonitoring && selectedMother && (
         <MotherCheckupEditDrawer
           mother={{ ...selectedMother, checkups: motherCheckups }}
+          open={editingCheckup}
           initialStep={editingCheckupStep}
           showAuditSignatures={showAuditSignatures}
           onSave={async (payload) => {
@@ -722,9 +738,10 @@ export default function MonitoringPage() {
           onClose={() => setEditingCheckup(false)}
         />
       )}
-      {canEditMonitoring && selectedChild && editingChildCheckup && (
+      {canEditMonitoring && selectedChild && (
         <ChildCheckupEditDrawer
           child={selectedChild}
+          open={editingChildCheckup}
           initialWeek={editingChildCheckupWeek}
           completedWeeks={childCompletedWeeks}
           showAuditSignatures={showAuditSignatures}

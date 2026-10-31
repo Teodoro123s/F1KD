@@ -7,7 +7,7 @@ import CreateChildPage from './child/CreateChildPage';
 import BeneficiaryListPage from './BeneficiaryListPage';
 import MotherDetailPage from './mother/MotherDetailPage';
 import { useMothers } from '../../context/MothersContext';
-import { getSummary } from '../Community/communityService';
+import { getReferenceOptions } from '../Community/communityService';
 import { apiGetMother } from '../../api/mothers';
 import { apiGetChildrenByMother } from '../../api/children';
 import { can, isHealthWorkerRole, isSchoolScopedRole } from '../../utils/permissions';
@@ -27,13 +27,18 @@ export default function BeneficiaryPage() {
   const [selectedMother, setSelectedMother] = useState(null);
 
   useEffect(() => {
-    getSummary()
+    let active = true;
+    getReferenceOptions()
       .then((summary) => {
+        if (!active) return;
         setCommunities(summary.communities || []);
         setGroups(summary.groups || []);
         setBatches(summary.batches || []);
       })
-      .catch((error) => console.error('[BeneficiaryPage] Unable to load community options:', error));
+      .catch((error) => {
+        if (active) console.error('[BeneficiaryPage] Unable to load community options:', error);
+      });
+    return () => { active = false; };
   }, []);
 
   const navigate = useNavigate();

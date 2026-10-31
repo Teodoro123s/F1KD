@@ -11,7 +11,7 @@ import {
   apiDeleteUser,
 } from '../../api/users';
 import { isValidName, getFirstNameValidationError, isValidFirstName, normalizeFirstName, isValidMiddleInitial, normalizeContact, isValidContact, isValidEmail, formatDobForInput, isValidDob, getDobValidationMessage, generatePassword } from './lib';
-import { getSummary } from '../Community/communityService';
+import { getReferenceOptions } from '../Community/communityService';
 import { isCommunityCoordinatorRole, isHealthWorkerRole, normalizeRole as normalizeRoleKey } from '../../utils/permissions';
 import { getApiBaseUrl } from '../../api/authHeader';
 
@@ -101,8 +101,10 @@ export function useUserManagement({ schoolId = '', batchId = '', healthWorkerMan
   const [batches, setBatches] = useState([]);
 
   useEffect(() => {
-    getSummary()
+    let mounted = true;
+    getReferenceOptions()
       .then((summary) => {
+        if (!mounted) return;
         const summaryCommunities = summary.communities || [];
         setCommunities(healthWorkerManagement
           ? summaryCommunities.filter((community) => String(community.id) === String(schoolId))
@@ -110,11 +112,14 @@ export function useUserManagement({ schoolId = '', batchId = '', healthWorkerMan
         setGroups(summary.groups || []);
         setBatches(summary.batches || []);
       })
-      .catch(() => {
+      .catch((error) => {
+        if (!mounted) return;
+        console.error('[UserManagement] Unable to load account assignment options:', error);
         setCommunities([]);
         setGroups([]);
         setBatches([]);
       });
+    return () => { mounted = false; };
   }, [healthWorkerManagement, schoolId]);
 
   // Load the database as the single source of truth.

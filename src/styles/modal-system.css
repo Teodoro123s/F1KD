@@ -25,6 +25,7 @@
 .document-preview-modal-backdrop {
   background: var(--modal-backdrop);
   backdrop-filter: blur(5px);
+  animation: f1kd-modal-backdrop-enter var(--motion-modal-duration) var(--motion-ease-out) both;
 }
 
 .modal-content,
@@ -37,7 +38,58 @@
   border-radius: var(--modal-radius);
   background: var(--modal-surface);
   box-shadow: var(--modal-shadow);
+  animation: f1kd-modal-enter var(--motion-modal-duration) var(--motion-ease-out) both;
 }
+
+.modal-backdrop.motion-exiting,
+.view-modal-backdrop.motion-exiting,
+.report-modal-backdrop.motion-exiting,
+.document-preview-modal-backdrop.motion-exiting {
+  animation: f1kd-modal-backdrop-exit var(--motion-modal-duration) var(--motion-ease-in) both;
+}
+
+.modal-backdrop.motion-exiting > *,
+.view-modal-backdrop.motion-exiting > *,
+.report-modal-backdrop.motion-exiting > *,
+.document-preview-modal-backdrop.motion-exiting > * {
+  pointer-events: none;
+}
+
+.modal-content.motion-exiting,
+.modal.motion-exiting,
+.view-modal.motion-exiting,
+.report-modal.motion-exiting,
+.document-preview-modal.motion-exiting,
+.program-receipt-modal.motion-exiting {
+  animation: f1kd-modal-exit var(--motion-modal-duration) var(--motion-ease-in) both;
+}
+
+.checkup-edit-drawer-backdrop {
+  animation: f1kd-modal-backdrop-enter var(--motion-drawer-duration) var(--motion-ease-out) both;
+}
+
+.checkup-edit-drawer-backdrop.motion-exiting {
+  animation: f1kd-modal-backdrop-exit var(--motion-drawer-duration) var(--motion-ease-in) both;
+}
+
+.checkup-edit-drawer-backdrop.motion-exiting > * {
+  pointer-events: none;
+}
+
+.checkup-edit-drawer {
+  animation: f1kd-drawer-enter var(--motion-drawer-duration) var(--motion-ease-out) both;
+}
+
+.checkup-edit-drawer.motion-exiting {
+  animation: f1kd-drawer-exit var(--motion-drawer-duration) var(--motion-ease-in) both;
+}
+
+@keyframes f1kd-modal-backdrop-enter { from { opacity: 0; } to { opacity: 1; } }
+@keyframes f1kd-modal-backdrop-exit { to { opacity: 0; } }
+@keyframes f1kd-modal-enter { from { opacity: 0; transform: translateY(8px) scale(0.995); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes f1kd-modal-exit { to { opacity: 0; transform: translateY(8px) scale(0.995); } }
+@keyframes f1kd-drawer-enter { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes f1kd-drawer-exit { to { opacity: 0; transform: translateX(16px); } }
 
 .modal-backdrop > .modal,
 .modal-backdrop > .modal-content,

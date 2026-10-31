@@ -20,6 +20,10 @@ export async function getSummary() {
   return requestJson('/api/community/summary');
 }
 
+export async function getReferenceOptions() {
+  return requestJson('/api/community/reference-options');
+}
+
 export async function getGroupHealthWorkers(groupId) {
   return requestJson(`/api/community/groups/${encodeURIComponent(groupId)}/health-workers`);
 }

@@ -1,5 +1,6 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import usePresence from './usePresence';
 
 export default function FloatingLayer({
   open,
@@ -18,13 +19,14 @@ export default function FloatingLayer({
   const internalMenuRef = useRef(null);
   const dismissRef = useRef(onDismiss);
   const [position, setPosition] = useState(null);
+  const isPresent = usePresence(open, '--motion-popover-duration');
 
   useLayoutEffect(() => {
     dismissRef.current = onDismiss;
   }, [onDismiss]);
 
   useLayoutEffect(() => {
-    if (!open) {
+    if (!isPresent) {
       setPosition(null);
       return undefined;
     }
@@ -65,14 +67,19 @@ export default function FloatingLayer({
         width: matchAnchorWidth ? Math.min(bounds.width, maxWidth) : measuredWidth,
         maxWidth,
         maxHeight: Math.max(0, availableHeight),
+        originX: Math.max(0, Math.min(bounds.left + bounds.width / 2 - clampedLeft, measuredWidth)),
+        openAbove,
       });
     };
 
-    if (menuProps.role === 'menu') {
+    if (open && menuProps.role === 'menu') {
       internalMenuRef.current
         ?.querySelector('[role="menuitem"]:not([aria-disabled="true"]):not([disabled])')
         ?.focus({ preventScroll: true });
     }
+
+    updatePosition();
+    if (!open) return undefined;
 
     const handleOutsideClick = (event) => {
       if (anchorRef?.current?.contains(event.target) || internalMenuRef.current?.contains(event.target)) return;
@@ -104,15 +111,16 @@ export default function FloatingLayer({
       items[nextIndex]?.focus({ preventScroll: true });
     };
 
-    updatePosition();
     const resizeObserver = typeof ResizeObserver === 'undefined'
       ? null
       : new ResizeObserver(updatePosition);
     if (internalMenuRef.current) resizeObserver?.observe(internalMenuRef.current);
     window.addEventListener('resize', updatePosition);
     document.addEventListener('scroll', updatePosition, true);
-    document.addEventListener('mousedown', handleOutsideClick);
-    document.addEventListener('keydown', handleKeyDown);
+    if (open) {
+      document.addEventListener('mousedown', handleOutsideClick);
+      document.addEventListener('keydown', handleKeyDown);
+    }
     return () => {
       window.removeEventListener('resize', updatePosition);
       document.removeEventListener('scroll', updatePosition, true);
@@ -120,13 +128,14 @@ export default function FloatingLayer({
       document.removeEventListener('keydown', handleKeyDown);
       resizeObserver?.disconnect();
     };
-  }, [align, anchorRef, matchAnchorWidth, menuProps.role, offset, open]);
+  }, [align, anchorRef, isPresent, matchAnchorWidth, menuProps.role, offset, open]);
 
-  if (!open) return null;
+  if (!isPresent) return null;
 
   const classes = [
     'floating-layer',
     layer === 'modal' ? 'floating-layer--modal' : '',
+    !open ? 'floating-layer--closing' : '',
     className,
   ].filter(Boolean).join(' ');
 
@@ -138,6 +147,9 @@ export default function FloatingLayer({
         if (menuRef) menuRef.current = element;
       }}
       className={classes}
+      data-placement={position?.openAbove ? 'top' : 'bottom'}
+      aria-hidden={!open || undefined}
+      inert={!open}
       style={{
         ...customStyle,
         position: 'fixed',
@@ -150,6 +162,9 @@ export default function FloatingLayer({
         maxHeight: position?.maxHeight,
         overflowY: 'auto',
         visibility: position ? 'visible' : 'hidden',
+        transformOrigin: position
+          ? `${position.originX}px ${position.openAbove ? '100%' : '0%'}`
+          : undefined,
       }}
     >
       {children}

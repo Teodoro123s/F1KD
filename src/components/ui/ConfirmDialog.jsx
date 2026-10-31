@@ -2,6 +2,7 @@ import React, { useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import Button from './Button';
 import useModalAccessibility from './useModalAccessibility';
+import usePresence from './usePresence';
 
 export default function ConfirmDialog({
   open,
@@ -23,31 +24,33 @@ export default function ConfirmDialog({
   const descriptionId = useId();
   const dialogRef = useRef(null);
   const cancelButtonRef = useRef(null);
+  const isPresent = usePresence(open, '--motion-modal-duration');
   useModalAccessibility({
-    open,
+    open: isPresent,
     onClose: onCancel,
     dialogRef,
     initialFocusRef: cancelButtonRef,
-    closeDisabled: loading,
+    closeDisabled: loading || !open,
   });
 
-  if (!open) return null;
+  if (!isPresent) return null;
 
   const handleBackdropClick = (event) => {
-    if (event.target === event.currentTarget && !loading) onCancel?.();
+    if (open && event.target === event.currentTarget && !loading) onCancel?.();
   };
 
   return createPortal((
-    <div className="modal-backdrop confirm-dialog-backdrop" role="presentation" onMouseDown={handleBackdropClick}>
+    <div className={`modal-backdrop confirm-dialog-backdrop${!open ? ' motion-exiting' : ''}`} role="presentation" onMouseDown={handleBackdropClick}>
       <section
         ref={dialogRef}
-        className={`modal-content confirm-dialog confirm-dialog--${variant} ${className}`.trim()}
+        className={`modal-content confirm-dialog confirm-dialog--${variant}${!open ? ' motion-exiting' : ''} ${className}`.trim()}
         role="alertdialog"
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={descriptionId}
         tabIndex={-1}
         onMouseDown={(event) => event.stopPropagation()}
+        inert={!open}
       >
         <div className="confirm-dialog__header">
           <span className="confirm-dialog__icon" aria-hidden="true">

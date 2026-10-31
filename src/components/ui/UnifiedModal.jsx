@@ -1,6 +1,7 @@
 import React, { useId, useRef } from 'react';
 import Button from './Button';
 import useModalAccessibility from './useModalAccessibility';
+import usePresence from './usePresence';
 
 const sizeMap = {
   sm: 'view-modal--sm',
@@ -24,28 +25,35 @@ export default function UnifiedModal({
 }) {
   const titleId = useId();
   const dialogRef = useRef(null);
-  useModalAccessibility({ open: isOpen, onClose, dialogRef, closeDisabled });
+  const isPresent = usePresence(isOpen, '--motion-modal-duration');
+  useModalAccessibility({
+    open: isPresent,
+    onClose,
+    dialogRef,
+    closeDisabled: closeDisabled || !isOpen,
+  });
 
-  if (!isOpen) return null;
+  if (!isPresent) return null;
 
   const closeFromBackdrop = (event) => {
-    if (event.target === event.currentTarget) onClose?.();
+    if (isOpen && event.target === event.currentTarget) onClose?.();
   };
 
   return (
     <div
-      className={`view-modal-backdrop ${backdropClassName}`.trim()}
+      className={`view-modal-backdrop${!isOpen ? ' motion-exiting' : ''} ${backdropClassName}`.trim()}
       role="presentation"
       onMouseDown={closeFromBackdrop}
     >
       <div
         ref={dialogRef}
-        className={`view-modal ${sizeMap[size] || sizeMap.md} ${className}`.trim()}
+        className={`view-modal ${sizeMap[size] || sizeMap.md}${!isOpen ? ' motion-exiting' : ''} ${className}`.trim()}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
         onMouseDown={(event) => event.stopPropagation()}
+        inert={!isOpen}
       >
         <div className="view-modal__header">
           <h2 id={titleId} className="view-modal__title">{title}</h2>

@@ -8,14 +8,48 @@
   background: var(--color-surface);
   box-shadow: var(--shadow-md);
   overscroll-behavior: contain;
-  animation: floating-layer-enter var(--transition-base) both;
+  animation: floating-layer-enter var(--motion-popover-duration) var(--motion-ease-out) both;
 }
 
 .floating-layer--modal {
   z-index: var(--z-dropdown-in-modal);
 }
 
+.floating-layer--closing {
+  pointer-events: none;
+  animation: floating-layer-exit var(--motion-popover-duration) var(--motion-ease-in) both;
+}
+
+.floating-layer[data-placement='top'] {
+  transform-origin: bottom center;
+}
+
+.floating-layer[data-placement='bottom'] {
+  transform-origin: top center;
+}
+
+.floating-layer[data-placement='top'] {
+  animation-name: floating-layer-enter-up;
+}
+
 @keyframes floating-layer-enter {
-  from { opacity: 0; transform: translateY(-4px) scale(0.99); }
+  from { opacity: 0; transform: translateY(-4px) scale(0.995); }
   to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes floating-layer-enter-up {
+  from { opacity: 0; transform: translateY(4px) scale(0.995); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes floating-layer-exit {
+  to { opacity: 0; transform: translateY(-4px) scale(0.995); }
+}
+
+[data-placement='top'].floating-layer--closing {
+  animation-name: floating-layer-exit-up;
+}
+
+@keyframes floating-layer-exit-up {
+  to { opacity: 0; transform: translateY(4px) scale(0.995); }
 }

@@ -12,6 +12,8 @@
   z-index: var(--z-dropdown);
   color: #111;
   max-width: min(300px, calc(100vw - 2rem));
+  animation: f1kd-popover-enter var(--motion-popover-duration) var(--motion-ease-out) both;
+  transform-origin: top right;
 }
 .dropdown-header { padding: 0.6rem 0.8rem; font-weight: 700; font-size: 0.8rem; color: #475569; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid rgba(0,0,0,0.04); }
 .dropdown-item { display: flex; min-height: var(--control-height-md, 2.5rem); align-items: center; padding: 0.55rem 0.75rem; cursor: pointer; color: var(--color-text-secondary, #334155); font-size: var(--font-size-sm, 0.8125rem); }

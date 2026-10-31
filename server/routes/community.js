@@ -179,6 +179,93 @@ const effectiveGroupBatchRelation = `(
   WHERE m.group_id IS NOT NULL AND m.batch_id IS NOT NULL
 )`;
 
+router.get('/reference-options', async (req, res) => {
+  try {
+    const schoolWhere = req.schoolId ? 'WHERE c.id = ?' : '';
+    const groupWhere = req.groupId
+      ? 'WHERE g.id = ?'
+      : req.schoolId ? 'WHERE g.community_id = ?' : '';
+    const batchWhere = req.groupId
+      ? `WHERE EXISTS (
+          SELECT 1 FROM ${effectiveGroupBatchRelation} scoped
+          WHERE scoped.batch_id = b.id AND scoped.group_id = ?
+        )`
+      : req.schoolId ? 'WHERE b.community_id = ?' : '';
+    const scopeValue = req.groupId || req.schoolId;
+
+    const [[schoolRows], [groupRows], [batchRows]] = await Promise.all([
+      pool.query(
+        `SELECT c.id, c.name, COALESCE(c.area, '') AS area, c.coordinator_id,
+          CONCAT_WS(' ', u.first_name, u.last_name) AS coordinator_name
+         FROM communities c
+         LEFT JOIN users u ON u.id = c.coordinator_id
+         ${schoolWhere}
+         ORDER BY c.name, c.id`,
+        req.schoolId ? [req.schoolId] : [],
+      ),
+      pool.query(
+        `SELECT g.id, g.community_id, g.name, c.name AS community,
+          COALESCE(g.leader, '') AS leader, COALESCE(g.members_count, 0) AS members,
+          COALESCE(g.status, 'Active') AS status
+         FROM groups g
+         LEFT JOIN communities c ON c.id = g.community_id
+         ${groupWhere}
+         ORDER BY g.name, g.id`,
+        scopeValue ? [scopeValue] : [],
+      ),
+      pool.query(
+        `SELECT b.id, b.batch_code, b.name, c.name AS community,
+          COALESCE(b.records, 0) AS records, COALESCE(b.status, 'Active') AS status,
+          GROUP_CONCAT(DISTINCT gb.group_id ORDER BY gb.group_id) AS group_ids,
+          GROUP_CONCAT(DISTINCT g.name ORDER BY g.name) AS group_names
+         FROM batches b
+         LEFT JOIN communities c ON c.id = b.community_id
+         LEFT JOIN ${effectiveGroupBatchRelation} gb ON gb.batch_id = b.id
+         LEFT JOIN groups g ON g.id = gb.group_id
+         ${batchWhere}
+         GROUP BY b.id, b.batch_code, b.name, c.name, b.records, b.status
+         ORDER BY b.name, b.id`,
+        scopeValue ? [scopeValue] : [],
+      ),
+    ]);
+
+    res.json({
+      communities: schoolRows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        area: row.area || '',
+        coordinatorId: row.coordinator_id || '',
+        coordinatorName: row.coordinator_name || '',
+      })),
+      groups: groupRows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        communityId: row.community_id,
+        community_id: row.community_id,
+        community: row.community || '',
+        leader: row.leader || '',
+        members: Number(row.members || 0),
+        status: row.status || 'Active',
+      })),
+      batches: batchRows.map((row) => ({
+        id: row.batch_code || String(row.id),
+        databaseId: row.id,
+        code: row.batch_code || String(row.id),
+        name: row.name,
+        community: row.community || '',
+        records: Number(row.records || 0),
+        status: row.status || 'Active',
+        groupIds: row.group_ids || '',
+        groupNames: row.group_names || '',
+      })),
+    });
+  } catch (error) {
+    console.error('[Community API] Reference options error:', error.stack || error.message);
+    if (res.headersSent) return;
+    res.status(500).json({ error: 'Unable to load creation options' });
+  }
+});
+
 router.get('/summary', async (req, res) => {
   try {
     console.info('[Community API] Fetching community summary from database (compatible mode)...');

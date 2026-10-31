@@ -29,7 +29,7 @@
   line-height: 1.2;
   cursor: pointer;
   text-decoration: none;
-  transition: background-color var(--transition-base), border-color var(--transition-base), color var(--transition-base), box-shadow var(--transition-base), opacity var(--transition-base);
+  transition: background-color var(--transition-base), border-color var(--transition-base), color var(--transition-base), box-shadow var(--transition-base), opacity var(--transition-base), transform var(--transition-fast);
 }
 
 .btn-secondary,
@@ -46,6 +46,7 @@
   border-color: #94a3b8;
   background: var(--color-surface-soft);
   color: var(--color-text);
+  transform: translateY(-1px);
 }
 
 .btn-primary,
@@ -61,6 +62,7 @@
 .view-btn--primary:hover:not(:disabled) {
   border-color: var(--color-brand-hover);
   background: var(--color-brand-hover);
+  transform: translateY(-1px);
 }
 
 .btn-danger {
@@ -73,6 +75,7 @@
   border-color: var(--color-error-hover);
   background: var(--color-error-hover);
   box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
 }
 
 .btn-ghost {
@@ -84,6 +87,7 @@
 .btn-ghost:hover:not(:disabled) {
   background: var(--color-surface-muted);
   color: var(--color-text);
+  transform: translateY(-1px);
 }
 
 .btn-icon {
@@ -121,7 +125,7 @@
 .btn-danger:active:not(:disabled),
 .btn-create-action:active:not(:disabled),
 .view-btn:active:not(:disabled) {
-  transform: translateY(1px);
+  transform: scale(0.98);
 }
 
 .btn-primary:focus-visible,
