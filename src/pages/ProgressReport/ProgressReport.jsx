@@ -495,7 +495,6 @@ export default function ProgressReport() {
             if (selectedSchool && row.school !== selectedSchool) return false;
             if (selectedGroup && row.group !== selectedGroup) return false;
             if (selectedBatch && String(row.batchId || row.batch || '') !== String(selectedBatch)) return false;
-            if (selectedBatch && String(row.batchId || row.batch || '') !== String(selectedBatch)) return false;
             if (historyView === 'individual') {
               const beneficiaryId = String(row.childId || row.motherId || row.child || row.mother || '');
               if (beneficiaryId !== String(selectedBeneficiary)) return false;

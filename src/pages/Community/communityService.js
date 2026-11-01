@@ -72,6 +72,14 @@ export async function updateBatch(id, payload) {
   });
 }
 
+export async function transferMotherToBatch(motherId, batchId) {
+  return requestJson(`/api/community/mothers/${encodeURIComponent(motherId)}/batch`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ batchId }),
+  });
+}
+
 export async function deleteBatch(id) {
   return requestJson(`/api/community/batches/${id}`, { method: 'DELETE' });
 }

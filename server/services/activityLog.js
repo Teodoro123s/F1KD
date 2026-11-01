@@ -7,7 +7,7 @@ async function recordActivity({
   entityType = null,
   entityId = null,
   description,
-}, database = pool) {
+}, database = pool, { throwOnError = false } = {}) {
   const actorName = String(actor?.name || actor?.full_name || actor?.email || 'Unknown user').trim();
 
   try {
@@ -29,6 +29,7 @@ async function recordActivity({
     );
   } catch (error) {
     console.error('[Activity Log] Unable to record activity:', error.message);
+    if (throwOnError) throw error;
   }
 }
 

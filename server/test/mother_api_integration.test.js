@@ -30,6 +30,9 @@ test('mother registration saves initial monitoring measurements as a completed c
   let updateValues = null;
   let obHistoryInsertValues = null;
   pool.query = async (sql, params = []) => {
+    if (sql.includes('FROM communities c') && sql.includes('JOIN groups g') && sql.includes('JOIN batches batch')) {
+      return [[{ id: params[2] }]];
+    }
     if (sql.startsWith('INSERT INTO mothers')) {
       insertValues = params;
       mother = {

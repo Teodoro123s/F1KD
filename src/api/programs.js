@@ -11,12 +11,15 @@ async function requestJson(url, options = {}) {
   return readApiResponse(response, 'Unable to complete program request');
 }
 
-export const apiGetPrograms = () => requestJson(`${API_BASE}/api/programs`);
+export const apiGetPrograms = ({ archived = false } = {}) => requestJson(`${API_BASE}/api/programs${archived ? '?archived=true' : ''}`);
 export const apiCreateProgram = (payload) => requestJson(`${API_BASE}/api/programs`, { method: 'POST', body: JSON.stringify(payload) });
 export const apiUpdateProgram = (id, payload) => requestJson(`${API_BASE}/api/programs/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(payload) });
 export const apiEndProgram = (id) => requestJson(`${API_BASE}/api/programs/${encodeURIComponent(id)}/end`, { method: 'PATCH' });
 export const apiRestoreProgram = (id) => requestJson(`${API_BASE}/api/programs/${encodeURIComponent(id)}/restore`, { method: 'PATCH' });
 export const apiDeleteProgram = (id) => requestJson(`${API_BASE}/api/programs/${encodeURIComponent(id)}`, { method: 'DELETE' });
+export const apiArchiveProgram = (id, reason = '') => requestJson(`${API_BASE}/api/programs/${encodeURIComponent(id)}/archive`, { method: 'POST', body: JSON.stringify({ reason }) });
+export const apiGetProgramArchiveImpact = (id) => requestJson(`${API_BASE}/api/programs/${encodeURIComponent(id)}/archive-impact`);
+export const apiRestoreArchivedProgram = (id) => requestJson(`${API_BASE}/api/programs/${encodeURIComponent(id)}/archive/restore`, { method: 'POST', body: JSON.stringify({}) });
 export const apiCreateProgramClusters = (id, scopes) => requestJson(`${API_BASE}/api/programs/${encodeURIComponent(id)}/clusters`, { method: 'POST', body: JSON.stringify({ scopes }) });
 export const apiCompleteProgramCluster = (programId, clusterId) => requestJson(`${API_BASE}/api/programs/${encodeURIComponent(programId)}/clusters/${encodeURIComponent(clusterId)}/complete`, { method: 'PATCH' });
 export const apiCompleteNamedProgramCluster = (programId, cluster) => requestJson(`${API_BASE}/api/programs/${encodeURIComponent(programId)}/clusters/complete`, { method: 'PATCH', body: JSON.stringify({ type: cluster.type, name: cluster.name, beneficiaries: cluster.beneficiaries }) });

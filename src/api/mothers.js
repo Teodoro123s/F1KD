@@ -1,18 +1,29 @@
 import { authHeader, fetchWithAuth, getApiBaseUrl, resolveAssetUrl } from './authHeader';
+import { fetchAllPages } from './fetchAllPages.mjs';
 import { readApiResponse } from './readApiResponse.mjs';
 
 const API_BASE = getApiBaseUrl();
 
-export async function apiGetMothers(fields = []) {
-  const params = new URLSearchParams();
-  if (Array.isArray(fields) && fields.length) {
-    params.set('fields', fields.join(','));
-  }
-  const queryString = params.toString() ? `?${params.toString()}` : '';
-  const res = await fetchWithAuth(`${API_BASE}/api/mothers${queryString}`, {
-    headers: { 'Content-Type': 'application/json' },
-  });
-  return readApiResponse(res, 'Unable to load mothers');
+export async function apiGetMothers(fields = [], options = {}) {
+  const requestPage = async (pageOptions) => {
+    const params = new URLSearchParams();
+    if (Array.isArray(fields) && fields.length) {
+      params.set('fields', fields.join(','));
+    }
+    for (const [key, value] of Object.entries(pageOptions)) {
+      if (value !== undefined && value !== null && value !== '') {
+        params.set(key, String(value));
+      }
+    }
+    const queryString = params.toString() ? `?${params.toString()}` : '';
+    const res = await fetchWithAuth(`${API_BASE}/api/mothers${queryString}`, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return readApiResponse(res, 'Unable to load mothers');
+  };
+
+  if (options.page !== undefined) return requestPage(options);
+  return fetchAllPages(requestPage, 'mothers', options);
 }
 
 export async function apiUpdateMother(motherId, payload) {

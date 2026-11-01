@@ -34,7 +34,6 @@ export default function BeneficiaryListPage({ communities = [], groups = [], bat
   const [selectedSummaryCard, setSelectedSummaryCard] = useState(null);
   const [childRows, setChildRows] = useState([]);
   const [childrenLoading, setChildrenLoading] = useState(false);
-
   useEffect(() => {
     let active = true;
 

@@ -1,8 +1,8 @@
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useMothers } from '../../../context/MothersContext';
 import { formatDateForDisplay } from '../../../utils/formatting/dateFormat';
-import { apiDeleteChild, apiDeleteChildBirthDocument, apiGetChild, apiUploadChildBirthDocument } from '../../../api/children';
+import { apiDeleteChildBirthDocument, apiGetChild, apiUploadChildBirthDocument } from '../../../api/children';
 import { DocumentPreview, DocumentPreviewModal } from '../../../components/DocumentPreview';
 import { useAuth } from '../../../auth/AuthProvider';
 import { can } from '../../../utils/permissions';
@@ -11,8 +11,6 @@ import { normalizeFirstName } from '../../../utils/validation/firstNameValidatio
 import { splitChildBirthPlace } from '../../../utils/beneficiary/childBirthPlace';
 import { ChildFormFields } from './BeneficiaryChild';
 import PageHeader from '../../../components/ui/PageHeader';
-import ConfirmDialog from '../../../components/ui/ConfirmDialog';
-import { notifyAction } from '../../../components/ActionFeedback';
 import MonitorReportCard from '../MonitorReportCard';
 import { navigateBack } from '../../../utils/navigation/navigation';
 import ChildNavigationCards from './ChildNavigationCards';
@@ -168,36 +166,7 @@ export default function ChildProfilePage() {
   const [selectedChild, setSelectedChild] = useState(initialSelected);
   const [previewDocument, setPreviewDocument] = useState(null);
   const [profileTab, setProfileTab] = useState('general');
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deleteError, setDeleteError] = useState('');
   const isChildProfile = location.pathname.endsWith('/profile');
-
-  const requestDeleteChild = () => {
-    if (!canDelete || !selectedChild?.id || isDeleting) return;
-    setDeleteError('');
-    setShowDeleteConfirm(true);
-  };
-
-  const cancelDelete = useCallback(() => {
-    if (isDeleting) return;
-    setShowDeleteConfirm(false);
-    setDeleteError('');
-  }, [isDeleting]);
-
-  const deleteChild = async () => {
-    if (!canDelete || !selectedChild?.id || isDeleting) return;
-    setIsDeleting(true);
-    try {
-      await apiDeleteChild(selectedChild.id);
-      setShowDeleteConfirm(false);
-      notifyAction(`${childName || 'Child'} deleted successfully.`);
-      navigateBack(navigate, location, '/beneficiary');
-    } catch (error) {
-      setDeleteError(error.message || 'Unable to delete child.');
-    }
-    setIsDeleting(false);
-  };
 
   React.useEffect(() => {
     if (location.state?.updatedChild) {
@@ -351,17 +320,6 @@ export default function ChildProfilePage() {
                 Edit
               </button>
             )}
-            {canDelete && (
-              <button
-                type="button"
-                className="btn-danger child-profile-action-button child-profile-action-button--delete"
-                onClick={requestDeleteChild}
-                disabled={isDeleting || !selectedChild?.id}
-                aria-label={`Delete ${childName || 'child'} profile`}
-              >
-                {isDeleting ? 'Deleting...' : 'Delete'}
-              </button>
-            )}
             <button
               type="button"
               className="btn-secondary back-action child-profile-action-button child-profile-action-button--back"
@@ -371,18 +329,6 @@ export default function ChildProfilePage() {
             </button>
           </div>
         )}
-      />
-
-      <ConfirmDialog
-        open={showDeleteConfirm}
-        title="Delete child profile?"
-        description={`Delete ${childName || 'this child'} and all of their beneficiary data? This cannot be undone.`}
-        confirmLabel="Delete child"
-        loadingLabel="Deleting child…"
-        loading={isDeleting}
-        error={deleteError}
-        onConfirm={deleteChild}
-        onCancel={cancelDelete}
       />
 
       <ChildNavigationCards

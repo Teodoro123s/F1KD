@@ -76,6 +76,7 @@ test('password reset emails a one-time code and consumes it after password chang
         savedPasswordHash = params[0];
         return [{ affectedRows: 1 }];
       }
+      if (sql.startsWith('UPDATE auth_sessions s')) return [{ affectedRows: 1 }];
       if (sql.startsWith('DELETE FROM password_reset_codes')) {
         resetRecord = null;
         return [{ affectedRows: 1 }];

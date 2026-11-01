@@ -32,10 +32,18 @@ const { verifyToken } = require('../middleware/auth');
 const { authorizeOperational } = require('../middleware/authorize');
 const communityRouter = require('../routes/community');
 
+const pngSignature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const pngBytes = (size = pngSignature.length) => {
+  const buffer = Buffer.alloc(size);
+  pngSignature.copy(buffer);
+  return buffer;
+};
+
 test('batch evidence has bounded uploads and organizers can remove individual photos', async (t) => {
   await pool.ready;
   const originalQuery = pool.query;
   const originalGetConnection = pool.getConnection;
+  const testSessions = new Map();
   let batchAccessible = true;
   let documentationSetId = 41;
   let documentationSetExists = false;
@@ -43,7 +51,18 @@ test('batch evidence has bounded uploads and organizers can remove individual ph
   const transactionQueries = [];
 
   pool.query = async (sql, params = []) => {
-    if (sql.includes('FROM batches b WHERE')) {
+    if (sql.includes('FROM auth_sessions s')) {
+      const session = testSessions.get(String(params[0]));
+      return [session ? [{
+        user_id: 7,
+        role: session.role,
+        status: 'Active',
+        school_id: session.school_id,
+        group_id: session.group_id,
+        consent_accepted_at: new Date(),
+      }] : []];
+    }
+    if (sql.includes('FROM batches b JOIN communities c ON c.id = b.community_id')) {
       return [batchAccessible ? [{ id: 5 }] : []];
     }
     if (sql.includes('FROM batch_documentation_sets s')) {
@@ -120,11 +139,15 @@ test('batch evidence has bounded uploads and organizers can remove individual ph
   await new Promise((resolve) => server.once('listening', resolve));
 
   const baseUrl = `http://127.0.0.1:${server.address().port}/api/community/batches/5/documentations`;
-  const tokenFor = (role) => jwt.sign({
-    id: 7,
-    role,
-    ...(role === 'Community Organizer' || role === 'Health Worker' ? { school_id: 91 } : {}),
-  }, process.env.JWT_SECRET);
+  const tokenFor = (role) => {
+    const sid = `batch-documentation-${role}`;
+    testSessions.set(sid, {
+      role,
+      school_id: role === 'Community Organizer' || role === 'Health Worker' ? 91 : null,
+      group_id: role === 'Health Worker' ? 5 : null,
+    });
+    return jwt.sign({ id: 7, sid }, process.env.JWT_SECRET);
+  };
   const headersFor = (role) => ({ Authorization: `Bearer ${tokenFor(role)}` });
 
   for (const role of ['Community Organizer', 'Partner', 'Admin', 'Health Worker']) {
@@ -160,7 +183,7 @@ test('batch evidence has bounded uploads and organizers can remove individual ph
   const twoPhotos = new FormData();
   twoPhotos.append('evidenceDate', '2026-10-23');
   for (let index = 0; index < 2; index += 1) {
-    twoPhotos.append('images', new Blob(['test image bytes'], { type: 'image/png' }), `photo-${index}.png`);
+    twoPhotos.append('images', new Blob([pngBytes()], { type: 'image/png' }), `photo-${index}.png`);
   }
   const tooFewResponse = await fetch(baseUrl, { method: 'POST', headers: organizerHeaders, body: twoPhotos });
   assert.equal(tooFewResponse.status, 400);
@@ -169,7 +192,7 @@ test('batch evidence has bounded uploads and organizers can remove individual ph
   const invalidDate = new FormData();
   invalidDate.append('evidenceDate', '2026-02-31');
   for (let index = 0; index < 3; index += 1) {
-    invalidDate.append('images', new Blob(['test image bytes'], { type: 'image/png' }), `invalid-${index}.png`);
+    invalidDate.append('images', new Blob([pngBytes()], { type: 'image/png' }), `invalid-${index}.png`);
   }
   const invalidDateResponse = await fetch(baseUrl, { method: 'POST', headers: organizerHeaders, body: invalidDate });
   assert.equal(invalidDateResponse.status, 400);
@@ -179,7 +202,7 @@ test('batch evidence has bounded uploads and organizers can remove individual ph
   oversizedPhoto.append('evidenceDate', '2026-10-23');
   oversizedPhoto.append(
     'images',
-    new Blob([new Uint8Array(5 * 1024 * 1024 + 1)], { type: 'image/png' }),
+    new Blob([pngBytes(5 * 1024 * 1024 + 1)], { type: 'image/png' }),
     'oversized.png',
   );
   const oversizedResponse = await fetch(baseUrl, {
@@ -195,7 +218,7 @@ test('batch evidence has bounded uploads and organizers can remove individual ph
   for (let index = 0; index < 6; index += 1) {
     oversizedSet.append(
       'images',
-      new Blob([new Uint8Array(5 * 1024 * 1024)], { type: 'image/png' }),
+      new Blob([pngBytes(5 * 1024 * 1024)], { type: 'image/png' }),
       `large-${index}.png`,
     );
   }
@@ -210,7 +233,7 @@ test('batch evidence has bounded uploads and organizers can remove individual ph
   const evidencePhotos = new FormData();
   evidencePhotos.append('evidenceDate', '2026-10-23');
   for (let index = 0; index < 3; index += 1) {
-    evidencePhotos.append('images', new Blob([`test image ${index}`], { type: 'image/png' }), `evidence-${index}.png`);
+    evidencePhotos.append('images', new Blob([pngBytes()], { type: 'image/png' }), `evidence-${index}.png`);
   }
   const uploadResponse = await fetch(baseUrl, {
     method: 'POST',

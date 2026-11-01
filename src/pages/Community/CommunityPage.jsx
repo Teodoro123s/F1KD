@@ -14,14 +14,11 @@ import { useAuth } from '../../auth/AuthProvider';
 import { can, hasRole, isCommunityCoordinatorRole, isHealthWorkerRole, isSchoolScopedRole, ROLES } from '../../utils/permissions';
 import { getMotherProfileProgress } from '../../utils/beneficiary/motherProgress';
 import { getChildProfileProgress } from '../../utils/beneficiary/childProgress';
-import { apiDeleteMother } from '../../api/mothers';
-import { apiDeleteChild } from '../../api/children';
 import { apiGetChildren } from '../../api/children';
+import { apiArchiveRecord, apiGetArchiveImpact } from '../../api/archives';
 import { notifyAction } from '../../components/ActionFeedback';
 import FloatingLayer from '../../components/ui/FloatingLayer';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
-import { getGroupDeleteImpact } from './communityService';
-import { getGroupDeletionDescription, getGroupDeletionSummary } from './groupDeletionCopy';
 
 const defaultCommunityForm = { name: '', area: 'Poblacion', coordinator: '' };
 const defaultGroupForm = { name: '', community: '', assignedBatchIds: [], leader: '', members: 1, status: 'Active' };
@@ -72,7 +69,9 @@ export default function CommunityPage() {
   const activeDropdownAnchorRef = useRef(null);
   const [showModal, setShowModal] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [transferBatchId, setTransferBatchId] = useState('');
   const [pendingDelete, setPendingDelete] = useState(null);
+  const [archiveReason, setArchiveReason] = useState('');
   const [deleteImpactLoading, setDeleteImpactLoading] = useState(false);
   const [deleteImpactError, setDeleteImpactError] = useState('');
   const [deleteError, setDeleteError] = useState('');
@@ -83,6 +82,8 @@ export default function CommunityPage() {
   const [batchForm, setBatchForm] = useState(defaultBatchForm);
   const [showChildMotherColumn, setShowChildMotherColumn] = useState(true);
   const [showChildBatchColumn, setShowChildBatchColumn] = useState(true);
+  const [childColumnMenuOpen, setChildColumnMenuOpen] = useState(false);
+  const childColumnMenuTriggerRef = useRef(null);
   const [selectedBatchCard, setSelectedBatchCard] = useState('Mother');
   const [batchDocumentationCount, setBatchDocumentationCount] = useState(0);
   const [batchDocumentationLoading, setBatchDocumentationLoading] = useState(false);
@@ -443,29 +444,29 @@ export default function CommunityPage() {
   const currentRows = tableData.slice(startIndex, startIndex + perPage);
 
   const tableTitle = useMemo(() => {
-    if (schoolOverviewSelection === 'groups') return `Groups: ${selectedSchool?.name || 'All schools'}`;
-    if (schoolOverviewSelection === 'mothers') return `Mothers: ${selectedSchool?.name || 'All schools'}`;
-    if (schoolOverviewSelection === 'children') return `Children: ${selectedSchool?.name || 'All schools'}`;
-    if (schoolOverviewSelection === 'batches') return `Batches: ${selectedGroup?.name || selectedSchool?.name || 'All schools'}`;
+    if (schoolOverviewSelection === 'groups') return 'Groups';
+    if (schoolOverviewSelection === 'mothers') return 'Mothers';
+    if (schoolOverviewSelection === 'children') return 'Children';
+    if (schoolOverviewSelection === 'batches') return 'Batches';
 
     if (activeTab === 'communities') {
       return 'Schools';
     }
 
     if (activeTab === 'groups') {
-      return selectedSchool?.name ? `School: ${selectedSchool.name}` : 'School';
+      return 'Groups';
     }
 
     if (activeTab === 'batches') {
-      return selectedGroup?.name ? `Group: ${selectedGroup.name}` : 'Group';
+      return 'Batches';
     }
 
     if (activeTab === 'mothers') {
-      return selectedBatch?.name ? `Batch: ${selectedBatch.name}` : 'Batch';
+      return 'Mothers';
     }
 
     return '';
-  }, [activeTab, schoolOverviewSelection, selectedBatch, selectedGroup, selectedSchool]);
+  }, [activeTab, schoolOverviewSelection]);
 
   const breadcrumbItems = useMemo(() => {
     if (isHealthWorker || isAssignedCommunityOrganizer) {
@@ -729,22 +730,42 @@ export default function CommunityPage() {
     setSelectedItem(null);
   };
 
+  const openTransferMother = (mother) => {
+    setSelectedItem(mother);
+    setTransferBatchId('');
+    setShowModal('transferMother');
+  };
+
+  const handleTransferMother = async (event) => {
+    event.preventDefault();
+    if (!selectedItem || !transferBatchId) return;
+    try {
+      await mutations.transferMotherToBatch(selectedItem.id, Number(transferBatchId));
+    } catch {
+      return;
+    }
+    setShowModal(null);
+    setSelectedItem(null);
+    setTransferBatchId('');
+  };
+
   const requestDelete = async (type, item) => {
     const requestId = ++deleteImpactRequestRef.current;
-    setPendingDelete({ type, item, impact: null });
+    const archiveType = type === 'community' ? 'school' : type;
+    setPendingDelete({ type, archiveType, item, impact: null });
+    setArchiveReason('');
     setDeleteImpactError('');
     setDeleteError('');
-    if (type !== 'group') return;
 
     setDeleteImpactLoading(true);
     try {
-      const { group: impact } = await getGroupDeleteImpact(item.id);
+      const impact = await apiGetArchiveImpact(archiveType, item.id);
       if (deleteImpactRequestRef.current === requestId) {
         setPendingDelete((current) => current?.item.id === item.id ? { ...current, impact } : current);
       }
     } catch (error) {
       if (deleteImpactRequestRef.current === requestId) {
-        setDeleteImpactError(error?.message || 'Unable to load the records affected by deleting this group.');
+        setDeleteImpactError(error?.message || 'Unable to load related records before archiving.');
       }
     } finally {
       if (deleteImpactRequestRef.current === requestId) setDeleteImpactLoading(false);
@@ -754,6 +775,7 @@ export default function CommunityPage() {
   const cancelDelete = () => {
     deleteImpactRequestRef.current += 1;
     setPendingDelete(null);
+    setArchiveReason('');
     setDeleteImpactLoading(false);
     setDeleteImpactError('');
     setDeleteError('');
@@ -765,19 +787,13 @@ export default function CommunityPage() {
     setDeleteSubmitting(true);
     setDeleteError('');
     try {
-      if (type === 'community') await mutations.deleteCommunity(item.id);
-      else if (type === 'group') await mutations.deleteGroup(item.id);
-      else if (type === 'batch') await mutations.deleteBatch(item.id);
-      else {
-        if (type === 'child') await apiDeleteChild(item.id);
-        else await apiDeleteMother(item.id);
-        await refreshData();
-        notifyAction(type === 'child' ? 'Child and related health records deleted successfully.' : 'Mother and associated child records deleted successfully.');
-      }
+      await apiArchiveRecord(pendingDelete.archiveType, item.id, archiveReason);
+      await refreshData();
+      notifyAction(`${type === 'community' ? 'School' : type} archived. Historical records were retained.`);
       cancelDelete();
     } catch (error) {
-      console.error(`[CommunityPage] Unable to delete ${type}:`, error);
-      const message = error?.message || `Unable to delete ${type}.`;
+      console.error(`[CommunityPage] Unable to archive ${type}:`, error);
+      const message = error?.message || `Unable to archive ${type}.`;
       setDeleteError(message);
       if (type === 'mother') notifyAction(message, 'error');
     } finally {
@@ -787,18 +803,14 @@ export default function CommunityPage() {
 
   const getPendingDeleteDescription = () => {
     if (!pendingDelete) return '';
-    const { type, item, impact } = pendingDelete;
-    if (type === 'group') return getGroupDeletionDescription(item, impact);
-    if (type === 'community') {
-      return `Delete the School "${item.name}"? This also deletes its Groups, Batches, beneficiaries, and associated health histories. This action cannot be undone.`;
-    }
-    if (type === 'batch') {
-      return `Permanently delete the Batch "${item.name}" and all mothers and children assigned to it, including their check-ups and health records? This action cannot be undone.`;
+    const { type, item } = pendingDelete;
+    if (type === 'mother') {
+      return `Archive only "${item.name}"? The batch stays active. Her children and health history are retained; children may remain unavailable for active operations until this mother is restored.`;
     }
     if (type === 'child') {
-      return `Delete the Child record for "${item.name}"? This permanently removes the Child and associated health histories. This action cannot be undone.`;
+      return `Archive only "${item.name}"? The mother and batch stay active. This child's health history is retained.`;
     }
-    return `Delete the Mother "${item.name}"? This permanently removes her record, associated Child records, and their related health histories. This action cannot be undone.`;
+    return `Archive the ${type === 'community' ? 'school' : type} "${item.name}"? This retains historical records and removes it from normal active operations. Descendant records will not be archived automatically.`;
   };
 
   const handleMotherRowClick = (mother) => {
@@ -864,26 +876,50 @@ export default function CommunityPage() {
                     Edit
                   </button>
                 )}
-                <button
-                  type="button"
-                  className="actions-dropdown-item delete"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setActiveDropdownId(null);
-                    if (activeTab === 'mothers') {
+                {activeTab === 'mothers' && entityFilter !== 'Child' && (
+                  <button
+                    type="button"
+                    className="actions-dropdown-item"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setActiveDropdownId(null);
+                      openTransferMother(row);
+                    }}
+                    role="menuitem"
+                  >
+                    Transfer to batch
+                  </button>
+                )}
+                {activeTab === 'mothers' && ['Mother', 'Child'].includes(entityFilter) && (
+                  <button
+                    type="button"
+                    className="actions-dropdown-item"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setActiveDropdownId(null);
                       requestDelete(entityFilter === 'Child' ? 'child' : 'mother', row);
-                    } else if (activeTab === 'communities') {
-                      requestDelete('community', row);
-                    } else if (activeTab === 'groups') {
-                      requestDelete('group', row);
-                    } else {
-                      requestDelete('batch', row);
-                    }
-                  }}
-                  role="menuitem"
-                >
-                  Delete
-                </button>
+                    }}
+                    role="menuitem"
+                  >
+                    Archive {entityFilter}
+                  </button>
+                )}
+                {((activeTab === 'communities' && canManageSchools)
+                  || (['groups', 'batches'].includes(activeTab) && canManage)) && (
+                  <button
+                    type="button"
+                    className="actions-dropdown-item"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setActiveDropdownId(null);
+                      if (activeTab === 'communities') requestDelete('community', row);
+                      else requestDelete(activeTab === 'groups' ? 'group' : 'batch', row);
+                    }}
+                    role="menuitem"
+                  >
+                    Archive
+                  </button>
+                )}
               </FloatingLayer>
             )}
           </>
@@ -929,7 +965,7 @@ export default function CommunityPage() {
       { key: 'records', header: 'Total Mothers', cellClassName: 'compact-column', renderCell: (row) => row.records },
       { key: 'progress', header: 'Progress (%)', cellClassName: 'status-column', renderCell: (row) => `${row.progress ?? 0}%` },
     ]);
-  }, [activeDropdownId, activeTab, canManage, canManageSchools, entityFilter, groups, navigate, openEditModal, requestDelete]);
+  }, [activeDropdownId, activeTab, canManage, canManageSchools, entityFilter, groups, navigate, openEditModal, openTransferMother, requestDelete]);
 
   const overviewColumns = useMemo(() => {
     if (schoolOverviewSelection === 'groups') {
@@ -941,9 +977,56 @@ export default function CommunityPage() {
       ];
     }
     if (schoolOverviewSelection === 'mothers') {
+      const motherTransferActions = canManage ? {
+        key: 'actions',
+        header: 'Actions',
+        thClassName: 'actions-cell',
+        cellClassName: 'actions-cell',
+        renderCell: (row) => (
+          <>
+            <button
+              type="button"
+              className="btn-actions"
+              ref={activeDropdownId === row.id ? activeDropdownAnchorRef : undefined}
+              onClick={(event) => {
+                event.stopPropagation();
+                toggleDropdown(event, row.id);
+              }}
+              aria-label={`Actions for ${row.name}`}
+              aria-haspopup="true"
+              aria-expanded={activeDropdownId === row.id}
+            >
+              <MoreVerticalIcon />
+            </button>
+            {activeDropdownId === row.id && (
+              <FloatingLayer
+                open
+                anchorRef={activeDropdownAnchorRef}
+                onDismiss={() => setActiveDropdownId(null)}
+                className="actions-dropdown actions-dropdown-portal community-actions-dropdown"
+                role="menu"
+              >
+                <button
+                  type="button"
+                  className="actions-dropdown-item"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setActiveDropdownId(null);
+                    openTransferMother(row);
+                  }}
+                  role="menuitem"
+                >
+                  Transfer to batch
+                </button>
+              </FloatingLayer>
+            )}
+          </>
+        ),
+      } : null;
       return [
         { key: 'name', header: 'Mother Name', renderCell: (row) => <span className="community-title-text">{row.name}</span> },
         { key: 'group', header: 'Group', renderCell: (row) => row.group || '—' },
+        ...(motherTransferActions ? [motherTransferActions] : []),
       ];
     }
     if (schoolOverviewSelection === 'children') {
@@ -998,7 +1081,7 @@ export default function CommunityPage() {
                 </button>
                 <button
                   type="button"
-                  className="actions-dropdown-item delete"
+                  className="actions-dropdown-item"
                   onClick={(event) => {
                     event.stopPropagation();
                     setActiveDropdownId(null);
@@ -1006,7 +1089,7 @@ export default function CommunityPage() {
                   }}
                   role="menuitem"
                 >
-                  Delete
+                  Archive
                 </button>
               </FloatingLayer>
             )}
@@ -1021,7 +1104,7 @@ export default function CommunityPage() {
       ];
     }
     return columns;
-  }, [activeDropdownId, activeTab, canManage, columns, openEditModal, requestDelete, schoolOverviewSelection, showChildBatchColumn, showChildMotherColumn]);
+  }, [activeDropdownId, activeTab, canManage, columns, openEditModal, openTransferMother, requestDelete, schoolOverviewSelection, showChildBatchColumn, showChildMotherColumn]);
 
   const currentRowClickHandler =
     schoolOverviewSelection === 'groups'
@@ -1060,7 +1143,6 @@ export default function CommunityPage() {
         navigate={navigate}
         canManage={canManage && (activeTab !== 'communities' || canManageSchools)}
       />
-
       {(activeTab === 'communities' || (activeTab === 'groups' && selectedSchool) || (activeTab === 'batches' && selectedGroup)) && (
         <>
           <CommunityOverviewCards
@@ -1080,33 +1162,55 @@ export default function CommunityPage() {
           {childrenOverviewError && <p className="error-message" role="alert">{childrenOverviewError}</p>}
           {schoolOverviewSelection ? (
             <>
-              {schoolOverviewSelection === 'children' && (
-                <div className="community-child-column-filters" role="group" aria-label="Choose child table columns">
-                  <select
-                    className="entity-filter-btn"
-                    value={showChildMotherColumn ? 'show' : 'hide'}
-                    onChange={(event) => setShowChildMotherColumn(event.target.value === 'show')}
-                    aria-label="Show or hide Mother Name column"
-                  >
-                    <option value="show">Show Mother Name</option>
-                    <option value="hide">Hide Mother Name</option>
-                  </select>
-                  <select
-                    className="entity-filter-btn"
-                    value={showChildBatchColumn ? 'show' : 'hide'}
-                    onChange={(event) => setShowChildBatchColumn(event.target.value === 'show')}
-                    aria-label="Show or hide Batch column"
-                  >
-                    <option value="show">Show Batch</option>
-                    <option value="hide">Hide Batch</option>
-                  </select>
-                </div>
-              )}
               <CommunityTable
                 columns={overviewColumns}
                 data={currentRows}
                 onRowClick={currentRowClickHandler}
                 tableTitle={tableTitle}
+                toolbarContent={schoolOverviewSelection === 'children' ? (
+                  <div className="community-child-column-filters">
+                    <button
+                      ref={childColumnMenuTriggerRef}
+                      type="button"
+                      className={`community-child-column-trigger${childColumnMenuOpen ? ' open' : ''}`}
+                      onClick={() => setChildColumnMenuOpen((open) => !open)}
+                      aria-haspopup="true"
+                      aria-expanded={childColumnMenuOpen}
+                    >
+                      Columns
+                      <svg viewBox="0 0 20 20" width="16" height="16" fill="none" aria-hidden="true">
+                        <path d="m5 7.5 5 5 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
+                    <FloatingLayer
+                      open={childColumnMenuOpen}
+                      anchorRef={childColumnMenuTriggerRef}
+                      onDismiss={() => setChildColumnMenuOpen(false)}
+                      className="community-child-column-menu"
+                      role="group"
+                      aria-label="Visible child columns"
+                      align="start"
+                    >
+                      <div className="community-child-column-menu-title">Show columns</div>
+                      <label className="community-child-column-filter">
+                        <input
+                          type="checkbox"
+                          checked={showChildMotherColumn}
+                          onChange={(event) => setShowChildMotherColumn(event.target.checked)}
+                        />
+                        <span>Mother Name</span>
+                      </label>
+                      <label className="community-child-column-filter">
+                        <input
+                          type="checkbox"
+                          checked={showChildBatchColumn}
+                          onChange={(event) => setShowChildBatchColumn(event.target.checked)}
+                        />
+                        <span>Batch</span>
+                      </label>
+                    </FloatingLayer>
+                  </div>
+                ) : null}
                 emptyMessage={schoolOverviewSelection === 'schools'
                   ? 'No schools found.'
                   : `No ${schoolOverviewSelection} found ${selectedSchool ? `for ${selectedSchool.name}` : 'across the available schools'}.`}
@@ -1229,20 +1333,30 @@ export default function CommunityPage() {
         isSubmitting={mutations.loading}
         notification={mutations.error}
         selectedCommunityId={showModal === 'editCommunity' ? selectedItem?.id : null}
+        transferMother={showModal === 'transferMother' ? selectedItem : null}
+        transferBatchId={transferBatchId}
+        setTransferBatchId={setTransferBatchId}
+        onTransferMother={handleTransferMother}
       />
       <ConfirmDialog
         open={Boolean(pendingDelete)}
-        title={pendingDelete?.type === 'group' ? 'Delete Group?' : `Delete ${pendingDelete?.type || 'record'}?`}
+        title={`Archive ${pendingDelete?.type === 'community' ? 'school' : pendingDelete?.type || 'record'}?`}
         description={getPendingDeleteDescription()}
-        confirmLabel={pendingDelete?.type === 'group' ? 'Delete Group' : pendingDelete?.type === 'community' ? 'Delete School' : 'Delete'}
-        loadingLabel={pendingDelete?.type === 'group' ? 'Deleting...' : 'Deleting...'}
+        variant="default"
+        confirmLabel="Archive"
+        loadingLabel="Archiving..."
         loading={deleteSubmitting}
-        confirmDisabled={deleteImpactLoading}
-        summary={pendingDelete?.type === 'group' ? getGroupDeletionSummary(pendingDelete.impact, deleteImpactLoading) : []}
+        confirmDisabled={deleteImpactLoading || Boolean(deleteImpactError) || !pendingDelete?.impact}
+        summary={(pendingDelete?.impact?.related || []).map(({ label, count }) => ({ label, value: count }))}
         error={deleteError || deleteImpactError}
         onConfirm={confirmDelete}
         onCancel={cancelDelete}
-      />
+      >
+        <label className="archive-reason-field">
+          <span>Reason (optional)</span>
+          <textarea value={archiveReason} maxLength={500} onChange={(event) => setArchiveReason(event.target.value)} />
+        </label>
+      </ConfirmDialog>
     </div>
   );
 }

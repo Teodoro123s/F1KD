@@ -43,11 +43,23 @@ Apply [`migrations/20261026_checkup_reminders.sql`](./migrations/20261026_checku
 
 Apply [`migrations/20261028_remove_legacy_user_columns.sql`](./migrations/20261028_remove_legacy_user_columns.sql) to an existing database to remove unused legacy columns from `users`. It preserves `consent_accepted_at`; notification read state is stored in `notification_reads`.
 
-## Community batch deletion
+## Community record lifecycle
 
-`DELETE /api/community/batches/:id` permanently deletes the batch and its assigned beneficiaries in one database transaction. Mothers assigned to the batch and their children are deleted; children assigned directly to the batch are also deleted. Database cascade rules remove their checkups and related health records. If any deletion fails, the transaction rolls back and the batch and beneficiaries remain intact.
+Archiving a school, group, or batch retains its beneficiaries and historical health, distribution, and reporting records. Community Coordinators can also archive an individual mother or child without archiving its batch. Archiving does not cascade to descendants. Archived records and records under archived parents are excluded from active operational selections; historical records remain available to reports.
 
-Deleting a group preserves the batches, mothers, children, and health records. It removes the group and its batch links, then clears group assignments and batch assignments for beneficiaries linked through that group. Health workers assigned to the group are also unassigned.
+Superadmins manage school archives. Community Coordinators manage groups, batches, mothers, and children only within their assigned school. Admin, Partner, and Health Worker roles cannot access archive management. Restore operations validate that parent records are active first; for example, a child cannot be restored while its mother is archived.
+
+Permanent record deletion is disabled for schools, groups, batches, mothers, children, and programs; the corresponding record DELETE requests return `405 Method Not Allowed`. Use archive/restore workflows instead. Ended projects use the Projects module's Archived Projects view; individual beneficiary and organizational archives use the Archive module. The migration is [`migrations/20261101_record_archiving.sql`](./migrations/20261101_record_archiving.sql); database bootstrap includes matching idempotent metadata additions.
+
+Archived records are not automatically purged and have no configured month-based retention period. They remain available for restoration until restored or until a future retention policy is explicitly implemented.
+
+The opt-in MariaDB archive/report integration test runs only when `F1KD_RUN_ARCHIVE_DB_TESTS=1`, `DB_HOST` is loopback, and `DB_NAME` begins with `f1kd_test`. It drops and reapplies archive metadata in that dedicated database, so do not point it at a shared, staging, or production database. It seeds synthetic mothers, children, check-ups, vaccinations, program distributions, and receipt evidence; compares period-specific Progress Report results and generated CSV values before and after school/group/batch/program archive and restore; verifies Admin/Partner report access and archive denial plus role-scoped operational reporting; and removes its synthetic records afterward.
+
+## Beneficiary list pagination
+
+`GET /api/mothers` and `GET /api/children` return active, in-scope records in pages. Both accept `page` (default `1`), `perPage` (default `100`, maximum `100`), `search` (up to 120 characters), `communityId`, `groupId`, `batchId`, `sortBy` (`id`, `name`, `code`, or `createdAt`), and `sortOrder` (`asc` or `desc`). Responses include `pagination.page`, `pagination.perPage`, `pagination.total`, and `pagination.totalPages`. Invalid pagination, filters, search values, or sort options return `400`.
+
+The backend applies authorization scope and archive exclusions before counting or paging. Mother check-ups are loaded only for mothers in the returned page; child check-ups are fetched in one batch for the returned page. Existing frontend callers that need a complete list use the API wrappers' bounded page aggregation; callers may pass `{ page, perPage, ...filters }` to retrieve one page.
 
 ## Private AI assistants
 

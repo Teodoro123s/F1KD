@@ -25,7 +25,7 @@
   "overrides": {
     "minio": {
       "fast-xml-parser": "5.7.0",
-      "decode-uri-component": "0.5.0"
+      "decode-uri-component": "0.5.1"
     }
   }
 }

@@ -1,5 +1,11 @@
 const express = require('express');
 const router = express.Router();
+router.use((req, res, next) => {
+  if (req.method === 'DELETE' && /^\/[^/]+\/?$/.test(req.path)) {
+    return res.status(405).json({ error: 'Permanent deletion is disabled; use the archive workflow instead.' });
+  }
+  return next();
+});
 const pool = require('../db');
 const { documentUpload, uploadFileToStorage, deleteFileFromStorage } = require('../middleware/documentUpload');
 const { createSuperadminNotification, getBeneficiaryUpdateRecipients } = require('../services/notifications');
@@ -12,6 +18,11 @@ const { INVALID_ASSISTANCE_AMOUNT_MESSAGE, parseAssistanceAmount } = require('..
 const { getBloodPressureError } = require('../utils/bloodPressure');
 const { getFirstNameValidationError, normalizeFirstName } = require('../utils/firstNameValidation');
 const {
+  parseListPagination,
+  parseOptionalPositiveInteger,
+  parseListSearch,
+} = require('../utils/listPagination');
+const {
   getMotherInitialCheckupSlot,
   getMotherRegistrationGestationalAge,
   motherMonitoringTotalSql,
@@ -19,6 +30,33 @@ const {
 const MOTHER_STANDARD_NAME_PATTERN = /^[\p{L}][\p{L}\p{M}]*(?:[ '-][\p{L}][\p{L}\p{M}]*)*$/u;
 const MOTHER_MIDDLE_NAME_PATTERN = /^(?:[\p{L}]\.?|[\p{L}]+(?:['-][\p{L}]+)*)$/u;
 const MOTHER_SUFFIX_PATTERN = /^[\p{L}\d]+(?:[ .'-][\p{L}\d]+)*\.?$/u;
+
+router.use(async (req, res, next) => {
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method) || req.path === '/') return next();
+  try {
+    const identifier = decodeURIComponent(String(req.path).split('/').filter(Boolean)[0] || '');
+    if (!identifier) return next();
+    const [rows] = await pool.query(
+      `SELECT m.archived_at, c.archived_at AS school_archived_at,
+          g.archived_at AS group_archived_at, b.archived_at AS batch_archived_at
+       FROM mothers m
+       LEFT JOIN communities c ON c.id = m.community_id
+       LEFT JOIN groups g ON g.id = m.group_id
+       LEFT JOIN batches b ON b.id = m.batch_id
+       WHERE m.id = ? OR m.mother_code = ? LIMIT 1`,
+      [Number(identifier) || null, identifier],
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Mother not found' });
+    const row = rows[0];
+    if (row.archived_at || row.school_archived_at || row.group_archived_at || row.batch_archived_at) {
+      return res.status(409).json({ error: 'Archived records or parent assignments cannot be updated in active workflows' });
+    }
+    return next();
+  } catch (error) {
+    console.error('[Mothers API] Unable to validate active record scope:', error.message);
+    return res.status(500).json({ error: 'Unable to validate active record scope' });
+  }
+});
 
 function getAdditionalVaccineFormFields(vaccines) {
   return Object.fromEntries(MOTHER_ADDITIONAL_VACCINES.flatMap((vaccine) => {
@@ -475,22 +513,81 @@ function getRequestedMotherFields(req) {
 
 router.get('/', async (req, res) => {
   try {
+    const pagination = parseListPagination(req.query);
+    if (pagination.error) return res.status(400).json({ error: pagination.error });
+    const search = parseListSearch(req.query.search);
+    if (search.error) return res.status(400).json({ error: search.error });
+    const communityFilter = parseOptionalPositiveInteger(req.query.communityId, 'communityId');
+    const groupFilter = parseOptionalPositiveInteger(req.query.groupId, 'groupId');
+    const batchFilter = parseOptionalPositiveInteger(req.query.batchId, 'batchId');
+    const invalidFilter = [communityFilter, groupFilter, batchFilter].find((filter) => filter.error);
+    if (invalidFilter) return res.status(400).json({ error: invalidFilter.error });
+
+    const sortColumns = {
+      id: 'm.id',
+      name: 'm.last_name',
+      code: 'm.mother_code',
+      createdAt: 'm.created_at',
+    };
+    const sortBy = req.query.sortBy === undefined ? 'id' : req.query.sortBy;
+    if (typeof sortBy !== 'string' || !Object.hasOwn(sortColumns, sortBy)) {
+      return res.status(400).json({ error: 'sortBy must be one of: id, name, code, createdAt' });
+    }
+    const sortOrder = req.query.sortOrder === undefined ? 'desc' : String(req.query.sortOrder).toLowerCase();
+    if (!['asc', 'desc'].includes(sortOrder)) {
+      return res.status(400).json({ error: 'sortOrder must be asc or desc' });
+    }
+
     const requestedFields = getRequestedMotherFields(req);
-    const scopeClause = req.groupId ? 'WHERE m.group_id = ?' : req.schoolId ? 'WHERE m.community_id = ?' : '';
-    const scopeValues = req.groupId ? [req.groupId] : req.schoolId ? [req.schoolId] : [];
+    const conditions = [
+      'm.archived_at IS NULL',
+      'comm.archived_at IS NULL',
+      '(g.id IS NULL OR g.archived_at IS NULL)',
+      '(b.id IS NULL OR b.archived_at IS NULL)',
+    ];
+    const whereValues = [];
+    if (req.groupId) {
+      conditions.push('m.group_id = ?');
+      whereValues.push(req.groupId);
+    } else if (req.schoolId) {
+      conditions.push('m.community_id = ?');
+      whereValues.push(req.schoolId);
+    }
+    for (const [filter, column] of [
+      [communityFilter.value, 'm.community_id'],
+      [groupFilter.value, 'm.group_id'],
+      [batchFilter.value, 'm.batch_id'],
+    ]) {
+      if (filter !== null) {
+        conditions.push(`${column} = ?`);
+        whereValues.push(filter);
+      }
+    }
+    if (search.value) {
+      conditions.push(`LOWER(CONCAT_WS(' ', m.mother_code, m.first_name, m.middle_name, m.last_name, comm.name, g.name, b.name)) LIKE LOWER(?)`);
+      whereValues.push(`%${search.value}%`);
+    }
+    const scopeClause = `WHERE ${conditions.join(' AND ')}`;
+    const fromClause = `FROM mothers m
+      LEFT JOIN communities comm ON comm.id = m.community_id
+      LEFT JOIN groups g ON g.id = m.group_id
+      LEFT JOIN batches b ON b.id = m.batch_id`;
+    const [countRows] = await pool.query(
+      `SELECT COUNT(*) AS total ${fromClause} ${scopeClause}`,
+      whereValues,
+    );
+    const total = Number(countRows[0]?.total || 0);
     const [rows] = await pool.query(`
       SELECT m.*,
         comm.name AS community,
         g.name AS group_name,
         b.name AS batch_name,
         (SELECT COUNT(*) FROM children c WHERE c.mother_id = m.id) AS children_count
-      FROM mothers m
-      LEFT JOIN communities comm ON comm.id = m.community_id
-      LEFT JOIN groups g ON g.id = m.group_id
-      LEFT JOIN batches b ON b.id = m.batch_id
+      ${fromClause}
       ${scopeClause}
-      ORDER BY m.id DESC
-    `, scopeValues);
+      ORDER BY ${sortColumns[sortBy]} ${sortOrder.toUpperCase()}, m.id ${sortOrder.toUpperCase()}
+      LIMIT ? OFFSET ?
+    `, [...whereValues, pagination.perPage, pagination.offset]);
 
     const includeAuditDetails = canViewAuditSignatures(req.user?.role);
     const auditSelect = includeAuditDetails
@@ -504,14 +601,16 @@ router.get('/', async (req, res) => {
       ? `LEFT JOIN users creator ON creator.id = COALESCE(mc.created_by_user_id, mc.recorded_by_user_id)
          LEFT JOIN users updater ON updater.id = COALESCE(mc.updated_by_user_id, mc.recorded_by_user_id)`
       : '';
-    const [checkupRows] = await pool.query(
-      `SELECT mc.*${auditSelect}
-       FROM mother_checkups mc
-       INNER JOIN mothers scoped_mother ON scoped_mother.id = mc.mother_id
-       ${auditJoins}
-       ${req.groupId ? 'WHERE scoped_mother.group_id = ?' : req.schoolId ? 'WHERE scoped_mother.community_id = ?' : ''}`,
-      scopeValues,
-    );
+    const motherIds = rows.map((motherRow) => motherRow.id);
+    const [checkupRows] = motherIds.length
+      ? await pool.query(
+        `SELECT mc.*${auditSelect}
+         FROM mother_checkups mc
+         ${auditJoins}
+         WHERE mc.mother_id IN (${motherIds.map(() => '?').join(', ')})`,
+        motherIds,
+      )
+      : [[]];
     const checkupsByMotherId = {};
     const lmpByMotherId = new Map(rows.map((motherRow) => [Number(motherRow.id), motherRow.lmp_date]));
     for (const row of checkupRows) {
@@ -584,7 +683,15 @@ router.get('/', async (req, res) => {
       return subset;
     });
 
-    res.json({ mothers });
+    res.json({
+      mothers,
+      pagination: {
+        page: pagination.page,
+        perPage: pagination.perPage,
+        total,
+        totalPages: Math.ceil(total / pagination.perPage),
+      },
+    });
   } catch (error) {
     console.error('[Mothers API] GET / error:', error.message);
     res.status(500).json({ error: 'db error' });
@@ -661,6 +768,14 @@ router.post('/', async (req, res) => {
     const batchId = b.batchId ?? b.batch_id ?? null;
     if (!String(batchId ?? '').trim()) return res.status(400).json({ error: 'batch is required' });
     if (req.groupId) communityId = req.schoolId;
+    const [activeAssignmentRows] = await pool.query(
+      `SELECT c.id FROM communities c
+       JOIN groups g ON g.id = ? AND g.community_id = c.id AND g.archived_at IS NULL
+       JOIN batches batch ON batch.id = ? AND batch.community_id = c.id AND batch.archived_at IS NULL
+       WHERE c.id = ? AND c.archived_at IS NULL LIMIT 1`,
+      [groupId, batchId, communityId],
+    );
+    if (!activeAssignmentRows.length) return res.status(409).json({ error: 'Choose an active school, group, and batch' });
     if (req.isCommunityOrganizer && groupId) {
       const [groupRows] = await pool.query(
         'SELECT id FROM groups WHERE id = ? AND community_id = ? LIMIT 1',
@@ -1137,7 +1252,7 @@ router.put('/:id', async (req, res) => {
     if (emergencyContactError) return res.status(400).json({ error: emergencyContactError });
     const dentistContactError = validateContactNumber(b.dentistContact ?? b.dentist_contact, 'Dentist contact number');
     if (dentistContactError) return res.status(400).json({ error: dentistContactError });
-    const [existing] = await pool.query(`SELECT * FROM mothers WHERE (id = ? OR mother_code = ?)${req.groupId ? ' AND group_id = ?' : req.schoolId ? ' AND community_id = ?' : ''} LIMIT 1`, req.groupId ? [Number(id) || null, id, req.groupId] : req.schoolId ? [Number(id) || null, id, req.schoolId] : [Number(id) || null, id]);
+    const [existing] = await pool.query(`SELECT * FROM mothers WHERE (id = ? OR mother_code = ?) AND archived_at IS NULL${req.groupId ? ' AND group_id = ?' : req.schoolId ? ' AND community_id = ?' : ''} LIMIT 1`, req.groupId ? [Number(id) || null, id, req.groupId] : req.schoolId ? [Number(id) || null, id, req.schoolId] : [Number(id) || null, id]);
     if (!existing.length) {
       return res.status(404).json({ error: 'Mother not found' });
     }
@@ -1168,7 +1283,8 @@ router.put('/:id', async (req, res) => {
 
       if (nextGroupId) {
         const [groupRows] = await pool.query(
-          'SELECT id FROM groups WHERE id = ? AND community_id = ? LIMIT 1',
+          `SELECT g.id FROM groups g JOIN communities c ON c.id = g.community_id AND c.archived_at IS NULL
+           WHERE g.id = ? AND g.community_id = ? AND g.archived_at IS NULL LIMIT 1`,
           [nextGroupId, req.schoolId],
         );
         if (!groupRows.length) return res.status(403).json({ error: 'You can only assign mothers to groups in your school' });
@@ -1176,7 +1292,8 @@ router.put('/:id', async (req, res) => {
 
       if (nextBatchId) {
         const [batchRows] = await pool.query(
-          'SELECT id FROM batches WHERE id = ? AND community_id = ? LIMIT 1',
+          `SELECT b.id FROM batches b JOIN communities c ON c.id = b.community_id AND c.archived_at IS NULL
+           WHERE b.id = ? AND b.community_id = ? AND b.archived_at IS NULL LIMIT 1`,
           [nextBatchId, req.schoolId],
         );
         if (!batchRows.length) return res.status(403).json({ error: 'You can only assign mothers to batches in your school' });
@@ -1336,64 +1453,7 @@ router.put('/:id', async (req, res) => {
 });
 
 router.delete('/:id', async (req, res) => {
-  let connection;
-  try {
-    const { id } = req.params;
-    connection = await pool.getConnection();
-    await connection.beginTransaction();
-    const scopeClause = req.groupId ? ' AND group_id = ?' : req.schoolId ? ' AND community_id = ?' : '';
-    const scopeValues = req.groupId ? [req.groupId] : req.schoolId ? [req.schoolId] : [];
-    const [motherRows] = await connection.query(
-      `SELECT id, first_name, last_name, mother_code, community_id, group_id FROM mothers WHERE (id = ? OR mother_code = ?)${scopeClause} LIMIT 1`,
-      [Number(id) || null, id, ...scopeValues],
-    );
-    if (!motherRows.length) {
-      await connection.rollback();
-      return res.status(404).json({ error: 'Mother not found' });
-    }
-
-    const motherDbId = motherRows[0].id;
-    const [childRows] = await connection.query('SELECT id, community_id FROM children WHERE mother_id = ?', [motherDbId]);
-    const childIds = childRows.map((child) => child.id);
-    if (childIds.length) {
-      const placeholders = childIds.map(() => '?').join(', ');
-      await connection.query('DELETE FROM monitoring_logs WHERE beneficiary_type = ? AND beneficiary_id IN (?)', ['child', childIds]);
-      await connection.query(`DELETE FROM child_checkups WHERE child_id IN (${placeholders})`, childIds);
-      await connection.query(`DELETE FROM child_medical_conditions WHERE child_id IN (${placeholders})`, childIds);
-      await connection.query(`DELETE FROM child_vaccinations WHERE child_id IN (${placeholders})`, childIds);
-      await connection.query(`DELETE FROM children WHERE id IN (${placeholders})`, childIds);
-    }
-    await connection.query('DELETE FROM monitoring_logs WHERE beneficiary_type = ? AND beneficiary_id = ?', ['mother', String(motherDbId)]);
-    await connection.query('DELETE FROM mother_checkups WHERE mother_id = ?', [motherDbId]);
-    await connection.query('DELETE FROM mother_ob_history WHERE mother_id = ?', [motherDbId]);
-    await connection.query('DELETE FROM mother_medical_conditions WHERE mother_id = ?', [motherDbId]);
-    await connection.query('DELETE FROM mother_dental_records WHERE mother_id = ?', [motherDbId]);
-    await connection.query('DELETE FROM mother_vaccinations WHERE mother_id = ?', [motherDbId]);
-    const [result] = await connection.query('DELETE FROM mothers WHERE id = ?', [motherDbId]);
-    await connection.commit();
-    const deletedMother = motherRows[0];
-    const deletedName = [deletedMother.first_name, deletedMother.last_name].filter(Boolean).join(' ');
-    await createSuperadminNotification({
-      eventType: 'beneficiary.mother.deleted',
-      category: 'Beneficiaries',
-      title: 'Mother deleted',
-      message: `${deletedName} and ${childIds.length} associated child record(s) were deleted.`,
-      entityType: 'mother',
-      entityId: motherDbId,
-      linkTo: '/beneficiary',
-      schoolId: deletedMother.community_id,
-      groupId: deletedMother.group_id,
-      schoolIds: [deletedMother.community_id, ...childRows.map((child) => child.community_id)].filter(Boolean),
-      actorUserId: req.user?.id,
-    });
-    res.json({ success: true, deleted: result.affectedRows > 0, childrenDeleted: childIds.length });
-  } catch (error) {
-    if (connection) await connection.rollback();
-    console.error('[Mothers API] DELETE /:id error:', error.message);
-    res.status(500).json({ error: 'db error' });
-  } finally {
-    connection?.release();
-  }
+  return res.status(405).json({ error: 'Permanent deletion is disabled; use the archive workflow instead.' });
 });
 
 router.post('/:id/checkups', async (req, res) => {

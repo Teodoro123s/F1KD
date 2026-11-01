@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../db');
 const { createSuperadminNotification } = require('../services/notifications');
+const { recordActivity } = require('../services/activityLog');
 const { canViewAuditSignatures, normalizeRole } = require('../middleware/authorize');
 const {
   batchEvidenceUpload,
@@ -111,7 +112,13 @@ async function attachReceiptEvidence(logs) {
 }
 
 async function getProgram(id) {
-  const [rows] = await pool.query('SELECT * FROM programs WHERE id = ?', [id]);
+  const [rows] = await pool.query(
+    `SELECT p.*,
+        NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.middle_initial, u.last_name)), '') AS archived_by
+     FROM programs p LEFT JOIN users u ON u.id = p.archived_by_user_id
+     WHERE p.id = ?`,
+    [id],
+  );
   if (!rows.length) return null;
   const [clusters] = await pool.query('SELECT id, scope_type AS type, scope_name AS name, beneficiaries, received FROM program_clusters WHERE program_id = ? ORDER BY id', [id]);
   const target = clusters.reduce((total, cluster) => total + Number(cluster.beneficiaries || 0), 0);
@@ -180,11 +187,15 @@ async function authorizeCoordinatorProgramScope(req, res, programId, { allowUnsc
 
 async function requireActiveProgram(res, programId) {
   const [rows] = await pool.query(
-    'SELECT status FROM programs WHERE id = ? LIMIT 1',
+    'SELECT status, archived_at FROM programs WHERE id = ? LIMIT 1',
     [programId],
   );
   if (!rows.length) {
     res.status(404).json({ error: 'Program not found' });
+    return false;
+  }
+  if (rows[0].archived_at) {
+    res.status(409).json({ error: 'This project is archived and read-only.' });
     return false;
   }
   if (String(rows[0].status || '').trim().toLowerCase() === 'ended') {
@@ -194,11 +205,30 @@ async function requireActiveProgram(res, programId) {
   return true;
 }
 
+const effectiveGroupBatchRelation = `(
+  SELECT group_id, batch_id FROM group_batch
+  UNION
+  SELECT m.group_id, m.batch_id
+  FROM mothers m
+  JOIN groups g ON g.id = m.group_id
+  JOIN batches b ON b.id = m.batch_id AND b.community_id = g.community_id
+  WHERE m.group_id IS NOT NULL AND m.batch_id IS NOT NULL
+)`;
+
 async function coordinatorScopeExistsInSchool(type, name, schoolId) {
   const scopeQueries = {
-    School: ['SELECT id FROM communities WHERE id = ? AND name = ? LIMIT 1', [schoolId, name]],
-    Group: ['SELECT id FROM groups WHERE community_id = ? AND name = ? LIMIT 1', [schoolId, name]],
-    Batch: ['SELECT id FROM batches WHERE community_id = ? AND name = ? LIMIT 1', [schoolId, name]],
+    School: ['SELECT id FROM communities WHERE id = ? AND name = ? AND archived_at IS NULL LIMIT 1', [schoolId, name]],
+    Group: [`SELECT g.id FROM groups g
+      JOIN communities c ON c.id = g.community_id AND c.archived_at IS NULL
+      WHERE g.community_id = ? AND g.name = ? AND g.archived_at IS NULL LIMIT 1`, [schoolId, name]],
+    Batch: [`SELECT b.id FROM batches b
+      JOIN communities c ON c.id = b.community_id AND c.archived_at IS NULL
+      WHERE b.community_id = ? AND b.name = ? AND b.archived_at IS NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM ${effectiveGroupBatchRelation} rel
+          JOIN groups archived_group ON archived_group.id = rel.group_id AND archived_group.archived_at IS NOT NULL
+          WHERE rel.batch_id = b.id
+        ) LIMIT 1`, [schoolId, name]],
   };
   const query = scopeQueries[type];
   if (!query) return false;
@@ -335,14 +365,49 @@ router.get('/', async (req, res) => {
   if (req.isHealthWorker && !req.groupId) {
     return res.status(403).json({ error: 'Health workers must be assigned to a group to view programs' });
   }
+  const archived = String(req.query.archived || '').toLowerCase() === 'true';
+  if (archived && !req.isCommunityOrganizer) {
+    return res.status(403).json({ error: 'You do not have permission to view archived projects' });
+  }
+  if (archived && !(Number(req.schoolId) > 0)) {
+    return res.status(403).json({ error: 'Assign this Community Organizer to a school before viewing archived projects' });
+  }
   try {
     const visibility = getProgramVisibilityFilter(req);
-    const [rows] = await pool.query(`SELECT p.* FROM programs p ${visibility.sql} ORDER BY p.id DESC`, visibility.values);
+    const archiveClause = archived ? 'p.archived_at IS NOT NULL' : 'p.archived_at IS NULL';
+    const where = visibility.sql
+      ? `${visibility.sql} AND ${archiveClause}`
+      : `WHERE ${archiveClause}`;
+    const [rows] = await pool.query(`SELECT p.* FROM programs p ${where} ORDER BY p.id DESC`, visibility.values);
     const programs = await Promise.all(rows.map((row) => getProgram(row.id)));
     res.json({ programs });
   } catch (error) {
     console.error('[Programs API] list error:', error.message);
     res.status(500).json({ error: error.message || 'db error' });
+  }
+});
+
+router.get('/:id/archive-impact', async (req, res) => {
+  if (!req.isCommunityOrganizer) return res.status(403).json({ error: 'Only Community Coordinators can archive programs' });
+  try {
+    if (!(await authorizeCoordinatorProgramScope(req, res, req.params.id))) return;
+    const [scopeRows] = await pool.query(
+      'SELECT COUNT(*) AS count FROM program_clusters WHERE program_id = ?',
+      [req.params.id],
+    );
+    const [monitoringRows] = await pool.query(
+      'SELECT COUNT(*) AS count FROM monitoring_logs WHERE program_id = ?',
+      [req.params.id],
+    );
+    return res.json({
+      related: [
+        { label: 'Program scopes', count: Number(scopeRows[0]?.count || 0) },
+        { label: 'Monitoring and distribution records', count: Number(monitoringRows[0]?.count || 0) },
+      ],
+    });
+  } catch (error) {
+    console.error('[Programs API] archive impact error:', error.message);
+    return res.status(500).json({ error: 'Unable to retrieve related program records' });
   }
 });
 
@@ -391,6 +456,7 @@ router.put('/:id', async (req, res) => {
 router.patch('/:id/end', async (req, res) => {
   try {
     if (!(await authorizeCoordinatorProgramScope(req, res, req.params.id))) return;
+    if (!(await requireActiveProgram(res, req.params.id))) return;
     const scope = await getProgramNotificationScope(req.params.id, req);
     const [result] = await pool.query(
       "UPDATE programs SET status = 'Ended', ended = CURRENT_DATE WHERE id = ?",
@@ -400,8 +466,8 @@ router.patch('/:id/end', async (req, res) => {
     const program = await getProgram(req.params.id);
     await notifyProgramChange(req, req.params.id, {
       eventType: 'program.ended',
-      title: 'Program ended',
-      message: `Program ${program.name} was ended.`,
+      title: 'Project completed',
+      message: `Project ${program.name} was marked as successfully completed.`,
     }, scope);
     res.json({ program });
   } catch (error) {
@@ -413,9 +479,12 @@ router.patch('/:id/end', async (req, res) => {
 router.patch('/:id/restore', async (req, res) => {
   try {
     if (!(await authorizeCoordinatorProgramScope(req, res, req.params.id))) return;
+    const [existingRows] = await pool.query('SELECT id, archived_at FROM programs WHERE id = ? LIMIT 1', [req.params.id]);
+    if (!existingRows.length) return res.status(404).json({ error: 'Program not found' });
+    if (existingRows[0].archived_at) return res.status(409).json({ error: 'Restore this project from the archive first' });
     const scope = await getProgramNotificationScope(req.params.id, req);
     const [result] = await pool.query(
-      "UPDATE programs SET status = 'Active', ended = NULL WHERE id = ?",
+      "UPDATE programs SET status = 'Active', ended = NULL WHERE id = ? AND archived_at IS NULL",
       [req.params.id],
     );
     if (!result.affectedRows) return res.status(404).json({ error: 'Program not found' });
@@ -432,24 +501,124 @@ router.patch('/:id/restore', async (req, res) => {
   }
 });
 
-router.delete('/:id', async (req, res) => {
+router.post('/:id/archive', async (req, res) => {
+  if (!req.isCommunityOrganizer) return res.status(403).json({ error: 'Only Community Coordinators can archive programs' });
+  const reason = String(req.body?.reason || '').trim();
+  if (reason.length > 500) return res.status(400).json({ error: 'Archive reason must be 500 characters or fewer' });
   try {
     if (!(await authorizeCoordinatorProgramScope(req, res, req.params.id))) return;
-    const [programRows] = await pool.query('SELECT name FROM programs WHERE id = ? LIMIT 1', [req.params.id]);
-    if (!programRows.length) return res.status(404).json({ error: 'Program not found' });
-    const scope = await getProgramNotificationScope(req.params.id, req);
-    const [result] = await pool.query('DELETE FROM programs WHERE id = ?', [req.params.id]);
-    if (!result.affectedRows) return res.status(404).json({ error: 'Program not found' });
-    await notifyProgramChange(req, req.params.id, {
-      eventType: 'program.deleted',
-      title: 'Program deleted',
-      message: `Program ${programRows[0].name} was deleted.`,
-    }, scope);
-    res.status(204).end();
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      const [rows] = await connection.query('SELECT id, name, status, archived_at FROM programs WHERE id = ? LIMIT 1 FOR UPDATE', [req.params.id]);
+      if (!rows.length) {
+        await connection.rollback();
+        return res.status(404).json({ error: 'Program not found' });
+      }
+      if (String(rows[0].status || '').trim().toLowerCase() !== 'ended') {
+        await connection.rollback();
+        return res.status(409).json({ error: 'Only ended programs can be archived' });
+      }
+      if (rows[0].archived_at) {
+        await connection.rollback();
+        return res.status(409).json({ error: 'Program is already archived' });
+      }
+      await connection.query(
+        'UPDATE programs SET archived_at = CURRENT_TIMESTAMP, archived_by_user_id = ?, archive_reason = ? WHERE id = ? AND archived_at IS NULL',
+        [req.user.id, reason || null, req.params.id],
+      );
+      await recordActivity({
+        actor: req.user,
+        category: 'Archive',
+        action: 'archive',
+        entityType: 'program',
+        entityId: req.params.id,
+        description: `Archived program "${rows[0].name}".${reason ? ` Reason: ${reason}` : ''}`,
+      }, connection, { throwOnError: true });
+      await connection.commit();
+      return res.json({ success: true, program: await getProgram(req.params.id) });
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
   } catch (error) {
-    console.error('[Programs API] delete error:', error.message);
-    res.status(500).json({ error: 'db error' });
+    console.error('[Programs API] archive error:', error.message);
+    return res.status(500).json({ error: 'Unable to archive program' });
   }
+});
+
+router.post('/:id/archive/restore', async (req, res) => {
+  if (!req.isCommunityOrganizer) return res.status(403).json({ error: 'Only Community Coordinators can restore programs' });
+  try {
+    if (!(await authorizeCoordinatorProgramScope(req, res, req.params.id))) return;
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      const [rows] = await connection.query('SELECT id, name, archived_at FROM programs WHERE id = ? LIMIT 1 FOR UPDATE', [req.params.id]);
+      if (!rows.length) {
+        await connection.rollback();
+        return res.status(404).json({ error: 'Program not found' });
+      }
+      if (!rows[0].archived_at) {
+        await connection.rollback();
+        return res.status(409).json({ error: 'Program is not archived' });
+      }
+      const [inactiveScopes] = await connection.query(
+        `SELECT pc.scope_type, pc.scope_name FROM program_clusters pc
+         WHERE pc.program_id = ? AND (
+           (pc.scope_type = 'School' AND NOT EXISTS (
+             SELECT 1 FROM communities c WHERE c.id = ? AND c.name = pc.scope_name AND c.archived_at IS NULL
+           ))
+           OR (pc.scope_type = 'Group' AND NOT EXISTS (
+             SELECT 1 FROM \`groups\` g JOIN communities c ON c.id = g.community_id AND c.archived_at IS NULL
+             WHERE g.community_id = ? AND g.name = pc.scope_name AND g.archived_at IS NULL
+           ))
+           OR (pc.scope_type = 'Batch' AND NOT EXISTS (
+             SELECT 1 FROM batches b JOIN communities c ON c.id = b.community_id AND c.archived_at IS NULL
+             WHERE b.community_id = ? AND b.name = pc.scope_name AND b.archived_at IS NULL
+               AND NOT EXISTS (
+                 SELECT 1 FROM ${effectiveGroupBatchRelation} rel
+                 JOIN \`groups\` archived_group ON archived_group.id = rel.group_id AND archived_group.archived_at IS NOT NULL
+                 WHERE rel.batch_id = b.id
+               )
+           ))
+         ) LIMIT 1`,
+        [req.params.id, req.schoolId, req.schoolId, req.schoolId],
+      );
+      if (inactiveScopes.length) {
+        await connection.rollback();
+        return res.status(409).json({ error: `Restore the archived ${String(inactiveScopes[0].scope_type).toLowerCase()} scope before restoring this program` });
+      }
+      await connection.query(
+        'UPDATE programs SET archived_at = NULL, archived_by_user_id = NULL, archive_reason = NULL WHERE id = ? AND archived_at IS NOT NULL',
+        [req.params.id],
+      );
+      await recordActivity({
+        actor: req.user,
+        category: 'Archive',
+        action: 'restore',
+        entityType: 'program',
+        entityId: req.params.id,
+        description: `Restored program "${rows[0].name}" from archive.`,
+      }, connection, { throwOnError: true });
+      await connection.commit();
+      return res.json({ success: true, program: await getProgram(req.params.id) });
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error('[Programs API] archive restore error:', error.message);
+    return res.status(500).json({ error: 'Unable to restore program' });
+  }
+});
+
+router.delete('/:id', async (req, res) => {
+  return res.status(405).json({ error: 'Permanent deletion is disabled; archive the ended program instead.' });
 });
 
 router.post('/:id/clusters', async (req, res) => {

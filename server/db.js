@@ -86,6 +86,12 @@ async function ensure() {
     `ALTER TABLE communities
       ADD UNIQUE INDEX IF NOT EXISTS uq_communities_coordinator_id (coordinator_id);`,
 
+    `ALTER TABLE communities
+      ADD COLUMN IF NOT EXISTS archived_at DATETIME NULL,
+      ADD COLUMN IF NOT EXISTS archived_by_user_id INT NULL,
+      ADD COLUMN IF NOT EXISTS archive_reason VARCHAR(500) NULL,
+      ADD INDEX IF NOT EXISTS idx_communities_archived_at (archived_at);`,
+
     `ALTER TABLE users
       ADD COLUMN IF NOT EXISTS coordinator_school_id INT
         GENERATED ALWAYS AS (
@@ -110,6 +116,12 @@ async function ensure() {
       FOREIGN KEY (community_id) REFERENCES communities(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
 
+    `ALTER TABLE batches
+      ADD COLUMN IF NOT EXISTS archived_at DATETIME NULL,
+      ADD COLUMN IF NOT EXISTS archived_by_user_id INT NULL,
+      ADD COLUMN IF NOT EXISTS archive_reason VARCHAR(500) NULL,
+      ADD INDEX IF NOT EXISTS idx_batches_archived_at (archived_at);`,
+
     `CREATE TABLE IF NOT EXISTS groups (
       id INT AUTO_INCREMENT PRIMARY KEY,
       group_code VARCHAR(20) NOT NULL UNIQUE,
@@ -121,6 +133,12 @@ async function ensure() {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (community_id) REFERENCES communities(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+
+    `ALTER TABLE groups
+      ADD COLUMN IF NOT EXISTS archived_at DATETIME NULL,
+      ADD COLUMN IF NOT EXISTS archived_by_user_id INT NULL,
+      ADD COLUMN IF NOT EXISTS archive_reason VARCHAR(500) NULL,
+      ADD INDEX IF NOT EXISTS idx_groups_archived_at (archived_at);`,
 
     `CREATE TABLE IF NOT EXISTS group_batch (
       group_id INT NOT NULL,
@@ -213,6 +231,12 @@ async function ensure() {
       FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE SET NULL,
       FOREIGN KEY (batch_id) REFERENCES batches(id) ON DELETE SET NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+
+    `ALTER TABLE mothers
+      ADD COLUMN IF NOT EXISTS archived_at DATETIME NULL,
+      ADD COLUMN IF NOT EXISTS archived_by_user_id INT NULL,
+      ADD COLUMN IF NOT EXISTS archive_reason VARCHAR(500) NULL,
+      ADD INDEX IF NOT EXISTS idx_mothers_archived_at (archived_at);`,
 
     `CREATE TABLE IF NOT EXISTS mother_checkups (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -348,6 +372,12 @@ async function ensure() {
       FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE SET NULL,
       FOREIGN KEY (batch_id) REFERENCES batches(id) ON DELETE SET NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+
+    `ALTER TABLE children
+      ADD COLUMN IF NOT EXISTS archived_at DATETIME NULL,
+      ADD COLUMN IF NOT EXISTS archived_by_user_id INT NULL,
+      ADD COLUMN IF NOT EXISTS archive_reason VARCHAR(500) NULL,
+      ADD INDEX IF NOT EXISTS idx_children_archived_at (archived_at);`,
 
     `ALTER TABLE children
       ADD COLUMN IF NOT EXISTS group_id INT NULL,
@@ -536,6 +566,12 @@ async function ensure() {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+
+    `ALTER TABLE programs
+      ADD COLUMN IF NOT EXISTS archived_at DATETIME NULL,
+      ADD COLUMN IF NOT EXISTS archived_by_user_id INT NULL,
+      ADD COLUMN IF NOT EXISTS archive_reason VARCHAR(500) NULL,
+      ADD INDEX IF NOT EXISTS idx_programs_archived_at (archived_at);`,
 
     `CREATE TABLE IF NOT EXISTS program_clusters (
       id INT AUTO_INCREMENT PRIMARY KEY,

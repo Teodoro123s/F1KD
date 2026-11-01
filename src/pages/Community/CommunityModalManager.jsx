@@ -6,6 +6,7 @@ import {
   EditBatchModal,
   CreateGroupModal,
   EditGroupModal,
+  TransferMotherModal,
 } from './CommunityModals';
 
 export default function CommunityModalManager({
@@ -33,6 +34,10 @@ export default function CommunityModalManager({
   isSubmitting,
   notification = '',
   selectedCommunityId = null,
+  transferMother = null,
+  transferBatchId = '',
+  setTransferBatchId,
+  onTransferMother,
 }) {
   return (
     <>
@@ -103,6 +108,17 @@ export default function CommunityModalManager({
         batches={batches}
         hideSchoolField={hideGroupSchoolField}
         isSubmitting={isSubmitting}
+      />
+      <TransferMotherModal
+        showModal={showModal === 'transferMother'}
+        onClose={onClose}
+        mother={transferMother}
+        batches={batches}
+        batchId={transferBatchId}
+        setBatchId={setTransferBatchId}
+        onSubmit={onTransferMother}
+        isSubmitting={isSubmitting}
+        notification={notification}
       />
     </>
   );

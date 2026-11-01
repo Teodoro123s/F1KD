@@ -30,6 +30,15 @@ test('health worker child check-up saves monitoring data and rejects a different
   const savedCheckupQueries = [];
   const notifications = [];
   pool.query = async (sql, params = []) => {
+    if (sql.includes('school_archived_at') && sql.includes('FROM children c')) {
+      return [[{
+        archived_at: null,
+        mother_archived_at: null,
+        school_archived_at: null,
+        group_archived_at: null,
+        batch_archived_at: null,
+      }]];
+    }
     if (sql.includes('FROM auth_sessions s')) {
       return [[{
         user_id: 8,

@@ -13,15 +13,19 @@ export default function CommunityTable({
   searchValue = '',
   onSearchChange,
   getGroupLabel,
+  toolbarContent,
 }) {
   const colSpan = Math.max(columns.length, 1);
-  const hasTableToolbar = tableTitle && onSearchChange;
+  const hasTableToolbar = onSearchChange && (tableTitle || toolbarContent);
 
   return (
     <section className="table-card">
       {hasTableToolbar ? (
         <div className="community-table-toolbar">
-          <div className="community-table-title">{tableTitle}</div>
+          <div className="community-table-toolbar-start">
+            {tableTitle && <div className="community-table-title">{tableTitle}</div>}
+            {toolbarContent}
+          </div>
           <TableSearch value={searchValue} onChange={onSearchChange} />
         </div>
       ) : (

@@ -1,0 +1,85 @@
+.archive-view-toggle,
+.archive-records-controls,
+.archive-records-pagination,
+.archive-records-pagination > div {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.archive-view-toggle {
+  margin: 0 0 1rem;
+}
+
+.archive-view-toggle button {
+  border: 1px solid var(--border-color, #d7dce2);
+  border-radius: 0.5rem;
+  background: var(--surface-color, #fff);
+  color: inherit;
+  padding: 0.55rem 0.85rem;
+  cursor: pointer;
+}
+
+.archive-view-toggle button.active {
+  border-color: var(--primary-color, #2563eb);
+  color: var(--primary-color, #2563eb);
+  font-weight: 600;
+}
+
+.archive-records-controls {
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
+.archive-records-controls select,
+.archive-records-controls input,
+.archive-reason-field textarea {
+  border: 1px solid var(--border-color, #d7dce2);
+  border-radius: 0.45rem;
+  background: var(--surface-color, #fff);
+  color: inherit;
+  padding: 0.55rem 0.7rem;
+}
+
+.archive-records-controls input {
+  min-width: 220px;
+}
+
+.archive-records-state {
+  padding: 1rem;
+}
+
+.archive-records-pagination {
+  justify-content: space-between;
+  padding: 0.85rem 1rem;
+}
+
+.archive-reason-field {
+  display: grid;
+  gap: 0.4rem;
+  margin-top: 1rem;
+  font-size: 0.9rem;
+}
+
+.archive-reason-field textarea {
+  min-height: 4.5rem;
+  resize: vertical;
+  font: inherit;
+}
+
+@media (max-width: 640px) {
+  .community-table-toolbar,
+  .archive-records-controls,
+  .archive-records-pagination {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .archive-records-controls {
+    margin-left: 0;
+  }
+
+  .archive-records-controls input {
+    width: 100%;
+  }
+}

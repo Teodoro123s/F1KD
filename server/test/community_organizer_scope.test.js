@@ -31,7 +31,19 @@ test('Community Organizers cannot read or mutate records outside their assigned 
   const originalQuery = pool.query;
   const originalGetConnection = pool.getConnection;
   const queries = [];
+  const testSessions = new Map();
   pool.query = async (sql, params = []) => {
+    if (sql.includes('FROM auth_sessions s')) {
+      const session = testSessions.get(String(params[0]));
+      return [session ? [{
+        user_id: session.id,
+        role: session.role,
+        status: 'Active',
+        school_id: session.school_id,
+        group_id: session.group_id ?? null,
+        consent_accepted_at: new Date(),
+      }] : []];
+    }
     queries.push({ sql, params });
     if (sql.includes('FROM groups g') && sql.includes('AND g.community_id = ?')) {
       assert.deepEqual(params, [91, 12]);
@@ -39,6 +51,9 @@ test('Community Organizers cannot read or mutate records outside their assigned 
     }
     if (sql.includes('FROM groups WHERE id = ? AND community_id = ?')) return [[]];
     if (sql.includes('FROM batches WHERE id = ? AND community_id = ?')) return [[]];
+    if (sql.includes('FROM batches WHERE id = ? AND archived_at IS NULL')) return [[{ id: 93 }]];
+    if (sql.includes('FROM communities WHERE id = ? AND archived_at IS NULL')) return [[{ id: 12 }]];
+    if (sql.includes('SELECT c.id FROM communities c') && sql.includes('JOIN groups g ON g.id = ?')) return [[]];
     if (sql.includes('FROM batches b') && sql.includes('WHERE b.id = ? AND b.community_id = ?')) return [[]];
     if (sql.includes('FROM batches WHERE (id = ? OR batch_code = ? OR name = ?) AND community_id = ?')) return [[]];
     if (sql.includes('FROM mothers WHERE (id = ? OR mother_code = ?) AND community_id = ?')) return [[]];
@@ -71,9 +86,13 @@ test('Community Organizers cannot read or mutate records outside their assigned 
   await new Promise((resolve) => server.once('listening', resolve));
 
   const baseUrl = `http://127.0.0.1:${server.address().port}/api`;
-  const organizer = { id: 1, role: 'Community Organizer', school_id: 12 };
-  const token = jwt.sign(organizer, process.env.JWT_SECRET);
-  const superAdminToken = jwt.sign({ id: 2, role: 'Super Admin' }, process.env.JWT_SECRET);
+  const tokenFor = (user) => {
+    const sid = `scope-session-${user.id}`;
+    testSessions.set(sid, user);
+    return jwt.sign({ id: user.id, sid }, process.env.JWT_SECRET);
+  };
+  const token = tokenFor({ id: 1, role: 'Community Organizer', school_id: 12 });
+  const superAdminToken = tokenFor({ id: 2, role: 'Super Admin', school_id: null });
   const request = (path, options = {}) => fetch(`${baseUrl}${path}`, {
     ...options,
     headers: {
@@ -112,7 +131,7 @@ test('Community Organizers cannot read or mutate records outside their assigned 
   assert.equal(foreignGroupUpdate.status, 404);
 
   const foreignGroupDelete = await request('/community/groups/92', { method: 'DELETE' });
-  assert.equal(foreignGroupDelete.status, 404);
+  assert.equal(foreignGroupDelete.status, 405);
 
   const foreignBatchUpdate = await request('/community/batches/93', {
     method: 'PUT',
@@ -121,7 +140,7 @@ test('Community Organizers cannot read or mutate records outside their assigned 
   assert.equal(foreignBatchUpdate.status, 404);
 
   const foreignBatchDelete = await request('/community/batches/93', { method: 'DELETE' });
-  assert.equal(foreignBatchDelete.status, 404);
+  assert.equal(foreignBatchDelete.status, 405);
 
   const foreignSchoolMother = await request('/mothers', {
     method: 'POST',
@@ -147,7 +166,7 @@ test('Community Organizers cannot read or mutate records outside their assigned 
       batchId: 93,
     }),
   });
-  assert.equal(foreignGroupMother.status, 403);
+  assert.equal(foreignGroupMother.status, 409);
 
   const foreignSchoolChild = await request('/children', {
     method: 'POST',

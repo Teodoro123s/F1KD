@@ -6,6 +6,7 @@ const originalEmailEnv = {
   EMAILJS_PUBLIC_KEY: process.env.EMAILJS_PUBLIC_KEY,
   EMAILJS_PRIVATE_KEY: process.env.EMAILJS_PRIVATE_KEY,
   EMAILJS_CREDENTIALS_TEMPLATE_ID: process.env.EMAILJS_CREDENTIALS_TEMPLATE_ID,
+  APP_URL: process.env.APP_URL,
 };
 process.env.JWT_SECRET = 'community-organizer-user-management-test-secret';
 Object.assign(process.env, {
@@ -13,6 +14,7 @@ Object.assign(process.env, {
   EMAILJS_PUBLIC_KEY: 'public-test',
   EMAILJS_PRIVATE_KEY: 'private-test',
   EMAILJS_CREDENTIALS_TEMPLATE_ID: 'template-credentials',
+  APP_URL: 'http://localhost:5173',
 });
 
 const express = require('express');

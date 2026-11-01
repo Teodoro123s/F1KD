@@ -1,6 +1,7 @@
 import React, { useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import useModalAccessibility from '../../components/ui/useModalAccessibility';
+import usePresence from '../../components/ui/usePresence';
 
 // Keep a trailing space while the user is typing so they can enter multiword names.
 function formatCommunityNameInput(value) {
@@ -39,18 +40,51 @@ export function ConfirmActionModal({ show, title, message, confirmLabel = 'OK', 
   ), document.body);
 }
 
-function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitting = false, notification = '' }) {
+function ModalShell({
+  title,
+  onClose,
+  onSubmit,
+  children,
+  submitLabel,
+  isSubmitting = false,
+  submitDisabled = false,
+  notification = '',
+  open = true,
+  drawer = false,
+}) {
   const titleId = useId();
   const dialogRef = useRef(null);
   const closeButtonRef = useRef(null);
   const close = () => { if (!isSubmitting) onClose?.(); };
-  useModalAccessibility({ open: true, onClose: close, dialogRef, initialFocusRef: closeButtonRef, closeDisabled: isSubmitting });
+  const isPresent = usePresence(open, drawer ? '--motion-drawer-duration' : '--motion-modal-duration');
+  useModalAccessibility({
+    open: isPresent,
+    onClose: close,
+    dialogRef,
+    initialFocusRef: closeButtonRef,
+    closeDisabled: isSubmitting || !open,
+  });
+  if (!isPresent) return null;
+
   return createPortal((
-    <div className="modal-backdrop" role="presentation" onClick={(event) => { if (event.target === event.currentTarget) close(); }}>
-      <div ref={dialogRef} className="modal-content community-modal-content" role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} onClick={(e) => e.stopPropagation()}>
+    <div
+      className={`modal-backdrop${drawer ? ' community-edit-drawer-backdrop' : ''}${!open ? ' motion-exiting' : ''}`}
+      role="presentation"
+      onMouseDown={(event) => { if (open && event.target === event.currentTarget) close(); }}
+    >
+      <div
+        ref={dialogRef}
+        className={`modal-content community-modal-content${drawer ? ' community-edit-drawer' : ''}${!open ? ' motion-exiting' : ''}`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        onMouseDown={(event) => event.stopPropagation()}
+        inert={!open}
+      >
         <div className="modal-header-section community-modal-header-section">
           <h3 id={titleId}>{title}</h3>
-          <button ref={closeButtonRef} type="button" className="btn-close-modal" onClick={close} aria-label="Close modal" disabled={isSubmitting}>✕</button>
+          <button ref={closeButtonRef} type="button" className="btn-close-modal" onClick={close} aria-label={`Close ${title}`} disabled={isSubmitting || !open}>✕</button>
         </div>
         <form onSubmit={onSubmit}>
           <div className="modal-body">
@@ -58,8 +92,8 @@ function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitt
             {children}
           </div>
           <div className="modal-footer">
-            <button type="button" className="btn-secondary" onClick={close} disabled={isSubmitting}>Cancel</button>
-            <button type="submit" className={submitLabel === 'Create' ? 'btn-create-action' : 'btn-primary'} disabled={isSubmitting}>
+            <button type="button" className="btn-secondary" onClick={close} disabled={isSubmitting || !open}>Cancel</button>
+            <button type="submit" className={submitLabel === 'Create' ? 'btn-create-action' : 'btn-primary'} disabled={isSubmitting || submitDisabled || !open}>
               {isSubmitting ? `${submitLabel}...` : submitLabel}
             </button>
           </div>
@@ -113,7 +147,6 @@ export function CreateCommunityModal({ showModal, onClose, communityForm, setCom
 }
 
 export function EditCommunityModal({ showModal, onClose, communityForm, setCommunityForm, handleEditCommunity, coordinators, communities = [], selectedCommunityId, isSubmitting, notification }) {
-  if (!showModal) return null;
   const availableCoordinators = (coordinators || []).filter((coordinator) => {
     if (String(coordinator.id) === String(communityForm.coordinator || '')) return true;
     const linkedSchool = communities.find((community) => String(community.coordinatorId || '') === String(coordinator.id))?.id;
@@ -121,7 +154,7 @@ export function EditCommunityModal({ showModal, onClose, communityForm, setCommu
     return !assignedSchool || String(assignedSchool) === String(selectedCommunityId || '');
   });
   return (
-    <ModalShell title="Edit School" onClose={onClose} onSubmit={handleEditCommunity} submitLabel="Save Changes" isSubmitting={isSubmitting} notification={notification}>
+    <ModalShell open={showModal} drawer title="Edit School" onClose={onClose} onSubmit={handleEditCommunity} submitLabel="Save Changes" isSubmitting={isSubmitting} notification={notification}>
       <div className="form-group">
         <label className="form-label" htmlFor="edit-comm-name">School Name <span className="form-required-indicator" aria-hidden="true">*</span></label>
         <input
@@ -209,10 +242,9 @@ export function CreateBatchModal({ showModal, onClose, batchForm, setBatchForm, 
 }
 
 export function EditBatchModal({ showModal, onClose, batchForm, setBatchForm, handleEditBatch, communities, groups = [], showGroupField = false, isSubmitting }) {
-  if (!showModal) return null;
   const availableGroups = groups.filter((group) => group.community === batchForm.community);
   return (
-    <ModalShell title="Edit Batch" onClose={onClose} onSubmit={handleEditBatch} submitLabel="Save Changes" isSubmitting={isSubmitting}>
+    <ModalShell open={showModal} drawer title="Edit Batch" onClose={onClose} onSubmit={handleEditBatch} submitLabel="Save Changes" isSubmitting={isSubmitting}>
       <div className="form-group">
         <label className="form-label" htmlFor="edit-batch-name">Batch Name</label>
         <input
@@ -285,11 +317,10 @@ export function CreateGroupModal({ showModal, onClose, groupForm, setGroupForm, 
 }
 
 export function EditGroupModal({ showModal, onClose, groupForm, setGroupForm, handleEditGroup, communities, batches, hideSchoolField = false, isSubmitting }) {
-  if (!showModal) return null;
   const availableBatches = batches.filter((batch) => batch.community === groupForm.community);
 
   return (
-    <ModalShell title="Edit Group" onClose={onClose} onSubmit={handleEditGroup} submitLabel="Save Changes" isSubmitting={isSubmitting}>
+    <ModalShell open={showModal} drawer title="Edit Group" onClose={onClose} onSubmit={handleEditGroup} submitLabel="Save Changes" isSubmitting={isSubmitting}>
       <div className="form-group">
         <label className="form-label" htmlFor="edit-group-name">Group Name</label>
         <input
@@ -316,6 +347,67 @@ export function EditGroupModal({ showModal, onClose, groupForm, setGroupForm, ha
           ))}
         </select>
       </div>}
+    </ModalShell>
+  );
+}
+
+export function TransferMotherModal({
+  showModal,
+  onClose,
+  mother,
+  batches = [],
+  batchId,
+  setBatchId,
+  onSubmit,
+  isSubmitting,
+  notification = '',
+}) {
+  if (!showModal || !mother) return null;
+  const availableBatches = batches.filter((batch) => (
+    String(batch.communityId ?? '') === String(mother.communityId ?? '')
+    && (!mother.groupId || String(batch.groupIds || '')
+      .split(',')
+      .map((id) => id.trim())
+      .includes(String(mother.groupId)))
+    && String(batch.databaseId ?? '') !== String(mother.batchDatabaseId ?? '')
+  ));
+
+  return (
+    <ModalShell
+      title={`Transfer ${mother.name || 'Mother'} to another batch`}
+      onClose={onClose}
+      onSubmit={onSubmit}
+      submitLabel="Transfer"
+      isSubmitting={isSubmitting}
+      submitDisabled={!batchId || availableBatches.length === 0}
+      notification={notification}
+    >
+      <p className="form-field-help">
+        Any children linked to this mother will be transferred with her.
+      </p>
+      <div className="form-group">
+        <label className="form-label" htmlFor="transfer-mother-batch">
+          Destination batch <span className="form-required-indicator" aria-hidden="true">*</span>
+        </label>
+        <select
+          id="transfer-mother-batch"
+          className="form-select"
+          value={batchId}
+          onChange={(event) => setBatchId(event.target.value)}
+          required
+          disabled={isSubmitting || availableBatches.length === 0}
+        >
+          <option value="">Select a batch</option>
+          {availableBatches.map((batch) => (
+            <option key={batch.databaseId || batch.id} value={batch.databaseId || batch.id}>
+              {batch.name}
+            </option>
+          ))}
+        </select>
+        {availableBatches.length === 0 && (
+          <small className="form-field-help">No other batch is available in this mother's school and group.</small>
+        )}
+      </div>
     </ModalShell>
   );
 }

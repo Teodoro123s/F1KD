@@ -105,7 +105,6 @@ table td {
   text-align: center;
 }
 
-.ui-empty-state,
 .ui-error-state {
   display: grid;
   justify-items: center;
@@ -114,7 +113,6 @@ table td {
   font-size: var(--font-size-sm);
 }
 
-.ui-empty-state p,
 .ui-error-state p {
   margin: 0;
   color: var(--color-text-muted);

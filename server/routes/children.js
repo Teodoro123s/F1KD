@@ -1,11 +1,51 @@
 const express = require('express');
 const router = express.Router();
+router.use((req, res, next) => {
+  if (req.method === 'DELETE' && /^\/[^/]+\/?$/.test(req.path)) {
+    return res.status(405).json({ error: 'Permanent deletion is disabled; use the archive workflow instead.' });
+  }
+  return next();
+});
 const pool = require('../db');
 const { documentUpload, uploadFileToStorage, deleteFileFromStorage } = require('../middleware/documentUpload');
 const { createSuperadminNotification, getBeneficiaryUpdateRecipients } = require('../services/notifications');
 const { canViewAuditSignatures } = require('../middleware/authorize');
 const { getChildNameValidationError, getChildRecordValidationError } = require('../utils/childRecordValidation');
 const { INVALID_ASSISTANCE_AMOUNT_MESSAGE, parseAssistanceAmount } = require('../utils/assistanceAmount');
+const {
+  parseListPagination,
+  parseOptionalPositiveInteger,
+  parseListSearch,
+} = require('../utils/listPagination');
+
+router.use(async (req, res, next) => {
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method) || req.path === '/') return next();
+  try {
+    const identifier = decodeURIComponent(String(req.path).split('/').filter(Boolean)[0] || '');
+    if (!identifier) return next();
+    const [rows] = await pool.query(
+      `SELECT c.archived_at, m.archived_at AS mother_archived_at,
+          school.archived_at AS school_archived_at, g.archived_at AS group_archived_at,
+          b.archived_at AS batch_archived_at
+       FROM children c
+       JOIN mothers m ON m.id = c.mother_id
+       LEFT JOIN communities school ON school.id = COALESCE(c.community_id, m.community_id)
+       LEFT JOIN groups g ON g.id = COALESCE(c.group_id, m.group_id)
+       LEFT JOIN batches b ON b.id = COALESCE(c.batch_id, m.batch_id)
+       WHERE c.id = ? OR c.child_code = ? LIMIT 1`,
+      [Number(identifier) || null, identifier],
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Child not found' });
+    const row = rows[0];
+    if (row.archived_at || row.mother_archived_at || row.school_archived_at || row.group_archived_at || row.batch_archived_at) {
+      return res.status(409).json({ error: 'Archived records or parent assignments cannot be updated in active workflows' });
+    }
+    return next();
+  } catch (error) {
+    console.error('[Children API] Unable to validate active record scope:', error.message);
+    return res.status(500).json({ error: 'Unable to validate active record scope' });
+  }
+});
 
 // Helper to normalize incoming body keys (accept camelCase or snake_case)
 function getField(body, ...keys) {
@@ -138,6 +178,12 @@ function withChildAliases(child = {}) {
 }
 
 async function attachMonitoringData(child, includeAuditDetails = false) {
+  const [hydratedChild] = await attachMonitoringDataBatch([child], includeAuditDetails);
+  return hydratedChild;
+}
+
+async function attachMonitoringDataBatch(children, includeAuditDetails = false) {
+  if (!children.length) return [];
   const auditSelect = includeAuditDetails
     ? `,
         NULLIF(TRIM(CONCAT_WS(' ', creator.first_name, creator.middle_initial, creator.last_name)), '') AS created_by_name,
@@ -149,60 +195,70 @@ async function attachMonitoringData(child, includeAuditDetails = false) {
     ? `LEFT JOIN users creator ON creator.id = COALESCE(cc.created_by_user_id, cc.recorded_by_user_id)
        LEFT JOIN users updater ON updater.id = COALESCE(cc.updated_by_user_id, cc.recorded_by_user_id)`
     : '';
+  const childIds = children.map((child) => child.id);
   const [checkupRows] = await pool.query(
     `SELECT cc.*${auditSelect}
      FROM child_checkups cc
      ${auditJoins}
-     WHERE cc.child_id = ? ORDER BY cc.week_number, cc.visit_date, cc.id`,
-    [child.id]
+     WHERE cc.child_id IN (${childIds.map(() => '?').join(', ')})
+     ORDER BY cc.child_id, cc.week_number, cc.visit_date, cc.id`,
+    childIds
   );
-  return withChildAliases({
-    ...child,
-    completedWeeks: checkupRows.filter((row) => row.week_number !== null).map((row) => Number(row.week_number)),
-    nextCheckupDate: checkupRows
-      .map((row) => row.next_checkup_date)
-      .filter(Boolean)
-      .sort((a, b) => String(a).localeCompare(String(b)))[0] || '',
-    checkups: checkupRows.map((row) => {
-      const {
-        recorded_by_user_id,
-        created_by_user_id,
-        updated_by_user_id,
-        created_at,
-        updated_at,
-        created_by_name,
-        created_by_role,
-        updated_by_name,
-        updated_by_role,
-        ...checkup
-      } = row;
-      return {
-        ...checkup,
-        weekNumber: row.week_number === null ? null : Number(row.week_number),
-        ...(includeAuditDetails && {
-          createdByName: created_by_name || '',
-          createdByRole: created_by_role || '',
-          createdAt: created_at,
-          updatedByName: updated_by_name || '',
-          updatedByRole: updated_by_role || '',
-          updatedAt: updated_at,
-        }),
-        checkupDate: row.visit_date,
-        nextCheckupDate: row.next_checkup_date,
-        headCircumference: row.head_circumference,
-        breastfeedingStatus: row.exclusive_breastfeeding || '',
-        feedingMethod: row.exclusive_breastfeeding || '',
-        laboratoryRequests: row.laboratory_requests || '',
-        laboratoryAssistanceProvided: Boolean(row.laboratory_assistance_provided),
-        referredToHospital: Boolean(row.referred_to_hospital),
-        assistanceAmount: row.assistance_amount ?? '',
-        sourceOfFunds: row.source_of_funds || '',
-        facilityType: row.facility_type || '',
-        developmentalStatus: row.developmental_status || '',
-        serviceProvider: row.service_provider || '',
-        remarks: row.notes || '',
-      };
-    }),
+  const checkupsByChildId = new Map(childIds.map((id) => [Number(id), []]));
+  for (const row of checkupRows) {
+    checkupsByChildId.get(Number(row.child_id))?.push(row);
+  }
+
+  return children.map((child) => {
+    const childCheckups = checkupsByChildId.get(Number(child.id)) || [];
+    return withChildAliases({
+      ...child,
+      completedWeeks: childCheckups.filter((row) => row.week_number !== null).map((row) => Number(row.week_number)),
+      nextCheckupDate: childCheckups
+        .map((row) => row.next_checkup_date)
+        .filter(Boolean)
+        .sort((a, b) => String(a).localeCompare(String(b)))[0] || '',
+      checkups: childCheckups.map((row) => {
+        const {
+          recorded_by_user_id,
+          created_by_user_id,
+          updated_by_user_id,
+          created_at,
+          updated_at,
+          created_by_name,
+          created_by_role,
+          updated_by_name,
+          updated_by_role,
+          ...checkup
+        } = row;
+        return {
+          ...checkup,
+          weekNumber: row.week_number === null ? null : Number(row.week_number),
+          ...(includeAuditDetails && {
+            createdByName: created_by_name || '',
+            createdByRole: created_by_role || '',
+            createdAt: created_at,
+            updatedByName: updated_by_name || '',
+            updatedByRole: updated_by_role || '',
+            updatedAt: updated_at,
+          }),
+          checkupDate: row.visit_date,
+          nextCheckupDate: row.next_checkup_date,
+          headCircumference: row.head_circumference,
+          breastfeedingStatus: row.exclusive_breastfeeding || '',
+          feedingMethod: row.exclusive_breastfeeding || '',
+          laboratoryRequests: row.laboratory_requests || '',
+          laboratoryAssistanceProvided: Boolean(row.laboratory_assistance_provided),
+          referredToHospital: Boolean(row.referred_to_hospital),
+          assistanceAmount: row.assistance_amount ?? '',
+          sourceOfFunds: row.source_of_funds || '',
+          facilityType: row.facility_type || '',
+          developmentalStatus: row.developmental_status || '',
+          serviceProvider: row.service_provider || '',
+          remarks: row.notes || '',
+        };
+      }),
+    });
   });
 }
 
@@ -335,30 +391,91 @@ function sanitizeFieldSelection(fields = []) {
 // GET /api/children - list children with their monitoring progress
 router.get('/', async (req, res) => {
   try {
+    const pagination = parseListPagination(req.query);
+    if (pagination.error) return res.status(400).json({ error: pagination.error });
+    const search = parseListSearch(req.query.search);
+    if (search.error) return res.status(400).json({ error: search.error });
+    const communityFilter = parseOptionalPositiveInteger(req.query.communityId, 'communityId');
+    const groupFilter = parseOptionalPositiveInteger(req.query.groupId, 'groupId');
+    const batchFilter = parseOptionalPositiveInteger(req.query.batchId, 'batchId');
+    const invalidFilter = [communityFilter, groupFilter, batchFilter].find((filter) => filter.error);
+    if (invalidFilter) return res.status(400).json({ error: invalidFilter.error });
+
+    const sortColumns = {
+      id: 'c.id',
+      name: 'c.last_name',
+      code: 'c.child_code',
+      createdAt: 'c.created_at',
+    };
+    const sortBy = req.query.sortBy === undefined ? 'createdAt' : req.query.sortBy;
+    if (typeof sortBy !== 'string' || !Object.hasOwn(sortColumns, sortBy)) {
+      return res.status(400).json({ error: 'sortBy must be one of: id, name, code, createdAt' });
+    }
+    const sortOrder = req.query.sortOrder === undefined ? 'desc' : String(req.query.sortOrder).toLowerCase();
+    if (!['asc', 'desc'].includes(sortOrder)) {
+      return res.status(400).json({ error: 'sortOrder must be asc or desc' });
+    }
+
     const requestedFields = sanitizeFieldSelection(req.query.fields);
-    const scopeClause = req.groupId
-      ? 'WHERE c.group_id = ? OR (c.group_id IS NULL AND m.group_id = ?) OR COALESCE(c.batch_id, m.batch_id) IN (SELECT batch_id FROM group_batch WHERE group_id = ?)'
-      : req.schoolId
-        ? 'WHERE c.community_id = ? OR (c.community_id IS NULL AND m.community_id = ?)'
-        : '';
+    const conditions = [
+      'c.archived_at IS NULL',
+      'm.archived_at IS NULL',
+      'comm.archived_at IS NULL',
+      '(g.id IS NULL OR g.archived_at IS NULL)',
+      '(b.id IS NULL OR b.archived_at IS NULL)',
+    ];
+    const whereValues = [];
+    const scopedGroupCondition = '(COALESCE(c.group_id, m.group_id) = ? OR COALESCE(c.batch_id, m.batch_id) IN (SELECT batch_id FROM group_batch WHERE group_id = ?))';
+    const addGroupCondition = (groupId) => {
+      conditions.push(scopedGroupCondition);
+      whereValues.push(groupId, groupId);
+    };
+    if (req.groupId) {
+      addGroupCondition(req.groupId);
+    } else if (req.schoolId) {
+      conditions.push('COALESCE(c.community_id, m.community_id) = ?');
+      whereValues.push(req.schoolId);
+    }
+    if (communityFilter.value !== null) {
+      conditions.push('COALESCE(c.community_id, m.community_id) = ?');
+      whereValues.push(communityFilter.value);
+    }
+    if (groupFilter.value !== null) addGroupCondition(groupFilter.value);
+    if (batchFilter.value !== null) {
+      conditions.push('COALESCE(c.batch_id, m.batch_id) = ?');
+      whereValues.push(batchFilter.value);
+    }
+    if (search.value) {
+      conditions.push(`LOWER(CONCAT_WS(' ', c.child_code, c.first_name, c.middle_name, c.last_name, m.first_name, m.middle_name, m.last_name, comm.name, g.name, b.name)) LIKE LOWER(?)`);
+      whereValues.push(`%${search.value}%`);
+    }
+    const scopeClause = `WHERE ${conditions.join(' AND ')}`;
+    const fromClause = `FROM children c
+      LEFT JOIN mothers m ON c.mother_id = m.id
+      LEFT JOIN communities comm ON comm.id = COALESCE(c.community_id, m.community_id)
+      LEFT JOIN groups g ON g.id = COALESCE(c.group_id, m.group_id)
+      LEFT JOIN batches b ON b.id = COALESCE(c.batch_id, m.batch_id)`;
+    const [countRows] = await pool.query(
+      `SELECT COUNT(*) AS total ${fromClause} ${scopeClause}`,
+      whereValues,
+    );
+    const total = Number(countRows[0]?.total || 0);
     const [rows] = await pool.query(
       `SELECT c.*, COALESCE(c.batch_id, m.batch_id) AS effective_batch_id,
         CONCAT_WS(' ', NULLIF(TRIM(m.first_name), ''), NULLIF(TRIM(m.middle_name), ''), NULLIF(TRIM(m.last_name), '')) AS mother_name,
         m.first_name AS mother_first_name, m.middle_name AS mother_middle_name, m.last_name AS mother_last_name,
         m.mother_code, m.group_id AS mother_group_id, m.community_id AS mother_community_id,
         comm.name AS community_name, g.name AS group_name, b.name AS batch_name
-       FROM children c
-       LEFT JOIN mothers m ON c.mother_id = m.id
-             LEFT JOIN communities comm ON comm.id = COALESCE(c.community_id, m.community_id)
-             LEFT JOIN groups g ON g.id = COALESCE(c.group_id, m.group_id)
-             LEFT JOIN batches b ON b.id = COALESCE(c.batch_id, m.batch_id)
-        ${scopeClause}
-       ORDER BY c.created_at DESC, c.id DESC`
-          , req.groupId ? [req.groupId, req.groupId, req.groupId] : req.schoolId ? [req.schoolId, req.schoolId] : []
+       ${fromClause}
+       ${scopeClause}
+       ORDER BY ${sortColumns[sortBy]} ${sortOrder.toUpperCase()}, c.id ${sortOrder.toUpperCase()}
+       LIMIT ? OFFSET ?`,
+      [...whereValues, pagination.perPage, pagination.offset]
     );
 
-    const children = await Promise.all(rows.map(async (row) => {
-      const hydrated = await attachMonitoringData(row, canViewAuditSignatures(req.user?.role));
+    const hydratedChildren = await attachMonitoringDataBatch(rows, canViewAuditSignatures(req.user?.role));
+    const children = hydratedChildren.map((hydrated, index) => {
+      const row = rows[index];
       if (!requestedFields.length || requestedFields.includes('*')) return hydrated;
       const subset = {};
       for (const field of requestedFields) {
@@ -371,8 +488,16 @@ router.get('/', async (req, res) => {
         }
       }
       return subset;
-    }));
-    res.json({ children });
+    });
+    res.json({
+      children,
+      pagination: {
+        page: pagination.page,
+        perPage: pagination.perPage,
+        total,
+        totalPages: Math.ceil(total / pagination.perPage),
+      },
+    });
   } catch (err) {
     console.error('Failed to fetch children', err);
     res.status(500).json({ error: 'db error' });
@@ -419,13 +544,19 @@ router.post('/', async (req, res) => {
     if (childRecordError) return res.status(400).json({ error: childRecordError });
 
     const motherScope = req.groupId
-      ? ' AND group_id = ?'
+      ? ' AND m.group_id = ?'
       : req.schoolId
-        ? ' AND community_id = ?'
+        ? ' AND m.community_id = ?'
         : '';
     const motherScopeValues = req.groupId ? [req.groupId] : req.schoolId ? [req.schoolId] : [];
     const [motherRows] = await pool.query(
-      `SELECT id, community_id, group_id, batch_id FROM mothers WHERE (id = ? OR mother_code = ?)${motherScope} LIMIT 1`,
+      `SELECT m.id, m.community_id, m.group_id, m.batch_id FROM mothers m
+       JOIN communities c ON c.id = m.community_id AND c.archived_at IS NULL
+       LEFT JOIN groups g ON g.id = m.group_id
+       LEFT JOIN batches batch ON batch.id = m.batch_id
+       WHERE (m.id = ? OR m.mother_code = ?) AND m.archived_at IS NULL
+         AND (m.group_id IS NULL OR g.archived_at IS NULL)
+         AND (m.batch_id IS NULL OR batch.archived_at IS NULL)${motherScope} LIMIT 1`,
       [Number(motherId) || null, motherId, ...motherScopeValues]
     );
     if (!motherRows.length) return res.status(400).json({ error: 'Mother not found' });
@@ -476,13 +607,25 @@ router.post('/', async (req, res) => {
     }
     if (req.isCommunityOrganizer && batchId) {
       const [batchRows] = await pool.query(
-        'SELECT id FROM batches WHERE id = ? AND community_id = ? LIMIT 1',
+        `SELECT b.id FROM batches b JOIN communities c ON c.id = b.community_id AND c.archived_at IS NULL
+         WHERE b.id = ? AND b.community_id = ? AND b.archived_at IS NULL LIMIT 1`,
         [batchId, req.schoolId],
       );
       if (!batchRows.length) {
         return res.status(403).json({ error: 'Community organizers can only assign batches from their assigned school' });
       }
     }
+    const [activeAssignmentRows] = await pool.query(
+      `SELECT c.id FROM communities c
+       LEFT JOIN groups g ON g.id = ? AND g.community_id = c.id
+       LEFT JOIN batches batch ON batch.id = ? AND batch.community_id = c.id
+       WHERE c.id = ? AND c.archived_at IS NULL
+         AND (? IS NULL OR g.id IS NOT NULL AND g.archived_at IS NULL)
+         AND (? IS NULL OR batch.id IS NOT NULL AND batch.archived_at IS NULL)
+       LIMIT 1`,
+      [groupId, batchId, communityId, groupId, batchId],
+    );
+    if (!activeAssignmentRows.length) return res.status(409).json({ error: 'Choose active school, group, and batch assignments' });
 
     // generate child_code
     const childCode = `C-${Date.now()}`;
@@ -686,7 +829,7 @@ router.put('/:id', async (req, res) => {
     }
     const { id } = req.params;
     const body = req.body || {};
-    const [existingRows] = await pool.query(`SELECT c.*, m.community_id AS current_mother_community_id, m.group_id AS current_mother_group_id, m.batch_id AS current_mother_batch_id FROM children c LEFT JOIN mothers m ON m.id = c.mother_id WHERE (c.id = ? OR c.child_code = ?)${req.groupId ? ' AND (c.group_id = ? OR (c.group_id IS NULL AND m.group_id = ?))' : req.schoolId ? ' AND (c.community_id = ? OR (c.community_id IS NULL AND m.community_id = ?))' : ''} LIMIT 1`, req.groupId ? [Number(id) || null, id, req.groupId, req.groupId] : req.schoolId ? [Number(id) || null, id, req.schoolId, req.schoolId] : [Number(id) || null, id]);
+    const [existingRows] = await pool.query(`SELECT c.*, m.community_id AS current_mother_community_id, m.group_id AS current_mother_group_id, m.batch_id AS current_mother_batch_id FROM children c LEFT JOIN mothers m ON m.id = c.mother_id WHERE (c.id = ? OR c.child_code = ?) AND c.archived_at IS NULL AND m.archived_at IS NULL${req.groupId ? ' AND (c.group_id = ? OR (c.group_id IS NULL AND m.group_id = ?))' : req.schoolId ? ' AND (c.community_id = ? OR (c.community_id IS NULL AND m.community_id = ?))' : ''} LIMIT 1`, req.groupId ? [Number(id) || null, id, req.groupId, req.groupId] : req.schoolId ? [Number(id) || null, id, req.schoolId, req.schoolId] : [Number(id) || null, id]);
     if (!existingRows.length) return res.status(404).json({ error: 'Child not found' });
     const current = existingRows[0];
     const childNameError = getChildNameValidationError(body, current);
@@ -724,6 +867,17 @@ router.put('/:id', async (req, res) => {
       const [batchRows] = await pool.query('SELECT id FROM batches WHERE id = ? OR batch_code = ? OR name = ? LIMIT 1', [Number(body.batch) || null, body.batch, body.batch]);
       batchId = batchRows[0]?.id || null;
     }
+    const [activeAssignmentRows] = await pool.query(
+      `SELECT c.id FROM communities c
+       LEFT JOIN groups g ON g.id = ? AND g.community_id = c.id
+       LEFT JOIN batches batch ON batch.id = ? AND batch.community_id = c.id
+       WHERE c.id = ? AND c.archived_at IS NULL
+         AND (? IS NULL OR g.id IS NOT NULL AND g.archived_at IS NULL)
+         AND (? IS NULL OR batch.id IS NOT NULL AND batch.archived_at IS NULL)
+       LIMIT 1`,
+      [groupId, batchId, communityId, groupId, batchId],
+    );
+    if (!activeAssignmentRows.length) return res.status(409).json({ error: 'Choose active school, group, and batch assignments' });
 
     const update = {
       mother_id: motherId,
@@ -814,47 +968,7 @@ router.put('/:id', async (req, res) => {
 });
 
 router.delete('/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const scopeClause = req.groupId
-      ? ' AND (c.group_id = ? OR (c.group_id IS NULL AND m.group_id = ?))'
-      : req.schoolId
-        ? ' AND (c.community_id = ? OR (c.community_id IS NULL AND m.community_id = ?))'
-        : '';
-    const [rows] = await pool.query(
-        `SELECT c.id, c.child_code, c.first_name, c.last_name,
-          COALESCE(c.community_id, m.community_id) AS community_id,
-          COALESCE(c.group_id, m.group_id) AS group_id
-         FROM children c LEFT JOIN mothers m ON m.id = c.mother_id
-         WHERE (c.id = ? OR c.child_code = ?)${scopeClause} LIMIT 1`,
-      req.groupId ? [Number(id) || null, id, req.groupId, req.groupId] : req.schoolId ? [Number(id) || null, id, req.schoolId, req.schoolId] : [Number(id) || null, id]
-    );
-    if (!rows.length) return res.status(404).json({ error: 'Child not found' });
-
-    const childId = rows[0].id;
-    await pool.query('DELETE FROM child_checkups WHERE child_id = ?', [childId]);
-    await pool.query('DELETE FROM child_medical_conditions WHERE child_id = ?', [childId]);
-    await pool.query('DELETE FROM child_vaccinations WHERE child_id = ?', [childId]);
-    await pool.query('DELETE FROM children WHERE id = ?', [childId]);
-    const deletedChild = rows[0];
-    const deletedName = [deletedChild.first_name, deletedChild.last_name].filter(Boolean).join(' ');
-    await createSuperadminNotification({
-      eventType: 'beneficiary.child.deleted',
-      category: 'Beneficiaries',
-      title: 'Child deleted',
-      message: `${deletedName} was removed from beneficiaries.`,
-      entityType: 'child',
-      entityId: childId,
-      linkTo: '/beneficiary',
-      schoolId: deletedChild.community_id,
-      groupId: deletedChild.group_id,
-      actorUserId: req.user?.id,
-    });
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Failed to delete child', error);
-    res.status(500).json({ error: 'db error' });
-  }
+  return res.status(405).json({ error: 'Permanent deletion is disabled; use the archive workflow instead.' });
 });
 
 // GET /api/mothers/:motherId/children

@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import CommunityTable from './CommunityTable';
 import CommunityModalManager from './CommunityModalManager';
-import { ConfirmActionModal } from './CommunityModals';
 import CommunityToolbar from './components/CommunityToolbar';
 import CommunityPagination from './components/CommunityPagination';
 import { MoreVerticalIcon } from './CommunityIcons';
@@ -11,6 +10,9 @@ import { useCommunityMutations } from './hooks/useCommunityMutations';
 import CommunityOverviewCards from './components/CommunityOverviewCards';
 import { getAllHealthWorkers, getGroupHealthWorkers } from './communityService';
 import FloatingLayer from '../../components/ui/FloatingLayer';
+import { apiArchiveRecord, apiGetArchiveImpact } from '../../api/archives';
+import { notifyAction } from '../../components/ActionFeedback';
+import ConfirmDialog from '../../components/ui/ConfirmDialog';
 
 const defaultCommunityForm = { name: '', area: 'Poblacion', coordinator: '' };
 const defaultGroupForm = { name: '', community: '', assignedBatchIds: [], leader: '', members: 1, status: 'Active' };
@@ -31,6 +33,10 @@ export default function SuperAdminCommunityPage() {
   const [showModal, setShowModal] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
   const [pendingDeleteItem, setPendingDeleteItem] = useState(null);
+  const [archiveImpact, setArchiveImpact] = useState(null);
+  const [archiveReason, setArchiveReason] = useState('');
+  const [archiveError, setArchiveError] = useState('');
+  const [archiveSubmitting, setArchiveSubmitting] = useState(false);
   const [communityForm, setCommunityForm] = useState(defaultCommunityForm);
   const [groupForm, setGroupForm] = useState(defaultGroupForm);
   const [batchForm, setBatchForm] = useState(defaultBatchForm);
@@ -301,17 +307,29 @@ export default function SuperAdminCommunityPage() {
 
   const deleteItem = (item) => {
     setPendingDeleteItem(item);
+    setArchiveImpact(null);
+    setArchiveError('');
+    setArchiveReason('');
+    const type = activeTab === 'communities' ? 'school' : activeTab === 'groups' ? 'group' : 'batch';
+    apiGetArchiveImpact(type, item.id)
+      .then(setArchiveImpact)
+      .catch((requestError) => setArchiveError(requestError?.message || 'Unable to load related records.'));
   };
 
   const confirmDeleteItem = async () => {
-    if (!pendingDeleteItem) return;
-
-    const item = pendingDeleteItem;
-    setPendingDeleteItem(null);
-
-    if (activeTab === 'communities') await mutations.deleteCommunity(item.id);
-    else if (activeTab === 'groups') await mutations.deleteGroup(item.id);
-    else await mutations.deleteBatch(item.id);
+    if (!pendingDeleteItem || !archiveImpact || archiveSubmitting || archiveError) return;
+    setArchiveSubmitting(true);
+    try {
+      const type = activeTab === 'communities' ? 'school' : activeTab === 'groups' ? 'group' : 'batch';
+      await apiArchiveRecord(type, pendingDeleteItem.id, archiveReason);
+      setPendingDeleteItem(null);
+      await refreshData();
+      notifyAction(`${type === 'school' ? 'School' : type} archived. Historical records were retained.`);
+    } catch (requestError) {
+      setArchiveError(requestError?.message || 'Unable to archive record.');
+    } finally {
+      setArchiveSubmitting(false);
+    }
   };
 
   const columns = useMemo(() => {
@@ -361,7 +379,9 @@ export default function SuperAdminCommunityPage() {
               ) : (
                 <>
                   <button type="button" className="actions-dropdown-item" onClick={(event) => { event.stopPropagation(); openEditModal(row); setActiveDropdownId(null); }} role="menuitem">Edit</button>
-                  <button type="button" className="actions-dropdown-item delete" onClick={(event) => { event.stopPropagation(); setActiveDropdownId(null); deleteItem(row); }} role="menuitem">Delete</button>
+                  {activeTab === 'communities' && (
+                    <button type="button" className="actions-dropdown-item" onClick={(event) => { event.stopPropagation(); setActiveDropdownId(null); deleteItem(row); }} role="menuitem">Archive</button>
+                  )}
                 </>
               )}
             </FloatingLayer>
@@ -487,41 +507,43 @@ export default function SuperAdminCommunityPage() {
         canManage
         canCreateBatch={false}
       />
-      <CommunityOverviewCards
-        selected={selectedOverviewCard}
-        onSelect={handleOverviewSelect}
-        cards={overviewCards}
-        toggleSelection={false}
-      />
-      {activeTab === 'healthWorkers' && (activeGroupId ? groupHealthWorkersLoading : healthWorkersLoading) ? (
-        <p>Loading health workers...</p>
-      ) : activeTab === 'healthWorkers' && (activeGroupId ? groupHealthWorkersError : healthWorkersError) ? (
-        <p className="error-message" role="alert">{activeGroupId ? groupHealthWorkersError : healthWorkersError}</p>
-      ) : (
-        <>
-          <CommunityTable
-            columns={columns}
-            data={currentRows}
-            tableClassName={activeTab === 'healthWorkers' ? 'community-health-workers-table' : ''}
-            activeRowKey={activeDropdownId}
-            onRowClick={onRowClick}
-            tableTitle={tableTitle}
-            emptyMessage={activeTab === 'healthWorkers' ? 'No health workers found.' : `No ${activeTab === 'communities' ? 'schools' : activeTab}${selectedSchool ? ` for ${selectedSchool.name}` : ''} found.`}
-            searchValue={query}
-            onSearchChange={handleSearch}
-          />
-          <CommunityPagination
-            currentPage={currentPage}
-            pageCount={pageCount}
-            onPageChange={setPage}
-            perPage={perPage}
-            onPerPageChange={(value) => { setPerPage(Number(value)); setPage(1); }}
-            rangeStart={tableData.length ? startIndex + 1 : 0}
-            rangeEnd={Math.min(startIndex + perPage, tableData.length)}
-            totalItems={tableData.length}
-          />
+      <>
+        <CommunityOverviewCards
+          selected={selectedOverviewCard}
+          onSelect={handleOverviewSelect}
+          cards={overviewCards}
+          toggleSelection={false}
+        />
+        {activeTab === 'healthWorkers' && (activeGroupId ? groupHealthWorkersLoading : healthWorkersLoading) ? (
+          <p>Loading health workers...</p>
+        ) : activeTab === 'healthWorkers' && (activeGroupId ? groupHealthWorkersError : healthWorkersError) ? (
+          <p className="error-message" role="alert">{activeGroupId ? groupHealthWorkersError : healthWorkersError}</p>
+        ) : (
+          <>
+            <CommunityTable
+              columns={columns}
+              data={currentRows}
+              tableClassName={activeTab === 'healthWorkers' ? 'community-health-workers-table' : ''}
+              activeRowKey={activeDropdownId}
+              onRowClick={onRowClick}
+              tableTitle={tableTitle}
+              emptyMessage={activeTab === 'healthWorkers' ? 'No health workers found.' : `No ${activeTab === 'communities' ? 'schools' : activeTab}${selectedSchool ? ` for ${selectedSchool.name}` : ''} found.`}
+              searchValue={query}
+              onSearchChange={handleSearch}
+            />
+            <CommunityPagination
+              currentPage={currentPage}
+              pageCount={pageCount}
+              onPageChange={setPage}
+              perPage={perPage}
+              onPerPageChange={(value) => { setPerPage(Number(value)); setPage(1); }}
+              rangeStart={tableData.length ? startIndex + 1 : 0}
+              rangeEnd={Math.min(startIndex + perPage, tableData.length)}
+              totalItems={tableData.length}
+            />
+          </>
+        )}
         </>
-      )}
       <CommunityModalManager
         showModal={showModal}
         onClose={() => {
@@ -575,15 +597,25 @@ export default function SuperAdminCommunityPage() {
         notification={mutations.error}
         selectedCommunityId={showModal === 'editCommunity' ? selectedItem?.id : null}
       />
-      <ConfirmActionModal
-        show={Boolean(pendingDeleteItem)}
-        title={`Delete ${activeTab === 'communities' ? 'school' : activeTab === 'groups' ? 'group' : 'batch'}?`}
-        message={pendingDeleteItem ? `Are you sure you want to delete ${pendingDeleteItem.name}?` : 'Are you sure?'}
-        confirmLabel="OK"
+      <ConfirmDialog
+        open={Boolean(pendingDeleteItem)}
+        title={`Archive ${activeTab === 'communities' ? 'school' : activeTab === 'groups' ? 'group' : 'batch'}?`}
+        description={pendingDeleteItem ? `Archive "${pendingDeleteItem.name}"? This retains historical records and removes it from normal active operations. Descendant records will not be archived automatically.` : ''}
+        variant="default"
+        confirmLabel="Archive"
+        loadingLabel="Archiving..."
+        loading={archiveSubmitting}
+        confirmDisabled={!archiveImpact || Boolean(archiveError)}
+        summary={(archiveImpact?.related || []).map(({ label, count }) => ({ label, value: count }))}
+        error={archiveError}
         onConfirm={confirmDeleteItem}
         onCancel={() => setPendingDeleteItem(null)}
-        isSubmitting={mutations.loading}
-      />
+      >
+        <label className="archive-reason-field">
+          <span>Reason (optional)</span>
+          <textarea value={archiveReason} maxLength={500} onChange={(event) => setArchiveReason(event.target.value)} />
+        </label>
+      </ConfirmDialog>
     </div>
   );
 }

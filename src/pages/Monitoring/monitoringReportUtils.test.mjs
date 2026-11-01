@@ -1,14 +1,18 @@
-import test from 'node:test';
+import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import {
+import { createServer } from 'vite';
+
+const viteServer = await createServer({ server: { middlewareMode: true }, appType: 'custom' });
+const {
   filterMonitoringReportCheckups,
   getLatestMonitoringReportCheckup,
   getMonitoringReportCheckups,
   getMonitoringReportValue,
   escapeMonitoringReportCsvValue,
   MONITORING_REPORT_FIELD_LABELS,
-} from './monitoringReportUtils.mjs';
+} = await viteServer.ssrLoadModule('/src/pages/Monitoring/monitoringReportUtils.mjs');
+after(async () => viteServer.close());
 
 const require = createRequire(import.meta.url);
 const { MONITORING_REPORT_FIELDS } = require('../../../server/utils/progressReportAI.js');

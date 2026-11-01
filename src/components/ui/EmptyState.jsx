@@ -6,9 +6,9 @@ export default function EmptyState({
   className = '',
 }) {
   return (
-    <div className={`ui-empty-state ${className}`.trim()} role="status">
+    <div className={`ui-empty-state grid justify-items-center gap-2 text-f1kd-secondary text-f1kd-sm ${className}`.trim()} role="status">
       <strong>{title}</strong>
-      {description && <p>{description}</p>}
+      {description && <p className="m-0 text-f1kd-muted">{description}</p>}
     </div>
   );
 }

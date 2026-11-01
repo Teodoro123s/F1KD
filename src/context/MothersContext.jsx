@@ -1,10 +1,9 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { fetchWithAuth, getApiBaseUrl } from '../api/authHeader';
+import { apiGetMothers } from '../api/mothers';
 import { useAuth } from '../auth/AuthProvider';
 import { normalizeRole, ROLES } from '../utils/permissions';
 
 const MothersContext = createContext(null);
-const API_BASE = getApiBaseUrl();
 
 export function MothersProvider({ children }) {
   const auth = useAuth();
@@ -20,16 +19,7 @@ export function MothersProvider({ children }) {
     setError('');
 
     try {
-      const params = new URLSearchParams();
-      if (Array.isArray(fields) && fields.length) {
-        params.set('fields', fields.join(','));
-      }
-      const queryString = params.toString() ? `?${params.toString()}` : '';
-      const response = await fetchWithAuth(`${API_BASE}/api/mothers${queryString}`, { headers: { 'Content-Type': 'application/json' } });
-      if (!response.ok) {
-        throw new Error('Failed to load mothers');
-      }
-      const payload = await response.json();
+      const payload = await apiGetMothers(fields);
       const nextMothers = Array.isArray(payload) ? payload : (payload.mothers || []);
       if (requestId === requestVersion.current) {
         mothersRef.current = nextMothers;

@@ -36,6 +36,15 @@ function ReportsIcon() {
   );
 }
 
+function ArchiveIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 4h16l1 4H3l1-4Z" />
+      <path d="M4 8v12h16V8M9 12h6" />
+    </svg>
+  );
+}
+
 export default function Sidebar() {
   const { currentUser } = useAuth();
   const [collapsed, setCollapsed] = useState(() => (
@@ -54,15 +63,16 @@ export default function Sidebar() {
 
   const isSuperAdmin = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]);
   const isCommunityOrganizer = isCommunityCoordinatorRole(currentUser?.role);
+  const archiveItem = { to: '/archive', label: 'Archive', icon: ArchiveIcon };
   const notificationsItem = { to: '/notifications', label: 'Notifications', icon: NotificationIcon };
   const visibleItems = isSuperAdmin
-    ? [...items.filter((item) => ['/dashboard', '/community', '/ai-setting', '/user-management'].includes(item.to)), {
+    ? [...items.filter((item) => ['/dashboard', '/community', '/ai-setting', '/user-management'].includes(item.to)), archiveItem, {
       to: '/reports',
       label: 'Reports',
       icon: ReportsIcon,
     }, notificationsItem]
     : isCommunityOrganizer
-      ? [...items.filter((item) => item.to !== '/user-management'), {
+      ? [...items.filter((item) => item.to !== '/user-management'), archiveItem, {
         to: '/user-management',
         label: 'User Management',
         icon: UsersIcon,

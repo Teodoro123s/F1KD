@@ -96,13 +96,13 @@ test('report proposals accept only known report types and fields for the selecte
   assert.deepEqual(validateReportProposal({
     reportCategory: 'monitor',
     beneficiaryType: 'child',
-    metricIds: ['measurementDate', 'weightForAge', 'heightForAge', 'bmiForAge', 'weightForAgeInterpretation'],
+    metricIds: ['measurementDate', 'weightForAge', 'heightForAge', 'weightForAgeInterpretation'],
     explanation: 'Review growth.',
     scope: { schoolId: 999 },
   }), {
     reportCategory: 'monitor',
     beneficiaryType: 'child',
-    metricIds: ['measurementDate', 'weightForAge', 'heightForAge', 'bmiForAge', 'weightForAgeInterpretation'],
+    metricIds: ['measurementDate', 'weightForAge', 'heightForAge', 'weightForAgeInterpretation'],
     explanation: 'Review growth.',
   });
 
@@ -535,7 +535,7 @@ test('child monitoring AI reports include child form fields and exclude fields n
 
   assert.deepEqual(intent.metricIds, ['measurementDate']);
   assert.deepEqual(request.response_format.json_schema.schema.properties.metricIds.items.enum, [
-    'measurementDate', 'nextCheckupDate', 'currentAgeMonths', 'breastfeedingStatus', 'weight', 'height', 'bmi',
+    'measurementDate', 'nextCheckupDate', 'currentAgeMonths', 'breastfeedingStatus', 'weight', 'height',
     'weightForAgeInterpretation', 'lengthForAgeInterpretation', 'weightForLengthInterpretation',
     'developmentalStatus', 'serviceProvider', 'remarks',
   ]);
@@ -649,7 +649,7 @@ test('AI proposal sends the prompt and fixed metric catalog, never authenticated
   assert.equal(result.metricIds[0], 'weightForAgeInterpretation');
   assert.equal(request.url, 'http://127.0.0.1:11434/v1/chat/completions');
   assert.deepEqual(request.body.response_format, { type: 'json_object' });
-  assert.equal(request.body.max_completion_tokens, 2048);
+  assert.equal(request.body.max_completion_tokens, 768);
   assert.equal(request.body.reasoning_effort, 'low');
   const serializedRequest = JSON.stringify(request.body);
   assert.match(serializedRequest, /Compare child weight-for-age interpretation progress/);
@@ -800,6 +800,7 @@ test('progress report AI endpoints require auth and do not pass user scope to th
   const originalFetch = globalThis.fetch;
   const requestToApp = globalThis.fetch;
   const originalQuery = pool.query;
+  const testSessions = new Map();
   const originalBaseUrl = process.env.PROGRESS_REPORT_AI_BASE_URL;
   const originalModel = process.env.PROGRESS_REPORT_AI_MODEL;
   const requests = [];
@@ -807,25 +808,31 @@ test('progress report AI endpoints require auth and do not pass user scope to th
   process.env.PROGRESS_REPORT_AI_MODEL = modelEnvironment.PROGRESS_REPORT_AI_MODEL;
   globalThis.fetch = async (url, options) => {
     requests.push({ url, body: JSON.parse(options.body) });
-    const firstMessage = JSON.parse(options.body).messages[0]?.content || '';
+    const requestNumber = requests.length;
     const content = url.endsWith('/chat/completions')
-      ? firstMessage.includes('Convert the request into fields and filters for a read-only report')
-        ? JSON.stringify({
-          metricIds: ['measurementDate', 'bmi', 'hospitalReferral'],
-          onlyReferredToHospital: false,
-          latestCheckupOnly: false,
-          explanation: 'Shows recorded check-up details.',
-        })
-        : firstMessage.includes('Translate the user request into a report configuration')
-          ? JSON.stringify({ reportCategory: 'monitor', beneficiaryType: 'child', metricIds: ['weightForAgeInterpretation'] })
-          : 'Summary of aggregate figures.'
+      ? requestNumber === 1
+        ? JSON.stringify({ reportCategory: 'monitor', beneficiaryType: 'child', metricIds: ['weightForAgeInterpretation'] })
+        : 'Summary of aggregate figures.'
       : '';
     return new Response(JSON.stringify({ choices: [{ message: { content } }] }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
   };
-  pool.query = async () => [[]];
+  pool.query = async (sql, params = []) => {
+    if (sql.includes('FROM auth_sessions s')) {
+      const session = testSessions.get(String(params[0]));
+      return [session ? [{
+        user_id: session.id,
+        role: session.role,
+        status: 'Active',
+        school_id: session.school_id,
+        group_id: session.group_id,
+        consent_accepted_at: new Date(),
+      }] : []];
+    }
+    return [[]];
+  };
 
   const app = express();
   app.use(express.json());
@@ -843,7 +850,9 @@ test('progress report AI endpoints require auth and do not pass user scope to th
   await new Promise((resolve) => server.once('listening', resolve));
 
   const baseUrl = `http://127.0.0.1:${server.address().port}/api/progress-report/ai`;
-  const token = jwt.sign({ id: 17, role: 'Health Worker', school_id: 123, group_id: 456 }, process.env.JWT_SECRET);
+  const sid = 'progress-report-ai-session';
+  testSessions.set(sid, { id: 17, role: 'Health Worker', school_id: 123, group_id: 456 });
+  const token = jwt.sign({ id: 17, sid }, process.env.JWT_SECRET);
   const unauthenticated = await requestToApp(`${baseUrl}/proposal`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -888,22 +897,27 @@ test('progress report AI endpoints require auth and do not pass user scope to th
   assert.equal(monitoringReportResponse.status, 200);
   assert.deepEqual(await monitoringReportResponse.json(), {
     beneficiaryType: 'Mother',
-    metricIds: ['measurementDate', 'bmi', 'hospitalReferral'],
+    metricIds: ['bmi', 'hospitalReferral'],
     onlyReferredToHospital: false,
     onlyNonNormalScreenings: false,
+    developmentalStatusFilter: [],
     latestCheckupOnly: false,
-    explanation: 'Shows recorded check-up details.',
+    firstCheckupOnly: false,
+    currentMonthOnly: false,
+    explanation: 'Showing bmi, hospital referral.',
   });
-  assert.doesNotMatch(JSON.stringify(requests[1].body), /Jane Doe|checkups|123|456/);
+  assert.equal(requests.length, 1, 'clear monitoring requests should be resolved locally');
 
-  const superAdminToken = jwt.sign({ id: 18, role: 'Super Admin' }, process.env.JWT_SECRET);
+  const superAdminSid = 'progress-report-ai-superadmin-session';
+  testSessions.set(superAdminSid, { id: 18, role: 'Super Admin', school_id: null, group_id: null });
+  const superAdminToken = jwt.sign({ id: 18, sid: superAdminSid }, process.env.JWT_SECRET);
   const superAdminMonitoringReportResponse = await requestToApp(`${baseUrl}/monitoring-report`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${superAdminToken}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ beneficiaryType: 'Mother', prompt: 'Show saved BMI.' }),
   });
-  assert.equal(superAdminMonitoringReportResponse.status, 403);
-  assert.equal(requests.length, 2);
+  assert.equal(superAdminMonitoringReportResponse.status, 200);
+  assert.equal(requests.length, 1);
 
   const dashboardInsightResponse = await requestToApp(`${baseUrl}/dashboard-insight`, {
     method: 'POST',
@@ -917,7 +931,7 @@ test('progress report AI endpoints require auth and do not pass user scope to th
   const dashboardInsightBody = await dashboardInsightResponse.json();
   assert.equal(dashboardInsightResponse.status, 200, JSON.stringify(dashboardInsightBody));
   assert.deepEqual(dashboardInsightBody, { insight: 'Summary of aggregate figures.' });
-  assert.doesNotMatch(JSON.stringify(requests[2].body), /Jane Doe|records|123|456/);
+  assert.doesNotMatch(requests[1].body.messages.at(-1).content, /Jane Doe|records|123|456/);
 
   for (const endpoint of ['admin-assistant', 'beneficiary-assistant', 'program-assistant', 'entry-assist']) {
     const removedAssistantResponse = await requestToApp(`${baseUrl}/${endpoint}`, {
@@ -927,5 +941,5 @@ test('progress report AI endpoints require auth and do not pass user scope to th
     });
     assert.equal(removedAssistantResponse.status, 403, `${endpoint} should no longer be available`);
   }
-  assert.equal(requests.length, 3);
+  assert.equal(requests.length, 2);
 });

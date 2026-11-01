@@ -16,11 +16,10 @@ import TableSearch from '../../components/ui/TableSearch';
 import FloatingLayer from '../../components/ui/FloatingLayer';
 import { getSummary } from "../Community/communityService";
 import { apiGetChildren } from "../../api/children";
-import { apiCompleteNamedProgramCluster, apiCompleteProgramCluster, apiCreateProgram, apiCreateProgramClusters, apiDeleteProgram, apiEndProgram, apiGetProjectActivityCalendar, apiGetProgramMonitoring, apiGetPrograms, apiRestoreProgram, apiSetProgramMonitoring, apiUpdateProgram } from "../../api/programs";
+import { apiArchiveProgram, apiCompleteNamedProgramCluster, apiCompleteProgramCluster, apiCreateProgram, apiCreateProgramClusters, apiEndProgram, apiGetProgramArchiveImpact, apiGetProjectActivityCalendar, apiGetProgramMonitoring, apiGetPrograms, apiRestoreArchivedProgram, apiRestoreProgram, apiSetProgramMonitoring, apiUpdateProgram } from "../../api/programs";
 import { notifyAction } from '../../components/ActionFeedback';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import ExpandableTreeTable from "../Monitoring/ExpandableTreeTable";
-import { ConfirmActionModal } from "../Community/CommunityModals";
 import { formatDateForDisplay, normalizeDateValue } from '../../utils/formatting/dateFormat';
 import {
   beneficiaryNames,
@@ -53,6 +52,8 @@ export default function ProgramPage() {
   const [activeTab, setActiveTab] = useState(null);
   const [query, setQuery] = useState("");
   const [programs, setPrograms] = useState([]);
+  const [archivedPrograms, setArchivedPrograms] = useState(null);
+  const [archivedProgramsLoading, setArchivedProgramsLoading] = useState(false);
   const [isLiveDataLoaded, setIsLiveDataLoaded] = useState(false);
   const viewMode = Boolean(programId);
   const clusterView = Boolean(clusterType && clusterName);
@@ -73,6 +74,13 @@ export default function ProgramPage() {
   const [pendingEndProgram, setPendingEndProgram] = useState(null);
   const [isEndingProgram, setIsEndingProgram] = useState(false);
   const [pendingDeleteProgram, setPendingDeleteProgram] = useState(null);
+  const [programArchiveImpact, setProgramArchiveImpact] = useState(null);
+  const [programArchiveImpactLoading, setProgramArchiveImpactLoading] = useState(false);
+  const [programArchiveImpactError, setProgramArchiveImpactError] = useState('');
+  const [pendingRestoreProgram, setPendingRestoreProgram] = useState(null);
+  const [archiveReason, setArchiveReason] = useState('');
+  const [isArchivingProgram, setIsArchivingProgram] = useState(false);
+  const [isRestoringArchivedProgram, setIsRestoringArchivedProgram] = useState(false);
   const [receiptHistoryProgram, setReceiptHistoryProgram] = useState(null);
   const [programError, setProgramError] = useState('');
   const [beneficiaryRecords, setBeneficiaryRecords] = useState([]);
@@ -94,6 +102,7 @@ export default function ProgramPage() {
   const [activityLoading, setActivityLoading] = useState(true);
   const [activityError, setActivityError] = useState('');
   const [activityRetry, setActivityRetry] = useState(0);
+  const archiveImpactRequestRef = useRef(0);
 
   const mapApiProgram = (program) => ({
     ...program,
@@ -249,6 +258,23 @@ export default function ProgramPage() {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (activeTab !== 'Archived' || !isLiveDataLoaded || !isCommunityOrganizer) return undefined;
+    let active = true;
+    setArchivedProgramsLoading(true);
+    apiGetPrograms({ archived: true })
+      .then((response) => {
+        if (active) setArchivedPrograms((response.programs || []).map(mapApiProgram));
+      })
+      .catch((error) => {
+        if (active) notifyAction(error?.message || 'Unable to load archived programs.', 'error');
+      })
+      .finally(() => {
+        if (active) setArchivedProgramsLoading(false);
+      });
+    return () => { active = false; };
+  }, [activeTab, isCommunityOrganizer, isLiveDataLoaded]);
 
   useEffect(() => {
     if (viewMode) return undefined;
@@ -433,8 +459,12 @@ export default function ProgramPage() {
   };
 
   const filteredPrograms = useMemo(() => {
+    if (activeTab === 'Archived') {
+      const normalizedQuery = query.trim().toLowerCase();
+      return (archivedPrograms || []).filter((program) => !normalizedQuery || String(program.name || '').toLowerCase().includes(normalizedQuery));
+    }
     return filterPrograms(programs, query, activeTab || 'All');
-  }, [programs, query, activeTab]);
+  }, [archivedPrograms, programs, query, activeTab]);
 
   const persistProgram = async () => {
     if (form.id && String(form.status || '').trim().toLowerCase() === 'ended') return;
@@ -781,7 +811,7 @@ export default function ProgramPage() {
       setPrograms((current) => current.map((program) => program.id === programToEnd.id ? mapApiProgram(response.program) : program));
       setActiveTab('Ended');
       navigate('/program');
-      notifyAction(`Ended ${programToEnd.name}.`);
+      notifyAction(`Marked ${programToEnd.name} as successfully completed.`);
     } catch (error) {
       const message = error.message || 'Unable to end program.';
       notifyAction(message, 'error');
@@ -890,20 +920,61 @@ export default function ProgramPage() {
     const programToDelete = program;
     if (!programToDelete) return;
     setPendingDeleteProgram(programToDelete);
+    setArchiveReason('');
+    setProgramArchiveImpact(null);
+    setProgramArchiveImpactError('');
+    loadProgramArchiveImpact(programToDelete);
+  };
+
+  const loadProgramArchiveImpact = async (program) => {
+    const requestId = archiveImpactRequestRef.current + 1;
+    archiveImpactRequestRef.current = requestId;
+    setProgramArchiveImpactLoading(true);
+    setProgramArchiveImpactError('');
+    try {
+      const response = await apiGetProgramArchiveImpact(program.id);
+      if (archiveImpactRequestRef.current === requestId) setProgramArchiveImpact(response);
+    } catch (error) {
+      if (archiveImpactRequestRef.current === requestId) {
+        setProgramArchiveImpactError(error.message || 'Unable to retrieve related program records.');
+      }
+    } finally {
+      if (archiveImpactRequestRef.current === requestId) setProgramArchiveImpactLoading(false);
+    }
   };
 
   const confirmDeleteProgram = async () => {
-    if (!pendingDeleteProgram) return;
+    if (!pendingDeleteProgram || isArchivingProgram || programArchiveImpactLoading || programArchiveImpactError || !programArchiveImpact) return;
     const programToDelete = pendingDeleteProgram;
-    setPendingDeleteProgram(null);
+    setIsArchivingProgram(true);
     try {
-      await apiDeleteProgram(programToDelete.id);
+      await apiArchiveProgram(programToDelete.id, archiveReason);
       setPrograms((current) => current.filter((program) => program.id !== programToDelete.id));
-      notifyAction(`Deleted ${programToDelete.name}.`);
+      setPendingDeleteProgram(null);
+      notifyAction(`Archived ${programToDelete.name}. Historical monitoring and distribution records were retained.`);
       navigate('/program');
     } catch (error) {
-      const message = error.message || 'Unable to delete project.';
+      const message = error.message || 'Unable to archive project.';
       notifyAction(message, 'error');
+    } finally {
+      setIsArchivingProgram(false);
+    }
+  };
+  const restoreArchivedProgram = (program) => setPendingRestoreProgram(program);
+  const confirmRestoreArchivedProgram = async () => {
+    if (!pendingRestoreProgram || isRestoringArchivedProgram) return;
+    const program = pendingRestoreProgram;
+    setIsRestoringArchivedProgram(true);
+    try {
+      const response = await apiRestoreArchivedProgram(program.id);
+      setArchivedPrograms((current) => (current || []).filter((item) => item.id !== program.id));
+      setPrograms((current) => [...current, mapApiProgram(response.program)]);
+      setPendingRestoreProgram(null);
+      notifyAction(`Restored ${program.name} from archive. It remains ended.`);
+    } catch (error) {
+      notifyAction(error?.message || 'Unable to restore program.', 'error');
+    } finally {
+      setIsRestoringArchivedProgram(false);
     }
   };
   const renderActionMenu = (menuId, menuProgram = selectedProgram, { includeReceiptHistory = true, activityMenu = false } = {}) => menuProgram && (
@@ -946,16 +1017,18 @@ export default function ProgramPage() {
               {isHealthWorkerRole(currentUser?.role) ? 'Receipt history' : 'View'}
             </button>
           )}
-          {isCommunityOrganizer && String(menuProgram?.status || '').trim().toLowerCase() !== 'ended' && (
+          {activeTab === 'Archived' ? (
+            <button type="button" className="actions-dropdown-item" onClick={() => { setActiveActionMenu(null); restoreArchivedProgram(menuProgram); }} role="menuitem">Restore from archive</button>
+          ) : isCommunityOrganizer && String(menuProgram?.status || '').trim().toLowerCase() !== 'ended' && (
             <button type="button" className="actions-dropdown-item" onClick={() => { setActionProgram(menuProgram); setActiveActionMenu(null); editProgram(menuProgram); }} role="menuitem">Edit</button>
           )}
-          {canEndPrograms && (
+          {activeTab !== 'Archived' && canEndPrograms && (
             <button type="button" className="actions-dropdown-item" onClick={() => { setActionProgram(menuProgram); setActiveActionMenu(null); (activityMenu ? String(menuProgram?.status || '').trim().toLowerCase() === 'ended' : activeTab === 'Ended') ? backToActivePrograms(menuProgram) : setPendingEndProgram(menuProgram); }} role="menuitem">
-              {(activityMenu ? String(menuProgram?.status || '').trim().toLowerCase() === 'ended' : activeTab === 'Ended') ? 'Reactivate' : 'End'}
+              {(activityMenu ? String(menuProgram?.status || '').trim().toLowerCase() === 'ended' : activeTab === 'Ended') ? 'Reactivate' : 'Mark completed'}
             </button>
           )}
-          {canDeletePrograms && (
-            <button type="button" className="actions-dropdown-item delete" onClick={() => { setActionProgram(menuProgram); setActiveActionMenu(null); deleteProgram(menuProgram); }} role="menuitem">Delete</button>
+          {activeTab !== 'Archived' && canDeletePrograms && String(menuProgram?.status || '').trim().toLowerCase() === 'ended' && (
+            <button type="button" className="actions-dropdown-item" onClick={() => { setActionProgram(menuProgram); setActiveActionMenu(null); deleteProgram(menuProgram); }} role="menuitem">Archive</button>
           )}
         </FloatingLayer>
       )}
@@ -1245,7 +1318,8 @@ export default function ProgramPage() {
           cards={[
             { key: 'All', label: 'Total Projects', value: programs.length },
             { key: 'Active', label: 'Active Projects', value: filterPrograms(programs, '', 'Active').length },
-            { key: 'Ended', label: 'Ended Projects', value: filterPrograms(programs, '', 'Ended').length },
+            { key: 'Ended', label: 'Completed Projects', value: filterPrograms(programs, '', 'Ended').length },
+            ...(isCommunityOrganizer ? [{ key: 'Archived', label: 'Archived Projects', value: archivedPrograms?.length ?? '—' }] : []),
           ]}
         />
       )}
@@ -1285,7 +1359,9 @@ export default function ProgramPage() {
           )}
         </div>
         <div className="table-overflow">
-          {viewMode && !clusterView ? (() => {
+          {!viewMode && activeTab === 'Archived' && archivedProgramsLoading ? (
+            <p className="archive-records-state" role="status">Loading archived programs…</p>
+          ) : viewMode && !clusterView ? (() => {
             if (selectedRouteBatch) {
               const batchBeneficiaries = getProgramBeneficiaryRecords(selectedProgramView).filter((record) =>
                 String(record.batch || '').trim().toLowerCase() === String(selectedRouteBatch.name || selectedRouteBatch.batch_code || selectedRouteBatch.code || '').trim().toLowerCase()
@@ -1542,6 +1618,13 @@ export default function ProgramPage() {
                             >
                               {[program.type, program.provider].filter(Boolean).join(' · ')}
                             </span>
+                            {activeTab === 'Archived' && (
+                              <span className="program-table-meta program-list-meta">
+                                Archived {program.archived_at ? new Date(program.archived_at).toLocaleString() : 'date unavailable'}
+                                {program.archived_by ? ` by ${program.archived_by}` : ''}
+                                {program.archive_reason ? ` · ${program.archive_reason}` : ''}
+                              </span>
+                            )}
                           </a>
                         </td>
                         <td>
@@ -1563,7 +1646,7 @@ export default function ProgramPage() {
                         </td>
                         <td>
                           <span className={`program-status ${String(program.status || '').toLowerCase() === 'ended' ? 'ended' : 'active'}`}>
-                            {program.status || 'Active'}
+                            {String(program.status || '').toLowerCase() === 'ended' ? 'Completed' : program.status || 'Active'}
                           </span>
                         </td>
                         <td>{renderActionMenu(`main-${program.id}`, program)}</td>
@@ -1583,13 +1666,45 @@ export default function ProgramPage() {
         </div>
       </section>
 
-      <ConfirmActionModal
-        show={Boolean(pendingDeleteProgram)}
-        title="Delete project?"
-        message={pendingDeleteProgram ? `Delete ${pendingDeleteProgram.name}?` : 'Delete this project?'}
-        confirmLabel="Delete"
+      <ConfirmDialog
+        open={Boolean(pendingDeleteProgram)}
+        title="Archive completed project?"
+        description={pendingDeleteProgram ? `Archive ${pendingDeleteProgram.name}? It will be removed from regular project lists, but the project and its monitoring, distribution, and receipt history will remain recoverable in Archived Projects. This does not permanently delete the project.` : ''}
+        variant="default"
+        confirmLabel="Archive"
+        loading={isArchivingProgram}
+        loadingLabel="Archiving..."
+        confirmDisabled={programArchiveImpactLoading || Boolean(programArchiveImpactError) || !programArchiveImpact}
+        summary={programArchiveImpact?.related?.map(({ label, count }) => ({ label, value: count })) || []}
+        error={programArchiveImpactError}
         onConfirm={confirmDeleteProgram}
-        onCancel={() => setPendingDeleteProgram(null)}
+        onCancel={() => {
+          archiveImpactRequestRef.current += 1;
+          setPendingDeleteProgram(null);
+          setProgramArchiveImpactLoading(false);
+        }}
+      >
+        {programArchiveImpactLoading && <p role="status">Checking related records...</p>}
+        {programArchiveImpactError && (
+          <button type="button" className="btn btn-secondary" onClick={() => loadProgramArchiveImpact(pendingDeleteProgram)}>
+            Retry related-record check
+          </button>
+        )}
+        <label className="archive-reason-field">
+          <span>Reason (optional)</span>
+          <textarea value={archiveReason} maxLength={500} onChange={(event) => setArchiveReason(event.target.value)} />
+        </label>
+      </ConfirmDialog>
+      <ConfirmDialog
+        open={Boolean(pendingRestoreProgram)}
+        title="Restore archived project?"
+        description={pendingRestoreProgram ? `Restore ${pendingRestoreProgram.name}? Its status will remain completed, and it will return to the Completed Projects list.` : ''}
+        variant="default"
+        confirmLabel="Restore"
+        loading={isRestoringArchivedProgram}
+        loadingLabel="Restoring..."
+        onConfirm={confirmRestoreArchivedProgram}
+        onCancel={() => setPendingRestoreProgram(null)}
       />
       <ConfirmDialog
         open={showSaveConfirmation}
@@ -1603,10 +1718,10 @@ export default function ProgramPage() {
       />
       <ConfirmDialog
         open={Boolean(pendingEndProgram)}
-        title="End this program?"
-        description={pendingEndProgram ? `End ${pendingEndProgram.name}? It will be moved to Ended programs and can be reactivated later.` : ''}
-        variant="destructive"
-        confirmLabel="End program"
+        title="Mark project as successfully completed?"
+        description={pendingEndProgram ? `Mark ${pendingEndProgram.name} as successfully completed? It will become read-only and move to Completed Projects. You can reactivate it if this was a mistake, or archive it to remove it from regular lists while keeping its history recoverable.` : ''}
+        variant="default"
+        confirmLabel="Mark completed"
         loading={isEndingProgram}
         loadingLabel="Ending..."
         onConfirm={confirmEndProgram}

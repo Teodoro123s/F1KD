@@ -5,6 +5,25 @@ const { normalizeRole } = require('../middleware/authorize');
 const { minioClient, minioBucket, uploadDirectory } = require('../middleware/documentUpload');
 
 const router = express.Router();
+const safeContentTypes = new Map([
+  ['.pdf', 'application/pdf'],
+  ['.jpg', 'image/jpeg'],
+  ['.jpeg', 'image/jpeg'],
+  ['.png', 'image/png'],
+  ['.webp', 'image/webp'],
+]);
+
+function setDocumentResponseHeaders(res, objectKey) {
+  const extension = path.extname(objectKey).toLowerCase();
+  const contentType = safeContentTypes.get(extension) || 'application/octet-stream';
+  const isImage = contentType.startsWith('image/');
+  const filename = path.basename(objectKey).replace(/[^a-zA-Z0-9._-]/g, '_') || 'download';
+  res.setHeader('Content-Type', contentType);
+  res.setHeader('Content-Disposition', `${isImage ? 'inline' : 'attachment'}; filename="${filename}"`);
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Cache-Control', 'private, no-store');
+  res.setHeader('Cross-Origin-Resource-Policy', 'same-site');
+}
 
 async function findDocumentRecords(documentPath) {
   const [rows] = await pool.query(
@@ -86,20 +105,19 @@ router.get('/*', async (req, res) => {
       if (path.dirname(filePath) !== path.resolve(uploadDirectory)) {
         return res.status(400).json({ error: 'Invalid document path' });
       }
+      setDocumentResponseHeaders(res, objectKey);
       return res.sendFile(filePath, (error) => {
         if (error && !res.headersSent) res.status(error.statusCode === 404 ? 404 : 500).json({
           error: error.statusCode === 404 ? 'Document not found' : 'Unable to load document',
         });
       });
     }
-
     if (!minioClient) return res.status(404).json({ error: 'Document storage is not configured' });
-    const metadata = await minioClient.statObject(minioBucket, objectKey);
-    res.setHeader('Content-Type', metadata.metaData?.['content-type'] || 'application/octet-stream');
-    res.setHeader('Content-Disposition', 'inline');
+    await minioClient.statObject(minioBucket, objectKey);
+    setDocumentResponseHeaders(res, objectKey);
     const stream = await minioClient.getObject(minioBucket, objectKey);
     stream.on('error', (error) => {
-      if (!res.headersSent) res.status(404).json({ error: error.message || 'Document unavailable' });
+      if (!res.headersSent) res.status(404).json({ error: 'Document unavailable' });
       else res.destroy(error);
     });
     stream.pipe(res);

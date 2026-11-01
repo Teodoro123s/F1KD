@@ -54,6 +54,6 @@ test('community reference options return only scoped hierarchy data without bene
 
   assert.equal(queries.length, 3);
   assert.ok(queries.every(({ sql }) => !/SELECT\s+m\.\*|mother_checkups/i.test(sql)));
-  assert.ok(queries.every(({ sql }) => /WHERE\s+(?:c\.id|g\.id|EXISTS)/i.test(sql)));
+  assert.ok(queries.every(({ sql }) => /WHERE\s+(?:c\.archived_at|g\.archived_at|b\.archived_at)/i.test(sql)));
   assert.deepEqual(queries.map(({ params }) => params), [[8], [12], [12]]);
 });

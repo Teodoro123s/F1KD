@@ -10,6 +10,7 @@ import {
   createGroup as createGroupApi,
   updateGroup as updateGroupApi,
   deleteGroup as deleteGroupApi,
+  transferMotherToBatch as transferMotherToBatchApi,
 } from '../communityService';
 
 export const useCommunityMutations = ({ refreshData }) => {
@@ -192,6 +193,15 @@ export const useCommunityMutations = ({ refreshData }) => {
     [runMutation]
   );
 
+  const transferMotherToBatch = useCallback(
+    async (motherId, batchId) => runMutation({
+      label: 'transfer mother to batch',
+      successMessage: 'Mother and her children transferred to the selected batch.',
+      request: () => transferMotherToBatchApi(motherId, batchId),
+    }),
+    [runMutation]
+  );
+
   return {
     loading,
     error,
@@ -205,5 +215,6 @@ export const useCommunityMutations = ({ refreshData }) => {
     createGroup,
     updateGroup,
     deleteGroup,
+    transferMotherToBatch,
   };
 };

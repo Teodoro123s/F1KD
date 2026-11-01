@@ -15,6 +15,7 @@ export default function ConfirmDialog({
   loading = false,
   confirmDisabled = false,
   summary = [],
+  children,
   error = '',
   className = '',
   onConfirm,
@@ -95,6 +96,7 @@ export default function ConfirmDialog({
               ))}
             </dl>
           )}
+          {children}
           {error && <p className="confirm-dialog__error" role="alert">{error}</p>}
         </div>
         <div className="confirm-dialog__footer">

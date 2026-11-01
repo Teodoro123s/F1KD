@@ -28,8 +28,29 @@ test('PhilHealth claim APIs validate, persist, update, and enforce school scope'
   await pool.ready;
   const originalQuery = pool.query;
   const claims = new Map();
+  const testSessions = new Map();
   let nextClaimId = 1;
   pool.query = async (sql, params = []) => {
+    if (sql.includes('FROM auth_sessions s')) {
+      const session = testSessions.get(String(params[0]));
+      return [session ? [{
+        user_id: session.id,
+        role: session.role,
+        status: 'Active',
+        school_id: session.school_id,
+        group_id: null,
+        consent_accepted_at: new Date(),
+      }] : []];
+    }
+    if (sql.startsWith('INSERT INTO notifications')) return [{ insertId: 1 }];
+    if (sql.includes('FROM mothers m') && sql.includes('school_archived_at')) {
+      return [[{
+        archived_at: null,
+        school_archived_at: null,
+        group_archived_at: null,
+        batch_archived_at: null,
+      }]];
+    }
     if (sql.includes('SELECT id FROM mothers WHERE (id = ? OR mother_code = ?)')) {
       const [id, , schoolId] = params;
       return Number(id) === 123 && Number(schoolId) === 12 ? [[{ id: 123 }]] : [[]];
@@ -78,7 +99,11 @@ test('PhilHealth claim APIs validate, persist, update, and enforce school scope'
   await new Promise((resolve) => server.once('listening', resolve));
 
   const url = `http://127.0.0.1:${server.address().port}/api/mothers/123/claims`;
-  const tokenFor = (user) => jwt.sign(user, process.env.JWT_SECRET);
+  const tokenFor = (user) => {
+    const sid = `philhealth-claim-${user.id}`;
+    testSessions.set(sid, user);
+    return jwt.sign({ id: user.id, sid }, process.env.JWT_SECRET);
+  };
   const request = (token, path = '', options = {}) => fetch(`${url}${path}`, {
     ...options,
     headers: {

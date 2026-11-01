@@ -1,13 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { formatDateForDisplay } from '../../../utils/formatting/dateFormat';
-import { apiDeleteMother, apiDeleteMotherDocument, apiGetMother, apiUploadMotherDocuments } from '../../../api/mothers';
+import { apiDeleteMotherDocument, apiGetMother, apiUploadMotherDocuments } from '../../../api/mothers';
 import { DocumentPreview, DocumentPreviewModal } from '../../../components/DocumentPreview';
 import { useAuth } from '../../../auth/AuthProvider';
 import { can } from '../../../utils/permissions';
 import PageHeader from '../../../components/ui/PageHeader';
 import ConfirmDialog from '../../../components/ui/ConfirmDialog';
-import { notifyAction } from '../../../components/ActionFeedback';
 import { MotherFormFields, OTHER_MATERNAL_VACCINES } from './BeneficiaryMother';
 import MonitorReportCard from '../MonitorReportCard';
 import MotherNavigationCards from './MotherNavigationCards';
@@ -78,16 +77,13 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
   const navigate = useNavigate();
   const location = useLocation();
   const { currentUser } = useAuth();
-  const canManage = can(currentUser?.role, 'beneficiary-resources', 'delete');
   const canEdit = can(currentUser?.role, 'beneficiary-resources', 'update');
   const canRemoveDocuments = can(currentUser?.role, 'beneficiary-resources', 'delete');
   const [motherRecord, setMotherRecord] = useState(selectedMother);
   const [activeTab, setActiveTab] = useState('overview');
   const [profileTab, setProfileTab] = useState('general');
   const [previewDocument, setPreviewDocument] = useState(null);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showEditConfirm, setShowEditConfirm] = useState(false);
-  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!selectedMother) return undefined;
@@ -228,21 +224,6 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
     }))),
   };
 
-  const deleteMother = async () => {
-    if (deleting) return;
-    setDeleting(true);
-    try {
-      await apiDeleteMother(motherId);
-      setShowDeleteModal(false);
-      onClose?.();
-    } catch (error) {
-      const message = error.message || 'Unable to delete mother and children.';
-      notifyAction(message, 'error');
-    } finally {
-      setDeleting(false);
-    }
-  };
-
   const documentContent = (
     <section className="create-mother-category mother-detail-inline-documents">
       <h4 className="form-section-title">I.C DOCUMENTS</h4>
@@ -288,7 +269,6 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
         breadcrumbs={[{ label: 'Beneficiaries', href: '/beneficiary' }, { label: 'Mother Profile' }]}
         actions={(
           <div className="mother-detail-actions">
-            {canManage && <button type="button" className="btn-danger" onClick={() => setShowDeleteModal(true)}>Delete</button>}
             {canEdit && <button type="button" className="btn-secondary" onClick={() => setShowEditConfirm(true)}>Edit</button>}
             <button type="button" className="btn-secondary" onClick={handleBack}>Back</button>
           </div>
@@ -303,21 +283,6 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
       )}
       {!overviewOnly && <MotherNavigationCards mother={mother} motherId={motherId} activeCard="profile" />}
 
-      {showDeleteModal && (
-        <div className="modal-backdrop" role="presentation" onMouseDown={() => !deleting && setShowDeleteModal(false)}>
-          <div className="modal mother-delete-modal" role="dialog" aria-modal="true" aria-labelledby="delete-mother-title" onMouseDown={(event) => event.stopPropagation()}>
-            <h2 id="delete-mother-title">Delete mother record?</h2>
-            <p>
-              This permanently deletes <strong>{fullName}</strong> and all linked child records and monitoring data.
-              {children.length > 0 && ` ${children.length} child record${children.length === 1 ? '' : 's'} will also be deleted.`}
-            </p>
-            <div className="modal-actions">
-              <button type="button" className="btn-secondary" onClick={() => setShowDeleteModal(false)} disabled={deleting}>Cancel</button>
-              <button type="button" className="btn-danger" onClick={deleteMother} disabled={deleting}>{deleting ? 'Deleting...' : 'Delete permanently'}</button>
-            </div>
-          </div>
-        </div>
-      )}
       <ConfirmDialog
         open={showEditConfirm}
         title="Edit mother profile?"
@@ -327,7 +292,6 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
         onConfirm={confirmEditMother}
         onCancel={() => setShowEditConfirm(false)}
       />
-
       {!overviewOnly && (activeTab === 'children' ? (
         <section className="mother-detail-section">
           <h3 className="mother-detail-section-title">Children</h3>

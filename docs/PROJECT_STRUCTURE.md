@@ -94,6 +94,10 @@ Use `src/components/` only for UI shared by independent features. Use `src/utils
 
 Shared animation durations and easing curves are defined as CSS variables in `src/styles/variables.css`. Shared transition and entry/exit styles live in `src/styles/`; use those tokens rather than adding one-off timings. `src/components/ui/usePresence.js` keeps shared overlays mounted during their exit transition. Reuse it for new conditionally rendered overlays, and make closing content inert so it cannot receive input while fading out. Native select option menus are controlled by the browser and should not be given custom popup animations.
 
+`src/index.css` is the global stylesheet entry point. It imports Tailwind theme/utilities without Preflight, then the established `src/styles/main.css` component styles and the view-token, modal, table, form, and AI-settings layers. Tailwind is being introduced incrementally; preserve existing design tokens and migrate component styles only when verified. `main.css` imports `variables.css` before its component styles; do not import the same token file again from `index.css`.
+
+The Vite development proxy in `vite.config.js` targets the backend's default port, `4000`. Set `VITE_API_PROXY_TARGET` when the backend runs elsewhere.
+
 Creation forms that need school/group/batch assignments should use the scoped `/api/community/reference-options` endpoint instead of loading the full operational `/api/community/summary`. The reference response intentionally excludes beneficiary profile data and follows the authenticated user's school/group scope.
 
 ## Backend map
@@ -113,6 +117,17 @@ server/
 ```
 
 Keep SQL and authorization decisions on the server. Routes should use the existing middleware and service patterns; do not make a frontend API client import backend modules.
+
+### Database setup files
+
+- `server/db.js` owns the connection pool and runs the application's idempotent schema checks during backend startup.
+- Dated SQL files under `server/migrations/` are explicit schema changes for existing databases; use the relevant migration instructions in `server/README.md`.
+- `server/migrations/compiled_schema.sql` identifies itself as a fresh-database schema and directs existing databases to use individual migrations.
+- `server/create_users.sql` and `server/f1kd_recreate.sql` are also fresh-database SQL scripts. Their schema parity with the runtime bootstrap and compiled schema has not been established, so treat them as separate legacy/manual entry points until a dedicated schema comparison confirms which should be maintained.
+
+Do not edit only one schema representation when changing the database. First compare the intended fresh-install and upgrade paths, then update and test the appropriate bootstrap and migration files together.
+
+Community mother transfers use `PUT /api/community/mothers/:id/batch`. The API validates the destination against the mother's school and group, then updates the mother and all linked children in one transaction so child batch assignments continue to follow their mother.
 
 ## Tests and common commands
 

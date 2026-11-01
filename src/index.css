@@ -1,7 +1,14 @@
-﻿@import './styles/variables.css';
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
 @import './styles/main.css';
 @import './styles/view-tokens.css';
 @import './styles/modal-system.css';
 @import './styles/table-system.css';
 @import './styles/form-system.css';
 @import './styles/components/ai-settings.css';
+
+@theme inline {
+  --color-f1kd-secondary: var(--color-text-secondary);
+  --color-f1kd-muted: var(--color-text-muted);
+  --text-f1kd-sm: var(--font-size-sm);
+}

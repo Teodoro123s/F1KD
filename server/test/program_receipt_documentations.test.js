@@ -28,6 +28,13 @@ const { verifyToken } = require('../middleware/auth');
 const { authorizeOperational } = require('../middleware/authorize');
 const programsRouter = require('../routes/programs');
 
+const pngSignature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const pngBytes = (size = pngSignature.length) => {
+  const buffer = Buffer.alloc(size);
+  pngSignature.copy(buffer);
+  return buffer;
+};
+
 test('program check-in evidence is shared across beneficiaries and manageable only by Community Organizers', async (t) => {
   await pool.ready;
   const originalQuery = pool.query;
@@ -47,7 +54,11 @@ test('program check-in evidence is shared across beneficiaries and manageable on
       const role = testSessions.get(String(params[0]));
       return [role ? [{ user_id: 7, role, status: 'Active', school_id: role === 'Community Organizer' ? 12 : null, group_id: null, consent_accepted_at: new Date() }] : []];
     }
+    if (sql.includes('SELECT status, archived_at FROM programs WHERE id = ?')) return [[{ status: programStatus, archived_at: null }]];
     if (sql.includes('SELECT status FROM programs WHERE id = ?')) return [[{ status: programStatus }]];
+    if (sql.includes('SELECT COUNT(*) AS count FROM program_clusters')) return [[{ count: 2 }]];
+    if (sql.includes('SELECT COUNT(*) AS count FROM monitoring_logs')) return [[{ count: 5 }]];
+    if (sql.includes('SELECT p.* FROM programs p')) return [[]];
     if (sql.includes('SELECT beneficiary_type, status FROM programs WHERE id = ?')) {
       return [[{ beneficiary_type: 'Mother', status: programStatus }]];
     }
@@ -164,6 +175,28 @@ test('program check-in evidence is shared across beneficiaries and manageable on
     headers: headersFor('Partner'),
   });
   assert.equal(deniedDelete.status, 403);
+  const deniedArchiveImpact = await fetch(`http://127.0.0.1:${server.address().port}/api/programs/5/archive-impact`, {
+    headers: headersFor('Partner'),
+  });
+  assert.equal(deniedArchiveImpact.status, 403);
+  const archiveImpact = await fetch(`http://127.0.0.1:${server.address().port}/api/programs/5/archive-impact`, {
+    headers: headersFor('Community Organizer'),
+  });
+  assert.equal(archiveImpact.status, 200);
+  assert.deepEqual((await archiveImpact.json()).related, [
+    { label: 'Program scopes', count: 2 },
+    { label: 'Monitoring and distribution records', count: 5 },
+  ]);
+  for (const role of ['Admin', 'Partner']) {
+    const archivedProjectsResponse = await fetch(`http://127.0.0.1:${server.address().port}/api/programs?archived=true`, {
+      headers: headersFor(role),
+    });
+    assert.equal(archivedProjectsResponse.status, 403, `${role} must not list archived projects`);
+  }
+  const coordinatorArchivedProjects = await fetch(`http://127.0.0.1:${server.address().port}/api/programs?archived=true`, {
+    headers: headersFor('Community Organizer'),
+  });
+  assert.equal(coordinatorArchivedProjects.status, 200);
 
   const superadminReport = await fetch(`${baseUrl}/report/mother/100`, {
     headers: headersFor('Superadmin'),
@@ -176,11 +209,11 @@ test('program check-in evidence is shared across beneficiaries and manageable on
   for (let index = 0; index < 5; index += 1) {
     oversizedSubmission.append(
       'images',
-      new Blob([new Uint8Array(5 * 1024 * 1024)], { type: 'image/png' }),
+      new Blob([pngBytes(5 * 1024 * 1024)], { type: 'image/png' }),
       `large-${index}.png`,
     );
   }
-  oversizedSubmission.append('images', new Blob([new Uint8Array(1)], { type: 'image/png' }), 'extra.png');
+  oversizedSubmission.append('images', new Blob([pngBytes()], { type: 'image/png' }), 'extra.png');
   const oversizedResponse = await fetch(`${baseUrl}/evidence`, {
     method: 'POST',
     headers: headersFor('Community Organizer'),
@@ -196,7 +229,7 @@ test('program check-in evidence is shared across beneficiaries and manageable on
     { id: '101', type: 'mother' },
   ]));
   for (let index = 0; index < 3; index += 1) {
-    formData.append('images', new Blob([`photo ${index}`], { type: 'image/png' }), `check-in-${index}.png`);
+    formData.append('images', new Blob([pngBytes()], { type: 'image/png' }), `check-in-${index}.png`);
   }
   const uploadResponse = await fetch(`${baseUrl}/evidence`, {
     method: 'POST',
@@ -215,7 +248,7 @@ test('program check-in evidence is shared across beneficiaries and manageable on
   endedFormData.append('date', '2026-10-24');
   endedFormData.append('checkins', JSON.stringify([{ id: '100', type: 'mother' }]));
   for (let index = 0; index < 3; index += 1) {
-    endedFormData.append('images', new Blob([`ended photo ${index}`], { type: 'image/png' }), `ended-${index}.png`);
+    endedFormData.append('images', new Blob([pngBytes()], { type: 'image/png' }), `ended-${index}.png`);
   }
   const endedUploadResponse = await fetch(`${baseUrl}/evidence`, {
     method: 'POST',
