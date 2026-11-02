@@ -1,15 +1,20 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { matchesSearch } from '../../utils/search.mjs';
 import BeneficiaryTable from './BeneficiaryTable';
 import StatusFilterBar from './components/StatusFilterBar';
 import EntitySearchControls from './components/EntitySearchControls';
 import ModuleSummaryCards from '../../components/ui/ModuleSummaryCards';
 import ModuleSelectionHint from '../../components/ui/ModuleSelectionHint';
 import TableSearch from '../../components/ui/TableSearch';
+import Pagination from '../../components/ui/Pagination';
 import { apiGetChildren } from '../../api/children';
+import { apiGetMothers } from '../../api/mothers';
 import { getMotherProfileProgress, getMotherMonitoringProgress } from '../../utils/beneficiary/motherProgress';
 import { getChildProfileProgress, getChildMonitoringProgress } from '../../utils/beneficiary/childProgress';
 import { getCheckupScheduleStatus } from '../../utils/beneficiary/checkupStatus.mjs';
-import { hasPendingBeneficiaryDocuments, matchesBeneficiarySearch } from './utils/beneficiaryUtils';
+import { hasPendingBeneficiaryDocuments } from './utils/beneficiaryUtils';
+
+const EMPTY_ARRAY = [];
 
 const getGroupStatusByProgress = (g) => {
   if (!g) return 'Incomplete';
@@ -26,7 +31,7 @@ const getGroupStatusByProgress = (g) => {
   return p >= 100 ? 'Complete' : 'Incomplete';
 };
 
-export default function BeneficiaryListPage({ communities = [], groups = [], batches = [], mothers = [], loading = false, mothersError = '', onSelectMother, onSelectChild, batchId = '', showCommunityFilter = true }) {
+export default function BeneficiaryListPage({ communities = EMPTY_ARRAY, groups = EMPTY_ARRAY, batches = EMPTY_ARRAY, mothers = EMPTY_ARRAY, loading = false, mothersError = '', onSelectMother, onSelectChild, batchId = '', showCommunityFilter = true }) {
   const [query, setQuery] = useState('');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('All');
   const [perPage, setPerPage] = useState(10);
@@ -36,6 +41,9 @@ export default function BeneficiaryListPage({ communities = [], groups = [], bat
   const [selectedSummaryCard, setSelectedSummaryCard] = useState(null);
   const [childRows, setChildRows] = useState([]);
   const [childrenLoading, setChildrenLoading] = useState(false);
+  const [serverSearch, setServerSearch] = useState(null);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState('');
   useEffect(() => {
     let active = true;
 
@@ -82,12 +90,77 @@ export default function BeneficiaryListPage({ communities = [], groups = [], bat
     return () => { active = false; };
   }, [mothers]);
 
+  useEffect(() => {
+    const term = query.trim();
+    if (!term) {
+      setServerSearch(null);
+      setSearchError('');
+      setSearchLoading(false);
+      return undefined;
+    }
+
+    let active = true;
+    setServerSearch({ entity: selectedEntityFilter, rows: [] });
+    setSearchError('');
+    setSearchLoading(true);
+    const timeoutId = setTimeout(async () => {
+      try {
+        let rows;
+        if (selectedEntityFilter === 'Child') {
+          const response = await apiGetChildren([], { search: term });
+          const mothersByDbId = new Map();
+          mothers.forEach((mother) => {
+            const dbId = mother.raw?.id || mother.original?.raw?.id || mother.id;
+            if (dbId !== undefined && dbId !== null) mothersByDbId.set(String(dbId), mother);
+          });
+          rows = (response.children || []).map((child) => {
+            const mother = mothersByDbId.get(String(child.mother_id || child.mother_db_id));
+            const childName = child.name || [child.first_name, child.middle_name, child.last_name, child.suffix].filter(Boolean).join(' ');
+            return {
+              id: child.id,
+              name: childName || 'Unnamed child',
+              community: child.community_name || mother?.community || mother?.area || 'Unknown',
+              progress: getChildProfileProgress(child),
+              monitoringProgress: getChildMonitoringProgress(child),
+              original: {
+                ...child,
+                mother,
+                group_name: child.group_name || child.group || '',
+                batch_name: child.batch_name || child.batch || '',
+              },
+            };
+          });
+        } else {
+          const response = await apiGetMothers([], { search: term });
+          rows = Array.isArray(response) ? response : (response.mothers || []);
+        }
+        if (active) setServerSearch({ entity: selectedEntityFilter, rows });
+      } catch (error) {
+        if (active) {
+          console.error('[BeneficiaryListPage] Unable to search beneficiaries:', error);
+          setServerSearch({ entity: selectedEntityFilter, rows: [] });
+          setSearchError('Unable to search beneficiaries. Please try again.');
+        }
+      } finally {
+        if (active) setSearchLoading(false);
+      }
+    }, 250);
+
+    return () => {
+      active = false;
+      clearTimeout(timeoutId);
+    };
+  }, [mothers, query, selectedEntityFilter]);
+
   const handleSearch = (val) => { setQuery(val); setPage(1); };
   const handlePerPageChange = (val) => { setPerPage(Number(val)); setPage(1); };
 
   const filteredData = useMemo(() => {
     const term = (query || '').trim();
-    let data = selectedEntityFilter === 'Child' ? childRows : mothers;
+    const sourceData = query.trim()
+      ? serverSearch?.entity === selectedEntityFilter ? serverSearch.rows : []
+      : selectedEntityFilter === 'Child' ? childRows : mothers;
+    let data = sourceData;
 
     if (batchId) {
       const normalizedBatchId = String(batchId);
@@ -171,7 +244,24 @@ export default function BeneficiaryListPage({ communities = [], groups = [], bat
     }
 
     if (term) {
-      data = data.filter((record) => matchesBeneficiarySearch(record, term));
+      data = data.filter((record) => {
+        const original = record.original || record.raw || record;
+        const mother = original.mother || record.mother || {};
+        return matchesSearch(term, [
+          record.name, record.id, record.community, record.group, record.batch,
+          record.status, record.progress, record.monitoringProgress?.status,
+          original.firstName, original.first_name, original.middleName, original.middle_name,
+          original.lastName, original.last_name, original.maiden_surname, original.suffix,
+          original.motherCode, original.mother_code, original.childCode, original.child_code,
+          original.motherId, original.mother_id, original.contactNumber, original.contact_number,
+          original.address, original.area, original.purok, original.sitio, original.barangay,
+          original.municipality, original.city, original.province, original.group_name,
+          original.groupName, original.batch_name, original.batchName, original.batch_code,
+          mother.name, mother.firstName, mother.first_name, mother.middleName, mother.middle_name,
+          mother.lastName, mother.last_name, mother.maiden_surname, mother.address, mother.contact_number,
+          mother.community, mother.area,
+        ]);
+      });
     }
 
     const statusOrder = { Incomplete: 0, Complete: 1 };
@@ -181,7 +271,7 @@ export default function BeneficiaryListPage({ communities = [], groups = [], bat
       if (statusA !== statusB) return statusA - statusB;
       return (a.name || '').localeCompare(b.name || '');
     });
-  }, [mothers, childRows, query, selectedStatusFilter, selectedEntityFilter, selectedCommunityFilter, batchId]);
+  }, [mothers, childRows, serverSearch, query, selectedStatusFilter, selectedEntityFilter, selectedCommunityFilter, batchId]);
 
   const pageCount = Math.max(1, Math.ceil(filteredData.length / perPage));
   const currentPage = Math.min(page, pageCount);
@@ -190,46 +280,6 @@ export default function BeneficiaryListPage({ communities = [], groups = [], bat
 
   const rangeStart = filteredData.length === 0 ? 0 : currentStart + 1;
   const rangeEnd = Math.min(currentStart + perPage, filteredData.length);
-
-  const renderPaginationButtons = () => (
-    <>
-      <button
-        type="button"
-        className={`pagination-btn${currentPage === 1 ? ' disabled' : ''}`}
-        onClick={() => setPage((value) => Math.max(1, value - 1))}
-        disabled={currentPage === 1}
-        aria-label="Previous page"
-      >
-        ‹
-      </button>
-
-      <input
-        type="number"
-        min={1}
-        max={pageCount}
-        value={currentPage}
-        className="pagination-page-input"
-        placeholder="Page"
-        aria-label="Jump to a page"
-        onChange={(event) => {
-          const nextPage = Number(event.target.value);
-          if (!Number.isNaN(nextPage) && nextPage >= 1 && nextPage <= pageCount) {
-            setPage(nextPage);
-          }
-        }}
-      />
-
-      <button
-        type="button"
-        className={`pagination-btn${currentPage === pageCount ? ' disabled' : ''}`}
-        onClick={() => setPage((value) => Math.min(pageCount, value + 1))}
-        disabled={currentPage === pageCount}
-        aria-label="Next page"
-      >
-        ›
-      </button>
-    </>
-  );
 
   const motherProgressByName = useMemo(() => Object.fromEntries(communities.map((comm) => [comm.name, comm.progress ?? 0])), [communities]);
 
@@ -256,59 +306,74 @@ export default function BeneficiaryListPage({ communities = [], groups = [], bat
           setPage(1);
         }}
         cards={[
-          { key: 'mothers', label: 'Mothers', value: loading ? '...' : mothersError ? 'Error' : mothers.length, description: 'View list' },
-          { key: 'children', label: 'Children', value: childRows.length, description: 'View list' },
+          { key: 'mothers', label: 'Registered mothers', value: loading ? '...' : mothersError ? 'Error' : mothers.length, description: 'Show mothers', selectedDescription: 'Hide mothers' },
+          { key: 'children', label: 'Registered children', value: childRows.length, description: 'Show children', selectedDescription: 'Hide children' },
         ]}
       />
       {!selectedSummaryCard && <ModuleSelectionHint />}
       {selectedSummaryCard && (
-        <div className="beneficiary-results">
-          <section className="tabs-row beneficiary-filter-row">
-            <StatusFilterBar
-              mode="beneficiary"
-              selectedStatusFilter={selectedStatusFilter}
-              onChange={(nextStatus) => {
-                setSelectedStatusFilter(nextStatus);
-                setPage(1);
-              }}
-            />
+        <>
+          <div className="beneficiary-results">
+            <section className="tabs-row beneficiary-filter-row">
+              <StatusFilterBar
+                mode="beneficiary"
+                selectedStatusFilter={selectedStatusFilter}
+                onChange={(nextStatus) => {
+                  setSelectedStatusFilter(nextStatus);
+                  setPage(1);
+                }}
+              />
 
-            <EntitySearchControls
-              selectedEntityFilter={selectedEntityFilter}
-              showEntityFilter={false}
-              showCommunityFilter={showCommunityFilter}
+              <EntitySearchControls
+                selectedEntityFilter={selectedEntityFilter}
+                showEntityFilter={false}
+                showCommunityFilter={showCommunityFilter}
+                communities={communities}
+                selectedCommunity={selectedCommunityFilter}
+                onCommunityChange={(value) => { setSelectedCommunityFilter(value); setPage(1); }}
+                showSearch={false}
+                query={query}
+              />
+              <TableSearch
+                value={query}
+                onChange={handleSearch}
+                placeholder="Search names or school/group/batch"
+              />
+            </section>
+
+            <BeneficiaryTable
+              currentRows={displayRows}
+              loading={loading || searchLoading || (selectedEntityFilter === 'Child' && childrenLoading)}
+              errorMessage={searchError || (selectedEntityFilter === 'Mother' ? mothersError : '')}
+              filteredDataLength={filteredData.length}
+              rangeStart={rangeStart}
+              rangeEnd={rangeEnd}
+              currentPage={currentPage}
+              pageCount={pageCount}
+              onPageChange={setPage}
+              perPage={perPage}
+              handlePerPageChange={handlePerPageChange}
+              motherProgressByName={motherProgressByName}
+              onSelectMother={onSelectMother}
+              onSelectChild={onSelectChild}
               communities={communities}
-              selectedCommunity={selectedCommunityFilter}
-              onCommunityChange={(value) => { setSelectedCommunityFilter(value); setPage(1); }}
-              showSearch={false}
-              query={query}
+              groups={groups}
+              batches={batches}
+              entityFilter={selectedEntityFilter}
+              showPagination={false}
             />
-            <TableSearch
-              value={query}
-              onChange={handleSearch}
-              placeholder="Search names or school/group/batch"
-            />
-          </section>
-
-          <BeneficiaryTable
-            currentRows={displayRows}
-            loading={loading || (selectedEntityFilter === 'Child' && childrenLoading)}
-            errorMessage={selectedEntityFilter === 'Mother' ? mothersError : ''}
-            filteredDataLength={filteredData.length}
+          </div>
+          <Pagination
+            currentPage={currentPage}
+            pageCount={pageCount}
+            onPageChange={setPage}
+            perPage={perPage}
+            onPerPageChange={handlePerPageChange}
             rangeStart={rangeStart}
             rangeEnd={rangeEnd}
-            perPage={perPage}
-            handlePerPageChange={handlePerPageChange}
-            renderPaginationButtons={renderPaginationButtons}
-            motherProgressByName={motherProgressByName}
-            onSelectMother={onSelectMother}
-            onSelectChild={onSelectChild}
-            communities={communities}
-            groups={groups}
-            batches={batches}
-            entityFilter={selectedEntityFilter}
+            totalItems={filteredData.length}
           />
-        </div>
+        </>
       )}
     </>
   );

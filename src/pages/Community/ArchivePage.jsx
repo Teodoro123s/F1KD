@@ -31,14 +31,14 @@ export default function ArchivePage() {
               {
                 key: 'records',
                 label: 'Archived records',
-                description: 'View list',
-                selectedDescription: 'Hide list',
+                description: 'Show archived records',
+                selectedDescription: 'Hide archived records',
               },
               {
                 key: 'activity',
                 label: 'Archive activity',
-                description: 'View list',
-                selectedDescription: 'Hide list',
+                description: 'Show activity',
+                selectedDescription: 'Hide activity',
               },
             ]}
           />

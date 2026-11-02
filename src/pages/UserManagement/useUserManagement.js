@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { matchesSearch as matchesSearchText } from '../../utils/search.mjs';
 import {
   apiGetUsers,
   apiGetManagedHealthWorkers,
@@ -78,16 +79,20 @@ function mapApiUser(user) {
   };
 }
 
-async function fetchAllUsers(healthWorkerManagement = false) {
+async function fetchAllUsers(healthWorkerManagement = false, search = '') {
   if (healthWorkerManagement) {
     const response = await apiGetManagedHealthWorkers();
     return (Array.isArray(response.users) ? response.users : []).map(mapApiUser);
   }
-  const firstPage = await apiGetUsers(1, USER_PAGE_SIZE);
+  const options = search ? { search } : {};
+  const firstPage = await apiGetUsers(1, USER_PAGE_SIZE, options);
   const firstPageUsers = Array.isArray(firstPage.users) ? firstPage.users : [];
   const total = Number(firstPage.total) || firstPageUsers.length;
   const pageCount = Math.ceil(total / USER_PAGE_SIZE);
-  const remainingPages = await Promise.all(Array.from({ length: Math.max(0, pageCount - 1) }, (_, index) => apiGetUsers(index + 2, USER_PAGE_SIZE)));
+  const remainingPages = await Promise.all(Array.from(
+    { length: Math.max(0, pageCount - 1) },
+    (_, index) => apiGetUsers(index + 2, USER_PAGE_SIZE, options),
+  ));
   return [...firstPageUsers, ...remainingPages.flatMap((page) => Array.isArray(page.users) ? page.users : [])].map(mapApiUser);
 }
 
@@ -95,6 +100,9 @@ export function useUserManagement({ schoolId = '', batchId = '', healthWorkerMan
   const [users, setUsers] = useState([]);
   const [usersLoading, setUsersLoading] = useState(true);
   const [usersLoadError, setUsersLoadError] = useState('');
+  const [searchedUsers, setSearchedUsers] = useState(null);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState('');
   const [apiOnline, setApiOnline] = useState(true);
   const [communities, setCommunities] = useState([]);
   const [groups, setGroups] = useState([]);
@@ -166,6 +174,41 @@ export function useUserManagement({ schoolId = '', batchId = '', healthWorkerMan
   const [selectedRoleFilter, setSelectedRoleFilter] = useState('');
   const [selectedSchoolFilter, setSelectedSchoolFilter] = useState('');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState(schoolId || batchId ? 'All' : 'Active');
+
+  useEffect(() => {
+    const term = query.trim();
+    if (healthWorkerManagement || !term) {
+      setSearchedUsers(null);
+      setSearchLoading(false);
+      setSearchError('');
+      return undefined;
+    }
+
+    let active = true;
+    setSearchedUsers([]);
+    setSearchLoading(true);
+    setSearchError('');
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        const searched = await fetchAllUsers(false, term);
+        if (active) setSearchedUsers(searched);
+      } catch (error) {
+        if (active) {
+          console.error('[UserManagement] Unable to search users:', error);
+          setSearchedUsers([]);
+          setSearchError('Unable to search users. Please try again.');
+        }
+      } finally {
+        if (active) setSearchLoading(false);
+      }
+    }, 250);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timeoutId);
+    };
+  }, [healthWorkerManagement, query]);
+
   const [showAddModal, setShowAddModal] = useState(false);
   const [form, setFormState] = useState({
     firstName: '',
@@ -212,7 +255,8 @@ export function useUserManagement({ schoolId = '', batchId = '', healthWorkerMan
     const term = query.trim();
     const selectedBatch = batches.find((batch) => String(batch.id || batch.code) === String(batchId));
     const batchGroupIds = String(selectedBatch?.groupIds || '').split(',').map((id) => id.trim()).filter(Boolean);
-    return users.filter((user) => {
+    const sourceUsers = term && !healthWorkerManagement ? (searchedUsers || []) : users;
+    return sourceUsers.filter((user) => {
       if (normalizeRoleKey(user.role) === 'super_admin') {
         return false;
       }
@@ -228,14 +272,15 @@ export function useUserManagement({ schoolId = '', batchId = '', healthWorkerMan
       const matchesSelectedSchool = !selectedSchoolFilter || (selectedSchoolFilter === '__unassigned__'
         ? !user.schoolId
         : String(user.schoolId || '') === String(selectedSchoolFilter));
-      const matchesSearch =
-        !term ||
-        user.name.toLowerCase().includes(term.toLowerCase()) ||
-        String(user.username || user.email || '').toLowerCase().includes(term.toLowerCase()) ||
-        (!healthWorkerManagement && user.role.toLowerCase().includes(term.toLowerCase()));
+      const matchesSearch = matchesSearchText(term, [
+        user.name, user.firstName, user.first_name, user.middleInitial, user.middle_initial,
+        user.lastName, user.last_name, user.username, user.email, user.contactNumber,
+        user.contact_number, user.location, user.community, user.schoolName, user.status,
+        user.id, ...(!healthWorkerManagement ? [user.role] : []),
+      ]);
       return matchesSchoolScope && matchesBatch && matchesStatus && matchesRole && matchesSelectedSchool && matchesSearch;
     });
-  }, [batchId, batches, healthWorkerManagement, query, schoolId, selectedRoleFilter, selectedSchoolFilter, selectedStatusFilter, users]);
+  }, [batchId, batches, healthWorkerManagement, query, schoolId, searchedUsers, selectedRoleFilter, selectedSchoolFilter, selectedStatusFilter, users]);
 
   const pageCount = useMemo(
     () => Math.max(1, Math.ceil(filteredData.length / perPage)),
@@ -713,6 +758,8 @@ export function useUserManagement({ schoolId = '', batchId = '', healthWorkerMan
     users,
     usersLoading,
     usersLoadError,
+    searchLoading,
+    searchError,
     form,
     query,
     selectedStatusFilter,

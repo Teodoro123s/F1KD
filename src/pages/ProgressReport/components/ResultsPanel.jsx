@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { ResultsTable } from './ResultsTable';
 import { ResultsGraph } from './ResultsGraph';
+import Pagination from '../../../components/ui/Pagination';
 
 export function ResultsPanel({
   selection,
@@ -269,11 +270,16 @@ export function ResultsPanel({
         />
       )}
       {reportPagination && reportPagination.totalPages > 1 && (
-        <div className="progress-report-pagination" aria-label="Report pagination">
-          <button type="button" className="secondary-btn" disabled={displayPage <= 1} onClick={() => generateReport(displayPage - 1)}>Previous</button>
-          <span>Page {displayPage} of {reportPagination.totalPages}</span>
-          <button type="button" className="secondary-btn" disabled={displayPage >= reportPagination.totalPages} onClick={() => generateReport(displayPage + 1)}>Next</button>
-        </div>
+        <Pagination
+          currentPage={displayPage}
+          pageCount={reportPagination.totalPages}
+          onPageChange={generateReport}
+          rangeStart={(displayPage - 1) * reportPagination.perPage + 1}
+          rangeEnd={Math.min(displayPage * reportPagination.perPage, reportPagination.total)}
+          totalItems={reportPagination.total}
+          itemLabel="results"
+          ariaLabel="Report pagination"
+        />
       )}
     </div>
   );

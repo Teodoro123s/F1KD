@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
+import { matchesSearch } from '../../utils/search.mjs';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import PageHeader from '../../components/ui/PageHeader';
@@ -15,6 +16,7 @@ import { getChildMonitoringProgress } from '../../utils/beneficiary/childProgres
 import { getMotherMonitoringProgress, getMotherNextCheckupDate } from '../../utils/beneficiary/motherProgress';
 import { notifyAction } from '../../components/ActionFeedback';
 import TableSearch from '../../components/ui/TableSearch';
+import Pagination from '../../components/ui/Pagination';
 import ModuleSummaryCards from '../../components/ui/ModuleSummaryCards';
 import useModalAccessibility from '../../components/ui/useModalAccessibility';
 import usePresence from '../../components/ui/usePresence';
@@ -533,10 +535,30 @@ export default function MonitoringPage() {
   const monitoringRows = useMemo(() => {
     const term = query.trim();
     return allMonitoringRows.filter(({ beneficiary, status, screeningStatus }) => {
-      const searchableText = beneficiaryType === 'Mother'
-        ? `${getMotherName(beneficiary)} ${beneficiary.motherCode || beneficiary.mother_code || beneficiary.id || ''} ${beneficiary.community || beneficiary.community_name || beneficiary.area || ''}`
-        : `${getChildName(beneficiary)} ${beneficiary.child_code || beneficiary.id || ''} ${beneficiary.community || beneficiary.community_name || beneficiary.area || ''}`;
-      return (!term || searchableText.toLowerCase().includes(term.toLowerCase()))
+      const searchValues = beneficiaryType === 'Mother'
+        ? [
+          getMotherName(beneficiary), beneficiary.firstName, beneficiary.first_name,
+          beneficiary.middleName, beneficiary.middle_name, beneficiary.lastName,
+          beneficiary.last_name, beneficiary.maiden_surname, beneficiary.motherCode, beneficiary.mother_code,
+          beneficiary.mother_id_no, beneficiary.contact_number, beneficiary.address,
+          beneficiary.purok, beneficiary.sitio, beneficiary.barangay,
+          beneficiary.municipality, beneficiary.province, beneficiary.community,
+          beneficiary.community_name, beneficiary.area, beneficiary.group,
+          beneficiary.group_name, beneficiary.batch, beneficiary.batch_name,
+          beneficiary.id, beneficiary.status,
+        ]
+        : [
+          getChildName(beneficiary), beneficiary.firstName, beneficiary.first_name,
+          beneficiary.middleName, beneficiary.middle_name, beneficiary.lastName,
+          beneficiary.last_name, beneficiary.child_code, beneficiary.id,
+          beneficiary.motherName, beneficiary.mother_name, beneficiary.mother_code,
+          beneficiary.contact_number, beneficiary.address, beneficiary.purok,
+          beneficiary.sitio, beneficiary.barangay, beneficiary.municipality,
+          beneficiary.province, beneficiary.community, beneficiary.community_name,
+          beneficiary.area, beneficiary.group, beneficiary.group_name,
+          beneficiary.batch, beneficiary.batch_name, beneficiary.status,
+        ];
+      return matchesSearch(term, searchValues)
         && (statusFilter === 'All' || status === statusFilter)
         && (developmentalScreeningFilter === 'All'
           || screeningStatus === normalizeDevelopmentalStatus(developmentalScreeningFilter));
@@ -548,46 +570,6 @@ export default function MonitoringPage() {
   const currentRows = monitoringRows.slice((currentPage - 1) * perPage, currentPage * perPage);
   const rangeStart = monitoringRows.length ? (currentPage - 1) * perPage + 1 : 0;
   const rangeEnd = Math.min(currentPage * perPage, monitoringRows.length);
-
-  const renderPaginationButtons = () => (
-    <>
-      <button
-        type="button"
-        className={`pagination-btn${currentPage === 1 ? ' disabled' : ''}`}
-        onClick={() => setPage((value) => Math.max(1, value - 1))}
-        disabled={currentPage === 1}
-        aria-label="Previous page"
-      >
-        ‹
-      </button>
-
-      <input
-        type="number"
-        min={1}
-        max={pageCount}
-        value={currentPage}
-        className="pagination-page-input"
-        placeholder="Page"
-        aria-label="Jump to a page"
-        onChange={(event) => {
-          const nextPage = Number(event.target.value);
-          if (!Number.isNaN(nextPage) && nextPage >= 1 && nextPage <= pageCount) {
-            setPage(nextPage);
-          }
-        }}
-      />
-
-      <button
-        type="button"
-        className={`pagination-btn${currentPage === pageCount ? ' disabled' : ''}`}
-        onClick={() => setPage((value) => Math.min(pageCount, value + 1))}
-        disabled={currentPage === pageCount}
-        aria-label="Next page"
-      >
-        ›
-      </button>
-    </>
-  );
 
   const openBeneficiary = (beneficiary) => {
     if (beneficiaryType === 'Mother') handleSelectMother(beneficiary);
@@ -621,10 +603,10 @@ export default function MonitoringPage() {
               setPage(1);
             }}
             cards={[
-              { key: 'All', label: `Total ${beneficiaryType} Records`, value: allMonitoringRows.length, description: 'View list' },
-              { key: 'Missing', label: 'Missing', value: allMonitoringRows.filter((row) => row.status === 'Missing').length, description: 'View list' },
-              { key: 'Pending', label: 'Pending', value: allMonitoringRows.filter((row) => row.status === 'Pending').length, description: 'View list' },
-              { key: 'Done', label: 'Done', value: allMonitoringRows.filter((row) => row.status === 'Done').length, description: 'View list' },
+              { key: 'All', label: `Total ${beneficiaryType} records`, value: allMonitoringRows.length, description: 'Show records', selectedDescription: 'Hide records' },
+              { key: 'Missing', label: 'Missing records', value: allMonitoringRows.filter((row) => row.status === 'Missing').length, description: 'Show records', selectedDescription: 'Hide records' },
+              { key: 'Pending', label: 'Pending records', value: allMonitoringRows.filter((row) => row.status === 'Pending').length, description: 'Show records', selectedDescription: 'Hide records' },
+              { key: 'Done', label: 'Completed records', value: allMonitoringRows.filter((row) => row.status === 'Done').length, description: 'Show records', selectedDescription: 'Hide records' },
             ]}
           />
           {!selectedMonitoringCard && (
@@ -680,8 +662,17 @@ export default function MonitoringPage() {
                 </tbody>
               </table>
             </div>
-            <footer className="pagination-container"><div className="pagination-left" aria-label="Pagination navigation">{renderPaginationButtons()}</div><div className="pagination-center"><span>Show</span><select className="select-entries" value={perPage} onChange={(event) => { setPerPage(Number(event.target.value)); setPage(1); }}><option value="10">10</option><option value="25">25</option><option value="50">50</option></select></div><div className="pagination-right">Showing {rangeStart}-{rangeEnd} of {monitoringRows.length}</div></footer>
           </div>
+          <Pagination
+            currentPage={currentPage}
+            pageCount={pageCount}
+            onPageChange={setPage}
+            perPage={perPage}
+            onPerPageChange={(value) => { setPerPage(Number(value)); setPage(1); }}
+            rangeStart={rangeStart}
+            rangeEnd={rangeEnd}
+            totalItems={monitoringRows.length}
+          />
             </>
           )}
         </section>

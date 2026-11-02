@@ -852,15 +852,6 @@
   width: 110px;
 }
 
-.community-overview-hint {
-  margin: 0;
-  padding: 0.65rem;
-  border: 1px dashed #cbd5e1;
-  border-radius: 8px;
-  color: #64748b;
-  text-align: center;
-}
-
 /* Header styling */
 .community-header {
   display: flex;

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { matchesSearch } from '../../utils/search.mjs';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import CommunityTable from './CommunityTable';
 import CommunityModalManager from './CommunityModalManager';
@@ -184,9 +185,7 @@ export default function CommunityPage() {
       .filter((group) => {
         if (!query.trim()) return true;
         const term = query.trim();
-        return [group.name, String(group.id), group.leader, group.status].some((value) =>
-          String(value || '').includes(term)
-        );
+        return matchesSearch(term, [group.name, group.id, group.leader, group.status, group.community]);
       });
   }, [query, scopedGroups, selectedSchool]);
 
@@ -206,9 +205,7 @@ export default function CommunityPage() {
       .filter((batch) => {
         if (!query.trim()) return true;
         const term = query.trim();
-        return [batch.name, String(batch.id), batch.community, batch.status].some((value) =>
-          String(value || '').includes(term)
-        );
+        return matchesSearch(term, [batch.name, batch.id, batch.community, batch.status]);
       });
   }, [batchesForSelectedGroup, query]);
 
@@ -252,10 +249,12 @@ export default function CommunityPage() {
   const selectedBatchMothers = useMemo(() => {
     const term = query.trim();
     return selectedBatchAllMothers
-      .filter((mother) => !term
-        || [mother.name, String(mother.id), mother.group, mother.status].some((value) =>
-          String(value || '').includes(term)
-        ));
+      .filter((mother) => matchesSearch(term, [
+        mother.name, mother.firstName, mother.first_name, mother.middleName, mother.middle_name,
+        mother.lastName, mother.last_name, mother.id, mother.motherId, mother.mother_code,
+        mother.group, mother.batch, mother.status, mother.address, mother.area,
+        mother.contact_number, mother.contactNumber, mother.community,
+      ]));
   }, [query, selectedBatchAllMothers]);
   const selectedBatchChildren = useMemo(() => {
     if (!selectedBatch) return [];
@@ -293,16 +292,6 @@ export default function CommunityPage() {
       : [],
     [batches, selectedSchool],
   );
-  const unassignedSchoolBatches = useMemo(() => {
-    const groupIds = new Set(schoolOverviewGroups.map((group) => String(group.id)));
-    return schoolOverviewBatches.filter((batch) => {
-      const assignedGroupIds = String(batch.groupIds || '')
-        .split(',')
-        .map((id) => id.trim())
-        .filter(Boolean);
-      return !assignedGroupIds.some((id) => groupIds.has(id));
-    });
-  }, [schoolOverviewBatches, schoolOverviewGroups]);
   const overviewBatchRows = activeTab === 'communities'
     ? batches
     : activeTab === 'batches' && selectedGroup
@@ -379,9 +368,10 @@ export default function CommunityPage() {
     if (activeTab === 'communities') {
       return scopedCommunities.filter((community) => {
         if (!term) return true;
-        return [community.name, String(community.id), community.area].some((value) =>
-          String(value || '').includes(term)
-        );
+        return matchesSearch(term, [
+          community.name, community.id, community.area, community.address,
+          community.municipality, community.province,
+        ]);
       });
     }
 
@@ -407,9 +397,12 @@ export default function CommunityPage() {
         if (!matchesBatch || !matchesGroup || !matchesSchool) return false;
         if (!term) return true;
 
-        return [child.name, child.motherName, child.community, child.group, String(child.id)].some((value) =>
-          String(value || '').includes(term)
-        );
+        return matchesSearch(term, [
+          child.name, child.motherName, child.firstName, child.first_name,
+          child.middleName, child.middle_name, child.lastName, child.last_name,
+          child.id, child.child_code, child.community, child.group, child.batch,
+          child.address, child.area,
+        ]);
       });
     }
 
@@ -437,8 +430,10 @@ export default function CommunityPage() {
     const term = query.trim();
     return rows.filter((row) => {
       if (!term) return true;
-      return [row.name, row.area, row.coordinator, row.motherName, row.batch, row.group, row.community, row.schoolName, String(row.id)]
-        .some((value) => String(value || '').includes(term));
+      return matchesSearch(term, [
+        row.name, row.area, row.coordinator, row.motherName, row.batch, row.group,
+        row.community, row.schoolName, row.id, row.address, row.email, row.contact_number,
+      ]);
     });
   }, [activeTab, overviewBatchRows, overviewChildRows, overviewMotherRows, query, schoolOverviewGroups, schoolOverviewSelection, scopedCommunities, scopedGroups]);
   const tableData = schoolOverviewSelection ? overviewRows : filteredData;
@@ -964,15 +959,15 @@ export default function CommunityPage() {
     if (activeTab === 'communities') {
       return appendActions([
         { key: 'name', header: 'School Name', style: { width: '48%' }, renderCell: (row) => <span className="community-title-text" title={row.name}>{row.name}</span> },
-        { key: 'batches', header: 'Total Batches', cellClassName: 'small-column', renderCell: (row) => row.batches || 0 },
-        { key: 'groups', header: 'Total Groups', cellClassName: 'small-column', renderCell: (row) => groups.filter((group) => group.community === row.name).length },
+        { key: 'batches', header: 'Batches', cellClassName: 'small-column', renderCell: (row) => row.batches || 0 },
+        { key: 'groups', header: 'Groups', cellClassName: 'small-column', renderCell: (row) => groups.filter((group) => group.community === row.name).length },
       ]);
     }
 
     if (activeTab === 'groups') {
       return appendActions([
-        { key: 'name', header: 'Group Name', style: { width: '60%' }, renderCell: (row) => <span className="community-title-text">{row.name}</span> },
-        { key: 'batches', header: 'Total Batches', cellClassName: 'small-column', renderCell: (row) => row.batches ?? row.assignedBatchIds?.length ?? 0 },
+        { key: 'name', header: 'Group', style: { width: '60%' }, renderCell: (row) => <span className="community-title-text">{row.name}</span> },
+        { key: 'batches', header: 'Batches in group', cellClassName: 'small-column', renderCell: (row) => row.batches ?? row.assignedBatchIds?.length ?? 0 },
       ]);
     }
 
@@ -1013,17 +1008,17 @@ export default function CommunityPage() {
 
     return appendActions([
       { key: 'name', header: 'Batch Name', style: { width: '42%' }, renderCell: (row) => <span className="community-title-text">{row.name}</span> },
-      { key: 'records', header: 'Total Mothers', cellClassName: 'compact-column', renderCell: (row) => row.records },
-      { key: 'progress', header: 'Batch Progress (%)', cellClassName: 'status-column', renderCell: (row) => `${row.progress ?? 0}%` },
+      { key: 'records', header: 'Mothers in batch', cellClassName: 'compact-column', renderCell: (row) => row.records },
+      { key: 'progress', header: 'Batch progress (%)', cellClassName: 'status-column', renderCell: (row) => `${row.progress ?? 0}%` },
     ]);
   }, [activeDropdownId, activeTab, canManage, canManageSchools, entityFilter, groups, navigate, openEditModal, openTransferMother, requestDelete]);
 
   const overviewColumns = useMemo(() => {
     if (schoolOverviewSelection === 'groups') {
       return [
-        { key: 'name', header: 'Group Name', renderCell: (row) => <span className="community-title-text">{row.name}</span> },
+        { key: 'name', header: 'Group', renderCell: (row) => <span className="community-title-text">{row.name}</span> },
         ...(activeTab === 'communities' ? [{ key: 'schoolName', header: 'School' }] : []),
-        { key: 'batches', header: 'Total Batches', cellClassName: 'small-column', renderCell: (row) => row.batches ?? row.assignedBatchIds?.length ?? 0 },
+        { key: 'batches', header: 'Batches in group', cellClassName: 'small-column', renderCell: (row) => row.batches ?? row.assignedBatchIds?.length ?? 0 },
         ...(activeTab === 'groups' ? columns.filter((column) => column.key === 'actions') : []),
       ];
     }
@@ -1149,8 +1144,8 @@ export default function CommunityPage() {
       } : null;
       return [
         { key: 'name', header: 'Batch Name', renderCell: (row) => <span className="community-title-text">{row.name}</span> },
-        { key: 'records', header: 'Total Mothers', cellClassName: 'compact-column', renderCell: (row) => row.records || 0 },
-        { key: 'progress', header: 'Batch Progress (%)', cellClassName: 'status-column', renderCell: (row) => `${row.progress ?? 0}%` },
+        { key: 'records', header: 'Mothers in batch', cellClassName: 'compact-column', renderCell: (row) => row.records || 0 },
+        { key: 'progress', header: 'Batch progress (%)', cellClassName: 'status-column', renderCell: (row) => `${row.progress ?? 0}%` },
         ...(batchActionColumn ? [batchActionColumn] : []),
       ];
     }
@@ -1200,11 +1195,11 @@ export default function CommunityPage() {
             selected={schoolOverviewSelection}
             onSelect={handleOverviewSelection}
             cards={[
-              { key: 'schools', label: 'Total Schools', value: communities.length, interactive: canViewSchoolsFromOverview },
-              { key: 'groups', label: 'Total Groups', value: activeTab === 'communities' ? groups.length : schoolOverviewGroups.length },
-              { key: 'batches', label: 'Total Batches', value: overviewBatchRows.length },
-              { key: 'mothers', label: 'Total Mothers', value: overviewMotherRows.length },
-              { key: 'children', label: 'Total Children', value: childrenOverviewError ? 'Unavailable' : overviewChildRows.length },
+              { key: 'schools', label: 'Total Schools', listLabel: 'schools', value: communities.length, interactive: canViewSchoolsFromOverview },
+              { key: 'groups', label: 'Total Groups', listLabel: 'groups', value: activeTab === 'communities' ? groups.length : schoolOverviewGroups.length },
+              { key: 'batches', label: 'Total Batches', listLabel: 'batches', value: overviewBatchRows.length },
+              { key: 'mothers', label: 'Total Mothers', listLabel: 'mothers', value: overviewMotherRows.length },
+              { key: 'children', label: 'Total Children', listLabel: 'children', value: childrenOverviewError ? 'Unavailable' : overviewChildRows.length },
             ].filter((card) => (
               (!isCommunityOrganizer || card.key !== 'schools')
               && (!isHealthWorker || !['schools', 'groups'].includes(card.key))
@@ -1273,11 +1268,6 @@ export default function CommunityPage() {
                 searchValue={query}
                 onSearchChange={handleSearch}
               />
-              {schoolOverviewSelection === 'groups' && unassignedSchoolBatches.length > 0 && (
-                <p className="community-overview-hint" role="status">
-                  {unassignedSchoolBatches.length} {unassignedSchoolBatches.length === 1 ? 'batch is' : 'batches are'} not assigned to a group: {unassignedSchoolBatches.map((batch) => batch.name).join(', ')}.
-                </p>
-              )}
               <CommunityPagination
                 currentPage={currentPage}
                 pageCount={pageCount}
@@ -1307,12 +1297,13 @@ export default function CommunityPage() {
                   setPage(1);
                 }}
                 cards={[
-                  { key: 'Mother', label: 'Mothers', value: selectedBatchAllMothers.length, description: 'View list' },
+                  { key: 'Mother', label: 'Mothers', value: selectedBatchAllMothers.length, description: 'Show mothers', selectedDescription: 'Hide mothers' },
                   {
                     key: 'Child',
                     label: 'Children',
                     value: childrenOverviewError ? 'Unavailable' : selectedBatchChildren.length,
-                    description: 'View list',
+                    description: 'Show children',
+                    selectedDescription: 'Hide children',
                   },
                   {
                     key: 'Documentation',

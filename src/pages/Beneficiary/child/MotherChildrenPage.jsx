@@ -64,46 +64,6 @@ export default function MotherChildrenPage() {
   const pageCount = Math.max(1, Math.ceil(childRows.length / perPage));
   const currentPage = Math.min(page, pageCount);
   const currentRows = childRows.slice((currentPage - 1) * perPage, currentPage * perPage);
-  const renderPaginationButtons = () => (
-    <>
-      <button
-        type="button"
-        className={`pagination-btn${currentPage === 1 ? ' disabled' : ''}`}
-        onClick={() => setPage((value) => Math.max(1, value - 1))}
-        disabled={currentPage === 1}
-        aria-label="Previous page"
-      >
-        ‹
-      </button>
-
-      <input
-        type="number"
-        min={1}
-        max={pageCount}
-        value={currentPage}
-        className="pagination-page-input"
-        placeholder="Page"
-        aria-label="Jump to a page"
-        onChange={(event) => {
-          const nextPage = Number(event.target.value);
-          if (!Number.isNaN(nextPage) && nextPage >= 1 && nextPage <= pageCount) {
-            setPage(nextPage);
-          }
-        }}
-      />
-
-      <button
-        type="button"
-        className={`pagination-btn${currentPage === pageCount ? ' disabled' : ''}`}
-        onClick={() => setPage((value) => Math.min(pageCount, value + 1))}
-        disabled={currentPage === pageCount}
-        aria-label="Next page"
-      >
-        ›
-      </button>
-    </>
-  );
-
   return (
     <section className="community-page beneficiary-page mother-children-page">
       <BeneficiarySuperHeader />
@@ -126,9 +86,11 @@ export default function MotherChildrenPage() {
         filteredDataLength={childRows.length}
         rangeStart={childRows.length ? ((currentPage - 1) * perPage) + 1 : 0}
         rangeEnd={Math.min(currentPage * perPage, childRows.length)}
+        currentPage={currentPage}
+        pageCount={pageCount}
+        onPageChange={setPage}
         perPage={perPage}
         handlePerPageChange={(value) => { setPerPage(Number(value)); setPage(1); }}
-        renderPaginationButtons={renderPaginationButtons}
         motherProgressByName={{}}
         onSelectChild={(row) => navigate(`/beneficiary/child/${row.original?.id || row.id}`, { state: { child: row.original || row, mother, returnTo: currentPath } })}
         entityFilter="Child"

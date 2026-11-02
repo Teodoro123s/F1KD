@@ -6,10 +6,11 @@ export default function CommunityOverviewCards({ cards, selected, onSelect, togg
     <section className="community-overview-cards" aria-label="Community totals">
       {cards.map((card) => {
         const isSelected = selected === card.key;
+        const listLabel = card.listLabel || card.label.replace(/^Total /, '').toLowerCase();
         const action = card.action || (card.interactive !== false
           ? toggleSelection
-            ? isSelected ? 'Hide list' : 'View list'
-            : isSelected ? 'Current view' : 'View list'
+            ? isSelected ? `Hide ${listLabel}` : `Show ${listLabel}`
+            : isSelected ? 'Current view' : `Show ${listLabel}`
           : undefined);
         return (
           <SummaryCard

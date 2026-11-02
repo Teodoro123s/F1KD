@@ -1620,8 +1620,6 @@
 .results-tab-panel { padding-top: 0.75rem; }
 .progress-report-results-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0.65rem; margin: 1rem 0; }
 .monitoring-history-filters select:focus { border-color: var(--burgundy, #15803d); box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.12); outline: none; }
-.progress-report-pagination { display: flex; align-items: center; justify-content: center; gap: 0.9rem; margin-top: 1rem; color: var(--text-muted, #64748b); font-size: 0.8rem; font-weight: 700; }
-.progress-report-pagination .secondary-btn { min-height: 36px; padding: 0.45rem 0.75rem; }
 .results-table-customizer { position: relative; margin-bottom: 0.75rem; color: var(--text-soft, #334155); }
 .results-table-tools { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 0.75rem 1rem; margin-bottom: 0.75rem; }
 .results-table-filters, .results-table-actions { display: flex; flex-wrap: wrap; align-items: end; gap: 0.75rem; }
@@ -1868,11 +1866,6 @@
 .progress-report-sort-button { padding: 0; border: 0; background: transparent; color: inherit; font: inherit; font-weight: inherit; text-transform: inherit; cursor: pointer; }
 .progress-report-flat-table td strong { color: #7d1e2e; }
 .progress-report-empty { padding: 2rem 1rem; color: #64748b; text-align: center; }
-.progress-report-pagination { display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-top: 1rem; color: #64748b; }
-.progress-report-pagination button { min-width: 28px; height: 28px; padding: 0 0.55rem; border: 1px solid #CBD5E1; border-radius: 8px; background: #fff; color: #475569; font-size: 0.8rem; font-weight: 700; line-height: 1; cursor: pointer; }
-.progress-report-pagination button:disabled { cursor: not-allowed; opacity: 0.4; }
-.progress-report-pagination span { color: #64748b; font-size: 0.82rem; font-weight: 600; }
-
 @media (max-width: 720px) {
   .progress-report-config-header, .progress-report-results-header, .progress-report-config-row { align-items: stretch; flex-direction: column; }
   .progress-report-ai-heading { align-items: center; flex-direction: row; }
@@ -2414,11 +2407,6 @@
 .progress-report-flat-table tbody tr:hover {
   background: #f8fcf9;
 }
-.progress-report-pagination button:hover:not(:disabled) {
-  border-color: #39a866;
-  color: #116b3a;
-}
-
 @media (max-width: 720px) {
   .view-content .progress-report-shell { padding: 0.75rem 0.5rem 1.5rem; }
   .view-content .progress-report-panel > .view-page-header { padding: 0 0.9rem; }

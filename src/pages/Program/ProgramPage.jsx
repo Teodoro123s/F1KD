@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { matchesSearch } from "../../utils/search.mjs";
 import { createPortal } from "react-dom";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../../auth/AuthProvider";
@@ -13,6 +14,7 @@ import {
 } from "../Community/CommunityIcons";
 import ModuleSummaryCards from '../../components/ui/ModuleSummaryCards';
 import TableSearch from '../../components/ui/TableSearch';
+import Pagination from '../../components/ui/Pagination';
 import FloatingLayer from '../../components/ui/FloatingLayer';
 import { getSummary } from "../Community/communityService";
 import { apiGetChildren } from "../../api/children";
@@ -51,6 +53,8 @@ export default function ProgramPage() {
   const canMonitorPrograms = canCreatePrograms || isHealthWorkerRole(currentUser?.role);
   const [activeTab, setActiveTab] = useState(null);
   const [query, setQuery] = useState("");
+  const [listPage, setListPage] = useState(1);
+  const [listPerPage, setListPerPage] = useState(10);
   const [programs, setPrograms] = useState([]);
   const [archivedPrograms, setArchivedPrograms] = useState(null);
   const [archivedProgramsLoading, setArchivedProgramsLoading] = useState(false);
@@ -460,11 +464,17 @@ export default function ProgramPage() {
 
   const filteredPrograms = useMemo(() => {
     if (activeTab === 'Archived') {
-      const normalizedQuery = query.trim().toLowerCase();
-      return (archivedPrograms || []).filter((program) => !normalizedQuery || String(program.name || '').toLowerCase().includes(normalizedQuery));
+      return (archivedPrograms || []).filter((program) => matchesSearch(query, [
+        program.name, program.type, program.provider, program.community, program.batch,
+        program.description, program.beneficiaryType, program.status,
+      ]));
     }
     return filterPrograms(programs, query, activeTab || 'All');
   }, [archivedPrograms, programs, query, activeTab]);
+  const listPageCount = Math.max(1, Math.ceil(filteredPrograms.length / listPerPage));
+  const currentListPage = Math.min(listPage, listPageCount);
+  const currentListStart = (currentListPage - 1) * listPerPage;
+  const currentPagePrograms = filteredPrograms.slice(currentListStart, currentListStart + listPerPage);
 
   const persistProgram = async () => {
     if (form.id && String(form.status || '').trim().toLowerCase() === 'ended') return;
@@ -1304,12 +1314,13 @@ export default function ProgramPage() {
           toggleOnSelect
           onSelect={(tab) => {
             setActiveTab(tab);
+            setListPage(1);
           }}
           cards={[
-            { key: 'All', label: 'Total Projects', value: programs.length, description: 'View list', selectedDescription: 'Hide list' },
-            { key: 'Active', label: 'Active Projects', value: filterPrograms(programs, '', 'Active').length, description: 'View list', selectedDescription: 'Hide list' },
-            { key: 'Ended', label: 'Completed Projects', value: filterPrograms(programs, '', 'Ended').length, description: 'View list', selectedDescription: 'Hide list' },
-            ...(isCommunityOrganizer ? [{ key: 'Archived', label: 'Archived Projects', value: Array.isArray(archivedPrograms) ? archivedPrograms.length : 0, description: 'View list', selectedDescription: 'Hide list' }] : []),
+            { key: 'All', label: 'Total Projects', value: programs.length, description: 'Show projects', selectedDescription: 'Hide projects' },
+            { key: 'Active', label: 'Active Projects', value: filterPrograms(programs, '', 'Active').length, description: 'Show projects', selectedDescription: 'Hide projects' },
+            { key: 'Ended', label: 'Completed Projects', value: filterPrograms(programs, '', 'Ended').length, description: 'Show projects', selectedDescription: 'Hide projects' },
+            ...(isCommunityOrganizer ? [{ key: 'Archived', label: 'Archived Projects', value: Array.isArray(archivedPrograms) ? archivedPrograms.length : 0, description: 'Show projects', selectedDescription: 'Hide projects' }] : []),
           ]}
         />
       )}
@@ -1343,6 +1354,7 @@ export default function ProgramPage() {
               value={query}
               onChange={(value) => {
                 setQuery(value);
+                setListPage(1);
               }}
               placeholder="Search projects, partners, or communities"
             />
@@ -1394,7 +1406,7 @@ export default function ProgramPage() {
                     <tr>
                       <th>Batch</th>
                       <th>Members</th>
-                      <th>Action</th>
+                      <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1424,7 +1436,7 @@ export default function ProgramPage() {
                       <th>Group</th>
                       <th>Batches</th>
                       <th>Beneficiaries</th>
-                      <th>Action</th>
+                      <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1458,7 +1470,7 @@ export default function ProgramPage() {
                               <th>Group</th>
                               <th>Batches</th>
                               <th>Beneficiaries</th>
-                              <th>Action</th>
+                              <th>Actions</th>
                             </tr>
                           </thead>
                         ) : programHierarchy.length ? (
@@ -1589,15 +1601,15 @@ export default function ProgramPage() {
                 <thead>
                   <tr>
                     <th>Project</th>
-                    <th>Scopes</th>
-                    <th>Recipients</th>
+                    <th>Coverage</th>
+                    <th>Eligible beneficiaries</th>
                     <th>Status</th>
-                    <th>Action</th>
+                    <th>Project actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredPrograms.length ? (
-                    filteredPrograms.map((program) => (
+                    currentPagePrograms.map((program) => (
                       <tr key={program.id} className="program-clickable-row" onClick={() => navigate(`/program/${program.id}`)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") navigate(`/program/${program.id}`); }} tabIndex="0">
                         <td>
                           <a className="program-row-link" href={`/program/${program.id}`} onClick={(event) => event.stopPropagation()}>
@@ -1620,7 +1632,7 @@ export default function ProgramPage() {
                         <td>
                           {(program.clusters || []).length ? (
                             <>
-                              <strong>{(program.clusters || []).length} scope{program.clusters.length === 1 ? '' : 's'}</strong>
+                              <strong>{(program.clusters || []).length} coverage area{program.clusters.length === 1 ? '' : 's'}</strong>
                               <span
                                 className="program-table-meta program-list-meta"
                                 title={[...new Set((program.clusters || []).map((cluster) => cluster.name).filter(Boolean))].join(', ')}
@@ -1629,7 +1641,7 @@ export default function ProgramPage() {
                                 {program.clusters.length > 2 ? ` +${program.clusters.length - 2}` : ''}
                               </span>
                             </>
-                          ) : <span className="program-table-meta">No scopes</span>}
+                          ) : <span className="program-table-meta">No coverage assigned</span>}
                         </td>
                         <td>
                           <strong>{getProgramBeneficiaryCount(program).toLocaleString()}</strong>
@@ -1655,6 +1667,20 @@ export default function ProgramPage() {
           </table>}
         </div>
       </section>
+      {!viewMode && activeTab && (activeTab !== 'Archived' || !archivedProgramsLoading) && (
+        <Pagination
+          currentPage={currentListPage}
+          pageCount={listPageCount}
+          onPageChange={setListPage}
+          perPage={listPerPage}
+          onPerPageChange={(value) => { setListPerPage(Number(value)); setListPage(1); }}
+          rangeStart={filteredPrograms.length ? currentListStart + 1 : 0}
+          rangeEnd={Math.min(currentListStart + listPerPage, filteredPrograms.length)}
+          totalItems={filteredPrograms.length}
+          itemLabel="projects"
+          ariaLabel="Projects pagination"
+        />
+      )}
 
       <ConfirmDialog
         open={Boolean(pendingDeleteProgram)}

@@ -11,6 +11,7 @@ const {
 const { validateProgressReportQuery } = require('../utils/progressReportQueryValidation');
 const { motherMonitoringTotalSql } = require('../utils/motherMonitoring');
 const { splitBirthPlace } = require('../utils/birthPlace');
+const { buildTokenSearchCondition } = require('../utils/tokenSearch');
 
 const router = express.Router();
 
@@ -231,12 +232,37 @@ const hierarchyWhere = (params, aliases = { mother: 'm', child: 'c' }) => {
   if (params.batchId) { conditions.push(`COALESCE(${owner}.batch_id, ${mother}.batch_id) = ?`); values.push(params.batchId); }
   if (params.motherId) { conditions.push(`${aliases.mother}.id = ?`); values.push(params.motherId); }
   if (params.search) {
-    const term = `%${params.search}%`;
-    const searchableName = aliases.child
-      ? `CONCAT_WS(' ', ${aliases.child}.first_name, ${aliases.child}.middle_name, ${aliases.child}.last_name, ${aliases.mother}.first_name, ${aliases.mother}.last_name, ${aliases.child}.child_code, ${aliases.mother}.mother_code)`
-      : `CONCAT_WS(' ', ${mother}.first_name, ${mother}.middle_name, ${mother}.last_name, ${mother}.mother_code)`;
-    conditions.push(`${searchableName} LIKE ?`);
-    values.push(term);
+    const child = aliases.child;
+    const searchCondition = buildTokenSearchCondition([
+      ...(child ? [
+        `CAST(${child}.id AS CHAR)`,
+        `${child}.child_code`,
+        `${child}.first_name`,
+        `${child}.middle_name`,
+        `${child}.last_name`,
+        `${child}.suffix`,
+        `${child}.address`,
+        `${child}.birth_date`,
+      ] : []),
+      `CAST(${mother}.id AS CHAR)`,
+      `${mother}.mother_code`,
+      `${mother}.mother_external_id`,
+      `${mother}.first_name`,
+      `${mother}.middle_name`,
+      `${mother}.last_name`,
+      `${mother}.maiden_surname`,
+      `${mother}.suffix`,
+      `${mother}.mother_id_no`,
+      `${mother}.contact_number`,
+      `${mother}.address`,
+      'school.name',
+      'school.municipality',
+      'school.province',
+      'g.name',
+      'b.name',
+    ], params.search);
+    conditions.push(searchCondition.sql);
+    values.push(...searchCondition.params);
   }
   return { sql: conditions.length ? `WHERE ${conditions.join(' AND ')}` : '', values };
 };

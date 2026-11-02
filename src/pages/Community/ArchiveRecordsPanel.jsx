@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { apiGetArchiveActivity, apiGetArchivedRecords, apiRestoreArchivedRecord } from '../../api/archives';
 import { notifyAction } from '../../components/ActionFeedback';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
+import Pagination from '../../components/ui/Pagination';
 import './archive-records.css';
 
 const TYPE_LABELS = {
@@ -33,9 +34,9 @@ export default function ArchiveRecordsPanel({ types, view, onChanged }) {
   const [activityTotal, setActivityTotal] = useState(0);
   const [activityLoading, setActivityLoading] = useState(false);
   const [activityError, setActivityError] = useState('');
+  const [limit, setLimit] = useState(20);
   const requestIdRef = useRef(0);
   const activityRequestIdRef = useRef(0);
-  const limit = 25;
 
   useEffect(() => {
     if (!types.includes(type)) setType(types[0] || 'group');
@@ -112,6 +113,7 @@ export default function ArchiveRecordsPanel({ types, view, onChanged }) {
   const activityPageCount = Math.max(1, Math.ceil(activityTotal / limit));
 
   return (
+    <>
     <section className="table-card archive-records-panel" aria-label={view === 'records' ? 'Archived records' : 'Archive activity'}>
       <div className="archive-records-toolbar">
         <div className="community-table-title">Archive management</div>
@@ -174,13 +176,6 @@ export default function ArchiveRecordsPanel({ types, view, onChanged }) {
                   </tbody>
                 </table>
               </div>
-              <div className="archive-records-pagination">
-                <span>{total ? `${(page - 1) * limit + 1}–${Math.min(page * limit, total)} of ${total}` : '0 records'}</span>
-                <div>
-                  <button type="button" className="btn-secondary" disabled={page <= 1} onClick={() => setPage((current) => current - 1)}>Previous</button>
-                  <button type="button" className="btn-secondary" disabled={page >= pageCount} onClick={() => setPage((current) => current + 1)}>Next</button>
-                </div>
-              </div>
             </>
           )}
         </>
@@ -217,17 +212,38 @@ export default function ArchiveRecordsPanel({ types, view, onChanged }) {
                   </tbody>
                 </table>
               </div>
-              <div className="archive-records-pagination">
-                <span>{activityTotal ? `${(page - 1) * limit + 1}–${Math.min(page * limit, activityTotal)} of ${activityTotal}` : '0 activities'}</span>
-                <div>
-                  <button type="button" className="btn-secondary" disabled={page <= 1} onClick={() => setPage((current) => current - 1)}>Previous</button>
-                  <button type="button" className="btn-secondary" disabled={page >= activityPageCount} onClick={() => setPage((current) => current + 1)}>Next</button>
-                </div>
-              </div>
             </>
           )}
         </>
       )}
+    </section>
+    {view === 'records' && !loading ? (
+      <Pagination
+        currentPage={page}
+        pageCount={pageCount}
+        onPageChange={setPage}
+        perPage={limit}
+        onPerPageChange={(value) => { setLimit(Number(value)); setPage(1); }}
+        rangeStart={total ? (page - 1) * limit + 1 : 0}
+        rangeEnd={Math.min(page * limit, total)}
+        totalItems={total}
+        itemLabel="records"
+        ariaLabel="Archived records pagination"
+      />
+    ) : view === 'activity' && !activityLoading ? (
+      <Pagination
+        currentPage={page}
+        pageCount={activityPageCount}
+        onPageChange={setPage}
+        perPage={limit}
+        onPerPageChange={(value) => { setLimit(Number(value)); setPage(1); }}
+        rangeStart={activityTotal ? (page - 1) * limit + 1 : 0}
+        rangeEnd={Math.min(page * limit, activityTotal)}
+        totalItems={activityTotal}
+        itemLabel="activities"
+        ariaLabel="Archive activity pagination"
+      />
+    ) : null}
       <ConfirmDialog
         open={Boolean(pendingRestore)}
         title="Restore archived record?"
@@ -239,6 +255,6 @@ export default function ArchiveRecordsPanel({ types, view, onChanged }) {
         onConfirm={restore}
         onCancel={() => setPendingRestore(null)}
       />
-    </section>
+    </>
   );
 }

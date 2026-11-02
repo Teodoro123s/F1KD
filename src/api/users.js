@@ -4,8 +4,10 @@ import { readApiResponse } from './readApiResponse.mjs';
 
 const API_BASE = getApiBaseUrl();
 
-export async function apiGetUsers(page = 1, perPage = 100) {
-  const url = `${API_BASE}/api/users?page=${page}&perPage=${perPage}`;
+export async function apiGetUsers(page = 1, perPage = 100, options = {}) {
+  const params = new URLSearchParams({ page: String(page), perPage: String(perPage) });
+  if (options.search) params.set('search', options.search);
+  const url = `${API_BASE}/api/users?${params.toString()}`;
   const res = await fetchWithAuth(url, { headers: { 'Content-Type': 'application/json' } });
   return readApiResponse(res, 'Unable to load users');
 }

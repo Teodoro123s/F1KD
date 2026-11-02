@@ -17,6 +17,7 @@ const {
   parseOptionalPositiveInteger,
   parseListSearch,
 } = require('../utils/listPagination');
+const { buildTokenSearchCondition } = require('../utils/tokenSearch');
 
 router.use(async (req, res, next) => {
   if (['GET', 'HEAD', 'OPTIONS'].includes(req.method) || req.path === '/') return next();
@@ -446,8 +447,32 @@ router.get('/', async (req, res) => {
       whereValues.push(batchFilter.value);
     }
     if (search.value) {
-      conditions.push(`LOWER(CONCAT_WS(' ', c.child_code, c.first_name, c.middle_name, c.last_name, m.first_name, m.middle_name, m.last_name, comm.name, g.name, b.name)) LIKE LOWER(?)`);
-      whereValues.push(`%${search.value}%`);
+      const searchCondition = buildTokenSearchCondition([
+        'CAST(c.id AS CHAR)',
+        'c.child_code',
+        'c.first_name',
+        'c.middle_name',
+        'c.last_name',
+        'c.suffix',
+        'c.birth_date',
+        'c.address',
+        'm.mother_code',
+        'm.mother_external_id',
+        'CAST(m.id AS CHAR)',
+        'm.first_name',
+        'm.middle_name',
+        'm.last_name',
+        'm.maiden_surname',
+        'm.address',
+        'm.contact_number',
+        'comm.name',
+        'comm.municipality',
+        'comm.province',
+        'g.name',
+        'b.name',
+      ], search.value);
+      conditions.push(searchCondition.sql);
+      whereValues.push(...searchCondition.params);
     }
     const scopeClause = `WHERE ${conditions.join(' AND ')}`;
     const fromClause = `FROM children c

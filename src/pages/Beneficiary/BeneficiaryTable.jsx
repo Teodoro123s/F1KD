@@ -1,4 +1,5 @@
 import React from 'react';
+import Pagination from '../../components/ui/Pagination';
 import { getMotherDocumentProgress, getMotherMonitoringProgress } from '../../utils/beneficiary/motherProgress';
 import { getChildDocumentProgress, getChildMonitoringProgress, getChildProfileProgress } from '../../utils/beneficiary/childProgress';
 
@@ -9,9 +10,11 @@ export default function BeneficiaryTable({
   filteredDataLength,
   rangeStart,
   rangeEnd,
+  currentPage,
+  pageCount,
+  onPageChange,
   perPage,
   handlePerPageChange,
-  renderPaginationButtons,
   motherProgressByName,
   onSelectMother,
   onSelectChild,
@@ -19,22 +22,24 @@ export default function BeneficiaryTable({
   groups = [],
   batches = [],
   entityFilter = 'Mother',
+  showPagination = true,
 }) {
   const emptyColSpan = entityFilter === 'Both' ? 2 : 1;
 
   const getMotherStatus = (documentProgress) => {
     return documentProgress.completed >= documentProgress.total
-      ? <span className="status-complete">Documents complete</span>
-      : <span className="status-pending">Documents pending</span>;
+      ? <span className="status-complete">Documents: complete</span>
+      : <span className="status-pending">Documents: pending</span>;
   };
 
   const getChildStatus = (progress, documentProgress) => documentProgress.completed < documentProgress.total
-    ? <span className="status-pending">Documents pending</span>
+    ? <span className="status-pending">Documents: pending</span>
     : progress >= 100
       ? <span className="status-complete">Profile complete</span>
       : <span className="status-checkup">Profile incomplete</span>;
 
   return (
+    <>
     <section className="table-card beneficiary-table-card">
       <div className="table-overflow">
         <table className="data-table">
@@ -102,7 +107,7 @@ export default function BeneficiaryTable({
                                   <div className="progress-bar-fill" style={{ width: `${motherMonitoringProgress.percentage}%` }} />
                                 </div>
                               </div>
-                              <span className="beneficiary-cell-percent">{motherMonitoringProgress.completed}/{motherMonitoringProgress.total}</span>
+                              <span className="beneficiary-cell-percent">{motherMonitoringProgress.completed} of {motherMonitoringProgress.total} check-ups</span>
                             </div>
                             <div className="beneficiary-cell-line-2">
                               {assignmentDetails && <span className="muted" title={assignmentDetails}>{assignmentDetails}</span>}
@@ -141,7 +146,7 @@ export default function BeneficiaryTable({
                                   <div className="progress-bar-fill child" style={{ width: `${childMonitoringProgress.percentage}%` }} />
                                 </div>
                               </div>
-                              <span className="beneficiary-cell-percent">{childMonitoringProgress.completed}/{childMonitoringProgress.total}</span>
+                              <span className="beneficiary-cell-percent">{childMonitoringProgress.completed} of {childMonitoringProgress.total} check-ups</span>
                             </div>
                             <div className="beneficiary-cell-line-2">
                               {assignmentDetails && <span className="muted" title={assignmentDetails}>{assignmentDetails}</span>}
@@ -182,7 +187,7 @@ export default function BeneficiaryTable({
                                     <div className="progress-bar-fill" style={{ width: `${motherMonitoringProgress.percentage}%` }} />
                                   </div>
                                 </div>
-                                <span className="beneficiary-cell-percent">{motherMonitoringProgress.completed}/{motherMonitoringProgress.total}</span>
+                                <span className="beneficiary-cell-percent">{motherMonitoringProgress.completed} of {motherMonitoringProgress.total} check-ups</span>
                               </div>
                               <div className="beneficiary-cell-line-2">
                                 {assignmentDetails && <span className="muted" title={assignmentDetails}>{assignmentDetails}</span>}
@@ -216,7 +221,7 @@ export default function BeneficiaryTable({
                                 <div className="progress-bar-fill child" style={{ width: `${childMonitoringProgress.percentage}%` }} />
                               </div>
                             </div>
-                            <span className="beneficiary-cell-percent">{childMonitoringProgress.completed}/{childMonitoringProgress.total}</span>
+                            <span className="beneficiary-cell-percent">{childMonitoringProgress.completed} of {childMonitoringProgress.total} check-ups</span>
                           </div>
                           <div className="beneficiary-cell-line-2">
                             {assignmentDetails && <span className="muted">{assignmentDetails}</span>}
@@ -240,29 +245,20 @@ export default function BeneficiaryTable({
           </tbody>
         </table>
       </div>
-
-      <footer className="pagination-container">
-        <div className="pagination-left" aria-label="Pagination navigation">
-          {renderPaginationButtons()}
-        </div>
-        <div className="pagination-center">
-          <span>Show</span>
-          <select
-            value={perPage}
-            onChange={(e) => handlePerPageChange(e.target.value)}
-            className="select-entries"
-            aria-label="Entries per page"
-          >
-            <option value={10}>10</option>
-            <option value={20}>20</option>
-            <option value={50}>50</option>
-          </select>
-          <span>entries</span>
-        </div>
-        <div className="pagination-right" role="status" aria-live="polite">
-          {rangeStart}–{rangeEnd} of {filteredDataLength}
-        </div>
-      </footer>
     </section>
+
+    {showPagination && (
+      <Pagination
+        currentPage={currentPage}
+        pageCount={pageCount}
+        onPageChange={onPageChange}
+        perPage={perPage}
+        onPerPageChange={handlePerPageChange}
+        rangeStart={rangeStart}
+        rangeEnd={rangeEnd}
+        totalItems={filteredDataLength}
+      />
+    )}
+    </>
   );
 }

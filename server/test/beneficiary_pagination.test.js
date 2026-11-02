@@ -120,19 +120,25 @@ test('beneficiary lists validate bounded paging, preserve scope, and batch child
   assert.equal(firstMotherPageResponse.status, 200);
   assert.equal((await firstMotherPageResponse.json()).mothers.length, 1);
   const mothersResponse = await fetch(
-    `${baseUrl}/mothers?page=2&perPage=1&search=June&groupId=20&sortBy=name&sortOrder=asc`,
+    `${baseUrl}/mothers?page=2&perPage=1&search=Santos+June&groupId=20&sortBy=name&sortOrder=asc`,
   );
   assert.equal(mothersResponse.status, 200);
   const motherPayload = await mothersResponse.json();
   assert.equal(motherPayload.mothers.length, 1);
   assert.deepEqual(motherPayload.pagination, { page: 2, perPage: 1, total: 3, totalPages: 3 });
   const motherListQuery = listQueries.find(
-    (query) => query.type === 'mothers' && query.params.includes('%June%'),
+    (query) => query.type === 'mothers' && query.params.includes('%june%'),
   );
   assert.match(motherListQuery.sql, /m\.archived_at IS NULL/);
   assert.match(motherListQuery.sql, /LIMIT \? OFFSET \?/);
   assert.match(motherListQuery.sql, /ORDER BY m\.last_name ASC, m\.id ASC/);
-  assert.deepEqual(motherListQuery.params, [12, 20, '%June%', 1, 1]);
+  assert.deepEqual(motherListQuery.params.slice(0, 2), [12, 20]);
+  assert.ok(motherListQuery.params.includes('%june%'));
+  assert.ok(motherListQuery.params.includes('%santos%'));
+  assert.ok(motherListQuery.sql.includes(') AND ('));
+  assert.equal(motherListQuery.params.at(-2), 1);
+  assert.equal(motherListQuery.params.at(-1), 1);
+  assert.match(motherListQuery.sql, /m\.address/);
   const motherCheckupQuery = listQueries.find((query) => query.type === 'mother-checkups');
   assert.match(motherCheckupQuery.sql, /mc\.mother_id IN \(\?\)/);
   assert.deepEqual(motherCheckupQuery.params, [21]);
@@ -141,7 +147,7 @@ test('beneficiary lists validate bounded paging, preserve scope, and batch child
   assert.equal((await finalMotherPageResponse.json()).mothers.length, 1);
 
   const childrenResponse = await fetch(
-    `${baseUrl}/children?page=2&perPage=2&search=Jamie&groupId=20&batchId=30&sortBy=name&sortOrder=asc`,
+    `${baseUrl}/children?page=2&perPage=2&search=Santos+Jamie&groupId=20&batchId=30&sortBy=name&sortOrder=asc`,
   );
   assert.equal(childrenResponse.status, 200);
   const childPayload = await childrenResponse.json();
@@ -151,7 +157,14 @@ test('beneficiary lists validate bounded paging, preserve scope, and batch child
   assert.match(childListQuery.sql, /c\.archived_at IS NULL/);
   assert.match(childListQuery.sql, /LIMIT \? OFFSET \?/);
   assert.match(childListQuery.sql, /ORDER BY c\.last_name ASC, c\.id ASC/);
-  assert.deepEqual(childListQuery.params, [12, 20, 20, 30, '%Jamie%', 2, 2]);
+  assert.deepEqual(childListQuery.params.slice(0, 4), [12, 20, 20, 30]);
+  assert.ok(childListQuery.params.includes('%jamie%'));
+  assert.ok(childListQuery.params.includes('%santos%'));
+  assert.ok(childListQuery.sql.includes(') AND ('));
+  assert.equal(childListQuery.params.at(-2), 2);
+  assert.equal(childListQuery.params.at(-1), 2);
+  assert.match(childListQuery.sql, /c\.address/);
+  assert.match(childListQuery.sql, /m\.address/);
   const childCheckupQueries = listQueries.filter((query) => query.type === 'child-checkups');
   assert.equal(childCheckupQueries.length, 1, 'one checkup query hydrates all children on the page');
   assert.deepEqual(childCheckupQueries[0].params, [33]);

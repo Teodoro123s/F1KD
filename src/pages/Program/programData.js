@@ -138,7 +138,7 @@ export function filterPrograms(programs, query, status) {
 
     if (!term) return true;
 
-    const searchableText = [
+    const searchableValues = [
       program.name,
       program.type,
       program.provider,
@@ -146,12 +146,9 @@ export function filterPrograms(programs, query, status) {
       program.batch,
       program.description,
       program.beneficiaryType,
-    ]
-      .filter(Boolean)
-      .join(' ');
-
-    const normalizedSearchableText = searchableText.toLowerCase();
-    return term.split(/\s+/).every((word) => normalizedSearchableText.includes(word));
+      program.status,
+    ];
+    return matchesSearch(term, searchableValues);
   });
 }
 
@@ -230,3 +227,4 @@ export function clusterPath(programId, cluster) {
 export function beneficiaryNames(count) {
   return Array.from({ length: count }, (_, index) => `Beneficiary ${String(index + 1).padStart(3, "0")}`);
 }
+import { matchesSearch } from '../../utils/search.mjs';

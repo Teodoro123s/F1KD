@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { matchesSearch } from '../../utils/search.mjs';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import CommunityTable from './CommunityTable';
 import CommunityModalManager from './CommunityModalManager';
@@ -147,9 +148,9 @@ export default function SuperAdminCommunityPage() {
     [activeGroupId, batches],
   );
   const overviewCards = [
-    { key: 'communities', label: 'Total Schools', value: communities.length },
-    { key: 'groups', label: 'Total Groups', value: activeSchoolId ? schoolGroups.length : groups.length },
-    { key: 'healthWorkers', label: 'Total Health Workers', value: activeGroupId ? groupHealthWorkers.length : totalHealthWorkers },
+    { key: 'communities', label: 'Total Schools', listLabel: 'schools', value: communities.length },
+    { key: 'groups', label: 'Total Groups', listLabel: 'groups', value: activeSchoolId ? schoolGroups.length : groups.length },
+    { key: 'healthWorkers', label: 'Total Health Workers', listLabel: 'health workers', value: activeGroupId ? groupHealthWorkers.length : totalHealthWorkers },
   ];
   const selectedOverviewCard = activeGroupId ? 'healthWorkers' : activeSchoolId ? 'groups' : rootListType;
 
@@ -180,8 +181,11 @@ export default function SuperAdminCommunityPage() {
     }
 
     if (!term) return rows;
-    return rows.filter((row) => [row.name, row.area, row.community, row.schoolName, row.groupName, row.email, row.contact_number, row.status, row.leader, row.id]
-      .some((value) => String(value || '').includes(term)));
+    return rows.filter((row) => matchesSearch(term, [
+      row.name, row.area, row.community, row.schoolName, row.groupName, row.email,
+      row.contact_number, row.status, row.leader, row.id, row.address,
+      row.municipality, row.province,
+    ]));
   }, [activeGroupId, activeTab, communities, groupHealthWorkers, groups, healthWorkers, query, schoolGroups, selectedGroupBatches, selectedSchool]);
   const tableData = filteredData;
   const pageCount = Math.max(1, Math.ceil(tableData.length / perPage));
@@ -394,7 +398,7 @@ export default function SuperAdminCommunityPage() {
       return [
         { key: 'name', header: 'School Name', style: { width: '48%' }, renderCell: (row) => <span className="community-title-text">{row.name}</span> },
         { key: 'coordinatorName', header: 'Assigned Community Coordinator', renderCell: (row) => row.coordinatorName || getSchoolCoordinator(row)?.name || 'Not assigned' },
-        { key: 'groups', header: 'Total Groups', cellClassName: 'small-column', renderCell: (row) => groups.filter((group) => (
+        { key: 'groups', header: 'Groups in school', cellClassName: 'small-column', renderCell: (row) => groups.filter((group) => (
           group.communityId != null
             ? String(group.communityId) === String(row.id)
             : String(group.community || '').toLowerCase() === String(row.name || '').toLowerCase()
@@ -407,7 +411,7 @@ export default function SuperAdminCommunityPage() {
       return [
         {
           key: 'name',
-          header: 'Group Name',
+          header: 'Group',
           style: { width: selectedSchool ? '60%' : '45%' },
           renderCell: (row) => (
             <button
@@ -469,8 +473,8 @@ export default function SuperAdminCommunityPage() {
 
     return [
       { key: 'name', header: 'Batch Name', style: { width: '42%' }, renderCell: (row) => <span className="community-title-text">{row.name}</span> },
-      { key: 'records', header: 'Total Mothers', cellClassName: 'small-column', renderCell: (row) => row.records || 0 },
-      { key: 'progress', header: 'Batch Progress (%)', cellClassName: 'small-column', renderCell: (row) => `${row.progress || 0}%` },
+      { key: 'records', header: 'Mothers in batch', cellClassName: 'small-column', renderCell: (row) => row.records || 0 },
+      { key: 'progress', header: 'Batch progress (%)', cellClassName: 'small-column', renderCell: (row) => `${row.progress || 0}%` },
       actionColumn,
     ];
   }, [activeDropdownId, activeGroupId, activeTab, communities, coordinators, groups, navigate, selectGroup, selectedGroup, selectedSchool]);

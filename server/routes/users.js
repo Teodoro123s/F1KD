@@ -19,6 +19,8 @@ const {
 } = require('../services/coordinatorAssignments');
 const { validateContactNumber } = require('../utils/contactNumber');
 const { getFirstNameValidationError, normalizeFirstName } = require('../utils/firstNameValidation');
+const { parseListSearch } = require('../utils/listPagination');
+const { buildTokenSearchCondition } = require('../utils/tokenSearch');
 const {
   isValidEmail,
   normalizeEmail,
@@ -77,11 +79,6 @@ function healthWorkerSelectSql(whereClause) {
     FROM users u
     LEFT JOIN communities c ON c.id = u.school_id
     ${whereClause}`;
-}
-
-// Helper: normalize searchable name/value
-function nameLike(column) {
-  return `CONCAT_WS(' ', first_name, last_name)`;
 }
 
 // Community Coordinators can manage only health workers assigned to their own school.
@@ -410,7 +407,9 @@ router.get('/all-health-workers', verifyToken, authorize('super_admin'), async (
 // GET /api/users?search=&role=&status=&page=1&perPage=10
 router.get('/', verifyToken, authorize('super_admin'), async (req, res) => {
   try {
-    const { search = '', role } = req.query;
+    const search = parseListSearch(req.query.search);
+    if (search.error) return res.status(400).json({ error: search.error });
+    const { role } = req.query;
     const status = req.query.status === undefined ? undefined : parseUserStatus(req.query.status);
     const page = req.query.page === undefined ? 1 : parsePositiveIntegerId(req.query.page);
     const perPage = req.query.perPage === undefined ? 10 : parsePositiveIntegerId(req.query.perPage);
@@ -428,10 +427,21 @@ router.get('/', verifyToken, authorize('super_admin'), async (req, res) => {
 
     const filters = [];
     const params = [];
-    if (search) {
-      filters.push(`( ${nameLike()} LIKE ? OR email LIKE ? )`);
-      const s = `%${search}%`;
-      params.push(s, s);
+    if (search.value) {
+      const searchCondition = buildTokenSearchCondition([
+        'CAST(id AS CHAR)',
+        "CONCAT('USR-', LPAD(id, 4, '0'))",
+        'first_name',
+        'middle_initial',
+        'last_name',
+        'email',
+        'contact_number',
+        'location',
+        'role',
+        'status',
+      ], search.value);
+      filters.push(searchCondition.sql);
+      params.push(...searchCondition.params);
     }
     if (role) {
       filters.push('role = ?');

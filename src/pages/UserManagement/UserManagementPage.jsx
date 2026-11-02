@@ -42,6 +42,8 @@ export default function UserManagementPage() {
     filteredData,
     usersLoading,
     usersLoadError,
+    searchLoading,
+    searchError,
     breadcrumbItems,
     ROLE_OPTIONS,
     handleSearch,
@@ -152,19 +154,22 @@ export default function UserManagementPage() {
             key: 'all',
             label: 'Total Accounts',
             value: organizerHealthWorkerScope && (usersLoading || usersLoadError) ? '—' : userStatusCounts.all,
-            description: 'View list',
+            description: 'Show accounts',
+            selectedDescription: 'Hide accounts',
           },
           {
             key: 'active',
             label: 'Active Accounts',
             value: organizerHealthWorkerScope && (usersLoading || usersLoadError) ? '—' : userStatusCounts.active,
-            description: 'View list',
+            description: 'Show accounts',
+            selectedDescription: 'Hide accounts',
           },
           {
             key: 'suspended',
             label: 'Suspended Accounts',
             value: organizerHealthWorkerScope && (usersLoading || usersLoadError) ? '—' : userStatusCounts.suspended,
-            description: 'View list',
+            description: 'Show accounts',
+            selectedDescription: 'Hide accounts',
           },
         ]}
       />
@@ -244,8 +249,8 @@ export default function UserManagementPage() {
         healthWorkerManagement={organizerHealthWorkerScope}
         statusFilter={selectedStatusFilter}
         onRequestStatusChange={setPendingStatusChange}
-        loading={organizerHealthWorkerScope && usersLoading}
-        loadError={organizerHealthWorkerScope ? usersLoadError : ''}
+        loading={usersLoading || searchLoading}
+        loadError={usersLoadError || searchError}
         groups={groups}
         searchValue={query}
         onSearchChange={handleSearch}

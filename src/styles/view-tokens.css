@@ -375,8 +375,7 @@
   margin-bottom: 0.25rem;
 }
 
-.view-content .summary-card__label,
-.view-content .community-overview-hint {
+.view-content .summary-card__label {
   color: var(--view-text-muted);
 }
 
