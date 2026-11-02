@@ -53,12 +53,22 @@ export default function BeneficiaryPage() {
 
   const openCreateMother = () => {
     setCreateDropdownOpen(false);
-    navigate('/beneficiary/create/mother', { state: { returnTo: `${location.pathname}${location.search}` } });
+    navigate('/beneficiary/create/mother', {
+      state: {
+        returnTo: `${location.pathname}${location.search}`,
+        returnToState: location.state,
+      },
+    });
   };
 
   const openCreateChild = () => {
     setCreateDropdownOpen(false);
-    navigate('/beneficiary/create/child', { state: { returnTo: `${location.pathname}${location.search}` } });
+    navigate('/beneficiary/create/child', {
+      state: {
+        returnTo: `${location.pathname}${location.search}`,
+        returnToState: location.state,
+      },
+    });
   };
 
   const isCreateMother = location.pathname.includes('/beneficiary/create/mother');
@@ -141,6 +151,7 @@ export default function BeneficiaryPage() {
               children: childrenResponse?.children || [],
             },
             returnTo: `${location.pathname}${location.search}`,
+            returnToState: location.state,
           },
         });
     } catch (error) {
@@ -162,6 +173,7 @@ export default function BeneficiaryPage() {
         child: childRecord,
         mother: childRecord.mother || child.mother || null,
         returnTo: `${location.pathname}${location.search}`,
+        returnToState: location.state,
       },
     });
   };
@@ -209,6 +221,7 @@ export default function BeneficiaryPage() {
             batches={scopedBatches}
             navigate={navigate}
             returnTo={location.state?.returnTo || '/beneficiary'}
+            returnToState={location.state?.returnToState}
           />
         ) : isCreateChild ? (
           <CreateChildPage

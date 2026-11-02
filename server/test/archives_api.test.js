@@ -22,6 +22,7 @@ test('archive API enforces role and school scope and rejects duplicate archives'
   let archivedSchoolAt = null;
   let motherArchivedAt = null;
   let childArchivedAt = null;
+  let childArchivedWithMotherId = null;
   let assignedSchool = 91;
   let parentActive = true;
   let motherParentActive = true;
@@ -133,6 +134,15 @@ test('archive API enforces role and school scope and rejects duplicate archives'
           archived_at: childArchivedAt,
         }]];
       }
+      if (sql.includes('FROM children') && sql.includes('archived_with_mother_id = ?') && sql.includes('FOR UPDATE')) {
+        return childArchivedWithMotherId === 31 && childArchivedAt
+          ? [[{ id: 41, name: 'Synthetic Child' }]]
+          : [[]];
+      }
+      if (sql.includes('FROM children') && sql.includes('mother_id = ?') && sql.includes('archived_at IS NULL') && sql.includes('FOR UPDATE')) {
+        assert.match(sql, /archived_at IS NULL/);
+        return childArchivedAt ? [[]] : [[{ id: 41, name: 'Synthetic Child' }]];
+      }
       if (sql.includes('SELECT r.id FROM mothers r') && sql.includes('JOIN communities')) {
         return motherParentActive ? [[{ id: 31 }]] : [[]];
       }
@@ -152,12 +162,14 @@ test('archive API enforces role and school scope and rejects duplicate archives'
         childMotherActive = true;
         return [{ affectedRows: 1 }];
       }
-      if (sql.startsWith('UPDATE children SET archived_at = CURRENT_TIMESTAMP')) {
+      if (sql.startsWith('UPDATE children') && sql.includes('archived_at = CURRENT_TIMESTAMP')) {
         childArchivedAt = '2026-01-02 03:04:05';
+        if (sql.includes('archived_with_mother_id = ?')) childArchivedWithMotherId = Number(params[2]);
         return [{ affectedRows: 1 }];
       }
-      if (sql.startsWith('UPDATE children SET archived_at = NULL')) {
+      if (sql.startsWith('UPDATE children') && sql.includes('archived_at = NULL')) {
         childArchivedAt = null;
+        if (sql.includes('archived_with_mother_id = NULL')) childArchivedWithMotherId = null;
         return [{ affectedRows: 1 }];
       }
       if (sql.startsWith('UPDATE batches SET')) {
@@ -268,13 +280,18 @@ test('archive API enforces role and school scope and rejects duplicate archives'
 
   const motherArchive = await beneficiaryPost('mother', 31, 'archive', { reason: 'Beneficiary lifecycle test' });
   assert.equal(motherArchive.status, 200);
+  assert.equal((await motherArchive.json()).childrenArchived, 1);
   assert.equal(motherArchivedAt !== null, true);
-  assert.equal(childArchivedAt, null);
+  assert.equal(childArchivedAt !== null, true);
+  assert.equal(childArchivedWithMotherId, 31);
   assert.equal(batchRemainsActive, true);
   const childRestoreWhileMotherArchived = await beneficiaryPost('child', 41, 'restore');
   assert.equal(childRestoreWhileMotherArchived.status, 409);
   const motherRestore = await beneficiaryPost('mother', 31, 'restore');
   assert.equal(motherRestore.status, 200);
+  assert.equal((await motherRestore.json()).childrenRestored, 1);
+  assert.equal(childArchivedAt, null);
+  assert.equal(childArchivedWithMotherId, null);
   const childArchive = await beneficiaryPost('child', 41, 'archive');
   assert.equal(childArchive.status, 200);
   assert.equal(batchRemainsActive, true);

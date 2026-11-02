@@ -265,6 +265,7 @@ export default function EditMotherPage() {
 
       // navigate back to the detail view and pass updated mother
       navigateBack(navigate, location, `/beneficiary/mother/${motherId}`, {
+        ...(location.state?.returnToState || {}),
         mother: updated,
         updatedMother: updated,
       });

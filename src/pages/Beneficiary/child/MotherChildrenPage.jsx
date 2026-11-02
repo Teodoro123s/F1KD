@@ -72,7 +72,9 @@ export default function MotherChildrenPage() {
         breadcrumbs={[{ label: 'Beneficiaries', to: '/beneficiary' }, { label: 'Children' }]}
         actions={(
           <>
-            {canManage && <button type="button" className="view-btn view-btn--primary module-create-button" onClick={() => navigate(`/beneficiary/create/child`, { state: { mother, returnTo: currentPath } })}>Create Child</button>}
+            {canManage && <button type="button" className="view-btn view-btn--primary module-create-button" onClick={() => navigate('/beneficiary/create/child', {
+              state: { mother, returnTo: currentPath, returnToState: location.state },
+            })}>Create Child</button>}
             <button type="button" className="btn-secondary mother-children-back-button back-action" onClick={() => navigateBack(navigate, location, `/beneficiary/mother/${id}`)}>Back</button>
           </>
         )}
@@ -92,7 +94,14 @@ export default function MotherChildrenPage() {
         perPage={perPage}
         handlePerPageChange={(value) => { setPerPage(Number(value)); setPage(1); }}
         motherProgressByName={{}}
-        onSelectChild={(row) => navigate(`/beneficiary/child/${row.original?.id || row.id}`, { state: { child: row.original || row, mother, returnTo: currentPath } })}
+        onSelectChild={(row) => navigate(`/beneficiary/child/${row.original?.id || row.id}`, {
+          state: {
+            child: row.original || row,
+            mother,
+            returnTo: currentPath,
+            returnToState: location.state,
+          },
+        })}
         entityFilter="Child"
       />}
     </section>

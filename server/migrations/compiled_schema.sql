@@ -204,7 +204,9 @@ CREATE TABLE IF NOT EXISTS children (
   multiple_birth_type VARCHAR(30),
   birth_document_name VARCHAR(255),
   birth_document_path VARCHAR(500),
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  archived_with_mother_id INT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_children_archived_with_mother_id (archived_with_mother_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 -- ---------------------------------------------------------------------------
 -- Maternal clinical tables

@@ -34,8 +34,7 @@
 }
 
 .archive-records-controls select,
-.archive-records-controls input,
-.archive-reason-field textarea {
+.archive-records-controls input {
   min-height: var(--field-height);
   border: 1px solid var(--field-border);
   border-radius: var(--field-radius);
@@ -45,8 +44,7 @@
   padding: 0.55rem 0.75rem;
 }
 
-.archive-records-controls :where(input, select):focus-visible,
-.archive-reason-field textarea:focus-visible {
+.archive-records-controls :where(input, select):focus-visible {
   border-color: var(--field-border-focus);
   outline: 3px solid var(--field-focus-ring);
   outline-offset: 2px;
@@ -60,19 +58,6 @@
 .archive-records-state {
   padding: var(--space-4);
   color: var(--view-text-muted, var(--color-text-muted));
-}
-
-.archive-reason-field {
-  display: grid;
-  gap: var(--space-2);
-  margin: var(--space-4);
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
-}
-
-.archive-reason-field textarea {
-  min-height: 5rem;
-  resize: vertical;
 }
 
 @media (max-width: 640px) {

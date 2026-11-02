@@ -2,11 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { formatDateForDisplay } from '../../../utils/formatting/dateFormat';
 import { apiDeleteMotherDocument, apiGetMother, apiUploadMotherDocuments } from '../../../api/mothers';
+import { apiArchiveRecord, apiGetArchiveImpact } from '../../../api/archives';
 import { DocumentPreview, DocumentPreviewModal } from '../../../components/DocumentPreview';
 import { useAuth } from '../../../auth/AuthProvider';
-import { can } from '../../../utils/permissions';
+import { can, isCommunityCoordinatorRole } from '../../../utils/permissions';
 import PageHeader from '../../../components/ui/PageHeader';
 import ConfirmDialog from '../../../components/ui/ConfirmDialog';
+import { notifyAction } from '../../../components/ActionFeedback';
 import { MotherFormFields, OTHER_MATERNAL_VACCINES } from './BeneficiaryMother';
 import MonitorReportCard from '../MonitorReportCard';
 import MotherNavigationCards from './MotherNavigationCards';
@@ -78,12 +80,19 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
   const location = useLocation();
   const { currentUser } = useAuth();
   const canEdit = can(currentUser?.role, 'beneficiary-resources', 'update');
+  const canArchive = isCommunityCoordinatorRole(currentUser?.role);
   const canRemoveDocuments = can(currentUser?.role, 'beneficiary-resources', 'delete');
   const [motherRecord, setMotherRecord] = useState(selectedMother);
   const [activeTab, setActiveTab] = useState('overview');
   const [profileTab, setProfileTab] = useState('general');
   const [previewDocument, setPreviewDocument] = useState(null);
   const [showEditConfirm, setShowEditConfirm] = useState(false);
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
+  const [archiveImpact, setArchiveImpact] = useState(null);
+  const [archiveImpactLoading, setArchiveImpactLoading] = useState(false);
+  const [archiveSubmitting, setArchiveSubmitting] = useState(false);
+  const [archiveReason, setArchiveReason] = useState('');
+  const [archiveError, setArchiveError] = useState('');
 
   useEffect(() => {
     if (!selectedMother) return undefined;
@@ -126,7 +135,48 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
   const age = calculateAge(mother.dob);
 
   const handleBack = () => {
+    if (onClose) {
+      onClose();
+      return;
+    }
     navigateBack(navigate, location, '/beneficiary');
+  };
+
+  const openArchiveConfirm = async () => {
+    const archiveId = mother.raw?.id || mother.id || mother.motherId;
+    setShowArchiveConfirm(true);
+    setArchiveImpact(null);
+    setArchiveImpactLoading(true);
+    setArchiveReason('');
+    setArchiveError('');
+    try {
+      const impact = await apiGetArchiveImpact('mother', archiveId);
+      setArchiveImpact(impact);
+    } catch (error) {
+      setArchiveError(error?.message || 'Unable to load related records before archiving.');
+    } finally {
+      setArchiveImpactLoading(false);
+    }
+  };
+
+  const confirmArchiveMother = async () => {
+    if (!archiveImpact || archiveSubmitting) return;
+    setArchiveSubmitting(true);
+    setArchiveError('');
+    try {
+      const archiveId = mother.raw?.id || mother.id || mother.motherId;
+      const result = await apiArchiveRecord('mother', archiveId, archiveReason);
+      setShowArchiveConfirm(false);
+      const childrenArchived = Number(result.childrenArchived || 0);
+      notifyAction(childrenArchived
+        ? `Mother and ${childrenArchived} child ${childrenArchived === 1 ? 'record' : 'records'} archived.`
+        : 'Mother archived. Historical records were retained.');
+      onClose?.();
+    } catch (error) {
+      setArchiveError(error?.message || 'Unable to archive mother.');
+    } finally {
+      setArchiveSubmitting(false);
+    }
   };
 
   const confirmEditMother = () => {
@@ -135,7 +185,7 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
       state: {
         mother: selectedMother,
         returnTo: `${location.pathname}${location.search}`,
-        returnToState: { mother: selectedMother },
+        returnToState: location.state,
       },
     });
   };
@@ -269,6 +319,9 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
         breadcrumbs={[{ label: 'Beneficiaries', href: '/beneficiary' }, { label: 'Mother Profile' }]}
         actions={(
           <div className="mother-detail-actions">
+            {canArchive && (
+              <button type="button" className="btn-secondary" onClick={openArchiveConfirm}>Archive</button>
+            )}
             {canEdit && <button type="button" className="btn-secondary" onClick={() => setShowEditConfirm(true)}>Edit</button>}
             <button type="button" className="btn-secondary" onClick={handleBack}>Back</button>
           </div>
@@ -292,6 +345,31 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
         onConfirm={confirmEditMother}
         onCancel={() => setShowEditConfirm(false)}
       />
+      <ConfirmDialog
+        open={showArchiveConfirm}
+        title="Archive mother?"
+        description={`Archive "${fullName}" and her active child records? Their health history is retained, and restoring this mother restores only children archived with her. Children already archived separately will remain archived.`}
+        variant="default"
+        confirmLabel="Archive"
+        loadingLabel="Archiving..."
+        loading={archiveSubmitting}
+        confirmDisabled={archiveImpactLoading || Boolean(archiveError) || !archiveImpact}
+        summary={(archiveImpact?.related || []).map(({ label, count }) => ({ label, value: count }))}
+        error={archiveError || (archiveImpactLoading ? 'Loading related records…' : '')}
+        onConfirm={confirmArchiveMother}
+        onCancel={() => setShowArchiveConfirm(false)}
+      >
+        <label className="archive-reason-field">
+          <span>Reason (optional)</span>
+          <textarea
+            value={archiveReason}
+            maxLength={500}
+            rows={3}
+            placeholder="Add a note about why this mother is being archived"
+            onChange={(event) => setArchiveReason(event.target.value)}
+          />
+        </label>
+      </ConfirmDialog>
       {!overviewOnly && (activeTab === 'children' ? (
         <section className="mother-detail-section">
           <h3 className="mother-detail-section-title">Children</h3>
@@ -314,7 +392,14 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
                   <td><strong>{childNameValue}</strong>{badge && <span className="mother-detail-chip" style={{ marginLeft: 8 }}>{badge}</span>}</td>
                   <td>{formatDateForDisplay(child.birthDate || child.birth_date) || 'Birth date not recorded'}</td>
                   <td>
-                    <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/child/${child.id}`, { state: { mother: selectedMother, child, returnTo: `${location.pathname}${location.search}` } })}>View Child</button>
+                    <button type="button" className="btn-secondary" onClick={() => navigate(`/beneficiary/child/${child.id}`, {
+                      state: {
+                        mother: selectedMother,
+                        child,
+                        returnTo: `${location.pathname}${location.search}`,
+                        returnToState: location.state,
+                      },
+                    })}>View Child</button>
                   </td>
                 </tr>
               );

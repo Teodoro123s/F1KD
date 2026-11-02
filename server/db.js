@@ -377,6 +377,8 @@ async function ensure() {
       ADD COLUMN IF NOT EXISTS archived_at DATETIME NULL,
       ADD COLUMN IF NOT EXISTS archived_by_user_id INT NULL,
       ADD COLUMN IF NOT EXISTS archive_reason VARCHAR(500) NULL,
+      ADD COLUMN IF NOT EXISTS archived_with_mother_id INT NULL,
+      ADD INDEX IF NOT EXISTS idx_children_archived_with_mother_id (archived_with_mother_id),
       ADD INDEX IF NOT EXISTS idx_children_archived_at (archived_at);`,
 
     `ALTER TABLE children

@@ -464,6 +464,7 @@ export default function MonitoringPage() {
         mother,
         checkupStep,
         returnTo: '/monitoring',
+        returnToState: location.state,
       },
     });
   };

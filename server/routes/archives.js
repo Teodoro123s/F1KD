@@ -96,7 +96,7 @@ async function getRelatedCounts(connection, type, record) {
       ['Children', 'SELECT COUNT(*) AS count FROM children c LEFT JOIN mothers m ON m.id = c.mother_id WHERE c.batch_id = ? OR (c.batch_id IS NULL AND m.batch_id = ?)', [record.id, record.id]],
     ],
     mother: [
-      ['Children', 'SELECT COUNT(*) AS count FROM children WHERE mother_id = ?', [record.id]],
+      ['Children to archive', 'SELECT COUNT(*) AS count FROM children WHERE mother_id = ? AND archived_at IS NULL', [record.id]],
       ['Check-ups', 'SELECT COUNT(*) AS count FROM mother_checkups WHERE mother_id = ?', [record.id]],
       ['Vaccination records', 'SELECT COUNT(*) AS count FROM mother_vaccinations WHERE mother_id = ?', [record.id]],
     ],
@@ -326,10 +326,30 @@ router.post('/:type/:id/archive', async (req, res) => {
       await connection.rollback();
       return res.status(409).json({ error: 'Record is already archived' });
     }
-    await connection.query(
-      `UPDATE ${table} SET archived_at = CURRENT_TIMESTAMP, archived_by_user_id = ?, archive_reason = ? WHERE id = ? AND archived_at IS NULL`,
-      [req.user.id, reason || null, record.id],
-    );
+    let childrenToArchive = [];
+    if (type === 'mother') {
+      const [children] = await connection.query(
+        `SELECT id, CONCAT_WS(' ', first_name, last_name) AS name
+         FROM children
+         WHERE mother_id = ? AND archived_at IS NULL
+         FOR UPDATE`,
+        [record.id],
+      );
+      childrenToArchive = children;
+    }
+    const archiveSql = type === 'child'
+      ? 'UPDATE children SET archived_at = CURRENT_TIMESTAMP, archived_by_user_id = ?, archive_reason = ?, archived_with_mother_id = NULL WHERE id = ? AND archived_at IS NULL'
+      : `UPDATE ${table} SET archived_at = CURRENT_TIMESTAMP, archived_by_user_id = ?, archive_reason = ? WHERE id = ? AND archived_at IS NULL`;
+    await connection.query(archiveSql, [req.user.id, reason || null, record.id]);
+    if (childrenToArchive.length) {
+      await connection.query(
+        `UPDATE children
+         SET archived_at = CURRENT_TIMESTAMP, archived_by_user_id = ?, archive_reason = ?,
+             archived_with_mother_id = ?
+         WHERE mother_id = ? AND archived_at IS NULL`,
+        [req.user.id, reason || null, record.id, record.id],
+      );
+    }
     await recordActivity({
       actor: req.user,
       category: 'Archive',
@@ -338,8 +358,22 @@ router.post('/:type/:id/archive', async (req, res) => {
       entityId: record.id,
       description: `Archived ${type} "${record.name || record.code || record.id}".${reason ? ` Reason: ${reason}` : ''}`,
     }, connection, { throwOnError: true });
+    for (const child of childrenToArchive) {
+      await recordActivity({
+        actor: req.user,
+        category: 'Archive',
+        action: 'archive',
+        entityType: 'child',
+        entityId: child.id,
+        description: `Archived child "${child.name || child.id}" with mother "${record.name || record.code || record.id}" as part of mother archive.${reason ? ` Reason: ${reason}` : ''}`,
+      }, connection, { throwOnError: true });
+    }
     await connection.commit();
-    return res.json({ success: true, record: { ...record, archived_at: new Date().toISOString(), archive_reason: reason || null } });
+    return res.json({
+      success: true,
+      record: { ...record, archived_at: new Date().toISOString(), archive_reason: reason || null },
+      childrenArchived: childrenToArchive.length,
+    });
   } catch (error) {
     if (connection) await connection.rollback();
     console.error('[Archives API] archive error:', error.message);
@@ -371,10 +405,30 @@ router.post('/:type/:id/restore', async (req, res) => {
       await connection.rollback();
       return res.status(409).json({ error: 'Restore the record’s parent hierarchy before restoring this record' });
     }
-    await connection.query(
-      `UPDATE ${table} SET archived_at = NULL, archived_by_user_id = NULL, archive_reason = NULL WHERE id = ? AND archived_at IS NOT NULL`,
-      [record.id],
-    );
+    let childrenToRestore = [];
+    if (type === 'mother') {
+      const [children] = await connection.query(
+        `SELECT id, CONCAT_WS(' ', first_name, last_name) AS name
+         FROM children
+         WHERE archived_with_mother_id = ? AND archived_at IS NOT NULL
+         FOR UPDATE`,
+        [record.id],
+      );
+      childrenToRestore = children;
+    }
+    const restoreSql = type === 'child'
+      ? 'UPDATE children SET archived_at = NULL, archived_by_user_id = NULL, archive_reason = NULL, archived_with_mother_id = NULL WHERE id = ? AND archived_at IS NOT NULL'
+      : `UPDATE ${table} SET archived_at = NULL, archived_by_user_id = NULL, archive_reason = NULL WHERE id = ? AND archived_at IS NOT NULL`;
+    await connection.query(restoreSql, [record.id]);
+    if (childrenToRestore.length) {
+      await connection.query(
+        `UPDATE children
+         SET archived_at = NULL, archived_by_user_id = NULL, archive_reason = NULL,
+             archived_with_mother_id = NULL
+         WHERE archived_with_mother_id = ? AND archived_at IS NOT NULL`,
+        [record.id],
+      );
+    }
     await recordActivity({
       actor: req.user,
       category: 'Archive',
@@ -383,8 +437,22 @@ router.post('/:type/:id/restore', async (req, res) => {
       entityId: record.id,
       description: `Restored ${type} "${record.name || record.code || record.id}" from archive.`,
     }, connection, { throwOnError: true });
+    for (const child of childrenToRestore) {
+      await recordActivity({
+        actor: req.user,
+        category: 'Archive',
+        action: 'restore',
+        entityType: 'child',
+        entityId: child.id,
+        description: `Restored child "${child.name || child.id}" with mother "${record.name || record.code || record.id}" from archive.`,
+      }, connection, { throwOnError: true });
+    }
     await connection.commit();
-    return res.json({ success: true, record: { ...record, archived_at: null, archive_reason: null } });
+    return res.json({
+      success: true,
+      record: { ...record, archived_at: null, archive_reason: null },
+      childrenRestored: childrenToRestore.length,
+    });
   } catch (error) {
     if (connection) await connection.rollback();
     console.error('[Archives API] restore error:', error.message);

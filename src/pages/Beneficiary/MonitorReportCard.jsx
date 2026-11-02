@@ -235,6 +235,7 @@ export default function MonitorReportCard({ beneficiaryType, beneficiary }) {
                 mother: beneficiary,
                 checkupStep: point.stepIndex,
                 returnTo: `${location.pathname}${location.search}`,
+                returnToState: location.state,
               },
             })}
           />

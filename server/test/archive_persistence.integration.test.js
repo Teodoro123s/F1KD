@@ -41,15 +41,22 @@ test('archive metadata persists and historical report results remain equivalent'
     await pool.end();
   });
 
-  const migration = await fs.readFile(
-    path.join(__dirname, '..', 'migrations', '20261101_record_archiving.sql'),
-    'utf8',
-  );
-  const migrationStatements = migration
-    .replace(/^\s*--.*$/gm, '')
-    .split(';')
-    .map((statement) => statement.trim())
-    .filter(Boolean);
+  const migrationFiles = [
+    '20261101_record_archiving.sql',
+    '20261103_archive_children_with_mother.sql',
+  ];
+  const migrationStatements = [];
+  for (const migrationFile of migrationFiles) {
+    const migration = await fs.readFile(
+      path.join(__dirname, '..', 'migrations', migrationFile),
+      'utf8',
+    );
+    migrationStatements.push(...migration
+      .replace(/^\s*--.*$/gm, '')
+      .split(';')
+      .map((statement) => statement.trim())
+      .filter(Boolean));
+  }
   const tables = ['communities', 'groups', 'batches', 'programs', 'mothers', 'children'];
 
   for (const table of [...tables, 'users', 'activity_logs']) {
@@ -66,6 +73,9 @@ test('archive metadata persists and historical report results remain equivalent'
        DROP COLUMN archived_at`,
     );
   }
+  await pool.query(
+    'ALTER TABLE children DROP INDEX idx_children_archived_with_mother_id, DROP COLUMN archived_with_mother_id',
+  );
   for (let replay = 0; replay < 2; replay += 1) {
     for (const statement of migrationStatements) await pool.query(statement);
   }
@@ -74,10 +84,10 @@ test('archive metadata persists and historical report results remain equivalent'
     `SELECT table_name, column_name FROM information_schema.columns
      WHERE table_schema = DATABASE()
        AND table_name IN (?, ?, ?, ?, ?, ?)
-       AND column_name IN ('archived_at', 'archived_by_user_id', 'archive_reason')`,
+       AND column_name IN ('archived_at', 'archived_by_user_id', 'archive_reason', 'archived_with_mother_id')`,
     tables,
   );
-  assert.equal(metadataColumns.length, tables.length * 3);
+  assert.equal(metadataColumns.length, tables.length * 3 + 1);
 
   const suffix = randomUUID().replace(/-/g, '').slice(0, 8).toUpperCase();
   const [userResult] = await pool.query(
@@ -115,6 +125,19 @@ test('archive metadata persists and historical report results remain equivalent'
     [`C${suffix}`, motherId, schoolId, groupId, batchId, 'Synthetic', 'Child'],
   );
   const childId = childResult.insertId;
+  const [independentChildResult] = await pool.query(
+    `INSERT INTO children
+       (child_code, mother_id, community_id, group_id, batch_id, first_name, last_name)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [`I${suffix}`, motherId, schoolId, groupId, batchId, 'Independently', 'Archived'],
+  );
+  const independentChildId = independentChildResult.insertId;
+  await pool.query(
+    `UPDATE children
+     SET archived_at = CURRENT_TIMESTAMP, archived_by_user_id = ?, archive_reason = 'Independent archive'
+     WHERE id = ?`,
+    [userId, independentChildId],
+  );
   await pool.query(
     `INSERT INTO mother_checkups
        (mother_id, trimester, checkup_number, checkup_date, gestational_age_weeks, weight_kg, height_cm, bmi)
@@ -428,6 +451,7 @@ test('archive metadata persists and historical report results remain equivalent'
   role = 'Community Organizer';
   const motherArchive = await post('mother', motherId, 'archive', { reason: 'Synthetic mother archive check' });
   assert.equal(motherArchive.status, 200);
+  assert.equal((await motherArchive.json()).childrenArchived, 1);
   const [[archivedMother]] = await pool.query(
     'SELECT archived_at, archived_by_user_id, archive_reason FROM mothers WHERE id = ?',
     [motherId],
@@ -440,16 +464,34 @@ test('archive metadata persists and historical report results remain equivalent'
   assert.equal((await activeRecordsFor('Community Organizer', '/children?page=1&perPage=100', 'children'))
     .some((child) => child.child_code === `C${suffix}`), false);
   const [[childAfterMotherArchive]] = await pool.query(
-    'SELECT archived_at FROM children WHERE id = ?',
+    'SELECT archived_at, archived_by_user_id, archive_reason, archived_with_mother_id FROM children WHERE id = ?',
     [childId],
   );
-  assert.equal(childAfterMotherArchive.archived_at, null, 'Archiving a mother must not archive the child record');
+  assert.ok(childAfterMotherArchive.archived_at, 'Archiving a mother must archive its active child record');
+  assert.equal(childAfterMotherArchive.archived_by_user_id, userId);
+  assert.equal(childAfterMotherArchive.archive_reason, 'Synthetic mother archive check');
+  assert.equal(childAfterMotherArchive.archived_with_mother_id, motherId);
   assert.equal((await post('child', childId, 'restore')).status, 409);
   const motherArchiveList = await fetch(`${origin}?type=mother&search=${encodeURIComponent(`Synthetic Mother`)}`);
   assert.equal(motherArchiveList.status, 200);
   assert.equal((await motherArchiveList.json()).records[0].archive_reason, 'Synthetic mother archive check');
   role = 'Community Organizer';
   assert.equal((await post('mother', motherId, 'restore')).status, 200);
+  const [[childAfterMotherRestore]] = await pool.query(
+    'SELECT archived_at, archived_by_user_id, archive_reason, archived_with_mother_id FROM children WHERE id = ?',
+    [childId],
+  );
+  assert.equal(childAfterMotherRestore.archived_at, null);
+  assert.equal(childAfterMotherRestore.archived_by_user_id, null);
+  assert.equal(childAfterMotherRestore.archive_reason, null);
+  assert.equal(childAfterMotherRestore.archived_with_mother_id, null);
+  const [[independentChildAfterMotherRestore]] = await pool.query(
+    'SELECT archived_at, archive_reason, archived_with_mother_id FROM children WHERE id = ?',
+    [independentChildId],
+  );
+  assert.ok(independentChildAfterMotherRestore.archived_at);
+  assert.equal(independentChildAfterMotherRestore.archive_reason, 'Independent archive');
+  assert.equal(independentChildAfterMotherRestore.archived_with_mother_id, null);
   await assertHistoricalReportsUnchanged(historyBaseline, 'after mother archive and restore');
 
   role = 'Community Organizer';
@@ -491,7 +533,7 @@ test('archive metadata persists and historical report results remain equivalent'
        AND entity_id IN (?, ?) AND action IN ('archive', 'restore')`,
     [String(motherId), String(childId)],
   );
-  assert.equal(Number(beneficiaryActivity.total), 4);
+  assert.equal(Number(beneficiaryActivity.total), 6);
 
   role = 'Community Organizer';
   assert.equal((await apiRequest('Community Organizer', `/programs/${programId}/archive`, {

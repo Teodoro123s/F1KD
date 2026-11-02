@@ -133,7 +133,7 @@ The requested removal of mother/child Archive buttons remains in effect. The Arc
 
 ## Prioritized improvement plan
 
-1. **Archive clarity:** Decide whether beneficiary archiving is intentionally API-only or should have a different UI entry point. Keep the removed row/profile buttons absent unless that decision changes.
+1. **Archive verification:** Verify the mother-to-child archive/restore cascade through authenticated browser workflows and confirm that independently archived children remain archived.
 2. **Role and UX verification:** Add isolated synthetic accounts and browser workflows for all five roles; test key forms, filters, actions, keyboard access, and responsive layouts.
 3. **Deployment readiness:** Review performance and accessibility using measured results; review migration rollout, backup/restore, and production-like startup.
 4. **Release check:** Keep the isolated archive integration test in the pre-deployment verification process.

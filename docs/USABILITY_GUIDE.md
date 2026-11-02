@@ -83,6 +83,10 @@ Community, User Management, Beneficiary, Monitoring, Archive, Reports/Notificati
 
 Pagination controls do not change the filters or access scope applied to the list; those continue to follow the current page and account permissions.
 
+## Archiving mothers and children
+
+Archiving a mother also archives her currently active child records. Existing child health and history records are retained. The Archive confirmation shows how many active children will be archived; children already archived separately are left unchanged. Restoring the mother restores only children archived as part of that mother's archive action. Restore the parent hierarchy first if it is archived.
+
 ## Using data tables on smaller screens
 
 Data tables keep their columns and header alignment instead of squeezing every column into the available width. When a table is wider than its panel, swipe horizontally inside the table area; the surrounding page remains separate. Scrollable table areas can also receive keyboard focus so they can be moved without a touch gesture or mouse wheel. Text wraps at normal word boundaries, while dates and action controls retain compact layouts. The vaccine-entry form uses labeled cards on small screens rather than hiding its field labels.

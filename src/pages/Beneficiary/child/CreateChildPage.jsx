@@ -429,12 +429,16 @@ export default function CreateChildPage({
             child: newGroup,
             mothers: undefined,
             returnTo: location.state?.returnTo || `/beneficiary/mother/${motherFromState.id || motherFromState.motherId}`,
+            returnToState: location.state?.returnToState,
           },
         });
         return;
       }
 
-      navigate(location.state?.returnTo || '/beneficiary', { replace: true });
+      navigate(location.state?.returnTo || '/beneficiary', {
+        replace: true,
+        ...(location.state?.returnToState === undefined ? {} : { state: location.state.returnToState }),
+      });
     } catch (err) {
       console.error('Failed to create child', err);
       notifyAction(err?.message || 'Unable to create child. Please try again.', 'error');
@@ -586,7 +590,9 @@ export default function CreateChildPage({
                 motherFromState
                   ? `/beneficiary/mother/${motherFromState.id || motherFromState.motherId}`
                   : '/beneficiary',
-                motherFromState ? { mother: motherFromState } : undefined,
+                motherFromState
+                  ? { ...(location.state?.returnToState || {}), mother: motherFromState }
+                  : undefined,
               );
             })}>Cancel</button>
             <div className="create-mother-footer-actions">

@@ -786,9 +786,13 @@ export default function CommunityPage() {
     setDeleteSubmitting(true);
     setDeleteError('');
     try {
-      await apiArchiveRecord(pendingDelete.archiveType, item.id, archiveReason);
+      const archiveResult = await apiArchiveRecord(pendingDelete.archiveType, item.id, archiveReason);
       await refreshData();
-      notifyAction(`${type === 'community' ? 'School' : type} archived. Historical records were retained.`);
+      const archivedLabel = type === 'community' ? 'School' : type;
+      const childrenArchived = Number(archiveResult.childrenArchived || 0);
+      notifyAction(type === 'mother' && childrenArchived
+        ? `Mother and ${childrenArchived} child ${childrenArchived === 1 ? 'record' : 'records'} archived. Historical records were retained; restoring the mother restores these children.`
+        : `${archivedLabel} archived. Historical records were retained.`);
       cancelDelete();
     } catch (error) {
       console.error(`[CommunityPage] Unable to archive ${type}:`, error);
@@ -804,7 +808,7 @@ export default function CommunityPage() {
     if (!pendingDelete) return '';
     const { type, item } = pendingDelete;
     if (type === 'mother') {
-      return `Archive only "${item.name}"? The batch stays active. Her children and health history are retained; children may remain unavailable for active operations until this mother is restored.`;
+      return `Archive "${item.name}" and her active child records? Their health history is retained, and restoring this mother will restore these children too. Children already archived separately will remain archived.`;
     }
     if (type === 'child') {
       return `Archive only "${item.name}"? The mother and batch stay active. This child's health history is retained.`;
@@ -1064,6 +1068,20 @@ export default function CommunityPage() {
                 >
                   Transfer to batch
                 </button>
+                {isCommunityOrganizer && (
+                  <button
+                    type="button"
+                    className="actions-dropdown-item"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setActiveDropdownId(null);
+                      requestDelete('mother', row);
+                    }}
+                    role="menuitem"
+                  >
+                    Archive Mother
+                  </button>
+                )}
               </FloatingLayer>
             )}
           </>
@@ -1409,7 +1427,13 @@ export default function CommunityPage() {
       >
         <label className="archive-reason-field">
           <span>Reason (optional)</span>
-          <textarea value={archiveReason} maxLength={500} onChange={(event) => setArchiveReason(event.target.value)} />
+          <textarea
+            value={archiveReason}
+            maxLength={500}
+            rows={3}
+            placeholder="Add a note about why this record is being archived"
+            onChange={(event) => setArchiveReason(event.target.value)}
+          />
         </label>
       </ConfirmDialog>
     </div>

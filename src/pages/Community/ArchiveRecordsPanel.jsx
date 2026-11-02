@@ -94,11 +94,14 @@ export default function ArchiveRecordsPanel({ types, view, onChanged }) {
     if (!pendingRestore || restoring) return;
     setRestoring(true);
     try {
-      await apiRestoreArchivedRecord(type, pendingRestore.id);
+      const restoreResult = await apiRestoreArchivedRecord(type, pendingRestore.id);
       setPendingRestore(null);
       setPage((current) => Math.max(1, current - (records.length === 1 && current > 1 ? 1 : 0)));
       await onChanged?.();
-      notifyAction(`${TYPE_SINGULAR_LABELS[type]} restored successfully.`);
+      const childrenRestored = Number(restoreResult.childrenRestored || 0);
+      notifyAction(type === 'mother' && childrenRestored
+        ? `Mother and ${childrenRestored} child ${childrenRestored === 1 ? 'record' : 'records'} restored successfully.`
+        : `${TYPE_SINGULAR_LABELS[type]} restored successfully.`);
       requestIdRef.current += 1;
       setRecords((current) => current.filter((record) => String(record.id) !== String(pendingRestore.id)));
       setTotal((current) => Math.max(0, current - 1));
@@ -247,7 +250,11 @@ export default function ArchiveRecordsPanel({ types, view, onChanged }) {
       <ConfirmDialog
         open={Boolean(pendingRestore)}
         title="Restore archived record?"
-        description={pendingRestore ? `Restore "${pendingRestore.name || pendingRestore.code}"? The parent hierarchy must be active before this record can be used again.` : ''}
+        description={pendingRestore
+          ? type === 'mother'
+            ? `Restore "${pendingRestore.name || pendingRestore.code}"? Child records archived with this mother will be restored too. The parent hierarchy must be active.`
+            : `Restore "${pendingRestore.name || pendingRestore.code}"? The parent hierarchy must be active before this record can be used again.`
+          : ''}
         variant="default"
         confirmLabel="Restore"
         loadingLabel="Restoring…"

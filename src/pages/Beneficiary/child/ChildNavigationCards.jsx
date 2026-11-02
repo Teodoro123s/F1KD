@@ -21,14 +21,14 @@ export default function ChildNavigationCards({ child, mother, activeCard }) {
     || linkedMother?.mother_code
     || childMotherId;
   const returnTo = `${location.pathname}${location.search}`;
-  const navigationState = { child, mother: linkedMother, returnTo };
+  const navigationState = {
+    child,
+    mother: linkedMother,
+    returnTo,
+    returnToState: location.state,
+  };
 
-  const navigateToMonitor = () => navigate('/monitoring', {
-    state: {
-      ...navigationState,
-      returnToState: navigationState,
-    },
-  });
+  const navigateToMonitor = () => navigate('/monitoring', { state: navigationState });
 
   const cards = [
     {
@@ -44,7 +44,11 @@ export default function ChildNavigationCards({ child, mother, activeCard }) {
       action: motherId ? 'Open linked profile' : 'No linked mother available',
       disabled: !motherId,
       onClick: () => navigate(`/beneficiary/mother/${motherId}`, {
-        state: { mother: linkedMother, returnTo },
+        state: {
+          mother: linkedMother,
+          returnTo,
+          returnToState: location.state,
+        },
       }),
     },
     {

@@ -233,6 +233,7 @@ export default function CreateMotherPage({
   batches,
   navigate,
   returnTo = '/beneficiary',
+  returnToState,
 }) {
   const { currentUser } = useAuth();
   const isCommunityOrganizer = isCommunityCoordinatorRole(currentUser?.role);
@@ -653,7 +654,10 @@ export default function CreateMotherPage({
       localStorage.removeItem(MOTHER_DRAFT_KEY);
       notifyAction('Mother created successfully.');
       setPendingMother(null);
-      navigate(returnTo, { replace: true });
+      navigate(returnTo, {
+        replace: true,
+        ...(returnToState === undefined ? {} : { state: returnToState }),
+      });
     } catch (error) {
       console.error('[CreateMotherPage] Failed to create mother:', error);
       notifyAction(error?.message || 'Unable to create mother. Please try again.', 'error');
@@ -748,7 +752,13 @@ export default function CreateMotherPage({
           </div>
 
           <div className="create-mother-footer">
-            <button type="button" className="btn-secondary create-mother-cancel" onClick={() => confirmNavigate(() => { localStorage.removeItem(MOTHER_DRAFT_KEY); navigate(returnTo, { replace: true }); })}>Cancel</button>
+            <button type="button" className="btn-secondary create-mother-cancel" onClick={() => confirmNavigate(() => {
+              localStorage.removeItem(MOTHER_DRAFT_KEY);
+              navigate(returnTo, {
+                replace: true,
+                ...(returnToState === undefined ? {} : { state: returnToState }),
+              });
+            })}>Cancel</button>
             <div className="create-mother-footer-actions">
               {createActiveTab !== 'general' && (
                 <StepNavigationButton

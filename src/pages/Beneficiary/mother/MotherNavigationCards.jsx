@@ -9,7 +9,12 @@ export default function MotherNavigationCards({ mother, motherId, activeCard }) 
   const returnTo = `${location.pathname}${location.search}`;
 
   const navigateTo = (path, extraState = {}) => navigate(path, {
-    state: { mother, returnTo, ...extraState },
+    state: {
+      mother,
+      returnTo,
+      returnToState: location.state,
+      ...extraState,
+    },
   });
 
   const cards = [

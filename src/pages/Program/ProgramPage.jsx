@@ -1709,7 +1709,13 @@ export default function ProgramPage() {
         )}
         <label className="archive-reason-field">
           <span>Reason (optional)</span>
-          <textarea value={archiveReason} maxLength={500} onChange={(event) => setArchiveReason(event.target.value)} />
+          <textarea
+            value={archiveReason}
+            maxLength={500}
+            rows={3}
+            placeholder="Add a note about why this program is being archived"
+            onChange={(event) => setArchiveReason(event.target.value)}
+          />
         </label>
       </ConfirmDialog>
       <ConfirmDialog
