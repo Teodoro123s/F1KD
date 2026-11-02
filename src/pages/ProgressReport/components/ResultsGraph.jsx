@@ -409,6 +409,9 @@ export function ResultsGraph({
   interpretationMetrics,
   programMetrics,
   cohortSummary = false,
+  graphBeneficiaries = [],
+  selectedGraphBeneficiary = '',
+  setSelectedGraphBeneficiary,
 }) {
   const availableProfileGraphFields = displayBeneficiaryType === 'mother'
     ? profileGraphFields
@@ -558,6 +561,20 @@ export function ResultsGraph({
                   {graphicMonthOptions.map((monthKey) => <option key={monthKey} value={monthKey}>{formatMonthKey(monthKey)}</option>)}
                 </select>
               </div>
+            </label>
+          )}
+          {displayReportCategory === 'monitor' && graphBeneficiaries.length > 0 && (
+            <label className="report-chart-select">
+              Graph scope
+              <select
+                aria-label="Graph scope"
+                value={selectedGraphBeneficiary}
+                onChange={(event) => setSelectedGraphBeneficiary?.(event.target.value)}
+              >
+                <option value="summary">Population summary for selected scope</option>
+                <option value="all">Individual series for all beneficiaries</option>
+                {graphBeneficiaries.map(({ id, name }) => <option key={id} value={id}>{name}</option>)}
+              </select>
             </label>
           )}
         </div>

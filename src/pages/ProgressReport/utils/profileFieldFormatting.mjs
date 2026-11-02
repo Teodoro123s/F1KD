@@ -18,3 +18,11 @@ export const formatPhilHealthNumberForReport = (value) => (
 export const formatProfileReportCellValue = (formattedValue) => (
   formattedValue === '—' ? '' : formattedValue
 );
+
+export const hasProfileReportValue = (value) => {
+  if (value === null || value === undefined) return false;
+  if (typeof value === 'string') return value.trim() !== '';
+  if (Array.isArray(value)) return value.some(hasProfileReportValue);
+  if (typeof value === 'object') return Object.values(value).some(hasProfileReportValue);
+  return true;
+};

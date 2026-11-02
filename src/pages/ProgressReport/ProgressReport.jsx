@@ -962,6 +962,7 @@ export default function ProgressReport() {
                 graphExportRows={graphExportRows}
                 graphExportFields={graphExportFields}
                 resultsView={resultsView}
+                setResultsView={setResultsView}
                 graphAllowed={graphAllowed}
                 graphBeneficiaries={graphBeneficiaries}
                 selectedGraphBeneficiary={selectedGraphBeneficiaryId}

@@ -102,6 +102,7 @@ export default function ChildMonitor({
     feedingMethod: '',
     weight: '',
     height: '',
+    headCircumference: '',
     developmentalStatus: 'Normal',
     serviceProvider: '',
     remarks: '',
@@ -160,6 +161,7 @@ export default function ChildMonitor({
         ),
         weight: '',
         height: '',
+        headCircumference: '',
         developmentalStatus: 'Normal',
         serviceProvider: '',
         remarks: '',
@@ -178,6 +180,7 @@ export default function ChildMonitor({
       ),
       weight: savedCheckup.weight ?? '',
       height: savedCheckup.height ?? '',
+      headCircumference: savedCheckup.headCircumference ?? savedCheckup.head_circumference ?? '',
       developmentalStatus: savedCheckup.developmental_status ?? savedCheckup.developmentalStatus ?? 'Normal',
       serviceProvider: savedCheckup.service_provider ?? savedCheckup.serviceProvider ?? '',
       remarks: savedCheckup.notes ?? savedCheckup.remarks ?? '',
@@ -365,6 +368,10 @@ export default function ChildMonitor({
             <div className="form-group">
               <label className="checkup-field-label is-required" htmlFor="child-monitor-height">Length (cm)</label>
               <input id="child-monitor-height" type="number" min="45" max="100" step="0.1" className="checkup-field-input" value={form.height} onChange={update('height')} required readOnly={isReadOnly} />
+            </div>
+            <div className="form-group">
+              <label className="checkup-field-label" htmlFor="child-monitor-head-circumference">Head Circumference (cm)</label>
+              <input id="child-monitor-head-circumference" type="number" min="15" max="60" step="0.1" className="checkup-field-input" value={form.headCircumference} onChange={update('headCircumference')} readOnly={isReadOnly} />
             </div>
             <div className="form-group">
               <label className="checkup-field-label" htmlFor="child-monitor-weight-age">Weight-for-Age</label>

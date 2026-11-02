@@ -96,6 +96,7 @@ test('health worker child check-up saves monitoring data and rejects a different
         next_checkup_date: '2026-10-28',
         weight: '8.4',
         height: '70',
+        head_circumference: '42.3',
         exclusive_breastfeeding: 'Complementary feeding',
       }]];
     }
@@ -136,6 +137,7 @@ test('health worker child check-up saves monitoring data and rejects a different
     feedingMethod: 'Complementary feeding',
     weight: '8.4',
     height: '70',
+    headCircumference: '42.3',
     serviceProvider: 'Health Worker',
   });
   assert.equal(response.status, 200);
@@ -143,13 +145,16 @@ test('health worker child check-up saves monitoring data and rejects a different
   assert.deepEqual(result.child.completedWeeks, [12]);
   assert.equal(result.child.checkups[0].weekNumber, 12);
   assert.equal(result.child.checkups[0].weight, '8.4');
+  assert.equal(result.child.checkups[0].headCircumference, '42.3');
   assert.equal(result.child.checkups[0].feedingMethod, 'Complementary feeding');
   assert.equal(savedCheckupQueries.length, 1);
+  assert.match(savedCheckupQueries[0].sql, /head_circumference/);
   assert.equal(savedCheckupQueries[0].params[0], 31);
   assert.equal(savedCheckupQueries[0].params[1], '2026-10-28');
-  assert.equal(savedCheckupQueries[0].params[5], 'Complementary feeding');
-  assert.equal(savedCheckupQueries[0].params[15], 12);
-  assert.deepEqual(savedCheckupQueries[0].params.slice(16), [8, 8, 8]);
+  assert.equal(savedCheckupQueries[0].params[5], 42.3);
+  assert.equal(savedCheckupQueries[0].params[6], 'Complementary feeding');
+  assert.equal(savedCheckupQueries[0].params[16], 12);
+  assert.deepEqual(savedCheckupQueries[0].params.slice(17), [8, 8, 8]);
   assert.equal(notifications.length, 1);
   assert.equal(notifications[0][0], 'monitoring.child.checkup_created');
   assert.equal(notifications[0][7], 12);
@@ -170,6 +175,14 @@ test('health worker child check-up saves monitoring data and rejects a different
     nextCheckupDate: '2026-02-30',
   });
   assert.equal(invalidReminderDateResponse.status, 400);
+  assert.equal(savedCheckupQueries.length, 2);
+
+  const invalidHeadCircumferenceResponse = await request(20, {
+    week: 14,
+    checkupDate: '2026-10-28',
+    headCircumference: '61',
+  });
+  assert.equal(invalidHeadCircumferenceResponse.status, 400);
   assert.equal(savedCheckupQueries.length, 2);
 
   const wrongGroupResponse = await request(99, { week: 13 });

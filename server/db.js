@@ -472,6 +472,7 @@ async function ensure() {
       ADD COLUMN IF NOT EXISTS developmental_status VARCHAR(40),
       ADD COLUMN IF NOT EXISTS service_provider VARCHAR(150),
       ADD COLUMN IF NOT EXISTS next_checkup_date DATE,
+      ADD COLUMN IF NOT EXISTS head_circumference DECIMAL(5,2),
       ADD COLUMN IF NOT EXISTS exclusive_breastfeeding VARCHAR(40),
       ADD COLUMN IF NOT EXISTS laboratory_requests TEXT,
       ADD COLUMN IF NOT EXISTS laboratory_assistance_provided BOOLEAN NOT NULL DEFAULT FALSE,

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { getBmiInterpretation } from '../progressReportConfig';
 import FloatingLayer from '../../../components/ui/FloatingLayer';
 import { filterInterpretationFields } from '../utils/reportTableUtils';
-import { formatProfileReportCellValue } from '../utils/profileFieldFormatting.mjs';
+import { formatProfileReportCellValue, hasProfileReportValue } from '../utils/profileFieldFormatting.mjs';
 import { filterProfileReportRows, getProfileReportScopeOptions } from '../utils/profileReportFilters.mjs';
 import { buildMonitoringAverageRow } from '../utils/monitoringAverages.mjs';
 
@@ -45,6 +45,8 @@ const historyFieldIds = new Set([
   'remarks',
   'notes',
 ]);
+
+const defaultHiddenHistoryFields = ['hospitalReferral', 'nextCheckupDate'];
 
 const communityFieldsForSelection = (selection = {}) => {
   if (!selection.schoolId) return [];
@@ -96,6 +98,9 @@ function HistoryCell({ field, value, formatCellValue, row }) {
 
 function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleFields, formatCellValue, communitySelection, beneficiaryType, showSchoolFilter, showGroupFilter, schoolOptions = [], onSchoolChange, loadingReport = false, growthMetricOptions, selectedGrowthMetric, onGrowthMetricChange, onRegisterExport, includeInterpretationColumns, setIncludeInterpretationColumns, onExport, exportingReport, selectedBatch, onSelectedBatchChange }) {
   const [viewMode, setViewMode] = useState('individual');
+  const [customizerOpen, setCustomizerOpen] = useState(false);
+  const [hiddenHistoryFields, setHiddenHistoryFields] = useState(() => new Set(defaultHiddenHistoryFields));
+  const customizerTriggerRef = useRef(null);
   const [selectedBeneficiary, setSelectedBeneficiary] = useState('');
   const [selectedMonth, setSelectedMonth] = useState('');
   const [selectedSchool, setSelectedSchool] = useState('');
@@ -149,16 +154,32 @@ function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleField
     .sort((left, right) => String(left.measurementDate || '').localeCompare(String(right.measurementDate || '')));
   const selectedProfile = filteredRows[0] || {};
   const historyMetricFields = visibleHistoryFields.filter(([id]) => id !== 'measurementDate');
+  const displayedHistoryMetricFields = historyMetricFields.filter(([id]) => !hiddenHistoryFields.has(id));
+  const displayedProfileFields = profileFields.filter(([id]) => !hiddenHistoryFields.has(id));
+  const displayedCommunityFields = communityFields.filter(([id]) => !hiddenHistoryFields.has(id));
+  const displayedIdentityFields = identityFields.filter(([id]) => !hiddenHistoryFields.has(id));
+  const showMeasurementDate = !hiddenHistoryFields.has('measurementDate');
   const individualHistoryFields = [['measurementDate', 'Check-up Date'], ...profileFields, ...historyMetricFields];
   const monthlyHistoryFields = [...communityFields, ...identityFields, ...profileFields, ...historyMetricFields];
-  const averageFields = historyMetricFields.map(([id]) => id);
-  const averageLabelField = (viewMode === 'individual' ? individualHistoryFields : monthlyHistoryFields)[0]?.[0];
+  const displayedIndividualHistoryFields = [
+    ...(showMeasurementDate ? [['measurementDate', 'Check-up Date']] : []),
+    ...displayedProfileFields,
+    ...displayedHistoryMetricFields,
+  ];
+  const displayedMonthlyHistoryFields = [
+    ...displayedCommunityFields,
+    ...displayedIdentityFields,
+    ...displayedProfileFields,
+    ...displayedHistoryMetricFields,
+  ];
+  const activeHistoryFields = viewMode === 'individual' ? displayedIndividualHistoryFields : displayedMonthlyHistoryFields;
+  const availableCustomizerFields = viewMode === 'individual' ? individualHistoryFields : monthlyHistoryFields;
+  const averageFields = displayedHistoryMetricFields.map(([id]) => id);
+  const averageLabelField = activeHistoryFields[0]?.[0];
   const averageRow = buildMonitoringAverageRow(filteredRows, averageFields, averageLabelField);
   const exportFilteredRows = () => onExport({
     rows: filteredRows,
-    fields: viewMode === 'individual'
-      ? individualHistoryFields
-      : monthlyHistoryFields,
+    fields: activeHistoryFields,
     averageFields,
     averageLabelField,
     view: 'table',
@@ -240,6 +261,48 @@ function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleField
             </select>
           </label>
         )}
+        <details className="results-table-customizer" open={customizerOpen}>
+          <summary
+            ref={customizerTriggerRef}
+            aria-haspopup="menu"
+            aria-expanded={customizerOpen}
+            onClick={(event) => {
+              event.preventDefault();
+              setCustomizerOpen((open) => !open);
+            }}
+          >
+            Customize columns
+          </summary>
+          <FloatingLayer
+            open={customizerOpen}
+            anchorRef={customizerTriggerRef}
+            onDismiss={() => setCustomizerOpen(false)}
+            className="results-table-customizer-menu"
+            role="group"
+            aria-label="Visible monitoring columns"
+          >
+            <div className="results-table-customizer-heading">
+              <strong>Visible columns</strong>
+              <button type="button" onClick={() => setHiddenHistoryFields(new Set(defaultHiddenHistoryFields))}>Reset</button>
+            </div>
+            {availableCustomizerFields.map(([id, label], index) => (
+              <label key={id}>
+                <input
+                  type="checkbox"
+                  checked={!hiddenHistoryFields.has(id)}
+                  disabled={index === 0}
+                  onChange={() => setHiddenHistoryFields((current) => {
+                    const next = new Set(current);
+                    if (next.has(id)) next.delete(id);
+                    else next.add(id);
+                    return next;
+                  })}
+                />
+                {label}
+              </label>
+            ))}
+          </FloatingLayer>
+        </details>
       </div>
       {viewMode === 'individual' ? (
         <>
@@ -254,16 +317,16 @@ function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleField
           </div>
           <div className="progress-report-table-shell">
             <table className="progress-report-table monitoring-history-table">
-              <thead><tr><th>Check-up Date</th>{profileFields.map(([id, label]) => <th key={id}>{label}</th>)}{historyMetricFields.map(([id, label]) => <th key={id}>{label}</th>)}</tr></thead>
-              <tbody>{filteredRows.length ? <>{filteredRows.map((row, index) => <tr key={row.historyRowKey || index}><td>{formatCellValue('measurementDate', row.measurementDate)}</td>{profileFields.map(([id]) => <td key={id}>{formatCellValue(id, row[id]) || '—'}</td>)}{historyMetricFields.map(([id]) => <td key={id}><HistoryCell field={id} value={row[id]} formatCellValue={formatCellValue} row={row} /></td>)}</tr>)}{averageRow && <tr className="monitoring-average-row"><td>Average</td>{profileFields.map(([id]) => <td key={id} />)}{historyMetricFields.map(([id]) => <td key={id}>{formatCellValue(id, averageRow[id])}</td>)}</tr>}</> : <tr><td colSpan={Math.max(1, profileFields.length + historyMetricFields.length + 1)} className="growth-report-empty">No check-up history for this beneficiary in the selected group.</td></tr>}</tbody>
+              <thead><tr>{showMeasurementDate && <th>Check-up Date</th>}{displayedProfileFields.map(([id, label]) => <th key={id}>{label}</th>)}{displayedHistoryMetricFields.map(([id, label]) => <th key={id}>{label}</th>)}</tr></thead>
+              <tbody>{filteredRows.length ? <>{filteredRows.map((row, index) => <tr key={row.historyRowKey || index}>{showMeasurementDate && <td>{formatCellValue('measurementDate', row.measurementDate)}</td>}{displayedProfileFields.map(([id]) => <td key={id}>{formatCellValue(id, row[id]) || '—'}</td>)}{displayedHistoryMetricFields.map(([id]) => <td key={id}><HistoryCell field={id} value={row[id]} formatCellValue={formatCellValue} row={row} /></td>)}</tr>)}{averageRow && <tr className="monitoring-average-row">{showMeasurementDate && <td>Average</td>}{displayedProfileFields.map(([id]) => <td key={id}>{id === averageLabelField ? 'Average' : ''}</td>)}{displayedHistoryMetricFields.map(([id]) => <td key={id}>{id === averageLabelField ? 'Average' : formatCellValue(id, averageRow[id])}</td>)}</tr>}</> : <tr><td colSpan={Math.max(1, activeHistoryFields.length)} className="growth-report-empty">No check-up history for this beneficiary in the selected group.</td></tr>}</tbody>
             </table>
           </div>
         </>
       ) : (
         <div className="progress-report-table-shell">
           <table className="progress-report-table monitoring-snapshot-table">
-            <thead><tr>{communityFields.map(([id, label]) => <th key={id}>{label}</th>)}{identityFields.map(([id, label]) => <th key={id}>{label}</th>)}{profileFields.map(([id, label]) => <th key={id}>{label}</th>)}{historyMetricFields.map(([id, label]) => <th key={id}>{label}</th>)}</tr></thead>
-            <tbody>{filteredRows.map((row, index) => <tr key={row.historyRowKey || index}>{communityFields.map(([id]) => <td key={id}>{formatCellValue(id, row[id]) || '—'}</td>)}{identityFields.map(([id]) => <td key={id}>{formatCellValue(id, row[id])}</td>)}{profileFields.map(([id]) => <td key={id}>{formatCellValue(id, row[id]) || '—'}</td>)}{historyMetricFields.map(([id]) => <td key={id}><HistoryCell field={id} value={row[id]} formatCellValue={formatCellValue} row={row} /></td>)}</tr>)}{averageRow && <tr className="monitoring-average-row">{monthlyHistoryFields.map(([id]) => <td key={id}>{id === averageLabelField ? 'Average' : averageRow[id] !== undefined ? formatCellValue(id, averageRow[id]) : ''}</td>)}</tr>}</tbody>
+            <thead><tr>{displayedCommunityFields.map(([id, label]) => <th key={id}>{label}</th>)}{displayedIdentityFields.map(([id, label]) => <th key={id}>{label}</th>)}{displayedProfileFields.map(([id, label]) => <th key={id}>{label}</th>)}{displayedHistoryMetricFields.map(([id, label]) => <th key={id}>{label}</th>)}</tr></thead>
+            <tbody>{filteredRows.map((row, index) => <tr key={row.historyRowKey || index}>{displayedCommunityFields.map(([id]) => <td key={id}>{formatCellValue(id, row[id]) || '—'}</td>)}{displayedIdentityFields.map(([id]) => <td key={id}>{formatCellValue(id, row[id])}</td>)}{displayedProfileFields.map(([id]) => <td key={id}>{formatCellValue(id, row[id]) || '—'}</td>)}{displayedHistoryMetricFields.map(([id]) => <td key={id}><HistoryCell field={id} value={row[id]} formatCellValue={formatCellValue} row={row} /></td>)}</tr>)}{averageRow && <tr className="monitoring-average-row">{activeHistoryFields.map(([id]) => <td key={id}>{id === averageLabelField ? 'Average' : averageRow[id] !== undefined ? formatCellValue(id, averageRow[id]) : ''}</td>)}</tr>}</tbody>
           </table>
         </div>
       )}
@@ -491,7 +554,10 @@ export function ResultsTable({
     }
     return true;
   });
-  const customizedFields = sectionFields.filter(([id]) => !hiddenFields.has(id));
+  const sectionFieldsWithData = showProfileFilter
+    ? sectionFields.filter(([id]) => filteredProfileRows.some((row) => hasProfileReportValue(row[id])))
+    : sectionFields;
+  const customizedFields = sectionFieldsWithData.filter(([id]) => !hiddenFields.has(id));
   const showCustomize = !showMonitoringFilter;
   const currentTableData = { rows: filteredProfileRows, fields: customizedFields };
   return (
@@ -563,7 +629,7 @@ export function ResultsTable({
                     <strong>Visible columns</strong>
                     <button type="button" onClick={() => setHiddenFields(new Set())}>Reset</button>
                   </div>
-                  {sectionFields.map(([id, label]) => (
+                  {sectionFieldsWithData.map(([id, label]) => (
                     <label key={id}>
                       <input type="checkbox" checked={!hiddenFields.has(id)} onChange={() => setHiddenFields((current) => {
                         const next = new Set(current);

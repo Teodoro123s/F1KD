@@ -13,6 +13,7 @@ export function ResultsPanel({
   graphExportRows,
   graphExportFields,
   resultsView,
+  setResultsView,
   graphAllowed,
   graphBeneficiaries = [],
   selectedGraphBeneficiary = '',
@@ -97,26 +98,31 @@ export function ResultsPanel({
         </div>
 
         <div className="progress-report-results-actions">
+          <div className="progress-report-view-toggle" role="group" aria-label="Report display">
+            <button
+              type="button"
+              aria-pressed={resultsView === 'graph'}
+              className={resultsView === 'graph' ? 'active' : ''}
+              disabled={!graphAllowed}
+              onClick={() => setResultsView('graph')}
+            >
+              Graph view
+            </button>
+            <button
+              type="button"
+              aria-pressed={resultsView === 'table'}
+              className={resultsView === 'table' ? 'active' : ''}
+              onClick={() => setResultsView('table')}
+            >
+              Table view
+            </button>
+          </div>
           {resultsView === 'graph' && displayReportCategory === 'monitor' && availableBatches.length > 1 && (
             <label className="results-table-period-filter">
               Batch
               <select aria-label="Graph batch" value={activeBatch} onChange={(event) => handleBatchChange(event.target.value)}>
                 <option value="">All batches</option>
                 {availableBatches.map(({ id, name }) => <option key={id} value={id}>{name}</option>)}
-              </select>
-            </label>
-          )}
-          {resultsView === 'graph' && displayReportCategory === 'monitor' && graphBeneficiariesForView.length > 0 && (
-            <label className="results-table-period-filter">
-              Graph scope
-              <select
-                aria-label="Graph scope"
-                value={selectedGraphBeneficiary}
-                onChange={(event) => setSelectedGraphBeneficiary(event.target.value)}
-              >
-                <option value="summary">Population summary for selected scope</option>
-                <option value="all">Individual series for all beneficiaries</option>
-                {graphBeneficiariesForView.map(({ id, name }) => <option key={id} value={id}>{name}</option>)}
               </select>
             </label>
           )}
@@ -213,6 +219,9 @@ export function ResultsPanel({
           interpretationMetrics={interpretationMetrics}
           programMetrics={programMetrics}
           cohortSummary={selectedGraphBeneficiary === 'summary'}
+          graphBeneficiaries={graphBeneficiariesForView}
+          selectedGraphBeneficiary={selectedGraphBeneficiary}
+          setSelectedGraphBeneficiary={setSelectedGraphBeneficiary}
         />
       ) : (
         <ResultsTable

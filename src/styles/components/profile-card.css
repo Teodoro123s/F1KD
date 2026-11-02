@@ -1618,7 +1618,7 @@
 .growth-metric-cards strong { color: #0f172a; }
 .growth-metric-cards span { grid-column: 2; color: #64748b; font-size: 0.85rem; }
 .results-tab-panel { padding-top: 0.75rem; }
-.progress-report-results-actions { display: flex; align-items: center; gap: 0.5rem; margin: 1rem 0; }
+.progress-report-results-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0.65rem; margin: 1rem 0; }
 .monitoring-history-filters select:focus { border-color: var(--burgundy, #15803d); box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.12); outline: none; }
 .progress-report-pagination { display: flex; align-items: center; justify-content: center; gap: 0.9rem; margin-top: 1rem; color: var(--text-muted, #64748b); font-size: 0.8rem; font-weight: 700; }
 .progress-report-pagination .secondary-btn { min-height: 36px; padding: 0.45rem 0.75rem; }
@@ -1671,6 +1671,7 @@
 .interpretation-normal { color: #167344; font-weight: 800; }
 .interpretation-abnormal { color: #b42318; font-weight: 800; }
 .graph-controls { display: grid; grid-template-columns: repeat(2, minmax(220px, 1fr)); gap: 1rem; width: min(520px, 100%); margin-top: 1rem; }
+.results-graph-wrap .graph-controls { grid-template-columns: repeat(3, minmax(0, 1fr)); width: min(920px, 100%); }
 .report-chart-select { display: grid; gap: 0.5rem; padding: 0; border-left: none; color: #475569; font-size: 0.95rem; font-weight: 700; }
 .report-chart-select select { min-height: 3rem; width: 100%; padding: 0.75rem 0.9rem; border: 1px solid #d1d7df; border-radius: 10px; background: #fff; color: #334155; font: inherit; box-shadow: 0 1px 0 rgba(15, 23, 42, 0.02); }
 .growth-report-graphs { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1rem; align-items: stretch; }
@@ -1892,6 +1893,7 @@
   .growth-metric-cards, .growth-report-graphs { grid-template-columns: 1fr; }
   .profile-report-section-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .report-chart-select { margin-left: 0; padding-left: 0.75rem; }
+  .results-graph-wrap .graph-controls { grid-template-columns: minmax(0, 1fr); }
   .growth-report-pie-wrap { align-items: flex-start; flex-direction: column; gap: 1rem; }
   .profile-pie-layout { align-items: flex-start; flex-direction: column; gap: 1rem; }
   .profile-measurement-controls { align-items: stretch; }
@@ -2343,6 +2345,34 @@
   font-weight: 400;
   line-height: 16px;
   letter-spacing: 0;
+}
+.progress-report-view-toggle {
+  display: inline-flex;
+  overflow: hidden;
+  border: 1px solid #cfe0d3;
+  border-radius: 8px;
+  background: #fff;
+}
+.progress-report-view-toggle button {
+  min-height: 40px;
+  padding: 0.5rem 0.8rem;
+  border: 0;
+  border-left: 1px solid #cfe0d3;
+  background: transparent;
+  color: #456653;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.progress-report-view-toggle button:first-child { border-left: 0; }
+.progress-report-view-toggle button.active {
+  background: #eaf5ed;
+  color: #166534;
+}
+.progress-report-view-toggle button:disabled {
+  color: #94a3b8;
+  cursor: not-allowed;
 }
 .growth-report-card {
   border-color: #dce9e1;

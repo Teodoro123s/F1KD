@@ -730,6 +730,13 @@ router.post('/:id/checkups', async (req, res) => {
     if (!parsedAssistanceAmount.valid) {
       return res.status(400).json({ error: INVALID_ASSISTANCE_AMOUNT_MESSAGE });
     }
+    const rawHeadCircumference = body.headCircumference ?? body.head_circumference;
+    const headCircumference = rawHeadCircumference === undefined || rawHeadCircumference === null || String(rawHeadCircumference).trim() === ''
+      ? null
+      : Number(rawHeadCircumference);
+    if (headCircumference !== null && (!Number.isFinite(headCircumference) || headCircumference < 15 || headCircumference > 60)) {
+      return res.status(400).json({ error: 'Head circumference must be between 15 and 60 cm.' });
+    }
 
     if (body.exclusiveBreastfeeding !== undefined || body.exclusive_breastfeeding !== undefined || body.feedingType !== undefined || body.feeding_type !== undefined) {
       await pool.query(
@@ -752,6 +759,7 @@ router.post('/:id/checkups', async (req, res) => {
       body.checkupDate || null,
       body.weight || null,
       body.height || null,
+      headCircumference,
       body.feedingMethod ?? body.breastfeedingStatus ?? body.checkupBreastfeedingStatus ?? null,
       body.laboratoryRequests || null,
       body.laboratoryAssistanceProvided === true || body.laboratoryAssistanceProvided === 1 ? 1 : 0,
@@ -769,7 +777,7 @@ router.post('/:id/checkups', async (req, res) => {
     );
     if (existingRows.length) {
       await pool.query(
-        `UPDATE child_checkups SET next_checkup_date = ?, visit_date = ?, weight = ?, height = ?,
+        `UPDATE child_checkups SET next_checkup_date = ?, visit_date = ?, weight = ?, height = ?, head_circumference = ?,
           exclusive_breastfeeding = ?, laboratory_requests = ?, laboratory_assistance_provided = ?,
           referred_to_hospital = ?, assistance_amount = ?, source_of_funds = ?, facility_type = ?,
           developmental_status = ?, service_provider = ?, notes = ?, recorded_by_user_id = ?,
@@ -779,11 +787,11 @@ router.post('/:id/checkups', async (req, res) => {
     } else {
       await pool.query(
         `INSERT INTO child_checkups
-          (child_id, next_checkup_date, visit_date, weight, height, exclusive_breastfeeding,
+          (child_id, next_checkup_date, visit_date, weight, height, head_circumference, exclusive_breastfeeding,
            laboratory_requests, laboratory_assistance_provided, referred_to_hospital, assistance_amount,
            source_of_funds, facility_type, developmental_status, service_provider, notes, week_number,
            recorded_by_user_id, created_by_user_id, updated_by_user_id, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)` ,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)` ,
         [childId, ...values, week, req.user?.id || null, req.user?.id || null, req.user?.id || null]
       );
     }

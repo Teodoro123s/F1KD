@@ -39,6 +39,7 @@ CREATE INDEX idx_mother_checkups_date ON mother_checkups (mother_id, checkup_dat
 -- Extend the existing child_checkups table for 48-week monitoring.
 ALTER TABLE child_checkups
   ADD COLUMN IF NOT EXISTS week_number TINYINT UNSIGNED NULL,
+  ADD COLUMN IF NOT EXISTS head_circumference DECIMAL(5,2) NULL,
   ADD COLUMN IF NOT EXISTS developmental_status VARCHAR(40) NULL,
   ADD COLUMN IF NOT EXISTS service_provider VARCHAR(150) NULL;
 

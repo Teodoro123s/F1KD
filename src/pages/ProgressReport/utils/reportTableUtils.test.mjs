@@ -10,6 +10,7 @@ import {
 } from './growthTableUtils.mjs';
 import {
   formatProfileReportCellValue,
+  hasProfileReportValue,
   formatPhilHealthNumberForReport,
   formatPresenceProfileValue,
 } from './profileFieldFormatting.mjs';
@@ -38,6 +39,17 @@ test('profile report leaves empty values blank while preserving explicit values'
   assert.equal(formatProfileReportCellValue('None'), 'None');
   assert.equal(formatProfileReportCellValue('0'), '0');
   assert.equal(formatProfileReportCellValue('Cebu City'), 'Cebu City');
+});
+
+test('profile table only treats truly empty values as missing', () => {
+  assert.equal(hasProfileReportValue(null), false);
+  assert.equal(hasProfileReportValue(undefined), false);
+  assert.equal(hasProfileReportValue('  '), false);
+  assert.equal(hasProfileReportValue(0), true);
+  assert.equal(hasProfileReportValue(false), true);
+  assert.equal(hasProfileReportValue('No'), true);
+  assert.equal(hasProfileReportValue({ doses: [], remarks: '' }), false);
+  assert.equal(hasProfileReportValue({ doses: [0] }), true);
 });
 
 test('PhilHealth number report shows None when no number is recorded', () => {
