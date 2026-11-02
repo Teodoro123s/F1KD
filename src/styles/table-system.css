@@ -20,12 +20,48 @@
   background: #fff;
 }
 
-.table-card,
+.table-card {
+  width: 100%;
+  min-width: 0;
+  overflow: visible;
+}
+
+.table-overflow,
 .view-table-wrap,
 .progress-report-table-shell,
-.program-receipt-table-scroll {
+.program-receipt-table-scroll,
+.vaccine-form-table-wrapper,
+.mother-detail-table-wrap,
+.monitor-report-table-wrap,
+.monitoring-calendar-table-wrap,
+.project-activity-table-wrap,
+.dashboard-recent-table-wrap,
+.ai-report-table-wrap,
+.monitoring-ai-report-table-wrap {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   overflow-x: auto;
-  overflow-y: visible;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table-overflow:focus-visible,
+.view-table-wrap:focus-visible,
+.progress-report-table-shell:focus-visible,
+.program-receipt-table-scroll:focus-visible,
+.vaccine-form-table-wrapper:focus-visible,
+.mother-detail-table-wrap:focus-visible,
+.monitor-report-table-wrap:focus-visible,
+.monitoring-calendar-table-wrap:focus-visible,
+.project-activity-table-wrap:focus-visible,
+.dashboard-recent-table-wrap:focus-visible,
+.ai-report-table-wrap:focus-visible,
+.monitoring-ai-report-table-wrap:focus-visible {
+  outline: 3px solid var(--view-primary, #15803d);
+  outline-offset: -3px;
 }
 
 .table-card > .table-overflow {
@@ -39,6 +75,20 @@
   border-spacing: 0;
 }
 
+.data-table,
+.view-table {
+  min-width: 640px;
+  table-layout: auto;
+}
+
+.program-beneficiary-report-table {
+  min-width: 960px;
+}
+
+.program-beneficiary-report-table.has-audit-signatures {
+  min-width: 1100px;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -46,10 +96,30 @@ table {
 
 table th,
 table td {
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
   word-break: normal;
   padding: var(--table-cell-padding-y) var(--table-cell-padding-x);
   line-height: 1.35;
+}
+
+.data-table th:last-child,
+.data-table td:last-child {
+  width: auto;
+  min-width: 0;
+  text-align: left;
+  white-space: normal;
+}
+
+.data-table:has(tbody td:last-child button) th:last-child,
+.data-table td:last-child:has(button) {
+  width: 1%;
+  min-width: 110px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.data-table td:last-child button {
+  white-space: nowrap;
 }
 
 .data-table th,

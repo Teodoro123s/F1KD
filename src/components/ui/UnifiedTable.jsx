@@ -17,7 +17,7 @@ export default function UnifiedTable({
 
   return (
     <div className="view-table-card">
-      <div className="view-table-wrap">
+      <div className="view-table-wrap" role="region" aria-label="Scrollable table" tabIndex={0}>
         <table className="view-table" aria-busy={loading}>
           <thead>
             <tr>

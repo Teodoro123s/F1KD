@@ -480,7 +480,7 @@ export default function AIReportingAssistant({ configured, storageReady }) {
                       </div>
                       <button type="button" className="primary-btn" onClick={() => exportCsv(report)}>Export CSV</button>
                     </div>
-                    <div className="ai-report-table-wrap">
+                    <div className="ai-report-table-wrap" role="region" aria-label="Scrollable table" tabIndex={0}>
                       <table>
                         <thead><tr>{report.fields.map((field) => <th scope="col" key={field}>{FIELD_LABELS.get(field) || field}</th>)}</tr></thead>
                         <tbody>

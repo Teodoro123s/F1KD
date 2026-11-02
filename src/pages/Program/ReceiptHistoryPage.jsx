@@ -356,7 +356,7 @@ export default function ReceiptHistoryPage() {
           {programEnded && <p className="program-receipt-readonly-notice" role="status">This project has ended. Receipt history is read-only.</p>}
         </div>}
         {error && <p className="error-message" role="alert">{error}</p>}
-        {loading ? <p>Loading receipt history...</p> : view === 'list' ? <div className="program-receipt-table-scroll"><table className={`data-table ${isClusterHistory ? 'program-receipt-cluster-table' : 'program-receipt-beneficiary-table'}${showAuditSignatures ? ' has-audit-signatures' : ''}${canEditReceipts && !programEnded ? ' has-actions' : ''}`}>
+        {loading ? <p>Loading receipt history...</p> : view === 'list' ? <div className="program-receipt-table-scroll" role="region" aria-label="Scrollable table" tabIndex={0}><table className={`data-table ${isClusterHistory ? 'program-receipt-cluster-table' : 'program-receipt-beneficiary-table'}${showAuditSignatures ? ' has-audit-signatures' : ''}${canEditReceipts && !programEnded ? ' has-actions' : ''}`}>
           <thead><tr><th>Date</th>{isClusterHistory && <th>Beneficiary</th>}<th>Documentation</th>{showAuditSignatures && <th>Signatures</th>}{canEditReceipts && !programEnded && <th>Action</th>}</tr></thead>
           <tbody>{filteredRows.length ? filteredRows.map((row) => {
             const rowKey = `${row.date}-${row.program_name}-${row.beneficiary_name || row.beneficiary_id || 'entry'}`;

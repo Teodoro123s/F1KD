@@ -414,7 +414,7 @@ export function ReportAiAssistant({
                 </dl>
               </details>
             )}
-            <div className="progress-report-ai-preview-table progress-report-table-shell">
+            <div className="progress-report-ai-preview-table progress-report-table-shell" role="region" aria-label="Scrollable table" tabIndex={0}>
               <table className="progress-report-table standard-results-table">
                 <thead>
                   <tr>

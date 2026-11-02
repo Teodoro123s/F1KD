@@ -60,7 +60,7 @@ export default function ProjectActivityCalendar({
               <button type="button" className="view-btn view-btn--secondary" onClick={onRetry}>Retry</button>
             </div>
           ) : selectedProjects.length ? (
-            <div className="project-activity-table-wrap">
+            <div className="project-activity-table-wrap" role="region" aria-label="Scrollable table" tabIndex={0}>
               <table className="data-table project-activity-table">
                 <thead>
                   <tr>

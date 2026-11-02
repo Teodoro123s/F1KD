@@ -175,7 +175,7 @@ export default function PhilHealthClaims({ motherId, canManage }) {
       {loading ? (
         <p className="mother-detail-empty">Loading PhilHealth claims…</p>
       ) : claims.length ? (
-        <div className="mother-detail-table-wrap">
+        <div className="mother-detail-table-wrap" role="region" aria-label="Scrollable table" tabIndex={0}>
           <table className="mother-detail-table">
             <thead>
               <tr>

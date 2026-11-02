@@ -41,7 +41,7 @@ export default function BeneficiaryTable({
   return (
     <>
     <section className="table-card beneficiary-table-card">
-      <div className="table-overflow">
+      <div className="table-overflow" role="region" aria-label="Scrollable table" tabIndex={0}>
         <table className="data-table">
           <tbody>
             {loading ? (

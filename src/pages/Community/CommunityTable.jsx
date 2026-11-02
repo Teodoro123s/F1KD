@@ -50,7 +50,7 @@ export default function CommunityTable({
           {onSearchChange && <TableSearch value={searchValue} onChange={onSearchChange} />}
         </>
       )}
-      <div className="table-overflow">
+      <div className="table-overflow" role="region" aria-label="Scrollable table" tabIndex={0}>
         <table className={`data-table ${tableClassName}`.trim()}>
           <thead>
             <tr>

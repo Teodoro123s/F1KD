@@ -125,7 +125,7 @@ export default function UserManagementTable({
           )}
         </div>
       )}
-      <div className="table-overflow">
+      <div className="table-overflow" role="region" aria-label="Scrollable table" tabIndex={0}>
         <table className={`data-table user-management-data-table${showGroup ? ' has-group-column' : ''}${healthWorkerManagement ? ' health-worker-accounts-table' : ''}`}>
           <thead>
             <tr>

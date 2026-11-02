@@ -289,7 +289,7 @@ export default function CheckupReportBuilder({ selection = {}, contextKey, scope
             <p>Edit the request above and build the report again if you meant different fields or filters.</p>
           </details>
           {rows.length ? (
-            <div className="monitoring-ai-report-table-wrap">
+            <div className="monitoring-ai-report-table-wrap" role="region" aria-label="Scrollable table" tabIndex={0}>
               <table>
                 <thead>
                   <tr>

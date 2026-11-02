@@ -200,7 +200,7 @@ export default function MonitorReportCard({ beneficiaryType, beneficiary }) {
           </div>
         </div>
         {reportView === 'table' ? (
-          <div className="monitor-report-table-wrap">
+          <div className="monitor-report-table-wrap" role="region" aria-label="Scrollable table" tabIndex={0}>
             <table className="mother-detail-table monitor-report-table">
               <thead>
                 <tr>
@@ -280,7 +280,7 @@ export default function MonitorReportCard({ beneficiaryType, beneficiary }) {
         </div>
       </div>
       {reportView === 'table' ? (
-        <div className="monitor-report-table-wrap">
+        <div className="monitor-report-table-wrap" role="region" aria-label="Scrollable table" tabIndex={0}>
           <table className="mother-detail-table monitor-report-table">
             <thead>
               <tr>

@@ -753,12 +753,12 @@
 
 .user-management-list-card .user-management-data-table {
   width: 100%;
-  min-width: 480px;
+  min-width: 640px;
   table-layout: fixed;
 }
 
 .user-management-list-card .user-management-data-table.has-group-column {
-  min-width: 620px;
+  min-width: 720px;
 }
 
 .user-management-list-card .user-management-data-table.health-worker-accounts-table {
@@ -767,7 +767,7 @@
 
 .health-worker-accounts-table th,
 .health-worker-accounts-table td {
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
 }
 
 .health-worker-accounts-table th:nth-child(1),
@@ -1183,21 +1183,16 @@
 
 .community-page .table-card .community-health-workers-table {
   width: 100%;
-  min-width: 0;
-  table-layout: fixed;
-}
-
-.community-page .table-card:has(.community-health-workers-table),
-.community-page .table-card:has(.community-health-workers-table) .table-overflow {
-  overflow: visible;
+  min-width: 640px;
+  table-layout: auto;
 }
 
 .community-page .table-card .community-health-workers-table th,
 .community-page .table-card .community-health-workers-table td {
-  overflow: hidden;
+  overflow: visible;
   overflow-wrap: normal;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  text-overflow: clip;
+  white-space: normal;
 }
 
 .community-health-worker-link {

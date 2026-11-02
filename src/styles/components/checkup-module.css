@@ -278,6 +278,7 @@
 
 .monitoring-ai-report-table-wrap table {
   width: 100%;
+  min-width: 720px;
   border-collapse: collapse;
   font-size: 0.8rem;
 }
@@ -566,7 +567,7 @@
 .monitoring-search { display: flex; flex-direction: column; gap: 0.3rem; min-width: min(260px, 100%); margin-left: auto; color: var(--text-muted); font-size: 0.75rem; font-weight: 700; }
 .monitoring-search input { min-height: 38px; padding: 0.5rem 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; color: var(--slate-dark); font: inherit; font-weight: 400; }
 .monitoring-table-card { border-radius: 12px; box-shadow: none; }
-.monitoring-table-card .data-table { table-layout: fixed; }
+.monitoring-table-card .data-table { min-width: 720px; table-layout: fixed; }
 .monitoring-table-card .data-table th:nth-child(1),
 .monitoring-table-card .data-table td:nth-child(1) { width: 42%; }
 .monitoring-table-card .data-table th:nth-child(2),

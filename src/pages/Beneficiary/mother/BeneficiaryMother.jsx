@@ -1012,7 +1012,7 @@ export function MotherFormFields({
           <p className="form-optional-note">Optional. Enter any doses you have; other doses and remarks can be left blank.</p>
           <div className="form-group full-width">
           <div className="form-panel vaccine-form-panel">
-            <div className="vaccine-form-table-wrapper">
+            <div className="vaccine-form-table-wrapper" role="region" aria-label="Scrollable vaccine record table" tabIndex={0}>
               <table className="vaccine-form-table">
                 <thead>
                   <tr>

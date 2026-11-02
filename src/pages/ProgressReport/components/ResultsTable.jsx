@@ -315,7 +315,7 @@ function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleField
               <span key={id}>{label}: {formatCellValue(id, selectedProfile[id]) || '—'}</span>
             ))}
           </div>
-          <div className="progress-report-table-shell">
+          <div className="progress-report-table-shell" role="region" aria-label="Scrollable table" tabIndex={0}>
             <table className="progress-report-table monitoring-history-table">
               <thead><tr>{showMeasurementDate && <th>Check-up Date</th>}{displayedProfileFields.map(([id, label]) => <th key={id}>{label}</th>)}{displayedHistoryMetricFields.map(([id, label]) => <th key={id}>{label}</th>)}</tr></thead>
               <tbody>{filteredRows.length ? <>{filteredRows.map((row, index) => <tr key={row.historyRowKey || index}>{showMeasurementDate && <td>{formatCellValue('measurementDate', row.measurementDate)}</td>}{displayedProfileFields.map(([id]) => <td key={id}>{formatCellValue(id, row[id]) || '—'}</td>)}{displayedHistoryMetricFields.map(([id]) => <td key={id}><HistoryCell field={id} value={row[id]} formatCellValue={formatCellValue} row={row} /></td>)}</tr>)}{averageRow && <tr className="monitoring-average-row">{showMeasurementDate && <td>Average</td>}{displayedProfileFields.map(([id]) => <td key={id}>{id === averageLabelField ? 'Average' : ''}</td>)}{displayedHistoryMetricFields.map(([id]) => <td key={id}>{id === averageLabelField ? 'Average' : formatCellValue(id, averageRow[id])}</td>)}</tr>}</> : <tr><td colSpan={Math.max(1, activeHistoryFields.length)} className="growth-report-empty">No check-up history for this beneficiary in the selected group.</td></tr>}</tbody>
@@ -323,7 +323,7 @@ function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleField
           </div>
         </>
       ) : (
-        <div className="progress-report-table-shell">
+        <div className="progress-report-table-shell" role="region" aria-label="Scrollable table" tabIndex={0}>
           <table className="progress-report-table monitoring-snapshot-table">
             <thead><tr>{displayedCommunityFields.map(([id, label]) => <th key={id}>{label}</th>)}{displayedIdentityFields.map(([id, label]) => <th key={id}>{label}</th>)}{displayedProfileFields.map(([id, label]) => <th key={id}>{label}</th>)}{displayedHistoryMetricFields.map(([id, label]) => <th key={id}>{label}</th>)}</tr></thead>
             <tbody>{filteredRows.map((row, index) => <tr key={row.historyRowKey || index}>{displayedCommunityFields.map(([id]) => <td key={id}>{formatCellValue(id, row[id]) || '—'}</td>)}{displayedIdentityFields.map(([id]) => <td key={id}>{formatCellValue(id, row[id])}</td>)}{displayedProfileFields.map(([id]) => <td key={id}>{formatCellValue(id, row[id]) || '—'}</td>)}{displayedHistoryMetricFields.map(([id]) => <td key={id}><HistoryCell field={id} value={row[id]} formatCellValue={formatCellValue} row={row} /></td>)}</tr>)}{averageRow && <tr className="monitoring-average-row">{activeHistoryFields.map(([id]) => <td key={id}>{id === averageLabelField ? 'Average' : averageRow[id] !== undefined ? formatCellValue(id, averageRow[id]) : ''}</td>)}</tr>}</tbody>
@@ -362,7 +362,7 @@ function StandardResultsTable({ resultsRows, fields, formatCellValue, beneficiar
   };
 
   return (
-    <div className={`progress-report-table-shell${stickyIdentityVisible ? ' has-sticky-identity' : ''}`} onScroll={handleTableScroll}>
+    <div className={`progress-report-table-shell${stickyIdentityVisible ? ' has-sticky-identity' : ''}`} onScroll={handleTableScroll} role="region" aria-label="Scrollable table" tabIndex={0}>
       <table className="progress-report-table standard-results-table">
         <thead>
           <tr>{safeFields.map(([id, label]) => <th key={id} data-field={id} className={id === identityField ? 'standard-results-table__identity' : undefined}>{label}</th>)}</tr>

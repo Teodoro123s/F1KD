@@ -646,7 +646,7 @@ export default function MonitoringPage() {
                 placeholder={`Search ${beneficiaryType.toLowerCase()} records`}
               />
             </div>
-            <div className="table-overflow">
+            <div className="table-overflow" role="region" aria-label="Scrollable table" tabIndex={0}>
               <table className="data-table">
                 <thead><tr><th>{beneficiaryType}</th><th>Progress</th><th>Screening</th><th>Action</th></tr></thead>
                 <tbody>

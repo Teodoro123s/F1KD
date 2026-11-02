@@ -877,13 +877,14 @@
 .program-report-data-panel { margin-bottom: 0; }
 .program-report-summary-panel > .module-summary-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 0; }
 .program-receipt-history-page .program-receipt-table-scroll { width: 100%; overflow-x: auto; overflow-y: hidden; }
-.program-receipt-history-page .data-table { width: 100%; min-width: 0; table-layout: fixed; }
+.program-receipt-history-page .data-table { width: 100%; min-width: 720px; table-layout: auto; }
 .program-receipt-history-page .data-table th,
-.program-receipt-history-page .data-table td { overflow: hidden; padding: 0.5rem 0.35rem; text-overflow: ellipsis; white-space: nowrap; }
+.program-receipt-history-page .data-table td { overflow: visible; overflow-wrap: normal; padding: 0.5rem 0.35rem; text-overflow: clip; white-space: normal; }
+.program-receipt-history-page .data-table th { padding: 0.5rem 0.35rem; white-space: normal; }
 .program-receipt-history-page .data-table th { padding: 0.45rem 0.3rem; font-size: 0.66rem; letter-spacing: 0.025em; }
 .view-content .program-receipt-history-page .data-table td:first-child { padding-right: 0.2rem; padding-left: 0.2rem; font-size: 0.75rem; }
 .program-receipt-history-page .data-table th:first-child,
-.program-receipt-history-page .data-table td:first-child { width: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.program-receipt-history-page .data-table td:first-child { width: auto; min-width: 100px; overflow: visible; text-overflow: clip; white-space: nowrap; }
 .program-receipt-history-page .program-receipt-cluster-table.has-audit-signatures th:nth-child(1),
 .program-receipt-history-page .program-receipt-cluster-table.has-audit-signatures td:nth-child(1) { width: 15%; }
 .program-receipt-history-page .program-receipt-cluster-table.has-audit-signatures th:nth-child(2),
@@ -903,7 +904,7 @@
 .program-receipt-history-page .program-receipt-cluster-table:not(.has-audit-signatures) th:nth-child(4),
 .program-receipt-history-page .program-receipt-cluster-table:not(.has-audit-signatures) td:nth-child(4) { width: 18%; }
 .program-receipt-history-page .program-receipt-cluster-table .audit-signatures { margin: 0; font-size: 0.72rem; line-height: 1.35; }
-.program-receipt-history-page .program-receipt-cluster-table .audit-signatures span { display: -webkit-box; overflow: hidden; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.program-receipt-history-page .program-receipt-cluster-table .audit-signatures span { display: block; overflow-wrap: normal; }
 .program-receipt-history-page .program-receipt-cluster-table.has-audit-signatures:not(.has-actions) th:nth-child(1),
 .program-receipt-history-page .program-receipt-cluster-table.has-audit-signatures:not(.has-actions) td:nth-child(1) { width: 15%; }
 .program-receipt-history-page .program-receipt-cluster-table.has-audit-signatures:not(.has-actions) th:nth-child(2),
@@ -929,7 +930,7 @@
 .program-receipt-history-page .program-receipt-beneficiary-table th:nth-child(3),
 .program-receipt-history-page .program-receipt-beneficiary-table td:nth-child(3) { width: 30%; }
 .view-content .program-receipt-history-page .data-table th:last-child,
-.view-content .program-receipt-history-page .data-table td:last-child { width: 10%; min-width: 0; padding: 0.4rem 0.2rem; overflow: hidden; text-overflow: ellipsis; }
+.view-content .program-receipt-history-page .data-table td:last-child { width: auto; min-width: 0; padding: 0.4rem 0.2rem; overflow: visible; text-overflow: clip; white-space: normal; }
 .view-content .program-receipt-history-page .program-receipt-cluster-table.has-audit-signatures:not(.has-actions) th:last-child,
 .view-content .program-receipt-history-page .program-receipt-cluster-table.has-audit-signatures:not(.has-actions) td:last-child { width: 33%; padding: 0.5rem 0.55rem; overflow: visible; text-overflow: clip; white-space: normal; }
 .view-content .program-receipt-history-page .program-receipt-cluster-table.has-audit-signatures.has-actions th:last-child,
@@ -939,7 +940,8 @@
 .view-content .program-receipt-history-page .program-receipt-beneficiary-table.has-audit-signatures:not(.has-actions) th:last-child,
 .view-content .program-receipt-history-page .program-receipt-beneficiary-table.has-audit-signatures:not(.has-actions) td:last-child { width: 46%; padding: 0.5rem 0.55rem; overflow: visible; text-overflow: clip; white-space: normal; }
 .view-content .program-receipt-history-page .data-table td:last-child .view-btn { display: inline-flex; min-width: 0; min-height: 30px; padding: 0.3rem 0.4rem; white-space: nowrap; }
-.program-receipt-history-page .program-beneficiary-report-table { min-width: 0; table-layout: fixed; }
+.program-receipt-history-page .program-beneficiary-report-table { min-width: 960px; table-layout: auto; }
+.program-receipt-history-page .program-beneficiary-report-table.has-audit-signatures { min-width: 1100px; }
 .program-receipt-history-page .program-beneficiary-report-table th,
 .program-receipt-history-page .program-beneficiary-report-table td { overflow: visible; overflow-wrap: normal; text-overflow: clip; white-space: normal; word-break: normal; }
 .program-receipt-history-page .program-beneficiary-report-table td:first-child { min-width: 108px; white-space: nowrap; }
@@ -996,7 +998,7 @@
 }
 .program-receipt-history-page .data-table.has-audit-signatures td:last-child .audit-signatures span {
   display: block;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
 }
 .program-receipt-controls { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; margin: 1rem 0; }
 .program-receipt-controls-actions { display: flex; align-items: center; gap: 0.75rem; }

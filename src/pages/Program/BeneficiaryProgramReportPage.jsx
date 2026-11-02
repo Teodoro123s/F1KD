@@ -204,7 +204,7 @@ export default function BeneficiaryProgramReportPage({ beneficiaryType }) {
               />
             </label>
           </div>
-          <div className="program-receipt-table-scroll">
+          <div className="program-receipt-table-scroll" role="region" aria-label="Scrollable table" tabIndex={0}>
             <table className={`data-table program-beneficiary-report-table${showAuditSignatures ? ' has-audit-signatures' : ''}`}>
               <thead>
                 <tr>

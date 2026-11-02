@@ -241,7 +241,7 @@
 }
 .vaccine-form-panel { padding: 0; overflow: hidden; }
 .vaccine-form-table-wrapper { width: 100%; overflow: hidden; border-radius: 10px; border: 1px solid #e2e8f0; background: #fff; }
-.vaccine-form-table { width: 100%; min-width: 0; border-collapse: collapse; table-layout: fixed; }
+.vaccine-form-table { width: 100%; min-width: 720px; border-collapse: collapse; table-layout: fixed; }
 .vaccine-form-table th,
 .vaccine-form-table td { min-width: 0; border-bottom: 1px solid #e2e8f0; padding: 0.65rem; vertical-align: middle; }
 .vaccine-form-table th { border-bottom: 1px solid #e2e8f0; padding: 0.65rem; vertical-align: middle; }
@@ -626,6 +626,7 @@ input[type="date"].form-input {
 @media (max-width: 760px) {
   .vaccine-form-table,
   .vaccine-form-table tbody { display: block; }
+  .vaccine-form-table { width: 100%; min-width: 0; }
   .vaccine-form-table thead { display: none; }
   .vaccine-form-table tbody tr {
     display: grid;
@@ -867,12 +868,12 @@ input[type="date"].form-input {
 .mother-detail-chip-list { display: flex; flex-wrap: wrap; gap: 0.45rem; padding: 0.65rem 0.75rem; border: 1px solid #dfe5ee; border-radius: 8px; background: #f8fafc; min-height: 2.8rem; }
 .mother-detail-chip { display: inline-flex; align-items: center; padding: 0.35rem 0.55rem; border: 1px solid #d9c3c8; border-radius: 999px; background: #fff; color: #7a1026; font-size: 0.72rem; font-weight: 700; text-transform: capitalize; }
 .mother-detail-empty { min-height: 2.8rem; display: flex; align-items: center; padding: 0.7rem 0.8rem; border: 1px solid #dfe5ee; border-radius: 8px; background: #f8fafc; color: #94a3b8; }
-.mother-detail-table-wrap { overflow: hidden; border: 1px solid #e2e8f0; border-radius: 10px; }
+.mother-detail-table-wrap { max-width: 100%; overflow-x: auto; overflow-y: hidden; border: 1px solid #e2e8f0; border-radius: 10px; }
 .mother-claims-note { margin: -0.35rem 0 1rem; color: #64748b; font-size: 0.84rem; }
 .mother-claims-form { display: grid; gap: 0.75rem; margin-bottom: 1rem; }
 .mother-philhealth-claims-section .mother-detail-table-wrap { overflow-x: auto; }
 .mother-philhealth-claims-section .mother-detail-table { min-width: 680px; }
-.mother-detail-table { width: 100%; border-collapse: collapse; background: #fff; }
+.mother-detail-table { width: 100%; min-width: 640px; border-collapse: collapse; background: #fff; }
 .mother-detail-table th, .mother-detail-table td { padding: 0.75rem 0.8rem; border-bottom: 1px solid #e2e8f0; text-align: left; font-size: 0.88rem; }
 .mother-detail-table th { background: #f8fafc; color: #475569; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; }
 .mother-detail-table tr:last-child td { border-bottom: none; }

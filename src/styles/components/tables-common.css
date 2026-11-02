@@ -1,6 +1,6 @@
 /* Table Card Customization */
 .table-card { background: transparent; border-radius: 0; border: none; overflow: visible; box-shadow: none; }
-.table-overflow { overflow-x: auto; overflow-y: visible; border: none; border-top-left-radius: 0; border-top-right-radius: 0; min-height: 240px; }
+.table-overflow { overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; border: none; border-top-left-radius: 0; border-top-right-radius: 0; min-height: 240px; }
 .data-table { width: 100%; border-collapse: collapse; text-align: left; }
 
 /* General table layout & cells */
@@ -8,10 +8,10 @@
 .data-table td { padding: var(--table-cell-padding-y, 0.7rem) var(--table-cell-padding-x, 0.9rem); font-size: var(--table-font-size, 0.8125rem); color: var(--table-cell-text, var(--slate-dark)); border-bottom: 1px solid var(--table-divider, #e8edf3); vertical-align: middle; }
 .data-table th:last-child,
 .data-table td:last-child {
-  width: 110px;
-  min-width: 110px;
-  text-align: center;
-  white-space: nowrap;
+  width: auto;
+  min-width: 0;
+  text-align: left;
+  white-space: normal;
 }
 .data-table td:last-child .view-btn,
 .data-table td:last-child .btn-secondary {

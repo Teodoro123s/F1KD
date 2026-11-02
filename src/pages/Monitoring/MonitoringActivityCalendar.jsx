@@ -156,7 +156,7 @@ export default function MonitoringActivityCalendar({
             </button>
           </div>
           {selectedActivities.length ? (
-            <div className="monitoring-calendar-table-wrap">
+            <div className="monitoring-calendar-table-wrap" role="region" aria-label="Scrollable table" tabIndex={0}>
               <table className="monitoring-calendar-table">
                 <caption className="sr-only">Maternal monitoring activities for {formatMonitoringDate(selectedDate)}</caption>
                 <thead>

@@ -1361,7 +1361,7 @@ export default function ProgramPage() {
             />
           )}
         </div>
-        <div className="table-overflow">
+        <div className="table-overflow" role="region" aria-label="Scrollable table" tabIndex={0}>
           {!viewMode && activeTab === 'Archived' && archivedProgramsLoading ? (
             <p className="archive-records-state" role="status">Loading archived programs…</p>
           ) : viewMode && !clusterView ? (() => {

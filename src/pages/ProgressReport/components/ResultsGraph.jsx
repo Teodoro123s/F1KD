@@ -14,7 +14,7 @@ function ReferralAssistanceTable({ rows }) {
 
   if (!visits.length) return <p className="growth-report-empty">No hospital referrals are recorded for this date range.</p>;
 
-  return <div className="progress-report-table-shell"><table className="progress-report-table referral-assistance-table">
+  return <div className="progress-report-table-shell" role="region" aria-label="Scrollable table" tabIndex={0}><table className="progress-report-table referral-assistance-table">
     <thead><tr><th>Reported date</th><th>Mother</th><th>Lab assistance</th><th>Assistance amount</th><th>Source of funds</th><th>Facility type</th></tr></thead>
     <tbody>{visits.map((visit) => <tr key={visit.key}>
       <td>{formatDateForDisplay(visit.date)}</td>

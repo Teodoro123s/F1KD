@@ -229,9 +229,9 @@
   min-width: 140px;
 }
 
-.notifications-timeline-table {
+.data-table.notifications-timeline-table {
   width: 100%;
-  min-width: 0;
+  min-width: 720px;
   table-layout: fixed;
 }
 .notifications-timeline-table th,

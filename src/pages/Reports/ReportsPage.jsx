@@ -578,9 +578,9 @@ export default function ReportsPage() {
         .reports-table-wrap .table-card { background: #fff; border: 0; border-radius: 0; }
         .reports-table-wrap .community-table-title { padding: 1rem 1.1rem 0.65rem; color: #334155; letter-spacing: 0.04em; }
         .reports-table-wrap .table-overflow { min-height: 0; }
-        .reports-table-wrap .reports-login-table { width: 100%; min-width: 0; table-layout: fixed; }
+        .reports-table-wrap .reports-login-table { width: 100%; min-width: 680px; table-layout: auto; }
         .reports-table-wrap .data-table th { padding: 0.8rem 0.9rem; background: #f8fafc; color: #475569; }
-        .reports-table-wrap .data-table td { padding: 0.8rem 0.9rem; overflow-wrap: anywhere; vertical-align: top; }
+        .reports-table-wrap .data-table td { padding: 0.8rem 0.9rem; overflow-wrap: normal; vertical-align: top; }
         .reports-login-user { min-width: 0; }
         .reports-login-user-email { overflow-wrap: anywhere; word-break: normal; }
         .reports-table-wrap .data-table th:last-child,

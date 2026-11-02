@@ -411,7 +411,7 @@ export default function DashboardPage() {
             <Link to="/reports" className="panel-link">Open reports</Link>
           </div>
           {activityReport.activities?.length ? (
-            <div className="dashboard-recent-table-wrap">
+            <div className="dashboard-recent-table-wrap" role="region" aria-label="Scrollable table" tabIndex={0}>
               <table className="dashboard-recent-table">
                 <thead><tr><th scope="col">User</th><th scope="col">Action</th><th scope="col">Recorded</th></tr></thead>
                 <tbody>
@@ -437,7 +437,7 @@ export default function DashboardPage() {
             <Link to="/beneficiary" className="panel-link">Open beneficiaries</Link>
           </div>
           {recentRecords.length ? (
-            <div className="dashboard-recent-table-wrap">
+            <div className="dashboard-recent-table-wrap" role="region" aria-label="Scrollable table" tabIndex={0}>
               <table className="dashboard-recent-table">
                 <thead><tr><th scope="col">Record</th><th scope="col">Type</th><th scope="col">Registered</th></tr></thead>
                 <tbody>

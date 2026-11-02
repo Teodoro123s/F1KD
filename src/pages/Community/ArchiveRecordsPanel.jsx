@@ -146,7 +146,7 @@ export default function ArchiveRecordsPanel({ types, view, onChanged }) {
             <p className="archive-records-state" role="status">Loading archived records…</p>
           ) : (
             <>
-              <div className="table-overflow">
+              <div className="table-overflow" role="region" aria-label="Scrollable table" tabIndex={0}>
                 <table className="data-table">
                   <thead>
                     <tr>
@@ -186,7 +186,7 @@ export default function ArchiveRecordsPanel({ types, view, onChanged }) {
             <p className="archive-records-state" role="status">Loading archive activity…</p>
           ) : (
             <>
-              <div className="table-overflow">
+              <div className="table-overflow" role="region" aria-label="Scrollable table" tabIndex={0}>
                 <table className="data-table">
                   <thead>
                     <tr>

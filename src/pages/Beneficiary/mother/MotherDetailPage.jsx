@@ -296,7 +296,7 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
         <section className="mother-detail-section">
           <h3 className="mother-detail-section-title">Children</h3>
           <div className="table-card beneficiary-table-card mother-children-detail-table">
-            <div className="table-overflow">
+            <div className="table-overflow" role="region" aria-label="Scrollable table" tabIndex={0}>
               <table className="data-table">
                 <thead>
                   <tr>
@@ -417,7 +417,7 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
             <h3 className="mother-detail-section-title">III. NUMBER OF PREGNANCIES &amp; BIRTHS (GPA)</h3>
             <div className="detail-form-field full-width" style={{ marginTop: '0.9rem' }}>
               <div className="detail-form-label">OB History</div>
-              <div className="mother-detail-table-wrap">
+              <div className="mother-detail-table-wrap" role="region" aria-label="Scrollable table" tabIndex={0}>
                 <table className="mother-detail-table">
                   <thead>
                     <tr>
@@ -481,7 +481,7 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
           <section className="mother-detail-section">
             <h3 className="mother-detail-section-title">IV.C VACCINE RECORD</h3>
             <div className="detail-form-field full-width">
-              <div className="mother-detail-table-wrap">
+              <div className="mother-detail-table-wrap" role="region" aria-label="Scrollable table" tabIndex={0}>
                 <table className="mother-detail-table">
                   <thead>
                     <tr>

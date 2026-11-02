@@ -83,9 +83,14 @@ Community, User Management, Beneficiary, Monitoring, Archive, Reports/Notificati
 
 Pagination controls do not change the filters or access scope applied to the list; those continue to follow the current page and account permissions.
 
+## Using data tables on smaller screens
+
+Data tables keep their columns and header alignment instead of squeezing every column into the available width. When a table is wider than its panel, swipe horizontally inside the table area; the surrounding page remains separate. Scrollable table areas can also receive keyboard focus so they can be moved without a touch gesture or mouse wheel. Text wraps at normal word boundaries, while dates and action controls retain compact layouts. The vaccine-entry form uses labeled cards on small screens rather than hiding its field labels.
+
 ## Accessibility and limitations
 
 - Tooltip icons can receive keyboard focus, and tooltips are associated with their icons for assistive technology.
+- Scrollable tables retain native header and cell semantics and expose a labeled, keyboard-focusable scrolling region.
 - Role-specific help is derived from the signed-in account's role. If no workflow is configured for a role, the app says so rather than showing another role's steps.
 - Help text explains selected controls and terms; it does not replace formal clinical guidance, training, or professional judgment.
 - Screening interpretations and thresholds are explanatory context only. Consult a qualified health worker for clinical interpretation.
