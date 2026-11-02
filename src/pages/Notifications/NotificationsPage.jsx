@@ -317,7 +317,7 @@ export default function NotificationsPage() {
                 </button>
               )}
             </div>
-            <section className="subheader-row notifications-filter-row">
+            <section className="subheader-row notifications-filter-row" data-guide="notifications-filters">
               <div className="subheader-left">
                 <label className="notification-status-filter">
                   <span>Status</span>

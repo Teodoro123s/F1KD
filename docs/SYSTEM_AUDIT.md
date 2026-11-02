@@ -123,6 +123,14 @@ The requested removal of mother/child Archive buttons remains in effect. The Arc
 - Corrected `docs/ROLES_AND_ACCESS.md` so it no longer claims there are beneficiary row archive actions.
 - Created and used only the isolated `f1kd_test_audit_20261102` schema for synthetic integration testing; independently verified cleanup. The configured application schema `f1kd` was not changed.
 
+## Follow-up implementation notes — 2026-11-02
+
+- Added a nine-calendar-month automatic archive-retention job in `server/services/archiveRetention.js`. It starts with the backend, then runs every 24 hours; expired parent records also expire their linked descendants and history. Record-linked activity/notifications are removed, and uploaded files are queued for retryable deletion after database commits. The retry-queue migration is `server/migrations/20261102_archive_retention.sql`; backend bootstrap also creates the queue.
+- Standardized list pagination with the responsive shared control in `src/components/ui/Pagination.jsx`; existing feature state, page-size choices, and data-loading behavior remain feature-owned.
+- Focused archive, archive API, and stored-file checks passed: **7 passed, 0 failed**.
+- The latest full `npm test` run reported **390 passed, 1 failed, 1 skipped** (392 tests). The failure was `coordinator assignments are validated and changed atomically`: its mock rejected a `help_guidance_preferences` insert. This remains unresolved and the full suite is not currently green.
+- These follow-up changes were source- and focused-test-checked only. The new retention job was not run against a live database or deployment; the documented database migration, backup/restore procedure, scheduler behavior in production, and user-facing browser flows remain unverified.
+
 ## Prioritized improvement plan
 
 1. **Archive clarity:** Decide whether beneficiary archiving is intentionally API-only or should have a different UI entry point. Keep the removed row/profile buttons absent unless that decision changes.

@@ -27,11 +27,13 @@ test('creates the configured Superadmin with a hashed password', async () => {
   });
 
   assert.equal(result.status, 'created');
-  assert.equal(queries.length, 2);
+  assert.equal(queries.length, 3);
   assert.match(queries[1].sql, /INSERT INTO users/);
   assert.equal(queries[1].params[2], 'superadmin@example.test');
   assert.equal(queries[1].params[3], 'Superadmin');
   assert.equal(await bcrypt.compare('a-private-bootstrap-password', queries[1].params[5]), true);
+  assert.match(queries[2].sql, /INSERT INTO help_guidance_preferences/);
+  assert.equal(queries[2].params[0], 12);
 });
 
 test('does not overwrite an existing Superadmin password', async () => {

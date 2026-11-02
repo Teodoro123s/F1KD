@@ -135,7 +135,7 @@ export default function UserManagementPage() {
         title={pageTitle}
         breadcrumbs={pageBreadcrumbs}
         actions={
-          <button className="view-btn view-btn--primary module-create-button" type="button" onClick={openAddModal} disabled={!canCreate}>
+          <button className="view-btn view-btn--primary module-create-button" type="button" data-guide="user-add" onClick={openAddModal} disabled={!canCreate}>
             <PlusIcon />
             <span>{organizerHealthWorkerScope ? 'Add Health Worker' : canCreate ? 'Add User' : 'Add User (requires Admin)'}</span>
           </button>

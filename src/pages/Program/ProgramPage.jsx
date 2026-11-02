@@ -1237,6 +1237,7 @@ export default function ProgramPage() {
               <button
                 className="view-btn view-btn--primary module-create-button"
                 type="button"
+                data-guide="projects-create"
                 onClick={() => {
                   setForm(emptyProgram);
                   setShowModal(true);
@@ -1344,7 +1345,7 @@ export default function ProgramPage() {
         />
       )}
 
-      <section className="table-card program-table-card" hidden={!viewMode && !activeTab}>
+      <section className="table-card program-table-card" data-guide="projects-overview" hidden={!viewMode && !activeTab}>
         <div className="program-table-heading">
           <div>
             <h2>{viewMode ? 'Project coverage' : 'Projects'}</h2>

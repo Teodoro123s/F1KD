@@ -8,6 +8,7 @@ import { apiGetNotifications, apiSetNotificationRead } from '../api/notification
 import NotificationDetailsModal from './ui/NotificationDetailsModal';
 import FloatingLayer from './ui/FloatingLayer';
 import ConfirmDialog from './ui/ConfirmDialog';
+import HelpCenter from './HelpCenter';
 
 export default function Topbar() {
   const navigate = useNavigate();
@@ -147,6 +148,7 @@ export default function Topbar() {
         })}
       </nav>
       <div className="topbar-actions">
+        <HelpCenter currentUser={current} />
         <span className="action-wrapper">
           <button
             ref={notifRef}

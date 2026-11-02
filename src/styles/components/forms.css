@@ -51,6 +51,7 @@
   color: #64748b;
   cursor: help;
   vertical-align: middle;
+  touch-action: manipulation;
 }
 .field-help-tooltip svg {
   width: 1rem;
@@ -84,7 +85,8 @@
 .field-help-tooltip-bubble[role='tooltip'] { pointer-events: none; }
 .field-help-tooltip:hover .field-help-tooltip-bubble,
 .field-help-tooltip:focus .field-help-tooltip-bubble,
-.field-help-tooltip:focus-within .field-help-tooltip-bubble {
+.field-help-tooltip:focus-within .field-help-tooltip-bubble,
+.field-help-tooltip.is-open .field-help-tooltip-bubble {
   opacity: 1;
   visibility: visible;
 }
@@ -93,6 +95,7 @@
   outline-offset: 2px;
   border-radius: 999px;
 }
+.field-help-tooltip:focus-visible { outline: 2px solid rgba(15, 118, 110, 0.55); outline-offset: 2px; border-radius: 999px; }
 .field-validation-error { color: #b91c1c; }
 .view-content .form-readonly-value { display: flex; align-items: center; min-height: 2.5rem; padding: 0.65rem 0.8rem; border: 1px solid #86efac; border-radius: 8px; background: #f0fdf4; color: #1e293b; box-shadow: none; }
 .form-panel { background: rgba(255,255,255,0.9); border: 1px solid #dfe6ef; border-radius: 12px; box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04); padding: 1rem; }

@@ -3,7 +3,7 @@ import SummaryCard from '../../../components/ui/SummaryCard';
 
 export default function CommunityOverviewCards({ cards, selected, onSelect, toggleSelection = true }) {
   return (
-    <section className="community-overview-cards" aria-label="Community totals">
+    <section className="community-overview-cards" aria-label="Community totals" data-guide="community-overview">
       {cards.map((card) => {
         const isSelected = selected === card.key;
         const listLabel = card.listLabel || card.label.replace(/^Total /, '').toLowerCase();

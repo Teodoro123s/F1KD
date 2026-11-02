@@ -114,6 +114,7 @@ test('Community Organizer can manage only Health workers in their assigned schoo
       createdUser.group_id = params[10];
       return [{ insertId: 99 }];
     }
+    if (sql.startsWith('INSERT INTO help_guidance_preferences')) return [{ affectedRows: 1 }];
     if (sql.startsWith('UPDATE users')) {
       updateQueries.push({ sql, params });
       return [{ affectedRows: 1 }];

@@ -39,6 +39,7 @@ export default function CommunityToolbar({
                   ref={createMenuTriggerRef}
                   type="button"
                   className="btn-create-action module-create-button"
+                  data-guide="community-create"
                   aria-haspopup="menu"
                   aria-expanded={createMenuOpen}
                   onClick={() => setCreateMenuOpen((open) => !open)}

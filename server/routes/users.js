@@ -7,6 +7,7 @@ const { authorize, normalizeRole } = require('../middleware/authorize');
 const { createSuperadminNotification } = require('../services/notifications');
 const { sendAccountCredentialsEmail } = require('../services/emailjs');
 const { recordActivity } = require('../services/activityLog');
+const { createInitialHelpGuidancePreferences } = require('../services/helpGuidancePreferences');
 const {
   assertCoordinatorAvailable,
   assertSchoolCoordinatorAvailable,
@@ -176,6 +177,7 @@ router.post('/health-workers', verifyToken, authorize('community_coordinator'), 
         assignedGroupId,
       ],
     );
+    await createInitialHelpGuidancePreferences(pool, result.insertId);
     const [rows] = await pool.query(
       `${healthWorkerSelectSql('WHERE u.id = ? AND u.school_id = ? AND ' + HEALTH_WORKER_ROLE_SQL)} LIMIT 1`,
       [result.insertId, schoolId],
@@ -556,6 +558,7 @@ router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
           groupId || null
         ]
       );
+      await createInitialHelpGuidancePreferences(connection, result.insertId);
       return result;
     };
 
@@ -602,6 +605,7 @@ router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
           groupId || null
         ]
       );
+      await createInitialHelpGuidancePreferences(pool, result.insertId);
     }
 
     const [rows] = await pool.query(

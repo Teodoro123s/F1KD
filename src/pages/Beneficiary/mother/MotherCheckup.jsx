@@ -3,6 +3,7 @@ import StepWizard from '../../../components/StepWizard';
 import DateInput from '../../../components/ui/DateInput';
 import AuditSignatures from '../../../components/ui/AuditSignatures';
 import FieldInfoTooltip from '../../../components/ui/FieldInfoTooltip';
+import { CHECKUP_HELP } from '../../../guides/guidancePreferences.mjs';
 import { formatDateForDisplay, normalizeDateValue } from '../../../utils/formatting/dateFormat';
 import { getMotherCheckupDate, getMotherGestationalAgeAtDate, getMotherMonitoringStartIndex, getMotherNextCheckupDate, getMotherTrimesterMonth, hasNextMotherCheckup } from '../../../utils/beneficiary/motherProgress';
 import { formatCurrencyAmount, normalizeCurrencyAmount, sanitizeCurrencyAmount } from '../../../utils/validation/currencyAmount';
@@ -457,7 +458,7 @@ export default function MotherCheckup({
               <div className="form-group">
                 <label className="checkup-field-label" htmlFor="gestational-age">
                   Gestation Period
-                  {mother.lmpDate && <FieldInfoTooltip content="Gestational age is calculated from the last menstrual period (LMP) date." />}
+                  <FieldInfoTooltip content={CHECKUP_HELP.maternal.gestationalAge.content} />
                 </label>
                 <input
                   id="gestational-age"
@@ -475,7 +476,7 @@ export default function MotherCheckup({
               <div className="form-group">
                 <label className="checkup-field-label" htmlFor="trimester-month">
                   Month of Trimester
-                  <FieldInfoTooltip content="Calculated from gestational age in four-week periods within the trimester." />
+                  <FieldInfoTooltip content={CHECKUP_HELP.maternal.trimesterMonth.content} />
                 </label>
                 <input
                   id="trimester-month"
@@ -519,7 +520,7 @@ export default function MotherCheckup({
               <div className="form-group">
                 <label className="checkup-field-label is-required" htmlFor="bp">
                   Blood Pressure
-                  <FieldInfoTooltip content="Enter systolic/diastolic (for example, 120/80). Suggested status: At Risk at systolic 140 or higher or diastolic 90 or higher; Needs Follow-up at systolic 120–139, diastolic 80–89, systolic below 90, or diastolic below 60; otherwise Normal. One reading is a screening suggestion, not a diagnosis." />
+                  <FieldInfoTooltip content={CHECKUP_HELP.maternal.bloodPressure.content} essential />
                 </label>
                 <input
                   id="bp"
@@ -542,7 +543,10 @@ export default function MotherCheckup({
               </div>
 
               <div className="form-group">
-                <label className="checkup-field-label" htmlFor="bmi">Auto-Calculation/BMI</label>
+                <label className="checkup-field-label" htmlFor="bmi">
+                  Auto-Calculation/BMI
+                  <FieldInfoTooltip content={CHECKUP_HELP.maternal.bmi.content} essential />
+                </label>
                 <input
                   id="bmi"
                   type="text"
@@ -554,7 +558,10 @@ export default function MotherCheckup({
               </div>
 
               <div className="form-group">
-                <label className="checkup-field-label" htmlFor="mother-developmental-status">Developmental Screening</label>
+                <label className="checkup-field-label" htmlFor="mother-developmental-status">
+                  Developmental Screening
+                  <FieldInfoTooltip content={CHECKUP_HELP.maternal.developmentalScreening.content} essential />
+                </label>
                 <select
                   id="mother-developmental-status"
                   className={`checkup-field-input developmental-screening-select ${developmentalStatus === 'At Risk' ? 'at-risk' : developmentalStatus === 'Needs Follow-up' ? 'needs-follow-up' : 'normal'}`}
@@ -568,7 +575,10 @@ export default function MotherCheckup({
               </div>
 
               <div className="form-group">
-                <label className="checkup-field-label" htmlFor="nutritional-status">BMI Status</label>
+                <label className="checkup-field-label" htmlFor="nutritional-status">
+                  BMI Status
+                  <FieldInfoTooltip content={CHECKUP_HELP.maternal.bmiStatus.content} essential />
+                </label>
                 <div className={`bmi-status-badge ${nutritionalStatus ? nutritionalStatus.toLowerCase() : 'empty'}`}>
                   {nutritionalStatus && nutritionalStatus.toUpperCase()}
                 </div>
@@ -604,7 +614,10 @@ export default function MotherCheckup({
               )}
 
               <div className="horizontal-toggle-row full-width">
-                <span className="horizontal-toggle-label">Referral to Hospital</span>
+                <span className="horizontal-toggle-label">
+                  Referral to Hospital
+                  <FieldInfoTooltip content={CHECKUP_HELP.maternal.hospitalReferral.content} />
+                </span>
                 <div className="horizontal-toggle-buttons">
                   <button
                     type="button"
@@ -624,7 +637,10 @@ export default function MotherCheckup({
               </div>
               {referral && (
                 <fieldset className="form-group full-width">
-                  <legend className="checkup-field-label">Laboratory Request(s)</legend>
+                  <legend className="checkup-field-label">
+                    Laboratory Request(s)
+                    <FieldInfoTooltip content={CHECKUP_HELP.maternal.laboratoryRequests.content} />
+                  </legend>
                   <div className="lab-request-checkbox-list" role="group" aria-label="Laboratory request(s)">
                     {LAB_REQUEST_OPTIONS.map((option) => (
                       <label key={option} className={`lab-request-option ${laboratoryRequests.includes(option) ? 'selected' : ''}`}>
@@ -651,7 +667,10 @@ export default function MotherCheckup({
                 <div className="checkup-section-title">Assistance & Funding</div>
                 <div className="checkup-grid">
                   <div className="form-group">
-                    <label className="checkup-field-label" htmlFor="amount">Assistance Amount (PHP)</label>
+                    <label className="checkup-field-label" htmlFor="amount">
+                      Assistance Amount (PHP)
+                      <FieldInfoTooltip content={CHECKUP_HELP.maternal.assistanceAmount.content} />
+                    </label>
                     <input
                       id="amount"
                       type="text"
@@ -669,7 +688,10 @@ export default function MotherCheckup({
                   </div>
 
                   <div className="form-group">
-                    <label className="checkup-field-label" htmlFor="source-of-funds">Source of Funds</label>
+                    <label className="checkup-field-label" htmlFor="source-of-funds">
+                      Source of Funds
+                      <FieldInfoTooltip content={CHECKUP_HELP.maternal.sourceOfFunds.content} />
+                    </label>
                     <select
                       id="source-of-funds"
                       className="checkup-field-input"
@@ -687,7 +709,10 @@ export default function MotherCheckup({
                   </div>
 
                   <div className="form-group full-width">
-                    <label className="checkup-field-label">Facility Type</label>
+                    <label className="checkup-field-label">
+                      Facility Type
+                      <FieldInfoTooltip content={CHECKUP_HELP.maternal.facilityType.content} />
+                    </label>
                     <div className="facility-type-buttons" role="group" aria-label="Facility type">
                       {['Govt', 'Private', 'Partner Org', 'Others'].map((type) => (
                         <button

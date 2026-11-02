@@ -114,7 +114,7 @@ export default function ArchiveRecordsPanel({ types, view, onChanged }) {
 
   return (
     <>
-    <section className="table-card archive-records-panel" aria-label={view === 'records' ? 'Archived records' : 'Archive activity'}>
+    <section className="table-card archive-records-panel" aria-label={view === 'records' ? 'Archived records' : 'Archive activity'} data-guide="archive-results">
       <div className="archive-records-toolbar">
         <div className="community-table-title">Archive management</div>
         {view === 'records' && (

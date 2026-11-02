@@ -3,6 +3,7 @@ import { apiGetChildren } from '../../../api/children';
 import { apiGetMothers } from '../../../api/mothers';
 import { apiCreateMonitoringReportIntent } from '../../../api/progressReport';
 import FieldInfoTooltip from '../../../components/ui/FieldInfoTooltip';
+import { ADDITIONAL_FIELD_HELP } from '../../../guides/guidancePreferences.mjs';
 import { downloadContent, generateCsvContent } from '../utils/exportUtils';
 import {
   escapeMonitoringReportCsvValue,
@@ -237,7 +238,7 @@ export default function CheckupReportBuilder({ selection = {}, contextKey, scope
         <label className="progress-report-ai-prompt-label" htmlFor="progress-report-ai-checkup-prompt">
           <span id="progress-report-ai-checkup-title">
             Describe the check-up report
-            <FieldInfoTooltip content="Name mothers or children and the check-up details you need. Child growth fields are Weight-for-Age, Length-for-Age, and Weight-for-Length; child BMI is not available. You can request screening status, first/latest check-ups, current month, or recorded hospital referrals for mothers. School, group, and batch scope stays fixed to the selection above." />
+            <FieldInfoTooltip content={ADDITIONAL_FIELD_HELP.reporting.definitions[0].content} />
           </span>
           <span className="progress-report-ai-checkup-scope">Current scope: {scopeLabel || 'All accessible records'}</span>
         </label>

@@ -15,12 +15,14 @@ const progressReportRouter = require('./routes/progressReport');
 const documentsRouter = require('./routes/documents');
 const reportsRouter = require('./routes/reports');
 const aiSettingsRouter = require('./routes/aiSettings');
+const helpGuidanceRouter = require('./routes/helpGuidance');
 const { verifyToken } = require('./middleware/auth');
 const { authorizeOperational, authorizeProgressReport } = require('./middleware/authorize');
 const { errorHandler } = require('./middleware/errorHandler');
 const db = require('./db');
 const { ensureSuperadminAccount } = require('./services/superadminRecovery');
 const { startCheckupReminderScheduler } = require('./services/checkupReminders');
+const { startArchiveRetentionScheduler } = require('./services/archiveRetention');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -102,6 +104,7 @@ app.use('/api/auth/login', loginLimiter);
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
+app.use('/api/help-guidance', helpGuidanceRouter);
 app.use('/api/reports', reportsRouter);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/community', verifyToken, authorizeOperational, communityRouter);
@@ -127,6 +130,7 @@ db.ready
   .then(async () => {
     await ensureSuperadminAccount(db);
     startCheckupReminderScheduler(db);
+    startArchiveRetentionScheduler(db);
     app.listen(PORT, () => console.log(`Server listening on ${PORT}`));
   })
   .catch((error) => {

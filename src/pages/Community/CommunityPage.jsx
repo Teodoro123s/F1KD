@@ -1211,6 +1211,7 @@ export default function CommunityPage() {
               <CommunityTable
                 columns={overviewColumns}
                 data={currentRows}
+                dataGuide="community-list"
                 onRowClick={currentRowClickHandler}
                 tableTitle={tableTitle}
                 onBack={

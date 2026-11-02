@@ -4,6 +4,7 @@ const {
   normalizeEmail,
   validateAccountPassword,
 } = require('../utils/userInputValidation');
+const { createInitialHelpGuidancePreferences } = require('./helpGuidancePreferences');
 
 const SUPERADMIN_ROLES = new Set(['superadmin', 'super admin', 'super_admin']);
 
@@ -30,12 +31,13 @@ async function ensureSuperadminAccount(pool, options = {}) {
   if (rows.length === 0) {
     const passwordHash = await bcrypt.hash(password, 10);
     try {
-      await pool.query(
+      const [created] = await pool.query(
         `INSERT INTO users
           (first_name, last_name, email, role, status, password_hash, gender)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
         ['Super', 'Admin', email, 'Superadmin', 'Active', passwordHash, 'Other'],
       );
+      await createInitialHelpGuidancePreferences(pool, created.insertId);
       console.info('Created configured Superadmin bootstrap account.');
       return { status: 'created' };
     } catch (error) {

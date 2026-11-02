@@ -144,7 +144,7 @@ export default function ProfilePage() {
 
       {!user ? (
         <main style={{ padding: '1rem' }}>
-          <div className="checkup-card">
+          <div className="checkup-card" data-guide="profile-details">
             <div className="checkup-card-body">
               <p className="form-error">No user information available.</p>
             </div>

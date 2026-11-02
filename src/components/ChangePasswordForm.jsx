@@ -48,7 +48,7 @@ export default function ChangePasswordForm() {
   ];
 
   return (
-    <div className="checkup-card">
+    <div className="checkup-card" data-guide="settings-password">
       <div className="checkup-card-body">
         <div className="checkup-section-title">Change password</div>
         <form className="settings-password-form" onSubmit={handleSubmit}>

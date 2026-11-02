@@ -1,0 +1,8 @@
+CREATE TABLE IF NOT EXISTS archive_file_deletion_queue (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  file_path VARCHAR(500) NOT NULL,
+  attempts INT UNSIGNED NOT NULL DEFAULT 0,
+  last_error VARCHAR(1000) DEFAULT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_archive_file_deletion_path (file_path)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

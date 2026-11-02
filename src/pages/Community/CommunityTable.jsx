@@ -16,6 +16,7 @@ export default function CommunityTable({
   backLabel = 'Back to groups',
   getGroupLabel,
   toolbarContent,
+  dataGuide,
 }) {
   const colSpan = Math.max(columns.length, 1);
   const hasTableToolbar = onSearchChange && (tableTitle || toolbarContent);
@@ -34,7 +35,7 @@ export default function CommunityTable({
   );
 
   return (
-    <section className="table-card">
+    <section className="table-card" data-guide={dataGuide || undefined}>
       {hasTableToolbar ? (
         <div className="community-table-toolbar">
           <div className="community-table-toolbar-start">

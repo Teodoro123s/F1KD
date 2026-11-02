@@ -527,6 +527,7 @@ export default function SuperAdminCommunityPage() {
             <CommunityTable
               columns={columns}
               data={currentRows}
+              dataGuide="community-list"
               tableClassName={activeTab === 'healthWorkers' ? 'community-health-workers-table' : ''}
               activeRowKey={activeDropdownId}
               onRowClick={onRowClick}

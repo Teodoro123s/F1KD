@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import ConfirmDialog from '../../../components/ui/ConfirmDialog';
 import FieldInfoTooltip from '../../../components/ui/FieldInfoTooltip';
+import { ADDITIONAL_FIELD_HELP } from '../../../guides/guidancePreferences.mjs';
 import UnifiedModal from '../../../components/ui/UnifiedModal';
 import {
   apiDeleteBatchDocumentationImage,
@@ -290,7 +291,7 @@ export default function BatchDocumentationPanel({
           <label>
             <span className="batch-documentation-photo-label">
               Photos (minimum 3)
-              <FieldInfoTooltip content="Select 3-10 photos in JPG, PNG, or WEBP format. Each photo can be up to 5 MB, with a 25 MB total limit per entry. You can add photos in multiple selections." />
+              <FieldInfoTooltip content={ADDITIONAL_FIELD_HELP.batchDocumentation.definitions[0].content} />
             </span>
             <input
               type="file"

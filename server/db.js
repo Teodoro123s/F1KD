@@ -708,6 +708,22 @@ async function ensure() {
       PRIMARY KEY (user_id, category),
       KEY idx_notification_preferences_user (user_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+    `CREATE TABLE IF NOT EXISTS help_guidance_preferences (
+      user_id INT NOT NULL PRIMARY KEY,
+      guided_tours_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      onboarding_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      contextual_tooltips_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      page_explanations_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      workflow_guide_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      onboarding_completed BOOLEAN NOT NULL DEFAULT TRUE,
+      onboarding_dismissed BOOLEAN NOT NULL DEFAULT FALSE,
+      tour_role VARCHAR(40) DEFAULT NULL,
+      tour_status ENUM('not_started', 'in_progress', 'completed') NOT NULL DEFAULT 'not_started',
+      tour_step SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      CONSTRAINT fk_help_guidance_preferences_user
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
     `CREATE TABLE IF NOT EXISTS activity_logs (
       id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
       source_notification_id BIGINT UNSIGNED DEFAULT NULL,
@@ -725,6 +741,14 @@ async function ensure() {
       KEY idx_activity_logs_created_at (created_at),
       KEY idx_activity_logs_category_created_at (category, created_at),
       KEY idx_activity_logs_actor_created_at (actor_user_id, created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+    `CREATE TABLE IF NOT EXISTS archive_file_deletion_queue (
+      id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      file_path VARCHAR(500) NOT NULL,
+      attempts INT UNSIGNED NOT NULL DEFAULT 0,
+      last_error VARCHAR(1000) DEFAULT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_archive_file_deletion_path (file_path)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
     `ALTER TABLE activity_logs
       ADD COLUMN IF NOT EXISTS source_notification_id BIGINT UNSIGNED DEFAULT NULL;`,

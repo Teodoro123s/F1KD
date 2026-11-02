@@ -23,25 +23,27 @@ export default function ArchivePage() {
         </p>
       ) : (
         <>
-          <ModuleSummaryCards
-            selected={view}
-            toggleOnSelect
-            onSelect={setView}
-            cards={[
-              {
-                key: 'records',
-                label: 'Archived records',
-                description: 'Show archived records',
-                selectedDescription: 'Hide archived records',
-              },
-              {
-                key: 'activity',
-                label: 'Archive activity',
-                description: 'Show activity',
-                selectedDescription: 'Hide activity',
-              },
-            ]}
-          />
+          <div data-guide="archive-summary">
+            <ModuleSummaryCards
+              selected={view}
+              toggleOnSelect
+              onSelect={setView}
+              cards={[
+                {
+                  key: 'records',
+                  label: 'Archived records',
+                  description: 'Show archived records',
+                  selectedDescription: 'Hide archived records',
+                },
+                {
+                  key: 'activity',
+                  label: 'Archive activity',
+                  description: 'Show activity',
+                  selectedDescription: 'Hide activity',
+                },
+              ]}
+            />
+          </div>
           {view && <ArchiveRecordsPanel types={types} view={view} />}
           {!view && <ModuleSelectionHint />}
         </>

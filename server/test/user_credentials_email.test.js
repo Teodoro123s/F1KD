@@ -74,6 +74,7 @@ test('Super Admin user creation sends the account credential template', async (t
       storedEmails.push(params[0]);
       return [{ insertId: 71 }];
     }
+    if (sql.startsWith('INSERT INTO help_guidance_preferences')) return [{ affectedRows: 1 }];
     if (sql.includes('FROM users WHERE id = ?')) {
       return [[{
         id: 71,

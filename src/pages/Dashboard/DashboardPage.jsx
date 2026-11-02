@@ -325,7 +325,7 @@ export default function DashboardPage() {
       <header className="dashboard-top-row">
         <div className="dashboard-welcome">
           <div>
-            <h2>
+            <h2 data-guide="page-title">
               {getGreeting(currentUser?.name)}
             </h2>
             <p>{description}</p>
@@ -346,7 +346,7 @@ export default function DashboardPage() {
       )}
 
       {displayCards.length > 0 && (
-        <section className="dashboard-kpi-grid" aria-label="Key role metrics">
+        <section className="dashboard-kpi-grid" aria-label="Key role metrics" data-guide="dashboard-summary">
           {displayCards.map((card) => (
             <Link key={card.key} to={card.to} className="kpi-card" aria-label={`${card.title}: ${card.value}. ${card.subtitle}`}>
               <div className="kpi-card-top">
@@ -359,7 +359,7 @@ export default function DashboardPage() {
         </section>
       )}
 
-      <section className="dashboard-module-summary-grid" aria-label="Live module summaries">
+      <section className="dashboard-module-summary-grid" aria-label="Live module summaries" data-guide="dashboard-activity">
         {moduleSummaries.map((module) => (
           <article
             className={`dashboard-panel dashboard-module-summary${module.key === 'monitoring' ? ' dashboard-module-summary-monitoring' : ''}`}

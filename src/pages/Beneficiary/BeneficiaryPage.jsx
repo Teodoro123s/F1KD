@@ -174,7 +174,7 @@ export default function BeneficiaryPage() {
         actions={
           !isMotherDetail && !isCreateMother && !isCreateChild && canCreate ? (
             <div className="create-menu-wrapper">
-              <button ref={createDropdownTriggerRef} className="btn-create-action module-create-button" onClick={openCreateModal} type="button" aria-haspopup="menu" aria-expanded={createDropdownOpen}>
+              <button ref={createDropdownTriggerRef} className="btn-create-action module-create-button" data-guide="beneficiary-create" onClick={openCreateModal} type="button" aria-haspopup="menu" aria-expanded={createDropdownOpen}>
                 <PlusIcon />
                 <span>Create</span>
                 <svg className="module-create-button__chevron" viewBox="0 0 20 20" width="16" height="16" fill="none" aria-hidden="true">
@@ -200,7 +200,7 @@ export default function BeneficiaryPage() {
         }
       />
 
-      <main className="beneficiary-main">
+      <main className="beneficiary-main" data-guide="beneficiary-list">
         {/* Check create routes before showing selected mother detail so navigation to create pages works even when a mother is selected */}
         {isCreateMother ? (
           <CreateMotherPage

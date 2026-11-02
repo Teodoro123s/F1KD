@@ -7,6 +7,7 @@ import ConfirmModal from '../UserManagement/ConfirmModal';
 import { notifyAction } from '../../components/ActionFeedback';
 import AuditSignatures from '../../components/ui/AuditSignatures';
 import FieldInfoTooltip from '../../components/ui/FieldInfoTooltip';
+import { CHECKUP_HELP } from '../../guides/guidancePreferences.mjs';
 
 const TOTAL_MONTHS = 24;
 
@@ -298,6 +299,7 @@ export default function ChildMonitor({
         <button type="button" className="btn-secondary" onClick={() => goToWeek(week - 1)} disabled={week === 1}>Previous month</button>
         <label htmlFor="child-monitor-week-select">
           Current month
+          <FieldInfoTooltip content={CHECKUP_HELP.child.currentMonth.content} />
           <select id="child-monitor-week-select" value={week} onChange={(event) => goToWeek(Number(event.target.value))}>
             {Array.from({ length: firstIncompleteMonth }, (_, index) => index + 1).map((monthNumber) => (
               <option key={monthNumber} value={monthNumber}>Month {monthNumber}</option>
@@ -333,7 +335,10 @@ export default function ChildMonitor({
             <span className="checkup-field-help full-width">Enter measurements taken on this check-up date. Birth measurements are stored separately and are not copied into this visit.</span>
             {renderDateField({ id: 'child-next-checkup-date', label: 'Next Check-up Date (leave blank to cancel)', name: 'nextCheckupDate' })}
             <div className="form-group">
-              <label className="checkup-field-label" htmlFor="child-current-age-months">Current Age (months)</label>
+              <label className="checkup-field-label" htmlFor="child-current-age-months">
+                Current Age (months)
+                <FieldInfoTooltip content={CHECKUP_HELP.child.currentAge.content} />
+              </label>
               <input
                 id="child-current-age-months"
                 type="text"
@@ -344,7 +349,10 @@ export default function ChildMonitor({
               />
             </div>
             <div className="form-group">
-              <label className="checkup-field-label" htmlFor="child-feeding-method">Feeding Method</label>
+              <label className="checkup-field-label" htmlFor="child-feeding-method">
+                Feeding Method
+                <FieldInfoTooltip content={CHECKUP_HELP.child.feedingMethod.content} />
+              </label>
               <select id="child-feeding-method" className="checkup-field-input" value={form.feedingMethod} onChange={update('feedingMethod')} required disabled={isReadOnly}>
                 <option value="">Select feeding method</option>
                 {FEEDING_METHOD_OPTIONS.map((method) => <option key={method} value={method}>{method}</option>)}
@@ -366,27 +374,45 @@ export default function ChildMonitor({
               <input id="child-monitor-weight" type="number" step="0.1" className="checkup-field-input" value={form.weight} onChange={update('weight')} required readOnly={isReadOnly} />
             </div>
             <div className="form-group">
-              <label className="checkup-field-label is-required" htmlFor="child-monitor-height">Length (cm)</label>
+              <label className="checkup-field-label is-required" htmlFor="child-monitor-height">
+                Length (cm)
+                <FieldInfoTooltip content={CHECKUP_HELP.child.length.content} />
+              </label>
               <input id="child-monitor-height" type="number" min="45" max="100" step="0.1" className="checkup-field-input" value={form.height} onChange={update('height')} required readOnly={isReadOnly} />
             </div>
             <div className="form-group">
-              <label className="checkup-field-label" htmlFor="child-monitor-head-circumference">Head Circumference (cm)</label>
+              <label className="checkup-field-label" htmlFor="child-monitor-head-circumference">
+                Head Circumference (cm)
+                <FieldInfoTooltip content={CHECKUP_HELP.child.headCircumference.content} />
+              </label>
               <input id="child-monitor-head-circumference" type="number" min="15" max="60" step="0.1" className="checkup-field-input" value={form.headCircumference} onChange={update('headCircumference')} readOnly={isReadOnly} />
             </div>
             <div className="form-group">
-              <label className="checkup-field-label" htmlFor="child-monitor-weight-age">Weight-for-Age</label>
+              <label className="checkup-field-label" htmlFor="child-monitor-weight-age">
+                Weight-for-Age
+                <FieldInfoTooltip content={CHECKUP_HELP.child.weightForAge.content} essential />
+              </label>
               <input id="child-monitor-weight-age" type="text" className={interpretationClass(weightAgeInterpretation)} value={weightAgeInterpretation} readOnly />
             </div>
             <div className="form-group">
-              <label className="checkup-field-label" htmlFor="child-monitor-length-age">Length-for-Age</label>
+              <label className="checkup-field-label" htmlFor="child-monitor-length-age">
+                Length-for-Age
+                <FieldInfoTooltip content={CHECKUP_HELP.child.lengthForAge.content} essential />
+              </label>
               <input id="child-monitor-length-age" type="text" className={interpretationClass(lengthAgeInterpretation)} value={lengthAgeInterpretation} readOnly />
             </div>
             <div className="form-group">
-              <label className="checkup-field-label" htmlFor="child-monitor-weight-length">Weight-for-Length<FieldInfoTooltip content="WHO growth indicators are screening results, not a diagnosis. Interpret them with the child's measurement history and a qualified health worker." /></label>
+              <label className="checkup-field-label" htmlFor="child-monitor-weight-length">
+                Weight-for-Length
+                <FieldInfoTooltip content={CHECKUP_HELP.child.weightForLength.content} essential />
+              </label>
               <input id="child-monitor-weight-length" type="text" className={interpretationClass(weightLengthInterpretation)} value={weightLengthInterpretation} readOnly />
             </div>
             <div className="form-group">
-              <label className="checkup-field-label" htmlFor="child-developmental-status">Developmental Screening</label>
+              <label className="checkup-field-label" htmlFor="child-developmental-status">
+                Developmental Screening
+                <FieldInfoTooltip content={CHECKUP_HELP.child.developmentalScreening.content} essential />
+              </label>
               <select id="child-developmental-status" className="checkup-field-input" value={form.developmentalStatus} onChange={update('developmentalStatus')} disabled={isReadOnly}>
                 <option>Normal</option>
                 <option>Needs Follow-up</option>

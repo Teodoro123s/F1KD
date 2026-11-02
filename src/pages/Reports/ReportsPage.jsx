@@ -96,7 +96,7 @@ export function ActivityChart({
   const hasActivity = total > 0;
 
   return (
-    <section className="report-chart-card" aria-label={title}>
+    <section className="report-chart-card" aria-label={title} data-guide="reports-results">
       <h2>{title}</h2>
       {description && <p className="report-chart-description">{description}</p>}
       {hasActivity ? (
@@ -384,23 +384,25 @@ export default function ReportsPage() {
         ) : null}
       />
       <p className="reports-intro">Review successful user login records by school, group, or individual account. Super Admin accounts and their sign-ins are excluded from report users, totals, charts, and tables. School and group reports use users’ current assignments.</p>
-      <ModuleSummaryCards
-        selected={selectedCard}
-        toggleOnSelect
-        onSelect={(key) => {
-          setSelectedCard(key);
-          setPage(1);
-        }}
-        cards={[
-          { key: 'signIns', label: 'User Logins', value: report.counts.signIns, description: 'View login logs', selectedDescription: 'Hide login logs' },
-        ]}
-      />
+      <div data-guide="reports-summary">
+        <ModuleSummaryCards
+          selected={selectedCard}
+          toggleOnSelect
+          onSelect={(key) => {
+            setSelectedCard(key);
+            setPage(1);
+          }}
+          cards={[
+            { key: 'signIns', label: 'User Logins', value: report.counts.signIns, description: 'View login logs', selectedDescription: 'Hide login logs' },
+          ]}
+        />
+      </div>
 
       {!selectedCard && <ModuleSelectionHint />}
       {selectedCard ? (
         <>
           {error && <div role="alert" className="error-message">{error}</div>}
-          <section className="reports-toolbar" aria-label="Report controls">
+          <section className="reports-toolbar" aria-label="Report controls" data-guide="reports-filters">
             <div className={`reports-filter-grid reports-filter-grid--${scopeLevel}`} aria-label="Report filters">
               <label className="reports-filter-field">
               <span>Report level</span>
@@ -531,7 +533,7 @@ export default function ReportsPage() {
                   </button>
                 </div>
               )}
-              <div className="reports-table-wrap">
+              <div className="reports-table-wrap" data-guide="reports-results">
                 <CommunityTable
                   columns={columns}
                   data={report.activities}

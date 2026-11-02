@@ -45,13 +45,19 @@ Apply [`migrations/20261028_remove_legacy_user_columns.sql`](./migrations/202610
 
 ## Community record lifecycle
 
-Archiving a school, group, or batch retains its beneficiaries and historical health, distribution, and reporting records. Community Coordinators can also archive an individual mother or child without archiving its batch. Archiving does not cascade to descendants. Archived records and records under archived parents are excluded from active operational selections; historical records remain available to reports.
+Archiving a school, group, batch, mother, child, or eligible ended project is initially reversible and does not immediately delete the record or its related data. Archiving a parent does not immediately archive or delete descendants. Archived records and records under archived parents are excluded from active operational selections; historical records remain available to reports while retained.
 
 Superadmins manage school archives. Community Coordinators manage groups, batches, mothers, and children only within their assigned school. Admin, Partner, and Health Worker roles cannot access archive management. Restore operations validate that parent records are active first; for example, a child cannot be restored while its mother is archived.
 
 Permanent record deletion is disabled for schools, groups, batches, mothers, children, and programs; the corresponding record DELETE requests return `405 Method Not Allowed`. Use archive/restore workflows instead. Ended projects use the Projects module's Archived Projects view; individual beneficiary and organizational archives use the Archive module. The migration is [`migrations/20261101_record_archiving.sql`](./migrations/20261101_record_archiving.sql); database bootstrap includes matching idempotent metadata additions.
 
-Archived records are not automatically purged and have no configured month-based retention period. They remain available for restoration until restored or until a future retention policy is explicitly implemented.
+### Automatic archive retention
+
+The backend permanently purges archived records after **nine calendar months** from their `archived_at` timestamp. The retention job runs when the backend starts and then once per day. For groups, batches, and schools, the purge also removes linked groups/batches, mothers, children, check-up and other linked health history, and associated record-linked notifications and activity—even when descendants were not individually archived. Archiving itself remains non-destructive; the permanent deletion occurs only once the retention deadline has passed and a purge run takes place.
+
+Uploaded documents and photos linked only to purged records are deleted from local or MinIO storage after the database transaction commits. File deletions that fail are held in `archive_file_deletion_queue` and retried on later job runs; files still referenced by another record are not deleted. System activity not linked to purged records is retained.
+
+The backend schema bootstrap creates the retry queue automatically. For explicit database migration workflows, apply [`migrations/20261102_archive_retention.sql`](./migrations/20261102_archive_retention.sql) before deploying the retention-enabled backend. Existing archived records already older than nine months are eligible at the first purge run after deployment. Back up the database and document storage before enabling this irreversible policy.
 
 The opt-in MariaDB archive/report integration test runs only when `F1KD_RUN_ARCHIVE_DB_TESTS=1`, `DB_HOST` is loopback, and `DB_NAME` begins with `f1kd_test`. It drops and reapplies archive metadata in that dedicated database, so do not point it at a shared, staging, or production database. It seeds synthetic mothers, children, check-ups, vaccinations, program distributions, and receipt evidence; compares period-specific Progress Report results and generated CSV values before and after school/group/batch/program archive and restore; verifies Admin/Partner report access and archive denial plus role-scoped operational reporting; and removes its synthetic records afterward.
 
@@ -60,6 +66,10 @@ The opt-in MariaDB archive/report integration test runs only when `F1KD_RUN_ARCH
 `GET /api/mothers` and `GET /api/children` return active, in-scope records in pages. Both accept `page` (default `1`), `perPage` (default `100`, maximum `100`), `search` (up to 120 characters), `communityId`, `groupId`, `batchId`, `sortBy` (`id`, `name`, `code`, or `createdAt`), and `sortOrder` (`asc` or `desc`). Responses include `pagination.page`, `pagination.perPage`, `pagination.total`, and `pagination.totalPages`. Invalid pagination, filters, search values, or sort options return `400`.
 
 The backend applies authorization scope and archive exclusions before counting or paging. Mother check-ups are loaded only for mothers in the returned page; child check-ups are fetched in one batch for the returned page. Existing frontend callers that need a complete list use the API wrappers' bounded page aggregation; callers may pass `{ page, perPage, ...filters }` to retrieve one page.
+
+### Shared pagination controls
+
+Community, User Management, Beneficiary, Monitoring, Archive, Reports/Notifications, and Progress Report screens use the shared responsive `src/components/ui/Pagination.jsx` control. It provides consistent page-number navigation and a visible result range; screens that support page-size selection retain their own available page sizes. On narrow screens, the control condenses to the active page and previous/next navigation. This shared UI does not change each screen's API paging, filtering, or data-loading behavior.
 
 ## Private AI assistants
 

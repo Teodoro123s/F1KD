@@ -885,7 +885,7 @@ export default function ProgressReport() {
         <ReportTabBar tabs={REPORT_TABS} activeTab={activeTab} canOpenTab={canOpenTab} goToTab={goToTab} isNavigating={isNavigating} />
         <StepNavigationStatus direction={navigationDirection} error={navigationError} />
 
-        <section className="progress-report-config" aria-label="Report parameters">
+        <section className="progress-report-config" aria-label="Report parameters" data-guide="report-parameters">
           {activeTab === 1 && (
             <CommunitySelectionStep
               isCommunityOrganizer={isCommunityOrganizer}

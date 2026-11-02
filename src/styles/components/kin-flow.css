@@ -1,0 +1,513 @@
+.kin-help-wrapper {
+  position: relative;
+}
+
+.kin-help-trigger {
+  display: inline-flex;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #dfe6ee;
+  border-radius: 50%;
+  font-size: 1.05rem;
+  font-weight: 750;
+}
+
+.kin-help-menu {
+  width: min(320px, calc(100vw - 1rem));
+  padding: 0.4rem;
+}
+
+.kin-help-menu-item {
+  display: grid;
+  width: 100%;
+  gap: 0.2rem;
+  padding: 0.75rem;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #1f2937;
+  text-align: left;
+  cursor: pointer;
+}
+
+.kin-help-menu-item:hover,
+.kin-help-menu-item:focus-visible {
+  background: #f1f5f9;
+  outline: none;
+}
+
+.kin-help-menu-item strong {
+  font-size: 0.86rem;
+}
+
+.kin-help-menu-item span {
+  color: #64748b;
+  font-size: 0.76rem;
+}
+
+.kin-guide-overlay {
+  position: fixed;
+  z-index: 2200;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.28);
+}
+
+.kin-guide-overlay--tour {
+  align-items: flex-end;
+  justify-content: flex-end;
+}
+
+.kin-guide-dialog {
+  width: min(560px, 100%);
+  max-height: min(88vh, 760px);
+  max-height: min(88dvh, 760px);
+  overflow: auto;
+  padding: 1.1rem;
+  border: 1px solid #dfe6ee;
+  border-radius: 12px;
+  background: #fff;
+  color: #1f2937;
+  outline: none;
+}
+
+.kin-guide-overlay--tour .kin-guide-dialog {
+  width: min(450px, 100%);
+  margin: 0 max(0px, env(safe-area-inset-right)) max(0px, env(safe-area-inset-bottom)) 0;
+}
+
+.kin-guide-overlay--flow .kin-guide-dialog {
+  width: min(980px, 100%);
+}
+
+.kin-guide-header,
+.kin-guide-footer,
+.kin-flow-role-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.kin-guide-header h2,
+.kin-flow-role-heading h3 {
+  margin: 0.2rem 0 0;
+  color: #0f172a;
+  font-size: 1.15rem;
+  line-height: 1.3;
+}
+
+.kin-guide-eyebrow {
+  color: #64748b;
+  font-size: 0.7rem;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.kin-guide-close {
+  display: inline-flex;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #475569;
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+
+.kin-guide-close:hover,
+.kin-guide-close:focus-visible {
+  background: #f1f5f9;
+}
+
+.kin-guide-body,
+.kin-flow-setup p,
+.kin-flow-role-detail > p {
+  margin: 0.9rem 0;
+  color: #475569;
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.kin-guide-points {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0.8rem 0;
+  padding-left: 1.25rem;
+  color: #334155;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.kin-guide-current-page {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #166534;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-align: left;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.kin-guide-footer {
+  align-items: center;
+  margin-top: 1rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid #e2e8f0;
+  color: #64748b;
+  font-size: 0.75rem;
+}
+
+.kin-guide-footer > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.kin-guide-footer--welcome {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.kin-guide-glossary {
+  margin-top: 1rem;
+}
+
+.kin-guide-glossary h3 {
+  margin: 0 0 0.5rem;
+  color: #1f2937;
+  font-size: 0.92rem;
+}
+
+.kin-guide-glossary dl {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+}
+
+.kin-guide-glossary dl > div {
+  padding: 0.65rem 0.75rem;
+  border-radius: 7px;
+  background: #f8fafc;
+}
+
+.kin-guide-glossary dt {
+  color: #334155;
+  font-size: 0.8rem;
+  font-weight: 750;
+}
+
+.kin-guide-glossary dd {
+  margin: 0.2rem 0 0;
+  color: #64748b;
+  font-size: 0.77rem;
+  line-height: 1.5;
+}
+
+.settings-guidance-header h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1.05rem;
+}
+
+.settings-guidance-header p {
+  margin: 0.35rem 0 1rem;
+  color: #64748b;
+  font-size: 0.82rem;
+}
+
+.settings-guidance-options {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.settings-guidance-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 3.5rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #dfe6ee;
+  border-radius: 8px;
+  color: #1f2937;
+  cursor: pointer;
+}
+
+.settings-guidance-toggle > span {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.settings-guidance-toggle strong {
+  font-size: 0.82rem;
+}
+
+.settings-guidance-toggle small {
+  color: #64748b;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.settings-guidance-toggle input {
+  width: 1.15rem;
+  height: 1.15rem;
+  flex: 0 0 auto;
+  accent-color: #166534;
+}
+
+.settings-guidance-status {
+  display: grid;
+  gap: 0.3rem;
+  margin-top: 0.9rem;
+  padding: 0.75rem;
+  border-left: 3px solid #94a3b8;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 0.78rem;
+}
+
+.settings-guidance-status strong {
+  margin-bottom: 0.1rem;
+  color: #1f2937;
+}
+
+.settings-guidance-status small {
+  color: #64748b;
+}
+
+.settings-guidance-actions,
+.settings-guidance-error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.9rem;
+}
+
+.settings-guidance-error {
+  color: #b91c1c;
+  font-size: 0.82rem;
+}
+
+.kin-guide-primary,
+.kin-guide-secondary {
+  min-height: 40px;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  background: #fff;
+  color: #334155;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.kin-guide-primary {
+  border-color: #166534;
+  background: #166534;
+  color: #fff;
+}
+
+.kin-guide-primary:hover {
+  background: #14532d;
+}
+
+.kin-guide-secondary:hover {
+  background: #f8fafc;
+}
+
+.kin-explain-list {
+  display: grid;
+  gap: 0.65rem;
+  margin: 1rem 0;
+  padding: 0;
+  list-style: none;
+}
+
+.kin-explain-list li {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.75rem;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.kin-explain-list strong {
+  color: #1f2937;
+  font-size: 0.86rem;
+}
+
+.kin-explain-list span,
+.kin-guide-note {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.81rem;
+  line-height: 1.5;
+}
+
+.kin-flow-setup {
+  margin-top: 0.9rem;
+  padding: 0.85rem;
+  border-left: 3px solid #166534;
+  border-radius: 0 8px 8px 0;
+  background: #f8fafc;
+}
+
+.kin-flow-setup strong {
+  color: #1f2937;
+  font-size: 0.85rem;
+}
+
+.kin-flow-setup p {
+  margin: 0.35rem 0 0;
+  font-size: 0.82rem;
+}
+
+.kin-flow-caption {
+  margin: 0.8rem 0 0.6rem;
+  color: #64748b;
+  font-size: 0.77rem;
+}
+
+.kin-flow-you {
+  flex: 0 0 auto;
+  padding: 0.15rem 0.35rem;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #166534;
+  font-size: 0.65rem;
+  font-style: normal;
+  font-weight: 750;
+}
+
+.kin-flow-arrow {
+  align-self: center;
+  padding-top: 1.1rem;
+  color: #94a3b8;
+}
+
+.kin-flow-role-detail {
+  margin-top: 0.35rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.kin-flow-role-heading {
+  align-items: center;
+}
+
+.kin-flow-role-heading h3 {
+  font-size: 1rem;
+}
+
+.kin-flow-role-detail > p {
+  margin: 0.45rem 0 0.8rem;
+  font-size: 0.82rem;
+}
+
+.kin-flow-task-groups {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.kin-flow-task-group h4 {
+  margin: 0 0 0.4rem;
+  color: #475569;
+  font-size: 0.75rem;
+}
+
+.kin-flow-task-group ul {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.kin-flow-task-group li {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.55rem;
+  border-radius: 7px;
+  background: #f8fafc;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.kin-flow-task-group li span {
+  color: #334155;
+}
+
+.kin-flow-task-group li small {
+  color: #64748b;
+  font-size: 0.68rem;
+}
+
+.kin-tour-highlight {
+  position: relative !important;
+  z-index: 2201 !important;
+  outline: 3px solid #166534 !important;
+  outline-offset: 3px;
+  border-radius: 6px;
+  scroll-margin-top: 5rem;
+}
+
+@media (max-width: 680px) {
+  .kin-guide-overlay {
+    align-items: flex-end;
+    padding: 0.6rem;
+  }
+
+  .kin-guide-overlay--tour {
+    justify-content: center;
+  }
+
+  .kin-guide-dialog {
+    max-height: 90vh;
+    max-height: 90dvh;
+    padding: 0.9rem;
+  }
+
+  .kin-guide-overlay--tour .kin-guide-dialog {
+    margin: 0;
+    max-height: min(46vh, 360px);
+    max-height: min(46dvh, 360px);
+  }
+
+  .kin-flow-task-groups {
+    grid-template-columns: 1fr;
+    gap: 0.6rem;
+  }
+
+  .settings-guidance-toggle {
+    align-items: flex-start;
+  }
+
+  .settings-guidance-actions > button {
+    flex: 1 1 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kin-guide-dialog,
+  .kin-help-menu-item {
+    scroll-behavior: auto;
+  }
+}

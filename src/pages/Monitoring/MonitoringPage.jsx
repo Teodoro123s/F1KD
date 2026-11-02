@@ -590,7 +590,7 @@ export default function MonitoringPage() {
       />
 
       {!selectedMother && !selectedChild ? (
-        <section className="monitoring-list-container" aria-labelledby="monitoring-list-title">
+        <section className="monitoring-list-container" aria-labelledby="monitoring-list-title" data-guide="monitoring-records">
           <ModuleSummaryCards
             selected={selectedMonitoringCard}
             toggleOnSelect

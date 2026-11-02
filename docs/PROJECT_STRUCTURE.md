@@ -45,7 +45,7 @@ src/
   api/                 One HTTP client per backend resource
   auth/                Login state and session lifecycle
   components/          App-wide layout and reusable UI
-    ui/                Shared buttons, dialogs, tables, and status components
+    ui/                Shared buttons, dialogs, pagination, tables, and status components
   context/             React state shared by multiple routes
   pages/               Route-level features
   styles/              Global styles, tokens, and shared component styles
@@ -128,6 +128,10 @@ Keep SQL and authorization decisions on the server. Routes should use the existi
 Do not edit only one schema representation when changing the database. First compare the intended fresh-install and upgrade paths, then update and test the appropriate bootstrap and migration files together.
 
 Community mother transfers use `PUT /api/community/mothers/:id/batch`. The API validates the destination against the mother's school and group, then updates the mother and all linked children in one transaction so child batch assignments continue to follow their mother.
+
+Archived-record retention is implemented in `server/services/archiveRetention.js` and started by `server/index.js`. The job uses the nine-month archive age, purges eligible records and linked descendants transactionally, and queues failed uploaded-file deletions for retry. Keep `server/db.js`, `server/migrations/20261102_archive_retention.sql`, and `server/migrations/compiled_schema.sql` consistent when changing the retry-queue schema. The service is covered by `server/test/archive_retention.test.js`.
+
+The shared responsive pagination UI lives in `src/components/ui/Pagination.jsx` with its styles in `src/styles/components/tables-common.css`. Feature pages may wrap it to preserve an existing public component API, while each feature continues to own page state and data-fetch behavior.
 
 ## Tests and common commands
 

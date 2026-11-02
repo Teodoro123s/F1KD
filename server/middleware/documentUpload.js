@@ -205,32 +205,37 @@ async function deleteFileFromStorage(filePath) {
   if (!normalized || normalized === 'null' || normalized === 'undefined') return;
 
   if (/^https?:\/\//i.test(normalized)) {
-    try {
-      const url = new URL(normalized);
-      const objectKey = decodeURIComponent((url.pathname || '').replace(/^\/api\/documents\//, '').replace(/^\//, ''));
-      if (objectKey && minioClient && objectKey !== 'undefined') {
-        await minioClient.removeObject(minioBucket, objectKey);
-      }
-      return;
-    } catch (error) {
-      // fall through to local-path handling below
+    const url = new URL(normalized);
+    const objectKey = decodeURIComponent((url.pathname || '').replace(/^\/api\/documents\//, '').replace(/^\//, ''));
+    if (!objectKey || !minioClient || objectKey === 'undefined') {
+      throw new Error('Unable to delete an external stored file without its object-storage configuration');
     }
+    await minioClient.removeObject(minioBucket, objectKey);
+    return;
   }
 
   if (normalized.startsWith('/api/documents/')) {
     const objectKey = decodeURIComponent(normalized.replace(/^\/api\/documents\//, '')).replace(/^\//, '');
-    if (objectKey && minioClient) {
-      await minioClient.removeObject(minioBucket, objectKey);
-      return;
+    if (!objectKey || !minioClient) {
+      throw new Error('Unable to delete an object-storage file without its object-storage configuration');
     }
+    await minioClient.removeObject(minioBucket, objectKey);
+    return;
   }
 
   if (normalized.startsWith('/uploads/')) {
     const fileName = decodeURIComponent(normalized.split('/').pop() || '');
-    if (!fileName) return;
+    if (!fileName) throw new Error('Unable to delete a stored file with an invalid path');
     const fileDiskPath = path.join(uploadDirectory, fileName);
-    await fs.promises.unlink(fileDiskPath).catch(() => null);
+    try {
+      await fs.promises.unlink(fileDiskPath);
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+    }
+    return;
   }
+
+  throw new Error('Unable to delete a stored file with an unsupported path');
 }
 
 module.exports = {
