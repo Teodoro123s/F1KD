@@ -406,7 +406,9 @@ router.get('/summary', async (req, res) => {
         m.last_name,
         m.dob,
         m.progress,
+        m.birth_certificate_document_name,
         m.birth_certificate_document_path,
+        m.consent_document_name,
         m.consent_document_path,
         m.community_id AS communityId,
         m.group_id AS groupId,
@@ -512,7 +514,9 @@ router.get('/summary', async (req, res) => {
       status: 'Active',
       visits: 0,
       progress: Number(item.progress || 0),
+      birth_certificate_document_name: item.birth_certificate_document_name || '',
       birth_certificate_document_path: item.birth_certificate_document_path || '',
+      consent_document_name: item.consent_document_name || '',
       consent_document_path: item.consent_document_path || '',
     }));
 

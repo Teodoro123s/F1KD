@@ -12,6 +12,7 @@ import ConfirmModal from './ConfirmModal';
 import NotificationBanner from './NotificationBanner';
 import PageHeader from '../../components/ui/PageHeader';
 import ModuleSummaryCards from '../../components/ui/ModuleSummaryCards';
+import ModuleSelectionHint from '../../components/ui/ModuleSelectionHint';
 
 export default function UserManagementPage() {
   const { schoolId, batchId } = useParams();
@@ -77,7 +78,7 @@ export default function UserManagementPage() {
   const canCreate = hasRole(auth?.currentUser?.role, [ROLES.SUPER_ADMIN])
     || (organizerHealthWorkerScope && Boolean(organizerSchoolId));
   const [copyNotice, setCopyNotice] = useState('');
-  const [selectedSummaryCard, setSelectedSummaryCard] = useState(organizerHealthWorkerScope ? 'all' : null);
+  const [selectedSummaryCard, setSelectedSummaryCard] = useState(null);
   const [pendingStatusChange, setPendingStatusChange] = useState(null);
   const selectedBatch = batches.find((batch) => String(batch.id || batch.code) === String(batchId)) || null;
   const batchSchool = selectedBatch
@@ -141,7 +142,7 @@ export default function UserManagementPage() {
 
       <ModuleSummaryCards
         selected={selectedSummaryCard}
-        toggleOnSelect={!organizerHealthWorkerScope}
+        toggleOnSelect
         onSelect={(key) => {
           setSelectedSummaryCard(key);
           setStatusFilter(key ? key === 'all' ? 'All' : key === 'active' ? 'Active' : 'Suspended' : 'All');
@@ -167,6 +168,7 @@ export default function UserManagementPage() {
           },
         ]}
       />
+      {!selectedSummaryCard && <ModuleSelectionHint />}
 
       <AddUserModal
         showModal={showAddModal}
@@ -217,7 +219,7 @@ export default function UserManagementPage() {
         <div className="inline-toast" role="status" aria-live="polite">{copyNotice}</div>
       )}
 
-      {(organizerHealthWorkerScope || selectedSummaryCard) && (
+      {selectedSummaryCard && (
         <>
       <UserManagementTable
         currentRows={currentRows}
@@ -241,15 +243,6 @@ export default function UserManagementPage() {
         showGroup={organizerHealthWorkerScope}
         healthWorkerManagement={organizerHealthWorkerScope}
         statusFilter={selectedStatusFilter}
-        onStatusFilterChange={(status) => {
-          setStatusFilter(status);
-          setSelectedSummaryCard(status.toLowerCase());
-        }}
-        onClearFilters={() => {
-          handleSearch('');
-          setStatusFilter('All');
-          setSelectedSummaryCard('all');
-        }}
         onRequestStatusChange={setPendingStatusChange}
         loading={organizerHealthWorkerScope && usersLoading}
         loadError={organizerHealthWorkerScope ? usersLoadError : ''}

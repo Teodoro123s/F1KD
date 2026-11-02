@@ -8,6 +8,7 @@ export default function EntitySearchControls({
   onEntityToggle,
   onEntityChange,
   showEntityFilter = true,
+  showCommunityFilter = true,
   showSearch = true,
   onQueryChange,
 }) {
@@ -27,7 +28,7 @@ export default function EntitySearchControls({
           <option value="Child">Child</option>
         </select>
       )}
-      {communities.length > 0 && onCommunityChange && (
+      {showCommunityFilter && communities.length > 0 && onCommunityChange && (
         <select
           className="entity-filter-btn"
           value={selectedCommunity}

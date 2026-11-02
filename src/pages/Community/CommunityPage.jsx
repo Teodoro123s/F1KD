@@ -6,14 +6,15 @@ import CommunityToolbar from './components/CommunityToolbar';
 import CommunityPagination from './components/CommunityPagination';
 import CommunityOverviewCards from './components/CommunityOverviewCards';
 import ModuleSummaryCards from '../../components/ui/ModuleSummaryCards';
+import ModuleSelectionHint from '../../components/ui/ModuleSelectionHint';
 import BatchDocumentationPanel from './components/BatchDocumentationPanel';
 import { MoreVerticalIcon } from './CommunityIcons';
 import { useCommunityData } from './hooks/useCommunityData';
 import { useCommunityMutations } from './hooks/useCommunityMutations';
 import { useAuth } from '../../auth/AuthProvider';
 import { can, hasRole, isCommunityCoordinatorRole, isHealthWorkerRole, isSchoolScopedRole, ROLES } from '../../utils/permissions';
-import { getMotherProfileProgress } from '../../utils/beneficiary/motherProgress';
-import { getChildProfileProgress } from '../../utils/beneficiary/childProgress';
+import { getMotherDocumentProgress } from '../../utils/beneficiary/motherProgress';
+import { getChildDocumentProgress } from '../../utils/beneficiary/childProgress';
 import { apiGetChildren } from '../../api/children';
 import { apiArchiveRecord, apiGetArchiveImpact } from '../../api/archives';
 import { notifyAction } from '../../components/ActionFeedback';
@@ -107,14 +108,18 @@ export default function CommunityPage() {
               : 'communities';
 
   useEffect(() => {
-    setSchoolOverviewSelection(null);
-    setDrilldownSchoolId(null);
-    setDrilldownGroupId(null);
-    setDrilldownBatchId(null);
-    setSelectedBatchCard('Mother');
+    const previousView = location.state?.communityViewState;
+    setSchoolOverviewSelection(previousView?.schoolOverviewSelection ?? null);
+    setDrilldownSchoolId(previousView?.drilldownSchoolId ?? null);
+    setDrilldownGroupId(previousView?.drilldownGroupId ?? null);
+    setDrilldownBatchId(previousView?.drilldownBatchId ?? null);
+    setSelectedBatchCard(previousView?.selectedBatchCard || 'Mother');
     setBatchDocumentationCount(0);
-    setPage(1);
-  }, [schoolId, groupId, batchId]);
+    setQuery(previousView?.query || '');
+    setPage(previousView?.page || 1);
+    setPerPage(previousView?.perPage || 10);
+    setEntityFilter(previousView?.entityFilter || 'Mother');
+  }, [schoolId, groupId, batchId, location.key]);
 
   const selectedBatch = useMemo(
     () => batches.find((batch) => String(batch.id) === String(drilldownBatchId || batchId)),
@@ -349,7 +354,6 @@ export default function CommunityPage() {
             batch: child.batch_name || child.batch || '',
             batchId: child.effective_batch_id ?? child.batchId ?? child.batch_id ?? null,
             progress: Number(child.progress ?? 0),
-            profileProgress: getChildProfileProgress(child),
             raw: child,
           };
         });
@@ -447,7 +451,7 @@ export default function CommunityPage() {
     if (schoolOverviewSelection === 'groups') return 'Groups';
     if (schoolOverviewSelection === 'mothers') return 'Mothers';
     if (schoolOverviewSelection === 'children') return 'Children';
-    if (schoolOverviewSelection === 'batches') return 'Batches';
+    if (schoolOverviewSelection === 'batches') return selectedGroup?.name || 'Batches';
 
     if (activeTab === 'communities') {
       return 'Schools';
@@ -462,11 +466,11 @@ export default function CommunityPage() {
     }
 
     if (activeTab === 'mothers') {
-      return 'Mothers';
+      return selectedBatch?.name || 'Mothers';
     }
 
     return '';
-  }, [activeTab, schoolOverviewSelection]);
+  }, [activeTab, schoolOverviewSelection, selectedBatch, selectedGroup]);
 
   const breadcrumbItems = useMemo(() => {
     if (isHealthWorker || isAssignedCommunityOrganizer) {
@@ -815,7 +819,23 @@ export default function CommunityPage() {
 
   const handleMotherRowClick = (mother) => {
     navigate(`/beneficiary/mother/${mother.id}`, {
-      state: { mother, returnTo: `${location.pathname}${location.search}` },
+      state: {
+        mother,
+        returnTo: `${location.pathname}${location.search}`,
+        returnToState: {
+          communityViewState: {
+            schoolOverviewSelection,
+            drilldownSchoolId,
+            drilldownGroupId,
+            drilldownBatchId,
+            selectedBatchCard,
+            query,
+            page,
+            perPage,
+            entityFilter,
+          },
+        },
+      },
     });
   };
 
@@ -825,6 +845,19 @@ export default function CommunityPage() {
         child: child.raw || child,
         mother: child.raw?.mother || child.mother || null,
         returnTo: `${location.pathname}${location.search}`,
+        returnToState: {
+          communityViewState: {
+            schoolOverviewSelection,
+            drilldownSchoolId,
+            drilldownGroupId,
+            drilldownBatchId,
+            selectedBatchCard,
+            query,
+            page,
+            perPage,
+            entityFilter,
+          },
+        },
       },
     });
   };
@@ -948,14 +981,32 @@ export default function CommunityPage() {
         return appendActions([
           { key: 'name', header: 'Child Name', style: { width: '42%' }, renderCell: (row) => <span className="community-title-text">{row.name}</span> },
           { key: 'motherName', header: 'Mother Name', style: { width: '24%' }, renderCell: (row) => row.motherName || '—' },
-          { key: 'profileProgress', header: 'Profile Progress (%)', cellClassName: 'status-column', renderCell: (row) => `${Number(row.profileProgress ?? 0)}%` },
+          {
+            key: 'profileDocuments',
+            header: 'Profile Documents',
+            cellClassName: 'status-column',
+            renderCell: (row) => {
+              const documentProgress = getChildDocumentProgress(row.raw || row);
+              const complete = documentProgress.completed >= documentProgress.total;
+              return <span className={complete ? 'status-complete' : 'status-pending'}>{complete ? 'Complete' : 'Incomplete'}</span>;
+            },
+          },
           { key: 'progress', header: 'Monitor Progress (%)', cellClassName: 'status-column', renderCell: (row) => `${Number(row.progress ?? 0)}%` },
         ]);
       }
 
       return appendActions([
         { key: 'name', header: 'Mother Name', style: { width: '52%' }, renderCell: (row) => <span className="community-title-text">{row.name}</span> },
-        { key: 'profileProgress', header: 'Profile Progress (%)', cellClassName: 'status-column', renderCell: (row) => `${getMotherProfileProgress(row)}%` },
+        {
+          key: 'profileDocuments',
+          header: 'Profile Documents',
+          cellClassName: 'status-column',
+          renderCell: (row) => {
+            const documentProgress = getMotherDocumentProgress(row);
+            const complete = documentProgress.completed >= documentProgress.total;
+            return <span className={complete ? 'status-complete' : 'status-pending'}>{complete ? 'Complete' : 'Incomplete'}</span>;
+          },
+        },
         { key: 'progress', header: 'Monitor Progress (%)', cellClassName: 'status-column', renderCell: (row) => `${Number(row.progress ?? 0)}%` },
       ]);
     }
@@ -963,7 +1014,7 @@ export default function CommunityPage() {
     return appendActions([
       { key: 'name', header: 'Batch Name', style: { width: '42%' }, renderCell: (row) => <span className="community-title-text">{row.name}</span> },
       { key: 'records', header: 'Total Mothers', cellClassName: 'compact-column', renderCell: (row) => row.records },
-      { key: 'progress', header: 'Progress (%)', cellClassName: 'status-column', renderCell: (row) => `${row.progress ?? 0}%` },
+      { key: 'progress', header: 'Batch Progress (%)', cellClassName: 'status-column', renderCell: (row) => `${row.progress ?? 0}%` },
     ]);
   }, [activeDropdownId, activeTab, canManage, canManageSchools, entityFilter, groups, navigate, openEditModal, openTransferMother, requestDelete]);
 
@@ -1099,7 +1150,7 @@ export default function CommunityPage() {
       return [
         { key: 'name', header: 'Batch Name', renderCell: (row) => <span className="community-title-text">{row.name}</span> },
         { key: 'records', header: 'Total Mothers', cellClassName: 'compact-column', renderCell: (row) => row.records || 0 },
-        { key: 'progress', header: 'Progress (%)', cellClassName: 'status-column', renderCell: (row) => `${row.progress ?? 0}%` },
+        { key: 'progress', header: 'Batch Progress (%)', cellClassName: 'status-column', renderCell: (row) => `${row.progress ?? 0}%` },
         ...(batchActionColumn ? [batchActionColumn] : []),
       ];
     }
@@ -1167,6 +1218,11 @@ export default function CommunityPage() {
                 data={currentRows}
                 onRowClick={currentRowClickHandler}
                 tableTitle={tableTitle}
+                onBack={
+                  schoolOverviewSelection === 'batches' && selectedGroup
+                      ? () => handleOverviewSelection('groups')
+                      : undefined
+                }
                 toolbarContent={schoolOverviewSelection === 'children' ? (
                   <div className="community-child-column-filters">
                     <button
@@ -1234,7 +1290,7 @@ export default function CommunityPage() {
               />
             </>
           ) : (
-            <p className="community-overview-hint">Select a card to view its list.</p>
+            <ModuleSelectionHint />
           )}
         </>
       )}
@@ -1285,6 +1341,13 @@ export default function CommunityPage() {
               data={currentRows}
               onRowClick={currentRowClickHandler}
               tableTitle={tableTitle}
+              onBack={activeTab === 'mothers' && drilldownBatchId ? () => {
+                setDrilldownBatchId(null);
+                setSchoolOverviewSelection('batches');
+                setQuery('');
+                setPage(1);
+              } : undefined}
+              backLabel={activeTab === 'mothers' && drilldownBatchId ? 'Back to batches' : undefined}
               searchValue={query}
               onSearchChange={handleSearch}
             />

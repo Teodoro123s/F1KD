@@ -126,12 +126,17 @@ export function getMaternalMonitoringActivities(mothers, referenceDate = new Dat
     const slotsByIndex = new Map(slots.map((slot) => [slot.slotIndex, slot]));
     slots.forEach((slot) => {
       if (slot.checkupDate) {
+        const status = slot.checkupDate > todayKey
+          ? 'Pending'
+          : slot.checkup.completed === false
+            ? 'Missing'
+            : 'Completed';
         const activity = createActivity({
           mother,
           date: slot.checkupDate,
           trimester: slot.trimester,
           checkupNumber: slot.checkupNumber,
-          status: 'Completed',
+          status,
           kind: 'completed',
         });
         activitiesByIdentity.set(activity.key, activity);

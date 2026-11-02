@@ -1,5 +1,6 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import SummaryCard from '../../../components/ui/SummaryCard';
 
 export default function ChildNavigationCards({ child, mother, activeCard }) {
   const navigate = useNavigate();
@@ -68,17 +69,16 @@ export default function ChildNavigationCards({ child, mother, activeCard }) {
         {cards.map((card) => {
           const isSelected = card.key === activeCard;
           return (
-            <button
+            <SummaryCard
               key={card.key}
-              type="button"
-              className={`community-overview-card${isSelected ? ' is-selected' : ''}`}
+              className="community-overview-card"
+              label={card.label}
+              action={card.action}
+              selected={isSelected}
               onClick={card.onClick}
               disabled={card.disabled}
               aria-current={isSelected ? 'page' : undefined}
-            >
-              <span className="community-overview-card__label">{card.label}</span>
-              <span className="community-overview-card__action">{card.action}</span>
-            </button>
+            />
           );
         })}
       </div>

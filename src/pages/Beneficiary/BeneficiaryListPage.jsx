@@ -3,6 +3,8 @@ import BeneficiaryTable from './BeneficiaryTable';
 import StatusFilterBar from './components/StatusFilterBar';
 import EntitySearchControls from './components/EntitySearchControls';
 import ModuleSummaryCards from '../../components/ui/ModuleSummaryCards';
+import ModuleSelectionHint from '../../components/ui/ModuleSelectionHint';
+import TableSearch from '../../components/ui/TableSearch';
 import { apiGetChildren } from '../../api/children';
 import { getMotherProfileProgress, getMotherMonitoringProgress } from '../../utils/beneficiary/motherProgress';
 import { getChildProfileProgress, getChildMonitoringProgress } from '../../utils/beneficiary/childProgress';
@@ -24,7 +26,7 @@ const getGroupStatusByProgress = (g) => {
   return p >= 100 ? 'Complete' : 'Incomplete';
 };
 
-export default function BeneficiaryListPage({ communities = [], groups = [], batches = [], mothers = [], loading = false, mothersError = '', onSelectMother, onSelectChild, batchId = '' }) {
+export default function BeneficiaryListPage({ communities = [], groups = [], batches = [], mothers = [], loading = false, mothersError = '', onSelectMother, onSelectChild, batchId = '', showCommunityFilter = true }) {
   const [query, setQuery] = useState('');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('All');
   const [perPage, setPerPage] = useState(10);
@@ -258,8 +260,9 @@ export default function BeneficiaryListPage({ communities = [], groups = [], bat
           { key: 'children', label: 'Children', value: childRows.length, description: 'View list' },
         ]}
       />
+      {!selectedSummaryCard && <ModuleSelectionHint />}
       {selectedSummaryCard && (
-        <>
+        <div className="beneficiary-results">
           <section className="tabs-row beneficiary-filter-row">
             <StatusFilterBar
               mode="beneficiary"
@@ -273,11 +276,17 @@ export default function BeneficiaryListPage({ communities = [], groups = [], bat
             <EntitySearchControls
               selectedEntityFilter={selectedEntityFilter}
               showEntityFilter={false}
+              showCommunityFilter={showCommunityFilter}
               communities={communities}
               selectedCommunity={selectedCommunityFilter}
               onCommunityChange={(value) => { setSelectedCommunityFilter(value); setPage(1); }}
               showSearch={false}
               query={query}
+            />
+            <TableSearch
+              value={query}
+              onChange={handleSearch}
+              placeholder="Search names or school/group/batch"
             />
           </section>
 
@@ -298,10 +307,8 @@ export default function BeneficiaryListPage({ communities = [], groups = [], bat
             groups={groups}
             batches={batches}
             entityFilter={selectedEntityFilter}
-            searchValue={query}
-            onSearchChange={handleSearch}
           />
-        </>
+        </div>
       )}
     </>
   );

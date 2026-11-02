@@ -12,25 +12,40 @@ export default function CommunityTable({
   tableTitle,
   searchValue = '',
   onSearchChange,
+  onBack,
+  backLabel = 'Back to groups',
   getGroupLabel,
   toolbarContent,
 }) {
   const colSpan = Math.max(columns.length, 1);
   const hasTableToolbar = onSearchChange && (tableTitle || toolbarContent);
+  const renderedTitle = tableTitle && (
+    <div className={`community-table-title${onBack ? ' has-back-action' : ''}`}>
+      {onBack && (
+        <button type="button" className="community-table-back-button" onClick={onBack} aria-label={backLabel} title={backLabel}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M19 12H5" />
+            <path d="m12 19-7-7 7-7" />
+          </svg>
+        </button>
+      )}
+      {tableTitle}
+    </div>
+  );
 
   return (
     <section className="table-card">
       {hasTableToolbar ? (
         <div className="community-table-toolbar">
           <div className="community-table-toolbar-start">
-            {tableTitle && <div className="community-table-title">{tableTitle}</div>}
+            {renderedTitle}
             {toolbarContent}
           </div>
           <TableSearch value={searchValue} onChange={onSearchChange} />
         </div>
       ) : (
         <>
-          {tableTitle && <div className="community-table-title">{tableTitle}</div>}
+          {renderedTitle}
           {onSearchChange && <TableSearch value={searchValue} onChange={onSearchChange} />}
         </>
       )}

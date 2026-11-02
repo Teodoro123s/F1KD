@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import PageHeader from '../../components/ui/PageHeader';
 import ModuleSummaryCards from '../../components/ui/ModuleSummaryCards';
+import ModuleSelectionHint from '../../components/ui/ModuleSelectionHint';
 import CommunityTable from '../Community/CommunityTable';
 import CommunityPagination from '../Community/components/CommunityPagination';
 import { apiGetActivityReport, apiGetActivityUsers, apiGetReportScopes } from '../../api/reports';
@@ -395,6 +396,7 @@ export default function ReportsPage() {
         ]}
       />
 
+      {!selectedCard && <ModuleSelectionHint />}
       {selectedCard ? (
         <>
           {error && <div role="alert" className="error-message">{error}</div>}

@@ -1,7 +1,6 @@
 import React from 'react';
 import { getMotherDocumentProgress, getMotherMonitoringProgress } from '../../utils/beneficiary/motherProgress';
 import { getChildDocumentProgress, getChildMonitoringProgress, getChildProfileProgress } from '../../utils/beneficiary/childProgress';
-import TableSearch from '../../components/ui/TableSearch';
 
 export default function BeneficiaryTable({
   currentRows,
@@ -20,8 +19,6 @@ export default function BeneficiaryTable({
   groups = [],
   batches = [],
   entityFilter = 'Mother',
-  searchValue = '',
-  onSearchChange,
 }) {
   const emptyColSpan = entityFilter === 'Both' ? 2 : 1;
 
@@ -39,7 +36,6 @@ export default function BeneficiaryTable({
 
   return (
     <section className="table-card beneficiary-table-card">
-      {onSearchChange && <TableSearch value={searchValue} onChange={onSearchChange} placeholder="Search names or school/group/batch" />}
       <div className="table-overflow">
         <table className="data-table">
           <tbody>

@@ -103,6 +103,16 @@ async function queryState(sql, params = []) {
 
 const testPool = {
   query: async (sql, params = []) => {
+    if (sql.includes('FROM auth_sessions s')) {
+      return [[{
+        user_id: Number(params[1]),
+        role: 'Super Admin',
+        status: 'Active',
+        school_id: null,
+        group_id: null,
+        consent_accepted_at: new Date(),
+      }]];
+    }
     if (sql.startsWith('INSERT INTO notifications')) return [{ insertId: 1 }];
     if (sql.startsWith('INSERT INTO activity_logs')) return [{ insertId: 1 }];
     if (routeMode && sql.startsWith('SELECT id, first_name, middle_initial, last_name, role, status, school_id, group_id FROM users WHERE id = ?')) {
@@ -239,7 +249,7 @@ test('coordinator assignments are validated and changed atomically', async (t) =
   const createUserResponse = await fetch(`http://127.0.0.1:${server.address().port}/api/users`, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${jwt.sign({ id: 1, role: 'super_admin' }, process.env.JWT_SECRET)}`,
+      Authorization: `Bearer ${jwt.sign({ id: 1, sid: 'coordinator-assignment-create-session', role: 'super_admin' }, process.env.JWT_SECRET)}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
@@ -258,7 +268,7 @@ test('coordinator assignments are validated and changed atomically', async (t) =
   assert.equal(communities.get(2).coordinator_id, 13);
 
   const userUpdateUrl = `http://127.0.0.1:${server.address().port}/api/users`;
-  const adminToken = jwt.sign({ id: 1, role: 'super_admin' }, process.env.JWT_SECRET);
+  const adminToken = jwt.sign({ id: 1, sid: 'coordinator-assignment-update-session', role: 'super_admin' }, process.env.JWT_SECRET);
   const updateUser = (id, schoolId) => fetch(`${userUpdateUrl}/${id}`, {
     method: 'PUT',
     headers: {

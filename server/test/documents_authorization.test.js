@@ -30,8 +30,27 @@ test('beneficiary documents require authentication and match the user school sco
   const localFileName = `document-auth-test-${process.pid}.txt`;
   const localFilePath = path.join(uploadDirectory, localFileName);
   await fs.promises.writeFile(localFilePath, 'authorized local document');
+  const testSessions = new Map();
+  let nextSessionId = 0;
+  const createToken = (user) => {
+    const sid = `document-auth-session-${++nextSessionId}`;
+    testSessions.set(sid, user);
+    return jwt.sign({ ...user, sid }, process.env.JWT_SECRET);
+  };
   let documentType = 'mother';
   pool.query = async (sql, params) => {
+    if (sql.includes('FROM auth_sessions s')) {
+      const session = testSessions.get(String(params[0]));
+      return [session ? [{
+        user_id: session.id,
+        email: 'test@example.test',
+        role: session.role,
+        status: 'Active',
+        school_id: session.school_id ?? null,
+        group_id: session.group_id ?? null,
+        consent_accepted_at: new Date(),
+      }] : []];
+    }
     assert.match(sql, /birth_certificate_document_path = \?/);
     assert.deepEqual(params, [params[0], params[0], params[0], params[0], params[0]]);
     return [[{ community_id: 12, group_id: 5, document_type: documentType }]];
@@ -55,14 +74,14 @@ test('beneficiary documents require authentication and match the user school sco
   const unauthorizedLocalFile = await fetch(`${baseUrl}/uploads/private.pdf`);
   assert.equal(unauthorizedLocalFile.status, 401);
 
-  const schoolToken = jwt.sign({ id: 1, role: 'Community Coordinator', school_id: 12 }, process.env.JWT_SECRET);
+  const schoolToken = createToken({ id: 1, role: 'Community Coordinator', school_id: 12 });
   const authorized = await fetch(`${baseUrl}${documentUrlPath}`, {
     headers: { Authorization: `Bearer ${schoolToken}` },
   });
   assert.equal(authorized.status, 404);
   assert.deepEqual(await authorized.json(), { error: 'Document storage is not configured' });
 
-  const superadminToken = jwt.sign({ id: 4, role: 'Superadmin' }, process.env.JWT_SECRET);
+  const superadminToken = createToken({ id: 4, role: 'Superadmin' });
   const tokenHeaders = (token) => ({ Authorization: ['Bearer', token].join(' ') });
   const superadminCanReadBeneficiaryDocument = await fetch(`${baseUrl}${documentUrlPath}`, {
     headers: tokenHeaders(superadminToken),
@@ -93,18 +112,19 @@ test('beneficiary documents require authentication and match the user school sco
   assert.equal(await authorizedLocalFile.text(), 'authorized local document');
 
   for (const role of ['Partner', 'Admin', 'Health Worker']) {
-    const scopedToken = jwt.sign({
+    const scopedToken = createToken({
       id: 3,
       role,
       ...(role === 'Health Worker' ? { school_id: 12 } : {}),
-    }, process.env.JWT_SECRET);
+      ...(role === 'Health Worker' ? { group_id: 5 } : {}),
+    });
     const roleCanRead = await fetch(`${baseUrl}/uploads/${localFileName}`, {
       headers: { Authorization: `Bearer ${scopedToken}` },
     });
     assert.equal(roleCanRead.status, 200, `${role} should be able to view batch evidence images`);
   }
 
-  const otherSchoolToken = jwt.sign({ id: 2, role: 'Community Coordinator', school_id: 13 }, process.env.JWT_SECRET);
+  const otherSchoolToken = createToken({ id: 2, role: 'Community Coordinator', school_id: 13 });
   const forbidden = await fetch(`${baseUrl}${documentUrlPath}`, {
     headers: { Authorization: `Bearer ${otherSchoolToken}` },
   });

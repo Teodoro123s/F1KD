@@ -240,6 +240,7 @@ export default function BeneficiaryPage() {
             communities={scopedCommunities}
             groups={scopedGroups}
             batches={scopedBatches}
+            showCommunityFilter={!isSchoolScopedUser || !assignedSchoolId}
             onSelectMother={handleSelectMother}
             onSelectChild={handleSelectChild}
             batchId={batchId}

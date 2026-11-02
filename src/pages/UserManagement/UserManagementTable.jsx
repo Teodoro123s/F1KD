@@ -19,8 +19,6 @@ export default function UserManagementTable({
   toolbarActions,
   healthWorkerManagement = false,
   statusFilter = 'All',
-  onStatusFilterChange,
-  onClearFilters,
   onRequestStatusChange,
   loading = false,
   loadError = '',
@@ -115,36 +113,15 @@ export default function UserManagementTable({
 
   return (
     <section className="table-card user-management-list-card">
-      {healthWorkerManagement && (
-        <header className="health-worker-table-heading">
-          <h2>Health Worker Accounts</h2>
-          <p>View and manage Health Worker accounts assigned to your community.</p>
-        </header>
-      )}
       {(toolbarActions || onSearchChange) && (
         <div className="user-management-table-toolbar">
           {toolbarActions}
-          {healthWorkerManagement && (
-            <label className="health-worker-status-filter">
-              <span>Account Status</span>
-              <select value={statusFilter} onChange={(event) => onStatusFilterChange(event.target.value)}>
-                <option value="All">All statuses</option>
-                <option value="Active">Active</option>
-                <option value="Suspended">Suspended</option>
-              </select>
-            </label>
-          )}
           {onSearchChange && (
             <TableSearch
               value={searchValue}
               onChange={onSearchChange}
               placeholder={healthWorkerManagement ? 'Search name or username' : 'Search users'}
             />
-          )}
-          {healthWorkerManagement && (
-            <button type="button" className="health-worker-clear-filters" onClick={onClearFilters}>
-              Clear filters
-            </button>
           )}
         </div>
       )}

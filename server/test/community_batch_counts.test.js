@@ -60,7 +60,19 @@ test('community summary counts batches linked through mothers in their group', a
         { batchId: 3, motherId: 5, motherProgress: 11 },
       ]];
     }
-    if (sql.includes('FROM mothers m')) return [[]];
+    if (sql.includes('FROM mothers m')) {
+      if (sql.includes('m.mother_code AS id')) {
+        return [[{
+          id: 'M-1',
+          name: 'Test Mother',
+          birth_certificate_document_name: 'birth-certificate.pdf',
+          birth_certificate_document_path: '/documents/birth-certificate.pdf',
+          consent_document_name: 'consent-form.pdf',
+          consent_document_path: '/documents/consent-form.pdf',
+        }]];
+      }
+      return [[]];
+    }
     throw new Error(`Unexpected community summary SQL: ${sql}`);
   };
   queryLog.length = 0;
@@ -77,6 +89,22 @@ test('community summary counts batches linked through mothers in their group', a
   assert.equal(response.status, 200);
   const summary = await response.json();
 
+  assert.deepEqual(
+    [
+      summary.mothers[0].birth_certificate_document_name,
+      summary.mothers[0].birth_certificate_document_path,
+      summary.mothers[0].consent_document_name,
+      summary.mothers[0].consent_document_path,
+    ],
+    [
+      'birth-certificate.pdf',
+      '/documents/birth-certificate.pdf',
+      'consent-form.pdf',
+      '/documents/consent-form.pdf',
+    ],
+  );
+  assert.match(queryLog.find((sql) => sql.includes('m.mother_code AS id')), /m\.birth_certificate_document_name/);
+  assert.match(queryLog.find((sql) => sql.includes('m.mother_code AS id')), /m\.consent_document_name/);
   assert.equal(summary.groups[0].batches, 1);
   assert.equal(summary.groups[1].batches, 0);
   assert.equal(summary.batches[0].groupIds, '2');

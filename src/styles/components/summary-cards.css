@@ -1,0 +1,70 @@
+.summary-card {
+  display: grid;
+  align-content: start;
+  justify-items: start;
+  gap: 0.3rem;
+  align-self: start;
+  min-width: 0;
+  height: 84px;
+  min-height: 0;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid #dfe6ee;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--slate-dark);
+  text-align: left;
+  font: inherit;
+  animation: f1kd-card-enter var(--motion-modal-duration) var(--motion-ease-out) both;
+}
+
+button.summary-card {
+  width: 100%;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+}
+
+button.summary-card:hover,
+button.summary-card.is-selected {
+  border-color: #15803d;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+}
+
+button.summary-card:focus-visible {
+  outline: 3px solid rgba(21, 128, 61, 0.3);
+  outline-offset: 2px;
+}
+
+.summary-card:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.summary-card__label {
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.summary-card__value {
+  color: #0f172a;
+  font-size: 1.4rem;
+  line-height: 1.1;
+}
+
+.summary-card__support {
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.module-selection-hint {
+  margin: 0;
+  padding: 0.65rem;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  color: #64748b;
+  text-align: center;
+}

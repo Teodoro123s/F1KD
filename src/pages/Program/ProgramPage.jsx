@@ -30,7 +30,7 @@ import {
   normalizeBeneficiaryType,
 } from "./programData";
 import ProjectActivityCalendar from './ProjectActivityCalendar';
-import { addUnrecordedProgramRecipients, toLocalDateKey } from './projectActivityCalendarUtils.mjs';
+import { toLocalDateKey } from './projectActivityCalendarUtils.mjs';
 
 const localDate = () => {
   const date = new Date();
@@ -685,16 +685,6 @@ export default function ProgramPage() {
     ))
     : [];
   const scopedBeneficiaryRecords = useMemo(() => getProgramBeneficiaryRecords(selectedProgram), [selectedProgram, beneficiaryRecords]);
-  const projectCalendarActivities = useMemo(
-    () => addUnrecordedProgramRecipients(
-      projectActivities,
-      programs,
-      (program) => getProgramBeneficiaryRecords(program, beneficiaryRecords),
-      toLocalDateKey(new Date()),
-    ),
-    [beneficiaryRecords, currentUser?.group_id, currentUser?.groupId, currentUser?.role, hierarchy.groups, programs, projectActivities],
-  );
-
   const drilledBeneficiaries = scopedBeneficiaryRecords.filter((record) => {
     if (!drillBatch) return false;
     return String(record.batch).toLowerCase() === String(drillBatch.name || drillBatch.batch_code || drillBatch.code || '').toLowerCase();
@@ -1316,10 +1306,10 @@ export default function ProgramPage() {
             setActiveTab(tab);
           }}
           cards={[
-            { key: 'All', label: 'Total Projects', value: programs.length },
-            { key: 'Active', label: 'Active Projects', value: filterPrograms(programs, '', 'Active').length },
-            { key: 'Ended', label: 'Completed Projects', value: filterPrograms(programs, '', 'Ended').length },
-            ...(isCommunityOrganizer ? [{ key: 'Archived', label: 'Archived Projects', value: archivedPrograms?.length ?? '—' }] : []),
+            { key: 'All', label: 'Total Projects', value: programs.length, description: 'View list', selectedDescription: 'Hide list' },
+            { key: 'Active', label: 'Active Projects', value: filterPrograms(programs, '', 'Active').length, description: 'View list', selectedDescription: 'Hide list' },
+            { key: 'Ended', label: 'Completed Projects', value: filterPrograms(programs, '', 'Ended').length, description: 'View list', selectedDescription: 'Hide list' },
+            ...(isCommunityOrganizer ? [{ key: 'Archived', label: 'Archived Projects', value: Array.isArray(archivedPrograms) ? archivedPrograms.length : 0, description: 'View list', selectedDescription: 'Hide list' }] : []),
           ]}
         />
       )}
@@ -1327,7 +1317,7 @@ export default function ProgramPage() {
       {!viewMode && !activeTab && (
         <ProjectActivityCalendar
           month={activityMonth}
-          activities={projectCalendarActivities}
+          activities={projectActivities}
           loading={activityLoading}
           error={activityError}
           onRetry={() => setActivityRetry((current) => current + 1)}

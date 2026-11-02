@@ -19,8 +19,7 @@ const TYPE_SINGULAR_LABELS = {
   child: 'Child',
 };
 
-export default function ArchiveRecordsPanel({ types, onChanged }) {
-  const [view, setView] = useState('records');
+export default function ArchiveRecordsPanel({ types, view, onChanged }) {
   const [type, setType] = useState(types[0] || 'group');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -41,6 +40,10 @@ export default function ArchiveRecordsPanel({ types, onChanged }) {
   useEffect(() => {
     if (!types.includes(type)) setType(types[0] || 'group');
   }, [type, types]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [view]);
 
   useEffect(() => {
     if (view !== 'records') return undefined;
@@ -109,16 +112,10 @@ export default function ArchiveRecordsPanel({ types, onChanged }) {
   const activityPageCount = Math.max(1, Math.ceil(activityTotal / limit));
 
   return (
-    <section className="table-card archive-records-panel" aria-label="Archived records">
-      <div className="community-table-toolbar">
+    <section className="table-card archive-records-panel" aria-label={view === 'records' ? 'Archived records' : 'Archive activity'}>
+      <div className="archive-records-toolbar">
         <div className="community-table-title">Archive management</div>
-      </div>
-      <div className="archive-view-toggle" role="group" aria-label="Archive view">
-        <button type="button" className={view === 'records' ? 'active' : ''} aria-pressed={view === 'records'} onClick={() => { setView('records'); setPage(1); }}>Archived records</button>
-        <button type="button" className={view === 'activity' ? 'active' : ''} aria-pressed={view === 'activity'} onClick={() => { setView('activity'); setPage(1); }}>Archive activity</button>
-      </div>
-      {view === 'records' ? (
-        <>
+        {view === 'records' && (
           <div className="archive-records-controls">
             {types.length > 1 && (
               <label>
@@ -128,7 +125,7 @@ export default function ArchiveRecordsPanel({ types, onChanged }) {
                 </select>
               </label>
             )}
-            <label>
+            <label className="archive-records-search">
               <span className="sr-only">Search archived records</span>
               <input
                 type="search"
@@ -138,6 +135,10 @@ export default function ArchiveRecordsPanel({ types, onChanged }) {
               />
             </label>
           </div>
+        )}
+      </div>
+      {view === 'records' ? (
+        <>
           {error && <p className="error-message" role="alert">{error}</p>}
           {loading ? (
             <p className="archive-records-state" role="status">Loading archived records…</p>

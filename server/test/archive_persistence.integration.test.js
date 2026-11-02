@@ -14,6 +14,8 @@ test('archive metadata persists and historical report results remain equivalent'
   const pool = require('../db');
   const { authorizeOperational, authorizeProgressReport } = require('../middleware/authorize');
   const archivesRouter = require('../routes/archives');
+  const mothersRouter = require('../routes/mothers');
+  const childrenRouter = require('../routes/children');
   const progressReportRouter = require('../routes/progressReport');
   const programsRouter = require('../routes/programs');
   await pool.ready;
@@ -189,6 +191,26 @@ test('archive metadata persists and historical report results remain equivalent'
     };
     return authorizeOperational(req, res, next);
   }, archivesRouter);
+  app.use('/api/mothers', (req, res, next) => {
+    req.user = {
+      id: userId,
+      name: 'Synthetic Archive Tester',
+      role,
+      school_id: assignedSchool,
+      group_id: assignedGroup,
+    };
+    return authorizeOperational(req, res, next);
+  }, mothersRouter);
+  app.use('/api/children', (req, res, next) => {
+    req.user = {
+      id: userId,
+      name: 'Synthetic Archive Tester',
+      role,
+      school_id: assignedSchool,
+      group_id: assignedGroup,
+    };
+    return authorizeOperational(req, res, next);
+  }, childrenRouter);
   app.use('/api/progress-report', (req, res, next) => {
     req.user = {
       id: userId,
@@ -221,6 +243,11 @@ test('archive metadata persists and historical report results remain equivalent'
   const apiRequest = (roleValue, path, options = {}) => {
     role = roleValue;
     return fetch(`${apiOrigin}${path}`, options);
+  };
+  const activeRecordsFor = async (roleValue, path, key) => {
+    const response = await apiRequest(roleValue, path);
+    assert.equal(response.status, 200, `${roleValue} must retain active-list access`);
+    return (await response.json())[key];
   };
   const reportQuery = (granularity) => new URLSearchParams({
     schoolId: String(schoolId),
@@ -343,6 +370,10 @@ test('archive metadata persists and historical report results remain equivalent'
   for (const roleValue of roles) {
     historyBaseline.set(roleValue, await snapshotFor(roleValue));
   }
+  const activeMothers = await activeRecordsFor('Community Organizer', '/mothers?page=1&perPage=100', 'mothers');
+  assert.ok(activeMothers.some((mother) => mother.motherId === `M${suffix}`), JSON.stringify(activeMothers));
+  const activeChildren = await activeRecordsFor('Community Organizer', '/children?page=1&perPage=100', 'children');
+  assert.ok(activeChildren.some((child) => child.child_code === `C${suffix}`), JSON.stringify(activeChildren));
   assert.equal(historyBaseline.get('Admin').childReport.summary.total, 1);
   assert.equal(historyBaseline.get('Partner').motherReport.summary.total, 1);
   assert.equal(historyBaseline.get('Community Organizer').childReport.rows[0].receivedBenefitTotal, 1);
@@ -385,8 +416,60 @@ test('archive metadata persists and historical report results remain equivalent'
   role = 'Super Admin';
   assert.equal((await post('school', schoolId, 'restore')).status, 200);
   await assertHistoricalReportsUnchanged(historyBaseline, 'after school restore');
+  const [[groupAfterSchoolRestore]] = await pool.query(
+    'SELECT archived_at FROM groups WHERE id = ?',
+    [groupId],
+  );
+  assert.ok(groupAfterSchoolRestore.archived_at, 'Restoring a school must not restore its archived group');
   role = 'Community Organizer';
   assert.equal((await post('group', groupId, 'restore')).status, 200);
+  await assertHistoricalReportsUnchanged(historyBaseline, 'after group restore');
+
+  role = 'Community Organizer';
+  const motherArchive = await post('mother', motherId, 'archive', { reason: 'Synthetic mother archive check' });
+  assert.equal(motherArchive.status, 200);
+  const [[archivedMother]] = await pool.query(
+    'SELECT archived_at, archived_by_user_id, archive_reason FROM mothers WHERE id = ?',
+    [motherId],
+  );
+  assert.ok(archivedMother.archived_at);
+  assert.equal(archivedMother.archived_by_user_id, userId);
+  assert.equal(archivedMother.archive_reason, 'Synthetic mother archive check');
+  assert.equal((await activeRecordsFor('Community Organizer', '/mothers?page=1&perPage=100', 'mothers'))
+    .some((mother) => mother.motherId === `M${suffix}`), false);
+  assert.equal((await activeRecordsFor('Community Organizer', '/children?page=1&perPage=100', 'children'))
+    .some((child) => child.child_code === `C${suffix}`), false);
+  const [[childAfterMotherArchive]] = await pool.query(
+    'SELECT archived_at FROM children WHERE id = ?',
+    [childId],
+  );
+  assert.equal(childAfterMotherArchive.archived_at, null, 'Archiving a mother must not archive the child record');
+  assert.equal((await post('child', childId, 'restore')).status, 409);
+  const motherArchiveList = await fetch(`${origin}?type=mother&search=${encodeURIComponent(`Synthetic Mother`)}`);
+  assert.equal(motherArchiveList.status, 200);
+  assert.equal((await motherArchiveList.json()).records[0].archive_reason, 'Synthetic mother archive check');
+  role = 'Community Organizer';
+  assert.equal((await post('mother', motherId, 'restore')).status, 200);
+  await assertHistoricalReportsUnchanged(historyBaseline, 'after mother archive and restore');
+
+  role = 'Community Organizer';
+  const childArchive = await post('child', childId, 'archive', { reason: 'Synthetic child archive check' });
+  assert.equal(childArchive.status, 200);
+  const [[archivedChild]] = await pool.query(
+    'SELECT archived_at, archived_by_user_id, archive_reason FROM children WHERE id = ?',
+    [childId],
+  );
+  assert.ok(archivedChild.archived_at);
+  assert.equal(archivedChild.archived_by_user_id, userId);
+  assert.equal(archivedChild.archive_reason, 'Synthetic child archive check');
+  assert.equal((await activeRecordsFor('Community Organizer', '/children?page=1&perPage=100', 'children'))
+    .some((child) => child.child_code === `C${suffix}`), false);
+  const childArchiveList = await fetch(`${origin}?type=child&search=${encodeURIComponent(`Synthetic Child`)}`);
+  assert.equal(childArchiveList.status, 200);
+  assert.equal((await childArchiveList.json()).records[0].archive_reason, 'Synthetic child archive check');
+  role = 'Community Organizer';
+  assert.equal((await post('child', childId, 'restore')).status, 200);
+  await assertHistoricalReportsUnchanged(historyBaseline, 'after child archive and restore');
 
   const [[restoredGroup]] = await pool.query(
     'SELECT archived_at, archived_by_user_id, archive_reason FROM groups WHERE id = ?',
@@ -402,6 +485,13 @@ test('archive metadata persists and historical report results remain equivalent'
     [String(groupId)],
   );
   assert.equal(Number(activity.total), 6);
+  const [[beneficiaryActivity]] = await pool.query(
+    `SELECT COUNT(*) AS total FROM activity_logs
+     WHERE category = 'Archive' AND entity_type IN ('mother', 'child')
+       AND entity_id IN (?, ?) AND action IN ('archive', 'restore')`,
+    [String(motherId), String(childId)],
+  );
+  assert.equal(Number(beneficiaryActivity.total), 4);
 
   role = 'Community Organizer';
   assert.equal((await apiRequest('Community Organizer', `/programs/${programId}/archive`, {

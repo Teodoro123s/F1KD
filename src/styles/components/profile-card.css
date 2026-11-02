@@ -825,7 +825,11 @@
 .program-summary small { color: #64748b; }
 .program-table-card { margin-top: 1.5rem; }
 .program-page > .module-summary-cards {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-auto-flow: row;
+  grid-auto-rows: 84px;
+  align-items: stretch;
+  gap: 0.75rem;
   margin-top: 1rem;
 }
 .program-table-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.1rem 1.25rem; border-bottom: 1px solid #e2e8f0; background: #fff; }
@@ -872,7 +876,6 @@
 .program-report-summary-panel,
 .program-report-data-panel { margin-bottom: 0; }
 .program-report-summary-panel > .module-summary-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 0; }
-.program-report-summary-panel > .module-summary-cards .module-summary-card { min-height: 118px; }
 .program-receipt-history-page .program-receipt-table-scroll { width: 100%; overflow-x: auto; overflow-y: hidden; }
 .program-receipt-history-page .data-table { width: 100%; min-width: 0; table-layout: fixed; }
 .program-receipt-history-page .data-table th,
@@ -1318,8 +1321,7 @@
 .project-activity-status-legend { display: flex; flex-wrap: wrap; gap: 0.8rem; margin: 0 0 0.7rem; color: #475569; font-size: 0.74rem; font-weight: 700; }
 .project-activity-status-legend span { display: inline-flex; align-items: center; gap: 0.3rem; }
 .project-activity-status-legend i { width: 0.55rem; height: 0.55rem; border-radius: 50%; }
-.project-activity-status-legend .is-done { background: #16a34a; }
-.project-activity-status-legend .is-absent { background: #dc2626; }
+.project-activity-status-legend .is-check-in { background: #16a34a; }
 .project-activity-state {
   margin: 0.6rem 0;
   color: #64748b;
@@ -1403,14 +1405,9 @@
 }
 .project-activity-chip { background: #f1f5f9; color: #166534; font-weight: 650; }
 .project-activity-chip-name { display: block; overflow: hidden; text-overflow: ellipsis; }
-.project-activity-chip-statuses { display: flex; gap: 0.3rem; color: #475569; font-size: 0.62rem; font-weight: 800; }
-.project-activity-chip-statuses .is-done,
-.project-activity-status-count.is-done { color: #166534; }
-.project-activity-chip-statuses .is-absent,
-.project-activity-status-count.is-absent { color: #991b1b; }
+.project-activity-chip-check-ins { color: #166534; font-size: 0.62rem; font-weight: 800; }
 .project-activity-status-count { display: inline-flex; min-width: 1.6rem; justify-content: center; padding: 0.15rem 0.35rem; border-radius: 999px; background: #f1f5f9; font-size: 0.75rem; font-weight: 800; }
-.project-activity-status-count.is-done { background: #dcfce7; }
-.project-activity-status-count.is-absent { background: #fee2e2; }
+.project-activity-status-count.is-check-in { background: #dcfce7; color: #166534; }
 .project-activity-more { color: #15803d; font-weight: 750; }
 .project-activity-date-view { min-height: 320px; }
 .project-activity-date-view .project-activity-calendar-header { align-items: flex-start; }

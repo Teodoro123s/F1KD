@@ -181,16 +181,44 @@
   gap: 0.75rem;
 }
 
+.view-content .notifications-filter-row .subheader-left {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 0;
+}
+
+.view-content .community-page .notifications-filter-row {
+  flex-wrap: nowrap;
+  align-items: center;
+}
+
+.view-content .community-page .notifications-filter-row .notification-status-filter {
+  align-items: center;
+  flex-direction: row;
+}
+
 .notifications-filter-row .subheader-right {
   flex: 1 1 220px;
   min-width: 200px;
   width: auto;
 }
 
+.view-content .notifications-filter-row .subheader-right {
+  flex: 1 1 220px;
+  width: auto;
+  min-width: 200px;
+}
+
 .notifications-filter-row .search-container {
   width: min(420px, 100%);
   min-width: 0;
   margin-left: auto;
+}
+
+.view-content .notifications-filter-row .search-container {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
 }
 
 .notifications-filter-row .search-field-container {
@@ -210,17 +238,18 @@
 .notifications-timeline-table td {
   padding: 0.55rem 0.45rem;
 }
-.notifications-timeline-table .notifications-timeline-selection { width: 7%; text-align: center; }
+.notifications-timeline-table .notifications-timeline-selection { width: 8%; text-align: center; }
 .notifications-timeline-table .notifications-timeline-selection input { width: 16px; height: 16px; accent-color: #15803d; cursor: pointer; }
+.notifications-timeline-table .notifications-timeline-selection:has(.notifications-select-all) { min-width: 76px; }
 .notifications-timeline-table .notifications-timeline-subject { width: 24%; }
-.notifications-timeline-table .notifications-timeline-message { width: 52%; }
+.notifications-timeline-table .notifications-timeline-message { width: 51%; }
 .notifications-timeline-table .notifications-timeline-received { width: 20%; }
 .notifications-timeline-table .notifications-timeline-selection {
   padding-left: 0.25rem;
   padding-right: 0.25rem;
 }
-.notifications-select-all { display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem; cursor: pointer; }
-.notifications-select-all span { color: #64748b; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em; }
+.notifications-select-all { display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem; white-space: nowrap; cursor: pointer; }
+.notifications-select-all span { color: #64748b; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em; white-space: nowrap; }
 .notifications-timeline-table .notifications-timeline-received {
   white-space: nowrap;
 }
@@ -279,4 +308,26 @@
   .notification-status-filter select { min-width: min(190px, 100%); }
   .notifications-timeline-heading { align-items: flex-start; flex-direction: column; }
   .notification-bulk-toolbar > span { flex-basis: 100%; }
+}
+
+@container view-content-layout (max-width: 520px) {
+  .view-content .community-page .notifications-filter-row {
+    flex-wrap: wrap;
+  }
+
+  .view-content .community-page .notifications-filter-row .subheader-left,
+  .view-content .community-page .notifications-filter-row .subheader-right {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
+  .view-content .community-page .notifications-filter-row .notification-status-filter {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .view-content .community-page .notifications-filter-row .subheader-right,
+  .view-content .community-page .notifications-filter-row .search-container {
+    min-width: 0;
+  }
 }

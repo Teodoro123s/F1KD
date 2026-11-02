@@ -96,6 +96,23 @@ test('calendar labels an uncompleted appointment due today as pending', () => {
   assert.equal(activities.find(({ status }) => status === 'Pending')?.activityDate, '2026-10-27');
 });
 
+test('calendar labels a future-dated incomplete check-up as pending', () => {
+  const mother = {
+    id: 13,
+    name: 'Future Appointment',
+    checkups: [[
+      { checkupDate: '2026-11-28', completed: false, trimester: '1st Trimester', checkupNumber: 2 },
+      null,
+      null,
+    ], [null, null, null], [null, null, null]],
+  };
+  const activities = getMaternalMonitoringActivities([mother], new Date(2026, 10, 2));
+
+  assert.deepEqual(activities.map(({ activityDate, status }) => ({ activityDate, status })), [
+    { activityDate: '2026-11-28', status: 'Pending' },
+  ]);
+});
+
 test('calendar does not duplicate a completed check-up on its scheduled date', () => {
   const mother = {
     id: 10,

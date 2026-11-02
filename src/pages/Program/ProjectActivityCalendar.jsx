@@ -3,7 +3,7 @@ import {
   formatActivityDate,
   getDistinctProjectsForDate,
   getMonthCalendarDays,
-  getProjectActivityStatusSummary,
+  getProjectActivityCheckInSummary,
   toLocalDateKey,
 } from './projectActivityCalendarUtils.mjs';
 
@@ -66,8 +66,7 @@ export default function ProjectActivityCalendar({
                   <tr>
                     <th>Project Name</th>
                     <th>Activity Date</th>
-                    <th>Done</th>
-                    <th>Absent</th>
+                    <th>Check-ins</th>
                     {canManageProjects && <th>Action</th>}
                   </tr>
                 </thead>
@@ -90,8 +89,7 @@ export default function ProjectActivityCalendar({
                     >
                       <td><strong>{project.name}</strong></td>
                       <td>{formatActivityDate(project.activityDate)}</td>
-                      <td><span className="project-activity-status-count is-done">{project.activityCounts.done}</span></td>
-                      <td><span className="project-activity-status-count is-absent">{project.activityCounts.absent}</span></td>
+                      <td><span className="project-activity-status-count is-check-in">{project.checkIns}</span></td>
                       {canManageProjects && <td>{renderProjectActions?.(project)}</td>}
                     </tr>
                   ))}
@@ -113,7 +111,7 @@ export default function ProjectActivityCalendar({
             <div>
               <p className="program-section-eyebrow">Activity overview</p>
               <h2 id="project-activity-calendar-title">Project Activity Calendar</h2>
-              <p className="project-activity-calendar-description">Yes is counted as done. No or no recorded response is counted as absent.</p>
+              <p className="project-activity-calendar-description">Counts recorded check-ins only.</p>
             </div>
             <div className="project-activity-calendar-controls" aria-label="Calendar navigation">
               <button type="button" className="view-btn view-btn--secondary" onClick={() => monthShift(-1)} aria-label="Previous month">Previous Month</button>
@@ -123,8 +121,7 @@ export default function ProjectActivityCalendar({
           </div>
           <div className="project-activity-month" aria-live="polite">{monthLabel}</div>
           <div className="project-activity-status-legend" aria-label="Project check-in status legend">
-            <span><i className="is-done" aria-hidden="true" />D · Done</span>
-            <span><i className="is-absent" aria-hidden="true" />A · Absent</span>
+            <span><i className="is-check-in" aria-hidden="true" />Recorded check-ins</span>
           </div>
           {error && (
             <div className="project-activity-error" role="alert">
@@ -145,7 +142,7 @@ export default function ProjectActivityCalendar({
               const visibleProjects = projects.slice(0, 2);
               const overflow = projects.length - visibleProjects.length;
               const accessibleProjects = projects.length
-                ? `Projects: ${projects.map((project) => `${project.name}, ${getProjectActivityStatusSummary(project.activityCounts) || 'status not available'}`).join('; ')}`
+                ? `Projects: ${projects.map((project) => `${project.name}, ${getProjectActivityCheckInSummary(project.checkIns)}`).join('; ')}`
                 : 'No project activity';
               return (
                 <button
@@ -168,12 +165,11 @@ export default function ProjectActivityCalendar({
                       <span
                         className="project-activity-chip"
                         key={project.id}
-                        title={`${project.name}: ${getProjectActivityStatusSummary(project.activityCounts) || 'status not available'}`}
+                        title={`${project.name}: ${getProjectActivityCheckInSummary(project.checkIns)}`}
                       >
                         <span className="project-activity-chip-name">{project.name}</span>
-                        <span className="project-activity-chip-statuses" aria-hidden="true">
-                          {project.activityCounts.done > 0 && <span className="is-done">D {project.activityCounts.done}</span>}
-                          {project.activityCounts.absent > 0 && <span className="is-absent">A {project.activityCounts.absent}</span>}
+                        <span className="project-activity-chip-check-ins" aria-hidden="true">
+                          {getProjectActivityCheckInSummary(project.checkIns)}
                         </span>
                       </span>
                     ))}

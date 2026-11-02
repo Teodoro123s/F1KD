@@ -33,11 +33,25 @@ test('community organizer can assign a batch to a group in their school', async 
   const notificationCalls = [];
 
   pool.query = async (sql, params = []) => {
+    if (sql.includes('FROM auth_sessions s')) {
+      return [[{
+        user_id: 7,
+        role: 'Community Organizer',
+        status: 'Active',
+        school_id: 91,
+        group_id: null,
+        consent_accepted_at: new Date(),
+      }]];
+    }
     queryCalls.push({ sql, params });
-    if (sql === 'SELECT id FROM batches WHERE id = ? AND community_id = ? LIMIT 1') {
+    if (sql === 'SELECT id FROM communities WHERE id = ? AND archived_at IS NULL LIMIT 1') {
+      return [[{ id: 91 }]];
+    }
+    if (sql === 'SELECT id FROM batches WHERE id = ? AND archived_at IS NULL LIMIT 1'
+      || sql === 'SELECT id FROM batches WHERE id = ? AND community_id = ? AND archived_at IS NULL LIMIT 1') {
       return [[{ id: 5 }]];
     }
-    if (sql === 'SELECT id FROM groups WHERE id = ? AND community_id = ? LIMIT 1') {
+    if (sql === 'SELECT id FROM groups WHERE id = ? AND community_id = ? AND archived_at IS NULL LIMIT 1') {
       return [[{ id: 12 }]];
     }
     if (sql.startsWith('INSERT INTO notifications')) {
@@ -60,7 +74,7 @@ test('community organizer can assign a batch to a group in their school', async 
       if (sql.startsWith('UPDATE batches SET')) return [{ affectedRows: 1 }];
       if (sql === 'DELETE FROM group_batch WHERE batch_id = ?') return [{ affectedRows: 0 }];
       if (sql === 'INSERT INTO group_batch (group_id, batch_id) VALUES (?, ?)') return [{ affectedRows: 1 }];
-      if (sql.includes('FROM batches b WHERE b.id = ? AND b.community_id = ?')) {
+      if (sql.includes('FROM batches b WHERE b.id = ? AND b.archived_at IS NULL AND b.community_id = ?')) {
         return [[{
           id: 5,
           code: 'BAT-0005',
@@ -87,7 +101,7 @@ test('community organizer can assign a batch to a group in their school', async 
   });
   await new Promise((resolve) => server.once('listening', resolve));
 
-  const token = jwt.sign({ id: 7, role: 'Community Organizer', school_id: 91 }, process.env.JWT_SECRET);
+  const token = jwt.sign({ id: 7, sid: 'community-batch-update-session', role: 'Community Organizer', school_id: 91 }, process.env.JWT_SECRET);
   const response = await fetch(`http://127.0.0.1:${server.address().port}/api/community/batches/5`, {
     method: 'PUT',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -106,6 +120,6 @@ test('community organizer can assign a batch to a group in their school', async 
   assert.equal(body.batch.group_id, 12);
   assert.equal(body.batch.id, 'BAT-0005');
   assert.deepEqual(queryCalls.find(({ sql }) => sql === 'INSERT INTO group_batch (group_id, batch_id) VALUES (?, ?)').params, [12, 5]);
-  assert.deepEqual(queryCalls.filter(({ sql }) => sql.includes('FROM batches b WHERE b.id = ? AND b.community_id = ?'))[0].params, [5, 91]);
+  assert.deepEqual(queryCalls.filter(({ sql }) => sql.includes('FROM batches b WHERE b.id = ? AND b.archived_at IS NULL AND b.community_id = ?'))[0].params, [5, 91]);
   assert.equal(notificationCalls.length, 2);
 });

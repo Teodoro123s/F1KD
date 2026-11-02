@@ -23,6 +23,21 @@ mysql.createConnection = async () => ({
 
 const pool = require('../db');
 const reportsRouter = require('../routes/reports');
+const testSessions = new Map();
+let nextSessionId = 0;
+
+const sessionRows = (params = []) => {
+  const session = testSessions.get(String(params[0]));
+  return [session ? [{
+    user_id: session.id,
+    email: 'test@example.test',
+    role: session.role,
+    status: 'Active',
+    school_id: session.school_id ?? null,
+    group_id: null,
+    consent_accepted_at: new Date(),
+  }] : []];
+};
 
 async function startReportsServer(t) {
   await pool.ready;
@@ -37,7 +52,9 @@ async function startReportsServer(t) {
 }
 
 async function requestActivity(baseUrl, role, schoolId, query = '') {
-  const token = jwt.sign({ id: 7, role, school_id: schoolId }, process.env.JWT_SECRET);
+  const sid = `reports-activity-session-${++nextSessionId}`;
+  testSessions.set(sid, { id: 7, role, school_id: schoolId });
+  const token = jwt.sign({ id: 7, sid, role, school_id: schoolId }, process.env.JWT_SECRET);
   const response = await fetch(`${baseUrl}${query}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -49,6 +66,7 @@ test('organizers can view activity for a health worker in their assigned school'
   const originalQuery = pool.query;
   const calls = [];
   pool.query = async (sql, params) => {
+    if (sql.includes('FROM auth_sessions s')) return sessionRows(params);
     calls.push({ sql, params });
     if (sql.includes('SELECT id FROM users')) return [[{ id: 21 }]];
     if (sql.includes('COUNT(*) AS total')) return [[{ total: 1 }]];
@@ -88,6 +106,7 @@ test('organizers cannot request global or out-of-school activity', async (t) => 
   const originalQuery = pool.query;
   const calls = [];
   pool.query = async (sql, params) => {
+    if (sql.includes('FROM auth_sessions s')) return sessionRows(params);
     calls.push({ sql, params });
     return [[]];
   };
@@ -108,7 +127,8 @@ test('superadmin global activity report continues to show sign-ins only', async 
   await pool.ready;
   const originalQuery = pool.query;
   const calls = [];
-  pool.query = async (sql) => {
+  pool.query = async (sql, params = []) => {
+    if (sql.includes('FROM auth_sessions s')) return sessionRows(params);
     calls.push(sql);
     if (sql.includes('COUNT(*) AS total')) return [[{ total: 0 }]];
     if (sql.includes('AS sign_ins')) return [[{ sign_ins: 0 }]];
