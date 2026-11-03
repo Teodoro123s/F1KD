@@ -47,6 +47,7 @@ import {
   batchAvailableForGroup,
   filterReportBatches,
   filterReportGroups,
+  reportBatchOptionLabels,
 } from './utils/communitySelectionOptions.mjs';
 import { matchesProgramBeneficiaryType } from './utils/programEligibility';
 import {
@@ -212,6 +213,10 @@ export default function ProgressReport() {
   const batches = useMemo(
     () => filterReportBatches(options.batches, selection.schoolId, selection.groupId, options.mothers),
     [options.batches, options.mothers, selection.groupId, selection.schoolId],
+  );
+  const batchOptionLabels = useMemo(
+    () => reportBatchOptionLabels(batches, groups),
+    [batches, groups],
   );
   const normalizeSelectionHierarchy = (nextSelection) => {
     const normalized = {
@@ -892,7 +897,7 @@ export default function ProgressReport() {
               assignedSchool={assignedSchool}
               selection={selection}
               groups={groups}
-              batches={batches}
+              batches={batchOptionLabels}
               isHealthWorker={isHealthWorker}
               options={options}
               loadingOptions={loadingOptions}

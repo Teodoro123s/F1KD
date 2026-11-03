@@ -4,6 +4,7 @@ import {
   batchAvailableForGroup,
   filterReportBatches,
   filterReportGroups,
+  reportBatchOptionLabels,
 } from './communitySelectionOptions.mjs';
 
 const groups = [
@@ -27,4 +28,24 @@ test('batch options respect selected school and group, including mother-linked b
   assert.deepEqual(filterReportBatches(batches, '', 1, mothers), [batches[0], batches[2]]);
   assert.deepEqual(filterReportBatches(batches, 20, '', mothers), [batches[1]]);
   assert.equal(batchAvailableForGroup(batches[2], 1, mothers), true);
+});
+
+test('duplicate batch names are disambiguated by group, code, or id', () => {
+  const duplicateBatches = [
+    { id: 101, name: 'Batch 1', code: 'B-101', groupIds: '1' },
+    { id: 102, name: 'Batch 1', code: 'B-102', groupIds: '2' },
+    { id: 103, name: 'Batch 1', groupIds: '' },
+    { id: 104, name: 'Batch 1', groupIds: '' },
+  ];
+  const labels = reportBatchOptionLabels(duplicateBatches, [
+    { id: 1, name: 'North Group' },
+    { id: 2, name: 'South Group' },
+  ]);
+
+  assert.deepEqual(labels.map(({ label }) => label), [
+    'Batch 1 — North Group',
+    'Batch 1 — South Group',
+    'Batch 1 (ID 103)',
+    'Batch 1 (ID 104)',
+  ]);
 });
