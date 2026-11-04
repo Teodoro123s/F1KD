@@ -138,6 +138,9 @@ export default function AISettingPage() {
                   Using {configuration.providerName} · {configuration.model}
                 </p>
               )}
+              <p className="ai-settings-note" role="note">
+                Currently supported: Google AI Studio (Gemini) API keys only. OpenAI, Anthropic/Claude, and other providers' keys are not supported. The Gemini endpoint and model are managed by the server.
+              </p>
               <form className="ai-settings-form" onSubmit={testConnection}>
                 <label>
                   API Key

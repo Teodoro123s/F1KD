@@ -4,6 +4,8 @@
 
 F1KD's AI features are optional. The current provider configuration uses Google's Gemini API through its OpenAI-compatible Chat Completions endpoint. Provider endpoint and model are controlled by the server; users do not choose either in the UI.
 
+At this time, users can configure a Google AI Studio (Gemini) API key only. OpenAI, Anthropic/Claude, and other providers' API keys are not supported by the current server configuration.
+
 The AI Setting page is focused on provider configuration and connection status. Its **AI Assistant** action and the matching action on the Dashboard open the same read-only reporting assistant in a right-side drawer. Each opening checks the current user's saved-key status; without a key, the drawer directs the user to AI Setting. For operational roles, the assistant presents a chat-style stream for report proposals, clarifications, project controls, and report previews. It uses existing authenticated, role-scoped reporting APIs; the model does not receive beneficiary report rows. No community or school selector is shown; the backend applies the signed-in user's authorized scope.
 
 The Dashboard provides the **AI Assistant** action to open the same reporting drawer. It does not display a separate AI dashboard insights card.

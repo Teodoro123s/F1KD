@@ -14,6 +14,7 @@ import FloatingLayer from '../../components/ui/FloatingLayer';
 import { apiArchiveRecord, apiGetArchiveImpact } from '../../api/archives';
 import { notifyAction } from '../../components/ActionFeedback';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
+import ModuleSelectionHint from '../../components/ui/ModuleSelectionHint';
 
 const defaultCommunityForm = { name: '', area: 'Poblacion', coordinator: '' };
 const defaultGroupForm = { name: '', community: '', assignedBatchIds: [], leader: '', members: 1, status: 'Active' };
@@ -43,7 +44,7 @@ export default function SuperAdminCommunityPage() {
   const [batchForm, setBatchForm] = useState(defaultBatchForm);
   const [selectedSchoolId, setSelectedSchoolId] = useState(schoolId || null);
   const [selectedGroupId, setSelectedGroupId] = useState(groupId || null);
-  const [rootListType, setRootListType] = useState('communities');
+  const [rootListType, setRootListType] = useState(null);
   const [healthWorkers, setHealthWorkers] = useState([]);
   const [healthWorkersLoading, setHealthWorkersLoading] = useState(false);
   const [healthWorkersError, setHealthWorkersError] = useState('');
@@ -53,7 +54,7 @@ export default function SuperAdminCommunityPage() {
 
   const activeSchoolId = selectedSchoolId;
   const activeGroupId = selectedGroupId;
-  const activeTab = activeGroupId ? 'healthWorkers' : activeSchoolId ? 'groups' : rootListType;
+  const activeTab = activeGroupId ? 'healthWorkers' : activeSchoolId ? 'groups' : rootListType || 'communities';
 
   useEffect(() => {
     if (rootListType !== 'healthWorkers') return undefined;
@@ -81,7 +82,7 @@ export default function SuperAdminCommunityPage() {
     setActiveDropdownId(null);
     setSelectedSchoolId(schoolId || null);
     setSelectedGroupId(groupId || null);
-    setRootListType('communities');
+    setRootListType(schoolId || groupId ? 'communities' : null);
   }, [groupId, schoolId]);
 
   const selectedGroup = useMemo(
@@ -518,7 +519,9 @@ export default function SuperAdminCommunityPage() {
           cards={overviewCards}
           toggleSelection={false}
         />
-        {activeTab === 'healthWorkers' && (activeGroupId ? groupHealthWorkersLoading : healthWorkersLoading) ? (
+        {!selectedOverviewCard ? (
+          <ModuleSelectionHint />
+        ) : activeTab === 'healthWorkers' && (activeGroupId ? groupHealthWorkersLoading : healthWorkersLoading) ? (
           <p>Loading health workers...</p>
         ) : activeTab === 'healthWorkers' && (activeGroupId ? groupHealthWorkersError : healthWorkersError) ? (
           <p className="error-message" role="alert">{activeGroupId ? groupHealthWorkersError : healthWorkersError}</p>
