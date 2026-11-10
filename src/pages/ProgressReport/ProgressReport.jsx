@@ -98,7 +98,7 @@ export default function ProgressReport() {
   const [reportCategory, setReportCategory] = useState('monitor');
   const [beneficiaryType, setBeneficiaryType] = useState('child');
   const [growthMetrics, setGrowthMetrics] = useState(['lengthForAgeInterpretation']);
-  const [monitorTableMetrics, setMonitorTableMetrics] = useState(CHILD_CHECKUP_DETAIL_FIELDS.map(([id]) => id));
+  const [monitorTableMetrics, setMonitorTableMetrics] = useState([]);
   const [graphMetricType, setGraphMetricType] = useState('numeric');
   const [numericGraphMetric, setNumericGraphMetric] = useState('heightForAge');
   const [profileMetrics, setProfileMetrics] = useState(CHILD_PROFILE_METRICS.map(([id]) => id));
@@ -715,7 +715,7 @@ export default function ProgressReport() {
     setFinalizedSnapshot(null);
     setVisibleFields(DEFAULT_VISIBLE_FIELDS);
     setGrowthMetrics(['lengthForAgeInterpretation']);
-    setMonitorTableMetrics(CHILD_CHECKUP_DETAIL_FIELDS.map(([id]) => id));
+    setMonitorTableMetrics([]);
     setProfileMetrics(CHILD_PROFILE_METRICS.map(([id]) => id));
     setProfileSection('general');
     setProgramMetrics(['receivedBenefitTotal', 'receivedBenefitFrequency', 'receivedBenefitAveragePerMonth', 'programDocumentation']);
@@ -799,15 +799,13 @@ export default function ProgressReport() {
     setGraphMetricType('numeric');
     setNumericGraphMetric(type === 'mother' ? 'bmiForAge' : 'heightForAge');
     setGrowthMetrics([initialMetric]);
-    setMonitorTableMetrics((type === 'mother' ? MOTHER_CHECKUP_DETAIL_FIELDS : CHILD_CHECKUP_DETAIL_FIELDS).map(([id]) => id));
+    setMonitorTableMetrics([]);
     syncVisibleFieldsForGrowthMetric([initialMetric]);
     setFinalizedSnapshot(null);
     setReport(null);
   };
   const selectReportCategory = (category) => {
-    setMonitorTableMetrics(category === 'monitor'
-      ? (beneficiaryType === 'mother' ? MOTHER_CHECKUP_DETAIL_FIELDS : CHILD_CHECKUP_DETAIL_FIELDS).map(([id]) => id)
-      : []);
+    setMonitorTableMetrics([]);
     setReportCategory(category);
     setReport(null);
     setFinalizedSnapshot(null);
