@@ -639,16 +639,16 @@ router.post('/batches', (req, res, next) => {
       return res.status(403).json({ error: 'Community organizers can only create batches for their assigned school' });
     }
 
-    const resolvedGroupId = groupId ? Number(groupId) : null;
-    if (resolvedGroupId) {
-      const [groupRows] = await pool.query(
-        `SELECT g.id FROM groups g
-         JOIN communities c ON c.id = g.community_id AND c.archived_at IS NULL
-         WHERE g.id = ? AND g.community_id = ? AND g.archived_at IS NULL LIMIT 1`,
-        [resolvedGroupId, communityId],
-      );
-      if (!groupRows.length) return res.status(400).json({ error: 'Selected group does not belong to this community' });
-    }
+    const resolvedGroupId = parsePositiveIntegerId(groupId);
+    if (resolvedGroupId === null) return res.status(400).json({ error: 'Select a group for the batch' });
+
+    const [groupRows] = await pool.query(
+      `SELECT g.id FROM groups g
+       JOIN communities c ON c.id = g.community_id AND c.archived_at IS NULL
+       WHERE g.id = ? AND g.community_id = ? AND g.archived_at IS NULL LIMIT 1`,
+      [resolvedGroupId, communityId],
+    );
+    if (!groupRows.length) return res.status(400).json({ error: 'Selected group does not belong to this community' });
 
     const created = await withTransaction(pool, async (connection) => {
       const batchCode = await nextCode(connection, 'batches', 'batch_code', 'BAT');

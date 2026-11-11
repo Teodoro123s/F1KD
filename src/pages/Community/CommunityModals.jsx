@@ -215,7 +215,7 @@ export function CreateBatchModal({ showModal, onClose, batchForm, setBatchForm, 
             id="batch-comm"
             className="form-select"
             value={batchForm.community}
-            onChange={(e) => setBatchForm({ ...batchForm, community: e.target.value })}
+            onChange={(e) => setBatchForm({ ...batchForm, community: e.target.value, groupId: '' })}
           >
             {communities.map((comm) => (
               <option key={comm.id} value={comm.name}>{comm.name}</option>
@@ -233,6 +233,7 @@ export function CreateBatchModal({ showModal, onClose, batchForm, setBatchForm, 
             onChange={(event) => setBatchForm({ ...batchForm, groupId: event.target.value })}
             required
           >
+            <option value="">Select a group</option>
             {availableGroups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
           </select>
         </div>
