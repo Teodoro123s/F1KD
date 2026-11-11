@@ -87,11 +87,20 @@ export default function EditMotherPage() {
   const [error, setError] = useState(null);
   const [loadError, setLoadError] = useState(null);
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
+  const [showContactValidation, setShowContactValidation] = useState(false);
   const [communityOptions, setCommunityOptions] = useState({ communities: [], groups: [], batches: [] });
   const [activeTab, setActiveTab] = useState('general');
   const { navigationDirection, navigationError, isNavigating, runStepNavigation } = useStepNavigation();
   const maternalBirthCountErrors = getMaternalBirthCountErrors(form);
   const motherIdentityErrors = getMotherIdentityErrors(form);
+  const contactNumberErrors = showContactValidation
+    ? ['contactNumber', 'emergencyContact', 'dentistContact'].reduce((errors, field) => {
+      if (String(form[field] ?? '').trim() && !isValidContactNumber(form[field])) {
+        errors[field] = CONTACT_NUMBER_POLICY;
+      }
+      return errors;
+    }, {})
+    : {};
   const drawerRef = useRef(null);
   const closeButtonRef = useRef(null);
 
@@ -177,7 +186,14 @@ export default function EditMotherPage() {
       { field: 'dentistContact', label: 'Dentist contact number', tab: 'medical_dental' },
     ].find(({ field }) => String(form[field] ?? '').trim() && !isValidContactNumber(form[field]));
     if (invalidContact) {
+      setShowContactValidation(true);
       setActiveTab(invalidContact.tab);
+      const inputId = {
+        contactNumber: 'mother-contact',
+        emergencyContact: 'emergency-contact',
+        dentistContact: 'dentist-contact',
+      }[invalidContact.field];
+      window.setTimeout(() => document.getElementById(inputId)?.focus(), 0);
       notifyAction(`${invalidContact.label}: ${CONTACT_NUMBER_POLICY}`, 'error');
       return;
     }
@@ -204,11 +220,19 @@ export default function EditMotherPage() {
             { field: 'emergencyContact', label: 'Emergency contact number' },
           ].find(({ field }) => String(form[field] ?? '').trim() && !isValidContactNumber(form[field]));
           if (invalidContact) {
+            setShowContactValidation(true);
+            const inputId = {
+              contactNumber: 'mother-contact',
+              emergencyContact: 'emergency-contact',
+            }[invalidContact.field];
+            window.setTimeout(() => document.getElementById(inputId)?.focus(), 0);
             notifyAction(`${invalidContact.label}: ${CONTACT_NUMBER_POLICY}`, 'error');
             return false;
           }
         }
         if (activeTab === 'medical_dental' && String(form.dentistContact ?? '').trim() && !isValidContactNumber(form.dentistContact)) {
+          setShowContactValidation(true);
+          window.setTimeout(() => document.getElementById('dentist-contact')?.focus(), 0);
           notifyAction(`Dentist contact number: ${CONTACT_NUMBER_POLICY}`, 'error');
           return false;
         }
@@ -372,6 +396,7 @@ export default function EditMotherPage() {
                     validationErrors={{
                       ...maternalBirthCountErrors,
                       ...(motherIdentityErrors.firstName ? { firstName: motherIdentityErrors.firstName } : {}),
+                      ...contactNumberErrors,
                     }}
                   />
                 </div>

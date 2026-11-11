@@ -1,10 +1,17 @@
-const { createCipheriv, createDecipheriv, randomBytes } = require('node:crypto');
+const {
+  createCipheriv,
+  createDecipheriv,
+  createHmac,
+  randomBytes,
+  timingSafeEqual,
+} = require('node:crypto');
 const pool = require('../db');
 const { ProgressReportAIError, getAIConfiguration } = require('../utils/progressReportAI');
 
 const PROVIDER = 'openai-compatible';
 const MAX_API_KEY_LENGTH = 512;
 const PROVIDER_CONNECTION_TIMEOUT_MS = 25000;
+const PROVIDER_TEST_TOKEN_TTL_MS = 5 * 60 * 1000;
 
 function getEncryptionKey(env = process.env) {
   const value = String(env.AI_SETTINGS_ENCRYPTION_KEY || '');
@@ -48,6 +55,54 @@ function decryptApiKey({ encrypted, iv, authTag }, userId, env = process.env) {
   decipher.setAAD(Buffer.from(`user-ai-key:${userId}`));
   decipher.setAuthTag(authTag);
   return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString('utf8');
+}
+
+function providerTestTokenSignature(value, env = process.env) {
+  return createHmac('sha256', getEncryptionKey(env))
+    .update('user-ai-test-token:v1:')
+    .update(value)
+    .digest('base64url');
+}
+
+function providerTestKeyProof(apiKey, env = process.env) {
+  return createHmac('sha256', getEncryptionKey(env))
+    .update('user-ai-tested-key:v1:')
+    .update(apiKey)
+    .digest('hex');
+}
+
+function createProviderTestToken(userId, apiKey, env = process.env) {
+  const payload = Buffer.from(JSON.stringify({
+    userId: String(userId),
+    keyProof: providerTestKeyProof(apiKey, env),
+    expiresAt: Date.now() + PROVIDER_TEST_TOKEN_TTL_MS,
+  })).toString('base64url');
+  return `${payload}.${providerTestTokenSignature(payload, env)}`;
+}
+
+function isValidProviderTestToken(token, userId, apiKey, env = process.env) {
+  if (typeof token !== 'string' || token.length > 1024) return false;
+  const [payload, signature, ...extra] = token.split('.');
+  if (!payload || !signature || extra.length > 0) return false;
+
+  const expectedSignature = Buffer.from(providerTestTokenSignature(payload, env));
+  const actualSignature = Buffer.from(signature);
+  if (expectedSignature.length !== actualSignature.length
+    || !timingSafeEqual(expectedSignature, actualSignature)) {
+    return false;
+  }
+
+  let claims;
+  try {
+    claims = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+  } catch {
+    return false;
+  }
+  return claims.userId === String(userId)
+    && claims.keyProof === providerTestKeyProof(apiKey, env)
+    && Number.isFinite(claims.expiresAt)
+    && claims.expiresAt > Date.now()
+    && claims.expiresAt <= Date.now() + PROVIDER_TEST_TOKEN_TTL_MS;
 }
 
 function getProviderConfiguration(apiKey, env = process.env) {
@@ -98,8 +153,10 @@ async function testProviderConnection({ apiKey }, {
           ? 'The provider rejected the API key. Check the key and try again.'
           : response.status === 429
             ? 'The provider rate limit was reached. Wait before testing again.'
-            : 'The provider could not confirm this model. Check the model name and try again.',
-        502,
+            : response.status >= 500
+              ? `The AI provider is temporarily unavailable (HTTP ${response.status}). Try again later.`
+              : 'The provider could not confirm this model. Check the model name and try again.',
+        response.status >= 500 ? 503 : 502,
       );
     }
     const payload = await response.json();
@@ -170,7 +227,9 @@ async function getPublicConfiguration(userId, env = process.env) {
 async function saveUserConfiguration(userId, input, options = {}) {
   const configuration = normalizeConfiguration(input, options.env);
   getEncryptionKey(options.env);
-  await testProviderConnection(configuration, options);
+  if (!isValidProviderTestToken(options.testToken, userId, configuration.apiKey, options.env)) {
+    await testProviderConnection(configuration, options);
+  }
   const { encrypted, iv, authTag } = encryptApiKey(configuration.apiKey, userId, options.env);
   await pool.query(
     `INSERT INTO user_ai_configurations
@@ -223,9 +282,11 @@ module.exports = {
   ProgressReportAIError,
   decryptApiKey,
   encryptApiKey,
+  createProviderTestToken,
   getEncryptionKey,
   getPublicConfiguration,
   getUserAiConfiguration,
+  isValidProviderTestToken,
   normalizeConfiguration,
   removeUserConfiguration,
   saveUserConfiguration,

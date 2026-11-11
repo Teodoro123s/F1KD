@@ -246,6 +246,7 @@ export default function CreateMotherPage({
   const createRequestRef = useRef(false);
   const [pendingMother, setPendingMother] = useState(null);
   const [showRequiredValidation, setShowRequiredValidation] = useState(false);
+  const [showContactValidation, setShowContactValidation] = useState(false);
   const [createActiveTab, setCreateActiveTab] = useState('general');
   const [creating, setCreating] = useState(false);
 
@@ -265,6 +266,14 @@ export default function CreateMotherPage({
     : String(communityForm.dentalCheckupDate ?? '').trim() && showRequiredValidation && !dentistLicenseValue
       ? 'Dentist license number is required.'
       : '';
+  const contactNumberErrors = showContactValidation
+    ? ['contactNumber', 'emergencyContact', 'dentistContact'].reduce((errors, field) => {
+      if (String(communityForm[field] ?? '').trim() && !isValidContactNumber(communityForm[field])) {
+        errors[field] = CONTACT_NUMBER_POLICY;
+      }
+      return errors;
+    }, {})
+    : {};
   const isHighRisk = hasMaternalHighRiskTriggers(communityForm);
   const CREATE_STEPS = ['general', 'prenatal', 'medical_dental', 'vaccine'];
   const createActiveIndex = CREATE_STEPS.indexOf(createActiveTab) >= 0 ? CREATE_STEPS.indexOf(createActiveTab) : 0;
@@ -423,7 +432,14 @@ export default function CreateMotherPage({
       { field: 'dentistContact', label: 'Dentist contact number', tab: 'medical_dental' },
     ].find(({ field }) => String(communityForm[field] ?? '').trim() && !isValidContactNumber(communityForm[field]));
     if (invalidContact) {
+      setShowContactValidation(true);
       setCreateActiveTab(invalidContact.tab);
+      const inputId = {
+        contactNumber: 'mother-contact',
+        emergencyContact: 'emergency-contact',
+        dentistContact: 'dentist-contact',
+      }[invalidContact.field];
+      window.setTimeout(() => document.getElementById(inputId)?.focus(), 0);
       notifyAction(`${invalidContact.label}: ${CONTACT_NUMBER_POLICY}`, 'error');
       return;
     }
@@ -589,8 +605,8 @@ export default function CreateMotherPage({
       spouseName: formatFirstAndSurname(communityForm.spouseFirstName, communityForm.spouseSurname),
       address: communityForm.address,
       prenatalRegDate: communityForm.prenatalRegDate,
-      trimester: resolvedTrimester,
-      gestationalAge: resolvedGestationalAge,
+      trimester: payload.trimester,
+      gestationalAge: payload.gestationalAge,
       prenatalWeight: communityForm.prenatalWeight,
       prenatalBp: communityForm.prenatalBp,
       prenatalHeight: communityForm.prenatalHeight,
@@ -747,6 +763,7 @@ export default function CreateMotherPage({
                 ...vaccineDateErrors,
                 ...(prenatalBpError ? { prenatalBp: prenatalBpError } : {}),
                 ...(dentistLicenseError ? { dentistLicense: dentistLicenseError } : {}),
+                ...contactNumberErrors,
               }}
             />
           </div>

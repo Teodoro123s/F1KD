@@ -1,6 +1,7 @@
 const express = require('express');
 const {
   ProgressReportAIError,
+  createProviderTestToken,
   getEncryptionKey,
   getPublicConfiguration,
   getUserAiConfiguration,
@@ -46,11 +47,20 @@ router.post('/test', async (req, res) => {
   try {
     getEncryptionKey();
     const useSaved = req.body?.useSaved === true;
+    const configuration = useSaved
+      ? null
+      : normalizeConfiguration({ apiKey: req.body?.apiKey });
     const result = useSaved
       ? await testSavedConfiguration(req.user.id)
-      : await testProviderConnection(normalizeConfiguration({ apiKey: req.body?.apiKey }));
+      : await testProviderConnection(configuration);
     res.set('Cache-Control', 'no-store');
-    res.json({ connected: true, configuration: useSaved ? result : undefined });
+    res.json({
+      connected: true,
+      configuration: useSaved ? result : undefined,
+      testToken: configuration
+        ? createProviderTestToken(req.user.id, configuration.apiKey)
+        : undefined,
+    });
   } catch (error) {
     sendAiSettingsError(res, error, 'connection test');
   }
@@ -60,7 +70,7 @@ router.put('/configuration', async (req, res) => {
   try {
     const configuration = await saveUserConfiguration(req.user.id, {
       apiKey: req.body?.apiKey,
-    });
+    }, { testToken: req.body?.testToken });
     res.set('Cache-Control', 'no-store');
     res.json({ ...configuration, secureStorageReady: true });
   } catch (error) {

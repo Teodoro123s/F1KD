@@ -6,6 +6,7 @@ import {
   apiSaveGuidancePreferences,
 } from '../api/guidancePreferences';
 import { normalizeGuidancePreferences } from '../guides/guidancePreferences.mjs';
+import { shouldLoadGuidancePreferences } from './guidanceAccess.mjs';
 
 const AuthContext = createContext(null);
 
@@ -25,7 +26,12 @@ export function AuthProvider({ children }) {
   const guidanceWriteQueue = useRef(Promise.resolve());
 
   const loadGuidancePreferences = useCallback(async (user) => {
-    if (!user?.id) return false;
+    if (!shouldLoadGuidancePreferences(user)) {
+      setGuidancePreferences(null);
+      setGuidancePreferencesError('');
+      setGuidancePreferencesLoading(false);
+      return false;
+    }
     const requestId = ++guidanceRequestId.current;
     setGuidancePreferencesLoading(true);
     setGuidancePreferencesError('');
@@ -49,7 +55,9 @@ export function AuthProvider({ children }) {
       if (data?.token) {
         setToken(data.token);
         setCurrentUser(data.user || null);
-        await loadGuidancePreferences(data.user);
+        if (shouldLoadGuidancePreferences(data.user)) {
+          await loadGuidancePreferences(data.user);
+        }
       }
     }).catch(() => {
       apiAuth.clearToken();
@@ -65,7 +73,9 @@ export function AuthProvider({ children }) {
       apiAuth.saveToken(data.token);
       setToken(data.token);
       setCurrentUser(data.user || null);
-      await loadGuidancePreferences(data.user);
+      if (shouldLoadGuidancePreferences(data.user)) {
+        await loadGuidancePreferences(data.user);
+      }
       return data.user;
     }
     throw new Error('Login failed');

@@ -2,17 +2,21 @@ import React, { useEffect, useState } from 'react';
 import PageHeader from '../../components/ui/PageHeader';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import { notifyAction } from '../../components/ActionFeedback';
+import { useAuth } from '../../auth/AuthProvider';
 import {
   apiGetAiConfiguration,
   apiRemoveAiConfiguration,
   apiSaveAiConfiguration,
   apiTestAiConfiguration,
 } from '../../api/aiSettings';
+import { shouldLoadGuidancePreferences } from '../../auth/guidanceAccess.mjs';
 import AIReportingAssistantEntry from './AIReportingAssistantEntry';
 
 export default function AISettingPage() {
+  const auth = useAuth();
   const [configuration, setConfiguration] = useState(null);
   const [apiKey, setApiKey] = useState('');
+  const [providerTestToken, setProviderTestToken] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -23,6 +27,14 @@ export default function AISettingPage() {
   const [showApiKey, setShowApiKey] = useState(false);
 
   useEffect(() => {
+    if (!shouldLoadGuidancePreferences(auth?.currentUser)) {
+      setConfiguration(null);
+      setConnectionStatus('not-configured');
+      setError('Please accept the consent form before using AI settings.');
+      setLoading(false);
+      return undefined;
+    }
+
     let active = true;
     apiGetAiConfiguration()
       .then((result) => {
@@ -37,20 +49,26 @@ export default function AISettingPage() {
         if (active) setLoading(false);
       });
     return () => { active = false; };
-  }, []);
+  }, [auth?.currentUser]);
 
   const testConnection = async (event) => {
     event.preventDefault();
+    if (!shouldLoadGuidancePreferences(auth?.currentUser)) {
+      setError('Please accept the consent form before using AI settings.');
+      return;
+    }
     if (!apiKey.trim() || testing || saving) return;
     setTesting(true);
     setError('');
     setShowApiKey(false);
     setConnectionStatus('testing');
     try {
-      await apiTestAiConfiguration({ apiKey });
+      const result = await apiTestAiConfiguration({ apiKey });
+      setProviderTestToken(result?.testToken || '');
       setConnectionStatus('connected');
       notifyAction('The configured AI provider confirmed the connection.');
     } catch (testError) {
+      setProviderTestToken('');
       setConnectionStatus('connection-failed');
       setError(testError.message || 'The AI provider connection test failed.');
     } finally {
@@ -59,6 +77,10 @@ export default function AISettingPage() {
   };
 
   const saveConfiguration = async () => {
+    if (!shouldLoadGuidancePreferences(auth?.currentUser)) {
+      setError('Please accept the consent form before using AI settings.');
+      return;
+    }
     if (!apiKey.trim() || saving || testing) {
       setError('Enter an API key to save or replace the credential.');
       return;
@@ -66,9 +88,10 @@ export default function AISettingPage() {
     setSaving(true);
     setError('');
     try {
-      const saved = await apiSaveAiConfiguration({ apiKey });
+      const saved = await apiSaveAiConfiguration({ apiKey, testToken: providerTestToken });
       setConfiguration(saved);
       setApiKey('');
+      setProviderTestToken('');
       setConnectionStatus('connected');
       notifyAction('Your AI provider configuration was saved securely.');
     } catch (saveError) {
@@ -80,6 +103,10 @@ export default function AISettingPage() {
   };
 
   const removeConfiguration = async () => {
+    if (!shouldLoadGuidancePreferences(auth?.currentUser)) {
+      setError('Please accept the consent form before using AI settings.');
+      return;
+    }
     setRemoving(true);
     setError('');
     try {
@@ -150,6 +177,7 @@ export default function AISettingPage() {
                       value={apiKey}
                       onChange={(event) => {
                         setApiKey(event.target.value);
+                        setProviderTestToken('');
                         setConnectionStatus('not-configured');
                         setError('');
                       }}

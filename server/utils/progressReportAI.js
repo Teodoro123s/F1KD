@@ -186,6 +186,9 @@ const REPORT_METRICS = {
 
 const REPORT_CATEGORIES = Object.keys(REPORT_METRICS);
 const BENEFICIARY_TYPES = ['child', 'mother'];
+const MAX_PROVIDER_503_RETRIES = 1;
+const DEFAULT_PROVIDER_RETRY_DELAY_MS = 1000;
+const MAX_PROVIDER_RETRY_DELAY_MS = 5000;
 
 class ProgressReportAIError extends Error {
   constructor(message, status = 502) {
@@ -241,6 +244,18 @@ async function getProviderErrorDetail(response) {
     .replace(/\bBearer\s+\S+/gi, 'Bearer [redacted]')
     .replace(/\b(sk|api[_-]?key)[-_:= ]+[A-Za-z0-9._-]+/gi, '[redacted credential]')
     .slice(0, 500);
+}
+
+function getProviderRetryDelay(response) {
+  const retryAfter = response.headers?.get('retry-after');
+  if (retryAfter) {
+    const seconds = Number(retryAfter);
+    const retryAt = Number.isFinite(seconds) ? seconds * 1000 : Date.parse(retryAfter) - Date.now();
+    if (Number.isFinite(retryAt)) {
+      return Math.min(MAX_PROVIDER_RETRY_DELAY_MS, Math.max(0, retryAt));
+    }
+  }
+  return DEFAULT_PROVIDER_RETRY_DELAY_MS;
 }
 
 function parseModelJson(content) {
@@ -905,38 +920,53 @@ async function requestModel(messages, {
   const headers = { 'Content-Type': 'application/json' };
   if (configuration.apiKey) headers.Authorization = `Bearer ${configuration.apiKey}`;
   try {
-    const response = await fetchImpl(configuration.endpoint, {
-      method: 'POST',
-      headers,
-      signal: controller.signal,
-      body: JSON.stringify({
-        model: configuration.model,
-        temperature: 0.1,
-        messages,
-        ...(maxCompletionTokens
-          ? { max_completion_tokens: maxCompletionTokens }
-          : maxTokens ? { max_tokens: maxTokens } : {}),
-        ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
-        ...(responseFormat ? { response_format: responseFormat } : {}),
-      }),
+    const body = JSON.stringify({
+      model: configuration.model,
+      temperature: 0.1,
+      messages,
+      ...(maxCompletionTokens
+        ? { max_completion_tokens: maxCompletionTokens }
+        : maxTokens ? { max_tokens: maxTokens } : {}),
+      ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
+      ...(responseFormat ? { response_format: responseFormat } : {}),
     });
-    if (!response.ok) {
-      const detail = await getProviderErrorDetail(response);
-      console.error(`[Progress Report AI] provider returned status ${response.status}: ${detail}`);
-      if (response.status === 429) {
-        throw new ProgressReportAIError(
-          'The AI service is temporarily at its token-per-minute limit. Wait a little before trying again. If this keeps happening, ask your administrator to increase the provider limit.',
-          503,
-        );
+    let retriesRemaining = MAX_PROVIDER_503_RETRIES;
+    while (true) {
+      const response = await fetchImpl(configuration.endpoint, {
+        method: 'POST',
+        headers,
+        signal: controller.signal,
+        body,
+      });
+      if (!response.ok) {
+        const detail = await getProviderErrorDetail(response);
+        console.error(`[Progress Report AI] provider returned status ${response.status}: ${detail}`);
+        if (response.status === 503 && retriesRemaining > 0) {
+          retriesRemaining -= 1;
+          await new Promise((resolve) => setTimeout(resolve, getProviderRetryDelay(response)));
+          continue;
+        }
+        if (response.status === 429) {
+          throw new ProgressReportAIError(
+            'The AI service is temporarily at its token-per-minute limit. Wait a little before trying again. If this keeps happening, ask your administrator to increase the provider limit.',
+            503,
+          );
+        }
+        if (response.status === 503) {
+          throw new ProgressReportAIError(
+            'The AI provider is temporarily unavailable. Wait a moment and try again.',
+            503,
+          );
+        }
+        throw new ProgressReportAIError(`The private AI service returned status ${response.status}.`, 503);
       }
-      throw new ProgressReportAIError(`The private AI service returned status ${response.status}.`, 503);
+      const payload = await response.json();
+      const content = payload?.choices?.[0]?.message?.content;
+      if (typeof content !== 'string' || !content.trim()) {
+        throw new ProgressReportAIError('The private AI service returned an empty response.');
+      }
+      return content;
     }
-    const payload = await response.json();
-    const content = payload?.choices?.[0]?.message?.content;
-    if (typeof content !== 'string' || !content.trim()) {
-      throw new ProgressReportAIError('The private AI service returned an empty response.');
-    }
-    return content;
   } finally {
     clearTimeout(timeout);
   }

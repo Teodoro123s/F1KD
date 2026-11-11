@@ -22,11 +22,13 @@ mysql.createConnection = async () => ({
 const database = require('../db');
 const {
   ProgressReportAIError,
+  createProviderTestToken,
   decryptApiKey,
   encryptApiKey,
   getEncryptionKey,
   getPublicConfiguration,
   getUserAiConfiguration,
+  isValidProviderTestToken,
   normalizeConfiguration,
   saveUserConfiguration,
   testProviderConnection,
@@ -77,6 +79,14 @@ test('accepts an API key and uses the server-configured provider and model', () 
   assert.throws(() => normalizeConfiguration({
     apiKey: '',
   }, providerEnvironment), /API key/);
+});
+
+test('provider test tokens are short-lived and bound to the user and API key', () => {
+  const token = createProviderTestToken(42, 'secret-provider-key', providerEnvironment);
+  assert.equal(isValidProviderTestToken(token, 42, 'secret-provider-key', providerEnvironment), true);
+  assert.equal(isValidProviderTestToken(token, 43, 'secret-provider-key', providerEnvironment), false);
+  assert.equal(isValidProviderTestToken(token, 42, 'another-provider-key', providerEnvironment), false);
+  assert.equal(isValidProviderTestToken(`${token}x`, 42, 'secret-provider-key', providerEnvironment), false);
 });
 
 test('AI request policy refuses record mutations and commands but permits read-only reporting requests', () => {
@@ -196,6 +206,20 @@ test('provider failures return sanitized messages without echoing provider respo
   });
 });
 
+test('provider server errors are reported as temporary outages', async () => {
+  await assert.rejects(testProviderConnection({
+    apiKey: 'secret-provider-key',
+  }, {
+    env: providerEnvironment,
+    fetchImpl: async () => new Response('provider unavailable', { status: 503 }),
+  }), (error) => {
+    assert.equal(error.status, 503);
+    assert.match(error.message, /temporarily unavailable \(HTTP 503\)/i);
+    assert.doesNotMatch(error.message, /provider unavailable/);
+    return true;
+  });
+});
+
 test('connection tests abort slow providers and return a safe timeout message', async () => {
   await assert.rejects(testProviderConnection({
     apiKey: 'secret-provider-key',
@@ -243,14 +267,21 @@ test('configuration reads and writes are scoped to one user and public responses
     }
     throw new Error(`Unexpected query: ${sql}`);
   };
+  let providerRequestCount = 0;
   const options = {
     env: providerEnvironment,
-    fetchImpl: async () => new Response(JSON.stringify({ choices: [{ message: { content: 'OK' } }] }), { status: 200 }),
+    fetchImpl: async () => {
+      providerRequestCount += 1;
+      return new Response(JSON.stringify({ choices: [{ message: { content: 'OK' } }] }), { status: 200 });
+    },
   };
 
+  await testProviderConnection({ apiKey: 'secret-provider-key' }, options);
+  const testToken = createProviderTestToken(42, 'secret-provider-key', providerEnvironment);
   const publicConfig = await saveUserConfiguration(42, {
     apiKey: 'secret-provider-key',
-  }, options);
+  }, { ...options, testToken });
+  assert.equal(providerRequestCount, 1);
   assert.equal(publicConfig.configured, true);
   assert.equal(publicConfig.providerName, 'Google Gemini');
   assert.equal(publicConfig.model, 'gemini-3.1-flash-lite');

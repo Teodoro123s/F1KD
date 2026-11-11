@@ -91,6 +91,32 @@ test('dashboard AI receives only validated aggregate metrics and returns a conci
   await assert.rejects(createDashboardInsight({ motherCount: 1 }, 'x'.repeat(501), { env: modelEnvironment }), /no longer than 500 characters/);
 });
 
+test('dashboard AI retries one transient 503 and reports a clear outage if it persists', async () => {
+  let attempts = 0;
+  const insight = await createDashboardInsight({ motherCount: 1 }, 'How many mothers?', {
+    env: modelEnvironment,
+    fetchImpl: async () => {
+      attempts += 1;
+      if (attempts === 1) return new Response('', { status: 503, headers: { 'Retry-After': '0' } });
+      return new Response(JSON.stringify({
+        choices: [{ message: { content: 'There is 1 mother.' } }],
+      }), { status: 200 });
+    },
+  });
+  assert.equal(insight, 'There is 1 mother.');
+  assert.equal(attempts, 2);
+
+  attempts = 0;
+  await assert.rejects(createDashboardInsight({ motherCount: 1 }, 'How many mothers?', {
+    env: modelEnvironment,
+    fetchImpl: async () => {
+      attempts += 1;
+      return new Response('', { status: 503, headers: { 'Retry-After': '0' } });
+    },
+  }), /AI provider is temporarily unavailable/);
+  assert.equal(attempts, 2);
+});
+
 test('report proposals accept only known report types and fields for the selected beneficiary type', async () => {
   await assert.rejects(createReportProposal('x'.repeat(1001), { env: modelEnvironment }), /between 3 and 1,000 characters/);
   assert.deepEqual(validateReportProposal({
