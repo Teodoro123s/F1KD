@@ -15,6 +15,7 @@ import { isValidName, getFirstNameValidationError, isValidFirstName, normalizeFi
 import { getReferenceOptions } from '../Community/communityService';
 import { isCommunityCoordinatorRole, isHealthWorkerRole, normalizeRole as normalizeRoleKey } from '../../utils/permissions';
 import { getApiBaseUrl } from '../../api/authHeader';
+import { notifyAction } from '../../components/ActionFeedback';
 
 const API_BASE = getApiBaseUrl();
 
@@ -229,6 +230,7 @@ export function useUserManagement({ schoolId = '', batchId = '', healthWorkerMan
   const [perPage, setPerPage] = useState(10);
   const [selectedUser, setSelectedUser] = useState(null);
   const [notification, setNotification] = useState('');
+  const [validationField, setValidationField] = useState('');
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   // Prevent double submits
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -350,16 +352,19 @@ export function useUserManagement({ schoolId = '', batchId = '', healthWorkerMan
   const openAddModal = () => {
     setSelectedUser(null);
     setFormState(initialFormState());
+    setValidationField('');
     setShowAddModal(true);
   };
 
   const closeModal = () => {
     setSelectedUser(null);
+    setValidationField('');
     setShowAddModal(false);
   };
 
   const openEditUser = (user) => {
     setSelectedUser(user);
+    setValidationField('');
     setFormState({
       firstName: user.firstName || '',
       lastName: user.lastName || '',
@@ -416,6 +421,7 @@ export function useUserManagement({ schoolId = '', batchId = '', healthWorkerMan
 
   const handleSubmitUser = async (event) => {
     event.preventDefault();
+    setValidationField('');
 
     // Prevent duplicate submissions when one is already in-flight
     if (isSubmitting) {
@@ -442,38 +448,43 @@ export function useUserManagement({ schoolId = '', batchId = '', healthWorkerMan
       const fdPassword = (fd.get('password') || '').toString();
 
       // Basic validation
-    if (!isValidFirstName(firstName)) { setNotification(getFirstNameValidationError(firstName)); document.getElementById('first-name')?.focus(); return; }
-    if (!lastName) { setNotification('Last Name is required.'); try { console.log('Validation failed: missing lastName', { firstName, lastName }); } catch(e){}; return; }
-    if (!isValidName(lastName)) { setNotification('Last Name may contain letters and spaces only.'); try { console.log('Validation failed: invalid lastName', { lastName }); } catch(e){}; return; }
-    if (!isValidMiddleInitial(mi)) { setNotification('Middle Initial must be a single letter.'); try { console.log('Validation failed: invalid middleInitial', { middleInitial: mi }); } catch(e){}; return; }
+    if (!isValidFirstName(firstName)) { setValidationField('firstName'); setNotification(getFirstNameValidationError(firstName)); document.getElementById('first-name')?.focus(); return; }
+    if (!lastName) { setValidationField('lastName'); setNotification('Last Name is required.'); try { console.log('Validation failed: missing lastName', { firstName, lastName }); } catch(e){}; return; }
+    if (!isValidName(lastName)) { setValidationField('lastName'); setNotification('Last Name may contain letters and spaces only.'); try { console.log('Validation failed: invalid lastName', { lastName }); } catch(e){}; return; }
+    if (!isValidMiddleInitial(mi)) { setValidationField('middleInitial'); setNotification('Middle Initial must be a single letter.'); try { console.log('Validation failed: invalid middleInitial', { middleInitial: mi }); } catch(e){}; return; }
     const contactNumberSan = normalizeContact(contactNumber);
     if (!isValidContact(contactNumberSan)) {
       const msg = 'Contact number must contain exactly 11 digits and start with 09.';
+      setValidationField('contactNumber');
       setNotification(msg);
       try { console.log('Validation failed: invalid contactNumber', { contactNumber, contactNumberSan }); } catch(e){}
       // Try to focus the contact input so the user can correct it quickly
       try { const el = document.querySelector('input[name="contactNumber"]'); if (el) { el.focus(); el.select(); } } catch (e) {}
       return;
     }
-    if (!email) { setNotification('Email is required.'); try { console.log('Validation failed: missing email', { email }); } catch(e){}; return; }
-    if (!isValidEmail(email)) { setNotification('Please enter a valid email address.'); try { console.log('Validation failed: invalid email', { email }); } catch(e){}; return; }
+    if (!email) { setValidationField('email'); setNotification('Email is required.'); try { console.log('Validation failed: missing email', { email }); } catch(e){}; return; }
+    if (!isValidEmail(email)) { setValidationField('email'); setNotification('Please enter a valid email address.'); try { console.log('Validation failed: invalid email', { email }); } catch(e){}; return; }
     if (roleVal === 'Superadmin' || normalizeRole(roleVal) === 'Superadmin') {
+      setValidationField('role');
       setNotification('Creating a Superadmin account is not allowed. Please choose another role.');
       return;
     }
 
     // Keep client validation aligned with the server's role assignment rules.
     if ((isHealthWorkerRole(roleVal) || isCommunityCoordinatorRole(roleVal)) && !schoolIdVal) {
+      setValidationField('schoolId');
       setNotification(`Assigned school is required for ${roleVal} accounts.`);
       return;
     }
     if (isHealthWorkerRole(roleVal) && !groupIdVal) {
+      setValidationField('groupId');
       setNotification('Assigned group is required for Health worker accounts.');
       return;
     }
     const dobToSave = normalizedDob || dobVal;
     const dobMsg = getDobValidationMessage(dobToSave);
     if (dobMsg) {
+      setValidationField('dob');
       setNotification(dobMsg);
       try { console.log('Validation failed: invalid dob', { dobVal, normalizedDob, dobToSave }); } catch(e){}
       try { const el = document.querySelector('input[name="dob"]'); if (el) el.focus(); } catch(e){}
@@ -529,7 +540,7 @@ export function useUserManagement({ schoolId = '', batchId = '', healthWorkerMan
       } else {
         // Create new user
         const passwordToUse = (fdPassword && fdPassword.length >= 8) ? fdPassword : generatePassword({ lastName, contactNumber: contactNumberSan });
-        if (!passwordToUse || passwordToUse.length < 8) { setNotification('Password must be at least 8 characters.'); try { console.log('Validation failed: password too short', { passwordToUse }); } catch(e){}; return; }
+        if (!passwordToUse || passwordToUse.length < 8) { setValidationField('password'); setNotification('Password must be at least 8 characters.'); try { console.log('Validation failed: password too short', { passwordToUse }); } catch(e){}; return; }
 
         // Use the normalized contact number as the username by default
         const baseUsername = contactNumberSan || `user${Date.now().toString().slice(-6)}`;
@@ -621,9 +632,13 @@ export function useUserManagement({ schoolId = '', batchId = '', healthWorkerMan
           password: emailSent ? null : passwordToUse,
           emailSent,
         });
-        setNotification(emailSent
-          ? `Created ${fullName} and emailed the account credentials.`
-          : `Created ${fullName}, but the credentials email could not be sent. Share the temporary password securely.`);
+        setNotification('');
+        notifyAction(
+          emailSent
+            ? `Created ${fullName} and emailed the account credentials.`
+            : `Created ${fullName}, but the credentials email could not be sent. Share the temporary password securely.`,
+          emailSent ? 'success' : 'warning'
+        );
         try { console.log('Created and added user to UI', publicId, fullName); } catch(e) {}
         closeModal();
         setPage(1);
@@ -770,6 +785,8 @@ export function useUserManagement({ schoolId = '', batchId = '', healthWorkerMan
     perPage,
     selectedUser,
     notification,
+    validationField,
+    setValidationField,
     confirmDeleteId,
     filteredData,
     currentRows,

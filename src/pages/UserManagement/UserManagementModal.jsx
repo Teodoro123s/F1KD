@@ -10,7 +10,7 @@ import { isCommunityCoordinatorRole, isHealthWorkerRole } from '../../utils/perm
 import { getFirstNameValidationError, normalizeFirstName } from '../../utils/validation/firstNameValidation';
 import useModalAccessibility from '../../components/ui/useModalAccessibility';
 
-function FormDropdown({ id, label, name, options, value, onChange, required = false, disabled = false, emptyMessage = '' }) {
+function FormDropdown({ id, label, name, options, value, onChange, required = false, disabled = false, emptyMessage = '', invalid = false }) {
   const [isOpen, setIsOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const triggerRef = useRef(null);
@@ -68,6 +68,7 @@ function FormDropdown({ id, label, name, options, value, onChange, required = fa
         aria-controls={listboxId}
         aria-expanded={isOpen}
         aria-required={required}
+        aria-invalid={invalid || undefined}
         aria-activedescendant={isOpen && activeIndex >= 0 ? `${listboxId}-${activeIndex}` : undefined}
         disabled={disabled || !options.length}
         ref={triggerRef}
@@ -114,7 +115,7 @@ function FormDropdown({ id, label, name, options, value, onChange, required = fa
   );
 }
 
-function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitting = false, notification = '' }) {
+function ModalShell({ title, onClose, onSubmit, onInvalidCapture, children, submitLabel, isSubmitting = false, notification = '' }) {
   const titleId = React.useId();
   const dialogRef = useRef(null);
   const closeButtonRef = useRef(null);
@@ -140,7 +141,7 @@ function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitt
         <form onSubmit={(event) => {
           event.preventDefault();
           if (!isSubmitting && onSubmit) onSubmit(event);
-        }}>
+        }} onInvalidCapture={onInvalidCapture}>
           <div className="modal-body">
             {notification && <div className="notification-banner" role="alert">{notification}</div>}
             {children}
@@ -159,10 +160,14 @@ function ModalShell({ title, onClose, onSubmit, children, submitLabel, isSubmitt
   ), document.body);
 }
 
-export default function AddUserModal({ showModal, onClose, form, setForm, onSubmit, roleOptions, communities = [], groups = [], mode = 'add', isSubmitting = false, notification = '', managedHealthWorker = false }) {
+export default function AddUserModal({ showModal, onClose, form, setForm, onSubmit, roleOptions, communities = [], groups = [], mode = 'add', isSubmitting = false, notification = '', managedHealthWorker = false, validationField = '', setValidationField = () => {} }) {
   const [firstNameTouched, setFirstNameTouched] = useState(false);
+  const [nativeInvalidFields, setNativeInvalidFields] = useState([]);
   useEffect(() => {
-    if (showModal) setFirstNameTouched(false);
+    if (showModal) {
+      setFirstNameTouched(false);
+      setNativeInvalidFields([]);
+    }
   }, [showModal, mode]);
   if (!showModal) return null;
 
@@ -170,7 +175,16 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
   const submitLabel = mode === 'edit' ? 'Save Changes' : 'Create';
   const firstNameError = firstNameTouched ? getFirstNameValidationError(form.firstName) : '';
 
-  const handleChange = (field, value) => {
+  const isInvalid = (field) => validationField === field || nativeInvalidFields.includes(field);
+  const clearInvalidField = (field, nativeIsValid = true) => {
+    if (nativeIsValid) {
+      setNativeInvalidFields((current) => current.filter((invalidField) => invalidField !== field));
+    }
+    if (validationField === field) setValidationField('');
+  };
+
+  const handleChange = (field, value, nativeIsValid = true) => {
+    clearInvalidField(field, nativeIsValid);
     const nextValue = field === 'contactNumber'
       ? sanitizeContactNumber(value)
       : field === 'firstName'
@@ -192,7 +206,13 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
   });
 
   return (
-    <ModalShell title={title} onClose={onClose} onSubmit={(event) => {
+    <ModalShell title={title} onClose={onClose} onInvalidCapture={(event) => {
+      const field = event.target.name || event.target.id;
+      if (field) {
+        setNativeInvalidFields((current) => current.includes(field) ? current : [...current, field]);
+      }
+    }} onSubmit={(event) => {
+      setNativeInvalidFields([]);
       setFirstNameTouched(true);
       onSubmit(event);
     }} submitLabel={submitLabel} isSubmitting={isSubmitting} notification={notification}>
@@ -207,14 +227,14 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
                       placeholder="Enter first name"
                       value={form.firstName}
                       maxLength={50}
-                      onChange={(e) => handleChange('firstName', e.target.value)}
+                      onChange={(e) => handleChange('firstName', e.target.value, e.target.validity.valid)}
                       onBlur={() => {
                         setFirstNameTouched(true);
                         const normalized = normalizeFirstName(form.firstName);
                         if (normalized !== form.firstName) handleChange('firstName', normalized);
                       }}
                       required
-                      aria-invalid={Boolean(firstNameError)}
+                      aria-invalid={Boolean(firstNameError) || isInvalid('firstName')}
                       aria-describedby={firstNameError ? 'first-name-error' : undefined}
                       autoFocus
                     />
@@ -229,7 +249,8 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
                       className="form-input"
                       placeholder="Enter last name"
                       value={form.lastName}
-                      onChange={(e) => handleChange('lastName', e.target.value)}
+                      onChange={(e) => handleChange('lastName', e.target.value, e.target.validity.valid)}
+                      aria-invalid={isInvalid('lastName')}
                       required
                     />
         </div>
@@ -243,7 +264,8 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
                       placeholder="A"
                       maxLength={1}
                       value={form.middleInitial}
-                      onChange={(e) => handleChange('middleInitial', e.target.value)}
+                      onChange={(e) => handleChange('middleInitial', e.target.value, e.target.validity.valid)}
+                      aria-invalid={isInvalid('middleInitial')}
                     />
         </div>
       </div>
@@ -261,7 +283,8 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
                       maxLength={11}
                       pattern="09[0-9]{9}"
                       value={form.contactNumber}
-                      onChange={(e) => handleChange('contactNumber', e.target.value)}
+                      onChange={(e) => handleChange('contactNumber', e.target.value, e.target.validity.valid)}
+                      aria-invalid={isInvalid('contactNumber')}
                       required
                     />
           <small>Enter exactly 11 digits starting with 09.</small>
@@ -275,7 +298,8 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
                       className="form-input"
                       placeholder="user@example.com"
                       value={form.email}
-                      onChange={(e) => handleChange('email', e.target.value)}
+                      onChange={(e) => handleChange('email', e.target.value, e.target.validity.valid)}
+                      aria-invalid={isInvalid('email')}
                       required
                     />
         </div>
@@ -290,6 +314,7 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
             className="form-input"
             value={form.dob}
             onChange={(value) => handleChange('dob', value)}
+            ariaInvalid={isInvalid('dob')}
             required
             max={formatDateForInput(new Date())}
             autoComplete="bday"
@@ -314,6 +339,7 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
               name="role"
               options={roleOptions.map((role) => ({ value: role, label: role }))}
               value={form.role}
+              invalid={isInvalid('role')}
               onChange={(role) => handleChange('role', role)}
             />
           )}
@@ -338,8 +364,12 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
                 options={communities.map((school) => ({ value: school.id, label: school.name }))}
                 value={form.schoolId || ''}
                 required={schoolIsRequired}
+                invalid={isInvalid('schoolId')}
                 emptyMessage="Create a school in Community before assigning this role."
-                onChange={(schoolId) => setForm((prev) => ({ ...prev, schoolId, groupId: requiresGroup ? '' : prev.groupId }))}
+                onChange={(schoolId) => {
+                  clearInvalidField('schoolId');
+                  setForm((prev) => ({ ...prev, schoolId, groupId: requiresGroup ? '' : prev.groupId }));
+                }}
               />
             )}
           </div>
@@ -354,6 +384,7 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
                 options={groupOptions.map((group) => ({ value: group.id, label: group.name }))}
                 value={form.groupId || ''}
                 required
+                invalid={isInvalid('groupId')}
                 emptyMessage="No groups are available for the selected school."
                 onChange={(groupId) => handleChange('groupId', groupId)}
               />

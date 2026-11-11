@@ -34,6 +34,8 @@ export default function UserManagementPage() {
     currentPage,
     selectedUser,
     notification,
+    validationField,
+    setValidationField,
     confirmDeleteId,
     currentRows,
     rangeStart,
@@ -187,6 +189,8 @@ export default function UserManagementPage() {
         mode={selectedUser ? 'edit' : 'add'}
         isSubmitting={isSubmitting}
         notification={notification}
+        validationField={validationField}
+        setValidationField={setValidationField}
         managedHealthWorker={organizerHealthWorkerScope}
       />
 

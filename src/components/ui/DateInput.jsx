@@ -18,6 +18,7 @@ export default function DateInput({
   min,
   max,
   ariaLabel,
+  ariaInvalid = false,
 }) {
   const pickerRef = useRef(null);
   const [draft, setDraft] = useState(() => displayDate(value));
@@ -85,7 +86,7 @@ export default function DateInput({
         disabled={disabled}
         readOnly={readOnly}
         aria-label={ariaLabel}
-        aria-invalid={Boolean(error)}
+        aria-invalid={Boolean(error || ariaInvalid)}
         aria-describedby={error ? `${id}-error` : undefined}
         autoComplete={autoComplete}
       />
