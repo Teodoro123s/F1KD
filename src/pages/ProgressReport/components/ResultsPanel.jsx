@@ -37,10 +37,15 @@ export function ResultsPanel({
   setNumericGraphMetric,
   availableGrowthMetrics,
   availableNumericGrowthMetrics,
+  rawMeasurementOptions = [],
+  availableCheckupDetailFields = [],
+  selectedCheckupFields = [],
   selectedGraphMetric,
   onGraphMetricChange,
   selectedTableGrowthMetric,
   setGrowthMetrics,
+  setMonitorTableMetrics,
+  setRawMeasurementsSelected,
   displayWeeks,
   setDisplayWeeks,
   rangeRows,
@@ -233,15 +238,28 @@ export function ResultsPanel({
           showSchoolFilter={!isHealthWorker && !isCommunityOrganizer}
           showGroupFilter={!isHealthWorker}
           growthMetricOptions={availableGrowthMetrics}
+          rawMeasurementOptions={rawMeasurementOptions}
+          availableCheckupDetailFields={availableCheckupDetailFields}
+          selectedCheckupFields={selectedCheckupFields}
           selectedGrowthMetric={selectedTableGrowthMetric}
           onGrowthMetricChange={(metric) => {
             if (!metric) {
               setGraphMetricType('numeric');
               setGrowthMetrics([]);
+              setRawMeasurementsSelected(true);
               setResultsView('table');
               return;
             }
+            if (rawMeasurementOptions.some(([id]) => id === metric)) {
+              setGraphMetricType('numeric');
+              setRawMeasurementsSelected(true);
+              setGrowthMetrics([metric]);
+              setNumericGraphMetric(metric);
+              return;
+            }
             setGraphMetricType('interpretation');
+            setRawMeasurementsSelected(false);
+            setMonitorTableMetrics([]);
             setGrowthMetrics([metric]);
             setNumericGraphMetric({
               weightForAgeInterpretation: 'weightForAge',

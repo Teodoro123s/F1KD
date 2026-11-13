@@ -137,6 +137,11 @@ test('check-up details can be shown without a growth metric', () => {
   );
 });
 
+test('raw weight and height selections do not add growth interpretations', () => {
+  assert.deepEqual(monitoringTableFieldsForSelection('weightForAge'), ['weightForAge']);
+  assert.deepEqual(monitoringTableFieldsForSelection('heightForAge'), ['heightForAge']);
+});
+
 test('referral table values preserve yes, no, and not-recorded states', () => {
   assert.equal(normalizeReferralValue(true), true);
   assert.equal(normalizeReferralValue(0), false);

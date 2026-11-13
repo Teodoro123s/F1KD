@@ -96,11 +96,21 @@ function HistoryCell({ field, value, formatCellValue, row }) {
   );
 }
 
-function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleFields, formatCellValue, communitySelection, beneficiaryType, showSchoolFilter, showGroupFilter, schoolOptions = [], onSchoolChange, loadingReport = false, growthMetricOptions, selectedGrowthMetric, onGrowthMetricChange, onRegisterExport, includeInterpretationColumns, setIncludeInterpretationColumns, onExport, exportingReport, selectedBatch, onSelectedBatchChange }) {
+function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleFields, formatCellValue, communitySelection, beneficiaryType, showSchoolFilter, showGroupFilter, schoolOptions = [], onSchoolChange, loadingReport = false, growthMetricOptions, rawMeasurementOptions = [], availableCheckupDetailFields = [], selectedCheckupFields = [], selectedGrowthMetric, onGrowthMetricChange, onRegisterExport, includeInterpretationColumns, setIncludeInterpretationColumns, onExport, exportingReport, selectedBatch, onSelectedBatchChange }) {
   const [viewMode, setViewMode] = useState('individual');
   const [customizerOpen, setCustomizerOpen] = useState(false);
-  const [hiddenHistoryFields, setHiddenHistoryFields] = useState(() => new Set(defaultHiddenHistoryFields));
+  const rawMeasurementActive = rawMeasurementOptions.some(([id]) => id === selectedGrowthMetric);
+  const initiallyHiddenRawDetails = rawMeasurementActive
+    ? availableCheckupDetailFields
+      .map(([id]) => id)
+      .filter((id) => id !== selectedGrowthMetric && !selectedCheckupFields.includes(id))
+    : [];
+  const rawMeasurementDetailSignature = initiallyHiddenRawDetails.join('|');
+  const [hiddenHistoryFields, setHiddenHistoryFields] = useState(
+    () => new Set([...defaultHiddenHistoryFields, ...initiallyHiddenRawDetails]),
+  );
   const customizerTriggerRef = useRef(null);
+  const previousRawMeasurementActive = useRef(rawMeasurementActive);
   const [selectedBeneficiary, setSelectedBeneficiary] = useState('');
   const [selectedMonth, setSelectedMonth] = useState('');
   const [selectedSchool, setSelectedSchool] = useState('');
@@ -174,6 +184,12 @@ function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleField
   ];
   const activeHistoryFields = viewMode === 'individual' ? displayedIndividualHistoryFields : displayedMonthlyHistoryFields;
   const availableCustomizerFields = viewMode === 'individual' ? individualHistoryFields : monthlyHistoryFields;
+  useEffect(() => {
+    if (rawMeasurementActive && !previousRawMeasurementActive.current) {
+      setHiddenHistoryFields((current) => new Set([...current, ...initiallyHiddenRawDetails]));
+    }
+    previousRawMeasurementActive.current = rawMeasurementActive;
+  }, [rawMeasurementActive, rawMeasurementDetailSignature]);
   const averageFields = displayedHistoryMetricFields.map(([id]) => id);
   const averageLabelField = activeHistoryFields[0]?.[0];
   const averageRow = buildMonitoringAverageRow(filteredRows, averageFields, averageLabelField);
@@ -254,11 +270,20 @@ function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleField
             </select>
           </label>
         )}
-        {growthMetricOptions?.length > 0 && (
+        {(growthMetricOptions?.length > 0 || rawMeasurementOptions.length > 0) && (
           <label>Growth metric
             <select value={selectedGrowthMetric} onChange={(event) => onGrowthMetricChange?.(event.target.value)}>
               <option value="">No growth metric</option>
-              {growthMetricOptions.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+              {growthMetricOptions.length > 0 && (
+                <optgroup label="Growth indicators">
+                  {growthMetricOptions.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+                </optgroup>
+              )}
+              {rawMeasurementOptions.length > 0 && (
+                <optgroup label="Raw measurements">
+                  {rawMeasurementOptions.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+                </optgroup>
+              )}
             </select>
           </label>
         )}
@@ -512,6 +537,9 @@ export function ResultsTable({
   showSchoolFilter = true,
   showGroupFilter = true,
   growthMetricOptions = [],
+  rawMeasurementOptions = [],
+  availableCheckupDetailFields = [],
+  selectedCheckupFields = [],
   selectedGrowthMetric = '',
   onGrowthMetricChange,
   onRegisterMonitoringExport,
@@ -657,7 +685,7 @@ export function ResultsTable({
         </div>
       )}
       {showMonitoringFilter ? (
-        <MonitoringHistoryTable resultsRows={resultsRows} reportFields={reportFields} displayVisibleFields={displayVisibleFields} formatCellValue={formatCellValue} communitySelection={communitySelection} beneficiaryType={beneficiaryType} showSchoolFilter={showSchoolFilter} showGroupFilter={showGroupFilter} schoolOptions={schoolOptions} onSchoolChange={onSchoolChange} loadingReport={loadingReport} growthMetricOptions={growthMetricOptions} selectedGrowthMetric={selectedGrowthMetric} onGrowthMetricChange={onGrowthMetricChange} onRegisterExport={onRegisterMonitoringExport} includeInterpretationColumns={includeInterpretationColumns} setIncludeInterpretationColumns={setIncludeInterpretationColumns} onExport={onExport} exportingReport={exportingReport} selectedBatch={selectedBatch} onSelectedBatchChange={onSelectedBatchChange} />
+        <MonitoringHistoryTable resultsRows={resultsRows} reportFields={reportFields} displayVisibleFields={displayVisibleFields} formatCellValue={formatCellValue} communitySelection={communitySelection} beneficiaryType={beneficiaryType} showSchoolFilter={showSchoolFilter} showGroupFilter={showGroupFilter} schoolOptions={schoolOptions} onSchoolChange={onSchoolChange} loadingReport={loadingReport} growthMetricOptions={growthMetricOptions} rawMeasurementOptions={rawMeasurementOptions} availableCheckupDetailFields={availableCheckupDetailFields} selectedCheckupFields={selectedCheckupFields} selectedGrowthMetric={selectedGrowthMetric} onGrowthMetricChange={onGrowthMetricChange} onRegisterExport={onRegisterMonitoringExport} includeInterpretationColumns={includeInterpretationColumns} setIncludeInterpretationColumns={setIncludeInterpretationColumns} onExport={onExport} exportingReport={exportingReport} selectedBatch={selectedBatch} onSelectedBatchChange={onSelectedBatchChange} />
       ) : (
       <StandardResultsTable resultsRows={filteredProfileRows} fields={customizedFields} formatCellValue={formatCellValue} beneficiaryType={beneficiaryType} blankEmptyValues={showProfileFilter} />
       )}

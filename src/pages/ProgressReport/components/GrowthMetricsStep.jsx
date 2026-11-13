@@ -23,6 +23,7 @@ export function GrowthMetricsStep({
   selectedMonitorFields = [],
   availableMonitorFields = [],
   toggleMonitorField,
+  rawMeasurementsSelected = false,
 }) {
   const hasProfilePages = reportCategory === 'profile' && Object.keys(profileFieldSections).length > 0;
   const profileSections = Object.entries(profileSectionLabels).filter(([value]) => value !== 'all');
@@ -76,19 +77,19 @@ export function GrowthMetricsStep({
         <>
           <p>
             {beneficiaryType === 'mother'
-              ? 'Choose a monitoring metric or leave it unselected to report raw measurements and check-up details.'
-              : 'Growth indicators are optional. Choose one, or report raw measurements and check-up details only.'}
+              ? 'Choose a monitoring metric, or select raw measurements to reveal check-up details.'
+              : 'Growth indicators are optional. Select raw measurements to reveal check-up details without a growth metric.'}
           </p>
           <div className="growth-metric-cards">
-            <label className={!growthMetrics.length ? 'selected' : ''}>
+            <label className={rawMeasurementsSelected ? 'selected' : ''}>
               <input
                 type="radio"
                 name="growth-metric"
-                checked={!growthMetrics.length}
+                checked={rawMeasurementsSelected}
                 onChange={() => selectGrowthMetric('')}
               />
               <strong>Raw measurements / check-up details only</strong>
-              <span>Leave growth indicators unselected, then choose fields such as Weight (kg) below.</span>
+              <span>Show recorded fields such as Weight (kg), without a growth indicator.</span>
             </label>
             {availableGrowthMetrics.map(([id, label, description]) => (
               <label key={id} className={growthMetrics.includes(id) ? 'selected' : ''}>
@@ -103,32 +104,36 @@ export function GrowthMetricsStep({
               </label>
             ))}
           </div>
-          <h2>Check-up details</h2>
-          <p>Select raw measurements, such as Weight (kg), or other recorded fields for the monitoring history table and CSV export.</p>
-          <div className="growth-metric-cards profile-metric-cards checkup-detail-cards">
-            {availableMonitorFields.map(([id, label, description]) => (
-              <label key={id} className={selectedMonitorFields.some(([fieldId]) => fieldId === id) ? 'selected' : ''}>
-                <input
-                  type="checkbox"
-                  name="monitor-detail"
-                  checked={selectedMonitorFields.some(([fieldId]) => fieldId === id)}
-                  onChange={() => toggleMonitorField?.(id)}
-                />
-                <strong>{label}</strong>
-                <span>{description}</span>
-              </label>
-            ))}
-          </div>
-          {beneficiaryType === 'child' && (
-            <p className="progress-report-note">
-              {growthMetrics.length
-                ? 'Graphs show measured weight or length/height over time with labeled units. WHO scores are used to calculate interpretations but are not displayed.'
-                : 'With no growth indicator selected, the report includes only the check-up fields you select above, such as raw weight.'}
-            </p>
+          {rawMeasurementsSelected && (
+            <>
+              <h2>Check-up details</h2>
+              <p>Select raw measurements, such as Weight (kg), or other recorded fields for the monitoring history table and CSV export.</p>
+              <div className="growth-metric-cards profile-metric-cards checkup-detail-cards">
+                {availableMonitorFields.map(([id, label, description]) => (
+                  <label key={id} className={selectedMonitorFields.some(([fieldId]) => fieldId === id) ? 'selected' : ''}>
+                    <input
+                      type="checkbox"
+                      name="monitor-detail"
+                      checked={selectedMonitorFields.some(([fieldId]) => fieldId === id)}
+                      onChange={() => toggleMonitorField?.(id)}
+                    />
+                    <strong>{label}</strong>
+                    <span>{description}</span>
+                  </label>
+                ))}
+              </div>
+              {selectedMonitorFields.length > 0 && (
+                <p className="progress-report-note">
+                  Selected check-up details are included in the monitoring history and CSV export. Beneficiary name is included automatically.
+                </p>
+              )}
+            </>
           )}
-          {selectedMonitorFields.length > 0 && (
+          {beneficiaryType === 'child' && (growthMetrics.length > 0 || rawMeasurementsSelected) && (
             <p className="progress-report-note">
-              Selected check-up details are included in the monitoring history and CSV export. Beneficiary name is included automatically.
+              {rawMeasurementsSelected
+                ? 'With no growth indicator selected, the report includes only the check-up fields you select above, such as raw weight.'
+                : 'Graphs show measured weight or length/height over time with labeled units. WHO scores are used to calculate interpretations but are not displayed.'}
             </p>
           )}
         </>

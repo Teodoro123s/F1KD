@@ -99,6 +99,7 @@ export default function ProgressReport() {
   const [reportCategory, setReportCategory] = useState('monitor');
   const [beneficiaryType, setBeneficiaryType] = useState('child');
   const [growthMetrics, setGrowthMetrics] = useState([]);
+  const [rawMeasurementsSelected, setRawMeasurementsSelected] = useState(false);
   const [monitorTableMetrics, setMonitorTableMetrics] = useState([]);
   const [graphMetricType, setGraphMetricType] = useState('numeric');
   const [numericGraphMetric, setNumericGraphMetric] = useState('heightForAge');
@@ -161,13 +162,16 @@ export default function ProgressReport() {
     }
   }, [eligiblePrograms, programName]);
   const availableGrowthMetrics = displayBeneficiaryType === 'mother' ? MOTHER_GROWTH_METRICS : GROWTH_METRICS;
-  const hasSelectedGrowthMetric = availableGrowthMetrics.some(([id]) => growthMetrics.includes(id));
+  const availableNumericGrowthMetrics = NUMERIC_GROWTH_METRICS(displayBeneficiaryType);
+  const rawMeasurementOptions = availableNumericGrowthMetrics.filter(([id]) => ['weightForAge', 'heightForAge'].includes(id));
+  const availableTableGrowthMetrics = [...availableGrowthMetrics, ...rawMeasurementOptions];
+  const availableCheckupDetailFields = displayBeneficiaryType === 'mother' ? MOTHER_CHECKUP_DETAIL_FIELDS : CHILD_CHECKUP_DETAIL_FIELDS;
+  const hasSelectedGrowthMetric = availableTableGrowthMetrics.some(([id]) => growthMetrics.includes(id));
   const graphAllowed = displayReportCategory === 'program'
     ? activeReportRowCount > 0
     : displayReportCategory === 'monitor'
       ? activeReportRowCount > 0 && hasSelectedGrowthMetric
       : Boolean(displaySelection.batchId) || activeReportRowCount <= 1;
-  const availableNumericGrowthMetrics = NUMERIC_GROWTH_METRICS(displayBeneficiaryType);
   const availableProfileMetrics = displayBeneficiaryType === 'mother' ? MOTHER_PROFILE_METRICS : CHILD_PROFILE_METRICS;
   const activeProfileFieldSections = displayBeneficiaryType === 'mother' ? MOTHER_PROFILE_FIELD_SECTIONS : CHILD_PROFILE_FIELD_SECTIONS;
   const activeProfileSectionLabels = displayBeneficiaryType === 'mother' ? MOTHER_PROFILE_SECTION_LABELS : PROFILE_SECTION_LABELS;
@@ -181,10 +185,17 @@ export default function ProgressReport() {
       : row.growthSeries?.some((point) => Number.isFinite(getPointValue(point, metric)))
         || Number.isFinite(Number(row[metric]))
   );
-  const selectedTableGrowthMetric = availableGrowthMetrics.some(([id]) => id === growthMetrics[0])
+  const selectedTableGrowthMetric = availableTableGrowthMetrics.some(([id]) => id === growthMetrics[0])
     ? growthMetrics[0]
     : '';
-  const selectedTableGrowthFields = monitoringTableFieldsForSelection(selectedTableGrowthMetric, monitorTableMetrics);
+  const rawMeasurementMetricActive = rawMeasurementOptions.some(([id]) => id === selectedTableGrowthMetric);
+  const selectedTableGrowthFields = monitoringTableFieldsForSelection(
+    selectedTableGrowthMetric,
+    [
+      ...monitorTableMetrics,
+      ...(rawMeasurementMetricActive ? availableCheckupDetailFields.map(([id]) => id) : []),
+    ],
+  );
   const tableBaseFields = baseDisplayVisibleFields.filter((field) => !GROWTH_TABLE_FIELDS.has(field));
   const monitoringHierarchyFields = new Set([
     ...(displaySelection.schoolId ? ['school'] : []),
@@ -289,7 +300,7 @@ export default function ProgressReport() {
     }
     if (
       reportCategory === 'monitor'
-      && !availableGrowthMetrics.some(([id]) => growthMetrics.includes(id))
+      && !availableTableGrowthMetrics.some(([id]) => growthMetrics.includes(id))
       && !monitorTableMetrics.length
     ) {
       notifyAction('Select a growth indicator or at least one check-up detail.', 'error');
@@ -733,6 +744,7 @@ export default function ProgressReport() {
     setFinalizedSnapshot(null);
     setVisibleFields(DEFAULT_VISIBLE_FIELDS);
     setGrowthMetrics([]);
+    setRawMeasurementsSelected(false);
     setMonitorTableMetrics([]);
     setProfileMetrics(CHILD_PROFILE_METRICS.map(([id]) => id));
     setProfileSection('general');
@@ -759,6 +771,7 @@ export default function ProgressReport() {
     if (!id) {
       setGraphMetricType('numeric');
       setGrowthMetrics([]);
+      setRawMeasurementsSelected(true);
       syncVisibleFieldsForGrowthMetric([]);
       setResultsView('table');
       setReport(null);
@@ -768,6 +781,8 @@ export default function ProgressReport() {
 
     if (beneficiaryType === 'child') {
       const nextGrowthMetrics = [id];
+      setRawMeasurementsSelected(false);
+      setMonitorTableMetrics([]);
       setGraphMetricType('numeric');
       setNumericGraphMetric(CHILD_NUMERIC_METRIC_BY_INTERPRETATION[id] || 'weightForAge');
       setGrowthMetrics(nextGrowthMetrics);
@@ -779,6 +794,8 @@ export default function ProgressReport() {
     }
 
     const nextType = INTERPRETATION_METRICS.has(id) || id === 'hospitalReferral' ? 'interpretation' : 'numeric';
+    setRawMeasurementsSelected(false);
+    setMonitorTableMetrics([]);
     setGraphMetricType(nextType);
     if (nextType === 'numeric') setNumericGraphMetric(id);
     setGrowthMetrics([id]);
@@ -824,6 +841,7 @@ export default function ProgressReport() {
     setProfileMetrics((type === 'mother' ? MOTHER_PROFILE_METRICS : CHILD_PROFILE_METRICS).map(([id]) => id));
     setProfileGraphColumn(type === 'mother' ? 'bmiInterpretation' : 'gender');
     const initialMetrics = type === 'mother' ? ['bmiForAge'] : [];
+    setRawMeasurementsSelected(false);
     setGraphMetricType('numeric');
     setNumericGraphMetric(type === 'mother' ? 'bmiForAge' : 'heightForAge');
     setGrowthMetrics(initialMetrics);
@@ -834,18 +852,21 @@ export default function ProgressReport() {
   };
   const selectReportCategory = (category) => {
     setMonitorTableMetrics([]);
+    if (category !== 'monitor') setRawMeasurementsSelected(false);
     setReportCategory(category);
     setReport(null);
     setFinalizedSnapshot(null);
     if (category === 'program') {
+      setRawMeasurementsSelected(false);
       setProgramMetrics(['receivedBenefitAveragePerMonth', 'programDocumentation']);
       setGrowthMetrics(['receivedBenefitAveragePerMonth']);
       syncVisibleFieldsForGrowthMetric(['receivedBenefitAveragePerMonth']);
       setDisplayWeeks('receivedBenefitAveragePerMonth');
       setResultsView('table');
     }
-    if (category === 'monitor' && growthMetrics.length && !availableGrowthMetrics.some(([id]) => growthMetrics.includes(id))) {
+    if (category === 'monitor' && growthMetrics.length && !availableTableGrowthMetrics.some(([id]) => growthMetrics.includes(id))) {
       const initialMetrics = beneficiaryType === 'mother' ? ['bmiForAge'] : [];
+      setRawMeasurementsSelected(false);
       setGrowthMetrics(initialMetrics);
       setGraphMetricType('numeric');
       setNumericGraphMetric(beneficiaryType === 'mother' ? 'bmiForAge' : 'heightForAge');
@@ -963,6 +984,7 @@ export default function ProgressReport() {
               beneficiaryType={beneficiaryType}
               availableGrowthMetrics={availableGrowthMetrics}
               growthMetrics={growthMetrics}
+              rawMeasurementsSelected={rawMeasurementsSelected}
               selectGrowthMetric={selectGrowthMetric}
               setActiveTab={goToTab}
               generateReport={generateReport}
@@ -1027,6 +1049,9 @@ export default function ProgressReport() {
                 setNumericGraphMetric={setNumericGraphMetric}
                 availableGrowthMetrics={availableGrowthMetrics}
                 availableNumericGrowthMetrics={availableNumericGrowthMetrics}
+                rawMeasurementOptions={rawMeasurementOptions}
+                availableCheckupDetailFields={availableCheckupDetailFields}
+                selectedCheckupFields={monitorTableMetrics}
                 selectedGraphMetric={selectedGraphMetric}
                 onGraphMetricChange={(metric) => {
                   if (availableGrowthMetrics.some(([id]) => id === metric)) {
@@ -1039,6 +1064,8 @@ export default function ProgressReport() {
                 }}
                 selectedTableGrowthMetric={selectedTableGrowthMetric}
                 setGrowthMetrics={setGrowthMetrics}
+                setMonitorTableMetrics={setMonitorTableMetrics}
+                setRawMeasurementsSelected={setRawMeasurementsSelected}
                 displayWeeks={displayWeeks}
                 setDisplayWeeks={setDisplayWeeks}
                 rangeRows={displayReportCategory === 'monitor' ? selectedGraphRangeRows : resultsRows}

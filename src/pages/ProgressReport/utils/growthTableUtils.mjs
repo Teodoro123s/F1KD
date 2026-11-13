@@ -38,6 +38,8 @@ export const withoutGrowthScores = (fields) => fields.filter((field) => !growthS
 
 export const growthTableFieldsForMetric = (metric) => {
   if (metric?.startsWith('weightForLength')) return ['weightForLengthInterpretation'];
+  if (metric === 'weightForAge') return ['weightForAge'];
+  if (metric === 'heightForAge') return ['heightForAge'];
   if (metric?.startsWith('weightForAge')) return ['weightForAge', 'weightForAgeInterpretation'];
   if (metric?.startsWith('lengthForAge') || metric?.startsWith('heightForAge')) return ['heightForAge', 'lengthForAgeInterpretation'];
   if (metric === 'bmiForAge') return ['bmiForAge', 'bmiInterpretation'];
