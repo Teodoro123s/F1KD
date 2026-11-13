@@ -141,3 +141,17 @@ The requested removal of mother/child Archive buttons remains in effect. The Arc
 ## Limitations
 
 No production/shared data was changed; the configured application database was not used. Archive persistence was tested in the isolated synthetic database. No authenticated browser workflow, file upload through the UI, performance load test, full screen-reader test, responsive authenticated-role check, or deployment configuration review was performed. These areas remain **NOT TESTED** or **BLOCKED**, not PASS.
+
+## Follow-up audit — 2026-11-13
+
+This addendum records a later source-level review and supersedes the earlier open findings where stated; the 2026-11-02 assessment above remains historical.
+
+- Fixed two HIGH program authorization findings: monitoring/report data is filtered by the requester’s school/group scope, and program scopes use stable IDs instead of ambiguous reusable names.
+- Fixed six MEDIUM integrity/reliability findings involving beneficiary hierarchy validation, transactional writes, child check-up uniqueness, batch/group consistency, and startup migration error propagation. Focused API and failure-path tests pass.
+- The beneficiary list now requests visible server pages, and `MothersContext` no longer fetches every mother when the list is opened. Full-page requests remain for child-creation eligibility and analytics/report workflows that calculate across complete datasets.
+- Login failures now have persistent server-side attempt tracking, a generic credential response, a lockout status API, and a live server-derived retry countdown in the UI.
+- Updated Progress Report and database schema documentation. Added migrations `20261113_program_scope_identity.sql`, `20261113_login_attempt_lockout.sql`, and `20261113_unique_child_checkup_weeks.sql`.
+- Added a Playwright browser suite for login lockout feedback and server-paginated beneficiary browsing.
+- Verification: `npm run build` passed; `npm test` passed with **417 passed, 0 failed, 1 skipped**; `npm run test:e2e` passed with **2 browser workflows**. Focused audit-fix tests passed.
+
+The three new migrations were not applied to any database. Production/shared data was not queried or modified. Real database transaction/concurrency behavior, other authenticated role workflows, and responsive browser behavior remain unverified; the new browser tests use mocked API responses.

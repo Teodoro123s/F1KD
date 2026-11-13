@@ -11,6 +11,7 @@ const TYPE_LABELS = {
   batch: 'Batches',
   mother: 'Mothers',
   child: 'Children',
+  user: 'Users',
 };
 const TYPE_SINGULAR_LABELS = {
   school: 'School',
@@ -18,6 +19,7 @@ const TYPE_SINGULAR_LABELS = {
   batch: 'Batch',
   mother: 'Mother',
   child: 'Child',
+  user: 'User account',
 };
 
 export default function ArchiveRecordsPanel({ types, view, onChanged }) {
@@ -155,6 +157,7 @@ export default function ArchiveRecordsPanel({ types, view, onChanged }) {
                     <tr>
                       <th scope="col">Record</th>
                       <th scope="col">Archived date</th>
+                      <th scope="col">Permanently removed after</th>
                       <th scope="col">Archived by</th>
                       <th scope="col">Reason</th>
                       <th scope="col">Action</th>
@@ -163,8 +166,16 @@ export default function ArchiveRecordsPanel({ types, view, onChanged }) {
                   <tbody>
                     {records.length ? records.map((record) => (
                       <tr key={record.id}>
-                        <td>{record.name || record.code || `Record ${record.id}`}</td>
+                        <td>
+                          {record.name || record.code || `Record ${record.id}`}
+                          {type === 'user' && (
+                            <small className="archive-record-subtitle">
+                              {[record.email, record.role].filter(Boolean).join(' · ')}
+                            </small>
+                          )}
+                        </td>
                         <td>{record.archived_at ? new Date(record.archived_at).toLocaleString() : '—'}</td>
+                        <td>{record.purge_at ? new Date(record.purge_at).toLocaleString() : '—'}</td>
                         <td>{record.archived_by || '—'}</td>
                         <td>{record.archive_reason || '—'}</td>
                         <td>
@@ -174,7 +185,7 @@ export default function ArchiveRecordsPanel({ types, view, onChanged }) {
                         </td>
                       </tr>
                     )) : (
-                      <tr><td colSpan="5" className="no-data">No archived records found.</td></tr>
+                      <tr><td colSpan="6" className="no-data">No archived records found.</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -249,14 +260,16 @@ export default function ArchiveRecordsPanel({ types, view, onChanged }) {
     ) : null}
       <ConfirmDialog
         open={Boolean(pendingRestore)}
-        title="Restore archived record?"
+        title={type === 'user' ? 'Restore user account?' : 'Restore archived record?'}
         description={pendingRestore
-          ? type === 'mother'
+          ? type === 'user'
+            ? `Restore "${pendingRestore.name || pendingRestore.email}"? The previous account status will be preserved. Sign-in is allowed only if the account status is Active.`
+            : type === 'mother'
             ? `Restore "${pendingRestore.name || pendingRestore.code}"? Child records archived with this mother will be restored too. The parent hierarchy must be active.`
             : `Restore "${pendingRestore.name || pendingRestore.code}"? The parent hierarchy must be active before this record can be used again.`
           : ''}
         variant="default"
-        confirmLabel="Restore"
+        confirmLabel={type === 'user' ? 'Restore account' : 'Restore'}
         loadingLabel="Restoring…"
         loading={restoring}
         onConfirm={restore}

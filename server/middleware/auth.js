@@ -21,12 +21,13 @@ function createVerifyToken({ allowUnconsented = false } = {}) {
     let rows;
     try {
       [rows] = await pool.query(
-        `SELECT s.user_id, u.email, u.role, u.status, u.school_id, u.group_id, u.first_name,
+        `SELECT s.user_id, u.email, u.role, u.status, u.archived_at, u.school_id, u.group_id, u.first_name,
                 u.middle_initial, u.last_name, u.contact_number, u.location, u.consent_accepted_at
          FROM auth_sessions s
          INNER JOIN users u ON u.id = s.user_id
          WHERE s.id = ? AND s.user_id = ? AND s.revoked_at IS NULL
            AND s.expires_at > UTC_TIMESTAMP()
+           AND u.archived_at IS NULL
            AND LOWER(TRIM(u.status)) NOT IN ('inactive', 'pending', 'suspended', 'disabled')
          LIMIT 1`,
         [payload.sid, payload.id],

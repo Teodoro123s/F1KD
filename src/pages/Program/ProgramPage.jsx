@@ -25,6 +25,7 @@ import ExpandableTreeTable from "../Monitoring/ExpandableTreeTable";
 import { formatDateForDisplay, normalizeDateValue } from '../../utils/formatting/dateFormat';
 import {
   beneficiaryNames,
+  clusterPath,
   emptyProgram,
   filterPrograms,
   filterProgramBeneficiaryRecords,
@@ -43,6 +44,7 @@ export default function ProgramPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { programId, clusterType, clusterName, schoolId, groupId, batchId } = useParams();
+  const clusterScopeId = new URLSearchParams(location.search).get('scopeId');
   const { currentUser } = useAuth();
   const isCommunityOrganizer = isCommunityCoordinatorRole(currentUser?.role);
   const canManagePrograms = isCommunityOrganizer;
@@ -225,8 +227,10 @@ export default function ProgramPage() {
           sourceType: 'mother',
           monitorKey: `mother:${mother.id}`,
           school: mother.community || '',
+          schoolId: mother.communityId || mother.community_id || '',
           group: mother.groupName || mother.group || '',
           groupId: mother.groupId || mother.group_id || '',
+          batchId: mother.batchId || mother.batch_id || '',
           batch: batchesById.get(String(mother.batchId))?.name || mother.batch || '',
           name: mother.name,
           type: 'Mother',
@@ -238,8 +242,10 @@ export default function ProgramPage() {
           sourceType: 'child',
           monitorKey: `child:${child.id}`,
           school: child.community_name || '',
+          schoolId: child.community_id || child.communityId || child.mother_community_id || '',
           group: child.group_name || '',
           groupId: child.group_id || child.groupId || '',
+          batchId: child.batch_id || child.batchId || child.mother_batch_id || '',
           batch: child.batch_name || '',
           name: [child.first_name, child.middle_name, child.last_name].filter(Boolean).join(' '),
           type: 'Child',
@@ -403,9 +409,11 @@ export default function ProgramPage() {
     const clusterType = level?.toLowerCase?.() || 'school';
     const clusterName = cluster?.name || cluster?.group_name || cluster?.batch_name || '';
     if (!clusterName) return;
+    const scopeId = cluster?.scopeId || cluster?.id;
     const beneficiaries = collectClusterBeneficiaries(cluster, clusterType);
-    navigate(`/program/${programId}/cluster/${encodeURIComponent(clusterType)}/${encodeURIComponent(clusterName)}/receipt-history`, {
-      state: { clusterName, clusterType, beneficiaries, programStatus: selectedProgram?.status, returnTo: `${location.pathname}${location.search}` },
+    const scopeQuery = scopeId ? `?scopeId=${encodeURIComponent(scopeId)}` : '';
+    navigate(`/program/${programId}/cluster/${encodeURIComponent(clusterType)}/${encodeURIComponent(clusterName)}/receipt-history${scopeQuery}`, {
+      state: { clusterName, clusterType, scopeId, beneficiaries, programStatus: selectedProgram?.status, returnTo: `${location.pathname}${location.search}` },
     });
   };
 
@@ -416,8 +424,9 @@ export default function ProgramPage() {
     const beneficiaries = collectClusterBeneficiaries(cluster, clusterType, program)
       .map((record) => ({ id: record.sourceId, type: record.sourceType, name: record.name }));
     setReceiptHistoryProgram(null);
-    navigate(`/program/${program.id}/cluster/${encodeURIComponent(clusterType)}/${encodeURIComponent(clusterName)}/receipt-history`, {
-      state: { clusterName, clusterType, beneficiaries, programStatus: program.status, returnTo: `${location.pathname}${location.search}` },
+    const scopeQuery = cluster.scopeId ? `?scopeId=${encodeURIComponent(cluster.scopeId)}` : '';
+    navigate(`/program/${program.id}/cluster/${encodeURIComponent(clusterType)}/${encodeURIComponent(clusterName)}/receipt-history${scopeQuery}`, {
+      state: { clusterName, clusterType, scopeId: cluster.scopeId, beneficiaries, programStatus: program.status, returnTo: `${location.pathname}${location.search}` },
     });
   };
 
@@ -559,26 +568,34 @@ export default function ProgramPage() {
   const expandedClusters = useMemo(() => {
     if (!selectedProgram) return [];
     const clusters = [...(selectedProgram.clusters || [])];
-    const addCluster = (type, name, beneficiaries) => {
-      if (!name || clusters.some((cluster) => cluster.type === type && cluster.name.toLowerCase() === name.toLowerCase())) return;
-      clusters.push({ type, name, beneficiaries: Number(beneficiaries || 0), received: 0, derived: true });
+    const addCluster = (type, name, scopeId, beneficiaries) => {
+      if (!name || clusters.some((cluster) => (
+        cluster.type === type
+        && (scopeId
+          ? String(cluster.scopeId ?? cluster.scope_id ?? '') === String(scopeId)
+            || (!(cluster.scopeId ?? cluster.scope_id) && cluster.name.toLowerCase() === name.toLowerCase())
+          : !cluster.scopeId && !cluster.scope_id && cluster.name.toLowerCase() === name.toLowerCase())
+      ))) return;
+      clusters.push({ type, name, scopeId, beneficiaries: Number(beneficiaries || 0), received: 0, derived: true });
     };
     clusters.filter((cluster) => cluster.type === 'School').forEach((schoolCluster) => {
       const schoolName = schoolCluster.name.replace(/ School$/i, '');
-      const school = hierarchy.schools.find((item) => String(item.name || '').toLowerCase() === schoolCluster.name.toLowerCase() || String(item.name || '').toLowerCase() === schoolName.toLowerCase());
+      const school = hierarchy.schools.find((item) => (
+        schoolCluster.scopeId && String(item.id || item.school_id || item.community_id) === String(schoolCluster.scopeId)
+      )) || hierarchy.schools.find((item) => String(item.name || '').toLowerCase() === schoolCluster.name.toLowerCase() || String(item.name || '').toLowerCase() === schoolName.toLowerCase());
       if (!school) return;
       const schoolGroups = hierarchy.groups.filter((group) => (
-        String(group.community || group.community_name || '').toLowerCase() === String(school.name || '').toLowerCase()
+        String(group.community_id || group.communityId || '') === String(school.id || school.school_id || school.community_id)
       ));
-      schoolGroups.forEach((group) => addCluster('Group', group.name || group.group_name, group.members));
+      schoolGroups.forEach((group) => addCluster('Group', group.name || group.group_name, group.id, group.members));
       hierarchy.batches.filter((batch) => (
-        String(batch.community || '').toLowerCase() === String(school.name || '').toLowerCase()
-      )).forEach((batch) => addCluster('Batch', batch.name || batch.batch_code, batch.records));
+        String(batch.community_id || batch.communityId || '') === String(school.id || school.school_id || school.community_id)
+      )).forEach((batch) => addCluster('Batch', batch.name || batch.batch_code, batch.id, batch.records));
     });
     return clusters;
   }, [hierarchy, selectedProgram]);
   const selectedProgramView = selectedProgram ? { ...selectedProgram, clusters: expandedClusters } : selectedProgram;
-  const selectedCluster = getCluster(selectedProgramView, clusterType, clusterName);
+  const selectedCluster = getCluster(selectedProgramView, clusterType, clusterName, clusterScopeId);
   const schoolRows = selectedProgramView?.clusters.filter((cluster) => cluster.type === 'School') || [];
   const directScopeClusters = selectedProgramView?.clusters.filter((cluster) => cluster.type === 'Group' || cluster.type === 'Batch') || [];
   const directScopeGroups = useMemo(() => {
@@ -839,13 +856,29 @@ export default function ProgramPage() {
     setScopeError('');
     const scopes = selectedScopes.flatMap((scope) => {
       const name = scope.name || scope.group_name || scope.batch_code || scope.code;
-      const coverage = [{ type: beneficiaryScope, name, beneficiaries: Number(scope.records || scope.members_count || 0) }];
+      const coverage = [{
+        type: beneficiaryScope,
+        name,
+        scopeId: scope.id || scope.school_id || scope.community_id,
+        beneficiaries: Number(scope.records || scope.members_count || 0),
+      }];
       if (beneficiaryScope !== 'School') return coverage;
-      const groups = hierarchy.groups.filter((group) => String(group.community || group.community_name || '').toLowerCase() === String(name || '').toLowerCase());
-      const batches = hierarchy.batches.filter((batch) => String(batch.community || '').toLowerCase() === String(name || '').toLowerCase());
+      const schoolId = String(scope.id || scope.school_id || scope.community_id || '');
+      const groups = hierarchy.groups.filter((group) => String(group.community_id || group.communityId || '') === schoolId);
+      const batches = hierarchy.batches.filter((batch) => String(batch.community_id || batch.communityId || '') === schoolId);
       return coverage.concat(
-        groups.map((group) => ({ type: 'Group', name: group.name || group.group_name, beneficiaries: Number(group.members || 0) })),
-        batches.map((batch) => ({ type: 'Batch', name: batch.name || batch.batch_code, beneficiaries: Number(batch.records || 0) })),
+        groups.map((group) => ({
+          type: 'Group',
+          name: group.name || group.group_name,
+          scopeId: group.id,
+          beneficiaries: Number(group.members || 0),
+        })),
+        batches.map((batch) => ({
+          type: 'Batch',
+          name: batch.name || batch.batch_code,
+          scopeId: batch.id,
+          beneficiaries: Number(batch.records || 0),
+        })),
       );
     });
     try {
@@ -1304,7 +1337,7 @@ export default function ProgramPage() {
       {clusterView && selectedProgram && (
         <section className="program-cluster-subheader" aria-label="Program beneficiary clusters">
           <div className="program-cluster-tabs" role="tablist" aria-label="Program cluster levels">
-            {[['School', 'Schools', BuildingIcon], ['Group', 'Groups', GroupsIcon], ['Batch', 'Batches', BatchesIcon]].map(([type, label, Icon]) => { const cluster = selectedProgramView.clusters.find((item) => item.type === type); return <button key={type} type="button" role="tab" aria-selected={clusterType === type} className={`program-cluster-tab${clusterType === type ? ' active' : ''}`} onClick={() => cluster && navigate(`/program/${selectedProgram.id}/cluster/${type}/${encodeURIComponent(cluster.name)}`)} disabled={!cluster}><Icon /><span>{label}</span></button>; })}
+            {[['School', 'Schools', BuildingIcon], ['Group', 'Groups', GroupsIcon], ['Batch', 'Batches', BatchesIcon]].map(([type, label, Icon]) => { const cluster = selectedProgramView.clusters.find((item) => item.type === type); return <button key={type} type="button" role="tab" aria-selected={clusterType === type} className={`program-cluster-tab${clusterType === type ? ' active' : ''}`} onClick={() => cluster && navigate(clusterPath(selectedProgram.id, cluster))} disabled={!cluster}><Icon /><span>{label}</span></button>; })}
           </div>
         </section>
       )}
@@ -1415,7 +1448,7 @@ export default function ProgramPage() {
                       <tr key={batch.id} className="program-clickable-row" onClick={() => navigate(`/program/${programId}/batch/${batch.id}`)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); navigate(`/program/${programId}/batch/${batch.id}`); } }} tabIndex={0} role="button">
                         <td><strong>{batch.name}</strong></td>
                         <td>{(batch.beneficiaries || []).length || Number(batch.scopeBeneficiaries || 0)}</td>
-                        <td><button type="button" className="view-btn view-btn--secondary" onClick={(event) => { event.stopPropagation(); openClusterHistory({ name: batch.name }, 'batch'); }}>Check-in</button></td>
+                        <td><button type="button" className="view-btn view-btn--secondary" onClick={(event) => { event.stopPropagation(); openClusterHistory({ name: batch.name, id: batch.id }, 'batch'); }}>Check-in</button></td>
                       </tr>
                     )) : (
                       <tr>
@@ -1450,7 +1483,7 @@ export default function ProgramPage() {
                           <td><strong>{group.name}</strong></td>
                           <td>{batchCount}</td>
                           <td>{beneficiaryCount}</td>
-                          <td><button type="button" className="view-btn view-btn--secondary" onClick={(event) => { event.stopPropagation(); openClusterHistory({ name: group.name || group.group_name }, 'group'); }}>Check-in</button></td>
+                          <td><button type="button" className="view-btn view-btn--secondary" onClick={(event) => { event.stopPropagation(); openClusterHistory({ name: group.name || group.group_name, id: group.id }, 'group'); }}>Check-in</button></td>
                         </tr>
                       );
                     }) : (
@@ -1515,7 +1548,7 @@ export default function ProgramPage() {
                       <td><strong>{group.name || group.group_name}</strong></td>
                       <td>{group.batchCount}</td>
                       <td>{group.beneficiaryCount}</td>
-                      <td><button type="button" className="view-btn view-btn--secondary" onClick={(event) => { event.stopPropagation(); openClusterHistory({ name: group.name || group.group_name }, 'group'); }}>Check-in</button></td>
+                      <td><button type="button" className="view-btn view-btn--secondary" onClick={(event) => { event.stopPropagation(); openClusterHistory({ name: group.name || group.group_name, id: group.id }, 'group'); }}>Check-in</button></td>
                     </tr>
                   )) : (
                     <tr>
@@ -1525,14 +1558,14 @@ export default function ProgramPage() {
                     <tr key={school.id} className="program-clickable-row" onClick={() => navigate(`/program/${programId}/school/${school.id}`)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); navigate(`/program/${programId}/school/${school.id}`); } }} tabIndex={0} role="button">
                       <td><strong>{school.name}</strong></td>
                       <td>{(school.groups || []).length}</td>
-                      <td><button type="button" className="view-btn view-btn--secondary" onClick={(event) => { event.stopPropagation(); openClusterHistory({ name: school.name }, 'school'); }}>Check-in</button></td>
+                      <td><button type="button" className="view-btn view-btn--secondary" onClick={(event) => { event.stopPropagation(); openClusterHistory({ name: school.name, id: school.id }, 'school'); }}>Check-in</button></td>
                     </tr>
                   )) : directScopeGroups.length ? directScopeGroups.map((group) => (
                     <tr key={group.id} className="program-clickable-row" onClick={() => navigate(`/program/${programId}/group/${group.id}`)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); navigate(`/program/${programId}/group/${group.id}`); } }} tabIndex={0} role="button">
                       <td><strong>{group.name || group.group_name}</strong></td>
                       <td>{group.batchCount}</td>
                       <td>{group.beneficiaryCount}</td>
-                      <td><button type="button" className="view-btn view-btn--secondary" onClick={(event) => { event.stopPropagation(); openClusterHistory({ name: group.name || group.group_name }, 'group'); }}>Check-in</button></td>
+                      <td><button type="button" className="view-btn view-btn--secondary" onClick={(event) => { event.stopPropagation(); openClusterHistory({ name: group.name || group.group_name, id: group.id }, 'group'); }}>Check-in</button></td>
                     </tr>
                   )) : directScopeClusters.length ? directScopeClusters.map((cluster) => {
                     return (
@@ -1540,7 +1573,7 @@ export default function ProgramPage() {
                         <td><strong>{cluster.name}</strong></td>
                         <td>{cluster.type}</td>
                         <td>{Number(cluster.beneficiaries || 0)}</td>
-                        <td><button type="button" className="view-btn view-btn--secondary" onClick={() => openClusterHistory({ name: cluster.name }, cluster.type)}>Check-in</button></td>
+                        <td><button type="button" className="view-btn view-btn--secondary" onClick={() => openClusterHistory({ name: cluster.name, scopeId: cluster.scopeId }, cluster.type)}>Check-in</button></td>
                       </tr>
                     );
                   }) : (

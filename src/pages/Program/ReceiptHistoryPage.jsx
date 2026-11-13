@@ -59,6 +59,7 @@ export default function ReceiptHistoryPage() {
   const { programId, beneficiaryType, beneficiaryId, clusterType, clusterName } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
+  const clusterScopeId = new URLSearchParams(location.search).get('scopeId');
   const isClusterHistory = Boolean(clusterType && clusterName);
   const canEditReceipts = can(currentUser?.role, 'monitor-resources', 'update');
   const showAuditSignatures = canViewAuditSignatures(currentUser?.role);
@@ -103,7 +104,7 @@ export default function ReceiptHistoryPage() {
     setError('');
     try {
       const response = isClusterHistory
-        ? await apiGetClusterMonitoringReport(programId, clusterType, clusterName)
+        ? await apiGetClusterMonitoringReport(programId, clusterType, clusterName, clusterScopeId)
         : await apiGetBeneficiaryMonitoringReport(programId, beneficiaryType, beneficiaryId);
       setReportRows(response.report || []);
       const reportedStatus = response.programStatus || response.report?.find((row) => row.program_status)?.program_status;
@@ -122,7 +123,7 @@ export default function ReceiptHistoryPage() {
 
   useEffect(() => {
     loadHistory();
-  }, [programId, beneficiaryType, beneficiaryId, clusterType, clusterName, isClusterHistory]);
+  }, [programId, beneficiaryType, beneficiaryId, clusterType, clusterName, clusterScopeId, isClusterHistory]);
 
   useEffect(() => {
     if (!isClusterHistory) {

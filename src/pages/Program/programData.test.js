@@ -56,6 +56,21 @@ test('group and batch scopes include matching beneficiaries', () => {
   assert.equal(recordMatchesProgramScope({ type: 'mother', school: 'UC', group: 'Osmena', batch: 'Batch-2' }, program), false);
 });
 
+test('stable scope IDs distinguish beneficiaries with duplicate group and batch names', () => {
+  const program = {
+    beneficiaryType: 'Mother and Child',
+    clusters: [
+      { type: 'Group', name: 'Shared Group', scopeId: 10 },
+      { type: 'Batch', name: 'Shared Batch', scopeId: 20 },
+    ],
+  };
+
+  assert.equal(recordMatchesProgramScope({ type: 'mother', group: 'Shared Group', groupId: 10 }, program), true);
+  assert.equal(recordMatchesProgramScope({ type: 'mother', group: 'Shared Group', groupId: 11 }, program), false);
+  assert.equal(recordMatchesProgramScope({ type: 'mother', batch: 'Shared Batch', batchId: 20 }, program), true);
+  assert.equal(recordMatchesProgramScope({ type: 'mother', batch: 'Shared Batch', batchId: 21 }, program), false);
+});
+
 test('programs without assigned scopes do not include beneficiaries', () => {
   assert.equal(recordMatchesProgramScope({ type: 'mother', school: 'UC' }, { clusters: [] }), false);
 });

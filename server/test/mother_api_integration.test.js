@@ -3,10 +3,14 @@ const assert = require('node:assert/strict');
 
 const express = require('express');
 const mysql = require('mysql2/promise');
+const transactionEvents = [];
 const testPool = {
   query: async () => [[]],
   getConnection: async () => ({
-    query: async () => [[]],
+    query: (...args) => testPool.query(...args),
+    beginTransaction: async () => transactionEvents.push('begin'),
+    commit: async () => transactionEvents.push('commit'),
+    rollback: async () => transactionEvents.push('rollback'),
     release() {},
   }),
 };
@@ -21,6 +25,7 @@ const mothersRouter = require('../routes/mothers');
 
 test('mother registration saves initial monitoring measurements as a completed check-up', async (t) => {
   await pool.ready;
+  transactionEvents.length = 0;
   const originalQuery = pool.query;
   let mother = null;
   let insertValues = null;
@@ -29,7 +34,12 @@ test('mother registration saves initial monitoring measurements as a completed c
   let savedCheckupSql = '';
   let updateValues = null;
   let obHistoryInsertValues = null;
+  let failMotherRelatedWrite = false;
   pool.query = async (sql, params = []) => {
+    if (failMotherRelatedWrite && sql.startsWith('INSERT INTO mother_ob_history')) {
+      failMotherRelatedWrite = false;
+      throw new Error('simulated related-record failure');
+    }
     if (sql.includes('FROM communities c') && sql.includes('JOIN groups g') && sql.includes('JOIN batches batch')) {
       return [[{ id: params[2] }]];
     }
@@ -154,6 +164,26 @@ test('mother registration saves initial monitoring measurements as a completed c
   assert.equal(missingBatchResponse.status, 400);
   assert.match((await missingBatchResponse.json()).error, /batch is required/i);
 
+  failMotherRelatedWrite = true;
+  const rolledBackCreateResponse = await fetch(baseUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      firstName: 'Test',
+      lastName: 'Mother',
+      dob: '1990-01-01',
+      contactNumber: '09171234567',
+      communityId: 12,
+      groupId: 20,
+      batchId: 30,
+      prenatalRegDate: '2026-10-18',
+      prenatalBp: '120/80',
+      obHistory: [{ event: 'G1', gestationalAge: '12', outcome: 'Normal' }],
+    }),
+  });
+  assert.equal(rolledBackCreateResponse.status, 500, await rolledBackCreateResponse.clone().text());
+  assert.deepEqual(transactionEvents.slice(0, 2), ['begin', 'rollback']);
+
   const createResponse = await fetch(baseUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -179,6 +209,7 @@ test('mother registration saves initial monitoring measurements as a completed c
     }),
   });
   assert.equal(createResponse.status, 201);
+  assert.deepEqual(transactionEvents.slice(-2), ['begin', 'commit']);
   assert.deepEqual(obHistoryInsertValues, [123, 'G1', 'G1', '12', 'Normal', 1]);
   assert.equal(insertValues[1], 'Test');
   assert.equal(insertValues[3], 'Mother');
@@ -249,6 +280,7 @@ test('mother registration saves initial monitoring measurements as a completed c
     }),
   });
   assert.equal(updateResponse.status, 200);
+  assert.deepEqual(transactionEvents.slice(-2), ['begin', 'commit']);
   assert.equal(updateValues.first_name, 'Updated');
   assert.equal(updateValues.philhealth_number, '98-765432109-8');
   const updatedProfile = (await updateResponse.json()).mother;

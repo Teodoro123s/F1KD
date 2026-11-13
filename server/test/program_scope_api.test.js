@@ -140,3 +140,65 @@ test('Superadmins are denied all Program API access', async (t) => {
   }
   assert.equal(queryCount, 0);
 });
+
+test('Community Coordinator monitoring reads are school-scoped and reject foreign same-name clusters', async (t) => {
+  await pool.ready;
+  const originalQuery = pool.query;
+  const queries = [];
+  pool.query = async (sql, params = []) => {
+    if (sql.includes('FROM auth_sessions s')) {
+      return [[{
+        user_id: 3,
+        role: 'Community Organizer',
+        status: 'Active',
+        school_id: 12,
+        group_id: null,
+        consent_accepted_at: new Date(),
+      }]];
+    }
+    queries.push({ sql, params });
+    if (sql.includes('SELECT p.id FROM programs p')) return [[{ id: 123 }]];
+    if (sql.includes('SELECT status FROM programs WHERE id = ?')) return [[{ status: 'Active' }]];
+    if (sql.includes('SELECT scope_name, scope_id FROM program_clusters')) {
+      return [[{ scope_name: 'Shared Group', scope_id: 99 }]];
+    }
+    if (sql.includes('SELECT g.id FROM groups g') || sql.includes('SELECT g.id FROM `groups` g')) return [[]];
+    if (sql.includes('FROM monitoring_logs ml')) return [[]];
+    throw new Error(`Unexpected monitoring read SQL: ${sql}`);
+  };
+
+  const app = express();
+  app.use(express.json());
+  app.use('/api/programs', verifyToken, authorizeOperational, programsRouter);
+  const server = app.listen(0);
+  t.after(async () => {
+    pool.query = originalQuery;
+    await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  });
+  await new Promise((resolve) => server.once('listening', resolve));
+
+  const token = jwt.sign({ id: 3, sid: 'program-monitoring-coordinator-session' }, process.env.JWT_SECRET);
+  const baseUrl = `http://127.0.0.1:${server.address().port}/api/programs/123/monitoring`;
+  const request = (path) => fetch(`${baseUrl}${path}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  const statusResponse = await request('?date=2026-11-13');
+  assert.equal(statusResponse.status, 200);
+  const statusQuery = queries.find(({ sql }) => sql.includes('FROM monitoring_logs ml'));
+  assert.ok(statusQuery);
+  assert.match(statusQuery.sql, /scoped_mother\.community_id = \?/);
+  assert.match(statusQuery.sql, /COALESCE\(scoped_child\.community_id, scoped_parent\.community_id\) = \?/);
+  assert.deepEqual(statusQuery.params, ['123', '2026-11-13', 12, 12]);
+
+  const clusterResponse = await request('/cluster-report/group/Shared%20Group');
+  assert.equal(clusterResponse.status, 404);
+  assert.equal(queries.filter(({ sql }) => sql.includes('FROM monitoring_logs ml')).length, 1);
+
+  const beneficiaryResponse = await request('/report/child/100');
+  assert.equal(beneficiaryResponse.status, 200);
+  const monitoringQueries = queries.filter(({ sql }) => sql.includes('FROM monitoring_logs ml'));
+  const beneficiaryQuery = monitoringQueries[monitoringQueries.length - 1];
+  assert.match(beneficiaryQuery.sql, /m\.community_id = \? OR COALESCE\(c\.community_id, parent_m\.community_id\) = \?/);
+  assert.deepEqual(beneficiaryQuery.params.slice(-2), [12, 12]);
+});

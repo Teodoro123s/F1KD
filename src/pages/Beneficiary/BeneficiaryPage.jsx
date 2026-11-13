@@ -18,7 +18,7 @@ import { navigateBack } from '../../utils/navigation/navigation';
 export default function BeneficiaryPage() {
   // Mothers are loaded from the DB via MothersContext
   const auth = useAuth();
-  const { mothers, setMothers, loading: mothersLoading, error: mothersError } = useMothers();
+  const { mothers, setMothers, loading: mothersLoading } = useMothers();
   const [groups, setGroups] = useState([]);
   const [communities, setCommunities] = useState([]);
   const [batches, setBatches] = useState([]);
@@ -248,8 +248,6 @@ export default function BeneficiaryPage() {
         ) : (
           <BeneficiaryListPage
             mothers={mothers}
-            loading={mothersLoading}
-            mothersError={mothersError}
             communities={scopedCommunities}
             groups={scopedGroups}
             batches={scopedBatches}

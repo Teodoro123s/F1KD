@@ -1203,6 +1203,20 @@ router.put('/batches/:id', async (req, res) => {
     const updateScopeClause = req.isCommunityOrganizer ? ' AND community_id = ?' : '';
     const updateScopeValues = req.isCommunityOrganizer ? [req.schoolId] : [];
     const updated = await withTransaction(pool, async (connection) => {
+      if (groupId === undefined) {
+        const [linkedGroups] = await connection.query(
+          `SELECT g.community_id FROM group_batch gb
+           JOIN groups g ON g.id = gb.group_id
+           WHERE gb.batch_id = ? FOR UPDATE`,
+          [batchId],
+        );
+        if (linkedGroups.some((group) => Number(group.community_id) !== Number(communityId))) {
+          const error = new Error('Batch cannot remain linked to a group from another school');
+          error.status = 409;
+          throw error;
+        }
+      }
+
       await connection.query(
         `UPDATE batches SET name = ?, community_id = ?, records = ?, progress = ?, status = ? WHERE id = ? AND archived_at IS NULL${updateScopeClause}`,
         [cleanName, communityId || null, Number(records) || 0, Number(progress) || 0, status || 'Active', batchId, ...updateScopeValues]
@@ -1238,6 +1252,7 @@ router.put('/batches/:id', async (req, res) => {
     });
     res.json({ batch: { ...updated, id: updated.code || updated.id, code: updated.code || updated.id } });
   } catch (error) {
+    if (error.status === 409) return res.status(409).json({ error: error.message });
     console.error('[Community API] update batch error:', error.message);
     res.status(500).json({ error: 'db error' });
   }

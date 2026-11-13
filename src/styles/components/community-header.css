@@ -819,8 +819,8 @@
   width: 32%;
 }
 
-.user-management-list-card .user-management-data-table.has-group-column th:nth-child(3),
-.user-management-list-card .user-management-data-table.has-group-column td:nth-child(3) {
+.user-management-list-card .user-management-data-table.has-group-column th:nth-child(4),
+.user-management-list-card .user-management-data-table.has-group-column td:nth-child(4) {
   width: 27%;
 }
 
@@ -847,8 +847,8 @@
   outline-offset: -2px;
 }
 
-.user-management-list-card .user-management-data-table th:last-child,
-.user-management-list-card .user-management-data-table td:last-child {
+.user-management-list-card .user-management-data-table th.actions-cell,
+.user-management-list-card .user-management-data-table td.actions-cell {
   width: 110px;
 }
 

@@ -3,7 +3,12 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { createServer } from 'vite';
 
-const viteServer = await createServer({ server: { middlewareMode: true }, appType: 'custom' });
+const viteServer = await createServer({
+  cacheDir: 'node_modules/.vite-monitoring-report-test',
+  optimizeDeps: { noDiscovery: true, entries: [] },
+  server: { middlewareMode: true },
+  appType: 'custom',
+});
 const {
   filterMonitoringReportCheckups,
   getLatestMonitoringReportCheckup,

@@ -56,6 +56,18 @@ function getField(body, ...keys) {
   return null;
 }
 
+function matchesMotherHierarchy(communityId, groupId, batchId, mother) {
+  const sameAssignment = (childValue, motherValue) => (
+    childValue === null || childValue === undefined || childValue === ''
+      ? motherValue === null || motherValue === undefined || motherValue === ''
+      : motherValue !== null && motherValue !== undefined && motherValue !== ''
+        && Number(childValue) === Number(motherValue)
+  );
+  return sameAssignment(communityId, mother.community_id)
+    && sameAssignment(groupId, mother.group_id)
+    && sameAssignment(batchId, mother.batch_id);
+}
+
 function getTentativeNextCheckupDate(checkupDate) {
   const normalized = normalizeCheckupDate(checkupDate);
   if (!normalized) return null;
@@ -125,13 +137,13 @@ function getChildVaccines(body = {}) {
   }));
 }
 
-async function saveChildVaccines(childId, body = {}) {
+async function saveChildVaccines(childId, body = {}, db = pool) {
   for (const vaccine of getChildVaccines(body)) {
     for (const [index, date] of vaccine.doses.entries()) {
       const doseNumber = index + 1;
       const remarks = doseNumber === 1 ? vaccine.remarks : null;
       if (date || remarks) {
-        await pool.query(
+        await db.query(
           'INSERT INTO child_vaccinations (child_id, vaccine_name, dose_number, vaccine_date, remarks) VALUES (?, ?, ?, ?, ?)',
           [childId, vaccine.name, doseNumber, date, remarks]
         );
@@ -621,6 +633,9 @@ router.post('/', async (req, res) => {
       );
       batchId = batchRows[0]?.id || null;
     }
+    if (!matchesMotherHierarchy(communityId, groupId, batchId, mother)) {
+      return res.status(409).json({ error: 'The child and mother must have matching school, group, and batch assignments' });
+    }
     if (req.isCommunityOrganizer && groupId) {
       const [groupRows] = await pool.query(
         'SELECT id FROM groups WHERE id = ? AND community_id = ? LIMIT 1',
@@ -659,22 +674,24 @@ router.post('/', async (req, res) => {
     const relationship = getField(b, 'relationship');
     const address = getField(b, 'address');
 
-    const [result] = await pool.query(
-      `INSERT INTO children (child_code, mother_id, community_id, group_id, batch_id, first_name, middle_name, last_name, suffix, birth_date, birth_weight, birth_length, head_circumference, chest_circumference, gender, blood_type, no_of_child_delivered, multiple_birth_type, exclusive_breastfeeding, expanded_newborn_screening, expanded_newborn_screening_result, delivery_type, health_status, birth_place, birth_attendant, apgar_score, feeding_type, nutrition_notes, father_name, relationship, address)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
-      [childCode, motherId || null, communityId || null, groupId || null, batchId || null, String(firstName).trim().replace(/\s+/g, ' '), String(middleName || '').trim().replace(/\s+/g, ' ') || null, String(lastName).trim().replace(/\s+/g, ' '), suffix || null, birthDate || null, birthWeight || null, birthLength || null, headCircumference || null, chestCircumference || null, gender || null, bloodType || null, noOfChildDelivered || null, multipleBirthType || null, exclusiveBreastfeeding || null, expandedNewbornScreening || null, expandedNewbornScreeningResult || null, deliveryType || null, healthStatus || null, birthPlace || null, birthAttendant || null, apgarScore || null, feedingType || null, nutritionNotes || null, fatherName || null, relationship || null, address || null]
-    );
-
-    const [rows] = await pool.query('SELECT * FROM children WHERE id = ?', [result.insertId]);
-    for (const [conditionName, hasCondition] of Object.entries(b.medicalConditions || {})) {
-      if (hasCondition) {
-        await pool.query(
-          'INSERT INTO child_medical_conditions (child_id, condition_name, has_condition) VALUES (?, ?, ?)',
-          [result.insertId, conditionName, true]
-        );
+    const childId = await pool.withTransaction(async (connection) => {
+      const [result] = await connection.query(
+        `INSERT INTO children (child_code, mother_id, community_id, group_id, batch_id, first_name, middle_name, last_name, suffix, birth_date, birth_weight, birth_length, head_circumference, chest_circumference, gender, blood_type, no_of_child_delivered, multiple_birth_type, exclusive_breastfeeding, expanded_newborn_screening, expanded_newborn_screening_result, delivery_type, health_status, birth_place, birth_attendant, apgar_score, feeding_type, nutrition_notes, father_name, relationship, address)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
+        [childCode, motherId || null, communityId || null, groupId || null, batchId || null, String(firstName).trim().replace(/\s+/g, ' '), String(middleName || '').trim().replace(/\s+/g, ' ') || null, String(lastName).trim().replace(/\s+/g, ' '), suffix || null, birthDate || null, birthWeight || null, birthLength || null, headCircumference || null, chestCircumference || null, gender || null, bloodType || null, noOfChildDelivered || null, multipleBirthType || null, exclusiveBreastfeeding || null, expandedNewbornScreening || null, expandedNewbornScreeningResult || null, deliveryType || null, healthStatus || null, birthPlace || null, birthAttendant || null, apgarScore || null, feedingType || null, nutritionNotes || null, fatherName || null, relationship || null, address || null]
+      );
+      for (const [conditionName, hasCondition] of Object.entries(b.medicalConditions || {})) {
+        if (hasCondition) {
+          await connection.query(
+            'INSERT INTO child_medical_conditions (child_id, condition_name, has_condition) VALUES (?, ?, ?)',
+            [result.insertId, conditionName, true]
+          );
+        }
       }
-    }
-    await saveChildVaccines(result.insertId, b);
+      await saveChildVaccines(result.insertId, b, connection);
+      return result.insertId;
+    });
+    const [rows] = await pool.query('SELECT * FROM children WHERE id = ?', [childId]);
     const child = await attachClinicalData(rows[0]);
     const childName = [child.first_name, child.last_name].filter(Boolean).join(' ');
     await createSuperadminNotification({
@@ -763,13 +780,6 @@ router.post('/:id/checkups', async (req, res) => {
       return res.status(400).json({ error: 'Head circumference must be between 15 and 60 cm.' });
     }
 
-    if (body.exclusiveBreastfeeding !== undefined || body.exclusive_breastfeeding !== undefined || body.feedingType !== undefined || body.feeding_type !== undefined) {
-      await pool.query(
-        'UPDATE children SET exclusive_breastfeeding = ?, feeding_type = ? WHERE id = ?',
-        [body.exclusiveBreastfeeding ?? body.exclusive_breastfeeding ?? null, body.feedingType ?? body.feeding_type ?? null, childId],
-      );
-    }
-
     const hasNextCheckupDate = Object.prototype.hasOwnProperty.call(body, 'nextCheckupDate')
       || Object.prototype.hasOwnProperty.call(body, 'next_checkup_date');
     const suppliedNextCheckupDate = body.nextCheckupDate ?? body.next_checkup_date;
@@ -796,30 +806,40 @@ router.post('/:id/checkups', async (req, res) => {
       body.serviceProvider || null,
       body.remarks || null,
     ];
-    const [existingRows] = await pool.query(
-      'SELECT id FROM child_checkups WHERE child_id = ? AND week_number = ? LIMIT 1',
-      [childId, week]
-    );
-    if (existingRows.length) {
-      await pool.query(
-        `UPDATE child_checkups SET next_checkup_date = ?, visit_date = ?, weight = ?, height = ?, head_circumference = ?,
-          exclusive_breastfeeding = ?, laboratory_requests = ?, laboratory_assistance_provided = ?,
-          referred_to_hospital = ?, assistance_amount = ?, source_of_funds = ?, facility_type = ?,
-          developmental_status = ?, service_provider = ?, notes = ?, recorded_by_user_id = ?,
-          updated_by_user_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-        [...values, req.user?.id || null, req.user?.id || null, existingRows[0].id]
+    const { existingRows } = await pool.withTransaction(async (connection) => {
+      if (body.exclusiveBreastfeeding !== undefined || body.exclusive_breastfeeding !== undefined || body.feedingType !== undefined || body.feeding_type !== undefined) {
+        await connection.query(
+          'UPDATE children SET exclusive_breastfeeding = ?, feeding_type = ? WHERE id = ?',
+          [body.exclusiveBreastfeeding ?? body.exclusive_breastfeeding ?? null, body.feedingType ?? body.feeding_type ?? null, childId],
+        );
+      }
+
+      const [existing] = await connection.query(
+        'SELECT id FROM child_checkups WHERE child_id = ? AND week_number = ? LIMIT 1 FOR UPDATE',
+        [childId, week]
       );
-    } else {
-      await pool.query(
-        `INSERT INTO child_checkups
-          (child_id, next_checkup_date, visit_date, weight, height, head_circumference, exclusive_breastfeeding,
-           laboratory_requests, laboratory_assistance_provided, referred_to_hospital, assistance_amount,
-           source_of_funds, facility_type, developmental_status, service_provider, notes, week_number,
-           recorded_by_user_id, created_by_user_id, updated_by_user_id, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)` ,
-        [childId, ...values, week, req.user?.id || null, req.user?.id || null, req.user?.id || null]
-      );
-    }
+      if (existing.length) {
+        await connection.query(
+          `UPDATE child_checkups SET next_checkup_date = ?, visit_date = ?, weight = ?, height = ?, head_circumference = ?,
+            exclusive_breastfeeding = ?, laboratory_requests = ?, laboratory_assistance_provided = ?,
+            referred_to_hospital = ?, assistance_amount = ?, source_of_funds = ?, facility_type = ?,
+            developmental_status = ?, service_provider = ?, notes = ?, recorded_by_user_id = ?,
+            updated_by_user_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+          [...values, req.user?.id || null, req.user?.id || null, existing[0].id]
+        );
+      } else {
+        await connection.query(
+          `INSERT INTO child_checkups
+            (child_id, next_checkup_date, visit_date, weight, height, head_circumference, exclusive_breastfeeding,
+             laboratory_requests, laboratory_assistance_provided, referred_to_hospital, assistance_amount,
+             source_of_funds, facility_type, developmental_status, service_provider, notes, week_number,
+             recorded_by_user_id, created_by_user_id, updated_by_user_id, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)` ,
+          [childId, ...values, week, req.user?.id || null, req.user?.id || null, req.user?.id || null]
+        );
+      }
+      return { existingRows: existing };
+    });
 
     const [rows] = await pool.query(
       `SELECT c.*, m.first_name AS mother_first_name, m.last_name AS mother_last_name,
@@ -851,6 +871,9 @@ router.post('/:id/checkups', async (req, res) => {
     res.json({ child: await attachMonitoringData(child, canViewAuditSignatures(req.user?.role)) });
   } catch (err) {
     console.error('Failed to save child checkup', err);
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ error: 'A check-up for this child and week already exists. Refresh and try again.' });
+    }
     res.status(500).json({ error: 'db error' });
   }
 });
@@ -872,7 +895,7 @@ router.put('/:id', async (req, res) => {
     const lastName = getField(body, 'lastName', 'last_name') ?? current.last_name;
     let motherId = req.isHealthWorker ? current.mother_id : (getField(body, 'motherId', 'mother_id') || current.mother_id);
     const [motherRows] = await pool.query(
-      'SELECT id FROM mothers WHERE id = ? OR mother_code = ? LIMIT 1',
+      'SELECT id, community_id, group_id, batch_id FROM mothers WHERE (id = ? OR mother_code = ?) AND archived_at IS NULL LIMIT 1',
       [Number(motherId) || null, motherId]
     );
     if (!motherRows.length) return res.status(400).json({ error: 'Mother not found' });
@@ -888,6 +911,15 @@ router.put('/:id', async (req, res) => {
     let batchId = req.isHealthWorker
       ? (current.batch_id || current.current_mother_batch_id)
       : (getField(body, 'batchId', 'batch_id') || current.batch_id);
+    const mother = motherRows[0];
+    const effectiveCommunityId = communityId || mother.community_id;
+    const effectiveGroupId = groupId || mother.group_id;
+    const effectiveBatchId = batchId || mother.batch_id;
+    if (
+      !matchesMotherHierarchy(effectiveCommunityId, effectiveGroupId, effectiveBatchId, mother)
+    ) {
+      return res.status(409).json({ error: 'The child and mother must have matching school, group, and batch assignments' });
+    }
     if (!groupId && body.group) {
       const [groupRows] = await pool.query('SELECT id FROM groups WHERE name = ? LIMIT 1', [body.group]);
       groupId = groupRows[0]?.id || null;
@@ -944,17 +976,19 @@ router.put('/:id', async (req, res) => {
       relationship: getField(body, 'relationship') || current.relationship || null,
       address: getField(body, 'address') || current.address || null,
     };
-    await pool.query('UPDATE children SET ? WHERE id = ?', [update, current.id]);
+    await pool.withTransaction(async (connection) => {
+      await connection.query('UPDATE children SET ? WHERE id = ?', [update, current.id]);
 
-    await pool.query('DELETE FROM child_medical_conditions WHERE child_id = ?', [current.id]);
-    for (const [conditionName, hasCondition] of Object.entries(body.medicalConditions || {})) {
-      if (hasCondition) await pool.query(
-        'INSERT INTO child_medical_conditions (child_id, condition_name, has_condition) VALUES (?, ?, ?)',
-        [current.id, conditionName, true]
-      );
-    }
-    await pool.query('DELETE FROM child_vaccinations WHERE child_id = ?', [current.id]);
-    await saveChildVaccines(current.id, body);
+      await connection.query('DELETE FROM child_medical_conditions WHERE child_id = ?', [current.id]);
+      for (const [conditionName, hasCondition] of Object.entries(body.medicalConditions || {})) {
+        if (hasCondition) await connection.query(
+          'INSERT INTO child_medical_conditions (child_id, condition_name, has_condition) VALUES (?, ?, ?)',
+          [current.id, conditionName, true]
+        );
+      }
+      await connection.query('DELETE FROM child_vaccinations WHERE child_id = ?', [current.id]);
+      await saveChildVaccines(current.id, body, connection);
+    });
 
     const [rows] = await pool.query(
       `SELECT c.*, m.first_name AS mother_first_name, m.last_name AS mother_last_name, m.mother_code,

@@ -3,7 +3,6 @@ import { matchesSearch } from '../../utils/search.mjs';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import PageHeader from '../../components/ui/PageHeader';
-import { useMothers } from '../../context/MothersContext';
 import MotherCheckup from '../Beneficiary/mother/MotherCheckup';
 import EntitySearchControls from '../Beneficiary/components/EntitySearchControls';
 import ChildMonitor, { getChildName } from './ChildMonitor';
@@ -218,7 +217,6 @@ const getChildMonitoringStatus = (child, completed, total) => {
 
 export default function MonitoringPage() {
   const { currentUser } = useAuth();
-  const { mothers, setMothers } = useMothers();
   const navigate = useNavigate();
   const location = useLocation();
   const [query, setQuery] = useState('');
@@ -359,8 +357,8 @@ export default function MonitoringPage() {
   }, [location.state]);
 
   const scopedMothers = useMemo(() => isHealthWorkerRole(currentUser?.role) && assignedGroupId
-    ? mothers.filter((mother) => String(mother.groupId ?? mother.group_id) === String(assignedGroupId))
-    : mothers, [assignedGroupId, currentUser?.role, mothers]);
+    ? monitoringCalendarMothers.filter((mother) => String(mother.groupId ?? mother.group_id) === String(assignedGroupId))
+    : monitoringCalendarMothers, [assignedGroupId, currentUser?.role, monitoringCalendarMothers]);
   const scopedChildren = useMemo(() => isHealthWorkerRole(currentUser?.role) && assignedGroupId
     ? children.filter((child) => String(child.groupId ?? child.group_id) === String(assignedGroupId))
     : children, [assignedGroupId, children, currentUser?.role]);
@@ -380,7 +378,7 @@ export default function MonitoringPage() {
       if (savedMother) {
         setSelectedMother(savedMother);
         savedCheckups = savedMother.checkups || [];
-        setMothers((current) => current.map((mother) => (
+        setMonitoringCalendarMothers((current) => current.map((mother) => (
           String(mother.id) === String(savedMother.id) || String(mother.motherId) === String(savedMother.motherId)
             ? { ...mother, ...savedMother }
             : mother

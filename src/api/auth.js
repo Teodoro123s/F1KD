@@ -15,6 +15,15 @@ export async function login(email, password) {
   return readApiResponse(res, 'Unable to sign in');
 }
 
+export async function getLoginAttemptStatus(email) {
+  const res = await fetch(`${API_BASE}/api/auth/login-status`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  return readApiResponse(res, 'Unable to load login status');
+}
+
 export async function requestPasswordReset(email) {
   const res = await fetch(`${API_BASE}/api/auth/forgot-password`, {
     method: 'POST',

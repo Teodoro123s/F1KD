@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import logo from '../../assets/f1kd-logo.png';
 import { useAuth } from '../../auth/AuthProvider';
 import ActionFeedback, { notifyAction } from '../../components/ActionFeedback';
-import { requestPasswordReset, resetPassword } from '../../api/auth';
+import { getLoginAttemptStatus, requestPasswordReset, resetPassword } from '../../api/auth';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -18,23 +18,107 @@ export default function Login() {
   const [passcode, setPasscode] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [loginAttemptStatus, setLoginAttemptStatus] = useState(null);
+  const [retryDeadline, setRetryDeadline] = useState(null);
+  const [retryCountdown, setRetryCountdown] = useState(0);
+  const statusRequestId = useRef(0);
 
   const auth = useAuth();
 
+  useEffect(() => {
+    if (!retryDeadline) {
+      setRetryCountdown(0);
+      return undefined;
+    }
+
+    let intervalId;
+    const updateCountdown = () => {
+      const secondsRemaining = Math.max(0, Math.ceil((retryDeadline - Date.now()) / 1000));
+      setRetryCountdown(secondsRemaining);
+      if (secondsRemaining === 0) {
+        window.clearInterval(intervalId);
+        setRetryDeadline(null);
+        setLoginAttemptStatus((current) => current
+          ? { ...current, remainingAttempts: current.maxAttempts }
+          : current);
+        setErrorMessage('');
+        setStatusMessage('You can try signing in again now.');
+        notifyAction('You can try signing in again now.', 'success');
+      }
+    };
+
+    updateCountdown();
+    intervalId = window.setInterval(updateCountdown, 1000);
+    return () => window.clearInterval(intervalId);
+  }, [retryDeadline]);
+
+  async function refreshLoginAttemptStatus(value) {
+    const normalizedEmail = value.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) return;
+
+    const requestId = ++statusRequestId.current;
+    try {
+      const status = await getLoginAttemptStatus(normalizedEmail);
+      if (requestId !== statusRequestId.current || normalizedEmail !== email.trim().toLowerCase()) return;
+      setLoginAttemptStatus(status);
+      setRetryDeadline(status.retryAfterSeconds > 0
+        ? Date.now() + status.retryAfterSeconds * 1000
+        : null);
+      if (status.retryAfterSeconds > 0) {
+        setStatusMessage('');
+      }
+    } catch (error) {
+      if (requestId !== statusRequestId.current) return;
+      console.error('Unable to load login attempt status:', error);
+      setErrorMessage('Unable to check sign-in availability. You can still try to sign in.');
+    }
+  }
+
+  useEffect(() => {
+    const handleFocus = () => {
+      if (!forgotPassword) refreshLoginAttemptStatus(email);
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [email, forgotPassword]);
+
   async function handleLogin(event) {
     event.preventDefault();
+    setErrorMessage('');
+    setStatusMessage('');
     setLoading(true);
     try {
       await auth.login(email, password);
+      setLoginAttemptStatus(null);
+      setRetryDeadline(null);
       navigate('/dashboard');
     } catch (err) {
       console.error('Login failed', err);
-      const message = err.message || 'Login failed. Please check your credentials and try again.';
-      const displayMessage = /invalid credentials/i.test(message)
-        ? 'The email address or password is incorrect. Check both and try again.'
-        : message;
-      setErrorMessage('');
-      notifyAction(displayMessage, 'error');
+      const body = err.body || {};
+      if (Number.isSafeInteger(body.maxAttempts) && Number.isSafeInteger(body.remainingAttempts)) {
+        setLoginAttemptStatus(body);
+      }
+      if (body.retryAfterSeconds > 0) {
+        const deadline = Date.now() + body.retryAfterSeconds * 1000;
+        setRetryDeadline(deadline);
+        setErrorMessage('');
+        setStatusMessage('');
+        notifyAction('Too many failed attempts. Sign-in is temporarily locked.', 'warning');
+      } else {
+        const notificationMessage = body.code === 'INVALID_CREDENTIALS'
+          ? body.message
+          : err.status === 429 && err.retryAfterSeconds
+            ? 'Too many sign-in requests. Please wait before trying again.'
+            : err.message || 'Login failed. Please check your credentials and try again.';
+        const displayMessage = body.code === 'INVALID_CREDENTIALS'
+          ? 'The email address or password is incorrect.'
+          : notificationMessage;
+        setErrorMessage(displayMessage);
+        notifyAction(notificationMessage, body.remainingAttempts === 1 ? 'warning' : 'error');
+        if (err.status === 429 && err.retryAfterSeconds) {
+          setRetryDeadline(Date.now() + err.retryAfterSeconds * 1000);
+        }
+      }
     } finally {
       setLoading(false);
     }
@@ -87,6 +171,7 @@ export default function Login() {
   }
 
   function openPasswordReset() {
+    statusRequestId.current += 1;
     setForgotPassword(true);
     setResetCodeSent(false);
     setErrorMessage('');
@@ -94,6 +179,7 @@ export default function Login() {
   }
 
   function returnToSignIn() {
+    statusRequestId.current += 1;
     setForgotPassword(false);
     setResetCodeSent(false);
     setPasscode('');
@@ -122,7 +208,15 @@ export default function Login() {
                 value={email}
                 aria-invalid={Boolean(errorMessage)}
                 aria-describedby={errorMessage ? 'login-error-message' : undefined}
-                onChange={(event) => { setEmail(event.target.value); setErrorMessage(''); setStatusMessage(''); }}
+                onChange={(event) => {
+                  statusRequestId.current += 1;
+                  setEmail(event.target.value);
+                  setLoginAttemptStatus(null);
+                  setRetryDeadline(null);
+                  setErrorMessage('');
+                  setStatusMessage('');
+                }}
+                onBlur={(event) => refreshLoginAttemptStatus(event.target.value)}
                 placeholder="Enter email"
                 autoComplete="username"
                 required
@@ -170,6 +264,27 @@ export default function Login() {
               </button>
             </div>
           </div>}
+
+          {!forgotPassword && loginAttemptStatus && retryCountdown === 0 && (
+            <p
+              className={`login-attempts${loginAttemptStatus.remainingAttempts === 1 ? ' login-attempts--warning' : ''}`}
+              role="status"
+              aria-live="polite"
+            >
+              {loginAttemptStatus.remainingAttempts === 1
+                ? 'Warning: Only 1 login attempt remaining before temporary lockout.'
+                : `You have ${loginAttemptStatus.remainingAttempts} login attempts remaining.`}
+            </p>
+          )}
+          {!forgotPassword && retryCountdown > 0 && (
+            <div className="login-lockout" role="status" aria-live="polite">
+              <strong>Too many failed attempts.</strong>
+              <span>Please try again in </span>
+              <time aria-live="off">
+                {String(Math.floor(retryCountdown / 60)).padStart(2, '0')}:{String(retryCountdown % 60).padStart(2, '0')}
+              </time>
+            </div>
+          )}
 
           {forgotPassword && resetCodeSent && (
             <>
@@ -219,7 +334,7 @@ export default function Login() {
             </>
           )}
 
-          {forgotPassword && errorMessage && (
+          {errorMessage && (
             <div className="login-error" role="alert" aria-live="assertive">
               <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <circle cx="12" cy="12" r="9" />
@@ -234,12 +349,12 @@ export default function Login() {
           {statusMessage && <p className="login-status" role="status">{statusMessage}</p>}
 
           <div className="login-actions">
-            <button type="submit" className="login-button" disabled={loading}>
+            <button type="submit" className="login-button" disabled={loading || (!forgotPassword && retryCountdown > 0)}>
               {loading
                 ? (forgotPassword ? 'Please wait…' : 'Signing in…')
                 : forgotPassword
                   ? resetCodeSent ? 'Reset password' : 'Send verification code'
-                  : 'Sign in'}
+                  : retryCountdown > 0 ? 'Please wait' : 'Sign in'}
             </button>
           </div>
           <button

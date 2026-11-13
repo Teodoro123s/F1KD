@@ -68,6 +68,12 @@ async function ensure() {
       ADD COLUMN IF NOT EXISTS group_id INT NULL,
       ADD COLUMN IF NOT EXISTS consent_accepted_at DATETIME NULL;`,
 
+    `ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS archived_at DATETIME NULL,
+      ADD COLUMN IF NOT EXISTS archived_by_user_id INT NULL,
+      ADD COLUMN IF NOT EXISTS archive_reason VARCHAR(500) NULL,
+      ADD INDEX IF NOT EXISTS idx_users_archived_at (archived_at);`,
+
     `ALTER TABLE users ALTER COLUMN role SET DEFAULT 'User';`,
 
 
@@ -96,7 +102,8 @@ async function ensure() {
       ADD COLUMN IF NOT EXISTS coordinator_school_id INT
         GENERATED ALWAYS AS (
           CASE
-            WHEN LOWER(REPLACE(REPLACE(TRIM(role), '_', ''), ' ', ''))
+            WHEN archived_at IS NULL
+              AND LOWER(REPLACE(REPLACE(TRIM(role), '_', ''), ' ', ''))
               IN ('communitycoordinator', 'communityorganizer', 'coordinator', 'co', 'partner')
             THEN school_id
             ELSE NULL
@@ -466,6 +473,7 @@ async function ensure() {
       updated_by_user_id INT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_child_checkups_child_week (child_id, week_number),
       FOREIGN KEY (child_id) REFERENCES children(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
 
@@ -581,10 +589,12 @@ async function ensure() {
       program_id INT NOT NULL,
       scope_type VARCHAR(20) NOT NULL,
       scope_name VARCHAR(150) NOT NULL,
+      scope_id INT NULL,
       beneficiaries INT NOT NULL DEFAULT 0,
       received INT NOT NULL DEFAULT 0,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE KEY uq_program_cluster (program_id, scope_type, scope_name),
+      UNIQUE KEY uq_program_cluster_scope_id (program_id, scope_type, scope_id),
+      KEY idx_program_clusters_scope_identity (scope_type, scope_id),
       CONSTRAINT fk_program_clusters_program FOREIGN KEY (program_id) REFERENCES programs(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
 
@@ -822,6 +832,13 @@ async function ensure() {
       KEY idx_auth_sessions_expiry (expires_at),
       CONSTRAINT fk_auth_sessions_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+    `CREATE TABLE IF NOT EXISTS login_attempts (
+      email_key CHAR(64) NOT NULL PRIMARY KEY,
+      failed_attempts TINYINT UNSIGNED NOT NULL DEFAULT 0,
+      locked_until DATETIME NULL,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      KEY idx_login_attempts_updated_at (updated_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
     `CREATE TABLE IF NOT EXISTS auth_refresh_tokens (
       id CHAR(36) PRIMARY KEY,
       session_id CHAR(36) NOT NULL,
@@ -867,6 +884,70 @@ async function ensure() {
   try {
     for (const create of statements) {
       await conn.query(create);
+    }
+    const [coordinatorColumns] = await conn.query(
+      `SELECT generation_expression FROM information_schema.columns
+       WHERE table_schema = DATABASE() AND table_name = 'users'
+         AND column_name = 'coordinator_school_id'`,
+    );
+    const coordinatorExpression = String(coordinatorColumns[0]?.generation_expression || '').toLowerCase();
+    if (!coordinatorExpression.includes('archived_at') || !coordinatorExpression.includes('is null')) {
+      await conn.query('ALTER TABLE users DROP INDEX IF EXISTS uq_users_coordinator_school_id, DROP COLUMN coordinator_school_id');
+      await conn.query(
+        `ALTER TABLE users
+         ADD COLUMN coordinator_school_id INT
+           GENERATED ALWAYS AS (
+             CASE
+               WHEN archived_at IS NULL
+                 AND LOWER(REPLACE(REPLACE(TRIM(role), '_', ''), ' ', ''))
+                   IN ('communitycoordinator', 'communityorganizer', 'coordinator', 'co', 'partner')
+               THEN school_id
+               ELSE NULL
+             END
+           ) STORED,
+         ADD UNIQUE INDEX uq_users_coordinator_school_id (coordinator_school_id)`,
+      );
+    }
+    await conn.query('ALTER TABLE program_clusters ADD COLUMN IF NOT EXISTS scope_id INT NULL');
+    const [indexes] = await conn.query('SHOW INDEX FROM program_clusters');
+    const indexNames = new Set((indexes || []).map((index) => index.Key_name));
+    if (!indexNames.has('uq_program_cluster_scope_id')) {
+      await conn.query('CREATE UNIQUE INDEX uq_program_cluster_scope_id ON program_clusters (program_id, scope_type, scope_id)');
+    }
+    if (indexNames.has('uq_program_cluster')) {
+      await conn.query('ALTER TABLE program_clusters DROP INDEX uq_program_cluster');
+    }
+    if (!indexNames.has('idx_program_clusters_scope_identity')) {
+      await conn.query('CREATE INDEX idx_program_clusters_scope_identity ON program_clusters (scope_type, scope_id)');
+    }
+    const [duplicateCheckups] = await conn.query(
+      `SELECT child_id, week_number, COUNT(*) AS duplicate_count
+       FROM child_checkups
+       WHERE week_number IS NOT NULL
+       GROUP BY child_id, week_number
+       HAVING COUNT(*) > 1
+       LIMIT 1`,
+    );
+    if (duplicateCheckups.length) {
+      const { child_id: childId, week_number: weekNumber, duplicate_count: count } = duplicateCheckups[0];
+      throw new Error(
+        `Cannot enforce unique child check-up weeks: child ${childId} has ${count} records for week ${weekNumber}. Resolve duplicates without deleting or changing existing records.`,
+      );
+    }
+    const [childCheckupIndexes] = await conn.query('SHOW INDEX FROM child_checkups');
+    const uniqueIndexColumns = new Map();
+    for (const index of childCheckupIndexes || []) {
+      if (Number(index.Non_unique) !== 0) continue;
+      const columns = uniqueIndexColumns.get(index.Key_name) || [];
+      columns[Number(index.Seq_in_index) - 1] = index.Column_name;
+      uniqueIndexColumns.set(index.Key_name, columns);
+    }
+    const hasUniqueChildWeekIndex = Array.from(uniqueIndexColumns.values())
+      .some((columns) => columns.join(',') === 'child_id,week_number');
+    if (!hasUniqueChildWeekIndex) {
+      await conn.query(
+        'CREATE UNIQUE INDEX uq_child_checkups_child_week ON child_checkups (child_id, week_number)',
+      );
     }
   } finally {
     conn.release();
@@ -956,6 +1037,7 @@ async function migrateUsersTable() {
     }
   } catch (err) {
     console.error('Failed to migrate users table', err);
+    throw err;
   }
 }
 
@@ -998,6 +1080,7 @@ async function migrateMothersTable() {
     }
   } catch (error) {
     console.error('Failed to migrate mothers table', error);
+    throw error;
   }
 }
 
@@ -1011,6 +1094,38 @@ const ready = (async () => {
   console.error('DB init error', err);
   throw err;
 });
+
+pool.withTransaction = async (operation) => {
+  const connection = await pool.getConnection();
+  if (
+    typeof connection.beginTransaction !== 'function'
+    || typeof connection.commit !== 'function'
+    || typeof connection.rollback !== 'function'
+  ) {
+    connection.release();
+    throw new Error('Database connection does not support transactions');
+  }
+
+  let transactionStarted = false;
+  try {
+    await connection.beginTransaction();
+    transactionStarted = true;
+    const result = await operation(connection);
+    await connection.commit();
+    return result;
+  } catch (error) {
+    if (transactionStarted) {
+      try {
+        await connection.rollback();
+      } catch (rollbackError) {
+        error.rollbackError = rollbackError;
+      }
+    }
+    throw error;
+  } finally {
+    connection.release();
+  }
+};
 
 module.exports = pool;
 module.exports.ready = ready;

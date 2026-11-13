@@ -22,12 +22,22 @@ export const apiGetProgramArchiveImpact = (id) => requestJson(`${API_BASE}/api/p
 export const apiRestoreArchivedProgram = (id) => requestJson(`${API_BASE}/api/programs/${encodeURIComponent(id)}/archive/restore`, { method: 'POST', body: JSON.stringify({}) });
 export const apiCreateProgramClusters = (id, scopes) => requestJson(`${API_BASE}/api/programs/${encodeURIComponent(id)}/clusters`, { method: 'POST', body: JSON.stringify({ scopes }) });
 export const apiCompleteProgramCluster = (programId, clusterId) => requestJson(`${API_BASE}/api/programs/${encodeURIComponent(programId)}/clusters/${encodeURIComponent(clusterId)}/complete`, { method: 'PATCH' });
-export const apiCompleteNamedProgramCluster = (programId, cluster) => requestJson(`${API_BASE}/api/programs/${encodeURIComponent(programId)}/clusters/complete`, { method: 'PATCH', body: JSON.stringify({ type: cluster.type, name: cluster.name, beneficiaries: cluster.beneficiaries }) });
+export const apiCompleteNamedProgramCluster = (programId, cluster) => requestJson(`${API_BASE}/api/programs/${encodeURIComponent(programId)}/clusters/complete`, {
+  method: 'PATCH',
+  body: JSON.stringify({
+    type: cluster.type,
+    name: cluster.name,
+    scopeId: cluster.scopeId,
+    beneficiaries: cluster.beneficiaries,
+  }),
+});
 export const apiGetProgramMonitoring = (programId, date) => requestJson(`${API_BASE}/api/programs/${encodeURIComponent(programId)}/monitoring?date=${encodeURIComponent(date)}`);
 export const apiGetProjectActivityCalendar = (from, to) => requestJson(`${API_BASE}/api/programs/activity-calendar?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
 export const apiSetProgramMonitoring = (programId, payload) => requestJson(`${API_BASE}/api/programs/${encodeURIComponent(programId)}/monitoring`, { method: 'PATCH', body: JSON.stringify(payload) });
 export const apiGetBeneficiaryMonitoringReport = (programId, beneficiaryType, beneficiaryId) => requestJson(`${API_BASE}/api/programs/${encodeURIComponent(programId)}/monitoring/report/${encodeURIComponent(beneficiaryType)}/${encodeURIComponent(beneficiaryId)}`);
-export const apiGetClusterMonitoringReport = (programId, clusterType, clusterName) => requestJson(`${API_BASE}/api/programs/${encodeURIComponent(programId)}/monitoring/cluster-report/${encodeURIComponent(clusterType)}/${encodeURIComponent(clusterName)}`);
+export const apiGetClusterMonitoringReport = (programId, clusterType, clusterName, scopeId) => requestJson(
+  `${API_BASE}/api/programs/${encodeURIComponent(programId)}/monitoring/cluster-report/${encodeURIComponent(clusterType)}/${encodeURIComponent(clusterName)}${scopeId ? `?scopeId=${encodeURIComponent(scopeId)}` : ''}`,
+);
 export const apiSetBeneficiaryMonitoring = (programId, payload) => apiSetProgramMonitoring(programId, payload);
 
 export async function apiUploadProgramReceiptEvidence(programId, date, checkins, images) {

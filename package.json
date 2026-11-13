@@ -6,6 +6,7 @@
     "test:coordinator": "node --test server/test/coordinator_assignment.test.js",
     "test:progress-report-csv": "node --test src/pages/ProgressReport/utils/csvIdentity.test.mjs src/pages/ProgressReport/utils/aiReportCsv.test.mjs src/pages/ProgressReport/utils/reportTableUtils.test.mjs src/pages/ProgressReport/utils/profileReportFilters.test.mjs src/pages/ProgressReport/utils/uniqueReportFields.test.mjs",
     "test:user-consent": "node --test server/test/user_consent.test.js",
+    "test:e2e": "playwright test",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
@@ -18,6 +19,7 @@
     "react-router-dom": "^7.18.4"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.0",
     "@tailwindcss/vite": "^4.3.3",
     "@vitejs/plugin-react": "^5.2.0",
     "tailwindcss": "^4.3.3",

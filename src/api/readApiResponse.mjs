@@ -37,5 +37,9 @@ export async function readApiResponse(response, fallbackMessage) {
   const error = new Error(message || plainTextMessage || `${fallbackMessage} (HTTP ${response.status})`);
   error.status = response.status;
   error.body = body;
+  const retryAfterSeconds = Number(response.headers?.get('Retry-After'));
+  if (Number.isSafeInteger(retryAfterSeconds) && retryAfterSeconds > 0) {
+    error.retryAfterSeconds = retryAfterSeconds;
+  }
   throw error;
 }

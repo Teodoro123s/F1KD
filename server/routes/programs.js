@@ -10,7 +10,7 @@ const {
   uploadFileToStorage,
 } = require('../middleware/documentUpload');
 const { programScopesBelongToSchool } = require('../utils/programScope');
-const { getProgramVisibilityFilter } = require('../utils/programAccess');
+const { getProgramClusterVisibilityFilter, getProgramVisibilityFilter } = require('../utils/programAccess');
 const { isValidIsoDate } = require('../utils/dateValidation');
 const { parsePositiveIntegerId } = require('../utils/userInputValidation');
 
@@ -111,7 +111,7 @@ async function attachReceiptEvidence(logs) {
   }));
 }
 
-async function getProgram(id) {
+async function getProgram(id, req = {}) {
   const [rows] = await pool.query(
     `SELECT p.*,
         NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.middle_initial, u.last_name)), '') AS archived_by
@@ -120,8 +120,53 @@ async function getProgram(id) {
     [id],
   );
   if (!rows.length) return null;
-  const [clusters] = await pool.query('SELECT id, scope_type AS type, scope_name AS name, beneficiaries, received FROM program_clusters WHERE program_id = ? ORDER BY id', [id]);
+  const clusterFilter = getProgramClusterVisibilityFilter(req, 'pc');
+  const [clusters] = await pool.query(
+    `SELECT pc.id, pc.scope_type AS type, pc.scope_name AS name, pc.scope_id AS scopeId, pc.beneficiaries, pc.received
+     FROM program_clusters pc
+     WHERE pc.program_id = ? ${clusterFilter.sql ? `AND ${clusterFilter.sql}` : ''}
+     ORDER BY pc.id`,
+    [id, ...clusterFilter.values],
+  );
   const target = clusters.reduce((total, cluster) => total + Number(cluster.beneficiaries || 0), 0);
+  const monitoringScope = req.isHealthWorker
+    ? `AND (
+         (LOWER(ml.beneficiary_type) = 'mother' AND EXISTS (
+           SELECT 1 FROM mothers scoped_mother
+           WHERE (CAST(ml.beneficiary_id AS CHAR) = CAST(scoped_mother.id AS CHAR)
+             OR LOWER(TRIM(CAST(ml.beneficiary_id AS CHAR))) = LOWER(TRIM(CAST(scoped_mother.mother_code AS CHAR))))
+             AND scoped_mother.group_id = ?
+         ))
+         OR (LOWER(ml.beneficiary_type) = 'child' AND EXISTS (
+           SELECT 1 FROM children scoped_child
+           LEFT JOIN mothers scoped_parent ON scoped_parent.id = scoped_child.mother_id
+           WHERE (CAST(ml.beneficiary_id AS CHAR) = CAST(scoped_child.id AS CHAR)
+             OR LOWER(TRIM(CAST(ml.beneficiary_id AS CHAR))) = LOWER(TRIM(CAST(scoped_child.child_code AS CHAR))))
+             AND COALESCE(scoped_child.group_id, scoped_parent.group_id) = ?
+         ))
+       )`
+    : req.isCommunityOrganizer
+      ? `AND (
+           (LOWER(ml.beneficiary_type) = 'mother' AND EXISTS (
+             SELECT 1 FROM mothers scoped_mother
+             WHERE (CAST(ml.beneficiary_id AS CHAR) = CAST(scoped_mother.id AS CHAR)
+               OR LOWER(TRIM(CAST(ml.beneficiary_id AS CHAR))) = LOWER(TRIM(CAST(scoped_mother.mother_code AS CHAR))))
+               AND scoped_mother.community_id = ?
+           ))
+           OR (LOWER(ml.beneficiary_type) = 'child' AND EXISTS (
+             SELECT 1 FROM children scoped_child
+             LEFT JOIN mothers scoped_parent ON scoped_parent.id = scoped_child.mother_id
+             WHERE (CAST(ml.beneficiary_id AS CHAR) = CAST(scoped_child.id AS CHAR)
+               OR LOWER(TRIM(CAST(ml.beneficiary_id AS CHAR))) = LOWER(TRIM(CAST(scoped_child.child_code AS CHAR))))
+               AND COALESCE(scoped_child.community_id, scoped_parent.community_id) = ?
+           ))
+         )`
+      : '';
+  const monitoringScopeValues = req.isHealthWorker
+    ? [req.groupId, req.groupId]
+    : req.isCommunityOrganizer
+      ? [req.schoolId, req.schoolId]
+      : [];
   const [monitoringRows] = await pool.query(
     `SELECT COUNT(DISTINCT CONCAT(LOWER(TRIM(ml.beneficiary_type)), ':', ml.beneficiary_id)) AS received
      FROM monitoring_logs ml
@@ -130,8 +175,9 @@ async function getProgram(id) {
        AND (
          LOWER(TRIM(?)) IN ('mother and child', 'mother & child')
          OR LOWER(TRIM(ml.beneficiary_type)) = LOWER(TRIM(?))
-       )`,
-    [id, rows[0].beneficiary_type, rows[0].beneficiary_type],
+       )
+       ${monitoringScope}`,
+    [id, rows[0].beneficiary_type, rows[0].beneficiary_type, ...monitoringScopeValues],
   );
   const clusterReceived = clusters.reduce((total, cluster) => total + Number(cluster.received || 0), 0);
   const received = Math.max(clusterReceived, Number(monitoringRows[0]?.received || 0));
@@ -152,19 +198,43 @@ async function authorizeCoordinatorProgramScope(req, res, programId, { allowUnsc
   if (!req.isCommunityOrganizer) return true;
 
   const [rows] = await pool.query(
-    `SELECT pc.scope_type, pc.scope_name,
+    `SELECT pc.scope_type, pc.scope_name, pc.scope_id,
        CASE
          WHEN pc.scope_type = 'School' THEN EXISTS (
            SELECT 1 FROM communities scoped_school
-           WHERE scoped_school.id = ? AND scoped_school.name = pc.scope_name
+           WHERE scoped_school.id = ?
+             AND (pc.scope_id = scoped_school.id OR (
+               pc.scope_id IS NULL
+               AND scoped_school.name = pc.scope_name
+               AND NOT EXISTS (
+                 SELECT 1 FROM communities duplicate_school
+                 WHERE duplicate_school.name = pc.scope_name AND duplicate_school.id <> scoped_school.id
+               )
+             ))
          )
          WHEN pc.scope_type = 'Group' THEN EXISTS (
            SELECT 1 FROM \`groups\` scoped_group
-           WHERE scoped_group.community_id = ? AND scoped_group.name = pc.scope_name
+           WHERE scoped_group.community_id = ?
+             AND (pc.scope_id = scoped_group.id OR (
+               pc.scope_id IS NULL
+               AND scoped_group.name = pc.scope_name
+               AND NOT EXISTS (
+                 SELECT 1 FROM \`groups\` duplicate_group
+                 WHERE duplicate_group.name = pc.scope_name AND duplicate_group.id <> scoped_group.id
+               )
+             ))
          )
          WHEN pc.scope_type = 'Batch' THEN EXISTS (
            SELECT 1 FROM batches scoped_batch
-           WHERE scoped_batch.community_id = ? AND scoped_batch.name = pc.scope_name
+           WHERE scoped_batch.community_id = ?
+             AND (pc.scope_id = scoped_batch.id OR (
+               pc.scope_id IS NULL
+               AND scoped_batch.name = pc.scope_name
+               AND NOT EXISTS (
+                 SELECT 1 FROM batches duplicate_batch
+                 WHERE duplicate_batch.name = pc.scope_name AND duplicate_batch.id <> scoped_batch.id
+               )
+             ))
          )
          ELSE 0
        END AS owned_by_school
@@ -215,25 +285,93 @@ const effectiveGroupBatchRelation = `(
   WHERE m.group_id IS NOT NULL AND m.batch_id IS NOT NULL
 )`;
 
-async function coordinatorScopeExistsInSchool(type, name, schoolId) {
+async function coordinatorScopeExistsInSchool(type, name, schoolId, scopeId) {
   const scopeQueries = {
-    School: ['SELECT id FROM communities WHERE id = ? AND name = ? AND archived_at IS NULL LIMIT 1', [schoolId, name]],
+    School: [`SELECT id FROM communities
+      WHERE id = ? AND id = ? AND name = ? AND archived_at IS NULL LIMIT 1`, [schoolId, scopeId || schoolId, name]],
     Group: [`SELECT g.id FROM groups g
       JOIN communities c ON c.id = g.community_id AND c.archived_at IS NULL
-      WHERE g.community_id = ? AND g.name = ? AND g.archived_at IS NULL LIMIT 1`, [schoolId, name]],
+      WHERE g.community_id = ? AND g.archived_at IS NULL
+        AND ((g.id = ? AND g.name = ?) OR (? IS NULL AND g.name = ? AND NOT EXISTS (
+          SELECT 1 FROM \`groups\` duplicate_group
+          WHERE duplicate_group.name = g.name AND duplicate_group.id <> g.id
+        ))) LIMIT 1`, [schoolId, scopeId || null, name, scopeId || null, name]],
     Batch: [`SELECT b.id FROM batches b
       JOIN communities c ON c.id = b.community_id AND c.archived_at IS NULL
-      WHERE b.community_id = ? AND b.name = ? AND b.archived_at IS NULL
+      WHERE b.community_id = ? AND b.archived_at IS NULL
+        AND ((b.id = ? AND b.name = ?) OR (? IS NULL AND b.name = ? AND NOT EXISTS (
+          SELECT 1 FROM batches duplicate_batch
+          WHERE duplicate_batch.name = b.name AND duplicate_batch.id <> b.id
+        )))
         AND NOT EXISTS (
           SELECT 1 FROM ${effectiveGroupBatchRelation} rel
           JOIN groups archived_group ON archived_group.id = rel.group_id AND archived_group.archived_at IS NOT NULL
           WHERE rel.batch_id = b.id
-        ) LIMIT 1`, [schoolId, name]],
+        ) LIMIT 1`, [schoolId, scopeId || null, name, scopeId || null, name]],
   };
   const query = scopeQueries[type];
   if (!query) return false;
   const [rows] = await pool.query(...query);
-  return rows.length > 0;
+  return rows[0] || null;
+}
+
+async function resolveProgramScope(type, name, scopeId, schoolId) {
+  if (schoolId) return coordinatorScopeExistsInSchool(type, name, schoolId, scopeId);
+  const scopeTables = {
+    School: 'communities',
+    Group: '`groups`',
+    Batch: 'batches',
+  };
+  const table = scopeTables[type];
+  if (!table) return null;
+  const [rows] = scopeId
+    ? await pool.query(`SELECT id FROM ${table} WHERE id = ? AND name = ? LIMIT 1`, [scopeId, name])
+    : await pool.query(`SELECT id FROM ${table} WHERE name = ? LIMIT 2`, [name]);
+  return rows.length === 1 ? rows[0] : null;
+}
+
+async function resolveMonitoringClusterScope(req, programId, type, name, requestedScopeId) {
+  const [clusters] = await pool.query(
+    `SELECT scope_name, scope_id FROM program_clusters
+     WHERE program_id = ? AND scope_type = ? AND LOWER(TRIM(scope_name)) = LOWER(TRIM(?))
+     ORDER BY id`,
+    [programId, type, name],
+  );
+  if (!clusters.length && !req.isCommunityOrganizer && !req.isHealthWorker) {
+    const derivedScope = await resolveProgramScope(type, name, null, null);
+    return derivedScope
+      && (!requestedScopeId || Number(derivedScope.id) === Number(requestedScopeId))
+      ? derivedScope
+      : null;
+  }
+  const resolvedScopes = [];
+  for (const cluster of clusters) {
+    const clusterScope = await resolveProgramScope(
+      type,
+      cluster.scope_name,
+      cluster.scope_id,
+      req.schoolId,
+    );
+    if (!clusterScope) continue;
+    if (requestedScopeId && Number(clusterScope.id) !== Number(requestedScopeId)) continue;
+    resolvedScopes.push(clusterScope);
+  }
+  if (resolvedScopes.length !== 1) return null;
+  return resolvedScopes[0];
+}
+
+async function authorizeProgramMonitoringRead(req, res, programId) {
+  const scopeFilter = getProgramVisibilityFilter(req, 'p');
+  const whereSql = scopeFilter.sql ? `${scopeFilter.sql} AND p.id = ?` : 'WHERE p.id = ?';
+  const [rows] = await pool.query(
+    `SELECT p.id FROM programs p ${whereSql} LIMIT 1`,
+    [...scopeFilter.values, programId],
+  );
+  if (!rows.length) {
+    res.status(403).json({ error: "You do not have permission to view this program's monitoring records" });
+    return false;
+  }
+  return true;
 }
 
 async function getProgramNotificationScope(programId, req) {
@@ -242,7 +380,7 @@ async function getProgramNotificationScope(programId, req) {
   }
 
   const [clusters] = await pool.query(
-    'SELECT scope_type, scope_name FROM program_clusters WHERE program_id = ? ORDER BY id',
+    'SELECT scope_type, scope_name, scope_id FROM program_clusters WHERE program_id = ? ORDER BY id',
     [programId],
   );
   const schoolIds = new Set();
@@ -250,14 +388,26 @@ async function getProgramNotificationScope(programId, req) {
   for (const cluster of clusters) {
     let rows = [];
     if (cluster.scope_type === 'School') {
-      [rows] = await pool.query('SELECT id FROM communities WHERE name = ?', [cluster.scope_name]);
+      [rows] = cluster.scope_id
+        ? await pool.query('SELECT id FROM communities WHERE id = ?', [cluster.scope_id])
+        : await pool.query(
+          'SELECT id FROM communities WHERE name = ? LIMIT 2',
+          [cluster.scope_name],
+        );
+      if (!cluster.scope_id && rows.length !== 1) rows = [];
       rows.forEach((row) => schoolIds.add(Number(row.id)));
     } else if (cluster.scope_type === 'Group') {
-      [rows] = await pool.query('SELECT id, community_id FROM groups WHERE name = ? ORDER BY id', [cluster.scope_name]);
+      [rows] = cluster.scope_id
+        ? await pool.query('SELECT id, community_id FROM `groups` WHERE id = ?', [cluster.scope_id])
+        : await pool.query('SELECT id, community_id FROM `groups` WHERE name = ? LIMIT 2', [cluster.scope_name]);
+      if (!cluster.scope_id && rows.length !== 1) rows = [];
       rows.forEach((row) => schoolIds.add(Number(row.community_id)));
       if (!groupId && rows.length) groupId = rows[0].id;
     } else if (cluster.scope_type === 'Batch') {
-      [rows] = await pool.query('SELECT id, community_id FROM batches WHERE name = ? ORDER BY id', [cluster.scope_name]);
+      [rows] = cluster.scope_id
+        ? await pool.query('SELECT id, community_id FROM batches WHERE id = ?', [cluster.scope_id])
+        : await pool.query('SELECT id, community_id FROM batches WHERE name = ? LIMIT 2', [cluster.scope_name]);
+      if (!cluster.scope_id && rows.length !== 1) rows = [];
       for (const row of rows) {
         schoolIds.add(Number(row.community_id));
         const [groupRows] = await pool.query('SELECT group_id FROM group_batch WHERE batch_id = ? ORDER BY group_id LIMIT 1', [row.id]);
@@ -315,7 +465,7 @@ router.get('/activity-calendar', async (req, res) => {
 
   try {
     const visibility = getProgramVisibilityFilter(req);
-    const healthWorkerScope = req.isHealthWorker
+    const beneficiaryScope = req.isHealthWorker
       ? `AND (
            (LOWER(ml.beneficiary_type) = 'mother' AND EXISTS (
              SELECT 1 FROM mothers scoped_mother
@@ -331,7 +481,23 @@ router.get('/activity-calendar', async (req, res) => {
                AND COALESCE(scoped_child.group_id, scoped_parent.group_id) = ?
            ))
          )`
-      : '';
+      : req.isCommunityOrganizer
+        ? `AND (
+             (LOWER(ml.beneficiary_type) = 'mother' AND EXISTS (
+               SELECT 1 FROM mothers scoped_mother
+               WHERE (CAST(ml.beneficiary_id AS CHAR) = CAST(scoped_mother.id AS CHAR)
+                 OR LOWER(TRIM(CAST(ml.beneficiary_id AS CHAR))) = LOWER(TRIM(CAST(scoped_mother.mother_code AS CHAR))))
+                 AND scoped_mother.community_id = ?
+             ))
+             OR (LOWER(ml.beneficiary_type) = 'child' AND EXISTS (
+               SELECT 1 FROM children scoped_child
+               LEFT JOIN mothers scoped_parent ON scoped_parent.id = scoped_child.mother_id
+               WHERE (CAST(ml.beneficiary_id AS CHAR) = CAST(scoped_child.id AS CHAR)
+                 OR LOWER(TRIM(CAST(ml.beneficiary_id AS CHAR))) = LOWER(TRIM(CAST(scoped_child.child_code AS CHAR))))
+                 AND COALESCE(scoped_child.community_id, scoped_parent.community_id) = ?
+             ))
+           )`
+        : '';
     const visibilityJoin = visibility.sql ? `${visibility.sql} AND` : 'WHERE';
     const [activities] = await pool.query(
       `SELECT ml.id AS activity_id, ml.beneficiary_id, ml.beneficiary_type, p.id AS program_id, p.name AS program_name,
@@ -345,13 +511,17 @@ router.get('/activity-calendar', async (req, res) => {
        FROM monitoring_logs ml
        INNER JOIN programs p ON p.id = ml.program_id
        ${visibilityJoin} ml.monitored_date >= ? AND ml.monitored_date <= ?
-         ${healthWorkerScope}
+         ${beneficiaryScope}
        ORDER BY ml.monitored_date, p.id, ml.id`,
       [
         ...visibility.values,
         startDate,
         endDate,
-        ...(req.isHealthWorker ? [req.groupId, req.groupId] : []),
+        ...(req.isHealthWorker
+          ? [req.groupId, req.groupId]
+          : req.isCommunityOrganizer
+            ? [req.schoolId, req.schoolId]
+            : []),
       ],
     );
     return res.json({ activities });
@@ -379,7 +549,7 @@ router.get('/', async (req, res) => {
       ? `${visibility.sql} AND ${archiveClause}`
       : `WHERE ${archiveClause}`;
     const [rows] = await pool.query(`SELECT p.* FROM programs p ${where} ORDER BY p.id DESC`, visibility.values);
-    const programs = await Promise.all(rows.map((row) => getProgram(row.id)));
+    const programs = await Promise.all(rows.map((row) => getProgram(row.id, req)));
     res.json({ programs });
   } catch (error) {
     console.error('[Programs API] list error:', error.message);
@@ -419,7 +589,7 @@ router.post('/', async (req, res) => {
   if (!program) return res.status(400).json({ error: 'Program name and provider are required' });
   try {
     const [result] = await pool.query('INSERT INTO programs (name, type, provider, description, beneficiary_type) VALUES (?, ?, ?, ?, ?)', Object.values(program));
-    const createdProgram = await getProgram(result.insertId);
+    const createdProgram = await getProgram(result.insertId, req);
     await notifyProgramChange(req, result.insertId, {
       eventType: 'program.created',
       title: 'Program created',
@@ -440,7 +610,7 @@ router.put('/:id', async (req, res) => {
     if (!(await requireActiveProgram(res, req.params.id))) return;
     const [result] = await pool.query('UPDATE programs SET name = ?, type = ?, provider = ?, description = ?, beneficiary_type = ? WHERE id = ?', [...Object.values(program), req.params.id]);
     if (!result.affectedRows) return res.status(404).json({ error: 'Program not found' });
-    const updatedProgram = await getProgram(req.params.id);
+    const updatedProgram = await getProgram(req.params.id, req);
     await notifyProgramChange(req, req.params.id, {
       eventType: 'program.updated',
       title: 'Program updated',
@@ -463,7 +633,7 @@ router.patch('/:id/end', async (req, res) => {
       [req.params.id],
     );
     if (!result.affectedRows) return res.status(404).json({ error: 'Program not found' });
-    const program = await getProgram(req.params.id);
+    const program = await getProgram(req.params.id, req);
     await notifyProgramChange(req, req.params.id, {
       eventType: 'program.ended',
       title: 'Project completed',
@@ -488,7 +658,7 @@ router.patch('/:id/restore', async (req, res) => {
       [req.params.id],
     );
     if (!result.affectedRows) return res.status(404).json({ error: 'Program not found' });
-    const program = await getProgram(req.params.id);
+    const program = await getProgram(req.params.id, req);
     await notifyProgramChange(req, req.params.id, {
       eventType: 'program.restored',
       title: 'Program restored',
@@ -536,7 +706,7 @@ router.post('/:id/archive', async (req, res) => {
         description: `Archived program "${rows[0].name}".${reason ? ` Reason: ${reason}` : ''}`,
       }, connection, { throwOnError: true });
       await connection.commit();
-      return res.json({ success: true, program: await getProgram(req.params.id) });
+      return res.json({ success: true, program: await getProgram(req.params.id, req) });
     } catch (error) {
       await connection.rollback();
       throw error;
@@ -569,15 +739,21 @@ router.post('/:id/archive/restore', async (req, res) => {
         `SELECT pc.scope_type, pc.scope_name FROM program_clusters pc
          WHERE pc.program_id = ? AND (
            (pc.scope_type = 'School' AND NOT EXISTS (
-             SELECT 1 FROM communities c WHERE c.id = ? AND c.name = pc.scope_name AND c.archived_at IS NULL
+            SELECT 1 FROM communities c WHERE c.id = ? AND c.archived_at IS NULL
+              AND (pc.scope_id = c.id OR (pc.scope_id IS NULL AND c.name = pc.scope_name
+                AND NOT EXISTS (SELECT 1 FROM communities duplicate_school WHERE duplicate_school.name = pc.scope_name AND duplicate_school.id <> c.id)))
            ))
            OR (pc.scope_type = 'Group' AND NOT EXISTS (
              SELECT 1 FROM \`groups\` g JOIN communities c ON c.id = g.community_id AND c.archived_at IS NULL
-             WHERE g.community_id = ? AND g.name = pc.scope_name AND g.archived_at IS NULL
+            WHERE g.community_id = ? AND g.archived_at IS NULL
+              AND (pc.scope_id = g.id OR (pc.scope_id IS NULL AND g.name = pc.scope_name
+                AND NOT EXISTS (SELECT 1 FROM \`groups\` duplicate_group WHERE duplicate_group.name = pc.scope_name AND duplicate_group.id <> g.id)))
            ))
            OR (pc.scope_type = 'Batch' AND NOT EXISTS (
              SELECT 1 FROM batches b JOIN communities c ON c.id = b.community_id AND c.archived_at IS NULL
-             WHERE b.community_id = ? AND b.name = pc.scope_name AND b.archived_at IS NULL
+            WHERE b.community_id = ? AND b.archived_at IS NULL
+              AND (pc.scope_id = b.id OR (pc.scope_id IS NULL AND b.name = pc.scope_name
+                AND NOT EXISTS (SELECT 1 FROM batches duplicate_batch WHERE duplicate_batch.name = pc.scope_name AND duplicate_batch.id <> b.id)))
                AND NOT EXISTS (
                  SELECT 1 FROM ${effectiveGroupBatchRelation} rel
                  JOIN \`groups\` archived_group ON archived_group.id = rel.group_id AND archived_group.archived_at IS NOT NULL
@@ -604,7 +780,7 @@ router.post('/:id/archive/restore', async (req, res) => {
         description: `Restored program "${rows[0].name}" from archive.`,
       }, connection, { throwOnError: true });
       await connection.commit();
-      return res.json({ success: true, program: await getProgram(req.params.id) });
+      return res.json({ success: true, program: await getProgram(req.params.id, req) });
     } catch (error) {
       await connection.rollback();
       throw error;
@@ -632,15 +808,22 @@ router.post('/:id/clusters', async (req, res) => {
       const type = String(scope.type || '').trim();
       const name = String(scope.name || '').trim();
       if (!type || !name) continue;
-      if (req.isCommunityOrganizer) {
-        if (!(await coordinatorScopeExistsInSchool(type, name, req.schoolId))) {
-          return res.status(403).json({ error: 'Community Organizers may only add scopes from their assigned school' });
-        }
+      const requestedScopeId = parsePositiveIntegerId(scope.scopeId ?? scope.scope_id);
+      const resolvedScope = await resolveProgramScope(type, name, requestedScopeId, req.schoolId);
+      if (!resolvedScope) {
+        return res.status(req.isCommunityOrganizer ? 403 : 400).json({
+          error: req.isCommunityOrganizer
+            ? 'Community Organizers may only add scopes from their assigned school'
+            : 'Scope could not be resolved unambiguously',
+        });
       }
-      const [result] = await pool.query('INSERT IGNORE INTO program_clusters (program_id, scope_type, scope_name, beneficiaries) VALUES (?, ?, ?, ?)', [req.params.id, type, name, Number(scope.beneficiaries) || 0]);
-      if (result.affectedRows) addedScopes.push({ type, name });
+      const [result] = await pool.query(
+        'INSERT IGNORE INTO program_clusters (program_id, scope_type, scope_name, scope_id, beneficiaries) VALUES (?, ?, ?, ?, ?)',
+        [req.params.id, type, name, resolvedScope.id, Number(scope.beneficiaries) || 0],
+      );
+      if (result.affectedRows) addedScopes.push({ type, name, scopeId: resolvedScope.id });
     }
-    const program = await getProgram(req.params.id);
+    const program = await getProgram(req.params.id, req);
     if (addedScopes.length) {
       const scope = req.schoolId
         ? { schoolId: req.schoolId, groupId: req.groupId || null }
@@ -673,7 +856,7 @@ router.patch('/:programId/clusters/:clusterId/complete', async (req, res) => {
       [req.params.clusterId, req.params.programId],
     );
     if (!result.affectedRows) return res.status(404).json({ error: 'Cluster not found' });
-    const program = await getProgram(req.params.programId);
+    const program = await getProgram(req.params.programId, req);
     await notifyProgramChange(req, req.params.programId, {
       eventType: 'program.cluster_completed',
       title: 'Program scope completed',
@@ -694,21 +877,27 @@ router.patch('/:programId/clusters/complete', async (req, res) => {
   try {
     if (!(await authorizeCoordinatorProgramScope(req, res, req.params.programId))) return;
     if (!(await requireActiveProgram(res, req.params.programId))) return;
-    if (req.isCommunityOrganizer && !(await coordinatorScopeExistsInSchool(type, name, req.schoolId))) {
-      return res.status(403).json({ error: 'Community Organizers may only complete scopes from their assigned school' });
+    const requestedScopeId = parsePositiveIntegerId(req.body?.scopeId ?? req.body?.scope_id);
+    const resolvedScope = await resolveProgramScope(type, name, requestedScopeId, req.schoolId);
+    if (!resolvedScope) {
+      return res.status(req.isCommunityOrganizer ? 403 : 400).json({
+        error: req.isCommunityOrganizer
+          ? 'Community Organizers may only complete scopes from their assigned school'
+          : 'Scope could not be resolved unambiguously',
+      });
     }
     const scope = await getProgramNotificationScope(req.params.programId, req);
     const [result] = await pool.query(
-      'UPDATE program_clusters SET received = beneficiaries WHERE program_id = ? AND scope_type = ? AND scope_name = ?',
-      [req.params.programId, type, name],
+      'UPDATE program_clusters SET received = beneficiaries WHERE program_id = ? AND scope_type = ? AND scope_id = ?',
+      [req.params.programId, type, resolvedScope.id],
     );
     if (!result.affectedRows) {
       await pool.query(
-        'INSERT INTO program_clusters (program_id, scope_type, scope_name, beneficiaries, received) VALUES (?, ?, ?, ?, ?)',
-        [req.params.programId, type, name, beneficiaries, beneficiaries],
+        'INSERT INTO program_clusters (program_id, scope_type, scope_name, scope_id, beneficiaries, received) VALUES (?, ?, ?, ?, ?, ?)',
+        [req.params.programId, type, name, resolvedScope.id, beneficiaries, beneficiaries],
       );
     }
-    const program = await getProgram(req.params.programId);
+    const program = await getProgram(req.params.programId, req);
     await notifyProgramChange(req, req.params.programId, {
       eventType: 'program.cluster_completed',
       title: 'Program scope completed',
@@ -725,7 +914,8 @@ router.get('/:programId/monitoring', async (req, res) => {
   const date = req.query.date === undefined ? new Date().toISOString().slice(0, 10) : validDate(req.query.date);
   if (!date) return res.status(400).json({ error: 'Date must be a valid date in YYYY-MM-DD format' });
   try {
-    const groupPredicate = req.isHealthWorker
+    if (!(await authorizeProgramMonitoringRead(req, res, req.params.programId))) return;
+    const rolePredicate = req.isHealthWorker
       ? `AND (
            (LOWER(ml.beneficiary_type) = 'mother' AND EXISTS (
              SELECT 1 FROM mothers scoped_mother
@@ -741,14 +931,34 @@ router.get('/:programId/monitoring', async (req, res) => {
                AND COALESCE(scoped_child.group_id, scoped_parent.group_id) = ?
            ))
          )`
-      : '';
+      : req.isCommunityOrganizer
+        ? `AND (
+             (LOWER(ml.beneficiary_type) = 'mother' AND EXISTS (
+               SELECT 1 FROM mothers scoped_mother
+               WHERE (CAST(ml.beneficiary_id AS CHAR) = CAST(scoped_mother.id AS CHAR)
+                 OR LOWER(TRIM(CAST(ml.beneficiary_id AS CHAR))) = LOWER(TRIM(CAST(scoped_mother.mother_code AS CHAR))))
+                 AND scoped_mother.community_id = ?
+             ))
+             OR (LOWER(ml.beneficiary_type) = 'child' AND EXISTS (
+               SELECT 1 FROM children scoped_child
+               LEFT JOIN mothers scoped_parent ON scoped_parent.id = scoped_child.mother_id
+               WHERE (CAST(ml.beneficiary_id AS CHAR) = CAST(scoped_child.id AS CHAR)
+                 OR LOWER(TRIM(CAST(ml.beneficiary_id AS CHAR))) = LOWER(TRIM(CAST(scoped_child.child_code AS CHAR))))
+                 AND COALESCE(scoped_child.community_id, scoped_parent.community_id) = ?
+             ))
+           )`
+        : '';
     const [logs] = await pool.query(
       `SELECT ml.beneficiary_id, ml.beneficiary_type, ml.monitored, DATE_FORMAT(ml.monitored_date, '%Y-%m-%d') AS monitored_date, ml.notes
        FROM monitoring_logs ml
        WHERE ml.program_id = ? AND ml.monitored_date = ?
-       ${groupPredicate}
+       ${rolePredicate}
        ORDER BY ml.id`,
-      req.isHealthWorker ? [req.params.programId, date, req.groupId, req.groupId] : [req.params.programId, date],
+      req.isHealthWorker
+        ? [req.params.programId, date, req.groupId, req.groupId]
+        : req.isCommunityOrganizer
+          ? [req.params.programId, date, req.schoolId, req.schoolId]
+          : [req.params.programId, date],
     );
     res.json({ date, logs });
   } catch (error) {
@@ -815,18 +1025,43 @@ router.patch('/:programId/monitoring', async (req, res) => {
              SELECT 1 FROM program_clusters scoped_cluster
              WHERE scoped_cluster.program_id = p.id
                AND (
-                 (scoped_cluster.scope_type = 'Group' AND scoped_cluster.scope_name = assigned_group.name)
+                 (scoped_cluster.scope_type = 'Group' AND (
+                   scoped_cluster.scope_id = assigned_group.id
+                   OR (scoped_cluster.scope_id IS NULL
+                     AND scoped_cluster.scope_name = assigned_group.name
+                     AND NOT EXISTS (
+                       SELECT 1 FROM \`groups\` duplicate_group
+                       WHERE duplicate_group.name = scoped_cluster.scope_name
+                         AND duplicate_group.id <> assigned_group.id
+                     ))
+                 ))
                  OR (scoped_cluster.scope_type = 'School' AND EXISTS (
                    SELECT 1 FROM communities assigned_school
                    WHERE assigned_school.id = assigned_group.community_id
-                     AND assigned_school.name = scoped_cluster.scope_name
+                     AND (scoped_cluster.scope_id = assigned_school.id OR (
+                       scoped_cluster.scope_id IS NULL
+                       AND assigned_school.name = scoped_cluster.scope_name
+                       AND NOT EXISTS (
+                         SELECT 1 FROM communities duplicate_school
+                         WHERE duplicate_school.name = scoped_cluster.scope_name
+                           AND duplicate_school.id <> assigned_school.id
+                       )
+                     ))
                  ))
                  OR (scoped_cluster.scope_type = 'Batch' AND EXISTS (
                    SELECT 1 FROM batches assigned_batch
                    INNER JOIN group_batch assigned_batch_link ON assigned_batch_link.batch_id = assigned_batch.id
                    WHERE assigned_batch.id = ?
                      AND assigned_batch_link.group_id = assigned_group.id
-                     AND assigned_batch.name = scoped_cluster.scope_name
+                     AND (scoped_cluster.scope_id = assigned_batch.id OR (
+                       scoped_cluster.scope_id IS NULL
+                       AND assigned_batch.name = scoped_cluster.scope_name
+                       AND NOT EXISTS (
+                         SELECT 1 FROM batches duplicate_batch
+                         WHERE duplicate_batch.name = scoped_cluster.scope_name
+                           AND duplicate_batch.id <> assigned_batch.id
+                       )
+                     ))
                  ))
                )
            )
@@ -853,7 +1088,7 @@ router.patch('/:programId/monitoring', async (req, res) => {
         req.user?.id || null, req.user?.id || null],
     );
     const beneficiary = beneficiaryRows[0];
-    const program = await getProgram(req.params.programId);
+    const program = await getProgram(req.params.programId, req);
     const receiptAction = existingReceiptRows.length ? 'updated' : 'created';
     await notifyProgramChange(req, req.params.programId, {
       eventType: `program.receipt_${receiptAction}`,
@@ -1075,14 +1310,33 @@ router.delete('/:programId/monitoring/evidence/:setId/images/:imageId', async (r
 router.get('/:programId/monitoring/cluster-report/:clusterType/:clusterName', async (req, res) => {
   const clusterType = String(req.params.clusterType || '').toLowerCase();
   const clusterName = decodeURIComponent(String(req.params.clusterName || '')).trim();
+  const requestedScopeId = req.query.scopeId === undefined ? null : parsePositiveIntegerId(req.query.scopeId);
+  const scopeType = { school: 'School', group: 'Group', batch: 'Batch' }[clusterType];
   const clusterFilters = {
     school: 'LOWER(TRIM(COALESCE(co.name, parent_co.name, ""))) = LOWER(TRIM(?))',
     group: 'LOWER(TRIM(COALESCE(g.name, ""))) = LOWER(TRIM(?))',
     batch: 'LOWER(TRIM(COALESCE(b.name, ""))) = LOWER(TRIM(?))',
   };
+  const clusterIdentityFilters = {
+    school: 'COALESCE(m.community_id, c.community_id, parent_m.community_id) = ?',
+    group: 'COALESCE(m.group_id, c.group_id, parent_m.group_id) = ?',
+    batch: 'COALESCE(m.batch_id, c.batch_id, parent_m.batch_id) = ?',
+  };
   const clusterFilter = clusterFilters[clusterType];
   if (!clusterFilter || !clusterName) return res.status(400).json({ error: 'Invalid monitoring cluster' });
+  if (req.query.scopeId !== undefined && requestedScopeId === null) {
+    return res.status(400).json({ error: 'Scope ID must be a positive integer' });
+  }
   try {
+    if (!(await authorizeProgramMonitoringRead(req, res, req.params.programId))) return;
+    const clusterScope = await resolveMonitoringClusterScope(
+      req,
+      req.params.programId,
+      scopeType,
+      clusterName,
+      requestedScopeId,
+    );
+    if (!clusterScope) return res.status(404).json({ error: 'Monitoring cluster not found' });
     const [programRows] = await pool.query(
       'SELECT status FROM programs WHERE id = ? LIMIT 1',
       [req.params.programId],
@@ -1132,9 +1386,12 @@ router.get('/:programId/monitoring/cluster-report/:clusterType/:clusterName', as
            OR LOWER(TRIM(ml.beneficiary_type)) = LOWER(TRIM(p.beneficiary_type))
          )
          AND ${clusterFilter}
+         AND ${clusterIdentityFilters[clusterType]}
          ${req.isHealthWorker ? 'AND COALESCE(g.id, parent_g.id) = ?' : ''}
        ORDER BY ml.monitored_date DESC, beneficiary_name`,
-      req.isHealthWorker ? [req.params.programId, clusterName, req.groupId] : [req.params.programId, clusterName],
+      req.isHealthWorker
+        ? [req.params.programId, clusterName, clusterScope.id, req.groupId]
+        : [req.params.programId, clusterName, clusterScope.id],
     );
     res.json({ programStatus: programRows[0].status, report: await attachReceiptEvidence(logs) });
   } catch (error) {
@@ -1147,6 +1404,7 @@ router.get('/:programId/monitoring/report/:beneficiaryType/:beneficiaryId', asyn
   const beneficiaryType = String(req.params.beneficiaryType || '').toLowerCase();
   if (!['mother', 'child'].includes(beneficiaryType)) return res.status(400).json({ error: 'Invalid beneficiary type' });
   try {
+    if (!(await authorizeProgramMonitoringRead(req, res, req.params.programId))) return;
     const [programRows] = await pool.query(
       'SELECT status FROM programs WHERE id = ? LIMIT 1',
       [req.params.programId],
@@ -1181,11 +1439,17 @@ router.get('/:programId/monitoring/report/:beneficiaryType/:beneficiaryId', asyn
        LEFT JOIN batches b ON b.id = COALESCE(m.batch_id, c.batch_id)
        ${auditJoins}
        WHERE ml.program_id = ? AND ml.beneficiary_id = ? AND ml.beneficiary_type = ?
-         ${req.isHealthWorker ? 'AND (m.group_id = ? OR COALESCE(c.group_id, parent_m.group_id) = ?)' : ''}
+         ${req.isHealthWorker
+           ? 'AND (m.group_id = ? OR COALESCE(c.group_id, parent_m.group_id) = ?)'
+           : req.isCommunityOrganizer
+             ? 'AND (m.community_id = ? OR COALESCE(c.community_id, parent_m.community_id) = ?)'
+             : ''}
        ORDER BY ml.monitored_date DESC`,
       req.isHealthWorker
         ? [req.params.programId, req.params.beneficiaryId, beneficiaryType, req.groupId, req.groupId]
-        : [req.params.programId, req.params.beneficiaryId, beneficiaryType],
+        : req.isCommunityOrganizer
+          ? [req.params.programId, req.params.beneficiaryId, beneficiaryType, req.schoolId, req.schoolId]
+          : [req.params.programId, req.params.beneficiaryId, beneficiaryType],
     );
     res.json({ programStatus: programRows[0].status, report: await attachReceiptEvidence(logs) });
   } catch (error) {

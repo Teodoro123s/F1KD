@@ -57,7 +57,9 @@ test('project activity calendar returns real check-ins in the requested date ran
   assert.match(capturedQuery.sql, /ml\.beneficiary_id, ml\.beneficiary_type/);
   assert.doesNotMatch(capturedQuery.sql, /WHERE\s+ml\.monitored = 1/);
   assert.match(capturedQuery.sql, /ml\.monitored_date >= \? AND ml\.monitored_date <= \?/);
-  assert.deepEqual(capturedQuery.params, [12, 12, 12, '2026-10-01', '2026-10-31']);
+  assert.match(capturedQuery.sql, /scoped_mother\.community_id = \?/);
+  assert.match(capturedQuery.sql, /COALESCE\(scoped_child\.community_id, scoped_parent\.community_id\) = \?/);
+  assert.deepEqual(capturedQuery.params, [12, 12, 12, '2026-10-01', '2026-10-31', 12, 12]);
 });
 
 test('project activity calendar rejects invalid or reversed date ranges', async (t) => {

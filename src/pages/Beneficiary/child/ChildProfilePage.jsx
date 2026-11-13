@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
-import { useMothers } from '../../../context/MothersContext';
 import { formatDateForDisplay } from '../../../utils/formatting/dateFormat';
 import { apiDeleteChildBirthDocument, apiGetChild, apiUploadChildBirthDocument } from '../../../api/children';
 import { DocumentPreview, DocumentPreviewModal } from '../../../components/DocumentPreview';
@@ -118,7 +117,6 @@ export default function ChildProfilePage() {
   const canDelete = can(currentUser?.role, 'beneficiary-resources', 'delete');
 
   const stateMother = location.state?.mother || null;
-  const { mothers: contextMothers } = useMothers();
   const childFromState = location.state?.child ? normalizeChild(location.state.child) : null;
 
   // Helper: find a child in session sources and return { child, mother }
@@ -132,17 +130,6 @@ export default function ChildProfilePage() {
           const found = m.children.find((c) => String(c.id) === String(searchId));
           if (found) return { child: found, mother: m };
         }
-      }
-    }
-
-    // search context mothers
-    if (Array.isArray(contextMothers)) {
-      for (const m of contextMothers) {
-        if (Array.isArray(m.children)) {
-          const found = m.children.find((c) => String(c.id) === String(searchId));
-          if (found) return { child: found, mother: m };
-        }
-        // if mother has id matching child.mother_id later
       }
     }
 
@@ -177,16 +164,6 @@ export default function ChildProfilePage() {
   // Determine the most likely mother for display
   const findMotherForChild = (child) => {
     if (!child) return stateMother || null;
-    // If child has explicit mother id, search context
-    if (child.mother_id || child.motherId) {
-      const mid = child.mother_id || child.motherId;
-        const found = contextMothers.find((m) => (
-          String(m.id) === String(mid) ||
-          String(m.motherId) === String(mid) ||
-          String(m.raw?.id) === String(mid)
-        ));
-      if (found) return found;
-    }
     if (child.motherName) {
       return { id: child.motherId || child.mother_id, motherId: child.motherId || child.mother_id, name: child.motherName };
     }

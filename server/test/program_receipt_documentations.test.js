@@ -56,6 +56,7 @@ test('program check-in evidence is shared across beneficiaries and manageable on
     }
     if (sql.includes('SELECT status, archived_at FROM programs WHERE id = ?')) return [[{ status: programStatus, archived_at: null }]];
     if (sql.includes('SELECT status FROM programs WHERE id = ?')) return [[{ status: programStatus }]];
+    if (sql.includes('SELECT p.id FROM programs p WHERE p.id = ?')) return [[{ id: 5 }]];
     if (sql.includes('SELECT COUNT(*) AS count FROM program_clusters')) return [[{ count: 2 }]];
     if (sql.includes('SELECT COUNT(*) AS count FROM monitoring_logs')) return [[{ count: 5 }]];
     if (sql.includes('SELECT p.* FROM programs p')) return [[]];

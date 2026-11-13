@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { apiGetMothers } from '../api/mothers';
 import { useAuth } from '../auth/AuthProvider';
 import { normalizeRole, ROLES } from '../utils/permissions';
@@ -7,6 +8,7 @@ const MothersContext = createContext(null);
 
 export function MothersProvider({ children }) {
   const auth = useAuth();
+  const { pathname } = useLocation();
   const [mothers, setMothers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -42,6 +44,14 @@ export function MothersProvider({ children }) {
 
   useEffect(() => {
     if (auth.loading || !auth.currentUser) return undefined;
+    if (pathname !== '/beneficiary/create/child') {
+      requestVersion.current += 1;
+      mothersRef.current = [];
+      setMothers([]);
+      setError('');
+      setLoading(false);
+      return undefined;
+    }
     if (normalizeRole(auth.currentUser.role) === ROLES.SUPER_ADMIN) {
       requestVersion.current += 1;
       setMothers([]);
@@ -53,7 +63,7 @@ export function MothersProvider({ children }) {
     return () => {
       requestVersion.current += 1;
     };
-  }, [auth.currentUser, auth.loading, auth.token, loadMothers]);
+  }, [auth.currentUser, auth.loading, auth.token, loadMothers, pathname]);
 
   const value = useMemo(
     () => ({ mothers, setMothers, loading, error, refreshMothers: loadMothers }),

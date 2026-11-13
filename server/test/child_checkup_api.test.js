@@ -9,7 +9,10 @@ const mysql = require('mysql2/promise');
 const testPool = {
   query: async () => [[]],
   getConnection: async () => ({
-    query: async () => [[]],
+    query: (...args) => testPool.query(...args),
+    beginTransaction: async () => {},
+    commit: async () => {},
+    rollback: async () => {},
     release() {},
   }),
 };
@@ -28,6 +31,7 @@ test('health worker child check-up saves monitoring data and rejects a different
   await pool.ready;
   const originalQuery = pool.query;
   const savedCheckupQueries = [];
+  const savedFeedingUpdates = [];
   const notifications = [];
   pool.query = async (sql, params = []) => {
     if (sql.includes('school_archived_at') && sql.includes('FROM children c')) {
@@ -70,6 +74,10 @@ test('health worker child check-up saves monitoring data and rejects a different
         : []];
     }
     if (sql.startsWith('SELECT id FROM child_checkups')) return [[]];
+    if (sql.startsWith('UPDATE children SET exclusive_breastfeeding')) {
+      savedFeedingUpdates.push({ sql, params });
+      return [{ affectedRows: 1 }];
+    }
     if (sql.startsWith('INSERT INTO child_checkups')) {
       savedCheckupQueries.push({ sql, params });
       return [{ insertId: 71 }];
@@ -173,9 +181,11 @@ test('health worker child check-up saves monitoring data and rejects a different
     week: 14,
     checkupDate: '2026-10-28',
     nextCheckupDate: '2026-02-30',
+    feedingType: 'Must not be saved',
   });
   assert.equal(invalidReminderDateResponse.status, 400);
   assert.equal(savedCheckupQueries.length, 2);
+  assert.equal(savedFeedingUpdates.length, 0, 'an invalid reminder date must be rejected before feeding fields are written');
 
   const invalidHeadCircumferenceResponse = await request(20, {
     week: 14,

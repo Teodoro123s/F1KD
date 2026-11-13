@@ -2,16 +2,17 @@ import React, { useRef, useState } from 'react';
 import { MoreVerticalIcon } from './UserManagementIcons';
 import TableSearch from '../../components/ui/TableSearch';
 import FloatingLayer from '../../components/ui/FloatingLayer';
+import { normalizeRole, ROLES } from '../../utils/permissions';
 
 export default function UserManagementTable({
   currentRows,
   onRowClick,
   openEditUser,
   handleSuspendUser,
-  handleDeleteUser,
+  handleArchiveUser,
   suspendLoadingIds = [],
-  deletingId = null,
-  allowDelete = true,
+  archivingId = null,
+  allowArchive = true,
   showGroup = false,
   groups = [],
   searchValue = '',
@@ -83,7 +84,7 @@ export default function UserManagementTable({
               else handleSuspendUser(row.id);
             }}
             role="menuitem"
-            disabled={suspendLoadingIds.includes(row.id) || deletingId === row.id}
+            disabled={suspendLoadingIds.includes(row.id) || archivingId === row.id}
           >
             {suspendLoadingIds.includes(row.id)
               ? (row.status === 'Suspended' ? 'Reactivating...' : 'Suspending...')
@@ -91,19 +92,19 @@ export default function UserManagementTable({
                 ? (row.status === 'Suspended' ? 'Reactivate' : 'Suspend')
                 : (row.status === 'Suspended' ? 'Unsuspend' : 'Suspend')}
           </button>
-          {allowDelete && (
+          {allowArchive && normalizeRole(row.role) !== ROLES.SUPER_ADMIN && (
             <button
               type="button"
-              className="actions-dropdown-item delete"
+              className="actions-dropdown-item"
               onClick={(event) => {
                 event.stopPropagation();
                 setActiveDropdown(null);
-                handleDeleteUser(row.id);
+                handleArchiveUser(row.id);
               }}
               role="menuitem"
-              disabled={deletingId === row.id}
+              disabled={archivingId === row.id || suspendLoadingIds.includes(row.id)}
             >
-              {deletingId === row.id ? 'Deleting...' : 'Delete'}
+              {archivingId === row.id ? 'Archiving...' : 'Archive'}
             </button>
           )}
         </FloatingLayer>
@@ -142,8 +143,8 @@ export default function UserManagementTable({
                 <>
                   <th scope="col">Account Name</th>
                   <th scope="col">Role</th>
-                  {showGroup && <th scope="col" title="Group assigned to this user">Assigned Group</th>}
                   <th scope="col" className="actions-cell">Actions</th>
+                  {showGroup && <th scope="col" title="Group assigned to this user">Assigned Group</th>}
                 </>
               )}
             </tr>
@@ -186,6 +187,7 @@ export default function UserManagementTable({
                     <>
                       <td title={row.name}>{row.name}</td>
                       <td title={row.role}>{row.role}</td>
+                      {renderActionMenu(row)}
                       {showGroup && (
                         <td title={groupNames.get(String(row.groupId || '')) || '—'}>
                           {groupNames.get(String(row.groupId || '')) || '—'}
@@ -193,7 +195,7 @@ export default function UserManagementTable({
                       )}
                     </>
                   )}
-                  {renderActionMenu(row)}
+                  {healthWorkerManagement && renderActionMenu(row)}
                 </tr>
               ))
             ) : (

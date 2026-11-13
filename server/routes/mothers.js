@@ -847,7 +847,8 @@ router.post('/', async (req, res) => {
       }
     }
 
-    const [result] = await pool.query(
+    const mother = await pool.withTransaction(async (connection) => {
+    const [result] = await connection.query(
       `INSERT INTO mothers (
         mother_code,
         first_name,
@@ -959,7 +960,7 @@ router.post('/', async (req, res) => {
     );
 
     if (hasInitialMeasurements) {
-      await pool.query(
+      await connection.query(
         `INSERT INTO mother_checkups (
           mother_id, trimester, checkup_number, checkup_date, gestational_age_weeks,
           blood_pressure, weight_kg, height_cm, bmi, nutritional_status,
@@ -984,7 +985,7 @@ router.post('/', async (req, res) => {
           req.user?.id || null,
         ],
       );
-      await pool.query(
+      await connection.query(
         `UPDATE mothers m SET progress = LEAST(100, ROUND(
           (SELECT COUNT(*) FROM mother_checkups WHERE mother_id = ?) * 100 / ${motherMonitoringTotalSql('m')}
         )) WHERE m.id = ?`,
@@ -992,13 +993,11 @@ router.post('/', async (req, res) => {
       );
     }
 
-    const [rows] = await pool.query('SELECT * FROM mothers WHERE id = ?', [result.insertId]);
-    const mother = rows[0];
     if (Array.isArray(b.obHistory)) {
       for (const [index, item] of b.obHistory.entries()) {
         if (item.gestationalAge || item.outcome) {
           const eventCode = item.event || `G${index + 1}`;
-          await pool.query(
+          await connection.query(
             'INSERT INTO mother_ob_history (mother_id, event_code, event_label, gestational_age, outcome, seq) VALUES (?, ?, ?, ?, ?, ?)',
             [result.insertId, eventCode, eventCode, item.gestationalAge || null, item.outcome || null, index + 1]
           );
@@ -1008,7 +1007,7 @@ router.post('/', async (req, res) => {
     if (b.medicalConditions && typeof b.medicalConditions === 'object') {
       for (const [conditionName, hasCondition] of Object.entries(b.medicalConditions)) {
         if (hasCondition) {
-          await pool.query(
+          await connection.query(
             'INSERT INTO mother_medical_conditions (mother_id, condition_name, has_condition) VALUES (?, ?, ?)',
             [result.insertId, conditionName, true]
           );
@@ -1016,13 +1015,13 @@ router.post('/', async (req, res) => {
       }
     }
     for (const vaccine of getMotherVaccineRecords(b)) {
-      await pool.query(
+      await connection.query(
         'INSERT INTO mother_vaccinations (mother_id, vaccine_name, vaccine_date, remarks) VALUES (?, ?, ?, ?)',
         [result.insertId, vaccine.name, vaccine.date, vaccine.remarks],
       );
     }
     if (b.dentalCheckupDate || b.dentalFacility || b.dentalFindings || b.dentalRemarks || Object.values(b.dentalWork || {}).some(Boolean)) {
-      await pool.query(
+      await connection.query(
         `INSERT INTO mother_dental_records (
           mother_id, dental_facility, dentist_in_charge, community_dentist, dentist_license,
           dentist_contact, teeth_count, dental_findings, dental_remarks, tartar_removal,
@@ -1047,6 +1046,9 @@ router.post('/', async (req, res) => {
         ]
       );
     }
+    const [rows] = await connection.query('SELECT * FROM mothers WHERE id = ?', [result.insertId]);
+    return rows[0];
+    });
     const motherName = [mother.first_name, mother.last_name].filter(Boolean).join(' ');
     await createSuperadminNotification({
       eventType: 'beneficiary.mother.created',
@@ -1376,40 +1378,41 @@ router.put('/:id', async (req, res) => {
       medical_conditions: b.medicalConditions ? JSON.stringify(b.medicalConditions) : current.medical_conditions || null,
       other_medical_history: b.otherMedicalHistory || b.other_medical_history || current.other_medical_history || null,
     };
-    await pool.query('UPDATE mothers SET ? WHERE id = ?', [update, motherDbId]);
+    const updatedMother = await pool.withTransaction(async (connection) => {
+    await connection.query('UPDATE mothers SET ? WHERE id = ?', [update, motherDbId]);
 
-    await pool.query('DELETE FROM mother_ob_history WHERE mother_id = ?', [motherDbId]);
+    await connection.query('DELETE FROM mother_ob_history WHERE mother_id = ?', [motherDbId]);
     for (const [index, item] of (b.obHistory || []).entries()) {
       if (item.gestationalAge || item.outcome) {
-        await pool.query(
+        await connection.query(
           'INSERT INTO mother_ob_history (mother_id, event_code, event_label, gestational_age, outcome, seq) VALUES (?, ?, ?, ?, ?, ?)',
           [motherDbId, item.event || `G${index + 1}`, item.event || `G${index + 1}`, item.gestationalAge || null, item.outcome || null, index + 1]
         );
       }
     }
 
-    await pool.query('DELETE FROM mother_medical_conditions WHERE mother_id = ?', [motherDbId]);
+    await connection.query('DELETE FROM mother_medical_conditions WHERE mother_id = ?', [motherDbId]);
     for (const [conditionName, hasCondition] of Object.entries(b.medicalConditions || {})) {
       if (hasCondition) {
-        await pool.query(
+        await connection.query(
           'INSERT INTO mother_medical_conditions (mother_id, condition_name, has_condition) VALUES (?, ?, ?)',
           [motherDbId, conditionName, true]
         );
       }
     }
 
-    await pool.query('DELETE FROM mother_vaccinations WHERE mother_id = ?', [motherDbId]);
+    await connection.query('DELETE FROM mother_vaccinations WHERE mother_id = ?', [motherDbId]);
     for (const vaccine of getMotherVaccineRecords(b)) {
-      await pool.query(
+      await connection.query(
         'INSERT INTO mother_vaccinations (mother_id, vaccine_name, vaccine_date, remarks) VALUES (?, ?, ?, ?)',
         [motherDbId, vaccine.name, vaccine.date, vaccine.remarks],
       );
     }
 
-    await pool.query('DELETE FROM mother_dental_records WHERE mother_id = ?', [motherDbId]);
+    await connection.query('DELETE FROM mother_dental_records WHERE mother_id = ?', [motherDbId]);
     const dentalWork = b.dentalWork || {};
     if (b.dentalCheckupDate || b.dentalFacility || b.dentistInCharge || b.communityDentist || b.dentistLicense || b.dentistContact || b.teethCount || b.dentalFindings || b.dentalRemarks || Object.values(dentalWork).some(Boolean)) {
-      await pool.query(
+      await connection.query(
         `INSERT INTO mother_dental_records (
           mother_id, visit_date, dental_facility, dentist_in_charge, community_dentist,
           dentist_license, dentist_contact, teeth_count, dental_findings, dental_remarks,
@@ -1436,7 +1439,7 @@ router.put('/:id', async (req, res) => {
       );
     }
 
-    const [rows] = await pool.query(
+    const [rows] = await connection.query(
       `SELECT m.*, g.name AS group_name, b.name AS batch_name
        FROM mothers m
        LEFT JOIN groups g ON g.id = m.group_id
@@ -1444,7 +1447,8 @@ router.put('/:id', async (req, res) => {
        WHERE m.id = ?`,
       [motherDbId]
     );
-    const updatedMother = rows[0];
+    return rows[0];
+    });
     const assignmentChanged = ['community_id', 'group_id', 'batch_id'].some((field) => (
       String(current[field] ?? '') !== String(updatedMother[field] ?? '')
     ));

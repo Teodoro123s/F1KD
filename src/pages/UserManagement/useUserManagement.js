@@ -9,8 +9,8 @@ import {
   apiUpdateManagedHealthWorker,
   apiPatchUserStatus,
   apiPatchManagedHealthWorkerStatus,
-  apiDeleteUser,
 } from '../../api/users';
+import { apiArchiveRecord } from '../../api/archives';
 import { isValidName, getFirstNameValidationError, isValidFirstName, normalizeFirstName, isValidMiddleInitial, normalizeContact, isValidContact, isValidEmail, formatDobForInput, isValidDob, getDobValidationMessage, generatePassword } from './lib';
 import { getReferenceOptions } from '../Community/communityService';
 import { isCommunityCoordinatorRole, isHealthWorkerRole, normalizeRole as normalizeRoleKey } from '../../utils/permissions';
@@ -231,12 +231,12 @@ export function useUserManagement({ schoolId = '', batchId = '', healthWorkerMan
   const [selectedUser, setSelectedUser] = useState(null);
   const [notification, setNotification] = useState('');
   const [validationField, setValidationField] = useState('');
-  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [confirmArchiveId, setConfirmArchiveId] = useState(null);
   // Prevent double submits
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Loading flags for individual actions
   const [suspendLoadingIds, setSuspendLoadingIds] = useState(() => new Set());
-  const [deletingId, setDeletingId] = useState(null);
+  const [archivingId, setArchivingId] = useState(null);
   // One-time plaintext credential shown after creation (dev only)
   const [oneTimeCredentials, setOneTimeCredentials] = useState(null);
 
@@ -710,51 +710,28 @@ export function useUserManagement({ schoolId = '', batchId = '', healthWorkerMan
     });
   };
 
-  const requestDeleteUser = (id) => {
-    setConfirmDeleteId(id);
+  const requestArchiveUser = (id) => {
+    setConfirmArchiveId(id);
   };
 
-  const confirmDelete = async () => {
-    if (!confirmDeleteId) return;
-    const id = confirmDeleteId;
-    setDeletingId(id);
-
-    let attempts = 0;
-    let lastErr = null;
-    while (attempts < 3) {
-      attempts += 1;
-      try {
-        const serverId = parseServerId(id);
-        if (healthWorkerManagement) {
-          throw new Error('Permanent deletion is reserved for Super Admins.');
-        }
-        await apiDeleteUser(serverId);
-        // remove from UI only after server confirms deletion
-        setUsers((prev) => prev.filter((user) => user.id !== id));
-        setNotification('User deleted.');
-        try { console.log('Deleted user on server', serverId); } catch (e) {}
-        break;
-      } catch (err) {
-        lastErr = err;
-        const msg = (err && err.message) ? err.message.toString().toLowerCase() : '';
-        try { console.log(`Delete attempt ${attempts} failed:`, msg); } catch (e) {}
-        if (attempts < 3 && (/failed to fetch|networkerror|network error|timeout|502|503|504/.test(msg) || (err && err.status && err.status >= 500))) {
-          setNotification(`Delete failed due to network/server error, retrying (attempt ${attempts + 1})...`);
-          try { await sleep(400 * attempts); } catch (e) {}
-          continue;
-        }
-        setNotification(err.message || 'Failed to delete user.');
-        try { console.error('Failed to delete user after retries', err); } catch (e) {}
-        break;
-      }
+  const confirmArchive = async () => {
+    if (!confirmArchiveId || archivingId) return;
+    const id = confirmArchiveId;
+    setArchivingId(id);
+    try {
+      await apiArchiveRecord('user', parseServerId(id));
+      setUsers((prev) => prev.filter((user) => user.id !== id));
+      setNotification('User archived. Sign-in is blocked; the account will be permanently deleted after nine months.');
+    } catch (err) {
+      setNotification(err.message || 'Failed to archive user.');
+    } finally {
+      setArchivingId(null);
+      setConfirmArchiveId(null);
     }
-
-    setDeletingId(null);
-    setConfirmDeleteId(null);
   };
 
-  const cancelDelete = () => {
-    setConfirmDeleteId(null);
+  const cancelArchive = () => {
+    setConfirmArchiveId(null);
   };
 
   const breadcrumbItems = useMemo(() => {
@@ -787,7 +764,7 @@ export function useUserManagement({ schoolId = '', batchId = '', healthWorkerMan
     notification,
     validationField,
     setValidationField,
-    confirmDeleteId,
+    confirmArchiveId,
     filteredData,
     currentRows,
     rangeStart,
@@ -809,14 +786,14 @@ export function useUserManagement({ schoolId = '', batchId = '', healthWorkerMan
     openEditUser,
     handleSubmitUser,
     handleSuspendUser,
-    requestDeleteUser,
-    confirmDelete,
-    cancelDelete,
+    requestArchiveUser,
+    confirmArchive,
+    cancelArchive,
     setForm,
     isSubmitting,
     // loading indicators for row-level actions
     suspendLoadingIds: Array.from(suspendLoadingIds),
-    deletingId,
+    archivingId,
     // one-time dev credentials for display
     oneTimeCredentials,
     clearOneTimeCredentials,

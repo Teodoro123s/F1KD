@@ -4,7 +4,7 @@ const { normalizeRole } = require('../middleware/authorize');
 const { recordActivity } = require('../services/activityLog');
 const router = express.Router();
 
-const TYPES = new Set(['school', 'group', 'batch', 'mother', 'child']);
+const TYPES = new Set(['school', 'group', 'batch', 'mother', 'child', 'user']);
 const effectiveGroupBatchRelation = `(
   SELECT group_id, batch_id FROM group_batch
   UNION
@@ -18,10 +18,23 @@ const effectiveGroupBatchRelation = `(
 function canManage(type, role) {
   const normalizedRole = normalizeRole(role);
   if (type === 'school') return normalizedRole === 'super_admin';
+  if (type === 'user') return ['super_admin', 'community_coordinator'].includes(normalizedRole);
   return ['group', 'batch', 'mother', 'child'].includes(type) && normalizedRole === 'community_coordinator';
 }
 
 function scope(type, req, alias = 'r') {
+  if (type === 'user') {
+    if (normalizeRole(req.user?.role) === 'community_coordinator') {
+      return {
+        sql: ` AND ${alias}.school_id = ? AND LOWER(REPLACE(REPLACE(TRIM(${alias}.role), '_', ''), ' ', '')) = 'healthworker'`,
+        values: [req.schoolId],
+      };
+    }
+    return {
+      sql: ` AND LOWER(REPLACE(REPLACE(TRIM(${alias}.role), '_', ''), ' ', '')) <> 'superadmin'`,
+      values: [],
+    };
+  }
   if (type === 'school' || !req.isCommunityOrganizer) return { sql: '', values: [] };
   if (['group', 'batch'].includes(type)) {
     return { sql: ` AND ${alias}.community_id = ?`, values: [req.schoolId] };
@@ -33,6 +46,17 @@ function scope(type, req, alias = 'r') {
 
 async function findRecord(connection, type, id, req, lock = false) {
   const lockSql = lock ? ' FOR UPDATE' : '';
+  if (type === 'user') {
+    const recordScope = scope(type, req);
+    const [rows] = await connection.query(
+      `SELECT r.id, CONCAT_WS(' ', r.first_name, r.middle_initial, r.last_name) AS name,
+          r.email, r.role, r.status, r.school_id, r.archived_at
+       FROM users r
+       WHERE r.id = ?${recordScope.sql}${lockSql}`,
+      [id, ...recordScope.values],
+    );
+    return rows[0] || null;
+  }
   if (type === 'school') {
     const [rows] = await connection.query(
       `SELECT r.id, r.name, r.archived_at FROM communities r WHERE r.id = ?${lockSql}`,
@@ -161,7 +185,7 @@ router.get('/', async (req, res) => {
   if (role === 'community_coordinator' && !(Number(req.schoolId) > 0)) {
     return res.status(403).json({ error: 'Assign this Community Organizer to a school before viewing archived records' });
   }
-  const table = { school: 'communities', group: 'groups', batch: 'batches', mother: 'mothers', child: 'children' }[type];
+  const table = { school: 'communities', group: 'groups', batch: 'batches', mother: 'mothers', child: 'children', user: 'users' }[type];
   const scopeFilter = scope(type, req);
   const search = String(req.query.search || '').trim().slice(0, 100);
   const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
@@ -172,13 +196,17 @@ router.get('/', async (req, res) => {
     ? "CONCAT_WS(' ', r.first_name, r.last_name)"
     : type === 'child'
       ? "CONCAT_WS(' ', r.first_name, r.last_name)"
-      : 'r.name';
+      : type === 'user'
+        ? "CONCAT_WS(' ', r.first_name, r.middle_initial, r.last_name)"
+        : 'r.name';
+  const userFields = type === 'user' ? ', r.email, r.role, r.status' : '';
   const searchCondition = search ? ` AND ${name} LIKE ?` : '';
   const values = [...scopeFilter.values, ...(search ? [`%${search}%`] : [])];
   try {
     const [rows] = await pool.query(
       `SELECT r.id, ${type === 'mother' ? 'r.mother_code' : type === 'child' ? 'r.child_code' : 'NULL'} AS code,
           ${name} AS name, r.archived_at, r.archived_by_user_id, r.archive_reason,
+          DATE_ADD(r.archived_at, INTERVAL 9 MONTH) AS purge_at${userFields},
           CONCAT_WS(' ', u.first_name, u.middle_initial, u.last_name) AS archived_by
        FROM ${table} r ${childJoin}
        LEFT JOIN users u ON u.id = r.archived_by_user_id
@@ -252,8 +280,15 @@ router.get('/activity', async (req, res) => {
         WHERE archived_child.id = CAST(activity_logs.entity_id AS UNSIGNED)
           AND COALESCE(archived_child.community_id, archived_mother.community_id) = ?
       ))
+      OR (entity_type = 'user' AND EXISTS (
+        SELECT 1 FROM users archived_user
+        WHERE archived_user.id = CAST(activity_logs.entity_id AS UNSIGNED)
+          AND archived_user.school_id = ?
+          AND LOWER(REPLACE(REPLACE(TRIM(archived_user.role), '_', ''), ' ', '')) = 'healthworker'
+      ))
     )`);
     values.push(
+      req.schoolId,
       req.schoolId,
       req.schoolId,
       req.schoolId,
@@ -312,7 +347,7 @@ router.post('/:type/:id/archive', async (req, res) => {
   if (!canManage(type, req.user?.role)) return res.status(403).json({ error: 'You do not have permission to archive this record' });
   const reason = String(req.body?.reason || '').trim();
   if (reason.length > 500) return res.status(400).json({ error: 'Archive reason must be 500 characters or fewer' });
-  const table = { school: 'communities', group: 'groups', batch: 'batches', mother: 'mothers', child: 'children' }[type];
+  const table = { school: 'communities', group: 'groups', batch: 'batches', mother: 'mothers', child: 'children', user: 'users' }[type];
   let connection;
   try {
     connection = await pool.getConnection();
@@ -341,6 +376,22 @@ router.post('/:type/:id/archive', async (req, res) => {
       ? 'UPDATE children SET archived_at = CURRENT_TIMESTAMP, archived_by_user_id = ?, archive_reason = ?, archived_with_mother_id = NULL WHERE id = ? AND archived_at IS NULL'
       : `UPDATE ${table} SET archived_at = CURRENT_TIMESTAMP, archived_by_user_id = ?, archive_reason = ? WHERE id = ? AND archived_at IS NULL`;
     await connection.query(archiveSql, [req.user.id, reason || null, record.id]);
+    if (type === 'user') {
+      await connection.query(
+        'UPDATE auth_refresh_tokens rt JOIN auth_sessions s ON s.id = rt.session_id SET rt.revoked_at = UTC_TIMESTAMP() WHERE s.user_id = ? AND rt.revoked_at IS NULL',
+        [record.id],
+      );
+      await connection.query(
+        'UPDATE auth_sessions SET revoked_at = UTC_TIMESTAMP() WHERE user_id = ? AND revoked_at IS NULL',
+        [record.id],
+      );
+      if (normalizeRole(record.role) === 'community_coordinator') {
+        await connection.query(
+          'UPDATE communities SET coordinator_id = NULL WHERE coordinator_id = ?',
+          [record.id],
+        );
+      }
+    }
     if (childrenToArchive.length) {
       await connection.query(
         `UPDATE children
@@ -387,12 +438,13 @@ router.post('/:type/:id/restore', async (req, res) => {
   const { type } = req.params;
   if (!TYPES.has(type)) return res.status(400).json({ error: 'Unsupported archive type' });
   if (!canManage(type, req.user?.role)) return res.status(403).json({ error: 'You do not have permission to restore this record' });
-  const table = { school: 'communities', group: 'groups', batch: 'batches', mother: 'mothers', child: 'children' }[type];
+  const table = { school: 'communities', group: 'groups', batch: 'batches', mother: 'mothers', child: 'children', user: 'users' }[type];
   let connection;
+  let record = null;
   try {
     connection = await pool.getConnection();
     await connection.beginTransaction();
-    const record = await findRecord(connection, type, req.params.id, req, true);
+    record = await findRecord(connection, type, req.params.id, req, true);
     if (!record) {
       await connection.rollback();
       return res.status(404).json({ error: 'Record not found' });
@@ -416,10 +468,34 @@ router.post('/:type/:id/restore', async (req, res) => {
       );
       childrenToRestore = children;
     }
+    if (type === 'user' && normalizeRole(record.role) === 'community_coordinator' && record.school_id) {
+      const [schoolRows] = await connection.query(
+        'SELECT id, coordinator_id FROM communities WHERE id = ? AND archived_at IS NULL FOR UPDATE',
+        [record.school_id],
+      );
+      if (schoolRows[0]?.coordinator_id && Number(schoolRows[0].coordinator_id) !== Number(record.id)) {
+        await connection.rollback();
+        return res.status(409).json({ error: 'This school already has an assigned Community Organizer. Resolve the assignment before restoring this account.' });
+      }
+      const [coordinatorRows] = await connection.query(
+        'SELECT id FROM users WHERE coordinator_school_id = ? AND id <> ? LIMIT 1 FOR UPDATE',
+        [record.school_id, record.id],
+      );
+      if (coordinatorRows.length) {
+        await connection.rollback();
+        return res.status(409).json({ error: 'This school already has an active Community Organizer. Resolve the assignment before restoring this account.' });
+      }
+    }
     const restoreSql = type === 'child'
       ? 'UPDATE children SET archived_at = NULL, archived_by_user_id = NULL, archive_reason = NULL, archived_with_mother_id = NULL WHERE id = ? AND archived_at IS NOT NULL'
       : `UPDATE ${table} SET archived_at = NULL, archived_by_user_id = NULL, archive_reason = NULL WHERE id = ? AND archived_at IS NOT NULL`;
     await connection.query(restoreSql, [record.id]);
+    if (type === 'user' && normalizeRole(record.role) === 'community_coordinator' && record.school_id) {
+      await connection.query(
+        'UPDATE communities SET coordinator_id = ? WHERE id = ? AND coordinator_id IS NULL AND archived_at IS NULL',
+        [record.id, record.school_id],
+      );
+    }
     if (childrenToRestore.length) {
       await connection.query(
         `UPDATE children
@@ -456,6 +532,9 @@ router.post('/:type/:id/restore', async (req, res) => {
   } catch (error) {
     if (connection) await connection.rollback();
     console.error('[Archives API] restore error:', error.message);
+    if (error.code === 'ER_DUP_ENTRY' && type === 'user' && normalizeRole(record?.role) === 'community_coordinator') {
+      return res.status(409).json({ error: 'This school already has an active Community Organizer. Resolve the assignment before restoring this account.' });
+    }
     return res.status(500).json({ error: 'Unable to restore record' });
   } finally {
     connection?.release();

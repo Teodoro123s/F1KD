@@ -26,9 +26,13 @@ CREATE TABLE IF NOT EXISTS users (
   role VARCHAR(120) NOT NULL DEFAULT 'User',
   status VARCHAR(20) NOT NULL DEFAULT 'Active',
   school_id INT DEFAULT NULL,
+  archived_at DATETIME DEFAULT NULL,
+  archived_by_user_id INT DEFAULT NULL,
+  archive_reason VARCHAR(500) DEFAULT NULL,
   coordinator_school_id INT GENERATED ALWAYS AS (
     CASE
-      WHEN LOWER(REPLACE(REPLACE(TRIM(role), '_', ''), ' ', ''))
+      WHEN archived_at IS NULL
+        AND LOWER(REPLACE(REPLACE(TRIM(role), '_', ''), ' ', ''))
         IN ('communitycoordinator', 'communityorganizer', 'coordinator', 'co', 'partner')
       THEN school_id
       ELSE NULL
@@ -38,11 +42,19 @@ CREATE TABLE IF NOT EXISTS users (
   updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   KEY idx_users_role (role),
   KEY idx_users_status (status),
+  KEY idx_users_archived_at (archived_at),
   KEY idx_users_school_id (school_id),
   KEY idx_users_school_created_at (school_id, created_at),
   KEY idx_users_school_status (school_id, status),
   UNIQUE KEY uq_users_coordinator_school_id (coordinator_school_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+CREATE TABLE IF NOT EXISTS login_attempts (
+  email_key CHAR(64) NOT NULL PRIMARY KEY,
+  failed_attempts TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  locked_until DATETIME NULL,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  KEY idx_login_attempts_updated_at (updated_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE IF NOT EXISTS user_ai_configurations (
   user_id INT NOT NULL PRIMARY KEY,
   provider VARCHAR(40) NOT NULL,
@@ -311,7 +323,7 @@ CREATE TABLE IF NOT EXISTS child_checkups (
   created_by_user_id INT NULL,
   updated_by_user_id INT NULL,
   updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  KEY idx_child_checkups_week (child_id, week_number),
+  UNIQUE KEY uq_child_checkups_child_week (child_id, week_number),
   KEY idx_child_checkups_next_date (next_checkup_date, child_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 -- ---------------------------------------------------------------------------
@@ -360,10 +372,12 @@ CREATE TABLE IF NOT EXISTS program_clusters (
   program_id INT NOT NULL,
   scope_type VARCHAR(20) NOT NULL,
   scope_name VARCHAR(150) NOT NULL,
+  scope_id INT NULL,
   beneficiaries INT NOT NULL DEFAULT 0,
   received INT NOT NULL DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE KEY uq_program_cluster (program_id, scope_type, scope_name),
+  UNIQUE KEY uq_program_cluster_scope_id (program_id, scope_type, scope_id),
+  KEY idx_program_clusters_scope_identity (scope_type, scope_id),
   CONSTRAINT fk_program_clusters_program FOREIGN KEY (program_id) REFERENCES programs(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

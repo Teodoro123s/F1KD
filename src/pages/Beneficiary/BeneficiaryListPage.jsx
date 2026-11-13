@@ -31,7 +31,44 @@ const getGroupStatusByProgress = (g) => {
   return p >= 100 ? 'Complete' : 'Incomplete';
 };
 
-export default function BeneficiaryListPage({ communities = EMPTY_ARRAY, groups = EMPTY_ARRAY, batches = EMPTY_ARRAY, mothers = EMPTY_ARRAY, loading = false, mothersError = '', onSelectMother, onSelectChild, batchId = '', showCommunityFilter = true }) {
+function mapChildRows(children, mothers) {
+  const mothersByDbId = new Map();
+  mothers.forEach((mother) => {
+    const dbId = mother.raw?.id || mother.original?.raw?.id || mother.id;
+    if (dbId !== undefined && dbId !== null) mothersByDbId.set(String(dbId), mother);
+  });
+  return children.map((child) => {
+    const motherId = child.mother_id || child.mother_db_id;
+    const motherName = child.mother_name || [
+      child.mother_first_name,
+      child.mother_middle_name,
+      child.mother_last_name,
+    ].filter(Boolean).join(' ');
+    const mother = mothersByDbId.get(String(motherId)) || (motherId ? {
+      id: motherId,
+      motherId: child.mother_code || motherId,
+      name: motherName,
+      community: child.community_name || '',
+      raw: { id: motherId },
+    } : undefined);
+    const childName = child.name || [child.first_name, child.middle_name, child.last_name, child.suffix].filter(Boolean).join(' ');
+    return {
+      id: child.id,
+      name: childName || 'Unnamed child',
+      community: child.community_name || mother?.community || mother?.area || 'Unknown',
+      progress: getChildProfileProgress(child),
+      monitoringProgress: getChildMonitoringProgress(child),
+      original: {
+        ...child,
+        mother,
+        group_name: child.group_name || child.group || '',
+        batch_name: child.batch_name || child.batch || '',
+      },
+    };
+  });
+}
+
+export default function BeneficiaryListPage({ communities = EMPTY_ARRAY, groups = EMPTY_ARRAY, batches = EMPTY_ARRAY, mothers = EMPTY_ARRAY, onSelectMother, onSelectChild, batchId = '', showCommunityFilter = true }) {
   const [query, setQuery] = useState('');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('All');
   const [perPage, setPerPage] = useState(10);
@@ -39,127 +76,112 @@ export default function BeneficiaryListPage({ communities = EMPTY_ARRAY, groups 
   const [selectedEntityFilter, setSelectedEntityFilter] = useState('Mother');
   const [selectedCommunityFilter, setSelectedCommunityFilter] = useState('');
   const [selectedSummaryCard, setSelectedSummaryCard] = useState(null);
-  const [childRows, setChildRows] = useState([]);
+  const [pageData, setPageData] = useState(null);
+  const [mothersTotal, setMothersTotal] = useState(0);
+  const [childrenTotal, setChildrenTotal] = useState(0);
+  const [mothersCountError, setMothersCountError] = useState('');
+  const [childrenCountError, setChildrenCountError] = useState('');
+  const [listError, setListError] = useState('');
+  const [listLoading, setListLoading] = useState(false);
+  const [mothersCountLoading, setMothersCountLoading] = useState(false);
   const [childrenLoading, setChildrenLoading] = useState(false);
-  const [serverSearch, setServerSearch] = useState(null);
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [searchError, setSearchError] = useState('');
+
   useEffect(() => {
     let active = true;
+    setMothersCountLoading(true);
+    apiGetMothers([], { page: 1, perPage: 1 })
+      .then((response) => {
+        if (active) {
+          setMothersTotal(Number(response.pagination?.total) || response.mothers?.length || 0);
+          setMothersCountError('');
+        }
+      })
+      .catch((error) => {
+        if (active) {
+          console.error('[BeneficiaryListPage] Unable to load mother count:', error);
+          setMothersCountError('Unable to load mothers.');
+        }
+      })
+      .finally(() => {
+        if (active) setMothersCountLoading(false);
+      });
 
-    async function loadChildren() {
-      setChildrenLoading(true);
-      apiGetChildren()
-        .then((response) => {
-          const mothersByDbId = new Map();
-          mothers.forEach((mother) => {
-            const dbId = mother.raw?.id || mother.original?.raw?.id || mother.id;
-            if (dbId !== undefined && dbId !== null) mothersByDbId.set(String(dbId), mother);
-          });
-          const rows = (response.children || []).map((child) => {
-            const mother = mothersByDbId.get(String(child.mother_id || child.mother_db_id));
-            const childName = child.name || [child.first_name, child.middle_name, child.last_name, child.suffix].filter(Boolean).join(' ');
-            return {
-              id: child.id,
-              name: childName || 'Unnamed child',
-              community: child.community_name || mother?.community || mother?.area || 'Unknown',
-              progress: getChildProfileProgress(child),
-              monitoringProgress: getChildMonitoringProgress(child),
-              original: {
-                ...child,
-                mother,
-                group_name: child.group_name || child.group || '',
-                batch_name: child.batch_name || child.batch || '',
-              },
-            };
-          });
-          if (active) setChildRows(rows);
-        })
-        .catch((error) => {
-          if (active) {
-            console.error('[BeneficiaryListPage] Unable to load children:', error);
-            setChildRows([]);
-          }
-        })
-        .finally(() => {
-          if (active) setChildrenLoading(false);
-        });
-    }
-
-    loadChildren();
+    setChildrenLoading(true);
+    apiGetChildren([], { page: 1, perPage: 1 })
+      .then((response) => {
+        if (active) {
+          setChildrenTotal(Number(response.pagination?.total) || response.children?.length || 0);
+          setChildrenCountError('');
+        }
+      })
+      .catch((error) => {
+        if (active) {
+          console.error('[BeneficiaryListPage] Unable to load child count:', error);
+          setChildrenCountError('Unable to load children.');
+        }
+      })
+      .finally(() => {
+        if (active) setChildrenLoading(false);
+      });
     return () => { active = false; };
-  }, [mothers]);
+  }, []);
 
   useEffect(() => {
-    const term = query.trim();
-    if (!term) {
-      setServerSearch(null);
-      setSearchError('');
-      setSearchLoading(false);
-      return undefined;
-    }
-
+    if (!selectedSummaryCard) return undefined;
     let active = true;
-    setServerSearch({ entity: selectedEntityFilter, rows: [] });
-    setSearchError('');
-    setSearchLoading(true);
+    const term = query.trim();
+    const community = communities.find((item) => item.name === selectedCommunityFilter);
+    const validBatchId = /^[1-9]\d*$/.test(String(batchId)) ? String(batchId) : '';
+    const needsClientFiltering = selectedStatusFilter !== 'All'
+      || (Boolean(batchId) && !validBatchId)
+      || (Boolean(selectedCommunityFilter) && !community?.id);
+    const options = {
+      ...(term ? { search: term } : {}),
+      ...(community?.id ? { communityId: community.id } : {}),
+      ...(validBatchId ? { batchId: validBatchId } : {}),
+      ...(!needsClientFiltering ? { page, perPage } : {}),
+    };
+    setListLoading(true);
+    setListError('');
     const timeoutId = setTimeout(async () => {
       try {
-        let rows;
-        if (selectedEntityFilter === 'Child') {
-          const response = await apiGetChildren([], { search: term });
-          const mothersByDbId = new Map();
-          mothers.forEach((mother) => {
-            const dbId = mother.raw?.id || mother.original?.raw?.id || mother.id;
-            if (dbId !== undefined && dbId !== null) mothersByDbId.set(String(dbId), mother);
+        const response = selectedEntityFilter === 'Child'
+          ? await apiGetChildren([], options)
+          : await apiGetMothers([], options);
+        const resultKey = selectedEntityFilter === 'Child' ? 'children' : 'mothers';
+        const records = Array.isArray(response) ? response : (response[resultKey] || []);
+        const rows = selectedEntityFilter === 'Child' ? mapChildRows(records, mothers) : records;
+        if (active) {
+          setPageData({
+            entity: selectedEntityFilter,
+            rows,
+            total: Number(response.pagination?.total) || rows.length,
+            needsClientFiltering,
           });
-          rows = (response.children || []).map((child) => {
-            const mother = mothersByDbId.get(String(child.mother_id || child.mother_db_id));
-            const childName = child.name || [child.first_name, child.middle_name, child.last_name, child.suffix].filter(Boolean).join(' ');
-            return {
-              id: child.id,
-              name: childName || 'Unnamed child',
-              community: child.community_name || mother?.community || mother?.area || 'Unknown',
-              progress: getChildProfileProgress(child),
-              monitoringProgress: getChildMonitoringProgress(child),
-              original: {
-                ...child,
-                mother,
-                group_name: child.group_name || child.group || '',
-                batch_name: child.batch_name || child.batch || '',
-              },
-            };
-          });
-        } else {
-          const response = await apiGetMothers([], { search: term });
-          rows = Array.isArray(response) ? response : (response.mothers || []);
         }
-        if (active) setServerSearch({ entity: selectedEntityFilter, rows });
       } catch (error) {
         if (active) {
-          console.error('[BeneficiaryListPage] Unable to search beneficiaries:', error);
-          setServerSearch({ entity: selectedEntityFilter, rows: [] });
-          setSearchError('Unable to search beneficiaries. Please try again.');
+          console.error('[BeneficiaryListPage] Unable to load beneficiaries:', error);
+          setPageData({ entity: selectedEntityFilter, rows: [], total: 0, needsClientFiltering });
+          setListError('Unable to load beneficiaries. Please try again.');
         }
       } finally {
-        if (active) setSearchLoading(false);
+        if (active) setListLoading(false);
       }
-    }, 250);
+    }, term ? 250 : 0);
 
     return () => {
       active = false;
       clearTimeout(timeoutId);
     };
-  }, [mothers, query, selectedEntityFilter]);
+  }, [batchId, communities, mothers, page, perPage, query, selectedCommunityFilter, selectedEntityFilter, selectedStatusFilter, selectedSummaryCard]);
 
   const handleSearch = (val) => { setQuery(val); setPage(1); };
   const handlePerPageChange = (val) => { setPerPage(Number(val)); setPage(1); };
 
   const filteredData = useMemo(() => {
     const term = (query || '').trim();
-    const sourceData = query.trim()
-      ? serverSearch?.entity === selectedEntityFilter ? serverSearch.rows : []
-      : selectedEntityFilter === 'Child' ? childRows : mothers;
+    const sourceData = pageData?.entity === selectedEntityFilter ? pageData.rows : [];
     let data = sourceData;
 
     if (batchId) {
@@ -175,6 +197,7 @@ export default function BeneficiaryListPage({ communities = EMPTY_ARRAY, groups 
           original.batch_id,
           original.batchCode,
           original.batch_code,
+          original.effective_batch_id,
           original.batch,
           original.batch_name,
           original.batchName,
@@ -243,7 +266,7 @@ export default function BeneficiaryListPage({ communities = EMPTY_ARRAY, groups 
       data = data.filter((item) => String(item.community || '').trim() === selectedCommunityFilter);
     }
 
-    if (term) {
+    if (term && pageData?.needsClientFiltering) {
       data = data.filter((record) => {
         const original = record.original || record.raw || record;
         const mother = original.mother || record.mother || {};
@@ -271,15 +294,24 @@ export default function BeneficiaryListPage({ communities = EMPTY_ARRAY, groups 
       if (statusA !== statusB) return statusA - statusB;
       return (a.name || '').localeCompare(b.name || '');
     });
-  }, [mothers, childRows, serverSearch, query, selectedStatusFilter, selectedEntityFilter, selectedCommunityFilter, batchId]);
+  }, [pageData, query, selectedStatusFilter, selectedEntityFilter, selectedCommunityFilter, batchId]);
 
-  const pageCount = Math.max(1, Math.ceil(filteredData.length / perPage));
+  const activePageData = pageData?.entity === selectedEntityFilter ? pageData : null;
+  const needsClientFiltering = activePageData?.needsClientFiltering === true;
+  const totalItems = needsClientFiltering ? filteredData.length : Number(activePageData?.total || 0);
+  const pageCount = Math.max(1, Math.ceil(totalItems / perPage));
   const currentPage = Math.min(page, pageCount);
   const currentStart = (currentPage - 1) * perPage;
-  const currentRows = filteredData.slice(currentStart, currentStart + perPage);
+  const currentRows = needsClientFiltering
+    ? filteredData.slice(currentStart, currentStart + perPage)
+    : filteredData;
 
-  const rangeStart = filteredData.length === 0 ? 0 : currentStart + 1;
-  const rangeEnd = Math.min(currentStart + perPage, filteredData.length);
+  useEffect(() => {
+    if (page > pageCount) setPage(pageCount);
+  }, [page, pageCount]);
+
+  const rangeStart = totalItems === 0 ? 0 : currentStart + 1;
+  const rangeEnd = Math.min(currentStart + currentRows.length, totalItems);
 
   const motherProgressByName = useMemo(() => Object.fromEntries(communities.map((comm) => [comm.name, comm.progress ?? 0])), [communities]);
 
@@ -306,8 +338,8 @@ export default function BeneficiaryListPage({ communities = EMPTY_ARRAY, groups 
           setPage(1);
         }}
         cards={[
-          { key: 'mothers', label: 'Registered mothers', value: loading ? '...' : mothersError ? 'Error' : mothers.length, description: 'Show mothers', selectedDescription: 'Hide mothers' },
-          { key: 'children', label: 'Registered children', value: childRows.length, description: 'Show children', selectedDescription: 'Hide children' },
+          { key: 'mothers', label: 'Registered mothers', value: mothersCountLoading ? '...' : mothersCountError ? 'Error' : mothersTotal, description: 'Show mothers', selectedDescription: 'Hide mothers' },
+          { key: 'children', label: 'Registered children', value: childrenLoading ? '...' : childrenCountError ? 'Error' : childrenTotal, description: 'Show children', selectedDescription: 'Hide children' },
         ]}
       />
       {!selectedSummaryCard && <ModuleSelectionHint />}
@@ -343,9 +375,9 @@ export default function BeneficiaryListPage({ communities = EMPTY_ARRAY, groups 
 
             <BeneficiaryTable
               currentRows={displayRows}
-              loading={loading || searchLoading || (selectedEntityFilter === 'Child' && childrenLoading)}
-              errorMessage={searchError || (selectedEntityFilter === 'Mother' ? mothersError : '')}
-              filteredDataLength={filteredData.length}
+              loading={listLoading}
+              errorMessage={listError}
+              filteredDataLength={totalItems}
               rangeStart={rangeStart}
               rangeEnd={rangeEnd}
               currentPage={currentPage}
@@ -371,7 +403,7 @@ export default function BeneficiaryListPage({ communities = EMPTY_ARRAY, groups 
             onPerPageChange={handlePerPageChange}
             rangeStart={rangeStart}
             rangeEnd={rangeEnd}
-            totalItems={filteredData.length}
+            totalItems={totalItems}
           />
         </>
       )}

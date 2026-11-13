@@ -182,31 +182,29 @@ export function recordMatchesProgramScope(record = {}, program = {}) {
   const programClusters = Array.isArray(program.clusters) ? program.clusters : [];
   if (!programClusters.length) return false;
 
-  const programSchoolNames = programClusters
-    .filter((cluster) => cluster?.type === 'School')
-    .map((cluster) => String(cluster?.name || '').trim().toLowerCase())
-    .filter(Boolean);
-  const programGroupNames = programClusters
-    .filter((cluster) => cluster?.type === 'Group')
-    .map((cluster) => String(cluster?.name || '').trim().toLowerCase())
-    .filter(Boolean);
-  const programBatchNames = programClusters
-    .filter((cluster) => cluster?.type === 'Batch')
-    .map((cluster) => String(cluster?.name || '').trim().toLowerCase())
-    .filter(Boolean);
-
-  if (!programSchoolNames.length && !programGroupNames.length && !programBatchNames.length) return false;
-
   const recordSchool = String(record?.school || '').trim().toLowerCase();
   const recordGroup = String(record?.group || '').trim().toLowerCase();
   const recordBatch = String(record?.batch || '').trim().toLowerCase();
-  const matchesSchool = programSchoolNames.some((name) => (
-    name === recordSchool || name === `${recordSchool} school`
-  ));
-  const matchesGroup = programGroupNames.includes(recordGroup);
-  const matchesBatch = programBatchNames.includes(recordBatch);
+  return programClusters.some((cluster) => {
+    const clusterId = cluster?.scopeId ?? cluster?.scope_id;
+    if (clusterId !== undefined && clusterId !== null) {
+      const recordId = cluster.type === 'School'
+        ? record?.schoolId ?? record?.communityId ?? record?.community_id
+        : cluster.type === 'Group'
+          ? record?.groupId ?? record?.group_id
+          : cluster.type === 'Batch'
+            ? record?.batchId ?? record?.batch_id
+            : null;
+      return recordId !== undefined && recordId !== null && String(recordId) === String(clusterId);
+    }
 
-  return matchesSchool || matchesGroup || matchesBatch;
+    const clusterName = String(cluster?.name || '').trim().toLowerCase();
+    if (!clusterName) return false;
+    if (cluster.type === 'School') return clusterName === recordSchool || clusterName === `${recordSchool} school`;
+    if (cluster.type === 'Group') return clusterName === recordGroup;
+    if (cluster.type === 'Batch') return clusterName === recordBatch;
+    return false;
+  });
 }
 
 export function filterProgramBeneficiaryRecords(program, records = []) {
@@ -214,14 +212,21 @@ export function filterProgramBeneficiaryRecords(program, records = []) {
   return records.filter((record) => recordMatchesProgramScope(record, program));
 }
 
-export function getCluster(program, type, encodedName) {
+export function getCluster(program, type, encodedName, scopeId) {
   if (!program || !type || !encodedName) return null;
+  if (scopeId) {
+    return program.clusters.find((cluster) => (
+      cluster.type === type && String(cluster.scopeId ?? cluster.scope_id) === String(scopeId)
+    )) || null;
+  }
   const name = decodeURIComponent(encodedName);
   return program.clusters.find((cluster) => cluster.type === type && cluster.name === name) || null;
 }
 
 export function clusterPath(programId, cluster) {
-  return `/program/${programId}/cluster/${cluster.type}/${encodeURIComponent(cluster.name)}`;
+  const path = `/program/${programId}/cluster/${cluster.type}/${encodeURIComponent(cluster.name)}`;
+  const scopeId = cluster.scopeId ?? cluster.scope_id;
+  return scopeId ? `${path}?scopeId=${encodeURIComponent(scopeId)}` : path;
 }
 
 export function beneficiaryNames(count) {

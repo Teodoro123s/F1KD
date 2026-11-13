@@ -87,11 +87,6 @@ export async function apiPatchUserStatus(id, status) {
   return readApiResponse(res, 'Unable to update user status');
 }
  
-export async function apiDeleteUser(id) {
-  const res = await fetchWithAuth(`${API_BASE}/api/users/${id}`, { method: 'DELETE' });
-  return readApiResponse(res, 'Unable to delete user');
-}
-
 export async function apiGetUser(id) {
  const res = await fetchWithAuth(`${API_BASE}/api/users/${id}`, {
    headers: { 'Content-Type': 'application/json' },

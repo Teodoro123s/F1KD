@@ -30,12 +30,15 @@ The current `users` table contains the following columns:
 - `password_hash`
 - `school_id`
 - `group_id`
+- `archived_at`
+- `archived_by_user_id`
+- `archive_reason`
 - `created_at`
 - `updated_at`
 - `consent_accepted_at`
-- `coordinator_school_id` (generated; populated only for Community Coordinator roles)
+- `coordinator_school_id` (generated; populated only for active Community Coordinator roles)
 
-Coordinator assignments are kept in sync with `communities.coordinator_id`. A coordinator can be linked to only one school, and a school can have only one coordinator. `uq_users_coordinator_school_id` and `uq_communities_coordinator_id` enforce those limits.
+Coordinator assignments are kept in sync with `communities.coordinator_id`. Archiving a Community Organizer clears the school's assignment while preserving the account's school ID; restoring the account reclaims the assignment only if it is still available. A coordinator can be linked to only one school, and a school can have only one coordinator. `uq_users_coordinator_school_id` and `uq_communities_coordinator_id` enforce those limits.
 Transfers and replacements are not implicit: first explicitly unassign the coordinator in the school editor and save, then assign an available coordinator. Conflicting attempts return HTTP 409 without changing either assignment.
 
 This means the active app is aligned with the leaner user model and not with older legacy field names like `username`, `full_name`, or `middle_name` as stored table columns.
@@ -75,6 +78,24 @@ Purpose:
 - authorization
 - assignment-based scoping
 - admin and partner user management
+- reversible user archiving with sign-in blocking and nine-month retention
+
+---
+
+### login_attempts
+
+Columns:
+- `email_key` (HMAC-SHA-256 of the normalized email; email addresses are not stored)
+- `failed_attempts`
+- `locked_until`
+- `updated_at`
+
+Purpose:
+- enforce a shared per-email login lockout across browser sessions, application instances, and direct API requests
+- return the same attempt and lockout behavior for registered and unregistered addresses
+- reset the counter after successful authentication and clear an expired lock on the next login
+
+`LOGIN_RATE_LIMIT_MAX` controls the failed-attempt limit (default 5), and `LOGIN_LOCKOUT_SECONDS` controls the lock duration (default 30). The separate per-IP login rate limiter remains an additional control. The schema is created by the runtime bootstrap and by [`20261113_login_attempt_lockout.sql`](migrations/20261113_login_attempt_lockout.sql).
 
 ---
 
@@ -454,7 +475,10 @@ Purpose:
 - per-visit feeding method, laboratory, referral, and assistance records
 - `exclusive_breastfeeding` stores the feeding-method choice (`VARCHAR(40)`): Exclusive breastfeeding, Bottle feeding, Formula feeding, Mixed feeding, or Complementary feeding
 - authenticated users who created and last updated the check-up, with timestamps
+- unique `(child_id, week_number)` constraint prevents concurrent duplicate check-ups
 - supplementary feeding is intentionally excluded here; it remains part of Program records
+
+The constraint is added by [`20261113_unique_child_checkup_weeks.sql`](migrations/20261113_unique_child_checkup_weeks.sql). Existing duplicate child/week rows are never removed or rewritten automatically; resolve them explicitly before applying the migration or startup will fail with a diagnostic.
 
 ---
 
@@ -524,12 +548,20 @@ Columns:
 - `program_id`
 - `scope_type`
 - `scope_name`
+- `scope_id` (nullable for legacy scopes; new scopes use the underlying school, group, or batch ID)
 - `beneficiaries`
 - `received`
 - `created_at`
 
 Purpose:
 - program targets by scope such as community/group/batch
+- stable scope identity so repeated batch/group names do not grant access across schools
+
+The unique key is `(program_id, scope_type, scope_id)`. Existing rows without `scope_id`
+are resolved by name only when that name is globally unambiguous; ambiguous legacy
+scopes are denied to school/group-scoped roles until safely reassigned. Apply
+[`migrations/20261113_program_scope_identity.sql`](migrations/20261113_program_scope_identity.sql)
+to an existing database; runtime initialization also ensures the column and indexes.
 
 ---
 

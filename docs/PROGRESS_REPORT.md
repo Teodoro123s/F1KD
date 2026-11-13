@@ -27,7 +27,8 @@ The Results Group/Batch filters narrow the displayed table. CSV exports use the 
 ### Monitor Report
 
 - The report automatically shows a table or graph based on the generated report settings; the Table View / Graph View switch is hidden. Tables present the selected growth indicator and can show a latest summary or monitoring-date history.
-- **Growth Metrics** also lets you select the stored child or maternal check-up details to show in monitoring-date history and its CSV export. The available fields are selected by default and can be unchecked to simplify the table.
+- **Growth Metrics** can use one growth indicator or **Raw measurements / check-up details only**. Raw-only reporting does not require selecting BMI, length/height-for-age, or another derived indicator; select an individual measurement such as Weight (kg) to report raw values.
+- In raw-only mode, **Check-up details** lets you select the recorded fields to include in monitoring-date history and its CSV export. In Results, use **Customize columns** to show or hide those fields. Raw measurement and check-up detail columns are optional and can be used without WHO growth scores.
 - Monitoring-date history ends with an **Average** row for numeric measurements and support quantities only; Boolean flags and check-up sequence numbers are not averaged. The monitoring table CSV includes the same summary row.
 - Graphs display growth progression over time. Depending on beneficiary type and selected indicator, they can show an individual beneficiary or all beneficiaries in a batch.
 - Admin and Partner users can change the School filter in the results table; changing it reloads the report for that school and clears narrower group/batch scope. In Graph View, the Batch filter narrows the plotted beneficiaries and the graph CSV export to that batch.

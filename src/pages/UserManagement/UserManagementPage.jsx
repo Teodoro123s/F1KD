@@ -36,7 +36,7 @@ export default function UserManagementPage() {
     notification,
     validationField,
     setValidationField,
-    confirmDeleteId,
+    confirmArchiveId,
     currentRows,
     rangeStart,
     rangeEnd,
@@ -59,13 +59,13 @@ export default function UserManagementPage() {
     openEditUser,
     handleSubmitUser,
     handleSuspendUser,
-    requestDeleteUser,
-    confirmDelete,
-    cancelDelete,
+    requestArchiveUser,
+    confirmArchive,
+    cancelArchive,
     setForm,
     isSubmitting,
     suspendLoadingIds,
-    deletingId,
+    archivingId,
     apiOnline,
     retryLoad,
     oneTimeCredentials,
@@ -81,6 +81,7 @@ export default function UserManagementPage() {
 
   const canCreate = hasRole(auth?.currentUser?.role, [ROLES.SUPER_ADMIN])
     || (organizerHealthWorkerScope && Boolean(organizerSchoolId));
+  const canArchiveUsers = hasRole(auth?.currentUser?.role, [ROLES.SUPER_ADMIN, ROLES.COMMUNITY_COORDINATOR]);
   const [copyNotice, setCopyNotice] = useState('');
   const [selectedSummaryCard, setSelectedSummaryCard] = useState(null);
   const [pendingStatusChange, setPendingStatusChange] = useState(null);
@@ -245,10 +246,10 @@ export default function UserManagementPage() {
         onChangePage={handlePageChange}
         openEditUser={openEditUser}
         handleSuspendUser={handleSuspendUser}
-        handleDeleteUser={requestDeleteUser}
+        handleArchiveUser={requestArchiveUser}
         suspendLoadingIds={suspendLoadingIds}
-        deletingId={deletingId}
-        allowDelete={!organizerHealthWorkerScope}
+        archivingId={archivingId}
+        allowArchive={canArchiveUsers}
         showGroup={organizerHealthWorkerScope}
         healthWorkerManagement={organizerHealthWorkerScope}
         statusFilter={selectedStatusFilter}
@@ -295,11 +296,13 @@ export default function UserManagementPage() {
       )}
 
       <ConfirmModal
-        show={!organizerHealthWorkerScope && Boolean(confirmDeleteId)}
-        message="Are you sure you want to delete this user?"
+        show={Boolean(confirmArchiveId)}
+        title="Archive user account?"
+        message={`${users.find((user) => String(user.id) === String(confirmArchiveId))?.name || 'This user'} will be signed out and hidden from active user lists. You can restore the account for nine months; after that, it will be permanently deleted. Health and activity records will be retained with identifying details removed where appropriate.`}
         variant="destructive"
-        onConfirm={confirmDelete}
-        onCancel={cancelDelete}
+        confirmLabel="Archive account"
+        onConfirm={confirmArchive}
+        onCancel={cancelArchive}
       />
       <ConfirmModal
         show={Boolean(pendingStatusChange)}

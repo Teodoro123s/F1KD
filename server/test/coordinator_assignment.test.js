@@ -25,6 +25,7 @@ function restoreState(snapshot) {
 async function queryState(sql, params = []) {
   if (sql.includes('FOR UPDATE')) lockQueries.push(sql);
 
+  if (sql.startsWith('INSERT INTO help_guidance_preferences')) return [{ insertId: 1 }];
   if (sql.startsWith('SELECT id, coordinator_id FROM communities WHERE id IN')) {
     return [[...communities.values()]
       .filter((row) => params.map(Number).includes(Number(row.id)))
@@ -115,6 +116,7 @@ const testPool = {
     }
     if (sql.startsWith('INSERT INTO notifications')) return [{ insertId: 1 }];
     if (sql.startsWith('INSERT INTO activity_logs')) return [{ insertId: 1 }];
+    if (sql.startsWith('INSERT INTO help_guidance_preferences')) return [{ insertId: 1 }];
     if (routeMode && sql.startsWith('SELECT id, first_name, middle_initial, last_name, role, status, school_id, group_id FROM users WHERE id = ?')) {
       const user = users.get(Number(params[0]));
       return [[user ? { ...user } : null].filter(Boolean)];

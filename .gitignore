@@ -3,5 +3,7 @@ dist/
 .env
 certs/
 server/data/uploads/
+test-results/
+playwright-report/
 .DS_Store
 .vscode/

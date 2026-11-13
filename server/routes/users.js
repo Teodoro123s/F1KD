@@ -88,7 +88,7 @@ router.get('/health-workers', verifyToken, authorize('community_coordinator'), a
   if (!schoolId) return;
   try {
     const [users] = await pool.query(
-      `${healthWorkerSelectSql(`WHERE u.school_id = ? AND ${HEALTH_WORKER_ROLE_SQL}`)} ORDER BY u.id DESC`,
+      `${healthWorkerSelectSql(`WHERE u.school_id = ? AND u.archived_at IS NULL AND ${HEALTH_WORKER_ROLE_SQL}`)} ORDER BY u.id DESC`,
       [schoolId],
     );
     res.json({ total: users.length, users });
@@ -105,7 +105,7 @@ router.get('/health-workers/:id', verifyToken, authorize('community_coordinator'
     const id = parsePositiveIntegerId(req.params.id);
     if (id === null) return res.status(400).json({ error: 'Health worker ID must be a positive integer' });
     const [users] = await pool.query(
-      `${healthWorkerSelectSql(`WHERE u.id = ? AND u.school_id = ? AND ${HEALTH_WORKER_ROLE_SQL}`)} LIMIT 1`,
+      `${healthWorkerSelectSql(`WHERE u.id = ? AND u.school_id = ? AND u.archived_at IS NULL AND ${HEALTH_WORKER_ROLE_SQL}`)} LIMIT 1`,
       [id, schoolId],
     );
     if (!users.length) return res.status(404).json({ error: 'Health worker not found' });
@@ -236,7 +236,7 @@ router.put('/health-workers/:id', verifyToken, authorize('community_coordinator'
     const id = parsePositiveIntegerId(req.params.id);
     if (id === null) return res.status(400).json({ error: 'Health worker ID must be a positive integer' });
     const [existingRows] = await pool.query(
-      `SELECT id FROM users WHERE id = ? AND school_id = ? AND ${HEALTH_WORKER_ROLE_SQL} LIMIT 1`,
+      `SELECT id FROM users WHERE id = ? AND school_id = ? AND archived_at IS NULL AND ${HEALTH_WORKER_ROLE_SQL} LIMIT 1`,
       [id, schoolId],
     );
     if (!existingRows.length) return res.status(404).json({ error: 'Health worker not found' });
@@ -294,7 +294,7 @@ router.put('/health-workers/:id', verifyToken, authorize('community_coordinator'
     }
     await pool.query(
       `UPDATE users SET ${updates.join(', ')}
-       WHERE id = ? AND school_id = ? AND ${HEALTH_WORKER_ROLE_SQL}`,
+       WHERE id = ? AND school_id = ? AND archived_at IS NULL AND ${HEALTH_WORKER_ROLE_SQL}`,
       [...updateValues, id, schoolId],
     );
     const [rows] = await pool.query(
@@ -334,12 +334,12 @@ router.patch('/health-workers/:id/status', verifyToken, authorize('community_coo
     }
     const [rows] = await pool.query(
       `SELECT id, first_name, middle_initial, last_name, status, group_id
-       FROM users WHERE id = ? AND school_id = ? AND ${HEALTH_WORKER_ROLE_SQL} LIMIT 1`,
+       FROM users WHERE id = ? AND school_id = ? AND archived_at IS NULL AND ${HEALTH_WORKER_ROLE_SQL} LIMIT 1`,
       [id, schoolId],
     );
     if (!rows.length) return res.status(404).json({ error: 'Health worker not found' });
     await pool.query(
-      `UPDATE users SET status = ? WHERE id = ? AND school_id = ? AND ${HEALTH_WORKER_ROLE_SQL}`,
+      `UPDATE users SET status = ? WHERE id = ? AND school_id = ? AND archived_at IS NULL AND ${HEALTH_WORKER_ROLE_SQL}`,
       [status, id, schoolId],
     );
     if (normalizeDbStatus(rows[0].status) !== status) {
@@ -377,7 +377,7 @@ router.patch('/health-workers/:id/status', verifyToken, authorize('community_coo
 router.get('/coordinators', verifyToken, authorize('super_admin'), async (req, res) => {
   try {
     const [users] = await pool.query(
-      `SELECT id, CONCAT_WS(' ', first_name, last_name) AS username, CONCAT_WS(' ', first_name, last_name) AS full_name, role, school_id FROM users WHERE LOWER(TRIM(role)) IN ('community organizer', 'community coordinator', 'community_coordinator', 'communitycoordinator', 'communityorganizer', 'coordinator', 'co') ORDER BY id DESC`
+      `SELECT id, CONCAT_WS(' ', first_name, last_name) AS username, CONCAT_WS(' ', first_name, last_name) AS full_name, role, school_id FROM users WHERE archived_at IS NULL AND LOWER(TRIM(role)) IN ('community organizer', 'community coordinator', 'community_coordinator', 'communitycoordinator', 'communityorganizer', 'coordinator', 'co') ORDER BY id DESC`
     );
     res.json({ users });
   } catch (err) {
@@ -396,7 +396,7 @@ router.get('/all-health-workers', verifyToken, authorize('super_admin'), async (
        FROM users u
        LEFT JOIN communities c ON c.id = u.school_id
        LEFT JOIN groups g ON g.id = u.group_id
-       WHERE LOWER(REPLACE(REPLACE(TRIM(u.role), '_', ''), ' ', '')) = 'healthworker'
+       WHERE u.archived_at IS NULL AND LOWER(REPLACE(REPLACE(TRIM(u.role), '_', ''), ' ', '')) = 'healthworker'
        ORDER BY u.last_name, u.first_name, u.id`,
     );
     res.json({ total: users.length, users });
@@ -427,7 +427,7 @@ router.get('/', verifyToken, authorize('super_admin'), async (req, res) => {
       return res.status(400).json({ error: 'page is too large' });
     }
 
-    const filters = [];
+    const filters = ['archived_at IS NULL'];
     const params = [];
     if (search.value) {
       const searchCondition = buildTokenSearchCondition([
@@ -610,7 +610,7 @@ router.post('/', verifyToken, authorize('super_admin'), async (req, res) => {
 
     const [rows] = await pool.query(
       `SELECT id, CONCAT_WS(' ', first_name, last_name) AS username, CONCAT_WS(' ', first_name, last_name) AS full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, group_id, created_at
-       FROM users WHERE id = ?`,
+       FROM users WHERE id = ? AND archived_at IS NULL`,
       [result.insertId]
     );
     const user = rows[0];
@@ -671,7 +671,7 @@ router.get('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
     if (id === null) return res.status(400).json({ error: 'User ID must be a positive integer' });
     const [rows] = await pool.query(
       `SELECT id, CONCAT_WS(' ', first_name, last_name) AS username, CONCAT_WS(' ', first_name, last_name) AS full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, group_id, created_at
-       FROM users WHERE id = ?`,
+       FROM users WHERE id = ? AND archived_at IS NULL`,
       [id]
     );
     if (!rows.length) return res.status(404).json({ error: 'Not found' });
@@ -710,7 +710,7 @@ router.put('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
     } = req.body;
 
     const [existingRows] = await pool.query(
-      'SELECT id, first_name, middle_initial, last_name, role, status, school_id, group_id FROM users WHERE id = ? LIMIT 1',
+      'SELECT id, first_name, middle_initial, last_name, role, status, school_id, group_id FROM users WHERE id = ? AND archived_at IS NULL LIMIT 1',
       [id],
     );
     if (!existingRows.length) return res.status(404).json({ error: 'Not found' });
@@ -802,7 +802,7 @@ router.put('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
     if (!updates.length) return res.status(400).json({ error: 'No fields to update' });
 
     params.push(id);
-    const sql = `UPDATE users SET ${updates.join(', ')} WHERE id = ?`;
+    const sql = `UPDATE users SET ${updates.join(', ')} WHERE id = ? AND archived_at IS NULL`;
     if (targetIsCoordinator && targetSchoolId) {
       await withTransaction(pool, async (connection) => {
         const lockedSchools = await lockSchools(connection, [existingUser.school_id, targetSchoolId]);
@@ -838,7 +838,7 @@ router.put('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
 
     const [rows] = await pool.query(
       `SELECT id, CONCAT_WS(' ', first_name, last_name) AS username, CONCAT_WS(' ', first_name, last_name) AS full_name, email, role, status, first_name, last_name, middle_initial, contact_number, gender, dob, location, school_id, group_id, updated_at
-       FROM users WHERE id = ?`,
+       FROM users WHERE id = ? AND archived_at IS NULL`,
       [id]
     );
     const updatedUser = rows[0];
@@ -904,60 +904,9 @@ router.put('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
   }
 });
 
-// DELETE /api/users/:id
-// Require authentication to delete users (only Superadmin/Admin)
-router.delete('/:id', verifyToken, authorize('super_admin'), async (req, res) => {
-  try {
-    const id = parsePositiveIntegerId(req.params.id);
-    if (id === null) return res.status(400).json({ error: 'User ID must be a positive integer' });
-    const [userRows] = await pool.query(
-      'SELECT id, first_name, middle_initial, last_name, role, school_id, group_id FROM users WHERE id = ? LIMIT 1',
-      [id],
-    );
-    if (!userRows.length) return res.status(404).json({ error: 'Not found' });
-    const deletedUser = userRows[0];
-    if (isCoordinatorRole(deletedUser.role)) {
-      await withTransaction(pool, async (connection) => {
-        await lockSchools(connection, [deletedUser.school_id]);
-        if (!await lockCoordinator(connection, id)) {
-          const error = new Error('Not found');
-          error.status = 404;
-          throw error;
-        }
-        await connection.query('UPDATE communities SET coordinator_id = NULL WHERE coordinator_id = ?', [id]);
-        await connection.query('DELETE FROM users WHERE id = ?', [id]);
-      });
-    } else {
-      await pool.query('DELETE FROM users WHERE id = ?', [id]);
-    }
-    const deletedName = [deletedUser.first_name, deletedUser.middle_initial, deletedUser.last_name].filter(Boolean).join(' ');
-    await recordActivity({
-      actor: req.user,
-      category: 'User Management',
-      action: 'delete',
-      entityType: 'user',
-      entityId: id,
-      description: `Deleted user account: ${deletedName}`,
-    });
-    await createSuperadminNotification({
-      eventType: 'user.deleted',
-      category: 'User Management',
-      title: 'User deleted',
-      message: `User account deleted: ${deletedName}.`,
-      entityType: 'user',
-      entityId: id,
-      linkTo: '/user-management',
-      schoolId: deletedUser.school_id,
-      groupId: deletedUser.group_id,
-      actorUserId: String(req.user.id) === String(id) ? null : req.user.id,
-    });
-    res.status(204).end();
-  } catch (err) {
-    console.error('[Users API] DELETE /:id error:', err.message);
-    if (err.status === 404) return res.status(404).json({ error: err.message });
-    res.status(500).json({ error: 'db error' });
-  }
-});
+router.delete('/:id', verifyToken, authorize('super_admin'), (_req, res) => (
+  res.status(405).json({ error: 'Permanent user deletion is disabled. Archive the account instead.' })
+));
 
 // PATCH /api/users/:id/status - toggle or set status
 // Require authentication to change status

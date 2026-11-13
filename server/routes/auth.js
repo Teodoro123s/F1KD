@@ -37,8 +37,178 @@ const passwordResetSubmitLimiter = rateLimit({
   message: { error: 'Too many password reset attempts. Please try again later.' },
 });
 
+const MAX_LOGIN_ATTEMPTS = Number(process.env.LOGIN_RATE_LIMIT_MAX || 5);
+const LOGIN_LOCKOUT_SECONDS = Number(process.env.LOGIN_LOCKOUT_SECONDS || 30);
+if (!Number.isSafeInteger(MAX_LOGIN_ATTEMPTS) || MAX_LOGIN_ATTEMPTS < 1) {
+  throw new Error('LOGIN_RATE_LIMIT_MAX must be a positive integer');
+}
+if (!Number.isSafeInteger(LOGIN_LOCKOUT_SECONDS) || LOGIN_LOCKOUT_SECONDS < 1) {
+  throw new Error('LOGIN_LOCKOUT_SECONDS must be a positive integer');
+}
+const DUMMY_PASSWORD_HASH = bcrypt.hashSync(crypto.randomBytes(32).toString('hex'), 10);
+
+const loginStatusLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many login status requests. Please try again later.' },
+});
+
 function hashResetCode(email, code) {
   return crypto.createHmac('sha256', JWT_SECRET).update(`${email}:${code}`).digest('hex');
+}
+
+function getLoginAttemptKey(email) {
+  return crypto.createHmac('sha256', JWT_SECRET).update(email).digest('hex');
+}
+
+function getLoginAttemptStatus(row) {
+  if (!row) {
+    return {
+      maxAttempts: MAX_LOGIN_ATTEMPTS,
+      remainingAttempts: MAX_LOGIN_ATTEMPTS,
+      retryAfterSeconds: 0,
+      lockedUntil: null,
+    };
+  }
+
+  const retryAfterSeconds = Math.max(0, Number(row.retry_after_seconds) || 0);
+  const isLocked = retryAfterSeconds > 0;
+  const lockedUntilMs = Number(row.locked_until_ms);
+  const expiredLock = row.locked_until_ms !== null && row.locked_until_ms !== undefined
+    && Number.isFinite(lockedUntilMs)
+    && !isLocked;
+  const failedAttempts = isLocked
+    ? MAX_LOGIN_ATTEMPTS
+    : expiredLock ? 0 : Number(row.failed_attempts || 0);
+  return {
+    maxAttempts: MAX_LOGIN_ATTEMPTS,
+    remainingAttempts: isLocked
+      ? 0
+      : Math.max(0, MAX_LOGIN_ATTEMPTS - failedAttempts),
+    retryAfterSeconds,
+    lockedUntil: isLocked && Number.isFinite(lockedUntilMs)
+      ? new Date(lockedUntilMs).toISOString()
+      : null,
+  };
+}
+
+async function loadLoginAttemptStatus(email) {
+  const [rows] = await pool.query(
+    `SELECT failed_attempts, locked_until,
+        UNIX_TIMESTAMP(locked_until) * 1000 AS locked_until_ms,
+        GREATEST(CEIL(TIMESTAMPDIFF(MICROSECOND, UTC_TIMESTAMP(6), locked_until) / 1000000), 0) AS retry_after_seconds
+     FROM login_attempts
+     WHERE email_key = ?`,
+    [getLoginAttemptKey(email)],
+  );
+  return getLoginAttemptStatus(rows[0]);
+}
+
+async function authenticateLogin(email, password) {
+  const connection = await pool.getConnection();
+  let transactionStarted = false;
+  try {
+    await connection.beginTransaction();
+    transactionStarted = true;
+    const emailKey = getLoginAttemptKey(email);
+    await connection.query(
+      'INSERT IGNORE INTO login_attempts (email_key, failed_attempts) VALUES (?, 0)',
+      [emailKey],
+    );
+    const [attemptRows] = await connection.query(
+      `SELECT failed_attempts, locked_until,
+          UNIX_TIMESTAMP(locked_until) * 1000 AS locked_until_ms,
+          GREATEST(CEIL(TIMESTAMPDIFF(MICROSECOND, UTC_TIMESTAMP(6), locked_until) / 1000000), 0) AS retry_after_seconds
+       FROM login_attempts
+       WHERE email_key = ?
+       FOR UPDATE`,
+      [emailKey],
+    );
+    const attemptRow = attemptRows[0];
+    const attemptStatus = getLoginAttemptStatus(attemptRow);
+    if (attemptStatus.retryAfterSeconds > 0) {
+      await connection.rollback();
+      transactionStarted = false;
+      return { locked: true, attemptStatus };
+    }
+    if (attemptRow.locked_until) {
+      await connection.query(
+        'UPDATE login_attempts SET failed_attempts = 0, locked_until = NULL WHERE email_key = ?',
+        [emailKey],
+      );
+      attemptRow.failed_attempts = 0;
+      attemptRow.locked_until = null;
+      attemptRow.locked_until_ms = null;
+    }
+
+    const [rows] = await connection.query(
+      `SELECT id, first_name, last_name, middle_initial, email, role, status, archived_at, school_id, group_id, contact_number, password_hash, consent_accepted_at
+       FROM users
+       WHERE LOWER(TRIM(email)) = ?
+       LIMIT 1`,
+      [email],
+    );
+    const user = rows[0];
+    const passwordMatches = await bcrypt.compare(password, user?.password_hash || DUMMY_PASSWORD_HASH);
+    const normalizedStatus = String(user?.status || '').trim().toLowerCase();
+    const accountIsActive = !user?.archived_at
+      && !['inactive', 'pending', 'suspended', 'disabled'].includes(normalizedStatus);
+    if (!user || !passwordMatches || !accountIsActive) {
+      const failedAttempts = Number(attemptRow.failed_attempts || 0) + 1;
+      if (failedAttempts >= MAX_LOGIN_ATTEMPTS) {
+        await connection.query(
+          `UPDATE login_attempts
+           SET failed_attempts = ?, locked_until = DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? SECOND)
+           WHERE email_key = ?`,
+          [MAX_LOGIN_ATTEMPTS, LOGIN_LOCKOUT_SECONDS, emailKey],
+        );
+        const [lockedRows] = await connection.query(
+          `SELECT failed_attempts, locked_until,
+              UNIX_TIMESTAMP(locked_until) * 1000 AS locked_until_ms,
+              GREATEST(CEIL(TIMESTAMPDIFF(MICROSECOND, UTC_TIMESTAMP(6), locked_until) / 1000000), 0) AS retry_after_seconds
+           FROM login_attempts
+           WHERE email_key = ?`,
+          [emailKey],
+        );
+        await connection.commit();
+        transactionStarted = false;
+        return { locked: true, attemptStatus: getLoginAttemptStatus(lockedRows[0]) };
+      }
+
+      await connection.query(
+        `UPDATE login_attempts
+         SET failed_attempts = ?, locked_until = NULL
+         WHERE email_key = ?`,
+        [failedAttempts, emailKey],
+      );
+      await connection.commit();
+      transactionStarted = false;
+      return {
+        invalid: true,
+        attemptStatus: {
+          maxAttempts: MAX_LOGIN_ATTEMPTS,
+          remainingAttempts: MAX_LOGIN_ATTEMPTS - failedAttempts,
+          retryAfterSeconds: 0,
+          lockedUntil: null,
+        },
+      };
+    }
+
+    await connection.query(
+      'UPDATE login_attempts SET failed_attempts = 0, locked_until = NULL WHERE email_key = ?',
+      [emailKey],
+    );
+    await connection.commit();
+    transactionStarted = false;
+    return { user };
+  } catch (error) {
+    if (transactionStarted) await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
 }
 
 const buildUserPayload = (user) => {
@@ -138,23 +308,32 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ status: 400, code: 'VALIDATION_ERROR', message: 'Enter a valid email address', timestamp: new Date().toISOString() });
     }
 
-    const [rows] = await pool.query(
-        `SELECT id, first_name, last_name, middle_initial, email, role, status, school_id, group_id, contact_number, password_hash, consent_accepted_at
-       FROM users
-         WHERE LOWER(TRIM(email)) = ?
-       LIMIT 1`,
-      [email]
-    );
-    const user = rows[0];
-    if (!user) return res.status(401).json({ status: 401, code: 'INVALID_CREDENTIALS', message: 'Invalid credentials', timestamp: new Date().toISOString() });
-
-    const normalizedStatus = String(user.status || '').trim().toLowerCase();
-    if (['inactive', 'pending', 'suspended', 'disabled'].includes(normalizedStatus)) {
-      return res.status(403).json({ status: 403, code: 'ACCOUNT_SUSPENDED', message: 'Account suspended', timestamp: new Date().toISOString() });
+    const authentication = await authenticateLogin(email, password);
+    if (authentication.locked) {
+      const { attemptStatus } = authentication;
+      res.setHeader('Retry-After', String(attemptStatus.retryAfterSeconds));
+      return res.status(429).json({
+        status: 429,
+        code: 'LOGIN_LOCKED',
+        message: 'Too many failed attempts. Please try again shortly.',
+        ...attemptStatus,
+        timestamp: new Date().toISOString(),
+      });
     }
-
-    const ok = await bcrypt.compare(password, user.password_hash || '');
-    if (!ok) return res.status(401).json({ status: 401, code: 'INVALID_CREDENTIALS', message: 'Invalid credentials', timestamp: new Date().toISOString() });
+    if (authentication.invalid) {
+      const { attemptStatus } = authentication;
+      const message = attemptStatus.remainingAttempts === 1
+        ? 'Warning: Only 1 login attempt remaining before temporary lockout.'
+        : `Invalid credentials. You have ${attemptStatus.remainingAttempts} attempts remaining.`;
+      return res.status(401).json({
+        status: 401,
+        code: 'INVALID_CREDENTIALS',
+        message,
+        ...attemptStatus,
+        timestamp: new Date().toISOString(),
+      });
+    }
+    const { user } = authentication;
 
     await recordActivity({
       actor: { ...user, name: [user.first_name, user.middle_initial, user.last_name].filter(Boolean).join(' ') },
@@ -169,6 +348,26 @@ router.post('/login', async (req, res) => {
   } catch (err) {
     console.error('Auth login error:', err.message);
     res.status(500).json({ status: 500, code: 'SERVER_ERROR', message: 'Server error', timestamp: new Date().toISOString() });
+  }
+});
+
+router.post('/login-status', loginStatusLimiter, async (req, res) => {
+  const email = normalizeEmail(req.body?.email);
+  if (!isValidEmail(email)) {
+    return res.status(400).json({ status: 400, code: 'VALIDATION_ERROR', message: 'Enter a valid email address', timestamp: new Date().toISOString() });
+  }
+  try {
+    const attemptStatus = await loadLoginAttemptStatus(email);
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({
+      ...attemptStatus,
+      message: attemptStatus.retryAfterSeconds > 0
+        ? 'Too many failed attempts. Please try again shortly.'
+        : '',
+    });
+  } catch (error) {
+    console.error('Auth login status error:', error.message);
+    res.status(500).json({ status: 500, code: 'SERVER_ERROR', message: 'Unable to load login status', timestamp: new Date().toISOString() });
   }
 });
 
@@ -188,7 +387,7 @@ router.post('/forgot-password', passwordResetRequestLimiter, async (req, res) =>
   try {
     const [users] = await pool.query(
       `SELECT id, email, first_name, middle_initial, last_name
-       FROM users WHERE LOWER(TRIM(email)) = ? LIMIT 1`,
+       FROM users WHERE LOWER(TRIM(email)) = ? AND archived_at IS NULL LIMIT 1`,
       [email],
     );
 
@@ -288,7 +487,7 @@ router.post('/reset-password', passwordResetSubmitLimiter, async (req, res) => {
     }
 
     const [updated] = await connection.query(
-      'UPDATE users SET password_hash = ? WHERE LOWER(TRIM(email)) = ?',
+      'UPDATE users SET password_hash = ? WHERE LOWER(TRIM(email)) = ? AND archived_at IS NULL',
       [passwordHash, email],
     );
     await connection.query(
@@ -388,7 +587,7 @@ router.post('/refresh', async (req, res) => {
     const [rows] = await connection.query(
       `SELECT rt.token_hash, rt.revoked_at AS token_revoked_at, rt.expires_at AS token_expires_at,
               s.revoked_at AS session_revoked_at, s.expires_at AS session_expires_at,
-              u.id, u.first_name, u.last_name, u.middle_initial, u.email, u.role, u.status,
+              u.id, u.first_name, u.last_name, u.middle_initial, u.email, u.role, u.status, u.archived_at,
               u.school_id, u.group_id, u.contact_number, u.location, u.consent_accepted_at
        FROM auth_refresh_tokens rt
        INNER JOIN auth_sessions s ON s.id = rt.session_id
@@ -409,11 +608,12 @@ router.post('/refresh', async (req, res) => {
       && !row.token_revoked_at && !row.session_revoked_at
       && new Date(row.token_expires_at).getTime() > Date.now()
       && new Date(row.session_expires_at).getTime() > Date.now()
+      && !row.archived_at
       && !['inactive', 'pending', 'suspended', 'disabled'].includes(accountStatus);
 
     if (!active) {
       const accountDisabled = row && !row.session_revoked_at
-        && ['inactive', 'pending', 'suspended', 'disabled'].includes(accountStatus);
+        && (row.archived_at || ['inactive', 'pending', 'suspended', 'disabled'].includes(accountStatus));
       if (accountDisabled) {
         await connection.query('UPDATE auth_sessions SET revoked_at = UTC_TIMESTAMP() WHERE id = ?', [payload.sid]);
         await connection.commit();

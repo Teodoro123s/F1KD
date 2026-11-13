@@ -10,6 +10,7 @@ const TEMP_TABLES = {
   mothers: 'tmp_archive_retention_mothers',
   children: 'tmp_archive_retention_children',
   programs: 'tmp_archive_retention_programs',
+  users: 'tmp_archive_retention_users',
 };
 const TARGETS = [
   { table: 'children', type: 'child', codeColumn: 'child_code', idsTable: TEMP_TABLES.children },
@@ -75,6 +76,9 @@ async function createExpiredIdTables(connection) {
        OR c.mother_id IN (SELECT id FROM ${TEMP_TABLES.mothers})`,
     `INSERT INTO ${TEMP_TABLES.programs}
      SELECT id FROM programs
+     WHERE archived_at <= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL ${RETENTION_MONTHS} MONTH)`,
+    `INSERT INTO ${TEMP_TABLES.users}
+     SELECT id FROM users
      WHERE archived_at <= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL ${RETENTION_MONTHS} MONTH)`,
   ];
 
@@ -150,6 +154,90 @@ async function deleteExpiredEntityActivity(connection) {
   );
 }
 
+async function anonymizeExpiredUserData(connection) {
+  const [userColumns] = await connection.query(
+    `SELECT table_name, column_name
+     FROM information_schema.columns
+     WHERE table_schema = DATABASE()
+       AND is_nullable = 'YES'
+       AND data_type IN ('tinyint', 'smallint', 'mediumint', 'int', 'bigint')
+       AND (column_name LIKE '%user_id' OR column_name = 'monitored_by')
+       AND table_name NOT IN ('users', 'activity_logs', 'notifications')`,
+  );
+  for (const { table_name: tableName, column_name: columnName } of userColumns) {
+    await connection.query(
+      `UPDATE \`${tableName}\`
+       SET \`${columnName}\` = NULL
+       WHERE \`${columnName}\` IN (SELECT id FROM ${TEMP_TABLES.users})`,
+    );
+  }
+
+  await connection.query(
+    `UPDATE users
+     SET archived_by_user_id = NULL
+     WHERE archived_by_user_id IN (SELECT id FROM ${TEMP_TABLES.users})`,
+  );
+  await connection.query(
+    `UPDATE activity_logs
+     SET actor_user_id = NULL,
+         actor_name = 'Archived user',
+         actor_email = NULL,
+         description = 'Activity details retained; archived account identity removed.'
+     WHERE actor_user_id IN (SELECT id FROM ${TEMP_TABLES.users})`,
+  );
+  await connection.query(
+    `UPDATE activity_logs
+     SET description = 'Activity details retained; archived account identity removed.'
+     WHERE entity_type = 'user'
+       AND entity_id IN (SELECT CAST(id AS CHAR) FROM ${TEMP_TABLES.users})`,
+  );
+  await connection.query(
+    `UPDATE notifications
+     SET actor_user_id = NULL,
+         title = 'Archived account activity',
+         message = 'Details removed after the archived account retention period.'
+     WHERE actor_user_id IN (SELECT id FROM ${TEMP_TABLES.users})
+        OR (entity_type = 'user'
+            AND entity_id IN (SELECT CAST(id AS CHAR) FROM ${TEMP_TABLES.users}))`,
+  );
+  const [expiredUsers] = await connection.query(`SELECT id FROM ${TEMP_TABLES.users}`);
+  for (const { id } of expiredUsers) {
+    await connection.query(
+      `UPDATE notifications
+       SET recipient_user_ids = NULLIF(
+         TRIM(BOTH ',' FROM REPLACE(
+           CONCAT(',', recipient_user_ids, ','),
+           CONCAT(',', CAST(? AS CHAR), ','),
+           ','
+         )),
+         ''
+       )
+       WHERE FIND_IN_SET(CAST(? AS CHAR), recipient_user_ids) > 0`,
+      [id, id],
+    );
+  }
+  await connection.query(
+    `DELETE FROM notification_reads
+     WHERE user_id IN (SELECT id FROM ${TEMP_TABLES.users})`,
+  );
+  await connection.query(
+    `DELETE FROM notification_preferences
+     WHERE user_id IN (SELECT id FROM ${TEMP_TABLES.users})`,
+  );
+  await connection.query(
+    `DELETE FROM password_reset_codes
+     WHERE LOWER(TRIM(email)) IN (
+       SELECT LOWER(TRIM(email)) FROM users
+       WHERE id IN (SELECT id FROM ${TEMP_TABLES.users})
+     )`,
+  );
+  await connection.query(
+    `UPDATE communities
+     SET coordinator_id = NULL
+     WHERE coordinator_id IN (SELECT id FROM ${TEMP_TABLES.users})`,
+  );
+}
+
 async function processPendingFileDeletions(database, deleteFile) {
   const [files] = await database.query(PENDING_FILE_QUERY);
   let deleted = 0;
@@ -181,6 +269,7 @@ async function runArchiveRetentionJob(database, { deleteFile = deleteFileFromSto
     await createExpiredIdTables(connection);
     await enqueueExpiredRecordFiles(connection);
     await deleteExpiredEntityActivity(connection);
+    await anonymizeExpiredUserData(connection);
 
     for (const target of TARGETS) {
       const [result] = await connection.query(
@@ -188,6 +277,10 @@ async function runArchiveRetentionJob(database, { deleteFile = deleteFileFromSto
       );
       purgedRecords += Number(result.affectedRows) || 0;
     }
+    const [purgedUsers] = await connection.query(
+      `DELETE FROM users WHERE id IN (SELECT id FROM ${TEMP_TABLES.users})`,
+    );
+    purgedRecords += Number(purgedUsers.affectedRows) || 0;
 
     await connection.commit();
     transactionStarted = false;

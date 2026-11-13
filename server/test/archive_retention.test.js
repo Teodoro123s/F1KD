@@ -18,6 +18,10 @@ function createDatabase({ failOnDelete = false } = {}) {
       release: () => statements.push({ sql: 'RELEASE' }),
       query: async (sql, params = []) => {
         statements.push({ sql, params });
+        if (sql.includes('information_schema.columns')) {
+          return [[{ table_name: 'child_checkups', column_name: 'created_by_user_id' }]];
+        }
+        if (sql.startsWith('SELECT id FROM tmp_archive_retention_users')) return [[]];
         if (failOnDelete && sql.startsWith('DELETE FROM children')) throw new Error('test failure');
         return [{ affectedRows: 0 }];
       },
@@ -36,6 +40,10 @@ test('archive retention removes records after nine calendar months in dependency
     'children', 'mothers', 'groups', 'batches', 'programs', 'communities',
   ]);
   assert.ok(database.statements.some(({ sql }) => sql.includes('INTERVAL 9 MONTH')));
+  assert.ok(database.statements.some(({ sql }) => sql.includes('INSERT INTO tmp_archive_retention_users')));
+  assert.ok(database.statements.some(({ sql }) => sql.startsWith('DELETE FROM users WHERE id IN (SELECT id FROM tmp_archive_retention_users)')));
+  assert.ok(database.statements.some(({ sql }) => sql.includes("actor_name = 'Archived user'")));
+  assert.ok(database.statements.some(({ sql }) => sql.includes('UPDATE `child_checkups`')));
   assert.ok(database.statements.some(({ sql }) => sql.includes('INSERT IGNORE INTO archive_file_deletion_queue')));
   assert.ok(database.statements.some(({ sql }) => sql.includes('DELETE FROM activity_logs')));
   assert.ok(database.statements.some(({ sql }) => sql.includes('DELETE FROM notifications')));

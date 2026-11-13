@@ -204,6 +204,43 @@
   font-size: 0.8rem;
 }
 
+.login-attempts {
+  margin: 0;
+  color: #475569;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.login-attempts--warning {
+  color: #9a3412;
+  font-weight: 700;
+}
+
+.login-lockout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #fed7aa;
+  border-radius: 10px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.login-lockout time {
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+}
+
+.login-page .action-feedback {
+  top: auto;
+  right: max(1rem, env(safe-area-inset-right));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
 .login-text-button {
   align-self: center;
   padding: 0.25rem 0;
