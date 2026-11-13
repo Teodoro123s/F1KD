@@ -19,7 +19,6 @@ export function GrowthMetricsStep({
   navigationDirection = '',
   profileFieldSections = {},
   profileSectionLabels = {},
-  setProfileSection,
   toggleProfileSection,
   selectedMonitorFields = [],
   availableMonitorFields = [],
@@ -48,10 +47,7 @@ export function GrowthMetricsStep({
                     type="button"
                     aria-pressed={isSelected}
                     className={`${isSelected ? 'selected' : ''} ${isPartiallySelected ? 'partially-selected' : ''}`.trim()}
-                    onClick={() => {
-                      setProfileSection?.(value);
-                      toggleProfileSection?.(value);
-                    }}
+                    onClick={() => toggleProfileSection?.(value)}
                   >
                     <strong>{label}</strong>
                     <span>{isSelected ? 'Included' : isPartiallySelected ? 'Partially included' : 'Not included'}</span>
@@ -78,8 +74,22 @@ export function GrowthMetricsStep({
         </>
       ) : (
         <>
-          <p>{beneficiaryType === 'mother' ? 'Choose one monitoring metric to review.' : 'Choose one child growth indicator to display and export:'}</p>
+          <p>
+            {beneficiaryType === 'mother'
+              ? 'Choose a monitoring metric or leave it unselected to report raw measurements and check-up details.'
+              : 'Growth indicators are optional. Choose one, or report raw measurements and check-up details only.'}
+          </p>
           <div className="growth-metric-cards">
+            <label className={!growthMetrics.length ? 'selected' : ''}>
+              <input
+                type="radio"
+                name="growth-metric"
+                checked={!growthMetrics.length}
+                onChange={() => selectGrowthMetric('')}
+              />
+              <strong>Raw measurements / check-up details only</strong>
+              <span>Leave growth indicators unselected, then choose fields such as Weight (kg) below.</span>
+            </label>
             {availableGrowthMetrics.map(([id, label, description]) => (
               <label key={id} className={growthMetrics.includes(id) ? 'selected' : ''}>
                 <input
@@ -94,7 +104,7 @@ export function GrowthMetricsStep({
             ))}
           </div>
           <h2>Check-up details</h2>
-          <p>Select the recorded check-up fields to include in the monitoring history table and CSV export.</p>
+          <p>Select raw measurements, such as Weight (kg), or other recorded fields for the monitoring history table and CSV export.</p>
           <div className="growth-metric-cards profile-metric-cards checkup-detail-cards">
             {availableMonitorFields.map(([id, label, description]) => (
               <label key={id} className={selectedMonitorFields.some(([fieldId]) => fieldId === id) ? 'selected' : ''}>
@@ -111,7 +121,9 @@ export function GrowthMetricsStep({
           </div>
           {beneficiaryType === 'child' && (
             <p className="progress-report-note">
-              Graphs show measured weight or length/height over time with labeled units. WHO scores are used to calculate interpretations but are not displayed.
+              {growthMetrics.length
+                ? 'Graphs show measured weight or length/height over time with labeled units. WHO scores are used to calculate interpretations but are not displayed.'
+                : 'With no growth indicator selected, the report includes only the check-up fields you select above, such as raw weight.'}
             </p>
           )}
           {selectedMonitorFields.length > 0 && (

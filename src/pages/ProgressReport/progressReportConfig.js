@@ -6,13 +6,19 @@ import {
 } from './utils/profileFieldFormatting.mjs';
 import {
   getInterpretationLevels,
+  getInterpretationColor,
   mapInterpretationToBand,
   normalizeNutritionLabel,
 } from './utils/interpretationBands.mjs';
 import { uniqueReportFields } from './utils/uniqueReportFields.mjs';
 
 export { PRESENCE_PROFILE_FIELDS };
-export { getInterpretationLevels, mapInterpretationToBand, normalizeNutritionLabel };
+export {
+  getInterpretationLevels,
+  getInterpretationColor,
+  mapInterpretationToBand,
+  normalizeNutritionLabel,
+};
 
 export const EMPTY_SELECTIONS = { schoolId: '', groupId: '', batchId: '' };
 

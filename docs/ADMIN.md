@@ -47,6 +47,8 @@ Project check-in photo documentation is view- and download-only for Admin accoun
 
 Admin cannot create, update, suspend, reactivate, or permanently delete user accounts through User Management. The full user-management API is Superadmin-only. Community Coordinators have a separate Health Worker-only workflow restricted to their own school; it does not apply to Admin.
 
+Across account and beneficiary forms, any provided contact number must contain exactly 11 digits and start with `09`. Optional contact fields may be left blank; incomplete or overlong numbers show a validation error, and the API rejects invalid values.
+
 ### Boundaries from other roles
 
 | Role | Relationship to Admin |

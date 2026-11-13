@@ -13,3 +13,10 @@ export const filterProfileReportRows = (rows, groupId = '', batchId = '') => row
   (!groupId || scopeValue(row, 'group') === groupId)
   && (!batchId || scopeValue(row, 'batch') === batchId)
 ));
+
+export const resolveIncludedProfileSection = (currentSection, selectedMetrics, fieldSections, sectionIds) => {
+  const includedSections = sectionIds.filter((section) => (
+    selectedMetrics.some((metric) => fieldSections[metric] === section)
+  ));
+  return includedSections.includes(currentSection) ? currentSection : includedSections[0] || currentSection;
+};

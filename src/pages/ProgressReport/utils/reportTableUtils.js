@@ -3,12 +3,18 @@ import { filterInterpretationFields } from './interpretationFields.mjs';
 import {
   GROWTH_TABLE_FIELDS,
   growthTableFieldsForMetric,
+  monitoringTableFieldsForSelection,
   monitoringDetailValue,
   withoutGrowthScores,
 } from './growthTableUtils.mjs';
 
 export { filterInterpretationFields };
-export { GROWTH_TABLE_FIELDS, growthTableFieldsForMetric, withoutGrowthScores };
+export {
+  GROWTH_TABLE_FIELDS,
+  growthTableFieldsForMetric,
+  monitoringTableFieldsForSelection,
+  withoutGrowthScores,
+};
 
 export const MONITORING_HISTORY_EXCLUDED_FIELDS = new Set([
   'progress',

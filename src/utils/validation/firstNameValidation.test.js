@@ -19,6 +19,7 @@ test('requires 2–50 characters after trimming and whitespace normalization', (
   assert.equal(isValidFirstName(`  Juan   Miguel  `), true);
   assert.match(getFirstNameValidationError('A'.repeat(51)), /no more than 50 characters/);
   assert.equal(normalizeFirstName('  Juan   Miguel  '), 'Juan Miguel');
+  assert.equal(normalizeFirstName('  aaaaA  '), 'AaaaA');
 });
 
 test('rejects digits, emoji, and unsupported punctuation', () => {

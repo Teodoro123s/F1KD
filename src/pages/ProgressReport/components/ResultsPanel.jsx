@@ -235,6 +235,12 @@ export function ResultsPanel({
           growthMetricOptions={availableGrowthMetrics}
           selectedGrowthMetric={selectedTableGrowthMetric}
           onGrowthMetricChange={(metric) => {
+            if (!metric) {
+              setGraphMetricType('numeric');
+              setGrowthMetrics([]);
+              setResultsView('table');
+              return;
+            }
             setGraphMetricType('interpretation');
             setGrowthMetrics([metric]);
             setNumericGraphMetric({

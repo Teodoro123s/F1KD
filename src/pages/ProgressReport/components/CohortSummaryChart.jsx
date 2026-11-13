@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   getInterpretationLevels,
+  getInterpretationColor,
   getPointInterpretation,
   getPointValue,
   mapInterpretationToBand,
@@ -80,12 +81,11 @@ function NumericCohortChart({ summary, metric, unit }) {
   );
 }
 
-function InterpretationCohortChart({ summary, categories }) {
+function InterpretationCohortChart({ summary, categories, metric }) {
   if (!summary.length) return <p className="growth-report-empty">No interpretations are available for this period.</p>;
-  const colors = ['#b91c1c', '#d97706', '#15803d', '#2563eb', '#7c3aed'];
 
   return (
-    <>
+    <div className="growth-report-line-chart interpretation-cohort-chart">
       <div className="growth-report-cohort-bars" role="list" aria-label="Monthly interpretation distribution">
         {summary.map(({ timeline, count, categories: categoryCounts }) => (
           <div className="growth-report-cohort-row" key={timeline} role="listitem">
@@ -96,7 +96,7 @@ function InterpretationCohortChart({ summary, categories }) {
                 const percentage = count ? (categoryCount / count) * 100 : 0;
                 return percentage > 0 ? <span
                   key={category}
-                  style={{ width: `${percentage}%`, background: colors[index % colors.length] }}
+                  style={{ width: `${percentage}%`, background: getInterpretationColor(category, metric) }}
                   title={`${category}: ${categoryCount} of ${count} (${percentage.toFixed(1)}%)`}
                 /> : null;
               })}
@@ -106,11 +106,11 @@ function InterpretationCohortChart({ summary, categories }) {
         ))}
       </div>
       <div className="growth-report-legend">
-        {categories.map((category, index) => <span key={category}>
-          <i style={{ background: colors[index % colors.length] }} />{category}
+        {categories.map((category) => <span key={category}>
+          <i style={{ background: getInterpretationColor(category, metric) }} />{category}
         </span>)}
       </div>
-    </>
+    </div>
   );
 }
 
@@ -130,6 +130,7 @@ export function CohortSummaryChart({ rows, metric, displayWeeks = 'all', benefic
     return <InterpretationCohortChart
       summary={summarizeInterpretationCohort(normalizedEntries, categories, displayWeeks)}
       categories={categories}
+      metric={metric}
     />;
   }
 

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   getInterpretationLevels,
+  getInterpretationColor,
   mapInterpretationToBand,
   normalizeNutritionLabel,
 } from './interpretationBands.mjs';
@@ -34,4 +35,11 @@ test('legacy wasting labels map to the acute malnutrition report bands', () => {
 test('very tall remains distinct from tall in report categories', () => {
   assert.equal(mapInterpretationToBand('Tall', 'lengthForAgeInterpretation'), 'Tall');
   assert.equal(mapInterpretationToBand('Very Tall', 'lengthForAgeInterpretation'), 'Very Tall');
+});
+
+test('interpretation colors stay consistent across metrics and graph views', () => {
+  assert.equal(getInterpretationColor('Severe acute malnutrition', 'weightForLengthInterpretation'), '#b91c1c');
+  assert.equal(getInterpretationColor('Normal', 'weightForLengthInterpretation'), '#15803d');
+  assert.equal(getInterpretationColor('Normal', 'lengthForAgeInterpretation'), '#15803d');
+  assert.equal(getInterpretationColor('Very Tall', 'lengthForAgeInterpretation'), '#7c3aed');
 });

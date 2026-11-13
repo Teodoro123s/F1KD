@@ -257,6 +257,7 @@ function MonitoringHistoryTable({ resultsRows, reportFields, displayVisibleField
         {growthMetricOptions?.length > 0 && (
           <label>Growth metric
             <select value={selectedGrowthMetric} onChange={(event) => onGrowthMetricChange?.(event.target.value)}>
+              <option value="">No growth metric</option>
               {growthMetricOptions.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
             </select>
           </label>

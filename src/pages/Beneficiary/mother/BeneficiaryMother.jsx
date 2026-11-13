@@ -2,7 +2,11 @@ import React from 'react';
 import { formatDateForDisplay, formatDateForInput, maskDateInput, normalizeDateValue } from '../../../utils/formatting/dateFormat';
 import { calculateGestationalDetails } from '../../../utils/beneficiary/beneficiaryHelpers';
 import { capitalizeNameValue } from '../../../utils/formatting/nameFormat';
-import { CONTACT_NUMBER_POLICY, sanitizeContactNumber } from '../../../utils/validation/contactNumber';
+import {
+  CONTACT_NUMBER_POLICY,
+  getContactNumberError,
+  sanitizeContactNumber,
+} from '../../../utils/validation/contactNumber';
 import { formatPhilHealthNumber, PHILHEALTH_NUMBER_POLICY } from '../../../utils/beneficiary/philHealthNumber';
 import { isBloodPressureInput } from '../../../utils/validation/bloodPressure';
 import { getLatestEligibleMotherDob } from '../../../utils/beneficiary/motherIdentity';
@@ -48,6 +52,7 @@ export function MotherFormFields({
   validationErrors = {},
 }) {
   const [dateDrafts, setDateDrafts] = React.useState({});
+  const [touchedContactFields, setTouchedContactFields] = React.useState({});
   const datePickerRefs = React.useRef({});
   const [locationOptions, setLocationOptions] = React.useState(null);
   const [locationLoadError, setLocationLoadError] = React.useState('');
@@ -241,7 +246,9 @@ export function MotherFormFields({
     const isPhilHealthNumber = name === 'philhealthNumber';
     const isBloodPressure = name === 'prenatalBp';
     const isRequired = required && (enforceRequiredFields || ['firstName', 'lastName'].includes(name));
-    const validationError = validationErrors[name];
+    const validationError = validationErrors[name] || (isNumeric && touchedContactFields[name]
+      ? getContactNumberError(value, { required: isRequired, label: label.toLowerCase() })
+      : '');
     const hasMissingValue = (isRequired && !String(value ?? '').trim() && showRequiredValidation) || Boolean(validationError);
     if (readOnly) {
       return (
@@ -309,7 +316,14 @@ export function MotherFormFields({
               setForm((prev) => ({ ...prev, [name]: nextValue }));
             }}
             onClick={isNativeDate ? (e) => { try { if (typeof e.target.showPicker === 'function') e.target.showPicker(); } catch (_) {} } : undefined}
-            onBlur={name === 'firstName'
+            onBlur={isNumeric
+              ? (event) => {
+                const nextValue = sanitizeContactNumber(event.target.value);
+                if (onChange) onChange(nextValue);
+                else setForm((prev) => ({ ...prev, [name]: nextValue }));
+                setTouchedContactFields((current) => ({ ...current, [name]: true }));
+              }
+              : name === 'firstName'
               ? () => {
                 const normalized = normalizeFirstName(value);
                 if (normalized !== value) {
@@ -320,9 +334,12 @@ export function MotherFormFields({
               : isDate && !isNativeDate
                 ? () => commitDateValue(name, getDateDisplayValue(name, value, dateOrder), onChange, dateOrder)
                 : undefined}
+            onInvalid={isNumeric
+              ? () => setTouchedContactFields((current) => ({ ...current, [name]: true }))
+              : undefined}
             inputMode={isPhilHealthNumber || isNumeric || isNumericString ? 'numeric' : isBloodPressure ? 'text' : undefined}
             pattern={pattern || (isPhilHealthNumber ? '(?:[0-9]{12}|[0-9]{2}-[0-9]{9}-[0-9])' : isNumeric ? '09[0-9]{9}' : isNumericString ? '[0-9]+' : undefined)}
-            maxLength={name === 'firstName' ? 50 : isPhilHealthNumber ? 14 : isNumeric ? 11 : isBloodPressure ? 7 : undefined}
+            maxLength={name === 'firstName' ? 50 : isPhilHealthNumber ? 14 : isNumeric ? 20 : isBloodPressure ? 7 : undefined}
             max={maxDate}
             min={minValue}
             step={type === 'number' ? 1 : undefined}

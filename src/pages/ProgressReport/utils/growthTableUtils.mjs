@@ -44,3 +44,10 @@ export const growthTableFieldsForMetric = (metric) => {
   if (metric) return [metric];
   return [];
 };
+
+export const monitoringTableFieldsForSelection = (metric, detailFields = []) => [
+  ...new Set([
+    ...growthTableFieldsForMetric(metric).filter((field) => GROWTH_TABLE_FIELDS.has(field)),
+    ...detailFields,
+  ]),
+];

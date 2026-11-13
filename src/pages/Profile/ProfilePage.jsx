@@ -9,6 +9,11 @@ import ChangePasswordForm from '../../components/ChangePasswordForm';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import { apiUpdateUser } from '../../api/users';
 import { notifyAction } from '../../components/ActionFeedback';
+import {
+  CONTACT_NUMBER_POLICY,
+  getContactNumberError,
+  sanitizeContactNumber,
+} from '../../utils/validation/contactNumber';
 
 export default function ProfilePage() {
   const auth = useAuth();
@@ -17,6 +22,7 @@ export default function ProfilePage() {
   const [assignedGroupName, setAssignedGroupName] = useState('');
   const [editDrawerOpen, setEditDrawerOpen] = useState(false);
   const [profileForm, setProfileForm] = useState(null);
+  const [profileContactTouched, setProfileContactTouched] = useState(false);
   const [confirmSaveOpen, setConfirmSaveOpen] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
   const canEditProfile = normalizeRole(user?.role) === ROLES.SUPER_ADMIN;
@@ -29,8 +35,12 @@ export default function ProfilePage() {
     const parts = [firstName, middleInitial, surname].filter(Boolean);
     return parts.length ? parts.join(' ') : 'My Profile';
   }, [firstName, middleInitial, surname]);
+  const profileContactError = profileContactTouched
+    ? getContactNumberError(profileForm?.contactNumber)
+    : '';
 
   const openEditDrawer = () => {
+    setProfileContactTouched(false);
     setProfileForm({
       firstName,
       middleInitial: middleInitial.trim().charAt(0).toUpperCase(),
@@ -59,7 +69,8 @@ export default function ProfilePage() {
   }, [editDrawerOpen, savingProfile, confirmSaveOpen]);
 
   const updateProfileField = (field, value) => {
-    setProfileForm((current) => ({ ...current, [field]: value }));
+    const nextValue = field === 'contactNumber' ? sanitizeContactNumber(value) : value;
+    setProfileForm((current) => ({ ...current, [field]: nextValue }));
   };
 
   const requestProfileSave = (event) => {
@@ -67,6 +78,12 @@ export default function ProfilePage() {
     const userId = Number(user?.id);
     if (!Number.isInteger(userId) || userId <= 0) {
       notifyAction('Unable to identify your account. Please sign in again.', 'error');
+      return;
+    }
+    const contactError = getContactNumberError(profileForm?.contactNumber);
+    if (contactError) {
+      setProfileContactTouched(true);
+      notifyAction(`Contact number: ${contactError}`, 'error');
       return;
     }
     setConfirmSaveOpen(true);
@@ -77,6 +94,13 @@ export default function ProfilePage() {
     if (!Number.isInteger(userId) || userId <= 0) {
       setConfirmSaveOpen(false);
       notifyAction('Unable to identify your account. Please sign in again.', 'error');
+      return;
+    }
+    const contactError = getContactNumberError(profileForm?.contactNumber);
+    if (contactError) {
+      setConfirmSaveOpen(false);
+      setProfileContactTouched(true);
+      notifyAction(`Contact number: ${contactError}`, 'error');
       return;
     }
 
@@ -294,9 +318,26 @@ export default function ProfilePage() {
                         type="tel"
                         value={profileForm.contactNumber}
                         onChange={(event) => updateProfileField('contactNumber', event.target.value)}
+                        onBlur={(event) => {
+                          updateProfileField('contactNumber', event.target.value);
+                          setProfileContactTouched(true);
+                        }}
+                        onInvalid={() => setProfileContactTouched(true)}
+                        inputMode="numeric"
+                        maxLength={20}
+                        pattern="09[0-9]{9}"
                         autoComplete="tel"
                         disabled={savingProfile}
+                        aria-invalid={Boolean(profileContactError)}
+                        aria-describedby={profileContactError ? 'profile-edit-contact-error' : 'profile-edit-contact-hint'}
                       />
+                      <small
+                        id={profileContactError ? 'profile-edit-contact-error' : 'profile-edit-contact-hint'}
+                        className={profileContactError ? 'field-validation-error' : undefined}
+                        role={profileContactError ? 'alert' : undefined}
+                      >
+                        {profileContactError || CONTACT_NUMBER_POLICY}
+                      </small>
                     </div>
                   </div>
                   <footer className="profile-edit-drawer__actions">

@@ -2,10 +2,14 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import DateInput from '../../components/ui/DateInput';
 import FloatingLayer from '../../components/ui/FloatingLayer';
-import { capitalizeNameValue } from '../../utils/formatting/nameFormat';
+import { capitalizeFirstNameCharacter, capitalizeNameValue } from '../../utils/formatting/nameFormat';
 import { formatDateForInput } from '../../utils/formatting/dateFormat';
 import { generatePassword } from './lib';
-import { sanitizeContactNumber } from '../../utils/validation/contactNumber';
+import {
+  CONTACT_NUMBER_POLICY,
+  getContactNumberError,
+  sanitizeContactNumber,
+} from '../../utils/validation/contactNumber';
 import { isCommunityCoordinatorRole, isHealthWorkerRole } from '../../utils/permissions';
 import { getFirstNameValidationError, normalizeFirstName } from '../../utils/validation/firstNameValidation';
 import useModalAccessibility from '../../components/ui/useModalAccessibility';
@@ -162,10 +166,12 @@ function ModalShell({ title, onClose, onSubmit, onInvalidCapture, children, subm
 
 export default function AddUserModal({ showModal, onClose, form, setForm, onSubmit, roleOptions, communities = [], groups = [], mode = 'add', isSubmitting = false, notification = '', managedHealthWorker = false, validationField = '', setValidationField = () => {} }) {
   const [firstNameTouched, setFirstNameTouched] = useState(false);
+  const [contactNumberTouched, setContactNumberTouched] = useState(false);
   const [nativeInvalidFields, setNativeInvalidFields] = useState([]);
   useEffect(() => {
     if (showModal) {
       setFirstNameTouched(false);
+      setContactNumberTouched(false);
       setNativeInvalidFields([]);
     }
   }, [showModal, mode]);
@@ -176,6 +182,10 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
   const firstNameError = firstNameTouched ? getFirstNameValidationError(form.firstName) : '';
 
   const isInvalid = (field) => validationField === field || nativeInvalidFields.includes(field);
+  const showContactNumberError = contactNumberTouched || isInvalid('contactNumber');
+  const contactNumberError = showContactNumberError
+    ? getContactNumberError(form.contactNumber, { required: true })
+    : '';
   const clearInvalidField = (field, nativeIsValid = true) => {
     if (nativeIsValid) {
       setNativeInvalidFields((current) => current.filter((invalidField) => invalidField !== field));
@@ -188,8 +198,8 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
     const nextValue = field === 'contactNumber'
       ? sanitizeContactNumber(value)
       : field === 'firstName'
-        ? value
-      : ['firstName', 'lastName', 'middleInitial'].includes(field)
+        ? capitalizeFirstNameCharacter(value)
+      : ['lastName', 'middleInitial'].includes(field)
         ? capitalizeNameValue(value)
         : value;
     setForm((prev) => ({ ...prev, [field]: nextValue }));
@@ -280,14 +290,25 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
                       className="form-input"
                       placeholder="09171234567"
                       inputMode="numeric"
-                      maxLength={11}
+                      maxLength={20}
                       pattern="09[0-9]{9}"
                       value={form.contactNumber}
                       onChange={(e) => handleChange('contactNumber', e.target.value, e.target.validity.valid)}
-                      aria-invalid={isInvalid('contactNumber')}
+                      onBlur={(event) => {
+                        handleChange('contactNumber', event.target.value, event.target.validity.valid);
+                        setContactNumberTouched(true);
+                      }}
+                      aria-invalid={Boolean(contactNumberError)}
+                      aria-describedby={contactNumberError ? 'contact-number-error' : 'contact-number-hint'}
                       required
                     />
-          <small>Enter exactly 11 digits starting with 09.</small>
+          <small
+            id={contactNumberError ? 'contact-number-error' : 'contact-number-hint'}
+            className={contactNumberError ? 'field-validation-error' : undefined}
+            role={contactNumberError ? 'alert' : undefined}
+          >
+            {contactNumberError || CONTACT_NUMBER_POLICY}
+          </small>
         </div>
         <div className="form-group">
           <label className="form-label" htmlFor="email">Email <span className="form-required-indicator" aria-hidden="true">*</span></label>

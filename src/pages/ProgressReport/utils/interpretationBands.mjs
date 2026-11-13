@@ -1,3 +1,5 @@
+const INTERPRETATION_COLORS = ['#b91c1c', '#d97706', '#15803d', '#2563eb', '#7c3aed'];
+
 export const getInterpretationLevels = (metric = '') => {
   const key = String(metric || '').toLowerCase();
   const normalizedKey = key.replace(/[^a-z]/g, '');
@@ -58,4 +60,10 @@ export const mapInterpretationToBand = (value, metric) => {
     'Moderate acute malnutrition': 1,
   };
   return bands[fallbackIndexes[normalized] ?? 2] || bands[2];
+};
+
+export const getInterpretationColor = (value, metric) => {
+  const category = mapInterpretationToBand(value, metric);
+  const categoryIndex = getInterpretationLevels(metric).indexOf(category);
+  return INTERPRETATION_COLORS[categoryIndex] || INTERPRETATION_COLORS[2];
 };

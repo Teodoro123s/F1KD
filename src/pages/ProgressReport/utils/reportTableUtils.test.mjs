@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { filterInterpretationFields } from './interpretationFields.mjs';
 import {
   growthTableFieldsForMetric,
+  monitoringTableFieldsForSelection,
   withoutGrowthScores,
   GROWTH_TABLE_FIELDS,
   normalizeReferralValue,
@@ -119,6 +120,21 @@ test('monitoring tables show measurements and interpretations without WHO z-scor
 test('maternal referral metric appears in selected monitoring table fields', () => {
   assert.equal(GROWTH_TABLE_FIELDS.has('hospitalReferral'), true);
   assert.deepEqual(growthTableFieldsForMetric('hospitalReferral'), ['hospitalReferral']);
+});
+
+test('check-up details can be shown without a growth metric', () => {
+  assert.deepEqual(
+    monitoringTableFieldsForSelection('', ['weekNumber', 'laboratoryRequests']),
+    ['weekNumber', 'laboratoryRequests'],
+  );
+  assert.deepEqual(
+    monitoringTableFieldsForSelection('', ['weightForAge']),
+    ['weightForAge'],
+  );
+  assert.deepEqual(
+    monitoringTableFieldsForSelection('bmiForAge', ['weekNumber']),
+    ['bmiForAge', 'bmiInterpretation', 'weekNumber'],
+  );
 });
 
 test('referral table values preserve yes, no, and not-recorded states', () => {

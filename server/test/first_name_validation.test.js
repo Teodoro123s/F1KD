@@ -14,6 +14,7 @@ test('backend enforces trimmed 2–50 character first names', () => {
   assert.equal(getFirstNameValidationError(' Juan   Miguel '), '');
   assert.match(getFirstNameValidationError('A'.repeat(51)), /no more than 50 characters/);
   assert.equal(normalizeFirstName('  Juan   Miguel  '), 'Juan Miguel');
+  assert.equal(normalizeFirstName('  aaaaA  '), 'AaaaA');
 });
 
 test('backend rejects digits, emoji, and unsupported punctuation', () => {

@@ -6,7 +6,10 @@ const FIRST_NAME_MAX_LENGTH = 50;
 const FIRST_NAME_INVALID_MESSAGE = 'First name must be 2–50 characters and may contain letters, spaces, internal hyphens or apostrophes; “Ma.” is allowed.';
 
 function normalizeFirstName(value) {
-  return String(value ?? '').trim().replace(/\s+/gu, ' ');
+  return String(value ?? '')
+    .trim()
+    .replace(/\s+/gu, ' ')
+    .replace(/^(\p{L})/u, (character) => character.toUpperCase());
 }
 
 function getFirstNameValidationError(value) {

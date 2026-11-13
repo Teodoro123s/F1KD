@@ -8,6 +8,12 @@ export function capitalizeNameValue(value = '') {
     .replace(/(^|[\s'-])([a-z])/g, (match, prefix, character) => `${prefix}${character.toUpperCase()}`);
 }
 
+export function capitalizeFirstNameCharacter(value = '') {
+  return String(value ?? '').replace(/^(\s*)(\p{L})/u, (match, whitespace, character) => (
+    `${whitespace}${character.toUpperCase()}`
+  ));
+}
+
 export function formatCompactName(fullName = '') {
   const text = String(fullName ?? '');
   const parts = text.trim().split(/\s+/).filter(Boolean);
