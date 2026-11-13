@@ -656,7 +656,37 @@ export default function MonitoringPage() {
                       : screeningStatus === 'needs follow up' ? 'Needs Follow-up'
                         : screeningStatus === 'at risk' ? 'At Risk' : 'Not recorded';
                     const screeningClass = screeningStatus ? screeningStatus.replace(/\s+/g, '-') : 'not-recorded';
-                    return <tr key={recordKey}><td><strong>{name}</strong></td><td><div className="monitoring-progress"><span><span style={{ width: `${progress}%` }} /></span><b>{completed}/{total}</b></div></td><td><span className={`monitoring-status ${screeningClass}`}>{screeningLabel}</span></td><td><button type="button" className="btn-secondary monitoring-open-button" onClick={() => openBeneficiary(beneficiary)}>Open record</button></td></tr>;
+                    const openRecord = () => openBeneficiary(beneficiary);
+                    return (
+                      <tr key={recordKey} className="monitoring-clickable-row" onClick={openRecord}>
+                        <td>
+                          <button
+                            type="button"
+                            className="monitoring-beneficiary-button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              openRecord();
+                            }}
+                          >
+                            {name}
+                          </button>
+                        </td>
+                        <td><div className="monitoring-progress"><span><span style={{ width: `${progress}%` }} /></span><b>{completed}/{total}</b></div></td>
+                        <td><span className={`monitoring-status ${screeningClass}`}>{screeningLabel}</span></td>
+                        <td>
+                          <button
+                            type="button"
+                            className="btn-secondary monitoring-open-button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              openRecord();
+                            }}
+                          >
+                            Open record
+                          </button>
+                        </td>
+                      </tr>
+                    );
                   }) : <tr><td colSpan="4" className="no-data">No monitoring records match your search.</td></tr>}
                 </tbody>
               </table>

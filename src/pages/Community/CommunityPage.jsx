@@ -37,7 +37,7 @@ export default function CommunityPage() {
   const location = useLocation();
   const { schoolId, groupId, batchId } = useParams();
   const isSuperAdmin = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]);
-  const canViewSchoolsFromOverview = hasRole(currentUser?.role, [ROLES.ADMIN, ROLES.PARTNER]);
+  const isAdminOrPartner = hasRole(currentUser?.role, [ROLES.ADMIN, ROLES.PARTNER]);
   const isCommunityOrganizer = isCommunityCoordinatorRole(currentUser?.role);
   const canManageSchools = isSuperAdmin;
   const canManage = can(currentUser?.role, 'community-resources', 'update') && !isHealthWorkerRole(currentUser?.role);
@@ -1213,13 +1213,14 @@ export default function CommunityPage() {
             selected={schoolOverviewSelection}
             onSelect={handleOverviewSelection}
             cards={[
-              { key: 'schools', label: 'Total Schools', listLabel: 'schools', value: communities.length, interactive: canViewSchoolsFromOverview },
+              { key: 'schools', label: 'Total Schools', listLabel: 'schools', value: communities.length, interactive: isAdminOrPartner },
               { key: 'groups', label: 'Total Groups', listLabel: 'groups', value: activeTab === 'communities' ? groups.length : schoolOverviewGroups.length },
               { key: 'batches', label: 'Total Batches', listLabel: 'batches', value: overviewBatchRows.length },
               { key: 'mothers', label: 'Total Mothers', listLabel: 'mothers', value: overviewMotherRows.length },
               { key: 'children', label: 'Total Children', listLabel: 'children', value: childrenOverviewError ? 'Unavailable' : overviewChildRows.length },
             ].filter((card) => (
-              (!isCommunityOrganizer || card.key !== 'schools')
+              (!isAdminOrPartner || !['mothers', 'children'].includes(card.key))
+              && (!isCommunityOrganizer || card.key !== 'schools')
               && (!isHealthWorker || !['schools', 'groups'].includes(card.key))
             ))}
           />

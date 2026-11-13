@@ -580,6 +580,21 @@
 .monitoring-table-card .data-table th:nth-child(2),
 .monitoring-table-card .data-table td:nth-child(2) { text-align: center; }
 .monitoring-table-card td strong { display: block; color: var(--slate-dark); }
+.monitoring-clickable-row { cursor: pointer; }
+.monitoring-clickable-row:hover td { background: #f0fdf4; }
+.monitoring-beneficiary-button {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--slate-dark);
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+.monitoring-beneficiary-button:hover { color: var(--burgundy); text-decoration: underline; }
+.monitoring-beneficiary-button:focus-visible { outline: 2px solid #15803d; outline-offset: 3px; }
 
 .monitoring-table-meta { display: block; margin-top: 0.25rem; color: var(--text-muted); font-size: 0.8rem; }
 .monitoring-list-container .monitoring-progress {
