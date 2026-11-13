@@ -745,15 +745,20 @@
   min-width: 0;
 }
 
-.user-management-list-card > .table-overflow {
+.user-management-list-card > .user-management-table-wrap {
   width: 100%;
   min-width: 0;
-  overflow-x: auto;
+  overflow: hidden;
+}
+
+.user-management-list-card .user-management-table-wrap {
+  min-width: 0;
+  overflow-x: hidden;
 }
 
 .user-management-list-card .user-management-data-table {
   width: 100%;
-  min-width: 640px;
+  min-width: 0;
   table-layout: fixed;
 }
 
@@ -762,26 +767,26 @@
 }
 
 .user-management-list-card .user-management-data-table.health-worker-accounts-table {
-  min-width: 900px;
+  min-width: 0;
 }
 
 .health-worker-accounts-table th,
 .health-worker-accounts-table td {
-  overflow-wrap: normal;
+  overflow-wrap: anywhere;
 }
 
-.health-worker-accounts-table th:nth-child(1),
-.health-worker-accounts-table td:nth-child(1) { width: 19%; }
-.health-worker-accounts-table th:nth-child(2),
-.health-worker-accounts-table td:nth-child(2) { width: 22%; }
-.health-worker-accounts-table th:nth-child(3),
-.health-worker-accounts-table td:nth-child(3) { width: 19%; }
-.health-worker-accounts-table th:nth-child(4),
-.health-worker-accounts-table td:nth-child(4) { width: 13%; }
-.health-worker-accounts-table th:nth-child(5),
-.health-worker-accounts-table td:nth-child(5) { width: 19%; }
-.health-worker-accounts-table th:nth-child(6),
-.health-worker-accounts-table td:nth-child(6) { width: 8%; }
+.user-management-list-card .user-management-data-table.health-worker-accounts-table th:nth-child(1),
+.user-management-list-card .user-management-data-table.health-worker-accounts-table td:nth-child(1) { width: 19%; }
+.user-management-list-card .user-management-data-table.health-worker-accounts-table th:nth-child(2),
+.user-management-list-card .user-management-data-table.health-worker-accounts-table td:nth-child(2) { width: 22%; }
+.user-management-list-card .user-management-data-table.health-worker-accounts-table th:nth-child(3),
+.user-management-list-card .user-management-data-table.health-worker-accounts-table td:nth-child(3) { width: 19%; }
+.user-management-list-card .user-management-data-table.health-worker-accounts-table th:nth-child(4),
+.user-management-list-card .user-management-data-table.health-worker-accounts-table td:nth-child(4) { width: 13%; }
+.user-management-list-card .user-management-data-table.health-worker-accounts-table th:nth-child(5),
+.user-management-list-card .user-management-data-table.health-worker-accounts-table td:nth-child(5) { width: 19%; }
+.user-management-list-card .user-management-data-table.health-worker-accounts-table th:nth-child(6),
+.user-management-list-card .user-management-data-table.health-worker-accounts-table td:nth-child(6) { width: 8%; }
 
 .health-worker-status-badge {
   display: inline-flex;
@@ -809,29 +814,38 @@
   overflow-wrap: normal;
 }
 
+.user-management-list-card .user-management-data-table th,
+.user-management-list-card .user-management-data-table td {
+  padding: 0.55rem 0.65rem;
+}
+
+.user-management-list-card .user-management-data-table td {
+  overflow-wrap: anywhere;
+}
+
 .user-management-list-card .user-management-data-table th:first-child,
 .user-management-list-card .user-management-data-table td:first-child {
-  width: 42%;
+  width: 48%;
 }
 
 .user-management-list-card .user-management-data-table th:nth-child(2),
 .user-management-list-card .user-management-data-table td:nth-child(2) {
-  width: 32%;
+  width: 42%;
 }
 
 .user-management-list-card .user-management-data-table.has-group-column th:nth-child(4),
 .user-management-list-card .user-management-data-table.has-group-column td:nth-child(4) {
-  width: 27%;
+  width: 30%;
 }
 
 .user-management-list-card .user-management-data-table.has-group-column th:first-child,
 .user-management-list-card .user-management-data-table.has-group-column td:first-child {
-  width: 36%;
+  width: 35%;
 }
 
 .user-management-list-card .user-management-data-table.has-group-column th:nth-child(2),
 .user-management-list-card .user-management-data-table.has-group-column td:nth-child(2) {
-  width: 22%;
+  width: 25%;
 }
 
 .user-management-data-table .user-management-clickable-row {
@@ -849,7 +863,95 @@
 
 .user-management-list-card .user-management-data-table th.actions-cell,
 .user-management-list-card .user-management-data-table td.actions-cell {
-  width: 110px;
+  width: 10%;
+  min-width: 0;
+  padding-right: 0.35rem;
+  padding-left: 0.35rem;
+  text-align: center;
+}
+
+.user-management-list-card .user-management-data-table.health-worker-accounts-table th.actions-cell,
+.user-management-list-card .user-management-data-table.health-worker-accounts-table td.actions-cell {
+  width: 8%;
+}
+
+.view-content .community-page .user-management-list-card .user-management-data-table:has(tbody td.actions-cell button) th.actions-cell,
+.view-content .community-page .user-management-list-card .user-management-data-table td.actions-cell:has(button) {
+  width: 10%;
+  min-width: 0;
+}
+
+@media (max-width: 720px) {
+  .user-management-list-card .user-management-data-table th,
+  .user-management-list-card .user-management-data-table td {
+    padding: 0.4rem 0.35rem;
+    font-size: 0.75rem;
+  }
+
+  .user-management-list-card .user-management-data-table th {
+    white-space: normal;
+    letter-spacing: 0.02em;
+  }
+
+  .user-management-list-card .user-management-data-table th:first-child,
+  .user-management-list-card .user-management-data-table td:first-child {
+    width: 32%;
+  }
+
+  .user-management-list-card .user-management-data-table th:nth-child(2),
+  .user-management-list-card .user-management-data-table td:nth-child(2) {
+    width: 30%;
+  }
+
+  .user-management-list-card .user-management-data-table th.actions-cell,
+  .user-management-list-card .user-management-data-table td.actions-cell,
+  .view-content .community-page .user-management-list-card .user-management-data-table:has(tbody td.actions-cell button) th.actions-cell,
+  .view-content .community-page .user-management-list-card .user-management-data-table td.actions-cell:has(button) {
+    width: 38%;
+    min-width: 0;
+  }
+
+  .user-management-list-card .user-management-data-table.has-group-column th:first-child,
+  .user-management-list-card .user-management-data-table.has-group-column td:first-child {
+    width: 29%;
+  }
+
+  .user-management-list-card .user-management-data-table.has-group-column th:nth-child(2),
+  .user-management-list-card .user-management-data-table.has-group-column td:nth-child(2) {
+    width: 20%;
+  }
+
+  .user-management-list-card .user-management-data-table.has-group-column th:nth-child(4),
+  .user-management-list-card .user-management-data-table.has-group-column td:nth-child(4) {
+    width: 13%;
+  }
+
+  .user-management-list-card .user-management-data-table.health-worker-accounts-table th:nth-child(1),
+  .user-management-list-card .user-management-data-table.health-worker-accounts-table td:nth-child(1) { width: 13%; }
+  .user-management-list-card .user-management-data-table.health-worker-accounts-table th:nth-child(2),
+  .user-management-list-card .user-management-data-table.health-worker-accounts-table td:nth-child(2) { width: 14%; }
+  .user-management-list-card .user-management-data-table.health-worker-accounts-table th:nth-child(3),
+  .user-management-list-card .user-management-data-table.health-worker-accounts-table td:nth-child(3) { width: 13%; }
+  .user-management-list-card .user-management-data-table.health-worker-accounts-table th:nth-child(4),
+  .user-management-list-card .user-management-data-table.health-worker-accounts-table td:nth-child(4) { width: 12%; }
+  .user-management-list-card .user-management-data-table.health-worker-accounts-table th:nth-child(5),
+  .user-management-list-card .user-management-data-table.health-worker-accounts-table td:nth-child(5) { width: 13%; }
+  .user-management-list-card .user-management-data-table.health-worker-accounts-table th.actions-cell,
+  .user-management-list-card .user-management-data-table.health-worker-accounts-table td.actions-cell,
+  .view-content .community-page .user-management-list-card .user-management-data-table.health-worker-accounts-table:has(tbody td.actions-cell button) th.actions-cell,
+  .view-content .community-page .user-management-list-card .user-management-data-table.health-worker-accounts-table td.actions-cell:has(button) {
+    width: 35%;
+  }
+
+  .health-worker-status-badge {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    padding-right: 0.25rem;
+    padding-left: 0.25rem;
+    font-size: 0.65rem;
+    white-space: normal;
+  }
 }
 
 /* Header styling */

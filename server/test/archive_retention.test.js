@@ -47,6 +47,16 @@ test('archive retention removes records after nine calendar months in dependency
   assert.ok(database.statements.some(({ sql }) => sql.includes('INSERT IGNORE INTO archive_file_deletion_queue')));
   assert.ok(database.statements.some(({ sql }) => sql.includes('DELETE FROM activity_logs')));
   assert.ok(database.statements.some(({ sql }) => sql.includes('DELETE FROM notifications')));
+  assert.ok(database.statements.some(({ sql }) => (
+    sql.startsWith('DELETE FROM notifications')
+    && sql.includes('UNION SELECT')
+    && sql.includes('COLLATE utf8mb4_unicode_ci')
+    && sql.includes('CONVERT(entity_id USING utf8mb4) COLLATE utf8mb4_unicode_ci')
+  )));
+  assert.ok(database.statements.some(({ sql }) => (
+    sql.includes("entity_type = 'philhealth_claim'")
+    && sql.includes('CONVERT(entity_id USING utf8mb4) COLLATE utf8mb4_unicode_ci')
+  )));
   assert.ok(database.statements.some(({ sql }) => sql.includes("entity_type = 'philhealth_claim'")));
   assert.ok(database.statements.some(({ sql }) => sql === 'COMMIT'));
   assert.deepEqual(result, { purgedRecords: 0, deletedFiles: 0 });

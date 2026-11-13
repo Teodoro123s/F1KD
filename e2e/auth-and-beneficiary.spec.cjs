@@ -131,3 +131,107 @@ test('beneficiary list requests and renders only the selected server page', asyn
   await expect(page.locator('.app-pagination-summary')).toContainText('Showing 11 to 11 of 11');
   expect(motherListRequests).toContainEqual({ page: 2, perPage: 10 });
 });
+
+test('user management action table fits the viewport without horizontal scrolling', async ({ page }) => {
+  const user = {
+    id: 1,
+    role: 'Super Admin',
+    has_accepted_terms: true,
+    first_name: 'Browser',
+    last_name: 'Admin',
+  };
+  const managedUsers = [{
+    id: 2,
+    first_name: 'LongAccountName'.repeat(5),
+    last_name: 'Test',
+    role: 'Health worker',
+    status: 'Active',
+    email: 'worker@example.com',
+  }];
+
+  await page.route('**/api/**', async (route) => {
+    const url = new URL(route.request().url());
+    if (!url.pathname.startsWith('/api/')) return route.continue();
+    if (url.pathname === '/api/auth/refresh') {
+      return jsonResponse(route, { token: 'browser-test-token', user });
+    }
+    if (url.pathname === '/api/community/reference-options') {
+      return jsonResponse(route, { communities: [], groups: [], batches: [] });
+    }
+    if (url.pathname === '/api/users/health-workers') {
+      return jsonResponse(route, { users: managedUsers });
+    }
+    if (url.pathname === '/api/users') {
+      return jsonResponse(route, { users: managedUsers, total: managedUsers.length });
+    }
+    return jsonResponse(route, {});
+  });
+
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/user-management');
+  await page.getByRole('button', { name: /Total Accounts/ }).click();
+  const table = page.locator('.user-management-data-table');
+  const overflow = page.locator('.user-management-list-card > .user-management-table-wrap');
+  await expect(table.getByRole('columnheader', { name: 'Actions' })).toBeVisible();
+
+  for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    const dimensions = await overflow.evaluate((element) => ({
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+    }));
+    expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth + 1);
+  }
+
+  user.role = 'Community Coordinator';
+  user.school_id = 1;
+  await page.goto('/user-management');
+  await page.getByRole('button', { name: /Total Accounts/ }).click();
+  await expect(table.getByRole('columnheader', { name: 'Last Login' })).toBeVisible();
+  for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    const dimensions = await overflow.evaluate((element) => ({
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+    }));
+    expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth + 1);
+  }
+});
+
+test('super admin archive records open on user accounts and expose restore', async ({ page }) => {
+  const user = {
+    id: 1,
+    role: 'Super Admin',
+    has_accepted_terms: true,
+    first_name: 'Browser',
+    last_name: 'Admin',
+  };
+
+  await page.route('**/api/**', async (route) => {
+    const url = new URL(route.request().url());
+    if (!url.pathname.startsWith('/api/')) return route.continue();
+    if (url.pathname === '/api/auth/refresh') {
+      return jsonResponse(route, { token: 'browser-test-token', user });
+    }
+    if (url.pathname === '/api/archives' && route.request().method() === 'GET') {
+      return jsonResponse(route, {
+        records: [{
+          id: 3,
+          name: 'Archived Worker',
+          email: 'worker@example.com',
+          role: 'Health worker',
+          archived_at: '2026-11-13T16:16:15Z',
+          purge_at: '2027-08-13T16:16:15Z',
+        }],
+        total: 1,
+      });
+    }
+    return jsonResponse(route, {});
+  });
+
+  await page.goto('/archive');
+  await page.getByRole('button', { name: /Archived records/ }).click();
+  await expect(page.getByLabel('Record type')).toHaveValue('user');
+  await expect(page.getByText('Archived Worker')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Restore' })).toBeVisible();
+});

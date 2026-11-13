@@ -12,7 +12,7 @@ export default function ArchivePage() {
   const isSuperAdmin = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]);
   const isCommunityOrganizer = isCommunityCoordinatorRole(currentUser?.role);
   const hasAssignedSchool = Number(currentUser?.school_id ?? currentUser?.schoolId) > 0;
-  const types = isSuperAdmin ? ['school', 'user'] : ['group', 'batch', 'mother', 'child', 'user'];
+  const types = isSuperAdmin ? ['user', 'school'] : ['group', 'batch', 'mother', 'child', 'user'];
 
   return (
     <div className="community-page archive-page">

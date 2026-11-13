@@ -340,9 +340,27 @@
   overflow-y: hidden;
 }
 
-.view-content .community-page .user-management-list-card > .table-overflow {
-  overflow-x: auto;
-  overflow-y: hidden;
+.view-content .community-page .user-management-list-card > .user-management-table-wrap {
+  overflow: hidden;
+}
+
+.view-content .community-page .user-management-list-card .user-management-data-table {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  table-layout: fixed;
+}
+
+.view-content .community-page .user-management-list-card .user-management-data-table td:last-child:has(button) {
+  width: 10%;
+  min-width: 0;
+  white-space: normal;
+}
+
+@media (max-width: 720px) {
+  .view-content .community-page .user-management-list-card .user-management-data-table td:last-child:has(button) {
+    width: 38%;
+  }
 }
 
 .view-content .table-overflow {

@@ -113,8 +113,10 @@ async function enqueueExpiredRecordFiles(connection) {
 async function deleteExpiredEntityActivity(connection) {
   for (const target of TARGETS) {
     const notificationIdsSql = target.codeColumn
-      ? `SELECT CAST(id AS CHAR) FROM ${target.table} WHERE id IN (SELECT id FROM ${target.idsTable})
-         UNION SELECT ${target.codeColumn} FROM ${target.table} WHERE id IN (SELECT id FROM ${target.idsTable})`
+      ? `SELECT CAST(id AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci
+         FROM ${target.table} WHERE id IN (SELECT id FROM ${target.idsTable})
+         UNION SELECT ${target.codeColumn} COLLATE utf8mb4_unicode_ci
+         FROM ${target.table} WHERE id IN (SELECT id FROM ${target.idsTable})`
       : `SELECT CAST(id AS CHAR) FROM ${target.table} WHERE id IN (SELECT id FROM ${target.idsTable})`;
     await connection.query(
       `DELETE FROM activity_logs
@@ -123,23 +125,24 @@ async function deleteExpiredEntityActivity(connection) {
     );
     await connection.query(
       `DELETE FROM notifications
-       WHERE entity_type = ? AND entity_id IN (${notificationIdsSql})`,
+       WHERE entity_type = ?
+         AND CONVERT(entity_id USING utf8mb4) COLLATE utf8mb4_unicode_ci IN (${notificationIdsSql})`,
       [target.type],
     );
   }
   await connection.query(
     `DELETE FROM activity_logs
      WHERE entity_type = 'philhealth_claim'
-       AND entity_id IN (
-         SELECT CAST(id AS CHAR) FROM philhealth_claims
+       AND CONVERT(entity_id USING utf8mb4) COLLATE utf8mb4_unicode_ci IN (
+         SELECT CAST(id AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci FROM philhealth_claims
          WHERE mother_id IN (SELECT id FROM ${TEMP_TABLES.mothers})
        )`,
   );
   await connection.query(
     `DELETE FROM notifications
      WHERE entity_type = 'philhealth_claim'
-       AND entity_id IN (
-         SELECT CAST(id AS CHAR) FROM philhealth_claims
+       AND CONVERT(entity_id USING utf8mb4) COLLATE utf8mb4_unicode_ci IN (
+         SELECT CAST(id AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci FROM philhealth_claims
          WHERE mother_id IN (SELECT id FROM ${TEMP_TABLES.mothers})
        )`,
   );
@@ -149,7 +152,10 @@ async function deleteExpiredEntityActivity(connection) {
        OR group_id IN (SELECT id FROM ${TEMP_TABLES.groups})
        OR EXISTS (
          SELECT 1 FROM ${TEMP_TABLES.communities} archived_school
-         WHERE FIND_IN_SET(CAST(archived_school.id AS CHAR), notifications.school_scope_ids) > 0
+         WHERE FIND_IN_SET(
+           CAST(archived_school.id AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci,
+           CONVERT(notifications.school_scope_ids USING utf8mb4) COLLATE utf8mb4_unicode_ci
+         ) > 0
        )`,
   );
 }
@@ -189,7 +195,10 @@ async function anonymizeExpiredUserData(connection) {
     `UPDATE activity_logs
      SET description = 'Activity details retained; archived account identity removed.'
      WHERE entity_type = 'user'
-       AND entity_id IN (SELECT CAST(id AS CHAR) FROM ${TEMP_TABLES.users})`,
+       AND CONVERT(entity_id USING utf8mb4) COLLATE utf8mb4_unicode_ci IN (
+         SELECT CAST(id AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci
+         FROM ${TEMP_TABLES.users}
+       )`,
   );
   await connection.query(
     `UPDATE notifications
@@ -198,7 +207,10 @@ async function anonymizeExpiredUserData(connection) {
          message = 'Details removed after the archived account retention period.'
      WHERE actor_user_id IN (SELECT id FROM ${TEMP_TABLES.users})
         OR (entity_type = 'user'
-            AND entity_id IN (SELECT CAST(id AS CHAR) FROM ${TEMP_TABLES.users}))`,
+            AND CONVERT(entity_id USING utf8mb4) COLLATE utf8mb4_unicode_ci IN (
+              SELECT CAST(id AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci
+              FROM ${TEMP_TABLES.users}
+            ))`,
   );
   const [expiredUsers] = await connection.query(`SELECT id FROM ${TEMP_TABLES.users}`);
   for (const { id } of expiredUsers) {
