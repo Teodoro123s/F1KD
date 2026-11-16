@@ -59,6 +59,31 @@ test('login feedback warns on the last attempt and unlocks after countdown', asy
   await expect(page.getByRole('button', { name: 'Sign in' })).toBeEnabled({ timeout: 6000 });
 });
 
+test('unknown authenticated routes show a custom 404 page', async ({ page }) => {
+  const user = {
+    id: 1,
+    role: 'Super Admin',
+    has_accepted_terms: true,
+    first_name: 'Browser',
+    last_name: 'Admin',
+  };
+
+  await page.route('**/api/**', async (route) => {
+    const url = new URL(route.request().url());
+    if (!url.pathname.startsWith('/api/')) return route.continue();
+    if (url.pathname === '/api/auth/refresh') {
+      return jsonResponse(route, { token: 'browser-test-token', user });
+    }
+    return jsonResponse(route, {});
+  });
+
+  await page.goto('/this-route-does-not-exist');
+
+  await expect(page.getByText('404 ERROR')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Go to Community' })).toHaveAttribute('href', '/community');
+});
+
 test('beneficiary list requests and renders only the selected server page', async ({ page }) => {
   const motherListRequests = [];
   const user = {

@@ -28,6 +28,7 @@ const SettingsPage = lazy(() => import('./pages/Settings/SettingsPage'));
 const NotificationsPage = lazy(() => import('./pages/Notifications/NotificationsPage'));
 const DashboardPage = lazy(() => import('./pages/Dashboard/DashboardPage'));
 const ReportsPage = lazy(() => import('./pages/Reports/ReportsPage'));
+const NotFoundPage = lazy(() => import('./pages/Errors/NotFoundPage'));
 
 const COMMUNITY_ROLES = [
   ROLES.SUPER_ADMIN,
@@ -116,7 +117,7 @@ export default function App() {
         <Route path="notifications" element={<RoleBasedRoute allowedRoles={[ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.COMMUNITY_COORDINATOR, ROLES.PARTNER, ROLES.HEALTH_WORKER]}><NotificationsPage /></RoleBasedRoute>} />
         <Route path="profile" element={<ProfilePage />} />
         <Route path="settings" element={<SettingsPage />} />
-        <Route path="*" element={<Navigate to="/community" replace />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>
     {auth.isAuthenticated && !auth.currentUser?.has_accepted_terms && <UserConsentModal />}

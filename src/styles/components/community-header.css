@@ -805,6 +805,11 @@
   overflow-wrap: normal;
 }
 
+.user-management-list-card .user-management-data-table.health-worker-accounts-table th {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .user-management-list-card .user-management-data-table th,
 .user-management-list-card .user-management-data-table td {
   padding: 0.55rem 0.65rem;
@@ -814,13 +819,13 @@
   overflow-wrap: anywhere;
 }
 
-.user-management-list-card .user-management-data-table th:first-child,
-.user-management-list-card .user-management-data-table td:first-child {
+.user-management-list-card .user-management-data-table:not(.health-worker-accounts-table) th:first-child,
+.user-management-list-card .user-management-data-table:not(.health-worker-accounts-table) td:first-child {
   width: 48%;
 }
 
-.user-management-list-card .user-management-data-table th:nth-child(2),
-.user-management-list-card .user-management-data-table td:nth-child(2) {
+.user-management-list-card .user-management-data-table:not(.health-worker-accounts-table) th:nth-child(2),
+.user-management-list-card .user-management-data-table:not(.health-worker-accounts-table) td:nth-child(2) {
   width: 42%;
 }
 
@@ -884,13 +889,13 @@
     letter-spacing: 0.02em;
   }
 
-  .user-management-list-card .user-management-data-table th:first-child,
-  .user-management-list-card .user-management-data-table td:first-child {
+  .user-management-list-card .user-management-data-table:not(.health-worker-accounts-table) th:first-child,
+  .user-management-list-card .user-management-data-table:not(.health-worker-accounts-table) td:first-child {
     width: 32%;
   }
 
-  .user-management-list-card .user-management-data-table th:nth-child(2),
-  .user-management-list-card .user-management-data-table td:nth-child(2) {
+  .user-management-list-card .user-management-data-table:not(.health-worker-accounts-table) th:nth-child(2),
+  .user-management-list-card .user-management-data-table:not(.health-worker-accounts-table) td:nth-child(2) {
     width: 30%;
   }
 
