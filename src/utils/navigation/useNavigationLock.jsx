@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { getModalBackdropClasses, getModalSurfaceClasses, modalHeaderSectionClasses, modalCloseClasses, modalBodyClasses, modalFooterClasses, confirmationSurfaceClasses } from '../../components/ui/modalClasses';
 
 // Hook for unsaved-change confirmation and debounced step navigation.
 // isDirty: boolean indicating there are unsaved changes
@@ -64,16 +65,16 @@ export function useNavigationLock(isDirty, blocking = false) {
   };
 
   const NavigationConfirm = showConfirm ? (
-    <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) cancel(); }}>
-      <div className="modal-content signout-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="nav-confirm-title" onMouseDown={(event) => event.stopPropagation()}>
-        <div className="modal-header-section">
+    <div className={`modal-backdrop ${getModalBackdropClasses()}`} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) cancel(); }}>
+      <div className={`modal-content signout-confirm-modal ${getModalSurfaceClasses()} ${confirmationSurfaceClasses}`} role="dialog" aria-modal="true" aria-labelledby="nav-confirm-title" onMouseDown={(event) => event.stopPropagation()}>
+        <div className={`modal-header-section ${modalHeaderSectionClasses}`}>
           <h3 id="nav-confirm-title">Discard changes?</h3>
-          <button type="button" className="btn-close-modal" onClick={cancel} aria-label="Close confirmation">✕</button>
+          <button type="button" className={`btn-close-modal ${modalCloseClasses}`} onClick={cancel} aria-label="Close confirmation">✕</button>
         </div>
-        <div className="modal-body">
+        <div className={`modal-body ${modalBodyClasses}`}>
           <p>There are unsaved changes. Leaving this page will discard them. Continue?</p>
         </div>
-        <div className="modal-footer">
+        <div className={`modal-footer ${modalFooterClasses}`}>
           <button type="button" className="btn-secondary" onClick={cancel}>Cancel</button>
           <button type="button" className="btn-primary" onClick={proceed}>Discard and leave</button>
         </div>

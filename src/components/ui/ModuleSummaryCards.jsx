@@ -3,7 +3,10 @@ import SummaryCard from './SummaryCard';
 
 export default function ModuleSummaryCards({ cards, onSelect, selected, toggleOnSelect = false }) {
   return (
-    <section className="module-summary-cards" aria-label="Module summary">
+    <section
+      className="module-summary-cards grid grid-flow-col auto-cols-[minmax(0,1fr)] auto-rows-fr gap-[0.65rem] mb-4 in-[.view-content]:mb-1"
+      aria-label="Module summary"
+    >
       {cards.map((card) => {
         const isSelected = selected === card.key;
         return (

@@ -1,3 +1,4 @@
+import { checkupFieldLayoutClasses, formFieldClasses } from '../../utils/formFieldClasses';
 import React, { useEffect, useRef, useState } from 'react';
 import { formatDateForDisplay, getDateInputError, maskDateInput, normalizeDateValue } from '../../utils/formatting/dateFormat';
 
@@ -76,7 +77,13 @@ export default function DateInput({
         inputMode="numeric"
         pattern="[0-9]{2}/[0-9]{2}/[0-9]{4}"
         maxLength={10}
-        className={className}
+        className={className.includes(formFieldClasses) || className.includes(checkupFieldLayoutClasses)
+          ? className
+          : /\bform-(?:input|select)\b/.test(className)
+            ? `${formFieldClasses} ${className}`
+            : /\bcheckup-field-input\b/.test(className)
+              ? `${checkupFieldLayoutClasses} ${className}`
+              : className}
         value={draft}
         onChange={(event) => updateDraft(event.target.value)}
         onKeyDown={handleKeyDown}

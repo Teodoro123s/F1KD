@@ -1,4 +1,5 @@
 import React, { useId, useRef } from 'react';
+import { getModalBackdropClasses, getModalSurfaceClasses, modalHeaderSectionClasses, modalHeadingClasses, modalCloseClasses, modalBodyClasses, modalFooterClasses } from './modalClasses';
 import Button from './Button';
 import useModalAccessibility from './useModalAccessibility';
 import usePresence from './usePresence';
@@ -41,13 +42,13 @@ export default function UnifiedModal({
 
   return (
     <div
-      className={`view-modal-backdrop${!isOpen ? ' motion-exiting' : ''} ${backdropClassName}`.trim()}
+      className={`view-modal-backdrop${!isOpen ? ' motion-exiting' : ''} ${getModalBackdropClasses({ exiting: !isOpen })} ${backdropClassName}`.trim()}
       role="presentation"
       onMouseDown={closeFromBackdrop}
     >
       <div
         ref={dialogRef}
-        className={`view-modal ${sizeMap[size] || sizeMap.md}${!isOpen ? ' motion-exiting' : ''} ${className}`.trim()}
+        className={`view-modal ${sizeMap[size] || sizeMap.md}${!isOpen ? ' motion-exiting' : ''} ${getModalSurfaceClasses({ exiting: !isOpen })} ${className}`.trim()}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -55,21 +56,21 @@ export default function UnifiedModal({
         onMouseDown={(event) => event.stopPropagation()}
         inert={!isOpen}
       >
-        <div className="view-modal__header">
-          <h2 id={titleId} className="view-modal__title">{title}</h2>
+        <div className={`view-modal__header ${modalHeaderSectionClasses}`}>
+          <h2 id={titleId} className={`view-modal__title ${modalHeadingClasses}`}>{title}</h2>
           {showCloseButton && (
-            <Button type="button" variant="icon" className="view-modal__close" onClick={onClose} aria-label="Close dialog">
+            <Button type="button" variant="icon" className={`view-modal__close ${modalCloseClasses}`} onClick={onClose} aria-label="Close dialog">
               ×
             </Button>
           )}
         </div>
 
-        <div className="view-modal__body">{children}</div>
+        <div className={`view-modal__body ${modalBodyClasses}`}>{children}</div>
 
         {footer !== undefined ? (
-          <div className="view-modal__footer">{footer}</div>
+          <div className={`view-modal__footer ${modalFooterClasses}`}>{footer}</div>
         ) : (
-          <div className="view-modal__footer">
+          <div className={`view-modal__footer ${modalFooterClasses}`}>
             <Button type="button" variant="secondary" onClick={onClose}>
               Cancel
             </Button>

@@ -6,6 +6,81 @@ const escapeCsvValue = (value) => {
 
 const uniqueFields = (fields) => [...new Set(fields)];
 
+const INSIGHT_CATEGORICAL_VALUES = {
+  gender: ['Male', 'Female', 'Other'],
+  developmentalStatus: ['Normal', 'Needs Follow-up', 'At Risk'],
+  hospitalReferral: ['Yes', 'No'],
+  exclusiveBreastfeeding: ['Yes', 'No'],
+};
+const INSIGHT_NUMERIC_FIELDS = new Set([
+  'age',
+  'ageAtCheckupMonths',
+  'assistanceAmount',
+  'bmi',
+  'fetalHeartRate',
+  'fundalHeight',
+  'height',
+  'initialHeight',
+  'initialWeight',
+  'weight',
+]);
+
+function buildInsightContext(csvRows, fields, proposal, getValue) {
+  const categorical = Object.entries(INSIGHT_CATEGORICAL_VALUES).flatMap(([fieldId, allowedValues]) => {
+    if (!fields.includes(fieldId)) return [];
+    const counts = new Map(allowedValues.map((value) => [value, 0]));
+    csvRows.forEach(({ row, point }) => {
+      const rawValue = getValue(row, point, fieldId);
+      const value = typeof rawValue === 'boolean' ? (rawValue ? 'Yes' : 'No') : String(rawValue ?? '').trim();
+      const canonicalValue = allowedValues.find((allowed) => allowed.toLowerCase() === value.toLowerCase());
+      if (canonicalValue) counts.set(canonicalValue, counts.get(canonicalValue) + 1);
+    });
+    return [{
+      fieldId,
+      counts: [...counts].filter(([, count]) => count > 0)
+        .map(([value, count]) => ({ value, count }))
+        .sort((left, right) => right.count - left.count || left.value.localeCompare(right.value)),
+    }];
+  });
+
+  const numeric = [...INSIGHT_NUMERIC_FIELDS].flatMap((fieldId) => {
+    if (!fields.includes(fieldId)) return [];
+    const values = csvRows
+      .map(({ row, point }) => {
+        const value = getValue(row, point, fieldId);
+        return value === null || value === undefined || value === '' ? null : Number(value);
+      })
+      .filter(Number.isFinite);
+    if (!values.length) return [];
+    const total = values.reduce((sum, value) => sum + value, 0);
+    return [{
+      fieldId,
+      count: values.length,
+      min: values.reduce((minimum, value) => Math.min(minimum, value), Infinity),
+      max: values.reduce((maximum, value) => Math.max(maximum, value), -Infinity),
+      average: Number((total / values.length).toFixed(2)),
+    }];
+  });
+
+  const monthlyCounts = new Map();
+  if (fields.includes('measurementDate')) {
+    csvRows.forEach(({ row, point }) => {
+      const match = String(getValue(row, point, 'measurementDate') || '').match(/^(\d{4}-\d{2})/);
+      if (match) monthlyCounts.set(match[1], (monthlyCounts.get(match[1]) || 0) + 1);
+    });
+  }
+
+  return {
+    reportCategory: proposal.reportCategory,
+    beneficiaryType: proposal.beneficiaryType,
+    rowCount: csvRows.length,
+    categorical,
+    numeric,
+    monthly: [...monthlyCounts].sort(([left], [right]) => left.localeCompare(right))
+      .map(([month, count]) => ({ month, count })),
+  };
+}
+
 export function isLatestCheckupRequest(prompt) {
   return /\b(?:latest|most recent)\b|\blast(?:\s+(?:check[\s-]?up|visit|measurement|bmi|record(?:ed)?|report|reading))\b/i
     .test(String(prompt || ''));
@@ -109,6 +184,7 @@ export function buildAiReportCsv({
     ...formattedRows.map((values) => values.map(escapeCsvValue).join(',')),
   ].join('\r\n');
   const filename = `progress-report-ai-${proposal.reportCategory}-${proposal.beneficiaryType}.csv`;
+  const insightContext = buildInsightContext(csvRows, fields, proposal, getValue);
 
   return {
     csv,
@@ -116,6 +192,7 @@ export function buildAiReportCsv({
     fields,
     previewRows: formattedRows.slice(0, 20),
     rowCount: csvRows.length,
+    insightContext,
   };
 }
 

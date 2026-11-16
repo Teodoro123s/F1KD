@@ -17,6 +17,55 @@ import { useAuth } from '../../auth/AuthProvider';
 import ActionFeedback, { notifyAction } from '../../components/ActionFeedback';
 import { getLoginAttemptStatus, requestPasswordReset, resetPassword } from '../../api/auth';
 
+const loginFieldClassName = [
+  'login-floating-field relative flex w-full flex-col',
+  '[&.is-focused_.login-floating-field__icon--key]:text-[#15803d]',
+  '[&.is-focused_.login-floating-label]:-translate-y-[26px]',
+  '[&.is-focused_.login-floating-label]:scale-[.85]',
+  '[&.is-focused_.login-floating-label]:font-semibold',
+  '[&.is-focused_.login-floating-label]:text-[#15803d]',
+  '[&.has-value_.login-floating-label]:-translate-y-[26px]',
+  '[&.has-value_.login-floating-label]:scale-[.85]',
+  '[&.has-value_.login-floating-label]:font-semibold',
+  '[&.has-value:not(.is-focused)_.login-floating-label]:text-[#64748b]',
+  '[&.is-focused_.login-floating-field__line:after]:scale-x-100',
+  '[&:focus-within_.login-floating-field__line:after]:scale-x-100',
+].join(' ');
+
+const loginInputClassName = [
+  '!h-7 !w-full !border-0 !rounded-none !bg-transparent !p-0 !shadow-none !outline-none',
+  'm-0 box-border text-base leading-7 text-[#0f172a]',
+  '[&:focus~.login-floating-label]:-translate-y-[26px]',
+  '[&:focus~.login-floating-label]:scale-[.85]',
+  '[&:focus~.login-floating-label]:font-semibold',
+  '[&:focus~.login-floating-label]:text-[#15803d]',
+  '[&:not(:placeholder-shown)~.login-floating-label]:-translate-y-[26px]',
+  '[&:not(:placeholder-shown)~.login-floating-label]:scale-[.85]',
+  '[&:not(:placeholder-shown)~.login-floating-label]:font-semibold',
+  '[&:not(:placeholder-shown):not(:focus)~.login-floating-label]:text-[#64748b]',
+  '![&:-webkit-autofill]:[-webkit-box-shadow:inset_0_0_0_30px_#ffffff]',
+  '![&:-webkit-autofill]:[-webkit-text-fill-color:#0f172a]',
+  '![&:-webkit-autofill]:[box-shadow:inset_0_0_0_30px_#ffffff]',
+  '[&:-webkit-autofill]:[caret-color:#0f172a]',
+  '[&:-webkit-autofill]:[transition:background-color_5000s_ease-in-out_0s]',
+  '[&:-webkit-autofill]:[animation-name:onAutoFillStart]',
+  '[&:-webkit-autofill~.login-floating-label]:-translate-y-[26px]',
+  '[&:-webkit-autofill~.login-floating-label]:scale-[.85]',
+  '[&:-webkit-autofill~.login-floating-label]:font-semibold',
+  '[&:autofill~.login-floating-label]:-translate-y-[26px]',
+  '[&:autofill~.login-floating-label]:scale-[.85]',
+  '[&:autofill~.login-floating-label]:font-semibold',
+  '[&:-webkit-autofill:not(:focus)~.login-floating-label]:text-[#64748b]',
+  '[&:autofill:not(:focus)~.login-floating-label]:text-[#64748b]',
+].join(' ');
+
+const loginFloatingLabelClassName = [
+  'login-floating-label pointer-events-none absolute bottom-1 left-0 inline-flex origin-bottom-left',
+  'items-center gap-0.5 whitespace-nowrap text-[0.95rem] text-[#64748b]',
+  'transition-[transform,color,font-size] duration-200',
+  '[transition-timing-function:cubic-bezier(0.2,0,0,1)]',
+].join(' ');
+
 export default function Login() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -262,20 +311,21 @@ export default function Login() {
   }
 
   return (
-    <div className="login-page">
+    <div className="login-page relative flex min-h-screen items-center justify-center bg-[#f8fafc] px-5 py-8 max-[480px]:p-4 [&_.action-feedback]:top-auto [&_.action-feedback]:right-[max(1rem,env(safe-area-inset-right))] [&_.action-feedback]:bottom-[max(1rem,env(safe-area-inset-bottom))]">
+      <style>{'@keyframes onAutoFillStart{from{opacity:.99}to{opacity:1}}'}</style>
       <ActionFeedback />
-      <div className="login-shell">
+      <div className="login-shell flex w-full max-w-[440px] flex-col items-center">
         <motion.div
-          className="login-card"
+          className="login-card relative box-border w-full rounded-[20px] border border-[#eef2f6] bg-white px-9 py-11 pb-10 shadow-[0_10px_30px_-5px_rgba(15,23,42,0.04),0_20px_40px_-15px_rgba(15,23,42,0.07)] max-[480px]:rounded-2xl max-[480px]:px-5 max-[480px]:py-8 max-[480px]:pb-7"
           initial={{ opacity: 0, y: 22, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
         >
-          <div className="login-header">
+          <div className="login-header mb-9 flex flex-col items-center text-center">
             <motion.img
               src={logo}
               alt="F1KD logo"
-              className="login-logo"
+              className="login-logo mb-5 block h-11 w-auto object-contain"
               initial={{ scale: 0.85, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ duration: 0.4, type: 'spring', stiffness: 280, damping: 20 }}
@@ -288,14 +338,14 @@ export default function Login() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.2 }}
-                className="login-header-text"
+                className="login-header-text flex w-full flex-col items-center text-center"
               >
-                <h1 className="login-title">
+                <h1 className="login-title m-0 mb-2 text-[2.15rem] font-extrabold leading-[1.15] tracking-[-0.03em] text-[#0f172a] max-[480px]:text-[1.75rem]">
                   {forgotPassword
                     ? (resetCodeSent ? 'Set New Password' : 'Reset Password')
                     : 'Welcome Back'}
                 </h1>
-                <p className="login-subtitle">
+                <p className="login-subtitle m-0 max-w-80 text-center text-[0.95rem] leading-[1.45] text-[#64748b]">
                   {forgotPassword
                     ? (resetCodeSent
                         ? 'Enter the 6-digit verification code and your new password.'
@@ -306,7 +356,7 @@ export default function Login() {
             </AnimatePresence>
           </div>
 
-          <form className="login-form" onSubmit={forgotPassword ? handlePasswordReset : handleLogin} noValidate>
+          <form className="login-form flex w-full flex-col gap-7" onSubmit={forgotPassword ? handlePasswordReset : handleLogin} noValidate>
             <AnimatePresence mode="wait" initial={false}>
               {!forgotPassword ? (
                 <motion.div
@@ -315,15 +365,15 @@ export default function Login() {
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 16 }}
                   transition={{ duration: 0.22, ease: 'easeOut' }}
-                  className="login-fields-container"
+                  className="login-fields-container flex w-full flex-col gap-7"
                 >
                   {/* Email / Username field */}
-                  <div className={`login-floating-field ${email ? 'has-value' : ''} ${emailFocused ? 'is-focused' : ''}`}>
-                    <div className="login-floating-field__row">
-                      <span className="login-floating-field__icon login-floating-field__icon--user" aria-hidden="true">
+                  <div className={`${loginFieldClassName} ${email ? 'has-value' : ''} ${emailFocused ? 'is-focused' : ''}`}>
+                    <div className="login-floating-field__row flex min-h-[50px] items-end gap-3 pb-2">
+                      <span className="login-floating-field__icon login-floating-field__icon--user flex shrink-0 items-center justify-center pb-1 text-[#8b1d2c] transition-colors duration-200" aria-hidden="true">
                         <User size={19} />
                       </span>
-                      <div className="login-floating-field__input-wrap">
+                      <div className="login-floating-field__input-wrap relative flex min-w-0 flex-1 flex-col justify-end">
                         <input
                           ref={emailInputRef}
                           id="login-email"
@@ -354,22 +404,23 @@ export default function Login() {
                           placeholder=" "
                           autoComplete="username"
                           required
+                          className={loginInputClassName}
                         />
-                        <label htmlFor="login-email" className="login-floating-label">
-                          Username <span className="login-required-star">*</span>
+                        <label htmlFor="login-email" className={loginFloatingLabelClassName}>
+                          Username <span className="login-required-star ml-0.5 font-bold text-red-500">*</span>
                         </label>
                       </div>
                     </div>
-                    <div className="login-floating-field__line" />
+                    <div className="login-floating-field__line absolute bottom-0 left-0 right-0 h-[1.5px] overflow-hidden bg-[#e2e8f0] after:absolute after:inset-0 after:origin-center after:scale-x-0 after:bg-[#15803d] after:transition-transform after:duration-[250ms] after:[content:''] after:[transition-timing-function:cubic-bezier(0.2,0,0,1)]" />
                   </div>
 
                   {/* Password field */}
-                  <div className={`login-floating-field ${password ? 'has-value' : ''} ${passwordFocused ? 'is-focused' : ''}`}>
-                    <div className="login-floating-field__row">
-                      <span className="login-floating-field__icon login-floating-field__icon--key" aria-hidden="true">
+                  <div className={`${loginFieldClassName} ${password ? 'has-value' : ''} ${passwordFocused ? 'is-focused' : ''}`}>
+                    <div className="login-floating-field__row flex min-h-[50px] items-end gap-3 pb-2">
+                      <span className="login-floating-field__icon login-floating-field__icon--key flex shrink-0 items-center justify-center pb-1 text-[#64748b] transition-colors duration-200" aria-hidden="true">
                         <Lock size={19} />
                       </span>
-                      <div className="login-floating-field__input-wrap">
+                      <div className="login-floating-field__input-wrap relative flex min-w-0 flex-1 flex-col justify-end">
                         <input
                           ref={passwordInputRef}
                           id="login-password"
@@ -390,9 +441,10 @@ export default function Login() {
                           placeholder=" "
                           autoComplete="current-password"
                           required
+                          className={loginInputClassName}
                         />
-                        <label htmlFor="login-password" className="login-floating-label">
-                          Password <span className="login-required-star">*</span>
+                        <label htmlFor="login-password" className={loginFloatingLabelClassName}>
+                          Password <span className="login-required-star ml-0.5 font-bold text-red-500">*</span>
                         </label>
                       </div>
                       <motion.button
@@ -401,29 +453,30 @@ export default function Login() {
                         aria-label={showPassword ? 'Hide password' : 'Show password'}
                         aria-pressed={showPassword}
                         onClick={() => setShowPassword((s) => !s)}
-                        className="login-password-toggle-floating"
+                        className="login-password-toggle-floating mb-[0.15rem] flex shrink-0 cursor-pointer items-center justify-center rounded p-1 text-[#64748b] transition-colors duration-150 hover:text-[#0f172a] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#15803d]"
                       >
                         {showPassword ? <EyeOff size={19} aria-hidden="true" /> : <Eye size={19} aria-hidden="true" />}
                       </motion.button>
                     </div>
-                    <div className="login-floating-field__line" />
+                    <div className="login-floating-field__line absolute bottom-0 left-0 right-0 h-[1.5px] overflow-hidden bg-[#e2e8f0] after:absolute after:inset-0 after:origin-center after:scale-x-0 after:bg-[#15803d] after:transition-transform after:duration-[250ms] after:[content:''] after:[transition-timing-function:cubic-bezier(0.2,0,0,1)]" />
                   </div>
 
                   {/* Remember Me & Forgot Password */}
-                  <div className="login-options-row">
-                    <label className="login-remember">
+                  <div className="login-options-row mb-1 mt-[-0.25rem] flex items-center justify-between max-[480px]:flex-col max-[480px]:items-start max-[480px]:gap-3">
+                    <label className="login-remember flex cursor-pointer select-none items-center gap-2 text-[0.9rem] font-medium text-[#334155]">
                       <input
                         type="checkbox"
                         id="login-remember"
                         name="remember"
                         checked={rememberMe}
                         onChange={(e) => setRememberMe(e.target.checked)}
+                        className="m-0 h-[1.15rem] w-[1.15rem] cursor-pointer rounded-[4px] border-[1.5px] border-[#16a34a] accent-[#16a34a] !border-[#16a34a]"
                       />
                       <span>Remember Me</span>
                     </label>
                     <button
                       type="button"
-                      className="login-forgot-link"
+                      className="login-forgot-link cursor-pointer border-0 bg-transparent p-0 text-[0.875rem] font-medium text-[#64748b] no-underline transition-colors duration-150 hover:text-[#15803d] hover:underline"
                       onClick={openPasswordReset}
                       disabled={loading}
                     >
@@ -438,14 +491,14 @@ export default function Login() {
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -16 }}
                   transition={{ duration: 0.22, ease: 'easeOut' }}
-                  className="login-fields-container"
+                  className="login-fields-container flex w-full flex-col gap-7"
                 >
-                  <div className={`login-floating-field ${email ? 'has-value' : ''} ${emailFocused ? 'is-focused' : ''}`}>
-                    <div className="login-floating-field__row">
-                      <span className="login-floating-field__icon login-floating-field__icon--user" aria-hidden="true">
+                  <div className={`${loginFieldClassName} ${email ? 'has-value' : ''} ${emailFocused ? 'is-focused' : ''}`}>
+                    <div className="login-floating-field__row flex min-h-[50px] items-end gap-3 pb-2">
+                      <span className="login-floating-field__icon login-floating-field__icon--user flex shrink-0 items-center justify-center pb-1 text-[#8b1d2c] transition-colors duration-200" aria-hidden="true">
                         <User size={19} />
                       </span>
-                      <div className="login-floating-field__input-wrap">
+                      <div className="login-floating-field__input-wrap relative flex min-w-0 flex-1 flex-col justify-end">
                         <input
                           id="login-email"
                           name="email"
@@ -464,13 +517,14 @@ export default function Login() {
                           placeholder=" "
                           autoComplete="username"
                           required
+                          className={loginInputClassName}
                         />
-                        <label htmlFor="login-email" className="login-floating-label">
-                          Username or Email <span className="login-required-star">*</span>
+                        <label htmlFor="login-email" className={loginFloatingLabelClassName}>
+                          Username or Email <span className="login-required-star ml-0.5 font-bold text-red-500">*</span>
                         </label>
                       </div>
                     </div>
-                    <div className="login-floating-field__line" />
+                    <div className="login-floating-field__line absolute bottom-0 left-0 right-0 h-[1.5px] overflow-hidden bg-[#e2e8f0] after:absolute after:inset-0 after:origin-center after:scale-x-0 after:bg-[#15803d] after:transition-transform after:duration-[250ms] after:[content:''] after:[transition-timing-function:cubic-bezier(0.2,0,0,1)]" />
                   </div>
                 </motion.div>
               ) : (
@@ -480,15 +534,15 @@ export default function Login() {
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -16 }}
                   transition={{ duration: 0.22, ease: 'easeOut' }}
-                  className="login-fields-container"
+                  className="login-fields-container flex w-full flex-col gap-7"
                 >
                   {/* Passcode / Verification code */}
-                  <div className={`login-floating-field ${passcode ? 'has-value' : ''} ${passcodeFocused ? 'is-focused' : ''}`}>
-                    <div className="login-floating-field__row">
-                      <span className="login-floating-field__icon" aria-hidden="true">
+                  <div className={`${loginFieldClassName} ${passcode ? 'has-value' : ''} ${passcodeFocused ? 'is-focused' : ''}`}>
+                    <div className="login-floating-field__row flex min-h-[50px] items-end gap-3 pb-2">
+                      <span className="login-floating-field__icon flex shrink-0 items-center justify-center pb-1 text-[#64748b] transition-colors duration-200" aria-hidden="true">
                         <ShieldCheck size={19} />
                       </span>
-                      <div className="login-floating-field__input-wrap">
+                      <div className="login-floating-field__input-wrap relative flex min-w-0 flex-1 flex-col justify-end">
                         <input
                           id="reset-passcode"
                           name="passcode"
@@ -502,22 +556,23 @@ export default function Login() {
                           onChange={(event) => { setPasscode(event.target.value.replace(/\D/g, '').slice(0, 6)); setErrorMessage(''); }}
                           placeholder=" "
                           required
+                          className={loginInputClassName}
                         />
-                        <label htmlFor="reset-passcode" className="login-floating-label">
-                          Verification code <span className="login-required-star">*</span>
+                        <label htmlFor="reset-passcode" className={loginFloatingLabelClassName}>
+                          Verification code <span className="login-required-star ml-0.5 font-bold text-red-500">*</span>
                         </label>
                       </div>
                     </div>
-                    <div className="login-floating-field__line" />
+                    <div className="login-floating-field__line absolute bottom-0 left-0 right-0 h-[1.5px] overflow-hidden bg-[#e2e8f0] after:absolute after:inset-0 after:origin-center after:scale-x-0 after:bg-[#15803d] after:transition-transform after:duration-[250ms] after:[content:''] after:[transition-timing-function:cubic-bezier(0.2,0,0,1)]" />
                   </div>
 
                   {/* New Password */}
-                  <div className={`login-floating-field ${newPassword ? 'has-value' : ''} ${newPasswordFocused ? 'is-focused' : ''}`}>
-                    <div className="login-floating-field__row">
-                      <span className="login-floating-field__icon login-floating-field__icon--key" aria-hidden="true">
+                  <div className={`${loginFieldClassName} ${newPassword ? 'has-value' : ''} ${newPasswordFocused ? 'is-focused' : ''}`}>
+                    <div className="login-floating-field__row flex min-h-[50px] items-end gap-3 pb-2">
+                      <span className="login-floating-field__icon login-floating-field__icon--key flex shrink-0 items-center justify-center pb-1 text-[#64748b] transition-colors duration-200" aria-hidden="true">
                         <KeyRound size={19} />
                       </span>
-                      <div className="login-floating-field__input-wrap">
+                      <div className="login-floating-field__input-wrap relative flex min-w-0 flex-1 flex-col justify-end">
                         <input
                           id="reset-new-password"
                           name="newPassword"
@@ -530,22 +585,23 @@ export default function Login() {
                           onChange={(event) => { setNewPassword(event.target.value); setErrorMessage(''); }}
                           placeholder=" "
                           required
+                          className={loginInputClassName}
                         />
-                        <label htmlFor="reset-new-password" className="login-floating-label">
-                          New password <span className="login-required-star">*</span>
+                        <label htmlFor="reset-new-password" className={loginFloatingLabelClassName}>
+                          New password <span className="login-required-star ml-0.5 font-bold text-red-500">*</span>
                         </label>
                       </div>
                     </div>
-                    <div className="login-floating-field__line" />
+                    <div className="login-floating-field__line absolute bottom-0 left-0 right-0 h-[1.5px] overflow-hidden bg-[#e2e8f0] after:absolute after:inset-0 after:origin-center after:scale-x-0 after:bg-[#15803d] after:transition-transform after:duration-[250ms] after:[content:''] after:[transition-timing-function:cubic-bezier(0.2,0,0,1)]" />
                   </div>
 
                   {/* Confirm Password */}
-                  <div className={`login-floating-field ${confirmPassword ? 'has-value' : ''} ${confirmPasswordFocused ? 'is-focused' : ''}`}>
-                    <div className="login-floating-field__row">
-                      <span className="login-floating-field__icon login-floating-field__icon--key" aria-hidden="true">
+                  <div className={`${loginFieldClassName} ${confirmPassword ? 'has-value' : ''} ${confirmPasswordFocused ? 'is-focused' : ''}`}>
+                    <div className="login-floating-field__row flex min-h-[50px] items-end gap-3 pb-2">
+                      <span className="login-floating-field__icon login-floating-field__icon--key flex shrink-0 items-center justify-center pb-1 text-[#64748b] transition-colors duration-200" aria-hidden="true">
                         <Lock size={19} />
                       </span>
-                      <div className="login-floating-field__input-wrap">
+                      <div className="login-floating-field__input-wrap relative flex min-w-0 flex-1 flex-col justify-end">
                         <input
                           id="reset-confirm-password"
                           name="confirmPassword"
@@ -558,13 +614,14 @@ export default function Login() {
                           onChange={(event) => { setConfirmPassword(event.target.value); setErrorMessage(''); }}
                           placeholder=" "
                           required
+                          className={loginInputClassName}
                         />
-                        <label htmlFor="reset-confirm-password" className="login-floating-label">
-                          Confirm new password <span className="login-required-star">*</span>
+                        <label htmlFor="reset-confirm-password" className={loginFloatingLabelClassName}>
+                          Confirm new password <span className="login-required-star ml-0.5 font-bold text-red-500">*</span>
                         </label>
                       </div>
                     </div>
-                    <div className="login-floating-field__line" />
+                    <div className="login-floating-field__line absolute bottom-0 left-0 right-0 h-[1.5px] overflow-hidden bg-[#e2e8f0] after:absolute after:inset-0 after:origin-center after:scale-x-0 after:bg-[#15803d] after:transition-transform after:duration-[250ms] after:[content:''] after:[transition-timing-function:cubic-bezier(0.2,0,0,1)]" />
                   </div>
                 </motion.div>
               )}
@@ -572,7 +629,7 @@ export default function Login() {
 
             {!forgotPassword && loginAttemptStatus && retryCountdown === 0 && (
               <p
-                className={`login-attempts${loginAttemptStatus.remainingAttempts === 1 ? ' login-attempts--warning' : ''}`}
+                className={`login-attempts m-0 text-left text-[0.825rem] leading-[1.4] text-[#64748b]${loginAttemptStatus.remainingAttempts === 1 ? ' login-attempts--warning font-semibold text-[#ea580c]' : ''}`}
                 role="status"
                 aria-live="polite"
               >
@@ -585,7 +642,7 @@ export default function Login() {
             <AnimatePresence>
               {!forgotPassword && retryCountdown > 0 && (
                 <motion.div
-                  className="login-lockout"
+                  className="login-lockout flex flex-wrap items-baseline justify-center gap-[0.35rem] rounded-[10px] border border-[#fed7aa] bg-[#fff7ed] px-4 py-3 text-[0.85rem] leading-[1.4] text-[#9a3412] [&_strong]:font-bold [&_time]:[font-variant-numeric:tabular-nums] [&_time]:font-extrabold"
                   role="status"
                   aria-live="polite"
                   initial={{ opacity: 0, scale: 0.95 }}
@@ -604,7 +661,7 @@ export default function Login() {
             <AnimatePresence>
               {errorMessage && (
                 <motion.div
-                  className="login-error"
+                  className="login-error flex items-start gap-[0.65rem] rounded-[10px] border border-[#fecaca] bg-[#fef2f2] px-4 py-[0.85rem] text-[#991b1b] [&_svg]:mt-[0.1rem] [&_svg]:h-5 [&_svg]:w-5 [&_svg]:flex-[0_0_1.25rem] [&_strong]:block [&_strong]:text-[0.875rem] [&_strong]:font-semibold [&_strong]:leading-[1.35] [&_p]:mt-[0.2rem] [&_p]:mb-0 [&_p]:text-[0.8125rem] [&_p]:leading-[1.45] [&_p]:text-[#7f1d1d] [&_p]:[overflow-wrap:anywhere]"
                   role="alert"
                   aria-live="assertive"
                   initial={{ opacity: 0, y: -8, scale: 0.98 }}
@@ -617,7 +674,7 @@ export default function Login() {
                   exit={{ opacity: 0, y: -8, scale: 0.98 }}
                   transition={{ duration: 0.4, ease: 'easeOut' }}
                 >
-                  <AlertCircle size={20} className="login-error-icon" aria-hidden="true" />
+                  <AlertCircle size={20} className="login-error-icon mt-0.5 shrink-0" aria-hidden="true" />
                   <div>
                     <strong>{forgotPassword ? 'We couldn’t complete that request' : 'We couldn’t sign you in'}</strong>
                     <p id="login-error-message">{errorMessage}</p>
@@ -629,7 +686,7 @@ export default function Login() {
             <AnimatePresence>
               {statusMessage && (
                 <motion.p
-                  className="login-status"
+                  className="login-status m-0 rounded-[10px] border border-[#bbf7d0] bg-[#f0fdf4] px-4 py-3 text-[0.875rem] font-medium text-[#166534]"
                   role="status"
                   initial={{ opacity: 0, y: -4 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -641,10 +698,10 @@ export default function Login() {
               )}
             </AnimatePresence>
 
-            <div className="login-actions">
+            <div className="login-actions mt-2">
               <motion.button
                 type="submit"
-                className="login-button"
+                className="login-button !inline-flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-[10px] border-0 bg-[#16a34a] [background-image:linear-gradient(180deg,#16a34a_0%,#15803d_100%)] px-4 text-base font-semibold text-white shadow-[0_4px_14px_rgba(21,128,61,0.3)] transition-[all] duration-200 [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] hover:not-disabled:[background-image:linear-gradient(180deg,#15803d_0%,#166534_100%)] hover:not-disabled:shadow-[0_6px_20px_rgba(21,128,61,0.4)] hover:not-disabled:-translate-y-px active:not-disabled:translate-y-0 active:not-disabled:shadow-[0_2px_8px_rgba(21,128,61,0.25)] disabled:cursor-not-allowed disabled:opacity-[0.65] disabled:shadow-none disabled:transform-none"
                 whileHover={!loading ? { scale: 1.015, boxShadow: '0 8px 24px rgba(21, 128, 61, 0.35)' } : undefined}
                 whileTap={!loading ? { scale: 0.985 } : undefined}
                 transition={{ type: 'spring', stiffness: 400, damping: 25 }}
@@ -657,7 +714,7 @@ export default function Login() {
                 }
                 disabled={loading || (!forgotPassword && retryCountdown > 0)}
               >
-                {loading && <RotateCw size={17} className="login-button-spinner" aria-hidden="true" />}
+                {loading && <RotateCw size={17} className="login-button-spinner animate-spin shrink-0 [animation-duration:0.9s]" aria-hidden="true" />}
                 <span>
                   {loading
                     ? (forgotPassword ? 'Please wait…' : 'Signing in…')
@@ -670,14 +727,14 @@ export default function Login() {
 
             {forgotPassword && (
               <motion.div
-                className="login-reset-actions"
+                className="login-reset-actions mt-2 flex items-center justify-between gap-4"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.1 }}
               >
                 <button
                   type="button"
-                  className="login-forgot-link login-back-link"
+                  className="login-forgot-link login-back-link inline-flex items-center gap-[0.4rem] cursor-pointer border-0 bg-transparent p-0 text-[0.875rem] font-medium text-[#64748b] no-underline transition-colors duration-150 hover:text-[#15803d] hover:underline"
                   onClick={returnToSignIn}
                   disabled={loading}
                 >
@@ -687,7 +744,7 @@ export default function Login() {
                 {resetCodeSent && (
                   <button
                     type="button"
-                    className="login-forgot-link login-resend-link"
+                    className="login-forgot-link login-resend-link inline-flex items-center gap-[0.4rem] cursor-pointer border-0 bg-transparent p-0 text-[0.875rem] font-medium text-[#64748b] no-underline transition-colors duration-150 hover:text-[#15803d] hover:underline"
                     onClick={resendPasswordResetCode}
                     disabled={loading}
                   >

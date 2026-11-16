@@ -1,3 +1,11 @@
+:root {
+  --modal-backdrop: rgba(15, 23, 42, 0.48);
+  --modal-surface: var(--color-surface);
+  --modal-border: var(--color-border);
+  --modal-radius: var(--radius-lg);
+  --modal-shadow: var(--shadow-lg);
+}
+
 .view-content {
   container: view-content-layout / inline-size;
   min-width: 0;
@@ -374,37 +382,6 @@
 .view-content .table-card > .table-overflow {
   border: 0;
   border-radius: 0;
-}
-
-.view-content .summary-card {
-  border-color: var(--view-border-color);
-  background: var(--view-bg-white);
-  box-shadow: none;
-  gap: 0.2rem;
-}
-
-.view-content button.summary-card:hover,
-.view-content button.summary-card.is-selected {
-  border-color: var(--view-primary);
-  box-shadow: none;
-  transform: none;
-}
-
-.view-content .module-summary-cards {
-  gap: 0.65rem;
-  margin-bottom: 0.25rem;
-}
-
-.view-content .summary-card__label {
-  color: var(--view-text-muted);
-}
-
-.view-content .summary-card__value {
-  color: var(--view-text);
-}
-
-.view-content .summary-card__support {
-  color: var(--view-text-muted);
 }
 
 .view-content .data-table {

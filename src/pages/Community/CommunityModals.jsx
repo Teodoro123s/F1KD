@@ -1,4 +1,6 @@
+import { formFieldClasses, formLabelClasses } from '../../utils/formFieldClasses';
 import React, { useId, useRef } from 'react';
+import { getModalBackdropClasses, getModalSurfaceClasses, modalHeaderSectionClasses, communityDrawerHeaderClasses, communityModalFooterClasses, modalCloseClasses, modalBodyClasses, modalFooterClasses, confirmationSurfaceClasses, confirmationBodyClasses, confirmationFooterClasses, confirmationCloseClasses } from '../../components/ui/modalClasses';
 import { createPortal } from 'react-dom';
 import useModalAccessibility from '../../components/ui/useModalAccessibility';
 import usePresence from '../../components/ui/usePresence';
@@ -20,16 +22,16 @@ export function ConfirmActionModal({ show, title, message, confirmLabel = 'OK', 
   if (!show) return null;
 
   return createPortal((
-    <div className="modal-backdrop" role="presentation" onClick={(event) => { if (event.target === event.currentTarget) close(); }}>
-      <div ref={dialogRef} className="modal-content signout-confirm-modal confirmation-modal-content" role="alertdialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={messageId} tabIndex={-1} onClick={(event) => event.stopPropagation()}>
-        <div className="modal-header-section confirmation-modal-header">
+    <div className={`modal-backdrop ${getModalBackdropClasses()}`} role="presentation" onClick={(event) => { if (event.target === event.currentTarget) close(); }}>
+      <div ref={dialogRef} className={`modal-content signout-confirm-modal confirmation-modal-content ${getModalSurfaceClasses()} ${confirmationSurfaceClasses}`} role="alertdialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={messageId} tabIndex={-1} onClick={(event) => event.stopPropagation()}>
+        <div className={`modal-header-section confirmation-modal-header ${modalHeaderSectionClasses}`}>
           <h3 id={titleId}>{title}</h3>
-          <button type="button" className="btn-close-modal" onClick={onCancel} aria-label="Close confirmation" disabled={isSubmitting}>✕</button>
+          <button type="button" className={`btn-close-modal ${confirmationCloseClasses}`} onClick={onCancel} aria-label="Close confirmation" disabled={isSubmitting}>✕</button>
         </div>
-        <div className="modal-body confirmation-modal-body">
+        <div className={`modal-body confirmation-modal-body ${modalBodyClasses} ${confirmationBodyClasses}`}>
           <p id={messageId}>{message}</p>
         </div>
-        <div className="modal-footer confirmation-modal-footer">
+        <div className={`modal-footer confirmation-modal-footer ${modalFooterClasses} ${confirmationFooterClasses}`}>
           <button ref={cancelRef} type="button" className="btn-secondary confirmation-cancel-btn" onClick={close} disabled={isSubmitting}>Cancel</button>
           <button type="button" className="btn-primary confirmation-confirm-btn" onClick={onConfirm} disabled={isSubmitting}>
             {isSubmitting ? 'Working...' : confirmLabel}
@@ -68,13 +70,13 @@ function ModalShell({
 
   return createPortal((
     <div
-      className={`modal-backdrop${drawer ? ' community-edit-drawer-backdrop' : ''}${!open ? ' motion-exiting' : ''}`}
+      className={`modal-backdrop${drawer ? ' community-edit-drawer-backdrop' : ''}${!open ? ' motion-exiting' : ''} ${getModalBackdropClasses({ exiting: !open, drawer })}`}
       role="presentation"
       onMouseDown={(event) => { if (open && event.target === event.currentTarget) close(); }}
     >
       <div
         ref={dialogRef}
-        className={`modal-content community-modal-content${drawer ? ' community-edit-drawer' : ''}${!open ? ' motion-exiting' : ''}`}
+        className={`modal-content community-modal-content${drawer ? ' community-edit-drawer' : ''}${!open ? ' motion-exiting' : ''} ${getModalSurfaceClasses({ exiting: !open, drawer, variant: drawer ? 'communityDrawer' : 'community' })}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -82,16 +84,16 @@ function ModalShell({
         onMouseDown={(event) => event.stopPropagation()}
         inert={!open}
       >
-        <div className="modal-header-section community-modal-header-section">
+        <div className={`modal-header-section community-modal-header-section ${drawer ? communityDrawerHeaderClasses : modalHeaderSectionClasses}`}>
           <h3 id={titleId}>{title}</h3>
-          <button ref={closeButtonRef} type="button" className="btn-close-modal" onClick={close} aria-label={`Close ${title}`} disabled={isSubmitting || !open}>✕</button>
+          <button ref={closeButtonRef} type="button" className={`btn-close-modal ${modalCloseClasses}`} onClick={close} aria-label={`Close ${title}`} disabled={isSubmitting || !open}>✕</button>
         </div>
         <form onSubmit={onSubmit}>
-          <div className="modal-body">
+          <div className={`modal-body ${modalBodyClasses}`}>
             {notification && <div className="notification-banner" role="alert">{notification}</div>}
             {children}
           </div>
-          <div className="modal-footer">
+          <div className={`modal-footer ${drawer ? communityModalFooterClasses : modalFooterClasses}`}>
             <button type="button" className="btn-secondary" onClick={close} disabled={isSubmitting || !open}>Cancel</button>
             <button type="submit" className={submitLabel === 'Create' ? 'btn-create-action' : 'btn-primary'} disabled={isSubmitting || submitDisabled || !open}>
               {isSubmitting ? `${submitLabel}...` : submitLabel}
@@ -112,11 +114,11 @@ export function CreateCommunityModal({ showModal, onClose, communityForm, setCom
   return (
     <ModalShell title="Create School" onClose={onClose} onSubmit={handleCreateCommunity} submitLabel="Create" isSubmitting={isSubmitting} notification={notification}>
       <div className="form-group">
-        <label className="form-label" htmlFor="comm-name">School Name <span className="form-required-indicator" aria-hidden="true">*</span></label>
+        <label className={`${formLabelClasses} form-label`} htmlFor="comm-name">School Name <span className="form-required-indicator" aria-hidden="true">*</span></label>
         <input
           id="comm-name"
           type="text"
-          className="form-input"
+          className={`${formFieldClasses} form-input`}
           placeholder="e.g. San Isidro High School"
           value={communityForm.name}
           onChange={(e) => setCommunityForm({ ...communityForm, name: formatCommunityNameInput(e.target.value) })}
@@ -129,10 +131,10 @@ export function CreateCommunityModal({ showModal, onClose, communityForm, setCom
         />
       </div>
       <div className="form-group">
-        <label className="form-label" htmlFor="comm-coordinator">Assigned Community Coordinator (optional)</label>
+        <label className={`${formLabelClasses} form-label`} htmlFor="comm-coordinator">Assigned Community Coordinator (optional)</label>
         <select
           id="comm-coordinator"
-          className="form-select"
+          className={`${formFieldClasses} form-select`}
           value={communityForm.coordinator}
           onChange={(e) => setCommunityForm({ ...communityForm, coordinator: e.target.value })}
         >
@@ -156,11 +158,11 @@ export function EditCommunityModal({ showModal, onClose, communityForm, setCommu
   return (
     <ModalShell open={showModal} drawer title="Edit School" onClose={onClose} onSubmit={handleEditCommunity} submitLabel="Save Changes" isSubmitting={isSubmitting} notification={notification}>
       <div className="form-group">
-        <label className="form-label" htmlFor="edit-comm-name">School Name <span className="form-required-indicator" aria-hidden="true">*</span></label>
+        <label className={`${formLabelClasses} form-label`} htmlFor="edit-comm-name">School Name <span className="form-required-indicator" aria-hidden="true">*</span></label>
         <input
           id="edit-comm-name"
           type="text"
-          className="form-input"
+          className={`${formFieldClasses} form-input`}
           value={communityForm.name}
           onChange={(e) => setCommunityForm({ ...communityForm, name: formatCommunityNameInput(e.target.value) })}
           maxLength={150}
@@ -172,10 +174,10 @@ export function EditCommunityModal({ showModal, onClose, communityForm, setCommu
         />
       </div>
       <div className="form-group">
-        <label className="form-label" htmlFor="edit-comm-coordinator">Assigned Community Coordinator (optional)</label>
+        <label className={`${formLabelClasses} form-label`} htmlFor="edit-comm-coordinator">Assigned Community Coordinator (optional)</label>
         <select
           id="edit-comm-coordinator"
-          className="form-select"
+          className={`${formFieldClasses} form-select`}
           value={communityForm.coordinator || ''}
           onChange={(e) => setCommunityForm({ ...communityForm, coordinator: e.target.value })}
         >
@@ -196,11 +198,11 @@ export function CreateBatchModal({ showModal, onClose, batchForm, setBatchForm, 
   return (
     <ModalShell title="Create Batch" onClose={onClose} onSubmit={handleCreateBatch} submitLabel="Create" isSubmitting={isSubmitting}>
       <div className="form-group">
-        <label className="form-label" htmlFor="batch-name">Batch Name</label>
+        <label className={`${formLabelClasses} form-label`} htmlFor="batch-name">Batch Name</label>
         <input
           id="batch-name"
           type="text"
-          className="form-input"
+          className={`${formFieldClasses} form-input`}
           placeholder="e.g. Batch 1"
           value={batchForm.name}
           onChange={(e) => setBatchForm({ ...batchForm, name: formatCommunityNameInput(e.target.value) })}
@@ -210,10 +212,10 @@ export function CreateBatchModal({ showModal, onClose, batchForm, setBatchForm, 
       </div>
       {!hideSchoolField && (
         <div className="form-group">
-          <label className="form-label" htmlFor="batch-comm">School</label>
+          <label className={`${formLabelClasses} form-label`} htmlFor="batch-comm">School</label>
           <select
             id="batch-comm"
-            className="form-select"
+            className={`${formFieldClasses} form-select`}
             value={batchForm.community}
             onChange={(e) => setBatchForm({ ...batchForm, community: e.target.value, groupId: '' })}
           >
@@ -225,10 +227,10 @@ export function CreateBatchModal({ showModal, onClose, batchForm, setBatchForm, 
       )}
       {showGroupField && (
         <div className="form-group">
-          <label className="form-label" htmlFor="batch-group">Group</label>
+          <label className={`${formLabelClasses} form-label`} htmlFor="batch-group">Group</label>
           <select
             id="batch-group"
-            className="form-select"
+            className={`${formFieldClasses} form-select`}
             value={batchForm.groupId || ''}
             onChange={(event) => setBatchForm({ ...batchForm, groupId: event.target.value })}
             required
@@ -247,11 +249,11 @@ export function EditBatchModal({ showModal, onClose, batchForm, setBatchForm, ha
   return (
     <ModalShell open={showModal} drawer title="Edit Batch" onClose={onClose} onSubmit={handleEditBatch} submitLabel="Save Changes" isSubmitting={isSubmitting}>
       <div className="form-group">
-        <label className="form-label" htmlFor="edit-batch-name">Batch Name</label>
+        <label className={`${formLabelClasses} form-label`} htmlFor="edit-batch-name">Batch Name</label>
         <input
           id="edit-batch-name"
           type="text"
-          className="form-input"
+          className={`${formFieldClasses} form-input`}
           value={batchForm.name}
           onChange={(e) => setBatchForm({ ...batchForm, name: formatCommunityNameInput(e.target.value) })}
           required
@@ -260,10 +262,10 @@ export function EditBatchModal({ showModal, onClose, batchForm, setBatchForm, ha
       </div>
       {showGroupField && (
         <div className="form-group">
-          <label className="form-label" htmlFor="edit-batch-group">Group</label>
+          <label className={`${formLabelClasses} form-label`} htmlFor="edit-batch-group">Group</label>
           <select
             id="edit-batch-group"
-            className="form-select"
+            className={`${formFieldClasses} form-select`}
             value={batchForm.groupId || ''}
             onChange={(e) => setBatchForm({ ...batchForm, groupId: e.target.value })}
           >
@@ -285,11 +287,11 @@ export function CreateGroupModal({ showModal, onClose, groupForm, setGroupForm, 
   return (
     <ModalShell title="Create Group" onClose={onClose} onSubmit={handleCreateGroup} submitLabel="Create" isSubmitting={isSubmitting}>
       <div className="form-group">
-        <label className="form-label" htmlFor="group-name">Group Name</label>
+        <label className={`${formLabelClasses} form-label`} htmlFor="group-name">Group Name</label>
         <input
           id="group-name"
           type="text"
-          className="form-input"
+          className={`${formFieldClasses} form-input`}
           placeholder="e.g. Group Alpha"
           value={groupForm.name}
           onChange={(e) => setGroupForm({ ...groupForm, name: formatCommunityNameInput(e.target.value) })}
@@ -299,10 +301,10 @@ export function CreateGroupModal({ showModal, onClose, groupForm, setGroupForm, 
       </div>
       {!hideSchoolField && (
         <div className="form-group">
-          <label className="form-label" htmlFor="group-school">School</label>
+          <label className={`${formLabelClasses} form-label`} htmlFor="group-school">School</label>
           <select
             id="group-school"
-            className="form-select"
+            className={`${formFieldClasses} form-select`}
             value={groupForm.community}
             onChange={(e) => setGroupForm({ ...groupForm, community: e.target.value, assignedBatchIds: [] })}
             required
@@ -323,11 +325,11 @@ export function EditGroupModal({ showModal, onClose, groupForm, setGroupForm, ha
   return (
     <ModalShell open={showModal} drawer title="Edit Group" onClose={onClose} onSubmit={handleEditGroup} submitLabel="Save Changes" isSubmitting={isSubmitting}>
       <div className="form-group">
-        <label className="form-label" htmlFor="edit-group-name">Group Name</label>
+        <label className={`${formLabelClasses} form-label`} htmlFor="edit-group-name">Group Name</label>
         <input
           id="edit-group-name"
           type="text"
-          className="form-input"
+          className={`${formFieldClasses} form-input`}
           value={groupForm.name}
           onChange={(e) => setGroupForm({ ...groupForm, name: formatCommunityNameInput(e.target.value) })}
           required
@@ -335,10 +337,10 @@ export function EditGroupModal({ showModal, onClose, groupForm, setGroupForm, ha
         />
       </div>
       {!hideSchoolField && <div className="form-group">
-        <label className="form-label" htmlFor="edit-group-school">School</label>
+        <label className={`${formLabelClasses} form-label`} htmlFor="edit-group-school">School</label>
         <select
           id="edit-group-school"
-          className="form-select"
+          className={`${formFieldClasses} form-select`}
           value={groupForm.community}
           onChange={(e) => setGroupForm({ ...groupForm, community: e.target.value, assignedBatchIds: [] })}
           required
@@ -387,12 +389,12 @@ export function TransferMotherModal({
         Any children linked to this mother will be transferred with her.
       </p>
       <div className="form-group">
-        <label className="form-label" htmlFor="transfer-mother-batch">
+        <label className={`${formLabelClasses} form-label`} htmlFor="transfer-mother-batch">
           Destination batch <span className="form-required-indicator" aria-hidden="true">*</span>
         </label>
         <select
           id="transfer-mother-batch"
-          className="form-select"
+          className={`${formFieldClasses} form-select`}
           value={batchId}
           onChange={(event) => setBatchId(event.target.value)}
           required

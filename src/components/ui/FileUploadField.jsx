@@ -1,4 +1,6 @@
+import { formLabelClasses } from '../../utils/formFieldClasses';
 import React, { useEffect, useRef, useState } from 'react';
+import { getModalBackdropClasses, getModalSurfaceClasses, modalHeaderClasses, modalCloseClasses } from './modalClasses';
 import useModalAccessibility from './useModalAccessibility';
 
 const formatFileSize = (size) => {
@@ -50,7 +52,7 @@ export default function FileUploadField({
   return (
     <>
       <div className="document-upload-field">
-        <label className="form-label" htmlFor={id}>{label}</label>
+        <label className={`${formLabelClasses} form-label`} htmlFor={id}>{label}</label>
         <input
           ref={inputRef}
           id={id}
@@ -99,7 +101,7 @@ export default function FileUploadField({
       </div>
       {previewOpen && file && (
         <div
-          className="document-preview-modal-backdrop"
+          className={`document-preview-modal-backdrop ${getModalBackdropClasses()}`}
           role="presentation"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) setPreviewOpen(false);
@@ -107,16 +109,16 @@ export default function FileUploadField({
         >
           <div
             ref={dialogRef}
-            className="document-preview-modal file-upload-preview-modal"
+            className={`document-preview-modal file-upload-preview-modal ${getModalSurfaceClasses()}`}
             role="dialog"
             aria-modal="true"
             aria-label={`Preview ${file.name}`}
             tabIndex={-1}
             onMouseDown={(event) => event.stopPropagation()}
           >
-            <div className="document-preview-modal-header">
+            <div className={`document-preview-modal-header ${modalHeaderClasses}`}>
               <strong>{file.name}</strong>
-              <button ref={closeButtonRef} type="button" className="btn-secondary document-preview-close" onClick={() => setPreviewOpen(false)}>
+              <button ref={closeButtonRef} type="button" className={`btn-secondary document-preview-close ${modalCloseClasses}`} onClick={() => setPreviewOpen(false)}>
                 Close
               </button>
             </div>

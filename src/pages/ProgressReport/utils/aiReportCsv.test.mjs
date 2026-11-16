@@ -61,6 +61,44 @@ test('custom monitor CSV includes scope columns, beneficiary identity, requested
   assert.match(result.csv, /"Batch","Child Name","Mother Name"/);
   assert.match(result.csv, /"2025-02-01","Normal"/);
   assert.match(result.csv, /"2025-03-01","Underweight"/);
+  assert.deepEqual(result.insightContext.monthly, [
+    { month: '2025-02', count: 1 },
+    { month: '2025-03', count: 1 },
+  ]);
+  assert.deepEqual(result.insightContext.categorical, [
+    { fieldId: 'gender', counts: [{ value: 'Female', count: 2 }] },
+  ]);
+  assert.doesNotMatch(JSON.stringify(result.insightContext), /Sample Child|Sample Mother|2025-01-01/);
+});
+
+test('report insight context contains safe aggregates rather than beneficiary-level values', () => {
+  const result = buildAiReportCsv({
+    rows: [
+      { child: 'Sample Child', age: 2, gender: 'Female', developmentalStatus: 'Normal' },
+      { child: 'Another Child', age: 4, gender: 'Male', developmentalStatus: 'At Risk' },
+      { child: 'Third Child', age: 6, gender: 'Female', developmentalStatus: 'Normal' },
+    ],
+    proposal: {
+      reportCategory: 'profile',
+      beneficiaryType: 'child',
+      metricIds: ['age', 'developmentalStatus'],
+    },
+    selection: { schoolId: '1', groupId: '', batchId: '' },
+    fieldLabels: labels,
+  });
+
+  assert.deepEqual(result.insightContext, {
+    reportCategory: 'profile',
+    beneficiaryType: 'child',
+    rowCount: 3,
+    categorical: [
+      { fieldId: 'gender', counts: [{ value: 'Female', count: 2 }, { value: 'Male', count: 1 }] },
+      { fieldId: 'developmentalStatus', counts: [{ value: 'Normal', count: 2 }, { value: 'At Risk', count: 1 }] },
+    ],
+    numeric: [{ fieldId: 'age', count: 3, min: 2, max: 6, average: 4 }],
+    monthly: [],
+  });
+  assert.doesNotMatch(JSON.stringify(result.insightContext), /Sample Child|Another Child|Third Child/);
 });
 
 test('age at check-up is derived in completed months from birth and visit dates', () => {

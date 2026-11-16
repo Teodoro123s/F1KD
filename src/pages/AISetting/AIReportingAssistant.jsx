@@ -5,7 +5,11 @@ import { apiGetPrograms } from '../../api/programs';
 import { apiGetActivityReport, apiGetReportScopes } from '../../api/reports';
 import { apiGetNotifications, apiRecordReportDownload } from '../../api/notifications';
 import { apiGetUsers } from '../../api/users';
-import { apiCreateDashboardInsight, apiCreateProgressReportAiProposal } from '../../api/progressReport';
+import {
+  apiCreateDashboardInsight,
+  apiCreateProgressReportAiProposal,
+  apiCreateReportInsight,
+} from '../../api/progressReport';
 import { getRollingDateRange } from '../../utils/analytics/dailyTimeSeries';
 import { notifyAction } from '../../components/ActionFeedback';
 import { buildOperationalStaffMetrics } from '../Dashboard/dashboardModuleMetrics.mjs';
@@ -24,6 +28,79 @@ const MODEL_REPORT_LABELS = {
 };
 const FIELD_LABELS = new Map(REPORT_FIELDS.map(([id, label]) => [id, label]));
 const getList = (result, key) => Array.isArray(result?.[key]) ? result[key] : Array.isArray(result) ? result : [];
+const INSIGHT_FIELD_LABELS = {
+  gender: 'Sex',
+  developmentalStatus: 'Developmental screening',
+  hospitalReferral: 'Hospital referral',
+  exclusiveBreastfeeding: 'Exclusive breastfeeding',
+  age: 'Age',
+  ageAtCheckupMonths: 'Age at check-up (months)',
+  assistanceAmount: 'Assistance amount',
+  bmi: 'BMI',
+  fetalHeartRate: 'Fetal heart rate',
+  fundalHeight: 'Fundal height',
+  height: 'Height',
+  initialHeight: 'Initial height',
+  initialWeight: 'Initial weight',
+  weight: 'Weight',
+};
+
+function AiReportVisualSummary({ context }) {
+  if (!context) return null;
+  const hasSummary = context.categorical.length || context.numeric.length || context.monthly.length;
+  if (!hasSummary) return null;
+
+  return (
+    <section className="ai-report-insights" aria-label="Visual report insights">
+      <h4>Visual summary</h4>
+      {context.categorical.map(({ fieldId, counts }) => {
+        const maximum = Math.max(...counts.map(({ count }) => count), 1);
+        const total = counts.reduce((sum, item) => sum + item.count, 0);
+        return (
+          <div className="ai-report-insight-group" key={fieldId}>
+            <strong>{INSIGHT_FIELD_LABELS[fieldId] || FIELD_LABELS.get(fieldId) || fieldId}</strong>
+            {counts.map(({ value, count }) => (
+              <div className="ai-report-insight-row" key={value}>
+                <span>{value}</span>
+                <div className="ai-report-insight-bar" role="img" aria-label={`${count} of ${total} records: ${value}`}>
+                  <span style={{ width: `${(count / maximum) * 100}%` }} />
+                </div>
+                <b>{count}</b>
+              </div>
+            ))}
+          </div>
+        );
+      })}
+      {context.monthly.length > 0 && (
+        <div className="ai-report-insight-group">
+          <strong>Check-ups by month</strong>
+          {context.monthly.map(({ month, count }) => {
+            const maximum = Math.max(...context.monthly.map((item) => item.count), 1);
+            return (
+              <div className="ai-report-insight-row" key={month}>
+                <span>{month}</span>
+                <div className="ai-report-insight-bar" role="img" aria-label={`${count} check-ups in ${month}`}>
+                  <span style={{ width: `${(count / maximum) * 100}%` }} />
+                </div>
+                <b>{count}</b>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {context.numeric.length > 0 && (
+        <dl className="ai-report-insight-numeric">
+          {context.numeric.map(({ fieldId, count, min, max, average }) => (
+            <div key={fieldId}>
+              <dt>{INSIGHT_FIELD_LABELS[fieldId] || FIELD_LABELS.get(fieldId) || fieldId}</dt>
+              <dd>{average} average · {min}–{max} range · {count} records</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+    </section>
+  );
+}
 
 async function fetchAllUsers() {
   const firstPage = await apiGetUsers(1, 100);
@@ -146,6 +223,8 @@ export default function AIReportingAssistant({ configured }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const messageIdRef = useRef(0);
+  const [followUpDraft, setFollowUpDraft] = useState('');
+  const [conversationHistory, setConversationHistory] = useState([]);
 
   useEffect(() => {
     if (!configured) {
@@ -265,6 +344,8 @@ export default function AIReportingAssistant({ configured }) {
       const completedReport = { ...csvReport, proposal: nextProposal, summary: result.summary || {} };
       setReport(completedReport);
       setProposal(nextProposal);
+      setConversationHistory([]);
+      setFollowUpDraft('');
       setClarificationMessageId(null);
       setProjectMessageId(null);
       const reportId = appendMessage({
@@ -294,20 +375,28 @@ export default function AIReportingAssistant({ configured }) {
     setLoading(true);
     setProposal(null);
     setReport(null);
+    setFollowUpDraft('');
     setClarificationMessageId(null);
     setProjectMessageId(null);
     setReportMessageId(null);
     setPrompt(requestText);
     try {
       if (isSuperAdmin) {
-        const result = await apiCreateDashboardInsight(superAdminSnapshot.metrics, requestText);
+        const result = await apiCreateDashboardInsight(superAdminSnapshot.metrics, requestText, conversationHistory);
+        const insight = result?.insight || 'No insight was returned for the available module data.';
+        setConversationHistory((current) => [
+          ...current,
+          { role: 'user', content: requestText },
+          { role: 'assistant', content: insight },
+        ].slice(-8));
         appendMessage({
           role: 'assistant',
           kind: 'text',
-          content: result?.insight || 'No insight was returned for the available module data.',
+          content: insight,
         });
         return;
       }
+      setConversationHistory([]);
       const nextProposal = await apiCreateProgressReportAiProposal(requestText);
       if (nextProposal.needsClarification) {
         setProposal(nextProposal);
@@ -363,6 +452,42 @@ export default function AIReportingAssistant({ configured }) {
     submitPrompt(request, reply);
   };
 
+  const handleReportFollowUp = async (event) => {
+    event.preventDefault();
+    const question = followUpDraft.trim();
+    if (!report?.insightContext || question.length < 3) return;
+    if (detectPotentialPii(question)) {
+      appendMessage({
+        role: 'assistant',
+        kind: 'warning',
+        content: 'This question may contain a name, contact detail, or identifying number. Remove personal details and try again.',
+      });
+      return;
+    }
+
+    appendMessage({ role: 'user', kind: 'text', content: question });
+    setFollowUpDraft('');
+    setLoading(true);
+    try {
+      const result = await apiCreateReportInsight(report.insightContext, question, conversationHistory);
+      const answer = result?.insight || 'I could not find an answer in the report summary.';
+      setConversationHistory((current) => [
+        ...current,
+        { role: 'user', content: question },
+        { role: 'assistant', content: answer },
+      ].slice(-8));
+      appendMessage({ role: 'assistant', kind: 'text', content: answer });
+    } catch (followUpError) {
+      appendMessage({
+        role: 'assistant',
+        kind: 'warning',
+        content: followUpError.message || 'Unable to answer a question about this report.',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const exportCsv = (reportToExport = report) => {
     if (!reportToExport) return;
     downloadAiReportCsv(reportToExport.csv, reportToExport.filename);
@@ -412,7 +537,7 @@ export default function AIReportingAssistant({ configured }) {
       <p className="ai-assistant-intro">
         {isSuperAdmin
           ? 'The provider receives your question and aggregate counts from available Superadmin modules only. Do not include names, contact details, or identifying numbers.'
-          : 'The provider receives your request for interpretation only. Authorized records are loaded separately through F1KD reporting services. Do not include names, contact details, or identifying numbers.'}
+          : 'The provider receives your request and safe aggregate summaries from the current report for follow-up answers. Individual authorized records remain in F1KD. Do not include names, contact details, or identifying numbers.'}
       </p>
       {loadingOptions ? (
         <p role="status">{isSuperAdmin ? 'Loading available module data…' : 'Loading available reporting modules…'}</p>
@@ -480,6 +605,7 @@ export default function AIReportingAssistant({ configured }) {
                       </div>
                       <button type="button" className="primary-btn" onClick={() => exportCsv(report)}>Export CSV</button>
                     </div>
+                    <AiReportVisualSummary context={report.insightContext} />
                     <div className="ai-report-table-wrap" role="region" aria-label="Scrollable table" tabIndex={0}>
                       <table>
                         <thead><tr>{report.fields.map((field) => <th scope="col" key={field}>{FIELD_LABELS.get(field) || field}</th>)}</tr></thead>
@@ -493,6 +619,24 @@ export default function AIReportingAssistant({ configured }) {
                       </table>
                       {!report.previewRows.length && <p>No records match the selected report and authorized scope.</p>}
                     </div>
+                    <form className="ai-report-follow-up" onSubmit={handleReportFollowUp}>
+                      <label htmlFor="ai-report-follow-up">Ask a follow-up about this report</label>
+                      <textarea
+                        id="ai-report-follow-up"
+                        value={followUpDraft}
+                        onChange={(event) => setFollowUpDraft(event.target.value)}
+                        maxLength={500}
+                        rows={2}
+                        placeholder="For example: Which screening result appears most often?"
+                        required
+                      />
+                      <div className="ai-settings-actions">
+                        <span>{followUpDraft.length}/500</span>
+                        <button type="submit" className="primary-btn" disabled={loading || followUpDraft.trim().length < 3}>
+                          {loading ? 'Answering…' : 'Ask about report'}
+                        </button>
+                      </div>
+                    </form>
                     <p className="ai-settings-note">Preview shows up to 20 rows; the CSV export includes all matching authorized rows.</p>
                   </div>
                 )}
@@ -501,7 +645,7 @@ export default function AIReportingAssistant({ configured }) {
             {loading && (
               <article className="ai-chat-message ai-chat-message--assistant" role="status">
                 <strong>AI Assistant</strong>
-                <p className="ai-chat-loading"><span aria-hidden="true" /> Preparing your report…</p>
+                <p className="ai-chat-loading"><span aria-hidden="true" />{isSuperAdmin ? 'Generating insight…' : report ? 'Answering your report question…' : 'Preparing your report…'}</p>
               </article>
             )}
           </div>

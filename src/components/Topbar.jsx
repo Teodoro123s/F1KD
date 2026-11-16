@@ -56,6 +56,26 @@ import ConfirmDialog from './ui/ConfirmDialog';
 import HelpCenter from './HelpCenter';
 import AIReportingAssistantEntry from '../pages/AISetting/AIReportingAssistantEntry';
 
+const topbarStyles = {
+  topbar: 'relative z-[var(--z-navigation)] mt-[0.85rem] mx-[0.85rem] flex h-14 shrink-0 items-center justify-between rounded-2xl border border-[rgba(226,232,240,0.85)] bg-[rgba(255,255,255,0.9)] px-5 py-0 shadow-[0_4px_20px_rgba(15,23,42,0.03)] backdrop-blur-[12px] max-[640px]:mx-2 max-[640px]:mt-2 max-[640px]:px-[0.85rem]',
+  left: 'flex min-w-0 flex-[1_1_auto] items-center gap-3 overflow-hidden',
+  mobileMenu: 'hidden shrink-0 cursor-pointer rounded-lg border-0 bg-transparent p-[0.4rem] text-slate-600 transition-all duration-150 ease-out hover:bg-[rgba(15,23,42,0.05)] hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-green-700 focus-visible:outline-offset-2 max-[768px]:flex max-[768px]:items-center max-[768px]:justify-center',
+  actions: 'flex flex-[0_0_auto] items-center gap-[0.65rem]',
+  assistant: 'inline-flex min-h-9 cursor-pointer items-center justify-center gap-[0.4rem] whitespace-nowrap rounded-[10px] border border-green-200 bg-green-50 px-[0.7rem] text-[0.8rem] font-bold text-green-800 transition-[background-color,border-color] duration-150 hover:border-green-300 hover:bg-green-100 focus-visible:outline-2 focus-visible:outline-green-700 focus-visible:outline-offset-2 max-[640px]:size-9 max-[640px]:min-w-9 max-[640px]:p-0 max-[640px]:[&>span]:hidden',
+  breadcrumbs: 'flex min-w-0 flex-[1_1_auto] items-center gap-[0.6rem] overflow-hidden whitespace-nowrap text-[0.85rem] font-semibold text-slate-500 max-[640px]:max-w-[calc(100vw-8rem)] max-[640px]:gap-[0.35rem] max-[640px]:text-xs',
+  breadcrumbText: 'overflow-hidden text-ellipsis',
+  breadcrumbLink: 'overflow-hidden text-ellipsis text-slate-500 no-underline transition-colors duration-150 hover:text-green-700 focus-visible:text-green-700',
+  breadcrumbCurrent: 'overflow-hidden text-ellipsis font-bold text-slate-900',
+  breadcrumbSeparator: 'shrink-0 text-xs text-slate-300',
+  iconButton: 'cursor-pointer rounded-[10px] border-0 bg-transparent p-2 text-[18px] text-slate-600 transition-all duration-150 ease-out hover:bg-[rgba(15,23,42,0.05)] hover:text-slate-900',
+  notificationButton: 'relative inline-flex size-[38px] items-center justify-center',
+  notificationBadge: 'absolute top-px right-px inline-flex h-[17px] min-w-[17px] items-center justify-center rounded-full border-2 border-white bg-red-600 px-1 text-[0.62rem] leading-none font-bold text-white',
+  userProfile: 'relative',
+  userButton: 'inline-flex min-w-0 cursor-pointer items-center justify-center rounded-full border-0 bg-transparent p-0.5 transition-[transform,opacity] duration-150 hover:scale-[1.05] hover:opacity-[0.95] focus-visible:outline-2 focus-visible:outline-green-700 focus-visible:outline-offset-2',
+  avatar: 'inline-flex size-[34px] items-center justify-center rounded-full bg-[linear-gradient(135deg,#15803d_0%,#22c55e_100%)] text-sm font-bold text-white shadow-[0_2px_6px_rgba(21,128,61,0.2)]',
+  userDropdown: 'max-[640px]:max-w-[calc(100vw-1.5rem)]',
+};
+
 export default function Topbar({ onOpenMobile }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -194,12 +214,12 @@ export default function Topbar({ onOpenMobile }) {
   };
 
   return (
-    <header className="topbar">
-      <div className="topbar-left">
+    <header className={topbarStyles.topbar}>
+      <div className={topbarStyles.left}>
         {onOpenMobile && (
           <button
             type="button"
-            className="topbar-mobile-menu-btn"
+            className={topbarStyles.mobileMenu}
             onClick={onOpenMobile}
             aria-label="Open navigation menu"
             title="Open menu"
@@ -207,31 +227,31 @@ export default function Topbar({ onOpenMobile }) {
             <Menu size={20} aria-hidden="true" />
           </button>
         )}
-        <nav className="topbar-breadcrumbs" aria-label="Breadcrumb">
+        <nav className={topbarStyles.breadcrumbs} aria-label="Breadcrumb">
         {breadcrumbs.map((item, index) => {
           const isCurrent = index === breadcrumbs.length - 1;
           return (
             <React.Fragment key={`${item.label}-${index}`}>
-              {index > 0 && <span className="topbar-breadcrumb-separator" aria-hidden="true">/</span>}
+              {index > 0 && <span className={topbarStyles.breadcrumbSeparator} aria-hidden="true">/</span>}
               {item.to && !isCurrent
-                ? <Link to={item.to} className="topbar-breadcrumb-link">{item.label}</Link>
-                : <span className="topbar-breadcrumb-current" aria-current={isCurrent ? 'page' : undefined}>{item.label}</span>}
+                ? <Link to={item.to} className={topbarStyles.breadcrumbLink}>{item.label}</Link>
+                : <span className={topbarStyles.breadcrumbCurrent} aria-current={isCurrent ? 'page' : undefined}>{item.label}</span>}
             </React.Fragment>
           );
         })}
       </nav>
       </div>
-      <div className="topbar-actions">
+      <div className={topbarStyles.actions}>
         <HelpCenter currentUser={current} />
         <AIReportingAssistantEntry
-          buttonClassName="topbar-ai-assistant-btn"
+          buttonClassName={topbarStyles.assistant}
           label="AI Assistant"
           icon={Sparkles}
         />
         <span className="action-wrapper">
           <button
             ref={notifRef}
-            className={`icon-button notification-button ${openNotif ? 'is-active' : ''}`}
+            className={`${topbarStyles.iconButton} ${topbarStyles.notificationButton}`}
             aria-label={`Notifications${notificationCount ? `, ${notificationCount} available` : ''}`}
             aria-haspopup="menu"
             aria-expanded={openNotif}
@@ -240,7 +260,7 @@ export default function Topbar({ onOpenMobile }) {
           >
             <Bell size={19} aria-hidden="true" />
             {notificationCount > 0 && (
-              <span className="notification-badge" aria-hidden="true">
+              <span className={topbarStyles.notificationBadge} aria-hidden="true">
                 {notificationCount > 99 ? '99+' : notificationCount}
               </span>
             )}
@@ -380,10 +400,10 @@ export default function Topbar({ onOpenMobile }) {
           </FloatingLayer>
         </span>
 
-        <span className="action-wrapper user-profile">
+        <span className={`action-wrapper ${topbarStyles.userProfile}`}>
           <button
             ref={userRef}
-            className="user-button"
+            className={topbarStyles.userButton}
             aria-label={`Account menu for ${user ? user.name : 'Account'}`}
             aria-haspopup="menu"
             aria-expanded={openUser}
@@ -391,13 +411,13 @@ export default function Topbar({ onOpenMobile }) {
             title={user ? user.name : 'Account'}
             disabled={signingOut}
           >
-            <span className="avatar">{getInitials(user ? user.name : 'Account')}</span>
+            <span className={topbarStyles.avatar}>{getInitials(user ? user.name : 'Account')}</span>
           </button>
           <FloatingLayer
             open={openUser}
             anchorRef={userRef}
             onDismiss={() => setOpenUser(false)}
-            className="dropdown user-dropdown"
+            className={`dropdown user-dropdown ${topbarStyles.userDropdown}`}
             role="menu"
             aria-label="User menu"
             aria-busy={signingOut}

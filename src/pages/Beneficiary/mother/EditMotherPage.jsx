@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { getModalBackdropClasses, getModalSurfaceClasses, modalHeaderSectionClasses, modalCloseClasses, modalBodyClasses, modalFooterClasses, confirmationSurfaceClasses } from '../../../components/ui/modalClasses';
 import { createPortal } from 'react-dom';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { MotherFormFields } from './BeneficiaryMother';
@@ -377,7 +378,7 @@ export default function EditMotherPage() {
               <StepNavigationStatus direction={navigationDirection} error={navigationError} />
               {error && <p className="edit-mother-drawer__error" role="alert">{error}</p>}
               <div className="create-form-body mother-detail-shared-form">
-                <div className="modal-body-scrollable">
+                <div className={`modal-body-scrollable ${modalBodyClasses}`}>
                   <MotherFormFields
                     activeTab={activeTab}
                     form={form}
@@ -409,18 +410,18 @@ export default function EditMotherPage() {
             </footer>
 
             {showSaveConfirm && (
-              <div className="modal-backdrop" role="presentation" onMouseDown={(event) => {
+              <div className={`modal-backdrop ${getModalBackdropClasses()}`} role="presentation" onMouseDown={(event) => {
                 if (event.target === event.currentTarget && !saving) setShowSaveConfirm(false);
               }}>
-                <div className="modal-content signout-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="save-confirm-title" onMouseDown={(event) => event.stopPropagation()}>
-                  <div className="modal-header-section">
+                <div className={`modal-content signout-confirm-modal ${getModalSurfaceClasses()} ${confirmationSurfaceClasses}`} role="dialog" aria-modal="true" aria-labelledby="save-confirm-title" onMouseDown={(event) => event.stopPropagation()}>
+                  <div className={`modal-header-section ${modalHeaderSectionClasses}`}>
                     <h3 id="save-confirm-title">Save changes?</h3>
-                    <button type="button" className="btn-close-modal" onClick={() => setShowSaveConfirm(false)} aria-label="Close save confirmation" disabled={saving}>✕</button>
+                    <button type="button" className={`btn-close-modal ${modalCloseClasses}`} onClick={() => setShowSaveConfirm(false)} aria-label="Close save confirmation" disabled={saving}>✕</button>
                   </div>
-                  <div className="modal-body">
+                  <div className={`modal-body ${modalBodyClasses}`}>
                     <p>Are you sure you want to save the updated mother profile?</p>
                   </div>
-                  <div className="modal-footer">
+                  <div className={`modal-footer ${modalFooterClasses}`}>
                     <button type="button" className="btn-secondary" onClick={() => setShowSaveConfirm(false)} disabled={saving}>Cancel</button>
                     <button type="button" className="btn-primary" onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
                   </div>

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
+import { motion } from 'framer-motion';
 import {
   User as UserIcon,
   Settings,
@@ -59,6 +60,71 @@ function ArchiveIcon() {
     </svg>
   );
 }
+
+const sidebarStyles = {
+  sidebar: 'relative z-[30] box-border flex h-[calc(100vh-1.7rem)] max-h-[calc(100vh-1.7rem)] w-[260px] flex-[0_0_260px] flex-col rounded-[24px] border border-[#eef2f6] bg-white my-[0.85rem] ml-[0.85rem] shadow-[0_10px_30px_rgba(15,23,42,0.04),0_2px_6px_rgba(15,23,42,0.02)] transition-[width,flex-basis] duration-[260ms] ease-[cubic-bezier(0.2,0,0,1)] max-[768px]:fixed max-[768px]:inset-y-0 max-[768px]:left-0 max-[768px]:z-[100] max-[768px]:my-0 max-[768px]:ml-0 max-[768px]:h-screen max-[768px]:max-h-screen max-[768px]:w-[280px] max-[768px]:basis-[280px] max-[768px]:rounded-r-[20px] max-[768px]:-translate-x-[110%] max-[768px]:shadow-none max-[768px]:transition-[transform,box-shadow]',
+  collapsed: 'w-[76px] basis-[76px]',
+  mobileOpen: 'max-[768px]:translate-x-0 max-[768px]:shadow-[0_20px_40px_rgba(15,23,42,0.25)]',
+  edgeToggle: 'absolute -right-[13px] top-[22px] z-[40] flex size-[26px] items-center justify-center rounded-full border border-slate-200 bg-white p-0 text-slate-500 shadow-[0_2px_8px_rgba(15,23,42,0.08)] transition-all duration-150 ease-out hover:scale-[1.08] hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-green-700 focus-visible:outline-offset-2 max-[768px]:hidden',
+  topSection: 'flex shrink-0 flex-col gap-[0.85rem] px-4 pt-5 pb-2',
+  topSectionCollapsed: 'items-center px-[0.6rem]',
+  brandRow: 'flex min-h-[38px] items-center gap-3',
+  brandRowCollapsed: 'justify-center',
+  logoMark: 'flex size-[38px] shrink-0 items-center justify-center',
+  logo: 'size-8 object-contain',
+  brandInfo: 'flex min-w-0 flex-col overflow-hidden',
+  brandTitle: 'text-[1.1rem] font-extrabold leading-[1.2] tracking-[-0.02em] text-slate-900',
+  brandSubtitle: 'text-[0.725rem] font-semibold tracking-[-0.01em] text-slate-400',
+  searchWrap: 'w-full',
+  searchBox: 'relative box-border flex h-[38px] w-full items-center rounded-xl border border-[#eef2f6] bg-[#fafbfc] py-0 pr-2 pl-[2.1rem] transition-all duration-150 ease-out focus-within:border-green-700 focus-within:bg-white focus-within:shadow-[0_0_0_3px_rgba(21,128,61,0.1)]',
+  searchLens: 'pointer-events-none absolute left-3 text-slate-400',
+  searchInput: 'w-full !border-0 !bg-transparent !p-0 !shadow-none !outline-none text-[0.85rem] text-slate-900 placeholder:text-slate-400',
+  searchKbd: 'inline-flex shrink-0 select-none items-center gap-0.5 rounded-md border border-slate-200 bg-white px-[5px] py-0.5 text-[0.68rem] font-semibold text-slate-500',
+  searchClear: 'cursor-pointer border-0 bg-transparent px-1 text-[1.1rem] leading-none text-slate-400 hover:text-slate-900',
+  searchIcon: 'mx-auto flex size-[42px] items-center justify-center rounded-xl border border-[#eef2f6] bg-[#fafbfc] text-slate-500 transition-all duration-150 ease-out hover:border-slate-300 hover:bg-white hover:text-slate-900',
+  navScroll: 'flex-1 overflow-x-hidden overflow-y-auto px-3 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+  navScrollCollapsed: 'px-[0.4rem]',
+  navList: 'flex w-full flex-col gap-1',
+  itemGroup: 'relative w-full',
+  link: 'box-border flex w-full cursor-pointer select-none items-center gap-3 rounded-xl px-3 py-[0.6rem] text-sm font-medium text-slate-600 no-underline transition-all duration-150 ease-out',
+  linkHover: 'hover:bg-slate-50 hover:text-slate-900',
+  linkActive: 'bg-[#f1fdf4] font-semibold text-green-700',
+  linkCollapsed: 'justify-center rounded-xl px-0 py-[0.65rem]',
+  iconWrap: 'flex size-6 shrink-0 items-center justify-center text-inherit [&_svg]:size-[19px]',
+  linkLabel: 'flex-1 overflow-hidden text-ellipsis whitespace-nowrap',
+  emptySearch: 'px-3 py-6 text-center text-[0.8125rem] text-slate-400',
+  footer: 'relative shrink-0 border-t border-slate-100 px-[0.85rem] py-3',
+  footerCollapsed: 'flex justify-center px-[0.4rem]',
+  userCard: 'flex w-full items-center gap-3 rounded-[14px] border border-[#edf2f7] bg-[#fafbfc] px-[0.65rem] py-2 text-left transition-all duration-150 ease-out',
+  userCardHover: 'hover:border-slate-300 hover:bg-slate-50',
+  userCardCollapsed: 'w-auto border-0 bg-transparent p-1',
+  userCardActive: 'border-green-700 shadow-[0_0_0_2px_rgba(21,128,61,0.12)] hover:border-green-700 hover:bg-slate-50',
+  userAvatar: 'flex size-9 shrink-0 items-center justify-center rounded-full bg-[linear-gradient(135deg,#15803d_0%,#22c55e_100%)] text-sm font-bold text-white shadow-[0_2px_6px_rgba(21,128,61,0.2)]',
+  userDetails: 'flex min-w-0 flex-1 flex-col overflow-hidden',
+  userName: 'overflow-hidden text-ellipsis whitespace-nowrap text-sm font-bold leading-[1.25] text-slate-900',
+  userRole: 'overflow-hidden text-ellipsis whitespace-nowrap text-[0.6875rem] font-semibold uppercase tracking-[0.04em] text-slate-500',
+  userChevron: 'shrink-0 text-slate-400 transition-transform duration-200',
+  userChevronOpen: 'rotate-180',
+  userPopover: 'absolute bottom-[calc(100%+8px)] left-[0.85rem] right-[0.85rem] z-[70] flex flex-col gap-0.5 rounded-[18px] border border-[#eef2f6] bg-white p-2 shadow-[0_16px_40px_rgba(15,23,42,0.14),0_2px_8px_rgba(15,23,42,0.04)]',
+  userPopoverCollapsed: 'bottom-3 left-[calc(100%+10px)] right-auto min-w-[230px]',
+  userPopoverHeader: 'flex flex-col gap-1 px-[0.65rem] pt-2 pb-[0.65rem]',
+  popoverUserName: 'overflow-hidden text-ellipsis whitespace-nowrap text-[0.88rem] font-bold tracking-[-0.01em] text-slate-900',
+  popoverEmail: 'flex items-center gap-1.5 overflow-hidden text-ellipsis whitespace-nowrap text-[0.73rem] text-slate-500 [&_svg]:shrink-0 [&_svg]:text-slate-400 [&_span]:overflow-hidden [&_span]:text-ellipsis',
+  roleBadge: 'mt-[0.15rem] inline-flex self-start items-center gap-[0.3rem] rounded-full border border-[#a7f3d0] bg-[#ecfdf5] px-2 py-[0.15rem] text-[0.68rem] font-bold tracking-[0.03em] text-green-700 [&_svg]:text-green-600',
+  popoverDivider: 'my-1 h-px bg-slate-100',
+  popoverItem: 'flex w-full cursor-pointer items-center gap-[0.65rem] rounded-[10px] border-0 bg-transparent px-[0.65rem] py-[0.55rem] text-left text-[0.825rem] font-medium text-slate-700 transition-all duration-150',
+  popoverItemHover: 'hover:bg-slate-50 hover:text-slate-900',
+  popoverItemIcon: 'shrink-0 text-slate-500 transition-colors duration-150 group-hover:text-green-700',
+  popoverItemLabel: 'flex-1',
+  popoverChevron: 'shrink-0 text-slate-300 transition-[transform,color] duration-150 group-hover:translate-x-0.5 group-hover:text-green-700',
+  signoutItem: 'text-red-600 hover:bg-red-50 hover:text-red-700',
+  signoutItemIcon: 'shrink-0 text-red-500 transition-colors duration-150 group-hover/signout:text-red-600',
+  mobileClose: 'ml-auto hidden cursor-pointer rounded-lg border-0 bg-transparent p-[0.35rem] text-slate-500 transition-all duration-150 hover:bg-slate-100 hover:text-slate-900 max-[768px]:flex max-[768px]:items-center max-[768px]:justify-center',
+  tooltip: 'fixed z-[99999] inline-flex -translate-y-1/2 pointer-events-none items-center gap-2 rounded-[9px] bg-slate-900 px-[0.8rem] py-[0.45rem] text-[0.78rem] font-semibold tracking-[0.01em] text-white shadow-[0_10px_25px_-3px_rgba(15,23,42,0.28),0_4px_6px_-4px_rgba(15,23,42,0.1)]',
+  tooltipIndicator: 'absolute left-[-4px] top-1/2 size-2 -translate-y-1/2 rotate-45 rounded-[1px] bg-slate-900',
+  tooltipDot: 'size-1.5 shrink-0 rounded-full bg-green-500 shadow-[0_0_0_2px_rgba(34,197,94,0.25)]',
+  tooltipText: 'leading-none',
+};
 
 export default function Sidebar({ mobileOpen = false, onCloseMobile }) {
   const navigate = useNavigate();
@@ -190,13 +256,13 @@ export default function Sidebar({ mobileOpen = false, onCloseMobile }) {
 
   return (
     <aside
-      className={`sidebar ${isEffectivelyCollapsed ? 'collapsed' : ''} ${mobileOpen ? 'mobile-open' : ''}`}
+      className={`${sidebarStyles.sidebar} ${isEffectivelyCollapsed ? sidebarStyles.collapsed : ''} ${mobileOpen ? sidebarStyles.mobileOpen : ''}`}
       aria-label="Main Navigation"
     >
       {/* Edge toggle button (< / >) - hidden on mobile screens */}
       <button
         type="button"
-        className="sidebar-edge-toggle"
+        className={sidebarStyles.edgeToggle}
         onClick={() => setCollapsed((c) => !c)}
         aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         title={collapsed ? 'Expand sidebar (Ctrl+K)' : 'Collapse sidebar'}
@@ -209,22 +275,22 @@ export default function Sidebar({ mobileOpen = false, onCloseMobile }) {
       </button>
 
       {/* Top Section: Brand + Close (X) on mobile + Search */}
-      <div className="sidebar-top-section">
-        <div className="sidebar-brand-row">
-          <div className="sidebar-logo-mark">
-            <img src={logo} alt="MCHMS" className="sidebar-logo" />
+      <div className={`${sidebarStyles.topSection} ${isEffectivelyCollapsed ? sidebarStyles.topSectionCollapsed : ''}`}>
+        <div className={`${sidebarStyles.brandRow} ${isEffectivelyCollapsed ? sidebarStyles.brandRowCollapsed : ''}`}>
+          <div className={sidebarStyles.logoMark}>
+            <img src={logo} alt="MCHMS" className={sidebarStyles.logo} />
           </div>
           {!isEffectivelyCollapsed && (
-            <div className="sidebar-brand-info">
-              <span className="sidebar-brand-title">MCHMS</span>
-              <span className="sidebar-brand-subtitle">Health System</span>
+            <div className={sidebarStyles.brandInfo}>
+              <span className={sidebarStyles.brandTitle}>MCHMS</span>
+              <span className={sidebarStyles.brandSubtitle}>Health System</span>
             </div>
           )}
           {/* Mobile Close Button (X) */}
           {onCloseMobile && (
             <button
               type="button"
-              className="sidebar-mobile-close-btn"
+              className={sidebarStyles.mobileClose}
               onClick={onCloseMobile}
               aria-label="Close navigation sidebar"
               title="Close sidebar"
@@ -235,11 +301,11 @@ export default function Sidebar({ mobileOpen = false, onCloseMobile }) {
         </div>
 
         {/* Search Bar / Icon */}
-        <div className="sidebar-search-wrap">
+        <div className={sidebarStyles.searchWrap}>
           {isEffectivelyCollapsed ? (
             <button
               type="button"
-              className="sidebar-search-icon-btn"
+              className={sidebarStyles.searchIcon}
               onClick={() => {
                 setCollapsed(false);
                 setTimeout(() => searchInputRef.current?.focus(), 80);
@@ -253,8 +319,8 @@ export default function Sidebar({ mobileOpen = false, onCloseMobile }) {
               <Search size={16} strokeWidth={2} aria-hidden="true" />
             </button>
           ) : (
-            <div className="sidebar-search-box">
-              <Search size={15} strokeWidth={2} className="sidebar-search-lens" aria-hidden="true" />
+            <div className={sidebarStyles.searchBox}>
+              <Search size={15} strokeWidth={2} className={sidebarStyles.searchLens} aria-hidden="true" />
               <input
                 ref={searchInputRef}
                 type="text"
@@ -262,19 +328,19 @@ export default function Sidebar({ mobileOpen = false, onCloseMobile }) {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search"
                 aria-label="Search navigation"
-                className="sidebar-search-input"
+                className={sidebarStyles.searchInput}
               />
               {searchQuery ? (
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="sidebar-search-clear"
+                  className={sidebarStyles.searchClear}
                   aria-label="Clear search"
                 >
                   ×
                 </button>
               ) : (
-                <span className="sidebar-search-kbd" title="Shortcut: Ctrl+K / Cmd+S">
+                <span className={sidebarStyles.searchKbd} title="Shortcut: Ctrl+K / Cmd+S">
                   <span className="kbd-symbol">⌘</span> S
                 </span>
               )}
@@ -284,12 +350,12 @@ export default function Sidebar({ mobileOpen = false, onCloseMobile }) {
       </div>
 
       {/* Single Unified Navigation List in One Continuous Line */}
-      <nav className="sidebar-nav-scroll">
-        <div className="sidebar-nav-list">
+      <nav className={`${sidebarStyles.navScroll} ${isEffectivelyCollapsed ? sidebarStyles.navScrollCollapsed : ''}`}>
+        <div className={sidebarStyles.navList}>
           {filteredNavItems.map((item) => (
             <div
               key={item.to}
-              className="sidebar-item-group"
+              className={sidebarStyles.itemGroup}
               onMouseEnter={(e) => showTooltip(e, item.label)}
               onMouseLeave={hideTooltip}
             >
@@ -299,20 +365,20 @@ export default function Sidebar({ mobileOpen = false, onCloseMobile }) {
                 onClick={handleLinkClick}
                 onFocus={(e) => showTooltip(e, item.label)}
                 onBlur={hideTooltip}
-                className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
+                className={({ isActive }) => `${sidebarStyles.link} ${isActive ? sidebarStyles.linkActive : sidebarStyles.linkHover} ${isEffectivelyCollapsed ? sidebarStyles.linkCollapsed : ''}`}
                 data-label={item.label}
                 aria-label={isEffectivelyCollapsed ? item.label : undefined}
               >
-                <span className="sidebar-icon-wrap" aria-hidden="true">
+                <span className={sidebarStyles.iconWrap} aria-hidden="true">
                   <item.icon />
                 </span>
-                {!isEffectivelyCollapsed && <span className="sidebar-link-label">{item.label}</span>}
+                {!isEffectivelyCollapsed && <span className={sidebarStyles.linkLabel}>{item.label}</span>}
               </NavLink>
             </div>
           ))}
 
           {filteredNavItems.length === 0 && (
-            <div className="sidebar-empty-search">
+            <div className={sidebarStyles.emptySearch}>
               No matching pages
             </div>
           )}
@@ -320,10 +386,10 @@ export default function Sidebar({ mobileOpen = false, onCloseMobile }) {
       </nav>
 
       {/* Bottom User Profile Card */}
-      <div className="sidebar-footer" ref={userMenuRef}>
+      <div className={`${sidebarStyles.footer} ${isEffectivelyCollapsed ? sidebarStyles.footerCollapsed : ''}`} ref={userMenuRef}>
         <button
           type="button"
-          className={`sidebar-user-card ${userMenuOpen ? 'is-active' : ''}`}
+          className={`${sidebarStyles.userCard} ${isEffectivelyCollapsed ? sidebarStyles.userCardCollapsed : (userMenuOpen ? sidebarStyles.userCardActive : sidebarStyles.userCardHover)}`}
           onClick={() => setUserMenuOpen((open) => !open)}
           onMouseEnter={(e) => isEffectivelyCollapsed && showTooltip(e, currentUser?.name || 'User Account')}
           onMouseLeave={hideTooltip}
@@ -333,18 +399,18 @@ export default function Sidebar({ mobileOpen = false, onCloseMobile }) {
           aria-haspopup="menu"
           title={!isEffectivelyCollapsed ? (currentUser?.name || 'User Account') : undefined}
         >
-          <div className="sidebar-user-avatar">
+          <div className={sidebarStyles.userAvatar}>
             {getInitials(currentUser?.name || 'User')}
           </div>
           {!isEffectivelyCollapsed && (
             <>
-              <div className="sidebar-user-details">
-                <span className="sidebar-user-name">{currentUser?.name || 'User Account'}</span>
-                <span className="sidebar-user-role">{formatRoleName(currentUser?.role)}</span>
+              <div className={sidebarStyles.userDetails}>
+                <span className={sidebarStyles.userName}>{currentUser?.name || 'User Account'}</span>
+                <span className={sidebarStyles.userRole}>{formatRoleName(currentUser?.role)}</span>
               </div>
               <ChevronDown
                 size={15}
-                className={`sidebar-user-chevron ${userMenuOpen ? 'open' : ''}`}
+                className={`${sidebarStyles.userChevron} ${userMenuOpen ? sidebarStyles.userChevronOpen : ''}`}
                 aria-hidden="true"
               />
             </>
@@ -353,52 +419,58 @@ export default function Sidebar({ mobileOpen = false, onCloseMobile }) {
 
         {/* User Account Popover */}
         {userMenuOpen && (
-          <div className={`sidebar-user-popover ${isEffectivelyCollapsed ? 'is-collapsed' : ''}`} role="menu">
-            <div className="sidebar-user-popover-header">
-              <span className="sidebar-popover-user-name">{currentUser?.name || 'Account'}</span>
+          <motion.div
+            className={`${sidebarStyles.userPopover} ${isEffectivelyCollapsed ? sidebarStyles.userPopoverCollapsed : ''}`}
+            role="menu"
+            initial={{ opacity: 0, x: -4 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <div className={sidebarStyles.userPopoverHeader}>
+              <span className={sidebarStyles.popoverUserName}>{currentUser?.name || 'Account'}</span>
               {currentUser?.email && (
-                <span className="sidebar-popover-user-email">
+                <span className={sidebarStyles.popoverEmail}>
                   <Mail size={12} aria-hidden="true" />
                   <span>{currentUser.email}</span>
                 </span>
               )}
-              <span className="sidebar-popover-role-badge">
+              <span className={sidebarStyles.roleBadge}>
                 <Shield size={11} aria-hidden="true" />
                 <span>{formatRoleName(currentUser?.role)}</span>
               </span>
             </div>
-            <div className="sidebar-user-popover-divider" />
+            <div className={sidebarStyles.popoverDivider} />
             <button
               type="button"
-              className="sidebar-user-popover-item"
+              className={`${sidebarStyles.popoverItem} ${sidebarStyles.popoverItemHover} group`}
               onClick={() => { setUserMenuOpen(false); navigate('/profile'); handleLinkClick(); }}
               role="menuitem"
             >
-              <UserIcon size={16} className="sidebar-popover-item-icon" aria-hidden="true" />
-              <span className="sidebar-popover-item-label">Profile</span>
-              <ChevronRight size={13} className="sidebar-popover-chevron" aria-hidden="true" />
+              <UserIcon size={16} className={sidebarStyles.popoverItemIcon} aria-hidden="true" />
+              <span className={sidebarStyles.popoverItemLabel}>Profile</span>
+              <ChevronRight size={13} className={sidebarStyles.popoverChevron} aria-hidden="true" />
             </button>
             <button
               type="button"
-              className="sidebar-user-popover-item"
+              className={`${sidebarStyles.popoverItem} ${sidebarStyles.popoverItemHover} group`}
               onClick={() => { setUserMenuOpen(false); navigate('/settings'); handleLinkClick(); }}
               role="menuitem"
             >
-              <Settings size={16} className="sidebar-popover-item-icon" aria-hidden="true" />
-              <span className="sidebar-popover-item-label">Settings</span>
-              <ChevronRight size={13} className="sidebar-popover-chevron" aria-hidden="true" />
+              <Settings size={16} className={sidebarStyles.popoverItemIcon} aria-hidden="true" />
+              <span className={sidebarStyles.popoverItemLabel}>Settings</span>
+              <ChevronRight size={13} className={sidebarStyles.popoverChevron} aria-hidden="true" />
             </button>
-            <div className="sidebar-user-popover-divider" />
+            <div className={sidebarStyles.popoverDivider} />
             <button
               type="button"
-              className="sidebar-user-popover-item is-signout"
+              className={`${sidebarStyles.popoverItem} ${sidebarStyles.signoutItem} group/signout`}
               onClick={() => { setUserMenuOpen(false); setShowSignOutModal(true); }}
               role="menuitem"
             >
-              <LogOut size={16} className="sidebar-popover-item-icon" aria-hidden="true" />
-              <span className="sidebar-popover-item-label">Sign out</span>
+              <LogOut size={16} className={`${sidebarStyles.popoverItemIcon} ${sidebarStyles.signoutItemIcon}`} aria-hidden="true" />
+              <span className={sidebarStyles.popoverItemLabel}>Sign out</span>
             </button>
-          </div>
+          </motion.div>
         )}
       </div>
 
@@ -416,18 +488,21 @@ export default function Sidebar({ mobileOpen = false, onCloseMobile }) {
 
       {/* Floating Tooltip Indicator rendered into body to escape all container overflow */}
       {isEffectivelyCollapsed && hoveredFlyout && typeof document !== 'undefined' && createPortal(
-        <div
-          className="sidebar-floating-tooltip"
+        <motion.div
+          className={sidebarStyles.tooltip}
           style={{
             top: `${hoveredFlyout.top}px`,
             left: `${hoveredFlyout.left}px`,
           }}
           role="tooltip"
+          initial={{ opacity: 0, x: -4, scale: 0.96 }}
+          animate={{ opacity: 1, x: 0, scale: 1 }}
+          transition={{ duration: 0.14, ease: [0.16, 1, 0.3, 1] }}
         >
-          <div className="sidebar-tooltip-indicator" aria-hidden="true" />
-          <span className="sidebar-tooltip-dot" aria-hidden="true" />
-          <span className="sidebar-tooltip-text">{hoveredFlyout.label}</span>
-        </div>,
+          <div className={sidebarStyles.tooltipIndicator} aria-hidden="true" />
+          <span className={sidebarStyles.tooltipDot} aria-hidden="true" />
+          <span className={sidebarStyles.tooltipText}>{hoveredFlyout.label}</span>
+        </motion.div>,
         document.body
       )}
     </aside>

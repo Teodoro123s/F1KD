@@ -1,3 +1,4 @@
+import { formFieldClasses, formLabelClasses, fieldValidationClasses } from '../../../utils/formFieldClasses';
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigationLock } from '../../../utils/navigation/useNavigationLock';
 import { useStepNavigation } from '../../../utils/navigation/useStepNavigation';
@@ -482,10 +483,10 @@ export default function CreateChildPage({
       <section className="create-child-mother-panel" aria-label="Mother association">
         {!motherFromState ? (
           <div className="form-group">
-            <label className="form-label" htmlFor="child-mother-select">Mother <span className="form-required-indicator" aria-hidden="true">*</span></label>
+            <label className={`${formLabelClasses} form-label`} htmlFor="child-mother-select">Mother <span className="form-required-indicator" aria-hidden="true">*</span></label>
           <select
             id="child-mother-select"
-            className={`form-select${showRequiredValidation && !selectedMotherId ? ' invalid' : ''}`}
+            className={`${formFieldClasses} form-select${showRequiredValidation && !selectedMotherId ? ' invalid' : ''}`}
             value={selectedMotherId}
             onChange={(event) => setSelectedMotherId(event.target.value)}
             required
@@ -504,15 +505,15 @@ export default function CreateChildPage({
               No eligible mothers yet. Complete all check-ups expected from the registration trimester (9/9 for first, 6/6 for second, or 3/3 for third trimester).
             </small>
           )}
-          {showRequiredValidation && !selectedMotherIdValue && <small id="child-mother-error" className="field-validation-error" role="alert">Select a mother before creating the child.</small>}
+          {showRequiredValidation && !selectedMotherIdValue && <small id="child-mother-error" className={`field-validation-error ${fieldValidationClasses}`} role="alert">Select a mother before creating the child.</small>}
           </div>
         ) : (
           <div className="create-child-selected-mother">
-            <span className="form-label">Mother</span>
+            <span className={`${formLabelClasses} form-label`}>Mother</span>
             <strong>{selectedMother?.name || `${selectedMother?.firstName || ''} ${selectedMother?.lastName || ''}`.trim() || 'Selected mother'}</strong>
             <span>{selectedMother?.community || selectedMother?.area || ''}</span>
             {!selectedMotherEligible && (
-              <small className="field-validation-error" role="alert">
+              <small className={`field-validation-error ${fieldValidationClasses}`} role="alert">
                 This mother is not eligible for child registration yet. Complete all check-ups expected from the registration trimester (9/9 for first, 6/6 for second, or 3/3 for third trimester).
               </small>
             )}

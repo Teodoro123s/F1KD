@@ -7,6 +7,12 @@
   --field-radius: var(--radius-md);
 }
 
+.form-input,
+.form-select,
+textarea.form-input {
+  font: inherit;
+}
+
 form :where(input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='hidden']), select, textarea) {
   box-sizing: border-box;
   min-width: 0;
@@ -23,258 +29,23 @@ form :where(input:not([type='checkbox']):not([type='radio']):not([type='file']):
   font: inherit;
 }
 
-.form-row-2,
-.form-row-3,
-.form-row-4,
-.form-row-5 {
-  min-width: 0;
-  align-items: start;
-}
-
-.form-row-2 > *,
-.form-row-3 > *,
-.form-row-4 > *,
-.form-row-5 > * {
-  min-width: 0;
-}
-
-.form-row-2 .form-group,
-.form-row-3 .form-group,
-.form-row-4 .form-group,
-.form-row-5 .form-group {
-  min-width: 0;
-}
-
-.form-row-2 .form-group > .form-label,
-.form-row-3 .form-group > .form-label,
-.form-row-4 .form-group > .form-label,
-.form-row-5 .form-group > .form-label {
-  min-height: 2.7em;
-  line-height: 1.35;
-}
-
-.form-row-2 .form-group > :where(input, select, textarea, .date-input-container),
-.form-row-3 .form-group > :where(input, select, textarea, .date-input-container),
-.form-row-4 .form-group > :where(input, select, textarea, .date-input-container),
-.form-row-5 .form-group > :where(input, select, textarea, .date-input-container) {
-  width: 100%;
-  min-width: 0;
-}
-
-@media (max-width: 980px) {
-  .form-row-3,
-  .form-row-4,
-  .form-row-5,
-  .view-content .form-row-3,
-  .view-content .form-row-4,
-  .view-content .form-row-5 {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 640px) {
-  .form-row-2,
-  .form-row-3,
-  .form-row-4,
-  .form-row-5,
-  .view-content .form-row-2,
-  .view-content .form-row-3,
-  .view-content .form-row-4,
-  .view-content .form-row-5 {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-.form-input,
-.form-select,
-textarea.form-input,
-.checkup-field-input,
-.checkup-search-label input,
-.monitoring-search input,
-.monitoring-status-filter select,
-.beneficiary-status-filter select,
-.child-monitor-navigation select,
-.monitoring-screening-filter select,
-.archive-records-controls :where(input, select) {
-  box-sizing: border-box;
+.checkup-field-input {
   min-height: var(--field-height);
-  border: 1px solid var(--field-border);
-  border-radius: var(--field-radius);
   background: #fff;
   color: var(--slate-dark);
   font: inherit;
-  line-height: 1.35;
-  transition: border-color var(--transition-fast), background-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
-.search-container,
-.beneficiary-page .entity-filter-btn {
-  transition: border-color var(--transition-fast), background-color var(--transition-fast), box-shadow var(--transition-fast);
-}
-
-.form-input,
-.form-select,
-textarea.form-input,
-.checkup-field-input,
-.checkup-search-label input,
-.monitoring-search input {
-  padding: 0.65rem 0.85rem;
-}
-
-.form-input::placeholder,
-.form-select::placeholder,
-textarea.form-input::placeholder,
-.checkup-field-input::placeholder,
-.checkup-search-label input::placeholder,
-.monitoring-search input::placeholder {
-  color: var(--field-placeholder);
-  opacity: 1;
-}
-
-.form-input:hover,
-.form-select:hover,
-textarea.form-input:hover,
-.checkup-field-input:hover,
-.checkup-search-label input:hover,
-.monitoring-search input:hover,
-.monitoring-status-filter select:hover,
-.beneficiary-status-filter select:hover,
-.child-monitor-navigation select:hover,
-.monitoring-screening-filter select:hover,
-.beneficiary-page .entity-filter-btn:hover,
-.archive-records-controls :where(input, select):hover,
-.search-container:hover {
-  border-color: var(--color-border-strong);
-}
-
-.form-input:focus,
-.form-select:focus,
-textarea.form-input:focus,
-.checkup-field-input:focus,
-.checkup-search-label input:focus,
-.monitoring-search input:focus,
-.monitoring-status-filter select:focus,
-.beneficiary-status-filter select:focus,
-.child-monitor-navigation select:focus,
-.monitoring-screening-filter select:focus,
-.beneficiary-page .entity-filter-btn:focus {
-  outline: none;
-  border-color: var(--field-border-focus);
-  box-shadow: 0 0 0 3px var(--field-focus-ring);
-}
-
-.search-container:focus-within {
-  border-color: var(--field-border-focus);
-  outline: 3px solid var(--field-focus-ring);
-  outline-offset: 2px;
-}
-
-.view-content .search-input-field:focus-visible {
-  outline: none;
-}
-
-.form-input:disabled,
-.form-select:disabled,
-textarea.form-input:disabled,
-.checkup-field-input:disabled,
-.checkup-search-label input:disabled,
-.monitoring-search input:disabled,
-.monitoring-status-filter select:disabled,
-.beneficiary-status-filter select:disabled,
-.child-monitor-navigation select:disabled,
-.monitoring-screening-filter select:disabled,
-.beneficiary-page .entity-filter-btn:disabled,
 .checkup-field-input[readonly] {
   background: #f8fafc;
   color: #64748b;
   cursor: not-allowed;
 }
 
-.form-input[readonly],
-textarea.form-input[readonly],
 .checkup-field-input[readonly] {
   background: var(--color-surface-soft);
   color: var(--color-text-muted);
   cursor: default;
-}
-
-.form-input.invalid,
-.form-select.invalid,
-.checkup-field-input.invalid,
-.form-input[aria-invalid='true'],
-.form-select[aria-invalid='true'],
-.checkup-field-input[aria-invalid='true'] {
-  border-color: var(--color-error);
-  background: var(--color-error-bg);
-  box-shadow: 0 0 0 3px rgba(180, 35, 24, 0.08);
-}
-
-.form-input[aria-invalid='true']:focus,
-.form-select[aria-invalid='true']:focus,
-.form-input[aria-invalid='true']:focus-visible,
-.form-select[aria-invalid='true']:focus-visible {
-  border-color: var(--color-error);
-  outline: 3px solid rgba(180, 35, 24, 0.18);
-  outline-offset: 2px;
-  box-shadow: 0 0 0 3px rgba(180, 35, 24, 0.12);
-}
-
-.form-error,
-.field-validation-error,
-[aria-invalid='true'] + .field-validation-error {
-  color: var(--color-error);
-}
-
-.form-label,
-.checkup-field-label,
-.checkup-search-label,
-.monitoring-search {
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  line-height: 1.25;
-}
-
-.checkup-field-label.is-required::after {
-  color: #b42318;
-  content: ' *';
-}
-
-.checkup-grid {
-  gap: 1rem;
-}
-
-.checkup-card-body {
-  padding: 1.5rem;
-}
-
-.checkup-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.65rem;
-  margin-top: 1.25rem;
-  padding-top: 1rem;
-  border-top: 1px solid #e8edf3;
-}
-
-.checkup-save-message,
-.checkup-save-message-error,
-.form-error {
-  border-radius: 12px;
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
-}
-
-.checkup-save-message {
-  border-color: var(--toast-success-border);
-  background: var(--toast-success-bg);
-  color: var(--toast-success-text);
-}
-
-.checkup-save-message-error {
-  border-color: var(--toast-error-border);
-  background: var(--toast-error-bg);
-  color: var(--toast-error-text);
 }
 
 /* Keep legacy and newer field markup visually aligned across all pages. */
@@ -287,249 +58,38 @@ textarea.form-input[readonly],
   font-size: var(--font-size-md);
 }
 
-.view-content .mother-checkup-form .checkup-field-label {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  line-height: 1.25;
-}
-
 .view-content .mother-checkup-form .checkup-field-input {
   line-height: 1.35;
 }
 
 /* Keep the view-layer check-up and profile forms compact on desktop and mobile. */
-.view-content .checkup-card-body {
-  padding: 1.25rem 1.5rem;
-}
-
-.view-content .checkup-section-title {
-  margin-bottom: 0.85rem;
-  font-size: 1.35rem;
-  line-height: 1.25;
-}
-
-.view-content .checkup-grid {
-  gap: 0.85rem 1rem;
-}
-
 .view-content .form-group {
   gap: 0.4rem;
 }
 
-.view-content .checkup-field-label {
-  font-size: 0.84rem;
-  line-height: 1.25;
-}
-
 .view-content .checkup-field-input {
   min-height: var(--field-height);
-  padding: 0.65rem 0.85rem;
-  border-radius: var(--field-radius);
   background: #fff;
   color: var(--slate-dark);
   font-size: 0.95rem;
-}
-
-.view-content .mother-checkup-form .checkup-section-title {
-  margin: 0.8rem 0 0.55rem;
-  font-size: 1.05rem;
-  line-height: 1.25;
-}
-
-.view-content .mother-checkup-form .horizontal-toggle-row {
-  min-height: 44px;
-  padding: 0.5rem 0;
-}
-
-.view-content .mother-checkup-form .horizontal-toggle-label,
-.view-content .mother-checkup-form .checkup-field-label {
-  font-size: 0.82rem;
 }
 
 .view-content .mother-checkup-form .checkup-field-input {
   font-size: 0.88rem;
 }
 
-.view-content .mother-checkup-form .lab-request-checkbox-list,
-.view-content .mother-checkup-form .lab-assistance-options {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.25rem 0.75rem;
-  max-height: 220px;
-  padding: 0.55rem 0.7rem;
-  overflow-y: auto;
-  border: 1px solid #d7e2eb;
-  border-radius: 10px;
-  background: #f8fafc;
-}
-
-.view-content .mother-checkup-form .lab-request-option,
-.view-content .mother-checkup-form .lab-assistance-option {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  min-width: 0;
-  min-height: 28px;
-  padding: 0.15rem 0.3rem;
-  border-radius: 6px;
-  color: #334155;
-  font-size: 0.78rem;
-  line-height: 1.3;
-  cursor: pointer;
-}
-
-.view-content .mother-checkup-form .lab-request-option.selected {
-  background: #eaf5ef;
-  color: #176344;
-}
-
-.view-content .mother-checkup-form .lab-request-option input[type='checkbox'],
-.view-content .mother-checkup-form .lab-assistance-option input[type='checkbox'] {
-  flex: 0 0 auto;
-  width: 0.9rem;
-  height: 0.9rem;
-  margin: 0;
-  accent-color: #1f8f69;
-}
-
-.view-content .mother-checkup-form .lab-assistance-dropdown > summary {
-  margin-bottom: 0.35rem;
-  color: #334155;
-  font-size: 0.82rem;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.view-content .mother-checkup-form .lab-request-checkbox-list + .checkup-field-help {
-  margin-top: 0.3rem;
-  font-size: 0.72rem;
-}
-
-.modal.checkup-confirm-modal {
-  width: min(620px, calc(100vw - 2rem));
-  max-width: 620px;
-}
-
-.checkup-confirm-modal > .modal-body {
-  padding: 1.25rem 1.5rem;
-}
-
-.checkup-confirm-intro {
-  margin: 0 0 1rem;
-  color: #475569;
-}
-
-.checkup-confirm-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 0.9rem;
-  padding: 0.8rem 0.9rem;
-  border: 1px solid #dbe5ee;
-  border-radius: 10px;
-  background: #f8fafc;
-  color: #243448;
-}
-
-.checkup-confirm-heading span {
-  flex: 0 0 auto;
-  color: #526579;
-  font-size: 0.88rem;
-}
-
-.checkup-confirm-summary {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0;
-  margin: 0;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  overflow: hidden;
-}
-
-.checkup-confirm-summary > div {
-  min-width: 0;
-  padding: 0.65rem 0.8rem;
-  border-bottom: 1px solid #edf1f5;
-}
-
-.checkup-confirm-summary > div:nth-child(odd):not(.checkup-confirm-summary-wide) {
-  border-right: 1px solid #edf1f5;
-}
-
-.checkup-confirm-summary > div:nth-last-child(-n + 2) {
-  border-bottom: 0;
-}
-
-.checkup-confirm-summary > .checkup-confirm-summary-wide {
-  grid-column: 1 / -1;
-  border-right: 0;
-}
-
-.checkup-confirm-summary dt {
-  margin-bottom: 0.15rem;
-  color: #64748b;
-  font-size: 0.76rem;
-  font-weight: 700;
-}
-
-.checkup-confirm-summary dd {
-  margin: 0;
-  color: #1e293b;
-  font-size: 0.9rem;
-  line-height: 1.45;
-  overflow-wrap: anywhere;
-}
-
-.checkup-confirm-note {
-  margin: 0.9rem 0 0;
-  color: #64748b;
-  font-size: 0.8rem;
-}
-
-.view-content .checkup-field-input[readonly],
-.view-content .checkup-field-input:disabled {
+.view-content .checkup-field-input[readonly] {
   border-color: var(--field-border);
   background: #f8fafc;
   color: #64748b;
 }
 
 @media (max-width: 720px) {
-  .view-content .checkup-card-body,
-  .checkup-card-body {
-    padding: 1rem;
-  }
-
-  .view-content .mother-checkup-form .lab-request-checkbox-list,
-  .view-content .mother-checkup-form .lab-assistance-options {
-    grid-template-columns: 1fr;
-    max-height: 190px;
-  }
-
-  .checkup-confirm-summary {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .checkup-confirm-heading {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 0.25rem;
-  }
-
-  .view-content .checkup-grid {
-    gap: 0.75rem;
-  }
-
   .view-content .checkup-field-input {
     min-height: var(--field-height);
     font-size: 0.95rem;
   }
 
-  .checkup-actions .btn-primary,
-  .checkup-actions .btn-secondary {
-    flex: 1 1 140px;
-  }
 }
 
 /* Final shared field layer: legacy and current page classes resolve to one scale. */
@@ -538,27 +98,10 @@ textarea.form-input[readonly],
   gap: 0.5rem;
 }
 
-.view-content .form-input,
-.view-content .form-select,
 .view-content .checkup-field-input,
 .view-content .mother-checkup-form .checkup-field-input,
 .view-content .child-monitor-form .checkup-field-input {
   min-height: var(--field-height);
   border-radius: var(--field-radius);
   font-size: var(--font-size-md);
-}
-
-.view-content .form-label,
-.view-content .checkup-field-label,
-.view-content .mother-checkup-form .checkup-field-label,
-.view-content .child-monitor-form .checkup-field-label,
-.view-content .mother-checkup-form .horizontal-toggle-label {
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  line-height: 1.25;
-}
-
-.view-content .mother-checkup-form .checkup-field-label {
-  font-size: var(--font-size-sm);
 }

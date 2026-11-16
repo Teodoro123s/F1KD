@@ -1,3 +1,4 @@
+import { checkupCardBodyClasses, checkupGridClasses, checkupSectionTitleClasses, formLabelClasses, checkupFieldLayoutClasses } from '../utils/formFieldClasses';
 import React, { useState } from 'react';
 import { notifyAction } from './ActionFeedback';
 import { changePassword } from '../api/auth';
@@ -49,19 +50,19 @@ export default function ChangePasswordForm() {
 
   return (
     <div className="checkup-card" data-guide="settings-password">
-      <div className="checkup-card-body">
-        <div className="checkup-section-title">Change password</div>
+      <div className={`checkup-card-body ${checkupCardBodyClasses}`}>
+        <div className={`checkup-section-title ${checkupSectionTitleClasses}`}>Change password</div>
         <form className="settings-password-form" onSubmit={handleSubmit}>
-          <div className="checkup-grid user-profile-grid">
+          <div className={`checkup-grid user-profile-grid ${checkupGridClasses}`}>
             {fields.map(({ key, label, autocomplete, minLength }) => {
               const fieldId = `change-password-${key}`;
               return (
                 <div className="form-group" key={key}>
-                  <label className="checkup-field-label" htmlFor={fieldId}>{label}</label>
+                  <label className={`${formLabelClasses} checkup-field-label`} htmlFor={fieldId}>{label}</label>
                   <span className="password-input-wrap">
                     <input
                       id={fieldId}
-                      className="checkup-field-input"
+                      className={`${checkupFieldLayoutClasses} checkup-field-input`}
                       type={visiblePasswords[key] ? 'text' : 'password'}
                       value={passwordForm[key]}
                       onChange={(event) => updatePasswordField(key, event.target.value)}

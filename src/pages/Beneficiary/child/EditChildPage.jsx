@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { modalBodyClasses, modalFooterClasses } from '../../../components/ui/modalClasses';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ChildFormFields } from './BeneficiaryChild';
 import { apiGetChild, apiUpdateChild, apiUploadChildBirthDocument } from '../../../api/children';
@@ -279,7 +280,7 @@ export default function EditChildPage() {
 
       <div className="create-form-body">
         <form onSubmit={handleSave}>
-          <div className="modal-body-scrollable">
+          <div className={`modal-body-scrollable ${modalBodyClasses}`}>
             <ChildFormFields
               activeTab={activeTab}
               form={form}
@@ -294,7 +295,7 @@ export default function EditChildPage() {
             />
           </div>
 
-          <div className="modal-footer">
+          <div className={`modal-footer ${modalFooterClasses}`}>
             <button type="button" className="btn-secondary" onClick={() => navigateBack(navigate, location, `/beneficiary/child/${childId}`)} disabled={saving || isNavigating}>Cancel</button>
             {activeTab !== 'general' && (
               <StepNavigationButton

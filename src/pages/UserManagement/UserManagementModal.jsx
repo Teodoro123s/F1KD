@@ -1,4 +1,6 @@
+import { formFieldClasses, formLabelClasses, fieldValidationClasses } from '../../utils/formFieldClasses';
 import React, { useEffect, useRef, useState } from 'react';
+import { getModalBackdropClasses, getModalSurfaceClasses, modalHeaderSectionClasses, modalCloseClasses, modalBodyClasses, modalFooterClasses } from '../../components/ui/modalClasses';
 import { createPortal } from 'react-dom';
 import DateInput from '../../components/ui/DateInput';
 import FloatingLayer from '../../components/ui/FloatingLayer';
@@ -65,7 +67,7 @@ function FormDropdown({ id, label, name, options, value, onChange, required = fa
       <button
         id={id}
         type="button"
-        className="form-select form-dropdown-trigger"
+        className={`${formFieldClasses} form-select form-dropdown-trigger`}
         role="combobox"
         aria-label={label}
         aria-haspopup="listbox"
@@ -126,19 +128,19 @@ function ModalShell({ title, onClose, onSubmit, onInvalidCapture, children, subm
   const close = () => { if (!isSubmitting) onClose?.(); };
   useModalAccessibility({ open: true, onClose: close, dialogRef, initialFocusRef: closeButtonRef, closeDisabled: isSubmitting });
   return createPortal((
-    <div className="modal-backdrop user-management-drawer-backdrop" role="presentation" onClick={(event) => { if (event.target === event.currentTarget) close(); }}>
+    <div className={`modal-backdrop user-management-drawer-backdrop ${getModalBackdropClasses({ drawer: true })}`} role="presentation" onClick={(event) => { if (event.target === event.currentTarget) close(); }}>
       <div
         ref={dialogRef}
-        className="modal-content user-management-modal user-management-drawer"
+        className={`modal-content user-management-modal user-management-drawer ${getModalSurfaceClasses({ drawer: true, variant: 'drawer' })}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="modal-header-section">
+        <div className={`modal-header-section ${modalHeaderSectionClasses}`}>
           <h3 id={titleId}>{title}</h3>
-          <button ref={closeButtonRef} type="button" className="btn-close-modal" onClick={close} aria-label="Close modal" disabled={isSubmitting}>
+          <button ref={closeButtonRef} type="button" className={`btn-close-modal ${modalCloseClasses}`} onClick={close} aria-label="Close modal" disabled={isSubmitting}>
             ✕
           </button>
         </div>
@@ -146,11 +148,11 @@ function ModalShell({ title, onClose, onSubmit, onInvalidCapture, children, subm
           event.preventDefault();
           if (!isSubmitting && onSubmit) onSubmit(event);
         }} onInvalidCapture={onInvalidCapture}>
-          <div className="modal-body">
+          <div className={`modal-body ${modalBodyClasses}`}>
             {notification && <div className="notification-banner" role="alert">{notification}</div>}
             {children}
           </div>
-          <div className="modal-footer">
+          <div className={`modal-footer ${modalFooterClasses}`}>
             <button type="button" className="btn-secondary back-action" onClick={close} disabled={isSubmitting}>Back</button>
             <button
               type="submit"
@@ -226,14 +228,14 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
       setFirstNameTouched(true);
       onSubmit(event);
     }} submitLabel={submitLabel} isSubmitting={isSubmitting} notification={notification}>
-      <div className="form-row-3 full-width">
+      <div className="form-row-3 full-width min-w-0 items-start [&>*]:min-w-0 [&_.form-group]:min-w-0 [&_.form-group>.form-label]:min-h-[2.7em] [&_.form-group>.form-label]:leading-[1.35] [&_.form-group>:is(input,select,textarea,.date-input-container)]:w-full [&_.form-group>:is(input,select,textarea,.date-input-container)]:min-w-0 max-[980px]:grid-cols-2 max-[640px]:grid-cols-1">
         <div className="form-group">
-          <label className="form-label" htmlFor="first-name">First Name <span className="form-required-indicator" aria-hidden="true">*</span></label>
+          <label className={`${formLabelClasses} form-label`} htmlFor="first-name">First Name <span className="form-required-indicator" aria-hidden="true">*</span></label>
           <input
             id="first-name"
                       name="firstName"
                       type="text"
-                      className="form-input"
+                      className={`${formFieldClasses} form-input`}
                       placeholder="Enter first name"
                       value={form.firstName}
                       maxLength={50}
@@ -248,15 +250,15 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
                       aria-describedby={firstNameError ? 'first-name-error' : undefined}
                       autoFocus
                     />
-          {firstNameError && <small id="first-name-error" className="field-validation-error" role="alert">{firstNameError}</small>}
+          {firstNameError && <small id="first-name-error" className={`field-validation-error ${fieldValidationClasses}`} role="alert">{firstNameError}</small>}
         </div>
         <div className="form-group">
-          <label className="form-label" htmlFor="last-name">Last Name <span className="form-required-indicator" aria-hidden="true">*</span></label>
+          <label className={`${formLabelClasses} form-label`} htmlFor="last-name">Last Name <span className="form-required-indicator" aria-hidden="true">*</span></label>
           <input
             id="last-name"
                       name="lastName"
                       type="text"
-                      className="form-input"
+                      className={`${formFieldClasses} form-input`}
                       placeholder="Enter last name"
                       value={form.lastName}
                       onChange={(e) => handleChange('lastName', e.target.value, e.target.validity.valid)}
@@ -265,12 +267,12 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
                     />
         </div>
         <div className="form-group">
-          <label className="form-label" htmlFor="middle-initial">Middle Initial</label>
+          <label className={`${formLabelClasses} form-label`} htmlFor="middle-initial">Middle Initial</label>
           <input
             id="middle-initial"
                       name="middleInitial"
                       type="text"
-                      className="form-input"
+                      className={`${formFieldClasses} form-input`}
                       placeholder="A"
                       maxLength={1}
                       value={form.middleInitial}
@@ -280,14 +282,14 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
         </div>
       </div>
 
-      <div className="form-row-3 full-width">
+      <div className="form-row-3 full-width min-w-0 items-start [&>*]:min-w-0 [&_.form-group]:min-w-0 [&_.form-group>.form-label]:min-h-[2.7em] [&_.form-group>.form-label]:leading-[1.35] [&_.form-group>:is(input,select,textarea,.date-input-container)]:w-full [&_.form-group>:is(input,select,textarea,.date-input-container)]:min-w-0 max-[980px]:grid-cols-2 max-[640px]:grid-cols-1">
         <div className="form-group">
-          <label className="form-label" htmlFor="contact-number">Contact Number <span className="form-required-indicator" aria-hidden="true">*</span></label>
+          <label className={`${formLabelClasses} form-label`} htmlFor="contact-number">Contact Number <span className="form-required-indicator" aria-hidden="true">*</span></label>
           <input
             id="contact-number"
                       name="contactNumber"
                       type="tel"
-                      className="form-input"
+                      className={`${formFieldClasses} form-input`}
                       placeholder="09171234567"
                       inputMode="numeric"
                       maxLength={20}
@@ -304,19 +306,19 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
                     />
           <small
             id={contactNumberError ? 'contact-number-error' : 'contact-number-hint'}
-            className={contactNumberError ? 'field-validation-error' : undefined}
+            className={contactNumberError ? `field-validation-error ${fieldValidationClasses}` : undefined}
             role={contactNumberError ? 'alert' : undefined}
           >
             {contactNumberError || CONTACT_NUMBER_POLICY}
           </small>
         </div>
         <div className="form-group">
-          <label className="form-label" htmlFor="email">Email <span className="form-required-indicator" aria-hidden="true">*</span></label>
+          <label className={`${formLabelClasses} form-label`} htmlFor="email">Email <span className="form-required-indicator" aria-hidden="true">*</span></label>
           <input
             id="email"
                       name="email"
                       type="email"
-                      className="form-input"
+                      className={`${formFieldClasses} form-input`}
                       placeholder="user@example.com"
                       value={form.email}
                       onChange={(e) => handleChange('email', e.target.value, e.target.validity.valid)}
@@ -327,12 +329,12 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
         <div className="form-group" aria-hidden="true" />
       </div>
 
-      <div className="form-row-3 full-width">
+      <div className="form-row-3 full-width min-w-0 items-start [&>*]:min-w-0 [&_.form-group]:min-w-0 [&_.form-group>.form-label]:min-h-[2.7em] [&_.form-group>.form-label]:leading-[1.35] [&_.form-group>:is(input,select,textarea,.date-input-container)]:w-full [&_.form-group>:is(input,select,textarea,.date-input-container)]:min-w-0 max-[980px]:grid-cols-2 max-[640px]:grid-cols-1">
         <div className="form-group date-input-group">
-          <label className="form-label" htmlFor="dob">Date of Birth <span className="form-required-indicator" aria-hidden="true">*</span></label>
+          <label className={`${formLabelClasses} form-label`} htmlFor="dob">Date of Birth <span className="form-required-indicator" aria-hidden="true">*</span></label>
           <DateInput
             id="dob"
-            className="form-input"
+            className={`${formFieldClasses} form-input`}
             value={form.dob}
             onChange={(value) => handleChange('dob', value)}
             ariaInvalid={isInvalid('dob')}
@@ -345,12 +347,12 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
         <div className="form-group" aria-hidden="true" />
       </div>
 
-      <div className="form-row-3 full-width">
+      <div className="form-row-3 full-width min-w-0 items-start [&>*]:min-w-0 [&_.form-group]:min-w-0 [&_.form-group>.form-label]:min-h-[2.7em] [&_.form-group>.form-label]:leading-[1.35] [&_.form-group>:is(input,select,textarea,.date-input-container)]:w-full [&_.form-group>:is(input,select,textarea,.date-input-container)]:min-w-0 max-[980px]:grid-cols-2 max-[640px]:grid-cols-1">
         <div className="form-group">
-          <label className="form-label" htmlFor="role">Role <span className="form-required-indicator" aria-hidden="true">*</span></label>
+          <label className={`${formLabelClasses} form-label`} htmlFor="role">Role <span className="form-required-indicator" aria-hidden="true">*</span></label>
           {managedHealthWorker ? (
             <>
-              <input id="role" className="form-input" value="Health worker" readOnly />
+              <input id="role" className={`${formFieldClasses} form-input`} value="Health worker" readOnly />
               <input type="hidden" name="role" value="Health worker" />
             </>
           ) : (
@@ -371,10 +373,10 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
       {requiresSchool && (
         <>
           <div className="form-group full-width">
-            <label className="form-label" htmlFor="school-id">Assigned School{schoolIsRequired && <span className="form-required-indicator" aria-hidden="true">*</span>}</label>
+            <label className={`${formLabelClasses} form-label`} htmlFor="school-id">Assigned School{schoolIsRequired && <span className="form-required-indicator" aria-hidden="true">*</span>}</label>
             {managedHealthWorker ? (
               <>
-                <input id="school-id" className="form-input" value={selectedSchoolName || 'Assigned school'} readOnly />
+                <input id="school-id" className={`${formFieldClasses} form-input`} value={selectedSchoolName || 'Assigned school'} readOnly />
                 <input type="hidden" name="schoolId" value={form.schoolId || ''} />
               </>
             ) : (
@@ -397,7 +399,7 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
 
           {requiresGroup && (
             <div className="form-group full-width">
-              <label className="form-label" htmlFor="group-id">Assigned Group <span className="form-required-indicator" aria-hidden="true">*</span></label>
+              <label className={`${formLabelClasses} form-label`} htmlFor="group-id">Assigned Group <span className="form-required-indicator" aria-hidden="true">*</span></label>
               <FormDropdown
                 id="group-id"
                 label="Assigned Group"
@@ -417,7 +419,7 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
 
       {!managedHealthWorker && (
         <div className="form-group full-width">
-          <label className="form-label" htmlFor="status">Status <span className="form-required-indicator" aria-hidden="true">*</span></label>
+          <label className={`${formLabelClasses} form-label`} htmlFor="status">Status <span className="form-required-indicator" aria-hidden="true">*</span></label>
           <FormDropdown
             id="status"
             label="Status"

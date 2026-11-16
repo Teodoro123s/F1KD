@@ -6,7 +6,9 @@ const {
   createDashboardInsight,
   createMonitoringReportIntent,
   createReportProposal,
+  createReportInsight,
   getAIConfiguration,
+  normalizeAIConversationHistory,
 } = require('../utils/progressReportAI');
 const { containsPotentialPii, isDisallowedAIRequest } = require('../utils/aiRequestPolicy');
 const { validateProgressReportQuery } = require('../utils/progressReportQueryValidation');
@@ -335,13 +337,34 @@ router.post('/ai/dashboard-insight', async (req, res) => {
     const question = String(req.body?.question || '').trim();
     const policyError = getAiRequestPolicyError(question, 'question');
     if (policyError) return res.status(400).json({ error: policyError });
-    const insight = await createDashboardInsight(req.body?.metrics, question);
+    const history = normalizeAIConversationHistory(req.body?.history);
+    const historyError = history.map((turn) => getAiRequestPolicyError(turn.content, 'question')).find(Boolean);
+    if (historyError) return res.status(400).json({ error: historyError });
+    const insight = await createDashboardInsight(req.body?.metrics, question, { history });
     res.set('Cache-Control', 'no-store');
     res.json({ insight });
   } catch (error) {
     const status = error instanceof ProgressReportAIError ? error.status : 502;
     console.error('[Dashboard AI] insight error:', error.message);
     res.status(status).json({ error: error.message || 'Unable to prepare a dashboard insight.' });
+  }
+});
+
+router.post('/ai/report-insight', async (req, res) => {
+  try {
+    const question = String(req.body?.question || '').trim();
+    const policyError = getAiRequestPolicyError(question, 'question');
+    if (policyError) return res.status(400).json({ error: policyError });
+    const history = normalizeAIConversationHistory(req.body?.history);
+    const historyError = history.map((turn) => getAiRequestPolicyError(turn.content, 'question')).find(Boolean);
+    if (historyError) return res.status(400).json({ error: historyError });
+    const insight = await createReportInsight(req.body?.context, question, history);
+    res.set('Cache-Control', 'no-store');
+    res.json({ insight });
+  } catch (error) {
+    const status = error instanceof ProgressReportAIError ? error.status : 502;
+    console.error('[Progress Report AI] report insight error:', error.message);
+    res.status(status).json({ error: error.message || 'Unable to answer a report question.' });
   }
 });
 

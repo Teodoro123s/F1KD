@@ -306,7 +306,7 @@ export default function HelpCenter({ currentUser }) {
         <button
           ref={triggerRef}
           type="button"
-          className="icon-button kin-help-trigger"
+          className="inline-flex size-11 cursor-pointer items-center justify-center rounded-full border border-[#dfe6ee] bg-transparent p-2 text-[1.05rem] font-[750] text-slate-600 transition-all duration-150 ease-out hover:bg-[rgba(15,23,42,0.05)] hover:text-slate-900"
           aria-label="Help and guides"
           aria-haspopup="menu"
           aria-expanded={menuOpen}

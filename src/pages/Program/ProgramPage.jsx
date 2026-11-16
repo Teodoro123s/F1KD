@@ -1,4 +1,6 @@
+import { formFieldClasses, formLabelClasses } from '../../utils/formFieldClasses';
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { getModalBackdropClasses, getModalSurfaceClasses, modalHeaderSectionClasses, modalCloseClasses, modalBodyClasses, modalFooterClasses } from '../../components/ui/modalClasses';
 import { matchesSearch } from "../../utils/search.mjs";
 import { createPortal } from "react-dom";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
@@ -1823,19 +1825,19 @@ export default function ProgramPage() {
         onCancel={() => setPendingEndProgram(null)}
       />
       {receiptHistoryProgram && createPortal((
-        <div className="modal-backdrop" role="presentation" onMouseDown={() => setReceiptHistoryProgram(null)}>
+        <div className={`modal-backdrop ${getModalBackdropClasses()}`} role="presentation" onMouseDown={() => setReceiptHistoryProgram(null)}>
           <section
-            className="modal program-product-modal program-receipt-scope-modal"
+            className={`modal program-product-modal program-receipt-scope-modal ${getModalSurfaceClasses()}`}
             role="dialog"
             aria-modal="true"
             aria-labelledby="receipt-scope-title"
             onMouseDown={(event) => event.stopPropagation()}
           >
-            <div className="modal-header">
+            <div className={`modal-header ${modalHeaderSectionClasses}`}>
               <h2 id="receipt-scope-title">View project receipt history</h2>
-              <button type="button" className="modal-close" onClick={() => setReceiptHistoryProgram(null)} aria-label="Close">×</button>
+              <button type="button" className={`modal-close ${modalCloseClasses}`} onClick={() => setReceiptHistoryProgram(null)} aria-label="Close">×</button>
             </div>
-            <div className="modal-body">
+            <div className={`modal-body ${modalBodyClasses}`}>
               <p className="program-modal-context">{receiptHistoryProgram.name} · Choose a school, group, or batch.</p>
               {['School', 'Group', 'Batch'].map((type) => {
                 const clusters = receiptHistoryClusters.filter((cluster) => cluster.type === type);
@@ -1867,27 +1869,27 @@ export default function ProgramPage() {
 
       {showBeneficiaryModal && selectedProgram && createPortal((
         <div
-          className="modal-backdrop"
+          className={`modal-backdrop ${getModalBackdropClasses()}`}
           role="presentation"
           onMouseDown={() => setShowBeneficiaryModal(false)}
         >
           <form
-            className="modal program-product-modal program-beneficiary-modal"
+            className={`modal program-product-modal program-beneficiary-modal ${getModalSurfaceClasses()}`}
             onSubmit={saveBeneficiaryScope}
             onMouseDown={(event) => event.stopPropagation()}
           >
-            <div className="modal-header">
+            <div className={`modal-header ${modalHeaderSectionClasses}`}>
               <h2>Add project beneficiary cluster</h2>
               <button
                 type="button"
-                className="modal-close"
+                className={`modal-close ${modalCloseClasses}`}
                 onClick={() => setShowBeneficiaryModal(false)}
                 aria-label="Close"
               >
                 ×
               </button>
             </div>
-            <div className="modal-body">
+            <div className={`modal-body ${modalBodyClasses}`}>
               <p className="program-modal-context">
                 {selectedProgram.name} · Choose the coverage cluster for this
                 project.
@@ -2044,7 +2046,7 @@ export default function ProgramPage() {
                 )}
               </section>
             </div>
-            <div className="modal-footer">
+            <div className={`modal-footer ${modalFooterClasses}`}>
               <button
                 type="button"
                 className="btn-secondary"
@@ -2064,18 +2066,18 @@ export default function ProgramPage() {
       ), document.body)}
 
       {monitorConfirmation && createPortal((
-        <div className="modal-backdrop" role="presentation" onMouseDown={() => setMonitorConfirmation(null)}>
-          <div className="modal program-product-modal" role="dialog" aria-modal="true" aria-labelledby="monitor-confirmation-title" onMouseDown={(event) => event.stopPropagation()}>
-            <div className="modal-header">
+        <div className={`modal-backdrop ${getModalBackdropClasses()}`} role="presentation" onMouseDown={() => setMonitorConfirmation(null)}>
+          <div className={`modal program-product-modal ${getModalSurfaceClasses()}`} role="dialog" aria-modal="true" aria-labelledby="monitor-confirmation-title" onMouseDown={(event) => event.stopPropagation()}>
+            <div className={`modal-header ${modalHeaderSectionClasses}`}>
               <h2 id="monitor-confirmation-title">Confirm monitored status</h2>
-              <button type="button" className="modal-close" onClick={() => setMonitorConfirmation(null)} aria-label="Close">×</button>
+              <button type="button" className={`modal-close ${modalCloseClasses}`} onClick={() => setMonitorConfirmation(null)} aria-label="Close">×</button>
             </div>
-            <div className="modal-body">
+            <div className={`modal-body ${modalBodyClasses}`}>
               <p>
                 {monitorConfirmation.monitored ? 'Mark' : 'Clear'} {monitorConfirmation.affectedCount > 1 ? `${monitorConfirmation.affectedCount} beneficiaries` : 'this beneficiary'} {monitorConfirmation.monitored ? 'as monitored' : 'as not monitored'} for {monitorDate}?
               </p>
             </div>
-            <div className="modal-footer">
+            <div className={`modal-footer ${modalFooterClasses}`}>
               <button type="button" className="btn-secondary" onClick={() => setMonitorConfirmation(null)}>Cancel</button>
               <button type="button" className="btn-primary" onClick={confirmMonitoringChange}>Confirm</button>
             </div>
@@ -2084,7 +2086,7 @@ export default function ProgramPage() {
       ), document.body)}
       {showModal && createPortal((
         <div
-          className={`modal-backdrop${form.id ? ' program-edit-drawer-backdrop' : ''}`}
+          className={`modal-backdrop${form.id ? ' program-edit-drawer-backdrop' : ''} ${getModalBackdropClasses({ drawer: Boolean(form.id) })}`}
           role="presentation"
           onMouseDown={() => {
             setShowModal(false);
@@ -2092,15 +2094,15 @@ export default function ProgramPage() {
           }}
         >
           <form
-            className={`modal program-product-modal${form.id ? ' program-edit-drawer' : ''}`}
+            className={`modal program-product-modal${form.id ? ' program-edit-drawer' : ''} ${getModalSurfaceClasses()}`}
             onSubmit={saveProgram}
             onMouseDown={(event) => event.stopPropagation()}
           >
-            <div className="modal-header">
+            <div className={`modal-header ${modalHeaderSectionClasses}`}>
               <h2>{form.id ? 'Edit project' : 'Create project'}</h2>
               <button
                 type="button"
-                className="modal-close"
+                className={`modal-close ${modalCloseClasses}`}
                 onClick={() => {
                   setShowModal(false);
                   setForm(emptyProgram);
@@ -2110,12 +2112,12 @@ export default function ProgramPage() {
                 ×
               </button>
             </div>
-            <div className="modal-body">
-              <label className="form-label" htmlFor="program-name">
+            <div className={`modal-body ${modalBodyClasses}`}>
+              <label className={`${formLabelClasses} form-label`} htmlFor="program-name">
                 Project name <span className="form-required-indicator" aria-hidden="true">*</span>
                 <input
                   id="program-name"
-                  className="form-input"
+                  className={`${formFieldClasses} form-input`}
                   value={form.name}
                   onChange={(event) =>
                     setForm({ ...form, name: event.target.value })
@@ -2123,11 +2125,11 @@ export default function ProgramPage() {
                   required
                 />
               </label>
-              <label className="form-label" htmlFor="program-type">
+              <label className={`${formLabelClasses} form-label`} htmlFor="program-type">
                 Project type <span className="form-required-indicator" aria-hidden="true">*</span>
                 <select
                   id="program-type"
-                  className="form-select"
+                  className={`${formFieldClasses} form-select`}
                   value={form.type}
                   required
                   onChange={(event) =>
@@ -2141,11 +2143,11 @@ export default function ProgramPage() {
                   <option value="Other">Others</option>
                 </select>
               </label>
-              <label className="form-label" htmlFor="program-provider">
+              <label className={`${formLabelClasses} form-label`} htmlFor="program-provider">
                 Provider / partner <span className="form-required-indicator" aria-hidden="true">*</span>
                 <input
                   id="program-provider"
-                  className="form-input"
+                  className={`${formFieldClasses} form-input`}
                   value={form.provider}
                   onChange={(event) =>
                     setForm({ ...form, provider: event.target.value })
@@ -2153,11 +2155,11 @@ export default function ProgramPage() {
                   required
                 />
               </label>
-              <label className="form-label" htmlFor="program-description">
+              <label className={`${formLabelClasses} form-label`} htmlFor="program-description">
                 Description <span className="form-optional-indicator">(Optional)</span>
                 <textarea
                   id="program-description"
-                  className="form-input"
+                  className={`${formFieldClasses} form-input`}
                   rows="3"
                   value={form.description}
                   onChange={(event) =>
@@ -2165,11 +2167,11 @@ export default function ProgramPage() {
                   }
                 />
               </label>
-              <label className="form-label" htmlFor="program-beneficiary-type">
+              <label className={`${formLabelClasses} form-label`} htmlFor="program-beneficiary-type">
                 Beneficiary type <span className="form-required-indicator" aria-hidden="true">*</span>
                 <select
                   id="program-beneficiary-type"
-                  className="form-select"
+                  className={`${formFieldClasses} form-select`}
                   value={form.beneficiaryType}
                   required
                   onChange={(event) =>
@@ -2181,7 +2183,7 @@ export default function ProgramPage() {
                 </select>
               </label>
             </div>
-            <div className="modal-footer">
+            <div className={`modal-footer ${modalFooterClasses}`}>
               <button
                 type="button"
                 className="btn-secondary"
@@ -2201,42 +2203,42 @@ export default function ProgramPage() {
       ), document.body)}
       {showActivityModal && selectedProgram && createPortal((
         <div
-          className="modal-backdrop"
+          className={`modal-backdrop ${getModalBackdropClasses()}`}
           role="presentation"
           onMouseDown={() => setShowActivityModal(false)}
         >
           <form
-            className="modal program-product-modal"
+            className={`modal program-product-modal ${getModalSurfaceClasses()}`}
             onSubmit={(event) => {
               event.preventDefault();
               setShowActivityModal(false);
             }}
             onMouseDown={(event) => event.stopPropagation()}
           >
-            <div className="modal-header">
+            <div className={`modal-header ${modalHeaderSectionClasses}`}>
               <h2>Record activity</h2>
               <button
                 type="button"
-                className="modal-close"
+                className={`modal-close ${modalCloseClasses}`}
                 onClick={() => setShowActivityModal(false)}
                 aria-label="Close"
               >
                 ×
               </button>
             </div>
-            <div className="modal-body">
+            <div className={`modal-body ${modalBodyClasses}`}>
               <p className="program-modal-context">
                 {selectedProgram.name} · {selectedProgram.community} ·{" "}
                 {selectedProgram.batch}
               </p>
-              <label className="form-label" htmlFor="activity-date">
+              <label className={`${formLabelClasses} form-label`} htmlFor="activity-date">
                 Activity date
                 <input
                   id="activity-date"
                   type="text"
                   inputMode="numeric"
                   pattern="\d{2}/\d{2}/\d{4}"
-                  className="form-input"
+                  className={`${formFieldClasses} form-input`}
                   placeholder="DD/MM/YYYY"
                   defaultValue={formatDateForDisplay(localDate())}
                   onChange={(event) => {
@@ -2246,11 +2248,11 @@ export default function ProgramPage() {
                   required
                 />
               </label>
-              <label className="form-label" htmlFor="activity-support">
+              <label className={`${formLabelClasses} form-label`} htmlFor="activity-support">
                 Support given
                 <input
                   id="activity-support"
-                  className="form-input"
+                  className={`${formFieldClasses} form-input`}
                   defaultValue={selectedProgram.name}
                   required
                 />
@@ -2276,11 +2278,11 @@ export default function ProgramPage() {
                   </label>
                 ))}
               </div>
-              <label className="form-label" htmlFor="activity-status">
+              <label className={`${formLabelClasses} form-label`} htmlFor="activity-status">
                 Activity status
                 <select
                   id="activity-status"
-                  className="form-select"
+                  className={`${formFieldClasses} form-select`}
                   value={activityStatus}
                   onChange={(event) => setActivityStatus(event.target.value)}
                 >
@@ -2288,16 +2290,16 @@ export default function ProgramPage() {
                   <option>Completed</option>
                 </select>
               </label>
-              <label className="form-label" htmlFor="activity-remarks">
+              <label className={`${formLabelClasses} form-label`} htmlFor="activity-remarks">
                 Remarks
                 <textarea
                   id="activity-remarks"
-                  className="form-input"
+                  className={`${formFieldClasses} form-input`}
                   rows="2"
                 />
               </label>
             </div>
-            <div className="modal-footer">
+            <div className={`modal-footer ${modalFooterClasses}`}>
               <button
                 type="button"
                 className="btn-secondary"

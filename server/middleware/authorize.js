@@ -76,7 +76,7 @@ const isHealthWorkerChildUpdate = (req) => (
 const isReadOnlyReportAssistantRequest = (req) => (
   req.baseUrl === '/api/progress-report'
   && req.method === 'POST'
-  && /^\/ai\/(proposal|monitoring-report|dashboard-insight)\/?$/.test(req.path)
+  && /^\/ai\/(proposal|monitoring-report|dashboard-insight|report-insight)\/?$/.test(req.path)
 );
 
 function authorize(...allowedRoles) {
@@ -170,8 +170,9 @@ function authorizeOperational(req, res, next) {
 function authorizeProgressReport(req, res, next) {
   const userRole = normalizeRole(req.user?.role);
   const isDashboardInsight = req.method === 'POST' && /^\/ai\/dashboard-insight\/?$/.test(req.path);
+  const isReportInsight = req.method === 'POST' && /^\/ai\/report-insight\/?$/.test(req.path);
   const isAiStatus = req.method === 'GET' && /^\/ai\/status\/?$/.test(req.path);
-  if ((isDashboardInsight || isAiStatus) && ['super_admin', 'admin', 'partner', 'community_coordinator', 'health_worker'].includes(userRole)) return next();
+  if ((isDashboardInsight || isReportInsight || isAiStatus) && ['super_admin', 'admin', 'partner', 'community_coordinator', 'health_worker'].includes(userRole)) return next();
   if (!['super_admin', 'admin', 'partner', 'community_coordinator', 'health_worker'].includes(userRole)) {
     return permissionResponse(res, 'You do not have permission to access progress reports');
   }

@@ -1,4 +1,6 @@
+import { checkupCardBodyClasses, checkupGridClasses, checkupConfirmModalClasses, checkupConfirmIntroClasses, checkupConfirmHeadingClasses, checkupConfirmSummaryClasses, checkupConfirmNoteClasses, motherCheckupSectionTitleClasses, fieldValidationClasses, formLabelClasses, maternalToggleRowClasses, labRequestListClasses, labRequestOptionClasses, labRequestSelectedClasses, labRequestCheckboxClasses, labRequestHelpClasses, requiredLabelClasses, checkupFieldLayoutClasses } from '../../../utils/formFieldClasses';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { getModalBackdropClasses, getModalSurfaceClasses, modalHeaderSectionClasses, modalCloseClasses, modalBodyClasses, modalFooterClasses } from '../../../components/ui/modalClasses';
 import StepWizard from '../../../components/StepWizard';
 import DateInput from '../../../components/ui/DateInput';
 import AuditSignatures from '../../../components/ui/AuditSignatures';
@@ -425,9 +427,9 @@ export default function MotherCheckup({
 
       <form className="mother-checkup-form" onSubmit={handleSubmit}>
         <div className={`checkup-card${isCompleted ? ' checkup-card-completed' : ''}${isFuture ? ' checkup-card-locked' : ''}`}>
-          <div className="checkup-card-body">
+          <div className={`checkup-card-body ${checkupCardBodyClasses}`}>
             <div className="checkup-section-heading">
-              <div className="checkup-section-title">Pregnancy Record</div>
+              <div className={`checkup-section-title ${motherCheckupSectionTitleClasses}`}>Pregnancy Record</div>
               {onRequestEdit && isCompleted && (
                 <button
                   type="button"
@@ -442,12 +444,12 @@ export default function MotherCheckup({
             {isMaternalPhaseComplete ? <p className="checkup-state-message">Maternal monitoring phase complete · all {9 - monitoringStartStep} scheduled check-ups recorded</p> : isCompleted && <p className="checkup-state-message">Completed check-up · view only</p>}
             {isFuture && <p className="checkup-state-message">This check-up will be available after the previous visit is completed.</p>}
             {isExcluded && <p className="checkup-state-message">{isBlankExcludedStep ? 'This visit is not counted toward monitoring progress. Record it here only if the check-up took place.' : 'This visit is not counted toward monitoring progress.'}</p>}
-            <div className="checkup-grid">
+            <div className={`checkup-grid ${checkupGridClasses}`}>
               <div className="form-group full-width checkup-date-field">
-                <label className="checkup-field-label is-required" htmlFor="checkup-date">Check-up Date</label>
+                <label className={`${formLabelClasses} checkup-field-label is-required ${requiredLabelClasses}`} htmlFor="checkup-date">Check-up Date</label>
                   <DateInput
                     id="checkup-date"
-                    className="checkup-field-input"
+                    className={`${checkupFieldLayoutClasses} checkup-field-input`}
                     value={checkupDate}
                     onChange={updateField('checkupDate')}
                     ariaLabel="Checkup date"
@@ -456,7 +458,7 @@ export default function MotherCheckup({
               </div>
 
               <div className="form-group">
-                <label className="checkup-field-label" htmlFor="gestational-age">
+                <label className={`${formLabelClasses} checkup-field-label`} htmlFor="gestational-age">
                   Gestation Period
                   <FieldInfoTooltip content={CHECKUP_HELP.maternal.gestationalAge.content} />
                 </label>
@@ -465,7 +467,7 @@ export default function MotherCheckup({
                   type="number"
                   min="0"
                   max="42"
-                  className="checkup-field-input"
+                  className={`${checkupFieldLayoutClasses} checkup-field-input`}
                   value={gestationalAge}
                   placeholder="Enter weeks"
                   onChange={(e) => updateField('gestationalAge')(e.target.value)}
@@ -474,14 +476,14 @@ export default function MotherCheckup({
               </div>
 
               <div className="form-group">
-                <label className="checkup-field-label" htmlFor="trimester-month">
+                <label className={`${formLabelClasses} checkup-field-label`} htmlFor="trimester-month">
                   Month of Trimester
                   <FieldInfoTooltip content={CHECKUP_HELP.maternal.trimesterMonth.content} />
                 </label>
                 <input
                   id="trimester-month"
                   type="text"
-                  className="checkup-field-input"
+                  className={`${checkupFieldLayoutClasses} checkup-field-input`}
                   value={getMotherTrimesterMonth(gestationalAge)}
                   placeholder="Calculated from weeks"
                   readOnly
@@ -489,13 +491,13 @@ export default function MotherCheckup({
               </div>
 
               <div className="form-group">
-                <label className="checkup-field-label is-required" htmlFor="weight">Weight (kg)</label>
+                <label className={`${formLabelClasses} checkup-field-label is-required ${requiredLabelClasses}`} htmlFor="weight">Weight (kg)</label>
                 <input
                   id="weight"
                   type="number"
                   min="0"
                   step="0.1"
-                  className="checkup-field-input"
+                  className={`${checkupFieldLayoutClasses} checkup-field-input`}
                   value={weight}
                   placeholder="e.g. 55.0"
                   onChange={(e) => updateField('weight')(e.target.value)}
@@ -504,12 +506,12 @@ export default function MotherCheckup({
               </div>
 
               <div className="form-group">
-                <label className="checkup-field-label is-required" htmlFor="height">Height (cm)</label>
+                <label className={`${formLabelClasses} checkup-field-label is-required ${requiredLabelClasses}`} htmlFor="height">Height (cm)</label>
                 <input
                   id="height"
                   type="number"
                   min="0"
-                  className="checkup-field-input"
+                  className={`${checkupFieldLayoutClasses} checkup-field-input`}
                   value={height}
                   placeholder="e.g. 150"
                   onChange={(e) => updateField('height')(e.target.value)}
@@ -518,14 +520,14 @@ export default function MotherCheckup({
               </div>
 
               <div className="form-group">
-                <label className="checkup-field-label is-required" htmlFor="bp">
+                <label className={`${formLabelClasses} checkup-field-label is-required ${requiredLabelClasses}`} htmlFor="bp">
                   Blood Pressure
                   <FieldInfoTooltip content={CHECKUP_HELP.maternal.bloodPressure.content} essential />
                 </label>
                 <input
                   id="bp"
                   type="text"
-                  className="checkup-field-input"
+                  className={`${checkupFieldLayoutClasses} checkup-field-input`}
                   value={bp}
                   placeholder="120/80"
                   inputMode="text"
@@ -539,18 +541,18 @@ export default function MotherCheckup({
                     if (isBloodPressureInput(e.target.value)) updateBloodPressure(e.target.value);
                   }}
                 />
-                {bloodPressureError && <small id="bp-error" className="field-validation-error" role="alert">{bloodPressureError}</small>}
+                {bloodPressureError && <small id="bp-error" className={`field-validation-error ${fieldValidationClasses}`} role="alert">{bloodPressureError}</small>}
               </div>
 
               <div className="form-group">
-                <label className="checkup-field-label" htmlFor="bmi">
+                <label className={`${formLabelClasses} checkup-field-label`} htmlFor="bmi">
                   Auto-Calculation/BMI
                   <FieldInfoTooltip content={CHECKUP_HELP.maternal.bmi.content} essential />
                 </label>
                 <input
                   id="bmi"
                   type="text"
-                  className="checkup-field-input"
+                  className={`${checkupFieldLayoutClasses} checkup-field-input`}
                   value={bmi}
                   readOnly
                   placeholder="Auto-calculated"
@@ -558,13 +560,13 @@ export default function MotherCheckup({
               </div>
 
               <div className="form-group">
-                <label className="checkup-field-label" htmlFor="mother-developmental-status">
+                <label className={`${formLabelClasses} checkup-field-label`} htmlFor="mother-developmental-status">
                   Developmental Screening
                   <FieldInfoTooltip content={CHECKUP_HELP.maternal.developmentalScreening.content} essential />
                 </label>
                 <select
                   id="mother-developmental-status"
-                  className={`checkup-field-input developmental-screening-select ${developmentalStatus === 'At Risk' ? 'at-risk' : developmentalStatus === 'Needs Follow-up' ? 'needs-follow-up' : 'normal'}`}
+                  className={`${checkupFieldLayoutClasses} checkup-field-input developmental-screening-select ${developmentalStatus === 'At Risk' ? 'at-risk' : developmentalStatus === 'Needs Follow-up' ? 'needs-follow-up' : 'normal'}`}
                   value={developmentalStatus}
                   onChange={(event) => updateField('developmentalStatus')(event.target.value)}
                 >
@@ -575,7 +577,7 @@ export default function MotherCheckup({
               </div>
 
               <div className="form-group">
-                <label className="checkup-field-label" htmlFor="nutritional-status">
+                <label className={`${formLabelClasses} checkup-field-label`} htmlFor="nutritional-status">
                   BMI Status
                   <FieldInfoTooltip content={CHECKUP_HELP.maternal.bmiStatus.content} essential />
                 </label>
@@ -585,11 +587,11 @@ export default function MotherCheckup({
               </div>
 
               <div className="form-group full-width">
-                <label className="checkup-field-label" htmlFor="service-provider">Service Provider</label>
+                <label className={`${formLabelClasses} checkup-field-label`} htmlFor="service-provider">Service Provider</label>
                 <input
                   id="service-provider"
                   type="text"
-                  className="checkup-field-input"
+                  className={`${checkupFieldLayoutClasses} checkup-field-input`}
                   value={serviceProvider}
                   placeholder="e.g. Dr. Amelia Vance"
                   onChange={(e) => updateField('serviceProvider')(e.target.value)}
@@ -598,10 +600,10 @@ export default function MotherCheckup({
 
               {hasNextMotherCheckup(activeStep) ? (
                 <div className="form-group full-width checkup-date-field">
-                  <label className="checkup-field-label" htmlFor="next-checkup-date">Next Checkup Date</label>
+                  <label className={`${formLabelClasses} checkup-field-label`} htmlFor="next-checkup-date">Next Checkup Date</label>
                   <DateInput
                     id="next-checkup-date"
-                    className="checkup-field-input"
+                    className={`${checkupFieldLayoutClasses} checkup-field-input`}
                     value={nextCheckupDate}
                     onChange={updateField('nextCheckupDate')}
                     ariaLabel="Next checkup date"
@@ -613,8 +615,8 @@ export default function MotherCheckup({
                 </p>
               )}
 
-              <div className="horizontal-toggle-row full-width">
-                <span className="horizontal-toggle-label">
+              <div className={`horizontal-toggle-row full-width ${maternalToggleRowClasses}`}>
+                <span className={`${formLabelClasses} horizontal-toggle-label`}>
                   Referral to Hospital
                   <FieldInfoTooltip content={CHECKUP_HELP.maternal.hospitalReferral.content} />
                 </span>
@@ -637,15 +639,16 @@ export default function MotherCheckup({
               </div>
               {referral && (
                 <fieldset className="form-group full-width">
-                  <legend className="checkup-field-label">
+                  <legend className={`${formLabelClasses} checkup-field-label`}>
                     Laboratory Request(s)
                     <FieldInfoTooltip content={CHECKUP_HELP.maternal.laboratoryRequests.content} />
                   </legend>
-                  <div className="lab-request-checkbox-list" role="group" aria-label="Laboratory request(s)">
+                  <div className={`lab-request-checkbox-list ${labRequestListClasses}`} role="group" aria-label="Laboratory request(s)">
                     {LAB_REQUEST_OPTIONS.map((option) => (
-                      <label key={option} className={`lab-request-option ${laboratoryRequests.includes(option) ? 'selected' : ''}`}>
+                      <label key={option} className={`lab-request-option ${labRequestOptionClasses} ${laboratoryRequests.includes(option) ? `selected ${labRequestSelectedClasses}` : ''}`}>
                         <input
                           type="checkbox"
+                          className={labRequestCheckboxClasses}
                           checked={laboratoryRequests.includes(option)}
                           onChange={(event) => updateField('laboratoryRequests')(
                             event.target.checked
@@ -657,17 +660,17 @@ export default function MotherCheckup({
                       </label>
                     ))}
                   </div>
-                  <span className="checkup-field-help">Select one or more laboratory tests requested for referral.</span>
+                  <span className={`checkup-field-help ${labRequestHelpClasses}`}>Select one or more laboratory tests requested for referral.</span>
                 </fieldset>
               )}
             </div>
 
             {showReferralFields ? (
               <>
-                <div className="checkup-section-title">Assistance & Funding</div>
-                <div className="checkup-grid">
+                <div className={`checkup-section-title ${motherCheckupSectionTitleClasses}`}>Assistance & Funding</div>
+                <div className={`checkup-grid ${checkupGridClasses}`}>
                   <div className="form-group">
-                    <label className="checkup-field-label" htmlFor="amount">
+                    <label className={`${formLabelClasses} checkup-field-label`} htmlFor="amount">
                       Assistance Amount (PHP)
                       <FieldInfoTooltip content={CHECKUP_HELP.maternal.assistanceAmount.content} />
                     </label>
@@ -675,7 +678,7 @@ export default function MotherCheckup({
                       id="amount"
                       type="text"
                       inputMode="decimal"
-                      className="checkup-field-input"
+                      className={`${checkupFieldLayoutClasses} checkup-field-input`}
                       placeholder="0.00"
                       value={amountFocused ? amount : formatCurrencyAmount(amount)}
                       onFocus={() => setAmountFocused(true)}
@@ -688,13 +691,13 @@ export default function MotherCheckup({
                   </div>
 
                   <div className="form-group">
-                    <label className="checkup-field-label" htmlFor="source-of-funds">
+                    <label className={`${formLabelClasses} checkup-field-label`} htmlFor="source-of-funds">
                       Source of Funds
                       <FieldInfoTooltip content={CHECKUP_HELP.maternal.sourceOfFunds.content} />
                     </label>
                     <select
                       id="source-of-funds"
-                      className="checkup-field-input"
+                      className={`${checkupFieldLayoutClasses} checkup-field-input`}
                       style={{ appearance: 'auto' }}
                       value={sourceOfFunds}
                       onChange={(e) => updateField('sourceOfFunds')(e.target.value)}
@@ -709,7 +712,7 @@ export default function MotherCheckup({
                   </div>
 
                   <div className="form-group full-width">
-                    <label className="checkup-field-label">
+                    <label className={`${formLabelClasses} checkup-field-label`}>
                       Facility Type
                       <FieldInfoTooltip content={CHECKUP_HELP.maternal.facilityType.content} />
                     </label>
@@ -731,19 +734,19 @@ export default function MotherCheckup({
 
               </>
             ) : (
-              <div className="checkup-grid" style={{ marginTop: '16px' }}>
+              <div className={`checkup-grid ${checkupGridClasses}`} style={{ marginTop: '16px' }}>
                 <div className="form-group full-width">
                   <p className="checkup-state-message">Referral and laboratory assistance were not selected for this check-up.</p>
                 </div>
               </div>
             )}
 
-            <div className="checkup-grid">
+            <div className={`checkup-grid ${checkupGridClasses}`}>
               <div className="form-group full-width" style={{ marginTop: '12px' }}>
-                <label className="checkup-field-label" htmlFor="remarks">Remarks / Notes</label>
+                <label className={`${formLabelClasses} checkup-field-label`} htmlFor="remarks">Remarks / Notes</label>
                 <textarea
                   id="remarks"
-                  className="checkup-field-input"
+                  className={`${checkupFieldLayoutClasses} checkup-field-input`}
                   rows="3"
                   value={remarks}
                   placeholder="Enter observations, referrals, or complications..."
@@ -770,19 +773,19 @@ export default function MotherCheckup({
         )}
       </form>
       {pendingSave && (
-        <div className="modal-backdrop" role="presentation" onMouseDown={() => !saving && setPendingSave(null)}>
-          <div className="modal program-product-modal checkup-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="save-checkup-title" onMouseDown={(event) => event.stopPropagation()}>
-            <div className="modal-header">
+        <div className={`modal-backdrop ${getModalBackdropClasses()}`} role="presentation" onMouseDown={() => !saving && setPendingSave(null)}>
+          <div className={`modal program-product-modal checkup-confirm-modal ${checkupConfirmModalClasses} ${getModalSurfaceClasses()}`} role="dialog" aria-modal="true" aria-labelledby="save-checkup-title" onMouseDown={(event) => event.stopPropagation()}>
+            <div className={`modal-header ${modalHeaderSectionClasses}`}>
               <h2 id="save-checkup-title">Confirm check-up</h2>
-              <button type="button" className="modal-close" onClick={() => setPendingSave(null)} disabled={saving} aria-label="Close">×</button>
+              <button type="button" className={`modal-close ${modalCloseClasses}`} onClick={() => setPendingSave(null)} disabled={saving} aria-label="Close">×</button>
             </div>
-            <div className="modal-body">
-              <p className="checkup-confirm-intro">Review the check-up details before saving.</p>
-              <div className="checkup-confirm-heading">
+            <div className={`modal-body ${modalBodyClasses}`}>
+              <p className={`checkup-confirm-intro ${checkupConfirmIntroClasses}`}>Review the check-up details before saving.</p>
+              <div className={`checkup-confirm-heading ${checkupConfirmHeadingClasses}`}>
                 <strong>{pendingSave.checkup.trimesterLabel} · Check-up {pendingSave.checkup.checkupNumber}</strong>
                 <span>{formatDateForDisplay(pendingSave.payload.checkupDate)}</span>
               </div>
-              <dl className="checkup-confirm-summary">
+              <dl className={`checkup-confirm-summary ${checkupConfirmSummaryClasses}`}>
                 <div>
                   <dt>Gestation period</dt>
                   <dd>{pendingSave.payload.gestationalAge ? `${pendingSave.payload.gestationalAge} weeks` : '—'}</dd>
@@ -826,9 +829,9 @@ export default function MotherCheckup({
                   </>
                 )}
               </dl>
-              <p className="checkup-confirm-note">Confirming will save these details to the maternal monitoring record.</p>
+              <p className={`checkup-confirm-note ${checkupConfirmNoteClasses}`}>Confirming will save these details to the maternal monitoring record.</p>
             </div>
-            <div className="modal-footer">
+            <div className={`modal-footer ${modalFooterClasses}`}>
               <button type="button" className="btn-secondary" onClick={() => setPendingSave(null)} disabled={saving}>Cancel</button>
               <button type="button" className="btn-primary" onClick={confirmSave} disabled={saving}>{saving ? 'Saving...' : 'Confirm and save'}</button>
             </div>

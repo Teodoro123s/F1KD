@@ -1,3 +1,4 @@
+import { checkupFieldLayoutClasses } from '../../utils/formFieldClasses';
 import React, { useState, useEffect } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import PageHeader from '../../components/ui/PageHeader';
@@ -388,7 +389,7 @@ export default function UserDetailPage() {
             <div className="user-detail-password-controls">
               <input
                 type="text"
-                className="checkup-field-input"
+                className={`${checkupFieldLayoutClasses} checkup-field-input`}
                 value={generatedPwd}
                 readOnly
                 placeholder="Generate default password"

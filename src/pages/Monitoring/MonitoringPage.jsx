@@ -1,4 +1,6 @@
+import { checkupMessageClasses, checkupErrorMessageClasses, filterControlClasses } from '../../utils/formFieldClasses';
 import React, { useMemo, useRef, useState } from 'react';
+import { getModalTransitionClasses } from '../../components/ui/modalClasses';
 import { matchesSearch } from '../../utils/search.mjs';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -54,7 +56,7 @@ function MotherCheckupEditDrawer({ mother, initialStep, showAuditSignatures, onS
 
   return createPortal((
     <div
-      className={`checkup-edit-drawer-backdrop${!open ? ' motion-exiting' : ''}`}
+      className={`checkup-edit-drawer-backdrop${!open ? ' motion-exiting' : ''} ${getModalTransitionClasses({ exiting: !open, drawer: true, panel: false })} ${!open ? 'animate-none' : 'animate-[fadeIn_var(--motion-drawer-duration)_var(--motion-ease-out)_both]'}`}
       role="presentation"
       onMouseDown={(event) => {
         if (open && event.target === event.currentTarget) closeDrawer();
@@ -62,7 +64,7 @@ function MotherCheckupEditDrawer({ mother, initialStep, showAuditSignatures, onS
     >
       <aside
         ref={dialogRef}
-        className={`checkup-edit-drawer${!open ? ' motion-exiting' : ''}`}
+        className={`checkup-edit-drawer${!open ? ' motion-exiting' : ''} ${getModalTransitionClasses({ exiting: !open, drawer: true })} ${!open ? 'animate-none' : 'animate-[profile-edit-drawer-enter_var(--motion-drawer-duration)_var(--motion-ease-out)_both]'}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="checkup-edit-drawer-title"
@@ -121,7 +123,7 @@ function ChildCheckupEditDrawer({ child, initialWeek, completedWeeks, showAuditS
 
   return createPortal((
     <div
-      className={`checkup-edit-drawer-backdrop${!open ? ' motion-exiting' : ''}`}
+      className={`checkup-edit-drawer-backdrop${!open ? ' motion-exiting' : ''} ${getModalTransitionClasses({ exiting: !open, drawer: true, panel: false })} ${!open ? 'animate-none' : 'animate-[fadeIn_var(--motion-drawer-duration)_var(--motion-ease-out)_both]'}`}
       role="presentation"
       onMouseDown={(event) => {
         if (open && event.target === event.currentTarget) closeDrawer();
@@ -129,7 +131,7 @@ function ChildCheckupEditDrawer({ child, initialWeek, completedWeeks, showAuditS
     >
       <aside
         ref={dialogRef}
-        className={`checkup-edit-drawer${!open ? ' motion-exiting' : ''}`}
+        className={`checkup-edit-drawer${!open ? ' motion-exiting' : ''} ${getModalTransitionClasses({ exiting: !open, drawer: true })} ${!open ? 'animate-none' : 'animate-[profile-edit-drawer-enter_var(--motion-drawer-duration)_var(--motion-ease-out)_both]'}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="child-checkup-edit-drawer-title"
@@ -629,6 +631,7 @@ export default function MonitoringPage() {
               <label className="monitoring-status-filter monitoring-screening-filter">
                 <span className="sr-only">Developmental / newborn screening</span>
                 <select
+                  className={filterControlClasses}
                   aria-label="Developmental / newborn screening filter"
                   value={developmentalScreeningFilter}
                   onChange={(event) => { setDevelopmentalScreeningFilter(event.target.value); setPage(1); }}
@@ -708,7 +711,7 @@ export default function MonitoringPage() {
       ) : selectedChild ? (
         selectedRecordLoading ? <section className="checkup-entry-view" aria-live="polite"><p>Loading child monitoring record...</p></section> : <section className="checkup-entry-view" aria-labelledby="selected-child-title">
           <ChildNavigationCards child={selectedChild} activeCard="monitor" />
-          {savedMessage.startsWith('Unable to save check-up:') && <p className="checkup-save-message checkup-save-message-error" role="alert">{savedMessage}</p>}
+          {savedMessage.startsWith('Unable to save check-up:') && <p className={`checkup-save-message checkup-save-message-error ${checkupMessageClasses} ${checkupErrorMessageClasses}`} role="alert">{savedMessage}</p>}
           {!editingChildCheckup && (
             <ChildMonitor
               child={selectedChild}
@@ -731,7 +734,7 @@ export default function MonitoringPage() {
       ) : (
         <section className="checkup-entry-view" aria-labelledby="selected-mother-title">
           <MotherNavigationCards mother={selectedMother} activeCard="monitor" />
-          {savedMessage.startsWith('Unable to save check-up:') && <p className="checkup-save-message checkup-save-message-error" role="alert">{savedMessage}</p>}
+          {savedMessage.startsWith('Unable to save check-up:') && <p className={`checkup-save-message checkup-save-message-error ${checkupMessageClasses} ${checkupErrorMessageClasses}`} role="alert">{savedMessage}</p>}
           {(!editingCheckup || !canEditMonitoring) && (
             <MotherCheckup
               mother={{ ...selectedMother, checkups: motherCheckups }}

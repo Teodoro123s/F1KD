@@ -1,3 +1,4 @@
+import { fieldValidationClasses } from '../../utils/formFieldClasses';
 import React from 'react';
 
 export function StepNavigationButton({
@@ -24,7 +25,7 @@ export function StepNavigationButton({
 
 export function StepNavigationError({ error }) {
   if (!error) return null;
-  return <p className="field-validation-error step-navigation-error" role="alert">{error}</p>;
+  return <p className={`field-validation-error step-navigation-error ${fieldValidationClasses}`} role="alert">{error}</p>;
 }
 
 export function StepNavigationStatus({ direction, error }) {

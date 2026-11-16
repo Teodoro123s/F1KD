@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { searchContainerClasses, searchInputClasses } from '../../utils/formFieldClasses';
 import { useNavigate } from 'react-router-dom';
 import PageHeader from '../../components/ui/PageHeader';
 import CommunityTable from '../Community/CommunityTable';
@@ -333,7 +334,7 @@ export default function NotificationsPage() {
                 </label>
               </div>
               <div className="subheader-right">
-                <div className="search-container">
+                <div className={`search-container ${searchContainerClasses}`}>
                   <SearchIcon />
                   <div className="search-field-container">
                     <input
@@ -341,7 +342,7 @@ export default function NotificationsPage() {
                       value={query}
                       onChange={(event) => { setQuery(event.target.value); setPage(1); }}
                       placeholder="Search notifications..."
-                      className="search-input-field"
+                      className={`search-input-field ${searchInputClasses}`}
                       aria-label="Search notifications"
                     />
                   </div>

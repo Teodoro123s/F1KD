@@ -1,3 +1,4 @@
+import { checkupCardBodyClasses, checkupGridClasses, formLabelClasses } from '../../utils/formFieldClasses';
 import React, { useEffect, useState } from 'react';
 import PageHeader from '../../components/ui/PageHeader';
 import ChangePasswordForm from '../../components/ChangePasswordForm';
@@ -91,7 +92,7 @@ export default function SettingsPage() {
 
       <main style={{ padding: '1rem' }}>
         <section className="checkup-card settings-guidance-card" data-guide="settings-guidance" aria-labelledby="guidance-preferences-title">
-          <div className="checkup-card-body">
+          <div className={`checkup-card-body ${checkupCardBodyClasses}`}>
             <div className="settings-guidance-header">
               <div>
                 <h2 id="guidance-preferences-title">Help and Guidance</h2>
@@ -162,10 +163,10 @@ export default function SettingsPage() {
         </section>
 
         <div className="checkup-card" data-guide="settings-appearance">
-          <div className="checkup-card-body">
-            <div className="checkup-grid user-profile-grid">
+          <div className={`checkup-card-body ${checkupCardBodyClasses}`}>
+            <div className={`checkup-grid user-profile-grid ${checkupGridClasses}`}>
               <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                <label className="checkup-field-label" htmlFor="dark-mode-toggle">Appearance</label>
+                <label className={`${formLabelClasses} checkup-field-label`} htmlFor="dark-mode-toggle">Appearance</label>
                 <label htmlFor="dark-mode-toggle" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', minHeight: '2.75rem', padding: '0.75rem 0.85rem', border: '1px solid #cbd5e1', borderRadius: '8px', background: '#fff', color: '#0f172a', fontWeight: 600 }}>
                   <span>Dark mode</span>
                   <input

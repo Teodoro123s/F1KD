@@ -25,7 +25,6 @@
   .table-card,
   .checkup-card,
   .selected-mother-bar,
-  .summary-card,
   .user-management-list-card
 ) {
   border-color: var(--system-surface-border);
@@ -43,21 +42,6 @@
 
 .view-content :is(.page-shell, .section-card, .panel-card, .checkup-card) {
   background-color: var(--color-surface);
-}
-
-.view-content .summary-card {
-  border-radius: 14px;
-  transition:
-    border-color var(--transition-base),
-    box-shadow var(--transition-base),
-    transform var(--transition-base);
-}
-
-.view-content button.summary-card:hover,
-.view-content button.summary-card.is-selected {
-  border-color: var(--color-brand);
-  box-shadow: var(--system-surface-shadow-hover);
-  transform: translateY(-2px);
 }
 
 .view-content :is(.btn-primary, .btn-secondary, .btn-outline, .btn-ghost, .btn-create-action, .view-btn) {
@@ -83,8 +67,7 @@
   .table-card,
   .checkup-card,
   .kpi-card,
-  .dashboard-chart-card,
-  .summary-card
+  .dashboard-chart-card
 ) {
   animation: system-surface-enter 360ms var(--motion-ease-out) both;
 }
@@ -138,8 +121,7 @@
     .table-card,
     .checkup-card,
     .kpi-card,
-    .dashboard-chart-card,
-    .summary-card
+    .dashboard-chart-card
   ) {
     animation: none;
   }

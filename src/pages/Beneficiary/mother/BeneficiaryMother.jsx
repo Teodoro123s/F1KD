@@ -1,3 +1,4 @@
+import { formFieldClasses, formLabelClasses, fieldValidationClasses } from '../../../utils/formFieldClasses';
 import React from 'react';
 import { formatDateForDisplay, formatDateForInput, maskDateInput, normalizeDateValue } from '../../../utils/formatting/dateFormat';
 import { calculateGestationalDetails } from '../../../utils/beneficiary/beneficiaryHelpers';
@@ -253,7 +254,7 @@ export function MotherFormFields({
     if (readOnly) {
       return (
         <div className="form-group">
-          <label className="form-label">{label}</label>
+          <label className={`${formLabelClasses} form-label`}>{label}</label>
           <div className="form-readonly-value">{isDate ? formatDateForDisplay(value) : value === '' || value === null || value === undefined ? '—' : value}</div>
         </div>
       );
@@ -263,7 +264,7 @@ export function MotherFormFields({
 
     return (
       <div className="form-group">
-        <label className="form-label" htmlFor={id}>
+        <label className={`${formLabelClasses} form-label`} htmlFor={id}>
           <span>{label}{isRequired && <span className="form-required-indicator" aria-hidden="true">*</span>}</span>
           {autoCalculated && calculateBirthCountTotal && <span className="form-auto-badge" aria-label="Automatically calculated">
             <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="7" width="9" height="7" rx="1.5" /><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" /></svg>
@@ -277,7 +278,7 @@ export function MotherFormFields({
           <input
             id={id}
             type={isNativeDate ? 'date' : isDate ? 'text' : type}
-            className={`form-input${readOnlyInput ? ' form-input-readonly' : ''}${hasMissingValue ? ' invalid' : ''}`}
+            className={`${formFieldClasses} form-input${readOnlyInput ? ' form-input-readonly' : ''}${hasMissingValue ? ' invalid' : ''}`}
             placeholder={isDate && !isNativeDate ? `${dateOrder === 'mdy' ? 'MM' : 'DD'}/${dateOrder === 'mdy' ? 'DD' : 'MM'}/YYYY` : placeholder}
             value={isNativeDate ? formatDateForInput(value) : isDate ? getDateDisplayValue(name, value, dateOrder) : isPhilHealthNumber ? formatPhilHealthNumber(value) : value}
             onChange={(e) => {
@@ -352,7 +353,7 @@ export function MotherFormFields({
             aria-describedby={validationError ? `${id}-error` : undefined}
             disabled={disabled}
           />
-          {validationError && <small id={`${id}-error`} className="field-validation-error" role="alert">{validationError}</small>}
+          {validationError && <small id={`${id}-error`} className={`field-validation-error ${fieldValidationClasses}`} role="alert">{validationError}</small>}
           {isNativeDate && !isAutoComputedDate && (
             <button
               type="button"
@@ -422,7 +423,7 @@ export function MotherFormFields({
     if (readOnly) {
       return (
         <div className="form-group">
-          <label className="form-label">{label}</label>
+          <label className={`${formLabelClasses} form-label`}>{label}</label>
           <div className="form-readonly-value">{value === '' || value === null || value === undefined ? '—' : value}</div>
         </div>
       );
@@ -430,12 +431,12 @@ export function MotherFormFields({
 
     return (
       <div className="form-group">
-        <label className="form-label" htmlFor={id}>
+        <label className={`${formLabelClasses} form-label`} htmlFor={id}>
           {label}{isRequired && <span className="form-required-indicator" aria-hidden="true">*</span>}
         </label>
         <select
           id={id}
-          className={`form-select${id === 'mother-group' || id === 'mother-batch' ? ' create-mother-community-select' : ''}${hasMissingValue ? ' invalid' : ''}`}
+          className={`${formFieldClasses} form-select${id === 'mother-group' || id === 'mother-batch' ? ' create-mother-community-select' : ''}${hasMissingValue ? ' invalid' : ''}`}
           value={value}
           title={String(selectedLabel || placeholder)}
           onChange={(e) => {
@@ -466,7 +467,7 @@ export function MotherFormFields({
     if (readOnly) {
       return (
         <div className="form-group full-width">
-          <label className="form-label">{label}</label>
+          <label className={`${formLabelClasses} form-label`}>{label}</label>
           <div className="form-readonly-value">{value === '' || value === null || value === undefined ? '—' : value}</div>
         </div>
       );
@@ -474,12 +475,12 @@ export function MotherFormFields({
 
     return (
       <div className="form-group full-width">
-        <label className="form-label" htmlFor={id}>
+        <label className={`${formLabelClasses} form-label`} htmlFor={id}>
           {label}{isRequired && <span className="form-required-indicator" aria-hidden="true">*</span>}
         </label>
         <textarea
           id={id}
-          className="form-input"
+          className={`${formFieldClasses} form-input`}
           rows={rows}
           placeholder={placeholder}
           value={value}
@@ -503,7 +504,7 @@ export function MotherFormFields({
       <div className="vaccine-date-field">
         <input
           type={nativeDate ? 'date' : 'text'}
-          className={`form-input table-input${error ? ' invalid' : ''}`}
+          className={`${formFieldClasses} form-input table-input${error ? ' invalid' : ''}`}
           placeholder={slashDateInput ? 'DD/MM/YYYY' : undefined}
           aria-label={`${label} date`}
           aria-invalid={Boolean(error)}
@@ -522,7 +523,7 @@ export function MotherFormFields({
           disabled={disabled}
           autoComplete="off"
         />
-        {error && <small className="field-validation-error" role="alert">{error}</small>}
+        {error && <small className={`field-validation-error ${fieldValidationClasses}`} role="alert">{error}</small>}
         {slashDateInput && (
           <>
             <button
@@ -565,22 +566,22 @@ export function MotherFormFields({
       <div className="create-mother-general">
         <section className="create-mother-category">
           <h4 className="form-section-title">I.A Mother's Information</h4>
-          <div className="form-row-3 full-width name-row">
+          <div className="form-row-3 full-width name-row min-w-0 items-start [&>*]:min-w-0 [&_.form-group]:min-w-0 [&_.form-group>.form-label]:min-h-[2.7em] [&_.form-group>.form-label]:leading-[1.35] [&_.form-group>:is(input,select,textarea,.date-input-container)]:w-full [&_.form-group>:is(input,select,textarea,.date-input-container)]:min-w-0 max-[980px]:grid-cols-2 max-[640px]:grid-cols-1">
             {renderField({ id: 'mother-first-name', label: "First Name", name: 'firstName', placeholder: 'First name', required: true })}
             {renderField({ id: 'mother-middle-name', label: "Middle Name", name: 'middleName', placeholder: 'Middle name' })}
             {renderField({ id: 'mother-last-name', label: "Last Name", name: 'lastName', placeholder: 'Last name', required: true })}
           </div>
 
-          <div className="form-row-2 full-width">
+          <div className="form-row-2 full-width min-w-0 items-start [&>*]:min-w-0 [&_.form-group]:min-w-0 [&_.form-group>.form-label]:min-h-[2.7em] [&_.form-group>.form-label]:leading-[1.35] [&_.form-group>:is(input,select,textarea,.date-input-container)]:w-full [&_.form-group>:is(input,select,textarea,.date-input-container)]:min-w-0 max-[980px]:grid-cols-2 max-[640px]:grid-cols-1">
             {renderField({ id: 'mother-maiden-surname', label: "Maiden Surname", name: 'maidenSurname', placeholder: 'Maiden surname' })}
             {renderField({ id: 'mother-suffix', label: "Suffix", name: 'suffix', placeholder: 'e.g. Jr., III' })}
           </div>
-          <div className="form-row-2 full-width">
+          <div className="form-row-2 full-width min-w-0 items-start [&>*]:min-w-0 [&_.form-group]:min-w-0 [&_.form-group>.form-label]:min-h-[2.7em] [&_.form-group>.form-label]:leading-[1.35] [&_.form-group>:is(input,select,textarea,.date-input-container)]:w-full [&_.form-group>:is(input,select,textarea,.date-input-container)]:min-w-0 max-[980px]:grid-cols-2 max-[640px]:grid-cols-1">
             {renderField({ id: 'mother-dob', label: "Date of Birth", name: 'dob', type: 'date', required: true, dateOrder: 'mdy', maxDate: getLatestEligibleMotherDob() })}
             {renderField({ id: 'mother-contact', label: "Contact Number", name: 'contactNumber', type: 'tel', placeholder: '09171234567', required: true })}
           </div>
 
-          <div className="form-row-4 full-width">
+          <div className="form-row-4 full-width min-w-0 items-start [&>*]:min-w-0 [&_.form-group]:min-w-0 [&_.form-group>.form-label]:min-h-[2.7em] [&_.form-group>.form-label]:leading-[1.35] [&_.form-group>:is(input,select,textarea,.date-input-container)]:w-full [&_.form-group>:is(input,select,textarea,.date-input-container)]:min-w-0 max-[980px]:grid-cols-2 max-[640px]:grid-cols-1">
             {renderSelect({
               id: 'mother-blood-type',
               label: 'Blood Type',
@@ -618,7 +619,7 @@ export function MotherFormFields({
 
         <section className="create-mother-category">
           <h4 className="form-section-title">I.B ADDRESS DETAILS</h4>
-          <div className="form-row-3 full-width">
+          <div className="form-row-3 full-width min-w-0 items-start [&>*]:min-w-0 [&_.form-group]:min-w-0 [&_.form-group>.form-label]:min-h-[2.7em] [&_.form-group>.form-label]:leading-[1.35] [&_.form-group>:is(input,select,textarea,.date-input-container)]:w-full [&_.form-group>:is(input,select,textarea,.date-input-container)]:min-w-0 max-[980px]:grid-cols-2 max-[640px]:grid-cols-1">
           {renderSelect({
             id: 'mother-province',
             label: 'Province',
@@ -659,7 +660,7 @@ export function MotherFormFields({
 
         <section className="create-mother-category">
           <h4 className="form-section-title">I.C COMMUNITY DETAILS</h4>
-          <div className={`form-row-3 full-width create-mother-community-fields${hideSchoolField ? ' is-school-hidden' : ''}`}>
+          <div className={`form-row-3 full-width create-mother-community-fields min-w-0 items-start [&>*]:min-w-0 [&_.form-group]:min-w-0 [&_.form-group>.form-label]:min-h-[2.7em] [&_.form-group>.form-label]:leading-[1.35] [&_.form-group>:is(input,select,textarea,.date-input-container)]:w-full [&_.form-group>:is(input,select,textarea,.date-input-container)]:min-w-0 max-[980px]:grid-cols-2 max-[640px]:grid-cols-1${hideSchoolField ? ' is-school-hidden' : ''}`}>
           {!hideSchoolField && renderSelect({
             id: 'mother-community',
             label: 'School',
@@ -738,7 +739,7 @@ export function MotherFormFields({
 
         <section className="create-mother-category">
           <h4 className="form-section-title">I.D SPOUSE DETAILS</h4>
-          <div className="form-row-2 full-width">
+          <div className="form-row-2 full-width min-w-0 items-start [&>*]:min-w-0 [&_.form-group]:min-w-0 [&_.form-group>.form-label]:min-h-[2.7em] [&_.form-group>.form-label]:leading-[1.35] [&_.form-group>:is(input,select,textarea,.date-input-container)]:w-full [&_.form-group>:is(input,select,textarea,.date-input-container)]:min-w-0 max-[980px]:grid-cols-2 max-[640px]:grid-cols-1">
             {renderField({ id: 'spouse-first-name', label: 'First Name', name: 'spouseFirstName', valueOverride: form.spouseFirstName ?? spouseNameParts.firstName, placeholder: 'Enter spouse first name' })}
             {renderField({ id: 'spouse-surname', label: 'Surname', name: 'spouseSurname', valueOverride: form.spouseSurname ?? spouseNameParts.surname, placeholder: 'Enter spouse surname' })}
           </div>
@@ -746,7 +747,7 @@ export function MotherFormFields({
 
         <section className="create-mother-category">
           <h4 className="form-section-title">I.E EMERGENCY CONTACT</h4>
-          <div className="form-row-2 full-width">
+          <div className="form-row-2 full-width min-w-0 items-start [&>*]:min-w-0 [&_.form-group]:min-w-0 [&_.form-group>.form-label]:min-h-[2.7em] [&_.form-group>.form-label]:leading-[1.35] [&_.form-group>:is(input,select,textarea,.date-input-container)]:w-full [&_.form-group>:is(input,select,textarea,.date-input-container)]:min-w-0 max-[980px]:grid-cols-2 max-[640px]:grid-cols-1">
             {renderField({ id: 'emergency-first-name', label: 'First Name', name: 'emergencyFirstName', valueOverride: form.emergencyFirstName ?? emergencyNameParts.firstName, placeholder: 'Enter contact first name', required: true })}
             {renderField({ id: 'emergency-surname', label: 'Surname', name: 'emergencySurname', valueOverride: form.emergencySurname ?? emergencyNameParts.surname, placeholder: 'Enter contact surname', required: true })}
             {renderField({ id: 'emergency-contact', label: 'Contact Number', name: 'emergencyContact', type: 'tel', placeholder: 'Enter contact number', required: true })}
@@ -787,7 +788,7 @@ export function MotherFormFields({
       <div className="create-mother-general create-mother-prenatal">
         <section className="create-mother-category">
           <h4 className="form-section-title">II. INITIAL PRENATAL ASSESSMENT & MATERNAL HEALTH PROFILE</h4>
-          <div className="form-row-2 full-width">
+          <div className="form-row-2 full-width min-w-0 items-start [&>*]:min-w-0 [&_.form-group]:min-w-0 [&_.form-group>.form-label]:min-h-[2.7em] [&_.form-group>.form-label]:leading-[1.35] [&_.form-group>:is(input,select,textarea,.date-input-container)]:w-full [&_.form-group>:is(input,select,textarea,.date-input-container)]:min-w-0 max-[980px]:grid-cols-2 max-[640px]:grid-cols-1">
           {renderField({
             id: 'mother-lmp',
             label: 'Date of LMP',
@@ -820,25 +821,25 @@ export function MotherFormFields({
             <span>Override the calculated EDD manually</span>
           </label>
 
-          <div className="form-row-4 full-width">
+          <div className="form-row-4 full-width min-w-0 items-start [&>*]:min-w-0 [&_.form-group]:min-w-0 [&_.form-group>.form-label]:min-h-[2.7em] [&_.form-group>.form-label]:leading-[1.35] [&_.form-group>:is(input,select,textarea,.date-input-container)]:w-full [&_.form-group>:is(input,select,textarea,.date-input-container)]:min-w-0 max-[980px]:grid-cols-2 max-[640px]:grid-cols-1">
           {renderField({ id: 'prenatal-reg-date', label: 'Date of First Prenatal Check-up', name: 'prenatalRegDate', type: 'date', required: true })}
           {renderField({ id: 'prenatal-gest-age', label: 'Gestational Age at Reg (weeks)', name: 'gestationalAge', disabled: true })}
           {renderField({ id: 'mother-trimester', label: 'Trimester', name: 'trimester', disabled: true })}
           {renderField({ id: 'prenatal-trimester-month', label: 'Month of Trimester', name: 'trimesterMonth', valueOverride: getMotherTrimesterMonth(form.gestationalAge, form.trimester), disabled: true, placeholder: 'Calculated from weeks' })}
           </div>
 
-          <div className="form-row-3 full-width">
+          <div className="form-row-3 full-width min-w-0 items-start [&>*]:min-w-0 [&_.form-group]:min-w-0 [&_.form-group>.form-label]:min-h-[2.7em] [&_.form-group>.form-label]:leading-[1.35] [&_.form-group>:is(input,select,textarea,.date-input-container)]:w-full [&_.form-group>:is(input,select,textarea,.date-input-container)]:min-w-0 max-[980px]:grid-cols-2 max-[640px]:grid-cols-1">
           {renderField({ id: 'prenatal-weight', label: 'Weight (kg) at Reg', name: 'prenatalWeight', type: 'number', minValue: 0, placeholder: 'e.g. 52', required: true, helpText: 'Enter the mother’s measured weight at the first prenatal check-up, in kilograms.' })}
           {renderField({ id: 'prenatal-bp', label: 'Blood Pressure (BP) at Reg', name: 'prenatalBp', placeholder: 'e.g. 120/80', required: true, customRequired: true, helpText: 'Numbers and one slash only; up to 3 digits on each side.' })}
           {renderField({ id: 'prenatal-height', label: 'Height (cm) at Reg', name: 'prenatalHeight', type: 'number', minValue: 0, placeholder: 'e.g. 150', required: true, helpText: 'Enter height in centimeters; this value is used to calculate the initial BMI.' })}
           </div>
-          <div className="form-row-2 full-width">
+          <div className="form-row-2 full-width min-w-0 items-start [&>*]:min-w-0 [&_.form-group]:min-w-0 [&_.form-group>.form-label]:min-h-[2.7em] [&_.form-group>.form-label]:leading-[1.35] [&_.form-group>:is(input,select,textarea,.date-input-container)]:w-full [&_.form-group>:is(input,select,textarea,.date-input-container)]:min-w-0 max-[980px]:grid-cols-2 max-[640px]:grid-cols-1">
             <div className="form-group">
-              <label className="form-label">Initial BMI</label>
+              <label className={`${formLabelClasses} form-label`}>Initial BMI</label>
               <div className="form-readonly-value">{prenatalBmi}</div>
             </div>
             <div className="form-group">
-              <label className="form-label">Nutritional Status (BMI)</label>
+              <label className={`${formLabelClasses} form-label`}>Nutritional Status (BMI)</label>
               <div className="form-readonly-value">{prenatalBmiStatus}</div>
             </div>
           </div>
@@ -846,7 +847,7 @@ export function MotherFormFields({
 
         <section className="create-mother-category">
           <h4 className="form-section-title">III. NUMBER OF PREGNANCIES & BIRTHS (OB)</h4>
-          <div className="form-row-2 full-width create-mother-birth-count-grid">
+          <div className="form-row-2 full-width create-mother-birth-count-grid min-w-0 items-start [&>*]:min-w-0 [&_.form-group]:min-w-0 [&_.form-group>.form-label]:min-h-[2.7em] [&_.form-group>.form-label]:leading-[1.35] [&_.form-group>:is(input,select,textarea,.date-input-container)]:w-full [&_.form-group>:is(input,select,textarea,.date-input-container)]:min-w-0 max-[980px]:grid-cols-2 max-[640px]:grid-cols-1">
             {renderField({
               id: 'ob-born-alive',
               label: 'Children Born Alive (Living)',
@@ -964,13 +965,13 @@ export function MotherFormFields({
 
         <section className="create-mother-category">
           <h4 className="form-section-title">IV.B DENTAL HEALTH CONDITION</h4>
-          <div className="form-row-3 full-width">
+          <div className="form-row-3 full-width min-w-0 items-start [&>*]:min-w-0 [&_.form-group]:min-w-0 [&_.form-group>.form-label]:min-h-[2.7em] [&_.form-group>.form-label]:leading-[1.35] [&_.form-group>:is(input,select,textarea,.date-input-container)]:w-full [&_.form-group>:is(input,select,textarea,.date-input-container)]:min-w-0 max-[980px]:grid-cols-2 max-[640px]:grid-cols-1">
           {renderField({ id: 'dental-date', label: 'Date of Dental Check-up', name: 'dentalCheckupDate', type: 'date' })}
           {renderField({ id: 'dental-facility', label: 'Dental Clinic / Health Facility', name: 'dentalFacility', placeholder: 'Facility name' })}
           {renderField({ id: 'dentist-charge', label: 'Dentist in Charge', name: 'dentistInCharge', placeholder: 'Dentist name' })}
           </div>
 
-          <div className="form-row-3 full-width">
+          <div className="form-row-3 full-width min-w-0 items-start [&>*]:min-w-0 [&_.form-group]:min-w-0 [&_.form-group>.form-label]:min-h-[2.7em] [&_.form-group>.form-label]:leading-[1.35] [&_.form-group>:is(input,select,textarea,.date-input-container)]:w-full [&_.form-group>:is(input,select,textarea,.date-input-container)]:min-w-0 max-[980px]:grid-cols-2 max-[640px]:grid-cols-1">
           {renderField({ id: 'dentist-comm', label: 'Community Dentist Name', name: 'communityDentist', placeholder: 'Community dentist' })}
           {renderField({
             id: 'dentist-license',
@@ -987,7 +988,7 @@ export function MotherFormFields({
           {renderTextarea({ id: 'dental-findings', label: 'Dental Findings / Diagnosis', name: 'dentalFindings', rows: 2, placeholder: 'Findings or diagnosis...' })}
 
           <div className="form-group full-width">
-          <label className="form-label">Dental Work Done</label>
+          <label className={`${formLabelClasses} form-label`}>Dental Work Done</label>
           {readOnly ? (
             <div className="form-readonly-list">
               {(dentalWorkKeys.filter(({ key }) => !!form.dentalWork?.[key]).map(d => d.label)).length > 0 ? (
@@ -1058,7 +1059,7 @@ export function MotherFormFields({
                       ) : (
                         <input
                           type="text"
-                          className="form-input table-input"
+                          className={`${formFieldClasses} form-input table-input`}
                           aria-label="Tetanus Toxoid remarks"
                           placeholder="Remarks / facility"
                           value={form.ttRemarks ?? ''}
@@ -1087,7 +1088,7 @@ export function MotherFormFields({
                         ) : (
                           <input
                             type="text"
-                            className="form-input table-input"
+                            className={`${formFieldClasses} form-input table-input`}
                             aria-label={`${label} source or facility`}
                             placeholder="Remarks / facility"
                             value={form[`${key}Remarks`] || ''}

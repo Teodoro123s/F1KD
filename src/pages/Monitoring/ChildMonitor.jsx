@@ -1,3 +1,4 @@
+import { checkupCardBodyClasses, checkupGridClasses, checkupActionsClasses, checkupSectionTitleClasses, formLabelClasses, filterControlClasses, requiredLabelClasses, checkupFieldLayoutClasses } from '../../utils/formFieldClasses';
 import React, { useEffect, useState } from 'react';
 import DateInput from '../../components/ui/DateInput';
 import { addMonthsPreservingDay, formatDateForInput } from '../../utils/formatting/dateFormat';
@@ -228,14 +229,14 @@ export default function ChildMonitor({
     : Number(whoGrowthScores.weightForAgeZScore).toFixed(2);
   const lengthAgeInterpretation = whoGrowthScores.lengthForAgeInterpretation || missingGrowthContext
     || (Number(form.height) > 0 ? 'Outside WHO reference range' : 'Enter valid length');
-  const interpretationClass = (value) => `checkup-field-input checkup-interpretation ${String(value).trim().toLowerCase() === 'normal' ? 'is-normal' : 'is-abnormal'}`;
+  const interpretationClass = (value) => `${checkupFieldLayoutClasses} checkup-field-input checkup-interpretation ${String(value).trim().toLowerCase() === 'normal' ? 'is-normal' : 'is-abnormal'}`;
 
   const renderDateField = ({ id, label, name, required = false, readOnly: fieldReadOnly = isReadOnly }) => (
     <div className="form-group full-width checkup-date-field">
-      <label className={`checkup-field-label${required ? ' is-required' : ''}`} htmlFor={id}>{label}</label>
+      <label className={`${formLabelClasses} checkup-field-label${required ? ` is-required ${requiredLabelClasses}` : ''}`} htmlFor={id}>{label}</label>
       <DateInput
         id={id}
-        className="checkup-field-input"
+        className={`${checkupFieldLayoutClasses} checkup-field-input`}
         value={form[name]}
         onChange={(value) => setForm((current) => ({
           ...current,
@@ -300,7 +301,7 @@ export default function ChildMonitor({
         <label htmlFor="child-monitor-week-select">
           Current month
           <FieldInfoTooltip content={CHECKUP_HELP.child.currentMonth.content} />
-          <select id="child-monitor-week-select" value={week} onChange={(event) => goToWeek(Number(event.target.value))}>
+          <select id="child-monitor-week-select" className={filterControlClasses} value={week} onChange={(event) => goToWeek(Number(event.target.value))}>
             {Array.from({ length: firstIncompleteMonth }, (_, index) => index + 1).map((monthNumber) => (
               <option key={monthNumber} value={monthNumber}>Month {monthNumber}</option>
             ))}
@@ -310,11 +311,11 @@ export default function ChildMonitor({
       </div>
 
       <form className="child-monitor-form" onSubmit={handleSubmit} aria-readonly={isReadOnly}>
-        <div className="checkup-card-body">
+        <div className={`checkup-card-body ${checkupCardBodyClasses}`}>
           <div className="checkup-form-heading">
             <div>
               <span className="checkup-module-kicker">Growth record</span>
-              <div className="checkup-section-title">Child Check-up Record</div>
+              <div className={`checkup-section-title ${checkupSectionTitleClasses}`}>Child Check-up Record</div>
             </div>
             <div className="checkup-form-heading-actions">
               {readOnly && savedCheckup && onRequestEdit && (
@@ -330,105 +331,105 @@ export default function ChildMonitor({
             </div>
           </div>
           <p className="child-monitor-subtitle">M{week} of {TOTAL_MONTHS} · {childName}</p>
-          <div className="checkup-grid">
+          <div className={`checkup-grid ${checkupGridClasses}`}>
             {renderDateField({ id: 'child-checkup-date', label: 'Check-up Date', name: 'checkupDate', required: true })}
             <span className="checkup-field-help full-width">Enter measurements taken on this check-up date. Birth measurements are stored separately and are not copied into this visit.</span>
             {renderDateField({ id: 'child-next-checkup-date', label: 'Next Check-up Date (leave blank to cancel)', name: 'nextCheckupDate' })}
             <div className="form-group">
-              <label className="checkup-field-label" htmlFor="child-current-age-months">
+              <label className={`${formLabelClasses} checkup-field-label`} htmlFor="child-current-age-months">
                 Current Age (months)
                 <FieldInfoTooltip content={CHECKUP_HELP.child.currentAge.content} />
               </label>
               <input
                 id="child-current-age-months"
                 type="text"
-                className="checkup-field-input"
+                className={`${checkupFieldLayoutClasses} checkup-field-input`}
                 value={currentAgeInMonths === null ? '' : currentAgeInMonths.toString()}
                 placeholder="Calculated from DOB"
                 readOnly
               />
             </div>
             <div className="form-group">
-              <label className="checkup-field-label" htmlFor="child-feeding-method">
+              <label className={`${formLabelClasses} checkup-field-label`} htmlFor="child-feeding-method">
                 Feeding Method
                 <FieldInfoTooltip content={CHECKUP_HELP.child.feedingMethod.content} />
               </label>
-              <select id="child-feeding-method" className="checkup-field-input" value={form.feedingMethod} onChange={update('feedingMethod')} required disabled={isReadOnly}>
+              <select id="child-feeding-method" className={`${checkupFieldLayoutClasses} checkup-field-input`} value={form.feedingMethod} onChange={update('feedingMethod')} required disabled={isReadOnly}>
                 <option value="">Select feeding method</option>
                 {FEEDING_METHOD_OPTIONS.map((method) => <option key={method} value={method}>{method}</option>)}
                 {form.feedingMethod === 'No' && <option value="No">No (legacy value)</option>}
               </select>
             </div>
             <div className="form-group">
-              <label className="checkup-field-label" htmlFor="child-monitor-sex">Sex</label>
+              <label className={`${formLabelClasses} checkup-field-label`} htmlFor="child-monitor-sex">Sex</label>
               <input
                 id="child-monitor-sex"
                 type="text"
-                className="checkup-field-input"
+                className={`${checkupFieldLayoutClasses} checkup-field-input`}
                 value={gender ? `${gender.charAt(0).toUpperCase()}${gender.slice(1).toLowerCase()}` : 'Not recorded'}
                 readOnly
               />
             </div>
             <div className="form-group">
-              <label className="checkup-field-label is-required" htmlFor="child-monitor-weight">Weight (kg)</label>
-              <input id="child-monitor-weight" type="number" step="0.1" className="checkup-field-input" value={form.weight} onChange={update('weight')} required readOnly={isReadOnly} />
+              <label className={`${formLabelClasses} checkup-field-label is-required ${requiredLabelClasses}`} htmlFor="child-monitor-weight">Weight (kg)</label>
+              <input id="child-monitor-weight" type="number" step="0.1" className={`${checkupFieldLayoutClasses} checkup-field-input`} value={form.weight} onChange={update('weight')} required readOnly={isReadOnly} />
             </div>
             <div className="form-group">
-              <label className="checkup-field-label is-required" htmlFor="child-monitor-height">
+              <label className={`${formLabelClasses} checkup-field-label is-required ${requiredLabelClasses}`} htmlFor="child-monitor-height">
                 Length (cm)
                 <FieldInfoTooltip content={CHECKUP_HELP.child.length.content} />
               </label>
-              <input id="child-monitor-height" type="number" min="45" max="100" step="0.1" className="checkup-field-input" value={form.height} onChange={update('height')} required readOnly={isReadOnly} />
+              <input id="child-monitor-height" type="number" min="45" max="100" step="0.1" className={`${checkupFieldLayoutClasses} checkup-field-input`} value={form.height} onChange={update('height')} required readOnly={isReadOnly} />
             </div>
             <div className="form-group">
-              <label className="checkup-field-label" htmlFor="child-monitor-head-circumference">
+              <label className={`${formLabelClasses} checkup-field-label`} htmlFor="child-monitor-head-circumference">
                 Head Circumference (cm)
                 <FieldInfoTooltip content={CHECKUP_HELP.child.headCircumference.content} />
               </label>
-              <input id="child-monitor-head-circumference" type="number" min="15" max="60" step="0.1" className="checkup-field-input" value={form.headCircumference} onChange={update('headCircumference')} readOnly={isReadOnly} />
+              <input id="child-monitor-head-circumference" type="number" min="15" max="60" step="0.1" className={`${checkupFieldLayoutClasses} checkup-field-input`} value={form.headCircumference} onChange={update('headCircumference')} readOnly={isReadOnly} />
             </div>
             <div className="form-group">
-              <label className="checkup-field-label" htmlFor="child-monitor-weight-age">
+              <label className={`${formLabelClasses} checkup-field-label`} htmlFor="child-monitor-weight-age">
                 Weight-for-Age
                 <FieldInfoTooltip content={CHECKUP_HELP.child.weightForAge.content} essential />
               </label>
               <input id="child-monitor-weight-age" type="text" className={interpretationClass(weightAgeInterpretation)} value={weightAgeInterpretation} readOnly />
             </div>
             <div className="form-group">
-              <label className="checkup-field-label" htmlFor="child-monitor-length-age">
+              <label className={`${formLabelClasses} checkup-field-label`} htmlFor="child-monitor-length-age">
                 Length-for-Age
                 <FieldInfoTooltip content={CHECKUP_HELP.child.lengthForAge.content} essential />
               </label>
               <input id="child-monitor-length-age" type="text" className={interpretationClass(lengthAgeInterpretation)} value={lengthAgeInterpretation} readOnly />
             </div>
             <div className="form-group">
-              <label className="checkup-field-label" htmlFor="child-monitor-weight-length">
+              <label className={`${formLabelClasses} checkup-field-label`} htmlFor="child-monitor-weight-length">
                 Weight-for-Length
                 <FieldInfoTooltip content={CHECKUP_HELP.child.weightForLength.content} essential />
               </label>
               <input id="child-monitor-weight-length" type="text" className={interpretationClass(weightLengthInterpretation)} value={weightLengthInterpretation} readOnly />
             </div>
             <div className="form-group">
-              <label className="checkup-field-label" htmlFor="child-developmental-status">
+              <label className={`${formLabelClasses} checkup-field-label`} htmlFor="child-developmental-status">
                 Developmental Screening
                 <FieldInfoTooltip content={CHECKUP_HELP.child.developmentalScreening.content} essential />
               </label>
-              <select id="child-developmental-status" className="checkup-field-input" value={form.developmentalStatus} onChange={update('developmentalStatus')} disabled={isReadOnly}>
+              <select id="child-developmental-status" className={`${checkupFieldLayoutClasses} checkup-field-input`} value={form.developmentalStatus} onChange={update('developmentalStatus')} disabled={isReadOnly}>
                 <option>Normal</option>
                 <option>Needs Follow-up</option>
                 <option>At Risk</option>
               </select>
             </div>
             <div className="form-group full-width">
-              <label className="checkup-field-label" htmlFor="child-service-provider">Health Worker / Provider</label>
-              <input id="child-service-provider" type="text" className="checkup-field-input" value={form.serviceProvider} onChange={update('serviceProvider')} placeholder="e.g. Nurse or midwife" readOnly={isReadOnly} />
+              <label className={`${formLabelClasses} checkup-field-label`} htmlFor="child-service-provider">Health Worker / Provider</label>
+              <input id="child-service-provider" type="text" className={`${checkupFieldLayoutClasses} checkup-field-input`} value={form.serviceProvider} onChange={update('serviceProvider')} placeholder="e.g. Nurse or midwife" readOnly={isReadOnly} />
             </div>
             <div className="form-group full-width">
-              <label className="checkup-field-label" htmlFor="child-monitor-remarks">Growth and Development Notes</label>
-              <textarea id="child-monitor-remarks" className="checkup-field-input" rows="3" value={form.remarks} onChange={update('remarks')} placeholder="Growth, feeding, or health observations" readOnly={isReadOnly} />
+              <label className={`${formLabelClasses} checkup-field-label`} htmlFor="child-monitor-remarks">Growth and Development Notes</label>
+              <textarea id="child-monitor-remarks" className={`${checkupFieldLayoutClasses} checkup-field-input`} rows="3" value={form.remarks} onChange={update('remarks')} placeholder="Growth, feeding, or health observations" readOnly={isReadOnly} />
             </div>
           </div>
-          <div className="checkup-actions">
+          <div className={`checkup-actions ${checkupActionsClasses}`}>
             {readOnly && !onRequestEdit && (
               <button
                 type="button"

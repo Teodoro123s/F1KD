@@ -1,4 +1,6 @@
+import { formFieldClasses } from '../../utils/formFieldClasses';
 import React, { useEffect, useState } from 'react';
+import { getModalBackdropClasses, getModalSurfaceClasses, modalHeaderClasses, modalCloseClasses } from '../../components/ui/modalClasses';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthProvider';
@@ -413,24 +415,24 @@ export default function ReceiptHistoryPage() {
           <div className="program-calendar-grid">{days.map((day) => { const key = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`; const receipt = receivedByDate.get(key) || []; return <button type="button" key={key} className={`program-calendar-day${day.getMonth() !== calendarMonth.getMonth() ? ' muted' : ''}${receipt.length ? ' received' : ''}${selectedDate === key ? ' selected' : ''}`} onClick={() => openReceiptModal(key, true)} disabled={programEnded || !canEditReceipts}><span>{day.getDate()}</span>{receipt.length > 0 && <strong>{receipt.length > 1 ? `${receipt.length} Yes` : 'Yes'}</strong>}</button>; })}</div>
         </div>}
         {canEditReceipts && !programEnded && receiptModal && createPortal(
-          <div className="modal-backdrop" role="presentation" onClick={() => !savingReceipt && setReceiptModal(null)}>
+          <div className={`modal-backdrop ${getModalBackdropClasses()}`} role="presentation" onClick={() => !savingReceipt && setReceiptModal(null)}>
             <div
-              className="program-receipt-modal"
+              className={`program-receipt-modal ${getModalSurfaceClasses()}`}
               role="dialog"
               aria-modal="true"
               aria-labelledby="receipt-modal-title"
               onClick={(event) => event.stopPropagation()}
             >
-              <div className="program-receipt-modal-header">
+              <div className={`program-receipt-modal-header ${modalHeaderClasses}`}>
                 <h3 id="receipt-modal-title">Record project receipt</h3>
-                <button type="button" className="document-preview-close" onClick={() => setReceiptModal(null)} disabled={savingReceipt}>Close</button>
+                <button type="button" className={`document-preview-close ${modalCloseClasses}`} onClick={() => setReceiptModal(null)} disabled={savingReceipt}>Close</button>
               </div>
               <form onSubmit={saveReceipt}>
                 <label htmlFor="receipt-date">
                   Date
                   <DateInput
                     id="receipt-date"
-                    className="form-input"
+                    className={`${formFieldClasses} form-input`}
                     value={receiptModal.date}
                     onChange={(value) => setReceiptModal((current) => ({ ...current, date: value }))}
                     required

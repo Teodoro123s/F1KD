@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { getModalBackdropClasses, getModalSurfaceClasses, modalHeaderClasses, modalCloseClasses } from './ui/modalClasses';
 import { fetchWithAuth, getApiBaseUrl, resolveAssetUrl } from '../api/authHeader';
 import Button from './ui/Button';
 import ConfirmDialog from './ui/ConfirmDialog';
@@ -291,7 +292,7 @@ export function DocumentPreviewModal({ document, onClose }) {
 
   return (
     <div
-      className="document-preview-modal-backdrop"
+      className={`document-preview-modal-backdrop ${getModalBackdropClasses()}`}
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget && !downloading) onClose?.();
@@ -299,16 +300,16 @@ export function DocumentPreviewModal({ document, onClose }) {
     >
       <div
         ref={dialogRef}
-        className="document-preview-modal"
+        className={`document-preview-modal ${getModalSurfaceClasses()}`}
         role="dialog"
         aria-modal="true"
         aria-label={`Preview ${document.name}`}
         tabIndex={-1}
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <div className="document-preview-modal-header">
+        <div className={`document-preview-modal-header ${modalHeaderClasses}`}>
           <strong>{document.name}</strong>
-          <Button ref={closeButtonRef} type="button" variant="secondary" className="document-preview-close" onClick={onClose} disabled={downloading}>
+          <Button ref={closeButtonRef} type="button" variant="secondary" className={`document-preview-close ${modalCloseClasses}`} onClick={onClose} disabled={downloading}>
             Close
           </Button>
         </div>

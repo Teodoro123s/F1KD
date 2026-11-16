@@ -8,9 +8,9 @@ export default function ErrorState({
   className = '',
 }) {
   return (
-    <div className={`ui-error-state ${className}`.trim()} role="alert">
+    <div className={`grid justify-items-center gap-2 text-f1kd-error text-f1kd-sm ${className}`.trim()} role="alert">
       <strong>{title}</strong>
-      {message && <p>{message}</p>}
+      {message && <p className="m-0 text-f1kd-muted">{message}</p>}
       {onRetry && (
         <Button type="button" variant="secondary" onClick={onRetry}>
           Try again

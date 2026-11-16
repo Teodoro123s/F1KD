@@ -1,4 +1,5 @@
 import React, { useId, useRef } from 'react';
+import { getModalBackdropClasses, getModalSurfaceClasses, confirmationCloseClasses } from './modalClasses';
 import { createPortal } from 'react-dom';
 import Button from './Button';
 import useModalAccessibility from './useModalAccessibility';
@@ -41,10 +42,10 @@ export default function ConfirmDialog({
   };
 
   return createPortal((
-    <div className={`modal-backdrop confirm-dialog-backdrop${!open ? ' motion-exiting' : ''}`} role="presentation" onMouseDown={handleBackdropClick}>
+    <div className={`modal-backdrop confirm-dialog-backdrop${!open ? ' motion-exiting' : ''} ${getModalBackdropClasses({ exiting: !open })}`} role="presentation" onMouseDown={handleBackdropClick}>
       <section
         ref={dialogRef}
-        className={`modal-content confirm-dialog confirm-dialog--${variant}${!open ? ' motion-exiting' : ''} ${className}`.trim()}
+        className={`modal-content confirm-dialog confirm-dialog--${variant}${!open ? ' motion-exiting' : ''} ${getModalSurfaceClasses({ exiting: !open, variant: 'confirm' })} ${className}`.trim()}
         role="alertdialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -76,7 +77,7 @@ export default function ConfirmDialog({
             type="button"
             variant="icon"
             size="small"
-            className="btn-close-modal confirm-dialog__close"
+            className={`btn-close-modal confirm-dialog__close ${confirmationCloseClasses}`}
             onClick={onCancel}
             aria-label="Close confirmation"
             disabled={loading}

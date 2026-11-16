@@ -1,3 +1,4 @@
+import { filterInteractionClasses, searchContainerClasses, searchInputClasses } from '../../../utils/formFieldClasses';
 import React from 'react';
 export default function EntitySearchControls({
   selectedEntityFilter,
@@ -16,7 +17,7 @@ export default function EntitySearchControls({
     <div className="beneficiary-search-controls">
       {showEntityFilter && (
         <select
-          className="entity-filter-btn"
+          className={`entity-filter-btn ${filterInteractionClasses}`}
           value={selectedEntityFilter}
           onChange={(event) => {
             if (onEntityChange) onEntityChange(event.target.value);
@@ -30,7 +31,7 @@ export default function EntitySearchControls({
       )}
       {showCommunityFilter && communities.length > 0 && onCommunityChange && (
         <select
-          className="entity-filter-btn"
+          className={`entity-filter-btn ${filterInteractionClasses}`}
           value={selectedCommunity}
           onChange={(event) => onCommunityChange(event.target.value)}
           aria-label="Filter beneficiaries by community"
@@ -40,12 +41,12 @@ export default function EntitySearchControls({
         </select>
       )}
       {showSearch && onQueryChange && (
-        <div className="search-container">
+        <div className={`search-container ${searchContainerClasses}`}>
           <input
             id="beneficiary-search"
             name="beneficiarySearch"
             type="text"
-            className="search-input-field"
+            className={`search-input-field ${searchInputClasses}`}
             placeholder={selectedEntityFilter === 'Mother' ? 'Search mother/community...' : 'Search child name...'}
             value={query}
             onChange={(event) => onQueryChange(event.target.value)}

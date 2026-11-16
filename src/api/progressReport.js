@@ -21,9 +21,13 @@ export const apiCreateMonitoringReportIntent = (prompt) => requestJson(`${API_BA
   method: 'POST',
   body: JSON.stringify({ prompt }),
 });
-export const apiCreateDashboardInsight = (metrics, question = '') => requestJson(`${API_BASE}/api/progress-report/ai/dashboard-insight`, {
+export const apiCreateDashboardInsight = (metrics, question = '', history = []) => requestJson(`${API_BASE}/api/progress-report/ai/dashboard-insight`, {
   method: 'POST',
-  body: JSON.stringify({ metrics, question }),
+  body: JSON.stringify({ metrics, question, history }),
+});
+export const apiCreateReportInsight = (context, question, history = []) => requestJson(`${API_BASE}/api/progress-report/ai/report-insight`, {
+  method: 'POST',
+  body: JSON.stringify({ context, question, history }),
 });
 export const apiGetProgressReport = (params) => {
   const query = new URLSearchParams(Object.entries(params).filter(([, value]) => value !== '' && value !== null && value !== undefined));

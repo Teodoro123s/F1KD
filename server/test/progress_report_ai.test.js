@@ -31,8 +31,10 @@ const {
   createDashboardInsight,
   createMonitoringReportIntent,
   createReportProposal,
+  createReportInsight,
   getAIConfiguration,
   normalizeDashboardMetrics,
+  normalizeReportInsightContext,
   validateMonitoringReportIntent,
   validateReportProposal,
 } = require('../utils/progressReportAI');
@@ -131,6 +133,64 @@ test('dashboard AI retries one transient 503 and reports a clear outage if it pe
     },
   }), /AI provider is temporarily unavailable/);
   assert.equal(attempts, 2);
+});
+
+test('report AI answers from validated aggregates and bounded conversation history', async () => {
+  let request;
+  const context = {
+    reportCategory: 'monitor',
+    beneficiaryType: 'child',
+    rowCount: 3,
+    categorical: [{
+      fieldId: 'developmentalStatus',
+      counts: [{ value: 'Normal', count: 2 }, { value: 'At Risk', count: 1 }],
+    }],
+    numeric: [{ fieldId: 'ageAtCheckupMonths', count: 3, min: 6, max: 18, average: 12 }],
+    monthly: [{ month: '2026-03', count: 3 }],
+  };
+  const answer = await createReportInsight(context, 'Which screening result is most common?', [
+    { role: 'user', content: 'Summarize this monitoring report.' },
+    { role: 'assistant', content: 'The report contains three check-ups.' },
+  ], {
+    env: modelEnvironment,
+    fetchImpl: async (_url, options) => {
+      request = JSON.parse(options.body);
+      return new Response(JSON.stringify({
+        choices: [{ message: { content: 'Normal appears in two of the three check-ups.' } }],
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    },
+  });
+
+  assert.equal(answer, 'Normal appears in two of the three check-ups.');
+  assert.deepEqual(request.messages.slice(1, 3), [
+    { role: 'user', content: 'Summarize this monitoring report.' },
+    { role: 'assistant', content: 'The report contains three check-ups.' },
+  ]);
+  assert.deepEqual(JSON.parse(request.messages[3].content), { question: 'Which screening result is most common?', report: context });
+  assert.doesNotMatch(JSON.stringify(request.messages), /Sample Child|beneficiary ID|contact number/i);
+});
+
+test('report insight validation rejects identity fields, unsupported category values, and oversized history', async () => {
+  const validContext = {
+    reportCategory: 'profile',
+    beneficiaryType: 'child',
+    rowCount: 1,
+    categorical: [],
+    numeric: [],
+    monthly: [],
+  };
+  assert.throws(() => normalizeReportInsightContext({
+    ...validContext,
+    categorical: [{ fieldId: 'child', counts: [{ value: 'Sample Child', count: 1 }] }],
+  }), /unsupported category/);
+  assert.throws(() => normalizeReportInsightContext({
+    ...validContext,
+    categorical: [{ fieldId: 'gender', counts: [{ value: 'Sample Child', count: 1 }] }],
+  }), /invalid category count/);
+  await assert.rejects(createReportInsight(validContext, 'Follow-up question', Array(9).fill({
+    role: 'user',
+    content: 'Previous question',
+  })), /no more than 8 turns/);
 });
 
 test('report proposals accept only known report types and fields for the selected beneficiary type', async () => {
@@ -942,6 +1002,13 @@ test('progress report AI endpoints require auth and do not pass user scope to th
   });
   assert.equal(unauthenticatedDashboardInsight.status, 401);
   assert.equal(requests.length, 0);
+  const unauthenticatedReportInsight = await requestToApp(`${baseUrl}/report-insight`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ question: 'What is most common?' }),
+  });
+  assert.equal(unauthenticatedReportInsight.status, 401);
+  assert.equal(requests.length, 0);
   const proposalResponse = await requestToApp(`${baseUrl}/proposal`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -1003,6 +1070,47 @@ test('progress report AI endpoints require auth and do not pass user scope to th
   assert.equal(requests[1].authorization, 'Bearer shared-route-test-key');
   assert.doesNotMatch(requests[1].body.messages.at(-1).content, /Jane Doe|records|123|456/);
 
+  const unsafeHistoryResponse = await requestToApp(`${baseUrl}/report-insight`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      context: {
+        reportCategory: 'monitor',
+        beneficiaryType: 'child',
+        rowCount: 1,
+        categorical: [],
+        numeric: [],
+        monthly: [],
+      },
+      question: 'Summarize this report.',
+      history: [{ role: 'user', content: 'Use the record for Name: Jane Doe.' }],
+    }),
+  });
+  assert.equal(unsafeHistoryResponse.status, 400);
+  assert.equal(requests.length, 2, 'identifying conversation history must not reach the shared provider');
+
+  const reportInsightResponse = await requestToApp(`${baseUrl}/report-insight`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      context: {
+        reportCategory: 'monitor',
+        beneficiaryType: 'child',
+        rowCount: 2,
+        categorical: [{ fieldId: 'developmentalStatus', counts: [{ value: 'Normal', count: 2 }] }],
+        numeric: [],
+        monthly: [],
+        beneficiaryName: 'Jane Doe',
+      },
+      question: 'Which screening result is most common?',
+      history: [{ role: 'user', content: 'Summarize this report.' }],
+    }),
+  });
+  assert.equal(reportInsightResponse.status, 200);
+  assert.deepEqual(await reportInsightResponse.json(), { insight: 'Summary of aggregate figures.' });
+  assert.equal(requests[2].authorization, 'Bearer shared-route-test-key');
+  assert.doesNotMatch(JSON.stringify(requests[2].body.messages), /Jane Doe|beneficiaryName|123|456/);
+
   for (const endpoint of ['admin-assistant', 'beneficiary-assistant', 'program-assistant', 'entry-assist']) {
     const removedAssistantResponse = await requestToApp(`${baseUrl}/${endpoint}`, {
       method: 'POST',
@@ -1011,5 +1119,5 @@ test('progress report AI endpoints require auth and do not pass user scope to th
     });
     assert.equal(removedAssistantResponse.status, 403, `${endpoint} should no longer be available`);
   }
-  assert.equal(requests.length, 2);
+  assert.equal(requests.length, 3);
 });

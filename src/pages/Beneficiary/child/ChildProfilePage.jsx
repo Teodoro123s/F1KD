@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { modalBodyClasses } from '../../../components/ui/modalClasses';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { formatDateForDisplay } from '../../../utils/formatting/dateFormat';
 import { apiDeleteChildBirthDocument, apiGetChild, apiUploadChildBirthDocument } from '../../../api/children';
@@ -334,7 +335,7 @@ export default function ChildProfilePage() {
       </div>
 
       <div className="create-form-body child-detail-shared-form">
-        <div className="modal-body-scrollable">
+        <div className={`modal-body-scrollable ${modalBodyClasses}`}>
           <ChildFormFields activeTab={profileTab} form={detailForm} readOnly />
         </div>
       </div>

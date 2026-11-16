@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { archiveControlClasses } from '../../utils/formFieldClasses';
 import { apiGetArchiveActivity, apiGetArchivedRecords, apiRestoreArchivedRecord } from '../../api/archives';
 import { notifyAction } from '../../components/ActionFeedback';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
@@ -127,7 +128,7 @@ export default function ArchiveRecordsPanel({ types, view, onChanged }) {
             {types.length > 1 && (
               <label>
                 <span className="sr-only">Record type</span>
-                <select value={type} onChange={(event) => { setType(event.target.value); setPage(1); }}>
+                <select className={archiveControlClasses} value={type} onChange={(event) => { setType(event.target.value); setPage(1); }}>
                   {types.map((item) => <option key={item} value={item}>{TYPE_LABELS[item]}</option>)}
                 </select>
               </label>
@@ -136,6 +137,7 @@ export default function ArchiveRecordsPanel({ types, view, onChanged }) {
               <span className="sr-only">Search archived records</span>
               <input
                 type="search"
+                className={archiveControlClasses}
                 value={search}
                 placeholder="Search archived records"
                 onChange={(event) => { setSearch(event.target.value); setPage(1); }}

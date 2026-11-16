@@ -494,6 +494,108 @@
   background: var(--color-surface-soft);
 }
 
+.ai-report-insights {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.8rem;
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  background: var(--color-surface);
+}
+
+.ai-report-insights h4 {
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
+.ai-report-insight-group {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.ai-report-insight-group > strong {
+  color: var(--color-text-secondary);
+  font-size: 0.82rem;
+}
+
+.ai-report-insight-row {
+  display: grid;
+  grid-template-columns: minmax(7rem, 0.7fr) minmax(5rem, 2fr) auto;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+}
+
+.ai-report-insight-bar {
+  height: 0.55rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--color-surface-soft);
+}
+
+.ai-report-insight-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-brand);
+}
+
+.ai-report-insight-row > b {
+  color: var(--color-text-strong);
+}
+
+.ai-report-insight-numeric {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+  margin: 0;
+}
+
+.ai-report-insight-numeric > div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.ai-report-insight-numeric dt {
+  color: var(--color-text-secondary);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.ai-report-insight-numeric dd {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+}
+
+.ai-report-follow-up {
+  display: grid;
+  gap: 0.55rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.ai-report-follow-up > label {
+  color: var(--color-text-secondary);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.ai-report-follow-up textarea {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  min-height: 60px;
+  padding: 0.6rem 0.7rem;
+  resize: vertical;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 9px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+}
+
 .ai-report-result-heading {
   display: flex;
   align-items: flex-start;

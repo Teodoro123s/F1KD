@@ -1,3 +1,4 @@
+import { filterControlClasses } from '../../../utils/formFieldClasses';
 import React from 'react';
 
 const MONITOR_STATUS_OPTIONS = [
@@ -22,6 +23,7 @@ export default function StatusFilterBar({ selectedStatusFilter, onChange, mode =
   return (
     <div className={isBeneficiary ? 'beneficiary-status-filter' : 'monitoring-status-filter'}>
       <select
+        className={filterControlClasses}
         aria-label={isBeneficiary ? 'Beneficiary status filter' : 'Completeness filter'}
         value={selectedStatusFilter}
         onChange={(event) => onChange(event.target.value)}

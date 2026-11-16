@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { modalBodyClasses } from '../../../components/ui/modalClasses';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { formatDateForDisplay } from '../../../utils/formatting/dateFormat';
 import { apiDeleteMotherDocument, apiGetMother, apiUploadMotherDocuments } from '../../../api/mothers';
@@ -430,7 +431,7 @@ export default function MotherDetailPage({ selectedMother, onClose, onMotherUpda
           </div>
 
           <div className="create-form-body mother-detail-shared-form">
-            <div className="modal-body-scrollable">
+            <div className={`modal-body-scrollable ${modalBodyClasses}`}>
               <MotherFormFields activeTab={profileTab} form={detailForm} readOnly documentContent={documentContent} />
               {nextProfileTab && (
                 <div className="mother-detail-profile-navigation">

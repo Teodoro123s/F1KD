@@ -94,19 +94,19 @@ export default function ActionFeedback() {
 
   return (
     <div
-      className={`action-feedback action-feedback--${feedback.tone || 'success'}${visible ? ' action-feedback--visible' : ''}`}
+      className={`action-feedback action-feedback--${feedback.tone || 'success'} fixed top-[max(76px,env(safe-area-inset-top))] right-[max(1rem,env(safe-area-inset-right))] left-auto z-[var(--z-toast)] w-[min(420px,calc(100vw-2rem))] min-w-0 max-w-[calc(100vw-2rem)] flex items-center gap-3 border border-[var(--color-success-border)] rounded-[var(--radius-lg)] bg-[var(--color-success-bg)] px-4 py-[0.85rem] text-[var(--color-success)] text-[0.875rem] shadow-[var(--shadow-md)] font-bold justify-between m-[0.85rem_0.85rem_0_0.85rem] transition-[opacity,transform] duration-[var(--motion-modal-duration)] ease-[var(--motion-ease-out)] ${visible ? 'opacity-100 pointer-events-auto translate-y-0' : 'opacity-0 pointer-events-none -translate-y-3'} max-[640px]:top-[72px] ${feedback.tone === 'error' ? 'border-[var(--color-error-border)] bg-[var(--color-error-bg)] text-[var(--color-error)] [&_button:hover]:bg-[rgba(180,35,24,0.1)]' : feedback.tone === 'warning' ? 'border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] text-[var(--color-warning)] [&_button:hover]:bg-[rgba(146,64,14,0.1)]' : feedback.tone === 'info' ? 'border-[var(--color-info-border)] bg-[var(--color-info-bg)] text-[var(--color-info)] [&_button:hover]:bg-[rgba(29,78,216,0.1)]' : '[&_button:hover]:bg-[rgba(22,101,52,0.1)]'}`}
       role={feedback.tone === 'error' ? 'alert' : 'status'}
       aria-live={feedback.tone === 'error' ? 'assertive' : 'polite'}
     >
-      <svg className="action-feedback__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <svg className="action-feedback__icon w-[1.2rem] h-[1.2rem] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         {icons[feedback.tone] || icons.info}
       </svg>
-      <span className="action-feedback__message">{feedback.message}</span>
+      <span className="action-feedback__message flex-1 min-w-0 [overflow-wrap:anywhere]">{feedback.message}</span>
       <Button
         type="button"
         variant="icon"
         size="small"
-        className="action-feedback__dismiss"
+        className="action-feedback__dismiss flex-[0_0_auto] rounded-[var(--radius-sm)] cursor-pointer border-0 bg-transparent text-current text-[1.2rem] leading-none"
         onClick={() => {
           window.clearTimeout(timeoutRef.current);
           window.clearTimeout(removalTimeoutRef.current);

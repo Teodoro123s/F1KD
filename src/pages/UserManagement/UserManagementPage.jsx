@@ -226,7 +226,7 @@ export default function UserManagementPage() {
       )}
 
       {copyNotice && (
-        <div className="inline-toast" role="status" aria-live="polite">{copyNotice}</div>
+        <div className="inline-toast inline-flex items-center gap-2 mb-4 border border-[var(--color-success-border)] rounded-[var(--radius-lg)] bg-[var(--color-success-bg)] px-4 py-[0.8rem] text-[var(--color-success)] text-[0.85rem] shadow-[var(--shadow-md)] font-bold" role="status" aria-live="polite">{copyNotice}</div>
       )}
 
       {selectedSummaryCard && (

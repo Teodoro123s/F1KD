@@ -94,20 +94,27 @@ function getRecordDate(record) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+const kpiBadgeClasses = {
+  positive: 'bg-[#ecfdf5] text-[#15803d] border border-[#a7f3d0]',
+  warning: 'bg-[#fffbeb] text-[#b45309] border border-[#fde68a]',
+  negative: 'bg-[#fef2f2] text-[#b91c1c] border border-[#fecaca]',
+  neutral: 'bg-[#f8fafc] text-[#475569] border border-[#e2e8f0]',
+};
+
 /* Custom Chart Tooltip */
 function ChartTooltip({ active, payload, label }) {
   if (active && payload && payload.length) {
     return (
-      <div className="dashboard-chart-tooltip">
-        {label && <div className="tooltip-label">{label}</div>}
+      <div className="dashboard-chart-tooltip pointer-events-none rounded-xl border border-[#e2e8f0] bg-white px-[0.85rem] py-[0.6rem] text-[0.8rem] shadow-[0_8px_24px_rgba(15,23,42,0.08)]">
+        {label && <div className="tooltip-label mb-[0.35rem] font-bold text-[#0f172a]">{label}</div>}
         {payload.map((entry, index) => (
-          <div key={`tip-${index}`} className="tooltip-item">
+          <div key={`tip-${index}`} className="tooltip-item flex items-center gap-[0.45rem] text-[#475569]">
             <span
-              className="tooltip-dot"
+              className="tooltip-dot h-2 w-2 shrink-0 rounded-full"
               style={{ backgroundColor: entry.color || entry.fill || '#15803d' }}
             />
-            <span className="tooltip-name">{entry.name || 'Count'}:</span>
-            <span className="tooltip-val">{Number(entry.value).toLocaleString()}</span>
+            <span className="tooltip-name font-medium">{entry.name || 'Count'}:</span>
+            <span className="tooltip-val ml-2 font-bold text-[#0f172a]">{Number(entry.value).toLocaleString()}</span>
           </div>
         ))}
       </div>
@@ -652,37 +659,37 @@ export default function DashboardPage() {
           : `${roleLabel} workspace`;
 
   return (
-    <div className="dashboard-shell">
+    <div className="dashboard-shell box-border mx-auto flex max-w-[1480px] flex-col gap-5 px-6 pt-5 pb-10 max-[640px]:gap-4 max-[640px]:p-[0.85rem]">
       {/* --------------------------------------------------------------------------
           Top Header: Greeting, Subtitle & Action Controls
           -------------------------------------------------------------------------- */}
-      <header className="dashboard-top-row">
-        <div className="dashboard-welcome">
-          <h2 data-guide="page-title">{getGreeting(currentUser?.name)}</h2>
-          <p>{description}</p>
+      <header className="dashboard-top-row flex flex-wrap items-center justify-between gap-5 py-1 max-[640px]:flex-col max-[640px]:items-start">
+        <div className="dashboard-welcome flex flex-col gap-1">
+          <h2 className="m-0 text-[clamp(1.4rem,2.2vw,1.85rem)] font-extrabold leading-[1.25] tracking-[-0.025em] text-[#0f172a]" data-guide="page-title">{getGreeting(currentUser?.name)}</h2>
+          <p className="m-0 text-[0.92rem] font-medium text-[#64748b]">{description}</p>
           {(isAdmin || isPartner) && (
-            <span className="dashboard-scope-badge">Whole-level view · All accessible communities</span>
+            <span className="dashboard-scope-badge mt-[0.4rem] inline-flex self-start rounded-full border border-[#bbf7d0] bg-[#f0fdf4] px-[0.65rem] py-[0.2rem] text-[0.72rem] font-bold text-[#166534]">Whole-level view · All accessible communities</span>
           )}
         </div>
-        <div className="dashboard-top-actions">
+        <div className="dashboard-top-actions flex flex-wrap items-center gap-3 max-[640px]:w-full">
           {canCreateBeneficiary && (
-            <Link to="/beneficiary" className="dashboard-primary-action-btn" title="Add new beneficiary">
+            <Link to="/beneficiary" className="dashboard-primary-action-btn inline-flex items-center gap-[0.45rem] rounded-xl bg-[#15803d] px-4 py-[0.55rem] text-[0.84rem] font-semibold text-white no-underline shadow-[0_2px_8px_rgba(21,128,61,0.25)] transition-all duration-[150ms] ease-[ease] hover:-translate-y-px hover:bg-[#166534] hover:shadow-[0_4px_12px_rgba(21,128,61,0.35)] max-[640px]:flex-[1_1_auto] max-[640px]:justify-center" title="Add new beneficiary">
               <UserPlus size={16} aria-hidden="true" />
               <span>New Beneficiary</span>
             </Link>
           )}
           {canRecordMonitoring && !canCreateBeneficiary && (
-            <Link to="/monitoring" className="dashboard-primary-action-btn" title="Record monitoring check-up">
+            <Link to="/monitoring" className="dashboard-primary-action-btn inline-flex items-center gap-[0.45rem] rounded-xl bg-[#15803d] px-4 py-[0.55rem] text-[0.84rem] font-semibold text-white no-underline shadow-[0_2px_8px_rgba(21,128,61,0.25)] transition-all duration-[150ms] ease-[ease] hover:-translate-y-px hover:bg-[#166534] hover:shadow-[0_4px_12px_rgba(21,128,61,0.35)] max-[640px]:flex-[1_1_auto] max-[640px]:justify-center" title="Record monitoring check-up">
               <Activity size={16} aria-hidden="true" />
               <span>Record Check-up</span>
             </Link>
           )}
-          <AIReportingAssistantEntry buttonClassName="dashboard-ai-btn" />
+          <AIReportingAssistantEntry buttonClassName="dashboard-ai-btn inline-flex cursor-pointer items-center gap-[0.45rem] rounded-xl border-0 bg-[linear-gradient(135deg,#15803d_0%,#22c55e_100%)] px-4 py-[0.55rem] text-[0.84rem] font-semibold text-white shadow-[0_3px_10px_rgba(34,197,94,0.25)] transition-all duration-[150ms] ease-[ease] hover:-translate-y-px hover:shadow-[0_5px_14px_rgba(34,197,94,0.35)] max-[640px]:flex-[1_1_auto] max-[640px]:justify-center" />
         </div>
       </header>
 
       {(loadErrors.length > 0 || mothersError) && (
-        <p className="dashboard-load-warning" role="alert">
+        <p className="dashboard-load-warning m-0 rounded-xl border border-[#fde68a] bg-[#fffbeb] px-4 py-3 text-[0.84rem] font-medium text-[#92400e]" role="alert">
           Some dashboard data could not be refreshed ({[...new Set([...loadErrors, ...(mothersError ? ['beneficiary records'] : [])])].join(', ')}). Displayed figures may be incomplete.
         </p>
       )}
@@ -693,19 +700,21 @@ export default function DashboardPage() {
           -------------------------------------------------------------------------- */}
       {displayCards.length > 0 && (
         <section
-          className={`dashboard-kpi-grid dashboard-kpi-grid--${displayCards.length}`}
+          className={`dashboard-kpi-grid grid grid-cols-1 gap-4 ${displayCards.length === 3
+            ? 'min-[641px]:grid-cols-2 min-[901px]:grid-cols-3'
+            : 'min-[641px]:grid-cols-2 min-[1081px]:grid-cols-4'}`}
           aria-label="Key role metrics"
           data-guide="dashboard-summary"
         >
-          {displayCards.map((card) => (
+          {displayCards.map((card, index) => (
             <Link
               key={card.key}
               to={card.to}
-              className="kpi-card"
+              className={`kpi-card group relative flex flex-col gap-[0.65rem] rounded-[20px] border border-[#edf2f7] bg-white px-[1.35rem] py-5 text-inherit no-underline shadow-[0_4px_20px_rgba(15,23,42,0.03)] transition-[transform,box-shadow,border-color] duration-[180ms] ease-[ease] hover:-translate-y-[3px] hover:border-[#cbd5e1] hover:shadow-[0_10px_28px_rgba(15,23,42,0.07)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#15803d] focus-visible:outline-offset-2 max-[640px]:px-[1.1rem] max-[640px]:py-4 ${displayCards.length === 3 && index === displayCards.length - 1 ? 'min-[641px]:max-[900px]:col-span-2' : ''}`}
               aria-label={`${card.title}: ${card.value}. ${card.subtitle}`}
             >
-              <div className="kpi-card-header">
-                <div className="kpi-icon-pill" aria-hidden="true">
+              <div className="kpi-card-header flex items-center gap-[0.65rem]">
+                <div className="kpi-icon-pill inline-flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] bg-[#f0fdf4] text-[#15803d]" aria-hidden="true">
                   {card.icon === 'users' && <Users size={18} />}
                   {card.icon === 'mothers' && <UserCheck size={18} />}
                   {card.icon === 'children' && <Baby size={18} />}
@@ -715,27 +724,27 @@ export default function DashboardPage() {
                   {card.icon === 'clipboard' && <ClipboardList size={18} />}
                   {card.icon === 'health-workers' && <ShieldCheck size={18} />}
                 </div>
-                <span className="kpi-title">{card.title}</span>
-                <ArrowRight className="kpi-more-arrow" size={16} aria-hidden="true" />
+                <span className="kpi-title flex-[1_1_auto] text-[0.88rem] font-semibold text-[#475569]">{card.title}</span>
+                <ArrowRight className="kpi-more-arrow shrink-0 text-[#94a3b8] transition-[transform,color] duration-[150ms] ease-[ease] group-hover:translate-x-[3px] group-hover:text-[#15803d]" size={16} aria-hidden="true" />
               </div>
 
-              <div className="kpi-card-body">
-                <span className="kpi-value">
+              <div className="kpi-card-body flex items-baseline justify-between gap-2">
+                <span className="kpi-value text-[1.85rem] font-extrabold leading-none tracking-[-0.03em] text-[#0f172a]">
                   {typeof card.value === 'number' && Number.isFinite(card.value)
                     ? card.value.toLocaleString()
                     : card.value}
                 </span>
                 {card.badge && (
-                  <span className={`kpi-badge kpi-badge--${card.badgeType || 'positive'}`}>
-                    {card.badgeType === 'positive' && <TrendingUp size={12} className="kpi-badge-icon" aria-hidden="true" />}
-                    {card.badgeType === 'negative' && <TrendingDown size={12} className="kpi-badge-icon" aria-hidden="true" />}
-                    {card.badgeType === 'warning' && <AlertCircle size={12} className="kpi-badge-icon" aria-hidden="true" />}
+                  <span className={`kpi-badge inline-flex items-center gap-[0.3rem] whitespace-nowrap rounded-full px-[0.55rem] py-[0.22rem] text-[0.73rem] font-bold ${kpiBadgeClasses[card.badgeType] || kpiBadgeClasses.positive}`}>
+                    {card.badgeType === 'positive' && <TrendingUp size={12} className="kpi-badge-icon shrink-0" aria-hidden="true" />}
+                    {card.badgeType === 'negative' && <TrendingDown size={12} className="kpi-badge-icon shrink-0" aria-hidden="true" />}
+                    {card.badgeType === 'warning' && <AlertCircle size={12} className="kpi-badge-icon shrink-0" aria-hidden="true" />}
                     <span>{card.badge}</span>
                   </span>
                 )}
               </div>
 
-              <div className="kpi-card-footer">
+              <div className="kpi-card-footer overflow-hidden text-ellipsis whitespace-nowrap text-[0.78rem] font-medium text-[#64748b]">
                 <span>{card.subtitle}</span>
               </div>
             </Link>
@@ -746,20 +755,20 @@ export default function DashboardPage() {
       {/* --------------------------------------------------------------------------
           Row 2: Primary Visualizations (AreaChart + Donut Chart)
           -------------------------------------------------------------------------- */}
-      <section className="dashboard-charts-main-grid" aria-label="Visual data overviews" data-guide="dashboard-activity">
+      <section className="dashboard-charts-main-grid grid grid-cols-[1.55fr_1fr] gap-5 max-[960px]:grid-cols-1" aria-label="Visual data overviews" data-guide="dashboard-activity">
         {/* Main Performance / Trend AreaChart */}
-        <article className="dashboard-chart-card dashboard-chart-card--main">
-          <div className="dashboard-chart-header">
+        <article className="dashboard-chart-card dashboard-chart-card--main relative flex flex-col overflow-hidden rounded-[20px] border border-[#edf2f7] bg-white px-[1.45rem] py-5 shadow-[0_4px_20px_rgba(15,23,42,0.03)]">
+          <div className="dashboard-chart-header mb-4 flex items-start justify-between gap-4">
             <div>
-              <h3 className="dashboard-chart-title">
+              <h3 className="dashboard-chart-title m-0 text-base font-bold tracking-[-0.015em] text-[#0f172a]">
                 {isSuperAdmin ? 'Operational Activity' : 'Activity & Registration Trend'}
               </h3>
-              <p className="dashboard-chart-subtitle">
+              <p className="dashboard-chart-subtitle mt-[0.2rem] mb-0 text-[0.8rem] font-medium text-[#64748b]">
                 Last 30 days overview · {timelineTotal.toLocaleString()} total recorded
               </p>
             </div>
-            <div className="dashboard-chart-legend">
-              <span className="legend-dot" style={{ backgroundColor: '#15803d' }} />
+            <div className="dashboard-chart-legend flex items-center gap-[0.4rem] text-[0.78rem] font-semibold text-[#475569]">
+              <span className="legend-dot inline-block h-2 w-2 rounded-full" style={{ backgroundColor: '#15803d' }} />
               <span className="legend-text">
                 {isSuperAdmin ? 'Daily Sign-ins' : 'Registrations'}
               </span>
@@ -805,15 +814,15 @@ export default function DashboardPage() {
         </article>
 
         {/* Donut Distribution Chart */}
-        <article className="dashboard-chart-card dashboard-chart-card--donut">
-          <div className="dashboard-chart-header">
+        <article className="dashboard-chart-card dashboard-chart-card--donut relative flex flex-col overflow-hidden rounded-[20px] border border-[#edf2f7] bg-white px-[1.45rem] py-5 shadow-[0_4px_20px_rgba(15,23,42,0.03)]">
+          <div className="dashboard-chart-header mb-4 flex items-start justify-between gap-4">
             <div>
-              <h3 className="dashboard-chart-title">{donutInfo.title}</h3>
-              <p className="dashboard-chart-subtitle">{donutInfo.subtitle}</p>
+              <h3 className="dashboard-chart-title m-0 text-base font-bold tracking-[-0.015em] text-[#0f172a]">{donutInfo.title}</h3>
+              <p className="dashboard-chart-subtitle mt-[0.2rem] mb-0 text-[0.8rem] font-medium text-[#64748b]">{donutInfo.subtitle}</p>
             </div>
           </div>
 
-          <div className="dashboard-donut-container">
+          <div className="dashboard-donut-container flex flex-[1_1_auto] flex-col items-center gap-3">
             <div className="dashboard-donut-chart-wrap" style={{ width: '100%', height: 200, position: 'relative' }}>
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -833,18 +842,18 @@ export default function DashboardPage() {
                   </Pie>
                 </PieChart>
               </ResponsiveContainer>
-              <div className="dashboard-donut-center-badge">
-                <span className="donut-center-val">{donutInfo.centerVal}</span>
-                <span className="donut-center-label">{donutInfo.centerLabel}</span>
+              <div className="dashboard-donut-center-badge pointer-events-none absolute top-1/2 left-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center">
+                <span className="donut-center-val text-[1.35rem] font-extrabold leading-none text-[#0f172a]">{donutInfo.centerVal}</span>
+                <span className="donut-center-label mt-[0.2rem] text-[0.72rem] font-semibold text-[#64748b]">{donutInfo.centerLabel}</span>
               </div>
             </div>
 
-            <div className="dashboard-donut-legend-list">
+            <div className="dashboard-donut-legend-list mt-2 flex w-full flex-col gap-[0.45rem]">
               {donutInfo.data.map((item) => (
-                <div key={item.name} className="donut-legend-item">
-                  <span className="donut-legend-dot" style={{ backgroundColor: item.color }} />
-                  <span className="donut-legend-label">{item.name}</span>
-                  <span className="donut-legend-value">{item.value.toLocaleString()}</span>
+                <div key={item.name} className="donut-legend-item flex items-center gap-[0.55rem] rounded-lg px-[0.4rem] py-1 text-[0.82rem] text-[#334155] transition-[background] duration-[120ms] ease-[ease] hover:bg-[#f8fafc]">
+                  <span className="donut-legend-dot h-[10px] w-[10px] shrink-0 rounded-full" style={{ backgroundColor: item.color }} />
+                  <span className="donut-legend-label flex-[1_1_auto] font-medium">{item.name}</span>
+                  <span className="donut-legend-value font-bold text-[#0f172a]">{item.value.toLocaleString()}</span>
                 </div>
               ))}
             </div>
@@ -855,16 +864,16 @@ export default function DashboardPage() {
       {/* --------------------------------------------------------------------------
           Row 3: Secondary Visualizations Grid (BarChart, Table, Milestones & AI)
           -------------------------------------------------------------------------- */}
-      <section className="dashboard-charts-secondary-grid" aria-label="Detailed comparisons and recent entries">
+      <section className="dashboard-charts-secondary-grid grid grid-cols-[1.05fr_1.35fr_1fr] gap-5 max-[1120px]:grid-cols-2 max-[768px]:grid-cols-1" aria-label="Detailed comparisons and recent entries">
         {/* Card 1: Bar Chart (Batch Comparison / Scopes) */}
-        <article className="dashboard-chart-card dashboard-secondary-card dashboard-bar-card">
-          <div className="dashboard-chart-header">
+        <article className="dashboard-chart-card dashboard-secondary-card dashboard-bar-card flex flex-col relative overflow-hidden rounded-[20px] border border-[#edf2f7] bg-white px-[1.45rem] py-5 shadow-[0_4px_20px_rgba(15,23,42,0.03)]">
+          <div className="dashboard-chart-header mb-4 flex items-start justify-between gap-4">
             <div>
-              <h3 className="dashboard-chart-title">{barChartInfo.title}</h3>
-              <p className="dashboard-chart-subtitle">{barChartInfo.subtitle}</p>
+              <h3 className="dashboard-chart-title m-0 text-base font-bold tracking-[-0.015em] text-[#0f172a]">{barChartInfo.title}</h3>
+              <p className="dashboard-chart-subtitle mt-[0.2rem] mb-0 text-[0.8rem] font-medium text-[#64748b]">{barChartInfo.subtitle}</p>
             </div>
           </div>
-          <div className="dashboard-barchart-wrap">
+          <div className="dashboard-barchart-wrap min-h-[240px] w-full flex-[1_1_auto]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={barChartInfo.data} margin={{ top: 10, right: 8, left: -22, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -896,54 +905,54 @@ export default function DashboardPage() {
         </article>
 
         {/* Card 2: Recent Activity Table */}
-        <article className="dashboard-chart-card dashboard-secondary-card dashboard-recent-card">
-          <div className="dashboard-chart-header">
+        <article className="dashboard-chart-card dashboard-secondary-card dashboard-recent-card relative flex flex-col overflow-hidden rounded-[20px] border border-[#edf2f7] bg-white px-[1.45rem] py-5 shadow-[0_4px_20px_rgba(15,23,42,0.03)]">
+          <div className="dashboard-chart-header mb-4 flex items-start justify-between gap-4">
             <div>
-              <h3 className="dashboard-chart-title">
+              <h3 className="dashboard-chart-title m-0 text-base font-bold tracking-[-0.015em] text-[#0f172a]">
                 {isSuperAdmin ? 'Recent Sign-ins' : 'Recent Registrations'}
               </h3>
-              <p className="dashboard-chart-subtitle">Latest recorded system entries</p>
+              <p className="dashboard-chart-subtitle mt-[0.2rem] mb-0 text-[0.8rem] font-medium text-[#64748b]">Latest recorded system entries</p>
             </div>
             <Link
               to={isSuperAdmin ? '/reports' : '/beneficiary'}
-              className="dashboard-view-all-link"
+              className="dashboard-view-all-link group inline-flex items-center gap-[0.35rem] text-[0.8rem] font-semibold text-[#15803d] no-underline transition-[color] duration-[150ms] ease-[ease] hover:text-[#166534]"
               title={isSuperAdmin ? 'View full reports' : 'View all beneficiaries'}
             >
               <span>View All</span>
-              <ArrowRight size={14} aria-hidden="true" />
+              <ArrowRight className="transition-transform duration-[150ms] ease-[ease] group-hover:translate-x-[3px]" size={14} aria-hidden="true" />
             </Link>
           </div>
 
-          <div className="dashboard-table-container">
+          <div className="dashboard-table-container flex-[1_1_auto] overflow-x-auto">
             {isSuperAdmin ? (
               activityReport.activities?.length ? (
-                <table className="dashboard-modern-table">
+                <table className="dashboard-modern-table w-full border-collapse text-left">
                   <thead>
                     <tr>
-                      <th scope="col">User</th>
-                      <th scope="col">Status</th>
-                      <th scope="col">Recorded</th>
+                      <th className="border-b border-[#f1f5f9] px-[0.4rem] py-[0.55rem] text-[0.72rem] font-bold uppercase tracking-[0.04em] text-[#64748b]" scope="col">User</th>
+                      <th className="w-[95px] border-b border-[#f1f5f9] px-[0.4rem] py-[0.55rem] text-center text-[0.72rem] font-bold uppercase tracking-[0.04em] text-[#64748b]" scope="col">Status</th>
+                      <th className="border-b border-[#f1f5f9] px-[0.4rem] py-[0.55rem] text-right text-[0.72rem] font-bold uppercase tracking-[0.04em] text-[#64748b]" scope="col">Recorded</th>
                     </tr>
                   </thead>
                   <tbody>
                     {activityReport.activities.slice(0, 5).map((activity) => {
                       const date = new Date(activity.createdAt);
                       return (
-                        <tr key={activity.id}>
-                          <td>
-                            <span className="table-cell-bold" title={activity.actorName || 'Staff Member'}>
+                        <tr key={activity.id} className="group">
+                          <td className="align-middle border-b border-[#f8fafc] px-[0.4rem] py-[0.55rem] text-[0.82rem] text-[#334155] group-hover:bg-[#f8fafc]">
+                            <span className="table-cell-bold block max-w-[155px] overflow-hidden text-ellipsis whitespace-nowrap font-semibold text-[#0f172a]" title={activity.actorName || 'Staff Member'}>
                               {activity.actorName || 'Staff Member'}
                             </span>
                           </td>
-                          <td>
-                            <span className="table-status-pill table-status-pill--green">Signed In</span>
+                          <td className="w-[95px] align-middle border-b border-[#f8fafc] px-[0.4rem] py-[0.55rem] text-center text-[0.82rem] text-[#334155] group-hover:bg-[#f8fafc]">
+                            <span className="table-status-pill table-status-pill--green inline-flex items-center justify-center whitespace-nowrap rounded-full border border-[#a7f3d0] bg-[#ecfdf5] px-[0.6rem] py-[0.22rem] text-[0.72rem] font-bold leading-[1.2] text-[#15803d]">Signed In</span>
                           </td>
-                          <td className="table-cell-muted">
-                            <div className="table-date-wrap">
-                              <span className="table-time">
+                          <td className="table-cell-muted align-middle whitespace-nowrap border-b border-[#f8fafc] px-[0.4rem] py-[0.55rem] text-right text-[0.76rem] text-[#64748b] group-hover:bg-[#f8fafc]">
+                            <div className="table-date-wrap flex flex-col items-end leading-[1.25]">
+                              <span className="table-time whitespace-nowrap text-[0.76rem] font-semibold text-[#334155]">
                                 {Number.isNaN(date.getTime()) ? '—' : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                               </span>
-                              <span className="table-date">
+                              <span className="table-date whitespace-nowrap text-[0.7rem] text-[#94a3b8]">
                                 {Number.isNaN(date.getTime()) ? '—' : date.toLocaleDateString()}
                               </span>
                             </div>
@@ -954,107 +963,107 @@ export default function DashboardPage() {
                   </tbody>
                 </table>
               ) : (
-                <p className="dashboard-table-empty">No operational sign-in activity available.</p>
+                <p className="dashboard-table-empty my-6 text-center text-[0.84rem] text-[#94a3b8]">No operational sign-in activity available.</p>
               )
             ) : (
               recentRecords.length ? (
-                <table className="dashboard-modern-table">
+                <table className="dashboard-modern-table w-full border-collapse text-left">
                   <thead>
                     <tr>
-                      <th scope="col">Record Name</th>
-                      <th scope="col">Type</th>
-                      <th scope="col">Registered</th>
+                      <th className="border-b border-[#f1f5f9] px-[0.4rem] py-[0.55rem] text-[0.72rem] font-bold uppercase tracking-[0.04em] text-[#64748b]" scope="col">Record Name</th>
+                      <th className="w-[95px] border-b border-[#f1f5f9] px-[0.4rem] py-[0.55rem] text-center text-[0.72rem] font-bold uppercase tracking-[0.04em] text-[#64748b]" scope="col">Type</th>
+                      <th className="border-b border-[#f1f5f9] px-[0.4rem] py-[0.55rem] text-right text-[0.72rem] font-bold uppercase tracking-[0.04em] text-[#64748b]" scope="col">Registered</th>
                     </tr>
                   </thead>
                   <tbody>
                     {recentRecords.slice(0, 5).map((record) => (
-                      <tr key={record.id}>
-                        <td>
-                          <span className="table-cell-bold" title={record.name}>
+                      <tr key={record.id} className="group">
+                        <td className="align-middle border-b border-[#f8fafc] px-[0.4rem] py-[0.55rem] text-[0.82rem] text-[#334155] group-hover:bg-[#f8fafc]">
+                          <span className="table-cell-bold block max-w-[155px] overflow-hidden text-ellipsis whitespace-nowrap font-semibold text-[#0f172a]" title={record.name}>
                             {record.name}
                           </span>
                         </td>
-                        <td>
-                          <span className={`table-status-pill ${record.type === 'Mother' ? 'table-status-pill--green' : 'table-status-pill--emerald'}`}>
+                        <td className="w-[95px] align-middle border-b border-[#f8fafc] px-[0.4rem] py-[0.55rem] text-center text-[0.82rem] text-[#334155] group-hover:bg-[#f8fafc]">
+                          <span className={`table-status-pill inline-flex items-center justify-center whitespace-nowrap rounded-full border px-[0.6rem] py-[0.22rem] text-[0.72rem] font-bold leading-[1.2] ${record.type === 'Mother' ? 'table-status-pill--green border-[#a7f3d0] bg-[#ecfdf5] text-[#15803d]' : 'table-status-pill--emerald border-[#bbf7d0] bg-[#f0fdf4] text-[#166534]'}`}>
                             {record.type}
                           </span>
                         </td>
-                        <td className="table-cell-muted">
-                          <span className="table-time">{record.date.toLocaleDateString()}</span>
+                        <td className="table-cell-muted align-middle whitespace-nowrap border-b border-[#f8fafc] px-[0.4rem] py-[0.55rem] text-right text-[0.76rem] text-[#64748b] group-hover:bg-[#f8fafc]">
+                          <span className="table-time whitespace-nowrap text-[0.76rem] font-semibold text-[#334155]">{record.date.toLocaleDateString()}</span>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               ) : (
-                <p className="dashboard-table-empty">No recent registration dates recorded.</p>
+                <p className="dashboard-table-empty my-6 text-center text-[0.84rem] text-[#94a3b8]">No recent registration dates recorded.</p>
               )
             )}
           </div>
         </article>
 
         {/* Card 3: Milestones & AI Assistant Card */}
-        <article className="dashboard-chart-card dashboard-secondary-card dashboard-focus-card">
-          <div className="dashboard-chart-header">
+        <article className="dashboard-chart-card dashboard-secondary-card dashboard-focus-card relative flex flex-col overflow-hidden rounded-[20px] border border-[#edf2f7] bg-white px-[1.45rem] py-5 shadow-[0_4px_20px_rgba(15,23,42,0.03)] max-[1120px]:col-span-full">
+          <div className="dashboard-chart-header mb-4 flex items-start justify-between gap-4">
             <div>
-              <h3 className="dashboard-chart-title">Key Milestones</h3>
-              <p className="dashboard-chart-subtitle">Active progress tracking</p>
+              <h3 className="dashboard-chart-title m-0 text-base font-bold tracking-[-0.015em] text-[#0f172a]">Key Milestones</h3>
+              <p className="dashboard-chart-subtitle mt-[0.2rem] mb-0 text-[0.8rem] font-medium text-[#64748b]">Active progress tracking</p>
             </div>
           </div>
 
-          <div className="dashboard-milestones-list">
+          <div className="dashboard-milestones-list mb-4 flex flex-[1_1_auto] flex-col gap-[0.8rem]">
             {incompleteBatches.length > 0 ? (
               incompleteBatches.slice(0, 2).map((batch) => (
-                <div key={batch.id} className="milestone-item">
-                  <div className="milestone-item-head">
-                    <span className="milestone-name">{batch.name}</span>
-                    <span className="milestone-pct">{batch.percentage}%</span>
+                <div key={batch.id} className="milestone-item flex flex-col gap-[0.35rem]">
+                  <div className="milestone-item-head flex items-center justify-between text-[0.82rem]">
+                    <span className="milestone-name font-semibold text-[#0f172a]">{batch.name}</span>
+                    <span className="milestone-pct font-bold text-[#15803d]">{batch.percentage}%</span>
                   </div>
-                  <div className="milestone-progress-track">
+                  <div className="milestone-progress-track h-2 w-full overflow-hidden rounded-full bg-[#f1f5f9]">
                     <div
-                      className="milestone-progress-fill"
+                      className="milestone-progress-fill h-full rounded-full bg-[linear-gradient(90deg,#15803d_0%,#22c55e_100%)] transition-[width] duration-300 ease-[ease]"
                       style={{ width: `${Math.min(100, Math.max(0, batch.percentage || 0))}%` }}
                     />
                   </div>
-                  <span className="milestone-desc">
+                  <span className="milestone-desc text-[0.72rem] text-[#64748b]">
                     {batch.completed} of {batch.total} children completed 24 months
                   </span>
                 </div>
               ))
             ) : isSuperAdmin ? (
               <>
-                <div className="milestone-item">
-                  <div className="milestone-item-head">
-                    <span className="milestone-name">Active Staff Health</span>
-                    <span className="milestone-pct">
+                <div className="milestone-item flex flex-col gap-[0.35rem]">
+                  <div className="milestone-item-head flex items-center justify-between text-[0.82rem]">
+                    <span className="milestone-name font-semibold text-[#0f172a]">Active Staff Health</span>
+                    <span className="milestone-pct font-bold text-[#15803d]">
                       {staffMetrics.total ? Math.round((staffMetrics.active / staffMetrics.total) * 100) : 100}%
                     </span>
                   </div>
-                  <div className="milestone-progress-track">
+                  <div className="milestone-progress-track h-2 w-full overflow-hidden rounded-full bg-[#f1f5f9]">
                     <div
-                      className="milestone-progress-fill"
+                      className="milestone-progress-fill h-full rounded-full bg-[linear-gradient(90deg,#15803d_0%,#22c55e_100%)] transition-[width] duration-300 ease-[ease]"
                       style={{ width: `${staffMetrics.total ? Math.round((staffMetrics.active / staffMetrics.total) * 100) : 100}%` }}
                     />
                   </div>
-                  <span className="milestone-desc">
+                  <span className="milestone-desc text-[0.72rem] text-[#64748b]">
                     {staffMetrics.active} of {staffMetrics.total} operational accounts active
                   </span>
                 </div>
 
-                <div className="milestone-item">
-                  <div className="milestone-item-head">
-                    <span className="milestone-name">School Assignments</span>
-                    <span className="milestone-pct">
+                <div className="milestone-item flex flex-col gap-[0.35rem]">
+                  <div className="milestone-item-head flex items-center justify-between text-[0.82rem]">
+                    <span className="milestone-name font-semibold text-[#0f172a]">School Assignments</span>
+                    <span className="milestone-pct font-bold text-[#15803d]">
                       {staffMetrics.active ? Math.round(((staffMetrics.active - staffMetrics.unassigned) / staffMetrics.active) * 100) : 100}%
                     </span>
                   </div>
-                  <div className="milestone-progress-track">
+                  <div className="milestone-progress-track h-2 w-full overflow-hidden rounded-full bg-[#f1f5f9]">
                     <div
-                      className="milestone-progress-fill"
+                      className="milestone-progress-fill h-full rounded-full bg-[linear-gradient(90deg,#15803d_0%,#22c55e_100%)] transition-[width] duration-300 ease-[ease]"
                       style={{ width: `${staffMetrics.active ? Math.round(((staffMetrics.active - staffMetrics.unassigned) / staffMetrics.active) * 100) : 100}%` }}
                     />
                   </div>
-                  <span className="milestone-desc">
+                  <span className="milestone-desc text-[0.72rem] text-[#64748b]">
                     {staffMetrics.unassigned > 0
                       ? `${staffMetrics.unassigned} accounts need school assignment`
                       : 'All active staff assigned to schools'}
@@ -1063,27 +1072,27 @@ export default function DashboardPage() {
               </>
             ) : (
               <>
-                <div className="milestone-item">
-                  <div className="milestone-item-head">
-                    <span className="milestone-name">Beneficiary Scope</span>
-                    <span className="milestone-pct">{stats.motherCount + stats.childCount} Total</span>
+                <div className="milestone-item flex flex-col gap-[0.35rem]">
+                  <div className="milestone-item-head flex items-center justify-between text-[0.82rem]">
+                    <span className="milestone-name font-semibold text-[#0f172a]">Beneficiary Scope</span>
+                    <span className="milestone-pct font-bold text-[#15803d]">{stats.motherCount + stats.childCount} Total</span>
                   </div>
-                  <div className="milestone-progress-track">
-                    <div className="milestone-progress-fill" style={{ width: '100%' }} />
+                  <div className="milestone-progress-track h-2 w-full overflow-hidden rounded-full bg-[#f1f5f9]">
+                    <div className="milestone-progress-fill h-full rounded-full bg-[linear-gradient(90deg,#15803d_0%,#22c55e_100%)] transition-[width] duration-300 ease-[ease]" style={{ width: '100%' }} />
                   </div>
-                  <span className="milestone-desc">{stats.motherCount} mothers · {stats.childCount} children registered</span>
+                  <span className="milestone-desc text-[0.72rem] text-[#64748b]">{stats.motherCount} mothers · {stats.childCount} children registered</span>
                 </div>
 
-                <div className="milestone-item">
-                  <div className="milestone-item-head">
-                    <span className="milestone-name">Follow-Up Compliance</span>
-                    <span className="milestone-pct">
+                <div className="milestone-item flex flex-col gap-[0.35rem]">
+                  <div className="milestone-item-head flex items-center justify-between text-[0.82rem]">
+                    <span className="milestone-name font-semibold text-[#0f172a]">Follow-Up Compliance</span>
+                    <span className="milestone-pct font-bold text-[#15803d]">
                       {stats.followUpCount === 0 ? '100%' : `${stats.followUpCount} Pending`}
                     </span>
                   </div>
-                  <div className="milestone-progress-track">
+                  <div className="milestone-progress-track h-2 w-full overflow-hidden rounded-full bg-[#f1f5f9]">
                     <div
-                      className="milestone-progress-fill"
+                      className="milestone-progress-fill h-full rounded-full bg-[linear-gradient(90deg,#15803d_0%,#22c55e_100%)] transition-[width] duration-300 ease-[ease]"
                       style={{
                         width: stats.motherCount + stats.childCount > 0
                           ? `${Math.max(10, 100 - Math.round((stats.followUpCount / (stats.motherCount + stats.childCount)) * 100))}%`
@@ -1091,7 +1100,7 @@ export default function DashboardPage() {
                       }}
                     />
                   </div>
-                  <span className="milestone-desc">
+                  <span className="milestone-desc text-[0.72rem] text-[#64748b]">
                     {stats.followUpCount === 0
                       ? 'All check-up schedules up to date'
                       : `${stats.followUpCount} beneficiaries require follow-up check-in`}
@@ -1102,18 +1111,18 @@ export default function DashboardPage() {
           </div>
 
           {/* AI Insights Box inside the card */}
-          <div className="dashboard-ai-insights-box">
-            <div className="ai-insight-header">
+          <div className="dashboard-ai-insights-box mt-auto flex flex-col gap-[0.45rem] rounded-[14px] border border-[#bbf7d0] bg-[#f0fdf4] px-[0.95rem] py-3">
+            <div className="ai-insight-header flex items-center gap-[0.4rem]">
               <Sparkles size={16} className="ai-insight-sparkle-icon" aria-hidden="true" />
-              <strong className="ai-insight-title">AI Operational Insight</strong>
+              <strong className="ai-insight-title text-[0.82rem] font-bold text-[#166534]">AI Operational Insight</strong>
             </div>
-            <p className="ai-insight-text">
+            <p className="ai-insight-text m-0 text-[0.76rem] leading-[1.4] text-[#15803d]">
               {stats.followUpCount > 0
                 ? `${stats.followUpCount} beneficiaries require follow-up attention this cycle.`
                 : 'All screening schedules are healthy and up to date for this period.'}
             </p>
             <AIReportingAssistantEntry
-              buttonClassName="ai-assistant-card-btn"
+              buttonClassName="ai-assistant-card-btn mt-[0.35rem] inline-flex w-full cursor-pointer items-center justify-center gap-[0.4rem] rounded-[10px] border-0 bg-[linear-gradient(135deg,#15803d_0%,#16a34a_100%)] px-3 py-[0.48rem] text-[0.8rem] font-semibold text-white shadow-[0_2px_6px_rgba(21,128,61,0.2)] transition-all duration-[150ms] ease-[ease] hover:bg-[#14532d] hover:shadow-[0_4px_10px_rgba(21,128,61,0.3)]"
               label="Open AI Assistant"
             />
           </div>
@@ -1124,21 +1133,21 @@ export default function DashboardPage() {
           Screening & Module Quick Action Strip
           -------------------------------------------------------------------------- */}
       {screeningQuickStats.length > 0 && (
-        <section className="dashboard-screening-quickstrip" aria-label="Screening follow-up shortcuts">
-          <div className="screening-quickstrip-label">
-            <span className="screening-pulse-dot" />
+        <section className="dashboard-screening-quickstrip flex flex-wrap items-center gap-3 rounded-2xl border border-[#edf2f7] bg-white px-5 py-3 shadow-[0_4px_16px_rgba(15,23,42,0.02)]" aria-label="Screening follow-up shortcuts">
+          <div className="screening-quickstrip-label flex items-center gap-2 text-[0.82rem] font-bold text-[#0f172a]">
+            <span className="screening-pulse-dot h-2 w-2 rounded-full bg-[#15803d] shadow-[0_0_0_3px_rgba(21,128,61,0.2)]" />
             <span>Screening Action Filters:</span>
           </div>
-          <div className="screening-chips-row">
+          <div className="screening-chips-row flex flex-wrap items-center gap-2">
             {screeningQuickStats.map((metric) => (
               <Link
                 key={metric.label}
                 to={metric.to}
-                className={`screening-chip ${metric.value > 0 ? 'is-active' : ''}`}
+                className={`screening-chip inline-flex items-center gap-[0.45rem] rounded-full border border-[#e2e8f0] bg-[#f8fafc] px-3 py-[0.35rem] text-[0.78rem] font-semibold text-[#475569] no-underline transition-all duration-[140ms] ease-[ease] hover:border-[#bbf7d0] hover:bg-[#f0fdf4] hover:text-[#15803d] ${metric.value > 0 ? 'border-[#86efac] bg-[#f0fdf4] text-[#15803d] hover:border-[#86efac]' : ''}`}
                 title={`View ${metric.label}`}
               >
                 <span className="screening-chip-name">{metric.label}</span>
-                <span className="screening-chip-badge">{metric.value}</span>
+                <span className="screening-chip-badge inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#15803d] px-[5px] text-[0.7rem] font-bold text-white">{metric.value}</span>
               </Link>
             ))}
           </div>

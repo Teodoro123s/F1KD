@@ -1,3 +1,4 @@
+import { formFieldClasses, formLabelClasses, formErrorClasses } from '../../../utils/formFieldClasses';
 import React, { useEffect, useState } from 'react';
 import { formatDateForDisplay } from '../../../utils/formatting/dateFormat';
 import {
@@ -93,11 +94,11 @@ export default function PhilHealthClaims({ motherId, canManage }) {
 
       {canManage && (
         <form className="mother-claims-form" onSubmit={submitClaim}>
-          <div className="form-row-2 full-width">
+          <div className="form-row-2 full-width min-w-0 items-start [&>*]:min-w-0 [&_.form-group]:min-w-0 [&_.form-group>.form-label]:min-h-[2.7em] [&_.form-group>.form-label]:leading-[1.35] [&_.form-group>:is(input,select,textarea,.date-input-container)]:w-full [&_.form-group>:is(input,select,textarea,.date-input-container)]:min-w-0 max-[980px]:grid-cols-2 max-[640px]:grid-cols-1">
             <div className="form-group">
-              <label className="form-label" htmlFor="claim-reference">Claim reference</label>
+              <label className={`${formLabelClasses} form-label`} htmlFor="claim-reference">Claim reference</label>
               <input
-                className="form-input"
+                className={`${formFieldClasses} form-input`}
                 id="claim-reference"
                 name="claimReference"
                 maxLength={80}
@@ -107,9 +108,9 @@ export default function PhilHealthClaims({ motherId, canManage }) {
               />
             </div>
             <div className="form-group">
-              <label className="form-label" htmlFor="claim-date">Claim date</label>
+              <label className={`${formLabelClasses} form-label`} htmlFor="claim-date">Claim date</label>
               <input
-                className="form-input"
+                className={`${formFieldClasses} form-input`}
                 id="claim-date"
                 name="claimDate"
                 type="date"
@@ -120,17 +121,17 @@ export default function PhilHealthClaims({ motherId, canManage }) {
             </div>
           </div>
 
-          <div className="form-row-2 full-width">
+          <div className="form-row-2 full-width min-w-0 items-start [&>*]:min-w-0 [&_.form-group]:min-w-0 [&_.form-group>.form-label]:min-h-[2.7em] [&_.form-group>.form-label]:leading-[1.35] [&_.form-group>:is(input,select,textarea,.date-input-container)]:w-full [&_.form-group>:is(input,select,textarea,.date-input-container)]:min-w-0 max-[980px]:grid-cols-2 max-[640px]:grid-cols-1">
             <div className="form-group">
-              <label className="form-label" htmlFor="claim-status">Status</label>
-              <select className="form-input" id="claim-status" name="status" value={form.status} onChange={updateField}>
+              <label className={`${formLabelClasses} form-label`} htmlFor="claim-status">Status</label>
+              <select className={`${formFieldClasses} form-input`} id="claim-status" name="status" value={form.status} onChange={updateField}>
                 {CLAIM_STATUSES.map((status) => <option key={status} value={status}>{status}</option>)}
               </select>
             </div>
             <div className="form-group">
-              <label className="form-label" htmlFor="claim-amount">Amount (PHP)</label>
+              <label className={`${formLabelClasses} form-label`} htmlFor="claim-amount">Amount (PHP)</label>
               <input
-                className="form-input"
+                className={`${formFieldClasses} form-input`}
                 id="claim-amount"
                 name="amount"
                 type="number"
@@ -145,9 +146,9 @@ export default function PhilHealthClaims({ motherId, canManage }) {
           </div>
 
           <div className="form-group full-width">
-            <label className="form-label" htmlFor="claim-notes">Notes</label>
+            <label className={`${formLabelClasses} form-label`} htmlFor="claim-notes">Notes</label>
             <textarea
-              className="form-input"
+              className={`${formFieldClasses} form-input`}
               id="claim-notes"
               name="notes"
               rows="3"
@@ -170,7 +171,7 @@ export default function PhilHealthClaims({ motherId, canManage }) {
         </form>
       )}
 
-      {error && <p className="form-error" role="alert">{error}</p>}
+      {error && <p className={`form-error ${formErrorClasses}`} role="alert">{error}</p>}
 
       {loading ? (
         <p className="mother-detail-empty">Loading PhilHealth claims…</p>

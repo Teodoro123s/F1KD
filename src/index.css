@@ -1,16 +1,29 @@
 @import "tailwindcss/theme.css" layer(theme);
+@import './styles/main.css' layer(components);
+@import './styles/view-tokens.css' layer(components);
+@import './styles/table-system.css' layer(components);
+@import './styles/form-system.css' layer(components);
+@import './styles/components/ai-settings.css' layer(components);
+@import './styles/system-design.css' layer(components);
 @import "tailwindcss/utilities.css" layer(utilities);
-@import './styles/main.css';
-@import './styles/view-tokens.css';
-@import './styles/modal-system.css';
-@import './styles/table-system.css';
-@import './styles/form-system.css';
-@import './styles/components/ai-settings.css';
-@import './styles/system-design.css';
 
 @theme inline {
   --font-sans: var(--font-family-base);
+  --color-f1kd-brand: var(--color-brand);
+  --color-f1kd-brand-hover: var(--color-brand-hover);
+  --color-f1kd-brand-soft: var(--color-brand-soft);
+  --color-f1kd-error: var(--color-error);
+  --color-f1kd-error-hover: var(--color-error-hover);
+  --color-f1kd-page: var(--color-page);
+  --color-f1kd-surface: var(--color-surface);
+  --color-f1kd-surface-soft: var(--color-surface-soft);
+  --color-f1kd-border: var(--color-border);
+  --color-f1kd-border-strong: var(--color-border-strong);
+  --color-f1kd-text: var(--color-text);
   --color-f1kd-secondary: var(--color-text-secondary);
   --color-f1kd-muted: var(--color-text-muted);
+  --text-f1kd-xs: var(--font-size-xs);
   --text-f1kd-sm: var(--font-size-sm);
+  --text-f1kd-md: var(--font-size-md);
+  --text-f1kd-lg: var(--font-size-lg);
 }

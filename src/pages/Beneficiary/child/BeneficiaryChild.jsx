@@ -1,3 +1,4 @@
+import { formFieldClasses, formLabelClasses, fieldValidationClasses } from '../../../utils/formFieldClasses';
 import React from 'react';
 import { formatDateForDisplay, formatDateForInput, maskDateInput, normalizeDateValue } from '../../../utils/formatting/dateFormat';
 import { capitalizeNameValue } from '../../../utils/formatting/nameFormat';
@@ -101,7 +102,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
     if (readOnly) {
       return (
         <div className={`form-group ${className}`}>
-          <label className="form-label">{label}</label>
+          <label className={`${formLabelClasses} form-label`}>{label}</label>
           <div className="form-readonly-value">{isDate ? formatDateForDisplay(value) : value === '' || value === null || value === undefined ? '-' : value}</div>
         </div>
       );
@@ -111,7 +112,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
 
     return (
       <div className={`form-group ${className}`}>
-        <label className="form-label" htmlFor={id}>
+        <label className={`${formLabelClasses} form-label`} htmlFor={id}>
           {label}{required && <span className="form-required-indicator" aria-hidden="true">*</span>}
           {helpText && <FieldInfoTooltip content={helpText} />}
         </label>
@@ -121,7 +122,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
             type={isNativeDate ? 'date' : isDate ? 'text' : type}
             inputMode={isDate && !isNativeDate ? 'numeric' : undefined}
             pattern={isDate && !isNativeDate ? '\\d{2}/\\d{2}/\\d{4}' : undefined}
-            className={`form-input${hasMissingValue ? ' invalid' : ''}`}
+            className={`${formFieldClasses} form-input${hasMissingValue ? ' invalid' : ''}`}
             placeholder={isDate && !isNativeDate ? 'DD/MM/YYYY' : placeholder}
             value={isNativeDate ? formatDateForInput(value) : isDate ? getDateDisplayValue(name, value) : value}
             min={isDate ? minDate : min}
@@ -228,7 +229,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
             />
           </>
         )}
-        {validationError && showRequiredValidation && <small id={`${id}-error`} className="field-validation-error" role="alert">{validationError}</small>}
+        {validationError && showRequiredValidation && <small id={`${id}-error`} className={`field-validation-error ${fieldValidationClasses}`} role="alert">{validationError}</small>}
       </div>
     );
   };
@@ -244,7 +245,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
 
       return (
         <div className={`form-group ${className}`}>
-          <label className="form-label">{label}</label>
+          <label className={`${formLabelClasses} form-label`}>{label}</label>
           <div className="form-readonly-value">{displayValue}          </div>
         </div>
       );
@@ -252,10 +253,10 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
 
     return (
       <div className={`form-group ${className}`}>
-        <label className="form-label" htmlFor={id}>{label}</label>
+        <label className={`${formLabelClasses} form-label`} htmlFor={id}>{label}</label>
         <select
           id={id}
-          className="form-select"
+          className={`${formFieldClasses} form-select`}
           value={value}
           disabled={disabled}
           onChange={(e) => {
@@ -284,7 +285,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
     if (readOnly) {
       return (
         <div className="form-group full-width">
-          <label className="form-label">{label}</label>
+          <label className={`${formLabelClasses} form-label`}>{label}</label>
           <div className="form-readonly-value">{value || '-'}</div>
         </div>
       );
@@ -292,16 +293,16 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
 
     return (
       <div className="form-group full-width">
-        <label className="form-label" htmlFor={id}>{label}</label>
+        <label className={`${formLabelClasses} form-label`} htmlFor={id}>{label}</label>
         <textarea
           id={id}
-          className={`form-input${validationErrors[name] && showRequiredValidation ? ' invalid' : ''}`}
+          className={`${formFieldClasses} form-input${validationErrors[name] && showRequiredValidation ? ' invalid' : ''}`}
           rows={rows}
           placeholder={placeholder}
           value={value}
           onChange={(e) => setForm((prev) => ({ ...prev, [name]: e.target.value }))}
         />
-        {validationErrors[name] && showRequiredValidation && <small className="field-validation-error" role="alert">{validationErrors[name]}</small>}
+        {validationErrors[name] && showRequiredValidation && <small className={`field-validation-error ${fieldValidationClasses}`} role="alert">{validationErrors[name]}</small>}
       </div>
     );
   };
@@ -311,7 +312,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
       <div className="create-mother-general child-form-layout">
         <section className="create-mother-category">
         <h4 className="form-section-title">Child Information</h4>
-        <div className="form-row-4 full-width name-row">
+        <div className="form-row-4 full-width name-row min-w-0 items-start [&>*]:min-w-0 [&_.form-group]:min-w-0 [&_.form-group>.form-label]:min-h-[2.7em] [&_.form-group>.form-label]:leading-[1.35] [&_.form-group>:is(input,select,textarea,.date-input-container)]:w-full [&_.form-group>:is(input,select,textarea,.date-input-container)]:min-w-0 max-[980px]:grid-cols-2 max-[640px]:grid-cols-1">
           {renderField({ id: 'child-first-name', label: 'First Name', name: 'firstName', placeholder: 'e.g. Mary Princess', required: true })}
           {renderField({ id: 'child-middle-name', label: 'Middle Name', name: 'middleName', placeholder: 'Middle name' })}
           {renderField({ id: 'child-last-name', label: 'Last Name', name: 'lastName', placeholder: 'Last name', required: true })}
@@ -327,15 +328,15 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
         })}
         {readOnly && (
           <div className="form-group full-width">
-            <label className="form-label">Mother</label>
+            <label className={`${formLabelClasses} form-label`}>Mother</label>
             <div className="form-readonly-value">{form.motherName || '—'}</div>
           </div>
         )}
         {readOnly && (
-          <div className="form-row-3 full-width">
+          <div className="form-row-3 full-width min-w-0 items-start [&>*]:min-w-0 [&_.form-group]:min-w-0 [&_.form-group>.form-label]:min-h-[2.7em] [&_.form-group>.form-label]:leading-[1.35] [&_.form-group>:is(input,select,textarea,.date-input-container)]:w-full [&_.form-group>:is(input,select,textarea,.date-input-container)]:min-w-0 max-[980px]:grid-cols-2 max-[640px]:grid-cols-1">
             {['community', 'group', 'batch'].map((field) => (
               <div className="form-group" key={field}>
-                <label className="form-label">{field === 'community' ? 'School' : field === 'group' ? 'Group' : 'Batch'}</label>
+                <label className={`${formLabelClasses} form-label`}>{field === 'community' ? 'School' : field === 'group' ? 'Group' : 'Batch'}</label>
                 <div className="form-readonly-value">{form[field] || '—'}</div>
               </div>
             ))}
@@ -367,7 +368,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
           <h4 className="form-section-title">Birth &amp; Newborn Details</h4>
           <div className="child-form-subsection">
             <h5 className="child-form-subsection-title">Birth Date &amp; Location</h5>
-            <div className="form-row-3 full-width">
+            <div className="form-row-3 full-width min-w-0 items-start [&>*]:min-w-0 [&_.form-group]:min-w-0 [&_.form-group>.form-label]:min-h-[2.7em] [&_.form-group>.form-label]:leading-[1.35] [&_.form-group>:is(input,select,textarea,.date-input-container)]:w-full [&_.form-group>:is(input,select,textarea,.date-input-container)]:min-w-0 max-[980px]:grid-cols-2 max-[640px]:grid-cols-1">
               {renderField({
                 id: 'child-birth-date',
                 label: 'Birth Date',
@@ -412,11 +413,11 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
                 disabled: !form.birthPlaceProvince || !locationOptions || Boolean(locationLoadError),
               })}
             </div>
-            {locationLoadError && !readOnly && <small className="field-validation-error" role="alert">{locationLoadError}</small>}
+            {locationLoadError && !readOnly && <small className={`field-validation-error ${fieldValidationClasses}`} role="alert">{locationLoadError}</small>}
           </div>
           <div className="child-form-subsection">
             <h5 className="child-form-subsection-title">Birth Measurements</h5>
-            <div className="form-row-4 full-width">
+            <div className="form-row-4 full-width min-w-0 items-start [&>*]:min-w-0 [&_.form-group]:min-w-0 [&_.form-group>.form-label]:min-h-[2.7em] [&_.form-group>.form-label]:leading-[1.35] [&_.form-group>:is(input,select,textarea,.date-input-container)]:w-full [&_.form-group>:is(input,select,textarea,.date-input-container)]:min-w-0 max-[980px]:grid-cols-2 max-[640px]:grid-cols-1">
               {renderField({ id: 'child-birth-weight', label: 'Birth Weight (kg)', name: 'birthWeight', type: 'number', min: 0.3, maxValue: 10, step: 0.01, placeholder: 'e.g. 3.2', helpText: 'Enter the recorded weight at birth in kilograms.' })}
               {renderField({ id: 'child-birth-length', label: 'Birth Length (cm)', name: 'birthLength', type: 'number', min: 20, maxValue: 80, step: 0.1, placeholder: 'e.g. 49', helpText: 'Enter the recorded length at birth in centimeters.' })}
               {renderField({ id: 'child-head-circumference', label: 'Head Circumference (cm)', name: 'headCircumference', type: 'number', min: 15, maxValue: 60, step: 0.1, placeholder: 'e.g. 34', helpText: 'Enter the measurement recorded at birth, in centimeters.' })}
@@ -426,7 +427,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
 
           <div className="child-form-subsection">
             <h5 className="child-form-subsection-title">Delivery Details</h5>
-            <div className="form-row-4 full-width child-birth-place-row">
+            <div className="form-row-4 full-width child-birth-place-row min-w-0 items-start [&>*]:min-w-0 [&_.form-group]:min-w-0 [&_.form-group>.form-label]:min-h-[2.7em] [&_.form-group>.form-label]:leading-[1.35] [&_.form-group>:is(input,select,textarea,.date-input-container)]:w-full [&_.form-group>:is(input,select,textarea,.date-input-container)]:min-w-0 max-[980px]:grid-cols-2 max-[640px]:grid-cols-1">
               {renderField({ id: 'child-birth-attendant', label: 'Birth Attendant', name: 'birthAttendant', placeholder: 'Midwife / Doctor' })}
               {renderSelect({
                 id: 'child-delivery-type',
@@ -435,7 +436,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
                 options: [{ value: 'Vaginal', label: 'Vaginal' }, { value: 'Cesarean', label: 'Cesarean' }],
               })}
             </div>
-            <div className="form-row-2 full-width">
+            <div className="form-row-2 full-width min-w-0 items-start [&>*]:min-w-0 [&_.form-group]:min-w-0 [&_.form-group>.form-label]:min-h-[2.7em] [&_.form-group>.form-label]:leading-[1.35] [&_.form-group>:is(input,select,textarea,.date-input-container)]:w-full [&_.form-group>:is(input,select,textarea,.date-input-container)]:min-w-0 max-[980px]:grid-cols-2 max-[640px]:grid-cols-1">
               {renderField({ id: 'child-children-delivered', label: 'No. of Child Delivered', name: 'noOfChildDelivered', type: 'number', min: 1, maxValue: 20, step: 1, placeholder: 'e.g. 1' })}
               {renderSelect({
                 id: 'child-multiple-birth-type',
@@ -448,7 +449,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
 
           <div className="child-form-subsection">
             <h5 className="child-form-subsection-title">Newborn Health &amp; Screening</h5>
-            <div className="form-row-3 full-width">
+            <div className="form-row-3 full-width min-w-0 items-start [&>*]:min-w-0 [&_.form-group]:min-w-0 [&_.form-group>.form-label]:min-h-[2.7em] [&_.form-group>.form-label]:leading-[1.35] [&_.form-group>:is(input,select,textarea,.date-input-container)]:w-full [&_.form-group>:is(input,select,textarea,.date-input-container)]:min-w-0 max-[980px]:grid-cols-2 max-[640px]:grid-cols-1">
               {renderSelect({
                 id: 'child-blood-type',
                 label: 'Blood Type',
@@ -465,7 +466,7 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
                 placeholder: 'Select answer',
               })}
             </div>
-            <div className="form-row-2 full-width">
+            <div className="form-row-2 full-width min-w-0 items-start [&>*]:min-w-0 [&_.form-group]:min-w-0 [&_.form-group>.form-label]:min-h-[2.7em] [&_.form-group>.form-label]:leading-[1.35] [&_.form-group>:is(input,select,textarea,.date-input-container)]:w-full [&_.form-group>:is(input,select,textarea,.date-input-container)]:min-w-0 max-[980px]:grid-cols-2 max-[640px]:grid-cols-1">
               {renderSelect({
                 id: 'child-expanded-newborn-screening',
                 label: 'Expanded Newborn Screening',

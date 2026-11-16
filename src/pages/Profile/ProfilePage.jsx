@@ -1,3 +1,4 @@
+import { checkupCardBodyClasses, formErrorClasses, checkupGridClasses, checkupSectionTitleClasses, fieldValidationClasses, formLabelClasses, checkupFieldLayoutClasses } from '../../utils/formFieldClasses';
 import React, { useEffect, useMemo, useState } from 'react';
 import PageHeader from '../../components/ui/PageHeader';
 import Button from '../../components/ui/Button';
@@ -169,17 +170,17 @@ export default function ProfilePage() {
       {!user ? (
         <main style={{ padding: '1rem' }}>
           <div className="checkup-card" data-guide="profile-details">
-            <div className="checkup-card-body">
-              <p className="form-error">No user information available.</p>
+            <div className={`checkup-card-body ${checkupCardBodyClasses}`}>
+              <p className={`form-error ${formErrorClasses}`}>No user information available.</p>
             </div>
           </div>
         </main>
       ) : (
         <main style={{ padding: '1rem' }}>
           <div className="checkup-card">
-            <div className="checkup-card-body">
+            <div className={`checkup-card-body ${checkupCardBodyClasses}`}>
               <div className="profile-card-header profile-page-card-header">
-                <div className="checkup-section-title">Profile</div>
+                <div className={`checkup-section-title ${checkupSectionTitleClasses}`}>Profile</div>
                 {canEditProfile && (
                   <Button type="button" variant="secondary" onClick={openEditDrawer}>
                     <svg viewBox="0 0 20 20" aria-hidden="true">
@@ -191,46 +192,46 @@ export default function ProfilePage() {
                 )}
               </div>
 
-              <div className="checkup-grid user-profile-grid">
+              <div className={`checkup-grid user-profile-grid ${checkupGridClasses}`}>
                 <div className="form-group">
-                  <label className="checkup-field-label">First Name</label>
-                  <input className="checkup-field-input" value={firstName || ''} readOnly />
+                  <label className={`${formLabelClasses} checkup-field-label`}>First Name</label>
+                  <input className={`${checkupFieldLayoutClasses} checkup-field-input`} value={firstName || ''} readOnly />
                 </div>
                 <div className="form-group">
-                  <label className="checkup-field-label">Middle Initial</label>
-                  <input className="checkup-field-input" value={middleInitial || ''} readOnly />
+                  <label className={`${formLabelClasses} checkup-field-label`}>Middle Initial</label>
+                  <input className={`${checkupFieldLayoutClasses} checkup-field-input`} value={middleInitial || ''} readOnly />
                 </div>
                 <div className="form-group">
-                  <label className="checkup-field-label">Surname</label>
-                  <input className="checkup-field-input" value={surname || ''} readOnly />
+                  <label className={`${formLabelClasses} checkup-field-label`}>Surname</label>
+                  <input className={`${checkupFieldLayoutClasses} checkup-field-input`} value={surname || ''} readOnly />
                 </div>
                 <div className="form-group">
-                  <label className="checkup-field-label">Email</label>
-                  <input className="checkup-field-input" value={user.email || ''} readOnly />
+                  <label className={`${formLabelClasses} checkup-field-label`}>Email</label>
+                  <input className={`${checkupFieldLayoutClasses} checkup-field-input`} value={user.email || ''} readOnly />
                 </div>
                 <div className="form-group">
-                  <label className="checkup-field-label">Role</label>
-                  <input className="checkup-field-input" value={user.role || ''} readOnly />
+                  <label className={`${formLabelClasses} checkup-field-label`}>Role</label>
+                  <input className={`${checkupFieldLayoutClasses} checkup-field-input`} value={user.role || ''} readOnly />
                 </div>
                 <div className="form-group">
-                  <label className="checkup-field-label">Status</label>
-                  <input className="checkup-field-input" value={user.status || 'Active'} readOnly />
+                  <label className={`${formLabelClasses} checkup-field-label`}>Status</label>
+                  <input className={`${checkupFieldLayoutClasses} checkup-field-input`} value={user.status || 'Active'} readOnly />
                 </div>
                 <div className="form-group">
-                  <label className="checkup-field-label">Contact Number</label>
-                  <input className="checkup-field-input" value={user.contact_number || user.contact || '—'} readOnly />
+                  <label className={`${formLabelClasses} checkup-field-label`}>Contact Number</label>
+                  <input className={`${checkupFieldLayoutClasses} checkup-field-input`} value={user.contact_number || user.contact || '—'} readOnly />
                 </div>
 
                 {requiresSchoolAssignment && (
                   <>
                     <div className="form-group">
-                      <label className="checkup-field-label">School</label>
-                      <input className="checkup-field-input" value={assignedSchoolName || 'Not assigned'} readOnly />
+                      <label className={`${formLabelClasses} checkup-field-label`}>School</label>
+                      <input className={`${checkupFieldLayoutClasses} checkup-field-input`} value={assignedSchoolName || 'Not assigned'} readOnly />
                     </div>
                     {isHealthWorker && (
                       <div className="form-group">
-                        <label className="checkup-field-label">Group</label>
-                        <input className="checkup-field-input" value={assignedGroupName || 'Not assigned'} readOnly />
+                        <label className={`${formLabelClasses} checkup-field-label`}>Group</label>
+                        <input className={`${checkupFieldLayoutClasses} checkup-field-input`} value={assignedGroupName || 'Not assigned'} readOnly />
                       </div>
                     )}
                   </>
@@ -274,10 +275,10 @@ export default function ProfilePage() {
                 <form className="profile-edit-drawer__form" onSubmit={requestProfileSave}>
                   <div className="profile-edit-drawer__fields">
                     <div className="form-group">
-                      <label className="checkup-field-label" htmlFor="profile-edit-first-name">First Name</label>
+                      <label className={`${formLabelClasses} checkup-field-label`} htmlFor="profile-edit-first-name">First Name</label>
                       <input
                         id="profile-edit-first-name"
-                        className="checkup-field-input"
+                        className={`${checkupFieldLayoutClasses} checkup-field-input`}
                         value={profileForm.firstName}
                         onChange={(event) => updateProfileField('firstName', event.target.value)}
                         autoComplete="given-name"
@@ -286,10 +287,10 @@ export default function ProfilePage() {
                       />
                     </div>
                     <div className="form-group">
-                      <label className="checkup-field-label" htmlFor="profile-edit-middle-initial">Middle Initial</label>
+                      <label className={`${formLabelClasses} checkup-field-label`} htmlFor="profile-edit-middle-initial">Middle Initial</label>
                       <input
                         id="profile-edit-middle-initial"
-                        className="checkup-field-input"
+                        className={`${checkupFieldLayoutClasses} checkup-field-input`}
                         value={profileForm.middleInitial}
                         onChange={(event) => updateProfileField('middleInitial', event.target.value.toUpperCase().slice(0, 1))}
                         autoComplete="additional-name"
@@ -299,10 +300,10 @@ export default function ProfilePage() {
                       />
                     </div>
                     <div className="form-group">
-                      <label className="checkup-field-label" htmlFor="profile-edit-surname">Surname</label>
+                      <label className={`${formLabelClasses} checkup-field-label`} htmlFor="profile-edit-surname">Surname</label>
                       <input
                         id="profile-edit-surname"
-                        className="checkup-field-input"
+                        className={`${checkupFieldLayoutClasses} checkup-field-input`}
                         value={profileForm.lastName}
                         onChange={(event) => updateProfileField('lastName', event.target.value)}
                         autoComplete="family-name"
@@ -311,10 +312,10 @@ export default function ProfilePage() {
                       />
                     </div>
                     <div className="form-group">
-                      <label className="checkup-field-label" htmlFor="profile-edit-contact">Contact Number</label>
+                      <label className={`${formLabelClasses} checkup-field-label`} htmlFor="profile-edit-contact">Contact Number</label>
                       <input
                         id="profile-edit-contact"
-                        className="checkup-field-input"
+                        className={`${checkupFieldLayoutClasses} checkup-field-input`}
                         type="tel"
                         value={profileForm.contactNumber}
                         onChange={(event) => updateProfileField('contactNumber', event.target.value)}
@@ -333,7 +334,7 @@ export default function ProfilePage() {
                       />
                       <small
                         id={profileContactError ? 'profile-edit-contact-error' : 'profile-edit-contact-hint'}
-                        className={profileContactError ? 'field-validation-error' : undefined}
+                        className={profileContactError ? `field-validation-error ${fieldValidationClasses}` : undefined}
                         role={profileContactError ? 'alert' : undefined}
                       >
                         {profileContactError || CONTACT_NUMBER_POLICY}
