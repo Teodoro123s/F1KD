@@ -1,5 +1,7 @@
 # F1KD System Audit
 
+> **Historical snapshot:** This audit records checks performed on 2026-11-02. Its test totals and implementation findings describe that checkout only; they are not a current verification of the repository. Re-run the listed checks and update the assessment date before relying on it for a release or security decision.
+
 **Assessment date:** 2026-11-02  
 **Status:** Source review, automated checks, and isolated archive persistence verification complete; authenticated browser verification remains blocked
 

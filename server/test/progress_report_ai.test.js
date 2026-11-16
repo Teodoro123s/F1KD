@@ -90,6 +90,8 @@ test('dashboard AI receives only validated aggregate metrics and returns a conci
   });
 
   assert.equal(insight, 'There are 20 beneficiaries and 3 follow-ups to review.');
+  assert.match(request.messages[0].content, /simple arithmetic from supplied counts/);
+  assert.match(request.messages[0].content, /Do not infer trends, causes, rankings, or breakdowns absent/);
   assert.deepEqual(JSON.parse(request.messages[1].content), {
     question: 'What should I review?',
     metrics: {
@@ -162,6 +164,8 @@ test('report AI answers from validated aggregates and bounded conversation histo
   });
 
   assert.equal(answer, 'Normal appears in two of the three check-ups.');
+  assert.match(request.messages[0].content, /show the counts used/);
+  assert.match(request.messages[0].content, /Do not calculate an unprovided cross-tabulation/);
   assert.deepEqual(request.messages.slice(1, 3), [
     { role: 'user', content: 'Summarize this monitoring report.' },
     { role: 'assistant', content: 'The report contains three check-ups.' },
@@ -786,6 +790,29 @@ test('AI proposal logs a bounded provider error detail without exposing credenti
   assert.match(loggedErrors[0], /Unsupported schema keyword maxItems/);
   assert.doesNotMatch(loggedErrors[0], /sk-testsecret/);
   assert.ok(loggedErrors[0].length < 600);
+});
+
+test('AI proposals retain raw weight when it is requested alongside a growth interpretation', async () => {
+  const result = await createReportProposal(
+    'Show the latest child check-up date, weight, and Weight-for-Length interpretation.',
+    {
+      env: modelEnvironment,
+      fetchImpl: async () => new Response(JSON.stringify({
+        choices: [{ message: { content: JSON.stringify({
+          needsClarification: false,
+          question: '',
+          options: [],
+          reportCategory: 'monitor',
+          beneficiaryType: 'child',
+          profileMetricIds: [],
+          metricIds: ['measurementDate', 'weightForLengthInterpretation'],
+          explanation: 'Latest check-up weight and growth interpretation.',
+        }) } }],
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    },
+  );
+
+  assert.deepEqual(result.metricIds, ['measurementDate', 'weightForLengthInterpretation', 'weightForAge']);
 });
 
 test('AI proposals retain only explicitly requested fields when the model adds related metrics', async () => {

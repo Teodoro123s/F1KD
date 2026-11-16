@@ -10,6 +10,13 @@ The PSGC data is sourced from the [PSA](https://psa.gov.ph/classification/psgc/)
 
 ## Project documentation
 
+Project code is organized by frontend feature and backend layer; see the [project structure guide](./docs/PROJECT_STRUCTURE.md) for file placement, environment files, and generated output.
+
+### Environment and credentials
+
+The root `.env` is used by Docker Compose; `server/.env` is for running the API directly. Both are ignored by Git. The tracked `.env.example` files contain placeholders and defaults only. Keep real credentials in these local environment files or a deployment secret manager, never in source code or `VITE_*` frontend variables. Before publishing a branch, confirm `.env` and `server/.env` are not staged (`git status --short`) and rotate any credential that was previously committed or shared.
+
+
 - [Project structure](./docs/PROJECT_STRUCTURE.md) — frontend and backend folder ownership, Beneficiary canonical paths, and file placement rules.
 
 - [Users, roles, permissions, and data scope](./docs/ROLES_AND_ACCESS.md) — module access, account-management limits, school/group scope, and practical verification.

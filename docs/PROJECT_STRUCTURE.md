@@ -9,7 +9,7 @@ F1KD/
   src/                    React frontend
   server/                 Express API and database access
   docs/                   Setup, user, and developer guides
-  .github/workflows/      Automation such as the public demo deployment
+  .github/workflows/      CI and deployment workflows
   docker-compose*.yml     Local services and optional TLS configuration
   Dockerfile              Frontend production image
   package.json            Frontend commands and dependencies
@@ -47,10 +47,10 @@ src/
   components/          App-wide layout and reusable UI
     ui/                Shared buttons, dialogs, pagination, tables, and status components
   context/             React state shared by multiple routes
+  demo/                Synthetic, read-only public demo
   pages/               Route-level features
   styles/              Global styles, tokens, and shared component styles
   utils/               Small rules shared by multiple features
-  demo/                Synthetic, read-only public demo
   assets/              Images and static assets
 ```
 
@@ -133,6 +133,12 @@ Archived-record retention is implemented in `server/services/archiveRetention.js
 
 The shared responsive pagination UI lives in `src/components/ui/Pagination.jsx` with its styles in `src/styles/components/tables-common.css`. Feature pages may wrap it to preserve an existing public component API, while each feature continues to own page state and data-fetch behavior.
 
+## Environment files and generated output
+
+- `.env` at the repository root configures Docker Compose. `server/.env` configures a directly run backend. Both are local-only and ignored by Git; never commit them or put credentials in frontend `VITE_*` variables.
+- `.env.example` and `server/.env.example` are tracked templates. Keep values blank or clearly marked as placeholders.
+- `dist/`, `node_modules/`, test results, and uploaded files are generated or runtime data, not source locations.
+
 ## Tests and common commands
 
 - Frontend tests are generally next to the helper they cover, such as `src/pages/ProgressReport/utils/cohortSummary.test.mjs`.
@@ -140,6 +146,8 @@ The shared responsive pagination UI lives in `src/components/ui/Pagination.jsx` 
 - `npm run build` checks the production frontend build.
 - `npm test` runs the configured project test suite.
 - `npm run test:progress-report-csv` runs focused Progress Report CSV/table utility tests.
+- `npm run test:e2e` runs the Playwright browser suite using `playwright.config.cjs`.
+- `cd server && npm run test:checkup-reminders` and `npm run test:superadmin-bootstrap` run focused backend suites.
 - `cd server && npm run dev` starts the API for direct backend development; Docker Compose is the normal full-stack setup.
 
 When adding a helper, put its test beside it. When changing a route or service, add or update the relevant test under `server/test/`.

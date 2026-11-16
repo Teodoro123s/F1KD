@@ -1,14 +1,28 @@
-# Backend (Express + MySQL)
+# Backend (Express + MariaDB)
 
-Quick setup:
+## Choose a setup
+
+For the complete application, use the repository-root Docker Compose setup in the [main README](../README.md#docker-full-stack). Compose starts MariaDB, MinIO, the API, and the built web app and reads its settings from the root `.env`.
+
+To run the API directly, install MariaDB separately, create a database, and configure `server/.env` from `server/.env.example`. This path expects a reachable MariaDB instance and, for document storage, a reachable MinIO service or the configured local upload fallback. The server creates/updates its schema on startup. Never commit `server/.env`; use a unique `JWT_SECRET` of at least 32 characters in production.
 
 ```bash
 cd server
 npm install
 cp .env.example .env
-# edit .env to set DB_* variables
+# edit .env for the local database and optional integrations
 npm run dev
 ```
+
+The root Vite dev server proxies `/api` and `/uploads` to `http://localhost:4000` by default. Set `VITE_API_PROXY_TARGET` if the API uses another address.
+
+## Commands
+
+- `npm start` starts the backend.
+- `npm run dev` starts it with Node watch mode.
+- `npm test` from the repository root runs Node test discovery across the project.
+- `npm run test:checkup-reminders` and `npm run test:superadmin-bootstrap` run focused server suites.
+- The opt-in archive database integration test has destructive setup requirements; see its dedicated section below before enabling it.
 
 Available endpoints:
 - `GET /api/health` — health check

@@ -35,6 +35,22 @@ The defaults use Google's Gemini endpoint. `PROGRESS_REPORT_AI_MODEL` can be set
 
 The assistant does not provide Excel/XLSX downloads, AI-generated charts, or model-written analyses of beneficiary rows.
 
+## Example questions and provider check
+
+The [question bank](./ai-assistant-question-bank.csv) contains 150 role-based examples and labels what the current assistant can support, partly support, or cannot answer from its available data. It is a product/evaluation prompt set; it does not train or fine-tune the provider model.
+
+The assistant is designed for questions that can be answered from the current report or the aggregate counts supplied to it. It may calculate simple arithmetic when the needed counts are present and must say when the data is missing. Examples users can try:
+
+- ?Show the latest child check-up date, weight, and Weight-for-Length interpretation.?
+- ?Show the latest check-up date, BMI, blood pressure, and next check-up date for mothers.?
+- ?Show child check-ups with developmental screening marked Needs Follow-up or At Risk, including date and screening result.?
+- After preparing a report: ?Which screening result is most common, and what are the counts??
+- For a Superadmin: ?How many beneficiaries are there, and how many follow-ups should I review?? (Only ask about metrics actually shown in the available dashboard snapshot.)
+
+A live provider smoke check on 2026-11-17 submitted these five generic prompts with synthetic aggregate/report summaries and no beneficiary rows or identifying data. The provider returned valid proposals for the three report requests and answers for the dashboard insight and report follow-up. The report follow-up returned HTTP 503 once, then succeeded on retry. This checked provider connectivity and response shape; it did not test report fetching against the local database or verify the current UI end to end. The question bank has not been run as a complete authenticated UI evaluation.
+
+One gap found during the smoke check was a provider proposal that omitted raw child weight when the user requested it alongside Weight-for-Length. The backend field refinement now preserves both raw weight and the explicitly requested interpretation; a regression test covers this case. See question 151 in the bank. The provider is guided by examples and evaluation cases but is not model-trained by this application. The assistant cannot answer questions requiring arbitrary database lookup, individual beneficiary details, live clinical judgment, or actions such as editing records. Report proposals select supported fields and filters; F1KD retrieves authorized rows separately. Superadmin answers are limited to the supplied aggregate snapshot.
+
 ## Access, limits, and troubleshooting
 
 The assistant endpoints require authentication and operational-role authorization. Health Workers remain assigned-group scoped, Community Coordinators remain assigned-school scoped, and global read-only roles retain their existing reporting access.
