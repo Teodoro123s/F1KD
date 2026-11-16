@@ -31,8 +31,10 @@ test('health worker child check-up saves monitoring data and rejects a different
   await pool.ready;
   const originalQuery = pool.query;
   const savedCheckupQueries = [];
+  const savedCheckupUpdates = [];
   const savedFeedingUpdates = [];
   const notifications = [];
+  let existingCheckupId = null;
   pool.query = async (sql, params = []) => {
     if (sql.includes('school_archived_at') && sql.includes('FROM children c')) {
       return [[{
@@ -73,7 +75,13 @@ test('health worker child check-up saves monitoring data and rejects a different
         }]
         : []];
     }
-    if (sql.startsWith('SELECT id FROM child_checkups')) return [[]];
+    if (sql.startsWith('SELECT id FROM child_checkups')) {
+      return [existingCheckupId && Number(params[1]) === 12 ? [{ id: existingCheckupId }] : []];
+    }
+    if (sql.startsWith('UPDATE child_checkups SET')) {
+      savedCheckupUpdates.push({ sql, params });
+      return [{ affectedRows: 1 }];
+    }
     if (sql.startsWith('UPDATE children SET exclusive_breastfeeding')) {
       savedFeedingUpdates.push({ sql, params });
       return [{ affectedRows: 1 }];
@@ -162,12 +170,22 @@ test('health worker child check-up saves monitoring data and rejects a different
   assert.equal(savedCheckupQueries[0].params[5], 42.3);
   assert.equal(savedCheckupQueries[0].params[6], 'Complementary feeding');
   assert.equal(savedCheckupQueries[0].params[16], 12);
-  assert.deepEqual(savedCheckupQueries[0].params.slice(17), [8, 8, 8]);
+  assert.deepEqual(savedCheckupQueries[0].params.slice(17), [8, 8, null]);
   assert.equal(notifications.length, 1);
   assert.equal(notifications[0][0], 'monitoring.child.checkup_created');
   assert.equal(notifications[0][7], 12);
   assert.equal(notifications[0][8], 20);
   assert.equal(notifications[0][11], 8);
+
+  existingCheckupId = 71;
+  const editResponse = await request(20, {
+    week: 12,
+    checkupDate: '2026-10-22',
+    weight: '8.5',
+  });
+  assert.equal(editResponse.status, 200);
+  assert.match(savedCheckupUpdates[0].sql, /updated_by_user_id = \?, updated_at = CURRENT_TIMESTAMP/);
+  assert.deepEqual(savedCheckupUpdates[0].params.slice(-3), [8, 8, 71]);
 
   const cancelledReminderResponse = await request(20, {
     week: 13,

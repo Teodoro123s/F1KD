@@ -11,9 +11,17 @@ export default function AuditSignatures({
 }) {
   const createdTimestamp = formatDateTimeForDisplay(createdAt);
   const updatedTimestamp = formatDateTimeForDisplay(updatedAt);
+  const createdTimeValue = createdAt instanceof Date ? createdAt.getTime() : Date.parse(createdAt);
+  const updatedTimeValue = updatedAt instanceof Date ? updatedAt.getTime() : Date.parse(updatedAt);
+  const sameTimestamp = Number.isFinite(createdTimeValue)
+    && Number.isFinite(updatedTimeValue)
+    && createdTimeValue === updatedTimeValue;
+  const sameActor = (createdByName || '') === (updatedByName || '')
+    && (createdByRole || '') === (updatedByRole || '');
+  const updateMatchesCreation = sameTimestamp && sameActor;
 
   const hasCreatedDetails = createdByName || createdByRole || createdAt;
-  const hasUpdatedDetails = updatedByName || updatedByRole || updatedAt;
+  const hasUpdatedDetails = !updateMatchesCreation && (updatedByName || updatedByRole || updatedAt);
   if (!hasCreatedDetails && !hasUpdatedDetails) return null;
 
   return (

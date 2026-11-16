@@ -260,6 +260,8 @@ test('mother registration saves initial monitoring measurements as a completed c
   assert.equal(screeningCheckupResponse.status, 200);
   assert.equal(savedCheckupValues[9], 'At Risk');
   assert.equal((savedCheckupSql.match(/\?/g) || []).length, savedCheckupValues.length);
+  assert.match(savedCheckupSql, /updated_by_user_id = \?/);
+  assert.equal(savedCheckupValues[savedCheckupValues.length - 2], null, 'a new check-up does not have an updater');
   assert.equal((await screeningCheckupResponse.json()).success, true);
 
   const invalidPinUpdateResponse = await fetch(`${baseUrl}/123`, {

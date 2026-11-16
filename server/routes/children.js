@@ -206,7 +206,7 @@ async function attachMonitoringDataBatch(children, includeAuditDetails = false) 
     : '';
   const auditJoins = includeAuditDetails
     ? `LEFT JOIN users creator ON creator.id = COALESCE(cc.created_by_user_id, cc.recorded_by_user_id)
-       LEFT JOIN users updater ON updater.id = COALESCE(cc.updated_by_user_id, cc.recorded_by_user_id)`
+       LEFT JOIN users updater ON updater.id = cc.updated_by_user_id`
     : '';
   const childIds = children.map((child) => child.id);
   const [checkupRows] = await pool.query(
@@ -253,7 +253,7 @@ async function attachMonitoringDataBatch(children, includeAuditDetails = false) 
             createdAt: created_at,
             updatedByName: updated_by_name || '',
             updatedByRole: updated_by_role || '',
-            updatedAt: updated_at,
+            updatedAt: updated_by_user_id ? updated_at : null,
           }),
           checkupDate: row.visit_date,
           nextCheckupDate: row.next_checkup_date,
@@ -835,7 +835,7 @@ router.post('/:id/checkups', async (req, res) => {
              source_of_funds, facility_type, developmental_status, service_provider, notes, week_number,
              recorded_by_user_id, created_by_user_id, updated_by_user_id, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)` ,
-          [childId, ...values, week, req.user?.id || null, req.user?.id || null, req.user?.id || null]
+          [childId, ...values, week, req.user?.id || null, req.user?.id || null, null]
         );
       }
       return { existingRows: existing };

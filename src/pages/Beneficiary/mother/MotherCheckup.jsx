@@ -755,6 +755,11 @@ export default function MotherCheckup({
               </div>
             </div>
             </fieldset>
+            {showAuditSignatures && (
+              <div className="checkup-audit-footer">
+                <AuditSignatures {...activeCheckup} />
+              </div>
+            )}
           </div>
         </div>
 
@@ -766,11 +771,6 @@ export default function MotherCheckup({
             Cancel
           </button>
         </div>
-        {showAuditSignatures && (
-          <div className="checkup-audit-footer">
-            <AuditSignatures {...activeCheckup} />
-          </div>
-        )}
       </form>
       {pendingSave && (
         <div className={`modal-backdrop ${getModalBackdropClasses()}`} role="presentation" onMouseDown={() => !saving && setPendingSave(null)}>

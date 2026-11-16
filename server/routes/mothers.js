@@ -268,7 +268,7 @@ async function attachClinicalData(mother, includeAuditDetails = false) {
     : '';
   const auditJoins = includeAuditDetails
     ? `LEFT JOIN users creator ON creator.id = COALESCE(mc.created_by_user_id, mc.recorded_by_user_id)
-       LEFT JOIN users updater ON updater.id = COALESCE(mc.updated_by_user_id, mc.recorded_by_user_id)`
+       LEFT JOIN users updater ON updater.id = mc.updated_by_user_id`
     : '';
 
   const [[obRows], [medicalRows], [dentalRows], [vaccineRows], [checkupRows]] = await Promise.all([
@@ -302,7 +302,7 @@ async function attachClinicalData(mother, includeAuditDetails = false) {
         createdAt: row.created_at,
         updatedByName: row.updated_by_name || '',
         updatedByRole: row.updated_by_role || '',
-        updatedAt: row.updated_at,
+        updatedAt: row.updated_by_user_id ? row.updated_at : null,
       }),
       trimester: row.trimester,
       checkupNumber: row.checkup_number,
@@ -982,7 +982,7 @@ router.post('/', async (req, res) => {
           initialCheckup.fetalHeartRate,
           req.user?.id || null,
           req.user?.id || null,
-          req.user?.id || null,
+          null,
         ],
       );
       await connection.query(
@@ -1580,7 +1580,7 @@ router.post('/:id/checkups', async (req, res) => {
         treatment_services = VALUES(treatment_services),
         remarks = VALUES(remarks),
         recorded_by_user_id = VALUES(recorded_by_user_id),
-        updated_by_user_id = VALUES(updated_by_user_id),
+        updated_by_user_id = ?,
         updated_at = CURRENT_TIMESTAMP`,
       [
         motherDbId, trimester, checkupNumber, checkupDate,
@@ -1590,7 +1590,7 @@ router.post('/:id/checkups', async (req, res) => {
         labAssistanceProvided, assistanceAmount, sourceOfFunds,
         facilityType, milkSubsidyDate, milkQuantityPcs,
         milkSubsidyProvided, labAssistanceTests, laboratoryRequests, treatmentServices, remarks,
-        req.user?.id || null, req.user?.id || null, req.user?.id || null
+        req.user?.id || null, req.user?.id || null, null, req.user?.id || null
       ]
     );
 

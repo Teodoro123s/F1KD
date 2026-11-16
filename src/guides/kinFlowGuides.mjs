@@ -230,7 +230,6 @@ export const PAGE_GUIDES = [
     description: 'Review the preferences and settings available to your account.',
     sections: [
       { target: 'settings-guidance', title: 'Help and Guidance', text: 'Choose your guidance preferences and review onboarding and tour progress. Changes apply only to your account.' },
-      { target: 'settings-appearance', title: 'Appearance', text: 'Use Dark mode to change the app’s appearance.' },
       { target: 'settings-password', title: 'Change password', text: 'Enter your current password and choose a new password.' },
     ],
   },

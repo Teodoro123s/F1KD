@@ -873,12 +873,28 @@
   border-top: 1px solid var(--border-color);
 }
 
-.checkup-audit-footer .audit-signatures {
-  flex-direction: row;
-  flex-wrap: wrap;
-  gap: 0.25rem 1rem;
+.mother-checkup-form .checkup-audit-footer .audit-signatures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: 0.65rem;
   margin: 0;
-  font-size: 0.74rem;
+  font-size: 0.78rem;
+}
+
+.mother-checkup-form .checkup-audit-footer .audit-signatures > span {
+  min-width: 0;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--surface, #fff);
+  overflow-wrap: anywhere;
+}
+
+.mother-checkup-form .checkup-audit-footer .audit-signatures strong {
+  display: block;
+  margin-bottom: 0.2rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
 }
 
 .mother-checkup-form {
