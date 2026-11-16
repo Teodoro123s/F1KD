@@ -194,7 +194,7 @@ async function getProgram(id, req = {}) {
   };
 }
 
-async function authorizeCoordinatorProgramScope(req, res, programId, { allowUnscoped = false } = {}) {
+async function authorizeCoordinatorProgramScope(req, res, programId, { allowUnscoped = false, allowAnyAssignedScope = false } = {}) {
   if (!req.isCommunityOrganizer) return true;
 
   const [rows] = await pool.query(
@@ -248,7 +248,11 @@ async function authorizeCoordinatorProgramScope(req, res, programId, { allowUnsc
     res.status(404).json({ error: 'Program not found' });
     return false;
   }
-  if (!programScopesBelongToSchool(rows.filter((row) => row.scope_type), { allowUnscoped })) {
+  const scopes = rows.filter((row) => row.scope_type);
+  const hasAuthorizedScope = allowAnyAssignedScope
+    ? scopes.some((scope) => Number(scope.owned_by_school) === 1)
+    : programScopesBelongToSchool(scopes, { allowUnscoped });
+  if (!hasAuthorizedScope) {
     res.status(403).json({ error: 'Community Organizers may only manage programs scoped to their assigned school' });
     return false;
   }
@@ -550,7 +554,27 @@ router.get('/', async (req, res) => {
       : `WHERE ${archiveClause}`;
     const [rows] = await pool.query(`SELECT p.* FROM programs p ${where} ORDER BY p.id DESC`, visibility.values);
     const programs = await Promise.all(rows.map((row) => getProgram(row.id, req)));
-    res.json({ programs });
+    if (archived) return res.json({ programs });
+
+    const canCountArchived = Boolean(req.isCommunityOrganizer);
+    const [[countRow]] = await pool.query(
+      `SELECT
+         COUNT(CASE WHEN p.archived_at IS NULL THEN 1 END) AS total,
+         COALESCE(SUM(p.archived_at IS NULL AND LOWER(TRIM(p.status)) = 'active'), 0) AS active,
+         COALESCE(SUM(p.archived_at IS NULL AND LOWER(TRIM(p.status)) = 'ended'), 0) AS ended,
+         COALESCE(SUM(p.archived_at IS NOT NULL AND ? = 1), 0) AS archived
+       FROM programs p ${visibility.sql}`,
+      [canCountArchived ? 1 : 0, ...visibility.values],
+    );
+    res.json({
+      programs,
+      counts: {
+        total: Number(countRow?.total || 0),
+        active: Number(countRow?.active || 0),
+        ended: Number(countRow?.ended || 0),
+        archived: Number(countRow?.archived || 0),
+      },
+    });
   } catch (error) {
     console.error('[Programs API] list error:', error.message);
     res.status(500).json({ error: error.message || 'db error' });
@@ -606,7 +630,7 @@ router.put('/:id', async (req, res) => {
   const program = cleanProgram(req.body);
   if (!program) return res.status(400).json({ error: 'Program name and provider are required' });
   try {
-    if (!(await authorizeCoordinatorProgramScope(req, res, req.params.id))) return;
+    if (!(await authorizeCoordinatorProgramScope(req, res, req.params.id, { allowAnyAssignedScope: true }))) return;
     if (!(await requireActiveProgram(res, req.params.id))) return;
     const [result] = await pool.query('UPDATE programs SET name = ?, type = ?, provider = ?, description = ?, beneficiary_type = ? WHERE id = ?', [...Object.values(program), req.params.id]);
     if (!result.affectedRows) return res.status(404).json({ error: 'Program not found' });

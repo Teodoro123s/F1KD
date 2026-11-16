@@ -63,7 +63,6 @@ export const getRouteBreadcrumbs = (pathname = '/', locationState = {}) => {
     return asBreadcrumbs(items);
   }
   if (section === 'progress-report') return asBreadcrumbs([['Dashboard', '/dashboard'], ['Progress Report']]);
-  if (section === 'ai-setting') return asBreadcrumbs([['Dashboard', '/dashboard'], ['AI Setting']]);
   if (section === 'reports') return asBreadcrumbs([['Reports']]);
   if (section === 'notifications') return asBreadcrumbs([['Notifications']]);
   if (section === 'user-management') {

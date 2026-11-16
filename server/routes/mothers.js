@@ -350,7 +350,7 @@ async function attachClinicalData(mother, includeAuditDetails = false) {
     })),
     medicalConditions: Object.keys(medicalConditions).length ? medicalConditions : mother.medicalConditions,
     dentalCheckupDate: dental.visit_date || '',
-    dentalFacility: dental.treatment || '',
+    dentalFacility: dental.dental_facility || dental.treatment || '',
     dentistInCharge: dental.dentist_in_charge || '',
     communityDentist: dental.community_dentist || '',
     dentistLicense: dental.dentist_license || '',

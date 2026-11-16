@@ -50,6 +50,22 @@ test('AI configuration is unavailable until a private model endpoint and model a
   );
 });
 
+test('shared AI status exposes configuration state and model without exposing the API key', () => {
+  const sharedEnvironment = {
+    ...modelEnvironment,
+    PROGRESS_REPORT_AI_API_KEY: 'shared-test-key',
+  };
+  const status = progressReportRouter.getPublicAiStatus(sharedEnvironment);
+
+  assert.deepEqual(status, { available: true, configured: true, model: 'test-model' });
+  assert.doesNotMatch(JSON.stringify(status), /shared-test-key/);
+  assert.deepEqual(progressReportRouter.getPublicAiStatus(modelEnvironment), {
+    available: false,
+    configured: false,
+    model: 'test-model',
+  });
+});
+
 test('dashboard AI receives only validated aggregate metrics and returns a concise insight', async () => {
   let request;
   const insight = await createDashboardInsight({
@@ -829,11 +845,17 @@ test('progress report AI endpoints require auth and do not pass user scope to th
   const testSessions = new Map();
   const originalBaseUrl = process.env.PROGRESS_REPORT_AI_BASE_URL;
   const originalModel = process.env.PROGRESS_REPORT_AI_MODEL;
+  const originalApiKey = process.env.PROGRESS_REPORT_AI_API_KEY;
   const requests = [];
   process.env.PROGRESS_REPORT_AI_BASE_URL = modelEnvironment.PROGRESS_REPORT_AI_BASE_URL;
   process.env.PROGRESS_REPORT_AI_MODEL = modelEnvironment.PROGRESS_REPORT_AI_MODEL;
+  process.env.PROGRESS_REPORT_AI_API_KEY = 'shared-route-test-key';
   globalThis.fetch = async (url, options) => {
-    requests.push({ url, body: JSON.parse(options.body) });
+    requests.push({
+      url,
+      body: JSON.parse(options.body),
+      authorization: options.headers.Authorization,
+    });
     const requestNumber = requests.length;
     const content = url.endsWith('/chat/completions')
       ? requestNumber === 1
@@ -871,6 +893,8 @@ test('progress report AI endpoints require auth and do not pass user scope to th
     else process.env.PROGRESS_REPORT_AI_BASE_URL = originalBaseUrl;
     if (originalModel === undefined) delete process.env.PROGRESS_REPORT_AI_MODEL;
     else process.env.PROGRESS_REPORT_AI_MODEL = originalModel;
+    if (originalApiKey === undefined) delete process.env.PROGRESS_REPORT_AI_API_KEY;
+    else process.env.PROGRESS_REPORT_AI_API_KEY = originalApiKey;
     await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   });
   await new Promise((resolve) => server.once('listening', resolve));
@@ -879,6 +903,24 @@ test('progress report AI endpoints require auth and do not pass user scope to th
   const sid = 'progress-report-ai-session';
   testSessions.set(sid, { id: 17, role: 'Health Worker', school_id: 123, group_id: 456 });
   const token = jwt.sign({ id: 17, sid }, process.env.JWT_SECRET);
+  const statusResponse = await requestToApp(`${baseUrl}/status`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const status = await statusResponse.json();
+  assert.equal(statusResponse.status, 200);
+  assert.deepEqual(status, { available: true, configured: true, model: 'test-model' });
+  assert.doesNotMatch(JSON.stringify(status), /shared-route-test-key/);
+
+  for (const prompt of ['Show progress for Name: Jane Doe.', 'Delete mothers in this group.']) {
+    const unsafeResponse = await requestToApp(`${baseUrl}/proposal`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt }),
+    });
+    assert.equal(unsafeResponse.status, 400);
+    assert.equal(requests.length, 0, 'unsafe prompts must not reach the shared provider');
+  }
+
   const unauthenticated = await requestToApp(`${baseUrl}/proposal`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -907,6 +949,7 @@ test('progress report AI endpoints require auth and do not pass user scope to th
   });
   assert.equal(proposalResponse.status, 200);
   assert.equal((await proposalResponse.json()).metricIds[0], 'weightForAgeInterpretation');
+  assert.equal(requests[0].authorization, 'Bearer shared-route-test-key');
   const modelRequestText = JSON.stringify(requests[0].body);
   assert.doesNotMatch(modelRequestText, /123|456|999/);
 
@@ -957,6 +1000,7 @@ test('progress report AI endpoints require auth and do not pass user scope to th
   const dashboardInsightBody = await dashboardInsightResponse.json();
   assert.equal(dashboardInsightResponse.status, 200, JSON.stringify(dashboardInsightBody));
   assert.deepEqual(dashboardInsightBody, { insight: 'Summary of aggregate figures.' });
+  assert.equal(requests[1].authorization, 'Bearer shared-route-test-key');
   assert.doesNotMatch(requests[1].body.messages.at(-1).content, /Jane Doe|records|123|456/);
 
   for (const endpoint of ['admin-assistant', 'beneficiary-assistant', 'program-assistant', 'entry-assist']) {

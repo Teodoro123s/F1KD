@@ -47,7 +47,6 @@ test('page explanations include every primary application section', () => {
     '/notifications',
     '/profile',
     '/settings',
-    '/ai-setting',
   ];
 
   paths.forEach((path) => {

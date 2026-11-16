@@ -234,12 +234,6 @@ export const PAGE_GUIDES = [
       { target: 'settings-password', title: 'Change password', text: 'Enter your current password and choose a new password.' },
     ],
   },
-  {
-    match: (path) => path.startsWith('/ai-setting'),
-    title: 'AI Setting',
-    description: 'Review AI reporting options available to your account.',
-    sections: [],
-  },
 ];
 
 export function normalizeGuideRole(role) {

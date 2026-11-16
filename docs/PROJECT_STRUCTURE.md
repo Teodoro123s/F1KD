@@ -60,7 +60,7 @@ Each folder under `src/pages/` owns one route or related workflow:
 
 | Folder | Responsibility |
 |---|---|
-| `AISetting/` | AI settings and report assistant |
+| `AISetting/` | AI reporting assistant UI (shared provider configuration is server-side) |
 | `Auth/` | Sign-in and authentication screens |
 | `Beneficiary/` | Beneficiary list and child/mother records |
 | `Community/` | Schools, groups, batches, and their UI |

@@ -79,14 +79,6 @@ const isReadOnlyReportAssistantRequest = (req) => (
   && /^\/ai\/(proposal|monitoring-report|dashboard-insight)\/?$/.test(req.path)
 );
 
-const isPersonalAiSettingsRequest = (req) => (
-  req.baseUrl === '/api/ai-settings'
-  && (
-    (req.method === 'POST' && /^\/(test|proposal)\/?$/.test(req.path))
-    || (['PUT', 'DELETE'].includes(req.method) && /^\/configuration\/?$/.test(req.path))
-  )
-);
-
 function authorize(...allowedRoles) {
   return (req, res, next) => {
     if (!req.user) {
@@ -127,7 +119,7 @@ function authorizeOperational(req, res, next) {
   req.isHealthWorker = isHealthWorkerRole(req.user.role);
   req.isCommunityOrganizer = isCommunityOrganizer;
 
-  if (!isReadMethod(req.method) && !isReadOnlyReportAssistantRequest(req) && !isPersonalAiSettingsRequest(req)) {
+  if (!isReadMethod(req.method) && !isReadOnlyReportAssistantRequest(req)) {
     if (userRole !== 'super_admin' && isUsersRequest(req)) {
       return permissionResponse(res, 'User management is restricted to Superadmin');
     }
@@ -194,5 +186,4 @@ module.exports = {
   normalizeRole,
   isHealthWorkerRole,
   isCommunityCoordinatorRole,
-  isPersonalAiSettingsRequest,
 };

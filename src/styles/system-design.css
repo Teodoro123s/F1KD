@@ -1,0 +1,146 @@
+:root {
+  --system-surface-border: #e5ece7;
+  --system-surface-shadow: 0 8px 24px rgba(15, 23, 42, 0.045);
+  --system-surface-shadow-hover: 0 12px 28px rgba(15, 23, 42, 0.075);
+}
+
+.view-content {
+  --view-border-color: var(--system-surface-border);
+  --view-bg-subtle: #f7faf8;
+}
+
+:where(h1, h2, h3, h4) {
+  font-family: var(--font-family-heading);
+}
+
+.view-content :is(.view-page-title, .page-title) {
+  font-family: var(--font-family-heading);
+  letter-spacing: -0.025em;
+}
+
+.view-content :is(
+  .page-shell,
+  .section-card,
+  .panel-card,
+  .table-card,
+  .checkup-card,
+  .selected-mother-bar,
+  .summary-card,
+  .user-management-list-card
+) {
+  border-color: var(--system-surface-border);
+  border-radius: 16px;
+  box-shadow: var(--system-surface-shadow);
+}
+
+.view-content :is(.kpi-card, .dashboard-chart-card) {
+  border-radius: 20px;
+}
+
+.view-content .dashboard-screening-quickstrip {
+  border-radius: 16px;
+}
+
+.view-content :is(.page-shell, .section-card, .panel-card, .checkup-card) {
+  background-color: var(--color-surface);
+}
+
+.view-content .summary-card {
+  border-radius: 14px;
+  transition:
+    border-color var(--transition-base),
+    box-shadow var(--transition-base),
+    transform var(--transition-base);
+}
+
+.view-content button.summary-card:hover,
+.view-content button.summary-card.is-selected {
+  border-color: var(--color-brand);
+  box-shadow: var(--system-surface-shadow-hover);
+  transform: translateY(-2px);
+}
+
+.view-content :is(.btn-primary, .btn-secondary, .btn-outline, .btn-ghost, .btn-create-action, .view-btn) {
+  border-radius: 11px;
+}
+
+.view-content :is(
+  .form-input,
+  .form-select,
+  .checkup-field-input,
+  .search-container,
+  .monitoring-search input,
+  .beneficiary-status-filter select,
+  .monitoring-status-filter select
+) {
+  border-radius: 11px;
+}
+
+.view-content :is(
+  .page-shell,
+  .section-card,
+  .panel-card,
+  .table-card,
+  .checkup-card,
+  .kpi-card,
+  .dashboard-chart-card,
+  .summary-card
+) {
+  animation: system-surface-enter 360ms var(--motion-ease-out) both;
+}
+
+.view-content .module-summary-cards > :nth-child(2),
+.view-content .dashboard-kpi-grid > :nth-child(2) {
+  animation-delay: 45ms;
+}
+
+.view-content .module-summary-cards > :nth-child(3),
+.view-content .dashboard-kpi-grid > :nth-child(3) {
+  animation-delay: 90ms;
+}
+
+.view-content .module-summary-cards > :nth-child(4),
+.view-content .dashboard-kpi-grid > :nth-child(4) {
+  animation-delay: 135ms;
+}
+
+.view-content .dashboard-charts-main-grid > :nth-child(2),
+.view-content .dashboard-charts-secondary-grid > :nth-child(2) {
+  animation-delay: 60ms;
+}
+
+.view-content .dashboard-charts-secondary-grid > :nth-child(3) {
+  animation-delay: 120ms;
+}
+
+@keyframes system-surface-enter {
+  from {
+    opacity: 0;
+    translate: 0 7px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .view-content :is(.table-card, .section-card, .panel-card, .checkup-card):hover {
+    box-shadow: var(--system-surface-shadow-hover);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .view-content :is(
+    .page-shell,
+    .section-card,
+    .panel-card,
+    .table-card,
+    .checkup-card,
+    .kpi-card,
+    .dashboard-chart-card,
+    .summary-card
+  ) {
+    animation: none;
+  }
+}

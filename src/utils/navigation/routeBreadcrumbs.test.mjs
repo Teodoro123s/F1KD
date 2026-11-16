@@ -37,10 +37,6 @@ test('builds a navigable Dashboard parent for Progress Report', () => {
     { label: 'Dashboard', to: '/dashboard' },
     { label: 'Progress Report' },
   ]);
-  assert.deepEqual(getRouteBreadcrumbs('/ai-setting'), [
-    { label: 'Dashboard', to: '/dashboard' },
-    { label: 'AI Setting' },
-  ]);
 });
 
 test('keeps the previous user-management view as the breadcrumb return target', () => {

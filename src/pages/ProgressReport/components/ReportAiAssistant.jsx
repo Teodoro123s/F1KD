@@ -54,7 +54,7 @@ export function ReportAiAssistant({
     let active = true;
     apiGetProgressReportAiStatus()
       .then((status) => {
-        if (active) setAvailability(status?.available ? 'ready' : 'unavailable');
+        if (active) setAvailability(status?.configured ? 'ready' : 'unavailable');
       })
       .catch((statusError) => {
         if (active) {
@@ -228,10 +228,10 @@ export function ReportAiAssistant({
           <>
         {availability === 'unavailable' ? (
           <p className="progress-report-ai-message" role="status">
-            The private AI service is not configured. Ask your administrator to connect an approved self-hosted model.
+            The shared AI service is not configured. Ask your administrator to set its provider configuration in the backend environment.
           </p>
         ) : availability === 'checking' ? (
-          <p className="progress-report-ai-message" role="status">Checking private AI availability…</p>
+          <p className="progress-report-ai-message" role="status">Checking shared AI availability…</p>
         ) : availability === 'error' ? (
           <p className="progress-report-ai-message" role="alert">{error}</p>
         ) : proposal?.needsClarification ? (

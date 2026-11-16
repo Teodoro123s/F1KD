@@ -71,21 +71,19 @@ The backend applies authorization scope and archive exclusions before counting o
 
 Community, User Management, Beneficiary, Monitoring, Archive, Reports/Notifications, and Progress Report screens use the shared responsive `src/components/ui/Pagination.jsx` control. It provides consistent page-number navigation and a visible result range; screens that support page-size selection retain their own available page sizes. On narrow screens, the control condenses to the active page and previous/next navigation. This shared UI does not change each screen's API paging, filtering, or data-loading behavior.
 
-## Private AI assistants
+## Shared AI assistant
 
-AI reporting uses the backend-configured OpenAI-compatible chat-completions endpoint. The default configuration below uses Google Gemini; users enter a Google AI Studio API key, while the server controls the provider endpoint and model. A separate encryption key allows each signed-in operational user to save their own provider key:
+The AI Reporting Assistant uses one shared, server-side OpenAI-compatible chat-completions configuration for all signed-in users. The default endpoint uses Google Gemini:
 
 ```env
 PROGRESS_REPORT_AI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
 PROGRESS_REPORT_AI_MODEL=gemini-3.1-flash-lite
-AI_SETTINGS_ENCRYPTION_KEY=generate-a-unique-64-character-hex-key
+PROGRESS_REPORT_AI_API_KEY=your-provider-api-key
 ```
 
-Generate the encryption key with `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`. For Docker Compose, put it in the root `.env` file; Compose forwards it only to the backend. For a direct backend deployment, set it in `server/.env`. Keep this key stable and backed up: losing or rotating it makes previously stored user keys unreadable. Without it, the application refuses to save credentials.
+For Docker Compose, set all three values in the repository-root `.env` file; Compose forwards them only to the backend. For a direct backend deployment, set them in `server/.env`. The server appends `/chat/completions` to the base URL. Do not put the API key in frontend variables, source code, URLs, or logs. Leave the key unset to keep AI unavailable. Restart or recreate the backend after changing environment settings.
 
-The server appends `/chat/completions` to the configured base URL. Users only enter and test their provider API key; the settings page displays the configured provider and model name but does not expose the endpoint or secrets. Keys are encrypted per account and never returned by configuration endpoints. The report assistant sends the natural-language request to the provider, then retrieves report rows separately through the existing authenticated and role-scoped progress-report endpoint. Operational rows are not sent to the model. Leave the endpoint or default model unset to keep AI unavailable. Restart the backend after changing environment settings.
-
-`PROGRESS_REPORT_AI_MODEL` can be set to another Gemini model ID supported by the configured endpoint and enabled for the Google AI project, such as `gemini-3.6-flash` or `gemini-3.1-pro-preview`. The setting applies server-wide; users cannot select a model in the UI. Check Google's [current model list](https://ai.google.dev/gemini-api/docs/models) before switching, and test the connection with a key that has access to the selected model.
+`PROGRESS_REPORT_AI_MODEL` can be set to another Gemini model ID supported by the configured endpoint and enabled for the Google AI project, such as `gemini-3.6-flash` or `gemini-3.1-pro-preview`. The setting applies server-wide; users cannot select a model or provide personal API keys in the UI. Check Google's [current model list](https://ai.google.dev/gemini-api/docs/models) before switching.
 
 Report-proposal requests cap generated output at 768 tokens to reduce provider token-per-minute usage. If the provider still returns HTTP 429, wait before retrying; repeated failures may require the administrator to increase the provider's rate limit.
 
@@ -93,7 +91,7 @@ AI reporting currently supports database-backed report previews and CSV export. 
 
 For module-by-module capabilities, role access, inputs sent to the model, and limitations—including endpoints that are not wired to a screen—see [Integrated AI: Modules, Purpose, Scope, and Limits](../docs/INTEGRATED_AI.md).
 
-Keep the model endpoint on a trusted private network, configure a key if supported, and review its data retention practices. AI output is advisory only and is not clinical advice.
+The deployment migration [`migrations/20261116_drop_user_ai_configurations.sql`](./migrations/20261116_drop_user_ai_configurations.sql) removes the obsolete per-user encrypted-key table and its saved entries. Apply it when upgrading an existing database; schema bootstrap no longer creates that table. The API key is server-wide, so all users share the provider account's quota and billing. AI output is advisory only and is not clinical advice.
 
 The server creates and migrates the application schema on first run. It has no
 built-in default user credentials. To create or recover a named Superadmin, set
@@ -109,3 +107,9 @@ To remove accounts previously generated by the local test-role sign-in shortcut,
 [`migrations/20261019_remove_test_role_accounts.sql`](./migrations/20261019_remove_test_role_accounts.sql)
 to the application database after upgrading. The shortcut and its account-creation logic
 are no longer available.
+
+## Synthetic demo data
+
+For a development or test database, connect with the MySQL client from the `server` directory and run `SOURCE scripts/seed_demo_data.sql;`. It creates one sample school, two groups, three batches (two assigned to the first group and one to the second), ten mothers per batch, and seven children per batch. Two mother profiles and two child profiles per batch have all fields used by the app's profile-completion checks. It also creates 42 maternal check-ups (one per mother, with three for each complete maternal profile) and 63 child check-ups (weeks 1, 4, and 8 for every child). Names, measurements, and contact values are synthetic; no document files are created, so the child document status remains pending until real documents are uploaded.
+
+The script uses the `DEMO-*` code prefix and can be re-run to refresh those records. It replaces monitoring, vaccine, and dental records for the demo beneficiaries, so do not use it against production or a shared database.

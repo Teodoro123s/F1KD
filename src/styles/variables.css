@@ -9,7 +9,7 @@
   --color-text-secondary: #334155;
   --color-text-muted: #64748b;
   --color-text-inverse: #fff;
-  --color-page: #f4f6f9;
+  --color-page: #f3f7f5;
   --color-surface: #fff;
   --color-surface-soft: #f8fafc;
   --color-surface-muted: #eef3f8;
@@ -29,7 +29,8 @@
   --color-info-bg: #eff6ff;
   --color-info-border: #bfdbfe;
 
-  --font-family-base: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans";
+  --font-family-base: 'Inter', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  --font-family-heading: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-size-xs: 0.75rem;
   --font-size-sm: 0.8125rem;
   --font-size-md: 0.9375rem;
@@ -109,8 +110,11 @@
 }
 
 /* Global reset & universal font */
-* { box-sizing: border-box; }
-html { font-size: 90%; }
+*, *::before, *::after { box-sizing: border-box; }
+html {
+  font-size: 90%;
+  font-family: var(--font-family-base);
+}
 html, body, #root { height: 100%; }
 body {
   margin: 0;
@@ -123,3 +127,12 @@ body {
   line-height: 1.5;
 }
 a { text-decoration: none; color: inherit; }
+
+/* Enforce font inheritance for all form controls & buttons globally */
+button,
+input,
+optgroup,
+select,
+textarea {
+  font-family: inherit;
+}

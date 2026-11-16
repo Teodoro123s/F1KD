@@ -114,3 +114,15 @@ export function isCommunityCoordinatorRole(role) {
 export function isSchoolScopedRole(role) {
   return isCommunityCoordinatorRole(role) || isHealthWorkerRole(role);
 }
+
+export function formatRoleName(role) {
+  const norm = normalizeRole(role);
+  if (!norm) return 'MEMBER';
+  if (norm === ROLES.SUPER_ADMIN) return 'SUPER ADMIN';
+  if (norm === ROLES.COMMUNITY_COORDINATOR) return 'COORDINATOR';
+  if (norm === ROLES.HEALTH_WORKER) return 'HEALTH WORKER';
+  if (norm === ROLES.PARTNER) return 'PARTNER';
+  if (norm === ROLES.ADMIN) return 'ADMIN';
+  return String(role).replace(/_/g, ' ').toUpperCase();
+}
+

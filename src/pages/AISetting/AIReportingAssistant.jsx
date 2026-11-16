@@ -5,7 +5,7 @@ import { apiGetPrograms } from '../../api/programs';
 import { apiGetActivityReport, apiGetReportScopes } from '../../api/reports';
 import { apiGetNotifications, apiRecordReportDownload } from '../../api/notifications';
 import { apiGetUsers } from '../../api/users';
-import { apiCreateAiDashboardInsight, apiCreateAiReportProposal } from '../../api/aiSettings';
+import { apiCreateDashboardInsight, apiCreateProgressReportAiProposal } from '../../api/progressReport';
 import { getRollingDateRange } from '../../utils/analytics/dailyTimeSeries';
 import { notifyAction } from '../../components/ActionFeedback';
 import { buildOperationalStaffMetrics } from '../Dashboard/dashboardModuleMetrics.mjs';
@@ -110,7 +110,7 @@ function createSuperAdminSnapshot(results) {
   };
 }
 
-export default function AIReportingAssistant({ configured, storageReady }) {
+export default function AIReportingAssistant({ configured }) {
   const { currentUser } = useAuth();
   const isSuperAdmin = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]);
   const isHealthWorker = isHealthWorkerRole(currentUser?.role);
@@ -148,7 +148,7 @@ export default function AIReportingAssistant({ configured, storageReady }) {
   const messageIdRef = useRef(0);
 
   useEffect(() => {
-    if (!configured || !storageReady) {
+    if (!configured) {
       setLoadingOptions(false);
       return undefined;
     }
@@ -193,7 +193,7 @@ export default function AIReportingAssistant({ configured, storageReady }) {
         if (active) setLoadingOptions(false);
       });
     return () => { active = false; };
-  }, [configured, isSuperAdmin, storageReady]);
+  }, [configured, isSuperAdmin]);
 
   const eligiblePrograms = useMemo(() => proposal?.reportCategory === 'program'
     ? programs.filter((program) => matchesProgramBeneficiaryType(program, proposal.beneficiaryType))
@@ -300,7 +300,7 @@ export default function AIReportingAssistant({ configured, storageReady }) {
     setPrompt(requestText);
     try {
       if (isSuperAdmin) {
-        const result = await apiCreateAiDashboardInsight(superAdminSnapshot.metrics, requestText);
+        const result = await apiCreateDashboardInsight(superAdminSnapshot.metrics, requestText);
         appendMessage({
           role: 'assistant',
           kind: 'text',
@@ -308,7 +308,7 @@ export default function AIReportingAssistant({ configured, storageReady }) {
         });
         return;
       }
-      const nextProposal = await apiCreateAiReportProposal(requestText);
+      const nextProposal = await apiCreateProgressReportAiProposal(requestText);
       if (nextProposal.needsClarification) {
         setProposal(nextProposal);
         const clarificationId = appendMessage({
@@ -374,7 +374,7 @@ export default function AIReportingAssistant({ configured, storageReady }) {
     }
   };
 
-  if (!configured || !storageReady) {
+  if (!configured) {
     return null;
   }
 

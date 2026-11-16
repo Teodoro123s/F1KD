@@ -2,15 +2,61 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { getInitials } from '../utils/formatting/nameFormat';
 import { useAuth } from '../auth/AuthProvider';
-import { ROLES, hasRole } from '../utils/permissions';
+import { ROLES, hasRole, formatRoleName } from '../utils/permissions';
 import { getRouteBreadcrumbs } from '../utils/navigation/routeBreadcrumbs.mjs';
-import { apiGetNotifications, apiSetNotificationRead } from '../api/notifications';
+import {
+  Bell,
+  BellOff,
+  Check,
+  CheckCheck,
+  ArrowRight,
+  UserCheck,
+  Users,
+  Activity,
+  Building2,
+  Menu,
+  User as UserIcon,
+  Settings,
+  LogOut,
+  LogIn,
+  Shield,
+  Mail,
+  ChevronRight,
+  Sparkles,
+} from 'lucide-react';
+import {
+  apiGetNotifications,
+  apiSetNotificationRead,
+  apiMarkAllNotificationsRead,
+} from '../api/notifications';
+
+function formatRelativeTime(dateValue) {
+  if (!dateValue) return '';
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return '';
+  const diffSec = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (diffSec < 60) return 'Just now';
+  if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
+  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
+  if (diffSec < 172800) return 'Yesterday';
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function getNotificationCategoryIcon(category) {
+  const cat = String(category || '').toLowerCase();
+  if (cat.includes('user') || cat.includes('staff')) return <Users size={16} />;
+  if (cat.includes('beneficiary') || cat.includes('mother') || cat.includes('child')) return <UserCheck size={16} />;
+  if (cat.includes('monitor') || cat.includes('checkup') || cat.includes('screening')) return <Activity size={16} />;
+  if (cat.includes('community') || cat.includes('school') || cat.includes('group') || cat.includes('batch')) return <Building2 size={16} />;
+  return <Bell size={16} />;
+}
 import NotificationDetailsModal from './ui/NotificationDetailsModal';
 import FloatingLayer from './ui/FloatingLayer';
 import ConfirmDialog from './ui/ConfirmDialog';
 import HelpCenter from './HelpCenter';
+import AIReportingAssistantEntry from '../pages/AISetting/AIReportingAssistantEntry';
 
-export default function Topbar() {
+export default function Topbar({ onOpenMobile }) {
   const navigate = useNavigate();
   const location = useLocation();
   const auth = useAuth();
@@ -26,6 +72,7 @@ export default function Topbar() {
   const [selectedNotification, setSelectedNotification] = useState(null);
   const [notificationDetailsError, setNotificationDetailsError] = useState('');
   const [markingNotificationId, setMarkingNotificationId] = useState(null);
+  const [markingAll, setMarkingAll] = useState(false);
   const [openUser, setOpenUser] = useState(false);
   const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [signOutError, setSignOutError] = useState('');
@@ -132,9 +179,35 @@ export default function Topbar() {
     }
   };
 
+  const markAllNotificationsRead = async () => {
+    if (markingAll) return;
+    setMarkingAll(true);
+    try {
+      await apiMarkAllNotificationsRead();
+      setNotifications((items) => items.map((item) => ({ ...item, isRead: true })));
+      setNotificationCount(0);
+    } catch (err) {
+      console.error('Failed to mark all notifications read:', err);
+    } finally {
+      setMarkingAll(false);
+    }
+  };
+
   return (
     <header className="topbar">
-      <nav className="topbar-breadcrumbs" aria-label="Breadcrumb">
+      <div className="topbar-left">
+        {onOpenMobile && (
+          <button
+            type="button"
+            className="topbar-mobile-menu-btn"
+            onClick={onOpenMobile}
+            aria-label="Open navigation menu"
+            title="Open menu"
+          >
+            <Menu size={20} aria-hidden="true" />
+          </button>
+        )}
+        <nav className="topbar-breadcrumbs" aria-label="Breadcrumb">
         {breadcrumbs.map((item, index) => {
           const isCurrent = index === breadcrumbs.length - 1;
           return (
@@ -147,28 +220,32 @@ export default function Topbar() {
           );
         })}
       </nav>
+      </div>
       <div className="topbar-actions">
         <HelpCenter currentUser={current} />
+        <AIReportingAssistantEntry
+          buttonClassName="topbar-ai-assistant-btn"
+          label="AI Assistant"
+          icon={Sparkles}
+        />
         <span className="action-wrapper">
           <button
             ref={notifRef}
-            className="icon-button notification-button"
+            className={`icon-button notification-button ${openNotif ? 'is-active' : ''}`}
             aria-label={`Notifications${notificationCount ? `, ${notificationCount} available` : ''}`}
             aria-haspopup="menu"
             aria-expanded={openNotif}
             onClick={() => { if (!signingOut) { setOpenUser(false); setOpenNotif((open) => !open); } }}
             disabled={signingOut}
           >
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
-              <path d="M10 21h4" />
-            </svg>
+            <Bell size={19} aria-hidden="true" />
             {notificationCount > 0 && (
               <span className="notification-badge" aria-hidden="true">
                 {notificationCount > 99 ? '99+' : notificationCount}
               </span>
             )}
           </button>
+
           <FloatingLayer
             open={openNotif}
             anchorRef={notifRef}
@@ -177,52 +254,129 @@ export default function Topbar() {
             role="menu"
             aria-label="Recent notifications"
           >
-              <div className="dropdown-header">Recent</div>
-              <div className="notifications-list">
-                {canReadNotifications && notificationsLoading && <div className="dropdown-item muted">Loading notifications...</div>}
-                {canReadNotifications && !notificationsLoading && notificationsError && <div className="dropdown-item muted">{notificationsError}</div>}
-                {canReadNotifications && !notificationsLoading && notifications.map((notification) => (
-                  <div key={notification.id} className={`notification-dropdown-item${notification.isRead ? '' : ' is-unread'}`}>
-                    <button
-                      type="button"
-                      className="notification-dropdown-content"
-                      onClick={() => openNotificationDetails(notification)}
-                      role="menuitem"
-                    >
-                      <span className="notification-dropdown-title">{notification.title || notification.category}</span>
-                      <span className="notification-dropdown-message" title={notification.message}>{notification.message}</span>
-                      <span className="notification-dropdown-category">
-                        {[notification.actorName, notification.actorRole, notification.category].filter(Boolean).join(' · ')}
-                      </span>
-                    </button>
-                    {!notification.isRead && (
-                      <button
-                        type="button"
-                        className="notification-dropdown-mark-read"
-                        onClick={() => markNotificationRead(notification)}
-                        disabled={markingNotificationId === notification.id}
-                        aria-label={`Mark "${notification.title || notification.category}" as read`}
-                        role="menuitem"
-                      >
-                        {markingNotificationId === notification.id ? 'Marking...' : 'Mark as read'}
-                      </button>
-                    )}
-                  </div>
-                ))}
-                {(!canReadNotifications || (!notificationsLoading && !notificationsError && notifications.length === 0)) && (
-                  <div className="dropdown-item muted">No notifications</div>
+            {/* Popover Header */}
+            <div className="notif-popover-header">
+              <div className="notif-popover-title-row">
+                <span className="notif-popover-title">Notifications</span>
+                {notificationCount > 0 && (
+                  <span className="notif-unread-badge">
+                    {notificationCount} new
+                  </span>
                 )}
               </div>
-              {canReadNotifications && (
+              {canReadNotifications && notificationCount > 0 && (
                 <button
                   type="button"
-                  className="notification-dropdown-all"
+                  className="notif-mark-all-btn"
+                  onClick={markAllNotificationsRead}
+                  disabled={markingAll}
+                  title="Mark all notifications as read"
+                >
+                  <CheckCheck size={14} aria-hidden="true" />
+                  <span>{markingAll ? 'Marking...' : 'Mark all read'}</span>
+                </button>
+              )}
+            </div>
+
+            {/* Notifications List */}
+            <div className="notifications-list notif-popover-list">
+              {canReadNotifications && notificationsLoading && (
+                <div className="notif-loading-wrap">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="notif-skeleton-item">
+                      <div className="notif-skeleton-icon" />
+                      <div className="notif-skeleton-content">
+                        <div className="notif-skeleton-line short" />
+                        <div className="notif-skeleton-line" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {canReadNotifications && !notificationsLoading && notificationsError && (
+                <div className="notif-error-item">{notificationsError}</div>
+              )}
+
+              {canReadNotifications && !notificationsLoading && !notificationsError && notifications.map((notification) => (
+                <div
+                  key={notification.id}
+                  className={`notif-item${notification.isRead ? '' : ' is-unread'}`}
+                >
+                  <button
+                    type="button"
+                    className="notif-item-body"
+                    onClick={() => openNotificationDetails(notification)}
+                    role="menuitem"
+                  >
+                    <div className="notif-item-icon-pill" aria-hidden="true">
+                      {getNotificationCategoryIcon(notification.category)}
+                    </div>
+                    <div className="notif-item-text">
+                      <div className="notif-item-top">
+                        <span className="notif-item-title">
+                          {notification.title || notification.category || 'Notification'}
+                        </span>
+                        {!notification.isRead && <span className="notif-item-pulse-dot" aria-hidden="true" />}
+                        <span className="notif-item-time">
+                          {formatRelativeTime(notification.createdAt || notification.created_at)}
+                        </span>
+                      </div>
+                      <p className="notif-item-message" title={notification.message}>
+                        {notification.message}
+                      </p>
+                      <div className="notif-item-meta">
+                        {notification.category && (
+                          <span className="notif-category-chip">{notification.category}</span>
+                        )}
+                        {notification.actorName && (
+                          <span className="notif-actor-name">by {notification.actorName}</span>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+
+                  {!notification.isRead && (
+                    <button
+                      type="button"
+                      className="notif-item-mark-read-btn"
+                      onClick={() => markNotificationRead(notification)}
+                      disabled={markingNotificationId === notification.id}
+                      aria-label={`Mark "${notification.title || notification.category}" as read`}
+                      title="Mark as read"
+                      role="menuitem"
+                    >
+                      <Check size={14} aria-hidden="true" />
+                    </button>
+                  )}
+                </div>
+              ))}
+
+              {(!canReadNotifications || (!notificationsLoading && !notificationsError && notifications.length === 0)) && (
+                <div className="notif-empty-state">
+                  <div className="notif-empty-icon" aria-hidden="true">
+                    <BellOff size={28} />
+                  </div>
+                  <strong className="notif-empty-title">All caught up!</strong>
+                  <p className="notif-empty-desc">No new notifications right now.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Popover Footer */}
+            {canReadNotifications && (
+              <div className="notif-popover-footer">
+                <button
+                  type="button"
+                  className="notif-view-all-btn"
                   onClick={() => { setOpenNotif(false); navigate('/notifications'); }}
                   role="menuitem"
                 >
-                  View all
+                  <span>View all notifications</span>
+                  <ArrowRight size={14} aria-hidden="true" />
                 </button>
-              )}
+              </div>
+            )}
           </FloatingLayer>
         </span>
 
@@ -248,19 +402,65 @@ export default function Topbar() {
             aria-label="User menu"
             aria-busy={signingOut}
           >
-              {user ? (
-                <>
-                  <div className="dropdown-item">{user.name}</div>
-                  <div className="dropdown-separator" />
-                  <button type="button" className="dropdown-item" role="menuitem" onClick={() => { setOpenUser(false); navigate('/profile'); }}>
-                    Profile
-                  </button>
-                  <button type="button" className="dropdown-item" role="menuitem" onClick={() => { setOpenUser(false); navigate('/settings'); }}>
-                    Settings
-                  </button>
+            {user ? (
+              <>
+                <div className="user-dropdown-header">
+                  <div className="user-dropdown-avatar" aria-hidden="true">
+                    {getInitials(user.name || 'User')}
+                  </div>
+                  <div className="user-dropdown-info">
+                    <span className="user-dropdown-name">{user.name}</span>
+                    {user.email && (
+                      <span className="user-dropdown-email">
+                        <Mail size={12} aria-hidden="true" />
+                        <span>{user.email}</span>
+                      </span>
+                    )}
+                    <span className="user-dropdown-role-badge">
+                      <Shield size={11} aria-hidden="true" />
+                      <span>{formatRoleName(user.role)}</span>
+                    </span>
+                  </div>
+                </div>
+
+                <div className="user-dropdown-divider" />
+
+                <div className="user-dropdown-menu">
                   <button
                     type="button"
-                    className="dropdown-item"
+                    className="user-dropdown-item"
+                    role="menuitem"
+                    onClick={() => {
+                      setOpenUser(false);
+                      navigate('/profile');
+                    }}
+                  >
+                    <UserIcon size={16} className="user-dropdown-item-icon" aria-hidden="true" />
+                    <span className="user-dropdown-label">Profile</span>
+                    <ChevronRight size={14} className="user-dropdown-chevron" aria-hidden="true" />
+                  </button>
+
+                  <button
+                    type="button"
+                    className="user-dropdown-item"
+                    role="menuitem"
+                    onClick={() => {
+                      setOpenUser(false);
+                      navigate('/settings');
+                    }}
+                  >
+                    <Settings size={16} className="user-dropdown-item-icon" aria-hidden="true" />
+                    <span className="user-dropdown-label">Settings</span>
+                    <ChevronRight size={14} className="user-dropdown-chevron" aria-hidden="true" />
+                  </button>
+                </div>
+
+                <div className="user-dropdown-divider" />
+
+                <div className="user-dropdown-menu">
+                  <button
+                    type="button"
+                    className="user-dropdown-item is-danger"
                     onClick={() => {
                       setSignOutError('');
                       setOpenUser(false);
@@ -270,17 +470,28 @@ export default function Topbar() {
                     role="menuitem"
                     disabled={signingOut}
                   >
-                    Sign out
+                    <LogOut size={16} className="user-dropdown-item-icon" aria-hidden="true" />
+                    <span className="user-dropdown-label">{signingOut ? 'Signing out...' : 'Sign out'}</span>
                   </button>
-                </>
-              ) : (
-                <>
-                  <div className="dropdown-item">Not signed in</div>
-                  <button type="button" className="dropdown-item" role="menuitem" onClick={() => navigate('/login')}>
-                    Sign in
-                  </button>
-                </>
-              )}
+                </div>
+              </>
+            ) : (
+              <div className="user-dropdown-menu">
+                <div className="user-dropdown-empty">Not signed in</div>
+                <button
+                  type="button"
+                  className="user-dropdown-item"
+                  role="menuitem"
+                  onClick={() => {
+                    setOpenUser(false);
+                    navigate('/login');
+                  }}
+                >
+                  <LogIn size={16} className="user-dropdown-item-icon" aria-hidden="true" />
+                  <span className="user-dropdown-label">Sign in</span>
+                </button>
+              </div>
+            )}
           </FloatingLayer>
         </span>
       </div>

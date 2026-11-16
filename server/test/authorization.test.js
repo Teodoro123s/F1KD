@@ -130,37 +130,32 @@ test('authorizeOperational permits read-only dashboard AI requests without grant
   }
 });
 
-test('authorizeOperational permits only the whitelisted per-user AI settings actions', () => {
-  for (const [method, path] of [
-    ['POST', '/test'],
-    ['POST', '/proposal'],
-    ['PUT', '/configuration'],
-    ['DELETE', '/configuration'],
-  ]) {
+test('authorizeOperational permits only read-only shared AI assistant requests', () => {
+  for (const path of ['/ai/proposal', '/ai/monitoring-report', '/ai/dashboard-insight']) {
     for (const role of ['Super Admin', 'Admin', 'Partner', 'Community Coordinator', 'Health worker']) {
       let called = false;
       authorizeOperational({
-        baseUrl: '/api/ai-settings',
+        baseUrl: '/api/progress-report',
         path,
-        method,
-        user: { id: 8, role, school_id: 3, group_id: 5 },
+        method: 'POST',
+        user: { role, school_id: 3, group_id: 5 },
       }, {}, () => { called = true; });
-      assert.equal(called, true, `${role} ${method} ${path} should be allowed`);
+      assert.equal(called, true, `${role} ${path} should be allowed`);
     }
   }
 
-  let unrelatedWriteCalled = false;
+  let configurationWriteCalled = false;
   const res = {
     status(code) { this.code = code; return this; },
     json(payload) { this.payload = payload; return this; },
   };
   authorizeOperational({
-    baseUrl: '/api/ai-settings',
-    path: '/users',
-    method: 'DELETE',
+    baseUrl: '/api/progress-report',
+    path: '/ai/configuration',
+    method: 'POST',
     user: { id: 8, role: 'Admin' },
-  }, res, () => { unrelatedWriteCalled = true; });
-  assert.equal(unrelatedWriteCalled, false);
+  }, res, () => { configurationWriteCalled = true; });
+  assert.equal(configurationWriteCalled, false);
   assert.equal(res.code, 403);
 });
 

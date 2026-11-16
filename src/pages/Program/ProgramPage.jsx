@@ -58,6 +58,7 @@ export default function ProgramPage() {
   const [listPage, setListPage] = useState(1);
   const [listPerPage, setListPerPage] = useState(10);
   const [programs, setPrograms] = useState([]);
+  const [programCounts, setProgramCounts] = useState({ total: 0, active: 0, ended: 0, archived: 0 });
   const [archivedPrograms, setArchivedPrograms] = useState(null);
   const [archivedProgramsLoading, setArchivedProgramsLoading] = useState(false);
   const [isLiveDataLoaded, setIsLiveDataLoaded] = useState(false);
@@ -253,6 +254,12 @@ export default function ProgramPage() {
         }));
         setBeneficiaryRecords([...mothers, ...children]);
         setPrograms(savedPrograms);
+        setProgramCounts({
+          total: Number(programResponse.counts?.total ?? savedPrograms.length) || 0,
+          active: Number(programResponse.counts?.active ?? filterPrograms(savedPrograms, '', 'Active').length) || 0,
+          ended: Number(programResponse.counts?.ended ?? filterPrograms(savedPrograms, '', 'Ended').length) || 0,
+          archived: Number(programResponse.counts?.archived) || 0,
+        });
       })
       .then(() => {
         if (mounted) setIsLiveDataLoaded(true);
@@ -261,6 +268,7 @@ export default function ProgramPage() {
         if (!mounted) return;
         notifyAction(error?.message || 'Unable to load saved projects.', 'error');
         setPrograms([]);
+        setProgramCounts({ total: 0, active: 0, ended: 0, archived: 0 });
         setIsLiveDataLoaded(true);
       });
 
@@ -495,6 +503,13 @@ export default function ProgramPage() {
       setPrograms((current) => form.id
         ? current.map((program) => program.id === form.id ? mapApiProgram(response.program) : program)
         : [...current, mapApiProgram(response.program)]);
+      if (!form.id) {
+        setProgramCounts((current) => ({
+          ...current,
+          total: current.total + 1,
+          active: current.active + 1,
+        }));
+      }
       setForm(emptyProgram);
       setShowModal(false);
       setShowSaveConfirmation(false);
@@ -810,6 +825,11 @@ export default function ProgramPage() {
     try {
       const response = await apiRestoreProgram(programToRestore.id);
       setPrograms((current) => current.map((program) => program.id === programToRestore.id ? mapApiProgram(response.program) : program));
+      setProgramCounts((current) => ({
+        ...current,
+        active: current.active + 1,
+        ended: Math.max(0, current.ended - 1),
+      }));
       setActiveTab('Active');
       navigate('/program');
       notifyAction(`Restored ${programToRestore.name}.`);
@@ -826,6 +846,11 @@ export default function ProgramPage() {
     try {
       const response = await apiEndProgram(programToEnd.id);
       setPrograms((current) => current.map((program) => program.id === programToEnd.id ? mapApiProgram(response.program) : program));
+      setProgramCounts((current) => ({
+        ...current,
+        active: Math.max(0, current.active - 1),
+        ended: current.ended + 1,
+      }));
       setActiveTab('Ended');
       navigate('/program');
       notifyAction(`Marked ${programToEnd.name} as successfully completed.`);
@@ -983,6 +1008,12 @@ export default function ProgramPage() {
     try {
       await apiArchiveProgram(programToDelete.id, archiveReason);
       setPrograms((current) => current.filter((program) => program.id !== programToDelete.id));
+      setProgramCounts((current) => ({
+        ...current,
+        total: Math.max(0, current.total - 1),
+        ended: Math.max(0, current.ended - 1),
+        archived: current.archived + 1,
+      }));
       setPendingDeleteProgram(null);
       notifyAction(`Archived ${programToDelete.name}. Historical monitoring and distribution records were retained.`);
       navigate('/program');
@@ -1002,6 +1033,12 @@ export default function ProgramPage() {
       const response = await apiRestoreArchivedProgram(program.id);
       setArchivedPrograms((current) => (current || []).filter((item) => item.id !== program.id));
       setPrograms((current) => [...current, mapApiProgram(response.program)]);
+      setProgramCounts((current) => ({
+        ...current,
+        total: current.total + 1,
+        ended: current.ended + 1,
+        archived: Math.max(0, current.archived - 1),
+      }));
       setPendingRestoreProgram(null);
       notifyAction(`Restored ${program.name} from archive. It remains ended.`);
     } catch (error) {
@@ -1052,7 +1089,9 @@ export default function ProgramPage() {
           )}
           {activeTab === 'Archived' ? (
             <button type="button" className="actions-dropdown-item" onClick={() => { setActiveActionMenu(null); restoreArchivedProgram(menuProgram); }} role="menuitem">Restore from archive</button>
-          ) : isCommunityOrganizer && String(menuProgram?.status || '').trim().toLowerCase() !== 'ended' && (
+          ) : isCommunityOrganizer
+            && menuProgram.clusters?.length > 0
+            && String(menuProgram?.status || '').trim().toLowerCase() !== 'ended' && (
             <button type="button" className="actions-dropdown-item" onClick={() => { setActionProgram(menuProgram); setActiveActionMenu(null); editProgram(menuProgram); }} role="menuitem">Edit</button>
           )}
           {activeTab !== 'Archived' && canEndPrograms && (
@@ -1351,10 +1390,10 @@ export default function ProgramPage() {
             setListPage(1);
           }}
           cards={[
-            { key: 'All', label: 'Total Projects', value: programs.length, description: 'Show projects', selectedDescription: 'Hide projects' },
-            { key: 'Active', label: 'Active Projects', value: filterPrograms(programs, '', 'Active').length, description: 'Show projects', selectedDescription: 'Hide projects' },
-            { key: 'Ended', label: 'Completed Projects', value: filterPrograms(programs, '', 'Ended').length, description: 'Show projects', selectedDescription: 'Hide projects' },
-            ...(isCommunityOrganizer ? [{ key: 'Archived', label: 'Archived Projects', value: Array.isArray(archivedPrograms) ? archivedPrograms.length : 0, description: 'Show projects', selectedDescription: 'Hide projects' }] : []),
+            { key: 'All', label: 'Total Projects', value: programCounts.total, description: 'Show projects', selectedDescription: 'Hide projects' },
+            { key: 'Active', label: 'Active Projects', value: programCounts.active, description: 'Show projects', selectedDescription: 'Hide projects' },
+            { key: 'Ended', label: 'Completed Projects', value: programCounts.ended, description: 'Show projects', selectedDescription: 'Hide projects' },
+            ...(isCommunityOrganizer ? [{ key: 'Archived', label: 'Archived Projects', value: programCounts.archived, description: 'Show projects', selectedDescription: 'Hide projects' }] : []),
           ]}
         />
       )}

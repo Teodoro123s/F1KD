@@ -31,6 +31,7 @@ test('coordinators cannot mutate programs owned by another school through the AP
   const originalQuery = pool.query;
   const queries = [];
   const testSessions = new Map();
+  let programScopes = [{ scope_type: 'School', scope_name: 'Other School', owned_by_school: 0 }];
   pool.query = async (sql, params = []) => {
     if (sql.includes('FROM auth_sessions s')) {
       const role = testSessions.get(String(params[0]));
@@ -45,8 +46,18 @@ test('coordinators cannot mutate programs owned by another school through the AP
     }
     queries.push({ sql, params });
     if (sql.includes('FROM programs p') && sql.includes('LEFT JOIN program_clusters pc')) {
-      return [[{ scope_type: 'School', scope_name: 'Other School', owned_by_school: 0 }]];
+      return [programScopes];
     }
+    if (sql.includes('SELECT status, archived_at FROM programs WHERE id = ?')) return [[{ status: 'Active', archived_at: null }]];
+    if (sql.startsWith('UPDATE programs SET name =')) return [{ affectedRows: 1 }];
+    if (sql.includes('SELECT p.*') && sql.includes('FROM programs p LEFT JOIN users')) {
+      return [[{ id: 123, name: 'Updated project', provider: 'Test Provider', beneficiary_type: 'Mother' }]];
+    }
+    if (sql.includes('SELECT pc.id, pc.scope_type AS type')) {
+      return [[{ id: 1, type: 'School', name: 'Assigned School', scopeId: 12, beneficiaries: 1, received: 0 }]];
+    }
+    if (sql.includes('SELECT COUNT(DISTINCT CONCAT(LOWER(TRIM(ml.beneficiary_type))')) return [[{ received: 0 }]];
+    if (sql.startsWith('INSERT INTO notifications')) return [{ insertId: 0 }];
     throw new Error(`Unexpected program API SQL: ${sql}`);
   };
 
@@ -93,6 +104,23 @@ test('coordinators cannot mutate programs owned by another school through the AP
   }
   assert.equal(queries.length, attempts.length - 1);
   assert.ok(queries.every(({ sql }) => /^\s*SELECT\b/i.test(sql)), 'denied requests must not mutate program data');
+
+  programScopes = [
+    { scope_type: 'School', scope_name: 'Assigned School', scope_id: 12, owned_by_school: 1 },
+    { scope_type: 'School', scope_name: 'Other School', scope_id: 23, owned_by_school: 0 },
+  ];
+  const mixedScopeEdit = await request('', 'PUT', {
+    name: 'Updated project',
+    provider: 'Test Provider',
+  });
+  assert.equal(mixedScopeEdit.status, 200);
+  assert.equal((await mixedScopeEdit.json()).program.name, 'Updated project');
+
+  const mixedScopeChange = await request('/clusters', 'POST', {
+    scopes: [{ type: 'School', name: 'Another School', scopeId: 34 }],
+  });
+  assert.equal(mixedScopeChange.status, 403);
+  assert.match((await mixedScopeChange.json()).error, /assigned school/);
 });
 
 test('Superadmins are denied all Program API access', async (t) => {
@@ -139,6 +167,63 @@ test('Superadmins are denied all Program API access', async (t) => {
     assert.match((await response.json()).error, /Superadmins do not have access/);
   }
   assert.equal(queryCount, 0);
+});
+
+test('program list returns authorized summary counts including archived projects for coordinators', async (t) => {
+  await pool.ready;
+  const originalQuery = pool.query;
+  const testSessions = new Map([
+    ['program-counts-coordinator-session', 'Community Organizer'],
+    ['program-counts-admin-session', 'Admin'],
+  ]);
+  const countQueries = [];
+  pool.query = async (sql, params = []) => {
+    if (sql.includes('FROM auth_sessions s')) {
+      const role = testSessions.get(String(params[0]));
+      return [role ? [{
+        user_id: 4,
+        role,
+        status: 'Active',
+        school_id: role === 'Community Organizer' ? 12 : null,
+        group_id: null,
+        consent_accepted_at: new Date(),
+      }] : []];
+    }
+    if (sql.includes('SELECT p.* FROM programs p')) return [[]];
+    if (sql.includes('COUNT(CASE WHEN p.archived_at IS NULL THEN 1 END)')) {
+      countQueries.push({ sql, params });
+      return [[Number(params[0]) === 1
+        ? { total: 0, active: 0, ended: 0, archived: 2 }
+        : { total: 1, active: 1, ended: 0, archived: 0 }]];
+    }
+    throw new Error(`Unexpected program count SQL: ${sql}`);
+  };
+
+  const app = express();
+  app.use('/api/programs', verifyToken, authorizeOperational, programsRouter);
+  const server = app.listen(0);
+  t.after(async () => {
+    pool.query = originalQuery;
+    await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  });
+  await new Promise((resolve) => server.once('listening', resolve));
+
+  const baseUrl = `http://127.0.0.1:${server.address().port}/api/programs`;
+  const fetchCounts = async (sid) => {
+    const token = jwt.sign({ id: 4, sid }, process.env.JWT_SECRET);
+    const response = await fetch(baseUrl, { headers: { Authorization: `Bearer ${token}` } });
+    assert.equal(response.status, 200);
+    return response.json();
+  };
+
+  const coordinatorResult = await fetchCounts('program-counts-coordinator-session');
+  assert.deepEqual(coordinatorResult.counts, { total: 0, active: 0, ended: 0, archived: 2 });
+  assert.deepEqual(countQueries[0].params, [1, 12, 12, 12]);
+  assert.match(countQueries[0].sql, /scoped_cluster\.program_id = p\.id/);
+
+  const adminResult = await fetchCounts('program-counts-admin-session');
+  assert.deepEqual(adminResult.counts, { total: 1, active: 1, ended: 0, archived: 0 });
+  assert.deepEqual(countQueries[1].params, [0]);
 });
 
 test('Community Coordinator monitoring reads are school-scoped and reject foreign same-name clusters', async (t) => {

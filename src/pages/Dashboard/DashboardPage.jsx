@@ -1,5 +1,35 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+} from 'recharts';
+import {
+  Users,
+  UserPlus,
+  UserCheck,
+  Baby,
+  AlertCircle,
+  Building2,
+  FolderKanban,
+  ClipboardList,
+  ShieldCheck,
+  Activity,
+  ArrowRight,
+  TrendingUp,
+  TrendingDown,
+  Sparkles,
+} from 'lucide-react';
 import { useAuth } from '../../auth/AuthProvider';
 import { useMothers } from '../../context/MothersContext';
 import { PageSkeleton } from '../../components/LoadingSkeleton';
@@ -10,8 +40,16 @@ import { apiGetManagedHealthWorkers, apiGetUsers } from '../../api/users';
 import { apiGetActivityReport, apiGetReportScopes } from '../../api/reports';
 import { apiGetNotifications } from '../../api/notifications';
 import { can, isCommunityCoordinatorRole, isHealthWorkerRole, normalizeRole, ROLES } from '../../utils/permissions';
-import { buildDashboardModuleSummaries, buildOperationalStaffMetrics } from './dashboardModuleMetrics.mjs';
-import { getRollingDateRange } from '../../utils/analytics/dailyTimeSeries';
+import {
+  buildDashboardModuleSummaries,
+  buildOperationalStaffMetrics,
+  getIncompleteBatchProgressOptions,
+} from './dashboardModuleMetrics.mjs';
+import {
+  getRollingDateRange,
+  toLocalDateKey,
+  fillDailyTimeSeries,
+} from '../../utils/analytics/dailyTimeSeries';
 import AIReportingAssistantEntry from '../AISetting/AIReportingAssistantEntry';
 
 function getGreeting(name) {
@@ -54,6 +92,28 @@ function getRecordDate(record) {
   if (!value) return null;
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
+}
+
+/* Custom Chart Tooltip */
+function ChartTooltip({ active, payload, label }) {
+  if (active && payload && payload.length) {
+    return (
+      <div className="dashboard-chart-tooltip">
+        {label && <div className="tooltip-label">{label}</div>}
+        {payload.map((entry, index) => (
+          <div key={`tip-${index}`} className="tooltip-item">
+            <span
+              className="tooltip-dot"
+              style={{ backgroundColor: entry.color || entry.fill || '#15803d' }}
+            />
+            <span className="tooltip-name">{entry.name || 'Count'}:</span>
+            <span className="tooltip-val">{Number(entry.value).toLocaleString()}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return null;
 }
 
 export default function DashboardPage() {
@@ -263,36 +323,157 @@ export default function DashboardPage() {
   const cards = useMemo(() => {
     if (isSuperAdmin) {
       return [
-        { key: 'active-staff', title: 'Active Staff', value: staffMetrics.active, subtitle: 'Operational accounts', to: '/user-management' },
-        { key: 'unassigned-staff', title: 'Unassigned Staff', value: staffMetrics.unassigned, subtitle: 'Need a school assignment', to: '/user-management' },
-        { key: 'suspended-staff', title: 'Suspended Staff', value: staffMetrics.suspended, subtitle: 'Accounts requiring review', to: '/user-management' },
+        {
+          key: 'active-staff',
+          title: 'Active Staff',
+          value: staffMetrics.active,
+          badge: 'Operational',
+          badgeType: 'positive',
+          subtitle: 'Operational accounts',
+          to: '/user-management',
+          icon: 'users',
+        },
+        {
+          key: 'unassigned-staff',
+          title: 'Unassigned Staff',
+          value: staffMetrics.unassigned,
+          badge: staffMetrics.unassigned > 0 ? 'Needs Assignment' : 'All Assigned',
+          badgeType: staffMetrics.unassigned > 0 ? 'warning' : 'positive',
+          subtitle: 'Need a school assignment',
+          to: '/user-management',
+          icon: 'clipboard',
+        },
+        {
+          key: 'suspended-staff',
+          title: 'Suspended Staff',
+          value: staffMetrics.suspended,
+          badge: 'Review',
+          badgeType: staffMetrics.suspended > 0 ? 'negative' : 'neutral',
+          subtitle: 'Accounts requiring review',
+          to: '/user-management',
+          icon: 'alert',
+        },
+        {
+          key: 'total-accounts',
+          title: 'Total Accounts',
+          value: staffMetrics.total,
+          badge: 'System Scope',
+          badgeType: 'neutral',
+          subtitle: 'Operational staff in system',
+          to: '/user-management',
+          icon: 'building',
+        },
       ];
     }
 
-    if (isCommunityOrganizer) return [];
-
     if (isHealthWorker) {
       return [
-        { key: 'follow-ups', title: 'Follow-Ups', value: stats.followUpCount, subtitle: 'Beneficiaries needing follow-up', to: '/monitoring' },
-        { key: 'receipts', title: 'Assigned Projects', value: stats.programCount, subtitle: 'Available to your group', to: '/program' },
+        {
+          key: 'follow-ups',
+          title: 'Follow-Ups',
+          value: stats.followUpCount,
+          badge: stats.followUpCount > 0 ? 'Action Needed' : 'On Track',
+          badgeType: stats.followUpCount > 0 ? 'warning' : 'positive',
+          subtitle: 'Beneficiaries needing follow-up',
+          to: '/monitoring',
+          icon: 'alert',
+        },
+        {
+          key: 'receipts',
+          title: 'Assigned Projects',
+          value: stats.programCount,
+          badge: 'Active Focus',
+          badgeType: 'positive',
+          subtitle: 'Available to your group',
+          to: '/program',
+          icon: 'projects',
+        },
+        {
+          key: 'group-mothers',
+          title: 'Assigned Mothers',
+          value: stats.motherCount,
+          badge: 'Registered',
+          badgeType: 'neutral',
+          subtitle: 'Mothers in your group',
+          to: '/beneficiary',
+          icon: 'mothers',
+        },
+        {
+          key: 'group-children',
+          title: 'Assigned Children',
+          value: stats.childCount,
+          badge: 'Monitored',
+          badgeType: 'positive',
+          subtitle: 'Children in your group',
+          to: '/beneficiary',
+          icon: 'children',
+        },
       ];
     }
 
     const allRoleCards = [
-      { key: 'beneficiaries', title: 'Beneficiaries', value: stats.motherCount + stats.childCount, subtitle: `${stats.motherCount} mothers · ${stats.childCount} children`, to: '/beneficiary' },
-      { key: 'follow-ups', title: 'Follow-Ups', value: stats.followUpCount, subtitle: 'Beneficiaries needing follow-up', to: '/monitoring' },
-      { key: 'communities', title: 'Communities', value: stats.communityCount, subtitle: `${stats.batchCount} batches · ${stats.groupCount} groups`, to: '/community' },
-      { key: 'programs', title: 'Projects', value: stats.programCount, subtitle: 'Intervention projects', to: '/program' },
+      {
+        key: 'beneficiaries',
+        title: 'Total Beneficiaries',
+        value: stats.motherCount + stats.childCount,
+        badge: `${stats.motherCount}M · ${stats.childCount}C`,
+        badgeType: 'positive',
+        subtitle: `${stats.motherCount} mothers · ${stats.childCount} children`,
+        to: '/beneficiary',
+        icon: 'users',
+      },
+      {
+        key: 'follow-ups',
+        title: 'Follow-Ups',
+        value: stats.followUpCount,
+        badge: stats.followUpCount > 0 ? 'Action Required' : 'On Track',
+        badgeType: stats.followUpCount > 0 ? 'warning' : 'positive',
+        subtitle: 'Beneficiaries needing check-up',
+        to: '/monitoring',
+        icon: 'alert',
+      },
+      {
+        key: 'communities',
+        title: 'Communities',
+        value: stats.communityCount,
+        badge: `${stats.batchCount} Batches`,
+        badgeType: 'neutral',
+        subtitle: `${stats.batchCount} batches · ${stats.groupCount} groups`,
+        to: '/community',
+        icon: 'building',
+      },
+      {
+        key: 'programs',
+        title: 'Projects',
+        value: stats.programCount,
+        badge: 'Interventions',
+        badgeType: 'positive',
+        subtitle: 'Intervention projects',
+        to: '/program',
+        icon: 'projects',
+      },
     ];
 
     if (isCommunityOrganizer) {
       return [
-        ...allRoleCards,
-        { key: 'health-workers', title: 'Health Workers', value: staffMetrics.active, subtitle: 'Active in your assigned school', to: '/user-management' },
+        allRoleCards[0],
+        allRoleCards[1],
+        {
+          key: 'health-workers',
+          title: 'Health Workers',
+          value: staffMetrics.active,
+          badge: 'School Staff',
+          badgeType: 'positive',
+          subtitle: 'Active in your assigned school',
+          to: '/user-management',
+          icon: 'health-workers',
+        },
+        allRoleCards[3],
       ];
     }
+
     if (isAdmin || isPartner) return allRoleCards;
-    return [];
+    return allRoleCards;
   }, [isAdmin, isCommunityOrganizer, isHealthWorker, isPartner, isSuperAdmin, staffMetrics, stats]);
 
   const displayCards = cards.map((card) => {
@@ -308,6 +489,156 @@ export default function DashboardPage() {
     return failed ? { ...card, value: '—', subtitle: 'Could not refresh; figure unavailable' } : card;
   });
 
+  /* --------------------------------------------------------------------------
+     Visualizations Data (Recharts)
+     -------------------------------------------------------------------------- */
+
+  // 1. Trend Timeline AreaChart Data (Last 30 Days)
+  const timelineData = useMemo(() => {
+    if (isSuperAdmin) {
+      const filled = fillDailyTimeSeries(activityReport.dailyActivity || [], activityDateRange.from, activityDateRange.to);
+      return filled.map((item) => {
+        const d = new Date(item.date);
+        return {
+          date: item.date,
+          displayDate: Number.isNaN(d.getTime())
+            ? item.date
+            : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          count: item.count,
+        };
+      });
+    }
+
+    // Operational roles: Beneficiary registration timeline
+    const countsByDate = new Map();
+    [...mothers, ...children].forEach((record) => {
+      const date = getRecordDate(record);
+      if (!date) return;
+      const key = toLocalDateKey(date);
+      countsByDate.set(key, (countsByDate.get(key) || 0) + 1);
+    });
+    const rawRows = Array.from(countsByDate.entries()).map(([date, count]) => ({ date, count }));
+    const filled = fillDailyTimeSeries(rawRows, activityDateRange.from, activityDateRange.to);
+    return filled.map((item) => {
+      const d = new Date(item.date);
+      return {
+        date: item.date,
+        displayDate: Number.isNaN(d.getTime())
+          ? item.date
+          : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        count: item.count,
+      };
+    });
+  }, [activityDateRange.from, activityDateRange.to, activityReport.dailyActivity, children, isSuperAdmin, mothers]);
+
+  const timelineTotal = useMemo(() => timelineData.reduce((sum, item) => sum + (item.count || 0), 0), [timelineData]);
+
+  // 2. Donut (Pie) Chart Data
+  const donutInfo = useMemo(() => {
+    if (isSuperAdmin) {
+      const items = [
+        { name: 'Active Accounts', value: staffMetrics.active, color: '#15803d' },
+        { name: 'Unassigned Accounts', value: staffMetrics.unassigned, color: '#86efac' },
+        { name: 'Suspended Accounts', value: staffMetrics.suspended, color: '#f59e0b' },
+      ].filter((item) => item.value > 0);
+
+      const total = staffMetrics.total || items.reduce((s, i) => s + i.value, 0) || 1;
+      const activePct = Math.round((staffMetrics.active / total) * 100);
+
+      return {
+        title: 'Staff Distribution',
+        subtitle: 'Operational account statuses',
+        centerVal: `${activePct}%`,
+        centerLabel: 'Active',
+        data: items.length > 0 ? items : [{ name: 'Operational', value: 1, color: '#15803d' }],
+      };
+    }
+
+    const monitoringModule = moduleSummaries.find((m) => m.key === 'monitoring');
+    const checkedCount = monitoringModule?.metrics?.[0]?.value ?? 0;
+    const notCheckedCount = monitoringModule?.metrics?.[1]?.value ?? 0;
+    const totalBeneficiaries = mothers.length + children.length;
+
+    const checked = typeof checkedCount === 'number' ? checkedCount : 0;
+    const pending = typeof notCheckedCount === 'number' ? notCheckedCount : Math.max(0, totalBeneficiaries - checked);
+    const followUps = stats.followUpCount;
+
+    const items = [
+      { name: 'Checked This Month', value: checked, color: '#15803d' },
+      { name: 'Pending Check-up', value: Math.max(0, pending - followUps), color: '#86efac' },
+      { name: 'Needs Follow-up', value: followUps, color: '#f59e0b' },
+    ].filter((item) => item.value > 0);
+
+    const safeTotal = totalBeneficiaries > 0 ? totalBeneficiaries : 1;
+    const coveragePct = Math.min(100, Math.round((checked / safeTotal) * 100));
+
+    return {
+      title: 'Screening Coverage',
+      subtitle: 'Monthly health check-up status',
+      centerVal: totalBeneficiaries > 0 ? `${coveragePct}%` : '100%',
+      centerLabel: 'Checked',
+      data: items.length > 0 ? items : [
+        { name: 'Mothers', value: Math.max(1, mothers.length), color: '#15803d' },
+        { name: 'Children', value: Math.max(1, children.length), color: '#22c55e' },
+      ],
+    };
+  }, [children.length, isSuperAdmin, moduleSummaries, mothers.length, staffMetrics, stats.followUpCount]);
+
+  // 3. Bar Chart Data
+  const barChartInfo = useMemo(() => {
+    if (isSuperAdmin) {
+      return {
+        title: 'System Scope Breakdown',
+        subtitle: 'Key operational entities',
+        data: [
+          { name: 'Staff', fullName: 'Active Staff', value: staffMetrics.active },
+          { name: 'Schools', fullName: 'Schools', value: reportScopes.schools?.length || 0 },
+          { name: 'Groups', fullName: 'Groups', value: reportScopes.groups?.length || 0 },
+          { name: 'Pending', fullName: 'Unassigned Staff', value: staffMetrics.unassigned },
+          { name: 'Unread', fullName: 'Unread Notifications', value: notificationCounts.unread || 0 },
+        ],
+      };
+    }
+
+    const incompleteBatches = getIncompleteBatchProgressOptions(children, communitySummary.batches || []);
+    if (incompleteBatches.length > 0) {
+      return {
+        title: 'Batch Progress Comparison',
+        subtitle: 'Completion percentage by batch',
+        data: incompleteBatches.slice(0, 5).map((b) => ({
+          name: b.name.length > 8 ? `${b.name.slice(0, 7)}…` : b.name,
+          fullName: b.name,
+          value: b.percentage ?? 0,
+        })),
+      };
+    }
+
+    return {
+      title: 'Entity Overview',
+      subtitle: 'Accessible organization counts',
+      data: [
+        { name: 'Mothers', fullName: 'Mothers Count', value: stats.motherCount },
+        { name: 'Children', fullName: 'Children Count', value: stats.childCount },
+        { name: 'Batches', fullName: 'Batches Count', value: stats.batchCount },
+        { name: 'Groups', fullName: 'Groups Count', value: stats.groupCount },
+        { name: 'Projects', fullName: 'Projects Count', value: stats.programCount },
+      ],
+    };
+  }, [children, communitySummary.batches, isSuperAdmin, notificationCounts.unread, reportScopes, staffMetrics, stats]);
+
+  // 4. Incomplete Batches for Focus / Milestones Card
+  const incompleteBatches = useMemo(
+    () => getIncompleteBatchProgressOptions(children, communitySummary.batches || []),
+    [children, communitySummary.batches],
+  );
+
+  // 5. Screening Quick Actions from module summaries
+  const screeningQuickStats = useMemo(() => {
+    const monitoringModule = moduleSummaries.find((m) => m.key === 'monitoring');
+    if (!monitoringModule) return [];
+    return monitoringModule.metrics.slice(2).filter((m) => m.to);
+  }, [moduleSummaries]);
+
   if (loading) return <PageSkeleton variant="dashboard" />;
 
   const description = isSuperAdmin
@@ -317,25 +648,36 @@ export default function DashboardPage() {
       : isCommunityOrganizer
         ? 'Manage beneficiaries, projects, and health workers for your school'
         : isAdmin || isPartner
-            ? 'Organization-wide overview across all accessible schools, groups, beneficiaries, and projects'
-            : `${roleLabel} workspace`;
+          ? 'Organization-wide overview across all accessible schools, groups, beneficiaries, and projects'
+          : `${roleLabel} workspace`;
 
   return (
     <div className="dashboard-shell">
+      {/* --------------------------------------------------------------------------
+          Top Header: Greeting, Subtitle & Action Controls
+          -------------------------------------------------------------------------- */}
       <header className="dashboard-top-row">
         <div className="dashboard-welcome">
-          <div>
-            <h2 data-guide="page-title">
-              {getGreeting(currentUser?.name)}
-            </h2>
-            <p>{description}</p>
-            {(isAdmin || isPartner) && (
-              <span className="dashboard-scope-badge">Whole-level view · All accessible communities</span>
-            )}
-          </div>
+          <h2 data-guide="page-title">{getGreeting(currentUser?.name)}</h2>
+          <p>{description}</p>
+          {(isAdmin || isPartner) && (
+            <span className="dashboard-scope-badge">Whole-level view · All accessible communities</span>
+          )}
         </div>
         <div className="dashboard-top-actions">
-          <AIReportingAssistantEntry buttonClassName="secondary-btn" />
+          {canCreateBeneficiary && (
+            <Link to="/beneficiary" className="dashboard-primary-action-btn" title="Add new beneficiary">
+              <UserPlus size={16} aria-hidden="true" />
+              <span>New Beneficiary</span>
+            </Link>
+          )}
+          {canRecordMonitoring && !canCreateBeneficiary && (
+            <Link to="/monitoring" className="dashboard-primary-action-btn" title="Record monitoring check-up">
+              <Activity size={16} aria-hidden="true" />
+              <span>Record Check-up</span>
+            </Link>
+          )}
+          <AIReportingAssistantEntry buttonClassName="dashboard-ai-btn" />
         </div>
       </header>
 
@@ -345,116 +687,463 @@ export default function DashboardPage() {
         </p>
       )}
 
+      {/* --------------------------------------------------------------------------
+          Row 1: KPI Stat Cards
+          Avoid empty spaces by dynamically using grid class matching card count
+          -------------------------------------------------------------------------- */}
       {displayCards.length > 0 && (
-        <section className="dashboard-kpi-grid" aria-label="Key role metrics" data-guide="dashboard-summary">
+        <section
+          className={`dashboard-kpi-grid dashboard-kpi-grid--${displayCards.length}`}
+          aria-label="Key role metrics"
+          data-guide="dashboard-summary"
+        >
           {displayCards.map((card) => (
-            <Link key={card.key} to={card.to} className="kpi-card" aria-label={`${card.title}: ${card.value}. ${card.subtitle}`}>
-              <div className="kpi-card-top">
+            <Link
+              key={card.key}
+              to={card.to}
+              className="kpi-card"
+              aria-label={`${card.title}: ${card.value}. ${card.subtitle}`}
+            >
+              <div className="kpi-card-header">
+                <div className="kpi-icon-pill" aria-hidden="true">
+                  {card.icon === 'users' && <Users size={18} />}
+                  {card.icon === 'mothers' && <UserCheck size={18} />}
+                  {card.icon === 'children' && <Baby size={18} />}
+                  {card.icon === 'alert' && <AlertCircle size={18} />}
+                  {card.icon === 'building' && <Building2 size={18} />}
+                  {card.icon === 'projects' && <FolderKanban size={18} />}
+                  {card.icon === 'clipboard' && <ClipboardList size={18} />}
+                  {card.icon === 'health-workers' && <ShieldCheck size={18} />}
+                </div>
                 <span className="kpi-title">{card.title}</span>
+                <ArrowRight className="kpi-more-arrow" size={16} aria-hidden="true" />
               </div>
-              <div className="kpi-value">{typeof card.value === 'number' && Number.isFinite(card.value) ? card.value.toLocaleString() : card.value}</div>
-              <div className="kpi-subtitle"><span>{card.subtitle}</span></div>
+
+              <div className="kpi-card-body">
+                <span className="kpi-value">
+                  {typeof card.value === 'number' && Number.isFinite(card.value)
+                    ? card.value.toLocaleString()
+                    : card.value}
+                </span>
+                {card.badge && (
+                  <span className={`kpi-badge kpi-badge--${card.badgeType || 'positive'}`}>
+                    {card.badgeType === 'positive' && <TrendingUp size={12} className="kpi-badge-icon" aria-hidden="true" />}
+                    {card.badgeType === 'negative' && <TrendingDown size={12} className="kpi-badge-icon" aria-hidden="true" />}
+                    {card.badgeType === 'warning' && <AlertCircle size={12} className="kpi-badge-icon" aria-hidden="true" />}
+                    <span>{card.badge}</span>
+                  </span>
+                )}
+              </div>
+
+              <div className="kpi-card-footer">
+                <span>{card.subtitle}</span>
+              </div>
             </Link>
           ))}
         </section>
       )}
 
-      <section className="dashboard-module-summary-grid" aria-label="Live module summaries" data-guide="dashboard-activity">
-        {moduleSummaries.map((module) => (
-          <article
-            className={`dashboard-panel dashboard-module-summary${module.key === 'monitoring' ? ' dashboard-module-summary-monitoring' : ''}`}
-            key={module.key}
-          >
-            <div className="dashboard-panel-heading">
-              <div><span className="dashboard-panel-eyebrow">Live data</span><h3>{module.title}</h3></div>
-              <Link to={module.to} className="panel-link">Open module</Link>
+      {/* --------------------------------------------------------------------------
+          Row 2: Primary Visualizations (AreaChart + Donut Chart)
+          -------------------------------------------------------------------------- */}
+      <section className="dashboard-charts-main-grid" aria-label="Visual data overviews" data-guide="dashboard-activity">
+        {/* Main Performance / Trend AreaChart */}
+        <article className="dashboard-chart-card dashboard-chart-card--main">
+          <div className="dashboard-chart-header">
+            <div>
+              <h3 className="dashboard-chart-title">
+                {isSuperAdmin ? 'Operational Activity' : 'Activity & Registration Trend'}
+              </h3>
+              <p className="dashboard-chart-subtitle">
+                Last 30 days overview · {timelineTotal.toLocaleString()} total recorded
+              </p>
             </div>
-            {module.key === 'batch-progress' && module.batchOptions.length > 1 && (
-              <label className="dashboard-batch-filter">
-                <span>Batch</span>
-                <select
-                  aria-label="Filter batch progress"
-                  value={module.selectedBatchId}
-                  onChange={(event) => setSelectedBatchId(event.target.value)}
-                >
-                  {module.batchOptions.map((batch) => (
-                    <option key={batch.id} value={batch.id}>{batch.name}</option>
-                  ))}
-                </select>
-              </label>
-            )}
-            <dl className="dashboard-module-metrics">
-              {module.metrics.map((metric) => (
-                <div className="dashboard-module-metric" key={metric.label}>
-                  <dt>
-                    {metric.to
-                      ? <Link to={metric.to} className="dashboard-module-metric-link">{metric.label}</Link>
-                      : metric.label}
-                  </dt>
-                  <dd>
-                    {metric.to
-                      ? <Link to={metric.to} className="dashboard-module-metric-link dashboard-module-metric-value">{typeof metric.value === 'number' ? metric.value.toLocaleString() : metric.value}</Link>
-                      : typeof metric.value === 'number' ? metric.value.toLocaleString() : metric.value}
-                  </dd>
+            <div className="dashboard-chart-legend">
+              <span className="legend-dot" style={{ backgroundColor: '#15803d' }} />
+              <span className="legend-text">
+                {isSuperAdmin ? 'Daily Sign-ins' : 'Registrations'}
+              </span>
+            </div>
+          </div>
+
+          <div className="dashboard-chart-wrap" style={{ width: '100%', height: 260 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={timelineData} margin={{ top: 12, right: 12, left: -20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="dashboardGreenGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#15803d" stopOpacity={0.28} />
+                    <stop offset="95%" stopColor="#15803d" stopOpacity={0.0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis
+                  dataKey="displayDate"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 11, fill: '#94a3b8' }}
+                  minTickGap={24}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 11, fill: '#94a3b8' }}
+                  allowDecimals={false}
+                />
+                <Tooltip content={<ChartTooltip />} />
+                <Area
+                  type="monotone"
+                  dataKey="count"
+                  name={isSuperAdmin ? 'Sign-ins' : 'Records'}
+                  stroke="#15803d"
+                  strokeWidth={2.6}
+                  fill="url(#dashboardGreenGrad)"
+                  activeDot={{ r: 6, fill: '#15803d', stroke: '#ffffff', strokeWidth: 2 }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </article>
+
+        {/* Donut Distribution Chart */}
+        <article className="dashboard-chart-card dashboard-chart-card--donut">
+          <div className="dashboard-chart-header">
+            <div>
+              <h3 className="dashboard-chart-title">{donutInfo.title}</h3>
+              <p className="dashboard-chart-subtitle">{donutInfo.subtitle}</p>
+            </div>
+          </div>
+
+          <div className="dashboard-donut-container">
+            <div className="dashboard-donut-chart-wrap" style={{ width: '100%', height: 200, position: 'relative' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Tooltip content={<ChartTooltip />} />
+                  <Pie
+                    data={donutInfo.data}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={62}
+                    outerRadius={88}
+                    paddingAngle={4}
+                    dataKey="value"
+                  >
+                    {donutInfo.data.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color || '#15803d'} stroke="#ffffff" strokeWidth={2} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="dashboard-donut-center-badge">
+                <span className="donut-center-val">{donutInfo.centerVal}</span>
+                <span className="donut-center-label">{donutInfo.centerLabel}</span>
+              </div>
+            </div>
+
+            <div className="dashboard-donut-legend-list">
+              {donutInfo.data.map((item) => (
+                <div key={item.name} className="donut-legend-item">
+                  <span className="donut-legend-dot" style={{ backgroundColor: item.color }} />
+                  <span className="donut-legend-label">{item.name}</span>
+                  <span className="donut-legend-value">{item.value.toLocaleString()}</span>
                 </div>
               ))}
-            </dl>
-            <p className="dashboard-module-note">{module.note}</p>
-          </article>
-        ))}
+            </div>
+          </div>
+        </article>
       </section>
 
-      {isSuperAdmin ? (
-        <section className="dashboard-panel dashboard-recent-panel" aria-labelledby="dashboard-recent-title">
-          <div className="dashboard-panel-heading">
-            <div><span className="dashboard-panel-eyebrow">Latest report entries</span><h3 id="dashboard-recent-title">Recent operational sign-ins</h3></div>
-            <Link to="/reports" className="panel-link">Open reports</Link>
-          </div>
-          {activityReport.activities?.length ? (
-            <div className="dashboard-recent-table-wrap" role="region" aria-label="Scrollable table" tabIndex={0}>
-              <table className="dashboard-recent-table">
-                <thead><tr><th scope="col">User</th><th scope="col">Action</th><th scope="col">Recorded</th></tr></thead>
-                <tbody>
-                  {activityReport.activities.map((activity) => {
-                    const date = new Date(activity.createdAt);
-                    return (
-                      <tr key={activity.id}>
-                        <td>{activity.actorName || 'Unknown user'}</td>
-                        <td>Signed in</td>
-                        <td>{Number.isNaN(date.getTime()) ? '—' : date.toLocaleString()}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+      {/* --------------------------------------------------------------------------
+          Row 3: Secondary Visualizations Grid (BarChart, Table, Milestones & AI)
+          -------------------------------------------------------------------------- */}
+      <section className="dashboard-charts-secondary-grid" aria-label="Detailed comparisons and recent entries">
+        {/* Card 1: Bar Chart (Batch Comparison / Scopes) */}
+        <article className="dashboard-chart-card dashboard-secondary-card dashboard-bar-card">
+          <div className="dashboard-chart-header">
+            <div>
+              <h3 className="dashboard-chart-title">{barChartInfo.title}</h3>
+              <p className="dashboard-chart-subtitle">{barChartInfo.subtitle}</p>
             </div>
-          ) : <p className="dashboard-empty-state">No operational activity is available in the report.</p>}
-        </section>
-      ) : (
-        <section className="dashboard-panel dashboard-recent-panel" aria-labelledby="dashboard-recent-title">
-          <div className="dashboard-panel-heading">
-            <div><span className="dashboard-panel-eyebrow">Latest records</span><h3 id="dashboard-recent-title">Recent registrations</h3></div>
-            <Link to="/beneficiary" className="panel-link">Open beneficiaries</Link>
           </div>
-          {recentRecords.length ? (
-            <div className="dashboard-recent-table-wrap" role="region" aria-label="Scrollable table" tabIndex={0}>
-              <table className="dashboard-recent-table">
-                <thead><tr><th scope="col">Record</th><th scope="col">Type</th><th scope="col">Registered</th></tr></thead>
-                <tbody>
-                  {recentRecords.map((record) => (
-                    <tr key={record.id}>
-                      <td>{record.name}</td>
-                      <td>{record.type}</td>
-                      <td>{record.date.toLocaleDateString()}</td>
-                    </tr>
+          <div className="dashboard-barchart-wrap">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={barChartInfo.data} margin={{ top: 10, right: 8, left: -22, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis
+                  dataKey="name"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 11, fill: '#64748b' }}
+                  interval={0}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 11, fill: '#94a3b8' }}
+                  allowDecimals={false}
+                />
+                <Tooltip content={<ChartTooltip />} />
+                <Bar dataKey="value" name="Count" radius={[6, 6, 0, 0]}>
+                  {barChartInfo.data.map((entry, index) => (
+                    <Cell
+                      key={`bar-${index}`}
+                      fill={index === 0 ? '#15803d' : '#86efac'}
+                    />
                   ))}
-                </tbody>
-              </table>
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </article>
+
+        {/* Card 2: Recent Activity Table */}
+        <article className="dashboard-chart-card dashboard-secondary-card dashboard-recent-card">
+          <div className="dashboard-chart-header">
+            <div>
+              <h3 className="dashboard-chart-title">
+                {isSuperAdmin ? 'Recent Sign-ins' : 'Recent Registrations'}
+              </h3>
+              <p className="dashboard-chart-subtitle">Latest recorded system entries</p>
             </div>
-          ) : <p className="dashboard-empty-state">No recent registration dates are available.</p>}
+            <Link
+              to={isSuperAdmin ? '/reports' : '/beneficiary'}
+              className="dashboard-view-all-link"
+              title={isSuperAdmin ? 'View full reports' : 'View all beneficiaries'}
+            >
+              <span>View All</span>
+              <ArrowRight size={14} aria-hidden="true" />
+            </Link>
+          </div>
+
+          <div className="dashboard-table-container">
+            {isSuperAdmin ? (
+              activityReport.activities?.length ? (
+                <table className="dashboard-modern-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">User</th>
+                      <th scope="col">Status</th>
+                      <th scope="col">Recorded</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activityReport.activities.slice(0, 5).map((activity) => {
+                      const date = new Date(activity.createdAt);
+                      return (
+                        <tr key={activity.id}>
+                          <td>
+                            <span className="table-cell-bold" title={activity.actorName || 'Staff Member'}>
+                              {activity.actorName || 'Staff Member'}
+                            </span>
+                          </td>
+                          <td>
+                            <span className="table-status-pill table-status-pill--green">Signed In</span>
+                          </td>
+                          <td className="table-cell-muted">
+                            <div className="table-date-wrap">
+                              <span className="table-time">
+                                {Number.isNaN(date.getTime()) ? '—' : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                              <span className="table-date">
+                                {Number.isNaN(date.getTime()) ? '—' : date.toLocaleDateString()}
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="dashboard-table-empty">No operational sign-in activity available.</p>
+              )
+            ) : (
+              recentRecords.length ? (
+                <table className="dashboard-modern-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Record Name</th>
+                      <th scope="col">Type</th>
+                      <th scope="col">Registered</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recentRecords.slice(0, 5).map((record) => (
+                      <tr key={record.id}>
+                        <td>
+                          <span className="table-cell-bold" title={record.name}>
+                            {record.name}
+                          </span>
+                        </td>
+                        <td>
+                          <span className={`table-status-pill ${record.type === 'Mother' ? 'table-status-pill--green' : 'table-status-pill--emerald'}`}>
+                            {record.type}
+                          </span>
+                        </td>
+                        <td className="table-cell-muted">
+                          <span className="table-time">{record.date.toLocaleDateString()}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="dashboard-table-empty">No recent registration dates recorded.</p>
+              )
+            )}
+          </div>
+        </article>
+
+        {/* Card 3: Milestones & AI Assistant Card */}
+        <article className="dashboard-chart-card dashboard-secondary-card dashboard-focus-card">
+          <div className="dashboard-chart-header">
+            <div>
+              <h3 className="dashboard-chart-title">Key Milestones</h3>
+              <p className="dashboard-chart-subtitle">Active progress tracking</p>
+            </div>
+          </div>
+
+          <div className="dashboard-milestones-list">
+            {incompleteBatches.length > 0 ? (
+              incompleteBatches.slice(0, 2).map((batch) => (
+                <div key={batch.id} className="milestone-item">
+                  <div className="milestone-item-head">
+                    <span className="milestone-name">{batch.name}</span>
+                    <span className="milestone-pct">{batch.percentage}%</span>
+                  </div>
+                  <div className="milestone-progress-track">
+                    <div
+                      className="milestone-progress-fill"
+                      style={{ width: `${Math.min(100, Math.max(0, batch.percentage || 0))}%` }}
+                    />
+                  </div>
+                  <span className="milestone-desc">
+                    {batch.completed} of {batch.total} children completed 24 months
+                  </span>
+                </div>
+              ))
+            ) : isSuperAdmin ? (
+              <>
+                <div className="milestone-item">
+                  <div className="milestone-item-head">
+                    <span className="milestone-name">Active Staff Health</span>
+                    <span className="milestone-pct">
+                      {staffMetrics.total ? Math.round((staffMetrics.active / staffMetrics.total) * 100) : 100}%
+                    </span>
+                  </div>
+                  <div className="milestone-progress-track">
+                    <div
+                      className="milestone-progress-fill"
+                      style={{ width: `${staffMetrics.total ? Math.round((staffMetrics.active / staffMetrics.total) * 100) : 100}%` }}
+                    />
+                  </div>
+                  <span className="milestone-desc">
+                    {staffMetrics.active} of {staffMetrics.total} operational accounts active
+                  </span>
+                </div>
+
+                <div className="milestone-item">
+                  <div className="milestone-item-head">
+                    <span className="milestone-name">School Assignments</span>
+                    <span className="milestone-pct">
+                      {staffMetrics.active ? Math.round(((staffMetrics.active - staffMetrics.unassigned) / staffMetrics.active) * 100) : 100}%
+                    </span>
+                  </div>
+                  <div className="milestone-progress-track">
+                    <div
+                      className="milestone-progress-fill"
+                      style={{ width: `${staffMetrics.active ? Math.round(((staffMetrics.active - staffMetrics.unassigned) / staffMetrics.active) * 100) : 100}%` }}
+                    />
+                  </div>
+                  <span className="milestone-desc">
+                    {staffMetrics.unassigned > 0
+                      ? `${staffMetrics.unassigned} accounts need school assignment`
+                      : 'All active staff assigned to schools'}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="milestone-item">
+                  <div className="milestone-item-head">
+                    <span className="milestone-name">Beneficiary Scope</span>
+                    <span className="milestone-pct">{stats.motherCount + stats.childCount} Total</span>
+                  </div>
+                  <div className="milestone-progress-track">
+                    <div className="milestone-progress-fill" style={{ width: '100%' }} />
+                  </div>
+                  <span className="milestone-desc">{stats.motherCount} mothers · {stats.childCount} children registered</span>
+                </div>
+
+                <div className="milestone-item">
+                  <div className="milestone-item-head">
+                    <span className="milestone-name">Follow-Up Compliance</span>
+                    <span className="milestone-pct">
+                      {stats.followUpCount === 0 ? '100%' : `${stats.followUpCount} Pending`}
+                    </span>
+                  </div>
+                  <div className="milestone-progress-track">
+                    <div
+                      className="milestone-progress-fill"
+                      style={{
+                        width: stats.motherCount + stats.childCount > 0
+                          ? `${Math.max(10, 100 - Math.round((stats.followUpCount / (stats.motherCount + stats.childCount)) * 100))}%`
+                          : '100%',
+                      }}
+                    />
+                  </div>
+                  <span className="milestone-desc">
+                    {stats.followUpCount === 0
+                      ? 'All check-up schedules up to date'
+                      : `${stats.followUpCount} beneficiaries require follow-up check-in`}
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* AI Insights Box inside the card */}
+          <div className="dashboard-ai-insights-box">
+            <div className="ai-insight-header">
+              <Sparkles size={16} className="ai-insight-sparkle-icon" aria-hidden="true" />
+              <strong className="ai-insight-title">AI Operational Insight</strong>
+            </div>
+            <p className="ai-insight-text">
+              {stats.followUpCount > 0
+                ? `${stats.followUpCount} beneficiaries require follow-up attention this cycle.`
+                : 'All screening schedules are healthy and up to date for this period.'}
+            </p>
+            <AIReportingAssistantEntry
+              buttonClassName="ai-assistant-card-btn"
+              label="Open AI Assistant"
+            />
+          </div>
+        </article>
+      </section>
+
+      {/* --------------------------------------------------------------------------
+          Screening & Module Quick Action Strip
+          -------------------------------------------------------------------------- */}
+      {screeningQuickStats.length > 0 && (
+        <section className="dashboard-screening-quickstrip" aria-label="Screening follow-up shortcuts">
+          <div className="screening-quickstrip-label">
+            <span className="screening-pulse-dot" />
+            <span>Screening Action Filters:</span>
+          </div>
+          <div className="screening-chips-row">
+            {screeningQuickStats.map((metric) => (
+              <Link
+                key={metric.label}
+                to={metric.to}
+                className={`screening-chip ${metric.value > 0 ? 'is-active' : ''}`}
+                title={`View ${metric.label}`}
+              >
+                <span className="screening-chip-name">{metric.label}</span>
+                <span className="screening-chip-badge">{metric.value}</span>
+              </Link>
+            ))}
+          </div>
         </section>
       )}
-
     </div>
   );
 }

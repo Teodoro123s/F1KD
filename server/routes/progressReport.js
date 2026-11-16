@@ -8,12 +8,35 @@ const {
   createReportProposal,
   getAIConfiguration,
 } = require('../utils/progressReportAI');
+const { containsPotentialPii, isDisallowedAIRequest } = require('../utils/aiRequestPolicy');
 const { validateProgressReportQuery } = require('../utils/progressReportQueryValidation');
 const { motherMonitoringTotalSql } = require('../utils/motherMonitoring');
 const { splitBirthPlace } = require('../utils/birthPlace');
 const { buildTokenSearchCondition } = require('../utils/tokenSearch');
 
 const router = express.Router();
+
+function getPublicAiStatus(env = process.env) {
+  const configuration = getAIConfiguration(env);
+  const configured = Boolean(configuration?.apiKey);
+  return {
+    available: configured,
+    configured,
+    model: configuration?.model || null,
+  };
+}
+
+function getAiRequestPolicyError(prompt, type) {
+  if (containsPotentialPii(prompt)) {
+    return `This ${type} may contain a name, contact detail, or identifying number. Remove personal details and try again.`;
+  }
+  if (isDisallowedAIRequest(prompt)) {
+    return type === 'question'
+      ? 'Dashboard insights can only answer read-only questions about the displayed aggregate totals.'
+      : 'I can only analyze authorized records and generate read-only reports. Use the appropriate management module to change records.';
+  }
+  return null;
+}
 
 function collectVaccineRecord(dates, remarks) {
   const availableDoses = dates.flatMap((date, index) => (date ? [{ dose: index + 1, date }] : []));
@@ -269,16 +292,21 @@ const hierarchyWhere = (params, aliases = { mother: 'm', child: 'c' }) => {
 
 router.get('/ai/status', (req, res) => {
   try {
-    res.json({ available: Boolean(getAIConfiguration()) });
+    res.set('Cache-Control', 'no-store');
+    res.json(getPublicAiStatus());
   } catch (error) {
     console.error('[Progress Report AI] configuration error:', error.message);
-    res.json({ available: false });
+    res.status(503).json({ error: 'The shared AI configuration is invalid.' });
   }
 });
 
 router.post('/ai/proposal', async (req, res) => {
   try {
-    const proposal = await createReportProposal(req.body?.prompt);
+    const prompt = String(req.body?.prompt || '').trim();
+    const policyError = getAiRequestPolicyError(prompt, 'request');
+    if (policyError) return res.status(400).json({ error: policyError });
+    const proposal = await createReportProposal(prompt);
+    res.set('Cache-Control', 'no-store');
     res.json(proposal);
   } catch (error) {
     const status = error instanceof ProgressReportAIError ? error.status : 502;
@@ -289,7 +317,11 @@ router.post('/ai/proposal', async (req, res) => {
 
 router.post('/ai/monitoring-report', async (req, res) => {
   try {
-    const reportIntent = await createMonitoringReportIntent(req.body?.prompt, req.body?.beneficiaryType);
+    const prompt = String(req.body?.prompt || '').trim();
+    const policyError = getAiRequestPolicyError(prompt, 'request');
+    if (policyError) return res.status(400).json({ error: policyError });
+    const reportIntent = await createMonitoringReportIntent(prompt, req.body?.beneficiaryType);
+    res.set('Cache-Control', 'no-store');
     res.json(reportIntent);
   } catch (error) {
     const status = error instanceof ProgressReportAIError ? error.status : 502;
@@ -300,7 +332,11 @@ router.post('/ai/monitoring-report', async (req, res) => {
 
 router.post('/ai/dashboard-insight', async (req, res) => {
   try {
-    const insight = await createDashboardInsight(req.body?.metrics, req.body?.question);
+    const question = String(req.body?.question || '').trim();
+    const policyError = getAiRequestPolicyError(question, 'question');
+    if (policyError) return res.status(400).json({ error: policyError });
+    const insight = await createDashboardInsight(req.body?.metrics, question);
+    res.set('Cache-Control', 'no-store');
     res.json({ insight });
   } catch (error) {
     const status = error instanceof ProgressReportAIError ? error.status : 502;
@@ -905,3 +941,4 @@ module.exports = router;
 module.exports.resolveProgramReportTargets = resolveProgramReportTargets;
 module.exports.shouldApplyProgramMonitoringData = shouldApplyProgramMonitoringData;
 module.exports.attachVaccineProfileFields = attachVaccineProfileFields;
+module.exports.getPublicAiStatus = getPublicAiStatus;

@@ -13,7 +13,7 @@ Static inspection found role and scope enforcement in both route guards and back
 
 Reviewed the React route and permission configuration, sidebar and module structure, backend middleware and API registration, role/access documentation, database schema documentation, archive UI/API wiring, and automated test inventory.
 
-The source-level module inventory covered Dashboard; Community and Archive; Beneficiaries (mother and child); Monitoring and check-ups; Projects and receipt history; Progress Reports; User Management; Notifications; Activity Reports; AI Settings; Profile; and Settings. Backend route registration and middleware covered authentication, users, community, archive, mothers, children, projects/programs, reports, Progress Reports, notifications, documents, and AI settings. This inventory review is not equivalent to authenticated workflow testing.
+The source-level module inventory covered Dashboard; Community and Archive; Beneficiaries (mother and child); Monitoring and check-ups; Projects and receipt history; Progress Reports; User Management; Notifications; Activity Reports; the AI reporting assistant; Profile; and Settings. Backend route registration and middleware covered authentication, users, community, archive, mothers, children, projects/programs, reports, Progress Reports (including shared AI assistant endpoints), notifications, and documents. This inventory review is not equivalent to authenticated workflow testing.
 
 The following checks were run:
 
