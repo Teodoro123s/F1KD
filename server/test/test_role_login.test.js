@@ -1,9 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const originalNodeEnv = process.env.NODE_ENV;
-const originalShortcutFlag = process.env.ENABLE_TEST_ROLE_SHORTCUTS;
 process.env.NODE_ENV = 'development';
-process.env.ENABLE_TEST_ROLE_SHORTCUTS = 'true';
 process.env.JWT_SECRET = 'test-role-login-test-secret';
 
 const express = require('express');
@@ -40,8 +38,6 @@ test('test-role sign-in is unavailable and does not access or seed user records'
     pool.query = originalQuery;
     if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
     else process.env.NODE_ENV = originalNodeEnv;
-    if (originalShortcutFlag === undefined) delete process.env.ENABLE_TEST_ROLE_SHORTCUTS;
-    else process.env.ENABLE_TEST_ROLE_SHORTCUTS = originalShortcutFlag;
     await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   });
   await new Promise((resolve) => server.once('listening', resolve));

@@ -3,6 +3,7 @@ import { useAuth } from '../../auth/AuthProvider';
 import PageHeader from '../../components/ui/PageHeader';
 import ModuleSummaryCards from '../../components/ui/ModuleSummaryCards';
 import ModuleSelectionHint from '../../components/ui/ModuleSelectionHint';
+import { apiGetArchivedRecords } from '../../api/archives';
 import { apiGetPrograms } from '../../api/programs';
 import { notifyAction } from '../../components/ActionFeedback';
 import { hasRole, isCommunityCoordinatorRole, ROLES } from '../../utils/permissions';
@@ -15,10 +16,39 @@ export default function ArchivePage() {
   const [archivedProjects, setArchivedProjects] = useState([]);
   const [projectsLoading, setProjectsLoading] = useState(false);
   const [projectsError, setProjectsError] = useState('');
+  const [archivedRecordCount, setArchivedRecordCount] = useState(null);
+  const [archiveCountsLoading, setArchiveCountsLoading] = useState(true);
+  const [archiveCountsRefresh, setArchiveCountsRefresh] = useState(0);
   const isSuperAdmin = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]);
   const isCommunityOrganizer = isCommunityCoordinatorRole(currentUser?.role);
   const hasAssignedSchool = Number(currentUser?.school_id ?? currentUser?.schoolId) > 0;
   const types = isSuperAdmin ? ['user', 'school'] : ['group', 'batch', 'mother', 'child', 'user'];
+
+  useEffect(() => {
+    if (isCommunityOrganizer && !hasAssignedSchool) {
+      setArchiveCountsLoading(false);
+      return undefined;
+    }
+
+    let active = true;
+    setArchiveCountsLoading(true);
+    Promise.all(types.map((type) => apiGetArchivedRecords(type, { limit: 1 })))
+      .then((recordResponses) => {
+        if (!active) return;
+        setArchivedRecordCount(
+          recordResponses.reduce((total, response) => total + Number(response.total || 0), 0),
+        );
+      })
+      .catch((error) => {
+        if (!active) return;
+        setArchivedRecordCount(null);
+        notifyAction(error?.message || 'Unable to load archive counts.', 'error');
+      })
+      .finally(() => {
+        if (active) setArchiveCountsLoading(false);
+      });
+    return () => { active = false; };
+  }, [archiveCountsRefresh, hasAssignedSchool, isCommunityOrganizer, isSuperAdmin]);
 
   useEffect(() => {
     if (!isCommunityOrganizer || !hasAssignedSchool) return undefined;
@@ -51,7 +81,10 @@ export default function ArchivePage() {
         </p>
       ) : (
         <>
-          <div data-guide="archive-summary">
+          <div
+            className="archive-summary"
+            data-guide="archive-summary"
+          >
             <ModuleSummaryCards
               selected={view}
               toggleOnSelect
@@ -60,27 +93,26 @@ export default function ArchivePage() {
                 {
                   key: 'records',
                   label: 'Archived records',
+                  value: archiveCountsLoading ? '…' : archivedRecordCount ?? 'Unavailable',
                   description: 'Show archived records',
                   selectedDescription: 'Hide archived records',
-                },
-                {
-                  key: 'activity',
-                  label: 'Archive activity',
-                  description: 'Show activity',
-                  selectedDescription: 'Hide activity',
                 },
                 ...(isCommunityOrganizer ? [{
                   key: 'projects',
                   label: 'Archived projects',
                   value: projectsError ? '—' : projectsLoading ? '…' : archivedProjects.length,
-                  description: 'Show projects',
-                  selectedDescription: 'Hide projects',
+                  description: 'Show archived projects',
+                  selectedDescription: 'Hide archived projects',
                 }] : []),
               ]}
             />
           </div>
           {view === 'records' || view === 'activity'
-            ? <ArchiveRecordsPanel types={types} view={view} />
+            ? <ArchiveRecordsPanel
+              types={types}
+              view={view}
+              onChanged={() => setArchiveCountsRefresh((current) => current + 1)}
+            />
             : view === 'projects'
               ? <ArchivedProjectsPanel
                 projects={archivedProjects}

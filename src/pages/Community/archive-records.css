@@ -4,7 +4,9 @@
   gap: var(--view-gap-sm, var(--space-2));
 }
 
-.archive-page > .module-summary-cards {
+.archive-page .archive-summary .module-summary-cards {
+  grid-auto-flow: row;
+  grid-auto-columns: minmax(0, 1fr);
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
@@ -67,6 +69,10 @@
 }
 
 @media (max-width: 640px) {
+  .archive-page .archive-summary .module-summary-cards {
+    grid-template-columns: 1fr;
+  }
+
   .community-table-toolbar,
   .archive-records-toolbar,
   .archive-records-controls {
