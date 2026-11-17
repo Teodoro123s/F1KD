@@ -721,6 +721,14 @@ function normalizeMonitoringPrompt(prompt) {
   return ` ${String(prompt || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().replace(/\s+/g, ' ')} `;
 }
 
+function asksForMissingCurrentMonthCheckups(prompt) {
+  const normalizedPrompt = normalizeMetricPhrase(prompt);
+  const asksForCurrentMonth = /\b(?:this|current|present) month\b/.test(normalizedPrompt);
+  const missingCheckup = /\b(?:no|without)\s+(?:(?:any|a|an|saved)\s+){0,2}check ?ups?\b/.test(normalizedPrompt)
+    || /\b(?:not|never|have not|has not|did not|does not|haven t|hasn t|don t|didn t)\b(?:\s+\w+){0,3}\s+check ?ups?\b/.test(normalizedPrompt);
+  return asksForCurrentMonth && missingCheckup;
+}
+
 function containsMonitoringPhrase(prompt, phrases) {
   return phrases.some((phrase) => prompt.includes(` ${phrase} `));
 }
@@ -976,11 +984,42 @@ async function requestModel(messages, {
   }
 }
 
+function normalizeReportClarification(clarification) {
+  if (clarification == null) return null;
+  if (typeof clarification !== 'object' || Array.isArray(clarification)) {
+    throw new ProgressReportAIError('The clarification context is invalid.', 400);
+  }
+
+  const question = typeof clarification.question === 'string'
+    ? clarification.question.trim().slice(0, 300)
+    : '';
+  const options = Array.isArray(clarification.options)
+    ? [...new Set(clarification.options
+      .filter((option) => typeof option === 'string')
+      .map((option) => option.trim().slice(0, 100))
+      .filter(Boolean))].slice(0, 4)
+    : [];
+  const answer = typeof clarification.answer === 'string' ? clarification.answer.trim() : '';
+  if (!question || options.length < 2 || !answer || answer.length > 500) {
+    throw new ProgressReportAIError('The clarification context is invalid.', 400);
+  }
+
+  return { question, options, answer };
+}
+
 async function createReportProposal(prompt, options = {}) {
+  const { clarification, ...modelOptions } = options;
   const normalizedPrompt = String(prompt || '').trim();
   if (normalizedPrompt.length < 3 || normalizedPrompt.length > 1000) {
     throw new ProgressReportAIError('Enter a report request between 3 and 1,000 characters.', 400);
   }
+  if (asksForMissingCurrentMonthCheckups(normalizedPrompt)) {
+    throw new ProgressReportAIError(
+      'The assistant cannot count or list beneficiaries with no saved check-up this month. It can report check-ups recorded during the month.',
+      422,
+    );
+  }
+  const normalizedClarification = normalizeReportClarification(clarification);
 
   const directProposal = inferDirectMotherBmiProposal(normalizedPrompt);
   if (directProposal) return validateReportProposal(directProposal);
@@ -994,6 +1033,14 @@ async function createReportProposal(prompt, options = {}) {
       .map(([type, metrics]) => `${type}=${metrics.map(([id, label]) => `${id} (${label})`).join('; ')}`)
       .join(' | ')}`)
     .join('\n');
+  const userContent = normalizedClarification
+    ? [
+      `Original report request: ${normalizedPrompt}`,
+      `Clarification question: ${normalizedClarification.question}`,
+      `Available options: ${normalizedClarification.options.join('; ')}`,
+      `User's clarification: ${normalizedClarification.answer}`,
+    ].join('\n')
+    : normalizedPrompt;
   const content = await requestModel([
     {
       role: 'system',
@@ -1005,6 +1052,7 @@ async function createReportProposal(prompt, options = {}) {
         'Select only explicitly requested, exact, case-sensitive catalog IDs; do not add related fields merely because they are available. Include measurementDate for requested visit history. Profile reports may contain multiple fields from General, Prenatal/OB, Medical/Dental, and Vaccine sections; include every explicitly requested subfield. Never mix categories.',
         'Distinguish raw measurements from growth indicators: ?weight and Weight-for-Length interpretation? requests both weightForAge (raw weight in kg) and weightForLengthInterpretation; ?Weight-for-Length interpretation? alone requests only the interpretation. ?Length and Length-for-Age? similarly requests both the raw length field and interpretation.',
         'For requests combining profile details and check-up history, use monitor, profileMetricIds for the profile fields, and metricIds for check-up fields. Include all requested check-up fields together.',
+        'When a follow-up clarification is supplied, use its question, options, and answer to resolve the original request. A brief affirmative answer confirms a single suggested report only when the previous question clearly offered that action; otherwise ask another clarification. Always return the required JSON object.',
         'For child monitor reports, use the three Child Check-up growth indicators in this order: weightForAgeInterpretation (Weight-for-Age), lengthForAgeInterpretation (Length-for-Age), and weightForLengthInterpretation (Weight-for-Length). Use matching Z-score fields only when explicitly requested. Preserve these labels in explanations; WHO uses standing height for age and weight-for-height from 24 months.',
         'BMI is not a Child Check-up field and is not an available child report metric. Never calculate child BMI or treat BMI as a synonym for any WHO growth indicator. If a child request asks for BMI without supported fields, ask the user to choose Weight-for-Age, Length-for-Age, or Weight-for-Length.',
         'Example: a child request for check-up dates plus weight-for-age and length-for-age interpretations selects only measurementDate, weightForAgeInterpretation, and lengthForAgeInterpretation.',
@@ -1015,9 +1063,9 @@ async function createReportProposal(prompt, options = {}) {
         `Catalog (id (meaning)):\n${metricCatalog}`,
       ].join(' '),
     },
-    { role: 'user', content: normalizedPrompt },
+    { role: 'user', content: userContent },
   ], {
-    ...options,
+    ...modelOptions,
     maxCompletionTokens: 768,
     reasoningEffort: 'low',
     responseFormat: { type: 'json_object' },
@@ -1027,6 +1075,12 @@ async function createReportProposal(prompt, options = {}) {
 
 async function createMonitoringReportIntent(prompt, beneficiaryType, options = {}) {
   const normalizedPrompt = String(prompt || '').trim();
+  if (asksForMissingCurrentMonthCheckups(normalizedPrompt)) {
+    throw new ProgressReportAIError(
+      'The assistant cannot count or list beneficiaries with no saved check-up this month. It can report check-ups recorded during the month.',
+      422,
+    );
+  }
   const resolvedBeneficiaryType = MONITORING_REPORT_FIELDS[beneficiaryType]
     ? beneficiaryType
     : inferMonitoringBeneficiaryType(normalizedPrompt);

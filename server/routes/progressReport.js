@@ -307,7 +307,22 @@ router.post('/ai/proposal', async (req, res) => {
     const prompt = String(req.body?.prompt || '').trim();
     const policyError = getAiRequestPolicyError(prompt, 'request');
     if (policyError) return res.status(400).json({ error: policyError });
-    const proposal = await createReportProposal(prompt);
+    const clarification = req.body?.clarification ?? null;
+    if (clarification) {
+      const answerPolicyError = getAiRequestPolicyError(clarification.answer, 'clarification');
+      if (answerPolicyError) return res.status(400).json({ error: answerPolicyError });
+
+      const priorPrompt = [
+        clarification.question,
+        ...(Array.isArray(clarification.options) ? clarification.options : []),
+      ].filter((value) => typeof value === 'string').join('\n');
+      if (containsPotentialPii(priorPrompt)) {
+        return res.status(400).json({
+          error: 'The clarification may contain a name, contact detail, or identifying number. Remove personal details and try again.',
+        });
+      }
+    }
+    const proposal = await createReportProposal(prompt, { clarification });
     res.set('Cache-Control', 'no-store');
     res.json(proposal);
   } catch (error) {

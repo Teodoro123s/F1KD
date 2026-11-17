@@ -37,7 +37,7 @@ The assistant does not provide Excel/XLSX downloads, AI-generated charts, or mod
 
 ## Example questions and provider check
 
-The [question bank](./ai-assistant-question-bank.csv) contains 150 role-based examples and labels what the current assistant can support, partly support, or cannot answer from its available data. It is a product/evaluation prompt set; it does not train or fine-tune the provider model.
+The [question bank](./ai-assistant-question-bank.csv) contains 152 role-based examples and labels what the current assistant can support, partly support, or cannot answer from its available data. It is a product/evaluation prompt set; it does not train or fine-tune the provider model.
 
 The assistant is designed for questions that can be answered from the current report or the aggregate counts supplied to it. It may calculate simple arithmetic when the needed counts are present and must say when the data is missing. Examples users can try:
 

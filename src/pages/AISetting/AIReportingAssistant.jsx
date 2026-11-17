@@ -362,8 +362,8 @@ export default function AIReportingAssistant({ configured }) {
     }
   };
 
-  const submitPrompt = async (requestText, userMessage = requestText) => {
-    if (detectPotentialPii(requestText)) {
+  const submitPrompt = async (requestText, userMessage = requestText, clarificationContext = null) => {
+    if (detectPotentialPii(requestText) || detectPotentialPii(clarificationContext?.answer || '')) {
       appendMessage({
         role: 'assistant',
         kind: 'warning',
@@ -397,7 +397,7 @@ export default function AIReportingAssistant({ configured }) {
         return;
       }
       setConversationHistory([]);
-      const nextProposal = await apiCreateProgressReportAiProposal(requestText);
+      const nextProposal = await apiCreateProgressReportAiProposal(requestText, clarificationContext);
       if (nextProposal.needsClarification) {
         setProposal(nextProposal);
         const clarificationId = appendMessage({
@@ -437,7 +437,7 @@ export default function AIReportingAssistant({ configured }) {
 
   const handleSubmit = (event) => {
     event.preventDefault();
-    if (!draft.trim()) return;
+    if (clarificationMessageId || !draft.trim()) return;
     setClarification('');
     const request = draft.trim();
     submitPrompt(request);
@@ -447,9 +447,12 @@ export default function AIReportingAssistant({ configured }) {
   const handleClarification = (event) => {
     event.preventDefault();
     const reply = clarification.trim();
-    const request = `${prompt.trim()}\nClarification: ${reply}`;
     setClarification('');
-    submitPrompt(request, reply);
+    submitPrompt(prompt.trim(), reply, {
+      question: proposal?.question || '',
+      options: proposal?.options || [],
+      answer: reply,
+    });
   };
 
   const handleReportFollowUp = async (event) => {
@@ -555,6 +558,11 @@ export default function AIReportingAssistant({ configured }) {
                 <p>{message.content}</p>
                 {message.kind === 'clarification' && message.id === clarificationMessageId && (
                   <form onSubmit={handleClarification}>
+                    {proposal?.options?.length > 0 && (
+                      <ul aria-label="Suggested clarification options">
+                        {proposal.options.map((option) => <li key={option}>{option}</li>)}
+                      </ul>
+                    )}
                     <label htmlFor={`ai-clarification-${message.id}`}>Your clarification</label>
                     <textarea
                       id={`ai-clarification-${message.id}`}
@@ -655,16 +663,19 @@ export default function AIReportingAssistant({ configured }) {
               id="ai-report-request"
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
+              disabled={Boolean(clarificationMessageId)}
               maxLength={1000}
               rows={2}
-              placeholder={isSuperAdmin
-                ? 'For example: Summarize account assignments and recent operational sign-ins.'
-                : 'For example: Show mothers by trimester or summarize recent child monitoring.'}
+              placeholder={clarificationMessageId
+                ? 'Answer the clarification above to continue.'
+                : isSuperAdmin
+                  ? 'For example: Summarize account assignments and recent operational sign-ins.'
+                  : 'For example: Show mothers by trimester or summarize recent child monitoring.'}
               required
             />
             <div className="ai-settings-actions">
               <span>{draft.length}/1000</span>
-              <button type="submit" className="primary-btn" disabled={loading || loadingOptions || (isSuperAdmin && !superAdminSnapshot.metrics) || draft.trim().length < 3}>
+              <button type="submit" className="primary-btn" disabled={loading || loadingOptions || Boolean(clarificationMessageId) || (isSuperAdmin && !superAdminSnapshot.metrics) || draft.trim().length < 3}>
                 {loading ? (isSuperAdmin ? 'Generating insight…' : 'Preparing…') : (isSuperAdmin ? 'Generate insight' : 'Send request')}
               </button>
             </div>

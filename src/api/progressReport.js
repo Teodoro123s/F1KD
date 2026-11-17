@@ -13,9 +13,9 @@ async function requestJson(url, options = {}) {
 
 export const apiGetProgressReportOptions = () => requestJson(`${API_BASE}/api/progress-report/options`);
 export const apiGetProgressReportAiStatus = () => requestJson(`${API_BASE}/api/progress-report/ai/status`);
-export const apiCreateProgressReportAiProposal = (prompt) => requestJson(`${API_BASE}/api/progress-report/ai/proposal`, {
+export const apiCreateProgressReportAiProposal = (prompt, clarification = null) => requestJson(`${API_BASE}/api/progress-report/ai/proposal`, {
   method: 'POST',
-  body: JSON.stringify({ prompt }),
+  body: JSON.stringify({ prompt, ...(clarification ? { clarification } : {}) }),
 });
 export const apiCreateMonitoringReportIntent = (prompt) => requestJson(`${API_BASE}/api/progress-report/ai/monitoring-report`, {
   method: 'POST',

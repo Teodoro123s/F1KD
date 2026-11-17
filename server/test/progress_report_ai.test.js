@@ -303,6 +303,31 @@ test('report proposals accept only known report types and fields for the selecte
   }), /invalid clarification request/);
 });
 
+test('AI refuses current-month missing-checkup requests instead of producing a check-up-only report', async () => {
+  let providerCalled = false;
+  const fetchImpl = async () => {
+    providerCalled = true;
+    throw new Error('Unsupported no-check-up counts must not reach the provider.');
+  };
+  const errorMessage = /cannot count or list beneficiaries with no saved check-up this month/;
+
+  await assert.rejects(
+    createReportProposal('number of mothers who have not have checkup this month', {
+      env: modelEnvironment,
+      fetchImpl,
+    }),
+    errorMessage,
+  );
+  await assert.rejects(
+    createMonitoringReportIntent('number of mothers who have not have checkup this month', 'Mother', {
+      env: modelEnvironment,
+      fetchImpl,
+    }),
+    errorMessage,
+  );
+  assert.equal(providerCalled, false);
+});
+
 test('report proposals limit completion token reservations and explain provider rate limits', async () => {
   let request;
   await createReportProposal('Mother: saved measurements', {
@@ -338,6 +363,56 @@ test('report proposals limit completion token reservations and explain provider 
     }),
     /token-per-minute limit/,
   );
+});
+
+test('report proposals keep the previous clarification context when the user replies briefly', async () => {
+  let request;
+  const result = await createReportProposal('Show a mother check-up report.', {
+    clarification: {
+      question: 'Would you like an individual mother check-up report instead?',
+      options: ['Yes, show the report', 'No, choose a different report'],
+      answer: 'ok',
+    },
+    env: modelEnvironment,
+    fetchImpl: async (_url, options) => {
+      request = JSON.parse(options.body);
+      return new Response(JSON.stringify({
+        choices: [{
+          message: {
+            content: JSON.stringify({
+              needsClarification: false,
+              question: '',
+              options: [],
+              reportCategory: 'monitor',
+              beneficiaryType: 'mother',
+              profileMetricIds: [],
+              metricIds: ['measurementDate'],
+              explanation: 'Shows saved check-up dates.',
+            }),
+          },
+        }],
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    },
+  });
+
+  assert.equal(result.reportCategory, 'monitor');
+  const requestContent = request.messages.at(-1).content;
+  assert.match(requestContent, /Original report request: Show a mother check-up report\./);
+  assert.match(requestContent, /Clarification question: Would you like an individual mother check-up report instead\?/);
+  assert.match(requestContent, /Available options: Yes, show the report; No, choose a different report/);
+  assert.match(requestContent, /User's clarification: ok/);
+
+  await assert.rejects(createReportProposal('Show a mother check-up report.', {
+    clarification: {
+      question: 'Which report?',
+      options: ['One option only'],
+      answer: 'ok',
+    },
+    env: modelEnvironment,
+    fetchImpl: async () => {
+      throw new Error('Invalid clarification context must not reach the provider.');
+    },
+  }), /clarification context is invalid/);
 });
 
 test('profile vaccine details expose individual child doses and maternal vaccine subfields', async () => {
@@ -945,8 +1020,17 @@ test('progress report AI endpoints require auth and do not pass user scope to th
     });
     const requestNumber = requests.length;
     const content = url.endsWith('/chat/completions')
-      ? requestNumber === 1
-        ? JSON.stringify({ reportCategory: 'monitor', beneficiaryType: 'child', metricIds: ['weightForAgeInterpretation'] })
+      ? [1, 4].includes(requestNumber)
+        ? JSON.stringify({
+          needsClarification: false,
+          question: '',
+          options: [],
+          reportCategory: 'monitor',
+          beneficiaryType: requestNumber === 1 ? 'child' : 'mother',
+          profileMetricIds: [],
+          metricIds: [requestNumber === 1 ? 'weightForAgeInterpretation' : 'measurementDate'],
+          explanation: 'Shows saved check-up information.',
+        })
         : 'Summary of aggregate figures.'
       : '';
     return new Response(JSON.stringify({ choices: [{ message: { content } }] }), {
@@ -1138,6 +1222,39 @@ test('progress report AI endpoints require auth and do not pass user scope to th
   assert.equal(requests[2].authorization, 'Bearer shared-route-test-key');
   assert.doesNotMatch(JSON.stringify(requests[2].body.messages), /Jane Doe|beneficiaryName|123|456/);
 
+  const unsafeClarification = await requestToApp(`${baseUrl}/proposal`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      prompt: 'Show a mother check-up report.',
+      clarification: {
+        question: 'Would you like a report?',
+        options: ['Yes', 'No'],
+        answer: 'Name: Jane Doe',
+      },
+    }),
+  });
+  assert.equal(unsafeClarification.status, 400);
+  assert.equal(requests.length, 3, 'identifying clarification answers must not reach the shared provider');
+
+  const clarificationResponse = await requestToApp(`${baseUrl}/proposal`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      prompt: 'Show a mother check-up report.',
+      clarification: {
+        question: 'Would you like an individual mother check-up report instead?',
+        options: ['Yes, show the report', 'No, choose a different report'],
+        answer: 'ok',
+      },
+    }),
+  });
+  assert.equal(clarificationResponse.status, 200);
+  assert.equal((await clarificationResponse.json()).metricIds[0], 'measurementDate');
+  const clarificationRequest = requests[3].body.messages.at(-1).content;
+  assert.match(clarificationRequest, /Clarification question: Would you like an individual mother check-up report instead\?/);
+  assert.match(clarificationRequest, /User's clarification: ok/);
+
   for (const endpoint of ['admin-assistant', 'beneficiary-assistant', 'program-assistant', 'entry-assist']) {
     const removedAssistantResponse = await requestToApp(`${baseUrl}/${endpoint}`, {
       method: 'POST',
@@ -1146,5 +1263,5 @@ test('progress report AI endpoints require auth and do not pass user scope to th
     });
     assert.equal(removedAssistantResponse.status, 403, `${endpoint} should no longer be available`);
   }
-  assert.equal(requests.length, 3);
+  assert.equal(requests.length, 4);
 });
