@@ -4,7 +4,7 @@ import {
   getMonitoringActivityStatusCounts,
   getMonitoringMonthDays,
   toMonitoringDateKey,
-} from './monitoringActivityCalendarUtils.mjs';
+} from './utils/monitoringActivityCalendarUtils.mjs';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 

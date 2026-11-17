@@ -1,12 +1,7 @@
-import { formFieldClasses } from '../../utils/formFieldClasses';
 import React, { useEffect, useState } from 'react';
-import { getModalBackdropClasses, getModalSurfaceClasses, modalHeaderClasses, modalCloseClasses } from '../../components/ui/modalClasses';
-import { createPortal } from 'react-dom';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthProvider';
 import PageHeader from '../../components/ui/PageHeader';
-import DateInput from '../../components/ui/DateInput';
-import AuditSignatures from '../../components/ui/AuditSignatures';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import UnifiedModal from '../../components/ui/UnifiedModal';
 import { notifyAction } from '../../components/ActionFeedback';
@@ -17,44 +12,23 @@ import {
   apiSetBeneficiaryMonitoring,
   apiUploadProgramReceiptEvidence,
 } from '../../api/programs';
-import { apiGetChildren } from '../../api/children';
-import { apiGetMothers } from '../../api/mothers';
 import { formatDateForDisplay } from '../../utils/formatting/dateFormat';
 import { can, canViewAuditSignatures, isCommunityCoordinatorRole } from '../../utils/permissions';
 import { navigateBack } from '../../utils/navigation/navigation';
-import { getReceiptRecipientKey, getReceiptRecipientKeysForRows } from './programData';
-import { EvidenceImage, SelectedImagePreview } from '../Community/components/BatchDocumentationPanel';
-
-const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
-const MAX_TOTAL_IMAGE_SIZE_BYTES = 25 * 1024 * 1024;
-const MAX_IMAGE_COUNT = 10;
-const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-
-const localDate = () => {
-  const date = new Date();
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-};
-
-const toDateKey = (value) => String(value || '').slice(0, 10);
-const normalizeScopeValue = (value) => String(value || '').trim().toLowerCase();
-const getRecipientKey = getReceiptRecipientKey;
-const isValidRecipient = (recipient) => String(recipient?.id || '').trim() !== ''
-  && ['mother', 'child'].includes(String(recipient?.type || '').toLowerCase());
-const monthLabel = (date) => date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
-const formatImageSize = (size) => size < 1024 * 1024
-  ? `${Math.max(1, Math.round(size / 1024))} KB`
-  : `${(size / (1024 * 1024)).toFixed(1)} MB`;
-const startOfMonth = (date) => new Date(date.getFullYear(), date.getMonth(), 1);
-const calendarDays = (date) => {
-  const first = startOfMonth(date);
-  const start = new Date(first);
-  start.setDate(first.getDate() - first.getDay());
-  return Array.from({ length: 42 }, (_, index) => {
-    const day = new Date(start);
-    day.setDate(start.getDate() + index);
-    return day;
-  });
-};
+import { getReceiptRecipientKeysForRows } from './utils/programData.js';
+import {
+  getReceiptEvidenceSelectionError,
+  getReceivedReceiptsByDate,
+  getRecipientKey,
+  isValidRecipient,
+  localDate,
+  startOfMonth,
+  toDateKey,
+} from './utils/receiptHistoryUtils.mjs';
+import useClusterReceiptRecipients from './hooks/useClusterReceiptRecipients';
+import ReceiptEntryModal from './components/ReceiptEntryModal';
+import ReceiptHistoryCalendar from './components/ReceiptHistoryCalendar';
+import ReceiptHistoryTable from './components/ReceiptHistoryTable';
 
 export default function ReceiptHistoryPage() {
   const { currentUser } = useAuth();
@@ -81,11 +55,21 @@ export default function ReceiptHistoryPage() {
     ? `/program/${programId}/cluster/${encodeURIComponent(clusterType)}/${encodeURIComponent(clusterName)}`
     : `/program/${programId}`;
   const [reportRows, setReportRows] = useState([]);
-  const [clusterRecipients, setClusterRecipients] = useState([]);
-  const [selectedRecipientKeys, setSelectedRecipientKeys] = useState([]);
-  const [recipientsLoading, setRecipientsLoading] = useState(isClusterHistory);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const {
+    clusterRecipients,
+    selectedRecipientKeys,
+    setSelectedRecipientKeys,
+    recipientsLoading,
+  } = useClusterReceiptRecipients({
+    programId,
+    clusterName,
+    clusterType,
+    isClusterHistory,
+    locationState: location.state,
+    setError,
+  });
   const [monitorDate, setMonitorDate] = useState(localDate);
   const [view, setView] = useState('list');
   const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(new Date()));
@@ -127,94 +111,8 @@ export default function ReceiptHistoryPage() {
     loadHistory();
   }, [programId, beneficiaryType, beneficiaryId, clusterType, clusterName, clusterScopeId, isClusterHistory]);
 
-  useEffect(() => {
-    if (!isClusterHistory) {
-      setClusterRecipients([]);
-      setSelectedRecipientKeys([]);
-      setRecipientsLoading(false);
-      return undefined;
-    }
-
-    let active = true;
-    setRecipientsLoading(true);
-    const loadClusterRecipients = async () => {
-      const passedRecipients = (Array.isArray(location.state?.beneficiaries) ? location.state.beneficiaries : [])
-        .filter(isValidRecipient)
-        .map((recipient) => ({ ...recipient, type: String(recipient.type).toLowerCase() }));
-      let recipients = passedRecipients;
-
-      if (!recipients.length) {
-        const programsResponse = await apiGetPrograms();
-        const program = (programsResponse?.programs || []).find((item) => String(item.id) === String(programId));
-        if (!program) throw new Error("Unable to determine this project's eligible beneficiary type.");
-        const programType = String(program.beneficiaryType || program.beneficiary_type || 'Mother')
-          .trim()
-          .toLowerCase()
-          .replace(/&/g, 'and')
-          .replace(/\s+/g, ' ');
-        const includeMothers = programType === 'mother' || programType === 'mother and child';
-        const includeChildren = programType === 'child' || programType === 'mother and child';
-        if (!includeMothers && !includeChildren) {
-          throw new Error('This program has an unsupported beneficiary type.');
-        }
-        const [mothersResponse, childrenResponse] = await Promise.all([
-          includeMothers ? apiGetMothers() : Promise.resolve({ mothers: [] }),
-          includeChildren ? apiGetChildren() : Promise.resolve({ children: [] }),
-        ]);
-        const mothers = mothersResponse?.mothers || [];
-        const children = childrenResponse?.children || [];
-        const scope = normalizeScopeValue(clusterName);
-        const matchesScope = (entity, type) => {
-          if (type === 'group') return normalizeScopeValue(entity.group || entity.group_name || entity.groupName) === scope;
-          if (type === 'batch') return normalizeScopeValue(entity.batch || entity.batch_name || entity.batchName) === scope;
-          return normalizeScopeValue(entity.community || entity.community_name || entity.school) === scope;
-        };
-
-        recipients = [
-          ...(includeMothers ? mothers : []).filter((mother) => matchesScope(mother, clusterType)).map((mother) => ({
-            id: mother.raw?.id || mother.id || mother.motherId,
-            type: 'mother',
-            name: mother.name || [mother.firstName, mother.lastName].filter(Boolean).join(' '),
-          })),
-          ...(includeChildren ? children : []).filter((child) => matchesScope(child, clusterType)).map((child) => ({
-            id: child.id || child.child_id,
-            type: 'child',
-            name: child.name || [child.first_name, child.last_name].filter(Boolean).join(' '),
-          })),
-        ].filter(isValidRecipient);
-      }
-
-      const uniqueRecipients = [...new Map(recipients.map((recipient) => [getRecipientKey(recipient), recipient])).values()];
-      if (active) {
-        setClusterRecipients(uniqueRecipients);
-        setSelectedRecipientKeys(uniqueRecipients.map(getRecipientKey));
-        setRecipientsLoading(false);
-      }
-    };
-
-    loadClusterRecipients().catch((loadError) => {
-      if (!active) return;
-      setClusterRecipients([]);
-      setSelectedRecipientKeys([]);
-      setRecipientsLoading(false);
-      setError(loadError.message || 'Unable to load beneficiaries for this cluster.');
-    });
-
-    return () => { active = false; };
-  }, [clusterName, clusterType, isClusterHistory, location.state]);
-
   const filteredRows = reportRows;
-  const receivedByDate = new Map();
-  filteredRows.filter((row) => row.monitored).forEach((row) => {
-    const key = toDateKey(row.date);
-    const existing = receivedByDate.get(key) || [];
-    const beneficiaryKey = row.beneficiary_key || `${row.beneficiary_type || ''}:${row.beneficiary_id || row.beneficiary_name || ''}`;
-    if (!existing.some((receipt) => (receipt.beneficiary_key || `${receipt.beneficiary_type || ''}:${receipt.beneficiary_id || receipt.beneficiary_name || ''}`) === beneficiaryKey)) {
-      existing.push(row);
-    }
-    receivedByDate.set(key, existing);
-  });
-  const days = calendarDays(calendarMonth);
+  const receivedByDate = getReceivedReceiptsByDate(filteredRows);
 
   const openReceiptModal = (date = monitorDate, defaultMonitored = false, targetRows = null) => {
     if (!canEditReceipts || programEnded) return;
@@ -239,23 +137,9 @@ export default function ReceiptHistoryPage() {
     const selectedFiles = Array.from(event.target.files || []);
     event.target.value = '';
     if (!selectedFiles.length) return;
-    const oversizedImage = selectedFiles.find((image) => image.size > MAX_IMAGE_SIZE_BYTES);
-    if (oversizedImage) {
-      setError(`${oversizedImage.name} exceeds the 5 MB per-photo limit.`);
-      return;
-    }
-    const unsupportedImage = selectedFiles.find((image) => !ALLOWED_IMAGE_TYPES.includes(image.type));
-    if (unsupportedImage) {
-      setError(`${unsupportedImage.name} is not a supported image. Choose JPG, PNG, or WEBP.`);
-      return;
-    }
-    if (evidenceImages.length + selectedFiles.length > MAX_IMAGE_COUNT) {
-      setError('Choose no more than 10 photos for one check-in.');
-      return;
-    }
-    const totalSize = [...evidenceImages, ...selectedFiles].reduce((total, image) => total + image.size, 0);
-    if (totalSize > MAX_TOTAL_IMAGE_SIZE_BYTES) {
-      setError('The combined photo size must not exceed 25 MB.');
+    const selectionError = getReceiptEvidenceSelectionError(selectedFiles, evidenceImages);
+    if (selectionError) {
+      setError(selectionError);
       return;
     }
     setError('');
@@ -359,181 +243,51 @@ export default function ReceiptHistoryPage() {
           {programEnded && <p className="program-receipt-readonly-notice" role="status">This project has ended. Receipt history is read-only.</p>}
         </div>}
         {error && <p className="error-message" role="alert">{error}</p>}
-        {loading ? <p>Loading receipt history...</p> : view === 'list' ? <div className="program-receipt-table-scroll" role="region" aria-label="Scrollable table" tabIndex={0}><table className={`data-table ${isClusterHistory ? 'program-receipt-cluster-table' : 'program-receipt-beneficiary-table'}${showAuditSignatures ? ' has-audit-signatures' : ''}${canEditReceipts && !programEnded ? ' has-actions' : ''}`}>
-          <thead><tr><th>Date</th>{isClusterHistory && <th>Beneficiary</th>}<th>Documentation</th>{showAuditSignatures && <th>Signatures</th>}{canEditReceipts && !programEnded && <th>Action</th>}</tr></thead>
-          <tbody>{filteredRows.length ? filteredRows.map((row) => {
-            const rowKey = `${row.date}-${row.program_name}-${row.beneficiary_name || row.beneficiary_id || 'entry'}`;
-            const images = row.evidence_images || [];
-            const isEvidenceExpanded = expandedEvidenceRow === rowKey;
-            return (
-              <tr key={rowKey}>
-                <td title={formatDateForDisplay(toDateKey(row.date))}>{formatDateForDisplay(toDateKey(row.date))}</td>
-                {isClusterHistory ? <>
-                  <td title={row.beneficiary_name || row.beneficiary_id || 'Unknown beneficiary'}>{row.beneficiary_name || row.beneficiary_id || 'Unknown beneficiary'}</td>
-                </> : null}
-                <td className="program-receipt-documentation-cell">
-                  <button
-                    type="button"
-                    className="program-receipt-documentation-toggle"
-                    aria-expanded={isEvidenceExpanded}
-                    aria-controls={`receipt-documentation-${rowKey}`}
-                    disabled={!images.length}
-                    onClick={() => setExpandedEvidenceRow(isEvidenceExpanded ? null : rowKey)}
-                  >
-                    {images.length} {images.length === 1 ? 'image' : 'images'}
-                  </button>
-                  {isEvidenceExpanded && (
-                    <div className="program-receipt-documentation-list" id={`receipt-documentation-${rowKey}`} aria-label="Check-in documentation images">
-                      {images.map((image) => (
-                        <EvidenceImage
-                          key={image.id}
-                          filePath={image.file_path}
-                          fileName={image.file_name}
-                          canManage={canManageEvidence}
-                          onPreview={setPreviewImage}
-                          onRemove={() => setPendingEvidenceDelete({ row, image })}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </td>
-                {showAuditSignatures && <td><AuditSignatures
-            createdByName=""
-            createdByRole={row.created_by_role || row.monitored_by_role}
-            createdAt={row.recorded_at}
-            updatedByName=""
-            updatedByRole={row.updated_by_role || row.monitored_by_role}
-            updatedAt={row.updated_at}
-                /></td>}
-                {canEditReceipts && !programEnded && <td><button type="button" className="view-btn view-btn--secondary" onClick={() => openReceiptModal(toDateKey(row.date), Boolean(row.monitored), [row])}>Edit</button></td>}
-              </tr>
-            );
-          }) : <tr><td colSpan={(isClusterHistory ? 2 : 1) + 1 + (showAuditSignatures ? 1 : 0) + (canEditReceipts && !programEnded ? 1 : 0)} className="no-data">No receipt history found.</td></tr>}</tbody>
-        </table></div> : <div className="program-calendar-wrap">
-          <div className="program-calendar-header"><button type="button" className="view-btn view-btn--secondary" onClick={() => setCalendarMonth((date) => new Date(date.getFullYear(), date.getMonth() - 1, 1))}>Previous</button><h3>{monthLabel(calendarMonth)}</h3><button type="button" className="view-btn view-btn--secondary" onClick={() => setCalendarMonth((date) => new Date(date.getFullYear(), date.getMonth() + 1, 1))}>Next</button></div>
-          <div className="program-calendar-weekdays">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => <span key={day}>{day}</span>)}</div>
-          <div className="program-calendar-grid">{days.map((day) => { const key = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`; const receipt = receivedByDate.get(key) || []; return <button type="button" key={key} className={`program-calendar-day${day.getMonth() !== calendarMonth.getMonth() ? ' muted' : ''}${receipt.length ? ' received' : ''}${selectedDate === key ? ' selected' : ''}`} onClick={() => openReceiptModal(key, true)} disabled={programEnded || !canEditReceipts}><span>{day.getDate()}</span>{receipt.length > 0 && <strong>{receipt.length > 1 ? `${receipt.length} Yes` : 'Yes'}</strong>}</button>; })}</div>
-        </div>}
-        {canEditReceipts && !programEnded && receiptModal && createPortal(
-          <div className={`modal-backdrop ${getModalBackdropClasses()}`} role="presentation" onClick={() => !savingReceipt && setReceiptModal(null)}>
-            <div
-              className={`program-receipt-modal ${getModalSurfaceClasses()}`}
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="receipt-modal-title"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <div className={`program-receipt-modal-header ${modalHeaderClasses}`}>
-                <h3 id="receipt-modal-title">Record project receipt</h3>
-                <button type="button" className={`document-preview-close ${modalCloseClasses}`} onClick={() => setReceiptModal(null)} disabled={savingReceipt}>Close</button>
-              </div>
-              <form onSubmit={saveReceipt}>
-                <label htmlFor="receipt-date">
-                  Date
-                  <DateInput
-                    id="receipt-date"
-                    className={`${formFieldClasses} form-input`}
-                    value={receiptModal.date}
-                    onChange={(value) => setReceiptModal((current) => ({ ...current, date: value }))}
-                    required
-                    disabled={savingReceipt}
-                    ariaLabel="Receipt date"
-                  />
-                </label>
-                {isClusterHistory && (
-                  <fieldset className="receipt-beneficiary-selection" disabled={savingReceipt || recipientsLoading}>
-                    <legend>Beneficiaries ({selectedRecipientKeys.length}/{clusterRecipients.length})</legend>
-                    <label className="receipt-beneficiary-select-all">
-                      <input
-                        type="checkbox"
-                        checked={clusterRecipients.length > 0 && selectedRecipientKeys.length === clusterRecipients.length}
-                        onChange={(event) => setSelectedRecipientKeys(event.target.checked ? clusterRecipients.map(getRecipientKey) : [])}
-                      />
-                      <span>Select all in this {clusterType}</span>
-                    </label>
-                    <div className="receipt-beneficiary-list">
-                      {clusterRecipients.length ? clusterRecipients.map((recipient) => {
-                        const key = getRecipientKey(recipient);
-                        return (
-                          <label key={key} className="receipt-beneficiary-option">
-                            <input
-                              type="checkbox"
-                              checked={selectedRecipientKeys.includes(key)}
-                              onChange={(event) => setSelectedRecipientKeys((current) => (
-                                event.target.checked ? [...current, key] : current.filter((value) => value !== key)
-                              ))}
-                            />
-                            <span>{recipient.name || `${recipient.type} ${recipient.id}`}</span>
-                          </label>
-                        );
-                      }) : <p className="receipt-beneficiary-empty">No beneficiaries found in this {clusterType}.</p>}
-                    </div>
-                  </fieldset>
-                )}
-                <label>
-                  Received this project item?
-                  <select
-                    value={receiptModal.monitored ? 'yes' : 'no'}
-                    onChange={(event) => setReceiptModal((current) => ({ ...current, monitored: event.target.value === 'yes' }))}
-                  >
-                    <option value="yes">Yes</option>
-                    <option value="no">No</option>
-                  </select>
-                </label>
-                {canManageEvidence ? (
-                  <section className="program-receipt-evidence-upload" aria-label="Program check-in photo documentation">
-                    <label>
-                      Optional photos for this check-in
-                      <input
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp"
-                        multiple
-                        onChange={handleEvidenceSelection}
-                        disabled={savingReceipt}
-                      />
-                    </label>
-                    <p>
-                      {evidenceImages.length
-                        ? `${evidenceImages.length} selected · ${formatImageSize(evidenceImages.reduce((total, image) => total + image.size, 0))} of 25 MB · shared across ${isClusterHistory ? selectedRecipientKeys.length : 1} check-in${(isClusterHistory ? selectedRecipientKeys.length : 1) === 1 ? '' : 's'}`
-                        : 'Optional · select 3–10 JPG, PNG, or WEBP photos (5 MB each, 25 MB total). One set is shared across selected beneficiaries.'}
-                    </p>
-                    {evidenceImages.length > 0 && (
-                      <ul className="batch-documentation-selected-files" aria-label="Selected check-in photos">
-                        {evidenceImages.map((image, index) => (
-                          <li key={`${image.name}-${image.size}-${image.lastModified}-${index}`}>
-                            <SelectedImagePreview image={image} onPreview={setPreviewImage} />
-                            <span className="batch-documentation-selected-file-info">
-                              <span className="batch-documentation-selected-file-name" title={image.name}>{image.name}</span>
-                              <small>{formatImageSize(image.size)}</small>
-                            </span>
-                            <button
-                              type="button"
-                              className="batch-documentation-remove-file"
-                              onClick={() => setEvidenceImages((current) => current.filter((_, itemIndex) => itemIndex !== index))}
-                              disabled={savingReceipt}
-                              aria-label={`Remove ${image.name}`}
-                            >
-                              Remove
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </section>
-                ) : (
-                  <p className="program-receipt-evidence-readonly">Photo evidence can be viewed and downloaded. Community Organizers manage photo uploads and removals.</p>
-                )}
-                {error && <p className="error-message" role="alert">{error}</p>}
-                <div className="program-receipt-modal-actions">
-                  <button type="button" className="view-btn view-btn--secondary" onClick={() => setReceiptModal(null)} disabled={savingReceipt}>Cancel</button>
-                  <button type="submit" className="view-btn view-btn--primary" disabled={savingReceipt || (isClusterHistory && recipientsLoading)}>
-                    {savingReceipt ? 'Saving...' : 'Save status'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>,
-          document.body,
+        {loading ? <p>Loading receipt history...</p> : view === 'list' ? (
+          <ReceiptHistoryTable
+            rows={filteredRows}
+            isClusterHistory={isClusterHistory}
+            showAuditSignatures={showAuditSignatures}
+            canEditReceipts={canEditReceipts}
+            canManageEvidence={canManageEvidence}
+            programEnded={programEnded}
+            expandedEvidenceRow={expandedEvidenceRow}
+            setExpandedEvidenceRow={setExpandedEvidenceRow}
+            setPreviewImage={setPreviewImage}
+            setPendingEvidenceDelete={setPendingEvidenceDelete}
+            openReceiptModal={openReceiptModal}
+          />
+        ) : (
+          <ReceiptHistoryCalendar
+            calendarMonth={calendarMonth}
+            setCalendarMonth={setCalendarMonth}
+            receivedByDate={receivedByDate}
+            selectedDate={selectedDate}
+            openReceiptModal={openReceiptModal}
+            canEditReceipts={canEditReceipts}
+            programEnded={programEnded}
+          />
+        )}
+        {canEditReceipts && !programEnded && (
+          <ReceiptEntryModal
+            receiptModal={receiptModal}
+            setReceiptModal={setReceiptModal}
+            savingReceipt={savingReceipt}
+            saveReceipt={saveReceipt}
+            isClusterHistory={isClusterHistory}
+            clusterType={clusterType}
+            clusterRecipients={clusterRecipients}
+            recipientsLoading={recipientsLoading}
+            selectedRecipientKeys={selectedRecipientKeys}
+            setSelectedRecipientKeys={setSelectedRecipientKeys}
+            getRecipientKey={getRecipientKey}
+            canManageEvidence={canManageEvidence}
+            evidenceImages={evidenceImages}
+            handleEvidenceSelection={handleEvidenceSelection}
+            setPreviewImage={setPreviewImage}
+            setEvidenceImages={setEvidenceImages}
+            error={error}
+          />
         )}
         <ConfirmDialog
           open={Boolean(pendingEvidenceDelete)}

@@ -12,7 +12,7 @@ import { hasRole, isCommunityCoordinatorRole, isHealthWorkerRole, ROLES } from '
 import { useAuth } from '../../auth/AuthProvider';
 import CommunityTable from '../Community/CommunityTable';
 import CommunityPagination from '../Community/components/CommunityPagination';
-import { ActivityChart } from '../Reports/ReportsPage';
+import ActivityChart from '../Reports/components/ActivityChart';
 import { navigateBack } from '../../utils/navigation/navigation';
 import AddUserModal from './UserManagementModal';
 

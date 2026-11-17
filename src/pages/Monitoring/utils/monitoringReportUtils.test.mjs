@@ -4,7 +4,7 @@ import { createRequire } from 'node:module';
 import { createServer } from 'vite';
 
 const viteServer = await createServer({
-  cacheDir: 'node_modules/.vite-monitoring-report-test',
+  cacheDir: 'node_modules/.vite-monitoring-report-utils-test',
   optimizeDeps: { noDiscovery: true, entries: [] },
   server: { middlewareMode: true },
   appType: 'custom',
@@ -16,11 +16,11 @@ const {
   getMonitoringReportValue,
   escapeMonitoringReportCsvValue,
   MONITORING_REPORT_FIELD_LABELS,
-} = await viteServer.ssrLoadModule('/src/pages/Monitoring/monitoringReportUtils.mjs');
+} = await viteServer.ssrLoadModule('/src/pages/Monitoring/utils/monitoringReportUtils.mjs');
 after(async () => viteServer.close());
 
 const require = createRequire(import.meta.url);
-const { MONITORING_REPORT_FIELDS } = require('../../../server/utils/progressReportAI.js');
+const { MONITORING_REPORT_FIELDS } = require('../../../../server/utils/progressReportAI.js');
 
 const motherCheckup = {
   checkupDate: '2026-10-18T00:00:00.000Z',

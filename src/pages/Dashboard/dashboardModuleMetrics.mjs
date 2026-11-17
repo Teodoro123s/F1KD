@@ -1,6 +1,6 @@
 import { hasCheckupThisMonth } from '../../utils/beneficiary/monthlyCheckups.js';
 import { normalizeRole, ROLES } from '../../utils/permissions.js';
-import { getMonthlyDevelopmentalStatus, getMonitoringScreeningRoute } from '../Monitoring/monitoringScreeningUtils.mjs';
+import { getMonthlyDevelopmentalStatus, getMonitoringScreeningRoute } from '../Monitoring/utils/monitoringScreeningUtils.mjs';
 
 function getCompletedChildMonitoringMonths(child) {
   const months = new Set();

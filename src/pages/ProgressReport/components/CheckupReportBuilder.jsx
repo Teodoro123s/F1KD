@@ -13,7 +13,7 @@ import {
   getMonitoringReportCheckups,
   getMonitoringReportValue,
   MONITORING_REPORT_FIELD_LABELS,
-} from '../../Monitoring/monitoringReportUtils.mjs';
+} from '../../Monitoring/utils/monitoringReportUtils.mjs';
 
 const MONITORING_SCOPE_FIELDS = [
   { id: 'school', label: 'School', terms: ['school', 'schools'], keys: ['school', 'schoolName', 'school_name', 'community', 'communityName', 'community_name'] },

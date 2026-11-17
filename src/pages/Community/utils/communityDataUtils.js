@@ -65,7 +65,9 @@ export const buildBreadcrumbs = ({
 export const getSchoolGroups = (groups, selectedSchool, query) => {
   if (!selectedSchool) return [];
   const filtered = groups.filter(
-    (group) => group.community === selectedSchool.name
+    (group) => group.communityId != null
+      ? String(group.communityId) === String(selectedSchool.id)
+      : group.community === selectedSchool.name
   );
   return filterItemsByQuery(filtered, query, [
     'name',

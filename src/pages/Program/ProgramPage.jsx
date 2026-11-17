@@ -1,5 +1,5 @@
 import { formFieldClasses, formLabelClasses } from '../../utils/formFieldClasses';
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { getModalBackdropClasses, getModalSurfaceClasses, modalHeaderSectionClasses, modalCloseClasses, modalBodyClasses, modalFooterClasses } from '../../components/ui/modalClasses';
 import { matchesSearch } from "../../utils/search.mjs";
 import { createPortal } from "react-dom";
@@ -18,12 +18,9 @@ import ModuleSummaryCards from '../../components/ui/ModuleSummaryCards';
 import TableSearch from '../../components/ui/TableSearch';
 import Pagination from '../../components/ui/Pagination';
 import FloatingLayer from '../../components/ui/FloatingLayer';
-import { getSummary } from "../Community/communityService";
-import { apiGetChildren } from "../../api/children";
-import { apiArchiveProgram, apiCompleteNamedProgramCluster, apiCompleteProgramCluster, apiCreateProgram, apiCreateProgramClusters, apiEndProgram, apiGetProgramArchiveImpact, apiGetProjectActivityCalendar, apiGetProgramMonitoring, apiGetPrograms, apiRestoreArchivedProgram, apiRestoreProgram, apiSetProgramMonitoring, apiUpdateProgram } from "../../api/programs";
+import { apiArchiveProgram, apiCompleteNamedProgramCluster, apiCompleteProgramCluster, apiCreateProgram, apiCreateProgramClusters, apiEndProgram, apiGetProgramArchiveImpact, apiRestoreArchivedProgram, apiRestoreProgram, apiUpdateProgram } from "../../api/programs";
 import { notifyAction } from '../../components/ActionFeedback';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
-import ExpandableTreeTable from "../Monitoring/ExpandableTreeTable";
 import { formatDateForDisplay, normalizeDateValue } from '../../utils/formatting/dateFormat';
 import {
   beneficiaryNames,
@@ -33,14 +30,20 @@ import {
   filterProgramBeneficiaryRecords,
   getCluster,
   normalizeBeneficiaryType,
-} from "./programData";
-import ProjectActivityCalendar from './ProjectActivityCalendar';
-import { toLocalDateKey } from './projectActivityCalendarUtils.mjs';
-
-const localDate = () => {
-  const date = new Date();
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-};
+} from "./utils/programData.js";
+import ProjectActivityCalendar from './components/ProjectActivityCalendar';
+import {
+  collectDisplayCandidates,
+  localDate,
+  mapApiProgram,
+  matchesSchoolGroupBatch,
+  routeMatchesValue,
+  valueMatchesTarget,
+} from './utils/programPageUtils.mjs';
+import useProgramMonitoring from './hooks/useProgramMonitoring';
+import AddProgramBeneficiariesModal from './components/AddProgramBeneficiariesModal';
+import ProgramFormModal from './components/ProgramFormModal';
+import useProgramPageData from './hooks/useProgramPageData';
 
 export default function ProgramPage() {
   const navigate = useNavigate();
@@ -54,18 +57,30 @@ export default function ProgramPage() {
   const canAssignProgramBeneficiaries = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN, ROLES.COMMUNITY_COORDINATOR]);
   const canDeletePrograms = canManagePrograms;
   const canEndPrograms = canManagePrograms;
-  const canMonitorPrograms = canCreatePrograms || isHealthWorkerRole(currentUser?.role);
   const [activeTab, setActiveTab] = useState(null);
   const [query, setQuery] = useState("");
   const [listPage, setListPage] = useState(1);
   const [listPerPage, setListPerPage] = useState(10);
-  const [programs, setPrograms] = useState([]);
-  const [programCounts, setProgramCounts] = useState({ total: 0, active: 0, ended: 0, archived: 0 });
-  const [archivedPrograms, setArchivedPrograms] = useState(null);
-  const [archivedProgramsLoading, setArchivedProgramsLoading] = useState(false);
-  const [isLiveDataLoaded, setIsLiveDataLoaded] = useState(false);
   const viewMode = Boolean(programId);
   const clusterView = Boolean(clusterType && clusterName);
+  const {
+    programs,
+    setPrograms,
+    programCounts,
+    setProgramCounts,
+    archivedPrograms,
+    setArchivedPrograms,
+    archivedProgramsLoading,
+    beneficiaryRecords,
+    hierarchy,
+    activityMonth,
+    setActivityMonth,
+    projectActivities,
+    activityLoading,
+    activityError,
+    activityRetry,
+    setActivityRetry,
+  } = useProgramPageData({ activeTab, viewMode, isCommunityOrganizer });
   const [showModal, setShowModal] = useState(false);
   const [showSaveConfirmation, setShowSaveConfirmation] = useState(false);
   const [showActivityModal, setShowActivityModal] = useState(false);
@@ -77,7 +92,6 @@ export default function ProgramPage() {
   const [scopeSchoolIds, setScopeSchoolIds] = useState([]);
   const [scopeGroupIds, setScopeGroupIds] = useState([]);
   const [scopeBatchIds, setScopeBatchIds] = useState([]);
-  const [hierarchy, setHierarchy] = useState({ schools: [], groups: [], batches: [] });
   const [scopeError, setScopeError] = useState('');
   const [actionProgram, setActionProgram] = useState(null);
   const [pendingEndProgram, setPendingEndProgram] = useState(null);
@@ -92,70 +106,19 @@ export default function ProgramPage() {
   const [isRestoringArchivedProgram, setIsRestoringArchivedProgram] = useState(false);
   const [receiptHistoryProgram, setReceiptHistoryProgram] = useState(null);
   const [programError, setProgramError] = useState('');
-  const [beneficiaryRecords, setBeneficiaryRecords] = useState([]);
   const [activeActionMenu, setActiveActionMenu] = useState(null);
   const activeActionMenuAnchorRef = useRef(null);
   const [drillLevel, setDrillLevel] = useState('school');
   const [drillSchool, setDrillSchool] = useState(null);
   const [drillGroup, setDrillGroup] = useState(null);
   const [drillBatch, setDrillBatch] = useState(null);
-  const [monitorDate, setMonitorDate] = useState(localDate);
-  const [monitoringStatus, setMonitoringStatus] = useState({});
-  const [monitoringPending, setMonitoringPending] = useState({});
-  const [monitorConfirmation, setMonitorConfirmation] = useState(null);
-  const [activityMonth, setActivityMonth] = useState(() => {
-    const today = new Date();
-    return new Date(today.getFullYear(), today.getMonth(), 1);
-  });
-  const [projectActivities, setProjectActivities] = useState([]);
-  const [activityLoading, setActivityLoading] = useState(true);
-  const [activityError, setActivityError] = useState('');
-  const [activityRetry, setActivityRetry] = useState(0);
+  const {
+    monitorDate,
+    monitorConfirmation,
+    setMonitorConfirmation,
+    confirmMonitoringChange,
+  } = useProgramMonitoring(programId);
   const archiveImpactRequestRef = useRef(0);
-
-  const mapApiProgram = (program) => ({
-    ...program,
-    id: Number(program.id),
-    beneficiaryType: program.beneficiaryType || program.beneficiary_type || 'Mother',
-    target: Number(program.target || 0),
-    received: Number(program.received || 0),
-    clusters: program.clusters || [],
-    recipients: program.recipients || [],
-    latest: program.latest || 'No activity yet',
-  });
-
-  const normalizeDisplayValue = (value) => String(value ?? '')
-    .trim()
-    .toLowerCase()
-    .replace(/[_-]+/g, ' ')
-    .replace(/\b(school|group|batch)\b/gi, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  const collectDisplayCandidates = (...values) => (
-    values.flatMap((value) => {
-      if (value === null || value === undefined) return [];
-      const text = String(value).trim();
-      if (!text) return [];
-      const normalized = text
-        .split(/[|,/]+/)
-        .map((segment) => segment.trim())
-        .filter(Boolean);
-      return normalized;
-    })
-      .filter(Boolean)
-      .map((value) => normalizeDisplayValue(value))
-      .filter(Boolean)
-  );
-
-  const valueMatchesTarget = (value, target) => {
-    const normalizedValue = normalizeDisplayValue(value);
-    const normalizedTarget = normalizeDisplayValue(target);
-    if (!normalizedValue || !normalizedTarget) return false;
-    return normalizedValue === normalizedTarget
-      || normalizedValue.includes(normalizedTarget)
-      || normalizedTarget.includes(normalizedValue);
-  };
 
   const getProgramBeneficiaryRecords = (program, records = beneficiaryRecords) => {
     const scopedRecords = filterProgramBeneficiaryRecords(program, records || []);
@@ -204,180 +167,6 @@ export default function ProgramPage() {
       const batchMatches = !targetBatch || !batchCandidates.length || batchCandidates.some((candidate) => valueMatchesTarget(candidate, targetBatch));
       return schoolMatches && groupMatches && batchMatches;
     });
-  };
-
-  useEffect(() => {
-    let mounted = true;
-
-    Promise.allSettled([apiGetPrograms(), getSummary(), apiGetChildren()])
-      .then(([programResult, summaryResult, childrenResult]) => {
-        if (!mounted) return;
-        if (programResult.status !== 'fulfilled') {
-          throw programResult.reason;
-        }
-        const programResponse = programResult.value || {};
-        const summary = summaryResult.status === 'fulfilled' ? summaryResult.value || {} : {};
-        const childrenResponse = childrenResult.status === 'fulfilled' ? childrenResult.value || {} : {};
-        const savedPrograms = (programResponse.programs || []).map(mapApiProgram);
-        const schools = summary.communities || [];
-        const groups = summary.groups || [];
-        const batches = summary.batches || [];
-        const batchesById = new Map(batches.map((batch) => [String(batch.id), batch]));
-        setHierarchy({ schools, groups, batches });
-        const mothers = (summary.mothers || []).map((mother) => ({
-          id: `mother-${mother.id}`,
-          sourceId: mother.id,
-          sourceType: 'mother',
-          monitorKey: `mother:${mother.id}`,
-          school: mother.community || '',
-          schoolId: mother.communityId || mother.community_id || '',
-          group: mother.groupName || mother.group || '',
-          groupId: mother.groupId || mother.group_id || '',
-          batchId: mother.batchId || mother.batch_id || '',
-          batch: batchesById.get(String(mother.batchId))?.name || mother.batch || '',
-          name: mother.name,
-          type: 'Mother',
-          isMonitored: Boolean(mother.isMonitored ?? mother.is_monitored),
-        }));
-        const children = (childrenResponse.children || []).map((child) => ({
-          id: `child-${child.id}`,
-          sourceId: child.id,
-          sourceType: 'child',
-          monitorKey: `child:${child.id}`,
-          school: child.community_name || '',
-          schoolId: child.community_id || child.communityId || child.mother_community_id || '',
-          group: child.group_name || '',
-          groupId: child.group_id || child.groupId || '',
-          batchId: child.batch_id || child.batchId || child.mother_batch_id || '',
-          batch: child.batch_name || '',
-          name: [child.first_name, child.middle_name, child.last_name].filter(Boolean).join(' '),
-          type: 'Child',
-          isMonitored: Boolean(child.isMonitored ?? child.is_monitored),
-        }));
-        setBeneficiaryRecords([...mothers, ...children]);
-        setPrograms(savedPrograms);
-        setProgramCounts({
-          total: Number(programResponse.counts?.total ?? savedPrograms.length) || 0,
-          active: Number(programResponse.counts?.active ?? filterPrograms(savedPrograms, '', 'Active').length) || 0,
-          ended: Number(programResponse.counts?.ended ?? filterPrograms(savedPrograms, '', 'Ended').length) || 0,
-          archived: Number(programResponse.counts?.archived) || 0,
-        });
-      })
-      .then(() => {
-        if (mounted) setIsLiveDataLoaded(true);
-      })
-      .catch((error) => {
-        if (!mounted) return;
-        notifyAction(error?.message || 'Unable to load saved projects.', 'error');
-        setPrograms([]);
-        setProgramCounts({ total: 0, active: 0, ended: 0, archived: 0 });
-        setIsLiveDataLoaded(true);
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (activeTab !== 'Archived' || !isLiveDataLoaded || !isCommunityOrganizer) return undefined;
-    let active = true;
-    setArchivedProgramsLoading(true);
-    apiGetPrograms({ archived: true })
-      .then((response) => {
-        if (active) setArchivedPrograms((response.programs || []).map(mapApiProgram));
-      })
-      .catch((error) => {
-        if (active) notifyAction(error?.message || 'Unable to load archived programs.', 'error');
-      })
-      .finally(() => {
-        if (active) setArchivedProgramsLoading(false);
-      });
-    return () => { active = false; };
-  }, [activeTab, isCommunityOrganizer, isLiveDataLoaded]);
-
-  useEffect(() => {
-    if (viewMode) return undefined;
-    let active = true;
-    const from = toLocalDateKey(new Date(activityMonth.getFullYear(), activityMonth.getMonth(), 1));
-    const to = toLocalDateKey(new Date(activityMonth.getFullYear(), activityMonth.getMonth() + 1, 0));
-    setActivityLoading(true);
-    setActivityError('');
-    setProjectActivities([]);
-    apiGetProjectActivityCalendar(from, to)
-      .then((response) => {
-        if (active) setProjectActivities(response.activities || []);
-      })
-      .catch((error) => {
-        if (!active) return;
-        setActivityError(error.message || 'Unable to load project activities.');
-      })
-      .finally(() => {
-        if (active) setActivityLoading(false);
-      });
-    return () => { active = false; };
-  }, [activityMonth, activityRetry, viewMode]);
-
-  const refreshMonitoring = async () => {
-    if (!programId) return;
-    const response = await apiGetProgramMonitoring(programId, monitorDate);
-    const next = {};
-    (response.logs || []).forEach((log) => { next[`${log.beneficiary_type}:${log.beneficiary_id}`] = Boolean(log.monitored); });
-    setMonitoringStatus(next);
-  };
-
-  useEffect(() => {
-    let active = true;
-    if (!programId) return undefined;
-    apiGetProgramMonitoring(programId, monitorDate).then((response) => {
-      if (!active) return;
-      const next = {};
-      (response.logs || []).forEach((log) => { next[`${log.beneficiary_type}:${log.beneficiary_id}`] = Boolean(log.monitored); });
-      setMonitoringStatus(next);
-    }).catch(() => { if (active) notifyAction('Unable to load daily monitoring status.', 'error'); });
-    return () => { active = false; };
-  }, [programId, monitorDate]);
-
-  useEffect(() => {
-    const interval = window.setInterval(() => {
-      const today = localDate();
-      setMonitorDate((current) => current === today ? current : today);
-    }, 60000);
-    return () => window.clearInterval(interval);
-  }, []);
-
-  const toggleMonitoring = async (beneficiary, monitored, descendants = null) => {
-    const beneficiaries = descendants?.length ? descendants : [beneficiary];
-    const changes = beneficiaries.filter((item) => item.monitorKey && item.sourceId && item.sourceType);
-    const previous = Object.fromEntries(changes.map((item) => [item.monitorKey, Boolean(monitoringStatus[item.monitorKey])]));
-    const keys = changes.map((item) => item.monitorKey);
-    setMonitoringStatus((current) => ({ ...current, ...Object.fromEntries(keys.map((key) => [key, monitored])) }));
-    setMonitoringPending((current) => ({ ...current, ...Object.fromEntries(keys.map((key) => [key, true])) }));
-    try {
-      await Promise.all(changes.map((item) => apiSetProgramMonitoring(programId, {
-        beneficiaryId: item.sourceId,
-        beneficiaryType: item.sourceType,
-        monitored,
-        date: monitorDate,
-      })));
-    } catch (error) {
-      setMonitoringStatus((current) => ({ ...current, ...previous }));
-      notifyAction(error.message || 'Unable to save monitoring status.', 'error');
-    } finally {
-      setMonitoringPending((current) => ({ ...current, ...Object.fromEntries(keys.map((key) => [key, false])) }));
-    }
-  };
-
-  const requestMonitoringChange = (beneficiary, monitored, descendants = null) => {
-    const affectedCount = descendants?.length || 1;
-    setMonitorConfirmation({ beneficiary, monitored, descendants, affectedCount });
-  };
-
-  const confirmMonitoringChange = async () => {
-    if (!monitorConfirmation) return;
-    const { beneficiary, monitored, descendants } = monitorConfirmation;
-    setMonitorConfirmation(null);
-    await toggleMonitoring(beneficiary, monitored, descendants);
   };
 
   const openBeneficiaryReport = (beneficiary) => {
@@ -533,25 +322,6 @@ export default function ProgramPage() {
   const selectedProgram = programId
     ? programs.find((program) => program.id === Number(programId))
     : programs.find((program) => program.id === Number(form.id)) || filteredPrograms[0];
-  const routeMatchesValue = (entity, routeValue, extraKeys = []) => {
-    if (!entity || !routeValue) return false;
-    const target = String(routeValue).trim().toLowerCase();
-    const candidates = new Set([
-      entity.id,
-      entity.databaseId,
-      entity.code,
-      entity.batch_code,
-      entity.group_code,
-      entity.community_code,
-      entity.name,
-      entity.group_name,
-      entity.batch_name,
-      entity.community_name,
-      ...extraKeys.map((key) => entity?.[key]),
-    ].filter((value) => value !== undefined && value !== null && value !== '')
-      .map((value) => String(value).trim().toLowerCase()));
-    return candidates.has(target);
-  };
   const selectedRouteSchool = useMemo(() => hierarchy.schools.find((school) => routeMatchesValue(school, schoolId, ['schoolId', 'communityId', 'school_code', 'code'])), [hierarchy.schools, schoolId]);
   const selectedRouteGroup = useMemo(() => hierarchy.groups.find((group) => routeMatchesValue(group, groupId, ['groupId', 'group_code', 'code'])), [hierarchy.groups, groupId]);
   const selectedRouteBatch = useMemo(() => hierarchy.batches.find((batch) => routeMatchesValue(batch, batchId, ['batchId', 'batch_code', 'code', 'name'])), [hierarchy.batches, batchId]);
@@ -653,21 +423,6 @@ export default function ProgramPage() {
   const assignedGroupCoverageRows = isHealthWorkerRole(currentUser?.role)
     ? directScopeGroups.filter((group) => String(group.id) === assignedGroupId)
     : [];
-  const matchesSchoolGroupBatch = (record, schoolName, groupName, batchName) => {
-    const recordSchool = String(record?.school || '').trim().toLowerCase();
-    const recordGroup = String(record?.group || '').trim().toLowerCase();
-    const recordBatch = String(record?.batch || '').trim().toLowerCase();
-    const normalizedSchoolName = String(schoolName || '').trim().toLowerCase();
-    const normalizedGroupName = String(groupName || '').trim().toLowerCase();
-    const normalizedBatchName = String(batchName || '').trim().toLowerCase();
-
-    if (normalizedSchoolName && recordSchool && recordSchool !== normalizedSchoolName) return false;
-    if (normalizedBatchName && recordBatch && recordBatch !== normalizedBatchName) return false;
-    if (normalizedGroupName && recordGroup && recordGroup !== normalizedGroupName) return false;
-    if (normalizedGroupName && !recordGroup && normalizedBatchName && !recordBatch) return false;
-    if (normalizedBatchName && !recordBatch && normalizedGroupName && !recordGroup) return false;
-    return true;
-  };
   const programHierarchy = useMemo(() => schoolRows.map((schoolCluster, schoolIndex) => {
     const scopedRecords = getProgramBeneficiaryRecords(selectedProgramView);
     const normalizedSchoolName = String(schoolCluster.name || '').replace(/ School$/i, '');
@@ -1867,203 +1622,26 @@ export default function ProgramPage() {
         </div>
       ), document.body)}
 
-      {showBeneficiaryModal && selectedProgram && createPortal((
-        <div
-          className={`modal-backdrop ${getModalBackdropClasses()}`}
-          role="presentation"
-          onMouseDown={() => setShowBeneficiaryModal(false)}
-        >
-          <form
-            className={`modal program-product-modal program-beneficiary-modal ${getModalSurfaceClasses()}`}
-            onSubmit={saveBeneficiaryScope}
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <div className={`modal-header ${modalHeaderSectionClasses}`}>
-              <h2>Add project beneficiary cluster</h2>
-              <button
-                type="button"
-                className={`modal-close ${modalCloseClasses}`}
-                onClick={() => setShowBeneficiaryModal(false)}
-                aria-label="Close"
-              >
-                ×
-              </button>
-            </div>
-            <div className={`modal-body ${modalBodyClasses}`}>
-              <p className="program-modal-context">
-                {selectedProgram.name} · Choose the coverage cluster for this
-                project.
-              </p>
-              <div className="program-scope-options" aria-label="Beneficiary scope options">
-                {[
-                  { value: 'School', label: 'Whole school / community', detail: 'Cover all eligible beneficiaries in this school or community.' },
-                  { value: 'Group', label: 'Group', detail: 'Cover one group within the school or community.' },
-                  { value: 'Batch', label: 'Batch', detail: 'Cover one batch within the selected group.' },
-                ].map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    className={`program-scope-pill${beneficiaryScope === option.value ? ' active' : ''}`}
-                    aria-pressed={beneficiaryScope === option.value}
-                    onClick={() => {
-                      if (beneficiaryScope === option.value) return;
-                      setBeneficiaryScope(option.value);
-                      setScopeSchoolIds([]);
-                      setScopeGroupIds([]);
-                      setScopeBatchIds([]);
-                      setScopeError('');
-                    }}
-                  >
-                    <span>{option.label}</span>
-                    <small>{option.detail}</small>
-                  </button>
-                ))}
-              </div>
-
-              <div className="program-hierarchy-field">
-                <span className="program-hierarchy-label">Select {beneficiaryScope === 'School' ? 'schools or communities' : beneficiaryScope === 'Group' ? 'groups' : 'batches'} for this project</span>
-                {scopeError && <p className="program-scope-error" role="alert">{scopeError}</p>}
-                <div className="program-hierarchy-options program-community-hierarchy" role="group" aria-label="Community hierarchy selector">
-                  {communityHierarchyGroups.length ? communityHierarchyGroups.map(({ school, groups, batches }) => {
-                    const schoolId = String(school.id || school.school_id || school.community_id);
-                    const schoolChecked = scopeSchoolIds.includes(schoolId);
-                    const schoolGroups = groups.filter((group) => {
-                      const groupName = String(group.name || group.group_name || '').trim().toLowerCase();
-                      return groupName;
-                    });
-                    const schoolBatches = batches.filter((batch) => {
-                      const batchName = String(batch.name || batch.batch_code || batch.code || '').trim();
-                      return batchName;
-                    });
-
-                    return (
-                      <div key={school.id} className="program-community-cluster">
-                          {beneficiaryScope === 'School' ? (
-                            <label className="program-recipient program-recipient--school">
-                              <input
-                                id={`scope-school-${schoolId}`}
-                                name="scopeSchools"
-                                type="checkbox"
-                                checked={schoolChecked}
-                                onChange={() => {
-                                  setScopeSchoolIds((current) => current.includes(schoolId) ? current.filter((value) => value !== schoolId) : [...current, schoolId]);
-                                  setScopeError('');
-                                }}
-                              />
-                              <span>{school.name}</span>
-                            </label>
-                          ) : (
-                            <div className="program-recipient-heading"><strong>{school.name}</strong></div>
-                          )}
-
-                        {(beneficiaryScope !== 'School') && (
-                          <div className="program-community-subgroups">
-                            {schoolGroups.length ? schoolGroups.map((group) => {
-                              const groupId = String(group.id);
-                              const groupChecked = scopeGroupIds.includes(groupId);
-                              const groupName = String(group.name || group.group_name || '').trim().toLowerCase();
-                              const groupBatches = schoolBatches.filter((batch) => {
-                                const batchGroupIds = String(batch.groupIds || '').split(',').map((value) => value.trim());
-                                const batchGroupNames = String(batch.groupNames || '').split(',').map((value) => value.trim().toLowerCase());
-                                return String(batch.group_id || '') === groupId
-                                  || batchGroupIds.includes(groupId)
-                                  || String(batch.group || batch.group_name || '').trim().toLowerCase() === groupName
-                                  || batchGroupNames.includes(groupName);
-                              });
-                              return (
-                                <div key={group.id} className="program-community-subgroup">
-                                  {beneficiaryScope === 'Group' ? (
-                                    <label className="program-recipient">
-                                      <input
-                                        id={`scope-group-${group.id}`}
-                                        name="scopeGroups"
-                                        type="checkbox"
-                                        checked={groupChecked}
-                                        onChange={() => {
-                                          setScopeGroupIds((current) => current.includes(groupId) ? current.filter((value) => value !== groupId) : [...current, groupId]);
-                                          setScopeError('');
-                                        }}
-                                      />
-                                      <span>{group.name || group.group_name}</span>
-                                    </label>
-                                  ) : (
-                                    <div className="program-recipient-heading"><strong>{group.name || group.group_name}</strong></div>
-                                  )}
-
-                                  {beneficiaryScope === 'Batch' && (
-                                    <div className="program-community-batches">
-                                      {groupBatches.length ? groupBatches.map((batch) => {
-                                        const batchId = String(batch.id);
-                                        const batchChecked = scopeBatchIds.includes(batchId);
-                                        return (
-                                          <label key={batch.id} className="program-recipient program-recipient--batch">
-                                            <input
-                                              id={`scope-batch-${batch.id}`}
-                                              name="scopeBatches"
-                                              type="checkbox"
-                                              checked={batchChecked}
-                                              onChange={() => {
-                                                setScopeBatchIds((current) => current.includes(batchId) ? current.filter((value) => value !== batchId) : [...current, batchId]);
-                                                setScopeError('');
-                                              }}
-                                            />
-                                            <span>{batch.name || batch.batch_code || batch.code}</span>
-                                          </label>
-                                        );
-                                      }) : <small className="program-hierarchy-empty">No batches in this group.</small>}
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            }) : <small className="program-hierarchy-empty">No groups under this school.</small>}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  }) : <small>No communities available yet.</small>}
-                </div>
-              </div>
-              <section className="program-recipient-preview" aria-label="Recipient preview">
-                <div className="program-recipient-preview-header">
-                  <div>
-                    <strong>Automatically included beneficiaries</strong>
-                    <span>{previewRecipients.length} eligible beneficiaries will be included in this scope.</span>
-                  </div>
-                </div>
-                {!selectedScopeNames.length ? (
-                  <p className="program-recipient-preview-empty">Choose a school, group, or batch. All eligible beneficiaries in the selected scope will be included automatically.</p>
-                ) : previewRecipients.length ? (
-                  <div className="program-recipient-preview-list">
-                    {previewRecipients.map((record) => (
-                        <div key={`${record.sourceType}:${record.sourceId}`} className="program-recipient">
-                          <span>{record.name}</span>
-                          <small>{record.type}</small>
-                        </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="program-recipient-preview-empty">No eligible beneficiaries were found in the selected scope.</p>
-                )}
-              </section>
-            </div>
-            <div className={`modal-footer ${modalFooterClasses}`}>
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => {
-                  setShowBeneficiaryModal(false);
-                  setScopeError('');
-                }}
-              >
-                Cancel
-              </button>
-              <button type="submit" className="btn-primary">
-                Add scope with {previewRecipients.length} beneficiaries
-              </button>
-            </div>
-          </form>
-        </div>
-      ), document.body)}
+      {showBeneficiaryModal && (
+        <AddProgramBeneficiariesModal
+          program={selectedProgram}
+          beneficiaryScope={beneficiaryScope}
+          setBeneficiaryScope={setBeneficiaryScope}
+          scopeSchoolIds={scopeSchoolIds}
+          setScopeSchoolIds={setScopeSchoolIds}
+          scopeGroupIds={scopeGroupIds}
+          setScopeGroupIds={setScopeGroupIds}
+          scopeBatchIds={scopeBatchIds}
+          setScopeBatchIds={setScopeBatchIds}
+          scopeError={scopeError}
+          setScopeError={setScopeError}
+          communityHierarchyGroups={communityHierarchyGroups}
+          selectedScopeNames={selectedScopeNames}
+          previewRecipients={previewRecipients}
+          onSubmit={saveBeneficiaryScope}
+          onClose={() => setShowBeneficiaryModal(false)}
+        />
+      )}
 
       {monitorConfirmation && createPortal((
         <div className={`modal-backdrop ${getModalBackdropClasses()}`} role="presentation" onMouseDown={() => setMonitorConfirmation(null)}>
@@ -2084,123 +1662,17 @@ export default function ProgramPage() {
           </div>
         </div>
       ), document.body)}
-      {showModal && createPortal((
-        <div
-          className={`modal-backdrop${form.id ? ' program-edit-drawer-backdrop' : ''} ${getModalBackdropClasses({ drawer: Boolean(form.id) })}`}
-          role="presentation"
-          onMouseDown={() => {
+      {showModal && (
+        <ProgramFormModal
+          form={form}
+          setForm={setForm}
+          onSubmit={saveProgram}
+          onClose={() => {
             setShowModal(false);
             setForm(emptyProgram);
           }}
-        >
-          <form
-            className={`modal program-product-modal${form.id ? ' program-edit-drawer' : ''} ${getModalSurfaceClasses()}`}
-            onSubmit={saveProgram}
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <div className={`modal-header ${modalHeaderSectionClasses}`}>
-              <h2>{form.id ? 'Edit project' : 'Create project'}</h2>
-              <button
-                type="button"
-                className={`modal-close ${modalCloseClasses}`}
-                onClick={() => {
-                  setShowModal(false);
-                  setForm(emptyProgram);
-                }}
-                aria-label="Close"
-              >
-                ×
-              </button>
-            </div>
-            <div className={`modal-body ${modalBodyClasses}`}>
-              <label className={`${formLabelClasses} form-label`} htmlFor="program-name">
-                Project name <span className="form-required-indicator" aria-hidden="true">*</span>
-                <input
-                  id="program-name"
-                  className={`${formFieldClasses} form-input`}
-                  value={form.name}
-                  onChange={(event) =>
-                    setForm({ ...form, name: event.target.value })
-                  }
-                  required
-                />
-              </label>
-              <label className={`${formLabelClasses} form-label`} htmlFor="program-type">
-                Project type <span className="form-required-indicator" aria-hidden="true">*</span>
-                <select
-                  id="program-type"
-                  className={`${formFieldClasses} form-select`}
-                  value={form.type}
-                  required
-                  onChange={(event) =>
-                    setForm({ ...form, type: event.target.value })
-                  }
-                >
-                  <option>Feeding</option>
-                  <option>Milk Subsidy</option>
-                  <option>Vitamin / Supplement</option>
-                  <option>Community Talk</option>
-                  <option value="Other">Others</option>
-                </select>
-              </label>
-              <label className={`${formLabelClasses} form-label`} htmlFor="program-provider">
-                Provider / partner <span className="form-required-indicator" aria-hidden="true">*</span>
-                <input
-                  id="program-provider"
-                  className={`${formFieldClasses} form-input`}
-                  value={form.provider}
-                  onChange={(event) =>
-                    setForm({ ...form, provider: event.target.value })
-                  }
-                  required
-                />
-              </label>
-              <label className={`${formLabelClasses} form-label`} htmlFor="program-description">
-                Description <span className="form-optional-indicator">(Optional)</span>
-                <textarea
-                  id="program-description"
-                  className={`${formFieldClasses} form-input`}
-                  rows="3"
-                  value={form.description}
-                  onChange={(event) =>
-                    setForm({ ...form, description: event.target.value })
-                  }
-                />
-              </label>
-              <label className={`${formLabelClasses} form-label`} htmlFor="program-beneficiary-type">
-                Beneficiary type <span className="form-required-indicator" aria-hidden="true">*</span>
-                <select
-                  id="program-beneficiary-type"
-                  className={`${formFieldClasses} form-select`}
-                  value={form.beneficiaryType}
-                  required
-                  onChange={(event) =>
-                    setForm({ ...form, beneficiaryType: event.target.value })
-                  }
-                >
-                  <option>Mother</option>
-                  <option>Child</option>
-                </select>
-              </label>
-            </div>
-            <div className={`modal-footer ${modalFooterClasses}`}>
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => {
-                  setShowModal(false);
-                  setForm(emptyProgram);
-                }}
-              >
-                Cancel
-              </button>
-              <button type="submit" className="btn-primary">
-                {form.id ? 'Review changes' : 'Create active project'}
-              </button>
-            </div>
-          </form>
-        </div>
-      ), document.body)}
+        />
+      )}
       {showActivityModal && selectedProgram && createPortal((
         <div
           className={`modal-backdrop ${getModalBackdropClasses()}`}

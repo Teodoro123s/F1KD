@@ -1,7 +1,7 @@
-import { calculateBmi } from '../../utils/beneficiary/beneficiaryHelpers.js';
-import { getMotherTrimesterMonth } from '../../utils/beneficiary/motherProgress.js';
-import { calculateWhoGrowthScores } from '../../utils/beneficiary/whoGrowthStandards.js';
-import { getAgeInDecimalMonths } from '../../utils/beneficiary/childAge.mjs';
+import { calculateBmi } from '../../../utils/beneficiary/beneficiaryHelpers.js';
+import { getMotherTrimesterMonth } from '../../../utils/beneficiary/motherProgress.js';
+import { calculateWhoGrowthScores } from '../../../utils/beneficiary/whoGrowthStandards.js';
+import { getAgeInDecimalMonths } from '../../../utils/beneficiary/childAge.mjs';
 
 export const MONITORING_REPORT_FIELD_LABELS = {
   measurementDate: 'Check-up date',

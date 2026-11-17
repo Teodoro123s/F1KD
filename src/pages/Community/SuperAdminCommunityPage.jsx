@@ -160,8 +160,9 @@ export default function SuperAdminCommunityPage() {
     const selectedBatch = batches.find((batch) => String(batch.id || batch.code) === String(batchId));
     const parentGroupId = String(selectedBatch?.groupIds || '').split(',').map((id) => id.trim()).find(Boolean);
     if (parentGroupId) navigate(`/community/group/${parentGroupId}`, { replace: true });
-    else if (selectedBatch?.community) {
-      const parentSchool = communities.find((community) => community.name === selectedBatch.community);
+    else if (selectedBatch?.communityId || selectedBatch?.community) {
+      const parentSchool = communities.find((community) => String(community.id) === String(selectedBatch.communityId))
+        || communities.find((community) => community.name === selectedBatch.community);
       navigate(parentSchool ? `/community/school/${parentSchool.id}` : '/community', { replace: true });
     } else navigate('/community', { replace: true });
   }, [batchId, batches, communities, loading, navigate]);
@@ -173,7 +174,7 @@ export default function SuperAdminCommunityPage() {
     if (activeTab === 'groups') {
       rows = (selectedSchool ? schoolGroups : groups).map((group) => ({
         ...group,
-        schoolName: group.community || communities.find((community) => String(community.id) === String(group.communityId))?.name || selectedSchool?.name || 'Unknown school',
+        schoolName: communities.find((community) => String(community.id) === String(group.communityId))?.name || group.community || selectedSchool?.name || 'Unknown school',
       }));
     } else if (activeTab === 'batches') {
       rows = selectedGroupBatches;
@@ -273,14 +274,14 @@ export default function SuperAdminCommunityPage() {
     }
 
     if (type === 'group') {
-      setGroupForm({ ...defaultGroupForm, community: selectedSchool?.name || communities[0]?.name || '' });
+      setGroupForm({ ...defaultGroupForm, community: selectedSchool?.id || communities[0]?.id || '' });
       setShowModal('createGroup');
       return;
     }
 
     setBatchForm({
       ...defaultBatchForm,
-      community: selectedSchool?.name || selectedGroup?.community || communities[0]?.name || '',
+      community: selectedSchool?.id || selectedGroup?.communityId || communities[0]?.id || '',
       groupId: String(selectedGroup?.id || ''),
     });
     setShowModal('createBatch');
@@ -294,7 +295,7 @@ export default function SuperAdminCommunityPage() {
       return;
     }
     if (activeTab === 'groups') {
-      setGroupForm({ ...defaultGroupForm, ...item, community: item.community || selectedSchool?.name || '' });
+      setGroupForm({ ...defaultGroupForm, ...item, community: item.communityId || selectedSchool?.id || '' });
       setShowModal('editGroup');
       return;
     }
@@ -302,7 +303,7 @@ export default function SuperAdminCommunityPage() {
       setBatchForm({
         ...defaultBatchForm,
         ...item,
-        community: item.community || selectedSchool?.name || '',
+        community: item.communityId || selectedSchool?.id || '',
         groupId: String(selectedGroup?.id || String(item.groupIds || '').split(',')[0] || ''),
       });
       setShowModal('editBatch');
@@ -397,7 +398,7 @@ export default function SuperAdminCommunityPage() {
 
     if (activeTab === 'communities') {
       return [
-        { key: 'name', header: 'School Name', style: { width: '48%' }, renderCell: (row) => <span className="community-title-text">{row.name}</span> },
+        { key: 'name', header: 'School Name', style: { width: '48%' }, renderCell: (row) => <span className="community-title-text" title={`${row.name} · ${row.area} · ${row.code || `ID ${row.id}`}`}>{row.name} <small>{row.area} · {row.code || `ID ${row.id}`}</small></span> },
         { key: 'coordinatorName', header: 'Assigned Community Coordinator', renderCell: (row) => row.coordinatorName || getSchoolCoordinator(row)?.name || 'Not assigned' },
         { key: 'groups', header: 'Groups in school', cellClassName: 'small-column', renderCell: (row) => groups.filter((group) => (
           group.communityId != null

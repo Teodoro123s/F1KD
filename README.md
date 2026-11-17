@@ -29,7 +29,7 @@ The root `.env` is used by Docker Compose; `server/.env` is for running the API 
 - [Partner user guide](./docs/PARTNER.md) — global operational review, read-only limits, and available reporting.
 - [Health Worker user guide](./docs/HEALTH_WORKER.md) — assigned-school/group scope, permitted check-ups and receipts, and account boundaries.
 - [Integrated AI guide](./docs/INTEGRATED_AI.md) — AI features by module, their purpose, scope, access, data handling, and limitations.
-- [Server guide](./server/README.md) — backend setup, sample data, API behavior, and operational notes.
+- [Server guide](./server/README.md) — backend setup, API behavior, and operational notes.
 
 ## Docker: Full Stack
 

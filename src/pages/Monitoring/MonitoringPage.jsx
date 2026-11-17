@@ -26,8 +26,8 @@ import MotherNavigationCards from '../Beneficiary/mother/MotherNavigationCards';
 import ChildNavigationCards from '../Beneficiary/child/ChildNavigationCards';
 import BeneficiarySuperHeader from '../Beneficiary/mother/BeneficiarySuperHeader';
 import MonitoringActivityCalendar from './MonitoringActivityCalendar';
-import { getMaternalMonitoringActivities } from './monitoringActivityCalendarUtils.mjs';
-import { getMonitoringScreeningRouteFilters, getMonthlyDevelopmentalStatus, normalizeDevelopmentalStatus } from './monitoringScreeningUtils.mjs';
+import { getMaternalMonitoringActivities } from './utils/monitoringActivityCalendarUtils.mjs';
+import { getMonitoringScreeningRouteFilters, getMonthlyDevelopmentalStatus, normalizeDevelopmentalStatus } from './utils/monitoringScreeningUtils.mjs';
 
 function getMotherName(mother) {
   return mother?.name || [mother?.firstName || mother?.first_name, mother?.middleName || mother?.middle_name, mother?.lastName || mother?.last_name]

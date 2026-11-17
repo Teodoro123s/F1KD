@@ -2,6 +2,7 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import UnifiedModal from './UnifiedModal';
 import Button from './Button';
+import { getNotificationDestination } from '../../utils/notificationUtils.mjs';
 
 function formatTimestamp(value) {
   if (!value) return '—';
@@ -119,9 +120,4 @@ export default function NotificationDetailsModal({
       `}</style>
     </UnifiedModal>
   ), document.body);
-}
-
-function getNotificationDestination(notification) {
-  const destination = String(notification?.linkTo || '').trim();
-  return destination.startsWith('/') && !destination.startsWith('//') && !destination.includes('\\') && destination !== '/notifications';
 }

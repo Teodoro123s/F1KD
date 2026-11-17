@@ -57,17 +57,101 @@ async function resolveBatchId(pool, batchIdentifier) {
 }
 
 async function resolveCommunityId(pool, communityIdentifier) {
-  const id = Number(communityIdentifier);
-  if (!Number.isNaN(id)) {
+  const id = parsePositiveIntegerId(communityIdentifier);
+  if (id !== null) {
     return id;
   }
 
   const normalized = String(communityIdentifier || '').trim();
   if (!normalized) return null;
 
-  const [rows] = await pool.query('SELECT id FROM communities WHERE name = ? LIMIT 1', [normalized]);
+  const [rows] = await pool.query(
+    `SELECT id FROM communities
+     WHERE LOWER(TRIM(REGEXP_REPLACE(name, '[[:space:]]+', ' '))) =
+       LOWER(TRIM(REGEXP_REPLACE(?, '[[:space:]]+', ' ')))
+       AND archived_at IS NULL
+     ORDER BY id LIMIT 2`,
+    [normalized],
+  );
+  if (rows.length > 1) {
+    throw duplicateNameError('This school name is ambiguous. Select the school by ID.');
+  }
   if (!rows.length) return null;
   return rows[0].id;
+}
+
+function duplicateNameError(message) {
+  const error = new Error(message);
+  error.status = 409;
+  return error;
+}
+
+async function assertUniqueSchoolName(connection, name, area, excludeId = null) {
+  const excludeClause = excludeId === null ? '' : ' AND id <> ?';
+  const values = [name, area];
+  if (excludeId !== null) values.push(excludeId);
+  const [rows] = await connection.query(
+    `SELECT id FROM communities
+     WHERE archived_at IS NULL
+       AND LOWER(TRIM(REGEXP_REPLACE(name, '[[:space:]]+', ' '))) =
+         LOWER(TRIM(REGEXP_REPLACE(?, '[[:space:]]+', ' ')))
+       AND LOWER(TRIM(REGEXP_REPLACE(area, '[[:space:]]+', ' '))) =
+         LOWER(TRIM(REGEXP_REPLACE(?, '[[:space:]]+', ' ')))${excludeClause}
+     LIMIT 1`,
+    values,
+  );
+  if (rows.length) {
+    throw duplicateNameError('A school with this name already exists in this area.');
+  }
+}
+
+async function assertUniqueGroupName(connection, communityId, name, excludeId = null) {
+  const excludeClause = excludeId === null ? '' : ' AND id <> ?';
+  const values = [communityId, name];
+  if (excludeId !== null) values.push(excludeId);
+  const [rows] = await connection.query(
+    `SELECT id FROM groups
+     WHERE community_id = ? AND archived_at IS NULL
+       AND LOWER(TRIM(REGEXP_REPLACE(name, '[[:space:]]+', ' '))) =
+         LOWER(TRIM(REGEXP_REPLACE(?, '[[:space:]]+', ' ')))${excludeClause}
+     LIMIT 1`,
+    values,
+  );
+  if (rows.length) {
+    throw duplicateNameError('A group with this name already exists in this school.');
+  }
+}
+
+async function assertUniqueBatchName(connection, groupIds, name, excludeId = null) {
+  const uniqueGroupIds = [...new Set(groupIds.map(Number).filter((id) => Number.isInteger(id) && id > 0))];
+  if (!uniqueGroupIds.length) return;
+
+  const groupPlaceholders = uniqueGroupIds.map(() => '?').join(', ');
+  await connection.query(
+    `SELECT id FROM groups WHERE id IN (${groupPlaceholders}) ORDER BY id FOR UPDATE`,
+    uniqueGroupIds,
+  );
+  const excludeClause = excludeId === null ? '' : ' AND b.id <> ?';
+  const values = [...uniqueGroupIds, name];
+  if (excludeId !== null) values.push(excludeId);
+  const [rows] = await connection.query(
+    `SELECT b.id FROM batches b
+     JOIN group_batch gb ON gb.batch_id = b.id
+     WHERE gb.group_id IN (${groupPlaceholders})
+       AND b.archived_at IS NULL
+       AND LOWER(TRIM(REGEXP_REPLACE(b.name, '[[:space:]]+', ' '))) =
+         LOWER(TRIM(REGEXP_REPLACE(?, '[[:space:]]+', ' ')))${excludeClause}
+     LIMIT 1`,
+    values,
+  );
+  if (rows.length) {
+    throw duplicateNameError('A batch with this name already exists in this group.');
+  }
+}
+
+function sameName(left, right) {
+  return String(left || '').trim().replace(/\s+/g, ' ').toLowerCase()
+    === String(right || '').trim().replace(/\s+/g, ' ').toLowerCase();
 }
 
 async function getAccessibleBatchId(req, batchIdentifier) {
@@ -215,7 +299,7 @@ router.get('/reference-options', async (req, res) => {
 
     const [[schoolRows], [groupRows], [batchRows]] = await Promise.all([
       pool.query(
-        `SELECT c.id, c.name, COALESCE(c.area, '') AS area, c.coordinator_id,
+        `SELECT c.id, c.community_code AS code, c.name, COALESCE(c.area, '') AS area, c.coordinator_id,
           CONCAT_WS(' ', u.first_name, u.last_name) AS coordinator_name
          FROM communities c
          LEFT JOIN users u ON u.id = c.coordinator_id
@@ -234,7 +318,7 @@ router.get('/reference-options', async (req, res) => {
         scopeValue ? [scopeValue] : [],
       ),
       pool.query(
-        `SELECT b.id, b.batch_code, b.name, c.name AS community,
+        `SELECT b.id, b.batch_code, b.name, b.community_id, c.name AS community,
           COALESCE(b.records, 0) AS records, COALESCE(b.status, 'Active') AS status,
           GROUP_CONCAT(DISTINCT gb.group_id ORDER BY gb.group_id) AS group_ids,
           GROUP_CONCAT(DISTINCT g.name ORDER BY g.name) AS group_names
@@ -252,6 +336,7 @@ router.get('/reference-options', async (req, res) => {
     res.json({
       communities: schoolRows.map((row) => ({
         id: row.id,
+        code: row.code,
         name: row.name,
         area: row.area || '',
         coordinatorId: row.coordinator_id || '',
@@ -272,6 +357,7 @@ router.get('/reference-options', async (req, res) => {
         databaseId: row.id,
         code: row.batch_code || String(row.id),
         name: row.name,
+        communityId: row.community_id,
         community: row.community || '',
         records: Number(row.records || 0),
         status: row.status || 'Active',
@@ -321,6 +407,7 @@ router.get('/summary', async (req, res) => {
     const [communities] = await pool.query(`
       SELECT
         c.id AS id,
+        c.community_code AS code,
         c.name,
         COALESCE(c.area, '') AS area,
         c.coordinator_id,
@@ -332,7 +419,7 @@ router.get('/summary', async (req, res) => {
       ${communityMotherJoin}
       LEFT JOIN users u ON u.id = c.coordinator_id
       ${schoolScope}
-      GROUP BY c.id, c.name, c.area, c.coordinator_id, u.first_name, u.last_name
+      GROUP BY c.id, c.community_code, c.name, c.area, c.coordinator_id, u.first_name, u.last_name
       ORDER BY c.id
     `, req.groupId ? [req.groupId, req.groupId, req.schoolId] : req.schoolId ? [req.schoolId] : []);
 
@@ -445,6 +532,7 @@ router.get('/summary', async (req, res) => {
 
     const communitiesData = communities.map((item) => ({
       id: item.id,
+      code: item.code,
       name: item.name,
       area: item.area || '',
       coordinatorId: item.coordinator_id || '',
@@ -547,14 +635,16 @@ router.get('/summary', async (req, res) => {
 router.post('/communities', async (req, res) => {
   try {
     const { name, area, coordinator } = req.body || {};
-    const cleanName = String(name || '').trim();
-    const cleanArea = String(area || '').trim() || 'Poblacion';
+    const cleanName = String(name || '').trim().replace(/\s+/g, ' ');
+    const cleanArea = String(area || '').trim().replace(/\s+/g, ' ') || 'Poblacion';
 
     if (!cleanName) {
       return res.status(400).json({ error: 'Community name is required' });
     }
 
     const created = await withTransaction(pool, async (connection) => {
+      await connection.query('SELECT id FROM communities ORDER BY id FOR UPDATE');
+      await assertUniqueSchoolName(connection, cleanName, cleanArea);
       const coordinatorId = coordinator ? Number(coordinator) : null;
       if (coordinator && (!Number.isInteger(coordinatorId) || coordinatorId <= 0)) {
         const error = new Error('Select a valid Community Coordinator.');
@@ -609,6 +699,7 @@ router.post('/communities', async (req, res) => {
           : error.message,
       });
     }
+    if (error.status === 409) return res.status(409).json({ error: error.message });
     if (error.status === 400) return res.status(400).json({ error: error.message });
     res.status(500).json({ error: 'db error' });
   }
@@ -622,7 +713,7 @@ router.post('/batches', (req, res, next) => {
 }, async (req, res) => {
   try {
     const { name, community, groupId, records, progress, status } = req.body || {};
-    const cleanName = String(name || '').trim();
+    const cleanName = String(name || '').trim().replace(/\s+/g, ' ');
     const communityId = await resolveCommunityId(pool, community);
 
     if (!cleanName) {
@@ -651,6 +742,19 @@ router.post('/batches', (req, res, next) => {
     if (!groupRows.length) return res.status(400).json({ error: 'Selected group does not belong to this community' });
 
     const created = await withTransaction(pool, async (connection) => {
+      const [lockedGroups] = await connection.query(
+        `SELECT g.id FROM groups g
+         JOIN communities c ON c.id = g.community_id AND c.archived_at IS NULL
+         WHERE g.id = ? AND g.community_id = ? AND g.archived_at IS NULL
+         LIMIT 1 FOR UPDATE`,
+        [resolvedGroupId, communityId],
+      );
+      if (!lockedGroups.length) {
+        const error = new Error('Selected group does not belong to this community');
+        error.status = 400;
+        throw error;
+      }
+      await assertUniqueBatchName(connection, [resolvedGroupId], cleanName);
       const batchCode = await nextCode(connection, 'batches', 'batch_code', 'BAT');
       const [result] = await connection.query(
         'INSERT INTO batches (batch_code, community_id, name, records, progress, status) VALUES (?, ?, ?, ?, ?, ?)',
@@ -686,6 +790,8 @@ router.post('/batches', (req, res, next) => {
     res.status(201).json({ batch: { ...created, id: created.code || created.id, code: created.code || created.id, groupId: resolvedGroupId } });
   } catch (error) {
     console.error('[Community API] create batch error:', error.message);
+    if (error.status === 409) return res.status(409).json({ error: error.message });
+    if (error.status === 400) return res.status(400).json({ error: error.message });
     res.status(500).json({ error: 'db error' });
   }
 });
@@ -693,7 +799,7 @@ router.post('/batches', (req, res, next) => {
 router.post('/groups', async (req, res) => {
   try {
     const { name, community, leader, members, status } = req.body || {};
-    const cleanName = String(name || '').trim();
+    const cleanName = String(name || '').trim().replace(/\s+/g, ' ');
     const communityId = await resolveCommunityId(pool, community);
 
     if (!cleanName) {
@@ -711,19 +817,29 @@ router.post('/groups', async (req, res) => {
     }
 
     const cleanLeader = String(leader || '').trim();
-    const groupCode = await nextCode(pool, 'groups', 'group_code', 'GRP');
+    const created = await withTransaction(pool, async (connection) => {
+      const [schoolRows] = await connection.query(
+        'SELECT id FROM communities WHERE id = ? AND archived_at IS NULL LIMIT 1 FOR UPDATE',
+        [communityId],
+      );
+      if (!schoolRows.length) {
+        const error = new Error('Select an active school');
+        error.status = 409;
+        throw error;
+      }
+      await assertUniqueGroupName(connection, communityId, cleanName);
+      const groupCode = await nextCode(connection, 'groups', 'group_code', 'GRP');
+      const [result] = await connection.query(
+        'INSERT INTO groups (group_code, community_id, name, leader, members_count, status) VALUES (?, ?, ?, ?, ?, ?)',
+        [groupCode, communityId, cleanName, cleanLeader || null, Number(members) || 0, status || 'Active']
+      );
 
-    const [result] = await pool.query(
-      'INSERT INTO groups (group_code, community_id, name, leader, members_count, status) VALUES (?, ?, ?, ?, ?, ?)',
-      [groupCode, communityId, cleanName, cleanLeader || null, Number(members) || 0, status || 'Active']
-    );
-
-    const [rows] = await pool.query(
-      'SELECT id, group_code AS code, name, leader, members_count AS members, status, community_id FROM groups WHERE id = ?',
-      [result.insertId]
-    );
-
-    const created = rows[0];
+      const [rows] = await connection.query(
+        'SELECT id, group_code AS code, name, leader, members_count AS members, status, community_id FROM groups WHERE id = ?',
+        [result.insertId]
+      );
+      return rows[0];
+    });
     await createSuperadminNotification({
       eventType: 'group.created',
       category: 'Community',
@@ -740,6 +856,8 @@ router.post('/groups', async (req, res) => {
     res.status(201).json({ group: { ...created, assignedBatchIds: [] } });
   } catch (error) {
     console.error('[Community API] create group error:', error.message);
+    if (error.status === 409) return res.status(409).json({ error: error.message });
+    if (error.status === 400) return res.status(400).json({ error: error.message });
     res.status(500).json({ error: 'db error' });
   }
 });
@@ -966,8 +1084,8 @@ router.put('/communities/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { name, area, coordinator } = req.body || {};
-    const cleanName = String(name || '').trim();
-    const cleanArea = String(area || '').trim() || 'Poblacion';
+    const cleanName = String(name || '').trim().replace(/\s+/g, ' ');
+    const cleanArea = String(area || '').trim().replace(/\s+/g, ' ') || 'Poblacion';
 
     if (!cleanName) {
       return res.status(400).json({ error: 'Community name is required' });
@@ -982,11 +1100,24 @@ router.put('/communities/:id', async (req, res) => {
     }
 
     const updated = await withTransaction(pool, async (connection) => {
+      await connection.query('SELECT id FROM communities ORDER BY id FOR UPDATE');
       const schoolRows = await lockSchools(connection, [communityId]);
       if (!schoolRows.length) {
         const error = new Error('Community not found');
         error.status = 404;
         throw error;
+      }
+      const [currentRows] = await connection.query(
+        'SELECT name, area FROM communities WHERE id = ? LIMIT 1',
+        [communityId],
+      );
+      if (!currentRows.length) {
+        const error = new Error('Community not found');
+        error.status = 404;
+        throw error;
+      }
+      if (!sameName(cleanName, currentRows[0].name) || !sameName(cleanArea, currentRows[0].area)) {
+        await assertUniqueSchoolName(connection, cleanName, cleanArea, communityId);
       }
       const currentCoordinatorId = schoolRows[0].coordinator_id;
       const coordinatorId = coordinator ? Number(coordinator) : null;
@@ -1058,6 +1189,7 @@ router.put('/communities/:id', async (req, res) => {
     console.error('[Community API] update community error:', error.message);
     if (error.status === 404) return res.status(404).json({ error: error.message });
     if (error.status === 400) return res.status(400).json({ error: error.message });
+    if (error.status === 409) return res.status(409).json({ error: error.message });
     if (isAssignmentConflict(error)) {
       return res.status(409).json({
         error: error.code === 'ER_DUP_ENTRY'
@@ -1077,7 +1209,7 @@ router.put('/groups/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { name, community, leader, members, status } = req.body || {};
-    const cleanName = String(name || '').trim();
+    const cleanName = String(name || '').trim().replace(/\s+/g, ' ');
     const communityId = await resolveCommunityId(pool, community);
 
     if (!cleanName) {
@@ -1108,17 +1240,40 @@ router.put('/groups/:id', async (req, res) => {
 
     const updateScopeClause = req.isCommunityOrganizer ? ' AND community_id = ?' : '';
     const updateScopeValues = req.isCommunityOrganizer ? [req.schoolId] : [];
-    await pool.query(
-      `UPDATE groups SET name = ?, community_id = ?, leader = ?, members_count = ?, status = ? WHERE id = ? AND archived_at IS NULL${updateScopeClause}`,
-      [cleanName, communityId || null, String(leader || '').trim() || null, Number(members) || 0, status || 'Active', groupId, ...updateScopeValues]
-    );
+    const updated = await withTransaction(pool, async (connection) => {
+      const [schoolRows] = await connection.query(
+        'SELECT id FROM communities WHERE id = ? AND archived_at IS NULL LIMIT 1 FOR UPDATE',
+        [communityId],
+      );
+      if (!schoolRows.length) {
+        const error = new Error('Select an active school');
+        error.status = 409;
+        throw error;
+      }
+      const [currentRows] = await connection.query(
+        `SELECT id, name, community_id FROM groups
+         WHERE id = ? AND archived_at IS NULL${updateScopeClause}
+         LIMIT 1 FOR UPDATE`,
+        [groupId, ...updateScopeValues],
+      );
+      if (!currentRows.length) return null;
 
-    const [rows] = await pool.query(
-      `SELECT id, group_code AS code, name, leader, members_count AS members, status, community_id FROM groups WHERE id = ? AND archived_at IS NULL${updateScopeClause}`,
-      [groupId, ...updateScopeValues]
-    );
+      const current = currentRows[0];
+      if (Number(current.community_id) !== Number(communityId) || !sameName(current.name, cleanName)) {
+        await assertUniqueGroupName(connection, communityId, cleanName, groupId);
+      }
+      await connection.query(
+        `UPDATE groups SET name = ?, community_id = ?, leader = ?, members_count = ?, status = ? WHERE id = ? AND archived_at IS NULL${updateScopeClause}`,
+        [cleanName, communityId, String(leader || '').trim() || null, Number(members) || 0, status || 'Active', groupId, ...updateScopeValues]
+      );
+      const [rows] = await connection.query(
+        `SELECT id, group_code AS code, name, leader, members_count AS members, status, community_id FROM groups
+         WHERE id = ? AND archived_at IS NULL${updateScopeClause}`,
+        [groupId, ...updateScopeValues]
+      );
+      return rows[0] || null;
+    });
 
-    const updated = rows[0];
     if (!updated) return res.status(404).json({ error: 'Group not found' });
     await createSuperadminNotification({
       eventType: 'group.updated',
@@ -1135,6 +1290,8 @@ router.put('/groups/:id', async (req, res) => {
     res.json({ group: { ...updated, assignedBatchIds: [] } });
   } catch (error) {
     console.error('[Community API] update group error:', error.message);
+    if (error.status === 409) return res.status(409).json({ error: error.message });
+    if (error.status === 400) return res.status(400).json({ error: error.message });
     res.status(500).json({ error: 'db error' });
   }
 });
@@ -1147,7 +1304,7 @@ router.put('/batches/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { name, community, groupId, records, progress, status } = req.body || {};
-    const cleanName = String(name || '').trim();
+    const cleanName = String(name || '').trim().replace(/\s+/g, ' ');
     const communityId = await resolveCommunityId(pool, community);
 
     if (!cleanName) {
@@ -1203,9 +1360,10 @@ router.put('/batches/:id', async (req, res) => {
     const updateScopeClause = req.isCommunityOrganizer ? ' AND community_id = ?' : '';
     const updateScopeValues = req.isCommunityOrganizer ? [req.schoolId] : [];
     const updated = await withTransaction(pool, async (connection) => {
+      let targetGroupIds = [];
       if (groupId === undefined) {
         const [linkedGroups] = await connection.query(
-          `SELECT g.community_id FROM group_batch gb
+          `SELECT g.id, g.community_id FROM group_batch gb
            JOIN groups g ON g.id = gb.group_id
            WHERE gb.batch_id = ? FOR UPDATE`,
           [batchId],
@@ -1215,7 +1373,27 @@ router.put('/batches/:id', async (req, res) => {
           error.status = 409;
           throw error;
         }
+        targetGroupIds = linkedGroups.map((group) => Number(group.id));
+      } else if (groupId) {
+        const targetGroupId = parsePositiveIntegerId(groupId);
+        let groupRows = [];
+        if (targetGroupId !== null) {
+          [groupRows] = await connection.query(
+            `SELECT g.id FROM groups g
+             JOIN communities c ON c.id = g.community_id AND c.archived_at IS NULL
+             WHERE g.id = ? AND g.community_id = ? AND g.archived_at IS NULL
+             LIMIT 1 FOR UPDATE`,
+            [targetGroupId, communityId],
+          );
+        }
+        if (!groupRows.length) {
+          const error = new Error('Select an active group in this school');
+          error.status = 409;
+          throw error;
+        }
+        targetGroupIds = [targetGroupId];
       }
+      await assertUniqueBatchName(connection, targetGroupIds, cleanName, batchId);
 
       await connection.query(
         `UPDATE batches SET name = ?, community_id = ?, records = ?, progress = ?, status = ? WHERE id = ? AND archived_at IS NULL${updateScopeClause}`,

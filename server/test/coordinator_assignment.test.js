@@ -26,6 +26,14 @@ async function queryState(sql, params = []) {
   if (sql.includes('FOR UPDATE')) lockQueries.push(sql);
 
   if (sql.startsWith('INSERT INTO help_guidance_preferences')) return [{ insertId: 1 }];
+  if (sql === 'SELECT id FROM communities ORDER BY id FOR UPDATE') {
+    return [[...communities.values()].map(({ id }) => ({ id }))];
+  }
+  if (sql.includes('REGEXP_REPLACE')) return [[]];
+  if (sql.startsWith('SELECT name, area FROM communities WHERE id = ?')) {
+    const community = communities.get(Number(params[0]));
+    return [[community ? { name: community.name, area: community.area } : null].filter(Boolean)];
+  }
   if (sql.startsWith('SELECT id, coordinator_id FROM communities WHERE id IN')) {
     return [[...communities.values()]
       .filter((row) => params.map(Number).includes(Number(row.id)))

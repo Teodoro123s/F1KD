@@ -1,3 +1,4 @@
+// Client-side capability policy and role normalization; server APIs enforce authorization independently.
 export const ROLES = {
   SUPER_ADMIN: 'super_admin',
   ADMIN: 'admin',

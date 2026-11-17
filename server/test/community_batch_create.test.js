@@ -28,12 +28,13 @@ test('batch creation requires a group and stores the association', async (t) => 
   const originalQuery = pool.query;
   const originalGetConnection = pool.getConnection;
   const connectionQueries = [];
+  let batchNameAlreadyExists = false;
 
   pool.query = async (sql) => {
     if (sql === 'SELECT id FROM communities WHERE id = ? AND archived_at IS NULL LIMIT 1') {
       return [[{ id: 91 }]];
     }
-    if (sql.includes('FROM groups g')) return [[{ id: 12 }]];
+    if (sql.includes('FROM groups')) return [[{ id: 12 }]];
     if (sql.startsWith('INSERT INTO notifications')) return [{ insertId: 501 }];
     if (sql.includes('INSERT IGNORE INTO activity_logs')) return [{ affectedRows: 1 }];
     throw new Error(`Unexpected pool SQL: ${sql}`);
@@ -45,6 +46,8 @@ test('batch creation requires a group and stores the association', async (t) => 
     release() {},
     query: async (sql, params = []) => {
       connectionQueries.push({ sql, params });
+      if (sql.includes('FROM groups')) return [[{ id: 12 }]];
+      if (sql.includes('FROM batches b')) return [batchNameAlreadyExists ? [{ id: 6 }] : []];
       if (sql.includes('AS nextNo FROM batches')) return [[{ nextNo: 1 }]];
       if (sql.startsWith('INSERT INTO batches')) return [{ insertId: 5 }];
       if (sql.startsWith('SELECT id, batch_code AS code')) {
@@ -102,4 +105,12 @@ test('batch creation requires a group and stores the association', async (t) => 
     connectionQueries.find(({ sql }) => sql === 'INSERT INTO group_batch (group_id, batch_id) VALUES (?, ?)').params,
     [12, 5],
   );
+
+  batchNameAlreadyExists = true;
+  const duplicateResponse = await create('12');
+  assert.equal(duplicateResponse.status, 409);
+  assert.deepEqual(await duplicateResponse.json(), {
+    error: 'A batch with this name already exists in this group.',
+  });
+  assert.equal(connectionQueries.filter(({ sql }) => sql.startsWith('INSERT INTO batches')).length, 1);
 });

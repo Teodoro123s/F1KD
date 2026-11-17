@@ -31,6 +31,7 @@ test('community organizer can assign a batch to a group in their school', async 
   const originalGetConnection = pool.getConnection;
   const queryCalls = [];
   const notificationCalls = [];
+  let batchNameAlreadyExists = false;
 
   pool.query = async (sql, params = []) => {
     if (sql.includes('FROM auth_sessions s')) {
@@ -71,6 +72,7 @@ test('community organizer can assign a batch to a group in their school', async 
     release() {},
     query: async (sql, params = []) => {
       queryCalls.push({ sql, params });
+      if (sql.includes('FROM groups')) return [[{ id: 12 }]];
       if (sql.startsWith('UPDATE batches SET')) return [{ affectedRows: 1 }];
       if (sql === 'DELETE FROM group_batch WHERE batch_id = ?') return [{ affectedRows: 0 }];
       if (sql === 'INSERT INTO group_batch (group_id, batch_id) VALUES (?, ?)') return [{ affectedRows: 1 }];
@@ -86,6 +88,7 @@ test('community organizer can assign a batch to a group in their school', async 
           group_id: 12,
         }]];
       }
+      if (sql.includes('FROM batches b')) return [batchNameAlreadyExists ? [{ id: 6 }] : []];
       throw new Error(`Unexpected transaction SQL: ${sql}`);
     },
   });
@@ -122,6 +125,25 @@ test('community organizer can assign a batch to a group in their school', async 
   assert.deepEqual(queryCalls.find(({ sql }) => sql === 'INSERT INTO group_batch (group_id, batch_id) VALUES (?, ?)').params, [12, 5]);
   assert.deepEqual(queryCalls.filter(({ sql }) => sql.includes('FROM batches b WHERE b.id = ? AND b.archived_at IS NULL AND b.community_id = ?'))[0].params, [5, 91]);
   assert.equal(notificationCalls.length, 2);
+
+  batchNameAlreadyExists = true;
+  const duplicateResponse = await fetch(`http://127.0.0.1:${server.address().port}/api/community/batches/5`, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: 'Batch 5',
+      community: '91',
+      groupId: '12',
+      records: 2,
+      progress: 20,
+      status: 'Active',
+    }),
+  });
+  assert.equal(duplicateResponse.status, 409);
+  assert.deepEqual(await duplicateResponse.json(), {
+    error: 'A batch with this name already exists in this group.',
+  });
+  assert.equal(queryCalls.filter(({ sql }) => sql.startsWith('UPDATE batches SET')).length, 1);
 });
 
 test('batch update rejects changing community when groupId is omitted and its group belongs elsewhere', async (t) => {

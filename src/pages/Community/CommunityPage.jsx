@@ -26,6 +26,15 @@ const defaultCommunityForm = { name: '', area: 'Poblacion', coordinator: '' };
 const defaultGroupForm = { name: '', community: '', assignedBatchIds: [], leader: '', members: 1, status: 'Active' };
 const defaultBatchForm = { name: '', community: '', records: 1, progress: 0, status: 'Active' };
 
+function belongsToSchool(record, school) {
+  if (!school) return false;
+  const recordSchoolId = record?.communityId ?? record?.community_id ?? record?.schoolId ?? record?.school_id;
+  if (recordSchoolId != null && recordSchoolId !== '') {
+    return String(recordSchoolId) === String(school.id);
+  }
+  return String(record?.community || '').trim().toLowerCase() === String(school.name || '').trim().toLowerCase();
+}
+
 const truncateLabel = (label, maxLength = 26) => {
   if (!label) return '—';
   return String(label).length > maxLength ? `${String(label).slice(0, maxLength - 1).trimEnd()}…` : String(label);
@@ -140,6 +149,13 @@ export default function CommunityPage() {
       return null;
     }
 
+    const groupIds = String(selectedBatch.groupIds || '')
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
+    const groupById = scopedGroups.find((group) => groupIds.includes(String(group.id)));
+    if (groupById) return groupById;
+
     const groupNames = String(selectedBatch.groupNames || '')
       .split(',')
       .map((name) => name.trim())
@@ -149,7 +165,8 @@ export default function CommunityPage() {
       return null;
     }
 
-    return scopedGroups.find((group) => group.name === groupNames[0]) || null;
+    const nameMatches = scopedGroups.filter((group) => group.name === groupNames[0]);
+    return nameMatches.length === 1 ? nameMatches[0] : null;
   }, [assignedGroupId, drilldownGroupId, groupId, isHealthWorker, scopedGroups, selectedBatch]);
 
   const selectedSchool = useMemo(() => {
@@ -163,11 +180,13 @@ export default function CommunityPage() {
     }
 
     if (selectedGroup) {
-      return sourceCommunities.find((community) => community.name === selectedGroup.community) || null;
+      return sourceCommunities.find((community) => String(community.id) === String(selectedGroup.communityId))
+        || sourceCommunities.find((community) => community.name === selectedGroup.community) || null;
     }
 
     if (selectedBatch) {
-      return sourceCommunities.find((community) => community.name === selectedBatch.community) || null;
+      return sourceCommunities.find((community) => String(community.id) === String(selectedBatch.communityId))
+        || sourceCommunities.find((community) => community.name === selectedBatch.community) || null;
     }
 
     if (isSchoolScopedUser && assignedSchoolId) {
@@ -181,7 +200,7 @@ export default function CommunityPage() {
     if (!selectedSchool) return [];
 
     return scopedGroups
-      .filter((group) => group.community === selectedSchool.name)
+      .filter((group) => belongsToSchool(group, selectedSchool))
       .filter((group) => {
         if (!query.trim()) return true;
         const term = query.trim();
@@ -265,19 +284,19 @@ export default function CommunityPage() {
 
   const schoolOverviewGroups = useMemo(
     () => selectedSchool
-      ? scopedGroups.filter((group) => String(group.community || '').toLowerCase() === String(selectedSchool.name || '').toLowerCase())
+      ? scopedGroups.filter((group) => belongsToSchool(group, selectedSchool))
       : [],
     [scopedGroups, selectedSchool],
   );
   const schoolOverviewMothers = useMemo(
     () => selectedSchool
-      ? mothers.filter((mother) => String(mother.community || '').toLowerCase() === String(selectedSchool.name || '').toLowerCase())
+      ? mothers.filter((mother) => belongsToSchool(mother, selectedSchool))
       : [],
     [mothers, selectedSchool],
   );
   const schoolOverviewChildren = useMemo(
     () => selectedSchool
-      ? childrenRows.filter((child) => String(child.community || '').toLowerCase() === String(selectedSchool.name || '').toLowerCase())
+      ? childrenRows.filter((child) => belongsToSchool(child, selectedSchool))
       : [],
     [childrenRows, selectedSchool],
   );
@@ -288,7 +307,7 @@ export default function CommunityPage() {
       : schoolOverviewChildren;
   const schoolOverviewBatches = useMemo(
     () => selectedSchool
-      ? batches.filter((batch) => String(batch.community || '').toLowerCase() === String(selectedSchool.name || '').toLowerCase())
+      ? batches.filter((batch) => belongsToSchool(batch, selectedSchool))
       : [],
     [batches, selectedSchool],
   );
@@ -338,6 +357,7 @@ export default function CommunityPage() {
             name: childName || 'Unnamed child',
             motherName,
             community: child.community_name || child.community || '',
+            communityId: child.communityId ?? child.community_id ?? child.school_id ?? null,
             group: child.group_name || child.group || '',
             groupId: child.group_id ?? child.mother_group_id ?? child.groupId ?? '',
             batch: child.batch_name || child.batch || '',
@@ -392,7 +412,7 @@ export default function CommunityPage() {
         const matchesGroup = !selectedGroup
           || child.group === selectedGroup.name
           || (matchesBatch && selectedBatchBelongsToGroup);
-        const matchesSchool = !selectedSchool || child.community === selectedSchool.name;
+        const matchesSchool = !selectedSchool || belongsToSchool(child, selectedSchool);
 
         if (!matchesBatch || !matchesGroup || !matchesSchool) return false;
         if (!term) return true;
@@ -511,11 +531,11 @@ export default function CommunityPage() {
   useEffect(() => {
     const sourceCommunities = isSchoolScopedUser ? scopedCommunities : communities;
     if (sourceCommunities.length > 0 && !batchForm.community) {
-      setBatchForm((previous) => ({ ...previous, community: sourceCommunities[0].name }));
+      setBatchForm((previous) => ({ ...previous, community: sourceCommunities[0].id }));
     }
 
     if (sourceCommunities.length > 0 && !groupForm.community) {
-      setGroupForm((previous) => ({ ...previous, community: sourceCommunities[0].name }));
+      setGroupForm((previous) => ({ ...previous, community: sourceCommunities[0].id }));
     }
   }, [batchForm.community, communities, groupForm.community, isSchoolScopedUser, scopedCommunities]);
 
@@ -613,7 +633,7 @@ export default function CommunityPage() {
     if (type === 'group') {
       setGroupForm({
         ...defaultGroupForm,
-        community: selectedSchool?.name || communities[0]?.name || '',
+        community: selectedSchool?.id || communities[0]?.id || '',
       });
       setShowModal('createGroup');
       return;
@@ -621,7 +641,7 @@ export default function CommunityPage() {
 
     setBatchForm({
       ...defaultBatchForm,
-      community: selectedSchool?.name || selectedGroup?.community || communities[0]?.name || '',
+      community: selectedSchool?.id || selectedGroup?.communityId || communities[0]?.id || '',
       groupId: selectedGroup?.id || groupId || '',
     });
     setShowModal('createBatch');
@@ -643,7 +663,7 @@ export default function CommunityPage() {
     if (itemType === 'groups') {
       setGroupForm({
         name: item.name,
-        community: item.community || communities[0]?.name || '',
+        community: item.communityId || communities[0]?.id || '',
         assignedBatchIds: item.assignedBatchIds || [],
         leader: item.leader,
         members: item.members,
@@ -655,7 +675,7 @@ export default function CommunityPage() {
 
     setBatchForm({
       name: item.name,
-      community: item.community,
+      community: item.communityId || selectedSchool?.id || '',
       groupId: selectedGroup?.id || groupId || String(item.groupIds || '').split(',').filter(Boolean)[0] || '',
       records: item.records,
       progress: item.progress ?? 0,
@@ -962,9 +982,9 @@ export default function CommunityPage() {
 
     if (activeTab === 'communities') {
       return appendActions([
-        { key: 'name', header: 'School Name', style: { width: '48%' }, renderCell: (row) => <span className="community-title-text" title={row.name}>{row.name}</span> },
+        { key: 'name', header: 'School Name', style: { width: '48%' }, renderCell: (row) => <span className="community-title-text" title={`${row.name} · ${row.area} · ${row.code || `ID ${row.id}`}`}>{row.name} <small>{row.area} · {row.code || `ID ${row.id}`}</small></span> },
         { key: 'batches', header: 'Batches', cellClassName: 'small-column', renderCell: (row) => row.batches || 0 },
-        { key: 'groups', header: 'Groups', cellClassName: 'small-column', renderCell: (row) => groups.filter((group) => group.community === row.name).length },
+        { key: 'groups', header: 'Groups', cellClassName: 'small-column', renderCell: (row) => groups.filter((group) => belongsToSchool(group, row)).length },
       ]);
     }
 

@@ -12,6 +12,15 @@ function formatCommunityNameInput(value) {
     .replace(/(^|\s|[-'])([a-z])/g, (match, prefix, character) => `${prefix}${character.toUpperCase()}`);
 }
 
+function getSchoolOptionLabel(school) {
+  const details = [school.area, school.code || `ID ${school.id}`].filter(Boolean).join(' · ');
+  return details ? `${school.name} — ${details}` : school.name;
+}
+
+function belongsToSchool(item, schoolId) {
+  return String(item.communityId ?? item.community_id ?? '') === String(schoolId ?? '');
+}
+
 export function ConfirmActionModal({ show, title, message, confirmLabel = 'OK', onConfirm, onCancel, isSubmitting = false }) {
   const titleId = useId();
   const messageId = useId();
@@ -194,7 +203,7 @@ export function EditCommunityModal({ showModal, onClose, communityForm, setCommu
 
 export function CreateBatchModal({ showModal, onClose, batchForm, setBatchForm, handleCreateBatch, communities, groups = [], showGroupField = false, hideSchoolField = false, isSubmitting }) {
   if (!showModal) return null;
-  const availableGroups = groups.filter((group) => group.community === batchForm.community);
+  const availableGroups = groups.filter((group) => belongsToSchool(group, batchForm.community));
   return (
     <ModalShell title="Create Batch" onClose={onClose} onSubmit={handleCreateBatch} submitLabel="Create" isSubmitting={isSubmitting}>
       <div className="form-group">
@@ -220,7 +229,7 @@ export function CreateBatchModal({ showModal, onClose, batchForm, setBatchForm, 
             onChange={(e) => setBatchForm({ ...batchForm, community: e.target.value, groupId: '' })}
           >
             {communities.map((comm) => (
-              <option key={comm.id} value={comm.name}>{comm.name}</option>
+              <option key={comm.id} value={comm.id}>{getSchoolOptionLabel(comm)}</option>
             ))}
           </select>
         </div>
@@ -245,7 +254,7 @@ export function CreateBatchModal({ showModal, onClose, batchForm, setBatchForm, 
 }
 
 export function EditBatchModal({ showModal, onClose, batchForm, setBatchForm, handleEditBatch, communities, groups = [], showGroupField = false, isSubmitting }) {
-  const availableGroups = groups.filter((group) => group.community === batchForm.community);
+  const availableGroups = groups.filter((group) => belongsToSchool(group, batchForm.community));
   return (
     <ModalShell open={showModal} drawer title="Edit Batch" onClose={onClose} onSubmit={handleEditBatch} submitLabel="Save Changes" isSubmitting={isSubmitting}>
       <div className="form-group">
@@ -282,7 +291,7 @@ export function EditBatchModal({ showModal, onClose, batchForm, setBatchForm, ha
 
 export function CreateGroupModal({ showModal, onClose, groupForm, setGroupForm, handleCreateGroup, communities, batches, hideSchoolField = false, isSubmitting }) {
   if (!showModal) return null;
-  const availableBatches = batches.filter((batch) => batch.community === groupForm.community);
+  const availableBatches = batches.filter((batch) => belongsToSchool(batch, groupForm.community));
 
   return (
     <ModalShell title="Create Group" onClose={onClose} onSubmit={handleCreateGroup} submitLabel="Create" isSubmitting={isSubmitting}>
@@ -310,7 +319,7 @@ export function CreateGroupModal({ showModal, onClose, groupForm, setGroupForm, 
             required
           >
             {communities.map((comm) => (
-              <option key={comm.id} value={comm.name}>{comm.name}</option>
+              <option key={comm.id} value={comm.id}>{getSchoolOptionLabel(comm)}</option>
             ))}
           </select>
         </div>
@@ -320,7 +329,7 @@ export function CreateGroupModal({ showModal, onClose, groupForm, setGroupForm, 
 }
 
 export function EditGroupModal({ showModal, onClose, groupForm, setGroupForm, handleEditGroup, communities, batches, hideSchoolField = false, isSubmitting }) {
-  const availableBatches = batches.filter((batch) => batch.community === groupForm.community);
+  const availableBatches = batches.filter((batch) => belongsToSchool(batch, groupForm.community));
 
   return (
     <ModalShell open={showModal} drawer title="Edit Group" onClose={onClose} onSubmit={handleEditGroup} submitLabel="Save Changes" isSubmitting={isSubmitting}>
@@ -346,7 +355,7 @@ export function EditGroupModal({ showModal, onClose, groupForm, setGroupForm, ha
           required
         >
           {communities.map((comm) => (
-            <option key={comm.id} value={comm.name}>{comm.name}</option>
+            <option key={comm.id} value={comm.id}>{getSchoolOptionLabel(comm)}</option>
           ))}
         </select>
       </div>}

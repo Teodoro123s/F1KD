@@ -5,7 +5,7 @@ import {
   getMonthCalendarDays,
   getProjectActivityCheckInSummary,
   toLocalDateKey,
-} from './projectActivityCalendarUtils.mjs';
+} from '../utils/projectActivityCalendarUtils.mjs';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 

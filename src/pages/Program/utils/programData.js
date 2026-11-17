@@ -232,4 +232,4 @@ export function clusterPath(programId, cluster) {
 export function beneficiaryNames(count) {
   return Array.from({ length: count }, (_, index) => `Beneficiary ${String(index + 1).padStart(3, "0")}`);
 }
-import { matchesSearch } from '../../utils/search.mjs';
+import { matchesSearch } from '../../../utils/search.mjs';

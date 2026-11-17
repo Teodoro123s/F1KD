@@ -6,65 +6,20 @@ import {
   Lock,
   Eye,
   EyeOff,
-  ShieldCheck,
-  KeyRound,
   AlertCircle,
-  ArrowLeft,
   RotateCw,
 } from 'lucide-react';
 import logo from '../../assets/f1kd-logo.png';
 import { useAuth } from '../../auth/AuthProvider';
 import ActionFeedback, { notifyAction } from '../../components/ActionFeedback';
-import { getLoginAttemptStatus, requestPasswordReset, resetPassword } from '../../api/auth';
-
-const loginFieldClassName = [
-  'login-floating-field relative flex w-full flex-col',
-  '[&.is-focused_.login-floating-field__icon--key]:text-[#15803d]',
-  '[&.is-focused_.login-floating-label]:-translate-y-[26px]',
-  '[&.is-focused_.login-floating-label]:scale-[.85]',
-  '[&.is-focused_.login-floating-label]:font-semibold',
-  '[&.is-focused_.login-floating-label]:text-[#15803d]',
-  '[&.has-value_.login-floating-label]:-translate-y-[26px]',
-  '[&.has-value_.login-floating-label]:scale-[.85]',
-  '[&.has-value_.login-floating-label]:font-semibold',
-  '[&.has-value:not(.is-focused)_.login-floating-label]:text-[#64748b]',
-  '[&.is-focused_.login-floating-field__line:after]:scale-x-100',
-  '[&:focus-within_.login-floating-field__line:after]:scale-x-100',
-].join(' ');
-
-const loginInputClassName = [
-  '!h-7 !w-full !border-0 !rounded-none !bg-transparent !p-0 !shadow-none !outline-none',
-  'm-0 box-border text-base leading-7 text-[#0f172a]',
-  '[&:focus~.login-floating-label]:-translate-y-[26px]',
-  '[&:focus~.login-floating-label]:scale-[.85]',
-  '[&:focus~.login-floating-label]:font-semibold',
-  '[&:focus~.login-floating-label]:text-[#15803d]',
-  '[&:not(:placeholder-shown)~.login-floating-label]:-translate-y-[26px]',
-  '[&:not(:placeholder-shown)~.login-floating-label]:scale-[.85]',
-  '[&:not(:placeholder-shown)~.login-floating-label]:font-semibold',
-  '[&:not(:placeholder-shown):not(:focus)~.login-floating-label]:text-[#64748b]',
-  '![&:-webkit-autofill]:[-webkit-box-shadow:inset_0_0_0_30px_#ffffff]',
-  '![&:-webkit-autofill]:[-webkit-text-fill-color:#0f172a]',
-  '![&:-webkit-autofill]:[box-shadow:inset_0_0_0_30px_#ffffff]',
-  '[&:-webkit-autofill]:[caret-color:#0f172a]',
-  '[&:-webkit-autofill]:[transition:background-color_5000s_ease-in-out_0s]',
-  '[&:-webkit-autofill]:[animation-name:onAutoFillStart]',
-  '[&:-webkit-autofill~.login-floating-label]:-translate-y-[26px]',
-  '[&:-webkit-autofill~.login-floating-label]:scale-[.85]',
-  '[&:-webkit-autofill~.login-floating-label]:font-semibold',
-  '[&:autofill~.login-floating-label]:-translate-y-[26px]',
-  '[&:autofill~.login-floating-label]:scale-[.85]',
-  '[&:autofill~.login-floating-label]:font-semibold',
-  '[&:-webkit-autofill:not(:focus)~.login-floating-label]:text-[#64748b]',
-  '[&:autofill:not(:focus)~.login-floating-label]:text-[#64748b]',
-].join(' ');
-
-const loginFloatingLabelClassName = [
-  'login-floating-label pointer-events-none absolute bottom-1 left-0 inline-flex origin-bottom-left',
-  'items-center gap-0.5 whitespace-nowrap text-[0.95rem] text-[#64748b]',
-  'transition-[transform,color,font-size] duration-200',
-  '[transition-timing-function:cubic-bezier(0.2,0,0,1)]',
-].join(' ');
+import { getLoginAttemptStatus } from '../../api/auth';
+import ForgotPasswordForm from './ForgotPasswordForm';
+import {
+  loginButtonClassName,
+  loginFieldClassName,
+  loginFloatingLabelClassName,
+  loginInputClassName,
+} from './loginFieldStyles';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -81,9 +36,6 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
-  const [passcodeFocused, setPasscodeFocused] = useState(false);
-  const [newPasswordFocused, setNewPasswordFocused] = useState(false);
-  const [confirmPasswordFocused, setConfirmPasswordFocused] = useState(false);
 
   const [rememberMe, setRememberMe] = useState(() => {
     try {
@@ -95,10 +47,6 @@ export default function Login() {
   const [errorMessage, setErrorMessage] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
   const [forgotPassword, setForgotPassword] = useState(false);
-  const [resetCodeSent, setResetCodeSent] = useState(false);
-  const [passcode, setPasscode] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [loginAttemptStatus, setLoginAttemptStatus] = useState(null);
   const [retryDeadline, setRetryDeadline] = useState(null);
   const [retryCountdown, setRetryCountdown] = useState(0);
@@ -245,56 +193,9 @@ export default function Login() {
     }
   }
 
-  async function handlePasswordReset(event) {
-    event.preventDefault();
-    setLoading(true);
-    setErrorMessage('');
-    setStatusMessage('');
-    try {
-      if (!resetCodeSent) {
-        const result = await requestPasswordReset(email);
-        setResetCodeSent(true);
-        setStatusMessage(result.message || 'If an account exists for that email, a verification code has been sent.');
-        return;
-      }
-      const result = await resetPassword(email, passcode, newPassword, confirmPassword);
-      setForgotPassword(false);
-      setResetCodeSent(false);
-      setPasscode('');
-      setNewPassword('');
-      setConfirmPassword('');
-      setPassword('');
-      setStatusMessage(result.message || 'Password reset successfully. You can now sign in.');
-    } catch (err) {
-      const message = err.message || 'Unable to reset password. Please try again.';
-      setErrorMessage(message);
-      notifyAction(message, 'error');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function resendPasswordResetCode() {
-    setLoading(true);
-    setErrorMessage('');
-    setStatusMessage('');
-    setPasscode('');
-    try {
-      const result = await requestPasswordReset(email);
-      setStatusMessage(result.message || 'If an account exists for that email, a verification code has been sent.');
-    } catch (err) {
-      const message = err.message || 'Unable to send another verification code.';
-      setErrorMessage(message);
-      notifyAction(message, 'error');
-    } finally {
-      setLoading(false);
-    }
-  }
-
   function openPasswordReset() {
     statusRequestId.current += 1;
     setForgotPassword(true);
-    setResetCodeSent(false);
     setErrorMessage('');
     setStatusMessage('');
   }
@@ -302,12 +203,15 @@ export default function Login() {
   function returnToSignIn() {
     statusRequestId.current += 1;
     setForgotPassword(false);
-    setResetCodeSent(false);
-    setPasscode('');
-    setNewPassword('');
-    setConfirmPassword('');
     setErrorMessage('');
     setStatusMessage('');
+  }
+
+  function completePasswordReset(message) {
+    setForgotPassword(false);
+    setPassword('');
+    setErrorMessage('');
+    setStatusMessage(message);
   }
 
   return (
@@ -321,7 +225,7 @@ export default function Login() {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
         >
-          <div className="login-header mb-9 flex flex-col items-center text-center">
+          <div className={`login-header flex flex-col items-center text-center ${forgotPassword ? '' : 'mb-9'}`}>
             <motion.img
               src={logo}
               alt="F1KD logo"
@@ -331,9 +235,10 @@ export default function Login() {
               transition={{ duration: 0.4, type: 'spring', stiffness: 280, damping: 20 }}
               whileHover={{ scale: 1.05 }}
             />
-            <AnimatePresence mode="wait">
+            {!forgotPassword && (
+              <AnimatePresence mode="wait">
               <motion.div
-                key={forgotPassword ? (resetCodeSent ? 'step-code' : 'step-reset') : 'step-login'}
+                key="step-login"
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
@@ -341,29 +246,25 @@ export default function Login() {
                 className="login-header-text flex w-full flex-col items-center text-center"
               >
                 <h1 className="login-title m-0 mb-2 text-[2.15rem] font-extrabold leading-[1.15] tracking-[-0.03em] text-[#0f172a] max-[480px]:text-[1.75rem]">
-                  {forgotPassword
-                    ? (resetCodeSent ? 'Set New Password' : 'Reset Password')
-                    : 'Welcome Back'}
+                  Welcome Back
                 </h1>
-                <p className="login-subtitle m-0 max-w-80 text-center text-[0.95rem] leading-[1.45] text-[#64748b]">
-                  {forgotPassword
-                    ? (resetCodeSent
-                        ? 'Enter the 6-digit verification code and your new password.'
-                        : 'Enter your email to receive a password reset verification code.')
-                    : ''}
-                </p>
               </motion.div>
-            </AnimatePresence>
+              </AnimatePresence>
+            )}
           </div>
 
-          <form className="login-form flex w-full flex-col gap-7" onSubmit={forgotPassword ? handlePasswordReset : handleLogin} noValidate>
-            <AnimatePresence mode="wait" initial={false}>
-              {!forgotPassword ? (
+          {forgotPassword ? (
+            <ForgotPasswordForm
+              email={email}
+              onEmailChange={setEmail}
+              onBack={returnToSignIn}
+              onComplete={completePasswordReset}
+            />
+          ) : (
+            <form className="login-form flex w-full flex-col gap-7" onSubmit={handleLogin} noValidate>
                 <motion.div
-                  key="login-fields"
                   initial={{ opacity: 0, x: -16 }}
                   animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 16 }}
                   transition={{ duration: 0.22, ease: 'easeOut' }}
                   className="login-fields-container flex w-full flex-col gap-7"
                 >
@@ -484,150 +385,7 @@ export default function Login() {
                     </button>
                   </div>
                 </motion.div>
-              ) : !resetCodeSent ? (
-                <motion.div
-                  key="forgot-email-step"
-                  initial={{ opacity: 0, x: 16 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -16 }}
-                  transition={{ duration: 0.22, ease: 'easeOut' }}
-                  className="login-fields-container flex w-full flex-col gap-7"
-                >
-                  <div className={`${loginFieldClassName} ${email ? 'has-value' : ''} ${emailFocused ? 'is-focused' : ''}`}>
-                    <div className="login-floating-field__row flex min-h-[50px] items-end gap-3 pb-2">
-                      <span className="login-floating-field__icon login-floating-field__icon--user flex shrink-0 items-center justify-center pb-1 text-[#8b1d2c] transition-colors duration-200" aria-hidden="true">
-                        <User size={19} />
-                      </span>
-                      <div className="login-floating-field__input-wrap relative flex min-w-0 flex-1 flex-col justify-end">
-                        <input
-                          id="login-email"
-                          name="email"
-                          type="email"
-                          value={email}
-                          aria-label="Email address"
-                          aria-invalid={Boolean(errorMessage)}
-                          aria-describedby={errorMessage ? 'login-error-message' : undefined}
-                          onFocus={() => setEmailFocused(true)}
-                          onBlur={() => setEmailFocused(false)}
-                          onChange={(event) => {
-                            setEmail(event.target.value);
-                            setErrorMessage('');
-                            setStatusMessage('');
-                          }}
-                          placeholder=" "
-                          autoComplete="username"
-                          required
-                          className={loginInputClassName}
-                        />
-                        <label htmlFor="login-email" className={loginFloatingLabelClassName}>
-                          Username or Email <span className="login-required-star ml-0.5 font-bold text-red-500">*</span>
-                        </label>
-                      </div>
-                    </div>
-                    <div className="login-floating-field__line absolute bottom-0 left-0 right-0 h-[1.5px] overflow-hidden bg-[#e2e8f0] after:absolute after:inset-0 after:origin-center after:scale-x-0 after:bg-[#15803d] after:transition-transform after:duration-[250ms] after:[content:''] after:[transition-timing-function:cubic-bezier(0.2,0,0,1)]" />
-                  </div>
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="reset-code-step"
-                  initial={{ opacity: 0, x: 16 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -16 }}
-                  transition={{ duration: 0.22, ease: 'easeOut' }}
-                  className="login-fields-container flex w-full flex-col gap-7"
-                >
-                  {/* Passcode / Verification code */}
-                  <div className={`${loginFieldClassName} ${passcode ? 'has-value' : ''} ${passcodeFocused ? 'is-focused' : ''}`}>
-                    <div className="login-floating-field__row flex min-h-[50px] items-end gap-3 pb-2">
-                      <span className="login-floating-field__icon flex shrink-0 items-center justify-center pb-1 text-[#64748b] transition-colors duration-200" aria-hidden="true">
-                        <ShieldCheck size={19} />
-                      </span>
-                      <div className="login-floating-field__input-wrap relative flex min-w-0 flex-1 flex-col justify-end">
-                        <input
-                          id="reset-passcode"
-                          name="passcode"
-                          type="text"
-                          inputMode="numeric"
-                          autoComplete="one-time-code"
-                          maxLength={6}
-                          value={passcode}
-                          onFocus={() => setPasscodeFocused(true)}
-                          onBlur={() => setPasscodeFocused(false)}
-                          onChange={(event) => { setPasscode(event.target.value.replace(/\D/g, '').slice(0, 6)); setErrorMessage(''); }}
-                          placeholder=" "
-                          required
-                          className={loginInputClassName}
-                        />
-                        <label htmlFor="reset-passcode" className={loginFloatingLabelClassName}>
-                          Verification code <span className="login-required-star ml-0.5 font-bold text-red-500">*</span>
-                        </label>
-                      </div>
-                    </div>
-                    <div className="login-floating-field__line absolute bottom-0 left-0 right-0 h-[1.5px] overflow-hidden bg-[#e2e8f0] after:absolute after:inset-0 after:origin-center after:scale-x-0 after:bg-[#15803d] after:transition-transform after:duration-[250ms] after:[content:''] after:[transition-timing-function:cubic-bezier(0.2,0,0,1)]" />
-                  </div>
-
-                  {/* New Password */}
-                  <div className={`${loginFieldClassName} ${newPassword ? 'has-value' : ''} ${newPasswordFocused ? 'is-focused' : ''}`}>
-                    <div className="login-floating-field__row flex min-h-[50px] items-end gap-3 pb-2">
-                      <span className="login-floating-field__icon login-floating-field__icon--key flex shrink-0 items-center justify-center pb-1 text-[#64748b] transition-colors duration-200" aria-hidden="true">
-                        <KeyRound size={19} />
-                      </span>
-                      <div className="login-floating-field__input-wrap relative flex min-w-0 flex-1 flex-col justify-end">
-                        <input
-                          id="reset-new-password"
-                          name="newPassword"
-                          type="password"
-                          autoComplete="new-password"
-                          minLength={8}
-                          value={newPassword}
-                          onFocus={() => setNewPasswordFocused(true)}
-                          onBlur={() => setNewPasswordFocused(false)}
-                          onChange={(event) => { setNewPassword(event.target.value); setErrorMessage(''); }}
-                          placeholder=" "
-                          required
-                          className={loginInputClassName}
-                        />
-                        <label htmlFor="reset-new-password" className={loginFloatingLabelClassName}>
-                          New password <span className="login-required-star ml-0.5 font-bold text-red-500">*</span>
-                        </label>
-                      </div>
-                    </div>
-                    <div className="login-floating-field__line absolute bottom-0 left-0 right-0 h-[1.5px] overflow-hidden bg-[#e2e8f0] after:absolute after:inset-0 after:origin-center after:scale-x-0 after:bg-[#15803d] after:transition-transform after:duration-[250ms] after:[content:''] after:[transition-timing-function:cubic-bezier(0.2,0,0,1)]" />
-                  </div>
-
-                  {/* Confirm Password */}
-                  <div className={`${loginFieldClassName} ${confirmPassword ? 'has-value' : ''} ${confirmPasswordFocused ? 'is-focused' : ''}`}>
-                    <div className="login-floating-field__row flex min-h-[50px] items-end gap-3 pb-2">
-                      <span className="login-floating-field__icon login-floating-field__icon--key flex shrink-0 items-center justify-center pb-1 text-[#64748b] transition-colors duration-200" aria-hidden="true">
-                        <Lock size={19} />
-                      </span>
-                      <div className="login-floating-field__input-wrap relative flex min-w-0 flex-1 flex-col justify-end">
-                        <input
-                          id="reset-confirm-password"
-                          name="confirmPassword"
-                          type="password"
-                          autoComplete="new-password"
-                          minLength={8}
-                          value={confirmPassword}
-                          onFocus={() => setConfirmPasswordFocused(true)}
-                          onBlur={() => setConfirmPasswordFocused(false)}
-                          onChange={(event) => { setConfirmPassword(event.target.value); setErrorMessage(''); }}
-                          placeholder=" "
-                          required
-                          className={loginInputClassName}
-                        />
-                        <label htmlFor="reset-confirm-password" className={loginFloatingLabelClassName}>
-                          Confirm new password <span className="login-required-star ml-0.5 font-bold text-red-500">*</span>
-                        </label>
-                      </div>
-                    </div>
-                    <div className="login-floating-field__line absolute bottom-0 left-0 right-0 h-[1.5px] overflow-hidden bg-[#e2e8f0] after:absolute after:inset-0 after:origin-center after:scale-x-0 after:bg-[#15803d] after:transition-transform after:duration-[250ms] after:[content:''] after:[transition-timing-function:cubic-bezier(0.2,0,0,1)]" />
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {!forgotPassword && loginAttemptStatus && retryCountdown === 0 && (
+            {loginAttemptStatus && retryCountdown === 0 && (
               <p
                 className={`login-attempts m-0 text-left text-[0.825rem] leading-[1.4] text-[#64748b]${loginAttemptStatus.remainingAttempts === 1 ? ' login-attempts--warning font-semibold text-[#ea580c]' : ''}`}
                 role="status"
@@ -640,7 +398,7 @@ export default function Login() {
             )}
 
             <AnimatePresence>
-              {!forgotPassword && retryCountdown > 0 && (
+              {retryCountdown > 0 && (
                 <motion.div
                   className="login-lockout flex flex-wrap items-baseline justify-center gap-[0.35rem] rounded-[10px] border border-[#fed7aa] bg-[#fff7ed] px-4 py-3 text-[0.85rem] leading-[1.4] text-[#9a3412] [&_strong]:font-bold [&_time]:[font-variant-numeric:tabular-nums] [&_time]:font-extrabold"
                   role="status"
@@ -676,7 +434,7 @@ export default function Login() {
                 >
                   <AlertCircle size={20} className="login-error-icon mt-0.5 shrink-0" aria-hidden="true" />
                   <div>
-                    <strong>{forgotPassword ? 'We couldn’t complete that request' : 'We couldn’t sign you in'}</strong>
+                    <strong>We couldn’t sign you in</strong>
                     <p id="login-error-message">{errorMessage}</p>
                   </div>
                 </motion.div>
@@ -701,60 +459,21 @@ export default function Login() {
             <div className="login-actions mt-2">
               <motion.button
                 type="submit"
-                className="login-button !inline-flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-[10px] border-0 bg-[#16a34a] [background-image:linear-gradient(180deg,#16a34a_0%,#15803d_100%)] px-4 text-base font-semibold text-white shadow-[0_4px_14px_rgba(21,128,61,0.3)] transition-[all] duration-200 [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] hover:not-disabled:[background-image:linear-gradient(180deg,#15803d_0%,#166534_100%)] hover:not-disabled:shadow-[0_6px_20px_rgba(21,128,61,0.4)] hover:not-disabled:-translate-y-px active:not-disabled:translate-y-0 active:not-disabled:shadow-[0_2px_8px_rgba(21,128,61,0.25)] disabled:cursor-not-allowed disabled:opacity-[0.65] disabled:shadow-none disabled:transform-none"
+                className={loginButtonClassName}
                 whileHover={!loading ? { scale: 1.015, boxShadow: '0 8px 24px rgba(21, 128, 61, 0.35)' } : undefined}
                 whileTap={!loading ? { scale: 0.985 } : undefined}
                 transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-                aria-label={
-                  loading
-                    ? (forgotPassword ? 'Please wait…' : 'Signing in…')
-                    : forgotPassword
-                      ? resetCodeSent ? 'Reset password' : 'Send verification code'
-                      : retryCountdown > 0 ? 'Please wait' : 'Sign in'
-                }
-                disabled={loading || (!forgotPassword && retryCountdown > 0)}
+                aria-label={loading ? 'Signing in…' : retryCountdown > 0 ? 'Please wait' : 'Sign in'}
+                disabled={loading || retryCountdown > 0}
               >
                 {loading && <RotateCw size={17} className="login-button-spinner animate-spin shrink-0 [animation-duration:0.9s]" aria-hidden="true" />}
                 <span>
-                  {loading
-                    ? (forgotPassword ? 'Please wait…' : 'Signing in…')
-                    : forgotPassword
-                      ? resetCodeSent ? 'Reset Password' : 'Send Verification Code'
-                      : retryCountdown > 0 ? 'Please wait' : 'Log In'}
+                  {loading ? 'Signing in…' : retryCountdown > 0 ? 'Please wait' : 'Log In'}
                 </span>
               </motion.button>
             </div>
-
-            {forgotPassword && (
-              <motion.div
-                className="login-reset-actions mt-2 flex items-center justify-between gap-4"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.1 }}
-              >
-                <button
-                  type="button"
-                  className="login-forgot-link login-back-link inline-flex items-center gap-[0.4rem] cursor-pointer border-0 bg-transparent p-0 text-[0.875rem] font-medium text-[#64748b] no-underline transition-colors duration-150 hover:text-[#15803d] hover:underline"
-                  onClick={returnToSignIn}
-                  disabled={loading}
-                >
-                  <ArrowLeft size={15} aria-hidden="true" />
-                  <span>Back to Log In</span>
-                </button>
-                {resetCodeSent && (
-                  <button
-                    type="button"
-                    className="login-forgot-link login-resend-link inline-flex items-center gap-[0.4rem] cursor-pointer border-0 bg-transparent p-0 text-[0.875rem] font-medium text-[#64748b] no-underline transition-colors duration-150 hover:text-[#15803d] hover:underline"
-                    onClick={resendPasswordResetCode}
-                    disabled={loading}
-                  >
-                    <RotateCw size={13} aria-hidden="true" />
-                    <span>Send a new code</span>
-                  </button>
-                )}
-              </motion.div>
-            )}
           </form>
+          )}
         </motion.div>
       </div>
     </div>
