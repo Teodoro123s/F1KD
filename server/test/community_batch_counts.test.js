@@ -50,7 +50,7 @@ test('community summary counts batches linked through mothers in their group', a
         ],
       ];
     }
-    if (sql.includes('FROM users')) return [[{ total: 0 }]];
+    if (sql.includes('FROM users')) return [[{ total: 2 }]];
     if (sql.includes('FROM mothers m') && sql.includes('motherProgress')) {
       return [[
         { batchId: 3, motherId: 1, motherProgress: 11 },
@@ -107,6 +107,9 @@ test('community summary counts batches linked through mothers in their group', a
   assert.match(queryLog.find((sql) => sql.includes('m.mother_code AS id')), /m\.consent_document_name/);
   assert.equal(summary.groups[0].batches, 1);
   assert.equal(summary.groups[1].batches, 0);
+  assert.equal(summary.totalHealthWorkers, 2);
+  assert.match(queryLog.find((sql) => sql.includes('COUNT(*) AS total')), /archived_at IS NULL/);
+  assert.match(queryLog.find((sql) => sql.includes('FROM groups g')), /hu\.archived_at IS NULL/);
   assert.equal(summary.batches[0].groupIds, '2');
   assert.equal(summary.batches[0].progress, 47);
   assert.ok(queryLog.filter((sql) => sql.includes('FROM groups g') || sql.includes('FROM batches b'))

@@ -117,6 +117,7 @@ test('Community Organizers cannot read or mutate records outside their assigned 
   assert.equal(groupWorkers.status, 200);
   assert.deepEqual((await groupWorkers.json()).users, []);
   assert.ok(queries[0].sql.includes('AND g.community_id = ?'));
+  assert.ok(queries[0].sql.includes('u.archived_at IS NULL'));
 
   const foreignSchoolUpdate = await request('/community/communities/13', {
     method: 'PUT',

@@ -464,7 +464,8 @@ router.get('/summary', async (req, res) => {
         COUNT(DISTINCT gb.batch_id) AS batches,
         (SELECT COUNT(*)
          FROM users hu
-         WHERE hu.group_id = g.id
+         WHERE hu.archived_at IS NULL
+           AND hu.group_id = g.id
            AND LOWER(REPLACE(REPLACE(TRIM(hu.role), '_', ''), ' ', '')) = 'healthworker') AS health_workers,
         COALESCE(g.leader, '') AS leader,
         COALESCE(g.status, 'Active') AS status
@@ -480,7 +481,8 @@ router.get('/summary', async (req, res) => {
     const [healthWorkerCountRows] = await pool.query(
       `SELECT COUNT(*) AS total
        FROM users
-       WHERE LOWER(REPLACE(REPLACE(TRIM(role), '_', ''), ' ', '')) = 'healthworker' ${healthWorkerScope}`,
+       WHERE archived_at IS NULL
+         AND LOWER(REPLACE(REPLACE(TRIM(role), '_', ''), ' ', '')) = 'healthworker' ${healthWorkerScope}`,
       healthWorkerScopeValues,
     );
 
@@ -1056,8 +1058,8 @@ router.get('/groups/:id/health-workers', async (req, res) => {
           u.email, u.contact_number, u.status, u.school_id, u.group_id, u.role
        FROM groups g
        JOIN communities c ON c.id = g.community_id
-       JOIN users u ON (
-         (u.group_id = g.id AND LOWER(TRIM(u.role)) = 'health worker')
+       JOIN users u ON u.archived_at IS NULL AND (
+         (u.group_id = g.id AND LOWER(REPLACE(REPLACE(TRIM(u.role), '_', ''), ' ', '')) = 'healthworker')
          OR
          (u.school_id = c.id AND LOWER(REPLACE(TRIM(u.role), '_', ' ')) IN ('community organizer', 'communityorganizer', 'community coordinator', 'communitycoordinator', 'coordinator', 'co', 'partner'))
          OR
