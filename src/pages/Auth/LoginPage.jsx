@@ -354,7 +354,7 @@ export default function Login() {
                         aria-label={showPassword ? 'Hide password' : 'Show password'}
                         aria-pressed={showPassword}
                         onClick={() => setShowPassword((s) => !s)}
-                        className="login-password-toggle-floating mb-[0.15rem] flex shrink-0 cursor-pointer items-center justify-center rounded p-1 text-[#64748b] transition-colors duration-150 hover:text-[#0f172a] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#15803d]"
+                        className="login-password-toggle-floating mb-[0.15rem] flex shrink-0 cursor-pointer items-center justify-center rounded border-0 bg-transparent p-1 text-[#64748b] transition-colors duration-150 hover:text-[#0f172a] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#15803d]"
                       >
                         {showPassword ? <EyeOff size={19} aria-hidden="true" /> : <Eye size={19} aria-hidden="true" />}
                       </motion.button>
