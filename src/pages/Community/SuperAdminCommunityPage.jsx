@@ -381,7 +381,10 @@ export default function SuperAdminCommunityPage() {
                 <button type="button" className="actions-dropdown-item" onClick={(event) => { event.stopPropagation(); selectGroup(row); setActiveDropdownId(null); }} role="menuitem">View Health Workers</button>
               )}
               {activeTab === 'healthWorkers' ? (
-                <button type="button" className="actions-dropdown-item" onClick={(event) => { event.stopPropagation(); navigate(`/user-management/user/${row.id}`, { state: { returnTo } }); setActiveDropdownId(null); }} role="menuitem">View User</button>
+                <>
+                  <button type="button" className="actions-dropdown-item" onClick={(event) => { event.stopPropagation(); navigate(`/user-management/user/${row.id}`, { state: { returnTo } }); setActiveDropdownId(null); }} role="menuitem">View User</button>
+                  <button type="button" className="actions-dropdown-item" onClick={(event) => { event.stopPropagation(); navigate(`/user-management/user/${row.id}`, { state: { returnTo, openEdit: true } }); setActiveDropdownId(null); }} role="menuitem">Edit</button>
+                </>
               ) : (
                 <>
                   <button type="button" className="actions-dropdown-item" onClick={(event) => { event.stopPropagation(); openEditModal(row); setActiveDropdownId(null); }} role="menuitem">Edit</button>

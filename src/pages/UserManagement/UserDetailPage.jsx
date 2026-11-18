@@ -1,5 +1,5 @@
 import { checkupFieldLayoutClasses } from '../../utils/formFieldClasses';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import PageHeader from '../../components/ui/PageHeader';
 import ModuleSummaryCards from '../../components/ui/ModuleSummaryCards';
@@ -73,6 +73,24 @@ function ProfileField({ label, value }) {
   );
 }
 
+function createEditForm(user) {
+  return {
+    firstName: user.firstName || '',
+    lastName: user.lastName || '',
+    middleInitial: user.middleInitial || '',
+    contactNumber: user.contactNumber || '',
+    email: user.email || '',
+    gender: user.gender || 'Male',
+    dob: user.dob || '',
+    location: user.location || 'Poblacion',
+    role: user.role || 'Admin',
+    status: user.status || 'Active',
+    password: '',
+    schoolId: user.schoolId || '',
+    groupId: user.groupId || '',
+  };
+}
+
 export default function UserDetailPage() {
   const { id } = useParams();
   const location = useLocation();
@@ -93,6 +111,10 @@ export default function UserDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [editForm, setEditForm] = useState(null);
   const [savingEdit, setSavingEdit] = useState(false);
+  const [loadedUserId, setLoadedUserId] = useState(
+    location?.state?.user?.firstName ? String(id) : '',
+  );
+  const editRequestHandled = useRef(null);
   const getInitialUser = () => {
     const initial = location?.state?.user || { id };
     if (initial.name && !initial.firstName) {
@@ -121,7 +143,10 @@ export default function UserDetailPage() {
 
     async function load() {
       // If navigated with full user details in state, keep it. Otherwise fetch by id.
-      if (location?.state?.user && location.state.user.firstName) return; 
+      if (location?.state?.user && location.state.user.firstName) {
+        setLoadedUserId(String(id));
+        return;
+      }
       try {
         const serverId = toApiUserId(id);
         if (!serverId) throw new Error('Invalid user ID');
@@ -156,6 +181,7 @@ export default function UserDetailPage() {
           groupId: data.group_id ?? '',
           name: data.full_name || `${firstName} ${lastName}`.trim(),
         });
+        setLoadedUserId(String(id));
       } catch (e) {
         console.error('Failed to load user detail', e);
       }
@@ -208,23 +234,18 @@ export default function UserDetailPage() {
     return match?.name || `Group ID ${user.groupId}`;
   })();
   const handleEdit = () => {
-    setEditForm({
-      firstName: user.firstName || '',
-      lastName: user.lastName || '',
-      middleInitial: user.middleInitial || '',
-      contactNumber: user.contactNumber || '',
-      email: user.email || '',
-      gender: user.gender || 'Male',
-      dob: user.dob || '',
-      location: user.location || 'Poblacion',
-      role: user.role || 'Admin',
-      status: user.status || 'Active',
-      password: '',
-      schoolId: user.schoolId || '',
-      groupId: user.groupId || '',
-    });
+    setEditForm(createEditForm(user));
     setEditOpen(true);
   };
+
+  useEffect(() => {
+    if (!location.state?.openEdit
+      || loadedUserId !== String(id)
+      || editRequestHandled.current === location.key) return;
+    editRequestHandled.current = location.key;
+    setEditForm(createEditForm(user));
+    setEditOpen(true);
+  }, [id, loadedUserId, location.key, location.state?.openEdit, user]);
 
   const saveEdit = async () => {
     const serverId = toApiUserId(user.id || id);

@@ -209,13 +209,16 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
   const requiresSchool = isCommunityCoordinatorRole(form.role) || isHealthWorkerRole(form.role);
   const requiresGroup = isHealthWorkerRole(form.role);
   const schoolIsRequired = requiresSchool;
-  const selectedSchoolName = communities.find((school) => String(school.id) === String(form.schoolId || ''))?.name || '';
-  const groupOptions = groups.filter((group) => {
-    if (!form.schoolId) return true;
-    const groupCommunity = group.community || group.communityName || group.schoolName || '';
-    const schoolIdValues = [group.community_id, group.schoolId, group.school_id, group.communityId];
-    return !groupCommunity || groupCommunity.toLowerCase() === selectedSchoolName.toLowerCase() || schoolIdValues.some((value) => String(value) === String(form.schoolId));
-  });
+  const selectedSchool = communities.find((school) => String(school.id) === String(form.schoolId || ''));
+  const selectedSchoolName = selectedSchool?.name || '';
+  const groupOptions = selectedSchool ? groups.filter((group) => {
+    const groupSchoolId = [group.community_id, group.schoolId, group.school_id, group.communityId]
+      .find((value) => value !== null && value !== undefined && value !== '');
+    if (groupSchoolId !== undefined) return String(groupSchoolId) === String(selectedSchool.id);
+    const groupSchoolName = group.community || group.communityName || group.schoolName || '';
+    return Boolean(groupSchoolName)
+      && groupSchoolName.toLowerCase() === selectedSchoolName.toLowerCase();
+  }) : [];
 
   return (
     <ModalShell title={title} onClose={onClose} onInvalidCapture={(event) => {
@@ -405,10 +408,13 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
                 label="Assigned Group"
                 name="groupId"
                 options={groupOptions.map((group) => ({ value: group.id, label: group.name }))}
-                value={form.groupId || ''}
+                value={selectedSchool ? form.groupId || '' : ''}
                 required
+                disabled={!selectedSchool}
                 invalid={isInvalid('groupId')}
-                emptyMessage="No groups are available for the selected school."
+                emptyMessage={selectedSchool
+                  ? 'No groups are available for the selected school.'
+                  : 'Select a school before assigning a group.'}
                 onChange={(groupId) => handleChange('groupId', groupId)}
               />
             </div>
