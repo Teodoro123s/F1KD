@@ -1,7 +1,7 @@
 import { formFieldClasses, formLabelClasses, fieldValidationClasses } from '../../../utils/formFieldClasses';
 import React from 'react';
 import { formatDateForDisplay, formatDateForInput, maskDateInput, normalizeDateValue } from '../../../utils/formatting/dateFormat';
-import { capitalizeNameValue } from '../../../utils/formatting/nameFormat';
+import { capitalizeFirstNameCharacter, capitalizeNameValue } from '../../../utils/formatting/nameFormat';
 import { CHILD_VACCINE_SEQUENCES } from '../../../utils/beneficiary/childRecordValidation';
 import { normalizeFirstName } from '../../../utils/validation/firstNameValidation';
 import FieldInfoTooltip from '../../../components/ui/FieldInfoTooltip';
@@ -144,10 +144,8 @@ export function ChildFormFields({ activeTab, form, setForm, communities = [], ba
                 updateDateValue(name, e.target.value, onChange);
                 return;
               }
-              const nextValue = name === 'firstName'
-                ? e.target.value
-                : isName
-                  ? e.target.value
+              const nextValue = isName
+                  ? capitalizeFirstNameCharacter(e.target.value)
                 : /^(suffix|birthAttendant|birthPlace|leader)$/.test(name)
                   ? capitalizeNameValue(e.target.value)
                   : e.target.value;

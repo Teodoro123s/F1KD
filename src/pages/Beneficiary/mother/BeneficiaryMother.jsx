@@ -2,7 +2,7 @@ import { formFieldClasses, formLabelClasses, fieldValidationClasses } from '../.
 import React from 'react';
 import { formatDateForDisplay, formatDateForInput, maskDateInput, normalizeDateValue } from '../../../utils/formatting/dateFormat';
 import { calculateGestationalDetails } from '../../../utils/beneficiary/beneficiaryHelpers';
-import { capitalizeNameValue } from '../../../utils/formatting/nameFormat';
+import { capitalizeFirstNameCharacter, capitalizeNameValue } from '../../../utils/formatting/nameFormat';
 import {
   CONTACT_NUMBER_POLICY,
   getContactNumberError,
@@ -305,10 +305,8 @@ export function MotherFormFields({
                 : isNumericString
                   ? e.target.value.replace(/\D/g, '')
                   : e.target.value;
-              const nextValue = name === 'firstName'
-                ? rawValue
-                : /^(middleName|lastName|maidenSurname|suffix|emergencyFirstName|emergencySurname|spouseFirstName|spouseSurname)$/.test(name)
-                ? capitalizeNameValue(rawValue)
+              const nextValue = /^(firstName|middleName|lastName|maidenSurname|suffix|emergencyFirstName|emergencySurname|spouseFirstName|spouseSurname)$/.test(name)
+                ? capitalizeFirstNameCharacter(rawValue)
                 : rawValue;
               if (onChange) {
                 onChange(nextValue);
