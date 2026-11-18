@@ -236,7 +236,7 @@ export function CreateBatchModal({ showModal, onClose, batchForm, setBatchForm, 
       )}
       {showGroupField && (
         <div className="form-group">
-          <label className={`${formLabelClasses} form-label`} htmlFor="batch-group">Group</label>
+          <label className={`${formLabelClasses} form-label`} htmlFor="batch-group">Group <span className="form-required-indicator" aria-hidden="true">*</span></label>
           <select
             id="batch-group"
             className={`${formFieldClasses} form-select`}
