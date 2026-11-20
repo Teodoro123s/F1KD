@@ -75,6 +75,22 @@ test('health worker child check-up saves monitoring data and rejects a different
         }]
         : []];
     }
+    if (sql.startsWith('SELECT COUNT(*) AS total') && sql.includes('FROM children c')) {
+      return [[{ total: 1 }]];
+    }
+    if (sql.includes('SELECT c.*, COALESCE(c.batch_id, m.batch_id)')) {
+      return [[{
+        id: 31,
+        child_code: 'CHD-31',
+        first_name: 'Jamie',
+        last_name: 'Santos',
+        created_at: '2026-11-19 10:00:00',
+        community_id: 12,
+        group_id: 20,
+        mother_community_id: 12,
+        mother_group_id: 20,
+      }]];
+    }
     if (sql.startsWith('SELECT id FROM child_checkups')) {
       return [existingCheckupId && Number(params[1]) === 12 ? [{ id: existingCheckupId }] : []];
     }
@@ -216,4 +232,20 @@ test('health worker child check-up saves monitoring data and rejects a different
   const wrongGroupResponse = await request(99, { week: 13 });
   assert.equal(wrongGroupResponse.status, 404);
   assert.equal(savedCheckupQueries.length, 2, 'a child outside the worker group must not be persisted');
+
+  const listToken = jwt.sign({
+    id: 8,
+    sid: 'session-20',
+    role: 'Health worker',
+    school_id: 12,
+    group_id: 20,
+  }, process.env.JWT_SECRET);
+  const listResponse = await fetch(
+    `http://127.0.0.1:${server.address().port}/api/children?fields=checkups,createdAt`,
+    { headers: { Authorization: `Bearer ${listToken}` } },
+  );
+  assert.equal(listResponse.status, 200);
+  const listedChildren = await listResponse.json();
+  assert.equal(listedChildren.children[0].createdAt, '2026-11-19 10:00:00');
+  assert.ok(Array.isArray(listedChildren.children[0].checkups));
 });

@@ -157,6 +157,81 @@ test('beneficiary list requests and renders only the selected server page', asyn
   expect(motherListRequests).toContainEqual({ page: 2, perPage: 10 });
 });
 
+test('creating a child stays on the form, confirms success, and clears submitted values', async ({ page }) => {
+  const user = {
+    id: 21,
+    role: 'Community Coordinator',
+    school_id: 1,
+    has_accepted_terms: true,
+    first_name: 'Browser',
+    last_name: 'Test',
+  };
+  const mother = {
+    id: 31,
+    firstName: 'Test',
+    lastName: 'Mother',
+    trimester: '3rd Trimester',
+    checkups: [
+      null, null, null, null, null, null,
+      { completed: true },
+      { completed: true },
+      { completed: true },
+    ],
+  };
+  let childCreateCount = 0;
+
+  await page.route('**/api/**', async (route) => {
+    const url = new URL(route.request().url());
+    if (!url.pathname.startsWith('/api/')) return route.continue();
+    if (url.pathname === '/api/auth/refresh') {
+      return jsonResponse(route, { token: 'browser-test-token', user });
+    }
+    if (url.pathname === '/api/help-guidance/preferences') {
+      return jsonResponse(route, { preferences: {} });
+    }
+    if (url.pathname === '/api/community/reference-options') {
+      return jsonResponse(route, { communities: [], groups: [], batches: [] });
+    }
+    if (url.pathname === '/api/mothers') {
+      return jsonResponse(route, {
+        mothers: [mother],
+        pagination: { total: 1, totalPages: 1, page: 1, perPage: 100 },
+      });
+    }
+    if (url.pathname === '/api/children' && route.request().method() === 'POST') {
+      childCreateCount += 1;
+      return jsonResponse(route, {
+        child: {
+          id: 41,
+          first_name: 'Baby',
+          last_name: 'Test',
+          birth_date: '2025-01-01',
+          mother_id: mother.id,
+        },
+      }, 201);
+    }
+    return jsonResponse(route, {});
+  });
+
+  await page.goto('/beneficiary/create/child');
+  await page.locator('#child-mother-select').selectOption(String(mother.id));
+  await page.getByLabel('First Name').fill('Baby');
+  await page.getByLabel('Last Name').fill('Test');
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await page.locator('#child-birth-date').fill('01/01/2025');
+  await page.locator('#child-birth-date').blur();
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await page.getByRole('button', { name: 'Create Child' }).click();
+  await page.getByRole('button', { name: 'Confirm and create' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Child created successfully' })).toBeVisible();
+  await expect(page).toHaveURL(/\/beneficiary\/create\/child$/);
+  await expect(page.getByLabel('First Name')).toHaveValue('');
+  await expect(page.getByLabel('Last Name')).toHaveValue('');
+  expect(childCreateCount).toBe(1);
+});
+
 test('user management action table fits the viewport without horizontal scrolling', async ({ page }) => {
   const user = {
     id: 1,

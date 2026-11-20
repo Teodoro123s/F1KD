@@ -31,9 +31,9 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useAuth } from '../../auth/AuthProvider';
-import { useMothers } from '../../context/MothersContext';
 import { PageSkeleton } from '../../components/LoadingSkeleton';
 import { getSummary } from '../Community/communityService';
+import { apiGetMothers } from '../../api/mothers';
 import { apiGetChildren } from '../../api/children';
 import { apiGetPrograms } from '../../api/programs';
 import { apiGetManagedHealthWorkers, apiGetUsers } from '../../api/users';
@@ -44,10 +44,12 @@ import {
   buildDashboardModuleSummaries,
   buildOperationalStaffMetrics,
   getIncompleteBatchProgressOptions,
+  getDashboardRegistrationDate,
+  getDashboardRegistrationSeries,
+  getScreeningCoverageMetrics,
 } from './dashboardModuleMetrics.mjs';
 import {
   getRollingDateRange,
-  toLocalDateKey,
   fillDailyTimeSeries,
 } from '../../utils/analytics/dailyTimeSeries';
 import AIReportingAssistantEntry from '../AISetting/AIReportingAssistantEntry';
@@ -87,13 +89,6 @@ function getRecordName(record) {
     || 'Unnamed record';
 }
 
-function getRecordDate(record) {
-  const value = record.createdAt || record.created_at || record.raw?.created_at || record.updatedAt || record.updated_at;
-  if (!value) return null;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
 const kpiBadgeClasses = {
   positive: 'bg-[#ecfdf5] text-[#15803d] border border-[#a7f3d0]',
   warning: 'bg-[#fffbeb] text-[#b45309] border border-[#fde68a]',
@@ -125,7 +120,6 @@ function ChartTooltip({ active, payload, label }) {
 
 export default function DashboardPage() {
   const { currentUser } = useAuth();
-  const { mothers: contextMothers, refreshMothers, error: mothersError } = useMothers();
   const normalizedRole = normalizeRole(currentUser?.role);
   const isSuperAdmin = normalizedRole === ROLES.SUPER_ADMIN;
   const isAdmin = normalizedRole === ROLES.ADMIN;
@@ -136,7 +130,8 @@ export default function DashboardPage() {
   const canManagePrograms = can(currentUser?.role, 'program-resources', 'update');
   const canRecordMonitoring = can(currentUser?.role, 'monitor-resources', 'create');
 
-  const [communitySummary, setCommunitySummary] = useState({ communities: [], batches: [], groups: [], mothers: [] });
+  const [communitySummary, setCommunitySummary] = useState({ communities: [], batches: [], groups: [] });
+  const [mothers, setMothers] = useState([]);
   const [children, setChildren] = useState([]);
   const [programs, setPrograms] = useState([]);
   const [users, setUsers] = useState([]);
@@ -155,8 +150,8 @@ export default function DashboardPage() {
     async function fetchDashboardData() {
       const results = await Promise.allSettled([
         isSuperAdmin ? Promise.resolve(null) : getSummary(),
-        isSuperAdmin ? Promise.resolve(null) : refreshMothers(['checkups']),
-        isSuperAdmin ? Promise.resolve(null) : apiGetChildren(['checkups']),
+        isSuperAdmin ? Promise.resolve(null) : apiGetMothers(['checkups', 'createdAt']),
+        isSuperAdmin ? Promise.resolve(null) : apiGetChildren(['checkups', 'createdAt']),
         isSuperAdmin ? Promise.resolve(null) : apiGetPrograms(),
         isSuperAdmin
           ? fetchAllDashboardUsers()
@@ -177,7 +172,7 @@ export default function DashboardPage() {
 
       const [
         summaryResult,
-        ,
+        mothersResult,
         childrenResult,
         programsResult,
         usersResult,
@@ -207,6 +202,9 @@ export default function DashboardPage() {
       if (summaryResult.status === 'fulfilled' && summaryResult.value) {
         setCommunitySummary(summaryResult.value);
       }
+      if (mothersResult.status === 'fulfilled' && mothersResult.value) {
+        setMothers(getList(mothersResult.value, 'mothers'));
+      }
       if (childrenResult.status === 'fulfilled' && childrenResult.value) {
         setChildren(getList(childrenResult.value, 'children'));
       }
@@ -232,17 +230,12 @@ export default function DashboardPage() {
     return () => {
       active = false;
     };
-  }, [activityDateRange.from, activityDateRange.to, isCommunityOrganizer, isSuperAdmin, refreshMothers, refreshVersion]);
+  }, [activityDateRange.from, activityDateRange.to, isCommunityOrganizer, isSuperAdmin, refreshVersion]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setRefreshVersion((version) => version + 1), 5 * 60 * 1000);
     return () => window.clearInterval(timer);
   }, []);
-
-  const mothers = useMemo(() => {
-    if (Array.isArray(contextMothers) && contextMothers.length > 0) return contextMothers;
-    return Array.isArray(communitySummary.mothers) ? communitySummary.mothers : [];
-  }, [contextMothers, communitySummary.mothers]);
 
   const stats = useMemo(() => {
     let followUpCount = 0;
@@ -271,7 +264,7 @@ export default function DashboardPage() {
     .map((record, index) => ({
       name: getRecordName(record),
       type: record.birthDate || record.birth_date ? 'Child' : 'Mother',
-      date: getRecordDate(record),
+      date: getDashboardRegistrationDate(record),
       id: record.id || record.child_code || `${record.name || 'record'}-${index}`,
     }))
     .filter((record) => record.date)
@@ -487,7 +480,7 @@ export default function DashboardPage() {
     const sourceByCard = isSuperAdmin
       ? { 'active-staff': 'users', 'unassigned-staff': 'users', 'suspended-staff': 'users' }
       : {
-        'follow-ups': mothersError || loadErrors.includes('children') ? true : false,
+        'follow-ups': loadErrors.includes('beneficiary records') || loadErrors.includes('children'),
         programs: loadErrors.includes('programs'),
         'health-workers': loadErrors.includes('users'),
       };
@@ -517,16 +510,12 @@ export default function DashboardPage() {
     }
 
     // Operational roles: Beneficiary registration timeline
-    const countsByDate = new Map();
-    [...mothers, ...children].forEach((record) => {
-      const date = getRecordDate(record);
-      if (!date) return;
-      const key = toLocalDateKey(date);
-      countsByDate.set(key, (countsByDate.get(key) || 0) + 1);
-    });
-    const rawRows = Array.from(countsByDate.entries()).map(([date, count]) => ({ date, count }));
-    const filled = fillDailyTimeSeries(rawRows, activityDateRange.from, activityDateRange.to);
-    return filled.map((item) => {
+    const registrations = getDashboardRegistrationSeries(
+      [...mothers, ...children],
+      activityDateRange.from,
+      activityDateRange.to,
+    );
+    return registrations.map((item) => {
       const d = new Date(item.date);
       return {
         date: item.date,
@@ -561,35 +550,24 @@ export default function DashboardPage() {
       };
     }
 
-    const monitoringModule = moduleSummaries.find((m) => m.key === 'monitoring');
-    const checkedCount = monitoringModule?.metrics?.[0]?.value ?? 0;
-    const notCheckedCount = monitoringModule?.metrics?.[1]?.value ?? 0;
-    const totalBeneficiaries = mothers.length + children.length;
-
-    const checked = typeof checkedCount === 'number' ? checkedCount : 0;
-    const pending = typeof notCheckedCount === 'number' ? notCheckedCount : Math.max(0, totalBeneficiaries - checked);
-    const followUps = stats.followUpCount;
+    const coverage = getScreeningCoverageMetrics(mothers, children);
 
     const items = [
-      { name: 'Checked This Month', value: checked, color: '#15803d' },
-      { name: 'Pending Check-up', value: Math.max(0, pending - followUps), color: '#86efac' },
-      { name: 'Needs Follow-up', value: followUps, color: '#f59e0b' },
+      { name: 'Checked, no follow-up flag', value: coverage.checkedWithoutFollowUp, color: '#15803d' },
+      { name: 'Pending Check-up', value: coverage.pending, color: '#86efac' },
+      { name: 'Needs Follow-up', value: coverage.needsFollowUp, color: '#f59e0b' },
     ].filter((item) => item.value > 0);
 
-    const safeTotal = totalBeneficiaries > 0 ? totalBeneficiaries : 1;
-    const coveragePct = Math.min(100, Math.round((checked / safeTotal) * 100));
+    const coveragePct = coverage.total > 0 ? Math.round((coverage.checked / coverage.total) * 100) : null;
 
     return {
       title: 'Screening Coverage',
       subtitle: 'Monthly health check-up status',
-      centerVal: totalBeneficiaries > 0 ? `${coveragePct}%` : '100%',
-      centerLabel: 'Checked',
-      data: items.length > 0 ? items : [
-        { name: 'Mothers', value: Math.max(1, mothers.length), color: '#15803d' },
-        { name: 'Children', value: Math.max(1, children.length), color: '#22c55e' },
-      ],
+      centerVal: coveragePct === null ? '—' : `${coveragePct}%`,
+      centerLabel: coverage.total > 0 ? 'Checked' : 'No beneficiaries',
+      data: items,
     };
-  }, [children.length, isSuperAdmin, moduleSummaries, mothers.length, staffMetrics, stats.followUpCount]);
+  }, [children, isSuperAdmin, mothers, staffMetrics]);
 
   // 3. Bar Chart Data
   const barChartInfo = useMemo(() => {
@@ -688,9 +666,9 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {(loadErrors.length > 0 || mothersError) && (
+      {loadErrors.length > 0 && (
         <p className="dashboard-load-warning m-0 rounded-xl border border-[#fde68a] bg-[#fffbeb] px-4 py-3 text-[0.84rem] font-medium text-[#92400e]" role="alert">
-          Some dashboard data could not be refreshed ({[...new Set([...loadErrors, ...(mothersError ? ['beneficiary records'] : [])])].join(', ')}). Displayed figures may be incomplete.
+          Some dashboard data could not be refreshed ({loadErrors.join(', ')}). Displayed figures may be incomplete.
         </p>
       )}
 

@@ -4,8 +4,61 @@ import {
   buildDashboardModuleSummaries,
   buildOperationalStaffMetrics,
   getBatchChildMonitoringProgress,
+  getDashboardRegistrationDate,
+  getDashboardRegistrationSeries,
   getIncompleteBatchProgressOptions,
+  getScreeningCoverageMetrics,
 } from './dashboardModuleMetrics.mjs';
+
+test('screening coverage partitions current beneficiaries into consistent monthly categories', () => {
+  const now = new Date(2026, 10, 20, 12);
+  const mothers = [
+    { checkups: [{ checkupDate: '2026-11-05', developmentalStatus: 'Normal' }] },
+    { checkups: [{ checkupDate: '2026-11-06', developmentalStatus: 'Needs Follow-up' }] },
+    { checkups: [{ checkup_date: '2026-11-07', developmental_status: 'At Risk' }] },
+    { checkups: [{ checkupDate: '2026-10-31', developmentalStatus: 'Needs Follow-up' }] },
+  ];
+  const children = [
+    { checkups: [{ visit_date: '2026-11-08', developmental_status: 'Needs follow_up' }] },
+    { checkups: [] },
+  ];
+
+  const metrics = getScreeningCoverageMetrics(mothers, children, now);
+
+  assert.deepEqual(metrics, {
+    total: 6,
+    checked: 4,
+    pending: 2,
+    needsFollowUp: 3,
+    checkedWithoutFollowUp: 1,
+  });
+  assert.equal(metrics.checkedWithoutFollowUp + metrics.pending + metrics.needsFollowUp, metrics.total);
+});
+
+test('registration trend accepts API-created timestamps in camel and snake case', () => {
+  assert.equal(
+    getDashboardRegistrationDate({ createdAt: '2026-11-19T10:00:00.000Z' }).toISOString(),
+    '2026-11-19T10:00:00.000Z',
+  );
+  assert.equal(
+    getDashboardRegistrationDate({ created_at: '2026-11-18T10:00:00.000Z' }).toISOString(),
+    '2026-11-18T10:00:00.000Z',
+  );
+  assert.equal(getDashboardRegistrationDate({ createdAt: 'not-a-date' }), null);
+});
+
+test('registration trend counts recent API records on their registration date', () => {
+  const series = getDashboardRegistrationSeries([
+    { createdAt: '2026-11-20T12:00:00.000Z' },
+    { created_at: '2026-11-20T14:00:00.000Z' },
+    { createdAt: '2026-10-20T12:00:00.000Z' },
+  ], '2026-11-19', '2026-11-20');
+
+  assert.deepEqual(series, [
+    { date: '2026-11-19', count: 0 },
+    { date: '2026-11-20', count: 2 },
+  ]);
+});
 
 test('builds scoped monitoring, projects, and progress summaries', () => {
   const modules = buildDashboardModuleSummaries({

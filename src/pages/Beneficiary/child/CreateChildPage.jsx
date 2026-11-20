@@ -150,6 +150,7 @@ export default function CreateChildPage({
   const initialFormRef = useRef(groupForm);
   const [birthDocumentFile, setBirthDocumentFile] = useState(null);
   const [pendingChild, setPendingChild] = useState(null);
+  const [createdChild, setCreatedChild] = useState(null);
   const [creating, setCreating] = useState(false);
   const [showRequiredValidation, setShowRequiredValidation] = useState(false);
 
@@ -234,8 +235,23 @@ export default function CreateChildPage({
     }
   }, [motherFromState]);
 
+  const resetChildForm = () => {
+    const resetForm = {
+      ...emptyGroupForm(),
+      community: selectedMother?.community || selectedMother?.raw?.community_name || selectedMother?.raw?.community || '',
+      batch: selectedMother?.batch || selectedMother?.raw?.batch_name || selectedMother?.raw?.batch || '',
+      motherId: selectedMother?.id || selectedMother?.motherId || null,
+    };
+    initialFormRef.current = resetForm;
+    setGroupForm(resetForm);
+    setBirthDocumentFile(null);
+    setShowRequiredValidation(false);
+    setCreateActiveTab('general');
+  };
+
   const handleCreateGroup = async (e) => {
     e.preventDefault();
+    if (createdChild || creating) return;
     if (createActiveTab !== 'vaccine') {
       return runStepNavigation(handleNextStep, 'next');
     }
@@ -411,34 +427,20 @@ export default function CreateChildPage({
 
       // add to groups list
       setGroups((prev) => [newGroup, ...prev]);
-      notifyAction(documentUploadFailed
-        ? 'Child created, but the birth document upload failed. You can upload it from Edit Child.'
-        : 'Child created successfully.', documentUploadFailed ? 'error' : 'success');
       localStorage.removeItem(CHILD_DRAFT_KEY);
       setPendingChild(null);
+      resetChildForm();
 
       // if we were navigated here from a mother, append the child into that mother's children array
       if (motherFromState && typeof setMothers === 'function') {
-        const updatedMother = { ...motherFromState, children: [newGroup, ...(motherFromState.children || [])] };
         setMothers((prev) => prev.map((m) => (
           (m.id === motherFromState.id || m.motherId === motherFromState.motherId) ? { ...m, children: [newGroup, ...(m.children || [])] } : m
         )));
-        // navigate to the new child's detail page and include the updated mother in state so the child shows immediately
-        navigate(`/beneficiary/child/${newGroup.id}`, {
-          state: {
-            mother: updatedMother,
-            child: newGroup,
-            mothers: undefined,
-            returnTo: location.state?.returnTo || `/beneficiary/mother/${motherFromState.id || motherFromState.motherId}`,
-            returnToState: location.state?.returnToState,
-          },
-        });
-        return;
       }
 
-      navigate(location.state?.returnTo || '/beneficiary', {
-        replace: true,
-        ...(location.state?.returnToState === undefined ? {} : { state: location.state.returnToState }),
+      setCreatedChild({
+        fullName: pendingChild.fullName,
+        documentUploadFailed,
       });
     } catch (err) {
       console.error('Failed to create child', err);
@@ -635,6 +637,18 @@ export default function CreateChildPage({
         loadingLabel="Creating..."
         onConfirm={confirmCreateChild}
         onCancel={() => setPendingChild(null)}
+      />
+      <ConfirmDialog
+        open={Boolean(createdChild)}
+        title={createdChild?.documentUploadFailed ? 'Child created; document upload failed' : 'Child created successfully'}
+        description={createdChild
+          ? `${createdChild.fullName} has been added. The form has been cleared, and you can continue from this page.${createdChild.documentUploadFailed ? ' The birth document could not be uploaded; you can upload it later from Edit Child.' : ''}`
+          : ''}
+        variant="primary"
+        confirmLabel="Continue"
+        cancelLabel="Close"
+        onConfirm={() => setCreatedChild(null)}
+        onCancel={() => setCreatedChild(null)}
       />
       {NavigationConfirm}
     </section>

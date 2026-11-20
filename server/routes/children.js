@@ -185,6 +185,7 @@ function withChildAliases(child = {}) {
     community: child.community_name ?? child.community ?? '',
     group: child.group_name ?? child.group ?? '',
     batch: child.batch_name ?? child.batch ?? '',
+    createdAt: child.created_at ?? child.createdAt ?? '',
     motherFirstName: child.mother_first_name ?? child.motherFirstName ?? '',
     motherLastName: child.mother_last_name ?? child.motherLastName ?? '',
   };
@@ -360,6 +361,7 @@ router.delete('/:id/documents', async (req, res) => {
 const CHILD_ALLOWED_FIELDS = new Set([
   'id',
   'child_code', 'childCode',
+  'createdAt',
   'mother_id', 'motherId',
   'first_name', 'firstName',
   'middle_name', 'middleName',

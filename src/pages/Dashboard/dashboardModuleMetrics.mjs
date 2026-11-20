@@ -1,6 +1,73 @@
 import { hasCheckupThisMonth } from '../../utils/beneficiary/monthlyCheckups.js';
+import { fillDailyTimeSeries, toLocalDateKey } from '../../utils/analytics/dailyTimeSeries.js';
 import { normalizeRole, ROLES } from '../../utils/permissions.js';
-import { getMonthlyDevelopmentalStatus, getMonitoringScreeningRoute } from '../Monitoring/utils/monitoringScreeningUtils.mjs';
+import {
+  getMonthlyDevelopmentalStatus,
+  getMonitoringScreeningRoute,
+  normalizeDevelopmentalStatus,
+} from '../Monitoring/utils/monitoringScreeningUtils.mjs';
+
+function getLatestMonthlyScreeningStatus(beneficiary, now) {
+  const checkups = Array.isArray(beneficiary?.checkups) ? beneficiary.checkups.flat(Infinity) : [];
+  const monthlyCheckups = checkups
+    .filter((checkup) => checkup && typeof checkup === 'object'
+      && hasCheckupThisMonth({ checkups: [checkup] }, now))
+    .sort((left, right) => {
+      const leftDate = String(left.checkupDate ?? left.checkup_date ?? left.visit_date ?? '').slice(0, 10);
+      const rightDate = String(right.checkupDate ?? right.checkup_date ?? right.visit_date ?? '').slice(0, 10);
+      return leftDate.localeCompare(rightDate);
+    });
+
+  return monthlyCheckups
+    .map((checkup) => normalizeDevelopmentalStatus(checkup.developmentalStatus ?? checkup.developmental_status))
+    .reverse()
+    .find(Boolean) || '';
+}
+
+export function getScreeningCoverageMetrics(mothers = [], children = [], now = new Date()) {
+  const beneficiaries = [...mothers, ...children];
+  const checked = beneficiaries.filter((beneficiary) => hasCheckupThisMonth(beneficiary, now)).length;
+  const needsFollowUp = beneficiaries.filter((beneficiary) => {
+    if (!hasCheckupThisMonth(beneficiary, now)) return false;
+    return ['needs follow up', 'at risk'].includes(getLatestMonthlyScreeningStatus(beneficiary, now));
+  }).length;
+
+  return {
+    total: beneficiaries.length,
+    checked,
+    pending: beneficiaries.length - checked,
+    needsFollowUp,
+    checkedWithoutFollowUp: checked - needsFollowUp,
+  };
+}
+
+export function getDashboardRegistrationDate(record = {}) {
+  const value = record.createdAt
+    || record.created_at
+    || record.raw?.createdAt
+    || record.raw?.created_at
+    || record.updatedAt
+    || record.updated_at;
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+export function getDashboardRegistrationSeries(records = [], from, to) {
+  const countsByDate = new Map();
+  records.forEach((record) => {
+    const date = getDashboardRegistrationDate(record);
+    if (!date) return;
+    const key = toLocalDateKey(date);
+    countsByDate.set(key, (countsByDate.get(key) || 0) + 1);
+  });
+
+  return fillDailyTimeSeries(
+    Array.from(countsByDate, ([date, count]) => ({ date, count })),
+    from,
+    to,
+  );
+}
 
 function getCompletedChildMonitoringMonths(child) {
   const months = new Set();

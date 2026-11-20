@@ -72,6 +72,12 @@ test('mother registration saves initial monitoring measurements as a completed c
       return [{ affectedRows: 1 }];
     }
     if (sql === 'SELECT * FROM mothers WHERE id = ?') return [[mother]];
+    if (sql.startsWith('SELECT COUNT(*) AS total') && sql.includes('FROM mothers m')) {
+      return [[{ total: 1 }]];
+    }
+    if (sql.includes('SELECT m.*') && sql.includes('FROM mothers m')) {
+      return [[{ ...mother, created_at: '2026-11-20 09:00:00' }]];
+    }
     if (sql.startsWith('UPDATE mothers SET ? WHERE id = ?')) {
       updateValues = params[0];
       mother = { ...mother, ...updateValues };
@@ -228,6 +234,11 @@ test('mother registration saves initial monitoring measurements as a completed c
   assert.equal(createdProfile.checkups[1][1].weight, '58');
   assert.equal(createdProfile.checkups[1][1].bp, '120/80');
   assert.equal(createdProfile.progress, 11);
+
+  const recentMothersResponse = await fetch(`${baseUrl}?fields=checkups,createdAt`);
+  assert.equal(recentMothersResponse.status, 200);
+  const recentMothers = await recentMothersResponse.json();
+  assert.equal(recentMothers.mothers[0].createdAt, '2026-11-20 09:00:00');
 
   const invalidCheckupAmountResponse = await fetch(`${baseUrl}/123/checkups`, {
     method: 'POST',
