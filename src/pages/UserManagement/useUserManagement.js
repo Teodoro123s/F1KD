@@ -482,13 +482,15 @@ export function useUserManagement({ schoolId = '', batchId = '', healthWorkerMan
       return;
     }
     const dobToSave = normalizedDob || dobVal;
-    const dobMsg = getDobValidationMessage(dobToSave);
-    if (dobMsg) {
-      setValidationField('dob');
-      setNotification(dobMsg);
-      try { console.log('Validation failed: invalid dob', { dobVal, normalizedDob, dobToSave }); } catch(e){}
-      try { const el = document.querySelector('input[name="dob"]'); if (el) el.focus(); } catch(e){}
-      return;
+    if (selectedUser) {
+      const dobMsg = getDobValidationMessage(dobToSave);
+      if (dobMsg) {
+        setValidationField('dob');
+        setNotification(dobMsg);
+        try { console.log('Validation failed: invalid dob', { dobVal, normalizedDob, dobToSave }); } catch(e){}
+        try { const el = document.querySelector('input[name="dob"]'); if (el) el.focus(); } catch(e){}
+        return;
+      }
     }
 
     const fullName = `${firstName}${mi ? ` ${mi}` : ''} ${lastName}`;
@@ -558,7 +560,7 @@ export function useUserManagement({ schoolId = '', batchId = '', healthWorkerMan
               contactNumber: contactNumberSan,
               email,
               username: usernameToUse,
-              dob: dobToSave,
+              dob: dobToSave || null,
               role: roleVal,
               status: healthWorkerManagement ? 'Active' : statusVal,
               password: passwordToUse,

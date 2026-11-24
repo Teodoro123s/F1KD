@@ -575,6 +575,7 @@ export default function DashboardPage() {
       return {
         title: 'System Scope Breakdown',
         subtitle: 'Key operational entities',
+        layout: 'vertical',
         data: [
           { name: 'Staff', fullName: 'Active Staff', value: staffMetrics.active },
           { name: 'Schools', fullName: 'Schools', value: reportScopes.schools?.length || 0 },
@@ -853,23 +854,53 @@ export default function DashboardPage() {
           </div>
           <div className="dashboard-barchart-wrap min-h-[240px] w-full flex-[1_1_auto]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={barChartInfo.data} margin={{ top: 10, right: 8, left: -22, bottom: 0 }}>
+              <BarChart
+                data={barChartInfo.data}
+                layout={barChartInfo.layout}
+                margin={{ top: 10, right: 8, left: barChartInfo.layout === 'vertical' ? 8 : -22, bottom: 0 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis
-                  dataKey="name"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fontSize: 11, fill: '#64748b' }}
-                  interval={0}
-                />
-                <YAxis
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fontSize: 11, fill: '#94a3b8' }}
-                  allowDecimals={false}
-                />
+                {barChartInfo.layout === 'vertical' ? (
+                  <>
+                    <XAxis
+                      type="number"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 11, fill: '#94a3b8' }}
+                      allowDecimals={false}
+                    />
+                    <YAxis
+                      dataKey="name"
+                      type="category"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 11, fill: '#64748b' }}
+                      width={82}
+                    />
+                  </>
+                ) : (
+                  <>
+                    <XAxis
+                      dataKey="name"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 11, fill: '#64748b' }}
+                      interval={0}
+                    />
+                    <YAxis
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 11, fill: '#94a3b8' }}
+                      allowDecimals={false}
+                    />
+                  </>
+                )}
                 <Tooltip content={<ChartTooltip />} />
-                <Bar dataKey="value" name="Count" radius={[6, 6, 0, 0]}>
+                <Bar
+                  dataKey="value"
+                  name="Count"
+                  radius={barChartInfo.layout === 'vertical' ? [0, 6, 6, 0] : [6, 6, 0, 0]}
+                >
                   {barChartInfo.data.map((entry, index) => (
                     <Cell
                       key={`bar-${index}`}

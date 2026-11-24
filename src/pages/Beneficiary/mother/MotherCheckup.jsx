@@ -600,13 +600,14 @@ export default function MotherCheckup({
 
               {hasNextMotherCheckup(activeStep) ? (
                 <div className="form-group full-width checkup-date-field">
-                  <label className={`${formLabelClasses} checkup-field-label`} htmlFor="next-checkup-date">Next Checkup Date</label>
+                  <label className={`${formLabelClasses} checkup-field-label is-required ${requiredLabelClasses}`} htmlFor="next-checkup-date">Next Checkup Date</label>
                   <DateInput
                     id="next-checkup-date"
                     className={`${checkupFieldLayoutClasses} checkup-field-input`}
                     value={nextCheckupDate}
                     onChange={updateField('nextCheckupDate')}
                     ariaLabel="Next checkup date"
+                    required
                   />
                 </div>
               ) : (

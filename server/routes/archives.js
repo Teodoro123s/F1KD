@@ -109,11 +109,11 @@ async function getRelatedCounts(connection, type, record) {
       ['Children', 'SELECT COUNT(*) AS count FROM children c LEFT JOIN mothers m ON m.id = c.mother_id WHERE COALESCE(c.community_id, m.community_id) = ?', [record.id]],
     ],
     group: [
-      ['Batches', `SELECT COUNT(DISTINCT batch_id) AS count FROM ${effectiveGroupBatchRelation} WHERE group_id = ?`, [record.id]],
-      ['Mothers', `SELECT COUNT(*) AS count FROM mothers WHERE group_id = ? OR batch_id IN (SELECT batch_id FROM ${effectiveGroupBatchRelation} WHERE group_id = ?)`, [record.id, record.id]],
+      ['Batches', `SELECT COUNT(DISTINCT batch_id) AS count FROM ${effectiveGroupBatchRelation} AS related_group_batches WHERE group_id = ?`, [record.id]],
+      ['Mothers', `SELECT COUNT(*) AS count FROM mothers WHERE group_id = ? OR batch_id IN (SELECT batch_id FROM ${effectiveGroupBatchRelation} AS related_group_batches WHERE group_id = ?)`, [record.id, record.id]],
       ['Children', `SELECT COUNT(*) AS count FROM children c LEFT JOIN mothers m ON m.id = c.mother_id
-        WHERE c.group_id = ? OR c.batch_id IN (SELECT batch_id FROM ${effectiveGroupBatchRelation} WHERE group_id = ?)
-        OR c.mother_id IN (SELECT id FROM mothers WHERE group_id = ? OR batch_id IN (SELECT batch_id FROM ${effectiveGroupBatchRelation} WHERE group_id = ?))`, [record.id, record.id, record.id, record.id]],
+        WHERE c.group_id = ? OR c.batch_id IN (SELECT batch_id FROM ${effectiveGroupBatchRelation} AS related_group_batches WHERE group_id = ?)
+        OR c.mother_id IN (SELECT id FROM mothers WHERE group_id = ? OR batch_id IN (SELECT batch_id FROM ${effectiveGroupBatchRelation} AS related_group_batches WHERE group_id = ?))`, [record.id, record.id, record.id, record.id]],
     ],
     batch: [
       ['Mothers', 'SELECT COUNT(*) AS count FROM mothers WHERE batch_id = ?', [record.id]],
@@ -330,6 +330,9 @@ router.get('/:type/:id/impact', async (req, res) => {
   const { type } = req.params;
   if (!TYPES.has(type)) return res.status(400).json({ error: 'Unsupported archive type' });
   if (!canManage(type, req.user?.role)) return res.status(403).json({ error: 'You do not have permission to archive this record' });
+  if (normalizeRole(req.user?.role) === 'community_coordinator' && !(Number(req.schoolId) > 0)) {
+    return res.status(403).json({ error: 'Assign this Community Organizer to a school before archiving records' });
+  }
   try {
     const record = await findRecord(pool, type, req.params.id, req);
     if (!record) return res.status(404).json({ error: 'Record not found' });

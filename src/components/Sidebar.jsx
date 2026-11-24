@@ -177,6 +177,7 @@ export default function Sidebar({ mobileOpen = false, onCloseMobile }) {
 
   const isSuperAdmin = hasRole(currentUser?.role, [ROLES.SUPER_ADMIN]);
   const isCommunityOrganizer = isCommunityCoordinatorRole(currentUser?.role);
+  const canViewSchoolPerformance = hasRole(currentUser?.role, [ROLES.ADMIN, ROLES.PARTNER]);
 
   // Single unified navigation list for all users in one continuous line
   const allNavItems = isSuperAdmin
@@ -202,6 +203,7 @@ export default function Sidebar({ mobileOpen = false, onCloseMobile }) {
         ]
       : [
           { to: '/dashboard', label: 'Dashboard', icon: DashboardGridIcon },
+          ...(canViewSchoolPerformance ? [{ to: '/school-performance', label: 'School Performance', icon: ReportsIcon }] : []),
           { to: '/community', label: 'Community', icon: BuildingIcon },
           { to: '/beneficiary', label: 'Beneficiary', icon: UsersIcon },
           { to: '/monitoring', label: 'Monitor', icon: ActivityIcon },

@@ -982,7 +982,7 @@ export default function CommunityPage() {
 
     if (activeTab === 'communities') {
       return appendActions([
-        { key: 'name', header: 'School Name', style: { width: '48%' }, renderCell: (row) => <span className="community-title-text" title={`${row.name} · ${row.area} · ${row.code || `ID ${row.id}`}`}>{row.name} <small>{row.area} · {row.code || `ID ${row.id}`}</small></span> },
+        { key: 'name', header: 'School Name', style: { width: '48%' }, renderCell: (row) => <span className="community-title-text" title={row.name}>{row.name}</span> },
         { key: 'batches', header: 'Batches', cellClassName: 'small-column', renderCell: (row) => row.batches || 0 },
         { key: 'groups', header: 'Groups', cellClassName: 'small-column', renderCell: (row) => groups.filter((group) => belongsToSchool(group, row)).length },
       ]);

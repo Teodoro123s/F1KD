@@ -1,9 +1,161 @@
 import { formFieldClasses, formLabelClasses } from '../../utils/formFieldClasses';
-import React, { useId, useRef } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import { getModalBackdropClasses, getModalSurfaceClasses, modalHeaderSectionClasses, communityDrawerHeaderClasses, communityModalFooterClasses, modalCloseClasses, modalBodyClasses, modalFooterClasses, confirmationSurfaceClasses, confirmationBodyClasses, confirmationFooterClasses, confirmationCloseClasses } from '../../components/ui/modalClasses';
 import { createPortal } from 'react-dom';
+import FloatingLayer from '../../components/ui/FloatingLayer';
 import useModalAccessibility from '../../components/ui/useModalAccessibility';
 import usePresence from '../../components/ui/usePresence';
+
+const PHINMA_ED_SCHOOLS = [
+  'PHINMA Araullo University (AU)',
+  'PHINMA Cagayan de Oro College (COC)',
+  'PHINMA University of Pangasinan (UPang)',
+  'PHINMA University of Iloilo (UI)',
+  'PHINMA UPang College of Urdaneta',
+  'Southwestern University (SWU) PHINMA',
+  'PHINMA Saint Jude College Manila (SJCM)',
+  'PHINMA Saint Jude College Quezon City (SJCQC)',
+  'PHINMA Rizal College of Laguna (RCL)',
+  'PHINMA Union College of Laguna (UCL)',
+  'PHINMA Saint Jude College Cavite (SJC Dasma)',
+  'PHINMA Southeastern College',
+];
+
+function SchoolNameCombobox({ value, onChange }) {
+  const id = useId();
+  const inputRef = useRef(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [activeIndex, setActiveIndex] = useState(0);
+  const listboxId = `${id}-school-options`;
+  const filteredSchools = PHINMA_ED_SCHOOLS.filter((school) => (
+    school.toLowerCase().includes(query.trim().toLowerCase())
+  ));
+
+  useEffect(() => {
+    if (!isOpen || activeIndex < 0) return;
+    document.getElementById(`${listboxId}-${activeIndex}`)?.scrollIntoView({ block: 'nearest' });
+  }, [activeIndex, isOpen, listboxId]);
+
+  useEffect(() => {
+    inputRef.current?.setCustomValidity(
+      PHINMA_ED_SCHOOLS.includes(value) ? '' : 'Choose a school from the suggestions.',
+    );
+  }, [value]);
+
+  const closeOptions = () => {
+    setIsOpen(false);
+    setQuery('');
+    setActiveIndex(0);
+  };
+
+  const chooseSchool = (school) => {
+    onChange(school);
+    inputRef.current?.setCustomValidity('');
+    closeOptions();
+  };
+
+  const handleKeyDown = (event) => {
+    if (event.key === 'Escape' && isOpen) {
+      event.preventDefault();
+      closeOptions();
+      return;
+    }
+    if (event.key === 'Tab') {
+      closeOptions();
+      return;
+    }
+    if (event.key === 'Enter' && isOpen) {
+      event.preventDefault();
+      if (activeIndex >= 0 && filteredSchools[activeIndex]) chooseSchool(filteredSchools[activeIndex]);
+      return;
+    }
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+
+    event.preventDefault();
+    if (!isOpen) {
+      setIsOpen(true);
+      setQuery('');
+      setActiveIndex(0);
+      return;
+    }
+    if (!filteredSchools.length) return;
+    if (event.key === 'Home') setActiveIndex(0);
+    else if (event.key === 'End') setActiveIndex(filteredSchools.length - 1);
+    else {
+      const direction = event.key === 'ArrowDown' ? 1 : -1;
+      setActiveIndex((index) => (index + direction + filteredSchools.length) % filteredSchools.length);
+    }
+  };
+
+  return (
+    <div className="form-dropdown">
+      <input
+        ref={inputRef}
+        id="comm-name"
+        type="text"
+        role="combobox"
+        className={`${formFieldClasses} form-input`}
+        value={isOpen && query ? query : value}
+        placeholder="Search PHINMA schools..."
+        autoComplete="off"
+        aria-autocomplete="list"
+        aria-haspopup="listbox"
+        aria-controls={listboxId}
+        aria-expanded={isOpen}
+        aria-activedescendant={isOpen && filteredSchools.length > 0 && activeIndex >= 0 ? `${listboxId}-${activeIndex}` : undefined}
+        aria-required="true"
+        required
+        onFocus={() => {
+          if (!isOpen) {
+            setQuery('');
+            setActiveIndex(0);
+            setIsOpen(true);
+          }
+        }}
+        onChange={(event) => {
+          onChange('');
+          inputRef.current?.setCustomValidity('Choose a school from the suggestions.');
+          setQuery(event.target.value);
+          setActiveIndex(0);
+          setIsOpen(true);
+        }}
+        onKeyDown={handleKeyDown}
+      />
+      <FloatingLayer
+        open={isOpen && filteredSchools.length > 0}
+        anchorRef={inputRef}
+        onDismiss={closeOptions}
+        layer="modal"
+        align="start"
+        matchAnchorWidth
+        id={listboxId}
+        className="form-dropdown-options"
+        role="listbox"
+        aria-label="PHINMA Education schools"
+      >
+        {filteredSchools.map((school, index) => (
+          <div
+            id={`${listboxId}-${index}`}
+            key={school}
+            className={`form-dropdown-option${school === value ? ' is-selected' : ''}${index === activeIndex ? ' is-active' : ''}`}
+            role="option"
+            aria-selected={school === value}
+            onMouseEnter={() => setActiveIndex(index)}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => chooseSchool(school)}
+          >
+            {school}
+          </div>
+        ))}
+      </FloatingLayer>
+      {isOpen && filteredSchools.length === 0 && (
+        <span className="form-dropdown-empty" role="status">No PHINMA schools match that search.</span>
+      )}
+      <span className="form-dropdown-empty">Type to search, then choose a school from the list.</span>
+    </div>
+  );
+}
 
 // Keep a trailing space while the user is typing so they can enter multiword names.
 function formatCommunityNameInput(value) {
@@ -124,19 +276,9 @@ export function CreateCommunityModal({ showModal, onClose, communityForm, setCom
     <ModalShell title="Create School" onClose={onClose} onSubmit={handleCreateCommunity} submitLabel="Create" isSubmitting={isSubmitting} notification={notification}>
       <div className="form-group">
         <label className={`${formLabelClasses} form-label`} htmlFor="comm-name">School Name <span className="form-required-indicator" aria-hidden="true">*</span></label>
-        <input
-          id="comm-name"
-          type="text"
-          className={`${formFieldClasses} form-input`}
-          placeholder="e.g. San Isidro High School"
+        <SchoolNameCombobox
           value={communityForm.name}
-          onChange={(e) => setCommunityForm({ ...communityForm, name: formatCommunityNameInput(e.target.value) })}
-          maxLength={150}
-          pattern=".*\S.*"
-          title="Enter a school name with at least one non-space character."
-          aria-required="true"
-          required
-          autoFocus
+          onChange={(name) => setCommunityForm((current) => ({ ...current, name }))}
         />
       </div>
       <div className="form-group">

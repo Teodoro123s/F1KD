@@ -106,15 +106,15 @@ test('mother registration saves initial monitoring measurements as a completed c
         trimester: values[1],
         checkup_number: values[2],
         checkup_date: values[3],
-        gestational_age_weeks: values[4],
-        blood_pressure: values[5],
-        weight_kg: values[6],
-        height_cm: values[7],
-        bmi: values[8],
+        gestational_age_weeks: values[savedCheckupValues ? 4 : 5],
+        blood_pressure: values[savedCheckupValues ? 5 : 6],
+        weight_kg: values[savedCheckupValues ? 6 : 7],
+        height_cm: values[savedCheckupValues ? 7 : 8],
+        bmi: values[savedCheckupValues ? 8 : 9],
         developmental_status: savedCheckupValues ? values[9] : null,
-        nutritional_status: values[savedCheckupValues ? 10 : 9],
-        fundal_height_cm: values[savedCheckupValues ? 11 : 10],
-        fetal_heart_rate_bpm: values[savedCheckupValues ? 12 : 11],
+        nutritional_status: values[10],
+        fundal_height_cm: values[11],
+        fetal_heart_rate_bpm: values[12],
       }] : []];
     }
     throw new Error(`Unexpected test SQL: ${sql}`);
@@ -224,7 +224,7 @@ test('mother registration saves initial monitoring measurements as a completed c
   assert.equal(insertValues[12], 30);
   assert.equal(insertValues[47], 1);
   assert.equal(insertValues[48], '12-345678901-2');
-  assert.deepEqual(initialCheckupValues, [123, '2nd Trimester', 2, '2026-10-18', 20, '120/80', '58', '155', 24.1, 'Normal', null, null, null, null, null]);
+  assert.deepEqual(initialCheckupValues, [123, '2nd Trimester', 2, '2026-10-18', '2026-11-18', 20, '120/80', '58', '155', 24.1, 'Normal', null, null, null, null, null]);
   const createdProfile = (await createResponse.json()).mother;
   assert.equal(createdProfile.name, 'Test Mother');
   assert.equal(createdProfile.philhealthMember, true);
@@ -266,7 +266,13 @@ test('mother registration saves initial monitoring measurements as a completed c
   const screeningCheckupResponse = await fetch(`${baseUrl}/123/checkups`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ trimester: '1st Trimester', checkupNumber: 1, bp: '120/80', developmentalStatus: 'At Risk' }),
+    body: JSON.stringify({
+      trimester: '1st Trimester',
+      checkupNumber: 1,
+      bp: '120/80',
+      developmentalStatus: 'At Risk',
+      nextCheckupDate: '2026-11-18',
+    }),
   });
   assert.equal(screeningCheckupResponse.status, 200);
   assert.equal(savedCheckupValues[9], 'At Risk');
@@ -274,6 +280,22 @@ test('mother registration saves initial monitoring measurements as a completed c
   assert.match(savedCheckupSql, /updated_by_user_id = \?/);
   assert.equal(savedCheckupValues[savedCheckupValues.length - 2], null, 'a new check-up does not have an updater');
   assert.equal((await screeningCheckupResponse.json()).success, true);
+
+  const missingNextCheckupDateResponse = await fetch(`${baseUrl}/123/checkups`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ trimester: '1st Trimester', checkupNumber: 2, bp: '120/80' }),
+  });
+  assert.equal(missingNextCheckupDateResponse.status, 400);
+  assert.match((await missingNextCheckupDateResponse.json()).error, /next check-up date is required/i);
+
+  const finalMaternalCheckupResponse = await fetch(`${baseUrl}/123/checkups`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ trimester: '3rd Trimester', checkupNumber: 3, bp: '120/80' }),
+  });
+  assert.equal(finalMaternalCheckupResponse.status, 200);
+  assert.equal(savedCheckupValues[14], null, 'the final maternal check-up has no next date');
 
   const invalidPinUpdateResponse = await fetch(`${baseUrl}/123`, {
     method: 'PUT',

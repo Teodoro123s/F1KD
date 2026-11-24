@@ -31,6 +31,7 @@ test('archive API enforces role and school scope and rejects duplicate archives'
   const activityWrites = [];
   const archiveReadQueries = [];
   const archiveActivityQueries = [];
+  const impactReadQueries = [];
 
   pool.query = async (sql, params = []) => {
     if (sql.includes('INSERT INTO activity_logs')) {
@@ -49,9 +50,31 @@ test('archive API enforces role and school scope and rejects duplicate archives'
         description: 'Archived group "Group 8". Reason: Duplicate entry',
       }]];
     }
-    if (sql.includes('FROM groups r') || sql.includes('FROM batches r') || sql.includes('FROM communities r')
+    if (sql.includes('FROM groups r') || sql.includes('FROM batches r') || sql.includes('FROM communities r') || sql.includes('FROM users r')
       || sql.includes('FROM mothers r') || sql.includes('FROM children r')) {
       archiveReadQueries.push({ sql, params });
+    }
+    if (sql.includes('FROM groups r') && sql.includes('r.id = ?')) {
+      return Number(params[1]) === 91
+        ? [[{ id: 8, name: 'Group 8', community_id: 91, archived_at: archivedAt }]]
+        : [[]];
+    }
+    if (sql.includes('FROM batches r') && sql.includes('r.id = ?')) {
+      return Number(params[2]) === 91
+        ? [[{ id: 12, name: 'Batch 12', community_id: 91, archived_at: null }]]
+        : [[]];
+    }
+    if (sql.includes('FROM communities r') && sql.includes('r.id = ?')) {
+      return [[{ id: 20, name: 'School 20', archived_at: archivedSchoolAt }]];
+    }
+    if (sql.includes('FROM users r') && sql.includes('r.id = ?')) {
+      return Number(params[1]) === 91 && sql.includes("= 'healthworker'")
+        ? [[{ id: 33, name: 'Health Worker 33', role: 'Health Worker', school_id: 91, archived_at: null }]]
+        : [[]];
+    }
+    if (sql.includes('AS count')) {
+      impactReadQueries.push({ sql, params });
+      return [[{ count: 3 }]];
     }
     if (sql.includes('SELECT COUNT(*) AS total FROM groups r')
       || sql.includes('SELECT COUNT(*) AS total FROM batches r')
@@ -258,7 +281,25 @@ test('archive API enforces role and school scope and rejects duplicate archives'
   assert.match(scopedMotherRead.sql, /r\.community_id = \?/);
   assert.equal(scopedMotherRead.params[0], 91);
 
+  const groupImpactResponse = await fetch(`http://127.0.0.1:${server.address().port}/api/archives/group/8/impact`);
+  assert.equal(groupImpactResponse.status, 200);
+  assert.equal((await groupImpactResponse.json()).related.length, 3);
+  const groupBatchCountQuery = impactReadQueries.find(({ sql }) => sql.includes('COUNT(DISTINCT batch_id)'));
+  assert.match(groupBatchCountQuery.sql, /\) AS related_group_batches WHERE group_id = \?/);
+  assert.equal(groupBatchCountQuery.params[0], 8);
+
+  const batchImpactResponse = await fetch(`http://127.0.0.1:${server.address().port}/api/archives/batch/12/impact`);
+  assert.equal(batchImpactResponse.status, 200);
+  const scopedBatchRead = archiveReadQueries.find(({ sql }) => sql.includes('FROM batches r') && sql.includes('r.id = ?'));
+  assert.match(scopedBatchRead.sql, /r\.community_id = \?/);
+  assert.equal(scopedBatchRead.params[2], 91);
+  assert.equal((await fetch(`http://127.0.0.1:${server.address().port}/api/archives/school/20/impact`)).status, 403);
+  assert.equal((await fetch(`http://127.0.0.1:${server.address().port}/api/archives/user/33/impact`)).status, 200);
+
   assignedSchool = 92;
+  assert.equal((await fetch(`http://127.0.0.1:${server.address().port}/api/archives/group/8/impact`)).status, 404);
+  assert.equal((await fetch(`http://127.0.0.1:${server.address().port}/api/archives/batch/12/impact`)).status, 404);
+  assert.equal((await fetch(`http://127.0.0.1:${server.address().port}/api/archives/user/33/impact`)).status, 404);
   assert.equal((await post('archive')).status, 404);
   assignedSchool = 91;
 
@@ -300,6 +341,7 @@ test('archive API enforces role and school scope and rejects duplicate archives'
   role = 'Super Admin';
   const superAdminSchoolArchives = await fetch(`http://127.0.0.1:${server.address().port}/api/archives?type=school`);
   assert.equal(superAdminSchoolArchives.status, 200);
+  assert.equal((await fetch(`http://127.0.0.1:${server.address().port}/api/archives/school/20/impact`)).status, 200);
   assert.equal((await fetch(`http://127.0.0.1:${server.address().port}/api/archives?type=group`)).status, 403);
   assert.equal((await fetch(`http://127.0.0.1:${server.address().port}/api/archives/activity`)).status, 200);
   const superAdminGroupArchive = await fetch(`${url}/archive`, {

@@ -91,7 +91,7 @@ export function getMotherMonitoringStartIndex(mother = {}) {
   const registeredTrimester = String(mother.trimester || mother.trimester_at_registration || '').toLowerCase();
   if (registeredTrimester.includes('3rd') || registeredTrimester.includes('third')) return 6;
   if (registeredTrimester.includes('2nd') || registeredTrimester.includes('second')) return 3;
-  return 0;
+  return 3;
 }
 
 export function getMotherMonitoringProgress(mother = {}) {

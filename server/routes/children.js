@@ -68,18 +68,6 @@ function matchesMotherHierarchy(communityId, groupId, batchId, mother) {
     && sameAssignment(batchId, mother.batch_id);
 }
 
-function getTentativeNextCheckupDate(checkupDate) {
-  const normalized = normalizeCheckupDate(checkupDate);
-  if (!normalized) return null;
-  const [year, month, day] = normalized.split('-').map(Number);
-  const nextMonthIndex = year * 12 + month;
-  const nextYear = Math.floor(nextMonthIndex / 12);
-  const nextMonth = nextMonthIndex % 12;
-  const lastDay = new Date(Date.UTC(nextYear, nextMonth + 1, 0)).getUTCDate();
-  const nextDay = Math.min(day, lastDay);
-  return `${nextYear}-${String(nextMonth + 1).padStart(2, '0')}-${String(nextDay).padStart(2, '0')}`;
-}
-
 function normalizeCheckupDate(value) {
   const raw = String(value ?? '').trim();
   const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -785,11 +773,16 @@ router.post('/:id/checkups', async (req, res) => {
     const hasNextCheckupDate = Object.prototype.hasOwnProperty.call(body, 'nextCheckupDate')
       || Object.prototype.hasOwnProperty.call(body, 'next_checkup_date');
     const suppliedNextCheckupDate = body.nextCheckupDate ?? body.next_checkup_date;
-    const normalizedNextCheckupDate = hasNextCheckupDate
-      ? (String(suppliedNextCheckupDate ?? '').trim() ? normalizeCheckupDate(suppliedNextCheckupDate) : null)
-      : getTentativeNextCheckupDate(body.checkupDate);
-    if (hasNextCheckupDate && String(suppliedNextCheckupDate ?? '').trim() && !normalizedNextCheckupDate) {
-      return res.status(400).json({ error: 'Enter a valid next check-up date or leave it blank to cancel the reminder.' });
+    const hasNextMonth = week < 24;
+    const suppliedNextDate = String(suppliedNextCheckupDate ?? '').trim();
+    const normalizedNextCheckupDate = suppliedNextDate
+      ? normalizeCheckupDate(suppliedNextCheckupDate)
+      : null;
+    if (hasNextMonth && (!hasNextCheckupDate || !normalizedNextCheckupDate)) {
+      return res.status(400).json({ error: 'Next check-up date is required for child monitoring months before month 24.' });
+    }
+    if (suppliedNextDate && !normalizedNextCheckupDate) {
+      return res.status(400).json({ error: 'Enter a valid next check-up date.' });
     }
     const values = [
       normalizedNextCheckupDate,

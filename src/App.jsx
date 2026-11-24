@@ -28,6 +28,7 @@ const SettingsPage = lazy(() => import('./pages/Settings/SettingsPage'));
 const NotificationsPage = lazy(() => import('./pages/Notifications/NotificationsPage'));
 const DashboardPage = lazy(() => import('./pages/Dashboard/DashboardPage'));
 const ReportsPage = lazy(() => import('./pages/Reports/ReportsPage'));
+const SchoolPerformancePage = lazy(() => import('./pages/Reports/SchoolPerformancePage'));
 const NotFoundPage = lazy(() => import('./pages/Errors/NotFoundPage'));
 
 // Route-level role groups centralize access policy; API endpoints must still enforce authorization.
@@ -125,6 +126,7 @@ export default function App() {
         <Route path="user-management/batch/:batchId" element={<RoleBasedRoute allowedRoles={[ROLES.SUPER_ADMIN]}><UserManagementPage /></RoleBasedRoute>} />
         <Route path="user-management/user/:id" element={<RoleBasedRoute allowedRoles={[ROLES.SUPER_ADMIN, ROLES.COMMUNITY_COORDINATOR]}><UserDetailPage /></RoleBasedRoute>} />
         <Route path="reports" element={<RoleBasedRoute allowedRoles={[ROLES.SUPER_ADMIN]}><ReportsPage /></RoleBasedRoute>} />
+        <Route path="school-performance" element={<RoleBasedRoute allowedRoles={[ROLES.ADMIN, ROLES.PARTNER]}><SchoolPerformancePage /></RoleBasedRoute>} />
         <Route path="notifications" element={<RoleBasedRoute allowedRoles={[ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.COMMUNITY_COORDINATOR, ROLES.PARTNER, ROLES.HEALTH_WORKER]}><NotificationsPage /></RoleBasedRoute>} />
 
         {/* Account pages are available to every signed-in user. */}

@@ -197,6 +197,7 @@ test('health worker child check-up saves monitoring data and rejects a different
   const editResponse = await request(20, {
     week: 12,
     checkupDate: '2026-10-22',
+    nextCheckupDate: '2026-11-22',
     weight: '8.5',
   });
   assert.equal(editResponse.status, 200);
@@ -208,8 +209,17 @@ test('health worker child check-up saves monitoring data and rejects a different
     checkupDate: '2026-10-28',
     nextCheckupDate: '',
   });
-  assert.equal(cancelledReminderResponse.status, 200);
-  assert.equal(savedCheckupQueries[1].params[1], null, 'a blank next date cancels reminder scheduling');
+  assert.equal(cancelledReminderResponse.status, 400);
+  assert.match((await cancelledReminderResponse.json()).error, /next check-up date is required/i);
+  assert.equal(savedCheckupQueries.length, 1);
+
+  const missingNextDateResponse = await request(20, {
+    week: 13,
+    checkupDate: '2026-10-28',
+  });
+  assert.equal(missingNextDateResponse.status, 400);
+  assert.match((await missingNextDateResponse.json()).error, /next check-up date is required/i);
+  assert.equal(savedCheckupQueries.length, 1);
 
   const invalidReminderDateResponse = await request(20, {
     week: 14,
@@ -218,7 +228,7 @@ test('health worker child check-up saves monitoring data and rejects a different
     feedingType: 'Must not be saved',
   });
   assert.equal(invalidReminderDateResponse.status, 400);
-  assert.equal(savedCheckupQueries.length, 2);
+  assert.equal(savedCheckupQueries.length, 1);
   assert.equal(savedFeedingUpdates.length, 0, 'an invalid reminder date must be rejected before feeding fields are written');
 
   const invalidHeadCircumferenceResponse = await request(20, {
@@ -227,11 +237,20 @@ test('health worker child check-up saves monitoring data and rejects a different
     headCircumference: '61',
   });
   assert.equal(invalidHeadCircumferenceResponse.status, 400);
-  assert.equal(savedCheckupQueries.length, 2);
+  assert.equal(savedCheckupQueries.length, 1);
 
   const wrongGroupResponse = await request(99, { week: 13 });
   assert.equal(wrongGroupResponse.status, 404);
-  assert.equal(savedCheckupQueries.length, 2, 'a child outside the worker group must not be persisted');
+  assert.equal(savedCheckupQueries.length, 1, 'a child outside the worker group must not be persisted');
+
+  const finalMonthResponse = await request(20, {
+    week: 24,
+    checkupDate: '2026-11-24',
+    nextCheckupDate: '',
+  });
+  assert.equal(finalMonthResponse.status, 200);
+  assert.equal(savedCheckupQueries.length, 2);
+  assert.equal(savedCheckupQueries[1].params[1], null, 'the final child monitoring month has no next check-up date');
 
   const listToken = jwt.sign({
     id: 8,

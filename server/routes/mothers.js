@@ -16,6 +16,7 @@ const { normalizePhilHealthClaim } = require('../utils/philHealthClaim');
 const { MOTHER_ADDITIONAL_VACCINES, getMotherVaccineRecords } = require('../utils/motherVaccines');
 const { INVALID_ASSISTANCE_AMOUNT_MESSAGE, parseAssistanceAmount } = require('../utils/assistanceAmount');
 const { getBloodPressureError } = require('../utils/bloodPressure');
+const { isValidIsoDate } = require('../utils/dateValidation');
 const { getFirstNameValidationError, normalizeFirstName } = require('../utils/firstNameValidation');
 const {
   parseListPagination,
@@ -31,6 +32,23 @@ const {
 const MOTHER_STANDARD_NAME_PATTERN = /^[\p{L}][\p{L}\p{M}]*(?:[ '-][\p{L}][\p{L}\p{M}]*)*$/u;
 const MOTHER_MIDDLE_NAME_PATTERN = /^(?:[\p{L}]\.?|[\p{L}]+(?:['-][\p{L}]+)*)$/u;
 const MOTHER_SUFFIX_PATTERN = /^[\p{L}\d]+(?:[ .'-][\p{L}\d]+)*\.?$/u;
+
+function getNextCheckupDate(checkupDate) {
+  if (!isValidIsoDate(String(checkupDate || ''))) return null;
+  const [year, month, day] = checkupDate.split('-').map(Number);
+  const nextMonth = new Date(Date.UTC(year, month, 1));
+  const lastDay = new Date(Date.UTC(nextMonth.getUTCFullYear(), nextMonth.getUTCMonth() + 1, 0)).getUTCDate();
+  return [
+    nextMonth.getUTCFullYear(),
+    String(nextMonth.getUTCMonth() + 1).padStart(2, '0'),
+    String(Math.min(day, lastDay)).padStart(2, '0'),
+  ].join('-');
+}
+
+function hasFollowingMaternalCheckup(trimester, checkupNumber) {
+  const normalizedTrimester = String(trimester || '').trim().toLowerCase();
+  return !(checkupNumber === 3 && (normalizedTrimester.includes('3rd') || normalizedTrimester.includes('third')));
+}
 
 router.use(async (req, res, next) => {
   if (['GET', 'HEAD', 'OPTIONS'].includes(req.method) || req.path === '/') return next();
@@ -829,6 +847,10 @@ router.post('/', async (req, res) => {
       trimester: registeredTrimester,
     });
     const initialCheckupSlot = getMotherInitialCheckupSlot(initialCheckupGestationalAge);
+    const initialNextCheckupDate = hasFollowingMaternalCheckup(
+      initialCheckupSlot.trimester,
+      initialCheckupSlot.number,
+    ) ? getNextCheckupDate(initialCheckupDate) : null;
     const initialWeight = Number(initialCheckup.weight);
     const initialHeight = Number(initialCheckup.height);
     const initialBmi = initialWeight > 0 && initialHeight > 0
@@ -962,16 +984,17 @@ router.post('/', async (req, res) => {
     if (hasInitialMeasurements) {
       await connection.query(
         `INSERT INTO mother_checkups (
-          mother_id, trimester, checkup_number, checkup_date, gestational_age_weeks,
+          mother_id, trimester, checkup_number, checkup_date, next_checkup_date, gestational_age_weeks,
           blood_pressure, weight_kg, height_cm, bmi, nutritional_status,
           fundal_height_cm, fetal_heart_rate_bpm, recorded_by_user_id,
           created_by_user_id, updated_by_user_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           result.insertId,
           initialCheckupSlot.trimester,
           initialCheckupSlot.number,
           initialCheckupDate,
+          initialNextCheckupDate,
           initialCheckupGestationalAge,
           initialCheckup.bloodPressure,
           initialCheckup.weight,
@@ -1521,13 +1544,21 @@ router.post('/:id/checkups', async (req, res) => {
     const fundalHeightCm = b.fundalHeight || null;
     const fetalHeartRateBpm = b.fhr || null;
     const serviceProvider = b.serviceProvider || null;
-    const nextCheckupDate = b.nextCheckupDate || null;
     const referredToHospital = b.referral === true || b.referral === 1 || b.referral === 'true' ? 1 : 0;
     const labAssistanceProvided = b.labAssistance === true || b.labAssistance === 1 || b.labAssistance === 'true' ? 1 : 0;
     const parsedAssistanceAmount = parseAssistanceAmount(b.amount);
     if (!parsedAssistanceAmount.valid) {
       return res.status(400).json({ error: INVALID_ASSISTANCE_AMOUNT_MESSAGE });
     }
+    const rawNextCheckupDate = String(b.nextCheckupDate ?? '').trim();
+    const requiresNextCheckupDate = hasFollowingMaternalCheckup(trimester, checkupNumber);
+    if (requiresNextCheckupDate && !rawNextCheckupDate) {
+      return res.status(400).json({ error: 'Next check-up date is required before the final maternal check-up.' });
+    }
+    if (rawNextCheckupDate && !isValidIsoDate(rawNextCheckupDate)) {
+      return res.status(400).json({ error: 'Enter a valid next check-up date.' });
+    }
+    const nextCheckupDate = requiresNextCheckupDate ? rawNextCheckupDate : null;
     const assistanceAmount = parsedAssistanceAmount.value;
     const sourceOfFunds = b.sourceOfFunds || null;
     const facilityType = b.facilityType || null;

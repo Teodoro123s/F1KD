@@ -401,7 +401,7 @@ export default function SuperAdminCommunityPage() {
 
     if (activeTab === 'communities') {
       return [
-        { key: 'name', header: 'School Name', style: { width: '48%' }, renderCell: (row) => <span className="community-title-text" title={`${row.name} · ${row.area} · ${row.code || `ID ${row.id}`}`}>{row.name} <small>{row.area} · {row.code || `ID ${row.id}`}</small></span> },
+        { key: 'name', header: 'School Name', style: { width: '48%' }, renderCell: (row) => <span className="community-title-text" title={row.name}>{row.name}</span> },
         { key: 'coordinatorName', header: 'Assigned Community Coordinator', renderCell: (row) => row.coordinatorName || getSchoolCoordinator(row)?.name || 'Not assigned' },
         { key: 'groups', header: 'Groups in school', cellClassName: 'small-column', renderCell: (row) => groups.filter((group) => (
           group.communityId != null

@@ -31,6 +31,7 @@ test('coordinators cannot mutate programs owned by another school through the AP
   const originalQuery = pool.query;
   const queries = [];
   const testSessions = new Map();
+  const insertedScopes = [];
   let programScopes = [{ scope_type: 'School', scope_name: 'Other School', owned_by_school: 0 }];
   pool.query = async (sql, params = []) => {
     if (sql.includes('FROM auth_sessions s')) {
@@ -52,6 +53,15 @@ test('coordinators cannot mutate programs owned by another school through the AP
     if (sql.startsWith('UPDATE programs SET name =')) return [{ affectedRows: 1 }];
     if (sql.includes('SELECT p.*') && sql.includes('FROM programs p LEFT JOIN users')) {
       return [[{ id: 123, name: 'Updated project', provider: 'Test Provider', beneficiary_type: 'Mother' }]];
+    }
+    if (sql.includes('SELECT id FROM communities') && sql.includes('id = ? AND id = ? AND name = ?')) {
+      return Number(params[0]) === 12 && Number(params[1]) === 12 && params[2] === 'Assigned School'
+        ? [[{ id: 12 }]]
+        : [[]];
+    }
+    if (sql.startsWith('INSERT IGNORE INTO program_clusters')) {
+      insertedScopes.push(params);
+      return [{ affectedRows: 1 }];
     }
     if (sql.includes('SELECT pc.id, pc.scope_type AS type')) {
       return [[{ id: 1, type: 'School', name: 'Assigned School', scopeId: 12, beneficiaries: 1, received: 0 }]];
@@ -121,6 +131,13 @@ test('coordinators cannot mutate programs owned by another school through the AP
   });
   assert.equal(mixedScopeChange.status, 403);
   assert.match((await mixedScopeChange.json()).error, /assigned school/);
+
+  programScopes = [{ scope_type: null, owned_by_school: 0 }];
+  const assignedSchoolScope = await request('/clusters', 'POST', {
+    scopes: [{ type: 'School', name: 'Assigned School', scopeId: 12, beneficiaries: 2 }],
+  });
+  assert.equal(assignedSchoolScope.status, 201);
+  assert.deepEqual(insertedScopes.at(-1), ['123', 'School', 'Assigned School', 12, 2]);
 });
 
 test('Superadmins are denied all Program API access', async (t) => {

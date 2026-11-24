@@ -253,3 +253,13 @@ test('does not treat an incomplete or unmarked check-up list as a completed preg
     checkups: Array.from({ length: 9 }, () => ({})),
   }), false);
 });
+
+test('uses the maternal check-up form second-trimester default when registration trimester is missing', () => {
+  const secondTrimesterCheckups = [
+    [null, null, null],
+    [{ completed: true }, { completed: true }, { completed: true }],
+    [{ completed: true }, { completed: true }, { completed: true }],
+  ];
+
+  assert.equal(hasCompletedMotherPregnancy({ checkups: secondTrimesterCheckups }), true);
+});

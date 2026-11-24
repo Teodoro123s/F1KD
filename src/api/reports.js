@@ -3,6 +3,27 @@ import { readApiResponse } from './readApiResponse.mjs';
 
 const API_BASE = getApiBaseUrl();
 
+export async function apiGetSchoolPerformanceReport(month) {
+  const params = new URLSearchParams();
+  if (month) params.set('month', month);
+  const query = params.toString();
+  const response = await fetchWithAuth(`${API_BASE}/api/reports/school-performance${query ? `?${query}` : ''}`, {
+    headers: { 'Content-Type': 'application/json' },
+  });
+  return readApiResponse(response, 'Unable to load school performance report');
+}
+
+export async function apiGetSchoolPerformanceDetails(schoolId, month) {
+  const params = new URLSearchParams();
+  if (month) params.set('month', month);
+  const query = params.toString();
+  const response = await fetchWithAuth(
+    `${API_BASE}/api/reports/school-performance/${encodeURIComponent(schoolId)}/details${query ? `?${query}` : ''}`,
+    { headers: { 'Content-Type': 'application/json' } },
+  );
+  return readApiResponse(response, 'Unable to load school monitoring details');
+}
+
 export async function apiGetReportScopes() {
   const response = await fetchWithAuth(`${API_BASE}/api/reports/scopes`, {
     headers: { 'Content-Type': 'application/json' },

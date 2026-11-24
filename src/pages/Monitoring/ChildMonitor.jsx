@@ -138,7 +138,7 @@ export default function ChildMonitor({
     const nextValue = event.target.value;
     const nextForm = { ...current, [field]: nextValue };
     if (field === 'checkupDate') {
-      nextForm.nextCheckupDate = addMonthsPreservingDay(nextValue, 1);
+      nextForm.nextCheckupDate = week < TOTAL_MONTHS ? addMonthsPreservingDay(nextValue, 1) : '';
     }
     return nextForm;
   });
@@ -154,7 +154,7 @@ export default function ChildMonitor({
     if (!savedCheckup) {
       setForm({
         checkupDate: scheduledDate,
-        nextCheckupDate: addMonthsPreservingDay(scheduledDate, 1),
+        nextCheckupDate: week < TOTAL_MONTHS ? addMonthsPreservingDay(scheduledDate, 1) : '',
         feedingMethod: getFeedingMethod(
           child?.feedingType
             || child?.feeding_type
@@ -173,7 +173,9 @@ export default function ChildMonitor({
     const savedDate = formatDate(savedCheckup.visit_date ?? savedCheckup.checkupDate);
     setForm({
       checkupDate: savedDate || scheduledDate,
-      nextCheckupDate: formatDate(savedCheckup.nextCheckupDate ?? savedCheckup.next_checkup_date),
+      nextCheckupDate: week < TOTAL_MONTHS
+        ? formatDate(savedCheckup.nextCheckupDate ?? savedCheckup.next_checkup_date) || addMonthsPreservingDay(savedDate || scheduledDate, 1)
+        : '',
       feedingMethod: getFeedingMethod(
         savedCheckup.feedingMethod
           ?? savedCheckup.breastfeedingStatus
@@ -241,7 +243,9 @@ export default function ChildMonitor({
         onChange={(value) => setForm((current) => ({
           ...current,
           [name]: value,
-          ...(name === 'checkupDate' ? { nextCheckupDate: addMonthsPreservingDay(value, 1) } : {}),
+          ...(name === 'checkupDate' ? {
+            nextCheckupDate: week < TOTAL_MONTHS ? addMonthsPreservingDay(value, 1) : '',
+          } : {}),
         }))}
         required={required}
         readOnly={fieldReadOnly}
@@ -334,7 +338,14 @@ export default function ChildMonitor({
           <div className={`checkup-grid ${checkupGridClasses}`}>
             {renderDateField({ id: 'child-checkup-date', label: 'Check-up Date', name: 'checkupDate', required: true })}
             <span className="checkup-field-help full-width">Enter measurements taken on this check-up date. Birth measurements are stored separately and are not copied into this visit.</span>
-            {renderDateField({ id: 'child-next-checkup-date', label: 'Next Check-up Date (leave blank to cancel)', name: 'nextCheckupDate' })}
+            {week < TOTAL_MONTHS
+              ? renderDateField({
+                id: 'child-next-checkup-date',
+                label: 'Next Check-up Date',
+                name: 'nextCheckupDate',
+                required: true,
+              })
+              : <p className="checkup-field-help full-width">Final child monitoring month. No next check-up date is needed.</p>}
             <div className="form-group">
               <label className={`${formLabelClasses} checkup-field-label`} htmlFor="child-current-age-months">
                 Current Age (months)

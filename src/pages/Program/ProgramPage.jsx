@@ -636,32 +636,14 @@ export default function ProgramPage() {
       return;
     }
     setScopeError('');
-    const scopes = selectedScopes.flatMap((scope) => {
+    const scopes = selectedScopes.map((scope) => {
       const name = scope.name || scope.group_name || scope.batch_code || scope.code;
-      const coverage = [{
+      return {
         type: beneficiaryScope,
         name,
         scopeId: scope.id || scope.school_id || scope.community_id,
         beneficiaries: Number(scope.records || scope.members_count || 0),
-      }];
-      if (beneficiaryScope !== 'School') return coverage;
-      const schoolId = String(scope.id || scope.school_id || scope.community_id || '');
-      const groups = hierarchy.groups.filter((group) => String(group.community_id || group.communityId || '') === schoolId);
-      const batches = hierarchy.batches.filter((batch) => String(batch.community_id || batch.communityId || '') === schoolId);
-      return coverage.concat(
-        groups.map((group) => ({
-          type: 'Group',
-          name: group.name || group.group_name,
-          scopeId: group.id,
-          beneficiaries: Number(group.members || 0),
-        })),
-        batches.map((batch) => ({
-          type: 'Batch',
-          name: batch.name || batch.batch_code,
-          scopeId: batch.id,
-          beneficiaries: Number(batch.records || 0),
-        })),
-      );
+      };
     });
     try {
       const response = await apiCreateProgramClusters(selectedProgram.id, scopes);

@@ -332,23 +332,25 @@ export default function AddUserModal({ showModal, onClose, form, setForm, onSubm
         <div className="form-group" aria-hidden="true" />
       </div>
 
-      <div className="form-row-3 full-width min-w-0 items-start [&>*]:min-w-0 [&_.form-group]:min-w-0 [&_.form-group>.form-label]:min-h-[2.7em] [&_.form-group>.form-label]:leading-[1.35] [&_.form-group>:is(input,select,textarea,.date-input-container)]:w-full [&_.form-group>:is(input,select,textarea,.date-input-container)]:min-w-0 max-[980px]:grid-cols-2 max-[640px]:grid-cols-1">
-        <div className="form-group date-input-group">
-          <label className={`${formLabelClasses} form-label`} htmlFor="dob">Date of Birth <span className="form-required-indicator" aria-hidden="true">*</span></label>
-          <DateInput
-            id="dob"
-            className={`${formFieldClasses} form-input`}
-            value={form.dob}
-            onChange={(value) => handleChange('dob', value)}
-            ariaInvalid={isInvalid('dob')}
-            required
-            max={formatDateForInput(new Date())}
-            autoComplete="bday"
-            ariaLabel="Date of birth"
-          />
+      {mode === 'edit' && (
+        <div className="form-row-3 full-width min-w-0 items-start [&>*]:min-w-0 [&_.form-group]:min-w-0 [&_.form-group>.form-label]:min-h-[2.7em] [&_.form-group>.form-label]:leading-[1.35] [&_.form-group>:is(input,select,textarea,.date-input-container)]:w-full [&_.form-group>:is(input,select,textarea,.date-input-container)]:min-w-0 max-[980px]:grid-cols-2 max-[640px]:grid-cols-1">
+          <div className="form-group date-input-group">
+            <label className={`${formLabelClasses} form-label`} htmlFor="dob">Date of Birth <span className="form-required-indicator" aria-hidden="true">*</span></label>
+            <DateInput
+              id="dob"
+              className={`${formFieldClasses} form-input`}
+              value={form.dob}
+              onChange={(value) => handleChange('dob', value)}
+              ariaInvalid={isInvalid('dob')}
+              required
+              max={formatDateForInput(new Date())}
+              autoComplete="bday"
+              ariaLabel="Date of birth"
+            />
+          </div>
+          <div className="form-group" aria-hidden="true" />
         </div>
-        <div className="form-group" aria-hidden="true" />
-      </div>
+      )}
 
       <div className="form-row-3 full-width min-w-0 items-start [&>*]:min-w-0 [&_.form-group]:min-w-0 [&_.form-group>.form-label]:min-h-[2.7em] [&_.form-group>.form-label]:leading-[1.35] [&_.form-group>:is(input,select,textarea,.date-input-container)]:w-full [&_.form-group>:is(input,select,textarea,.date-input-container)]:min-w-0 max-[980px]:grid-cols-2 max-[640px]:grid-cols-1">
         <div className="form-group">
