@@ -32,12 +32,13 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../auth/AuthProvider';
 import { PageSkeleton } from '../../components/LoadingSkeleton';
+import TableSearch from '../../components/ui/TableSearch';
 import { getSummary } from '../Community/communityService';
 import { apiGetMothers } from '../../api/mothers';
 import { apiGetChildren } from '../../api/children';
 import { apiGetPrograms } from '../../api/programs';
 import { apiGetManagedHealthWorkers, apiGetUsers } from '../../api/users';
-import { apiGetActivityReport, apiGetReportScopes } from '../../api/reports';
+import { apiGetActivityReport, apiGetReportScopes, apiGetSchoolPerformanceReport } from '../../api/reports';
 import { apiGetNotifications } from '../../api/notifications';
 import { can, isCommunityCoordinatorRole, isHealthWorkerRole, normalizeRole, ROLES } from '../../utils/permissions';
 import {
@@ -46,6 +47,7 @@ import {
   getIncompleteBatchProgressOptions,
   getDashboardRegistrationDate,
   getDashboardRegistrationSeries,
+  getSchoolMonitoringCompleteness,
   getScreeningCoverageMetrics,
 } from './dashboardModuleMetrics.mjs';
 import {
@@ -63,6 +65,8 @@ function getGreeting(name) {
   const firstName = (name || '').trim().split(' ')[0] || 'User';
   return `${timeStr}, ${firstName}!`;
 }
+
+const getCurrentMonth = () => new Date().toISOString().slice(0, 7);
 
 function getList(result, key) {
   if (Array.isArray(result?.[key])) return result[key];
@@ -87,6 +91,44 @@ function getRecordName(record) {
       .filter(Boolean)
       .join(' ')
     || 'Unnamed record';
+}
+
+function getCompletenessSummary(summary = {}) {
+  const expected = Math.max(0, Number(summary.expectedVisits) || 0);
+  const complete = Math.max(0, Number(summary.completeForms) || 0);
+  return {
+    expected,
+    complete,
+    percentage: expected > 0 ? Math.min(100, Math.round((complete / expected) * 100)) : null,
+  };
+}
+
+function CompletenessIndicator({ summary, label }) {
+  if (summary.expected === 0) {
+    return <span className="text-[0.78rem] text-[#64748b]">No check-ups due</span>;
+  }
+
+  return (
+    <div className="min-w-[150px]">
+      <div className="mb-1 flex items-center justify-between gap-2 text-[0.76rem]">
+        <span className="text-[#475569]">{summary.complete}/{summary.expected} complete</span>
+        <strong className="text-[#0f172a]">{summary.percentage}%</strong>
+      </div>
+      <div
+        className="h-[7px] overflow-hidden rounded-full bg-[#e2e8f0]"
+        role="progressbar"
+        aria-label={`${label} completeness`}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={summary.percentage}
+      >
+        <span
+          className="block h-full rounded-full bg-[#16a34a]"
+          style={{ width: `${summary.percentage}%` }}
+        />
+      </div>
+    </div>
+  );
 }
 
 const kpiBadgeClasses = {
@@ -136,6 +178,11 @@ export default function DashboardPage() {
   const [programs, setPrograms] = useState([]);
   const [users, setUsers] = useState([]);
   const [reportScopes, setReportScopes] = useState({ schools: [], groups: [] });
+  const [schoolPerformanceMonth, setSchoolPerformanceMonth] = useState(getCurrentMonth);
+  const [schoolPerformanceSearch, setSchoolPerformanceSearch] = useState('');
+  const [schoolPerformanceReport, setSchoolPerformanceReport] = useState({ month: '', schools: [] });
+  const [schoolPerformanceLoading, setSchoolPerformanceLoading] = useState(isAdmin || isPartner);
+  const [schoolPerformanceError, setSchoolPerformanceError] = useState('');
   const [activityReport, setActivityReport] = useState({ activities: [], counts: { signIns: 0 }, dailyActivity: [] });
   const [notificationCounts, setNotificationCounts] = useState({ all: 0, unread: 0 });
   const [loading, setLoading] = useState(true);
@@ -148,6 +195,11 @@ export default function DashboardPage() {
     let active = true;
 
     async function fetchDashboardData() {
+      if (isAdmin || isPartner) {
+        setLoading(false);
+        return;
+      }
+
       const results = await Promise.allSettled([
         isSuperAdmin ? Promise.resolve(null) : getSummary(),
         isSuperAdmin ? Promise.resolve(null) : apiGetMothers(['checkups', 'createdAt']),
@@ -230,7 +282,33 @@ export default function DashboardPage() {
     return () => {
       active = false;
     };
-  }, [activityDateRange.from, activityDateRange.to, isCommunityOrganizer, isSuperAdmin, refreshVersion]);
+  }, [activityDateRange.from, activityDateRange.to, isAdmin, isCommunityOrganizer, isPartner, isSuperAdmin, refreshVersion]);
+
+  useEffect(() => {
+    if (!isAdmin && !isPartner) return undefined;
+    let active = true;
+    setSchoolPerformanceLoading(true);
+    setSchoolPerformanceError('');
+
+    apiGetSchoolPerformanceReport(schoolPerformanceMonth)
+      .then((report) => {
+        if (report?.month !== schoolPerformanceMonth || !Array.isArray(report?.schools)) {
+          throw new Error('School performance data returned an unexpected response.');
+        }
+        if (active) setSchoolPerformanceReport(report);
+      })
+      .catch((error) => {
+        if (active) {
+          console.error('[DashboardPage] Failed to load school performance:', error);
+          setSchoolPerformanceError(error.message || 'Unable to load school performance data.');
+        }
+      })
+      .finally(() => {
+        if (active) setSchoolPerformanceLoading(false);
+      });
+
+    return () => { active = false; };
+  }, [isAdmin, isPartner, refreshVersion, schoolPerformanceMonth]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setRefreshVersion((version) => version + 1), 5 * 60 * 1000);
@@ -259,6 +337,35 @@ export default function DashboardPage() {
   }, [children, communitySummary, mothers, programs]);
 
   const staffMetrics = useMemo(() => buildOperationalStaffMetrics(users), [users]);
+  const schoolPerformanceSchools = schoolPerformanceReport.month === schoolPerformanceMonth
+    ? schoolPerformanceReport.schools
+    : [];
+  const schoolPerformanceMetrics = useMemo(
+    () => getSchoolMonitoringCompleteness(schoolPerformanceSchools),
+    [schoolPerformanceSchools],
+  );
+  const schoolPerformanceRows = useMemo(() => {
+    const query = schoolPerformanceSearch.trim().toLowerCase();
+    return schoolPerformanceSchools
+      .map((school) => {
+        const mothersSummary = getCompletenessSummary(school.monitoring?.mothers);
+        const childrenSummary = getCompletenessSummary(school.monitoring?.children);
+        const overallSummary = getCompletenessSummary({
+          expectedVisits: mothersSummary.expected + childrenSummary.expected,
+          completeForms: mothersSummary.complete + childrenSummary.complete,
+        });
+        return { ...school, mothersSummary, childrenSummary, overallSummary };
+      })
+      .filter((school) => (
+        !query || `${school.name} ${school.organizerName}`.toLowerCase().includes(query)
+      ))
+      .sort((left, right) => {
+        if (left.overallSummary.percentage === null) return right.overallSummary.percentage === null ? 0 : 1;
+        if (right.overallSummary.percentage === null) return -1;
+        return left.overallSummary.percentage - right.overallSummary.percentage
+          || left.name.localeCompare(right.name);
+      });
+  }, [schoolPerformanceSchools, schoolPerformanceSearch]);
 
   const recentRecords = useMemo(() => [...mothers, ...children]
     .map((record, index) => ({
@@ -625,8 +732,6 @@ export default function DashboardPage() {
     return monitoringModule.metrics.slice(2).filter((m) => m.to);
   }, [moduleSummaries]);
 
-  if (loading) return <PageSkeleton variant="dashboard" />;
-
   const description = isSuperAdmin
     ? 'Live overview of Community, User Management, Reports, and Notifications'
     : isHealthWorker
@@ -634,8 +739,179 @@ export default function DashboardPage() {
       : isCommunityOrganizer
         ? 'Manage beneficiaries, projects, and health workers for your school'
         : isAdmin || isPartner
-          ? 'Organization-wide overview across all accessible schools, groups, beneficiaries, and projects'
+          ? 'Monthly maternal and child check-up data completeness by school and community organizer'
           : `${roleLabel} workspace`;
+
+  if (isAdmin || isPartner) {
+    const hasCurrentMonthReport = schoolPerformanceReport.month === schoolPerformanceMonth;
+    const summaryCards = [
+      {
+        label: 'Schools',
+        value: hasCurrentMonthReport ? schoolPerformanceMetrics.schools.toLocaleString() : '—',
+        note: 'In accessible communities',
+      },
+      {
+        label: 'Check-ups due',
+        value: hasCurrentMonthReport ? schoolPerformanceMetrics.expected.toLocaleString() : '—',
+        note: `Scheduled in ${schoolPerformanceMonth}`,
+      },
+      {
+        label: 'Complete forms',
+        value: hasCurrentMonthReport ? schoolPerformanceMetrics.complete.toLocaleString() : '—',
+        note: hasCurrentMonthReport
+          ? `Of ${schoolPerformanceMetrics.expected.toLocaleString()} expected check-ups`
+          : 'Monthly report data',
+      },
+      {
+        label: 'Data completeness',
+        value: hasCurrentMonthReport && schoolPerformanceMetrics.percentage !== null
+          ? `${schoolPerformanceMetrics.percentage}%`
+          : '—',
+        note: !hasCurrentMonthReport
+          ? 'Monthly report data'
+          : schoolPerformanceMetrics.expected > 0
+            ? 'Complete forms against check-ups due'
+            : 'No check-ups due this month',
+      },
+    ];
+
+    return (
+      <div className="dashboard-shell box-border mx-auto flex max-w-[1480px] flex-col gap-5 px-6 pt-5 pb-10 max-[640px]:gap-4 max-[640px]:p-[0.85rem]">
+        <header className="flex flex-wrap items-end justify-between gap-4">
+          <div className="flex flex-col gap-1">
+            <h1 className="m-0 text-[clamp(1.4rem,2.2vw,1.85rem)] font-extrabold leading-[1.25] tracking-[-0.025em] text-[#0f172a]">
+              School Performance
+            </h1>
+            <p className="m-0 max-w-[720px] text-[0.92rem] font-medium text-[#64748b]">
+              Review maternal and child check-up completeness by community organizer and school.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => {
+                setSchoolPerformanceLoading(true);
+                setRefreshVersion((version) => version + 1);
+              }}
+              disabled={schoolPerformanceLoading}
+            >
+              {schoolPerformanceLoading ? 'Refreshing…' : 'Refresh'}
+            </button>
+            <Link
+              to="/school-performance"
+              state={{ month: schoolPerformanceMonth }}
+              className="inline-flex items-center gap-2 rounded-lg bg-[#15803d] px-4 py-[0.6rem] text-[0.84rem] font-semibold text-white no-underline hover:bg-[#166534] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#15803d]"
+            >
+              View detailed report <ArrowRight size={15} aria-hidden="true" />
+            </Link>
+          </div>
+        </header>
+
+        <section className="grid grid-cols-1 gap-4 min-[641px]:grid-cols-2 min-[1081px]:grid-cols-4" aria-label="Monthly school performance summary">
+          {summaryCards.map((card) => (
+            <article key={card.label} className="flex min-w-0 flex-col gap-2 rounded-[18px] border border-[#edf2f7] bg-white p-5 shadow-[0_4px_20px_rgba(15,23,42,0.03)]">
+              <span className="text-[0.82rem] font-semibold text-[#64748b]">{card.label}</span>
+              <strong className="text-[1.8rem] font-extrabold leading-none text-[#0f172a]">{card.value}</strong>
+              <span className="text-[0.76rem] text-[#64748b]">{card.note}</span>
+            </article>
+          ))}
+        </section>
+
+        <section className="flex flex-wrap items-end gap-3 rounded-xl border border-[#e2e8f0] bg-white p-4" aria-label="School performance filters">
+          <label className="grid min-w-[190px] flex-1 gap-1 text-[0.8rem] font-semibold text-[#475569]">
+            <span>Monitoring month</span>
+            <input
+              type="month"
+              value={schoolPerformanceMonth}
+              max={getCurrentMonth()}
+              onChange={(event) => {
+                setSchoolPerformanceLoading(true);
+                setSchoolPerformanceMonth(event.target.value || getCurrentMonth());
+              }}
+              className="min-h-[42px] rounded-lg border border-[#cbd5e1] bg-white px-3 text-[0.9rem] text-[#0f172a]"
+            />
+          </label>
+          <div className="min-w-[220px] flex-[2_1_320px]">
+            <TableSearch
+              value={schoolPerformanceSearch}
+              onChange={setSchoolPerformanceSearch}
+              placeholder="Search school or community organizer"
+              className="!m-0 !w-full !max-w-none !flex-[1_1_auto] !border-0 !p-0"
+            />
+          </div>
+          {schoolPerformanceLoading && (
+            <p className="m-0 pb-2 text-[0.8rem] text-[#64748b]" role="status">Loading monthly school data…</p>
+          )}
+        </section>
+
+        {schoolPerformanceError && (
+          <div className="rounded-lg border border-[#fecaca] bg-[#fef2f2] px-4 py-3 text-[0.84rem] text-[#991b1b]" role="alert">
+            {schoolPerformanceError}
+            {hasCurrentMonthReport && ' Showing the latest available data.'}
+          </div>
+        )}
+
+        <section className="overflow-hidden rounded-[18px] border border-[#edf2f7] bg-white shadow-[0_4px_20px_rgba(15,23,42,0.03)]" aria-labelledby="school-performance-organizer-heading">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#e2e8f0] px-5 py-4">
+            <div>
+              <h2 id="school-performance-organizer-heading" className="m-0 text-[1rem] font-bold text-[#0f172a]">
+                Completeness by community organizer and school
+              </h2>
+              <p className="mb-0 mt-1 text-[0.78rem] text-[#64748b]">
+                Lowest completeness appears first to help prioritize follow-up.
+              </p>
+            </div>
+            <span className="text-[0.78rem] font-medium text-[#64748b]">
+              {schoolPerformanceRows.length} {schoolPerformanceRows.length === 1 ? 'school' : 'schools'}
+            </span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[920px] border-collapse text-left">
+              <thead className="bg-[#f8fafc]">
+                <tr>
+                  {['School', 'Community organizer', 'Maternal check-ups', 'Child check-ups', 'Overall completeness'].map((heading) => (
+                    <th key={heading} scope="col" className="border-b border-[#e2e8f0] px-4 py-3 text-[0.7rem] font-bold uppercase tracking-[0.04em] text-[#64748b]">
+                      {heading}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {!hasCurrentMonthReport && schoolPerformanceLoading ? (
+                  <tr><td colSpan={5} className="px-4 py-8 text-center text-[0.84rem] text-[#64748b]">Loading school completeness…</td></tr>
+                ) : schoolPerformanceRows.length ? schoolPerformanceRows.map((school) => (
+                  <tr key={school.id} className="border-b border-[#f1f5f9] last:border-0 hover:bg-[#fbfdfc]">
+                    <td className="px-4 py-3 text-[0.84rem] font-semibold">
+                      <Link
+                        to="/school-performance"
+                        state={{ month: schoolPerformanceMonth, schoolId: school.id }}
+                        className="text-[#7d1e2e] underline decoration-[#cbd5e1] underline-offset-2 hover:decoration-[#7d1e2e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7d1e2e]"
+                      >
+                        {school.name}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 text-[0.82rem] text-[#475569]">{school.organizerName || 'Not assigned'}</td>
+                    <td className="px-4 py-3"><CompletenessIndicator summary={school.mothersSummary} label="Maternal" /></td>
+                    <td className="px-4 py-3"><CompletenessIndicator summary={school.childrenSummary} label="Child" /></td>
+                    <td className="px-4 py-3"><CompletenessIndicator summary={school.overallSummary} label="Overall" /></td>
+                  </tr>
+                )) : (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-8 text-center text-[0.84rem] text-[#64748b]">
+                      {schoolPerformanceSearch ? 'No schools match your search.' : 'No school performance data is available for this month.'}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  if (loading) return <PageSkeleton variant="dashboard" />;
 
   return (
     <div className="dashboard-shell box-border mx-auto flex max-w-[1480px] flex-col gap-5 px-6 pt-5 pb-10 max-[640px]:gap-4 max-[640px]:p-[0.85rem]">

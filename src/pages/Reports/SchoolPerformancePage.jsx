@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import PageHeader from '../../components/ui/PageHeader';
 import { apiGetSchoolPerformanceDetails, apiGetSchoolPerformanceReport } from '../../api/reports';
 import { exportReportCsv } from './utils/reportUtils.mjs';
@@ -250,9 +250,18 @@ function TableSection({
 }
 
 export default function SchoolPerformancePage() {
+  const location = useLocation();
+  const requestedMonth = location.state?.month;
+  const initialMonth = typeof requestedMonth === 'string'
+    && /^\d{4}-(0[1-9]|1[0-2])$/.test(requestedMonth)
+    && requestedMonth <= getCurrentMonth()
+    ? requestedMonth
+    : getCurrentMonth();
   const [schools, setSchools] = useState([]);
-  const [expandedSchoolId, setExpandedSchoolId] = useState(null);
-  const [month, setMonth] = useState(getCurrentMonth);
+  const [expandedSchoolId, setExpandedSchoolId] = useState(
+    () => location.state?.schoolId == null ? null : String(location.state.schoolId),
+  );
+  const [month, setMonth] = useState(initialMonth);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');

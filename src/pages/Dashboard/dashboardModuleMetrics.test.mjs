@@ -7,6 +7,7 @@ import {
   getDashboardRegistrationDate,
   getDashboardRegistrationSeries,
   getIncompleteBatchProgressOptions,
+  getSchoolMonitoringCompleteness,
   getScreeningCoverageMetrics,
 } from './dashboardModuleMetrics.mjs';
 
@@ -58,6 +59,31 @@ test('registration trend counts recent API records on their registration date', 
     { date: '2026-11-19', count: 0 },
     { date: '2026-11-20', count: 2 },
   ]);
+});
+
+test('school monitoring completeness aggregates maternal and child forms across schools', () => {
+  const metrics = getSchoolMonitoringCompleteness([
+    {
+      monitoring: {
+        mothers: { expectedVisits: 10, completeForms: 6 },
+        children: { expectedVisits: 5, completeForms: 4 },
+      },
+    },
+    {
+      monitoring: {
+        mothers: { expectedVisits: 5, completeForms: 5 },
+        children: { expectedVisits: 0, completeForms: 0 },
+      },
+    },
+  ]);
+
+  assert.deepEqual(metrics, {
+    schools: 2,
+    expected: 20,
+    complete: 15,
+    percentage: 75,
+  });
+  assert.equal(getSchoolMonitoringCompleteness([]).percentage, null);
 });
 
 test('builds scoped monitoring, projects, and progress summaries', () => {

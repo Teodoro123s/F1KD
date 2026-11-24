@@ -64,9 +64,11 @@ export function ResultsPanel({
   benefitPeriod = 'overall',
   benefitMonth = '',
   schools = [],
+  groups = [],
   onBenefitPeriodChange,
   onBenefitMonthChange,
   onReportSchoolChange,
+  onReportGroupChange,
   loadingReport = false,
 }) {
   const monitoringExportHandler = useRef(null);
@@ -93,7 +95,13 @@ export function ResultsPanel({
   };
   const handleSchoolChange = (schoolId) => {
     setSelectedBatch('');
+    setSelectedGraphBeneficiary('summary');
     onReportSchoolChange?.(schoolId);
+  };
+  const handleGroupChange = (groupId) => {
+    setSelectedBatch('');
+    setSelectedGraphBeneficiary('summary');
+    onReportGroupChange?.(groupId);
   };
 
   return (
@@ -103,7 +111,7 @@ export function ResultsPanel({
           <h1>IV. Report Results</h1>
         </div>
 
-        <div className="progress-report-results-actions">
+        <div className={`progress-report-results-actions${resultsView === 'graph' && displayReportCategory === 'monitor' ? ' has-graph-filters' : ''}`}>
           <div className="progress-report-view-toggle" role="group" aria-label="Report display">
             <button
               type="button"
@@ -123,14 +131,46 @@ export function ResultsPanel({
               Table view
             </button>
           </div>
-          {resultsView === 'graph' && displayReportCategory === 'monitor' && availableBatches.length > 1 && (
-            <label className="results-table-period-filter">
-              Batch
-              <select aria-label="Graph batch" value={activeBatch} onChange={(event) => handleBatchChange(event.target.value)}>
-                <option value="">All batches</option>
-                {availableBatches.map(({ id, name }) => <option key={id} value={id}>{name}</option>)}
-              </select>
-            </label>
+          {resultsView === 'graph' && displayReportCategory === 'monitor' && (
+            <div className="progress-report-graph-filters" role="group" aria-label="Graph community filters">
+              {!isHealthWorker && !isCommunityOrganizer && schools.length > 0 && (
+                <label className="results-table-period-filter">
+                  School
+                  <select
+                    aria-label="Graph school"
+                    value={selection?.schoolId ? String(selection.schoolId) : ''}
+                    onChange={(event) => handleSchoolChange(event.target.value)}
+                    disabled={loadingReport}
+                  >
+                    <option value="">All Schools</option>
+                    {schools.map(({ id, name }) => <option key={id} value={String(id)}>{name}</option>)}
+                  </select>
+                </label>
+              )}
+              {!isHealthWorker && groups.length > 0 && (
+                <label className="results-table-period-filter">
+                  Group
+                  <select
+                    aria-label="Graph group"
+                    value={selection?.groupId ? String(selection.groupId) : ''}
+                    onChange={(event) => handleGroupChange(event.target.value)}
+                    disabled={loadingReport}
+                  >
+                    <option value="">All Groups</option>
+                    {groups.map(({ id, name }) => <option key={id} value={String(id)}>{name}</option>)}
+                  </select>
+                </label>
+              )}
+              {availableBatches.length > 1 && (
+                <label className="results-table-period-filter">
+                  Batch
+                  <select aria-label="Graph batch" value={activeBatch} onChange={(event) => handleBatchChange(event.target.value)}>
+                    <option value="">All batches</option>
+                    {availableBatches.map(({ id, name }) => <option key={id} value={id}>{name}</option>)}
+                  </select>
+                </label>
+              )}
+            </div>
           )}
           {resultsView === 'graph' && graphAllowed && (
             <button

@@ -69,6 +69,25 @@ export function getDashboardRegistrationSeries(records = [], from, to) {
   );
 }
 
+export function getSchoolMonitoringCompleteness(schools = []) {
+  const totals = schools.reduce((result, school) => {
+    ['mothers', 'children'].forEach((beneficiaryType) => {
+      const monitoring = school?.monitoring?.[beneficiaryType] || {};
+      result.expected += Math.max(0, Number(monitoring.expectedVisits) || 0);
+      result.complete += Math.max(0, Number(monitoring.completeForms) || 0);
+    });
+    return result;
+  }, { expected: 0, complete: 0 });
+
+  return {
+    schools: schools.length,
+    ...totals,
+    percentage: totals.expected > 0
+      ? Math.min(100, Math.round((totals.complete / totals.expected) * 100))
+      : null,
+  };
+}
+
 function getCompletedChildMonitoringMonths(child) {
   const months = new Set();
   const completedWeeks = Array.isArray(child.completedWeeks) ? child.completedWeeks : [];

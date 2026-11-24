@@ -2322,7 +2322,10 @@
   background: #166534;
 }
 .results-tab-panel .progress-report-results-header {
-  align-items: center;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: stretch;
   padding-bottom: 1rem;
   border-bottom: 1px solid #e1eee4;
 }
@@ -2340,6 +2343,27 @@
   font-weight: 400;
   line-height: 16px;
   letter-spacing: 0;
+}
+.results-tab-panel .progress-report-results-actions.has-graph-filters {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: end;
+  justify-content: stretch;
+  gap: 0.75rem;
+  margin: 0;
+}
+.progress-report-graph-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  align-items: end;
+  gap: 0.65rem;
+  min-width: 0;
+}
+.progress-report-graph-filters .results-table-period-filter,
+.progress-report-graph-filters .results-table-period-filter select {
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 .progress-report-view-toggle {
   display: inline-flex;
@@ -2416,6 +2440,8 @@
   .progress-report-tab-bar button { flex: 0 0 auto; }
   .results-tab-panel .progress-report-results-header { align-items: stretch; flex-direction: column; }
   .results-tab-panel .progress-report-results-header .secondary-btn { width: 100%; }
+  .results-tab-panel .progress-report-results-actions.has-graph-filters { grid-template-columns: minmax(0, 1fr); }
+  .progress-report-graph-filters { grid-template-columns: minmax(0, 1fr); }
 }
 
 .view-content .progress-report-shell .ghost-btn,

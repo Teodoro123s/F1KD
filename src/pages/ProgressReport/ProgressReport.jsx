@@ -221,6 +221,10 @@ export default function ProgressReport() {
     () => filterReportGroups(options.groups, selection.schoolId),
     [options.groups, selection.schoolId],
   );
+  const reportGroups = useMemo(
+    () => filterReportGroups(options.groups, displaySelection.schoolId),
+    [displaySelection.schoolId, options.groups],
+  );
   const batches = useMemo(
     () => filterReportBatches(options.batches, selection.schoolId, selection.groupId, options.mothers),
     [options.batches, options.mothers, selection.groupId, selection.schoolId],
@@ -1084,6 +1088,7 @@ export default function ProgressReport() {
                 benefitPeriod={benefitPeriod}
                 benefitMonth={benefitMonth}
                 schools={options.schools}
+                groups={reportGroups}
                 onBenefitPeriodChange={(value) => {
                   setBenefitPeriod(value);
                   void generateReport(1, { benefitPeriod: value, resultsView });
@@ -1097,6 +1102,15 @@ export default function ProgressReport() {
                     ...displaySelection,
                     schoolId,
                     groupId: '',
+                    batchId: '',
+                  });
+                  setSelection(nextSelection);
+                  void generateReport(1, { selection: nextSelection, resultsView });
+                }}
+                onReportGroupChange={(groupId) => {
+                  const nextSelection = normalizeSelectionHierarchy({
+                    ...displaySelection,
+                    groupId,
                     batchId: '',
                   });
                   setSelection(nextSelection);
