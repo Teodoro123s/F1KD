@@ -1,4 +1,6 @@
 import { hasCheckupThisMonth } from '../../utils/beneficiary/monthlyCheckups.js';
+import { getChildMonitoringProgress } from '../../utils/beneficiary/childProgress.js';
+import { getMotherMonitoringProgress } from '../../utils/beneficiary/motherProgress.js';
 import { fillDailyTimeSeries, toLocalDateKey } from '../../utils/analytics/dailyTimeSeries.js';
 import { normalizeRole, ROLES } from '../../utils/permissions.js';
 import {
@@ -88,18 +90,22 @@ export function getSchoolMonitoringCompleteness(schools = []) {
   };
 }
 
-function getCompletedChildMonitoringMonths(child) {
-  const months = new Set();
-  const completedWeeks = Array.isArray(child.completedWeeks) ? child.completedWeeks : [];
-  const checkups = Array.isArray(child.checkups) ? child.checkups.flat(Infinity) : [];
+export function getDashboardFollowUpMetrics(mothers = [], children = []) {
+  const pendingMothers = mothers.filter((mother) => {
+    const progress = getMotherMonitoringProgress(mother);
+    return progress.completed < progress.total;
+  }).length;
+  const pendingChildren = children.filter((child) => (
+    getChildMonitoringProgress(child).completed < 24
+  )).length;
+  const total = mothers.length + children.length;
+  const pending = pendingMothers + pendingChildren;
 
-  [...completedWeeks, ...checkups.map((checkup) => checkup?.weekNumber ?? checkup?.week_number)]
-    .forEach((value) => {
-      const month = Number(value);
-      if (Number.isInteger(month) && month >= 1 && month <= 24) months.add(month);
-    });
-
-  return months;
+  return {
+    total,
+    pending,
+    percentage: total > 0 ? Math.round(((total - pending) / total) * 100) : null,
+  };
 }
 
 export function getBatchChildMonitoringProgress(children = []) {
@@ -108,7 +114,7 @@ export function getBatchChildMonitoringProgress(children = []) {
       && (child.batchId ?? child.batch_id) !== null
       && String(child.batchId ?? child.batch_id).trim() !== ''
   ));
-  const completed = batchChildren.filter((child) => getCompletedChildMonitoringMonths(child).size === 24).length;
+  const completed = batchChildren.filter((child) => getChildMonitoringProgress(child).completed === 24).length;
 
   return {
     completed,

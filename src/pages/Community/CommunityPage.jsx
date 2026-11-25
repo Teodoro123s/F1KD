@@ -15,7 +15,7 @@ import { useCommunityMutations } from './hooks/useCommunityMutations';
 import { useAuth } from '../../auth/AuthProvider';
 import { can, hasRole, isCommunityCoordinatorRole, isHealthWorkerRole, isSchoolScopedRole, ROLES } from '../../utils/permissions';
 import { getMotherDocumentProgress } from '../../utils/beneficiary/motherProgress';
-import { getChildDocumentProgress } from '../../utils/beneficiary/childProgress';
+import { getChildDocumentProgress, getChildMonitoringProgress } from '../../utils/beneficiary/childProgress';
 import { apiGetChildren } from '../../api/children';
 import { apiArchiveRecord, apiGetArchiveImpact } from '../../api/archives';
 import { notifyAction } from '../../components/ActionFeedback';
@@ -362,7 +362,7 @@ export default function CommunityPage() {
             groupId: child.group_id ?? child.mother_group_id ?? child.groupId ?? '',
             batch: child.batch_name || child.batch || '',
             batchId: child.effective_batch_id ?? child.batchId ?? child.batch_id ?? null,
-            progress: Number(child.progress ?? 0),
+            progress: getChildMonitoringProgress(child).percentage,
             raw: child,
           };
         });
@@ -1033,7 +1033,7 @@ export default function CommunityPage() {
     return appendActions([
       { key: 'name', header: 'Batch Name', style: { width: '42%' }, renderCell: (row) => <span className="community-title-text">{row.name}</span> },
       { key: 'records', header: 'Mothers in batch', cellClassName: 'compact-column', renderCell: (row) => row.records },
-      { key: 'progress', header: 'Batch progress (%)', cellClassName: 'status-column', renderCell: (row) => `${row.progress ?? 0}%` },
+      { key: 'progress', header: 'Batch progress (%)', cellClassName: 'status-column', renderCell: (row) => row.progress == null ? '—' : `${row.progress}%` },
     ]);
   }, [activeDropdownId, activeTab, canManage, canManageSchools, entityFilter, groups, navigate, openEditModal, openTransferMother, requestDelete]);
 
@@ -1183,7 +1183,7 @@ export default function CommunityPage() {
       return [
         { key: 'name', header: 'Batch Name', renderCell: (row) => <span className="community-title-text">{row.name}</span> },
         { key: 'records', header: 'Mothers in batch', cellClassName: 'compact-column', renderCell: (row) => row.records || 0 },
-        { key: 'progress', header: 'Batch progress (%)', cellClassName: 'status-column', renderCell: (row) => `${row.progress ?? 0}%` },
+        { key: 'progress', header: 'Batch progress (%)', cellClassName: 'status-column', renderCell: (row) => row.progress == null ? '—' : `${row.progress}%` },
         ...(batchActionColumn ? [batchActionColumn] : []),
       ];
     }

@@ -70,6 +70,7 @@ export function getMotherDocumentProgress(mother = {}) {
 
 export function getMotherMonitoringStartIndex(mother = {}) {
   let gestationalAge = NaN;
+  let ageDerivedFromDates = false;
   const lmpDate = formatDateForInput(mother.lmpDate ?? mother.lmp_date ?? mother.lmp);
   const registrationDate = formatDateForInput(mother.prenatalRegDate ?? mother.prenatal_reg_date);
   if (lmpDate && registrationDate) {
@@ -77,13 +78,14 @@ export function getMotherMonitoringStartIndex(mother = {}) {
     const registered = new Date(`${registrationDate}T00:00:00Z`);
     if (!Number.isNaN(lmp.getTime()) && !Number.isNaN(registered.getTime()) && registered >= lmp) {
       gestationalAge = Math.floor((registered - lmp) / (7 * 24 * 60 * 60 * 1000));
+      ageDerivedFromDates = true;
     }
   }
-  if (!Number.isFinite(gestationalAge)) {
+  if (!ageDerivedFromDates) {
     gestationalAge = Number.parseInt(mother.gestationalAge ?? mother.gestational_age, 10);
   }
 
-  if (Number.isFinite(gestationalAge)) {
+  if (Number.isFinite(gestationalAge) && (gestationalAge > 0 || ageDerivedFromDates)) {
     const index = MATERNAL_CHECKUP_WEEKS.findIndex((week) => week >= gestationalAge);
     return index === -1 ? MATERNAL_CHECKUP_WEEKS.length - 1 : index;
   }
@@ -91,14 +93,19 @@ export function getMotherMonitoringStartIndex(mother = {}) {
   const registeredTrimester = String(mother.trimester || mother.trimester_at_registration || '').toLowerCase();
   if (registeredTrimester.includes('3rd') || registeredTrimester.includes('third')) return 6;
   if (registeredTrimester.includes('2nd') || registeredTrimester.includes('second')) return 3;
-  return 3;
+  return 0;
 }
 
 export function getMotherMonitoringProgress(mother = {}) {
   const startIndex = getMotherMonitoringStartIndex(mother);
   const checkups = Array.isArray(mother.checkups) ? mother.checkups.flat().slice(0, 9) : [];
-  const completed = checkups.slice(startIndex).filter((checkup) => checkup?.completed === true).length;
-  const total = Math.max(1, 9 - startIndex);
+  const completedCheckups = checkups.filter((checkup) => checkup?.completed === true);
+  const completedBeforeRegistration = checkups
+    .slice(0, startIndex)
+    .filter((checkup) => checkup?.completed === true)
+    .length;
+  const completed = completedCheckups.length;
+  const total = Math.max(1, 9 - startIndex + completedBeforeRegistration);
 
   return {
     completed,
@@ -122,7 +129,14 @@ export function getMotherNextCheckupDate(checkupDate, savedNextCheckupDate = '')
 }
 
 export function hasCompletedMotherPregnancy(mother = {}) {
-  const startIndex = getMotherMonitoringStartIndex(mother);
+  const hasRegistrationAnchor = Boolean(
+    formatDateForInput(mother.lmpDate ?? mother.lmp_date ?? mother.lmp)
+      && formatDateForInput(mother.prenatalRegDate ?? mother.prenatal_reg_date),
+  ) || Number.parseInt(mother.gestationalAge ?? mother.gestational_age, 10) > 0;
+  const hasTrimester = Boolean(mother.trimester || mother.trimester_at_registration);
+  const startIndex = !hasRegistrationAnchor && !hasTrimester
+    ? 3
+    : getMotherMonitoringStartIndex(mother);
   const checkups = Array.isArray(mother.checkups) ? mother.checkups.flat(2) : [];
 
   return checkups.length >= MATERNAL_CHECKUP_WEEKS.length

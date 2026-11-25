@@ -4,6 +4,7 @@ import {
   buildDashboardModuleSummaries,
   buildOperationalStaffMetrics,
   getBatchChildMonitoringProgress,
+  getDashboardFollowUpMetrics,
   getDashboardRegistrationDate,
   getDashboardRegistrationSeries,
   getIncompleteBatchProgressOptions,
@@ -159,6 +160,28 @@ test('batch monitoring progress counts distinct completed months only for batche
   assert.deepEqual(getBatchChildMonitoringProgress([]), {
     completed: 0,
     total: 0,
+    percentage: null,
+  });
+});
+
+test('dashboard follow-up compliance counts zero-progress beneficiaries and handles empty data', () => {
+  const completedMaternalVisits = Array.from({ length: 9 }, () => ({ completed: true }));
+  const metrics = getDashboardFollowUpMetrics([
+    { checkups: completedMaternalVisits },
+    { checkups: [] },
+  ], [
+    { progress: 100, completedWeeks: [] },
+    { completedWeeks: Array.from({ length: 24 }, (_, index) => index + 1) },
+  ]);
+
+  assert.deepEqual(metrics, {
+    total: 4,
+    pending: 2,
+    percentage: 50,
+  });
+  assert.deepEqual(getDashboardFollowUpMetrics(), {
+    total: 0,
+    pending: 0,
     percentage: null,
   });
 });

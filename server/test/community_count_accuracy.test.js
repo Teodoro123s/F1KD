@@ -24,6 +24,14 @@ test('averages maternal monitoring progress without weighting mothers by child c
   assert.equal(getBatchProgress(rows), 47);
 });
 
+test('rounds the screenshot batch values of 0%, 11%, and 33% to 15%', () => {
+  assert.equal(getBatchProgress([
+    { motherId: 1, motherProgress: 0 },
+    { motherId: 2, motherProgress: 11 },
+    { motherId: 3, motherProgress: 33 },
+  ]), 15);
+});
+
 test('counts mothers with no monitoring progress as zero', () => {
   const rows = [
     { motherId: 1, motherProgress: 100 },
@@ -41,4 +49,8 @@ test('ignores missing mother IDs and bounds invalid progress values', () => {
   ];
 
   assert.equal(getBatchProgress(rows), 50);
+});
+
+test('reports batch progress as unavailable when there are no mothers', () => {
+  assert.equal(getBatchProgress([]), null);
 });

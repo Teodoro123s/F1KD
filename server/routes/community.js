@@ -259,7 +259,7 @@ function getBatchProgress(rows = []) {
     progressByMother.set(motherId, progress);
   });
 
-  if (!progressByMother.size) return 0;
+  if (!progressByMother.size) return null;
 
   const totalProgress = [...progressByMother.values()].reduce((total, progress) => total + progress, 0);
   return Math.round(totalProgress / progressByMother.size);
@@ -1677,7 +1677,10 @@ router.get('/batches', async (req, res) => {
         '' AS description,
         c.name AS community,
         COALESCE(b.records, COUNT(m.id)) AS records,
-        COALESCE(ROUND(AVG(COALESCE(m.progress, 0))), 0) AS progress,
+        CASE
+          WHEN COUNT(m.id) > 0 THEN COALESCE(ROUND(AVG(COALESCE(m.progress, 0))), 0)
+          ELSE NULL
+        END AS progress,
         COALESCE(b.status, 'Active') AS status
       FROM batches b
       LEFT JOIN mothers m ON m.batch_id = b.id AND m.archived_at IS NULL
@@ -1693,7 +1696,7 @@ router.get('/batches', async (req, res) => {
       description: r.description,
       community: r.community || '',
       records: getEffectiveRecordCount(r),
-      progress: Number(r.progress || 0),
+      progress: r.progress == null ? null : Number(r.progress),
       status: r.status || 'Active',
     }));
     res.json({ batches });

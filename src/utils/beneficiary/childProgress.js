@@ -38,7 +38,15 @@ export function getChildDocumentProgress(child = {}) {
 }
 
 export function getChildMonitoringProgress(child = {}) {
-  const completed = Array.isArray(child.completedWeeks) ? child.completedWeeks.length : 0;
+  const checkupWeeks = Array.isArray(child.checkups)
+    ? child.checkups.flat(Infinity).map((checkup) => checkup?.weekNumber ?? checkup?.week_number)
+    : [];
+  const completed = new Set([
+    ...(Array.isArray(child.completedWeeks) ? child.completedWeeks : []),
+    ...checkupWeeks,
+  ]
+    .map(Number)
+    .filter((week) => Number.isInteger(week) && week >= 1 && week <= 24)).size;
   const total = 24;
   return {
     completed,

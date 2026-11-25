@@ -42,7 +42,7 @@ function getRegistrationWeeks(mother) {
     return Math.floor((registrationDate - lmpDate) / (7 * DAY_MS));
   }
   const gestationalAge = Number.parseInt(mother.gestationalAge, 10);
-  return Number.isFinite(gestationalAge) ? gestationalAge : null;
+  return Number.isFinite(gestationalAge) && gestationalAge > 0 ? gestationalAge : null;
 }
 
 function getMotherStartIndex(mother) {
@@ -51,7 +51,7 @@ function getMotherStartIndex(mother) {
     const trimester = String(mother.trimester || '').toLowerCase();
     if (trimester.includes('3rd') || trimester.includes('third')) return 6;
     if (trimester.includes('2nd') || trimester.includes('second')) return 3;
-    return 3;
+    return 0;
   }
   const index = MATERNAL_CHECKUP_STEPS.findIndex((step) => step.week >= registrationWeeks);
   return index < 0 ? MATERNAL_CHECKUP_STEPS.length - 1 : index;

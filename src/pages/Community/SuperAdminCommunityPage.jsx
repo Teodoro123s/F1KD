@@ -479,7 +479,7 @@ export default function SuperAdminCommunityPage() {
     return [
       { key: 'name', header: 'Batch Name', style: { width: '42%' }, renderCell: (row) => <span className="community-title-text">{row.name}</span> },
       { key: 'records', header: 'Mothers in batch', cellClassName: 'small-column', renderCell: (row) => row.records || 0 },
-      { key: 'progress', header: 'Batch progress (%)', cellClassName: 'small-column', renderCell: (row) => `${row.progress || 0}%` },
+      { key: 'progress', header: 'Batch progress (%)', cellClassName: 'small-column', renderCell: (row) => row.progress == null ? '—' : `${row.progress}%` },
       actionColumn,
     ];
   }, [activeDropdownId, activeGroupId, activeTab, communities, coordinators, groups, navigate, selectGroup, selectedGroup, selectedSchool]);

@@ -607,7 +607,7 @@ export default function AIReportingAssistant({ configured }) {
                         <p>
                           {report.rowCount.toLocaleString()} records
                           {report.proposal.reportCategory === 'monitor'
-                            ? ` · ${report.summary.averageProgress ?? 0}% average monitoring progress`
+                            ? ` · ${report.summary.averageProgress == null ? '—' : `${report.summary.averageProgress}%`} average monitoring progress`
                             : ''}
                         </p>
                       </div>

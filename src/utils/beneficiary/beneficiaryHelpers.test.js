@@ -9,6 +9,7 @@ import {
   hasNextMotherCheckup,
   hasCompletedMotherPregnancy,
 } from './motherProgress.js';
+import { getChildMonitoringProgress } from './childProgress.js';
 
 test('calculateBmi uses kilograms and centimeters and returns one decimal place', () => {
   assert.equal(calculateBmi('70', '175'), '22.9');
@@ -60,6 +61,12 @@ test('getMotherMonitoringProgress starts in September when the LMP was in July a
 
 test('getMotherMonitoringStartIndex uses the next scheduled checkup at five weeks', () => {
   assert.equal(getMotherMonitoringStartIndex({ trimester: '1st Trimester', gestationalAge: '5' }), 0);
+  assert.equal(getMotherMonitoringStartIndex({ trimester: '2nd Trimester', gestationalAge: '0' }), 3);
+  assert.equal(getMotherMonitoringStartIndex({
+    lmpDate: '2026-01-01',
+    prenatalRegDate: '2026-01-01',
+    trimester: '2nd Trimester',
+  }), 0);
 });
 
 test('getMotherMonitoringProgress derives variable targets from gestational age at registration', () => {
@@ -98,7 +105,7 @@ test('getMotherMonitoringProgress counts remaining checkups from the second trim
   assert.equal(progress.percentage, 33);
 });
 
-test('getMotherMonitoringProgress excludes checkups before the registration trimester', () => {
+test('getMotherMonitoringProgress includes recorded checkups before registration in its denominator', () => {
   const progress = getMotherMonitoringProgress({
     gestationalAge: '36',
     trimester: '3rd Trimester',
@@ -109,12 +116,12 @@ test('getMotherMonitoringProgress excludes checkups before the registration trim
     ],
   });
 
-  assert.equal(progress.total, 1);
-  assert.equal(progress.completed, 1);
+  assert.equal(progress.total, 9);
+  assert.equal(progress.completed, 9);
   assert.equal(progress.percentage, 100);
 });
 
-test('getMotherMonitoringProgress does not count earlier checkups in the scheduled total', () => {
+test('getMotherMonitoringProgress includes earlier recorded checkups in its percentage', () => {
   const progress = getMotherMonitoringProgress({
     gestationalAge: '12',
     checkups: [
@@ -124,12 +131,12 @@ test('getMotherMonitoringProgress does not count earlier checkups in the schedul
     ],
   });
 
-  assert.equal(progress.total, 7);
-  assert.equal(progress.completed, 1);
-  assert.equal(progress.percentage, 14);
+  assert.equal(progress.total, 9);
+  assert.equal(progress.completed, 3);
+  assert.equal(progress.percentage, 33);
 });
 
-test('getMotherMonitoringProgress counts only the final visit for registration at 36 weeks', () => {
+test('getMotherMonitoringProgress includes prior recorded visits in final-week denominator', () => {
   const progress = getMotherMonitoringProgress({
     gestationalAge: '36',
     trimester: '3rd Trimester',
@@ -140,8 +147,8 @@ test('getMotherMonitoringProgress counts only the final visit for registration a
     ],
   });
 
-  assert.equal(progress.total, 1);
-  assert.equal(progress.completed, 1);
+  assert.equal(progress.total, 3);
+  assert.equal(progress.completed, 3);
   assert.equal(progress.percentage, 100);
 });
 
@@ -262,4 +269,19 @@ test('uses the maternal check-up form second-trimester default when registration
   ];
 
   assert.equal(hasCompletedMotherPregnancy({ checkups: secondTrimesterCheckups }), true);
+});
+
+test('child monitoring progress counts distinct valid months only', () => {
+  assert.deepEqual(getChildMonitoringProgress({
+    completedWeeks: [1, 1, 25, 0],
+    checkups: [
+      { weekNumber: 2 },
+      { week_number: '2' },
+      { weekNumber: 24 },
+    ],
+  }), {
+    completed: 3,
+    total: 24,
+    percentage: 13,
+  });
 });

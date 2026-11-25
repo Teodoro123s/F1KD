@@ -47,6 +47,7 @@ import {
   getIncompleteBatchProgressOptions,
   getDashboardRegistrationDate,
   getDashboardRegistrationSeries,
+  getDashboardFollowUpMetrics,
   getSchoolMonitoringCompleteness,
   getScreeningCoverageMetrics,
 } from './dashboardModuleMetrics.mjs';
@@ -316,19 +317,12 @@ export default function DashboardPage() {
   }, []);
 
   const stats = useMemo(() => {
-    let followUpCount = 0;
-    mothers.forEach((mother) => {
-      const progress = Number(mother.progress) || 0;
-      if (progress > 0 && progress < 60) followUpCount++;
-    });
-    children.forEach((child) => {
-      const progress = Number(child.progress) || 0;
-      if (progress > 0 && progress < 24) followUpCount++;
-    });
+    const followUpMetrics = getDashboardFollowUpMetrics(mothers, children);
     return {
       motherCount: mothers.length,
       childCount: children.length,
-      followUpCount,
+      followUpCount: followUpMetrics.pending,
+      followUpPercentage: followUpMetrics.percentage,
       communityCount: communitySummary.communities?.length || 0,
       batchCount: communitySummary.batches?.length || 0,
       groupCount: communitySummary.groups?.length || 0,
@@ -645,15 +639,15 @@ export default function DashboardPage() {
         { name: 'Suspended Accounts', value: staffMetrics.suspended, color: '#f59e0b' },
       ].filter((item) => item.value > 0);
 
-      const total = staffMetrics.total || items.reduce((s, i) => s + i.value, 0) || 1;
-      const activePct = Math.round((staffMetrics.active / total) * 100);
+      const total = staffMetrics.total || items.reduce((s, i) => s + i.value, 0);
+      const activePct = total > 0 ? Math.round((staffMetrics.active / total) * 100) : null;
 
       return {
         title: 'Staff Distribution',
         subtitle: 'Operational account statuses',
-        centerVal: `${activePct}%`,
+        centerVal: activePct === null ? '—' : `${activePct}%`,
         centerLabel: 'Active',
-        data: items.length > 0 ? items : [{ name: 'Operational', value: 1, color: '#15803d' }],
+        data: items,
       };
     }
 
@@ -832,14 +826,11 @@ export default function DashboardPage() {
               className="min-h-[42px] rounded-lg border border-[#cbd5e1] bg-white px-3 text-[0.9rem] text-[#0f172a]"
             />
           </label>
-          <div className="min-w-[220px] flex-[2_1_320px]">
-            <TableSearch
-              value={schoolPerformanceSearch}
-              onChange={setSchoolPerformanceSearch}
-              placeholder="Search school or community organizer"
-              className="!m-0 !w-full !max-w-none !flex-[1_1_auto] !border-0 !p-0"
-            />
-          </div>
+          <TableSearch
+            value={schoolPerformanceSearch}
+            onChange={setSchoolPerformanceSearch}
+            placeholder="Search school or community organizer"
+          />
           {schoolPerformanceLoading && (
             <p className="m-0 pb-2 text-[0.8rem] text-[#64748b]" role="status">Loading monthly school data…</p>
           )}
@@ -1321,13 +1312,13 @@ export default function DashboardPage() {
                   <div className="milestone-item-head flex items-center justify-between text-[0.82rem]">
                     <span className="milestone-name font-semibold text-[#0f172a]">Active Staff Health</span>
                     <span className="milestone-pct font-bold text-[#15803d]">
-                      {staffMetrics.total ? Math.round((staffMetrics.active / staffMetrics.total) * 100) : 100}%
+                      {staffMetrics.total ? `${Math.round((staffMetrics.active / staffMetrics.total) * 100)}%` : '—'}
                     </span>
                   </div>
                   <div className="milestone-progress-track h-2 w-full overflow-hidden rounded-full bg-[#f1f5f9]">
                     <div
                       className="milestone-progress-fill h-full rounded-full bg-[linear-gradient(90deg,#15803d_0%,#22c55e_100%)] transition-[width] duration-300 ease-[ease]"
-                      style={{ width: `${staffMetrics.total ? Math.round((staffMetrics.active / staffMetrics.total) * 100) : 100}%` }}
+                      style={{ width: `${staffMetrics.total ? Math.round((staffMetrics.active / staffMetrics.total) * 100) : 0}%` }}
                     />
                   </div>
                   <span className="milestone-desc text-[0.72rem] text-[#64748b]">
@@ -1339,13 +1330,13 @@ export default function DashboardPage() {
                   <div className="milestone-item-head flex items-center justify-between text-[0.82rem]">
                     <span className="milestone-name font-semibold text-[#0f172a]">School Assignments</span>
                     <span className="milestone-pct font-bold text-[#15803d]">
-                      {staffMetrics.active ? Math.round(((staffMetrics.active - staffMetrics.unassigned) / staffMetrics.active) * 100) : 100}%
+                      {staffMetrics.active ? `${Math.round(((staffMetrics.active - staffMetrics.unassigned) / staffMetrics.active) * 100)}%` : '—'}
                     </span>
                   </div>
                   <div className="milestone-progress-track h-2 w-full overflow-hidden rounded-full bg-[#f1f5f9]">
                     <div
                       className="milestone-progress-fill h-full rounded-full bg-[linear-gradient(90deg,#15803d_0%,#22c55e_100%)] transition-[width] duration-300 ease-[ease]"
-                      style={{ width: `${staffMetrics.active ? Math.round(((staffMetrics.active - staffMetrics.unassigned) / staffMetrics.active) * 100) : 100}%` }}
+                      style={{ width: `${staffMetrics.active ? Math.round(((staffMetrics.active - staffMetrics.unassigned) / staffMetrics.active) * 100) : 0}%` }}
                     />
                   </div>
                   <span className="milestone-desc text-[0.72rem] text-[#64748b]">
@@ -1372,22 +1363,22 @@ export default function DashboardPage() {
                   <div className="milestone-item-head flex items-center justify-between text-[0.82rem]">
                     <span className="milestone-name font-semibold text-[#0f172a]">Follow-Up Compliance</span>
                     <span className="milestone-pct font-bold text-[#15803d]">
-                      {stats.followUpCount === 0 ? '100%' : `${stats.followUpCount} Pending`}
+                      {stats.followUpPercentage === null ? '—' : `${stats.followUpPercentage}%`}
                     </span>
                   </div>
                   <div className="milestone-progress-track h-2 w-full overflow-hidden rounded-full bg-[#f1f5f9]">
                     <div
                       className="milestone-progress-fill h-full rounded-full bg-[linear-gradient(90deg,#15803d_0%,#22c55e_100%)] transition-[width] duration-300 ease-[ease]"
                       style={{
-                        width: stats.motherCount + stats.childCount > 0
-                          ? `${Math.max(10, 100 - Math.round((stats.followUpCount / (stats.motherCount + stats.childCount)) * 100))}%`
-                          : '100%',
+                        width: `${stats.followUpPercentage ?? 0}%`,
                       }}
                     />
                   </div>
                   <span className="milestone-desc text-[0.72rem] text-[#64748b]">
-                    {stats.followUpCount === 0
-                      ? 'All check-up schedules up to date'
+                    {stats.followUpPercentage === null
+                      ? 'No beneficiaries to assess'
+                      : stats.followUpCount === 0
+                        ? 'All check-up schedules up to date'
                       : `${stats.followUpCount} beneficiaries require follow-up check-in`}
                   </span>
                 </div>
@@ -1402,9 +1393,11 @@ export default function DashboardPage() {
               <strong className="ai-insight-title text-[0.82rem] font-bold text-[#166534]">AI Operational Insight</strong>
             </div>
             <p className="ai-insight-text m-0 text-[0.76rem] leading-[1.4] text-[#15803d]">
-              {stats.followUpCount > 0
-                ? `${stats.followUpCount} beneficiaries require follow-up attention this cycle.`
-                : 'All screening schedules are healthy and up to date for this period.'}
+              {stats.followUpPercentage === null
+                ? 'No beneficiaries are available to assess this period.'
+                : stats.followUpCount > 0
+                  ? `${stats.followUpCount} beneficiaries require follow-up attention this cycle.`
+                  : 'All screening schedules are healthy and up to date for this period.'}
             </p>
             <AIReportingAssistantEntry
               buttonClassName="ai-assistant-card-btn mt-[0.35rem] inline-flex w-full cursor-pointer items-center justify-center gap-[0.4rem] rounded-[10px] border-0 bg-[linear-gradient(135deg,#15803d_0%,#16a34a_100%)] px-3 py-[0.48rem] text-[0.8rem] font-semibold text-white shadow-[0_2px_6px_rgba(21,128,61,0.2)] transition-all duration-[150ms] ease-[ease] hover:bg-[#14532d] hover:shadow-[0_4px_10px_rgba(21,128,61,0.3)]"

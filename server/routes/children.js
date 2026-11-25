@@ -215,7 +215,9 @@ async function attachMonitoringDataBatch(children, includeAuditDetails = false) 
     const childCheckups = checkupsByChildId.get(Number(child.id)) || [];
     return withChildAliases({
       ...child,
-      completedWeeks: childCheckups.filter((row) => row.week_number !== null).map((row) => Number(row.week_number)),
+      completedWeeks: childCheckups
+        .map((row) => Number(row.week_number))
+        .filter((week) => Number.isInteger(week) && week >= 1 && week <= 24),
       nextCheckupDate: childCheckups
         .map((row) => row.next_checkup_date)
         .filter(Boolean)

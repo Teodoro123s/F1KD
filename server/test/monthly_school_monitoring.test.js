@@ -60,6 +60,28 @@ test('monthly school metrics match maternal registration and child age schedules
   });
 });
 
+test('zero stored gestational age falls back to the recorded maternal trimester', () => {
+  const detailsBySchool = new Map();
+  buildMonthlySchoolMonitoring({
+    month: '2026-04',
+    asOfDate: '2026-04-30',
+    schools,
+    mothers: [{
+      id: 21,
+      schoolId: 4,
+      prenatalRegDate: '2026-04-10',
+      gestationalAge: 0,
+      trimester: '2nd Trimester',
+    }],
+    motherCheckups: [],
+    children: [],
+    childCheckups: [],
+    detailsBySchool,
+  });
+
+  assert.equal(detailsBySchool.get('4').mothers[0].visit, '2nd Trimester — Check-up 1');
+});
+
 test('monthly metrics exclude future due visits and flag incomplete recorded forms', () => {
   const metrics = buildMonthlySchoolMonitoring({
     month: '2026-04',

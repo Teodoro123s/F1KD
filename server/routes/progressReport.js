@@ -445,7 +445,7 @@ router.get('/', async (req, res) => {
     const filters = hierarchyWhere(params, isMotherReport ? { mother: 'm' } : undefined);
     const childCheckupDateFilter = (alias) => `(c.birth_date IS NULL OR c.birth_date < '1900-01-01' OR ${alias}.visit_date >= c.birth_date)`;
     const motherCheckupDateFilter = (alias) => `${alias}.checkup_date IS NOT NULL`;
-    const childActivitiesExpression = `(SELECT COUNT(*) FROM child_checkups completed_cc WHERE completed_cc.child_id = c.id AND completed_cc.week_number IS NOT NULL)`;
+    const childActivitiesExpression = `(SELECT COUNT(DISTINCT completed_cc.week_number) FROM child_checkups completed_cc WHERE completed_cc.child_id = c.id AND completed_cc.week_number BETWEEN 1 AND 24)`;
     const progressExpression = `ROUND(${childActivitiesExpression} * 100 / 24, 0)`;
     const expectedMotherCheckups = motherMonitoringTotalSql('m');
     const motherProgressExpression = `ROUND(COUNT(DISTINCT mc.id) * 100 / ${expectedMotherCheckups}, 0)`;
@@ -960,7 +960,9 @@ router.get('/', async (req, res) => {
     const page = params.exportAll ? 1 : params.page;
     const perPage = params.exportAll ? Math.max(total, 1) : params.perPage;
     const pagedRows = normalizedRows.slice((page - 1) * perPage, page * perPage);
-    const averageProgress = total ? Math.round(normalizedRows.reduce((sum, row) => sum + row.progress, 0) / total) : 0;
+    const averageProgress = total
+      ? Math.round(normalizedRows.reduce((sum, row) => sum + row.progress, 0) / total)
+      : null;
     const groupCount = new Set(normalizedRows.map((row) => row.groupId).filter(Boolean)).size;
     const batchCount = new Set(normalizedRows.map((row) => row.batchId).filter(Boolean)).size;
     res.json({
