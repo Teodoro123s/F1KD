@@ -1,8 +1,20 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import PageHeader from '../../components/ui/PageHeader';
 import { apiGetSchoolPerformanceDetails, apiGetSchoolPerformanceReport } from '../../api/reports';
 import { exportReportCsv } from './utils/reportUtils.mjs';
+import { buildSchoolPerformanceChartData } from './utils/schoolPerformanceChartData.mjs';
 import './SchoolPerformancePage.css';
 
 const percentage = (completed, expected) => (
@@ -112,6 +124,74 @@ function SchoolDetailsTable({ title, rows, emptyMessage, beneficiaryType }) {
   );
 }
 
+function SchoolCompletenessTooltip({ active, payload }) {
+  const school = payload?.[0]?.payload;
+  if (!active || !school) return null;
+
+  const formatSummary = (complete, expected, recorded) => (
+    expected > 0
+      ? `${complete}/${expected} complete (${Math.round((complete / expected) * 100)}%); ${recorded}/${expected} entered`
+      : 'No check-ups due'
+  );
+
+  return (
+    <div className="school-performance-chart-tooltip">
+      <strong>{school.name}</strong>
+      <span>Maternal: {formatSummary(school.maternalCompleteForms, school.maternalExpectedVisits, school.maternalRecordedVisits)}</span>
+      <span>Child: {formatSummary(school.childCompleteForms, school.childExpectedVisits, school.childRecordedVisits)}</span>
+    </div>
+  );
+}
+
+function SchoolCompletenessChart({ rows, month }) {
+  const chartRows = buildSchoolPerformanceChartData(rows);
+  if (!chartRows.length) {
+    return <p className="school-performance-chart-empty">No schools match the selected filters.</p>;
+  }
+
+  const chartHeight = Math.max(280, chartRows.length * 52 + 100);
+
+  return (
+    <div className="school-performance-chart-section">
+      <p className="school-performance-chart-caption">
+        Complete forms as a share of check-ups due in {formatMonth(month)}. Hover over a school for entered and complete counts; a missing bar means no check-ups were due for that type.
+      </p>
+      <div className="school-performance-chart-scroll" role="img" aria-label={`Maternal and child check-up completeness by school for ${formatMonth(month)}`}>
+        <ResponsiveContainer width="100%" height={chartHeight}>
+          <BarChart
+            data={chartRows}
+            layout="vertical"
+            margin={{ top: 8, right: 20, bottom: 8, left: 8 }}
+            barCategoryGap="24%"
+          >
+            <CartesianGrid horizontal={false} stroke="#e2e8f0" />
+            <XAxis
+              type="number"
+              domain={[0, 100]}
+              ticks={[0, 25, 50, 75, 100]}
+              tickFormatter={(value) => `${value}%`}
+              tick={{ fill: '#64748b', fontSize: 12 }}
+            />
+            <YAxis
+              type="category"
+              dataKey="name"
+              width={170}
+              interval={0}
+              tickFormatter={(value) => (value.length > 25 ? `${value.slice(0, 22)}…` : value)}
+              tick={{ fill: '#334155', fontSize: 12 }}
+            />
+            <Tooltip content={<SchoolCompletenessTooltip />} />
+            <Legend />
+            <ReferenceLine x={100} stroke="#64748b" strokeDasharray="4 4" />
+            <Bar dataKey="maternalPercentage" name="Maternal" fill="#7d1e2e" maxBarSize={24} radius={[0, 4, 4, 0]} />
+            <Bar dataKey="childPercentage" name="Child" fill="#16a34a" maxBarSize={24} radius={[0, 4, 4, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
 function SchoolMonitoringDetails({ schoolId, schoolName, month }) {
   const [details, setDetails] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -198,6 +278,7 @@ function SchoolMonitoringDetails({ schoolId, schoolName, month }) {
 function TableSection({
   title,
   description,
+  month,
   rows,
   columns,
   csvFields,
@@ -206,6 +287,8 @@ function TableSection({
   expandedRowId,
   renderExpandedRow,
 }) {
+  const [view, setView] = useState('table');
+
   return (
     <section className="school-performance-section">
       <div className="school-performance-section-header">
@@ -213,38 +296,52 @@ function TableSection({
           <h2>{title}</h2>
           <p>{description}</p>
         </div>
-        <button
-          type="button"
-          className="btn-secondary"
-          onClick={() => exportReportCsv(rows, csvFields, filename)}
-          disabled={!rows.length}
-        >
-          Download CSV
-        </button>
+        <div className="school-performance-section-actions">
+          <div className="school-performance-view-toggle" role="group" aria-label="School performance view">
+            <button type="button" className={view === 'table' ? 'is-active' : ''} aria-pressed={view === 'table'} onClick={() => setView('table')}>
+              Table
+            </button>
+            <button type="button" className={view === 'graph' ? 'is-active' : ''} aria-pressed={view === 'graph'} onClick={() => setView('graph')}>
+              Graph
+            </button>
+          </div>
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => exportReportCsv(rows, csvFields, filename)}
+            disabled={!rows.length}
+          >
+            Download CSV
+          </button>
+        </div>
       </div>
-      <div className="school-performance-table-wrap">
-        <table className="data-table school-performance-table">
-          <thead>
-            <tr>{columns.map((column) => <th key={column.key}>{column.label}</th>)}</tr>
-          </thead>
-          <tbody>
-            {rows.length ? rows.map((row) => (
-              <React.Fragment key={row.id}>
-                <tr>
-                  {columns.map((column) => <td key={column.key}>{column.render(row)}</td>)}
-                </tr>
-                {expandedRowId === String(row.id) && renderExpandedRow && (
-                  <tr className="school-performance-expanded-row">
-                    <td colSpan={columns.length}>{renderExpandedRow(row)}</td>
+      {view === 'graph' ? (
+        <SchoolCompletenessChart rows={rows} month={month} />
+      ) : (
+        <div className="school-performance-table-wrap">
+          <table className="data-table school-performance-table">
+            <thead>
+              <tr>{columns.map((column) => <th key={column.key}>{column.label}</th>)}</tr>
+            </thead>
+            <tbody>
+              {rows.length ? rows.map((row) => (
+                <React.Fragment key={row.id}>
+                  <tr>
+                    {columns.map((column) => <td key={column.key}>{column.render(row)}</td>)}
                   </tr>
-                )}
-              </React.Fragment>
-            )) : (
-              <tr><td className="no-data" colSpan={columns.length}>{emptyMessage}</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+                  {expandedRowId === String(row.id) && renderExpandedRow && (
+                    <tr className="school-performance-expanded-row">
+                      <td colSpan={columns.length}>{renderExpandedRow(row)}</td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              )) : (
+                <tr><td className="no-data" colSpan={columns.length}>{emptyMessage}</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
     </section>
   );
 }
@@ -444,6 +541,7 @@ export default function SchoolPerformancePage() {
           <TableSection
             title={`Monthly check-up completeness — ${formatMonth(month)}`}
             description={`Expected forms are check-ups scheduled for beneficiaries in ${formatMonth(month)}${getCurrentMonth() === month ? ' through today' : ''}, not every active beneficiary. A form is complete when its required date and health data are present.`}
+            month={month}
             rows={monitoringExportRows}
             csvFields={monitoringCsvFields}
             filename="school-monitoring-completeness.csv"

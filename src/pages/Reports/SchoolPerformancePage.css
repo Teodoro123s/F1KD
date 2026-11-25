@@ -55,6 +55,48 @@
   margin-bottom: 0.8rem;
 }
 
+.school-performance-section-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  flex: 0 0 auto;
+}
+
+.school-performance-view-toggle {
+  display: inline-flex;
+  gap: 0.2rem;
+  padding: 0.2rem;
+  border: 1px solid #dbe5e1;
+  border-radius: 9px;
+  background: #f1f5f9;
+}
+
+.school-performance-view-toggle button {
+  min-height: 36px;
+  padding: 0.4rem 0.75rem;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #475569;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.school-performance-view-toggle button.is-active {
+  background: #fff;
+  color: #166534;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+}
+
+.school-performance-view-toggle button:focus-visible {
+  outline: 2px solid rgba(22, 101, 52, 0.45);
+  outline-offset: 2px;
+}
+
 .school-performance-section-header h2 {
   margin: 0;
   color: #0f172a;
@@ -76,6 +118,43 @@
 
 .school-performance-table {
   min-width: 920px;
+}
+
+.school-performance-chart-section {
+  display: grid;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.school-performance-chart-caption,
+.school-performance-chart-empty {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.school-performance-chart-scroll {
+  width: 100%;
+  max-height: min(68vh, 42rem);
+  min-height: 280px;
+  overflow: auto;
+}
+
+.school-performance-chart-tooltip {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.75rem;
+  border: 1px solid #dbe5e1;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.12);
+  color: #334155;
+  font-size: 0.78rem;
+}
+
+.school-performance-chart-tooltip strong {
+  color: #0f172a;
 }
 
 .school-performance-school-cell {
@@ -303,6 +382,11 @@
 
   .school-performance-section-header {
     flex-direction: column;
+  }
+
+  .school-performance-section-actions {
+    justify-content: space-between;
+    width: 100%;
   }
 }
 
