@@ -96,6 +96,9 @@ export default function ProgramPage() {
   const [actionProgram, setActionProgram] = useState(null);
   const [pendingEndProgram, setPendingEndProgram] = useState(null);
   const [isEndingProgram, setIsEndingProgram] = useState(false);
+  const [pendingReactivateProgram, setPendingReactivateProgram] = useState(null);
+  const [isReactivatingProgram, setIsReactivatingProgram] = useState(false);
+  const [reactivateProgramError, setReactivateProgramError] = useState('');
   const [pendingDeleteProgram, setPendingDeleteProgram] = useState(null);
   const [programArchiveImpact, setProgramArchiveImpact] = useState(null);
   const [programArchiveImpactLoading, setProgramArchiveImpactLoading] = useState(false);
@@ -577,7 +580,7 @@ export default function ProgramPage() {
   };
   const backToActivePrograms = async (program = actionProgram || selectedProgram) => {
     const programToRestore = program;
-    if (!programToRestore) return;
+    if (!programToRestore) return false;
     setActiveActionMenu(null);
     try {
       const response = await apiRestoreProgram(programToRestore.id);
@@ -589,10 +592,26 @@ export default function ProgramPage() {
       }));
       setActiveTab('Active');
       navigate('/program');
+      setReactivateProgramError('');
       notifyAction(`Restored ${programToRestore.name}.`);
+      return true;
     } catch (error) {
       const message = error.message || 'Unable to restore program.';
+      setReactivateProgramError(message);
       notifyAction(message, 'error');
+      return false;
+    }
+  };
+  const confirmReactivateProgram = async () => {
+    if (!pendingReactivateProgram || isReactivatingProgram) return;
+    setReactivateProgramError('');
+    setIsReactivatingProgram(true);
+    try {
+      if (await backToActivePrograms(pendingReactivateProgram)) {
+        setPendingReactivateProgram(null);
+      }
+    } finally {
+      setIsReactivatingProgram(false);
     }
   };
   const endProgram = async (program = actionProgram || selectedProgram) => {
@@ -834,7 +853,24 @@ export default function ProgramPage() {
             <button type="button" className="actions-dropdown-item" onClick={() => { setActionProgram(menuProgram); setActiveActionMenu(null); editProgram(menuProgram); }} role="menuitem">Edit</button>
           )}
           {activeTab !== 'Archived' && canEndPrograms && (
-            <button type="button" className="actions-dropdown-item" onClick={() => { setActionProgram(menuProgram); setActiveActionMenu(null); (activityMenu ? String(menuProgram?.status || '').trim().toLowerCase() === 'ended' : activeTab === 'Ended') ? backToActivePrograms(menuProgram) : setPendingEndProgram(menuProgram); }} role="menuitem">
+            <button
+              type="button"
+              className="actions-dropdown-item"
+              onClick={() => {
+                setActionProgram(menuProgram);
+                setActiveActionMenu(null);
+                const shouldReactivate = activityMenu
+                  ? String(menuProgram?.status || '').trim().toLowerCase() === 'ended'
+                  : activeTab === 'Ended';
+                if (shouldReactivate) {
+                  setReactivateProgramError('');
+                  setPendingReactivateProgram(menuProgram);
+                } else {
+                  setPendingEndProgram(menuProgram);
+                }
+              }}
+              role="menuitem"
+            >
               {(activityMenu ? String(menuProgram?.status || '').trim().toLowerCase() === 'ended' : activeTab === 'Ended') ? 'Reactivate' : 'Mark completed'}
             </button>
           )}
@@ -1539,6 +1575,23 @@ export default function ProgramPage() {
         loadingLabel="Restoring..."
         onConfirm={confirmRestoreArchivedProgram}
         onCancel={() => setPendingRestoreProgram(null)}
+      />
+      <ConfirmDialog
+        open={Boolean(pendingReactivateProgram)}
+        title="Reactivate completed project?"
+        description={pendingReactivateProgram
+          ? `Reactivate ${pendingReactivateProgram.name}? It will return to Active Projects and become editable again.`
+          : ''}
+        variant="default"
+        confirmLabel="Reactivate"
+        loading={isReactivatingProgram}
+        loadingLabel="Reactivating..."
+        error={reactivateProgramError}
+        onConfirm={confirmReactivateProgram}
+        onCancel={() => {
+          setPendingReactivateProgram(null);
+          setReactivateProgramError('');
+        }}
       />
       <ConfirmDialog
         open={showSaveConfirmation}

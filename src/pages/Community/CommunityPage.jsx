@@ -81,6 +81,8 @@ export default function CommunityPage() {
   const [showModal, setShowModal] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
   const [transferBatchId, setTransferBatchId] = useState('');
+  const [pendingTransfer, setPendingTransfer] = useState(null);
+  const [transferError, setTransferError] = useState('');
   const [pendingDelete, setPendingDelete] = useState(null);
   const [archiveReason, setArchiveReason] = useState('');
   const [deleteImpactLoading, setDeleteImpactLoading] = useState(false);
@@ -752,20 +754,44 @@ export default function CommunityPage() {
   const openTransferMother = (mother) => {
     setSelectedItem(mother);
     setTransferBatchId('');
+    setPendingTransfer(null);
+    setTransferError('');
     setShowModal('transferMother');
   };
 
   const handleTransferMother = async (event) => {
     event.preventDefault();
     if (!selectedItem || !transferBatchId) return;
-    try {
-      await mutations.transferMotherToBatch(selectedItem.id, Number(transferBatchId));
-    } catch {
+
+    const destinationBatch = batches.find((batch) => (
+      String(batch.databaseId ?? batch.id) === String(transferBatchId)
+    ));
+    if (!destinationBatch) {
+      setTransferError('Select an available destination batch before continuing.');
       return;
     }
+
+    setTransferError('');
+    setPendingTransfer({
+      mother: selectedItem,
+      batchId: Number(transferBatchId),
+      batchName: destinationBatch.name,
+    });
     setShowModal(null);
-    setSelectedItem(null);
-    setTransferBatchId('');
+  };
+
+  const confirmTransferMother = async () => {
+    if (!pendingTransfer || mutations.loading) return;
+    setTransferError('');
+    try {
+      await mutations.transferMotherToBatch(pendingTransfer.mother.id, pendingTransfer.batchId);
+      setPendingTransfer(null);
+      setSelectedItem(null);
+      setTransferBatchId('');
+    } catch (error) {
+      setTransferError(error?.message || 'Unable to transfer the mother and linked children.');
+      return;
+    }
   };
 
   const requestDelete = async (type, item) => {
@@ -1431,6 +1457,24 @@ export default function CommunityPage() {
         transferBatchId={transferBatchId}
         setTransferBatchId={setTransferBatchId}
         onTransferMother={handleTransferMother}
+      />
+      <ConfirmDialog
+        open={Boolean(pendingTransfer)}
+        title="Confirm batch transfer"
+        description={pendingTransfer
+          ? `Transfer ${pendingTransfer.mother.name || 'this mother'} and any linked children to ${pendingTransfer.batchName}? Their batch assignments will change.`
+          : ''}
+        variant="default"
+        confirmLabel="Transfer records"
+        loading={mutations.loading}
+        loadingLabel="Transferring..."
+        error={transferError}
+        onConfirm={confirmTransferMother}
+        onCancel={() => {
+          setPendingTransfer(null);
+          setTransferError('');
+          setShowModal('transferMother');
+        }}
       />
       <ConfirmDialog
         open={Boolean(pendingDelete)}
