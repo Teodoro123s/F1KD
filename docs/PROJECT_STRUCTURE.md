@@ -10,7 +10,8 @@ F1KD/
   server/                 Express API and database access
   docs/                   Setup, user, and developer guides
   .github/workflows/      CI and deployment workflows
-  docker-compose*.yml     Local services and optional TLS configuration
+  docker-compose.yml      Default full-stack services
+  docker-compose.tls.yml  Optional HTTPS override
   Dockerfile              Frontend production image
   package.json            Frontend commands and dependencies
   README.md               Setup and links to the guides
@@ -34,7 +35,7 @@ Browser
   -> server/db.js                 MariaDB schema and connection
 ```
 
-Database-backed documents use MinIO through the backend. The browser should call `src/api/`; it should not connect directly to the database or object storage.
+Uploaded documents use persistent local storage by default, or an optional externally managed S3-compatible service through the backend's MinIO client. The browser should call `src/api/`; it should not connect directly to the database or object storage.
 
 ## Frontend map
 

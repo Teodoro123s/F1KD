@@ -1,10 +1,26 @@
 # Backend (Express + MariaDB)
 
-## Choose a setup
+## Contents
 
-For the complete application, use the repository-root Docker Compose setup in the [main README](../README.md#docker-full-stack). Compose starts MariaDB, MinIO, the API, and the built web app and reads its settings from the root `.env`.
+- [Setup](#setup)
+  - [Docker Compose](#docker-compose)
+  - [Direct backend](#direct-backend)
+  - [Uploaded document storage](#uploaded-document-storage)
+- [Commands](#commands)
+- [Notifications and check-up reminders](#notifications)
+- [Community record lifecycle and archive retention](#community-record-lifecycle)
+- [Beneficiary list pagination](#beneficiary-list-pagination)
+- [Shared AI assistant](#shared-ai-assistant)
 
-To run the API directly, install MariaDB separately, create a database, and configure `server/.env` from `server/.env.example`. This path expects a reachable MariaDB instance and, for document storage, a reachable MinIO service or the configured local upload fallback. The server creates/updates its schema on startup. Never commit `server/.env`; use a unique `JWT_SECRET` of at least 32 characters in production.
+## Setup
+
+### Docker Compose
+
+For the complete application, use the repository-root Docker Compose setup in the [main README](../README.md#docker-full-stack). Compose starts MariaDB, the API, and the built web app and reads its settings from the root `.env`.
+
+### Direct backend
+
+To run the API directly, install MariaDB separately, create a database, and configure `server/.env` from `server/.env.example`. The server creates and updates its schema on startup. Never commit `server/.env`; use a unique `JWT_SECRET` of at least 32 characters in production.
 
 ```bash
 cd server
@@ -13,6 +29,10 @@ cp .env.example .env
 # edit .env for the local database and optional integrations
 npm run dev
 ```
+
+### Uploaded document storage
+
+Uploads use persistent local storage by default. Docker Compose mounts `server/data/uploads` into the backend container. To use an external S3-compatible service instead, configure `MINIO_ENDPOINT`, `MINIO_PORT`, `MINIO_USE_SSL`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, and `MINIO_BUCKET` in the relevant environment file. Compose does not run an object-storage server.
 
 The root Vite dev server proxies `/api` and `/uploads` to `http://localhost:4000` by default. Set `VITE_API_PROXY_TARGET` if the API uses another address.
 
@@ -69,7 +89,7 @@ Permanent deletion through the user-management API is disabled; `DELETE /api/use
 
 The backend permanently purges archived records after **nine calendar months** from their `archived_at` timestamp. The retention job runs when the backend starts and then once per day. For groups, batches, and schools, the purge also removes linked groups/batches, mothers, children, check-up and other linked health history, and associated record-linked notifications and activity—even when descendants were not individually archived. For archived users, the account and account-only data are purged, but operational health records are kept; user IDs and direct identity in nullable attribution columns, activity descriptions, and notifications are anonymized. Archiving itself remains non-destructive; permanent deletion occurs only once the retention deadline has passed and a purge run takes place.
 
-Uploaded documents and photos linked only to purged records are deleted from local or MinIO storage after the database transaction commits. File deletions that fail are held in `archive_file_deletion_queue` and retried on later job runs; files still referenced by another record are not deleted. System activity not linked to purged records is retained.
+Uploaded documents and photos linked only to purged records are deleted from local or configured S3-compatible storage after the database transaction commits. File deletions that fail are held in `archive_file_deletion_queue` and retried on later job runs; files still referenced by another record are not deleted. System activity not linked to purged records is retained.
 
 The backend schema bootstrap creates the retry queue automatically. For explicit database migration workflows, apply [`migrations/20261102_archive_retention.sql`](./migrations/20261102_archive_retention.sql) and [`migrations/20261113_user_archiving.sql`](./migrations/20261113_user_archiving.sql) before deploying these retention features. Existing archived records already older than nine months are eligible at the first purge run after deployment. Back up the database and document storage before enabling this irreversible policy.
 

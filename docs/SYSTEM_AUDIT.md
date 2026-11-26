@@ -157,3 +157,15 @@ This addendum records a later source-level review and supersedes the earlier ope
 - Verification: `npm run build` passed; `npm test` passed with **417 passed, 0 failed, 1 skipped**; `npm run test:e2e` passed with **2 browser workflows**. Focused audit-fix tests passed.
 
 The three new migrations were not applied to any database. Production/shared data was not queried or modified. Real database transaction/concurrency behavior, other authenticated role workflows, and responsive browser behavior remain unverified; the new browser tests use mocked API responses.
+
+## Deployment validation update — 2026-11-27
+
+This addendum records deployment-related changes and checks after the November 13 follow-up. It does not replace the historical audit sections above or certify a production deployment.
+
+- The default Compose stack now uses the application's persistent local upload storage. The bundled MinIO server was removed; an externally managed S3-compatible endpoint remains optional.
+- Frontend and backend images now use `node:24.22.3-alpine`; the web runtime uses `nginx:1.30.8-alpine`.
+- The optional MinIO SDK parser override is `fast-xml-parser@5.12.1`. `npm audit --omit=dev` in `server/` reported zero runtime vulnerabilities.
+- Verification passed: `npm test` (**454 passed, 0 failed, 1 skipped**), `npm run build`, `docker compose config --quiet`, the TLS Compose configuration with certificate/key paths supplied, and `docker compose build web backend`.
+- A backend-image smoke test loaded `bcrypt` and generated a temporary hash successfully. A smoke test is a narrow sanity check of one basic operation; it is not an end-to-end application test.
+
+Production readiness remains conditional. The stack was built and its configuration parsed, but it was not started against a deployment database; no real TLS certificate, migration rollout, backup/restore, production data, or authenticated user workflow was exercised. Configure unique deployment secrets, actual TLS paths when using HTTPS, storage protection, and tested backup/restore procedures before production use.

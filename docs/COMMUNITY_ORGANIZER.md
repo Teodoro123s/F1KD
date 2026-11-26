@@ -103,8 +103,9 @@ Suspension is reversible; it prevents normal sign-in while in effect. It is dist
 6. When testing access, check both a record within the assigned school and a record from another school; the latter must be filtered or denied by the API.
 7. Do not rely on hidden navigation or disabled UI controls as the security boundary; verify server-side authorization and scope checks.
 
-## Sample accounts
+## Getting an account
 
+F1KD does not include seeded demo accounts or sample records. A Superadmin must provision your account and assign it to the correct school before you can sign in.
 
 ## Implementation references
 

@@ -85,8 +85,9 @@ The exact fields and actions vary by endpoint and are validated server-side. Hea
 6. Report missing or incorrect assignments to your Community Organizer; do not attempt to bypass scope restrictions through URL or API changes.
 7. Protect your account credentials and sign out on shared devices.
 
-## Sample accounts
+## Getting an account
 
+F1KD does not include seeded demo accounts or sample records. A Superadmin or Community Organizer must provision your account and assign the correct school and group before you can sign in.
 
 ## Implementation references
 

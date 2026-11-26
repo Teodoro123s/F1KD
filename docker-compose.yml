@@ -17,24 +17,6 @@ services:
       timeout: 5s
       retries: 20
 
-  minio:
-    image: quay.io/minio/minio:latest
-    restart: unless-stopped
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Set MINIO_ROOT_USER in the root .env file}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in the root .env file}
-    command: server /data --console-address ":9001"
-    volumes:
-      - minio-data:/data
-    ports:
-      - "127.0.0.1:${MINIO_PORT:-9000}:9000"
-      - "127.0.0.1:${MINIO_CONSOLE_PORT:-9001}:9001"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-
   backend:
     build:
       context: ./server
@@ -54,11 +36,11 @@ services:
       DB_NAME: ${DB_NAME:-f1kd}
       DB_USER: ${DB_USER:-f1kd_app}
       DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in the root .env file}
-      MINIO_ENDPOINT: minio
-      MINIO_PORT: "9000"
-      MINIO_USE_SSL: "false"
-      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
-      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-}
+      MINIO_PORT: ${MINIO_PORT:-9000}
+      MINIO_USE_SSL: ${MINIO_USE_SSL:-false}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-}
       MINIO_BUCKET: ${MINIO_BUCKET:-f1kd-documents}
       APP_URL: ${APP_URL:-http://localhost:${WEB_PORT:-5173}}
       EMAILJS_SERVICE_ID: ${EMAILJS_SERVICE_ID:-}
@@ -72,8 +54,6 @@ services:
       PROGRESS_REPORT_AI_API_KEY: ${PROGRESS_REPORT_AI_API_KEY:-}
     depends_on:
       mariadb:
-        condition: service_healthy
-      minio:
         condition: service_healthy
     volumes:
       - ./server/data/uploads:/app/data/uploads
@@ -96,4 +76,3 @@ services:
 
 volumes:
   mariadb-data:
-  minio-data:
