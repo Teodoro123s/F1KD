@@ -41,6 +41,8 @@ The user-facing module is named **Projects**. Its `/program` route and `programs
 
 The application may provide more detailed restrictions than this summary. For example, Community Coordinators cannot create or delete schools, Health Workers cannot create projects or change community structures, and Admin/Partner operational writes are denied by the API. Download-audit events for Progress Report exports are recorded for all roles allowed to export.
 
+Child creation is restricted by the API to Community Coordinators; hiding the form in the frontend is not the security control.
+
 For project receipt/check-in photo documentation, Community Coordinators can upload and remove photos; Admin, Partner, and Health Worker accounts can view and download them only. Superadmins have no Projects access.
 
 ## Record archiving

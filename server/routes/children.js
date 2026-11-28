@@ -9,7 +9,7 @@ router.use((req, res, next) => {
 const pool = require('../db');
 const { documentUpload, uploadFileToStorage, deleteFileFromStorage } = require('../middleware/documentUpload');
 const { createSuperadminNotification, getBeneficiaryUpdateRecipients } = require('../services/notifications');
-const { canViewAuditSignatures } = require('../middleware/authorize');
+const { authorize, canViewAuditSignatures } = require('../middleware/authorize');
 const { getChildNameValidationError, getChildRecordValidationError } = require('../utils/childRecordValidation');
 const { INVALID_ASSISTANCE_AMOUNT_MESSAGE, parseAssistanceAmount } = require('../utils/assistanceAmount');
 const {
@@ -534,7 +534,7 @@ router.get('/', async (req, res) => {
 });
 
 // POST /api/children - create a child
-router.post('/', async (req, res) => {
+router.post('/', authorize('community_coordinator'), async (req, res) => {
   try {
     const b = req.body || {};
     let motherId = getField(b, 'motherId', 'mother_id');

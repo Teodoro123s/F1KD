@@ -92,6 +92,10 @@ test('child creation rejects assignments outside the selected mother hierarchy',
 
   const app = express();
   app.use(express.json());
+  app.use((req, _res, next) => {
+    req.user = { role: 'community_coordinator' };
+    next();
+  });
   app.use('/api/children', childrenRouter);
   const server = app.listen(0);
   t.after(async () => {
@@ -117,6 +121,40 @@ test('child creation rejects assignments outside the selected mother hierarchy',
   assert.equal(response.status, 409);
   assert.match((await response.json()).error, /matching school, group, and batch assignments/);
   assert.deepEqual(writes, [], 'a rejected child assignment must not create records');
+});
+
+test('child creation denies superadmins before reading or writing child records', async (t) => {
+  await pool.ready;
+  const originalQuery = pool.query;
+  let queryCount = 0;
+  pool.query = async () => {
+    queryCount += 1;
+    throw new Error('Child creation queries must not run for a denied role');
+  };
+
+  const app = express();
+  app.use(express.json());
+  app.use((req, _res, next) => {
+    req.user = { role: 'super_admin' };
+    next();
+  });
+  app.use('/api/children', childrenRouter);
+  const server = app.listen(0);
+  t.after(async () => {
+    pool.query = originalQuery;
+    await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  });
+  await new Promise((resolve) => server.once('listening', resolve));
+
+  const response = await fetch(`http://127.0.0.1:${server.address().port}/api/children`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({}),
+  });
+
+  assert.equal(response.status, 403);
+  assert.equal((await response.json()).code, 'PERMISSION_DENIED');
+  assert.equal(queryCount, 0, 'a denied role must not query or create child records');
 });
 
 test('child check-up week migration documents duplicate handling and adds a composite unique key', () => {

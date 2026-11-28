@@ -73,6 +73,10 @@ test('child create and profile replacement roll back all writes on a related-rec
 
   const app = express();
   app.use(express.json());
+  app.use((req, _res, next) => {
+    req.user = { role: 'community_coordinator' };
+    next();
+  });
   app.use('/api/children', childrenRouter);
   const server = app.listen(0);
   t.after(async () => {
